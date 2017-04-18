@@ -30,7 +30,7 @@ type snowflakeRestful struct {
 	Client      *http.Client
 	Token       string
 	MasterToken string
-	SessionId   int // TODO: ensure type
+	SessionId   int
 
 	Connection *snowflakeConn
 }

@@ -138,7 +138,7 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 	log.Printf("number of rows: %s", updatedRows)
 	return &snowflakeResult{
 		affectedRows: updatedRows,
-		insertId:     -1}, nil // TODO: is -1 is appropriate?
+		insertId:     -1}, nil // last insert id is not supported by Snowflake
 }
 
 func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, error) {
@@ -159,3 +159,4 @@ func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, 
 	rows.CurrentRowCount = len(rows.CurrentRowSet)
 	return rows, err
 }
+

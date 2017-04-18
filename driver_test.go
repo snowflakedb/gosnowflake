@@ -61,6 +61,7 @@ func init() {
 	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, schemaname)
 
 	parameters := url.Values{}
+	parameters.Add("timezone", "UTC") // TODO: do we want to support this? This is good for tests.
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
 	}
@@ -369,6 +370,134 @@ func TestString(t *testing.T) {
 			dbt.Fatalf("Error on BLOB-Query: %s", err.Error())
 		} else if out != in {
 			dbt.Errorf("BLOB: %s != %s", in, out)
+		}
+	})
+}
+
+type timeTests struct {
+	dbtype  string
+	tlayout string
+	tests   []timeTest
+}
+
+type timeTest struct {
+	s string
+	t time.Time
+}
+
+func (tt timeTest) genQuery() string {
+	return "SELECT '%s'::%s"
+}
+
+func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
+	var rows *sql.Rows
+	query := tt.genQuery()
+	query = fmt.Sprintf(query, tt.s, dbtype)
+	rows = dbt.mustQuery(query)
+	defer rows.Close()
+	var err error
+	if !rows.Next() {
+		err = rows.Err()
+		if err == nil {
+			err = fmt.Errorf("no data")
+		}
+		dbt.Errorf("%s: %s", dbtype, err)
+		return
+	}
+
+	var dst interface{}
+	err = rows.Scan(&dst)
+	if err != nil {
+		dbt.Errorf("%s: %s", dbtype, err)
+		return
+	}
+	switch val := dst.(type) {
+	case []uint8:
+		str := string(val)
+		if str == tt.s {
+			return
+		}
+		dbt.Errorf("%s to string: expected %q, got %q",
+			dbtype,
+			tt.s,
+			str,
+		)
+	case time.Time:
+		if val == tt.t {
+			return
+		}
+		t.Logf("tlayout: %s, v:%s, s:%s, t:%s", tlayout, val, tt.s, tt.t)
+		dbt.Errorf("%s to string: expected %q, got %q",
+			dbtype,
+			tt.s,
+			val.Format(tlayout),
+		)
+	default:
+		fmt.Printf("%#v\n", []interface{}{dbtype, tlayout, tt.s, tt.t})
+		dbt.Errorf("%s: unhandled type %T (is '%v')",
+			dbtype, val, val,
+		)
+	}
+}
+
+func TestDateTime(t *testing.T) {
+	afterTime := func(t time.Time, d string) time.Time {
+		dur, err := time.ParseDuration(d)
+		if err != nil {
+			panic(err)
+		}
+		return t.Add(dur)
+	}
+	format := "2006-01-02 15:04:05.999999999"
+	t0 := time.Time{}
+	tstr0 := "0000-00-00 00:00:00.000000000"
+	testcases := []timeTests{
+		{"DATE", format[:10], []timeTest{
+			{t: time.Date(2011, 11, 20, 0, 0, 0, 0, time.UTC)},
+			{t: time.Date(2, 8, 2, 0, 0, 0, 0, time.UTC), s: "0002-08-02"},
+			// 0000-00-00 is not supported but returns a consistent result
+			{t: time.Date(2, 11, 30, 0, 0, 0, 0, time.UTC), s: "0000-00-00"},
+		}},
+		{"TIME", format[11:19], []timeTest{
+			{t: afterTime(t0, "12345s")},
+			{t: t0, s: tstr0[11:19]},
+		}},
+		{"TIME(0)", format[11:19], []timeTest{
+			{t: afterTime(t0, "12345s")},
+			{t: t0, s: tstr0[11:19]},
+		}},
+		{"TIME(1)", format[11:21], []timeTest{
+			{t: afterTime(t0, "12345600ms")},
+			{t: t0, s: tstr0[11:21]},
+		}},
+		{"TIME(6)", format[11:], []timeTest{
+			{t: t0, s: tstr0[11:]},
+		}},
+		{"DATETIME", format[:19], []timeTest{
+			{t: time.Date(2011, 11, 20, 21, 27, 37, 0, time.UTC)},
+		}},
+		{"DATETIME(0)", format[:21], []timeTest{
+			{t: time.Date(2011, 11, 20, 21, 27, 37, 0, time.UTC)},
+		}},
+		{"DATETIME(1)", format[:21], []timeTest{
+			{t: time.Date(2011, 11, 20, 21, 27, 37, 100000000, time.UTC)},
+		}},
+		{"DATETIME(6)", format, []timeTest{
+			{t: time.Date(2011, 11, 20, 21, 27, 37, 123456000, time.UTC)},
+		}},
+		{"DATETIME(9)", format, []timeTest{
+			{t: time.Date(2011, 11, 20, 21, 27, 37, 123456789, time.UTC)},
+		}},
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		for _, setups := range testcases {
+			for _, setup := range setups.tests {
+				if setup.s == "" {
+					// fill time string wherever Go can reliable produce it
+					setup.s = setup.t.Format(setups.tlayout)
+				}
+				setup.run(t, dbt, setups.dbtype, setups.tlayout)
+			}
 		}
 	})
 }

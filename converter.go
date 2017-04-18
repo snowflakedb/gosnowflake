@@ -8,7 +8,9 @@ package gosnowflake
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -74,4 +76,88 @@ func valueToString(v interface{}) (string, error) {
 	default:
 		return "0", nil
 	}
+}
+
+func stringToValue(srcColumnMeta ExecResponseRowType, srcValue string) (interface{}, error) {
+	log.Printf("DATA TYPE: %s", srcColumnMeta.Type)
+	switch srcColumnMeta.Type {
+	case "date":
+		v, err := strconv.ParseInt(srcValue, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return time.Unix(v*86400, 0).UTC(), nil
+	case "time":
+		var i int
+		var sec, nsec int64
+		var err error
+		log.Printf("SRC: %s", srcValue)
+		for i = 0; i < len(srcValue); i++ {
+			if srcValue[i] == '.' {
+				sec, err = strconv.ParseInt(srcValue[0:i], 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				break
+			}
+		}
+		if i == len(srcValue) {
+			// no fraction
+			sec, err = strconv.ParseInt(srcValue, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			nsec = 0
+		} else {
+			s := srcValue[i+1:]
+			nsec, err = strconv.ParseInt(s+strings.Repeat("0", 9-len(s)), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+		log.Printf("SEC: %s, NSEC: %s", sec, nsec)
+		t0 := time.Time{}
+		return t0.Add(time.Duration(sec * 1e9 + nsec)), nil
+	case "timestamp_ntz":
+		var i int
+		var sec, nsec int64
+		var err error
+		log.Printf("SRC: %s", srcValue)
+		for i = 0; i < len(srcValue); i++ {
+			if srcValue[i] == '.' {
+				sec, err = strconv.ParseInt(srcValue[0:i], 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				break
+			}
+		}
+		if i == len(srcValue) {
+			// no fraction
+			sec, err = strconv.ParseInt(srcValue, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			nsec = 0
+		} else {
+			s := srcValue[i+1:]
+			nsec, err = strconv.ParseInt(s+strings.Repeat("0", 9-len(s)), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+		log.Printf("SEC: %s, NSEC: %s", sec, nsec)
+		return time.Unix(sec, nsec).UTC(),nil
+	case "timestamp_ltz":
+	case "timestamp_tz":
+	default:
+		return srcValue, nil
+	}
+	return srcValue, nil
 }

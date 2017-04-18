@@ -7,30 +7,32 @@ package gosnowflake
 import (
 	"errors"
 	"log"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 )
 
 var (
-	errInvalidDSNNoSlash         = errors.New("invalid DSN: missing the slash separating the database name")
+	errInvalidDSNNoSlash = errors.New("invalid DSN: missing the slash separating the database name")
 )
 
 // Config is a configuration parsed from a DSN string
 type Config struct {
-	Account   string // Account name
-	User      string // Username
-	Password  string // Password (requires User)
-	Database  string // Database name
-	Schema    string // Schema
-	Warehouse string // Warehouse
-	Role      string // Role
+	Account   string            // Account name
+	User      string            // Username
+	Password  string            // Password (requires User)
+	Database  string            // Database name
+	Schema    string            // Schema
+	Warehouse string            // Warehouse
+	Role      string            // Role
+	Params    map[string]string // other connection parameters
 
-	Protocol       string        // http or https (optional)
-	Host           string        // hostname (optional)
-	Port           int           // port (optional)
+	Protocol string // http or https (optional)
+	Host     string // hostname (optional)
+	Port     int    // port (optional)
 
-	Passcode string
+	Passcode           string
 	PasscodeInPassword bool
 
 	ConnectTimeout time.Duration // Dial timeout
@@ -161,6 +163,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Role = value
 		case "protocol":
 			cfg.Protocol = value
+		default:
+			if cfg.Params == nil {
+				cfg.Params = make(map[string]string)
+			}
+			if cfg.Params[param[0]], err = url.QueryUnescape(value); err != nil {
+				return err
+			}
 		}
 	}
 	return

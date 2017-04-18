@@ -45,7 +45,7 @@ func (rows *snowflakeRows) NextResultSet() (err error) {
 	return nil
 }
 
-func (rows *snowflakeRows) Next(dest []driver.Value) error {
+func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 	log.Println("Rows.Next")
 	rows.TotalRowIndex += 1
 	if rows.TotalRowIndex >= rows.Total {
@@ -56,7 +56,10 @@ func (rows *snowflakeRows) Next(dest []driver.Value) error {
 		// TODO: fetch next chunk set
 	}
 	for i, n := 0, len(rows.CurrentRowSet[rows.CurrentIndex]); i < n; i++ {
-		dest[i] = rows.CurrentRowSet[rows.CurrentIndex][i]
+		dest[i], err = stringToValue(rows.RowType[i], rows.CurrentRowSet[rows.CurrentIndex][i])
+		if err != nil {
+			return err
+		}
 	}
-	return nil
+	return err
 }
