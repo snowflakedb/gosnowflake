@@ -65,6 +65,12 @@ func valueToString(v interface{}) (string, error) {
 		} else {
 			return "", errors.New(fmt.Sprintf("Failed to convert %s to string", v))
 		}
+	case string:
+		if v1, ok := v.(string); ok {
+			return v1, nil
+		} else {
+			return "", errors.New(fmt.Sprintf("Failed to convert %s to string", v))
+		}
 	default:
 		return "0", nil
 	}

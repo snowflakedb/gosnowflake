@@ -125,6 +125,7 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 	}
 	var updatedRows int64
 	if sc.isDml(data.Data.StatementTypeId) {
+		// collects all values from the returned row sets
 		updatedRows = 0
 		for i, n := 0, len(data.Data.RowType); i < n; i++ {
 			v, err := strconv.ParseInt(data.Data.RowSet[0][i], 10, 64)
