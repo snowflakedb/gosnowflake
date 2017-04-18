@@ -124,15 +124,15 @@ func TestCRUD(t *testing.T) {
 		// Create Table
 		dbt.mustExec("CREATE TABLE test (value BOOLEAN)")
 
-		// Test for unexpected data
+		// Test for unexpected Data
 		var out bool
 		rows := dbt.mustQuery("SELECT * FROM test")
 		if rows.Next() {
-			dbt.Error("unexpected data in empty table")
+			dbt.Error("unexpected Data in empty table")
 		}
 
 		// Create Data
-		res := dbt.mustExec("INSERT INTO test VALUES (1)")
+		res := dbt.mustExec("INSERT INTO test VALUES (true)")
 		count, err := res.RowsAffected()
 		if err != nil {
 			dbt.Fatalf("res.RowsAffected() returned error: %s", err.Error())
@@ -145,8 +145,8 @@ func TestCRUD(t *testing.T) {
 		if err != nil {
 			dbt.Fatalf("res.LastInsertId() returned error: %s", err.Error())
 		}
-		if id != 0 {
-			dbt.Fatalf("expected InsertId 0, got %d", id)
+		if id != -1 {
+			dbt.Fatalf("expected InsertId -1, got %d", id)
 		}
 
 		// Read
@@ -158,10 +158,10 @@ func TestCRUD(t *testing.T) {
 			}
 
 			if rows.Next() {
-				dbt.Error("unexpected data")
+				dbt.Error("unexpected Data")
 			}
 		} else {
-			dbt.Error("no data")
+			dbt.Error("no Data")
 		}
 
 		// Update
@@ -183,10 +183,10 @@ func TestCRUD(t *testing.T) {
 			}
 
 			if rows.Next() {
-				dbt.Error("unexpected data")
+				dbt.Error("unexpected Data")
 			}
 		} else {
-			dbt.Error("no data")
+			dbt.Error("no Data")
 		}
 
 		// Delete

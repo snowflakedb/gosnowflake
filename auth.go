@@ -69,20 +69,20 @@ type AuthResponse struct {
 }
 
 func Authenticate(
-	sr *snowflakeRestful,
-	user string,
-	password string,
-	account string,
-	database string,
-	schema string,
-	warehouse string,
-	role string,
-	passcode string,
-	passcodeInPassword bool,
-	samlResponse string,
-	mfaCallback string,
-	passwordCallback string,
-	sessionParameters map[string]string) (resp *AuthResponseSessionInfo, err error) {
+  sr *snowflakeRestful,
+  user string,
+  password string,
+  account string,
+  database string,
+  schema string,
+  warehouse string,
+  role string,
+  passcode string,
+  passcodeInPassword bool,
+  samlResponse string,
+  mfaCallback string,
+  passwordCallback string,
+  sessionParameters map[string]string) (resp *AuthResponseSessionInfo, err error) {
 	log.Println("Authenticate")
 
 	if sr.Token != "" && sr.MasterToken != "" {

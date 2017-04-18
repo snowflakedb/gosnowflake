@@ -12,20 +12,20 @@ import (
 	"github.com/satori/go.uuid"
 	"log"
 	"net/url"
+	"strconv"
 	"sync/atomic"
 )
 
 type snowflakeConn struct {
 	cfg            *Config
-	Rest           *snowflakeRestful
+	rest           *snowflakeRestful
 	SequeceCounter uint64
 	QueryId        string
 	SqlState       string
-	RowType        []ExecResponseRowType
 }
 
 func (sc *snowflakeConn) exec(
-	query string, noResult bool, isInternal bool, parameters map[string]string) (*ExecResponse, error) {
+  query string, noResult bool, isInternal bool, parameters map[string]string) (*ExecResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequeceCounter, 1)
 
@@ -46,8 +46,8 @@ func (sc *snowflakeConn) exec(
 	headers["accept"] = AcceptTypeAppliationSnowflake // TODO: change to JSON in case of PUT/GET
 	headers["User-Agent"] = UserAgent
 
-	if sc.Rest.Token != "" {
-		headers[HeaderAuthorizationKey] = fmt.Sprintf(HeaderSnowflakeToken, sc.Rest.Token)
+	if sc.rest.Token != "" {
+		headers[HeaderAuthorizationKey] = fmt.Sprintf(HeaderSnowflakeToken, sc.rest.Token)
 	}
 
 	var json_body []byte
@@ -57,12 +57,21 @@ func (sc *snowflakeConn) exec(
 	}
 
 	var data *ExecResponse
-	data, err = sc.Rest.PostQuery(params, headers, json_body, sc.Rest.RequestTimeout)
+	data, err = sc.rest.PostQuery(params, headers, json_body, sc.rest.RequestTimeout)
 	if err != nil {
 		return nil, err
 	}
 	if !data.Success {
-		log.Fatalln("Exec FAILED")
+		errno, err := strconv.Atoi(data.Code)
+		if err != nil {
+			errno = -1
+		}
+		return nil, &SnowflakeError{
+			Number:   errno,
+			SqlState: data.Data.SqlState,
+			Message:  data.Message,
+			QueryId:  data.Data.QueryId,
+		}
 	} else {
 		log.Println("Exec SUCCESS")
 		sc.cfg.Database = data.Data.FinalDatabaseName
@@ -71,7 +80,6 @@ func (sc *snowflakeConn) exec(
 		sc.cfg.Warehouse = data.Data.FinalWarehouseName
 		sc.QueryId = data.Data.QueryId
 		sc.SqlState = data.Data.SqlState
-		sc.RowType = data.Data.RowType
 	}
 	return data, err
 }
@@ -99,7 +107,7 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 	}
 	return &snowflakeResult{
 		affectedRows: data.Data.Returned,
-		insertId:     -1}, nil // TODO: is -1 is correct?
+		insertId:     -1}, nil // TODO: is -1 is appropriate?
 }
 
 func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, error) {
@@ -110,12 +118,14 @@ func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, 
 	if err != nil {
 		return nil, err
 	}
+
 	rows := new(snowflakeRows)
 	rows.sc = sc
-	if data.Data.Total == 0 {
-		rows.rs.done = true
-	}
-	log.Printf("len: %d", data.Data.Total)
-	log.Printf("data: %s", data.Data.RowSet)
-	return nil, err
+	rows.RowType = data.Data.RowType
+	rows.Total = int64(data.Data.Total)
+	rows.TotalRowIndex = int64(-1)
+	rows.CurrentRowSet = data.Data.RowSet
+	rows.CurrentIndex = -1
+	rows.CurrentRowCount = len(rows.CurrentRowSet)
+	return rows, err
 }

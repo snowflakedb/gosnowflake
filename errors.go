@@ -14,7 +14,7 @@ var (
 )
 
 type SnowflakeError struct {
-	Number         uint16
+	Number         int
 	SqlState       string
 	QueryId        string
 	Message        string

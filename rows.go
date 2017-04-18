@@ -6,30 +6,19 @@
 package gosnowflake
 
 import (
+	"database/sql/driver"
+	"io"
 	"log"
 )
 
-type snowflakeField struct {
-	tableName string
-	name      string
-	fieldType byte
-	decimals  byte
-}
-
-type snowflakeResultSet struct {
-	columns []snowflakeField
-	done    bool
-}
 type snowflakeRows struct {
-	sc *snowflakeConn
-	rs snowflakeResultSet
-}
-
-func (rows *snowflakeRows) Columns() []string {
-	log.Println("Rows.Columns")
-	ret := make([]string, 1)
-	ret[0] = "test"
-	return ret
+	sc              *snowflakeConn
+	RowType         []ExecResponseRowType
+	Total           int64
+	TotalRowIndex   int64
+	CurrentIndex    int
+	CurrentRowCount int
+	CurrentRowSet   [][]string
 }
 
 func (rows *snowflakeRows) Close() (err error) {
@@ -37,21 +26,37 @@ func (rows *snowflakeRows) Close() (err error) {
 	return nil
 }
 
+func (rows *snowflakeRows) Columns() []string {
+	log.Println("Rows.Columns")
+	ret := make([]string, len(rows.RowType))
+	for i, n := 0, len(rows.RowType); i < n; i++ {
+		ret[i] = rows.RowType[i].Name
+	}
+	return ret
+}
+
 func (rows *snowflakeRows) HasNextResultSet() (b bool) {
 	log.Println("Rows.HasNextResultSet")
 	return true
 }
 
-func (rows *snowflakeRows) nextResultSet() (int, error) {
-	log.Println("Rows.nextResultSet")
-	return 0, nil
-}
-
-func (rows *snowflakeRows) nextNotEmptyResultSet() (int, error) {
-	log.Println("Rows.nextNotEmptyResultSet")
-	return 0, nil
-}
-
 func (rows *snowflakeRows) NextResultSet() (err error) {
+	log.Println("Rows.NextResultSet")
+	return nil
+}
+
+func (rows *snowflakeRows) Next(dest []driver.Value) error {
+	log.Println("Rows.Next")
+	rows.TotalRowIndex += 1
+	if rows.TotalRowIndex >= rows.Total {
+		return io.EOF
+	}
+	rows.CurrentIndex += 1
+	if rows.CurrentIndex >= rows.CurrentRowCount {
+		// TODO: fetch next chunk set
+	}
+	for i, n := 0, len(rows.CurrentRowSet[rows.CurrentIndex]); i < n; i++ {
+		dest[i] = rows.CurrentRowSet[rows.CurrentIndex][i]
+	}
 	return nil
 }

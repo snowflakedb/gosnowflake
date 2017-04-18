@@ -29,7 +29,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	}
 
 	// Authenticate
-	sc.Rest = &snowflakeRestful{
+	sc.rest = &snowflakeRestful{
 		Host:     sc.cfg.Host,
 		Port:     sc.cfg.Port,
 		Protocol: sc.cfg.Protocol,
@@ -37,7 +37,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	}
 	sessionParameters := make(map[string]string)
 	sessionInfo, err := Authenticate(
-		sc.Rest,
+		sc.rest,
 		sc.cfg.User,
 		sc.cfg.Password,
 		sc.cfg.Account,

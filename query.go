@@ -21,15 +21,15 @@ type ExecResponseRowType struct {
 	ByteLength int64 `json:"byteLength"` // TODO: check type
 	Length     int64 `json:"length"`     // TODO: check type
 	Type       string `json:"type"`
-	Scale      string `json:"scale"`
-	Precision  string `json:"precision"`
+	Scale      int64 `json:"scale"`
+	Precision  int64 `json:"precision"`
 	Nullable   bool `json:"nullable"`
 }
 
 type ExecResponseData struct {
 	Parameters         json.RawMessage `json:"parameters"`
 	RowType            []ExecResponseRowType `json:"rowtype"`
-	RowSet             json.RawMessage `json:"rowset"`
+	RowSet             [][]string `json:"rowset"`
 	Total              int64 `json:"total"`    // TODO check type
 	Returned           int64 `json:"returned"` // TODO check type
 	QueryId            string `json:"queryId"`
@@ -45,7 +45,7 @@ type ExecResponseData struct {
 }
 
 type ExecResponse struct {
-	Data    ExecResponseData `json:"data"`
+	Data    ExecResponseData `json:"Data"`
 	Message string `json:"message"`
 	Code    string `json:"code"` // TODO: check type
 	Success bool `json:"success"`
