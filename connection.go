@@ -25,7 +25,7 @@ type snowflakeConn struct {
 }
 
 func (sc *snowflakeConn) exec(
-  query string, noResult bool, isInternal bool, parameters map[string]string) (*ExecResponse, error) {
+  query string, noResult bool, isInternal bool, parameters []driver.Value) (*ExecResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequeceCounter, 1)
 
@@ -36,7 +36,17 @@ func (sc *snowflakeConn) exec(
 	}
 	req.IsInternal = isInternal
 	if len(parameters) > 0 {
-		req.Parameters = parameters
+		req.Bindings = make(map[string]ExecBindParameter, len(parameters))
+		for i, n := 0, len(parameters); i < n; i++ {
+			v1, err := valueToString(parameters[i])
+			if err != nil {
+				return nil, err
+			}
+			req.Bindings[strconv.Itoa(i+1)] = ExecBindParameter{
+				Type:  goTypeToSnowflake(parameters[i]),
+				Value: v1,
+			}
+		}
 	}
 	params := &url.Values{}
 	params.Add("requestId", uuid.NewV4().String())
@@ -73,7 +83,7 @@ func (sc *snowflakeConn) exec(
 			QueryId:  data.Data.QueryId,
 		}
 	} else {
-		log.Println("Exec SUCCESS")
+		log.Println("Exec/Query SUCCESS")
 		sc.cfg.Database = data.Data.FinalDatabaseName
 		sc.cfg.Schema = data.Data.FinalSchemaName
 		sc.cfg.Role = data.Data.FinalRoleName
@@ -98,10 +108,8 @@ func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 }
 func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	log.Printf("Exec: %s, %s", query, args)
-	// TODO: Binding
-	parameters := make(map[string]string)
 	// TODO: handle noResult and isInternal
-	data, err := sc.exec(query, false, false, parameters)
+	data, err := sc.exec(query, false, false, args)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +120,8 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 
 func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	log.Println("Query")
-	parameters := make(map[string]string)
 	// TODO: handle noResult and isInternal
-	data, err := sc.exec(query, false, false, parameters)
+	data, err := sc.exec(query, false, false, args)
 	if err != nil {
 		return nil, err
 	}

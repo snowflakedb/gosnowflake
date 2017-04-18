@@ -9,16 +9,12 @@ import (
 	"fmt"
 )
 
-var (
-	ErrInvalidConn = errors.New("invalid connection")
-)
-
 type SnowflakeError struct {
 	Number         int
 	SqlState       string
 	QueryId        string
 	Message        string
-	IncludeQueryId bool
+	IncludeQueryId bool // TODO: populate this in connection
 }
 
 func (se *SnowflakeError) Error() string {
@@ -30,3 +26,7 @@ func (se *SnowflakeError) Error() string {
 
 	}
 }
+
+var (
+	ErrInvalidConn = errors.New("invalid connection")
+)

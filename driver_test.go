@@ -146,7 +146,8 @@ func TestCRUD(t *testing.T) {
 			dbt.Fatalf("res.LastInsertId() returned error: %s", err.Error())
 		}
 		if id != -1 {
-			dbt.Fatalf("expected InsertId -1, got %d", id)
+			dbt.Fatalf(
+				"expected InsertId -1, got %d. Snowflake doesn't support last insert ID", id)
 		}
 
 		// Read

@@ -8,14 +8,19 @@ import (
 	"encoding/json"
 )
 
+type ExecBindParameter struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
 type ExecRequest struct {
 	SqlText    string `json:"sqlText"`
 	AsyncExec  bool `json:"asyncExec"`
 	SequenceId uint64 `json:"sequenceId"`
 	IsInternal bool `json:"isInternal"`
 	Parameters map[string]string `json:"parameters,omitempty"`
+	Bindings   map[string]ExecBindParameter `json:"bindings,omitempty"`
 }
-
 type ExecResponseRowType struct {
 	Name       string `json:"name"`
 	ByteLength int64 `json:"byteLength"` // TODO: check type

@@ -58,6 +58,7 @@ func (sr *snowflakeRestful) PostQuery(
   timeout time.Duration) (
   data *ExecResponse, err error) {
 	log.Printf("PARAMS: %s", params)
+	log.Printf("BODY: %s", body)
 	fullUrl := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/queries/v1/query-request?"+params.Encode())
 	resp, err := sr.post(fullUrl, headers, body)
