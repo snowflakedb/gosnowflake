@@ -24,6 +24,16 @@ type snowflakeConn struct {
 	SqlState       string
 }
 
+func (sc*snowflakeConn) isDml(v int64) bool {
+	switch v {
+	case StatementTypeIdDml, StatementTypeIdInsert,
+		StatementTypeIdUpdate, StatementTypeIdDelete,
+		StatementTypeIdMerge, StatementTypeIdMultiTableInsert:
+		return true
+	}
+	return false
+}
+
 func (sc *snowflakeConn) exec(
   query string, noResult bool, isInternal bool, parameters []driver.Value) (*ExecResponse, error) {
 	var err error
@@ -113,8 +123,20 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 	if err != nil {
 		return nil, err
 	}
+	var updatedRows int64
+	if sc.isDml(data.Data.StatementTypeId) {
+		updatedRows = 0
+		for i, n := 0, len(data.Data.RowType); i < n; i++ {
+			v, err := strconv.ParseInt(data.Data.RowSet[0][i], 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			updatedRows += v
+		}
+	}
+	log.Printf("number of rows: %s", updatedRows)
 	return &snowflakeResult{
-		affectedRows: data.Data.Returned,
+		affectedRows: updatedRows,
 		insertId:     -1}, nil // TODO: is -1 is appropriate?
 }
 

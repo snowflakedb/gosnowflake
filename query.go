@@ -26,8 +26,8 @@ type ExecResponseRowType struct {
 	ByteLength int64 `json:"byteLength"` // TODO: check type
 	Length     int64 `json:"length"`     // TODO: check type
 	Type       string `json:"type"`
-	Scale      int64 `json:"scale"`
-	Precision  int64 `json:"precision"`
+	Scale      int `json:"scale"`
+	Precision  int `json:"precision"`
 	Nullable   bool `json:"nullable"`
 }
 
@@ -35,8 +35,8 @@ type ExecResponseData struct {
 	Parameters         json.RawMessage `json:"parameters"`
 	RowType            []ExecResponseRowType `json:"rowtype"`
 	RowSet             [][]string `json:"rowset"`
-	Total              int64 `json:"total"`    // TODO check type
-	Returned           int64 `json:"returned"` // TODO check type
+	Total              int64 `json:"total"`    // java:long
+	Returned           int64 `json:"returned"` // java:long
 	QueryId            string `json:"queryId"`
 	SqlState           string `json:"sqlState"`
 	DatabaseProvider   string `json:"databaseProvider"`
@@ -44,14 +44,14 @@ type ExecResponseData struct {
 	FinalSchemaName    string `json:"finalSchemaName"`
 	FinalWarehouseName string `json:"finalWarehouseName"`
 	FinalRoleName      string `json:"finalRoleName"`
-	NumberOfBinds      int64 `json:"numberOfBinds"`    // TODO check type
-	StatementTypeId    int64  `json:"statementTypeId"` // TODO check type
-	Version            uint `json:"version"`           // TODO check type
+	NumberOfBinds      int `json:"numberOfBinds"`      // java:int
+	StatementTypeId    int64  `json:"statementTypeId"` // java:long
+	Version            int64 `json:"version"`          // java:long
 }
 
 type ExecResponse struct {
 	Data    ExecResponseData `json:"Data"`
 	Message string `json:"message"`
-	Code    string `json:"code"` // TODO: check type
+	Code    string `json:"code"`
 	Success bool `json:"success"`
 }

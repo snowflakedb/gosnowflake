@@ -21,3 +21,10 @@ const ClientVersion string = "0.1" // TODO: should be updated at build time
 const OSVersion string = "0.11"
 
 var UserAgent string = fmt.Sprintf("%s %s", ClientType, ClientVersion)
+
+const StatementTypeIdDml = int64(0x3000)
+const StatementTypeIdInsert = StatementTypeIdDml + int64(0x100)
+const StatementTypeIdUpdate = StatementTypeIdDml + int64(0x200)
+const StatementTypeIdDelete = StatementTypeIdDml + int64(0x300)
+const StatementTypeIdMerge = StatementTypeIdDml + int64(0x400)
+const StatementTypeIdMultiTableInsert = StatementTypeIdDml + int64(0x500)
