@@ -1,3 +1,7 @@
+// Go Snowflake Driver - Snowflake driver for Go's database/sql package
+//
+// Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
+//
 package gosnowflake
 
 import (
@@ -25,6 +29,10 @@ type Config struct {
 	Protocol       string        // http or https (optional)
 	Host           string        // hostname (optional)
 	Port           int           // port (optional)
+
+	Passcode string
+	PasscodeInPassword bool
+
 	ConnectTimeout time.Duration // Dial timeout
 	RequestTimeout time.Duration // Request read time
 	LoginTimeout   time.Duration // Login timeout

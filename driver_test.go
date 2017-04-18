@@ -33,7 +33,7 @@ var (
 	sDateTime0 = "0000-00-00 00:00:00"
 )
 
-// TODO: Document how to set the test parameters
+// TODO: Document how to setup the test parameters
 func init() {
 	// get environment variables
 	env := func(key, defaultValue string) string {
@@ -122,7 +122,7 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 func TestCRUD(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		// Create Table
-		dbt.mustExec("CREATE TABLE test (value BOOL)")
+		dbt.mustExec("CREATE TABLE test (value BOOLEAN)")
 
 		// Test for unexpected data
 		var out bool

@@ -1,77 +1,21 @@
+// Go Snowflake Driver - Snowflake driver for Go's database/sql package
+//
+// Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
+//
 package gosnowflake
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
-const AuthorizationKey string = "Authorization"
-const ContentTypeApplicationJson string = "application/json"
-const AcceptTypeAppliationSnowflake string = "application/snowflake"
-const ClientType string = "Go"
-const ClientVersion string = "0.1"
-const OSVersion string = "0.11"
-
-var UserAgent string = fmt.Sprintf("%s %s", ClientType, ClientVersion)
-
-type AuthRequestClientEnvironment struct {
-	Application string `json:"APPLICATION"`
-	OsVersion   string `json:"OS_VERSION"`
-}
-type AuthRequestMain struct {
-	ClientAppId       string `json:"CLIENT_APP_ID"`
-	ClientAppVersion  string `json:"CLIENT_APP_VERSION"`
-	SvnRevision       string `json:"SVN_REVISION"`
-	AccoutName        string `json:"ACCOUNT_NAME"`
-	LoginName         string `json:"LOGIN_NAME,omitempty"`
-	Password          string `json:"PASSWORD,omitempty"`
-	RawSAMLResponse   string `json:"RAW_SAML_RESPONSE,omitempty"`
-	ClientEnvironment AuthRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
-}
-type AuthRequest struct {
-	Data AuthRequestMain `json:"data"`
-}
-
-type AuthResponseParameter struct {
-	Name  string  `json:"name"`
-	Value json.RawMessage `json:"value"`
-}
-
-type AuthResponseSessionInfo struct {
-	DatabaseName  string `json:"databaseName"`
-	SchemaName    string `json:"schemaName"`
-	WarehouseName string `json:"warehouseName"`
-	RoleName      string `json:"roleName"`
-}
-
-type AuthResponseMain struct {
-	Token                   string `json:"token,omitempty"`
-	ValidityInSeconds       time.Duration `json:"validityInSeconds,omitempty"`
-	MasterToken             string `json:"maxterToken,omitempty"`
-	MasterValidityInSeconds time.Duration `json:"masterValidityInSeconds"`
-	DisplayUserName         string`json:"displayUserName"`
-	ServerVersion           string`json:"serverVersion"`
-	FirstLogin              bool`json:"firstLogin"`
-	RemMeToken              string`json:"remMeToken"`
-	RemMeValidityInSeconds  time.Duration`json:"remMeValidityInSeconds"`
-	HealthCheckInterval     time.Duration`json:"healthCheckInterval"`
-	NewClientForUpgrade     string `json:"newClientForUpgrade"` // TODO: what is datatype?
-	SessionId               int`json:"sessionId"`
-	Parameters              []AuthResponseParameter`json:"parameters"`
-	SessionInfo             AuthResponseSessionInfo`json:"sessionInfo"`
-}
-type AuthResponse struct {
-	Data    AuthResponseMain `json:"data"`
-	Message string `json:"message"`
-	Code    string `json:"code"`
-	Success bool`json:"success"`
-}
-
-type SnowflakeRestful struct {
+type snowflakeRestful struct {
 	Host           string
 	Port           int
 	ProxyHost      string
@@ -82,50 +26,20 @@ type SnowflakeRestful struct {
 	ConnectTimeout time.Duration // Dial timeout
 	RequestTimeout time.Duration // Request read time
 	LoginTimeout   time.Duration // Login timeout
+
+	Client      *http.Client
+	Token       string
+	MasterToken string
+	SessionId   int // TODO: ensure type
+
+	Connection *snowflakeConn
 }
 
-func (sf *SnowflakeRestful) Authenticate(
-  client *http.Client, user string, password string, account string) (err error) {
-	log.Println("Authenticate")
-	headers := make(map[string]string)
-	headers["Content-Type"] = ContentTypeApplicationJson
-	headers["accept"] = AcceptTypeAppliationSnowflake
-	headers["User-Agent"] = UserAgent
-
-	body := AuthRequest{
-		Data: AuthRequestMain{
-			ClientAppId:      ClientType,
-			ClientAppVersion: ClientVersion,
-			SvnRevision:      "",
-			AccoutName:       account,
-			LoginName:        user,
-			Password:         password,
-			ClientEnvironment: AuthRequestClientEnvironment{
-				Application: ClientType,
-				OsVersion:   OSVersion,
-			},
-		},
-	}
-	var json_body []byte
-	json_body, err = json.Marshal(body)
-	if err != nil {
-		return
-	}
-
-	url := "/session/v1/login-request"
-	respd, err := sf.Post(client, url, headers, json_body, "", sf.LoginTimeout)
-	if err != nil {
-		return nil
-	}
-	return nil
-}
-
-func (sf *SnowflakeRestful) Post(
-  client *http.Client,
-  url string, headers map[string]string, body []byte, token string, timeout time.Duration) (
-  data AuthResponse, err error) {
-	fullUrl := fmt.Sprintf("%s://%s:%d%s", sf.Protocol, sf.Host, sf.Port, url)
-	log.Println(fullUrl)
+func (sr *snowflakeRestful) post(
+  fullUrl string,
+  headers map[string]string,
+  body []byte) (
+  *http.Response, error) {
 	req, err := http.NewRequest("POST", fullUrl, bytes.NewReader(body))
 	if err != nil {
 		log.Fatal(err)
@@ -134,15 +48,71 @@ func (sf *SnowflakeRestful) Post(
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	var resp *http.Response
-	resp, err = client.Do(req)
+	return sr.Client.Do(req)
+}
+
+func (sr *snowflakeRestful) PostQuery(
+  params *url.Values,
+  headers map[string]string,
+  body []byte,
+  timeout time.Duration) (
+  data *ExecResponse, err error) {
+	log.Printf("PARAMS: %s", params)
+	fullUrl := fmt.Sprintf(
+		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/queries/v1/query-request?"+params.Encode())
+	resp, err := sr.post(fullUrl, headers, body)
 	defer resp.Body.Close()
-	var respd AuthResponse
-	err = json.NewDecoder(resp.Body).Decode(&respd)
-	if err != nil {
-		log.Fatal(err)
+	if resp.StatusCode == 200 {
+		log.Printf("resp: %s", resp)
+		var respd ExecResponse
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
+			log.Fatal(err)
+			return nil, err
+		}
+		return &respd, nil
+	} else {
+		// TODO: better error handing
+		log.Printf("resp: %s", resp)
+		b, err := ioutil.ReadAll(resp.Body)
+		log.Printf("b RESPONSE: %s", b)
+		if err != nil {
+			log.Fatal(err)
+			return nil, err
+		}
+		log.Printf("ERROR RESPONSE: %s", b)
 		return nil, err
 	}
-	log.Printf("RES: %s", respd)
-	return respd, nil
+}
+
+func (sr *snowflakeRestful) PostAuth(
+  params *url.Values,
+  headers map[string]string,
+  body []byte,
+  timeout time.Duration) (
+  data *AuthResponse, err error) {
+	fullUrl := fmt.Sprintf(
+		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session/v1/login-request?"+params.Encode())
+	resp, err := sr.post(fullUrl, headers, body)
+	defer resp.Body.Close()
+	if resp.StatusCode == 200 {
+		log.Printf("resp: %s", resp)
+		var respd AuthResponse
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
+			log.Fatal(err)
+			return nil, err
+		}
+		return &respd, nil
+	} else {
+		// TODO: better error handing
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+			return nil, err
+		}
+		log.Printf("ERROR RESPONSE: %s", b)
+		return nil, err
+
+	}
 }
