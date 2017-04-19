@@ -16,6 +16,7 @@ var (
 	dbname     string
 	schemaname string
 	warehouse  string
+	rolename   string
 	dsn        string
 	host       string
 	port       string
@@ -33,7 +34,11 @@ var (
 	sDateTime0 = "0000-00-00 00:00:00"
 )
 
-// TODO: Document how to setup the test parameters
+// The tests require the following parameters in the environment variables.
+// SNOWFLAKE_TEST_USER, SNOWFLAKE_TEST_PASSWORD, SNOWFLAKE_TEST_ACCOUNT, SNOWFLAKE_TEST_DATABASE,
+// SNOWFLAKE_TEST_SCHEMA, SNOWFLAKE_TEST_WAREHOUSE.
+// Optionally you may specify SNOWFLAKE_TEST_PROTOCOL, SNOWFLAKE_TEST_HOST and SNOWFLAKE_TEST_PORT to specify
+// the endpoint.
 func init() {
 	// get environment variables
 	env := func(key, defaultValue string) string {
@@ -47,6 +52,7 @@ func init() {
 	account = env("SNOWFLAKE_TEST_ACCOUNT", "testaccount")
 	dbname = env("SNOWFLAKE_TEST_DATABASE", "testdb")
 	schemaname = env("SNOWFLAKE_TEST_SCHEMA", "public")
+	rolename = env("SNOWFLAKE_TEST_ROLE", "sysadmin")
 	warehouse = env("SNOWFLAKE_TEST_WAREHOUSE", "testwarehouse")
 
 	protocol = env("SNOWFLAKE_TEST_PROTOCOL", "https")
@@ -70,6 +76,9 @@ func init() {
 	}
 	if warehouse != "" {
 		parameters.Add("warehouse", warehouse)
+	}
+	if rolename != "" {
+		parameters.Add("role", rolename)
 	}
 	if len(parameters) > 0 {
 		dsn += "?" + parameters.Encode()
@@ -356,13 +365,13 @@ func TestString(t *testing.T) {
 
 		id := 2
 		in = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
-			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
-			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
-			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. " +
-			"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
-			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
-			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
-			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet."
+		  "sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
+		  "sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
+		  "Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. " +
+		  "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
+		  "sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
+		  "sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
+		  "Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet."
 		dbt.mustExec("INSERT INTO test VALUES (?, ?)", id, in)
 
 		err := dbt.db.QueryRow("SELECT value FROM test WHERE id = ?", id).Scan(&out)
