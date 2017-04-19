@@ -6,9 +6,11 @@
 package gosnowflake
 
 import (
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"log"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -32,132 +34,136 @@ func goTypeToSnowflake(v interface{}) string {
 	}
 }
 
-func valueToString(v interface{}) (string, error) {
-	switch v.(type) {
-	case int, int8, int16, int32, int64:
-		if v1, ok := v.(int64); ok {
-			return strconv.FormatInt(v1, 10), nil
-		} else {
-			return "", errors.New(fmt.Sprintf("Failed to convert %s to string", v))
-		}
-	case uint, uint8, uint16, uint32, uint64:
-		if v1, ok := v.(uint64); ok {
-			return strconv.FormatUint(v1, 10), nil
-		} else {
-			return "", errors.New(fmt.Sprintf("Failed to convert %s to string", v))
-		}
-	case float32:
-		if v1, ok := v.(float64); ok {
-			return strconv.FormatFloat(v1, 'g', -1, 32), nil
-		} else {
-			return "", errors.New(fmt.Sprintf("Failed to convert %s to string", v))
-		}
-	case float64:
-		if v1, ok := v.(float64); ok {
-			return strconv.FormatFloat(v1, 'g', -1, 64), nil
-		} else {
-			return "", errors.New(fmt.Sprintf("Failed to convert %s to string", v))
-		}
-	case time.Time:
-		// TODO: convert time to string
-		return "", nil
-	case bool:
-		if v1, ok := v.(bool); ok {
-			return strconv.FormatBool(v1), nil
-		} else {
-			return "", errors.New(fmt.Sprintf("Failed to convert %s to string", v))
-		}
-	case string:
-		if v1, ok := v.(string); ok {
-			return v1, nil
-		} else {
-			return "", errors.New(fmt.Sprintf("Failed to convert %s to string", v))
-		}
-	default:
-		return "0", nil
+// valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
+// in queries.
+func valueToString(v interface{}) (*string, error) {
+	log.Printf("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
+	if v == nil {
+		return nil, nil
 	}
+	v1 := reflect.ValueOf(v)
+	switch v1.Kind() {
+	case reflect.Bool:
+		s := strconv.FormatBool(v1.Bool())
+		return &s, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		s := strconv.FormatInt(v1.Int(), 10)
+		return &s, nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		s := strconv.FormatUint(v1.Uint(), 10)
+		return &s, nil
+	case reflect.Float32, reflect.Float64:
+		s := strconv.FormatFloat(v1.Float(), 'g', -1, 32)
+		return &s, nil
+	case reflect.String:
+		s := v1.String()
+		return &s, nil
+	case reflect.Slice, reflect.Map, reflect.Struct:
+		if v1.IsNil() {
+			return nil, nil
+		}
+		s := v1.String()
+		return &s, nil
+	}
+	return nil, errors.New(fmt.Sprintf("Unexpected type is given: %v", v1.Kind()))
 }
 
-func stringToValue(srcColumnMeta ExecResponseRowType, srcValue string) (interface{}, error) {
-	log.Printf("DATA TYPE: %s", srcColumnMeta.Type)
+// stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
+// data.
+func stringToValue(dest *driver.Value, srcColumnMeta ExecResponseRowType, srcValue *string) (error) {
+	log.Printf("DATA TYPE: %s, VALUE: % s", srcColumnMeta.Type, srcValue)
+	if srcValue == nil {
+		dest = nil
+		return nil
+	}
 	switch srcColumnMeta.Type {
+	case "text":
+		*dest = *srcValue
+		return nil
 	case "date":
-		v, err := strconv.ParseInt(srcValue, 10, 64)
+		v, err := strconv.ParseInt(*srcValue, 10, 64)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return time.Unix(v*86400, 0).UTC(), nil
+		*dest = time.Unix(v*86400, 0).UTC()
+		return nil
 	case "time":
 		var i int
 		var sec, nsec int64
 		var err error
 		log.Printf("SRC: %s", srcValue)
-		for i = 0; i < len(srcValue); i++ {
-			if srcValue[i] == '.' {
-				sec, err = strconv.ParseInt(srcValue[0:i], 10, 64)
+		for i = 0; i < len(*srcValue); i++ {
+			if (*srcValue)[i] == '.' {
+				sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				break
 			}
 		}
-		if i == len(srcValue) {
+		if i == len(*srcValue) {
 			// no fraction
-			sec, err = strconv.ParseInt(srcValue, 10, 64)
+			sec, err = strconv.ParseInt(*srcValue, 10, 64)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			nsec = 0
 		} else {
-			s := srcValue[i+1:]
+			s := (*srcValue)[i+1:]
 			nsec, err = strconv.ParseInt(s+strings.Repeat("0", 9-len(s)), 10, 64)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 		log.Printf("SEC: %s, NSEC: %s", sec, nsec)
 		t0 := time.Time{}
-		return t0.Add(time.Duration(sec * 1e9 + nsec)), nil
+		*dest = t0.Add(time.Duration(sec*1e9 + nsec))
+		return nil
 	case "timestamp_ntz":
 		var i int
 		var sec, nsec int64
 		var err error
 		log.Printf("SRC: %s", srcValue)
-		for i = 0; i < len(srcValue); i++ {
-			if srcValue[i] == '.' {
-				sec, err = strconv.ParseInt(srcValue[0:i], 10, 64)
+		for i = 0; i < len(*srcValue); i++ {
+			if (*srcValue)[i] == '.' {
+				sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				break
 			}
 		}
-		if i == len(srcValue) {
+		if i == len(*srcValue) {
 			// no fraction
-			sec, err = strconv.ParseInt(srcValue, 10, 64)
+			sec, err = strconv.ParseInt(*srcValue, 10, 64)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			nsec = 0
 		} else {
-			s := srcValue[i+1:]
+			s := (*srcValue)[i+1:]
 			nsec, err = strconv.ParseInt(s+strings.Repeat("0", 9-len(s)), 10, 64)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 		log.Printf("SEC: %s, NSEC: %s", sec, nsec)
-		return time.Unix(sec, nsec).UTC(),nil
+		*dest = time.Unix(sec, nsec).UTC()
+		return nil
 	case "timestamp_ltz":
 	case "timestamp_tz":
+		// TODO: implement
+		return nil
 	default:
-		return srcValue, nil
+		*dest = *srcValue
+		return nil
 	}
-	return srcValue, nil
+	*dest = *srcValue
+	return nil
 }

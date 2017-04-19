@@ -10,7 +10,7 @@ import (
 
 type ExecBindParameter struct {
 	Type  string `json:"type"`
-	Value string `json:"value"`
+	Value *string `json:"value"`
 }
 
 type ExecRequest struct {
@@ -34,7 +34,7 @@ type ExecResponseRowType struct {
 type ExecResponseData struct {
 	Parameters         json.RawMessage `json:"parameters"`
 	RowType            []ExecResponseRowType `json:"rowtype"`
-	RowSet             [][]string `json:"rowset"`
+	RowSet             [][]*string `json:"rowset"`
 	Total              int64 `json:"total"`    // java:long
 	Returned           int64 `json:"returned"` // java:long
 	QueryId            string `json:"queryId"`

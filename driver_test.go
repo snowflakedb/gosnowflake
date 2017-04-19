@@ -356,13 +356,13 @@ func TestString(t *testing.T) {
 
 		id := 2
 		in = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
-		  "sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
-		  "sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
-		  "Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. " +
-		  "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
-		  "sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
-		  "sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
-		  "Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet."
+			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
+			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
+			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. " +
+			"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
+			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
+			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
+			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet."
 		dbt.mustExec("INSERT INTO test VALUES (?, ?)", id, in)
 
 		err := dbt.db.QueryRow("SELECT value FROM test WHERE id = ?", id).Scan(&out)
@@ -498,6 +498,157 @@ func TestDateTime(t *testing.T) {
 				}
 				setup.run(t, dbt, setups.dbtype, setups.tlayout)
 			}
+		}
+	})
+}
+
+func TestNULL(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		nullStmt, err := dbt.db.Prepare("SELECT NULL")
+		if err != nil {
+			dbt.Fatal(err)
+		}
+		defer nullStmt.Close()
+
+		nonNullStmt, err := dbt.db.Prepare("SELECT 1")
+		if err != nil {
+			dbt.Fatal(err)
+		}
+		defer nonNullStmt.Close()
+
+		// NullBool
+		var nb sql.NullBool
+		// Invalid
+		if err = nullStmt.QueryRow().Scan(&nb); err != nil {
+			dbt.Fatal(err)
+		}
+		if nb.Valid {
+			dbt.Error("valid NullBool which should be invalid")
+		}
+		// Valid
+		if err = nonNullStmt.QueryRow().Scan(&nb); err != nil {
+			dbt.Fatal(err)
+		}
+		if !nb.Valid {
+			dbt.Error("invalid NullBool which should be valid")
+		} else if nb.Bool != true {
+			dbt.Errorf("Unexpected NullBool value: %t (should be true)", nb.Bool)
+		}
+
+		// NullFloat64
+		var nf sql.NullFloat64
+		// Invalid
+		if err = nullStmt.QueryRow().Scan(&nf); err != nil {
+			dbt.Fatal(err)
+		}
+		if nf.Valid {
+			dbt.Error("valid NullFloat64 which should be invalid")
+		}
+		// Valid
+		if err = nonNullStmt.QueryRow().Scan(&nf); err != nil {
+			dbt.Fatal(err)
+		}
+		if !nf.Valid {
+			dbt.Error("invalid NullFloat64 which should be valid")
+		} else if nf.Float64 != float64(1) {
+			dbt.Errorf("unexpected NullFloat64 value: %f (should be 1.0)", nf.Float64)
+		}
+
+		// NullInt64
+		var ni sql.NullInt64
+		// Invalid
+		if err = nullStmt.QueryRow().Scan(&ni); err != nil {
+			dbt.Fatal(err)
+		}
+		if ni.Valid {
+			dbt.Error("valid NullInt64 which should be invalid")
+		}
+		// Valid
+		if err = nonNullStmt.QueryRow().Scan(&ni); err != nil {
+			dbt.Fatal(err)
+		}
+		if !ni.Valid {
+			dbt.Error("invalid NullInt64 which should be valid")
+		} else if ni.Int64 != int64(1) {
+			dbt.Errorf("unexpected NullInt64 value: %d (should be 1)", ni.Int64)
+		}
+
+		// NullString
+		var ns sql.NullString
+		// Invalid
+		if err = nullStmt.QueryRow().Scan(&ns); err != nil {
+			dbt.Fatal(err)
+		}
+		if ns.Valid {
+			dbt.Error("valid NullString which should be invalid")
+		}
+		// Valid
+		if err = nonNullStmt.QueryRow().Scan(&ns); err != nil {
+			dbt.Fatal(err)
+		}
+		if !ns.Valid {
+			dbt.Error("invalid NullString which should be valid")
+		} else if ns.String != `1` {
+			dbt.Error("unexpected NullString value:" + ns.String + " (should be `1`)")
+		}
+
+		// nil-bytes
+		var b []byte
+		// Read nil
+		if err = nullStmt.QueryRow().Scan(&b); err != nil {
+			dbt.Fatal(err)
+		}
+		if b != nil {
+			dbt.Error("non-nil []byte wich should be nil")
+		}
+		// Read non-nil
+		if err = nonNullStmt.QueryRow().Scan(&b); err != nil {
+			dbt.Fatal(err)
+		}
+		if b == nil {
+			dbt.Error("nil []byte wich should be non-nil")
+		}
+		// Insert nil
+		b = nil
+		success := false
+		if err = dbt.db.QueryRow("SELECT ? IS NULL", b).Scan(&success); err != nil {
+			dbt.Fatal(err)
+		}
+		if !success {
+			dbt.Error("inserting []byte(nil) as NULL failed")
+			t.Fatal("stopping")
+		}
+		// Check input==output with input==nil
+		b = nil
+		if err = dbt.db.QueryRow("SELECT ?", b).Scan(&b); err != nil {
+			dbt.Fatal(err)
+		}
+		if b != nil {
+			dbt.Error("non-nil echo from nil input")
+		}
+		// Check input==output with input!=nil
+		b = []byte("")
+		if err = dbt.db.QueryRow("SELECT ?", b).Scan(&b); err != nil {
+			dbt.Fatal(err)
+		}
+		if b == nil {
+			dbt.Error("nil echo from non-nil input")
+		}
+
+		// Insert NULL
+		dbt.mustExec("CREATE TABLE test (dummmy1 int, value int, dummy2 int)")
+
+		dbt.mustExec("INSERT INTO test VALUES (?, ?, ?)", 1, nil, 2)
+
+		var out interface{}
+		rows := dbt.mustQuery("SELECT * FROM test")
+		if rows.Next() {
+			rows.Scan(&out)
+			if out != nil {
+				dbt.Errorf("%v != nil", out)
+			}
+		} else {
+			dbt.Error("no data")
 		}
 	})
 }

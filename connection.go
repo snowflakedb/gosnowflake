@@ -24,7 +24,7 @@ type snowflakeConn struct {
 	SqlState       string
 }
 
-func (sc*snowflakeConn) isDml(v int64) bool {
+func (sc *snowflakeConn) isDml(v int64) bool {
 	switch v {
 	case StatementTypeIdDml, StatementTypeIdInsert,
 		StatementTypeIdUpdate, StatementTypeIdDelete,
@@ -114,7 +114,11 @@ func (sc *snowflakeConn) Close() (err error) {
 }
 func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 	log.Println("Prepare")
-	return nil, nil
+	stmt := &snowflakeStmt{
+		sc:    sc,
+		query: query,
+	}
+	return stmt, nil
 }
 func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	log.Printf("Exec: %s, %s", query, args)
@@ -128,7 +132,7 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 		// collects all values from the returned row sets
 		updatedRows = 0
 		for i, n := 0, len(data.Data.RowType); i < n; i++ {
-			v, err := strconv.ParseInt(data.Data.RowSet[0][i], 10, 64)
+			v, err := strconv.ParseInt(*data.Data.RowSet[0][i], 10, 64)
 			if err != nil {
 				return nil, err
 			}
@@ -159,4 +163,3 @@ func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, 
 	rows.CurrentRowCount = len(rows.CurrentRowSet)
 	return rows, err
 }
-

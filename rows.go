@@ -18,7 +18,7 @@ type snowflakeRows struct {
 	TotalRowIndex   int64
 	CurrentIndex    int
 	CurrentRowCount int
-	CurrentRowSet   [][]string
+	CurrentRowSet   [][]*string
 }
 
 func (rows *snowflakeRows) Close() (err error) {
@@ -56,7 +56,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 		// TODO: fetch next chunk set
 	}
 	for i, n := 0, len(rows.CurrentRowSet[rows.CurrentIndex]); i < n; i++ {
-		dest[i], err = stringToValue(rows.RowType[i], rows.CurrentRowSet[rows.CurrentIndex][i])
+		err := stringToValue(&dest[i], rows.RowType[i], rows.CurrentRowSet[rows.CurrentIndex][i])
 		if err != nil {
 			return err
 		}
