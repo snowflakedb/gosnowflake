@@ -30,16 +30,6 @@ func (rows *snowflakeRows) Columns() []string {
 	return ret
 }
 
-func (rows *snowflakeRows) HasNextResultSet() (b bool) {
-	log.Println("Rows.HasNextResultSet")
-	return true
-}
-
-func (rows *snowflakeRows) NextResultSet() (err error) {
-	log.Println("Rows.NextResultSet")
-	return nil
-}
-
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 	log.Println("Rows.Next")
 
