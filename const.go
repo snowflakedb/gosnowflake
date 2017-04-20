@@ -9,18 +9,18 @@ import (
 	"fmt"
 )
 
-const HeaderSnowflakeToken = "Snowflake Token=\"%s\""
-const HeaderAuthorizationKey string = "Authorization"
+const HeaderSnowflakeToken = "Snowflake Token=\"%v\""
+const HeaderAuthorizationKey = "Authorization"
 
-const ContentTypeApplicationJson string = "application/json"
-const AcceptTypeAppliationSnowflake string = "application/snowflake"
-const AcceptTypeAppliationJson string = ContentTypeApplicationJson
+const ContentTypeApplicationJson = "application/json"
+const AcceptTypeAppliationSnowflake = "application/snowflake"
+const AcceptTypeAppliationJson = ContentTypeApplicationJson
 
-const ClientType string = "Go"
-const ClientVersion string = "0.1" // TODO: should be updated at build time
-const OSVersion string = "0.11"
+const ClientType = "Go"
+const ClientVersion = "0.1" // TODO: should be updated at build time
+const OSVersion = "0.11"
 
-var UserAgent string = fmt.Sprintf("%s %s", ClientType, ClientVersion)
+var UserAgent string = fmt.Sprintf("%v %v", ClientType, ClientVersion)
 
 const StatementTypeIdDml = int64(0x3000)
 const StatementTypeIdInsert = StatementTypeIdDml + int64(0x100)
@@ -28,3 +28,7 @@ const StatementTypeIdUpdate = StatementTypeIdDml + int64(0x200)
 const StatementTypeIdDelete = StatementTypeIdDml + int64(0x300)
 const StatementTypeIdMerge = StatementTypeIdDml + int64(0x400)
 const StatementTypeIdMultiTableInsert = StatementTypeIdDml + int64(0x500)
+
+const HeaderSseCAlgorithm = "x-amz-server-side-encryption-customer-algorithm"
+const HeaderSseCKey = "x-amz-server-side-encryption-customer-key"
+const HeaderSseCAes = "AES256"

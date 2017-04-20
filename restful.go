@@ -15,6 +15,13 @@ import (
 	"time"
 )
 
+var snowflakeTransport = &http.Transport{
+	// TODO: Proxy
+	MaxIdleConns:    10,
+	IdleConnTimeout: 30 * time.Minute,
+	// TODO: Timeout
+}
+
 type snowflakeRestful struct {
 	Host           string
 	Port           int
@@ -36,10 +43,10 @@ type snowflakeRestful struct {
 }
 
 func (sr *snowflakeRestful) post(
-  fullUrl string,
-  headers map[string]string,
-  body []byte) (
-  *http.Response, error) {
+	fullUrl string,
+	headers map[string]string,
+	body []byte) (
+	*http.Response, error) {
 	req, err := http.NewRequest("POST", fullUrl, bytes.NewReader(body))
 	if err != nil {
 		log.Fatal(err)
@@ -52,11 +59,11 @@ func (sr *snowflakeRestful) post(
 }
 
 func (sr *snowflakeRestful) PostQuery(
-  params *url.Values,
-  headers map[string]string,
-  body []byte,
-  timeout time.Duration) (
-  data *ExecResponse, err error) {
+	params *url.Values,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration) (
+	data *ExecResponse, err error) {
 	log.Printf("PARAMS: %s", params)
 	log.Printf("BODY: %s", body)
 	fullUrl := fmt.Sprintf(
@@ -73,7 +80,7 @@ func (sr *snowflakeRestful) PostQuery(
 		}
 		return &respd, nil
 	} else {
-		// TODO: better error handing
+		// TODO: better error handing and retry
 		log.Printf("resp: %s", resp)
 		b, err := ioutil.ReadAll(resp.Body)
 		log.Printf("b RESPONSE: %s", b)
@@ -87,11 +94,11 @@ func (sr *snowflakeRestful) PostQuery(
 }
 
 func (sr *snowflakeRestful) PostAuth(
-  params *url.Values,
-  headers map[string]string,
-  body []byte,
-  timeout time.Duration) (
-  data *AuthResponse, err error) {
+	params *url.Values,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration) (
+	data *AuthResponse, err error) {
 	fullUrl := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session/v1/login-request?"+params.Encode())
 	resp, err := sr.post(fullUrl, headers, body)
@@ -106,7 +113,7 @@ func (sr *snowflakeRestful) PostAuth(
 		}
 		return &respd, nil
 	} else {
-		// TODO: better error handing
+		// TODO: better error handing and retry
 		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatal(err)

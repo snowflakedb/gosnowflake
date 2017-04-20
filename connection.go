@@ -121,7 +121,7 @@ func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 	return stmt, nil
 }
 func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	log.Printf("Exec: %s, %s", query, args)
+	log.Printf("Exec: %#v, %v", query, args)
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(query, false, false, args)
 	if err != nil {
@@ -139,7 +139,7 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 			updatedRows += v
 		}
 	}
-	log.Printf("number of rows: %s", updatedRows)
+	log.Printf("number of updated rows: %#v", updatedRows)
 	return &snowflakeResult{
 		affectedRows: updatedRows,
 		insertId:     -1}, nil // last insert id is not supported by Snowflake
@@ -156,10 +156,13 @@ func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, 
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.RowType = data.Data.RowType
-	rows.Total = int64(data.Data.Total)
-	rows.TotalRowIndex = int64(-1)
-	rows.CurrentRowSet = data.Data.RowSet
-	rows.CurrentIndex = -1
-	rows.CurrentRowCount = len(rows.CurrentRowSet)
+	rows.ChunkDownloader = &snowflakeChunkDownloader{
+		CurrentChunk:  data.Data.RowSet,
+		ChunkMetas:    data.Data.Chunks,
+		Total:         int64(data.Data.Total),
+		TotalRowIndex: int64(-1),
+		Qrmk:          data.Data.Qrmk,
+	}
+	rows.ChunkDownloader.Start()
 	return rows, err
 }
