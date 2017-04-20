@@ -34,7 +34,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		Host:     sc.cfg.Host,
 		Port:     sc.cfg.Port,
 		Protocol: sc.cfg.Protocol,
-		Client:   &http.Client{}, // create a new client
+		Client:   &http.Client{Transport: snowflakeTransport}, // create a new client
 	}
 	sessionParameters := make(map[string]string)
 	sessionInfo, err := Authenticate(

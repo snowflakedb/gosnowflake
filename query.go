@@ -31,6 +31,11 @@ type ExecResponseRowType struct {
 	Nullable   bool `json:"nullable"`
 }
 
+type ExecResponseChunk struct {
+	Url      string `json:"url"`
+	RowCount int `json:"rowCount"`
+}
+
 type ExecResponseData struct {
 	Parameters         json.RawMessage `json:"parameters"`
 	RowType            []ExecResponseRowType `json:"rowtype"`
@@ -47,6 +52,8 @@ type ExecResponseData struct {
 	NumberOfBinds      int `json:"numberOfBinds"`      // java:int
 	StatementTypeId    int64  `json:"statementTypeId"` // java:long
 	Version            int64 `json:"version"`          // java:long
+	Chunks             []ExecResponseChunk `json:"chunks,omitempty"`
+	Qrmk               string `json:"qrmk,omitempty"`
 }
 
 type ExecResponse struct {

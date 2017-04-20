@@ -7,18 +7,13 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
-	"io"
 	"log"
 )
 
 type snowflakeRows struct {
 	sc              *snowflakeConn
 	RowType         []ExecResponseRowType
-	Total           int64
-	TotalRowIndex   int64
-	CurrentIndex    int
-	CurrentRowCount int
-	CurrentRowSet   [][]*string
+	ChunkDownloader *snowflakeChunkDownloader
 }
 
 func (rows *snowflakeRows) Close() (err error) {
@@ -47,16 +42,15 @@ func (rows *snowflakeRows) NextResultSet() (err error) {
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 	log.Println("Rows.Next")
-	rows.TotalRowIndex += 1
-	if rows.TotalRowIndex >= rows.Total {
-		return io.EOF
+
+	row, err := rows.ChunkDownloader.Next()
+	if err != nil {
+		// includes io.EOF
+		return err
 	}
-	rows.CurrentIndex += 1
-	if rows.CurrentIndex >= rows.CurrentRowCount {
-		// TODO: fetch next chunk set
-	}
-	for i, n := 0, len(rows.CurrentRowSet[rows.CurrentIndex]); i < n; i++ {
-		err := stringToValue(&dest[i], rows.RowType[i], rows.CurrentRowSet[rows.CurrentIndex][i])
+	log.Printf("ROW: %v", row)
+	for i, n := 0, len(row); i < n; i++ {
+		err := stringToValue(&dest[i], rows.RowType[i], row[i])
 		if err != nil {
 			return err
 		}

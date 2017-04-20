@@ -661,3 +661,21 @@ func TestNULL(t *testing.T) {
 		}
 	})
 }
+
+func TestLargeSetResult(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		numrows := 10000
+		rows, err := dbt.db.Query(
+			fmt.Sprintf("SELECT RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+		if err != nil {
+			dbt.Error("Failed to execute a simple large set result query")
+		}
+		cnt := 0
+		for rows.Next() {
+			cnt += 1
+		}
+		if cnt != numrows {
+			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", cnt, numrows)
+		}
+	})
+}
