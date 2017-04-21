@@ -180,6 +180,10 @@ func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string
 		account = host
 		host = account + ".snowflakecomputing.com"
 		port = 443
+		posDot := strings.Index(account, ".")
+		if posDot >= 0 {
+			account = account[:posDot]
+		}
 	}
 	return
 }
@@ -199,8 +203,7 @@ func parseUserPassword(posAt int, dsn string) (user, password string, err error)
 
 // parseParams parse parameters
 func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
-	var j int
-	for j = posQuestion + 1; j < len(dsn); j++ {
+	for j := posQuestion + 1; j < len(dsn); j++ {
 		if dsn[j] == '?' {
 			if err = parseDSNParams(cfg, dsn[j+1:]); err != nil {
 				return
