@@ -7,7 +7,6 @@ package gosnowflake
 import (
 	"errors"
 	"log"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -53,32 +52,30 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 
 	foundSlash := false
 	secondSlash := false
-	for i := len(dsn) - 1; i >= 0; i-- {
-		if dsn[i] == '/' {
+	done := false
+	var i int
+	posQuestion := len(dsn)
+	for i = len(dsn) - 1; i >= 0; i-- {
+		switch {
+		case dsn[i] == '/':
 			foundSlash = true
 
 			// left part is empty if i <= 0
-			var j, k int
+			var j int
 			posSecondSlash := i
 			if i > 0 {
-				for j = i; j >= 0; j-- {
-					// username[:password]@...
-					// Find the last '@' in dsn[:i]
+				for j = i - 1; j >= 0; j-- {
 					switch {
 					case dsn[j] == '/':
 						// second slash
 						secondSlash = true
 						posSecondSlash = j
 					case dsn[j] == '@':
-						// username[:password]
-						// Find the first ':' in dsn[:j]
-						for k = 0; k < j; k++ {
-							if dsn[k] == ':' {
-								cfg.Password = dsn[k+1: j]
-								break
-							}
+						// username[:password]@...
+						cfg.User, cfg.Password, err = parseUserPassword(j, dsn)
+						if err != nil {
+							return nil, err
 						}
-						cfg.User = dsn[:k]
 					}
 					if dsn[j] == '@' {
 						break
@@ -86,44 +83,59 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				}
 
 				// account or host:port
-				for k = j + 1; k < posSecondSlash; k++ {
-					if dsn[k] == ':' {
-						cfg.Port, err = strconv.Atoi(dsn[k+1: posSecondSlash])
-						if err != nil {
-							return
-						}
-						break
-					}
+				cfg.Account, cfg.Host, cfg.Port, err = parseAccountHostPort(j, posSecondSlash, dsn)
+				if err != nil {
+					return
 				}
-				cfg.Host = dsn[j+1: k]
-
 			}
 			// [?param1=value1&...&paramN=valueN]
 			// Find the first '?' in dsn[i+1:]
-			for j = i + 1; j < len(dsn); j++ {
-				if dsn[j] == '?' {
-					if err = parseDSNParams(cfg, dsn[j+1:]); err != nil {
-						return
-					}
-					break
-				}
+			err = parseParams(cfg, i, dsn)
+			if err != nil {
+				return
 			}
 			if secondSlash {
 				cfg.Database = dsn[posSecondSlash+1: i]
-				cfg.Schema = dsn[i+1: j]
+				cfg.Schema = dsn[i+1: posQuestion]
 			} else {
-				cfg.Database = dsn[i+1: j]
+				cfg.Database = dsn[posSecondSlash+1: posQuestion]
 				cfg.Schema = "public"
 			}
-
+			done = true
+		case dsn[i] == '?':
+			posQuestion = i
+		}
+		if done {
 			break
-
+		}
+	}
+	if !foundSlash {
+		// no db or schema is specified
+		var j int
+		for j = len(dsn) - 1; j >= 0; j-- {
+			switch {
+			case dsn[j] == '@':
+				cfg.User, cfg.Password, err = parseUserPassword(j, dsn)
+				if err != nil {
+					return nil, err
+				}
+			case dsn[j] == '?':
+				posQuestion = j
+			}
+			if dsn[j] == '@' {
+				break
+			}
+		}
+		cfg.Account, cfg.Host, cfg.Port, err = parseAccountHostPort(j, posQuestion, dsn)
+		if err != nil {
+			return nil, err
+		}
+		err = parseParams(cfg, posQuestion, dsn)
+		if err != nil {
+			return
 		}
 	}
 
-	if !foundSlash && len(dsn) > 0 {
-		return nil, errInvalidDSNNoSlash
-	}
 	if cfg.Protocol == "" {
 		cfg.Protocol = "https"
 	}
@@ -131,17 +143,75 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		cfg.Port = 443
 	}
 	if cfg.ConnectTimeout == 0 {
-		cfg.ConnectTimeout = 60
+		cfg.ConnectTimeout = 60 // TODO
 	}
 	if cfg.LoginTimeout == 0 {
-		cfg.LoginTimeout = 120
+		cfg.LoginTimeout = 120 // TODO
 	}
-	log.Printf("ParseDSN: %s\n", cfg)
+	if cfg.Account == "" {
+		return nil, ErrEmptyAccount
+	}
+	if cfg.User == "" {
+		return nil, ErrEmptyUsername
+	}
+	if cfg.Password == "" {
+		return nil, ErrEmptyPassword
+	}
+	log.Printf("ParseDSN: %s\n", cfg) // TODO: hide password
 	return cfg, nil
 }
 
-// parseDSNParams parses the DSN "query string"
-// Values must be url.QueryEscape'ed
+// parseAccountHostPort parses the DSN string to attempt to get account or host and port.
+func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string, port int, err error) {
+	// account or host:port
+	var k int
+	for k = posAt + 1; k < posSlash; k++ {
+		if dsn[k] == ':' {
+			port, err = strconv.Atoi(dsn[k+1: posSlash])
+			if err != nil {
+				return
+			}
+			break
+		}
+	}
+	host = dsn[posAt+1: k]
+	if port == 0 && !strings.HasSuffix(host, "snowflakecomputing.com") {
+		// account name is specified instead of host:port
+		account = host
+		host = account + ".snowflakecomputing.com"
+		port = 443
+	}
+	return
+}
+
+// parseUserPassword pases the DSN string for username and password
+func parseUserPassword(posAt int, dsn string) (user, password string, err error) {
+	var k int
+	for k = 0; k < posAt; k++ {
+		if dsn[k] == ':' {
+			password = dsn[k+1: posAt]
+			break
+		}
+	}
+	user = dsn[:k]
+	return
+}
+
+// parseParams parse parameters
+func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
+	var j int
+	for j = posQuestion + 1; j < len(dsn); j++ {
+		if dsn[j] == '?' {
+			if err = parseDSNParams(cfg, dsn[j+1:]); err != nil {
+				return
+			}
+			break
+		}
+	}
+	return
+}
+
+// parseDSNParams parses the DSN "query string". Values must be url.QueryEscape'ed
 func parseDSNParams(cfg *Config, params string) (err error) {
 	for _, v := range strings.Split(params, "&") {
 		param := strings.SplitN(v, "=", 2)
@@ -163,13 +233,20 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Role = value
 		case "protocol":
 			cfg.Protocol = value
+		case "passcode":
+			cfg.Passcode = value
+		case "passcodeInPassword":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.PasscodeInPassword = vv
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]string)
 			}
-			if cfg.Params[param[0]], err = url.QueryUnescape(value); err != nil {
-				return err
-			}
+			cfg.Params[param[0]] = value
 		}
 	}
 	return

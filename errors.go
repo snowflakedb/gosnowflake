@@ -28,5 +28,8 @@ func (se *SnowflakeError) Error() string {
 }
 
 var (
+	ErrEmptyAccount = errors.New("account is empty")
+	ErrEmptyUsername = errors.New("user is empty")
+	ErrEmptyPassword = errors.New("password is empty")
 	ErrInvalidConn = errors.New("invalid connection")
 )

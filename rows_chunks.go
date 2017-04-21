@@ -1,3 +1,8 @@
+// Go Snowflake Driver - Snowflake driver for Go's database/sql package
+//
+// Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
+//
+
 package gosnowflake
 
 import (

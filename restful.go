@@ -43,10 +43,10 @@ type snowflakeRestful struct {
 }
 
 func (sr *snowflakeRestful) post(
-	fullUrl string,
-	headers map[string]string,
-	body []byte) (
-	*http.Response, error) {
+  fullUrl string,
+  headers map[string]string,
+  body []byte) (
+  *http.Response, error) {
 	req, err := http.NewRequest("POST", fullUrl, bytes.NewReader(body))
 	if err != nil {
 		log.Fatal(err)
@@ -59,18 +59,18 @@ func (sr *snowflakeRestful) post(
 }
 
 func (sr *snowflakeRestful) PostQuery(
-	params *url.Values,
-	headers map[string]string,
-	body []byte,
-	timeout time.Duration) (
-	data *ExecResponse, err error) {
+  params *url.Values,
+  headers map[string]string,
+  body []byte,
+  timeout time.Duration) (
+  data *ExecResponse, err error) {
 	log.Printf("PARAMS: %s", params)
 	log.Printf("BODY: %s", body)
 	fullUrl := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/queries/v1/query-request?"+params.Encode())
 	resp, err := sr.post(fullUrl, headers, body)
 	defer resp.Body.Close()
-	if resp.StatusCode == 200 {
+	if resp.StatusCode == http.StatusOK {
 		log.Printf("resp: %s", resp)
 		var respd ExecResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
@@ -94,16 +94,16 @@ func (sr *snowflakeRestful) PostQuery(
 }
 
 func (sr *snowflakeRestful) PostAuth(
-	params *url.Values,
-	headers map[string]string,
-	body []byte,
-	timeout time.Duration) (
-	data *AuthResponse, err error) {
+  params *url.Values,
+  headers map[string]string,
+  body []byte,
+  timeout time.Duration) (
+  data *AuthResponse, err error) {
 	fullUrl := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session/v1/login-request?"+params.Encode())
 	resp, err := sr.post(fullUrl, headers, body)
 	defer resp.Body.Close()
-	if resp.StatusCode == 200 {
+	if resp.StatusCode == http.StatusOK {
 		log.Printf("resp: %s", resp)
 		var respd AuthResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)

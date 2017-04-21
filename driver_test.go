@@ -24,16 +24,6 @@ var (
 	available  bool
 )
 
-var (
-	tDate      = time.Date(2012, 6, 14, 0, 0, 0, 0, time.UTC)
-	sDate      = "2012-06-14"
-	tDateTime  = time.Date(2011, 11, 20, 21, 27, 37, 0, time.UTC)
-	sDateTime  = "2011-11-20 21:27:37"
-	tDate0     = time.Time{}
-	sDate0     = "0000-00-00"
-	sDateTime0 = "0000-00-00 00:00:00"
-)
-
 // The tests require the following parameters in the environment variables.
 // SNOWFLAKE_TEST_USER, SNOWFLAKE_TEST_PASSWORD, SNOWFLAKE_TEST_ACCOUNT, SNOWFLAKE_TEST_DATABASE,
 // SNOWFLAKE_TEST_SCHEMA, SNOWFLAKE_TEST_WAREHOUSE.
