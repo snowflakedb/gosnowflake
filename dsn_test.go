@@ -73,6 +73,15 @@ func TestParseDSN(t *testing.T) {
 			},
 			err: ErrEmptyAccount,
 		},
+		{
+			dsn: "u:p@a.snowflakecomputing.com/db/pa?account=a&protocol=https&role=r&timezone=UTC&warehouse=w",
+			config: &Config{
+				Account:  "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "pa", Role: "r", Warehouse: "w",
+			},
+			err: nil,
+		},
 	}
 	for _, test := range testcases {
 		cfg, err := ParseDSN(test.dsn)

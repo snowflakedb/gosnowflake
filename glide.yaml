@@ -1,0 +1,4 @@
+package: github.com/snowflakedb/gosnowflake
+import:
+- package: github.com/satori/go.uuid
+  version: v1.1.0

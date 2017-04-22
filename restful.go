@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -66,12 +67,14 @@ func (sr *snowflakeRestful) PostQuery(
   data *ExecResponse, err error) {
 	log.Printf("PARAMS: %s", params)
 	log.Printf("BODY: %s", body)
+	uuid := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
 	fullUrl := fmt.Sprintf(
-		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/queries/v1/query-request?"+params.Encode())
+		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
+		"/queries/v1/query-request?"+uuid+"&"+params.Encode())
 	resp, err := sr.post(fullUrl, headers, body)
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		log.Printf("resp: %s", resp)
+		log.Printf("PostQuery: resp: %s", resp)
 		var respd ExecResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
@@ -81,7 +84,7 @@ func (sr *snowflakeRestful) PostQuery(
 		return &respd, nil
 	} else {
 		// TODO: better error handing and retry
-		log.Printf("resp: %s", resp)
+		log.Printf("PostQuery: resp: %s", resp)
 		b, err := ioutil.ReadAll(resp.Body)
 		log.Printf("b RESPONSE: %s", b)
 		if err != nil {
@@ -99,12 +102,15 @@ func (sr *snowflakeRestful) PostAuth(
   body []byte,
   timeout time.Duration) (
   data *AuthResponse, err error) {
+	uuid := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
 	fullUrl := fmt.Sprintf(
-		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session/v1/login-request?"+params.Encode())
+		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
+		"/session/v1/login-request?"+uuid+"&"+params.Encode())
+	log.Printf("fullURL: %v", fullUrl)
 	resp, err := sr.post(fullUrl, headers, body)
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		log.Printf("resp: %s", resp)
+		log.Printf("PostAuth: resp: %s", resp)
 		var respd AuthResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {

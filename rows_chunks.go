@@ -90,8 +90,11 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 		scd.CurrentIndex = -1   // reset
 		if scd.CurrentChunkIndex < len(scd.ChunkMetas) {
 			ticker := time.Tick(time.Millisecond * 10)
+			// TODO: Error handle
 			for _ = range ticker {
-				log.Printf("Waiting: %v:%v, %v", scd.CurrentChunkIndex, len(scd.ChunkMetas), len(scd.Chunks))
+				log.Printf(
+					"Waiting. chunk idx: %v/%v, got chunks: %v",
+					scd.CurrentChunkIndex, len(scd.ChunkMetas), len(scd.Chunks))
 				scd.ChunksMutex.Lock()
 				scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
 				scd.ChunksMutex.Unlock()
@@ -139,7 +142,7 @@ func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
 	defer resp.Body.Close()
 	log.Printf("download end: %v", idx)
 	if resp.StatusCode == http.StatusOK {
-		log.Printf("resp: %s", resp)
+		log.Printf("download: resp: %s", resp)
 		// TODO: optimize the memory usage
 		var respd [][]*string
 		b, err := ioutil.ReadAll(resp.Body)
@@ -157,7 +160,7 @@ func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
 		scd.ChunksMutex.Unlock()
 	} else {
 		// TODO: better error handing and retry
-		log.Printf("resp: %s", resp)
+		log.Printf("download: resp: %s", resp)
 		b, err := ioutil.ReadAll(resp.Body)
 		log.Printf("b RESPONSE: %s", b)
 		if err != nil {

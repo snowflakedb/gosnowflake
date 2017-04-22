@@ -18,7 +18,7 @@ const AcceptTypeAppliationJson = ContentTypeApplicationJson
 
 const ClientType = "Go"
 const ClientVersion = "0.1" // TODO: should be updated at build time
-const OSVersion = "0.11"
+const OSVersion = "0.11" // TODO: should be retrieved
 
 var UserAgent string = fmt.Sprintf("%v %v", ClientType, ClientVersion)
 

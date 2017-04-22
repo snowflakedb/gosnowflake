@@ -9,7 +9,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"github.com/satori/go.uuid"
 	"log"
 	"net/url"
 	"strconv"
@@ -58,8 +57,7 @@ func (sc *snowflakeConn) exec(
 			}
 		}
 	}
-	params := &url.Values{}
-	params.Add("requestId", uuid.NewV4().String())
+	params := &url.Values{} // TODO: delete?
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = ContentTypeApplicationJson
@@ -81,19 +79,26 @@ func (sc *snowflakeConn) exec(
 	if err != nil {
 		return nil, err
 	}
-	if !data.Success {
-		errno, err := strconv.Atoi(data.Code)
+	var code int
+	if data.Code != "" {
+		code, err = strconv.Atoi(data.Code)
 		if err != nil {
-			errno = -1
+			code = -1
+			return nil, err
 		}
+	} else {
+		code = -1
+	}
+	log.Printf("Success: %v, Code: %v", data.Success, code)
+	if !data.Success {
 		return nil, &SnowflakeError{
-			Number:   errno,
+			Number:   code,
 			SqlState: data.Data.SqlState,
 			Message:  data.Message,
 			QueryId:  data.Data.QueryId,
 		}
 	} else {
-		log.Println("Exec/Query SUCCESS")
+		log.Printf("Exec/Query SUCCESS: %v")
 		sc.cfg.Database = data.Data.FinalDatabaseName
 		sc.cfg.Schema = data.Data.FinalSchemaName
 		sc.cfg.Role = data.Data.FinalRoleName
@@ -150,6 +155,7 @@ func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, 
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(query, false, false, args)
 	if err != nil {
+		log.Printf("You got error: %v", err)
 		return nil, err
 	}
 

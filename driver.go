@@ -57,6 +57,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		return nil, nil
 	}
 
+	log.Printf("SessionInfo: %v", sessionInfo)
 	sc.cfg.Database = sessionInfo.DatabaseName
 	sc.cfg.Schema = sessionInfo.SchemaName
 	sc.cfg.Role = sessionInfo.RoleName

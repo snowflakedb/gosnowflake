@@ -5,15 +5,10 @@
 package gosnowflake
 
 import (
-	"errors"
 	"log"
 	"strconv"
 	"strings"
 	"time"
-)
-
-var (
-	errInvalidDSNNoSlash = errors.New("invalid DSN: missing the slash separating the database name")
 )
 
 // Config is a configuration parsed from a DSN string
@@ -216,6 +211,7 @@ func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
 
 // parseDSNParams parses the DSN "query string". Values must be url.QueryEscape'ed
 func parseDSNParams(cfg *Config, params string) (err error) {
+	log.Printf("Query String: %v", params)
 	for _, v := range strings.Split(params, "&") {
 		param := strings.SplitN(v, "=", 2)
 		if len(param) != 2 {
