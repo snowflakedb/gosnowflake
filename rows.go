@@ -31,14 +31,14 @@ func (rows *snowflakeRows) Columns() []string {
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
-	log.Println("Rows.Next")
+	// log.Println("Rows.Next")
 
 	row, err := rows.ChunkDownloader.Next()
 	if err != nil {
 		// includes io.EOF
 		return err
 	}
-	log.Printf("ROW: %v", row)
+	// log.Printf("ROW: %v", row)
 	for i, n := 0, len(row); i < n; i++ {
 		err := stringToValue(&dest[i], rows.RowType[i], row[i])
 		if err != nil {

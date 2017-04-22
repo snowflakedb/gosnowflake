@@ -658,8 +658,9 @@ func TestLargeSetResult(t *testing.T) {
 		rows, err := dbt.db.Query(
 			fmt.Sprintf("SELECT RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
 		if err != nil {
-			dbt.Error("Failed to execute a simple large set result query")
+			dbt.Fatalf("Failed to execute a simple large set result query: %v", err)
 		}
+		defer rows.Close()
 		cnt := 0
 		for rows.Next() {
 			cnt += 1

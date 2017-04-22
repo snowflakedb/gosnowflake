@@ -7,7 +7,6 @@ package gosnowflake
 
 import (
 	"encoding/json"
-	"github.com/satori/go.uuid"
 	"log"
 	"net/url"
 	"time"
@@ -125,18 +124,17 @@ func Authenticate(
 		Data: requestMain,
 	}
 	params := &url.Values{}
-	params.Add("requestId", uuid.NewV4().String())
 	if database != "" {
-		params.Add("databaseName", database)
+		params.Add("databaseName", url.QueryEscape(database))
 	}
 	if schema != "" {
-		params.Add("schemaName", schema)
+		params.Add("schemaName", url.QueryEscape(schema))
 	}
 	if warehouse != "" {
-		params.Add("warehouse", warehouse)
+		params.Add("warehouse", url.QueryEscape(warehouse))
 	}
 	if role != "" {
-		params.Add("roleName", role)
+		params.Add("roleName", url.QueryEscape(role))
 	}
 
 	var json_body []byte
@@ -145,6 +143,7 @@ func Authenticate(
 		return
 	}
 
+	log.Printf("PARAMS for Auth: %v", params)
 	respd, err := sr.PostAuth(params, headers, json_body, sr.LoginTimeout)
 	if err != nil {
 		// TODO: error handing, Forbidden 403, BadGateway 504, ServiceUnavailable 503
