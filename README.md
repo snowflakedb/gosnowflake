@@ -55,7 +55,7 @@ if TLS/SSL layer is used, they must meet the following requirements:
 
 Since Go 1.8.1 has not implemented the certification revocation check yet, we plan to implement it in Go 
 Snowflake driver by production version unless Go does. By production veresion, you might want to use the 
-driver but consider a risk of missing [certificate revocation](https://en.wikipedia.org/wiki/Certificate_revocation_list).
+driver but consider a risk of missing [certificate revocation check](https://en.wikipedia.org/wiki/Certificate_revocation_list).
 
 
 ## Development
