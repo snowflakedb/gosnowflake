@@ -27,7 +27,7 @@ lint: setup
 	done
 
 fmt: setup
-	goimports -w $$(glid nv -x)
+	goimports -w $$(glide nv -x)
 
 help:
 	@make2help $(MAKEFILE_LIST)
