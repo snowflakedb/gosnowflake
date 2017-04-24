@@ -111,10 +111,15 @@ func (sc *snowflakeConn) exec(
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	log.Println("Begin")
-	return nil, nil
+	_, err:= sc.exec("BEGIN", false, false, nil)
+	if err != err {
+		return nil, err
+	}
+	return &snowflakeTx{sc}, err
 }
 func (sc *snowflakeConn) Close() (err error) {
 	log.Println("Close")
+	// TODO
 	return nil
 }
 func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {

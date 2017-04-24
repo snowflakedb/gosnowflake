@@ -72,6 +72,9 @@ func (sr *snowflakeRestful) PostQuery(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/queries/v1/query-request?"+uuid+"&"+params.Encode())
 	resp, err := sr.post(fullUrl, headers, body)
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		log.Printf("PostQuery: resp: %s", resp)
@@ -108,6 +111,9 @@ func (sr *snowflakeRestful) PostAuth(
 		"/session/v1/login-request?"+uuid+"&"+params.Encode())
 	log.Printf("fullURL: %v", fullUrl)
 	resp, err := sr.post(fullUrl, headers, body)
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		log.Printf("PostAuth: resp: %s", resp)

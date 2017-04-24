@@ -53,8 +53,8 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		"",
 		sessionParameters)
 	if err != nil {
-		// TODO: error handling
-		return nil, nil
+		// TODO Better error handling
+		return nil, err
 	}
 
 	log.Printf("SessionInfo: %v", sessionInfo)
