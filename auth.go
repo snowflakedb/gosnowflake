@@ -12,31 +12,32 @@ import (
 	"time"
 )
 
-type AuthRequestClientEnvironment struct {
+type authRequestClientEnvironment struct {
 	Application string `json:"APPLICATION"`
 	OsVersion   string `json:"OS_VERSION"`
 }
-type AuthRequestData struct {
-	ClientAppId       string                       `json:"CLIENT_APP_ID"`
-	ClientAppVersion  string                       `json:"CLIENT_APP_VERSION"`
-	SvnRevision       string                       `json:"SVN_REVISION"`
-	AccoutName        string                       `json:"ACCOUNT_NAME"`
-	LoginName         string                       `json:"LOGIN_NAME,omitempty"`
-	Password          string                       `json:"PASSWORD,omitempty"`
-	RawSAMLResponse   string                       `json:"RAW_SAML_RESPONSE,omitempty"`
+type authRequestData struct {
+	ClientAppID      string                       `json:"CLIENT_APP_ID"`
+	ClientAppVersion string                       `json:"CLIENT_APP_VERSION"`
+	SvnRevision      string                       `json:"SVN_REVISION"`
+	AccoutName       string                       `json:"ACCOUNT_NAME"`
+	LoginName        string                       `json:"LOGIN_NAME,omitempty"`
+	Password         string                       `json:"PASSWORD,omitempty"`
+	RawSAMLResponse  string                       `json:"RAW_SAML_RESPONSE,omitempty"`
 	ExtAuthnDuoMethod string                       `json:"EXT_AUTHN_DUO_METHOD,omitempty"`
 	Passcode          string                       `json:"PASSCODE,omitempty"`
-	ClientEnvironment AuthRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
+	ClientEnvironment authRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
 }
-type AuthRequest struct {
-	Data AuthRequestData `json:"data"`
+type authRequest struct {
+	Data authRequestData `json:"data"`
 }
 
-type AuthResponseParameter struct {
+type authResponseParameter struct {
 	Name  string          `json:"name"`
 	Value json.RawMessage `json:"value"`
 }
 
+// AuthResponseSessionInfo includes the current database, schema, warehouse and role in the session.
 type AuthResponseSessionInfo struct {
 	DatabaseName  string `json:"databaseName"`
 	SchemaName    string `json:"schemaName"`
@@ -44,29 +45,30 @@ type AuthResponseSessionInfo struct {
 	RoleName      string `json:"roleName"`
 }
 
-type AuthResponseMain struct {
+type authResponseMain struct {
 	Token                   string                  `json:"token,omitempty"`
 	ValidityInSeconds       time.Duration           `json:"validityInSeconds,omitempty"`
 	MasterToken             string                  `json:"maxterToken,omitempty"`
 	MasterValidityInSeconds time.Duration           `json:"masterValidityInSeconds"`
-	DisplayUserName         string                  `json:"displayUserName"`
-	ServerVersion           string                  `json:"serverVersion"`
+	DisplayUserName        string                  `json:"displayUserName"`
+	ServerVersion          string                  `json:"serverVersion"`
 	FirstLogin              bool                    `json:"firstLogin"`
 	RemMeToken              string                  `json:"remMeToken"`
 	RemMeValidityInSeconds  time.Duration           `json:"remMeValidityInSeconds"`
 	HealthCheckInterval     time.Duration           `json:"healthCheckInterval"`
 	NewClientForUpgrade     string                  `json:"newClientForUpgrade"` // TODO: what is datatype?
-	SessionId               int                     `json:"sessionId"`
-	Parameters              []AuthResponseParameter `json:"parameters"`
+	SessionID               int                     `json:"sessionId"`
+	Parameters              []authResponseParameter `json:"parameters"`
 	SessionInfo             AuthResponseSessionInfo `json:"sessionInfo"`
 }
-type AuthResponse struct {
-	Data    AuthResponseMain `json:"data"`
+type authResponse struct {
+	Data    authResponseMain `json:"data"`
 	Message string           `json:"message"`
 	Code    string           `json:"code"`
 	Success bool             `json:"success"`
 }
 
+// Authenticate is used to authenticate user to gain accesss to Snowflake database.
 func Authenticate(
   sr *snowflakeRestful,
   user string,
@@ -94,13 +96,13 @@ func Authenticate(
 	headers["accept"] = AcceptTypeAppliationSnowflake
 	headers["User-Agent"] = UserAgent
 
-	clientEnvironment := AuthRequestClientEnvironment{
+	clientEnvironment := authRequestClientEnvironment{
 		Application: ClientType,
 		OsVersion:   OSVersion,
 	}
 
-	requestMain := AuthRequestData{
-		ClientAppId:       ClientType,
+	requestMain := authRequestData{
+		ClientAppID:       ClientType,
 		ClientAppVersion:  ClientVersion,
 		SvnRevision:       "",
 		AccoutName:        account,
@@ -120,7 +122,7 @@ func Authenticate(
 		}
 	}
 
-	authRequest := AuthRequest{
+	authRequest := authRequest{
 		Data: requestMain,
 	}
 	params := &url.Values{}
@@ -152,7 +154,7 @@ func Authenticate(
 		log.Println("Authentication SUCCES")
 		sr.Token = respd.Data.Token
 		sr.MasterToken = respd.Data.MasterToken
-		sr.SessionId = respd.Data.SessionId
+		sr.SessionId = respd.Data.SessionID
 	} else {
 		log.Println("Authentication FAILED")
 		sr.Token = ""

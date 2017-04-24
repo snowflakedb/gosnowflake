@@ -103,7 +103,7 @@ func (sr *snowflakeRestful) PostAuth(
   headers map[string]string,
   body []byte,
   timeout time.Duration) (
-  data *AuthResponse, err error) {
+  data *authResponse, err error) {
 	uuid := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
 	fullUrl := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
@@ -116,7 +116,7 @@ func (sr *snowflakeRestful) PostAuth(
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		log.Printf("PostAuth: resp: %v", resp)
-		var respd AuthResponse
+		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			log.Fatal(err)

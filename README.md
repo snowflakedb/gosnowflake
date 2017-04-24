@@ -41,7 +41,7 @@ For example, if your account is `testaccount`, user name is `testuser` password 
 is `testdb` schema is `testschema` and warehouse is `testwarehouse` the DSN will be as follows:
 ```golang
 db, err := sql.Open("snowflake",
-    "testaccount:testpass@testaccount/testdb/testschema?warehouse=testwarehouse")
+    "testuser:testpass@testaccount/testdb/testschema?warehouse=testwarehouse")
 ```
 
 ## Limitations

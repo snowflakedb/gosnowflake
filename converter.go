@@ -68,7 +68,7 @@ func valueToString(v interface{}) (*string, error) {
 
 // stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
 // data.
-func stringToValue(dest *driver.Value, srcColumnMeta ExecResponseRowType, srcValue *string) error {
+func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcValue *string) error {
 	// log.Printf("DATA TYPE: %s, VALUE: % s", srcColumnMeta.Type, srcValue)
 	if srcValue == nil {
 		dest = nil
