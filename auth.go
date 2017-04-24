@@ -17,13 +17,13 @@ type authRequestClientEnvironment struct {
 	OsVersion   string `json:"OS_VERSION"`
 }
 type authRequestData struct {
-	ClientAppID      string                       `json:"CLIENT_APP_ID"`
-	ClientAppVersion string                       `json:"CLIENT_APP_VERSION"`
-	SvnRevision      string                       `json:"SVN_REVISION"`
-	AccoutName       string                       `json:"ACCOUNT_NAME"`
-	LoginName        string                       `json:"LOGIN_NAME,omitempty"`
-	Password         string                       `json:"PASSWORD,omitempty"`
-	RawSAMLResponse  string                       `json:"RAW_SAML_RESPONSE,omitempty"`
+	ClientAppID       string                       `json:"CLIENT_APP_ID"`
+	ClientAppVersion  string                       `json:"CLIENT_APP_VERSION"`
+	SvnRevision       string                       `json:"SVN_REVISION"`
+	AccoutName        string                       `json:"ACCOUNT_NAME"`
+	LoginName         string                       `json:"LOGIN_NAME,omitempty"`
+	Password          string                       `json:"PASSWORD,omitempty"`
+	RawSAMLResponse   string                       `json:"RAW_SAML_RESPONSE,omitempty"`
 	ExtAuthnDuoMethod string                       `json:"EXT_AUTHN_DUO_METHOD,omitempty"`
 	Passcode          string                       `json:"PASSCODE,omitempty"`
 	ClientEnvironment authRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
@@ -50,8 +50,8 @@ type authResponseMain struct {
 	ValidityInSeconds       time.Duration           `json:"validityInSeconds,omitempty"`
 	MasterToken             string                  `json:"maxterToken,omitempty"`
 	MasterValidityInSeconds time.Duration           `json:"masterValidityInSeconds"`
-	DisplayUserName        string                  `json:"displayUserName"`
-	ServerVersion          string                  `json:"serverVersion"`
+	DisplayUserName         string                  `json:"displayUserName"`
+	ServerVersion           string                  `json:"serverVersion"`
 	FirstLogin              bool                    `json:"firstLogin"`
 	RemMeToken              string                  `json:"remMeToken"`
 	RemMeValidityInSeconds  time.Duration           `json:"remMeValidityInSeconds"`
@@ -70,20 +70,20 @@ type authResponse struct {
 
 // Authenticate is used to authenticate user to gain accesss to Snowflake database.
 func Authenticate(
-  sr *snowflakeRestful,
-  user string,
-  password string,
-  account string,
-  database string,
-  schema string,
-  warehouse string,
-  role string,
-  passcode string,
-  passcodeInPassword bool,
-  samlResponse string,
-  mfaCallback string,
-  passwordCallback string,
-  sessionParameters map[string]string) (resp *AuthResponseSessionInfo, err error) {
+	sr *snowflakeRestful,
+	user string,
+	password string,
+	account string,
+	database string,
+	schema string,
+	warehouse string,
+	role string,
+	passcode string,
+	passcodeInPassword bool,
+	samlResponse string,
+	mfaCallback string,
+	passwordCallback string,
+	sessionParameters map[string]string) (resp *AuthResponseSessionInfo, err error) {
 	log.Println("Authenticate")
 
 	if sr.Token != "" && sr.MasterToken != "" {

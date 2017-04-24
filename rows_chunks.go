@@ -114,9 +114,9 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 }
 
 func (scd *snowflakeChunkDownloader) get(
-  fullURL string,
-  headers map[string]string) (
-  *http.Response, error) {
+	fullURL string,
+	headers map[string]string) (
+	*http.Response, error) {
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		log.Fatal(err)

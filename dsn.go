@@ -90,10 +90,10 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				return
 			}
 			if secondSlash {
-				cfg.Database = dsn[posSecondSlash+1: i]
-				cfg.Schema = dsn[i+1: posQuestion]
+				cfg.Database = dsn[posSecondSlash+1 : i]
+				cfg.Schema = dsn[i+1 : posQuestion]
 			} else {
-				cfg.Database = dsn[posSecondSlash+1: posQuestion]
+				cfg.Database = dsn[posSecondSlash+1 : posQuestion]
 				cfg.Schema = "public"
 			}
 			done = true
@@ -162,14 +162,14 @@ func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string
 	var k int
 	for k = posAt + 1; k < posSlash; k++ {
 		if dsn[k] == ':' {
-			port, err = strconv.Atoi(dsn[k+1: posSlash])
+			port, err = strconv.Atoi(dsn[k+1 : posSlash])
 			if err != nil {
 				return
 			}
 			break
 		}
 	}
-	host = dsn[posAt+1: k]
+	host = dsn[posAt+1 : k]
 	if port == 0 && !strings.HasSuffix(host, "snowflakecomputing.com") {
 		// account name is specified instead of host:port
 		account = host
@@ -188,7 +188,7 @@ func parseUserPassword(posAt int, dsn string) (user, password string, err error)
 	var k int
 	for k = 0; k < posAt; k++ {
 		if dsn[k] == ':' {
-			password = dsn[k+1: posAt]
+			password = dsn[k+1 : posAt]
 			break
 		}
 	}
