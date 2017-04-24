@@ -284,7 +284,7 @@ func TestFloat32(t *testing.T) {
 func TestFloat64(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
-		var expected float64 = 42.23
+		expected := 42.23
 		var out float64
 		var rows *sql.Rows
 		for _, v := range types {
@@ -307,7 +307,7 @@ func TestFloat64(t *testing.T) {
 func TestFloat64Placeholder(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
-		var expected float64 = 42.23
+		expected := 42.23
 		var out float64
 		var rows *sql.Rows
 		for _, v := range types {
@@ -661,7 +661,7 @@ func TestLargeSetResult(t *testing.T) {
 		defer rows.Close()
 		cnt := 0
 		for rows.Next() {
-			cnt += 1
+			cnt++
 		}
 		if cnt != numrows {
 			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", cnt, numrows)

@@ -137,14 +137,13 @@ func Authenticate(
 		params.Add("roleName", url.QueryEscape(role))
 	}
 
-	var json_body []byte
-	json_body, err = json.Marshal(authRequest)
+	jsonBody, err := json.Marshal(authRequest)
 	if err != nil {
 		return
 	}
 
 	log.Printf("PARAMS for Auth: %v", params)
-	respd, err := sr.PostAuth(params, headers, json_body, sr.LoginTimeout)
+	respd, err := sr.PostAuth(params, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		// TODO: error handing, Forbidden 403, BadGateway 504, ServiceUnavailable 503
 		return nil, err

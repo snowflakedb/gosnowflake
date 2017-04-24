@@ -1,8 +1,7 @@
-// Go Snowflake Driver - Snowflake driver for Go's database/sql package
+// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
 //
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
 //
-
 package gosnowflake
 
 import (
@@ -10,14 +9,13 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 )
 
+// SnowflakeDriver is a context of Go Driver
 type SnowflakeDriver struct{}
 
-type DialFunc func(addr string) (net.Conn, error)
-
+// Open creates a new connection.
 func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	log.Println("Open")
 	var err error
