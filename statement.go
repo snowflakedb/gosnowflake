@@ -6,7 +6,8 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
-	"log"
+
+	"github.com/golang/glog"
 )
 
 type snowflakeStmt struct {
@@ -15,21 +16,21 @@ type snowflakeStmt struct {
 }
 
 func (stmt *snowflakeStmt) Close() error {
-	log.Println("Stmt.Close")
+	glog.V(2).Infoln("Stmt.Close")
 	return nil
 }
 
 func (stmt *snowflakeStmt) NumInput() int {
-	log.Println("Stmt.NumInput")
+	glog.V(2).Infoln("Stmt.NumInput")
 	return -1
 }
 
 func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
-	log.Println("Stmt.Exec")
+	glog.V(2).Infoln("Stmt.Exec")
 	return stmt.sc.Exec(stmt.query, args)
 }
 
 func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
-	log.Println("Stmt.Query")
+	glog.V(2).Infoln("Stmt.Query")
 	return stmt.sc.Query(stmt.query, args)
 }

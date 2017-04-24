@@ -7,11 +7,12 @@ package gosnowflake
 import (
 	"database/sql/driver"
 	"fmt"
-	"log"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang/glog"
 )
 
 func goTypeToSnowflake(v interface{}) string {
@@ -35,7 +36,7 @@ func goTypeToSnowflake(v interface{}) string {
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
 func valueToString(v interface{}) (*string, error) {
-	log.Printf("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
+	glog.V(2).Infof("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	if v == nil {
 		return nil, nil
 	}
@@ -69,7 +70,7 @@ func valueToString(v interface{}) (*string, error) {
 // stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
 // data.
 func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcValue *string) error {
-	// log.Printf("DATA TYPE: %s, VALUE: % s", srcColumnMeta.Type, srcValue)
+	// glog.V(2).Infof("DATA TYPE: %s, VALUE: % s", srcColumnMeta.Type, srcValue)
 	if srcValue == nil {
 		dest = nil
 		return nil
@@ -89,7 +90,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		var i int
 		var sec, nsec int64
 		var err error
-		log.Printf("SRC: %v", srcValue)
+		glog.V(2).Infof("SRC: %v", srcValue)
 		for i = 0; i < len(*srcValue); i++ {
 			if (*srcValue)[i] == '.' {
 				sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
@@ -116,7 +117,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
-		log.Printf("SEC: %v, NSEC: %v", sec, nsec)
+		glog.V(2).Infof("SEC: %v, NSEC: %v", sec, nsec)
 		t0 := time.Time{}
 		*dest = t0.Add(time.Duration(sec*1e9 + nsec))
 		return nil
@@ -124,7 +125,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		var i int
 		var sec, nsec int64
 		var err error
-		log.Printf("SRC: %v", srcValue)
+		glog.V(2).Infof("SRC: %v", srcValue)
 		for i = 0; i < len(*srcValue); i++ {
 			if (*srcValue)[i] == '.' {
 				sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
@@ -151,7 +152,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
-		log.Printf("SEC: %v, NSEC: %v", sec, nsec)
+		glog.V(2).Infof("SEC: %v, NSEC: %v", sec, nsec)
 		*dest = time.Unix(sec, nsec).UTC()
 		return nil
 	case "timestamp_ltz":
