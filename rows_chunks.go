@@ -1,8 +1,7 @@
-// Go Snowflake Driver - Snowflake driver for Go's database/sql package
+// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
 //
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
 //
-
 package gosnowflake
 
 import (
@@ -115,10 +114,10 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 }
 
 func (scd *snowflakeChunkDownloader) get(
-  fullUrl string,
+  fullURL string,
   headers map[string]string) (
   *http.Response, error) {
-	req, err := http.NewRequest("GET", fullUrl, nil)
+	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
@@ -142,7 +141,7 @@ func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
 	defer resp.Body.Close()
 	log.Printf("download end: %v", idx)
 	if resp.StatusCode == http.StatusOK {
-		log.Printf("download: resp: %s", resp)
+		log.Printf("download: resp: %v", resp)
 		// TODO: optimize the memory usage
 		var respd [][]*string
 		b, err := ioutil.ReadAll(resp.Body)
@@ -160,7 +159,7 @@ func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
 		scd.ChunksMutex.Unlock()
 	} else {
 		// TODO: better error handing and retry
-		log.Printf("download: resp: %s", resp)
+		log.Printf("download: resp: %v", resp)
 		b, err := ioutil.ReadAll(resp.Body)
 		log.Printf("b RESPONSE: %s", b)
 		if err != nil {

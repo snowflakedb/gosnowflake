@@ -1,8 +1,7 @@
-// Go Snowflake Driver - Snowflake driver for Go's database/sql package
+// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
 //
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
 //
-
 package gosnowflake
 
 import (
@@ -19,8 +18,8 @@ type snowflakeConn struct {
 	cfg            *Config
 	rest           *snowflakeRestful
 	SequeceCounter uint64
-	QueryId        string
-	SqlState       string
+	QueryID        string
+	SQLState       string
 }
 
 func (sc *snowflakeConn) isDml(v int64) bool {
@@ -68,14 +67,13 @@ func (sc *snowflakeConn) exec(
 		headers[HeaderAuthorizationKey] = fmt.Sprintf(HeaderSnowflakeToken, sc.rest.Token)
 	}
 
-	var json_body []byte
-	json_body, err = json.Marshal(req)
+	jsonBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
 	var data *ExecResponse
-	data, err = sc.rest.PostQuery(params, headers, json_body, sc.rest.RequestTimeout)
+	data, err = sc.rest.PostQuery(params, headers, jsonBody, sc.rest.RequestTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -93,19 +91,18 @@ func (sc *snowflakeConn) exec(
 	if !data.Success {
 		return nil, &SnowflakeError{
 			Number:   code,
-			SqlState: data.Data.SqlState,
+			SQLState: data.Data.SqlState,
 			Message:  data.Message,
-			QueryId:  data.Data.QueryId,
+			QueryID:  data.Data.QueryId,
 		}
-	} else {
-		log.Printf("Exec/Query SUCCESS: %v")
-		sc.cfg.Database = data.Data.FinalDatabaseName
-		sc.cfg.Schema = data.Data.FinalSchemaName
-		sc.cfg.Role = data.Data.FinalRoleName
-		sc.cfg.Warehouse = data.Data.FinalWarehouseName
-		sc.QueryId = data.Data.QueryId
-		sc.SqlState = data.Data.SqlState
 	}
+	log.Print("Exec/Query SUCCESS")
+	sc.cfg.Database = data.Data.FinalDatabaseName
+	sc.cfg.Schema = data.Data.FinalSchemaName
+	sc.cfg.Role = data.Data.FinalRoleName
+	sc.cfg.Warehouse = data.Data.FinalWarehouseName
+	sc.QueryID = data.Data.QueryId
+	sc.SQLState = data.Data.SqlState
 	return data, err
 }
 

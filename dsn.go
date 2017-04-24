@@ -1,4 +1,4 @@
-// Go Snowflake Driver - Snowflake driver for Go's database/sql package
+// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
 //
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
 //
@@ -152,7 +152,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	if cfg.Password == "" {
 		return nil, ErrEmptyPassword
 	}
-	log.Printf("ParseDSN: %s\n", cfg) // TODO: hide password
+	log.Printf("ParseDSN: %v\n", cfg) // TODO: hide password
 	return cfg, nil
 }
 

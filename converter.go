@@ -1,13 +1,11 @@
-// Go Snowflake Driver - Snowflake driver for Go's database/sql package
+// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
 //
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
 //
-
 package gosnowflake
 
 import (
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -65,7 +63,7 @@ func valueToString(v interface{}) (*string, error) {
 		s := v1.String()
 		return &s, nil
 	}
-	return nil, errors.New(fmt.Sprintf("Unexpected type is given: %v", v1.Kind()))
+	return nil, fmt.Errorf("Unexpected type is given: %v", v1.Kind())
 }
 
 // stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
@@ -91,7 +89,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta ExecResponseRowType, srcVal
 		var i int
 		var sec, nsec int64
 		var err error
-		log.Printf("SRC: %s", srcValue)
+		log.Printf("SRC: %v", srcValue)
 		for i = 0; i < len(*srcValue); i++ {
 			if (*srcValue)[i] == '.' {
 				sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
@@ -118,7 +116,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta ExecResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
-		log.Printf("SEC: %s, NSEC: %s", sec, nsec)
+		log.Printf("SEC: %v, NSEC: %v", sec, nsec)
 		t0 := time.Time{}
 		*dest = t0.Add(time.Duration(sec*1e9 + nsec))
 		return nil
@@ -126,7 +124,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta ExecResponseRowType, srcVal
 		var i int
 		var sec, nsec int64
 		var err error
-		log.Printf("SRC: %s", srcValue)
+		log.Printf("SRC: %v", srcValue)
 		for i = 0; i < len(*srcValue); i++ {
 			if (*srcValue)[i] == '.' {
 				sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
@@ -153,7 +151,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta ExecResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
-		log.Printf("SEC: %s, NSEC: %s", sec, nsec)
+		log.Printf("SEC: %v, NSEC: %v", sec, nsec)
 		*dest = time.Unix(sec, nsec).UTC()
 		return nil
 	case "timestamp_ltz":

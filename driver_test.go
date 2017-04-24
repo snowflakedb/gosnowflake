@@ -21,7 +21,6 @@ var (
 	host       string
 	port       string
 	protocol   string
-	available  bool
 )
 
 // The tests require the following parameters in the environment variables.
@@ -110,7 +109,10 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 	}
 	defer db.Close()
 
-	db.Exec("DROP TABLE IF EXISTS test")
+	_, err = db.Exec("DROP TABLE IF EXISTS test")
+	if err != nil {
+		t.Fatalf("failed to drop table: %v", err)
+	}
 
 	dbt := &DBTest{t, db}
 	for _, test := range tests {
@@ -282,7 +284,7 @@ func TestFloat32(t *testing.T) {
 func TestFloat64(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
-		var expected float64 = 42.23
+		expected := 42.23
 		var out float64
 		var rows *sql.Rows
 		for _, v := range types {
@@ -305,7 +307,7 @@ func TestFloat64(t *testing.T) {
 func TestFloat64Placeholder(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
-		var expected float64 = 42.23
+		expected := 42.23
 		var out float64
 		var rows *sql.Rows
 		for _, v := range types {
@@ -659,7 +661,7 @@ func TestLargeSetResult(t *testing.T) {
 		defer rows.Close()
 		cnt := 0
 		for rows.Next() {
-			cnt += 1
+			cnt++
 		}
 		if cnt != numrows {
 			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", cnt, numrows)
@@ -670,43 +672,66 @@ func TestLargeSetResult(t *testing.T) {
 func TestDML(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test(c1 int, c2 string)")
-		tx, err := dbt.db.Begin()
-		if err != nil {
-			dbt.Fatalf("failed to begin transaction: %v", err)
-		}
-		res, err := tx.Exec("INSERT INTO test VALUES(1, 'test1'), (2, 'test2')")
-		if err != nil {
-			dbt.Fatalf("failed to insert value into test: %v", err)
-		}
-		n, err := res.RowsAffected()
-		if err != nil {
-			dbt.Fatalf("failed to rows affected: %v", err)
-		}
-		if n != 2 {
-			dbt.Fatalf("failed to insert value into test. expected: 2, got: %v", n)
-		}
-		results, err := queryTestTx(tx)
-		if err != nil {
-			dbt.Fatalf("failed to query test table: %v", err)
-		}
-		if len(*results) != 2 {
-			dbt.Fatalf("number of returned data didn't match. expected 2, got: %v", len(*results))
-		}
-		tx.Rollback()
-		results, err = queryTest(dbt)
+		err := insertData(dbt, false)
+		results, err := queryTest(dbt)
 		if err != nil {
 			dbt.Fatalf("failed to query test table: %v", err)
 		}
 		if len(*results) != 0 {
 			dbt.Fatalf("number of returned data didn't match. expected 0, got: %v", len(*results))
 		}
+		err = insertData(dbt, true)
+		results, err = queryTest(dbt)
+		if err != nil {
+			dbt.Fatalf("failed to query test table: %v", err)
+		}
+		if len(*results) != 2 {
+			dbt.Fatalf("number of returned data didn't match. expected 2, got: %v", len(*results))
+		}
 	})
+}
+func insertData(dbt *DBTest, commit bool) error {
+	tx, err := dbt.db.Begin()
+	if err != nil {
+		dbt.Fatalf("failed to begin transaction: %v", err)
+	}
+	res, err := tx.Exec("INSERT INTO test VALUES(1, 'test1'), (2, 'test2')")
+	if err != nil {
+		dbt.Fatalf("failed to insert value into test: %v", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		dbt.Fatalf("failed to rows affected: %v", err)
+	}
+	if n != 2 {
+		dbt.Fatalf("failed to insert value into test. expected: 2, got: %v", n)
+	}
+	results, err := queryTestTx(tx)
+	if err != nil {
+		dbt.Fatalf("failed to query test table: %v", err)
+	}
+	if len(*results) != 2 {
+		dbt.Fatalf("number of returned data didn't match. expected 2, got: %v", len(*results))
+	}
+	if commit {
+		err = tx.Commit()
+		if err != nil {
+			return err
+		}
+	} else {
+		err = tx.Rollback()
+		if err != nil {
+			return err
+		}
+	}
+	return err
 }
 
 func queryTestTx(tx *sql.Tx) (*map[int]string, error) {
 	var c1 int
 	var c2 string
 	rows, err := tx.Query("SELECT c1, c2 FROM test")
+	defer rows.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -721,11 +746,11 @@ func queryTestTx(tx *sql.Tx) (*map[int]string, error) {
 	return &results, nil
 }
 
-
 func queryTest(dbt *DBTest) (*map[int]string, error) {
 	var c1 int
 	var c2 string
 	rows, err := dbt.db.Query("SELECT c1, c2 FROM test")
+	defer rows.Close()
 	if err != nil {
 		return nil, err
 	}
