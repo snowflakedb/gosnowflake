@@ -355,13 +355,13 @@ func TestString(t *testing.T) {
 
 		id := 2
 		in = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
-		  "sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
-		  "sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
-		  "Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. " +
-		  "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
-		  "sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
-		  "sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
-		  "Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet."
+			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
+			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
+			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. " +
+			"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
+			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
+			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
+			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet."
 		dbt.mustExec("INSERT INTO test VALUES (?, ?)", id, in)
 
 		err := dbt.db.QueryRow("SELECT value FROM test WHERE id = ?", id).Scan(&out)
@@ -655,11 +655,7 @@ func TestNULL(t *testing.T) {
 func TestLargeSetResult(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		numrows := 10000
-		rows, err := dbt.db.Query(
-			fmt.Sprintf("SELECT RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
-		if err != nil {
-			dbt.Fatalf("Failed to execute a simple large set result query: %v", err)
-		}
+		rows := dbt.mustQuery(fmt.Sprintf("SELECT RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
 		defer rows.Close()
 		cnt := 0
 		for rows.Next() {
@@ -669,4 +665,77 @@ func TestLargeSetResult(t *testing.T) {
 			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", cnt, numrows)
 		}
 	})
+}
+
+func TestDML(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("CREATE OR REPLACE TABLE test(c1 int, c2 string)")
+		tx, err := dbt.db.Begin()
+		if err != nil {
+			dbt.Fatalf("failed to begin transaction: %v", err)
+		}
+		res, err := tx.Exec("INSERT INTO test VALUES(1, 'test1'), (2, 'test2')")
+		if err != nil {
+			dbt.Fatalf("failed to insert value into test: %v", err)
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			dbt.Fatalf("failed to rows affected: %v", err)
+		}
+		if n != 2 {
+			dbt.Fatalf("failed to insert value into test. expected: 2, got: %v", n)
+		}
+		results, err := queryTestTx(tx)
+		if err != nil {
+			dbt.Fatalf("failed to query test table: %v", err)
+		}
+		if len(*results) != 2 {
+			dbt.Fatalf("number of returned data didn't match. expected 2, got: %v", len(*results))
+		}
+		tx.Rollback()
+		results, err = queryTest(dbt)
+		if err != nil {
+			dbt.Fatalf("failed to query test table: %v", err)
+		}
+		if len(*results) != 0 {
+			dbt.Fatalf("number of returned data didn't match. expected 0, got: %v", len(*results))
+		}
+	})
+}
+
+func queryTestTx(tx *sql.Tx) (*map[int]string, error) {
+	var c1 int
+	var c2 string
+	rows, err := tx.Query("SELECT c1, c2 FROM test")
+	if err != nil {
+		return nil, err
+	}
+	results := make(map[int]string, 2)
+	for rows.Next() {
+		err := rows.Scan(&c1, &c2)
+		if err != nil {
+			return nil, err
+		}
+		results[c1] = c2
+	}
+	return &results, nil
+}
+
+
+func queryTest(dbt *DBTest) (*map[int]string, error) {
+	var c1 int
+	var c2 string
+	rows, err := dbt.db.Query("SELECT c1, c2 FROM test")
+	if err != nil {
+		return nil, err
+	}
+	results := make(map[int]string, 2)
+	for rows.Next() {
+		err := rows.Scan(&c1, &c2)
+		if err != nil {
+			return nil, err
+		}
+		results[c1] = c2
+	}
+	return &results, nil
 }
