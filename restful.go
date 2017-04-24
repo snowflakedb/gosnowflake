@@ -38,7 +38,7 @@ type snowflakeRestful struct {
 	Client      *http.Client
 	Token       string
 	MasterToken string
-	SessionId   int
+	SessionID   int
 
 	Connection *snowflakeConn
 }
@@ -64,7 +64,7 @@ func (sr *snowflakeRestful) PostQuery(
   headers map[string]string,
   body []byte,
   timeout time.Duration) (
-  data *ExecResponse, err error) {
+  data *execResponse, err error) {
 	log.Printf("PARAMS: %v, BODY: %v", params, body)
 	uuid := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
 	fullURL := fmt.Sprintf(
@@ -77,25 +77,24 @@ func (sr *snowflakeRestful) PostQuery(
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		log.Printf("PostQuery: resp: %v", resp)
-		var respd ExecResponse
+		var respd execResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
 		}
 		return &respd, nil
-	} else {
-		// TODO: better error handing and retry
-		log.Printf("PostQuery: resp: %v", resp)
-		b, err := ioutil.ReadAll(resp.Body)
-		log.Printf("b RESPONSE: %s", b)
-		if err != nil {
-			log.Fatal(err)
-			return nil, err
-		}
-		log.Printf("ERROR RESPONSE: %v", b)
+	}
+	// TODO: better error handing and retry
+	log.Printf("PostQuery: resp: %v", resp)
+	b, err := ioutil.ReadAll(resp.Body)
+	log.Printf("b RESPONSE: %s", b)
+	if err != nil {
+		log.Fatal(err)
 		return nil, err
 	}
+	log.Printf("ERROR RESPONSE: %v", b)
+	return nil, err
 }
 
 func (sr *snowflakeRestful) PostAuth(
@@ -105,11 +104,11 @@ func (sr *snowflakeRestful) PostAuth(
   timeout time.Duration) (
   data *authResponse, err error) {
 	uuid := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
-	fullUrl := fmt.Sprintf(
+	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/session/v1/login-request?"+uuid+"&"+params.Encode())
-	log.Printf("fullURL: %v", fullUrl)
-	resp, err := sr.post(fullUrl, headers, body)
+	log.Printf("fullURL: %v", fullURL)
+	resp, err := sr.post(fullURL, headers, body)
 	if err != nil {
 		return nil, err
 	}
@@ -123,15 +122,13 @@ func (sr *snowflakeRestful) PostAuth(
 			return nil, err
 		}
 		return &respd, nil
-	} else {
-		// TODO: better error handing and retry
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatal(err)
-			return nil, err
-		}
-		log.Printf("ERROR RESPONSE: %v", b)
-		return nil, err
-
 	}
+	// TODO: better error handing and retry
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	log.Printf("ERROR RESPONSE: %v", b)
+	return nil, err
 }

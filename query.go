@@ -13,7 +13,7 @@ type execBindParameter struct {
 	Value *string `json:"value"`
 }
 
-type ExecRequest struct {
+type execRequest struct {
 	SQLText    string `json:"sqlText"`
 	AsyncExec  bool `json:"asyncExec"`
 	SequenceID uint64 `json:"sequenceId"`
@@ -36,7 +36,7 @@ type execResponseChunk struct {
 	RowCount int `json:"rowCount"`
 }
 
-type ExecResponseData struct {
+type execResponseData struct {
 	Parameters         json.RawMessage `json:"parameters"`
 	RowType            []execResponseRowType `json:"rowtype"`
 	RowSet             [][]*string `json:"rowset"`
@@ -56,8 +56,8 @@ type ExecResponseData struct {
 	Qrmk               string `json:"qrmk,omitempty"`
 }
 
-type ExecResponse struct {
-	Data    ExecResponseData `json:"Data"`
+type execResponse struct {
+	Data    execResponseData `json:"Data"`
 	Message string `json:"message"`
 	Code    string `json:"code"`
 	Success bool `json:"success"`

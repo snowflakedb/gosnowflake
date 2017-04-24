@@ -92,18 +92,18 @@ func Authenticate(
 	}
 
 	headers := make(map[string]string)
-	headers["Content-Type"] = ContentTypeApplicationJson
-	headers["accept"] = AcceptTypeAppliationSnowflake
+	headers["Content-Type"] = headerContentTypeApplicationJSON
+	headers["accept"] = headerAcceptTypeAppliationSnowflake
 	headers["User-Agent"] = UserAgent
 
 	clientEnvironment := authRequestClientEnvironment{
-		Application: ClientType,
-		OsVersion:   OSVersion,
+		Application: clientType,
+		OsVersion:   osVersion,
 	}
 
 	requestMain := authRequestData{
-		ClientAppID:       ClientType,
-		ClientAppVersion:  ClientVersion,
+		ClientAppID:       clientType,
+		ClientAppVersion:  clientVersion,
 		SvnRevision:       "",
 		AccoutName:        account,
 		ClientEnvironment: clientEnvironment,
@@ -154,12 +154,12 @@ func Authenticate(
 		log.Println("Authentication SUCCES")
 		sr.Token = respd.Data.Token
 		sr.MasterToken = respd.Data.MasterToken
-		sr.SessionId = respd.Data.SessionID
+		sr.SessionID = respd.Data.SessionID
 	} else {
 		log.Println("Authentication FAILED")
 		sr.Token = ""
 		sr.MasterToken = ""
-		sr.SessionId = -1
+		sr.SessionID = -1
 	}
 
 	return &respd.Data.SessionInfo, nil
