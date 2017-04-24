@@ -7,7 +7,6 @@ package gosnowflake
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strconv"
 	"sync/atomic"
@@ -63,10 +62,6 @@ func (sc *snowflakeConn) exec(
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeAppliationSnowflake // TODO: change to JSON in case of PUT/GET
 	headers["User-Agent"] = UserAgent
-
-	if sc.rest.Token != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sc.rest.Token)
-	}
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {

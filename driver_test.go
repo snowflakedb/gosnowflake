@@ -669,6 +669,21 @@ func TestLargeSetResult(t *testing.T) {
 	})
 }
 
+func TestPingpongQuery(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		numrows := 1
+		rows := dbt.mustQuery("SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 60))")
+		defer rows.Close()
+		cnt := 0
+		for rows.Next() {
+			cnt++
+		}
+		if cnt != numrows {
+			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", cnt, numrows)
+		}
+	})
+}
+
 func TestDML(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test(c1 int, c2 string)")
