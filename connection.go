@@ -38,19 +38,19 @@ func (sc *snowflakeConn) exec(
 	counter := atomic.AddUint64(&sc.SequeceCounter, 1)
 
 	req := ExecRequest{
-		SqlText:    query,
+		SQLText:    query,
 		AsyncExec:  noResult,
-		SequenceId: counter,
+		SequenceID: counter,
 	}
 	req.IsInternal = isInternal
 	if len(parameters) > 0 {
-		req.Bindings = make(map[string]ExecBindParameter, len(parameters))
+		req.Bindings = make(map[string]execBindParameter, len(parameters))
 		for i, n := 0, len(parameters); i < n; i++ {
 			v1, err := valueToString(parameters[i])
 			if err != nil {
 				return nil, err
 			}
-			req.Bindings[strconv.Itoa(i+1)] = ExecBindParameter{
+			req.Bindings[strconv.Itoa(i+1)] = execBindParameter{
 				Type:  goTypeToSnowflake(parameters[i]),
 				Value: v1,
 			}
@@ -91,9 +91,9 @@ func (sc *snowflakeConn) exec(
 	if !data.Success {
 		return nil, &SnowflakeError{
 			Number:   code,
-			SQLState: data.Data.SqlState,
+			SQLState: data.Data.SQLState,
 			Message:  data.Message,
-			QueryID:  data.Data.QueryId,
+			QueryID:  data.Data.QueryID,
 		}
 	}
 	log.Print("Exec/Query SUCCESS")
@@ -101,8 +101,8 @@ func (sc *snowflakeConn) exec(
 	sc.cfg.Schema = data.Data.FinalSchemaName
 	sc.cfg.Role = data.Data.FinalRoleName
 	sc.cfg.Warehouse = data.Data.FinalWarehouseName
-	sc.QueryID = data.Data.QueryId
-	sc.SQLState = data.Data.SqlState
+	sc.QueryID = data.Data.QueryID
+	sc.SQLState = data.Data.SQLState
 	return data, err
 }
 
@@ -135,7 +135,7 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 		return nil, err
 	}
 	var updatedRows int64
-	if sc.isDml(data.Data.StatementTypeId) {
+	if sc.isDml(data.Data.StatementTypeID) {
 		// collects all values from the returned row sets
 		updatedRows = 0
 		for i, n := 0, len(data.Data.RowType); i < n; i++ {

@@ -11,7 +11,7 @@ import (
 
 type snowflakeRows struct {
 	sc              *snowflakeConn
-	RowType         []ExecResponseRowType
+	RowType         []execResponseRowType
 	ChunkDownloader *snowflakeChunkDownloader
 }
 

@@ -28,7 +28,7 @@ type snowflakeChunkDownloader struct {
 	CurrentChunkIndex int
 	CurrentChunkSize  int
 	Client            *http.Client
-	ChunkMetas        []ExecResponseChunk
+	ChunkMetas        []execResponseChunk
 	Chunks            map[int][][]*string
 	ChunksMutex       *sync.Mutex
 	ChunksChan        chan int
@@ -133,7 +133,7 @@ func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
 	headers := make(map[string]string)
 	headers[HeaderSseCAlgorithm] = HeaderSseCAes
 	headers[HeaderSseCKey] = scd.Qrmk
-	resp, err := scd.get(scd.ChunkMetas[idx].Url, headers)
+	resp, err := scd.get(scd.ChunkMetas[idx].URL, headers)
 	if err != nil {
 		errc <- &chunkError{Index: idx, Error: err}
 		return

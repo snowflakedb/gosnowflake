@@ -8,20 +8,20 @@ import (
 	"encoding/json"
 )
 
-type ExecBindParameter struct {
+type execBindParameter struct {
 	Type  string `json:"type"`
 	Value *string `json:"value"`
 }
 
 type ExecRequest struct {
-	SqlText    string `json:"sqlText"`
+	SQLText    string `json:"sqlText"`
 	AsyncExec  bool `json:"asyncExec"`
-	SequenceId uint64 `json:"sequenceId"`
+	SequenceID uint64 `json:"sequenceId"`
 	IsInternal bool `json:"isInternal"`
 	Parameters map[string]string `json:"parameters,omitempty"`
-	Bindings   map[string]ExecBindParameter `json:"bindings,omitempty"`
+	Bindings   map[string]execBindParameter `json:"bindings,omitempty"`
 }
-type ExecResponseRowType struct {
+type execResponseRowType struct {
 	Name       string `json:"name"`
 	ByteLength int64 `json:"byteLength"` // TODO: check type
 	Length     int64 `json:"length"`     // TODO: check type
@@ -31,28 +31,28 @@ type ExecResponseRowType struct {
 	Nullable   bool `json:"nullable"`
 }
 
-type ExecResponseChunk struct {
-	Url      string `json:"url"`
+type execResponseChunk struct {
+	URL      string `json:"url"`
 	RowCount int `json:"rowCount"`
 }
 
 type ExecResponseData struct {
 	Parameters         json.RawMessage `json:"parameters"`
-	RowType            []ExecResponseRowType `json:"rowtype"`
+	RowType            []execResponseRowType `json:"rowtype"`
 	RowSet             [][]*string `json:"rowset"`
 	Total              int64 `json:"total"`    // java:long
 	Returned           int64 `json:"returned"` // java:long
-	QueryId            string `json:"queryId"`
-	SqlState           string `json:"sqlState"`
+	QueryID            string `json:"queryId"`
+	SQLState           string `json:"sqlState"`
 	DatabaseProvider   string `json:"databaseProvider"`
 	FinalDatabaseName  string `json:"finalDatabaseName"`
 	FinalSchemaName    string `json:"finalSchemaName"`
 	FinalWarehouseName string `json:"finalWarehouseName"`
 	FinalRoleName      string `json:"finalRoleName"`
 	NumberOfBinds      int `json:"numberOfBinds"`      // java:int
-	StatementTypeId    int64  `json:"statementTypeId"` // java:long
+	StatementTypeID    int64  `json:"statementTypeId"` // java:long
 	Version            int64 `json:"version"`          // java:long
-	Chunks             []ExecResponseChunk `json:"chunks,omitempty"`
+	Chunks             []execResponseChunk `json:"chunks,omitempty"`
 	Qrmk               string `json:"qrmk,omitempty"`
 }
 
