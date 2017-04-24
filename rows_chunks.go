@@ -131,8 +131,8 @@ func (scd *snowflakeChunkDownloader) get(
 func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
 	log.Printf("download start: %v", idx)
 	headers := make(map[string]string)
-	headers[HeaderSseCAlgorithm] = HeaderSseCAes
-	headers[HeaderSseCKey] = scd.Qrmk
+	headers[headerSseCAlgorithm] = headerSseCAes
+	headers[headerSseCKey] = scd.Qrmk
 	resp, err := scd.get(scd.ChunkMetas[idx].URL, headers)
 	if err != nil {
 		errc <- &chunkError{Index: idx, Error: err}

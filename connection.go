@@ -24,20 +24,20 @@ type snowflakeConn struct {
 
 func (sc *snowflakeConn) isDml(v int64) bool {
 	switch v {
-	case StatementTypeIdDml, StatementTypeIdInsert,
-		StatementTypeIdUpdate, StatementTypeIdDelete,
-		StatementTypeIdMerge, StatementTypeIdMultiTableInsert:
+	case statementTypeIDDml, statementTypeIDInsert,
+		statementTypeIDUpdate, statementTypeIDDelete,
+		statementTypeIDMerge, statementTypeIDMultiTableInsert:
 		return true
 	}
 	return false
 }
 
 func (sc *snowflakeConn) exec(
-  query string, noResult bool, isInternal bool, parameters []driver.Value) (*ExecResponse, error) {
+  query string, noResult bool, isInternal bool, parameters []driver.Value) (*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequeceCounter, 1)
 
-	req := ExecRequest{
+	req := execRequest{
 		SQLText:    query,
 		AsyncExec:  noResult,
 		SequenceID: counter,
@@ -59,12 +59,12 @@ func (sc *snowflakeConn) exec(
 	params := &url.Values{} // TODO: delete?
 
 	headers := make(map[string]string)
-	headers["Content-Type"] = ContentTypeApplicationJson
-	headers["accept"] = AcceptTypeAppliationSnowflake // TODO: change to JSON in case of PUT/GET
+	headers["Content-Type"] = headerContentTypeApplicationJSON
+	headers["accept"] = headerAcceptTypeAppliationSnowflake // TODO: change to JSON in case of PUT/GET
 	headers["User-Agent"] = UserAgent
 
 	if sc.rest.Token != "" {
-		headers[HeaderAuthorizationKey] = fmt.Sprintf(HeaderSnowflakeToken, sc.rest.Token)
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sc.rest.Token)
 	}
 
 	jsonBody, err := json.Marshal(req)
@@ -72,7 +72,7 @@ func (sc *snowflakeConn) exec(
 		return nil, err
 	}
 
-	var data *ExecResponse
+	var data *execResponse
 	data, err = sc.rest.PostQuery(params, headers, jsonBody, sc.rest.RequestTimeout)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 	log.Printf("number of updated rows: %#v", updatedRows)
 	return &snowflakeResult{
 		affectedRows: updatedRows,
-		insertId:     -1}, nil // last insert id is not supported by Snowflake
+		insertID:     -1}, nil // last insert id is not supported by Snowflake
 }
 
 func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, error) {

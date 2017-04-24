@@ -20,6 +20,14 @@ func (rows *snowflakeRows) Close() (err error) {
 	return nil
 }
 
+/*
+// ColumnTypeDatabaseTypeName returns the database column name.
+func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
+	// TODO: is this canonical name or can be Snowflake specific name?
+	return strings.ToUpper(rows.RowType[index].Name)
+}
+*/
+
 func (rows *snowflakeRows) Columns() []string {
 	log.Println("Rows.Columns")
 	ret := make([]string, len(rows.RowType))
