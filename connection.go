@@ -33,7 +33,7 @@ func (sc *snowflakeConn) isDml(v int64) bool {
 }
 
 func (sc *snowflakeConn) exec(
-  query string, noResult bool, isInternal bool, parameters []driver.Value) (*execResponse, error) {
+	query string, noResult bool, isInternal bool, parameters []driver.Value) (*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequeceCounter, 1)
 
@@ -108,7 +108,7 @@ func (sc *snowflakeConn) exec(
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	log.Println("Begin")
-	_, err:= sc.exec("BEGIN", false, false, nil)
+	_, err := sc.exec("BEGIN", false, false, nil)
 	if err != err {
 		return nil, err
 	}

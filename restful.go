@@ -8,12 +8,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/satori/go.uuid"
 )
 
 var snowflakeTransport = &http.Transport{
@@ -44,10 +45,10 @@ type snowflakeRestful struct {
 }
 
 func (sr *snowflakeRestful) post(
-  fullURL string,
-  headers map[string]string,
-  body []byte) (
-  *http.Response, error) {
+	fullURL string,
+	headers map[string]string,
+	body []byte) (
+	*http.Response, error) {
 	req, err := http.NewRequest("POST", fullURL, bytes.NewReader(body))
 	if err != nil {
 		log.Fatal(err)
@@ -60,11 +61,11 @@ func (sr *snowflakeRestful) post(
 }
 
 func (sr *snowflakeRestful) PostQuery(
-  params *url.Values,
-  headers map[string]string,
-  body []byte,
-  timeout time.Duration) (
-  data *execResponse, err error) {
+	params *url.Values,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration) (
+	data *execResponse, err error) {
 	log.Printf("PARAMS: %v, BODY: %v", params, body)
 	uuid := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
 	fullURL := fmt.Sprintf(
@@ -98,11 +99,11 @@ func (sr *snowflakeRestful) PostQuery(
 }
 
 func (sr *snowflakeRestful) PostAuth(
-  params *url.Values,
-  headers map[string]string,
-  body []byte,
-  timeout time.Duration) (
-  data *authResponse, err error) {
+	params *url.Values,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration) (
+	data *authResponse, err error) {
 	uuid := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
