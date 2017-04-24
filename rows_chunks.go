@@ -8,10 +8,11 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/golang/glog"
 )
 
 const maxPool = 10
@@ -52,13 +53,13 @@ func (scd *snowflakeChunkDownloader) Start() error {
 
 	// start downloading chunks if exists
 	if len(scd.ChunkMetas) > 0 {
-		log.Printf("chunks: %v", len(scd.ChunkMetas))
+		glog.V(2).Infof("chunks: %v", len(scd.ChunkMetas))
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.Chunks = make(map[int][][]*string)
 		scd.ChunksChan = make(chan int, maxPool)
 		scd.ChunkErrors = make(chan *chunkError, maxPool)
 		for i := 0; i < len(scd.ChunkMetas); i++ {
-			log.Printf("Adding %v", i)
+			glog.V(2).Infof("Adding %v", i)
 			scd.ChunksChan <- i
 		}
 		for i := 0; i < scd.min(maxPool, len(scd.ChunkMetas)); i++ {
@@ -72,7 +73,7 @@ func (scd *snowflakeChunkDownloader) Start() error {
 func (scd *snowflakeChunkDownloader) schedule() {
 	select {
 	case nextIdx := <-scd.ChunksChan:
-		log.Printf("schedule: %v", nextIdx)
+		glog.V(2).Infof("schedule: %v", nextIdx)
 		go scd.download(nextIdx, scd.ChunkErrors)
 	default:
 		// no more download
@@ -91,7 +92,7 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 			ticker := time.Tick(time.Millisecond * 10)
 			// TODO: Error handle
 			for _ = range ticker {
-				log.Printf(
+				glog.V(2).Infof(
 					"Waiting. chunk idx: %v/%v, got chunks: %v",
 					scd.CurrentChunkIndex, len(scd.ChunkMetas), len(scd.Chunks))
 				scd.ChunksMutex.Lock()
@@ -99,7 +100,7 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 				scd.ChunksMutex.Unlock()
 				if scd.CurrentChunk != nil {
 					// kick off the next download
-					log.Printf("ready")
+					glog.V(2).Infof("ready")
 					scd.CurrentChunkSize = len(scd.CurrentChunk)
 					break
 				}
@@ -109,7 +110,7 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 		}
 	}
 	// no more data
-	log.Printf("no more data")
+	glog.V(2).Infof("no more data")
 	return nil, io.EOF
 }
 
@@ -119,7 +120,7 @@ func (scd *snowflakeChunkDownloader) get(
 	*http.Response, error) {
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
-		log.Fatal(err)
+		glog.V(1).Infof("%v", err)
 		return nil, err
 	}
 	for k, v := range headers {
@@ -129,7 +130,7 @@ func (scd *snowflakeChunkDownloader) get(
 }
 
 func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
-	log.Printf("download start: %v", idx)
+	glog.V(2).Infof("download start: %v", idx)
 	headers := make(map[string]string)
 	headers[headerSseCAlgorithm] = headerSseCAes
 	headers[headerSseCKey] = scd.Qrmk
@@ -139,9 +140,9 @@ func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
 		return
 	}
 	defer resp.Body.Close()
-	log.Printf("download end: %v", idx)
+	glog.V(2).Infof("download end: %v", idx)
 	if resp.StatusCode == http.StatusOK {
-		log.Printf("download: resp: %v", resp)
+		glog.V(2).Infof("download: resp: %v", resp)
 		// TODO: optimize the memory usage
 		var respd [][]*string
 		b, err := ioutil.ReadAll(resp.Body)
@@ -150,7 +151,7 @@ func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
 		r = append(r, 0x5d)
 		err = json.Unmarshal(r, &respd)
 		if err != nil {
-			log.Fatal(err)
+			glog.V(1).Infof("%v", err)
 			errc <- &chunkError{Index: idx, Error: err}
 			return
 		}
@@ -159,15 +160,15 @@ func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
 		scd.ChunksMutex.Unlock()
 	} else {
 		// TODO: better error handing and retry
-		log.Printf("download: resp: %v", resp)
+		glog.V(2).Infof("download: resp: %v", resp)
 		b, err := ioutil.ReadAll(resp.Body)
-		log.Printf("b RESPONSE: %s", b)
+		glog.V(2).Infof("b RESPONSE: %s", b)
 		if err != nil {
-			log.Fatal(err)
+			glog.V(1).Infof("%v", err)
 			errc <- &chunkError{Index: idx, Error: err}
 			return
 		}
-		log.Printf("ERROR RESPONSE: %s", b)
+		glog.V(2).Infof("ERROR RESPONSE: %s", b)
 		errc <- &chunkError{Index: idx, Error: err}
 	}
 }

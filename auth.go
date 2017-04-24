@@ -7,9 +7,10 @@ package gosnowflake
 
 import (
 	"encoding/json"
-	"log"
 	"net/url"
 	"time"
+
+	"github.com/golang/glog"
 )
 
 type authRequestClientEnvironment struct {
@@ -84,10 +85,10 @@ func Authenticate(
 	mfaCallback string,
 	passwordCallback string,
 	sessionParameters map[string]string) (resp *AuthResponseSessionInfo, err error) {
-	log.Println("Authenticate")
+	glog.V(2).Info("Authenticate")
 
 	if sr.Token != "" && sr.MasterToken != "" {
-		log.Println("Tokens are already available.")
+		glog.V(2).Infoln("Tokens are already available.")
 		return nil, nil
 	}
 
@@ -144,19 +145,19 @@ func Authenticate(
 		return
 	}
 
-	log.Printf("PARAMS for Auth: %v", params)
+	glog.V(2).Infof("PARAMS for Auth: %v", params)
 	respd, err := sr.PostAuth(params, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		// TODO: error handing, Forbidden 403, BadGateway 504, ServiceUnavailable 503
 		return nil, err
 	}
 	if respd.Success {
-		log.Println("Authentication SUCCES")
+		glog.V(2).Info("Authentication SUCCES")
 		sr.Token = respd.Data.Token
 		sr.MasterToken = respd.Data.MasterToken
 		sr.SessionID = respd.Data.SessionID
 	} else {
-		log.Println("Authentication FAILED")
+		glog.V(1).Infoln("Authentication FAILED")
 		sr.Token = ""
 		sr.MasterToken = ""
 		sr.SessionID = -1

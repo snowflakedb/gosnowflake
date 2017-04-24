@@ -8,8 +8,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"log"
 	"net/http"
+
+	"github.com/golang/glog"
 )
 
 // SnowflakeDriver is a context of Go Driver
@@ -17,7 +18,7 @@ type SnowflakeDriver struct{}
 
 // Open creates a new connection.
 func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
-	log.Println("Open")
+	glog.V(2).Info("Open")
 	var err error
 	sc := &snowflakeConn{
 		SequeceCounter: 0,
@@ -55,7 +56,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	log.Printf("SessionInfo: %v", sessionInfo)
+	glog.V(2).Infof("SessionInfo: %v", sessionInfo)
 	sc.cfg.Database = sessionInfo.DatabaseName
 	sc.cfg.Schema = sessionInfo.SchemaName
 	sc.cfg.Role = sessionInfo.RoleName
@@ -63,7 +64,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 
 	v := sc.cfg.Params["timezone"]
 	if v != "" {
-		log.Printf("Setting Timezone: %s", sc.cfg.Params["timezone"])
+		glog.V(2).Infof("Setting Timezone: %s", sc.cfg.Params["timezone"])
 		p := make([]driver.Value, 0)
 		_, err := sc.Exec(fmt.Sprintf("ALTER SESSION SET TIMEZONE='%s'", sc.cfg.Params["timezone"]), p)
 		if err != nil {

@@ -8,10 +8,11 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/url"
 	"strconv"
 	"sync/atomic"
+
+	"github.com/golang/glog"
 )
 
 type snowflakeConn struct {
@@ -87,7 +88,7 @@ func (sc *snowflakeConn) exec(
 	} else {
 		code = -1
 	}
-	log.Printf("Success: %v, Code: %v", data.Success, code)
+	glog.V(2).Infof("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
 		return nil, &SnowflakeError{
 			Number:   code,
@@ -96,7 +97,7 @@ func (sc *snowflakeConn) exec(
 			QueryID:  data.Data.QueryID,
 		}
 	}
-	log.Print("Exec/Query SUCCESS")
+	glog.V(2).Info("Exec/Query SUCCESS")
 	sc.cfg.Database = data.Data.FinalDatabaseName
 	sc.cfg.Schema = data.Data.FinalSchemaName
 	sc.cfg.Role = data.Data.FinalRoleName
@@ -107,7 +108,7 @@ func (sc *snowflakeConn) exec(
 }
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
-	log.Println("Begin")
+	glog.V(2).Info("Begin")
 	_, err := sc.exec("BEGIN", false, false, nil)
 	if err != err {
 		return nil, err
@@ -115,12 +116,12 @@ func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	return &snowflakeTx{sc}, err
 }
 func (sc *snowflakeConn) Close() (err error) {
-	log.Println("Close")
-	// TODO
+	glog.V(2).Infoln("Close")
+	glog.Flush() // must flush log buffer while the process is running.
 	return nil
 }
 func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
-	log.Println("Prepare")
+	glog.V(2).Infoln("Prepare")
 	stmt := &snowflakeStmt{
 		sc:    sc,
 		query: query,
@@ -128,7 +129,7 @@ func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 	return stmt, nil
 }
 func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	log.Printf("Exec: %#v, %v", query, args)
+	glog.V(2).Infof("Exec: %#v, %v", query, args)
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(query, false, false, args)
 	if err != nil {
@@ -146,18 +147,18 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 			updatedRows += v
 		}
 	}
-	log.Printf("number of updated rows: %#v", updatedRows)
+	glog.V(2).Infof("number of updated rows: %#v", updatedRows)
 	return &snowflakeResult{
 		affectedRows: updatedRows,
 		insertID:     -1}, nil // last insert id is not supported by Snowflake
 }
 
 func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	log.Println("Query")
+	glog.V(2).Infoln("Query")
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(query, false, false, args)
 	if err != nil {
-		log.Printf("You got error: %v", err)
+		glog.V(2).Infof("You got error: %v", err)
 		return nil, err
 	}
 

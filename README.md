@@ -29,7 +29,6 @@ db, err := sql.Open("snowflake", "user:password@accoutname/dbname")
 ```
 
 ### DSN (Data Source Name)
-
 The Data Source Name (DSN) has a common format widely used by other databases.
 ```
 username[:password]@accountname/dbname/schemaname[?param1=value&...&paramN=valueN
@@ -42,6 +41,18 @@ is `testdb` schema is `testschema` and warehouse is `testwarehouse` the DSN will
 ```golang
 db, err := sql.Open("snowflake",
     "testaccount:testpass@testaccount/testdb/testschema?warehouse=testwarehouse")
+```
+
+### Logging
+Go Snowflake Driver uses [glog](https://github.com/golang/glog) as a logging framework. In order to get the detail logs,
+specify ``glog`` parameters in the command line. For example, if you want to get logs for all activity, set the 
+command line parameters:
+```bash
+$ your_go_program -vmodule=*=2
+```
+If you want to log specific module, use ``-vmodule`` option, for example, for ``driver.go`` and ``connection.go``:
+```bash
+$ your_go_program -vmodule=driver=2,connection=2
 ```
 
 ## Limitations
