@@ -207,7 +207,7 @@ func (sr *snowflakeRestful) closeSession() error {
 	headers["User-Agent"] = UserAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
-	resp, err := sr.post(fullURL, headers, nil)
+	resp, err := sr.post(fullURL, headers, nil, 0)
 	if err != nil {
 		return err
 	}
