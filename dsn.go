@@ -5,10 +5,13 @@
 package gosnowflake
 
 import (
-	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"fmt"
+
+	"github.com/golang/glog"
 )
 
 // Config is a configuration parsed from a DSN string
@@ -90,10 +93,10 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				return
 			}
 			if secondSlash {
-				cfg.Database = dsn[posSecondSlash+1: i]
-				cfg.Schema = dsn[i+1: posQuestion]
+				cfg.Database = dsn[posSecondSlash+1 : i]
+				cfg.Schema = dsn[i+1 : posQuestion]
 			} else {
-				cfg.Database = dsn[posSecondSlash+1: posQuestion]
+				cfg.Database = dsn[posSecondSlash+1 : posQuestion]
 				cfg.Schema = "public"
 			}
 			done = true
@@ -125,7 +128,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		if err != nil {
 			return nil, err
 		}
-		err = parseParams(cfg, posQuestion, dsn)
+		err = parseParams(cfg, posQuestion-1, dsn)
 		if err != nil {
 			return
 		}
@@ -138,10 +141,10 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		cfg.Port = 443
 	}
 	if cfg.ConnectTimeout == 0 {
-		cfg.ConnectTimeout = 60 // TODO
+		cfg.ConnectTimeout = defaultConnectTimeout
 	}
 	if cfg.LoginTimeout == 0 {
-		cfg.LoginTimeout = 120 // TODO
+		cfg.LoginTimeout = defaultLoginTimeout
 	}
 	if cfg.Account == "" {
 		return nil, ErrEmptyAccount
@@ -152,7 +155,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	if cfg.Password == "" {
 		return nil, ErrEmptyPassword
 	}
-	log.Printf("ParseDSN: %v\n", cfg) // TODO: hide password
+	glog.V(2).Infof("ParseDSN: %v\n", cfg) // TODO: hide password
 	return cfg, nil
 }
 
@@ -162,14 +165,18 @@ func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string
 	var k int
 	for k = posAt + 1; k < posSlash; k++ {
 		if dsn[k] == ':' {
-			port, err = strconv.Atoi(dsn[k+1: posSlash])
+			port, err = strconv.Atoi(dsn[k+1 : posSlash])
 			if err != nil {
+				err = &SnowflakeError{
+					Number:  0,
+					Message: fmt.Sprintf("failed to parse a port number. port: %v", dsn[k+1:posSlash]),
+				}
 				return
 			}
 			break
 		}
 	}
-	host = dsn[posAt+1: k]
+	host = dsn[posAt+1 : k]
 	if port == 0 && !strings.HasSuffix(host, "snowflakecomputing.com") {
 		// account name is specified instead of host:port
 		account = host
@@ -188,7 +195,7 @@ func parseUserPassword(posAt int, dsn string) (user, password string, err error)
 	var k int
 	for k = 0; k < posAt; k++ {
 		if dsn[k] == ':' {
-			password = dsn[k+1: posAt]
+			password = dsn[k+1 : posAt]
 			break
 		}
 	}
@@ -211,7 +218,7 @@ func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
 
 // parseDSNParams parses the DSN "query string". Values must be url.QueryEscape'ed
 func parseDSNParams(cfg *Config, params string) (err error) {
-	log.Printf("Query String: %v", params)
+	glog.V(2).Infof("Query String: %v", params)
 	for _, v := range strings.Split(params, "&") {
 		param := strings.SplitN(v, "=", 2)
 		if len(param) != 2 {
@@ -241,6 +248,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.PasscodeInPassword = vv
+		case "loginTimeout":
+			var vv int64
+			vv, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return
+			}
+			cfg.LoginTimeout = time.Duration(vv * int64(time.Second))
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]string)

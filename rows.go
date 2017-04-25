@@ -6,7 +6,8 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
-	"log"
+
+	"github.com/golang/glog"
 )
 
 type snowflakeRows struct {
@@ -16,12 +17,20 @@ type snowflakeRows struct {
 }
 
 func (rows *snowflakeRows) Close() (err error) {
-	log.Println("Rows.Close")
+	glog.V(2).Infoln("Rows.Close")
 	return nil
 }
 
+/*
+// ColumnTypeDatabaseTypeName returns the database column name.
+func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
+	// TODO: is this canonical name or can be Snowflake specific name?
+	return strings.ToUpper(rows.RowType[index].Name)
+}
+*/
+
 func (rows *snowflakeRows) Columns() []string {
-	log.Println("Rows.Columns")
+	glog.V(2).Infoln("Rows.Columns")
 	ret := make([]string, len(rows.RowType))
 	for i, n := 0, len(rows.RowType); i < n; i++ {
 		ret[i] = rows.RowType[i].Name
@@ -30,14 +39,12 @@ func (rows *snowflakeRows) Columns() []string {
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
-	// log.Println("Rows.Next")
-
+	// glog.V(2).Infoln("Rows.Next")
 	row, err := rows.ChunkDownloader.Next()
 	if err != nil {
 		// includes io.EOF
 		return err
 	}
-	// log.Printf("ROW: %v", row)
 	for i, n := 0, len(row); i < n; i++ {
 		err := stringToValue(&dest[i], rows.RowType[i], row[i])
 		if err != nil {

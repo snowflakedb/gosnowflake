@@ -6,28 +6,41 @@ package gosnowflake
 
 import (
 	"fmt"
+	"time"
 )
 
-const HeaderSnowflakeToken = "Snowflake Token=\"%v\""
-const HeaderAuthorizationKey = "Authorization"
+const (
+	defaultLoginTimeout   = 60 * time.Second
+	defaultConnectTimeout = 60 * time.Second
+)
+const (
+	headerSnowflakeToken   = "Snowflake Token=\"%v\""
+	headerAuthorizationKey = "Authorization"
 
-const ContentTypeApplicationJson = "application/json"
-const AcceptTypeAppliationSnowflake = "application/snowflake"
-const AcceptTypeAppliationJson = ContentTypeApplicationJson
+	headerSseCAlgorithm = "x-amz-server-side-encryption-customer-algorithm"
+	headerSseCKey       = "x-amz-server-side-encryption-customer-key"
+	headerSseCAes       = "AES256"
 
-const ClientType = "Go"
-const ClientVersion = "0.1" // TODO: should be updated at build time
-const OSVersion = "0.11" // TODO: should be retrieved
+	headerContentTypeApplicationJSON    = "application/json"
+	headerAcceptTypeAppliationSnowflake = "application/snowflake"
 
-var UserAgent string = fmt.Sprintf("%v %v", ClientType, ClientVersion)
+	sessionExpiredCode       = "390112"
+	queryInProgressCode      = "333333"
+	queryInProgressAsyncCode = "333334"
 
-const StatementTypeIdDml = int64(0x3000)
-const StatementTypeIdInsert = StatementTypeIdDml + int64(0x100)
-const StatementTypeIdUpdate = StatementTypeIdDml + int64(0x200)
-const StatementTypeIdDelete = StatementTypeIdDml + int64(0x300)
-const StatementTypeIdMerge = StatementTypeIdDml + int64(0x400)
-const StatementTypeIdMultiTableInsert = StatementTypeIdDml + int64(0x500)
+	clientType    = "Go"
+	clientVersion = "0.1"  // TODO: should be updated at build time
+	osVersion     = "0.11" // TODO: should be retrieved
+)
 
-const HeaderSseCAlgorithm = "x-amz-server-side-encryption-customer-algorithm"
-const HeaderSseCKey = "x-amz-server-side-encryption-customer-key"
-const HeaderSseCAes = "AES256"
+// UserAgent shows up in User-Agent HTTP header
+var UserAgent string = fmt.Sprintf("%v %v", clientType, clientVersion)
+
+const (
+	statementTypeIDDml              = int64(0x3000)
+	statementTypeIDInsert           = statementTypeIDDml + int64(0x100)
+	statementTypeIDUpdate           = statementTypeIDDml + int64(0x200)
+	statementTypeIDDelete           = statementTypeIDDml + int64(0x300)
+	statementTypeIDMerge            = statementTypeIDDml + int64(0x400)
+	statementTypeIDMultiTableInsert = statementTypeIDDml + int64(0x500)
+)

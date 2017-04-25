@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -118,6 +119,71 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 	for _, test := range tests {
 		test(dbt)
 		dbt.db.Exec("DROP TABLE IF EXISTS test")
+	}
+}
+
+func TestBogusUserPasswordParameters(t *testing.T) {
+	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
+	invalidUserPassErrorTests(invalidDNS, t)
+	invalidDNS = fmt.Sprintf("%s:%s@%s", user, "INVALID_PASSWORD", host)
+	invalidUserPassErrorTests(invalidDNS, t)
+}
+func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
+	parameters := url.Values{}
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	if account != "" {
+		parameters.Add("account", account)
+	}
+	invalidDNS += "?" + parameters.Encode()
+	db, err := sql.Open("snowflake", invalidDNS)
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+	// actual connection won't happen until run a query
+	defer db.Close()
+	_, err = db.Exec("SELECT 1")
+	if err == nil {
+		t.Fatal("should cause an error.")
+	}
+	if driverErr, ok := err.(*SnowflakeError); ok {
+		if driverErr.Number != 390100 {
+			t.Fatalf("wrong error code: %v", driverErr)
+		}
+	} else {
+		t.Fatalf("wrong error code: %v", err)
+	}
+}
+
+func TestBogusHostNameParameters(t *testing.T) {
+	invalidDNS := fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST:1234")
+	invalidHostErrorTests(invalidDNS, "no such host", "", t)
+	invalidDNS = fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST")
+	invalidHostErrorTests(invalidDNS, "read: connection reset by peer.", "EOF", t)
+}
+func invalidHostErrorTests(invalidDNS string, match1 string, match2 string, t *testing.T) {
+	parameters := url.Values{}
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	if account != "" {
+		parameters.Add("account", account)
+	}
+	parameters.Add("loginTimeout", "10")
+	invalidDNS += "?" + parameters.Encode()
+	db, err := sql.Open("snowflake", invalidDNS)
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+	// actual connection won't happen until run a query
+	defer db.Close()
+	_, err = db.Exec("SELECT 1")
+	if err == nil {
+		t.Fatal("should cause an error.")
+	}
+	if !strings.Contains(err.Error(), match1) && !strings.Contains(err.Error(), match2) {
+		t.Fatalf("wrong error: %v", err)
 	}
 }
 
@@ -669,6 +735,21 @@ func TestLargeSetResult(t *testing.T) {
 	})
 }
 
+func TestPingpongQuery(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		numrows := 1
+		rows := dbt.mustQuery("SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 60))")
+		defer rows.Close()
+		cnt := 0
+		for rows.Next() {
+			cnt++
+		}
+		if cnt != numrows {
+			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", cnt, numrows)
+		}
+	})
+}
+
 func TestDML(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test(c1 int, c2 string)")
@@ -763,4 +844,28 @@ func queryTest(dbt *DBTest) (*map[int]string, error) {
 		results[c1] = c2
 	}
 	return &results, nil
+}
+
+// Special cases where rows are already closed
+func TestRowsClose(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows, err := dbt.db.Query("SELECT 1")
+		if err != nil {
+			dbt.Fatal(err)
+		}
+
+		err = rows.Close()
+		if err != nil {
+			dbt.Fatal(err)
+		}
+
+		if rows.Next() {
+			dbt.Fatal("unexpected row after rows.Close()")
+		}
+
+		err = rows.Err()
+		if err != nil {
+			dbt.Fatal(err)
+		}
+	})
 }

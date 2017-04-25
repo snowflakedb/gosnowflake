@@ -15,7 +15,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "user:pass@account",
 			config: &Config{
-				Account:  "account", User: "user", Password: "pass",
+				Account: "account", User: "user", Password: "pass",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
 			},
 			err: nil,
@@ -23,7 +23,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "user:pass@account.eu-faraway",
 			config: &Config{
-				Account:  "account", User: "user", Password: "pass",
+				Account: "account", User: "user", Password: "pass",
 				Protocol: "https", Host: "account.eu-faraway.snowflakecomputing.com", Port: 443,
 			},
 			err: nil,
@@ -31,7 +31,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "user:pass@account/db",
 			config: &Config{
-				Account:  "account", User: "user", Password: "pass",
+				Account: "account", User: "user", Password: "pass",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "public",
 			},
@@ -40,7 +40,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "user:pass@host:123/db/schema?account=ac&protocol=http",
 			config: &Config{
-				Account:  "ac", User: "user", Password: "pass",
+				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
 				Database: "db", Schema: "schema",
 			},
@@ -49,7 +49,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "user@host:123/db/schema?account=ac&protocol=http",
 			config: &Config{
-				Account:  "ac", User: "user", Password: "pass",
+				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
 				Database: "db", Schema: "schema",
 			},
@@ -58,7 +58,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "@host:123/db/schema?account=ac&protocol=http",
 			config: &Config{
-				Account:  "ac", User: "user", Password: "pass",
+				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
 				Database: "db", Schema: "schema",
 			},
@@ -67,7 +67,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "user:p@host:123/db/schema?protocol=http",
 			config: &Config{
-				Account:  "ac", User: "user", Password: "pass",
+				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
 				Database: "db", Schema: "schema",
 			},
@@ -76,9 +76,17 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "u:p@a.snowflakecomputing.com/db/pa?account=a&protocol=https&role=r&timezone=UTC&warehouse=w",
 			config: &Config{
-				Account:  "a", User: "u", Password: "p",
+				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "pa", Role: "r", Warehouse: "w",
+			},
+			err: nil,
+		},
+		{
+			dsn: "u:p@snowflake.local:9876?account=a&protocol=http",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: nil,
 		},

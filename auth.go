@@ -7,9 +7,11 @@ package gosnowflake
 
 import (
 	"encoding/json"
-	"log"
 	"net/url"
+	"strconv"
 	"time"
+
+	"github.com/golang/glog"
 )
 
 type authRequestClientEnvironment struct {
@@ -17,13 +19,13 @@ type authRequestClientEnvironment struct {
 	OsVersion   string `json:"OS_VERSION"`
 }
 type authRequestData struct {
-	ClientAppID      string                       `json:"CLIENT_APP_ID"`
-	ClientAppVersion string                       `json:"CLIENT_APP_VERSION"`
-	SvnRevision      string                       `json:"SVN_REVISION"`
-	AccoutName       string                       `json:"ACCOUNT_NAME"`
-	LoginName        string                       `json:"LOGIN_NAME,omitempty"`
-	Password         string                       `json:"PASSWORD,omitempty"`
-	RawSAMLResponse  string                       `json:"RAW_SAML_RESPONSE,omitempty"`
+	ClientAppID       string                       `json:"CLIENT_APP_ID"`
+	ClientAppVersion  string                       `json:"CLIENT_APP_VERSION"`
+	SvnRevision       string                       `json:"SVN_REVISION"`
+	AccoutName        string                       `json:"ACCOUNT_NAME"`
+	LoginName         string                       `json:"LOGIN_NAME,omitempty"`
+	Password          string                       `json:"PASSWORD,omitempty"`
+	RawSAMLResponse   string                       `json:"RAW_SAML_RESPONSE,omitempty"`
 	ExtAuthnDuoMethod string                       `json:"EXT_AUTHN_DUO_METHOD,omitempty"`
 	Passcode          string                       `json:"PASSCODE,omitempty"`
 	ClientEnvironment authRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
@@ -48,10 +50,10 @@ type AuthResponseSessionInfo struct {
 type authResponseMain struct {
 	Token                   string                  `json:"token,omitempty"`
 	ValidityInSeconds       time.Duration           `json:"validityInSeconds,omitempty"`
-	MasterToken             string                  `json:"maxterToken,omitempty"`
+	MasterToken             string                  `json:"masterToken,omitempty"`
 	MasterValidityInSeconds time.Duration           `json:"masterValidityInSeconds"`
-	DisplayUserName        string                  `json:"displayUserName"`
-	ServerVersion          string                  `json:"serverVersion"`
+	DisplayUserName         string                  `json:"displayUserName"`
+	ServerVersion           string                  `json:"serverVersion"`
 	FirstLogin              bool                    `json:"firstLogin"`
 	RemMeToken              string                  `json:"remMeToken"`
 	RemMeValidityInSeconds  time.Duration           `json:"remMeValidityInSeconds"`
@@ -70,40 +72,40 @@ type authResponse struct {
 
 // Authenticate is used to authenticate user to gain accesss to Snowflake database.
 func Authenticate(
-  sr *snowflakeRestful,
-  user string,
-  password string,
-  account string,
-  database string,
-  schema string,
-  warehouse string,
-  role string,
-  passcode string,
-  passcodeInPassword bool,
-  samlResponse string,
-  mfaCallback string,
-  passwordCallback string,
-  sessionParameters map[string]string) (resp *AuthResponseSessionInfo, err error) {
-	log.Println("Authenticate")
+	sr *snowflakeRestful,
+	user string,
+	password string,
+	account string,
+	database string,
+	schema string,
+	warehouse string,
+	role string,
+	passcode string,
+	passcodeInPassword bool,
+	samlResponse string,
+	mfaCallback string,
+	passwordCallback string,
+	sessionParameters map[string]string) (resp *AuthResponseSessionInfo, err error) {
+	glog.V(2).Info("Authenticate")
 
 	if sr.Token != "" && sr.MasterToken != "" {
-		log.Println("Tokens are already available.")
+		glog.V(2).Infoln("Tokens are already available.")
 		return nil, nil
 	}
 
 	headers := make(map[string]string)
-	headers["Content-Type"] = ContentTypeApplicationJson
-	headers["accept"] = AcceptTypeAppliationSnowflake
+	headers["Content-Type"] = headerContentTypeApplicationJSON
+	headers["accept"] = headerAcceptTypeAppliationSnowflake
 	headers["User-Agent"] = UserAgent
 
 	clientEnvironment := authRequestClientEnvironment{
-		Application: ClientType,
-		OsVersion:   OSVersion,
+		Application: clientType,
+		OsVersion:   osVersion,
 	}
 
 	requestMain := authRequestData{
-		ClientAppID:       ClientType,
-		ClientAppVersion:  ClientVersion,
+		ClientAppID:       clientType,
+		ClientAppVersion:  clientVersion,
 		SvnRevision:       "",
 		AccoutName:        account,
 		ClientEnvironment: clientEnvironment,
@@ -144,23 +146,30 @@ func Authenticate(
 		return
 	}
 
-	log.Printf("PARAMS for Auth: %v", params)
+	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
 	respd, err := sr.PostAuth(params, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		// TODO: error handing, Forbidden 403, BadGateway 504, ServiceUnavailable 503
 		return nil, err
 	}
-	if respd.Success {
-		log.Println("Authentication SUCCES")
-		sr.Token = respd.Data.Token
-		sr.MasterToken = respd.Data.MasterToken
-		sr.SessionId = respd.Data.SessionID
-	} else {
-		log.Println("Authentication FAILED")
+	if !respd.Success {
+		glog.V(1).Infoln("Authentication FAILED")
 		sr.Token = ""
 		sr.MasterToken = ""
-		sr.SessionId = -1
+		sr.SessionID = -1
+		code, err := strconv.Atoi(respd.Code)
+		if err != nil {
+			code = -1
+			return nil, err
+		}
+		return nil, &SnowflakeError{
+			Number:  code,
+			Message: respd.Message,
+		}
 	}
-
+	glog.V(2).Info("Authentication SUCCES")
+	sr.Token = respd.Data.Token
+	sr.MasterToken = respd.Data.MasterToken
+	sr.SessionID = respd.Data.SessionID
 	return &respd.Data.SessionInfo, nil
 }
