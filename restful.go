@@ -5,7 +5,6 @@
 package gosnowflake
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -65,71 +64,15 @@ func (sr *snowflakeRestful) post(
 	body []byte,
 	timeout time.Duration) (
 	*http.Response, error) {
-	var err error
-	var res *http.Response
-	totalTimeout := int64(timeout.Seconds())
-	glog.V(2).Infof("totalTimeout: %v", totalTimeout)
-	retryCounter := 0
-	for {
-		req, err := http.NewRequest("POST", fullURL, bytes.NewReader(body))
-		if err != nil {
-			return nil, err
-		}
-		for k, v := range headers {
-			req.Header.Set(k, v)
-		}
-		res, err = sr.Client.Do(req)
-		if err == nil && res.StatusCode == http.StatusOK {
-			break
-		}
-		if err != nil {
-			glog.V(2).Infof(
-				"failed http connection. no response is returned. err: %v. retrying.\n", err)
-		} else {
-			glog.V(2).Infof(
-				"failed http connection. HTTP Status: %v. retrying.\n", res.StatusCode)
-		}
-		r := uint(intMin(retryCounter, 4))
-		w := int64(1 << r)
-
-		if totalTimeout > 0 {
-			glog.V(2).Infof("to timeout: %v", totalTimeout)
-			// if any timeout is set
-			totalTimeout -= w
-			if totalTimeout <= 0 {
-				if err != nil {
-					return nil, fmt.Errorf("timeout. previous err: %v. Hanging?", err)
-				}
-				return nil, fmt.Errorf("timeout. previous HTTP Status: %v. Hanging?", res.StatusCode)
-			}
-		}
-		retryCounter++
-		if totalTimeout > 0 {
-			glog.V(2).Infof("sleeping %v(s). to timeout: %v. retrying", w, totalTimeout)
-		} else {
-			glog.V(2).Infof("sleeping %v(s). to timeout: NONE. retrying", w)
-		}
-		time.Sleep(time.Duration(w * int64(time.Second)))
-	}
-	return res, err
+	return retryHTTP(sr.Client, "POST", fullURL, headers, body, timeout)
 }
 
 func (sr *snowflakeRestful) get(
-	path string,
-	headers map[string]string) (
+	fullURL string,
+	headers map[string]string,
+	timeout time.Duration) (
 	*http.Response, error) {
-	fullURL := fmt.Sprintf(
-		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, path)
-
-	req, err := http.NewRequest("GET", fullURL, nil)
-	if err != nil {
-		glog.V(1).Infof("%v", err)
-		return nil, err
-	}
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	return sr.Client.Do(req)
+	return retryHTTP(sr.Client, "GET", fullURL, headers, nil, 0)
 }
 
 func (sr *snowflakeRestful) PostQuery(
@@ -179,7 +122,10 @@ func (sr *snowflakeRestful) PostQuery(
 
 			glog.V(2).Info("START PING PONG")
 			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
-			resp, err = sr.get(resultURL, headers)
+			fullURL := fmt.Sprintf(
+				"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, resultURL)
+
+			resp, err = sr.get(fullURL, headers, 0)
 			respd = execResponse{}
 
 			err = json.NewDecoder(resp.Body).Decode(&respd)
@@ -261,7 +207,7 @@ func (sr *snowflakeRestful) closeSession() error {
 	headers["User-Agent"] = UserAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
-	resp, err := sr.post(fullURL, headers, nil)
+	resp, err := sr.post(fullURL, headers, nil, 0)
 	if err != nil {
 		return err
 	}
