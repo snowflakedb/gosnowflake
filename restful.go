@@ -44,6 +44,21 @@ type snowflakeRestful struct {
 	Connection *snowflakeConn
 }
 
+type renewSessionResponse struct {
+	Data    renewSessionResponseMain `json:"data"`
+	Message string                   `json:"message"`
+	Code    string                   `json:"code"`
+	Success bool                     `json:"success"`
+}
+
+type renewSessionResponseMain struct {
+	SessionToken        string        `json:"sessionToken"`
+	ValidityInSecondsST time.Duration `json:"validityInSecondsST"`
+	MasterToken         string        `json:"masterToken"`
+	ValidityInSecondsMT time.Duration `json:"validityInSecondsMT"`
+	SessionID           int           `json:"sessionId"`
+}
+
 func (sr *snowflakeRestful) post(
 	fullURL string,
 	headers map[string]string,
@@ -97,6 +112,7 @@ func (sr *snowflakeRestful) PostQuery(
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		glog.V(2).Infof("PostQuery: resp: %v", resp)
 		var respd execResponse
@@ -125,11 +141,11 @@ func (sr *snowflakeRestful) PostQuery(
 
 			glog.V(2).Info("START PING PONG")
 			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
-			resp.Body.Close()
 			resp, err = sr.get(resultURL, headers)
 			respd = execResponse{}
 
 			err = json.NewDecoder(resp.Body).Decode(&respd)
+			resp.Body.Close()
 			if err != nil {
 				return nil, err
 			}
@@ -144,7 +160,6 @@ func (sr *snowflakeRestful) PostQuery(
 				isSessionRenewed = false
 			}
 		}
-		defer resp.Body.Close()
 		return &respd, nil
 	}
 	// TODO: better error handing and retry
@@ -213,7 +228,10 @@ func (sr *snowflakeRestful) renewSession() error {
 	body["requestType"] = "RENEW"
 
 	var reqBody []byte
-	reqBody, _ = json.Marshal(body)
+	reqBody, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
 
 	resp, err := sr.post(fullURL, headers, reqBody)
 	if err != nil {
@@ -242,19 +260,4 @@ func (sr *snowflakeRestful) renewSession() error {
 	}
 	glog.V(2).Infof("ERROR RESPONSE: %v", b)
 	return err
-}
-
-type renewSessionResponse struct {
-	Data    renewSessionResponseMain `json:"data"`
-	Message string                   `json:"message"`
-	Code    string                   `json:"code"`
-	Success bool                     `json:"success"`
-}
-
-type renewSessionResponseMain struct {
-	SessionToken        string        `json:"sessionToken"`
-	ValidityInSecondsST time.Duration `json:"validityInSecondsST"`
-	MasterToken         string        `json:"masterToken"`
-	ValidityInSecondsMT time.Duration `json:"validityInSecondsMT"`
-	SessionID           int           `json:"sessionId"`
 }
