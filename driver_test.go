@@ -158,11 +158,11 @@ func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
 
 func TestBogusHostNameParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST:1234")
-	invalidHostErrorTests(invalidDNS, "no such host", t)
+	invalidHostErrorTests(invalidDNS, "no such host", "", t)
 	invalidDNS = fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST")
-	invalidHostErrorTests(invalidDNS, "read: connection reset by peer.", t)
+	invalidHostErrorTests(invalidDNS, "read: connection reset by peer.", "EOF", t)
 }
-func invalidHostErrorTests(invalidDNS string, match string, t *testing.T) {
+func invalidHostErrorTests(invalidDNS string, match1 string, match2 string, t *testing.T) {
 	parameters := url.Values{}
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
@@ -182,7 +182,7 @@ func invalidHostErrorTests(invalidDNS string, match string, t *testing.T) {
 	if err == nil {
 		t.Fatal("should cause an error.")
 	}
-	if !strings.Contains(err.Error(), match) {
+	if !strings.Contains(err.Error(), match1) && !strings.Contains(err.Error(), match2) {
 		t.Fatalf("wrong error: %v", err)
 	}
 }
@@ -844,4 +844,28 @@ func queryTest(dbt *DBTest) (*map[int]string, error) {
 		results[c1] = c2
 	}
 	return &results, nil
+}
+
+// Special cases where rows are already closed
+func TestRowsClose(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows, err := dbt.db.Query("SELECT 1")
+		if err != nil {
+			dbt.Fatal(err)
+		}
+
+		err = rows.Close()
+		if err != nil {
+			dbt.Fatal(err)
+		}
+
+		if rows.Next() {
+			dbt.Fatal("unexpected row after rows.Close()")
+		}
+
+		err = rows.Err()
+		if err != nil {
+			dbt.Fatal(err)
+		}
+	})
 }

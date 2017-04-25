@@ -85,9 +85,9 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 		scd.CurrentChunkIndex++ // next chunk
 		scd.CurrentIndex = -1   // reset
 		if scd.CurrentChunkIndex < len(scd.ChunkMetas) {
-			ticker := time.Tick(time.Millisecond * 10)
+			ticker := time.Tick(time.Millisecond * 100)
 			// TODO: Error handle
-			for _ = range ticker {
+			for range ticker {
 				glog.V(2).Infof(
 					"Waiting. chunk idx: %v/%v, got chunks: %v",
 					scd.CurrentChunkIndex, len(scd.ChunkMetas), len(scd.Chunks))
@@ -96,7 +96,7 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 				scd.ChunksMutex.Unlock()
 				if scd.CurrentChunk != nil {
 					// kick off the next download
-					glog.V(2).Infof("ready")
+					glog.V(2).Infof("ready: chunk %v", scd.CurrentChunkIndex)
 					scd.CurrentChunkSize = len(scd.CurrentChunk)
 					break
 				}
