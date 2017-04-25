@@ -5,6 +5,7 @@
 package gosnowflake
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -153,6 +154,29 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	if cfg.Password == "" {
 		return nil, ErrEmptyPassword
 	}
+
+	// unescape parameters
+	var s string
+	s, err = url.QueryUnescape(cfg.Database)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Database = s
+	s, err = url.QueryUnescape(cfg.Schema)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Schema = s
+	s, err = url.QueryUnescape(cfg.Role)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Role = s
+	s, err = url.QueryUnescape(cfg.Warehouse)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Warehouse = s
 	glog.V(2).Infof("ParseDSN: %v\n", cfg) // TODO: hide password
 	return cfg, nil
 }
@@ -217,14 +241,19 @@ func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
 
 // parseDSNParams parses the DSN "query string". Values must be url.QueryEscape'ed
 func parseDSNParams(cfg *Config, params string) (err error) {
-	glog.V(2).Infof("Query String: %v", params)
+	glog.V(2).Infof("Query String: %v\n", params)
 	for _, v := range strings.Split(params, "&") {
 		param := strings.SplitN(v, "=", 2)
 		if len(param) != 2 {
 			continue
 		}
-
-		switch value := param[1]; param[0] {
+		var value string
+		value, err = url.QueryUnescape(param[1])
+		if err != nil {
+			return err
+		}
+		glog.V(2).Infof("Unescaped value: %v\n", value)
+		switch param[0] {
 		// Disable INFILE whitelist / enable all files
 		case "account":
 			cfg.Account = value
