@@ -248,6 +248,46 @@ func (sr *snowflakeRestful) PostAuth(
 	return nil, err
 }
 
+func (sr *snowflakeRestful) closeSession() error {
+	glog.V(2).Info("CLOSE SESSION")
+	params := &url.Values{}
+	params.Add("delete", "true")
+	fullURL := fmt.Sprintf(
+		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session?"+params.Encode())
+
+	headers := make(map[string]string)
+	headers["Content-Type"] = headerContentTypeApplicationJSON
+	headers["accept"] = headerAcceptTypeAppliationSnowflake
+	headers["User-Agent"] = UserAgent
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+
+	resp, err := sr.post(fullURL, headers, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		var respd renewSessionResponse
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
+			return err
+		}
+
+		if respd.Success == false && respd.Code != sessionExpiredCode {
+			return &SnowflakeError{Message: respd.Message, SQLState: respd.Code}
+		}
+		return nil
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		glog.V(1).Infof("%v", err)
+		return err
+	}
+	glog.V(2).Infof("ERROR RESPONSE: %v", b)
+	return err
+}
+
 func (sr *snowflakeRestful) renewSession() error {
 	glog.V(2).Info("START RENEW SESSION")
 	params := &url.Values{}
