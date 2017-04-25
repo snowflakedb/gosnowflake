@@ -126,7 +126,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		if err != nil {
 			return nil, err
 		}
-		err = parseParams(cfg, posQuestion, dsn)
+		err = parseParams(cfg, posQuestion-1, dsn)
 		if err != nil {
 			return
 		}
@@ -139,10 +139,10 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		cfg.Port = 443
 	}
 	if cfg.ConnectTimeout == 0 {
-		cfg.ConnectTimeout = 60 // TODO
+		cfg.ConnectTimeout = defaultConnectTimeout
 	}
 	if cfg.LoginTimeout == 0 {
-		cfg.LoginTimeout = 120 // TODO
+		cfg.LoginTimeout = defaultLoginTimeout
 	}
 	if cfg.Account == "" {
 		return nil, ErrEmptyAccount

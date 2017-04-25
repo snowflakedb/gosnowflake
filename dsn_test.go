@@ -82,6 +82,14 @@ func TestParseDSN(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			dsn: "u:p@snowflake.local:9876?account=a&protocol=http",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
+			},
+			err: nil,
+		},
 	}
 	for _, test := range testcases {
 		cfg, err := ParseDSN(test.dsn)

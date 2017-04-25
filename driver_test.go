@@ -121,6 +121,37 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 	}
 }
 
+func TestBogusUserParameters(t *testing.T) {
+	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
+	parameters := url.Values{}
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	if account != "" {
+		parameters.Add("account", account)
+	}
+	if len(parameters) > 0 {
+		invalidDNS += "?" + parameters.Encode()
+	}
+	db, err := sql.Open("snowflake", invalidDNS)
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+	// actual connection won't happen until run a query
+	defer db.Close()
+	_, err = db.Exec("SELECT 1")
+	if err == nil {
+		t.Fatalf("should cause an error.")
+	}
+	if driverErr, ok := err.(*SnowflakeError); ok {
+		if driverErr.Number != 390100 {
+			t.Fatalf("wrong error code: %v", driverErr)
+		}
+	} else {
+		t.Fatalf("wrong error code: %v", err)
+	}
+}
+
 func TestEmptyQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		query := "--"
