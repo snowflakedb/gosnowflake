@@ -90,6 +90,18 @@ func TestParseDSN(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			dsn: "u:p@snowflake.local:NNNN?account=a&protocol=http",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
+			},
+			err: &SnowflakeError{
+				Message:     ErrMsgFailedToParsePort,
+				MessageArgs: []interface{}{"NNNN"},
+				Number:      ErrCodeFailedToParsePort,
+			},
+		},
 	}
 	for _, test := range testcases {
 		cfg, err := ParseDSN(test.dsn)
@@ -139,8 +151,19 @@ func TestParseDSN(t *testing.T) {
 					test.config.PasscodeInPassword, cfg.PasscodeInPassword)
 			}
 		case test.err != nil:
-			if err != test.err {
+			driverErrE, okE := test.err.(*SnowflakeError)
+			driverErrG, okG := err.(*SnowflakeError)
+			if okE && !okG || !okE && okG {
 				t.Fatalf("Wrong error. expected: %v, got: %v", test.err, err)
+			}
+			if okE && okG {
+				if driverErrE.Number != driverErrG.Number {
+					t.Fatalf("Wrong error number. expected: %v, got: %v", driverErrE.Number, driverErrG.Number)
+				}
+			} else {
+				if err != test.err {
+					t.Fatalf("Wrong error. expected: %v, got: %v", test.err, err)
+				}
 			}
 		}
 	}
