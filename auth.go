@@ -49,7 +49,7 @@ type AuthResponseSessionInfo struct {
 type authResponseMain struct {
 	Token                   string                  `json:"token,omitempty"`
 	ValidityInSeconds       time.Duration           `json:"validityInSeconds,omitempty"`
-	MasterToken             string                  `json:"maxterToken,omitempty"`
+	MasterToken             string                  `json:"masterToken,omitempty"`
 	MasterValidityInSeconds time.Duration           `json:"masterValidityInSeconds"`
 	DisplayUserName         string                  `json:"displayUserName"`
 	ServerVersion           string                  `json:"serverVersion"`

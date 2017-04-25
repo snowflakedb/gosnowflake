@@ -19,6 +19,10 @@ const (
 	headerContentTypeApplicationJSON    = "application/json"
 	headerAcceptTypeAppliationSnowflake = "application/snowflake"
 
+	sessionExpiredCode       = "390112"
+	queryInProgressCode      = "333333"
+	queryInProgressAsyncCode = "333334"
+
 	clientType    = "Go"
 	clientVersion = "0.1"  // TODO: should be updated at build time
 	osVersion     = "0.11" // TODO: should be retrieved
