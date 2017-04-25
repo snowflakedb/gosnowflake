@@ -138,7 +138,7 @@ func (sr *snowflakeRestful) PostQuery(
 	body []byte,
 	timeout time.Duration) (
 	data *execResponse, err error) {
-	glog.V(2).Infof("PARAMS: %v, BODY: %v", params, body)
+	glog.V(2).Infof("PARAMS: %v", params)
 	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
 	if sr.Token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
@@ -271,7 +271,7 @@ func (sr *snowflakeRestful) renewSession() error {
 		return err
 	}
 
-	resp, err := sr.post(fullURL, headers, reqBody)
+	resp, err := sr.post(fullURL, headers, reqBody, sr.RequestTimeout)
 	if err != nil {
 		return err
 	}

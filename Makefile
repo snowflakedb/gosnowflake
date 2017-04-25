@@ -13,7 +13,7 @@ setup:
 test: deps
 	eval $$(jq -r '.testconnection | to_entries | map("export \(.key)=\(.value|tostring)")|.[]' parameters.json) && \
 		env | grep SNOWFLAKE && \
-		go test -v $$(glide novendor) # -log_dir=$(HOME) -vmodule=connection=2,driver=2
+		go test -v $$(glide novendor) # -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$(HOME) -vmodule=connection=2,driver=2
 
 ## Install dependencies
 deps: setup

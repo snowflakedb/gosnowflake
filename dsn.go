@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
+
 	"github.com/golang/glog"
 )
 
@@ -165,6 +167,10 @@ func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string
 		if dsn[k] == ':' {
 			port, err = strconv.Atoi(dsn[k+1 : posSlash])
 			if err != nil {
+				err = &SnowflakeError{
+					Number:  0,
+					Message: fmt.Sprintf("failed to parse a port number. port: %v", dsn[k+1:posSlash]),
+				}
 				return
 			}
 			break

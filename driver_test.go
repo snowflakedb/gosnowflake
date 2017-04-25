@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -121,8 +122,13 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 	}
 }
 
-func TestBogusUserParameters(t *testing.T) {
+func TestBogusUserPasswordParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
+	invalidAuthError(invalidDNS, t)
+	invalidDNS = fmt.Sprintf("%s:%s@%s", user, "INVALID_PASSWORD", host)
+	invalidAuthError(invalidDNS, t)
+}
+func invalidAuthError(invalidDNS string, t *testing.T) {
 	parameters := url.Values{}
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
@@ -141,7 +147,7 @@ func TestBogusUserParameters(t *testing.T) {
 	defer db.Close()
 	_, err = db.Exec("SELECT 1")
 	if err == nil {
-		t.Fatalf("should cause an error.")
+		t.Fatal("should cause an error.")
 	}
 	if driverErr, ok := err.(*SnowflakeError); ok {
 		if driverErr.Number != 390100 {
@@ -149,6 +155,33 @@ func TestBogusUserParameters(t *testing.T) {
 		}
 	} else {
 		t.Fatalf("wrong error code: %v", err)
+	}
+}
+
+func TestBogusHostNameParameters(t *testing.T) {
+	invalidDNS := fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST:1234")
+	parameters := url.Values{}
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	if account != "" {
+		parameters.Add("account", account)
+	}
+	if len(parameters) > 0 {
+		invalidDNS += "?" + parameters.Encode()
+	}
+	db, err := sql.Open("snowflake", invalidDNS)
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+	// actual connection won't happen until run a query
+	defer db.Close()
+	_, err = db.Exec("SELECT 1")
+	if err == nil {
+		t.Fatal("should cause an error.")
+	}
+	if !strings.Contains(err.Error(), "no such host") {
+		t.Fatalf("wrong error: %v", err)
 	}
 }
 
