@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"time"
 
+	"strconv"
+
 	"github.com/golang/glog"
 	"github.com/satori/go.uuid"
 )
@@ -218,9 +220,16 @@ func (sr *snowflakeRestful) closeSession() error {
 		if err != nil {
 			return err
 		}
-
 		if respd.Success == false && respd.Code != sessionExpiredCode {
-			return &SnowflakeError{Message: respd.Message, SQLState: respd.Code}
+			c, err := strconv.Atoi(respd.Code)
+			if err != nil {
+				return err
+			}
+			return &SnowflakeError{
+				Number:   c,
+				Message:  respd.Message,
+				SQLState: respd.Code,
+			}
 		}
 		return nil
 	}
@@ -270,7 +279,15 @@ func (sr *snowflakeRestful) renewSession() error {
 		}
 
 		if respd.Success == false {
-			return &SnowflakeError{Message: respd.Message, SQLState: respd.Code}
+			c, err := strconv.Atoi(respd.Code)
+			if err != nil {
+				return err
+			}
+			return &SnowflakeError{
+				Number:   c,
+				Message:  respd.Message,
+				SQLState: respd.Code,
+			}
 		}
 		sr.Token = respd.Data.SessionToken
 		sr.MasterToken = respd.Data.MasterToken
