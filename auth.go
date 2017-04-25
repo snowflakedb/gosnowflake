@@ -129,16 +129,16 @@ func Authenticate(
 	}
 	params := &url.Values{}
 	if database != "" {
-		params.Add("databaseName", url.QueryEscape(database))
+		params.Add("databaseName", database)
 	}
 	if schema != "" {
-		params.Add("schemaName", url.QueryEscape(schema))
+		params.Add("schemaName", schema)
 	}
 	if warehouse != "" {
-		params.Add("warehouse", url.QueryEscape(warehouse))
+		params.Add("warehouse", warehouse)
 	}
 	if role != "" {
-		params.Add("roleName", url.QueryEscape(role))
+		params.Add("roleName", role)
 	}
 
 	jsonBody, err := json.Marshal(authRequest)

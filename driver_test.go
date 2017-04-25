@@ -296,6 +296,49 @@ func TestCRUD(t *testing.T) {
 	})
 }
 
+func TestSchemaWarehouseIncludingSpace(t *testing.T) {
+	newSchemaName := "TEST SCHEMA"
+	newWarehouseName := "TEST WAREHOUSE"
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(fmt.Sprintf(`CREATE OR REPLACE SCHEMA "%v"`, newSchemaName))
+		dbt.mustExec(fmt.Sprintf(`CREATE OR REPLACE WAREHOUSE "%v"`, newWarehouseName))
+	})
+	newDSN := fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, url.QueryEscape(newSchemaName))
+	parameters := url.Values{}
+	parameters.Add("warehouse", newWarehouseName)
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	if account != "" {
+		parameters.Add("account", account)
+	}
+	newDSN += "?" + parameters.Encode()
+	db, err := sql.Open("snowflake", newDSN)
+	if err != nil {
+		t.Fatalf("failed to connect. DSN: %v", newDSN)
+	}
+	rows, err := db.Query("SELECT CURRENT_SCHEMA(), CURRENT_WAREHOUSE()")
+	defer rows.Close()
+	if !rows.Next() {
+		t.Fatal("failed to get the current database")
+	}
+	var gotSchemaName string
+	var gotWarehouseName string
+	if err := rows.Scan(&gotSchemaName, &gotWarehouseName); err != nil {
+		t.Fatalf("failed to scan schema and warehouse names. err: %v", err)
+	}
+	if gotSchemaName != newSchemaName {
+		t.Fatalf("failed to match schema name. expected: %v, got: %v", newSchemaName, gotSchemaName)
+	}
+	if gotWarehouseName != newWarehouseName {
+		t.Fatalf("failed to match warehouse name. expected: %v, got: %v", newWarehouseName, gotWarehouseName)
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(fmt.Sprintf(`DROP WAREHOUSE IF EXISTS "%v"`, newWarehouseName))
+		dbt.mustExec(fmt.Sprintf(`DROP SCHEMA IF EXISTS "%v"`, newSchemaName))
+	})
+}
+
 func TestInt(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := []string{"INT", "INTEGER"}
