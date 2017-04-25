@@ -39,13 +39,12 @@ func (rows *snowflakeRows) Columns() []string {
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
-	glog.V(2).Infoln("Rows.Next")
+	// glog.V(2).Infoln("Rows.Next")
 	row, err := rows.ChunkDownloader.Next()
 	if err != nil {
 		// includes io.EOF
 		return err
 	}
-	// glog.Infof("ROW: %v", row)
 	for i, n := 0, len(row); i < n; i++ {
 		err := stringToValue(&dest[i], rows.RowType[i], row[i])
 		if err != nil {
