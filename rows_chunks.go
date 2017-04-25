@@ -52,7 +52,7 @@ func (scd *snowflakeChunkDownloader) Start() error {
 		scd.ChunksChan = make(chan int, maxPool)
 		scd.ChunkErrors = make(chan *chunkError, maxPool)
 		for i := 0; i < len(scd.ChunkMetas); i++ {
-			glog.V(2).Infof("Adding %v", i)
+			glog.V(2).Infof("add chunk: %v", i+1)
 			scd.ChunksChan <- i
 		}
 		for i := 0; i < intMin(maxPool, len(scd.ChunkMetas)); i++ {
@@ -69,7 +69,7 @@ func (scd *snowflakeChunkDownloader) Start() error {
 func (scd *snowflakeChunkDownloader) schedule() {
 	select {
 	case nextIdx := <-scd.ChunksChan:
-		glog.V(2).Infof("schedule: %v", nextIdx)
+		glog.V(2).Infof("schedule chunk: %v", nextIdx+1)
 		go scd.download(nextIdx, scd.ChunkErrors)
 	default:
 		// no more download
@@ -89,8 +89,8 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 			// TODO: Error handle
 			for range ticker {
 				glog.V(2).Infof(
-					"Waiting. chunk idx: %v/%v, got chunks: %v",
-					scd.CurrentChunkIndex, len(scd.ChunkMetas), len(scd.Chunks))
+					"waiting for chunk idx: %v/%v, got chunks: %v",
+					scd.CurrentChunkIndex+1, len(scd.ChunkMetas), len(scd.Chunks))
 				scd.ChunksMutex.Lock()
 				scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
 				scd.ChunksMutex.Unlock()
@@ -112,33 +112,26 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 
 func (scd *snowflakeChunkDownloader) get(
 	fullURL string,
-	headers map[string]string) (
+	headers map[string]string,
+	timeout time.Duration) (
 	*http.Response, error) {
-	req, err := http.NewRequest("GET", fullURL, nil)
-	if err != nil {
-		glog.V(1).Infof("%v", err)
-		return nil, err
-	}
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	return scd.Client.Do(req)
+	return retryHTTP(scd.Client, "GET", fullURL, headers, nil, timeout)
 }
 
 func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
-	glog.V(2).Infof("download start: %v", idx)
+	glog.V(2).Infof("download start chunk: %v", idx+1)
 	headers := make(map[string]string)
 	headers[headerSseCAlgorithm] = headerSseCAes
 	headers[headerSseCKey] = scd.Qrmk
-	resp, err := scd.get(scd.ChunkMetas[idx].URL, headers)
+	resp, err := scd.get(scd.ChunkMetas[idx].URL, headers, 0)
 	if err != nil {
 		errc <- &chunkError{Index: idx, Error: err}
 		return
 	}
 	defer resp.Body.Close()
-	glog.V(2).Infof("download end: %v", idx)
+	glog.V(2).Infof("download finish chunk: %v", idx+1)
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("download: resp: %v", resp)
+		glog.V(2).Infof("download: %v, %v", idx+1, resp)
 		// TODO: optimize the memory usage
 		var respd [][]*string
 		b, err := ioutil.ReadAll(resp.Body)
