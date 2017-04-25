@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -118,6 +119,71 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 	for _, test := range tests {
 		test(dbt)
 		dbt.db.Exec("DROP TABLE IF EXISTS test")
+	}
+}
+
+func TestBogusUserPasswordParameters(t *testing.T) {
+	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
+	invalidUserPassErrorTests(invalidDNS, t)
+	invalidDNS = fmt.Sprintf("%s:%s@%s", user, "INVALID_PASSWORD", host)
+	invalidUserPassErrorTests(invalidDNS, t)
+}
+func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
+	parameters := url.Values{}
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	if account != "" {
+		parameters.Add("account", account)
+	}
+	invalidDNS += "?" + parameters.Encode()
+	db, err := sql.Open("snowflake", invalidDNS)
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+	// actual connection won't happen until run a query
+	defer db.Close()
+	_, err = db.Exec("SELECT 1")
+	if err == nil {
+		t.Fatal("should cause an error.")
+	}
+	if driverErr, ok := err.(*SnowflakeError); ok {
+		if driverErr.Number != 390100 {
+			t.Fatalf("wrong error code: %v", driverErr)
+		}
+	} else {
+		t.Fatalf("wrong error code: %v", err)
+	}
+}
+
+func TestBogusHostNameParameters(t *testing.T) {
+	invalidDNS := fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST:1234")
+	invalidHostErrorTests(invalidDNS, "no such host", t)
+	invalidDNS = fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST")
+	invalidHostErrorTests(invalidDNS, "read: connection reset by peer.", t)
+}
+func invalidHostErrorTests(invalidDNS string, match string, t *testing.T) {
+	parameters := url.Values{}
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	if account != "" {
+		parameters.Add("account", account)
+	}
+	parameters.Add("loginTimeout", "10")
+	invalidDNS += "?" + parameters.Encode()
+	db, err := sql.Open("snowflake", invalidDNS)
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+	// actual connection won't happen until run a query
+	defer db.Close()
+	_, err = db.Exec("SELECT 1")
+	if err == nil {
+		t.Fatal("should cause an error.")
+	}
+	if !strings.Contains(err.Error(), match) {
+		t.Fatalf("wrong error: %v", err)
 	}
 }
 

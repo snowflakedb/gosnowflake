@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"time"
+
 	"github.com/golang/glog"
 )
 
@@ -27,13 +29,18 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	// Authenticate
 	sc.rest = &snowflakeRestful{
 		Host:     sc.cfg.Host,
 		Port:     sc.cfg.Port,
 		Protocol: sc.cfg.Protocol,
-		Client:   &http.Client{Transport: snowflakeTransport}, // create a new client
+		Client: &http.Client{
+			Timeout:   60 * time.Second, // each request timeout
+			Transport: snowflakeTransport,
+		}, // create a new client
+		LoginTimeout:   sc.cfg.LoginTimeout,
+		ConnectTimeout: sc.cfg.ConnectTimeout,
+		RequestTimeout: sc.cfg.RequestTimeout,
 	}
 	sessionParameters := make(map[string]string)
 	sessionInfo, err := Authenticate(
@@ -55,6 +62,8 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		// TODO Better error handling
 		return nil, err
 	}
+
+	// snowflakeTransport
 
 	glog.V(2).Infof("SessionInfo: %v", sessionInfo)
 	sc.cfg.Database = sessionInfo.DatabaseName

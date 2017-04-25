@@ -38,13 +38,6 @@ type snowflakeChunkDownloader struct {
 	CurrentIndex      int
 }
 
-func (scd *snowflakeChunkDownloader) min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func (scd *snowflakeChunkDownloader) Start() error {
 	scd.CurrentChunkSize = len(scd.CurrentChunk) // cache the size
 
@@ -62,10 +55,13 @@ func (scd *snowflakeChunkDownloader) Start() error {
 			glog.V(2).Infof("Adding %v", i)
 			scd.ChunksChan <- i
 		}
-		for i := 0; i < scd.min(maxPool, len(scd.ChunkMetas)); i++ {
+		for i := 0; i < intMin(maxPool, len(scd.ChunkMetas)); i++ {
 			scd.schedule()
 		}
-		scd.Client = &http.Client{Transport: snowflakeTransport} // create a new client
+		scd.Client = &http.Client{
+			Timeout:   60 * time.Second, // each request timeout
+			Transport: snowflakeTransport,
+		} // create a new client
 	}
 	return nil
 }

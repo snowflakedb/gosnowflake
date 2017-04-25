@@ -48,11 +48,11 @@ Go Snowflake Driver uses [glog](https://github.com/golang/glog) as a logging fra
 specify ``glog`` parameters in the command line. For example, if you want to get logs for all activity, set the 
 command line parameters:
 ```bash
-$ your_go_program -vmodule=*=2
+$ your_go_program -v=2 -stderrthreshold=INFO
 ```
 If you want to log specific module, use ``-vmodule`` option, for example, for ``driver.go`` and ``connection.go``:
 ```bash
-$ your_go_program -vmodule=driver=2,connection=2
+$ your_go_program -vmodule=driver=2,connection=2 -stderrthreshold=INFO
 ```
 
 ## Limitations

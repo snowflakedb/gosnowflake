@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
+
 	"github.com/golang/glog"
 )
 
@@ -126,7 +128,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		if err != nil {
 			return nil, err
 		}
-		err = parseParams(cfg, posQuestion, dsn)
+		err = parseParams(cfg, posQuestion-1, dsn)
 		if err != nil {
 			return
 		}
@@ -139,10 +141,10 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		cfg.Port = 443
 	}
 	if cfg.ConnectTimeout == 0 {
-		cfg.ConnectTimeout = 60 // TODO
+		cfg.ConnectTimeout = defaultConnectTimeout
 	}
 	if cfg.LoginTimeout == 0 {
-		cfg.LoginTimeout = 120 // TODO
+		cfg.LoginTimeout = defaultLoginTimeout
 	}
 	if cfg.Account == "" {
 		return nil, ErrEmptyAccount
@@ -165,6 +167,10 @@ func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string
 		if dsn[k] == ':' {
 			port, err = strconv.Atoi(dsn[k+1 : posSlash])
 			if err != nil {
+				err = &SnowflakeError{
+					Number:  0,
+					Message: fmt.Sprintf("failed to parse a port number. port: %v", dsn[k+1:posSlash]),
+				}
 				return
 			}
 			break
@@ -242,6 +248,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.PasscodeInPassword = vv
+		case "loginTimeout":
+			var vv int64
+			vv, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return
+			}
+			cfg.LoginTimeout = time.Duration(vv * int64(time.Second))
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]string)

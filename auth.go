@@ -8,6 +8,7 @@ package gosnowflake
 import (
 	"encoding/json"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/golang/glog"
@@ -145,23 +146,30 @@ func Authenticate(
 		return
 	}
 
-	glog.V(2).Infof("PARAMS for Auth: %v", params)
+	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
 	respd, err := sr.PostAuth(params, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		// TODO: error handing, Forbidden 403, BadGateway 504, ServiceUnavailable 503
 		return nil, err
 	}
-	if respd.Success {
-		glog.V(2).Info("Authentication SUCCES")
-		sr.Token = respd.Data.Token
-		sr.MasterToken = respd.Data.MasterToken
-		sr.SessionID = respd.Data.SessionID
-	} else {
+	if !respd.Success {
 		glog.V(1).Infoln("Authentication FAILED")
 		sr.Token = ""
 		sr.MasterToken = ""
 		sr.SessionID = -1
+		code, err := strconv.Atoi(respd.Code)
+		if err != nil {
+			code = -1
+			return nil, err
+		}
+		return nil, &SnowflakeError{
+			Number:  code,
+			Message: respd.Message,
+		}
 	}
-
+	glog.V(2).Info("Authentication SUCCES")
+	sr.Token = respd.Data.Token
+	sr.MasterToken = respd.Data.MasterToken
+	sr.SessionID = respd.Data.SessionID
 	return &respd.Data.SessionInfo, nil
 }

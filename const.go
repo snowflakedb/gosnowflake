@@ -6,8 +6,13 @@ package gosnowflake
 
 import (
 	"fmt"
+	"time"
 )
 
+const (
+	defaultLoginTimeout   = 60 * time.Second
+	defaultConnectTimeout = 60 * time.Second
+)
 const (
 	headerSnowflakeToken   = "Snowflake Token=\"%v\""
 	headerAuthorizationKey = "Authorization"
