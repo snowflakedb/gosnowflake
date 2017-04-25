@@ -115,7 +115,7 @@ func (scd *snowflakeChunkDownloader) get(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(scd.Client, "GET", fullURL, headers, nil, timeout)
+	return retryHTTP(scd.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
 }
 
 func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {

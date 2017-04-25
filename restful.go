@@ -10,9 +10,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"time"
-
 	"strconv"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/satori/go.uuid"
@@ -66,7 +65,7 @@ func (sr *snowflakeRestful) post(
 	body []byte,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(sr.Client, "POST", fullURL, headers, body, timeout)
+	return retryHTTP(sr.Client, http.NewRequest, "POST", fullURL, headers, body, timeout)
 }
 
 func (sr *snowflakeRestful) get(
@@ -74,7 +73,7 @@ func (sr *snowflakeRestful) get(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(sr.Client, "GET", fullURL, headers, nil, 0)
+	return retryHTTP(sr.Client, http.NewRequest, "GET", fullURL, headers, nil, 0)
 }
 
 func (sr *snowflakeRestful) PostQuery(

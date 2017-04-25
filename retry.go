@@ -7,6 +7,7 @@ package gosnowflake
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"time"
@@ -56,17 +57,26 @@ func (w *waitAlgo) decorr(attempt int, sleep int) int {
 
 var defaultWaitAlgo = &waitAlgo{5, 160}
 
+type requestFunc func(method, urlStr string, body io.Reader) (*http.Request, error)
+
+type clientInterface interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 func retryHTTP(
-	client *http.Client, method string, fullURL string,
-	headers map[string]string, body []byte, timeout time.Duration) (*http.Response, error) {
-	var err error
-	var res *http.Response
+	client clientInterface,
+	req requestFunc,
+	method string,
+	fullURL string,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration) (res *http.Response, err error) {
 	totalTimeout := int64(timeout.Seconds())
 	glog.V(2).Infof("totalTimeout: %v", totalTimeout)
 	retryCounter := 0
 	sleepTime := 0
 	for {
-		req, err := http.NewRequest(method, fullURL, bytes.NewReader(body))
+		req, err := req(method, fullURL, bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
