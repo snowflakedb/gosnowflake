@@ -124,11 +124,11 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 
 func TestBogusUserPasswordParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
-	invalidAuthError(invalidDNS, t)
+	invalidUserPassErrorTests(invalidDNS, t)
 	invalidDNS = fmt.Sprintf("%s:%s@%s", user, "INVALID_PASSWORD", host)
-	invalidAuthError(invalidDNS, t)
+	invalidUserPassErrorTests(invalidDNS, t)
 }
-func invalidAuthError(invalidDNS string, t *testing.T) {
+func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
 	parameters := url.Values{}
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
@@ -136,9 +136,7 @@ func invalidAuthError(invalidDNS string, t *testing.T) {
 	if account != "" {
 		parameters.Add("account", account)
 	}
-	if len(parameters) > 0 {
-		invalidDNS += "?" + parameters.Encode()
-	}
+	invalidDNS += "?" + parameters.Encode()
 	db, err := sql.Open("snowflake", invalidDNS)
 	if err != nil {
 		t.Fatalf("error creating a connection object: %s", err.Error())
@@ -160,6 +158,11 @@ func invalidAuthError(invalidDNS string, t *testing.T) {
 
 func TestBogusHostNameParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST:1234")
+	invalidHostErrorTests(invalidDNS, "no such host", t)
+	invalidDNS = fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST")
+	invalidHostErrorTests(invalidDNS, "read: connection reset by peer.", t)
+}
+func invalidHostErrorTests(invalidDNS string, match string, t *testing.T) {
 	parameters := url.Values{}
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
@@ -167,9 +170,8 @@ func TestBogusHostNameParameters(t *testing.T) {
 	if account != "" {
 		parameters.Add("account", account)
 	}
-	if len(parameters) > 0 {
-		invalidDNS += "?" + parameters.Encode()
-	}
+	parameters.Add("loginTimeout", "10")
+	invalidDNS += "?" + parameters.Encode()
 	db, err := sql.Open("snowflake", invalidDNS)
 	if err != nil {
 		t.Fatalf("error creating a connection object: %s", err.Error())
@@ -180,7 +182,7 @@ func TestBogusHostNameParameters(t *testing.T) {
 	if err == nil {
 		t.Fatal("should cause an error.")
 	}
-	if !strings.Contains(err.Error(), "no such host") {
+	if !strings.Contains(err.Error(), match) {
 		t.Fatalf("wrong error: %v", err)
 	}
 }

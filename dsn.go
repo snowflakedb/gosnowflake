@@ -248,6 +248,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.PasscodeInPassword = vv
+		case "loginTimeout":
+			var vv int64
+			vv, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return
+			}
+			cfg.LoginTimeout = time.Duration(vv * int64(time.Second))
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]string)
