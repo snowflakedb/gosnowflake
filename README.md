@@ -1,18 +1,18 @@
 # Go Snowflake Driver
 
-Go Snowflake Driver for Go's [database/sql](https://golang.org/pkg/database/sql/) package
+Snowflake provides a driver for Go's [database/sql](https://golang.org/pkg/database/sql/) SQL package
 
-**Warning: No production use is recommended as the current version of Go Snowflake driver is being 
+**Warning: No production use is recommended as the current version of the Go Snowflake driver is being 
 actively developed and doesn't meet all of the security requirements for Snowflake clients. See 
 [Limitations](#Limitations) section for details.**
 
 ## Requirements
   * Go 1.8(TBD) or higher
-  * [Snowflake](https://www.snowflake.net/) Database account
+  * [Snowflake](https://www.snowflake.net/) account
 
 ## Installation
-Install the package to your [$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") with the 
-[go tool](https://golang.org/cmd/go/ "go command") from shell:
+From a terminal window, install the package to your [$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") path using the 
+[go tool](https://golang.org/cmd/go/ "go command"):
 ```bash
 $ go get github.com/snowflakedb/gosnowflake
 ```
@@ -20,7 +20,7 @@ $ go get github.com/snowflakedb/gosnowflake
 ## Usage
 Go Snowflake Driver is an implementation of Go's `database/sql/driver` interface.
 
-Use `snowflake` as `driverName` and valid [DSN](#dsn-data-source-name)  as `dataSourceName`:
+Use `snowflake` as `driverName` and a valid [DSN](#dsn-data-source-name) as `dataSourceName`:
 ```golang
 import "database/sql"
 import _ "github.com/snowflakedb/gosnowflake"
@@ -36,7 +36,7 @@ username[:password]@accountname/dbname[?param1=value&...&paramN=valueN
 username[:password]@hostname:port/dbname/schemaname[?param1=value&...&paramN=valueN
 ```
 
-For example, if your account is `testaccount`, user name is `testuser` password is `testpass`, database 
+For example, if your account is `testaccount`, username is `testuser` password is `testpass`, database 
 is `testdb` schema is `testschema` and warehouse is `testwarehouse` the DSN will be as follows:
 ```golang
 db, err := sql.Open("snowflake",
@@ -45,28 +45,28 @@ db, err := sql.Open("snowflake",
 
 ### Logging
 Go Snowflake Driver uses [glog](https://github.com/golang/glog) as a logging framework. In order to get the detail logs,
-specify ``glog`` parameters in the command line. For example, if you want to get logs for all activity, set the 
+specify ``glog`` parameters in the command line. For example, if you want to get logs for all activity, set the following 
 command line parameters:
 ```bash
-$ your_go_program -v=2 -stderrthreshold=INFO
+$ your_go_program -vmodule=*=2 -stderrthreshold=INFO
 ```
-If you want to log specific module, use ``-vmodule`` option, for example, for ``driver.go`` and ``connection.go``:
+If you want to get the logs for a specific module, use the ``-vmodule`` option, for example, for ``driver.go`` and ``connection.go``:
 ```bash
 $ your_go_program -vmodule=driver=2,connection=2 -stderrthreshold=INFO
 ```
 
 ## Limitations
 ### Security Requirements
-Snowflake takes security as one of the top priority feature in products. Snowflake clients must 
-communicate with Snowflake database. Typically HTTPS (HTTP over TLS/SSL) is used for communication layer,
-if TLS/SSL layer is used, they must meet the following requirements:
-  - [x] TLS/SSL must validate all of the chained certificates towards the root CA certificate.
-  - [x] TLS/SSL must match hostname with the certificate hostname.
-  - [ ] TLS/SSL must validate certificate revocation status.
+Security is the highest-priority consideration for any aspect of the Snowflake service. Snowflake clients must 
+communicate with a Snowflake database. Typically, HTTPS (HTTP over TLS/SSL) is used for the communication layer;
+if the TLS/SSL layer is used, the client must meet the following requirements:
+  - [x] TLS/SSL must validate all of the chained certificates toward the root CA certificate.
+  - [x] TLS/SSL must match the hostname with the certificate hostname.
+  - [ ] TLS/SSL must validate the certificate revocation status.
 
-Since Go 1.8.1 has not implemented the certification revocation check yet, we plan to implement it in Go 
-Snowflake driver by production version unless Go does. By production veresion, you might want to use the 
-driver but consider a risk of missing [certificate revocation check](https://en.wikipedia.org/wiki/Certificate_revocation_list).
+Since Go 1.8.1 has not implemented the certification revocation check yet, we plan to implement it ourselves in the production version of the Go 
+Snowflake driver unless Go provides this security feature first. Before the production version is ready, consider the risk of the 
+missing [certificate revocation check](https://en.wikipedia.org/wiki/Certificate_revocation_list) if you want to use the driver.
 
 
 ## Development
@@ -89,7 +89,7 @@ Set Snowflake connection info in `parameters.json`:
 }
 ```
 
-Run `make test` in Go development environment:
+Run `make test` in the Go development environment:
 ```
 make test
 ```
