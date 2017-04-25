@@ -112,8 +112,12 @@ func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 }
 func (sc *snowflakeConn) Close() (err error) {
 	glog.V(2).Infoln("Close")
+	err = sc.rest.closeSession()
+	if err != nil {
+		glog.Warning(err)
+	}
 	glog.Flush() // must flush log buffer while the process is running.
-	return sc.rest.closeSession()
+	return nil
 }
 func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 	glog.V(2).Infoln("Prepare")
