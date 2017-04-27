@@ -7,6 +7,8 @@ package gosnowflake
 import (
 	"database/sql/driver"
 
+	"context"
+
 	"github.com/golang/glog"
 )
 
@@ -23,6 +25,16 @@ func (stmt *snowflakeStmt) Close() error {
 func (stmt *snowflakeStmt) NumInput() int {
 	glog.V(2).Infoln("Stmt.NumInput")
 	return -1
+}
+
+func (stmt *snowflakeStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	glog.V(2).Infoln("Stmt.ExecContext")
+	return stmt.sc.ExecContext(ctx, stmt.query, args)
+}
+
+func (stmt *snowflakeStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	glog.V(2).Infoln("Stmt.QueryContext")
+	return stmt.sc.QueryContext(ctx, stmt.query, args)
 }
 
 func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {

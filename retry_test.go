@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"context"
 )
 
 func fakeRequestFunc(method, urlStr string, body io.Reader) (*http.Request, error) {
@@ -58,7 +59,7 @@ func TestRetry(t *testing.T) {
 		cnt:     3,
 		success: true,
 	}
-	_, err := retryHTTP(
+	_, err := retryHTTP(context.TODO(),
 		client,
 		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 60*time.Second)
 	if err != nil {
@@ -70,7 +71,7 @@ func TestRetry(t *testing.T) {
 		cnt:     10,
 		success: false,
 	}
-	_, err = retryHTTP(
+	_, err = retryHTTP(context.TODO(),
 		client,
 		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 10*time.Second)
 	if err == nil {
@@ -83,7 +84,7 @@ func TestRetry(t *testing.T) {
 		success: true,
 		timeout: true,
 	}
-	_, err = retryHTTP(
+	_, err = retryHTTP(context.TODO(),
 		client,
 		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 60*time.Second)
 	if err != nil {
@@ -95,7 +96,7 @@ func TestRetry(t *testing.T) {
 		success: false,
 		timeout: true,
 	}
-	_, err = retryHTTP(
+	_, err = retryHTTP(context.TODO(),
 		client,
 		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 10*time.Second)
 	if err == nil {

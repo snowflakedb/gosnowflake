@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"time"
 
+	"context"
+
 	"github.com/golang/glog"
 )
 
@@ -64,6 +66,7 @@ type clientInterface interface {
 }
 
 func retryHTTP(
+	ctx context.Context,
 	client clientInterface,
 	req requestFunc,
 	method string,
@@ -77,6 +80,9 @@ func retryHTTP(
 	sleepTime := 0
 	for {
 		req, err := req(method, fullURL, bytes.NewReader(body))
+		if req != nil {
+			req = req.WithContext(ctx)
+		}
 		if err != nil {
 			return nil, err
 		}

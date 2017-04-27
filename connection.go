@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"context"
+
 	"github.com/golang/glog"
 )
 
@@ -33,7 +35,8 @@ func (sc *snowflakeConn) isDml(v int64) bool {
 }
 
 func (sc *snowflakeConn) exec(
-	query string, noResult bool, isInternal bool, parameters []driver.Value) (*execResponse, error) {
+	ctx context.Context,
+	query string, noResult bool, isInternal bool, parameters []driver.NamedValue) (*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequeceCounter, 1)
 
@@ -46,12 +49,12 @@ func (sc *snowflakeConn) exec(
 	if len(parameters) > 0 {
 		req.Bindings = make(map[string]execBindParameter, len(parameters))
 		for i, n := 0, len(parameters); i < n; i++ {
-			v1, err := valueToString(parameters[i])
+			v1, err := valueToString(parameters[i].Value)
 			if err != nil {
 				return nil, err
 			}
-			req.Bindings[strconv.Itoa(i+1)] = execBindParameter{
-				Type:  goTypeToSnowflake(parameters[i]),
+			req.Bindings[strconv.Itoa(parameters[i].Ordinal)] = execBindParameter{
+				Type:  goTypeToSnowflake(parameters[i].Value),
 				Value: v1,
 			}
 		}
@@ -69,7 +72,7 @@ func (sc *snowflakeConn) exec(
 	}
 
 	var data *execResponse
-	data, err = sc.rest.PostQuery(params, headers, jsonBody, sc.rest.RequestTimeout)
+	data, err = sc.rest.PostQuery(ctx, params, headers, jsonBody, sc.rest.RequestTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +107,7 @@ func (sc *snowflakeConn) exec(
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	glog.V(2).Info("Begin")
-	_, err := sc.exec("BEGIN", false, false, nil)
+	_, err := sc.exec(context.TODO(), "BEGIN", false, false, nil)
 	if err != err {
 		return nil, err
 	}
@@ -119,7 +122,7 @@ func (sc *snowflakeConn) Close() (err error) {
 	glog.Flush() // must flush log buffer while the process is running.
 	return nil
 }
-func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
+func (sc *snowflakeConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	glog.V(2).Infoln("Prepare")
 	stmt := &snowflakeStmt{
 		sc:    sc,
@@ -127,10 +130,15 @@ func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 	}
 	return stmt, nil
 }
-func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result, error) {
+
+func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
+	return sc.PrepareContext(context.TODO(), query)
+}
+
+func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	glog.V(2).Infof("Exec: %#v, %v", query, args)
 	// TODO: handle noResult and isInternal
-	data, err := sc.exec(query, false, false, args)
+	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
 		return nil, err
 	}
@@ -152,10 +160,10 @@ func (sc *snowflakeConn) Exec(query string, args []driver.Value) (driver.Result,
 		insertID:     -1}, nil // last insert id is not supported by Snowflake
 }
 
-func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, error) {
+func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	glog.V(2).Infoln("Query")
 	// TODO: handle noResult and isInternal
-	data, err := sc.exec(query, false, false, args)
+	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
 		glog.V(2).Infof("You got error: %v", err)
 		return nil, err
@@ -171,6 +179,20 @@ func (sc *snowflakeConn) Query(query string, args []driver.Value) (driver.Rows, 
 		TotalRowIndex: int64(-1),
 		Qrmk:          data.Data.Qrmk,
 	}
-	rows.ChunkDownloader.Start()
+	rows.ChunkDownloader.Start(ctx)
 	return rows, err
+}
+
+func (sc *snowflakeConn) Exec(
+	query string,
+	args []driver.Value) (
+	driver.Result, error) {
+	return sc.ExecContext(context.TODO(), query, toNamedValues(args))
+}
+
+func (sc *snowflakeConn) Query(
+	query string,
+	args []driver.Value) (
+	driver.Rows, error) {
+	return sc.QueryContext(context.TODO(), query, toNamedValues(args))
 }
