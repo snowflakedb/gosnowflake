@@ -15,8 +15,6 @@ import (
 
 	"context"
 
-	"context"
-
 	"github.com/golang/glog"
 	"github.com/satori/go.uuid"
 )
