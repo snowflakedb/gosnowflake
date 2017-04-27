@@ -925,6 +925,5 @@ func TestCancelQuery(t *testing.T) {
 		if err.Error() != "context deadline exceeded" {
 			dbt.Fatal("Timeout failed")
 		}
-
 	})
 }
