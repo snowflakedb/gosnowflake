@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"time"
 
+	"context"
+
 	"github.com/golang/glog"
 	"github.com/satori/go.uuid"
 )
@@ -59,38 +61,84 @@ type renewSessionResponseMain struct {
 	SessionID           int           `json:"sessionId"`
 }
 
+type cancelQueryResponse struct {
+	Data    interface{} `json:"data"`
+	Message string      `json:"message"`
+	Code    string      `json:"code"`
+	Success bool        `json:"success"`
+}
+
 func (sr *snowflakeRestful) post(
+	ctx context.Context,
 	fullURL string,
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(sr.Client, http.NewRequest, "POST", fullURL, headers, body, timeout)
+	return retryHTTP(ctx, sr.Client, http.NewRequest, "POST", fullURL, headers, body, timeout)
 }
 
 func (sr *snowflakeRestful) get(
+	ctx context.Context,
 	fullURL string,
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(sr.Client, http.NewRequest, "GET", fullURL, headers, nil, 0)
+	return retryHTTP(ctx, sr.Client, http.NewRequest, "GET", fullURL, headers, nil, 0)
+}
+
+type execResponseAndErr struct {
+	resp *execResponse
+	err  error
 }
 
 func (sr *snowflakeRestful) PostQuery(
+	ctx context.Context,
 	params *url.Values,
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration) (
 	data *execResponse, err error) {
+
+	requestID := uuid.NewV4().String()
+	execResponseChan := make(chan execResponseAndErr)
+
+	go func() {
+		data, err := sr.postQueryHelper(ctx, params, headers, body, timeout, requestID)
+		execResp := execResponseAndErr{data, err}
+		execResponseChan <- execResp
+		close(execResponseChan)
+	}()
+
+	select {
+	case <-ctx.Done():
+		err := sr.cancelQuery(requestID)
+		if err != nil {
+			return nil, err
+		}
+		return nil, ctx.Err()
+	case respAndErr := <-execResponseChan:
+		return respAndErr.resp, respAndErr.err
+	}
+}
+
+func (sr *snowflakeRestful) postQueryHelper(
+	ctx context.Context,
+	params *url.Values,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration,
+	requestID string) (
+	data *execResponse, err error) {
 	glog.V(2).Infof("PARAMS: %v", params)
-	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
+	requestIDFmt := fmt.Sprintf("requestId=%v", requestID)
 	if sr.Token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 	}
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
-		"/queries/v1/query-request?"+requestID+"&"+params.Encode())
-	resp, err := sr.post(fullURL, headers, body, timeout)
+		"/queries/v1/query-request?"+requestIDFmt+"&"+params.Encode())
+	resp, err := sr.post(ctx, fullURL, headers, body, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -105,11 +153,11 @@ func (sr *snowflakeRestful) PostQuery(
 		}
 
 		if respd.Code == sessionExpiredCode {
-			err = sr.renewSession()
+			err = sr.renewSession(ctx)
 			if err != nil {
 				return nil, err
 			}
-			return sr.PostQuery(params, headers, body, timeout)
+			return sr.PostQuery(ctx, params, headers, body, timeout)
 		}
 
 		var resultURL string
@@ -126,7 +174,7 @@ func (sr *snowflakeRestful) PostQuery(
 			fullURL := fmt.Sprintf(
 				"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, resultURL)
 
-			resp, err = sr.get(fullURL, headers, 0)
+			resp, err = sr.get(ctx, fullURL, headers, 0)
 			respd = execResponse{}
 
 			err = json.NewDecoder(resp.Body).Decode(&respd)
@@ -136,7 +184,7 @@ func (sr *snowflakeRestful) PostQuery(
 			}
 
 			if respd.Code == sessionExpiredCode {
-				err = sr.renewSession()
+				err = sr.renewSession(ctx)
 				if err != nil {
 					return nil, err
 				}
@@ -170,7 +218,7 @@ func (sr *snowflakeRestful) PostAuth(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/session/v1/login-request?"+requestID+"&"+params.Encode())
 	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.post(fullURL, headers, body, timeout)
+	resp, err := sr.post(context.TODO(), fullURL, headers, body, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -199,6 +247,7 @@ func (sr *snowflakeRestful) closeSession() error {
 	glog.V(2).Info("CLOSE SESSION")
 	params := &url.Values{}
 	params.Add("delete", "true")
+	params.Add("requestId", uuid.NewV4().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session?"+params.Encode())
 
@@ -208,7 +257,7 @@ func (sr *snowflakeRestful) closeSession() error {
 	headers["User-Agent"] = UserAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
-	resp, err := sr.post(fullURL, headers, nil, 0)
+	resp, err := sr.post(context.TODO(), fullURL, headers, nil, 0)
 	if err != nil {
 		return err
 	}
@@ -242,7 +291,7 @@ func (sr *snowflakeRestful) closeSession() error {
 	return err
 }
 
-func (sr *snowflakeRestful) renewSession() error {
+func (sr *snowflakeRestful) renewSession(ctx context.Context) error {
 	glog.V(2).Info("START RENEW SESSION")
 	params := &url.Values{}
 	params.Add("requestId", uuid.NewV4().String())
@@ -265,7 +314,7 @@ func (sr *snowflakeRestful) renewSession() error {
 		return err
 	}
 
-	resp, err := sr.post(fullURL, headers, reqBody, sr.RequestTimeout)
+	resp, err := sr.post(ctx, fullURL, headers, reqBody, sr.RequestTimeout)
 	if err != nil {
 		return err
 	}
@@ -291,6 +340,60 @@ func (sr *snowflakeRestful) renewSession() error {
 		sr.Token = respd.Data.SessionToken
 		sr.MasterToken = respd.Data.MasterToken
 		return nil
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		glog.V(1).Infof("%v", err)
+		return err
+	}
+	glog.V(2).Infof("ERROR RESPONSE: %v", b)
+	return err
+}
+
+func (sr *snowflakeRestful) cancelQuery(requestID string) error {
+	glog.V(2).Info("CANCEL QUERY")
+	params := &url.Values{}
+	params.Add("requestId", uuid.NewV4().String())
+	fullURL := fmt.Sprintf(
+		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/queries/v1/abort-request?"+params.Encode())
+
+	headers := make(map[string]string)
+	headers["Content-Type"] = headerContentTypeApplicationJSON
+	headers["accept"] = headerAcceptTypeAppliationSnowflake
+	headers["User-Agent"] = UserAgent
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+
+	req := make(map[string]string)
+	req["requestId"] = requestID
+
+	reqByte, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	resp, err := sr.post(context.TODO(), fullURL, headers, reqByte, 0)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		var respd cancelQueryResponse
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
+			return err
+		}
+		if respd.Success == false && respd.Code == sessionExpiredCode {
+			err := sr.renewSession(context.TODO())
+			if err != nil {
+				return err
+			}
+			return sr.cancelQuery(requestID)
+		} else if respd.Success == true {
+			return nil
+		} else {
+			return &SnowflakeError{Message: respd.Message, SQLState: respd.Code}
+		}
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)

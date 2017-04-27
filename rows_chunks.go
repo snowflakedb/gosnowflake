@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"context"
+
 	"github.com/golang/glog"
 )
 
@@ -38,7 +40,7 @@ type snowflakeChunkDownloader struct {
 	CurrentIndex      int
 }
 
-func (scd *snowflakeChunkDownloader) Start() error {
+func (scd *snowflakeChunkDownloader) Start(ctx context.Context) error {
 	scd.CurrentChunkSize = len(scd.CurrentChunk) // cache the size
 
 	scd.CurrentIndex = -1      // initial chunks idx
@@ -56,7 +58,7 @@ func (scd *snowflakeChunkDownloader) Start() error {
 			scd.ChunksChan <- i
 		}
 		for i := 0; i < intMin(maxPool, len(scd.ChunkMetas)); i++ {
-			scd.schedule()
+			scd.schedule(ctx)
 		}
 		scd.Client = &http.Client{
 			Timeout:   60 * time.Second, // each request timeout
@@ -66,11 +68,11 @@ func (scd *snowflakeChunkDownloader) Start() error {
 	return nil
 }
 
-func (scd *snowflakeChunkDownloader) schedule() {
+func (scd *snowflakeChunkDownloader) schedule(ctx context.Context) {
 	select {
 	case nextIdx := <-scd.ChunksChan:
 		glog.V(2).Infof("schedule chunk: %v", nextIdx+1)
-		go scd.download(nextIdx, scd.ChunkErrors)
+		go scd.download(ctx, nextIdx, scd.ChunkErrors)
 	default:
 		// no more download
 	}
@@ -111,19 +113,20 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 }
 
 func (scd *snowflakeChunkDownloader) get(
+	ctx context.Context,
 	fullURL string,
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(scd.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
+	return retryHTTP(ctx, scd.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
 }
 
-func (scd *snowflakeChunkDownloader) download(idx int, errc chan *chunkError) {
+func (scd *snowflakeChunkDownloader) download(ctx context.Context, idx int, errc chan *chunkError) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
 	headers := make(map[string]string)
 	headers[headerSseCAlgorithm] = headerSseCAes
 	headers[headerSseCKey] = scd.Qrmk
-	resp, err := scd.get(scd.ChunkMetas[idx].URL, headers, 0)
+	resp, err := scd.get(ctx, scd.ChunkMetas[idx].URL, headers, 0)
 	if err != nil {
 		errc <- &chunkError{Index: idx, Error: err}
 		return

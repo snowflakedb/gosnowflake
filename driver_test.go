@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/url"
@@ -910,5 +911,20 @@ func TestRowsClose(t *testing.T) {
 		if err != nil {
 			dbt.Fatal(err)
 		}
+	})
+}
+
+func TestCancelQuery(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+
+		_, err := dbt.db.QueryContext(ctx, "SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 10))")
+
+		if err.Error() != "context deadline exceeded" {
+			dbt.Fatal("Timeout failed")
+		}
+
 	})
 }

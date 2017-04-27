@@ -4,6 +4,8 @@
 //
 package gosnowflake
 
+import "context"
+
 type snowflakeTx struct {
 	sc *snowflakeConn
 }
@@ -12,7 +14,7 @@ func (tx *snowflakeTx) Commit() (err error) {
 	if tx.sc == nil || tx.sc.rest == nil {
 		return ErrInvalidConn
 	}
-	_, err = tx.sc.exec("COMMIT", false, false, nil)
+	_, err = tx.sc.exec(context.TODO(), "COMMIT", false, false, nil)
 	if err != nil {
 		return
 	}
@@ -24,7 +26,7 @@ func (tx *snowflakeTx) Rollback() (err error) {
 	if tx.sc == nil || tx.sc.rest == nil {
 		return ErrInvalidConn
 	}
-	_, err = tx.sc.exec("ROLLBACK", false, false, nil)
+	_, err = tx.sc.exec(context.TODO(), "ROLLBACK", false, false, nil)
 	if err != nil {
 		return
 	}
