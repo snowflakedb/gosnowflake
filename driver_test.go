@@ -922,6 +922,10 @@ func TestCancelQuery(t *testing.T) {
 
 		_, err := dbt.db.QueryContext(ctx, "SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 10))")
 
+		if err == nil {
+			dbt.Fatal("No timeout error returned")
+		}
+
 		if err.Error() != "context deadline exceeded" {
 			dbt.Fatal("Timeout failed")
 		}
