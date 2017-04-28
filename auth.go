@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -16,13 +17,14 @@ import (
 )
 
 const (
-	clientType    = "Go"
-	clientVersion = "0.1"  // TODO: should be updated at build time
-	osVersion     = "0.11" // TODO: should be retrieved
+	clientType = "Go"
 )
 
-// UserAgent shows up in User-Agent HTTP header
-var UserAgent string = fmt.Sprintf("%v %v", clientType, clientVersion)
+// platform consists of compiler, OS and architecture type in string
+var platform = fmt.Sprintf("%v-%v-%v", runtime.Compiler, runtime.GOOS, runtime.GOARCH)
+
+// userAgent shows up in User-Agent HTTP header
+var userAgent = fmt.Sprintf("%v/%v/%v/%v", clientType, SnowflakeGoDriverVersion, runtime.Version(), platform)
 
 type authRequestClientEnvironment struct {
 	Application string `json:"APPLICATION"`
@@ -106,17 +108,16 @@ func Authenticate(
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeAppliationSnowflake
-	headers["User-Agent"] = UserAgent
+	headers["User-Agent"] = userAgent
 
 	clientEnvironment := authRequestClientEnvironment{
 		Application: clientType,
-		OsVersion:   osVersion,
+		OsVersion:   platform,
 	}
 
 	requestMain := authRequestData{
 		ClientAppID:       clientType,
-		ClientAppVersion:  clientVersion,
-		SvnRevision:       "",
+		ClientAppVersion:  SnowflakeGoDriverVersion,
 		AccoutName:        account,
 		ClientEnvironment: clientEnvironment,
 	}

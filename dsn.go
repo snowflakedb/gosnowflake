@@ -39,6 +39,10 @@ type Config struct {
 	ConnectTimeout time.Duration // Dial timeout
 	RequestTimeout time.Duration // Request read time
 	LoginTimeout   time.Duration // Login timeout
+
+	Application    string // application name.
+	IsInsecureMode bool   // driver doesn't check certificate revocation status
+
 }
 
 // ParseDSN parses the DSN string to a Config
