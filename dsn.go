@@ -264,7 +264,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		if err != nil {
 			return err
 		}
-		glog.V(2).Infof("Unescaped value: %v\n", value)
 		switch param[0] {
 		// Disable INFILE whitelist / enable all files
 		case "account":

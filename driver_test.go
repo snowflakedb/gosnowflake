@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/snowflakedb/gosnowflake/sfloc"
 )
 
 var (
@@ -318,6 +320,7 @@ func TestSchemaWarehouseIncludingSpace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect. DSN: %v", newDSN)
 	}
+	defer db.Close()
 	rows, err := db.Query("SELECT CURRENT_SCHEMA(), CURRENT_WAREHOUSE()")
 	defer rows.Close()
 	if !rows.Next() {
@@ -492,8 +495,8 @@ type timeTests struct {
 }
 
 type timeTest struct {
-	s string
-	t time.Time
+	s string    // source date time string
+	t time.Time // expected fetched data
 }
 
 func (tt timeTest) genQuery() string {
@@ -502,8 +505,7 @@ func (tt timeTest) genQuery() string {
 
 func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 	var rows *sql.Rows
-	query := tt.genQuery()
-	query = fmt.Sprintf(query, tt.s, dbtype)
+	query := fmt.Sprintf(tt.genQuery(), tt.s, dbtype)
 	rows = dbt.mustQuery(query)
 	defer rows.Close()
 	var err error
@@ -537,7 +539,7 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 		if val == tt.t {
 			return
 		}
-		t.Logf("tlayout: %s, v:%s, s:%s, t:%s", tlayout, val, tt.s, tt.t)
+		t.Logf("tlayout: %v, source:%v, expected: %v, got:%v", tlayout, tt.s, tt.t, val)
 		dbt.Errorf("%s to string: expected %q, got %q",
 			dbtype,
 			tt.s,
@@ -599,6 +601,99 @@ func TestDateTime(t *testing.T) {
 		{"DATETIME(9)", format, []timeTest{
 			{t: time.Date(2011, 11, 20, 21, 27, 37, 123456789, time.UTC)},
 		}},
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		for _, setups := range testcases {
+			for _, setup := range setups.tests {
+				if setup.s == "" {
+					// fill time string wherever Go can reliable produce it
+					setup.s = setup.t.Format(setups.tlayout)
+				}
+				setup.run(t, dbt, setups.dbtype, setups.tlayout)
+			}
+		}
+	})
+}
+
+func TestTimestampLTZ(t *testing.T) {
+	format := "2006-01-02 15:04:05.999999999"
+	testcases := []timeTests{
+		{
+			dbtype:  "TIMESTAMP_LTZ(9)",
+			tlayout: format,
+			tests: []timeTest{
+				{
+					s: "2016-12-30 05:02:03",
+					t: time.Date(2016, 12, 30, 5, 2, 3, 0, time.Local),
+				},
+				{
+					s: "2017-05-12 00:51:42",
+					t: time.Date(2017, 5, 12, 0, 51, 42, 0, time.Local),
+				},
+				{
+					s: "2017-03-12 01:00:00",
+					t: time.Date(2017, 3, 12, 1, 0, 0, 0, time.Local),
+				},
+				{
+					s: "2017-03-13 04:00:00",
+					t: time.Date(2017, 3, 13, 4, 0, 0, 0, time.Local),
+				},
+				{
+					s: "2017-03-13 04:00:00.123456789",
+					t: time.Date(2017, 3, 13, 4, 0, 0, 123456789, time.Local),
+				},
+			},
+		},
+		{
+			dbtype:  "TIMESTAMP_LTZ(8)",
+			tlayout: format,
+			tests: []timeTest{
+				{
+					s: "2017-03-13 04:00:00.123456789",
+					t: time.Date(2017, 3, 13, 4, 0, 0, 123456780, time.Local),
+				},
+			},
+		},
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		for _, setups := range testcases {
+			for _, setup := range setups.tests {
+				if setup.s == "" {
+					// fill time string wherever Go can reliable produce it
+					setup.s = setup.t.Format(setups.tlayout)
+				}
+				setup.run(t, dbt, setups.dbtype, setups.tlayout)
+			}
+		}
+	})
+}
+
+func TestTimestampTZ(t *testing.T) {
+	sflo := func(offsets string) (loc *time.Location) {
+		r, err := sfloc.WithOffsetString(offsets)
+		if err != nil {
+			return time.UTC
+		}
+		return r
+	}
+	format := "2006-01-02 15:04:05.999999999"
+	testcases := []timeTests{
+		{
+			dbtype:  "TIMESTAMP_TZ(9)",
+			tlayout: format,
+			tests: []timeTest{
+				{
+					s: "2016-12-30 05:02:03 +07:00",
+					t: time.Date(2016, 12, 30, 5, 2, 3, 0,
+						sflo("+0700")),
+				},
+				{
+					s: "2017-05-23 03:56:41 -09:00",
+					t: time.Date(2017, 5, 23, 3, 56, 41, 0,
+						sflo("-0900")),
+				},
+			},
+		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
 		for _, setups := range testcases {
