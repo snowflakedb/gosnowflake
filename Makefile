@@ -19,7 +19,6 @@ test: deps
 deps: setup
 	glide install
 
-
 ## Update dependencies
 update: setup
 	glide update
@@ -30,10 +29,22 @@ lint: setup
 	for pkg in $$(glide novendor -x); do \
 		golint -set_exit_status $$pkg || exit $$?; \
 	done
+	for c in $$(ls cmd); do \
+		(cd cmd/$$c;  make lint); \
+	done
 
 ## Format source codes using goimports
 fmt: setup
 	goimports -w $$(glide nv -x)
+	for c in $$(ls cmd); do \
+		(cd cmd/$$c;  make fmt); \
+	done
+
+## Install sample programs
+install:
+	for c in $$(ls cmd); do \
+		(cd cmd/$$c;  GOBIN=$$GOPATH/bin go install $$c.go); \
+	done
 
 ## Show help
 help:
