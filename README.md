@@ -7,7 +7,7 @@ actively developed and doesn't meet all of the security requirements for Snowfla
 [Limitations](#Limitations) section for details.**
 
 ## Requirements
-  * Go 1.8(TBD) or higher
+  * Go 1.8 or higher
   * [Snowflake](https://www.snowflake.net/) account
 
 ## Installation
@@ -50,7 +50,8 @@ command line parameters:
 ```bash
 $ your_go_program -vmodule=*=2 -stderrthreshold=INFO
 ```
-If you want to get the logs for a specific module, use the ``-vmodule`` option, for example, for ``driver.go`` and ``connection.go``:
+If you want to get the logs for a specific module, use the ``-vmodule`` option, for example, for ``driver.go`` and 
+``connection.go``:
 ```bash
 $ your_go_program -vmodule=driver=2,connection=2 -stderrthreshold=INFO
 ```
@@ -64,16 +65,32 @@ if the TLS/SSL layer is used, the client must meet the following requirements:
   - [x] TLS/SSL must match the hostname with the certificate hostname.
   - [ ] TLS/SSL must validate the certificate revocation status.
 
-Since Go 1.8.1 has not implemented the certification revocation check yet, we plan to implement it ourselves in the production version of the Go 
-Snowflake driver unless Go provides this security feature first. Before the production version is ready, consider the risk of the 
-missing [certificate revocation check](https://en.wikipedia.org/wiki/Certificate_revocation_list) if you want to use the driver.
+Since Go 1.8.1 has not implemented the certification revocation check yet, we plan to implement it ourselves in the 
+production version of the Go Snowflake driver unless Go provides this security feature first. Before the production 
+version is ready, consider the risk of the missing 
+[certificate revocation check](https://en.wikipedia.org/wiki/Certificate_revocation_list) if you want to use the driver.
 
+
+## Sample Programs
+Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/godev`` and ensure to 
+include ``$GOPATH/bin`` in the environment variable ``$PATH``. Run make command to build all sample programs.
+```bash
+make install
+```
+For example, ``select1.go`` program is built and installed in ``$GOPATH/bin`` so that you can run it in commandline:
+```bash
+$ SNOWFLAKE_TEST_ACCOUNT=<your_account> \
+  SNOWFLAKE_TEST_USER=<your_user> \
+  SNOWFLAKE_TEST_PASSWORD=<your_password> \
+  sample1
+Congrats! You have successfully run SELECT 1 with Snowflake DB!
+```
 
 ## Development
-### Build
-(WIP)
+### Change Codes
+You may use your favorite editor to edit codes. But ensure running ``make fmt lint`` before submitting PR.
 
-### Test
+### Test Codes
 Set Snowflake connection info in `parameters.json`:
 ```json
 {
