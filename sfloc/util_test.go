@@ -30,8 +30,8 @@ func TestWithOffsetString(t *testing.T) {
 			ss: "1200",
 			tt: "-1200",
 			err: &SnowflakeError{
-				Number:      ErrInvalidTimezoneStr,
-				Message:     errInvalidOffsetStr,
+				Number:      ErrInvalidOffsetStr,
+				Message:     errMsgInvalidOffsetStr,
 				MessageArgs: []interface{}{"1200"},
 			},
 		},
@@ -39,8 +39,8 @@ func TestWithOffsetString(t *testing.T) {
 			ss: "+12001",
 			tt: "-1200",
 			err: &SnowflakeError{
-				Number:      ErrInvalidTimezoneStr,
-				Message:     errInvalidOffsetStr,
+				Number:      ErrInvalidOffsetStr,
+				Message:     errMsgInvalidOffsetStr,
 				MessageArgs: []interface{}{"+12001"},
 			},
 		},

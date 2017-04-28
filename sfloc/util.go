@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	// ErrInvalidTimezoneStr is an error code for the case where a offset string is invalid. The input string must
+	// ErrInvalidOffsetStr is an error code for the case where a offset string is invalid. The input string must
 	// consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes
-	ErrInvalidTimezoneStr = 268002
+	ErrInvalidOffsetStr = 268002
 
-	errInvalidOffsetStr = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
+	errMsgInvalidOffsetStr = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
 )
 
 // SnowflakeError is a error type including various Snowflake specific information.
@@ -57,15 +57,15 @@ func WithOffset(offset int) *time.Location {
 func WithOffsetString(offsets string) (loc *time.Location, err error) {
 	if len(offsets) != 5 {
 		return nil, &SnowflakeError{
-			Number:      ErrInvalidTimezoneStr,
-			Message:     errInvalidOffsetStr,
+			Number:      ErrInvalidOffsetStr,
+			Message:     errMsgInvalidOffsetStr,
 			MessageArgs: []interface{}{offsets},
 		}
 	}
 	if offsets[0] != '-' && offsets[0] != '+' {
 		return nil, &SnowflakeError{
-			Number:      ErrInvalidTimezoneStr,
-			Message:     errInvalidOffsetStr,
+			Number:      ErrInvalidOffsetStr,
+			Message:     errMsgInvalidOffsetStr,
 			MessageArgs: []interface{}{offsets},
 		}
 	}
@@ -103,7 +103,7 @@ func genTimezone(offset int) *time.Location {
 
 func init() {
 	updateTimezoneMutex = &sync.Mutex{}
-	timezones = make(map[int]*time.Location)
+	timezones = make(map[int]*time.Location, 48)
 	// pre-generate all common timezones
 	for i := -720; i <= 720; i += 30 {
 		glog.V(2).Infof("offset: %v", i)
