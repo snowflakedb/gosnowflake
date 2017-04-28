@@ -94,6 +94,7 @@ func Authenticate(
 	role string,
 	passcode string,
 	passcodeInPassword bool,
+	application,
 	samlResponse string,
 	mfaCallback string,
 	passwordCallback string,
@@ -111,7 +112,7 @@ func Authenticate(
 	headers["User-Agent"] = userAgent
 
 	clientEnvironment := authRequestClientEnvironment{
-		Application: clientType,
+		Application: application,
 		OsVersion:   platform,
 	}
 

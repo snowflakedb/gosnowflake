@@ -54,6 +54,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		sc.cfg.Role,
 		sc.cfg.Passcode,
 		sc.cfg.PasscodeInPassword,
+		sc.cfg.Application,
 		"", // TODO: OKTA support
 		"",
 		"",

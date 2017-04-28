@@ -40,8 +40,8 @@ type Config struct {
 	RequestTimeout time.Duration // Request read time
 	LoginTimeout   time.Duration // Login timeout
 
-	Application    string // application name.
-	IsInsecureMode bool   // driver doesn't check certificate revocation status
+	Application  string // application name.
+	InsecureMode bool   // driver doesn't check certificate revocation status
 
 }
 
@@ -162,6 +162,9 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	}
 	if cfg.Password == "" {
 		return nil, ErrEmptyPassword
+	}
+	if cfg.Application == "" {
+		cfg.Application = clientType
 	}
 
 	// unescape parameters
@@ -292,6 +295,15 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.LoginTimeout = time.Duration(vv * int64(time.Second))
+		case "application":
+			cfg.Application = value
+		case "insecureMode":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.InsecureMode = vv
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]string)
