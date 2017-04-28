@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
 	"context"
+
+	"github.com/golang/glog"
 )
 
 func fakeRequestFunc(method, urlStr string, body io.Reader) (*http.Request, error) {
