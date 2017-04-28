@@ -7,12 +7,22 @@ package gosnowflake
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/golang/glog"
 )
+
+const (
+	clientType    = "Go"
+	clientVersion = "0.1"  // TODO: should be updated at build time
+	osVersion     = "0.11" // TODO: should be retrieved
+)
+
+// UserAgent shows up in User-Agent HTTP header
+var UserAgent string = fmt.Sprintf("%v %v", clientType, clientVersion)
 
 type authRequestClientEnvironment struct {
 	Application string `json:"APPLICATION"`

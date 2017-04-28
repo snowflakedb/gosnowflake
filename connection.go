@@ -16,6 +16,15 @@ import (
 	"github.com/golang/glog"
 )
 
+const (
+	statementTypeIDDml              = int64(0x3000)
+	statementTypeIDInsert           = statementTypeIDDml + int64(0x100)
+	statementTypeIDUpdate           = statementTypeIDDml + int64(0x200)
+	statementTypeIDDelete           = statementTypeIDDml + int64(0x300)
+	statementTypeIDMerge            = statementTypeIDDml + int64(0x400)
+	statementTypeIDMultiTableInsert = statementTypeIDDml + int64(0x500)
+)
+
 type snowflakeConn struct {
 	cfg            *Config
 	rest           *snowflakeRestful

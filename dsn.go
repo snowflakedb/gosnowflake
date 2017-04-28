@@ -13,6 +13,11 @@ import (
 	"github.com/golang/glog"
 )
 
+const (
+	defaultLoginTimeout   = 60 * time.Second
+	defaultConnectTimeout = 60 * time.Second
+)
+
 // Config is a configuration parsed from a DSN string
 type Config struct {
 	Account   string            // Account name

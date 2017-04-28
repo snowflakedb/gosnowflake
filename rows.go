@@ -17,7 +17,12 @@ import (
 	"github.com/golang/glog"
 )
 
-const maxPool = 10
+const (
+	maxPool             = 10
+	headerSseCAlgorithm = "x-amz-server-side-encryption-customer-algorithm"
+	headerSseCKey       = "x-amz-server-side-encryption-customer-key"
+	headerSseCAes       = "AES256"
+)
 
 type snowflakeRows struct {
 	sc              *snowflakeConn

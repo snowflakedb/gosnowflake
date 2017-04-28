@@ -19,6 +19,18 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+const (
+	headerSnowflakeToken   = "Snowflake Token=\"%v\""
+	headerAuthorizationKey = "Authorization"
+
+	headerContentTypeApplicationJSON    = "application/json"
+	headerAcceptTypeAppliationSnowflake = "application/snowflake"
+
+	sessionExpiredCode       = "390112"
+	queryInProgressCode      = "333333"
+	queryInProgressAsyncCode = "333334"
+)
+
 var snowflakeTransport = &http.Transport{
 	// TODO: Proxy
 	MaxIdleConns:    10,
