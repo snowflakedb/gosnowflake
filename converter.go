@@ -25,9 +25,14 @@ func goTypeToSnowflake(v interface{}) string {
 	case float32, float64:
 		return "REAL"
 	case time.Time:
-		// TODO: timestamp support?
-		return "DATE"
+		return "TIMESTAMP_NTZ" // default TZ data type
 	case string:
+		return "TEXT"
+	case sfutil.DataType:
+		if dt, ok := v.(sfutil.DataType); ok {
+			return dt.String()
+		}
+		glog.V(2).Infof("unexpected data conversion error. %v", v)
 		return "TEXT"
 	default:
 		return "TEXT"
@@ -58,14 +63,28 @@ func valueToString(v interface{}) (*string, error) {
 	case reflect.String:
 		s := v1.String()
 		return &s, nil
-	case reflect.Slice, reflect.Map, reflect.Struct:
+	case reflect.Slice, reflect.Map:
 		if v1.IsNil() {
 			return nil, nil
 		}
+		// TODO: is this good enough?
 		s := v1.String()
 		return &s, nil
+	case reflect.Struct:
+		if tm, ok := v.(time.Time); ok {
+			s := fmt.Sprintf("%d", tm.UnixNano())
+			fmt.Printf("V: %v, %v\n", tm, s)
+			return &s, nil
+		}
+		if sfd, ok := v.(sfutil.DataType); ok {
+			sp, err := valueToString(sfd.Value())
+			if err != nil {
+				return nil, err
+			}
+			return sp, nil
+		}
 	}
-	return nil, fmt.Errorf("Unexpected type is given: %v", v1.Kind())
+	return nil, fmt.Errorf("Unsupported type: %v", v1.Kind())
 }
 
 // extractTimestamp extracts the internal timestamp data to epoch time in seconds and milliseconds
@@ -194,7 +213,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
 			}
 		}
-		loc := sfutil.LocationWithOffset(int(offset) - 1440)
+		loc := sfutil.Location(int(offset) - 1440)
 		tt := time.Unix(sec, nsec)
 		*dest = tt.In(loc)
 		return nil

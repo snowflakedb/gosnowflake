@@ -425,8 +425,9 @@ func TestFloat64Placeholder(t *testing.T) {
 		var rows *sql.Rows
 		for _, v := range types {
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
-			dbt.mustExec("INSERT INTO test VALUES (1, 42.23)")
+			dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
 			rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
+			defer rows.Close()
 			if rows.Next() {
 				rows.Scan(&out)
 				if expected != out {
@@ -437,6 +438,28 @@ func TestFloat64Placeholder(t *testing.T) {
 			}
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
+	})
+}
+
+func TestTimestampNTZPlaceholder(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		expected := time.Now()
+		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, ntz timestamp_ntz)")
+		dbt.mustExec("INSERT INTO tztest(id,ntz) VALUES(1, ?)", expected)
+		rows := dbt.mustQuery("SELECT ntz FROM tztest WHERE id=?", 1)
+		defer rows.Close()
+		var v time.Time
+		if rows.Next() {
+			rows.Scan(&v)
+			if expected.UnixNano() != v.UnixNano() {
+				dbt.Errorf("returned value didn't match. expected: %v, got: %v",
+					expected.UnixNano(), v.UnixNano())
+			}
+			// fmt.Printf("returned value: %v, %v, %v\n", v, v.UnixNano(), expected.UnixNano())
+		} else {
+			dbt.Error("no data")
+		}
+		dbt.mustExec("DROP TABLE tztest")
 	})
 }
 
