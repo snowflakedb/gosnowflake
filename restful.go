@@ -23,8 +23,8 @@ const (
 	headerSnowflakeToken   = "Snowflake Token=\"%v\""
 	headerAuthorizationKey = "Authorization"
 
-	headerContentTypeApplicationJSON    = "application/json"
-	headerAcceptTypeAppliationSnowflake = "application/snowflake"
+	headerContentTypeApplicationJSON     = "application/json"
+	headerAcceptTypeApplicationSnowflake = "application/snowflake"
 
 	sessionExpiredCode       = "390112"
 	queryInProgressCode      = "333333"
@@ -265,7 +265,7 @@ func (sr *snowflakeRestful) closeSession() error {
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeAppliationSnowflake
+	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
@@ -312,7 +312,7 @@ func (sr *snowflakeRestful) renewSession(ctx context.Context) error {
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeAppliationSnowflake
+	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.MasterToken)
 
@@ -372,7 +372,7 @@ func (sr *snowflakeRestful) cancelQuery(requestID string) error {
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeAppliationSnowflake
+	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 

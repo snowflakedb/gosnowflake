@@ -108,7 +108,7 @@ func Authenticate(
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeAppliationSnowflake
+	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
 
 	clientEnvironment := authRequestClientEnvironment{
