@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/snowflakedb/gosnowflake/sfutil"
 )
 
 func goTypeToSnowflake(v interface{}) string {
@@ -65,6 +66,40 @@ func valueToString(v interface{}) (*string, error) {
 		return &s, nil
 	}
 	return nil, fmt.Errorf("Unexpected type is given: %v", v1.Kind())
+}
+
+// extractTimestamp extracts the internal timestamp data to epoch time in seconds and milliseconds
+func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
+	glog.V(2).Infof("SRC: %v", srcValue)
+	var i int
+	for i = 0; i < len(*srcValue); i++ {
+		if (*srcValue)[i] == '.' {
+			sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
+			if err != nil {
+				return 0, 0, err
+			}
+			break
+		}
+	}
+	if i == len(*srcValue) {
+		// no fraction
+		sec, err = strconv.ParseInt(*srcValue, 10, 64)
+		if err != nil {
+			return 0, 0, err
+		}
+		nsec = 0
+	} else {
+		s := (*srcValue)[i+1:]
+		nsec, err = strconv.ParseInt(s+strings.Repeat("0", 9-len(s)), 10, 64)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	if err != nil {
+		return 0, 0, err
+	}
+	glog.V(2).Infof("sec: %v, nsec: %v", sec, nsec)
+	return sec, nsec, nil
 }
 
 // stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
@@ -122,45 +157,46 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		*dest = t0.Add(time.Duration(sec*1e9 + nsec))
 		return nil
 	case "timestamp_ntz":
-		var i int
-		var sec, nsec int64
-		var err error
-		glog.V(2).Infof("SRC: %v", srcValue)
-		for i = 0; i < len(*srcValue); i++ {
-			if (*srcValue)[i] == '.' {
-				sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
-				if err != nil {
-					return err
-				}
-				break
-			}
-		}
-		if i == len(*srcValue) {
-			// no fraction
-			sec, err = strconv.ParseInt(*srcValue, 10, 64)
-			if err != nil {
-				return err
-			}
-			nsec = 0
-		} else {
-			s := (*srcValue)[i+1:]
-			nsec, err = strconv.ParseInt(s+strings.Repeat("0", 9-len(s)), 10, 64)
-			if err != nil {
-				return err
-			}
-		}
+		sec, nsec, err := extractTimestamp(srcValue)
 		if err != nil {
 			return err
 		}
-		glog.V(2).Infof("SEC: %v, NSEC: %v", sec, nsec)
 		*dest = time.Unix(sec, nsec).UTC()
 		return nil
 	case "timestamp_ltz":
-	case "timestamp_tz":
-		// TODO: implement
+		sec, nsec, err := extractTimestamp(srcValue)
+		if err != nil {
+			return err
+		}
+		tt := time.Unix(sec, nsec)
+		zone, offset := tt.Zone() // get timezone for the given datetime
+		glog.V(2).Infof("local: %v, %v", zone, offset)
+		*dest = tt.Add(time.Second * time.Duration(-offset))
 		return nil
-	default:
-		*dest = *srcValue
+	case "timestamp_tz":
+		glog.V(2).Infof("tz: %v", *srcValue)
+
+		tm := strings.Split(*srcValue, " ")
+		if len(tm) != 2 {
+			return &SnowflakeError{
+				Number:  ErrInvalidTimestampTz,
+				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
+			}
+		}
+		sec, nsec, err := extractTimestamp(&tm[0])
+		if err != nil {
+			return err
+		}
+		offset, err := strconv.ParseInt(tm[1], 10, 64)
+		if err != nil {
+			return &SnowflakeError{
+				Number:  ErrInvalidTimestampTz,
+				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
+			}
+		}
+		loc := sfutil.LocationWithOffset(int(offset) - 1440)
+		tt := time.Unix(sec, nsec)
+		*dest = tt.In(loc)
 		return nil
 	}
 	*dest = *srcValue

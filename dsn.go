@@ -13,6 +13,11 @@ import (
 	"github.com/golang/glog"
 )
 
+const (
+	defaultLoginTimeout   = 60 * time.Second
+	defaultConnectTimeout = 60 * time.Second
+)
+
 // Config is a configuration parsed from a DSN string
 type Config struct {
 	Account   string            // Account name
@@ -34,6 +39,10 @@ type Config struct {
 	ConnectTimeout time.Duration // Dial timeout
 	RequestTimeout time.Duration // Request read time
 	LoginTimeout   time.Duration // Login timeout
+
+	Application  string // application name.
+	InsecureMode bool   // driver doesn't check certificate revocation status
+
 }
 
 // ParseDSN parses the DSN string to a Config
@@ -154,6 +163,9 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	if cfg.Password == "" {
 		return nil, ErrEmptyPassword
 	}
+	if cfg.Application == "" {
+		cfg.Application = clientType
+	}
 
 	// unescape parameters
 	var s string
@@ -252,7 +264,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		if err != nil {
 			return err
 		}
-		glog.V(2).Infof("Unescaped value: %v\n", value)
 		switch param[0] {
 		// Disable INFILE whitelist / enable all files
 		case "account":
@@ -283,6 +294,15 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.LoginTimeout = time.Duration(vv * int64(time.Second))
+		case "application":
+			cfg.Application = value
+		case "insecureMode":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.InsecureMode = vv
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]string)

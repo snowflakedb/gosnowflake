@@ -7,12 +7,24 @@ package gosnowflake
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
+	"runtime"
 	"strconv"
 	"time"
 
 	"github.com/golang/glog"
 )
+
+const (
+	clientType = "Go"
+)
+
+// platform consists of compiler, OS and architecture type in string
+var platform = fmt.Sprintf("%v-%v-%v", runtime.Compiler, runtime.GOOS, runtime.GOARCH)
+
+// userAgent shows up in User-Agent HTTP header
+var userAgent = fmt.Sprintf("%v/%v/%v/%v", clientType, SnowflakeGoDriverVersion, runtime.Version(), platform)
 
 type authRequestClientEnvironment struct {
 	Application string `json:"APPLICATION"`
@@ -82,6 +94,7 @@ func Authenticate(
 	role string,
 	passcode string,
 	passcodeInPassword bool,
+	application,
 	samlResponse string,
 	mfaCallback string,
 	passwordCallback string,
@@ -96,17 +109,16 @@ func Authenticate(
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeAppliationSnowflake
-	headers["User-Agent"] = UserAgent
+	headers["User-Agent"] = userAgent
 
 	clientEnvironment := authRequestClientEnvironment{
-		Application: clientType,
-		OsVersion:   osVersion,
+		Application: application,
+		OsVersion:   platform,
 	}
 
 	requestMain := authRequestData{
 		ClientAppID:       clientType,
-		ClientAppVersion:  clientVersion,
-		SvnRevision:       "",
+		ClientAppVersion:  SnowflakeGoDriverVersion,
 		AccoutName:        account,
 		ClientEnvironment: clientEnvironment,
 	}

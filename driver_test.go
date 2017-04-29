@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/snowflakedb/gosnowflake/sfutil"
 )
 
 var (
@@ -318,6 +320,7 @@ func TestSchemaWarehouseIncludingSpace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect. DSN: %v", newDSN)
 	}
+	defer db.Close()
 	rows, err := db.Query("SELECT CURRENT_SCHEMA(), CURRENT_WAREHOUSE()")
 	defer rows.Close()
 	if !rows.Next() {
@@ -421,7 +424,7 @@ func TestFloat64Placeholder(t *testing.T) {
 		var out float64
 		var rows *sql.Rows
 		for _, v := range types {
-			dbt.mustExec("CREATE TABLE test (id int, value " + v + ")")
+			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
 			dbt.mustExec("INSERT INTO test VALUES (1, 42.23)")
 			rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
 			if rows.Next() {
@@ -492,8 +495,8 @@ type timeTests struct {
 }
 
 type timeTest struct {
-	s string
-	t time.Time
+	s string    // source date time string
+	t time.Time // expected fetched data
 }
 
 func (tt timeTest) genQuery() string {
@@ -502,8 +505,7 @@ func (tt timeTest) genQuery() string {
 
 func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 	var rows *sql.Rows
-	query := tt.genQuery()
-	query = fmt.Sprintf(query, tt.s, dbtype)
+	query := fmt.Sprintf(tt.genQuery(), tt.s, dbtype)
 	rows = dbt.mustQuery(query)
 	defer rows.Close()
 	var err error
@@ -537,7 +539,7 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 		if val == tt.t {
 			return
 		}
-		t.Logf("tlayout: %s, v:%s, s:%s, t:%s", tlayout, val, tt.s, tt.t)
+		t.Logf("tlayout: %v, source:%v, expected: %v, got:%v", tlayout, tt.s, tt.t, val)
 		dbt.Errorf("%s to string: expected %q, got %q",
 			dbtype,
 			tt.s,
@@ -549,6 +551,37 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 			dbtype, val, val,
 		)
 	}
+}
+
+func TestSimpleDateTimeTimestampFetch(t *testing.T) {
+	var scan = func(rows *sql.Rows, cd interface{}, ct interface{}, cts interface{}) {
+		err := rows.Scan(cd, ct, cts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// fmt.Printf("cd: %v, ct: %v, cts: %v", cd, ct, cts)
+		// no error should occurs
+	}
+	var fetchTypes = []func(*sql.Rows){
+		func(rows *sql.Rows) {
+			var cd, ct, cts time.Time
+			scan(rows, &cd, &ct, &cts)
+		},
+		func(rows *sql.Rows) {
+			var cd, ct, cts time.Time
+			scan(rows, &cd, &ct, &cts)
+		},
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		for _, f := range fetchTypes {
+			rows := dbt.mustQuery("SELECT CURRENT_DATE(), CURRENT_TIME(), CURRENT_TIMESTAMP()")
+			if rows.Next() {
+				f(rows)
+			} else {
+				t.Fatal("no results")
+			}
+		}
+	})
 }
 
 func TestDateTime(t *testing.T) {
@@ -599,6 +632,99 @@ func TestDateTime(t *testing.T) {
 		{"DATETIME(9)", format, []timeTest{
 			{t: time.Date(2011, 11, 20, 21, 27, 37, 123456789, time.UTC)},
 		}},
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		for _, setups := range testcases {
+			for _, setup := range setups.tests {
+				if setup.s == "" {
+					// fill time string wherever Go can reliable produce it
+					setup.s = setup.t.Format(setups.tlayout)
+				}
+				setup.run(t, dbt, setups.dbtype, setups.tlayout)
+			}
+		}
+	})
+}
+
+func TestTimestampLTZ(t *testing.T) {
+	format := "2006-01-02 15:04:05.999999999"
+	testcases := []timeTests{
+		{
+			dbtype:  "TIMESTAMP_LTZ(9)",
+			tlayout: format,
+			tests: []timeTest{
+				{
+					s: "2016-12-30 05:02:03",
+					t: time.Date(2016, 12, 30, 5, 2, 3, 0, time.Local),
+				},
+				{
+					s: "2017-05-12 00:51:42",
+					t: time.Date(2017, 5, 12, 0, 51, 42, 0, time.Local),
+				},
+				{
+					s: "2017-03-12 01:00:00",
+					t: time.Date(2017, 3, 12, 1, 0, 0, 0, time.Local),
+				},
+				{
+					s: "2017-03-13 04:00:00",
+					t: time.Date(2017, 3, 13, 4, 0, 0, 0, time.Local),
+				},
+				{
+					s: "2017-03-13 04:00:00.123456789",
+					t: time.Date(2017, 3, 13, 4, 0, 0, 123456789, time.Local),
+				},
+			},
+		},
+		{
+			dbtype:  "TIMESTAMP_LTZ(8)",
+			tlayout: format,
+			tests: []timeTest{
+				{
+					s: "2017-03-13 04:00:00.123456789",
+					t: time.Date(2017, 3, 13, 4, 0, 0, 123456780, time.Local),
+				},
+			},
+		},
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		for _, setups := range testcases {
+			for _, setup := range setups.tests {
+				if setup.s == "" {
+					// fill time string wherever Go can reliable produce it
+					setup.s = setup.t.Format(setups.tlayout)
+				}
+				setup.run(t, dbt, setups.dbtype, setups.tlayout)
+			}
+		}
+	})
+}
+
+func TestTimestampTZ(t *testing.T) {
+	sflo := func(offsets string) (loc *time.Location) {
+		r, err := sfutil.LocationWithOffsetString(offsets)
+		if err != nil {
+			return time.UTC
+		}
+		return r
+	}
+	format := "2006-01-02 15:04:05.999999999"
+	testcases := []timeTests{
+		{
+			dbtype:  "TIMESTAMP_TZ(9)",
+			tlayout: format,
+			tests: []timeTest{
+				{
+					s: "2016-12-30 05:02:03 +07:00",
+					t: time.Date(2016, 12, 30, 5, 2, 3, 0,
+						sflo("+0700")),
+				},
+				{
+					s: "2017-05-23 03:56:41 -09:00",
+					t: time.Date(2017, 5, 23, 3, 56, 41, 0,
+						sflo("-0900")),
+				},
+			},
+		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
 		for _, setups := range testcases {
@@ -767,10 +893,17 @@ func TestNULL(t *testing.T) {
 func TestLargeSetResult(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		numrows := 10000
-		rows := dbt.mustQuery(fmt.Sprintf("SELECT RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+		rows := dbt.mustQuery(fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
 		defer rows.Close()
 		cnt := 0
+		var idx int
+		var v string
 		for rows.Next() {
+			err := rows.Scan(&idx, &v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// fmt.Printf("%v, %v\n", idx, v)
 			cnt++
 		}
 		if cnt != numrows {

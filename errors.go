@@ -42,6 +42,9 @@ const (
 	ErrCodeEmptyPasswordCode = 260003
 	// ErrCodeFailedToParsePort is an error code for the case where a DNS includes an invalid port number
 	ErrCodeFailedToParsePort = 260004
+
+	// ErrInvalidTimestampTz is an error code for the case where a returned TIMESTAMP_TZ internal value is invalid
+	ErrInvalidTimestampTz = 261001
 )
 
 const (

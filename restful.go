@@ -19,6 +19,18 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+const (
+	headerSnowflakeToken   = "Snowflake Token=\"%v\""
+	headerAuthorizationKey = "Authorization"
+
+	headerContentTypeApplicationJSON    = "application/json"
+	headerAcceptTypeAppliationSnowflake = "application/snowflake"
+
+	sessionExpiredCode       = "390112"
+	queryInProgressCode      = "333333"
+	queryInProgressAsyncCode = "333334"
+)
+
 var snowflakeTransport = &http.Transport{
 	// TODO: Proxy
 	MaxIdleConns:    10,
@@ -254,7 +266,7 @@ func (sr *snowflakeRestful) closeSession() error {
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeAppliationSnowflake
-	headers["User-Agent"] = UserAgent
+	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
 	resp, err := sr.post(context.TODO(), fullURL, headers, nil, 0)
@@ -301,7 +313,7 @@ func (sr *snowflakeRestful) renewSession(ctx context.Context) error {
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeAppliationSnowflake
-	headers["User-Agent"] = UserAgent
+	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.MasterToken)
 
 	body := make(map[string]string)
@@ -361,7 +373,7 @@ func (sr *snowflakeRestful) cancelQuery(requestID string) error {
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeAppliationSnowflake
-	headers["User-Agent"] = UserAgent
+	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
 	req := make(map[string]string)
