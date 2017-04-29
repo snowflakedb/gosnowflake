@@ -12,9 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/snowflakedb/gosnowflake/sfloc"
-
 	"github.com/golang/glog"
+	"github.com/snowflakedb/gosnowflake/sfutil"
 )
 
 func goTypeToSnowflake(v interface{}) string {
@@ -195,7 +194,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
 			}
 		}
-		loc := sfloc.WithOffset(int(offset) - 1440)
+		loc := sfutil.LocationWithOffset(int(offset) - 1440)
 		tt := time.Unix(sec, nsec)
 		*dest = tt.In(loc)
 		return nil

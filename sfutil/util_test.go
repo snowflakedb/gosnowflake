@@ -2,7 +2,7 @@
 //
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
 //
-package sfloc
+package sfutil
 
 import (
 	"testing"
@@ -37,7 +37,7 @@ func TestWithOffsetString(t *testing.T) {
 		},
 		{
 			ss: "+12001",
-			tt: "-1200",
+			tt: "",
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
 				Message:     errMsgInvalidOffsetStr,
@@ -46,7 +46,7 @@ func TestWithOffsetString(t *testing.T) {
 		},
 	}
 	for _, t0 := range testcases {
-		loc, err := WithOffsetString(t0.ss)
+		loc, err := LocationWithOffsetString(t0.ss)
 		if t0.err != nil {
 			if t0.err != err {
 				driverError1, ok1 := t0.err.(*SnowflakeError)

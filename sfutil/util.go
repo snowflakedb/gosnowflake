@@ -1,8 +1,8 @@
-// Package sfloc is a timezone utility package for Go Snowflake Driver
+// Package sfutil is a utility package for Go Snowflake Driver
 //
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
 //
-package sfloc
+package sfutil
 
 import (
 	"fmt"
@@ -39,8 +39,8 @@ func (se *SnowflakeError) Error() string {
 var timezones map[int]*time.Location
 var updateTimezoneMutex *sync.Mutex
 
-// WithOffset returns an offset (minutes) based Location object.
-func WithOffset(offset int) *time.Location {
+// LocationWithOffset returns an offset (minutes) based Location object.
+func LocationWithOffset(offset int) *time.Location {
 	updateTimezoneMutex.Lock()
 	defer updateTimezoneMutex.Unlock()
 	loc := timezones[offset]
@@ -52,9 +52,9 @@ func WithOffset(offset int) *time.Location {
 	return loc
 }
 
-// WithOffsetString returns an offset based Location object. The offset string must consist of sHHMI where one sign
+// LocationWithOffsetString returns an offset based Location object. The offset string must consist of sHHMI where one sign
 // character '+'/'-' followed by zero filled hours and minutes
-func WithOffsetString(offsets string) (loc *time.Location, err error) {
+func LocationWithOffsetString(offsets string) (loc *time.Location, err error) {
 	if len(offsets) != 5 {
 		return nil, &SnowflakeError{
 			Number:      ErrInvalidOffsetStr,
@@ -83,7 +83,7 @@ func WithOffsetString(offsets string) (loc *time.Location, err error) {
 		return
 	}
 	offset := s * (int(h)*60 + int(m))
-	loc = WithOffset(offset)
+	loc = LocationWithOffset(offset)
 	return
 }
 

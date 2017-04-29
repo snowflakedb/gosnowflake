@@ -74,13 +74,14 @@ func (rows *snowflakeRows) Columns() []string {
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
-	// glog.V(2).Infoln("Rows.Next")
 	row, err := rows.ChunkDownloader.Next()
 	if err != nil {
 		// includes io.EOF
 		return err
 	}
 	for i, n := 0, len(row); i < n; i++ {
+		// could move to chunk downloader so that each go routine
+		// can convert data
 		err := stringToValue(&dest[i], rows.RowType[i], row[i])
 		if err != nil {
 			return err

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/snowflakedb/gosnowflake/sfloc"
+	"github.com/snowflakedb/gosnowflake/sfutil"
 )
 
 var (
@@ -424,7 +424,7 @@ func TestFloat64Placeholder(t *testing.T) {
 		var out float64
 		var rows *sql.Rows
 		for _, v := range types {
-			dbt.mustExec("CREATE TABLE test (id int, value " + v + ")")
+			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
 			dbt.mustExec("INSERT INTO test VALUES (1, 42.23)")
 			rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
 			if rows.Next() {
@@ -553,6 +553,37 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 	}
 }
 
+func TestSimpleDateTimeTimestampFetch(t *testing.T) {
+	var scan = func(rows *sql.Rows, cd interface{}, ct interface{}, cts interface{}) {
+		err := rows.Scan(cd, ct, cts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// fmt.Printf("cd: %v, ct: %v, cts: %v", cd, ct, cts)
+		// no error should occurs
+	}
+	var fetchTypes = []func(*sql.Rows){
+		func(rows *sql.Rows) {
+			var cd, ct, cts time.Time
+			scan(rows, &cd, &ct, &cts)
+		},
+		func(rows *sql.Rows) {
+			var cd, ct, cts time.Time
+			scan(rows, &cd, &ct, &cts)
+		},
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		for _, f := range fetchTypes {
+			rows := dbt.mustQuery("SELECT CURRENT_DATE(), CURRENT_TIME(), CURRENT_TIMESTAMP()")
+			if rows.Next() {
+				f(rows)
+			} else {
+				t.Fatal("no results")
+			}
+		}
+	})
+}
+
 func TestDateTime(t *testing.T) {
 	afterTime := func(t time.Time, d string) time.Time {
 		dur, err := time.ParseDuration(d)
@@ -670,7 +701,7 @@ func TestTimestampLTZ(t *testing.T) {
 
 func TestTimestampTZ(t *testing.T) {
 	sflo := func(offsets string) (loc *time.Location) {
-		r, err := sfloc.WithOffsetString(offsets)
+		r, err := sfutil.LocationWithOffsetString(offsets)
 		if err != nil {
 			return time.UTC
 		}
@@ -862,10 +893,17 @@ func TestNULL(t *testing.T) {
 func TestLargeSetResult(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		numrows := 10000
-		rows := dbt.mustQuery(fmt.Sprintf("SELECT RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+		rows := dbt.mustQuery(fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
 		defer rows.Close()
 		cnt := 0
+		var idx int
+		var v string
 		for rows.Next() {
+			err := rows.Scan(&idx, &v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// fmt.Printf("%v, %v\n", idx, v)
 			cnt++
 		}
 		if cnt != numrows {
