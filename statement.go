@@ -9,12 +9,27 @@ import (
 
 	"context"
 
+	"errors"
+	"fmt"
+
 	"github.com/golang/glog"
 )
 
 type snowflakeStmt struct {
 	sc    *snowflakeConn
 	query string
+}
+
+type snowflakeConverter struct {
+}
+
+func (conv *snowflakeConverter) ConvertValue(v interface{}) (driver.Value, error) {
+	return nil, errors.New("hello error")
+}
+
+func (stmt *snowflakeStmt) ColumnConverter(idx int) driver.ValueConverter {
+	fmt.Print("HELLO")
+	return &snowflakeConverter{}
 }
 
 func (stmt *snowflakeStmt) Close() error {
