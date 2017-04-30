@@ -97,7 +97,7 @@ func TestParseDSN(t *testing.T) {
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: &SnowflakeError{
-				Message:     ErrMsgFailedToParsePort,
+				Message:     errMsgFailedToParsePort,
 				MessageArgs: []interface{}{"NNNN"},
 				Number:      ErrCodeFailedToParsePort,
 			},

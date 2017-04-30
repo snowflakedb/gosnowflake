@@ -60,6 +60,7 @@ func (sc *snowflakeConn) exec(
 		req.Bindings = make(map[string]execBindParameter, len(parameters))
 		for i, n := 0, len(parameters); i < n; i++ {
 			t := goTypeToSnowflake(parameters[i].Value, tsmode)
+			glog.V(2).Infof("tmode: %v\n", t)
 			if t == "CHANGE_MODE" {
 				tsmode, err = DataTypeMode(parameters[i].Value)
 				if err != nil {
@@ -78,6 +79,7 @@ func (sc *snowflakeConn) exec(
 			}
 		}
 	}
+	glog.V(2).Infof("bindings: %v", req.Bindings)
 	params := &url.Values{} // TODO: delete?
 
 	headers := make(map[string]string)

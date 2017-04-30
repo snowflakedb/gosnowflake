@@ -437,19 +437,44 @@ func TestFloat64Placeholder(t *testing.T) {
 	})
 }
 
-func TestTimestampNTZPlaceholder(t *testing.T) {
+func TestDateTimeTimestampPlaceholder(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		expected := time.Now()
-		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, ntz timestamp_ntz)")
-		dbt.mustExec("INSERT INTO tztest(id,ntz) VALUES(1, ?)", expected)
-		rows := dbt.mustQuery("SELECT ntz FROM tztest WHERE id=?", 1)
+		dbt.mustExec(
+			"CREATE OR REPLACE TABLE tztest (id int, ntz timestamp_ntz, ltz timestamp_ltz, dt date, tm time)")
+		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,ntz,ltz,dt,tm) VALUES(1,?,?,?,?)")
+		if err != nil {
+			dbt.Fatal(err.Error())
+		}
+		defer stmt.Close()
+		_, err = stmt.Exec(
+			DataTypeTimestampNtz, expected,
+			DataTypeTimestampLtz, expected,
+			DataTypeDate, expected,
+			DataTypeTime, expected)
+		if err != nil {
+			dbt.Fatal(err)
+		}
+		rows := dbt.mustQuery("SELECT ntz,ltz,dt,tm FROM tztest WHERE id=?", 1)
 		defer rows.Close()
-		var v time.Time
+		var ntz, vltz, dt, tm time.Time
 		if rows.Next() {
-			rows.Scan(&v)
-			if expected.UnixNano() != v.UnixNano() {
-				dbt.Errorf("returned value didn't match. expected: %v, got: %v",
-					expected.UnixNano(), v.UnixNano())
+			rows.Scan(&ntz, &vltz, &dt, &tm)
+			if expected.UnixNano() != ntz.UnixNano() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.UnixNano(), expected, ntz.UnixNano(), ntz)
+			}
+			if expected.UnixNano() != vltz.UnixNano() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.UnixNano(), expected, vltz.UnixNano(), vltz)
+			}
+			if expected.Year() != dt.Year() || expected.Month() != dt.Month() || expected.Day() != dt.Day() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.Unix()*1000, expected, dt.Unix()*1000, dt)
+			}
+			if expected.Hour() != tm.Hour() || expected.Minute() != tm.Minute() || expected.Second() != tm.Second() || expected.Nanosecond() != tm.Nanosecond() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.UnixNano(), expected, tm.UnixNano(), tm)
 			}
 			// fmt.Printf("returned value: %v, %v, %v\n", v, v.UnixNano(), expected.UnixNano())
 		} else {
@@ -459,20 +484,22 @@ func TestTimestampNTZPlaceholder(t *testing.T) {
 	})
 }
 
-func TestTimestampLTZPlaceholder(t *testing.T) {
+/*
+TODO: not working as TIMESTAMP_TZ binding is not supported yet
+func TestTimestampTZPlaceholder(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		expected := time.Now()
-		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, ltz timestamp_ltz)")
-		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,ltz) VALUES(1, ?)")
+		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, tz timestamp_tz)")
+		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,tz) VALUES(1, ?)")
 		if err != nil {
 			dbt.Fatal(err.Error())
 		}
 		defer stmt.Close()
-		_, err = stmt.Exec(DataTypeTimestampLtz, expected)
+		_, err = stmt.Exec(DataTypeTimestampTz, expected)
 		if err != nil {
 			dbt.Fatal(err)
 		}
-		rows := dbt.mustQuery("SELECT ltz FROM tztest WHERE id=?", 1)
+		rows := dbt.mustQuery("SELECT tz FROM tztest WHERE id=?", 1)
 		defer rows.Close()
 		var v time.Time
 		if rows.Next() {
@@ -488,6 +515,7 @@ func TestTimestampLTZPlaceholder(t *testing.T) {
 		dbt.mustExec("DROP TABLE tztest")
 	})
 }
+*/
 
 func TestString(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {

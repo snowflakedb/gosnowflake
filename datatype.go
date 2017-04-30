@@ -59,37 +59,23 @@ var (
 func DataTypeMode(v driver.Value) (tsmode string, err error) {
 	if bd, ok := v.([]byte); ok {
 		switch {
-		case bytes.Compare(bd, DataTypeFixed) == 0:
-			tsmode = "FIXED"
-		case bytes.Compare(bd, DataTypeReal) == 0:
-			tsmode = "REAL"
-		case bytes.Compare(bd, DataTypeText) == 0:
-			tsmode = "TEXT"
 		case bytes.Compare(bd, DataTypeDate) == 0:
 			tsmode = "DATE"
 		case bytes.Compare(bd, DataTypeTime) == 0:
 			tsmode = "TIME"
-		case bytes.Compare(bd, DataTypeVariant) == 0:
-			tsmode = "VARIANT"
 		case bytes.Compare(bd, DataTypeTimestampLtz) == 0:
 			tsmode = "TIMESTAMP_LTZ"
 		case bytes.Compare(bd, DataTypeTimestampNtz) == 0:
-			tsmode = "TIMESTAMP_LTZ"
+			tsmode = "TIMESTAMP_NTZ"
 		case bytes.Compare(bd, DataTypeTimestampTz) == 0:
 			tsmode = "TIMESTAMP_TZ"
-		case bytes.Compare(bd, DataTypeArray) == 0:
-			tsmode = "ARRAY"
-		case bytes.Compare(bd, DataTypeObject) == 0:
-			tsmode = "OBJECT"
 		case bytes.Compare(bd, DataTypeBinary) == 0:
 			tsmode = "BINARY"
-		case bytes.Compare(bd, DataTypeBoolean) == 0:
-			tsmode = "BOOLEAN"
 		default:
-			return "", fmt.Errorf("invalid byte array: %v", v)
+			return "", fmt.Errorf(errMsgInvalidByteArray, v)
 		}
 	} else {
-		return "", fmt.Errorf("invalid byte array: %v", v)
+		return "", fmt.Errorf(errMsgInvalidByteArray, v)
 	}
 	return tsmode, nil
 }

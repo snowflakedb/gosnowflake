@@ -74,6 +74,13 @@ func valueToString(v interface{}, tsmode string) (*string, error) {
 	case reflect.Struct:
 		if tm, ok := v.(time.Time); ok {
 			switch tsmode {
+			case "DATE":
+				s := fmt.Sprintf("%d", tm.Unix()*1000)
+				return &s, nil
+			case "TIME":
+				s := fmt.Sprintf("%d",
+					(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
+				return &s, nil
 			case "TIMESTAMP_NTZ":
 				s := fmt.Sprintf("%d", tm.UnixNano())
 				return &s, nil
@@ -145,37 +152,10 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		*dest = time.Unix(v*86400, 0).UTC()
 		return nil
 	case "time":
-		var i int
-		var sec, nsec int64
-		var err error
-		glog.V(2).Infof("SRC: %v", srcValue)
-		for i = 0; i < len(*srcValue); i++ {
-			if (*srcValue)[i] == '.' {
-				sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
-				if err != nil {
-					return err
-				}
-				break
-			}
-		}
-		if i == len(*srcValue) {
-			// no fraction
-			sec, err = strconv.ParseInt(*srcValue, 10, 64)
-			if err != nil {
-				return err
-			}
-			nsec = 0
-		} else {
-			s := (*srcValue)[i+1:]
-			nsec, err = strconv.ParseInt(s+strings.Repeat("0", 9-len(s)), 10, 64)
-			if err != nil {
-				return err
-			}
-		}
+		sec, nsec, err := extractTimestamp(srcValue)
 		if err != nil {
 			return err
 		}
-		glog.V(2).Infof("SEC: %v, NSEC: %v", sec, nsec)
 		t0 := time.Time{}
 		*dest = t0.Add(time.Duration(sec*1e9 + nsec))
 		return nil
