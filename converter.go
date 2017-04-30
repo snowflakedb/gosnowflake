@@ -6,6 +6,7 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -13,10 +14,10 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/snowflakedb/gosnowflake/sfutil"
+	"github.com/snowflakedb/gosnowflake/sf"
 )
 
-func goTypeToSnowflake(v interface{}) string {
+func goTypeToSnowflake(v interface{}, tsmode string) string {
 	switch v.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		return "FIXED"
@@ -25,23 +26,24 @@ func goTypeToSnowflake(v interface{}) string {
 	case float32, float64:
 		return "REAL"
 	case time.Time:
-		return "TIMESTAMP_NTZ" // default TZ data type
+		return tsmode
 	case string:
 		return "TEXT"
-	case sfutil.DataType:
-		if dt, ok := v.(sfutil.DataType); ok {
-			return dt.String()
+	case []byte:
+		if bd, ok := v.([]byte); ok {
+			if bd != nil && len(bd) == 1 {
+				return "CHANGE_MODE"
+			}
 		}
-		glog.V(2).Infof("unexpected data conversion error. %v", v)
-		return "TEXT"
 	default:
 		return "TEXT"
 	}
+	return "TEXT"
 }
 
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
-func valueToString(v interface{}) (*string, error) {
+func valueToString(v interface{}, tsmode string) (*string, error) {
 	glog.V(2).Infof("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	if v == nil {
 		return nil, nil
@@ -72,16 +74,19 @@ func valueToString(v interface{}) (*string, error) {
 		return &s, nil
 	case reflect.Struct:
 		if tm, ok := v.(time.Time); ok {
-			s := fmt.Sprintf("%d", tm.UnixNano())
-			fmt.Printf("V: %v, %v\n", tm, s)
-			return &s, nil
-		}
-		if sfd, ok := v.(sfutil.DataType); ok {
-			sp, err := valueToString(sfd.Value())
-			if err != nil {
-				return nil, err
+			switch tsmode {
+			case "TIMESTAMP_NTZ":
+				s := fmt.Sprintf("%d", tm.UnixNano())
+				return &s, nil
+			case "TIMESTAMP_LTZ":
+				_, offset := tm.Zone()
+				tm = tm.Add(time.Second * time.Duration(offset))
+				s := fmt.Sprintf("%d", tm.UnixNano())
+				return &s, nil
+			case "TIMESTAMP_TZ":
+				s := fmt.Sprintf("%d", tm.UnixNano())
+				return &s, nil
 			}
-			return sp, nil
 		}
 	}
 	return nil, fmt.Errorf("Unsupported type: %v", v1.Kind())
@@ -130,7 +135,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		return nil
 	}
 	switch srcColumnMeta.Type {
-	case "text":
+	case "text", "fixed", "real", "variant", "object":
 		*dest = *srcValue
 		return nil
 	case "date":
@@ -213,10 +218,13 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
 			}
 		}
-		loc := sfutil.Location(int(offset) - 1440)
+		loc := sf.Location(int(offset) - 1440)
 		tt := time.Unix(sec, nsec)
 		*dest = tt.In(loc)
 		return nil
+	case "binary":
+		// TODO implement this
+		return errors.New("not implemented")
 	}
 	*dest = *srcValue
 	return nil

@@ -5,12 +5,8 @@
 package gosnowflake
 
 import (
-	"database/sql/driver"
-
 	"context"
-
-	"errors"
-	"fmt"
+	"database/sql/driver"
 
 	"github.com/golang/glog"
 )
@@ -20,17 +16,20 @@ type snowflakeStmt struct {
 	query string
 }
 
+/*
+TODO: investigate how
 type snowflakeConverter struct {
 }
 
 func (conv *snowflakeConverter) ConvertValue(v interface{}) (driver.Value, error) {
-	return nil, errors.New("hello error")
+	return v, nil
+	// return nil, errors.New(fmt.Sprintf("hello error: %T, %v", v, v))
 }
 
 func (stmt *snowflakeStmt) ColumnConverter(idx int) driver.ValueConverter {
-	fmt.Print("HELLO")
 	return &snowflakeConverter{}
 }
+*/
 
 func (stmt *snowflakeStmt) Close() error {
 	glog.V(2).Infoln("Stmt.Close")

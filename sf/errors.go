@@ -1,5 +1,5 @@
-// Package sfutil is a utility package for Go Snowflake Driver
-package sfutil
+// Package sf is a utility package for Go Snowflake Driver
+package sf
 
 import (
 	"fmt"

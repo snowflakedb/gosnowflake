@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/snowflakedb/gosnowflake/sfutil"
+	"github.com/snowflakedb/gosnowflake/sf"
 )
 
 var (
@@ -353,9 +353,7 @@ func TestInt(t *testing.T) {
 		// SIGNED
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
-
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
-
 			rows = dbt.mustQuery("SELECT value FROM test")
 			if rows.Next() {
 				rows.Scan(&out)
@@ -463,6 +461,36 @@ func TestTimestampNTZPlaceholder(t *testing.T) {
 	})
 }
 
+func TestTimestampLTZPlaceholder(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		expected := time.Now()
+		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, ltz timestamp_ltz)")
+		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,ltz) VALUES(1, ?)")
+		if err != nil {
+			dbt.Fatal(err.Error())
+		}
+		defer stmt.Close()
+		_, err = stmt.Exec(sf.DataTypeTimestampLtz, expected)
+		if err != nil {
+			dbt.Fatal(err)
+		}
+		rows := dbt.mustQuery("SELECT ltz FROM tztest WHERE id=?", 1)
+		defer rows.Close()
+		var v time.Time
+		if rows.Next() {
+			rows.Scan(&v)
+			if expected.UnixNano() != v.UnixNano() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.UnixNano(), expected, v.UnixNano(), v)
+			}
+			// fmt.Printf("returned value: %v, %v, %v\n", v, v.UnixNano(), expected.UnixNano())
+		} else {
+			dbt.Error("no data")
+		}
+		// dbt.mustExec("DROP TABLE tztest")
+	})
+}
+
 func TestString(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := []string{"CHAR(255)", "VARCHAR(255)", "TEXT", "STRING"}
@@ -562,7 +590,7 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 		if val == tt.t {
 			return
 		}
-		t.Logf("tlayout: %v, source:%v, expected: %v, got:%v", tlayout, tt.s, tt.t, val)
+		t.Logf("source:%v, expected: %v, got:%v", tt.s, tt.t, val)
 		dbt.Errorf("%s to string: expected %q, got %q",
 			dbtype,
 			tt.s,
@@ -724,7 +752,7 @@ func TestTimestampLTZ(t *testing.T) {
 
 func TestTimestampTZ(t *testing.T) {
 	sflo := func(offsets string) (loc *time.Location) {
-		r, err := sfutil.LocationWithOffsetString(offsets)
+		r, err := sf.LocationWithOffsetString(offsets)
 		if err != nil {
 			return time.UTC
 		}
