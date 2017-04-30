@@ -485,7 +485,7 @@ func TestTimestampLTZPlaceholder(t *testing.T) {
 		} else {
 			dbt.Error("no data")
 		}
-		// dbt.mustExec("DROP TABLE tztest")
+		dbt.mustExec("DROP TABLE tztest")
 	})
 }
 
