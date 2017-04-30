@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 
 	"github.com/golang/glog"
-	"github.com/snowflakedb/gosnowflake/sf"
 )
 
 const (
@@ -62,7 +61,7 @@ func (sc *snowflakeConn) exec(
 		for i, n := 0, len(parameters); i < n; i++ {
 			t := goTypeToSnowflake(parameters[i].Value, tsmode)
 			if t == "CHANGE_MODE" {
-				tsmode, err = sf.DataTypeMode(parameters[i].Value)
+				tsmode, err = DataTypeMode(parameters[i].Value)
 				if err != nil {
 					return nil, err
 				}

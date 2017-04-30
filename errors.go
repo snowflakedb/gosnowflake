@@ -45,11 +45,17 @@ const (
 
 	// ErrInvalidTimestampTz is an error code for the case where a returned TIMESTAMP_TZ internal value is invalid
 	ErrInvalidTimestampTz = 261001
+
+	// ErrInvalidOffsetStr is an error code for the case where a offset string is invalid. The input string must
+	// consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes
+	ErrInvalidOffsetStr = 268002
 )
 
 const (
 	// ErrMsgFailedToParsePort is an error message for the where a DNS includes an invalid port number
 	ErrMsgFailedToParsePort = "failed to parse a port number. port: %v"
+
+	errMsgInvalidOffsetStr = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
 )
 
 var (

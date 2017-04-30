@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/snowflakedb/gosnowflake/sf"
 )
 
 var (
@@ -470,7 +468,7 @@ func TestTimestampLTZPlaceholder(t *testing.T) {
 			dbt.Fatal(err.Error())
 		}
 		defer stmt.Close()
-		_, err = stmt.Exec(sf.DataTypeTimestampLtz, expected)
+		_, err = stmt.Exec(DataTypeTimestampLtz, expected)
 		if err != nil {
 			dbt.Fatal(err)
 		}
@@ -752,7 +750,7 @@ func TestTimestampLTZ(t *testing.T) {
 
 func TestTimestampTZ(t *testing.T) {
 	sflo := func(offsets string) (loc *time.Location) {
-		r, err := sf.LocationWithOffsetString(offsets)
+		r, err := LocationWithOffsetString(offsets)
 		if err != nil {
 			return time.UTC
 		}
