@@ -6,7 +6,7 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
-	"errors"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -68,6 +68,12 @@ func valueToString(v interface{}, tsmode string) (*string, error) {
 		if v1.IsNil() {
 			return nil, nil
 		}
+		if bd, ok := v.([]byte); ok {
+			if tsmode == "BINARY" {
+				s := hex.EncodeToString(bd)
+				return &s, nil
+			}
+		}
 		// TODO: is this good enough?
 		s := v1.String()
 		return &s, nil
@@ -95,7 +101,7 @@ func valueToString(v interface{}, tsmode string) (*string, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("Unsupported type: %v", v1.Kind())
+	return nil, fmt.Errorf("unsupported type: %v", v1.Kind())
 }
 
 // extractTimestamp extracts the internal timestamp data to epoch time in seconds and milliseconds
@@ -202,8 +208,13 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		*dest = tt.In(loc)
 		return nil
 	case "binary":
-		// TODO implement this
-		return errors.New("not implemented")
+		glog.V(2).Infof("bin: %v", *srcValue)
+		b, err := hex.DecodeString(*srcValue)
+		if err != nil {
+			return err
+		}
+		*dest = b
+		return nil
 	}
 	*dest = *srcValue
 	return nil

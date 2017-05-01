@@ -59,7 +59,7 @@ $ your_go_program -vmodule=driver=2,connection=2 -stderrthreshold=INFO
 ### Binding time.Time
 _This behavior is subject to change by the production._
 
-Go's [database/sql](https://golang.org/pkg/database/sql/) limits the data types to the following for binding and fetching.
+Go's [database/sql](https://golang.org/pkg/database/sql/) limits Go's data types to the following for binding and fetching.
 ```
 int64
 float64
@@ -97,7 +97,11 @@ tmValue time.Now()
 _, err = stmt.Exec(sf.DataTypeTimestampNtz, tmValue, sf.DataTypeTimestampLtz, tmValue)
 ```
 
-Internally this feature leverages `[]byte` data type. As a result, `BINARY` data cannot be bound without the flag. (_BINARY binding is not supported yet_)
+Internally this feature leverages `[]byte` data type. As a result, `BINARY` data cannot be bound without the flag. Suppose `sf` is an alias of `gosnowflake` package, here is an example:
+```
+var b = []byte{0x01, 0x02, 0x03}
+_, err = stmt.Exec(sf.DataTypeBinary, b)
+```
 
 ## Limitations
 ### Security Requirements
