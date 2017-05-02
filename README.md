@@ -82,7 +82,7 @@ For example, ``select1.go`` program is built and installed in ``$GOPATH/bin`` so
 $ SNOWFLAKE_TEST_ACCOUNT=<your_account> \
   SNOWFLAKE_TEST_USER=<your_user> \
   SNOWFLAKE_TEST_PASSWORD=<your_password> \
-  sample1
+  select1
 Congrats! You have successfully run SELECT 1 with Snowflake DB!
 ```
 
