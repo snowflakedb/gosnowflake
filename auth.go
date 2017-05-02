@@ -21,8 +21,8 @@ const (
 	osVersion     = "0.11" // TODO: should be retrieved
 )
 
-// UserAgent shows up in User-Agent HTTP header
-var UserAgent string = fmt.Sprintf("%v %v", clientType, clientVersion)
+// userAgent shows up in User-Agent HTTP header
+var userAgent = fmt.Sprintf("%v %v", clientType, clientVersion)
 
 type authRequestClientEnvironment struct {
 	Application string `json:"APPLICATION"`
@@ -106,7 +106,7 @@ func Authenticate(
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeAppliationSnowflake
-	headers["User-Agent"] = UserAgent
+	headers["User-Agent"] = userAgent
 
 	clientEnvironment := authRequestClientEnvironment{
 		Application: clientType,

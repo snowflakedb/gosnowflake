@@ -73,7 +73,7 @@ func (sc *snowflakeConn) exec(
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeAppliationSnowflake // TODO: change to JSON in case of PUT/GET
-	headers["User-Agent"] = UserAgent
+	headers["User-Agent"] = userAgent
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
