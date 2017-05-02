@@ -54,7 +54,10 @@ func init() {
 	} else {
 		host = fmt.Sprintf("%s:%s", host, port)
 	}
+	createDSN()
+}
 
+func createDSN() {
 	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, schemaname)
 
 	parameters := url.Values{}
@@ -74,6 +77,57 @@ func init() {
 	if len(parameters) > 0 {
 		dsn += "?" + parameters.Encode()
 	}
+}
+
+// setup creates a test schema so that all tests can run in the same schema
+func setup() (string, error) {
+	env := func(key, defaultValue string) string {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+		return defaultValue
+	}
+	orgSchemaname := schemaname
+	if env("TRAVIS", "") == "true" {
+		schemaname = fmt.Sprintf("TRAVIS_JOB_%v", env("TRAVIS_JOB_ID", "testschema"))
+	} else {
+		schemaname = fmt.Sprintf("golang_%v", time.Now().UnixNano())
+	}
+	var db *sql.DB
+	var err error
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		return "", fmt.Errorf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+	if _, err = db.Exec(fmt.Sprintf("CREATE OR REPLACE SCHEMA %v", schemaname)); err != nil {
+		return "", fmt.Errorf("failed to create schema. %v", err)
+	}
+	createDSN()
+	return orgSchemaname, nil
+}
+
+// teardown drops the test schema
+func teardown(s string) error {
+	var db *sql.DB
+	var err error
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		return fmt.Errorf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+	if _, err = db.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %v", schemaname)); err != nil {
+		return fmt.Errorf("failed to create schema. %v", err)
+	}
+	return nil
+}
+
+func TestMain(m *testing.M) {
+	orgSchemaname, err := setup()
+	if err != nil {
+		panic(err)
+	}
+	ret := m.Run()
+	teardown(orgSchemaname)
+	os.Exit(ret)
 }
 
 type DBTest struct {

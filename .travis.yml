@@ -1,5 +1,10 @@
 sudo: false
 language: go
 go:
-  - 1.8
-  - tip
+- 1.8
+before_install: openssl aes-256-cbc -k "$super_secret_password" -in parameters.json.enc -out parameters.json -d
+install:
+  - make fmt lint test
+env:
+  global:
+    secure: WA6F+BxmgcTqnmjO6Hju9gd0iA7p3eJgWj0cJt+fu6BooSV81Xd0aBXQjczi0H61LGCCySBu+CUc6fl65wTUFc25etJ/d7QS1CrH7GHSG91NAgsJGgluioB5AY24YRbmm0eRII9nLfBPIcIyOWfVhuEHIAA4u9i5+qAbSCVIvZdF01m42iJKKWNTK+/S2NMUuuGfpWSAV/rjUscqZUk9ssGoAatx9RlkXivgJowBmC2p6TVIQubPrv4w8BUQf74hJHISUvQXDquKY+QMzvPoeUJ5fF/EkgUobbxn3sY/5Qi5KowepWWwiXdFw4N+LAu1waZpSPTikXWAEtVqRGUJA2pJ1rq3j6yZjYF8fZ9W/tWOdxUxgzxKVDeHek9Lk6OXgV4PN0hoXO3NMLQB37bd7yjBcwOBIhc24JuCklw8RxgFd6jJVWk9z+xfbZwQBLU1NjJppebdyn8KAXF1nHWqtI1qPyqT0w8zPqpfUh/so8Q/ofHGwpU21Cr6g6A3PQoqbJqFsf0YljNXXqoKQWd1LNymC+AkKUfZUCbkf2A/infyLidM5/erCqohRjMCKGCCDHowvIm8Sa3BoNfcP8F19tdWC/RRVWIJrRPeH9asL11TZ0QW7hGbufF0MG1D8za2BcMx4JNNWtNp72QlMaqj4furUur2y9LtuzW+nnN00iM=
