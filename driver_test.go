@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -481,6 +482,27 @@ func TestDateTimeTimestampPlaceholder(t *testing.T) {
 			dbt.Error("no data")
 		}
 		dbt.mustExec("DROP TABLE tztest")
+	})
+}
+
+func TestBinaryPlaceholder(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("CREATE OR REPLACE TABLE bintest (id int, b binary)")
+		var b = []byte{0x01, 0x02, 0x03}
+		dbt.mustExec("INSERT INTO bintest(id,b) VALUES(1, ?)", DataTypeBinary, b)
+		rows := dbt.mustQuery("SELECT b FROM bintest WHERE id=?", 1)
+		if rows.Next() {
+			var rb []byte
+			if err := rows.Scan(&rb); err != nil {
+				dbt.Errorf("failed to scan data. err: %v", err)
+			}
+			if bytes.Compare(b, rb) != 0 {
+				dbt.Errorf("failed to match data. expected: %v, got: %v", b, rb)
+			}
+		} else {
+			dbt.Errorf("no data")
+		}
+		dbt.mustExec("DROP TABLE bintest")
 	})
 }
 
