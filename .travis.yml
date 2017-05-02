@@ -6,7 +6,10 @@ before_install:
   - openssl aes-256-cbc -k "$super_secret_password" -in parameters.json.enc -out parameters.json -d
   - go get github.com/satori/go.uuid
 install:
-  - make fmt lint test
+  - make fmt lint
+  - make cov
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
 env:
   global:
     secure: Zp20tCeBJ1KdavtqQ20ICprMTerlNXU8t+2hUzGG4Fjz1mZz12mp0sXZJhhKZ4+bX3jsc5IWLVoB+1eb1uFFg+NKZeC7ZCScRiZmZ8r2etscCkTQkUQNgJAwAw1mTycJU/9qjq7YX3RvyHZ3SeFlPNcusHVm0c1ZKVpXJn+KQuh5Z5+c7FUBTzuY2Aap99pg3N7mMdajH+t5GUCrxbMltDtGiSEd70VdCxQ8/BUsylbKGjYQ0vm2Rd7IFPyXv9SgHR07nNzeeXD3/raf6JZyMdixb/esqS6fY50t74jT4DoXV5an5fD8jCBIxYxmBOKenK2LGP/VptyZGpM/Bos57VceyZoqeAnDUXU4NabeLNxUt7IBs/bAADceH9vrc5A5pPEXCx2wrIUufGFfvjNu8haaBLF8ydvQ7VJhauXH/ktEDxfcwC+lJJTWSbHad/ya7UNe+1OFP3z1GAvtZFC2a3/IoFVvsVS+r+71PHR1QQunWavGvhaJ+c34h3p1EZ2yEHHHE8msx8FjIvHSiMNh9FaKyPskv5r3SNpv1aGODCrdf3uAfskr6NBSeYplkKYQe23Yasdx3CXKjCahILOqd8zDXnX5LSNW46ZBEHjKlgV0RbLY6rYrWN+ugQJ2NHwd1QpMo2Weq9QXPkMaRbwuR/Kb4y5MNUzrnFnPXyRTCnk=
