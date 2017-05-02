@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,10 @@ import (
 )
 
 func main() {
+	if !flag.Parsed() {
+		// enable glog for Go Snowflake Driver
+		flag.Parse()
+	}
 	// get environment variables
 	env := func(k string) string {
 		if value := os.Getenv(k); value != "" {
@@ -30,10 +35,10 @@ func main() {
 	}
 	query := "SELECT 1"
 	rows, err := db.Query(query)
-	defer rows.Close()
 	if err != nil {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}
+	defer rows.Close()
 	var v int
 	for rows.Next() {
 		err := rows.Scan(&v)
