@@ -49,6 +49,7 @@ type snowflakeRestful struct {
 	ConnectTimeout time.Duration // Dial timeout
 	RequestTimeout time.Duration // Request read time
 	LoginTimeout   time.Duration // Login timeout
+	Authenticator  string
 
 	Client      *http.Client
 	Token       string
@@ -253,6 +254,98 @@ func (sr *snowflakeRestful) PostAuth(
 	}
 	glog.V(2).Infof("ERROR RESPONSE: %v", b)
 	return nil, err
+}
+
+func (sr *snowflakeRestful) PostAuthSAML(
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration) (
+	data *authResponse, err error) {
+	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
+	fullURL := fmt.Sprintf(
+		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
+		"/session/authenticator-request?"+requestID)
+	glog.V(2).Infof("fullURL: %v", fullURL)
+	resp, err := sr.post(context.TODO(), fullURL, headers, body, timeout)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		glog.V(2).Infof("PostAuthSAML: resp: %v", resp)
+		var respd authResponse
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
+			glog.V(1).Infof("%v", err)
+			return nil, err
+		}
+		return &respd, nil
+	}
+	// TODO: better error handing and retry
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		glog.V(1).Infof("%v", err)
+		return nil, err
+	}
+	glog.V(2).Infof("ERROR RESPONSE: %v", b)
+	return nil, err
+}
+
+func (sr *snowflakeRestful) PostAuthOKTA(
+	headers map[string]string,
+	body []byte,
+	fullURL string,
+	timeout time.Duration) (
+	data *authOKTAResponse, err error) {
+	glog.V(2).Infof("fullURL: %v", fullURL)
+	resp, err := sr.post(context.TODO(), fullURL, headers, body, timeout)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		glog.V(2).Infof("PostAuthOKTA: resp: %v", resp)
+		var respd authOKTAResponse
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
+			glog.V(1).Infof("%v", err)
+			return nil, err
+		}
+		return &respd, nil
+	}
+	// TODO: better error handing and retry
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		glog.V(1).Infof("%v", err)
+		return nil, err
+	}
+	glog.V(2).Infof("ERROR RESPONSE: %v", b)
+	return nil, err
+}
+
+func (sr *snowflakeRestful) GetSSO(
+	params *url.Values,
+	headers map[string]string,
+	url string,
+	timeout time.Duration) (
+	bd []byte, err error) {
+	fullURL := fmt.Sprintf("%s?%s", url, params.Encode())
+	glog.V(2).Infof("fullURL: %v", fullURL)
+	resp, err := sr.get(context.TODO(), fullURL, headers, timeout)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		glog.V(1).Infof("%v", err)
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusOK {
+		glog.V(2).Infof("GetSSO: resp: %v", resp)
+		return b, nil
+	}
+	return nil, fmt.Errorf("failed to get SSO response. HTTP code: %v", resp.StatusCode)
 }
 
 func (sr *snowflakeRestful) closeSession() error {

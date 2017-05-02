@@ -9,6 +9,7 @@ setup:
 
 ## Install
 install:
+	export GOBIN=$$GOPATH/bin; \
 	go install select1.go
 
 ## Run

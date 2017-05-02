@@ -42,6 +42,8 @@ const (
 	ErrCodeEmptyPasswordCode = 260003
 	// ErrCodeFailedToParsePort is an error code for the case where a DNS includes an invalid port number
 	ErrCodeFailedToParsePort = 260004
+	// ErrCodeIdpConnectionError is an error code for the case where a IDP connection failed
+	ErrCodeIdpConnectionError = 260005
 
 	// ErrInvalidTimestampTz is an error code for the case where a returned TIMESTAMP_TZ internal value is invalid
 	ErrInvalidTimestampTz = 261001
@@ -58,9 +60,10 @@ const (
 )
 
 const (
-	errMsgFailedToParsePort = "failed to parse a port number. port: %v"
-	errMsgInvalidOffsetStr  = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
-	errMsgInvalidByteArray  = "invalid byte array: %v"
+	errMsgFailedToParsePort  = "failed to parse a port number. port: %v"
+	errMsgInvalidOffsetStr   = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
+	errMsgInvalidByteArray   = "invalid byte array: %v"
+	errMsgIdpConnectionError = "failed to verify URLs. authenticator: %v, token URL:%v, SSO URL:%v"
 )
 
 var (

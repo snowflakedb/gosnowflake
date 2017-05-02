@@ -81,6 +81,8 @@ func valueToString(v interface{}, tsmode string) (*string, error) {
 		if tm, ok := v.(time.Time); ok {
 			switch tsmode {
 			case "DATE":
+				_, offset := tm.Zone()
+				tm = tm.Add(time.Second * time.Duration(offset))
 				s := fmt.Sprintf("%d", tm.Unix()*1000)
 				return &s, nil
 			case "TIME":
