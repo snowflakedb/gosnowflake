@@ -1,8 +1,8 @@
-// Package sfutil is a utility package for Go Snowflake Driver
+// Package gosnowflake is a utility package for Go Snowflake Driver
 //
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
 //
-package sfutil
+package gosnowflake
 
 import (
 	"fmt"
@@ -13,34 +13,11 @@ import (
 	"github.com/golang/glog"
 )
 
-const (
-	// ErrInvalidOffsetStr is an error code for the case where a offset string is invalid. The input string must
-	// consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes
-	ErrInvalidOffsetStr = 268002
-
-	errMsgInvalidOffsetStr = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
-)
-
-// SnowflakeError is a error type including various Snowflake specific information.
-type SnowflakeError struct {
-	Number      int
-	Message     string
-	MessageArgs []interface{}
-}
-
-func (se *SnowflakeError) Error() string {
-	message := se.Message
-	if len(se.MessageArgs) > 0 {
-		message = fmt.Sprintf(se.Message, se.MessageArgs)
-	}
-	return fmt.Sprintf("%06d (): %s", se.Number, message)
-}
-
 var timezones map[int]*time.Location
 var updateTimezoneMutex *sync.Mutex
 
-// LocationWithOffset returns an offset (minutes) based Location object.
-func LocationWithOffset(offset int) *time.Location {
+// Location returns an offset (minutes) based Location object for Snowflake database.
+func Location(offset int) *time.Location {
 	updateTimezoneMutex.Lock()
 	defer updateTimezoneMutex.Unlock()
 	loc := timezones[offset]
@@ -53,7 +30,7 @@ func LocationWithOffset(offset int) *time.Location {
 }
 
 // LocationWithOffsetString returns an offset based Location object. The offset string must consist of sHHMI where one sign
-// character '+'/'-' followed by zero filled hours and minutes
+// character '+'/'-' followed by zero filled hours and minutes.
 func LocationWithOffsetString(offsets string) (loc *time.Location, err error) {
 	if len(offsets) != 5 {
 		return nil, &SnowflakeError{
@@ -83,7 +60,7 @@ func LocationWithOffsetString(offsets string) (loc *time.Location, err error) {
 		return
 	}
 	offset := s * (int(h)*60 + int(m))
-	loc = LocationWithOffset(offset)
+	loc = Location(offset)
 	return
 }
 
@@ -98,7 +75,9 @@ func genTimezone(offset int) *time.Location {
 		toffset = offset
 	}
 	glog.V(2).Infof("offset: %v", offset)
-	return time.FixedZone(fmt.Sprintf("%v%02d%02d", offsetSign, toffset/60, toffset%60), int(offset)*60)
+	return time.FixedZone(
+		fmt.Sprintf("%v%02d%02d",
+			offsetSign, toffset/60, toffset%60), int(offset)*60)
 }
 
 func init() {

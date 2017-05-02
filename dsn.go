@@ -203,7 +203,7 @@ func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string
 			if err != nil {
 				err = &SnowflakeError{
 					Number:      ErrCodeFailedToParsePort,
-					Message:     ErrMsgFailedToParsePort,
+					Message:     errMsgFailedToParsePort,
 					MessageArgs: []interface{}{dsn[k+1 : posSlash]},
 				}
 				return

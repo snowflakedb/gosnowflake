@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/snowflakedb/gosnowflake/sfutil"
 )
 
 var (
@@ -353,9 +351,7 @@ func TestInt(t *testing.T) {
 		// SIGNED
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
-
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
-
 			rows = dbt.mustQuery("SELECT value FROM test")
 			if rows.Next() {
 				rows.Scan(&out)
@@ -425,8 +421,9 @@ func TestFloat64Placeholder(t *testing.T) {
 		var rows *sql.Rows
 		for _, v := range types {
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
-			dbt.mustExec("INSERT INTO test VALUES (1, 42.23)")
+			dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
 			rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
+			defer rows.Close()
 			if rows.Next() {
 				rows.Scan(&out)
 				if expected != out {
@@ -439,6 +436,86 @@ func TestFloat64Placeholder(t *testing.T) {
 		}
 	})
 }
+
+func TestDateTimeTimestampPlaceholder(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		expected := time.Now()
+		dbt.mustExec(
+			"CREATE OR REPLACE TABLE tztest (id int, ntz timestamp_ntz, ltz timestamp_ltz, dt date, tm time)")
+		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,ntz,ltz,dt,tm) VALUES(1,?,?,?,?)")
+		if err != nil {
+			dbt.Fatal(err.Error())
+		}
+		defer stmt.Close()
+		_, err = stmt.Exec(
+			DataTypeTimestampNtz, expected,
+			DataTypeTimestampLtz, expected,
+			DataTypeDate, expected,
+			DataTypeTime, expected)
+		if err != nil {
+			dbt.Fatal(err)
+		}
+		rows := dbt.mustQuery("SELECT ntz,ltz,dt,tm FROM tztest WHERE id=?", 1)
+		defer rows.Close()
+		var ntz, vltz, dt, tm time.Time
+		if rows.Next() {
+			rows.Scan(&ntz, &vltz, &dt, &tm)
+			if expected.UnixNano() != ntz.UnixNano() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.UnixNano(), expected, ntz.UnixNano(), ntz)
+			}
+			if expected.UnixNano() != vltz.UnixNano() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.UnixNano(), expected, vltz.UnixNano(), vltz)
+			}
+			if expected.Year() != dt.Year() || expected.Month() != dt.Month() || expected.Day() != dt.Day() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.Unix()*1000, expected, dt.Unix()*1000, dt)
+			}
+			if expected.Hour() != tm.Hour() || expected.Minute() != tm.Minute() || expected.Second() != tm.Second() || expected.Nanosecond() != tm.Nanosecond() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.UnixNano(), expected, tm.UnixNano(), tm)
+			}
+			// fmt.Printf("returned value: %v, %v, %v\n", v, v.UnixNano(), expected.UnixNano())
+		} else {
+			dbt.Error("no data")
+		}
+		dbt.mustExec("DROP TABLE tztest")
+	})
+}
+
+/*
+TODO: not working as TIMESTAMP_TZ binding is not supported yet
+func TestTimestampTZPlaceholder(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		expected := time.Now()
+		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, tz timestamp_tz)")
+		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,tz) VALUES(1, ?)")
+		if err != nil {
+			dbt.Fatal(err.Error())
+		}
+		defer stmt.Close()
+		_, err = stmt.Exec(DataTypeTimestampTz, expected)
+		if err != nil {
+			dbt.Fatal(err)
+		}
+		rows := dbt.mustQuery("SELECT tz FROM tztest WHERE id=?", 1)
+		defer rows.Close()
+		var v time.Time
+		if rows.Next() {
+			rows.Scan(&v)
+			if expected.UnixNano() != v.UnixNano() {
+				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+					expected.UnixNano(), expected, v.UnixNano(), v)
+			}
+			// fmt.Printf("returned value: %v, %v, %v\n", v, v.UnixNano(), expected.UnixNano())
+		} else {
+			dbt.Error("no data")
+		}
+		dbt.mustExec("DROP TABLE tztest")
+	})
+}
+*/
 
 func TestString(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
@@ -539,7 +616,7 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 		if val == tt.t {
 			return
 		}
-		t.Logf("tlayout: %v, source:%v, expected: %v, got:%v", tlayout, tt.s, tt.t, val)
+		t.Logf("source:%v, expected: %v, got:%v", tt.s, tt.t, val)
 		dbt.Errorf("%s to string: expected %q, got %q",
 			dbtype,
 			tt.s,
@@ -701,7 +778,7 @@ func TestTimestampLTZ(t *testing.T) {
 
 func TestTimestampTZ(t *testing.T) {
 	sflo := func(offsets string) (loc *time.Location) {
-		r, err := sfutil.LocationWithOffsetString(offsets)
+		r, err := LocationWithOffsetString(offsets)
 		if err != nil {
 			return time.UTC
 		}

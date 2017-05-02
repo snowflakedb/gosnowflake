@@ -5,13 +5,12 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"net/url"
 	"strconv"
 	"sync/atomic"
-
-	"context"
 
 	"github.com/golang/glog"
 )
@@ -55,19 +54,32 @@ func (sc *snowflakeConn) exec(
 		SequenceID: counter,
 	}
 	req.IsInternal = isInternal
+	tsmode := "TIMESTAMP_NTZ"
+	idx := 1
 	if len(parameters) > 0 {
 		req.Bindings = make(map[string]execBindParameter, len(parameters))
 		for i, n := 0, len(parameters); i < n; i++ {
-			v1, err := valueToString(parameters[i].Value)
-			if err != nil {
-				return nil, err
-			}
-			req.Bindings[strconv.Itoa(parameters[i].Ordinal)] = execBindParameter{
-				Type:  goTypeToSnowflake(parameters[i].Value),
-				Value: v1,
+			t := goTypeToSnowflake(parameters[i].Value, tsmode)
+			glog.V(2).Infof("tmode: %v\n", t)
+			if t == "CHANGE_MODE" {
+				tsmode, err = DataTypeMode(parameters[i].Value)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				v1, err := valueToString(parameters[i].Value, tsmode)
+				if err != nil {
+					return nil, err
+				}
+				req.Bindings[strconv.Itoa(idx)] = execBindParameter{
+					Type:  t,
+					Value: v1,
+				}
+				idx++
 			}
 		}
 	}
+	glog.V(2).Infof("bindings: %v", req.Bindings)
 	params := &url.Values{} // TODO: delete?
 
 	headers := make(map[string]string)
@@ -188,7 +200,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 		TotalRowIndex: int64(-1),
 		Qrmk:          data.Data.Qrmk,
 	}
-	rows.ChunkDownloader.Start(ctx)
+	rows.ChunkDownloader.start(ctx)
 	return rows, err
 }
 

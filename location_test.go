@@ -2,7 +2,7 @@
 //
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
 //
-package sfutil
+package gosnowflake
 
 import (
 	"testing"

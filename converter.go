@@ -6,6 +6,7 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -13,10 +14,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/snowflakedb/gosnowflake/sfutil"
 )
 
-func goTypeToSnowflake(v interface{}) string {
+func goTypeToSnowflake(v interface{}, tsmode string) string {
 	switch v.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		return "FIXED"
@@ -25,18 +25,24 @@ func goTypeToSnowflake(v interface{}) string {
 	case float32, float64:
 		return "REAL"
 	case time.Time:
-		// TODO: timestamp support?
-		return "DATE"
+		return tsmode
 	case string:
 		return "TEXT"
+	case []byte:
+		if bd, ok := v.([]byte); ok {
+			if bd != nil && len(bd) == 1 {
+				return "CHANGE_MODE"
+			}
+		}
 	default:
 		return "TEXT"
 	}
+	return "TEXT"
 }
 
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
-func valueToString(v interface{}) (*string, error) {
+func valueToString(v interface{}, tsmode string) (*string, error) {
 	glog.V(2).Infof("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	if v == nil {
 		return nil, nil
@@ -58,14 +64,38 @@ func valueToString(v interface{}) (*string, error) {
 	case reflect.String:
 		s := v1.String()
 		return &s, nil
-	case reflect.Slice, reflect.Map, reflect.Struct:
+	case reflect.Slice, reflect.Map:
 		if v1.IsNil() {
 			return nil, nil
 		}
+		// TODO: is this good enough?
 		s := v1.String()
 		return &s, nil
+	case reflect.Struct:
+		if tm, ok := v.(time.Time); ok {
+			switch tsmode {
+			case "DATE":
+				s := fmt.Sprintf("%d", tm.Unix()*1000)
+				return &s, nil
+			case "TIME":
+				s := fmt.Sprintf("%d",
+					(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
+				return &s, nil
+			case "TIMESTAMP_NTZ":
+				s := fmt.Sprintf("%d", tm.UnixNano())
+				return &s, nil
+			case "TIMESTAMP_LTZ":
+				_, offset := tm.Zone()
+				tm = tm.Add(time.Second * time.Duration(offset))
+				s := fmt.Sprintf("%d", tm.UnixNano())
+				return &s, nil
+			case "TIMESTAMP_TZ":
+				s := fmt.Sprintf("%d", tm.UnixNano())
+				return &s, nil
+			}
+		}
 	}
-	return nil, fmt.Errorf("Unexpected type is given: %v", v1.Kind())
+	return nil, fmt.Errorf("Unsupported type: %v", v1.Kind())
 }
 
 // extractTimestamp extracts the internal timestamp data to epoch time in seconds and milliseconds
@@ -111,7 +141,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		return nil
 	}
 	switch srcColumnMeta.Type {
-	case "text":
+	case "text", "fixed", "real", "variant", "object":
 		*dest = *srcValue
 		return nil
 	case "date":
@@ -122,37 +152,10 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		*dest = time.Unix(v*86400, 0).UTC()
 		return nil
 	case "time":
-		var i int
-		var sec, nsec int64
-		var err error
-		glog.V(2).Infof("SRC: %v", srcValue)
-		for i = 0; i < len(*srcValue); i++ {
-			if (*srcValue)[i] == '.' {
-				sec, err = strconv.ParseInt((*srcValue)[0:i], 10, 64)
-				if err != nil {
-					return err
-				}
-				break
-			}
-		}
-		if i == len(*srcValue) {
-			// no fraction
-			sec, err = strconv.ParseInt(*srcValue, 10, 64)
-			if err != nil {
-				return err
-			}
-			nsec = 0
-		} else {
-			s := (*srcValue)[i+1:]
-			nsec, err = strconv.ParseInt(s+strings.Repeat("0", 9-len(s)), 10, 64)
-			if err != nil {
-				return err
-			}
-		}
+		sec, nsec, err := extractTimestamp(srcValue)
 		if err != nil {
 			return err
 		}
-		glog.V(2).Infof("SEC: %v, NSEC: %v", sec, nsec)
 		t0 := time.Time{}
 		*dest = t0.Add(time.Duration(sec*1e9 + nsec))
 		return nil
@@ -194,10 +197,13 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
 			}
 		}
-		loc := sfutil.LocationWithOffset(int(offset) - 1440)
+		loc := Location(int(offset) - 1440)
 		tt := time.Unix(sec, nsec)
 		*dest = tt.In(loc)
 		return nil
+	case "binary":
+		// TODO implement this
+		return errors.New("not implemented")
 	}
 	*dest = *srcValue
 	return nil

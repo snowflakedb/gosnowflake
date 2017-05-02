@@ -56,6 +56,49 @@ If you want to get the logs for a specific module, use the ``-vmodule`` option, 
 $ your_go_program -vmodule=driver=2,connection=2 -stderrthreshold=INFO
 ```
 
+### Binding time.Time
+_This behavior is subject to change by the production._
+
+Go's [database/sql](https://golang.org/pkg/database/sql/) limits the data types to the following for binding and fetching.
+```
+int64
+float64
+bool
+[]byte
+string
+time.Time
+```
+https://golang.org/pkg/database/sql/driver/#Value
+
+Fetching data doesn't have a problem as the database data type is provided along with data so that Go Snowflake Driver can translate them to Golang native data types.
+
+Binding data, however, has a challenge, because Go Snowflake Driver doesn't know the data type but binding parameter requires the database data type as well. For example:
+```go
+dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, ntz, timestamp_ntz, ltz timestamp_ltz)")
+// ...
+stmt, err :=dbt.db.Prepare("INSERT INTO tztest(id,ntz,ltz) VALUES(1, ?, ?)")
+// ...
+tmValue time.Now()
+// ... How can this tell tmValue is for TIMESTAMP_NTZ or TIMESTAMP_LTZ?
+_, err = stmt.Exec(tmValue, tmValue)
+```
+
+Go Snowflake Driver introduces a concept of binding parameter flag that indicates subsequent data types for `DATE`, `TIME`, `TIMESTAMP_LTZ`, `TIMESTAMP_NTZ` and `BINARY`. In the previous example, you may rewrite to the following.
+```go
+import (
+    sf "github.com/snowflakedb/gosnowflake"
+)
+dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, ntz, timestamp_ntz, ltz timestamp_ltz)")
+// ...
+stmt, err :=dbt.db.Prepare("INSERT INTO tztest(id,ntz,ltz) VALUES(1, ?, ?)")
+// ...
+tmValue time.Now()
+// ... 
+_, err = stmt.Exec(sf.DataTypeTimestampNtz, tmValue, sf.DataTypeTimestampLtz, tmValue)
+```
+
+Internally this feature leverages `[]byte` data type. As a result, `BINARY` data cannot be bound without the flag. (_BINARY binding is not supported yet_)
+
 ## Limitations
 ### Security Requirements
 Security is the highest-priority consideration for any aspect of the Snowflake service. Snowflake clients must 
@@ -69,7 +112,6 @@ Since Go 1.8.1 has not implemented the certification revocation check yet, we pl
 production version of the Go Snowflake driver unless Go provides this security feature first. Before the production 
 version is ready, consider the risk of the missing 
 [certificate revocation check](https://en.wikipedia.org/wiki/Certificate_revocation_list) if you want to use the driver.
-
 
 ## Sample Programs
 Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/godev`` and ensure to 

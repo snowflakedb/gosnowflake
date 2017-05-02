@@ -11,6 +11,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,13 +58,33 @@ type snowflakeChunkDownloader struct {
 	CurrentIndex      int
 }
 
-/*
 // ColumnTypeDatabaseTypeName returns the database column name.
 func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
 	// TODO: is this canonical name or can be Snowflake specific name?
 	return strings.ToUpper(rows.RowType[index].Name)
 }
-*/
+
+// ColumnTypeLength returns the length of the column
+func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
+	if index < 0 || index > len(rows.RowType) {
+		return -1, false
+	}
+	return rows.RowType[index].Length, true
+}
+
+func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
+	if index < 0 || index > len(rows.RowType) {
+		return false, false
+	}
+	return rows.RowType[index].Nullable, true
+}
+
+func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
+	if index < 0 || index > len(rows.RowType) {
+		return -1, -1, false
+	}
+	return int64(rows.RowType[index].Precision), int64(rows.RowType[index].Scale), true
+}
 
 func (rows *snowflakeRows) Columns() []string {
 	glog.V(2).Infoln("Rows.Columns")
@@ -71,6 +93,11 @@ func (rows *snowflakeRows) Columns() []string {
 		ret[i] = rows.RowType[i].Name
 	}
 	return ret
+}
+
+func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
+	// TODO: implement this.
+	return nil
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
@@ -90,7 +117,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 	return err
 }
 
-func (scd *snowflakeChunkDownloader) Start(ctx context.Context) error {
+func (scd *snowflakeChunkDownloader) start(ctx context.Context) error {
 	scd.CurrentChunkSize = len(scd.CurrentChunk) // cache the size
 
 	scd.CurrentIndex = -1      // initial chunks idx
