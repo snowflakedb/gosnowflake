@@ -4,7 +4,7 @@ Snowflake provides a driver for Go's [database/sql](https://golang.org/pkg/datab
 
 **Warning: No production use is recommended as the current version of the Go Snowflake driver is being 
 actively developed and doesn't meet all of the security requirements for Snowflake clients. See 
-[Limitations](#Limitations) section for details.**
+[Limitations](#limitations) section for details.**
 
 ## Requirements
   * Go 1.8 or higher
@@ -56,7 +56,7 @@ If you want to get the logs for a specific module, use the ``-vmodule`` option, 
 $ your_go_program -vmodule=driver=2,connection=2 -stderrthreshold=INFO
 ```
 
-### Binding time.Time
+### Binding time.Time for DATE, TIME, TIMESTAMP_NTZ, TIMESTAMP_LTZ
 _This behavior is subject to change by the production._
 
 Go's [database/sql](https://golang.org/pkg/database/sql/) limits Go's data types to the following for binding and fetching.
@@ -103,6 +103,11 @@ var b = []byte{0x01, 0x02, 0x03}
 _, err = stmt.Exec(sf.DataTypeBinary, b)
 ```
 
+### Offset based Location / Timezone type
+Go Snowflake Driver fetches ``TIMESTAMP_TZ`` data along with the offset based ``Location`` types, which represent timezones by offset to UTC. The offset based ``Location`` are generated and cached when Go Snowflake Driver application starts, and if the given offset is not in the cache, it will be dynamically generated.
+
+At the moment, Snowflake doesn't support the name based ``Location`` types, e.g., ``America/Los_Angeles``. See [Data Types](https://docs.snowflake.net/manuals/sql-reference/data-types.html) for the Snowflake data type specification.
+
 ## Limitations
 ### Security Requirements
 Security is the highest-priority consideration for any aspect of the Snowflake service. Snowflake clients must 
@@ -116,6 +121,9 @@ Since Go 1.8.1 has not implemented the certification revocation check yet, we pl
 production version of the Go Snowflake driver unless Go provides this security feature first. Before the production 
 version is ready, consider the risk of the missing 
 [certificate revocation check](https://en.wikipedia.org/wiki/Certificate_revocation_list) if you want to use the driver.
+
+### Binding TIMESTAMP_TZ
+At the moment, binding ``TIMESTAMP_TZ`` data type is not supported.
 
 ## Sample Programs
 Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/godev`` and ensure to 
