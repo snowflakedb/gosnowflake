@@ -15,7 +15,6 @@ setup:
 ## Run tests
 test: deps
 	eval $$(jq -r '.testconnection | to_entries | map("export \(.key)=\(.value|tostring)")|.[]' parameters.json) && \
-		env | grep SNOWFLAKE | grep -v SNOWFLAKE_TEST_PASSWORD && \
 		go test -v $$(glide novendor) # -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$(HOME) -vmodule=connection=2,driver=2
 
 ## Install dependencies
