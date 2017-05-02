@@ -29,7 +29,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Authenticate
+	// authenticate
 	sc.rest = &snowflakeRestful{
 		Host:     sc.cfg.Host,
 		Port:     sc.cfg.Port,
@@ -38,12 +38,21 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 			Timeout:   60 * time.Second, // each request timeout
 			Transport: snowflakeTransport,
 		}, // create a new client
+		Authenticator:  sc.cfg.Authenticator,
 		LoginTimeout:   sc.cfg.LoginTimeout,
 		ConnectTimeout: sc.cfg.ConnectTimeout,
 		RequestTimeout: sc.cfg.RequestTimeout,
 	}
-	sessionParameters := make(map[string]string)
-	sessionInfo, err := Authenticate(
+	var sessionInfo *AuthResponseSessionInfo
+	var samlResponse []byte
+	if sc.cfg.Authenticator != "snowflake" {
+		samlResponse, err = authenticateBySAML(sc.rest, sc.cfg.Authenticator, sc.cfg.Application, sc.cfg.Account, sc.cfg.User, sc.cfg.Password)
+		if err != nil {
+			// TODO Better error handing?
+			return nil, err
+		}
+	}
+	sessionInfo, err = authenticate(
 		sc.rest,
 		sc.cfg.User,
 		sc.cfg.Password,
@@ -55,10 +64,10 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		sc.cfg.Passcode,
 		sc.cfg.PasscodeInPassword,
 		sc.cfg.Application,
-		"", // TODO: OKTA support
+		samlResponse,
 		"",
 		"",
-		sessionParameters)
+	)
 	if err != nil {
 		// TODO Better error handling
 		return nil, err

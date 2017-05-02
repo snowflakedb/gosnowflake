@@ -33,6 +33,7 @@ type Config struct {
 	Host     string // hostname (optional)
 	Port     int    // port (optional)
 
+	Authenticator      string // snowflake or okta
 	Passcode           string
 	PasscodeInPassword bool
 
@@ -166,6 +167,9 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	if cfg.Application == "" {
 		cfg.Application = clientType
 	}
+	if cfg.Authenticator == "" {
+		cfg.Authenticator = "snowflake"
+	}
 
 	// unescape parameters
 	var s string
@@ -296,6 +300,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.LoginTimeout = time.Duration(vv * int64(time.Second))
 		case "application":
 			cfg.Application = value
+		case "authenticator":
+			cfg.Authenticator = value
 		case "insecureMode":
 			var vv bool
 			vv, err = strconv.ParseBool(value)

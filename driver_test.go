@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/golang/glog"
 )
 
 var (
@@ -462,22 +464,21 @@ func TestDateTimeTimestampPlaceholder(t *testing.T) {
 		if rows.Next() {
 			rows.Scan(&ntz, &vltz, &dt, &tm)
 			if expected.UnixNano() != ntz.UnixNano() {
-				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+				dbt.Errorf("returned TIMESTAMP_NTZ value didn't match. expected: %v:%v, got: %v:%v",
 					expected.UnixNano(), expected, ntz.UnixNano(), ntz)
 			}
 			if expected.UnixNano() != vltz.UnixNano() {
-				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+				dbt.Errorf("returned TIMESTAMP_LTZ value didn't match. expected: %v:%v, got: %v:%v",
 					expected.UnixNano(), expected, vltz.UnixNano(), vltz)
 			}
 			if expected.Year() != dt.Year() || expected.Month() != dt.Month() || expected.Day() != dt.Day() {
-				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+				dbt.Errorf("returned DATE value didn't match. expected: %v:%v, got: %v:%v",
 					expected.Unix()*1000, expected, dt.Unix()*1000, dt)
 			}
 			if expected.Hour() != tm.Hour() || expected.Minute() != tm.Minute() || expected.Second() != tm.Second() || expected.Nanosecond() != tm.Nanosecond() {
-				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+				dbt.Errorf("returned TIME value didn't match. expected: %v:%v, got: %v:%v",
 					expected.UnixNano(), expected, tm.UnixNano(), tm)
 			}
-			// fmt.Printf("returned value: %v, %v, %v\n", v, v.UnixNano(), expected.UnixNano())
 		} else {
 			dbt.Error("no data")
 		}
@@ -1162,4 +1163,46 @@ func TestCancelQuery(t *testing.T) {
 			dbt.Fatal("Timeout failed")
 		}
 	})
+}
+
+func TestOKTA(t *testing.T) {
+	// get environment variables
+	env := func(key, defaultValue string) string {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+		return defaultValue
+	}
+	oktaAccount := env("SNOWFLAKE_TEST_OKTA_ACCOUNT", "")
+	oktaUser := env("SNOWFLAKE_TEST_OKTA_USER", "testuser")
+	oktaPassword := env("SNOWFLAKE_TEST_OKTA_PASSWORD", "testpassword")
+	authenticator := env("SNOWFLAKE_TEST_OKTA_URL", "")
+	if authenticator == "" || oktaAccount == "" {
+		// no OKTA test runs
+		return
+	}
+	dsn := fmt.Sprintf("%v:%v@%v?authenticator=%v", oktaUser, oktaPassword, oktaAccount, url.QueryEscape(authenticator))
+	glog.V(2).Infof("DSN: %v\n", dsn)
+	db, err := sql.Open("snowflake", dsn)
+	if err != nil {
+		t.Fatalf("failed to connect. %v, err: %v", dsn, err)
+	}
+	query := "SELECT 1"
+	rows, err := db.Query(query)
+	defer rows.Close()
+	if err != nil {
+		t.Fatalf("failed to run a query. %v, err: %v", query, err)
+	}
+	var v int
+	for rows.Next() {
+		err := rows.Scan(&v)
+		if err != nil {
+			t.Fatalf("failed to get result. err: %v", err)
+		}
+		if v != 1 {
+			t.Fatalf("failed to get 1. got: %v", v)
+		}
+		fmt.Printf("Congrats! You have successfully run %v with Snowflake DB!", query)
+	}
+
 }
