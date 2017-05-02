@@ -1,6 +1,10 @@
 NAME:=gosnowflake
 VERSION:=$(shell git describe --tags --abbrev=0)
 REVISION:=$(shell git rev-parse --short HEAD)
+COVFLAGS:=
+
+## Run fmt, lint and test
+all: fmt lint test
 
 ## Setup
 setup:
@@ -12,8 +16,11 @@ setup:
 ## Run tests
 test: deps
 	eval $$(jq -r '.testconnection | to_entries | map("export \(.key)=\(.value|tostring)")|.[]' parameters.json) && \
-		env | grep SNOWFLAKE && \
-		go test -v $$(glide novendor) # -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$(HOME) -vmodule=connection=2,driver=2
+		go test $(COVFLAGS) -v . # -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$(HOME) -vmodule=connection=2,driver=2
+
+## Run Coverage tests
+cov:
+	make test COVFLAGS="-coverprofile=coverage.txt -covermode=atomic"
 
 ## Install dependencies
 deps: setup

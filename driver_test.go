@@ -57,7 +57,10 @@ func init() {
 	} else {
 		host = fmt.Sprintf("%s:%s", host, port)
 	}
+	createDSN()
+}
 
+func createDSN() {
 	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, schemaname)
 
 	parameters := url.Values{}
@@ -77,6 +80,57 @@ func init() {
 	if len(parameters) > 0 {
 		dsn += "?" + parameters.Encode()
 	}
+}
+
+// setup creates a test schema so that all tests can run in the same schema
+func setup() (string, error) {
+	env := func(key, defaultValue string) string {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+		return defaultValue
+	}
+	orgSchemaname := schemaname
+	if env("TRAVIS", "") == "true" {
+		schemaname = fmt.Sprintf("TRAVIS_JOB_%v", env("TRAVIS_JOB_ID", "testschema"))
+	} else {
+		schemaname = fmt.Sprintf("golang_%v", time.Now().UnixNano())
+	}
+	var db *sql.DB
+	var err error
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		return "", fmt.Errorf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+	if _, err = db.Exec(fmt.Sprintf("CREATE OR REPLACE SCHEMA %v", schemaname)); err != nil {
+		return "", fmt.Errorf("failed to create schema. %v", err)
+	}
+	createDSN()
+	return orgSchemaname, nil
+}
+
+// teardown drops the test schema
+func teardown(s string) error {
+	var db *sql.DB
+	var err error
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		return fmt.Errorf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+	if _, err = db.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %v", schemaname)); err != nil {
+		return fmt.Errorf("failed to create schema. %v", err)
+	}
+	return nil
+}
+
+func TestMain(m *testing.M) {
+	orgSchemaname, err := setup()
+	if err != nil {
+		panic(err)
+	}
+	ret := m.Run()
+	teardown(orgSchemaname)
+	os.Exit(ret)
 }
 
 type DBTest struct {
@@ -162,11 +216,11 @@ func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
 
 func TestBogusHostNameParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST:1234")
-	invalidHostErrorTests(invalidDNS, "no such host", "", t)
+	invalidHostErrorTests(invalidDNS, []string{"no such host", "HTTP Status: 403"}, t)
 	invalidDNS = fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST")
-	invalidHostErrorTests(invalidDNS, "read: connection reset by peer.", "EOF", t)
+	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer.", "EOF", "HTTP Status: 403"}, t)
 }
-func invalidHostErrorTests(invalidDNS string, match1 string, match2 string, t *testing.T) {
+func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	parameters := url.Values{}
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
@@ -186,7 +240,13 @@ func invalidHostErrorTests(invalidDNS string, match1 string, match2 string, t *t
 	if err == nil {
 		t.Fatal("should cause an error.")
 	}
-	if !strings.Contains(err.Error(), match1) && !strings.Contains(err.Error(), match2) {
+	found := false
+	for _, m := range mstr {
+		if strings.Contains(err.Error(), m) {
+			found = true
+		}
+	}
+	if !found {
 		t.Fatalf("wrong error: %v", err)
 	}
 }
@@ -303,9 +363,21 @@ func TestCRUD(t *testing.T) {
 func TestSchemaWarehouseIncludingSpace(t *testing.T) {
 	newSchemaName := "TEST SCHEMA"
 	newWarehouseName := "TEST WAREHOUSE"
+	canCreateWarehouse := false
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(fmt.Sprintf(`CREATE OR REPLACE SCHEMA "%v"`, newSchemaName))
-		dbt.mustExec(fmt.Sprintf(`CREATE OR REPLACE WAREHOUSE "%v"`, newWarehouseName))
+		_, err := dbt.db.Exec(fmt.Sprintf(`CREATE OR REPLACE WAREHOUSE "%v"`, newWarehouseName))
+		if err != nil {
+			if derr, ok := err.(*SnowflakeError); ok {
+				if derr.Number != 3001 {
+					t.Fatalf("failed to create warehouse with unexpected error. %v", derr)
+				}
+			} else {
+				t.Fatalf("failed to create warehouse with unexpected error. %v", err)
+			}
+		} else {
+			canCreateWarehouse = true
+		}
 	})
 	newDSN := fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, url.QueryEscape(newSchemaName))
 	parameters := url.Values{}
@@ -323,23 +395,37 @@ func TestSchemaWarehouseIncludingSpace(t *testing.T) {
 	}
 	defer db.Close()
 	rows, err := db.Query("SELECT CURRENT_SCHEMA(), CURRENT_WAREHOUSE()")
+	if err != nil {
+		t.Fatalf("failed to query. %v", err)
+	}
 	defer rows.Close()
 	if !rows.Next() {
 		t.Fatal("failed to get the current database")
 	}
-	var gotSchemaName string
-	var gotWarehouseName string
+	var gotSchemaName sql.NullString
+	var gotWarehouseName sql.NullString
 	if err := rows.Scan(&gotSchemaName, &gotWarehouseName); err != nil {
 		t.Fatalf("failed to scan schema and warehouse names. err: %v", err)
 	}
-	if gotSchemaName != newSchemaName {
+	if !gotSchemaName.Valid || gotSchemaName.String != newSchemaName {
 		t.Fatalf("failed to match schema name. expected: %v, got: %v", newSchemaName, gotSchemaName)
 	}
-	if gotWarehouseName != newWarehouseName {
+	if !gotWarehouseName.Valid || gotWarehouseName.String != newWarehouseName {
 		t.Fatalf("failed to match warehouse name. expected: %v, got: %v", newWarehouseName, gotWarehouseName)
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(fmt.Sprintf(`DROP WAREHOUSE IF EXISTS "%v"`, newWarehouseName))
+		if canCreateWarehouse {
+			_, err := dbt.db.Exec(fmt.Sprintf(`DROP WAREHOUSE IF EXISTS "%v"`, newWarehouseName))
+			if err != nil {
+				if derr, ok := err.(*SnowflakeError); ok {
+					if derr.Number != 3001 {
+						t.Fatalf("failed to drop warehouse with unexpected error. %v", derr)
+					}
+				} else {
+					t.Fatalf("failed to drop warehouse with unexpected error. %v", err)
+				}
+			}
+		}
 		dbt.mustExec(fmt.Sprintf(`DROP SCHEMA IF EXISTS "%v"`, newSchemaName))
 	})
 }

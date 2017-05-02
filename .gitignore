@@ -1,3 +1,4 @@
 .idea/
 parameters.json
 vendor/
+coverage.txt

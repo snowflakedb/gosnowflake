@@ -1,5 +1,8 @@
 # Go Snowflake Driver
 
+[![Build Status](https://travis-ci.org/snowflakedb/gosnowflake.png?branch=master)](https://travis-ci.org/snowflakedb/gosnowflake)
+[![Coverage Status](https://coveralls.io/repos/github/snowflakedb/gosnowflake/badge.svg?branch=master)](https://coveralls.io/github/snowflakedb/gosnowflake)
+
 Snowflake provides a driver for Go's [database/sql](https://golang.org/pkg/database/sql/) SQL package
 
 **Warning: No production use is recommended as the current version of the Go Snowflake driver is being 
