@@ -4,7 +4,7 @@ REVISION:=$(shell git rev-parse --short HEAD)
 COVFLAGS:=
 
 ## Run fmt, lint and test
-all: fmt lint test
+all: fmt lint cov
 
 ## Setup
 setup:
