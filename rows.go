@@ -134,13 +134,13 @@ func (scd *snowflakeChunkDownloader) start(ctx context.Context) error {
 			glog.V(2).Infof("add chunk: %v", i+1)
 			scd.ChunksChan <- i
 		}
-		for i := 0; i < intMin(maxPool, len(scd.ChunkMetas)); i++ {
-			scd.schedule(ctx)
-		}
 		scd.Client = &http.Client{
 			Timeout:   60 * time.Second, // each request timeout
 			Transport: snowflakeTransport,
-		} // create a new client
+		}
+		for i := 0; i < intMin(maxPool, len(scd.ChunkMetas)); i++ {
+			scd.schedule(ctx)
+		}
 	}
 	return nil
 }
@@ -167,10 +167,9 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 			ticker := time.Tick(time.Millisecond * 100)
 			// TODO: Error handle
 			for range ticker {
-				glog.V(2).Infof(
-					"waiting for chunk idx: %v/%v, got chunks: %v",
-					scd.CurrentChunkIndex+1, len(scd.ChunkMetas), len(scd.Chunks))
 				scd.ChunksMutex.Lock()
+				glog.V(2).Infof("waiting for chunk idx: %v/%v, got chunks: %v",
+					scd.CurrentChunkIndex+1, len(scd.ChunkMetas), len(scd.Chunks))
 				scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
 				scd.ChunksMutex.Unlock()
 				if scd.CurrentChunk != nil {
