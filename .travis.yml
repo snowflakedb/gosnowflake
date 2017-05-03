@@ -8,7 +8,6 @@ install:
   - go get github.com/satori/go.uuid
 script:
   - make fmt lint cov
-  - make cov
 after_success:
   - bash <(curl -s https://codecov.io/bash)
 env:
