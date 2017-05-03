@@ -14,6 +14,8 @@ import (
 
 	"context"
 
+	"sync"
+
 	"github.com/golang/glog"
 )
 
@@ -23,10 +25,10 @@ func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
-type waitTime func(int, int) int
 type waitAlgo struct {
-	base int64
-	cap  int64
+	mutex *sync.Mutex // for random.Int63n
+	base  int64       // seconds
+	cap   int64       // maximum seconds
 }
 
 // exponential backoff
@@ -48,6 +50,8 @@ func (w *waitAlgo) eqJitter(attempt int, sleep int) int {
 // decorrelated jitter backoff
 func (w *waitAlgo) decorr(attempt int, sleep int) int {
 	t := int64(sleep*3) - w.base
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 	switch {
 	case t > 0:
 		return int(intMin64(w.cap, random.Int63n(t)+w.base))
@@ -57,7 +61,11 @@ func (w *waitAlgo) decorr(attempt int, sleep int) int {
 	return int(w.base)
 }
 
-var defaultWaitAlgo = &waitAlgo{5, 160}
+var defaultWaitAlgo = &waitAlgo{
+	mutex: &sync.Mutex{},
+	base:  5,
+	cap:   160,
+}
 
 type requestFunc func(method, urlStr string, body io.Reader) (*http.Request, error)
 

@@ -4,7 +4,7 @@ REVISION:=$(shell git rev-parse --short HEAD)
 COVFLAGS:=
 
 ## Run fmt, lint and test
-all: fmt lint test
+all: fmt lint cov
 
 ## Setup
 setup:
@@ -16,7 +16,7 @@ setup:
 ## Run tests
 test: deps
 	eval $$(jq -r '.testconnection | to_entries | map("export \(.key)=\(.value|tostring)")|.[]' parameters.json) && \
-		go test $(COVFLAGS) -v . # -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$(HOME) -vmodule=connection=2,driver=2
+		go test -race $(COVFLAGS) -v . # -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$(HOME) -vmodule=connection=2,driver=2
 
 ## Run Coverage tests
 cov:

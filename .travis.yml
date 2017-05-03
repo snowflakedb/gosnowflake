@@ -4,10 +4,10 @@ go:
   - 1.8
 before_install:
   - openssl aes-256-cbc -k "$super_secret_password" -in parameters.json.enc -out parameters.json -d
-  - go get github.com/satori/go.uuid
 install:
-  - make fmt lint
-  - make cov
+  - go get github.com/satori/go.uuid
+script:
+  - make fmt lint cov
 after_success:
   - bash <(curl -s https://codecov.io/bash)
 env:
