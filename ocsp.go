@@ -5,7 +5,7 @@
 package gosnowflake
 
 import (
-	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -89,11 +89,12 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- ocspStatus, o
 		ocspStatusChan <- ocspFailedComposeRequest
 		return
 	}
-	req, err := http.NewRequest("POST", ocspHost, bytes.NewReader(ocspReq))
-	req.Header.Add("Content-Type", "application/ocsp-request")
-	req.Header.Add("Content-Length", string(len(ocspReq)))
-	req.Header.Add("Host", u.Hostname())
-	res, err := ocspClient.Do(req)
+
+	headers := make(map[string]string)
+	headers["Content-Type"] = "application/ocsp-request"
+	headers["Content-Length"] = string(len(ocspReq))
+	headers["Host"] = u.Hostname()
+	res, err := retryHTTP(context.Background(), ocspClient, http.NewRequest, "POST", ocspHost, headers, ocspReq, 30*time.Second)
 	if err != nil {
 		ocspErrorChan <- err
 		ocspStatusChan <- ocspFailedSubmit
@@ -171,7 +172,7 @@ func verifyPeerCertificateParallel(_ [][]byte, verifiedChains [][]*x509.Certific
 		}
 		results := make([]ocspStatus, n)
 		for j := 0; j < n; j++ {
-			results[j] = <-ocspStatusChan
+			results[j] = <-ocspStatusChan // will wait for all results back
 		}
 		close(ocspErrorChan)
 		close(ocspStatusChan)
