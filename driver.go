@@ -37,7 +37,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		Client: &http.Client{
 			Timeout:   60 * time.Second, // each request timeout
 			Transport: snowflakeTransport,
-		}, // create a new client
+		},
 		Authenticator:  sc.cfg.Authenticator,
 		LoginTimeout:   sc.cfg.LoginTimeout,
 		ConnectTimeout: sc.cfg.ConnectTimeout,

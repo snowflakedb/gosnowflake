@@ -31,13 +31,6 @@ const (
 	queryInProgressAsyncCode = "333334"
 )
 
-var snowflakeTransport = &http.Transport{
-	// TODO: Proxy
-	MaxIdleConns:    10,
-	IdleConnTimeout: 30 * time.Minute,
-	// TODO: Timeout
-}
-
 type snowflakeRestful struct {
 	Host           string
 	Port           int

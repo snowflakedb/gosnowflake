@@ -8,11 +8,11 @@ setup:
 ## Install
 install:
 	export GOBIN=$$GOPATH/bin; \
-	go install select1.go
+	go install verifycert.go
 
 ## Run
 run: install
-	select1
+	verifycert
 
 ## Lint
 lint: setup
