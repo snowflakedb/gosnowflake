@@ -527,6 +527,25 @@ func TestFloat64Placeholder(t *testing.T) {
 	})
 }
 
+// TestUint64Placeholder tests uint64 binding. Should fail as unit64 is not a supported binding value by Go's sql
+// package.
+func TestUint64Placeholder(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		types := []string{"INTEGER"}
+		expected := uint64(18446744073709551615)
+		for _, v := range types {
+			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
+			_, err := dbt.db.Exec("INSERT INTO test VALUES (1, ?)", expected)
+			if err == nil {
+				dbt.Fatal("should fail as uint64 values with high bit set are not supported.")
+			} else {
+				glog.V(2).Infof("expected err: %v", err)
+			}
+			dbt.mustExec("DROP TABLE IF EXISTS test")
+		}
+	})
+}
+
 func TestDateTimeTimestampPlaceholder(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		expected := time.Now()

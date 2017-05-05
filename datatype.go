@@ -55,8 +55,8 @@ var (
 	DataTypeBoolean = []byte{booleanType}
 )
 
-// DataTypeMode returns the subsequent data type in a string representation.
-func DataTypeMode(v driver.Value) (tsmode string, err error) {
+// dataTypeMode returns the subsequent data type in a string representation.
+func dataTypeMode(v driver.Value) (tsmode string, err error) {
 	if bd, ok := v.([]byte); ok {
 		switch {
 		case bytes.Compare(bd, DataTypeDate) == 0:

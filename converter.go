@@ -55,9 +55,6 @@ func valueToString(v interface{}, tsmode string) (*string, error) {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		s := strconv.FormatInt(v1.Int(), 10)
 		return &s, nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		s := strconv.FormatUint(v1.Uint(), 10)
-		return &s, nil
 	case reflect.Float32, reflect.Float64:
 		s := strconv.FormatFloat(v1.Float(), 'g', -1, 32)
 		return &s, nil
@@ -97,9 +94,6 @@ func valueToString(v interface{}, tsmode string) (*string, error) {
 				tm = tm.Add(time.Second * time.Duration(offset))
 				s := fmt.Sprintf("%d", tm.UnixNano())
 				return &s, nil
-			case "TIMESTAMP_TZ":
-				s := fmt.Sprintf("%d", tm.UnixNano())
-				return &s, nil
 			}
 		}
 	}
@@ -133,9 +127,6 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 			return 0, 0, err
 		}
 	}
-	if err != nil {
-		return 0, 0, err
-	}
 	glog.V(2).Infof("sec: %v, nsec: %v", sec, nsec)
 	return sec, nsec, nil
 }
@@ -143,7 +134,7 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 // stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
 // data.
 func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcValue *string) error {
-	// glog.V(2).Infof("DATA TYPE: %s, VALUE: % s", srcColumnMeta.Type, srcValue)
+	glog.V(3).Infof("DATA TYPE: %s, VALUE: % s", srcColumnMeta.Type, srcValue)
 	if srcValue == nil {
 		dest = nil
 		return nil
@@ -191,7 +182,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if len(tm) != 2 {
 			return &SnowflakeError{
 				Number:  ErrInvalidTimestampTz,
-				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
+				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data. The value doesn't consist of two numeric values separated by a space: %v", *srcValue),
 			}
 		}
 		sec, nsec, err := extractTimestamp(&tm[0])
@@ -202,7 +193,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return &SnowflakeError{
 				Number:  ErrInvalidTimestampTz,
-				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
+				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data. The offset value is not integer: %v", tm[1]),
 			}
 		}
 		loc := Location(int(offset) - 1440)
@@ -213,7 +204,10 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		glog.V(2).Infof("bin: %v", *srcValue)
 		b, err := hex.DecodeString(*srcValue)
 		if err != nil {
-			return err
+			return &SnowflakeError{
+				Number:  ErrInvalidBinaryHexForm,
+				Message: err.Error(),
+			}
 		}
 		*dest = b
 		return nil
