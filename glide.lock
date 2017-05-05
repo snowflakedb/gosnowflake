@@ -1,8 +1,12 @@
 hash: bf8d898fa29eb5961cca2d14ec9bb19ec75a495731c76e87fa3fc51d93c1bb92
-updated: 2017-04-24T11:27:25.397877268-07:00
+updated: 2017-05-03T13:40:52.021742228-07:00
 imports:
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
+- name: golang.org/x/crypto
+  version: 04eae0b62feaaf659a0ce2c4e8dc70b6ae2fff67
+  subpackages:
+  - ocsp
 testImports: []

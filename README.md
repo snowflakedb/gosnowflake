@@ -6,8 +6,7 @@
 Snowflake provides a driver for Go's [database/sql](https://golang.org/pkg/database/sql/) SQL package
 
 **Warning: No production use is recommended as the current version of the Go Snowflake driver is being 
-actively developed and doesn't meet all of the security requirements for Snowflake clients. See 
-[Limitations](#limitations) section for details.**
+actively developed.**
 
 ## Requirements
   * Go 1.8 or higher
@@ -112,19 +111,6 @@ Go Snowflake Driver fetches ``TIMESTAMP_TZ`` data along with the offset based ``
 At the moment, Snowflake doesn't support the name based ``Location`` types, e.g., ``America/Los_Angeles``. See [Data Types](https://docs.snowflake.net/manuals/sql-reference/data-types.html) for the Snowflake data type specification.
 
 ## Limitations
-### Security Requirements
-Security is the highest-priority consideration for any aspect of the Snowflake service. Snowflake clients must 
-communicate with a Snowflake database. Typically, HTTPS (HTTP over TLS/SSL) is used for the communication layer;
-if the TLS/SSL layer is used, the client must meet the following requirements:
-  - [x] TLS/SSL must validate all of the chained certificates toward the root CA certificate.
-  - [x] TLS/SSL must match the hostname with the certificate hostname.
-  - [ ] TLS/SSL must validate the certificate revocation status.
-
-Since Go 1.8.1 has not implemented the certification revocation check yet, we plan to implement it ourselves in the 
-production version of the Go Snowflake driver unless Go provides this security feature first. Before the production 
-version is ready, consider the risk of the missing 
-[certificate revocation check](https://en.wikipedia.org/wiki/Certificate_revocation_list) if you want to use the driver.
-
 ### Binding TIMESTAMP_TZ
 At the moment, binding ``TIMESTAMP_TZ`` data type is not supported.
 

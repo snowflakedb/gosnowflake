@@ -83,7 +83,7 @@ func retryHTTP(
 	body []byte,
 	timeout time.Duration) (res *http.Response, err error) {
 	totalTimeout := int64(timeout.Seconds())
-	glog.V(2).Infof("totalTimeout: %v", totalTimeout)
+	glog.V(2).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
 	sleepTime := 0
 	for {

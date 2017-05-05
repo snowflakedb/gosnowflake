@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
 	"net/url"
 	"os"
@@ -1291,4 +1292,10 @@ func TestOKTA(t *testing.T) {
 		fmt.Printf("Congrats! You have successfully run %v with Snowflake DB!", query)
 	}
 
+}
+
+func init() {
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 }
