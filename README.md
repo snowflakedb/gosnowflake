@@ -35,7 +35,7 @@ The Data Source Name (DSN) has a common format widely used by other databases.
 ```
 username[:password]@accountname/dbname/schemaname[?param1=value&...&paramN=valueN
 username[:password]@accountname/dbname[?param1=value&...&paramN=valueN
-username[:password]@hostname:port/dbname/schemaname[?param1=value&...&paramN=valueN
+username[:password]@hostname:port/dbname/schemaname?account=<your_account>[&param1=value&...&paramN=valueN
 ```
 
 For example, if your account is `testaccount`, username is `testuser` password is `testpass`, database 
@@ -45,17 +45,21 @@ db, err := sql.Open("snowflake",
     "testuser:testpass@testaccount/testdb/testschema?warehouse=testwarehouse")
 ```
 
-The available parameters are:
+The available parameters are as follows. All parameters are optional.
 
--   warehouse
--   role
--   protocol
--   passcode
--   passcodeInPassword
--   loginTimeout
--   application
--   authenticator
--   insecureMode
+|Parameters |Description                                                                                          |
+|-----------|-----------------------------------------------------------------------------------------------------|
+|account    |Name of your Snowflake account as it appears in the URL for accessing the web interface. For example, in https://sf.snowflakecomputing.com/, account is sf. Optional if already specified after ``@`` character.|
+|database   |Name of the default database to use. After login, you can use [USE DATABASE](https://docs.snowflake.net/manuals/sql-reference/sql/use-database.html) to change the database.|
+|schema     |Name of the default schema to use for the database. After login, you can use [USE SCHEMA](https://docs.snowflake.net/manuals/sql-reference/sql/use-schema.html) to change the schema.|
+|warehouse  |Name of the default warehouse to use. After login, you can use [USE WAREHOUSE](https://docs.snowflake.net/manuals/sql-reference/sql/use-warehouse.html) to change the warehouse.|
+|role       |Name of the default role to use. After login, you can use [USE ROLE](https://docs.snowflake.net/manuals/sql-reference/sql/use-role.html) to change the role.|
+|passcode   |The passcode provided by Duo when using MFA for login.|
+|passcodeInPassword|``false`` by default. Set to ``true`` if the MFA passcorde is embeded in the login password.|
+|loginTimeout|Timeout in seconds for login. By default, 60 seconds. The login request gives up after the timeout length if the HTTP response is _success_.|
+|authenticator|Either ``snowflake`` if Snowflake is your identity provider (IdP) or the URL for your IdP, e.g., https://<okta_account_name>.okta.com. If the value is not ``snowflake``, the user and password parameters must be your login credentials for the IdP.|
+|application|Name of your application. It helps Snowflake support to identify your application.|
+|insecureMode|``false`` by default. You may set to ``true`` if no OCSP certificate revocation check wants to perform. Used only in emergency situation or tests.|
 
 ### Logging
 Go Snowflake Driver uses [glog](https://github.com/golang/glog) as a logging framework. In order to get the detail logs,
