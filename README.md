@@ -6,7 +6,7 @@
 Snowflake provides a driver for Go's [database/sql](https://golang.org/pkg/database/sql/) SQL package
 
 **Warning: No production use is recommended as the current version of the Go Snowflake driver is being 
-actively developed.
+actively developed.**
 
 ## Requirements
   * Go 1.8 or higher
