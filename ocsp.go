@@ -35,7 +35,7 @@ const (
 	// CacheFileName is the name of OCSP Response cache file.
 	CacheFileName = "ocsp_response_cache"
 	// cacheExpire specifies cache data expiration time in seconds.
-	cacheExpire   = float64(24 * 60 * 60)
+	cacheExpire = float64(24 * 60 * 60)
 )
 
 const (
@@ -494,6 +494,13 @@ func init() {
 	readOCSPCacheFile()
 }
 
+// snowflakeInsecureTransport is the default tranport object that doesn't do certificate revocation check.
+var snowflakeInsecureTransport = &http.Transport{
+	MaxIdleConns:    10,
+	IdleConnTimeout: 30 * time.Minute,
+}
+
+// snowflakeTransport includes the certificate revocation check with OCSP in parallel.
 var snowflakeTransport = &http.Transport{
 	TLSClientConfig: &tls.Config{
 		VerifyPeerCertificate: verifyPeerCertificateParallel,
@@ -502,7 +509,7 @@ var snowflakeTransport = &http.Transport{
 	IdleConnTimeout: 30 * time.Minute,
 }
 
-// SnowflakeTransportSerial includes the certificate revocation check
+// SnowflakeTransportSerial includes the certificate revocation check with OCSP in serial.
 var SnowflakeTransportSerial = &http.Transport{
 	TLSClientConfig: &tls.Config{
 		VerifyPeerCertificate: verifyPeerCertificateSerial,
@@ -512,10 +519,4 @@ var SnowflakeTransportSerial = &http.Transport{
 }
 
 // SnowflakeTransportTest includes the certificate revocation check in parallel
-var SnowflakeTransportTest = &http.Transport{
-	TLSClientConfig: &tls.Config{
-		VerifyPeerCertificate: verifyPeerCertificateParallel,
-	},
-	MaxIdleConns:    10,
-	IdleConnTimeout: 30 * time.Minute,
-}
+var SnowflakeTransportTest = snowflakeTransport

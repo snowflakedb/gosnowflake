@@ -43,12 +43,12 @@ type chunkError struct {
 }
 
 type snowflakeChunkDownloader struct {
+	sc                *snowflakeConn
 	Total             int64
 	TotalRowIndex     int64
 	CurrentChunk      [][]*string
 	CurrentChunkIndex int
 	CurrentChunkSize  int
-	Client            *http.Client
 	ChunkMetas        []execResponseChunk
 	Chunks            map[int][][]*string
 	ChunksMutex       *sync.Mutex
@@ -134,10 +134,6 @@ func (scd *snowflakeChunkDownloader) start(ctx context.Context) error {
 			glog.V(2).Infof("add chunk: %v", i+1)
 			scd.ChunksChan <- i
 		}
-		scd.Client = &http.Client{
-			Timeout:   60 * time.Second, // each request timeout
-			Transport: snowflakeTransport,
-		}
 		for i := 0; i < intMin(maxPool, len(scd.ChunkMetas)); i++ {
 			scd.schedule(ctx)
 		}
@@ -194,7 +190,7 @@ func (scd *snowflakeChunkDownloader) get(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(ctx, scd.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
+	return retryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
 }
 
 func (scd *snowflakeChunkDownloader) download(ctx context.Context, idx int, errc chan *chunkError) {

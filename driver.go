@@ -29,6 +29,11 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	st := snowflakeTransport
+	if sc.cfg.InsecureMode {
+		// no revocation check with OCSP. Think twice when you want to enable this option.
+		st = snowflakeInsecureTransport
+	}
 	// authenticate
 	sc.rest = &snowflakeRestful{
 		Host:     sc.cfg.Host,
@@ -36,7 +41,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		Protocol: sc.cfg.Protocol,
 		Client: &http.Client{
 			Timeout:   60 * time.Second, // each request timeout
-			Transport: snowflakeTransport,
+			Transport: st,
 		},
 		Authenticator:  sc.cfg.Authenticator,
 		LoginTimeout:   sc.cfg.LoginTimeout,

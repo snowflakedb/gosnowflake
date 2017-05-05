@@ -39,5 +39,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to read content body for %v", targetURL)
 	}
-	log.Println("The certificate is not revoked.")
+	log.Println("SUCCESS. Certificate Revocation Check has been completed.")
 }
