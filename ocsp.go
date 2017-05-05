@@ -99,16 +99,9 @@ func getOIDFromHashAlgorithm(target crypto.Hash) asn1.ObjectIdentifier {
 	return nil
 }
 
-func maxDuration(d1, d2 time.Duration) time.Duration {
-	if d1-d2 > 0 {
-		return d1
-	}
-	return d2
-}
-
 // calcTolerableValidity returns the maximum validity buffer
 func calcTolerableValidity(thisUpdate, nextUpdate time.Time) time.Duration {
-	return maxDuration(time.Duration(nextUpdate.Sub(thisUpdate)/tolerableValidityRatio), maxClockSkew)
+	return durationMax(time.Duration(nextUpdate.Sub(thisUpdate)/tolerableValidityRatio), maxClockSkew)
 }
 
 // isInValidityRange checks the validity

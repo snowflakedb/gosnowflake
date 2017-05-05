@@ -32,6 +32,7 @@ type snowflakeConn struct {
 	SQLState       string
 }
 
+// isDml returns true if the statement type code is in the range of DML.
 func (sc *snowflakeConn) isDml(v int64) bool {
 	switch v {
 	case statementTypeIDDml, statementTypeIDInsert,
@@ -186,7 +187,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
-		glog.V(2).Infof("You got error: %v", err)
+		glog.V(2).Infof("error: %v", err)
 		return nil, err
 	}
 

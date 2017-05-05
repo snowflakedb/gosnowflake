@@ -1,6 +1,13 @@
+// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
+//
+// Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
+//
 package gosnowflake
 
-import "database/sql/driver"
+import (
+	"database/sql/driver"
+	"time"
+)
 
 // integer min
 func intMin(a, b int) int {
@@ -10,7 +17,7 @@ func intMin(a, b int) int {
 	return b
 }
 
-// integer min
+// integer64 min
 func intMin64(a, b int64) int64 {
 	if a < b {
 		return a
@@ -26,6 +33,15 @@ func intMax(a, b int) int {
 	return b
 }
 
+// time.Duration max
+func durationMax(d1, d2 time.Duration) time.Duration {
+	if d1-d2 > 0 {
+		return d1
+	}
+	return d2
+}
+
+// toNamedValues converts a slice of driver.Value to a slice of driver.NamedValue for Go 1.8 SQL package
 func toNamedValues(values []driver.Value) []driver.NamedValue {
 	namedValues := make([]driver.NamedValue, len(values))
 	for idx, value := range values {
