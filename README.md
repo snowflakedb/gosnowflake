@@ -45,6 +45,18 @@ db, err := sql.Open("snowflake",
     "testuser:testpass@testaccount/testdb/testschema?warehouse=testwarehouse")
 ```
 
+The available parameters are:
+
+-   warehouse
+-   role
+-   protocol
+-   passcode
+-   passcodeInPassword
+-   loginTimeout
+-   application
+-   authenticator
+-   insecureMode
+
 ### Logging
 Go Snowflake Driver uses [glog](https://github.com/golang/glog) as a logging framework. In order to get the detail logs,
 specify ``glog`` parameters in the command line. For example, if you want to get logs for all activity, set the following 
