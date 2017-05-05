@@ -4,14 +4,14 @@ import (
 	"testing"
 )
 
-type parseDsnTests struct {
+type tcParseDSN struct {
 	dsn    string
 	config *Config
 	err    error
 }
 
 func TestParseDSN(t *testing.T) {
-	testcases := []parseDsnTests{
+	testcases := []tcParseDSN{
 		{
 			dsn: "user:pass@account",
 			config: &Config{

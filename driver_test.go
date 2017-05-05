@@ -675,7 +675,7 @@ func TestString(t *testing.T) {
 	})
 }
 
-type timeTests struct {
+type tcDateTimeTimestamp struct {
 	dbtype  string
 	tlayout string
 	tests   []timeTest
@@ -782,7 +782,7 @@ func TestDateTime(t *testing.T) {
 	format := "2006-01-02 15:04:05.999999999"
 	t0 := time.Time{}
 	tstr0 := "0000-00-00 00:00:00.000000000"
-	testcases := []timeTests{
+	testcases := []tcDateTimeTimestamp{
 		{"DATE", format[:10], []timeTest{
 			{t: time.Date(2011, 11, 20, 0, 0, 0, 0, time.UTC)},
 			{t: time.Date(2, 8, 2, 0, 0, 0, 0, time.UTC), s: "0002-08-02"},
@@ -835,7 +835,7 @@ func TestDateTime(t *testing.T) {
 
 func TestTimestampLTZ(t *testing.T) {
 	format := "2006-01-02 15:04:05.999999999"
-	testcases := []timeTests{
+	testcases := []tcDateTimeTimestamp{
 		{
 			dbtype:  "TIMESTAMP_LTZ(9)",
 			tlayout: format,
@@ -895,7 +895,7 @@ func TestTimestampTZ(t *testing.T) {
 		return r
 	}
 	format := "2006-01-02 15:04:05.999999999"
-	testcases := []timeTests{
+	testcases := []tcDateTimeTimestamp{
 		{
 			dbtype:  "TIMESTAMP_TZ(9)",
 			tlayout: format,

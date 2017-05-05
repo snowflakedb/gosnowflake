@@ -8,14 +8,14 @@ import (
 	"testing"
 )
 
-type testcase struct {
+type tcLocation struct {
 	ss  string
 	tt  string
 	err error
 }
 
 func TestWithOffsetString(t *testing.T) {
-	testcases := []testcase{
+	testcases := []tcLocation{
 		{
 			ss:  "+0700",
 			tt:  "+0700",

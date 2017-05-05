@@ -9,14 +9,14 @@ import (
 	"testing"
 )
 
-type tc struct {
+type tcDataTypeMode struct {
 	tp    []byte
 	tmode string
 	err   error
 }
 
 func TestDataTypeMode(t *testing.T) {
-	var testcases = []tc{
+	var testcases = []tcDataTypeMode{
 		{tp: DataTypeTimestampLtz, tmode: "TIMESTAMP_LTZ", err: nil},
 		{tp: DataTypeTimestampNtz, tmode: "TIMESTAMP_NTZ", err: nil},
 		{tp: DataTypeTimestampTz, tmode: "TIMESTAMP_TZ", err: nil},
