@@ -5,6 +5,8 @@
 package gosnowflake
 
 import (
+	"database/sql/driver"
+	"math/cmplx"
 	"testing"
 	"time"
 )
@@ -43,6 +45,54 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		a := goTypeToSnowflake(test.in, test.tmode)
 		if a != test.out {
 			t.Errorf("failed. in: %v, tmode: %v, expected: %v, got: %v", test.in, test.tmode, test.out, a)
+		}
+	}
+}
+
+func TestValueToString(t *testing.T) {
+	v := cmplx.Sqrt(-5 + 12i) // should never happen as Go sql package must have already validated.
+	_, err := valueToString(v, "")
+	if err == nil {
+		t.Errorf("should raise error: %v", v)
+	}
+}
+
+func TestExtractTimestamp(t *testing.T) {
+	s := "1234abcdef"
+	_, _, err := extractTimestamp(&s)
+	if err == nil {
+		t.Errorf("should raise error: %v", s)
+	}
+	s = "1234abc.def"
+	_, _, err = extractTimestamp(&s)
+	if err == nil {
+		t.Errorf("should raise error: %v", s)
+	}
+	s = "1234.def"
+	_, _, err = extractTimestamp(&s)
+	if err == nil {
+		t.Errorf("should raise error: %v", s)
+	}
+}
+
+func TestStringToValue(t *testing.T) {
+	var source string
+	var dest driver.Value
+	var err error
+	var rowType *execResponseRowType
+	source = "abcdefg"
+
+	types := []string{
+		"date", "time", "timestamp_ntz", "timestamp_ltz", "timestamp_tz", "binary",
+	}
+
+	for _, tt := range types {
+		rowType = &execResponseRowType{
+			Type: tt,
+		}
+		err = stringToValue(&dest, *rowType, &source)
+		if err == nil {
+			t.Errorf("should raise error. type: %v, value:%v", tt, source)
 		}
 	}
 }
