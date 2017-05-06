@@ -62,7 +62,7 @@ func (sc *snowflakeConn) exec(
 		for i, n := 0, len(parameters); i < n; i++ {
 			t := goTypeToSnowflake(parameters[i].Value, tsmode)
 			glog.V(2).Infof("tmode: %v\n", t)
-			if t == "CHANGE_MODE" {
+			if t == "CHANGE_TYPE" {
 				tsmode, err = dataTypeMode(parameters[i].Value)
 				if err != nil {
 					return nil, err

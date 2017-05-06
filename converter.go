@@ -16,33 +16,40 @@ import (
 	"github.com/golang/glog"
 )
 
-func goTypeToSnowflake(v interface{}, tsmode string) string {
+// goTypeToSnowflake translates Go data type to Snowflake data type.
+func goTypeToSnowflake(v driver.Value, tsmode string) string {
 	switch v.(type) {
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case int64:
 		return "FIXED"
+	case float64:
+		return "REAL"
 	case bool:
 		return "BOOLEAN"
-	case float32, float64:
-		return "REAL"
-	case time.Time:
-		return tsmode
 	case string:
 		return "TEXT"
 	case []byte:
-		if bd, ok := v.([]byte); ok {
-			if bd != nil && len(bd) == 1 {
-				return "CHANGE_MODE"
-			}
+		if tsmode == "BINARY" {
+			return "BINARY" // may be redundant but ensures BINARY type
 		}
-	default:
-		return "TEXT"
+		if bd, ok := v.([]byte); ok {
+			if bd == nil || len(bd) != 1 {
+				return "TEXT" // invalid byte array. won't take as BINARY
+			}
+			_, err := dataTypeMode(v)
+			if err != nil {
+				return "TEXT" // not supported dataType
+			}
+			return "CHANGE_TYPE"
+		}
+	case time.Time:
+		return tsmode
 	}
 	return "TEXT"
 }
 
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
-func valueToString(v interface{}, tsmode string) (*string, error) {
+func valueToString(v driver.Value, tsmode string) (*string, error) {
 	glog.V(2).Infof("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	if v == nil {
 		return nil, nil
@@ -52,10 +59,10 @@ func valueToString(v interface{}, tsmode string) (*string, error) {
 	case reflect.Bool:
 		s := strconv.FormatBool(v1.Bool())
 		return &s, nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int64:
 		s := strconv.FormatInt(v1.Int(), 10)
 		return &s, nil
-	case reflect.Float32, reflect.Float64:
+	case reflect.Float64:
 		s := strconv.FormatFloat(v1.Float(), 'g', -1, 32)
 		return &s, nil
 	case reflect.String:
