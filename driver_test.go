@@ -1096,6 +1096,38 @@ func TestNULL(t *testing.T) {
 	})
 }
 
+func TestVariant(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQuery(`select parse_json('[{"id":1, "name":"test1"},{"id":2, "name":"test2"}]')`)
+		defer rows.Close()
+		var v string
+		if rows.Next() {
+			err := rows.Scan(&v)
+			if err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			t.Fatal("no rows")
+		}
+	})
+}
+
+func TestArray(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQuery(`select as_array(parse_json('[{"id":1, "name":"test1"},{"id":2, "name":"test2"}]'))`)
+		defer rows.Close()
+		var v string
+		if rows.Next() {
+			err := rows.Scan(&v)
+			if err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			t.Fatal("no rows")
+		}
+	})
+}
+
 func TestLargeSetResult(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		numrows := 10000
