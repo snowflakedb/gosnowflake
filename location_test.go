@@ -5,6 +5,7 @@
 package gosnowflake
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -27,6 +28,11 @@ func TestWithOffsetString(t *testing.T) {
 			err: nil,
 		},
 		{
+			ss:  "+0710",
+			tt:  "+0710",
+			err: nil,
+		},
+		{
 			ss: "1200",
 			tt: "-1200",
 			err: &SnowflakeError{
@@ -44,6 +50,25 @@ func TestWithOffsetString(t *testing.T) {
 				MessageArgs: []interface{}{"+12001"},
 			},
 		},
+		{
+			ss: "x12001",
+			tt: "",
+			err: &SnowflakeError{
+				Number:      ErrInvalidOffsetStr,
+				Message:     errMsgInvalidOffsetStr,
+				MessageArgs: []interface{}{"x12001"},
+			},
+		},
+		{
+			ss:  "-12CD",
+			tt:  "",
+			err: errors.New("parse int error"), // can this be more specific?
+		},
+		{
+			ss:  "+ABCD",
+			tt:  "",
+			err: errors.New("parse int error"), // can this be more specific?
+		},
 	}
 	for _, t0 := range testcases {
 		loc, err := LocationWithOffsetString(t0.ss)
@@ -51,10 +76,7 @@ func TestWithOffsetString(t *testing.T) {
 			if t0.err != err {
 				driverError1, ok1 := t0.err.(*SnowflakeError)
 				driverError2, ok2 := err.(*SnowflakeError)
-				if !(ok1 && ok2) {
-					t.Fatalf("error expected: %v, got: %v", t0.err, err)
-				}
-				if driverError1.Number != driverError2.Number {
+				if ok1 && ok2 && driverError1.Number != driverError2.Number {
 					t.Fatalf("error expected: %v, got: %v", t0.err, err)
 				}
 			}
