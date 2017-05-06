@@ -34,11 +34,20 @@ func TestWithOffsetString(t *testing.T) {
 		},
 		{
 			ss: "1200",
-			tt: "-1200",
+			tt: "",
 			err: &SnowflakeError{
 				Number:      ErrInvalidOffsetStr,
 				Message:     errMsgInvalidOffsetStr,
 				MessageArgs: []interface{}{"1200"},
+			},
+		},
+		{
+			ss: "x1200",
+			tt: "",
+			err: &SnowflakeError{
+				Number:      ErrInvalidOffsetStr,
+				Message:     errMsgInvalidOffsetStr,
+				MessageArgs: []interface{}{"x1200"},
 			},
 		},
 		{
