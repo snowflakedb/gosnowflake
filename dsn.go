@@ -79,10 +79,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 						posSecondSlash = j
 					case dsn[j] == '@':
 						// username[:password]@...
-						cfg.User, cfg.Password, err = parseUserPassword(j, dsn)
-						if err != nil {
-							return nil, err
-						}
+						cfg.User, cfg.Password = parseUserPassword(j, dsn)
 					}
 					if dsn[j] == '@' {
 						break
@@ -122,10 +119,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		for j = len(dsn) - 1; j >= 0; j-- {
 			switch {
 			case dsn[j] == '@':
-				cfg.User, cfg.Password, err = parseUserPassword(j, dsn)
-				if err != nil {
-					return nil, err
-				}
+				cfg.User, cfg.Password = parseUserPassword(j, dsn)
 			case dsn[j] == '?':
 				posQuestion = j
 			}
@@ -230,7 +224,7 @@ func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string
 }
 
 // parseUserPassword pases the DSN string for username and password
-func parseUserPassword(posAt int, dsn string) (user, password string, err error) {
+func parseUserPassword(posAt int, dsn string) (user, password string) {
 	var k int
 	for k = 0; k < posAt; k++ {
 		if dsn[k] == ':' {

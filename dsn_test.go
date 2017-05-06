@@ -1,6 +1,8 @@
 package gosnowflake
 
 import (
+	"net/url"
+	"reflect"
 	"testing"
 )
 
@@ -102,6 +104,46 @@ func TestParseDSN(t *testing.T) {
 				Number:      ErrCodeFailedToParsePort,
 			},
 		},
+		{
+			dsn: "u:p@a?database=d&schema=s&role=r&application=aa&authenticator=snowflake&insecureMode=true&passcode=pp&passcodeInPassword=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "d", Schema: "s", Role: "r", Authenticator: "snowflake", Application: "aa",
+				InsecureMode: true, Passcode: "pp", PasscodeInPassword: true,
+			},
+			err: nil,
+		},
+		{
+			// schema should be ignored as no value is specified.
+			dsn: "u:p@a?database=d&schema",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "d", Schema: "",
+			},
+			err: nil,
+		},
+		{
+			dsn:    "u:p@a?database= %Sd",
+			config: &Config{},
+			err:    url.EscapeError(`invalid URL escape`),
+		},
+		{
+			dsn:    "u:p@a?schema= %Sd",
+			config: &Config{},
+			err:    url.EscapeError(`invalid URL escape`),
+		},
+		{
+			dsn:    "u:p@a?warehouse= %Sd",
+			config: &Config{},
+			err:    url.EscapeError(`invalid URL escape`),
+		},
+		{
+			dsn:    "u:p@a?role= %Sd",
+			config: &Config{},
+			err:    url.EscapeError(`invalid URL escape`),
+		},
 	}
 	for _, test := range testcases {
 		cfg, err := ParseDSN(test.dsn)
@@ -161,8 +203,10 @@ func TestParseDSN(t *testing.T) {
 					t.Fatalf("Wrong error number. expected: %v, got: %v", driverErrE.Number, driverErrG.Number)
 				}
 			} else {
-				if err != test.err {
-					t.Fatalf("Wrong error. expected: %v, got: %v", test.err, err)
+				t1 := reflect.TypeOf(err)
+				t2 := reflect.TypeOf(test.err)
+				if t1 != t2 {
+					t.Fatalf("Wrong error. expected: %T:%v, got: %T:%v", test.err, test.err, err, err)
 				}
 			}
 		}

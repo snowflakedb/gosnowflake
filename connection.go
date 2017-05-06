@@ -148,9 +148,14 @@ func (sc *snowflakeConn) cleanup() {
 
 func (sc *snowflakeConn) Close() (err error) {
 	glog.V(2).Infoln("Close")
+	// ensure transaction is rollbacked
+	_, err = sc.exec(context.Background(), "ROLLBACK", false, false, nil)
+	if err != nil {
+		glog.V(2).Info(err)
+	}
 	err = sc.rest.closeSession()
 	if err != nil {
-		glog.Warning(err)
+		glog.V(2).Info(err)
 	}
 	sc.cleanup()
 	return nil
