@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+
+	"github.com/golang/glog"
 )
 
 type tcParseDSN struct {
@@ -17,7 +19,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "user:pass@account",
 			config: &Config{
-				Account: "account", User: "user", Password: "pass",
+				Account: "account", User: "user", Password: "pass", Region: "",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
 			},
 			err: nil,
@@ -25,7 +27,15 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "user:pass@account.eu-faraway",
 			config: &Config{
-				Account: "account", User: "user", Password: "pass",
+				Account: "account", User: "user", Password: "pass", Region: "eu-faraway",
+				Protocol: "https", Host: "account.eu-faraway.snowflakecomputing.com", Port: 443,
+			},
+			err: nil,
+		},
+		{
+			dsn: "user:pass@account?region=eu-faraway",
+			config: &Config{
+				Account: "account", User: "user", Password: "pass", Region: "eu-faraway",
 				Protocol: "https", Host: "account.eu-faraway.snowflakecomputing.com", Port: 443,
 			},
 			err: nil,
@@ -145,7 +155,8 @@ func TestParseDSN(t *testing.T) {
 			err:    url.EscapeError(`invalid URL escape`),
 		},
 	}
-	for _, test := range testcases {
+	for i, test := range testcases {
+		glog.V(2).Infof("#%v\n", i)
 		cfg, err := ParseDSN(test.dsn)
 		switch {
 		case test.err == nil:
@@ -179,6 +190,10 @@ func TestParseDSN(t *testing.T) {
 			if test.config.Role != cfg.Role {
 				t.Fatalf("Failed to match role. expected: %v, got: %v",
 					test.config.Role, cfg.Role)
+			}
+			if test.config.Region != cfg.Region {
+				t.Fatalf("Failed to match region. expected: %v, got: %v",
+					test.config.Region, cfg.Region)
 			}
 			if test.config.Protocol != cfg.Protocol {
 				t.Fatalf("Failed to match protocol. expected: %v, got: %v",

@@ -27,6 +27,7 @@ type Config struct {
 	Schema    string            // Schema
 	Warehouse string            // Warehouse
 	Role      string            // Role
+	Region    string            // Region
 	Params    map[string]string // other connection parameters
 
 	Protocol string // http or https (optional)
@@ -43,7 +44,6 @@ type Config struct {
 
 	Application  string // application name.
 	InsecureMode bool   // driver doesn't check certificate revocation status
-
 }
 
 // ParseDSN parses the DSN string to a Config
@@ -87,7 +87,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				}
 
 				// account or host:port
-				cfg.Account, cfg.Host, cfg.Port, err = parseAccountHostPort(j, posSecondSlash, dsn)
+				cfg.Region, cfg.Account, cfg.Host, cfg.Port, err = parseAccountHostPort(j, posSecondSlash, dsn)
 				if err != nil {
 					return
 				}
@@ -127,7 +127,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				break
 			}
 		}
-		cfg.Account, cfg.Host, cfg.Port, err = parseAccountHostPort(j, posQuestion, dsn)
+		cfg.Region, cfg.Account, cfg.Host, cfg.Port, err = parseAccountHostPort(j, posQuestion, dsn)
 		if err != nil {
 			return nil, err
 		}
@@ -142,6 +142,17 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	}
 	if cfg.Port == 0 {
 		cfg.Port = 443
+	}
+
+	if cfg.Region != "" {
+		// region is specified but not included in Host
+		i = strings.Index(cfg.Host, ".snowflakecomputing.com")
+		if i >= 1 {
+			hostPrefix := cfg.Host[0:i]
+			if !strings.HasSuffix(hostPrefix, cfg.Region) {
+				cfg.Host = hostPrefix + "." + cfg.Region + ".snowflakecomputing.com"
+			}
+		}
 	}
 	if cfg.ConnectTimeout == 0 {
 		cfg.ConnectTimeout = defaultConnectTimeout
@@ -192,7 +203,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 }
 
 // parseAccountHostPort parses the DSN string to attempt to get account or host and port.
-func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string, port int, err error) {
+func parseAccountHostPort(posAt, posSlash int, dsn string) (region, account, host string, port int, err error) {
 	// account or host:port
 	var k int
 	for k = posAt + 1; k < posSlash; k++ {
@@ -216,7 +227,8 @@ func parseAccountHostPort(posAt, posSlash int, dsn string) (account, host string
 		host = account + ".snowflakecomputing.com"
 		port = 443
 		posDot := strings.Index(account, ".")
-		if posDot >= 0 {
+		if posDot > 0 {
+			region = account[posDot+1:]
 			account = account[:posDot]
 		}
 	}
@@ -274,6 +286,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Schema = value
 		case "role":
 			cfg.Role = value
+		case "region":
+			cfg.Region = value
 		case "protocol":
 			cfg.Protocol = value
 		case "passcode":

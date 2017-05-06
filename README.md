@@ -49,7 +49,8 @@ The available parameters are as follows. All parameters are optional.
 
 |Parameters |Description                                                                                          |
 |-----------|-----------------------------------------------------------------------------------------------------|
-|account    |Name of your Snowflake account as it appears in the URL for accessing the web interface. For example, in https://sf.snowflakecomputing.com/, account is sf. Optional if already specified after ``@`` character.|
+|region     |Snowflake region. By default, the US West region is used. For the EU (Frankfurt) region, specify ``eu-central-1`` so that the URL for web intarface is, for example, ``https://sf.eu-central-1.snowflakecomputing.com/``|
+|account    |Name of your Snowflake account as it appears in the URL for accessing the web interface. For example, in ``https://sf.snowflakecomputing.com/``, account is ``sf``. Optional if already specified after ``@`` character.|
 |database   |Name of the default database to use. After login, you can use [USE DATABASE](https://docs.snowflake.net/manuals/sql-reference/sql/use-database.html) to change the database.|
 |schema     |Name of the default schema to use for the database. After login, you can use [USE SCHEMA](https://docs.snowflake.net/manuals/sql-reference/sql/use-schema.html) to change the schema.|
 |warehouse  |Name of the default warehouse to use. After login, you can use [USE WAREHOUSE](https://docs.snowflake.net/manuals/sql-reference/sql/use-warehouse.html) to change the warehouse.|
