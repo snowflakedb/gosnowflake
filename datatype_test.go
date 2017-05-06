@@ -5,12 +5,13 @@
 package gosnowflake
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"testing"
 )
 
 type tcDataTypeMode struct {
-	tp    []byte
+	tp    driver.Value
 	tmode string
 	err   error
 }
@@ -27,9 +28,11 @@ func TestDataTypeMode(t *testing.T) {
 			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
 		{tp: DataTypeReal, tmode: "REAL",
 			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
+		{tp: 123, tmode: "",
+			err: fmt.Errorf(errMsgInvalidByteArray, 123)},
 	}
 	for _, ts := range testcases {
-		tmode, err := DataTypeMode(ts.tp)
+		tmode, err := dataTypeMode(ts.tp)
 		if ts.err == nil {
 			if err != nil {
 				t.Errorf("failed to get datatype mode: %v", err)

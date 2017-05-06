@@ -16,33 +16,40 @@ import (
 	"github.com/golang/glog"
 )
 
-func goTypeToSnowflake(v interface{}, tsmode string) string {
+// goTypeToSnowflake translates Go data type to Snowflake data type.
+func goTypeToSnowflake(v driver.Value, tsmode string) string {
 	switch v.(type) {
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case int64:
 		return "FIXED"
+	case float64:
+		return "REAL"
 	case bool:
 		return "BOOLEAN"
-	case float32, float64:
-		return "REAL"
-	case time.Time:
-		return tsmode
 	case string:
 		return "TEXT"
 	case []byte:
-		if bd, ok := v.([]byte); ok {
-			if bd != nil && len(bd) == 1 {
-				return "CHANGE_MODE"
-			}
+		if tsmode == "BINARY" {
+			return "BINARY" // may be redundant but ensures BINARY type
 		}
-	default:
-		return "TEXT"
+		if bd, ok := v.([]byte); ok {
+			if bd == nil || len(bd) != 1 {
+				return "TEXT" // invalid byte array. won't take as BINARY
+			}
+			_, err := dataTypeMode(v)
+			if err != nil {
+				return "TEXT" // not supported dataType
+			}
+			return "CHANGE_TYPE"
+		}
+	case time.Time:
+		return tsmode
 	}
 	return "TEXT"
 }
 
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
-func valueToString(v interface{}, tsmode string) (*string, error) {
+func valueToString(v driver.Value, tsmode string) (*string, error) {
 	glog.V(2).Infof("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	if v == nil {
 		return nil, nil
@@ -52,13 +59,10 @@ func valueToString(v interface{}, tsmode string) (*string, error) {
 	case reflect.Bool:
 		s := strconv.FormatBool(v1.Bool())
 		return &s, nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int64:
 		s := strconv.FormatInt(v1.Int(), 10)
 		return &s, nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		s := strconv.FormatUint(v1.Uint(), 10)
-		return &s, nil
-	case reflect.Float32, reflect.Float64:
+	case reflect.Float64:
 		s := strconv.FormatFloat(v1.Float(), 'g', -1, 32)
 		return &s, nil
 	case reflect.String:
@@ -97,9 +101,6 @@ func valueToString(v interface{}, tsmode string) (*string, error) {
 				tm = tm.Add(time.Second * time.Duration(offset))
 				s := fmt.Sprintf("%d", tm.UnixNano())
 				return &s, nil
-			case "TIMESTAMP_TZ":
-				s := fmt.Sprintf("%d", tm.UnixNano())
-				return &s, nil
 			}
 		}
 	}
@@ -133,9 +134,6 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 			return 0, 0, err
 		}
 	}
-	if err != nil {
-		return 0, 0, err
-	}
 	glog.V(2).Infof("sec: %v, nsec: %v", sec, nsec)
 	return sec, nsec, nil
 }
@@ -143,7 +141,7 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 // stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
 // data.
 func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcValue *string) error {
-	// glog.V(2).Infof("DATA TYPE: %s, VALUE: % s", srcColumnMeta.Type, srcValue)
+	glog.V(3).Infof("DATA TYPE: %s, VALUE: % s", srcColumnMeta.Type, srcValue)
 	if srcValue == nil {
 		dest = nil
 		return nil
@@ -191,7 +189,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if len(tm) != 2 {
 			return &SnowflakeError{
 				Number:  ErrInvalidTimestampTz,
-				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
+				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data. The value doesn't consist of two numeric values separated by a space: %v", *srcValue),
 			}
 		}
 		sec, nsec, err := extractTimestamp(&tm[0])
@@ -202,7 +200,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return &SnowflakeError{
 				Number:  ErrInvalidTimestampTz,
-				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data: %v", *srcValue),
+				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data. The offset value is not integer: %v", tm[1]),
 			}
 		}
 		loc := Location(int(offset) - 1440)
@@ -213,7 +211,10 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		glog.V(2).Infof("bin: %v", *srcValue)
 		b, err := hex.DecodeString(*srcValue)
 		if err != nil {
-			return err
+			return &SnowflakeError{
+				Number:  ErrInvalidBinaryHexForm,
+				Message: err.Error(),
+			}
 		}
 		*dest = b
 		return nil

@@ -122,7 +122,7 @@ func TestToNamedValues(t *testing.T) {
 		},
 		{
 			values: []driver.Value{1, "test1", 9.876, nil},
-			out:    []driver.NamedValue{
+			out: []driver.NamedValue{
 				{Name: "", Ordinal: 1, Value: 1},
 				{Name: "", Ordinal: 2, Value: "test1"},
 				{Name: "", Ordinal: 3, Value: 9.876},

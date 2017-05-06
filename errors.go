@@ -53,10 +53,9 @@ const (
 	// ErrInvalidOffsetStr is an error code for the case where a offset string is invalid. The input string must
 	// consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes
 	ErrInvalidOffsetStr = 268001
-	// ErrInvalidByteArray is an error code for the case where a specified data type flag is not valid. The
-	// data type flag supports DataTypeDate, DataTypeTime, DataTypeTimestampLtz, DataTypeTimestampNtz,
-	// DataTypeTimestampTz and BINARY
-	ErrInvalidByteArray = 268002
+
+	// ErrInvalidBinaryHexForm is an error code for the case where a binary data in hex form is invalid.
+	ErrInvalidBinaryHexForm = 268002
 )
 
 const (
