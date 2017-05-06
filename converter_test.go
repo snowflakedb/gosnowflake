@@ -95,4 +95,26 @@ func TestStringToValue(t *testing.T) {
 			t.Errorf("should raise error. type: %v, value:%v", tt, source)
 		}
 	}
+
+	sources := []string{
+		"12345K78 2020",
+		"12345678 20T0",
+	}
+
+	types = []string{
+		"timestamp_tz",
+	}
+
+	for _, ss := range sources {
+		for _, tt := range types {
+			rowType = &execResponseRowType{
+				Type: tt,
+			}
+			err = stringToValue(&dest, *rowType, &ss)
+			if err == nil {
+				t.Errorf("should raise error. type: %v, value:%v", tt, source)
+			}
+		}
+
+	}
 }
