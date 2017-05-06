@@ -27,6 +27,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	}
 	sc.cfg, err = ParseDSN(dsn)
 	if err != nil {
+		sc.cleanup()
 		return nil, err
 	}
 	st := snowflakeTransport
@@ -54,6 +55,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		samlResponse, err = authenticateBySAML(sc.rest, sc.cfg.Authenticator, sc.cfg.Application, sc.cfg.Account, sc.cfg.User, sc.cfg.Password)
 		if err != nil {
 			// TODO Better error handing?
+			sc.cleanup()
 			return nil, err
 		}
 	}
@@ -75,6 +77,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	)
 	if err != nil {
 		// TODO Better error handling
+		sc.cleanup()
 		return nil, err
 	}
 
@@ -92,6 +95,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		p := make([]driver.Value, 0)
 		_, err := sc.Exec(fmt.Sprintf("ALTER SESSION SET TIMEZONE='%s'", sc.cfg.Params["timezone"]), p)
 		if err != nil {
+			sc.cleanup()
 			return nil, err
 		}
 	}

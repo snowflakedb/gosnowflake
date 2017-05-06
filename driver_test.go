@@ -1313,6 +1313,34 @@ func TestOKTA(t *testing.T) {
 
 }
 
+func TestInvalidConnection(t *testing.T) {
+	var db *sql.DB
+	var err error
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	err = db.Close()
+	if err != nil {
+		t.Error("should not cause error in Close")
+	}
+	err = db.Close()
+	if err != nil {
+		t.Error("should not cause error in the second call of Close")
+	}
+	_, err = db.Exec("CREATE TABLE OR REPLACE test0(c1 int)")
+	if err == nil {
+		t.Error("should fail to run Exec")
+	}
+	_, err = db.Query("SELECT CURRENT_TIMESTAMP()")
+	if err == nil {
+		t.Error("should fail to run Query")
+	}
+	_, err = db.Begin()
+	if err == nil {
+		t.Error("should fail to run Begin")
+	}
+}
+
 func init() {
 	if !flag.Parsed() {
 		flag.Parse()
