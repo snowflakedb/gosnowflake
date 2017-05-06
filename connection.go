@@ -129,23 +129,43 @@ func (sc *snowflakeConn) exec(
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	glog.V(2).Info("Begin")
+	if sc.rest == nil {
+		glog.V(1).Info(ErrInvalidConn)
+		return nil, driver.ErrBadConn
+	}
 	_, err := sc.exec(context.TODO(), "BEGIN", false, false, nil)
 	if err != err {
 		return nil, err
 	}
 	return &snowflakeTx{sc}, err
 }
+
+func (sc *snowflakeConn) cleanup() {
+	glog.Flush() // must flush log buffer while the process is running.
+	sc.rest = nil
+	sc.cfg = nil
+}
+
 func (sc *snowflakeConn) Close() (err error) {
 	glog.V(2).Infoln("Close")
+	// ensure transaction is rollbacked
+	_, err = sc.exec(context.Background(), "ROLLBACK", false, false, nil)
+	if err != nil {
+		glog.V(2).Info(err)
+	}
 	err = sc.rest.closeSession()
 	if err != nil {
-		glog.Warning(err)
+		glog.V(2).Info(err)
 	}
-	glog.Flush() // must flush log buffer while the process is running.
+	sc.cleanup()
 	return nil
 }
 func (sc *snowflakeConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	glog.V(2).Infoln("Prepare")
+	if sc.rest == nil {
+		glog.V(1).Info(ErrInvalidConn)
+		return nil, driver.ErrBadConn
+	}
 	stmt := &snowflakeStmt{
 		sc:    sc,
 		query: query,
@@ -159,6 +179,10 @@ func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 
 func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	glog.V(2).Infof("Exec: %#v, %v", query, args)
+	if sc.rest == nil {
+		glog.V(1).Info(ErrInvalidConn)
+		return nil, driver.ErrBadConn
+	}
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
@@ -184,6 +208,10 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 
 func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	glog.V(2).Infoln("Query")
+	if sc.rest == nil {
+		glog.V(1).Info(ErrInvalidConn)
+		return nil, driver.ErrBadConn
+	}
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
