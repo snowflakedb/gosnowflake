@@ -411,6 +411,7 @@ func readOCSPCacheFile() {
 	ocspResponseCache = make(map[string][]interface{})
 	ocspResponseCacheLock = &sync.RWMutex{}
 	cacheFileName := filepath.Join(CacheDir, CacheFileName)
+	glog.V(2).Info("reading OCSP Response cache file. %v", cacheFileName)
 	raw, err := ioutil.ReadFile(cacheFileName)
 	if err != nil {
 		glog.V(2).Infof("failed to read OCSP cache file. %v. ignored.", err)
@@ -424,8 +425,8 @@ func readOCSPCacheFile() {
 // writeOCSPCacheFile writes a OCSP Response cache file. This is called if all revocation status is success.
 // lock file is used to mitigate race condition with other process.
 func writeOCSPCacheFile() {
-	glog.V(2).Info("writing OCSP Response cache file")
 	cacheFileName := filepath.Join(CacheDir, CacheFileName)
+	glog.V(2).Info("writing OCSP Response cache file. %v", cacheFileName)
 	cacheLockFileName := cacheFileName + ".lck"
 	statinfo, err := os.Stat(cacheLockFileName)
 	switch {
@@ -460,30 +461,37 @@ func writeOCSPCacheFile() {
 	}
 }
 
-func init() {
-	// create cache directory for OCSP response
-	switch runtime.GOOS {
-	case "windows":
-		CacheDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local", "Snowflake", "Caches")
-	case "darwin":
-		home := os.Getenv("HOME")
-		if home == "" {
-			panic("HOME is blank")
+// createOCSPCacheDir creates OCSP response cache directory. If SNOWFLAKE_TEST_WORKSPACE is set,
+func createOCSPCacheDir() {
+	CacheDir = os.Getenv("SNOWFLAKE_TEST_WORKSPACE")
+	if CacheDir == "" {
+		switch runtime.GOOS {
+		case "windows":
+			CacheDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local", "Snowflake", "Caches")
+		case "darwin":
+			home := os.Getenv("HOME")
+			if home == "" {
+				glog.V(2).Info("HOME is blank.")
+			}
+			CacheDir = filepath.Join(home, "Library", "Caches", "Snowflake")
+		default:
+			home := os.Getenv("HOME")
+			if home == "" {
+				glog.V(2).Info("HOME is blank")
+			}
+			CacheDir = filepath.Join(home, ".cache", "snowflake")
 		}
-		CacheDir = filepath.Join(home, "Library", "Caches", "Snowflake")
-	default:
-		home := os.Getenv("HOME")
-		if home == "" {
-			panic("HOME is blank")
-		}
-		CacheDir = filepath.Join(home, ".cache", "snowflake")
 	}
 	if _, err := os.Stat(CacheDir); os.IsNotExist(err) {
 		err := os.MkdirAll(CacheDir, os.ModePerm)
 		if err != nil {
-			glog.V(2).Infof("failed to create cache directory. %v. ignored", err)
+			glog.V(2).Infof("failed to create cache directory. %v, err: %v. ignored", CacheDir, err)
 		}
 	}
+}
+
+func init() {
+	createOCSPCacheDir()
 	readOCSPCacheFile()
 }
 
