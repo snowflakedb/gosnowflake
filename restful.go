@@ -283,64 +283,6 @@ func (sr *snowflakeRestful) PostAuthSAML(
 	glog.V(2).Infof("ERROR RESPONSE: %v", b)
 	return nil, err
 }
-
-func (sr *snowflakeRestful) PostAuthOKTA(
-	headers map[string]string,
-	body []byte,
-	fullURL string,
-	timeout time.Duration) (
-	data *authOKTAResponse, err error) {
-	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.post(context.TODO(), fullURL, headers, body, timeout)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("PostAuthOKTA: resp: %v", resp)
-		var respd authOKTAResponse
-		err = json.NewDecoder(resp.Body).Decode(&respd)
-		if err != nil {
-			glog.V(1).Infof("%v", err)
-			return nil, err
-		}
-		return &respd, nil
-	}
-	// TODO: better error handing and retry
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		glog.V(1).Infof("%v", err)
-		return nil, err
-	}
-	glog.V(2).Infof("ERROR RESPONSE: %v", b)
-	return nil, err
-}
-
-func (sr *snowflakeRestful) GetSSO(
-	params *url.Values,
-	headers map[string]string,
-	url string,
-	timeout time.Duration) (
-	bd []byte, err error) {
-	fullURL := fmt.Sprintf("%s?%s", url, params.Encode())
-	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.get(context.TODO(), fullURL, headers, timeout)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		glog.V(1).Infof("%v", err)
-		return nil, err
-	}
-	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("GetSSO: resp: %v", resp)
-		return b, nil
-	}
-	return nil, fmt.Errorf("failed to get SSO response. HTTP code: %v", resp.StatusCode)
-}
-
 func (sr *snowflakeRestful) closeSession() error {
 	glog.V(2).Info("CLOSE SESSION")
 	params := &url.Values{}
