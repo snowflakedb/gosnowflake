@@ -13,6 +13,7 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -28,12 +29,20 @@ import (
 	"golang.org/x/crypto/ocsp"
 )
 
-// CacheDir is the location of OCSP Response cache file ocsp_response_cache.
-var CacheDir = ""
+// caRoot includes the CA certificates.
+var caRoot map[string]*x509.Certificate
+
+// certPOol includes the CA certificates.
+var certPool *x509.CertPool
+
+// cacheDir is the location of OCSP response cache file
+var cacheDir = ""
+
+// cacheFileName is the file name of OCSP response cache file
+var cacheFileName = ""
 
 const (
-	// CacheFileName is the name of OCSP Response cache file.
-	CacheFileName = "ocsp_response_cache"
+	cacheFileBaseName = "ocsp_response_cache"
 	// cacheExpire specifies cache data expiration time in seconds.
 	cacheExpire = float64(24 * 60 * 60)
 )
@@ -281,7 +290,7 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 		ocspStatusChan <- ocspValidatedWithCache
 		return
 	}
-	glog.V(2).Infof("cached missed: %v", ocspValidatedWithCache.err)
+	glog.V(2).Infof("cache missed: %v", ocspValidatedWithCache.err)
 
 	ocspClient := &http.Client{
 		Timeout: 30 * time.Second,
@@ -358,47 +367,26 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	return
 }
 
-// verifyPeerCertificateSerial verifies the certificate revocation status in serial.
-// This is mainly used by tools that analyzes the OCSP output
-func verifyPeerCertificateSerial(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
+// verifyPeerCertificate verifies all of certificate revocation status
+func verifyPeerCertificate(callback func(*sync.WaitGroup, []*x509.Certificate) []*ocspStatus, verifiedChains [][]*x509.Certificate) (err error) {
 	for i := 0; i < len(verifiedChains); i++ {
 		var wg sync.WaitGroup
 		n := len(verifiedChains[i]) - 1
-		wg.Add(n)
-		for j := 0; j < len(verifiedChains[i])-1; j++ {
-			ocspStatusChan := make(chan *ocspStatus, 1)
-			getRevocationStatus(&wg, ocspStatusChan, verifiedChains[i][j], verifiedChains[i][j+1])
-			close(ocspStatusChan)
-			st := <-ocspStatusChan
-			if st.code != 0 {
-				return fmt.Errorf("failed to validate the certificate revocation status. err: %v", st.err)
+		if !verifiedChains[i][n].IsCA || string(verifiedChains[i][n].RawIssuer) != string(verifiedChains[i][n].RawSubject) {
+			// if the last certificate is not root CA, add it to the list
+			rca := caRoot[string(verifiedChains[i][n].RawIssuer)]
+			if rca == nil {
+				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][n].Issuer)
 			}
+			verifiedChains[i] = append(verifiedChains[i], rca)
+			n++
 		}
-		wg.Wait()
-	}
-	return nil
-}
-
-// verifyPeerCertificateParallel verifies the certificate revocation status in parallel.
-// This is mainly used for general connection
-func verifyPeerCertificateParallel(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
-	for i := 0; i < len(verifiedChains); i++ {
-		var wg sync.WaitGroup
-		n := len(verifiedChains[i]) - 1
 		wg.Add(n)
-		ocspStatusChan := make(chan *ocspStatus, n)
-		for j := 0; j < n; j++ {
-			go getRevocationStatus(&wg, ocspStatusChan, verifiedChains[i][j], verifiedChains[i][j+1])
-		}
-		results := make([]*ocspStatus, n)
-		for j := 0; j < n; j++ {
-			results[j] = <-ocspStatusChan // will wait for all results back
-		}
-		close(ocspStatusChan)
+		results := callback(&wg, verifiedChains[i])
 		wg.Wait()
 		for _, r := range results {
-			if r.code != ocspSuccess {
-				return fmt.Errorf("failed certificate revocation check. err: %v", r.err)
+			if r.err != nil {
+				return r.err
 			}
 		}
 	}
@@ -406,11 +394,49 @@ func verifyPeerCertificateParallel(_ [][]byte, verifiedChains [][]*x509.Certific
 	return nil
 }
 
+func getAllRevocationStatusParallel(wg *sync.WaitGroup, verifiedChains []*x509.Certificate) []*ocspStatus {
+	n := len(verifiedChains) - 1
+	ocspStatusChan := make(chan *ocspStatus, n)
+	for j := 0; j < n; j++ {
+		go getRevocationStatus(wg, ocspStatusChan, verifiedChains[j], verifiedChains[j+1])
+	}
+	results := make([]*ocspStatus, n)
+	for j := 0; j < n; j++ {
+		results[j] = <-ocspStatusChan // will wait for all results back
+	}
+	close(ocspStatusChan)
+	return results
+}
+
+func getAllRevocationStatusSerial(wg *sync.WaitGroup, verifiedChains []*x509.Certificate) []*ocspStatus {
+	n := len(verifiedChains) - 1
+	results := make([]*ocspStatus, n)
+	for j := 0; j < n; j++ {
+		ocspStatusChan := make(chan *ocspStatus, 1)
+		getRevocationStatus(wg, ocspStatusChan, verifiedChains[j], verifiedChains[j+1])
+		results[j] = <-ocspStatusChan
+		close(ocspStatusChan)
+	}
+	return results
+}
+
+// verifyPeerCertificateSerial verifies the certificate revocation status in serial.
+// This is mainly used by tools that analyzes the OCSP output
+func verifyPeerCertificateSerial(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
+	return verifyPeerCertificate(getAllRevocationStatusSerial, verifiedChains)
+}
+
+// verifyPeerCertificateParallel verifies the certificate revocation status in parallel.
+// This is mainly used for general connection
+func verifyPeerCertificateParallel(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
+	return verifyPeerCertificate(getAllRevocationStatusParallel, verifiedChains)
+}
+
 // readOCSPCacheFile reads a OCSP Response cache file. This should be called in init().
 func readOCSPCacheFile() {
 	ocspResponseCache = make(map[string][]interface{})
 	ocspResponseCacheLock = &sync.RWMutex{}
-	cacheFileName := filepath.Join(CacheDir, CacheFileName)
+	cacheFileName = filepath.Join(cacheDir, cacheFileBaseName)
 	glog.V(2).Info("reading OCSP Response cache file. %v", cacheFileName)
 	raw, err := ioutil.ReadFile(cacheFileName)
 	if err != nil {
@@ -425,7 +451,6 @@ func readOCSPCacheFile() {
 // writeOCSPCacheFile writes a OCSP Response cache file. This is called if all revocation status is success.
 // lock file is used to mitigate race condition with other process.
 func writeOCSPCacheFile() {
-	cacheFileName := filepath.Join(CacheDir, CacheFileName)
 	glog.V(2).Info("writing OCSP Response cache file. %v", cacheFileName)
 	cacheLockFileName := cacheFileName + ".lck"
 	statinfo, err := os.Stat(cacheLockFileName)
@@ -461,36 +486,60 @@ func writeOCSPCacheFile() {
 	}
 }
 
+// readCACerts read a set of root CAs
+func readCACerts() {
+	raw := []byte(caRootPEM)
+	certPool = x509.NewCertPool()
+	caRoot = make(map[string]*x509.Certificate)
+	var p *pem.Block
+	for {
+		p, raw = pem.Decode(raw)
+		if p == nil {
+			break
+		}
+		if p.Type != "CERTIFICATE" {
+			continue
+		}
+		c, err := x509.ParseCertificate(p.Bytes)
+		if err != nil {
+			panic("failed to parse CA certificate.")
+		}
+		certPool.AddCert(c)
+		caRoot[string(c.RawSubject)] = c
+	}
+}
+
 // createOCSPCacheDir creates OCSP response cache directory. If SNOWFLAKE_TEST_WORKSPACE is set,
 func createOCSPCacheDir() {
-	CacheDir = os.Getenv("SNOWFLAKE_TEST_WORKSPACE")
-	if CacheDir == "" {
+	cacheDir = os.Getenv("SNOWFLAKE_TEST_WORKSPACE")
+	if cacheDir == "" {
 		switch runtime.GOOS {
 		case "windows":
-			CacheDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local", "Snowflake", "Caches")
+			cacheDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local", "Snowflake", "Caches")
 		case "darwin":
 			home := os.Getenv("HOME")
 			if home == "" {
 				glog.V(2).Info("HOME is blank.")
 			}
-			CacheDir = filepath.Join(home, "Library", "Caches", "Snowflake")
+			cacheDir = filepath.Join(home, "Library", "Caches", "Snowflake")
 		default:
 			home := os.Getenv("HOME")
 			if home == "" {
 				glog.V(2).Info("HOME is blank")
 			}
-			CacheDir = filepath.Join(home, ".cache", "snowflake")
+			cacheDir = filepath.Join(home, ".cache", "snowflake")
 		}
 	}
-	if _, err := os.Stat(CacheDir); os.IsNotExist(err) {
-		err := os.MkdirAll(CacheDir, os.ModePerm)
+	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+		err := os.MkdirAll(cacheDir, os.ModePerm)
 		if err != nil {
-			glog.V(2).Infof("failed to create cache directory. %v, err: %v. ignored", CacheDir, err)
+			glog.V(2).Infof("failed to create cache directory. %v, err: %v. ignored", cacheDir, err)
 		}
 	}
 }
 
 func init() {
+	readCACerts()
 	createOCSPCacheDir()
 	readOCSPCacheFile()
 }
@@ -504,6 +553,7 @@ var snowflakeInsecureTransport = &http.Transport{
 // snowflakeTransport includes the certificate revocation check with OCSP in parallel.
 var snowflakeTransport = &http.Transport{
 	TLSClientConfig: &tls.Config{
+		RootCAs:               certPool,
 		VerifyPeerCertificate: verifyPeerCertificateParallel,
 	},
 	MaxIdleConns:    10,
@@ -513,6 +563,7 @@ var snowflakeTransport = &http.Transport{
 // SnowflakeTransportSerial includes the certificate revocation check with OCSP in serial.
 var SnowflakeTransportSerial = &http.Transport{
 	TLSClientConfig: &tls.Config{
+		RootCAs:               certPool,
 		VerifyPeerCertificate: verifyPeerCertificateSerial,
 	},
 	MaxIdleConns:    10,
