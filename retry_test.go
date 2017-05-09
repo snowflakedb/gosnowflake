@@ -25,9 +25,10 @@ func (e *fakeHTTPError) Timeout() bool   { return e.timeout }
 func (e *fakeHTTPError) Temporary() bool { return true }
 
 type fakeClient struct {
-	cnt     int  // number of retry
-	success bool // return success after retry in cnt times
-	timeout bool // timeout
+	cnt     int    // number of retry
+	success bool   // return success after retry in cnt times
+	timeout bool   // timeout
+	body    []byte // return body
 }
 
 func (c *fakeClient) Do(req *http.Request) (*http.Response, error) {
@@ -48,6 +49,7 @@ func (c *fakeClient) Do(req *http.Request) (*http.Response, error) {
 		}
 		retcode = 0
 	}
+
 	ret := &http.Response{
 		StatusCode: retcode,
 	}

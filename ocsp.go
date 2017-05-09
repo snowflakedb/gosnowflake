@@ -13,6 +13,7 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -28,12 +29,20 @@ import (
 	"golang.org/x/crypto/ocsp"
 )
 
-// CacheDir is the location of OCSP Response cache file ocsp_response_cache.
-var CacheDir = ""
+// caRoot includes the CA certificates.
+var caRoot map[string]*x509.Certificate
+
+// certPOol includes the CA certificates.
+var certPool *x509.CertPool
+
+// cacheDir is the location of OCSP response cache file
+var cacheDir = ""
+
+// cacheFileName is the file name of OCSP response cache file
+var cacheFileName = ""
 
 const (
-	// CacheFileName is the name of OCSP Response cache file.
-	CacheFileName = "ocsp_response_cache"
+	cacheFileBaseName = "ocsp_response_cache"
 	// cacheExpire specifies cache data expiration time in seconds.
 	cacheExpire = float64(24 * 60 * 60)
 )
@@ -106,7 +115,7 @@ func calcTolerableValidity(thisUpdate, nextUpdate time.Time) time.Duration {
 
 // isInValidityRange checks the validity
 func isInValidityRange(currTime, thisUpdate, nextUpdate time.Time) bool {
-	if thisUpdate.Add(-maxClockSkew).Sub(currTime) > 0 {
+	if currTime.Sub(thisUpdate.Add(-maxClockSkew)) < 0 {
 		return false
 	}
 	if nextUpdate.Add(calcTolerableValidity(thisUpdate, nextUpdate)).Sub(currTime) < 0 {
@@ -239,6 +248,72 @@ func validateOCSP(encodedCertIDBase64 string, ocspRes *ocsp.Response, subject *x
 	}
 }
 
+// retryOCSP is the second level of retry method if the returned contents are corrupted. It often happens with OCSP
+// serer and retry helps.
+func retryOCSP(
+	client clientInterface,
+	req requestFunc,
+	ocspHost string,
+	headers map[string]string,
+	reqBody []byte,
+	issuer *x509.Certificate) (
+	ocspRes *ocsp.Response,
+	ocspResBytes []byte,
+	ocspS *ocspStatus) {
+	retryCounter := 0
+	sleepTime := 0
+	totalTimeout := 120
+	for {
+		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
+		res, err := retryHTTP(context.Background(), client, req, "POST", ocspHost, headers, reqBody, 30*time.Second)
+		if err != nil {
+			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+				continue
+			}
+			return ocspRes, ocspResBytes, &ocspStatus{
+				code: ocspFailedSubmit,
+				err:  err,
+			}
+		}
+		defer res.Body.Close()
+		glog.V(2).Infof("StatusCode from OCSP Server: %v", res.StatusCode)
+		if res.StatusCode != http.StatusOK {
+			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+				continue
+			}
+			return ocspRes, ocspResBytes, &ocspStatus{
+				code: ocspFailedResponse,
+				err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
+			}
+		}
+		ocspResBytes, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+				continue
+			}
+			return ocspRes, ocspResBytes, &ocspStatus{
+				code: ocspFailedExtractResponse,
+				err:  err,
+			}
+		}
+		ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
+		if err != nil {
+			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+				continue
+			}
+			return ocspRes, ocspResBytes, &ocspStatus{
+				code: ocspFailedParseResponse,
+				err:  err,
+			}
+		}
+		break
+	}
+	return ocspRes, ocspResBytes, &ocspStatus{
+		code: ocspSuccess,
+		err:  nil,
+	}
+}
+
 // getRevocationStatus checks the certificate revocation status for subject using issuer certificate.
 func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, subject, issuer *x509.Certificate) {
 	defer wg.Done()
@@ -281,7 +356,7 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 		ocspStatusChan <- ocspValidatedWithCache
 		return
 	}
-	glog.V(2).Infof("cached missed: %v", ocspValidatedWithCache.err)
+	glog.V(2).Infof("cache missed: %v", ocspValidatedWithCache.err)
 
 	ocspClient := &http.Client{
 		Timeout: 30 * time.Second,
@@ -291,64 +366,11 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	headers["Accept"] = "application/ocsp-response"
 	headers["Content-Length"] = string(len(ocspReq))
 	headers["Host"] = u.Hostname()
-	retryCounter := 0
-	sleepTime := 0
-	totalTimeout := 120
-	var ocspRes *ocsp.Response
-	var ocspResBytes []byte
-	for {
-		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
-		res, err := retryHTTP(context.Background(), ocspClient, http.NewRequest, "POST", ocspHost, headers, ocspReq, 30*time.Second)
-		if err != nil {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
-				continue
-			}
-			ocspStatusChan <- &ocspStatus{
-				code: ocspFailedSubmit,
-				err:  err,
-			}
-			return
-		}
-		defer res.Body.Close()
-		glog.V(2).Infof("StatusCode from OCSP Server: %v", res.StatusCode)
-		if res.StatusCode != http.StatusOK {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
-				retryCounter++
-				continue
-			}
-			ocspStatusChan <- &ocspStatus{
-				code: ocspFailedResponse,
-				err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
-			}
-			return
-		}
-		ocspResBytes, err = ioutil.ReadAll(res.Body)
-		if err != nil {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
-				retryCounter++
-				continue
-			}
-			ocspStatusChan <- &ocspStatus{
-				code: ocspFailedExtractResponse,
-				err:  err,
-			}
-			return
-		}
-		ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
-		if err != nil {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
-				retryCounter++
-				continue
-			}
-			ocspStatusChan <- &ocspStatus{
-				code: ocspFailedParseResponse,
-				err:  err,
-			}
-			return
-		}
-		break
+	ocspRes, ocspResBytes, ocspS := retryOCSP(ocspClient, http.NewRequest, ocspHost, headers, ocspReq, issuer)
+	if ocspS.code != ocspSuccess {
+		ocspStatusChan <- ocspS
+		return
 	}
-
 	encodedCertIDBase64 := base64.StdEncoding.EncodeToString(encodedCertID)
 	ocspStatusChan <- validateOCSP(encodedCertIDBase64, ocspRes, subject)
 	v := []interface{}{float64(time.Now().UTC().Unix()), base64.StdEncoding.EncodeToString(ocspResBytes)}
@@ -358,47 +380,26 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	return
 }
 
-// verifyPeerCertificateSerial verifies the certificate revocation status in serial.
-// This is mainly used by tools that analyzes the OCSP output
-func verifyPeerCertificateSerial(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
+// verifyPeerCertificate verifies all of certificate revocation status
+func verifyPeerCertificate(callback func(*sync.WaitGroup, []*x509.Certificate) []*ocspStatus, verifiedChains [][]*x509.Certificate) (err error) {
 	for i := 0; i < len(verifiedChains); i++ {
 		var wg sync.WaitGroup
 		n := len(verifiedChains[i]) - 1
-		wg.Add(n)
-		for j := 0; j < len(verifiedChains[i])-1; j++ {
-			ocspStatusChan := make(chan *ocspStatus, 1)
-			getRevocationStatus(&wg, ocspStatusChan, verifiedChains[i][j], verifiedChains[i][j+1])
-			close(ocspStatusChan)
-			st := <-ocspStatusChan
-			if st.code != 0 {
-				return fmt.Errorf("failed to validate the certificate revocation status. err: %v", st.err)
+		if !verifiedChains[i][n].IsCA || string(verifiedChains[i][n].RawIssuer) != string(verifiedChains[i][n].RawSubject) {
+			// if the last certificate is not root CA, add it to the list
+			rca := caRoot[string(verifiedChains[i][n].RawIssuer)]
+			if rca == nil {
+				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][n].Issuer)
 			}
+			verifiedChains[i] = append(verifiedChains[i], rca)
+			n++
 		}
-		wg.Wait()
-	}
-	return nil
-}
-
-// verifyPeerCertificateParallel verifies the certificate revocation status in parallel.
-// This is mainly used for general connection
-func verifyPeerCertificateParallel(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
-	for i := 0; i < len(verifiedChains); i++ {
-		var wg sync.WaitGroup
-		n := len(verifiedChains[i]) - 1
 		wg.Add(n)
-		ocspStatusChan := make(chan *ocspStatus, n)
-		for j := 0; j < n; j++ {
-			go getRevocationStatus(&wg, ocspStatusChan, verifiedChains[i][j], verifiedChains[i][j+1])
-		}
-		results := make([]*ocspStatus, n)
-		for j := 0; j < n; j++ {
-			results[j] = <-ocspStatusChan // will wait for all results back
-		}
-		close(ocspStatusChan)
+		results := callback(&wg, verifiedChains[i])
 		wg.Wait()
 		for _, r := range results {
-			if r.code != ocspSuccess {
-				return fmt.Errorf("failed certificate revocation check. err: %v", r.err)
+			if r.err != nil {
+				return r.err
 			}
 		}
 	}
@@ -406,11 +407,50 @@ func verifyPeerCertificateParallel(_ [][]byte, verifiedChains [][]*x509.Certific
 	return nil
 }
 
+func getAllRevocationStatusParallel(wg *sync.WaitGroup, verifiedChains []*x509.Certificate) []*ocspStatus {
+	n := len(verifiedChains) - 1
+	ocspStatusChan := make(chan *ocspStatus, n)
+	for j := 0; j < n; j++ {
+		go getRevocationStatus(wg, ocspStatusChan, verifiedChains[j], verifiedChains[j+1])
+	}
+	results := make([]*ocspStatus, n)
+	for j := 0; j < n; j++ {
+		results[j] = <-ocspStatusChan // will wait for all results back
+	}
+	close(ocspStatusChan)
+	return results
+}
+
+func getAllRevocationStatusSerial(wg *sync.WaitGroup, verifiedChains []*x509.Certificate) []*ocspStatus {
+	n := len(verifiedChains) - 1
+	results := make([]*ocspStatus, n)
+	for j := 0; j < n; j++ {
+		ocspStatusChan := make(chan *ocspStatus, 1)
+		getRevocationStatus(wg, ocspStatusChan, verifiedChains[j], verifiedChains[j+1])
+		results[j] = <-ocspStatusChan
+		close(ocspStatusChan)
+	}
+	return results
+}
+
+// verifyPeerCertificateSerial verifies the certificate revocation status in serial.
+// This is mainly used by tools that analyzes the OCSP output
+func verifyPeerCertificateSerial(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
+	return verifyPeerCertificate(getAllRevocationStatusSerial, verifiedChains)
+}
+
+// verifyPeerCertificateParallel verifies the certificate revocation status in parallel.
+// This is mainly used for general connection
+func verifyPeerCertificateParallel(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
+	return verifyPeerCertificate(getAllRevocationStatusParallel, verifiedChains)
+}
+
 // readOCSPCacheFile reads a OCSP Response cache file. This should be called in init().
 func readOCSPCacheFile() {
 	ocspResponseCache = make(map[string][]interface{})
 	ocspResponseCacheLock = &sync.RWMutex{}
-	cacheFileName := filepath.Join(CacheDir, CacheFileName)
+	cacheFileName = filepath.Join(cacheDir, cacheFileBaseName)
+	glog.V(2).Info("reading OCSP Response cache file. %v", cacheFileName)
 	raw, err := ioutil.ReadFile(cacheFileName)
 	if err != nil {
 		glog.V(2).Infof("failed to read OCSP cache file. %v. ignored.", err)
@@ -424,8 +464,7 @@ func readOCSPCacheFile() {
 // writeOCSPCacheFile writes a OCSP Response cache file. This is called if all revocation status is success.
 // lock file is used to mitigate race condition with other process.
 func writeOCSPCacheFile() {
-	glog.V(2).Info("writing OCSP Response cache file")
-	cacheFileName := filepath.Join(CacheDir, CacheFileName)
+	glog.V(2).Info("writing OCSP Response cache file. %v", cacheFileName)
 	cacheLockFileName := cacheFileName + ".lck"
 	statinfo, err := os.Stat(cacheLockFileName)
 	switch {
@@ -460,30 +499,61 @@ func writeOCSPCacheFile() {
 	}
 }
 
-func init() {
-	// create cache directory for OCSP response
-	switch runtime.GOOS {
-	case "windows":
-		CacheDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local", "Snowflake", "Caches")
-	case "darwin":
-		home := os.Getenv("HOME")
-		if home == "" {
-			panic("HOME is blank")
+// readCACerts read a set of root CAs
+func readCACerts() {
+	raw := []byte(caRootPEM)
+	certPool = x509.NewCertPool()
+	caRoot = make(map[string]*x509.Certificate)
+	var p *pem.Block
+	for {
+		p, raw = pem.Decode(raw)
+		if p == nil {
+			break
 		}
-		CacheDir = filepath.Join(home, "Library", "Caches", "Snowflake")
-	default:
-		home := os.Getenv("HOME")
-		if home == "" {
-			panic("HOME is blank")
+		if p.Type != "CERTIFICATE" {
+			continue
 		}
-		CacheDir = filepath.Join(home, ".cache", "snowflake")
-	}
-	if _, err := os.Stat(CacheDir); os.IsNotExist(err) {
-		err := os.MkdirAll(CacheDir, os.ModePerm)
+		c, err := x509.ParseCertificate(p.Bytes)
 		if err != nil {
-			glog.V(2).Infof("failed to create cache directory. %v. ignored", err)
+			panic("failed to parse CA certificate.")
+		}
+		certPool.AddCert(c)
+		caRoot[string(c.RawSubject)] = c
+	}
+}
+
+// createOCSPCacheDir creates OCSP response cache directory. If SNOWFLAKE_TEST_WORKSPACE is set,
+func createOCSPCacheDir() {
+	cacheDir = os.Getenv("SNOWFLAKE_TEST_WORKSPACE")
+	if cacheDir == "" {
+		switch runtime.GOOS {
+		case "windows":
+			cacheDir = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local", "Snowflake", "Caches")
+		case "darwin":
+			home := os.Getenv("HOME")
+			if home == "" {
+				glog.V(2).Info("HOME is blank.")
+			}
+			cacheDir = filepath.Join(home, "Library", "Caches", "Snowflake")
+		default:
+			home := os.Getenv("HOME")
+			if home == "" {
+				glog.V(2).Info("HOME is blank")
+			}
+			cacheDir = filepath.Join(home, ".cache", "snowflake")
 		}
 	}
+	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+		err := os.MkdirAll(cacheDir, os.ModePerm)
+		if err != nil {
+			glog.V(2).Infof("failed to create cache directory. %v, err: %v. ignored", cacheDir, err)
+		}
+	}
+}
+
+func init() {
+	readCACerts()
+	createOCSPCacheDir()
 	readOCSPCacheFile()
 }
 
@@ -496,6 +566,7 @@ var snowflakeInsecureTransport = &http.Transport{
 // snowflakeTransport includes the certificate revocation check with OCSP in parallel.
 var snowflakeTransport = &http.Transport{
 	TLSClientConfig: &tls.Config{
+		RootCAs:               certPool,
 		VerifyPeerCertificate: verifyPeerCertificateParallel,
 	},
 	MaxIdleConns:    10,
@@ -505,6 +576,7 @@ var snowflakeTransport = &http.Transport{
 // SnowflakeTransportSerial includes the certificate revocation check with OCSP in serial.
 var SnowflakeTransportSerial = &http.Transport{
 	TLSClientConfig: &tls.Config{
+		RootCAs:               certPool,
 		VerifyPeerCertificate: verifyPeerCertificateSerial,
 	},
 	MaxIdleConns:    10,
