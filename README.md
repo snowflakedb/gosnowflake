@@ -24,10 +24,16 @@ Go Snowflake Driver is an implementation of Go's `database/sql/driver` interface
 
 Use `snowflake` as `driverName` and a valid [DSN](#dsn-data-source-name) as `dataSourceName`:
 ```golang
-import "database/sql"
-import _ "github.com/snowflakedb/gosnowflake"
+import (
+    "database/sql"
+    _ "github.com/snowflakedb/gosnowflake"
+)
 
-db, err := sql.Open("snowflake", "user:password@accoutname/dbname")
+func main() {
+    db, err := sql.Open("snowflake", "user:password@accoutname/dbname")
+    defer db.Close()
+    ...
+}
 ```
 
 ### DSN (Data Source Name)
@@ -61,7 +67,7 @@ The available parameters are as follows. All parameters are optional.
 |authenticator|Either ``snowflake`` if Snowflake is your identity provider (IdP) or the URL for your IdP, e.g., https://<okta_account_name>.okta.com. If the value is not ``snowflake``, the user and password parameters must be your login credentials for the IdP.|
 |application|Name of your application. It helps Snowflake support to identify your application.|
 |insecureMode|``false`` by default. You may set to ``true`` if no OCSP certificate revocation check wants to perform. Used only in emergency situation or tests.|
-|proxyHost|Proxy host name. Note not SSL proxy is supported. The proxy must be accessible via the URL http://proxyHost:proxyPort/, and proxyUser and proxyPassword are optional.|
+|proxyHost|Proxy host name. Note no SSL proxy is supported. The proxy must be accessible via the URL http://proxyHost:proxyPort/, and proxyUser and proxyPassword are optional.|
 |proxyPort|Proxy port number.|
 |proxyUser|Proxy user.|
 |proxyPassword|Proxy user password.|
@@ -77,6 +83,7 @@ If you want to get the logs for a specific module, use the ``-vmodule`` option, 
 ```bash
 $ your_go_program -vmodule=driver=2,connection=2 -stderrthreshold=INFO
 ```
+No log shows up? Ensure calling ``db.Close()`` to flush ``glog`` buffer or explicity call ``glog.flush()`` in your code.
 
 ### Binding time.Time for DATE, TIME, TIMESTAMP_NTZ, TIMESTAMP_LTZ
 _This behavior is subject to change by the production._
@@ -135,7 +142,7 @@ At the moment, Snowflake doesn't support the name based ``Location`` types, e.g.
 At the moment, binding ``TIMESTAMP_TZ`` data type is not supported.
 
 ## Sample Programs
-Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/godev`` and ensure to 
+Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/go`` and ensure to 
 include ``$GOPATH/bin`` in the environment variable ``$PATH``. Run make command to build all sample programs.
 ```bash
 make install

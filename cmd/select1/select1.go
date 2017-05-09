@@ -30,6 +30,7 @@ func main() {
 
 	dsn := fmt.Sprintf("%v:%v@%v", user, password, account)
 	db, err := sql.Open("snowflake", dsn)
+	defer db.Close()
 	if err != nil {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
 	}

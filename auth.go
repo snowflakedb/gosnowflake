@@ -181,7 +181,7 @@ func authenticate(
 			Message: respd.Message,
 		}
 	}
-	glog.V(2).Info("Authentication SUCCES")
+	glog.V(2).Info("Authentication SUCCESS")
 	sr.Token = respd.Data.Token
 	sr.MasterToken = respd.Data.MasterToken
 	sr.SessionID = respd.Data.SessionID
