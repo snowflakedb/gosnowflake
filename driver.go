@@ -9,7 +9,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"net/http"
-
 	"time"
 
 	"github.com/golang/glog"
@@ -34,6 +33,14 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	if sc.cfg.InsecureMode {
 		// no revocation check with OCSP. Think twice when you want to enable this option.
 		st = snowflakeInsecureTransport
+	}
+	proxyURL, err := proxyURL(proxyHost, proxyPort, proxyUser, proxyPassword)
+	if err != nil {
+		return nil, err
+	}
+	if proxyURL != nil {
+		st.Proxy = http.ProxyURL(proxyURL)
+		glog.V(2).Infof("proxy: %v", proxyURL)
 	}
 	// authenticate
 	sc.rest = &snowflakeRestful{

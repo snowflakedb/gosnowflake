@@ -6,6 +6,8 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
+	"fmt"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -128,6 +130,74 @@ func TestToNamedValues(t *testing.T) {
 
 		if !compareNamedValues(test.out, a) {
 			t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.values, test.out, test.out, a)
+		}
+	}
+}
+
+type tcProxyURL struct {
+	proxyHost     string
+	proxyPort     int
+	proxyUser     string
+	proxyPassword string
+	output        *url.URL
+	err           error
+}
+
+func TestProxyURL(t *testing.T) {
+	var genProxyURL = func(urlStr string) *url.URL {
+		ret, err := url.Parse(urlStr)
+		if err != nil {
+			panic(fmt.Sprintf("failed to parse URL: %v", urlStr))
+		}
+		return ret
+	}
+	testcases := []tcProxyURL{
+		{
+			proxyHost: "proxy.host.com",
+			proxyPort: 123,
+			output:    genProxyURL("http://proxy.host.com:123"),
+		},
+		{
+			proxyHost:     "proxy.host.com",
+			proxyPort:     123,
+			proxyUser:     "u",
+			proxyPassword: "p",
+			output:        genProxyURL("http://u:p@proxy.host.com:123"),
+		},
+		{
+			proxyHost: "proxy.host.com",
+			proxyPort: 123,
+			proxyUser: "u",
+			output:    genProxyURL("http://u:@proxy.host.com:123"),
+		},
+		{
+			proxyHost: "proxy.host.com",
+			output:    nil,
+		},
+		{
+			proxyPort: 456,
+			output:    nil,
+		},
+		{
+			output: nil,
+		},
+	}
+	for _, test := range testcases {
+		a, err := proxyURL(test.proxyHost, test.proxyPort, test.proxyUser, test.proxyPassword)
+		if err != nil && test.err == nil {
+			t.Errorf("unexpected error. err: %v, input: %v", err, test)
+		}
+		if err == nil && test.err != nil {
+			t.Errorf("error is expected. err: %v, input: %v", test.err, test)
+		}
+		if a == nil && test.output != nil || a != nil && test.output == nil {
+			t.Errorf("failed to get proxy URL. host: %v, port: %v, user: %v, password: %v, expected: %v, got: %v",
+				test.proxyHost, test.proxyPort, test.proxyUser, test.proxyPassword, test.output, a)
+		}
+
+		if a != nil && test.output != nil && test.output.String() != a.String() {
+			t.Errorf("failed to get proxy URL. host: %v, port: %v, user: %v, password: %v, expected: %v, got: %v",
+				test.proxyHost, test.proxyPort, test.proxyUser, test.proxyPassword, test.output, a)
 		}
 	}
 }
