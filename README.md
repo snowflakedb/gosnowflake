@@ -61,7 +61,10 @@ The available parameters are as follows. All parameters are optional.
 |authenticator|Either ``snowflake`` if Snowflake is your identity provider (IdP) or the URL for your IdP, e.g., https://<okta_account_name>.okta.com. If the value is not ``snowflake``, the user and password parameters must be your login credentials for the IdP.|
 |application|Name of your application. It helps Snowflake support to identify your application.|
 |insecureMode|``false`` by default. You may set to ``true`` if no OCSP certificate revocation check wants to perform. Used only in emergency situation or tests.|
-
+|proxyHost|Proxy host name. Note not SSL proxy is supported. The proxy must be accessible via the URL http://proxyHost:proxyPort/, and proxyUser and proxyPassword are optional.|
+|proxyPort|Proxy port number.|
+|proxyUser|Proxy user.|
+|proxyPassword|Proxy user password.|
 ### Logging
 Go Snowflake Driver uses [glog](https://github.com/golang/glog) as a logging framework. In order to get the detail logs,
 specify ``glog`` parameters in the command line. For example, if you want to get logs for all activity, set the following 

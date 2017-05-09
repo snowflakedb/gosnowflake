@@ -317,6 +317,19 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.InsecureMode = vv
+		case "proxyHost":
+			proxyHost = value
+		case "proxyPort":
+			var vv int64
+			vv, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return
+			}
+			proxyPort = int(vv)
+		case "proxyUser":
+			proxyUser = value
+		case "proxyPassword":
+			proxyPassword = value
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]string)
