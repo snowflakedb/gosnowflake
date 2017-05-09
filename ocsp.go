@@ -115,7 +115,7 @@ func calcTolerableValidity(thisUpdate, nextUpdate time.Time) time.Duration {
 
 // isInValidityRange checks the validity
 func isInValidityRange(currTime, thisUpdate, nextUpdate time.Time) bool {
-	if thisUpdate.Add(-maxClockSkew).Sub(currTime) > 0 {
+	if currTime.Sub(thisUpdate.Add(-maxClockSkew)) < 0 {
 		return false
 	}
 	if nextUpdate.Add(calcTolerableValidity(thisUpdate, nextUpdate)).Sub(currTime) < 0 {
@@ -248,6 +248,72 @@ func validateOCSP(encodedCertIDBase64 string, ocspRes *ocsp.Response, subject *x
 	}
 }
 
+// retryOCSP is the second level of retry method if the returned contents are corrupted. It often happens with OCSP
+// serer and retry helps.
+func retryOCSP(
+	client clientInterface,
+	req requestFunc,
+	ocspHost string,
+	headers map[string]string,
+	reqBody []byte,
+	issuer *x509.Certificate) (
+	ocspRes *ocsp.Response,
+	ocspResBytes []byte,
+	ocspS *ocspStatus) {
+	retryCounter := 0
+	sleepTime := 0
+	totalTimeout := 120
+	for {
+		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
+		res, err := retryHTTP(context.Background(), client, req, "POST", ocspHost, headers, reqBody, 30*time.Second)
+		if err != nil {
+			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+				continue
+			}
+			return ocspRes, ocspResBytes, &ocspStatus{
+				code: ocspFailedSubmit,
+				err:  err,
+			}
+		}
+		defer res.Body.Close()
+		glog.V(2).Infof("StatusCode from OCSP Server: %v", res.StatusCode)
+		if res.StatusCode != http.StatusOK {
+			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+				continue
+			}
+			return ocspRes, ocspResBytes, &ocspStatus{
+				code: ocspFailedResponse,
+				err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
+			}
+		}
+		ocspResBytes, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+				continue
+			}
+			return ocspRes, ocspResBytes, &ocspStatus{
+				code: ocspFailedExtractResponse,
+				err:  err,
+			}
+		}
+		ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
+		if err != nil {
+			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+				continue
+			}
+			return ocspRes, ocspResBytes, &ocspStatus{
+				code: ocspFailedParseResponse,
+				err:  err,
+			}
+		}
+		break
+	}
+	return ocspRes, ocspResBytes, &ocspStatus{
+		code: ocspSuccess,
+		err:  nil,
+	}
+}
+
 // getRevocationStatus checks the certificate revocation status for subject using issuer certificate.
 func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, subject, issuer *x509.Certificate) {
 	defer wg.Done()
@@ -300,64 +366,11 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	headers["Accept"] = "application/ocsp-response"
 	headers["Content-Length"] = string(len(ocspReq))
 	headers["Host"] = u.Hostname()
-	retryCounter := 0
-	sleepTime := 0
-	totalTimeout := 120
-	var ocspRes *ocsp.Response
-	var ocspResBytes []byte
-	for {
-		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
-		res, err := retryHTTP(context.Background(), ocspClient, http.NewRequest, "POST", ocspHost, headers, ocspReq, 30*time.Second)
-		if err != nil {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
-				continue
-			}
-			ocspStatusChan <- &ocspStatus{
-				code: ocspFailedSubmit,
-				err:  err,
-			}
-			return
-		}
-		defer res.Body.Close()
-		glog.V(2).Infof("StatusCode from OCSP Server: %v", res.StatusCode)
-		if res.StatusCode != http.StatusOK {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
-				retryCounter++
-				continue
-			}
-			ocspStatusChan <- &ocspStatus{
-				code: ocspFailedResponse,
-				err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
-			}
-			return
-		}
-		ocspResBytes, err = ioutil.ReadAll(res.Body)
-		if err != nil {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
-				retryCounter++
-				continue
-			}
-			ocspStatusChan <- &ocspStatus{
-				code: ocspFailedExtractResponse,
-				err:  err,
-			}
-			return
-		}
-		ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
-		if err != nil {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
-				retryCounter++
-				continue
-			}
-			ocspStatusChan <- &ocspStatus{
-				code: ocspFailedParseResponse,
-				err:  err,
-			}
-			return
-		}
-		break
+	ocspRes, ocspResBytes, ocspS := retryOCSP(ocspClient, http.NewRequest, ocspHost, headers, ocspReq, issuer)
+	if ocspS.code != ocspSuccess {
+		ocspStatusChan <- ocspS
+		return
 	}
-
 	encodedCertIDBase64 := base64.StdEncoding.EncodeToString(encodedCertID)
 	ocspStatusChan <- validateOCSP(encodedCertIDBase64, ocspRes, subject)
 	v := []interface{}{float64(time.Now().UTC().Unix()), base64.StdEncoding.EncodeToString(ocspResBytes)}
