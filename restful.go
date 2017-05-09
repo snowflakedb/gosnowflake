@@ -97,7 +97,7 @@ type execResponseAndErr struct {
 	err  error
 }
 
-func (sr *snowflakeRestful) PostQuery(
+func (sr *snowflakeRestful) postQuery(
 	ctx context.Context,
 	params *url.Values,
 	headers map[string]string,
@@ -149,7 +149,7 @@ func (sr *snowflakeRestful) postQueryHelper(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("PostQuery: resp: %v", resp)
+		glog.V(2).Infof("postQuery: resp: %v", resp)
 		var respd execResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
@@ -162,7 +162,7 @@ func (sr *snowflakeRestful) postQueryHelper(
 			if err != nil {
 				return nil, err
 			}
-			return sr.PostQuery(ctx, params, headers, body, timeout)
+			return sr.postQuery(ctx, params, headers, body, timeout)
 		}
 
 		var resultURL string
@@ -201,7 +201,7 @@ func (sr *snowflakeRestful) postQueryHelper(
 		return &respd, nil
 	}
 	// TODO: better error handing and retry
-	glog.V(2).Infof("PostQuery: resp: %v", resp)
+	glog.V(2).Infof("postQuery: resp: %v", resp)
 	b, err := ioutil.ReadAll(resp.Body)
 	glog.V(2).Infof("b RESPONSE: %s", b)
 	if err != nil {
@@ -212,7 +212,7 @@ func (sr *snowflakeRestful) postQueryHelper(
 	return nil, err
 }
 
-func (sr *snowflakeRestful) PostAuth(
+func (sr *snowflakeRestful) postAuth(
 	params *url.Values,
 	headers map[string]string,
 	body []byte,
@@ -230,7 +230,7 @@ func (sr *snowflakeRestful) PostAuth(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("PostAuth: resp: %v", resp)
+		glog.V(2).Infof("postAuth: resp: %v", resp)
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {

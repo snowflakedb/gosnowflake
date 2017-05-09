@@ -86,7 +86,7 @@ func authenticateBySAML(
 		return
 	}
 	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
-	respd, err := sr.PostAuthSAML(headers, jsonBody, sr.LoginTimeout)
+	respd, err := sr.postAuthSAML(headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func authenticateBySAML(
 		Username: user,
 		Password: password,
 	})
-	respa, err := sr.PostAuthOKTA(headers, jsonBody, respd.Data.TokenURL, sr.LoginTimeout)
+	respa, err := sr.postAuthOKTA(headers, jsonBody, respd.Data.TokenURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func authenticateBySAML(
 
 	headers = make(map[string]string)
 	headers["accept"] = "*/*"
-	bd, err := sr.GetSSO(params, headers, respd.Data.SSOURL, sr.LoginTimeout)
+	bd, err := sr.getSSO(params, headers, respd.Data.SSOURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func isPrefixEqual(url1 string, url2 string) (bool, error) {
 	return u1.Hostname() == u2.Hostname() && p1 == p2 && u1.Scheme == u2.Scheme, nil
 }
 
-func (sr *snowflakeRestful) PostAuthSAML(
+func (sr *snowflakeRestful) postAuthSAML(
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration) (
@@ -211,7 +211,7 @@ func (sr *snowflakeRestful) PostAuthSAML(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("PostAuthSAML: resp: %v", resp)
+		glog.V(2).Infof("postAuthSAML: resp: %v", resp)
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
@@ -230,7 +230,7 @@ func (sr *snowflakeRestful) PostAuthSAML(
 	return nil, err
 }
 
-func (sr *snowflakeRestful) PostAuthOKTA(
+func (sr *snowflakeRestful) postAuthOKTA(
 	headers map[string]string,
 	body []byte,
 	fullURL string,
@@ -243,7 +243,7 @@ func (sr *snowflakeRestful) PostAuthOKTA(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("PostAuthOKTA: resp: %v", resp)
+		glog.V(2).Infof("postAuthOKTA: resp: %v", resp)
 		var respd authOKTAResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
@@ -262,7 +262,7 @@ func (sr *snowflakeRestful) PostAuthOKTA(
 	return nil, err
 }
 
-func (sr *snowflakeRestful) GetSSO(
+func (sr *snowflakeRestful) getSSO(
 	params *url.Values,
 	headers map[string]string,
 	url string,
@@ -281,7 +281,7 @@ func (sr *snowflakeRestful) GetSSO(
 		return nil, err
 	}
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("GetSSO: resp: %v", resp)
+		glog.V(2).Infof("getSSO: resp: %v", resp)
 		return b, nil
 	}
 	return nil, fmt.Errorf("failed to get SSO response. HTTP code: %v", resp.StatusCode)
