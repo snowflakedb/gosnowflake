@@ -1,17 +1,16 @@
 package gosnowflake
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"testing"
 	"time"
 
-	"context"
-
 	"github.com/golang/glog"
 )
 
-func fakeRequestFunc(method, urlStr string, body io.Reader) (*http.Request, error) {
+func fakeRequestFunc(_, _ string, _ io.Reader) (*http.Request, error) {
 	return nil, nil
 }
 
@@ -24,6 +23,25 @@ func (e *fakeHTTPError) Error() string   { return e.err }
 func (e *fakeHTTPError) Timeout() bool   { return e.timeout }
 func (e *fakeHTTPError) Temporary() bool { return true }
 
+type fakeBody struct {
+	body []byte
+	cnt  int
+}
+
+func (b *fakeBody) Read(p []byte) (n int, err error) {
+	if b.cnt == 0 {
+		p = b.body
+		b.cnt = 1
+		return len(b.body), nil
+	}
+	b.cnt = 0
+	return 0, io.EOF
+}
+
+func (b *fakeBody) Close() error {
+	return nil
+}
+
 type fakeClient struct {
 	cnt     int    // number of retry
 	success bool   // return success after retry in cnt times
@@ -33,6 +51,9 @@ type fakeClient struct {
 
 func (c *fakeClient) Do(req *http.Request) (*http.Response, error) {
 	c.cnt--
+	if c.cnt < 0 {
+		c.cnt = 0
+	}
 	glog.V(2).Infof("fakeClient.cnt: %v", c.cnt)
 
 	var retcode int
@@ -52,6 +73,7 @@ func (c *fakeClient) Do(req *http.Request) (*http.Response, error) {
 
 	ret := &http.Response{
 		StatusCode: retcode,
+		Body:       &fakeBody{body: c.body},
 	}
 	return ret, nil
 }

@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -146,15 +147,18 @@ func getCert(addr string) []*x509.Certificate {
 	return state.PeerCertificates
 }
 
-/*
 func TestOCSPRetry(t *testing.T) {
 	certs := getCert("s3-us-west-2.amazonaws.com:443")
 	client := &fakeClient{
 		cnt:     3,
 		success: true,
+		body:    []byte{1, 2, 3},
 	}
 	res, b, st := retryOCSP(
-		client, fakeRequestFunc, "dummyOCSPHost", make(map[string]string), []byte{0}, certs[len(certs)-1])
-	fmt.Printf("%v, %v, %v\n", res, b, st)
+		client, fakeRequestFunc,
+		"dummyOCSPHost",
+		make(map[string]string), []byte{0}, certs[len(certs)-1], 20*time.Second, 10*time.Second)
+	if st.err == nil {
+		fmt.Printf("should fail: %v, %v, %v\n", res, b, st)
+	}
 }
-*/

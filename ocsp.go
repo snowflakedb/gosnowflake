@@ -124,15 +124,15 @@ func isInValidityRange(currTime, thisUpdate, nextUpdate time.Time) bool {
 	return true
 }
 
-func retryRevocationStatusCheck(retryCounter *int, totalTimeout *int, sleepTime int) (ok bool) {
+func retryRevocationStatusCheck(totalTimeout *time.Duration, sleepTime time.Duration) (ok bool) {
 	if *totalTimeout > 0 {
 		*totalTimeout -= sleepTime
 	}
 	if *totalTimeout <= 0 {
 		return false
 	}
-	time.Sleep(time.Duration(sleepTime) * time.Second)
-	*retryCounter++
+	glog.V(2).Infof("sleeping %v for retryOCSP. to timeout: %v. retrying", sleepTime, *totalTimeout)
+	time.Sleep(sleepTime)
 	return true
 }
 
@@ -256,18 +256,20 @@ func retryOCSP(
 	ocspHost string,
 	headers map[string]string,
 	reqBody []byte,
-	issuer *x509.Certificate) (
+	issuer *x509.Certificate,
+	totalTimeout time.Duration,
+	httpTimeout time.Duration) (
 	ocspRes *ocsp.Response,
 	ocspResBytes []byte,
 	ocspS *ocspStatus) {
 	retryCounter := 0
-	sleepTime := 0
-	totalTimeout := 120
+	sleepTime := time.Duration(0)
 	for {
-		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
-		res, err := retryHTTP(context.Background(), client, req, "POST", ocspHost, headers, reqBody, 30*time.Second)
+		sleepTime = time.Duration(defaultWaitAlgo.decorr(retryCounter, int(sleepTime/time.Second))) * time.Second
+		res, err := retryHTTP(context.Background(), client, req, "POST", ocspHost, headers, reqBody, httpTimeout)
 		if err != nil {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+			if ok := retryRevocationStatusCheck(&totalTimeout, sleepTime); ok {
+				retryCounter++
 				continue
 			}
 			return ocspRes, ocspResBytes, &ocspStatus{
@@ -278,7 +280,8 @@ func retryOCSP(
 		defer res.Body.Close()
 		glog.V(2).Infof("StatusCode from OCSP Server: %v", res.StatusCode)
 		if res.StatusCode != http.StatusOK {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+			if ok := retryRevocationStatusCheck(&totalTimeout, sleepTime); ok {
+				retryCounter++
 				continue
 			}
 			return ocspRes, ocspResBytes, &ocspStatus{
@@ -286,9 +289,11 @@ func retryOCSP(
 				err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
 			}
 		}
+		glog.V(2).Info("reading contents")
 		ocspResBytes, err = ioutil.ReadAll(res.Body)
 		if err != nil {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+			if ok := retryRevocationStatusCheck(&totalTimeout, sleepTime); ok {
+				retryCounter++
 				continue
 			}
 			return ocspRes, ocspResBytes, &ocspStatus{
@@ -296,9 +301,11 @@ func retryOCSP(
 				err:  err,
 			}
 		}
+		glog.V(2).Info("parsing OCSP response")
 		ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
 		if err != nil {
-			if ok := retryRevocationStatusCheck(&retryCounter, &totalTimeout, sleepTime); ok {
+			if ok := retryRevocationStatusCheck(&totalTimeout, sleepTime); ok {
+				retryCounter++
 				continue
 			}
 			return ocspRes, ocspResBytes, &ocspStatus{
@@ -366,7 +373,7 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	headers["Accept"] = "application/ocsp-response"
 	headers["Content-Length"] = string(len(ocspReq))
 	headers["Host"] = u.Hostname()
-	ocspRes, ocspResBytes, ocspS := retryOCSP(ocspClient, http.NewRequest, ocspHost, headers, ocspReq, issuer)
+	ocspRes, ocspResBytes, ocspS := retryOCSP(ocspClient, http.NewRequest, ocspHost, headers, ocspReq, issuer, 120*time.Second, 30*time.Second)
 	if ocspS.code != ocspSuccess {
 		ocspStatusChan <- ocspS
 		return
