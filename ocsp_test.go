@@ -161,4 +161,16 @@ func TestOCSPRetry(t *testing.T) {
 	if st.err == nil {
 		fmt.Printf("should fail: %v, %v, %v\n", res, b, st)
 	}
+	client = &fakeClient{
+		cnt:     30,
+		success: true,
+		body:    []byte{1, 2, 3},
+	}
+	res, b, st = retryOCSP(
+		client, fakeRequestFunc,
+		"dummyOCSPHost",
+		make(map[string]string), []byte{0}, certs[len(certs)-1], 10*time.Second, 5*time.Second)
+	if st.err == nil {
+		fmt.Printf("should fail: %v, %v, %v\n", res, b, st)
+	}
 }

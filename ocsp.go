@@ -42,6 +42,12 @@ var cacheDir = ""
 var cacheFileName = ""
 
 const (
+	// retryOCSPTimeout is the total timeout for OCSP checks.
+	retryOCSPTimeout     = 120 * time.Second
+	retryOCSPHTTPTimeout = 30 * time.Second
+)
+
+const (
 	cacheFileBaseName = "ocsp_response_cache"
 	// cacheExpire specifies cache data expiration time in seconds.
 	cacheExpire = float64(24 * 60 * 60)
@@ -265,8 +271,8 @@ func retryOCSP(
 	retryCounter := 0
 	sleepTime := time.Duration(0)
 	for {
-		sleepTime = time.Duration(defaultWaitAlgo.decorr(retryCounter, int(sleepTime/time.Second))) * time.Second
-		res, err := retryHTTP(context.Background(), client, req, "POST", ocspHost, headers, reqBody, httpTimeout)
+		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
+		res, err := retryHTTP(context.TODO(), client, req, "POST", ocspHost, headers, reqBody, httpTimeout)
 		if err != nil {
 			if ok := retryRevocationStatusCheck(&totalTimeout, sleepTime); ok {
 				retryCounter++
@@ -373,7 +379,7 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	headers["Accept"] = "application/ocsp-response"
 	headers["Content-Length"] = string(len(ocspReq))
 	headers["Host"] = u.Hostname()
-	ocspRes, ocspResBytes, ocspS := retryOCSP(ocspClient, http.NewRequest, ocspHost, headers, ocspReq, issuer, 120*time.Second, 30*time.Second)
+	ocspRes, ocspResBytes, ocspS := retryOCSP(ocspClient, http.NewRequest, ocspHost, headers, ocspReq, issuer, retryOCSPTimeout, retryOCSPHTTPTimeout)
 	if ocspS.code != ocspSuccess {
 		ocspStatusChan <- ocspS
 		return
