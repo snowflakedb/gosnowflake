@@ -26,45 +26,53 @@ func init() {
 }
 
 type waitAlgo struct {
-	mutex *sync.Mutex // for random.Int63n
-	base  int64       // seconds
-	cap   int64       // maximum seconds
+	mutex *sync.Mutex   // required for random.Int63n
+	base  time.Duration // base wait time
+	cap   time.Duration // maximum wait time
 }
 
-// exponential backoff
-func (w *waitAlgo) exp(attempt int, sleep int) int {
-	return intMax(int(intMin64(int64(1<<uint(attempt)*w.base), w.cap)), 1)
+func randSecondDuration(n time.Duration) time.Duration {
+	return time.Duration(random.Int63n(int64(n/time.Second))) * time.Second
 }
 
-// full jitter backoff
-func (w *waitAlgo) fullJitter(attempt int, sleep int) int {
-	return random.Intn(w.exp(attempt, sleep))
+// exponential backoff (experimental)
+func (w *waitAlgo) exp(attempt int, sleep time.Duration) time.Duration {
+	return durationMax(durationMin(1<<uint(attempt)*w.base, w.cap), 1*time.Second)
 }
 
-// equal jitter backoff
-func (w *waitAlgo) eqJitter(attempt int, sleep int) int {
-	t := w.exp(attempt, sleep)
-	return t/2 + random.Intn(t/2)
+// full jitter backoff (experimental)
+func (w *waitAlgo) fullJitter(attempt int, sleep time.Duration) time.Duration {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	return randSecondDuration(w.exp(attempt, sleep))
+}
+
+// equal jitter backoff (experimental)
+func (w *waitAlgo) eqJitter(attempt int, sleep time.Duration) time.Duration {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	t := w.exp(attempt, sleep) / time.Duration(2)
+	return t + randSecondDuration(t)
 }
 
 // decorrelated jitter backoff
-func (w *waitAlgo) decorr(attempt int, sleep int) int {
-	t := int64(sleep*3) - w.base
+func (w *waitAlgo) decorr(attempt int, sleep time.Duration) time.Duration {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
+	t := 3*sleep - w.base
 	switch {
 	case t > 0:
-		return int(intMin64(w.cap, random.Int63n(t)+w.base))
+		return durationMin(w.cap, randSecondDuration(t)+w.base)
 	case t < 0:
-		return int(intMin64(w.cap, random.Int63n(-t)+int64(sleep*3)))
+		return durationMin(w.cap, randSecondDuration(-t)+3*sleep)
 	}
-	return int(w.base)
+	return w.base
 }
 
 var defaultWaitAlgo = &waitAlgo{
 	mutex: &sync.Mutex{},
-	base:  5,
-	cap:   160,
+	base:  5 * time.Second,
+	cap:   160 * time.Second,
 }
 
 type requestFunc func(method, urlStr string, body io.Reader) (*http.Request, error)
@@ -82,10 +90,10 @@ func retryHTTP(
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration) (res *http.Response, err error) {
-	totalTimeout := int64(timeout.Seconds())
+	totalTimeout := timeout
 	glog.V(2).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
-	sleepTime := 0
+	sleepTime := time.Duration(0)
 	for {
 		req, err := req(method, fullURL, bytes.NewReader(body))
 		if req != nil {
@@ -101,6 +109,7 @@ func retryHTTP(
 		if err == nil && res.StatusCode == http.StatusOK {
 			break
 		}
+		// cannot just return 4xx and 5xx status as the error can be sporadic. retry often helps.
 		if err != nil {
 			glog.V(2).Infof(
 				"failed http connection. no response is returned. err: %v. retrying.\n", err)
@@ -108,22 +117,23 @@ func retryHTTP(
 			glog.V(2).Infof(
 				"failed http connection. HTTP Status: %v. retrying.\n", res.StatusCode)
 		}
+		// uses decorrelated jitter backoff
 		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
 
 		if totalTimeout > 0 {
 			glog.V(2).Infof("to timeout: %v", totalTimeout)
 			// if any timeout is set
-			totalTimeout -= int64(sleepTime)
+			totalTimeout -= sleepTime
 			if totalTimeout <= 0 {
 				if err != nil {
-					return nil, fmt.Errorf("timeout. previous err: %v. Hanging?", err)
+					return nil, fmt.Errorf("timeout. err: %v. Hanging?", err)
 				}
-				return nil, fmt.Errorf("timeout. previous HTTP Status: %v. Hanging?", res.StatusCode)
+				return nil, fmt.Errorf("timeout. HTTP Status: %v. Hanging?", res.StatusCode)
 			}
 		}
 		retryCounter++
-		glog.V(2).Infof("sleeping %v(s). to timeout: %v. retrying", sleepTime, totalTimeout)
-		time.Sleep(time.Duration(int64(sleepTime) * int64(time.Second)))
+		glog.V(2).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
+		time.Sleep(sleepTime)
 	}
 	return res, err
 }

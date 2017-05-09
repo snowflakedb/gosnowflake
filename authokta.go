@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/satori/go.uuid"
 )
 
 type authOKTARequest struct {
@@ -85,7 +86,7 @@ func authenticateBySAML(
 		return
 	}
 	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
-	respd, err := sr.PostAuthSAML(headers, jsonBody, sr.LoginTimeout)
+	respd, err := sr.postAuthSAML(headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +125,7 @@ func authenticateBySAML(
 		Username: user,
 		Password: password,
 	})
-	respa, err := sr.PostAuthOKTA(headers, jsonBody, respd.Data.TokenURL, sr.LoginTimeout)
+	respa, err := sr.postAuthOKTA(headers, jsonBody, respd.Data.TokenURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +137,7 @@ func authenticateBySAML(
 
 	headers = make(map[string]string)
 	headers["accept"] = "*/*"
-	bd, err := sr.GetSSO(params, headers, respd.Data.SSOURL, sr.LoginTimeout)
+	bd, err := sr.getSSO(params, headers, respd.Data.SSOURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +195,42 @@ func isPrefixEqual(url1 string, url2 string) (bool, error) {
 	return u1.Hostname() == u2.Hostname() && p1 == p2 && u1.Scheme == u2.Scheme, nil
 }
 
-func (sr *snowflakeRestful) PostAuthOKTA(
+func (sr *snowflakeRestful) postAuthSAML(
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration) (
+	data *authResponse, err error) {
+	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
+	fullURL := fmt.Sprintf(
+		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
+		"/session/authenticator-request?"+requestID)
+	glog.V(2).Infof("fullURL: %v", fullURL)
+	resp, err := sr.post(context.TODO(), fullURL, headers, body, timeout)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		glog.V(2).Infof("postAuthSAML: resp: %v", resp)
+		var respd authResponse
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
+			glog.V(1).Infof("%v", err)
+			return nil, err
+		}
+		return &respd, nil
+	}
+	// TODO: better error handing and retry
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		glog.V(1).Infof("%v", err)
+		return nil, err
+	}
+	glog.V(2).Infof("ERROR RESPONSE: %v", b)
+	return nil, err
+}
+
+func (sr *snowflakeRestful) postAuthOKTA(
 	headers map[string]string,
 	body []byte,
 	fullURL string,
@@ -207,7 +243,7 @@ func (sr *snowflakeRestful) PostAuthOKTA(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("PostAuthOKTA: resp: %v", resp)
+		glog.V(2).Infof("postAuthOKTA: resp: %v", resp)
 		var respd authOKTAResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
@@ -226,7 +262,7 @@ func (sr *snowflakeRestful) PostAuthOKTA(
 	return nil, err
 }
 
-func (sr *snowflakeRestful) GetSSO(
+func (sr *snowflakeRestful) getSSO(
 	params *url.Values,
 	headers map[string]string,
 	url string,
@@ -245,7 +281,7 @@ func (sr *snowflakeRestful) GetSSO(
 		return nil, err
 	}
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("GetSSO: resp: %v", resp)
+		glog.V(2).Infof("getSSO: resp: %v", resp)
 		return b, nil
 	}
 	return nil, fmt.Errorf("failed to get SSO response. HTTP code: %v", resp.StatusCode)

@@ -17,14 +17,6 @@ func intMin(a, b int) int {
 	return b
 }
 
-// integer64 min
-func intMin64(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // integer max
 func intMax(a, b int) int {
 	if a > b {
@@ -36,6 +28,14 @@ func intMax(a, b int) int {
 // time.Duration max
 func durationMax(d1, d2 time.Duration) time.Duration {
 	if d1-d2 > 0 {
+		return d1
+	}
+	return d2
+}
+
+// time.Duration min
+func durationMin(d1, d2 time.Duration) time.Duration {
+	if d1-d2 < 0 {
 		return d1
 	}
 	return d2

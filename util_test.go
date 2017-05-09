@@ -45,35 +45,29 @@ func TestIntMax(t *testing.T) {
 	}
 }
 
-type tcIntMinMax64 struct {
-	v1  int64
-	v2  int64
-	out int64
-}
-
-func TestIntMin64(t *testing.T) {
-	testcases := []tcIntMinMax64{
-		{1, 3, 1},
-		{5, 100, 5},
-		{321, 3, 3},
-		{123, 123, 123},
-	}
-	for _, test := range testcases {
-		a := intMin64(test.v1, test.v2)
-		if test.out != a {
-			t.Errorf("failed int64 min. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-		}
-	}
-}
-
-type tcDurationMax struct {
+type tcDurationMinMax struct {
 	v1  time.Duration
 	v2  time.Duration
 	out time.Duration
 }
 
+func TestDurationMin(t *testing.T) {
+	testcases := []tcDurationMinMax{
+		{1 * time.Second, 3 * time.Second, 1 * time.Second},
+		{5 * time.Second, 100 * time.Second, 5 * time.Second},
+		{321 * time.Second, 3 * time.Second, 3 * time.Second},
+		{123 * time.Second, 123 * time.Second, 123 * time.Second},
+	}
+	for _, test := range testcases {
+		a := durationMin(test.v1, test.v2)
+		if test.out != a {
+			t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
+		}
+	}
+}
+
 func TestDurationMax(t *testing.T) {
-	testcases := []tcDurationMax{
+	testcases := []tcDurationMinMax{
 		{1 * time.Second, 3 * time.Second, 3 * time.Second},
 		{5 * time.Second, 100 * time.Second, 100 * time.Second},
 		{321 * time.Second, 3 * time.Second, 321 * time.Second},

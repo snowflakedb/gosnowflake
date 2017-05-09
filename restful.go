@@ -5,6 +5,7 @@
 package gosnowflake
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,8 +13,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
-	"context"
 
 	"github.com/golang/glog"
 	"github.com/satori/go.uuid"
@@ -90,7 +89,7 @@ func (sr *snowflakeRestful) get(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(ctx, sr.Client, http.NewRequest, "GET", fullURL, headers, nil, 0)
+	return retryHTTP(ctx, sr.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
 }
 
 type execResponseAndErr struct {
@@ -98,7 +97,7 @@ type execResponseAndErr struct {
 	err  error
 }
 
-func (sr *snowflakeRestful) PostQuery(
+func (sr *snowflakeRestful) postQuery(
 	ctx context.Context,
 	params *url.Values,
 	headers map[string]string,
@@ -137,20 +136,20 @@ func (sr *snowflakeRestful) postQueryHelper(
 	requestID string) (
 	data *execResponse, err error) {
 	glog.V(2).Infof("PARAMS: %v", params)
-	requestIDFmt := fmt.Sprintf("requestId=%v", requestID)
+	params.Add("requestId", requestID)
 	if sr.Token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 	}
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
-		"/queries/v1/query-request?"+requestIDFmt+"&"+params.Encode())
+		"/queries/v1/query-request?"+params.Encode())
 	resp, err := sr.post(ctx, fullURL, headers, body, timeout)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("PostQuery: resp: %v", resp)
+		glog.V(2).Infof("postQuery: resp: %v", resp)
 		var respd execResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
@@ -163,7 +162,7 @@ func (sr *snowflakeRestful) postQueryHelper(
 			if err != nil {
 				return nil, err
 			}
-			return sr.PostQuery(ctx, params, headers, body, timeout)
+			return sr.postQuery(ctx, params, headers, body, timeout)
 		}
 
 		var resultURL string
@@ -202,7 +201,7 @@ func (sr *snowflakeRestful) postQueryHelper(
 		return &respd, nil
 	}
 	// TODO: better error handing and retry
-	glog.V(2).Infof("PostQuery: resp: %v", resp)
+	glog.V(2).Infof("postQuery: resp: %v", resp)
 	b, err := ioutil.ReadAll(resp.Body)
 	glog.V(2).Infof("b RESPONSE: %s", b)
 	if err != nil {
@@ -213,16 +212,17 @@ func (sr *snowflakeRestful) postQueryHelper(
 	return nil, err
 }
 
-func (sr *snowflakeRestful) PostAuth(
+func (sr *snowflakeRestful) postAuth(
 	params *url.Values,
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration) (
 	data *authResponse, err error) {
 	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
+	params.Add("requestId", requestID)
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
-		"/session/v1/login-request?"+requestID+"&"+params.Encode())
+		"/session/v1/login-request?"+params.Encode())
 	glog.V(2).Infof("fullURL: %v", fullURL)
 	resp, err := sr.post(context.TODO(), fullURL, headers, body, timeout)
 	if err != nil {
@@ -230,7 +230,7 @@ func (sr *snowflakeRestful) PostAuth(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("PostAuth: resp: %v", resp)
+		glog.V(2).Infof("postAuth: resp: %v", resp)
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
@@ -249,40 +249,6 @@ func (sr *snowflakeRestful) PostAuth(
 	return nil, err
 }
 
-func (sr *snowflakeRestful) PostAuthSAML(
-	headers map[string]string,
-	body []byte,
-	timeout time.Duration) (
-	data *authResponse, err error) {
-	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
-	fullURL := fmt.Sprintf(
-		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
-		"/session/authenticator-request?"+requestID)
-	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.post(context.TODO(), fullURL, headers, body, timeout)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("PostAuthSAML: resp: %v", resp)
-		var respd authResponse
-		err = json.NewDecoder(resp.Body).Decode(&respd)
-		if err != nil {
-			glog.V(1).Infof("%v", err)
-			return nil, err
-		}
-		return &respd, nil
-	}
-	// TODO: better error handing and retry
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		glog.V(1).Infof("%v", err)
-		return nil, err
-	}
-	glog.V(2).Infof("ERROR RESPONSE: %v", b)
-	return nil, err
-}
 func (sr *snowflakeRestful) closeSession() error {
 	glog.V(2).Info("CLOSE SESSION")
 	params := &url.Values{}
@@ -297,7 +263,7 @@ func (sr *snowflakeRestful) closeSession() error {
 	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
-	resp, err := sr.post(context.TODO(), fullURL, headers, nil, 0)
+	resp, err := sr.post(context.TODO(), fullURL, headers, nil, 5*time.Second)
 	if err != nil {
 		return err
 	}
