@@ -614,7 +614,7 @@ func TestBinaryPlaceholder(t *testing.T) {
 }
 
 /*
-TODO: not working as TIMESTAMP_TZ binding is not supported yet
+TODO: this will be enabled when the server supports TIMEZONE_TZ binding.
 func TestTimestampTZPlaceholder(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		expected := time.Now()

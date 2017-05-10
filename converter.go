@@ -101,6 +101,10 @@ func valueToString(v driver.Value, tsmode string) (*string, error) {
 				tm = tm.Add(time.Second * time.Duration(offset))
 				s := fmt.Sprintf("%d", tm.UnixNano())
 				return &s, nil
+			case "TIMESTAMP_TZ":
+				_, offset := tm.Zone()
+				s := fmt.Sprintf("%v %v", tm.UnixNano(), offset/60+1440)
+				return &s, nil
 			}
 		}
 	}
