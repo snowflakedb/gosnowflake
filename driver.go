@@ -53,7 +53,6 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		},
 		Authenticator:  sc.cfg.Authenticator,
 		LoginTimeout:   sc.cfg.LoginTimeout,
-		ConnectTimeout: sc.cfg.ConnectTimeout,
 		RequestTimeout: sc.cfg.RequestTimeout,
 	}
 	var sessionInfo *AuthResponseSessionInfo

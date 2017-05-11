@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/golang/glog"
 )
@@ -224,6 +225,99 @@ func TestParseDSN(t *testing.T) {
 					t.Fatalf("Wrong error. expected: %T:%v, got: %T:%v", test.err, test.err, err, err)
 				}
 			}
+		}
+	}
+}
+
+type tcDSN struct {
+	cfg *Config
+	dsn string
+	err error
+}
+
+func TestDSN(t *testing.T) {
+	testcases := []tcDSN{
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a",
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443",
+		},
+		{
+			cfg: &Config{
+				User:     "",
+				Password: "p",
+				Account:  "a",
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443",
+			err: ErrEmptyUsername,
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "",
+				Account:  "a",
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443",
+			err: ErrEmptyPassword,
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "",
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443",
+			err: ErrEmptyAccount,
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.e",
+			},
+			dsn: "u:p@a.e.snowflakecomputing.com:443?region=e",
+		},
+		{
+			cfg: &Config{
+				User:               "u",
+				Password:           "p",
+				Account:            "a",
+				Database:           "db",
+				Schema:             "sc",
+				Role:               "ro",
+				Region:             "b",
+				Authenticator:      "au",
+				Passcode:           "db",
+				PasscodeInPassword: true,
+				LoginTimeout:       10 * time.Second,
+				RequestTimeout:     300 * time.Second,
+				Application:        "special go",
+			},
+			dsn: "u:p@a.b.snowflakecomputing.com:443?application=special+go&authenticator=au&database=db&loginTimeout=10&passcode=db&passcodeInPassword=true&region=b&requestTimeout=300&role=ro&schema=sc",
+		},
+	}
+	for _, test := range testcases {
+		dsn, err := DSN(test.cfg)
+		if test.err == nil && err == nil {
+			if dsn != test.dsn {
+				t.Errorf("failed to get DSN. expected: %v, got: %v", test.dsn, dsn)
+			}
+			_, err := ParseDSN(dsn)
+			if err != nil {
+				t.Errorf("failed to parse DSN. dsn: %v, err: %v", dsn, err)
+			}
+			continue
+		}
+		if test.err != nil && err == nil {
+			t.Errorf("expected error. dsn: %v, err: %v", test.dsn, test.err)
+			continue
+		}
+		if err != nil && test.err == nil {
+			t.Errorf("failed to match. err: %v", err)
+			continue
 		}
 	}
 }

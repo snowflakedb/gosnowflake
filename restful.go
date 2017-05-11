@@ -41,9 +41,8 @@ type snowflakeRestful struct {
 	Host           string
 	Port           int
 	Protocol       string
-	ConnectTimeout time.Duration // Dial timeout
-	RequestTimeout time.Duration // Request read time
 	LoginTimeout   time.Duration // Login timeout
+	RequestTimeout time.Duration // request timeout
 	Authenticator  string
 
 	Client      *http.Client

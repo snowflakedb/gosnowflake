@@ -5,6 +5,7 @@
 package gosnowflake
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -15,7 +16,8 @@ import (
 
 const (
 	defaultLoginTimeout   = 60 * time.Second
-	defaultConnectTimeout = 60 * time.Second
+	defaultRequestTimeout = 0 * time.Second
+	defaultAuthenticator  = "snowflake"
 )
 
 // Config is a configuration parsed from a DSN string
@@ -38,12 +40,72 @@ type Config struct {
 	Passcode           string
 	PasscodeInPassword bool
 
-	ConnectTimeout time.Duration // Dial timeout
-	RequestTimeout time.Duration // Request read time
 	LoginTimeout   time.Duration // Login timeout
+	RequestTimeout time.Duration // request timeout
 
 	Application  string // application name.
 	InsecureMode bool   // driver doesn't check certificate revocation status
+}
+
+// DSN construct a DSN for Snowflake db.
+func DSN(cfg *Config) (dsn string, err error) {
+	if cfg.Host == "" {
+		if cfg.Region == "" {
+			cfg.Host = cfg.Account + ".snowflakecomputing.com"
+		} else {
+			cfg.Host = cfg.Account + "." + cfg.Region + ".snowflakecomputing.com"
+		}
+	}
+	// in case account includes region
+	posDot := strings.Index(cfg.Account, ".")
+	if posDot > 0 {
+		cfg.Region = cfg.Account[posDot+1:]
+		cfg.Account = cfg.Account[:posDot]
+	}
+
+	err = fillMissingConfigParameters(cfg)
+	if err != nil {
+		return "", err
+	}
+	params := &url.Values{}
+	if cfg.Database != "" {
+		params.Add("database", cfg.Database)
+	}
+	if cfg.Schema != "" {
+		params.Add("schema", cfg.Schema)
+	}
+	if cfg.Warehouse != "" {
+		params.Add("warehouse", cfg.Warehouse)
+	}
+	if cfg.Role != "" {
+		params.Add("role", cfg.Role)
+	}
+	if cfg.Region != "" {
+		params.Add("region", cfg.Region)
+	}
+	if cfg.Authenticator != defaultAuthenticator {
+		params.Add("authenticator", cfg.Authenticator)
+	}
+	if cfg.Passcode != "" {
+		params.Add("passcode", cfg.Passcode)
+	}
+	if cfg.PasscodeInPassword {
+		params.Add("passcodeInPassword", strconv.FormatBool(cfg.PasscodeInPassword))
+	}
+	if cfg.LoginTimeout != defaultLoginTimeout {
+		params.Add("loginTimeout", strconv.FormatInt(int64(cfg.LoginTimeout/time.Second), 10))
+	}
+	if cfg.RequestTimeout != defaultRequestTimeout {
+		params.Add("requestTimeout", strconv.FormatInt(int64(cfg.RequestTimeout/time.Second), 10))
+	}
+	if cfg.Application != clientType {
+		params.Add("application", cfg.Application)
+	}
+	dsn = fmt.Sprintf("%v:%v@%v:%v", cfg.User, cfg.Password, cfg.Host, cfg.Port)
+	if params.Encode() != "" {
+		dsn += "?" + params.Encode()
+	}
+	return
 }
 
 // ParseDSN parses the DSN string to a Config
@@ -137,43 +199,16 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		}
 	}
 
-	if cfg.Protocol == "" {
-		cfg.Protocol = "https"
-	}
-	if cfg.Port == 0 {
-		cfg.Port = 443
-	}
-
-	if cfg.Region != "" {
-		// region is specified but not included in Host
-		i = strings.Index(cfg.Host, ".snowflakecomputing.com")
-		if i >= 1 {
-			hostPrefix := cfg.Host[0:i]
-			if !strings.HasSuffix(hostPrefix, cfg.Region) {
-				cfg.Host = hostPrefix + "." + cfg.Region + ".snowflakecomputing.com"
-			}
+	if cfg.Account == "" && strings.HasSuffix(cfg.Host, ".snowflakecomputing.com") {
+		posDot := strings.Index(cfg.Host, ".")
+		if posDot > 0 {
+			cfg.Account = cfg.Host[:posDot]
 		}
 	}
-	if cfg.ConnectTimeout == 0 {
-		cfg.ConnectTimeout = defaultConnectTimeout
-	}
-	if cfg.LoginTimeout == 0 {
-		cfg.LoginTimeout = defaultLoginTimeout
-	}
-	if cfg.Account == "" {
-		return nil, ErrEmptyAccount
-	}
-	if cfg.User == "" {
-		return nil, ErrEmptyUsername
-	}
-	if cfg.Password == "" {
-		return nil, ErrEmptyPassword
-	}
-	if cfg.Application == "" {
-		cfg.Application = clientType
-	}
-	if cfg.Authenticator == "" {
-		cfg.Authenticator = "snowflake"
+
+	err = fillMissingConfigParameters(cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	// unescape parameters
@@ -200,6 +235,48 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	cfg.Warehouse = s
 	glog.V(2).Infof("ParseDSN: %v\n", cfg) // TODO: hide password
 	return cfg, nil
+}
+
+func fillMissingConfigParameters(cfg *Config) error {
+	if cfg.Account == "" {
+		return ErrEmptyAccount
+	}
+	if cfg.User == "" {
+		return ErrEmptyUsername
+	}
+	if cfg.Password == "" {
+		return ErrEmptyPassword
+	}
+	if cfg.Protocol == "" {
+		cfg.Protocol = "https"
+	}
+	if cfg.Port == 0 {
+		cfg.Port = 443
+	}
+
+	if cfg.Region != "" {
+		// region is specified but not included in Host
+		i := strings.Index(cfg.Host, ".snowflakecomputing.com")
+		if i >= 1 {
+			hostPrefix := cfg.Host[0:i]
+			if !strings.HasSuffix(hostPrefix, cfg.Region) {
+				cfg.Host = hostPrefix + "." + cfg.Region + ".snowflakecomputing.com"
+			}
+		}
+	}
+	if cfg.LoginTimeout == 0 {
+		cfg.LoginTimeout = defaultLoginTimeout
+	}
+	if cfg.RequestTimeout == 0 {
+		cfg.RequestTimeout = defaultRequestTimeout
+	}
+	if cfg.Application == "" {
+		cfg.Application = clientType
+	}
+	if cfg.Authenticator == "" {
+		cfg.Authenticator = defaultAuthenticator
+	}
+	return nil
 }
 
 // parseAccountHostPort parses the DSN string to attempt to get account or host and port.
