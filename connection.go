@@ -224,13 +224,15 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	rows.RowType = data.Data.RowType
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:            sc,
+		ctx:           ctx,
 		CurrentChunk:  data.Data.RowSet,
 		ChunkMetas:    data.Data.Chunks,
 		Total:         int64(data.Data.Total),
 		TotalRowIndex: int64(-1),
 		Qrmk:          data.Data.Qrmk,
+		FuncDownload:  downloadChunk,
 	}
-	rows.ChunkDownloader.start(ctx)
+	rows.ChunkDownloader.start()
 	return rows, err
 }
 
