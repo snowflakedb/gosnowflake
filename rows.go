@@ -20,10 +20,14 @@ import (
 )
 
 const (
-	maxPool             = 10
 	headerSseCAlgorithm = "x-amz-server-side-encryption-customer-algorithm"
 	headerSseCKey       = "x-amz-server-side-encryption-customer-key"
 	headerSseCAes       = "AES256"
+)
+
+var (
+	maxChunkDownloadWorkers        = 10
+	maxChunkDownloaderErrorCounter = 5
 )
 
 type snowflakeRows struct {
@@ -43,19 +47,23 @@ type chunkError struct {
 }
 
 type snowflakeChunkDownloader struct {
-	sc                *snowflakeConn
-	Total             int64
-	TotalRowIndex     int64
-	CurrentChunk      [][]*string
-	CurrentChunkIndex int
-	CurrentChunkSize  int
-	ChunkMetas        []execResponseChunk
-	Chunks            map[int][][]*string
-	ChunksMutex       *sync.Mutex
-	ChunksChan        chan int
-	ChunkErrors       chan *chunkError
-	Qrmk              string
-	CurrentIndex      int
+	sc                 *snowflakeConn
+	ctx                context.Context
+	Total              int64
+	TotalRowIndex      int64
+	CurrentChunk       [][]*string
+	CurrentChunkIndex  int
+	CurrentChunkSize   int
+	ChunksMutex        *sync.Mutex
+	ChunkMetas         []execResponseChunk
+	Chunks             map[int][][]*string
+	ChunksChan         chan int
+	ChunksError        chan *chunkError
+	ChunksErrorCounter int
+	ChunksFinalErrors  []*chunkError
+	Qrmk               string
+	CurrentIndex       int
+	FuncDownload       func(*snowflakeChunkDownloader, int)
 }
 
 // ColumnTypeDatabaseTypeName returns the database column name.
@@ -117,40 +125,59 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 	return err
 }
 
-func (scd *snowflakeChunkDownloader) start(ctx context.Context) error {
+func (scd *snowflakeChunkDownloader) start() error {
 	scd.CurrentChunkSize = len(scd.CurrentChunk) // cache the size
-
-	scd.CurrentIndex = -1      // initial chunks idx
-	scd.CurrentChunkIndex = -1 // initial chunk
+	scd.CurrentIndex = -1                        // initial chunks idx
+	scd.CurrentChunkIndex = -1                   // initial chunk
 
 	// start downloading chunks if exists
 	if len(scd.ChunkMetas) > 0 {
 		glog.V(2).Infof("chunks: %v", len(scd.ChunkMetas))
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.Chunks = make(map[int][][]*string)
-		scd.ChunksChan = make(chan int, maxPool)
-		scd.ChunkErrors = make(chan *chunkError, maxPool)
+		scd.ChunksChan = make(chan int, len(scd.ChunkMetas))
+		scd.ChunksError = make(chan *chunkError, len(scd.ChunkMetas))
 		for i := 0; i < len(scd.ChunkMetas); i++ {
-			glog.V(2).Infof("add chunk: %v", i+1)
+			glog.V(2).Infof("add chunk to channel ChunksChan: %v", i+1)
 			scd.ChunksChan <- i
 		}
-		for i := 0; i < intMin(maxPool, len(scd.ChunkMetas)); i++ {
-			scd.schedule(ctx)
+		for i := 0; i < intMin(maxChunkDownloadWorkers, len(scd.ChunkMetas)); i++ {
+			scd.schedule()
 		}
 	}
 	return nil
 }
 
-func (scd *snowflakeChunkDownloader) schedule(ctx context.Context) {
+func (scd *snowflakeChunkDownloader) schedule() {
 	select {
 	case nextIdx := <-scd.ChunksChan:
 		glog.V(2).Infof("schedule chunk: %v", nextIdx+1)
-		go scd.download(ctx, nextIdx, scd.ChunkErrors)
+		go scd.FuncDownload(scd, nextIdx)
 	default:
 		// no more download
+		glog.V(2).Info("no more download")
 	}
 }
 
+func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
+	select {
+	case errc := <-scd.ChunksError:
+		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter {
+			// add the index to the chunks channel so that the download will be retried.
+			go scd.FuncDownload(scd, errc.Index)
+			scd.ChunksErrorCounter++
+			glog.V(2).Infof("chunk idx: %v, err: %v. retrying (%v/%v)...",
+				errc.Index, errc.Error, scd.ChunksErrorCounter, maxChunkDownloaderErrorCounter)
+		} else {
+			scd.ChunksFinalErrors = append(scd.ChunksFinalErrors, errc)
+			glog.V(2).Infof("chunk idx: %v, err: %v. no further retry", errc.Index, errc.Error)
+			return errc.Error
+		}
+	default:
+		glog.V(2).Info("no error is detected.")
+	}
+	return nil
+}
 func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 	for true {
 		scd.CurrentIndex++
@@ -159,28 +186,34 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 		}
 		scd.CurrentChunkIndex++ // next chunk
 		scd.CurrentIndex = -1   // reset
-		if scd.CurrentChunkIndex < len(scd.ChunkMetas) {
-			ticker := time.Tick(time.Millisecond * 100)
-			// TODO: Error handle
-			for range ticker {
-				scd.ChunksMutex.Lock()
-				glog.V(2).Infof("waiting for chunk idx: %v/%v, got chunks: %v",
-					scd.CurrentChunkIndex+1, len(scd.ChunkMetas), len(scd.Chunks))
-				scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
-				scd.ChunksMutex.Unlock()
-				if scd.CurrentChunk != nil {
-					// kick off the next download
-					glog.V(2).Infof("ready: chunk %v", scd.CurrentChunkIndex)
-					scd.CurrentChunkSize = len(scd.CurrentChunk)
-					break
-				}
-			}
-		} else {
+		if scd.CurrentChunkIndex >= len(scd.ChunkMetas) {
 			break
 		}
+		ticker := time.Tick(time.Second)
+		for range ticker {
+			scd.ChunksMutex.Lock()
+			err := scd.checkErrorRetry()
+			if err != nil {
+				return nil, err
+			}
+			glog.V(2).Infof("waiting for chunk idx: %v/%v",
+				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
+			scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
+			scd.ChunksMutex.Unlock()
+			if scd.CurrentChunk != nil {
+				// kick off the next download
+				glog.V(2).Infof("ready: chunk %v", scd.CurrentChunkIndex)
+				scd.CurrentChunkSize = len(scd.CurrentChunk)
+				scd.schedule()
+				break
+			}
+		}
 	}
-	// no more data
 	glog.V(2).Infof("no more data")
+	if len(scd.ChunkMetas) > 0 {
+		close(scd.ChunksError)
+		close(scd.ChunksChan)
+	}
 	return nil, io.EOF
 }
 
@@ -193,30 +226,28 @@ func (scd *snowflakeChunkDownloader) get(
 	return retryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
 }
 
-func (scd *snowflakeChunkDownloader) download(ctx context.Context, idx int, errc chan *chunkError) {
+func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
 	headers := make(map[string]string)
 	headers[headerSseCAlgorithm] = headerSseCAes
 	headers[headerSseCKey] = scd.Qrmk
-	resp, err := scd.get(ctx, scd.ChunkMetas[idx].URL, headers, 0)
+	resp, err := scd.get(scd.ctx, scd.ChunkMetas[idx].URL, headers, 0)
 	if err != nil {
-		errc <- &chunkError{Index: idx, Error: err}
+		scd.ChunksError <- &chunkError{Index: idx, Error: err}
 		return
 	}
 	defer resp.Body.Close()
-	glog.V(2).Infof("download finish chunk: %v", idx+1)
+	glog.V(2).Infof("download finish chunk: %v, resp: %v", idx+1, resp)
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("download: %v, %v", idx+1, resp)
-		// TODO: optimize the memory usage
 		var respd [][]*string
 		b, err := ioutil.ReadAll(resp.Body)
-		r := []byte{0x5b}
+		r := []byte{0x5b} // opening bracket
 		r = append(r, b...)
-		r = append(r, 0x5d)
+		r = append(r, 0x5d) // closing bracket
 		err = json.Unmarshal(r, &respd)
 		if err != nil {
 			glog.V(1).Infof("%v", err)
-			errc <- &chunkError{Index: idx, Error: err}
+			scd.ChunksError <- &chunkError{Index: idx, Error: err}
 			return
 		}
 		scd.ChunksMutex.Lock()
@@ -224,15 +255,14 @@ func (scd *snowflakeChunkDownloader) download(ctx context.Context, idx int, errc
 		scd.ChunksMutex.Unlock()
 	} else {
 		// TODO: better error handing and retry
-		glog.V(2).Infof("download: resp: %v", resp)
 		b, err := ioutil.ReadAll(resp.Body)
 		glog.V(2).Infof("b RESPONSE: %s", b)
 		if err != nil {
 			glog.V(1).Infof("%v", err)
-			errc <- &chunkError{Index: idx, Error: err}
+			scd.ChunksError <- &chunkError{Index: idx, Error: err}
 			return
 		}
 		glog.V(2).Infof("ERROR RESPONSE: %s", b)
-		errc <- &chunkError{Index: idx, Error: err}
+		scd.ChunksError <- &chunkError{Index: idx, Error: err}
 	}
 }

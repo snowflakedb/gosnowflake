@@ -1130,7 +1130,7 @@ func TestArray(t *testing.T) {
 
 func TestLargeSetResult(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		numrows := 10000
+		numrows := 100000
 		rows := dbt.mustQuery(fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
 		defer rows.Close()
 		cnt := 0
