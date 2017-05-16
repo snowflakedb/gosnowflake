@@ -8,11 +8,10 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
-
-	"reflect"
 
 	"github.com/golang/glog"
 )
@@ -299,18 +298,37 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	}
 }
 
-func TestEmptyQuery(t *testing.T) {
+func TestCommentOnlyQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		query := "--"
 		// just a comment, no query
-		_, err := dbt.db.Query(query)
+		rows, err := dbt.db.Query(query)
 		if err == nil {
+			rows.Close()
 			dbt.fail("query", query, err)
 		}
 		if driverErr, ok := err.(*SnowflakeError); ok {
 			if driverErr.Number != 900 { // syntax error
 				dbt.fail("query", query, err)
 			}
+		}
+	})
+}
+
+func TestEmptyQuery(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		query := "select 1 from dual where 1=0"
+		// just a comment, no query
+		rows := dbt.db.QueryRow(query)
+		var v1 interface{}
+		err := rows.Scan(&v1)
+		if err != sql.ErrNoRows {
+			dbt.Errorf("should fail. err: %v", err)
+		}
+		rows = dbt.db.QueryRowContext(context.Background(), query)
+		err = rows.Scan(&v1)
+		if err != sql.ErrNoRows {
+			dbt.Errorf("should fail. err: %v", err)
 		}
 	})
 }
