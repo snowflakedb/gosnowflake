@@ -149,7 +149,7 @@ func getCert(addr string) []*x509.Certificate {
 
 func TestOCSPRetry(t *testing.T) {
 	certs := getCert("s3-us-west-2.amazonaws.com:443")
-	client := &fakeClient{
+	client := &fakeHTTPClient{
 		cnt:     3,
 		success: true,
 		body:    []byte{1, 2, 3},
@@ -161,7 +161,7 @@ func TestOCSPRetry(t *testing.T) {
 	if st.err == nil {
 		fmt.Printf("should fail: %v, %v, %v\n", res, b, st)
 	}
-	client = &fakeClient{
+	client = &fakeHTTPClient{
 		cnt:     30,
 		success: true,
 		body:    []byte{1, 2, 3},

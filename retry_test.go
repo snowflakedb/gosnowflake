@@ -23,12 +23,12 @@ func (e *fakeHTTPError) Error() string   { return e.err }
 func (e *fakeHTTPError) Timeout() bool   { return e.timeout }
 func (e *fakeHTTPError) Temporary() bool { return true }
 
-type fakeBody struct {
+type falkeResponseBody struct {
 	body []byte
 	cnt  int
 }
 
-func (b *fakeBody) Read(p []byte) (n int, err error) {
+func (b *falkeResponseBody) Read(p []byte) (n int, err error) {
 	if b.cnt == 0 {
 		p = b.body
 		b.cnt = 1
@@ -38,23 +38,23 @@ func (b *fakeBody) Read(p []byte) (n int, err error) {
 	return 0, io.EOF
 }
 
-func (b *fakeBody) Close() error {
+func (b *falkeResponseBody) Close() error {
 	return nil
 }
 
-type fakeClient struct {
+type fakeHTTPClient struct {
 	cnt     int    // number of retry
 	success bool   // return success after retry in cnt times
 	timeout bool   // timeout
 	body    []byte // return body
 }
 
-func (c *fakeClient) Do(req *http.Request) (*http.Response, error) {
+func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	c.cnt--
 	if c.cnt < 0 {
 		c.cnt = 0
 	}
-	glog.V(2).Infof("fakeClient.cnt: %v", c.cnt)
+	glog.V(2).Infof("fakeHTTPClient.cnt: %v", c.cnt)
 
 	var retcode int
 	if c.success && c.cnt == 0 {
@@ -73,14 +73,14 @@ func (c *fakeClient) Do(req *http.Request) (*http.Response, error) {
 
 	ret := &http.Response{
 		StatusCode: retcode,
-		Body:       &fakeBody{body: c.body},
+		Body:       &falkeResponseBody{body: c.body},
 	}
 	return ret, nil
 }
 
 func TestRetry(t *testing.T) {
 	glog.V(2).Info("Retry N times and Success")
-	client := &fakeClient{
+	client := &fakeHTTPClient{
 		cnt:     3,
 		success: true,
 	}
@@ -92,7 +92,7 @@ func TestRetry(t *testing.T) {
 	}
 
 	glog.V(2).Info("Retry N times and Fail")
-	client = &fakeClient{
+	client = &fakeHTTPClient{
 		cnt:     10,
 		success: false,
 	}
@@ -104,7 +104,7 @@ func TestRetry(t *testing.T) {
 	}
 
 	glog.V(2).Info("Retry N times for timeouts and Success")
-	client = &fakeClient{
+	client = &fakeHTTPClient{
 		cnt:     3,
 		success: true,
 		timeout: true,
@@ -116,7 +116,7 @@ func TestRetry(t *testing.T) {
 		t.Fatal("failed to run retry")
 	}
 	glog.V(2).Info("Retry N times for timeouts and Fail")
-	client = &fakeClient{
+	client = &fakeHTTPClient{
 		cnt:     10,
 		success: false,
 		timeout: true,

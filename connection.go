@@ -231,6 +231,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 		TotalRowIndex: int64(-1),
 		Qrmk:          data.Data.Qrmk,
 		FuncDownload:  downloadChunk,
+		FuncGet:       getChunk,
 	}
 	rows.ChunkDownloader.start()
 	return rows, err

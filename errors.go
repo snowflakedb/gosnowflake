@@ -48,6 +48,11 @@ const (
 	// ErrInvalidTimestampTz is an error code for the case where a returned TIMESTAMP_TZ internal value is invalid
 	ErrInvalidTimestampTz = 261001
 
+	// rows
+
+	// ErrFailedToGetChunk is an error code for the case where it failed to get chunk of result set
+	ErrFailedToGetChunk = 262001
+
 	// converter
 
 	// ErrInvalidOffsetStr is an error code for the case where a offset string is invalid. The input string must
@@ -63,6 +68,7 @@ const (
 	errMsgInvalidOffsetStr   = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
 	errMsgInvalidByteArray   = "invalid byte array: %v"
 	errMsgIdpConnectionError = "failed to verify URLs. authenticator: %v, token URL:%v, SSO URL:%v"
+	errMsgFailedToGetChunk   = "failed to get a chunk of result sets. idx: %v"
 )
 
 var (
