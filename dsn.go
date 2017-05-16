@@ -20,7 +20,7 @@ const (
 	defaultAuthenticator  = "snowflake"
 )
 
-// Config is a configuration parsed from a DSN string
+// Config is a set of configuration parameters
 type Config struct {
 	Account   string            // Account name
 	User      string            // Username

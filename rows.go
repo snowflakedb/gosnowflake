@@ -64,6 +64,7 @@ type snowflakeChunkDownloader struct {
 	Qrmk               string
 	CurrentIndex       int
 	FuncDownload       func(*snowflakeChunkDownloader, int)
+	FuncGet            func(*snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
 }
 
 // ColumnTypeDatabaseTypeName returns the database column name.
@@ -143,7 +144,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.Chunks = make(map[int][][]*string)
 		scd.ChunksChan = make(chan int, len(scd.ChunkMetas))
-		scd.ChunksError = make(chan *chunkError, len(scd.ChunkMetas))
+		scd.ChunksError = make(chan *chunkError, maxChunkDownloadWorkers)
 		for i := 0; i < len(scd.ChunkMetas); i++ {
 			glog.V(2).Infof("add chunk to channel ChunksChan: %v", i+1)
 			scd.ChunksChan <- i
@@ -224,13 +225,13 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 	return nil, io.EOF
 }
 
-func (scd *snowflakeChunkDownloader) get(
-	ctx context.Context,
+func getChunk(
+	scd *snowflakeChunkDownloader,
 	fullURL string,
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
+	return retryHTTP(scd.ctx, scd.sc.rest.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
 }
 
 func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
@@ -238,7 +239,7 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	headers := make(map[string]string)
 	headers[headerSseCAlgorithm] = headerSseCAes
 	headers[headerSseCKey] = scd.Qrmk
-	resp, err := scd.get(scd.ctx, scd.ChunkMetas[idx].URL, headers, 0)
+	resp, err := scd.FuncGet(scd, scd.ChunkMetas[idx].URL, headers, 0)
 	if err != nil {
 		scd.ChunksError <- &chunkError{Index: idx, Error: err}
 		return
@@ -253,7 +254,7 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 		r = append(r, 0x5d) // closing bracket
 		err = json.Unmarshal(r, &respd)
 		if err != nil {
-			glog.V(1).Infof("%v", err)
+			glog.V(1).Infof("failed to decode JSON from HTTP response. err: %v", err)
 			scd.ChunksError <- &chunkError{Index: idx, Error: err}
 			return
 		}
@@ -261,15 +262,19 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 		scd.Chunks[idx] = respd
 		scd.ChunksMutex.Unlock()
 	} else {
-		// TODO: better error handing and retry
 		b, err := ioutil.ReadAll(resp.Body)
-		glog.V(2).Infof("b RESPONSE: %s", b)
 		if err != nil {
-			glog.V(1).Infof("%v", err)
+			glog.V(1).Infof("failed to extract HTTP response body. %v", err)
 			scd.ChunksError <- &chunkError{Index: idx, Error: err}
 			return
 		}
-		glog.V(2).Infof("ERROR RESPONSE: %s", b)
-		scd.ChunksError <- &chunkError{Index: idx, Error: err}
+		glog.V(1).Infof("HTTP: %v, Body: %v", resp.StatusCode, b)
+		scd.ChunksError <- &chunkError{
+			Index: idx,
+			Error: &SnowflakeError{
+				Number:      ErrFailedToGetChunk,
+				Message:     errMsgFailedToGetChunk,
+				MessageArgs: []interface{}{idx},
+			}}
 	}
 }

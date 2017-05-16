@@ -9,7 +9,10 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
+	"net/http"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/glog"
 )
@@ -287,5 +290,86 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 		}
 		// fmt.Printf("data: %v\n", dest)
 		cnt++
+	}
+}
+
+func getChunkTestInvalidResponseBody(_ *snowflakeChunkDownloader, _ string, _ map[string]string, _ time.Duration) (
+	*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &falkeResponseBody{body: []byte{0x12, 0x34}},
+	}, nil
+}
+
+func TestDownloadChunkInvalidResponseBody(t *testing.T) {
+	numChunks := 2
+	cm := make([]execResponseChunk, 0)
+	for i := 0; i < numChunks; i++ {
+		cm = append(cm, execResponseChunk{URL: fmt.Sprintf(
+			"dummyURL%v", i+1), RowCount: rowsInChunk})
+	}
+	scd := &snowflakeChunkDownloader{
+		ctx:           context.Background(),
+		ChunkMetas:    cm,
+		TotalRowIndex: int64(-1),
+		Qrmk:          "HOHOHO",
+		FuncDownload:  downloadChunk,
+		FuncGet:       getChunkTestInvalidResponseBody,
+	}
+	scd.ChunksMutex = &sync.Mutex{}
+	scd.Chunks = make(map[int][][]*string)
+	scd.ChunksError = make(chan *chunkError, 1)
+	scd.FuncDownload(scd, 1)
+	select {
+	case errc := <-scd.ChunksError:
+		if errc.Index != 1 {
+			t.Fatalf("the error should have caused with chunk idx: %v", errc.Index)
+		}
+	default:
+		t.Fatal("should have caused an error and queued in scd.ChunksError")
+	}
+}
+
+func getChunkTestErrorStatus(_ *snowflakeChunkDownloader, _ string, _ map[string]string, _ time.Duration) (
+	*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusBadGateway,
+		Body:       &falkeResponseBody{body: []byte{0x12, 0x34}},
+	}, nil
+}
+
+func TestDownloadChunkErrorStatus(t *testing.T) {
+	numChunks := 2
+	cm := make([]execResponseChunk, 0)
+	for i := 0; i < numChunks; i++ {
+		cm = append(cm, execResponseChunk{URL: fmt.Sprintf(
+			"dummyURL%v", i+1), RowCount: rowsInChunk})
+	}
+	scd := &snowflakeChunkDownloader{
+		ctx:           context.Background(),
+		ChunkMetas:    cm,
+		TotalRowIndex: int64(-1),
+		Qrmk:          "HOHOHO",
+		FuncDownload:  downloadChunk,
+		FuncGet:       getChunkTestErrorStatus,
+	}
+	scd.ChunksMutex = &sync.Mutex{}
+	scd.Chunks = make(map[int][][]*string)
+	scd.ChunksError = make(chan *chunkError, 1)
+	scd.FuncDownload(scd, 1)
+	select {
+	case errc := <-scd.ChunksError:
+		if errc.Index != 1 {
+			t.Fatalf("the error should have caused with chunk idx: %v", errc.Index)
+		}
+		serr, ok := errc.Error.(*SnowflakeError)
+		if !ok {
+			t.Fatalf("should have been snowflake error. err: %v", errc.Error)
+		}
+		if serr.Number != ErrFailedToGetChunk {
+			t.Fatalf("message error code is not correct. msg: %v", serr.Number)
+		}
+	default:
+		t.Fatal("should have caused an error and queued in scd.ChunksError")
 	}
 }
