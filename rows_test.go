@@ -297,7 +297,7 @@ func getChunkTestInvalidResponseBody(_ *snowflakeChunkDownloader, _ string, _ ma
 	*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       &falkeResponseBody{body: []byte{0x12, 0x34}},
+		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
 	}, nil
 }
 
@@ -334,7 +334,7 @@ func getChunkTestErrorStatus(_ *snowflakeChunkDownloader, _ string, _ map[string
 	*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusBadGateway,
-		Body:       &falkeResponseBody{body: []byte{0x12, 0x34}},
+		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
 	}, nil
 }
 

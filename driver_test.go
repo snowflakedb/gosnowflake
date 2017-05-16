@@ -1345,7 +1345,7 @@ func TestLargeSetResult(t *testing.T) {
 			cnt++
 		}
 		if cnt != numrows {
-			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", cnt, numrows)
+			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 		}
 	})
 }
@@ -1360,7 +1360,7 @@ func TestPingpongQuery(t *testing.T) {
 			cnt++
 		}
 		if cnt != numrows {
-			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", cnt, numrows)
+			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 		}
 	})
 }

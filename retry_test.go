@@ -23,14 +23,14 @@ func (e *fakeHTTPError) Error() string   { return e.err }
 func (e *fakeHTTPError) Timeout() bool   { return e.timeout }
 func (e *fakeHTTPError) Temporary() bool { return true }
 
-type falkeResponseBody struct {
+type fakeResponseBody struct {
 	body []byte
 	cnt  int
 }
 
-func (b *falkeResponseBody) Read(p []byte) (n int, err error) {
+func (b *fakeResponseBody) Read(p []byte) (n int, err error) {
 	if b.cnt == 0 {
-		p = b.body
+		copy(p, b.body)
 		b.cnt = 1
 		return len(b.body), nil
 	}
@@ -38,7 +38,7 @@ func (b *falkeResponseBody) Read(p []byte) (n int, err error) {
 	return 0, io.EOF
 }
 
-func (b *falkeResponseBody) Close() error {
+func (b *fakeResponseBody) Close() error {
 	return nil
 }
 
@@ -73,7 +73,7 @@ func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 	ret := &http.Response{
 		StatusCode: retcode,
-		Body:       &falkeResponseBody{body: c.body},
+		Body:       &fakeResponseBody{body: c.body},
 	}
 	return ret, nil
 }

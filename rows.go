@@ -69,7 +69,6 @@ type snowflakeChunkDownloader struct {
 
 // ColumnTypeDatabaseTypeName returns the database column name.
 func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
-	// TODO: is this canonical name or can be Snowflake specific name?
 	return strings.ToUpper(rows.RowType[index].Type)
 }
 
@@ -254,7 +253,8 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 		r = append(r, 0x5d) // closing bracket
 		err = json.Unmarshal(r, &respd)
 		if err != nil {
-			glog.V(1).Infof("failed to decode JSON from HTTP response. err: %v", err)
+			glog.V(1).Infof(
+				"failed to decode JSON from HTTP response. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
 			scd.ChunksError <- &chunkError{Index: idx, Error: err}
 			return
 		}
@@ -264,11 +264,13 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	} else {
 		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			glog.V(1).Infof("failed to extract HTTP response body. %v", err)
+			glog.V(1).Infof(
+				"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
 			scd.ChunksError <- &chunkError{Index: idx, Error: err}
 			return
 		}
-		glog.V(1).Infof("HTTP: %v, Body: %v", resp.StatusCode, b)
+		glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
+		glog.V(1).Infof("Header: %v", resp.Header)
 		scd.ChunksError <- &chunkError{
 			Index: idx,
 			Error: &SnowflakeError{

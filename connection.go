@@ -94,7 +94,7 @@ func (sc *snowflakeConn) exec(
 	}
 
 	var data *execResponse
-	data, err = sc.rest.postQuery(ctx, params, headers, jsonBody, sc.rest.RequestTimeout)
+	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, params, headers, jsonBody, sc.rest.RequestTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (sc *snowflakeConn) Close() (err error) {
 	if err != nil {
 		glog.V(2).Info(err)
 	}
-	err = sc.rest.closeSession()
+	err = sc.rest.FuncCloseSession(sc.rest)
 	if err != nil {
 		glog.V(2).Info(err)
 	}

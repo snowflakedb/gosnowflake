@@ -51,9 +51,17 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 			Timeout:   60 * time.Second, // each request timeout
 			Transport: st,
 		},
-		Authenticator:  sc.cfg.Authenticator,
-		LoginTimeout:   sc.cfg.LoginTimeout,
-		RequestTimeout: sc.cfg.RequestTimeout,
+		Authenticator:       sc.cfg.Authenticator,
+		LoginTimeout:        sc.cfg.LoginTimeout,
+		RequestTimeout:      sc.cfg.RequestTimeout,
+		FuncPost:            postRestful,
+		FuncGet:             getRestful,
+		FuncPostQuery:       postRestfulQuery,
+		FuncPostQueryHelper: postRestfulQueryHelper,
+		FuncRenewSession:    renewRestfulSession,
+		FuncPostAuth:        postAuth,
+		FuncCloseSession:    closeSession,
+		FuncCancelQuery:     cancelQuery,
 	}
 	var sessionInfo *AuthResponseSessionInfo
 	var samlResponse []byte
