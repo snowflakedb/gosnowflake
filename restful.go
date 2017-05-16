@@ -261,14 +261,18 @@ func postAuth(
 		}
 		return &respd, nil
 	}
-	// TODO: better error handing and retry
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		glog.V(1).Infof("%v", err)
+		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
-	glog.V(2).Infof("ERROR RESPONSE: %v", b)
-	return nil, err
+	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	glog.V(1).Infof("Header: %v", resp.Header)
+	return nil, &SnowflakeError{
+		Number:      ErrFailedToAuth,
+		Message:     errMsgFailedToAuth,
+		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+	}
 }
 
 func closeSession(sr *snowflakeRestful) error {
@@ -309,14 +313,18 @@ func closeSession(sr *snowflakeRestful) error {
 		}
 		return nil
 	}
-
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		glog.V(1).Infof("%v", err)
+		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
 		return err
 	}
-	glog.V(2).Infof("ERROR RESPONSE: %v", b)
-	return err
+	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	glog.V(1).Infof("Header: %v", resp.Header)
+	return &SnowflakeError{
+		Number:      ErrFailedToCloseSession,
+		Message:     errMsgFailedToCloseSession,
+		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+	}
 }
 
 func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
@@ -369,14 +377,18 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 		sr.MasterToken = respd.Data.MasterToken
 		return nil
 	}
-
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		glog.V(1).Infof("%v", err)
+		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
 		return err
 	}
-	glog.V(2).Infof("ERROR RESPONSE: %v", b)
-	return err
+	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	glog.V(1).Infof("Header: %v", resp.Header)
+	return &SnowflakeError{
+		Number:      ErrFailedToRenewSession,
+		Message:     errMsgFailedToRenew,
+		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+	}
 }
 
 func cancelQuery(sr *snowflakeRestful, requestID string) error {
@@ -423,12 +435,16 @@ func cancelQuery(sr *snowflakeRestful, requestID string) error {
 			return &SnowflakeError{Message: respd.Message, SQLState: respd.Code}
 		}
 	}
-
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		glog.V(1).Infof("%v", err)
+		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
 		return err
 	}
-	glog.V(2).Infof("ERROR RESPONSE: %v", b)
-	return err
+	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	glog.V(1).Infof("Header: %v", resp.Header)
+	return &SnowflakeError{
+		Number:      ErrFailedToCancelQuery,
+		Message:     errMsgFailedToCancelQuery,
+		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+	}
 }

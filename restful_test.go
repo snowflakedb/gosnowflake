@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -51,6 +50,26 @@ func postTestRenew(_ context.Context, _ *snowflakeRestful, _ string, _ map[strin
 	}, nil
 }
 
+func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ []byte, _ time.Duration) (*http.Response, error) {
+	dd := &execResponseData{}
+	er := &execResponse{
+		Data:    *dd,
+		Message: "",
+		Code:    "",
+		Success: true,
+	}
+
+	ba, err := json.Marshal(er)
+	glog.V(2).Infof("encoded JSON: %v", ba)
+	if err != nil {
+		panic(err)
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &fakeResponseBody{body: ba},
+	}, nil
+}
+
 func postQueryTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration) (*execResponse, error) {
 	dd := &execResponseData{}
 	return &execResponse{
@@ -61,27 +80,7 @@ func postQueryTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[
 	}, nil
 }
 
-func postQueryHelperTestError(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, _ string) (*execResponse, error) {
-	dd := &execResponseData{}
-	return &execResponse{
-		Data:    *dd,
-		Message: "",
-		Code:    "0",
-		Success: false,
-	}, fmt.Errorf("failed to run postQueryHelper")
-}
-
-func postQueryHelperTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, _ string) (*execResponse, error) {
-	dd := &execResponseData{}
-	return &execResponse{
-		Data:    *dd,
-		Message: "",
-		Code:    "0",
-		Success: true,
-	}, nil
-}
-
-func TestPostQueryHelperError(t *testing.T) {
+func TestUnitPostQueryHelperError(t *testing.T) {
 	sr := &snowflakeRestful{
 		Token:    "token",
 		FuncPost: postTestError,
@@ -108,7 +107,7 @@ func renewSessionTestError(_ context.Context, _ *snowflakeRestful) error {
 	return errors.New("failed to renew session in tests")
 }
 
-func TestPostQueryHelperRenewSession(t *testing.T) {
+func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 	sr := &snowflakeRestful{
 		Token:            "token",
 		FuncPost:         postTestRenew,
@@ -124,5 +123,94 @@ func TestPostQueryHelperRenewSession(t *testing.T) {
 	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
 	if err == nil {
 		t.Fatal("should have failed to renew session")
+	}
+}
+
+func TestUnitRenewRestfulSession(t *testing.T) {
+	sr := &snowflakeRestful{
+		MasterToken: "mtoken",
+		Token:       "token",
+		FuncPost:    postTestAfterRenew,
+	}
+	var err error
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	sr.FuncPost = postTestError
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	if err == nil {
+		t.Fatal("should have failed to run post request after the renewal")
+	}
+	sr.FuncPost = postTestAppError
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	if err == nil {
+		t.Fatal("should have failed to run post request after the renewal")
+	}
+}
+
+func TestUnitCloseSession(t *testing.T) {
+	sr := &snowflakeRestful{
+		Token:    "token",
+		FuncPost: postTestAfterRenew,
+	}
+	var err error
+	err = closeSession(sr)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	sr.FuncPost = postTestError
+	err = closeSession(sr)
+	if err == nil {
+		t.Fatal("should have failed to close session")
+	}
+	sr.FuncPost = postTestAppError
+	err = closeSession(sr)
+	if err == nil {
+		t.Fatal("should have failed to close session")
+	}
+}
+
+func TestUnitPostAuth(t *testing.T) {
+	sr := &snowflakeRestful{
+		Token:    "token",
+		FuncPost: postTestAfterRenew,
+	}
+	var err error
+	_, err = postAuth(sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	sr.FuncPost = postTestError
+	_, err = postAuth(sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0)
+	if err == nil {
+		t.Fatal("should have failed to auth for unknown reason")
+	}
+	sr.FuncPost = postTestAppError
+	_, err = postAuth(sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0)
+	if err == nil {
+		t.Fatal("should have failed to auth for unknown reason")
+	}
+}
+
+func TestUnitCancelQuery(t *testing.T) {
+	sr := &snowflakeRestful{
+		Token:    "token",
+		FuncPost: postTestAfterRenew,
+	}
+	var err error
+	err = cancelQuery(sr, "abcdefg")
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	sr.FuncPost = postTestError
+	err = cancelQuery(sr, "abcdefg")
+	if err == nil {
+		t.Fatal("should have failed to close session")
+	}
+	sr.FuncPost = postTestAppError
+	err = cancelQuery(sr, "abcdefg")
+	if err == nil {
+		t.Fatal("should have failed to close session")
 	}
 }

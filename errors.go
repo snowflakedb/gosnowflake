@@ -48,7 +48,15 @@ const (
 	/* network */
 
 	// ErrFailedToPostQuery is an error code for the case where HTTP POST failed.
-	ErrFailedToPostQuery = 260001
+	ErrFailedToPostQuery = 261001
+	// ErrFailedToRenewSession is an error code for the case where session renewal failed.
+	ErrFailedToRenewSession = 261002
+	// ErrFailedToCancelQuery is an error code for the case where cancel query failed.
+	ErrFailedToCancelQuery = 261003
+	// ErrFailedToCloseSession is an error code for the case where close session failed.
+	ErrFailedToCloseSession = 261004
+	// ErrFailedToAuth is an error code for the case where authentication failed for unknown reason
+	ErrFailedToAuth = 261005
 
 	/* rows */
 
@@ -67,12 +75,16 @@ const (
 )
 
 const (
-	errMsgFailedToParsePort  = "failed to parse a port number. port: %v"
-	errMsgInvalidOffsetStr   = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
-	errMsgInvalidByteArray   = "invalid byte array: %v"
-	errMsgIdpConnectionError = "failed to verify URLs. authenticator: %v, token URL:%v, SSO URL:%v"
-	errMsgFailedToGetChunk   = "failed to get a chunk of result sets. idx: %v"
-	errMsgFailedToPostQuery  = "failed to POST. HTTP: %v, URL: %v"
+	errMsgFailedToParsePort    = "failed to parse a port number. port: %v"
+	errMsgInvalidOffsetStr     = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
+	errMsgInvalidByteArray     = "invalid byte array: %v"
+	errMsgIdpConnectionError   = "failed to verify URLs. authenticator: %v, token URL:%v, SSO URL:%v"
+	errMsgFailedToGetChunk     = "failed to get a chunk of result sets. idx: %v"
+	errMsgFailedToPostQuery    = "failed to POST. HTTP: %v, URL: %v"
+	errMsgFailedToRenew        = "failed to renew session. HTTP: %v, URL: %v"
+	errMsgFailedToCancelQuery  = "failed to cancel query. HTTP: %v, URL: %v"
+	errMsgFailedToCloseSession = "failed to close session. HTTP: %v, URL: %v"
+	errMsgFailedToAuth         = "failed to auth. HTTP: %v, URL: %v"
 )
 
 var (
