@@ -112,8 +112,7 @@ func (rows *snowflakeRows) Columns() []string {
 }
 
 func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
-	// TODO: implement this.
-	return nil
+	return snowflakeTypeToGo(rows.RowType[index].Type, rows.RowType[index].Scale)
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
