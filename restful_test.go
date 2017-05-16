@@ -17,21 +17,21 @@ import (
 	"github.com/golang/glog"
 )
 
-func postTestError(_ *snowflakeRestful, _ context.Context, _ string, _ map[string]string, _ []byte, _ time.Duration) (*http.Response, error) {
+func postTestError(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ []byte, _ time.Duration) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusBadGateway,
 		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
 	}, errors.New("failed to run post method")
 }
 
-func postTestAppError(_ *snowflakeRestful, _ context.Context, _ string, _ map[string]string, _ []byte, _ time.Duration) (*http.Response, error) {
+func postTestAppError(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ []byte, _ time.Duration) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusBadGateway,
 		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
 	}, nil
 }
 
-func postTestRenew(_ *snowflakeRestful, _ context.Context, _ string, _ map[string]string, _ []byte, _ time.Duration) (*http.Response, error) {
+func postTestRenew(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ []byte, _ time.Duration) (*http.Response, error) {
 	dd := &execResponseData{}
 	er := &execResponse{
 		Data:    *dd,
@@ -51,7 +51,7 @@ func postTestRenew(_ *snowflakeRestful, _ context.Context, _ string, _ map[strin
 	}, nil
 }
 
-func postQueryTest(_ *snowflakeRestful, _ context.Context, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration) (*execResponse, error) {
+func postQueryTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration) (*execResponse, error) {
 	dd := &execResponseData{}
 	return &execResponse{
 		Data:    *dd,
@@ -61,7 +61,7 @@ func postQueryTest(_ *snowflakeRestful, _ context.Context, _ *url.Values, _ map[
 	}, nil
 }
 
-func postQueryHelperTestError(_ *snowflakeRestful, _ context.Context, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, _ string) (*execResponse, error) {
+func postQueryHelperTestError(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, _ string) (*execResponse, error) {
 	dd := &execResponseData{}
 	return &execResponse{
 		Data:    *dd,
@@ -71,7 +71,7 @@ func postQueryHelperTestError(_ *snowflakeRestful, _ context.Context, _ *url.Val
 	}, fmt.Errorf("failed to run postQueryHelper")
 }
 
-func postQueryHelperTest(_ *snowflakeRestful, _ context.Context, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, _ string) (*execResponse, error) {
+func postQueryHelperTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, _ string) (*execResponse, error) {
 	dd := &execResponseData{}
 	return &execResponse{
 		Data:    *dd,
@@ -89,22 +89,22 @@ func TestPostQueryHelperError(t *testing.T) {
 		//FuncRenewSession: renewSessionTest,
 	}
 	var err error
-	_, err = postRestfulQueryHelper(sr, context.Background(), &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
 	if err == nil {
 		t.Fatalf("should have failed to post")
 	}
 	sr.FuncPost = postTestAppError
-	_, err = postRestfulQueryHelper(sr, context.Background(), &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
 	if err == nil {
 		t.Fatalf("should have failed to post")
 	}
 }
 
-func renewSessionTest(_ *snowflakeRestful, _ context.Context) error {
+func renewSessionTest(_ context.Context, _ *snowflakeRestful) error {
 	return nil
 }
 
-func renewSessionTestError(_ *snowflakeRestful, _ context.Context) error {
+func renewSessionTestError(_ context.Context, _ *snowflakeRestful) error {
 	return errors.New("failed to renew session in tests")
 }
 
@@ -116,12 +116,12 @@ func TestPostQueryHelperRenewSession(t *testing.T) {
 		FuncRenewSession: renewSessionTest,
 	}
 	var err error
-	_, err = postRestfulQueryHelper(sr, context.Background(), &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	sr.FuncRenewSession = renewSessionTestError
-	_, err = postRestfulQueryHelper(sr, context.Background(), &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
 	if err == nil {
 		t.Fatal("should have failed to renew session")
 	}

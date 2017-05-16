@@ -94,7 +94,7 @@ func (sc *snowflakeConn) exec(
 	}
 
 	var data *execResponse
-	data, err = sc.rest.FuncPostQuery(sc.rest, ctx, params, headers, jsonBody, sc.rest.RequestTimeout)
+	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, params, headers, jsonBody, sc.rest.RequestTimeout)
 	if err != nil {
 		return nil, err
 	}
