@@ -85,6 +85,25 @@ $ your_go_program -vmodule=driver=2,connection=2 -stderrthreshold=INFO
 ```
 No log shows up? Ensure calling ``db.Close()`` to flush ``glog`` buffer or explicity call ``glog.flush()`` in your code.
 
+### Data Types
+Go Snowflake Driver returns [ColumnType](https://golang.org/pkg/database/sql/#ColumnType) when fetching data, and its (DatabaseTypeName)[https://golang.org/pkg/database/sql/#ColumnType.DatabaseTypeName] method returns the following data type names.
+
+|String Representation|Data Types|
+|---------------------|----------|
+|FIXED|NUMBER/INT|
+|REAL|REAL|
+|TEXT|VARCHAR/STRING|
+|DATE|DATE|
+|TIME|TIME|
+|TIMESTAMP_LTZ|TIMESTAMP_LTZ|
+|TIMESTAMP_NTZ|TIMESTAMP_NTZ|
+|TIMESTAMP_TZ|TIMESTAMP_TZ|
+|VARIANT|VARIANT|
+|OBJECT|OBJECT|
+|ARRAY|ARRAY|
+|BINARY|BINARY|
+|BOOLEAN|BOOLEAN|
+
 ### Binding time.Time for DATE, TIME, TIMESTAMP_NTZ, TIMESTAMP_LTZ
 _This behavior is subject to change by the production._
 
