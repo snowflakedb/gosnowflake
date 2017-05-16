@@ -133,17 +133,17 @@ func TestUnitRenewRestfulSession(t *testing.T) {
 		FuncPost:    postTestAfterRenew,
 	}
 	var err error
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	err = renewRestfulSession(context.Background(), sr)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	sr.FuncPost = postTestError
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	err = renewRestfulSession(context.Background(), sr)
 	if err == nil {
 		t.Fatal("should have failed to run post request after the renewal")
 	}
 	sr.FuncPost = postTestAppError
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	err = renewRestfulSession(context.Background(), sr)
 	if err == nil {
 		t.Fatal("should have failed to run post request after the renewal")
 	}
