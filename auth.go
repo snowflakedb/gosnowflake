@@ -161,7 +161,7 @@ func authenticate(
 	}
 
 	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
-	respd, err := sr.postAuth(params, headers, jsonBody, sr.LoginTimeout)
+	respd, err := sr.FuncPostAuth(sr, params, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		// TODO: error handing, Forbidden 403, BadGateway 504, ServiceUnavailable 503
 		return nil, err

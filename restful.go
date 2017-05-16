@@ -56,6 +56,9 @@ type snowflakeRestful struct {
 	FuncPost            func(context.Context, *snowflakeRestful, string, map[string]string, []byte, time.Duration) (*http.Response, error)
 	FuncGet             func(context.Context, *snowflakeRestful, string, map[string]string, time.Duration) (*http.Response, error)
 	FuncRenewSession    func(context.Context, *snowflakeRestful) error
+	FuncPostAuth        func(*snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration) (*authResponse, error)
+	FuncCloseSession    func(*snowflakeRestful) error
+	FuncCancelQuery     func(*snowflakeRestful, string) error
 }
 
 type renewSessionResponse struct {
@@ -127,7 +130,7 @@ func postRestfulQuery(
 
 	select {
 	case <-ctx.Done():
-		err := sr.cancelQuery(requestID)
+		err := sr.FuncCancelQuery(sr, requestID)
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +233,8 @@ func postRestfulQueryHelper(
 	}
 }
 
-func (sr *snowflakeRestful) postAuth(
+func postAuth(
+	sr *snowflakeRestful,
 	params *url.Values,
 	headers map[string]string,
 	body []byte,
@@ -267,7 +271,7 @@ func (sr *snowflakeRestful) postAuth(
 	return nil, err
 }
 
-func (sr *snowflakeRestful) closeSession() error {
+func closeSession(sr *snowflakeRestful) error {
 	glog.V(2).Info("CLOSE SESSION")
 	params := &url.Values{}
 	params.Add("delete", "true")
@@ -375,7 +379,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 	return err
 }
 
-func (sr *snowflakeRestful) cancelQuery(requestID string) error {
+func cancelQuery(sr *snowflakeRestful, requestID string) error {
 	glog.V(2).Info("CANCEL QUERY")
 	params := &url.Values{}
 	params.Add("requestId", uuid.NewV4().String())
@@ -412,7 +416,7 @@ func (sr *snowflakeRestful) cancelQuery(requestID string) error {
 			if err != nil {
 				return err
 			}
-			return sr.cancelQuery(requestID)
+			return sr.FuncCancelQuery(sr, requestID)
 		} else if respd.Success == true {
 			return nil
 		} else {

@@ -153,7 +153,7 @@ func (sc *snowflakeConn) Close() (err error) {
 	if err != nil {
 		glog.V(2).Info(err)
 	}
-	err = sc.rest.closeSession()
+	err = sc.rest.FuncCloseSession(sc.rest)
 	if err != nil {
 		glog.V(2).Info(err)
 	}

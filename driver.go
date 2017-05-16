@@ -59,6 +59,9 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		FuncPostQuery:       postRestfulQuery,
 		FuncPostQueryHelper: postRestfulQueryHelper,
 		FuncRenewSession:    renewRestfulSession,
+		FuncPostAuth:        postAuth,
+		FuncCloseSession:    closeSession,
+		FuncCancelQuery:     cancelQuery,
 	}
 	var sessionInfo *AuthResponseSessionInfo
 	var samlResponse []byte
