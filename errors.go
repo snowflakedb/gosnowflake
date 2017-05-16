@@ -55,8 +55,15 @@ const (
 	ErrFailedToCancelQuery = 261003
 	// ErrFailedToCloseSession is an error code for the case where close session failed.
 	ErrFailedToCloseSession = 261004
-	// ErrFailedToAuth is an error code for the case where authentication failed for unknown reason
+	// ErrFailedToAuth is an error code for the case where authentication failed for unknown reason.
 	ErrFailedToAuth = 261005
+
+	// ErrFailedToAuthSAML is an error code for the case where authentication via SAML failed for unknown reason.
+	ErrFailedToAuthSAML = 261006
+	// ErrFailedToAuthOKTA is an error code for the case where authentication via OKTA failed for unknown reason.
+	ErrFailedToAuthOKTA = 261007
+	// ErrFailedToGetSSO is an error code for the case where authentication via OKTA failed for unknown reason.
+	ErrFailedToGetSSO = 261008
 
 	/* rows */
 
@@ -84,7 +91,10 @@ const (
 	errMsgFailedToRenew        = "failed to renew session. HTTP: %v, URL: %v"
 	errMsgFailedToCancelQuery  = "failed to cancel query. HTTP: %v, URL: %v"
 	errMsgFailedToCloseSession = "failed to close session. HTTP: %v, URL: %v"
-	errMsgFailedToAuth         = "failed to auth. HTTP: %v, URL: %v"
+	errMsgFailedToAuth         = "failed to auth for unknown reason. HTTP: %v, URL: %v"
+	errMsgFailedToAuthSAML     = "failed to auth via SAML for unknown reason. HTTP: %v, URL: %v"
+	errMsgFailedToAuthOKTA     = "failed to auth via OKTA for unknown reason. HTTP: %v, URL: %v"
+	errMsgFailedToGetSSO       = "failed to auth via OKTA for unknown reason. HTTP: %v, URL: %v"
 )
 
 var (

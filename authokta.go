@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"html"
+
 	"github.com/golang/glog"
 	"github.com/satori/go.uuid"
 )
@@ -86,7 +88,7 @@ func authenticateBySAML(
 		return
 	}
 	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
-	respd, err := sr.postAuthSAML(headers, jsonBody, sr.LoginTimeout)
+	respd, err := sr.FuncPostAuthSAML(sr, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +127,7 @@ func authenticateBySAML(
 		Username: user,
 		Password: password,
 	})
-	respa, err := sr.postAuthOKTA(headers, jsonBody, respd.Data.TokenURL, sr.LoginTimeout)
+	respa, err := sr.FuncPostAuthOKTA(sr, headers, jsonBody, respd.Data.TokenURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +139,7 @@ func authenticateBySAML(
 
 	headers = make(map[string]string)
 	headers["accept"] = "*/*"
-	bd, err := sr.getSSO(params, headers, respd.Data.SSOURL, sr.LoginTimeout)
+	bd, err := sr.FuncGetSSO(sr, params, headers, respd.Data.SSOURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +156,7 @@ func authenticateBySAML(
 	return bd, nil
 }
 
-func postBackURL(htmlData []byte) (string, error) {
+func postBackURL(htmlData []byte) (urlp string, err error) {
 	idx0 := bytes.Index(htmlData, []byte("<form"))
 	if idx0 < 0 {
 		return "", fmt.Errorf("failed to find a form tag in HTML response: %v", htmlData)
@@ -168,10 +170,10 @@ func postBackURL(htmlData []byte) (string, error) {
 	if endIdx < 0 {
 		return "", fmt.Errorf("failed to find the end of action field: %v", htmlData[idx+8:])
 	}
-	// fmt.Printf("%v", string(htmlData[idx+8:]))
-	urlp := url.QueryEscape(string(htmlData[idx+8 : idx+8+endIdx]))
-	return urlp, nil
+	r := html.UnescapeString(string(htmlData[idx+8 : idx+8+endIdx]))
+	return r, nil
 }
+
 func isPrefixEqual(url1 string, url2 string) (bool, error) {
 	var err error
 	var u1, u2 *url.URL
@@ -191,11 +193,11 @@ func isPrefixEqual(url1 string, url2 string) (bool, error) {
 	if p2 == "" && u1.Scheme == "https" {
 		p2 = "443"
 	}
-
 	return u1.Hostname() == u2.Hostname() && p1 == p2 && u1.Scheme == u2.Scheme, nil
 }
 
-func (sr *snowflakeRestful) postAuthSAML(
+func postAuthSAML(
+	sr *snowflakeRestful,
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration) (
@@ -220,17 +222,22 @@ func (sr *snowflakeRestful) postAuthSAML(
 		}
 		return &respd, nil
 	}
-	// TODO: better error handing and retry
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		glog.V(1).Infof("%v", err)
+		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
-	glog.V(2).Infof("ERROR RESPONSE: %v", b)
-	return nil, err
+	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	glog.V(1).Infof("Header: %v", resp.Header)
+	return nil, &SnowflakeError{
+		Number:      ErrFailedToAuthSAML,
+		Message:     errMsgFailedToAuthSAML,
+		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+	}
 }
 
-func (sr *snowflakeRestful) postAuthOKTA(
+func postAuthOKTA(
+	sr *snowflakeRestful,
 	headers map[string]string,
 	body []byte,
 	fullURL string,
@@ -252,17 +259,22 @@ func (sr *snowflakeRestful) postAuthOKTA(
 		}
 		return &respd, nil
 	}
-	// TODO: better error handing and retry
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		glog.V(1).Infof("%v", err)
+		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
-	glog.V(2).Infof("ERROR RESPONSE: %v", b)
-	return nil, err
+	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	glog.V(1).Infof("Header: %v", resp.Header)
+	return nil, &SnowflakeError{
+		Number:      ErrFailedToAuthOKTA,
+		Message:     errMsgFailedToAuthOKTA,
+		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+	}
 }
 
-func (sr *snowflakeRestful) getSSO(
+func getSSO(
+	sr *snowflakeRestful,
 	params *url.Values,
 	headers map[string]string,
 	url string,
@@ -284,5 +296,11 @@ func (sr *snowflakeRestful) getSSO(
 		glog.V(2).Infof("getSSO: resp: %v", resp)
 		return b, nil
 	}
-	return nil, fmt.Errorf("failed to get SSO response. HTTP code: %v", resp.StatusCode)
+	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	glog.V(1).Infof("Header: %v", resp.Header)
+	return nil, &SnowflakeError{
+		Number:      ErrFailedToGetSSO,
+		Message:     errMsgFailedToGetSSO,
+		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+	}
 }
