@@ -256,6 +256,9 @@ func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
 		if driverErr.Number != 390100 {
 			t.Fatalf("wrong error code: %v", driverErr)
 		}
+		if !strings.Contains(driverErr.Error(), "390100") {
+			t.Fatalf("error message should included the error code. got: %v", driverErr.Error())
+		}
 	} else {
 		t.Fatalf("wrong error code: %v", err)
 	}

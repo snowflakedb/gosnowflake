@@ -9,13 +9,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
-
-	"html"
 
 	"github.com/golang/glog"
 	"github.com/satori/go.uuid"
@@ -217,7 +216,7 @@ func postAuthSAML(
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			glog.V(1).Infof("%v", err)
+			glog.V(1).Infof("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		return &respd, nil
@@ -254,7 +253,7 @@ func postAuthOKTA(
 		var respd authOKTAResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			glog.V(1).Infof("%v", err)
+			glog.V(1).Infof("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		return &respd, nil
@@ -289,7 +288,7 @@ func getSSO(
 	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		glog.V(1).Infof("%v", err)
+		glog.V(1).Infof("failed to extract HTTP response boy. err: %v", err)
 		return nil, err
 	}
 	if resp.StatusCode == http.StatusOK {
