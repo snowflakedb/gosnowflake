@@ -7,6 +7,7 @@ package gosnowflake
 import (
 	"database/sql/driver"
 	"math/cmplx"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -45,6 +46,38 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		a := goTypeToSnowflake(test.in, test.tmode)
 		if a != test.out {
 			t.Errorf("failed. in: %v, tmode: %v, expected: %v, got: %v", test.in, test.tmode, test.out, a)
+		}
+	}
+}
+
+type tcSnowflakeTypeToGo struct {
+	in    string
+	scale int64
+	out   reflect.Type
+}
+
+func TestSnowflakeTypeToGo(t *testing.T) {
+	testcases := []tcSnowflakeTypeToGo{
+		{in: "fixed", scale: 0, out: reflect.TypeOf(int64(0))},
+		{in: "fixed", scale: 2, out: reflect.TypeOf(float64(0))},
+		{in: "real", scale: 0, out: reflect.TypeOf(float64(0))},
+		{in: "text", scale: 0, out: reflect.TypeOf("")},
+		{in: "date", scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: "time", scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: "timestamp_ltz", scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: "timestamp_ntz", scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: "timestamp_tz", scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: "object", scale: 0, out: reflect.TypeOf("")},
+		{in: "variant", scale: 0, out: reflect.TypeOf("")},
+		{in: "array", scale: 0, out: reflect.TypeOf("")},
+		{in: "binary", scale: 0, out: reflect.TypeOf([]byte{})},
+		{in: "boolean", scale: 0, out: reflect.TypeOf(true)},
+	}
+	for _, test := range testcases {
+		a := snowflakeTypeToGo(test.in, test.scale)
+		if a != test.out {
+			t.Errorf("failed. in: %v, scale: %v, expected: %v, got: %v",
+				test.in, test.scale, test.out, a)
 		}
 	}
 }

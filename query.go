@@ -24,11 +24,11 @@ type execRequest struct {
 }
 type execResponseRowType struct {
 	Name       string `json:"name"`
-	ByteLength int64  `json:"byteLength"` // TODO: check type
-	Length     int64  `json:"length"`     // TODO: check type
+	ByteLength int64  `json:"byteLength"`
+	Length     int64  `json:"length"`
 	Type       string `json:"type"`
-	Scale      int    `json:"scale"`
-	Precision  int    `json:"precision"`
+	Scale      int64  `json:"scale"`
+	Precision  int64  `json:"precision"`
 	Nullable   bool   `json:"nullable"`
 }
 

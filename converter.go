@@ -47,6 +47,29 @@ func goTypeToSnowflake(v driver.Value, tsmode string) string {
 	return "TEXT"
 }
 
+// snowflakeTypeToGo translates Snowflake data type to Go data type.
+func snowflakeTypeToGo(dbtype string, scale int64) reflect.Type {
+	switch dbtype {
+	case "fixed":
+		if scale == 0 {
+			return reflect.TypeOf(int64(0))
+		}
+		return reflect.TypeOf(float64(0))
+	case "real":
+		return reflect.TypeOf(float64(0))
+	case "text", "variant", "object", "array":
+		return reflect.TypeOf("")
+	case "date", "time", "timestamp_ltz", "timestamp_ntz", "timestamp_tz":
+		return reflect.TypeOf(time.Now())
+	case "binary":
+		return reflect.TypeOf([]byte{})
+	case "boolean":
+		return reflect.TypeOf(true)
+	}
+	glog.V(1).Infof("unsupported dbtype is specified. %v", dbtype)
+	return reflect.TypeOf("")
+}
+
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
 func valueToString(v driver.Value, tsmode string) (*string, error) {
