@@ -162,6 +162,51 @@ func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result) 
 	return res
 }
 
+func (dbt *DBTest) mustDecimalSize(ct *sql.ColumnType) (pr int64, sc int64) {
+	var ok bool
+	pr, sc, ok = ct.DecimalSize()
+	if !ok {
+		dbt.Fatalf("failed to get decimal size. %v", ct)
+	}
+	return pr, sc
+}
+
+func (dbt *DBTest) mustFailDecimalSize(ct *sql.ColumnType) {
+	var ok bool
+	_, _, ok = ct.DecimalSize()
+	if ok {
+		dbt.Fatalf("should not return decimal size. %v", ct)
+	}
+	return
+}
+
+func (dbt *DBTest) mustLength(ct *sql.ColumnType) (cLen int64) {
+	var ok bool
+	cLen, ok = ct.Length()
+	if !ok {
+		dbt.Fatalf("failed to get length. %v", ct)
+	}
+	return cLen
+}
+
+func (dbt *DBTest) mustFailLength(ct *sql.ColumnType) {
+	var ok bool
+	_, ok = ct.Length()
+	if ok {
+		dbt.Fatalf("should not return length. %v", ct)
+	}
+	return
+}
+
+func (dbt *DBTest) mustNullable(ct *sql.ColumnType) (canNull bool) {
+	var ok bool
+	canNull, ok = ct.Nullable()
+	if !ok {
+		dbt.Fatalf("failed to get length. %v", ct)
+	}
+	return canNull
+}
+
 func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
@@ -567,6 +612,29 @@ func TestDateTimeTimestampPlaceholder(t *testing.T) {
 		rows := dbt.mustQuery("SELECT ntz,ltz,dt,tm FROM tztest WHERE id=?", 1)
 		defer rows.Close()
 		var ntz, vltz, dt, tm time.Time
+		columnTypes, err := rows.ColumnTypes()
+		if err != nil {
+			dbt.Errorf("column type error. err: %v", err)
+		}
+		if columnTypes[0].Name() != "NTZ" {
+			dbt.Errorf("expected column name: %v, got: %v", "TEST", columnTypes[0])
+		}
+		canNull := dbt.mustNullable(columnTypes[0])
+		if !canNull {
+			dbt.Errorf("expected nullable: %v, got: %v", true, canNull)
+		}
+		if columnTypes[0].DatabaseTypeName() != "TIMESTAMP_NTZ" {
+			dbt.Errorf("expected database type: %v, got: %v", "TIMESTAMP_NTZ", columnTypes[0].DatabaseTypeName())
+		}
+		dbt.mustFailDecimalSize(columnTypes[0])
+		dbt.mustFailLength(columnTypes[0])
+		cols, err := rows.Columns()
+		if err != nil {
+			dbt.Errorf("failed to get columns. err: %v", err)
+		}
+		if len(cols) != 4 || cols[0] != "NTZ" || cols[1] != "LTZ" || cols[2] != "DT" || cols[3] != "TM" {
+			dbt.Errorf("failed to get columns. got: %v", cols)
+		}
 		if rows.Next() {
 			rows.Scan(&ntz, &vltz, &dt, &tm)
 			if expected.UnixNano() != ntz.UnixNano() {
@@ -598,6 +666,7 @@ func TestBinaryPlaceholder(t *testing.T) {
 		var b = []byte{0x01, 0x02, 0x03}
 		dbt.mustExec("INSERT INTO bintest(id,b) VALUES(1, ?)", DataTypeBinary, b)
 		rows := dbt.mustQuery("SELECT b FROM bintest WHERE id=?", 1)
+		defer rows.Close()
 		if rows.Next() {
 			var rb []byte
 			if err := rows.Scan(&rb); err != nil {
@@ -613,8 +682,112 @@ func TestBinaryPlaceholder(t *testing.T) {
 	})
 }
 
+func TestVariousTypes(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQuery(
+			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		if !rows.Next() {
+			dbt.Error("failed to query")
+		}
+		cc, err := rows.Columns()
+		if err != nil {
+			dbt.Errorf("columns: %v", cc)
+		}
+		ct, err := rows.ColumnTypes()
+		if err != nil {
+			dbt.Errorf("column types: %v", ct)
+		}
+		var v1 float32
+		var v2 int
+		var v3 string
+		var v4 float64
+		var v5 []byte
+		var v6 bool
+		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
+		if err != nil {
+			dbt.Errorf("failed to scan: %#v", err)
+		}
+		if v1 != 1.0 {
+			dbt.Errorf("failed to scan. %#v", v1)
+		}
+		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C3" || ct[3].Name() != "C4" || ct[4].Name() != "C5" || ct[5].Name() != "C6" {
+			dbt.Errorf("failed to get column names: %#v", ct)
+		}
+		var pr, sc int64
+		var cLen int64
+		var canNull bool
+		pr, sc = dbt.mustDecimalSize(ct[0])
+		if pr != 30 || sc != 2 {
+			dbt.Errorf("failed to get precision and scale. %#v", ct[0])
+		}
+		dbt.mustFailLength(ct[0])
+		canNull = dbt.mustNullable(ct[0])
+		if canNull {
+			dbt.Errorf("failed to get nullable. %#v", ct[0])
+		}
+		if cLen != 0 {
+			dbt.Errorf("failed to get length. %#v", ct[0])
+		}
+		if v2 != 2 {
+			dbt.Errorf("failed to scan. %#v", v2)
+		}
+		pr, sc = dbt.mustDecimalSize(ct[1])
+		if pr != 38 || sc != 0 {
+			dbt.Errorf("failed to get precision and scale. %#v", ct[1])
+		}
+		dbt.mustFailLength(ct[1])
+		canNull = dbt.mustNullable(ct[1])
+		if canNull {
+			dbt.Errorf("failed to get nullable. %#v", ct[1])
+		}
+		if v3 != "t3" {
+			dbt.Errorf("failed to scan. %#v", v3)
+		}
+		dbt.mustFailDecimalSize(ct[2])
+		cLen = dbt.mustLength(ct[2])
+		if cLen != 2 {
+			dbt.Errorf("failed to get length. %#v", ct[2])
+		}
+		canNull = dbt.mustNullable(ct[2])
+		if canNull {
+			dbt.Errorf("failed to get nullable. %#v", ct[2])
+		}
+		if v4 != 4.2 {
+			dbt.Errorf("failed to scan. %#v", v4)
+		}
+		dbt.mustFailDecimalSize(ct[3])
+		dbt.mustFailLength(ct[3])
+		canNull = dbt.mustNullable(ct[3])
+		if canNull {
+			dbt.Errorf("failed to get nullable. %#v", ct[3])
+		}
+		if bytes.Compare(v5, []byte{0xab, 0xcd}) != 0 {
+			dbt.Errorf("failed to scan. %#v", v5)
+		}
+		dbt.mustFailDecimalSize(ct[4])
+		/*cLen = dbt.mustLength(ct[4])
+		if cLen != 0 {
+			dbt.Errorf("failed to get length. %#v", ct[4])
+		}*/
+		canNull = dbt.mustNullable(ct[4])
+		if canNull {
+			dbt.Errorf("failed to get nullable. %#v", ct[4])
+		}
+		if !v6 {
+			dbt.Errorf("failed to scan. %#v", v6)
+		}
+		dbt.mustFailDecimalSize(ct[5])
+		dbt.mustFailLength(ct[5])
+		/*canNull = dbt.mustNullable(ct[5])
+		if canNull {
+			dbt.Errorf("failed to get nullable. %#v", ct[5])
+		}*/
+
+	})
+}
+
 /*
-TODO: this will be enabled when the server supports TIMEZONE_TZ binding.
+//TODO: this will be enabled when the server supports TIMEZONE_TZ binding.
 func TestTimestampTZPlaceholder(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		expected := time.Now()
@@ -659,6 +832,7 @@ func TestString(t *testing.T) {
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 
 			rows = dbt.mustQuery("SELECT value FROM test")
+			defer rows.Close()
 			if rows.Next() {
 				rows.Scan(&out)
 				if in != out {
@@ -1371,6 +1545,28 @@ func TestInvalidConnection(t *testing.T) {
 	if err == nil {
 		t.Error("should fail to run Begin")
 	}
+}
+
+func TestDoubleDollar(t *testing.T) {
+	// no escape is required for dollar signs
+	runTests(t, dsn, func(dbt *DBTest) {
+		sql := `create or replace function dateErr(I double) returns date
+language javascript strict
+as $$
+  var x = [
+    0, "1400000000000",
+    "2013-04-05",
+    [], [1400000000000],
+    "x1234",
+    Number.NaN, null, undefined,
+    {},
+    [1400000000000,1500000000000]
+  ];
+  return x[I];
+$$
+;`
+		dbt.mustExec(sql)
+	})
 }
 
 func init() {

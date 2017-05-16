@@ -69,7 +69,7 @@ type snowflakeChunkDownloader struct {
 // ColumnTypeDatabaseTypeName returns the database column name.
 func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
 	// TODO: is this canonical name or can be Snowflake specific name?
-	return strings.ToUpper(rows.RowType[index].Name)
+	return strings.ToUpper(rows.RowType[index].Type)
 }
 
 // ColumnTypeLength returns the length of the column
@@ -77,7 +77,11 @@ func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
 	if index < 0 || index > len(rows.RowType) {
 		return -1, false
 	}
-	return rows.RowType[index].Length, true
+	switch rows.RowType[index].Type {
+	case "text", "variant", "object", "array", "binary":
+		return rows.RowType[index].Length, true
+	}
+	return -1, false
 }
 
 func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
@@ -91,7 +95,11 @@ func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale
 	if index < 0 || index > len(rows.RowType) {
 		return -1, -1, false
 	}
-	return int64(rows.RowType[index].Precision), int64(rows.RowType[index].Scale), true
+	switch rows.RowType[index].Type {
+	case "fixed":
+		return rows.RowType[index].Precision, rows.RowType[index].Scale, true
+	}
+	return -1, -1, false
 }
 
 func (rows *snowflakeRows) Columns() []string {
