@@ -66,12 +66,11 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		FuncPostAuthOKTA:    postAuthOKTA,
 		FuncGetSSO:          getSSO,
 	}
-	var sessionInfo *AuthResponseSessionInfo
+	var sessionInfo *authResponseSessionInfo
 	var samlResponse []byte
 	if sc.cfg.Authenticator != "snowflake" {
 		samlResponse, err = authenticateBySAML(sc.rest, sc.cfg.Authenticator, sc.cfg.Application, sc.cfg.Account, sc.cfg.User, sc.cfg.Password)
 		if err != nil {
-			// TODO Better error handing?
 			sc.cleanup()
 			return nil, err
 		}

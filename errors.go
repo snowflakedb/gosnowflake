@@ -32,39 +32,41 @@ func (se *SnowflakeError) Error() string {
 const (
 	/* connection */
 
-	// ErrCodeInvalidConnCode is an error code for the case where a connection is not available or in invalid state.
-	ErrCodeInvalidConnCode = 260000
 	// ErrCodeEmptyAccountCode is an error code for the case where a DNS doesn't include account parameter
-	ErrCodeEmptyAccountCode = 260001
+	ErrCodeEmptyAccountCode = 260000
 	// ErrCodeEmptyUsernameCode is an error code for the case where a DNS doesn't include user parameter
-	ErrCodeEmptyUsernameCode = 260002
+	ErrCodeEmptyUsernameCode
 	// ErrCodeEmptyPasswordCode is an error code for the case where a DNS doesn't include password parameter
-	ErrCodeEmptyPasswordCode = 260003
+	ErrCodeEmptyPasswordCode
 	// ErrCodeFailedToParsePort is an error code for the case where a DNS includes an invalid port number
-	ErrCodeFailedToParsePort = 260004
+	ErrCodeFailedToParsePort
 	// ErrCodeIdpConnectionError is an error code for the case where a IDP connection failed
-	ErrCodeIdpConnectionError = 260005
+	ErrCodeIdpConnectionError
 	// ErrCodeSSOURLNotMatch is an error code for the case where a SSO URL doesn't match
-	ErrCodeSSOURLNotMatch = 260006
+	ErrCodeSSOURLNotMatch
+	// ErrServiceUnavailable is an error code for the case where service is unavailable.
+	ErrServiceUnavailable
+	// ErrFailedToConnect is an error code for the case where a DB connection failed due to wrong account name
+	ErrFailedToConnect
 
 	/* network */
 
 	// ErrFailedToPostQuery is an error code for the case where HTTP POST failed.
-	ErrFailedToPostQuery = 261001
+	ErrFailedToPostQuery = 261000
 	// ErrFailedToRenewSession is an error code for the case where session renewal failed.
-	ErrFailedToRenewSession = 261002
+	ErrFailedToRenewSession
 	// ErrFailedToCancelQuery is an error code for the case where cancel query failed.
-	ErrFailedToCancelQuery = 261003
+	ErrFailedToCancelQuery
 	// ErrFailedToCloseSession is an error code for the case where close session failed.
-	ErrFailedToCloseSession = 261004
+	ErrFailedToCloseSession
 	// ErrFailedToAuth is an error code for the case where authentication failed for unknown reason.
-	ErrFailedToAuth = 261005
+	ErrFailedToAuth
 	// ErrFailedToAuthSAML is an error code for the case where authentication via SAML failed for unknown reason.
-	ErrFailedToAuthSAML = 261006
+	ErrFailedToAuthSAML
 	// ErrFailedToAuthOKTA is an error code for the case where authentication via OKTA failed for unknown reason.
-	ErrFailedToAuthOKTA = 261007
+	ErrFailedToAuthOKTA
 	// ErrFailedToGetSSO is an error code for the case where authentication via OKTA failed for unknown reason.
-	ErrFailedToGetSSO = 261008
+	ErrFailedToGetSSO
 
 	/* rows */
 
@@ -76,7 +78,7 @@ const (
 	// ErrNoReadOnlyTransaction is an error code for the case where readonly mode is specified.
 	ErrNoReadOnlyTransaction = 263001
 	// ErrNoDefaultTransactionIsolationLevel is an error code for the case where non default isolation level is specified.
-	ErrNoDefaultTransactionIsolationLevel = 263002
+	ErrNoDefaultTransactionIsolationLevel
 
 	/* converter */
 
@@ -84,9 +86,9 @@ const (
 	ErrInvalidTimestampTz = 268001
 	// ErrInvalidOffsetStr is an error code for the case where a offset string is invalid. The input string must
 	// consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes
-	ErrInvalidOffsetStr = 268001
+	ErrInvalidOffsetStr
 	// ErrInvalidBinaryHexForm is an error code for the case where a binary data in hex form is invalid.
-	ErrInvalidBinaryHexForm = 268002
+	ErrInvalidBinaryHexForm
 )
 
 const (
@@ -106,6 +108,8 @@ const (
 	errMsgFailedToGetSSO                     = "failed to auth via OKTA for unknown reason. HTTP: %v, URL: %v"
 	errMsgNoReadOnlyTransaction              = "no readonly mode is supported"
 	errMsgNoDefaultTransactionIsolationLevel = "no default isolation transaction level is supported"
+	errMsgServiceUnavailable                 = "service is unavailable. check your connectivity. you may need a proxy server. HTTP: %v, URL: %v"
+	errMsgFailedToConnect                    = "failed to connect to db. verify account name is correct. HTTP: %v, URL: %v"
 )
 
 var (

@@ -237,48 +237,6 @@ func postRestfulQueryHelper(
 	}
 }
 
-func postAuth(
-	sr *snowflakeRestful,
-	params *url.Values,
-	headers map[string]string,
-	body []byte,
-	timeout time.Duration) (
-	data *authResponse, err error) {
-	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
-	params.Add("requestId", requestID)
-	fullURL := fmt.Sprintf(
-		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
-		"/session/v1/login-request?"+params.Encode())
-	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("postAuth: resp: %v", resp)
-		var respd authResponse
-		err = json.NewDecoder(resp.Body).Decode(&respd)
-		if err != nil {
-			glog.V(1).Infof("%v", err)
-			return nil, err
-		}
-		return &respd, nil
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
-		return nil, err
-	}
-	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	glog.V(1).Infof("Header: %v", resp.Header)
-	return nil, &SnowflakeError{
-		Number:      ErrFailedToAuth,
-		Message:     errMsgFailedToAuth,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
-	}
-}
-
 func closeSession(sr *snowflakeRestful) error {
 	glog.V(2).Info("CLOSE SESSION")
 	params := &url.Values{}

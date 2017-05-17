@@ -6,14 +6,18 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"runtime"
 	"strconv"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/satori/go.uuid"
 )
 
 const (
@@ -52,8 +56,8 @@ type authResponseParameter struct {
 	Value json.RawMessage `json:"value"`
 }
 
-// AuthResponseSessionInfo includes the current database, schema, warehouse and role in the session.
-type AuthResponseSessionInfo struct {
+// authResponseSessionInfo includes the current database, schema, warehouse and role in the session.
+type authResponseSessionInfo struct {
 	DatabaseName  string `json:"databaseName"`
 	SchemaName    string `json:"schemaName"`
 	WarehouseName string `json:"warehouseName"`
@@ -74,7 +78,7 @@ type authResponseMain struct {
 	NewClientForUpgrade     string                  `json:"newClientForUpgrade"`
 	SessionID               int                     `json:"sessionId"`
 	Parameters              []authResponseParameter `json:"parameters"`
-	SessionInfo             AuthResponseSessionInfo `json:"sessionInfo"`
+	SessionInfo             authResponseSessionInfo `json:"sessionInfo"`
 	TokenURL                string                  `json:"tokenUrl,omitempty"`
 	SSOURL                  string                  `json:"ssoUrl,omitempty"`
 }
@@ -83,6 +87,64 @@ type authResponse struct {
 	Message string           `json:"message"`
 	Code    string           `json:"code"`
 	Success bool             `json:"success"`
+}
+
+func postAuth(
+	sr *snowflakeRestful,
+	params *url.Values,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration) (
+	data *authResponse, err error) {
+	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
+	params.Add("requestId", requestID)
+	fullURL := fmt.Sprintf(
+		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
+		"/session/v1/login-request?"+params.Encode())
+	glog.V(2).Infof("fullURL: %v", fullURL)
+	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		glog.V(2).Infof("postAuth: resp: %v", resp)
+		var respd authResponse
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
+			glog.V(1).Infof("%v", err)
+			return nil, err
+		}
+		return &respd, nil
+	}
+	switch resp.StatusCode {
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		// service availability or connectivity issue. Most likely server side issue.
+		return nil, &SnowflakeError{
+			Number:      ErrServiceUnavailable,
+			Message:     errMsgServiceUnavailable,
+			MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		}
+	case http.StatusUnauthorized, http.StatusForbidden:
+		// failed to connect to db. account name may be wrong
+		return nil, &SnowflakeError{
+			Number:      ErrFailedToConnect,
+			Message:     errMsgFailedToConnect,
+			MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		}
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
+		return nil, err
+	}
+	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	glog.V(1).Infof("Header: %v", resp.Header)
+	return nil, &SnowflakeError{
+		Number:      ErrFailedToAuth,
+		Message:     errMsgFailedToAuth,
+		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+	}
 }
 
 // authenticate is used to authenticate user to gain accesss to Snowflake database.
@@ -100,14 +162,8 @@ func authenticate(
 	application string,
 	samlResponse []byte,
 	mfaCallback string,
-	passwordCallback string) (resp *AuthResponseSessionInfo, err error) {
+	passwordCallback string) (resp *authResponseSessionInfo, err error) {
 	glog.V(2).Info("authenticate")
-
-	if sr.Token != "" && sr.MasterToken != "" {
-		glog.V(2).Infoln("Tokens are already available.")
-		return nil, nil
-	}
-
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
@@ -163,7 +219,6 @@ func authenticate(
 	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
 	respd, err := sr.FuncPostAuth(sr, params, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
-		// TODO: error handing, Forbidden 403, BadGateway 504, ServiceUnavailable 503
 		return nil, err
 	}
 	if !respd.Success {

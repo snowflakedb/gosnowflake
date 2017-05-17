@@ -96,7 +96,7 @@ func TestPostAuthSAML(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
-	sr.FuncPost = postTestAppError
+	sr.FuncPost = postTestAppBadGatewayError
 	_, err = postAuthSAML(sr, make(map[string]string), []byte{}, 0)
 	if err == nil {
 		t.Fatal("should have failed.")
@@ -112,7 +112,7 @@ func TestPostAuthOKTA(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
-	sr.FuncPost = postTestAppError
+	sr.FuncPost = postTestAppBadGatewayError
 	_, err = postAuthOKTA(sr, make(map[string]string), []byte{}, "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
