@@ -93,7 +93,6 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		"",
 	)
 	if err != nil {
-		// TODO Better error handling
 		sc.cleanup()
 		return nil, err
 	}
