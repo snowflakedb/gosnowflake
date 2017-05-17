@@ -101,13 +101,6 @@ const (
 )
 
 var (
-	// errors
-
-	// ErrInvalidConn is returned if a connection is not available or in invalid state.
-	ErrInvalidConn = &SnowflakeError{
-		Number:  ErrCodeInvalidConnCode,
-		Message: "invalid connection",
-	}
 	// ErrEmptyAccount is returned if a DNS doesn't include account parameter.
 	ErrEmptyAccount = &SnowflakeError{
 		Number:  ErrCodeEmptyAccountCode,

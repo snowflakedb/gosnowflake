@@ -4,7 +4,10 @@
 //
 package gosnowflake
 
-import "context"
+import (
+	"context"
+	"database/sql/driver"
+)
 
 type snowflakeTx struct {
 	sc *snowflakeConn
@@ -12,7 +15,7 @@ type snowflakeTx struct {
 
 func (tx *snowflakeTx) Commit() (err error) {
 	if tx.sc == nil || tx.sc.rest == nil {
-		return ErrInvalidConn
+		return driver.ErrBadConn
 	}
 	_, err = tx.sc.exec(context.TODO(), "COMMIT", false, false, nil)
 	if err != nil {
@@ -24,7 +27,7 @@ func (tx *snowflakeTx) Commit() (err error) {
 
 func (tx *snowflakeTx) Rollback() (err error) {
 	if tx.sc == nil || tx.sc.rest == nil {
-		return ErrInvalidConn
+		return driver.ErrBadConn
 	}
 	_, err = tx.sc.exec(context.TODO(), "ROLLBACK", false, false, nil)
 	if err != nil {

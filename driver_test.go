@@ -1488,6 +1488,24 @@ func TestRowsClose(t *testing.T) {
 	})
 }
 
+func TestResultNoRows(t *testing.T) {
+	// DDL
+	runTests(t, dsn, func(dbt *DBTest) {
+		row, err := dbt.db.Exec("CREATE OR REPLACE TABLE test(c1 int)")
+		if err != nil {
+			t.Fatalf("failed to execute DDL. err: %v", err)
+		}
+		_, err = row.RowsAffected()
+		if err == nil {
+			t.Fatal("should have failed to get RowsAffected")
+		}
+		_, err = row.LastInsertId()
+		if err == nil {
+			t.Fatal("should have failed to get LastInsertID")
+		}
+	})
+}
+
 func TestCancelQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		ctx := context.Background()
