@@ -47,7 +47,7 @@ func (sc *snowflakeConn) exec(
 	ctx context.Context,
 	query string, noResult bool, isInternal bool, parameters []driver.NamedValue) (*execResponse, error) {
 	var err error
-	counter := atomic.AddUint64(&sc.SequeceCounter, 1)
+	counter := atomic.AddUint64(&sc.SequeceCounter, 1) // query sequence counter
 
 	req := execRequest{
 		SQLText:    query,
@@ -81,11 +81,10 @@ func (sc *snowflakeConn) exec(
 		}
 	}
 	glog.V(2).Infof("bindings: %v", req.Bindings)
-	params := &url.Values{} // TODO: delete?
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeApplicationSnowflake // TODO: change to JSON in case of PUT/GET
+	headers["accept"] = headerAcceptTypeApplicationSnowflake // TODO v1.1: change to JSON in case of PUT/GET
 	headers["User-Agent"] = userAgent
 
 	jsonBody, err := json.Marshal(req)
@@ -94,7 +93,7 @@ func (sc *snowflakeConn) exec(
 	}
 
 	var data *execResponse
-	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, params, headers, jsonBody, sc.rest.RequestTimeout)
+	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -249,4 +248,18 @@ func (sc *snowflakeConn) Query(
 	args []driver.Value) (
 	driver.Rows, error) {
 	return sc.QueryContext(context.TODO(), query, toNamedValues(args))
+}
+
+func (sc *snowflakeConn) Ping(ctx context.Context) error {
+	glog.V(2).Infoln("Ping")
+	if sc.rest == nil {
+		glog.V(1).Info(ErrInvalidConn)
+		return driver.ErrBadConn
+	}
+	// TODO: handle noResult and isInternal
+	_, err := sc.exec(ctx, "SELECT 1", false, false, []driver.NamedValue{})
+	if err != nil {
+		return err
+	}
+	return nil
 }
