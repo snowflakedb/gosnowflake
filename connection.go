@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"database/sql"
+
 	"github.com/golang/glog"
 )
 
@@ -127,11 +129,27 @@ func (sc *snowflakeConn) exec(
 }
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
-	glog.V(2).Info("Begin")
+	return sc.BeginTx(context.TODO(), driver.TxOptions{})
+}
+
+func (sc *snowflakeConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	glog.V(2).Info("BeginTx")
+	if opts.ReadOnly {
+		return nil, &SnowflakeError{
+			Number:  ErrNoReadOnlyTransaction,
+			Message: errMsgNoReadOnlyTransaction,
+		}
+	}
+	if int(opts.Isolation) != int(sql.LevelDefault) {
+		return nil, &SnowflakeError{
+			Number:  ErrNoDefaultTransactionIsolationLevel,
+			Message: errMsgNoDefaultTransactionIsolationLevel,
+		}
+	}
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	_, err := sc.exec(context.TODO(), "BEGIN", false, false, nil)
+	_, err := sc.exec(ctx, "BEGIN", false, false, nil)
 	if err != err {
 		return nil, err
 	}

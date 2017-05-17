@@ -197,7 +197,7 @@ func postRestfulQueryHelper(
 				resultURL = respd.Data.GetResultURL
 			}
 
-			glog.V(2).Info("START PING PONG")
+			glog.V(2).Info("start ping pong")
 			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 			fullURL := fmt.Sprintf(
 				"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, resultURL)

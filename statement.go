@@ -33,11 +33,13 @@ func (stmt *snowflakeStmt) ColumnConverter(idx int) driver.ValueConverter {
 
 func (stmt *snowflakeStmt) Close() error {
 	glog.V(2).Infoln("Stmt.Close")
+	// noop
 	return nil
 }
 
 func (stmt *snowflakeStmt) NumInput() int {
 	glog.V(2).Infoln("Stmt.NumInput")
+	// Go Snowflake doesn't know the number of binding parameters.
 	return -1
 }
 

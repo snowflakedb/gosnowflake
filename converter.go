@@ -168,7 +168,7 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 // stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
 // data.
 func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcValue *string) error {
-	glog.V(3).Infof("DATA TYPE: %s, VALUE: % s", srcColumnMeta.Type, srcValue)
+	glog.V(3).Infof("data type: %v, value: %v", srcColumnMeta.Type, srcValue)
 	if srcValue == nil {
 		dest = nil
 		return nil

@@ -1344,9 +1344,14 @@ func TestLargeSetResult(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// fmt.Printf("%v, %v\n", idx, v)
+			if cnt%1000 == 0 {
+				glog.V(2).Infof("%v, %v", idx, v)
+				glog.V(2).Infof("NextResultSet: %v", rows.NextResultSet())
+			}
 			cnt++
 		}
+		glog.V(2).Infof("NextResultSet: %v", rows.NextResultSet())
+
 		if cnt != numrows {
 			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 		}
@@ -1637,6 +1642,43 @@ $$
 ;`
 		dbt.mustExec(sql)
 	})
+}
+
+func TestTransactionOptions(t *testing.T) {
+	var db *sql.DB
+	var err error
+	var driverErr *SnowflakeError
+	var ok bool
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+	var tx *sql.Tx
+	tx, err = db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		t.Fatal("failed to start transaction.")
+	}
+	err = tx.Rollback()
+	if err != nil {
+		t.Fatal("failed to rollback")
+	}
+	_, err = db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	driverErr, ok = err.(*SnowflakeError)
+	if !ok || driverErr.Number != ErrNoReadOnlyTransaction {
+		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoReadOnlyTransaction)
+	}
+	_, err = db.BeginTx(context.Background(), &sql.TxOptions{Isolation: 100})
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	driverErr, ok = err.(*SnowflakeError)
+	if !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
+		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoDefaultTransactionIsolationLevel)
+	}
 }
 
 func init() {
