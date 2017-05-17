@@ -705,6 +705,40 @@ func TestBinaryPlaceholder(t *testing.T) {
 	})
 }
 
+func TestBindingInterface(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		var err error
+		rows := dbt.mustQuery(
+			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		if !rows.Next() {
+			dbt.Error("failed to query")
+		}
+		var v1, v2, v3, v4, v5, v6 interface{}
+		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
+		if err != nil {
+			dbt.Errorf("failed to scan: %#v", err)
+		}
+		var s string
+		var ok bool
+		s, ok = v1.(string)
+		if !ok || s != "1.00" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v1)
+		}
+		s, ok = v2.(string)
+		if !ok || s != "2"{
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
+		}
+		s, ok = v3.(string)
+		if !ok || s != "t3"{
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
+		}
+		s, ok = v4.(string)
+		if !ok || s != "4.2"{
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v4)
+		}
+	})
+}
+
 func TestVariousTypes(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		rows := dbt.mustQuery(

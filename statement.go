@@ -16,21 +16,6 @@ type snowflakeStmt struct {
 	query string
 }
 
-/*
-TODO: investigate how
-type snowflakeConverter struct {
-}
-
-func (conv *snowflakeConverter) ConvertValue(v interface{}) (driver.Value, error) {
-	return v, nil
-	// return nil, errors.New(fmt.Sprintf("hello error: %T, %v", v, v))
-}
-
-func (stmt *snowflakeStmt) ColumnConverter(idx int) driver.ValueConverter {
-	return &snowflakeConverter{}
-}
-*/
-
 func (stmt *snowflakeStmt) Close() error {
 	glog.V(2).Infoln("Stmt.Close")
 	// noop

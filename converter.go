@@ -168,7 +168,7 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 // stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
 // data.
 func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcValue *string) error {
-	glog.V(3).Infof("data type: %v, value: %v", srcColumnMeta.Type, srcValue)
+	glog.V(3).Infof("snowflake data type: %v, raw value: %v", srcColumnMeta.Type, *srcValue)
 	if srcValue == nil {
 		dest = nil
 		return nil
@@ -235,7 +235,6 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		*dest = tt.In(loc)
 		return nil
 	case "binary":
-		glog.V(2).Infof("bin: %v", *srcValue)
 		b, err := hex.DecodeString(*srcValue)
 		if err != nil {
 			return &SnowflakeError{
