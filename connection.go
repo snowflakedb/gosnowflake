@@ -129,7 +129,6 @@ func (sc *snowflakeConn) exec(
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	glog.V(2).Info("Begin")
 	if sc.rest == nil {
-		glog.V(1).Info(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	_, err := sc.exec(context.TODO(), "BEGIN", false, false, nil)
@@ -162,7 +161,6 @@ func (sc *snowflakeConn) Close() (err error) {
 func (sc *snowflakeConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	glog.V(2).Infoln("Prepare")
 	if sc.rest == nil {
-		glog.V(1).Info(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	stmt := &snowflakeStmt{
@@ -179,7 +177,6 @@ func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	glog.V(2).Infof("Exec: %#v, %v", query, args)
 	if sc.rest == nil {
-		glog.V(1).Info(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	// TODO: handle noResult and isInternal
@@ -198,17 +195,18 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			}
 			updatedRows += v
 		}
+		glog.V(2).Infof("number of updated rows: %#v", updatedRows)
+		return &snowflakeResult{
+			affectedRows: updatedRows,
+			insertID:     -1}, nil // last insert id is not supported by Snowflake
 	}
-	glog.V(2).Infof("number of updated rows: %#v", updatedRows)
-	return &snowflakeResult{
-		affectedRows: updatedRows,
-		insertID:     -1}, nil // last insert id is not supported by Snowflake
+	glog.V(2).Info("DDL")
+	return driver.ResultNoRows, nil
 }
 
 func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	glog.V(2).Infoln("Query")
 	if sc.rest == nil {
-		glog.V(1).Info(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	// TODO: handle noResult and isInternal
@@ -253,7 +251,6 @@ func (sc *snowflakeConn) Query(
 func (sc *snowflakeConn) Ping(ctx context.Context) error {
 	glog.V(2).Infoln("Ping")
 	if sc.rest == nil {
-		glog.V(1).Info(ErrInvalidConn)
 		return driver.ErrBadConn
 	}
 	// TODO: handle noResult and isInternal
