@@ -75,13 +75,13 @@ func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
 // ColumnTypeLength returns the length of the column
 func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
 	if index < 0 || index > len(rows.RowType) {
-		return -1, false
+		return 0, false
 	}
 	switch rows.RowType[index].Type {
 	case "text", "variant", "object", "array", "binary":
 		return rows.RowType[index].Length, true
 	}
-	return -1, false
+	return 0, false
 }
 
 func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
@@ -93,17 +93,17 @@ func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
 
 func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
 	if index < 0 || index > len(rows.RowType) {
-		return -1, -1, false
+		return 0, 0, false
 	}
 	switch rows.RowType[index].Type {
 	case "fixed":
 		return rows.RowType[index].Precision, rows.RowType[index].Scale, true
 	}
-	return -1, -1, false
+	return 0, 0, false
 }
 
 func (rows *snowflakeRows) Columns() []string {
-	glog.V(2).Infoln("Rows.Columns")
+	glog.V(3).Infoln("Rows.Columns")
 	ret := make([]string, len(rows.RowType))
 	for i, n := 0, len(rows.RowType); i < n; i++ {
 		ret[i] = rows.RowType[i].Name
@@ -130,6 +130,32 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 		}
 	}
 	return err
+}
+
+func (rows *snowflakeRows) HasNextResultSet() bool {
+	if len(rows.ChunkDownloader.ChunkMetas) == 0 {
+		return false // no extra chunk
+	}
+	return rows.ChunkDownloader.hasNextResultSet()
+}
+
+func (rows *snowflakeRows) NextResultSet() error {
+	if len(rows.ChunkDownloader.ChunkMetas) == 0 {
+		return io.EOF
+	}
+	return rows.ChunkDownloader.nextResultSet()
+}
+
+func (scd *snowflakeChunkDownloader) hasNextResultSet() bool {
+	return scd.CurrentChunkIndex < len(scd.ChunkMetas)
+}
+
+func (scd *snowflakeChunkDownloader) nextResultSet() error {
+	// no error at all times as the next chunk/resultset is automatically read
+	if scd.CurrentChunkIndex < len(scd.ChunkMetas) {
+		return nil
+	}
+	return io.EOF
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
@@ -186,7 +212,7 @@ func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 	return nil
 }
 func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
-	for true {
+	for {
 		scd.CurrentIndex++
 		if scd.CurrentIndex < scd.CurrentChunkSize {
 			return scd.CurrentChunk[scd.CurrentIndex], nil
@@ -201,6 +227,7 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 			scd.ChunksMutex.Lock()
 			err := scd.checkErrorRetry()
 			if err != nil {
+				scd.ChunksMutex.Unlock()
 				return nil, err
 			}
 			glog.V(2).Infof("waiting for chunk idx: %v/%v",

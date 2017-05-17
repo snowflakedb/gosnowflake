@@ -705,6 +705,40 @@ func TestBinaryPlaceholder(t *testing.T) {
 	})
 }
 
+func TestBindingInterface(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		var err error
+		rows := dbt.mustQuery(
+			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		if !rows.Next() {
+			dbt.Error("failed to query")
+		}
+		var v1, v2, v3, v4, v5, v6 interface{}
+		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
+		if err != nil {
+			dbt.Errorf("failed to scan: %#v", err)
+		}
+		var s string
+		var ok bool
+		s, ok = v1.(string)
+		if !ok || s != "1.00" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v1)
+		}
+		s, ok = v2.(string)
+		if !ok || s != "2" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
+		}
+		s, ok = v3.(string)
+		if !ok || s != "t3" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
+		}
+		s, ok = v4.(string)
+		if !ok || s != "4.2" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v4)
+		}
+	})
+}
+
 func TestVariousTypes(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		rows := dbt.mustQuery(
@@ -794,10 +828,10 @@ func TestVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to scan. %#v", v5)
 		}
 		dbt.mustFailDecimalSize(ct[4])
-		/*cLen = dbt.mustLength(ct[4])
-		if cLen != 0 {
+		cLen = dbt.mustLength(ct[4]) // BINARY
+		if cLen != 8388608 {
 			dbt.Errorf("failed to get length. %#v", ct[4])
-		}*/
+		}
 		canNull = dbt.mustNullable(ct[4])
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[4])
@@ -1344,9 +1378,14 @@ func TestLargeSetResult(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// fmt.Printf("%v, %v\n", idx, v)
+			if cnt%1000 == 0 {
+				glog.V(2).Infof("%v, %v", idx, v)
+				glog.V(2).Infof("NextResultSet: %v", rows.NextResultSet())
+			}
 			cnt++
 		}
+		glog.V(2).Infof("NextResultSet: %v", rows.NextResultSet())
+
 		if cnt != numrows {
 			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 		}
@@ -1637,6 +1676,43 @@ $$
 ;`
 		dbt.mustExec(sql)
 	})
+}
+
+func TestTransactionOptions(t *testing.T) {
+	var db *sql.DB
+	var err error
+	var driverErr *SnowflakeError
+	var ok bool
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+	var tx *sql.Tx
+	tx, err = db.BeginTx(context.Background(), &sql.TxOptions{})
+	if err != nil {
+		t.Fatal("failed to start transaction.")
+	}
+	err = tx.Rollback()
+	if err != nil {
+		t.Fatal("failed to rollback")
+	}
+	_, err = db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	driverErr, ok = err.(*SnowflakeError)
+	if !ok || driverErr.Number != ErrNoReadOnlyTransaction {
+		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoReadOnlyTransaction)
+	}
+	_, err = db.BeginTx(context.Background(), &sql.TxOptions{Isolation: 100})
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	driverErr, ok = err.(*SnowflakeError)
+	if !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
+		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoDefaultTransactionIsolationLevel)
+	}
 }
 
 func init() {

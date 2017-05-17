@@ -153,7 +153,7 @@ func postRestfulQueryHelper(
 	timeout time.Duration,
 	requestID string) (
 	data *execResponse, err error) {
-	glog.V(2).Infof("PARAMS: %v", params)
+	glog.V(2).Infof("params: %v", params)
 	params.Add("requestId", requestID)
 	if sr.Token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
@@ -171,13 +171,7 @@ func postRestfulQueryHelper(
 		var respd execResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			glog.V(1).Infof("failed to decode JSON output. err: %v", err)
-			b, err2 := ioutil.ReadAll(resp.Body)
-			if err2 != nil {
-				glog.V(1).Infof("failed to extract HTTP response body. err: %v", err2)
-				return nil, err2
-			}
-			glog.V(1).Infof("HTTP Response body: %v", b)
+			glog.V(1).Infof("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		if respd.Code == sessionExpiredCode {
@@ -197,7 +191,7 @@ func postRestfulQueryHelper(
 				resultURL = respd.Data.GetResultURL
 			}
 
-			glog.V(2).Info("START PING PONG")
+			glog.V(2).Info("start ping pong")
 			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 			fullURL := fmt.Sprintf(
 				"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, resultURL)
@@ -208,9 +202,9 @@ func postRestfulQueryHelper(
 			err = json.NewDecoder(resp.Body).Decode(&respd)
 			resp.Body.Close()
 			if err != nil {
+				glog.V(1).Infof("failed to decode JSON. err: %v", err)
 				return nil, err
 			}
-
 			if respd.Code == sessionExpiredCode {
 				err = sr.FuncRenewSession(ctx, sr)
 				if err != nil {
@@ -237,50 +231,8 @@ func postRestfulQueryHelper(
 	}
 }
 
-func postAuth(
-	sr *snowflakeRestful,
-	params *url.Values,
-	headers map[string]string,
-	body []byte,
-	timeout time.Duration) (
-	data *authResponse, err error) {
-	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
-	params.Add("requestId", requestID)
-	fullURL := fmt.Sprintf(
-		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
-		"/session/v1/login-request?"+params.Encode())
-	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("postAuth: resp: %v", resp)
-		var respd authResponse
-		err = json.NewDecoder(resp.Body).Decode(&respd)
-		if err != nil {
-			glog.V(1).Infof("%v", err)
-			return nil, err
-		}
-		return &respd, nil
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
-		return nil, err
-	}
-	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	glog.V(1).Infof("Header: %v", resp.Header)
-	return nil, &SnowflakeError{
-		Number:      ErrFailedToAuth,
-		Message:     errMsgFailedToAuth,
-		MessageArgs: []interface{}{resp.StatusCode, fullURL},
-	}
-}
-
 func closeSession(sr *snowflakeRestful) error {
-	glog.V(2).Info("CLOSE SESSION")
+	glog.V(2).Info("close session")
 	params := &url.Values{}
 	params.Add("delete", "true")
 	params.Add("requestId", uuid.NewV4().String())
@@ -302,9 +254,10 @@ func closeSession(sr *snowflakeRestful) error {
 		var respd renewSessionResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
+			glog.V(1).Infof("failed to decode JSON. err: %v", err)
 			return err
 		}
-		if respd.Success == false && respd.Code != sessionExpiredCode {
+		if !respd.Success && respd.Code != sessionExpiredCode {
 			c, err := strconv.Atoi(respd.Code)
 			if err != nil {
 				return err
@@ -332,7 +285,7 @@ func closeSession(sr *snowflakeRestful) error {
 }
 
 func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
-	glog.V(2).Info("START RENEW SESSION")
+	glog.V(2).Info("start renew session")
 	params := &url.Values{}
 	params.Add("requestId", uuid.NewV4().String())
 	fullURL := fmt.Sprintf(
@@ -363,10 +316,10 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 		var respd renewSessionResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
+			glog.V(1).Infof("failed to decode JSON. err: %v", err)
 			return err
 		}
-
-		if respd.Success == false {
+		if !respd.Success {
 			c, err := strconv.Atoi(respd.Code)
 			if err != nil {
 				return err
@@ -396,7 +349,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 }
 
 func cancelQuery(sr *snowflakeRestful, requestID string) error {
-	glog.V(2).Info("CANCEL QUERY")
+	glog.V(2).Info("cancel query")
 	params := &url.Values{}
 	params.Add("requestId", uuid.NewV4().String())
 	fullURL := fmt.Sprintf(
@@ -425,18 +378,26 @@ func cancelQuery(sr *snowflakeRestful, requestID string) error {
 		var respd cancelQueryResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
+			glog.V(1).Infof("failed to decode JSON. err: %v", err)
 			return err
 		}
-		if respd.Success == false && respd.Code == sessionExpiredCode {
+		if !respd.Success && respd.Code == sessionExpiredCode {
 			err := sr.FuncRenewSession(context.TODO(), sr)
 			if err != nil {
 				return err
 			}
 			return sr.FuncCancelQuery(sr, requestID)
-		} else if respd.Success == true {
+		} else if respd.Success {
 			return nil
 		} else {
-			return &SnowflakeError{Message: respd.Message, SQLState: respd.Code}
+			c, err := strconv.Atoi(respd.Code)
+			if err != nil {
+				return err
+			}
+			return &SnowflakeError{
+				Number:  c,
+				Message: respd.Message,
+			}
 		}
 	}
 	b, err := ioutil.ReadAll(resp.Body)

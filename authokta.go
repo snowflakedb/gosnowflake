@@ -295,7 +295,7 @@ func getSSO(
 	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		glog.V(1).Infof("failed to extract HTTP response boy. err: %v", err)
+		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
 	if resp.StatusCode == http.StatusOK {
