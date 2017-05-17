@@ -86,7 +86,7 @@ $ your_go_program -vmodule=driver=2,connection=2 -stderrthreshold=INFO
 No log shows up? Ensure calling ``db.Close()`` to flush ``glog`` buffer or explicity call ``glog.flush()`` in your code.
 
 ### Data Types
-Go Snowflake Driver returns [ColumnType](https://golang.org/pkg/database/sql/#ColumnType) when fetching data, and its (DatabaseTypeName)[https://golang.org/pkg/database/sql/#ColumnType.DatabaseTypeName] method returns the following data type names.
+Go Snowflake Driver returns [ColumnType](https://golang.org/pkg/database/sql/#ColumnType) when fetching data, and its [DatabaseTypeName](https://golang.org/pkg/database/sql/#ColumnType.DatabaseTypeName) method returns the following data type names.
 
 |String Representation|Data Types|
 |---------------------|----------|
@@ -159,6 +159,9 @@ At the moment, Snowflake doesn't support the name based ``Location`` types, e.g.
 ## Limitations
 ### Binding TIMESTAMP_TZ
 At the moment, binding ``TIMESTAMP_TZ`` data type is not supported.
+
+### No PUT and GET support in v1.0
+In v1.0, no ``GET`` and ``PUT`` will be implemented.
 
 ## Sample Programs
 Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/go`` and ensure to 
