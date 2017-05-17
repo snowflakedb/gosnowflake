@@ -108,18 +108,11 @@ func postAuth(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("postAuth: resp: %v", resp)
+		glog.V(3).Infof("postAuth: resp: %v", resp)
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			glog.V(1).Infof("failed to decode JSON. err: %v", err)
-			b, err2 := ioutil.ReadAll(resp.Body)
-			if err2 != nil {
-				glog.V(1).Infof("failed to extract HTTP response body. err: %v", err2)
-				return nil, err2
-			}
-			glog.V(1).Infof("HTTP Response body: %v", b)
-			return nil, err
 			return nil, err
 		}
 		return &respd, nil
