@@ -171,7 +171,7 @@ func postRestfulQueryHelper(
 		var respd execResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			glog.V(1).Infof("failed to decode JSON output. err: %v", err)
+			glog.V(1).Infof("failed to decode JSON. err: %v", err)
 			b, err2 := ioutil.ReadAll(resp.Body)
 			if err2 != nil {
 				glog.V(1).Infof("failed to extract HTTP response body. err: %v", err2)
