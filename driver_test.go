@@ -794,10 +794,10 @@ func TestVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to scan. %#v", v5)
 		}
 		dbt.mustFailDecimalSize(ct[4])
-		/*cLen = dbt.mustLength(ct[4])
-		if cLen != 0 {
+		cLen = dbt.mustLength(ct[4]) // BINARY
+		if cLen != 8388608 {
 			dbt.Errorf("failed to get length. %#v", ct[4])
-		}*/
+		}
 		canNull = dbt.mustNullable(ct[4])
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[4])
