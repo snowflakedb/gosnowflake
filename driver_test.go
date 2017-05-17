@@ -725,15 +725,15 @@ func TestBindingInterface(t *testing.T) {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v1)
 		}
 		s, ok = v2.(string)
-		if !ok || s != "2"{
+		if !ok || s != "2" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
 		}
 		s, ok = v3.(string)
-		if !ok || s != "t3"{
+		if !ok || s != "t3" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
 		}
 		s, ok = v4.(string)
-		if !ok || s != "4.2"{
+		if !ok || s != "4.2" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v4)
 		}
 	})
