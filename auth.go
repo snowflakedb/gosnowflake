@@ -71,7 +71,7 @@ type authResponseMain struct {
 	RemMeToken              string                  `json:"remMeToken"`
 	RemMeValidityInSeconds  time.Duration           `json:"remMeValidityInSeconds"`
 	HealthCheckInterval     time.Duration           `json:"healthCheckInterval"`
-	NewClientForUpgrade     string                  `json:"newClientForUpgrade"` // TODO: what is datatype?
+	NewClientForUpgrade     string                  `json:"newClientForUpgrade"`
 	SessionID               int                     `json:"sessionId"`
 	Parameters              []authResponseParameter `json:"parameters"`
 	SessionInfo             AuthResponseSessionInfo `json:"sessionInfo"`

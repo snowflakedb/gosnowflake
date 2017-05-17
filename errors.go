@@ -44,6 +44,8 @@ const (
 	ErrCodeFailedToParsePort = 260004
 	// ErrCodeIdpConnectionError is an error code for the case where a IDP connection failed
 	ErrCodeIdpConnectionError = 260005
+	// ErrCodeSSOURLNotMatch is an error code for the case where a SSO URL doesn't match
+	ErrCodeSSOURLNotMatch = 260006
 
 	/* network */
 
@@ -55,8 +57,15 @@ const (
 	ErrFailedToCancelQuery = 261003
 	// ErrFailedToCloseSession is an error code for the case where close session failed.
 	ErrFailedToCloseSession = 261004
-	// ErrFailedToAuth is an error code for the case where authentication failed for unknown reason
+	// ErrFailedToAuth is an error code for the case where authentication failed for unknown reason.
 	ErrFailedToAuth = 261005
+
+	// ErrFailedToAuthSAML is an error code for the case where authentication via SAML failed for unknown reason.
+	ErrFailedToAuthSAML = 261006
+	// ErrFailedToAuthOKTA is an error code for the case where authentication via OKTA failed for unknown reason.
+	ErrFailedToAuthOKTA = 261007
+	// ErrFailedToGetSSO is an error code for the case where authentication via OKTA failed for unknown reason.
+	ErrFailedToGetSSO = 261008
 
 	/* rows */
 
@@ -79,12 +88,16 @@ const (
 	errMsgInvalidOffsetStr     = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
 	errMsgInvalidByteArray     = "invalid byte array: %v"
 	errMsgIdpConnectionError   = "failed to verify URLs. authenticator: %v, token URL:%v, SSO URL:%v"
+	errMsgSSOURLNotMatch       = "SSO URL didn't match. expected: %v, got: %v"
 	errMsgFailedToGetChunk     = "failed to get a chunk of result sets. idx: %v"
 	errMsgFailedToPostQuery    = "failed to POST. HTTP: %v, URL: %v"
 	errMsgFailedToRenew        = "failed to renew session. HTTP: %v, URL: %v"
 	errMsgFailedToCancelQuery  = "failed to cancel query. HTTP: %v, URL: %v"
 	errMsgFailedToCloseSession = "failed to close session. HTTP: %v, URL: %v"
-	errMsgFailedToAuth         = "failed to auth. HTTP: %v, URL: %v"
+	errMsgFailedToAuth         = "failed to auth for unknown reason. HTTP: %v, URL: %v"
+	errMsgFailedToAuthSAML     = "failed to auth via SAML for unknown reason. HTTP: %v, URL: %v"
+	errMsgFailedToAuthOKTA     = "failed to auth via OKTA for unknown reason. HTTP: %v, URL: %v"
+	errMsgFailedToGetSSO       = "failed to auth via OKTA for unknown reason. HTTP: %v, URL: %v"
 )
 
 var (

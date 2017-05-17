@@ -84,8 +84,6 @@ func TestUnitPostQueryHelperError(t *testing.T) {
 	sr := &snowflakeRestful{
 		Token:    "token",
 		FuncPost: postTestError,
-		//FuncPostQuery: postQueryTest,
-		//FuncRenewSession: renewSessionTest,
 	}
 	var err error
 	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
