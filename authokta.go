@@ -152,6 +152,13 @@ func authenticateBySAML(
 	if b2, err = isPrefixEqual(tgtURL, fullURL); err != nil {
 		return nil, err
 	}
+	if !b2 {
+		return nil, &SnowflakeError{
+			Number:      ErrCodeSSOURLNotMatch,
+			Message:     errMsgSSOURLNotMatch,
+			MessageArgs: []interface{}{tgtURL, fullURL},
+		}
+	}
 	return bd, nil
 }
 

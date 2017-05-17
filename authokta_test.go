@@ -134,3 +134,114 @@ func TestGetSSO(t *testing.T) {
 		t.Fatal("should have failed.")
 	}
 }
+
+func postAuthSAMLError(_ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{}, errors.New("failed to get SAML response")
+}
+
+func postAuthSAMLAuthFail(_ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: false,
+		Message: "SAML auth failed",
+	}, nil
+}
+
+func postAuthSAMLAuthSuccessButInvalidURL(_ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: true,
+		Message: "",
+		Data: authResponseMain{
+			TokenURL: "https://1abc.com/token",
+			SSOURL:   "https://2abc.com/sso",
+		},
+	}, nil
+}
+
+func postAuthSAMLAuthSuccess(_ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: true,
+		Message: "",
+		Data: authResponseMain{
+			TokenURL: "https://abc.com/token",
+			SSOURL:   "https://abc.com/sso",
+		},
+	}, nil
+}
+
+func postAuthOKTAError(_ *snowflakeRestful, _ map[string]string, _ []byte, _ string, _ time.Duration) (*authOKTAResponse, error) {
+	return &authOKTAResponse{}, errors.New("failed to get SAML response")
+}
+
+func postAuthOKTASuccess(_ *snowflakeRestful, _ map[string]string, _ []byte, _ string, _ time.Duration) (*authOKTAResponse, error) {
+	return &authOKTAResponse{}, nil
+}
+
+func getSSOError(_ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
+	return []byte{}, errors.New("failed to get SSO html")
+}
+
+func getSSOSuccessButInvalidURL(_ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
+	return []byte(`<html><form id="1"/></html>`), nil
+}
+
+func getSSOSuccess(_ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
+	return []byte(`<html><form id="1" action="https&#x3a;&#x2f;&#x2f;abc.com&#x2f;"></form></html>`), nil
+}
+
+func TestAuthenticateBySAML(t *testing.T) {
+	authenticator := "https://abc.com/"
+	application := "testapp"
+	account := "testaccount"
+	user := "u"
+	password := "p"
+	sr := &snowflakeRestful{
+		Protocol:         "https",
+		Host:             "abc.com",
+		Port:             443,
+		FuncPostAuthSAML: postAuthSAMLError,
+	}
+	var err error
+	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	sr.FuncPostAuthSAML = postAuthSAMLAuthFail
+	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidURL
+	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	driverErr, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("should be snowflake error. err: %v", err)
+	}
+	if driverErr.Number != ErrCodeIdpConnectionError {
+		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeIdpConnectionError, driverErr.Number)
+	}
+	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccess
+	sr.FuncPostAuthOKTA = postAuthOKTAError
+	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	sr.FuncPostAuthOKTA = postAuthOKTASuccess
+	sr.FuncGetSSO = getSSOError
+	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	sr.FuncGetSSO = getSSOSuccessButInvalidURL
+	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	sr.FuncGetSSO = getSSOSuccess
+	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	if err != nil {
+		t.Fatalf("failed. err: %v", err)
+	}
+}
