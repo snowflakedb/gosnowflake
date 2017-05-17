@@ -1576,6 +1576,29 @@ func TestInvalidConnection(t *testing.T) {
 	}
 }
 
+func TestPing(t *testing.T) {
+	var db *sql.DB
+	var err error
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	if err = db.Ping(); err != nil {
+		t.Fatalf("failed to ping. %v, err: %v", dsn, err)
+	}
+	if err = db.PingContext(context.Background()); err != nil {
+		t.Fatalf("failed to ping with context. %v, err: %v", dsn, err)
+	}
+	if err = db.Close(); err != nil {
+		t.Fatalf("failed to close db. %v, err: %v", dsn, err)
+	}
+	if err = db.Ping(); err == nil {
+		t.Fatal("should have failed to ping")
+	}
+	if err = db.PingContext(context.Background()); err == nil {
+		t.Fatal("should have failed to ping with context")
+	}
+}
+
 func TestDoubleDollar(t *testing.T) {
 	// no escape is required for dollar signs
 	runTests(t, dsn, func(dbt *DBTest) {
