@@ -6,6 +6,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -15,6 +16,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/ocsp"
 )
 
 func TestOCSP(t *testing.T) {
@@ -63,7 +66,7 @@ type tcValidityRange struct {
 	ret      bool
 }
 
-func TestIsInValidityRange(t *testing.T) {
+func TestUnitIsInValidityRange(t *testing.T) {
 	currentTime := time.Now()
 	testcases := []tcValidityRange{
 		{
@@ -110,20 +113,94 @@ func TestIsInValidityRange(t *testing.T) {
 	}
 }
 
-func TestOCSPCertID(t *testing.T) {
+func TestUnitEncodeCertIDGood(t *testing.T) {
 	targetURLs := []string{
 		"testaccount.snowflakecomputing.com:443",
 		"s3-us-west-2.amazonaws.com:443",
 	}
 	for _, tt := range targetURLs {
 		chainedCerts := getCert(tt)
-		for _, c := range chainedCerts {
-			ocspServers := c.OCSPServer
+		for i := 0; i < len(chainedCerts)-1; i++ {
+			subject := chainedCerts[i]
+			issuer := chainedCerts[i+1]
+			ocspServers := subject.OCSPServer
 			if len(ocspServers) == 0 {
-				break
+				t.Fatalf("no OCSP server is found. cert: %v", subject.Subject)
 			}
-			//ocsp.CreateRequest(c, chainedCerts[idx+1], &ocsp.RequestOptions{})
+			ocspReq, err := ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{})
+			if err != nil {
+				t.Fatalf("failed to create OCSP request. err: %v", err)
+			}
+			var ost *ocspStatus
+			_, ost = encodeCertID(ocspReq)
+			if ost.err != nil {
+				t.Fatalf("failed to extract cert ID from the OCSP request. err: %v", ost.err)
+			}
+			// better hash. Not sure if the actual OCSP server accepts this, though.
+			ocspReq, err = ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{Hash: crypto.SHA512})
+			if err != nil {
+				t.Fatalf("failed to create OCSP request. err: %v", err)
+			}
+			_, ost = encodeCertID(ocspReq)
+			if ost.err != nil {
+				t.Fatalf("failed to extract cert ID from the OCSP request. err: %v", ost.err)
+			}
+			// tweaked request binary
+			ocspReq, err = ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{Hash: crypto.SHA512})
+			if err != nil {
+				t.Fatalf("failed to create OCSP request. err: %v", err)
+			}
+			ocspReq[10] = 0 // random change
+			_, ost = encodeCertID(ocspReq)
+			if ost.err == nil {
+				t.Fatal("should have failed")
+			}
 		}
+	}
+}
+
+func TestUnitCheckOCSPResponseCache(t *testing.T) {
+	ocspResponseCache["DUMMY_KEY"] = []interface{}{float64(1395054952), "DUMMY_VALUE"}
+	subject := &x509.Certificate{}
+	issuer := &x509.Certificate{}
+	ost := checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
+	if ost.code != ocspMissedCache {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspMissedCache, ost.code)
+	}
+	// old timestamp
+	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{float64(1395054952), "DUMMY_VALUE"}
+	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
+	if ost.code != ocspCacheExpired {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspCacheExpired, ost.code)
+	}
+	// future timestamp
+	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{float64(1595054952), "DUMMY_VALUE"}
+	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
+	if ost.code != ocspFailedDecodeResponse {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
+	}
+	// actual OCSP but invalid issuer certificate
+	actualOcspResponse := "MIIB0woBAKCCAcwwggHIBgkrBgEFBQcwAQEEggG5MIIBtTCBnqIWBBSxPsNpA/i/RwHUmCYaCALvY2QrwxgPMjAxNz" +
+		"A1MTYyMjAwMDBaMHMwcTBJMAkGBSsOAwIaBQAEFN+qEuMosQlBk+KfQoLOR0BClVijBBSxPsNpA/i/RwHUmCYaCALvY2QrwwIQBOHnp" +
+		"Nxc8vNtwCtCuF0Vn4AAGA8yMDE3MDUxNjIyMDAwMFqgERgPMjAxNzA1MjMyMjAwMDBaMA0GCSqGSIb3DQEBCwUAA4IBAQCuRGwqQsKy" +
+		"IAAGHgezTfG0PzMYgGD/XRDhU+2i08WTJ4Zs40Lu88cBeRXWF3iiJSpiX3/OLgfI7iXmHX9/sm2SmeNWc0Kb39bk5Lw1jwezf8hcI9+" +
+		"mZHt60vhUgtgZk21SsRlTZ+S4VXwtDqB1Nhv6cnSnfrL2A9qJDZS2ltPNOwebWJnznDAs2dg+KxmT2yBXpHM1kb0EOolWvNgORbgIgB" +
+		"koRzw/UU7zKsqiTB0ZN/rgJp+MocTdqQSGKvbZyR8d4u8eNQqi1x4Pk3yO/pftANFaJKGB+JPgKS3PQAqJaXcipNcEfqtl7y4PO6kqA" +
+		"Jb4xI/OTXIrRA5TsT4cCioE"
+	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{float64(1595054952), actualOcspResponse}
+	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
+	if ost.code != ocspFailedParseResponse {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedParseResponse, ost.code)
+	}
+	fmt.Printf("err: %v\n", ost.err)
+
+}
+
+func TestUnitEncodeCertID(t *testing.T) {
+	var st *ocspStatus
+	_, st = encodeCertID([]byte{0x1, 0x2})
+	if st.code != ocspFailedDecomposeRequst {
+		t.Fatalf("failed to get OCSP status. expected: %v, got: %v", ocspFailedDecomposeRequst, st.code)
 	}
 }
 
