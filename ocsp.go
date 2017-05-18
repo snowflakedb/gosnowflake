@@ -233,20 +233,18 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 }
 
 func validateOCSP(encodedCertIDBase64 string, ocspRes *ocsp.Response, subject *x509.Certificate) *ocspStatus {
+	ocspResponseCacheLock.Lock()
+	defer ocspResponseCacheLock.Unlock()
 	curTime := time.Now()
 	if !isInValidityRange(curTime, ocspRes.ThisUpdate, ocspRes.NextUpdate) {
-		ocspResponseCacheLock.Lock()
 		delete(ocspResponseCache, encodedCertIDBase64)
-		ocspResponseCacheLock.Unlock()
 		return &ocspStatus{
 			code: ocspInvalidValidity,
 			err:  fmt.Errorf("invalid validity: producedAt: %v, thisUpdate: %v, nextUpdate: %v", ocspRes.ProducedAt, ocspRes.ThisUpdate, ocspRes.NextUpdate),
 		}
 	}
 	if ocspRes.Status != ocsp.Good {
-		ocspResponseCacheLock.Lock()
 		delete(ocspResponseCache, encodedCertIDBase64)
-		ocspResponseCacheLock.Unlock()
 		return &ocspStatus{
 			code: ocspRevokedOrUnknown,
 			err:  fmt.Errorf("bad revocation status. %v: %v, cert: %v", ocspRes.Status, ocspRes.RevocationReason, subject.Subject),

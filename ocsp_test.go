@@ -228,6 +228,28 @@ func TestUnitValidateOCSP(t *testing.T) {
 	}
 }
 
+func TestUnitValidateOCSP(t *testing.T) {
+	subject := &x509.Certificate{}
+	ocspRes := &ocsp.Response{}
+	ost := validateOCSP("dummykey", ocspRes, subject)
+	if ost.code != ocspInvalidValidity {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspInvalidValidity, ost.code)
+	}
+	currentTime := time.Now()
+	ocspRes.ThisUpdate = currentTime.Add(-2 * time.Hour)
+	ocspRes.NextUpdate = currentTime.Add(2 * time.Hour)
+	ocspRes.Status = ocsp.Revoked
+	ost = validateOCSP("dummykey", ocspRes, subject)
+	if ost.code != ocspRevokedOrUnknown {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspRevokedOrUnknown, ost.code)
+	}
+	ocspRes.Status = ocsp.Good
+	ost = validateOCSP("dummykey", ocspRes, subject)
+	if ost.code != ocspSuccess {
+		t.Fatalf("should have success. expected: %v, got: %v", ocspSuccess, ost.code)
+	}
+}
+
 func TestUnitEncodeCertID(t *testing.T) {
 	var st *ocspStatus
 	_, st = encodeCertID([]byte{0x1, 0x2})
