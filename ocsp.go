@@ -176,8 +176,8 @@ func encodeCertID(ocspReq []byte) ([]byte, *ocspStatus) {
 
 func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certificate) *ocspStatus {
 	encodedCertIDBase64 := base64.StdEncoding.EncodeToString(encodedCertID)
-	ocspResponseCacheLock.Lock()
-	defer ocspResponseCacheLock.Unlock()
+	ocspResponseCacheLock.RLock()
+	defer ocspResponseCacheLock.RUnlock()
 	gotValueFromCache := ocspResponseCache[encodedCertIDBase64]
 	if len(gotValueFromCache) != 2 {
 		return &ocspStatus{
@@ -225,8 +225,8 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 }
 
 func validateOCSP(encodedCertIDBase64 string, ocspRes *ocsp.Response, subject *x509.Certificate) *ocspStatus {
-	ocspResponseCacheLock.Lock()
-	defer ocspResponseCacheLock.Unlock()
+	ocspResponseCacheLock.RLock()
+	defer ocspResponseCacheLock.RUnlock()
 	curTime := time.Now()
 	if !isInValidityRange(curTime, ocspRes.ThisUpdate, ocspRes.NextUpdate) {
 		delete(ocspResponseCache, encodedCertIDBase64)
@@ -388,9 +388,9 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	encodedCertIDBase64 := base64.StdEncoding.EncodeToString(encodedCertID)
 	ocspStatusChan <- validateOCSP(encodedCertIDBase64, ocspRes, subject)
 	v := []interface{}{float64(time.Now().UTC().Unix()), base64.StdEncoding.EncodeToString(ocspResBytes)}
-	ocspResponseCacheLock.Lock()
+	ocspResponseCacheLock.RLock()
 	ocspResponseCache[encodedCertIDBase64] = v
-	ocspResponseCacheLock.Unlock()
+	ocspResponseCacheLock.RUnlock()
 	return
 }
 
@@ -500,8 +500,8 @@ func writeOCSPCacheFile() {
 		os.OpenFile(cacheLockFileName, os.O_RDONLY|os.O_CREATE, 0644)
 	}
 	defer os.Remove(cacheLockFileName)
-	ocspResponseCacheLock.Lock()
-	defer ocspResponseCacheLock.Unlock()
+	ocspResponseCacheLock.RLock()
+	defer ocspResponseCacheLock.RUnlock()
 	j, err := json.Marshal(ocspResponseCache)
 	if err != nil {
 		glog.V(2).Info("failed to convert OCSP Response cache to JSON. ignored.")
