@@ -177,8 +177,8 @@ func encodeCertID(ocspReq []byte) ([]byte, *ocspStatus) {
 func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certificate) *ocspStatus {
 	encodedCertIDBase64 := base64.StdEncoding.EncodeToString(encodedCertID)
 	ocspResponseCacheLock.Lock()
-	defer ocspResponseCacheLock.Unlock()
 	gotValueFromCache := ocspResponseCache[encodedCertIDBase64]
+	ocspResponseCacheLock.Unlock()
 	if len(gotValueFromCache) != 2 {
 		return &ocspStatus{
 			code: ocspMissedCache,
@@ -189,7 +189,9 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 	currentTime := float64(time.Now().UTC().Unix())
 	if epoch, ok := gotValueFromCache[0].(float64); ok {
 		if currentTime-epoch >= cacheExpire {
+			ocspResponseCacheLock.Lock()
 			delete(ocspResponseCache, encodedCertIDBase64)
+			ocspResponseCacheLock.Unlock()
 			return &ocspStatus{
 				code: ocspCacheExpired,
 				err: fmt.Errorf("cache expired. current: %v, cache: %v, CertID: %v",
@@ -199,7 +201,9 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 		if s, ok := gotValueFromCache[1].(string); ok {
 			b, err := base64.StdEncoding.DecodeString(s)
 			if err != nil {
+				ocspResponseCacheLock.Lock()
 				delete(ocspResponseCache, encodedCertIDBase64)
+				ocspResponseCacheLock.Unlock()
 				return &ocspStatus{
 					code: ocspFailedDecodeResponse,
 					err:  fmt.Errorf("failed to decode OCSP Response value in a cache. CertID: %v", encodedCertIDBase64),
@@ -207,7 +211,9 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 			}
 			ocspRes, err := ocsp.ParseResponse(b, issuer)
 			if err != nil {
+				ocspResponseCacheLock.Lock()
 				delete(ocspResponseCache, encodedCertIDBase64)
+				ocspResponseCacheLock.Unlock()
 				return &ocspStatus{
 					code: ocspFailedParseResponse,
 					err:  fmt.Errorf("failed to parse OCSP Respose. CertID: %v", encodedCertIDBase64),
@@ -217,7 +223,9 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 			return validateOCSP(encodedCertIDBase64, ocspRes, subject)
 		}
 	}
+	ocspResponseCacheLock.Lock()
 	delete(ocspResponseCache, encodedCertIDBase64) // delete invalid cache entry
+	ocspResponseCacheLock.Unlock()
 	return &ocspStatus{
 		code: ocspMissedCache,
 		err:  fmt.Errorf("missed cache. CertID: %v", encodedCertIDBase64),
