@@ -192,8 +192,6 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedParseResponse, ost.code)
 	}
-	fmt.Printf("err: %v\n", ost.err)
-
 }
 
 func TestUnitEncodeCertID(t *testing.T) {
