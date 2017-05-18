@@ -176,9 +176,9 @@ func encodeCertID(ocspReq []byte) ([]byte, *ocspStatus) {
 
 func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certificate) *ocspStatus {
 	encodedCertIDBase64 := base64.StdEncoding.EncodeToString(encodedCertID)
-	ocspResponseCacheLock.RLock()
-	defer ocspResponseCacheLock.RUnlock()
+	ocspResponseCacheLock.Lock()
 	gotValueFromCache := ocspResponseCache[encodedCertIDBase64]
+	ocspResponseCacheLock.Unlock()
 	if len(gotValueFromCache) != 2 {
 		return &ocspStatus{
 			code: ocspMissedCache,
@@ -189,7 +189,9 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 	currentTime := float64(time.Now().UTC().Unix())
 	if epoch, ok := gotValueFromCache[0].(float64); ok {
 		if currentTime-epoch >= cacheExpire {
+			ocspResponseCacheLock.Lock()
 			delete(ocspResponseCache, encodedCertIDBase64)
+			ocspResponseCacheLock.Unlock()
 			return &ocspStatus{
 				code: ocspCacheExpired,
 				err: fmt.Errorf("cache expired. current: %v, cache: %v, CertID: %v",
@@ -199,7 +201,9 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 		if s, ok := gotValueFromCache[1].(string); ok {
 			b, err := base64.StdEncoding.DecodeString(s)
 			if err != nil {
+				ocspResponseCacheLock.Lock()
 				delete(ocspResponseCache, encodedCertIDBase64)
+				ocspResponseCacheLock.Unlock()
 				return &ocspStatus{
 					code: ocspFailedDecodeResponse,
 					err:  fmt.Errorf("failed to decode OCSP Response value in a cache. CertID: %v", encodedCertIDBase64),
@@ -207,7 +211,9 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 			}
 			ocspRes, err := ocsp.ParseResponse(b, issuer)
 			if err != nil {
+				ocspResponseCacheLock.Lock()
 				delete(ocspResponseCache, encodedCertIDBase64)
+				ocspResponseCacheLock.Unlock()
 				return &ocspStatus{
 					code: ocspFailedParseResponse,
 					err:  fmt.Errorf("failed to parse OCSP Respose. CertID: %v", encodedCertIDBase64),
@@ -217,7 +223,9 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 			return validateOCSP(encodedCertIDBase64, ocspRes, subject)
 		}
 	}
+	ocspResponseCacheLock.Lock()
 	delete(ocspResponseCache, encodedCertIDBase64) // delete invalid cache entry
+	ocspResponseCacheLock.Unlock()
 	return &ocspStatus{
 		code: ocspMissedCache,
 		err:  fmt.Errorf("missed cache. CertID: %v", encodedCertIDBase64),
@@ -225,18 +233,20 @@ func checkOCSPResponseCache(encodedCertID []byte, subject, issuer *x509.Certific
 }
 
 func validateOCSP(encodedCertIDBase64 string, ocspRes *ocsp.Response, subject *x509.Certificate) *ocspStatus {
-	ocspResponseCacheLock.RLock()
-	defer ocspResponseCacheLock.RUnlock()
 	curTime := time.Now()
 	if !isInValidityRange(curTime, ocspRes.ThisUpdate, ocspRes.NextUpdate) {
+		ocspResponseCacheLock.Lock()
 		delete(ocspResponseCache, encodedCertIDBase64)
+		ocspResponseCacheLock.Unlock()
 		return &ocspStatus{
 			code: ocspInvalidValidity,
 			err:  fmt.Errorf("invalid validity: producedAt: %v, thisUpdate: %v, nextUpdate: %v", ocspRes.ProducedAt, ocspRes.ThisUpdate, ocspRes.NextUpdate),
 		}
 	}
 	if ocspRes.Status != ocsp.Good {
+		ocspResponseCacheLock.Lock()
 		delete(ocspResponseCache, encodedCertIDBase64)
+		ocspResponseCacheLock.Unlock()
 		return &ocspStatus{
 			code: ocspRevokedOrUnknown,
 			err:  fmt.Errorf("bad revocation status. %v: %v, cert: %v", ocspRes.Status, ocspRes.RevocationReason, subject.Subject),
@@ -388,9 +398,9 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	encodedCertIDBase64 := base64.StdEncoding.EncodeToString(encodedCertID)
 	ocspStatusChan <- validateOCSP(encodedCertIDBase64, ocspRes, subject)
 	v := []interface{}{float64(time.Now().UTC().Unix()), base64.StdEncoding.EncodeToString(ocspResBytes)}
-	ocspResponseCacheLock.RLock()
+	ocspResponseCacheLock.Lock()
 	ocspResponseCache[encodedCertIDBase64] = v
-	ocspResponseCacheLock.RUnlock()
+	ocspResponseCacheLock.Unlock()
 	return
 }
 
@@ -500,8 +510,8 @@ func writeOCSPCacheFile() {
 		os.OpenFile(cacheLockFileName, os.O_RDONLY|os.O_CREATE, 0644)
 	}
 	defer os.Remove(cacheLockFileName)
-	ocspResponseCacheLock.RLock()
-	defer ocspResponseCacheLock.RUnlock()
+	ocspResponseCacheLock.Lock()
+	defer ocspResponseCacheLock.Unlock()
 	j, err := json.Marshal(ocspResponseCache)
 	if err != nil {
 		glog.V(2).Info("failed to convert OCSP Response cache to JSON. ignored.")
