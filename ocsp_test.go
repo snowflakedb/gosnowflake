@@ -179,7 +179,7 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	if ost.code != ocspFailedDecodeResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
 	}
-	// actual OCSP but invalid issuer certificate
+	// actual OCSP but it fails to parse, because an invalid issuer certificate is given.
 	actualOcspResponse := "MIIB0woBAKCCAcwwggHIBgkrBgEFBQcwAQEEggG5MIIBtTCBnqIWBBSxPsNpA/i/RwHUmCYaCALvY2QrwxgPMjAxNz" +
 		"A1MTYyMjAwMDBaMHMwcTBJMAkGBSsOAwIaBQAEFN+qEuMosQlBk+KfQoLOR0BClVijBBSxPsNpA/i/RwHUmCYaCALvY2QrwwIQBOHnp" +
 		"Nxc8vNtwCtCuF0Vn4AAGA8yMDE3MDUxNjIyMDAwMFqgERgPMjAxNzA1MjMyMjAwMDBaMA0GCSqGSIb3DQEBCwUAA4IBAQCuRGwqQsKy" +
@@ -191,6 +191,18 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
 	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedParseResponse, ost.code)
+	}
+	// wrong timestamp type
+	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{uint32(1595054952), 123456}
+	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
+	if ost.code != ocspMissedCache {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspMissedCache, ost.code)
+	}
+	// wrong value type
+	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{float64(1595054952), 123456}
+	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
+	if ost.code != ocspMissedCache {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspMissedCache, ost.code)
 	}
 }
 
