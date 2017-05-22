@@ -101,7 +101,7 @@ func postAuth(
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/session/v1/login-request?"+params.Encode())
-	glog.V(2).Infof("fullURL: %v", fullURL)
+	glog.V(2).Infof("full URL: %v", fullURL)
 	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout)
 	if err != nil {
 		return nil, err
@@ -113,6 +113,7 @@ func postAuth(
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			glog.V(1).Infof("failed to decode JSON. err: %v", err)
+			glog.Flush()
 			return nil, err
 		}
 		return &respd, nil
@@ -136,10 +137,12 @@ func postAuth(
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
+		glog.Flush()
 		return nil, err
 	}
 	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
 	glog.V(1).Infof("Header: %v", resp.Header)
+	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuth,
 		Message:     errMsgFailedToAuth,
@@ -223,6 +226,7 @@ func authenticate(
 	}
 	if !respd.Success {
 		glog.V(1).Infoln("Authentication FAILED")
+		glog.Flush()
 		sr.Token = ""
 		sr.MasterToken = ""
 		sr.SessionID = -1

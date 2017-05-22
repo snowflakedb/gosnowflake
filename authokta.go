@@ -93,6 +93,7 @@ func authenticateBySAML(
 	}
 	if !respd.Success {
 		glog.V(1).Infoln("Authentication FAILED")
+		glog.Flush()
 		sr.Token = ""
 		sr.MasterToken = ""
 		sr.SessionID = -1
@@ -224,6 +225,7 @@ func postAuthSAML(
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			glog.V(1).Infof("failed to decode JSON. err: %v", err)
+			glog.Flush()
 			return nil, err
 		}
 		return &respd, nil
@@ -231,10 +233,12 @@ func postAuthSAML(
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
+		glog.Flush()
 		return nil, err
 	}
 	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
 	glog.V(1).Infof("Header: %v", resp.Header)
+	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuthSAML,
 		Message:     errMsgFailedToAuthSAML,
@@ -261,6 +265,7 @@ func postAuthOKTA(
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			glog.V(1).Infof("failed to decode JSON. err: %v", err)
+			glog.Flush()
 			return nil, err
 		}
 		return &respd, nil
@@ -268,10 +273,12 @@ func postAuthOKTA(
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
+		glog.Flush()
 		return nil, err
 	}
 	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
 	glog.V(1).Infof("Header: %v", resp.Header)
+	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuthOKTA,
 		Message:     errMsgFailedToAuthOKTA,
@@ -296,6 +303,7 @@ func getSSO(
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
+		glog.Flush()
 		return nil, err
 	}
 	if resp.StatusCode == http.StatusOK {
@@ -304,6 +312,7 @@ func getSSO(
 	}
 	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
 	glog.V(1).Infof("Header: %v", resp.Header)
+	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToGetSSO,
 		Message:     errMsgFailedToGetSSO,

@@ -172,6 +172,7 @@ func postRestfulQueryHelper(
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			glog.V(1).Infof("failed to decode JSON. err: %v", err)
+			glog.Flush()
 			return nil, err
 		}
 		if respd.Code == sessionExpiredCode {
@@ -203,6 +204,7 @@ func postRestfulQueryHelper(
 			resp.Body.Close()
 			if err != nil {
 				glog.V(1).Infof("failed to decode JSON. err: %v", err)
+				glog.Flush()
 				return nil, err
 			}
 			if respd.Code == sessionExpiredCode {
@@ -224,6 +226,7 @@ func postRestfulQueryHelper(
 	}
 	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
 	glog.V(1).Infof("Header: %v", resp.Header)
+	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToPostQuery,
 		Message:     errMsgFailedToPostQuery,
@@ -255,6 +258,7 @@ func closeSession(sr *snowflakeRestful) error {
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			glog.V(1).Infof("failed to decode JSON. err: %v", err)
+			glog.Flush()
 			return err
 		}
 		if !respd.Success && respd.Code != sessionExpiredCode {
@@ -273,10 +277,12 @@ func closeSession(sr *snowflakeRestful) error {
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
+		glog.Flush()
 		return err
 	}
 	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
 	glog.V(1).Infof("Header: %v", resp.Header)
+	glog.Flush()
 	return &SnowflakeError{
 		Number:      ErrFailedToCloseSession,
 		Message:     errMsgFailedToCloseSession,
@@ -317,6 +323,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			glog.V(1).Infof("failed to decode JSON. err: %v", err)
+			glog.Flush()
 			return err
 		}
 		if !respd.Success {
@@ -337,10 +344,12 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
+		glog.Flush()
 		return err
 	}
 	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
 	glog.V(1).Infof("Header: %v", resp.Header)
+	glog.Flush()
 	return &SnowflakeError{
 		Number:      ErrFailedToRenewSession,
 		Message:     errMsgFailedToRenew,
@@ -379,6 +388,7 @@ func cancelQuery(sr *snowflakeRestful, requestID string) error {
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
 			glog.V(1).Infof("failed to decode JSON. err: %v", err)
+			glog.Flush()
 			return err
 		}
 		if !respd.Success && respd.Code == sessionExpiredCode {
@@ -403,10 +413,12 @@ func cancelQuery(sr *snowflakeRestful, requestID string) error {
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
+		glog.Flush()
 		return err
 	}
 	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
 	glog.V(1).Infof("Header: %v", resp.Header)
+	glog.Flush()
 	return &SnowflakeError{
 		Number:      ErrFailedToCancelQuery,
 		Message:     errMsgFailedToCancelQuery,
