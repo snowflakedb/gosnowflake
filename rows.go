@@ -282,6 +282,7 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 		if err != nil {
 			glog.V(1).Infof(
 				"failed to decode JSON from HTTP response. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
+			glog.Flush()
 			scd.ChunksError <- &chunkError{Index: idx, Error: err}
 			return
 		}
@@ -293,11 +294,13 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 		if err != nil {
 			glog.V(1).Infof(
 				"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
+			glog.Flush()
 			scd.ChunksError <- &chunkError{Index: idx, Error: err}
 			return
 		}
 		glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
 		glog.V(1).Infof("Header: %v", resp.Header)
+		glog.Flush()
 		scd.ChunksError <- &chunkError{
 			Index: idx,
 			Error: &SnowflakeError{

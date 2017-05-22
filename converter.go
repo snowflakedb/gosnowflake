@@ -67,6 +67,7 @@ func snowflakeTypeToGo(dbtype string, scale int64) reflect.Type {
 		return reflect.TypeOf(true)
 	}
 	glog.V(1).Infof("unsupported dbtype is specified. %v", dbtype)
+	glog.Flush()
 	return reflect.TypeOf("")
 }
 
