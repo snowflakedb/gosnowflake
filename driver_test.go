@@ -849,8 +849,7 @@ func TestVariousTypes(t *testing.T) {
 	})
 }
 
-/*
-//TODO: this will be enabled when the server supports TIMEZONE_TZ binding.
+
 func TestTimestampTZPlaceholder(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		expected := time.Now()
@@ -880,7 +879,7 @@ func TestTimestampTZPlaceholder(t *testing.T) {
 		dbt.mustExec("DROP TABLE tztest")
 	})
 }
-*/
+
 
 func TestString(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
