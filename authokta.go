@@ -103,8 +103,9 @@ func authenticateBySAML(
 			return nil, err
 		}
 		return nil, &SnowflakeError{
-			Number:  code,
-			Message: respd.Message,
+			Number:   code,
+			SQLState: SQLStateConnectionRejected,
+			Message:  respd.Message,
 		}
 	}
 	glog.V(2).Info("step 2: validate Token and SSO URL has the same prefix as authenticator")
@@ -118,6 +119,7 @@ func authenticateBySAML(
 	if !b1 || !b2 {
 		return nil, &SnowflakeError{
 			Number:      ErrCodeIdpConnectionError,
+			SQLState:    SQLStateConnectionRejected,
 			Message:     errMsgIdpConnectionError,
 			MessageArgs: []interface{}{authenticator, respd.Data.TokenURL, respd.Data.SSOURL},
 		}
@@ -156,6 +158,7 @@ func authenticateBySAML(
 	if !b2 {
 		return nil, &SnowflakeError{
 			Number:      ErrCodeSSOURLNotMatch,
+			SQLState:    SQLStateConnectionRejected,
 			Message:     errMsgSSOURLNotMatch,
 			MessageArgs: []interface{}{tgtURL, fullURL},
 		}
@@ -241,6 +244,7 @@ func postAuthSAML(
 	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuthSAML,
+		SQLState:    SQLStateConnectionRejected,
 		Message:     errMsgFailedToAuthSAML,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
@@ -281,6 +285,7 @@ func postAuthOKTA(
 	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuthOKTA,
+		SQLState:    SQLStateConnectionRejected,
 		Message:     errMsgFailedToAuthOKTA,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
@@ -315,6 +320,7 @@ func getSSO(
 	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToGetSSO,
+		SQLState:    SQLStateConnectionRejected,
 		Message:     errMsgFailedToGetSSO,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}

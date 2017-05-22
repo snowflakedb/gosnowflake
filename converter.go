@@ -217,8 +217,9 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		tm := strings.Split(*srcValue, " ")
 		if len(tm) != 2 {
 			return &SnowflakeError{
-				Number:  ErrInvalidTimestampTz,
-				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data. The value doesn't consist of two numeric values separated by a space: %v", *srcValue),
+				Number:   ErrInvalidTimestampTz,
+				SQLState: SQLStateInvalidDataTimeFormat,
+				Message:  fmt.Sprintf("invalid TIMESTAMP_TZ data. The value doesn't consist of two numeric values separated by a space: %v", *srcValue),
 			}
 		}
 		sec, nsec, err := extractTimestamp(&tm[0])
@@ -228,8 +229,9 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		offset, err := strconv.ParseInt(tm[1], 10, 64)
 		if err != nil {
 			return &SnowflakeError{
-				Number:  ErrInvalidTimestampTz,
-				Message: fmt.Sprintf("invalid TIMESTAMP_TZ data. The offset value is not integer: %v", tm[1]),
+				Number:   ErrInvalidTimestampTz,
+				SQLState: SQLStateInvalidDataTimeFormat,
+				Message:  fmt.Sprintf("invalid TIMESTAMP_TZ data. The offset value is not integer: %v", tm[1]),
 			}
 		}
 		loc := Location(int(offset) - 1440)
@@ -240,8 +242,9 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		b, err := hex.DecodeString(*srcValue)
 		if err != nil {
 			return &SnowflakeError{
-				Number:  ErrInvalidBinaryHexForm,
-				Message: err.Error(),
+				Number:   ErrInvalidBinaryHexForm,
+				SQLState: SQLStateNumericValueOutOfRange,
+				Message:  err.Error(),
 			}
 		}
 		*dest = b

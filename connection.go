@@ -136,14 +136,16 @@ func (sc *snowflakeConn) BeginTx(ctx context.Context, opts driver.TxOptions) (dr
 	glog.V(2).Info("BeginTx")
 	if opts.ReadOnly {
 		return nil, &SnowflakeError{
-			Number:  ErrNoReadOnlyTransaction,
-			Message: errMsgNoReadOnlyTransaction,
+			Number:   ErrNoReadOnlyTransaction,
+			SQLState: SQLStateFeatureNotSupported,
+			Message:  errMsgNoReadOnlyTransaction,
 		}
 	}
 	if int(opts.Isolation) != int(sql.LevelDefault) {
 		return nil, &SnowflakeError{
-			Number:  ErrNoDefaultTransactionIsolationLevel,
-			Message: errMsgNoDefaultTransactionIsolationLevel,
+			Number:   ErrNoDefaultTransactionIsolationLevel,
+			SQLState: SQLStateFeatureNotSupported,
+			Message:  errMsgNoDefaultTransactionIsolationLevel,
 		}
 	}
 	if sc.rest == nil {

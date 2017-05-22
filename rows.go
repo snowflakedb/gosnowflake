@@ -305,6 +305,7 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 			Index: idx,
 			Error: &SnowflakeError{
 				Number:      ErrFailedToGetChunk,
+				SQLState:    SQLStateConnectionFailure,
 				Message:     errMsgFailedToGetChunk,
 				MessageArgs: []interface{}{idx},
 			}}

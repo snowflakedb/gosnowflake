@@ -229,6 +229,7 @@ func postRestfulQueryHelper(
 	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToPostQuery,
+		SQLState:    SQLStateConnectionFailure,
 		Message:     errMsgFailedToPostQuery,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
@@ -267,9 +268,8 @@ func closeSession(sr *snowflakeRestful) error {
 				return err
 			}
 			return &SnowflakeError{
-				Number:   c,
-				Message:  respd.Message,
-				SQLState: respd.Code,
+				Number:  c,
+				Message: respd.Message,
 			}
 		}
 		return nil
@@ -285,6 +285,7 @@ func closeSession(sr *snowflakeRestful) error {
 	glog.Flush()
 	return &SnowflakeError{
 		Number:      ErrFailedToCloseSession,
+		SQLState:    SQLStateConnectionFailure,
 		Message:     errMsgFailedToCloseSession,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
@@ -332,9 +333,8 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 				return err
 			}
 			return &SnowflakeError{
-				Number:   c,
-				Message:  respd.Message,
-				SQLState: respd.Code,
+				Number:  c,
+				Message: respd.Message,
 			}
 		}
 		sr.Token = respd.Data.SessionToken
@@ -352,6 +352,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 	glog.Flush()
 	return &SnowflakeError{
 		Number:      ErrFailedToRenewSession,
+		SQLState:    SQLStateConnectionFailure,
 		Message:     errMsgFailedToRenew,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
@@ -421,6 +422,7 @@ func cancelQuery(sr *snowflakeRestful, requestID string) error {
 	glog.Flush()
 	return &SnowflakeError{
 		Number:      ErrFailedToCancelQuery,
+		SQLState:    SQLStateConnectionFailure,
 		Message:     errMsgFailedToCancelQuery,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}

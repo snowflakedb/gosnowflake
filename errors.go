@@ -23,10 +23,16 @@ func (se *SnowflakeError) Error() string {
 	if len(se.MessageArgs) > 0 {
 		message = fmt.Sprintf(se.Message, se.MessageArgs)
 	}
-	if se.IncludeQueryID {
-		return fmt.Sprintf("%06d (%s): %s: %s", se.Number, se.SQLState, se.QueryID, message)
+	if se.SQLState != "" {
+		if se.IncludeQueryID {
+			return fmt.Sprintf("%06d (%s): %s: %s", se.Number, se.SQLState, se.QueryID, message)
+		}
+		return fmt.Sprintf("%06d (%s): %s", se.Number, se.SQLState, message)
 	}
-	return fmt.Sprintf("%06d (%s): %s", se.Number, se.SQLState, message)
+	if se.IncludeQueryID {
+		return fmt.Sprintf("%06d: %s: %s", se.Number, se.QueryID, message)
+	}
+	return fmt.Sprintf("%06d: %s", se.Number, message)
 }
 
 const (
