@@ -1726,6 +1726,7 @@ func TestTimezoneSessionParameter(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to run show parameters. err: %v", err)
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		t.Fatal("failed to get timezone.")
 	}
@@ -1737,6 +1738,7 @@ func TestTimezoneSessionParameter(t *testing.T) {
 	if v != "America/Los_Angeles" {
 		t.Fatalf("failed to get an expected timezone. got: %v", v)
 	}
+	createDSN("UTC")
 }
 
 func init() {
