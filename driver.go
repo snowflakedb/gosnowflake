@@ -65,7 +65,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		FuncPostAuthOKTA:    postAuthOKTA,
 		FuncGetSSO:          getSSO,
 	}
-	var sessionInfo *authResponseSessionInfo
+	var authData *authResponseMain
 	var samlResponse []byte
 	if sc.cfg.Authenticator != "snowflake" {
 		samlResponse, err = authenticateBySAML(sc.rest, sc.cfg.Authenticator, sc.cfg.Application, sc.cfg.Account, sc.cfg.User, sc.cfg.Password)
@@ -74,7 +74,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 			return nil, err
 		}
 	}
-	sessionInfo, err = authenticate(
+	authData, err = authenticate(
 		sc.rest,
 		sc.cfg.User,
 		sc.cfg.Password,
@@ -86,7 +86,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		sc.cfg.Passcode,
 		sc.cfg.PasscodeInPassword,
 		sc.cfg.Application,
-		sc.cfg.Params["timezone"],
+		sc.cfg.Params,
 		samlResponse,
 		"",
 		"",
@@ -95,12 +95,12 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		sc.cleanup()
 		return nil, err
 	}
-	glog.V(2).Infof("SessionInfo: %v", sessionInfo)
-	sc.cfg.Database = sessionInfo.DatabaseName
-	sc.cfg.Schema = sessionInfo.SchemaName
-	sc.cfg.Role = sessionInfo.RoleName
-	sc.cfg.Warehouse = sessionInfo.WarehouseName
-
+	glog.V(2).Infof("Auth Data: %v", authData)
+	sc.cfg.Database = authData.SessionInfo.DatabaseName
+	sc.cfg.Schema = authData.SessionInfo.SchemaName
+	sc.cfg.Role = authData.SessionInfo.RoleName
+	sc.cfg.Warehouse = authData.SessionInfo.WarehouseName
+	sc.populateSessionParameters(authData.Parameters)
 	return sc, nil
 }
 

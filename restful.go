@@ -198,8 +198,6 @@ func postRestfulQueryHelper(
 				"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, resultURL)
 
 			resp, err = sr.FuncGet(ctx, sr, fullURL, headers, 0)
-			respd = execResponse{}
-
 			err = json.NewDecoder(resp.Body).Decode(&respd)
 			resp.Body.Close()
 			if err != nil {

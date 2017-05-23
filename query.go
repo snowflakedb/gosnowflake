@@ -5,7 +5,6 @@
 package gosnowflake
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -40,7 +39,7 @@ type execResponseChunk struct {
 // make all data field optional
 type execResponseData struct {
 	// succeed query response data
-	Parameters         json.RawMessage       `json:"parameters,omitempty"`
+	Parameters         []nameValueParameter  `json:"parameters,omitempty"`
 	RowType            []execResponseRowType `json:"rowtype,omitempty"`
 	RowSet             [][]*string           `json:"rowset,omitempty"`
 	Total              int64                 `json:"total,omitempty"`    // java:long

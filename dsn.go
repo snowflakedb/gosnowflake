@@ -22,15 +22,15 @@ const (
 
 // Config is a set of configuration parameters
 type Config struct {
-	Account   string            // Account name
-	User      string            // Username
-	Password  string            // Password (requires User)
-	Database  string            // Database name
-	Schema    string            // Schema
-	Warehouse string            // Warehouse
-	Role      string            // Role
-	Region    string            // Region
-	Params    map[string]string // other connection parameters
+	Account   string             // Account name
+	User      string             // Username
+	Password  string             // Password (requires User)
+	Database  string             // Database name
+	Schema    string             // Schema
+	Warehouse string             // Warehouse
+	Role      string             // Role
+	Region    string             // Region
+	Params    map[string]*string // other connection parameters
 
 	Protocol string // http or https (optional)
 	Host     string // hostname (optional)
@@ -111,7 +111,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 // ParseDSN parses the DSN string to a Config
 func ParseDSN(dsn string) (cfg *Config, err error) {
 	// New config with some default values
-	cfg = &Config{}
+	cfg = &Config{
+		Params: make(map[string]*string),
+	}
 
 	// user[:password]@account/database/schema[?param1=value1&paramN=valueN]
 	// or
@@ -409,9 +411,9 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			proxyPassword = value
 		default:
 			if cfg.Params == nil {
-				cfg.Params = make(map[string]string)
+				cfg.Params = make(map[string]*string)
 			}
-			cfg.Params[param[0]] = value
+			cfg.Params[param[0]] = &value
 		}
 	}
 	return

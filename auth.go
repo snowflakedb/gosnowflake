@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -52,12 +53,11 @@ type authRequest struct {
 	Data authRequestData `json:"data"`
 }
 
-type authResponseParameter struct {
-	Name  string          `json:"name"`
-	Value json.RawMessage `json:"value"`
+type nameValueParameter struct {
+	Name  string      `json:"name"`
+	Value interface{} `json:"value"`
 }
 
-// authResponseSessionInfo includes the current database, schema, warehouse and role in the session.
 type authResponseSessionInfo struct {
 	DatabaseName  string `json:"databaseName"`
 	SchemaName    string `json:"schemaName"`
@@ -78,7 +78,7 @@ type authResponseMain struct {
 	HealthCheckInterval     time.Duration           `json:"healthCheckInterval"`
 	NewClientForUpgrade     string                  `json:"newClientForUpgrade"`
 	SessionID               int                     `json:"sessionId"`
-	Parameters              []authResponseParameter `json:"parameters"`
+	Parameters              []nameValueParameter    `json:"parameters"`
 	SessionInfo             authResponseSessionInfo `json:"sessionInfo"`
 	TokenURL                string                  `json:"tokenUrl,omitempty"`
 	SSOURL                  string                  `json:"ssoUrl,omitempty"`
@@ -167,10 +167,10 @@ func authenticate(
 	passcode string,
 	passcodeInPassword bool,
 	application string,
-	timezone string,
+	sessionParams map[string]*string,
 	samlResponse []byte,
 	mfaCallback string,
-	passwordCallback string) (resp *authResponseSessionInfo, err error) {
+	passwordCallback string) (resp *authResponseMain, err error) {
 	glog.V(2).Info("authenticate")
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
@@ -183,8 +183,9 @@ func authenticate(
 	}
 
 	sessionParameters := make(map[string]string)
-	if timezone != "" {
-		sessionParameters["TIMEZONE"] = timezone
+	for k, v := range sessionParams {
+		// upper casing to normalize keys
+		sessionParameters[strings.ToUpper(k)] = *v
 	}
 
 	requestMain := authRequestData{
@@ -256,5 +257,5 @@ func authenticate(
 	sr.Token = respd.Data.Token
 	sr.MasterToken = respd.Data.MasterToken
 	sr.SessionID = respd.Data.SessionID
-	return &respd.Data.SessionInfo, nil
+	return &respd.Data, nil
 }

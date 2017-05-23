@@ -6,13 +6,13 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync/atomic"
-
-	"database/sql"
 
 	"github.com/golang/glog"
 )
@@ -125,6 +125,7 @@ func (sc *snowflakeConn) exec(
 	sc.cfg.Warehouse = data.Data.FinalWarehouseName
 	sc.QueryID = data.Data.QueryID
 	sc.SQLState = data.Data.SQLState
+	sc.populateSessionParameters(data.Data.Parameters)
 	return data, err
 }
 
@@ -279,4 +280,32 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParameter) {
+	// other session parameters (not all)
+	glog.V(2).Infof("params: %#v", parameters)
+	for _, param := range parameters {
+		v := ""
+		switch param.Value.(type) {
+		case int64:
+			if vv, ok := param.Value.(int64); ok {
+				v = strconv.FormatInt(vv, 10)
+			}
+		case float64:
+			if vv, ok := param.Value.(float64); ok {
+				v = strconv.FormatFloat(vv, 'g', -1, 64)
+			}
+		case bool:
+			if vv, ok := param.Value.(bool); ok {
+				v = strconv.FormatBool(vv)
+			}
+		default:
+			if vv, ok := param.Value.(string); ok {
+				v = vv
+			}
+		}
+		glog.V(3).Infof("parameter. name: %v, value: %v", param.Name, v)
+		sc.cfg.Params[strings.ToLower(param.Name)] = &v
+	}
 }
