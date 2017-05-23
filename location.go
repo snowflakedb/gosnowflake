@@ -35,6 +35,7 @@ func LocationWithOffsetString(offsets string) (loc *time.Location, err error) {
 	if len(offsets) != 5 {
 		return nil, &SnowflakeError{
 			Number:      ErrInvalidOffsetStr,
+			SQLState:    SQLStateInvalidDataTimeFormat,
 			Message:     errMsgInvalidOffsetStr,
 			MessageArgs: []interface{}{offsets},
 		}
@@ -42,6 +43,7 @@ func LocationWithOffsetString(offsets string) (loc *time.Location, err error) {
 	if offsets[0] != '-' && offsets[0] != '+' {
 		return nil, &SnowflakeError{
 			Number:      ErrInvalidOffsetStr,
+			SQLState:    SQLStateInvalidDataTimeFormat,
 			Message:     errMsgInvalidOffsetStr,
 			MessageArgs: []interface{}{offsets},
 		}

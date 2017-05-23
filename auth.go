@@ -123,6 +123,7 @@ func postAuth(
 		// service availability or connectivity issue. Most likely server side issue.
 		return nil, &SnowflakeError{
 			Number:      ErrServiceUnavailable,
+			SQLState:    SQLStateConnectionWasNotEstablished,
 			Message:     errMsgServiceUnavailable,
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
 		}
@@ -130,6 +131,7 @@ func postAuth(
 		// failed to connect to db. account name may be wrong
 		return nil, &SnowflakeError{
 			Number:      ErrFailedToConnect,
+			SQLState:    SQLStateConnectionRejected,
 			Message:     errMsgFailedToConnect,
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
 		}
@@ -145,6 +147,7 @@ func postAuth(
 	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuth,
+		SQLState:    SQLStateConnectionRejected,
 		Message:     errMsgFailedToAuth,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
@@ -236,8 +239,9 @@ func authenticate(
 			return nil, err
 		}
 		return nil, &SnowflakeError{
-			Number:  code,
-			Message: respd.Message,
+			Number:   code,
+			SQLState: SQLStateConnectionRejected,
+			Message:  respd.Message,
 		}
 	}
 	glog.V(2).Info("Authentication SUCCESS")
