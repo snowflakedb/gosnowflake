@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func TestPostBackURL(t *testing.T) {
+func TestUnitPostBackURL(t *testing.T) {
 	c := `<html><form id="1" action="https&#x3a;&#x2f;&#x2f;abc.com&#x2f;"></form></html>`
 	urlp, err := postBackURL([]byte(c))
 	if err != nil {
@@ -46,7 +46,7 @@ type tcIsPrefixEqual struct {
 	err    error
 }
 
-func TestIsPrefixEqual(t *testing.T) {
+func TestUnitIsPrefixEqual(t *testing.T) {
 	testcases := []tcIsPrefixEqual{
 		{url1: "https://abc.com/", url2: "https://abc.com", result: true},
 		{url1: "https://def.com/", url2: "https://abc.com", result: false},
@@ -73,21 +73,28 @@ func TestIsPrefixEqual(t *testing.T) {
 	}
 }
 
-func getTestError(context.Context, *snowflakeRestful, string, map[string]string, time.Duration) (*http.Response, error) {
+func getTestError(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
 	return &http.Response{
-		StatusCode: http.StatusBadGateway,
+		StatusCode: http.StatusOK,
 		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
 	}, errors.New("failed to run post method")
 }
 
-func getTestAppError(context.Context, *snowflakeRestful, string, map[string]string, time.Duration) (*http.Response, error) {
+func getTestAppBadGatewayError(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusBadGateway,
 		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
 	}, nil
 }
 
-func TestPostAuthSAML(t *testing.T) {
+func getTestHTMLSuccess(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &fakeResponseBody{body: []byte("<htm></html>")},
+	}, nil
+}
+
+func TestUnitPostAuthSAML(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPost: postTestError,
 	}
@@ -101,9 +108,14 @@ func TestPostAuthSAML(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
+	sr.FuncPost = postTestSuccessButInvalidJSON
+	_, err = postAuthSAML(sr, make(map[string]string), []byte{0x12, 0x34}, 0)
+	if err == nil {
+		t.Fatalf("should have failed to post")
+	}
 }
 
-func TestPostAuthOKTA(t *testing.T) {
+func TestUnitPostAuthOKTA(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPost: postTestError,
 	}
@@ -117,9 +129,14 @@ func TestPostAuthOKTA(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
+	sr.FuncPost = postTestSuccessButInvalidJSON
+	_, err = postAuthOKTA(sr, make(map[string]string), []byte{0x12, 0x34}, "haha", 0)
+	if err == nil {
+		t.Fatal("should have failed to run post request after the renewal")
+	}
 }
 
-func TestGetSSO(t *testing.T) {
+func TestUnitGetSSO(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncGet: getTestError,
 	}
@@ -128,10 +145,15 @@ func TestGetSSO(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
-	sr.FuncGet = getTestAppError
+	sr.FuncGet = getTestAppBadGatewayError
 	_, err = getSSO(sr, &url.Values{}, make(map[string]string), "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
+	}
+	sr.FuncGet = getTestHTMLSuccess
+	_, err = getSSO(sr, &url.Values{}, make(map[string]string), "hahah", 0)
+	if err != nil {
+		t.Fatalf("failed to get HTML content. err: %v", err)
 	}
 }
 
@@ -188,7 +210,7 @@ func getSSOSuccess(_ *snowflakeRestful, _ *url.Values, _ map[string]string, _ st
 	return []byte(`<html><form id="1" action="https&#x3a;&#x2f;&#x2f;abc.com&#x2f;"></form></html>`), nil
 }
 
-func TestAuthenticateBySAML(t *testing.T) {
+func TestUnitAuthenticateBySAML(t *testing.T) {
 	authenticator := "https://abc.com/"
 	application := "testapp"
 	account := "testaccount"
