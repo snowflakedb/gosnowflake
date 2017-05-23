@@ -162,7 +162,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", []byte{}, "", "")
+		"testapp", "", []byte{}, "", "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -174,7 +174,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", []byte{}, "", "")
+		"testapp", "", []byte{}, "", "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -186,7 +186,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", []byte{}, "", "")
+		"testapp", "", []byte{}, "", "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -198,7 +198,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", []byte{}, "", "")
+		"testapp", "", []byte{}, "", "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -210,7 +210,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", []byte{}, "", "")
+		"testapp", "", []byte{}, "", "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -219,7 +219,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	resp, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", []byte{}, "", "")
+		"testapp", "", []byte{}, "", "")
 	if err != nil {
 		t.Fatalf("failed to auth. err: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestUnitAuthenticateSaml(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", []byte("HTML data in bytes from"), "", "")
+		"testapp", "", []byte("HTML data in bytes from"), "", "")
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "987654321", false,
-		"testapp", []byte{}, "", "")
+		"testapp", "", []byte{}, "", "")
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "987654321", true,
-		"testapp", []byte{}, "", "")
+		"testapp", "", []byte{}, "", "")
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}

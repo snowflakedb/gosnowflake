@@ -59,14 +59,14 @@ func init() {
 	} else {
 		host = fmt.Sprintf("%s:%s", host, port)
 	}
-	createDSN()
+	createDSN("UTC")
 }
 
-func createDSN() {
+func createDSN(timezone string) {
 	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, schemaname)
 
 	parameters := url.Values{}
-	parameters.Add("timezone", "UTC") // TODO: do we want to support this? This is good for tests.
+	parameters.Add("timezone", timezone)
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
 	}
@@ -107,7 +107,7 @@ func setup() (string, error) {
 	if _, err = db.Exec(fmt.Sprintf("CREATE OR REPLACE SCHEMA %v", schemaname)); err != nil {
 		return "", fmt.Errorf("failed to create schema. %v", err)
 	}
-	createDSN()
+	createDSN("UTC")
 	return orgSchemaname, nil
 }
 
@@ -1709,6 +1709,33 @@ func TestTransactionOptions(t *testing.T) {
 	driverErr, ok = err.(*SnowflakeError)
 	if !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
 		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoDefaultTransactionIsolationLevel)
+	}
+}
+
+func TestTimezoneSessionParameter(t *testing.T) {
+	var db *sql.DB
+	var err error
+	var rows *sql.Rows
+
+	createDSN("America/Los_Angeles")
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+	rows, err = db.Query("SHOW PARAMETERS LIKE 'TIMEZONE'")
+	if err != nil {
+		t.Errorf("failed to run show parameters. err: %v", err)
+	}
+	if !rows.Next() {
+		t.Fatal("failed to get timezone.")
+	}
+	var k, v, d, lv, de string
+	err = rows.Scan(&k, &v, &d, &lv, &de)
+	if err != nil {
+		t.Errorf("failed to run get timezone value. err: %v", err)
+	}
+	if v != "America/Los_Angeles" {
+		t.Fatalf("failed to get an expected timezone. got: %v", v)
 	}
 }
 

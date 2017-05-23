@@ -45,6 +45,7 @@ type authRequestData struct {
 	ExtAuthnDuoMethod string                       `json:"EXT_AUTHN_DUO_METHOD,omitempty"`
 	Passcode          string                       `json:"PASSCODE,omitempty"`
 	Authenticator     string                       `json:"AUTHENTICATOR,omitempty"`
+	SessionParameters map[string]string            `json:"SESSION_PARAMETERS,omitempty"`
 	ClientEnvironment authRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
 }
 type authRequest struct {
@@ -166,6 +167,7 @@ func authenticate(
 	passcode string,
 	passcodeInPassword bool,
 	application string,
+	timezone string,
 	samlResponse []byte,
 	mfaCallback string,
 	passwordCallback string) (resp *authResponseSessionInfo, err error) {
@@ -180,10 +182,16 @@ func authenticate(
 		OsVersion:   platform,
 	}
 
+	sessionParameters := make(map[string]string)
+	if timezone != "" {
+		sessionParameters["TIMEZONE"] = timezone
+	}
+
 	requestMain := authRequestData{
 		ClientAppID:       clientType,
 		ClientAppVersion:  SnowflakeGoDriverVersion,
 		AccoutName:        account,
+		SessionParameters: sessionParameters,
 		ClientEnvironment: clientEnvironment,
 	}
 	if bytes.Compare(samlResponse, []byte{}) != 0 {

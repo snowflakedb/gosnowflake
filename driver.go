@@ -7,7 +7,6 @@ package gosnowflake
 import (
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -87,6 +86,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		sc.cfg.Passcode,
 		sc.cfg.PasscodeInPassword,
 		sc.cfg.Application,
+		sc.cfg.Params["timezone"],
 		samlResponse,
 		"",
 		"",
@@ -95,25 +95,12 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		sc.cleanup()
 		return nil, err
 	}
-
-	// snowflakeTransport
-
 	glog.V(2).Infof("SessionInfo: %v", sessionInfo)
 	sc.cfg.Database = sessionInfo.DatabaseName
 	sc.cfg.Schema = sessionInfo.SchemaName
 	sc.cfg.Role = sessionInfo.RoleName
 	sc.cfg.Warehouse = sessionInfo.WarehouseName
 
-	v := sc.cfg.Params["timezone"]
-	if v != "" {
-		glog.V(2).Infof("Setting Timezone: %s", sc.cfg.Params["timezone"])
-		p := make([]driver.Value, 0)
-		_, err := sc.Exec(fmt.Sprintf("ALTER SESSION SET TIMEZONE='%s'", sc.cfg.Params["timezone"]), p)
-		if err != nil {
-			sc.cleanup()
-			return nil, err
-		}
-	}
 	return sc, nil
 }
 
