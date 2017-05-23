@@ -192,14 +192,14 @@ func postRestfulQueryHelper(
 				resultURL = respd.Data.GetResultURL
 			}
 
-			glog.V(2).Info("start ping pong")
+			glog.V(2).Info("ping pong")
+			glog.Flush()
 			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 			fullURL := fmt.Sprintf(
 				"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, resultURL)
 
 			resp, err = sr.FuncGet(ctx, sr, fullURL, headers, 0)
-			respd = execResponse{}
-
+			respd = execResponse{} // reset the response
 			err = json.NewDecoder(resp.Body).Decode(&respd)
 			resp.Body.Close()
 			if err != nil {
