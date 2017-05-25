@@ -44,6 +44,8 @@ const (
 	ErrCodeEmptyUsernameCode
 	// ErrCodeEmptyPasswordCode is an error code for the case where a DNS doesn't include password parameter
 	ErrCodeEmptyPasswordCode
+	// ErrCodeFailedToParseHost is an error code for the case where a DNS includes an invalid host name
+	ErrCodeFailedToParseHost
 	// ErrCodeFailedToParsePort is an error code for the case where a DNS includes an invalid port number
 	ErrCodeFailedToParsePort
 	// ErrCodeIdpConnectionError is an error code for the case where a IDP connection failed
@@ -98,6 +100,7 @@ const (
 )
 
 const (
+	errMsgFailedToParseHost                  = "failed to parse a host name. host: %v"
 	errMsgFailedToParsePort                  = "failed to parse a port number. port: %v"
 	errMsgInvalidOffsetStr                   = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
 	errMsgInvalidByteArray                   = "invalid byte array: %v"
