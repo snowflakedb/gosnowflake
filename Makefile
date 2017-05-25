@@ -53,8 +53,18 @@ install:
 		(cd cmd/$$c;  GOBIN=$$GOPATH/bin go install $$c.go); \
 	done
 
+## Build fuzz tests
+fuzz-build:
+	for c in $$(ls | grep -E "fuzz-*"); do \
+		(cd $$c; make fuzz-build); \
+	done
+
+## Run fuzz-dsn
+fuzz-dsn:
+	(cd fuzz-dsn; go-fuzz -bin=./dsn-fuzz.zip -workdir=.)
+
 ## Show help
 help:
 	@make2help $(MAKEFILE_LIST)
 
-.PHONY: setup deps update test lint help
+.PHONY: setup deps update test lint help fuzz-dsn
