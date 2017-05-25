@@ -280,8 +280,11 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.Authenticator = defaultAuthenticator
 	}
 	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {
-		fmt.Printf("cfg: %#v\n", cfg)
-		return &SnowflakeError{Number: 123}
+		return &SnowflakeError{
+			Number:      ErrCodeFailedToParseHost,
+			Message:     errMsgFailedToParseHost,
+			MessageArgs: []interface{}{cfg.Host},
+		}
 	}
 	return nil
 }
