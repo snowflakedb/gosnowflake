@@ -39,7 +39,7 @@ type authRequestData struct {
 	ClientAppID       string                       `json:"CLIENT_APP_ID"`
 	ClientAppVersion  string                       `json:"CLIENT_APP_VERSION"`
 	SvnRevision       string                       `json:"SVN_REVISION"`
-	AccoutName        string                       `json:"ACCOUNT_NAME"`
+	AccountName       string                       `json:"ACCOUNT_NAME"`
 	LoginName         string                       `json:"LOGIN_NAME,omitempty"`
 	Password          string                       `json:"PASSWORD,omitempty"`
 	RawSAMLResponse   string                       `json:"RAW_SAML_RESPONSE,omitempty"`
@@ -191,7 +191,7 @@ func authenticate(
 	requestMain := authRequestData{
 		ClientAppID:       clientType,
 		ClientAppVersion:  SnowflakeGoDriverVersion,
-		AccoutName:        account,
+		AccountName:       account,
 		SessionParameters: sessionParameters,
 		ClientEnvironment: clientEnvironment,
 	}
