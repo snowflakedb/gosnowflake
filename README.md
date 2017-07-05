@@ -5,9 +5,6 @@
 
 Snowflake provides a driver for Go's [database/sql](https://golang.org/pkg/database/sql/) SQL package
 
-**Warning: No production use is recommended as the current version of the Go Snowflake driver is being 
-actively developed.**
-
 ## Requirements
   * Go 1.8 or higher
   * [Snowflake](https://www.snowflake.net/) account
@@ -105,7 +102,6 @@ Go Snowflake Driver returns [ColumnType](https://golang.org/pkg/database/sql/#Co
 |BOOLEAN|BOOLEAN|
 
 ### Binding time.Time for DATE, TIME, TIMESTAMP_NTZ, TIMESTAMP_LTZ
-_This behavior is subject to change by the production._
 
 Go's [database/sql](https://golang.org/pkg/database/sql/) limits Go's data types to the following for binding and fetching.
 ```
@@ -157,8 +153,6 @@ Go Snowflake Driver fetches ``TIMESTAMP_TZ`` data along with the offset based ``
 At the moment, Snowflake doesn't support the name based ``Location`` types, e.g., ``America/Los_Angeles``. See [Data Types](https://docs.snowflake.net/manuals/sql-reference/data-types.html) for the Snowflake data type specification.
 
 ## Limitations
-### Binding TIMESTAMP_TZ
-At the moment, binding ``TIMESTAMP_TZ`` data type is not supported.
 
 ### No PUT and GET support in v1.0
 In v1.0, no ``GET`` and ``PUT`` will be implemented.
