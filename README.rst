@@ -71,7 +71,7 @@ Connection Parameters
   - EU (Frankfurt) region, specify ``eu-central-1``.
 
 ``account <string>``
-  :emph:`Required`
+  **Required**
 
   Specifies the name of your Snowflake account, where *string* is the name assigned to your account by Snowflake. In the URL you received from Snowflake, your account name is the first segment in the domain (e.g. ``abc123`` in ``https://abc123.snowflakecomputing.com``).
 
