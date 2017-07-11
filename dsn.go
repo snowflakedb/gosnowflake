@@ -18,6 +18,7 @@ const (
 	defaultLoginTimeout   = 60 * time.Second
 	defaultRequestTimeout = 0 * time.Second
 	defaultAuthenticator  = "snowflake"
+	defaultDomain         = ".snowflakecomputing.com"
 )
 
 // Config is a set of configuration parameters
@@ -51,9 +52,9 @@ type Config struct {
 func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.Host == "" {
 		if cfg.Region == "" {
-			cfg.Host = cfg.Account + ".snowflakecomputing.com"
+			cfg.Host = cfg.Account + defaultDomain
 		} else {
-			cfg.Host = cfg.Account + "." + cfg.Region + ".snowflakecomputing.com"
+			cfg.Host = cfg.Account + "." + cfg.Region + defaultDomain
 		}
 	}
 	// in case account includes region
@@ -151,9 +152,9 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				}
 
 				// account or host:port
-				cfg.Region, cfg.Account, cfg.Host, cfg.Port, err = parseAccountHostPort(j, posSecondSlash, dsn)
+				err = parseAccountHostPort(cfg, j, posSecondSlash, dsn)
 				if err != nil {
-					return
+					return nil, err
 				}
 			}
 			// [?param1=value1&...&paramN=valueN]
@@ -191,7 +192,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				break
 			}
 		}
-		cfg.Region, cfg.Account, cfg.Host, cfg.Port, err = parseAccountHostPort(j, posQuestion, dsn)
+		err = parseAccountHostPort(cfg, j, posQuestion, dsn)
 		if err != nil {
 			return nil, err
 		}
@@ -200,8 +201,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 			return
 		}
 	}
-
-	if cfg.Account == "" && strings.HasSuffix(cfg.Host, ".snowflakecomputing.com") {
+	if cfg.Account == "" && strings.HasSuffix(cfg.Host, defaultDomain) {
 		posDot := strings.Index(cfg.Host, ".")
 		if posDot > 0 {
 			cfg.Account = cfg.Host[:posDot]
@@ -240,29 +240,30 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 }
 
 func fillMissingConfigParameters(cfg *Config) error {
-	if cfg.Account == "" {
+	if strings.Trim(cfg.Account, " ") == "" {
 		return ErrEmptyAccount
 	}
-	if cfg.User == "" {
+	if strings.Trim(cfg.User, " ") == "" {
 		return ErrEmptyUsername
 	}
-	if cfg.Password == "" {
+	if strings.Trim(cfg.Password, " ") == "" {
 		return ErrEmptyPassword
 	}
-	if cfg.Protocol == "" {
+	if strings.Trim(cfg.Protocol, " ") == "" {
 		cfg.Protocol = "https"
 	}
 	if cfg.Port == 0 {
 		cfg.Port = 443
 	}
 
+	cfg.Region = strings.Trim(cfg.Region, " ")
 	if cfg.Region != "" {
 		// region is specified but not included in Host
-		i := strings.Index(cfg.Host, ".snowflakecomputing.com")
+		i := strings.Index(cfg.Host, defaultDomain)
 		if i >= 1 {
 			hostPrefix := cfg.Host[0:i]
 			if !strings.HasSuffix(hostPrefix, cfg.Region) {
-				cfg.Host = hostPrefix + "." + cfg.Region + ".snowflakecomputing.com"
+				cfg.Host = hostPrefix + "." + cfg.Region + defaultDomain
 			}
 		}
 	}
@@ -272,22 +273,45 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if cfg.RequestTimeout == 0 {
 		cfg.RequestTimeout = defaultRequestTimeout
 	}
-	if cfg.Application == "" {
+	if strings.Trim(cfg.Application, " ") == "" {
 		cfg.Application = clientType
 	}
-	if cfg.Authenticator == "" {
+	if strings.Trim(cfg.Authenticator, " ") == "" {
 		cfg.Authenticator = defaultAuthenticator
+	}
+	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {
+		return &SnowflakeError{
+			Number:      ErrCodeFailedToParseHost,
+			Message:     errMsgFailedToParseHost,
+			MessageArgs: []interface{}{cfg.Host},
+		}
+	}
+	return nil
+}
+
+// transformAccountToHost transforms host to accout name
+func transformAccountToHost(cfg *Config) (err error) {
+	if cfg.Port == 0 && !strings.HasSuffix(cfg.Host, defaultDomain) && cfg.Host != "" {
+		// account name is specified instead of host:port
+		cfg.Account = cfg.Host
+		cfg.Host = cfg.Account + defaultDomain
+		cfg.Port = 443
+		posDot := strings.Index(cfg.Account, ".")
+		if posDot > 0 {
+			cfg.Region = cfg.Account[posDot+1:]
+			cfg.Account = cfg.Account[:posDot]
+		}
 	}
 	return nil
 }
 
 // parseAccountHostPort parses the DSN string to attempt to get account or host and port.
-func parseAccountHostPort(posAt, posSlash int, dsn string) (region, account, host string, port int, err error) {
+func parseAccountHostPort(cfg *Config, posAt, posSlash int, dsn string) (err error) {
 	// account or host:port
 	var k int
 	for k = posAt + 1; k < posSlash; k++ {
 		if dsn[k] == ':' {
-			port, err = strconv.Atoi(dsn[k+1 : posSlash])
+			cfg.Port, err = strconv.Atoi(dsn[k+1 : posSlash])
 			if err != nil {
 				err = &SnowflakeError{
 					Number:      ErrCodeFailedToParsePort,
@@ -299,19 +323,8 @@ func parseAccountHostPort(posAt, posSlash int, dsn string) (region, account, hos
 			break
 		}
 	}
-	host = dsn[posAt+1 : k]
-	if port == 0 && !strings.HasSuffix(host, "snowflakecomputing.com") {
-		// account name is specified instead of host:port
-		account = host
-		host = account + ".snowflakecomputing.com"
-		port = 443
-		posDot := strings.Index(account, ".")
-		if posDot > 0 {
-			region = account[posDot+1:]
-			account = account[:posDot]
-		}
-	}
-	return
+	cfg.Host = dsn[posAt+1 : k]
+	return transformAccountToHost(cfg)
 }
 
 // parseUserPassword pases the DSN string for username and password
