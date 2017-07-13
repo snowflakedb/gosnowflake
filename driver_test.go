@@ -1560,7 +1560,8 @@ func TestCancelQuery(t *testing.T) {
 	})
 }
 
-func TestOKTA(t *testing.T) {
+// TEMPORARILY DISABLED. The test instance is being refreshed.
+func _TestOKTA(t *testing.T) {
 	// get environment variables
 	env := func(key, defaultValue string) string {
 		if value := os.Getenv(key); value != "" {

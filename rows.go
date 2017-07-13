@@ -260,6 +260,39 @@ func getChunk(
 	return retryHTTP(scd.ctx, scd.sc.rest.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
 }
 
+/* largeResultSetReader is a reader that wraps the large result set with leading and tailing brackets. */
+type largeResultSetReader struct {
+	status int
+	body   io.Reader
+}
+
+func (r *largeResultSetReader) Read(p []byte) (n int, err error) {
+	if r.status == 0 {
+		p[0] = 0x5b // initial 0x5b ([)
+		r.status = 1
+		return 1, nil
+	}
+	if r.status == 1 {
+		var len int
+		len, err = r.body.Read(p)
+		if err == io.EOF {
+			r.status = 2
+			return len, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+		return len, nil
+	}
+	if r.status == 2 {
+		p[0] = 0x5d // tail 0x5d (])
+		r.status = 3
+		return 1, nil
+	}
+	// ensure no data and EOF
+	return 0, io.EOF
+}
+
 func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
 	headers := make(map[string]string)
@@ -274,17 +307,21 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download finish chunk: %v, resp: %v", idx+1, resp)
 	if resp.StatusCode == http.StatusOK {
 		var respd [][]*string
-		b, err := ioutil.ReadAll(resp.Body)
-		r := []byte{0x5b} // opening bracket
-		r = append(r, b...)
-		r = append(r, 0x5d) // closing bracket
-		err = json.Unmarshal(r, &respd)
-		if err != nil {
-			glog.V(1).Infof(
-				"failed to decode JSON from HTTP response. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
-			glog.Flush()
-			scd.ChunksError <- &chunkError{Index: idx, Error: err}
-			return
+		st := &largeResultSetReader{
+			status: 0,
+			body:   resp.Body,
+		}
+		dec := json.NewDecoder(st)
+		for {
+			if err := dec.Decode(&respd); err == io.EOF {
+				break
+			} else if err != nil {
+				glog.V(1).Infof(
+					"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
+				glog.Flush()
+				scd.ChunksError <- &chunkError{Index: idx, Error: err}
+				return
+			}
 		}
 		scd.ChunksMutex.Lock()
 		scd.Chunks[idx] = respd
