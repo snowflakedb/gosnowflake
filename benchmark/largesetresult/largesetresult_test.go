@@ -7,15 +7,21 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"testing"
-	"time"
 
 	"database/sql"
-	"net/http"
 
 	_ "github.com/snowflakedb/gosnowflake"
 )
 
+func TestLargeResultSet(t *testing.T) {
+	runLargeResultSet()
+}
+
 func BenchmarkLargeResultSet(*testing.B) {
+	runLargeResultSet()
+}
+
+func runLargeResultSet() {
 	if !flag.Parsed() {
 		// enable glog for Go Snowflake Driver
 		flag.Parse()
@@ -58,11 +64,4 @@ func BenchmarkLargeResultSet(*testing.B) {
 		//	fmt.Printf("%v: %v\n", v, s)
 		//}
 	}
-	// launch pprof HTTP server so that the profile can be retrieved.
-	// Heap: go tool pprof http://localhost:6060/debug/pprof/heap
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-
-	time.Sleep(1 * time.Second)
 }
