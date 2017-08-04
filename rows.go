@@ -305,6 +305,10 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	ctx, cancel := context.WithCancel(scd.ctx)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
+	defer func() {
+		signal.Stop(c)
+		cancel()
+	}()
 
 	go func() {
 		scd.FuncDownloadHelper(ctx, scd, idx)
@@ -314,10 +318,8 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 
 	select {
 	case <-c:
-		cancel()
 		scd.ChunksError <- &chunkError{Index: idx, Error: ErrCanceled}
 	case <-execDownloadChan:
-		cancel()
 	}
 }
 

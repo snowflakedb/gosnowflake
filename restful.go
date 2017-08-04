@@ -130,6 +130,10 @@ func postRestfulQuery(
 	ctx, cancel := context.WithCancel(ctx)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
+	defer func() {
+		signal.Stop(c)
+		cancel()
+	}()
 
 	go func() {
 		data, err := sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID)
@@ -154,7 +158,6 @@ func postRestfulQuery(
 		}
 		return nil, ctx.Err()
 	case respAndErr := <-execResponseChan:
-		cancel()
 		return respAndErr.resp, respAndErr.err
 	}
 }
