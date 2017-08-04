@@ -319,6 +319,8 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	select {
 	case <-c:
 		scd.ChunksError <- &chunkError{Index: idx, Error: ErrCanceled}
+	case <-ctx.Done():
+		scd.ChunksError <- &chunkError{Index: idx, Error: ctx.Err()}
 	case <-execDownloadChan:
 	}
 }
