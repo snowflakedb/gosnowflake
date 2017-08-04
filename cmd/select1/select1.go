@@ -49,6 +49,10 @@ func main() {
 		if v != 1 {
 			log.Fatalf("failed to get 1. got: %v", v)
 		}
-		fmt.Printf("Congrats! You have successfully run %v with Snowflake DB!", query)
 	}
+	if rows.Err() != nil {
+		fmt.Printf("ERROR: %v\n", rows.Err())
+		return
+	}
+	fmt.Printf("Congrats! You have successfully run %v with Snowflake DB!\n", query)
 }

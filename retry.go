@@ -109,6 +109,10 @@ func retryHTTP(
 		if err == nil && res.StatusCode == http.StatusOK {
 			break
 		}
+		if err == ErrCanceled {
+			// user cancel only. not context.Canceled
+			break
+		}
 		// cannot just return 4xx and 5xx status as the error can be sporadic. retry often helps.
 		if err != nil {
 			glog.V(2).Infof(

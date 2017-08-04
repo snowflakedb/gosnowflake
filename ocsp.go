@@ -286,7 +286,7 @@ func retryOCSP(
 			}
 		}
 		defer res.Body.Close()
-		glog.V(2).Infof("StatusCode from OCSP Server: %v", res.StatusCode)
+		glog.V(2).Infof("StatusCode from OCSP Server: %v\n", res.StatusCode)
 		if res.StatusCode != http.StatusOK {
 			if ok := retryRevocationStatusCheck(&totalTimeout, sleepTime); ok {
 				retryCounter++
@@ -371,12 +371,12 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 		ocspStatusChan <- ocspValidatedWithCache
 		return
 	}
-	glog.V(2).Infof("cache missed: %v", ocspValidatedWithCache.err)
+	glog.V(2).Infof("cache missed: %v\n", ocspValidatedWithCache.err)
 
 	proxyURL, _ := proxyURL(proxyHost, proxyPort, proxyUser, proxyPassword)
 	st := snowflakeInsecureTransport
 	if proxyURL != nil {
-		glog.V(2).Infof("proxy: %v", proxyURL)
+		glog.V(2).Infof("proxy: %v\n", proxyURL)
 		st.Proxy = http.ProxyURL(proxyURL)
 	}
 	ocspClient := &http.Client{
@@ -472,37 +472,37 @@ func readOCSPCacheFile() {
 	ocspResponseCache = make(map[string][]interface{})
 	ocspResponseCacheLock = &sync.RWMutex{}
 	cacheFileName = filepath.Join(cacheDir, cacheFileBaseName)
-	glog.V(2).Info("reading OCSP Response cache file. %v", cacheFileName)
+	glog.V(2).Infof("reading OCSP Response cache file. %v\n", cacheFileName)
 	raw, err := ioutil.ReadFile(cacheFileName)
 	if err != nil {
-		glog.V(2).Infof("failed to read OCSP cache file. %v. ignored.", err)
+		glog.V(2).Infof("failed to read OCSP cache file. %v. ignored.\n", err)
 	}
 	err = json.Unmarshal(raw, &ocspResponseCache)
 	if err != nil {
-		glog.V(2).Info("failed to read OCSP cache file. %v. ignored", err)
+		glog.V(2).Infof("failed to read OCSP cache file. %v. ignored\n", err)
 	}
 }
 
 // writeOCSPCacheFile writes a OCSP Response cache file. This is called if all revocation status is success.
 // lock file is used to mitigate race condition with other process.
 func writeOCSPCacheFile() {
-	glog.V(2).Info("writing OCSP Response cache file. %v", cacheFileName)
+	glog.V(2).Infof("writing OCSP Response cache file. %v\n", cacheFileName)
 	cacheLockFileName := cacheFileName + ".lck"
 	statinfo, err := os.Stat(cacheLockFileName)
 	switch {
 	case os.IsNotExist(err):
 		os.OpenFile(cacheLockFileName, os.O_RDONLY|os.O_CREATE, 0644)
 	case err != nil:
-		glog.V(2).Infof("failed to write OCSP response cache file. file: %v, err: %v. ignored.", cacheFileName, err)
+		glog.V(2).Infof("failed to write OCSP response cache file. file: %v, err: %v. ignored.\n", cacheFileName, err)
 		return
 	default:
 		if time.Now().Sub(statinfo.ModTime()) < time.Hour {
-			glog.V(2).Infof("other process locks the cache file. %v. ignored.", cacheFileName)
+			glog.V(2).Infof("other process locks the cache file. %v. ignored.\n", cacheFileName)
 			return
 		}
 		err := os.Remove(cacheLockFileName)
 		if err != nil {
-			glog.V(2).Infof("failed to delete lock file. file: %v, err: %v. ignored.", cacheLockFileName, err)
+			glog.V(2).Infof("failed to delete lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
 			return
 		}
 		os.OpenFile(cacheLockFileName, os.O_RDONLY|os.O_CREATE, 0644)
@@ -517,7 +517,7 @@ func writeOCSPCacheFile() {
 	}
 	err = ioutil.WriteFile(cacheFileName, j, 0644)
 	if err != nil {
-		glog.V(2).Infof("failed to write OCSP Response cache. err: %v. ignored.", err)
+		glog.V(2).Infof("failed to write OCSP Response cache. err: %v. ignored.\n", err)
 	}
 }
 
@@ -568,7 +568,7 @@ func createOCSPCacheDir() {
 	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
 		err := os.MkdirAll(cacheDir, os.ModePerm)
 		if err != nil {
-			glog.V(2).Infof("failed to create cache directory. %v, err: %v. ignored", cacheDir, err)
+			glog.V(2).Infof("failed to create cache directory. %v, err: %v. ignored\n", cacheDir, err)
 		}
 	}
 }
