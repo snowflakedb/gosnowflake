@@ -310,13 +310,13 @@ func TestDownloadChunkInvalidResponseBody(t *testing.T) {
 			"dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	scd := &snowflakeChunkDownloader{
-		ctx:           context.Background(),
-		ChunkMetas:    cm,
-		TotalRowIndex: int64(-1),
-		Qrmk:          "HOHOHO",
-		FuncDownload:  downloadChunk,
+		ctx:                context.Background(),
+		ChunkMetas:         cm,
+		TotalRowIndex:      int64(-1),
+		Qrmk:               "HOHOHO",
+		FuncDownload:       downloadChunk,
 		FuncDownloadHelper: downloadChunkHelper,
-		FuncGet:       getChunkTestInvalidResponseBody,
+		FuncGet:            getChunkTestInvalidResponseBody,
 	}
 	scd.ChunksMutex = &sync.Mutex{}
 	scd.Chunks = make(map[int][][]*string)
@@ -348,13 +348,13 @@ func TestDownloadChunkErrorStatus(t *testing.T) {
 			"dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	scd := &snowflakeChunkDownloader{
-		ctx:           context.Background(),
-		ChunkMetas:    cm,
-		TotalRowIndex: int64(-1),
-		Qrmk:          "HOHOHO",
-		FuncDownload:  downloadChunk,
+		ctx:                context.Background(),
+		ChunkMetas:         cm,
+		TotalRowIndex:      int64(-1),
+		Qrmk:               "HOHOHO",
+		FuncDownload:       downloadChunk,
 		FuncDownloadHelper: downloadChunkHelper,
-		FuncGet:       getChunkTestErrorStatus,
+		FuncGet:            getChunkTestErrorStatus,
 	}
 	scd.ChunksMutex = &sync.Mutex{}
 	scd.Chunks = make(map[int][][]*string)
