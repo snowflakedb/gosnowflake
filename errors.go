@@ -75,6 +75,8 @@ const (
 	ErrFailedToAuthOKTA
 	// ErrFailedToGetSSO is an error code for the case where authentication via OKTA failed for unknown reason.
 	ErrFailedToGetSSO
+	// ErrCodeCanceled is an error code for the case where a user has canceled the current operation.
+	ErrCodeCanceled
 
 	/* rows */
 
@@ -136,4 +138,9 @@ var (
 	ErrEmptyPassword = &SnowflakeError{
 		Number:  ErrCodeEmptyPasswordCode,
 		Message: "password is empty"}
+
+	// ErrCanceled is returned if a user has canceled an operation.
+	ErrCanceled = &SnowflakeError{
+		Number:  ErrCodeCanceled,
+		Message: "canceled operation"}
 )

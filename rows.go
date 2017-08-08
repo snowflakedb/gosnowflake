@@ -16,6 +16,9 @@ import (
 	"sync"
 	"time"
 
+	"os"
+	"os/signal"
+
 	"github.com/golang/glog"
 )
 
@@ -64,7 +67,8 @@ type snowflakeChunkDownloader struct {
 	Qrmk               string
 	CurrentIndex       int
 	FuncDownload       func(*snowflakeChunkDownloader, int)
-	FuncGet            func(*snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
+	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int)
+	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
 }
 
 // ColumnTypeDatabaseTypeName returns the database column name.
@@ -195,7 +199,7 @@ func (scd *snowflakeChunkDownloader) schedule() {
 func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 	select {
 	case errc := <-scd.ChunksError:
-		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter {
+		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter && errc.Error != ErrCanceled {
 			// add the index to the chunks channel so that the download will be retried.
 			go scd.FuncDownload(scd, errc.Index)
 			scd.ChunksErrorCounter++
@@ -252,12 +256,13 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 }
 
 func getChunk(
+	ctx context.Context,
 	scd *snowflakeChunkDownloader,
 	fullURL string,
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(scd.ctx, scd.sc.rest.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
+	return retryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
 }
 
 /* largeResultSetReader is a reader that wraps the large result set with leading and tailing brackets. */
@@ -295,10 +300,36 @@ func (r *largeResultSetReader) Read(p []byte) (n int, err error) {
 
 func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
+
+	execDownloadChan := make(chan int)
+	ctx, cancel := context.WithCancel(scd.ctx)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	defer func() {
+		signal.Stop(c)
+		cancel()
+	}()
+
+	go func() {
+		scd.FuncDownloadHelper(ctx, scd, idx)
+		execDownloadChan <- 0
+		close(execDownloadChan)
+	}()
+
+	select {
+	case <-c:
+		scd.ChunksError <- &chunkError{Index: idx, Error: ErrCanceled}
+	case <-ctx.Done():
+		scd.ChunksError <- &chunkError{Index: idx, Error: ctx.Err()}
+	case <-execDownloadChan:
+	}
+}
+
+func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
 	headers := make(map[string]string)
 	headers[headerSseCAlgorithm] = headerSseCAes
 	headers[headerSseCKey] = scd.Qrmk
-	resp, err := scd.FuncGet(scd, scd.ChunkMetas[idx].URL, headers, 0)
+	resp, err := scd.FuncGet(ctx, scd, scd.ChunkMetas[idx].URL, headers, 0)
 	if err != nil {
 		scd.ChunksError <- &chunkError{Index: idx, Error: err}
 		return

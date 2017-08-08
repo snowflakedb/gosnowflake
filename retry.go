@@ -6,6 +6,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -96,17 +97,23 @@ func retryHTTP(
 	sleepTime := time.Duration(0)
 	for {
 		req, err := req(method, fullURL, bytes.NewReader(body))
-		if req != nil {
-			req = req.WithContext(ctx)
-		}
 		if err != nil {
 			return nil, err
+		}
+		if req != nil {
+			// req can be nil in tests
+			req = req.WithContext(ctx)
 		}
 		for k, v := range headers {
 			req.Header.Set(k, v)
 		}
 		res, err = client.Do(req)
 		if err == nil && res.StatusCode == http.StatusOK {
+			// success
+			break
+		}
+		if err == ErrCanceled {
+			// user cancel only. not context.Canceled
 			break
 		}
 		// cannot just return 4xx and 5xx status as the error can be sporadic. retry often helps.
@@ -128,7 +135,10 @@ func retryHTTP(
 				if err != nil {
 					return nil, fmt.Errorf("timeout. err: %v. Hanging?", err)
 				}
-				return nil, fmt.Errorf("timeout. HTTP Status: %v. Hanging?", res.StatusCode)
+				if res != nil {
+					return nil, fmt.Errorf("timeout. HTTP Status: %v. Hanging?", res.StatusCode)
+				}
+				return nil, errors.New("timeout. Hanging?")
 			}
 		}
 		retryCounter++

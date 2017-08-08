@@ -1742,6 +1742,39 @@ func TestTimezoneSessionParameter(t *testing.T) {
 	createDSN("UTC")
 }
 
+func TestLargeSetResultCancel(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		c := make(chan error)
+		ctx := context.Background()
+		ctx, cancel := context.WithCancel(ctx)
+		go func() {
+			// attempt to run a 100 seconds query, but it should be canceled in 1 second
+			timelimit := 100
+			rows, err := dbt.db.QueryContext(
+				ctx,
+				fmt.Sprintf("SELECT COUNT(*) FROM TABLE(GENERATOR(timelimit=>%v))", timelimit))
+			if err != nil {
+				c <- err
+				return
+			}
+			defer rows.Close()
+			c <- nil
+		}()
+		// cancel after 1 second
+		time.Sleep(time.Second)
+		cancel()
+		select {
+		case ret := <-c:
+			if ret.Error() != "context canceled" {
+				t.Fatalf("failed to cancel. err: %v", ret)
+			}
+			// not only the connection was terminated but also the query in the server
+			// must be terminated here. So far there is no way to check if the given query is
+			// canceled.
+		}
+	})
+}
+
 func init() {
 	if !flag.Parsed() {
 		flag.Parse()
