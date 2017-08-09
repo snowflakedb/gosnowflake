@@ -5,4 +5,4 @@
 package gosnowflake
 
 // SnowflakeGoDriverVersion is the version of Go Snowflake Driver
-const SnowflakeGoDriverVersion = "0.1.1"
+const SnowflakeGoDriverVersion = "0.2.0"
