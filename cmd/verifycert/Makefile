@@ -2,13 +2,12 @@
 setup:
 	go get github.com/Masterminds/glide
 	go get github.com/golang/lint/golint
-	go get golang.org/x/tools/cmd/goimports
 	go get github.com/Songmu/make2help/cmd/make2help
 
 ## Install
 install:
 	export GOBIN=$$GOPATH/bin; \
-	go install verifycert.go
+	go install -tags=sfdebug verifycert.go
 
 ## Run
 run: install
@@ -21,9 +20,9 @@ lint: setup
 		golint -set_exit_status $$pkg || exit $$?; \
 	done
 
-## Format source codes using goimports
+## Format source codes using gofmt
 fmt: setup
-	goimports -w $$(glide nv -x)
+	gofmt -w $$(glide nv -x)
 
 ## Show help
 help:

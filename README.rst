@@ -140,8 +140,21 @@ Connection Parameters
 Logging
 ----------------------------------------------------------------------
 
-The driver uses `glog <https://github.com/golang/glog>`_ as the logging framework. To get detailed logs,
-specify glog parameters in the command line. For example, to get logs for all activity, set the following parameters:
+By default, the driver's builtin logger is nop; no output is generated. This is intentional for those applications that use the same set of logger parameters not to conflict with `glog <https://github.com/golang/glog>`_, which is incorporated in the driver logging framework.
+
+In order to enable debug logging for the driver, add a build tag ``sfdebug`` to the go tool command lines, for example:
+
+.. code-block:: bash
+
+    go build -tags=sfdebug
+
+For tests, run the test command with the tag along with ``glog`` parameters. For example, the following command will generate all acitivty logs in the standard error.
+
+.. code-block:: bash
+
+    go test -tags=sfdebug -v . -vmodule=*=2 -stderrthreshold=INFO
+
+Likewise, if you build your application with the tag, you may specify the same set of ``glog`` parameters.
 
 .. code-block:: bash
 
@@ -157,6 +170,10 @@ To get the logs for a specific module, use the ``-vmodule`` option. For example,
 .. note::
 
     If your request retrieves no logs, call ``db.Close()`` or ``glog.flush()`` to flush the glog buffer.
+
+.. note::
+
+    The logger may be changed in the future for better logging. Currently if the applications use the same parameters as ``glog``, you cannot collect both application and driver logs at the same time.
 
 Supported Data Types
 ================================================================================
