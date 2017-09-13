@@ -17,7 +17,6 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/golang/glog"
 	"github.com/satori/go.uuid"
 )
 

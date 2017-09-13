@@ -18,8 +18,6 @@ import (
 
 	"os"
 	"os/signal"
-
-	"github.com/golang/glog"
 )
 
 const (
