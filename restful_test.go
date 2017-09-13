@@ -12,8 +12,6 @@ import (
 	"net/url"
 	"testing"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 func postTestError(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ []byte, _ time.Duration) (*http.Response, error) {

@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"testing"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 func fakeRequestFunc(_, _ string, _ io.Reader) (*http.Request, error) {

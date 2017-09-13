@@ -16,8 +16,6 @@ import (
 	"context"
 
 	"sync"
-
-	"github.com/golang/glog"
 )
 
 var random *rand.Rand

@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 // goTypeToSnowflake translates Go data type to Snowflake data type.

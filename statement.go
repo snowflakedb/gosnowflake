@@ -7,8 +7,6 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
-
-	"github.com/golang/glog"
 )
 
 type snowflakeStmt struct {
