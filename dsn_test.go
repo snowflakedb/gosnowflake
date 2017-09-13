@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 type tcParseDSN struct {

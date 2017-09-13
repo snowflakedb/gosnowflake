@@ -9,8 +9,6 @@ import (
 	"database/sql/driver"
 	"net/http"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 // SnowflakeDriver is a context of Go Driver

@@ -13,8 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-
-	"github.com/golang/glog"
 )
 
 const (

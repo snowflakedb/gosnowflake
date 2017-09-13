@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 var timezones map[int]*time.Location
