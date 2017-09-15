@@ -110,8 +110,7 @@ func retryHTTP(
 			// success
 			break
 		}
-		if err == ErrCanceled {
-			// user cancel only. not context.Canceled
+		if err == context.Canceled {
 			break
 		}
 		// cannot just return 4xx and 5xx status as the error can be sporadic. retry often helps.
