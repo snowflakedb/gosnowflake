@@ -46,8 +46,8 @@ func (sc *snowflakeConn) isDml(v int64) bool {
 }
 
 func (sc *snowflakeConn) exec(
-  ctx context.Context,
-  query string, noResult bool, isInternal bool, parameters []driver.NamedValue) (*execResponse, error) {
+	ctx context.Context,
+	query string, noResult bool, isInternal bool, parameters []driver.NamedValue) (*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequeceCounter, 1) // query sequence counter
 
@@ -289,17 +289,17 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 }
 
 func (sc *snowflakeConn) Exec(
-  query string,
-  args []driver.Value) (
-  driver.Result, error) {
+	query string,
+	args []driver.Value) (
+	driver.Result, error) {
 	// NOTE: this method never used, instead ExecContext is called directly from driver manager.
 	return sc.ExecContext(context.Background(), query, toNamedValues(args))
 }
 
 func (sc *snowflakeConn) Query(
-  query string,
-  args []driver.Value) (
-  driver.Rows, error) {
+	query string,
+	args []driver.Value) (
+	driver.Rows, error) {
 	// NOTE: this method never used, instead QueryContext is called directly from driver manager.
 	return sc.QueryContext(context.Background(), query, toNamedValues(args))
 }
