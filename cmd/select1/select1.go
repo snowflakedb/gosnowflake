@@ -1,3 +1,5 @@
+// This sample code demonstrates how to fetch one row.
+
 package main
 
 import (
@@ -15,6 +17,7 @@ func main() {
 		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
+
 	// get environment variables
 	env := func(k string) string {
 		if value := os.Getenv(k); value != "" {

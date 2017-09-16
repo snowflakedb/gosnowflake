@@ -10,6 +10,8 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"net/url"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -193,11 +195,34 @@ func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 	return sc.PrepareContext(context.TODO(), query)
 }
 
+func (sc *snowflakeConn) finalizeCancel(c chan os.Signal, cancel context.CancelFunc) func() {
+	return func() {
+		signal.Stop(c) // stop trapping SIGINT
+	}
+}
+
+func (sc *snowflakeConn) doCancelIfNotified(c chan os.Signal, cancel context.CancelFunc) func() {
+	return func() {
+		<-c
+		glog.V(2).Info("Caught signal, canceling...")
+		cancel()
+	}
+}
+
 func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	glog.V(2).Infof("Exec: %#v, %v", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
+	if ctx == context.Background() {
+		ctx1, cancel := context.WithCancel(context.Background())
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		defer sc.finalizeCancel(c, cancel)()
+		go sc.doCancelIfNotified(c, cancel)()
+		ctx = ctx1
+	}
+
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
@@ -227,6 +252,15 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	glog.V(2).Infoln("Query")
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
+	}
+
+	if ctx == context.Background() {
+		ctx1, cancel := context.WithCancel(context.Background())
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		defer sc.finalizeCancel(c, cancel)()
+		go sc.doCancelIfNotified(c, cancel)()
+		ctx = ctx1
 	}
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(ctx, query, false, false, args)
@@ -258,14 +292,16 @@ func (sc *snowflakeConn) Exec(
 	query string,
 	args []driver.Value) (
 	driver.Result, error) {
-	return sc.ExecContext(context.TODO(), query, toNamedValues(args))
+	// NOTE: this method never used, instead ExecContext is called directly from driver manager.
+	return sc.ExecContext(context.Background(), query, toNamedValues(args))
 }
 
 func (sc *snowflakeConn) Query(
 	query string,
 	args []driver.Value) (
 	driver.Rows, error) {
-	return sc.QueryContext(context.TODO(), query, toNamedValues(args))
+	// NOTE: this method never used, instead QueryContext is called directly from driver manager.
+	return sc.QueryContext(context.Background(), query, toNamedValues(args))
 }
 
 func (sc *snowflakeConn) Ping(ctx context.Context) error {

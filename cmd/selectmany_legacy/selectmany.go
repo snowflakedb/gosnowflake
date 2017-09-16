@@ -1,15 +1,14 @@
 // This sample code demonstrates how to fetch many rows and allow cancel the query by Ctrl+C.
+// The difference to other selectmany sample code is this uses the method Query instead of QueryContext such that the default context is used.
 
 package main
 
 import (
-	"context"
 	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 
 	_ "github.com/snowflakedb/gosnowflake"
 )
@@ -19,20 +18,6 @@ func main() {
 		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
-
-	// handle interrupt signal
-	ctx, cancel := context.WithCancel(context.Background())
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	defer func() {
-		signal.Stop(c)
-		cancel()
-	}()
-	go func() {
-		<-c
-		log.Println("Caught signal, canceling...")
-		cancel()
-	}()
 
 	// get environment variables
 	env := func(k string) string {
@@ -55,7 +40,7 @@ func main() {
 	}
 	query := "SELECT seq8(), randstr(5, random()) from table(generator(rowcount=>10000000))"
 	fmt.Printf("Executing a query. It may take long. You may stop by Ctrl+C.\n")
-	rows, err := db.QueryContext(ctx, query)
+	rows, err := db.Query(query)
 	if err != nil {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}

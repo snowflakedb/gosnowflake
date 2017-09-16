@@ -15,9 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"os"
-	"os/signal"
 )
 
 const (
@@ -197,7 +194,7 @@ func (scd *snowflakeChunkDownloader) schedule() {
 func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 	select {
 	case errc := <-scd.ChunksError:
-		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter && errc.Error != ErrCanceled {
+		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter && errc.Error != context.Canceled {
 			// add the index to the chunks channel so that the download will be retried.
 			go scd.FuncDownload(scd, errc.Index)
 			scd.ChunksErrorCounter++
@@ -299,26 +296,16 @@ func (r *largeResultSetReader) Read(p []byte) (n int, err error) {
 func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
 
-	execDownloadChan := make(chan int)
-	ctx, cancel := context.WithCancel(scd.ctx)
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	defer func() {
-		signal.Stop(c)
-		cancel()
-	}()
+	execDownloadChan := make(chan struct{})
 
 	go func() {
-		scd.FuncDownloadHelper(ctx, scd, idx)
-		execDownloadChan <- 0
+		scd.FuncDownloadHelper(scd.ctx, scd, idx)
 		close(execDownloadChan)
 	}()
 
 	select {
-	case <-c:
-		scd.ChunksError <- &chunkError{Index: idx, Error: ErrCanceled}
-	case <-ctx.Done():
-		scd.ChunksError <- &chunkError{Index: idx, Error: ctx.Err()}
+	case <-scd.ctx.Done():
+		scd.ChunksError <- &chunkError{Index: idx, Error: scd.ctx.Err()}
 	case <-execDownloadChan:
 	}
 }
