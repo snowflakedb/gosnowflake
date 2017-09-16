@@ -197,8 +197,7 @@ func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
 
 func (sc *snowflakeConn) finalizeCancel(c chan os.Signal, cancel context.CancelFunc) func() {
 	return func() {
-		signal.Stop(c)
-		cancel()
+		signal.Stop(c) // stop trapping SIGINT
 	}
 }
 
@@ -254,6 +253,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
+
 	if ctx == context.Background() {
 		ctx1, cancel := context.WithCancel(context.Background())
 		c := make(chan os.Signal, 1)
