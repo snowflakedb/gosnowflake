@@ -1,13 +1,13 @@
+// This sample code demonstrates how to fetch one row.
+
 package main
 
 import (
-	"context"
 	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 
 	_ "github.com/snowflakedb/gosnowflake"
 )
@@ -17,19 +17,6 @@ func main() {
 		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	defer func() {
-		signal.Stop(c)
-		cancel()
-	}()
-	go func() {
-		<-c
-		log.Println("Caught signal, canceling...")
-		cancel()
-	}()
 
 	// get environment variables
 	env := func(k string) string {
@@ -51,7 +38,7 @@ func main() {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
 	}
 	query := "SELECT 1"
-	rows, err := db.QueryContext(ctx, query)
+	rows, err := db.Query(query)
 	if err != nil {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}

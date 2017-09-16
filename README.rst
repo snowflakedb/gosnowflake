@@ -175,6 +175,36 @@ To get the logs for a specific module, use the ``-vmodule`` option. For example,
 
     The logger may be changed in the future for better logging. Currently if the applications use the same parameters as ``glog``, you cannot collect both application and driver logs at the same time.
 
+Canceling a Query by Ctrl+C
+----------------------------------------------------------------------
+
+Since 0.5.0, a signal handling responsibility has moved to the applications. If you want to cancel a query/command by Ctrl+C, add a `os.Interrupt` trap in ``Context`` to execute methods that can take the context parameter, e.g., ``QueryContext``, ``ExecContext``.
+
+.. code-block:: go
+
+	// handle interrupt signal
+	ctx, cancel := context.WithCancel(context.Background())
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	defer func() {
+		signal.Stop(c)
+		cancel()
+	}()
+	go func() {
+		<-c
+		log.Println("Caught signal, canceling...")
+		cancel()
+	}()
+
+    ... connection
+
+	// execute a query
+    rows, err := db.QueryContext(ctx, query)
+
+    ...
+
+See ``cmd/selectmany.go`` for example.
+
 Supported Data Types
 ================================================================================
 
@@ -276,7 +306,7 @@ Sample Programs
 Snowflake provides a set of sample programs to test with. Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/go`` and make certain to 
 include ``$GOPATH/bin`` in the environment variable ``$PATH``. Run the ``make`` command to build all sample programs.
 
-.. code-block:: go
+.. code-block:: bash
 
     make install
 
