@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/signal"
 	"reflect"
 	"strings"
 	"testing"
@@ -139,7 +140,20 @@ type DBTest struct {
 }
 
 func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *sql.Rows) {
-	rows, err := dbt.db.Query(query, args...)
+	// handler interrupt signal
+	ctx, cancel := context.WithCancel(context.Background())
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	defer func() {
+		signal.Stop(c)
+	}()
+	go func() {
+		<-c
+		fmt.Println("Caught signal, canceling...")
+		cancel()
+	}()
+
+	rows, err := dbt.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("query", query, err)
 	}

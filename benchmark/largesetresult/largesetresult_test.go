@@ -1,3 +1,5 @@
+// This code is to profile a large result set query. It is basically similar to selectmany example code but
+// leverages benchmark framework.
 package largesetresult
 
 import (
@@ -10,7 +12,9 @@ import (
 
 	"database/sql"
 
+	"context"
 	_ "github.com/snowflakedb/gosnowflake"
+	"os/signal"
 )
 
 func TestLargeResultSet(t *testing.T) {
@@ -26,6 +30,19 @@ func runLargeResultSet() {
 		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
+
+	// handler interrupt signal
+	ctx, cancel := context.WithCancel(context.Background())
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	defer func() {
+		signal.Stop(c)
+	}()
+	go func() {
+		<-c
+		log.Println("Caught signal, canceling...")
+		cancel()
+	}()
 
 	// get environment variables
 	env := func(k string) string {
@@ -48,7 +65,7 @@ func runLargeResultSet() {
 	}
 
 	query := "SELECT seq8(), randstr(100, random()) FROM table(generator(rowcount=>100000))"
-	rows, err := db.Query(query)
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}
@@ -60,8 +77,5 @@ func runLargeResultSet() {
 		if err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
 		}
-		//if v%100 == 0 {
-		//	fmt.Printf("%v: %v\n", v, s)
-		//}
 	}
 }
