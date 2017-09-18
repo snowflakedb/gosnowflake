@@ -175,6 +175,35 @@ To get the logs for a specific module, use the ``-vmodule`` option. For example,
 
     The logger may be changed in the future for better logging. Currently if the applications use the same parameters as ``glog``, you cannot collect both application and driver logs at the same time.
 
+Canceling a Query by Ctrl+C
+----------------------------------------------------------------------
+
+From 0.5.0, a signal handling responsibility has moved to the applications. If you want to cancel a query/command
+by Ctrl+C, add a ``os.Interrupt`` trap in ``context`` to execute methods that can take the context parameter,
+e.g., ``QueryContext``, ``ExecContext``.
+
+.. code-block:: go
+
+    // handle interrupt signal
+    ctx, cancel := context.WithCancel(context.Background())
+    c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+    defer func() {
+ 		signal.Stop(c)
+ 	}()
+    go func() {
+        <-c
+        log.Println("Caught signal, canceling...")
+        cancel()
+    }()
+
+    ... (connection)
+    // execute a query
+    rows, err := db.QueryContext(ctx, query)
+    ... (Ctrl+C to cancel the query)
+
+See ``cmd/selectmany.go`` for example.
+
 Supported Data Types
 ================================================================================
 
