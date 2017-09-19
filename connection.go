@@ -151,7 +151,7 @@ func (sc *snowflakeConn) BeginTx(ctx context.Context, opts driver.TxOptions) (dr
 		return nil, driver.ErrBadConn
 	}
 	_, err := sc.exec(ctx, "BEGIN", false, false, nil)
-	if err != err {
+	if err != nil {
 		return nil, err
 	}
 	return &snowflakeTx{sc}, err
