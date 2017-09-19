@@ -11,6 +11,9 @@ Go Snowflake Driver
 .. image:: http://img.shields.io/:license-Apache%202-brightgreen.svg
     :target: http://www.apache.org/licenses/LICENSE-2.0.txt
 
+.. image:: https://goreportcard.com/badge/github.com/snowflakedb/gosnowflake
+    :target: https://goreportcard.com/report/github.com/snowflakedb/gosnowflake
+
 This topic provides instructions for installing, running, and modifying the Go Snowflake Driver. The driver supports Go's `database/sql <https://golang.org/pkg/database/sql/>`_ package.
 
 Prerequisites
