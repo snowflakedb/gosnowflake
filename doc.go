@@ -43,6 +43,7 @@ The following connection parameters are supported:
 	* region <string>: Specifies the Snowflake region. By default, the US West region is used.
 		US East region, specify us-east-1.
 		EU (Frankfurt) region, specify eu-central-1.
+		AU (Australia) region, specify ap-southeast-2.
 
 	* account <string>: Specifies the name of your Snowflake account, where string is the name
 		assigned to your account by Snowflake. In the URL you received from
@@ -127,26 +128,24 @@ Note: The logger may be changed in the future for better logging. Currently if
 the applications use the same parameters as glog, you cannot collect both
 application and driver logs at the same time.
 
-Canceling a Query by Ctrl+C
+Canceling Query by CtrlC
 
-From 0.5.0, a signal handling responsibility has moved to the applications. If
-you want to cancel a query/command by Ctrl+C, add a os.Interrupt trap in
-context to execute methods that can take the context parameter, e.g.,
-QueryContext, ExecContext.
+From 0.5.0, a signal handling responsibility has moved to the applications. If you want to cancel a
+query/command by Ctrl+C, add a os.Interrupt trap in context to execute methods that can take the context parameter,
+e.g., QueryContext, ExecContext.
 
 	// handle interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt)
 	defer func() {
-				signal.Stop(c)
-		}()
+		signal.Stop(c)
+	}()
 	go func() {
 		<-c
 		log.Println("Caught signal, canceling...")
 		cancel()
 	}()
-
 	... (connection)
 	// execute a query
 	rows, err := db.QueryContext(ctx, query)
@@ -161,20 +160,21 @@ DatabaseTypeName method returns the following strings representing Snowflake
 data types:
 
 	String Representation	Snowflake Data Type
-	FIXED	NUMBER/INT
-	REAL	REAL
-	TEXT	VARCHAR/STRING
-	DATE	DATE
-	TIME	TIME
-	TIMESTAMP_LTZ	TIMESTAMP_LTZ
-	TIMESTAMP_NTZ	TIMESTAMP_NTZ
-	TIMESTAMP_TZ	TIMESTAMP_TZ
-	VARIANT	VARIANT
-	OBJECT	OBJECT
-	ARRAY	ARRAY
-	BINARY	BINARY
-	BOOLEAN	BOOLEAN
-	Binding the time.Time Type
+	FIXED	                NUMBER/INT
+	REAL	                REAL
+	TEXT	                VARCHAR/STRING
+	DATE	                DATE
+	TIME	                TIME
+	TIMESTAMP_LTZ	        TIMESTAMP_LTZ
+	TIMESTAMP_NTZ	        TIMESTAMP_NTZ
+	TIMESTAMP_TZ	        TIMESTAMP_TZ
+	VARIANT	                VARIANT
+	OBJECT	                OBJECT
+	ARRAY	                ARRAY
+	BINARY	                BINARY
+	BOOLEAN	                BOOLEAN
+
+Binding Time Type
 
 Go's database/sql package limits Go's data types to the following for binding and fetching:
 
@@ -228,7 +228,7 @@ is not in the cache, it is generated dynamically.
 Currently, Snowflake doesn't support the name-based Location types, e.g.,
 America/Los_Angeles.
 
-For more information about Location types, see the Go documentation for Location.
+For more information about Location types, see the Go documentation for https://golang.org/pkg/time/#Location.
 
 Binary Data
 
@@ -241,6 +241,6 @@ example, sf is an alias for the gosnowflake package:
 
 Limitations
 
-	* Currently, GET and PUT operations are unsupported.
+Currently, GET and PUT operations are unsupported.
 */
 package gosnowflake

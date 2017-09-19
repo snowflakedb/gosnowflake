@@ -582,8 +582,9 @@ var snowflakeInsecureTransport = &http.Transport{
 	IdleConnTimeout: 30 * time.Minute,
 }
 
-// snowflakeTransport includes the certificate revocation check with OCSP in parallel.
-var snowflakeTransport = &http.Transport{
+// SnowflakeTransport includes the certificate revocation check with OCSP in parallel. By default, the driver uses
+// this transport object.
+var SnowflakeTransport = &http.Transport{
 	TLSClientConfig: &tls.Config{
 		RootCAs:               certPool,
 		VerifyPeerCertificate: verifyPeerCertificateParallel,
@@ -603,4 +604,4 @@ var SnowflakeTransportSerial = &http.Transport{
 }
 
 // SnowflakeTransportTest includes the certificate revocation check in parallel
-var SnowflakeTransportTest = snowflakeTransport
+var SnowflakeTransportTest = SnowflakeTransport

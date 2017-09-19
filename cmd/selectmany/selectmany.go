@@ -1,4 +1,4 @@
-// This sample code demonstrates how to fetch many rows and allow cancel the query by Ctrl+C.
+// Example: Fetch many rows and allow cancel the query by Ctrl+C.
 package main
 
 import (

@@ -28,7 +28,7 @@ func TestOCSP(t *testing.T) {
 	transports := []*http.Transport{
 		snowflakeInsecureTransport,
 		SnowflakeTransportSerial,
-		snowflakeTransport,
+		SnowflakeTransport,
 	}
 
 	for _, tgt := range targetURL {
