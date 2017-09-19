@@ -1,7 +1,5 @@
-// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
-//
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
-//
+
 package gosnowflake
 
 // caRootPEM includes a snapshot of root CAs downloaded from https://curl.haxx.se/ca/cacert.pem
