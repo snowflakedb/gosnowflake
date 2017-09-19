@@ -66,7 +66,7 @@ The following connection parameters are supported:
 	* passcode: Specifies the passcode provided by Duo when using MFA for login.
 
 	* passcodeInPassword: false by default. Set to true if the MFA passcode is
-		embeded in the login password. Appends the MFA passcode to the end of the
+		embedded in the login password. Appends the MFA passcode to the end of the
 		password.
 
 	* loginTimeout: Specifies the timeout, in seconds, for login. The default

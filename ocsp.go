@@ -493,7 +493,7 @@ func writeOCSPCacheFile() {
 		glog.V(2).Infof("failed to write OCSP response cache file. file: %v, err: %v. ignored.\n", cacheFileName, err)
 		return
 	default:
-		if time.Now().Sub(statinfo.ModTime()) < time.Hour {
+		if time.Since(statinfo.ModTime()) < time.Hour {
 			glog.V(2).Infof("other process locks the cache file. %v. ignored.\n", cacheFileName)
 			return
 		}

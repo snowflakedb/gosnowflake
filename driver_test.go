@@ -383,8 +383,8 @@ func TestCRUD(t *testing.T) {
 		rows = dbt.mustQuery("SELECT value FROM test")
 		if rows.Next() {
 			rows.Scan(&out)
-			if true != out {
-				dbt.Errorf("true != %t", out)
+			if !out {
+				dbt.Errorf("%t should be true", out)
 			}
 
 			if rows.Next() {
@@ -408,8 +408,8 @@ func TestCRUD(t *testing.T) {
 		rows = dbt.mustQuery("SELECT value FROM test")
 		if rows.Next() {
 			rows.Scan(&out)
-			if false != out {
-				dbt.Errorf("false != %t", out)
+			if out {
+				dbt.Errorf("%t should be true", out)
 			}
 
 			if rows.Next() {
@@ -707,7 +707,7 @@ func TestBinaryPlaceholder(t *testing.T) {
 			if err := rows.Scan(&rb); err != nil {
 				dbt.Errorf("failed to scan data. err: %v", err)
 			}
-			if bytes.Compare(b, rb) != 0 {
+			if !bytes.Equal(b, rb) {
 				dbt.Errorf("failed to match data. expected: %v, got: %v", b, rb)
 			}
 		} else {
@@ -836,7 +836,7 @@ func TestVariousTypes(t *testing.T) {
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[3])
 		}
-		if bytes.Compare(v5, []byte{0xab, 0xcd}) != 0 {
+		if !bytes.Equal(v5, []byte{0xab, 0xcd}) {
 			dbt.Errorf("failed to scan. %#v", v5)
 		}
 		dbt.mustFailDecimalSize(ct[4])
@@ -1220,7 +1220,7 @@ func TestNULL(t *testing.T) {
 		}
 		if !nb.Valid {
 			dbt.Error("invalid NullBool which should be valid")
-		} else if nb.Bool != true {
+		} else if !nb.Bool {
 			dbt.Errorf("Unexpected NullBool value: %t (should be true)", nb.Bool)
 		}
 
@@ -1288,14 +1288,14 @@ func TestNULL(t *testing.T) {
 			dbt.Fatal(err)
 		}
 		if b != nil {
-			dbt.Error("non-nil []byte wich should be nil")
+			dbt.Error("non-nil []byte which should be nil")
 		}
 		// Read non-nil
 		if err = nonNullStmt.QueryRow().Scan(&b); err != nil {
 			dbt.Fatal(err)
 		}
 		if b == nil {
-			dbt.Error("nil []byte wich should be non-nil")
+			dbt.Error("nil []byte which should be non-nil")
 		}
 		// Insert nil
 		b = nil

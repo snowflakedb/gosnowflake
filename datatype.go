@@ -57,17 +57,17 @@ var (
 func dataTypeMode(v driver.Value) (tsmode string, err error) {
 	if bd, ok := v.([]byte); ok {
 		switch {
-		case bytes.Compare(bd, DataTypeDate) == 0:
+		case bytes.Equal(bd, DataTypeDate):
 			tsmode = "DATE"
-		case bytes.Compare(bd, DataTypeTime) == 0:
+		case bytes.Equal(bd, DataTypeTime):
 			tsmode = "TIME"
-		case bytes.Compare(bd, DataTypeTimestampLtz) == 0:
+		case bytes.Equal(bd, DataTypeTimestampLtz):
 			tsmode = "TIMESTAMP_LTZ"
-		case bytes.Compare(bd, DataTypeTimestampNtz) == 0:
+		case bytes.Equal(bd, DataTypeTimestampNtz):
 			tsmode = "TIMESTAMP_NTZ"
-		case bytes.Compare(bd, DataTypeTimestampTz) == 0:
+		case bytes.Equal(bd, DataTypeTimestampTz):
 			tsmode = "TIMESTAMP_TZ"
-		case bytes.Compare(bd, DataTypeBinary) == 0:
+		case bytes.Equal(bd, DataTypeBinary):
 			tsmode = "BINARY"
 		default:
 			return "", fmt.Errorf(errMsgInvalidByteArray, v)
