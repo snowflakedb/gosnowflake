@@ -5,6 +5,14 @@ setup:
 	go get github.com/Songmu/make2help/cmd/make2help
 	go get honnef.co/go/tools/cmd/megacheck
 
+## Install dependencies
+deps: setup
+	glide install
+
+## Update dependencies
+update: setup
+	glide update
+
 ## Show help
 help:
 	@make2help $(MAKEFILE_LIST)
@@ -14,7 +22,7 @@ cfmt: setup
 	gofmt -w $$(glide nv -x)
 
 # Lint (internally used)
-clint: setup
+clint: deps
 	go vet $$(glide novendor)
 	megacheck
 	for pkg in $$(glide novendor -x); do \
