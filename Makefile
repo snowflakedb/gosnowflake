@@ -17,14 +17,6 @@ test: deps
 cov:
 	make test COVFLAGS="-coverprofile=coverage.txt -covermode=atomic"
 
-## Install dependencies
-deps: setup
-	glide install
-
-## Update dependencies
-update: setup
-	glide update
-
 ## Lint
 lint: clint
 	for c in $$(ls cmd); do \
