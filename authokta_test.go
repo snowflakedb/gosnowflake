@@ -1,7 +1,5 @@
-// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
-//
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
-//
+
 package gosnowflake
 
 import (
@@ -23,17 +21,17 @@ func TestUnitPostBackURL(t *testing.T) {
 		t.Errorf("failed to get URL. got: %v, %v", urlp, c)
 	}
 	c = `<html></html>`
-	urlp, err = postBackURL([]byte(c))
+	_, err = postBackURL([]byte(c))
 	if err == nil {
 		t.Fatalf("should have failed")
 	}
 	c = `<html><form id="1"/></html>`
-	urlp, err = postBackURL([]byte(c))
+	_, err = postBackURL([]byte(c))
 	if err == nil {
 		t.Fatalf("should have failed")
 	}
 	c = `<html><form id="1" action="https&#x3a;&#x2f;&#x2f;abc.com&#x2f;/></html>`
-	urlp, err = postBackURL([]byte(c))
+	_, err = postBackURL([]byte(c))
 	if err == nil {
 		t.Fatalf("should have failed")
 	}

@@ -1,3 +1,4 @@
+// Example: Verify SSL/TLS certificate with OCSP revocation check
 package main
 
 import (

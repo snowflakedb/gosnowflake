@@ -1,7 +1,5 @@
-// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
-//
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
-//
+
 package gosnowflake
 
 import (
@@ -275,10 +273,7 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 	}
 	// TODO: handle noResult and isInternal
 	_, err := sc.exec(ctx, "SELECT 1", false, false, []driver.NamedValue{})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParameter) {

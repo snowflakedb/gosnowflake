@@ -1,7 +1,5 @@
-// Package gosnowflake is a utility package for Go Snowflake Driver
-//
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
-//
+
 package gosnowflake
 
 import (
@@ -30,7 +28,7 @@ func TestOCSP(t *testing.T) {
 	transports := []*http.Transport{
 		snowflakeInsecureTransport,
 		SnowflakeTransportSerial,
-		snowflakeTransport,
+		SnowflakeTransport,
 	}
 
 	for _, tgt := range targetURL {

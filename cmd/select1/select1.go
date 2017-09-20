@@ -1,4 +1,5 @@
-// This sample code demonstrates how to fetch one row.
+// Example: Fetch one row.
+//
 // No cancel is allowed as no context is specified in the method call Query(). If you want to capture Ctrl+C to cancel
 // the query, specify the context and use QueryContext() instead. See selectmany for example.
 package main

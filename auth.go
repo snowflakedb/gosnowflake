@@ -1,7 +1,5 @@
-// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
-//
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
-//
+
 package gosnowflake
 
 import (
@@ -153,7 +151,7 @@ func postAuth(
 	}
 }
 
-// authenticate is used to authenticate user to gain accesss to Snowflake database.
+// authenticate is used to authenticate user to gain access to Snowflake database.
 func authenticate(
 	sr *snowflakeRestful,
 	user string,
@@ -194,7 +192,7 @@ func authenticate(
 		SessionParameters: sessionParameters,
 		ClientEnvironment: clientEnvironment,
 	}
-	if bytes.Compare(samlResponse, []byte{}) != 0 {
+	if !bytes.Equal(samlResponse, []byte{}) {
 		requestMain.RawSAMLResponse = string(samlResponse)
 	} else {
 		requestMain.LoginName = user

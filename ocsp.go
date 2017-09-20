@@ -1,7 +1,5 @@
-// Package gosnowflake is a utility package for Go Snowflake Driver
-//
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
-//
+
 package gosnowflake
 
 import (
@@ -495,7 +493,7 @@ func writeOCSPCacheFile() {
 		glog.V(2).Infof("failed to write OCSP response cache file. file: %v, err: %v. ignored.\n", cacheFileName, err)
 		return
 	default:
-		if time.Now().Sub(statinfo.ModTime()) < time.Hour {
+		if time.Since(statinfo.ModTime()) < time.Hour {
 			glog.V(2).Infof("other process locks the cache file. %v. ignored.\n", cacheFileName)
 			return
 		}
@@ -584,8 +582,9 @@ var snowflakeInsecureTransport = &http.Transport{
 	IdleConnTimeout: 30 * time.Minute,
 }
 
-// snowflakeTransport includes the certificate revocation check with OCSP in parallel.
-var snowflakeTransport = &http.Transport{
+// SnowflakeTransport includes the certificate revocation check with OCSP in parallel. By default, the driver uses
+// this transport object.
+var SnowflakeTransport = &http.Transport{
 	TLSClientConfig: &tls.Config{
 		RootCAs:               certPool,
 		VerifyPeerCertificate: verifyPeerCertificateParallel,
@@ -605,4 +604,4 @@ var SnowflakeTransportSerial = &http.Transport{
 }
 
 // SnowflakeTransportTest includes the certificate revocation check in parallel
-var SnowflakeTransportTest = snowflakeTransport
+var SnowflakeTransportTest = SnowflakeTransport

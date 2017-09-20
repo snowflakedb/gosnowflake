@@ -1,7 +1,5 @@
-// Package gosnowflake is a Go Snowflake Driver for Go's database/sql
-//
 // Copyright (c) 2017 Snowflake Computing Inc. All right reserved.
-//
+
 package gosnowflake
 
 import (
@@ -46,7 +44,7 @@ type Config struct {
 	InsecureMode bool   // driver doesn't check certificate revocation status
 }
 
-// DSN construct a DSN for Snowflake db.
+// DSN constructs a DSN for Snowflake db.
 func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.Host == "" {
 		if cfg.Region == "" {
@@ -107,7 +105,7 @@ func DSN(cfg *Config) (dsn string, err error) {
 	return
 }
 
-// ParseDSN parses the DSN string to a Config
+// ParseDSN parses the DSN string to a Config.
 func ParseDSN(dsn string) (cfg *Config, err error) {
 	// New config with some default values
 	cfg = &Config{
