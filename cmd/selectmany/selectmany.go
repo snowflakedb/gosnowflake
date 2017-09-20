@@ -47,10 +47,10 @@ func main() {
 
 	dsn := fmt.Sprintf("%v:%v@%v", user, password, account)
 	db, err := sql.Open("snowflake", dsn)
-	defer db.Close()
 	if err != nil {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
 	}
+	defer db.Close()
 	query := "SELECT seq8(), randstr(5, random()) from table(generator(rowcount=>10000000))"
 	fmt.Printf("Executing a query. It may take long. You may stop by Ctrl+C.\n")
 	rows, err := db.QueryContext(ctx, query)

@@ -1,31 +1,16 @@
-## Setup
-setup:
-	go get github.com/Masterminds/glide
-	go get github.com/golang/lint/golint
-	go get github.com/Songmu/make2help/cmd/make2help
+include ../../gosnowflake.mak
+CMD_TARGET=selectmany
 
 ## Install
-install:
-	export GOBIN=$$GOPATH/bin; \
-	go install -tags=sfdebug selectmany.go
+install: cinstall
 
 ## Run
-run: install
-	selectmany
+run: crun
 
 ## Lint
-lint: setup
-	go vet $$(glide novendor)
-	for pkg in $$(glide novendor -x); do \
-		golint -set_exit_status $$pkg || exit $$?; \
-	done
+lint: clint
 
-## Format source codes using gofmt
-fmt: setup
-	gofmt -w $$(glide nv -x)
+## Format source codes
+fmt: cfmt
 
-## Show help
-help:
-	@make2help $(MAKEFILE_LIST)
-
-.PHONY: install run
+.PHONY: install run lint fmt

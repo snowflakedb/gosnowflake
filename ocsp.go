@@ -396,7 +396,6 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	ocspResponseCacheLock.Lock()
 	ocspResponseCache[encodedCertIDBase64] = v
 	ocspResponseCacheLock.Unlock()
-	return
 }
 
 // verifyPeerCertificate verifies all of certificate revocation status

@@ -190,7 +190,6 @@ func (dbt *DBTest) mustFailDecimalSize(ct *sql.ColumnType) {
 	if ok {
 		dbt.Fatalf("should not return decimal size. %v", ct)
 	}
-	return
 }
 
 func (dbt *DBTest) mustLength(ct *sql.ColumnType) (cLen int64) {
@@ -208,7 +207,6 @@ func (dbt *DBTest) mustFailLength(ct *sql.ColumnType) {
 	if ok {
 		dbt.Fatalf("should not return length. %v", ct)
 	}
-	return
 }
 
 func (dbt *DBTest) mustNullable(ct *sql.ColumnType) (canNull bool) {
@@ -1420,6 +1418,9 @@ func TestDML(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test(c1 int, c2 string)")
 		err := insertData(dbt, false)
+		if err != nil {
+			dbt.Fatalf("failed to insert data: %v", err)
+		}
 		results, err := queryTest(dbt)
 		if err != nil {
 			dbt.Fatalf("failed to query test table: %v", err)
@@ -1428,6 +1429,9 @@ func TestDML(t *testing.T) {
 			dbt.Fatalf("number of returned data didn't match. expected 0, got: %v", len(*results))
 		}
 		err = insertData(dbt, true)
+		if err != nil {
+			dbt.Fatalf("failed to insert data: %v", err)
+		}
 		results, err = queryTest(dbt)
 		if err != nil {
 			dbt.Fatalf("failed to query test table: %v", err)
@@ -1478,6 +1482,9 @@ func queryTestTx(tx *sql.Tx) (*map[int]string, error) {
 	var c1 int
 	var c2 string
 	rows, err := tx.Query("SELECT c1, c2 FROM test")
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 	if err != nil {
 		return nil, err
@@ -1497,6 +1504,9 @@ func queryTest(dbt *DBTest) (*map[int]string, error) {
 	var c1 int
 	var c2 string
 	rows, err := dbt.db.Query("SELECT c1, c2 FROM test")
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 	if err != nil {
 		return nil, err
@@ -1570,49 +1580,6 @@ func TestCancelQuery(t *testing.T) {
 			dbt.Fatal("Timeout failed")
 		}
 	})
-}
-
-// TEMPORARILY DISABLED. The test instance is being refreshed.
-func _TestOKTA(t *testing.T) {
-	// get environment variables
-	env := func(key, defaultValue string) string {
-		if value := os.Getenv(key); value != "" {
-			return value
-		}
-		return defaultValue
-	}
-	oktaAccount := env("SNOWFLAKE_TEST_OKTA_ACCOUNT", "")
-	oktaUser := env("SNOWFLAKE_TEST_OKTA_USER", "testuser")
-	oktaPassword := env("SNOWFLAKE_TEST_OKTA_PASSWORD", "testpassword")
-	authenticator := env("SNOWFLAKE_TEST_OKTA_URL", "")
-	if authenticator == "" || oktaAccount == "" {
-		// no OKTA test runs
-		return
-	}
-	dsn := fmt.Sprintf("%v:%v@%v?authenticator=%v", oktaUser, oktaPassword, oktaAccount, url.QueryEscape(authenticator))
-	glog.V(2).Infof("DSN: %v\n", dsn)
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		t.Fatalf("failed to connect. %v, err: %v", dsn, err)
-	}
-	query := "SELECT 1"
-	rows, err := db.Query(query)
-	defer rows.Close()
-	if err != nil {
-		t.Fatalf("failed to run a query. %v, err: %v", query, err)
-	}
-	var v int
-	for rows.Next() {
-		err := rows.Scan(&v)
-		if err != nil {
-			t.Fatalf("failed to get result. err: %v", err)
-		}
-		if v != 1 {
-			t.Fatalf("failed to get 1. got: %v", v)
-		}
-		fmt.Printf("Congrats! You have successfully run %v with Snowflake DB!", query)
-	}
-
 }
 
 func TestInvalidConnection(t *testing.T) {
@@ -1775,14 +1742,9 @@ func TestLargeSetResultCancel(t *testing.T) {
 		// cancel after 1 second
 		time.Sleep(time.Second)
 		cancel()
-		select {
-		case ret := <-c:
-			if ret.Error() != "context canceled" {
-				t.Fatalf("failed to cancel. err: %v", ret)
-			}
-			// not only the connection was terminated but also the query in the server
-			// must be terminated here. So far there is no way to check if the given query is
-			// canceled.
+		ret := <-c
+		if ret.Error() != "context canceled" {
+			t.Fatalf("failed to cancel. err: %v", ret)
 		}
 	})
 }

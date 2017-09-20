@@ -81,7 +81,7 @@ func authenticateBySAML(
 	params := &url.Values{}
 	jsonBody, err := json.Marshal(authRequest)
 	if err != nil {
-		return
+		return nil, err
 	}
 	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
 	respd, err := sr.FuncPostAuthSAML(sr, headers, jsonBody, sr.LoginTimeout)
@@ -126,6 +126,9 @@ func authenticateBySAML(
 		Username: user,
 		Password: password,
 	})
+	if err != nil {
+		return nil, err
+	}
 	respa, err := sr.FuncPostAuthOKTA(sr, headers, jsonBody, respd.Data.TokenURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
