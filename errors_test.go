@@ -8,8 +8,7 @@ import (
 )
 
 func TestErrorMessage(t *testing.T) {
-	var e error
-	e = &SnowflakeError{
+	e := &SnowflakeError{
 		Number:  1,
 		Message: "test message",
 	}
@@ -74,11 +73,7 @@ func TestErrorMessage(t *testing.T) {
 		// no quid
 		t.Errorf("failed to format error. %v", e)
 	}
-	se, ok := e.(*SnowflakeError)
-	if !ok {
-		t.Errorf("Failed to cast to SnowflakeError. %T, %v", e, e)
-	}
-	se.IncludeQueryID = true
+	e.IncludeQueryID = true
 	if !strings.Contains(e.Error(), "abcdef-abcdef-abcdef") {
 		// no quid
 		t.Errorf("failed to format error. %v", e)

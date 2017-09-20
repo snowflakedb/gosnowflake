@@ -32,26 +32,6 @@ func randSecondDuration(n time.Duration) time.Duration {
 	return time.Duration(random.Int63n(int64(n/time.Second))) * time.Second
 }
 
-// exponential backoff (experimental)
-func (w *waitAlgo) exp(attempt int, sleep time.Duration) time.Duration {
-	return durationMax(durationMin(1<<uint(attempt)*w.base, w.cap), 1*time.Second)
-}
-
-// full jitter backoff (experimental)
-func (w *waitAlgo) fullJitter(attempt int, sleep time.Duration) time.Duration {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-	return randSecondDuration(w.exp(attempt, sleep))
-}
-
-// equal jitter backoff (experimental)
-func (w *waitAlgo) eqJitter(attempt int, sleep time.Duration) time.Duration {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-	t := w.exp(attempt, sleep) / time.Duration(2)
-	return t + randSecondDuration(t)
-}
-
 // decorrelated jitter backoff
 func (w *waitAlgo) decorr(attempt int, sleep time.Duration) time.Duration {
 	w.mutex.Lock()

@@ -151,8 +151,7 @@ func TestUnitRenewRestfulSession(t *testing.T) {
 		Token:       "token",
 		FuncPost:    postTestAfterRenew,
 	}
-	var err error
-	err = renewRestfulSession(context.Background(), sr)
+	err := renewRestfulSession(context.Background(), sr)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -177,8 +176,7 @@ func TestUnitCloseSession(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPost: postTestAfterRenew,
 	}
-	var err error
-	err = closeSession(sr)
+	err := closeSession(sr)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -203,8 +201,7 @@ func TestUnitCancelQuery(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPost: postTestAfterRenew,
 	}
-	var err error
-	err = cancelQuery(sr, "abcdefg")
+	err := cancelQuery(sr, "abcdefg")
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

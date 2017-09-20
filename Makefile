@@ -6,11 +6,7 @@ COVFLAGS:=
 ## Run fmt, lint and test
 all: fmt lint cov
 
-## Setup
-setup:
-	go get github.com/Masterminds/glide
-	go get github.com/golang/lint/golint
-	go get github.com/Songmu/make2help/cmd/make2help
+include gosnowflake.mak
 
 ## Run tests
 test: deps
@@ -30,18 +26,13 @@ update: setup
 	glide update
 
 ## Lint
-lint: setup
-	go vet $$(glide novendor)
-	for pkg in $$(glide novendor -x); do \
-		golint -set_exit_status $$pkg || exit $$?; \
-	done
+lint: clint
 	for c in $$(ls cmd); do \
 		(cd cmd/$$c;  make lint); \
 	done
 
-## Format source codes using gofmt
-fmt: setup
-	gofmt -w $$(glide nv -x)
+## Format source codes
+fmt: cfmt
 	for c in $$(ls cmd); do \
 		(cd cmd/$$c;  make fmt); \
 	done
@@ -61,9 +52,5 @@ fuzz-build:
 ## Run fuzz-dsn
 fuzz-dsn:
 	(cd fuzz-dsn; go-fuzz -bin=./dsn-fuzz.zip -workdir=.)
-
-## Show help
-help:
-	@make2help $(MAKEFILE_LIST)
 
 .PHONY: setup deps update test lint help fuzz-dsn
