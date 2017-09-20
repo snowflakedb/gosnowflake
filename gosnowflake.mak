@@ -1,5 +1,6 @@
 ## Setup
 setup:
+	go get golang.org/x/crypto/ocsp
 	go get github.com/Masterminds/glide
 	go get github.com/golang/lint/golint
 	go get github.com/Songmu/make2help/cmd/make2help
@@ -22,7 +23,7 @@ cfmt: setup
 	gofmt -w $$(glide nv -x)
 
 # Lint (internally used)
-clint: deps
+clint: setup
 	go vet $$(glide novendor)
 	megacheck
 	for pkg in $$(glide novendor -x); do \
