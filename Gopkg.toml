@@ -1,0 +1,9 @@
+[[constraint]]
+  name = "github.com/golang/glog"
+
+[[constraint]]
+  name = "github.com/satori/go.uuid"
+  version = "1.1.0"
+
+[[constraint]]
+  name = "golang.org/x/crypto"
