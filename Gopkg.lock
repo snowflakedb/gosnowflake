@@ -14,9 +14,10 @@
   version = "v1.1.0"
 
 [[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ocsp"]
-  revision = "04eae0b62feaaf659a0ce2c4e8dc70b6ae2fff67"
+  revision = "2509b142fb2b797aa7587dad548f113b2c0f20ce"
 
 [solve-meta]
   analyzer-name = "dep"
