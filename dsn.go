@@ -98,6 +98,11 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.Application != clientType {
 		params.Add("application", cfg.Application)
 	}
+	if cfg.Params != nil {
+		for k, v := range cfg.Params {
+			params.Add(k, *v)
+		}
+	}
 	dsn = fmt.Sprintf("%v:%v@%v:%v", cfg.User, cfg.Password, cfg.Host, cfg.Port)
 	if params.Encode() != "" {
 		dsn += "?" + params.Encode()
