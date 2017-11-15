@@ -94,6 +94,12 @@ The following connection parameters are supported:
 
 	* proxyPassword: Specifies the password for the user account used to connect to the proxy server.
 
+All other parameters are taken as session parameters. For example, TIMESTAMP_OUTPUT_FORMAT session parameter can be
+set by adding:
+
+	...&TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY...
+
+
 Logging
 
 By default, the driver's builtin logger is NOP; no output is generated. This is
