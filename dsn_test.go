@@ -266,6 +266,8 @@ type tcDSN struct {
 }
 
 func TestDSN(t *testing.T) {
+	tmfmt := "MM-DD-YYYY"
+
 	testcases := []tcDSN{
 		{
 			cfg: &Config{
@@ -327,6 +329,17 @@ func TestDSN(t *testing.T) {
 				Application:        "special go",
 			},
 			dsn: "u:p@a.b.snowflakecomputing.com:443?application=special+go&authenticator=au&database=db&loginTimeout=10&passcode=db&passcodeInPassword=true&region=b&requestTimeout=300&role=ro&schema=sc",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.e",
+				Params: map[string]*string{
+					"TIMESTAMP_OUTPUT_FORMAT": &tmfmt,
+				},
+			},
+			dsn: "u:p@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&region=e",
 		},
 	}
 	for _, test := range testcases {
