@@ -3,6 +3,7 @@ language: go
 go:
   - 1.8
   - 1.9
+  - tip
 before_install:
   - openssl aes-256-cbc -k "$super_secret_password" -in parameters.json.enc -out parameters.json -d
 install:
