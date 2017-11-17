@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -92,12 +93,37 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		return nil, err
 	}
 	glog.V(2).Infof("Auth Data: %v", authData)
-	sc.cfg.Database = authData.SessionInfo.DatabaseName
-	sc.cfg.Schema = authData.SessionInfo.SchemaName
-	sc.cfg.Role = authData.SessionInfo.RoleName
-	sc.cfg.Warehouse = authData.SessionInfo.WarehouseName
+	err = d.validateDefaultParameters(authData.SessionInfo.DatabaseName, &sc.cfg.Database)
+	if err != nil {
+		return nil, err
+	}
+	err = d.validateDefaultParameters(authData.SessionInfo.SchemaName, &sc.cfg.Schema)
+	if err != nil {
+		return nil, err
+	}
+	err = d.validateDefaultParameters(authData.SessionInfo.WarehouseName, &sc.cfg.Warehouse)
+	if err != nil {
+		return nil, err
+	}
+	err = d.validateDefaultParameters(authData.SessionInfo.RoleName, &sc.cfg.Role)
+	if err != nil {
+		return nil, err
+	}
 	sc.populateSessionParameters(authData.Parameters)
 	return sc, nil
+}
+
+func (d SnowflakeDriver) validateDefaultParameters(sessionValue string, defaultValue *string) error {
+	if *defaultValue != "" && strings.ToLower(*defaultValue) != strings.ToLower(sessionValue) {
+		return &SnowflakeError{
+			Number:      ErrCodeObjectNotExists,
+			SQLState:    SQLStateConnectionFailure,
+			Message:     errMsgObjectNotExists,
+			MessageArgs: []interface{}{*defaultValue},
+		}
+	}
+	*defaultValue = sessionValue
+	return nil
 }
 
 func init() {

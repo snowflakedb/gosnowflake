@@ -39,62 +39,64 @@ const (
 	// ErrCodeEmptyAccountCode is an error code for the case where a DNS doesn't include account parameter
 	ErrCodeEmptyAccountCode = 260000
 	// ErrCodeEmptyUsernameCode is an error code for the case where a DNS doesn't include user parameter
-	ErrCodeEmptyUsernameCode
+	ErrCodeEmptyUsernameCode = 260001
 	// ErrCodeEmptyPasswordCode is an error code for the case where a DNS doesn't include password parameter
-	ErrCodeEmptyPasswordCode
+	ErrCodeEmptyPasswordCode = 260002
 	// ErrCodeFailedToParseHost is an error code for the case where a DNS includes an invalid host name
-	ErrCodeFailedToParseHost
+	ErrCodeFailedToParseHost = 260003
 	// ErrCodeFailedToParsePort is an error code for the case where a DNS includes an invalid port number
-	ErrCodeFailedToParsePort
+	ErrCodeFailedToParsePort = 260004
 	// ErrCodeIdpConnectionError is an error code for the case where a IDP connection failed
-	ErrCodeIdpConnectionError
+	ErrCodeIdpConnectionError = 260005
 	// ErrCodeSSOURLNotMatch is an error code for the case where a SSO URL doesn't match
-	ErrCodeSSOURLNotMatch
-	// ErrServiceUnavailable is an error code for the case where service is unavailable.
-	ErrServiceUnavailable
-	// ErrFailedToConnect is an error code for the case where a DB connection failed due to wrong account name
-	ErrFailedToConnect
+	ErrCodeSSOURLNotMatch = 260006
+	// ErrCodeServiceUnavailable is an error code for the case where service is unavailable.
+	ErrCodeServiceUnavailable = 260007
+	// ErrCodeFailedToConnect is an error code for the case where a DB connection failed due to wrong account name
+	ErrCodeFailedToConnect = 260008
+	// ErrCodeObjectNotExists is an error code for the case where the specified database object doesn't exist
+	ErrCodeObjectNotExists = 260009
 
 	/* network */
 
 	// ErrFailedToPostQuery is an error code for the case where HTTP POST failed.
 	ErrFailedToPostQuery = 261000
 	// ErrFailedToRenewSession is an error code for the case where session renewal failed.
-	ErrFailedToRenewSession
+	ErrFailedToRenewSession = 261001
 	// ErrFailedToCancelQuery is an error code for the case where cancel query failed.
-	ErrFailedToCancelQuery
+	ErrFailedToCancelQuery = 261002
 	// ErrFailedToCloseSession is an error code for the case where close session failed.
-	ErrFailedToCloseSession
+	ErrFailedToCloseSession = 261003
 	// ErrFailedToAuth is an error code for the case where authentication failed for unknown reason.
-	ErrFailedToAuth
+	ErrFailedToAuth = 261004
 	// ErrFailedToAuthSAML is an error code for the case where authentication via SAML failed for unknown reason.
-	ErrFailedToAuthSAML
+	ErrFailedToAuthSAML = 261005
 	// ErrFailedToAuthOKTA is an error code for the case where authentication via OKTA failed for unknown reason.
-	ErrFailedToAuthOKTA
+	ErrFailedToAuthOKTA = 261006
 	// ErrFailedToGetSSO is an error code for the case where authentication via OKTA failed for unknown reason.
-	ErrFailedToGetSSO
+	ErrFailedToGetSSO = 261007
 
 	/* rows */
 
 	// ErrFailedToGetChunk is an error code for the case where it failed to get chunk of result set
-	ErrFailedToGetChunk = 262001
+	ErrFailedToGetChunk = 262000
 
 	/* transaction*/
 
 	// ErrNoReadOnlyTransaction is an error code for the case where readonly mode is specified.
-	ErrNoReadOnlyTransaction = 263001
+	ErrNoReadOnlyTransaction = 263000
 	// ErrNoDefaultTransactionIsolationLevel is an error code for the case where non default isolation level is specified.
-	ErrNoDefaultTransactionIsolationLevel
+	ErrNoDefaultTransactionIsolationLevel = 263001
 
 	/* converter */
 
 	// ErrInvalidTimestampTz is an error code for the case where a returned TIMESTAMP_TZ internal value is invalid
-	ErrInvalidTimestampTz = 268001
+	ErrInvalidTimestampTz = 268000
 	// ErrInvalidOffsetStr is an error code for the case where a offset string is invalid. The input string must
 	// consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes
-	ErrInvalidOffsetStr
+	ErrInvalidOffsetStr = 268001
 	// ErrInvalidBinaryHexForm is an error code for the case where a binary data in hex form is invalid.
-	ErrInvalidBinaryHexForm
+	ErrInvalidBinaryHexForm = 268002
 )
 
 const (
@@ -117,6 +119,7 @@ const (
 	errMsgNoDefaultTransactionIsolationLevel = "no default isolation transaction level is supported"
 	errMsgServiceUnavailable                 = "service is unavailable. check your connectivity. you may need a proxy server. HTTP: %v, URL: %v"
 	errMsgFailedToConnect                    = "failed to connect to db. verify account name is correct. HTTP: %v, URL: %v"
+	errMsgObjectNotExists                    = "specified object doesn't exists: %v"
 )
 
 var (

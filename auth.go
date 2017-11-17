@@ -120,7 +120,7 @@ func postAuth(
 	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 		// service availability or connectivity issue. Most likely server side issue.
 		return nil, &SnowflakeError{
-			Number:      ErrServiceUnavailable,
+			Number:      ErrCodeServiceUnavailable,
 			SQLState:    SQLStateConnectionWasNotEstablished,
 			Message:     errMsgServiceUnavailable,
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
@@ -128,7 +128,7 @@ func postAuth(
 	case http.StatusUnauthorized, http.StatusForbidden:
 		// failed to connect to db. account name may be wrong
 		return nil, &SnowflakeError{
-			Number:      ErrFailedToConnect,
+			Number:      ErrCodeFailedToConnect,
 			SQLState:    SQLStateConnectionRejected,
 			Message:     errMsgFailedToConnect,
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},

@@ -1749,6 +1749,69 @@ func TestLargeSetResultCancel(t *testing.T) {
 	})
 }
 
+type tcValidateDatabaseParameter struct {
+	dsn       string
+	params    map[string]string
+	errorCode int
+}
+
+func TestValidateDatabaseParameter(t *testing.T) {
+	baseDSN := fmt.Sprintf("%s:%s@%s", user, pass, host)
+	testcases := []tcValidateDatabaseParameter{
+		{
+			dsn:       baseDSN + fmt.Sprintf("/%s/%s", "NOT_EXISTS", "NOT_EXISTS"),
+			errorCode: ErrCodeObjectNotExists,
+		},
+		{
+			dsn:       baseDSN + fmt.Sprintf("/%s/%s", dbname, "NOT_EXISTS"),
+			errorCode: ErrCodeObjectNotExists,
+		},
+		{
+			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			params: map[string]string{
+				"warehouse": "NOT_EXIST",
+			},
+			errorCode: ErrCodeObjectNotExists,
+		},
+		{
+			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			params: map[string]string{
+				"role": "NOT_EXIST",
+			},
+			errorCode: 390189, // this already exists
+		},
+	}
+	for idx, tc := range testcases {
+		newDSN := tc.dsn
+		parameters := url.Values{}
+		if protocol != "" {
+			parameters.Add("protocol", protocol)
+		}
+		if account != "" {
+			parameters.Add("account", account)
+		}
+		for k, v := range tc.params {
+			parameters.Add(k, v)
+		}
+		newDSN += "?" + parameters.Encode()
+		db, err := sql.Open("snowflake", newDSN)
+		if err != nil {
+			t.Fatalf("error creating a connection object: %s", err.Error())
+		}
+		// actual connection won't happen until run a query
+		defer db.Close()
+		_, err = db.Exec("SELECT 1")
+		if err == nil {
+			t.Fatal("should cause an error.")
+		}
+		if driverErr, ok := err.(*SnowflakeError); ok {
+			if driverErr.Number != tc.errorCode { // not exist error
+				t.Errorf("got unexpected error: %v in %v", err, idx)
+			}
+		}
+	}
+}
+
 func init() {
 	if !flag.Parsed() {
 		flag.Parse()
