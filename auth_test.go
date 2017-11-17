@@ -45,13 +45,13 @@ func TestUnitPostAuth(t *testing.T) {
 
 func postAuthFailServiceIssue(_ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
 	return nil, &SnowflakeError{
-		Number: ErrServiceUnavailable,
+		Number: ErrCodeServiceUnavailable,
 	}
 }
 
 func postAuthFailWrongAccount(_ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
 	return nil, &SnowflakeError{
-		Number: ErrFailedToConnect,
+		Number: ErrCodeFailedToConnect,
 	}
 }
 
@@ -165,7 +165,7 @@ func TestUnitAuthenticate(t *testing.T) {
 		t.Fatal("should have failed.")
 	}
 	driverErr, ok = err.(*SnowflakeError)
-	if !ok || driverErr.Number != ErrServiceUnavailable {
+	if !ok || driverErr.Number != ErrCodeServiceUnavailable {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
 	sr.FuncPostAuth = postAuthFailWrongAccount
@@ -177,7 +177,7 @@ func TestUnitAuthenticate(t *testing.T) {
 		t.Fatal("should have failed.")
 	}
 	driverErr, ok = err.(*SnowflakeError)
-	if !ok || driverErr.Number != ErrFailedToConnect {
+	if !ok || driverErr.Number != ErrCodeFailedToConnect {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
 	sr.FuncPostAuth = postAuthFailUnknown
