@@ -36,7 +36,8 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	}
 	if proxyURL != nil {
 		st.Proxy = http.ProxyURL(proxyURL)
-		glog.V(2).Infof("proxy: %v", proxyURL)
+		glog.V(2).Infof("proxy: %v, %v, %v, %v",
+			proxyURL.Scheme, proxyURL.Host, proxyURL.Port, proxyURL.User)
 	}
 	// authenticate
 	sc.rest = &snowflakeRestful{
@@ -92,7 +93,6 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		sc.cleanup()
 		return nil, err
 	}
-	glog.V(2).Infof("Auth Data: %v", authData)
 	err = d.validateDefaultParameters(authData.SessionInfo.DatabaseName, &sc.cfg.Database)
 	if err != nil {
 		return nil, err

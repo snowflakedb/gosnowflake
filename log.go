@@ -13,6 +13,11 @@ func (glogWrapper) V(int) glogWrapper {
 	return glogWrapper{}
 }
 
+// Check if the logging is enabled. Returns always False by default
+func (glogWrapper) IsEnabled(int) bool {
+	return false
+}
+
 // Flush emulates the glog.Flush() call
 func (glogWrapper) Flush() {}
 

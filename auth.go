@@ -106,7 +106,6 @@ func postAuth(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(3).Infof("postAuth: resp: %v", resp)
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
@@ -228,7 +227,9 @@ func authenticate(
 		return
 	}
 
-	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
+	glog.V(2).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
+		params, sr.Protocol, sr.Host, sr.Port, sr.LoginTimeout, sr.Authenticator)
+
 	respd, err := sr.FuncPostAuth(sr, params, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		return nil, err

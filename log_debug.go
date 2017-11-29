@@ -17,6 +17,10 @@ func (l *glogWrapper) V(level int32) glogWrapper {
 	return glogWrapper{logger.V(logger.Level(level))}
 }
 
+func (l *glogWrapper) IsEnabled(level int32) bool {
+	return bool(logger.V(logger.Level(level)))
+}
+
 // Flush calls flush on the underlying logger
 func (l *glogWrapper) Flush() {
 	logger.Flush()

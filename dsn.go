@@ -236,7 +236,6 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		return nil, err
 	}
 	cfg.Warehouse = s
-	glog.V(2).Infof("ParseDSN: %v\n", cfg) // TODO: hide password
 	return cfg, nil
 }
 

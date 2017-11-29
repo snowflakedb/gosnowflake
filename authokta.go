@@ -233,14 +233,12 @@ func postAuthSAML(
 		}
 		return &respd, nil
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	_, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
 		glog.Flush()
 		return nil, err
 	}
-	glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	glog.V(1).Infof("Header: %v", resp.Header)
 	glog.Flush()
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuthSAML,
