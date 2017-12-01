@@ -83,22 +83,14 @@ The following connection parameters are supported:
 		Security Certified Professional (OSCP) certificate revocation check.
 		IMPORTANT: Change the default value for testing or emergency situations only.
 
-	*proxyHost: Specifies the host name for the proxy server. The proxy
-		must be accessible via the URL http://proxyHost:proxyPort/. The
-		proxyUser and proxyPassword parameters are optional. Note that SSL
-		proxy configuration is not supported.
-
-	* proxyPort: Specifies the port number for the proxy server.
-
-	* proxyUser: Specifies the name of the user used to connect to the proxy server.
-
-	* proxyPassword: Specifies the password for the user account used to connect to the proxy server.
-
 All other parameters are taken as session parameters. For example, TIMESTAMP_OUTPUT_FORMAT session parameter can be
 set by adding:
 
 	...&TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY...
 
+Proxy
+
+The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.
 
 Logging
 

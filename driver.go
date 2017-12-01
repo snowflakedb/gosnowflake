@@ -30,14 +30,8 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		// no revocation check with OCSP. Think twice when you want to enable this option.
 		st = snowflakeInsecureTransport
 	}
-	proxyURL, err := proxyURL(proxyHost, proxyPort, proxyUser, proxyPassword)
 	if err != nil {
 		return nil, err
-	}
-	if proxyURL != nil {
-		st.Proxy = http.ProxyURL(proxyURL)
-		glog.V(2).Infof("proxy: %v, %v, %v, %v",
-			proxyURL.Scheme, proxyURL.Host, proxyURL.Port, proxyURL.User)
 	}
 	// authenticate
 	sc.rest = &snowflakeRestful{
