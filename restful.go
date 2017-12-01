@@ -27,13 +27,6 @@ const (
 	queryInProgressAsyncCode = "333334"
 )
 
-var (
-	proxyHost     string
-	proxyPort     int
-	proxyUser     string
-	proxyPassword string
-)
-
 type snowflakeRestful struct {
 	Host           string
 	Port           int

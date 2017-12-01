@@ -370,13 +370,7 @@ func getRevocationStatus(wg *sync.WaitGroup, ocspStatusChan chan<- *ocspStatus, 
 	}
 	glog.V(2).Infof("cache missed: %v\n", ocspValidatedWithCache.err)
 
-	proxyURL, _ := proxyURL(proxyHost, proxyPort, proxyUser, proxyPassword)
 	st := snowflakeInsecureTransport
-	if proxyURL != nil {
-		st.Proxy = http.ProxyURL(proxyURL)
-		glog.V(2).Infof("proxy: %v, %v, %v, %v",
-			proxyURL.Scheme, proxyURL.Host, proxyURL.Port, proxyURL.User)
-	}
 	ocspClient := &http.Client{
 		Timeout:   30 * time.Second,
 		Transport: st,
