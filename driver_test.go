@@ -354,6 +354,7 @@ func TestCRUD(t *testing.T) {
 		// Test for unexpected Data
 		var out bool
 		rows := dbt.mustQuery("SELECT * FROM test")
+		defer rows.Close()
 		if rows.Next() {
 			dbt.Error("unexpected Data in empty table")
 		}
@@ -379,6 +380,7 @@ func TestCRUD(t *testing.T) {
 
 		// Read
 		rows = dbt.mustQuery("SELECT value FROM test")
+		defer rows.Close()
 		if rows.Next() {
 			rows.Scan(&out)
 			if !out {
@@ -404,6 +406,7 @@ func TestCRUD(t *testing.T) {
 
 		// Check Update
 		rows = dbt.mustQuery("SELECT value FROM test")
+		defer rows.Close()
 		if rows.Next() {
 			rows.Scan(&out)
 			if out {
@@ -451,6 +454,7 @@ func TestInt(t *testing.T) {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 			rows = dbt.mustQuery("SELECT value FROM test")
+			defer rows.Close()
 			if rows.Next() {
 				rows.Scan(&out)
 				if in != out {
@@ -475,6 +479,7 @@ func TestFloat32(t *testing.T) {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 			rows = dbt.mustQuery("SELECT value FROM test")
+			defer rows.Close()
 			if rows.Next() {
 				rows.Scan(&out)
 				if in != out {
@@ -498,6 +503,7 @@ func TestFloat64(t *testing.T) {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (42.23)")
 			rows = dbt.mustQuery("SELECT value FROM test")
+			defer rows.Close()
 			if rows.Next() {
 				rows.Scan(&out)
 				if expected != out {
@@ -650,6 +656,7 @@ func TestBindingInterface(t *testing.T) {
 		var err error
 		rows := dbt.mustQuery(
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		defer rows.Close()
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
@@ -683,6 +690,7 @@ func TestVariousTypes(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		rows := dbt.mustQuery(
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		defer rows.Close()
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
@@ -955,6 +963,7 @@ func TestSimpleDateTimeTimestampFetch(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		for _, f := range fetchTypes {
 			rows := dbt.mustQuery("SELECT CURRENT_DATE(), CURRENT_TIME(), CURRENT_TIMESTAMP()")
+			defer rows.Close()
 			if rows.Next() {
 				f(rows)
 			} else {
@@ -1259,6 +1268,7 @@ func TestNULL(t *testing.T) {
 
 		var out interface{}
 		rows := dbt.mustQuery("SELECT * FROM test")
+		defer rows.Close()
 		if rows.Next() {
 			rows.Scan(&out)
 			if out != nil {
@@ -1725,10 +1735,10 @@ func TestValidateDatabaseParameter(t *testing.T) {
 		}
 		newDSN += "?" + parameters.Encode()
 		db, err := sql.Open("snowflake", newDSN)
+		// actual connection won't happen until run a query
 		if err != nil {
 			t.Fatalf("error creating a connection object: %s", err.Error())
 		}
-		// actual connection won't happen until run a query
 		defer db.Close()
 		_, err = db.Exec("SELECT 1")
 		if err == nil {
