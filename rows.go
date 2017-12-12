@@ -58,6 +58,7 @@ type snowflakeChunkDownloader struct {
 	ChunksErrorCounter int
 	ChunksFinalErrors  []*chunkError
 	Qrmk               string
+	ChunkHeader        map[string]string
 	CurrentIndex       int
 	FuncDownload       func(*snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int)
@@ -312,9 +313,18 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 }
 
 func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
+
 	headers := make(map[string]string)
-	headers[headerSseCAlgorithm] = headerSseCAes
-	headers[headerSseCKey] = scd.Qrmk
+	if len(scd.ChunkHeader) > 0 {
+		glog.V(2).Info("chunk header is provided.")
+		for k, v := range scd.ChunkHeader {
+			headers[k] = v
+		}
+	} else {
+		headers[headerSseCAlgorithm] = headerSseCAes
+		headers[headerSseCKey] = scd.Qrmk
+	}
+
 	resp, err := scd.FuncGet(ctx, scd, scd.ChunkMetas[idx].URL, headers, 0)
 	if err != nil {
 		scd.ChunksError <- &chunkError{Index: idx, Error: err}
