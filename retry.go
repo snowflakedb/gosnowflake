@@ -94,10 +94,10 @@ func retryHTTP(
 		// cannot just return 4xx and 5xx status as the error can be sporadic. retry often helps.
 		if err != nil {
 			glog.V(2).Infof(
-				"failed http connection. no response is returned. err: %v. retrying.\n", err)
+				"failed http connection. no response is returned. err: %v. retrying...\n", err)
 		} else {
 			glog.V(2).Infof(
-				"failed http connection. HTTP Status: %v. retrying.\n", res.StatusCode)
+				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
 		}
 		// uses decorrelated jitter backoff
 		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
