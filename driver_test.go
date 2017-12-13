@@ -1752,6 +1752,26 @@ func TestValidateDatabaseParameter(t *testing.T) {
 	}
 }
 
+func TestFetchNil(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQuery("SELECT * FROM values(3,4),(null, 5) order by 2")
+		defer rows.Close()
+		var c1 sql.NullInt64
+		var c2 sql.NullInt64
+
+		var results []sql.NullInt64
+		for rows.Next() {
+			err := rows.Scan(&c1, &c2)
+			if err != nil {
+				dbt.Fatal(err)
+			}
+			results = append(results, c1)
+		}
+		if results[1].Valid {
+			t.Errorf("First element of second row must be nil (NULL). %v", results)
+		}
+	})
+}
 func init() {
 	if !flag.Parsed() {
 		flag.Parse()
