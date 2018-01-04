@@ -7,7 +7,7 @@ go:
 before_install:
   - openssl aes-256-cbc -k "$super_secret_password" -in parameters.json.enc -out parameters.json -d
 install:
-  - go get -v github.com/golang/dep
+  - go get -t github.com/golang/dep
   - ls -lt $GOPATH/bin
   - which dep
   - dep ensure
