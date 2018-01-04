@@ -9,6 +9,7 @@ before_install:
 install:
   - go get -t github.com/golang/dep
   - ls -lt $GOPATH/bin
+  - find $HOME -name "dep" -print
   - which dep
   - dep ensure
 script:
