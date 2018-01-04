@@ -1,4 +1,4 @@
-// Copyright (c) 2012-2017 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2018 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
