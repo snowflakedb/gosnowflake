@@ -6,14 +6,9 @@ go:
   - tip
 before_install:
   - openssl aes-256-cbc -k "$super_secret_password" -in parameters.json.enc -out parameters.json -d
+  - curl -L -s https://github.com/golang/dep/releases/download/v0.3.2/dep-linux-amd64 -o $GOPATH/bin/dep
+  - chmod +x $GOPATH/bin/dep
 install:
-  - export PATH=$GOPATH/pkg/linux_amd64/github.com/golang:$PATH
-  - echo $PATH
-  - go get -t github.com/golang/dep
-  - ls -ltF $GOPATH/bin
-  - find $HOME -name "dep" -print
-  - ls -ltF $GOPATH/pkg/linux_amd64/github.com/golang
-  - which dep
   - dep ensure
 script:
   - make fmt lint cov
