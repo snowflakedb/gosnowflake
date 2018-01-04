@@ -7,10 +7,12 @@ go:
 before_install:
   - openssl aes-256-cbc -k "$super_secret_password" -in parameters.json.enc -out parameters.json -d
 install:
-  - export PATH=${GOPATH}/pkg/linux_amd64/github.com/golang:${PATH}
+  - export PATH=$GOPATH/pkg/linux_amd64/github.com/golang:$PATH
+  - echo $PATH
   - go get -t github.com/golang/dep
-  - ls -lt $GOPATH/bin
+  - ls -ltF $GOPATH/bin
   - find $HOME -name "dep" -print
+  - ls -ltF $GOPATH/pkg/linux_amd64/github.com/golang
   - which dep
   - dep ensure
 script:
