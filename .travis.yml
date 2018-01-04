@@ -7,6 +7,7 @@ go:
 before_install:
   - openssl aes-256-cbc -k "$super_secret_password" -in parameters.json.enc -out parameters.json -d
 install:
+  - go get github.com/golang/dep
   - dep ensure
 script:
   - make fmt lint cov
