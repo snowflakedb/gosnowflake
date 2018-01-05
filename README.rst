@@ -29,9 +29,14 @@ The driver requires the `Go language <https://golang.org/>`_ 1.8 or higher. The 
 Installation
 ================================================================================
 
+Get Gosnowflake source code and `dep <https://github.com/golang/dep>`_ (dependency managment tool), if not installed, and ensure the dependent libraries are installed.
+
 .. code-block:: bash
 
     go get -u github.com/snowflakedb/gosnowflake
+    go get -u github.com/golang/dep/cmd/dep
+    cd $GOPATH/src/github.com/snowflakedb/gosnowflake/
+    dep ensure
 
 Docs
 ====
