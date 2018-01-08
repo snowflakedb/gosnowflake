@@ -169,7 +169,6 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				cfg.Schema = dsn[i+1 : posQuestion]
 			} else {
 				cfg.Database = dsn[posSecondSlash+1 : posQuestion]
-				cfg.Schema = "public"
 			}
 			done = true
 		case dsn[i] == '?':

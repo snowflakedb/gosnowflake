@@ -1752,6 +1752,26 @@ func TestValidateDatabaseParameter(t *testing.T) {
 	}
 }
 
+func TestSpecifyWarehouseDatabase(t *testing.T) {
+	dsn := fmt.Sprintf("%s:%s@%s/%s", user, pass, host, dbname)
+	parameters := url.Values{}
+	parameters.Add("account", account)
+	parameters.Add("warehouse", warehouse)
+	// parameters.Add("role", "nopublic") TODO: create nopublic role for test
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	db, err := sql.Open("snowflake", dsn+"?"+parameters.Encode())
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+	defer db.Close()
+	_, err = db.Exec("SELECT 1")
+	if err != nil {
+		t.Fatalf("failed to execute a select 1: %v", err)
+	}
+}
+
 func TestFetchNil(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SELECT * FROM values(3,4),(null, 5) order by 2")
