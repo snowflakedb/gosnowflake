@@ -44,7 +44,7 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "account", User: "user", Password: "pass",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
-				Database: "db", Schema: "public",
+				Database: "db",
 			},
 			err: nil,
 		},
@@ -163,7 +163,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "u:p@/db?account=ac",
 			config: &Config{
-				Account: "ac", User: "u", Password: "p", Database: "db", Schema: "public",
+				Account: "ac", User: "u", Password: "p", Database: "db",
 				Protocol: "https", Host: "ac.snowflakecomputing.com", Port: 443,
 			},
 			err: nil,
