@@ -94,8 +94,7 @@ func postAuth(
 	body []byte,
 	timeout time.Duration) (
 	data *authResponse, err error) {
-	requestID := fmt.Sprintf("requestId=%v", uuid.NewV4().String())
-	params.Add("requestId", requestID)
+	params.Add("requestId", uuid.NewV4().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/session/v1/login-request?"+params.Encode())
