@@ -1,3 +1,8 @@
+## Version 1.1.3
+
+- Removed hardcoded `public` schema name in case not specified.
+- Fixed `requestId` value
+
 ## Version 1.1.2
 
 - `nil` should set to the target value instead of the pointer to the target
