@@ -99,7 +99,7 @@ func postAuth(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/session/v1/login-request?"+params.Encode())
 	glog.V(2).Infof("full URL: %v", fullURL)
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout)
+	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout, true)
 	if err != nil {
 		return nil, err
 	}

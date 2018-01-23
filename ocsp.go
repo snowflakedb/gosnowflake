@@ -271,7 +271,7 @@ func retryOCSP(
 	sleepTime := time.Duration(0)
 	for {
 		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
-		res, err := retryHTTP(context.TODO(), client, req, "POST", ocspHost, headers, reqBody, httpTimeout)
+		res, err := retryHTTP(context.TODO(), client, req, "POST", ocspHost, headers, reqBody, httpTimeout, false)
 		if err != nil {
 			if ok := retryRevocationStatusCheck(&totalTimeout, sleepTime); ok {
 				retryCounter++

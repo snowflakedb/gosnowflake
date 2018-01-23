@@ -84,7 +84,7 @@ func TestRetry(t *testing.T) {
 	}
 	_, err := retryHTTP(context.TODO(),
 		client,
-		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 60*time.Second)
+		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 60*time.Second, false)
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
@@ -96,7 +96,7 @@ func TestRetry(t *testing.T) {
 	}
 	_, err = retryHTTP(context.TODO(),
 		client,
-		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 10*time.Second)
+		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 10*time.Second, false)
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
@@ -109,7 +109,7 @@ func TestRetry(t *testing.T) {
 	}
 	_, err = retryHTTP(context.TODO(),
 		client,
-		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 60*time.Second)
+		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 60*time.Second, false)
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
@@ -121,7 +121,7 @@ func TestRetry(t *testing.T) {
 	}
 	_, err = retryHTTP(context.TODO(),
 		client,
-		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 10*time.Second)
+		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 10*time.Second, false)
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}

@@ -280,6 +280,7 @@ func TestBogusHostNameParameters(t *testing.T) {
 	invalidDNS = fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST")
 	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer.", "EOF", "HTTP Status: 403"}, t)
 }
+
 func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	parameters := url.Values{}
 	if protocol != "" {
@@ -1792,6 +1793,36 @@ func TestFetchNil(t *testing.T) {
 		}
 	})
 }
+
+func TestPingInvalidHost(t *testing.T) {
+	config := Config{
+		Account:      "NOT_EXISTS",
+		User:         "BOGUS_USER",
+		Password:     "barbar",
+		LoginTimeout: 10 * time.Second,
+	}
+
+	url, err := DSN(&config)
+	if err != nil {
+		t.Fatalf("failed to parse config. config: %v, err: %v", config, err)
+	}
+
+	db, err := sql.Open("snowflake", url)
+	if err != nil {
+		t.Fatalf("failed to initalize the connetion. err: %v", err)
+	}
+	ctx := context.Background()
+	err = db.PingContext(ctx)
+	if err == nil {
+		t.Fatal("should cause an error")
+	}
+	driverErr, ok := err.(*SnowflakeError)
+
+	if !ok || ok && driverErr.Number != ErrCodeFailedToConnect { // Failed to connect error
+		t.Fatalf("error didn't match")
+	}
+}
+
 func init() {
 	if !flag.Parsed() {
 		flag.Parse()
