@@ -7,7 +7,6 @@ import (
 	"database/sql/driver"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // SnowflakeDriver is a context of Go Driver
@@ -39,7 +38,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		Port:     sc.cfg.Port,
 		Protocol: sc.cfg.Protocol,
 		Client: &http.Client{
-			Timeout:   60 * time.Second, // each request timeout
+			Timeout:   defaultLoginTimeout, // each request timeout
 			Transport: st,
 		},
 		Authenticator:       sc.cfg.Authenticator,

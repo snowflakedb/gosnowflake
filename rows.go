@@ -259,7 +259,9 @@ func getChunk(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout)
+	return retryHTTP(
+		ctx, scd.sc.rest.Client, http.NewRequest,
+		"GET", fullURL, headers, nil, timeout, false)
 }
 
 /* largeResultSetReader is a reader that wraps the large result set with leading and tailing brackets. */

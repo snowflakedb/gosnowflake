@@ -217,7 +217,7 @@ func postAuthSAML(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/session/authenticator-request?"+requestID)
 	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout)
+	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout, true)
 	if err != nil {
 		return nil, err
 	}
@@ -232,6 +232,24 @@ func postAuthSAML(
 			return nil, err
 		}
 		return &respd, nil
+	}
+	switch resp.StatusCode {
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		// service availability or connectivity issue. Most likely server side issue.
+		return nil, &SnowflakeError{
+			Number:      ErrCodeServiceUnavailable,
+			SQLState:    SQLStateConnectionWasNotEstablished,
+			Message:     errMsgServiceUnavailable,
+			MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		}
+	case http.StatusUnauthorized, http.StatusForbidden:
+		// failed to connect to db. account name may be wrong
+		return nil, &SnowflakeError{
+			Number:      ErrCodeFailedToConnect,
+			SQLState:    SQLStateConnectionRejected,
+			Message:     errMsgFailedToConnect,
+			MessageArgs: []interface{}{resp.StatusCode, fullURL},
+		}
 	}
 	_, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -256,7 +274,7 @@ func postAuthOKTA(
 	timeout time.Duration) (
 	data *authOKTAResponse, err error) {
 	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout)
+	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout, false)
 	if err != nil {
 		return nil, err
 	}

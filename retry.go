@@ -66,7 +66,8 @@ func retryHTTP(
 	fullURL string,
 	headers map[string]string,
 	body []byte,
-	timeout time.Duration) (res *http.Response, err error) {
+	timeout time.Duration,
+	raise4XX bool) (res *http.Response, err error) {
 	totalTimeout := timeout
 	glog.V(2).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
@@ -84,11 +85,13 @@ func retryHTTP(
 			req.Header.Set(k, v)
 		}
 		res, err = client.Do(req)
-		if err == nil && res.StatusCode == http.StatusOK {
-			// success
+		if err == nil && res.StatusCode == http.StatusOK || err == context.Canceled {
+			// exit if success or canceled
 			break
 		}
-		if err == context.Canceled {
+		if raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 {
+			// abort connection if raise4XX flag is enabled and the range of HTTP status code are 4XX.
+			// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
 			break
 		}
 		// cannot just return 4xx and 5xx status as the error can be sporadic. retry often helps.
