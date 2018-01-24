@@ -276,9 +276,9 @@ func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
 
 func TestBogusHostNameParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST:1234")
-	invalidHostErrorTests(invalidDNS, []string{"no such host", "HTTP Status: 403"}, t)
+	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403"}, t)
 	invalidDNS = fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST")
-	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer.", "EOF", "HTTP Status: 403"}, t)
+	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer.", "EOF", "verify account name is correct", "HTTP Status: 403"}, t)
 }
 
 func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
