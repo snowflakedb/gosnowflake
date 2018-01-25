@@ -1,3 +1,8 @@
+## Version 1.1.4
+
+- Raise HTTP 403 errors immediately after the authentication failure instead of retry until the timeout. Issue #138 (@dominicbarnes)
+- Fixed vararg error message.
+
 ## Version 1.1.3
 
 - Removed hardcoded `public` schema name in case not specified.
