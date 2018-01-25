@@ -19,7 +19,7 @@ type SnowflakeError struct {
 func (se *SnowflakeError) Error() string {
 	message := se.Message
 	if len(se.MessageArgs) > 0 {
-		message = fmt.Sprintf(se.Message, se.MessageArgs)
+		message = fmt.Sprintf(se.Message, se.MessageArgs...)
 	}
 	if se.SQLState != "" {
 		if se.IncludeQueryID {
