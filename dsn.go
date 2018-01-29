@@ -81,7 +81,7 @@ func DSN(cfg *Config) (dsn string, err error) {
 		params.Add("region", cfg.Region)
 	}
 	if cfg.Authenticator != defaultAuthenticator {
-		params.Add("authenticator", cfg.Authenticator)
+		params.Add("authenticator", strings.ToLower(cfg.Authenticator))
 	}
 	if cfg.Passcode != "" {
 		params.Add("passcode", cfg.Passcode)
@@ -400,7 +400,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		case "application":
 			cfg.Application = value
 		case "authenticator":
-			cfg.Authenticator = value
+			cfg.Authenticator = strings.ToLower(value)
 		case "insecureMode":
 			var vv bool
 			vv, err = strconv.ParseBool(value)

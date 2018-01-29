@@ -75,6 +75,10 @@ const (
 	ErrFailedToAuthOKTA = 261006
 	// ErrFailedToGetSSO is an error code for the case where authentication via OKTA failed for unknown reason.
 	ErrFailedToGetSSO = 261007
+	// ErrFailedToParseResponse is an error code for when we cannot parse an external browser response from Snowflake.
+	ErrFailedToParseResponse = 261008
+	// When there's an error listening on the socket that was opened
+	ErrFailedToGetExternalBrowserResponse = 261009
 
 	/* rows */
 
@@ -115,6 +119,8 @@ const (
 	errMsgFailedToAuthSAML                   = "failed to auth via SAML for unknown reason. HTTP: %v, URL: %v"
 	errMsgFailedToAuthOKTA                   = "failed to auth via OKTA for unknown reason. HTTP: %v, URL: %v"
 	errMsgFailedToGetSSO                     = "failed to auth via OKTA for unknown reason. HTTP: %v, URL: %v"
+	errMsgFailedToParseResponse              = "failed to parse a response from Snowflake. Response: %v"
+	errMsgFailedToGetExternalBrowserResponse = "failed to get an external browser response from Snowflake, err: %s"
 	errMsgNoReadOnlyTransaction              = "no readonly mode is supported"
 	errMsgNoDefaultTransactionIsolationLevel = "no default isolation transaction level is supported"
 	errMsgServiceUnavailable                 = "service is unavailable. check your connectivity. you may need a proxy server. HTTP: %v, URL: %v"

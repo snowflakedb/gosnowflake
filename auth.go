@@ -22,6 +22,10 @@ const (
 	clientType = "Go"
 )
 
+const (
+	EXTERNAL_BROWSER_AUTHENTICATOR = "EXTERNALBROWSER"
+)
+
 // platform consists of compiler, OS and architecture type in string
 var platform = fmt.Sprintf("%v-%v-%v", runtime.Compiler, runtime.GOOS, runtime.GOARCH)
 
@@ -33,18 +37,21 @@ type authRequestClientEnvironment struct {
 	OsVersion   string `json:"OS_VERSION"`
 }
 type authRequestData struct {
-	ClientAppID       string                       `json:"CLIENT_APP_ID"`
-	ClientAppVersion  string                       `json:"CLIENT_APP_VERSION"`
-	SvnRevision       string                       `json:"SVN_REVISION"`
-	AccountName       string                       `json:"ACCOUNT_NAME"`
-	LoginName         string                       `json:"LOGIN_NAME,omitempty"`
-	Password          string                       `json:"PASSWORD,omitempty"`
-	RawSAMLResponse   string                       `json:"RAW_SAML_RESPONSE,omitempty"`
-	ExtAuthnDuoMethod string                       `json:"EXT_AUTHN_DUO_METHOD,omitempty"`
-	Passcode          string                       `json:"PASSCODE,omitempty"`
-	Authenticator     string                       `json:"AUTHENTICATOR,omitempty"`
-	SessionParameters map[string]string            `json:"SESSION_PARAMETERS,omitempty"`
-	ClientEnvironment authRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
+	ClientAppID             string                       `json:"CLIENT_APP_ID"`
+	ClientAppVersion        string                       `json:"CLIENT_APP_VERSION"`
+	SvnRevision             string                       `json:"SVN_REVISION"`
+	AccountName             string                       `json:"ACCOUNT_NAME"`
+	LoginName               string                       `json:"LOGIN_NAME,omitempty"`
+	Password                string                       `json:"PASSWORD,omitempty"`
+	RawSAMLResponse         string                       `json:"RAW_SAML_RESPONSE,omitempty"`
+	ExtAuthnDuoMethod       string                       `json:"EXT_AUTHN_DUO_METHOD,omitempty"`
+	Passcode                string                       `json:"PASSCODE,omitempty"`
+	Authenticator           string                       `json:"AUTHENTICATOR,omitempty"`
+	SessionParameters       map[string]string            `json:"SESSION_PARAMETERS,omitempty"`
+	ClientEnvironment       authRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
+	BrowserModeRedirectPort string                       `json:"BROWSER_MODE_REDIRECT_PORT,omitempty"`
+	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
+	Token                   string                       `json:"TOKEN,omitempty"`
 }
 type authRequest struct {
 	Data authRequestData `json:"data"`
@@ -79,6 +86,7 @@ type authResponseMain struct {
 	SessionInfo             authResponseSessionInfo `json:"sessionInfo"`
 	TokenURL                string                  `json:"tokenUrl,omitempty"`
 	SSOURL                  string                  `json:"ssoUrl,omitempty"`
+	ProofKey                string                  `json:"proofKey,omitempty"`
 }
 type authResponse struct {
 	Data    authResponseMain `json:"data"`
@@ -165,7 +173,8 @@ func authenticate(
 	sessionParams map[string]*string,
 	samlResponse []byte,
 	mfaCallback string,
-	passwordCallback string) (resp *authResponseMain, err error) {
+	passwordCallback string,
+	proofKey []byte) (resp *authResponseMain, err error) {
 	glog.V(2).Info("authenticate")
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
@@ -190,7 +199,13 @@ func authenticate(
 		SessionParameters: sessionParameters,
 		ClientEnvironment: clientEnvironment,
 	}
-	if !bytes.Equal(samlResponse, []byte{}) {
+
+	if bytes.Compare(proofKey, []byte{}) != 0 {
+		requestMain.ProofKey = string(proofKey)
+		requestMain.Token = string(samlResponse)
+		requestMain.LoginName = user
+		requestMain.Authenticator = EXTERNAL_BROWSER_AUTHENTICATOR
+	} else if bytes.Compare(samlResponse, []byte{}) != 0 {
 		requestMain.RawSAMLResponse = string(samlResponse)
 	} else {
 		requestMain.LoginName = user

@@ -206,6 +206,8 @@ func isPrefixEqual(url1 string, url2 string) (bool, error) {
 	return u1.Hostname() == u2.Hostname() && p1 == p2 && u1.Scheme == u2.Scheme, nil
 }
 
+// Makes a request to /session/authenticator-request to get SAML Information,
+// such as the IDP Url and Proof Key, depending on the authenticator
 func postAuthSAML(
 	sr *snowflakeRestful,
 	headers map[string]string,

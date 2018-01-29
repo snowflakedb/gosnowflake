@@ -58,8 +58,32 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	}
 	var authData *authResponseMain
 	var samlResponse []byte
-	if sc.cfg.Authenticator != "snowflake" {
-		samlResponse, err = authenticateBySAML(sc.rest, sc.cfg.Authenticator, sc.cfg.Application, sc.cfg.Account, sc.cfg.User, sc.cfg.Password)
+	var proofKey []byte
+	//var tokenResponse []byte
+	switch authenticator := sc.cfg.Authenticator; authenticator {
+	case "externalbrowser":
+		samlResponse, proofKey, err = authenticateByExternalBrowser(
+			sc.rest,
+			sc.cfg.Authenticator,
+			sc.cfg.Application,
+			sc.cfg.Account,
+			sc.cfg.User,
+			sc.cfg.Password)
+		if err != nil {
+			sc.cleanup()
+			return nil, err
+		}
+	case "snowflake":
+		// fall through
+	default:
+		// this is actually okta, which is something misleading
+		samlResponse, err = authenticateBySAML(
+			sc.rest,
+			sc.cfg.Authenticator,
+			sc.cfg.Application,
+			sc.cfg.Account,
+			sc.cfg.User,
+			sc.cfg.Password)
 		if err != nil {
 			sc.cleanup()
 			return nil, err
@@ -81,6 +105,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		samlResponse,
 		"",
 		"",
+		proofKey,
 	)
 	if err != nil {
 		sc.cleanup()
