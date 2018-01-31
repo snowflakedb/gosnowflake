@@ -77,7 +77,7 @@ const (
 	ErrFailedToGetSSO = 261007
 	// ErrFailedToParseResponse is an error code for when we cannot parse an external browser response from Snowflake.
 	ErrFailedToParseResponse = 261008
-	// When there's an error listening on the socket that was opened
+	// ErrFailedToGetExternalBrowserResponse is an error code for when there's an error reading from the open socket.
 	ErrFailedToGetExternalBrowserResponse = 261009
 
 	/* rows */
