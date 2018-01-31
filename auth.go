@@ -24,6 +24,7 @@ const (
 
 const (
 	externalBrowserAuthenticator = "EXTERNALBROWSER"
+	oAuthAuthenticator           = "OAUTH"
 )
 
 // platform consists of compiler, OS and architecture type in string
@@ -174,7 +175,8 @@ func authenticate(
 	samlResponse []byte,
 	mfaCallback string,
 	passwordCallback string,
-	proofKey []byte) (resp *authResponseMain, err error) {
+	proofKey []byte,
+	token string) (resp *authResponseMain, err error) {
 	glog.V(2).Info("authenticate")
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
@@ -207,6 +209,10 @@ func authenticate(
 		requestMain.Authenticator = externalBrowserAuthenticator
 	} else if !bytes.Equal(samlResponse, []byte{}) {
 		requestMain.RawSAMLResponse = string(samlResponse)
+	} else if token != "" {
+		requestMain.LoginName = user
+		requestMain.Authenticator = oAuthAuthenticator
+		requestMain.Token = token
 	} else {
 		requestMain.LoginName = user
 		requestMain.Password = password
