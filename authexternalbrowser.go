@@ -5,17 +5,53 @@ package gosnowflake
 //
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
 	"github.com/pkg/browser"
 )
+
+const (
+	successHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<title>SAML Response for Snowflake</title></head>
+<body>
+Your identity was confirmed and propagated to Snowflake %v.
+You can close this window now and go back where you started from.
+</body></html>`
+)
+
+const (
+	bufSize = 8192
+)
+
+// Builds a response to show to the user after successfully
+// getting a response from Snowflake.
+func buildResponse(application string) bytes.Buffer {
+	body := fmt.Sprintf(successHTML, application)
+	t := &http.Response{
+		Status:        "200 OK",
+		StatusCode:    200,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
+		ContentLength: int64(len(body)),
+		Request:       nil,
+		Header:        make(http.Header, 0),
+	}
+	var b bytes.Buffer
+	t.Write(&b)
+	return b
+}
 
 // This opens a socket that listens on all available unicast
 // and any anycast IP addresses locally. By specifying "0", we are
@@ -32,8 +68,8 @@ func bindToPort() (net.Listener, error) {
 // Opens a browser window (or new tab) with the configured IDP Url.
 // This can / will fail if running inside a shell with no display, ie
 // ssh'ing into a box attempting to authenticate via external browser.
-func openBrowser(idpUrl string) error {
-	err := browser.OpenURL(idpUrl)
+func openBrowser(idpURL string) error {
+	err := browser.OpenURL(idpURL)
 	if err != nil {
 		glog.V(1).Infof("failed to open a browser. err: %v", err)
 		return err
@@ -44,7 +80,7 @@ func openBrowser(idpUrl string) error {
 // Gets the IDP Url and Proof Key from Snowflake.
 // Note: FuncPostAuthSaml will return a fully qualified error if
 // there is something wrong getting data from Snowflake.
-func getIdpUrlProofKey(
+func getIdpURLProofKey(
 	sr *snowflakeRestful,
 	authenticator string,
 	application string,
@@ -139,18 +175,19 @@ func authenticateByExternalBrowser(
 	defer l.Close()
 
 	callbackPort := l.Addr().(*net.TCPAddr).Port
-	idpUrl, proofKey, err := getIdpUrlProofKey(
+	idpURL, proofKey, err := getIdpURLProofKey(
 		sr, authenticator, application, account, callbackPort)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if err = openBrowser(idpUrl); err != nil {
+	if err = openBrowser(idpURL); err != nil {
 		return nil, nil, err
 	}
 
 	var encodedSamlResponse string
 	var acceptErr error
+	var tokenErr error
 	acceptErr = nil
 	for {
 		conn, err := l.Accept()
@@ -159,11 +196,11 @@ func authenticateByExternalBrowser(
 			log.Fatal(err)
 		}
 		go func(c net.Conn) {
-			b := make([]byte, 8192)
-			totalBytes := 0
+			var buf bytes.Buffer
+			total := 0
 			for {
+				b := make([]byte, bufSize)
 				n, err := c.Read(b)
-				totalBytes += n
 				if err != nil {
 					if err != io.EOF {
 						glog.V(1).Infof("error reading from socket. err: %v", err)
@@ -171,15 +208,29 @@ func authenticateByExternalBrowser(
 					}
 					break
 				}
-				s := string(b[:n])
-				encodedSamlResponse, err = getTokenFromResponse(s)
-				break
+				total += n
+				buf.Write(b)
+				if n < bufSize {
+					// We successfully read all data
+					s := string(buf.Bytes()[:total])
+					encodedSamlResponse, tokenErr = getTokenFromResponse(s)
+					break
+				}
+				buf.Grow(bufSize)
+			}
+			if encodedSamlResponse != "" {
+				httpResponse := buildResponse(application)
+				c.Write(httpResponse.Bytes())
 			}
 			c.Close()
 		}(conn)
 		if acceptErr != nil || encodedSamlResponse != "" {
 			break
 		}
+	}
+
+	if tokenErr != nil {
+		return nil, nil, tokenErr
 	}
 
 	if acceptErr != nil {

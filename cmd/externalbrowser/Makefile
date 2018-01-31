@@ -1,33 +1,16 @@
-## Setup
-setup:
-	go get github.com/Masterminds/glide
-	go get github.com/golang/lint/golint
-	go get golang.org/x/tools/cmd/goimports
-	go get github.com/Songmu/make2help/cmd/make2help
-	go get github.com/pkg/browser
+include ../../gosnowflake.mak
+CMD_TARGET=externalbrowser
 
 ## Install
-install:
-	export GOBIN=$$GOPATH/bin; \
-	go install externalbrowser.go
+install: cinstall
 
 ## Run
-run: install
-	externalbrowser
+run: crun
 
 ## Lint
-lint: setup
-	go vet $$(glide novendor)
-	for pkg in $$(glide novendor -x); do \
-		golint -set_exit_status $$pkg || exit $$?; \
-	done
+lint: clint
 
-## Format source codes using goimports
-fmt: setup
-	goimports -w $$(glide nv -x)
+## Format source codes
+fmt: cfmt
 
-## Show help
-help:
-	@make2help $(MAKEFILE_LIST)
-
-.PHONY: install run
+.PHONY: install run lint fmt

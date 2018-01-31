@@ -23,7 +23,7 @@ const (
 )
 
 const (
-	EXTERNAL_BROWSER_AUTHENTICATOR = "EXTERNALBROWSER"
+	externalBrowserAuthenticator = "EXTERNALBROWSER"
 )
 
 // platform consists of compiler, OS and architecture type in string
@@ -200,12 +200,12 @@ func authenticate(
 		ClientEnvironment: clientEnvironment,
 	}
 
-	if bytes.Compare(proofKey, []byte{}) != 0 {
+	if !bytes.Equal(proofKey, []byte{}) {
 		requestMain.ProofKey = string(proofKey)
 		requestMain.Token = string(samlResponse)
 		requestMain.LoginName = user
-		requestMain.Authenticator = EXTERNAL_BROWSER_AUTHENTICATOR
-	} else if bytes.Compare(samlResponse, []byte{}) != 0 {
+		requestMain.Authenticator = externalBrowserAuthenticator
+	} else if !bytes.Equal(samlResponse, []byte{}) {
 		requestMain.RawSAMLResponse = string(samlResponse)
 	} else {
 		requestMain.LoginName = user
