@@ -35,10 +35,10 @@ func main() {
 	dsn := fmt.Sprintf("%v:%v@%v/?authenticator=EXTERNALBROWSER", user, password, account)
 	// The external browser flow should start with the call to Open
 	db, err := sql.Open("snowflake", dsn)
-	defer db.Close()
 	if err != nil {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
 	}
+	defer db.Close()
 	query := "SELECT 1"
 	rows, err := db.Query(query)
 	if err != nil {

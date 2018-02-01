@@ -46,7 +46,7 @@ func buildResponse(application string) bytes.Buffer {
 		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
 		ContentLength: int64(len(body)),
 		Request:       nil,
-		Header:        make(http.Header, 0),
+		Header:        make(http.Header),
 	}
 	var b bytes.Buffer
 	t.Write(&b)
