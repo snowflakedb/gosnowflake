@@ -42,6 +42,8 @@ type Config struct {
 
 	Application  string // application name.
 	InsecureMode bool   // driver doesn't check certificate revocation status
+
+	Token string // Token to use for OAuth / JWT / other forms of token based auth
 }
 
 // DSN constructs a DSN for Snowflake db.
@@ -97,6 +99,13 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Application != clientType {
 		params.Add("application", cfg.Application)
+	}
+	if cfg.Token != "" {
+		escapedToken, err := url.QueryUnescape(cfg.Token)
+		if err != nil {
+			return "", err
+		}
+		params.Add("token", escapedToken)
 	}
 	if cfg.Params != nil {
 		for k, v := range cfg.Params {
@@ -408,6 +417,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.InsecureMode = vv
+		case "token":
+			cfg.Token = value
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
