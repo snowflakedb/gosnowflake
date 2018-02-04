@@ -26,6 +26,7 @@ Go
 
 The driver requires the `Go language <https://golang.org/>`_ 1.8 or higher. The supported operating systems are Linux, Mac OS, and Windows, but you may run the driver on other platforms if the Go language works correctly on those platforms.
 
+
 Installation
 ================================================================================
 
@@ -88,7 +89,7 @@ Set the Snowflake connection info in ``parameters.json``:
         }
     }
 
-Run ``make test`` in your Go development environment:
+Install `jq <https://stedolan.github.io/jq/>`_ so that the parameters can get parsed correctly, and run ``make test`` in your Go development environment:
 
 .. code-block:: bash
 
