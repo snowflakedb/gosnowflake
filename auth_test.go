@@ -110,6 +110,38 @@ func postAuthCheckSAMLResponse(_ *snowflakeRestful, _ *url.Values, _ map[string]
 	}, nil
 }
 
+// Checks that the request body generated when authenticating with OAuth
+// contains all the necessary values.
+func postAuthCheckOAuth(
+	_ *snowflakeRestful,
+	_ *url.Values, _ map[string]string,
+	jsonBody []byte,
+	_ time.Duration) (*authResponse, error) {
+	var ar authRequest
+	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+		return nil, err
+	}
+	if ar.Data.Authenticator != "OAUTH" {
+		return nil, errors.New("Authenticator is not OAUTH")
+	}
+	if ar.Data.Token == "" {
+		return nil, errors.New("Token is empty")
+	}
+	if ar.Data.LoginName == "" {
+		return nil, errors.New("Login name is empty")
+	}
+	return &authResponse{
+		Success: true,
+		Data: authResponseMain{
+			Token:       "t",
+			MasterToken: "m",
+			SessionInfo: authResponseSessionInfo{
+				DatabaseName: "dbn",
+			},
+		},
+	}, nil
+}
+
 func postAuthCheckPasscode(_ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
 	var ar authRequest
 	if err := json.Unmarshal(jsonBody, &ar); err != nil {
@@ -160,7 +192,8 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "", []byte{})
+		"testapp", make(map[string]*string), []byte{}, "", "",
+		[]byte{}, "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -172,7 +205,8 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "", []byte{})
+		"testapp", make(map[string]*string), []byte{}, "", "",
+		[]byte{}, "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -184,7 +218,8 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "", []byte{})
+		"testapp", make(map[string]*string), []byte{}, "", "",
+		[]byte{}, "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -196,7 +231,8 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "", []byte{})
+		"testapp", make(map[string]*string), []byte{}, "", "",
+		[]byte{}, "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -208,7 +244,8 @@ func TestUnitAuthenticate(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "", []byte{})
+		"testapp", make(map[string]*string), []byte{}, "", "",
+		[]byte{}, "")
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -217,7 +254,8 @@ func TestUnitAuthenticate(t *testing.T) {
 	resp, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "", []byte{})
+		"testapp", make(map[string]*string), []byte{}, "", "",
+		[]byte{}, "")
 	if err != nil {
 		t.Fatalf("failed to auth. err: %v", err)
 	}
@@ -234,7 +272,24 @@ func TestUnitAuthenticateSaml(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte("HTML data in bytes from"), "", "", []byte{})
+		"testapp", make(map[string]*string), []byte("HTML data in bytes from"), "", "",
+		[]byte{}, "")
+	if err != nil {
+		t.Fatalf("failed to run. err: %v", err)
+	}
+}
+
+// Unit test for OAuth.
+func TestUnitAuthenticateOAuth(t *testing.T) {
+	var err error
+	sr := &snowflakeRestful{
+		FuncPostAuth: postAuthCheckOAuth,
+	}
+	_, err = authenticate(
+		sr, "u", "p", "a", "d",
+		"s", "w", "r", "", false,
+		"testapp", make(map[string]*string), []byte{}, "", "",
+		[]byte{}, "oauthToken")
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -248,7 +303,8 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "987654321", false,
-		"testapp", make(map[string]*string), []byte{}, "", "", []byte{})
+		"testapp", make(map[string]*string), []byte{}, "", "",
+		[]byte{}, "")
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -256,7 +312,8 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 	_, err = authenticate(
 		sr, "u", "p", "a", "d",
 		"s", "w", "r", "987654321", true,
-		"testapp", make(map[string]*string), []byte{}, "", "", []byte{})
+		"testapp", make(map[string]*string), []byte{}, "", "",
+		[]byte{}, "")
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
