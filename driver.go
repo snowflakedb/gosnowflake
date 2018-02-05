@@ -73,6 +73,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 			sc.cleanup()
 			return nil, err
 		}
+	case "oauth":
 	case "snowflake":
 		// fall through
 	default:
@@ -106,6 +107,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		"",
 		"",
 		proofKey,
+		sc.cfg.Token,
 	)
 	if err != nil {
 		sc.cleanup()
