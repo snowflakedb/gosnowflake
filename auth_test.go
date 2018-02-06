@@ -182,18 +182,41 @@ func postAuthCheckPasscodeInPassword(_ *snowflakeRestful, _ *url.Values, _ map[s
 	}, nil
 }
 
+func getDefaultSnowflakeConn() *snowflakeConn {
+	cfg := Config{
+		Account:            "a",
+		User:               "u",
+		Password:           "p",
+		Database:           "d",
+		Schema:             "s",
+		Warehouse:          "w",
+		Role:               "r",
+		Region:             "",
+		Params:             make(map[string]*string),
+		PasscodeInPassword: false,
+		Passcode:           "",
+		Application:        "testapp",
+	}
+	sr := &snowflakeRestful{}
+	sc := &snowflakeConn{
+		rest: sr,
+		cfg:  &cfg,
+	}
+	return sc
+}
+
 func TestUnitAuthenticate(t *testing.T) {
 	var err error
 	var driverErr *SnowflakeError
 	var ok bool
+
+	sc := getDefaultSnowflakeConn()
 	sr := &snowflakeRestful{
 		FuncPostAuth: postAuthFailServiceIssue,
 	}
-	_, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "",
-		[]byte{}, "")
+	sc.rest = sr
+
+	_, err = authenticate(sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -202,11 +225,7 @@ func TestUnitAuthenticate(t *testing.T) {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
 	sr.FuncPostAuth = postAuthFailWrongAccount
-	_, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "",
-		[]byte{}, "")
+	_, err = authenticate(sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -215,11 +234,7 @@ func TestUnitAuthenticate(t *testing.T) {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
 	sr.FuncPostAuth = postAuthFailUnknown
-	_, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "",
-		[]byte{}, "")
+	_, err = authenticate(sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -228,11 +243,7 @@ func TestUnitAuthenticate(t *testing.T) {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
 	sr.FuncPostAuth = postAuthSuccessWithErrorCode
-	_, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "",
-		[]byte{}, "")
+	_, err = authenticate(sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -241,21 +252,13 @@ func TestUnitAuthenticate(t *testing.T) {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
 	sr.FuncPostAuth = postAuthSuccessWithInvalidErrorCode
-	_, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "",
-		[]byte{}, "")
+	_, err = authenticate(sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuth = postAuthSuccess
 	var resp *authResponseMain
-	resp, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "",
-		[]byte{}, "")
+	resp, err = authenticate(sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to auth. err: %v", err)
 	}
@@ -269,11 +272,10 @@ func TestUnitAuthenticateSaml(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPostAuth: postAuthCheckSAMLResponse,
 	}
-	_, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte("HTML data in bytes from"), "", "",
-		[]byte{}, "")
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = authenticatorOkta
+	sc.rest = sr
+	_, err = authenticate(sc, []byte("HTML data in bytes from"), []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -285,11 +287,11 @@ func TestUnitAuthenticateOAuth(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPostAuth: postAuthCheckOAuth,
 	}
-	_, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "", false,
-		"testapp", make(map[string]*string), []byte{}, "", "",
-		[]byte{}, "oauthToken")
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Token = "oauthToken"
+	sc.cfg.Authenticator = authenticatorOAuth
+	sc.rest = sr
+	_, err = authenticate(sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -300,20 +302,18 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPostAuth: postAuthCheckPasscode,
 	}
-	_, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "987654321", false,
-		"testapp", make(map[string]*string), []byte{}, "", "",
-		[]byte{}, "")
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Passcode = "987654321"
+	sc.rest = sr
+
+	_, err = authenticate(sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 	sr.FuncPostAuth = postAuthCheckPasscodeInPassword
-	_, err = authenticate(
-		sr, "u", "p", "a", "d",
-		"s", "w", "r", "987654321", true,
-		"testapp", make(map[string]*string), []byte{}, "", "",
-		[]byte{}, "")
+	sc.rest = sr
+	sc.cfg.PasscodeInPassword = true
+	_, err = authenticate(sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}

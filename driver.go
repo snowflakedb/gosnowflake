@@ -59,9 +59,11 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	var authData *authResponseMain
 	var samlResponse []byte
 	var proofKey []byte
-	//var tokenResponse []byte
-	switch authenticator := sc.cfg.Authenticator; authenticator {
-	case "externalbrowser":
+
+	authenticator := strings.ToUpper(sc.cfg.Authenticator)
+	glog.V(2).Infof("Authenticating via %v", authenticator)
+	switch authenticator {
+	case authenticatorExternalBrowser:
 		samlResponse, proofKey, err = authenticateByExternalBrowser(
 			sc.rest,
 			sc.cfg.Authenticator,
@@ -73,9 +75,10 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 			sc.cleanup()
 			return nil, err
 		}
-	case "oauth":
-	case "snowflake":
-		// fall through
+	case authenticatorOAuth:
+	case authenticatorSnowflake:
+		// Nothing to do, parameters needed for auth should be already set in sc.cfg
+		break
 	default:
 		// this is actually okta, which is something misleading
 		samlResponse, err = authenticateBySAML(
@@ -91,24 +94,9 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		}
 	}
 	authData, err = authenticate(
-		sc.rest,
-		sc.cfg.User,
-		sc.cfg.Password,
-		sc.cfg.Account,
-		sc.cfg.Database,
-		sc.cfg.Schema,
-		sc.cfg.Warehouse,
-		sc.cfg.Role,
-		sc.cfg.Passcode,
-		sc.cfg.PasscodeInPassword,
-		sc.cfg.Application,
-		sc.cfg.Params,
+		sc,
 		samlResponse,
-		"",
-		"",
-		proofKey,
-		sc.cfg.Token,
-	)
+		proofKey)
 	if err != nil {
 		sc.cleanup()
 		return nil, err
