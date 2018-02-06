@@ -76,12 +76,17 @@ The following connection parameters are supported:
 	* authenticator: Specifies the authenticator to use for authenticating user credentials:
 		- To use the internal Snowflake authenticator, specify snowflake (Default).
 		- To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
+		- To authenticate using your IDP via a browser, specify externalbrowser.
+		- To authenticate via OAuth, specify oauth and provide an OAuth Access Token (see the token parameter below).
 
 	* application: Identifies your application to Snowflake Support.
 
 	* insecureMode false by default. Set to true to bypass the Offensive
 		Security Certified Professional (OSCP) certificate revocation check.
 		IMPORTANT: Change the default value for testing or emergency situations only.
+
+	* token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
+
 
 All other parameters are taken as session parameters. For example, TIMESTAMP_OUTPUT_FORMAT session parameter can be
 set by adding:
