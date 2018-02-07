@@ -1,3 +1,7 @@
+## Version 1.1.5
+
+- Added externalbrowser authenticator support PR #141, #142 (@tjj5036)
+
 ## Version 1.1.4
 
 - Raise HTTP 403 errors immediately after the authentication failure instead of retry until the timeout. Issue #138 (@dominicbarnes)
