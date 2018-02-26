@@ -48,7 +48,9 @@ type Config struct {
 
 // DSN constructs a DSN for Snowflake db.
 func DSN(cfg *Config) (dsn string, err error) {
+	hasHost := true
 	if cfg.Host == "" {
+		hasHost = false
 		if cfg.Region == "" {
 			cfg.Host = cfg.Account + defaultDomain
 		} else {
@@ -67,6 +69,10 @@ func DSN(cfg *Config) (dsn string, err error) {
 		return "", err
 	}
 	params := &url.Values{}
+	if hasHost && cfg.Account != "" {
+		// account may not be included in a Host string
+		params.Add("account", cfg.Account)
+	}
 	if cfg.Database != "" {
 		params.Add("database", cfg.Database)
 	}
@@ -99,6 +105,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Application != clientType {
 		params.Add("application", cfg.Application)
+	}
+	if cfg.Protocol != "" && cfg.Protocol != "https" {
+		params.Add("protocol", cfg.Protocol)
 	}
 	if cfg.Token != "" {
 		params.Add("token", cfg.Token)
