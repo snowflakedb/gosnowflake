@@ -13,8 +13,11 @@ import (
 	"database/sql"
 
 	"context"
-	_ "github.com/snowflakedb/gosnowflake"
 	"os/signal"
+
+	"runtime/debug"
+
+	_ "github.com/snowflakedb/gosnowflake"
 )
 
 func TestLargeResultSet(t *testing.T) {
@@ -64,18 +67,35 @@ func runLargeResultSet() {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
 	}
 
-	query := "SELECT seq8(), randstr(100, random()) FROM table(generator(rowcount=>100000))"
+	query := `select * from
+	  (select 0 a union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) A,
+	  (select 0 b union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) B,
+	  (select 0 c union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) C,
+	  (select 0 d union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) E,
+	  (select 0 e union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) F,
+	  (select 0 f union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) G,
+	  (select 0 f union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) H`
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}
 	defer rows.Close()
-	var v int
-	var s string
+	var v1 int
+	var v2 int
+	var v3 int
+	var v4 int
+	var v5 int
+	var v6 int
+	var v7 int
+	counter := 0
 	for rows.Next() {
-		err := rows.Scan(&v, &s)
+		err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
 		if err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
 		}
+		if counter%1000000 == 0 {
+			debug.FreeOSMemory()
+		}
+		counter++
 	}
 }
