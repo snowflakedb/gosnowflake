@@ -8,9 +8,44 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
+
+// getDSN constructs a DSN based on the test connection parameters
+func getDSN(params map[string]*string) (string, *sf.Config, error) {
+	env := func(k string, check bool) string {
+		if value := os.Getenv(k); value != "" {
+			return value
+		}
+		if check {
+			log.Fatalf("%v environment variable is not set.", k)
+		}
+		return ""
+	}
+
+	account := env("SNOWFLAKE_TEST_ACCOUNT", true)
+	user := env("SNOWFLAKE_TEST_USER", true)
+	password := env("SNOWFLAKE_TEST_PASSWORD", true)
+	host := env("SNOWFLAKE_TEST_HOST", false)
+	port := env("SNOWFLAKE_TEST_PORT", false)
+	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
+
+	portStr, _ := strconv.Atoi(port)
+	cfg := &sf.Config{
+		Account:  account,
+		User:     user,
+		Password: password,
+		Host:     host,
+		Port:     portStr,
+		Protocol: protocol,
+		Params:   params,
+	}
+
+	dsn, err := sf.DSN(cfg)
+	return dsn, cfg, err
+}
 
 func main() {
 	if !flag.Parsed() {
@@ -18,29 +53,14 @@ func main() {
 		flag.Parse()
 	}
 
-	// get environment variables
-	env := func(k string) string {
-		if value := os.Getenv(k); value != "" {
-			return value
-		}
-		log.Fatalf("%v environment variable is not set.", k)
-		return ""
-	}
-
-	account := env("SNOWFLAKE_TEST_ACCOUNT")
-	user := env("SNOWFLAKE_TEST_USER")
-	password := env("SNOWFLAKE_TEST_PASSWORD")
-
 	tmfmt := "MM-DD-YYYY"
-	cfg := &sf.Config{
-		User:     user,
-		Password: password,
-		Account:  account,
-		Params: map[string]*string{
+	dsn, cfg, err := getDSN(
+		map[string]*string{
 			"TIMESTAMP_OUTPUT_FORMAT": &tmfmt, // session parameter
-		},
+		})
+	if err != nil {
+		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
-	dsn, err := sf.DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
