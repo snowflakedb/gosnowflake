@@ -49,7 +49,7 @@ func getDSN() (dsn string, cfg *sf.Config, err error) {
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
 
 	portStr, _ := strconv.Atoi(port)
-	cfg := &sf.Config{
+	cfg = &sf.Config{
 		Account:  account,
 		User:     user,
 		Password: password,
