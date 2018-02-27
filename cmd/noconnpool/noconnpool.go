@@ -18,11 +18,11 @@ import (
 
 // getDSN constructs a DSN based on the test connection parameters
 func getDSN() (string, *sf.Config, error) {
-	env := func(k string, check bool) string {
+	env := func(k string, failOnMissing bool) string {
 		if value := os.Getenv(k); value != "" {
 			return value
 		}
-		if check {
+		if failOnMissing {
 			log.Fatalf("%v environment variable is not set.", k)
 		}
 		return ""
