@@ -33,7 +33,7 @@ type Config struct {
 	Host     string // hostname (optional)
 	Port     int    // port (optional)
 
-	Authenticator      string // snowflake, okta URL or externalbrowser
+	Authenticator      string // snowflake, okta URL, oauth or externalbrowser
 	Passcode           string
 	PasscodeInPassword bool
 
@@ -229,6 +229,16 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 
 	// unescape parameters
 	var s string
+	s, err = url.QueryUnescape(cfg.User)
+	if err != nil {
+		return nil, err
+	}
+	cfg.User = s
+	s, err = url.QueryUnescape(cfg.Password)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Password = s
 	s, err = url.QueryUnescape(cfg.Database)
 	if err != nil {
 		return nil, err
@@ -342,7 +352,7 @@ func parseAccountHostPort(cfg *Config, posAt, posSlash int, dsn string) (err err
 	return transformAccountToHost(cfg)
 }
 
-// parseUserPassword pases the DSN string for username and password
+// parseUserPassword parses the DSN string for username and password
 func parseUserPassword(posAt int, dsn string) (user, password string) {
 	var k int
 	for k = 0; k < posAt; k++ {

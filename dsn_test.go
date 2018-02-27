@@ -185,6 +185,14 @@ func TestParseDSN(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			dsn: "user%40%2F1:p%3A%40s@/db%2F?account=ac",
+			config: &Config{
+				Account: "ac", User: "user@/1", Password: "p:@s", Database: "db/",
+				Protocol: "https", Host: "ac.snowflakecomputing.com", Port: 443,
+			},
+			err: nil,
+		},
 	}
 	for i, test := range testcases {
 		glog.V(2).Infof("#%v\n", i)

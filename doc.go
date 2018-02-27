@@ -30,6 +30,8 @@ The Go Snowflake Driver supports the following connection syntaxes (or data sour
 	* username[:password]@accountname/dbname[?param1=value&...&paramN=valueN
 	* username[:password]@hostname:port/dbname/schemaname?account=<your_account>[&param1=value&...&paramN=valueN]
 
+where all parameters must be escaped or use `Config` and `DSN` to construct a DSN string.
+
 The following example opens a database handle with the Snowflake account
 myaccount where the username is jsmith, password is mypassword, database is
 mydb, schema is testschema, and warehouse is mywh:
