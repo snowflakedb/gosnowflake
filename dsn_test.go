@@ -341,6 +341,17 @@ func TestDSN(t *testing.T) {
 			},
 			dsn: "u:p@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&region=e",
 		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: ":@abc",
+				Account:  "a.e",
+				Params: map[string]*string{
+					"TIMESTAMP_OUTPUT_FORMAT": &tmfmt,
+				},
+			},
+			dsn: "u:%3A%40abc@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&region=e",
+		},
 	}
 	for _, test := range testcases {
 		dsn, err := DSN(test.cfg)

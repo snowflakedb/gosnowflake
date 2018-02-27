@@ -33,7 +33,7 @@ type Config struct {
 	Host     string // hostname (optional)
 	Port     int    // port (optional)
 
-	Authenticator      string // snowflake or okta
+	Authenticator      string // snowflake, okta URL or externalbrowser
 	Passcode           string
 	PasscodeInPassword bool
 
@@ -117,7 +117,7 @@ func DSN(cfg *Config) (dsn string, err error) {
 			params.Add(k, *v)
 		}
 	}
-	dsn = fmt.Sprintf("%v:%v@%v:%v", cfg.User, cfg.Password, cfg.Host, cfg.Port)
+	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
 	if params.Encode() != "" {
 		dsn += "?" + params.Encode()
 	}
@@ -253,13 +253,18 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 }
 
 func fillMissingConfigParameters(cfg *Config) error {
+	if strings.Trim(cfg.Authenticator, " ") == "" {
+		cfg.Authenticator = defaultAuthenticator
+	}
 	if strings.Trim(cfg.Account, " ") == "" {
 		return ErrEmptyAccount
 	}
 	if strings.Trim(cfg.User, " ") == "" {
 		return ErrEmptyUsername
 	}
-	if strings.Trim(cfg.Password, " ") == "" {
+	authenticator := strings.ToUpper(cfg.Authenticator)
+	if authenticator != authenticatorExternalBrowser && authenticator != authenticatorOAuth && strings.Trim(cfg.Password, " ") == "" {
+		// no password parameter is required for EXTERNALBROWSER and OAUTH.
 		return ErrEmptyPassword
 	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
@@ -288,9 +293,6 @@ func fillMissingConfigParameters(cfg *Config) error {
 	}
 	if strings.Trim(cfg.Application, " ") == "" {
 		cfg.Application = clientType
-	}
-	if strings.Trim(cfg.Authenticator, " ") == "" {
-		cfg.Authenticator = defaultAuthenticator
 	}
 	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {
 		return &SnowflakeError{
