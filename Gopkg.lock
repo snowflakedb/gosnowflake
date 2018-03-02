@@ -16,18 +16,18 @@
 [[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
-  revision = "879c5887cd475cd7864858769793b2ceb0d44feb"
-  version = "v1.1.0"
+  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ocsp"]
-  revision = "2509b142fb2b797aa7587dad548f113b2c0f20ce"
+  revision = "91a49db82a88618983a78a06c1cbd4e00ab749ab"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "11d5af1e8f4f66097a6ac4e8a3ef3e6076676d94cccb26a6eca3dd168db04563"
+  inputs-digest = "daa085229bed3ca26312969e7838cf1b67c4aeefecda0d45edcf594b0a6f94b6"
   solver-name = "gps-cdcl"
   solver-version = 1

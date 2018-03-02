@@ -1,9 +1,19 @@
 [[constraint]]
+  branch = "master"
   name = "github.com/golang/glog"
 
 [[constraint]]
-  name = "github.com/satori/go.uuid"
-  version = "1.1.0"
+  branch = "master"
+  name = "github.com/pkg/browser"
 
 [[constraint]]
+  name = "github.com/satori/go.uuid"
+  version = "1.2.0"
+
+[[constraint]]
+  branch = "master"
   name = "golang.org/x/crypto"
+
+[prune]
+  go-tests = true
+  unused-packages = true
