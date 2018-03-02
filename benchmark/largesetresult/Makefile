@@ -1,6 +1,8 @@
 ## Setup
+SHELL := /bin/bash
+SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+
 setup:
-	go get github.com/Masterminds/glide
 	go get github.com/golang/lint/golint
 	go get github.com/Songmu/make2help/cmd/make2help
 
@@ -17,14 +19,14 @@ trace:
 
 ## Lint
 lint: setup
-	go vet $$(glide novendor)
-	for pkg in $$(glide novendor -x); do \
+	go vet $(SRC)
+	for pkg in $$(go list ./... | grep -v vendor); do \
 		golint -set_exit_status $$pkg || exit $$?; \
 	done
 
 ## Format source codes using gfmt
 fmt: setup
-	gofmt -w $$(glide nv -x)
+	@gofmt -l -w $(SRC)
 
 ## Show help
 help:
