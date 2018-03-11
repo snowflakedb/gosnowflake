@@ -66,6 +66,7 @@ func authenticateBySAML(
 
 	clientEnvironment := authRequestClientEnvironment{
 		Application: application,
+		Os:          operatingSystem,
 		OsVersion:   platform,
 	}
 	requestMain := authRequestData{
