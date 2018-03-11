@@ -28,14 +28,18 @@ const (
 	authenticatorOkta            = "OKTA"
 )
 
-// platform consists of compiler, OS and architecture type in string
-var platform = fmt.Sprintf("%v-%v-%v", runtime.Compiler, runtime.GOOS, runtime.GOARCH)
+// platform consists of compiler and architecture type in string
+var platform = fmt.Sprintf("%v-%v", runtime.Compiler, runtime.GOARCH)
+
+// operatingSystem is the runtime operating system.
+var operatingSystem = runtime.GOOS
 
 // userAgent shows up in User-Agent HTTP header
 var userAgent = fmt.Sprintf("%v/%v/%v/%v", clientType, SnowflakeGoDriverVersion, runtime.Version(), platform)
 
 type authRequestClientEnvironment struct {
 	Application string `json:"APPLICATION"`
+	Os          string `json:"OS"`
 	OsVersion   string `json:"OS_VERSION"`
 }
 type authRequestData struct {
@@ -179,6 +183,7 @@ func authenticate(
 	headers := getHeaders()
 	clientEnvironment := authRequestClientEnvironment{
 		Application: sc.cfg.Application,
+		Os:          operatingSystem,
 		OsVersion:   platform,
 	}
 
