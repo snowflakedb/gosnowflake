@@ -4,7 +4,7 @@ SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
 setup:
 	go get -u github.com/golang/dep/cmd/dep
-	go get github.com/golang/lint/golint
+	rm -rf $(GOPATH)/src/golang.org/x/lint && mkdir -p $(GOPATH)/src/golang.org/x && git clone https://github.com/golang/lint.git $(GOPATH)/src/golang.org/x/lint && go get -u golang.org/x/lint/golint
 	go get github.com/Songmu/make2help/cmd/make2help
 	go get honnef.co/go/tools/cmd/megacheck
 
