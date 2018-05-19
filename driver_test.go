@@ -1823,6 +1823,61 @@ func TestPingInvalidHost(t *testing.T) {
 	}
 }
 
+func createDSNWithClientSessionKeepAlive() {
+	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, schemaname)
+
+	parameters := url.Values{}
+	parameters.Add("client_session_keep_alive", "true")
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	if account != "" {
+		parameters.Add("account", account)
+	}
+	if warehouse != "" {
+		parameters.Add("warehouse", warehouse)
+	}
+	if rolename != "" {
+		parameters.Add("role", rolename)
+	}
+	if len(parameters) > 0 {
+		dsn += "?" + parameters.Encode()
+	}
+}
+
+func TestClientSessionKeepAliveParameter(t *testing.T) {
+	var db *sql.DB
+	var err error
+	var rows *sql.Rows
+
+	createDSNWithClientSessionKeepAlive()
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+	rows, err = db.Query("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
+	if err != nil {
+		t.Errorf("failed to run show parameters. err: %v", err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		t.Fatal("failed to get timezone.")
+	}
+	var k, v, d, lv, de, c1, c2, c3, c4, c5, c6, c7 string
+	err = rows.Scan(&k, &v, &d, &lv, &de, &c1, &c2, &c3, &c4, &c5, &c6, &c7)
+	if err != nil {
+		t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
+	}
+	if v != "true" {
+		t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", v)
+	}
+	rows, err = db.Query("select count(*) from table(generator(timelimit=>10))")
+	if err != nil {
+		t.Errorf("failed to run a query: %v", err)
+	}
+	defer rows.Close()
+}
+
 func init() {
 	if !flag.Parsed() {
 		flag.Parse()
