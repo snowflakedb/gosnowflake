@@ -39,6 +39,7 @@ type snowflakeRestful struct {
 	Token       string
 	MasterToken string
 	SessionID   int
+	HeartBeat   *heartbeat
 
 	Connection          *snowflakeConn
 	FuncPostQuery       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration) (*execResponse, error)

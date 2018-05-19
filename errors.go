@@ -79,6 +79,8 @@ const (
 	ErrFailedToParseResponse = 261008
 	// ErrFailedToGetExternalBrowserResponse is an error code for when there's an error reading from the open socket.
 	ErrFailedToGetExternalBrowserResponse = 261009
+	// ErrFailedToHeartbeat is an error code when a heartbeat fails.
+	ErrFailedToHeartbeat = 261010
 
 	/* rows */
 
