@@ -1863,8 +1863,10 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 	if !rows.Next() {
 		t.Fatal("failed to get timezone.")
 	}
-	var k, v, d, lv, de, c1, c2, c3, c4, c5, c6, c7 string
-	err = rows.Scan(&k, &v, &d, &lv, &de, &c1, &c2, &c3, &c4, &c5, &c6, &c7)
+	// var k, v, d, lv, de, c1, c2, c3, c4, c5, c6, c7 string
+	// err = rows.Scan(&k, &v, &d, &lv, &de, &c1, &c2, &c3, &c4, &c5, &c6, &c7)
+	var k, v, d, lv, de string
+	err = rows.Scan(&k, &v, &d, &lv, &de)
 	if err != nil {
 		t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
 	}
