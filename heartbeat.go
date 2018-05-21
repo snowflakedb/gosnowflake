@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	// heartbeatDuration = 1 * time.Second
-	heartbeatDuration = 60 * time.Minute
+	// One hour interval should be good enough to renew tokens for four hours master token validity
+	heartBeatInterval = 60 * time.Minute
 )
 
 type heartbeat struct {
@@ -28,7 +28,7 @@ type heartbeat struct {
 }
 
 func (hc *heartbeat) run() {
-	hbTimer := time.NewTimer(heartbeatDuration)
+	hbTimer := time.NewTimer(heartBeatInterval)
 	for {
 		go func() {
 			<-hbTimer.C
@@ -37,7 +37,7 @@ func (hc *heartbeat) run() {
 				glog.V(2).Info("failed to heartbeat")
 				return
 			}
-			hbTimer = time.NewTimer(heartbeatDuration)
+			hbTimer = time.NewTimer(heartBeatInterval)
 		}()
 		select {
 		case <-hc.ShutdownChan:
@@ -83,7 +83,7 @@ func (hc *heartbeat) heartbeatMain() error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		glog.V(2).Infof("postQuery: resp: %v", resp)
+		glog.V(2).Infof("heartbeatMain: resp: %v", resp)
 		var respd execResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {

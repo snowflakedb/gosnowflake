@@ -1846,6 +1846,8 @@ func createDSNWithClientSessionKeepAlive() {
 }
 
 func TestClientSessionKeepAliveParameter(t *testing.T) {
+	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
+	// the session parameter.
 	var db *sql.DB
 	var err error
 	var rows *sql.Rows
