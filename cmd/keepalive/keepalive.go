@@ -34,6 +34,10 @@ func getDSN() (string, *sf.Config, error) {
 	port := env("SNOWFLAKE_TEST_PORT", false)
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
 
+	params := make(map[string]*string)
+	valueTrue := "true"
+	params["client_session_keep_alive"] = &valueTrue
+
 	portStr, _ := strconv.Atoi(port)
 	cfg := &sf.Config{
 		Account:  account,
@@ -42,10 +46,10 @@ func getDSN() (string, *sf.Config, error) {
 		Host:     host,
 		Port:     portStr,
 		Protocol: protocol,
+		Params:   params,
 	}
 
 	dsn, err := sf.DSN(cfg)
-	dsn += "&client_session_keep_alive=true" // CLIENT_SESSION_KEEP_ALIVE
 	return dsn, cfg, err
 }
 
