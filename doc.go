@@ -89,6 +89,10 @@ The following connection parameters are supported:
 
 	* token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
 
+	* client_session_keep_alive: Set to true have a heartbeat in the background every hour to keep the connection alive
+		such that the connection session will never expire. Care should be taken in using this option as it opens up
+		the access forever as long as the process is alive.
+
 
 All other parameters are taken as session parameters. For example, TIMESTAMP_OUTPUT_FORMAT session parameter can be
 set by adding:
