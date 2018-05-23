@@ -83,8 +83,8 @@ The following connection parameters are supported:
 
 	* application: Identifies your application to Snowflake Support.
 
-	* insecureMode false by default. Set to true to bypass the Offensive
-		Security Certified Professional (OSCP) certificate revocation check.
+	* insecureMode false by default. Set to true to bypass the Online
+		Certificate Status Protocol (OCSP) certificate revocation check.
 		IMPORTANT: Change the default value for testing or emergency situations only.
 
 	* token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
