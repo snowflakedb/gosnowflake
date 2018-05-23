@@ -1,6 +1,6 @@
 // Example: client session keep alive
 // By default, the token expires in 4 hours if the connection is idle. CLIENT_SESSION_KEEP_ALIVE parameter will
-// have a heartbeat in the backend to keep the connection alive explicit heartbeats.
+// have a heartbeat in the background to keep the connection alive by making explicit heartbeats
 package main
 
 import (

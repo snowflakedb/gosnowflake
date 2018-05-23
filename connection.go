@@ -313,16 +313,11 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 }
 
 func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
-	ret := false
-	for k, v := range sc.cfg.Params {
-		if k == sessionClientSessionKeepAlive {
-			if strings.Compare(*v, "true") == 0 {
-				ret = true
-			}
-			break
-		}
+	v, ok := sc.cfg.Params[sessionClientSessionKeepAlive]
+	if !ok {
+		return false
 	}
-	return ret
+	return strings.Compare(*v, "true") == 0
 }
 
 func (sc *snowflakeConn) startHeartBeat() {
