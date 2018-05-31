@@ -102,6 +102,14 @@ func TestParseDSN(t *testing.T) {
 			err: nil,
 		},
 		{
+			dsn: "snowflake.local:9876?account=a&protocol=http&authenticator=OAUTH",
+			config: &Config{
+				Account: "a", Authenticator: "OAUTH",
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
+			},
+			err: nil,
+		},
+		{
 			dsn: "u:p@snowflake.local:NNNN?account=a&protocol=http",
 			config: &Config{
 				Account: "a", User: "u", Password: "p",

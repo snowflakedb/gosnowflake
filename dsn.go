@@ -136,6 +136,8 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	// user[:password]@account/database[?param1=value1&paramN=valueN]
 	// or
 	// user[:password]@host:port/database/schema?account=user_account[?param1=value1&paramN=valueN]
+	// or
+	// host:port/database/schema?account=user_account[?param1=value1&paramN=valueN]
 
 	foundSlash := false
 	secondSlash := false
@@ -269,10 +271,13 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if strings.Trim(cfg.Account, " ") == "" {
 		return ErrEmptyAccount
 	}
-	if strings.Trim(cfg.User, " ") == "" {
+	authenticator := strings.ToUpper(cfg.Authenticator)
+
+	if authenticator != authenticatorOAuth && strings.Trim(cfg.User, " ") == "" {
+		// oauth does not require a username
 		return ErrEmptyUsername
 	}
-	authenticator := strings.ToUpper(cfg.Authenticator)
+
 	if authenticator != authenticatorExternalBrowser && authenticator != authenticatorOAuth && strings.Trim(cfg.Password, " ") == "" {
 		// no password parameter is required for EXTERNALBROWSER and OAUTH.
 		return ErrEmptyPassword
