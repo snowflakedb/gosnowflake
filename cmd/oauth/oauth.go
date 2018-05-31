@@ -31,14 +31,12 @@ func main() {
 	}
 
 	account := env("SNOWFLAKE_TEST_ACCOUNT")
-	user := env("SNOWFLAKE_TEST_USER")
-	password := env("SNOWFLAKE_TEST_PASSWORD") // will not matter
 	token := env("SNOWFLAKE_TEST_OAUTH_TOKEN")
 
 	// Tokens must be escaped before being used in the DSN!
 	escapedToken := url.QueryEscape(token)
 
-	dsn := fmt.Sprintf("%v:%v@%v/?authenticator=OAUTH&token=%v", user, password, account, escapedToken)
+	dsn := fmt.Sprintf("%v?authenticator=OAUTH&token=%v", account, escapedToken)
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
