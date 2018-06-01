@@ -1,3 +1,13 @@
+## Version 1.1.8
+
+- Removed username restrition for oAuth
+
+## Version 1.1.7
+
+- Added `client_session_keep_alive` option to have a heartbeat in the background every hour to keep the connection alive. Fixed #160
+- Corrected doc about OCSP.
+- Added OS session info to the session.
+
 ## Version 1.1.6
 
 - Fixed memory leak in the large result set. The chunk of memory is freed as soon as the cursor moved forward.
