@@ -8,16 +8,16 @@
   revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
 
 [[projects]]
+  name = "github.com/google/uuid"
+  packages = ["."]
+  revision = "064e2069ce9c359c118179501254f67d7d37ba24"
+  version = "0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/pkg/browser"
   packages = ["."]
   revision = "c90ca0c84f15f81c982e32665bffd8d7aac8f097"
-
-[[projects]]
-  name = "github.com/satori/go.uuid"
-  packages = ["."]
-  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
-  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -28,6 +28,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "daa085229bed3ca26312969e7838cf1b67c4aeefecda0d45edcf594b0a6f94b6"
+  inputs-digest = "d9a2543cf94c045cf022c4050131a3a37875cc2300f11af53e12a5210f13f13d"
   solver-name = "gps-cdcl"
   solver-version = 1

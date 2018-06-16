@@ -3,18 +3,15 @@
 package gosnowflake
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"time"
 
-	"context"
-
-	"io/ioutil"
-	"net/http"
-
-	"encoding/json"
-
-	"github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 const (
@@ -68,7 +65,7 @@ func (hc *heartbeat) stop() {
 func (hc *heartbeat) heartbeatMain() error {
 	glog.V(2).Info("Heartbeating!")
 	params := &url.Values{}
-	params.Add("requestId", uuid.NewV4().String())
+	params.Add("requestId", uuid.New().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", hc.restful.Protocol, hc.restful.Host, hc.restful.Port, "/session/heartbeat?"+params.Encode())
 	headers := make(map[string]string)

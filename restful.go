@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 const (
@@ -114,7 +114,7 @@ func postRestfulQuery(
 	timeout time.Duration) (
 	data *execResponse, err error) {
 
-	requestID := uuid.NewV4().String()
+	requestID := uuid.New().String()
 	execResponseChan := make(chan execResponseAndErr)
 
 	go func() {
@@ -231,7 +231,7 @@ func closeSession(sr *snowflakeRestful) error {
 	glog.V(2).Info("close session")
 	params := &url.Values{}
 	params.Add("delete", "true")
-	params.Add("requestId", uuid.NewV4().String())
+	params.Add("requestId", uuid.New().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session?"+params.Encode())
 
@@ -286,7 +286,7 @@ func closeSession(sr *snowflakeRestful) error {
 func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 	glog.V(2).Info("start renew session")
 	params := &url.Values{}
-	params.Add("requestId", uuid.NewV4().String())
+	params.Add("requestId", uuid.New().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session/token-request?"+params.Encode())
 
@@ -353,7 +353,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 func cancelQuery(sr *snowflakeRestful, requestID string) error {
 	glog.V(2).Info("cancel query")
 	params := &url.Values{}
-	params.Add("requestId", uuid.NewV4().String())
+	params.Add("requestId", uuid.New().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/queries/v1/abort-request?"+params.Encode())
 
