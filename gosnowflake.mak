@@ -26,7 +26,7 @@ cfmt: setup
 
 # Lint (internally used)
 clint: setup
-	[[ $$(go version | awk '{print $3}' | cut -d'.' -f 2) != "8" ]] && echo "Running megacache" && megacheck || echo "No megacheck run, because Go1.8 is not supported."
+	[[ $$(go version | awk '{print $3}' | cut -d'.' -f 2) != "8" ]] && echo "Running megacheck" && megacheck || echo "No megacheck run, because Go1.8 is not supported."
 	for pkg in $$(go list ./... | grep -v /vendor/); do \
 		echo "Verifying $$pkg"; \
 		go vet $$pkg; \
