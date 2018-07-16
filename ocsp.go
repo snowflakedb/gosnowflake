@@ -574,6 +574,7 @@ func init() {
 var snowflakeInsecureTransport = &http.Transport{
 	MaxIdleConns:    10,
 	IdleConnTimeout: 30 * time.Minute,
+	Proxy:           http.ProxyFromEnvironment,
 }
 
 // SnowflakeTransport includes the certificate revocation check with OCSP in parallel. By default, the driver uses
@@ -585,6 +586,7 @@ var SnowflakeTransport = &http.Transport{
 	},
 	MaxIdleConns:    10,
 	IdleConnTimeout: 30 * time.Minute,
+	Proxy:           http.ProxyFromEnvironment,
 }
 
 // SnowflakeTransportSerial includes the certificate revocation check with OCSP in serial.
@@ -595,6 +597,7 @@ var SnowflakeTransportSerial = &http.Transport{
 	},
 	MaxIdleConns:    10,
 	IdleConnTimeout: 30 * time.Minute,
+	Proxy:           http.ProxyFromEnvironment,
 }
 
 // SnowflakeTransportTest includes the certificate revocation check in parallel
