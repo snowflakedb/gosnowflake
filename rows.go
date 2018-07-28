@@ -3,8 +3,6 @@
 package gosnowflake
 
 import (
-	"fmt"
-
 	"context"
 	"database/sql/driver"
 	"io"
@@ -23,7 +21,11 @@ const (
 )
 
 var (
-	MaxChunkDownloadWorkers        = 10
+	// MaxChunkDownloadWorkers specifies the maximum number of goroutines used to download chunks
+	MaxChunkDownloadWorkers = 10
+)
+
+var (
 	maxChunkDownloaderErrorCounter = 5
 )
 
@@ -177,7 +179,6 @@ func (scd *snowflakeChunkDownloader) start() error {
 	// start downloading chunks if exists
 	chunkMetaLen := len(scd.ChunkMetas)
 	if chunkMetaLen > 0 {
-		fmt.Printf("chunks: %v, total bytes: %d\n", chunkMetaLen, scd.totalUncompressedSize())
 		glog.V(2).Infof("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.DoneDownloadCond = sync.NewCond(scd.ChunksMutex)
@@ -378,12 +379,22 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
             }
         }
 
+<<<<<<< HEAD
 		fmt.Printf(
 			"decoded %d rows w/ %d bytes in %s (chunk %v)\n",
 			scd.ChunkMetas[idx].RowCount,
 			scd.ChunkMetas[idx].UncompressedSize,
 			time.Now().Sub(start), idx+1,
 		)
+=======
+		glog.V(2).Infof(
+			"decoded %d rows w/ %d bytes in %s (chunk %v)",
+			scd.ChunkMetas[idx].RowCount,
+			scd.ChunkMetas[idx].UncompressedSize,
+			time.Since(start), idx+1,
+		)
+
+>>>>>>> fix fmt and lint issues
 		scd.ChunksMutex.Lock()
 		scd.Chunks[idx] = respd
 		scd.DoneDownloadCond.Broadcast()
