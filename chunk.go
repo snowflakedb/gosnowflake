@@ -254,7 +254,6 @@ func (lcd *largeChunkDecoder) nextByteNonWhitespace() byte {
 			return c
 		}
 	}
-	return 0
 }
 
 func (lcd *largeChunkDecoder) rewind(n int) {

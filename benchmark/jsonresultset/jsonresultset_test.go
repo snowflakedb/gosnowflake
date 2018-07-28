@@ -22,11 +22,11 @@ import (
 )
 
 func TestJsonResultSet(t *testing.T) {
-	runJsonResultSet()
+	runJSONResultSet()
 }
 
 func BenchmarkJsonResultSet(*testing.B) {
-	runJsonResultSet()
+	runJSONResultSet()
 }
 
 // getDSN constructs a DSN based on the test connection parameters
@@ -64,7 +64,7 @@ func getDSN() (dsn string, cfg *sf.Config, err error) {
 	return dsn, cfg, err
 }
 
-func runJsonResultSet() {
+func runJSONResultSet() {
 	if !flag.Parsed() {
 		// enable glog for Go Snowflake Driver
 		flag.Parse()
