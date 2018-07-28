@@ -83,8 +83,8 @@ func downloadChunkTest(scd *snowflakeChunkDownloader, idx int) {
 func TestRowsWithChunkDownloader(t *testing.T) {
 	numChunks := 12
 	// changed the workers
-	backupMaxChunkDownloadWorkers := maxChunkDownloadWorkers
-	maxChunkDownloadWorkers = 2
+	backupMaxChunkDownloadWorkers := MaxChunkDownloadWorkers
+	MaxChunkDownloadWorkers = 2
 	glog.V(2).Info("START TESTS")
 	var i int
 	cc := make([][]*string, 0)
@@ -133,7 +133,7 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 		t.Fatalf("failed to get all results. expected:%v, got:%v", len(cc)+numChunks*rowsInChunk, cnt)
 	}
 	glog.V(2).Infof("dest: %v", dest)
-	maxChunkDownloadWorkers = backupMaxChunkDownloadWorkers
+	MaxChunkDownloadWorkers = backupMaxChunkDownloadWorkers
 	glog.V(2).Info("END TESTS")
 }
 
@@ -161,8 +161,8 @@ func downloadChunkTestError(scd *snowflakeChunkDownloader, idx int) {
 func TestRowsWithChunkDownloaderError(t *testing.T) {
 	numChunks := 12
 	// changed the workers
-	backupMaxChunkDownloadWorkers := maxChunkDownloadWorkers
-	maxChunkDownloadWorkers = 3
+	backupMaxChunkDownloadWorkers := MaxChunkDownloadWorkers
+	MaxChunkDownloadWorkers = 3
 	glog.V(2).Info("START TESTS")
 	var i int
 	cc := make([][]*string, 0)
@@ -211,7 +211,7 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 		t.Fatalf("failed to get all results. expected:%v, got:%v", len(cc)+numChunks*rowsInChunk, cnt)
 	}
 	glog.V(2).Infof("dest: %v", dest)
-	maxChunkDownloadWorkers = backupMaxChunkDownloadWorkers
+	MaxChunkDownloadWorkers = backupMaxChunkDownloadWorkers
 	glog.V(2).Info("END TESTS")
 }
 
