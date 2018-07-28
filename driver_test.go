@@ -91,6 +91,7 @@ func setup() (string, error) {
 		}
 		return defaultValue
 	}
+
 	orgSchemaname := schemaname
 	if env("TRAVIS", "") == "true" {
 		schemaname = fmt.Sprintf("TRAVIS_JOB_%v", env("TRAVIS_JOB_ID", "testschema"))
@@ -125,6 +126,10 @@ func teardown(s string) error {
 }
 
 func TestMain(m *testing.M) {
+	if value := os.Getenv("SKIP_SETUP"); value != "" {
+		os.Exit(m.Run())
+	}
+
 	orgSchemaname, err := setup()
 	if err != nil {
 		panic(err)

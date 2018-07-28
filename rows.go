@@ -3,9 +3,10 @@
 package gosnowflake
 
 import (
+	"fmt"
+
 	"context"
 	"database/sql/driver"
-	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -22,7 +23,7 @@ const (
 )
 
 var (
-	maxChunkDownloadWorkers        = 10
+	MaxChunkDownloadWorkers        = 10
 	maxChunkDownloaderErrorCounter = 5
 )
 
@@ -47,6 +48,7 @@ type snowflakeChunkDownloader struct {
 	ctx                context.Context
 	Total              int64
 	TotalRowIndex      int64
+	CellCount          int
 	CurrentChunk       [][]*string
 	CurrentChunkIndex  int
 	CurrentChunkSize   int
@@ -148,6 +150,13 @@ func (rows *snowflakeRows) NextResultSet() error {
 	return rows.ChunkDownloader.nextResultSet()
 }
 
+func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
+	for _, c := range scd.ChunkMetas {
+		acc += c.UncompressedSize
+	}
+	return
+}
+
 func (scd *snowflakeChunkDownloader) hasNextResultSet() bool {
 	return scd.CurrentChunkIndex < len(scd.ChunkMetas)
 }
@@ -168,17 +177,18 @@ func (scd *snowflakeChunkDownloader) start() error {
 	// start downloading chunks if exists
 	chunkMetaLen := len(scd.ChunkMetas)
 	if chunkMetaLen > 0 {
-		glog.V(2).Infof("chunks: %v", chunkMetaLen)
+		fmt.Printf("chunks: %v, total bytes: %d\n", chunkMetaLen, scd.totalUncompressedSize())
+		glog.V(2).Infof("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.DoneDownloadCond = sync.NewCond(scd.ChunksMutex)
 		scd.Chunks = make(map[int][][]*string)
 		scd.ChunksChan = make(chan int, chunkMetaLen)
-		scd.ChunksError = make(chan *chunkError, maxChunkDownloadWorkers)
+		scd.ChunksError = make(chan *chunkError, MaxChunkDownloadWorkers)
 		for i := 0; i < chunkMetaLen; i++ {
 			glog.V(2).Infof("add chunk to channel ChunksChan: %v", i+1)
 			scd.ChunksChan <- i
 		}
-		for i := 0; i < intMin(maxChunkDownloadWorkers, chunkMetaLen); i++ {
+		for i := 0; i < intMin(MaxChunkDownloadWorkers, chunkMetaLen); i++ {
 			scd.schedule()
 		}
 	}
@@ -343,28 +353,36 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 	defer resp.Body.Close()
 	glog.V(2).Infof("download finish chunk: %v, resp: %v", idx+1, resp)
 	if resp.StatusCode == http.StatusOK {
-		var respd [][]*string
 		start := time.Now()
 		st := &largeResultSetReader{
 			status: 0,
 			body:   resp.Body,
 		}
-		dec := json.NewDecoder(st)
-		for {
-			if err := dec.Decode(&respd); err == io.EOF {
-				break
-			} else if err != nil {
-				glog.V(1).Infof(
-					"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
-				raiseDownloadError(scd, idx, err)
-				return
-			}
-		}
-		glog.V(2).Infof(
-			"decoded %d rows w/ %d bytes in %s (chunk %v)",
+        if false {
+            var respd [][]*string
+            dec := json.NewDecoder(st)
+            for {
+                if err := dec.Decode(&respd); err == io.EOF {
+                    break
+                } else if err != nil {
+                    raiseDownloadError(scd, idx, err)
+                    return
+                }
+            }
+        }
+        else {
+            respd, err := decodeLargeChunk(st, scd.ChunkMetas[idx].RowCount, scd.CellCount)
+            if err != nil {
+                reportDownloadChunkError(err, scd, idx)
+                return
+            }
+        }
+
+		fmt.Printf(
+			"decoded %d rows w/ %d bytes in %s (chunk %v)\n",
 			scd.ChunkMetas[idx].RowCount,
 			scd.ChunkMetas[idx].UncompressedSize,
-			time.Since(start), idx+1,
+			time.Now().Sub(start), idx+1,
 		)
 		scd.ChunksMutex.Lock()
 		scd.Chunks[idx] = respd
@@ -373,10 +391,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 	} else {
 		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			glog.V(1).Infof(
-				"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
-			raiseDownloadError(scd, idx, err)
-			scd.ChunksError <- &chunkError{Index: idx, Error: err}
+			raiseDownloadError(err, scd, idx)
 			return
 		}
 		glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
@@ -397,9 +412,10 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 }
 
 func raiseDownloadError(scd *snowflakeChunkDownloader, idx int, err error) {
+    glog.V(1).Infof(
+        "failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
 	glog.Flush()
 	scd.ChunksMutex.Lock()
 	scd.ChunksError <- &chunkError{Index: idx, Error: err}
 	scd.DoneDownloadCond.Broadcast()
 	scd.ChunksMutex.Unlock()
-}
