@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 )
@@ -76,4 +77,69 @@ func dataTypeMode(v driver.Value) (tsmode string, err error) {
 		return "", fmt.Errorf(errMsgInvalidByteArray, v)
 	}
 	return tsmode, nil
+}
+
+// SnowflakeParameter includes the columns output from SHOW PARAMETER command.
+type SnowflakeParameter struct {
+	Key              string
+	Value            string
+	Default          string
+	Level            string
+	Description      string
+	SetByUser        string
+	SetInJob         string
+	SetOn            string
+	SetByThreadID    string
+	SetByThreadName  string
+	SetByClass       string
+	ParameterComment string
+}
+
+func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface{} {
+	switch colname {
+	case "key":
+		return &p.Key
+	case "value":
+		return &p.Value
+	case "default":
+		return &p.Default
+	case "level":
+		return &p.Level
+	case "description":
+		return &p.Description
+	case "set_by_user":
+		return &p.SetByUser
+	case "set_in_job":
+		return &p.SetInJob
+	case "set_on":
+		return &p.SetOn
+	case "set_by_thread_id":
+		return &p.SetByThreadID
+	case "set_by_thread_name":
+		return &p.SetByThreadName
+	case "set_by_class":
+		return &p.SetByClass
+	case "parameter_comment":
+		return &p.ParameterComment
+	default:
+		panic("unknown type " + colname)
+	}
+}
+
+// ScanSnowflakeParameter binds SnowflakeParameter variable with an array of column buffer.
+func ScanSnowflakeParameter(rows *sql.Rows) (*SnowflakeParameter, error) {
+	var err error
+	var columns []string
+	columns, err = rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	colNum := len(columns)
+	p := SnowflakeParameter{}
+	cols := make([]interface{}, colNum)
+	for i := 0; i < colNum; i++ {
+		cols[i] = populateSnowflakeParameter(columns[i], &p)
+	}
+	err = rows.Scan(cols...)
+	return &p, err
 }

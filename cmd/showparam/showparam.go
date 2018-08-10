@@ -75,16 +75,16 @@ func main() {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}
 	defer rows.Close()
-	var v1, v2, v3, v4, v5 string
+
 	for rows.Next() {
-		err := rows.Scan(&v1, &v2, &v3, &v4, &v5)
+		p, err := sf.ScanSnowflakeParameter(rows)
 		if err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
 		}
-		if v1 != "TIMESTAMP_OUTPUT_FORMAT" {
-			log.Fatalf("failed to get 1. got: %v", v1)
+		if p.Key != "TIMESTAMP_OUTPUT_FORMAT" {
+			log.Fatalf("failed to get TIMESTAMP_. got: %v", p.Value)
 		}
-		fmt.Printf("fmt: %v\n", v2)
+		fmt.Printf("fmt: %v\n", p.Value)
 	}
 	if rows.Err() != nil {
 		fmt.Printf("ERROR: %v\n", rows.Err())

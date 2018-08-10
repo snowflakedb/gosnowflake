@@ -1651,13 +1651,13 @@ func TestTimezoneSessionParameter(t *testing.T) {
 	if !rows.Next() {
 		t.Fatal("failed to get timezone.")
 	}
-	var k, v, d, lv, de string
-	err = rows.Scan(&k, &v, &d, &lv, &de)
+
+	p, err := ScanSnowflakeParameter(rows)
 	if err != nil {
 		t.Errorf("failed to run get timezone value. err: %v", err)
 	}
-	if v != "America/Los_Angeles" {
-		t.Fatalf("failed to get an expected timezone. got: %v", v)
+	if p.Value != "America/Los_Angeles" {
+		t.Fatalf("failed to get an expected timezone. got: %v", p.Value)
 	}
 	createDSN("UTC")
 }
@@ -1844,7 +1844,6 @@ func createDSNWithClientSessionKeepAlive() {
 		dsn += "?" + parameters.Encode()
 	}
 }
-
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
@@ -1865,15 +1864,13 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 	if !rows.Next() {
 		t.Fatal("failed to get timezone.")
 	}
-	// var k, v, d, lv, de, c1, c2, c3, c4, c5, c6, c7 string
-	// err = rows.Scan(&k, &v, &d, &lv, &de, &c1, &c2, &c3, &c4, &c5, &c6, &c7)
-	var k, v, d, lv, de string
-	err = rows.Scan(&k, &v, &d, &lv, &de)
+
+	p, err := ScanSnowflakeParameter(rows)
 	if err != nil {
 		t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
 	}
-	if v != "true" {
-		t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", v)
+	if p.Value != "true" {
+		t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
 	}
 	rows, err = db.Query("select count(*) from table(generator(timelimit=>10))")
 	if err != nil {

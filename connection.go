@@ -126,7 +126,6 @@ func (sc *snowflakeConn) exec(
 	sc.QueryID = data.Data.QueryID
 	sc.SQLState = data.Data.SQLState
 	sc.populateSessionParameters(data.Data.Parameters)
-	sc.startHeartBeat()
 	return data, err
 }
 
