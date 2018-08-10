@@ -16,49 +16,40 @@ import (
 
 const (
 	// One hour interval should be good enough to renew tokens for four hours master token validity
-	heartBeatInterval = 60 * time.Minute
+	heartBeatInterval = 3600 * time.Second
 )
 
 type heartbeat struct {
 	restful      *snowflakeRestful
-	ShutdownChan chan int
+	shutdownChan chan bool
 }
 
 func (hc *heartbeat) run() {
-	hbTimer := time.NewTimer(heartBeatInterval)
+	hbTicker := time.NewTicker(heartBeatInterval)
+	defer hbTicker.Stop()
 	for {
-		go func() {
-			<-hbTimer.C
+		select {
+		case <-hbTicker.C:
 			err := hc.heartbeatMain()
 			if err != nil {
 				glog.V(2).Info("failed to heartbeat")
-				return
 			}
-			hbTimer = time.NewTimer(heartBeatInterval)
-		}()
-		select {
-		case <-hc.ShutdownChan:
-			// stop
-			hbTimer.Stop()
-			glog.V(2).Info("stopping")
+		case <-hc.shutdownChan:
+			glog.V(2).Info("stopping heartbeat")
 			return
-		default:
-			// no more download
-			glog.V(2).Info("no shutdown signal")
 		}
-		time.Sleep(1 * time.Second)
 	}
 }
 
 func (hc *heartbeat) start() {
-	hc.ShutdownChan = make(chan int)
+	hc.shutdownChan = make(chan bool)
 	go hc.run()
 	glog.V(2).Info("heartbeat started")
 }
 
 func (hc *heartbeat) stop() {
-	hc.ShutdownChan <- 1
-	close(hc.ShutdownChan)
+	hc.shutdownChan <- true
+	close(hc.shutdownChan)
 	glog.V(2).Info("heartbeat stopped")
 }
 
