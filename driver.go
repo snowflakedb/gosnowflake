@@ -118,6 +118,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		return nil, err
 	}
 	sc.populateSessionParameters(authData.Parameters)
+	sc.startHeartBeat()
 	return sc, nil
 }
 
