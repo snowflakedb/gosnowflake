@@ -1872,7 +1872,7 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 	if p.Value != "true" {
 		t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
 	}
-	rows, err = db.Query("select count(*) from table(generator(timelimit=>10))")
+	rows, err = db.Query("select count(*) from table(generator(timelimit=>30))")
 	if err != nil {
 		t.Errorf("failed to run a query: %v", err)
 	}
