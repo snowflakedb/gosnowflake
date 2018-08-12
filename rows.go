@@ -67,7 +67,11 @@ type snowflakeChunkDownloader struct {
 	FuncDownload       func(*snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int)
 	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
+<<<<<<< HEAD
 	DoneDownloadCond   *sync.Cond
+=======
+	DoneDownloadCond  *sync.Cond
+>>>>>>> Use sync.Cond to signal download completion
 }
 
 // ColumnTypeDatabaseTypeName returns the database column name.
@@ -238,6 +242,7 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 			break
 		}
 
+<<<<<<< HEAD
 		scd.ChunksMutex.Lock()
 		if scd.CurrentChunkIndex > 1 {
 			scd.Chunks[scd.CurrentChunkIndex-1] = nil // detach the previously used chunk
@@ -245,14 +250,37 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 		for scd.Chunks[scd.CurrentChunkIndex] == nil {
 			glog.V(2).Infof("waiting for chunk idx: %v/%v",
 				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
+=======
+		for {
+			scd.ChunksMutex.Lock()
+			if scd.CurrentChunkIndex > 1 {
+				scd.Chunks[scd.CurrentChunkIndex-1] = nil // detach the previously used chunk
+			}
+>>>>>>> Use sync.Cond to signal download completion
 			err := scd.checkErrorRetry()
 			if err != nil {
 				scd.ChunksMutex.Unlock()
 				return nil, err
 			}
+<<<<<<< HEAD
             // wait for chunk downloader goroutine to broadcast the event,
             // 1) one chunk download finishes or 2) an error occurs.
 			scd.DoneDownloadCond.Wait()
+=======
+			for scd.Chunks[scd.CurrentChunkIndex] == nil {
+				glog.V(2).Infof("waiting for chunk idx: %v/%v",
+					scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
+				scd.DoneDownloadCond.Wait()
+			}
+			glog.V(2).Infof("ready: chunk %v", scd.CurrentChunkIndex+1)
+			scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
+			scd.ChunksMutex.Unlock()
+			scd.CurrentChunkSize = len(scd.CurrentChunk)
+
+			// kick off the next download
+			scd.schedule()
+			break
+>>>>>>> Use sync.Cond to signal download completion
 		}
 		glog.V(2).Infof("ready: chunk %v", scd.CurrentChunkIndex+1)
 		scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
