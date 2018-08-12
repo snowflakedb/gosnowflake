@@ -22,7 +22,7 @@ const (
 
 var (
 	// MaxChunkDownloadWorkers specifies the maximum number of goroutines used to download chunks
-	MaxChunkDownloadWorkers = 10
+	MaxChunkDownloadWorkers = 2
 )
 
 var (
@@ -243,10 +243,14 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 		}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> Changed downloader to 2
 		scd.ChunksMutex.Lock()
 		if scd.CurrentChunkIndex > 1 {
 			scd.Chunks[scd.CurrentChunkIndex-1] = nil // detach the previously used chunk
 		}
+<<<<<<< HEAD
 		for scd.Chunks[scd.CurrentChunkIndex] == nil {
 			glog.V(2).Infof("waiting for chunk idx: %v/%v",
 				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
@@ -281,6 +285,17 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 			scd.schedule()
 			break
 >>>>>>> Use sync.Cond to signal download completion
+=======
+		err := scd.checkErrorRetry()
+		if err != nil {
+			scd.ChunksMutex.Unlock()
+			return nil, err
+		}
+		for scd.Chunks[scd.CurrentChunkIndex] == nil {
+			glog.V(2).Infof("waiting for chunk idx: %v/%v",
+				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
+			scd.DoneDownloadCond.Wait()
+>>>>>>> Changed downloader to 2
 		}
 		glog.V(2).Infof("ready: chunk %v", scd.CurrentChunkIndex+1)
 		scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
