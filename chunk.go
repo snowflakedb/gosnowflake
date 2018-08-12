@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultChunkBufferSize  int64 = 32 << 10 // 32k
+	defaultChunkBufferSize  int64 = 8 << 10 // 8k
 	defaultStringBufferSize int64 = 512
 )
 
