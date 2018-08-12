@@ -11,7 +11,7 @@ include gosnowflake.mak
 ## Run tests
 test: deps
 	eval $$(jq -r '.testconnection | to_entries | map("export \(.key)=\(.value|tostring)")|.[]' parameters.json) && \
-		go test -tags=sfdebug -race $(COVFLAGS) -v . # -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$(HOME) -vmodule=connection=2,driver=2
+		go test -tags=sfdebug -race $(COVFLAGS) -v -run TestLargeSetResult -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$(HOME) -vmodule=connection=2,driver=2
 
 ## Run Coverage tests
 cov:
