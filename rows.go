@@ -22,7 +22,7 @@ const (
 
 var (
 	// MaxChunkDownloadWorkers specifies the maximum number of goroutines used to download chunks
-	MaxChunkDownloadWorkers = 10
+	MaxChunkDownloadWorkers = 2
 )
 
 var (
