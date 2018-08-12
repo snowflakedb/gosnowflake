@@ -38,7 +38,8 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		Port:     sc.cfg.Port,
 		Protocol: sc.cfg.Protocol,
 		Client: &http.Client{
-			Timeout:   defaultLoginTimeout, // each request timeout
+			// request timeout including reading response body
+			Timeout:   defaultClientTimeout,
 			Transport: st,
 		},
 		Authenticator:       sc.cfg.Authenticator,
