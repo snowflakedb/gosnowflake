@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultClientTimeout  = 150 * time.Second
+	defaultClientTimeout  = 900 * time.Second
 	defaultLoginTimeout   = 60 * time.Second
 	defaultRequestTimeout = 0 * time.Second
 	defaultAuthenticator  = "snowflake"
