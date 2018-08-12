@@ -1667,7 +1667,7 @@ func TestTimezoneSessionParameter(t *testing.T) {
 	createDSN("UTC")
 }
 
-func TestLargeSetResultCancel(t *testing.T) {
+func _TestLargeSetResultCancel(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx := context.Background()
