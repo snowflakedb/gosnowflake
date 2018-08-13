@@ -30,8 +30,10 @@ type execResponseRowType struct {
 }
 
 type execResponseChunk struct {
-	URL      string `json:"url"`
-	RowCount int    `json:"rowCount"`
+	URL              string `json:"url"`
+	RowCount         int    `json:"rowCount"`
+	UncompressedSize int64  `json:"uncompressedSize"`
+	CompressedSize   int64  `json:"compressedSize"`
 }
 
 // make all data field optional
