@@ -63,7 +63,7 @@ type snowflakeChunkDownloader struct {
 	FuncDownload       func(*snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int)
 	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
-	DoneDownloadCond  *sync.Cond
+	DoneDownloadCond   *sync.Cond
 }
 
 // ColumnTypeDatabaseTypeName returns the database column name.

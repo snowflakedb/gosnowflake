@@ -3,31 +3,44 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:1ba1d79f2810270045c328ae5d674321db34e3aae468eb4233883b473c5c0467"
   name = "github.com/golang/glog"
   packages = ["."]
+  pruneopts = "UT"
   revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
 
 [[projects]]
+  digest = "1:8f8811f9be822914c3a25c6a071e93beb4c805d7b026cbf298bc577bc1cc945b"
   name = "github.com/google/uuid"
   packages = ["."]
+  pruneopts = "UT"
   revision = "064e2069ce9c359c118179501254f67d7d37ba24"
   version = "0.2"
 
 [[projects]]
   branch = "master"
+  digest = "1:7b4cd865877639770d2711dc6278b98466be7ebbe5cdf2c933659b73d6e58213"
   name = "github.com/pkg/browser"
   packages = ["."]
+  pruneopts = "UT"
   revision = "c90ca0c84f15f81c982e32665bffd8d7aac8f097"
 
 [[projects]]
   branch = "master"
+  digest = "1:b6b9212412c3335645f285510729b18c0cc8d06e288f956dba4ace7b3fe8ad7c"
   name = "golang.org/x/crypto"
   packages = ["ocsp"]
+  pruneopts = "UT"
   revision = "91a49db82a88618983a78a06c1cbd4e00ab749ab"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d9a2543cf94c045cf022c4050131a3a37875cc2300f11af53e12a5210f13f13d"
+  input-imports = [
+    "github.com/golang/glog",
+    "github.com/google/uuid",
+    "github.com/pkg/browser",
+    "golang.org/x/crypto/ocsp",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
