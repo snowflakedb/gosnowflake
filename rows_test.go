@@ -148,6 +148,7 @@ func downloadChunkTestError(scd *snowflakeChunkDownloader, idx int) {
 			Index: idx,
 			Error: fmt.Errorf(
 				"dummy error. idx: %v, errCnt: %v", idx+1, scd.ChunksErrorCounter)}
+		scd.DoneDownloadCond.Broadcast()
 		return
 	}
 	d := make([][]*string, 0)
@@ -157,6 +158,7 @@ func downloadChunkTestError(scd *snowflakeChunkDownloader, idx int) {
 		d = append(d, []*string{&v1, &v2})
 	}
 	scd.Chunks[idx] = d
+	scd.DoneDownloadCond.Broadcast()
 }
 
 func TestRowsWithChunkDownloaderError(t *testing.T) {
@@ -226,6 +228,7 @@ func downloadChunkTestErrorFail(scd *snowflakeChunkDownloader, idx int) {
 			Index: idx,
 			Error: fmt.Errorf(
 				"dummy error. idx: %v, errCnt: %v", idx+1, scd.ChunksErrorCounter)}
+		scd.DoneDownloadCond.Broadcast()
 		return
 	}
 	d := make([][]*string, 0)
@@ -235,6 +238,7 @@ func downloadChunkTestErrorFail(scd *snowflakeChunkDownloader, idx int) {
 		d = append(d, []*string{&v1, &v2})
 	}
 	scd.Chunks[idx] = d
+	scd.DoneDownloadCond.Broadcast()
 }
 
 func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
