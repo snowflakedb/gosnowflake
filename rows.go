@@ -239,6 +239,8 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 				scd.ChunksMutex.Unlock()
 				return nil, err
 			}
+            // wait for chunk downloader goroutine to broadcast the event,
+            // 1) one chunk download finishes or 2) an error occurs.
 			scd.DoneDownloadCond.Wait()
 		}
 		glog.V(2).Infof("ready: chunk %v", scd.CurrentChunkIndex+1)
