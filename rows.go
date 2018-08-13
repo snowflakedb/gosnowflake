@@ -234,12 +234,12 @@ func (scd *snowflakeChunkDownloader) Next() ([]*string, error) {
 		for scd.Chunks[scd.CurrentChunkIndex] == nil {
 			glog.V(2).Infof("waiting for chunk idx: %v/%v",
 				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
-			scd.DoneDownloadCond.Wait()
 			err := scd.checkErrorRetry()
 			if err != nil {
 				scd.ChunksMutex.Unlock()
 				return nil, err
 			}
+			scd.DoneDownloadCond.Wait()
 		}
 		glog.V(2).Infof("ready: chunk %v", scd.CurrentChunkIndex+1)
 		scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
