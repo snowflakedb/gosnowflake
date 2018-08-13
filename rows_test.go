@@ -77,6 +77,7 @@ func downloadChunkTest(scd *snowflakeChunkDownloader, idx int) {
 	}
 	scd.ChunksMutex.Lock()
 	scd.Chunks[idx] = d
+	scd.DoneDownloadCond.Broadcast()
 	scd.ChunksMutex.Unlock()
 }
 
