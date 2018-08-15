@@ -228,7 +228,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 }
 
 func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	glog.V(2).Infoln("Query")
+	glog.V(2).Infof("Query: %#v, %v", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
