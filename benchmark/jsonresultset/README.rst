@@ -17,6 +17,8 @@ This command instruments CPU and memory usage and save them into files.
     SNOWFLAKE_TEST_ACCOUNT=<your_account> \
     SNOWFLAKE_TEST_USER=<your_user> \
     SNOWFLAKE_TEST_PASSWORD=<your_password> \
+    SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLE=<true/false> \
+    SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS=<number_of_workers> \
     make profile
 
 Check CPU usage on the web browser:
@@ -33,6 +35,8 @@ Check memory usage on the web browser:
     go tool pprof -alloc_space jsonresultset.test mem.out
     (pprof) web
 
+Note adjust SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLE and SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS to
+
 Tracing
 =======
 
@@ -43,6 +47,8 @@ Using Go's trace tool, you may see all of the goroutine's activity with timeline
     SNOWFLAKE_TEST_ACCOUNT=<your_account> \
     SNOWFLAKE_TEST_USER=<your_user> \
     SNOWFLAKE_TEST_PASSWORD=<your_password> \
+    SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLE=<true/false> \
+    SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS=<number_of_workers> \
     make trace
 
 Check goroutine's activities on web browser.
