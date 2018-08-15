@@ -8,7 +8,7 @@ setup:
 
 ## Benchmark
 profile:
-	go test -run none -bench . -benchtime 3s -benchmem -cpuprofile cpu.out -memprofile mem.out
+	go test -tags=sfdebug -v -run none -bench . -benchtime 3s -benchmem -cpuprofile cpu.out -memprofile mem.out -stderrthreshold=INFO -vmodule=*=2
 	@echo "For CPU usage, run 'go tool pprof jsonresultset.test cpu.out'"
 	@echo "For Memory usage, run 'go tool pprof -alloc_space jsonresultset.test mem.out'"
 

@@ -16,8 +16,8 @@ import (
 
 	"runtime/debug"
 
-	"strings"
 	"strconv"
+	"strings"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -50,13 +50,18 @@ func getDSN() (dsn string, cfg *sf.Config, err error) {
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
 	role := env("SNOWFLAKE_TEST_ROLE", false)
 
-	// Set the customer JSON Decoder
+	// Use the customer JSON Decoder
 	s := env("SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLED", true)
 	sf.CustomJSONDecoderEnabled = strings.EqualFold("true", s)
-	if sf.CustomJSONDecoderEnabled {
-		sf.MaxChunkDownloadWorkers = 2
-	} else {
-		sf.MaxChunkDownloadWorkers = 10
+
+	// Set the maximum chunk download workers
+	n := env("SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS", false)
+	if n != "" {
+		n0, err := strconv.Atoi(n)
+		if err != nil {
+			log.Fatalf("invalid value for SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS: %v", n)
+		}
+		sf.MaxChunkDownloadWorkers = n0
 	}
 
 	portStr, _ := strconv.Atoi(port)
