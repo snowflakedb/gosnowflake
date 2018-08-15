@@ -1325,6 +1325,7 @@ func TestLargeSetResult(t *testing.T) {
 
 func TestLargeSetResultWithCustomJSONDecoder(t *testing.T) {
 	CustomJSONDecoderEnabled = true
+	MaxChunkDownloadWorkers = 2
 	testLargeSetResult(t)
 }
 
