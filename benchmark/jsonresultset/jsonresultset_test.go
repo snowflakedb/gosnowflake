@@ -16,6 +16,7 @@ import (
 
 	"runtime/debug"
 
+	"strings"
 	"strconv"
 
 	sf "github.com/snowflakedb/gosnowflake"
@@ -48,6 +49,15 @@ func getDSN() (dsn string, cfg *sf.Config, err error) {
 	port := env("SNOWFLAKE_TEST_PORT", false)
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
 	role := env("SNOWFLAKE_TEST_ROLE", false)
+
+	// Set the customer JSON Decoder
+	s := env("SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLED", true)
+	sf.CustomJSONDecoderEnabled = strings.EqualFold("true", s)
+	if sf.CustomJSONDecoderEnabled {
+		sf.MaxChunkDownloadWorkers = 2
+	} else {
+		sf.MaxChunkDownloadWorkers = 10
+	}
 
 	portStr, _ := strconv.Atoi(port)
 	cfg = &sf.Config{
