@@ -1320,18 +1320,17 @@ func TestArray(t *testing.T) {
 
 func TestLargeSetResult(t *testing.T) {
 	CustomJSONDecoderEnabled = false
-	testLargeSetResult(t)
+	testLargeSetResult(t, 100000)
 }
 
 func TestLargeSetResultWithCustomJSONDecoder(t *testing.T) {
 	CustomJSONDecoderEnabled = true
-	MaxChunkDownloadWorkers = 2
-	testLargeSetResult(t)
+	// less number of rows to avoid Travis timeout
+	testLargeSetResult(t, 20000)
 }
 
-func testLargeSetResult(t *testing.T) {
+func testLargeSetResult(t *testing.T, numrows int) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		numrows := 100000
 		rows := dbt.mustQuery(fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
 		defer rows.Close()
 		cnt := 0
