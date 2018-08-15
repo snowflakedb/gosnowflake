@@ -183,6 +183,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 	// start downloading chunks if exists
 	chunkMetaLen := len(scd.ChunkMetas)
 	if chunkMetaLen > 0 {
+		glog.V(2).Infof("MaxChunkDownloadWorkers: %v", MaxChunkDownloadWorkers)
 		glog.V(2).Infof("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.DoneDownloadCond = sync.NewCond(scd.ChunksMutex)
