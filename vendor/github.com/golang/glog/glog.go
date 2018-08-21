@@ -548,7 +548,7 @@ func (l *loggingT) header(s severity, depth int) (*buffer, string, int) {
 
 // formatHeader formats a log header using the provided file name and line number.
 func (l *loggingT) formatHeader(s severity, file string, line int) *buffer {
-	now := timeNow()
+	now := timeNow().UTC()
 	if line < 0 {
 		line = 0 // not a real line number, but acceptable to someDigits
 	}
