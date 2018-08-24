@@ -2,6 +2,19 @@
 
 
 [[projects]]
+  digest = "1:a69ab3f1445ffd4815add4bd31ba05b65b3b9fec1ade5057d5d717f30e6efd6d"
+  name = "github.com/SermoDigital/jose"
+  packages = [
+    ".",
+    "crypto",
+    "jws",
+    "jwt",
+  ]
+  pruneopts = "UT"
+  revision = "f6df55f235c24f236d11dbcf665249a59ac2021f"
+  version = "1.1"
+
+[[projects]]
   branch = "master"
   digest = "1:1ba1d79f2810270045c328ae5d674321db34e3aae468eb4233883b473c5c0467"
   name = "github.com/golang/glog"
@@ -27,20 +40,32 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b6b9212412c3335645f285510729b18c0cc8d06e288f956dba4ace7b3fe8ad7c"
+  digest = "1:c39abe94cedda74f12fcc9b8df6590225a01de75e5db4dba32d6c2b8e86890ac"
   name = "golang.org/x/crypto"
-  packages = ["ocsp"]
+  packages = [
+    "curve25519",
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "internal/chacha20",
+    "internal/subtle",
+    "ocsp",
+    "poly1305",
+    "ssh",
+  ]
   pruneopts = "UT"
-  revision = "91a49db82a88618983a78a06c1cbd4e00ab749ab"
+  revision = "614d502a4dac94afa3a6ce146bd1736da82514c6"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/SermoDigital/jose/crypto",
+    "github.com/SermoDigital/jose/jws",
     "github.com/golang/glog",
     "github.com/google/uuid",
     "github.com/pkg/browser",
     "golang.org/x/crypto/ocsp",
+    "golang.org/x/crypto/ssh",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
