@@ -14,7 +14,11 @@ import (
 	"strings"
 	"time"
 
+	jcrypto "github.com/SermoDigital/jose/crypto"
+	"github.com/SermoDigital/jose/jws"
 	"github.com/google/uuid"
+
+	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -26,6 +30,11 @@ const (
 	authenticatorOAuth           = "OAUTH"
 	authenticatorSnowflake       = "SNOWFLAKE"
 	authenticatorOkta            = "OKTA"
+	authenticatorJWT             = "JWT"
+)
+
+const (
+	timeoutJWTSeconds = 60
 )
 
 // platform consists of compiler and architecture type in string
@@ -214,6 +223,28 @@ func authenticate(
 		requestMain.Token = sc.cfg.Token
 	case authenticatorOkta:
 		requestMain.RawSAMLResponse = string(samlResponse)
+	case authenticatorJWT:
+		claims := jws.Claims{}
+		publicKey, error := ssh.NewPublicKey(sc.cfg.PrivateKey)
+		if error != nil {
+			return nil, error
+		}
+		claims.SetIssuer(fmt.Sprintf("%s.%s.%s", sc.cfg.Account, sc.cfg.User,
+			ssh.FingerprintSHA256(publicKey)))
+		claims.SetSubject(fmt.Sprintf("%s.%s", sc.cfg.Account, sc.cfg.User))
+		claims.SetIssuedAt(time.Now().UTC())
+		claims.SetExpiration(time.Now().UTC().Add(time.Duration(timeoutJWTSeconds) * time.Second))
+
+		jwt := jws.NewJWT(claims, jcrypto.SigningMethodRS256)
+
+		tokenInBytes, error := jwt.Serialize(sc.cfg.PrivateKey)
+
+		if error != nil {
+			return nil, error
+		}
+
+		requestMain.Token = string(tokenInBytes)
+
 	case authenticatorSnowflake:
 		fallthrough
 	default:

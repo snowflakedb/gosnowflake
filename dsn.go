@@ -3,6 +3,9 @@
 package gosnowflake
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -44,7 +47,9 @@ type Config struct {
 	Application  string // application name.
 	InsecureMode bool   // driver doesn't check certificate revocation status
 
-	Token string // Token to use for OAuth / JWT / other forms of token based auth
+	Token string // Token to use for OAuth other forms of token based auth
+
+	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
 }
 
 // DSN constructs a DSN for Snowflake db.
@@ -118,6 +123,16 @@ func DSN(cfg *Config) (dsn string, err error) {
 			params.Add(k, *v)
 		}
 	}
+	if cfg.PrivateKey != nil {
+		pemdata := pem.EncodeToMemory(
+			&pem.Block{
+				Type:  "RSA PRIVATE KEY",
+				Bytes: x509.MarshalPKCS1PrivateKey(cfg.PrivateKey),
+			},
+		)
+		params.Add("privateKey", string(pemdata))
+	}
+
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
 	if params.Encode() != "" {
 		dsn += "?" + params.Encode()
@@ -442,6 +457,12 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.InsecureMode = vv
 		case "token":
 			cfg.Token = value
+		case "privateKey":
+			block, _ := pem.Decode([]byte(value))
+			cfg.PrivateKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+			if err != nil {
+				return
+			}
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
