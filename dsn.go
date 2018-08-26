@@ -5,7 +5,7 @@ package gosnowflake
 import (
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/pem"
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -124,13 +124,8 @@ func DSN(cfg *Config) (dsn string, err error) {
 		}
 	}
 	if cfg.PrivateKey != nil {
-		pemdata := pem.EncodeToMemory(
-			&pem.Block{
-				Type:  "RSA PRIVATE KEY",
-				Bytes: x509.MarshalPKCS1PrivateKey(cfg.PrivateKey),
-			},
-		)
-		params.Add("privateKey", string(pemdata))
+		keyBase64 := base64.RawStdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(cfg.PrivateKey))
+		params.Add("privateKey", keyBase64)
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -458,8 +453,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		case "token":
 			cfg.Token = value
 		case "privateKey":
-			block, _ := pem.Decode([]byte(value))
-			cfg.PrivateKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+			var decodeErr error
+			block, decodeErr := base64.RawStdEncoding.DecodeString(value)
+			if decodeErr != nil {
+				err = decodeErr
+				return
+			}
+			cfg.PrivateKey, err = x509.ParsePKCS1PrivateKey(block)
 			if err != nil {
 				return
 			}
