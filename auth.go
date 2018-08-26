@@ -224,10 +224,11 @@ func authenticate(
 	case authenticatorOkta:
 		requestMain.RawSAMLResponse = string(samlResponse)
 	case authenticatorJWT:
+		requestMain.Authenticator = authenticatorJWT
 		claims := jws.Claims{}
-		publicKey, error := ssh.NewPublicKey(sc.cfg.PrivateKey)
-		if error != nil {
-			return nil, error
+		publicKey, err := ssh.NewPublicKey(sc.cfg.PrivateKey.Public())
+		if err != nil {
+			return nil, err
 		}
 		claims.SetIssuer(fmt.Sprintf("%s.%s.%s", sc.cfg.Account, sc.cfg.User,
 			ssh.FingerprintSHA256(publicKey)))
@@ -237,10 +238,10 @@ func authenticate(
 
 		jwt := jws.NewJWT(claims, jcrypto.SigningMethodRS256)
 
-		tokenInBytes, error := jwt.Serialize(sc.cfg.PrivateKey)
+		tokenInBytes, err := jwt.Serialize(sc.cfg.PrivateKey)
 
-		if error != nil {
-			return nil, error
+		if err != nil {
+			return nil, err
 		}
 
 		requestMain.Token = string(tokenInBytes)

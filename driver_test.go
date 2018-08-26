@@ -3,6 +3,8 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -28,6 +30,9 @@ var (
 	port       string
 	protocol   string
 )
+
+var TestPrivateKey *rsa.PrivateKey
+var TestPublicKey *rsa.PublicKey
 
 // The tests require the following parameters in the environment variables.
 // SNOWFLAKE_TEST_USER, SNOWFLAKE_TEST_PASSWORD, SNOWFLAKE_TEST_ACCOUNT, SNOWFLAKE_TEST_DATABASE,
@@ -59,6 +64,11 @@ func init() {
 		host = fmt.Sprintf("%s:%s", host, port)
 	}
 	createDSN("UTC")
+
+	// Generate private & public key
+	TestPrivateKey, _ = rsa.GenerateKey(rand.Reader, 2014)
+	TestPublicKey = TestPrivateKey.Public().(*rsa.PublicKey)
+
 }
 
 func createDSN(timezone string) {
@@ -1734,6 +1744,7 @@ func TestValidateDatabaseParameter(t *testing.T) {
 			params: map[string]string{
 				"role": "NOT_EXIST",
 			},
+			//FIXME This is magic number that should be avoided
 			errorCode: 390189, // this already exists
 		},
 	}
