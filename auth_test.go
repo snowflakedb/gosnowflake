@@ -3,6 +3,8 @@
 package gosnowflake
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -199,7 +201,7 @@ func postAuthCheckJWTToken(_ *snowflakeRestful, _ *url.Values, _ map[string]stri
 	}
 
 	// Validate token
-	err = jwt.Validate(TestPublicKey, crypto.SigningMethodRS256)
+	err = jwt.Validate(TestPrivateKey.Public(), crypto.SigningMethodRS256)
 	if err != nil {
 		return nil, err
 	}
@@ -368,4 +370,12 @@ func TestAuthenticateJWT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
+
+	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	sc.cfg.PrivateKey = invalidPrivateKey
+	_, err = authenticate(sc, []byte{}, []byte{})
+	if err == nil {
+		t.Fatalf("invalid token passed")
+	}
+
 }
