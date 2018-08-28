@@ -110,10 +110,10 @@ func TestParseDSN(t *testing.T) {
 			err: nil,
 		},
 		{
-			dsn: "snowman:@127.0.0.1:8080?account=a&protocol=http&authenticator=JWT",
+			dsn: "u:@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT",
 			config: &Config{
-				Account: "a", User: "snowman", Authenticator: "JWT",
-				Protocol: "http", Host: "127.0.0.1", Port: 8080,
+				Account: "a", User: "u", Authenticator: authenticatorJWT,
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: nil,
 		},
