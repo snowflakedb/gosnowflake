@@ -3,6 +3,9 @@
 package gosnowflake
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -44,7 +47,9 @@ type Config struct {
 	Application  string // application name.
 	InsecureMode bool   // driver doesn't check certificate revocation status
 
-	Token string // Token to use for OAuth / JWT / other forms of token based auth
+	Token string // Token to use for OAuth other forms of token based auth
+
+	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
 }
 
 // DSN constructs a DSN for Snowflake db.
@@ -118,6 +123,11 @@ func DSN(cfg *Config) (dsn string, err error) {
 			params.Add(k, *v)
 		}
 	}
+	if cfg.PrivateKey != nil {
+		keyBase64 := base64.RawStdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(cfg.PrivateKey))
+		params.Add("privateKey", keyBase64)
+	}
+
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
 	if params.Encode() != "" {
 		dsn += "?" + params.Encode()
@@ -279,8 +289,11 @@ func fillMissingConfigParameters(cfg *Config) error {
 		return ErrEmptyUsername
 	}
 
-	if authenticator != authenticatorExternalBrowser && authenticator != authenticatorOAuth && strings.Trim(cfg.Password, " ") == "" {
-		// no password parameter is required for EXTERNALBROWSER and OAUTH.
+	if authenticator != authenticatorExternalBrowser &&
+		authenticator != authenticatorOAuth &&
+		authenticator != authenticatorJWT &&
+		strings.Trim(cfg.Password, " ") == "" {
+		// no password parameter is required for EXTERNALBROWSER, OAUTH or JWT.
 		return ErrEmptyPassword
 	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
@@ -442,6 +455,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.InsecureMode = vv
 		case "token":
 			cfg.Token = value
+		case "privateKey":
+			var decodeErr error
+			block, decodeErr := base64.RawStdEncoding.DecodeString(value)
+			if decodeErr != nil {
+				err = decodeErr
+				return
+			}
+			cfg.PrivateKey, err = x509.ParsePKCS1PrivateKey(block)
+			if err != nil {
+				return
+			}
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

@@ -3,9 +3,13 @@
 package gosnowflake
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/SermoDigital/jose/crypto"
+	"github.com/SermoDigital/jose/jws"
 	"net/url"
 	"testing"
 	"time"
@@ -121,7 +125,7 @@ func postAuthCheckOAuth(
 	if err := json.Unmarshal(jsonBody, &ar); err != nil {
 		return nil, err
 	}
-	if ar.Data.Authenticator != "OAUTH" {
+	if ar.Data.Authenticator != authenticatorOAuth {
 		return nil, errors.New("Authenticator is not OAUTH")
 	}
 	if ar.Data.Token == "" {
@@ -170,6 +174,38 @@ func postAuthCheckPasscodeInPassword(_ *snowflakeRestful, _ *url.Values, _ map[s
 	if ar.Data.Passcode != "" || ar.Data.ExtAuthnDuoMethod != "passcode" {
 		return nil, fmt.Errorf("passcode must be empty, got: %v, duo: %v", ar.Data.Passcode, ar.Data.ExtAuthnDuoMethod)
 	}
+	return &authResponse{
+		Success: true,
+		Data: authResponseMain{
+			Token:       "t",
+			MasterToken: "m",
+			SessionInfo: authResponseSessionInfo{
+				DatabaseName: "dbn",
+			},
+		},
+	}, nil
+}
+
+func postAuthCheckJWTToken(_ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
+	var ar authRequest
+	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+		return nil, err
+	}
+	if ar.Data.Authenticator != authenticatorJWT {
+		return nil, errors.New("Authenticator is not JWT")
+	}
+
+	jwt, err := jws.ParseJWT([]byte(ar.Data.Token))
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate token
+	err = jwt.Validate(TestPrivateKey.Public(), crypto.SigningMethodRS256)
+	if err != nil {
+		return nil, err
+	}
+
 	return &authResponse{
 		Success: true,
 		Data: authResponseMain{
@@ -317,4 +353,29 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
+}
+
+func TestAuthenticateJWT(t *testing.T) {
+	var err error
+
+	sr := &snowflakeRestful{
+		FuncPostAuth: postAuthCheckJWTToken,
+	}
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = authenticatorJWT
+	sc.cfg.PrivateKey = TestPrivateKey
+	sc.rest = sr
+
+	_, err = authenticate(sc, []byte{}, []byte{})
+	if err != nil {
+		t.Fatalf("failed to run. err: %v", err)
+	}
+
+	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	sc.cfg.PrivateKey = invalidPrivateKey
+	_, err = authenticate(sc, []byte{}, []byte{})
+	if err == nil {
+		t.Fatalf("invalid token passed")
+	}
+
 }

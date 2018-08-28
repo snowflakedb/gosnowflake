@@ -78,6 +78,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		}
 	case authenticatorOAuth:
 	case authenticatorSnowflake:
+	case authenticatorJWT:
 		// Nothing to do, parameters needed for auth should be already set in sc.cfg
 		break
 	default:
@@ -102,6 +103,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		sc.cleanup()
 		return nil, err
 	}
+
 	err = d.validateDefaultParameters(authData.SessionInfo.DatabaseName, &sc.cfg.Database)
 	if err != nil {
 		return nil, err

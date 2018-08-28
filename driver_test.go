@@ -3,13 +3,18 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"database/sql"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"net/url"
 	"os"
 	"os/signal"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -25,9 +30,13 @@ var (
 	rolename   string
 	dsn        string
 	host       string
+	purehost   string
 	port       string
 	protocol   string
 )
+
+var TestPrivateKey *rsa.PrivateKey
+var TestPublicKey *rsa.PublicKey
 
 // The tests require the following parameters in the environment variables.
 // SNOWFLAKE_TEST_USER, SNOWFLAKE_TEST_PASSWORD, SNOWFLAKE_TEST_ACCOUNT, SNOWFLAKE_TEST_DATABASE,
@@ -51,13 +60,18 @@ func init() {
 	warehouse = env("SNOWFLAKE_TEST_WAREHOUSE", "testwarehouse")
 
 	protocol = env("SNOWFLAKE_TEST_PROTOCOL", "https")
-	host = os.Getenv("SNOWFLAKE_TEST_HOST")
+	purehost = os.Getenv("SNOWFLAKE_TEST_HOST")
 	port = os.Getenv("SNOWFLAKE_TEST_PORT")
-	if host == "" {
+	if purehost == "" {
 		host = fmt.Sprintf("%s.snowflakecomputing.com", account)
 	} else {
-		host = fmt.Sprintf("%s:%s", host, port)
+		host = fmt.Sprintf("%s:%s", purehost, port)
 	}
+
+	// Generate private & public key
+	TestPrivateKey, _ = rsa.GenerateKey(rand.Reader, 2048)
+	TestPublicKey = TestPrivateKey.Public().(*rsa.PublicKey)
+
 	createDSN("UTC")
 }
 
@@ -78,6 +92,9 @@ func createDSN(timezone string) {
 	if rolename != "" {
 		parameters.Add("role", rolename)
 	}
+
+	parameters.Add("privateKey", base64.RawStdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(TestPrivateKey)))
+
 	if len(parameters) > 0 {
 		dsn += "?" + parameters.Encode()
 	}
@@ -1734,6 +1751,7 @@ func TestValidateDatabaseParameter(t *testing.T) {
 			params: map[string]string{
 				"role": "NOT_EXIST",
 			},
+			//FIXME This is magic number that should be avoided
 			errorCode: 390189, // this already exists
 		},
 	}
@@ -1892,6 +1910,68 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 		t.Errorf("failed to run a query: %v", err)
 	}
 	defer rows.Close()
+}
+
+func TestJWTAuthentication(t *testing.T) {
+	db, err := sql.Open("snowflake", dsn)
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+
+	// Load server's public key to database
+	pubKeyByte, err := x509.MarshalPKIXPublicKey(TestPublicKey)
+	if err != nil {
+		t.Fatalf("error marshaling public key: %s", err.Error())
+	}
+	_, err = db.Exec("USE ROLE ACCOUNTADMIN")
+	if err != nil {
+		t.Fatalf("error changin role: %s", err.Error())
+	}
+	_, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'",
+		user, base64.StdEncoding.EncodeToString(pubKeyByte)))
+	if err != nil {
+		t.Fatalf("error setting server's public key: %s", err.Error())
+	}
+	db.Close()
+
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		t.Fatalf("Invalid port number %s", port)
+	}
+	config := Config{
+		User:          user,
+		Host:          purehost,
+		Password:      pass,
+		Port:          portNum,
+		Account:       account,
+		Authenticator: authenticatorJWT,
+		Protocol:      "http",
+		PrivateKey:    TestPrivateKey,
+	}
+	jwtDSN, err := DSN(&config)
+	if err != nil {
+		t.Fatalf("Error parsing DSN %s", err.Error())
+	}
+	db, err = sql.Open("snowflake", jwtDSN)
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+	_, err = db.Exec("SELECT 1")
+	if err != nil {
+		t.Fatalf("error executing: %s", err.Error())
+	}
+	db.Close()
+
+	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	config.PrivateKey = invalidPrivateKey
+	jwtDSN, _ = DSN(&config)
+	db, err = sql.Open("snowflake", jwtDSN)
+	_, err = db.Exec("SELECT 1")
+	if err == nil {
+		t.Fatalf("An invalid jwt token can pass")
+	}
+
+	db.Close()
 }
 
 func init() {
