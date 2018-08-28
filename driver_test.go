@@ -93,7 +93,11 @@ func createDSN(timezone string) {
 		parameters.Add("role", rolename)
 	}
 
-	parameters.Add("privateKey", base64.RawStdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(TestPrivateKey)))
+	// Error would only be thrown when the private key type is not supported
+	// We would be safe as long as we are using rsa.PrivateKey
+	privateKeyInBytes, _ := x509.MarshalPKCS8PrivateKey(TestPrivateKey)
+
+	parameters.Add("privateKey", base64.RawStdEncoding.EncodeToString(privateKeyInBytes))
 
 	if len(parameters) > 0 {
 		dsn += "?" + parameters.Encode()
