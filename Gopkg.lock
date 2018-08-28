@@ -40,18 +40,9 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c39abe94cedda74f12fcc9b8df6590225a01de75e5db4dba32d6c2b8e86890ac"
+  digest = "1:a9508d88987b33aa1933d1bb3516b9d442d2f812bfef5a7e2be7c00c83685255"
   name = "golang.org/x/crypto"
-  packages = [
-    "curve25519",
-    "ed25519",
-    "ed25519/internal/edwards25519",
-    "internal/chacha20",
-    "internal/subtle",
-    "ocsp",
-    "poly1305",
-    "ssh",
-  ]
+  packages = ["ocsp"]
   pruneopts = "UT"
   revision = "614d502a4dac94afa3a6ce146bd1736da82514c6"
 
@@ -65,7 +56,6 @@
     "github.com/google/uuid",
     "github.com/pkg/browser",
     "golang.org/x/crypto/ocsp",
-    "golang.org/x/crypto/ssh",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
