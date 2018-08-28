@@ -61,7 +61,6 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	var samlResponse []byte
 	var proofKey []byte
 
-	//TODO information hiding is preferred. Need builder method for here
 	authenticator := strings.ToUpper(sc.cfg.Authenticator)
 	glog.V(2).Infof("Authenticating via %v", authenticator)
 	switch authenticator {
@@ -105,7 +104,6 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	// TODO Change the code structure here to be a while loop iterate over stuff to be validate
 	err = d.validateDefaultParameters(authData.SessionInfo.DatabaseName, &sc.cfg.Database)
 	if err != nil {
 		return nil, err
