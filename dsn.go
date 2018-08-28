@@ -124,7 +124,11 @@ func DSN(cfg *Config) (dsn string, err error) {
 		}
 	}
 	if cfg.PrivateKey != nil {
-		keyBase64 := base64.RawStdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(cfg.PrivateKey))
+		privateKeyInBytes, err := x509.MarshalPKCS8PrivateKey(cfg.PrivateKey)
+		if err != nil {
+			return "", err
+		}
+		keyBase64 := base64.RawStdEncoding.EncodeToString(privateKeyInBytes)
 		params.Add("privateKey", keyBase64)
 	}
 
@@ -462,10 +466,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				err = decodeErr
 				return
 			}
-			cfg.PrivateKey, err = x509.ParsePKCS1PrivateKey(block)
+			keyInterface, err := x509.ParsePKCS8PrivateKey(block)
 			if err != nil {
 				return
 			}
+			cfg.PrivateKey = keyInterface.(*rsa.PrivateKey)
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
