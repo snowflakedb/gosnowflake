@@ -18,7 +18,10 @@ import (
 	"github.com/SermoDigital/jose/jws"
 	"github.com/google/uuid"
 
-	"golang.org/x/crypto/ssh"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 )
 
 const (
@@ -30,7 +33,7 @@ const (
 	authenticatorOAuth           = "OAUTH"
 	authenticatorSnowflake       = "SNOWFLAKE"
 	authenticatorOkta            = "OKTA"
-	authenticatorJWT             = "JWT"
+	authenticatorJWT             = "SNOWFLAKE_JWT"
 )
 
 const (
@@ -225,26 +228,12 @@ func authenticate(
 		requestMain.RawSAMLResponse = string(samlResponse)
 	case authenticatorJWT:
 		requestMain.Authenticator = authenticatorJWT
-		claims := jws.Claims{}
-		publicKey, err := ssh.NewPublicKey(sc.cfg.PrivateKey.Public())
+
+		jwtTokenInBytes, err := prepareJWTToken(sc.cfg.Account, sc.cfg.User, sc.cfg.PrivateKey)
 		if err != nil {
 			return nil, err
 		}
-		claims.SetIssuer(fmt.Sprintf("%s.%s.%s", sc.cfg.Account, sc.cfg.User,
-			ssh.FingerprintSHA256(publicKey)))
-		claims.SetSubject(fmt.Sprintf("%s.%s", sc.cfg.Account, sc.cfg.User))
-		claims.SetIssuedAt(time.Now().UTC())
-		claims.SetExpiration(time.Now().UTC().Add(time.Duration(timeoutJWTSeconds) * time.Second))
-
-		jwt := jws.NewJWT(claims, jcrypto.SigningMethodRS256)
-
-		tokenInBytes, err := jwt.Serialize(sc.cfg.PrivateKey)
-
-		if err != nil {
-			return nil, err
-		}
-
-		requestMain.Token = string(tokenInBytes)
+		requestMain.Token = string(jwtTokenInBytes)
 
 	case authenticatorSnowflake:
 		fallthrough
@@ -312,4 +301,35 @@ func authenticate(
 	sc.rest.MasterToken = respd.Data.MasterToken
 	sc.rest.SessionID = respd.Data.SessionID
 	return &respd.Data, nil
+}
+
+func prepareJWTToken(accountName string, userName string, privateKey *rsa.PrivateKey) (tokenInBytes []byte, err error) {
+	if err != nil {
+		return nil, err
+	}
+	claims := jws.Claims{}
+
+	pubBytes, err := x509.MarshalPKIXPublicKey(privateKey.Public())
+	if err != nil {
+		return nil, err
+	}
+	hash := sha256.Sum256(pubBytes)
+
+	accountName = strings.ToUpper(accountName)
+	userName = strings.ToUpper(userName)
+
+	claims.SetIssuer(fmt.Sprintf("%s.%s.%s", accountName, userName,
+		"SHA256:"+base64.StdEncoding.EncodeToString(hash[:])))
+	claims.SetSubject(fmt.Sprintf("%s.%s", accountName, userName))
+	claims.SetIssuedAt(time.Now().UTC())
+	claims.SetExpiration(time.Now().UTC().Add(time.Duration(timeoutJWTSeconds) * time.Second))
+
+	jwt := jws.NewJWT(claims, jcrypto.SigningMethodRS256)
+
+	tokenInBytes, err = jwt.Serialize(privateKey)
+
+	if err != nil {
+		return nil, err
+	}
+	return tokenInBytes, err
 }
