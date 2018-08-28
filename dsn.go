@@ -289,8 +289,11 @@ func fillMissingConfigParameters(cfg *Config) error {
 		return ErrEmptyUsername
 	}
 
-	if authenticator != authenticatorExternalBrowser && authenticator != authenticatorOAuth && strings.Trim(cfg.Password, " ") == "" {
-		// no password parameter is required for EXTERNALBROWSER and OAUTH.
+	if authenticator != authenticatorExternalBrowser &&
+		authenticator != authenticatorOAuth &&
+		authenticator != authenticatorJWT &&
+		strings.Trim(cfg.Password, " ") == "" {
+		// no password parameter is required for EXTERNALBROWSER, OAUTH or JWT.
 		return ErrEmptyPassword
 	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
