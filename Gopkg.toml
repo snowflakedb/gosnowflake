@@ -1,6 +1,6 @@
 [[constraint]]
   branch = "master"
-  name = "github.com/golang/glog"
+  name = "github.com/snowflakedb/glog"
 
 [[constraint]]
   branch = "master"
