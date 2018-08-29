@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"fmt"
 	"net/url"
 	"reflect"
 	"testing"
@@ -113,6 +114,15 @@ func TestParseDSN(t *testing.T) {
 			dsn: "u:@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT",
 			config: &Config{
 				Account: "a", User: "u", Authenticator: authenticatorJWT,
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
+			},
+			err: nil,
+		},
+		{
+			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", TestPrivKeyStr),
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: authenticatorJWT, PrivateKey: TestPrivKey,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: nil,
