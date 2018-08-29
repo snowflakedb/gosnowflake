@@ -18,7 +18,6 @@ import (
 	"github.com/SermoDigital/jose/jws"
 	"github.com/google/uuid"
 
-	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
@@ -34,10 +33,6 @@ const (
 	authenticatorSnowflake       = "SNOWFLAKE"
 	authenticatorOkta            = "OKTA"
 	authenticatorJWT             = "SNOWFLAKE_JWT"
-)
-
-const (
-	timeoutJWTSeconds = 60
 )
 
 // platform consists of compiler and architecture type in string
@@ -229,7 +224,7 @@ func authenticate(
 	case authenticatorJWT:
 		requestMain.Authenticator = authenticatorJWT
 
-		jwtTokenInBytes, err := prepareJWTToken(sc.cfg.Account, sc.cfg.User, sc.cfg.PrivateKey)
+		jwtTokenInBytes, err := prepareJWTToken(sc.cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -303,30 +298,30 @@ func authenticate(
 	return &respd.Data, nil
 }
 
-func prepareJWTToken(accountName string, userName string, privateKey *rsa.PrivateKey) (tokenInBytes []byte, err error) {
+func prepareJWTToken(config *Config) (tokenInBytes []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
 	claims := jws.Claims{}
 
-	pubBytes, err := x509.MarshalPKIXPublicKey(privateKey.Public())
+	pubBytes, err := x509.MarshalPKIXPublicKey(config.PrivateKey.Public())
 	if err != nil {
 		return nil, err
 	}
 	hash := sha256.Sum256(pubBytes)
 
-	accountName = strings.ToUpper(accountName)
-	userName = strings.ToUpper(userName)
+	accountName := strings.ToUpper(config.Account)
+	userName := strings.ToUpper(config.User)
 
 	claims.SetIssuer(fmt.Sprintf("%s.%s.%s", accountName, userName,
 		"SHA256:"+base64.StdEncoding.EncodeToString(hash[:])))
 	claims.SetSubject(fmt.Sprintf("%s.%s", accountName, userName))
 	claims.SetIssuedAt(time.Now().UTC())
-	claims.SetExpiration(time.Now().UTC().Add(time.Duration(timeoutJWTSeconds) * time.Second))
+	claims.SetExpiration(time.Now().UTC().Add(config.JWTExpireTimeout))
 
 	jwt := jws.NewJWT(claims, jcrypto.SigningMethodRS256)
 
-	tokenInBytes, err = jwt.Serialize(privateKey)
+	tokenInBytes, err = jwt.Serialize(config.PrivateKey)
 
 	if err != nil {
 		return nil, err

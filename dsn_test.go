@@ -141,6 +141,24 @@ func TestParseDSN(t *testing.T) {
 			err: &SnowflakeError{Number: ErrCodePrivateKeyParseError},
 		},
 		{
+			dsn: "u:p@a?database=d&jwtTimeout=20",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputding.com", Port: 443,
+				Database: "d", Schema: "",
+				JWTExpireTimeout: 20 * time.Second,
+			},
+		},
+		{
+			dsn: "u:p@a?database=d",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputding.com", Port: 443,
+				Database: "d", Schema: "",
+				JWTExpireTimeout: defaultJWTTimeout,
+			},
+		},
+		{
 			dsn: "u:p@snowflake.local:NNNN?account=a&protocol=http",
 			config: &Config{
 				Account: "a", User: "u", Password: "p",

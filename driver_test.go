@@ -36,7 +36,7 @@ var (
 )
 
 var (
-	TestPrivKey    *rsa.PrivateKey
+	TestPrivKey *rsa.PrivateKey
 )
 
 // The tests require the following parameters in the environment variables.
@@ -1979,7 +1979,6 @@ func init() {
 		flag.Parse()
 	}
 }
-
 
 // helper function to generate PKCS8 encoded base64 string of a private key
 func generatePKCS8StringSupress(key *rsa.PrivateKey) string {

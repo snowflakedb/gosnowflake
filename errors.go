@@ -147,5 +147,4 @@ var (
 	ErrEmptyPassword = &SnowflakeError{
 		Number:  ErrCodeEmptyPasswordCode,
 		Message: "password is empty"}
-
 )
