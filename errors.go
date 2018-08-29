@@ -56,6 +56,8 @@ const (
 	ErrCodeFailedToConnect = 260008
 	// ErrCodeObjectNotExists is an error code for the case where the specified database object doesn't exist
 	ErrCodeObjectNotExists = 260009
+	// ErrCodePrivateKeyParseError is an error code for the case where the private key is not parsed correctly
+	ErrCodePrivateKeyParseError = 260010
 
 	/* network */
 
@@ -145,4 +147,5 @@ var (
 	ErrEmptyPassword = &SnowflakeError{
 		Number:  ErrCodeEmptyPasswordCode,
 		Message: "password is empty"}
+
 )

@@ -15,6 +15,10 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
+
+	privKeyPKCS8 := generatePKCS8StringSupress(TestPrivKey)
+	privKeyPKCS1 := generatePKCS1String(TestPrivKey)
+
 	testcases := []tcParseDSN{
 		{
 			dsn: "user:pass@account",
@@ -119,13 +123,22 @@ func TestParseDSN(t *testing.T) {
 			err: nil,
 		},
 		{
-			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", TestPrivKeyStr),
+			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS8),
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
 				Authenticator: authenticatorJWT, PrivateKey: TestPrivKey,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: nil,
+		},
+		{
+			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS1),
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: authenticatorJWT, PrivateKey: TestPrivKey,
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
+			},
+			err: &SnowflakeError{Number: ErrCodePrivateKeyParseError},
 		},
 		{
 			dsn: "u:p@snowflake.local:NNNN?account=a&protocol=http",

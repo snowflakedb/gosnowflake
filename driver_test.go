@@ -37,9 +37,6 @@ var (
 
 var (
 	TestPrivKey    *rsa.PrivateKey
-	TestPubKey     *rsa.PublicKey
-	TestPrivKeyStr string
-	TestPrivKeyInv *rsa.PrivateKey
 )
 
 // The tests require the following parameters in the environment variables.
@@ -74,12 +71,6 @@ func init() {
 
 	// Generate private & public key
 	TestPrivKey, _ = rsa.GenerateKey(rand.Reader, 2048)
-	TestPubKey = TestPrivKey.Public().(*rsa.PublicKey)
-
-	// Error would only be thrown when the private key type is not supported
-	// We would be safe as long as we are using rsa.PrivateKey
-	testKeyByte, _ := x509.MarshalPKCS8PrivateKey(TestPrivKey)
-	TestPrivKeyStr = base64.URLEncoding.EncodeToString(testKeyByte)
 
 	createDSN("UTC")
 }
@@ -102,7 +93,7 @@ func createDSN(timezone string) {
 		parameters.Add("role", rolename)
 	}
 
-	parameters.Add("privateKey", TestPrivKeyStr)
+	parameters.Add("privateKey", generatePKCS8StringSupress(TestPrivKey))
 
 	if len(parameters) > 0 {
 		dsn += "?" + parameters.Encode()
@@ -1928,7 +1919,7 @@ func TestJWTAuthentication(t *testing.T) {
 	}
 
 	// Load server's public key to database
-	pubKeyByte, err := x509.MarshalPKIXPublicKey(TestPubKey)
+	pubKeyByte, err := x509.MarshalPKIXPublicKey(TestPrivKey.Public())
 	if err != nil {
 		t.Fatalf("error marshaling public key: %s", err.Error())
 	}
@@ -1987,4 +1978,21 @@ func init() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
+}
+
+
+// helper function to generate PKCS8 encoded base64 string of a private key
+func generatePKCS8StringSupress(key *rsa.PrivateKey) string {
+	// Error would only be thrown when the private key type is not supported
+	// We would be safe as long as we are using rsa.PrivateKey
+	tmpBytes, _ := x509.MarshalPKCS8PrivateKey(key)
+	privKeyPKCS8 := base64.URLEncoding.EncodeToString(tmpBytes)
+	return privKeyPKCS8
+}
+
+// helper function to generate PKCS1 encoded base64 string of a private key
+func generatePKCS1String(key *rsa.PrivateKey) string {
+	tmpBytes := x509.MarshalPKCS1PrivateKey(key)
+	privKeyPKCS1 := base64.URLEncoding.EncodeToString(tmpBytes)
+	return privKeyPKCS1
 }
