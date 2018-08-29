@@ -201,7 +201,7 @@ func postAuthCheckJWTToken(_ *snowflakeRestful, _ *url.Values, _ map[string]stri
 	}
 
 	// Validate token
-	err = jwt.Validate(TestPrivateKey.Public(), crypto.SigningMethodRS256)
+	err = jwt.Validate(TestPrivKey.Public(), crypto.SigningMethodRS256)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +363,7 @@ func TestAuthenticateJWT(t *testing.T) {
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = authenticatorJWT
-	sc.cfg.PrivateKey = TestPrivateKey
+	sc.cfg.PrivateKey = TestPrivKey
 	sc.rest = sr
 
 	_, err = authenticate(sc, []byte{}, []byte{})

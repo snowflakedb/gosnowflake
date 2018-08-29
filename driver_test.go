@@ -35,8 +35,12 @@ var (
 	protocol   string
 )
 
-var TestPrivateKey *rsa.PrivateKey
-var TestPublicKey *rsa.PublicKey
+var (
+	TestPrivKey    *rsa.PrivateKey
+	TestPubKey     *rsa.PublicKey
+	TestPrivKeyStr string
+	TestPrivKeyInv *rsa.PrivateKey
+)
 
 // The tests require the following parameters in the environment variables.
 // SNOWFLAKE_TEST_USER, SNOWFLAKE_TEST_PASSWORD, SNOWFLAKE_TEST_ACCOUNT, SNOWFLAKE_TEST_DATABASE,
@@ -69,8 +73,13 @@ func init() {
 	}
 
 	// Generate private & public key
-	TestPrivateKey, _ = rsa.GenerateKey(rand.Reader, 2048)
-	TestPublicKey = TestPrivateKey.Public().(*rsa.PublicKey)
+	TestPrivKey, _ = rsa.GenerateKey(rand.Reader, 2048)
+	TestPubKey = TestPrivKey.Public().(*rsa.PublicKey)
+
+	// Error would only be thrown when the private key type is not supported
+	// We would be safe as long as we are using rsa.PrivateKey
+	testKeyByte, _ := x509.MarshalPKCS8PrivateKey(TestPrivKey)
+	TestPrivKeyStr = base64.URLEncoding.EncodeToString(testKeyByte)
 
 	createDSN("UTC")
 }
@@ -93,11 +102,7 @@ func createDSN(timezone string) {
 		parameters.Add("role", rolename)
 	}
 
-	// Error would only be thrown when the private key type is not supported
-	// We would be safe as long as we are using rsa.PrivateKey
-	privateKeyInBytes, _ := x509.MarshalPKCS8PrivateKey(TestPrivateKey)
-
-	parameters.Add("privateKey", base64.RawStdEncoding.EncodeToString(privateKeyInBytes))
+	parameters.Add("privateKey", TestPrivKeyStr)
 
 	if len(parameters) > 0 {
 		dsn += "?" + parameters.Encode()
@@ -1923,7 +1928,7 @@ func TestJWTAuthentication(t *testing.T) {
 	}
 
 	// Load server's public key to database
-	pubKeyByte, err := x509.MarshalPKIXPublicKey(TestPublicKey)
+	pubKeyByte, err := x509.MarshalPKIXPublicKey(TestPubKey)
 	if err != nil {
 		t.Fatalf("error marshaling public key: %s", err.Error())
 	}
@@ -1950,7 +1955,7 @@ func TestJWTAuthentication(t *testing.T) {
 		Account:       account,
 		Authenticator: authenticatorJWT,
 		Protocol:      "http",
-		PrivateKey:    TestPrivateKey,
+		PrivateKey:    TestPrivKey,
 	}
 	jwtDSN, err := DSN(&config)
 	if err != nil {
