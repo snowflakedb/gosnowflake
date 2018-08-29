@@ -17,6 +17,7 @@ const (
 	defaultClientTimeout  = 900 * time.Second
 	defaultLoginTimeout   = 60 * time.Second
 	defaultRequestTimeout = 0 * time.Second
+	defaultJWTTimeout	  = 60 * time.Second
 	defaultAuthenticator  = "snowflake"
 	defaultDomain         = ".snowflakecomputing.com"
 )
@@ -43,6 +44,7 @@ type Config struct {
 
 	LoginTimeout   time.Duration // Login timeout
 	RequestTimeout time.Duration // request timeout
+	JWTExpireTimeout time.Duration // JWT expire after timeout
 
 	Application  string // application name.
 	InsecureMode bool   // driver doesn't check certificate revocation status
@@ -108,6 +110,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.RequestTimeout != defaultRequestTimeout {
 		params.Add("requestTimeout", strconv.FormatInt(int64(cfg.RequestTimeout/time.Second), 10))
+	}
+	if cfg.JWTExpireTimeout != defaultJWTTimeout {
+		params.Add("jwtTimeout", strconv.FormatInt(int64(cfg.JWTExpireTimeout/time.Second), 10))
 	}
 	if cfg.Application != clientType {
 		params.Add("application", cfg.Application)
@@ -324,6 +329,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if cfg.RequestTimeout == 0 {
 		cfg.RequestTimeout = defaultRequestTimeout
 	}
+	if cfg.JWTExpireTimeout == 0 {
+		cfg.JWTExpireTimeout = defaultJWTTimeout
+	}
 	if strings.Trim(cfg.Application, " ") == "" {
 		cfg.Application = clientType
 	}
@@ -440,12 +448,15 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 			cfg.PasscodeInPassword = vv
 		case "loginTimeout":
-			var vv int64
-			vv, err = strconv.ParseInt(value, 10, 64)
+			cfg.LoginTimeout, err = parseTimeout(value)
 			if err != nil {
 				return
 			}
-			cfg.LoginTimeout = time.Duration(vv * int64(time.Second))
+		case "jwtTimeout":
+			cfg.JWTExpireTimeout, err = parseTimeout(value)
+			if err != nil {
+				return err
+			}
 		case "application":
 			cfg.Application = value
 		case "authenticator":
@@ -486,4 +497,14 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		}
 	}
 	return
+}
+
+func parseTimeout (value string) (time.Duration, error) {
+	var vv int64
+	var err error
+	vv, err = strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return time.Duration(0), err
+	}
+	return time.Duration(vv * int64(time.Second)), nil
 }
