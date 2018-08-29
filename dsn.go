@@ -463,11 +463,18 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(value)
 			if decodeErr != nil {
-				err = decodeErr
+				err = &SnowflakeError{
+					Number: ErrCodePrivateKeyParseError,
+					Message: "Base64 decode failed",
+					}
 				return
 			}
 			keyInterface, err := x509.ParsePKCS8PrivateKey(block)
 			if err != nil {
+				err = &SnowflakeError{
+					Number: ErrCodePrivateKeyParseError,
+					Message: "PKCS8 decode failed",
+					}
 				return err
 			}
 			cfg.PrivateKey = keyInterface.(*rsa.PrivateKey)
