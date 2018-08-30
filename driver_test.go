@@ -3,18 +3,15 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
 	"database/sql"
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"net/url"
 	"os"
 	"os/signal"
 	"reflect"
-	"strconv"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -69,8 +66,9 @@ func init() {
 		host = fmt.Sprintf("%s:%s", purehost, port)
 	}
 
-	// Generate private & public key
-	TestPrivKey, _ = rsa.GenerateKey(rand.Reader, 2048)
+	setupPrivateKey(account)
+
+	fmt.Println(runtime.Version())
 
 	createDSN("UTC")
 }
@@ -92,8 +90,6 @@ func createDSN(timezone string) {
 	if rolename != "" {
 		parameters.Add("role", rolename)
 	}
-
-	parameters.Add("privateKey", generatePKCS8StringSupress(TestPrivKey))
 
 	if len(parameters) > 0 {
 		dsn += "?" + parameters.Encode()
@@ -1912,86 +1908,8 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 	defer rows.Close()
 }
 
-func TestJWTAuthentication(t *testing.T) {
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
-	}
-
-	// Load server's public key to database
-	pubKeyByte, err := x509.MarshalPKIXPublicKey(TestPrivKey.Public())
-	if err != nil {
-		t.Fatalf("error marshaling public key: %s", err.Error())
-	}
-	_, err = db.Exec("USE ROLE ACCOUNTADMIN")
-	if err != nil {
-		t.Fatalf("error changin role: %s", err.Error())
-	}
-	_, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'",
-		user, base64.StdEncoding.EncodeToString(pubKeyByte)))
-	if err != nil {
-		t.Fatalf("error setting server's public key: %s", err.Error())
-	}
-	db.Close()
-
-	portNum, err := strconv.Atoi(port)
-	if err != nil {
-		t.Fatalf("Invalid port number %s", port)
-	}
-	config := Config{
-		User:          user,
-		Host:          purehost,
-		Password:      pass,
-		Port:          portNum,
-		Account:       account,
-		Authenticator: authenticatorJWT,
-		Protocol:      "http",
-		PrivateKey:    TestPrivKey,
-	}
-	jwtDSN, err := DSN(&config)
-	if err != nil {
-		t.Fatalf("Error parsing DSN %s", err.Error())
-	}
-	db, err = sql.Open("snowflake", jwtDSN)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
-	}
-	_, err = db.Exec("SELECT 1")
-	if err != nil {
-		t.Fatalf("error executing: %s", err.Error())
-	}
-	db.Close()
-
-	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	config.PrivateKey = invalidPrivateKey
-	jwtDSN, _ = DSN(&config)
-	db, err = sql.Open("snowflake", jwtDSN)
-	_, err = db.Exec("SELECT 1")
-	if err == nil {
-		t.Fatalf("An invalid jwt token can pass")
-	}
-
-	db.Close()
-}
-
 func init() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
-}
-
-// helper function to generate PKCS8 encoded base64 string of a private key
-func generatePKCS8StringSupress(key *rsa.PrivateKey) string {
-	// Error would only be thrown when the private key type is not supported
-	// We would be safe as long as we are using rsa.PrivateKey
-	tmpBytes, _ := x509.MarshalPKCS8PrivateKey(key)
-	privKeyPKCS8 := base64.URLEncoding.EncodeToString(tmpBytes)
-	return privKeyPKCS8
-}
-
-// helper function to generate PKCS1 encoded base64 string of a private key
-func generatePKCS1String(key *rsa.PrivateKey) string {
-	tmpBytes := x509.MarshalPKCS1PrivateKey(key)
-	privKeyPKCS1 := base64.URLEncoding.EncodeToString(tmpBytes)
-	return privKeyPKCS1
 }

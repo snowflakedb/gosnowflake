@@ -5,12 +5,16 @@ package gosnowflake
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
+	"io/ioutil"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 )
@@ -241,6 +245,19 @@ func getDefaultSnowflakeConn() *snowflakeConn {
 	return sc
 }
 
+func setupPrivateKey(account string) {
+	if account == "testaccount" {
+		// Generate private key for local machine
+		TestPrivKey, _ = rsa.GenerateKey(rand.Reader, 2048)
+	} else {
+		privKeyPath := os.Getenv("SNOWFLAKE_PRIVATE_KEY_PATH")
+		data, _ := ioutil.ReadFile(privKeyPath)
+		block, _ := pem.Decode(data)
+		privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
+		TestPrivKey = privKey.(*rsa.PrivateKey)
+	}
+}
+
 func TestUnitAuthenticate(t *testing.T) {
 	var err error
 	var driverErr *SnowflakeError
@@ -363,6 +380,7 @@ func TestAuthenticateJWT(t *testing.T) {
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = authenticatorJWT
+	sc.cfg.JWTExpireTimeout = defaultJWTTimeout
 	sc.cfg.PrivateKey = TestPrivKey
 	sc.rest = sr
 
