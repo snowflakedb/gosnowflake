@@ -8,26 +8,30 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"database/sql"
 	"encoding/base64"
 	"fmt"
-	"strconv"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
+// Optionally added (for go version 1.10 and onward) test cases that check dsn parsing function
+// Only PKCS1 encoded private key should be able to parsed
 func addParseDSNTest(parseDSNTests []tcParseDSN) []tcParseDSN {
-	privKeyPKCS8 := generatePKCS8StringSupress(TestPrivKey)
-	privKeyPKCS1 := generatePKCS1String(TestPrivKey)
+	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
+	privKeyPKCS1 := generatePKCS1String(testPrivKey)
 
 	optParseDSNTests := []tcParseDSN{
 		{
 			dsn: fmt.Sprintf("u:p@ac.snowflake.local:9876?account=ac&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS8),
 			config: &Config{
 				Account: "ac", User: "u", Password: "p",
-				Authenticator: authenticatorJWT, PrivateKey: TestPrivKey,
+				Authenticator: authenticatorJWT, PrivateKey: testPrivKey,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: nil,
@@ -36,7 +40,7 @@ func addParseDSNTest(parseDSNTests []tcParseDSN) []tcParseDSN {
 			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS1),
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
-				Authenticator: authenticatorJWT, PrivateKey: TestPrivKey,
+				Authenticator: authenticatorJWT, PrivateKey: testPrivKey,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: &SnowflakeError{Number: ErrCodePrivateKeyParseError},
@@ -61,49 +65,64 @@ func generatePKCS1String(key *rsa.PrivateKey) string {
 	return privKeyPKCS1
 }
 
-// Test the JWT authentication is working
-func TestJWTAuthentication(t *testing.T) {
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
+// helper function to set up private key for testing
+func setupPrivateKey() {
+	env := func(key, defaultValue string) string {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+		return defaultValue
 	}
+	privKeyPath := env("SNOWFLAKE_PRIVATE_KEY", "")
+	if privKeyPath == "" {
+		customPrivateKey = false
+		testPrivKey, _ = rsa.GenerateKey(rand.Reader, 2048)
+	} else {
+		// path to the DER file
+		customPrivateKey = true
+		data, _ := ioutil.ReadFile(privKeyPath)
+		privKey, _ := x509.ParsePKCS8PrivateKey(data)
+		testPrivKey = privKey.(*rsa.PrivateKey)
+	}
+}
 
-	// Load server's public key to database
-	pubKeyByte, err := x509.MarshalPKIXPublicKey(TestPrivKey.Public())
-	if err != nil {
-		t.Fatalf("error marshaling public key: %s", err.Error())
+// Helper function to add encoded private key to dsn
+func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
+	var b bytes.Buffer
+	b.WriteString(*dsn)
+	b.WriteString(fmt.Sprintf("&authenticator=%v", authenticatorJWT))
+	b.WriteString(fmt.Sprintf("&privateKey=%s", generatePKCS8StringSupress(key)))
+	return b.String()
+}
+
+// Integration test for the JWT authentication function
+func TestJWTAuthentication(t *testing.T) {
+	// For private key generated on the fly, we want to load the public key to the server first
+	if !customPrivateKey {
+		db, err := sql.Open("snowflake", dsn)
+		if err != nil {
+			t.Fatalf("error creating a connection object: %s", err.Error())
+		}
+		// Load server's public key to database
+		pubKeyByte, err := x509.MarshalPKIXPublicKey(testPrivKey.Public())
+		if err != nil {
+			t.Fatalf("error marshaling public key: %s", err.Error())
+		}
+		_, err = db.Exec("USE ROLE ACCOUNTADMIN")
+		if err != nil {
+			t.Fatalf("error changin role: %s", err.Error())
+		}
+		encodedKey := base64.StdEncoding.EncodeToString(pubKeyByte)
+		_, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", user, encodedKey))
+		if err != nil {
+			t.Fatalf("error setting server's public key: %s", err.Error())
+		}
+		db.Close()
 	}
-	_, err = db.Exec("USE ROLE ACCOUNTADMIN")
-	if err != nil {
-		t.Fatalf("error changin role: %s", err.Error())
-	}
-	_, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'",
-		user, base64.StdEncoding.EncodeToString(pubKeyByte)))
-	if err != nil {
-		t.Fatalf("error setting server's public key: %s", err.Error())
-	}
-	db.Close()
 
 	// Test that a valid private key can pass
-	portNum, err := strconv.Atoi(port)
-	if err != nil {
-		t.Fatalf("Invalid port number %s", port)
-	}
-	config := Config{
-		User:          user,
-		Host:          purehost,
-		Password:      pass,
-		Port:          portNum,
-		Account:       account,
-		Authenticator: authenticatorJWT,
-		Protocol:      "http",
-		PrivateKey:    TestPrivKey,
-	}
-	jwtDSN, err := DSN(&config)
-	if err != nil {
-		t.Fatalf("Error parsing DSN %s", err.Error())
-	}
-	db, err = sql.Open("snowflake", jwtDSN)
+	jwtDSN := appendPrivateKeyString(&dsn, testPrivKey)
+	db, err := sql.Open("snowflake", jwtDSN)
 	if err != nil {
 		t.Fatalf("error creating a connection object: %s", err.Error())
 	}
@@ -115,8 +134,7 @@ func TestJWTAuthentication(t *testing.T) {
 
 	// Test that an invalid private key cannot pass
 	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	config.PrivateKey = invalidPrivateKey
-	jwtDSN, _ = DSN(&config)
+	jwtDSN = appendPrivateKeyString(&dsn, invalidPrivateKey)
 	db, _ = sql.Open("snowflake", jwtDSN)
 	_, err = db.Exec("SELECT 1")
 	if err == nil {

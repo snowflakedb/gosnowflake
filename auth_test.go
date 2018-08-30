@@ -5,16 +5,12 @@ package gosnowflake
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
-	"io/ioutil"
 	"net/url"
-	"os"
 	"testing"
 	"time"
 )
@@ -190,6 +186,8 @@ func postAuthCheckPasscodeInPassword(_ *snowflakeRestful, _ *url.Values, _ map[s
 	}, nil
 }
 
+// JWT token validate callback function to check the JWT token
+// It uses the public key paired with the testPrivKey
 func postAuthCheckJWTToken(_ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
 	var ar authRequest
 	if err := json.Unmarshal(jsonBody, &ar); err != nil {
@@ -205,7 +203,7 @@ func postAuthCheckJWTToken(_ *snowflakeRestful, _ *url.Values, _ map[string]stri
 	}
 
 	// Validate token
-	err = jwt.Validate(TestPrivKey.Public(), crypto.SigningMethodRS256)
+	err = jwt.Validate(testPrivKey.Public(), crypto.SigningMethodRS256)
 	if err != nil {
 		return nil, err
 	}
@@ -243,19 +241,6 @@ func getDefaultSnowflakeConn() *snowflakeConn {
 		cfg:  &cfg,
 	}
 	return sc
-}
-
-func setupPrivateKey(account string) {
-	if account == "testaccount" {
-		// Generate private key for local machine
-		TestPrivKey, _ = rsa.GenerateKey(rand.Reader, 2048)
-	} else {
-		privKeyPath := os.Getenv("SNOWFLAKE_PRIVATE_KEY_PATH")
-		data, _ := ioutil.ReadFile(privKeyPath)
-		block, _ := pem.Decode(data)
-		privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
-		TestPrivKey = privKey.(*rsa.PrivateKey)
-	}
 }
 
 func TestUnitAuthenticate(t *testing.T) {
@@ -372,6 +357,7 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 	}
 }
 
+// Test JWT function in the local environment against the validation function in go
 func TestAuthenticateJWT(t *testing.T) {
 	var err error
 
@@ -381,14 +367,16 @@ func TestAuthenticateJWT(t *testing.T) {
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = authenticatorJWT
 	sc.cfg.JWTExpireTimeout = defaultJWTTimeout
-	sc.cfg.PrivateKey = TestPrivKey
+	sc.cfg.PrivateKey = testPrivKey
 	sc.rest = sr
 
+	// A valid JWT token should pass
 	_, err = authenticate(sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
+	// An invalid JWT token should not pass
 	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	sc.cfg.PrivateKey = invalidPrivateKey
 	_, err = authenticate(sc, []byte{}, []byte{})
