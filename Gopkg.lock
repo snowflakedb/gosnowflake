@@ -15,14 +15,6 @@
   version = "1.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:1ba1d79f2810270045c328ae5d674321db34e3aae468eb4233883b473c5c0467"
-  name = "github.com/golang/glog"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
-
-[[projects]]
   digest = "1:8f8811f9be822914c3a25c6a071e93beb4c805d7b026cbf298bc577bc1cc945b"
   name = "github.com/google/uuid"
   packages = ["."]
@@ -40,11 +32,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a9508d88987b33aa1933d1bb3516b9d442d2f812bfef5a7e2be7c00c83685255"
+  digest = "1:6b98cc8ee2df9bbb5190f1cea00285ea625109667574d16853ba82eaf48d47fd"
+  name = "github.com/snowflakedb/glog"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f5055e6f21ce71153a199e6460664045b3af8e50"
+
+[[projects]]
+  branch = "master"
+  digest = "1:b6b9212412c3335645f285510729b18c0cc8d06e288f956dba4ace7b3fe8ad7c"
   name = "golang.org/x/crypto"
   packages = ["ocsp"]
   pruneopts = "UT"
-  revision = "614d502a4dac94afa3a6ce146bd1736da82514c6"
+  revision = "91a49db82a88618983a78a06c1cbd4e00ab749ab"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -52,9 +52,9 @@
   input-imports = [
     "github.com/SermoDigital/jose/crypto",
     "github.com/SermoDigital/jose/jws",
-    "github.com/golang/glog",
     "github.com/google/uuid",
     "github.com/pkg/browser",
+    "github.com/snowflakedb/glog",
     "golang.org/x/crypto/ocsp",
   ]
   solver-name = "gps-cdcl"
