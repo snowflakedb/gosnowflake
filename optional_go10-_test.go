@@ -9,3 +9,5 @@ package gosnowflake
 func addParseDSNTest(parseDSNTests []tcParseDSN) []tcParseDSN {
 	return nil
 }
+
+func setupPrivateKey() {}
