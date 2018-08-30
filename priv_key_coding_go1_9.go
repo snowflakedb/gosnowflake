@@ -1,5 +1,8 @@
+// Copyright (c) 2017-2018 Snowflake Computing Inc. All right reserved.
 // +build !go1.10
 
+// This file contains coding and decoding functions stub for compile time correctness
+// See also optional_go1_10_test.go
 package gosnowflake
 
 import (
