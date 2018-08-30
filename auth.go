@@ -298,10 +298,8 @@ func authenticate(
 	return &respd.Data, nil
 }
 
+// Generate a JWT token in byte slice given the configuration
 func prepareJWTToken(config *Config) (tokenInBytes []byte, err error) {
-	if err != nil {
-		return nil, err
-	}
 	claims := jws.Claims{}
 
 	pubBytes, err := x509.MarshalPKIXPublicKey(config.PrivateKey.Public())

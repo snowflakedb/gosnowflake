@@ -11,29 +11,26 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
 
 var (
-	user       string
-	pass       string
-	account    string
-	dbname     string
-	schemaname string
-	warehouse  string
-	rolename   string
-	dsn        string
-	host       string
-	purehost   string
-	port       string
-	protocol   string
-)
-
-var (
-	TestPrivKey *rsa.PrivateKey
+	user             string
+	pass             string
+	account          string
+	dbname           string
+	schemaname       string
+	warehouse        string
+	rolename         string
+	dsn              string
+	host             string
+	purehost         string
+	port             string
+	protocol         string
+	customPrivateKey bool            // Whether user has specified the private key path
+	testPrivKey      *rsa.PrivateKey // Valid private key used for all test cases
 )
 
 // The tests require the following parameters in the environment variables.
@@ -58,17 +55,15 @@ func init() {
 	warehouse = env("SNOWFLAKE_TEST_WAREHOUSE", "testwarehouse")
 
 	protocol = env("SNOWFLAKE_TEST_PROTOCOL", "https")
-	purehost = os.Getenv("SNOWFLAKE_TEST_HOST")
+	host = os.Getenv("SNOWFLAKE_TEST_HOST")
 	port = os.Getenv("SNOWFLAKE_TEST_PORT")
-	if purehost == "" {
+	if host == "" {
 		host = fmt.Sprintf("%s.snowflakecomputing.com", account)
 	} else {
-		host = fmt.Sprintf("%s:%s", purehost, port)
+		host = fmt.Sprintf("%s:%s", host, port)
 	}
 
-	setupPrivateKey(account)
-
-	fmt.Println(runtime.Version())
+	setupPrivateKey()
 
 	createDSN("UTC")
 }
