@@ -278,6 +278,43 @@ This option will reduce the memory footprint to half or even quarter, but it can
 performance depending on the environment. The test cases running on Travis Ubuntu box show five times less memory
 footprint while four times slower. Be cautious when using the option.
 
+JWT authentication
+
+Now JWT token is supported when compiling with a golang version of 1.10 or higher. Binary compiled with lower version
+of golang would return an error at runtime when users try to use JWT authentication feature.
+
+To enable this feature, one can construct DSN with fields "authenticator=SNOWFLAKE_JWT&privateKey=<your_private_key>",
+or using Config structure specifying:
+
+	config := &Config{
+		...
+		Authenticator: "SNOWFLAKE_JWT"
+		PrivateKey:   "<your_private_key_struct in *rsa.PrivateKey type>"
+	}
+
+The <your_private_key> should be a base64 URL encoded PKCS8 rsa private key string. One way to encode a byte slice to URL
+base 64 URL format is through base64.URLEncoding.EncodeToString() function.
+
+On the server side, one can alter the public key with the SQL command:
+
+	ALTER USER <your_user_name> SET RSA_PUBLIC_KEY='<your_public_key>';
+
+The <your_public_key> should be a base64 Standard encoded PKI public key string. One way to encode a byte slice to base
+64 Standard format is through base64.StdEncoding.EncodeToString() function.
+
+To generate the valid key pair, one can do the following command on the shell script:
+
+	# generate 2048-bit pkcs8 encoded RSA private key
+	openssl genpkey -algorithm RSA \
+    	-pkeyopt rsa_keygen_bits:2048 \
+    	-pkeyopt rsa_keygen_pubexp:65537 | \
+  		openssl pkcs8 -topk8 -nocrypt -outform der > rsa-2048-private-key.p8
+
+	# extravt 2048-bit PKI encoded RSA public key from the private key
+	openssl pkey -pubout -inform der -outform der \
+    	-in rsa-2048-private-key.p8 \
+    	-out rsa-2048-public-key.spki
+
 Limitations
 
 GET and PUT operations are unsupported.
