@@ -10,6 +10,7 @@ include gosnowflake.mak
 
 ## Run tests
 test: deps
+	[[ -n "$(TRAVIS)" ]] && export SNOWFLAKE_TEST_PRIVATE_KEY=$(TRAVIS_BUILD_DIR)/rsa-2048-private-key.p8 || true
 	eval $$(jq -r '.testconnection | to_entries | map("export \(.key)=\(.value|tostring)")|.[]' parameters.json) && \
 		go test -tags=sfdebug -race $(COVFLAGS) -v . # -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$(HOME) -vmodule=connection=2,driver=2
 

@@ -10,4 +10,5 @@ func addParseDSNTest(parseDSNTests []tcParseDSN) []tcParseDSN {
 	return nil
 }
 
-func setupPrivateKey() {}
+func setupPrivateKey() {
+}
