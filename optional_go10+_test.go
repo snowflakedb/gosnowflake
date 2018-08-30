@@ -73,7 +73,7 @@ func setupPrivateKey() {
 		}
 		return defaultValue
 	}
-	privKeyPath := env("SNOWFLAKE_PRIVATE_KEY", "")
+	privKeyPath := env("SNOWFLAKE_TEST_PRIVATE_KEY", "")
 	if privKeyPath == "" {
 		customPrivateKey = false
 		testPrivKey, _ = rsa.GenerateKey(rand.Reader, 2048)

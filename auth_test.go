@@ -3,8 +3,6 @@
 package gosnowflake
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -355,33 +353,4 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
-}
-
-// Test JWT function in the local environment against the validation function in go
-func TestAuthenticateJWT(t *testing.T) {
-	var err error
-
-	sr := &snowflakeRestful{
-		FuncPostAuth: postAuthCheckJWTToken,
-	}
-	sc := getDefaultSnowflakeConn()
-	sc.cfg.Authenticator = authenticatorJWT
-	sc.cfg.JWTExpireTimeout = defaultJWTTimeout
-	sc.cfg.PrivateKey = testPrivKey
-	sc.rest = sr
-
-	// A valid JWT token should pass
-	_, err = authenticate(sc, []byte{}, []byte{})
-	if err != nil {
-		t.Fatalf("failed to run. err: %v", err)
-	}
-
-	// An invalid JWT token should not pass
-	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	sc.cfg.PrivateKey = invalidPrivateKey
-	_, err = authenticate(sc, []byte{}, []byte{})
-	if err == nil {
-		t.Fatalf("invalid token passed")
-	}
-
 }
