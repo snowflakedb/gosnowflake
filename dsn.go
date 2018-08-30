@@ -4,7 +4,6 @@ package gosnowflake
 
 import (
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"net/url"
@@ -17,7 +16,7 @@ const (
 	defaultClientTimeout  = 900 * time.Second
 	defaultLoginTimeout   = 60 * time.Second
 	defaultRequestTimeout = 0 * time.Second
-	defaultJWTTimeout	  = 60 * time.Second
+	defaultJWTTimeout     = 60 * time.Second
 	defaultAuthenticator  = "snowflake"
 	defaultDomain         = ".snowflakecomputing.com"
 )
@@ -42,8 +41,8 @@ type Config struct {
 	Passcode           string
 	PasscodeInPassword bool
 
-	LoginTimeout   time.Duration // Login timeout
-	RequestTimeout time.Duration // request timeout
+	LoginTimeout     time.Duration // Login timeout
+	RequestTimeout   time.Duration // request timeout
 	JWTExpireTimeout time.Duration // JWT expire after timeout
 
 	Application  string // application name.
@@ -129,7 +128,7 @@ func DSN(cfg *Config) (dsn string, err error) {
 		}
 	}
 	if cfg.PrivateKey != nil {
-		privateKeyInBytes, err := x509.MarshalPKCS8PrivateKey(cfg.PrivateKey)
+		privateKeyInBytes, err := marshalPKCS8PrivateKey(cfg.PrivateKey)
 		if err != nil {
 			return "", err
 		}
@@ -475,20 +474,15 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			block, decodeErr := base64.URLEncoding.DecodeString(value)
 			if decodeErr != nil {
 				err = &SnowflakeError{
-					Number: ErrCodePrivateKeyParseError,
+					Number:  ErrCodePrivateKeyParseError,
 					Message: "Base64 decode failed",
-					}
+				}
 				return
 			}
-			keyInterface, err := x509.ParsePKCS8PrivateKey(block)
+			cfg.PrivateKey, err = parsePKCS8PrivateKey(block)
 			if err != nil {
-				err = &SnowflakeError{
-					Number: ErrCodePrivateKeyParseError,
-					Message: "PKCS8 decode failed",
-					}
 				return err
 			}
-			cfg.PrivateKey = keyInterface.(*rsa.PrivateKey)
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
@@ -499,7 +493,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 	return
 }
 
-func parseTimeout (value string) (time.Duration, error) {
+func parseTimeout(value string) (time.Duration, error) {
 	var vv int64
 	var err error
 	vv, err = strconv.ParseInt(value, 10, 64)
