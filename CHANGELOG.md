@@ -1,3 +1,14 @@
+## Version 1.1.10
+
+- Fixed heartbeat timings. It used to start a heartbeat per query. Now it starts per connection and closes in `Close` method. #181 
+- Removed busy wait from 1) the main thread that waits for download chunk worker to finish downloads, 2) the heartbeat goroutine/thread to trigger the heartbeat to the server.
+
+## Version 1.1.9
+
+- Fixed proxy for OCSP (@brendoncarroll)
+- Disabled megacheck for Go 1.8
+- Changed the UUID dependency (@kenshaw)
+
 ## Version 1.1.8
 
 - Removed username restrition for oAuth
