@@ -1,12 +1,12 @@
 // Copyright (c) 2017-2018 Snowflake Computing Inc. All right reserved.
 // +build go1.10
 
+package gosnowflake
+
 // This file contains variables or functions of test cases that we want to run for go version >= 1.10
 
 // For compile concern, should any newly added variables or functions here must also be added with same
 // name or signature but with default or empty content in the optional_go1_10_test.go(See addParseDSNTest)
-
-package gosnowflake
 
 import (
 	"bytes"
