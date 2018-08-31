@@ -42,16 +42,14 @@ Connection Parameters
 
 The following connection parameters are supported:
 
-	* region <string>: Specifies the Snowflake region. By default, the US West region is used.
-		US East region, specify us-east-1.
-		EU (Frankfurt) region, specify eu-central-1.
-		AU (Australia) region, specify ap-southeast-2.
-
 	* account <string>: Specifies the name of your Snowflake account, where string is the name
 		assigned to your account by Snowflake. In the URL you received from
 		Snowflake, your account name is the first segment in the domain (e.g.
 		abc123 in https://abc123.snowflakecomputing.com). This parameter is
 		optional if your account is specified after the @ character.
+
+	* region <string>: DEPRECATED. Append a region or any sub domains before snowflakecomputing.com to the
+        end of account parameter after a dot, e.g., account=ACCOUNT.REGION
 
 	* database: Specifies the database to use by default in the client session
 		(can be changed after login).
