@@ -1,10 +1,10 @@
 // Copyright (c) 2017-2018 Snowflake Computing Inc. All right reserved.
 // +build go1.10
 
+package gosnowflake
+
 // This file contains authentication tests that should only be built and ran under
 // Golang version 1.10 or upper
-
-package gosnowflake
 
 import (
 	"crypto/rand"
