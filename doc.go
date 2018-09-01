@@ -46,10 +46,12 @@ The following connection parameters are supported:
 		assigned to your account by Snowflake. In the URL you received from
 		Snowflake, your account name is the first segment in the domain (e.g.
 		abc123 in https://abc123.snowflakecomputing.com). This parameter is
-		optional if your account is specified after the @ character.
+		optional if your account is specified after the @ character. If you are not on us-west-2 region
+        or AWS deployment, append the region and platform to the end, e.g., <account>.<region>,
+        <account>.<region>.<platform>.
 
 	* region <string>: DEPRECATED. Append a region or any sub domains before snowflakecomputing.com to the
-        end of account parameter after a dot, e.g., account=ACCOUNT.REGION
+        end of account parameter after a dot, e.g., account=<account>.<region>.
 
 	* database: Specifies the database to use by default in the client session
 		(can be changed after login).
