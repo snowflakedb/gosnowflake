@@ -1,3 +1,9 @@
+## Version 1.1.11
+
+- (Private Preview) Added key pair authentication. (@ChTimTsubasa)
+- Changed glog timestamp to UTC (@ChTimTsubasa)
+- (Experimental) Added `MaxChunkDownloadWorkers` and `CustomJSONDecoderEnabled` to tune the result set download performance. (@mhseiden)
+
 ## Version 1.1.10
 
 - Fixed heartbeat timings. It used to start a heartbeat per query. Now it starts per connection and closes in `Close` method. #181 

@@ -278,7 +278,9 @@ This option will reduce the memory footprint to half or even quarter, but it can
 performance depending on the environment. The test cases running on Travis Ubuntu box show five times less memory
 footprint while four times slower. Be cautious when using the option.
 
-JWT authentication
+(Private Preview) JWT authentication
+
+** Not recommended for production use until GA
 
 Now JWT token is supported when compiling with a golang version of 1.10 or higher. Binary compiled with lower version
 of golang would return an error at runtime when users try to use JWT authentication feature.
