@@ -53,7 +53,7 @@ The following connection parameters are supported:
 		e.g., “<account>.<region>.<platform>”. Account, region, and platform 
 		should be separated by a period (“.”), as shown above.
 
-* region <string>: DEPRECATED. You may specify a region, such as 
+	* region <string>: DEPRECATED. You may specify a region, such as 
 		“eu-central-1”, with this parameter. However, since this parameter 
 		is deprecated, it is best to specify the region as part of the 
 		account parameter. For details, see the description of the account 
