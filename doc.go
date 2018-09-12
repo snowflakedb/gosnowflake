@@ -47,17 +47,17 @@ The following connection parameters are supported:
 		Snowflake, your account name is the first segment in the domain (e.g.
 		abc123 in https://abc123.snowflakecomputing.com). This parameter is
 		optional if your account is specified after the @ character. If you 
-        are not on us-west-2 region or AWS deployment, then append the region 
-        after the account name, e.g. “<account>.<region>”. If you are not on 
-        AWS deployment, then append not only the region, but also the platform, 
-        e.g., “<account>.<region>.<platform>”. Account, region, and platform 
-        should be separated by a period (“.”), as shown above.
+		are not on us-west-2 region or AWS deployment, then append the region 
+		after the account name, e.g. “<account>.<region>”. If you are not on 
+		AWS deployment, then append not only the region, but also the platform, 
+		e.g., “<account>.<region>.<platform>”. Account, region, and platform 
+		should be separated by a period (“.”), as shown above.
 
-    * region <string>: DEPRECATED. You may specify a region, such as 
-        “eu-central-1”, with this parameter. However, since this parameter 
-        is deprecated, it is best to specify the region as part of the 
-        account parameter. For details, see the description of the account 
-        parameter.
+* region <string>: DEPRECATED. You may specify a region, such as 
+		“eu-central-1”, with this parameter. However, since this parameter 
+		is deprecated, it is best to specify the region as part of the 
+		account parameter. For details, see the description of the account 
+		parameter.
 
 	* database: Specifies the database to use by default in the client session
 		(can be changed after login).
