@@ -5,7 +5,7 @@
 
 package gosnowflake
 
-import logger "github.com/snowflakedb/glog"
+import logger "github.com/golang/glog"
 
 // glogWrapper wraps glog's Verbose type, enabling the use of glog.V().* methods directly
 type glogWrapper struct {

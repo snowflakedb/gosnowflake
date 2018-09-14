@@ -1,9 +1,5 @@
 [[constraint]]
   branch = "master"
-  name = "github.com/snowflakedb/glog"
-
-[[constraint]]
-  branch = "master"
   name = "github.com/pkg/browser"
 
 [[constraint]]
@@ -13,3 +9,8 @@
 [prune]
   go-tests = true
   unused-packages = true
+
+[[override]]
+  name = "github.com/golang/glog"
+  source = "https://github.com/snowflakedb/glog.git"
+  branch = "master"
