@@ -6,11 +6,11 @@
   branch = "master"
   name = "golang.org/x/crypto"
 
-[prune]
-  go-tests = true
-  unused-packages = true
-
 [[override]]
   name = "github.com/golang/glog"
   source = "https://github.com/snowflakedb/glog.git"
-  branch = "master"
+  revision = "f5055e6f21ce71153a199e6460664045b3af8e50"
+
+[prune]
+  go-tests = true
+  unused-packages = true
