@@ -1,3 +1,7 @@
+## Version 1.1.12
+- Allow users to customize their glog through different vendoring. (@ChTimTsubasa)
+- Doc improvment for region parameter description (@smtakeda)
+
 ## Version 1.1.11
 
 - (Private Preview) Added key pair authentication. (@ChTimTsubasa)
