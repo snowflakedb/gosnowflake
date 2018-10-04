@@ -16,6 +16,11 @@ import (
 	"sync"
 )
 
+var (
+	// MaxRetryHTTPCount specifies the maximum number of times an HTTP request may be retried
+	MaxRetryHTTPCount = 3
+)
+
 var random *rand.Rand
 
 func init() {
@@ -96,6 +101,12 @@ func retryHTTP(
 		}
 		// cannot just return 4xx and 5xx status as the error can be sporadic. retry often helps.
 		if err != nil {
+			// bound the number of retry attempts so we don't loop forever
+			if retryCounter > MaxRetryHTTPCount {
+				glog.V(2).Infof(
+					"failed http connection. no response is returned. err: %v. retry limit exceeded\n", err)
+				break
+			}
 			glog.V(2).Infof(
 				"failed http connection. no response is returned. err: %v. retrying...\n", err)
 		} else {
