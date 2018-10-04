@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	defaultClientTimeout  = 900 * time.Second
-	defaultLoginTimeout   = 60 * time.Second
-	defaultRequestTimeout = 0 * time.Second
+	defaultClientTimeout  = 60 * time.Second // Timeout for network round trip + read out http response
+	defaultLoginTimeout   = 60 * time.Second // Timeout for retry for login EXCLUDING clientTimeout
+	defaultRequestTimeout = 0 * time.Second  // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout     = 60 * time.Second
 	defaultAuthenticator  = "snowflake"
 	defaultDomain         = ".snowflakecomputing.com"
@@ -41,8 +41,8 @@ type Config struct {
 	Passcode           string
 	PasscodeInPassword bool
 
-	LoginTimeout     time.Duration // Login timeout
-	RequestTimeout   time.Duration // request timeout
+	LoginTimeout     time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
+	RequestTimeout   time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
 	JWTExpireTimeout time.Duration // JWT expire after timeout
 
 	Application  string // application name.
