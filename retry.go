@@ -24,28 +24,28 @@ func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
-const retryKey string = "request_guid"
+const requestGUIDKey string = "request_guid"
 
 // Format of "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 const uuidLen int = 36
 
 // This class takes in an url during construction and replace the
-// value of request_guid every time the replaceRetryID() is called
+// value of request_guid every time the replace() is called
 // When the url does not contain request_guid, just return the original
 // url
-type retryIDReplacerI interface {
+type requestGUIDReplacerI interface {
 	// replace the url with new ID
-	replaceRetryID() string
+	replace() string
 }
 
-// Make retryIDReplacer given a url string
-func makeRetryIDReplacer(url string) retryIDReplacerI {
-	startIndex := strings.Index(url, retryKey)
+// Make requestGUIDReplacer given a url string
+func makeRequestGUIDReplacer(url string) requestGUIDReplacerI {
+	startIndex := strings.Index(url, requestGUIDKey)
 	if startIndex == -1 {
 		return &transientReplacer{url}
 	}
-	replacer := &retryIDReplacer{}
-	startIndex += len(retryKey) + 1
+	replacer := &requestGUIDReplacer{}
+	startIndex += len(requestGUIDKey) + 1
 	replacer.prefix = url[:startIndex]
 
 	startIndex += uuidLen
@@ -58,25 +58,25 @@ type transientReplacer struct {
 	url string
 }
 
-func (replacer *transientReplacer) replaceRetryID() string {
+func (replacer *transientReplacer) replace() string {
 	return replacer.url
 }
 
 /*
-retryIDReplacer is a one-shot object that is created out of the retry loop and
-called with replaceRetryID to change the retry_guid's value upon every retry
+requestGUIDReplacer is a one-shot object that is created out of the retry loop and
+called with replace to change the retry_guid's value upon every retry
 */
-type retryIDReplacer struct {
+type requestGUIDReplacer struct {
 	// cached prefix and suffix to avoid parsing same url again
 	prefix string
 	suffix string
 }
 
 /**
-This funcition would replace they value of the retryKey in a url with a newly
+This function would replace they value of the requestGUIDKey in a url with a newly
 generated uuid
 */
-func (replacer *retryIDReplacer) replaceRetryID() string {
+func (replacer *requestGUIDReplacer) replace() string {
 	return replacer.prefix + uuid.New().String() + replacer.suffix
 }
 
@@ -132,7 +132,7 @@ func retryHTTP(
 	retryCounter := 0
 	sleepTime := time.Duration(0)
 
-	var rIDReplacer retryIDReplacerI
+	var rIDReplacer requestGUIDReplacerI
 
 	for {
 		req, err := req(method, fullURL, bytes.NewReader(body))
@@ -183,9 +183,9 @@ func retryHTTP(
 		}
 		retryCounter++
 		if rIDReplacer == nil {
-			rIDReplacer = makeRetryIDReplacer(fullURL)
+			rIDReplacer = makeRequestGUIDReplacer(fullURL)
 		}
-		fullURL = rIDReplacer.replaceRetryID()
+		fullURL = rIDReplacer.replace()
 		glog.V(2).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
 		time.Sleep(sleepTime)
 	}

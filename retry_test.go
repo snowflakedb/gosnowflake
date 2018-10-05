@@ -77,17 +77,17 @@ func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return ret, nil
 }
 
-func TestRetryId(t *testing.T) {
-	var ridReplacer retryIDReplacerI
+func TestRequestGUID(t *testing.T) {
+	var ridReplacer requestGUIDReplacerI
 	var testURL string
 	var actualURL string
 	retryTime := 4
 
 	// empty url
 	testURL = ""
-	ridReplacer = makeRetryIDReplacer(testURL)
+	ridReplacer = makeRequestGUIDReplacer(testURL)
 	for i := 0; i < retryTime; i++ {
-		actualURL = ridReplacer.replaceRetryID()
+		actualURL = ridReplacer.replace()
 		if actualURL != "" {
 			t.Fatalf("empty url not replaced by an empty one, got %s", actualURL)
 		}
@@ -95,9 +95,9 @@ func TestRetryId(t *testing.T) {
 
 	// url with on retry id
 	testURL = "/requestId=123-1923-9?param2=value"
-	ridReplacer = makeRetryIDReplacer(testURL)
+	ridReplacer = makeRequestGUIDReplacer(testURL)
 	for i := 0; i < retryTime; i++ {
-		actualURL = ridReplacer.replaceRetryID()
+		actualURL = ridReplacer.replace()
 
 		if actualURL != testURL {
 			t.Fatalf("url without retry id not replaced by origin one, got %s", actualURL)
@@ -106,12 +106,12 @@ func TestRetryId(t *testing.T) {
 
 	// url with retry id
 	// With both prefix and suffix
-	prefix := "/requestId=123-1923-9?" + retryKey + "="
+	prefix := "/requestId=123-1923-9?" + requestGUIDKey + "="
 	suffix := "?param2=value"
 	testURL = prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix
-	ridReplacer = makeRetryIDReplacer(testURL)
+	ridReplacer = makeRequestGUIDReplacer(testURL)
 	for i := 0; i < retryTime; i++ {
-		actualURL = ridReplacer.replaceRetryID()
+		actualURL = ridReplacer.replace()
 		if (!strings.HasPrefix(actualURL, prefix)) ||
 			(!strings.HasSuffix(actualURL, suffix)) ||
 			len(testURL) != len(actualURL) {
@@ -120,12 +120,12 @@ func TestRetryId(t *testing.T) {
 	}
 
 	// With no suffix
-	prefix = "/requestId=123-1923-9?" + retryKey + "="
+	prefix = "/requestId=123-1923-9?" + requestGUIDKey + "="
 	suffix = ""
 	testURL = prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix
-	ridReplacer = makeRetryIDReplacer(testURL)
+	ridReplacer = makeRequestGUIDReplacer(testURL)
 	for i := 0; i < retryTime; i++ {
-		actualURL = ridReplacer.replaceRetryID()
+		actualURL = ridReplacer.replace()
 		if (!strings.HasPrefix(actualURL, prefix)) ||
 			(!strings.HasSuffix(actualURL, suffix)) ||
 			len(testURL) != len(actualURL) {
@@ -134,12 +134,12 @@ func TestRetryId(t *testing.T) {
 
 	}
 	// With no prefix
-	prefix = retryKey + "="
+	prefix = requestGUIDKey + "="
 	suffix = "?param2=value"
 	testURL = prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix
-	ridReplacer = makeRetryIDReplacer(testURL)
+	ridReplacer = makeRequestGUIDReplacer(testURL)
 	for i := 0; i < retryTime; i++ {
-		actualURL = ridReplacer.replaceRetryID()
+		actualURL = ridReplacer.replace()
 		if (!strings.HasPrefix(actualURL, prefix)) ||
 			(!strings.HasSuffix(actualURL, suffix)) ||
 			len(testURL) != len(actualURL) {

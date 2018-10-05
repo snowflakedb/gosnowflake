@@ -116,6 +116,7 @@ func postAuth(
 	timeout time.Duration) (
 	data *authResponse, err error) {
 	params.Add("requestId", uuid.New().String())
+	params.Add(requestGUIDKey, uuid.New().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/session/v1/login-request?"+params.Encode())
