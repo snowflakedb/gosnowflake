@@ -147,6 +147,7 @@ func postRestfulQueryHelper(
 	data *execResponse, err error) {
 	glog.V(2).Infof("params: %v", params)
 	params.Add("requestId", requestID)
+	params.Add(retryKey, uuid.New().String())
 	if sr.Token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 	}
@@ -232,6 +233,7 @@ func closeSession(sr *snowflakeRestful) error {
 	params := &url.Values{}
 	params.Add("delete", "true")
 	params.Add("requestId", uuid.New().String())
+	params.Add(retryKey, uuid.New().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session?"+params.Encode())
 
@@ -287,6 +289,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 	glog.V(2).Info("start renew session")
 	params := &url.Values{}
 	params.Add("requestId", uuid.New().String())
+	params.Add(retryKey, uuid.New().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/session/token-request?"+params.Encode())
 
@@ -354,6 +357,7 @@ func cancelQuery(sr *snowflakeRestful, requestID string) error {
 	glog.V(2).Info("cancel query")
 	params := &url.Values{}
 	params.Add("requestId", uuid.New().String())
+	params.Add(retryKey, uuid.New().String())
 	fullURL := fmt.Sprintf(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port, "/queries/v1/abort-request?"+params.Encode())
 

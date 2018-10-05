@@ -6,9 +6,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"context"
@@ -20,6 +22,62 @@ var random *rand.Rand
 
 func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
+}
+
+const retryKey string = "request_guid"
+
+// Format of "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+const uuidLen int = 36
+
+// This class takes in an url during construction and replace the
+// value of request_guid every time the replaceRetryID() is called
+// When the url does not contain request_guid, just return the original
+// url
+type retryIDReplacerI interface {
+	// replace the url with new ID
+	replaceRetryID() string
+}
+
+// Make retryIDReplacer given a url string
+func makeRetryIDReplacer(url string) retryIDReplacerI {
+	startIndex := strings.Index(url, retryKey)
+	if startIndex == -1 {
+		return &transientReplacer{url}
+	}
+	replacer := &retryIDReplacer{}
+	startIndex += len(retryKey) + 1
+	replacer.prefix = url[:startIndex]
+
+	startIndex += uuidLen
+	replacer.suffix = url[startIndex:]
+	return replacer
+}
+
+// this replacer does nothing but replace the url
+type transientReplacer struct {
+	url string
+}
+
+func (replacer *transientReplacer) replaceRetryID() string {
+	return replacer.url
+}
+
+/*
+retryIDReplacer is a one-shot object that is created out of the retry loop and
+called with replaceRetryID to change the retry_guid's value upon every retry
+*/
+type retryIDReplacer struct {
+	// cached prefix and suffix to avoid parsing same url again
+	prefix string
+	suffix string
+}
+
+/**
+This funcition would replace they value of the retryKey in a url with a newly
+generated uuid
+*/
+func (replacer *retryIDReplacer) replaceRetryID() string {
+	return replacer.prefix + uuid.New().String() + replacer.suffix
 }
 
 type waitAlgo struct {
@@ -68,10 +126,14 @@ func retryHTTP(
 	body []byte,
 	timeout time.Duration,
 	raise4XX bool) (res *http.Response, err error) {
+
 	totalTimeout := timeout
 	glog.V(2).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
 	sleepTime := time.Duration(0)
+
+	var rIDReplacer retryIDReplacerI
+
 	for {
 		req, err := req(method, fullURL, bytes.NewReader(body))
 		if err != nil {
@@ -120,6 +182,10 @@ func retryHTTP(
 			}
 		}
 		retryCounter++
+		if rIDReplacer == nil {
+			rIDReplacer = makeRetryIDReplacer(fullURL)
+		}
+		fullURL = rIDReplacer.replaceRetryID()
 		glog.V(2).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
 		time.Sleep(sleepTime)
 	}
