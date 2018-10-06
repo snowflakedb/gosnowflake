@@ -100,11 +100,6 @@ func getRestful(
 	return retryHTTP(ctx, sr.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout, false)
 }
 
-type execResponseAndErr struct {
-	resp *execResponse
-	err  error
-}
-
 func postRestfulQuery(
 	ctx context.Context,
 	sr *snowflakeRestful,
@@ -115,24 +110,19 @@ func postRestfulQuery(
 	data *execResponse, err error) {
 
 	requestID := uuid.New().String()
-	execResponseChan := make(chan execResponseAndErr)
 
-	go func() {
-		data, err := sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID)
-		execResp := execResponseAndErr{data, err}
-		execResponseChan <- execResp
-		close(execResponseChan)
-	}()
+	data, err = sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID)
 
-	select {
-	case <-ctx.Done():
-		err := sr.FuncCancelQuery(sr, requestID)
-		if err != nil {
-			return nil, err
-		}
+	if err != context.Canceled {
+		return data, err
+	}
+
+	// For cancel cases special cancel need to be sent
+	err = sr.FuncCancelQuery(sr, requestID)
+	if err != nil {
+		return nil, err
+	} else {
 		return nil, ctx.Err()
-	case respAndErr := <-execResponseChan:
-		return respAndErr.resp, respAndErr.err
 	}
 }
 
