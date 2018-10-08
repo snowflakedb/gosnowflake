@@ -114,11 +114,11 @@ func postRestfulQuery(
 	data, err = sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID)
 
 	// errors other than context timeout and cancel would be returned to upper layers
-	if err != context.Canceled || err != context.DeadlineExceeded {
+	if err != context.Canceled && err != context.DeadlineExceeded {
 		return data, err
 	}
 
-	// For cancel cases special cancel need to be sent
+	// For context cancel/timeout cases, special cancel request need to be sent
 	err = sr.FuncCancelQuery(sr, requestID)
 	if err != nil {
 		return nil, err
