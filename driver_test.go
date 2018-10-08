@@ -1529,10 +1529,6 @@ func TestResultNoRows(t *testing.T) {
 	})
 }
 
-/**
-This test is temporary disabled since we are not able to stably pass this test on
-Travis
-*/
 func TestCancelQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		ctx := context.Background()

@@ -158,7 +158,7 @@ func retryHTTP(
 			break
 		}
 
-		// Cancel or Timeout
+		// context cancel or timeout
 		if err != nil {
 			urlError, isURLError := err.(*url.Error)
 			if isURLError &&

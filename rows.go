@@ -328,7 +328,7 @@ func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
 
 	scd.FuncDownloadHelper(scd.ctx, scd, idx)
-	if scd.ctx.Err() == context.Canceled {
+	if scd.ctx.Err() == context.Canceled || scd.ctx.Err() == context.DeadlineExceeded {
 		scd.ChunksError <- &chunkError{Index: idx, Error: scd.ctx.Err()}
 	}
 }
