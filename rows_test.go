@@ -308,6 +308,9 @@ func TestDownloadChunkInvalidResponseBody(t *testing.T) {
 			"dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	scd := &snowflakeChunkDownloader{
+		sc: &snowflakeConn{
+			rest: &snowflakeRestful{RequestTimeout: defaultRequestTimeout},
+		},
 		ctx:                context.Background(),
 		ChunkMetas:         cm,
 		TotalRowIndex:      int64(-1),
@@ -347,6 +350,9 @@ func TestDownloadChunkErrorStatus(t *testing.T) {
 			"dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	scd := &snowflakeChunkDownloader{
+		sc: &snowflakeConn{
+			rest: &snowflakeRestful{RequestTimeout: defaultRequestTimeout},
+		},
 		ctx:                context.Background(),
 		ChunkMetas:         cm,
 		TotalRowIndex:      int64(-1),
