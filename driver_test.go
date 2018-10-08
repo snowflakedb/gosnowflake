@@ -28,7 +28,6 @@ var (
 	rolename         string
 	dsn              string
 	host             string
-	purehost         string
 	port             string
 	protocol         string
 	customPrivateKey bool            // Whether user has specified the private key path
