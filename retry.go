@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"io"
 	"math/rand"
-	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -159,10 +159,11 @@ func retryHTTP(
 		}
 
 		// Cancel or Timeout
-		urlError, isUrlError := err.(net.Error)
-		if err != nil && isUrlError {
-			if urlError.Timeout() {
-				return nil, urlError
+		if err != nil {
+			urlError, isURLError := err.(*url.Error)
+			if isURLError &&
+				(urlError.Err == context.DeadlineExceeded || urlError.Err == context.Canceled) {
+				return res, urlError.Err
 			}
 		}
 

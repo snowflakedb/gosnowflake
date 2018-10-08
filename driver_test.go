@@ -1546,7 +1546,7 @@ func TestCancelQuery(t *testing.T) {
 		}
 
 		if err.Error() != "context deadline exceeded" {
-			dbt.Fatal("Timeout failed")
+			dbt.Fatalf("Timeout error mismatch: expect %v, receive %v", context.DeadlineExceeded, err.Error())
 		}
 	})
 }
