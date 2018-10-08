@@ -353,7 +353,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		headers[headerSseCKey] = scd.Qrmk
 	}
 
-	resp, err := scd.FuncGet(ctx, scd, scd.ChunkMetas[idx].URL, headers, 0)
+	resp, err := scd.FuncGet(ctx, scd, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)
 	if err != nil {
 		raiseDownloadError(scd, idx, err)
 		return

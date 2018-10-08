@@ -375,7 +375,7 @@ func cancelQuery(sr *snowflakeRestful, requestID string) error {
 		return err
 	}
 
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, reqByte, 0, false)
+	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, reqByte, sr.RequestTimeout, false)
 	if err != nil {
 		return err
 	}
