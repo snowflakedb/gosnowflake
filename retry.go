@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -147,8 +148,8 @@ func retryHTTP(
 			req.Header.Set(k, v)
 		}
 		res, err = client.Do(req)
-		if err == nil && res.StatusCode == http.StatusOK || err == context.Canceled {
-			// exit if success or canceled
+		if err == nil && res.StatusCode == http.StatusOK {
+			// exit if success
 			break
 		}
 		if raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 {
@@ -156,6 +157,15 @@ func retryHTTP(
 			// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
 			break
 		}
+
+		// Cancel or Timeout
+		urlError, isUrlError := err.(net.Error)
+		if err != nil && isUrlError {
+			if urlError.Timeout() {
+				return nil, urlError
+			}
+		}
+
 		// cannot just return 4xx and 5xx status as the error can be sporadic. retry often helps.
 		if err != nil {
 			glog.V(2).Infof(

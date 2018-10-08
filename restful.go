@@ -121,9 +121,8 @@ func postRestfulQuery(
 	err = sr.FuncCancelQuery(sr, requestID)
 	if err != nil {
 		return nil, err
-	} else {
-		return nil, ctx.Err()
 	}
+	return nil, ctx.Err()
 }
 
 func postRestfulQueryHelper(

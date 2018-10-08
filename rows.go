@@ -327,17 +327,9 @@ func (r *largeResultSetReader) Read(p []byte) (n int, err error) {
 func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
 
-	execDownloadChan := make(chan struct{})
-
-	go func() {
-		scd.FuncDownloadHelper(scd.ctx, scd, idx)
-		close(execDownloadChan)
-	}()
-
-	select {
-	case <-scd.ctx.Done():
+	scd.FuncDownloadHelper(scd.ctx, scd, idx)
+	if scd.ctx.Err() == context.Canceled {
 		scd.ChunksError <- &chunkError{Index: idx, Error: scd.ctx.Err()}
-	case <-execDownloadChan:
 	}
 }
 
