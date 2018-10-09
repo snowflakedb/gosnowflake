@@ -69,7 +69,7 @@ type snowflakeChunkDownloader struct {
 	ChunkHeader        map[string]string
 	CurrentIndex       int
 	FuncDownload       func(*snowflakeChunkDownloader, int)
-	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int)
+	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
 	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
 	DoneDownloadCond   *sync.Cond
 }
@@ -215,6 +215,7 @@ func (scd *snowflakeChunkDownloader) schedule() {
 func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 	select {
 	case errc := <-scd.ChunksError:
+		// XXX given that HTTP requests are retried automatically, is this strictly necessary?
 		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter && errc.Error != context.Canceled {
 			// add the index to the chunks channel so that the download will be retried.
 			go scd.FuncDownload(scd, errc.Index)
@@ -326,14 +327,19 @@ func (r *largeResultSetReader) Read(p []byte) (n int, err error) {
 
 func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
+	defer scd.DoneDownloadCond.Broadcast()
 
-	scd.FuncDownloadHelper(scd.ctx, scd, idx)
-	if scd.ctx.Err() == context.Canceled || scd.ctx.Err() == context.DeadlineExceeded {
+	if err := scd.FuncDownloadHelper(scd.ctx, scd, idx); err != nil {
+		glog.V(1).Infof(
+			"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
+		glog.Flush()
+		scd.ChunksError <- &chunkError{Index: idx, Error: err}
+	} else if scd.ctx.Err() == context.Canceled || scd.ctx.Err() == context.DeadlineExceeded {
 		scd.ChunksError <- &chunkError{Index: idx, Error: scd.ctx.Err()}
 	}
 }
 
-func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
+func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) error {
 	headers := make(map[string]string)
 	if len(scd.ChunkHeader) > 0 {
 		glog.V(2).Info("chunk header is provided.")
@@ -347,75 +353,60 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 
 	resp, err := scd.FuncGet(ctx, scd, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)
 	if err != nil {
-		raiseDownloadError(scd, idx, err)
-		return
+		return err
 	}
 	defer resp.Body.Close()
 	glog.V(2).Infof("response returned chunk: %v, resp: %v", idx+1, resp)
-	if resp.StatusCode == http.StatusOK {
-		start := time.Now()
-		st := &largeResultSetReader{
-			status: 0,
-			body:   resp.Body,
-		}
-		var respd [][]*string
-		if !CustomJSONDecoderEnabled {
-			dec := json.NewDecoder(st)
-			for {
-				if err := dec.Decode(&respd); err == io.EOF {
-					break
-				} else if err != nil {
-					raiseDownloadError(scd, idx, err)
-					return
-				}
-			}
-		} else {
-			respd, err = decodeLargeChunk(st, scd.ChunkMetas[idx].RowCount, scd.CellCount)
-			if err != nil {
-				raiseDownloadError(scd, idx, err)
-				return
-			}
-		}
-		glog.V(2).Infof(
-			"decoded %d rows w/ %d bytes in %s (chunk %v)",
-			scd.ChunkMetas[idx].RowCount,
-			scd.ChunkMetas[idx].UncompressedSize,
-			time.Since(start), idx+1,
-		)
-
-		scd.ChunksMutex.Lock()
-		defer scd.ChunksMutex.Unlock()
-		scd.Chunks[idx] = respd
-		scd.DoneDownloadCond.Broadcast()
-	} else {
+	if resp.StatusCode != http.StatusOK {
 		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			raiseDownloadError(scd, idx, err)
-			return
+			return err
 		}
 		glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
 		glog.V(1).Infof("Header: %v", resp.Header)
 		glog.Flush()
-		scd.ChunksMutex.Lock()
-		defer scd.ChunksMutex.Unlock()
-		scd.ChunksError <- &chunkError{
-			Index: idx,
-			Error: &SnowflakeError{
-				Number:      ErrFailedToGetChunk,
-				SQLState:    SQLStateConnectionFailure,
-				Message:     errMsgFailedToGetChunk,
-				MessageArgs: []interface{}{idx},
-			}}
-		scd.DoneDownloadCond.Broadcast()
+		return &SnowflakeError{
+			Number:      ErrFailedToGetChunk,
+			SQLState:    SQLStateConnectionFailure,
+			Message:     errMsgFailedToGetChunk,
+			MessageArgs: []interface{}{idx},
+		}
 	}
+
+	return decodeChunkHelper(scd, idx, resp.Body)
 }
 
-func raiseDownloadError(scd *snowflakeChunkDownloader, idx int, err error) {
-	glog.V(1).Infof(
-		"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
-	glog.Flush()
+func decodeChunkHelper(scd *snowflakeChunkDownloader, idx int, body io.ReadCloser) (err error) {
+	start := time.Now()
+	st := &largeResultSetReader{
+		status: 0,
+		body:   body,
+	}
+	var respd [][]*string
+	if !CustomJSONDecoderEnabled {
+		dec := json.NewDecoder(st)
+		for {
+			if err = dec.Decode(&respd); err == io.EOF {
+				break
+			} else if err != nil {
+				return err
+			}
+		}
+	} else {
+		respd, err = decodeLargeChunk(st, scd.ChunkMetas[idx].RowCount, scd.CellCount)
+		if err != nil {
+			return err
+		}
+	}
+	glog.V(2).Infof(
+		"decoded %d rows w/ %d bytes in %s (chunk %v)",
+		scd.ChunkMetas[idx].RowCount,
+		scd.ChunkMetas[idx].UncompressedSize,
+		time.Since(start), idx+1,
+	)
+
 	scd.ChunksMutex.Lock()
 	defer scd.ChunksMutex.Unlock()
-	scd.ChunksError <- &chunkError{Index: idx, Error: err}
-	scd.DoneDownloadCond.Broadcast()
+	scd.Chunks[idx] = respd
+	return nil
 }
