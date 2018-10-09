@@ -100,11 +100,6 @@ func getRestful(
 	return retryHTTP(ctx, sr.Client, http.NewRequest, "GET", fullURL, headers, nil, timeout, false)
 }
 
-type execResponseAndErr struct {
-	resp *execResponse
-	err  error
-}
-
 func postRestfulQuery(
 	ctx context.Context,
 	sr *snowflakeRestful,
@@ -115,25 +110,20 @@ func postRestfulQuery(
 	data *execResponse, err error) {
 
 	requestID := uuid.New().String()
-	execResponseChan := make(chan execResponseAndErr)
 
-	go func() {
-		data, err := sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID)
-		execResp := execResponseAndErr{data, err}
-		execResponseChan <- execResp
-		close(execResponseChan)
-	}()
+	data, err = sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID)
 
-	select {
-	case <-ctx.Done():
-		err := sr.FuncCancelQuery(sr, requestID)
-		if err != nil {
-			return nil, err
-		}
-		return nil, ctx.Err()
-	case respAndErr := <-execResponseChan:
-		return respAndErr.resp, respAndErr.err
+	// errors other than context timeout and cancel would be returned to upper layers
+	if err != context.Canceled && err != context.DeadlineExceeded {
+		return data, err
 	}
+
+	// For context cancel/timeout cases, special cancel request need to be sent
+	err = sr.FuncCancelQuery(sr, requestID)
+	if err != nil {
+		return nil, err
+	}
+	return nil, ctx.Err()
 }
 
 func postRestfulQueryHelper(

@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	defaultClientTimeout  = 60 * time.Second // Timeout for network round trip + read out http response
-	defaultLoginTimeout   = 60 * time.Second // Timeout for retry for login EXCLUDING clientTimeout
-	defaultRequestTimeout = 0 * time.Second  // Timeout for retry for request EXCLUDING clientTimeout
+	defaultClientTimeout  = 900 * time.Second // Timeout for network round trip + read out http response
+	defaultLoginTimeout   = 60 * time.Second  // Timeout for retry for login EXCLUDING clientTimeout
+	defaultRequestTimeout = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout     = 60 * time.Second
 	defaultAuthenticator  = "snowflake"
 	defaultDomain         = ".snowflakecomputing.com"

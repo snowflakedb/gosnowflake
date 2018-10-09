@@ -1529,24 +1529,20 @@ func TestResultNoRows(t *testing.T) {
 	})
 }
 
-/**
-This test is temporary disabled since we are not able to stably pass this test on
-Travis
-*/
-func testCancelQuery(t *testing.T) {
+func TestCancelQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		ctx := context.Background()
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 
-		_, err := dbt.db.QueryContext(ctx, "SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 10))")
+		_, err := dbt.db.QueryContext(ctx, "SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 100))")
 
 		if err == nil {
 			dbt.Fatal("No timeout error returned")
 		}
 
 		if err.Error() != "context deadline exceeded" {
-			dbt.Fatal("Timeout failed")
+			dbt.Fatalf("Timeout error mismatch: expect %v, receive %v", context.DeadlineExceeded, err.Error())
 		}
 	})
 }
@@ -1690,7 +1686,7 @@ func TestTimezoneSessionParameter(t *testing.T) {
 	createDSN("UTC")
 }
 
-func testLargeSetResultCancel(t *testing.T) {
+func TestLargeSetResultCancel(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx := context.Background()
