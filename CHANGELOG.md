@@ -1,3 +1,8 @@
+## Version 1.1.13
+- User configurable Retry timeout for downloading (@mhseiden)
+- Implement retry-uuid in the url (@ChTimTsubasa)
+- Remove unnecessary go routine and fix context cancel/timeout handling (@ChTimTsubasa)
+
 ## Version 1.1.12
 - Allow users to customize their glog through different vendoring. (@ChTimTsubasa)
 - Doc improvment for region parameter description (@smtakeda)
