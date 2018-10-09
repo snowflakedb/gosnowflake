@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -170,11 +171,13 @@ func (sc *snowflakeConn) Close() (err error) {
 	sc.stopHeartBeat()
 
 	// ensure transaction is rollbacked
-	_, err = sc.exec(context.Background(), "ROLLBACK", false, false, nil)
+	ctx := context.TODO()
+	_, err = sc.exec(ctx, "ROLLBACK", false, false, nil)
 	if err != nil {
 		glog.V(2).Info(err)
 	}
-	err = sc.rest.FuncCloseSession(sc.rest)
+
+	err = sc.rest.FuncCloseSession(ctx, sc.rest, 5*time.Second)
 	if err != nil {
 		glog.V(2).Info(err)
 	}

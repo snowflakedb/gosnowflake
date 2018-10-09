@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2016-2018 Snowflake Computing Inc. All right reserved.
 // +build go1.10
 
 package gosnowflake
@@ -7,6 +7,7 @@ package gosnowflake
 // Golang version 1.10 or upper
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"testing"
@@ -26,7 +27,7 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 	sc.rest = sr
 
 	// A valid JWT token should pass
-	_, err = authenticate(sc, []byte{}, []byte{})
+	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -34,7 +35,7 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 	// An invalid JWT token should not pass
 	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	sc.cfg.PrivateKey = invalidPrivateKey
-	_, err = authenticate(sc, []byte{}, []byte{})
+	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatalf("invalid token passed")
 	}
