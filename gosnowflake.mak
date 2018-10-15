@@ -4,7 +4,7 @@ SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
 setup:
 	go get -u github.com/golang/dep/cmd/dep
-	go get github.com/golang/lint/golint
+	go get golang.org/x/lint/golint
 	go get github.com/Songmu/make2help/cmd/make2help
 	[[ $$(go version | awk '{print $3}' | cut -d'.' -f 2) != "8" ]] && go get honnef.co/go/tools/cmd/megacheck || true
 
