@@ -109,6 +109,7 @@ type authResponse struct {
 }
 
 func postAuth(
+	ctx context.Context,
 	sr *snowflakeRestful,
 	params *url.Values,
 	headers map[string]string,
@@ -121,7 +122,7 @@ func postAuth(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/session/v1/login-request?"+params.Encode())
 	glog.V(2).Infof("full URL: %v", fullURL)
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout, true)
+	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, true)
 	if err != nil {
 		return nil, err
 	}
@@ -183,6 +184,7 @@ func getHeaders() map[string]string {
 
 // Used to authenticate the user with Snowflake.
 func authenticate(
+	ctx context.Context,
 	sc *snowflakeConn,
 	samlResponse []byte,
 	proofKey []byte,
@@ -271,7 +273,7 @@ func authenticate(
 	glog.V(2).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
 		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.rest.Authenticator)
 
-	respd, err := sc.rest.FuncPostAuth(sc.rest, params, headers, jsonBody, sc.rest.LoginTimeout)
+	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, params, headers, jsonBody, sc.rest.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}

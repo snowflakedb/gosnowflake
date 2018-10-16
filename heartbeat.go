@@ -66,7 +66,7 @@ func (hc *heartbeat) heartbeatMain() error {
 	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, hc.restful.Token)
 
-	resp, err := hc.restful.FuncPost(context.TODO(), hc.restful, fullURL, headers, nil, hc.restful.RequestTimeout, false)
+	resp, err := hc.restful.FuncPost(context.Background(), hc.restful, fullURL, headers, nil, hc.restful.RequestTimeout, false)
 	if err != nil {
 		return err
 	}

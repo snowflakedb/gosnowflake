@@ -68,7 +68,7 @@ type snowflakeChunkDownloader struct {
 	Qrmk               string
 	ChunkHeader        map[string]string
 	CurrentIndex       int
-	FuncDownload       func(*snowflakeChunkDownloader, int)
+	FuncDownload       func(context.Context, *snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
 	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
 	DoneDownloadCond   *sync.Cond
@@ -205,7 +205,7 @@ func (scd *snowflakeChunkDownloader) schedule() {
 	select {
 	case nextIdx := <-scd.ChunksChan:
 		glog.V(2).Infof("schedule chunk: %v", nextIdx+1)
-		go scd.FuncDownload(scd, nextIdx)
+		go scd.FuncDownload(scd.ctx, scd, nextIdx)
 	default:
 		// no more download
 		glog.V(2).Info("no more download")
@@ -218,7 +218,7 @@ func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 		// XXX given that HTTP requests are retried automatically, is this strictly necessary?
 		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter && errc.Error != context.Canceled {
 			// add the index to the chunks channel so that the download will be retried.
-			go scd.FuncDownload(scd, errc.Index)
+			go scd.FuncDownload(scd.ctx, scd, errc.Index)
 			scd.ChunksErrorCounter++
 			glog.V(2).Infof("chunk idx: %v, err: %v. retrying (%v/%v)...",
 				errc.Index, errc.Error, scd.ChunksErrorCounter, maxChunkDownloaderErrorCounter)
@@ -325,11 +325,11 @@ func (r *largeResultSetReader) Read(p []byte) (n int, err error) {
 	return 0, io.EOF
 }
 
-func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
+func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
 	defer scd.DoneDownloadCond.Broadcast()
 
-	if err := scd.FuncDownloadHelper(scd.ctx, scd, idx); err != nil {
+	if err := scd.FuncDownloadHelper(ctx, scd, idx); err != nil {
 		glog.V(1).Infof(
 			"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
 		glog.Flush()

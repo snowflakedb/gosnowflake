@@ -68,7 +68,7 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 
 }
 
-func downloadChunkTest(scd *snowflakeChunkDownloader, idx int) {
+func downloadChunkTest(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
 	d := make([][]*string, 0)
 	for i := 0; i < rowsInChunk; i++ {
 		v1 := fmt.Sprintf("%v", idx*1000+i)
@@ -138,7 +138,7 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 	glog.V(2).Info("END TESTS")
 }
 
-func downloadChunkTestError(scd *snowflakeChunkDownloader, idx int) {
+func downloadChunkTestError(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
 	// fail to download 6th and 10th chunk, and retry up to N times and success
 	// NOTE: zero based index
 	scd.ChunksMutex.Lock()
@@ -218,7 +218,7 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 	glog.V(2).Info("END TESTS")
 }
 
-func downloadChunkTestErrorFail(scd *snowflakeChunkDownloader, idx int) {
+func downloadChunkTestErrorFail(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
 	// fail to download 6th and 10th chunk, and retry up to N times and fail
 	// NOTE: zero based index
 	scd.ChunksMutex.Lock()
@@ -323,7 +323,7 @@ func TestDownloadChunkInvalidResponseBody(t *testing.T) {
 	scd.DoneDownloadCond = sync.NewCond(scd.ChunksMutex)
 	scd.Chunks = make(map[int][][]*string)
 	scd.ChunksError = make(chan *chunkError, 1)
-	scd.FuncDownload(scd, 1)
+	scd.FuncDownload(scd.ctx, scd, 1)
 	select {
 	case errc := <-scd.ChunksError:
 		if errc.Index != 1 {
@@ -365,7 +365,7 @@ func TestDownloadChunkErrorStatus(t *testing.T) {
 	scd.DoneDownloadCond = sync.NewCond(scd.ChunksMutex)
 	scd.Chunks = make(map[int][][]*string)
 	scd.ChunksError = make(chan *chunkError, 1)
-	scd.FuncDownload(scd, 1)
+	scd.FuncDownload(scd.ctx, scd, 1)
 	select {
 	case errc := <-scd.ChunksError:
 		if errc.Index != 1 {

@@ -47,13 +47,13 @@ type snowflakeRestful struct {
 	FuncPost            func(context.Context, *snowflakeRestful, string, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
 	FuncGet             func(context.Context, *snowflakeRestful, string, map[string]string, time.Duration) (*http.Response, error)
 	FuncRenewSession    func(context.Context, *snowflakeRestful) error
-	FuncPostAuth        func(*snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration) (*authResponse, error)
-	FuncCloseSession    func(*snowflakeRestful) error
-	FuncCancelQuery     func(*snowflakeRestful, string) error
+	FuncPostAuth        func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration) (*authResponse, error)
+	FuncCloseSession    func(context.Context, *snowflakeRestful) error
+	FuncCancelQuery     func(context.Context, *snowflakeRestful, string) error
 
-	FuncPostAuthSAML func(*snowflakeRestful, map[string]string, []byte, time.Duration) (*authResponse, error)
-	FuncPostAuthOKTA func(*snowflakeRestful, map[string]string, []byte, string, time.Duration) (*authOKTAResponse, error)
-	FuncGetSSO       func(*snowflakeRestful, *url.Values, map[string]string, string, time.Duration) ([]byte, error)
+	FuncPostAuthSAML func(context.Context, *snowflakeRestful, map[string]string, []byte, time.Duration) (*authResponse, error)
+	FuncPostAuthOKTA func(context.Context, *snowflakeRestful, map[string]string, []byte, string, time.Duration) (*authOKTAResponse, error)
+	FuncGetSSO       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, string, time.Duration) ([]byte, error)
 }
 
 type renewSessionResponse struct {
@@ -110,16 +110,14 @@ func postRestfulQuery(
 	data *execResponse, err error) {
 
 	requestID := uuid.New().String()
-
 	data, err = sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID)
 
-	// errors other than context timeout and cancel would be returned to upper layers
 	if err != context.Canceled && err != context.DeadlineExceeded {
 		return data, err
 	}
 
-	// For context cancel/timeout cases, special cancel request need to be sent
-	err = sr.FuncCancelQuery(sr, requestID)
+	// TODO this should not block the caller
+	err = sr.FuncCancelQuery(context.TODO(), sr, requestID)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +216,10 @@ func postRestfulQueryHelper(
 	}
 }
 
-func closeSession(sr *snowflakeRestful) error {
+func closeSession(
+	ctx context.Context,
+	sr *snowflakeRestful,
+) error {
 	glog.V(2).Info("close session")
 	params := &url.Values{}
 	params.Add("delete", "true")
@@ -233,7 +234,7 @@ func closeSession(sr *snowflakeRestful) error {
 	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, nil, 5*time.Second, false)
+	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, nil, 5*time.Second, false)
 	if err != nil {
 		return err
 	}
@@ -343,7 +344,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful) error {
 	}
 }
 
-func cancelQuery(sr *snowflakeRestful, requestID string) error {
+func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID string) error {
 	glog.V(2).Info("cancel query")
 	params := &url.Values{}
 	params.Add("requestId", uuid.New().String())
@@ -365,7 +366,7 @@ func cancelQuery(sr *snowflakeRestful, requestID string) error {
 		return err
 	}
 
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, reqByte, sr.RequestTimeout, false)
+	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, reqByte, sr.RequestTimeout, false)
 	if err != nil {
 		return err
 	}
@@ -379,11 +380,11 @@ func cancelQuery(sr *snowflakeRestful, requestID string) error {
 			return err
 		}
 		if !respd.Success && respd.Code == sessionExpiredCode {
-			err := sr.FuncRenewSession(context.TODO(), sr)
+			err := sr.FuncRenewSession(ctx, sr)
 			if err != nil {
 				return err
 			}
-			return sr.FuncCancelQuery(sr, requestID)
+			return sr.FuncCancelQuery(ctx, sr, requestID)
 		} else if respd.Success {
 			return nil
 		} else {

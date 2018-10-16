@@ -51,6 +51,7 @@ Explanation:
 	another SP.
 */
 func authenticateBySAML(
+	ctx context.Context,
 	sr *snowflakeRestful,
 	authenticator string,
 	application string,
@@ -85,7 +86,7 @@ func authenticateBySAML(
 		return nil, err
 	}
 	glog.V(2).Infof("PARAMS for Auth: %v, %v", params, sr)
-	respd, err := sr.FuncPostAuthSAML(sr, headers, jsonBody, sr.LoginTimeout)
+	respd, err := sr.FuncPostAuthSAML(ctx, sr, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +131,7 @@ func authenticateBySAML(
 	if err != nil {
 		return nil, err
 	}
-	respa, err := sr.FuncPostAuthOKTA(sr, headers, jsonBody, respd.Data.TokenURL, sr.LoginTimeout)
+	respa, err := sr.FuncPostAuthOKTA(ctx, sr, headers, jsonBody, respd.Data.TokenURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +143,7 @@ func authenticateBySAML(
 
 	headers = make(map[string]string)
 	headers["accept"] = "*/*"
-	bd, err := sr.FuncGetSSO(sr, params, headers, respd.Data.SSOURL, sr.LoginTimeout)
+	bd, err := sr.FuncGetSSO(ctx, sr, params, headers, respd.Data.SSOURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +211,7 @@ func isPrefixEqual(url1 string, url2 string) (bool, error) {
 // Makes a request to /session/authenticator-request to get SAML Information,
 // such as the IDP Url and Proof Key, depending on the authenticator
 func postAuthSAML(
+	ctx context.Context,
 	sr *snowflakeRestful,
 	headers map[string]string,
 	body []byte,
@@ -220,7 +222,7 @@ func postAuthSAML(
 		"%s://%s:%d%s", sr.Protocol, sr.Host, sr.Port,
 		"/session/authenticator-request?"+requestID)
 	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout, true)
+	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, true)
 	if err != nil {
 		return nil, err
 	}
@@ -270,6 +272,7 @@ func postAuthSAML(
 }
 
 func postAuthOKTA(
+	ctx context.Context,
 	sr *snowflakeRestful,
 	headers map[string]string,
 	body []byte,
@@ -277,7 +280,7 @@ func postAuthOKTA(
 	timeout time.Duration) (
 	data *authOKTAResponse, err error) {
 	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.FuncPost(context.TODO(), sr, fullURL, headers, body, timeout, false)
+	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, false)
 	if err != nil {
 		return nil, err
 	}
@@ -311,6 +314,7 @@ func postAuthOKTA(
 }
 
 func getSSO(
+	ctx context.Context,
 	sr *snowflakeRestful,
 	params *url.Values,
 	headers map[string]string,
@@ -319,7 +323,7 @@ func getSSO(
 	bd []byte, err error) {
 	fullURL := fmt.Sprintf("%s?%s", url, params.Encode())
 	glog.V(2).Infof("fullURL: %v", fullURL)
-	resp, err := sr.FuncGet(context.TODO(), sr, fullURL, headers, timeout)
+	resp, err := sr.FuncGet(ctx, sr, fullURL, headers, timeout)
 	if err != nil {
 		return nil, err
 	}

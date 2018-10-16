@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
@@ -265,6 +266,7 @@ func TestOCSPRetry(t *testing.T) {
 		body:    []byte{1, 2, 3},
 	}
 	res, b, st := retryOCSP(
+		context.TODO(),
 		client, fakeRequestFunc,
 		"dummyOCSPHost",
 		make(map[string]string), []byte{0}, certs[len(certs)-1], 20*time.Second, 10*time.Second)
@@ -277,6 +279,7 @@ func TestOCSPRetry(t *testing.T) {
 		body:    []byte{1, 2, 3},
 	}
 	res, b, st = retryOCSP(
+		context.TODO(),
 		client, fakeRequestFunc,
 		"dummyOCSPHost",
 		make(map[string]string), []byte{0}, certs[len(certs)-1], 10*time.Second, 5*time.Second)
