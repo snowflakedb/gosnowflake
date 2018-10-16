@@ -35,6 +35,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// authenticate
 	sc.rest = &snowflakeRestful{
 		Host:     sc.cfg.Host,
