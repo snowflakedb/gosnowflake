@@ -1,3 +1,8 @@
+## Version 1.1.14
+- Disable tests for golang 1.8 (@ChTimTsubasa)
+- Follow lint's new include path (@ChTimTsubasa)
+- Do not sleep through a context timeout(@mhseiden)
+
 ## Version 1.1.13
 - User configurable Retry timeout for downloading (@mhseiden)
 - Implement retry-uuid in the url (@ChTimTsubasa)
