@@ -26,7 +26,7 @@ Go
 
 The driver requires the `Go language <https://golang.org/>`_ 1.8 or higher. The supported operating systems are Linux, Mac OS, and Windows, but you may run the driver on other platforms if the Go language works correctly on those platforms.
 
-Note: The `Go language <https://golang.org/>`_ 1.8 will no longer be supported from Nov 5th, 2018 since `Go lint <http://github.com/golang/lint>`_ already dropped their support for 1.8.
+Note: The `Go language <https://golang.org/>`_ 1.8 and 1.9 will no longer be supported from Nov 5th, 2018 since `Go lint <http://github.com/golang/lint>`_ already dropped their support for 1.8, and we decided to follow the Go `Release Policy <https://golang.org/doc/devel/release.html#policy>`.
 
 Installation
 ================================================================================
