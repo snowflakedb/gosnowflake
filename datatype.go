@@ -93,6 +93,7 @@ type SnowflakeParameter struct {
 	SetByThreadName  string
 	SetByClass       string
 	ParameterComment string
+	Unknown          string // Reserve for added parameter
 }
 
 func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface{} {
@@ -123,6 +124,7 @@ func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface
 		return &p.ParameterComment
 	default:
 		debugPanicf("unknown type: %v", colname)
+		return &p.Unknown
 	}
 }
 
