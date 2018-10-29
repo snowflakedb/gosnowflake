@@ -122,7 +122,7 @@ func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface
 	case "parameter_comment":
 		return &p.ParameterComment
 	default:
-		panic("unknown type " + colname)
+		debugPanicf("unknown type: %v", colname)
 	}
 }
 
