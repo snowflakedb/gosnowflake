@@ -93,6 +93,7 @@ type SnowflakeParameter struct {
 	SetByThreadName  string
 	SetByClass       string
 	ParameterComment string
+	Type             string
 	Unknown          string // Reserve for added parameter
 }
 
@@ -122,6 +123,8 @@ func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface
 		return &p.SetByClass
 	case "parameter_comment":
 		return &p.ParameterComment
+	case "type":
+		return &p.Type
 	default:
 		debugPanicf("unknown type: %v", colname)
 		return &p.Unknown
