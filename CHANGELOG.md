@@ -1,3 +1,8 @@
+## Version 1.1.15
+- Perform check on error for pingpong response (@ChTimTsubasa)
+- Add new 1.11.x for testing (@ChTimTsubasa)
+- Handle extra snowflake parameter 'type'(@ChTimTsubasa)
+
 ## Version 1.1.14
 - Disable tests for golang 1.8 (@ChTimTsubasa)
 - Follow lint's new include path (@ChTimTsubasa)
@@ -31,7 +36,7 @@
 
 ## Version 1.1.8
 
-- Removed username restrition for oAuth
+- Removed username restriction for oAuth
 
 ## Version 1.1.7
 
