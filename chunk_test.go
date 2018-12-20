@@ -101,6 +101,26 @@ func TestSmallBufferChunkData(t *testing.T) {
 	}
 }
 
+func TestEnsureBytes(t *testing.T) {
+	// the content here doesn't matter
+	r := strings.NewReader("0123456789")
+
+	lcd := largeChunkDecoder{
+		r, 0, 0,
+		3, 8189,
+		make([]byte, 8192),
+		bytes.NewBuffer(make([]byte, defaultStringBufferSize)),
+		nil,
+	}
+
+	lcd.ensureBytes(4)
+
+	// we expect the new remainder to be 3 + 10 (length of r)
+	if lcd.rem != 13 {
+		t.Fatalf("buffer was not refilled correctly")
+	}
+}
+
 func testDecodeOk(t *testing.T, s string) {
 	var rows [][]*string
 	if err := json.Unmarshal([]byte(s), &rows); err != nil {
