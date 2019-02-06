@@ -86,6 +86,27 @@ func TestValueToString(t *testing.T) {
 	if err == nil {
 		t.Errorf("should raise error: %v", v)
 	}
+
+	// both localTime and utcTime should yield the same unix timestamp
+	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
+	utcTime := time.Date(2019, 2, 6, 22, 17, 31, 123456789, time.UTC)
+	expectedUnixTime := "1549491451123456789" // time.Unix(1549491451, 123456789).Format(time.RFC3339) == "2019-02-06T14:17:31-08:00"
+
+	if s, err := valueToString(localTime, "TIMESTAMP_LTZ"); err != nil {
+		t.Error("unexpected error")
+	} else if s == nil {
+		t.Errorf("expected '%v', got %v", expectedUnixTime, s)
+	} else if *s != expectedUnixTime {
+		t.Errorf("expected '%v', got '%v'", expectedUnixTime, *s)
+	}
+
+	if s, err := valueToString(utcTime, "TIMESTAMP_LTZ"); err != nil {
+		t.Error("unexpected error")
+	} else if s == nil {
+		t.Errorf("expected '%v', got %v", expectedUnixTime, s)
+	} else if *s != expectedUnixTime {
+		t.Errorf("expected '%v', got '%v'", expectedUnixTime, *s)
+	}
 }
 
 func TestExtractTimestamp(t *testing.T) {
@@ -146,6 +167,14 @@ func TestStringToValue(t *testing.T) {
 				t.Errorf("should raise error. type: %v, value:%v", tt, source)
 			}
 		}
+	}
 
+	src := "1549491451.123456789"
+	if err = stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if ts, ok := dest.(time.Time); !ok {
+		t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
+	} else if ts.UnixNano() != 1549491451123456789 {
+		t.Errorf("expected unix timestamp: 1549491451123456789, got %v", ts.UnixNano())
 	}
 }
