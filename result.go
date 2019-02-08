@@ -24,6 +24,7 @@ type SnowflakeResult interface {
 type snowflakeResult struct {
 	affectedRows int64
 	insertID     int64 // Snowflake doesn't support last insert id
+	execResp     *execResponse
 	queryID      string
 	status       queryStatus
 	err          error
