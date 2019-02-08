@@ -328,6 +328,7 @@ func (sc *snowflakeConn) ExecContext(
 		logger.WithContext(ctx).Debugf("number of updated rows: %#v", updatedRows)
 		return &snowflakeResult{
 			affectedRows: updatedRows,
+			execResp:     data,
 			insertID:     -1,
 			queryID:      data.Data.QueryID,
 		}, nil // last insert id is not supported by Snowflake
@@ -399,6 +400,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	}
 
 	rows := new(snowflakeRows)
+	rows.execResp = data
 	rows.sc = sc
 	rows.queryID = data.Data.QueryID
 
