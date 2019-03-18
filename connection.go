@@ -27,11 +27,12 @@ const (
 )
 
 type snowflakeConn struct {
-	cfg            *Config
-	rest           *snowflakeRestful
-	SequeceCounter uint64
-	QueryID        string
-	SQLState       string
+	cfg             *Config
+	rest            *snowflakeRestful
+	SequenceCounter uint64
+	ServiceName     string
+	QueryID         string
+	SQLState        string
 }
 
 // isDml returns true if the statement type code is in the range of DML.
@@ -49,7 +50,7 @@ func (sc *snowflakeConn) exec(
 	ctx context.Context,
 	query string, noResult bool, isInternal bool, parameters []driver.NamedValue) (*execResponse, error) {
 	var err error
-	counter := atomic.AddUint64(&sc.SequeceCounter, 1) // query sequence counter
+	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
 
 	req := execRequest{
 		SQLText:    query,

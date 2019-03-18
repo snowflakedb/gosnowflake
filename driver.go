@@ -17,7 +17,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	glog.V(2).Info("Open")
 	var err error
 	sc := &snowflakeConn{
-		SequeceCounter: 0,
+		SequenceCounter: 0,
 	}
 	sc.cfg, err = ParseDSN(dsn)
 	if err != nil {
