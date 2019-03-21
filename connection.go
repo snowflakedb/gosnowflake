@@ -24,13 +24,13 @@ const (
 
 const (
 	sessionClientSessionKeepAlive = "client_session_keep_alive"
+	serviceName                   = "service_name"
 )
 
 type snowflakeConn struct {
 	cfg             *Config
 	rest            *snowflakeRestful
 	SequenceCounter uint64
-	ServiceName     string
 	QueryID         string
 	SQLState        string
 }
@@ -89,6 +89,9 @@ func (sc *snowflakeConn) exec(
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake // TODO v1.1: change to JSON in case of PUT/GET
 	headers["User-Agent"] = userAgent
+	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
+		headers["X-Snowflake-Service"] = *serviceName
+	}
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
