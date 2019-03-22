@@ -942,7 +942,7 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 			str,
 		)
 	case time.Time:
-		if val == tt.t {
+		if val.UnixNano() == tt.t.UnixNano() {
 			return
 		}
 		t.Logf("source:%v, expected: %v, got:%v", tt.s, tt.t, val)
@@ -1055,6 +1055,10 @@ func TestTimestampLTZ(t *testing.T) {
 	format := "2006-01-02 15:04:05.999999999"
 	// Set session time zone in Los Angeles, same as machine
 	createDSN("America/Los_Angeles")
+	location, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Error(err)
+	}
 	testcases := []tcDateTimeTimestamp{
 		{
 			dbtype:  "TIMESTAMP_LTZ(9)",
@@ -1062,27 +1066,27 @@ func TestTimestampLTZ(t *testing.T) {
 			tests: []timeTest{
 				{
 					s: "2016-12-30 05:02:03",
-					t: time.Date(2016, 12, 30, 5, 2, 3, 0, time.Local),
+					t: time.Date(2016, 12, 30, 5, 2, 3, 0, location),
 				},
 				{
 					s: "2016-12-30 05:02:03 -00:00",
-					t: time.Date(2016, 12, 29, 21, 2, 3, 0, time.Local),
+					t: time.Date(2016, 12, 30, 5, 2, 3, 0, time.UTC),
 				},
 				{
 					s: "2017-05-12 00:51:42",
-					t: time.Date(2017, 5, 12, 0, 51, 42, 0, time.Local),
+					t: time.Date(2017, 5, 12, 0, 51, 42, 0, location),
 				},
 				{
 					s: "2017-03-12 01:00:00",
-					t: time.Date(2017, 3, 12, 1, 0, 0, 0, time.Local),
+					t: time.Date(2017, 3, 12, 1, 0, 0, 0, location),
 				},
 				{
 					s: "2017-03-13 04:00:00",
-					t: time.Date(2017, 3, 13, 4, 0, 0, 0, time.Local),
+					t: time.Date(2017, 3, 13, 4, 0, 0, 0, location),
 				},
 				{
 					s: "2017-03-13 04:00:00.123456789",
-					t: time.Date(2017, 3, 13, 4, 0, 0, 123456789, time.Local),
+					t: time.Date(2017, 3, 13, 4, 0, 0, 123456789, location),
 				},
 			},
 		},
@@ -1092,7 +1096,7 @@ func TestTimestampLTZ(t *testing.T) {
 			tests: []timeTest{
 				{
 					s: "2017-03-13 04:00:00.123456789",
-					t: time.Date(2017, 3, 13, 4, 0, 0, 123456780, time.Local),
+					t: time.Date(2017, 3, 13, 4, 0, 0, 123456780, location),
 				},
 			},
 		},
