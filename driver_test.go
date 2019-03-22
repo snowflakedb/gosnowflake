@@ -576,6 +576,7 @@ func TestUint64Placeholder(t *testing.T) {
 }
 
 func TestDateTimeTimestampPlaceholder(t *testing.T) {
+	createDSN("America/Los_Angeles")
 	runTests(t, dsn, func(dbt *DBTest) {
 		expected := time.Now()
 		dbt.mustExec(
@@ -642,6 +643,8 @@ func TestDateTimeTimestampPlaceholder(t *testing.T) {
 		}
 		dbt.mustExec("DROP TABLE tztest")
 	})
+
+	createDSN("UTC")
 }
 
 func TestBinaryPlaceholder(t *testing.T) {
@@ -1050,6 +1053,8 @@ func TestDateTime(t *testing.T) {
 
 func TestTimestampLTZ(t *testing.T) {
 	format := "2006-01-02 15:04:05.999999999"
+	// Set session time zone in Los Angeles, same as machine
+	createDSN("America/Los_Angeles")
 	testcases := []tcDateTimeTimestamp{
 		{
 			dbtype:  "TIMESTAMP_LTZ(9)",
@@ -1058,6 +1063,10 @@ func TestTimestampLTZ(t *testing.T) {
 				{
 					s: "2016-12-30 05:02:03",
 					t: time.Date(2016, 12, 30, 5, 2, 3, 0, time.Local),
+				},
+				{
+					s: "2016-12-30 05:02:03 -00:00",
+					t: time.Date(2016, 12, 29, 21, 2, 3, 0, time.Local),
 				},
 				{
 					s: "2017-05-12 00:51:42",
@@ -1099,6 +1108,8 @@ func TestTimestampLTZ(t *testing.T) {
 			}
 		}
 	})
+	// Revert timezone to UTC, which is default for the test suit
+	createDSN("UTC")
 }
 
 func TestTimestampTZ(t *testing.T) {
