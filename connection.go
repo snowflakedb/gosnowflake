@@ -396,22 +396,29 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 		return data.Data.AsyncRows, nil
 	}
 
+	downloadResults := true
+	if strings.HasPrefix(query, "/*NODOWNLOAD*/") {
+		downloadResults = false
+	}
+
 	rows := new(snowflakeRows)
 	rows.execResp = data
 	rows.sc = sc
 	rows.queryID = sc.QueryID
 
-	if sc.isMultiStmt(&data.Data) {
-		// handleMultiQuery is responsible to fill rows with childResults
-		err := sc.handleMultiQuery(ctx, data.Data, rows)
-		if err != nil {
-			return nil, err
+	if downloadResults {
+		if sc.isMultiStmt(&data.Data) {
+			// handleMultiQuery is responsible to fill rows with childResults
+			err := sc.handleMultiQuery(ctx, data.Data, rows)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			rows.addDownloader(populateChunkDownloader(ctx, sc, data.Data))
 		}
-	} else {
-		rows.addDownloader(populateChunkDownloader(ctx, sc, data.Data))
+		rows.ChunkDownloader.start()
 	}
 
-	rows.ChunkDownloader.start()
 	return rows, err
 }
 
