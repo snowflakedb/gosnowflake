@@ -16,3 +16,12 @@ func (sr *snowflakeRows) GetExecResponse() *ExecResponse {
 func (sr *snowflakeResult) GetExecResponse() *ExecResponse {
 	return sr.execResp
 }
+
+// Setter methods for unit testing
+func (sr *snowflakeRows) SetExecResponse(er *ExecResponse) {
+	sr.execResp = er
+}
+
+func (sr *snowflakeResult) SetExecResponse(er *ExecResponse) {
+	sr.execResp = er
+}
