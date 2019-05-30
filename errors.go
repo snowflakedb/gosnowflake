@@ -107,6 +107,8 @@ const (
 	ErrInvalidBinaryHexForm = 268002
 
 	/* GS error code */
+
+	// ErrSessionGone is an GS error code for the case that session is already closed
 	ErrSessionGone = 390111
 )
 
