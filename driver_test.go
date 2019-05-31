@@ -361,6 +361,45 @@ func TestEmptyQuery(t *testing.T) {
 	})
 }
 
+func txnLeftForCurrentUser(dsn string, t *testing.T) bool {
+	monitorConn, err := sql.Open("snowflake", dsn)
+	if err != nil {
+		t.Fatalf("error connecting: %s", err.Error())
+	}
+	defer monitorConn.Close()
+
+	rows, err := monitorConn.Query("SHOW TRANSACTIONS")
+	if err != nil {
+		t.Fatalf("error fetching transaction: %s", err.Error())
+	}
+	defer rows.Close()
+	return rows.Next()
+}
+
+func TestAutomaticRollback(t *testing.T) {
+
+	//if txnLeftForCurrentUser(dsn, t) {
+	//	t.Fatal("There should be no txn left")
+	//}
+	db1, err := sql.Open("snowflake", dsn)
+	if err != nil {
+		t.Fatalf("error connecting: %s", err.Error())
+	}
+	_, err = db1.Begin()
+	if err != nil {
+		t.Fatalf("error beginning a txn: %s", err.Error())
+	}
+
+	if !txnLeftForCurrentUser(dsn, t) {
+		t.Fatal("There should be on txn")
+	}
+	db1.Close()
+
+	if txnLeftForCurrentUser(dsn, t) {
+		t.Fatal("There should be no txn")
+	}
+}
+
 func TestCRUD(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		// Create Table
@@ -1882,6 +1921,7 @@ func createDSNWithClientSessionKeepAlive() {
 		dsn += "?" + parameters.Encode()
 	}
 }
+
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
