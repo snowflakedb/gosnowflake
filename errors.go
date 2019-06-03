@@ -105,6 +105,11 @@ const (
 	ErrInvalidOffsetStr = 268001
 	// ErrInvalidBinaryHexForm is an error code for the case where a binary data in hex form is invalid.
 	ErrInvalidBinaryHexForm = 268002
+
+	/* GS error code */
+
+	// ErrSessionGone is an GS error code for the case that session is already closed
+	ErrSessionGone = 390111
 )
 
 const (

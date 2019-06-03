@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"fmt"
 	"net/url"
 	"reflect"
 	"testing"
@@ -15,6 +16,8 @@ type tcParseDSN struct {
 
 func TestParseDSN(t *testing.T) {
 
+	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
+	privKeyPKCS1 := generatePKCS1String(testPrivKey)
 	testcases := []tcParseDSN{
 		{
 			dsn: "user:pass@account",
@@ -229,9 +232,25 @@ func TestParseDSN(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			dsn: fmt.Sprintf("u:p@ac.snowflake.local:9876?account=ac&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS8),
+			config: &Config{
+				Account: "ac", User: "u", Password: "p",
+				Authenticator: authenticatorJWT, PrivateKey: testPrivKey,
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
+			},
+			err: nil,
+		},
+		{
+			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS1),
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: authenticatorJWT, PrivateKey: testPrivKey,
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
+			},
+			err: &SnowflakeError{Number: ErrCodePrivateKeyParseError},
+		},
 	}
-
-	testcases = addParseDSNTest(testcases)
 
 	for i, test := range testcases {
 		glog.V(2).Infof("#%v\n", i)

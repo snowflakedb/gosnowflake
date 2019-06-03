@@ -6,7 +6,7 @@ package gosnowflake
 // This file contains variables or functions of test cases that we want to run for go version >= 1.10
 
 // For compile concern, should any newly added variables or functions here must also be added with same
-// name or signature but with default or empty content in the optional_go1_10_test.go(See addParseDSNTest)
+// name or signature but with default or empty content in the priv_key_test.go(See addParseDSNTest)
 
 import (
 	"bytes"
@@ -20,35 +20,6 @@ import (
 	"os"
 	"testing"
 )
-
-// Optionally added (for go version 1.10 and onward) test cases that check dsn parsing function
-// Only PKCS1 encoded private key should be able to parsed
-func addParseDSNTest(parseDSNTests []tcParseDSN) []tcParseDSN {
-	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
-	privKeyPKCS1 := generatePKCS1String(testPrivKey)
-
-	optParseDSNTests := []tcParseDSN{
-		{
-			dsn: fmt.Sprintf("u:p@ac.snowflake.local:9876?account=ac&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS8),
-			config: &Config{
-				Account: "ac", User: "u", Password: "p",
-				Authenticator: authenticatorJWT, PrivateKey: testPrivKey,
-				Protocol: "http", Host: "snowflake.local", Port: 9876,
-			},
-			err: nil,
-		},
-		{
-			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS1),
-			config: &Config{
-				Account: "a", User: "u", Password: "p",
-				Authenticator: authenticatorJWT, PrivateKey: testPrivKey,
-				Protocol: "http", Host: "snowflake.local", Port: 9876,
-			},
-			err: &SnowflakeError{Number: ErrCodePrivateKeyParseError},
-		}}
-	parseDSNTests = append(parseDSNTests, optParseDSNTests...)
-	return parseDSNTests
-}
 
 // helper function to generate PKCS8 encoded base64 string of a private key
 func generatePKCS8StringSupress(key *rsa.PrivateKey) string {

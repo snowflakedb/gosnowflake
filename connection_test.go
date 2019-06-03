@@ -60,3 +60,23 @@ func TestServiceName(t *testing.T) {
 		expectServiceName += serviceNameAppend
 	}
 }
+
+func closeSessionMock(_ *snowflakeRestful) error {
+	return &SnowflakeError{
+		Number: ErrSessionGone,
+	}
+}
+
+func TestCloseIgnoreSessionGone(t *testing.T) {
+	sr := &snowflakeRestful{
+		FuncCloseSession: closeSessionMock,
+	}
+	sc := &snowflakeConn{
+		cfg:  &Config{Params: map[string]*string{}},
+		rest: sr,
+	}
+
+	if sc.Close() != nil {
+		t.Error("Close should let go session gone error")
+	}
+}

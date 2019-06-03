@@ -1882,6 +1882,7 @@ func createDSNWithClientSessionKeepAlive() {
 		dsn += "?" + parameters.Encode()
 	}
 }
+
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
