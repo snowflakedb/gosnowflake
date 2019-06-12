@@ -12,7 +12,7 @@ import (
 )
 
 // getDSN constructs a DSN based on the test connection parameters
-func getDSN(authenticator string) (string, *sf.Config, error) {
+func getDSN() (string, *sf.Config, error) {
 	env := func(k string, failOnMissing bool) string {
 		if value := os.Getenv(k); value != "" {
 			return value
@@ -31,7 +31,7 @@ func getDSN(authenticator string) (string, *sf.Config, error) {
 
 	portStr, _ := strconv.Atoi(port)
 	cfg := &sf.Config{
-		Authenticator: authenticator,
+		Authenticator: sf.AuthTypeExternalBrowser,
 		Account:       account,
 		User:          user,
 		Host:          host,
@@ -51,7 +51,7 @@ func main() {
 		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
-	dsn, cfg, err := getDSN("EXTERNALBROWSER")
+	dsn, cfg, err := getDSN()
 
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)

@@ -17,7 +17,6 @@ const (
 	defaultLoginTimeout   = 60 * time.Second  // Timeout for retry for login EXCLUDING clientTimeout
 	defaultRequestTimeout = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout     = 60 * time.Second
-	defaultAuthenticator  = "snowflake"
 	defaultDomain         = ".snowflakecomputing.com"
 )
 
@@ -37,9 +36,12 @@ type Config struct {
 	Host     string // hostname (optional)
 	Port     int    // port (optional)
 
-	Authenticator      string // snowflake, okta URL, oauth or externalbrowser
+	Authenticator AuthType // The authenticator type
+
 	Passcode           string
 	PasscodeInPassword bool
+
+	OktaURL *url.URL
 
 	LoginTimeout     time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
 	RequestTimeout   time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
@@ -95,8 +97,12 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.Region != "" {
 		params.Add("region", cfg.Region)
 	}
-	if cfg.Authenticator != defaultAuthenticator {
-		params.Add("authenticator", strings.ToLower(cfg.Authenticator))
+	if cfg.Authenticator != AuthTypeSnowflake {
+		if cfg.Authenticator == AuthTypeOkta {
+			params.Add("authenticator", strings.ToLower(cfg.OktaURL.String()))
+		} else {
+			params.Add("authenticator", strings.ToLower(cfg.Authenticator.String()))
+		}
 	}
 	if cfg.Passcode != "" {
 		params.Add("passcode", cfg.Passcode)
@@ -147,7 +153,8 @@ func DSN(cfg *Config) (dsn string, err error) {
 func ParseDSN(dsn string) (cfg *Config, err error) {
 	// New config with some default values
 	cfg = &Config{
-		Params: make(map[string]*string),
+		Params:        make(map[string]*string),
+		Authenticator: AuthTypeSnowflake, // Default to snowflake
 	}
 
 	// user[:password]@account/database/schema[?param1=value1&paramN=valueN]
@@ -284,22 +291,18 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 }
 
 func fillMissingConfigParameters(cfg *Config) error {
-	if strings.Trim(cfg.Authenticator, " ") == "" {
-		cfg.Authenticator = defaultAuthenticator
-	}
 	if strings.Trim(cfg.Account, " ") == "" {
 		return ErrEmptyAccount
 	}
-	authenticator := strings.ToUpper(cfg.Authenticator)
 
-	if authenticator != authenticatorOAuth && strings.Trim(cfg.User, " ") == "" {
+	if cfg.Authenticator != AuthTypeOAuth && strings.Trim(cfg.User, " ") == "" {
 		// oauth does not require a username
 		return ErrEmptyUsername
 	}
 
-	if authenticator != authenticatorExternalBrowser &&
-		authenticator != authenticatorOAuth &&
-		authenticator != authenticatorJWT &&
+	if cfg.Authenticator != AuthTypeExternalBrowser &&
+		cfg.Authenticator != AuthTypeOAuth &&
+		cfg.Authenticator != AuthTypeJwt &&
 		strings.Trim(cfg.Password, " ") == "" {
 		// no password parameter is required for EXTERNALBROWSER, OAUTH or JWT.
 		return ErrEmptyPassword
@@ -459,7 +462,10 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		case "application":
 			cfg.Application = value
 		case "authenticator":
-			cfg.Authenticator = strings.ToLower(value)
+			err := determineAuthenticatorType(cfg, value)
+			if err != nil {
+				return err
+			}
 		case "insecureMode":
 			var vv bool
 			vv, err = strconv.ParseBool(value)

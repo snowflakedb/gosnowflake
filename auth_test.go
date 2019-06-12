@@ -125,7 +125,7 @@ func postAuthCheckOAuth(
 	if err := json.Unmarshal(jsonBody, &ar); err != nil {
 		return nil, err
 	}
-	if ar.Data.Authenticator != authenticatorOAuth {
+	if ar.Data.Authenticator != AuthTypeOAuth.String() {
 		return nil, errors.New("Authenticator is not OAUTH")
 	}
 	if ar.Data.Token == "" {
@@ -193,7 +193,7 @@ func postAuthCheckJWTToken(_ *snowflakeRestful, _ *url.Values, _ map[string]stri
 	if err := json.Unmarshal(jsonBody, &ar); err != nil {
 		return nil, err
 	}
-	if ar.Data.Authenticator != authenticatorJWT {
+	if ar.Data.Authenticator != AuthTypeJwt.String() {
 		return nil, errors.New("Authenticator is not JWT")
 	}
 
@@ -311,7 +311,11 @@ func TestUnitAuthenticateSaml(t *testing.T) {
 		FuncPostAuth: postAuthCheckSAMLResponse,
 	}
 	sc := getDefaultSnowflakeConn()
-	sc.cfg.Authenticator = authenticatorOkta
+	sc.cfg.Authenticator = AuthTypeOkta
+	sc.cfg.OktaURL = &url.URL{
+		Scheme: "https",
+		Host:   "blah.okta.com",
+	}
 	sc.rest = sr
 	_, err = authenticate(sc, []byte("HTML data in bytes from"), []byte{})
 	if err != nil {
@@ -327,7 +331,7 @@ func TestUnitAuthenticateOAuth(t *testing.T) {
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Token = "oauthToken"
-	sc.cfg.Authenticator = authenticatorOAuth
+	sc.cfg.Authenticator = AuthTypeOAuth
 	sc.rest = sr
 	_, err = authenticate(sc, []byte{}, []byte{})
 	if err != nil {
@@ -365,7 +369,7 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 		FuncPostAuth: postAuthCheckJWTToken,
 	}
 	sc := getDefaultSnowflakeConn()
-	sc.cfg.Authenticator = authenticatorJWT
+	sc.cfg.Authenticator = AuthTypeJwt
 	sc.cfg.JWTExpireTimeout = defaultJWTTimeout
 	sc.cfg.PrivateKey = testPrivKey
 	sc.rest = sr
