@@ -108,7 +108,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "snowflake.local:9876?account=a&protocol=http&authenticator=OAUTH",
 			config: &Config{
-				Account: "a", Authenticator: "OAUTH",
+				Account: "a", Authenticator: AuthTypeOAuth,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: nil,
@@ -116,7 +116,7 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn: "u:@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT",
 			config: &Config{
-				Account: "a", User: "u", Authenticator: authenticatorJWT,
+				Account: "a", User: "u", Authenticator: AuthTypeJwt,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: nil,
@@ -157,7 +157,7 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
-				Database: "d", Schema: "s", Role: "r", Authenticator: "snowflake", Application: "aa",
+				Database: "d", Schema: "s", Role: "r", Authenticator: AuthTypeSnowflake, Application: "aa",
 				InsecureMode: true, Passcode: "pp", PasscodeInPassword: true,
 			},
 			err: nil,
@@ -236,8 +236,22 @@ func TestParseDSN(t *testing.T) {
 			dsn: fmt.Sprintf("u:p@ac.snowflake.local:9876?account=ac&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS8),
 			config: &Config{
 				Account: "ac", User: "u", Password: "p",
-				Authenticator: authenticatorJWT, PrivateKey: testPrivKey,
+				Authenticator: AuthTypeJwt, PrivateKey: testPrivKey,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
+			},
+			err: nil,
+		},
+		{
+			dsn: fmt.Sprintf("u:p@ac.snowflake.local:9876?account=ac&protocol=http&authenticator=%v", url.QueryEscape("https://ac.okta.com")),
+			config: &Config{
+				Account: "ac", User: "u", Password: "p",
+				Authenticator: AuthTypeOkta,
+				OktaURL: &url.URL{
+					Scheme: "https",
+					Host:   "ac.okta.com",
+				},
+				PrivateKey: testPrivKey,
+				Protocol:   "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: nil,
 		},
@@ -245,7 +259,7 @@ func TestParseDSN(t *testing.T) {
 			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS1),
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
-				Authenticator: authenticatorJWT, PrivateKey: testPrivKey,
+				Authenticator: AuthTypeJwt, PrivateKey: testPrivKey,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
 			},
 			err: &SnowflakeError{Number: ErrCodePrivateKeyParseError},
@@ -303,6 +317,14 @@ func TestParseDSN(t *testing.T) {
 			if test.config.PasscodeInPassword != cfg.PasscodeInPassword {
 				t.Fatalf("%d: Failed to match passcodeInPassword. expected: %v, got: %v",
 					i, test.config.PasscodeInPassword, cfg.PasscodeInPassword)
+			}
+			if test.config.Authenticator != cfg.Authenticator {
+				t.Fatalf("%d: Failed to match Authenticator. expected: %v, got: %v",
+					i, test.config.Authenticator.String(), cfg.Authenticator.String())
+			}
+			if test.config.Authenticator == AuthTypeOkta && *test.config.OktaURL != *cfg.OktaURL {
+				t.Fatalf("%d: Failed to match okta URL. expected: %v, got: %v",
+					i, test.config.OktaURL, cfg.OktaURL)
 			}
 		case test.err != nil:
 			driverErrE, okE := test.err.(*SnowflakeError)
@@ -387,14 +409,36 @@ func TestDSN(t *testing.T) {
 				Schema:             "sc",
 				Role:               "ro",
 				Region:             "b",
-				Authenticator:      "au",
+				Authenticator:      AuthTypeSnowflake,
 				Passcode:           "db",
 				PasscodeInPassword: true,
 				LoginTimeout:       10 * time.Second,
 				RequestTimeout:     300 * time.Second,
 				Application:        "special go",
 			},
-			dsn: "u:p@a.b.snowflakecomputing.com:443?application=special+go&authenticator=au&database=db&loginTimeout=10&passcode=db&passcodeInPassword=true&region=b&requestTimeout=300&role=ro&schema=sc",
+			dsn: "u:p@a.b.snowflakecomputing.com:443?application=special+go&database=db&loginTimeout=10&passcode=db&passcodeInPassword=true&region=b&requestTimeout=300&role=ro&schema=sc",
+		},
+		{
+			cfg: &Config{
+				User:          "u",
+				Password:      "p",
+				Account:       "a",
+				Authenticator: AuthTypeExternalBrowser,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=externalbrowser",
+		},
+		{
+			cfg: &Config{
+				User:          "u",
+				Password:      "p",
+				Account:       "a",
+				Authenticator: AuthTypeOkta,
+				OktaURL: &url.URL{
+					Scheme: "https",
+					Host:   "sc.okta.com",
+				},
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=https%3A%2F%2Fsc.okta.com",
 		},
 		{
 			cfg: &Config{

@@ -62,7 +62,7 @@ func setupPrivateKey() {
 func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
 	var b bytes.Buffer
 	b.WriteString(*dsn)
-	b.WriteString(fmt.Sprintf("&authenticator=%v", authenticatorJWT))
+	b.WriteString(fmt.Sprintf("&authenticator=%v", AuthTypeJwt.String()))
 	b.WriteString(fmt.Sprintf("&privateKey=%s", generatePKCS8StringSupress(key)))
 	return b.String()
 }
