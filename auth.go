@@ -121,6 +121,7 @@ type authRequestClientEnvironment struct {
 	Application string `json:"APPLICATION"`
 	Os          string `json:"OS"`
 	OsVersion   string `json:"OS_VERSION"`
+	OCSPMode    string `json:"OCSP_MODE"`
 }
 type authRequestData struct {
 	ClientAppID             string                       `json:"CLIENT_APP_ID"`
@@ -156,23 +157,23 @@ type authResponseSessionInfo struct {
 }
 
 type authResponseMain struct {
-	Token                   string                  `json:"token,omitempty"`
-	ValidityInSeconds       time.Duration           `json:"validityInSeconds,omitempty"`
-	MasterToken             string                  `json:"masterToken,omitempty"`
-	MasterValidityInSeconds time.Duration           `json:"masterValidityInSeconds"`
-	DisplayUserName         string                  `json:"displayUserName"`
-	ServerVersion           string                  `json:"serverVersion"`
-	FirstLogin              bool                    `json:"firstLogin"`
-	RemMeToken              string                  `json:"remMeToken"`
-	RemMeValidityInSeconds  time.Duration           `json:"remMeValidityInSeconds"`
-	HealthCheckInterval     time.Duration           `json:"healthCheckInterval"`
-	NewClientForUpgrade     string                  `json:"newClientForUpgrade"`
-	SessionID               int                     `json:"sessionId"`
-	Parameters              []nameValueParameter    `json:"parameters"`
-	SessionInfo             authResponseSessionInfo `json:"sessionInfo"`
-	TokenURL                string                  `json:"tokenUrl,omitempty"`
-	SSOURL                  string                  `json:"ssoUrl,omitempty"`
-	ProofKey                string                  `json:"proofKey,omitempty"`
+	Token               string                  `json:"token,omitempty"`
+	Validity            time.Duration           `json:"validityInSeconds,omitempty"`
+	MasterToken         string                  `json:"masterToken,omitempty"`
+	MasterValidity      time.Duration           `json:"masterValidityInSeconds"`
+	DisplayUserName     string                  `json:"displayUserName"`
+	ServerVersion       string                  `json:"serverVersion"`
+	FirstLogin          bool                    `json:"firstLogin"`
+	RemMeToken          string                  `json:"remMeToken"`
+	RemMeValidity       time.Duration           `json:"remMeValidityInSeconds"`
+	HealthCheckInterval time.Duration           `json:"healthCheckInterval"`
+	NewClientForUpgrade string                  `json:"newClientForUpgrade"`
+	SessionID           int                     `json:"sessionId"`
+	Parameters          []nameValueParameter    `json:"parameters"`
+	SessionInfo         authResponseSessionInfo `json:"sessionInfo"`
+	TokenURL            string                  `json:"tokenUrl,omitempty"`
+	SSOURL              string                  `json:"ssoUrl,omitempty"`
+	ProofKey            string                  `json:"proofKey,omitempty"`
 }
 type authResponse struct {
 	Data    authResponseMain `json:"data"`
@@ -266,6 +267,7 @@ func authenticate(
 		Application: sc.cfg.Application,
 		Os:          operatingSystem,
 		OsVersion:   platform,
+		OCSPMode:    sc.cfg.ocspMode(),
 	}
 
 	sessionParameters := make(map[string]string)

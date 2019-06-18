@@ -7,6 +7,8 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -19,43 +21,49 @@ import (
 )
 
 func TestOCSP(t *testing.T) {
-	os.Remove(cacheFileName) // clear cache file
+	cacheServerEnabled := []string{
+		"true",
+		"false",
+	}
 	targetURL := []string{
 		"https://sfctest0.snowflakecomputing.com/",
 		"https://s3-us-west-2.amazonaws.com/sfc-snowsql-updates/?prefix=1.1/windows_x86_64",
+		"https://sfcdev1.blob.core.windows.net/",
 	}
 
 	transports := []*http.Transport{
 		snowflakeInsecureTransport,
-		SnowflakeTransportSerial,
 		SnowflakeTransport,
 	}
 
-	for _, tgt := range targetURL {
-		for _, tr := range transports {
-			c := &http.Client{
-				Transport: tr,
-				Timeout:   30 * time.Second,
-			}
-			req, err := http.NewRequest("GET", tgt, bytes.NewReader(nil))
-			if err != nil {
-				t.Fatalf("fail to create a request. err: %v", err)
-			}
-			res, err := c.Do(req)
-			if err != nil {
-				t.Fatalf("failed to GET contents. err: %v", err)
-			}
-			defer res.Body.Close()
-			if res.StatusCode != http.StatusOK {
-				t.Fatalf("failed to get 200: %v", res.StatusCode)
-			}
-			_, err = ioutil.ReadAll(res.Body)
-			if err != nil {
-				t.Fatalf("failed to read content body for %v", tgt)
-			}
+	for _, enabled := range cacheServerEnabled {
+		for _, tgt := range targetURL {
+			_ = os.Setenv(cacheServerEnabledEnv, enabled)
+			_ = os.Remove(cacheFileName) // clear cache file
+			ocspResponseCache = make(map[certIDKey][]interface{})
+			for _, tr := range transports {
+				c := &http.Client{
+					Transport: tr,
+					Timeout:   30 * time.Second,
+				}
+				req, err := http.NewRequest("GET", tgt, bytes.NewReader(nil))
+				if err != nil {
+					t.Fatalf("fail to create a request. err: %v", err)
+				}
+				res, err := c.Do(req)
+				if err != nil {
+					t.Fatalf("failed to GET contents. err: %v", err)
+				}
+				defer res.Body.Close()
+				_, err = ioutil.ReadAll(res.Body)
+				if err != nil {
+					t.Fatalf("failed to read content body for %v", tgt)
+				}
 
+			}
 		}
 	}
+	_ = os.Unsetenv(cacheServerEnabledEnv)
 }
 
 type tcValidityRange struct {
@@ -115,6 +123,7 @@ func TestUnitEncodeCertIDGood(t *testing.T) {
 	targetURLs := []string{
 		"testaccount.snowflakecomputing.com:443",
 		"s3-us-west-2.amazonaws.com:443",
+		"sfcdev1.blob.core.windows.net:443",
 	}
 	for _, tt := range targetURLs {
 		chainedCerts := getCert(tt)
@@ -130,7 +139,7 @@ func TestUnitEncodeCertIDGood(t *testing.T) {
 				t.Fatalf("failed to create OCSP request. err: %v", err)
 			}
 			var ost *ocspStatus
-			_, ost = encodeCertID(ocspReq)
+			_, ost = extractCertIDKeyFromRequest(ocspReq)
 			if ost.err != nil {
 				t.Fatalf("failed to extract cert ID from the OCSP request. err: %v", ost.err)
 			}
@@ -139,7 +148,7 @@ func TestUnitEncodeCertIDGood(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to create OCSP request. err: %v", err)
 			}
-			_, ost = encodeCertID(ocspReq)
+			_, ost = extractCertIDKeyFromRequest(ocspReq)
 			if ost.err != nil {
 				t.Fatalf("failed to extract cert ID from the OCSP request. err: %v", ost.err)
 			}
@@ -149,7 +158,7 @@ func TestUnitEncodeCertIDGood(t *testing.T) {
 				t.Fatalf("failed to create OCSP request. err: %v", err)
 			}
 			ocspReq[10] = 0 // random change
-			_, ost = encodeCertID(ocspReq)
+			_, ost = extractCertIDKeyFromRequest(ocspReq)
 			if ost.err == nil {
 				t.Fatal("should have failed")
 			}
@@ -158,23 +167,37 @@ func TestUnitEncodeCertIDGood(t *testing.T) {
 }
 
 func TestUnitCheckOCSPResponseCache(t *testing.T) {
-	ocspResponseCache["DUMMY_KEY"] = []interface{}{float64(1395054952), "DUMMY_VALUE"}
+	dummyKey0 := certIDKey{
+		HashAlgorithm: crypto.SHA1,
+		NameHash:      "dummy0",
+		IssuerKeyHash: "dummy0",
+		SerialNumber:  "dummy0",
+	}
+	dummyKey := certIDKey{
+		HashAlgorithm: crypto.SHA1,
+		NameHash:      "dummy1",
+		IssuerKeyHash: "dummy1",
+		SerialNumber:  "dummy1",
+	}
+	b64Key := base64.StdEncoding.EncodeToString([]byte("DUMMY_VALUE"))
+	currentTime := float64(time.Now().UTC().Unix())
+	ocspResponseCache[dummyKey0] = []interface{}{currentTime, b64Key}
 	subject := &x509.Certificate{}
 	issuer := &x509.Certificate{}
-	ost := checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
+	ost := checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspMissedCache {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspMissedCache, ost.code)
 	}
 	// old timestamp
-	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{float64(1395054952), "DUMMY_VALUE"}
-	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
+	ocspResponseCache[dummyKey] = []interface{}{float64(1395054952), b64Key}
+	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspCacheExpired {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspCacheExpired, ost.code)
 	}
 	// future timestamp
-	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{float64(1595054952), "DUMMY_VALUE"}
-	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
-	if ost.code != ocspFailedDecodeResponse {
+	ocspResponseCache[dummyKey] = []interface{}{float64(1805054952), b64Key}
+	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
+	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
 	}
 	// actual OCSP but it fails to parse, because an invalid issuer certificate is given.
@@ -185,29 +208,35 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 		"mZHt60vhUgtgZk21SsRlTZ+S4VXwtDqB1Nhv6cnSnfrL2A9qJDZS2ltPNOwebWJnznDAs2dg+KxmT2yBXpHM1kb0EOolWvNgORbgIgB" +
 		"koRzw/UU7zKsqiTB0ZN/rgJp+MocTdqQSGKvbZyR8d4u8eNQqi1x4Pk3yO/pftANFaJKGB+JPgKS3PQAqJaXcipNcEfqtl7y4PO6kqA" +
 		"Jb4xI/OTXIrRA5TsT4cCioE"
-	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{float64(1595054952), actualOcspResponse}
-	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
+	// issuer is not a true issuer certificate
+	ocspResponseCache[dummyKey] = []interface{}{float64(1595054952), actualOcspResponse}
+	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedParseResponse, ost.code)
 	}
+	// invalid validity
+	ocspResponseCache[dummyKey] = []interface{}{float64(1595054952), actualOcspResponse}
+	ost = checkOCSPResponseCache(&dummyKey, subject, nil)
+	if ost.code != ocspInvalidValidity {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspInvalidValidity, ost.code)
+	}
 	// wrong timestamp type
-	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{uint32(1595054952), 123456}
-	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
-	if ost.code != ocspMissedCache {
-		t.Fatalf("should have failed. expected: %v, got: %v", ocspMissedCache, ost.code)
+	ocspResponseCache[dummyKey] = []interface{}{uint32(1595054952), 123456}
+	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
+	if ost.code != ocspFailedDecodeResponse {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
 	}
 	// wrong value type
-	ocspResponseCache["RFVNTVlfS0VZ"] = []interface{}{float64(1595054952), 123456}
-	ost = checkOCSPResponseCache([]byte("DUMMY_KEY"), subject, issuer)
-	if ost.code != ocspMissedCache {
-		t.Fatalf("should have failed. expected: %v, got: %v", ocspMissedCache, ost.code)
+	ocspResponseCache[dummyKey] = []interface{}{float64(1595054952), 123456}
+	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
+	if ost.code != ocspFailedDecodeResponse {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
 	}
 }
 
 func TestUnitValidateOCSP(t *testing.T) {
-	subject := &x509.Certificate{}
 	ocspRes := &ocsp.Response{}
-	ost := validateOCSP("dummykey", ocspRes, subject)
+	ost := validateOCSP(ocspRes)
 	if ost.code != ocspInvalidValidity {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspInvalidValidity, ost.code)
 	}
@@ -215,22 +244,32 @@ func TestUnitValidateOCSP(t *testing.T) {
 	ocspRes.ThisUpdate = currentTime.Add(-2 * time.Hour)
 	ocspRes.NextUpdate = currentTime.Add(2 * time.Hour)
 	ocspRes.Status = ocsp.Revoked
-	ost = validateOCSP("dummykey", ocspRes, subject)
-	if ost.code != ocspRevokedOrUnknown {
-		t.Fatalf("should have failed. expected: %v, got: %v", ocspRevokedOrUnknown, ost.code)
+	ost = validateOCSP(ocspRes)
+	if ost.code != ocspStatusRevoked {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspStatusRevoked, ost.code)
 	}
 	ocspRes.Status = ocsp.Good
-	ost = validateOCSP("dummykey", ocspRes, subject)
-	if ost.code != ocspSuccess {
-		t.Fatalf("should have success. expected: %v, got: %v", ocspSuccess, ost.code)
+	ost = validateOCSP(ocspRes)
+	if ost.code != ocspStatusGood {
+		t.Fatalf("should have success. expected: %v, got: %v", ocspStatusGood, ost.code)
+	}
+	ocspRes.Status = ocsp.Unknown
+	ost = validateOCSP(ocspRes)
+	if ost.code != ocspStatusUnknown {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspStatusUnknown, ost.code)
+	}
+	ocspRes.Status = ocsp.ServerFailed
+	ost = validateOCSP(ocspRes)
+	if ost.code != ocspStatusOthers {
+		t.Fatalf("should have failed. expected: %v, got: %v", ocspStatusOthers, ost.code)
 	}
 }
 
 func TestUnitEncodeCertID(t *testing.T) {
 	var st *ocspStatus
-	_, st = encodeCertID([]byte{0x1, 0x2})
-	if st.code != ocspFailedDecomposeRequst {
-		t.Fatalf("failed to get OCSP status. expected: %v, got: %v", ocspFailedDecomposeRequst, st.code)
+	_, st = extractCertIDKeyFromRequest([]byte{0x1, 0x2})
+	if st.code != ocspFailedDecomposeRequest {
+		t.Fatalf("failed to get OCSP status. expected: %v, got: %v", ocspFailedDecomposeRequest, st.code)
 	}
 }
 
@@ -241,7 +280,10 @@ func getCert(addr string) []*x509.Certificate {
 	}
 	defer tcpConn.Close()
 
-	tcpConn.SetDeadline(time.Now().Add(1 * time.Second))
+	err = tcpConn.SetDeadline(time.Now().Add(1 * time.Second))
+	if err != nil {
+		panic(err)
+	}
 	config := tls.Config{InsecureSkipVerify: true, ServerName: addr}
 
 	conn := tls.Client(tcpConn, &config)
@@ -282,5 +324,134 @@ func TestOCSPRetry(t *testing.T) {
 		make(map[string]string), []byte{0}, certs[len(certs)-1], 10*time.Second, 5*time.Second)
 	if st.err == nil {
 		fmt.Printf("should fail: %v, %v, %v\n", res, b, st)
+	}
+}
+
+func TestOCSPCacheServerRetry(t *testing.T) {
+	client := &fakeHTTPClient{
+		cnt:     3,
+		success: true,
+		body:    []byte{1, 2, 3},
+	}
+	res, st := retryOCSPCacheServer(
+		client, fakeRequestFunc, "dummyOCSPHost", 20*time.Second, 10*time.Second)
+	if st.err == nil {
+		t.Errorf("should fail: %v", res)
+	}
+	client = &fakeHTTPClient{
+		cnt:     30,
+		success: true,
+		body:    []byte{1, 2, 3},
+	}
+	res, st = retryOCSPCacheServer(
+		client, fakeRequestFunc, "dummyOCSPHost", 10*time.Second, 5*time.Second)
+	if st.err == nil {
+		t.Errorf("should fail: %v", res)
+	}
+}
+
+type tcCanEarlyExit struct {
+	results       []*ocspStatus
+	resultLen     int
+	retFailOpen   *ocspStatus
+	retFailClosed *ocspStatus
+}
+
+func TestCanEarlyExitForOCSP(t *testing.T) {
+	testcases := []tcCanEarlyExit{
+		{ // 0
+			results: []*ocspStatus{
+				{
+					code: ocspStatusGood,
+				},
+				{
+					code: ocspStatusGood,
+				},
+				{
+					code: ocspStatusGood,
+				},
+			},
+			retFailOpen:   nil,
+			retFailClosed: nil,
+		},
+		{ // 1
+			results: []*ocspStatus{
+				{
+					code: ocspStatusRevoked,
+					err:  errors.New("revoked"),
+				},
+				{
+					code: ocspStatusGood,
+				},
+				{
+					code: ocspStatusGood,
+				},
+			},
+			retFailOpen:   &ocspStatus{ocspStatusRevoked, errors.New("revoked")},
+			retFailClosed: &ocspStatus{ocspStatusRevoked, errors.New("revoked")},
+		},
+		{ // 2
+			results: []*ocspStatus{
+				{
+					code: ocspStatusUnknown,
+					err:  errors.New("unknown"),
+				},
+				{
+					code: ocspStatusGood,
+				},
+				{
+					code: ocspStatusGood,
+				},
+			},
+			retFailOpen:   nil,
+			retFailClosed: &ocspStatus{ocspStatusUnknown, errors.New("unknown")},
+		},
+		{ // 3: not taken as revoked if any invalid OCSP response (ocspInvalidValidity) is included.
+			results: []*ocspStatus{
+				{
+					code: ocspStatusRevoked,
+					err:  errors.New("revoked"),
+				},
+				{
+					code: ocspInvalidValidity,
+				},
+				{
+					code: ocspStatusGood,
+				},
+			},
+			retFailOpen:   nil,
+			retFailClosed: &ocspStatus{ocspStatusRevoked, errors.New("revoked")},
+		},
+		{ // 4: not taken as revoked if the number of results don't match the expected results.
+			results: []*ocspStatus{
+				{
+					code: ocspStatusRevoked,
+					err:  errors.New("revoked"),
+				},
+				{
+					code: ocspStatusGood,
+				},
+			},
+			resultLen:     3,
+			retFailOpen:   nil,
+			retFailClosed: &ocspStatus{ocspStatusRevoked, errors.New("revoked")},
+		},
+	}
+
+	for idx, tt := range testcases {
+		ocspFailOpen = ocspFailOpenTrue
+		expectedLen := len(tt.results)
+		if tt.resultLen > 0 {
+			expectedLen = tt.resultLen
+		}
+		r := canEarlyExitForOCSP(tt.results, expectedLen)
+		if !(tt.retFailOpen == nil && r == nil) && !(tt.retFailOpen != nil && r != nil && tt.retFailOpen.code == r.code) {
+			t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailOpen, r)
+		}
+		ocspFailOpen = ocspFailOpenFalse
+		r = canEarlyExitForOCSP(tt.results, expectedLen)
+		if !(tt.retFailClosed == nil && r == nil) && !(tt.retFailClosed != nil && r != nil && tt.retFailClosed.code == r.code) {
+			t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailClosed, r)
+		}
 	}
 }
