@@ -73,6 +73,35 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "user:pass@ac-laksdnflaf.global/db/schema",
+			config: &Config{
+				Account: "ac", User: "user", Password: "pass",
+				Protocol: "https", Host: "ac-laksdnflaf.global.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "schema",
+			},
+			err: nil,
+		},
+		{
+			dsn: "user:pass@ac-1-laksdnflaf.global/db/schema",
+			config: &Config{
+				Account: "ac-1", User: "user", Password: "pass",
+				Protocol: "https", Host: "ac-1-laksdnflaf.global.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "schema",
+			},
+			err: nil,
+		},
+		{
+			dsn: "user:pass@ac.global/db/schema",
+			config: &Config{
+				Account: "ac", User: "user", Password: "pass",
+				Protocol: "https", Host: "ac-laksdnflaf.global.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "schema",
+			},
+			err: &SnowflakeError{
+				Number: ErrCodeFailedToParseAccount,
+			},
+		},
+		{
 			dsn: "user@host:123/db/schema?account=ac&protocol=http",
 			config: &Config{
 				Account: "ac", User: "user", Password: "pass",
@@ -439,6 +468,25 @@ func TestDSN(t *testing.T) {
 				Account:  "a",
 			},
 			dsn: "u:p@a.snowflakecomputing.com:443",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a-aofnadsf.global",
+			},
+			dsn: "u:p@a-aofnadsf.global.snowflakecomputing.com:443",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.global",
+			},
+			dsn: "u:p@a.global.snowflakecomputing.com:443",
+			err: &SnowflakeError{
+				Number: ErrCodeFailedToParseAccount,
+			},
 		},
 		{
 			cfg: &Config{

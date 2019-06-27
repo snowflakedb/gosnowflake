@@ -18,6 +18,8 @@ const (
 	defaultRequestTimeout = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout     = 60 * time.Second
 	defaultDomain         = ".snowflakecomputing.com"
+
+	globalURLSuffix = ".global"
 )
 
 // Config is a set of configuration parameters
@@ -70,19 +72,28 @@ func (c *Config) ocspMode() string {
 // DSN constructs a DSN for Snowflake db.
 func DSN(cfg *Config) (dsn string, err error) {
 	hasHost := true
+	pureAccount, err := extractAccountFromGlobalURLAccount(cfg.Account)
+	if err != nil {
+		return
+	}
 	if cfg.Host == "" {
 		hasHost = false
-		if cfg.Region == "" {
+		if pureAccount != nil || cfg.Region == "" {
 			cfg.Host = cfg.Account + defaultDomain
 		} else {
 			cfg.Host = cfg.Account + "." + cfg.Region + defaultDomain
 		}
 	}
-	// in case account includes region
-	posDot := strings.Index(cfg.Account, ".")
-	if posDot > 0 {
-		cfg.Region = cfg.Account[posDot+1:]
-		cfg.Account = cfg.Account[:posDot]
+
+	if pureAccount != nil {
+		cfg.Account = *pureAccount
+	} else {
+		// in case account includes region
+		posDot := strings.Index(cfg.Account, ".")
+		if posDot > 0 {
+			cfg.Region = cfg.Account[posDot+1:]
+			cfg.Account = cfg.Account[:posDot]
+		}
 	}
 
 	err = fillMissingConfigParameters(cfg)
@@ -362,13 +373,24 @@ func fillMissingConfigParameters(cfg *Config) error {
 	return nil
 }
 
-// transformAccountToHost transforms host to accout name
+// transformAccountToHost transforms host to account name
 func transformAccountToHost(cfg *Config) (err error) {
 	if cfg.Port == 0 && !strings.HasSuffix(cfg.Host, defaultDomain) && cfg.Host != "" {
 		// account name is specified instead of host:port
 		cfg.Account = cfg.Host
 		cfg.Host = cfg.Account + defaultDomain
 		cfg.Port = 443
+
+		var pureAccount *string
+		pureAccount, err = extractAccountFromGlobalURLAccount(cfg.Account)
+		if err != nil {
+			return
+		}
+		if pureAccount != nil {
+			cfg.Account = *pureAccount
+			return
+		}
+
 		posDot := strings.Index(cfg.Account, ".")
 		if posDot > 0 {
 			cfg.Region = cfg.Account[posDot+1:]
@@ -376,6 +398,26 @@ func transformAccountToHost(cfg *Config) (err error) {
 		}
 	}
 	return nil
+}
+
+func extractAccountFromGlobalURLAccount(mixAccount string) (pureAccount *string, err error) {
+	pureAccount = nil
+	err = nil
+	if strings.HasSuffix(mixAccount, globalURLSuffix) {
+		posBeforeGlobal := len(mixAccount) - len(globalURLSuffix)
+		posDash := strings.LastIndex(mixAccount, "-")
+		if posDash == -1 || posBeforeGlobal < posDash {
+			err = &SnowflakeError{
+				Number:      ErrCodeFailedToParseAccount,
+				Message:     errMsgFailedToParseAccount,
+				MessageArgs: []interface{}{mixAccount},
+			}
+			return
+		}
+		pureAccountStr := string(mixAccount[:posDash])
+		pureAccount = &pureAccountStr
+	}
+	return
 }
 
 // parseAccountHostPort parses the DSN string to attempt to get account or host and port.

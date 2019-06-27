@@ -60,6 +60,8 @@ const (
 	ErrCodePrivateKeyParseError = 260010
 	// ErrCodeFailedToParseAuthenticator is an error code for the case where a DNS includes an invalid authenticator
 	ErrCodeFailedToParseAuthenticator = 260011
+	// ErrCodeFailedToParseAccount is an error code for the case where a DNS includes an invalid host name
+	ErrCodeFailedToParseAccount = 260012
 
 	/* network */
 
@@ -118,6 +120,7 @@ const (
 	errMsgFailedToParseHost                  = "failed to parse a host name. host: %v"
 	errMsgFailedToParsePort                  = "failed to parse a port number. port: %v"
 	errMsgFailedToParseAuthenticator         = "failed to parse an authenticator: %v"
+	errMsgFailedToParseAccount               = "failed to parse an account name. account: %v"
 	errMsgInvalidOffsetStr                   = "offset must be a string consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes: %v"
 	errMsgInvalidByteArray                   = "invalid byte array: %v"
 	errMsgIdpConnectionError                 = "failed to verify URLs. authenticator: %v, token URL:%v, SSO URL:%v"
