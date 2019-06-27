@@ -78,8 +78,10 @@ func TestParseDSN(t *testing.T) {
 				Account: "ac", User: "user", Password: "pass",
 				Protocol: "https", Host: "ac-laksdnflaf.global.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "schema",
+				OCSPFailOpen: ocspFailOpenTrue,
 			},
-			err: nil,
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
 		},
 		{
 			dsn: "user:pass@ac-1-laksdnflaf.global/db/schema",
@@ -87,8 +89,10 @@ func TestParseDSN(t *testing.T) {
 				Account: "ac-1", User: "user", Password: "pass",
 				Protocol: "https", Host: "ac-1-laksdnflaf.global.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "schema",
+				OCSPFailOpen: ocspFailOpenTrue,
 			},
-			err: nil,
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
 		},
 		{
 			dsn: "user:pass@ac.global/db/schema",
@@ -96,7 +100,9 @@ func TestParseDSN(t *testing.T) {
 				Account: "ac", User: "user", Password: "pass",
 				Protocol: "https", Host: "ac-laksdnflaf.global.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "schema",
+				OCSPFailOpen: ocspFailOpenTrue,
 			},
+			ocspMode: ocspModeFailOpen,
 			err: &SnowflakeError{
 				Number: ErrCodeFailedToParseAccount,
 			},
