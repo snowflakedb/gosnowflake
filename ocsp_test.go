@@ -439,7 +439,7 @@ func TestCanEarlyExitForOCSP(t *testing.T) {
 	}
 
 	for idx, tt := range testcases {
-		ocspFailOpen = ocspFailOpenTrue
+		ocspFailOpen = OCSPFailOpenTrue
 		expectedLen := len(tt.results)
 		if tt.resultLen > 0 {
 			expectedLen = tt.resultLen
@@ -448,7 +448,7 @@ func TestCanEarlyExitForOCSP(t *testing.T) {
 		if !(tt.retFailOpen == nil && r == nil) && !(tt.retFailOpen != nil && r != nil && tt.retFailOpen.code == r.code) {
 			t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailOpen, r)
 		}
-		ocspFailOpen = ocspFailOpenFalse
+		ocspFailOpen = OCSPFailOpenFalse
 		r = canEarlyExitForOCSP(tt.results, expectedLen)
 		if !(tt.retFailClosed == nil && r == nil) && !(tt.retFailClosed != nil && r != nil && tt.retFailClosed.code == r.code) {
 			t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailClosed, r)

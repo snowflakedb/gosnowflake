@@ -44,10 +44,12 @@ var cacheFileName = ""
 // cacheUpdated is true if the memory cache is updated
 var cacheUpdated = true
 
+type OCSPFailOpenMode int
+
 const (
-	ocspFailOpenNotSet = 0
-	ocspFailOpenTrue   = 1
-	ocspFailOpenFalse  = 2
+	ocspFailOpenNotSet OCSPFailOpenMode = 0
+	OCSPFailOpenTrue   OCSPFailOpenMode = 1
+	OCSPFailOpenFalse  OCSPFailOpenMode = 2
 )
 const (
 	ocspModeFailOpen   = "FAIL_OPEN"
@@ -56,7 +58,7 @@ const (
 )
 
 // OCSP fail open mode
-var ocspFailOpen = ocspFailOpenTrue
+var ocspFailOpen = OCSPFailOpenTrue
 
 const (
 	// retryOCSPTimeout is the total timeout for OCSP checks.
@@ -534,7 +536,7 @@ func verifyPeerCertificate(verifiedChains [][]*x509.Certificate) (err error) {
 
 func canEarlyExitForOCSP(results []*ocspStatus, chainSize int) *ocspStatus {
 	msg := ""
-	if ocspFailOpen == ocspFailOpenFalse {
+	if ocspFailOpen == OCSPFailOpenFalse {
 		// Fail closed. any error is returned to stop connection
 		for _, r := range results {
 			if r.err != nil {
