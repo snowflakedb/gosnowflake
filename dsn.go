@@ -47,9 +47,9 @@ type Config struct {
 	RequestTimeout   time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
 	JWTExpireTimeout time.Duration // JWT expire after timeout
 
-	Application  string // application name.
-	InsecureMode bool   // driver doesn't check certificate revocation status
-	OCSPFailOpen int    // OCSP Fail Open
+	Application  string           // application name.
+	InsecureMode bool             // driver doesn't check certificate revocation status
+	OCSPFailOpen OCSPFailOpenMode // OCSP Fail Open
 
 	Token string // Token to use for OAuth other forms of token based auth
 
@@ -60,7 +60,7 @@ type Config struct {
 func (c *Config) ocspMode() string {
 	if c.InsecureMode {
 		return ocspModeInsecure
-	} else if c.OCSPFailOpen == ocspFailOpenNotSet || c.OCSPFailOpen == ocspFailOpenTrue {
+	} else if c.OCSPFailOpen == ocspFailOpenNotSet || c.OCSPFailOpen == OCSPFailOpenTrue {
 		// by default or set to true
 		return ocspModeFailOpen
 	}
@@ -357,7 +357,7 @@ func fillMissingConfigParameters(cfg *Config) error {
 		}
 	}
 	if cfg.OCSPFailOpen == ocspFailOpenNotSet {
-		cfg.OCSPFailOpen = ocspFailOpenTrue
+		cfg.OCSPFailOpen = OCSPFailOpenTrue
 	}
 	return nil
 }
@@ -495,9 +495,9 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			if vv {
-				cfg.OCSPFailOpen = ocspFailOpenTrue
+				cfg.OCSPFailOpen = OCSPFailOpenTrue
 			} else {
-				cfg.OCSPFailOpen = ocspFailOpenFalse
+				cfg.OCSPFailOpen = OCSPFailOpenFalse
 			}
 
 		case "token":
