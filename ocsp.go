@@ -44,11 +44,14 @@ var cacheFileName = ""
 // cacheUpdated is true if the memory cache is updated
 var cacheUpdated = true
 
+// OCSPFailOpenMode is OCSP fail open mode. OCSPFailOpenTrue by default and may set to ocspModeFailClosed for fail closed mode
 type OCSPFailOpenMode int
 
 const (
 	ocspFailOpenNotSet OCSPFailOpenMode = 0
+	// OCSPFailOpenTrue represents OCSP fail open mode.
 	OCSPFailOpenTrue   OCSPFailOpenMode = 1
+	// OCSPFailOpenFalse represents OCSP fail closed mode.
 	OCSPFailOpenFalse  OCSPFailOpenMode = 2
 )
 const (
