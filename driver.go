@@ -28,6 +28,11 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	if sc.cfg.InsecureMode {
 		// no revocation check with OCSP. Think twice when you want to enable this option.
 		st = snowflakeInsecureTransport
+	} else {
+		// set OCSP fail open mode
+		ocspResponseCacheLock.Lock()
+		ocspFailOpen = sc.cfg.OCSPFailOpen
+		ocspResponseCacheLock.Unlock()
 	}
 	if err != nil {
 		return nil, err
