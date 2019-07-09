@@ -32,8 +32,8 @@ import (
 // caRoot includes the CA certificates.
 var caRoot map[string]*x509.Certificate
 
-// certPOol includes the CA certificates.
-var certPool *x509.CertPool
+// CertPool includes the CA certificates.
+var CertPool *x509.CertPool
 
 // cacheDir is the location of OCSP response cache file
 var cacheDir = ""
@@ -50,9 +50,9 @@ type OCSPFailOpenMode int
 const (
 	ocspFailOpenNotSet OCSPFailOpenMode = 0
 	// OCSPFailOpenTrue represents OCSP fail open mode.
-	OCSPFailOpenTrue   OCSPFailOpenMode = 1
+	OCSPFailOpenTrue OCSPFailOpenMode = 1
 	// OCSPFailOpenFalse represents OCSP fail closed mode.
-	OCSPFailOpenFalse  OCSPFailOpenMode = 2
+	OCSPFailOpenFalse OCSPFailOpenMode = 2
 )
 const (
 	ocspModeFailOpen   = "FAIL_OPEN"
@@ -798,10 +798,10 @@ func writeOCSPCacheFile() {
 	}
 }
 
-// readCACerts read a set of root CAs
-func readCACerts() {
+// ReadCACerts read a set of root CAs
+func ReadCACerts() {
 	raw := []byte(caRootPEM)
-	certPool = x509.NewCertPool()
+	CertPool = x509.NewCertPool()
 	caRoot = make(map[string]*x509.Certificate)
 	var p *pem.Block
 	for {
@@ -816,7 +816,7 @@ func readCACerts() {
 		if err != nil {
 			panic("failed to parse CA certificate.")
 		}
-		certPool.AddCert(c)
+		CertPool.AddCert(c)
 		caRoot[string(c.RawSubject)] = c
 	}
 }
@@ -851,7 +851,7 @@ func createOCSPCacheDir() {
 }
 
 func init() {
-	readCACerts()
+	ReadCACerts()
 	createOCSPCacheDir()
 	initOCSPCache()
 }
@@ -867,7 +867,7 @@ var snowflakeInsecureTransport = &http.Transport{
 // this transport object.
 var SnowflakeTransport = &http.Transport{
 	TLSClientConfig: &tls.Config{
-		RootCAs:               certPool,
+		RootCAs:               CertPool,
 		VerifyPeerCertificate: verifyPeerCertificateSerial,
 	},
 	MaxIdleConns:    10,
