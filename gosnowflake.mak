@@ -2,9 +2,6 @@
 setup:
 	go get golang.org/x/crypto/ocsp
 	go get github.com/Masterminds/glide
-	go get github.com/golang/lint/golint
-	go get github.com/Songmu/make2help/cmd/make2help
-	go get honnef.co/go/tools/cmd/megacheck
 
 ## Install dependencies
 deps: setup
@@ -14,10 +11,6 @@ deps: setup
 update: setup
 	glide update
 
-## Show help
-help:
-	@make2help $(MAKEFILE_LIST)
-
 # Format source codes (internally used)
 cfmt: setup
 	gofmt -w $$(glide nv -x)
@@ -25,7 +18,6 @@ cfmt: setup
 # Lint (internally used)
 clint: setup
 	go vet $$(glide novendor)
-	megacheck
 	for pkg in $$(glide novendor -x); do \
 		golint -set_exit_status $$pkg || exit $$?; \
 	done
