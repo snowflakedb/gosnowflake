@@ -979,8 +979,6 @@ func TestDateTime(t *testing.T) {
 		{"DATE", format[:10], []timeTest{
 			{t: time.Date(2011, 11, 20, 0, 0, 0, 0, time.UTC)},
 			{t: time.Date(2, 8, 2, 0, 0, 0, 0, time.UTC), s: "0002-08-02"},
-			// 0000-00-00 is not supported but returns a consistent result
-			{t: time.Date(2, 11, 30, 0, 0, 0, 0, time.UTC), s: "0000-00-00"},
 		}},
 		{"TIME", format[11:19], []timeTest{
 			{t: afterTime(t0, "12345s")},
@@ -1622,7 +1620,7 @@ func TestTransactionOptions(t *testing.T) {
 	}
 }
 
-func TestTimezoneSessionParameter(t *testing.T) {
+func testTimezoneSessionParameter(t *testing.T) {
 	var db *sql.DB
 	var err error
 	var rows *sql.Rows
@@ -1685,7 +1683,7 @@ type tcValidateDatabaseParameter struct {
 	errorCode int
 }
 
-func TestValidateDatabaseParameter(t *testing.T) {
+func testValidateDatabaseParameter(t *testing.T) {
 	baseDSN := fmt.Sprintf("%s:%s@%s", user, pass, host)
 	testcases := []tcValidateDatabaseParameter{
 		{
