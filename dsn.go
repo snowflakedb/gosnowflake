@@ -20,7 +20,7 @@ const (
 	defaultDomain         = ".snowflakecomputing.com"
 )
 
-// ConfigBool is a type to represent tru or false in the Config
+// ConfigBool is a type to represent true or false in the Config
 type ConfigBool uint8
 
 const (
