@@ -121,7 +121,7 @@ func setup() (string, error) {
 }
 
 // teardown drops the test schema
-func teardown(s string) error {
+func teardown() error {
 	var db *sql.DB
 	var err error
 	if db, err = sql.Open("snowflake", dsn); err != nil {
@@ -139,12 +139,12 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	}
 
-	orgSchemaname, err := setup()
+	_, err := setup()
 	if err != nil {
 		panic(err)
 	}
 	ret := m.Run()
-	teardown(orgSchemaname)
+	teardown()
 	os.Exit(ret)
 }
 
@@ -1758,27 +1758,6 @@ func TestValidateDatabaseParameter(t *testing.T) {
 				"role": "NOT_EXIST",
 			},
 			errorCode: ErrRoleNotExist,
-		}, {
-			dsn:       baseDSN + fmt.Sprintf("/%s/%s", "NOT_EXISTS", "NOT_EXISTS"),
-			errorCode: ErrObjectNotExistOrAuthorized,
-		},
-		{
-			dsn:       baseDSN + fmt.Sprintf("/%s/%s", dbname, "NOT_EXISTS"),
-			errorCode: ErrObjectNotExistOrAuthorized,
-		},
-		{
-			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
-			params: map[string]string{
-				"warehouse": "NOT_EXIST",
-			},
-			errorCode: ErrObjectNotExistOrAuthorized,
-		},
-		{
-			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
-			params: map[string]string{
-				"role": "NOT_EXIST",
-			},
-			errorCode: ErrRoleNotExist,
 		},
 	}
 	for idx, tc := range testcases {
@@ -1861,12 +1840,12 @@ func TestPingInvalidHost(t *testing.T) {
 		LoginTimeout: 10 * time.Second,
 	}
 
-	url, err := DSN(&config)
+	testURL, err := DSN(&config)
 	if err != nil {
 		t.Fatalf("failed to parse config. config: %v, err: %v", config, err)
 	}
 
-	db, err := sql.Open("snowflake", url)
+	db, err := sql.Open("snowflake", testURL)
 	if err != nil {
 		t.Fatalf("failed to initalize the connetion. err: %v", err)
 	}

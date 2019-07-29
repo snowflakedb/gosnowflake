@@ -101,6 +101,9 @@ The following connection parameters are supported:
 
 	* ocspFailOpen: true by default. Set to false to make OCSP check fail closed mode.
 
+	* validateDefaultParameters: true by default. Set to false to disable checks on existence and privileges check for
+								 Database, Schema, Warehouse and Role when setting up the connection
+
 All other parameters are taken as session parameters. For example, TIMESTAMP_OUTPUT_FORMAT session parameter can be
 set by adding:
 
