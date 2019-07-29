@@ -1733,7 +1733,6 @@ type tcValidateDatabaseParameter struct {
 	errorCode int
 }
 
-// DISABLED: SNOW-83424
 func TestValidateDatabaseParameter(t *testing.T) {
 	baseDSN := fmt.Sprintf("%s:%s@%s", user, pass, host)
 	testcases := []tcValidateDatabaseParameter{
