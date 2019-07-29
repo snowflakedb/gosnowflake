@@ -112,6 +112,10 @@ const (
 
 	// ErrSessionGone is an GS error code for the case that session is already closed
 	ErrSessionGone = 390111
+	// ErrRoleNotExist is a GS error code for the case that the role specified does not exist
+	ErrRoleNotExist = 390189
+	// ErrObjectNotExistOrAuthorized is a GS error code for the case that the server-side object specified does not exist
+	ErrObjectNotExistOrAuthorized = 390201
 )
 
 const (

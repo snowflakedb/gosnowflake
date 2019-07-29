@@ -134,7 +134,7 @@ type authRequestData struct {
 	ExtAuthnDuoMethod       string                       `json:"EXT_AUTHN_DUO_METHOD,omitempty"`
 	Passcode                string                       `json:"PASSCODE,omitempty"`
 	Authenticator           string                       `json:"AUTHENTICATOR,omitempty"`
-	SessionParameters       map[string]string            `json:"SESSION_PARAMETERS,omitempty"`
+	SessionParameters       map[string]interface{}       `json:"SESSION_PARAMETERS,omitempty"`
 	ClientEnvironment       authRequestClientEnvironment `json:"CLIENT_ENVIRONMENT"`
 	BrowserModeRedirectPort string                       `json:"BROWSER_MODE_REDIRECT_PORT,omitempty"`
 	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
@@ -270,11 +270,13 @@ func authenticate(
 		OCSPMode:    sc.cfg.ocspMode(),
 	}
 
-	sessionParameters := make(map[string]string)
+	sessionParameters := make(map[string]interface{})
 	for k, v := range sc.cfg.Params {
 		// upper casing to normalize keys
 		sessionParameters[strings.ToUpper(k)] = *v
 	}
+
+	sessionParameters[sessionClientValidateDefaultParameters] = sc.cfg.ValidateDefaultParameters != ConfigBoolFalse
 
 	requestMain := authRequestData{
 		ClientAppID:       clientType,

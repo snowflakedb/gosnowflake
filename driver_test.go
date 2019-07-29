@@ -1734,31 +1734,51 @@ type tcValidateDatabaseParameter struct {
 }
 
 // DISABLED: SNOW-83424
-func testValidateDatabaseParameter(t *testing.T) {
+func TestValidateDatabaseParameter(t *testing.T) {
 	baseDSN := fmt.Sprintf("%s:%s@%s", user, pass, host)
 	testcases := []tcValidateDatabaseParameter{
 		{
 			dsn:       baseDSN + fmt.Sprintf("/%s/%s", "NOT_EXISTS", "NOT_EXISTS"),
-			errorCode: ErrCodeObjectNotExists,
+			errorCode: ErrObjectNotExistOrAuthorized,
 		},
 		{
 			dsn:       baseDSN + fmt.Sprintf("/%s/%s", dbname, "NOT_EXISTS"),
-			errorCode: ErrCodeObjectNotExists,
+			errorCode: ErrObjectNotExistOrAuthorized,
 		},
 		{
 			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
 			params: map[string]string{
 				"warehouse": "NOT_EXIST",
 			},
-			errorCode: ErrCodeObjectNotExists,
+			errorCode: ErrObjectNotExistOrAuthorized,
 		},
 		{
 			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
 			params: map[string]string{
 				"role": "NOT_EXIST",
 			},
-			//FIXME This is magic number that should be avoided
-			errorCode: 390189, // this already exists
+			errorCode: ErrRoleNotExist,
+		}, {
+			dsn:       baseDSN + fmt.Sprintf("/%s/%s", "NOT_EXISTS", "NOT_EXISTS"),
+			errorCode: ErrObjectNotExistOrAuthorized,
+		},
+		{
+			dsn:       baseDSN + fmt.Sprintf("/%s/%s", dbname, "NOT_EXISTS"),
+			errorCode: ErrObjectNotExistOrAuthorized,
+		},
+		{
+			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			params: map[string]string{
+				"warehouse": "NOT_EXIST",
+			},
+			errorCode: ErrObjectNotExistOrAuthorized,
+		},
+		{
+			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			params: map[string]string{
+				"role": "NOT_EXIST",
+			},
+			errorCode: ErrRoleNotExist,
 		},
 	}
 	for idx, tc := range testcases {
