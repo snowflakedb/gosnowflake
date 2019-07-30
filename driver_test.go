@@ -121,7 +121,7 @@ func setup() (string, error) {
 }
 
 // teardown drops the test schema
-func teardown(s string) error {
+func teardown() error {
 	var db *sql.DB
 	var err error
 	if db, err = sql.Open("snowflake", dsn); err != nil {
@@ -139,12 +139,12 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	}
 
-	orgSchemaname, err := setup()
+	_, err := setup()
 	if err != nil {
 		panic(err)
 	}
 	ret := m.Run()
-	teardown(orgSchemaname)
+	teardown()
 	os.Exit(ret)
 }
 
@@ -1733,32 +1733,30 @@ type tcValidateDatabaseParameter struct {
 	errorCode int
 }
 
-// DISABLED: SNOW-83424
-func testValidateDatabaseParameter(t *testing.T) {
+func TestValidateDatabaseParameter(t *testing.T) {
 	baseDSN := fmt.Sprintf("%s:%s@%s", user, pass, host)
 	testcases := []tcValidateDatabaseParameter{
 		{
 			dsn:       baseDSN + fmt.Sprintf("/%s/%s", "NOT_EXISTS", "NOT_EXISTS"),
-			errorCode: ErrCodeObjectNotExists,
+			errorCode: ErrObjectNotExistOrAuthorized,
 		},
 		{
 			dsn:       baseDSN + fmt.Sprintf("/%s/%s", dbname, "NOT_EXISTS"),
-			errorCode: ErrCodeObjectNotExists,
+			errorCode: ErrObjectNotExistOrAuthorized,
 		},
 		{
 			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
 			params: map[string]string{
 				"warehouse": "NOT_EXIST",
 			},
-			errorCode: ErrCodeObjectNotExists,
+			errorCode: ErrObjectNotExistOrAuthorized,
 		},
 		{
 			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
 			params: map[string]string{
 				"role": "NOT_EXIST",
 			},
-			//FIXME This is magic number that should be avoided
-			errorCode: 390189, // this already exists
+			errorCode: ErrRoleNotExist,
 		},
 	}
 	for idx, tc := range testcases {
@@ -1841,12 +1839,12 @@ func TestPingInvalidHost(t *testing.T) {
 		LoginTimeout: 10 * time.Second,
 	}
 
-	url, err := DSN(&config)
+	testURL, err := DSN(&config)
 	if err != nil {
 		t.Fatalf("failed to parse config. config: %v, err: %v", config, err)
 	}
 
-	db, err := sql.Open("snowflake", url)
+	db, err := sql.Open("snowflake", testURL)
 	if err != nil {
 		t.Fatalf("failed to initalize the connetion. err: %v", err)
 	}
