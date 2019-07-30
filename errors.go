@@ -54,8 +54,6 @@ const (
 	ErrCodeServiceUnavailable = 260007
 	// ErrCodeFailedToConnect is an error code for the case where a DB connection failed due to wrong account name
 	ErrCodeFailedToConnect = 260008
-	// ErrCodeObjectNotExists is an error code for the case where the specified database object doesn't exist
-	ErrCodeObjectNotExists = 260009
 	// ErrCodePrivateKeyParseError is an error code for the case where the private key is not parsed correctly
 	ErrCodePrivateKeyParseError = 260010
 	// ErrCodeFailedToParseAuthenticator is an error code for the case where a DNS includes an invalid authenticator
@@ -141,7 +139,6 @@ const (
 	errMsgNoDefaultTransactionIsolationLevel = "no default isolation transaction level is supported"
 	errMsgServiceUnavailable                 = "service is unavailable. check your connectivity. you may need a proxy server. HTTP: %v, URL: %v"
 	errMsgFailedToConnect                    = "failed to connect to db. verify account name is correct. HTTP: %v, URL: %v"
-	errMsgObjectNotExists                    = "specified object doesn't exists: %v"
 )
 
 var (
