@@ -512,18 +512,18 @@ func isValidOCSPStatus(status ocspStatusCode) bool {
 // verifyPeerCertificate verifies all of certificate revocation status
 func verifyPeerCertificate(verifiedChains [][]*x509.Certificate) (err error) {
 	for i := 0; i < len(verifiedChains); i++ {
-		n := len(verifiedChains[i]) - 1
-		if !verifiedChains[i][n].IsCA || string(verifiedChains[i][n].RawIssuer) != string(verifiedChains[i][n].RawSubject) {
+		numberOfNoneRootCA := len(verifiedChains[i]) - 1
+		if !verifiedChains[i][numberOfNoneRootCA].IsCA || string(verifiedChains[i][numberOfNoneRootCA].RawIssuer) != string(verifiedChains[i][numberOfNoneRootCA].RawSubject) {
 			// if the last certificate is not root CA, add it to the list
-			rca := caRoot[string(verifiedChains[i][n].RawIssuer)]
+			rca := caRoot[string(verifiedChains[i][numberOfNoneRootCA].RawIssuer)]
 			if rca == nil {
-				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][n].Issuer)
+				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCA].Issuer)
 			}
 			verifiedChains[i] = append(verifiedChains[i], rca)
-			n++
+			numberOfNoneRootCA++
 		}
 		results := getAllRevocationStatus(verifiedChains[i])
-		if r := canEarlyExitForOCSP(results, len(verifiedChains[i])); r != nil {
+		if r := canEarlyExitForOCSP(results, numberOfNoneRootCA); r != nil {
 			return r.err
 		}
 	}
