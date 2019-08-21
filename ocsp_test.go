@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,6 +59,49 @@ func TestOCSP(t *testing.T) {
 				_, err = ioutil.ReadAll(res.Body)
 				if err != nil {
 					t.Fatalf("failed to read content body for %v", tgt)
+				}
+
+			}
+		}
+	}
+	_ = os.Unsetenv(cacheServerEnabledEnv)
+}
+
+func TestOCSPRevoked(t *testing.T) {
+	cacheServerEnabled := []string{
+		"true",
+		"false",
+	}
+	targetURL := []string{
+		"https://revoked.badssl.com/",
+	}
+
+	failOpen := []OCSPFailOpenMode{
+		OCSPFailOpenTrue,
+		OCSPFailOpenFalse,
+	}
+
+	for _, fop := range failOpen {
+		for _, enabled := range cacheServerEnabled {
+			for _, tgt := range targetURL {
+				ocspFailOpen = fop
+				_ = os.Setenv(cacheServerEnabledEnv, enabled)
+				_ = os.Remove(cacheFileName) // clear cache file
+				ocspResponseCache = make(map[certIDKey][]interface{})
+				c := &http.Client{
+					Transport: SnowflakeTransport,
+					Timeout:   80 * time.Second,
+				}
+				req, err := http.NewRequest("GET", tgt, bytes.NewReader(nil))
+				if err != nil {
+					t.Fatalf("fail to create a request. err: %v", err)
+				}
+				_, err = c.Do(req)
+				if err == nil {
+					t.Fatal("Error should not be null")
+				}
+				if !strings.Contains(err.Error(), "OCSP revoked") {
+					t.Fatalf("Error reason should be of OCSP revoked, got: %v", err.Error())
 				}
 
 			}
