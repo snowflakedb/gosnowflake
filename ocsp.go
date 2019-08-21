@@ -515,7 +515,8 @@ func verifyPeerCertificate(verifiedChains [][]*x509.Certificate) (err error) {
 		// Certificate signed by Root CA. This should be one before the last in the Certificate Chain
 		numberOfNoneRootCerts := len(verifiedChains[i]) - 1
 		if !verifiedChains[i][numberOfNoneRootCerts].IsCA || string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) != string(verifiedChains[i][numberOfNoneRootCerts].RawSubject) {
-			// if the last certificate is not root CA, add it to the list
+			// Check if the last Non Root Cert is also a CA or is self signed.
+			// if the last certificate is not, add it to the list
 			rca := caRoot[string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer)]
 			if rca == nil {
 				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
