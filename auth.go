@@ -115,7 +115,13 @@ var platform = fmt.Sprintf("%v-%v", runtime.Compiler, runtime.GOARCH)
 var operatingSystem = runtime.GOOS
 
 // userAgent shows up in User-Agent HTTP header
-var userAgent = fmt.Sprintf("%v/%v/%v/%v", clientType, SnowflakeGoDriverVersion, runtime.Version(), platform)
+var userAgent = fmt.Sprintf("%v/%v/%v/%v/%v-%v",
+	clientType,
+	SnowflakeGoDriverVersion,
+	runtime.Compiler,
+	runtime.Version(),
+	operatingSystem,
+	runtime.GOARCH)
 
 type authRequestClientEnvironment struct {
 	Application string `json:"APPLICATION"`
