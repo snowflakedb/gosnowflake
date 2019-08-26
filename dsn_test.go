@@ -25,7 +25,8 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "account", User: "user", Password: "pass", Region: "",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -35,7 +36,8 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "account", User: "user", Password: "pass", Region: "eu-faraway",
 				Protocol: "https", Host: "account.eu-faraway.snowflakecomputing.com", Port: 443,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -45,7 +47,8 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "account", User: "user", Password: "pass", Region: "eu-faraway",
 				Protocol: "https", Host: "account.eu-faraway.snowflakecomputing.com", Port: 443,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -55,8 +58,9 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "account", User: "user", Password: "pass",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
-				Database:     "db",
-				OCSPFailOpen: OCSPFailOpenTrue,
+				Database:                  "db",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -67,7 +71,8 @@ func TestParseDSN(t *testing.T) {
 				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
 				Database: "db", Schema: "schema",
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -78,7 +83,8 @@ func TestParseDSN(t *testing.T) {
 				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
 				Database: "db", Schema: "schema",
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      ErrEmptyPassword,
@@ -89,7 +95,8 @@ func TestParseDSN(t *testing.T) {
 				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
 				Database: "db", Schema: "schema",
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      ErrEmptyUsername,
@@ -100,7 +107,8 @@ func TestParseDSN(t *testing.T) {
 				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
 				Database: "db", Schema: "schema",
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      ErrEmptyAccount,
@@ -111,7 +119,8 @@ func TestParseDSN(t *testing.T) {
 				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "pa", Role: "r", Warehouse: "w",
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -121,7 +130,8 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -131,7 +141,8 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "a", Authenticator: AuthTypeOAuth,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -141,7 +152,8 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "a", User: "u", Authenticator: AuthTypeJwt,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -153,8 +165,9 @@ func TestParseDSN(t *testing.T) {
 				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.snowflakecomputding.com", Port: 443,
 				Database: "d", Schema: "",
-				JWTExpireTimeout: 20 * time.Second,
-				OCSPFailOpen:     OCSPFailOpenTrue,
+				JWTExpireTimeout:          20 * time.Second,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 		},
@@ -164,8 +177,9 @@ func TestParseDSN(t *testing.T) {
 				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.snowflakecomputding.com", Port: 443,
 				Database: "d", Schema: "",
-				JWTExpireTimeout: defaultJWTTimeout,
-				OCSPFailOpen:     OCSPFailOpenTrue,
+				JWTExpireTimeout:          defaultJWTTimeout,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 		},
@@ -174,7 +188,8 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err: &SnowflakeError{
@@ -190,7 +205,8 @@ func TestParseDSN(t *testing.T) {
 				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
 				Database: "d", Schema: "s", Role: "r", Authenticator: AuthTypeSnowflake, Application: "aa",
 				InsecureMode: true, Passcode: "pp", PasscodeInPassword: true,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeInsecure,
 			err:      nil,
@@ -202,7 +218,8 @@ func TestParseDSN(t *testing.T) {
 				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
 				Database: "d", Schema: "",
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -239,7 +256,8 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "ac", User: "u", Password: "p", Database: "db",
 				Protocol: "https", Host: "ac.snowflakecomputing.com", Port: 443,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -258,7 +276,8 @@ func TestParseDSN(t *testing.T) {
 			dsn: "u:p@asnowflakecomputing.com/db/pa?account=a&protocol=https&role=r&timezone=UTC&aehouse=w",
 			config: &Config{Account: "a", User: "u", Password: "p", Database: "db", Schema: "pa",
 				Protocol: "https", Role: "r", Host: "asnowflakecomputing.com", Port: 443, Region: "com",
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -268,7 +287,8 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "ac", User: "user@/1", Password: "p:@s", Database: "db/",
 				Protocol: "https", Host: "ac.snowflakecomputing.com", Port: 443,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -279,7 +299,8 @@ func TestParseDSN(t *testing.T) {
 				Account: "ac", User: "u", Password: "p",
 				Authenticator: AuthTypeJwt, PrivateKey: testPrivKey,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -295,7 +316,8 @@ func TestParseDSN(t *testing.T) {
 				},
 				PrivateKey: testPrivKey,
 				Protocol:   "http", Host: "snowflake.local", Port: 9876,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -306,10 +328,22 @@ func TestParseDSN(t *testing.T) {
 				Account: "a", User: "u", Password: "p",
 				Authenticator: AuthTypeJwt, PrivateKey: testPrivKey,
 				Protocol: "http", Host: "snowflake.local", Port: 9876,
-				OCSPFailOpen: OCSPFailOpenTrue,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      &SnowflakeError{Number: ErrCodePrivateKeyParseError},
+		},
+		{
+			dsn: "user:pass@account/db/s?ocspFailOpen=true",
+			config: &Config{
+				Account: "account", User: "user", Password: "pass",
+				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", OCSPFailOpen: OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
 		},
 		{
 			dsn: "user:pass@account/db/s?ocspFailOpen=false",
@@ -317,6 +351,7 @@ func TestParseDSN(t *testing.T) {
 				Account: "account", User: "user", Password: "pass",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "s", OCSPFailOpen: OCSPFailOpenFalse,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailClosed,
 			err:      nil,
@@ -327,14 +362,35 @@ func TestParseDSN(t *testing.T) {
 				Account: "account", User: "user", Password: "pass",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "s", OCSPFailOpen: OCSPFailOpenFalse, InsecureMode: true,
+				ValidateDefaultParameters: ConfigBoolTrue,
 			},
 			ocspMode: ocspModeInsecure,
+			err:      nil,
+		},
+		{
+			dsn: "user:pass@account/db/s?validateDefaultParameters=true",
+			config: &Config{
+				Account: "account", User: "user", Password: "pass",
+				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "user:pass@account/db/s?validateDefaultParameters=false",
+			config: &Config{
+				Account: "account", User: "user", Password: "pass",
+				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolFalse, OCSPFailOpen: OCSPFailOpenTrue,
+			},
+			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
 	}
 
 	for i, test := range testcases {
-		glog.V(2).Infof("#%v\n", i)
+		t.Logf("Parsing testcase %d, DSN: %s", i, test.dsn)
 		cfg, err := ParseDSN(test.dsn)
 		switch {
 		case test.err == nil:
@@ -401,6 +457,10 @@ func TestParseDSN(t *testing.T) {
 				t.Fatalf("%d: Failed to match OCSPMode. expected: %v, got: %v",
 					i, test.ocspMode, cfg.ocspMode())
 			}
+			if test.config.ValidateDefaultParameters != cfg.ValidateDefaultParameters {
+				t.Fatalf("%d: Failed to match ValidateDefaultParameters. expected: %v, got: %v",
+					i, test.config.ValidateDefaultParameters, cfg.ValidateDefaultParameters)
+			}
 		case test.err != nil:
 			driverErrE, okE := test.err.(*SnowflakeError)
 			driverErrG, okG := err.(*SnowflakeError)
@@ -438,7 +498,7 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "a",
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443",
+			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -446,7 +506,6 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "a",
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443",
 			err: ErrEmptyUsername,
 		},
 		{
@@ -455,7 +514,6 @@ func TestDSN(t *testing.T) {
 				Password: "",
 				Account:  "a",
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443",
 			err: ErrEmptyPassword,
 		},
 		{
@@ -464,7 +522,6 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "",
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443",
 			err: ErrEmptyAccount,
 		},
 		{
@@ -473,7 +530,7 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "a.e",
 			},
-			dsn: "u:p@a.e.snowflakecomputing.com:443?region=e",
+			dsn: "u:p@a.e.snowflakecomputing.com:443?ocspFailOpen=true&region=e&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -491,7 +548,7 @@ func TestDSN(t *testing.T) {
 				RequestTimeout:     300 * time.Second,
 				Application:        "special go",
 			},
-			dsn: "u:p@a.b.snowflakecomputing.com:443?application=special+go&database=db&loginTimeout=10&passcode=db&passcodeInPassword=true&region=b&requestTimeout=300&role=ro&schema=sc",
+			dsn: "u:p@a.b.snowflakecomputing.com:443?application=special+go&database=db&loginTimeout=10&ocspFailOpen=true&passcode=db&passcodeInPassword=true&region=b&requestTimeout=300&role=ro&schema=sc&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -500,7 +557,7 @@ func TestDSN(t *testing.T) {
 				Account:       "a",
 				Authenticator: AuthTypeExternalBrowser,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=externalbrowser",
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=externalbrowser&ocspFailOpen=true&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -513,7 +570,7 @@ func TestDSN(t *testing.T) {
 					Host:   "sc.okta.com",
 				},
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=https%3A%2F%2Fsc.okta.com",
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=https%3A%2F%2Fsc.okta.com&ocspFailOpen=true&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -524,7 +581,7 @@ func TestDSN(t *testing.T) {
 					"TIMESTAMP_OUTPUT_FORMAT": &tmfmt,
 				},
 			},
-			dsn: "u:p@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&region=e",
+			dsn: "u:p@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&ocspFailOpen=true&region=e&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -535,14 +592,50 @@ func TestDSN(t *testing.T) {
 					"TIMESTAMP_OUTPUT_FORMAT": &tmfmt,
 				},
 			},
-			dsn: "u:%3A%40abc@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&region=e",
+			dsn: "u:%3A%40abc@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&ocspFailOpen=true&region=e&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:         "u",
+				Password:     "p",
+				Account:      "a",
+				OCSPFailOpen: OCSPFailOpenTrue,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:         "u",
+				Password:     "p",
+				Account:      "a",
+				OCSPFailOpen: OCSPFailOpenFalse,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=false&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                      "u",
+				Password:                  "p",
+				Account:                   "a",
+				ValidateDefaultParameters: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=false",
+		},
+		{
+			cfg: &Config{
+				User:                      "u",
+				Password:                  "p",
+				Account:                   "a",
+				ValidateDefaultParameters: ConfigBoolTrue,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {
 		dsn, err := DSN(test.cfg)
 		if test.err == nil && err == nil {
 			if dsn != test.dsn {
-				t.Errorf("failed to get DSN. expected: %v, got: %v", test.dsn, dsn)
+				t.Errorf("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
 			}
 			_, err := ParseDSN(dsn)
 			if err != nil {

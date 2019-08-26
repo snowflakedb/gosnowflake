@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"net/http"
-	"strings"
 )
 
 // SnowflakeDriver is a context of Go Driver
@@ -101,38 +100,9 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	err = d.validateDefaultParameters(authData.SessionInfo.DatabaseName, &sc.cfg.Database)
-	if err != nil {
-		return nil, err
-	}
-	err = d.validateDefaultParameters(authData.SessionInfo.SchemaName, &sc.cfg.Schema)
-	if err != nil {
-		return nil, err
-	}
-	err = d.validateDefaultParameters(authData.SessionInfo.WarehouseName, &sc.cfg.Warehouse)
-	if err != nil {
-		return nil, err
-	}
-	err = d.validateDefaultParameters(authData.SessionInfo.RoleName, &sc.cfg.Role)
-	if err != nil {
-		return nil, err
-	}
 	sc.populateSessionParameters(authData.Parameters)
 	sc.startHeartBeat()
 	return sc, nil
-}
-
-func (d SnowflakeDriver) validateDefaultParameters(sessionValue string, defaultValue *string) error {
-	if *defaultValue != "" && !strings.EqualFold(*defaultValue, sessionValue) {
-		return &SnowflakeError{
-			Number:      ErrCodeObjectNotExists,
-			SQLState:    SQLStateConnectionFailure,
-			Message:     errMsgObjectNotExists,
-			MessageArgs: []interface{}{*defaultValue},
-		}
-	}
-	*defaultValue = sessionValue
-	return nil
 }
 
 func init() {

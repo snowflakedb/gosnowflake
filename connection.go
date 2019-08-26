@@ -23,8 +23,9 @@ const (
 )
 
 const (
-	sessionClientSessionKeepAlive = "client_session_keep_alive"
-	serviceName                   = "service_name"
+	sessionClientSessionKeepAlive          = "client_session_keep_alive"
+	sessionClientValidateDefaultParameters = "CLIENT_VALIDATE_DEFAULT_PARAMETERS"
+	serviceName                            = "service_name"
 )
 
 type snowflakeConn struct {
