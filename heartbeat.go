@@ -58,14 +58,13 @@ func (hc *heartbeat) heartbeatMain() error {
 	params := &url.Values{}
 	params.Add("requestId", uuid.New().String())
 	params.Add(requestGUIDKey, uuid.New().String())
-	fullURL := fmt.Sprintf(
-		"%s://%s:%d%s", hc.restful.Protocol, hc.restful.Host, hc.restful.Port, "/session/heartbeat?"+params.Encode())
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, hc.restful.Token)
 
+	fullURL := hc.restful.getFullURL(heartBeatPath, params)
 	resp, err := hc.restful.FuncPost(context.TODO(), hc.restful, fullURL, headers, nil, hc.restful.RequestTimeout, false)
 	if err != nil {
 		return err

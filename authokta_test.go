@@ -37,21 +37,21 @@ func TestUnitPostBackURL(t *testing.T) {
 	}
 }
 
-func getTestError(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+func getTestError(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ time.Duration) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
 	}, errors.New("failed to run post method")
 }
 
-func getTestAppBadGatewayError(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+func getTestAppBadGatewayError(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ time.Duration) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusBadGateway,
 		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
 	}, nil
 }
 
-func getTestHTMLSuccess(_ context.Context, _ *snowflakeRestful, _ string, _ map[string]string, _ time.Duration) (*http.Response, error) {
+func getTestHTMLSuccess(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ time.Duration) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Body:       &fakeResponseBody{body: []byte("<htm></html>")},

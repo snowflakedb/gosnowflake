@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strings"
 	"sync"
@@ -286,9 +287,11 @@ func getChunk(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return retryHTTP(
-		ctx, scd.sc.rest.Client, http.NewRequest,
-		"GET", fullURL, headers, nil, timeout, false)
+	u, err := url.Parse(fullURL)
+	if err != nil {
+		return nil, err
+	}
+	return newRetryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, u, headers, timeout).execute()
 }
 
 /* largeResultSetReader is a reader that wraps the large result set with leading and tailing brackets. */
