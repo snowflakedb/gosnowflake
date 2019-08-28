@@ -199,7 +199,7 @@ func TestRetryQueryFail(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.TODO(),
 		client,
-		fakeRequestFunc, urlPtr, make(map[string]string), 30*time.Second).doPost().setBody([]byte{0}).execute()
+		fakeRequestFunc, urlPtr, make(map[string]string), 60*time.Second).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
@@ -212,7 +212,7 @@ func TestRetryQueryFail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get retry counter: %v", err)
 	}
-	if retry < 3 {
+	if retry < 2 {
 		t.Fatalf("not enough retry counter: %v", retry)
 	}
 }
