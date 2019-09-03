@@ -26,11 +26,14 @@ func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
-// request_guid is attached to every request against Snowflake
+// requestGUIDKey is attached to every request against Snowflake
 const requestGUIDKey string = "request_guid"
 
-// retryCounter is attached to query-request from the second time
-const retryCounterParam string = "retryCounter"
+// retryCounterKey is attached to query-request from the second time
+const retryCounterKey string = "retryCounter"
+
+// requestIDKey is attached to all requests to Snowflake
+const requestIDKey string = "requestId"
 
 // This class takes in an url during construction and replace the
 // value of request_guid every time the replace() is called
@@ -102,8 +105,8 @@ func (r *retryUpdate) replaceOrAdd(retry int) *url.URL {
 	if err != nil {
 		return r.TargetURL
 	}
-	vs.Del(retryCounterParam)
-	vs.Add(retryCounterParam, strconv.Itoa(retry))
+	vs.Del(retryCounterKey)
+	vs.Add(retryCounterKey, strconv.Itoa(retry))
 	r.TargetURL.RawQuery = vs.Encode()
 	return r.TargetURL
 }

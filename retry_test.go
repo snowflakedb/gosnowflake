@@ -97,7 +97,7 @@ func TestRequestGUID(t *testing.T) {
 
 	// url with on retry id
 	testURL = &url.URL{
-		Path: "/requestId=123-1923-9?param2=value",
+		Path: "/" + requestIDKey + "=123-1923-9?param2=value",
 	}
 	ridReplacer = makeRequestGUIDReplacer(testURL)
 	for i := 0; i < retryTime; i++ {
@@ -110,7 +110,7 @@ func TestRequestGUID(t *testing.T) {
 
 	// url with retry id
 	// With both prefix and suffix
-	prefix := "/requestId=123-1923-9?" + requestGUIDKey + "="
+	prefix := "/" + requestIDKey + "=123-1923-9?" + requestGUIDKey + "="
 	suffix := "?param2=value"
 	testURL = &url.URL{
 		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
@@ -126,7 +126,7 @@ func TestRequestGUID(t *testing.T) {
 	}
 
 	// With no suffix
-	prefix = "/requestId=123-1923-9?" + requestGUIDKey + "="
+	prefix = "/" + requestIDKey + "=123-1923-9?" + requestGUIDKey + "="
 	suffix = ""
 	testURL = &url.URL{
 		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
@@ -164,7 +164,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 		cnt:     3,
 		success: true,
 	}
-	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/queries/v1/query-request?requestId=testid&clientStartTime=123456")
+	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid&clientStartTime=123456")
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
@@ -179,7 +179,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to fail to parse the URL")
 	}
-	retry, err := strconv.Atoi(values.Get(retryCounterParam))
+	retry, err := strconv.Atoi(values.Get(retryCounterKey))
 	if err != nil {
 		t.Fatalf("failed to get retry counter: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestRetryQueryFail(t *testing.T) {
 		cnt:     10,
 		success: false,
 	}
-	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/queries/v1/query-request?requestId=testid&clientStartTime=123456")
+	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid&clientStartTime=123456")
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
@@ -208,7 +208,7 @@ func TestRetryQueryFail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to fail to parse the URL: %v", err)
 	}
-	retry, err := strconv.Atoi(values.Get(retryCounterParam))
+	retry, err := strconv.Atoi(values.Get(retryCounterKey))
 	if err != nil {
 		t.Fatalf("failed to get retry counter: %v", err)
 	}
@@ -238,8 +238,8 @@ func TestRetryLoginRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to fail to parse the URL: %v", err)
 	}
-	if values.Get(retryCounterParam) != "" {
-		t.Fatalf("no retry counter should be attached: %v", retryCounterParam)
+	if values.Get(retryCounterKey) != "" {
+		t.Fatalf("no retry counter should be attached: %v", retryCounterKey)
 	}
 	glog.V(2).Info("Retry N times for timeouts and Fail")
 	client = &fakeHTTPClient{
@@ -257,7 +257,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to fail to parse the URL: %v", err)
 	}
-	if values.Get(retryCounterParam) != "" {
-		t.Fatalf("no retry counter should be attached: %v", retryCounterParam)
+	if values.Get(retryCounterKey) != "" {
+		t.Fatalf("no retry counter should be attached: %v", retryCounterKey)
 	}
 }

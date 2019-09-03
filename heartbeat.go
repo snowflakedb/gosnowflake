@@ -56,7 +56,7 @@ func (hc *heartbeat) stop() {
 func (hc *heartbeat) heartbeatMain() error {
 	glog.V(2).Info("Heartbeating!")
 	params := &url.Values{}
-	params.Add("requestId", uuid.New().String())
+	params.Add(requestIDKey, uuid.New().String())
 	params.Add(requestGUIDKey, uuid.New().String())
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON

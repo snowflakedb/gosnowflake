@@ -206,7 +206,7 @@ func postAuthSAML(
 	data *authResponse, err error) {
 
 	params := &url.Values{}
-	params.Add("requestId", uuid.New().String())
+	params.Add(requestIDKey, uuid.New().String())
 	fullURL := sr.getFullURL(authenticatorRequestPath, params)
 
 	glog.V(2).Infof("fullURL: %v", fullURL)
