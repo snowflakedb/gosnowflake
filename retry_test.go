@@ -80,14 +80,14 @@ func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func TestRequestGUID(t *testing.T) {
-	var ridReplacer requestGUIDReplacerI
+	var ridReplacer requestGUIDReplacer
 	var testURL *url.URL
 	var actualURL *url.URL
 	retryTime := 4
 
 	// empty url
 	testURL = &url.URL{}
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
 		if actualURL.String() != "" {
@@ -99,7 +99,7 @@ func TestRequestGUID(t *testing.T) {
 	testURL = &url.URL{
 		Path: "/" + requestIDKey + "=123-1923-9?param2=value",
 	}
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
 
@@ -115,7 +115,7 @@ func TestRequestGUID(t *testing.T) {
 	testURL = &url.URL{
 		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
 	}
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
 		if (!strings.HasPrefix(actualURL.Path, prefix)) ||
@@ -131,7 +131,7 @@ func TestRequestGUID(t *testing.T) {
 	testURL = &url.URL{
 		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
 	}
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
 		if (!strings.HasPrefix(actualURL.Path, prefix)) ||
@@ -147,7 +147,7 @@ func TestRequestGUID(t *testing.T) {
 	testURL = &url.URL{
 		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
 	}
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
 		if (!strings.HasPrefix(actualURL.Path, prefix)) ||
