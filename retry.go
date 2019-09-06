@@ -46,17 +46,17 @@ type requestGUIDReplacer interface {
 
 // Make requestGUIDReplacer given a url string
 func newRequestGUIDReplace(urlPtr *url.URL) requestGUIDReplacer {
-	vs, err := url.ParseQuery(urlPtr.RawQuery)
+	values, err := url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
 		// nop if invalid query parameters
 		return &transientReplace{urlPtr}
 	}
-	if len(vs.Get(requestGUIDKey)) == 0 {
+	if len(values.Get(requestGUIDKey)) == 0 {
 		// nop if no request_guid is included.
 		return &transientReplace{urlPtr}
 	}
 
-	return &requestGUIDReplace{urlPtr}
+	return &requestGUIDReplace{urlPtr, values}
 }
 
 // this replacer does nothing but replace the url
@@ -73,7 +73,8 @@ requestGUIDReplacer is a one-shot object that is created out of the retry loop a
 called with replace to change the retry_guid's value upon every retry
 */
 type requestGUIDReplace struct {
-	urlPtr *url.URL
+	urlPtr    *url.URL
+	urlValues url.Values
 }
 
 /**
@@ -81,25 +82,19 @@ This function would replace they value of the requestGUIDKey in a url with a new
 generated uuid
 */
 func (replacer *requestGUIDReplace) replace() *url.URL {
-	vs, err := url.ParseQuery(replacer.urlPtr.RawQuery)
-	if err != nil {
-		return replacer.urlPtr
-	}
-	if len(vs.Get(requestGUIDKey)) == 0 {
-		return replacer.urlPtr
-	}
-	vs.Del(requestGUIDKey)
-	vs.Add(requestGUIDKey, uuid.New().String())
-	replacer.urlPtr.RawQuery = vs.Encode()
+	replacer.urlValues.Del(requestGUIDKey)
+	replacer.urlValues.Add(requestGUIDKey, uuid.New().String())
+	replacer.urlPtr.RawQuery = replacer.urlValues.Encode()
 	return replacer.urlPtr
 }
 
-type retryUpdater interface {
+type retryCounterUpdater interface {
 	replaceOrAdd(retry int) *url.URL
 }
 
-type retryUpdate struct {
-	TargetURL *url.URL
+type retryCounterUpdate struct {
+	urlPtr    *url.URL
+	urlValues url.Values
 }
 
 // this replacer does nothing but replace the url
@@ -111,32 +106,24 @@ func (replaceOrAdder *transientReplaceOrAdd) replaceOrAdd(retry int) *url.URL {
 	return replaceOrAdder.urlPtr
 }
 
-func (replacer *retryUpdate) replaceOrAdd(retry int) *url.URL {
-	if !strings.HasPrefix(replacer.TargetURL.Path, queryRequestPath) {
-		return replacer.TargetURL
-	}
-
-	vs, err := url.ParseQuery(replacer.TargetURL.RawQuery)
-	if err != nil {
-		return replacer.TargetURL
-	}
-	vs.Del(retryCounterKey)
-	vs.Add(retryCounterKey, strconv.Itoa(retry))
-	replacer.TargetURL.RawQuery = vs.Encode()
-	return replacer.TargetURL
+func (replacer *retryCounterUpdate) replaceOrAdd(retry int) *url.URL {
+	replacer.urlValues.Del(retryCounterKey)
+	replacer.urlValues.Add(retryCounterKey, strconv.Itoa(retry))
+	replacer.urlPtr.RawQuery = replacer.urlValues.Encode()
+	return replacer.urlPtr
 }
 
-func newRetryUpdate(targetURL *url.URL) retryUpdater {
-	if !strings.HasPrefix(targetURL.Path, queryRequestPath) {
+func newRetryUpdate(urlPtr *url.URL) retryCounterUpdater {
+	if !strings.HasPrefix(urlPtr.Path, queryRequestPath) {
 		// nop if not query-request
-		return &transientReplaceOrAdd{targetURL}
+		return &transientReplaceOrAdd{urlPtr}
 	}
-	_, err := url.ParseQuery(targetURL.RawQuery)
+	values, err := url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
 		// nop if the URL is not valid
-		return &transientReplaceOrAdd{targetURL}
+		return &transientReplaceOrAdd{urlPtr}
 	}
-	return &retryUpdate{targetURL}
+	return &retryCounterUpdate{urlPtr, values}
 }
 
 type waitAlgo struct {
@@ -228,7 +215,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	sleepTime := time.Duration(0)
 
 	var rIDReplacer requestGUIDReplacer
-	var rUpdater retryUpdater
+	var rUpdater retryCounterUpdater
 
 	for {
 		req, err := r.req(r.method, r.fullURL.String(), bytes.NewReader(r.body))
