@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,60 +26,104 @@ func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
+// requestGUIDKey is attached to every request against Snowflake
 const requestGUIDKey string = "request_guid"
 
-// Format of "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-const uuidLen int = 36
+// retryCounterKey is attached to query-request from the second time
+const retryCounterKey string = "retryCounter"
+
+// requestIDKey is attached to all requests to Snowflake
+const requestIDKey string = "requestId"
 
 // This class takes in an url during construction and replace the
 // value of request_guid every time the replace() is called
 // When the url does not contain request_guid, just return the original
 // url
-type requestGUIDReplacerI interface {
+type requestGUIDReplacer interface {
 	// replace the url with new ID
-	replace() string
+	replace() *url.URL
 }
 
 // Make requestGUIDReplacer given a url string
-func makeRequestGUIDReplacer(url string) requestGUIDReplacerI {
-	startIndex := strings.Index(url, requestGUIDKey)
-	if startIndex == -1 {
-		return &transientReplacer{url}
+func newRequestGUIDReplace(urlPtr *url.URL) requestGUIDReplacer {
+	values, err := url.ParseQuery(urlPtr.RawQuery)
+	if err != nil {
+		// nop if invalid query parameters
+		return &transientReplace{urlPtr}
 	}
-	replacer := &requestGUIDReplacer{}
-	startIndex += len(requestGUIDKey) + 1
-	replacer.prefix = url[:startIndex]
+	if len(values.Get(requestGUIDKey)) == 0 {
+		// nop if no request_guid is included.
+		return &transientReplace{urlPtr}
+	}
 
-	startIndex += uuidLen
-	replacer.suffix = url[startIndex:]
-	return replacer
+	return &requestGUIDReplace{urlPtr, values}
 }
 
 // this replacer does nothing but replace the url
-type transientReplacer struct {
-	url string
+type transientReplace struct {
+	urlPtr *url.URL
 }
 
-func (replacer *transientReplacer) replace() string {
-	return replacer.url
+func (replacer *transientReplace) replace() *url.URL {
+	return replacer.urlPtr
 }
 
 /*
 requestGUIDReplacer is a one-shot object that is created out of the retry loop and
 called with replace to change the retry_guid's value upon every retry
 */
-type requestGUIDReplacer struct {
-	// cached prefix and suffix to avoid parsing same url again
-	prefix string
-	suffix string
+type requestGUIDReplace struct {
+	urlPtr    *url.URL
+	urlValues url.Values
 }
 
 /**
 This function would replace they value of the requestGUIDKey in a url with a newly
 generated uuid
 */
-func (replacer *requestGUIDReplacer) replace() string {
-	return replacer.prefix + uuid.New().String() + replacer.suffix
+func (replacer *requestGUIDReplace) replace() *url.URL {
+	replacer.urlValues.Del(requestGUIDKey)
+	replacer.urlValues.Add(requestGUIDKey, uuid.New().String())
+	replacer.urlPtr.RawQuery = replacer.urlValues.Encode()
+	return replacer.urlPtr
+}
+
+type retryCounterUpdater interface {
+	replaceOrAdd(retry int) *url.URL
+}
+
+type retryCounterUpdate struct {
+	urlPtr    *url.URL
+	urlValues url.Values
+}
+
+// this replacer does nothing but replace the url
+type transientReplaceOrAdd struct {
+	urlPtr *url.URL
+}
+
+func (replaceOrAdder *transientReplaceOrAdd) replaceOrAdd(retry int) *url.URL {
+	return replaceOrAdder.urlPtr
+}
+
+func (replacer *retryCounterUpdate) replaceOrAdd(retry int) *url.URL {
+	replacer.urlValues.Del(retryCounterKey)
+	replacer.urlValues.Add(retryCounterKey, strconv.Itoa(retry))
+	replacer.urlPtr.RawQuery = replacer.urlValues.Encode()
+	return replacer.urlPtr
+}
+
+func newRetryUpdate(urlPtr *url.URL) retryCounterUpdater {
+	if !strings.HasPrefix(urlPtr.Path, queryRequestPath) {
+		// nop if not query-request
+		return &transientReplaceOrAdd{urlPtr}
+	}
+	values, err := url.ParseQuery(urlPtr.RawQuery)
+	if err != nil {
+		// nop if the URL is not valid
+		return &transientReplaceOrAdd{urlPtr}
+	}
+	return &retryCounterUpdate{urlPtr, values}
 }
 
 type waitAlgo struct {
@@ -117,42 +162,79 @@ type clientInterface interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func retryHTTP(
-	ctx context.Context,
+type retryHTTP struct {
+	ctx      context.Context
+	client   clientInterface
+	req      requestFunc
+	method   string
+	fullURL  *url.URL
+	headers  map[string]string
+	body     []byte
+	timeout  time.Duration
+	raise4XX bool
+}
+
+func newRetryHTTP(ctx context.Context,
 	client clientInterface,
 	req requestFunc,
-	method string,
-	fullURL string,
+	fullURL *url.URL,
 	headers map[string]string,
-	body []byte,
-	timeout time.Duration,
-	raise4XX bool) (res *http.Response, err error) {
+	timeout time.Duration) *retryHTTP {
+	instance := retryHTTP{}
+	instance.ctx = ctx
+	instance.client = client
+	instance.req = req
+	instance.method = "GET"
+	instance.fullURL = fullURL
+	instance.headers = headers
+	instance.body = nil
+	instance.timeout = timeout
+	instance.raise4XX = false
+	return &instance
+}
 
-	totalTimeout := timeout
+func (r *retryHTTP) doRaise4XX(raise4XX bool) *retryHTTP {
+	r.raise4XX = raise4XX
+	return r
+}
+
+func (r *retryHTTP) doPost() *retryHTTP {
+	r.method = "POST"
+	return r
+}
+
+func (r *retryHTTP) setBody(body []byte) *retryHTTP {
+	r.body = body
+	return r
+}
+
+func (r *retryHTTP) execute() (res *http.Response, err error) {
+	totalTimeout := r.timeout
 	glog.V(2).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
 	sleepTime := time.Duration(0)
 
-	var rIDReplacer requestGUIDReplacerI
+	var rIDReplacer requestGUIDReplacer
+	var rUpdater retryCounterUpdater
 
 	for {
-		req, err := req(method, fullURL, bytes.NewReader(body))
+		req, err := r.req(r.method, r.fullURL.String(), bytes.NewReader(r.body))
 		if err != nil {
 			return nil, err
 		}
 		if req != nil {
 			// req can be nil in tests
-			req = req.WithContext(ctx)
+			req = req.WithContext(r.ctx)
 		}
-		for k, v := range headers {
+		for k, v := range r.headers {
 			req.Header.Set(k, v)
 		}
-		res, err = client.Do(req)
+		res, err = r.client.Do(req)
 		if err == nil && res.StatusCode == http.StatusOK {
 			// exit if success
 			break
 		}
-		if raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 {
+		if r.raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 {
 			// abort connection if raise4XX flag is enabled and the range of HTTP status code are 4XX.
 			// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
 			break
@@ -167,7 +249,7 @@ func retryHTTP(
 			}
 		}
 
-		// cannot just return 4xx and 5xx status as the error can be sporadic. retry often helps.
+		// cannot just return 4xx and 5xx status as the error can be sporadic. run often helps.
 		if err != nil {
 			glog.V(2).Infof(
 				"failed http connection. no response is returned. err: %v. retrying...\n", err)
@@ -194,18 +276,22 @@ func retryHTTP(
 		}
 		retryCounter++
 		if rIDReplacer == nil {
-			rIDReplacer = makeRequestGUIDReplacer(fullURL)
+			rIDReplacer = newRequestGUIDReplace(r.fullURL)
 		}
-		fullURL = rIDReplacer.replace()
+		r.fullURL = rIDReplacer.replace()
+		if rUpdater == nil {
+			rUpdater = newRetryUpdate(r.fullURL)
+		}
+		r.fullURL = rUpdater.replaceOrAdd(retryCounter)
 		glog.V(2).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
 
 		await := time.NewTimer(sleepTime)
 		select {
 		case <-await.C:
 			// retry the request
-		case <-ctx.Done():
+		case <-r.ctx.Done():
 			await.Stop()
-			return res, ctx.Err()
+			return res, r.ctx.Err()
 		}
 	}
 	return res, err

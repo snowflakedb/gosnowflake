@@ -318,7 +318,7 @@ func validateOCSP(ocspRes *ocsp.Response) *ocspStatus {
 func retryOCSPCacheServer(
 	client clientInterface,
 	req requestFunc,
-	ocspServerHost string,
+	ocspServerHost *url.URL,
 	totalTimeout time.Duration,
 	httpTimeout time.Duration) (
 	cacheContent *map[string][]interface{},
@@ -329,7 +329,7 @@ func retryOCSPCacheServer(
 	headers := make(map[string]string)
 	for {
 		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
-		res, err := retryHTTP(context.TODO(), client, req, "GET", ocspServerHost, headers, nil, httpTimeout, false)
+		res, err := newRetryHTTP(context.TODO(), client, req, ocspServerHost, headers, httpTimeout).execute()
 		if err != nil {
 			if ok := checkTotalTimeout(&totalTimeout, sleepTime); ok {
 				retryCounter++
@@ -379,7 +379,7 @@ func retryOCSPCacheServer(
 func retryOCSP(
 	client clientInterface,
 	req requestFunc,
-	ocspHost string,
+	ocspHost *url.URL,
 	headers map[string]string,
 	reqBody []byte,
 	issuer *x509.Certificate,
@@ -392,7 +392,8 @@ func retryOCSP(
 	sleepTime := time.Duration(0)
 	for {
 		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
-		res, err := retryHTTP(context.TODO(), client, req, "POST", ocspHost, headers, reqBody, httpTimeout, false)
+		res, err := newRetryHTTP(
+			context.TODO(), client, req, ocspHost, headers, httpTimeout).doPost().setBody(reqBody).execute()
 		if err != nil {
 			if ok := checkTotalTimeout(&totalTimeout, sleepTime); ok {
 				retryCounter++
@@ -488,7 +489,8 @@ func getRevocationStatus(subject, issuer *x509.Certificate) *ocspStatus {
 	headers["Accept"] = "application/ocsp-response"
 	headers["Content-Length"] = string(len(ocspReq))
 	headers["Host"] = u.Hostname()
-	ocspRes, ocspResBytes, ocspS := retryOCSP(ocspClient, http.NewRequest, ocspHost, headers, ocspReq, issuer, retryOCSPTimeout, retryOCSPHTTPTimeout)
+	ocspRes, ocspResBytes, ocspS := retryOCSP(
+		ocspClient, http.NewRequest, u, headers, ocspReq, issuer, retryOCSPTimeout, retryOCSPHTTPTimeout)
 	if ocspS.code != ocspSuccess {
 		return ocspS
 	}
@@ -614,8 +616,12 @@ func downloadOCSPCacheServer() {
 		Transport: snowflakeInsecureTransport,
 	}
 	ocspURL := fmt.Sprintf("%v/%v", cacheServerURL, cacheFileBaseName)
+	u, err := url.Parse(ocspURL)
+	if err != nil {
+		return
+	}
 	glog.V(2).Infof("downloading OCSP Cache from server %v", ocspURL)
-	ret, ocspStatus := retryOCSPCacheServer(ocspClient, http.NewRequest, ocspURL, retryOCSPTimeout, retryOCSPHTTPTimeout)
+	ret, ocspStatus := retryOCSPCacheServer(ocspClient, http.NewRequest, u, retryOCSPTimeout, retryOCSPHTTPTimeout)
 	if ocspStatus.code != ocspSuccess {
 		return
 	}

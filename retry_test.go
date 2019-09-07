@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -78,24 +80,26 @@ func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func TestRequestGUID(t *testing.T) {
-	var ridReplacer requestGUIDReplacerI
-	var testURL string
-	var actualURL string
+	var ridReplacer requestGUIDReplacer
+	var testURL *url.URL
+	var actualURL *url.URL
 	retryTime := 4
 
 	// empty url
-	testURL = ""
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	testURL = &url.URL{}
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
-		if actualURL != "" {
+		if actualURL.String() != "" {
 			t.Fatalf("empty url not replaced by an empty one, got %s", actualURL)
 		}
 	}
 
 	// url with on retry id
-	testURL = "/requestId=123-1923-9?param2=value"
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	testURL = &url.URL{
+		Path: "/" + requestIDKey + "=123-1923-9?param2=value",
+	}
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
 
@@ -106,29 +110,33 @@ func TestRequestGUID(t *testing.T) {
 
 	// url with retry id
 	// With both prefix and suffix
-	prefix := "/requestId=123-1923-9?" + requestGUIDKey + "="
+	prefix := "/" + requestIDKey + "=123-1923-9?" + requestGUIDKey + "="
 	suffix := "?param2=value"
-	testURL = prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	testURL = &url.URL{
+		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
+	}
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
-		if (!strings.HasPrefix(actualURL, prefix)) ||
-			(!strings.HasSuffix(actualURL, suffix)) ||
-			len(testURL) != len(actualURL) {
+		if (!strings.HasPrefix(actualURL.Path, prefix)) ||
+			(!strings.HasSuffix(actualURL.Path, suffix)) ||
+			len(testURL.Path) != len(actualURL.Path) {
 			t.Fatalf("Retry url not replaced correctedly: \n origin: %s \n result: %s", testURL, actualURL)
 		}
 	}
 
 	// With no suffix
-	prefix = "/requestId=123-1923-9?" + requestGUIDKey + "="
+	prefix = "/" + requestIDKey + "=123-1923-9?" + requestGUIDKey + "="
 	suffix = ""
-	testURL = prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	testURL = &url.URL{
+		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
+	}
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
-		if (!strings.HasPrefix(actualURL, prefix)) ||
-			(!strings.HasSuffix(actualURL, suffix)) ||
-			len(testURL) != len(actualURL) {
+		if (!strings.HasPrefix(actualURL.Path, prefix)) ||
+			(!strings.HasSuffix(actualURL.Path, suffix)) ||
+			len(testURL.Path) != len(actualURL.Path) {
 			t.Fatalf("Retry url not replaced correctedly: \n origin: %s \n result: %s", testURL, actualURL)
 		}
 
@@ -136,54 +144,102 @@ func TestRequestGUID(t *testing.T) {
 	// With no prefix
 	prefix = requestGUIDKey + "="
 	suffix = "?param2=value"
-	testURL = prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix
-	ridReplacer = makeRequestGUIDReplacer(testURL)
+	testURL = &url.URL{
+		Path: prefix + "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" + suffix,
+	}
+	ridReplacer = newRequestGUIDReplace(testURL)
 	for i := 0; i < retryTime; i++ {
 		actualURL = ridReplacer.replace()
-		if (!strings.HasPrefix(actualURL, prefix)) ||
-			(!strings.HasSuffix(actualURL, suffix)) ||
-			len(testURL) != len(actualURL) {
+		if (!strings.HasPrefix(actualURL.Path, prefix)) ||
+			(!strings.HasSuffix(actualURL.Path, suffix)) ||
+			len(testURL.Path) != len(actualURL.Path) {
 			t.Fatalf("Retry url not replaced correctedly: \n origin: %s \n result: %s", testURL, actualURL)
 		}
 	}
 }
 
-func TestRetry(t *testing.T) {
+func TestRetryQuerySuccess(t *testing.T) {
 	glog.V(2).Info("Retry N times and Success")
 	client := &fakeHTTPClient{
 		cnt:     3,
 		success: true,
 	}
-	_, err := retryHTTP(context.TODO(),
+	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid&clientStartTime=123456")
+	if err != nil {
+		t.Fatal("failed to parse the test URL")
+	}
+	_, err = newRetryHTTP(context.TODO(),
 		client,
-		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 60*time.Second, false)
+		fakeRequestFunc, urlPtr, make(map[string]string), 60*time.Second).doPost().setBody([]byte{0}).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
-
+	var values url.Values
+	values, err = url.ParseQuery(urlPtr.RawQuery)
+	if err != nil {
+		t.Fatal("failed to fail to parse the URL")
+	}
+	retry, err := strconv.Atoi(values.Get(retryCounterKey))
+	if err != nil {
+		t.Fatalf("failed to get retry counter: %v", err)
+	}
+	if retry < 2 {
+		t.Fatalf("not enough retry counter: %v", retry)
+	}
+}
+func TestRetryQueryFail(t *testing.T) {
 	glog.V(2).Info("Retry N times and Fail")
-	client = &fakeHTTPClient{
+	client := &fakeHTTPClient{
 		cnt:     10,
 		success: false,
 	}
-	_, err = retryHTTP(context.TODO(),
+	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid&clientStartTime=123456")
+	if err != nil {
+		t.Fatal("failed to parse the test URL")
+	}
+	_, err = newRetryHTTP(context.TODO(),
 		client,
-		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 10*time.Second, false)
+		fakeRequestFunc, urlPtr, make(map[string]string), 60*time.Second).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
-
+	var values url.Values
+	values, err = url.ParseQuery(urlPtr.RawQuery)
+	if err != nil {
+		t.Fatalf("failed to fail to parse the URL: %v", err)
+	}
+	retry, err := strconv.Atoi(values.Get(retryCounterKey))
+	if err != nil {
+		t.Fatalf("failed to get retry counter: %v", err)
+	}
+	if retry < 2 {
+		t.Fatalf("not enough retry counter: %v", retry)
+	}
+}
+func TestRetryLoginRequest(t *testing.T) {
 	glog.V(2).Info("Retry N times for timeouts and Success")
-	client = &fakeHTTPClient{
+	client := &fakeHTTPClient{
 		cnt:     3,
 		success: true,
 		timeout: true,
 	}
-	_, err = retryHTTP(context.TODO(),
+	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/login-request?request_id=testid")
+	if err != nil {
+		t.Fatal("failed to parse the test URL")
+	}
+	_, err = newRetryHTTP(context.TODO(),
 		client,
-		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 60*time.Second, false)
+		fakeRequestFunc, urlPtr, make(map[string]string), 60*time.Second).doPost().setBody([]byte{0}).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
+	}
+	var values url.Values
+	values, err = url.ParseQuery(urlPtr.RawQuery)
+	if err != nil {
+		t.Fatalf("failed to fail to parse the URL: %v", err)
+	}
+	if values.Get(retryCounterKey) != "" {
+		t.Fatalf("no retry counter should be attached: %v", retryCounterKey)
 	}
 	glog.V(2).Info("Retry N times for timeouts and Fail")
 	client = &fakeHTTPClient{
@@ -191,10 +247,17 @@ func TestRetry(t *testing.T) {
 		success: false,
 		timeout: true,
 	}
-	_, err = retryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.TODO(),
 		client,
-		fakeRequestFunc, "POST", "", make(map[string]string), []byte{0}, 10*time.Second, false)
+		fakeRequestFunc, urlPtr, make(map[string]string), 10*time.Second).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
+	}
+	values, err = url.ParseQuery(urlPtr.RawQuery)
+	if err != nil {
+		t.Fatalf("failed to fail to parse the URL: %v", err)
+	}
+	if values.Get(retryCounterKey) != "" {
+		t.Fatalf("no retry counter should be attached: %v", retryCounterKey)
 	}
 }
