@@ -164,7 +164,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 		cnt:     3,
 		success: true,
 	}
-	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid&clientStartTime=123456")
+	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid&clientStartTime=123456")
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
@@ -190,10 +190,10 @@ func TestRetryQuerySuccess(t *testing.T) {
 func TestRetryQueryFail(t *testing.T) {
 	glog.V(2).Info("Retry N times and Fail")
 	client := &fakeHTTPClient{
-		cnt:     10,
+		cnt:     4,
 		success: false,
 	}
-	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid&clientStartTime=123456")
+	urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid&clientStartTime=123456")
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
@@ -223,7 +223,7 @@ func TestRetryLoginRequest(t *testing.T) {
 		success: true,
 		timeout: true,
 	}
-	urlPtr, err := url.Parse("https://fakeaccount.snowflakecomputing.com:443/login-request?request_id=testid")
+	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
