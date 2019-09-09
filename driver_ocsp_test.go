@@ -37,8 +37,8 @@ func cleanup() {
 	unsetenv(ocspTestNoOCSPURLEnv)
 }
 
-// TestOCSPFailOpen just confirms OCSPFailOpenTrue works.
-func TestOCSPFailOpen(t *testing.T) {
+// TestOCSPFailOpeNOP just confirms OCSPFailOpenTrue works.
+func TestOCSPFailOpeNOP(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
