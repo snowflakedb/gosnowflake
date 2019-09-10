@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/google/uuid"
 	"net/http"
 	"net/url"
 	"testing"
@@ -86,33 +87,27 @@ func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 	}, nil
 }
 
-func postQueryTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration) (*execResponse, error) {
-	dd := &execResponseData{}
-	return &execResponse{
-		Data:    *dd,
-		Message: "",
-		Code:    "0",
-		Success: true,
-	}, nil
-}
-
 func TestUnitPostQueryHelperError(t *testing.T) {
 	sr := &snowflakeRestful{
 		Token:    "token",
 		FuncPost: postTestError,
 	}
 	var err error
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	var requestID uuid.UUID
+	requestID = uuid.New()
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, &requestID)
 	if err == nil {
 		t.Fatalf("should have failed to post")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	requestID = uuid.New()
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, &requestID)
 	if err == nil {
 		t.Fatalf("should have failed to post")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	requestID = uuid.New()
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, &requestID)
 	if err == nil {
 		t.Fatalf("should have failed to post")
 	}
@@ -127,19 +122,34 @@ func renewSessionTestError(_ context.Context, _ *snowflakeRestful) error {
 }
 
 func TestUnitPostQueryHelperRenewSession(t *testing.T) {
+	var err error
+	orgRequestID := uuid.New()
+	postQueryTest := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID *uuid.UUID) (*execResponse, error) {
+		// ensure the same requestID is used after the session token is renewed.
+		if requestID.String() != orgRequestID.String() {
+			t.Fatal("requestID doesn't match")
+		}
+		dd := &execResponseData{}
+		return &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    "0",
+			Success: true,
+		}, nil
+	}
 	sr := &snowflakeRestful{
 		Token:            "token",
 		FuncPost:         postTestRenew,
 		FuncPostQuery:    postQueryTest,
 		FuncRenewSession: renewSessionTest,
 	}
-	var err error
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, &orgRequestID)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	sr.FuncRenewSession = renewSessionTestError
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "abcdefg")
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, &orgRequestID)
 	if err == nil {
 		t.Fatal("should have failed to renew session")
 	}
@@ -201,22 +211,27 @@ func TestUnitCancelQuery(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPost: postTestAfterRenew,
 	}
-	err := cancelQuery(sr, "abcdefg")
+	var requestID uuid.UUID
+	requestID = uuid.New()
+	err := cancelQuery(sr, &requestID)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	sr.FuncPost = postTestError
-	err = cancelQuery(sr, "abcdefg")
+	requestID = uuid.New()
+	err = cancelQuery(sr, &requestID)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
-	err = cancelQuery(sr, "abcdefg")
+	requestID = uuid.New()
+	err = cancelQuery(sr, &requestID)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
-	err = cancelQuery(sr, "abcdefg")
+	requestID = uuid.New()
+	err = cancelQuery(sr, &requestID)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
