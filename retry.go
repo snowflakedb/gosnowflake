@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -242,6 +243,12 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 					if driverError.Number == ErrOCSPStatusRevoked {
 						return nil, err
 					}
+				}
+				if _, ok := urlError.Err.(x509.CertificateInvalidError); ok {
+					return nil, err
+				}
+				if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
+					return nil, err
 				}
 
 			}
