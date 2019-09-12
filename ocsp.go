@@ -354,12 +354,12 @@ func checkOCSPCacheServer(
 	client clientInterface,
 	req requestFunc,
 	ocspServerHost *url.URL,
-	httpTimeout time.Duration) (
+	totalTimeout time.Duration) (
 	cacheContent *map[string][]interface{},
 	ocspS *ocspStatus) {
 	var respd map[string][]interface{}
 	headers := make(map[string]string)
-	res, err := newRetryHTTP(context.TODO(), client, req, ocspServerHost, headers, httpTimeout).execute()
+	res, err := newRetryHTTP(context.TODO(), client, req, ocspServerHost, headers, totalTimeout).execute()
 	if err != nil {
 		glog.V(2).Infof("failed to get OCSP cache from OCSP Cache Server. %v\n", err)
 		return nil, &ocspStatus{
@@ -403,7 +403,7 @@ func retryOCSP(
 	headers map[string]string,
 	reqBody []byte,
 	issuer *x509.Certificate,
-	httpTimeout time.Duration) (
+	totalTimeout time.Duration) (
 	ocspRes *ocsp.Response,
 	ocspResBytes []byte,
 	ocspS *ocspStatus) {
@@ -413,7 +413,7 @@ func retryOCSP(
 	}
 	res, err := newRetryHTTP(
 		context.TODO(), client, req, ocspHost, headers,
-		httpTimeout*time.Duration(multiplier)).doPost().setBody(reqBody).execute()
+		totalTimeout*time.Duration(multiplier)).doPost().setBody(reqBody).execute()
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedSubmit,
