@@ -241,6 +241,7 @@ func TestOCSPFailClosedUnknownStatus(t *testing.T) {
 
 // TestOCSPFailOpenRevokedStatus tests revoked certificate.
 func TestOCSPFailOpenRevokedStatus(t *testing.T) {
+	t.Skip("revoked.badssl.com certificate expired")
 	cleanup()
 	defer cleanup()
 
@@ -285,6 +286,7 @@ func TestOCSPFailOpenRevokedStatus(t *testing.T) {
 
 // TestOCSPFailClosedRevokedStatus tests revoked Certificate.
 func TestOCSPFailClosedRevokedStatus(t *testing.T) {
+	t.Skip("revoked.badssl.com certificate expired")
 	cleanup()
 	defer cleanup()
 
