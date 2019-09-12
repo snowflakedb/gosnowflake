@@ -161,9 +161,11 @@ e.g., QueryContext, ExecContext.
 		signal.Stop(c)
 	}()
 	go func() {
-		<-c
-		log.Println("Caught signal, canceling...")
-		cancel()
+		select {
+		case <-c:
+			cancel()
+		case <-ctx.Done():
+		}
 	}()
 	... (connection)
 	// execute a query

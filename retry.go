@@ -230,16 +230,6 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			req.Header.Set(k, v)
 		}
 		res, err = r.client.Do(req)
-		if err == nil && res.StatusCode == http.StatusOK {
-			// exit if success
-			break
-		}
-		if r.raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 {
-			// abort connection if raise4XX flag is enabled and the range of HTTP status code are 4XX.
-			// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
-			break
-		}
-
 		// context cancel or timeout
 		if err != nil {
 			urlError, isURLError := err.(*url.Error)
@@ -247,15 +237,28 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 				(urlError.Err == context.DeadlineExceeded || urlError.Err == context.Canceled) {
 				return res, urlError.Err
 			}
-		}
+			if isURLError {
+				if driverError, ok := urlError.Err.(*SnowflakeError); ok {
+					if driverError.Number == ErrOCSPStatusRevoked {
+						return nil, err
+					}
+				}
 
-		// cannot just return 4xx and 5xx status as the error can be sporadic. run often helps.
-		if err != nil {
+			}
+			// cannot just return 4xx and 5xx status as the error can be sporadic. run often helps.
 			glog.V(2).Infof(
 				"failed http connection. no response is returned. err: %v. retrying...\n", err)
 		} else {
+			if res.StatusCode == http.StatusOK || r.raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 {
+				// exit if success
+				// or
+				// abort connection if raise4XX flag is enabled and the range of HTTP status code are 4XX.
+				// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
+				break
+			}
 			glog.V(2).Infof(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
+			res.Body.Close()
 		}
 		// uses decorrelated jitter backoff
 		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
@@ -266,7 +269,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			totalTimeout -= sleepTime
 			if totalTimeout <= 0 {
 				if err != nil {
-					return nil, fmt.Errorf("timeout. err: %v. Hanging?", err)
+					return nil, err
 				}
 				if res != nil {
 					return nil, fmt.Errorf("timeout. HTTP Status: %v. Hanging?", res.StatusCode)

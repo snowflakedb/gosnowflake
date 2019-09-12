@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -135,6 +136,7 @@ func teardown() error {
 }
 
 func TestMain(m *testing.M) {
+	signal.Ignore(syscall.SIGQUIT)
 	if value := os.Getenv("SKIP_SETUP"); value != "" {
 		os.Exit(m.Run())
 	}
@@ -144,7 +146,10 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	ret := m.Run()
-	teardown()
+	err = teardown()
+	if err != nil {
+		panic(err)
+	}
 	os.Exit(ret)
 }
 
@@ -153,25 +158,66 @@ type DBTest struct {
 	db *sql.DB
 }
 
-func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *sql.Rows) {
+type RowsExtended struct {
+	rows      *sql.Rows
+	closeChan *chan bool
+}
+
+func (rs *RowsExtended) Close() error {
+	*rs.closeChan <- true
+	close(*rs.closeChan)
+	return rs.rows.Close()
+}
+func (rs *RowsExtended) ColumnTypes() ([]*sql.ColumnType, error) {
+	return rs.rows.ColumnTypes()
+}
+func (rs *RowsExtended) Columns() ([]string, error) {
+	return rs.rows.Columns()
+}
+
+func (rs *RowsExtended) Err() error {
+	return rs.rows.Err()
+}
+func (rs *RowsExtended) Next() bool {
+	return rs.rows.Next()
+}
+func (rs *RowsExtended) NextResultSet() bool {
+	return rs.rows.NextResultSet()
+}
+
+func (rs *RowsExtended) Scan(dest ...interface{}) error {
+	return rs.rows.Scan(dest...)
+}
+
+func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
+	c0 := make(chan bool, 1)
 	signal.Notify(c, os.Interrupt)
 	defer func() {
 		signal.Stop(c)
 	}()
 	go func() {
-		<-c
-		fmt.Println("Caught signal, canceling...")
-		cancel()
+		select {
+		case <-c:
+			fmt.Println("Caught signal, canceling...")
+			cancel()
+		case <-ctx.Done():
+			fmt.Println("Done")
+		case <-c0:
+		}
+		close(c)
 	}()
 
-	rows, err := dbt.db.QueryContext(ctx, query, args...)
+	rs, err := dbt.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("query", query, err)
 	}
-	return rows
+	return &RowsExtended{
+		rows:      rs,
+		closeChan: &c0,
+	}
 }
 
 func (dbt *DBTest) fail(method, query string, err error) {
@@ -462,7 +508,7 @@ func TestInt(t *testing.T) {
 		types := []string{"INT", "INTEGER"}
 		in := int64(42)
 		var out int64
-		var rows *sql.Rows
+		var rows *RowsExtended
 
 		// SIGNED
 		for _, v := range types {
@@ -489,14 +535,17 @@ func TestFloat32(t *testing.T) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		in := float32(42.23)
 		var out float32
-		var rows *sql.Rows
+		var rows *RowsExtended
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 			rows = dbt.mustQuery("SELECT value FROM test")
 			defer rows.Close()
 			if rows.Next() {
-				rows.Scan(&out)
+				err := rows.Scan(&out)
+				if err != nil {
+					dbt.Errorf("failed to scan data: %v", err)
+				}
 				if in != out {
 					dbt.Errorf("%s: %g != %g", v, in, out)
 				}
@@ -513,7 +562,7 @@ func TestFloat64(t *testing.T) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		expected := 42.23
 		var out float64
-		var rows *sql.Rows
+		var rows *RowsExtended
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (42.23)")
@@ -537,7 +586,7 @@ func TestFloat64Placeholder(t *testing.T) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		expected := 42.23
 		var out float64
-		var rows *sql.Rows
+		var rows *RowsExtended
 		for _, v := range types {
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
 			dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
@@ -850,7 +899,7 @@ func TestString(t *testing.T) {
 		types := []string{"CHAR(255)", "VARCHAR(255)", "TEXT", "STRING"}
 		in := "κόσμε üöäßñóùéàâÿœ'îë Árvíztűrő いろはにほへとちりぬるを イロハニホヘト דג סקרן чащах  น่าฟังเอย"
 		var out string
-		var rows *sql.Rows
+		var rows *RowsExtended
 
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
@@ -910,7 +959,7 @@ func (tt timeTest) genQuery() string {
 }
 
 func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
-	var rows *sql.Rows
+	var rows *RowsExtended
 	query := fmt.Sprintf(tt.genQuery(), tt.s, dbtype)
 	rows = dbt.mustQuery(query)
 	defer rows.Close()
@@ -960,7 +1009,7 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 }
 
 func TestSimpleDateTimeTimestampFetch(t *testing.T) {
-	var scan = func(rows *sql.Rows, cd interface{}, ct interface{}, cts interface{}) {
+	var scan = func(rows *RowsExtended, cd interface{}, ct interface{}, cts interface{}) {
 		err := rows.Scan(cd, ct, cts)
 		if err != nil {
 			t.Fatal(err)
@@ -968,12 +1017,12 @@ func TestSimpleDateTimeTimestampFetch(t *testing.T) {
 		// fmt.Printf("cd: %v, ct: %v, cts: %v", cd, ct, cts)
 		// no error should occurs
 	}
-	var fetchTypes = []func(*sql.Rows){
-		func(rows *sql.Rows) {
+	var fetchTypes = []func(*RowsExtended){
+		func(rows *RowsExtended) {
 			var cd, ct, cts time.Time
 			scan(rows, &cd, &ct, &cts)
 		},
-		func(rows *sql.Rows) {
+		func(rows *RowsExtended) {
 			var cd, ct, cts time.Time
 			scan(rows, &cd, &ct, &cts)
 		},
@@ -1724,6 +1773,7 @@ func TestLargeSetResultCancel(t *testing.T) {
 		if ret.Error() != "context canceled" {
 			t.Fatalf("failed to cancel. err: %v", ret)
 		}
+		close(c)
 	})
 }
 

@@ -106,6 +106,17 @@ const (
 	// ErrInvalidBinaryHexForm is an error code for the case where a binary data in hex form is invalid.
 	ErrInvalidBinaryHexForm = 268002
 
+	/* OCSP */
+
+	// ErrOCSPStatusRevoked is an error code for the case where the certificate is revoked.
+	ErrOCSPStatusRevoked = 269001
+	// ErrOCSPStatusUnknown is an error code for the case where the certificate revocation status is unknown.
+	ErrOCSPStatusUnknown = 269002
+	// ErrOCSPInvalidValidity is an error code for the case where the OCSP response validity is invalid.
+	ErrOCSPInvalidValidity = 269003
+	// ErrOCSPNoOCSPResponderURL is an error code for the case where the OCSP responder URL is not attached.
+	ErrOCSPNoOCSPResponderURL = 269004
+
 	/* GS error code */
 
 	// ErrSessionGone is an GS error code for the case that session is already closed
@@ -139,6 +150,10 @@ const (
 	errMsgNoDefaultTransactionIsolationLevel = "no default isolation transaction level is supported"
 	errMsgServiceUnavailable                 = "service is unavailable. check your connectivity. you may need a proxy server. HTTP: %v, URL: %v"
 	errMsgFailedToConnect                    = "failed to connect to db. verify account name is correct. HTTP: %v, URL: %v"
+	errMsgOCSPStatusRevoked                  = "OCSP revoked: reason:%v, at:%v"
+	errMsgOCSPStatusUnknown                  = "OCSP unknown"
+	errMsgOCSPInvalidValidity                = "invalid validity: producedAt: %v, thisUpdate: %v, nextUpdate: %v"
+	errMsgOCSPNoOCSPResponderURL             = "no OCSP server is attached to the certificate. %v"
 )
 
 var (
