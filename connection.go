@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"github.com/google/uuid"
 	"net/url"
 	"strconv"
 	"strings"
@@ -100,7 +101,9 @@ func (sc *snowflakeConn) exec(
 	}
 
 	var data *execResponse
-	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout)
+
+	requestID := uuid.New()
+	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout, &requestID)
 	if err != nil {
 		return nil, err
 	}
