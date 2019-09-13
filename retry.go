@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -232,18 +233,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		res, err = r.client.Do(req)
 		// context cancel or timeout
 		if err != nil {
-			urlError, isURLError := err.(*url.Error)
-			if isURLError &&
-				(urlError.Err == context.DeadlineExceeded || urlError.Err == context.Canceled) {
-				return res, urlError.Err
-			}
-			if isURLError {
-				if driverError, ok := urlError.Err.(*SnowflakeError); ok {
-					if driverError.Number == ErrOCSPStatusRevoked {
-						return nil, err
-					}
-				}
-
+			err = r.isRetryableError(err)
+			if err != nil {
+				return res, err
 			}
 			// cannot just return 4xx and 5xx status as the error can be sporadic. run often helps.
 			glog.V(2).Infof(
@@ -298,4 +290,26 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 	}
 	return res, err
+}
+
+func (r *retryHTTP) isRetryableError(err error) error {
+	urlError, isURLError := err.(*url.Error)
+	if isURLError {
+		if urlError.Err == context.DeadlineExceeded || urlError.Err == context.Canceled {
+			return urlError.Err
+		}
+		if driverError, ok := urlError.Err.(*SnowflakeError); ok {
+			if driverError.Number == ErrOCSPStatusRevoked {
+				return err
+			}
+		}
+		if _, ok := urlError.Err.(x509.CertificateInvalidError); ok {
+			return err
+		}
+		if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
+			return err
+		}
+
+	}
+	return nil
 }
