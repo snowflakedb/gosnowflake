@@ -306,7 +306,7 @@ func (r *retryHTTP) isRetryableError(err error) (bool, error) {
 			}
 		}
 		if _, ok := urlError.Err.(x509.CertificateInvalidError); ok {
-			// Certifiicate is invalid
+			// Certificate is invalid
 			return true, err
 		}
 		if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
