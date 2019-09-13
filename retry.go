@@ -231,7 +231,6 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			req.Header.Set(k, v)
 		}
 		res, err = r.client.Do(req)
-		// context cancel or timeout
 		if err != nil {
 			doExit, err := r.isRetryableError(err)
 			if doExit {
@@ -295,6 +294,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 func (r *retryHTTP) isRetryableError(err error) (bool, error) {
 	urlError, isURLError := err.(*url.Error)
 	if isURLError {
+		// context cancel or timeout
 		if urlError.Err == context.DeadlineExceeded || urlError.Err == context.Canceled {
 			return true, urlError.Err
 		}
