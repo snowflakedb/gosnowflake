@@ -80,6 +80,7 @@ const (
 	cacheServerURL        = "http://ocsp.snowflakecomputing.com"
 	cacheServerEnabledEnv = "SF_OCSP_RESPONSE_CACHE_SERVER_ENABLED"
 	cacheServerURLEnv     = "SF_OCSP_RESPONSE_CACHE_SERVER_URL"
+	cacheDirEnv           = "SF_OCSP_RESPONSE_CACHE_DIR"
 )
 
 const (
@@ -698,14 +699,22 @@ func getAllRevocationStatus(verifiedChains []*x509.Certificate) []*ocspStatus {
 
 // verifyPeerCertificateSerial verifies the certificate revocation status in serial.
 func verifyPeerCertificateSerial(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
+	overrideCacheDir()
 	return verifyPeerCertificate(verifiedChains)
+}
+
+func overrideCacheDir() {
+	if os.Getenv(cacheDirEnv) != "" {
+		ocspResponseCacheLock.Lock()
+		defer ocspResponseCacheLock.Unlock()
+		createOCSPCacheDir()
+	}
 }
 
 // initOCSPCache initializes OCSP Response cache file.
 func initOCSPCache() {
 	ocspResponseCache = make(map[certIDKey][]interface{})
 	ocspResponseCacheLock = &sync.RWMutex{}
-	cacheFileName = filepath.Join(cacheDir, cacheFileBaseName)
 
 	glog.V(2).Infof("reading OCSP Response cache file. %v\n", cacheFileName)
 	f, err := os.Open(cacheFileName)
@@ -870,9 +879,12 @@ func readCACerts() {
 	}
 }
 
-// createOCSPCacheDir creates OCSP response cache directory. If SNOWFLAKE_TEST_WORKSPACE is set,
+// createOCSPCacheDir creates OCSP response cache directory and set the cache file name.
 func createOCSPCacheDir() {
-	cacheDir = os.Getenv("SNOWFLAKE_TEST_WORKSPACE")
+	cacheDir = os.Getenv(cacheDirEnv)
+	if cacheDir == "" {
+		cacheDir = os.Getenv("SNOWFLAKE_TEST_WORKSPACE")
+	}
 	if cacheDir == "" {
 		switch runtime.GOOS {
 		case "windows":
@@ -891,12 +903,15 @@ func createOCSPCacheDir() {
 			cacheDir = filepath.Join(home, ".cache", "snowflake")
 		}
 	}
+
 	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
 		err := os.MkdirAll(cacheDir, os.ModePerm)
 		if err != nil {
 			glog.V(2).Infof("failed to create cache directory. %v, err: %v. ignored\n", cacheDir, err)
 		}
 	}
+	cacheFileName = filepath.Join(cacheDir, cacheFileBaseName)
+	glog.V(2).Infof("reset OCSP cache file. %v", cacheFileName)
 }
 
 // deleteOCSPCacheFile deletes the OCSP response cache file
