@@ -232,6 +232,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 		res, err = r.client.Do(req)
 		if err != nil {
+			// check if it can retry.
 			doExit, err := r.isRetryableError(err)
 			if doExit {
 				return res, err
@@ -299,14 +300,17 @@ func (r *retryHTTP) isRetryableError(err error) (bool, error) {
 			return true, urlError.Err
 		}
 		if driverError, ok := urlError.Err.(*SnowflakeError); ok {
+			// Certificate Revoked
 			if driverError.Number == ErrOCSPStatusRevoked {
 				return true, err
 			}
 		}
 		if _, ok := urlError.Err.(x509.CertificateInvalidError); ok {
+			// Certifiicate is invalid
 			return true, err
 		}
 		if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
+			// Certificate is self-signed
 			return true, err
 		}
 
