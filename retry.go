@@ -233,7 +233,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		res, err = r.client.Do(req)
 		// context cancel or timeout
 		if err != nil {
-			err, doExit := r.isRetryableError(err)
+			doExit, err := r.isRetryableError(err)
 			if doExit {
 				return res, err
 			}
@@ -292,24 +292,24 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	return res, err
 }
 
-func (r *retryHTTP) isRetryableError(err error) (error, bool) {
+func (r *retryHTTP) isRetryableError(err error) (bool, error) {
 	urlError, isURLError := err.(*url.Error)
 	if isURLError {
 		if urlError.Err == context.DeadlineExceeded || urlError.Err == context.Canceled {
-			return urlError.Err, true
+			return true, urlError.Err
 		}
 		if driverError, ok := urlError.Err.(*SnowflakeError); ok {
 			if driverError.Number == ErrOCSPStatusRevoked {
-				return err, true
+				return true, err
 			}
 		}
 		if _, ok := urlError.Err.(x509.CertificateInvalidError); ok {
-			return err, true
+			return true, err
 		}
 		if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
-			return err, true
+			return true, err
 		}
 
 	}
-	return err, false
+	return false, err
 }
