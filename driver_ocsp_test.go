@@ -35,12 +35,51 @@ func cleanup() {
 	unsetenv(ocspTestResponderTimeoutEnv)
 	unsetenv(ocspTestResponderURLEnv)
 	unsetenv(ocspTestNoOCSPURLEnv)
+	unsetenv(cacheDirEnv)
 }
 
 // TestOCSPFailOpen just confirms OCSPFailOpenTrue works.
 func TestOCSPFailOpen(t *testing.T) {
 	cleanup()
 	defer cleanup()
+
+	config := &Config{
+		Account:      "fakeaccount1",
+		User:         "fakeuser",
+		Password:     "fakepassword",
+		LoginTimeout: 10 * time.Second,
+		OCSPFailOpen: OCSPFailOpenTrue,
+	}
+	var db *sql.DB
+	var err error
+	var testURL string
+	testURL, err = DSN(config)
+	if err != nil {
+		t.Fatalf("failed to build URL from Config: %v", config)
+	}
+
+	if db, err = sql.Open("snowflake", testURL); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
+	}
+	defer db.Close()
+	if err = db.Ping(); err == nil {
+		t.Fatalf("should fail to ping. %v", testURL)
+	}
+	driverErr, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("failed to extract error SnowflakeError: %v", err)
+	}
+	if driverErr.Number != ErrCodeFailedToConnect {
+		t.Fatalf("should failed to connect %v", err)
+	}
+}
+
+// TestOCSPFailOpenWithoutFileCache ensures no file cache is used.
+func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
+	cleanup()
+	defer cleanup()
+
+	setenv(cacheDirEnv, "/NEVER_EXISTS")
 
 	config := &Config{
 		Account:      "fakeaccount1",
