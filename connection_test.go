@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"net/url"
 	"testing"
 	"time"
@@ -13,7 +14,7 @@ const serviceNameAppend = "a"
 // postQueryMock would generate a response based on the X-Snowflake-Service header, to generate a response
 // with the SERVICE_NAME field appending a character at the end of the header
 // This way it could test both the send and receive logic
-func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration) (*execResponse, error) {
+func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ *uuid.UUID) (*execResponse, error) {
 	var serviceName string
 	if serviceHeader, ok := headers["X-Snowflake-Service"]; ok {
 		serviceName = serviceHeader + serviceNameAppend

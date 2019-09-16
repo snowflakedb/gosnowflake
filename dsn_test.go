@@ -390,7 +390,7 @@ func TestParseDSN(t *testing.T) {
 	}
 
 	for i, test := range testcases {
-		t.Logf("Parsing testcase %d, DSN: %s", i, test.dsn)
+		// t.Logf("Parsing testcase %d, DSN: %s", i, test.dsn)
 		cfg, err := ParseDSN(test.dsn)
 		switch {
 		case test.err == nil:

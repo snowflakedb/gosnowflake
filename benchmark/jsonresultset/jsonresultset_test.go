@@ -88,14 +88,17 @@ func runJSONResultSet() {
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
+	defer close(c)
 	signal.Notify(c, os.Interrupt)
 	defer func() {
 		signal.Stop(c)
 	}()
 	go func() {
-		<-c
-		log.Println("Caught signal, canceling...")
-		cancel()
+		select {
+		case <-c:
+			cancel()
+		case <-ctx.Done():
+		}
 	}()
 
 	dsn, cfg, err := getDSN()
