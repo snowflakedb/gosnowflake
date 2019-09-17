@@ -275,13 +275,13 @@ func TestUnitEncodeCertID(t *testing.T) {
 }
 
 func getCert(addr string) []*x509.Certificate {
-	tcpConn, err := net.DialTimeout("tcp", addr, 4*time.Second)
+	tcpConn, err := net.DialTimeout("tcp", addr, 40*time.Second)
 	if err != nil {
 		panic(err)
 	}
 	defer tcpConn.Close()
 
-	err = tcpConn.SetDeadline(time.Now().Add(1 * time.Second))
+	err = tcpConn.SetDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
 		panic(err)
 	}

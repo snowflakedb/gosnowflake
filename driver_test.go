@@ -136,6 +136,7 @@ func teardown() error {
 }
 
 func TestMain(m *testing.M) {
+	flag.Parse()
 	signal.Ignore(syscall.SIGQUIT)
 	if value := os.Getenv("SKIP_SETUP"); value != "" {
 		os.Exit(m.Run())
@@ -1965,10 +1966,4 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 		t.Errorf("failed to run a query: %v", err)
 	}
 	defer rows.Close()
-}
-
-func init() {
-	if !flag.Parsed() {
-		flag.Parse()
-	}
 }
