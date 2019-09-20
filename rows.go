@@ -106,6 +106,10 @@ func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale
 	switch rows.RowType[index].Type {
 	case "fixed":
 		return rows.RowType[index].Precision, rows.RowType[index].Scale, true
+	case "time":
+		return rows.RowType[index].Scale, 0, true
+	case "timestamp":
+		return rows.RowType[index].Scale, 0, true
 	}
 	return 0, 0, false
 }
