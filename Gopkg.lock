@@ -15,6 +15,7 @@
   version = "1.1"
 
 [[projects]]
+  branch = "master"
   digest = "1:6b98cc8ee2df9bbb5190f1cea00285ea625109667574d16853ba82eaf48d47fd"
   name = "github.com/golang/glog"
   packages = ["."]
