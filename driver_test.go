@@ -1992,9 +1992,3 @@ func TestTimePrecision(t *testing.T) {
 		t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
 	}
 }
-
-func init() {
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-}
