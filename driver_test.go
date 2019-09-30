@@ -136,6 +136,7 @@ func teardown() error {
 }
 
 func TestMain(m *testing.M) {
+	flag.Parse()
 	signal.Ignore(syscall.SIGQUIT)
 	if value := os.Getenv("SKIP_SETUP"); value != "" {
 		os.Exit(m.Run())
@@ -1967,8 +1968,27 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 	defer rows.Close()
 }
 
-func init() {
-	if !flag.Parsed() {
-		flag.Parse()
+func TestTimePrecision(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec("create or replace table z3 (t1 time(5))")
+	if err != nil {
+		t.Errorf("error while executing query. err : %v", err)
+	}
+	res, err := db.Query("select * from z3")
+	if err != nil {
+		t.Errorf("error while executing query. err : %v", err)
+	}
+
+	cols, _ := res.ColumnTypes()
+	pres, _, _ := cols[0].DecimalSize()
+	if pres != 5 {
+		t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
 	}
 }
