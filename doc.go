@@ -113,6 +113,19 @@ Proxy
 
 The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.
 
+NO_PROXY specifies which hostname endings should be allowed to bypass the proxy server, e.g. :code:`no_proxy=.amazonaws.com` means that AWS S3 access does not need to go through the proxy.
+
+NO_PROXY does not support wildcards. Each value specified should be one of the following:
+
+    * The end of a hostname (or a complete hostname), for example: ".amazonaws.com" or "xy12345.snowflakecomputing.com".
+
+    * An IP address, for example "192.196.1.15".
+
+If more than one value is specified, values should be separated by commas, for example:
+
+    no_proxy=localhost,.my_company.com,xy12345.snowflakecomputing.com,192.168.1.15,192.168.1.16
+
+
 Logging
 
 By default, the driver's builtin logger is NOP; no output is generated. This is
