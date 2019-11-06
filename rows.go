@@ -37,6 +37,7 @@ type snowflakeRows struct {
 	sc              *snowflakeConn
 	RowType         []execResponseRowType
 	ChunkDownloader *snowflakeChunkDownloader
+	queryID         string
 }
 
 func (rows *snowflakeRows) Close() (err error) {
@@ -116,6 +117,10 @@ func (rows *snowflakeRows) Columns() []string {
 		ret[i] = rows.RowType[i].Name
 	}
 	return ret
+}
+
+func (rows *snowflakeRows) QueryID() string {
+	return rows.queryID
 }
 
 func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
