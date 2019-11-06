@@ -223,7 +223,9 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		glog.V(2).Infof("number of updated rows: %#v", updatedRows)
 		return &snowflakeResult{
 			affectedRows: updatedRows,
-			insertID:     -1}, nil // last insert id is not supported by Snowflake
+			insertID:     -1,
+			queryID:      sc.QueryID,
+		}, nil // last insert id is not supported by Snowflake
 	}
 	glog.V(2).Info("DDL")
 	return driver.ResultNoRows, nil
@@ -258,6 +260,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 		FuncDownloadHelper: downloadChunkHelper,
 		FuncGet:            getChunk,
 	}
+	rows.queryID = sc.QueryID
 	rows.ChunkDownloader.start()
 	return rows, err
 }
