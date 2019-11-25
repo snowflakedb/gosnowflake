@@ -14,8 +14,7 @@ import (
 	"strings"
 	"time"
 
-	jcrypto "github.com/SermoDigital/jose/crypto"
-	"github.com/SermoDigital/jose/jws"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 
 	"crypto/sha256"
@@ -306,11 +305,11 @@ func authenticate(
 	case AuthTypeJwt:
 		requestMain.Authenticator = AuthTypeJwt.String()
 
-		jwtTokenInBytes, err := prepareJWTToken(sc.cfg)
+		jwtTokenString, err := prepareJWTToken(sc.cfg)
 		if err != nil {
 			return nil, err
 		}
-		requestMain.Token = string(jwtTokenInBytes)
+		requestMain.Token = jwtTokenString
 	case AuthTypeSnowflake:
 		glog.V(2).Info("Username and password")
 		requestMain.LoginName = sc.cfg.User
@@ -377,31 +376,30 @@ func authenticate(
 	return &respd.Data, nil
 }
 
-// Generate a JWT token in byte slice given the configuration
-func prepareJWTToken(config *Config) (tokenInBytes []byte, err error) {
-	claims := jws.Claims{}
-
+// Generate a JWT token in string given the configuration
+func prepareJWTToken(config *Config) (string, error) {
 	pubBytes, err := x509.MarshalPKIXPublicKey(config.PrivateKey.Public())
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	hash := sha256.Sum256(pubBytes)
 
 	accountName := strings.ToUpper(config.Account)
 	userName := strings.ToUpper(config.User)
 
-	claims.SetIssuer(fmt.Sprintf("%s.%s.%s", accountName, userName,
-		"SHA256:"+base64.StdEncoding.EncodeToString(hash[:])))
-	claims.SetSubject(fmt.Sprintf("%s.%s", accountName, userName))
-	claims.SetIssuedAt(time.Now().UTC())
-	claims.SetExpiration(time.Now().UTC().Add(config.JWTExpireTimeout))
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"iss": fmt.Sprintf("%s.%s.%s", accountName, userName, "SHA256:" + base64.StdEncoding.EncodeToString(hash[:])),
+		"sub": fmt.Sprintf("%s.%s", accountName, userName),
+		"isa": time.Now().UTC(),
+		"nbf": time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
+		"exp": time.Now().UTC().Add(config.JWTExpireTimeout),
+	})
 
-	jwt := jws.NewJWT(claims, jcrypto.SigningMethodRS256)
-
-	tokenInBytes, err = jwt.Serialize(config.PrivateKey)
+	tokenString, err := token.SignedString(config.PrivateKey)
 
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return tokenInBytes, err
+
+	return tokenString, err
 }
