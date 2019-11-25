@@ -8,8 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/SermoDigital/jose/crypto"
-	"github.com/SermoDigital/jose/jws"
+	"github.com/dgrijalva/jwt-go"
 	"net/url"
 	"testing"
 	"time"
@@ -197,13 +196,18 @@ func postAuthCheckJWTToken(_ *snowflakeRestful, _ *url.Values, _ map[string]stri
 		return nil, errors.New("Authenticator is not JWT")
 	}
 
-	jwt, err := jws.ParseJWT([]byte(ar.Data.Token))
-	if err != nil {
-		return nil, err
-	}
+	tokenString := ar.Data.Token
 
 	// Validate token
-	err = jwt.Validate(testPrivKey.Public(), crypto.SigningMethodRS256)
+	_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+
+		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
+		return testPrivKey, nil
+	})
 	if err != nil {
 		return nil, err
 	}
