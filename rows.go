@@ -3,6 +3,8 @@
 package gosnowflake
 
 import (
+	"bufio"
+	"compress/gzip"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
@@ -357,13 +359,32 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		raiseDownloadError(scd, idx, err)
 		return
 	}
+	bufStream := bufio.NewReader(resp.Body)
 	defer resp.Body.Close()
 	glog.V(2).Infof("response returned chunk: %v, resp: %v", idx+1, resp)
 	if resp.StatusCode == http.StatusOK {
+		gzipMagic, err := bufStream.Peek(2)
+		if err != nil {
+			raiseDownloadError(scd, idx, err)
+			return
+		}
 		start := time.Now()
+		var source io.Reader
+		if gzipMagic[0] == 0x1f && gzipMagic[1] == 0x8b {
+			// detects and uncompresses Gzip format data
+			bufStream0, err := gzip.NewReader(bufStream)
+			if err != nil {
+				raiseDownloadError(scd, idx, err)
+				return
+			}
+			defer bufStream0.Close()
+			source = bufStream0
+		} else {
+			source = bufStream
+		}
 		st := &largeResultSetReader{
 			status: 0,
-			body:   resp.Body,
+			body:   source,
 		}
 		var respd [][]*string
 		if !CustomJSONDecoderEnabled {
@@ -395,7 +416,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		scd.Chunks[idx] = respd
 		scd.DoneDownloadCond.Broadcast()
 	} else {
-		b, err := ioutil.ReadAll(resp.Body)
+		b, err := ioutil.ReadAll(bufStream)
 		if err != nil {
 			raiseDownloadError(scd, idx, err)
 			return
