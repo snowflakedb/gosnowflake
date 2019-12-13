@@ -387,12 +387,13 @@ func prepareJWTToken(config *Config) (string, error) {
 	accountName := strings.ToUpper(config.Account)
 	userName := strings.ToUpper(config.User)
 
+	issueAtTime := time.Now().UTC()
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-		"iss": fmt.Sprintf("%s.%s.%s", accountName, userName, "SHA256:" + base64.StdEncoding.EncodeToString(hash[:])),
+		"iss": fmt.Sprintf("%s.%s.%s", accountName, userName, "SHA256:"+base64.StdEncoding.EncodeToString(hash[:])),
 		"sub": fmt.Sprintf("%s.%s", accountName, userName),
-		"isa": time.Now().UTC(),
+		"iat": issueAtTime.Unix(),
 		"nbf": time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
-		"exp": time.Now().UTC().Add(config.JWTExpireTimeout),
+		"exp": issueAtTime.Add(config.JWTExpireTimeout).Unix(),
 	})
 
 	tokenString, err := token.SignedString(config.PrivateKey)
