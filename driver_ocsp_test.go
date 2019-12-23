@@ -646,6 +646,9 @@ func TestExpiredCertificate(t *testing.T) {
 	}
 }
 
+/*
+DISABLED: sicne it appeared self-signed.badssl.com is not well maintained,
+          this test is no longer reliable.
 // TestSelfSignedCertificate tests self-signed certificate
 func TestSelfSignedCertificate(t *testing.T) {
 	cleanup()
@@ -683,6 +686,7 @@ func TestSelfSignedCertificate(t *testing.T) {
 		t.Fatalf("failed to extract error Certificate error: %v", err)
 	}
 }
+*/
 
 // TestOCSPFailOpenNoOCSPURL tests no OCSP URL
 func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
