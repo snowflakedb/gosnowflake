@@ -323,6 +323,12 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 }
 
 func fillMissingConfigParameters(cfg *Config) error {
+	posDash := strings.LastIndex(cfg.Account, "-")
+	if posDash > 0 {
+		if strings.Contains(cfg.Host, ".global.") {
+			cfg.Account = cfg.Account[:posDash]
+		}
+	}
 	if strings.Trim(cfg.Account, " ") == "" {
 		return ErrEmptyAccount
 	}
@@ -355,6 +361,13 @@ func fillMissingConfigParameters(cfg *Config) error {
 			if !strings.HasSuffix(hostPrefix, cfg.Region) {
 				cfg.Host = hostPrefix + "." + cfg.Region + defaultDomain
 			}
+		}
+	}
+	if cfg.Host == "" {
+		if cfg.Region != "" {
+			cfg.Host = cfg.Account + "." + cfg.Region + defaultDomain
+		} else {
+			cfg.Host = cfg.Account + defaultDomain
 		}
 	}
 	if cfg.LoginTimeout == 0 {
