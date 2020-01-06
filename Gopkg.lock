@@ -2,20 +2,14 @@
 
 
 [[projects]]
-  digest = "1:a69ab3f1445ffd4815add4bd31ba05b65b3b9fec1ade5057d5d717f30e6efd6d"
-  name = "github.com/SermoDigital/jose"
-  packages = [
-    ".",
-    "crypto",
-    "jws",
-    "jwt",
-  ]
+  digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
+  name = "github.com/dgrijalva/jwt-go"
+  packages = ["."]
   pruneopts = "UT"
-  revision = "f6df55f235c24f236d11dbcf665249a59ac2021f"
-  version = "1.1"
+  revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
+  version = "v3.2.0"
 
 [[projects]]
-  branch = "master"
   digest = "1:6b98cc8ee2df9bbb5190f1cea00285ea625109667574d16853ba82eaf48d47fd"
   name = "github.com/golang/glog"
   packages = ["."]
@@ -51,8 +45,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/SermoDigital/jose/crypto",
-    "github.com/SermoDigital/jose/jws",
+    "github.com/dgrijalva/jwt-go",
     "github.com/golang/glog",
     "github.com/google/uuid",
     "github.com/pkg/browser",

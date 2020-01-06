@@ -51,7 +51,10 @@ The following connection parameters are supported:
 		after the account name, e.g. “<account>.<region>”. If you are not on
 		AWS deployment, then append not only the region, but also the platform,
 		e.g., “<account>.<region>.<platform>”. Account, region, and platform
-		should be separated by a period (“.”), as shown above.
+		should be separated by a period (“.”), as shown above. If you are using
+        a global url, then append connection group and "global",
+        e.g., "account-<connection_group>.global". Account and connection group are
+        separated by a dash ("-"), as shown above.
 
 	* region <string>: DEPRECATED. You may specify a region, such as
 		“eu-central-1”, with this parameter. However, since this parameter
