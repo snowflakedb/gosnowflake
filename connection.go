@@ -15,12 +15,24 @@ import (
 )
 
 const (
+	statementTypeIDSelect = int64(0x1000)
+
 	statementTypeIDDml              = int64(0x3000)
 	statementTypeIDInsert           = statementTypeIDDml + int64(0x100)
 	statementTypeIDUpdate           = statementTypeIDDml + int64(0x200)
 	statementTypeIDDelete           = statementTypeIDDml + int64(0x300)
 	statementTypeIDMerge            = statementTypeIDDml + int64(0x400)
 	statementTypeIDMultiTableInsert = statementTypeIDDml + int64(0x500)
+
+	statementTypeIDUse      = int64(0x4300)
+	statementTypeIDShow     = int64(0x4400)
+	statementTypeIDDescribe = int64(0x4500)
+
+	statementTypeIDDdl     = int64(0x6000)
+	statementTypeIdCreate  = statementTypeIDDdl + int64(0x101)
+	statementTypeIdComment = statementTypeIDDdl + int64(0x200)
+	statementTypeIDDrop    = statementTypeIDDdl + int64(0x300)
+	statementTypeIDAlter   = statementTypeIDDdl + int64(0x401)
 )
 
 const (
@@ -37,12 +49,17 @@ type snowflakeConn struct {
 	SQLState        string
 }
 
+// isDdl returns true if the statement type code is in the range of DDL.
+func (sc *snowflakeConn) isDdl(v int64) bool {
+	if v&statementTypeIDDdl == statementTypeIDDdl {
+		return true
+	}
+	return false
+}
+
 // isDml returns true if the statement type code is in the range of DML.
 func (sc *snowflakeConn) isDml(v int64) bool {
-	switch v {
-	case statementTypeIDDml, statementTypeIDInsert,
-		statementTypeIDUpdate, statementTypeIDDelete,
-		statementTypeIDMerge, statementTypeIDMultiTableInsert:
+	if v&statementTypeIDDml == statementTypeIDDml {
 		return true
 	}
 	return false
