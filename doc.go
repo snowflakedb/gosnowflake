@@ -338,7 +338,7 @@ To generate the valid key pair, one can do the following command on the shell sc
 	openssl genpkey -algorithm RSA \
     	-pkeyopt rsa_keygen_bits:2048 \
     	-pkeyopt rsa_keygen_pubexp:65537 | \
-  		openssl pkcs8 -topk8 -nocrypt -outform der > rsa-2048-private-key.p8
+  		openssl pkcs8 -topk8 -outform der > rsa-2048-private-key.p8
 
 	# extravt 2048-bit PKI encoded RSA public key from the private key
 	openssl pkey -pubout -inform der -outform der \
@@ -347,7 +347,7 @@ To generate the valid key pair, one can do the following command on the shell sc
 
 Note: As of Feb 2020, Golang's official library does not support passcode-encrypted PKCS8 private key.
 For security purpose, we highly recommended users to store passcode-encrypted private key in the disk and decrypt the
-key in application only.
+key in application using a library you trust.
 
 Limitations
 
