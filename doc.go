@@ -345,6 +345,10 @@ To generate the valid key pair, one can do the following command on the shell sc
     	-in rsa-2048-private-key.p8 \
     	-out rsa-2048-public-key.spki
 
+Note: As of Feb 2020, Golang's official library does not support passcode-encrypted PKCS8 private key.
+For security purpose, we highly recommended users to store passcode-encrypted private key in the disk and decrypt the
+key in application only.
+
 Limitations
 
 GET and PUT operations are unsupported.
