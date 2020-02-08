@@ -346,8 +346,8 @@ To generate the valid key pair, one can do the following command on the shell sc
     	-out rsa-2048-public-key.spki
 
 Note: As of Feb 2020, Golang's official library does not support passcode-encrypted PKCS8 private key.
-For security purpose, we highly recommended users to store passcode-encrypted private key in the disk and decrypt the
-key in application using a library you trust.
+For security purposes, Snowflake highly recommends that you store the passcode-encrypted private key on the disk and
+decrypt the key in your application using a library you trust.
 
 Limitations
 
