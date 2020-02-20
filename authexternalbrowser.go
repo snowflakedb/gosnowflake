@@ -139,7 +139,7 @@ func getTokenFromResponse(response string) (string, error) {
 	start := "GET /?token="
 	arr := strings.Split(response, "\r\n")
 	if !strings.HasPrefix(arr[0], start) {
-		glog.V(1).Infof("response is malformed. resp: %s", arr[0])
+		glog.V(1).Info("response is malformed. ")
 		return "", &SnowflakeError{
 			Number:      ErrFailedToParseResponse,
 			SQLState:    SQLStateConnectionRejected,
