@@ -285,7 +285,7 @@ func postAuthOKTA(
 		}
 		return &respd, nil
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	_, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		glog.V(1).Infof("failed to extract HTTP response body. err: %v", err)
 		glog.Flush()
