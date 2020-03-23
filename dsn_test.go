@@ -705,7 +705,7 @@ func TestDSN(t *testing.T) {
 				Account:      "a",
 				InsecureMode: true,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?insecureMode=true",
+			dsn: "u:p@a.snowflakecomputing.com:443?insecureMode=true&ocspFailOpen=true&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {
