@@ -170,7 +170,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 		params.Add("privateKey", keyBase64)
 	}
 
-	params.Add("insecureMode", strconv.FormatBool(cfg.InsecureMode))
+	if cfg.InsecureMode {
+		params.Add("insecureMode", strconv.FormatBool(cfg.InsecureMode))
+	}
 
 	params.Add("ocspFailOpen", strconv.FormatBool(cfg.OCSPFailOpen != OCSPFailOpenFalse))
 
