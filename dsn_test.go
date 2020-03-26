@@ -698,6 +698,15 @@ func TestDSN(t *testing.T) {
 			},
 			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
 		},
+		{
+			cfg: &Config{
+				User:         "u",
+				Password:     "p",
+				Account:      "a",
+				InsecureMode: true,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?insecureMode=true&ocspFailOpen=true&validateDefaultParameters=true",
+		},
 	}
 	for _, test := range testcases {
 		dsn, err := DSN(test.cfg)
