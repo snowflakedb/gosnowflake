@@ -33,6 +33,12 @@ var (
 	maxChunkDownloaderErrorCounter = 5
 )
 
+type ColumnType struct {
+	Name     string
+	Type     string
+	Nullable bool
+}
+
 type snowflakeRows struct {
 	sc              *snowflakeConn
 	RowType         []execResponseRowType
@@ -115,6 +121,19 @@ func (rows *snowflakeRows) Columns() []string {
 	ret := make([]string, len(rows.RowType))
 	for i, n := 0, len(rows.RowType); i < n; i++ {
 		ret[i] = rows.RowType[i].Name
+	}
+	return ret
+}
+
+func rowTypesToColumnTypes(rows []execResponseRowType) []ColumnType {
+	glog.V(3).Infoln("Rows.Columns")
+	ret := make([]ColumnType, len(rows))
+	for i, rt := range rows {
+		ret[i] = ColumnType{
+			Name:     rt.Name,
+			Type:     strings.ToUpper(rt.Type),
+			Nullable: rt.Nullable,
+		}
 	}
 	return ret
 }
