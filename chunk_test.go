@@ -122,7 +122,7 @@ func TestEnsureBytes(t *testing.T) {
 }
 
 func testDecodeOk(t *testing.T, s string) {
-	var rows [][]*string
+	var rows []chunkRowType
 	if err := json.Unmarshal([]byte(s), &rows); err != nil {
 		t.Fatalf("test case is not valid json / [][]*string: %s", s)
 	}

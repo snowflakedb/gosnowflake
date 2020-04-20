@@ -1395,17 +1395,24 @@ func TestArray(t *testing.T) {
 
 func TestLargeSetResult(t *testing.T) {
 	CustomJSONDecoderEnabled = false
-	testLargeSetResult(t, 100000)
+	testLargeSetResult(t, 100000, false)
 }
 
 func TestLargeSetResultWithCustomJSONDecoder(t *testing.T) {
 	CustomJSONDecoderEnabled = true
 	// less number of rows to avoid Travis timeout
-	testLargeSetResult(t, 20000)
+	testLargeSetResult(t, 20000, false)
 }
 
-func testLargeSetResult(t *testing.T, numrows int) {
+func TestLargeSetResultWithArrowDecoder(t *testing.T) {
+	testLargeSetResult(t, 10000, true)
+}
+
+func testLargeSetResult(t *testing.T, numrows int, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		rows := dbt.mustQuery(fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
 		defer rows.Close()
 		cnt := 0

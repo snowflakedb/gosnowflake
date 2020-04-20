@@ -30,7 +30,7 @@ type largeChunkDecoder struct {
 	ioError error
 }
 
-func decodeLargeChunk(r io.Reader, rowCount int, cellCount int) ([][]*string, error) {
+func decodeLargeChunk(r io.Reader, rowCount int, cellCount int) ([]chunkRowType, error) {
 	glog.V(2).Info("custom JSON Decoder")
 	lcd := largeChunkDecoder{
 		r, rowCount, cellCount,
@@ -47,7 +47,10 @@ func decodeLargeChunk(r io.Reader, rowCount int, cellCount int) ([][]*string, er
 		return nil, err
 	}
 
-	return rows, nil
+	chunkRows := make([]chunkRowType, len(rows))
+	populateJSONRowSet(chunkRows, rows)
+
+	return chunkRows, nil
 }
 
 func (lcd *largeChunkDecoder) mkError(s string) error {

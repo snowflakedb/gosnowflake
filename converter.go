@@ -6,6 +6,8 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
+	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
 	"reflect"
 	"strconv"
 	"strings"
@@ -237,5 +239,140 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		return nil
 	}
 	*dest = *srcValue
+	return nil
+}
+
+func arrowToValue(destcol *[]snowflakeValue, rcValue array.Interface) error {
+	//srcColumnMeta execResponseRowType,
+	data := rcValue.Data()
+
+	if rcValue == nil {
+		//glog.V(3).Infof("snowflake data type: %v, raw value: nil", srcColumnMeta.Type)
+		return nil
+	}
+	//glog.V(3).Infof("snowflake data type: %v, raw value: %v", srcColumnMeta.Type, rcDataType)
+	switch rcValue.DataType().ID() {
+	case arrow.DATE32:
+		for i, date32 := range array.NewDate32Data(data).Date32Values() {
+			(*destcol)[i] = date32
+		}
+		return nil
+	case arrow.DATE64:
+		for i, date64 := range array.NewDate64Data(data).Date64Values() {
+			(*destcol)[i] = date64
+		}
+		return nil
+	case arrow.TIME32:
+		for i, time32 := range array.NewTime32Data(data).Time32Values() {
+			(*destcol)[i] = time32
+		}
+		return nil
+	case arrow.TIME64:
+		for i, time64 := range array.NewTime32Data(data).Time32Values() {
+			(*destcol)[i] = time64
+		}
+		return nil
+	case arrow.INTERVAL:
+		array.NewIntervalData(data)
+		return nil
+	case arrow.TIMESTAMP:
+		for i, ts := range array.NewTimestampData(data).TimestampValues() {
+			(*destcol)[i] = ts
+		}
+		return nil
+	case arrow.BINARY:
+		array.NewBinaryData(data)
+		return nil
+	case arrow.FIXED_SIZE_BINARY:
+		array.NewFixedSizeBinaryData(data)
+		return nil
+
+	case arrow.BOOL:
+		array.NewBooleanData(data)
+		return nil
+	case arrow.UINT8:
+		for i, integer := range array.NewUint8Data(data).Uint8Values() {
+			(*destcol)[i] = integer
+		}
+		return nil
+	case arrow.INT8:
+		for i, integer := range array.NewInt8Data(data).Int8Values() {
+			(*destcol)[i] = integer
+		}
+		return nil
+	case arrow.UINT16:
+		for i, integer := range array.NewUint16Data(data).Uint16Values() {
+			(*destcol)[i] = integer
+		}
+		return nil
+	case arrow.INT16:
+		for i, integer := range array.NewInt16Data(data).Int16Values() {
+			(*destcol)[i] = integer
+		}
+		return nil
+	case arrow.UINT32:
+		for i, integer := range array.NewUint32Data(data).Uint32Values() {
+			(*destcol)[i] = integer
+		}
+		return nil
+	case arrow.INT32:
+		for i, integer := range array.NewInt32Data(data).Int32Values() {
+			(*destcol)[i] = integer
+		}
+		return nil
+	case arrow.UINT64:
+		for i, integer := range array.NewUint64Data(data).Uint64Values() {
+			(*destcol)[i] = integer
+		}
+		return nil
+	case arrow.INT64:
+		for i, integer := range array.NewInt64Data(data).Int64Values() {
+			(*destcol)[i] = integer
+		}
+		return nil
+	case arrow.FLOAT16:
+		array.NewFloat16Data(data)
+		return nil
+	case arrow.FLOAT32:
+		array.NewFloat32Data(data)
+		return nil
+	case arrow.FLOAT64:
+		array.NewFloat64Data(data)
+		return nil
+	case arrow.STRING:
+		strings := array.NewStringData(data)
+		for i := range *destcol {
+			(*destcol)[i] = strings.Value(i)
+		}
+		return nil
+	case arrow.DECIMAL:
+		for i, dec := range array.NewDecimal128Data(data).Values() {
+			(*destcol)[i] = dec
+		}
+		return nil
+	case arrow.LIST:
+		array.NewListData(data)
+		return nil
+	case arrow.FIXED_SIZE_LIST:
+		array.NewFixedSizeListData(data)
+		return nil
+	case arrow.STRUCT:
+		array.NewStructData(data)
+		return nil
+	case arrow.UNION:
+		return nil
+	case arrow.DICTIONARY:
+		return nil
+	case arrow.MAP:
+		return nil
+	case arrow.EXTENSION:
+		return nil
+	case arrow.DURATION:
+		array.NewDurationData(data)
+		return nil
+	case arrow.NULL:
+		array.NewNullData(data)
+		return nil
+	}
 	return nil
 }

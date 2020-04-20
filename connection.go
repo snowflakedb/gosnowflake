@@ -248,17 +248,20 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:                 sc,
 		ctx:                ctx,
-		CurrentChunk:       data.Data.RowSet,
 		ChunkMetas:         data.Data.Chunks,
-		Total:              int64(data.Data.Total),
+		Total:              data.Data.Total,
 		TotalRowIndex:      int64(-1),
 		CellCount:          len(data.Data.RowType),
 		Qrmk:               data.Data.Qrmk,
+		QueryResultFormat:  data.Data.QueryResultFormat,
 		ChunkHeader:        data.Data.ChunkHeaders,
 		FuncDownload:       downloadChunk,
 		FuncDownloadHelper: downloadChunkHelper,
 		FuncGet:            getChunk,
+		RowSet:				rowSetType{JSON:data.Data.RowSet, RowSetBase64:data.Data.RowSetBase64},
 	}
+	rows.ChunkDownloader.CurrentChunk = make([]chunkRowType, len(data.Data.RowSet))
+	populateJSONRowSet(rows.ChunkDownloader.CurrentChunk, data.Data.RowSet)
 	rows.ChunkDownloader.start()
 	return rows, err
 }
