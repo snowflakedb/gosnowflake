@@ -1416,10 +1416,6 @@ func testLargeSetResult(t *testing.T, numrows int) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if cnt%1000 == 0 {
-				glog.V(2).Infof("%v, %v", idx, v)
-				glog.V(2).Infof("NextResultSet: %v", rows.NextResultSet())
-			}
 			cnt++
 		}
 		glog.V(2).Infof("NextResultSet: %v", rows.NextResultSet())
