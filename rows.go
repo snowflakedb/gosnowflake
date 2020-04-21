@@ -425,25 +425,26 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		}
 		var respd []chunkRowType
 		if !CustomJSONDecoderEnabled {
-			dec := json.NewDecoder(st)
-			for {
-				if err := dec.Decode(&respd); err == io.EOF {
-					break
-				} else if err != nil {
-					raiseDownloadError(scd, idx, err)
-					return
-				}
-			}
 			if scd.QueryResultFormat == "arrow" {
 				ipcReader, err := ipc.NewReader(source)
 				if err != nil {
 					return
 				}
 				arc := arrowResultChunk{*ipcReader, 0, 0, int(scd.totalUncompressedSize()), memory.NewGoAllocator()}
-				//respd, err := arc.decodeArrowChunk()
+				respd, err = arc.decodeArrowChunk()
 				scd.CurrentChunkSize = int(arc.rowCount)
 				if err != nil {
 					return
+				}
+			} else {
+				dec := json.NewDecoder(st)
+				for {
+					if err := dec.Decode(&respd); err == io.EOF {
+						break
+					} else if err != nil {
+						raiseDownloadError(scd, idx, err)
+						return
+					}
 				}
 			}
 		} else {
