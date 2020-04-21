@@ -75,7 +75,6 @@ type snowflakeChunkDownloader struct {
 	CurrentChunk       []chunkRowType
 	CurrentChunkIndex  int
 	CurrentChunkSize   int
-	CurrentRowIndex	   int
 	ChunksMutex        *sync.Mutex
 	ChunkMetas         []execResponseChunk
 	Chunks             map[int][]chunkRowType
@@ -218,7 +217,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 		var err error
 		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
 		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk()
-		scd.CurrentChunkSize = int(firstArrowChunk.rowCount)
+		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
 		}
@@ -424,19 +423,8 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 			body:   source,
 		}
 		var respd []chunkRowType
-		if !CustomJSONDecoderEnabled {
-			if scd.QueryResultFormat == "arrow" {
-				ipcReader, err := ipc.NewReader(source)
-				if err != nil {
-					return
-				}
-				arc := arrowResultChunk{*ipcReader, 0, 0, int(scd.totalUncompressedSize()), memory.NewGoAllocator()}
-				respd, err = arc.decodeArrowChunk()
-				scd.CurrentChunkSize = int(arc.rowCount)
-				if err != nil {
-					return
-				}
-			} else {
+		if scd.QueryResultFormat != "arrow" {
+			if !CustomJSONDecoderEnabled {
 				dec := json.NewDecoder(st)
 				for {
 					if err := dec.Decode(&respd); err == io.EOF {
@@ -446,11 +434,27 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 						return
 					}
 				}
+			} else {
+				respd, err = decodeLargeChunk(st, scd.ChunkMetas[idx].RowCount, scd.CellCount)
+				if err != nil {
+					raiseDownloadError(scd, idx, err)
+					return
+				}
 			}
 		} else {
-			respd, err = decodeLargeChunk(st, scd.ChunkMetas[idx].RowCount, scd.CellCount)
+			ipcReader, err := ipc.NewReader(source)
 			if err != nil {
-				raiseDownloadError(scd, idx, err)
+				return
+			}
+			arc := arrowResultChunk{
+				*ipcReader,
+				0,
+				int(scd.totalUncompressedSize()),
+				memory.NewGoAllocator(),
+			}
+			respd, err = arc.decodeArrowChunk()
+			scd.CurrentChunkSize = arc.rowCount
+			if err != nil {
 				return
 			}
 		}

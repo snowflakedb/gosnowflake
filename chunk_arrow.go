@@ -14,8 +14,7 @@ import (
 
 type arrowResultChunk struct {
 	reader 				ipc.Reader
-	rowCount			int64
-	colCount			int64
+	rowCount			int
 	uncompressedSize	int
 	allocator			memory.Allocator
 }
@@ -51,7 +50,7 @@ func (arc *arrowResultChunk) decodeArrowChunk() ([]chunkRowType, error) {
 				chunkRows[rowIdx].ArrowRow[colIdx] = destcol[rowIdx]
 			}
 		}
-		arc.rowCount += record.NumRows()
+		arc.rowCount += numRows
 	}
 	return chunkRows, nil
 }
@@ -69,7 +68,7 @@ func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
 		return arrowResultChunk{}
 	}
 
-	return arrowResultChunk{*rr,0, 0, 0, memory.NewGoAllocator()}
+	return arrowResultChunk{*rr,0, 0, memory.NewGoAllocator()}
 }
 
 func (arc *arrowResultChunk) mkError(s string) error {
