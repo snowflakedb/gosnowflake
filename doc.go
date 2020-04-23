@@ -141,6 +141,14 @@ go tool command lines, for example:
 
 	go build -tags=sfdebug
 
+In your application, you will need to import the "flag" module, and include code 
+to enable the logging. For example:
+
+        if !flag.Parsed() {
+                // enable glog for Go Snowflake Driver
+                flag.Parse()
+        }
+
 For tests, run the test command with the tag along with glog parameters. For
 example, the following command will generate all acitivty logs in the standard
 error.
@@ -151,6 +159,17 @@ Likewise, if you build your application with the tag, you may specify the same
 set of glog parameters.
 
 	your_go_program -vmodule=*=2 -stderrthreshold=INFO
+
+Using the -stderrthreshold option will result in logging being shown in the STDERR 
+of the executing shell. If you wish to have the logging in a file, then you may use 
+the -log_dir option, and give it a path to a directory where log files will be made.
+
+	your_go_program -vmodule=*=2 -log_dir=/path/to/logs
+
+The -stderrthreshold option and the -log_dir option may also be used at the same time,
+and the log data will be put in both places.
+
+	your_go_program -vmodule=*=2 -stderrthreshold=INFO -log_dir=/path/to/logs
 
 To get the logs for a specific module, use the -vmodule option. For example, to
 retrieve the driver.go and connection.go module logs:
