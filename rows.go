@@ -52,13 +52,14 @@ func (rows *snowflakeRows) Close() (err error) {
 type snowflakeValue interface{}
 
 type chunkRowType struct {
-	RowSet			[]*string
-	ArrowRow		[]snowflakeValue
+	RowSet   []*string
+	ArrowRow []snowflakeValue
 }
 
 type rowSetType struct {
-	JSON			[][]*string
-	RowSetBase64	string
+	RowType      []execResponseRowType
+	JSON         [][]*string
+	RowSetBase64 string
 }
 
 type chunkError struct {
@@ -84,7 +85,7 @@ type snowflakeChunkDownloader struct {
 	ChunksFinalErrors  []*chunkError
 	Qrmk               string
 	QueryResultFormat  string
-	RowSet			   rowSetType
+	RowSet             rowSetType
 	ChunkHeader        map[string]string
 	CurrentIndex       int
 	FuncDownload       func(*snowflakeChunkDownloader, int)
@@ -207,8 +208,8 @@ func (scd *snowflakeChunkDownloader) nextResultSet() error {
 
 func (scd *snowflakeChunkDownloader) start() error {
 	scd.CurrentChunkSize = len(scd.RowSet.JSON) // cache the size
-	scd.CurrentIndex = -1                        // initial chunks idx
-	scd.CurrentChunkIndex = -1                   // initial chunk
+	scd.CurrentIndex = -1                       // initial chunks idx
+	scd.CurrentChunkIndex = -1                  // initial chunk
 
 	scd.CurrentChunk = make([]chunkRowType, scd.CurrentChunkSize)
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
@@ -216,7 +217,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 	if scd.QueryResultFormat == "arrow" {
 		var err error
 		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
-		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk()
+		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
@@ -452,7 +453,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 				int(scd.totalUncompressedSize()),
 				memory.NewGoAllocator(),
 			}
-			respd, err = arc.decodeArrowChunk()
+			respd, err = arc.decodeArrowChunk(scd.RowSet.RowType)
 			scd.CurrentChunkSize = arc.rowCount
 			if err != nil {
 				return
@@ -503,6 +504,7 @@ func raiseDownloadError(scd *snowflakeChunkDownloader, idx int, err error) {
 }
 
 func populateJSONRowSet(dst []chunkRowType, src [][]*string) {
+	// populate string rowset from src to dst's chunkRowType struct's RowSet field
 	for i, row := range src {
 		dst[i].RowSet = row
 	}

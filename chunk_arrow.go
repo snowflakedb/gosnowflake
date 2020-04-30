@@ -3,23 +3,23 @@
 package gosnowflake
 
 import (
-"bytes"
-"encoding/base64"
-"fmt"
-"github.com/apache/arrow/go/arrow/array"
-"github.com/apache/arrow/go/arrow/ipc"
-"github.com/apache/arrow/go/arrow/memory"
-"io"
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/ipc"
+	"github.com/apache/arrow/go/arrow/memory"
+	"io"
 )
 
 type arrowResultChunk struct {
-	reader 				ipc.Reader
-	rowCount			int
-	uncompressedSize	int
-	allocator			memory.Allocator
+	reader           ipc.Reader
+	rowCount         int
+	uncompressedSize int
+	allocator        memory.Allocator
 }
 
-func (arc *arrowResultChunk) decodeArrowChunk() ([]chunkRowType, error) {
+func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType) ([]chunkRowType, error) {
 	glog.V(2).Info("Arrow Decoder")
 
 	var chunkRows []chunkRowType
@@ -38,7 +38,7 @@ func (arc *arrowResultChunk) decodeArrowChunk() ([]chunkRowType, error) {
 
 		for colIdx, col := range columns {
 			destcol := make([]snowflakeValue, numRows)
-			err := arrowToValue(&destcol, col)
+			err := arrowToValue(&destcol, rowType[colIdx], col)
 			if err != nil {
 				return nil, err
 			}
@@ -68,7 +68,7 @@ func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
 		return arrowResultChunk{}
 	}
 
-	return arrowResultChunk{*rr,0, 0, memory.NewGoAllocator()}
+	return arrowResultChunk{*rr, 0, 0, memory.NewGoAllocator()}
 }
 
 func (arc *arrowResultChunk) mkError(s string) error {
@@ -77,5 +77,4 @@ func (arc *arrowResultChunk) mkError(s string) error {
 
 func (arc *arrowResultChunk) decode() ([]array.Record, error) {
 	return make([]array.Record, defaultChunkBufferSize), nil
-
 }

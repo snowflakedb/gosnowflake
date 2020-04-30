@@ -4,9 +4,9 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"reflect"
 	"strconv"
@@ -242,176 +242,87 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 	return nil
 }
 
-// Arrow Interface (Column) converter
-func arrowToValue(destcol *[]snowflakeValue, rcValue array.Interface) error {
-	data := rcValue.Data()
-
+// Arrow Interface (Column) converter. This is called when Arrow chunks are downloaded to convert to the corresponding
+// row type.
+func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, srcValue array.Interface) error {
+	data := srcValue.Data()
 	var err error
-	if len(*destcol) != rcValue.Data().Len() {
+	if len(*destcol) != srcValue.Data().Len() {
 		err = fmt.Errorf("array interface length mismatch")
 	}
-	if rcValue == nil {
-		glog.V(3).Infof("empty array interface")
+	if srcValue == nil {
+		glog.V(3).Infof("snowflake data type: %v, empty array interface", srcColumnMeta.Type)
 		for i := range *destcol {
 			(*destcol)[i] = nil
 		}
-		err = fmt.Errorf("empty array interface")
+		err = fmt.Errorf("snowflake data type: %v, empty array interface", srcColumnMeta.Type)
 	}
-	glog.V(3).Infof("arrow data type: %v", rcValue.DataType())
-	switch rcValue.DataType().ID() {
-	case arrow.UNION, arrow.DICTIONARY, arrow.MAP, arrow.EXTENSION:
-		err = fmt.Errorf("%s arrow array type not supported", data.DataType())
-		return err
-	case arrow.DATE32:
-		for i, date32 := range array.NewDate32Data(data).Date32Values() {
-			(*destcol)[i] = date32
-		}
-		return err
-	case arrow.DATE64:
-		for i, date64 := range array.NewDate64Data(data).Date64Values() {
-			(*destcol)[i] = date64
-		}
-		return err
-	case arrow.TIME32:
-		for i, time32 := range array.NewTime32Data(data).Time32Values() {
-			(*destcol)[i] = time32
-		}
-		return err
-	case arrow.TIME64:
-		for i, time64 := range array.NewTime32Data(data).Time32Values() {
-			(*destcol)[i] = time64
-		}
-		return err
-	case arrow.INTERVAL:
-		switch data.DataType().(type) {
-		case *arrow.MonthIntervalType:
-			for i, month := range array.NewMonthIntervalData(data).MonthIntervalValues() {
-				(*destcol)[i] = month
+	glog.V(3).Infof("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
+
+	switch srcColumnMeta.Type {
+	case "FIXED":
+		if srcColumnMeta.Scale == 0 {
+			for i, int64 := range array.NewInt64Data(data).Int64Values() {
+				(*destcol)[i] = int64
 			}
-		case *arrow.DayTimeIntervalType:
-			for i, day := range array.NewDayTimeIntervalData(data).DayTimeIntervalValues() {
-				(*destcol)[i] = day
+		} else {
+			for i, float64 := range array.NewFloat64Data(data).Float64Values() {
+				(*destcol)[i] = float64
 			}
 		}
 		return err
-	case arrow.TIMESTAMP:
-		for i, ts := range array.NewTimestampData(data).TimestampValues() {
-			(*destcol)[i] = ts
-		}
-		return err
-	case arrow.BINARY:
-		binaryData := array.NewBinaryData(data)
-		for i := range *destcol {
-			(*destcol)[i] = binaryData.Value(i)
-		}
-		return err
-	case arrow.FIXED_SIZE_BINARY:
-		fixedSizeBinaryData := array.NewFixedSizeBinaryData(data)
-		for i := range *destcol {
-			(*destcol)[i] = fixedSizeBinaryData.Value(i)
-		}
-		return err
-	case arrow.BOOL:
+	case "BOOLEAN":
 		boolData := array.NewBooleanData(data)
 		for i := range *destcol {
 			(*destcol)[i] = boolData.Value(i)
 		}
 		return err
-	case arrow.UINT8:
-		for i, uint8 := range array.NewUint8Data(data).Uint8Values() {
-			(*destcol)[i] = uint8
-		}
-		return err
-	case arrow.INT8:
-		for i, int8 := range array.NewInt8Data(data).Int8Values() {
-			(*destcol)[i] = int8
-		}
-		return err
-	case arrow.UINT16:
-		for i, uint16 := range array.NewUint16Data(data).Uint16Values() {
-			(*destcol)[i] = uint16
-		}
-		return err
-	case arrow.INT16:
-		for i, int16 := range array.NewInt16Data(data).Int16Values() {
-			(*destcol)[i] = int16
-		}
-		return err
-	case arrow.UINT32:
-		for i, uint32 := range array.NewUint32Data(data).Uint32Values() {
-			(*destcol)[i] = uint32
-		}
-		return err
-	case arrow.INT32:
-		for i, int32 := range array.NewInt32Data(data).Int32Values() {
-			(*destcol)[i] = int32
-		}
-		return err
-	case arrow.UINT64:
-		for i, uint64 := range array.NewUint64Data(data).Uint64Values() {
-			(*destcol)[i] = uint64
-		}
-		return err
-	case arrow.INT64:
-		for i, int64 := range array.NewInt64Data(data).Int64Values() {
-			(*destcol)[i] = int64
-		}
-		return err
-	case arrow.FLOAT16:
-		for i, float16 := range array.NewFloat16Data(data).Values() {
-			(*destcol)[i] = float16
-		}
-		return err
-	case arrow.FLOAT32:
-		for i, float32 := range array.NewFloat32Data(data).Float32Values() {
-			(*destcol)[i] = float32
-		}
-		return err
-	case arrow.FLOAT64:
+	case "REAL":
 		for i, float64 := range array.NewFloat64Data(data).Float64Values() {
 			(*destcol)[i] = float64
 		}
 		return err
-	case arrow.STRING:
+	case "TEXT", "ARRAY", "VARIANT", "OBJECT":
 		strings := array.NewStringData(data)
 		for i := range *destcol {
 			(*destcol)[i] = strings.Value(i)
 		}
 		return err
-	case arrow.DECIMAL:
-		for i, dec := range array.NewDecimal128Data(data).Values() {
-			(*destcol)[i] = dec
+	case "BINARY":
+		binaryData := array.NewBinaryData(data)
+		for i := range *destcol {
+			(*destcol)[i] = binaryData.Value(i)
 		}
 		return err
-	case arrow.LIST:
-		for i := range *destcol {
-			(*destcol)[i] = array.NewListData(data).ListValues()
+	case "DATE":
+		for i, date32 := range array.NewDate32Data(data).Date32Values() {
+			(*destcol)[i] = int32(date32)
 		}
 		return err
-	case arrow.FIXED_SIZE_LIST:
-		for i := range *destcol {
-			(*destcol)[i] = array.NewFixedSizeListData(data).ListValues()
+	case "TIME":
+		for i, nanos := range array.NewInt32Data(data).Int32Values() {
+			(*destcol)[i] = nanos
 		}
 		return err
-	case arrow.STRUCT:
-		for i := range *destcol {
-			sct := array.NewStructData(data)
-
-
-			(*destcol)[i] = array.NewStructData(data)
-		}
-		return nil
-	case arrow.DURATION:
-		for i, dur := range array.NewDurationData(data).DurationValues() {
-			(*destcol)[i] = dur
+	case "TIMESTAMP_NTZ":
+		for i, nanos := range array.NewInt64Data(data).Int64Values() {
+			(*destcol)[i] = time.Unix(0, nanos).UTC()
 		}
 		return err
-	case arrow.NULL:
+	case "TIMESTAMP_LTZ":
+		for i, nanos := range array.NewInt64Data(data).Int64Values() {
+			(*destcol)[i] = time.Unix(0, nanos)
+		}
+		return err
+	case "TIMESTAMP_TZ":
+		fixedBinaryData := array.NewFixedSizeBinaryData(data)
 		for i := range *destcol {
-			(*destcol)[i] = array.NewNullData(data)
+			(*destcol)[i] = fixedBinaryData.Value(i)
+			fmt.Println(binary.BigEndian.Uint64(fixedBinaryData.Value(i)))
 		}
 		return err
 	}
-	*destcol = rcValue.Data()
+
+	err = fmt.Errorf("unsupported data type")
 	return err
 }
