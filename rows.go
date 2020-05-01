@@ -426,15 +426,18 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		var respd []chunkRowType
 		if scd.QueryResultFormat != "arrow" {
 			if !CustomJSONDecoderEnabled {
+				var decRespd [][]*string
 				dec := json.NewDecoder(st)
 				for {
-					if err := dec.Decode(&respd); err == io.EOF {
+					if err := dec.Decode(&decRespd); err == io.EOF {
 						break
 					} else if err != nil {
 						raiseDownloadError(scd, idx, err)
 						return
 					}
 				}
+				respd = make([]chunkRowType, len(decRespd))
+				populateJSONRowSet(respd, decRespd)
 			} else {
 				respd, err = decodeLargeChunk(st, scd.ChunkMetas[idx].RowCount, scd.CellCount)
 				if err != nil {
