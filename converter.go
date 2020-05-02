@@ -4,10 +4,11 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -250,75 +251,166 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 	if len(*destcol) != srcValue.Data().Len() {
 		err = fmt.Errorf("array interface length mismatch")
 	}
-	if srcValue == nil {
-		glog.V(3).Infof("snowflake data type: %v, empty array interface", srcColumnMeta.Type)
-		for i := range *destcol {
-			(*destcol)[i] = nil
-		}
-		err = fmt.Errorf("snowflake data type: %v, empty array interface", srcColumnMeta.Type)
-	}
 	glog.V(3).Infof("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
 
-	switch srcColumnMeta.Type {
+	switch strings.ToUpper(srcColumnMeta.Type) {
 	case "FIXED":
-		if srcColumnMeta.Scale == 0 {
-			for i, int64 := range array.NewInt64Data(data).Int64Values() {
-				(*destcol)[i] = int64
+		for i, int8 := range array.NewInt8Data(data).Int8Values() {
+			if !srcValue.IsNull(i) {
+				if srcColumnMeta.Scale == 0 {
+					(*destcol)[i] = int8
+				} else {
+					(*destcol)[i] = float64(int8) / math.Pow10(int(srcColumnMeta.Scale))
+				}
+			} else {
+				(*destcol)[i] = nil
 			}
-		} else {
-			for i, float64 := range array.NewFloat64Data(data).Float64Values() {
-				(*destcol)[i] = float64
-			}
+
 		}
 		return err
 	case "BOOLEAN":
 		boolData := array.NewBooleanData(data)
 		for i := range *destcol {
-			(*destcol)[i] = boolData.Value(i)
+			if !srcValue.IsNull(i) {
+				(*destcol)[i] = boolData.Value(i)
+			} else {
+				(*destcol)[i] = nil
+			}
 		}
 		return err
 	case "REAL":
 		for i, float64 := range array.NewFloat64Data(data).Float64Values() {
-			(*destcol)[i] = float64
+			if !srcValue.IsNull(i) {
+				(*destcol)[i] = float64
+			} else {
+				(*destcol)[i] = nil
+			}
 		}
 		return err
 	case "TEXT", "ARRAY", "VARIANT", "OBJECT":
 		strings := array.NewStringData(data)
 		for i := range *destcol {
-			(*destcol)[i] = strings.Value(i)
+			if !srcValue.IsNull(i) {
+				(*destcol)[i] = strings.Value(i)
+			} else {
+				(*destcol)[i] = nil
+			}
 		}
 		return err
 	case "BINARY":
 		binaryData := array.NewBinaryData(data)
 		for i := range *destcol {
-			(*destcol)[i] = binaryData.Value(i)
+			if !srcValue.IsNull(i) {
+				(*destcol)[i] = binaryData.Value(i)
+			} else {
+				(*destcol)[i] = nil
+			}
 		}
 		return err
 	case "DATE":
 		for i, date32 := range array.NewDate32Data(data).Date32Values() {
-			(*destcol)[i] = int32(date32)
+			if !srcValue.IsNull(i) {
+				t0 := time.Unix(int64(date32)*86400, 0).UTC()
+				(*destcol)[i] = t0
+			} else {
+				(*destcol)[i] = nil
+			}
 		}
 		return err
 	case "TIME":
-		for i, nanos := range array.NewInt32Data(data).Int32Values() {
-			(*destcol)[i] = nanos
+		if srcValue.DataType().ID() == arrow.INT64 {
+			for i, int64 := range array.NewInt64Data(data).Int64Values() {
+				if !srcValue.IsNull(i) {
+					t0 := time.Time{}
+					(*destcol)[i] = t0.Add(time.Duration(int64))
+				} else {
+					(*destcol)[i] = nil
+				}
+			}
+		} else {
+			for i, int32 := range array.NewInt32Data(data).Int32Values() {
+				if !srcValue.IsNull(i) {
+					t0 := time.Time{}
+					(*destcol)[i] = t0.Add(time.Duration(int64(int32) * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
+				} else {
+					(*destcol)[i] = nil
+				}
+			}
 		}
 		return err
 	case "TIMESTAMP_NTZ":
-		for i, nanos := range array.NewInt64Data(data).Int64Values() {
-			(*destcol)[i] = time.Unix(0, nanos).UTC()
+		if srcValue.DataType().ID() == arrow.STRUCT {
+			structData := array.NewStructData(data)
+			epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
+			fraction := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
+			for i := range *destcol {
+				if !srcValue.IsNull(i) {
+					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i])).UTC()
+				} else {
+					(*destcol)[i] = nil
+				}
+			}
+		} else {
+			for i, t := range array.NewInt64Data(data).Int64Values() {
+				if !srcValue.IsNull(i) {
+					(*destcol)[i] = time.Unix(0, t*int64(math.Pow10(9-int(srcColumnMeta.Scale)))).UTC()
+				} else {
+					(*destcol)[i] = nil
+				}
+			}
 		}
 		return err
 	case "TIMESTAMP_LTZ":
-		for i, nanos := range array.NewInt64Data(data).Int64Values() {
-			(*destcol)[i] = time.Unix(0, nanos)
+		if srcValue.DataType().ID() == arrow.STRUCT {
+			structData := array.NewStructData(data)
+			epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
+			fraction := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
+			for i := range *destcol {
+				if !srcValue.IsNull(i) {
+					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i]))
+				} else {
+					(*destcol)[i] = nil
+				}
+			}
+		} else {
+			for i, t := range array.NewInt64Data(data).Int64Values() {
+				if !srcValue.IsNull(i) {
+					q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
+					r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
+					(*destcol)[i] = time.Unix(0, q*1e9+r)
+				} else {
+					(*destcol)[i] = nil
+				}
+			}
 		}
 		return err
 	case "TIMESTAMP_TZ":
-		fixedBinaryData := array.NewFixedSizeBinaryData(data)
-		for i := range *destcol {
-			(*destcol)[i] = fixedBinaryData.Value(i)
-			fmt.Println(binary.BigEndian.Uint64(fixedBinaryData.Value(i)))
+		structData := array.NewStructData(data)
+		if structData.NumField() == 2 {
+			epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
+			timezone := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
+			for i := range *destcol {
+				if !srcValue.IsNull(i) {
+					loc := Location(int(timezone[i]) - 1440)
+					tt := time.Unix(epoch[i], 0)
+					(*destcol)[i] = tt.In(loc)
+				} else {
+					(*destcol)[i] = nil
+				}
+			}
+		} else {
+			epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
+			fraction := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
+			timezone := array.NewInt32Data(structData.Field(2).Data()).Int32Values()
+			for i := range *destcol {
+				if !srcValue.IsNull(i) {
+					loc := Location(int(timezone[i]) - 1440)
+					tt := time.Unix(epoch[i], int64(fraction[i]))
+					(*destcol)[i] = tt.In(loc)
+				} else {
+					(*destcol)[i] = nil
+				}
+			}
 		}
 		return err
 	}

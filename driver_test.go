@@ -307,6 +307,7 @@ func TestBogusUserPasswordParameters(t *testing.T) {
 	invalidDNS = fmt.Sprintf("%s:%s@%s", user, "INVALID_PASSWORD", host)
 	invalidUserPassErrorTests(invalidDNS, t)
 }
+
 func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
 	parameters := url.Values{}
 	if protocol != "" {
@@ -508,6 +509,14 @@ func TestCRUD(t *testing.T) {
 }
 
 func TestInt(t *testing.T) {
+	testInt(t, false)
+}
+
+func TestArrowInt(t *testing.T) {
+	testInt(t, true)
+}
+
+func testInt(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := []string{"INT", "INTEGER"}
 		in := int64(42)
@@ -516,6 +525,9 @@ func TestInt(t *testing.T) {
 
 		// SIGNED
 		for _, v := range types {
+			if arrow {
+				dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+			}
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 			rows = dbt.mustQuery("SELECT value FROM test")
@@ -535,12 +547,23 @@ func TestInt(t *testing.T) {
 }
 
 func TestFloat32(t *testing.T) {
+	testFloat32(t, false)
+}
+
+func TestArrowFloat32(t *testing.T) {
+	testFloat32(t, true)
+}
+
+func testFloat32(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		in := float32(42.23)
 		var out float32
 		var rows *RowsExtended
 		for _, v := range types {
+			if arrow {
+				dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+			}
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 			rows = dbt.mustQuery("SELECT value FROM test")
@@ -562,12 +585,23 @@ func TestFloat32(t *testing.T) {
 }
 
 func TestFloat64(t *testing.T) {
+	testFloat64(t, false)
+}
+
+func TestArrowFloat64(t *testing.T) {
+	testFloat64(t, true)
+}
+
+func testFloat64(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		expected := 42.23
 		var out float64
 		var rows *RowsExtended
 		for _, v := range types {
+			if arrow {
+				dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+			}
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (42.23)")
 			rows = dbt.mustQuery("SELECT value FROM test")
@@ -586,12 +620,23 @@ func TestFloat64(t *testing.T) {
 }
 
 func TestFloat64Placeholder(t *testing.T) {
+	testFloat64Placeholder(t, false)
+}
+
+func TestArrowFloat64Placeholder(t *testing.T) {
+	testFloat64Placeholder(t, true)
+}
+
+func testFloat64Placeholder(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		expected := 42.23
 		var out float64
 		var rows *RowsExtended
 		for _, v := range types {
+			if arrow {
+				dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+			}
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
 			dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
 			rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
@@ -609,13 +654,24 @@ func TestFloat64Placeholder(t *testing.T) {
 	})
 }
 
+func TestUint64Placeholder(t *testing.T) {
+	testUint64Placeholder(t, false)
+}
+
+func TestArrowUint64Placeholder(t *testing.T) {
+	testUint64Placeholder(t, true)
+}
+
 // TestUint64Placeholder tests uint64 binding. Should fail as unit64 is not a supported binding value by Go's sql
 // package.
-func TestUint64Placeholder(t *testing.T) {
+func testUint64Placeholder(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		types := []string{"INTEGER"}
 		expected := uint64(18446744073709551615)
 		for _, v := range types {
+			if arrow {
+				dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+			}
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
 			_, err := dbt.db.Exec("INSERT INTO test VALUES (1, ?)", expected)
 			if err == nil {
@@ -629,8 +685,19 @@ func TestUint64Placeholder(t *testing.T) {
 }
 
 func TestDateTimeTimestampPlaceholder(t *testing.T) {
+	testDateTimeTimestampPlaceholder(t, false)
+}
+
+func TestArrowDateTimeTimestampPlaceholder(t *testing.T) {
+	testDateTimeTimestampPlaceholder(t, true)
+}
+
+func testDateTimeTimestampPlaceholder(t *testing.T, arrow bool) {
 	createDSN("America/Los_Angeles")
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		expected := time.Now()
 		dbt.mustExec(
 			"CREATE OR REPLACE TABLE tztest (id int, ntz timestamp_ntz, ltz timestamp_ltz, dt date, tm time)")
@@ -701,7 +768,18 @@ func TestDateTimeTimestampPlaceholder(t *testing.T) {
 }
 
 func TestBinaryPlaceholder(t *testing.T) {
+	testBinaryPlaceholder(t, false)
+}
+
+func TestArrowBinaryPlaceholder(t *testing.T) {
+	testBinaryPlaceholder(t, true)
+}
+
+func testBinaryPlaceholder(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		dbt.mustExec("CREATE OR REPLACE TABLE bintest (id int, b binary)")
 		var b = []byte{0x01, 0x02, 0x03}
 		dbt.mustExec("INSERT INTO bintest(id,b) VALUES(1, ?)", DataTypeBinary, b)
@@ -757,8 +835,58 @@ func TestBindingInterface(t *testing.T) {
 	})
 }
 
-func TestVariousTypes(t *testing.T) {
+func TestArrowBindingInterface(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		var err error
+		rows := dbt.mustQuery(
+			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		defer rows.Close()
+		if !rows.Next() {
+			dbt.Error("failed to query")
+		}
+		var v1, v2, v3, v4, v5, v6 interface{}
+		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
+		if err != nil {
+			dbt.Errorf("failed to scan: %#v", err)
+		}
+		var s1 float64
+		var s2 int8
+		var s3 string
+		var s4 float64
+		var ok bool
+		s1, ok = v1.(float64)
+		if !ok || s1 != float64(1) {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v1)
+		}
+		s2, ok = v2.(int8)
+		if !ok || s2 != 2 {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
+		}
+		s3, ok = v3.(string)
+		if !ok || s3 != "t3" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
+		}
+		s4, ok = v4.(float64)
+		if !ok || s4 != 4.2 {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v4)
+		}
+	})
+}
+
+func TestVariousTypes(t *testing.T) {
+	testVariousTypes(t, false)
+}
+
+func TestArrowVariousTypes(t *testing.T) {
+	testVariousTypes(t, true)
+}
+
+func testVariousTypes(t *testing.T, arrow bool) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		rows := dbt.mustQuery(
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
 		defer rows.Close()
@@ -869,7 +997,18 @@ func TestVariousTypes(t *testing.T) {
 }
 
 func TestTimestampTZPlaceholder(t *testing.T) {
+	testTimestampTZPlaceholder(t, false)
+}
+
+func TestArrowTimestampTZPlaceholder(t *testing.T) {
+	testTimestampTZPlaceholder(t, true)
+}
+
+func testTimestampTZPlaceholder(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		expected := time.Now()
 		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, tz timestamp_tz)")
 		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,tz) VALUES(1, ?)")
@@ -899,7 +1038,18 @@ func TestTimestampTZPlaceholder(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
+	testString(t, false)
+}
+
+func TestArrowString(t *testing.T) {
+	testString(t, true)
+}
+
+func testString(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		types := []string{"CHAR(255)", "VARCHAR(255)", "TEXT", "STRING"}
 		in := "κόσμε üöäßñóùéàâÿœ'îë Árvíztűrő いろはにほへとちりぬるを イロハニホヘト דג סקרן чащах  น่าฟังเอย"
 		var out string
@@ -998,6 +1148,7 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 		if val.UnixNano() == tt.t.UnixNano() {
 			return
 		}
+		fmt.Println(val.UnixNano(), tt.t.UnixNano())
 		t.Logf("source:%v, expected: %v, got:%v", tt.s, tt.t, val)
 		dbt.Errorf("%s to string: expected %q, got %q",
 			dbtype,
@@ -1013,6 +1164,14 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 }
 
 func TestSimpleDateTimeTimestampFetch(t *testing.T) {
+	testSimpleDateTimeTimestampFetch(t, false)
+}
+
+func TestArrowSimpleDateTimeTimestampFetch(t *testing.T) {
+	testSimpleDateTimeTimestampFetch(t, true)
+}
+
+func testSimpleDateTimeTimestampFetch(t *testing.T, arrow bool) {
 	var scan = func(rows *RowsExtended, cd interface{}, ct interface{}, cts interface{}) {
 		err := rows.Scan(cd, ct, cts)
 		if err != nil {
@@ -1032,6 +1191,9 @@ func TestSimpleDateTimeTimestampFetch(t *testing.T) {
 		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		for _, f := range fetchTypes {
 			rows := dbt.mustQuery("SELECT CURRENT_DATE(), CURRENT_TIME(), CURRENT_TIMESTAMP()")
 			defer rows.Close()
@@ -1045,6 +1207,14 @@ func TestSimpleDateTimeTimestampFetch(t *testing.T) {
 }
 
 func TestDateTime(t *testing.T) {
+	testDateTime(t, false)
+}
+
+func TestArrowDateTime(t *testing.T) {
+	testDateTime(t, true)
+}
+
+func testDateTime(t *testing.T, arrow bool) {
 	afterTime := func(t time.Time, d string) time.Time {
 		dur, err := time.ParseDuration(d)
 		if err != nil {
@@ -1092,6 +1262,9 @@ func TestDateTime(t *testing.T) {
 		}},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		for _, setups := range testcases {
 			for _, setup := range setups.tests {
 				if setup.s == "" {
@@ -1105,6 +1278,14 @@ func TestDateTime(t *testing.T) {
 }
 
 func TestTimestampLTZ(t *testing.T) {
+	testTimestampLTZ(t, false)
+}
+
+func TestArrowTimestampLTZ(t *testing.T) {
+	testTimestampLTZ(t, true)
+}
+
+func testTimestampLTZ(t *testing.T, arrow bool) {
 	format := "2006-01-02 15:04:05.999999999"
 	// Set session time zone in Los Angeles, same as machine
 	createDSN("America/Los_Angeles")
@@ -1155,6 +1336,9 @@ func TestTimestampLTZ(t *testing.T) {
 		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		for _, setups := range testcases {
 			for _, setup := range setups.tests {
 				if setup.s == "" {
@@ -1170,6 +1354,14 @@ func TestTimestampLTZ(t *testing.T) {
 }
 
 func TestTimestampTZ(t *testing.T) {
+	testTimestampTZ(t, false)
+}
+
+func TestArrowTimestampTZ(t *testing.T) {
+	testTimestampTZ(t, true)
+}
+
+func testTimestampTZ(t *testing.T, arrow bool) {
 	sflo := func(offsets string) (loc *time.Location) {
 		r, err := LocationWithOffsetString(offsets)
 		if err != nil {
@@ -1197,6 +1389,9 @@ func TestTimestampTZ(t *testing.T) {
 		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		for _, setups := range testcases {
 			for _, setup := range setups.tests {
 				if setup.s == "" {
@@ -1210,7 +1405,18 @@ func TestTimestampTZ(t *testing.T) {
 }
 
 func TestNULL(t *testing.T) {
+	testNULL(t, false)
+}
+
+func TestArrowNULL(t *testing.T) {
+	testNULL(t, true)
+}
+
+func testNULL(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		nullStmt, err := dbt.db.Prepare("SELECT NULL")
 		if err != nil {
 			dbt.Fatal(err)
@@ -1362,7 +1568,18 @@ func TestNULL(t *testing.T) {
 }
 
 func TestVariant(t *testing.T) {
+	testVariant(t, false)
+}
+
+func TestArrowVariant(t *testing.T) {
+	testVariant(t, true)
+}
+
+func testVariant(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		rows := dbt.mustQuery(`select parse_json('[{"id":1, "name":"test1"},{"id":2, "name":"test2"}]')`)
 		defer rows.Close()
 		var v string
@@ -1378,7 +1595,18 @@ func TestVariant(t *testing.T) {
 }
 
 func TestArray(t *testing.T) {
+	testArray(t, false)
+}
+
+func TestArrowArray(t *testing.T) {
+	testArray(t, true)
+}
+
+func testArray(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		if arrow {
+			dbt.db.Exec(fmt.Sprintf("ALTER SESSION set go_query_result_format = arrow_force"))
+		}
 		rows := dbt.mustQuery(`select as_array(parse_json('[{"id":1, "name":"test1"},{"id":2, "name":"test2"}]'))`)
 		defer rows.Close()
 		var v string
