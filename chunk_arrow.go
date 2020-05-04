@@ -5,8 +5,6 @@ package gosnowflake
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
-	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 	"io"
@@ -69,12 +67,4 @@ func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
 	}
 
 	return arrowResultChunk{*rr, 0, 0, memory.NewGoAllocator()}
-}
-
-func (arc *arrowResultChunk) mkError(s string) error {
-	return fmt.Errorf("corrupt chunk: #{s}")
-}
-
-func (arc *arrowResultChunk) decode() ([]array.Record, error) {
-	return make([]array.Record, defaultChunkBufferSize), nil
 }
