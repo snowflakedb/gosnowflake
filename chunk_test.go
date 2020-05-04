@@ -77,7 +77,7 @@ func TestValidChunkData(t *testing.T) {
 	testDecodeOk(t, `[["€"]]`)            // "€"
 
 	testDecodeOk(t, `[["\uF090\u8D88"]]`) // "𐍈"
-	testDecodeOk(t, `[["𐍈"]]`)           // "𐍈"
+	testDecodeOk(t, `[["𐍈"]]`)            // "𐍈"
 }
 
 func TestSmallBufferChunkData(t *testing.T) {
