@@ -377,7 +377,7 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 				if !srcValue.IsNull(i) {
 					q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
 					r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
-					(*destcol)[i] = time.Unix(0, q*1e9+r)
+					(*destcol)[i] = time.Unix(q, r)
 				} else {
 					(*destcol)[i] = nil
 				}

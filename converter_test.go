@@ -10,7 +10,6 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 	"math/cmplx"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 )
@@ -184,9 +183,6 @@ func TestStringToValue(t *testing.T) {
 	}
 }
 
-func nanosSinceMidnight(t time.Time) int32 {
-	return int32(t.Hour())*3600*1e9 + int32(t.Minute())*60*1e9 + int32(t.Second())*1e9 + int32(t.Nanosecond())
-}
 
 func TestArrowToValue(t *testing.T) {
 	dest := make([]snowflakeValue, 2)
@@ -195,7 +191,11 @@ func TestArrowToValue(t *testing.T) {
 	var valids []bool // AppendValues() with an empty valid array adds every value by default
 
 	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
-	//utcTime := time.Date(2019, 2, 6, 22, 17, 31, 123456789, time.UTC)
+
+	field1 := arrow.Field{Name:"epoch", Type:&arrow.Int64Type{}}
+	field2 := arrow.Field{Name:"timezone", Type:&arrow.Int32Type{}}
+	tzStruct := arrow.StructOf(field1, field2)
+
 
 	type testObj struct {
 		field1 int
@@ -205,6 +205,7 @@ func TestArrowToValue(t *testing.T) {
 	for _, tc := range []struct {
 		logical  string
 		physical string
+		rowType  execResponseRowType
 		values   interface{}
 		builder  array.Builder
 		append   func(b array.Builder, vs interface{})
@@ -212,38 +213,17 @@ func TestArrowToValue(t *testing.T) {
 	}{
 		{
 			logical:  "fixed",
-			physical: "number",
-			values:   []int32{1, 2},
-			builder:  array.NewInt32Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
+			physical: "number", // default: number(38, 0)
+			values:   []int8{1, 2},
+			builder:  array.NewInt8Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
 		},
 		{
 			logical:  "fixed",
 			physical: "integer",
-			values:   []int64{1, 2},
-			builder:  array.NewInt64Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
-		},
-		{
-			logical:  "fixed",
-			physical: "number(38,0)",
-			values:   []uint64{1, 2},
-			builder:  array.NewUint64Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Uint64Builder).AppendValues(vs.([]uint64), valids) },
-		},
-		{
-			logical:  "fixed",
-			physical: "number(38,37)",
-			values:   []int16{1, 2},
-			builder:  array.NewInt16Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
-		},
-		{
-			logical:  "fixed",
-			physical: "number(3,0)",
-			values:   []int64{1, 2},
-			builder:  array.NewInt64Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			values:   []int8{1, 2},
+			builder:  array.NewInt8Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
 		},
 		{
 			logical: "boolean",
@@ -273,27 +253,28 @@ func TestArrowToValue(t *testing.T) {
 		},
 		{
 			logical: "date",
-			values:  []int32{1, 2},
+			values:  []time.Time{time.Now(), localTime},
 			builder: array.NewDate32Builder(pool),
 			append: func(b array.Builder, vs interface{}) {
-				for _, d := range vs.([]int32) {
-					b.(*array.Date32Builder).Append(arrow.Date32(d))
+				for _, d := range vs.([]time.Time) {
+					b.(*array.Date32Builder).Append(arrow.Date32(d.Unix()))
 				}
 			},
 		},
 		{
 			logical: "time",
 			values:  []time.Time{time.Now(), time.Now()},
-			builder: array.NewInt32Builder(pool),
+			rowType: execResponseRowType{Scale: 9},
+			builder: array.NewInt64Builder(pool),
 			append: func(b array.Builder, vs interface{}) {
 				for _, t := range vs.([]time.Time) {
-					b.(*array.Int32Builder).Append(nanosSinceMidnight(t))
+					b.(*array.Int64Builder).Append(t.UnixNano())
 				}
 			},
 			compare: func(src interface{}, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
 				for i, _ := range srcvs {
-					if nanosSinceMidnight(srcvs[i]) != dst[i].(int32) {
+					if srcvs[i].Nanosecond() != dst[i].(time.Time).Nanosecond() {
 						return i
 					}
 				}
@@ -303,6 +284,7 @@ func TestArrowToValue(t *testing.T) {
 		{
 			logical: "timestamp_ntz",
 			values:  []time.Time{time.Now(), localTime},
+			rowType: execResponseRowType{Scale: 9},
 			builder: array.NewInt64Builder(pool),
 			append: func(b array.Builder, vs interface{}) {
 				for _, t := range vs.([]time.Time) {
@@ -312,7 +294,7 @@ func TestArrowToValue(t *testing.T) {
 			compare: func(src interface{}, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
 				for i, _ := range srcvs {
-					if srcvs[i].Unix() != dst[i].(time.Time).Unix() {
+					if srcvs[i].UnixNano() != dst[i].(time.Time).UnixNano() {
 						return i
 					}
 				}
@@ -322,6 +304,7 @@ func TestArrowToValue(t *testing.T) {
 		{
 			logical: "timestamp_ltz",
 			values:  []time.Time{time.Now(), localTime},
+			rowType: execResponseRowType{Scale: 9},
 			builder: array.NewInt64Builder(pool),
 			append: func(b array.Builder, vs interface{}) {
 				for _, t := range vs.([]time.Time) {
@@ -331,7 +314,7 @@ func TestArrowToValue(t *testing.T) {
 			compare: func(src interface{}, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
 				for i, _ := range srcvs {
-					if srcvs[i].Unix() != dst[i].(time.Time).Unix() {
+					if srcvs[i].UnixNano() != dst[i].(time.Time).UnixNano() {
 						return i
 					}
 				}
@@ -341,19 +324,22 @@ func TestArrowToValue(t *testing.T) {
 		{
 			logical: "timestamp_tz",
 			values:  []time.Time{time.Now(), localTime},
-			builder: array.NewInt64Builder(pool),
+			builder: array.NewStructBuilder(pool, tzStruct),
 			append: func(b array.Builder, vs interface{}) {
+				sb := b.(*array.StructBuilder)
+				valids = []bool{true, true}
+				sb.AppendValues(valids)
 				for _, t := range vs.([]time.Time) {
-					b.(*array.Int64Builder).Append(t.UnixNano())
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(t.Unix())
+					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.UnixNano()))
 				}
 			},
 			compare: func(src interface{}, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
 				for i, _ := range srcvs {
-					return i
-					//if nanosSinceMidnight(srcvs[i]) != dst[i].([]uint8) {
-					//	return i
-					//}
+					if srcvs[i].Unix() != dst[i].(time.Time).Unix() {
+						return i
+					}
 				}
 				return -1
 			},
@@ -407,15 +393,14 @@ func TestArrowToValue(t *testing.T) {
 			arr := b.NewArray()
 			defer arr.Release()
 
-			meta := execResponseRowType{Type: strings.ToUpper(tc.logical)}
-			if tc.physical == "fixed" && tc.logical == "integer" {
-				meta.Scale = 0
-			}
+			meta := tc.rowType
+			meta.Type = tc.logical
 
 			err := arrowToValue(&dest, meta, arr)
 			if err != nil {
 				t.Fatalf("error: %s", err)
 			}
+
 			elemType := reflect.TypeOf(tc.values).Elem()
 			if tc.compare != nil {
 				idx := tc.compare(tc.values, dest)
@@ -430,5 +415,6 @@ func TestArrowToValue(t *testing.T) {
 				}
 			}
 		})
+
 	}
 }
