@@ -183,7 +183,6 @@ func TestStringToValue(t *testing.T) {
 	}
 }
 
-
 func TestArrowToValue(t *testing.T) {
 	dest := make([]snowflakeValue, 2)
 
@@ -192,10 +191,9 @@ func TestArrowToValue(t *testing.T) {
 
 	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
 
-	field1 := arrow.Field{Name:"epoch", Type:&arrow.Int64Type{}}
-	field2 := arrow.Field{Name:"timezone", Type:&arrow.Int32Type{}}
+	field1 := arrow.Field{Name: "epoch", Type: &arrow.Int64Type{}}
+	field2 := arrow.Field{Name: "timezone", Type: &arrow.Int32Type{}}
 	tzStruct := arrow.StructOf(field1, field2)
-
 
 	type testObj struct {
 		field1 int
