@@ -77,7 +77,7 @@ func TestValidChunkData(t *testing.T) {
 	testDecodeOk(t, `[["€"]]`)            // "€"
 
 	testDecodeOk(t, `[["\uF090\u8D88"]]`) // "𐍈"
-	testDecodeOk(t, `[["𐍈"]]`)            // "𐍈"
+	testDecodeOk(t, `[["𐍈"]]`)           // "𐍈"
 }
 
 func TestSmallBufferChunkData(t *testing.T) {
@@ -122,7 +122,7 @@ func TestEnsureBytes(t *testing.T) {
 }
 
 func testDecodeOk(t *testing.T, s string) {
-	var rows []chunkRowType
+	var rows [][]*string
 	if err := json.Unmarshal([]byte(s), &rows); err != nil {
 		t.Fatalf("test case is not valid json / [][]*string: %s", s)
 	}
