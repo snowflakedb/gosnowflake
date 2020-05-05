@@ -81,20 +81,23 @@ func dataTypeMode(v driver.Value) (tsmode string, err error) {
 
 // SnowflakeParameter includes the columns output from SHOW PARAMETER command.
 type SnowflakeParameter struct {
-	Key              string
-	Value            string
-	Default          string
-	Level            string
-	Description      string
-	SetByUser        string
-	SetInJob         string
-	SetOn            string
-	SetByThreadID    string
-	SetByThreadName  string
-	SetByClass       string
-	ParameterComment string
-	Type             string
-	Unknown          string // Reserve for added parameter
+	Key                       string
+	Value                     string
+	Default                   string
+	Level                     string
+	Description               string
+	SetByUser                 string
+	SetInJob                  string
+	SetOn                     string
+	SetByThreadID             string
+	SetByThreadName           string
+	SetByClass                string
+	ParameterComment          string
+	Type                      string
+	IsExpired                 string
+	ExpiresAt                 string
+	SetByControllingParameter string
+	Unknown                   string // Reserve for added parameter
 }
 
 func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface{} {
@@ -125,6 +128,12 @@ func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface
 		return &p.ParameterComment
 	case "type":
 		return &p.Type
+	case "is_expired":
+		return &p.IsExpired
+	case "expires_at":
+		return &p.ExpiresAt
+	case "set_by_controlling_parameter":
+		return &p.SetByControllingParameter
 	default:
 		debugPanicf("unknown type: %v", colname)
 		return &p.Unknown
