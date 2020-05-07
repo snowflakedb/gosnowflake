@@ -214,7 +214,8 @@ func (scd *snowflakeChunkDownloader) start() error {
 	scd.CurrentChunk = make([]chunkRowType, scd.CurrentChunkSize)
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
 
-	if scd.QueryResultFormat == "arrow" {
+	if scd.QueryResultFormat == "arrow" && scd.RowSet.RowSetBase64 != "" {
+		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
 		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
 		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType)
