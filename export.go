@@ -7,6 +7,7 @@ type ExecResponse = execResponse
 type ExecResponseRowType = execResponseRowType
 type ExecResponseChunk = execResponseChunk
 type SnowflakeRows = snowflakeRows
+type SnowflakeRestful = snowflakeRestful
 
 // Methods
 func (sr *snowflakeRows) GetExecResponse() *ExecResponse {
