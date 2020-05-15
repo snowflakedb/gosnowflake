@@ -19,8 +19,8 @@ SCAN_DIRECTORIES=$THIS_DIR
 rm -f wss-unified-agent.jar 
 curl -LJO https://github.com/whitesource/unified-agent-distribution/releases/latest/download/wss-unified-agent.jar
 
-WSS_CONFIG=wss-golang-agent.config
-cat > $WSS_CONFIG <<CONFIG
+SCAN_CONFIG=wss-golang-agent.config
+cat > $SCAN_CONFIG <<CONFIG
 ###############################################################
 # WhiteSource Unified-Agent configuration file
 ###############################################################
@@ -105,13 +105,32 @@ case.sensitive.glob=false
 followSymbolicLinks=true
 CONFIG
 
+set -x 
 echo "[INFO] Running wss.sh for ${PROJECT_NAME}-${PRODUCT_NAME} under ${SCAN_DIRECTORIES}"
 java -jar wss-unified-agent.jar -apiKey ${WHITESOURCE_API_KEY} \
-    -c $WSS_CONFIG \
+    -c ${SCAN_CONFIG} \
     -project ${PROJECT_NAME} \
-    -d ${SCAN_DIRECTORIES} \
     -product ${PRODUCT_NAME} \
-    -projectVersion ${DATE}
+    -d ${SCAN_DIRECTORIES} \
+    -wss.url https://saas.whitesourcesoftware.com/agent \
+    -offline true
+
+if java -jar wss-unified-agent.jar -apiKey ${WHITESOURCE_API_KEY} \
+   -c ${SCAN_CONFIG} \
+   -project ${PROJECT_NAME} \
+   -product ${PRODUCT_NAME} \
+   -projectVersion baseline \
+   -requestFiles whitesource/update-request.txt \
+   -wss.url https://saas.whitesourcesoftware.com/agent ; then
+    echo "checkPolicies=false" >> ${SCAN_CONFIG}
+    java -jar wss-unified-agent.jar -apiKey ${WHITESOURCE_API_KEY} \
+        -c ${SCAN_CONFIG} \
+        -project ${PROJECT_NAME} \
+        -product ${PRODUCT_NAME} \
+        -projectVersion ${DATE} \
+        -requestFiles whitesource/update-request.txt \
+        -wss.url https://saas.whitesourcesoftware.com/agent
+fi
 
 # not ever
 exit 0
