@@ -10,7 +10,6 @@ export PROJECT_NAME=GolangDriver
 
 DATE=$(date +'%m-%d-%Y')
 
-# set -x
 # Never ever fail for whitesource problems
 set +e
 
@@ -105,7 +104,6 @@ case.sensitive.glob=false
 followSymbolicLinks=true
 CONFIG
 
-set -x 
 echo "[INFO] Running wss.sh for ${PROJECT_NAME}-${PRODUCT_NAME} under ${SCAN_DIRECTORIES}"
 java -jar wss-unified-agent.jar -apiKey ${WHITESOURCE_API_KEY} \
     -c ${SCAN_CONFIG} \
