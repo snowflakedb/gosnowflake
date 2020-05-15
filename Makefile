@@ -4,7 +4,7 @@ REVISION:=$(shell git rev-parse --short HEAD)
 COVFLAGS:=
 
 ## Run fmt, lint and test
-all: fmt lint cov
+all: fmt lint wss cov
 
 include gosnowflake.mak
 
@@ -25,6 +25,9 @@ test: deps test_setup
 ## Run Coverage tests
 cov:
 	make test COVFLAGS="-coverprofile=coverage.txt -covermode=atomic"
+
+wss:
+	./scripts/wss.sh
 
 ## Lint
 lint: clint

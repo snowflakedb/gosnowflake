@@ -141,7 +141,7 @@ go tool command lines, for example:
 
 	go build -tags=sfdebug
 
-In your application, you will need to import the "flag" module, and include code 
+In your application, you will need to import the "flag" module, and include code
 to enable the logging. For example:
 
         if !flag.Parsed() {
@@ -160,8 +160,8 @@ set of glog parameters.
 
 	your_go_program -vmodule=*=2 -stderrthreshold=INFO
 
-Using the -stderrthreshold option will result in logging being shown in the STDERR 
-of the executing shell. If you wish to have the logging in a file, then you may use 
+Using the -stderrthreshold option will result in logging being shown in the STDERR
+of the executing shell. If you wish to have the logging in a file, then you may use
 the -log_dir option, and give it a path to a directory where log files will be made.
 
 	your_go_program -vmodule=*=2 -log_dir=/path/to/logs
