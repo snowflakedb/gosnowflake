@@ -3,14 +3,14 @@
 # Run whitesource for Golang
 #
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-[[ -z "$WHITESOURCE_API_KEY" ]] && echo "[WARNING] Set WHITESOURCE_API_KEY" && exit 1
+[[ -z "$WHITESOURCE_API_KEY" ]] && echo "[WARNING] No WHITESOURCE_API_KEY is set. No WhiteSource scan will occurr." && exit 0
 
 export PRODUCT_NAME=GolangDriver
 export PROJECT_NAME=GolangDriver
 
 DATE=$(date +'%m-%d-%Y')
 
-set -x
+# set -x
 # Never ever fail for whitesource problems
 set +e
 
