@@ -10,9 +10,6 @@ export PROJECT_NAME=GolangDriver
 
 DATE=$(date +'%m-%d-%Y')
 
-# Never ever fail for whitesource problems
-set +e
-
 SCAN_DIRECTORIES=$THIS_DIR/..
 
 rm -f wss-unified-agent.jar 
@@ -129,6 +126,3 @@ if java -jar wss-unified-agent.jar -apiKey ${WHITESOURCE_API_KEY} \
         -requestFiles whitesource/update-request.txt \
         -wss.url https://saas.whitesourcesoftware.com/agent
 fi
-
-# not ever
-exit 0
