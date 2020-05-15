@@ -13,7 +13,7 @@ DATE=$(date +'%m-%d-%Y')
 # Never ever fail for whitesource problems
 set +e
 
-SCAN_DIRECTORIES=$THIS_DIR
+SCAN_DIRECTORIES=$THIS_DIR/..
 
 rm -f wss-unified-agent.jar 
 curl -LJO https://github.com/whitesource/unified-agent-distribution/releases/latest/download/wss-unified-agent.jar
