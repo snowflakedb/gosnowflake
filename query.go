@@ -141,8 +141,9 @@ type execResponseData struct {
 	QueryContext json.RawMessage `json:"queryContext,omitempty"`
 }
 
+//easyjson:json
 type execResponse struct {
-	Data    execResponseData `json:"Data"`
+	Data    execResponseData `json:"data"`
 	Message string           `json:"message"`
 	Code    string           `json:"code"`
 	Success bool             `json:"success"`
