@@ -12,14 +12,19 @@ on:
 
 jobs:
     build:
-        name: Build
         runs-on: ubuntu-latest
         strategy:
             matrix:
                 cloud: [ 'AWS' ]
+                go: [ '1.14', '1.13' ]
+        name: Build and Tests for Go ${{ matrix.go }}
         steps:
             - uses: actions/checkout@v1
-            - name: Setup
+            - name: Setup go
+                uses: actions/setup-go@v1
+                with:
+                    go-version: ${{ matrix.go }}
+            - name: Build and Tests
               shell: bash
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
