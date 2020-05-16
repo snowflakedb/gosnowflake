@@ -50,4 +50,9 @@ fuzz-build:
 fuzz-dsn:
 	(cd fuzz-dsn; go-fuzz -bin=./dsn-fuzz.zip -workdir=.)
 
-.PHONY: setup deps update test lint help fuzz-dsn
+## Regenerate _easyjson.go files
+easyjson:
+	go get github.com/josharian/intern && \
+	easyjson -lower_camel_case -output_filename query_easyjson.go query.go
+
+.PHONY: setup deps update test lint help fuzz-dsn easyjson
