@@ -2,8 +2,11 @@ package gosnowflake
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+
+	"github.com/mailru/easyjson"
 )
 
 const (
@@ -13,21 +16,16 @@ const (
 
 var ErrResponseTooLarge = fmt.Errorf("response is too large")
 
-type limitedJsonDecoder struct {
-	decoder *json.Decoder
-}
-
-func (d *limitedJsonDecoder) Decode(v interface{}) error {
-	err := d.decoder.Decode(v)
-	if err == io.ErrUnexpectedEOF {
-		return ErrResponseTooLarge
+func decodeResponse(body io.ReadCloser, resp interface{}) error {
+	lr := io.LimitReader(body, ResponseBodyLimit)
+	var err error
+	if v, is := resp.(easyjson.Unmarshaler); is {
+		err = easyjson.UnmarshalFromReader(lr, v)
 	} else {
-		return err
+		err = json.NewDecoder(lr).Decode(resp)
 	}
-}
-
-func newLimitedJsonDecoder(buf io.ReadCloser) *limitedJsonDecoder {
-	return &limitedJsonDecoder{
-		decoder: json.NewDecoder(io.LimitReader(buf, ResponseBodyLimit)),
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return ErrResponseTooLarge
 	}
+	return err
 }
