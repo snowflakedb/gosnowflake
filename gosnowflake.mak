@@ -21,7 +21,7 @@ cfmt: setup
 	@gofmt -l -w $(SRC)
 
 # Lint (internally used)
-clint: setup
+clint: deps
 	@echo "Running staticcheck" && staticcheck
 	@echo "Running go vet and lint"
 	@for pkg in $$(go list ./... | grep -v /vendor/); do \
