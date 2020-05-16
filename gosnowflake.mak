@@ -3,18 +3,13 @@ SHELL := /bin/bash
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
 setup:
-	@which dep &> /dev/null || go get -u github.com/golang/dep/cmd/dep
 	@which golint &> /dev/null  || go get golang.org/x/lint/golint
 	@which make2help &> /dev/null || go get github.com/Songmu/make2help/cmd/make2help
 	@which staticcheck &> /dev/null || go get honnef.co/go/tools/cmd/staticcheck
 
 ## Install dependencies
 deps: setup
-	@dep ensure
-
-## Update dependencies
-update: setup
-	@dep ensure -update
+	go mod tidy
 
 ## Show help
 help:
