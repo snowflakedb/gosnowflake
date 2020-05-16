@@ -10,6 +10,7 @@ setup:
 ## Install dependencies
 deps: setup
 	go mod tidy
+	go mod vendor
 
 ## Show help
 help:

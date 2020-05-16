@@ -22,7 +22,7 @@ cat > $SCAN_CONFIG <<CONFIG
 ###############################################################
 # WhiteSource Unified-Agent configuration file
 ###############################################################
-# GO-DEP SCAN MODE
+# GO-MODULES SCAN MODE
 ###############################################################
 
 apiKey=
@@ -87,7 +87,7 @@ resolveAllDependencies=false
 
 go.resolveDependencies=true
 go.collectDependenciesAtRuntime=true
-go.dependencyManager=dep
+go.dependencyManager=modules
 go.ignoreSourceFiles=true
 go.glide.ignoreTestPackages=true
 

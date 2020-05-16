@@ -7,4 +7,3 @@ else
     openssl aes-256-cbc -k "$super_secret_password" -in parameters.json.enc -out parameters.json -d
 fi
 openssl aes-256-cbc -k "$super_secret_password" -in rsa-2048-private-key.p8.enc -out rsa-2048-private-key.p8 -d
-go mod tidy
