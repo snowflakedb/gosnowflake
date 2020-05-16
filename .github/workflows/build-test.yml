@@ -21,9 +21,9 @@ jobs:
         steps:
             - uses: actions/checkout@v1
             - name: Setup go
-                uses: actions/setup-go@v1
-                with:
-                    go-version: ${{ matrix.go }}
+              uses: actions/setup-go@v2
+              with:
+                  go-version: ${{ matrix.go }}
             - name: Build and Tests
               shell: bash
               env:
