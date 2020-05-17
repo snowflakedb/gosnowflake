@@ -15,7 +15,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                cloud: [ 'AWS' ]
+                cloud: [ 'AWS', 'GCP' ]
                 go: [ '1.14', '1.13' ]
         name: Build and Tests for Go ${{ matrix.go }}
         steps:
