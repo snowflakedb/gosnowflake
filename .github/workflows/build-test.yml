@@ -61,7 +61,7 @@ jobs:
             matrix:
                 cloud: [ 'AWS', 'GCP' ]
                 go: [ '1.14', '1.13' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
+        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v1
             - name: Setup go
