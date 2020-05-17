@@ -103,8 +103,11 @@ func setup() (string, error) {
 	}
 
 	orgSchemaname := schemaname
-	if env("TRAVIS", "") == "true" {
-		schemaname = fmt.Sprintf("TRAVIS_JOB_%v", env("TRAVIS_JOB_ID", "testschema"))
+	if env("GITHUB_WORKFLOW", "") != "" {
+		githubRunnerID := env("RUNNER_TRACKING_ID", "GITHUB_RUNNER_ID")
+		githubRunnerID = strings.ReplaceAll(githubRunnerID, "-", "_")
+		githubSha := env("GITHUB_SHA", "GITHUB_SHA")
+		schemaname = fmt.Sprintf("%v_%v", githubRunnerID, githubSha)
 	} else {
 		schemaname = fmt.Sprintf("golang_%v", time.Now().UnixNano())
 	}

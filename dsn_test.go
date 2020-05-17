@@ -435,6 +435,16 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
+		{
+			dsn: "u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&validateDefaultParameters=false",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolFalse, OCSPFailOpen: OCSPFailOpenTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for i, test := range testcases {
@@ -706,6 +716,14 @@ func TestDSN(t *testing.T) {
 				InsecureMode: true,
 			},
 			dsn: "u:p@a.snowflakecomputing.com:443?insecureMode=true&ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.b.c",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {
