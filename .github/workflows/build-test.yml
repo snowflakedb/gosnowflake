@@ -57,7 +57,7 @@ jobs:
               run: ./ci/test.sh
     build-test-windows:
         runs-on: windows-latest
-        stragegy:
+        strategy:
             matrix:
                 cloud: [ 'AWS', 'GCP' ]
                 go: [ '1.14', '1.13' ]
