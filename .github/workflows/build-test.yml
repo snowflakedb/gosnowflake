@@ -24,9 +24,12 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-            - name: Build and Tests
+            - name: Format, Lint and WSS
+              shell: bash
+              run: ./ci/build.sh
+            - name: Test
               shell: bash
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
-              run: ./ci/build.sh
+              run: ./ci/test.sh
