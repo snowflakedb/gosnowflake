@@ -32,6 +32,9 @@ if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] failed to set the test parameters
     exit /b 1
 )
+if defined GITHUB_WORKFLOW (
+	set SNOWFLAKE_TEST_PRIVATE_KEY=%cd%/rsa-2048-private-key.p8
+)
 
 echo [INFO] Account:   %SNOWFLAKE_TEST_ACCOUNT%
 echo [INFO] User   :   %SNOWFLAKE_TEST_USER%
