@@ -5,7 +5,7 @@
 set -e
 set -o pipefail
 
-THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $THIS_DIR/scripts/setup.sh
-cd $THIS_DIR/..
+CI_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $CI_DIR/scripts/setup.sh
+cd $CI_DIR/..
 make fmt lint wss test
