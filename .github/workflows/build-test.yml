@@ -11,13 +11,13 @@ on:
             - master
 
 jobs:
-    build:
+    build-test-linux:
         runs-on: ubuntu-latest
         strategy:
             matrix:
                 cloud: [ 'AWS', 'GCP' ]
                 go: [ '1.14', '1.13' ]
-        name: Build and Tests for Go ${{ matrix.go }}
+        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v1
             - name: Setup go
