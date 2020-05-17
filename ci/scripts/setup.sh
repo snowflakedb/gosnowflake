@@ -1,9 +1,11 @@
 #!/bin/bash -e
-if [[ -n "$SNOWFLAKE_AZURE" ]]; then
-    gpg --quiet --batch --yes --decrypt --passphrase="$PARAMETERS_SECRET" --output parameters.json .github/workflows/parameters_azure.json.gpg
-elif [[ -n "$SNOWFLAKE_GCP" ]]; then
-    gpg --quiet --batch --yes --decrypt --passphrase="$PARAMETERS_SECRET" --output parameters.json .github/workflows/parameters_gcp.json.gpg
+THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+if [[ "$CLOUD_PROVIDER" == "AZURE" ]]; then
+    PARAMETER_FILE=parameters_azure.json.gpg
+elif [[ "$CLOUD_PROVIDER" == "GCP" ]]; then
+    PARAMETER_FILE=parameters_gcp.json.gpg
 else
-    gpg --quiet --batch --yes --decrypt --passphrase="$PARAMETERS_SECRET" --output parameters.json .github/workflows/parameters_aws.json.gpg
+    PARAMETER_FILE=parameters_aws.json.gpg
 fi
+gpg --quiet --batch --yes --decrypt --passphrase="$PARAMETERS_SECRET" --output $THIS_DIR/../../parameters.json $THIS_DIR/../../.github/workflows/$PARAMETER_FILE
 # TODO: openssl aes-256-cbc -k "$super_secret_password" -in rsa-2048-private-key.p8.enc -out rsa-2048-private-key.p8 -d
