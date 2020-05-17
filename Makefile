@@ -10,7 +10,7 @@ include gosnowflake.mak
 
 ## Run tests
 test_setup: test_teardown
-	python3 scripts/hang_webserver.py 12345 &
+	python3 ci/scripts/hang_webserver.py 12345 &
 
 test_teardown:
 	kill -9 $$(ps -ewf | grep hang_webserver | grep -v grep | awk '{print $$2}') || true

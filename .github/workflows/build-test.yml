@@ -55,3 +55,29 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
+    build-test-windows:
+        runs-on: windows-latest
+        stragegy:
+            matrix:
+                cloud: [ 'AWS', 'GCP' ]
+                go: [ '1.14', '1.13' ]
+        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
+        steps:
+            - uses: actions/checkout@v1
+            - name: Setup go
+              uses: actions/setup-go@v2
+              with:
+                  go-version: ${{ matrix.go }}
+            - name: Format, Lint and WSS
+              shell: cmd
+              run: ci\\build.bat
+            - uses: actions/setup-python@v1
+              with:
+                python-version: '3.x'
+                architecture: 'x64'
+            - name: Test
+              shell: cmd
+              env:
+                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                CLOUD_PROVIDER: ${{ matrix.cloud }}
+              run: ci\\test.bat
