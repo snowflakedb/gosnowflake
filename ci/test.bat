@@ -33,14 +33,9 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-if defined RUNNER_TRACKING_ID (
-    set SNOWFLAKE_TEST_SCHEMA=%RUNNER_TRACKING_ID:-=_%_%GITHUB_SHA%
-)
-
 echo [INFO] Account:   %SNOWFLAKE_TEST_ACCOUNT%
 echo [INFO] User   :   %SNOWFLAKE_TEST_USER%
 echo [INFO] Database:  %SNOWFLAKE_TEST_DATABASE%
-echo [INFO] Schema:    %SNOWFLAKE_TEST_SCHEMA%
 echo [INFO] Warehouse: %SNOWFLAKE_TEST_WAREHOUSE%
 echo [INFO] Role:      %SNOWFLAKE_TEST_ROLE%
 
