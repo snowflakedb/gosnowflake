@@ -15,6 +15,7 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -53,7 +54,11 @@ func setupPrivateKey() {
 		// path to the DER file
 		customPrivateKey = true
 		data, _ := ioutil.ReadFile(privKeyPath)
-		privKey, _ := x509.ParsePKCS8PrivateKey(data)
+		block, _ := pem.Decode(data)
+		if block == nil || block.Type != "PRIVATE KEY" {
+			panic(fmt.Sprintf("%v is not a public key in PEM format.", privKeyPath))
+		}
+		privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
 		testPrivKey = privKey.(*rsa.PrivateKey)
 	}
 }

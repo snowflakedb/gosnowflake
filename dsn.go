@@ -285,6 +285,10 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 			cfg.Account = cfg.Host[:posDot]
 		}
 	}
+	posDot := strings.Index(cfg.Account, ".")
+	if posDot >= 0 {
+		cfg.Account = cfg.Account[:posDot]
+	}
 
 	err = fillMissingConfigParameters(cfg)
 	if err != nil {
