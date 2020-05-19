@@ -30,30 +30,11 @@ The latest driver requires the `Go language <https://golang.org/>`_ 1.13 or high
 Installation
 ================================================================================
 
-Get Gosnowflake source code and `dep <https://github.com/golang/dep>`_ (dependency managment tool), if not installed, and ensure the dependent libraries are installed.
+Get Gosnowflake source code, if not installed.
 
 .. code-block:: bash
 
     go get -u github.com/snowflakedb/gosnowflake
-    go get -u github.com/golang/dep/cmd/dep
-    cd $GOPATH/src/github.com/snowflakedb/gosnowflake/
-    dep ensure
-
-Logging Settings
---------------------------------------------------------------------
-
-Unless you implement your own glog and would like to plug in that glog to dump messages generated from the Gosnowflake driver, we strongly recommend using snowflake's implementation of glog.
-
-To use snowflake's glog, add the following block to your ``Gopkg.toml``
-
-.. code-block::
-
-    [[override]]
-    name = "github.com/golang/glog"
-    source = "https://github.com/snowflakedb/glog.git"
-    revision = "f5055e6f21ce71153a199e6460664045b3af8e50"
-
-Run ``dep ensure`` to download the snowflake's glog
 
 Docs
 ====

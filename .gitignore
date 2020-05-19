@@ -1,5 +1,5 @@
 .idea/
-parameters.json
+parameters*.json
 rsa-2048-private-key.p8
 coverage.txt
 fuzz-*/

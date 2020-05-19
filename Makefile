@@ -26,7 +26,7 @@ test: deps test_setup
 cov:
 	make test COVFLAGS="-coverprofile=coverage.txt -covermode=atomic"
 
-wss:
+wss: deps
 	./scripts/wss.sh
 
 ## Lint

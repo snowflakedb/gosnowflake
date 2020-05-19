@@ -1,0 +1,15 @@
+# github.com/dgrijalva/jwt-go v3.2.0+incompatible
+## explicit
+github.com/dgrijalva/jwt-go
+# github.com/google/uuid v1.1.1
+## explicit
+github.com/google/uuid
+# github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
+## explicit
+github.com/pkg/browser
+# github.com/snowflakedb/glog v0.0.0-20180824191149-f5055e6f21ce
+## explicit
+github.com/snowflakedb/glog
+# golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
+## explicit
+golang.org/x/crypto/ocsp
