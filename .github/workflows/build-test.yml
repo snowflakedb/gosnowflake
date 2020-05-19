@@ -15,7 +15,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                cloud: [ 'AWS', 'GCP' ]
+                cloud: [ 'AWS', 'AZURE', 'GCP' ]
                 go: [ '1.14', '1.13' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
@@ -37,7 +37,7 @@ jobs:
         runs-on: macos-latest
         strategy:
             matrix:
-                cloud: [ 'AWS', 'GCP' ]
+                cloud: [ 'AWS', 'AZURE', 'GCP' ]
                 go: [ '1.14', '1.13' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
@@ -59,7 +59,7 @@ jobs:
         runs-on: windows-latest
         strategy:
             matrix:
-                cloud: [ 'AWS', 'GCP' ]
+                cloud: [ 'AWS', 'AZURE', 'GCP' ]
                 go: [ '1.14', '1.13' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:

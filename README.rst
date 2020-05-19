@@ -2,11 +2,8 @@
 Go Snowflake Driver
 ********************************************************************************
 
-.. image:: https://travis-ci.org/snowflakedb/gosnowflake.svg?branch=master
-    :target: https://travis-ci.org/snowflakedb/gosnowflake
-
-.. image:: https://codecov.io/gh/snowflakedb/gosnowflake/branch/master/graph/badge.svg
-    :target: https://codecov.io/gh/snowflakedb/gosnowflake
+.. image:: https://github.com/snowflakedb/gosnowflake/workflows/Build%20and%20Test/badge.svg?branch=master
+    :target: https://github.com/snowflakedb/gosnowflake/actions?query=workflow%3A%22Build+and+Test%22
 
 .. image:: http://img.shields.io/:license-Apache%202-brightgreen.svg
     :target: http://www.apache.org/licenses/LICENSE-2.0.txt
