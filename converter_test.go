@@ -271,7 +271,7 @@ func TestArrowToValue(t *testing.T) {
 			},
 			compare: func(src interface{}, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
-				for i, _ := range srcvs {
+				for i := range srcvs {
 					if srcvs[i].Nanosecond() != dst[i].(time.Time).Nanosecond() {
 						return i
 					}
@@ -291,7 +291,7 @@ func TestArrowToValue(t *testing.T) {
 			},
 			compare: func(src interface{}, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
-				for i, _ := range srcvs {
+				for i := range srcvs {
 					if srcvs[i].UnixNano() != dst[i].(time.Time).UnixNano() {
 						return i
 					}
@@ -311,7 +311,7 @@ func TestArrowToValue(t *testing.T) {
 			},
 			compare: func(src interface{}, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
-				for i, _ := range srcvs {
+				for i := range srcvs {
 					if srcvs[i].UnixNano() != dst[i].(time.Time).UnixNano() {
 						return i
 					}
@@ -334,7 +334,7 @@ func TestArrowToValue(t *testing.T) {
 			},
 			compare: func(src interface{}, dst []snowflakeValue) int {
 				srcvs := src.([]time.Time)
-				for i, _ := range srcvs {
+				for i := range srcvs {
 					if srcvs[i].Unix() != dst[i].(time.Time).Unix() {
 						return i
 					}
