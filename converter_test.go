@@ -4,6 +4,10 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
+	"fmt"
+	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/memory"
 	"math/cmplx"
 	"reflect"
 	"testing"
@@ -176,5 +180,239 @@ func TestStringToValue(t *testing.T) {
 		t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
 	} else if ts.UnixNano() != 1549491451123456789 {
 		t.Errorf("expected unix timestamp: 1549491451123456789, got %v", ts.UnixNano())
+	}
+}
+
+func TestArrowToValue(t *testing.T) {
+	dest := make([]snowflakeValue, 2)
+
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	var valids []bool // AppendValues() with an empty valid array adds every value by default
+
+	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
+
+	field1 := arrow.Field{Name: "epoch", Type: &arrow.Int64Type{}}
+	field2 := arrow.Field{Name: "timezone", Type: &arrow.Int32Type{}}
+	tzStruct := arrow.StructOf(field1, field2)
+
+	type testObj struct {
+		field1 int
+		field2 string
+	}
+
+	for _, tc := range []struct {
+		logical  string
+		physical string
+		rowType  execResponseRowType
+		values   interface{}
+		builder  array.Builder
+		append   func(b array.Builder, vs interface{})
+		compare  func(src interface{}, dst []snowflakeValue) int
+	}{
+		{
+			logical:  "fixed",
+			physical: "number", // default: number(38, 0)
+			values:   []int8{1, 2},
+			builder:  array.NewInt8Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+		},
+		{
+			logical:  "fixed",
+			physical: "integer",
+			values:   []int8{1, 2},
+			builder:  array.NewInt8Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+		},
+		{
+			logical: "boolean",
+			values:  []bool{true, false},
+			builder: array.NewBooleanBuilder(pool),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.BooleanBuilder).AppendValues(vs.([]bool), valids) },
+		},
+		{
+			logical:  "real",
+			physical: "float",
+			values:   []float64{1, 2},
+			builder:  array.NewFloat64Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Float64Builder).AppendValues(vs.([]float64), valids) },
+		},
+		{
+			logical:  "text",
+			physical: "string",
+			values:   []string{"foo", "bar"},
+			builder:  array.NewStringBuilder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.StringBuilder).AppendValues(vs.([]string), valids) },
+		},
+		{
+			logical: "binary",
+			values:  [][]byte{[]byte("foo"), []byte("bar")},
+			builder: array.NewBinaryBuilder(pool, arrow.BinaryTypes.Binary),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.BinaryBuilder).AppendValues(vs.([][]byte), valids) },
+		},
+		{
+			logical: "date",
+			values:  []time.Time{time.Now(), localTime},
+			builder: array.NewDate32Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, d := range vs.([]time.Time) {
+					b.(*array.Date32Builder).Append(arrow.Date32(d.Unix()))
+				}
+			},
+		},
+		{
+			logical: "time",
+			values:  []time.Time{time.Now(), time.Now()},
+			rowType: execResponseRowType{Scale: 9},
+			builder: array.NewInt64Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, t := range vs.([]time.Time) {
+					b.(*array.Int64Builder).Append(t.UnixNano())
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]time.Time)
+				for i := range srcvs {
+					if srcvs[i].Nanosecond() != dst[i].(time.Time).Nanosecond() {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical: "timestamp_ntz",
+			values:  []time.Time{time.Now(), localTime},
+			rowType: execResponseRowType{Scale: 9},
+			builder: array.NewInt64Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, t := range vs.([]time.Time) {
+					b.(*array.Int64Builder).Append(t.UnixNano())
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]time.Time)
+				for i := range srcvs {
+					if srcvs[i].UnixNano() != dst[i].(time.Time).UnixNano() {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical: "timestamp_ltz",
+			values:  []time.Time{time.Now(), localTime},
+			rowType: execResponseRowType{Scale: 9},
+			builder: array.NewInt64Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, t := range vs.([]time.Time) {
+					b.(*array.Int64Builder).Append(t.UnixNano())
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]time.Time)
+				for i := range srcvs {
+					if srcvs[i].UnixNano() != dst[i].(time.Time).UnixNano() {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical: "timestamp_tz",
+			values:  []time.Time{time.Now(), localTime},
+			builder: array.NewStructBuilder(pool, tzStruct),
+			append: func(b array.Builder, vs interface{}) {
+				sb := b.(*array.StructBuilder)
+				valids = []bool{true, true}
+				sb.AppendValues(valids)
+				for _, t := range vs.([]time.Time) {
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(t.Unix())
+					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.UnixNano()))
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]time.Time)
+				for i := range srcvs {
+					if srcvs[i].Unix() != dst[i].(time.Time).Unix() {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical: "array",
+			values:  [][]string{{"foo", "bar"}, {"baz", "quz", "quux"}},
+			builder: array.NewStringBuilder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, a := range vs.([][]string) {
+					b.(*array.StringBuilder).Append(fmt.Sprint(a))
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([][]string)
+				for i, o := range srcvs {
+					if fmt.Sprint(o) != dst[i].(string) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical: "object",
+			values:  []testObj{{0, "foo"}, {1, "bar"}},
+			builder: array.NewStringBuilder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, o := range vs.([]testObj) {
+					b.(*array.StringBuilder).Append(fmt.Sprint(o))
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]testObj)
+				for i, o := range srcvs {
+					if fmt.Sprint(o) != dst[i].(string) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+	} {
+		testName := tc.logical
+		if tc.physical != "" {
+			testName += " " + tc.physical
+		}
+		t.Run(testName, func(t *testing.T) {
+			b := tc.builder
+			tc.append(b, tc.values)
+			arr := b.NewArray()
+			defer arr.Release()
+
+			meta := tc.rowType
+			meta.Type = tc.logical
+
+			err := arrowToValue(&dest, meta, arr)
+			if err != nil {
+				t.Fatalf("error: %s", err)
+			}
+
+			elemType := reflect.TypeOf(tc.values).Elem()
+			if tc.compare != nil {
+				idx := tc.compare(tc.values, dest)
+				if idx != -1 {
+					t.Fatalf("error: column array value mistmatch at index %v", idx)
+				}
+			} else {
+				for _, d := range dest {
+					if reflect.TypeOf(d) != elemType {
+						t.Fatalf("error: expected type %s, got type %s", reflect.TypeOf(d), elemType)
+					}
+				}
+			}
+		})
+
 	}
 }

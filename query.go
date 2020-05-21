@@ -42,6 +42,7 @@ type execResponseData struct {
 	Parameters         []nameValueParameter  `json:"parameters,omitempty"`
 	RowType            []execResponseRowType `json:"rowtype,omitempty"`
 	RowSet             [][]*string           `json:"rowset,omitempty"`
+	RowSetBase64       string                `json:"rowsetbase64,omitempty"`
 	Total              int64                 `json:"total,omitempty"`    // java:long
 	Returned           int64                 `json:"returned,omitempty"` // java:long
 	QueryID            string                `json:"queryId,omitempty"`
@@ -62,6 +63,7 @@ type execResponseData struct {
 	GetResultURL      string        `json:"getResultUrl,omitempty"`
 	ProgressDesc      string        `json:"progressDesc,omitempty"`
 	QueryAbortTimeout time.Duration `json:"queryAbortsAfterSecs,omitempty"`
+	QueryResultFormat string        `json:"queryResultFormat,omitempty"`
 }
 
 type execResponse struct {
