@@ -50,7 +50,6 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType) ([]
 		}
 		arc.rowCount += numRows
 	}
-	return chunkRows, nil
 }
 
 /**
