@@ -7,8 +7,8 @@ set -o pipefail
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 [[ -z "$WHITESOURCE_API_KEY" ]] && echo "[WARNING] No WHITESOURCE_API_KEY is set. No WhiteSource scan will occurr." && exit 0
 
-export PRODUCT_NAME=GolangDriver
-export PROJECT_NAME=GolangDriver
+export PRODUCT_NAME=gosnowflake
+export PROJECT_NAME=gosnowflake
 
 DATE=$(date +'%m-%d-%Y')
 
