@@ -26,13 +26,14 @@ jobs:
                   go-version: ${{ matrix.go }}
             - name: Format, Lint and WSS
               shell: bash
+              env:
+                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ./ci/build.sh
             - name: Test
               shell: bash
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ./ci/test.sh
     build-test-mac:
         runs-on: macos-latest
@@ -49,13 +50,14 @@ jobs:
                   go-version: ${{ matrix.go }}
             - name: Format, Lint and WSS
               shell: bash
+              env:
+                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ./ci/build.sh
             - name: Test
               shell: bash
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ./ci/test.sh
     build-test-windows:
         runs-on: windows-latest
@@ -72,6 +74,8 @@ jobs:
                   go-version: ${{ matrix.go }}
             - name: Format, Lint and WSS
               shell: cmd
+              env:
+                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ci\\build.bat
             - uses: actions/setup-python@v1
               with:
@@ -82,5 +86,4 @@ jobs:
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ci\\test.bat
