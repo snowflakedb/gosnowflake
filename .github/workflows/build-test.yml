@@ -32,6 +32,7 @@ jobs:
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
+                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ./ci/test.sh
     build-test-mac:
         runs-on: macos-latest
@@ -54,6 +55,7 @@ jobs:
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
+                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ./ci/test.sh
     build-test-windows:
         runs-on: windows-latest
@@ -80,4 +82,5 @@ jobs:
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
+                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ci\\test.bat
