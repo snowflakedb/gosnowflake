@@ -12,7 +12,7 @@ export PROJECT_NAME=gosnowflake
 
 DATE=$(date +'%m-%d-%Y')
 
-SCAN_DIRECTORIES=$THIS_DIR/..
+SCAN_DIRECTORIES=$( cd $THIS_DIR/../.. && pwd )
 
 rm -f wss-unified-agent.jar 
 curl -LJO https://github.com/whitesource/unified-agent-distribution/releases/latest/download/wss-unified-agent.jar
