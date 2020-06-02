@@ -54,6 +54,8 @@ const (
 	ErrCodeServiceUnavailable = 260007
 	// ErrCodeFailedToConnect is an error code for the case where a DB connection failed due to wrong account name
 	ErrCodeFailedToConnect = 260008
+	// ErrCodeRegionOverlap is an error code for the case where a region is specified despite an account region present
+	ErrCodeRegionOverlap = 260009
 	// ErrCodePrivateKeyParseError is an error code for the case where the private key is not parsed correctly
 	ErrCodePrivateKeyParseError = 260010
 	// ErrCodeFailedToParseAuthenticator is an error code for the case where a DNS includes an invalid authenticator
@@ -171,4 +173,9 @@ var (
 	ErrEmptyPassword = &SnowflakeError{
 		Number:  ErrCodeEmptyPasswordCode,
 		Message: "password is empty"}
+
+	// ErrInvalidRegion is returned if a DSN's implicit region from account parameter and explicit region parameter conflict.
+	ErrInvalidRegion = &SnowflakeError{
+		Number:  ErrCodeRegionOverlap,
+		Message: "two regions specified"}
 )
