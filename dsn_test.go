@@ -574,9 +574,45 @@ func TestDSN(t *testing.T) {
 			cfg: &Config{
 				User:     "u",
 				Password: "p",
+				Account:  "a-aofnadsf.global",
+				Region:   "us-west-2",
+			},
+			dsn: "u:p@a-aofnadsf.global.snowflakecomputing.com:443?ocspFailOpen=true&region=global&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a-aofnadsf.global",
+				Region:   "r",
+			},
+			err: ErrInvalidRegion,
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
 				Account:  "a",
 			},
 			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a",
+				Region:   "us-west-2",
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a",
+				Region:   "r",
+			},
+			dsn: "u:p@a.r.snowflakecomputing.com:443?ocspFailOpen=true&region=r&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -609,6 +645,24 @@ func TestDSN(t *testing.T) {
 				Account:  "a.e",
 			},
 			dsn: "u:p@a.e.snowflakecomputing.com:443?ocspFailOpen=true&region=e&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.e",
+				Region:   "us-west-2",
+			},
+			dsn: "u:p@a.e.snowflakecomputing.com:443?ocspFailOpen=true&region=e&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.e",
+				Region:   "r",
+			},
+			err: ErrInvalidRegion,
 		},
 		{
 			cfg: &Config{
@@ -724,6 +778,24 @@ func TestDSN(t *testing.T) {
 				Account:  "a.b.c",
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.b.c",
+				Region:   "us-west-2",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.b.c",
+				Region:   "r",
+			},
+			err: ErrInvalidRegion,
 		},
 	}
 	for _, test := range testcases {

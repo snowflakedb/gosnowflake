@@ -88,6 +88,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	hasHost := true
 	if cfg.Host == "" {
 		hasHost = false
+		if cfg.Region == "us-west-2" {
+			cfg.Region = ""
+		}
 		if cfg.Region == "" {
 			cfg.Host = cfg.Account + defaultDomain
 		} else {
@@ -97,10 +100,12 @@ func DSN(cfg *Config) (dsn string, err error) {
 	// in case account includes region
 	posDot := strings.Index(cfg.Account, ".")
 	if posDot > 0 {
+		if cfg.Region != "" {
+			return "", ErrInvalidRegion
+		}
 		cfg.Region = cfg.Account[posDot+1:]
 		cfg.Account = cfg.Account[:posDot]
 	}
-
 	err = fillMissingConfigParameters(cfg)
 	if err != nil {
 		return "", err
