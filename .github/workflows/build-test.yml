@@ -10,7 +10,7 @@ on:
         branches:
             - master
     schedule:
-      - cron:  '* 0 * * *'
+      - cron:  '7 3 * * *'
 
 jobs:
     build-test-linux:
