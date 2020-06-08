@@ -213,14 +213,62 @@ func TestArrowToValue(t *testing.T) {
 			logical:  "fixed",
 			physical: "number", // default: number(38, 0)
 			values:   []int64{1, 2},
-			builder:  array.NewInt8Builder(pool),
+			builder:  array.NewInt64Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 		},
 		{
 			logical:  "fixed",
-			physical: "integer",
-			values:   []int64{1, 2},
+			physical: "int8",
+			values:   []int8{1, 2},
 			builder:  array.NewInt8Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]int8)
+				for i := range srcvs {
+					if int64(srcvs[i]) != dst[i].(int64) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
+			physical: "int16",
+			values:   []int16{1, 2},
+			builder:  array.NewInt16Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]int16)
+				for i := range srcvs {
+					if int64(srcvs[i]) != dst[i].(int64) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
+			physical: "int32",
+			values:   []int32{1, 2},
+			builder:  array.NewInt32Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]int32)
+				for i := range srcvs {
+					if int64(srcvs[i]) != dst[i].(int64) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
+			physical: "int64",
+			values:   []int64{1, 2},
+			builder:  array.NewInt64Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 		},
 		{
