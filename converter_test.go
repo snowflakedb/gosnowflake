@@ -212,16 +212,16 @@ func TestArrowToValue(t *testing.T) {
 		{
 			logical:  "fixed",
 			physical: "number", // default: number(38, 0)
-			values:   []int8{1, 2},
+			values:   []int64{1, 2},
 			builder:  array.NewInt8Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 		},
 		{
 			logical:  "fixed",
 			physical: "integer",
-			values:   []int8{1, 2},
+			values:   []int64{1, 2},
 			builder:  array.NewInt8Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 		},
 		{
 			logical: "boolean",
