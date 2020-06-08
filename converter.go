@@ -9,6 +9,7 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"math"
+	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
@@ -264,8 +265,8 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 					if srcColumnMeta.Scale == 0 {
 						(*destcol)[i] = val
 					} else {
-						//(*destcol)[i] = big.NewRat(val, int64(math.Pow10(int(srcColumnMeta.Scale))))
-						(*destcol)[i] = float64(val) / math.Pow10(int(srcColumnMeta.Scale))
+						r := big.NewRat(val, int64(math.Pow10(int(srcColumnMeta.Scale))))
+						(*destcol)[i] = r
 					}
 				}
 			}
@@ -275,8 +276,8 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 					if srcColumnMeta.Scale == 0 {
 						(*destcol)[i] = int64(val)
 					} else {
-						//(*destcol)[i] = big.NewRat(int64(val), int64(math.Pow10(int(srcColumnMeta.Scale))))
-						(*destcol)[i] = float64(val) / math.Pow10(int(srcColumnMeta.Scale))
+						r := big.NewRat(int64(val), int64(math.Pow10(int(srcColumnMeta.Scale))))
+						(*destcol)[i] = r
 					}
 				}
 			}
@@ -286,8 +287,8 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 					if srcColumnMeta.Scale == 0 {
 						(*destcol)[i] = int64(val)
 					} else {
-						//(*destcol)[i] = big.NewRat(int64(val), int64(math.Pow10(int(srcColumnMeta.Scale))))
-						(*destcol)[i] = float64(val) / math.Pow10(int(srcColumnMeta.Scale))
+						r := big.NewRat(int64(val), int64(math.Pow10(int(srcColumnMeta.Scale))))
+						(*destcol)[i] = r
 					}
 				}
 			}
@@ -297,8 +298,8 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 					if srcColumnMeta.Scale == 0 {
 						(*destcol)[i] = int64(val)
 					} else {
-						//(*destcol)[i] = big.NewRat(int64(val), int64(math.Pow10(int(srcColumnMeta.Scale))))
-						(*destcol)[i] = float64(val) / math.Pow10(int(srcColumnMeta.Scale))
+						r := big.NewRat(int64(val), int64(math.Pow10(int(srcColumnMeta.Scale))))
+						(*destcol)[i] = r
 					}
 				}
 			}
