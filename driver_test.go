@@ -515,7 +515,11 @@ func TestInt(t *testing.T) {
 
 func TestArrowInt(t *testing.T) {
 	testInt(t, true)
-	db, err := sql.Open("snowflake", dsn)
+	var db *sql.DB
+	var err error
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
 	dbt := &DBTest{t, db}
 	rows := dbt.mustQuery("SELECT -1::INTEGER AS C1, 2::NUMBER(38, 0) AS C2")
 	if !rows.Next() {
@@ -609,7 +613,11 @@ func TestFloat64(t *testing.T) {
 
 func TestArrowFloat64(t *testing.T) {
 	testFloat64(t, true)
-	db, err := sql.Open("snowflake", dsn)
+	var db *sql.DB
+	var err error
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
 	dbt := &DBTest{t, db}
 	rows := dbt.mustQuery("SELECT 1.0::FLOAT AS C1, 2.3::DOUBLE AS C2")
 	if !rows.Next() {
@@ -657,7 +665,11 @@ func testFloat64(t *testing.T, arrow bool) {
 }
 
 func TestArrowRational(t *testing.T) {
-	db, err := sql.Open("snowflake", dsn)
+	var db *sql.DB
+	var err error
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
 	dbt := &DBTest{t, db}
 	dbt.mustExec("ALTER SESSION set go_query_result_format = arrow_force")
 	rows := dbt.mustQuery("SELECT 1.23::NUMBER(30, 2) AS C1")
