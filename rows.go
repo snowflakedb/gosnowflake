@@ -156,7 +156,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 		return err
 	}
 
-	if rows.ChunkDownloader.QueryResultFormat == "arrow" {
+	if rows.ChunkDownloader.QueryResultFormat == arrowFormat {
 		for i, n := 0, len(row.ArrowRow); i < n; i++ {
 			dest[i] = row.ArrowRow[i]
 		}
@@ -214,7 +214,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 	scd.CurrentChunk = make([]chunkRowType, scd.CurrentChunkSize)
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
 
-	if scd.QueryResultFormat == "arrow" && scd.RowSet.RowSetBase64 != "" {
+	if scd.QueryResultFormat == arrowFormat && scd.RowSet.RowSetBase64 != "" {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
 		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
@@ -425,7 +425,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 			body:   source,
 		}
 		var respd []chunkRowType
-		if scd.QueryResultFormat != "arrow" {
+		if scd.QueryResultFormat != arrowFormat {
 			var decRespd [][]*string
 			if !CustomJSONDecoderEnabled {
 				dec := json.NewDecoder(st)
