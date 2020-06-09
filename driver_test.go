@@ -515,6 +515,24 @@ func TestInt(t *testing.T) {
 
 func TestArrowInt(t *testing.T) {
 	testInt(t, true)
+	db, err := sql.Open("snowflake", dsn)
+	dbt := &DBTest{t, db}
+	rows := dbt.mustQuery("SELECT -1::INTEGER AS C1, 2::NUMBER(38, 0) AS C2")
+	if !rows.Next() {
+		dbt.Error("failed to query")
+	}
+	defer rows.Close()
+	var v1, v2 int
+	err = rows.Scan(&v1, &v2)
+	if err != nil {
+		dbt.Errorf("failed to scan. %#v", err)
+	}
+	if v1 != -1 {
+		dbt.Errorf("failed to scan. %#v", v1)
+	}
+	if v2 != 2 {
+		dbt.Errorf("failed to scan. %#v", v2)
+	}
 }
 
 func testInt(t *testing.T, arrow bool) {
@@ -544,61 +562,6 @@ func testInt(t *testing.T, arrow bool) {
 
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
-	})
-}
-
-func TestFixedArrow(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
-
-		dbt.mustExec("ALTER SESSION set go_query_result_format = arrow_force")
-		//rows := dbt.mustQuery("SELECT 10.0::NUMBER(38,36)")
-		//rows := dbt.mustQuery("SELECT 23456.1::NUMBER(31,20)")
-
-		floatRows := dbt.mustQuery("SELECT 1.0::FLOAT AS C1, 2.3::DOUBLE AS C2, 4.56::NUMBER(30,2) AS C3")
-		if !floatRows.Next() {
-			dbt.Error("failed to query")
-		}
-		defer floatRows.Close()
-		var v3, v4 float64
-		var v5 *big.Rat
-		err := floatRows.Scan(&v3, &v4, &v5)
-		if err != nil {
-			dbt.Errorf("failed to scan %#v", err)
-		}
-		if v3 != 1.0 {
-			dbt.Errorf("failed to scan. %#v", v3)
-		}
-		if v4 != 2.3 {
-			dbt.Errorf("failed to scan. %#v", v4)
-		}
-		if v5.Cmp(big.NewRat(456, 100)) != 0 {
-			dbt.Errorf("failed to scan. %#v", v5)
-		}
-		intRows := dbt.mustQuery("SELECT -1::INTEGER AS C1, 2::NUMBER(38, 0) AS C2")
-		if !intRows.Next() {
-			dbt.Error("failed to query")
-		}
-		defer intRows.Close()
-		var v1, v2 int
-		err = intRows.Scan(&v1, &v2)
-		if err != nil {
-			dbt.Errorf("failed to scan #v")
-		}
-		if v1 != -1 {
-			dbt.Errorf("failed to scan. %#v", v1)
-		}
-		if v2 != 2 {
-			dbt.Errorf("failed to scan. %#v", v2)
-		}
-
-		//bigIntRows := dbt.mustQuery("SELECT 10000000000000000000000000000000000000::NUMBER(38,0) AS C1," +
-		//	"-10000000000000000000000000000000000000::NUMBER(38,0) AS C2," +
-		//	"12345678901234567890123456789012345678::NUMBER(38,0) AS C3" +
-		//	"-12345678901234567890123456789012345678::NUMBER(38,0) AS C4" +
-		//	"99999999999999999999999999999999999999::NUMBER(38,0) AS C5" +
-		//	"-99999999999999999999999999999999999999::NUMBER(38,0) AS C6")
-		//bigRatRows := dbt.mustQuery("SELECT 1.0000000000000000000000000000000000000::NUMBER(38,37) AS C1")
-
 	})
 }
 
@@ -646,6 +609,24 @@ func TestFloat64(t *testing.T) {
 
 func TestArrowFloat64(t *testing.T) {
 	testFloat64(t, true)
+	db, err := sql.Open("snowflake", dsn)
+	dbt := &DBTest{t, db}
+	rows := dbt.mustQuery("SELECT 1.0::FLOAT AS C1, 2.3::DOUBLE AS C2")
+	if !rows.Next() {
+		dbt.Error("failed to query")
+	}
+	defer rows.Close()
+	var v1, v2 float64
+	err = rows.Scan(&v1, &v2)
+	if err != nil {
+		dbt.Errorf("failed to scan %#v", err)
+	}
+	if v1 != 1.0 {
+		dbt.Errorf("failed to scan. %#v", v1)
+	}
+	if v2 != 2.3 {
+		dbt.Errorf("failed to scan. %#v", v2)
+	}
 }
 
 func testFloat64(t *testing.T, arrow bool) {
@@ -673,6 +654,25 @@ func testFloat64(t *testing.T, arrow bool) {
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
+}
+
+func TestArrowRational(t *testing.T) {
+	db, err := sql.Open("snowflake", dsn)
+	dbt := &DBTest{t, db}
+	dbt.mustExec("ALTER SESSION set go_query_result_format = arrow_force")
+	rows := dbt.mustQuery("SELECT 1.23::NUMBER(30, 2) AS C1")
+	if !rows.Next() {
+		dbt.Error("failed to query")
+	}
+	defer rows.Close()
+	var v1 *big.Rat
+	err = rows.Scan(&v1)
+	if err != nil {
+		dbt.Errorf("failed to scan %#v", err)
+	}
+	if v1.Cmp(big.NewRat(123, 100)) != 0 {
+		dbt.Errorf("failed to scan. %#v", v1)
+	}
 }
 
 func TestFloat64Placeholder(t *testing.T) {
