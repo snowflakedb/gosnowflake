@@ -258,7 +258,22 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 	case "FIXED":
 		switch srcValue.DataType().ID() {
 		case arrow.DECIMAL:
-			// TODO
+			for i, num := range array.NewDecimal128Data(data).Values() {
+				if !srcValue.IsNull(i) {
+					high := new(big.Int).SetInt64(num.HighBits())
+					low := new(big.Int).SetUint64(num.LowBits())
+					shift := new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil)
+					val := new(big.Int).Add(new(big.Int).Mul(high, shift), low)
+					if srcColumnMeta.Scale == 0 {
+						(*destcol)[i] = val
+					} else {
+						rat := new(big.Rat).SetInt(val)
+						scale := new(big.Int).Exp(big.NewInt(10), big.NewInt(srcColumnMeta.Scale), nil)
+						r := new(big.Rat).Mul(rat, new(big.Rat).Inv(new(big.Rat).SetInt(scale)))
+						(*destcol)[i] = r
+					}
+				}
+			}
 		case arrow.INT64:
 			for i, val := range array.NewInt64Data(data).Int64Values() {
 				if !srcValue.IsNull(i) {
