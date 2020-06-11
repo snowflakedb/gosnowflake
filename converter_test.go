@@ -8,6 +8,7 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
+	"math/big"
 	"math/cmplx"
 	"reflect"
 	"testing"
@@ -218,6 +219,67 @@ func TestArrowToValue(t *testing.T) {
 		},
 		{
 			logical:  "fixed",
+			physical: "number(38,0)",
+			values:   []string{"10000000000000000000000000000000000000", "-12345678901234567890123456789012345678"},
+			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 30, Scale: 2}),
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringIntToDecimal(s)
+					if !ok {
+						t.Fatalf("failed to convert to big.Int")
+					}
+					b.(*array.Decimal128Builder).Append(num)
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringIntToDecimal(srcvs[i])
+					if !ok {
+						return i
+					}
+					srcDec := decimalToBigInt(num)
+					dstDec := dst[i].(*big.Int)
+					if srcDec.Cmp(dstDec) != 0 {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
+			physical: "number(38,37)",
+			rowType:  execResponseRowType{Scale: 37},
+			values:   []string{"1.2345678901234567890123456789012345678", "-9.9999999999999999999999999999999999999"},
+			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 37}),
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringFloatToDecimal(s, 37)
+					if !ok {
+						t.Fatalf("failed to convert to big.Rat")
+					}
+					b.(*array.Decimal128Builder).Append(num)
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringFloatToDecimal(srcvs[i], 37)
+					if !ok {
+						return i
+					}
+					srcDec := decimalToBigFloat(num, 37)
+					dstDec := dst[i].(*big.Float)
+					if srcDec.Cmp(dstDec) != 0 {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
 			physical: "int8",
 			values:   []int8{1, 2},
 			builder:  array.NewInt8Builder(pool),
@@ -277,6 +339,22 @@ func TestArrowToValue(t *testing.T) {
 			builder: array.NewBooleanBuilder(pool),
 			append:  func(b array.Builder, vs interface{}) { b.(*array.BooleanBuilder).AppendValues(vs.([]bool), valids) },
 		},
+		//{
+		//	logical:  "real",
+		//	physical: "float",
+		//	values:   []float32{1, 2},
+		//	builder:  array.NewFloat32Builder(pool),
+		//	append:   func(b array.Builder, vs interface{}) { b.(*array.Float32Builder).AppendValues(vs.([]float32), valids) },
+		//	compare: func(src interface{}, dst []snowflakeValue) int {
+		//		srcvs := src.([]float32)
+		//		for i := range srcvs {
+		//			if float64(srcvs[i]) != dst[i].(float64) {
+		//				return i
+		//			}
+		//		}
+		//		return -1
+		//	},
+		//},
 		{
 			logical:  "real",
 			physical: "float",

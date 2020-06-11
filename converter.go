@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/decimal128"
 	"math"
 	"math/big"
 	"reflect"
@@ -244,6 +245,52 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 	return nil
 }
 
+var decimalShift = new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil)
+
+func intToBigFloat(val int64, scale int64) *big.Float {
+	f := new(big.Float).SetInt64(val)
+	s := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(scale), nil))
+	return new(big.Float).Quo(f, s)
+}
+
+func decimalToBigInt(num decimal128.Num) *big.Int {
+	high := new(big.Int).SetInt64(num.HighBits())
+	low := new(big.Int).SetUint64(num.LowBits())
+	return new(big.Int).Add(new(big.Int).Mul(high, decimalShift), low)
+}
+
+func decimalToBigFloat(num decimal128.Num, scale int64) *big.Float {
+	f := new(big.Float).SetInt(decimalToBigInt(num))
+	s := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(scale), nil))
+	return new(big.Float).Quo(f, s)
+}
+
+func stringIntToDecimal(src string) (decimal128.Num, bool) {
+	b, ok := new(big.Int).SetString(src, 10)
+	if !ok {
+		return decimal128.Num{}, ok
+	}
+	var high, low big.Int
+	high.QuoRem(b, decimalShift, &low)
+	return decimal128.New(high.Int64(), low.Uint64()), ok
+}
+
+func stringFloatToDecimal(src string, scale int64) (decimal128.Num, bool) {
+	b, ok := new(big.Float).SetString(src)
+	if !ok {
+		return decimal128.Num{}, ok
+	}
+	s := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(scale), nil))
+	n := new(big.Float).Mul(b, s)
+	if !n.IsInt() {
+		return decimal128.Num{}, false
+	}
+	var high, low, z big.Int
+	n.Int(&z)
+	high.QuoRem(&z, decimalShift, &low)
+	return decimal128.New(high.Int64(), low.Uint64()), ok
+}
+
 // Arrow Interface (Column) converter. This is called when Arrow chunks are downloaded to convert to the corresponding
 // row type.
 func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, srcValue array.Interface) error {
@@ -260,17 +307,10 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 		case arrow.DECIMAL:
 			for i, num := range array.NewDecimal128Data(data).Values() {
 				if !srcValue.IsNull(i) {
-					high := new(big.Int).SetInt64(num.HighBits())
-					low := new(big.Int).SetUint64(num.LowBits())
-					shift := new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil)
-					val := new(big.Int).Add(new(big.Int).Mul(high, shift), low)
 					if srcColumnMeta.Scale == 0 {
-						(*destcol)[i] = val
+						(*destcol)[i] = decimalToBigInt(num)
 					} else {
-						rat := new(big.Rat).SetInt(val)
-						scale := new(big.Int).Exp(big.NewInt(10), big.NewInt(srcColumnMeta.Scale), nil)
-						r := new(big.Rat).Mul(rat, new(big.Rat).Inv(new(big.Rat).SetInt(scale)))
-						(*destcol)[i] = r
+						(*destcol)[i] = decimalToBigFloat(num, srcColumnMeta.Scale)
 					}
 				}
 			}
@@ -280,8 +320,8 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 					if srcColumnMeta.Scale == 0 {
 						(*destcol)[i] = val
 					} else {
-						r := big.NewRat(val, int64(math.Pow10(int(srcColumnMeta.Scale))))
-						(*destcol)[i] = r
+						f := intToBigFloat(val, srcColumnMeta.Scale)
+						(*destcol)[i] = f
 					}
 				}
 			}
@@ -291,8 +331,8 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 					if srcColumnMeta.Scale == 0 {
 						(*destcol)[i] = int64(val)
 					} else {
-						r := big.NewRat(int64(val), int64(math.Pow10(int(srcColumnMeta.Scale))))
-						(*destcol)[i] = r
+						f := intToBigFloat(int64(val), srcColumnMeta.Scale)
+						(*destcol)[i] = f
 					}
 				}
 			}
@@ -302,8 +342,8 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 					if srcColumnMeta.Scale == 0 {
 						(*destcol)[i] = int64(val)
 					} else {
-						r := big.NewRat(int64(val), int64(math.Pow10(int(srcColumnMeta.Scale))))
-						(*destcol)[i] = r
+						f := intToBigFloat(int64(val), srcColumnMeta.Scale)
+						(*destcol)[i] = f
 					}
 				}
 			}
@@ -313,8 +353,8 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 					if srcColumnMeta.Scale == 0 {
 						(*destcol)[i] = int64(val)
 					} else {
-						r := big.NewRat(int64(val), int64(math.Pow10(int(srcColumnMeta.Scale))))
-						(*destcol)[i] = r
+						f := intToBigFloat(int64(val), srcColumnMeta.Scale)
+						(*destcol)[i] = f
 					}
 				}
 			}

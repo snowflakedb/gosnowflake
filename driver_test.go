@@ -547,6 +547,12 @@ func testInt(t *testing.T, arrow bool) {
 	})
 }
 
+type tcBigNum struct {
+	num  string
+	prec int
+	sc   int
+}
+
 func TestArrowBigInt(t *testing.T) {
 	var db *sql.DB
 	var err error
@@ -554,68 +560,100 @@ func TestArrowBigInt(t *testing.T) {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
 	dbt := &DBTest{t, db}
-	dbt.mustExec("ALTER SESSION set go_query_result_format = arrow_force")
-	rows := dbt.mustQuery("SELECT 10000000000000000000000000000000000000::NUMBER(38,0) AS C1," +
-		"-10000000000000000000000000000000000000::NUMBER(38,0) AS C2," +
-		"12345678901234567890123456789012345678::NUMBER(38,0) AS C3," +
-		"-12345678901234567890123456789012345678::NUMBER(38,0) AS C4," +
-		"99999999999999999999999999999999999999::NUMBER(38,0) AS C5," +
-		"-99999999999999999999999999999999999999::NUMBER(38,0) AS C6")
-	if !rows.Next() {
-		dbt.Error("failed to query")
-	}
-	defer rows.Close()
 
-	var v1, v2, v3, v4, v5, v6 *big.Int
-	var b1, b2, b3, b4, b5, b6 *big.Int
-	var ok bool
-	err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
-	if err != nil {
-		dbt.Errorf("failed to scan. %#v", err)
+	testcases := []tcBigNum{
+		{"10000000000000000000000000000000000000", 38, 0},
+		{"-10000000000000000000000000000000000000", 38, 0},
+		{"12345678901234567890123456789012345678", 38, 0},
+		{"-12345678901234567890123456789012345678", 38, 0},
+		{"99999999999999999999999999999999999999", 38, 0},
+		{"-99999999999999999999999999999999999999", 38, 0},
 	}
 
-	b1, ok = new(big.Int).SetString("10000000000000000000000000000000000000", 10)
-	if !ok {
-		dbt.Errorf("failed to convert big.Int.")
+	for _, tc := range testcases {
+		dbt.mustExec("ALTER SESSION set go_query_result_format = arrow_force")
+		rows := dbt.mustQuery(fmt.Sprintf("SELECT %s::NUMBER(%v, %v) AS C", tc.num, tc.prec, tc.sc))
+		if !rows.Next() {
+			dbt.Error("failed to query")
+		}
+		defer rows.Close()
+		var v *big.Int
+		err := rows.Scan(&v)
+		if err != nil {
+			dbt.Errorf("failed to scan. %#v", err)
+		}
+
+		b, ok := new(big.Int).SetString(tc.num, 10)
+		if !ok {
+			dbt.Errorf("failed to convert %v big.Int.", tc.num)
+		}
+		if v.Cmp(b) != 0 {
+			dbt.Errorf("big.Int value mismatch: expected %v, got %v", b, v)
+		}
 	}
-	if v1.Cmp(b1) != 0 {
-		dbt.Errorf("failed to scan. %#v", v1)
-	}
-	b2, ok = new(big.Int).SetString("-10000000000000000000000000000000000000", 10)
-	if !ok {
-		dbt.Errorf("failed to convert big.Int.")
-	}
-	if v2.Cmp(b2) != 0 {
-		dbt.Errorf("failed to scan. %#v", v2)
-	}
-	b3, ok = new(big.Int).SetString("12345678901234567890123456789012345678", 10)
-	if !ok {
-		dbt.Errorf("failed to convert big.Int.")
-	}
-	if v3.Cmp(b3) != 0 {
-		dbt.Errorf("failed to scan. %#v", v3)
-	}
-	b4, ok = new(big.Int).SetString("-12345678901234567890123456789012345678", 10)
-	if !ok {
-		dbt.Errorf("failed to convert big.Int.")
-	}
-	if v4.Cmp(b4) != 0 {
-		dbt.Errorf("failed to scan. %#v", v4)
-	}
-	b5, ok = new(big.Int).SetString("99999999999999999999999999999999999999", 10)
-	if !ok {
-		dbt.Errorf("failed to convert big.Int.")
-	}
-	if v5.Cmp(b5) != 0 {
-		dbt.Errorf("failed to scan. %#v", v5)
-	}
-	b6, ok = new(big.Int).SetString("-99999999999999999999999999999999999999", 10)
-	if !ok {
-		dbt.Errorf("failed to convert big.Int.")
-	}
-	if v6.Cmp(b6) != 0 {
-		dbt.Errorf("failed to scan. %#v", v4)
-	}
+
+	//dbt.mustExec("ALTER SESSION set go_query_result_format = arrow_force")
+	//rows := dbt.mustQuery("SELECT 10000000000000000000000000000000000000::NUMBER(38,0) AS C1," +
+	//	"-10000000000000000000000000000000000000::NUMBER(38,0) AS C2," +
+	//	"12345678901234567890123456789012345678::NUMBER(38,0) AS C3," +
+	//	"-12345678901234567890123456789012345678::NUMBER(38,0) AS C4," +
+	//	"99999999999999999999999999999999999999::NUMBER(38,0) AS C5," +
+	//	"-99999999999999999999999999999999999999::NUMBER(38,0) AS C6")
+	//if !rows.Next() {
+	//	dbt.Error("failed to query")
+	//}
+	//defer rows.Close()
+	//
+	//var v1, v2, v3, v4, v5, v6 *big.Int
+	//var b1, b2, b3, b4, b5, b6 *big.Int
+	//var ok bool
+	//err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
+	//if err != nil {
+	//	dbt.Errorf("failed to scan. %#v", err)
+	//}
+	//
+	//b1, ok = new(big.Int).SetString("10000000000000000000000000000000000000", 10)
+	//if !ok {
+	//	dbt.Errorf("failed to convert big.Int.")
+	//}
+	//if v1.Cmp(b1) != 0 {
+	//	dbt.Errorf("failed to scan. %#v", v1)
+	//}
+	//b2, ok = new(big.Int).SetString("-10000000000000000000000000000000000000", 10)
+	//if !ok {
+	//	dbt.Errorf("failed to convert big.Int.")
+	//}
+	//if v2.Cmp(b2) != 0 {
+	//	dbt.Errorf("failed to scan. %#v", v2)
+	//}
+	//b3, ok = new(big.Int).SetString("12345678901234567890123456789012345678", 10)
+	//if !ok {
+	//	dbt.Errorf("failed to convert big.Int.")
+	//}
+	//if v3.Cmp(b3) != 0 {
+	//	dbt.Errorf("failed to scan. %#v", v3)
+	//}
+	//b4, ok = new(big.Int).SetString("-12345678901234567890123456789012345678", 10)
+	//if !ok {
+	//	dbt.Errorf("failed to convert big.Int.")
+	//}
+	//if v4.Cmp(b4) != 0 {
+	//	dbt.Errorf("failed to scan. %#v", v4)
+	//}
+	//b5, ok = new(big.Int).SetString("99999999999999999999999999999999999999", 10)
+	//if !ok {
+	//	dbt.Errorf("failed to convert big.Int.")
+	//}
+	//if v5.Cmp(b5) != 0 {
+	//	dbt.Errorf("failed to scan. %#v", v5)
+	//}
+	//b6, ok = new(big.Int).SetString("-99999999999999999999999999999999999999", 10)
+	//if !ok {
+	//	dbt.Errorf("failed to convert big.Int.")
+	//}
+	//if v6.Cmp(b6) != 0 {
+	//	dbt.Errorf("failed to scan. %#v", v4)
+	//}
 }
 
 func TestFloat32(t *testing.T) {
@@ -691,79 +729,45 @@ func testFloat64(t *testing.T, arrow bool) {
 	})
 }
 
-func TestArrowBigRational(t *testing.T) {
+func TestArrowBigFloat(t *testing.T) {
 	var db *sql.DB
 	var err error
 	if db, err = sql.Open("snowflake", dsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
 	dbt := &DBTest{t, db}
-	dbt.mustExec("ALTER SESSION set go_query_result_format = arrow_force")
-	rows := dbt.mustQuery("SELECT 1.23::NUMBER(30, 2) AS C1," +
-		"1.0000000000000000000000000000000000000::NUMBER(38,37) AS C2," +
-		"-1.0000000000000000000000000000000000000::NUMBER(38,37) AS C3," +
-		"1.2345678901234567890123456789012345678::NUMBER(38,37) AS C4," +
-		"-1.2345678901234567890123456789012345678::NUMBER(38,37) AS C5," +
-		"9.9999999999999999999999999999999999999::NUMBER(38,37) AS C6," +
-		"-9.9999999999999999999999999999999999999::NUMBER(38,37) AS C7")
-	if !rows.Next() {
-		dbt.Error("failed to query")
-	}
-	defer rows.Close()
 
-	var v1, v2, v3, v4, v5, v6, v7 *big.Rat
-	var b1, b2, b3, b4, b5, b6, b7 *big.Rat
-	var ok bool
-	err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
-	if err != nil {
-		dbt.Errorf("failed to scan. %#v", err)
+	testcases := []tcBigNum{
+		{"1.23", 30, 2},
+		{"1.0000000000000000000000000000000000000", 38, 37},
+		{"-1.0000000000000000000000000000000000000", 38, 37},
+		{"1.2345678901234567890123456789012345678", 38, 37},
+		{"-1.2345678901234567890123456789012345678", 38, 37},
+		{"9.9999999999999999999999999999999999999", 38, 37},
+		{"-9.9999999999999999999999999999999999999", 38, 37},
 	}
 
-	b1 = big.NewRat(123, 100)
-	if v1.Cmp(b1) != 0 {
-		dbt.Errorf("failed to scan. %#v", v1)
-	}
-	b2, ok = new(big.Rat).SetString("1.0000000000000000000000000000000000000")
-	if !ok {
-		dbt.Errorf("failed to convert big.Rat.")
-	}
-	if v2.Cmp(b2) != 0 {
-		dbt.Errorf("failed to scan. %#v", v2)
-	}
-	b3, ok = new(big.Rat).SetString("-1.0000000000000000000000000000000000000")
-	if !ok {
-		dbt.Errorf("failed to convert big.Rat.")
-	}
-	if v3.Cmp(b3) != 0 {
-		dbt.Errorf("failed to scan. %#v", v3)
-	}
-	b4, ok = new(big.Rat).SetString("1.2345678901234567890123456789012345678")
-	if !ok {
-		dbt.Errorf("failed to convert big.Rat.")
-	}
-	if v4.Cmp(b4) != 0 {
-		dbt.Errorf("failed to scan. %#v", v4)
-	}
-	b5, ok = new(big.Rat).SetString("-1.2345678901234567890123456789012345678")
-	if !ok {
-		dbt.Errorf("failed to convert big.Rat.")
-	}
-	if v5.Cmp(b5) != 0 {
-		dbt.Errorf("failed to scan. %#v", v5)
-	}
-	b6, ok = new(big.Rat).SetString("9.9999999999999999999999999999999999999")
-	if !ok {
-		dbt.Errorf("failed to convert big.Rat.")
-	}
-	if v6.Cmp(b6) != 0 {
-		dbt.Errorf("failed to scan. %#v", v6)
-	}
-	b7, ok = new(big.Rat).SetString("-9.9999999999999999999999999999999999999")
-	if !ok {
-		dbt.Errorf("failed to convert big.Rat.")
-	}
-	if v7.Cmp(b7) != 0 {
-		dbt.Errorf("failed to scan. %#v", v7)
+	for _, tc := range testcases {
+		dbt.mustExec("ALTER SESSION set go_query_result_format = arrow_force")
+		rows := dbt.mustQuery(fmt.Sprintf("SELECT %s::NUMBER(%v, %v) AS C", tc.num, tc.prec, tc.sc))
+		if !rows.Next() {
+			dbt.Error("failed to query")
+		}
+		defer rows.Close()
+		var v *big.Float
+		err := rows.Scan(&v)
+		if err != nil {
+			dbt.Errorf("failed to scan. %#v", err)
+		}
+
+		prec := v.Prec()
+		b, ok := new(big.Float).SetPrec(prec).SetString(tc.num)
+		if !ok {
+			dbt.Errorf("failed to convert %v to big.Float.", tc.num)
+		}
+		if v.Cmp(b) != 0 {
+			dbt.Errorf("big.Float value mismatch: expected %v, got %v", b, v)
+		}
 	}
 }
 
@@ -998,13 +1002,13 @@ func TestArrowBindingInterface(t *testing.T) {
 		if err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
-		var s1 *big.Rat
+		var s1 *big.Float
 		var s2 int64
 		var s3 string
 		var s4 float64
 		var ok bool
-		s1, ok = v1.(*big.Rat)
-		if !ok || s1.Cmp(big.NewRat(1, 1)) != 0 {
+		s1, ok = v1.(*big.Float)
+		if !ok || s1.Cmp(big.NewFloat(1.0)) != 0 {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v1)
 		}
 		s2, ok = v2.(int64)
@@ -1150,7 +1154,7 @@ func TestArrowVariousTypes(t *testing.T) {
 		if err != nil {
 			dbt.Errorf("column types: %v", ct)
 		}
-		var v1 *big.Rat
+		var v1 *big.Float
 		var v2 int
 		var v3 string
 		var v4 float64
@@ -1160,7 +1164,7 @@ func TestArrowVariousTypes(t *testing.T) {
 		if err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
-		if v1.Cmp(big.NewRat(1, 1)) != 0 {
+		if v1.Cmp(big.NewFloat(1.0)) != 0 {
 			dbt.Errorf("failed to scan. %#v", *v1)
 		}
 		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C3" || ct[3].Name() != "C4" || ct[4].Name() != "C5" || ct[5].Name() != "C6" {
