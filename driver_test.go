@@ -591,69 +591,6 @@ func TestArrowBigInt(t *testing.T) {
 			dbt.Errorf("big.Int value mismatch: expected %v, got %v", b, v)
 		}
 	}
-
-	//dbt.mustExec("ALTER SESSION set go_query_result_format = arrow_force")
-	//rows := dbt.mustQuery("SELECT 10000000000000000000000000000000000000::NUMBER(38,0) AS C1," +
-	//	"-10000000000000000000000000000000000000::NUMBER(38,0) AS C2," +
-	//	"12345678901234567890123456789012345678::NUMBER(38,0) AS C3," +
-	//	"-12345678901234567890123456789012345678::NUMBER(38,0) AS C4," +
-	//	"99999999999999999999999999999999999999::NUMBER(38,0) AS C5," +
-	//	"-99999999999999999999999999999999999999::NUMBER(38,0) AS C6")
-	//if !rows.Next() {
-	//	dbt.Error("failed to query")
-	//}
-	//defer rows.Close()
-	//
-	//var v1, v2, v3, v4, v5, v6 *big.Int
-	//var b1, b2, b3, b4, b5, b6 *big.Int
-	//var ok bool
-	//err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
-	//if err != nil {
-	//	dbt.Errorf("failed to scan. %#v", err)
-	//}
-	//
-	//b1, ok = new(big.Int).SetString("10000000000000000000000000000000000000", 10)
-	//if !ok {
-	//	dbt.Errorf("failed to convert big.Int.")
-	//}
-	//if v1.Cmp(b1) != 0 {
-	//	dbt.Errorf("failed to scan. %#v", v1)
-	//}
-	//b2, ok = new(big.Int).SetString("-10000000000000000000000000000000000000", 10)
-	//if !ok {
-	//	dbt.Errorf("failed to convert big.Int.")
-	//}
-	//if v2.Cmp(b2) != 0 {
-	//	dbt.Errorf("failed to scan. %#v", v2)
-	//}
-	//b3, ok = new(big.Int).SetString("12345678901234567890123456789012345678", 10)
-	//if !ok {
-	//	dbt.Errorf("failed to convert big.Int.")
-	//}
-	//if v3.Cmp(b3) != 0 {
-	//	dbt.Errorf("failed to scan. %#v", v3)
-	//}
-	//b4, ok = new(big.Int).SetString("-12345678901234567890123456789012345678", 10)
-	//if !ok {
-	//	dbt.Errorf("failed to convert big.Int.")
-	//}
-	//if v4.Cmp(b4) != 0 {
-	//	dbt.Errorf("failed to scan. %#v", v4)
-	//}
-	//b5, ok = new(big.Int).SetString("99999999999999999999999999999999999999", 10)
-	//if !ok {
-	//	dbt.Errorf("failed to convert big.Int.")
-	//}
-	//if v5.Cmp(b5) != 0 {
-	//	dbt.Errorf("failed to scan. %#v", v5)
-	//}
-	//b6, ok = new(big.Int).SetString("-99999999999999999999999999999999999999", 10)
-	//if !ok {
-	//	dbt.Errorf("failed to convert big.Int.")
-	//}
-	//if v6.Cmp(b6) != 0 {
-	//	dbt.Errorf("failed to scan. %#v", v4)
-	//}
 }
 
 func TestFloat32(t *testing.T) {
