@@ -339,22 +339,6 @@ func TestArrowToValue(t *testing.T) {
 			builder: array.NewBooleanBuilder(pool),
 			append:  func(b array.Builder, vs interface{}) { b.(*array.BooleanBuilder).AppendValues(vs.([]bool), valids) },
 		},
-		//{
-		//	logical:  "real",
-		//	physical: "float",
-		//	values:   []float32{1, 2},
-		//	builder:  array.NewFloat32Builder(pool),
-		//	append:   func(b array.Builder, vs interface{}) { b.(*array.Float32Builder).AppendValues(vs.([]float32), valids) },
-		//	compare: func(src interface{}, dst []snowflakeValue) int {
-		//		srcvs := src.([]float32)
-		//		for i := range srcvs {
-		//			if float64(srcvs[i]) != dst[i].(float64) {
-		//				return i
-		//			}
-		//		}
-		//		return -1
-		//	},
-		//},
 		{
 			logical:  "real",
 			physical: "float",
