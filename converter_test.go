@@ -8,6 +8,7 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
+	"math/big"
 	"math/cmplx"
 	"reflect"
 	"testing"
@@ -212,16 +213,125 @@ func TestArrowToValue(t *testing.T) {
 		{
 			logical:  "fixed",
 			physical: "number", // default: number(38, 0)
-			values:   []int8{1, 2},
-			builder:  array.NewInt8Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+			values:   []int64{1, 2},
+			builder:  array.NewInt64Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 		},
 		{
 			logical:  "fixed",
-			physical: "integer",
+			physical: "number(38,0)",
+			values:   []string{"10000000000000000000000000000000000000", "-12345678901234567890123456789012345678"},
+			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 30, Scale: 2}),
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringIntToDecimal(s)
+					if !ok {
+						t.Fatalf("failed to convert to big.Int")
+					}
+					b.(*array.Decimal128Builder).Append(num)
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringIntToDecimal(srcvs[i])
+					if !ok {
+						return i
+					}
+					srcDec := decimalToBigInt(num)
+					dstDec := dst[i].(*big.Int)
+					if srcDec.Cmp(dstDec) != 0 {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
+			physical: "number(38,37)",
+			rowType:  execResponseRowType{Scale: 37},
+			values:   []string{"1.2345678901234567890123456789012345678", "-9.9999999999999999999999999999999999999"},
+			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 37}),
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringFloatToDecimal(s, 37)
+					if !ok {
+						t.Fatalf("failed to convert to big.Rat")
+					}
+					b.(*array.Decimal128Builder).Append(num)
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringFloatToDecimal(srcvs[i], 37)
+					if !ok {
+						return i
+					}
+					srcDec := decimalToBigFloat(num, 37)
+					dstDec := dst[i].(*big.Float)
+					if srcDec.Cmp(dstDec) != 0 {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
+			physical: "int8",
 			values:   []int8{1, 2},
 			builder:  array.NewInt8Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]int8)
+				for i := range srcvs {
+					if int64(srcvs[i]) != dst[i].(int64) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
+			physical: "int16",
+			values:   []int16{1, 2},
+			builder:  array.NewInt16Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]int16)
+				for i := range srcvs {
+					if int64(srcvs[i]) != dst[i].(int64) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
+			physical: "int32",
+			values:   []int32{1, 2},
+			builder:  array.NewInt32Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]int32)
+				for i := range srcvs {
+					if int64(srcvs[i]) != dst[i].(int64) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical:  "fixed",
+			physical: "int64",
+			values:   []int64{1, 2},
+			builder:  array.NewInt64Builder(pool),
+			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 		},
 		{
 			logical: "boolean",
