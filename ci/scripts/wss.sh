@@ -10,6 +10,8 @@ THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export PRODUCT_NAME=gosnowflake
 export PROJECT_NAME=gosnowflake
 
+env | sort
+
 DATE=$(date +'%m-%d-%Y')
 
 SCAN_DIRECTORIES=$( cd $THIS_DIR/../.. && pwd )
