@@ -65,7 +65,7 @@ wss.url=https://saas.whitesourcesoftware.com/agent
 # Policies #
 ############
 checkPolicies=true
-forceCheckAllDependencies=false
+forceCheckAllDependencies=true
 forceUpdate=true
 forceUpdate.failBuildOnPolicyViolation=true
 #updateInventory=false
