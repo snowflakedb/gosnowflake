@@ -28,8 +28,10 @@ fi
 
 SCAN_DIRECTORIES=$( cd $THIS_DIR/../.. && pwd )
 
-rm -f wss-unified-agent.jar 
-curl -LJO https://github.com/whitesource/unified-agent-distribution/releases/latest/download/wss-unified-agent.jar
+if [[ -n "$PROJECT_NAME" ]]; then
+    rm -f wss-unified-agent.jar 
+    curl -LJO https://github.com/whitesource/unified-agent-distribution/releases/latest/download/wss-unified-agent.jar
+fi
 SCAN_CONFIG=wss-golang-agent.config
 cat > $SCAN_CONFIG <<CONFIG
 ###############################################################
@@ -131,7 +133,7 @@ if [[ -n "$PROJECT_NAME" ]] && [[ "$PROJECT_NAME" != "$PROD_BRANCH" ]]; then
         echo "failed to run wss for $PRODUCT_VERSION_${PROJECT_VERSION} in ${PROJECT_VERSION}..."
         exit 1
     fi
-elif [[ -n "$PRODUCT_NAME" ]]; then
+elif [[ -n "$PROJECT_NAME" ]]; then
     # Prod branch
     java -jar wss-unified-agent.jar -apiKey ${WHITESOURCE_API_KEY} \
         -c ${SCAN_CONFIG} \
