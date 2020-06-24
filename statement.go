@@ -7,6 +7,11 @@ import (
 	"database/sql/driver"
 )
 
+const (
+	// MultiStatementCount controls the number of queries to execute in a single API call
+	MultiStatementCount = "MULTI_STATEMENT_COUNT"
+)
+
 type snowflakeStmt struct {
 	sc    *snowflakeConn
 	query string

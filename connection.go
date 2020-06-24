@@ -7,11 +7,13 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -50,7 +52,7 @@ func (sc *snowflakeConn) isDml(v int64) bool {
 
 func (sc *snowflakeConn) exec(
 	ctx context.Context,
-	query string, noResult bool, isInternal bool, parameters []driver.NamedValue) (*execResponse, error) {
+	query string, noResult bool, isInternal bool, bindings []driver.NamedValue) (*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
 
@@ -62,18 +64,18 @@ func (sc *snowflakeConn) exec(
 	req.IsInternal = isInternal
 	tsmode := "TIMESTAMP_NTZ"
 	idx := 1
-	if len(parameters) > 0 {
-		req.Bindings = make(map[string]execBindParameter, len(parameters))
-		for i, n := 0, len(parameters); i < n; i++ {
-			t := goTypeToSnowflake(parameters[i].Value, tsmode)
+	if len(bindings) > 0 {
+		req.Bindings = make(map[string]execBindParameter, len(bindings))
+		for i, n := 0, len(bindings); i < n; i++ {
+			t := goTypeToSnowflake(bindings[i].Value, tsmode)
 			glog.V(2).Infof("tmode: %v\n", t)
 			if t == "CHANGE_TYPE" {
-				tsmode, err = dataTypeMode(parameters[i].Value)
+				tsmode, err = dataTypeMode(bindings[i].Value)
 				if err != nil {
 					return nil, err
 				}
 			} else {
-				v1, err := valueToString(parameters[i].Value, tsmode)
+				v1, err := valueToString(bindings[i].Value, tsmode)
 				if err != nil {
 					return nil, err
 				}
@@ -264,6 +266,33 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 			RowSetBase64: data.Data.RowSetBase64,
 		},
 	}
+
+	childResults, err := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
+	if err != nil {
+		return nil, err
+	}
+	var nextChunkDownloader *snowflakeChunkDownloader
+	firstResultSet := false
+
+	for _, child := range childResults {
+		resultPath := fmt.Sprintf("/queries/%s/result", child.id)
+		childData, err := sc.getQueryResult(ctx, resultPath)
+		if err != nil {
+			return nil, err
+		}
+		if childData.Data.StatementTypeID == 4096 {
+			if !firstResultSet {
+				// populate rows.ChunkDownloader with the first child
+				rows.ChunkDownloader = populateChunkDownloader(ctx, sc, childData.Data)
+				nextChunkDownloader = rows.ChunkDownloader
+				firstResultSet = true
+			} else {
+				nextChunkDownloader.NextDownloader = populateChunkDownloader(ctx, sc, childData.Data)
+				nextChunkDownloader = nextChunkDownloader.NextDownloader
+			}
+		}
+	}
+
 	rows.ChunkDownloader.start()
 	return rows, err
 }
@@ -343,4 +372,78 @@ func (sc *snowflakeConn) stopHeartBeat() {
 		return
 	}
 	sc.rest.HeartBeat.stop()
+}
+
+type childResult struct {
+	id  string
+	typ string
+}
+
+func getChildResults(IDs string, types string) ([]childResult, error) {
+	if IDs == "" {
+		return nil, nil
+	}
+	queryIDs := strings.Split(IDs, ",")
+	resultTypes := strings.Split(types, ",")
+	if len(queryIDs) != len(resultTypes) {
+		return []childResult{}, &SnowflakeError{
+			Number:  ErrNoChildrenReturned,
+			Message: errMsgFailedToRetrieveChild,
+		}
+	}
+	res := make([]childResult, len(queryIDs))
+	for i, id := range queryIDs {
+		res[i] = childResult{id, resultTypes[i]}
+	}
+	return res, nil
+}
+
+func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) (execResponse, error) {
+	headers := make(map[string]string)
+	headers["Content-Type"] = headerContentTypeApplicationJSON
+	headers["accept"] = headerAcceptTypeApplicationSnowflake // TODO v1.1: change to JSON in case of PUT/GET
+	headers["User-Agent"] = userAgent
+	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
+		headers["X-Snowflake-Service"] = *serviceName
+	}
+	param := make(url.Values)
+	param.Add(requestIDKey, uuid.New().String())
+	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
+	param.Add(requestGUIDKey, uuid.New().String())
+	if sc.rest.Token != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sc.rest.Token)
+	}
+	url := sc.rest.getFullURL(resultPath, &param)
+	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	if err != nil {
+		return execResponse{}, err
+	}
+	var respd execResponse
+	err = json.NewDecoder(res.Body).Decode(&respd)
+	if err != nil {
+		return execResponse{}, err
+	}
+	return respd, nil
+}
+
+func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) *snowflakeChunkDownloader {
+	return &snowflakeChunkDownloader{
+		sc:                 sc,
+		ctx:                ctx,
+		CurrentChunk:       make([]chunkRowType, len(data.RowSet)),
+		ChunkMetas:         data.Chunks,
+		Total:              data.Total,
+		TotalRowIndex:      int64(-1),
+		CellCount:          len(data.RowType),
+		Qrmk:               data.Qrmk,
+		QueryResultFormat:  data.QueryResultFormat,
+		ChunkHeader:        data.ChunkHeaders,
+		FuncDownload:       downloadChunk,
+		FuncDownloadHelper: downloadChunkHelper,
+		FuncGet:            getChunk,
+		RowSet: rowSetType{RowType: data.RowType,
+			JSON:         data.RowSet,
+			RowSetBase64: data.RowSetBase64,
+		},
+	}
 }
