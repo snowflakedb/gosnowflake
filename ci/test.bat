@@ -4,9 +4,9 @@ setlocal EnableDelayedExpansion
 
 start /b python ci\scripts\hang_webserver.py 12345
 
-if "%CLOUD_PROVIDER%"=="AWS" set PARAMETER_FILENAME=parameters_aws.json.gpg
-if "%CLOUD_PROVIDER%"=="AZURE" set PARAMETER_FILENAME=parameters_azure.json.gpg
-if "%CLOUD_PROVIDER%"=="GCP" set PARAMETER_FILENAME=parameters_gcp.json.gpg
+if "%CLOUD_PROVIDER%"=="AWS" set PARAMETER_FILENAME=parameters_aws_golang.json.gpg
+if "%CLOUD_PROVIDER%"=="AZURE" set PARAMETER_FILENAME=parameters_azure_golang.json.gpg
+if "%CLOUD_PROVIDER%"=="GCP" set PARAMETER_FILENAME=parameters_gcp_golang.json.gpg
 
 if not defined PARAMETER_FILENAME (
     echo [ERROR] failed to detect CLOUD_PROVIDER: %CLOUD_PROVIDER%
