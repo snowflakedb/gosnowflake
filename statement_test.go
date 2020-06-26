@@ -2,7 +2,6 @@ package gosnowflake
 
 import (
 	"database/sql"
-	"fmt"
 	"testing"
 )
 
@@ -16,7 +15,6 @@ func TestMultiStatementTransaction(t *testing.T) {
 	if db, err = sql.Open("snowflake", ndsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
-	fmt.Println(dsn)
 	defer db.Close()
 	_, err = db.Exec("drop table if exists test_multi_statement_txn")
 	if err != nil {
@@ -139,13 +137,11 @@ func TestMultiStatementRollback(t *testing.T) {
 
 	_, err = db.Exec(multiStmtQuery)
 	if err != nil {
-		fmt.Println(err)
 		t.Fatalf("failed to execute statement: %v", err)
 	}
 
 	_, err = db.Exec("drop table if exists test_multi_statement_txn_rb")
 	if err != nil {
-		fmt.Println(err)
 		t.Fatalf("failed to drop table: %v", err)
 	}
 
