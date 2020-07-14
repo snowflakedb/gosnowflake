@@ -89,7 +89,7 @@ func (sc *snowflakeConn) exec(
 	}
 	multiCount := ctx.Value(MultiStatementCount)
 	if multiCount != nil {
-		req.Parameters = map[string]interface{}{MultiStatementCount: multiCount}
+		req.Parameters = map[string]interface{}{string(MultiStatementCount): multiCount}
 	}
 	glog.V(2).Infof("bindings: %v", req.Bindings)
 	glog.V(2).Infof("parameters: %v", req.Parameters)

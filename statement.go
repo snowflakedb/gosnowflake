@@ -7,9 +7,11 @@ import (
 	"database/sql/driver"
 )
 
+type paramKey string
+
 const (
 	// MultiStatementCount controls the number of queries to execute in a single API call
-	MultiStatementCount = "MULTI_STATEMENT_COUNT"
+	MultiStatementCount paramKey = "MULTI_STATEMENT_COUNT"
 )
 
 type snowflakeStmt struct {
@@ -49,6 +51,7 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	return stmt.sc.Query(stmt.query, args)
 }
 
+// WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
 func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
 	return context.WithValue(ctx, MultiStatementCount, num), nil
 }
