@@ -48,3 +48,7 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	glog.V(2).Infoln("Stmt.Query")
 	return stmt.sc.Query(stmt.query, args)
 }
+
+func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
+	return context.WithValue(ctx, MultiStatementCount, num), nil
+}

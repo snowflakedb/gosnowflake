@@ -335,21 +335,6 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	return cfg, nil
 }
 
-// AddConnParameter adds a specified connection parameter to dsn
-func AddConnParameter(dsn string, key string, value interface{}) (string, error) {
-	cfg, _ := ParseDSN(dsn)
-	switch value := value.(type) {
-	case int:
-		val := strconv.Itoa(value)
-		cfg.Params[key] = &val
-	case string:
-		cfg.Params[key] = &value
-	default:
-		return dsn, ErrInvalidConnParam
-	}
-	return DSN(cfg)
-}
-
 func fillMissingConfigParameters(cfg *Config) error {
 	posDash := strings.LastIndex(cfg.Account, "-")
 	if posDash > 0 {

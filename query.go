@@ -18,7 +18,7 @@ type execRequest struct {
 	AsyncExec  bool                         `json:"asyncExec"`
 	SequenceID uint64                       `json:"sequenceId"`
 	IsInternal bool                         `json:"isInternal"`
-	Parameters map[string]string            `json:"parameters,omitempty"`
+	Parameters map[string]interface{}       `json:"parameters,omitempty"`
 	Bindings   map[string]execBindParameter `json:"bindings,omitempty"`
 }
 

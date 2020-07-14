@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 )
@@ -8,14 +9,12 @@ import (
 func TestMultiStatementTransaction(t *testing.T) {
 	var db *sql.DB
 	var err error
-	ndsn, err := AddConnParameter(dsn, MultiStatementCount, "0")
-	if err != nil {
-		t.Fatalf("failed to add connection parameter. err: %v", err)
-	}
-	if db, err = sql.Open("snowflake", ndsn); err != nil {
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
 	defer db.Close()
+
 	_, err = db.Exec("drop table if exists test_multi_statement_txn")
 	if err != nil {
 		t.Fatalf("failed to drop table: %v", err)
@@ -27,11 +26,12 @@ func TestMultiStatementTransaction(t *testing.T) {
 		t.Fatalf("failed to create table: %v", err)
 	}
 
+	ctx, _ := WithMultiStatement(context.Background(), 4)
 	multiStmtQuery := "begin;\n" +
 		"delete from test_multi_statement_txn;\n" +
 		"insert into test_multi_statement_txn values (1, 'a'), (2, 'b');\n" +
 		"commit;"
-	db.Exec(multiStmtQuery)
+	db.ExecContext(ctx, multiStmtQuery)
 
 	_, err = db.Exec("drop table if exists test_multi_statement_txn")
 	if err != nil {
@@ -42,11 +42,8 @@ func TestMultiStatementTransaction(t *testing.T) {
 func TestMultiStatementQuery(t *testing.T) {
 	var db *sql.DB
 	var err error
-	ndsn, err := AddConnParameter(dsn, MultiStatementCount, "0")
-	if err != nil {
-		t.Fatalf("failed to add connection parameter. err: %v", err)
-	}
-	if db, err = sql.Open("snowflake", ndsn); err != nil {
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
 	defer db.Close()
@@ -56,7 +53,8 @@ func TestMultiStatementQuery(t *testing.T) {
 		"select 789;\n" +
 		"select '000';"
 
-	rows, _ := db.Query(multiStmtQuery)
+	ctx, _ := WithMultiStatement(context.Background(), 4)
+	rows, _ := db.QueryContext(ctx, multiStmtQuery)
 	defer rows.Close()
 	var v1, v2, v3 int64
 	var v4 string
@@ -110,11 +108,8 @@ func TestMultiStatementQuery(t *testing.T) {
 func TestMultiStatementRollback(t *testing.T) {
 	var db *sql.DB
 	var err error
-	ndsn, err := AddConnParameter(dsn, MultiStatementCount, "0")
-	if err != nil {
-		t.Fatalf("failed to add connection parameter. err: %v", err)
-	}
-	if db, err = sql.Open("snowflake", ndsn); err != nil {
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
 	defer db.Close()
@@ -130,12 +125,13 @@ func TestMultiStatementRollback(t *testing.T) {
 		t.Fatalf("failed to create table: %v", err)
 	}
 
+	ctx, _ := WithMultiStatement(context.Background(), 4)
 	multiStmtQuery := "begin;\n" +
 		"delete from test_multi_statement_txn_rb;\n" +
 		"insert into test_multi_statement_txn_rb values (1, 'a'), (2, 'b');\n" +
 		"rollback;"
 
-	_, err = db.Exec(multiStmtQuery)
+	_, err = db.ExecContext(ctx, multiStmtQuery)
 	if err != nil {
 		t.Fatalf("failed to execute statement: %v", err)
 	}
@@ -150,19 +146,17 @@ func TestMultiStatementRollback(t *testing.T) {
 func TestMultiStatementExecute(t *testing.T) {
 	var db *sql.DB
 	var err error
-	ndsn, err := AddConnParameter(dsn, MultiStatementCount, "0")
-	if err != nil {
-		t.Fatalf("failed to add connection parameter. err: %v", err)
-	}
-	if db, err = sql.Open("snowflake", ndsn); err != nil {
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
 	defer db.Close()
 
+	ctx, _ := WithMultiStatement(context.Background(), 3)
 	multiStmtQuery := "create or replace temporary table test_multi (cola int);\n" +
 		"insert into test_multi values (1), (2);\n" +
 		"select cola from test_multi order by cola asc;"
-	rows, err := db.Query(multiStmtQuery)
+	rows, err := db.QueryContext(ctx, multiStmtQuery)
 	if err != nil {
 		t.Fatal("failed to execute statement: ", err)
 	}
