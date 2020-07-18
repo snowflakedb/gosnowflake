@@ -17,6 +17,8 @@ import (
 )
 
 const (
+	statementTypeIDMulti = int64(0x1000)
+
 	statementTypeIDDml              = int64(0x3000)
 	statementTypeIDInsert           = statementTypeIDDml + int64(0x100)
 	statementTypeIDUpdate           = statementTypeIDDml + int64(0x200)
@@ -45,6 +47,13 @@ func (sc *snowflakeConn) isDml(v int64) bool {
 	case statementTypeIDDml, statementTypeIDInsert,
 		statementTypeIDUpdate, statementTypeIDDelete,
 		statementTypeIDMerge, statementTypeIDMultiTableInsert:
+		return true
+	}
+	return false
+}
+
+func (sc *snowflakeConn) isMultiStmt(data execResponseData) bool {
+	if data.StatementTypeID == statementTypeIDMulti && data.RowType[0].Name == "multiple statement execution" {
 		return true
 	}
 	return false
@@ -217,21 +226,34 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	if err != nil {
 		return nil, err
 	}
-	var updatedRows int64
+	var updatedRows int64 = 0
 	if sc.isDml(data.Data.StatementTypeID) {
 		// collects all values from the returned row sets
-		updatedRows = 0
-		for i, n := 0, len(data.Data.RowType); i < n; i++ {
-			v, err := strconv.ParseInt(*data.Data.RowSet[0][i], 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			updatedRows += v
+		updatedRows, err = updateRows(data.Data)
+		if err != nil {
+			return nil, err
 		}
 		glog.V(2).Infof("number of updated rows: %#v", updatedRows)
 		return &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1}, nil // last insert id is not supported by Snowflake
+	} else if sc.isMultiStmt(data.Data) {
+		childResults, _ := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
+		for _, child := range childResults {
+			resultPath := fmt.Sprintf("/queries/%s/result", child.id)
+			childData, _ := sc.getQueryResult(ctx, resultPath)
+			if sc.isDml(childData.Data.StatementTypeID) {
+				count, err := updateRows(childData.Data)
+				if err != nil {
+					return nil, err
+				}
+				updatedRows += count
+			}
+		}
+		return &snowflakeResult{
+			affectedRows: updatedRows,
+			insertID:     -1}, nil
+
 	}
 	glog.V(2).Info("DDL")
 	return driver.ResultNoRows, nil
@@ -272,20 +294,20 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 		},
 	}
 
-	childResults, err := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
-	if err != nil {
-		return nil, err
-	}
-	var nextChunkDownloader *snowflakeChunkDownloader
-	firstResultSet := false
-
-	for _, child := range childResults {
-		resultPath := fmt.Sprintf("/queries/%s/result", child.id)
-		childData, err := sc.getQueryResult(ctx, resultPath)
+	if sc.isMultiStmt(data.Data) {
+		childResults, err := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
 		if err != nil {
 			return nil, err
 		}
-		if childData.Data.StatementTypeID == 4096 {
+		var nextChunkDownloader *snowflakeChunkDownloader
+		firstResultSet := false
+
+		for _, child := range childResults {
+			resultPath := fmt.Sprintf("/queries/%s/result", child.id)
+			childData, err := sc.getQueryResult(ctx, resultPath)
+			if err != nil {
+				return nil, err
+			}
 			if !firstResultSet {
 				// populate rows.ChunkDownloader with the first child
 				rows.ChunkDownloader = populateChunkDownloader(ctx, sc, childData.Data)
@@ -377,6 +399,18 @@ func (sc *snowflakeConn) stopHeartBeat() {
 		return
 	}
 	sc.rest.HeartBeat.stop()
+}
+
+func updateRows(data execResponseData) (int64, error) {
+	var count int64 = 0
+	for i, n := 0, len(data.RowType); i < n; i++ {
+		v, err := strconv.ParseInt(*data.RowSet[0][i], 10, 64)
+		if err != nil {
+			return -1, err
+		}
+		count += v
+	}
+	return count, nil
 }
 
 type childResult struct {
