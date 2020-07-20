@@ -216,6 +216,33 @@ func TestMultiStatementQueryNoResultSet(t *testing.T) {
 	}
 }
 
+func TestMultiStatementExecuteMix(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx, _ := WithMultiStatement(context.Background(), 3)
+	multiStmtQuery := "create or replace temporary table test_multi (cola int);\n" +
+		"insert into test_multi values (1), (2);\n" +
+		"select cola from test_multi order by cola asc;"
+	res, err := db.ExecContext(ctx, multiStmtQuery)
+	if err != nil {
+		t.Fatal("failed to execute statement: ", err)
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		t.Fatalf("res.RowsAffected() returned error: %s", err.Error())
+	}
+	if count != 2 {
+		t.Fatalf("expected 3 affected rows, got %d", count)
+	}
+}
+
 func TestMultiStatementQueryMix(t *testing.T) {
 	var db *sql.DB
 	var err error
