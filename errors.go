@@ -60,8 +60,6 @@ const (
 	ErrCodePrivateKeyParseError = 260010
 	// ErrCodeFailedToParseAuthenticator is an error code for the case where a DNS includes an invalid authenticator
 	ErrCodeFailedToParseAuthenticator = 260011
-	// ErrCodeInvalidConnectionParameter is an error code for the case when an invalid connection parameter was specified
-	ErrCodeInvalidConnectionParameter = 260012
 
 	/* network */
 
@@ -99,8 +97,6 @@ const (
 	ErrNoReadOnlyTransaction = 263000
 	// ErrNoDefaultTransactionIsolationLevel is an error code for the case where non default isolation level is specified.
 	ErrNoDefaultTransactionIsolationLevel = 263001
-	// ErrNoChildrenReturned is an error code for when the children returned by a multi statement query mismatches.
-	ErrNoChildrenReturned = 263002
 
 	/* converter */
 
@@ -160,7 +156,6 @@ const (
 	errMsgOCSPStatusUnknown                  = "OCSP unknown"
 	errMsgOCSPInvalidValidity                = "invalid validity: producedAt: %v, thisUpdate: %v, nextUpdate: %v"
 	errMsgOCSPNoOCSPResponderURL             = "no OCSP server is attached to the certificate. %v"
-	errMsgFailedToRetrieveChild              = "failed to retrieve child results from query. "
 )
 
 var (
@@ -183,9 +178,4 @@ var (
 	ErrInvalidRegion = &SnowflakeError{
 		Number:  ErrCodeRegionOverlap,
 		Message: "two regions specified"}
-
-	// ErrInvalidConnParam is returned if an invalid connection parameter was specified to be added to the DSN
-	ErrInvalidConnParam = &SnowflakeError{
-		Number:  ErrCodeInvalidConnectionParameter,
-		Message: "invalid connection parameter specified"}
 )

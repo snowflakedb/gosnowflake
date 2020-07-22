@@ -52,11 +52,10 @@ func (sc *snowflakeConn) isDml(v int64) bool {
 	return false
 }
 
+// isMultiStmt returns true if the statement type code is of type multistatement
+// Note that the statement type code is also equivalent to type INSERT, so an additional check of the name is required
 func (sc *snowflakeConn) isMultiStmt(data execResponseData) bool {
-	if data.StatementTypeID == statementTypeIDMulti && data.RowType[0].Name == "multiple statement execution" {
-		return true
-	}
-	return false
+	return data.StatementTypeID == statementTypeIDMulti && data.RowType[0].Name == "multiple statement execution"
 }
 
 func (sc *snowflakeConn) exec(
@@ -238,10 +237,13 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			affectedRows: updatedRows,
 			insertID:     -1}, nil // last insert id is not supported by Snowflake
 	} else if sc.isMultiStmt(data.Data) {
-		childResults, _ := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
+		childResults := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
 		for _, child := range childResults {
 			resultPath := fmt.Sprintf("/queries/%s/result", child.id)
-			childData, _ := sc.getQueryResult(ctx, resultPath)
+			childData, err := sc.getQueryResult(ctx, resultPath)
+			if err != nil {
+				return nil, err
+			}
 			if sc.isDml(childData.Data.StatementTypeID) {
 				count, err := updateRows(childData.Data)
 				if err != nil {
@@ -250,10 +252,10 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 				updatedRows += count
 			}
 		}
+		glog.V(2).Infof("number of updated rows: %#v", updatedRows)
 		return &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1}, nil
-
 	}
 	glog.V(2).Info("DDL")
 	return driver.ResultNoRows, nil
@@ -295,10 +297,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	}
 
 	if sc.isMultiStmt(data.Data) {
-		childResults, err := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
-		if err != nil {
-			return nil, err
-		}
+		childResults := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
 		var nextChunkDownloader *snowflakeChunkDownloader
 		firstResultSet := false
 
@@ -418,29 +417,23 @@ type childResult struct {
 	typ string
 }
 
-func getChildResults(IDs string, types string) ([]childResult, error) {
+func getChildResults(IDs string, types string) []childResult {
 	if IDs == "" {
-		return nil, nil
+		return nil
 	}
 	queryIDs := strings.Split(IDs, ",")
 	resultTypes := strings.Split(types, ",")
-	if len(queryIDs) != len(resultTypes) {
-		return []childResult{}, &SnowflakeError{
-			Number:  ErrNoChildrenReturned,
-			Message: errMsgFailedToRetrieveChild,
-		}
-	}
 	res := make([]childResult, len(queryIDs))
 	for i, id := range queryIDs {
 		res[i] = childResult{id, resultTypes[i]}
 	}
-	return res, nil
+	return res
 }
 
 func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) (execResponse, error) {
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeApplicationSnowflake // TODO v1.1: change to JSON in case of PUT/GET
+	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers["X-Snowflake-Service"] = *serviceName
@@ -455,11 +448,15 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 	url := sc.rest.getFullURL(resultPath, &param)
 	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
 	if err != nil {
+		glog.V(1).Infof("failed to get response. err: %v", err)
+		glog.Flush()
 		return execResponse{}, err
 	}
 	var respd execResponse
 	err = json.NewDecoder(res.Body).Decode(&respd)
 	if err != nil {
+		glog.V(1).Infof("failed to decode JSON. err: %v", err)
+		glog.Flush()
 		return execResponse{}, err
 	}
 	return respd, nil
