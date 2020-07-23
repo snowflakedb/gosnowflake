@@ -1,0 +1,14 @@
+name: Semgrep
+on:
+    pull_request:
+        branches:
+            - master
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    name: Check
+    steps:
+    - uses: actions/checkout@v1
+    - name: Semgrep
+      id: semgrep
+      uses: returntocorp/semgrep-action@v1
