@@ -1,7 +1,9 @@
 rules:
 - id: tls-with-insecure-cipher
-  message: CipherSuite configuration is insecure based on the tls package. See https://golang.org/pkg/crypto/tls/#InsecureCipherSuites
+  message: |
+    CipherSuite configuration is insecure based on the tls package. See https://golang.org/pkg/crypto/tls/#InsecureCipherSuites
     for why and what other cipher suites to use.
+    For more information, please refer to https://snowflakecomputing.atlassian.net/wiki/spaces/CLO/pages/1127713128/Semgrep+Finding+Remediation#tls-with-insecure-cipher
   metadata:
     cwe: 'CWE-327: Use of a Broken or Risky Cryptographic Algorithm'
     owasp: 'A9: Using Components with Known Vulnerabilities'
@@ -35,10 +37,11 @@ rules:
       tls.CipherSuite{..., TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 ,...}
   - pattern: |-
       tls.CipherSuite{..., TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 ,...}
-
 - id: avoid-ssh-insecure-ignore-host-key
-  message: Disabling host key verification is discouraged. See https://skarlso.github.io/2019/02/17/go-ssh-with-host-key-verification/
+  message: |
+    Disabling host key verification is discouraged. See https://skarlso.github.io/2019/02/17/go-ssh-with-host-key-verification/
     to learn more about the problem and how to fix it.
+    For more information, please refer to https://snowflakecomputing.atlassian.net/wiki/spaces/CLO/pages/1127713128/Semgrep+Finding+Remediation#avoid-ssh-insecure-ignore-host-key
   metadata:
     cwe: 'CWE-322: Key Exchange without Entity Authentication'
     owasp: 'A3: Sensitive Data Exposure'
@@ -49,10 +52,10 @@ rules:
   severity: WARNING
   pattern: |-
     ssh.InsecureIgnoreHostKey()
-
 - id: ssl-v3-is-insecure
-  message: SSLv3 is known to be broken. Use it with caution. Starting with go1.14, SSLv3 will be removed https://golang.org/doc/go1.14#crypto/tls.
-    https://www.us-cert.gov/ncas/alerts/TA14-290A for more information and mitigation.
+  message: |
+    SSLv3 is known to be broken. Use TLS versions 1.2 or higher.
+    For more information, please refer to https://snowflakecomputing.atlassian.net/wiki/spaces/CLO/pages/1127713128/Semgrep+Finding+Remediation#ssl-v3-is-insecure
   metadata:
     cwe: 'CWE-327: Use of a Broken or Risky Cryptographic Algorithm'
     owasp: 'A9: Using Components with Known Vulnerabilities'
@@ -65,9 +68,11 @@ rules:
   patterns:
   - pattern: |-
       tls.Config{..., MinVersion: $TLS.VersionSSL30, ...}
-
 - id: use-of-md5
-  message: Use of weak cryptographic primitive MD5
+  message: |
+    Use of weak cryptographic primitive MD5
+    Use SHA256 for signature verification and PBKDF2 for password hashing
+    For more information, please refer to https://snowflakecomputing.atlassian.net/wiki/spaces/CLO/pages/1127713128/Semgrep+Finding+Remediation#use-of-md5.1
   languages: [go]
   severity: WARNING
   metadata:
@@ -80,7 +85,10 @@ rules:
   - pattern: |
       md5.Sum(...)
 - id: use-of-sha1
-  message: Use of weak cryptographic primitive SHA1
+  message: |
+    Use of weak cryptographic primitive SHA1
+    Use SHA256 for signature verification and PBKDF2 for password hashing.
+    For more information, please refer to https://snowflakecomputing.atlassian.net/wiki/spaces/CLO/pages/1127713128/Semgrep+Finding+Remediation#use-of-sha1.1
   languages: [go]
   severity: WARNING
   metadata:
@@ -93,7 +101,10 @@ rules:
   - pattern: |
       sha1.Sum(...)
 - id: use-of-DES
-  message: Use of weak cryptographic primitive DES
+  message: |
+    Use of weak cryptographic primitive DES
+    Use AES for encryption instead
+    For more information, please refer to https://snowflakecomputing.atlassian.net/wiki/spaces/CLO/pages/1127713128/Semgrep+Finding+Remediation#use-of-DES
   languages: [go]
   severity: WARNING
   metadata:
@@ -106,7 +117,10 @@ rules:
   - pattern: |
       des.NewCipher(...)
 - id: use-of-rc4
-  message: Use of weak cryptographic primitive rc4
+  message: |
+    Use of weak cryptographic primitive rc4
+    Use AES for encryption instead
+    For more information, please refer to https://snowflakecomputing.atlassian.net/wiki/spaces/CLO/pages/1127713128/Semgrep+Finding+Remediation#use-of-rc4
   languages: [go]
   severity: WARNING
   metadata:
@@ -115,7 +129,6 @@ rules:
     source-rule-url: https://github.com/securego/gosec#available-rules
   pattern: |-
     rc4.NewCipher(...)
-
 - id: useless-if-conditional
   patterns:
   - pattern-either:
@@ -125,7 +138,9 @@ rules:
         } else if ($X) {
             ...
         }
-  message: if block checks for the same condition on both branches (`$X`)
+  message: |
+    If block checks for the same condition on both branches (`$X`)
+    For more information, please refer to https://snowflakecomputing.atlassian.net/wiki/spaces/CLO/pages/1127713128/Semgrep+Finding+Remediation#useless-if-conditional
   languages: [go]
   severity: WARNING
 - id: useless-if-body
@@ -136,7 +151,8 @@ rules:
       } else {
           $S
       }
-  message: useless if statment; both blocks have the same body
+  message: |
+    Useless if statment; both blocks have the same body
+    For more information, please refer to https://snowflakecomputing.atlassian.net/wiki/spaces/CLO/pages/1127713128/Semgrep+Finding+Remediation#useless-if-body
   languages: [go]
   severity: WARNING
-
