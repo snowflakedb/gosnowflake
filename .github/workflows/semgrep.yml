@@ -6,7 +6,7 @@ on:
 jobs:
   semgrep:
     runs-on: ubuntu-latest
-    name: Check
+    name: Semgrep
     steps:
     - uses: actions/checkout@v1
     - name: Semgrep
