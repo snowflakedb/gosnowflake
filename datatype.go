@@ -98,6 +98,7 @@ type SnowflakeParameter struct {
 	ExpiresAt                 string
 	SetByControllingParameter string
 	ActivateVersion           string
+	PartialRollout            string
 	Unknown                   string // Reserve for added parameter
 }
 
@@ -137,6 +138,8 @@ func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface
 		return &p.SetByControllingParameter
 	case "activate_version":
 		return &p.ActivateVersion
+	case "partial_rollout":
+		return &p.PartialRollout
 	default:
 		debugPanicf("unknown type: %v", colname)
 		return &p.Unknown
