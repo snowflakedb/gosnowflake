@@ -212,23 +212,25 @@ See cmd/selectmany.go for the full example.
 Supported Data Types
 
 Queries return SQL column type information in the ColumnType type. The
-DatabaseTypeName method returns the following strings representing Snowflake
-data types:
+DatabaseTypeName method returns strings representing Snowflake data types.
+The following table shows those strings, the corresponding Snowflake data 
+type, and the corresponding Golang native data type:
 
-	String Representation	Snowflake Data Type
-	FIXED	                NUMBER/INT
-	REAL	                REAL
-	TEXT	                VARCHAR/STRING
-	DATE	                DATE
-	TIME	                TIME
-	TIMESTAMP_LTZ	        TIMESTAMP_LTZ
-	TIMESTAMP_NTZ	        TIMESTAMP_NTZ
-	TIMESTAMP_TZ	        TIMESTAMP_TZ
-	VARIANT	                VARIANT
-	OBJECT	                OBJECT
-	ARRAY	                ARRAY
-	BINARY	                BINARY
-	BOOLEAN	                BOOLEAN
+	String Representation	Snowflake Data Type	Golang Data Type
+	---------------------   -------------------	-----------------------
+	FIXED	                NUMBER/INT              int64 , int32, int16, int8, int
+	REAL	                REAL                    float64, float32
+	TEXT	                VARCHAR/STRING          string
+	DATE	                DATE                    time.Time
+	TIME	                TIME                    time.Time
+	TIMESTAMP_LTZ	        TIMESTAMP_LTZ           time.Time
+	TIMESTAMP_NTZ	        TIMESTAMP_NTZ           time.Time
+	TIMESTAMP_TZ	        TIMESTAMP_TZ            time.Time
+	VARIANT	                VARIANT                 string
+	OBJECT	                OBJECT                  string
+	ARRAY	                ARRAY                   string
+	BINARY	                BINARY                  []byte
+	BOOLEAN	                BOOLEAN                 bool
 
 Binding Time Type
 
@@ -367,6 +369,141 @@ To generate the valid key pair, one can do the following command on the shell sc
 Note: As of Feb 2020, Golang's official library does not support passcode-encrypted PKCS8 private key.
 For security purposes, Snowflake highly recommends that you store the passcode-encrypted private key on the disk and
 decrypt the key in your application using a library you trust.
+
+
+Executing Multiple Statements in One Call
+
+Note:
+
+	This feature is in preview. It is available to all accounts, but it is intended for development work, not 
+	production work.
+
+By default, Snowflake returns an error for queries issued with multiple statements.
+This restriction helps protect against SQL Injection attacks (https://en.wikipedia.org/wiki/SQL_injection).
+
+The multi-statement feature allows users skip this restriction and execute multiple SQL statements through a 
+single Golang function call. However, this opens up the possibility for SQL injection, so it should be used carefully.
+The risk can be reduced by specifying the exact number of statements to be executed, which makes it more difficult to
+inject a statement by appending it. More details are below.
+
+The Go Snowflake Driver provides two functions that can execute multiple SQL statements in a single call:
+
+- db.QueryContext(): This function is used to execute queries, such as SELECT statements, that return a result
+  set.
+- db.ExecContext(): This function is used to execute statements that don't return a result set (i.e. most DML and
+  DDL statements).
+
+To compose a multi-statement query, simply create a string that contains all the queries, separated by semicolons,
+in the order in which the statements should be executed.
+
+
+To protect against SQL Injection attacks while using the multi-statement feature, pass a Context that specifies 
+the number of statements in the string. For example:
+
+
+	import (
+		"context"
+		"database/sql"
+	)
+
+	var multi_statement_query = "SELECT c1 FROM t1; SELECT c2 FROM t2"
+	var number_of_statements = 2
+	blank_context = context.Background()
+	multi_statement_context, _ := WithMultiStatement(blank_context, number_of_statements)
+	rows, err := db.QueryContext(multi_statement_context, multi_statement_query)
+
+
+When multiple queries are executed by a single call to QueryContext(), multiple result sets are returned. After
+you process the first result set, get the next result set (for the next SQL statement) by calling NextResultSet().
+
+The following pseudo-code shows how to process multiple result sets:
+
+	Execute the statement and get the result set(s):
+
+
+		rows, err := db.QueryContext(ctx, multiStmtQuery)
+
+	Retrieve the rows in the first query's result set:
+
+		while rows.Next() {
+			err = rows.Scan(&variable_1)
+			if err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			...
+		}
+
+	Retrieve the remaining result sets and the rows in them:
+
+		while rows.NextResultSet()  {
+
+			while rows.Next() {
+				...
+			}
+
+		}
+
+The function db.execContext() returns a single result, which is the sum of the results of the individual statements.
+For example, if your multi-statement query executed two UPDATE statements, each of which updated 10 rows,
+then the result returned would be 20. Individual results for individual statements are not available.
+
+The following code shows how to retrieve the result of a multi-statement query executed through db.ExecContext():
+
+    Execute the SQL statements:
+
+        res, err := db.ExecContext(ctx, multiStmtQuery)
+
+    Get the summed result and store it in the variable named count:
+
+        count, err := res.RowsAffected()
+
+
+Note:
+
+    Because a multi-statement ExecContext() returns a single value, you cannot detect offsetting errors.
+    For example, suppose you expected the return value to be 20 because you expected each UPDATE statement to
+    update 10 rows. If one UPDATE statement updated 15 rows and the other UPDATE statement updated only 5
+    rows, the total would still be 20. You would see no indication that the UPDATES had not functioned as
+    expected.
+
+
+The ExecContext() function does not return an error if passed a query (e.g. a SELECT statement). However, it
+still returns only a single value, not a result set, so using it to execute queries (or a mix of queries and non-query
+statements) is impractical.
+
+The QueryContext() function does not return an error if passed non-query statements (e.g. DML). The function
+returns a result set for each statement, whether or not the statement is a query. For each non-query statement, the
+result set contains a single row that contains a single column; the value is the number of rows changed by the
+statement.
+
+If you want to execute a mix of query and non-query statements (e.g. a mix of SELECT and DML statements) in a
+multi-statement query, use QueryContext(). You can retrieve the result sets for the queries,
+and you can retrieve or ignore the row counts for the non-query statements.
+
+
+If any of the SQL statements fail to compile or execute, execution is aborted. Any previous statements that ran before are unaffected.
+
+For example, if the statements below are run as one multi-statement query, the multi-statement query fails on the 
+third statement, and an exception is thrown.
+
+
+	CREATE OR REPLACE TABLE test(n int);
+	INSERT INTO TEST VALUES (1), (2);
+	INSERT INTO TEST VALUES ('not_an_integer');  -- execution fails here
+	INSERT INTO TEST VALUES (3);
+
+If you then query the contents of table :samp:`test`, the values :samp:`1` and :samp:`2` would be present.
+
+When using the QueryContext() and ExecContext() functions, golang code can check for errors the usual way. For
+example:
+
+	rows, err := db.QueryContext(ctx, multiStmtQuery)
+	if err != nil {
+		Fatalf("failed to query multiple statements: %v", err)
+	}
+
+Preparing statements and using bind variables are also not supported for multi-statement queries.
+
 
 Limitations
 
