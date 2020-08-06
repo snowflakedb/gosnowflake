@@ -373,31 +373,27 @@ decrypt the key in your application using a library you trust.
 
 Executing Multiple Statements in One Call
 
-Note:
-
-	This feature is in preview. It is available to all accounts, but it is intended for development work, not 
-	production work.
+Note: This feature is in preview. It is available to all accounts, but it is intended for development work, not
+production work. This feature is first available in version 1.3.7 of the driver.
 
 By default, Snowflake returns an error for queries issued with multiple statements.
 This restriction helps protect against SQL Injection attacks (https://en.wikipedia.org/wiki/SQL_injection).
 
-The multi-statement feature allows users skip this restriction and execute multiple SQL statements through a 
+The multi-statement feature allows users skip this restriction and execute multiple SQL statements through a
 single Golang function call. However, this opens up the possibility for SQL injection, so it should be used carefully.
 The risk can be reduced by specifying the exact number of statements to be executed, which makes it more difficult to
 inject a statement by appending it. More details are below.
 
 The Go Snowflake Driver provides two functions that can execute multiple SQL statements in a single call:
 
-- db.QueryContext(): This function is used to execute queries, such as SELECT statements, that return a result
-  set.
-- db.ExecContext(): This function is used to execute statements that don't return a result set (i.e. most DML and
-  DDL statements).
+* db.QueryContext(): This function is used to execute queries, such as SELECT statements, that return a result set.
+* db.ExecContext(): This function is used to execute statements that don't return a result set (i.e. most DML and DDL statements).
 
 To compose a multi-statement query, simply create a string that contains all the queries, separated by semicolons,
 in the order in which the statements should be executed.
 
 
-To protect against SQL Injection attacks while using the multi-statement feature, pass a Context that specifies 
+To protect against SQL Injection attacks while using the multi-statement feature, pass a Context that specifies
 the number of statements in the string. For example:
 
 
@@ -458,13 +454,11 @@ The following code shows how to retrieve the result of a multi-statement query e
         count, err := res.RowsAffected()
 
 
-Note:
-
-    Because a multi-statement ExecContext() returns a single value, you cannot detect offsetting errors.
-    For example, suppose you expected the return value to be 20 because you expected each UPDATE statement to
-    update 10 rows. If one UPDATE statement updated 15 rows and the other UPDATE statement updated only 5
-    rows, the total would still be 20. You would see no indication that the UPDATES had not functioned as
-    expected.
+Note: Because a multi-statement ExecContext() returns a single value, you cannot detect offsetting errors.
+For example, suppose you expected the return value to be 20 because you expected each UPDATE statement to
+update 10 rows. If one UPDATE statement updated 15 rows and the other UPDATE statement updated only 5
+rows, the total would still be 20. You would see no indication that the UPDATES had not functioned as
+expected.
 
 
 The ExecContext() function does not return an error if passed a query (e.g. a SELECT statement). However, it
@@ -483,7 +477,7 @@ and you can retrieve or ignore the row counts for the non-query statements.
 
 If any of the SQL statements fail to compile or execute, execution is aborted. Any previous statements that ran before are unaffected.
 
-For example, if the statements below are run as one multi-statement query, the multi-statement query fails on the 
+For example, if the statements below are run as one multi-statement query, the multi-statement query fails on the
 third statement, and an exception is thrown.
 
 
@@ -492,7 +486,7 @@ third statement, and an exception is thrown.
 	INSERT INTO TEST VALUES ('not_an_integer');  -- execution fails here
 	INSERT INTO TEST VALUES (3);
 
-If you then query the contents of table :samp:`test`, the values :samp:`1` and :samp:`2` would be present.
+If you then query the contents of the table named "test", the values 1 and 2 would be present.
 
 When using the QueryContext() and ExecContext() functions, golang code can check for errors the usual way. For
 example:
@@ -503,6 +497,174 @@ example:
 	}
 
 Preparing statements and using bind variables are also not supported for multi-statement queries.
+
+
+Using Arrow Data Transfer Format
+
+Note: This feature is in preview. It is available to all accounts, but it is intended for development work, not production work. This feature is first available in version 1.3.4 of the driver.
+
+The Go Snowflake Driver supports the Arrow data format, which can improve performance and reduce memory consumption
+when transferring data between Snowflake and Golang clients.
+
+Historically, the Go Snowflake Driver used the JSON data format when transferring data between Snowflake and the Golang
+client. The Arrow data format avoids the JSON format's extra conversions between binary and textual representations of the data.
+
+The data format is controlled by the session-level Snowflake parameter GO_QUERY_RESULT_FORMAT. For more information
+about Snowflake parameters, see https://docs.snowflake.com/en/sql-reference/parameters.html.
+
+To use Arrow format, execute:
+
+    ALTER SESSION SET GO_QUERY_RESULT_FORMAT = 'ARROW';
+
+To use JSON format, execute:
+
+    ALTER SESSION SET GO_QUERY_RESULT_FORMAT = 'JSON';
+
+The valid values for the parameter are:
+
+    ARROW
+    JSON
+
+The default value is 'JSON'. The default will change in the future.
+
+If the user attempts to set the parameter to an invalid value, an error is returned.
+
+Neither the parameter name nor the parameter value is case-sensitive.
+
+This parameter can be set only at the session level.
+
+While using this feature, keep in mind the following:
+
+  * The Arrow data format can reduce rounding errors in floating point numbers. You might see slightly different
+     values for floating point numbers when using Arrow format than in JSON format.
+
+  * For some numeric data types, the driver can retrieve larger values when using the Arrow format than when using the
+    JSON format. For example, using Arrow format allows the full range of SQL NUMERIC(38,0) values to be retrieved,
+    while using JSON format allows only values in the range supported by the Golang int64 data type.
+
+    Users should ensure that Golang variables are declared using the appropriate data type for the full range of values
+    contained in the column. For an example, see the description below on how to extract big values.
+
+When using the Arrow format, the driver supports more Golang data types and more ways to
+convert SQL values to those Golang data types than when using JSON format.
+
+The table below lists the supported Snowflake SQL data types and the corresponding Golang data types. The columns are:
+
+   1. The SQL data type.
+   2. The default Golang data type that is returned when you use snowflakeRows.Scan() to read data from
+      Arrow data format via an interface{}.
+   3. The possible Golang data types that can be returned when you use snowflakeRows.Scan() to read data from
+      Arrow data format directly.
+   4. The default Golang data type that is returned when you use snowflakeRows.Scan() to read data from
+      JSON data format via an interface{}. (All returned values are JSON strings.)
+   5. The standard Golang data type that is returned when you use snowflakeRows.Scan() to read data from
+      JSON data format directly.
+   6. Footnotes numbers.
+
+This table shows the data types:
+
+    ====================================================================================================================================
+                                      | Default Go  | Supported Go                             | Default Go  | Supported  |
+                                      | Data Type   | Data Types                               | Data Type   | Go Data    |
+    SQL Data Type                     | for Scan()  | for Scan()                               | for Scan()  | Types for  | Footnotes
+                                      | interface{} | (ARROW)                                  | interface{} | Scan()     |
+                                      | (ARROW)     |                                          | (JSON)      | (JSON)     |
+    =====================================================================================================================================
+    BOOLEAN                           | bool        | bool                                     | string      | bool       |
+    VARCHAR                           | string      | string                                   | string      | string     |
+    DOUBLE                            | float64     | float32, float64                         | string      | float64    | [1]  [2]
+    INTEGER that fits in int64        | int64       | int, int8, int16, int32, int64           | string      | int64      | [1]  [2]
+    INTEGER that doesn't fit in int64 | *big.Int    | int, int8, int16, int32, int64, *big.Int | string      |            | [1]  [3]  [5]
+    NUMBER(P, S) where S > 0          | *big.Float  | float32, float64, *big.Float             | string      |            | [1]  [4]  [5]
+    DATE                              | time.Time   | time.Time                                | string      | time.Time  |
+    TIME                              | time.Time   | time.Time                                | string      | time.Time  |
+    TIMESTAMP_LTZ                     | time.Time   | time.Time                                | string      | time.Time  |
+    TIMESTAMP_NTZ                     | time.Time   | time.Time                                | string      | time.Time  |
+    TIMESTAMP_TZ                      | time.Time   | time.Time                                | string      | time.Time  |
+    BINARY                            | []byte      | []byte                                   | string      | []byte     |
+    ARRAY                             | string      | string                                   | string      | string     |
+    OBJECT                            | string      | string                                   | string      | string     |
+    VARIANT                           | string      | string                                   | string      | string     |
+
+Footnotes:
+
+    [1] Converting from a higher precision data type to a lower precision data type via the snowflakeRows.Scan() method can lose low bits (lose precision), lose high bits (completely change the value), or result in error.
+
+    [2] Attempting to convert from a higher precision data type to a lower precision data type via interface{} causes an error.
+
+    [3] You cannot directly Scan() into the alternative data types via snowflakeRows.Scan(), but can convert to those data types by using .Int64()/.String()/.Uint64() methods. For an example, see the description below
+        on extracting big values.
+
+    [4] You cannot directly Scan() into the alternative data types via snowflakeRows.Scan(), but can convert to those data types by using .Float32()/.String()/.Float64() methods. For an example, see the description below
+        on extracting big values.
+
+    [5] Returns either an int64 with the high bits truncated or an error.
+
+
+This example shows how to retrieve very large values using the math/big package. This example retrieves a large
+INTEGER value to an interface and then extracts a big.Int value from that interface. If the value
+fits into an int64, then the code also copies the value to a variable of type int64.
+
+       import math/big
+
+       ...
+
+       var my_interface interface{}
+       var my_big_int_pointer *big.Int
+       var my_int64 int64
+       var rows snowflakeRows
+
+       ...
+
+       rows.Scan(&my_interface)
+       my_big_int_pointer, ok = my_interface.(*big.Int)
+       if my_big_int_pointer.IsInt64() {
+           my_int64 = my_big_int_pointer.Int64()
+       }
+
+If the variable named "rows" is known to contain a big.Int, then you can use the following instead of scanning into an
+interface and then converting to a big.Int:
+
+       rows.Scan(&my_big_int_pointer)
+
+If the variable named "rows" contains a big.Int, then each of the following fails:
+
+       rows.Scan(&my_int64)
+
+       my_int64, ok = my_interface.(int64)
+
+Similar code and rules also apply to big.Float values.
+
+If you're not sure what data type will be returned, you can use code similar to the following to check the data type
+of the returned value:
+
+    // Create variables into which we can scan the returned values.
+    var i64 int64
+    var bigIntPtr *big.Int
+
+    for rows.Next() {
+        // Get the data type info.
+        column_types, err := rows.ColumnTypes()
+        if err != nil {
+            log.Fatalf("ERROR: ColumnTypes() failed. err: %v", err)
+        }
+        // The data type of the zeroeth column in the row.
+        column_type := column_types[0].ScanType()
+        // Choose the appropriate variable based on the data type.
+        switch column_type {
+            case reflect.TypeOf(i64):
+                err = rows.Scan(&i64)
+                fmt.Println("INFO: retrieved int64 value:")
+                fmt.Println(i64)
+            case reflect.TypeOf(bigIntPtr):
+                err = rows.Scan(&bigIntPtr)
+                fmt.Println("INFO: retrieved bigIntPtr value:")
+                fmt.Println(bigIntPtr)
+        }
+    }
+
+Note: SQL NULL values are converted to Golang nil values, and vice-versa.
+
 
 
 Limitations
