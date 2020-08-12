@@ -213,7 +213,7 @@ Supported Data Types
 
 Queries return SQL column type information in the ColumnType type. The
 DatabaseTypeName method returns strings representing Snowflake data types.
-The following table shows those strings, the corresponding Snowflake data 
+The following table shows those strings, the corresponding Snowflake data
 type, and the corresponding Golang native data type:
 
 	String Representation	Snowflake Data Type	Golang Data Type
