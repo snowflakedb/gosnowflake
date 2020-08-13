@@ -1,6 +1,6 @@
 module github.com/snowflakedb/gosnowflake
 
-go 1.14
+go 1.15
 
 require (
 	github.com/apache/arrow/go/arrow v0.0.0-20200601151325-b2287a20f230
