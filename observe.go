@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/mailru/easyjson"
+	"github.com/mailru/easyjson/jlexer"
 )
 
 const (
@@ -24,7 +25,10 @@ func decodeResponse(body io.ReadCloser, resp interface{}) error {
 	} else {
 		err = json.NewDecoder(lr).Decode(resp)
 	}
-	if errors.Is(err, io.ErrUnexpectedEOF) {
+	var lexerErr *jlexer.LexerError
+	if err != nil &&
+		(errors.Is(err, io.ErrUnexpectedEOF) ||
+			(errors.As(err, &lexerErr) && (lr.(*io.LimitedReader).N <= 0))) {
 		return ErrResponseTooLarge
 	}
 	return err
