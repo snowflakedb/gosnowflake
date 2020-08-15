@@ -1,3 +1,9 @@
+// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+
+package gosnowflake
+
+// caRootPEM includes a snapshot of root CAs downloaded from https://curl.haxx.se/ca/cacert.pem
+const caRootPEM = `
 ##
 ## Bundle of CA Root Certificates
 ##
@@ -3445,3 +3451,4 @@ Sxfj03k9bWtJySgOLnRQvwzZRjoQhsmnP+mg7H/rpXdYaXHmgwo38oZJar55CJD2AhZkPuXaTH4M
 NMn5X7azKFGnpyuqSfqNZSlO42sTp5SjLVFteAxEy9/eCG/Oo2Sr05WE1LlSVHJ7liXMvGnjSG4N
 0MedJ5qq+BOS3R7fY581qRY27Iy4g/Q9iY/NtBde17MXQRBdJ3NghVdJIgc=
 -----END CERTIFICATE-----
+`
