@@ -5,7 +5,6 @@ package gosnowflake
 import (
 	"bytes"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"io"
@@ -264,9 +263,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 					return nil, err
 				}
 				if res != nil {
-					return nil, fmt.Errorf("timeout. HTTP Status: %v. Hanging?", res.StatusCode)
+					return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Hanging?", r.timeout, res.StatusCode)
 				}
-				return nil, errors.New("timeout. Hanging?")
+				return nil, fmt.Errorf("timeout after %s. Hanging?", r.timeout)
 			}
 		}
 		retryCounter++
