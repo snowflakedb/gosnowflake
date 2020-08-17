@@ -235,7 +235,9 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		glog.V(2).Infof("number of updated rows: %#v", updatedRows)
 		return &snowflakeResult{
 			affectedRows: updatedRows,
-			insertID:     -1}, nil // last insert id is not supported by Snowflake
+			insertID:     -1,
+			queryID:      sc.QueryID,
+		}, nil // last insert id is not supported by Snowflake
 	} else if sc.isMultiStmt(data.Data) {
 		childResults := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
 		for _, child := range childResults {
