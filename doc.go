@@ -229,7 +229,7 @@ DatabaseTypeName method returns strings representing Snowflake data types.
 The following table shows those strings, the corresponding Snowflake data
 type, and the corresponding Golang native data type. The columns are:
 
-   1. The Go string representation of the data type.
+   1. The string representation of the data type.
    2. The SQL data type.
    3. The default Golang data type that is returned when you use snowflakeRows.Scan() to read data from
       JSON data format via an interface{}. (All returned values are JSON strings.)
