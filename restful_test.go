@@ -186,22 +186,22 @@ func TestUnitCloseSession(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPost: postTestAfterRenew,
 	}
-	err := closeSession(sr)
+	err := closeSession(context.Background(), sr)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	sr.FuncPost = postTestError
-	err = closeSession(sr)
+	err = closeSession(context.Background(), sr)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
-	err = closeSession(sr)
+	err = closeSession(context.Background(), sr)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
-	err = closeSession(sr)
+	err = closeSession(context.Background(), sr)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
@@ -213,25 +213,25 @@ func TestUnitCancelQuery(t *testing.T) {
 	}
 	var requestID uuid.UUID
 	requestID = uuid.New()
-	err := cancelQuery(sr, &requestID)
+	err := cancelQuery(context.Background(), sr, &requestID)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	sr.FuncPost = postTestError
 	requestID = uuid.New()
-	err = cancelQuery(sr, &requestID)
+	err = cancelQuery(context.Background(), sr, &requestID)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
 	requestID = uuid.New()
-	err = cancelQuery(sr, &requestID)
+	err = cancelQuery(context.Background(), sr, &requestID)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
 	requestID = uuid.New()
-	err = cancelQuery(sr, &requestID)
+	err = cancelQuery(context.Background(), sr, &requestID)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}

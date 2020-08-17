@@ -62,7 +62,7 @@ func TestServiceName(t *testing.T) {
 	}
 }
 
-func closeSessionMock(_ *snowflakeRestful) error {
+func closeSessionMock(_ context.Context, _ *snowflakeRestful) error {
 	return &SnowflakeError{
 		Number: ErrSessionGone,
 	}
