@@ -324,7 +324,7 @@ cached when a Go Snowflake Driver application starts, and if the given offset
 is not in the cache, it is generated dynamically.
 
 Currently, Snowflake doesn't support the name-based Location types, e.g.,
-America/Los_Angeles.
+"America/Los_Angeles".
 
 For more information about Location types, see the Go documentation for https://golang.org/pkg/time/#Location.
 
