@@ -89,7 +89,7 @@ type snowflakeChunkDownloader struct {
 	ChunkHeader        map[string]string
 	CurrentIndex       int
 	FuncDownload       func(*snowflakeChunkDownloader, int)
-	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int)
+	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
 	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
 	DoneDownloadCond   *sync.Cond
 	NextDownloader     *snowflakeChunkDownloader
@@ -379,14 +379,19 @@ func (r *largeResultSetReader) Read(p []byte) (n int, err error) {
 
 func downloadChunk(scd *snowflakeChunkDownloader, idx int) {
 	glog.V(2).Infof("download start chunk: %v", idx+1)
+	defer scd.DoneDownloadCond.Broadcast()
 
-	scd.FuncDownloadHelper(scd.ctx, scd, idx)
-	if scd.ctx.Err() == context.Canceled || scd.ctx.Err() == context.DeadlineExceeded {
+	if err := scd.FuncDownloadHelper(scd.ctx, scd, idx); err != nil {
+		glog.V(1).Infof(
+			"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
+		glog.Flush()
+		scd.ChunksError <- &chunkError{Index: idx, Error: err}
+	} else if scd.ctx.Err() == context.Canceled || scd.ctx.Err() == context.DeadlineExceeded {
 		scd.ChunksError <- &chunkError{Index: idx, Error: scd.ctx.Err()}
 	}
 }
 
-func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
+func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) error {
 	headers := make(map[string]string)
 	if len(scd.ChunkHeader) > 0 {
 		glog.V(2).Info("chunk header is provided.")
@@ -400,116 +405,98 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 
 	resp, err := scd.FuncGet(ctx, scd, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)
 	if err != nil {
-		raiseDownloadError(scd, idx, err)
-		return
+		return err
 	}
 	bufStream := bufio.NewReader(resp.Body)
 	defer resp.Body.Close()
 	glog.V(2).Infof("response returned chunk: %v, resp: %v", idx+1, resp)
-	if resp.StatusCode == http.StatusOK {
-		gzipMagic, err := bufStream.Peek(2)
-		if err != nil {
-			raiseDownloadError(scd, idx, err)
-			return
-		}
-		start := time.Now()
-		var source io.Reader
-		if gzipMagic[0] == 0x1f && gzipMagic[1] == 0x8b {
-			// detects and uncompresses Gzip format data
-			bufStream0, err := gzip.NewReader(bufStream)
-			if err != nil {
-				raiseDownloadError(scd, idx, err)
-				return
-			}
-			defer bufStream0.Close()
-			source = bufStream0
-		} else {
-			source = bufStream
-		}
-		st := &largeResultSetReader{
-			status: 0,
-			body:   source,
-		}
-		var respd []chunkRowType
-		if scd.QueryResultFormat != arrowFormat {
-			var decRespd [][]*string
-			if !CustomJSONDecoderEnabled {
-				dec := json.NewDecoder(st)
-				for {
-					if err := dec.Decode(&decRespd); err == io.EOF {
-						break
-					} else if err != nil {
-						raiseDownloadError(scd, idx, err)
-						return
-					}
-				}
-			} else {
-				decRespd, err = decodeLargeChunk(st, scd.ChunkMetas[idx].RowCount, scd.CellCount)
-				if err != nil {
-					raiseDownloadError(scd, idx, err)
-					return
-				}
-			}
-			respd = make([]chunkRowType, len(decRespd))
-			populateJSONRowSet(respd, decRespd)
-		} else {
-			ipcReader, err := ipc.NewReader(source)
-			if err != nil {
-				return
-			}
-			arc := arrowResultChunk{
-				*ipcReader,
-				0,
-				int(scd.totalUncompressedSize()),
-				memory.NewGoAllocator(),
-			}
-			respd, err = arc.decodeArrowChunk(scd.RowSet.RowType)
-			if err != nil {
-				return
-			}
-		}
-		glog.V(2).Infof(
-			"decoded %d rows w/ %d bytes in %s (chunk %v)",
-			scd.ChunkMetas[idx].RowCount,
-			scd.ChunkMetas[idx].UncompressedSize,
-			time.Since(start), idx+1,
-		)
-
-		scd.ChunksMutex.Lock()
-		defer scd.ChunksMutex.Unlock()
-		scd.Chunks[idx] = respd
-		scd.DoneDownloadCond.Broadcast()
-	} else {
+	if resp.StatusCode != http.StatusOK {
 		b, err := ioutil.ReadAll(bufStream)
 		if err != nil {
-			raiseDownloadError(scd, idx, err)
-			return
+			return err
 		}
 		glog.V(1).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
 		glog.V(1).Infof("Header: %v", resp.Header)
 		glog.Flush()
-		scd.ChunksMutex.Lock()
-		defer scd.ChunksMutex.Unlock()
-		scd.ChunksError <- &chunkError{
-			Index: idx,
-			Error: &SnowflakeError{
-				Number:      ErrFailedToGetChunk,
-				SQLState:    SQLStateConnectionFailure,
-				Message:     errMsgFailedToGetChunk,
-				MessageArgs: []interface{}{idx},
-			}}
-		scd.DoneDownloadCond.Broadcast()
+		return &SnowflakeError{
+			Number:      ErrFailedToGetChunk,
+			SQLState:    SQLStateConnectionFailure,
+			Message:     errMsgFailedToGetChunk,
+			MessageArgs: []interface{}{idx},
+		}
 	}
+	return decodeChunk(scd, idx, bufStream)
 }
 
-func raiseDownloadError(scd *snowflakeChunkDownloader, idx int, err error) {
-	glog.V(1).Infof(
-		"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
-	glog.Flush()
+func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader) (err error) {
+	gzipMagic, err := bufStream.Peek(2)
+	if err != nil {
+		return err
+	}
+	start := time.Now()
+	var source io.Reader
+	if gzipMagic[0] == 0x1f && gzipMagic[1] == 0x8b {
+		// detects and uncompresses Gzip format data
+		bufStream0, err := gzip.NewReader(bufStream)
+		if err != nil {
+			return err
+		}
+		defer bufStream0.Close()
+		source = bufStream0
+	} else {
+		source = bufStream
+	}
+	st := &largeResultSetReader{
+		status: 0,
+		body:   source,
+	}
+	var respd []chunkRowType
+	if scd.QueryResultFormat != arrowFormat {
+		var decRespd [][]*string
+		if !CustomJSONDecoderEnabled {
+			dec := json.NewDecoder(st)
+			for {
+				if err := dec.Decode(&decRespd); err == io.EOF {
+					break
+				} else if err != nil {
+					return err
+				}
+			}
+		} else {
+			decRespd, err = decodeLargeChunk(st, scd.ChunkMetas[idx].RowCount, scd.CellCount)
+			if err != nil {
+				return err
+			}
+		}
+		respd = make([]chunkRowType, len(decRespd))
+		populateJSONRowSet(respd, decRespd)
+	} else {
+		ipcReader, err := ipc.NewReader(source)
+		if err != nil {
+			return err
+		}
+		arc := arrowResultChunk{
+			*ipcReader,
+			0,
+			int(scd.totalUncompressedSize()),
+			memory.NewGoAllocator(),
+		}
+		respd, err = arc.decodeArrowChunk(scd.RowSet.RowType)
+		if err != nil {
+			return err
+		}
+	}
+	glog.V(2).Infof(
+		"decoded %d rows w/ %d bytes in %s (chunk %v)",
+		scd.ChunkMetas[idx].RowCount,
+		scd.ChunkMetas[idx].UncompressedSize,
+		time.Since(start), idx+1,
+	)
+
 	scd.ChunksMutex.Lock()
 	defer scd.ChunksMutex.Unlock()
-	scd.ChunksError <- &chunkError{Index: idx, Error: err}
-	scd.DoneDownloadCond.Broadcast()
+	scd.Chunks[idx] = respd
+	return nil
 }
 
 func populateJSONRowSet(dst []chunkRowType, src [][]*string) {
