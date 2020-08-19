@@ -60,7 +60,11 @@ func (sc *snowflakeConn) isMultiStmt(data execResponseData) bool {
 
 func (sc *snowflakeConn) exec(
 	ctx context.Context,
-	query string, noResult bool, isInternal bool, bindings []driver.NamedValue) (*execResponse, error) {
+	query string,
+	noResult bool,
+	isInternal bool,
+	bindings []driver.NamedValue) (
+	*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
 
@@ -257,7 +261,9 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		glog.V(2).Infof("number of updated rows: %#v", updatedRows)
 		return &snowflakeResult{
 			affectedRows: updatedRows,
-			insertID:     -1}, nil
+			insertID:     -1,
+			queryID:      sc.QueryID,
+		}, nil
 	}
 	glog.V(2).Info("DDL")
 	return driver.ResultNoRows, nil
@@ -297,6 +303,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 			RowSetBase64: data.Data.RowSetBase64,
 		},
 	}
+	rows.queryID = sc.QueryID
 
 	if sc.isMultiStmt(data.Data) {
 		childResults := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)

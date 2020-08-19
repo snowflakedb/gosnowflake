@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"testing"
 )
 
@@ -437,5 +438,38 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 	_, err = db.QueryContext(ctx, multiStmtQuery)
 	if err == nil {
 		t.Fatal("should have failed to query multiple statements")
+	}
+}
+
+func TestGetQueryID(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx := context.TODO()
+	conn, _ := db.Conn(ctx)
+
+	err = conn.Raw(func(x interface{}) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "select 1")
+		if err != nil {
+			return err
+		}
+		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		qid := rows.(SnowflakeResult).QueryID()
+		if qid == "" {
+			t.Fatal("should have returned a query ID string")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to retrieve query ID. err: %v", err)
 	}
 }
