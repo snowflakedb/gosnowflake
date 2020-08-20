@@ -124,21 +124,21 @@ func (sc *snowflakeConn) exec(
 	requestID := uuid.New()
 	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout, &requestID)
 	if err != nil {
-		return nil, err
+		return data, err
 	}
 	var code int
 	if data.Code != "" {
 		code, err = strconv.Atoi(data.Code)
 		if err != nil {
 			code = -1
-			return nil, err
+			return data, err
 		}
 	} else {
 		code = -1
 	}
 	glog.V(2).Infof("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
-		return nil, &SnowflakeError{
+		return data, &SnowflakeError{
 			Number:   code,
 			SQLState: data.Data.SQLState,
 			Message:  data.Message,
@@ -228,8 +228,13 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
-		return &snowflakeResult{queryID: data.Data.QueryID}, err
+		glog.V(2).Infof("error: %v", err)
+		if data != nil {
+			return &snowflakeResult{queryID: data.Data.QueryID}, err
+		}
+		return nil, err
 	}
+
 	var updatedRows int64 = 0
 	if sc.isDml(data.Data.StatementTypeID) {
 		// collects all values from the returned row sets
@@ -249,11 +254,19 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			resultPath := fmt.Sprintf("/queries/%s/result", child.id)
 			childData, err := sc.getQueryResult(ctx, resultPath)
 			if err != nil {
+				glog.V(2).Infof("error: %v", err)
+				if data != nil {
+					return &snowflakeResult{queryID: childData.Data.QueryID}, err
+				}
 				return nil, err
 			}
 			if sc.isDml(childData.Data.StatementTypeID) {
 				count, err := updateRows(childData.Data)
 				if err != nil {
+					glog.V(2).Infof("error: %v", err)
+					if data != nil {
+						return &snowflakeResult{queryID: childData.Data.QueryID}, err
+					}
 					return nil, err
 				}
 				updatedRows += count
@@ -279,7 +292,10 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
 		glog.V(2).Infof("error: %v", err)
-		return &snowflakeRows{queryID: data.Data.QueryID}, nil
+		if data != nil {
+			return &snowflakeRows{queryID: data.Data.QueryID}, err
+		}
+		return nil, err
 	}
 
 	rows := new(snowflakeRows)
@@ -315,6 +331,10 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 			resultPath := fmt.Sprintf("/queries/%s/result", child.id)
 			childData, err := sc.getQueryResult(ctx, resultPath)
 			if err != nil {
+				glog.V(2).Infof("error: %v", err)
+				if data != nil {
+					return &snowflakeRows{queryID: childData.Data.QueryID}, err
+				}
 				return nil, err
 			}
 			if !firstResultSet {

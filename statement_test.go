@@ -460,6 +460,7 @@ func TestGetQueryID(t *testing.T) {
 		}
 		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
 		if err != nil {
+			t.Fatalf("failed to execute statement. err: %v. queryID: %v", err, rows.(SnowflakeResult).QueryID())
 			return err
 		}
 		defer rows.Close()
@@ -470,6 +471,6 @@ func TestGetQueryID(t *testing.T) {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("failed to retrieve query ID. err: %v", err)
+		t.Fatalf("failed to prepare statement. err: %v", err)
 	}
 }
