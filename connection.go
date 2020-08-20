@@ -203,6 +203,7 @@ func (sc *snowflakeConn) Close() (err error) {
 	sc.cleanup()
 	return nil
 }
+
 func (sc *snowflakeConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	glog.V(2).Infoln("Prepare")
 	if sc.rest == nil {
@@ -227,7 +228,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	// TODO: handle noResult and isInternal
 	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
-		return nil, err
+		return &snowflakeResult{queryID: data.Data.QueryID}, err
 	}
 	var updatedRows int64 = 0
 	if sc.isDml(data.Data.StatementTypeID) {
@@ -278,7 +279,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	data, err := sc.exec(ctx, query, false, false, args)
 	if err != nil {
 		glog.V(2).Infof("error: %v", err)
-		return nil, err
+		return &snowflakeRows{queryID: data.Data.QueryID}, nil
 	}
 
 	rows := new(snowflakeRows)
