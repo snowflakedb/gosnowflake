@@ -460,13 +460,31 @@ func TestGetQueryID(t *testing.T) {
 		}
 		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
 		if err != nil {
-			t.Fatalf("failed to execute statement. err: %v. queryID: %v", err, rows.(SnowflakeResult).QueryID())
 			return err
 		}
 		defer rows.Close()
 		qid := rows.(SnowflakeResult).QueryID()
 		if qid == "" {
 			t.Fatal("should have returned a query ID string")
+		}
+
+		stmt, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
+		if err != nil {
+			return err
+		}
+		rows, err = stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err == nil {
+			t.Fatal("should have failed to execute query")
+		}
+		if driverErr, ok := err.(*SnowflakeError); ok {
+			if driverErr.QueryID == "" {
+				t.Fatal("should have an associated query ID")
+			}
+		} else {
+			t.Fatal("should have been able to cast to Snowflake Error")
+		}
+		if rows != nil {
+			t.Fatal("rows should be empty")
 		}
 		return nil
 	})

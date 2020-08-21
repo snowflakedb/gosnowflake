@@ -138,7 +138,7 @@ func (sc *snowflakeConn) exec(
 	}
 	glog.V(2).Infof("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
-		return data, &SnowflakeError{
+		return nil, &SnowflakeError{
 			Number:   code,
 			SQLState: data.Data.SQLState,
 			Message:  data.Message,
@@ -230,7 +230,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	if err != nil {
 		glog.V(2).Infof("error: %v", err)
 		if data != nil {
-			return &snowflakeResult{queryID: data.Data.QueryID}, err
+			return nil, &SnowflakeError{Message: err.Error(), QueryID: data.Data.QueryID}
 		}
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			if err != nil {
 				glog.V(2).Infof("error: %v", err)
 				if data != nil {
-					return &snowflakeResult{queryID: childData.Data.QueryID}, err
+					return nil, &SnowflakeError{Message: err.Error(), QueryID: childData.Data.QueryID}
 				}
 				return nil, err
 			}
@@ -265,7 +265,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 				if err != nil {
 					glog.V(2).Infof("error: %v", err)
 					if data != nil {
-						return &snowflakeResult{queryID: childData.Data.QueryID}, err
+						return nil, &SnowflakeError{Message: err.Error(), QueryID: childData.Data.QueryID}
 					}
 					return nil, err
 				}
@@ -293,7 +293,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	if err != nil {
 		glog.V(2).Infof("error: %v", err)
 		if data != nil {
-			return &snowflakeRows{queryID: data.Data.QueryID}, err
+			return nil, &SnowflakeError{Message: err.Error(), QueryID: data.Data.QueryID}
 		}
 		return nil, err
 	}
@@ -333,7 +333,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 			if err != nil {
 				glog.V(2).Infof("error: %v", err)
 				if data != nil {
-					return &snowflakeRows{queryID: childData.Data.QueryID}, err
+					return nil, &SnowflakeError{Message: err.Error(), QueryID: data.Data.QueryID}
 				}
 				return nil, err
 			}
