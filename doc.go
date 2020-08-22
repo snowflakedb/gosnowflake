@@ -413,8 +413,7 @@ decrypt the key in your application using a library you trust.
 
 Executing Multiple Statements in One Call
 
-Note: This feature is in preview. It is available to all accounts, but it is intended for development work, not
-production work. This feature is first available in version 1.3.7 of the driver.
+This feature is available in version 1.3.8 or later of the driver.
 
 By default, Snowflake returns an error for queries issued with multiple statements.
 This restriction helps protect against SQL Injection attacks (https://en.wikipedia.org/wiki/SQL_injection).
