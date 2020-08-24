@@ -32,7 +32,7 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType) ([]
 
 		numRows := int(record.NumRows())
 		columns := record.Columns()
-		chunkRows = make([]chunkRowType, numRows)
+		tmpRows := make([]chunkRowType, numRows)
 
 		for colIdx, col := range columns {
 			destcol := make([]snowflakeValue, numRows)
@@ -43,11 +43,12 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType) ([]
 
 			for rowIdx := 0; rowIdx < numRows; rowIdx++ {
 				if colIdx == 0 {
-					chunkRows[rowIdx] = chunkRowType{ArrowRow: make([]snowflakeValue, len(columns))}
+					tmpRows[rowIdx] = chunkRowType{ArrowRow: make([]snowflakeValue, len(columns))}
 				}
-				chunkRows[rowIdx].ArrowRow[colIdx] = destcol[rowIdx]
+				tmpRows[rowIdx].ArrowRow[colIdx] = destcol[rowIdx]
 			}
 		}
+		chunkRows = append(chunkRows, tmpRows...)
 		arc.rowCount += numRows
 	}
 }
