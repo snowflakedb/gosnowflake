@@ -63,17 +63,17 @@ func TestUnitPostAuthSAML(t *testing.T) {
 		FuncPost: postTestError,
 	}
 	var err error
-	_, err = postAuthSAML(sr, make(map[string]string), []byte{}, 0)
+	_, err = postAuthSAML(context.TODO(), sr, make(map[string]string), []byte{}, 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
-	_, err = postAuthSAML(sr, make(map[string]string), []byte{}, 0)
+	_, err = postAuthSAML(context.TODO(), sr, make(map[string]string), []byte{}, 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
-	_, err = postAuthSAML(sr, make(map[string]string), []byte{0x12, 0x34}, 0)
+	_, err = postAuthSAML(context.TODO(), sr, make(map[string]string), []byte{0x12, 0x34}, 0)
 	if err == nil {
 		t.Fatalf("should have failed to post")
 	}
@@ -84,17 +84,17 @@ func TestUnitPostAuthOKTA(t *testing.T) {
 		FuncPost: postTestError,
 	}
 	var err error
-	_, err = postAuthOKTA(sr, make(map[string]string), []byte{}, "hahah", 0)
+	_, err = postAuthOKTA(context.TODO(), sr, make(map[string]string), []byte{}, "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
-	_, err = postAuthOKTA(sr, make(map[string]string), []byte{}, "hahah", 0)
+	_, err = postAuthOKTA(context.TODO(), sr, make(map[string]string), []byte{}, "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
-	_, err = postAuthOKTA(sr, make(map[string]string), []byte{0x12, 0x34}, "haha", 0)
+	_, err = postAuthOKTA(context.TODO(), sr, make(map[string]string), []byte{0x12, 0x34}, "haha", 0)
 	if err == nil {
 		t.Fatal("should have failed to run post request after the renewal")
 	}
@@ -105,34 +105,34 @@ func TestUnitGetSSO(t *testing.T) {
 		FuncGet: getTestError,
 	}
 	var err error
-	_, err = getSSO(sr, &url.Values{}, make(map[string]string), "hahah", 0)
+	_, err = getSSO(context.TODO(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncGet = getTestAppBadGatewayError
-	_, err = getSSO(sr, &url.Values{}, make(map[string]string), "hahah", 0)
+	_, err = getSSO(context.TODO(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncGet = getTestHTMLSuccess
-	_, err = getSSO(sr, &url.Values{}, make(map[string]string), "hahah", 0)
+	_, err = getSSO(context.TODO(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
 	if err != nil {
 		t.Fatalf("failed to get HTML content. err: %v", err)
 	}
 }
 
-func postAuthSAMLError(_ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+func postAuthSAMLError(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
 	return &authResponse{}, errors.New("failed to get SAML response")
 }
 
-func postAuthSAMLAuthFail(_ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+func postAuthSAMLAuthFail(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
 	return &authResponse{
 		Success: false,
 		Message: "SAML auth failed",
 	}, nil
 }
 
-func postAuthSAMLAuthSuccessButInvalidURL(_ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+func postAuthSAMLAuthSuccessButInvalidURL(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
 	return &authResponse{
 		Success: true,
 		Message: "",
@@ -143,7 +143,7 @@ func postAuthSAMLAuthSuccessButInvalidURL(_ *snowflakeRestful, _ map[string]stri
 	}, nil
 }
 
-func postAuthSAMLAuthSuccess(_ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+func postAuthSAMLAuthSuccess(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
 	return &authResponse{
 		Success: true,
 		Message: "",
@@ -154,23 +154,23 @@ func postAuthSAMLAuthSuccess(_ *snowflakeRestful, _ map[string]string, _ []byte,
 	}, nil
 }
 
-func postAuthOKTAError(_ *snowflakeRestful, _ map[string]string, _ []byte, _ string, _ time.Duration) (*authOKTAResponse, error) {
+func postAuthOKTAError(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ string, _ time.Duration) (*authOKTAResponse, error) {
 	return &authOKTAResponse{}, errors.New("failed to get SAML response")
 }
 
-func postAuthOKTASuccess(_ *snowflakeRestful, _ map[string]string, _ []byte, _ string, _ time.Duration) (*authOKTAResponse, error) {
+func postAuthOKTASuccess(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ string, _ time.Duration) (*authOKTAResponse, error) {
 	return &authOKTAResponse{}, nil
 }
 
-func getSSOError(_ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
+func getSSOError(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
 	return []byte{}, errors.New("failed to get SSO html")
 }
 
-func getSSOSuccessButInvalidURL(_ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
+func getSSOSuccessButInvalidURL(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
 	return []byte(`<html><form id="1"/></html>`), nil
 }
 
-func getSSOSuccess(_ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
+func getSSOSuccess(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
 	return []byte(`<html><form id="1" action="https&#x3a;&#x2f;&#x2f;abc.com&#x2f;"></form></html>`), nil
 }
 
@@ -190,17 +190,17 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 		FuncPostAuthSAML: postAuthSAMLError,
 	}
 	var err error
-	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthFail
-	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidURL
-	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -213,23 +213,23 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccess
 	sr.FuncPostAuthOKTA = postAuthOKTAError
-	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthOKTA = postAuthOKTASuccess
 	sr.FuncGetSSO = getSSOError
-	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncGetSSO = getSSOSuccessButInvalidURL
-	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncGetSSO = getSSOSuccess
-	_, err = authenticateBySAML(sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
 	if err != nil {
 		t.Fatalf("failed. err: %v", err)
 	}

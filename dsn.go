@@ -174,7 +174,6 @@ func DSN(cfg *Config) (dsn string, err error) {
 		keyBase64 := base64.URLEncoding.EncodeToString(privateKeyInBytes)
 		params.Add("privateKey", keyBase64)
 	}
-
 	if cfg.InsecureMode {
 		params.Add("insecureMode", strconv.FormatBool(cfg.InsecureMode))
 	}
@@ -518,6 +517,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.PasscodeInPassword = vv
 		case "loginTimeout":
 			cfg.LoginTimeout, err = parseTimeout(value)
+			if err != nil {
+				return
+			}
+		case "requestTimeout":
+			cfg.RequestTimeout, err = parseTimeout(value)
 			if err != nil {
 				return
 			}

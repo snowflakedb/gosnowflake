@@ -1,8 +1,11 @@
+// Copyright (c) 2020 Snowflake Computing Inc. All right reserved.
+
 package gosnowflake
 
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"testing"
 )
 
@@ -437,5 +440,60 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 	_, err = db.QueryContext(ctx, multiStmtQuery)
 	if err == nil {
 		t.Fatal("should have failed to query multiple statements")
+	}
+}
+
+func TestGetQueryID(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx := context.TODO()
+	conn, _ := db.Conn(ctx)
+
+	err = conn.Raw(func(x interface{}) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "select 1")
+		if err != nil {
+			return err
+		}
+		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		qid := rows.(SnowflakeResult).QueryID()
+		if qid == "" {
+			t.Fatal("should have returned a query ID string")
+		}
+
+		stmt, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
+		if err != nil {
+			return err
+		}
+		rows, err = stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err == nil {
+			t.Fatal("should have failed to execute query")
+		}
+		if driverErr, ok := err.(*SnowflakeError); ok {
+			if driverErr.Number != 1003 {
+				t.Fatalf("incorrect error code. expected: 1003, got: %v", driverErr.Number)
+			}
+			if driverErr.QueryID == "" {
+				t.Fatal("should have an associated query ID")
+			}
+		} else {
+			t.Fatal("should have been able to cast to Snowflake Error")
+		}
+		if rows != nil {
+			t.Fatal("rows should be empty")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to prepare statement. err: %v", err)
 	}
 }

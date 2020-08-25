@@ -352,6 +352,7 @@ func isTestUnknownStatus() bool {
 }
 
 func checkOCSPCacheServer(
+	ctx context.Context,
 	client clientInterface,
 	req requestFunc,
 	ocspServerHost *url.URL,
@@ -360,7 +361,7 @@ func checkOCSPCacheServer(
 	ocspS *ocspStatus) {
 	var respd map[string][]interface{}
 	headers := make(map[string]string)
-	res, err := newRetryHTTP(context.TODO(), client, req, ocspServerHost, headers, totalTimeout).execute()
+	res, err := newRetryHTTP(ctx, client, req, ocspServerHost, headers, totalTimeout).execute()
 	if err != nil {
 		glog.V(2).Infof("failed to get OCSP cache from OCSP Cache Server. %v\n", err)
 		return nil, &ocspStatus{
@@ -398,6 +399,7 @@ func checkOCSPCacheServer(
 // retryOCSP is the second level of retry method if the returned contents are corrupted. It often happens with OCSP
 // serer and retry helps.
 func retryOCSP(
+	ctx context.Context,
 	client clientInterface,
 	req requestFunc,
 	ocspHost *url.URL,
@@ -413,7 +415,7 @@ func retryOCSP(
 		multiplier = 3 // up to 3 times for Fail Close mode
 	}
 	res, err := newRetryHTTP(
-		context.TODO(), client, req, ocspHost, headers,
+		ctx, client, req, ocspHost, headers,
 		totalTimeout*time.Duration(multiplier)).doPost().setBody(reqBody).execute()
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
@@ -452,7 +454,7 @@ func retryOCSP(
 }
 
 // getRevocationStatus checks the certificate revocation status for subject using issuer certificate.
-func getRevocationStatus(subject, issuer *x509.Certificate) *ocspStatus {
+func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate) *ocspStatus {
 	glog.V(2).Infof("Subject: %v, Issuer: %v\n", subject.Subject, issuer.Subject)
 
 	status, ocspReq, encodedCertID := validateWithCache(subject, issuer)
@@ -510,7 +512,7 @@ func getRevocationStatus(subject, issuer *x509.Certificate) *ocspStatus {
 		Transport: snowflakeInsecureTransport,
 	}
 	ocspRes, ocspResBytes, ocspS := retryOCSP(
-		ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
+		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
 	if ocspS.code != ocspSuccess {
 		return ocspS
 	}
@@ -536,7 +538,7 @@ func isValidOCSPStatus(status ocspStatusCode) bool {
 }
 
 // verifyPeerCertificate verifies all of certificate revocation status
-func verifyPeerCertificate(verifiedChains [][]*x509.Certificate) (err error) {
+func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certificate) (err error) {
 	for i := 0; i < len(verifiedChains); i++ {
 		// Certificate signed by Root CA. This should be one before the last in the Certificate Chain
 		numberOfNoneRootCerts := len(verifiedChains[i]) - 1
@@ -550,7 +552,7 @@ func verifyPeerCertificate(verifiedChains [][]*x509.Certificate) (err error) {
 			verifiedChains[i] = append(verifiedChains[i], rca)
 			numberOfNoneRootCerts++
 		}
-		results := getAllRevocationStatus(verifiedChains[i])
+		results := getAllRevocationStatus(ctx, verifiedChains[i])
 		if r := canEarlyExitForOCSP(results, numberOfNoneRootCerts); r != nil {
 			return r.err
 		}
@@ -663,7 +665,7 @@ func downloadOCSPCacheServer() {
 		Timeout:   timeout,
 		Transport: snowflakeInsecureTransport,
 	}
-	ret, ocspStatus := checkOCSPCacheServer(ocspClient, http.NewRequest, u, timeout)
+	ret, ocspStatus := checkOCSPCacheServer(context.TODO(), ocspClient, http.NewRequest, u, timeout)
 	if ocspStatus.code != ocspSuccess {
 		return
 	}
@@ -681,7 +683,7 @@ func downloadOCSPCacheServer() {
 	ocspResponseCacheLock.Unlock()
 }
 
-func getAllRevocationStatus(verifiedChains []*x509.Certificate) []*ocspStatus {
+func getAllRevocationStatus(ctx context.Context, verifiedChains []*x509.Certificate) []*ocspStatus {
 	cached := validateWithCacheForAllCertificates(verifiedChains)
 	if !cached {
 		downloadOCSPCacheServer()
@@ -689,7 +691,7 @@ func getAllRevocationStatus(verifiedChains []*x509.Certificate) []*ocspStatus {
 	n := len(verifiedChains) - 1
 	results := make([]*ocspStatus, n)
 	for j := 0; j < n; j++ {
-		results[j] = getRevocationStatus(verifiedChains[j], verifiedChains[j+1])
+		results[j] = getRevocationStatus(ctx, verifiedChains[j], verifiedChains[j+1])
 		if !isValidOCSPStatus(results[j].code) {
 			return results
 		}
@@ -700,7 +702,7 @@ func getAllRevocationStatus(verifiedChains []*x509.Certificate) []*ocspStatus {
 // verifyPeerCertificateSerial verifies the certificate revocation status in serial.
 func verifyPeerCertificateSerial(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
 	overrideCacheDir()
-	return verifyPeerCertificate(verifiedChains)
+	return verifyPeerCertificate(context.TODO(), verifiedChains)
 }
 
 func overrideCacheDir() {

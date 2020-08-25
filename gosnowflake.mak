@@ -3,7 +3,7 @@ SHELL := /bin/bash
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
 setup:
-	@which golint &> /dev/null  || go get golang.org/x/lint/golint
+	@which golint &> /dev/null  || go get -u golang.org/x/lint/golint
 	@which make2help &> /dev/null || go get github.com/Songmu/make2help/cmd/make2help
 	@which staticcheck &> /dev/null || go get honnef.co/go/tools/cmd/staticcheck
 
