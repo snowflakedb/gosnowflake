@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Snowflake Computing Inc. All right reserved.
+
 package gosnowflake
 
 import (
@@ -477,6 +479,9 @@ func TestGetQueryID(t *testing.T) {
 			t.Fatal("should have failed to execute query")
 		}
 		if driverErr, ok := err.(*SnowflakeError); ok {
+			if driverErr.Number != 1003 {
+				t.Fatalf("incorrect error code. expected: 1003, got: %v", driverErr.Number)
+			}
 			if driverErr.QueryID == "" {
 				t.Fatal("should have an associated query ID")
 			}

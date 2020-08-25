@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2020 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -230,7 +230,15 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	if err != nil {
 		glog.V(2).Infof("error: %v", err)
 		if data != nil {
-			return nil, &SnowflakeError{Message: err.Error(), QueryID: data.Data.QueryID}
+			code, err := strconv.Atoi(data.Code)
+			if err != nil {
+				return nil, err
+			}
+			return nil, &SnowflakeError{
+				Number:   code,
+				SQLState: data.Data.SQLState,
+				Message:  err.Error(),
+				QueryID:  data.Data.QueryID}
 		}
 		return nil, err
 	}
@@ -255,8 +263,16 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			childData, err := sc.getQueryResult(ctx, resultPath)
 			if err != nil {
 				glog.V(2).Infof("error: %v", err)
-				if data != nil {
-					return nil, &SnowflakeError{Message: err.Error(), QueryID: childData.Data.QueryID}
+				code, err := strconv.Atoi(childData.Code)
+				if err != nil {
+					return nil, err
+				}
+				if childData != nil {
+					return nil, &SnowflakeError{
+						Number:   code,
+						SQLState: childData.Data.SQLState,
+						Message:  err.Error(),
+						QueryID:  childData.Data.QueryID}
 				}
 				return nil, err
 			}
@@ -264,8 +280,16 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 				count, err := updateRows(childData.Data)
 				if err != nil {
 					glog.V(2).Infof("error: %v", err)
-					if data != nil {
-						return nil, &SnowflakeError{Message: err.Error(), QueryID: childData.Data.QueryID}
+					if childData != nil {
+						code, err := strconv.Atoi(childData.Code)
+						if err != nil {
+							return nil, err
+						}
+						return nil, &SnowflakeError{
+							Number:   code,
+							SQLState: childData.Data.SQLState,
+							Message:  err.Error(),
+							QueryID:  childData.Data.QueryID}
 					}
 					return nil, err
 				}
@@ -293,7 +317,15 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	if err != nil {
 		glog.V(2).Infof("error: %v", err)
 		if data != nil {
-			return nil, &SnowflakeError{Message: err.Error(), QueryID: data.Data.QueryID}
+			code, err := strconv.Atoi(data.Code)
+			if err != nil {
+				return nil, err
+			}
+			return nil, &SnowflakeError{
+				Number:   code,
+				SQLState: data.Data.SQLState,
+				Message:  err.Error(),
+				QueryID:  data.Data.QueryID}
 		}
 		return nil, err
 	}
@@ -332,8 +364,16 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 			childData, err := sc.getQueryResult(ctx, resultPath)
 			if err != nil {
 				glog.V(2).Infof("error: %v", err)
-				if data != nil {
-					return nil, &SnowflakeError{Message: err.Error(), QueryID: data.Data.QueryID}
+				if childData != nil {
+					code, err := strconv.Atoi(childData.Code)
+					if err != nil {
+						return nil, err
+					}
+					return nil, &SnowflakeError{
+						Number:   code,
+						SQLState: childData.Data.SQLState,
+						Message:  err.Error(),
+						QueryID:  childData.Data.QueryID}
 				}
 				return nil, err
 			}
@@ -460,7 +500,7 @@ func getChildResults(IDs string, types string) []childResult {
 	return res
 }
 
-func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) (execResponse, error) {
+func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) (*execResponse, error) {
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
@@ -480,14 +520,14 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 	if err != nil {
 		glog.V(1).Infof("failed to get response. err: %v", err)
 		glog.Flush()
-		return execResponse{}, err
+		return nil, err
 	}
-	var respd execResponse
+	var respd *execResponse
 	err = json.NewDecoder(res.Body).Decode(&respd)
 	if err != nil {
 		glog.V(1).Infof("failed to decode JSON. err: %v", err)
 		glog.Flush()
-		return execResponse{}, err
+		return nil, err
 	}
 	return respd, nil
 }
