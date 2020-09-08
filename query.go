@@ -9,8 +9,8 @@ import (
 const arrowFormat = "arrow"
 
 type execBindParameter struct {
-	Type  string  `json:"type"`
-	Value *string `json:"value"`
+	Type  string      `json:"type"`
+	Value interface{} `json:"value"`
 }
 
 type execRequest struct {

@@ -1811,6 +1811,55 @@ func testArray(t *testing.T, arrow bool) {
 	})
 }
 
+func TestArrayBind(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("create or replace table test(c1 int, c2 string)")
+		intArray := []int{1, 2, 3}
+		strArray := []string{"test1", "test2", "test3"}
+		dbt.mustExec(`insert into test values (?, ?)`, intArray, strArray)
+		rows := dbt.mustQuery("select * from test order by 1")
+		defer rows.Close()
+
+		var v1 int
+		var v2 string
+		if rows.Next() {
+			err := rows.Scan(&v1, &v2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if v1 != 1 && v2 != "test1" {
+				t.Fatalf("failed to fetch. expected: 1, test1. got: %v, %v", v1, v2)
+			}
+		} else {
+			t.Error("failed to query")
+		}
+
+		if rows.Next() {
+			err := rows.Scan(&v1, &v2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if v1 != 2 && v2 != "test2" {
+				t.Fatalf("failed to fetch. expected: 2, test2. got: %v, %v", v1, v2)
+			}
+		} else {
+			t.Error("failed to query")
+		}
+
+		if rows.Next() {
+			err := rows.Scan(&v1, &v2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if v1 != 3 && v2 != "test3" {
+				t.Fatalf("failed to fetch. expected: 3, test3. got: %v, %v", v1, v2)
+			}
+		} else {
+			t.Error("failed to query")
+		}
+	})
+}
+
 func TestLargeSetResult(t *testing.T) {
 	CustomJSONDecoderEnabled = false
 	testLargeSetResult(t, 100000, false)
