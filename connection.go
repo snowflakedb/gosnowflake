@@ -26,6 +26,12 @@ const (
 	statementTypeIDDelete           = statementTypeIDDml + int64(0x300)
 	statementTypeIDMerge            = statementTypeIDDml + int64(0x400)
 	statementTypeIDMultiTableInsert = statementTypeIDDml + int64(0x500)
+
+	statementTypeIDDdl     = int64(0x6000)
+	statementTypeIDCreate  = statementTypeIDDdl + int64(0x101)
+	statementTypeIDComment = statementTypeIDDdl + int64(0x200)
+	statementTypeIDDrop    = statementTypeIDDdl + int64(0x300)
+	statementTypeIDAlter   = statementTypeIDDdl + int64(0x401)
 )
 
 const (
@@ -45,13 +51,7 @@ type snowflakeConn struct {
 
 // isDml returns true if the statement type code is in the range of DML.
 func (sc *snowflakeConn) isDml(v int64) bool {
-	switch v {
-	case statementTypeIDDml, statementTypeIDInsert,
-		statementTypeIDUpdate, statementTypeIDDelete,
-		statementTypeIDMerge, statementTypeIDMultiTableInsert:
-		return true
-	}
-	return false
+	return statementTypeIDDml <= v && v <= statementTypeIDMultiTableInsert
 }
 
 // isMultiStmt returns true if the statement type code is of type multistatement
@@ -73,9 +73,18 @@ func (sc *snowflakeConn) exec(
 	req := execRequest{
 		SQLText:    query,
 		AsyncExec:  noResult,
+		IsInternal: isInternal,
 		SequenceID: counter,
 	}
-	req.IsInternal = isInternal
+	params := []paramKey{MultiStatementCount}
+	for _, k := range params {
+		key := ctx.Value(k)
+		if key != nil {
+			req.Parameters = map[string]interface{}{string(MultiStatementCount): key}
+		}
+	}
+	glog.V(2).Infof("parameters: %v", req.Parameters)
+
 	tsmode := "TIMESTAMP_NTZ"
 	idx := 1
 	if len(bindings) > 0 {
@@ -106,12 +115,16 @@ func (sc *snowflakeConn) exec(
 			}
 		}
 	}
+<<<<<<< HEAD
 	multiCount := ctx.Value(MultiStatementCount)
 	if multiCount != nil {
 		req.Parameters = map[string]interface{}{string(MultiStatementCount): multiCount}
 	}
 	logger.WithContext(ctx).Infof("bindings: %v", req.Bindings)
 	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
+=======
+	glog.V(2).Infof("bindings: %v", req.Bindings)
+>>>>>>> 13a25c6... add async support
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
@@ -232,8 +245,15 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	// TODO: handle noResult and isInternal
-	data, err := sc.exec(ctx, query, false, false, args)
+	internal, err := isInternal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	noResult, err := isAsyncMode(ctx)
+	if err != nil {
+		return nil, err
+	}
+	data, err := sc.exec(ctx, query, noResult, internal, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
 		if data != nil {
@@ -319,8 +339,16 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	// TODO: handle noResult and isInternal
-	data, err := sc.exec(ctx, query, false, false, args)
+
+	internal, err := isInternal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	noResult, err := isAsyncMode(ctx)
+	if err != nil {
+		return nil, err
+	}
+	data, err := sc.exec(ctx, query, noResult, internal, args)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
@@ -419,8 +447,16 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 	if sc.rest == nil {
 		return driver.ErrBadConn
 	}
-	// TODO: handle noResult and isInternal
-	_, err := sc.exec(ctx, "SELECT 1", false, false, []driver.NamedValue{})
+
+	internal, err := isInternal(ctx)
+	if err != nil {
+		return err
+	}
+	noResult, err := isAsyncMode(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = sc.exec(ctx, "SELECT 1", noResult, internal, []driver.NamedValue{})
 	return err
 }
 
@@ -545,6 +581,56 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 		return nil, err
 	}
 	return respd, nil
+}
+
+func isInternal(ctx context.Context) (bool, error) {
+	val := ctx.Value(IsInternal)
+	if val == nil {
+		return false, nil
+	}
+	boolVal, ok := val.(bool)
+	if !ok {
+		return false, fmt.Errorf("failed to cast val %+v to bool", val)
+	}
+	return boolVal, nil
+}
+
+func isAsyncMode(ctx context.Context) (bool, error) {
+	val := ctx.Value(AsyncMode)
+	if val == nil {
+		return false, nil
+	}
+	boolVal, ok := val.(bool)
+	if !ok {
+		return false, fmt.Errorf("failed to cast val %+v to bool", val)
+	}
+	return boolVal, nil
+}
+
+func withQueryIDChan(ctx context.Context, c chan<- string) context.Context {
+	return context.WithValue(ctx, QueryIDChan, c)
+}
+
+func getQueryIDChan(ctx context.Context) chan<- string {
+	v := ctx.Value(QueryIDChan)
+	if v == nil {
+		return nil
+	}
+	c, _ := v.(chan<- string)
+	return c
+}
+
+//func WithResumeQueryID(ctx context.Context, queryID string) context.Context {
+//	return context.WithValue(ctx, ResumeQueryID, queryID)
+//}
+
+func getResumeQueryID(ctx context.Context) string {
+	val := ctx.Value(ResumeQueryID)
+	if val == nil {
+		return ""
+	}
+	queryID, _ := val.(string)
+	return queryID
 }
 
 func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) *snowflakeChunkDownloader {

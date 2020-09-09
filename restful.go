@@ -89,6 +89,15 @@ func (sr *snowflakeRestful) getFullURL(path string, params *url.Values) *url.URL
 	return ret
 }
 
+func (sr *snowflakeRestful) getQueryIDURL(queryID string) *url.URL {
+	ret := &url.URL{
+		Scheme: sr.Protocol,
+		Host:   sr.Host + ":" + strconv.Itoa(sr.Port),
+		Path:   "/queries/" + queryID + "/result",
+	}
+	return ret
+}
+
 type renewSessionResponse struct {
 	Data    renewSessionResponseMain `json:"data"`
 	Message string                   `json:"message"`
@@ -175,8 +184,16 @@ func postRestfulQueryHelper(
 	if sr.Token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 	}
-	fullURL := sr.getFullURL(queryRequestPath, params)
-	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, false)
+	var resp *http.Response
+	var fullURL *url.URL
+	if queryID := getResumeQueryID(ctx); queryID == "" {
+		fullURL = sr.getFullURL(queryRequestPath, params)
+		resp, err = sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, false)
+	} else {
+		// TODO use url when async query initially executed
+		fullURL = sr.getQueryIDURL(queryID)
+		resp, err = sr.FuncGet(ctx, sr, fullURL, headers, timeout)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +217,11 @@ func postRestfulQueryHelper(
 		var resultURL string
 		isSessionRenewed := false
 
+		if queryIDChan := getQueryIDChan(ctx); queryIDChan != nil {
+			queryIDChan <- respd.Data.QueryID
+			close(queryIDChan)
+			ctx = withQueryIDChan(ctx, nil)
+		}
 		for isSessionRenewed || respd.Code == queryInProgressCode ||
 			respd.Code == queryInProgressAsyncCode {
 			if !isSessionRenewed {

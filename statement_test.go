@@ -443,6 +443,32 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 	}
 }
 
+func TestWithAsyncMode(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx, _ := WithAsyncMode(context.Background())
+	query := "SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>1000000))"
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		t.Error("failed query")
+	}
+	rows.Close()
+	var idx int
+	var v string
+	for rows.Next() {
+		err := rows.Scan(&idx, &v)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestGetQueryID(t *testing.T) {
 	var db *sql.DB
 	var err error

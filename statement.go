@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2020 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -12,6 +12,14 @@ type paramKey string
 const (
 	// MultiStatementCount controls the number of queries to execute in a single API call
 	MultiStatementCount paramKey = "MULTI_STATEMENT_COUNT"
+	// AsyncMode controls
+	AsyncMode paramKey = "ASYNC_MODE_QUERY"
+	// QueryIDChan controls
+	QueryIDChan paramKey = "QUERY_ID_CHAN"
+	// ResumeQueryID controls
+	ResumeQueryID paramKey = "RESUME_QUERY_ID"
+	// IsInternal controls
+	IsInternal paramKey = "INTERNAL_QUERY"
 )
 
 type snowflakeStmt struct {
@@ -54,4 +62,14 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
 func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
 	return context.WithValue(ctx, MultiStatementCount, num), nil
+}
+
+// WithAsyncMode returns a context
+func WithAsyncMode(ctx context.Context) (context.Context, error) {
+	return context.WithValue(ctx, AsyncMode, true), nil
+}
+
+// WithInternal returns a context
+func WithInternal(ctx context.Context) (context.Context, error) {
+	return context.WithValue(ctx, IsInternal, true), nil
 }
