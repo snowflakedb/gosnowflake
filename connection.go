@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -87,7 +88,12 @@ func (sc *snowflakeConn) exec(
 					return nil, err
 				}
 			} else {
-				v1, err := valueToString(bindings[i].Value, tsmode)
+				var v1 interface{}
+				if t == "ARRAY" {
+					t, v1 = arrayToString(bindings[i].Value)
+				} else {
+					v1, err = valueToString(bindings[i].Value, tsmode)
+				}
 				if err != nil {
 					return nil, err
 				}
@@ -415,6 +421,16 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 	// TODO: handle noResult and isInternal
 	_, err := sc.exec(ctx, "SELECT 1", false, false, []driver.NamedValue{})
 	return err
+}
+
+func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
+	switch reflect.TypeOf(nv.Value) {
+	case reflect.TypeOf([]int{0}), reflect.TypeOf([]int64{0}), reflect.TypeOf([]float64{0}),
+		reflect.TypeOf([]bool{false}), reflect.TypeOf([]string{""}):
+		return nil
+	default:
+		return driver.ErrSkip
+	}
 }
 
 func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParameter) {

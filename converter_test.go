@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2020 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -28,6 +28,7 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: true, tmode: "", out: "BOOLEAN"},
 		{in: "teststring", tmode: "", out: "TEXT"},
 		{in: nil, tmode: "", out: "TEXT"}, // nil is taken as TEXT
+		{in: []int{1}, tmode: "", out: "ARRAY"},
 		{in: DataTypeBinary, tmode: "", out: "CHANGE_TYPE"},
 		{in: DataTypeTimestampLtz, tmode: "", out: "CHANGE_TYPE"},
 		{in: DataTypeTimestampNtz, tmode: "", out: "CHANGE_TYPE"},
@@ -181,6 +182,33 @@ func TestStringToValue(t *testing.T) {
 		t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
 	} else if ts.UnixNano() != 1549491451123456789 {
 		t.Errorf("expected unix timestamp: 1549491451123456789, got %v", ts.UnixNano())
+	}
+}
+
+type tcArrayToString struct {
+	in  interface{}
+	typ string
+	out []string
+}
+
+func TestArrayToString(t *testing.T) {
+	testcases := []tcArrayToString{
+		{in: []int{1, 2}, typ: "FIXED", out: []string{"1", "2"}},
+		{in: []int64{3, 4, 5}, typ: "FIXED", out: []string{"3", "4", "5"}},
+		{in: []float64{6.7}, typ: "REAL", out: []string{"6.7"}},
+		{in: []bool{true, false}, typ: "BOOLEAN", out: []string{"true", "false"}},
+		{in: []string{"foo", "bar", "baz"}, typ: "TEXT", out: []string{"foo", "bar", "baz"}},
+	}
+	for _, test := range testcases {
+		s, a := arrayToString(test.in)
+		if s != test.typ {
+			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.typ, s)
+		}
+		for i, v := range a {
+			if v != test.out[i] {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out[i], a)
+			}
+		}
 	}
 }
 

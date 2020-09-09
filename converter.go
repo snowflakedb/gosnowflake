@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2020 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -40,6 +40,8 @@ func goTypeToSnowflake(v driver.Value, tsmode string) string {
 			return "TEXT" // not supported dataType
 		}
 		return "CHANGE_TYPE"
+	case []int, []int64, []float64, []bool, []string:
+		return "ARRAY"
 	case time.Time:
 		return tsmode
 	}
@@ -243,6 +245,37 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 	}
 	*dest = *srcValue
 	return nil
+}
+
+func arrayToString(v driver.Value) (string, []string) {
+	var t string
+	var arr []string
+	switch a := v.(type) {
+	case []int:
+		t = "FIXED"
+		for _, x := range a {
+			arr = append(arr, strconv.Itoa(x))
+		}
+	case []int64:
+		t = "FIXED"
+		for _, x := range a {
+			arr = append(arr, strconv.Itoa(int(x)))
+		}
+	case []float64:
+		t = "REAL"
+		for _, x := range a {
+			arr = append(arr, fmt.Sprintf("%g", x))
+		}
+	case []bool:
+		t = "BOOLEAN"
+		for _, x := range a {
+			arr = append(arr, strconv.FormatBool(x))
+		}
+	case []string:
+		t = "TEXT"
+		arr = a
+	}
+	return t, arr
 }
 
 var decimalShift = new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil)
