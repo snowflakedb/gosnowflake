@@ -501,9 +501,19 @@ func TestGetQueryID(t *testing.T) {
 			t.Fatal("should have returned a query ID string")
 		}
 
-		_, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
+		stmt, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
 		if err == nil {
 			t.Fatal("should have failed to execute query")
+		}
+		if driverErr, ok := err.(*SnowflakeError); ok {
+			if driverErr.Number != 1003 {
+				t.Fatalf("incorrect error code. expected: 1003, got: %v", driverErr.Number)
+			}
+			if driverErr.QueryID == "" {
+				t.Fatal("should have an associated query ID")
+			}
+		} else {
+			t.Fatal("should have been able to cast to Snowflake Error")
 		}
 		return nil
 	})

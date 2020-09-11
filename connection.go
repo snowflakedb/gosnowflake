@@ -223,8 +223,20 @@ func (sc *snowflakeConn) PrepareContext(ctx context.Context, query string) (driv
 		return nil, driver.ErrBadConn
 	}
 	// sends prepare query to server
-	_, err := sc.exec(ctx, query, false, false, true, []driver.NamedValue{})
+	data, err := sc.exec(ctx, query, false, false, true, []driver.NamedValue{})
 	if err != nil {
+		if data != nil {
+			code, err := strconv.Atoi(data.Code)
+			if err != nil {
+				return nil, err
+			}
+			return nil, &SnowflakeError{
+				Number:   code,
+				SQLState: data.Data.SQLState,
+				Message:  err.Error(),
+				QueryID:  data.Data.QueryID,
+			}
+		}
 		return nil, err
 	}
 	stmt := &snowflakeStmt{
