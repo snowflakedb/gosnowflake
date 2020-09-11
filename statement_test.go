@@ -501,7 +501,7 @@ func TestGetQueryID(t *testing.T) {
 			t.Fatal("should have returned a query ID string")
 		}
 
-		stmt, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
+		_, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
 		if err == nil {
 			t.Fatal("should have failed to execute query")
 		}
