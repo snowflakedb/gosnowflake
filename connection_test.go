@@ -58,7 +58,7 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	_, err := sc.exec(ctx, "", false, false, nil)
+	_, err := sc.exec(ctx, "", /* noResult */ false, /* isInternal */ false, /* describeOnly */ false, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	_, err := sc.exec(ctx, "", false, false, nil)
+	_, err := sc.exec(ctx, "", /* noResult */ false, /* isInternal */ false, /* describeOnly */ false, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestServiceName(t *testing.T) {
 
 	expectServiceName := serviceNameStub
 	for i := 0; i < 5; i++ {
-		sc.exec(context.TODO(), "", false, false, nil)
+		sc.exec(context.TODO(), "", /* noResult */ false, /* isInternal */ false, /* describeOnly */ false, nil)
 		if actualServiceName, ok := sc.cfg.Params[serviceName]; ok {
 			if *actualServiceName != expectServiceName {
 				t.Errorf("service name mis-match. expected %v, actual %v", expectServiceName, actualServiceName)

@@ -11,6 +11,35 @@ import (
 	"testing"
 )
 
+func TestPreparedStatement(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	db.Exec("create or replace table test(c1 int, c2 string)")
+	intArray := []int{1, 2, 3}
+	strArray := []string{"test1", "test2", "test3"}
+
+	s, _ := db.Prepare("insert into test values (?, ?)")
+	defer s.Close()
+	s.Exec(intArray, strArray)
+
+	rows, _ := db.Query("select * from test order by 1")
+	defer rows.Close()
+	var v1 int
+	var v2 string
+	for rows.Next() {
+		err := rows.Scan(&v1, &v2)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestMultiStatementExecuteNoResultSet(t *testing.T) {
 	var db *sql.DB
 	var err error
@@ -472,26 +501,9 @@ func TestGetQueryID(t *testing.T) {
 			t.Fatal("should have returned a query ID string")
 		}
 
-		stmt, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
-		if err != nil {
-			return err
-		}
-		rows, err = stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		_, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
 		if err == nil {
 			t.Fatal("should have failed to execute query")
-		}
-		if driverErr, ok := err.(*SnowflakeError); ok {
-			if driverErr.Number != 1003 {
-				t.Fatalf("incorrect error code. expected: 1003, got: %v", driverErr.Number)
-			}
-			if driverErr.QueryID == "" {
-				t.Fatal("should have an associated query ID")
-			}
-		} else {
-			t.Fatal("should have been able to cast to Snowflake Error")
-		}
-		if rows != nil {
-			t.Fatal("rows should be empty")
 		}
 		return nil
 	})
