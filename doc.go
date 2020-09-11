@@ -120,7 +120,7 @@ A complete connection string looks similar to the following:
 	my_user_name:my_password@ac123456/my_database/my_schema?my_warehouse=inventory_warehouse&role=my_user_role&DATE_OUTPUT_FORMAT=YYYY-MM-DD
                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                                                                       connection                     connection           session
-                                                                      parmeter                       parameter            parameter
+                                                                      parameter                      parameter            parameter
 
 Session-level parameters can also be set by using the SQL command "ALTER SESSION"
 (https://docs.snowflake.com/en/sql-reference/sql/alter-session.html).
@@ -163,7 +163,7 @@ to enable the logging. For example:
         }
 
 For tests, run the test command with the tag along with glog parameters. For
-example, the following command will generate all acitivty logs in the standard
+example, the following command will generate all activity logs in the standard
 error.
 
 	go test -tags=sfdebug -v . -vmodule=*=2 -stderrthreshold=INFO
@@ -271,25 +271,34 @@ Footnotes:
 
 Note: SQL NULL values are converted to Golang nil values, and vice-versa.
 
+Binding Parameters to Array Variables For Batch Inserts
 
-Binding Time Type
+Version 1.3.9 (and later) of the Go Snowflake Driver supports the ability to bind an array variable to a parameter in an SQL
+INSERT statement. You can use this technique to insert multiple rows in a single batch.
 
-Go's database/sql package limits Go's data types to the following for binding and fetching:
+As an example, the following code inserts rows into a table that contains integer, float, boolean, and string columns. The example
+binds arrays to the parameters in the INSERT statement.
 
-	bool
-	string
-	float64
-	int64
-	time.Time
-	[]byte
+	// Create a table containing an integer, float, boolean, and string column.
+	_, err = db.Exec("create or replace table my_table(c1 int, c2 float, c3 boolean, c4 string)")
+	...
+	// Define the arrays containing the data to insert.
+	intArray := []int{1, 2, 3}
+	fltArray := []float64{0.1, 2.34, 5.678}
+	boolArray := []bool{true, false, true}
+	strArray := []string{"test1", "test2", "test3"}
+	...
+	// Insert the data from the arrays into the table.
+	_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", intArray, fltArray, boolArray, strArray)
 
-Fetching data isn't an issue because the database data type is provided along
-with the data so the Go Snowflake Driver can translate Snowflake data types to
-Go native data types.
+Note: For alternative ways to load data into the Snowflake database (including bulk loading using the COPY command), see
+Loading Data Into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).
 
-However, when the client binds data to send to the server, the driver cannot
-determine the date/timestamp data types to associate with binding parameters.
-For example:
+Binding a Parameter to a Time Type
+
+Go's database/sql package support the ability to binding a parameter in an SQL statement to a time.Time variable.
+However, when the client binds data to send to the server, the driver cannot determine the correct Snowflake date/timestamp data
+type to associate with the binding parameter. For example:
 
 	dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, ntz, timestamp_ntz, ltz timestamp_ltz)")
 	// ...
@@ -425,8 +434,8 @@ inject a statement by appending it. More details are below.
 
 The Go Snowflake Driver provides two functions that can execute multiple SQL statements in a single call:
 
-* db.QueryContext(): This function is used to execute queries, such as SELECT statements, that return a result set.
-* db.ExecContext(): This function is used to execute statements that don't return a result set (i.e. most DML and DDL statements).
+	* db.QueryContext(): This function is used to execute queries, such as SELECT statements, that return a result set.
+	* db.ExecContext(): This function is used to execute statements that don't return a result set (i.e. most DML and DDL statements).
 
 To compose a multi-statement query, simply create a string that contains all the queries, separated by semicolons,
 in the order in which the statements should be executed.
