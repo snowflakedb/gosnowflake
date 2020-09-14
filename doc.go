@@ -296,7 +296,7 @@ Loading Data Into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.
 
 Binding a Parameter to a Time Type
 
-Go's database/sql package support the ability to binding a parameter in an SQL statement to a time.Time variable.
+Go's database/sql package supports the ability to bind a parameter in an SQL statement to a time.Time variable.
 However, when the client binds data to send to the server, the driver cannot determine the correct Snowflake date/timestamp data
 type to associate with the binding parameter. For example:
 
