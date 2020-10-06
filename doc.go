@@ -245,7 +245,7 @@ This table shows the data types:
   Representation | Snowflake Data Type                | for Scan()  | Types for  | Footnotes
                  |                                    | interface{} | Scan()     |
                  |                                    | (JSON)      | (JSON)     |
-  ==============================================================================================
+  =============================================================================================
   BOOLEAN        | BOOLEAN                            | string      | bool       |
   TEXT           | VARCHAR/STRING                     | string      | string     |
   REAL           | REAL/DOUBLE                        | string      | float64    | [1]  [2]
