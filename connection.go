@@ -127,8 +127,8 @@ func (sc *snowflakeConn) exec(
 
 	var data *execResponse
 
-	requestID := uuid.New()
-	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout, &requestID)
+	requestID := getRequestID(ctx)
+	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout, requestID)
 	if err != nil {
 		return data, err
 	}
@@ -525,7 +525,7 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 		headers["X-Snowflake-Service"] = *serviceName
 	}
 	param := make(url.Values)
-	param.Add(requestIDKey, uuid.New().String())
+	param.Add(requestIDKey, getRequestID(ctx))
 	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	param.Add(requestGUIDKey, uuid.New().String())
 	if sc.rest.Token != "" {
