@@ -26,6 +26,11 @@ func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
+type contextKey string
+
+// SnowflakeRequestIDKey is optional context key to specify request id
+const SnowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
+
 // requestGUIDKey is attached to every request against Snowflake
 const requestGUIDKey string = "request_guid"
 
@@ -34,9 +39,6 @@ const retryCounterKey string = "retryCounter"
 
 // requestIDKey is attached to all requests to Snowflake
 const requestIDKey string = "requestId"
-
-// SnowflakeRequestIDKey is optional context key to specify request id
-const SnowflakeRequestIDKey = "SNOWFLAKE_REQUEST_ID"
 
 // This class takes in an url during construction and replace the
 // value of request_guid every time the replace() is called
