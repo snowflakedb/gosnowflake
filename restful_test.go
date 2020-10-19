@@ -212,22 +212,22 @@ func TestUnitCancelQuery(t *testing.T) {
 		FuncPost: postTestAfterRenew,
 	}
 	ctx := context.Background()
-	err := cancelQuery(ctx, sr, getRequestID(ctx), time.Second)
+	err := cancelQuery(ctx, sr, getOrGenerateRequestIDFromContext(ctx), time.Second)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	sr.FuncPost = postTestError
-	err = cancelQuery(ctx, sr, getRequestID(ctx), time.Second)
+	err = cancelQuery(ctx, sr, getOrGenerateRequestIDFromContext(ctx), time.Second)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
-	err = cancelQuery(context.Background(), sr, getRequestID(ctx), time.Second)
+	err = cancelQuery(context.Background(), sr, getOrGenerateRequestIDFromContext(ctx), time.Second)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
-	err = cancelQuery(context.Background(), sr, getRequestID(ctx), time.Second)
+	err = cancelQuery(context.Background(), sr, getOrGenerateRequestIDFromContext(ctx), time.Second)
 	if err == nil {
 		t.Fatal("should have failed to close session")
 	}

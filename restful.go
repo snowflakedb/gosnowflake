@@ -258,7 +258,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	glog.V(2).Info("close session")
 	params := &url.Values{}
 	params.Add("delete", "true")
-	params.Add(requestIDKey, getRequestID(ctx))
+	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
 	params.Add(requestGUIDKey, uuid.New().String())
 	fullURL := sr.getFullURL(sessionRequestPath, params)
 
@@ -313,7 +313,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time.Duration) error {
 	glog.V(2).Info("start renew session")
 	params := &url.Values{}
-	params.Add(requestIDKey, getRequestID(ctx))
+	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
 	params.Add(requestGUIDKey, uuid.New().String())
 	fullURL := sr.getFullURL(tokenRequestPath, params)
 
@@ -380,7 +380,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID string, timeout time.Duration) error {
 	glog.V(2).Info("cancel query")
 	params := &url.Values{}
-	params.Add(requestIDKey, getRequestID(ctx))
+	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
 	params.Add(requestGUIDKey, uuid.New().String())
 
 	fullURL := sr.getFullURL(abortRequestPath, params)

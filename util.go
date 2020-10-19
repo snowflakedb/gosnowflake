@@ -3,9 +3,30 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql/driver"
+	"github.com/google/uuid"
 	"time"
 )
+
+type contextKey string
+
+// snowflakeRequestIDKey is optional context key to specify request id
+const snowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
+
+// WithRequestID returns a new context with the specified snowflake request id
+func WithRequestID(ctx context.Context, requestID string) context.Context {
+	return context.WithValue(ctx, snowflakeRequestIDKey, requestID)
+}
+
+// Get the request ID from the context if specified, otherwise generate one
+func getOrGenerateRequestIDFromContext(ctx context.Context) string {
+	requestID, ok := ctx.Value(snowflakeRequestIDKey).(string)
+	if ok && requestID != "" {
+		return requestID
+	}
+	return uuid.New().String()
+}
 
 // integer min
 func intMin(a, b int) int {

@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql/driver"
 	"testing"
 	"time"
@@ -12,6 +13,23 @@ type tcIntMinMax struct {
 	v1  int
 	v2  int
 	out int
+}
+
+func TestGetRequestIDFromContext(t *testing.T) {
+	expectedRequestID := "snowflake-request-id"
+	ctx := WithRequestID(context.Background(), expectedRequestID)
+	requestID := getOrGenerateRequestIDFromContext(ctx)
+	if requestID != expectedRequestID {
+		t.Errorf("unexpected request id")
+	}
+}
+
+func TestGenerateRequestID(t *testing.T) {
+	firstRequestID := getOrGenerateRequestIDFromContext(context.Background())
+	otherRequestID := getOrGenerateRequestIDFromContext(context.Background())
+	if firstRequestID == otherRequestID {
+		t.Errorf("request id should not be the same")
+	}
 }
 
 func TestIntMin(t *testing.T) {

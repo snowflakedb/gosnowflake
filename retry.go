@@ -26,11 +26,6 @@ func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
-type contextKey string
-
-// SnowflakeRequestIDKey is optional context key to specify request id
-const SnowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
-
 // requestGUIDKey is attached to every request against Snowflake
 const requestGUIDKey string = "request_guid"
 
@@ -47,15 +42,6 @@ const requestIDKey string = "requestId"
 type requestGUIDReplacer interface {
 	// replace the url with new ID
 	replace() *url.URL
-}
-
-// Get the request ID from the context if specified, otherwise generate one
-func getRequestID(ctx context.Context) string {
-	requestID, ok := ctx.Value(SnowflakeRequestIDKey).(string)
-	if ok && requestID != "" {
-		return requestID
-	}
-	return uuid.New().String()
 }
 
 // Make requestGUIDReplacer given a url string

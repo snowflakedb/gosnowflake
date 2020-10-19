@@ -195,7 +195,7 @@ func postAuth(
 	body []byte,
 	timeout time.Duration) (
 	data *authResponse, err error) {
-	params.Add(requestIDKey, getRequestID(ctx))
+	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
 	params.Add(requestGUIDKey, uuid.New().String())
 
 	fullURL := sr.getFullURL(loginRequestPath, params)

@@ -33,7 +33,7 @@ func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, header
 }
 
 func TestExecWithEmptyRequestID(t *testing.T) {
-	ctx := context.WithValue(context.Background(), SnowflakeRequestIDKey, "")
+	ctx := WithRequestID(context.Background(), "")
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID string) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if len(requestID) == 0 {
@@ -64,7 +64,7 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 
 func TestExecWithSpecificRequestID(t *testing.T) {
 	origRequestID := "specific-snowflake-request-id"
-	ctx := context.WithValue(context.Background(), SnowflakeRequestIDKey, origRequestID)
+	ctx := WithRequestID(context.Background(), origRequestID)
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID string) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if requestID != origRequestID {
