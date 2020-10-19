@@ -35,6 +35,9 @@ const retryCounterKey string = "retryCounter"
 // requestIDKey is attached to all requests to Snowflake
 const requestIDKey string = "requestId"
 
+// SnowflakeRequestIDKey is optional context key to specify request id
+const SnowflakeRequestIDKey = "SNOWFLAKE_REQUEST_ID"
+
 // This class takes in an url during construction and replace the
 // value of request_guid every time the replace() is called
 // When the url does not contain request_guid, just return the original
@@ -42,6 +45,14 @@ const requestIDKey string = "requestId"
 type requestGUIDReplacer interface {
 	// replace the url with new ID
 	replace() *url.URL
+}
+
+func getRequestID(ctx context.Context) string {
+	requestId, ok := ctx.Value(SnowflakeRequestIDKey).(string)
+	if ok && requestId != "" {
+		return requestId
+	}
+	return uuid.New().String()
 }
 
 // Make requestGUIDReplacer given a url string

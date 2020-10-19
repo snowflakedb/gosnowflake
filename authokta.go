@@ -13,8 +13,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type authOKTARequest struct {
@@ -208,7 +206,7 @@ func postAuthSAML(
 	data *authResponse, err error) {
 
 	params := &url.Values{}
-	params.Add(requestIDKey, uuid.New().String())
+	params.Add(requestIDKey, getRequestID(ctx))
 	fullURL := sr.getFullURL(authenticatorRequestPath, params)
 
 	glog.V(2).Infof("fullURL: %v", fullURL)
