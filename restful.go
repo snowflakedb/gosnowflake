@@ -169,7 +169,7 @@ func postRestfulQueryHelper(
 	requestID string) (
 	data *execResponse, err error) {
 	glog.V(2).Infof("params: %v", params)
-	params.Add(requestIDKey, getRequestID(ctx))
+	params.Add(requestIDKey, requestID)
 	params.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	params.Add(requestGUIDKey, uuid.New().String())
 	if sr.Token != "" {
