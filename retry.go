@@ -47,6 +47,7 @@ type requestGUIDReplacer interface {
 	replace() *url.URL
 }
 
+// Get the request ID from the context if specified, otherwise generate one
 func getRequestID(ctx context.Context) string {
 	requestId, ok := ctx.Value(SnowflakeRequestIDKey).(string)
 	if ok && requestId != "" {
