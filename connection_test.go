@@ -32,11 +32,41 @@ func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, header
 	}, nil
 }
 
-func TestUnitPostQueryWithSpecificRequestID(t *testing.T) {
+func TestExecWithEmptyRequestID(t *testing.T) {
+	ctx := context.WithValue(context.Background(), SnowflakeRequestIDKey, "")
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID string) (*execResponse, error) {
+		// ensure the same requestID from context is used
+		if len(requestID) == 0 {
+			t.Fatal("requestID is empty")
+		}
+		dd := &execResponseData{}
+		return &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    "0",
+			Success: true,
+		}, nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery: postQueryMock,
+	}
+
+	sc := &snowflakeConn{
+		cfg:  &Config{Params: map[string]*string{}},
+		rest: sr,
+	}
+	_, err := sc.exec(ctx, "", false, false, nil)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+func TestExecWithSpecificRequestID(t *testing.T) {
 	origRequestID := "specific-snowflake-request-id"
 	ctx := context.WithValue(context.Background(), SnowflakeRequestIDKey, origRequestID)
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID string) (*execResponse, error) {
-		// ensure the same requestID is used after the session token is renewed.
+		// ensure the same requestID from context is used
 		if requestID != origRequestID {
 			t.Fatal("requestID doesn't match")
 		}
