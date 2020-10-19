@@ -193,45 +193,51 @@ func authenticateByExternalBrowser(
 	var acceptErr error
 	var tokenErr error
 	acceptErr = nil
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			glog.V(1).Infof("unable to accept connection. err: %v", err)
-			log.Fatal(err)
-		}
-		go func(c net.Conn) {
-			var buf bytes.Buffer
-			total := 0
-			for {
-				b := make([]byte, bufSize)
-				n, err := c.Read(b)
-				if err != nil {
-					if err != io.EOF {
-						glog.V(1).Infof("error reading from socket. err: %v", err)
-						acceptErr = err
+	resultChan := make(chan string)
+
+	go func(l net.Listener) {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				glog.V(1).Infof("unable to accept connection. err: %v", err)
+				log.Fatal(err)
+				return
+			}
+			go func(c net.Conn) {
+				var buf bytes.Buffer
+				total := 0
+				for {
+					b := make([]byte, bufSize)
+					n, err := c.Read(b)
+					if err != nil {
+						if err != io.EOF {
+							glog.V(1).Infof("error reading from socket. err: %v", err)
+							acceptErr = err
+						}
+						break
 					}
-					break
+					total += n
+					buf.Write(b)
+					if n < bufSize {
+						// We successfully read all data
+						s := string(buf.Bytes()[:total])
+						encodedSamlResponse, tokenErr = getTokenFromResponse(s)
+						break
+					}
+					buf.Grow(bufSize)
 				}
-				total += n
-				buf.Write(b)
-				if n < bufSize {
-					// We successfully read all data
-					s := string(buf.Bytes()[:total])
-					encodedSamlResponse, tokenErr = getTokenFromResponse(s)
-					break
+				if encodedSamlResponse != "" {
+					httpResponse := buildResponse(application)
+					c.Write(httpResponse.Bytes())
+					resultChan <- encodedSamlResponse
 				}
-				buf.Grow(bufSize)
-			}
-			if encodedSamlResponse != "" {
-				httpResponse := buildResponse(application)
-				c.Write(httpResponse.Bytes())
-			}
-			c.Close()
-		}(conn)
-		if acceptErr != nil || encodedSamlResponse != "" {
-			break
+				c.Close()
+			}(conn)
 		}
-	}
+	}(l)
+
+	encodedSamlResponse = <-resultChan
+	l.Close()
 
 	if tokenErr != nil {
 		return nil, nil, tokenErr
