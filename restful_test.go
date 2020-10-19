@@ -121,36 +121,6 @@ func renewSessionTestError(_ context.Context, _ *snowflakeRestful, _ time.Durati
 	return errors.New("failed to renew session in tests")
 }
 
-func TestUnitPostQueryWithSpecificRequestID(t *testing.T) {
-	var err error
-	origRequestID := "specific-snowflake-request-id"
-	ctx := context.WithValue(context.Background(), SnowflakeRequestIDKey, origRequestID)
-	postQueryTest := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID string) (*execResponse, error) {
-		// ensure the same requestID is used after the session token is renewed.
-		if requestID != origRequestID {
-			t.Fatal("requestID doesn't match")
-		}
-		dd := &execResponseData{}
-		return &execResponse{
-			Data:    *dd,
-			Message: "",
-			Code:    "0",
-			Success: true,
-		}, nil
-	}
-	sr := &snowflakeRestful{
-		Token:            "token",
-		FuncPost:         postTestRenew,
-		FuncPostQuery:    postQueryTest,
-		FuncRenewSession: renewSessionTest,
-	}
-
-	_, err = postRestfulQueryHelper(ctx, sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, origRequestID)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-}
-
 func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 	var err error
 	origRequestID := uuid.New().String()
