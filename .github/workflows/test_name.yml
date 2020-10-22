@@ -1,0 +1,16 @@
+name: Test Branch Name
+on:
+    pull_request:
+        branches:
+            - master
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    name: Test Branch
+    steps:
+        - name: Branch
+          env:
+            GITHUB_CONTEXT: ${{ toJson(github) }}
+          run: |
+                echo "$GITHUB_CONTEXT"
+                echo ${{ github.event.pull_request.title }}
