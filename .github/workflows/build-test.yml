@@ -89,3 +89,12 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ci\\test.bat
+   test-pr-name:
+      name: Dump GitHub context
+      runs-on: ubuntu-latest
+      steps:
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: |
+        echo "$GITHUB_CONTEXT"
+        echo ${{ github.event.pull_request.title }}
