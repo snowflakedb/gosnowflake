@@ -23,5 +23,5 @@ jobs:
                 echo ${{ github.event.pull_request.title }}
                 echo "snow_count=${t}" >> $GITHUB_ENV
         - name: Check snow count
-          if: ${{ snow_count == '0' }}
+          if: ${snow_count} == '0'
           run: exit 1
