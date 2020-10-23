@@ -16,7 +16,7 @@ jobs:
           env:
               title: ${{ github.event.pull_request.title }}
           run: |
-                echo ${{ github.event.pull_request.title }}
+                echo ${{ github.event.pull_request.title }} >> $GITHUB_ENV
                 python -c "import os; print(os.environ["title"])"
                 t=`python -c 'import re; import os; snow_list = re.findall(r"(?:SNOW|snow|Snow)-\d+", os.environ["title"]); print(len(snow_list))'`
                 echo ${t}
