@@ -18,6 +18,6 @@ jobs:
           run: |
                 echo ${title}
                 python -c "import os; print(os.environ.get('title'))"
-                t=`python -c 'import re; import os; snow_list = re.findall(r"(?:SNOW|snow|Snow)-\d+", os.environ["title"]); print(len(snow_list))'`
+                t=`python -c 'import re; import os; snow_list = re.findall(r"(?:SNOW|snow|Snow)", os.environ["title"]); print(len(snow_list))'`
                 echo ${t}
                 echo ${{ github.event.pull_request.title }}
