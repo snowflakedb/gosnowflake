@@ -13,8 +13,7 @@ jobs:
           with:
             python-version: '3.7'
         - name: PR title
-          env:
-              title: ${{ github.event.pull_request.title }}
+          uses: actions/core
           run: |
                 echo "title=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
                 python -c "import os; print(os.environ["title"])"
