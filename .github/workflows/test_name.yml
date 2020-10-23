@@ -8,8 +8,14 @@ jobs:
     runs-on: ubuntu-latest
     name: Test Branch
     steps:
-        - name: Branch
+        - name: Set up Python
+          uses: actions/setup-python@v2
+          with:
+            python-version: '3.7'
+        - name: PR title
           env:
-            GITHUB_CONTEXT: ${{ toJson(github) }}
+              title: ${{ github.event.pull_request.title }}
           run: |
                 echo ${{ github.event.pull_request.title }}
+                t=`python -c 'import re; import os; snow_list = re.findall(r"(?:SNOW|snow|Snow)-\d+", os.environ["title"]); print(len(snow_list))'`
+                echo ${title}
