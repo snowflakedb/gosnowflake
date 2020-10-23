@@ -21,3 +21,7 @@ jobs:
                 t=`python -c 'import re; import os; snow_list = re.findall(r"(?:SNOW|snow|Snow)", os.environ["title"]); print(len(snow_list))'`
                 echo ${t}
                 echo ${{ github.event.pull_request.title }}
+                echo "snow_count=${t}" >> $GITHUB_ENV
+        - name: Check snow count
+          if: ${{ snow_count == '0' }}
+          run: exit 1
