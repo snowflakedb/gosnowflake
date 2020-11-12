@@ -189,26 +189,35 @@ func authenticateByExternalBrowser(
 		return nil, nil, err
 	}
 
+	encodedSamlResponseChan := make(chan string)
+	errChan := make(chan error)
+
 	var encodedSamlResponse string
-	var acceptErr error
-	var tokenErr error
-	acceptErr = nil
+	var errFromGoroutine error
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			glog.V(1).Infof("unable to accept connection. err: %v", err)
 			log.Fatal(err)
 		}
+		fmt.Println("Hello")
 		go func(c net.Conn) {
 			var buf bytes.Buffer
 			total := 0
+			encodedSamlResponse := ""
+			var errAccept error
 			for {
 				b := make([]byte, bufSize)
 				n, err := c.Read(b)
 				if err != nil {
 					if err != io.EOF {
 						glog.V(1).Infof("error reading from socket. err: %v", err)
-						acceptErr = err
+						errAccept = &SnowflakeError{
+							Number:      ErrFailedToGetExternalBrowserResponse,
+							SQLState:    SQLStateConnectionRejected,
+							Message:     errMsgFailedToGetExternalBrowserResponse,
+							MessageArgs: []interface{}{err},
+						}
 					}
 					break
 				}
@@ -217,7 +226,7 @@ func authenticateByExternalBrowser(
 				if n < bufSize {
 					// We successfully read all data
 					s := string(buf.Bytes()[:total])
-					encodedSamlResponse, tokenErr = getTokenFromResponse(s)
+					encodedSamlResponse, errAccept = getTokenFromResponse(s)
 					break
 				}
 				buf.Grow(bufSize)
@@ -227,23 +236,17 @@ func authenticateByExternalBrowser(
 				c.Write(httpResponse.Bytes())
 			}
 			c.Close()
+			encodedSamlResponseChan <- encodedSamlResponse
+			errChan <- errAccept
 		}(conn)
-		if acceptErr != nil || encodedSamlResponse != "" {
-			break
-		}
+
+		encodedSamlResponse = <-encodedSamlResponseChan
+		errFromGoroutine = <-errChan
+		break
 	}
 
-	if tokenErr != nil {
-		return nil, nil, tokenErr
-	}
-
-	if acceptErr != nil {
-		return nil, nil, &SnowflakeError{
-			Number:      ErrFailedToGetExternalBrowserResponse,
-			SQLState:    SQLStateConnectionRejected,
-			Message:     errMsgFailedToGetExternalBrowserResponse,
-			MessageArgs: []interface{}{acceptErr},
-		}
+	if errFromGoroutine != nil {
+		return nil, nil, errFromGoroutine
 	}
 
 	escapedSamlResponse, err := url.QueryUnescape(encodedSamlResponse)
