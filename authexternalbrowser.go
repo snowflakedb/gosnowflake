@@ -200,7 +200,6 @@ func authenticateByExternalBrowser(
 			glog.V(1).Infof("unable to accept connection. err: %v", err)
 			log.Fatal(err)
 		}
-		fmt.Println("Hello")
 		go func(c net.Conn) {
 			var buf bytes.Buffer
 			total := 0
