@@ -249,7 +249,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		return nil, err
 	}
 
-	var updatedRows int64 = 0
+	var updatedRows int64
 	if sc.isDml(data.Data.StatementTypeID) {
 		// collects all values from the returned row sets
 		updatedRows, err = updateRows(data.Data)
@@ -487,7 +487,7 @@ func (sc *snowflakeConn) stopHeartBeat() {
 }
 
 func updateRows(data execResponseData) (int64, error) {
-	var count int64 = 0
+	var count int64
 	for i, n := 0, len(data.RowType); i < n; i++ {
 		v, err := strconv.ParseInt(*data.RowSet[0][i], 10, 64)
 		if err != nil {
