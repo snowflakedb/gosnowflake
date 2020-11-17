@@ -11,9 +11,9 @@ github.com/apache/arrow/go/arrow/internal/debug
 github.com/apache/arrow/go/arrow/internal/flatbuf
 github.com/apache/arrow/go/arrow/ipc
 github.com/apache/arrow/go/arrow/memory
-# github.com/dgrijalva/jwt-go v3.2.0+incompatible
+# github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
 ## explicit
-github.com/dgrijalva/jwt-go
+github.com/dgrijalva/jwt-go/v4
 # github.com/google/flatbuffers v1.11.0
 github.com/google/flatbuffers/go
 # github.com/google/uuid v1.1.1
