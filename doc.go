@@ -195,6 +195,14 @@ Note: The logger may be changed in the future for better logging. Currently if
 the applications use the same parameters as glog, you cannot collect both
 application and driver logs at the same time.
 
+Query request ID
+
+Specific query request ID can be set in the context and will be passed through
+in place of the default randomized request ID. For example:
+
+	ctxWithID := WithRequestID(ctx, "app-request-id-...")
+	rows, err := db.QueryContext(ctxWithID, query)
+
 Canceling Query by CtrlC
 
 From 0.5.0, a signal handling responsibility has moved to the applications. If you want to cancel a
