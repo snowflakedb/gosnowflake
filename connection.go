@@ -26,12 +26,6 @@ const (
 	statementTypeIDDelete           = statementTypeIDDml + int64(0x300)
 	statementTypeIDMerge            = statementTypeIDDml + int64(0x400)
 	statementTypeIDMultiTableInsert = statementTypeIDDml + int64(0x500)
-
-	statementTypeIDDdl     = int64(0x6000)
-	statementTypeIDCreate  = statementTypeIDDdl + int64(0x101)
-	statementTypeIDComment = statementTypeIDDdl + int64(0x200)
-	statementTypeIDDrop    = statementTypeIDDdl + int64(0x300)
-	statementTypeIDAlter   = statementTypeIDDdl + int64(0x401)
 )
 
 const (
@@ -245,15 +239,11 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	internal, err := isInternal(ctx)
-	if err != nil {
-		return nil, err
-	}
 	noResult, err := isAsyncMode(ctx)
 	if err != nil {
 		return nil, err
 	}
-	data, err := sc.exec(ctx, query, noResult, internal, args)
+	data, err := sc.exec(ctx, query, noResult, false, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
 		if data != nil {
@@ -340,15 +330,11 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 		return nil, driver.ErrBadConn
 	}
 
-	internal, err := isInternal(ctx)
-	if err != nil {
-		return nil, err
-	}
 	noResult, err := isAsyncMode(ctx)
 	if err != nil {
 		return nil, err
 	}
-	data, err := sc.exec(ctx, query, noResult, internal, args)
+	data, err := sc.exec(ctx, query, noResult, false, args)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
@@ -447,16 +433,11 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 	if sc.rest == nil {
 		return driver.ErrBadConn
 	}
-
-	internal, err := isInternal(ctx)
-	if err != nil {
-		return err
-	}
 	noResult, err := isAsyncMode(ctx)
 	if err != nil {
 		return err
 	}
-	_, err = sc.exec(ctx, "SELECT 1", noResult, internal, []driver.NamedValue{})
+	_, err = sc.exec(ctx, "SELECT 1", noResult, false, []driver.NamedValue{})
 	return err
 }
 
@@ -581,18 +562,6 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 		return nil, err
 	}
 	return respd, nil
-}
-
-func isInternal(ctx context.Context) (bool, error) {
-	val := ctx.Value(IsInternal)
-	if val == nil {
-		return false, nil
-	}
-	boolVal, ok := val.(bool)
-	if !ok {
-		return false, fmt.Errorf("failed to cast val %+v to bool", val)
-	}
-	return boolVal, nil
 }
 
 func isAsyncMode(ctx context.Context) (bool, error) {

@@ -12,14 +12,12 @@ type paramKey string
 const (
 	// MultiStatementCount controls the number of queries to execute in a single API call
 	MultiStatementCount paramKey = "MULTI_STATEMENT_COUNT"
-	// AsyncMode controls
+	// AsyncMode tells the server to not block the request on executing the entire query
 	AsyncMode paramKey = "ASYNC_MODE_QUERY"
 	// QueryIDChan controls
 	QueryIDChan paramKey = "QUERY_ID_CHAN"
 	// ResumeQueryID controls
 	ResumeQueryID paramKey = "RESUME_QUERY_ID"
-	// IsInternal controls
-	IsInternal paramKey = "INTERNAL_QUERY"
 )
 
 type snowflakeStmt struct {
@@ -67,9 +65,4 @@ func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
 // WithAsyncMode returns a context
 func WithAsyncMode(ctx context.Context) (context.Context, error) {
 	return context.WithValue(ctx, AsyncMode, true), nil
-}
-
-// WithInternal returns a context
-func WithInternal(ctx context.Context) (context.Context, error) {
-	return context.WithValue(ctx, IsInternal, true), nil
 }
