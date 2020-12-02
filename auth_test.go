@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/dgrijalva/jwt-go/v4"
+	"github.com/form3tech-oss/jwt-go"
 	"net/url"
 	"testing"
 	"time"
