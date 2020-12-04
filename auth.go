@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go/v4"
+	"github.com/form3tech-oss/jwt-go"
 	"github.com/google/uuid"
 
 	"crypto/sha256"
