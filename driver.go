@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"net/http"
+	"sync/atomic"
 )
 
 // SnowflakeDriver is a context of Go Driver
@@ -32,7 +33,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	} else {
 		// set OCSP fail open mode
 		ocspResponseCacheLock.Lock()
-		ocspFailOpen = sc.cfg.OCSPFailOpen
+		atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(sc.cfg.OCSPFailOpen))
 		ocspResponseCacheLock.Unlock()
 	}
 	// authenticate

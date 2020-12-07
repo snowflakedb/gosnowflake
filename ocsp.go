@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -47,7 +48,7 @@ var cacheFileName = ""
 var cacheUpdated = true
 
 // OCSPFailOpenMode is OCSP fail open mode. OCSPFailOpenTrue by default and may set to ocspModeFailClosed for fail closed mode
-type OCSPFailOpenMode uint8
+type OCSPFailOpenMode uint32
 
 const (
 	ocspFailOpenNotSet OCSPFailOpenMode = iota
@@ -411,7 +412,7 @@ func retryOCSP(
 	ocspResBytes []byte,
 	ocspS *ocspStatus) {
 	multiplier := 1
-	if ocspFailOpen == OCSPFailOpenFalse {
+	if atomic.LoadUint32((*uint32)(&ocspFailOpen)) == (uint32)(OCSPFailOpenFalse) {
 		multiplier = 3 // up to 3 times for Fail Close mode
 	}
 	res, err := newRetryHTTP(
@@ -569,7 +570,7 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 
 func canEarlyExitForOCSP(results []*ocspStatus, chainSize int) *ocspStatus {
 	msg := ""
-	if ocspFailOpen == OCSPFailOpenFalse {
+	if atomic.LoadUint32((*uint32)(&ocspFailOpen)) == (uint32)(OCSPFailOpenFalse) {
 		// Fail closed. any error is returned to stop connection
 		for _, r := range results {
 			if r.err != nil {
