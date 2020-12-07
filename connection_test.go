@@ -2,7 +2,6 @@ package gosnowflake
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"net/url"
 	"testing"
 	"time"
@@ -14,7 +13,7 @@ const serviceNameAppend = "a"
 // postQueryMock would generate a response based on the X-Snowflake-Service header, to generate a response
 // with the SERVICE_NAME field appending a character at the end of the header
 // This way it could test both the send and receive logic
-func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ *uuid.UUID) (*execResponse, error) {
+func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ string) (*execResponse, error) {
 	var serviceName string
 	if serviceHeader, ok := headers["X-Snowflake-Service"]; ok {
 		serviceName = serviceHeader + serviceNameAppend
@@ -31,6 +30,67 @@ func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, header
 		Code:    "0",
 		Success: true,
 	}, nil
+}
+
+func TestExecWithEmptyRequestID(t *testing.T) {
+	ctx := WithRequestID(context.Background(), "")
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID string) (*execResponse, error) {
+		// ensure the same requestID from context is used
+		if len(requestID) == 0 {
+			t.Fatal("requestID is empty")
+		}
+		dd := &execResponseData{}
+		return &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    "0",
+			Success: true,
+		}, nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery: postQueryMock,
+	}
+
+	sc := &snowflakeConn{
+		cfg:  &Config{Params: map[string]*string{}},
+		rest: sr,
+	}
+	_, err := sc.exec(ctx, "", false, false, nil)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+func TestExecWithSpecificRequestID(t *testing.T) {
+	origRequestID := "specific-snowflake-request-id"
+	ctx := WithRequestID(context.Background(), origRequestID)
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID string) (*execResponse, error) {
+		// ensure the same requestID from context is used
+		if requestID != origRequestID {
+			t.Fatal("requestID doesn't match")
+		}
+		dd := &execResponseData{}
+		return &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    "0",
+			Success: true,
+		}, nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery: postQueryMock,
+	}
+
+	sc := &snowflakeConn{
+		cfg:  &Config{Params: map[string]*string{}},
+		rest: sr,
+	}
+	_, err := sc.exec(ctx, "", false, false, nil)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
 }
 
 // TestServiceName tests two things:
