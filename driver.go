@@ -7,14 +7,16 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"net/http"
+	"sync/atomic"
 )
 
 // SnowflakeDriver is a context of Go Driver
-type SnowflakeDriver struct{}
+type SnowflakeDriver struct {
+}
 
 // Open creates a new connection.
 func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
-	glog.V(2).Info("Open")
+	logger.Info("Open")
 	var err error
 	sc := &snowflakeConn{
 		SequenceCounter: 0,
@@ -32,7 +34,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	} else {
 		// set OCSP fail open mode
 		ocspResponseCacheLock.Lock()
-		ocspFailOpen = sc.cfg.OCSPFailOpen
+		atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(sc.cfg.OCSPFailOpen))
 		ocspResponseCacheLock.Unlock()
 	}
 	// authenticate
@@ -63,7 +65,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	var samlResponse []byte
 	var proofKey []byte
 
-	glog.V(2).Infof("Authenticating via %v", sc.cfg.Authenticator.String())
+	logger.Infof("Authenticating via %v", sc.cfg.Authenticator.String())
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
 		samlResponse, proofKey, err = authenticateByExternalBrowser(
@@ -105,6 +107,18 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	sc.populateSessionParameters(authData.Parameters)
 	sc.startHeartBeat()
 	return sc, nil
+}
+
+var logger = DefaultLogger()
+
+// SetLogger set a new logger of SFLogger interface for gosnowflake
+func SetLogger(inLogger SFLogger) {
+	logger = inLogger
+}
+
+// GetLogger return logger that is not public
+func GetLogger() SFLogger {
+	return logger
 }
 
 func init() {

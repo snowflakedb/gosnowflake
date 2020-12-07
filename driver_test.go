@@ -766,7 +766,7 @@ func testUint64Placeholder(t *testing.T, arrow bool) {
 			if err == nil {
 				dbt.Fatal("should fail as uint64 values with high bit set are not supported.")
 			} else {
-				glog.V(2).Infof("expected err: %v", err)
+				logger.Infof("expected err: %v", err)
 			}
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
@@ -1896,7 +1896,7 @@ func testLargeSetResult(t *testing.T, numrows int, arrow bool) {
 			}
 			cnt++
 		}
-		glog.V(2).Infof("NextResultSet: %v", rows.NextResultSet())
+		logger.Infof("NextResultSet: %v", rows.NextResultSet())
 
 		if cnt != numrows {
 			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)

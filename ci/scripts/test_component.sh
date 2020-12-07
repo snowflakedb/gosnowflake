@@ -12,4 +12,4 @@ if [[ -n "$GITHUB_WORKFLOW" ]]; then
 fi
 env | grep SNOWFLAKE | grep -v PASS | sort
 cd $TOPDIR
-go test -timeout 30m -tags=sfdebug -race $COVFLAGS -v . # -stderrthreshold=INFO -vmodule=*=2 or -log_dir=$TOPDIR -vmodule=connection=2,driver=2
+go test -timeout 30m -race $COVFLAGS -v . 

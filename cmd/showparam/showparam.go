@@ -49,7 +49,6 @@ func getDSN(params map[string]*string) (string, *sf.Config, error) {
 
 func main() {
 	if !flag.Parsed() {
-		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
 

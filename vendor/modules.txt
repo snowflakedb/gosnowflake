@@ -22,12 +22,15 @@ github.com/google/uuid
 # github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 ## explicit
 github.com/pkg/browser
-# github.com/snowflakedb/glog v0.0.0-20180824191149-f5055e6f21ce
+# github.com/sirupsen/logrus v1.7.0
 ## explicit
-github.com/snowflakedb/glog
+github.com/sirupsen/logrus
 # golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
 ## explicit
 golang.org/x/crypto/ocsp
+# golang.org/x/sys v0.0.0-20191026070338-33540a1f6037
+golang.org/x/sys/unix
+golang.org/x/sys/windows
 # golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
