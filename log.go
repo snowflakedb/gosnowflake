@@ -1,40 +1,43 @@
-// +build !sfdebug
-
-// Wrapper for glog to replace direct use, so that glog usage remains optional.
-// This file contains the no-op glog wrapper/emulator.
-
 package gosnowflake
 
-// glogWrapper is an empty struct to create a no-op glog wrapper
-type glogWrapper struct{}
+import (
+	"fmt"
+	rlog "github.com/sirupsen/logrus"
+	"io"
+	"path"
+	"runtime"
+)
 
-// V emulates the glog.V() call
-func (glogWrapper) V(int) glogWrapper {
-	return glogWrapper{}
+// SFLogger Snowflake logger wrapper interface to expose the same interface as FieldLogger defined in logrus
+type SFLogger interface {
+	rlog.FieldLogger
+	SetOutput(output io.Writer)
+	SetLogLevel(level string) error
 }
 
-// Check if the logging is enabled. Returns always False by default
-func (glogWrapper) IsEnabled(int) bool {
-	return false
+// SFCallerPrettyfier to provide base file name and function name from calling frame used in SFLogger
+func SFCallerPrettyfier(frame *runtime.Frame) (string, string) {
+	return path.Base(frame.Function), fmt.Sprintf("%s:%d", path.Base(frame.File), frame.Line)
 }
 
-// Flush emulates the glog.Flush() call
-func (glogWrapper) Flush() {}
+type defaultLogger struct {
+	*rlog.Logger
+}
 
-// Info emulates the glog.V(?).Info call
-func (glogWrapper) Info(...interface{}) {}
+func (log *defaultLogger) SetLogLevel(level string) error {
+	actualLevel, err := rlog.ParseLevel(level)
+	if err != nil {
+		return err
+	}
+	log.Level = actualLevel
+	return nil
+}
 
-// Infoln emulates the glog.V(?).Infoln call
-func (glogWrapper) Infoln(...interface{}) {}
-
-// Infof emulates the glog.V(?).Infof call
-func (glogWrapper) Infof(...interface{}) {}
-
-// InfoDepth emulates the glog.V(?).InfoDepth call
-func (glogWrapper) InfoDepth(...interface{}) {}
-
-// NOTE: Warning* and Error* methods are not emulated since they are not used.
-// NOTE: Fatal* and Exit* methods are not emulated, since they also require additional calls (like os.Exit() and stack traces) to be compatible.
-
-// glog is our glog emulator
-var glog = glogWrapper{}
+// DefaultLogger return a new instance of SFLogger with default config
+func DefaultLogger() SFLogger {
+	var rLogger = rlog.New()
+	var formatter = rlog.TextFormatter{CallerPrettyfier: SFCallerPrettyfier}
+	rLogger.SetReportCaller(true)
+	rLogger.SetFormatter(&formatter)
+	return &defaultLogger{Logger: rLogger}
+}

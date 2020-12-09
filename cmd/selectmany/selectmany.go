@@ -123,7 +123,6 @@ func run(dsn string) {
 
 func main() {
 	if !flag.Parsed() {
-		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
 

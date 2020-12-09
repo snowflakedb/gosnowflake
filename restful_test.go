@@ -57,7 +57,7 @@ func postTestRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[str
 	}
 
 	ba, err := json.Marshal(er)
-	glog.V(2).Infof("encoded JSON: %v", ba)
+	logger.Infof("encoded JSON: %v", ba)
 	if err != nil {
 		panic(err)
 	}
@@ -77,7 +77,7 @@ func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 	}
 
 	ba, err := json.Marshal(er)
-	glog.V(2).Infof("encoded JSON: %v", ba)
+	logger.Infof("encoded JSON: %v", ba)
 	if err != nil {
 		panic(err)
 	}

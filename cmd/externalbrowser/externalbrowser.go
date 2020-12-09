@@ -48,7 +48,6 @@ func getDSN() (string, *sf.Config, error) {
 // https://docs.snowflake.net/manuals/user-guide/admin-security-fed-auth-configure-snowflake.html
 func main() {
 	if !flag.Parsed() {
-		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
 	dsn, cfg, err := getDSN()

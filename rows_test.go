@@ -64,7 +64,7 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 	if err != io.EOF {
 		t.Fatalf("failed to finish getting data. err: %v", err)
 	}
-	glog.V(2).Infof("dest: %v", dest)
+	logger.Infof("dest: %v", dest)
 
 }
 
@@ -87,7 +87,7 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 	// changed the workers
 	backupMaxChunkDownloadWorkers := MaxChunkDownloadWorkers
 	MaxChunkDownloadWorkers = 2
-	glog.V(2).Info("START TESTS")
+	logger.Info("START TESTS")
 	var i int
 	cc := make([][]*string, 0)
 	for i = 0; i < 100; i++ {
@@ -134,9 +134,9 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 	if cnt != len(cc)+numChunks*rowsInChunk {
 		t.Fatalf("failed to get all results. expected:%v, got:%v", len(cc)+numChunks*rowsInChunk, cnt)
 	}
-	glog.V(2).Infof("dest: %v", dest)
+	logger.Infof("dest: %v", dest)
 	MaxChunkDownloadWorkers = backupMaxChunkDownloadWorkers
-	glog.V(2).Info("END TESTS")
+	logger.Info("END TESTS")
 }
 
 func downloadChunkTestError(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
@@ -168,7 +168,7 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 	// changed the workers
 	backupMaxChunkDownloadWorkers := MaxChunkDownloadWorkers
 	MaxChunkDownloadWorkers = 3
-	glog.V(2).Info("START TESTS")
+	logger.Info("START TESTS")
 	var i int
 	cc := make([][]*string, 0)
 	for i = 0; i < 100; i++ {
@@ -215,9 +215,9 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 	if cnt != len(cc)+numChunks*rowsInChunk {
 		t.Fatalf("failed to get all results. expected:%v, got:%v", len(cc)+numChunks*rowsInChunk, cnt)
 	}
-	glog.V(2).Infof("dest: %v", dest)
+	logger.Infof("dest: %v", dest)
 	MaxChunkDownloadWorkers = backupMaxChunkDownloadWorkers
-	glog.V(2).Info("END TESTS")
+	logger.Info("END TESTS")
 }
 
 func downloadChunkTestErrorFail(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
@@ -247,7 +247,7 @@ func downloadChunkTestErrorFail(ctx context.Context, scd *snowflakeChunkDownload
 func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 	numChunks := 12
 	// changed the workers
-	glog.V(2).Info("START TESTS")
+	logger.Info("START TESTS")
 	var i int
 	cc := make([][]*string, 0)
 	for i = 0; i < 100; i++ {
@@ -286,7 +286,7 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 			break
 		}
 		if err != nil {
-			glog.V(2).Infof(
+			logger.Infof(
 				"failure was expected by the number of rows is wrong. expected: %v, got: %v", 715, cnt)
 			break
 		}

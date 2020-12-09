@@ -55,7 +55,7 @@ func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	if c.cnt < 0 {
 		c.cnt = 0
 	}
-	glog.V(2).Infof("fakeHTTPClient.cnt: %v", c.cnt)
+	logger.Infof("fakeHTTPClient.cnt: %v", c.cnt)
 
 	var retcode int
 	if c.success && c.cnt == 0 {
@@ -159,7 +159,7 @@ func TestRequestGUID(t *testing.T) {
 }
 
 func TestRetryQuerySuccess(t *testing.T) {
-	glog.V(2).Info("Retry N times and Success")
+	logger.Info("Retry N times and Success")
 	client := &fakeHTTPClient{
 		cnt:     3,
 		success: true,
@@ -188,7 +188,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 	}
 }
 func TestRetryQueryFail(t *testing.T) {
-	glog.V(2).Info("Retry N times and Fail")
+	logger.Info("Retry N times and Fail")
 	client := &fakeHTTPClient{
 		cnt:     4,
 		success: false,
@@ -217,7 +217,7 @@ func TestRetryQueryFail(t *testing.T) {
 	}
 }
 func TestRetryLoginRequest(t *testing.T) {
-	glog.V(2).Info("Retry N times for timeouts and Success")
+	logger.Info("Retry N times for timeouts and Success")
 	client := &fakeHTTPClient{
 		cnt:     3,
 		success: true,
@@ -241,7 +241,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	if values.Get(retryCounterKey) != "" {
 		t.Fatalf("no retry counter should be attached: %v", retryCounterKey)
 	}
-	glog.V(2).Info("Retry N times for timeouts and Fail")
+	logger.Info("Retry N times for timeouts and Fail")
 	client = &fakeHTTPClient{
 		cnt:     10,
 		success: false,

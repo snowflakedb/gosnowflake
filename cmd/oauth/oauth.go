@@ -17,7 +17,6 @@ import (
 
 func main() {
 	if !flag.Parsed() {
-		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
 

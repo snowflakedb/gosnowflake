@@ -78,7 +78,6 @@ func runQuery(db *sql.DB, query string) {
 
 func main() {
 	if !flag.Parsed() {
-		// enable glog for Go Snowflake Driver
 		flag.Parse()
 	}
 
