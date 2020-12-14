@@ -5,13 +5,14 @@ package gosnowflake
 import (
 	"context"
 	"fmt"
-	rlog "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"path"
 	"runtime"
 	"strings"
 	"time"
+
+	rlog "github.com/sirupsen/logrus"
 )
 
 // SFSessionIDKey is context key of session id
@@ -103,7 +104,9 @@ func CreateDefaultLogger() SFLogger {
 	var formatter = rlog.TextFormatter{CallerPrettyfier: SFCallerPrettyfier}
 	rLogger.SetReportCaller(true)
 	rLogger.SetFormatter(&formatter)
+
 	var ret = defaultLogger{inner: rLogger, enabled: true}
+	ret.SetLogLevel("warning")
 	return &ret //(&ret).(*SFLogger)
 }
 
