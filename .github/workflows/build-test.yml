@@ -11,6 +11,14 @@ on:
             - master
     schedule:
       - cron:  '7 3 * * *'
+    workflow_dispatch:
+        inputs:
+          logLevel:
+            default: warning
+            description: "Log level"
+            required: true
+          tags:
+            description: "Test scenario tags"
 
 jobs:
     build-test-linux:
