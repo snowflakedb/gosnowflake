@@ -115,7 +115,7 @@ func getIdpURLProofKey(
 
 	jsonBody, err := json.Marshal(authRequest)
 	if err != nil {
-		logger.Errorf("failed to serialize json. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to serialize json. err: %v", err)
 		return "", "", err
 	}
 
@@ -196,7 +196,7 @@ func authenticateByExternalBrowser(
 	var errFromGoroutine error
 	conn, err := l.Accept()
 	if err != nil {
-		logger.Errorf("unable to accept connection. err: %v", err)
+		logger.WithContext(ctx).Errorf("unable to accept connection. err: %v", err)
 		log.Fatal(err)
 	}
 	go func(c net.Conn) {
@@ -247,7 +247,7 @@ func authenticateByExternalBrowser(
 
 	escapedSamlResponse, err := url.QueryUnescape(encodedSamlResponse)
 	if err != nil {
-		logger.Errorf("unable to unescape saml response. err: %v", err)
+		logger.WithContext(ctx).Errorf("unable to unescape saml response. err: %v", err)
 		return nil, nil, err
 	}
 	return []byte(escapedSamlResponse), []byte(proofKey), nil

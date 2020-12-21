@@ -182,11 +182,11 @@ func postRestfulQueryHelper(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		logger.Infof("postQuery: resp: %v", resp)
+		logger.WithContext(ctx).Infof("postQuery: resp: %v", resp)
 		var respd execResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.Errorf("failed to decode JSON. err: %v", err)
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		if respd.Code == sessionExpiredCode {
@@ -212,14 +212,14 @@ func postRestfulQueryHelper(
 
 			resp, err = sr.FuncGet(ctx, sr, fullURL, headers, timeout)
 			if err != nil {
-				logger.Errorf("failed to get response. err: %v", err)
+				logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 				return nil, err
 			}
 			respd = execResponse{} // reset the response
 			err = json.NewDecoder(resp.Body).Decode(&respd)
 			resp.Body.Close()
 			if err != nil {
-				logger.Errorf("failed to decode JSON. err: %v", err)
+				logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 				return nil, err
 			}
 			if respd.Code == sessionExpiredCode {
@@ -236,11 +236,11 @@ func postRestfulQueryHelper(
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logger.Errorf("failed to extract HTTP response body. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
-	logger.Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToPostQuery,
 		SQLState:    SQLStateConnectionFailure,
@@ -250,7 +250,7 @@ func postRestfulQueryHelper(
 }
 
 func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Duration) error {
-	logger.Info("close session")
+	logger.WithContext(ctx).Info("close session")
 	params := &url.Values{}
 	params.Add("delete", "true")
 	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
@@ -272,7 +272,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 		var respd renewSessionResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.Errorf("failed to decode JSON. err: %v", err)
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return err
 		}
 		if !respd.Success && respd.Code != sessionExpiredCode {
@@ -289,11 +289,11 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logger.Errorf("failed to extract HTTP response body. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return err
 	}
-	logger.Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 	return &SnowflakeError{
 		Number:      ErrFailedToCloseSession,
 		SQLState:    SQLStateConnectionFailure,
@@ -303,7 +303,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 }
 
 func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time.Duration) error {
-	logger.Info("start renew session")
+	logger.WithContext(ctx).Info("start renew session")
 	params := &url.Values{}
 	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
 	params.Add(requestGUIDKey, uuid.New().String())
@@ -334,7 +334,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 		var respd renewSessionResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.Errorf("failed to decode JSON. err: %v", err)
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return err
 		}
 		if !respd.Success {
@@ -353,11 +353,11 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logger.Errorf("failed to extract HTTP response body. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return err
 	}
-	logger.Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 	return &SnowflakeError{
 		Number:      ErrFailedToRenewSession,
 		SQLState:    SQLStateConnectionFailure,
@@ -367,7 +367,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 }
 
 func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID string, timeout time.Duration) error {
-	logger.Info("cancel query")
+	logger.WithContext(ctx).Info("cancel query")
 	params := &url.Values{}
 	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
 	params.Add(requestGUIDKey, uuid.New().String())
@@ -397,7 +397,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID string, ti
 		var respd cancelQueryResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.Errorf("failed to decode JSON. err: %v", err)
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return err
 		}
 		if !respd.Success && respd.Code == sessionExpiredCode {
@@ -421,11 +421,11 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID string, ti
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logger.Errorf("failed to extract HTTP response body. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return err
 	}
-	logger.Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 	return &SnowflakeError{
 		Number:      ErrFailedToCancelQuery,
 		SQLState:    SQLStateConnectionFailure,

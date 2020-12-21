@@ -20,8 +20,9 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	var err error
 	sc := &snowflakeConn{
 		SequenceCounter: 0,
+		ctx:             context.TODO(),
 	}
-	ctx := context.TODO()
+
 	sc.cfg, err = ParseDSN(dsn)
 	if err != nil {
 		sc.cleanup()
@@ -69,7 +70,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
 		samlResponse, proofKey, err = authenticateByExternalBrowser(
-			ctx,
+			sc.ctx,
 			sc.rest,
 			sc.cfg.Authenticator.String(),
 			sc.cfg.Application,
@@ -82,7 +83,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		}
 	case AuthTypeOkta:
 		samlResponse, err = authenticateBySAML(
-			ctx,
+			sc.ctx,
 			sc.rest,
 			sc.cfg.OktaURL,
 			sc.cfg.Application,
@@ -95,7 +96,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 		}
 	}
 	authData, err = authenticate(
-		ctx,
+		sc.ctx,
 		sc,
 		samlResponse,
 		proofKey)
@@ -105,21 +106,12 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	}
 
 	sc.populateSessionParameters(authData.Parameters)
+	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
 	sc.startHeartBeat()
 	return sc, nil
 }
 
-var logger = DefaultLogger()
-
-// SetLogger set a new logger of SFLogger interface for gosnowflake
-func SetLogger(inLogger SFLogger) {
-	logger = inLogger
-}
-
-// GetLogger return logger that is not public
-func GetLogger() SFLogger {
-	return logger
-}
+var logger = CreateDefaultLogger()
 
 func init() {
 	sql.Register("snowflake", &SnowflakeDriver{})

@@ -21,43 +21,48 @@ func (log *testLogger) SetLogLevel(level string) error {
 	return nil
 }
 
-func getLogger() *testLogger {
+func createTestLogger() testLogger {
 	var logging = testLogger{*rlog.New()}
 	var formatter = rlog.JSONFormatter{CallerPrettyfier: sf.SFCallerPrettyfier}
 	logging.SetReportCaller(true)
 	logging.SetFormatter(&formatter)
-	return &logging
+	return logging
 }
 
 func main() {
 	buf := &bytes.Buffer{}
 	buf2 := &bytes.Buffer{}
 
-	sf.GetLogger().SetOutput(buf)
-	sf.GetLogger().Info("Hello I am default")
-	sf.GetLogger().Info("Hello II amm default")
-	sf.GetLogger().Debug("Default I am debug NOT SHOWN")
-	sf.GetLogger().SetLogLevel("debug")
-	sf.GetLogger().Debug("Default II amm debug TO SHOW")
+	var mylog = sf.GetLogger()
+	mylog.SetOutput(buf)
+	mylog.Info("Hello I am default")
+	mylog.Info("Hello II amm default")
+	mylog.Debug("Default I am debug NOT SHOWN")
+	mylog.SetLogLevel("debug")
+	mylog.Debug("Default II amm debug TO SHOW")
 
-	var testlg = getLogger()
-	testlg.SetLogLevel("debug")
-	testlg.SetOutput(buf2)
-	sf.SetLogger(testlg)
-	sf.GetLogger().Debug("test debug log is shown")
-	sf.GetLogger().SetLogLevel("info")
-	sf.GetLogger().Debug("test debug log is not shownII")
+	var testlog = sf.CreateDefaultLogger()
+	testlog.SetLogLevel("debug")
+	testlog.SetOutput(buf)
+	testlog.SetOutput(buf2)
+	sf.SetLogger(&testlog)
+
+	var mylog2 = (sf.GetLogger()).(sf.SFLogger)
+	mylog2.Debug("test debug log is shown")
+	mylog2.SetLogLevel("info")
+	mylog2.Debug("test debug log is not shownII")
 	log.Print("Expect all true values:")
 
 	// verify logger switch
-	log.Printf("%t:%t:%t:%t", strings.Contains(buf.String(), "I am default"),
-		strings.Contains(buf.String(), "II amm default"),
-		!strings.Contains(buf.String(), "test debug log is shown"),
+	var strbuf = buf.String()
+	log.Printf("%t:%t:%t:%t", strings.Contains(strbuf, "I am default"),
+		strings.Contains(strbuf, "II amm default"),
+		!strings.Contains(strbuf, "test debug log is shown"),
 		strings.Contains(buf2.String(), "test debug log is shown"))
 
 	// verify log level switch
-	log.Printf("%t:%t:%t:%t", !strings.Contains(buf.String(), "Default I am debug NOT SHOWN"),
-		strings.Contains(buf.String(), "Default II amm debug TO SHOW"),
+	log.Printf("%t:%t:%t:%t", !strings.Contains(strbuf, "Default I am debug NOT SHOWN"),
+		strings.Contains(strbuf, "Default II amm debug TO SHOW"),
 		strings.Contains(buf2.String(), "test debug log is shown"),
 		!strings.Contains(buf2.String(), "test debug log is not shownII"))
 

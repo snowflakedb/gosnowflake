@@ -371,14 +371,14 @@ func checkOCSPCacheServer(
 		}
 	}
 	defer res.Body.Close()
-	logger.Infof("StatusCode from OCSP Cache Server: %v\n", res.StatusCode)
+	logger.Debugf("StatusCode from OCSP Cache Server: %v\n", res.StatusCode)
 	if res.StatusCode != http.StatusOK {
 		return nil, &ocspStatus{
 			code: ocspFailedResponse,
 			err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
 		}
 	}
-	logger.Info("reading contents")
+	logger.Debugf("reading contents")
 
 	dec := json.NewDecoder(res.Body)
 	for {
@@ -425,14 +425,14 @@ func retryOCSP(
 		}
 	}
 	defer res.Body.Close()
-	logger.Infof("StatusCode from OCSP Server: %v\n", res.StatusCode)
+	logger.Debugf("StatusCode from OCSP Server: %v\n", res.StatusCode)
 	if res.StatusCode != http.StatusOK {
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedResponse,
 			err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
 		}
 	}
-	logger.Info("reading contents")
+	logger.Debug("reading contents")
 	ocspResBytes, err = ioutil.ReadAll(res.Body)
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
@@ -440,7 +440,7 @@ func retryOCSP(
 			err:  err,
 		}
 	}
-	logger.Info("parsing OCSP response")
+	logger.Debug("parsing OCSP response")
 	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
