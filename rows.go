@@ -46,7 +46,7 @@ type snowflakeRows struct {
 }
 
 func (rows *snowflakeRows) Close() (err error) {
-	logger.Infoln("Rows.Close")
+	logger.WithContext(rows.sc.ctx).Debugln("Rows.Close")
 	return nil
 }
 
@@ -239,8 +239,8 @@ func (scd *snowflakeChunkDownloader) start() error {
 	// start downloading chunks if exists
 	chunkMetaLen := len(scd.ChunkMetas)
 	if chunkMetaLen > 0 {
-		logger.Infof("MaxChunkDownloadWorkers: %v", MaxChunkDownloadWorkers)
-		logger.Infof("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
+		logger.Debugf("MaxChunkDownloadWorkers: %v", MaxChunkDownloadWorkers)
+		logger.Debugf("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.DoneDownloadCond = sync.NewCond(scd.ChunksMutex)
 		scd.Chunks = make(map[int][]chunkRowType)
@@ -305,7 +305,7 @@ func (scd *snowflakeChunkDownloader) Next() (chunkRowType, error) {
 		}
 
 		for scd.Chunks[scd.CurrentChunkIndex] == nil {
-			logger.Infof("waiting for chunk idx: %v/%v",
+			logger.Debugf("waiting for chunk idx: %v/%v",
 				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
 
 			err := scd.checkErrorRetry()
@@ -318,7 +318,7 @@ func (scd *snowflakeChunkDownloader) Next() (chunkRowType, error) {
 			// 1) one chunk download finishes or 2) an error occurs.
 			scd.DoneDownloadCond.Wait()
 		}
-		logger.Infof("ready: chunk %v", scd.CurrentChunkIndex+1)
+		logger.Debugf("ready: chunk %v", scd.CurrentChunkIndex+1)
 		scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
 		scd.ChunksMutex.Unlock()
 		scd.CurrentChunkSize = len(scd.CurrentChunk)
@@ -327,7 +327,7 @@ func (scd *snowflakeChunkDownloader) Next() (chunkRowType, error) {
 		scd.schedule()
 	}
 
-	logger.Infof("no more data")
+	logger.Debugf("no more data")
 	if len(scd.ChunkMetas) > 0 {
 		close(scd.ChunksError)
 		close(scd.ChunksChan)
@@ -398,7 +398,7 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) error {
 	headers := make(map[string]string)
 	if len(scd.ChunkHeader) > 0 {
-		logger.Info("chunk header is provided.")
+		logger.Debug("chunk header is provided.")
 		for k, v := range scd.ChunkHeader {
 			headers[k] = v
 		}
@@ -489,7 +489,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			return err
 		}
 	}
-	logger.Infof(
+	logger.Debugf(
 		"decoded %d rows w/ %d bytes in %s (chunk %v)",
 		scd.ChunkMetas[idx].RowCount,
 		scd.ChunkMetas[idx].UncompressedSize,

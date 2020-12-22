@@ -83,7 +83,7 @@ func init() {
 	timezones = make(map[int]*time.Location, 48)
 	// pre-generate all common timezones
 	for i := -720; i <= 720; i += 30 {
-		logger.Infof("offset: %v", i)
+		logger.Debugf("offset: %v", i)
 		timezones[i] = genTimezone(i)
 	}
 }
