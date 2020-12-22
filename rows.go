@@ -46,7 +46,7 @@ type snowflakeRows struct {
 }
 
 func (rows *snowflakeRows) Close() (err error) {
-	logger.Debugln("Rows.Close")
+	logger.WithContext(rows.sc.ctx).Debugln("Rows.Close")
 	return nil
 }
 
