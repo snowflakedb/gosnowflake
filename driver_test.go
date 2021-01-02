@@ -2388,6 +2388,19 @@ func TestPingInvalidHost(t *testing.T) {
 	}
 }
 
+func TestOpenWithConfig(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatalf("failed to parse dsn. dsn: %v, err: %v", dsn, err)
+	}
+	driver := SnowflakeDriver{}
+	db, err := driver.OpenWithConfig(context.Background(), *config)
+	if err != nil {
+		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
+	}
+	db.Close()
+}
+
 func createDSNWithClientSessionKeepAlive() {
 	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, schemaname)
 

@@ -125,6 +125,8 @@ A complete connection string looks similar to the following:
 Session-level parameters can also be set by using the SQL command "ALTER SESSION"
 (https://docs.snowflake.com/en/sql-reference/sql/alter-session.html).
 
+Alternatively, use OpenWithConfig() function to create a database handle with the specified Config.
+
 Proxy
 
 The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.
