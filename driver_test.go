@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -2399,6 +2400,54 @@ func TestOpenWithConfig(t *testing.T) {
 		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
 	}
 	db.Close()
+}
+
+type CountingTransport struct {
+	requests int
+}
+
+func (t *CountingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	t.requests++
+	return snowflakeInsecureTransport.RoundTrip(r)
+}
+
+func TestOpenWithTransport(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatalf("failed to parse dsn. dsn: %v, err: %v", dsn, err)
+	}
+	countingTransport := CountingTransport{}
+	var transport http.RoundTripper = &countingTransport
+	config.Transporter = transport
+	driver := SnowflakeDriver{}
+	db, err := driver.OpenWithConfig(context.Background(), *config)
+	if err != nil {
+		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
+	}
+	conn := db.(*snowflakeConn)
+	if conn.rest.Client.Transport != transport {
+		t.Fatal("transport doesn't match")
+	}
+	db.Close()
+	if countingTransport.requests == 0 {
+		t.Fatal("transport did not receive any requests")
+	}
+
+	// Test that transport override also works in insecure mode
+	countingTransport.requests = 0
+	config.InsecureMode = true
+	db, err = driver.OpenWithConfig(context.Background(), *config)
+	if err != nil {
+		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
+	}
+	conn = db.(*snowflakeConn)
+	if conn.rest.Client.Transport != transport {
+		t.Fatal("transport doesn't match")
+	}
+	db.Close()
+	if countingTransport.requests == 0 {
+		t.Fatal("transport did not receive any requests")
+	}
 }
 
 func createDSNWithClientSessionKeepAlive() {

@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -70,6 +71,8 @@ type Config struct {
 	Token string // Token to use for OAuth other forms of token based auth
 
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
+
+	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
