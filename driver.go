@@ -17,26 +17,37 @@ type SnowflakeDriver struct {
 // Open creates a new connection.
 func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	logger.Info("Open")
+	ctx := context.TODO()
+	cfg, err := ParseDSN(dsn)
+	if err != nil {
+		return nil, err
+	}
+	return d.OpenWithConfig(ctx, *cfg)
+}
+
+// OpenWithConfig creates a new connection with the given Config.
+func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
+	logger.Info("OpenWithConfig")
 	var err error
 	sc := &snowflakeConn{
 		SequenceCounter: 0,
-		ctx:             context.TODO(),
+		ctx: ctx,
+		cfg: &config,
 	}
-
-	sc.cfg, err = ParseDSN(dsn)
-	if err != nil {
-		sc.cleanup()
-		return nil, err
-	}
-	st := SnowflakeTransport
-	if sc.cfg.InsecureMode {
-		// no revocation check with OCSP. Think twice when you want to enable this option.
-		st = snowflakeInsecureTransport
+	var st http.RoundTripper = SnowflakeTransport
+	if sc.cfg.Transporter == nil {
+		if sc.cfg.InsecureMode {
+			// no revocation check with OCSP. Think twice when you want to enable this option.
+			st = snowflakeInsecureTransport
+		} else {
+			// set OCSP fail open mode
+			ocspResponseCacheLock.Lock()
+			atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(sc.cfg.OCSPFailOpen))
+			ocspResponseCacheLock.Unlock()
+		}
 	} else {
-		// set OCSP fail open mode
-		ocspResponseCacheLock.Lock()
-		atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(sc.cfg.OCSPFailOpen))
-		ocspResponseCacheLock.Unlock()
+		// use the custom transport
+		st = sc.cfg.Transporter
 	}
 	// authenticate
 	sc.rest = &snowflakeRestful{
