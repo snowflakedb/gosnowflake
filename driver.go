@@ -31,8 +31,8 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 	var err error
 	sc := &snowflakeConn{
 		SequenceCounter: 0,
-		ctx: ctx,
-		cfg: &config,
+		ctx:             ctx,
+		cfg:             &config,
 	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {

@@ -77,7 +77,7 @@ func (sc *snowflakeConn) exec(
 			req.Parameters = map[string]interface{}{string(MultiStatementCount): key}
 		}
 	}
-	glog.V(2).Infof("parameters: %v", req.Parameters)
+	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
 
 	tsmode := "TIMESTAMP_NTZ"
 	idx := 1
@@ -109,16 +109,7 @@ func (sc *snowflakeConn) exec(
 			}
 		}
 	}
-<<<<<<< HEAD
-	multiCount := ctx.Value(MultiStatementCount)
-	if multiCount != nil {
-		req.Parameters = map[string]interface{}{string(MultiStatementCount): multiCount}
-	}
 	logger.WithContext(ctx).Infof("bindings: %v", req.Bindings)
-	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
-=======
-	glog.V(2).Infof("bindings: %v", req.Bindings)
->>>>>>> 13a25c6... add async support
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
