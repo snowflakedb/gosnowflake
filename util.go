@@ -100,6 +100,7 @@ func toNamedValues(values []driver.Value) []driver.NamedValue {
 	return namedValues
 }
 
+// TokenAccessor manages the session token and master token
 type TokenAccessor interface {
 	GetTokens() (token string, masterToken string, sessionId int)
 	SetTokens(token string, masterToken string, sessionId int)
