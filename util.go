@@ -109,19 +109,19 @@ type TokenAccessor interface {
 type simpleTokenAccessor struct {
 	token       string
 	masterToken string
-	sessionId   int
+	sessionID   int
 }
 
 func getSimpleTokenAccessor() TokenAccessor {
-	return &simpleTokenAccessor{sessionId: -1}
+	return &simpleTokenAccessor{sessionID: -1}
 }
 
 func (sta *simpleTokenAccessor) GetTokens() (token string, masterToken string, sessionId int) {
-	return sta.token, sta.masterToken, sta.sessionId
+	return sta.token, sta.masterToken, sta.sessionID
 }
 
 func (sta *simpleTokenAccessor) SetTokens(token string, masterToken string, sessionId int) {
 	sta.token = token
 	sta.masterToken = masterToken
-	sta.sessionId = sessionId
+	sta.sessionID = sessionId
 }
