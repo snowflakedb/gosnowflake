@@ -107,9 +107,9 @@ type TokenAccessor interface {
 }
 
 type simpleTokenAccessor struct {
-	token string
+	token       string
 	masterToken string
-	sessionId int
+	sessionId   int
 }
 
 func getSimpleTokenAccessor() TokenAccessor {
