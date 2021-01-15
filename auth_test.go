@@ -18,7 +18,7 @@ import (
 
 func TestUnitPostAuth(t *testing.T) {
 	sr := &snowflakeRestful{
-		Token:    "token",
+		TokenAccessor: getSimpleTokenAccessor(),
 		FuncPost: postTestAfterRenew,
 	}
 	var err error

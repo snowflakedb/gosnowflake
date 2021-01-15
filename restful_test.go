@@ -91,7 +91,7 @@ func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 
 func TestUnitPostQueryHelperError(t *testing.T) {
 	sr := &snowflakeRestful{
-		Token:    "token",
+		TokenAccessor: getSimpleTokenAccessor(),
 		FuncPost: postTestError,
 	}
 	var err error
@@ -140,7 +140,7 @@ func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 		}, nil
 	}
 	sr := &snowflakeRestful{
-		Token:            "token",
+		TokenAccessor: getSimpleTokenAccessor(),
 		FuncPost:         postTestRenew,
 		FuncPostQuery:    postQueryTest,
 		FuncRenewSession: renewSessionTest,
@@ -159,8 +159,7 @@ func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 
 func TestUnitRenewRestfulSession(t *testing.T) {
 	sr := &snowflakeRestful{
-		MasterToken: "mtoken",
-		Token:       "token",
+		TokenAccessor: getSimpleTokenAccessor(),
 		FuncPost:    postTestAfterRenew,
 	}
 	err := renewRestfulSession(context.Background(), sr, time.Second)

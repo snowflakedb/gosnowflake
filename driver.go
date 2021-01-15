@@ -49,6 +49,12 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		// use the custom transport
 		st = sc.cfg.Transporter
 	}
+	var tokenAccessor TokenAccessor
+	if sc.cfg.TokenAccessor == nil {
+		tokenAccessor = sc.cfg.TokenAccessor
+	} else {
+		tokenAccessor = getSimpleTokenAccessor()
+	}
 	// authenticate
 	sc.rest = &snowflakeRestful{
 		Host:     sc.cfg.Host,
@@ -59,6 +65,7 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 			Timeout:   sc.cfg.ClientTimeout,
 			Transport: st,
 		},
+		TokenAccessor:       tokenAccessor,
 		LoginTimeout:        sc.cfg.LoginTimeout,
 		RequestTimeout:      sc.cfg.RequestTimeout,
 		FuncPost:            postRestful,

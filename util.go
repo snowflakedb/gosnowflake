@@ -99,3 +99,28 @@ func toNamedValues(values []driver.Value) []driver.NamedValue {
 	}
 	return namedValues
 }
+
+type TokenAccessor interface {
+	GetTokens() (token string, masterToken string, sessionId int)
+	SetTokens(token string, masterToken string, sessionId int)
+}
+
+type simpleTokenAccessor struct {
+	token string
+	masterToken string
+	sessionId int
+}
+
+func getSimpleTokenAccessor() TokenAccessor {
+	return &simpleTokenAccessor{sessionId: -1}
+}
+
+func (sta *simpleTokenAccessor) GetTokens() (token string, masterToken string, sessionId int) {
+	return sta.token, sta.masterToken, sta.sessionId
+}
+
+func (sta *simpleTokenAccessor) SetTokens(token string, masterToken string, sessionId int) {
+	sta.token = token
+	sta.masterToken = masterToken
+	sta.sessionId = sessionId
+}

@@ -71,7 +71,8 @@ type Config struct {
 	InsecureMode bool             // driver doesn't check certificate revocation status
 	OCSPFailOpen OCSPFailOpenMode // OCSP Fail Open
 
-	Token string // Token to use for OAuth other forms of token based auth
+	Token         string        // Token to use for OAuth other forms of token based auth
+	TokenAccessor TokenAccessor // Optional token accessor to use
 
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
 
