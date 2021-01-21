@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -43,9 +43,12 @@ type snowflakeRows struct {
 	RowType         []execResponseRowType
 	ChunkDownloader *snowflakeChunkDownloader
 	queryID         string
+	status          queryStatus
+	statusChannel   chan queryStatus
 }
 
 func (rows *snowflakeRows) Close() (err error) {
+	rows.checkAsyncQueryStatus()
 	logger.WithContext(rows.sc.ctx).Debugln("Rows.Close")
 	return nil
 }
@@ -98,11 +101,13 @@ type snowflakeChunkDownloader struct {
 
 // ColumnTypeDatabaseTypeName returns the database column name.
 func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
+	rows.checkAsyncQueryStatus()
 	return strings.ToUpper(rows.RowType[index].Type)
 }
 
 // ColumnTypeLength returns the length of the column
 func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
+	rows.checkAsyncQueryStatus()
 	if index < 0 || index > len(rows.RowType) {
 		return 0, false
 	}
@@ -114,6 +119,7 @@ func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
 }
 
 func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
+	rows.checkAsyncQueryStatus()
 	if index < 0 || index > len(rows.RowType) {
 		return false, false
 	}
@@ -121,6 +127,7 @@ func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
 }
 
 func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
+	rows.checkAsyncQueryStatus()
 	if index < 0 || index > len(rows.RowType) {
 		return 0, 0, false
 	}
@@ -136,6 +143,7 @@ func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale
 }
 
 func (rows *snowflakeRows) Columns() []string {
+	rows.checkAsyncQueryStatus()
 	logger.Debug("Rows.Columns")
 	ret := make([]string, len(rows.RowType))
 	for i, n := 0, len(rows.RowType); i < n; i++ {
@@ -145,14 +153,20 @@ func (rows *snowflakeRows) Columns() []string {
 }
 
 func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
+	rows.checkAsyncQueryStatus()
 	return snowflakeTypeToGo(rows.RowType[index].Type, rows.RowType[index].Scale)
 }
 
-func (rows *snowflakeRows) QueryID() string {
+func (rows *snowflakeRows) GetQueryID() string {
 	return rows.queryID
 }
 
+func (rows *snowflakeRows) GetStatus() queryStatus {
+	return rows.status
+}
+
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
+	rows.checkAsyncQueryStatus()
 	row, err := rows.ChunkDownloader.Next()
 	if err != nil {
 		// includes io.EOF
@@ -180,6 +194,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 }
 
 func (rows *snowflakeRows) HasNextResultSet() bool {
+	rows.checkAsyncQueryStatus()
 	if len(rows.ChunkDownloader.ChunkMetas) == 0 && rows.ChunkDownloader.NextDownloader == nil {
 		return false // no extra chunk
 	}
@@ -187,6 +202,7 @@ func (rows *snowflakeRows) HasNextResultSet() bool {
 }
 
 func (rows *snowflakeRows) NextResultSet() error {
+	rows.checkAsyncQueryStatus()
 	if len(rows.ChunkDownloader.ChunkMetas) == 0 {
 		if rows.ChunkDownloader.NextDownloader == nil {
 			return io.EOF
@@ -195,6 +211,14 @@ func (rows *snowflakeRows) NextResultSet() error {
 		rows.ChunkDownloader.start()
 	}
 	return rows.ChunkDownloader.nextResultSet()
+}
+
+func (rows *snowflakeRows) checkAsyncQueryStatus() {
+	// if async query, block until query is finished
+	if rows.status == QueryStatusInProgress {
+		rows.status = <-rows.statusChannel
+		close(rows.statusChannel)
+	}
 }
 
 func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -234,6 +234,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	if err != nil {
 		return nil, err
 	}
+	// TODO handle isInternal
 	data, err := sc.exec(ctx, query, noResult, false, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
@@ -340,6 +341,11 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 				QueryID:  data.Data.QueryID}
 		}
 		return nil, err
+	}
+
+	// if async query, return row object right away
+	if data.Data.AsyncRows != nil {
+		return data.Data.AsyncRows, nil
 	}
 
 	rows := new(snowflakeRows)
@@ -567,10 +573,6 @@ func isAsyncMode(ctx context.Context) (bool, error) {
 	return boolVal, nil
 }
 
-func withQueryIDChan(ctx context.Context, c chan<- string) context.Context {
-	return context.WithValue(ctx, QueryIDChan, c)
-}
-
 func getQueryIDChan(ctx context.Context) chan<- string {
 	v := ctx.Value(QueryIDChan)
 	if v == nil {
@@ -579,10 +581,6 @@ func getQueryIDChan(ctx context.Context) chan<- string {
 	c, _ := v.(chan<- string)
 	return c
 }
-
-//func WithResumeQueryID(ctx context.Context, queryID string) context.Context {
-//	return context.WithValue(ctx, ResumeQueryID, queryID)
-//}
 
 func getResumeQueryID(ctx context.Context) string {
 	val := ctx.Value(ResumeQueryID)

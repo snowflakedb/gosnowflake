@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2020-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"testing"
 )
 
@@ -443,32 +444,6 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 	}
 }
 
-func TestWithAsyncMode(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	ctx, _ := WithAsyncMode(context.Background())
-	query := "SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>1000000))"
-	rows, err := db.QueryContext(ctx, query)
-	if err != nil {
-		t.Error("failed query")
-	}
-	rows.Close()
-	var idx int
-	var v string
-	for rows.Next() {
-		err := rows.Scan(&idx, &v)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func TestGetQueryID(t *testing.T) {
 	var db *sql.DB
 	var err error
@@ -491,7 +466,7 @@ func TestGetQueryID(t *testing.T) {
 			return err
 		}
 		defer rows.Close()
-		qid := rows.(SnowflakeResult).QueryID()
+		qid := rows.(SnowflakeResult).GetQueryID()
 		if qid == "" {
 			t.Fatal("should have returned a query ID string")
 		}
@@ -521,5 +496,37 @@ func TestGetQueryID(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("failed to prepare statement. err: %v", err)
+	}
+}
+
+func TestAsyncMode(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx, _ := WithAsyncMode(context.Background())
+	numrows := 100000
+	rows, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+	defer rows.Close()
+
+	cnt := 0
+	var idx int
+	var v string
+	// Next() will block and wait until results are available
+	for rows.Next() {
+		err := rows.Scan(&idx, &v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cnt++
+	}
+	logger.Infof("NextResultSet: %v", rows.NextResultSet())
+
+	if cnt != numrows {
+		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -220,7 +220,68 @@ func postRestfulQueryHelper(
 		if queryIDChan := getQueryIDChan(ctx); queryIDChan != nil {
 			queryIDChan <- respd.Data.QueryID
 			close(queryIDChan)
-			ctx = withQueryIDChan(ctx, nil)
+			ctx = WithQueryIDChan(ctx, nil)
+		}
+
+		// if asynchronous query in progress, kick off retrieval but return object
+		if respd.Code == queryInProgressAsyncCode {
+			// placeholder object to return to user while retrieving results
+			// TODO snowflake results
+			rows := new(snowflakeRows)
+			rows.status = QueryStatusInProgress
+			rows.statusChannel = make(chan queryStatus)
+			respd.Data.AsyncRows = rows
+
+			// spawn goroutine to retrieve asynchronous results
+			go func(r *snowflakeRows) {
+				headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+				fullURL := sr.getFullURL(respd.Data.GetResultURL, nil)
+				resp, err = sr.FuncGet(ctx, sr, fullURL, headers, timeout)
+				if err != nil {
+					logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+					return
+				}
+
+				respd = execResponse{} // reset the response
+				err = json.NewDecoder(resp.Body).Decode(&respd)
+				resp.Body.Close()
+				if err != nil {
+					logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+					return
+				}
+
+				if respd.Success {
+					sc := &snowflakeConn{rest: sr}
+					rows.sc = sc
+					rows.RowType = respd.Data.RowType
+					rows.ChunkDownloader = &snowflakeChunkDownloader{
+						sc:                 sc,
+						ctx:                ctx,
+						CurrentChunk:       make([]chunkRowType, len(respd.Data.RowSet)),
+						ChunkMetas:         respd.Data.Chunks,
+						Total:              respd.Data.Total,
+						TotalRowIndex:      int64(-1),
+						CellCount:          len(respd.Data.RowType),
+						Qrmk:               respd.Data.Qrmk,
+						QueryResultFormat:  respd.Data.QueryResultFormat,
+						ChunkHeader:        respd.Data.ChunkHeaders,
+						FuncDownload:       downloadChunk,
+						FuncDownloadHelper: downloadChunkHelper,
+						FuncGet:            getChunk,
+						RowSet: rowSetType{RowType: respd.Data.RowType,
+							JSON:         respd.Data.RowSet,
+							RowSetBase64: respd.Data.RowSetBase64,
+						},
+					}
+					rows.queryID = data.Data.QueryID
+					rows.ChunkDownloader.start()
+					rows.statusChannel <- QueryStatusComplete // mark query status complete
+				} else {
+					rows.statusChannel <- QueryFailed
+					return
+				}
+			}(rows)
+			return &respd, nil
 		}
 		for isSessionRenewed || respd.Code == queryInProgressCode ||
 			respd.Code == queryInProgressAsyncCode {

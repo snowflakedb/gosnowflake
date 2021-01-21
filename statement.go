@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -14,9 +14,9 @@ const (
 	MultiStatementCount paramKey = "MULTI_STATEMENT_COUNT"
 	// AsyncMode tells the server to not block the request on executing the entire query
 	AsyncMode paramKey = "ASYNC_MODE_QUERY"
-	// QueryIDChan controls
-	QueryIDChan paramKey = "QUERY_ID_CHAN"
-	// ResumeQueryID controls
+	// QueryIDChan is the channel to receive the query ID from
+	QueryIDChan paramKey = "QUERY_ID_CHANNEL"
+	// ResumeQueryID is the received query ID to resume execution
 	ResumeQueryID paramKey = "RESUME_QUERY_ID"
 )
 
@@ -62,7 +62,12 @@ func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
 	return context.WithValue(ctx, MultiStatementCount, num), nil
 }
 
-// WithAsyncMode returns a context
+// WithAsyncMode returns a context that allows execution of query in async mode
 func WithAsyncMode(ctx context.Context) (context.Context, error) {
 	return context.WithValue(ctx, AsyncMode, true), nil
+}
+
+// WithQueryIDChan returns a context that contains the channel to receive the query ID
+func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
+	return context.WithValue(ctx, QueryIDChan, c)
 }
