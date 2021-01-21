@@ -184,20 +184,29 @@ func postRestfulQueryHelper(
 	if sr.Token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 	}
+
 	var resp *http.Response
 	var fullURL *url.URL
 	if queryID := getResumeQueryID(ctx); queryID == "" {
 		fullURL = sr.getFullURL(queryRequestPath, params)
 		resp, err = sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, false)
 	} else {
-		// TODO use url when async query initially executed
-		fullURL = sr.getQueryIDURL(queryID)
-		resp, err = sr.FuncGet(ctx, sr, fullURL, headers, timeout)
+		respd := execResponse{}
+		rows := new(snowflakeRows)
+		rows.status = QueryStatusInProgress
+		rows.statusChannel = make(chan queryStatus)
+		respd.Data.AsyncRows = rows
+		respd.Success = true // needed to return exec properly
+
+		// kick off retrieval and return incomplete object for user
+		go getAsync(ctx, sr, headers, sr.getQueryIDURL(queryID), timeout, rows)
+		return &respd, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode == http.StatusOK {
 		logger.WithContext(ctx).Infof("postQuery: resp: %v", resp)
 		var respd execResponse
@@ -233,54 +242,7 @@ func postRestfulQueryHelper(
 			respd.Data.AsyncRows = rows
 
 			// spawn goroutine to retrieve asynchronous results
-			go func(r *snowflakeRows) {
-				headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
-				fullURL := sr.getFullURL(respd.Data.GetResultURL, nil)
-				resp, err = sr.FuncGet(ctx, sr, fullURL, headers, timeout)
-				if err != nil {
-					logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-					return
-				}
-
-				respd = execResponse{} // reset the response
-				err = json.NewDecoder(resp.Body).Decode(&respd)
-				resp.Body.Close()
-				if err != nil {
-					logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-					return
-				}
-
-				if respd.Success {
-					sc := &snowflakeConn{rest: sr}
-					rows.sc = sc
-					rows.RowType = respd.Data.RowType
-					rows.ChunkDownloader = &snowflakeChunkDownloader{
-						sc:                 sc,
-						ctx:                ctx,
-						CurrentChunk:       make([]chunkRowType, len(respd.Data.RowSet)),
-						ChunkMetas:         respd.Data.Chunks,
-						Total:              respd.Data.Total,
-						TotalRowIndex:      int64(-1),
-						CellCount:          len(respd.Data.RowType),
-						Qrmk:               respd.Data.Qrmk,
-						QueryResultFormat:  respd.Data.QueryResultFormat,
-						ChunkHeader:        respd.Data.ChunkHeaders,
-						FuncDownload:       downloadChunk,
-						FuncDownloadHelper: downloadChunkHelper,
-						FuncGet:            getChunk,
-						RowSet: rowSetType{RowType: respd.Data.RowType,
-							JSON:         respd.Data.RowSet,
-							RowSetBase64: respd.Data.RowSetBase64,
-						},
-					}
-					rows.queryID = data.Data.QueryID
-					rows.ChunkDownloader.start()
-					rows.statusChannel <- QueryStatusComplete // mark query status complete
-				} else {
-					rows.statusChannel <- QueryFailed
-					return
-				}
-			}(rows)
+			go getAsync(ctx, sr, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, rows)
 			return &respd, nil
 		}
 		for isSessionRenewed || respd.Code == queryInProgressCode ||
@@ -514,5 +476,60 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID string, ti
 		SQLState:    SQLStateConnectionFailure,
 		Message:     errMsgFailedToCancelQuery,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
+	}
+}
+
+func getAsync(
+	ctx context.Context,
+	sr *snowflakeRestful,
+	headers map[string]string,
+	URL *url.URL,
+	timeout time.Duration,
+	rows *snowflakeRows,
+) {
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+	resp, err := sr.FuncGet(ctx, sr, URL, headers, timeout)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+		return
+	}
+
+	respd := execResponse{} // reset the response
+	err = json.NewDecoder(resp.Body).Decode(&respd)
+	resp.Body.Close()
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+		return
+	}
+
+	if respd.Success {
+		sc := &snowflakeConn{rest: sr}
+		rows.sc = sc
+		rows.RowType = respd.Data.RowType
+		rows.ChunkDownloader = &snowflakeChunkDownloader{
+			sc:                 sc,
+			ctx:                ctx,
+			CurrentChunk:       make([]chunkRowType, len(respd.Data.RowSet)),
+			ChunkMetas:         respd.Data.Chunks,
+			Total:              respd.Data.Total,
+			TotalRowIndex:      int64(-1),
+			CellCount:          len(respd.Data.RowType),
+			Qrmk:               respd.Data.Qrmk,
+			QueryResultFormat:  respd.Data.QueryResultFormat,
+			ChunkHeader:        respd.Data.ChunkHeaders,
+			FuncDownload:       downloadChunk,
+			FuncDownloadHelper: downloadChunkHelper,
+			FuncGet:            getChunk,
+			RowSet: rowSetType{RowType: respd.Data.RowType,
+				JSON:         respd.Data.RowSet,
+				RowSetBase64: respd.Data.RowSetBase64,
+			},
+		}
+		rows.queryID = respd.Data.QueryID
+		rows.ChunkDownloader.start()
+		rows.statusChannel <- QueryStatusComplete // mark query status complete
+	} else {
+		rows.statusChannel <- QueryFailed
+		return
 	}
 }

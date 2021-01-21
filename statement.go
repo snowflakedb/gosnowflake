@@ -67,6 +67,11 @@ func WithAsyncMode(ctx context.Context) (context.Context, error) {
 	return context.WithValue(ctx, AsyncMode, true), nil
 }
 
+// WithResumeQueryID returns a context that embeds the query ID to retrieve from async mode
+func WithResumeQueryID(ctx context.Context, queryID string) context.Context {
+	return context.WithValue(ctx, ResumeQueryID, queryID)
+}
+
 // WithQueryIDChan returns a context that contains the channel to receive the query ID
 func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 	return context.WithValue(ctx, QueryIDChan, c)

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -126,4 +126,5 @@ var logger = CreateDefaultLogger()
 
 func init() {
 	sql.Register("snowflake", &SnowflakeDriver{})
+	logger.SetLogLevel("error")
 }
