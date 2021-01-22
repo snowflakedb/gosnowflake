@@ -190,16 +190,17 @@ func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 
 func TestUnitRenewRestfulSession(t *testing.T) {
 	accessor := getSimpleTokenAccessor()
-	oldToken, oldMasterToken, oldSessionId := "oldtoken", "oldmaster", 100
-	accessor.SetTokens(oldToken, oldMasterToken, oldSessionId)
-
-	newToken, newMasterToken, newSessionId := "newtoken", "newmaster", 200
+	oldToken, oldMasterToken, oldSessionID := "oldtoken", "oldmaster", 100
+	newToken, newMasterToken, newSessionID := "newtoken", "newmaster", 200
 	postTestSuccessWithNewTokens := func(_ context.Context, _ *snowflakeRestful, _ *url.URL, headers map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
+		if headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, oldMasterToken) {
+			t.Fatalf("authorization key doesn't match, %v vs %v", headers[headerAuthorizationKey], fmt.Sprintf(headerSnowflakeToken, oldMasterToken))
+		}
 		tr := &renewSessionResponse{
 			Data: renewSessionResponseMain{
 				SessionToken: newToken,
 				MasterToken:  newMasterToken,
-				SessionID:    newSessionId,
+				SessionID:    newSessionID,
 			},
 			Message: "",
 			Success: true,
@@ -237,20 +238,21 @@ func TestUnitRenewRestfulSession(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed to run post request after the renewal")
 	}
+	accessor.SetTokens(oldToken, oldMasterToken, oldSessionID)
 	sr.FuncPost = postTestSuccessWithNewTokens
 	err = renewRestfulSession(context.Background(), sr, time.Second)
 	if err != nil {
 		t.Fatal("should not have failed to run post request after the renewal")
 	}
-	token, masterToken, sessionId := accessor.GetTokens()
+	token, masterToken, sessionID := accessor.GetTokens()
 	if token != newToken {
 		t.Fatalf("unexpected new token %v", token)
 	}
 	if masterToken != newMasterToken {
 		t.Fatalf("unexpected new master token %v", masterToken)
 	}
-	if sessionId != newSessionId {
-		t.Fatalf("unexpected new session id %v", sessionId)
+	if sessionID != newSessionID {
+		t.Fatalf("unexpected new session id %v", sessionID)
 	}
 }
 
@@ -282,7 +284,8 @@ func TestUnitCloseSession(t *testing.T) {
 
 func TestUnitCancelQuery(t *testing.T) {
 	sr := &snowflakeRestful{
-		FuncPost: postTestAfterRenew,
+		FuncPost:      postTestAfterRenew,
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	ctx := context.Background()
 	err := cancelQuery(ctx, sr, getOrGenerateRequestIDFromContext(ctx), time.Second)

@@ -99,7 +99,7 @@ type renewSessionResponseMain struct {
 	ValidityInSecondsST time.Duration `json:"validityInSecondsST"`
 	MasterToken         string        `json:"masterToken"`
 	ValidityInSecondsMT time.Duration `json:"validityInSecondsMT"`
-	SessionID           int           `json:"sessionID"`
+	SessionID           int           `json:"sessionId"`
 }
 
 type cancelQueryResponse struct {
