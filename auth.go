@@ -263,7 +263,6 @@ func authenticate(
 	samlResponse []byte,
 	proofKey []byte,
 ) (resp *authResponseMain, err error) {
-
 	headers := getHeaders()
 	clientEnvironment := authRequestClientEnvironment{
 		Application: sc.cfg.Application,

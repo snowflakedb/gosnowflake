@@ -19,7 +19,7 @@ import (
 func TestUnitPostAuth(t *testing.T) {
 	sr := &snowflakeRestful{
 		TokenAccessor: getSimpleTokenAccessor(),
-		FuncPost: postTestAfterRenew,
+		FuncPost:      postTestAfterRenew,
 	}
 	var err error
 	_, err = postAuth(context.TODO(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0)
@@ -241,7 +241,9 @@ func getDefaultSnowflakeConn() *snowflakeConn {
 		Passcode:           "",
 		Application:        "testapp",
 	}
-	sr := &snowflakeRestful{}
+	sr := &snowflakeRestful{
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
 	sc := &snowflakeConn{
 		rest: sr,
 		cfg:  &cfg,
@@ -256,7 +258,8 @@ func TestUnitAuthenticate(t *testing.T) {
 
 	sc := getDefaultSnowflakeConn()
 	sr := &snowflakeRestful{
-		FuncPostAuth: postAuthFailServiceIssue,
+		FuncPostAuth:  postAuthFailServiceIssue,
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	sc.rest = sr
 
@@ -314,7 +317,8 @@ func TestUnitAuthenticate(t *testing.T) {
 func TestUnitAuthenticateSaml(t *testing.T) {
 	var err error
 	sr := &snowflakeRestful{
-		FuncPostAuth: postAuthCheckSAMLResponse,
+		FuncPostAuth:  postAuthCheckSAMLResponse,
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeOkta
@@ -333,7 +337,8 @@ func TestUnitAuthenticateSaml(t *testing.T) {
 func TestUnitAuthenticateOAuth(t *testing.T) {
 	var err error
 	sr := &snowflakeRestful{
-		FuncPostAuth: postAuthCheckOAuth,
+		FuncPostAuth:  postAuthCheckOAuth,
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Token = "oauthToken"
@@ -348,7 +353,8 @@ func TestUnitAuthenticateOAuth(t *testing.T) {
 func TestUnitAuthenticatePasscode(t *testing.T) {
 	var err error
 	sr := &snowflakeRestful{
-		FuncPostAuth: postAuthCheckPasscode,
+		FuncPostAuth:  postAuthCheckPasscode,
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Passcode = "987654321"
@@ -372,7 +378,8 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 	var err error
 
 	sr := &snowflakeRestful{
-		FuncPostAuth: postAuthCheckJWTToken,
+		FuncPostAuth:  postAuthCheckJWTToken,
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeJwt

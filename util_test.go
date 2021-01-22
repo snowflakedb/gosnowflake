@@ -17,6 +17,33 @@ type tcIntMinMax struct {
 	out int
 }
 
+func TestSimpleTokenAccessor(t *testing.T) {
+	accessor := getSimpleTokenAccessor()
+	token, masterToken, sessionId := accessor.GetTokens()
+	if token != "" {
+		t.Errorf("unexpected token %v", token)
+	}
+	if masterToken != "" {
+		t.Errorf("unexpected master token %v", masterToken)
+	}
+	if sessionId != -1 {
+		t.Errorf("unexpected session id %v", sessionId)
+	}
+
+	expectedToken, expectedMasterToken, expectedSessionId := "token123", "master123", 123
+	accessor.SetTokens(expectedToken, expectedMasterToken, expectedSessionId)
+	token, masterToken, sessionId = accessor.GetTokens()
+	if token != expectedToken {
+		t.Errorf("unexpected token %v", token)
+	}
+	if masterToken != expectedMasterToken {
+		t.Errorf("unexpected master token %v", masterToken)
+	}
+	if sessionId != expectedSessionId {
+		t.Errorf("unexpected session id %v", sessionId)
+	}
+}
+
 func TestGetRequestIDFromContext(t *testing.T) {
 	expectedRequestID := uuid.New()
 	ctx := WithRequestID(context.Background(), expectedRequestID)

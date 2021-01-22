@@ -50,7 +50,7 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		st = sc.cfg.Transporter
 	}
 	var tokenAccessor TokenAccessor
-	if sc.cfg.TokenAccessor == nil {
+	if sc.cfg.TokenAccessor != nil {
 		tokenAccessor = sc.cfg.TokenAccessor
 	} else {
 		tokenAccessor = getSimpleTokenAccessor()
