@@ -8,7 +8,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"testing"
-	"time"
 )
 
 func TestMultiStatementExecuteNoResultSet(t *testing.T) {
@@ -530,63 +529,12 @@ func TestAsyncMode(t *testing.T) {
 	if cnt != numrows {
 		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 	}
-}
 
-func TestAsyncModeWithQueryID(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	numrows := 100000
-	queryIDChan := make(chan string, 1)
-	ctx := WithQueryIDChan(context.Background(), queryIDChan)
-	ctx, _ = WithAsyncMode(ctx)
-	conn, _ := db.Conn(ctx)
-	var queryID string
-
-	err = conn.Raw(func(x interface{}) error {
-		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
-		if err != nil {
-			return err
-		}
-		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
-		if err != nil {
-			return err
-		}
-		if queryID = rows.(SnowflakeResult).GetQueryID(); queryID == "" {
-			// if query ID not available, wait using channel passed in
-			queryID = <-queryIDChan
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("failed to execute query. err: %v", err)
-	}
-
-	time.Sleep(time.Second * 15)
-
-	// use retrieved query ID to check query status
-	ctx = WithResumeQueryID(context.Background(), queryID)
-	rows, _ := db.QueryContext(ctx, "") // query here does not matter
-	defer rows.Close()
-
-	cnt := 0
-	var idx int
-	var v string
-	for rows.Next() {
-		err := rows.Scan(&idx, &v)
-		if err != nil {
-			t.Fatal(err)
-		}
-		cnt++
-	}
-	logger.Infof("NextResultSet: %v", rows.NextResultSet())
-
-	if cnt != numrows {
-		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
+	db.Exec("create table test (value boolean)")
+	res, _ := db.ExecContext(ctx, "insert into test values (true)")
+	// RowsAffected() will block and wait until results are available
+	count, err := res.RowsAffected()
+	if err != nil || count != 1 {
+		t.Fatalf("count was invalid. err: %v, count: %v", err, count)
 	}
 }

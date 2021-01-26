@@ -71,7 +71,8 @@ type execResponseData struct {
 	QueryResultFormat string        `json:"queryResultFormat,omitempty"`
 
 	// async response placeholders
-	AsyncRows *snowflakeRows `json:"asyncRows,omitempty"`
+	AsyncResult *snowflakeResult `json:"asyncResult,omitempty"`
+	AsyncRows   *snowflakeRows   `json:"asyncRows,omitempty"`
 }
 
 type execResponse struct {

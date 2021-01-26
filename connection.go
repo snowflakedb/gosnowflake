@@ -34,6 +34,8 @@ const (
 	serviceName                            = "service_name"
 )
 
+const resultType paramKey = "snowflakeResult"
+
 type snowflakeConn struct {
 	ctx             context.Context
 	cfg             *Config
@@ -235,6 +237,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		return nil, err
 	}
 	// TODO handle isInternal
+	ctx = context.WithValue(ctx, resultType, "exec")
 	data, err := sc.exec(ctx, query, noResult, false, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
@@ -250,6 +253,11 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 				QueryID:  data.Data.QueryID}
 		}
 		return nil, err
+	}
+
+	// if async exec, return result object right away
+	if noResult {
+		return data.Data.AsyncResult, nil
 	}
 
 	var updatedRows int64
@@ -326,6 +334,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	if err != nil {
 		return nil, err
 	}
+	ctx = context.WithValue(ctx, resultType, "query")
 	data, err := sc.exec(ctx, query, noResult, false, args)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
@@ -344,7 +353,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	}
 
 	// if async query, return row object right away
-	if data.Data.AsyncRows != nil {
+	if noResult {
 		return data.Data.AsyncRows, nil
 	}
 
@@ -571,24 +580,6 @@ func isAsyncMode(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to cast val %+v to bool", val)
 	}
 	return boolVal, nil
-}
-
-func getQueryIDChan(ctx context.Context) chan<- string {
-	v := ctx.Value(QueryIDChan)
-	if v == nil {
-		return nil
-	}
-	c, _ := v.(chan<- string)
-	return c
-}
-
-func getResumeQueryID(ctx context.Context) string {
-	val := ctx.Value(ResumeQueryID)
-	if val == nil {
-		return ""
-	}
-	queryID, _ := val.(string)
-	return queryID
 }
 
 func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) *snowflakeChunkDownloader {
