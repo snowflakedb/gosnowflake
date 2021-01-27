@@ -3,11 +3,12 @@ package gosnowflake
 import (
 	"context"
 	"fmt"
-	rlog "github.com/sirupsen/logrus"
 	"io"
 	"path"
 	"runtime"
 	"time"
+
+	rlog "github.com/sirupsen/logrus"
 )
 
 //SFSessionIDKey is context key of session id
@@ -52,14 +53,18 @@ func (log *defaultLogger) WithContext(ctx context.Context) *rlog.Entry {
 	return log.inner.WithFields(*fields)
 }
 
-//CreateDefaultLogger return a new instance of SFLogger with default config
+// CreateDefaultLogger return a new instance of SFLogger with default config
 func CreateDefaultLogger() SFLogger {
 	var rLogger = rlog.New()
 	var formatter = rlog.TextFormatter{CallerPrettyfier: SFCallerPrettyfier}
 	rLogger.SetReportCaller(true)
 	rLogger.SetFormatter(&formatter)
-	var ret = defaultLogger{inner: rLogger}
-	return &ret //(&ret).(*SFLogger)
+	return CreateLogger(rLogger)
+}
+
+// CreateLogger return a new instance of SFLogger with provided logrus Logger
+func CreateLogger(rLogger *rlog.Logger) SFLogger {
+	return &defaultLogger{inner: rLogger}
 }
 
 // WithField allocates a new entry and adds a field to it.
