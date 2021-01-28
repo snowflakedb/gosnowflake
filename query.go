@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-const arrowFormat = "arrow"
+const (
+	jsonFormat  = "json"
+	arrowFormat = "arrow"
+)
 
 type execBindParameter struct {
 	Type  string      `json:"type"`

@@ -383,25 +383,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.RowType = data.Data.RowType
-	rows.ChunkDownloader = &snowflakeChunkDownloader{
-		sc:                 sc,
-		ctx:                ctx,
-		CurrentChunk:       make([]chunkRowType, len(data.Data.RowSet)),
-		ChunkMetas:         data.Data.Chunks,
-		Total:              data.Data.Total,
-		TotalRowIndex:      int64(-1),
-		CellCount:          len(data.Data.RowType),
-		Qrmk:               data.Data.Qrmk,
-		QueryResultFormat:  data.Data.QueryResultFormat,
-		ChunkHeader:        data.Data.ChunkHeaders,
-		FuncDownload:       downloadChunk,
-		FuncDownloadHelper: downloadChunkHelper,
-		FuncGet:            getChunk,
-		RowSet: rowSetType{RowType: data.Data.RowType,
-			JSON:         data.Data.RowSet,
-			RowSetBase64: data.Data.RowSetBase64,
-		},
-	}
+	rows.ChunkDownloader = populateChunkDownloader(ctx, sc, data.Data)
 	rows.queryID = sc.QueryID
 
 	if sc.isMultiStmt(data.Data) {
@@ -723,7 +705,25 @@ func getQueryIDChan(ctx context.Context) chan<- string {
 	return c
 }
 
+// returns snowflake chunk downloader depending on query result format
+// stream based if JSON and worker based if ARROW
 func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) *snowflakeChunkDownloader {
+	if data.QueryResultFormat == jsonFormat {
+		fetcher := &httpStreamChunkFetcher{
+			ctx:      ctx,
+			client:   sc.rest.Client,
+			clientIP: sc.cfg.ClientIP,
+			headers:  data.ChunkHeaders,
+			qrmk:     data.Qrmk,
+		}
+
+		scd := newStreamChunkDownloader(fetcher, data.Total, data.RowSet, data.Chunks)
+		scd.ctx = ctx
+		scd.QueryResultFormat = data.QueryResultFormat
+
+		return scd
+	}
+
 	return &snowflakeChunkDownloader{
 		sc:                 sc,
 		ctx:                ctx,

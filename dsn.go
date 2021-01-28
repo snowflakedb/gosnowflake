@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -49,6 +50,7 @@ type Config struct {
 
 	Params map[string]*string // other connection parameters
 
+	ClientIP net.IP // IP address for network check
 	Protocol string // http or https (optional)
 	Host     string // hostname (optional)
 	Port     int    // port (optional)
