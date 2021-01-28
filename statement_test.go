@@ -586,3 +586,47 @@ func TestAsyncQueryFail(t *testing.T) {
 		t.Fatalf("failed to query statement. err: %v", err)
 	}
 }
+
+func TestMultipleAsyncQueries(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx, _ := WithAsyncMode(context.Background())
+	s1 := "foo"
+	s2 := "bar"
+	rows1, _ := db.QueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s1, 30))
+	defer rows1.Close()
+	rows2, _ := db.QueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s2, 10))
+	defer rows2.Close()
+
+	ch1 := make(chan string)
+	ch2 := make(chan string)
+	go retrieveRows(rows1, ch1)
+	go retrieveRows(rows2, ch2)
+	select {
+	case res := <-ch1:
+		t.Fatalf("value %v should not have been called earlier.", res)
+	case res := <-ch2:
+		if res != s2 {
+			t.Fatalf("query failed. expected: %v, got: %v", s2, res)
+		}
+	}
+}
+
+func retrieveRows(rows *sql.Rows, ch chan string) {
+	var s string
+	for rows.Next() {
+		if err := rows.Scan(&s); err != nil {
+			ch <- err.Error()
+			close(ch)
+			return
+		}
+	}
+	ch <- s
+	close(ch)
+}
