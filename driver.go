@@ -56,7 +56,7 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		Protocol: sc.cfg.Protocol,
 		Client: &http.Client{
 			// request timeout including reading response body
-			Timeout:   defaultClientTimeout,
+			Timeout:   sc.cfg.ClientTimeout,
 			Transport: st,
 		},
 		LoginTimeout:        sc.cfg.LoginTimeout,
