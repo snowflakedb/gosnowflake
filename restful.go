@@ -214,14 +214,15 @@ func postRestfulQueryHelper(
 			case "exec":
 				res.queryID = respd.Data.QueryID
 				res.status = QueryStatusInProgress
-				res.statusChannel = make(chan queryStatus)
+				res.statusChannel = make(chan queryEvent)
 				respd.Data.AsyncResult = res
 			case "query":
 				rows.queryID = respd.Data.QueryID
 				rows.status = QueryStatusInProgress
-				rows.statusChannel = make(chan queryStatus)
+				rows.statusChannel = make(chan queryEvent)
 				respd.Data.AsyncRows = rows
 			default:
+				return &respd, nil
 			}
 
 			// spawn goroutine to retrieve asynchronous results
@@ -459,71 +460,5 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID string, ti
 		SQLState:    SQLStateConnectionFailure,
 		Message:     errMsgFailedToCancelQuery,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
-	}
-}
-
-func getAsync(
-	ctx context.Context,
-	sr *snowflakeRestful,
-	headers map[string]string,
-	URL *url.URL,
-	timeout time.Duration,
-	res *snowflakeResult,
-	rows *snowflakeRows,
-) {
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
-	resp, err := sr.FuncGet(ctx, sr, URL, headers, timeout)
-	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-		return
-	}
-
-	respd := execResponse{} // reset the response
-	err = json.NewDecoder(resp.Body).Decode(&respd)
-	resp.Body.Close()
-	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return
-	}
-
-	if resType, _ := ctx.Value(resultType).(string); resType == "exec" {
-		if respd.Success {
-			res.affectedRows, _ = updateRows(respd.Data)
-			res.insertID = -1
-			res.queryID = respd.Data.QueryID
-			res.statusChannel <- QueryStatusComplete // mark exec status complete
-		} else {
-			res.statusChannel <- QueryFailed
-		}
-	} else if resType == "query" {
-		if respd.Success {
-			sc := &snowflakeConn{rest: sr}
-			rows.sc = sc
-			rows.RowType = respd.Data.RowType
-			rows.ChunkDownloader = &snowflakeChunkDownloader{
-				sc:                 sc,
-				ctx:                ctx,
-				CurrentChunk:       make([]chunkRowType, len(respd.Data.RowSet)),
-				ChunkMetas:         respd.Data.Chunks,
-				Total:              respd.Data.Total,
-				TotalRowIndex:      int64(-1),
-				CellCount:          len(respd.Data.RowType),
-				Qrmk:               respd.Data.Qrmk,
-				QueryResultFormat:  respd.Data.QueryResultFormat,
-				ChunkHeader:        respd.Data.ChunkHeaders,
-				FuncDownload:       downloadChunk,
-				FuncDownloadHelper: downloadChunkHelper,
-				FuncGet:            getChunk,
-				RowSet: rowSetType{RowType: respd.Data.RowType,
-					JSON:         respd.Data.RowSet,
-					RowSetBase64: respd.Data.RowSetBase64,
-				},
-			}
-			rows.queryID = respd.Data.QueryID
-			rows.ChunkDownloader.start()
-			rows.statusChannel <- QueryStatusComplete // mark query status complete
-		} else {
-			rows.statusChannel <- QueryFailed
-		}
 	}
 }

@@ -582,6 +582,143 @@ func isAsyncMode(ctx context.Context) (bool, error) {
 	return boolVal, nil
 }
 
+func getAsync(
+	ctx context.Context,
+	sr *snowflakeRestful,
+	headers map[string]string,
+	URL *url.URL,
+	timeout time.Duration,
+	res *snowflakeResult,
+	rows *snowflakeRows,
+) {
+	resType, _ := ctx.Value(resultType).(string)
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+	resp, err := sr.FuncGet(ctx, sr, URL, headers, timeout)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+		if resType == "exec" {
+			res.statusChannel <- queryEvent{
+				QueryFailed,
+				&SnowflakeError{
+					Number:  -1,
+					Message: err.Error(),
+					QueryID: res.queryID,
+				},
+			}
+			close(res.statusChannel)
+		} else {
+			rows.statusChannel <- queryEvent{
+				QueryFailed,
+				&SnowflakeError{
+					Number:  -1,
+					Message: err.Error(),
+					QueryID: rows.queryID,
+				},
+			}
+			close(rows.statusChannel)
+		}
+		return
+	}
+
+	respd := execResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&respd)
+	resp.Body.Close()
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+		if resType, _ := ctx.Value(resultType).(string); resType == "exec" {
+			res.statusChannel <- queryEvent{
+				QueryFailed,
+				&SnowflakeError{
+					Number:  -1,
+					Message: err.Error(),
+					QueryID: res.queryID,
+				},
+			}
+			close(res.statusChannel)
+		} else {
+			rows.statusChannel <- queryEvent{
+				QueryFailed,
+				&SnowflakeError{
+					Number:  -1,
+					Message: err.Error(),
+					QueryID: rows.queryID,
+				},
+			}
+			close(rows.statusChannel)
+		}
+		return
+	}
+
+	var code int
+	if respd.Code != "" {
+		code, err = strconv.Atoi(respd.Code)
+		if err != nil {
+			code = -1
+		}
+	} else {
+		code = -1
+	}
+
+	if resType, _ := ctx.Value(resultType).(string); resType == "exec" {
+		if respd.Success {
+			res.affectedRows, _ = updateRows(respd.Data)
+			res.insertID = -1
+			res.queryID = respd.Data.QueryID
+			res.statusChannel <- queryEvent{QueryStatusComplete, nil} // mark exec status complete
+		} else {
+			res.statusChannel <- queryEvent{
+				QueryFailed,
+				&SnowflakeError{
+					Number:   code,
+					SQLState: respd.Data.SQLState,
+					Message:  respd.Message,
+					QueryID:  respd.Data.QueryID,
+				},
+			}
+		}
+		close(res.statusChannel)
+	} else if resType == "query" {
+		if respd.Success {
+			sc := &snowflakeConn{rest: sr}
+			rows.sc = sc
+			rows.RowType = respd.Data.RowType
+			rows.ChunkDownloader = &snowflakeChunkDownloader{
+				sc:                 sc,
+				ctx:                ctx,
+				CurrentChunk:       make([]chunkRowType, len(respd.Data.RowSet)),
+				ChunkMetas:         respd.Data.Chunks,
+				Total:              respd.Data.Total,
+				TotalRowIndex:      int64(-1),
+				CellCount:          len(respd.Data.RowType),
+				Qrmk:               respd.Data.Qrmk,
+				QueryResultFormat:  respd.Data.QueryResultFormat,
+				ChunkHeader:        respd.Data.ChunkHeaders,
+				FuncDownload:       downloadChunk,
+				FuncDownloadHelper: downloadChunkHelper,
+				FuncGet:            getChunk,
+				RowSet: rowSetType{RowType: respd.Data.RowType,
+					JSON:         respd.Data.RowSet,
+					RowSetBase64: respd.Data.RowSetBase64,
+				},
+			}
+			rows.queryID = respd.Data.QueryID
+			rows.ChunkDownloader.start()
+			rows.statusChannel <- queryEvent{QueryStatusComplete, nil} // mark query status complete
+		} else {
+			rows.statusChannel <- queryEvent{
+				QueryFailed,
+				&SnowflakeError{
+					Number:   code,
+					SQLState: respd.Data.SQLState,
+					Message:  respd.Message,
+					QueryID:  respd.Data.QueryID,
+				},
+			}
+		}
+		close(rows.statusChannel)
+	}
+}
+
 func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) *snowflakeChunkDownloader {
 	return &snowflakeChunkDownloader{
 		sc:                 sc,
