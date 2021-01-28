@@ -538,3 +538,51 @@ func TestAsyncMode(t *testing.T) {
 		t.Fatalf("count was invalid. err: %v, count: %v", err, count)
 	}
 }
+
+func TestAsyncQueryFail(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx, _ := WithAsyncMode(context.Background())
+	rows, err := db.QueryContext(ctx, "selectt 1")
+	if err != nil {
+		t.Fatal("asynchronous query should always return nil error")
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		t.Fatal("should have no rows available")
+	} else {
+		if err = rows.Err(); err == nil {
+			t.Fatal("should return a syntax error")
+		}
+	}
+
+	conn, _ := db.Conn(ctx)
+	err = conn.Raw(func(x interface{}) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
+		if err != nil {
+			return err
+		}
+		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		defer rows.Close()
+		if err != nil {
+			t.Fatal("asynchronous query should always return nil error")
+		}
+
+		dest := make([]driver.Value, 1)
+		err = rows.Next(dest)
+		if err == nil {
+			t.Fatal("should return a syntax error")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to query statement. err: %v", err)
+	}
+}

@@ -33,6 +33,7 @@ type snowflakeResult struct {
 	insertID      int64 // Snowflake doesn't support last insert id
 	queryID       string
 	status        queryStatus
+	err           error
 	statusChannel chan queryEvent
 }
 
@@ -62,10 +63,14 @@ func (res *snowflakeResult) waitForAsyncExecStatus() error {
 	// if async exec, block until execution is finished
 	if res.status == QueryStatusInProgress {
 		event := <-res.statusChannel
+		res.status = event.status
 		if event.err != nil {
-			return event.err
+			res.err = event.err
+			return res.err
 		}
 		res.status = event.status
+	} else if res.status == QueryFailed {
+		return res.err
 	}
 	return nil
 }

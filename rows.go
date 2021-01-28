@@ -44,6 +44,7 @@ type snowflakeRows struct {
 	ChunkDownloader *snowflakeChunkDownloader
 	queryID         string
 	status          queryStatus
+	err             error
 	statusChannel   chan queryEvent
 }
 
@@ -237,10 +238,14 @@ func (rows *snowflakeRows) waitForAsyncQueryStatus() error {
 	// if async query, block until query is finished
 	if rows.status == QueryStatusInProgress {
 		event := <-rows.statusChannel
+		rows.status = event.status
 		if event.err != nil {
-			return event.err
+			rows.err = event.err
+			return rows.err
 		}
 		rows.status = event.status
+	} else if rows.status == QueryFailed {
+		return rows.err
 	}
 	return nil
 }
