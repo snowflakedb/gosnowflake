@@ -34,7 +34,13 @@ const (
 	serviceName                            = "service_name"
 )
 
-const resultType paramKey = "snowflakeResult"
+type resultType string
+
+const (
+	snowflakeResultType paramKey   = "snowflakeResultType"
+	execResultType      resultType = "exec"
+	queryResultType     resultType = "query"
+)
 
 type snowflakeConn struct {
 	ctx             context.Context
@@ -69,15 +75,12 @@ func (sc *snowflakeConn) exec(
 	req := execRequest{
 		SQLText:    query,
 		AsyncExec:  noResult,
+		Parameters: map[string]interface{}{},
 		IsInternal: isInternal,
 		SequenceID: counter,
 	}
-	params := []paramKey{MultiStatementCount}
-	for _, k := range params {
-		key := ctx.Value(k)
-		if key != nil {
-			req.Parameters = map[string]interface{}{string(MultiStatementCount): key}
-		}
+	if key := ctx.Value(MultiStatementCount); key != nil {
+		req.Parameters[string(MultiStatementCount)] = key
 	}
 	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
 
@@ -237,7 +240,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		return nil, err
 	}
 	// TODO handle isInternal
-	ctx = context.WithValue(ctx, resultType, "exec")
+	ctx = setResultType(ctx, execResultType)
 	data, err := sc.exec(ctx, query, noResult, false, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
@@ -334,7 +337,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	if err != nil {
 		return nil, err
 	}
-	ctx = context.WithValue(ctx, resultType, "query")
+	ctx = setResultType(ctx, queryResultType)
 	data, err := sc.exec(ctx, query, noResult, false, args)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
@@ -510,6 +513,14 @@ func (sc *snowflakeConn) stopHeartBeat() {
 	sc.rest.HeartBeat.stop()
 }
 
+func setResultType(ctx context.Context, resType resultType) context.Context {
+	return context.WithValue(ctx, snowflakeResultType, resType)
+}
+
+func getResultType(ctx context.Context) resultType {
+	return ctx.Value(snowflakeResultType).(resultType)
+}
+
 func updateRows(data execResponseData) (int64, error) {
 	var count int64
 	for i, n := 0, len(data.RowType); i < n; i++ {
@@ -591,33 +602,30 @@ func getAsync(
 	res *snowflakeResult,
 	rows *snowflakeRows,
 ) {
-	resType, _ := ctx.Value(resultType).(string)
+	resType := getResultType(ctx)
+	var errChannel chan error
+	sfError := &SnowflakeError{
+		Number: -1,
+	}
+	if resType == execResultType {
+		errChannel = res.errChannel
+		sfError.QueryID = res.queryID
+	} else {
+		errChannel = rows.errChannel
+		sfError.QueryID = rows.queryID
+	}
+	defer close(errChannel)
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 	resp, err := sr.FuncGet(ctx, sr, URL, headers, timeout)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-		if resType == "exec" {
-			res.statusChannel <- queryEvent{
-				QueryFailed,
-				&SnowflakeError{
-					Number:  -1,
-					Message: err.Error(),
-					QueryID: res.queryID,
-				},
-			}
-			close(res.statusChannel)
-		} else {
-			rows.statusChannel <- queryEvent{
-				QueryFailed,
-				&SnowflakeError{
-					Number:  -1,
-					Message: err.Error(),
-					QueryID: rows.queryID,
-				},
-			}
-			close(rows.statusChannel)
-		}
+		sfError.Message = err.Error()
+		errChannel <- sfError
+		close(errChannel)
 		return
+	}
+	if resp.Body != nil {
+		defer resp.Body.Close()
 	}
 
 	respd := execResponse{}
@@ -625,60 +633,19 @@ func getAsync(
 	resp.Body.Close()
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		if resType, _ := ctx.Value(resultType).(string); resType == "exec" {
-			res.statusChannel <- queryEvent{
-				QueryFailed,
-				&SnowflakeError{
-					Number:  -1,
-					Message: err.Error(),
-					QueryID: res.queryID,
-				},
-			}
-			close(res.statusChannel)
-		} else {
-			rows.statusChannel <- queryEvent{
-				QueryFailed,
-				&SnowflakeError{
-					Number:  -1,
-					Message: err.Error(),
-					QueryID: rows.queryID,
-				},
-			}
-			close(rows.statusChannel)
-		}
+		sfError.Message = err.Error()
+		errChannel <- sfError
+		close(errChannel)
 		return
 	}
 
-	var code int
-	if respd.Code != "" {
-		code, err = strconv.Atoi(respd.Code)
-		if err != nil {
-			code = -1
-		}
-	} else {
-		code = -1
-	}
-
-	if resType, _ := ctx.Value(resultType).(string); resType == "exec" {
-		if respd.Success {
+	if respd.Success {
+		if resType == execResultType {
 			res.affectedRows, _ = updateRows(respd.Data)
 			res.insertID = -1
 			res.queryID = respd.Data.QueryID
-			res.statusChannel <- queryEvent{QueryStatusComplete, nil} // mark exec status complete
+			res.errChannel <- nil // mark exec status complete
 		} else {
-			res.statusChannel <- queryEvent{
-				QueryFailed,
-				&SnowflakeError{
-					Number:   code,
-					SQLState: respd.Data.SQLState,
-					Message:  respd.Message,
-					QueryID:  respd.Data.QueryID,
-				},
-			}
-		}
-		close(res.statusChannel)
-	} else if resType == "query" {
-		if respd.Success {
 			sc := &snowflakeConn{rest: sr}
 			rows.sc = sc
 			rows.RowType = respd.Data.RowType
@@ -703,19 +670,24 @@ func getAsync(
 			}
 			rows.queryID = respd.Data.QueryID
 			rows.ChunkDownloader.start()
-			rows.statusChannel <- queryEvent{QueryStatusComplete, nil} // mark query status complete
-		} else {
-			rows.statusChannel <- queryEvent{
-				QueryFailed,
-				&SnowflakeError{
-					Number:   code,
-					SQLState: respd.Data.SQLState,
-					Message:  respd.Message,
-					QueryID:  respd.Data.QueryID,
-				},
-			}
+			rows.errChannel <- nil // mark query status complete
 		}
-		close(rows.statusChannel)
+	} else {
+		var code int
+		if respd.Code != "" {
+			code, err = strconv.Atoi(respd.Code)
+			if err != nil {
+				code = -1
+			}
+		} else {
+			code = -1
+		}
+		errChannel <- &SnowflakeError{
+			Number:   code,
+			SQLState: respd.Data.SQLState,
+			Message:  respd.Message,
+			QueryID:  respd.Data.QueryID,
+		}
 	}
 }
 

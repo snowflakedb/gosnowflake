@@ -210,16 +210,16 @@ func postRestfulQueryHelper(
 			// placeholder object to return to user while retrieving results
 			rows := new(snowflakeRows)
 			res := new(snowflakeResult)
-			switch resType, _ := ctx.Value(resultType).(string); resType {
-			case "exec":
+			switch resType := getResultType(ctx); resType {
+			case execResultType:
 				res.queryID = respd.Data.QueryID
 				res.status = QueryStatusInProgress
-				res.statusChannel = make(chan queryEvent)
+				res.errChannel = make(chan error)
 				respd.Data.AsyncResult = res
-			case "query":
+			case queryResultType:
 				rows.queryID = respd.Data.QueryID
 				rows.status = QueryStatusInProgress
-				rows.statusChannel = make(chan queryEvent)
+				rows.errChannel = make(chan error)
 				respd.Data.AsyncRows = rows
 			default:
 				return &respd, nil

@@ -45,7 +45,7 @@ type snowflakeRows struct {
 	queryID         string
 	status          queryStatus
 	err             error
-	statusChannel   chan queryEvent
+	errChannel      chan error
 }
 
 func (rows *snowflakeRows) Close() (err error) {
@@ -237,13 +237,13 @@ func (rows *snowflakeRows) NextResultSet() error {
 func (rows *snowflakeRows) waitForAsyncQueryStatus() error {
 	// if async query, block until query is finished
 	if rows.status == QueryStatusInProgress {
-		event := <-rows.statusChannel
-		rows.status = event.status
-		if event.err != nil {
-			rows.err = event.err
+		err := <-rows.errChannel
+		rows.status = QueryStatusComplete
+		if err != nil {
+			rows.status = QueryFailed
+			rows.err = err
 			return rows.err
 		}
-		rows.status = event.status
 	} else if rows.status == QueryFailed {
 		return rows.err
 	}

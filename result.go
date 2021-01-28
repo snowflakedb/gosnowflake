@@ -23,18 +23,13 @@ type SnowflakeResult interface {
 	GetStatus() queryStatus
 }
 
-type queryEvent struct {
-	status queryStatus
-	err    error
-}
-
 type snowflakeResult struct {
-	affectedRows  int64
-	insertID      int64 // Snowflake doesn't support last insert id
-	queryID       string
-	status        queryStatus
-	err           error
-	statusChannel chan queryEvent
+	affectedRows int64
+	insertID     int64 // Snowflake doesn't support last insert id
+	queryID      string
+	status       queryStatus
+	err          error
+	errChannel   chan error
 }
 
 func (res *snowflakeResult) LastInsertId() (int64, error) {
@@ -62,13 +57,13 @@ func (res *snowflakeResult) GetStatus() queryStatus {
 func (res *snowflakeResult) waitForAsyncExecStatus() error {
 	// if async exec, block until execution is finished
 	if res.status == QueryStatusInProgress {
-		event := <-res.statusChannel
-		res.status = event.status
-		if event.err != nil {
-			res.err = event.err
-			return res.err
+		err := <-res.errChannel
+		res.status = QueryStatusComplete
+		if err != nil {
+			res.status = QueryFailed
+			res.err = err
+			return err
 		}
-		res.status = event.status
 	} else if res.status == QueryFailed {
 		return res.err
 	}
