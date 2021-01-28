@@ -570,10 +570,10 @@ func TestAsyncQueryFail(t *testing.T) {
 			return err
 		}
 		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
-		defer rows.Close()
 		if err != nil {
 			t.Fatal("asynchronous query should always return nil error")
 		}
+		defer rows.Close()
 
 		dest := make([]driver.Value, 1)
 		err = rows.Next(dest)
