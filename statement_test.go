@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"io"
 	"testing"
 )
 
@@ -629,4 +630,66 @@ func retrieveRows(rows *sql.Rows, ch chan string) {
 	}
 	ch <- s
 	close(ch)
+}
+
+func TestEmitQueryID(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	queryIDChan := make(chan string, 1)
+	numrows := 100000
+	ctx, _ := WithAsyncMode(context.Background())
+	ctx = WithQueryIDChan(ctx, queryIDChan)
+	conn, _ := db.Conn(ctx)
+
+	var queryID string
+	dest := make([]driver.Value, 2)
+
+	err = conn.Raw(func(x interface{}) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+		if err != nil {
+			return err
+		}
+		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		if err != nil {
+			return err
+		}
+		if queryID = rows.(SnowflakeResult).GetQueryID(); queryID == "" {
+			// if query ID not available, wait using channel passed in
+			queryID = <-queryIDChan
+		}
+		if queryID == "" {
+			t.Fatal("expected a nonempty query ID")
+		}
+
+		cnt := 0
+		for {
+			err = rows.Next(dest)
+			if err != nil {
+				if err == io.EOF {
+					break
+				} else {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			}
+			cnt++
+		}
+		if cnt != numrows {
+			t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to execute query. err: %v", err)
+	}
 }

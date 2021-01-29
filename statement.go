@@ -14,6 +14,8 @@ const (
 	MultiStatementCount paramKey = "MULTI_STATEMENT_COUNT"
 	// AsyncMode tells the server to not block the request on executing the entire query
 	AsyncMode paramKey = "ASYNC_MODE_QUERY"
+	// QueryIDChan is the channel to receive the query ID from
+	QueryIDChan paramKey = "QUERY_ID_CHANNEL"
 )
 
 type snowflakeStmt struct {
@@ -61,4 +63,9 @@ func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
 // WithAsyncMode returns a context that allows execution of query in async mode
 func WithAsyncMode(ctx context.Context) (context.Context, error) {
 	return context.WithValue(ctx, AsyncMode, true), nil
+}
+
+// WithQueryIDChan returns a context that contains the channel to receive the query ID
+func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
+	return context.WithValue(ctx, QueryIDChan, c)
 }
