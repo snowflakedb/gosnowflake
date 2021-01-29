@@ -17,7 +17,7 @@ const serviceNameAppend = "a"
 // postQueryMock would generate a response based on the X-Snowflake-Service header, to generate a response
 // with the SERVICE_NAME field appending a character at the end of the header
 // This way it could test both the send and receive logic
-func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID) (*execResponse, error) {
+func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID, _ *Config) (*execResponse, error) {
 	var serviceName string
 	if serviceHeader, ok := headers["X-Snowflake-Service"]; ok {
 		serviceName = serviceHeader + serviceNameAppend
@@ -38,7 +38,7 @@ func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, header
 
 func TestExecWithEmptyRequestID(t *testing.T) {
 	ctx := WithRequestID(context.Background(), uuid.Nil)
-	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID uuid.UUID) (*execResponse, error) {
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID uuid.UUID, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if len(requestID) == 0 {
 			t.Fatal("requestID is empty")
@@ -69,7 +69,7 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 func TestExecWithSpecificRequestID(t *testing.T) {
 	origRequestID := uuid.New()
 	ctx := WithRequestID(context.Background(), origRequestID)
-	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID uuid.UUID) (*execResponse, error) {
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID uuid.UUID, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if requestID != origRequestID {
 			t.Fatal("requestID doesn't match")

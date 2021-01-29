@@ -56,8 +56,8 @@ type snowflakeRestful struct {
 	HeartBeat   *heartbeat
 
 	Connection          *snowflakeConn
-	FuncPostQuery       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID) (*execResponse, error)
-	FuncPostQueryHelper func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID) (*execResponse, error)
+	FuncPostQuery       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID, *Config) (*execResponse, error)
+	FuncPostQueryHelper func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID, *Config) (*execResponse, error)
 	FuncPost            func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
 	FuncGet             func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
 	FuncRenewSession    func(context.Context, *snowflakeRestful, time.Duration) error
@@ -142,10 +142,11 @@ func postRestfulQuery(
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration,
-	requestID uuid.UUID) (
+	requestID uuid.UUID,
+	cfg *Config) (
 	data *execResponse, err error) {
 
-	data, err = sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID)
+	data, err = sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID, cfg)
 
 	// errors other than context timeout and cancel would be returned to upper layers
 	if err != context.Canceled && err != context.DeadlineExceeded {
@@ -166,7 +167,8 @@ func postRestfulQueryHelper(
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration,
-	requestID uuid.UUID) (
+	requestID uuid.UUID,
+	cfg *Config) (
 	data *execResponse, err error) {
 	logger.Infof("params: %v", params)
 	params.Add(requestIDKey, requestID.String())
@@ -198,7 +200,7 @@ func postRestfulQueryHelper(
 			if err != nil {
 				return nil, err
 			}
-			return sr.FuncPostQuery(ctx, sr, params, headers, body, timeout, requestID)
+			return sr.FuncPostQuery(ctx, sr, params, headers, body, timeout, requestID, cfg)
 		}
 
 		if queryIDChan := getQueryIDChan(ctx); queryIDChan != nil {
@@ -232,7 +234,7 @@ func postRestfulQueryHelper(
 			}
 
 			// spawn goroutine to retrieve asynchronous results
-			go getAsync(ctx, sr, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows)
+			go getAsync(ctx, sr, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows, cfg)
 			return &respd, nil
 		}
 		for isSessionRenewed || respd.Code == queryInProgressCode ||

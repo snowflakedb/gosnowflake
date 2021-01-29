@@ -135,7 +135,7 @@ func (sc *snowflakeConn) exec(
 	var data *execResponse
 
 	requestID := getOrGenerateRequestIDFromContext(ctx)
-	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout, requestID)
+	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout, requestID, sc.cfg)
 	if err != nil {
 		return data, err
 	}
@@ -608,6 +608,7 @@ func getAsync(
 	timeout time.Duration,
 	res *snowflakeResult,
 	rows *snowflakeRows,
+	cfg *Config,
 ) {
 	resType := getResultType(ctx)
 	var errChannel chan error
@@ -652,28 +653,11 @@ func getAsync(
 			res.insertID = -1
 			res.errChannel <- nil // mark exec status complete
 		} else {
-			sc := &snowflakeConn{rest: sr}
+			sc := &snowflakeConn{rest: sr, cfg: cfg}
 			rows.sc = sc
 			rows.RowType = respd.Data.RowType
-			rows.ChunkDownloader = &snowflakeChunkDownloader{
-				sc:                 sc,
-				ctx:                ctx,
-				CurrentChunk:       make([]chunkRowType, len(respd.Data.RowSet)),
-				ChunkMetas:         respd.Data.Chunks,
-				Total:              respd.Data.Total,
-				TotalRowIndex:      int64(-1),
-				CellCount:          len(respd.Data.RowType),
-				Qrmk:               respd.Data.Qrmk,
-				QueryResultFormat:  respd.Data.QueryResultFormat,
-				ChunkHeader:        respd.Data.ChunkHeaders,
-				FuncDownload:       downloadChunk,
-				FuncDownloadHelper: downloadChunkHelper,
-				FuncGet:            getChunk,
-				RowSet: rowSetType{RowType: respd.Data.RowType,
-					JSON:         respd.Data.RowSet,
-					RowSetBase64: respd.Data.RowSetBase64,
-				},
-			}
+			rows.ChunkDownloader = populateChunkDownloader(ctx, sc, respd.Data)
+			rows.queryID = respd.Data.QueryID
 			rows.ChunkDownloader.start()
 			rows.errChannel <- nil // mark query status complete
 		}
