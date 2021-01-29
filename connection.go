@@ -282,10 +282,9 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		return data.Data.AsyncResult, nil
 	}
 
-	var updatedRows int64
 	if sc.isDml(data.Data.StatementTypeID) {
 		// collects all values from the returned row sets
-		updatedRows, err = updateRows(data.Data)
+		updatedRows, err := updateRows(data.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -296,51 +295,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			queryID:      sc.QueryID,
 		}, nil // last insert id is not supported by Snowflake
 	} else if sc.isMultiStmt(data.Data) {
-		childResults := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
-		for _, child := range childResults {
-			resultPath := fmt.Sprintf("/queries/%s/result", child.id)
-			childData, err := sc.getQueryResult(ctx, resultPath)
-			if err != nil {
-				logger.Errorf("error: %v", err)
-				code, err := strconv.Atoi(childData.Code)
-				if err != nil {
-					return nil, err
-				}
-				if childData != nil {
-					return nil, &SnowflakeError{
-						Number:   code,
-						SQLState: childData.Data.SQLState,
-						Message:  err.Error(),
-						QueryID:  childData.Data.QueryID}
-				}
-				return nil, err
-			}
-			if sc.isDml(childData.Data.StatementTypeID) {
-				count, err := updateRows(childData.Data)
-				if err != nil {
-					logger.WithContext(ctx).Errorf("error: %v", err)
-					if childData != nil {
-						code, err := strconv.Atoi(childData.Code)
-						if err != nil {
-							return nil, err
-						}
-						return nil, &SnowflakeError{
-							Number:   code,
-							SQLState: childData.Data.SQLState,
-							Message:  err.Error(),
-							QueryID:  childData.Data.QueryID}
-					}
-					return nil, err
-				}
-				updatedRows += count
-			}
-		}
-		logger.WithContext(ctx).Infof("number of updated rows: %#v", updatedRows)
-		return &snowflakeResult{
-			affectedRows: updatedRows,
-			insertID:     -1,
-			queryID:      sc.QueryID,
-		}, nil
+		return sc.handleMultiExec(ctx, data.Data)
 	}
 	logger.Debug("DDL")
 	return driver.ResultNoRows, nil
@@ -387,37 +342,9 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	rows.queryID = sc.QueryID
 
 	if sc.isMultiStmt(data.Data) {
-		childResults := getChildResults(data.Data.ResultIDs, data.Data.ResultTypes)
-		var nextChunkDownloader *snowflakeChunkDownloader
-		firstResultSet := false
-
-		for _, child := range childResults {
-			resultPath := fmt.Sprintf("/queries/%s/result", child.id)
-			childData, err := sc.getQueryResult(ctx, resultPath)
-			if err != nil {
-				logger.WithContext(ctx).Errorf("error: %v", err)
-				if childData != nil {
-					code, err := strconv.Atoi(childData.Code)
-					if err != nil {
-						return nil, err
-					}
-					return nil, &SnowflakeError{
-						Number:   code,
-						SQLState: childData.Data.SQLState,
-						Message:  err.Error(),
-						QueryID:  childData.Data.QueryID}
-				}
-				return nil, err
-			}
-			if !firstResultSet {
-				// populate rows.ChunkDownloader with the first child
-				rows.ChunkDownloader = populateChunkDownloader(ctx, sc, childData.Data)
-				nextChunkDownloader = rows.ChunkDownloader
-				firstResultSet = true
-			} else {
-				nextChunkDownloader.NextDownloader = populateChunkDownloader(ctx, sc, childData.Data)
-				nextChunkDownloader = nextChunkDownloader.NextDownloader
-			}
+		err := sc.handleMultiQuery(ctx, data.Data, rows)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -518,6 +445,91 @@ func (sc *snowflakeConn) stopHeartBeat() {
 		return
 	}
 	sc.rest.HeartBeat.stop()
+}
+
+func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseData) (driver.Result, error) {
+	var updatedRows int64
+	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
+	for _, child := range childResults {
+		resultPath := fmt.Sprintf("/queries/%s/result", child.id)
+		childData, err := sc.getQueryResult(ctx, resultPath)
+		if err != nil {
+			logger.Errorf("error: %v", err)
+			code, err := strconv.Atoi(childData.Code)
+			if err != nil {
+				return nil, err
+			}
+			if childData != nil {
+				return nil, &SnowflakeError{
+					Number:   code,
+					SQLState: childData.Data.SQLState,
+					Message:  err.Error(),
+					QueryID:  childData.Data.QueryID}
+			}
+			return nil, err
+		}
+		if sc.isDml(childData.Data.StatementTypeID) {
+			count, err := updateRows(childData.Data)
+			if err != nil {
+				logger.WithContext(ctx).Errorf("error: %v", err)
+				if childData != nil {
+					code, err := strconv.Atoi(childData.Code)
+					if err != nil {
+						return nil, err
+					}
+					return nil, &SnowflakeError{
+						Number:   code,
+						SQLState: childData.Data.SQLState,
+						Message:  err.Error(),
+						QueryID:  childData.Data.QueryID}
+				}
+				return nil, err
+			}
+			updatedRows += count
+		}
+	}
+	logger.WithContext(ctx).Infof("number of updated rows: %#v", updatedRows)
+	return &snowflakeResult{
+		affectedRows: updatedRows,
+		insertID:     -1,
+		queryID:      sc.QueryID,
+	}, nil
+}
+
+func (sc *snowflakeConn) handleMultiQuery(ctx context.Context, data execResponseData, rows *snowflakeRows) error {
+	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
+	var nextChunkDownloader *snowflakeChunkDownloader
+	firstResultSet := false
+
+	for _, child := range childResults {
+		resultPath := fmt.Sprintf("/queries/%s/result", child.id)
+		childData, err := sc.getQueryResult(ctx, resultPath)
+		if err != nil {
+			logger.WithContext(ctx).Errorf("error: %v", err)
+			if childData != nil {
+				code, err := strconv.Atoi(childData.Code)
+				if err != nil {
+					return err
+				}
+				return &SnowflakeError{
+					Number:   code,
+					SQLState: childData.Data.SQLState,
+					Message:  err.Error(),
+					QueryID:  childData.Data.QueryID}
+			}
+			return err
+		}
+		if !firstResultSet {
+			// populate rows.ChunkDownloader with the first child
+			rows.ChunkDownloader = populateChunkDownloader(ctx, sc, childData.Data)
+			nextChunkDownloader = rows.ChunkDownloader
+			firstResultSet = true
+		} else {
+			nextChunkDownloader.NextDownloader = populateChunkDownloader(ctx, sc, childData.Data)
+			nextChunkDownloader = nextChunkDownloader.NextDownloader
+		}
+	}
+	return nil
 }
 
 func setResultType(ctx context.Context, resType resultType) context.Context {
