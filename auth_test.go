@@ -256,10 +256,11 @@ func TestUnitAuthenticate(t *testing.T) {
 	var driverErr *SnowflakeError
 	var ok bool
 
+	ta := getSimpleTokenAccessor()
 	sc := getDefaultSnowflakeConn()
 	sr := &snowflakeRestful{
 		FuncPostAuth:  postAuthFailServiceIssue,
-		TokenAccessor: getSimpleTokenAccessor(),
+		TokenAccessor: ta,
 	}
 	sc.rest = sr
 
@@ -289,19 +290,29 @@ func TestUnitAuthenticate(t *testing.T) {
 	if !ok || driverErr.Number != ErrFailedToAuth {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
+	ta.SetTokens("bad-token", "bad-master-token", 1)
 	sr.FuncPostAuth = postAuthSuccessWithErrorCode
 	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
+	newToken, newMasterToken, newSessionID := ta.GetTokens()
+	if newToken != "" || newMasterToken != "" || newSessionID != -1 {
+		t.Fatalf("failed auth should have reset tokens: %v %v %v", newToken, newMasterToken, newSessionID)
+	}
 	driverErr, ok = err.(*SnowflakeError)
 	if !ok || driverErr.Number != 98765 {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
+	ta.SetTokens("bad-token", "bad-master-token", 1)
 	sr.FuncPostAuth = postAuthSuccessWithInvalidErrorCode
 	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
+	}
+	oldToken, oldMasterToken, oldSessionID := ta.GetTokens()
+	if oldToken != "" || oldMasterToken != "" || oldSessionID != -1 {
+		t.Fatalf("failed auth should have reset tokens: %v %v %v", oldToken, oldMasterToken, oldSessionID)
 	}
 	sr.FuncPostAuth = postAuthSuccess
 	var resp *authResponseMain
@@ -311,6 +322,16 @@ func TestUnitAuthenticate(t *testing.T) {
 	}
 	if resp.SessionInfo.DatabaseName != "dbn" {
 		t.Fatalf("failed to get response from auth")
+	}
+	newToken, newMasterToken, newSessionID = ta.GetTokens()
+	if newToken == oldToken {
+		t.Fatalf("new token was not set: %v", newToken)
+	}
+	if newMasterToken == oldMasterToken {
+		t.Fatalf("new master token was not set: %v", newMasterToken)
+	}
+	if newSessionID == oldSessionID {
+		t.Fatalf("new session id was not set: %v", newSessionID)
 	}
 }
 
