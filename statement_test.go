@@ -649,10 +649,11 @@ func TestEmitQueryID(t *testing.T) {
 
 	dest := make([]driver.Value, 2)
 
-	var queryID string
-	go func(qID *string, ch chan string) {
-		*qID = <-queryIDChan
-	}(&queryID, queryIDChan)
+	goRoutineChan := make(chan string)
+	go func(grCh chan string, qIDch chan string) {
+		queryID := <- queryIDChan
+		grCh <- queryID
+	}(goRoutineChan, queryIDChan)
 
 	err = conn.Raw(func(x interface{}) error {
 		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
@@ -681,6 +682,7 @@ func TestEmitQueryID(t *testing.T) {
 			}
 			cnt++
 		}
+		queryID := <- goRoutineChan
 		if queryID == "" {
 			t.Fatal("expected a nonempty query ID")
 		}
