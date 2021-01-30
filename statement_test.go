@@ -647,8 +647,14 @@ func TestEmitQueryID(t *testing.T) {
 	ctx = WithQueryIDChan(ctx, queryIDChan)
 	conn, _ := db.Conn(ctx)
 
-	var queryID string
 	dest := make([]driver.Value, 2)
+
+	go func(ch chan string) {
+		queryID := <- queryIDChan
+		if queryID == "" {
+			t.Fatal("expected a nonempty query ID")
+		}
+	}(queryIDChan)
 
 	err = conn.Raw(func(x interface{}) error {
 		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
@@ -663,13 +669,6 @@ func TestEmitQueryID(t *testing.T) {
 
 		if err != nil {
 			return err
-		}
-		if queryID = rows.(SnowflakeResult).GetQueryID(); queryID == "" {
-			// if query ID not available, wait using channel passed in
-			queryID = <-queryIDChan
-		}
-		if queryID == "" {
-			t.Fatal("expected a nonempty query ID")
 		}
 
 		cnt := 0
