@@ -601,7 +601,7 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 }
 
 func isAsyncMode(ctx context.Context) (bool, error) {
-	val := ctx.Value(AsyncMode)
+	val := ctx.Value(asyncMode)
 	if val == nil {
 		return false, nil
 	}
@@ -659,17 +659,41 @@ func getAsync(
 		return
 	}
 
+	sc := &snowflakeConn{rest: sr, cfg: cfg}
 	if respd.Success {
 		if resType == execResultType {
-			res.affectedRows, _ = updateRows(respd.Data)
 			res.insertID = -1
+			if sc.isDml(respd.Data.StatementTypeID) {
+				res.affectedRows, _ = updateRows(respd.Data)
+			} else if sc.isMultiStmt(respd.Data) {
+				r, err := sc.handleMultiExec(ctx, respd.Data)
+				if err != nil {
+					res.errChannel <- err
+					close(errChannel)
+					return
+				}
+				res.affectedRows, err = r.RowsAffected()
+				if err != nil {
+					res.errChannel <- err
+					close(errChannel)
+					return
+				}
+			}
+			res.queryID = respd.Data.QueryID
 			res.errChannel <- nil // mark exec status complete
 		} else {
-			sc := &snowflakeConn{rest: sr, cfg: cfg}
 			rows.sc = sc
 			rows.RowType = respd.Data.RowType
 			rows.ChunkDownloader = populateChunkDownloader(ctx, sc, respd.Data)
 			rows.queryID = respd.Data.QueryID
+			if sc.isMultiStmt(respd.Data) {
+				err = sc.handleMultiQuery(ctx, respd.Data, rows)
+				if err != nil {
+					rows.errChannel <- err
+					close(errChannel)
+					return
+				}
+			}
 			rows.ChunkDownloader.start()
 			rows.errChannel <- nil // mark query status complete
 		}
@@ -704,7 +728,7 @@ func getQueryIDChan(ctx context.Context) chan<- string {
 // returns snowflake chunk downloader depending on query result format
 // stream based if JSON and worker based if ARROW
 func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) *snowflakeChunkDownloader {
-	if data.QueryResultFormat == jsonFormat {
+	if useStreamDownloader(ctx) {
 		fetcher := &httpStreamChunkFetcher{
 			ctx:      ctx,
 			client:   sc.rest.Client,
@@ -712,12 +736,7 @@ func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execRe
 			headers:  data.ChunkHeaders,
 			qrmk:     data.Qrmk,
 		}
-
-		scd := newStreamChunkDownloader(fetcher, data.Total, data.RowSet, data.Chunks)
-		scd.ctx = ctx
-		scd.QueryResultFormat = data.QueryResultFormat
-
-		return scd
+		return newStreamChunkDownloader(ctx, fetcher, data.Total, data.RowSet, data.Chunks)
 	}
 
 	return &snowflakeChunkDownloader{

@@ -54,7 +54,7 @@ type snowflakeChunkDownloader struct {
 }
 
 func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
-	if scd.QueryResultFormat == jsonFormat {
+	if useStreamDownloader(scd.ctx) {
 		return -1
 	}
 	for _, c := range scd.ChunkMetas {
@@ -64,7 +64,7 @@ func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
 }
 
 func (scd *snowflakeChunkDownloader) hasNextResultSet() bool {
-	if scd.QueryResultFormat == jsonFormat {
+	if useStreamDownloader(scd.ctx) {
 		return scd.readErr == nil
 	}
 	// next result set exists if current chunk has remaining result sets or there is another downloader
@@ -72,7 +72,7 @@ func (scd *snowflakeChunkDownloader) hasNextResultSet() bool {
 }
 
 func (scd *snowflakeChunkDownloader) nextResultSet() error {
-	if scd.QueryResultFormat == jsonFormat {
+	if useStreamDownloader(scd.ctx) {
 		return scd.readErr
 	}
 	// no error at all times as the next chunk/resultset is automatically read
@@ -83,7 +83,7 @@ func (scd *snowflakeChunkDownloader) nextResultSet() error {
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
-	if scd.QueryResultFormat == jsonFormat {
+	if useStreamDownloader(scd.ctx) {
 		go func() {
 			var readErr = io.EOF
 
@@ -192,7 +192,7 @@ func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 }
 
 func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
-	if scd.QueryResultFormat == jsonFormat {
+	if useStreamDownloader(scd.ctx) {
 		if row, ok := <-scd.rowStream; ok {
 			return chunkRowType{RowSet: row}, nil
 		}
@@ -419,6 +419,18 @@ func populateJSONRowSet(dst []chunkRowType, src [][]*string) {
 	}
 }
 
+func useStreamDownloader(ctx context.Context) bool {
+	val := ctx.Value(streamChunkDownload)
+	if val == nil {
+		return false
+	}
+	boolVal, ok := val.(bool)
+	if !ok {
+		return false
+	}
+	return boolVal
+}
+
 type streamChunkFetcher interface {
 	fetch(url string, rows chan<- []*string) error
 }
@@ -431,16 +443,19 @@ type httpStreamChunkFetcher struct {
 	qrmk     string
 }
 
-func newStreamChunkDownloader(fetcher streamChunkFetcher, total int64, firstRows [][]*string, chunks []execResponseChunk) *snowflakeChunkDownloader {
+func newStreamChunkDownloader(ctx context.Context, fetcher streamChunkFetcher, total int64, firstRows [][]*string, chunks []execResponseChunk) *snowflakeChunkDownloader {
+	if !useStreamDownloader(ctx) {
+		ctx = context.WithValue(ctx, streamChunkDownload, true)
+	}
 	return &snowflakeChunkDownloader{
-		id:                rand.Int63(),
-		fetcher:           fetcher,
-		RowSet:            rowSetType{JSON: firstRows},
-		ChunkMetas:        chunks,
-		readErr:           nil,
-		Total:             total,
-		rowStream:         make(chan []*string),
-		QueryResultFormat: jsonFormat,
+		ctx:        ctx,
+		id:         rand.Int63(),
+		fetcher:    fetcher,
+		RowSet:     rowSetType{JSON: firstRows},
+		ChunkMetas: chunks,
+		readErr:    nil,
+		Total:      total,
+		rowStream:  make(chan []*string),
 	}
 }
 
