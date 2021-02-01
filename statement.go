@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -12,6 +12,8 @@ type paramKey string
 const (
 	// MultiStatementCount controls the number of queries to execute in a single API call
 	MultiStatementCount paramKey = "MULTI_STATEMENT_COUNT"
+	// AsyncMode tells the server to not block the request on executing the entire query
+	AsyncMode paramKey = "ASYNC_MODE_QUERY"
 )
 
 type snowflakeStmt struct {
@@ -54,4 +56,9 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
 func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
 	return context.WithValue(ctx, MultiStatementCount, num), nil
+}
+
+// WithAsyncMode returns a context that allows execution of query in async mode
+func WithAsyncMode(ctx context.Context) (context.Context, error) {
+	return context.WithValue(ctx, AsyncMode, true), nil
 }

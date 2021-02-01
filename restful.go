@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -175,12 +175,16 @@ func postRestfulQueryHelper(
 	if sr.Token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 	}
+
+	var resp *http.Response
 	fullURL := sr.getFullURL(queryRequestPath, params)
-	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, false)
+	resp, err = sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, false)
+
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode == http.StatusOK {
 		logger.WithContext(ctx).Infof("postQuery: resp: %v", resp)
 		var respd execResponse
@@ -199,7 +203,32 @@ func postRestfulQueryHelper(
 
 		var resultURL string
 		isSessionRenewed := false
+		noResult, _ := isAsyncMode(ctx)
 
+		// if asynchronous query in progress, kick off retrieval but return object
+		if respd.Code == queryInProgressAsyncCode && noResult {
+			// placeholder object to return to user while retrieving results
+			rows := new(snowflakeRows)
+			res := new(snowflakeResult)
+			switch resType := getResultType(ctx); resType {
+			case execResultType:
+				res.queryID = respd.Data.QueryID
+				res.status = QueryStatusInProgress
+				res.errChannel = make(chan error)
+				respd.Data.AsyncResult = res
+			case queryResultType:
+				rows.queryID = respd.Data.QueryID
+				rows.status = QueryStatusInProgress
+				rows.errChannel = make(chan error)
+				respd.Data.AsyncRows = rows
+			default:
+				return &respd, nil
+			}
+
+			// spawn goroutine to retrieve asynchronous results
+			go getAsync(ctx, sr, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows)
+			return &respd, nil
+		}
 		for isSessionRenewed || respd.Code == queryInProgressCode ||
 			respd.Code == queryInProgressAsyncCode {
 			if !isSessionRenewed {

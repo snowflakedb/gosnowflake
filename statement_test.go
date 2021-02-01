@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2020-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"testing"
 )
 
@@ -465,7 +466,7 @@ func TestGetQueryID(t *testing.T) {
 			return err
 		}
 		defer rows.Close()
-		qid := rows.(SnowflakeResult).QueryID()
+		qid := rows.(SnowflakeResult).GetQueryID()
 		if qid == "" {
 			t.Fatal("should have returned a query ID string")
 		}
@@ -496,4 +497,136 @@ func TestGetQueryID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to prepare statement. err: %v", err)
 	}
+}
+
+func TestAsyncMode(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx, _ := WithAsyncMode(context.Background())
+	numrows := 100000
+	rows, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+	defer rows.Close()
+
+	cnt := 0
+	var idx int
+	var v string
+	// Next() will block and wait until results are available
+	for rows.Next() {
+		err := rows.Scan(&idx, &v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cnt++
+	}
+	logger.Infof("NextResultSet: %v", rows.NextResultSet())
+
+	if cnt != numrows {
+		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
+	}
+
+	db.Exec("create table test (value boolean)")
+	res, _ := db.ExecContext(ctx, "insert into test values (true)")
+	// RowsAffected() will block and wait until results are available
+	count, err := res.RowsAffected()
+	if err != nil || count != 1 {
+		t.Fatalf("count was invalid. err: %v, count: %v", err, count)
+	}
+}
+
+func TestAsyncQueryFail(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx, _ := WithAsyncMode(context.Background())
+	rows, err := db.QueryContext(ctx, "selectt 1")
+	if err != nil {
+		t.Fatal("asynchronous query should always return nil error")
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		t.Fatal("should have no rows available")
+	} else {
+		if err = rows.Err(); err == nil {
+			t.Fatal("should return a syntax error")
+		}
+	}
+
+	conn, _ := db.Conn(ctx)
+	err = conn.Raw(func(x interface{}) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
+		if err != nil {
+			return err
+		}
+		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err != nil {
+			t.Fatal("asynchronous query should always return nil error")
+		}
+		defer rows.Close()
+
+		dest := make([]driver.Value, 1)
+		err = rows.Next(dest)
+		if err == nil {
+			t.Fatal("should return a syntax error")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to query statement. err: %v", err)
+	}
+}
+
+func TestMultipleAsyncQueries(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx, _ := WithAsyncMode(context.Background())
+	s1 := "foo"
+	s2 := "bar"
+	rows1, _ := db.QueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s1, 30))
+	defer rows1.Close()
+	rows2, _ := db.QueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s2, 10))
+	defer rows2.Close()
+
+	ch1 := make(chan string)
+	ch2 := make(chan string)
+	go retrieveRows(rows1, ch1)
+	go retrieveRows(rows2, ch2)
+	select {
+	case res := <-ch1:
+		t.Fatalf("value %v should not have been called earlier.", res)
+	case res := <-ch2:
+		if res != s2 {
+			t.Fatalf("query failed. expected: %v, got: %v", s2, res)
+		}
+	}
+}
+
+func retrieveRows(rows *sql.Rows, ch chan string) {
+	var s string
+	for rows.Next() {
+		if err := rows.Scan(&s); err != nil {
+			ch <- err.Error()
+			close(ch)
+			return
+		}
+	}
+	ch <- s
+	close(ch)
 }
