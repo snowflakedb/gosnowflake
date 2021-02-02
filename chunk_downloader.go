@@ -4,7 +4,6 @@ package gosnowflake
 
 import (
 	"bufio"
-	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -481,9 +480,6 @@ func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error 
 		b, _ := ioutil.ReadAll(res.Body)
 		return fmt.Errorf("status (%d): %s", res.StatusCode, string(b))
 	}
-	bodyBytes, _ := ioutil.ReadAll(res.Body)
-	res.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-	logger.WithContext(context.Background()).Infof("res: %v", string(bodyBytes)[:100])
 	if err := copyChunkStream(res.Body, rows); err != nil {
 		return fmt.Errorf("read: %w", err)
 	}
@@ -491,7 +487,24 @@ func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error 
 }
 
 func copyChunkStream(body io.Reader, rows chan<- []*string) error {
-	r := io.MultiReader(strings.NewReader("["), body, strings.NewReader("]"))
+	bufStream := bufio.NewReader(body)
+	gzipMagic, err := bufStream.Peek(2)
+	if err != nil {
+		return err
+	}
+	var source io.Reader
+	if gzipMagic[0] == 0x1f && gzipMagic[1] == 0x8b {
+		// detect and decompress Gzip format data
+		bufStream0, err := gzip.NewReader(bufStream)
+		if err != nil {
+			return err
+		}
+		defer bufStream0.Close()
+		source = bufStream0
+	} else {
+		source = bufStream
+	}
+	r := io.MultiReader(strings.NewReader("["), source, strings.NewReader("]"))
 	dec := json.NewDecoder(r)
 	openToken := json.Delim('[')
 	closeToken := json.Delim(']')

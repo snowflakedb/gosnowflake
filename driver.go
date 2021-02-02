@@ -126,5 +126,5 @@ var logger = CreateDefaultLogger()
 
 func init() {
 	sql.Register("snowflake", &SnowflakeDriver{})
-	//logger.SetLogLevel("error")
+	logger.SetLogLevel("error")
 }
