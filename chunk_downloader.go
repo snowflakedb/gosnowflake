@@ -112,8 +112,10 @@ func (scd *snowflakeChunkDownloader) start() error {
 			// fetcher will stop writing to the row stream so we can stop
 			// processing immediately. This is  the goroutine that controls
 			// "done-ness" (via io.EOF)
-			for _, chunk := range scd.ChunkMetas {
+			for i, chunk := range scd.ChunkMetas {
+				logger.WithContext(scd.ctx).Infof("starting chunk fetch %v (%v rows)", i, chunk.RowCount)
 				if err := scd.fetcher.fetch(chunk.URL, scd.rowStream); err != nil {
+					logger.WithContext(scd.ctx).Infof("failed to fetch chunk %v, err: %s", i, err)
 					readErr = fmt.Errorf("chunk fetch: %w", err)
 					break
 				}
