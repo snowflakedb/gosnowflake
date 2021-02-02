@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -480,6 +481,9 @@ func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error 
 		b, _ := ioutil.ReadAll(res.Body)
 		return fmt.Errorf("status (%d): %s", res.StatusCode, string(b))
 	}
+	bodyBytes, _ := ioutil.ReadAll(res.Body)
+	res.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+	logger.WithContext(context.Background()).Infof("res: %v", string(bodyBytes)[:100])
 	if err := copyChunkStream(res.Body, rows); err != nil {
 		return fmt.Errorf("read: %w", err)
 	}
