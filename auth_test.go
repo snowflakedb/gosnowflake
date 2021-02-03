@@ -9,10 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/form3tech-oss/jwt-go"
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/form3tech-oss/jwt-go"
 )
 
 func TestUnitPostAuth(t *testing.T) {
