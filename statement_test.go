@@ -666,10 +666,6 @@ func TestEmitQueryID(t *testing.T) {
 		}
 		defer rows.Close()
 
-		if err != nil {
-			return err
-		}
-
 		cnt := 0
 		for {
 			err = rows.Next(dest)
