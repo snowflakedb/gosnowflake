@@ -560,7 +560,7 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 		headers["X-Snowflake-Service"] = *serviceName
 	}
 	param := make(url.Values)
-	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
+	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	param.Add(requestGUIDKey, uuid.New().String())
 	if sc.rest.Token != "" {

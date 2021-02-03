@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/google/uuid"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -417,16 +418,12 @@ func TestEmptyQuery(t *testing.T) {
 func TestEmptyQueryWithRequestID(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		query := "select 1"
-		ctx := WithRequestID(context.Background(), "96305d47")
+		ctx := WithRequestID(context.Background(), uuid.New())
 		rows := dbt.db.QueryRowContext(ctx, query)
-		if rows.Err() == nil {
-			dbt.Errorf("should have failed due to malformed request id")
-		}
-
-		ctx = WithRequestID(context.Background(), "96305d47-6797-4103-8a9f-d0ca46cd062d")
-		rows = dbt.db.QueryRowContext(ctx, query)
-		if rows.Err() != nil {
-			dbt.Errorf("should not have failed with valid request id. err: %v", rows.Err())
+		var v1 interface{}
+		err := rows.Scan(&v1)
+		if err != nil {
+			dbt.Errorf("should not have failed with valid request id. err: %v", err)
 		}
 	})
 }
