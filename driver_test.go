@@ -414,6 +414,23 @@ func TestEmptyQuery(t *testing.T) {
 	})
 }
 
+func TestEmptyQueryWithRequestID(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		query := "select 1"
+		ctx := WithRequestID(context.Background(), "96305d47")
+		rows := dbt.db.QueryRowContext(ctx, query)
+		if rows.Err() == nil {
+			dbt.Errorf("should have failed due to malformed request id")
+		}
+
+		ctx = WithRequestID(context.Background(), "96305d47-6797-4103-8a9f-d0ca46cd062d")
+		rows = dbt.db.QueryRowContext(ctx, query)
+		if rows.Err() != nil {
+			dbt.Errorf("should not have failed with valid request id. err: %v", rows.Err())
+		}
+	})
+}
+
 func TestCRUD(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		// Create Table

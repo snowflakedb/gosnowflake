@@ -178,7 +178,7 @@ func postRestfulQueryHelper(
 
 	var resp *http.Response
 	fullURL := sr.getFullURL(queryRequestPath, params)
-	resp, err = sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, false)
+	resp, err = sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, true)
 
 	if err != nil {
 		return nil, err
