@@ -56,14 +56,14 @@ type snowflakeRestful struct {
 	HeartBeat   *heartbeat
 
 	Connection          *snowflakeConn
-	FuncPostQuery       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, string) (*execResponse, error)
-	FuncPostQueryHelper func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, string) (*execResponse, error)
+	FuncPostQuery       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID) (*execResponse, error)
+	FuncPostQueryHelper func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID) (*execResponse, error)
 	FuncPost            func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
 	FuncGet             func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
 	FuncRenewSession    func(context.Context, *snowflakeRestful, time.Duration) error
 	FuncPostAuth        func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration) (*authResponse, error)
 	FuncCloseSession    func(context.Context, *snowflakeRestful, time.Duration) error
-	FuncCancelQuery     func(context.Context, *snowflakeRestful, string, time.Duration) error
+	FuncCancelQuery     func(context.Context, *snowflakeRestful, uuid.UUID, time.Duration) error
 
 	FuncPostAuthSAML func(context.Context, *snowflakeRestful, map[string]string, []byte, time.Duration) (*authResponse, error)
 	FuncPostAuthOKTA func(context.Context, *snowflakeRestful, map[string]string, []byte, string, time.Duration) (*authOKTAResponse, error)
@@ -142,7 +142,7 @@ func postRestfulQuery(
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration,
-	requestID string) (
+	requestID uuid.UUID) (
 	data *execResponse, err error) {
 
 	data, err = sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID)
@@ -166,10 +166,10 @@ func postRestfulQueryHelper(
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration,
-	requestID string) (
+	requestID uuid.UUID) (
 	data *execResponse, err error) {
 	logger.Infof("params: %v", params)
-	params.Add(requestIDKey, requestID)
+	params.Add(requestIDKey, requestID.String())
 	params.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	params.Add(requestGUIDKey, uuid.New().String())
 	if sr.Token != "" {
@@ -282,7 +282,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	logger.WithContext(ctx).Info("close session")
 	params := &url.Values{}
 	params.Add("delete", "true")
-	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
+	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	params.Add(requestGUIDKey, uuid.New().String())
 	fullURL := sr.getFullURL(sessionRequestPath, params)
 
@@ -334,7 +334,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time.Duration) error {
 	logger.WithContext(ctx).Info("start renew session")
 	params := &url.Values{}
-	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
+	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	params.Add(requestGUIDKey, uuid.New().String())
 	fullURL := sr.getFullURL(tokenRequestPath, params)
 
@@ -395,10 +395,10 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	}
 }
 
-func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID string, timeout time.Duration) error {
+func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID uuid.UUID, timeout time.Duration) error {
 	logger.WithContext(ctx).Info("cancel query")
 	params := &url.Values{}
-	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
+	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	params.Add(requestGUIDKey, uuid.New().String())
 
 	fullURL := sr.getFullURL(abortRequestPath, params)
@@ -410,7 +410,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID string, ti
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
 	req := make(map[string]string)
-	req[requestIDKey] = requestID
+	req[requestIDKey] = requestID.String()
 
 	reqByte, err := json.Marshal(req)
 	if err != nil {

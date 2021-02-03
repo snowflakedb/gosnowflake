@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"net/url"
 	"testing"
 	"time"
@@ -33,8 +34,8 @@ func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, header
 }
 
 func TestExecWithEmptyRequestID(t *testing.T) {
-	ctx := WithRequestID(context.Background(), "")
-	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID string) (*execResponse, error) {
+	ctx := WithRequestID(context.Background(), uuid.Nil)
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID uuid.UUID) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if len(requestID) == 0 {
 			t.Fatal("requestID is empty")
@@ -63,9 +64,9 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 }
 
 func TestExecWithSpecificRequestID(t *testing.T) {
-	origRequestID := "specific-snowflake-request-id"
+	origRequestID := uuid.New()
 	ctx := WithRequestID(context.Background(), origRequestID)
-	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID string) (*execResponse, error) {
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID uuid.UUID) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if requestID != origRequestID {
 			t.Fatal("requestID doesn't match")

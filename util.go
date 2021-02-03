@@ -15,17 +15,17 @@ type contextKey string
 const SnowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
 
 // WithRequestID returns a new context with the specified snowflake request id
-func WithRequestID(ctx context.Context, requestID string) context.Context {
+func WithRequestID(ctx context.Context, requestID uuid.UUID) context.Context {
 	return context.WithValue(ctx, SnowflakeRequestIDKey, requestID)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
-func getOrGenerateRequestIDFromContext(ctx context.Context) string {
-	requestID, ok := ctx.Value(SnowflakeRequestIDKey).(string)
-	if ok && requestID != "" {
+func getOrGenerateRequestIDFromContext(ctx context.Context) uuid.UUID {
+	requestID, ok := ctx.Value(SnowflakeRequestIDKey).(uuid.UUID)
+	if ok  && requestID != uuid.Nil{
 		return requestID
 	}
-	return uuid.New().String()
+	return uuid.New()
 }
 
 // integer min
