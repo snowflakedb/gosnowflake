@@ -5,9 +5,10 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/google/uuid"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type tcIntMinMax struct {

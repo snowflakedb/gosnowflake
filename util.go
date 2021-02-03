@@ -5,8 +5,9 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type contextKey string
@@ -22,7 +23,7 @@ func WithRequestID(ctx context.Context, requestID uuid.UUID) context.Context {
 // Get the request ID from the context if specified, otherwise generate one
 func getOrGenerateRequestIDFromContext(ctx context.Context) uuid.UUID {
 	requestID, ok := ctx.Value(SnowflakeRequestIDKey).(uuid.UUID)
-	if ok  && requestID != uuid.Nil{
+	if ok && requestID != uuid.Nil {
 		return requestID
 	}
 	return uuid.New()

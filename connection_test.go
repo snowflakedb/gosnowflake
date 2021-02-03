@@ -2,10 +2,11 @@ package gosnowflake
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const serviceNameStub = "SV"

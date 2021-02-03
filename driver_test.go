@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/google/uuid"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -20,6 +19,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var (
