@@ -4,6 +4,9 @@ package gosnowflake
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,10 +19,6 @@ import (
 
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/google/uuid"
-
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
 )
 
 const (
@@ -195,7 +194,7 @@ func postAuth(
 	body []byte,
 	timeout time.Duration) (
 	data *authResponse, err error) {
-	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
+	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	params.Add(requestGUIDKey, uuid.New().String())
 
 	fullURL := sr.getFullURL(loginRequestPath, params)

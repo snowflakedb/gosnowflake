@@ -7,6 +7,8 @@ import (
 	"database/sql/driver"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type tcIntMinMax struct {
@@ -16,11 +18,16 @@ type tcIntMinMax struct {
 }
 
 func TestGetRequestIDFromContext(t *testing.T) {
-	expectedRequestID := "snowflake-request-id"
+	expectedRequestID := uuid.New()
 	ctx := WithRequestID(context.Background(), expectedRequestID)
 	requestID := getOrGenerateRequestIDFromContext(ctx)
 	if requestID != expectedRequestID {
-		t.Errorf("unexpected request id")
+		t.Errorf("unexpected request id: %v, expected: %v", requestID, expectedRequestID)
+	}
+	ctx = WithRequestID(context.Background(), uuid.Nil)
+	requestID = getOrGenerateRequestIDFromContext(ctx)
+	if requestID == uuid.Nil {
+		t.Errorf("unexpected request id, should not be nil")
 	}
 }
 
