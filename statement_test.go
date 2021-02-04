@@ -11,6 +11,8 @@ import (
 	"testing"
 )
 
+// TestPreparedStatement creates a basic prepared statement, inserting values
+// after the statement has been prepared
 func TestPreparedStatement(t *testing.T) {
 	var db *sql.DB
 	var err error
