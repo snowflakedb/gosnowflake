@@ -192,7 +192,7 @@ func (sc *snowflakeConn) BeginTx(ctx context.Context, opts driver.TxOptions) (dr
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	_, err := sc.exec(ctx, "BEGIN" /* noResult */, false /* isInternal */, false /* describeOnly */, false, nil)
+	_, err := sc.exec(ctx, "BEGIN", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -222,8 +222,11 @@ func (sc *snowflakeConn) PrepareContext(ctx context.Context, query string) (driv
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	// sends prepare query to server
-	data, err := sc.exec(ctx, query /* noResult */, false /* isInternal */, false /* describeOnly */, true, []driver.NamedValue{})
+	noResult, err := isAsyncMode(ctx)
+	if err != nil {
+		return nil, err
+	}
+	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, true /* describeOnly */, []driver.NamedValue{})
 	if err != nil {
 		if data != nil {
 			code, err := strconv.Atoi(data.Code)
@@ -257,7 +260,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	}
 	// TODO handle isInternal
 	ctx = setResultType(ctx, execResultType)
-	data, err := sc.exec(ctx, query /* noResult */, false /* isInternal */, false /* describeOnly */, false, args)
+	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, false /* describeOnly */, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
 		if data != nil {
@@ -355,7 +358,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	}
 	ctx = setResultType(ctx, queryResultType)
 	// TODO: handle isInternal
-	data, err := sc.exec(ctx, query /* noResult */, false /* isInternal */, false /* describeOnly */, false, args)
+	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, false /* describeOnly */, args)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
@@ -468,7 +471,7 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 		return err
 	}
 	// TODO: handle isInternal
-	_, err = sc.exec(ctx, "SELECT 1", noResult /* isInternal */, false /* describeOnly */, false, []driver.NamedValue{})
+	_, err = sc.exec(ctx, "SELECT 1", noResult, false /* isInternal */, false /* describeOnly */, []driver.NamedValue{})
 	return err
 }
 

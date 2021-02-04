@@ -14,7 +14,7 @@ func (tx *snowflakeTx) Commit() (err error) {
 	if tx.sc == nil || tx.sc.rest == nil {
 		return driver.ErrBadConn
 	}
-	_, err = tx.sc.exec(tx.sc.ctx, "COMMIT" /* noResult */, false /* isInternal */, false /* describeOnly */, false, nil)
+	_, err = tx.sc.exec(tx.sc.ctx, "COMMIT", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
 	if err != nil {
 		return
 	}
@@ -26,7 +26,7 @@ func (tx *snowflakeTx) Rollback() (err error) {
 	if tx.sc == nil || tx.sc.rest == nil {
 		return driver.ErrBadConn
 	}
-	_, err = tx.sc.exec(tx.sc.ctx, "ROLLBACK" /* noResult */, false /* isInternal */, false /* describeOnly */, false, nil)
+	_, err = tx.sc.exec(tx.sc.ctx, "ROLLBACK", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
 	if err != nil {
 		return
 	}
