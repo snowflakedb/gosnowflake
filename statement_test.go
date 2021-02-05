@@ -554,12 +554,18 @@ func TestAsyncMode(t *testing.T) {
 		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 	}
 
-	db.Exec("create table test (value boolean)")
-	res, _ := db.ExecContext(ctx, "insert into test values (true)")
+	_, err = db.Exec("create or replace table test_async_exec (value boolean)")
+	if err != nil {
+		t.Error(err)
+	}
+	res, _ := db.ExecContext(ctx, "insert into test_async_exec values (true)")
 	// RowsAffected() will block and wait until results are available
 	count, err := res.RowsAffected()
-	if err != nil || count != 1 {
-		t.Fatalf("count was invalid. err: %v, count: %v", err, count)
+	if err != nil {
+		t.Fatalf("res.RowsAffected() returned error: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 affected row, got %d", count)
 	}
 }
 
