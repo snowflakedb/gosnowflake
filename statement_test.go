@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"io"
 	"testing"
 )
 
@@ -587,29 +586,6 @@ func TestAsyncQueryFail(t *testing.T) {
 			t.Fatal("should return a syntax error")
 		}
 	}
-
-	conn, _ := db.Conn(ctx)
-	err = conn.Raw(func(x interface{}) error {
-		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
-		if err != nil {
-			return err
-		}
-		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
-		if err != nil {
-			t.Fatal("asynchronous query should always return nil error")
-		}
-		defer rows.Close()
-
-		dest := make([]driver.Value, 1)
-		err = rows.Next(dest)
-		if err == nil {
-			t.Fatal("should return a syntax error")
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("failed to query statement. err: %v", err)
-	}
 }
 
 func TestMultipleAsyncQueries(t *testing.T) {
@@ -669,49 +645,33 @@ func TestEmitQueryID(t *testing.T) {
 	numrows := 100000
 	ctx, _ := WithAsyncMode(context.Background())
 	ctx = WithQueryIDChan(ctx, queryIDChan)
-	conn, _ := db.Conn(ctx)
-
-	dest := make([]driver.Value, 2)
 
 	goRoutineChan := make(chan string)
 	go func(grCh chan string, qIDch chan string) {
-		queryID := <- queryIDChan
+		queryID := <-queryIDChan
 		grCh <- queryID
 	}(goRoutineChan, queryIDChan)
 
-	err = conn.Raw(func(x interface{}) error {
-		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
-		if err != nil {
-			return err
-		}
-		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
+	cnt := 0
+	var idx int
+	var v string
+	rows, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+	defer rows.Close()
 
-		cnt := 0
-		for {
-			err = rows.Next(dest)
-			if err != nil {
-				if err == io.EOF {
-					break
-				} else {
-					t.Fatalf("unexpected error: %v", err)
-				}
-			}
-			cnt++
+	for rows.Next() {
+		err := rows.Scan(&idx, &v)
+		if err != nil {
+			t.Fatal(err)
 		}
-		queryID := <- goRoutineChan
-		if queryID == "" {
-			t.Fatal("expected a nonempty query ID")
-		}
-		if cnt != numrows {
-			t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("failed to execute query. err: %v", err)
+		cnt++
+	}
+	logger.Infof("NextResultSet: %v", rows.NextResultSet())
+
+	queryID := <-goRoutineChan
+	if queryID == "" {
+		t.Fatal("expected a nonempty query ID")
+	}
+	if cnt != numrows {
+		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 	}
 }
