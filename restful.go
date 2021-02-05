@@ -201,6 +201,12 @@ func postRestfulQueryHelper(
 			return sr.FuncPostQuery(ctx, sr, params, headers, body, timeout, requestID)
 		}
 
+		if queryIDChan := getQueryIDChan(ctx); queryIDChan != nil {
+			queryIDChan <- respd.Data.QueryID
+			close(queryIDChan)
+			ctx = WithQueryIDChan(ctx, nil)
+		}
+
 		var resultURL string
 		isSessionRenewed := false
 		noResult, _ := isAsyncMode(ctx)

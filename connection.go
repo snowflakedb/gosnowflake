@@ -644,7 +644,6 @@ func getAsync(
 		if resType == execResultType {
 			res.affectedRows, _ = updateRows(respd.Data)
 			res.insertID = -1
-			res.queryID = respd.Data.QueryID
 			res.errChannel <- nil // mark exec status complete
 		} else {
 			sc := &snowflakeConn{rest: sr}
@@ -669,7 +668,6 @@ func getAsync(
 					RowSetBase64: respd.Data.RowSetBase64,
 				},
 			}
-			rows.queryID = respd.Data.QueryID
 			rows.ChunkDownloader.start()
 			rows.errChannel <- nil // mark query status complete
 		}
@@ -690,6 +688,15 @@ func getAsync(
 			QueryID:  respd.Data.QueryID,
 		}
 	}
+}
+
+func getQueryIDChan(ctx context.Context) chan<- string {
+	v := ctx.Value(QueryIDChan)
+	if v == nil {
+		return nil
+	}
+	c, _ := v.(chan<- string)
+	return c
 }
 
 func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) *snowflakeChunkDownloader {
