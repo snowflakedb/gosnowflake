@@ -69,7 +69,7 @@ func TestEmitQueryID(t *testing.T) {
 
 	queryIDChan := make(chan string, 1)
 	numrows := 100000
-	ctx, _ := WithAsyncMode(context.Background())
+	ctx := WithAsyncMode(context.Background())
 	ctx = WithQueryIDChan(ctx, queryIDChan)
 
 	goRoutineChan := make(chan string)

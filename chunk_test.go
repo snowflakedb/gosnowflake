@@ -2,7 +2,12 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
+	"io"
+	"math/rand"
 	"strings"
 	"testing"
 )
@@ -161,5 +166,223 @@ func testDecodeErr(t *testing.T, s string) {
 	_, err := decodeLargeChunk(strings.NewReader(s), 0, 0)
 	if err == nil {
 		t.Fatalf("expected decode to fail for input: %s", s)
+	}
+}
+
+type mockStreamChunkFetcher struct {
+	chunks map[string][][]*string
+}
+
+func (f *mockStreamChunkFetcher) fetch(url string, stream chan<- []*string) error {
+	for _, row := range f.chunks[url] {
+		stream <- row
+	}
+	return nil
+}
+
+func TestStreamChunkDownloaderFirstRows(t *testing.T) {
+	fetcher := &mockStreamChunkFetcher{}
+	firstRows := generateStreamChunkRows(10, 4)
+	downloader := newStreamChunkDownloader(context.Background(), fetcher, int64(len(firstRows)), firstRows, []execResponseChunk{})
+	if err := downloader.start(); err != nil {
+		t.Fatalf("chunk download start failed. err: %v", err)
+	}
+	for i := 0; i < len(firstRows); i++ {
+		if !downloader.hasNextResultSet() {
+			t.Error("failed to retrieve next result set")
+		}
+		err := downloader.nextResultSet()
+		if err != nil {
+			t.Fatalf("failed to retrieve data. err: %v", err)
+		}
+		row, err := downloader.next()
+		if err != nil {
+			t.Fatalf("failed to retrieve data. err: %v", err)
+		}
+		assertEqualRows(firstRows[i], row)
+	}
+	row, err := downloader.next()
+	if !assertEmptyChunkRow(row) {
+		t.Fatal("row should be empty")
+	}
+	if err != io.EOF {
+		t.Fatalf("failed to finish getting data. err: %v", err)
+	}
+	if downloader.hasNextResultSet() {
+		t.Error("downloader has next result set. expected none.")
+	}
+	if downloader.nextResultSet() != io.EOF {
+		t.Fatalf("failed to finish getting data. err: %v", err)
+	}
+}
+
+func TestStreamChunkDownloaderChunks(t *testing.T) {
+	chunks, responseChunks := generateStreamChunkDownloaderChunks([]string{"foo", "bar"}, 4, 4)
+	fetcher := &mockStreamChunkFetcher{chunks}
+	firstRows := generateStreamChunkRows(2, 4)
+	downloader := newStreamChunkDownloader(context.Background(), fetcher, int64(len(firstRows)), firstRows, responseChunks)
+	if err := downloader.start(); err != nil {
+		t.Fatalf("chunk download start failed. err: %v", err)
+	}
+	for i := 0; i < len(firstRows); i++ {
+		if !downloader.hasNextResultSet() {
+			t.Error("failed to retrieve next result set")
+		}
+		err := downloader.nextResultSet()
+		if err != nil {
+			t.Fatalf("failed to retrieve data. err: %v", err)
+		}
+		row, err := downloader.next()
+		if err != nil {
+			t.Fatalf("failed to retrieve data. err: %v", err)
+		}
+		assertEqualRows(firstRows[i], row)
+	}
+	for _, chunk := range responseChunks {
+		for _, chunkRow := range chunks[chunk.URL] {
+			if !downloader.hasNextResultSet() {
+				t.Error("failed to retrieve next result set")
+			}
+			row, err := downloader.next()
+			if err != nil {
+				t.Fatalf("failed to retrieve data. err: %v", err)
+			}
+			assertEqualRows(chunkRow, row)
+		}
+	}
+	row, err := downloader.next()
+	if !assertEmptyChunkRow(row) {
+		t.Fatal("row should be empty")
+	}
+	if err != io.EOF {
+		t.Fatalf("failed to finish getting data. err: %v", err)
+	}
+	if downloader.hasNextResultSet() {
+		t.Error("downloader has next result set. expected none.")
+	}
+	if downloader.nextResultSet() != io.EOF {
+		t.Fatalf("failed to finish getting data. err: %v", err)
+	}
+}
+
+func TestCopyChunkStream(t *testing.T) {
+	foo := "foo"
+	bar := "bar"
+
+	r := strings.NewReader(`["foo","bar",null],["bar",null,"foo"],[]`)
+	c := make(chan []*string, 3)
+	err := copyChunkStream(r, c)
+	if err != nil {
+		t.Fatalf("error while copying chunk stream. err: %v", err)
+	}
+	assertEqualRows([]*string{&foo, &bar, nil}, <-c)
+	assertEqualRows([]*string{&bar, nil, &foo}, <-c)
+	assertEqualRows([]*string{}, <-c)
+}
+
+func TestCopyChunkStreamInvalid(t *testing.T) {
+	var r io.Reader
+	var c chan []*string
+	var err error
+
+	r = strings.NewReader("oops")
+	c = make(chan []*string, 1)
+	err = copyChunkStream(r, c)
+	if err == nil {
+		t.Fatalf("should fail to retrieve data. err: %v", err)
+	}
+
+	r = strings.NewReader(`[["foo"], ["bar"]]`)
+	c = make(chan []*string, 1)
+	err = copyChunkStream(r, c)
+	if err == nil {
+		t.Fatalf("should fail to retrieve data. err: %v", err)
+	}
+
+	r = strings.NewReader(`{"foo": "bar"}`)
+	c = make(chan []*string, 1)
+	err = copyChunkStream(r, c)
+	if err == nil {
+		t.Fatalf("should fail to retrieve data. err: %v", err)
+	}
+}
+
+func generateStreamChunkDownloaderChunks(urls []string, numRows, numCols int) (map[string][][]*string, []execResponseChunk) {
+	chunks := map[string][][]*string{}
+	var responseChunks []execResponseChunk
+	for _, url := range urls {
+		rows := generateStreamChunkRows(numRows, numCols)
+		chunks[url] = rows
+		responseChunks = append(responseChunks, execResponseChunk{url, len(rows), -1, -1})
+	}
+	return chunks, responseChunks
+}
+
+func generateStreamChunkRows(numRows, numCols int) [][]*string {
+	rows := [][]*string{}
+	for i := 0; i < numRows; i++ {
+		cols := []*string{}
+		for j := 0; j < numCols; j++ {
+			col := fmt.Sprintf("%d", rand.Intn(1000))
+			cols = append(cols, &col)
+		}
+		rows = append(rows, cols)
+	}
+	return rows
+}
+
+func assertEqualRows(expected []*string, actual interface{}) bool {
+	switch v := actual.(type) {
+	case chunkRowType:
+		for i := range expected {
+			if expected[i] != v.RowSet[i] {
+				return false
+			}
+		}
+		return len(expected) == len(v.RowSet)
+	case []*string:
+		for i := range expected {
+			if expected[i] != v[i] {
+				return false
+			}
+		}
+		return len(expected) == len(v)
+	}
+	return false
+}
+
+func assertEmptyChunkRow(row chunkRowType) bool {
+	return assertEqualRows(make([]*string, len(row.RowSet)), row)
+}
+
+func TestWithStreamDownloader(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	ctx := WithStreamDownloader(context.Background())
+	numrows := 100000
+	rows, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+	defer rows.Close()
+
+	cnt := 0
+	var idx int
+	var v string
+	// Next() will block and wait until results are available
+	for rows.Next() {
+		err := rows.Scan(&idx, &v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cnt++
+	}
+	logger.Infof("NextResultSet: %v", rows.NextResultSet())
+
+	if cnt != numrows {
+		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 	}
 }

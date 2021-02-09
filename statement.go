@@ -9,15 +9,6 @@ import (
 
 type paramKey string
 
-const (
-	// MultiStatementCount controls the number of queries to execute in a single API call
-	MultiStatementCount paramKey = "MULTI_STATEMENT_COUNT"
-	// AsyncMode tells the server to not block the request on executing the entire query
-	AsyncMode paramKey = "ASYNC_MODE_QUERY"
-	// QueryIDChan is the channel to receive the query ID from
-	QueryIDChan paramKey = "QUERY_ID_CHANNEL"
-)
-
 type snowflakeStmt struct {
 	sc    *snowflakeConn
 	query string
@@ -53,19 +44,4 @@ func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
 func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Query")
 	return stmt.sc.Query(stmt.query, args)
-}
-
-// WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
-func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
-	return context.WithValue(ctx, MultiStatementCount, num), nil
-}
-
-// WithAsyncMode returns a context that allows execution of query in async mode
-func WithAsyncMode(ctx context.Context) (context.Context, error) {
-	return context.WithValue(ctx, AsyncMode, true), nil
-}
-
-// WithQueryIDChan returns a context that contains the channel to receive the query ID
-func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
-	return context.WithValue(ctx, QueryIDChan, c)
 }
