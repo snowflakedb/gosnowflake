@@ -30,9 +30,9 @@ type chunkDownloader interface {
 	reset()
 	getChunkMetas() []execResponseChunk
 	getQueryResultFormat() resultFormat
+	getRowType() []execResponseRowType
 	setNextChunkDownloader(downloader chunkDownloader)
 	getNextChunkDownloader() chunkDownloader
-	getRowType() []execResponseRowType
 }
 
 type snowflakeChunkDownloader struct {

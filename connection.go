@@ -8,7 +8,9 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -51,6 +53,9 @@ type snowflakeConn struct {
 	QueryID         string
 	SQLState        string
 }
+
+var queryIDPattern = `[\w\-_]+`
+var queryIDRegexp = regexp.MustCompile(queryIDPattern)
 
 // isDml returns true if the statement type code is in the range of DML.
 func (sc *snowflakeConn) isDml(v int64) bool {
@@ -244,6 +249,17 @@ func (sc *snowflakeConn) PrepareContext(ctx context.Context, query string) (driv
 }
 
 func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	qid, _ := getResumeQueryID(ctx)
+	if qid == "" {
+		return sc.execContextInternal(ctx, query, args)
+	}
+	actualQuery := "select * from table(result_scan(" + qid + "))"
+	newCtx := context.WithValue(ctx, FetchResultByID, "")
+	return sc.execContextInternal(newCtx, actualQuery, args)
+
+}
+
+func (sc *snowflakeConn) execContextInternal(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
@@ -295,7 +311,31 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	return driver.ResultNoRows, nil
 }
 
+// QueryContext when there is
 func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	qid, _ := getResumeQueryID(ctx)
+	if qid == "" {
+		return sc.queryContextInternal(ctx, query, args)
+	}
+
+	// so there is a queryID in context for which we want to fetch the result
+	if !queryIDRegexp.MatchString(qid) {
+		return nil, &SnowflakeError{
+			Number:  ErrQueryIDFormat,
+			Message: "Invalid QID",
+			QueryID: qid}
+	}
+	// first we will check the status of this particular query to find out if there is result to fetch
+	err := sc.checkQueryStatus(ctx, qid)
+	if err == nil || (err != nil && err.(*SnowflakeError).Number == ErrQueryIsRunning) {
+		// the query is running. Rows object will be returned from here.
+		return sc.buildRowsForRunningQuery(ctx, qid)
+	}
+
+	return nil, err
+}
+
+func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
@@ -331,7 +371,6 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 
 	rows := new(snowflakeRows)
 	rows.sc = sc
-	rows.ChunkDownloader = populateChunkDownloader(ctx, sc, data.Data)
 	rows.queryID = sc.QueryID
 
 	if sc.isMultiStmt(&data.Data) {
@@ -339,6 +378,8 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		rows.addDownloader(populateChunkDownloader(ctx, sc, data.Data))
 	}
 
 	rows.ChunkDownloader.start()
@@ -456,7 +497,7 @@ func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseD
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 	for _, child := range childResults {
 		resultPath := fmt.Sprintf("/queries/%s/result", child.id)
-		childData, err := sc.getQueryResult(ctx, resultPath)
+		childData, err := sc.getQueryResultResp(ctx, resultPath)
 		if err != nil {
 			logger.Errorf("error: %v", err)
 			code, err := strconv.Atoi(childData.Code)
@@ -502,35 +543,11 @@ func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseD
 
 func (sc *snowflakeConn) handleMultiQuery(ctx context.Context, data execResponseData, rows *snowflakeRows) error {
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
-	var nextChunkDownloader chunkDownloader
-	firstResultSet := false
 
 	for _, child := range childResults {
-		resultPath := fmt.Sprintf("/queries/%s/result", child.id)
-		childData, err := sc.getQueryResult(ctx, resultPath)
+		err := sc.rowsForRunningQuery(ctx, child.id, rows)
 		if err != nil {
-			logger.WithContext(ctx).Errorf("error: %v", err)
-			if childData != nil {
-				code, err := strconv.Atoi(childData.Code)
-				if err != nil {
-					return err
-				}
-				return &SnowflakeError{
-					Number:   code,
-					SQLState: childData.Data.SQLState,
-					Message:  err.Error(),
-					QueryID:  childData.Data.QueryID}
-			}
 			return err
-		}
-		if !firstResultSet {
-			// populate rows.ChunkDownloader with the first child
-			rows.ChunkDownloader = populateChunkDownloader(ctx, sc, childData.Data)
-			nextChunkDownloader = rows.ChunkDownloader
-			firstResultSet = true
-		} else {
-			nextChunkDownloader.setNextChunkDownloader(populateChunkDownloader(ctx, sc, childData.Data))
-			nextChunkDownloader = nextChunkDownloader.getNextChunkDownloader()
 		}
 	}
 	return nil
@@ -574,7 +591,7 @@ func getChildResults(IDs string, types string) []childResult {
 	return res
 }
 
-func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) (*execResponse, error) {
+func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath string) (*execResponse, error) {
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
@@ -605,6 +622,112 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 	return respd, nil
 }
 
+// checkQueryStatus return error - nil means the query completed successfully - there is query result to fetch.
+// when check the status too soon there may not be status available, an ErrQueryStatus will be returned.
+func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error {
+	headers := make(map[string]string)
+	param := make(url.Values)
+	param.Add(requestGUIDKey, uuid.New().String())
+	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
+	}
+	// qid := "019a5244-01f2-9999-0000-00000040d105"
+	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
+	url := sc.rest.getFullURL(resultPath, &param)
+
+	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+		return err
+	}
+	var statusResp = statusResponse{}
+
+	err = json.NewDecoder(res.Body).Decode(&statusResp)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+		return err
+	}
+
+	if !statusResp.Success || len(statusResp.Data.Queries) == 0 {
+		logger.WithContext(ctx).Errorf("status query returned not-success or no status returned.")
+		return &SnowflakeError{
+			Number:  ErrQueryStatus,
+			Message: "status query returned not-success or no status returned. Please retry"}
+	}
+
+	var queryRet = statusResp.Data.Queries[0]
+	if queryRet.ErrorCode != 0 {
+		return &SnowflakeError{
+			Number: ErrQueryStatus,
+			Message: fmt.Sprintf("server ErrorCode=%d, ErrorMessage=%s",
+				queryRet.ErrorCode, queryRet.ErrorMessage),
+			IncludeQueryID: true,
+			QueryID:        qid,
+		}
+	}
+
+	// returned errorCode is 0. Now what is the query status
+	var qstatus = strToSFQueryStatus(queryRet.Status)
+	if sfqStatusIsAnError(qstatus) {
+		return &SnowflakeError{
+			Number: ErrQueryReportedError,
+			Message: fmt.Sprintf("%s: status from server: [%s]",
+				queryRet.ErrorMessage, queryRet.Status),
+			IncludeQueryID: true,
+			QueryID:        qid,
+		}
+	}
+
+	if sfqStatusIsStillRunning(qstatus) {
+		return &SnowflakeError{
+			Number: ErrQueryIsRunning,
+			Message: fmt.Sprintf("%s: status from server: [%s]",
+				queryRet.ErrorMessage, queryRet.Status),
+			IncludeQueryID: true,
+			QueryID:        qid,
+		}
+	}
+
+	//success
+	return nil
+}
+
+// Fetch query result for a query id from /queries/<qid>/result endpoint
+func (sc *snowflakeConn) rowsForRunningQuery(ctx context.Context, qid string, rows *snowflakeRows) error {
+	resultPath := fmt.Sprintf("/queries/%s/result", qid)
+	resp, err := sc.getQueryResultResp(ctx, resultPath)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("error: %v", err)
+		if resp != nil {
+			code, err := strconv.Atoi(resp.Code)
+			if err != nil {
+				return err
+			}
+			return &SnowflakeError{
+				Number:   code,
+				SQLState: resp.Data.SQLState,
+				Message:  err.Error(),
+				QueryID:  resp.Data.QueryID}
+		}
+		return err
+	}
+	rows.addDownloader(populateChunkDownloader(ctx, sc, resp.Data))
+	return nil
+}
+
+// prepare a Rows object to return for query of 'qid'
+func (sc *snowflakeConn) buildRowsForRunningQuery(ctx context.Context, qid string) (driver.Rows, error) {
+	rows := new(snowflakeRows)
+	rows.sc = sc
+	rows.queryID = qid
+	err := sc.rowsForRunningQuery(ctx, qid, rows)
+	if err != nil {
+		return nil, err
+	}
+	rows.ChunkDownloader.start()
+	return rows, err
+}
+
 func isAsyncMode(ctx context.Context) (bool, error) {
 	val := ctx.Value(asyncMode)
 	if val == nil {
@@ -615,6 +738,18 @@ func isAsyncMode(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to cast val %+v to bool", val)
 	}
 	return boolVal, nil
+}
+
+func getResumeQueryID(ctx context.Context) (string, error) {
+	val := ctx.Value(FetchResultByID)
+	if val == nil {
+		return "", nil
+	}
+	strVal, ok := val.(string)
+	if !ok {
+		return "", fmt.Errorf("failed to cast val %+v to string", val)
+	}
+	return strVal, nil
 }
 
 func getAsync(
@@ -689,7 +824,6 @@ func getAsync(
 			res.errChannel <- nil // mark exec status complete
 		} else {
 			rows.sc = sc
-			rows.ChunkDownloader = populateChunkDownloader(ctx, sc, respd.Data)
 			rows.queryID = respd.Data.QueryID
 			if sc.isMultiStmt(&respd.Data) {
 				err = sc.handleMultiQuery(ctx, respd.Data, rows)
@@ -698,6 +832,8 @@ func getAsync(
 					close(errChannel)
 					return
 				}
+			} else {
+				rows.addDownloader(populateChunkDownloader(ctx, sc, respd.Data))
 			}
 			rows.ChunkDownloader.start()
 			rows.errChannel <- nil // mark query status complete
@@ -764,4 +900,59 @@ func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execRe
 			RowSetBase64: data.RowSetBase64,
 		},
 	}
+}
+
+func buildSnowFlakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
+	sc := &snowflakeConn{
+		SequenceCounter: 0,
+		ctx:             ctx,
+		cfg:             &config,
+	}
+	var st http.RoundTripper = SnowflakeTransport
+	if sc.cfg.Transporter == nil {
+		if sc.cfg.InsecureMode {
+			// no revocation check with OCSP. Think twice when you want to enable this option.
+			st = snowflakeInsecureTransport
+		} else {
+			// set OCSP fail open mode
+			ocspResponseCacheLock.Lock()
+			atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(sc.cfg.OCSPFailOpen))
+			ocspResponseCacheLock.Unlock()
+		}
+	} else {
+		// use the custom transport
+		st = sc.cfg.Transporter
+	}
+	var tokenAccessor TokenAccessor
+	if sc.cfg.TokenAccessor != nil {
+		tokenAccessor = sc.cfg.TokenAccessor
+	} else {
+		tokenAccessor = getSimpleTokenAccessor()
+	}
+	// authenticate
+	sc.rest = &snowflakeRestful{
+		Host:     sc.cfg.Host,
+		Port:     sc.cfg.Port,
+		Protocol: sc.cfg.Protocol,
+		Client: &http.Client{
+			// request timeout including reading response body
+			Timeout:   sc.cfg.ClientTimeout,
+			Transport: st,
+		},
+		TokenAccessor:       tokenAccessor,
+		LoginTimeout:        sc.cfg.LoginTimeout,
+		RequestTimeout:      sc.cfg.RequestTimeout,
+		FuncPost:            postRestful,
+		FuncGet:             getRestful,
+		FuncPostQuery:       postRestfulQuery,
+		FuncPostQueryHelper: postRestfulQueryHelper,
+		FuncRenewSession:    renewRestfulSession,
+		FuncPostAuth:        postAuth,
+		FuncCloseSession:    closeSession,
+		FuncCancelQuery:     cancelQuery,
+		FuncPostAuthSAML:    postAuthSAML,
+		FuncPostAuthOKTA:    postAuthOKTA,
+		FuncGetSSO:          getSSO,
+	}
+	return sc, nil
 }

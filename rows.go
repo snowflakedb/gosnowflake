@@ -28,12 +28,13 @@ var (
 )
 
 type snowflakeRows struct {
-	sc              *snowflakeConn
-	ChunkDownloader chunkDownloader
-	queryID         string
-	status          queryStatus
-	err             error
-	errChannel      chan error
+	sc                  *snowflakeConn
+	ChunkDownloader     chunkDownloader
+	tailChunkDownloader chunkDownloader
+	queryID             string
+	status              queryStatus
+	err                 error
+	errChannel          chan error
 }
 
 type snowflakeValue interface{}
@@ -207,5 +208,16 @@ func (rows *snowflakeRows) waitForAsyncQueryStatus() error {
 	} else if rows.status == QueryFailed {
 		return rows.err
 	}
+	return nil
+}
+
+func (rows *snowflakeRows) addDownloader(newDL chunkDownloader) error {
+	if rows.ChunkDownloader == nil {
+		rows.ChunkDownloader = newDL
+		rows.tailChunkDownloader = newDL
+		return nil
+	}
+	rows.tailChunkDownloader.setNextChunkDownloader(newDL)
+	rows.tailChunkDownloader = newDL
 	return nil
 }
