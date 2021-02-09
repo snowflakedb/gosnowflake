@@ -30,7 +30,7 @@ var (
 type snowflakeRows struct {
 	sc              *snowflakeConn
 	RowType         []execResponseRowType
-	ChunkDownloader *snowflakeChunkDownloader
+	ChunkDownloader chunkDownloader
 	queryID         string
 	status          queryStatus
 	err             error
@@ -149,12 +149,12 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 	if err != nil {
 		// includes io.EOF
 		if err == io.EOF {
-			rows.ChunkDownloader.Chunks = nil // detach all chunks. No way to go backward without reinitialize it.
+			rows.ChunkDownloader.reset()
 		}
 		return err
 	}
 
-	if rows.ChunkDownloader.QueryResultFormat == arrowFormat {
+	if rows.ChunkDownloader.getQueryResultFormat() == arrowFormat {
 		for i, n := 0, len(row.ArrowRow); i < n; i++ {
 			dest[i] = row.ArrowRow[i]
 		}
@@ -175,9 +175,6 @@ func (rows *snowflakeRows) HasNextResultSet() bool {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return false
 	}
-	if len(rows.ChunkDownloader.ChunkMetas) == 0 && rows.ChunkDownloader.NextDownloader == nil {
-		return false // no extra chunk
-	}
 	return rows.ChunkDownloader.hasNextResultSet()
 }
 
@@ -185,11 +182,11 @@ func (rows *snowflakeRows) NextResultSet() error {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
-	if len(rows.ChunkDownloader.ChunkMetas) == 0 {
-		if rows.ChunkDownloader.NextDownloader == nil {
+	if len(rows.ChunkDownloader.getChunkMetas()) == 0 {
+		if rows.ChunkDownloader.getNextChunkDownloader() == nil {
 			return io.EOF
 		}
-		rows.ChunkDownloader = rows.ChunkDownloader.NextDownloader
+		rows.ChunkDownloader = rows.ChunkDownloader.getNextChunkDownloader()
 		rows.ChunkDownloader.start()
 	}
 	return rows.ChunkDownloader.nextResultSet()

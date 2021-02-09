@@ -498,7 +498,7 @@ func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseD
 
 func (sc *snowflakeConn) handleMultiQuery(ctx context.Context, data execResponseData, rows *snowflakeRows) error {
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
-	var nextChunkDownloader *snowflakeChunkDownloader
+	var nextChunkDownloader chunkDownloader
 	firstResultSet := false
 
 	for _, child := range childResults {
@@ -525,8 +525,8 @@ func (sc *snowflakeConn) handleMultiQuery(ctx context.Context, data execResponse
 			nextChunkDownloader = rows.ChunkDownloader
 			firstResultSet = true
 		} else {
-			nextChunkDownloader.NextDownloader = populateChunkDownloader(ctx, sc, childData.Data)
-			nextChunkDownloader = nextChunkDownloader.NextDownloader
+			nextChunkDownloader.setNextChunkDownloader(populateChunkDownloader(ctx, sc, childData.Data))
+			nextChunkDownloader = nextChunkDownloader.getNextChunkDownloader()
 		}
 	}
 	return nil
@@ -725,9 +725,9 @@ func getQueryIDChan(ctx context.Context) chan<- string {
 	return c
 }
 
-// returns snowflake chunk downloader depending on query result format
-// stream based if JSON and worker based if ARROW
-func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) *snowflakeChunkDownloader {
+// returns snowflake chunk downloader by default or stream based chunk
+// downloader if option provided through context
+func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) chunkDownloader {
 	if useStreamDownloader(ctx) {
 		fetcher := &httpStreamChunkFetcher{
 			ctx:      ctx,
@@ -736,7 +736,7 @@ func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execRe
 			headers:  data.ChunkHeaders,
 			qrmk:     data.Qrmk,
 		}
-		return newStreamChunkDownloader(ctx, fetcher, data.Total, data.RowSet, data.Chunks)
+		return newStreamChunkDownloader(fetcher, data.Total, data.RowSet, data.Chunks)
 	}
 
 	return &snowflakeChunkDownloader{
@@ -753,7 +753,8 @@ func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execRe
 		FuncDownload:       downloadChunk,
 		FuncDownloadHelper: downloadChunkHelper,
 		FuncGet:            getChunk,
-		RowSet: rowSetType{RowType: data.RowType,
+		RowSet: rowSetType{
+			RowType:      data.RowType,
 			JSON:         data.RowSet,
 			RowSetBase64: data.RowSetBase64,
 		},

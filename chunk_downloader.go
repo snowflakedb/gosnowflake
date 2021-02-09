@@ -12,7 +12,6 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -21,13 +20,22 @@ import (
 	"time"
 )
 
+type chunkDownloader interface {
+	totalUncompressedSize() (acc int64)
+	hasNextResultSet() bool
+	nextResultSet() error
+	start() error
+	next() (chunkRowType, error)
+	reset()
+	getChunkMetas() []execResponseChunk
+	getQueryResultFormat() resultFormat
+	setNextChunkDownloader(downloader chunkDownloader)
+	getNextChunkDownloader() chunkDownloader
+}
+
 type snowflakeChunkDownloader struct {
 	sc                 *snowflakeConn
 	ctx                context.Context
-	id                 int64
-	fetcher            streamChunkFetcher
-	readErr            error
-	rowStream          chan []*string
 	Total              int64
 	TotalRowIndex      int64
 	CellCount          int
@@ -44,7 +52,7 @@ type snowflakeChunkDownloader struct {
 	ChunksFinalErrors  []*chunkError
 	ChunksMutex        *sync.Mutex
 	DoneDownloadCond   *sync.Cond
-	NextDownloader     *snowflakeChunkDownloader
+	NextDownloader     chunkDownloader
 	Qrmk               string
 	QueryResultFormat  string
 	RowSet             rowSetType
@@ -54,9 +62,6 @@ type snowflakeChunkDownloader struct {
 }
 
 func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
-	if useStreamDownloader(scd.ctx) {
-		return -1
-	}
 	for _, c := range scd.ChunkMetas {
 		acc += c.UncompressedSize
 	}
@@ -64,17 +69,14 @@ func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
 }
 
 func (scd *snowflakeChunkDownloader) hasNextResultSet() bool {
-	if useStreamDownloader(scd.ctx) {
-		return scd.readErr == nil
+	if len(scd.ChunkMetas) == 0 && scd.NextDownloader == nil {
+		return false // no extra chunk
 	}
 	// next result set exists if current chunk has remaining result sets or there is another downloader
 	return scd.CurrentChunkIndex < len(scd.ChunkMetas) || scd.NextDownloader != nil
 }
 
 func (scd *snowflakeChunkDownloader) nextResultSet() error {
-	if useStreamDownloader(scd.ctx) {
-		return scd.readErr
-	}
 	// no error at all times as the next chunk/resultset is automatically read
 	if scd.CurrentChunkIndex < len(scd.ChunkMetas) {
 		return nil
@@ -83,46 +85,6 @@ func (scd *snowflakeChunkDownloader) nextResultSet() error {
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
-	if useStreamDownloader(scd.ctx) {
-		go func() {
-			var readErr = io.EOF
-
-			defer func() {
-				scd.readErr = readErr
-				close(scd.rowStream)
-			}()
-
-			defer func() {
-				if r := recover(); r != nil {
-					if err, ok := r.(error); ok {
-						readErr = err
-					} else {
-						readErr = fmt.Errorf("%v", r)
-					}
-				}
-			}()
-
-			for _, row := range scd.RowSet.JSON {
-				scd.rowStream <- row
-			}
-			scd.RowSet.JSON = nil
-
-			// Download and parse one chunk at a time. The fetcher will send
-			// each parsed row to the row stream. When an error occurs, the
-			// fetcher will stop writing to the row stream so we can stop
-			// processing immediately. This is  the goroutine that controls
-			// "done-ness" (via io.EOF)
-			for i, chunk := range scd.ChunkMetas {
-				logger.WithContext(scd.ctx).Infof("starting chunk fetch %v (%v rows)", i, chunk.RowCount)
-				if err := scd.fetcher.fetch(chunk.URL, scd.rowStream); err != nil {
-					logger.WithContext(scd.ctx).Infof("failed to fetch chunk %v, err: %s", i, err)
-					readErr = fmt.Errorf("chunk fetch: %w", err)
-					break
-				}
-			}
-		}()
-		return nil
-	}
 	scd.CurrentChunkSize = len(scd.RowSet.JSON) // cache the size
 	scd.CurrentIndex = -1                       // initial chunks idx
 	scd.CurrentChunkIndex = -1                  // initial chunk
@@ -130,7 +92,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 	scd.CurrentChunk = make([]chunkRowType, scd.CurrentChunkSize)
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
 
-	if scd.QueryResultFormat == arrowFormat && scd.RowSet.RowSetBase64 != "" {
+	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
 		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
@@ -194,12 +156,6 @@ func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 }
 
 func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
-	if useStreamDownloader(scd.ctx) {
-		if row, ok := <-scd.rowStream; ok {
-			return chunkRowType{RowSet: row}, nil
-		}
-		return chunkRowType{}, scd.readErr
-	}
 	for {
 		scd.CurrentIndex++
 		if scd.CurrentIndex < scd.CurrentChunkSize {
@@ -245,6 +201,29 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 		close(scd.ChunksChan)
 	}
 	return chunkRowType{}, io.EOF
+}
+
+func (scd *snowflakeChunkDownloader) reset() {
+	scd.Chunks = nil // detach all chunks. No way to go backward without reinitialize it.
+}
+
+func (scd *snowflakeChunkDownloader) getChunkMetas() []execResponseChunk {
+	return scd.ChunkMetas
+}
+
+func (scd *snowflakeChunkDownloader) getQueryResultFormat() resultFormat {
+	if scd.QueryResultFormat == "arrow" {
+		return arrowFormat
+	}
+	return jsonFormat
+}
+
+func (scd *snowflakeChunkDownloader) setNextChunkDownloader(nextDownloader chunkDownloader) {
+	scd.NextDownloader = nextDownloader
+}
+
+func (scd *snowflakeChunkDownloader) getNextChunkDownloader() chunkDownloader {
+	return scd.NextDownloader
 }
 
 func getChunk(
@@ -366,7 +345,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 		body:   source,
 	}
 	var respd []chunkRowType
-	if scd.QueryResultFormat != arrowFormat {
+	if scd.getQueryResultFormat() != arrowFormat {
 		var decRespd [][]*string
 		if !CustomJSONDecoderEnabled {
 			dec := json.NewDecoder(st)
@@ -421,6 +400,92 @@ func populateJSONRowSet(dst []chunkRowType, src [][]*string) {
 	}
 }
 
+type streamChunkDownloader struct {
+	fetcher        streamChunkFetcher
+	readErr        error
+	rowStream      chan []*string
+	Total          int64
+	ChunkMetas     []execResponseChunk
+	NextDownloader chunkDownloader
+	RowSet         rowSetType
+}
+
+func (scd *streamChunkDownloader) totalUncompressedSize() (acc int64) {
+	return -1
+}
+
+func (scd *streamChunkDownloader) hasNextResultSet() bool {
+	return scd.readErr == nil
+}
+
+func (scd *streamChunkDownloader) nextResultSet() error {
+	return scd.readErr
+}
+
+func (scd *streamChunkDownloader) start() error {
+	go func() {
+		var readErr = io.EOF
+
+		defer func() {
+			scd.readErr = readErr
+			close(scd.rowStream)
+		}()
+
+		defer func() {
+			if r := recover(); r != nil {
+				if err, ok := r.(error); ok {
+					readErr = err
+				} else {
+					readErr = fmt.Errorf("%v", r)
+				}
+			}
+		}()
+
+		for _, row := range scd.RowSet.JSON {
+			scd.rowStream <- row
+		}
+		scd.RowSet.JSON = nil
+
+		// Download and parse one chunk at a time. The fetcher will send
+		// each parsed row to the row stream. When an error occurs, the
+		// fetcher will stop writing to the row stream so we can stop
+		// processing immediately. This is  the goroutine that controls
+		// "done-ness" (via io.EOF)
+		for _, chunk := range scd.ChunkMetas {
+			if err := scd.fetcher.fetch(chunk.URL, scd.rowStream); err != nil {
+				readErr = fmt.Errorf("chunk fetch: %w", err)
+				break
+			}
+		}
+	}()
+	return nil
+}
+
+func (scd *streamChunkDownloader) next() (chunkRowType, error) {
+	if row, ok := <-scd.rowStream; ok {
+		return chunkRowType{RowSet: row}, nil
+	}
+	return chunkRowType{}, scd.readErr
+}
+
+func (scd *streamChunkDownloader) reset() {}
+
+func (scd *streamChunkDownloader) getChunkMetas() []execResponseChunk {
+	return scd.ChunkMetas
+}
+
+func (scd *streamChunkDownloader) getQueryResultFormat() resultFormat {
+	return jsonFormat
+}
+
+func (scd *streamChunkDownloader) setNextChunkDownloader(nextDownloader chunkDownloader) {
+	scd.NextDownloader = nextDownloader
+}
+
+func (scd *streamChunkDownloader) getNextChunkDownloader() chunkDownloader {
+	return scd.NextDownloader
+}
+
 func useStreamDownloader(ctx context.Context) bool {
 	val := ctx.Value(streamChunkDownload)
 	if val == nil {
@@ -445,13 +510,8 @@ type httpStreamChunkFetcher struct {
 	qrmk     string
 }
 
-func newStreamChunkDownloader(ctx context.Context, fetcher streamChunkFetcher, total int64, firstRows [][]*string, chunks []execResponseChunk) *snowflakeChunkDownloader {
-	if !useStreamDownloader(ctx) {
-		ctx = context.WithValue(ctx, streamChunkDownload, true)
-	}
-	return &snowflakeChunkDownloader{
-		ctx:        ctx,
-		id:         rand.Int63(),
+func newStreamChunkDownloader(fetcher streamChunkFetcher, total int64, firstRows [][]*string, chunks []execResponseChunk) *streamChunkDownloader {
+	return &streamChunkDownloader{
 		fetcher:    fetcher,
 		RowSet:     rowSetType{JSON: firstRows},
 		ChunkMetas: chunks,
