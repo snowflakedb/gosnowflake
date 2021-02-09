@@ -41,7 +41,7 @@ func (res *snowflakeResult) LastInsertId() (int64, error) {
 
 func (res *snowflakeResult) RowsAffected() (int64, error) {
 	if err := res.waitForAsyncExecStatus(); err != nil {
-		return 0, err
+		return -1, err
 	}
 	return res.affectedRows, nil
 }
