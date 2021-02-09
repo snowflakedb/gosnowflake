@@ -29,6 +29,7 @@ func TestPreparedStatement(t *testing.T) {
 	defer s.Close()
 	s.Exec(intArray, strArray)
 
+	cnt := 0
 	rows, _ := db.Query("select * from test order by 1")
 	defer rows.Close()
 	var v1 int
@@ -38,6 +39,16 @@ func TestPreparedStatement(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if intArray[cnt] != v1 {
+			t.Errorf("failed to scan. expected: %v, got %v", intArray[cnt], v1)
+		}
+		if strArray[cnt] != v2 {
+			t.Errorf("failed to scan. expected: %v, got %v", strArray[cnt], v2)
+		}
+		cnt++
+	}
+	if cnt != len(intArray) {
+		t.Errorf("number of rows didn't match. expected: %v, got: %v", len(intArray), cnt)
 	}
 }
 
