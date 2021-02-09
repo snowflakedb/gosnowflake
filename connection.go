@@ -736,7 +736,7 @@ func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execRe
 			headers:  data.ChunkHeaders,
 			qrmk:     data.Qrmk,
 		}
-		return newStreamChunkDownloader(fetcher, data.Total, data.RowSet, data.Chunks)
+		return newStreamChunkDownloader(ctx, fetcher, data.Total, data.RowSet, data.Chunks)
 	}
 
 	return &snowflakeChunkDownloader{
