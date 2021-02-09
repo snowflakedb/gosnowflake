@@ -18,7 +18,7 @@ func TestAsyncMode(t *testing.T) {
 	}
 	defer db.Close()
 
-	ctx, _ := WithAsyncMode(context.Background())
+	ctx := WithAsyncMode(context.Background())
 	numrows := 100000
 	rows, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
 	defer rows.Close()
@@ -64,7 +64,7 @@ func TestAsyncQueryFail(t *testing.T) {
 	}
 	defer db.Close()
 
-	ctx, _ := WithAsyncMode(context.Background())
+	ctx := WithAsyncMode(context.Background())
 	rows, err := db.QueryContext(ctx, "selectt 1")
 	if err != nil {
 		t.Fatal("asynchronous query should always return nil error")
@@ -89,7 +89,7 @@ func TestMultipleAsyncQueries(t *testing.T) {
 	}
 	defer db.Close()
 
-	ctx, _ := WithAsyncMode(context.Background())
+	ctx := WithAsyncMode(context.Background())
 	s1 := "foo"
 	s2 := "bar"
 	rows1, _ := db.QueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s1, 30))
