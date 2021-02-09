@@ -129,3 +129,71 @@ type execResponse struct {
 	Code    string           `json:"code"`
 	Success bool             `json:"success"`
 }
+
+// QueryStatusFromServer status returned from server
+type QueryStatusFromServer int
+
+// Query Status defined at server side
+const (
+	SFQueryRunning = iota
+	SFQueryAborting
+	SFQuerySuccess
+	SFQueryFailedWithError
+	SFQueryAborted
+	SFQueryQueued
+	SFQueryFailedWithIncident
+	SFQueryDisconnected
+	SFQueryResumingWarehouse
+	// SFQueryQueueRepairingWarehouse present in QueryDTO.java.
+	SFQueryQueueRepairingWarehouse
+	SFQueryRestarted
+
+	// SFQueryBlocked the state when a statement is waiting on a lock on resource held by another statement.
+	SFQueryBlocked
+	SFQueryNoData
+)
+
+var sfQueryStrStatusMap = map[string]QueryStatusFromServer{
+	"RUNNING": SFQueryRunning, "ABORTING": SFQueryAborting, "SUCCESS": SFQuerySuccess,
+	"FAILED_WITH_ERROR": SFQueryFailedWithError, "ABORTED": SFQueryAborted, "QUEUED": SFQueryQueued,
+	"FAILED_WITH_INCIDENT": SFQueryFailedWithIncident, "DISCONNECTED": SFQueryDisconnected,
+	"RESUMING_WAREHOUSE": SFQueryResumingWarehouse, "QUEUED_REPAIRING_WAREHOUSE": SFQueryQueueRepairingWarehouse,
+	"RESTARTED": SFQueryRestarted, "BLOCKED": SFQueryBlocked, "NO_DATA": SFQueryNoData}
+
+var dummy = struct{}{}
+var sfqueryStatusRunning = map[QueryStatusFromServer]struct{}{
+	SFQueryRunning: dummy, SFQueryResumingWarehouse: dummy, SFQueryQueued: dummy,
+	SFQueryQueueRepairingWarehouse: dummy, SFQueryNoData: dummy}
+
+var sfqueryStatusError = map[QueryStatusFromServer]struct{}{
+	SFQueryAborting: dummy, SFQueryFailedWithError: dummy, SFQueryAborted: dummy,
+	SFQueryFailedWithIncident: dummy, SFQueryDisconnected: dummy, SFQueryBlocked: dummy}
+
+type retStatus struct {
+	Status       string `json:"status"`
+	ErrorMessage string `json:"errorMessage"`
+	ErrorCode    int    `json:"errorCode"`
+}
+
+type statusResponse struct {
+	Data struct {
+		Queries []retStatus `json:"queries"`
+	} `json:"data"`
+	Message string `json:"message"`
+	Code    string `json:"code"`
+	Success bool   `json:"success"`
+}
+
+func strToSFQueryStatus(in string) QueryStatusFromServer {
+	return sfQueryStrStatusMap[in]
+}
+
+func sfqStatusIsAnError(status QueryStatusFromServer) bool {
+	_, exist := sfqueryStatusError[status]
+	return exist
+}
+
+func sfqStatusIsStillRunning(status QueryStatusFromServer) bool {
+	_, exist := sfqueryStatusRunning[status]
+	return exist
+}
