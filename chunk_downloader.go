@@ -32,6 +32,7 @@ type chunkDownloader interface {
 	getQueryResultFormat() resultFormat
 	setNextChunkDownloader(downloader chunkDownloader)
 	getNextChunkDownloader() chunkDownloader
+	getRowType() []execResponseRowType
 }
 
 type snowflakeChunkDownloader struct {
@@ -225,6 +226,10 @@ func (scd *snowflakeChunkDownloader) setNextChunkDownloader(nextDownloader chunk
 
 func (scd *snowflakeChunkDownloader) getNextChunkDownloader() chunkDownloader {
 	return scd.NextDownloader
+}
+
+func (scd *snowflakeChunkDownloader) getRowType() []execResponseRowType {
+	return scd.RowSet.RowType
 }
 
 func getChunk(
@@ -503,6 +508,10 @@ func (scd *streamChunkDownloader) getNextChunkDownloader() chunkDownloader {
 	return scd.NextDownloader
 }
 
+func (scd *streamChunkDownloader) getRowType() []execResponseRowType {
+	return scd.RowSet.RowType
+}
+
 func useStreamDownloader(ctx context.Context) bool {
 	val := ctx.Value(streamChunkDownload)
 	if val == nil {
@@ -531,17 +540,18 @@ func newStreamChunkDownloader(
 	ctx context.Context,
 	fetcher streamChunkFetcher,
 	total int64,
+	rowType []execResponseRowType,
 	firstRows [][]*string,
 	chunks []execResponseChunk) *streamChunkDownloader {
 	return &streamChunkDownloader{
 		ctx:        ctx,
 		id:         rand.Int63(),
 		fetcher:    fetcher,
-		RowSet:     rowSetType{JSON: firstRows},
-		ChunkMetas: chunks,
 		readErr:    nil,
-		Total:      total,
 		rowStream:  make(chan []*string),
+		Total:      total,
+		ChunkMetas: chunks,
+		RowSet:     rowSetType{RowType: rowType, JSON: firstRows},
 	}
 }
 

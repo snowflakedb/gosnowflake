@@ -441,3 +441,53 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 		t.Fatal("should have failed to query multiple statements")
 	}
 }
+
+func TestMultiStatementVaryingColumnCount(t *testing.T) {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+
+	multiStmtQuery := "select c1 from test_tbl;\n" +
+		"select c1,c2 from test_tbl;"
+	db.Exec("create or replace table test_tbl(c1 int, c2 int)")
+	db.Exec("insert into test_tbl values(1, 0)")
+	ctx, _ := WithMultiStatement(context.Background(), 0)
+	rows, err := db.QueryContext(ctx, multiStmtQuery)
+	if err != nil {
+		t.Error(err)
+	}
+	defer rows.Close()
+
+	var v1, v2 int
+	if rows.Next() {
+		err = rows.Scan(&v1)
+		if err != nil {
+			t.Errorf("failed to scan: %#v", err)
+		}
+		if v1 != 1 {
+			t.Fatalf("failed to fetch. value: %v", v1)
+		}
+	} else {
+		t.Error("failed to query")
+	}
+
+	if !rows.NextResultSet() {
+		t.Error("failed to retrieve next result set")
+	}
+	if rows.Next() {
+		err = rows.Scan(&v1, &v2)
+		if err != nil {
+			t.Errorf("failed to scan: %#v", err)
+		}
+		if v1 != 1 || v2 != 0 {
+			t.Fatalf("failed to fetch. value: %v, %v", v1, v2)
+		}
+	} else {
+		t.Error("failed to query")
+	}
+	db.Exec("drop table if exists test_tbl")
+}

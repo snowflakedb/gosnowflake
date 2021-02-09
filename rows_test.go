@@ -33,7 +33,6 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 	cm := []execResponseChunk{}
 	rows := new(snowflakeRows)
 	rows.sc = nil
-	rows.RowType = rt
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:                 nil,
 		ctx:                context.Background(),
@@ -43,10 +42,9 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 		Qrmk:               "",
 		FuncDownload:       nil,
 		FuncDownloadHelper: nil,
-		RowSet:             rowSetType{JSON: cc},
+		RowSet:             rowSetType{RowType: rt, JSON: cc},
 	}
 	rows.ChunkDownloader.start()
-	// var dest []driver.Value
 	dest := make([]driver.Value, 2)
 	for i = 0; i < len(cc); i++ {
 		err := rows.Next(dest)
@@ -105,7 +103,6 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 	}
 	rows := new(snowflakeRows)
 	rows.sc = nil
-	rows.RowType = rt
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:            nil,
 		ctx:           context.Background(),
@@ -114,7 +111,7 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 		TotalRowIndex: int64(-1),
 		Qrmk:          "HAHAHA",
 		FuncDownload:  downloadChunkTest,
-		RowSet:        rowSetType{JSON: cc},
+		RowSet:        rowSetType{RowType: rt, JSON: cc},
 	}
 	rows.ChunkDownloader.start()
 	cnt := 0
@@ -128,7 +125,6 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get value. err: %v", err)
 		}
-		// fmt.Printf("data: %v\n", dest)
 		cnt++
 	}
 	if cnt != len(cc)+numChunks*rowsInChunk {
@@ -186,7 +182,6 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 	}
 	rows := new(snowflakeRows)
 	rows.sc = nil
-	rows.RowType = rt
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:            nil,
 		ctx:           context.Background(),
@@ -195,7 +190,7 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 		TotalRowIndex: int64(-1),
 		Qrmk:          "HOHOHO",
 		FuncDownload:  downloadChunkTestError,
-		RowSet:        rowSetType{JSON: cc},
+		RowSet:        rowSetType{RowType: rt, JSON: cc},
 	}
 	rows.ChunkDownloader.start()
 	cnt := 0
@@ -265,7 +260,6 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 	}
 	rows := new(snowflakeRows)
 	rows.sc = nil
-	rows.RowType = rt
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:            nil,
 		ctx:           context.Background(),
@@ -274,7 +268,7 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 		TotalRowIndex: int64(-1),
 		Qrmk:          "HOHOHO",
 		FuncDownload:  downloadChunkTestErrorFail,
-		RowSet:        rowSetType{JSON: cc},
+		RowSet:        rowSetType{RowType: rt, JSON: cc},
 	}
 	rows.ChunkDownloader.start()
 	cnt := 0
@@ -290,7 +284,6 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 				"failure was expected by the number of rows is wrong. expected: %v, got: %v", 715, cnt)
 			break
 		}
-		// fmt.Printf("data: %v\n", dest)
 		cnt++
 	}
 }
