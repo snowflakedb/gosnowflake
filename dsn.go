@@ -65,6 +65,7 @@ type Config struct {
 	LoginTimeout     time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
 	RequestTimeout   time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
 	JWTExpireTimeout time.Duration // JWT expire after timeout
+	ClientTimeout    time.Duration // Timeout for network round trip + read out http response
 
 	Application  string           // application name.
 	InsecureMode bool             // driver doesn't check certificate revocation status
@@ -395,6 +396,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 	}
 	if cfg.JWTExpireTimeout == 0 {
 		cfg.JWTExpireTimeout = defaultJWTTimeout
+	}
+	if cfg.ClientTimeout == 0 {
+		cfg.ClientTimeout = defaultClientTimeout
 	}
 	if strings.Trim(cfg.Application, " ") == "" {
 		cfg.Application = clientType
