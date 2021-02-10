@@ -337,7 +337,6 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 
 	rows := new(snowflakeRows)
 	rows.sc = sc
-	rows.RowType = data.Data.RowType
 	rows.ChunkDownloader = populateChunkDownloader(ctx, sc, data.Data)
 	rows.queryID = sc.QueryID
 
@@ -683,7 +682,6 @@ func getAsync(
 			res.errChannel <- nil // mark exec status complete
 		} else {
 			rows.sc = sc
-			rows.RowType = respd.Data.RowType
 			rows.ChunkDownloader = populateChunkDownloader(ctx, sc, respd.Data)
 			rows.queryID = respd.Data.QueryID
 			if sc.isMultiStmt(respd.Data) {
@@ -736,7 +734,7 @@ func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execRe
 			headers:  data.ChunkHeaders,
 			qrmk:     data.Qrmk,
 		}
-		return newStreamChunkDownloader(ctx, fetcher, data.Total, data.RowSet, data.Chunks)
+		return newStreamChunkDownloader(ctx, fetcher, data.Total, data.RowType, data.RowSet, data.Chunks)
 	}
 
 	return &snowflakeChunkDownloader{

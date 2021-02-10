@@ -183,7 +183,13 @@ func (f *mockStreamChunkFetcher) fetch(url string, stream chan<- []*string) erro
 func TestStreamChunkDownloaderFirstRows(t *testing.T) {
 	fetcher := &mockStreamChunkFetcher{}
 	firstRows := generateStreamChunkRows(10, 4)
-	downloader := newStreamChunkDownloader(context.Background(), fetcher, int64(len(firstRows)), firstRows, []execResponseChunk{})
+	downloader := newStreamChunkDownloader(
+		context.Background(),
+		fetcher,
+		int64(len(firstRows)),
+		[]execResponseRowType{},
+		firstRows,
+		[]execResponseChunk{})
 	if err := downloader.start(); err != nil {
 		t.Fatalf("chunk download start failed. err: %v", err)
 	}
@@ -220,7 +226,13 @@ func TestStreamChunkDownloaderChunks(t *testing.T) {
 	chunks, responseChunks := generateStreamChunkDownloaderChunks([]string{"foo", "bar"}, 4, 4)
 	fetcher := &mockStreamChunkFetcher{chunks}
 	firstRows := generateStreamChunkRows(2, 4)
-	downloader := newStreamChunkDownloader(context.Background(), fetcher, int64(len(firstRows)), firstRows, responseChunks)
+	downloader := newStreamChunkDownloader(
+		context.Background(),
+		fetcher,
+		int64(len(firstRows)),
+		[]execResponseRowType{},
+		firstRows,
+		responseChunks)
 	if err := downloader.start(); err != nil {
 		t.Fatalf("chunk download start failed. err: %v", err)
 	}

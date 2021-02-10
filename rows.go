@@ -29,7 +29,6 @@ var (
 
 type snowflakeRows struct {
 	sc              *snowflakeConn
-	RowType         []execResponseRowType
 	ChunkDownloader chunkDownloader
 	queryID         string
 	status          queryStatus
@@ -68,7 +67,7 @@ func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err.Error()
 	}
-	return strings.ToUpper(rows.RowType[index].Type)
+	return strings.ToUpper(rows.ChunkDownloader.getRowType()[index].Type)
 }
 
 // ColumnTypeLength returns the length of the column
@@ -76,12 +75,12 @@ func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return 0, false
 	}
-	if index < 0 || index > len(rows.RowType) {
+	if index < 0 || index > len(rows.ChunkDownloader.getRowType()) {
 		return 0, false
 	}
-	switch rows.RowType[index].Type {
+	switch rows.ChunkDownloader.getRowType()[index].Type {
 	case "text", "variant", "object", "array", "binary":
-		return rows.RowType[index].Length, true
+		return rows.ChunkDownloader.getRowType()[index].Length, true
 	}
 	return 0, false
 }
@@ -90,26 +89,27 @@ func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return false, false
 	}
-	if index < 0 || index > len(rows.RowType) {
+	if index < 0 || index > len(rows.ChunkDownloader.getRowType()) {
 		return false, false
 	}
-	return rows.RowType[index].Nullable, true
+	return rows.ChunkDownloader.getRowType()[index].Nullable, true
 }
 
 func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return 0, 0, false
 	}
-	if index < 0 || index > len(rows.RowType) {
+	rowType := rows.ChunkDownloader.getRowType()
+	if index < 0 || index > len(rowType) {
 		return 0, 0, false
 	}
-	switch rows.RowType[index].Type {
+	switch rowType[index].Type {
 	case "fixed":
-		return rows.RowType[index].Precision, rows.RowType[index].Scale, true
+		return rowType[index].Precision, rowType[index].Scale, true
 	case "time":
-		return rows.RowType[index].Scale, 0, true
+		return rowType[index].Scale, 0, true
 	case "timestamp":
-		return rows.RowType[index].Scale, 0, true
+		return rowType[index].Scale, 0, true
 	}
 	return 0, 0, false
 }
@@ -119,9 +119,9 @@ func (rows *snowflakeRows) Columns() []string {
 		return make([]string, 0)
 	}
 	logger.Debug("Rows.Columns")
-	ret := make([]string, len(rows.RowType))
-	for i, n := 0, len(rows.RowType); i < n; i++ {
-		ret[i] = rows.RowType[i].Name
+	ret := make([]string, len(rows.ChunkDownloader.getRowType()))
+	for i, n := 0, len(rows.ChunkDownloader.getRowType()); i < n; i++ {
+		ret[i] = rows.ChunkDownloader.getRowType()[i].Name
 	}
 	return ret
 }
@@ -130,7 +130,7 @@ func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return nil
 	}
-	return snowflakeTypeToGo(rows.RowType[index].Type, rows.RowType[index].Scale)
+	return snowflakeTypeToGo(rows.ChunkDownloader.getRowType()[index].Type, rows.ChunkDownloader.getRowType()[index].Scale)
 }
 
 func (rows *snowflakeRows) GetQueryID() string {
@@ -162,7 +162,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 		for i, n := 0, len(row.RowSet); i < n; i++ {
 			// could move to chunk downloader so that each go routine
 			// can convert data
-			err := stringToValue(&dest[i], rows.RowType[i], row.RowSet[i])
+			err := stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i])
 			if err != nil {
 				return err
 			}
