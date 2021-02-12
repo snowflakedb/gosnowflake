@@ -191,11 +191,11 @@ func TestBindingInterface(t *testing.T) {
 			WithHigherPrecision(context.Background()), selectVariousTypes)
 		defer rows.Close()
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
 		if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
+			dbt.Fatalf("failed to scan: %#v", err)
 		}
 		if s1, ok := v1.(*big.Float); !ok || s1.Cmp(big.NewFloat(1.0)) != 0 {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v1)
@@ -217,11 +217,11 @@ func TestBindingInterfaceString(t *testing.T) {
 		rows := dbt.mustQuery(selectVariousTypes)
 		defer rows.Close()
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
 		if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
+			dbt.Fatalf("failed to scan: %#v", err)
 		}
 		if s, ok := v1.(string); !ok {
 			dbt.Error("failed to convert to string")
@@ -286,7 +286,7 @@ func testBindingArray(t *testing.T, bulk bool) {
 		defer dbt.mustExec(deleteTableSQL)
 		if bulk {
 			if _, err := dbt.db.Exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1"); err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 		}
 
