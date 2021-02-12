@@ -660,17 +660,17 @@ func TestArrowBigInt(t *testing.T) {
 		rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()),
 			fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		defer rows.Close()
 		var v *big.Int
 		if err := rows.Scan(&v); err != nil {
-			dbt.Errorf("failed to scan. %#v", err)
+			dbt.Fatalf("failed to scan. %#v", err)
 		}
 
 		b, ok := new(big.Int).SetString(tc.num, 10)
 		if !ok {
-			dbt.Errorf("failed to convert %v big.Int.", tc.num)
+			dbt.Fatalf("failed to convert %v big.Int.", tc.num)
 		}
 		if v.Cmp(b) != 0 {
 			dbt.Errorf("big.Int value mismatch: expected %v, got %v", b, v)
@@ -769,11 +769,13 @@ func TestArrowBigFloat(t *testing.T) {
 			fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
 			dbt.Error("failed to query")
+			continue
 		}
 		defer rows.Close()
 		var v *big.Float
 		if err := rows.Scan(&v); err != nil {
 			dbt.Errorf("failed to scan. %#v", err)
+			continue
 		}
 
 		prec := v.Prec()
@@ -809,7 +811,7 @@ func TestArrowIntPrecision(t *testing.T) {
 			dbt.mustExec(forceJSON)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
-				dbt.Error("failed to query")
+				dbt.Fatal("failed to query")
 			}
 			defer rows.Close()
 			var v int64
@@ -823,7 +825,7 @@ func TestArrowIntPrecision(t *testing.T) {
 			dbt.mustExec(forceJSON)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
-				dbt.Error("failed to query")
+				dbt.Fatalf("failed to query")
 			}
 			defer rows.Close()
 			var v int64
@@ -837,7 +839,7 @@ func TestArrowIntPrecision(t *testing.T) {
 			dbt.mustExec(forceArrow)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
-				dbt.Error("failed to query")
+				dbt.Fatalf("failed to query")
 			}
 			defer rows.Close()
 			var v string
@@ -856,7 +858,7 @@ func TestArrowIntPrecision(t *testing.T) {
 				WithHigherPrecision(context.Background()),
 				fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
-				dbt.Error("failed to query")
+				dbt.Fatalf("failed to query")
 			}
 			defer rows.Close()
 			var v *big.Int
@@ -906,7 +908,7 @@ func TestArrowFloatPrecision(t *testing.T) {
 			defer rows.Close()
 			var v float64
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				dbt.Fatalf("failed to scan. %#v", err)
 			}
 		}
 	})
@@ -934,7 +936,7 @@ func TestArrowFloatPrecision(t *testing.T) {
 			defer rows.Close()
 			var v string
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				dbt.Fatalf("failed to scan. %#v", err)
 			}
 			if !strings.EqualFold(v, tc.num) {
 				dbt.Errorf("int value mismatch: expected %v, got %v", tc.num, v)
@@ -974,7 +976,7 @@ func TestArrowFloatPrecision(t *testing.T) {
 			dbt.mustExec(forceArrow)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
-				dbt.Error("failed to query")
+				dbt.Fatalf("failed to query")
 			}
 			defer rows.Close()
 			var v string
@@ -1017,7 +1019,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			WithHigherPrecision(context.Background()), selectVariousTypes)
 		defer rows.Close()
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		cc, err := rows.Columns()
 		if err != nil {
@@ -1034,10 +1036,10 @@ func TestArrowVariousTypes(t *testing.T) {
 		var v5 []byte
 		var v6 bool
 		if err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
+			dbt.Fatalf("failed to scan: %#v", err)
 		}
 		if v1.Cmp(big.NewFloat(1.0)) != 0 {
-			dbt.Errorf("failed to scan. %#v", *v1)
+			dbt.Fatalf("failed to scan. %#v", *v1)
 		}
 		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C3" || ct[3].Name() != "C4" || ct[4].Name() != "C5" || ct[5].Name() != "C6" {
 			dbt.Errorf("failed to get column names: %#v", ct)
@@ -1062,7 +1064,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get length. %#v", ct[0])
 		}
 		if v2 != 2 {
-			dbt.Errorf("failed to scan. %#v", v2)
+			dbt.Fatalf("failed to scan. %#v", v2)
 		}
 		pr, sc = dbt.mustDecimalSize(ct[1])
 		if pr != 38 || sc != 0 {
@@ -1073,7 +1075,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[1])
 		}
 		if v3 != "t3" {
-			dbt.Errorf("failed to scan. %#v", v3)
+			dbt.Fatalf("failed to scan. %#v", v3)
 		}
 		dbt.mustFailDecimalSize(ct[2])
 		if cLen = dbt.mustLength(ct[2]); cLen != 2 {
@@ -1083,7 +1085,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[2])
 		}
 		if v4 != 4.2 {
-			dbt.Errorf("failed to scan. %#v", v4)
+			dbt.Fatalf("failed to scan. %#v", v4)
 		}
 		dbt.mustFailDecimalSize(ct[3])
 		dbt.mustFailLength(ct[3])
@@ -1091,7 +1093,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[3])
 		}
 		if !bytes.Equal(v5, []byte{0xab, 0xcd}) {
-			dbt.Errorf("failed to scan. %#v", v5)
+			dbt.Fatalf("failed to scan. %#v", v5)
 		}
 		dbt.mustFailDecimalSize(ct[4])
 		if cLen = dbt.mustLength(ct[4]); cLen != 8388608 { // BINARY
@@ -1101,7 +1103,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[4])
 		}
 		if !v6 {
-			dbt.Errorf("failed to scan. %#v", v6)
+			dbt.Fatalf("failed to scan. %#v", v6)
 		}
 		dbt.mustFailDecimalSize(ct[5])
 		dbt.mustFailLength(ct[5])
