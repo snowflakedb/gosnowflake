@@ -196,11 +196,11 @@ func TestBindingInterface(t *testing.T) {
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
 		defer rows.Close()
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
 		if err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
+			dbt.Fatalf("failed to scan: %#v", err)
 		}
 		var s string
 		var ok bool
@@ -231,11 +231,11 @@ func TestBindingArrowInterface(t *testing.T) {
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
 		defer rows.Close()
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
 		if err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
+			dbt.Fatalf("failed to scan: %#v", err)
 		}
 		var s1 *big.Float
 		var s2 int64
@@ -298,7 +298,7 @@ func testBindingArray(t *testing.T, bulk bool) {
 		defer dbt.mustExec(deleteTableSQL)
 		if bulk {
 			if _, err := dbt.db.Exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1"); err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 		}
 
