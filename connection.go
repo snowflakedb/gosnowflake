@@ -581,8 +581,9 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	param.Add(requestGUIDKey, uuid.New().String())
-	if sc.rest.Token != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sc.rest.Token)
+	token, _, _ := sc.rest.TokenAccessor.GetTokens()
+	if token != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	}
 	url := sc.rest.getFullURL(resultPath, &param)
 	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
@@ -634,7 +635,8 @@ func getAsync(
 		sfError.QueryID = rows.queryID
 	}
 	defer close(errChannel)
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+	token, _, _ := sr.TokenAccessor.GetTokens()
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	resp, err := sr.FuncGet(ctx, sr, URL, headers, timeout)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)

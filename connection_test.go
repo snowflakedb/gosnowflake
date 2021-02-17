@@ -4,6 +4,9 @@ package gosnowflake
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
 	"net/url"
 	"testing"
 	"time"
@@ -61,6 +64,44 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 		rest: sr,
 	}
 	_, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
+	ta := getSimpleTokenAccessor()
+	token := "snowflake-test-token"
+	ta.SetTokens(token, "", 1)
+	funcGetMock := func(_ context.Context, _ *snowflakeRestful, _ *url.URL, headers map[string]string, _ time.Duration) (*http.Response, error) {
+		if headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, token) {
+			t.Fatalf("header authorization key is not correct: %v", headers[headerAuthorizationKey])
+		}
+		dd := &execResponseData{}
+		er := &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    sessionExpiredCode,
+			Success: true,
+		}
+		ba, err := json.Marshal(er)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       &fakeResponseBody{body: ba},
+		}, nil
+	}
+	sr := &snowflakeRestful{
+		FuncGet: funcGetMock,
+		TokenAccessor: ta,
+	}
+	sc := &snowflakeConn{
+		cfg:  &Config{Params: map[string]*string{}},
+		rest: sr,
+	}
+	_, err := sc.getQueryResult(context.Background(), "")
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

@@ -49,11 +49,9 @@ type snowflakeRestful struct {
 	LoginTimeout   time.Duration // Login timeout
 	RequestTimeout time.Duration // request timeout
 
-	Client      *http.Client
-	Token       string
-	MasterToken string
-	SessionID   int
-	HeartBeat   *heartbeat
+	Client        *http.Client
+	TokenAccessor TokenAccessor
+	HeartBeat     *heartbeat
 
 	Connection          *snowflakeConn
 	FuncPostQuery       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID, *Config) (*execResponse, error)
@@ -174,8 +172,9 @@ func postRestfulQueryHelper(
 	params.Add(requestIDKey, requestID.String())
 	params.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	params.Add(requestGUIDKey, uuid.New().String())
-	if sr.Token != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+	token, _, _ := sr.TokenAccessor.GetTokens()
+	if token != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	}
 
 	var resp *http.Response
@@ -244,7 +243,8 @@ func postRestfulQueryHelper(
 			}
 
 			logger.Info("ping pong")
-			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+			token, _, _ := sr.TokenAccessor.GetTokens()
+			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 			fullURL := sr.getFullURL(resultURL, nil)
 
 			resp, err = sr.FuncGet(ctx, sr, fullURL, headers, timeout)
@@ -298,7 +298,8 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+	token, _, _ := sr.TokenAccessor.GetTokens()
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 
 	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, nil, 5*time.Second, false)
 	if err != nil {
@@ -346,14 +347,15 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	params.Add(requestGUIDKey, uuid.New().String())
 	fullURL := sr.getFullURL(tokenRequestPath, params)
 
+	token, masterToken, _ := sr.TokenAccessor.GetTokens()
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.MasterToken)
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, masterToken)
 
 	body := make(map[string]string)
-	body["oldSessionToken"] = sr.Token
+	body["oldSessionToken"] = token
 	body["requestType"] = "RENEW"
 
 	var reqBody []byte
@@ -384,8 +386,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 				Message: respd.Message,
 			}
 		}
-		sr.Token = respd.Data.SessionToken
-		sr.MasterToken = respd.Data.MasterToken
+		sr.TokenAccessor.SetTokens(respd.Data.SessionToken, respd.Data.MasterToken, respd.Data.SessionID)
 		return nil
 	}
 	b, err := ioutil.ReadAll(resp.Body)
@@ -415,7 +416,8 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID uuid.UUID,
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+	token, _, _ := sr.TokenAccessor.GetTokens()
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 
 	req := make(map[string]string)
 	req[requestIDKey] = requestID.String()
