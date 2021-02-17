@@ -635,7 +635,8 @@ func getAsync(
 		sfError.QueryID = rows.queryID
 	}
 	defer close(errChannel)
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
+	token, _, _ := sr.TokenAccessor.GetTokens()
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	resp, err := sr.FuncGet(ctx, sr, URL, headers, timeout)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)

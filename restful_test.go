@@ -130,7 +130,7 @@ func TestUnitPostQueryHelperUsesToken(t *testing.T) {
 	accessor.SetTokens(token, "", 0)
 
 	var err error
-	postQueryTest := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ string) (*execResponse, error) {
+	postQueryTest := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID, _ *Config) (*execResponse, error) {
 		if headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, token) {
 			t.Fatalf("authorization key doesn't match, %v vs %v", headers[headerAuthorizationKey], fmt.Sprintf(headerSnowflakeToken, token))
 		}
@@ -148,7 +148,7 @@ func TestUnitPostQueryHelperUsesToken(t *testing.T) {
 		FuncRenewSession: renewSessionTest,
 		TokenAccessor:    accessor,
 	}
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, "")
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, uuid.New(), &Config{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
