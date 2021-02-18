@@ -2,6 +2,8 @@
 
 package gosnowflake
 
+//lint:file-ignore U1000 Ignore all unused code
+
 import (
 	"time"
 )
@@ -26,6 +28,7 @@ type execRequest struct {
 	DescribeOnly bool                         `json:"describeOnly,omitempty"`
 	Parameters   map[string]interface{}       `json:"parameters,omitempty"`
 	Bindings     map[string]execBindParameter `json:"bindings,omitempty"`
+	BindStage    string                       `json:"bindStage,omitempty"`
 }
 
 type execResponseRowType struct {
@@ -43,6 +46,27 @@ type execResponseChunk struct {
 	RowCount         int    `json:"rowCount"`
 	UncompressedSize int64  `json:"uncompressedSize"`
 	CompressedSize   int64  `json:"compressedSize"`
+}
+
+type execResponseCredentials struct {
+	AWS_KEY_ID      string `json:"AWS_KEY_ID,omitempty"`
+	AWS_SECRET_KEY  string `json:"AWS_SECRET_KEY,omitempty"`
+	AWS_TOKEN       string `json:"AWS_TOKEN,omitempty"`
+	AWS_ID          string `json:"AWS_ID,omitempty"`
+	AWS_KEY         string `json:"AWS_KEY,omitempty"`
+	AZURE_SAS_TOKEN string `json:"AZURE_SAS_TOKEN,omitempty"`
+}
+
+type execResponseStageInfo struct {
+	LocationType          string                  `json:"locationType,omitempty"`
+	Location              string                  `json:"location,omitempty"`
+	Path                  string                  `json:"path,omitempty"`
+	Region                string                  `json:"region,omitempty"`
+	StorageAccount        string                  `json:"storageAccount,omitempty"`
+	IsClientSideEncrypted bool                    `json:"isClientSideEncrypted,omitempty"`
+	Creds                 execResponseCredentials `json:"creds,omitempty"`
+	PresignedURL          string                  `json:"presignedUrl,omitempty"`
+	EndPoint              string                  `json:"endPoint,omitempty"`
 }
 
 // make all data field optional
@@ -79,6 +103,23 @@ type execResponseData struct {
 	// async response placeholders
 	AsyncResult *snowflakeResult `json:"asyncResult,omitempty"`
 	AsyncRows   *snowflakeRows   `json:"asyncRows,omitempty"`
+
+	// file transfer response data
+	UploadInfo              execResponseStageInfo `json:"uploadInfo,omitempty"`
+	LocalLocation           string                `json:"localLocation,omitempty"`
+	SrcLocations            []string              `json:"src_locations,omitempty"`
+	Parallel                int64                 `json:"parallel,omitempty"`
+	Threshold               int64                 `json:"threshold,omitempty"`
+	AutoCompress            bool                  `json:"autoCompress,omitempty"`
+	Overwrite               bool                  `json:"overwrite,omitempty"`
+	SourceCompression       string                `json:"sourceCompression,omitempty"`
+	ShowEncryptionParameter bool                  `json:"clientShowEncryptionParameter,omitempty"`
+	EncryptionMaterial      encryptionWrapper     `json:"encryptionMaterial,omitempty"`
+	PresignedURLs           []string              `json:"presignedUrl,omitempty"`
+	StageInfo               execResponseStageInfo `json:"stageInfo,omitempty"`
+	Command                 string                `json:"command,omitempty"`
+	Kind                    string                `json:"kind,omitempty"`
+	Operation               string                `json:"operation,omitempty"`
 }
 
 type execResponse struct {

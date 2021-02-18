@@ -31,6 +31,7 @@ const (
 const (
 	sessionClientSessionKeepAlive          = "client_session_keep_alive"
 	sessionClientValidateDefaultParameters = "CLIENT_VALIDATE_DEFAULT_PARAMETERS"
+	sessionArrayBindStageThreshold         = "client_stage_array_binding_threshold"
 	serviceName                            = "service_name"
 )
 
@@ -86,37 +87,64 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
 
-	tsmode := timestampNtzType
-	idx := 1
-	if len(bindings) > 0 {
-		req.Bindings = make(map[string]execBindParameter, len(bindings))
-		for _, binding := range bindings {
-			t := goTypeToSnowflake(binding.Value, tsmode)
-			logger.WithContext(ctx).Debugf("tmode: %v\n", t)
-			if t == changeType {
-				tsmode, err = dataTypeMode(binding.Value)
-				if err != nil {
-					return nil, err
+	requestID := getOrGenerateRequestIDFromContext(ctx)
+	uploader := bindUploader{
+		sc:        sc,
+		ctx:       ctx,
+		stagePath: "@" + stageName + "/" + requestID.String(),
+	}
+	numBinds := uploader.arrayBindValueCount(bindings)
+	var bindStagePath string
+	arrayBindThreshold := sc.getArrayBindStageThreshold()
+	if 0 < arrayBindThreshold && arrayBindThreshold <= numBinds &&
+		!describeOnly && uploader.isArrayBind(bindings) {
+		uploader.upload(bindings)
+		bindStagePath = uploader.stagePath
+	}
+
+	if bindStagePath != "" {
+		// bulk array inserts binding
+		req.Bindings = nil
+		req.BindStage = bindStagePath
+	} else {
+		// traditional binding
+		req.Bindings, err = uploader.getBindValues(bindings)
+		if err != nil {
+			return nil, err
+		}
+		req.BindStage = ""
+	}
+	if numBinds > 0 {
+		counter := 0
+		if uploader.isArrayBind(bindings) {
+			numRowsPrinted := maxBindingParamsForLogging / len(bindings)
+			if numRowsPrinted <= 0 {
+				numRowsPrinted = 1
+			}
+			for _, bind := range bindings {
+				_, bindRows := snowflakeArrayToString(&bind)
+				if numRowsPrinted >= len(bindRows) {
+					numRowsPrinted = len(bindRows)
 				}
-			} else {
-				var val interface{}
-				if t == sliceType {
-					// retrieve array binding data
-					t, val = snowflakeArrayToString(&binding)
-				} else {
-					val, err = valueToString(binding.Value, tsmode)
-					if err != nil {
-						return nil, err
-					}
+				var rows strings.Builder
+				rows.WriteString("[")
+				for i := 0; i < numRowsPrinted; i++ {
+					rows.WriteString(bindRows[i] + ", ")
 				}
-				if t == nullType || t == unSupportedType {
-					t = textType // if null or not supported, pass to GS as text
+				rows.WriteString("]")
+				logger.Infof("column: %v", rows.String())
+				counter += numRowsPrinted
+				if counter >= maxBindingParamsForLogging {
+					break
 				}
-				req.Bindings[strconv.Itoa(idx)] = execBindParameter{
-					Type:  t.String(),
-					Value: val,
+			}
+		} else {
+			for _, bind := range bindings {
+				if counter >= maxBindingParamsForLogging {
+					break
 				}
-				idx++
+				counter++
+				logger.Infof("column %v: %v", bind.Name, bind.Value)
 			}
 		}
 	}
@@ -124,7 +152,10 @@ func (sc *snowflakeConn) exec(
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeApplicationSnowflake // TODO v1.1: change to JSON in case of PUT/GET
+	headers["accept"] = headerAcceptTypeApplicationSnowflake
+	if isFileTransfer(query) {
+		headers["accept"] = headerContentTypeApplicationJSON
+	}
 	headers["User-Agent"] = userAgent
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers["X-Snowflake-Service"] = *serviceName
@@ -136,8 +167,6 @@ func (sc *snowflakeConn) exec(
 	}
 
 	var data *execResponse
-
-	requestID := getOrGenerateRequestIDFromContext(ctx)
 	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout, requestID, sc.cfg)
 	if err != nil {
 		return data, err
@@ -171,6 +200,7 @@ func (sc *snowflakeConn) exec(
 	sc.populateSessionParameters(data.Data.Parameters)
 	return data, err
 }
+
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	return sc.BeginTx(sc.ctx, driver.TxOptions{})
@@ -429,6 +459,18 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 		return false
 	}
 	return strings.Compare(*v, "true") == 0
+}
+
+func (sc *snowflakeConn) getArrayBindStageThreshold() int {
+	v, ok := sc.cfg.Params[sessionArrayBindStageThreshold]
+	if !ok {
+		return 0
+	}
+	num, err := strconv.Atoi(*v)
+	if err != nil {
+		return 0
+	}
+	return num
 }
 
 func (sc *snowflakeConn) startHeartBeat() {

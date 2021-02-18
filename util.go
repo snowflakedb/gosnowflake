@@ -1,10 +1,15 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
+
+//lint:file-ignore U1000 Ignore all unused code
 
 import (
 	"context"
 	"database/sql/driver"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +28,8 @@ const (
 	SnowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
 	// streamChunkDownload determines whether to use a stream based chunk downloader
 	streamChunkDownload paramKey = "STREAM_CHUNK_DOWNLOAD"
+
+	useOpenSSLOnlyKey = "SF_USE_OPENSSL_ONLY"
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
@@ -75,6 +82,19 @@ func intMax(a, b int) int {
 	return b
 }
 
+func getMin(arr []int) int {
+	if len(arr) == 0 {
+		return -1
+	}
+	min := arr[0]
+	for _, v := range arr {
+		if v <= min {
+			min = v
+		}
+	}
+	return min
+}
+
 // time.Duration max
 func durationMax(d1, d2 time.Duration) time.Duration {
 	if d1-d2 > 0 {
@@ -124,4 +144,27 @@ func (sta *simpleTokenAccessor) SetTokens(token string, masterToken string, sess
 	sta.token = token
 	sta.masterToken = masterToken
 	sta.sessionID = sessionID
+}
+
+func escapeForCSV(value string) string {
+	if value == "" {
+		return "\"\""
+	}
+	if strings.Contains(value, "\"") || strings.Contains(value, "\n") ||
+		strings.Contains(value, ",") || strings.Contains(value, "\\") {
+		return "\"" + strings.ReplaceAll(value, "\"", "\"\"") + "\""
+	} else {
+		return value
+	}
+}
+
+func getUseOpenSSL() bool {
+	useOpenSSLOnly, present := os.LookupEnv(useOpenSSLOnlyKey)
+	if !present {
+		return false
+	}
+	if useOpenSSL, err := strconv.ParseBool(useOpenSSLOnly); err == nil {
+		return useOpenSSL
+	}
+	return false
 }
