@@ -59,7 +59,7 @@ func (sc *snowflakeConn) isDml(v int64) bool {
 
 // isMultiStmt returns true if the statement type code is of type multistatement
 // Note that the statement type code is also equivalent to type INSERT, so an additional check of the name is required
-func (sc *snowflakeConn) isMultiStmt(data execResponseData) bool {
+func (sc *snowflakeConn) isMultiStmt(data *execResponseData) bool {
 	return data.StatementTypeID == statementTypeIDMulti && data.RowType[0].Name == "multiple statement execution"
 }
 
@@ -201,7 +201,6 @@ func (sc *snowflakeConn) exec(
 	return data, err
 }
 
-
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	return sc.BeginTx(sc.ctx, driver.TxOptions{})
 }
@@ -327,7 +326,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			insertID:     -1,
 			queryID:      sc.QueryID,
 		}, nil // last insert id is not supported by Snowflake
-	} else if sc.isMultiStmt(data.Data) {
+	} else if sc.isMultiStmt(&data.Data) {
 		return sc.handleMultiExec(ctx, data.Data)
 	}
 	logger.Debug("DDL")
@@ -373,7 +372,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	rows.ChunkDownloader = populateChunkDownloader(ctx, sc, data.Data)
 	rows.queryID = sc.QueryID
 
-	if sc.isMultiStmt(data.Data) {
+	if sc.isMultiStmt(&data.Data) {
 		err := sc.handleMultiQuery(ctx, data.Data, rows)
 		if err != nil {
 			return nil, err
@@ -710,7 +709,7 @@ func getAsync(
 			res.insertID = -1
 			if sc.isDml(respd.Data.StatementTypeID) {
 				res.affectedRows, _ = updateRows(respd.Data)
-			} else if sc.isMultiStmt(respd.Data) {
+			} else if sc.isMultiStmt(&respd.Data) {
 				r, err := sc.handleMultiExec(ctx, respd.Data)
 				if err != nil {
 					res.errChannel <- err
@@ -730,7 +729,7 @@ func getAsync(
 			rows.sc = sc
 			rows.ChunkDownloader = populateChunkDownloader(ctx, sc, respd.Data)
 			rows.queryID = respd.Data.QueryID
-			if sc.isMultiStmt(respd.Data) {
+			if sc.isMultiStmt(&respd.Data) {
 				err = sc.handleMultiQuery(ctx, respd.Data, rows)
 				if err != nil {
 					rows.errChannel <- err

@@ -37,7 +37,7 @@ func (sfe *snowflakeFileEncryption) encryptStream(src *bytes.Buffer, out *bytes.
 
 	block, err := aes.NewCipher(fileKey)
 	if err != nil {
-		panic("asdf")
+		panic(err)
 	}
 	mode := cipher.NewCBCEncrypter(block, ivData)
 	cipherText := make([]byte, aes.BlockSize+src.Len())

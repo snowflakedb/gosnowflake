@@ -64,7 +64,7 @@ func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponseData,
 		}
 		return data, nil
 	}
-	return nil, &SnowflakeError{}
+	return nil, nil
 }
 
 func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, dstFilename string, compressData bool) (*execResponseData, error) {
@@ -145,35 +145,35 @@ func (bu *bindUploader) getBindValues(bindings []driver.NamedValue) (map[string]
 	idx := 1
 	var err error
 	bu.bindings = make(map[string]execBindParameter, len(bindings))
-		for _, binding := range bindings {
-			t := goTypeToSnowflake(binding.Value, tsmode)
-			logger.WithContext(bu.ctx).Debugf("tmode: %v\n", t)
-			if t == changeType {
-				tsmode, err = dataTypeMode(binding.Value)
+	for _, binding := range bindings {
+		t := goTypeToSnowflake(binding.Value, tsmode)
+		logger.WithContext(bu.ctx).Debugf("tmode: %v\n", t)
+		if t == changeType {
+			tsmode, err = dataTypeMode(binding.Value)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			var val interface{}
+			if t == sliceType {
+				// retrieve array binding data
+				t, val = snowflakeArrayToString(&binding)
+			} else {
+				val, err = valueToString(binding.Value, tsmode)
 				if err != nil {
 					return nil, err
 				}
-			} else {
-				var val interface{}
-				if t == sliceType {
-					// retrieve array binding data
-					t, val = snowflakeArrayToString(&binding)
-				} else {
-					val, err = valueToString(binding.Value, tsmode)
-					if err != nil {
-						return nil, err
-					}
-				}
-				if t == nullType || t == unSupportedType {
-					t = textType // if null or not supported, pass to GS as text
-				}
-				bu.bindings[strconv.Itoa(idx)] = execBindParameter{
-					Type:  t.String(),
-					Value: val,
-				}
-				idx++
 			}
+			if t == nullType || t == unSupportedType {
+				t = textType // if null or not supported, pass to GS as text
+			}
+			bu.bindings[strconv.Itoa(idx)] = execBindParameter{
+				Type:  t.String(),
+				Value: val,
+			}
+			idx++
 		}
+	}
 	return bu.bindings, nil
 }
 

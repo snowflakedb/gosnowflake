@@ -28,10 +28,6 @@ func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) {
 		frd = bufio.NewReader(f)
 	}
 
-	if meta.encryptionMaterial != nil {
-		panic("not implemented")
-	}
-
 	output, err := os.OpenFile(filepath.Join(expandUser(meta.stageInfo.Location), meta.dstFileName), os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		panic(err)
