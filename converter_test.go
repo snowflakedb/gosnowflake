@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -17,34 +17,35 @@ import (
 
 type tcGoTypeToSnowflake struct {
 	in    interface{}
-	tmode string
-	out   string
+	tmode snowflakeType
+	out   snowflakeType
 }
 
 func TestGoTypeToSnowflake(t *testing.T) {
 	testcases := []tcGoTypeToSnowflake{
-		{in: int64(123), tmode: "", out: "FIXED"},
-		{in: float64(234.56), tmode: "", out: "REAL"},
-		{in: true, tmode: "", out: "BOOLEAN"},
-		{in: "teststring", tmode: "", out: "TEXT"},
-		{in: nil, tmode: "", out: "TEXT"}, // nil is taken as TEXT
-		{in: []int{1}, tmode: "", out: "ARRAY"},
-		{in: DataTypeBinary, tmode: "", out: "CHANGE_TYPE"},
-		{in: DataTypeTimestampLtz, tmode: "", out: "CHANGE_TYPE"},
-		{in: DataTypeTimestampNtz, tmode: "", out: "CHANGE_TYPE"},
-		{in: DataTypeTimestampTz, tmode: "", out: "CHANGE_TYPE"},
-		{in: time.Now(), tmode: "TIMESTAMP_NTZ", out: "TIMESTAMP_NTZ"},
-		{in: time.Now(), tmode: "TIMESTAMP_TZ", out: "TIMESTAMP_TZ"},
-		{in: time.Now(), tmode: "TIMESTAMP_LTZ", out: "TIMESTAMP_LTZ"},
-		{in: []byte{1, 2, 3}, tmode: "BINARY", out: "BINARY"},
+		{in: int64(123), tmode: null, out: fixedType},
+		{in: float64(234.56), tmode: null, out: realType},
+		{in: true, tmode: null, out: booleanType},
+		{in: "teststring", tmode: null, out: textType},
+		{in: Array([]int{1}), tmode: null, out: slice},
+		{in: DataTypeBinary, tmode: null, out: changeType},
+		{in: DataTypeTimestampLtz, tmode: null, out: changeType},
+		{in: DataTypeTimestampNtz, tmode: null, out: changeType},
+		{in: DataTypeTimestampTz, tmode: null, out: changeType},
+		{in: time.Now(), tmode: timestampNtzType, out: timestampNtzType},
+		{in: time.Now(), tmode: timestampTzType, out: timestampTzType},
+		{in: time.Now(), tmode: timestampLtzType, out: timestampLtzType},
+		{in: []byte{1, 2, 3}, tmode: binaryType, out: binaryType},
 		// negative
-		{in: 123, tmode: "", out: "TEXT"},
-		{in: int8(12), tmode: "", out: "TEXT"},
-		{in: int32(456), tmode: "", out: "TEXT"},
-		{in: uint(456), tmode: "", out: "TEXT"},
-		{in: uint8(12), tmode: "", out: "TEXT"},
-		{in: uint64(456), tmode: "", out: "TEXT"},
-		{in: []byte{100}, tmode: "", out: "TEXT"},
+		{in: 123, tmode: null, out: notSupported},
+		{in: int8(12), tmode: null, out: notSupported},
+		{in: int32(456), tmode: null, out: notSupported},
+		{in: uint(456), tmode: null, out: notSupported},
+		{in: uint8(12), tmode: null, out: notSupported},
+		{in: uint64(456), tmode: null, out: notSupported},
+		{in: []byte{100}, tmode: null, out: notSupported},
+		{in: nil, tmode: null, out: notSupported},
+		{in: []int{1}, tmode: null, out: notSupported},
 	}
 	for _, test := range testcases {
 		a := goTypeToSnowflake(test.in, test.tmode)
@@ -55,27 +56,27 @@ func TestGoTypeToSnowflake(t *testing.T) {
 }
 
 type tcSnowflakeTypeToGo struct {
-	in    string
+	in    snowflakeType
 	scale int64
 	out   reflect.Type
 }
 
 func TestSnowflakeTypeToGo(t *testing.T) {
 	testcases := []tcSnowflakeTypeToGo{
-		{in: "fixed", scale: 0, out: reflect.TypeOf(int64(0))},
-		{in: "fixed", scale: 2, out: reflect.TypeOf(float64(0))},
-		{in: "real", scale: 0, out: reflect.TypeOf(float64(0))},
-		{in: "text", scale: 0, out: reflect.TypeOf("")},
-		{in: "date", scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: "time", scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: "timestamp_ltz", scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: "timestamp_ntz", scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: "timestamp_tz", scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: "object", scale: 0, out: reflect.TypeOf("")},
-		{in: "variant", scale: 0, out: reflect.TypeOf("")},
-		{in: "array", scale: 0, out: reflect.TypeOf("")},
-		{in: "binary", scale: 0, out: reflect.TypeOf([]byte{})},
-		{in: "boolean", scale: 0, out: reflect.TypeOf(true)},
+		{in: fixedType, scale: 0, out: reflect.TypeOf(int64(0))},
+		{in: fixedType, scale: 2, out: reflect.TypeOf(float64(0))},
+		{in: realType, scale: 0, out: reflect.TypeOf(float64(0))},
+		{in: textType, scale: 0, out: reflect.TypeOf("")},
+		{in: dateType, scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: timeType, scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: timestampLtzType, scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: timestampNtzType, scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: timestampTzType, scale: 0, out: reflect.TypeOf(time.Now())},
+		{in: objectType, scale: 0, out: reflect.TypeOf("")},
+		{in: variantType, scale: 0, out: reflect.TypeOf("")},
+		{in: arrayType, scale: 0, out: reflect.TypeOf("")},
+		{in: binaryType, scale: 0, out: reflect.TypeOf([]byte{})},
+		{in: booleanType, scale: 0, out: reflect.TypeOf(true)},
 	}
 	for _, test := range testcases {
 		a := snowflakeTypeToGo(test.in, test.scale)
@@ -88,7 +89,7 @@ func TestSnowflakeTypeToGo(t *testing.T) {
 
 func TestValueToString(t *testing.T) {
 	v := cmplx.Sqrt(-5 + 12i) // should never happen as Go sql package must have already validated.
-	_, err := valueToString(v, "")
+	_, err := valueToString(v, null)
 	if err == nil {
 		t.Errorf("should raise error: %v", v)
 	}
@@ -98,7 +99,7 @@ func TestValueToString(t *testing.T) {
 	utcTime := time.Date(2019, 2, 6, 22, 17, 31, 123456789, time.UTC)
 	expectedUnixTime := "1549491451123456789" // time.Unix(1549491451, 123456789).Format(time.RFC3339) == "2019-02-06T14:17:31-08:00"
 
-	if s, err := valueToString(localTime, "TIMESTAMP_LTZ"); err != nil {
+	if s, err := valueToString(localTime, timestampLtzType); err != nil {
 		t.Error("unexpected error")
 	} else if s == nil {
 		t.Errorf("expected '%v', got %v", expectedUnixTime, s)
@@ -106,7 +107,7 @@ func TestValueToString(t *testing.T) {
 		t.Errorf("expected '%v', got '%v'", expectedUnixTime, *s)
 	}
 
-	if s, err := valueToString(utcTime, "TIMESTAMP_LTZ"); err != nil {
+	if s, err := valueToString(utcTime, timestampLtzType); err != nil {
 		t.Error("unexpected error")
 	} else if s == nil {
 		t.Errorf("expected '%v', got %v", expectedUnixTime, s)
@@ -186,21 +187,21 @@ func TestStringToValue(t *testing.T) {
 }
 
 type tcArrayToString struct {
-	in  interface{}
-	typ string
+	in  driver.NamedValue
+	typ snowflakeType
 	out []string
 }
 
 func TestArrayToString(t *testing.T) {
 	testcases := []tcArrayToString{
-		{in: []int{1, 2}, typ: "FIXED", out: []string{"1", "2"}},
-		{in: []int64{3, 4, 5}, typ: "FIXED", out: []string{"3", "4", "5"}},
-		{in: []float64{6.7}, typ: "REAL", out: []string{"6.7"}},
-		{in: []bool{true, false}, typ: "BOOLEAN", out: []string{"true", "false"}},
-		{in: []string{"foo", "bar", "baz"}, typ: "TEXT", out: []string{"foo", "bar", "baz"}},
+		{in: driver.NamedValue{Value: &intArray{1, 2}}, typ: fixedType, out: []string{"1", "2"}},
+		{in: driver.NamedValue{Value: &int64Array{3, 4, 5}}, typ: fixedType, out: []string{"3", "4", "5"}},
+		{in: driver.NamedValue{Value: &float64Array{6.7}}, typ: realType, out: []string{"6.7"}},
+		{in: driver.NamedValue{Value: &boolArray{true, false}}, typ: booleanType, out: []string{"true", "false"}},
+		{in: driver.NamedValue{Value: &stringArray{"foo", "bar", "baz"}}, typ: textType, out: []string{"foo", "bar", "baz"}},
 	}
 	for _, test := range testcases {
-		s, a := arrayToString(test.in)
+		s, a := snowflakeArrayToString(&test.in)
 		if s != test.typ {
 			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.typ, s)
 		}
