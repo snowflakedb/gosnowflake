@@ -1,4 +1,4 @@
-# github.com/apache/arrow/go/arrow v0.0.0-20210225010251-02addad336ba
+# github.com/apache/arrow/go/arrow v0.0.0-20210225191554-9a9baf6824db
 ## explicit
 github.com/apache/arrow/go/arrow
 github.com/apache/arrow/go/arrow/array

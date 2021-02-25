@@ -2,9 +2,10 @@ package main
 
 import (
 	"bytes"
-	sf "gosnowflake"
 	"log"
 	"strings"
+
+	sf "github.com/observeinc/gosnowflake"
 
 	rlog "github.com/sirupsen/logrus"
 )

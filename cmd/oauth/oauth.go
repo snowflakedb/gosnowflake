@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"os"
 
-	_ "gosnowflake"
+	_ "github.com/observeinc/gosnowflake"
 )
 
 func main() {
