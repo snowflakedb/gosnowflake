@@ -1,3 +1,5 @@
+// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+
 package gosnowflake
 
 import (
@@ -10,7 +12,7 @@ import (
 type localUtil struct {
 }
 
-func (util *localUtil) createClient(info execResponseStageInfo, useAccelerateEndpoint bool) cloudClient {
+func (util *localUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) cloudClient {
 	return nil
 }
 
@@ -48,9 +50,9 @@ func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) {
 		}
 	}
 	meta.dstFileSize = meta.uploadSize
-	meta.resStatus = UPLOADED
+	meta.resStatus = uploaded
 }
 
 func (util *localUtil) downloadOneFile() {
-	// TODO
+	// TODO SNOW-206124
 }

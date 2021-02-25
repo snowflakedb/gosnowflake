@@ -7,8 +7,6 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -28,8 +26,6 @@ const (
 	SnowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
 	// streamChunkDownload determines whether to use a stream based chunk downloader
 	streamChunkDownload paramKey = "STREAM_CHUNK_DOWNLOAD"
-
-	useOpenSSLOnlyKey = "SF_USE_OPENSSL_ONLY"
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
@@ -153,18 +149,6 @@ func escapeForCSV(value string) string {
 	if strings.Contains(value, "\"") || strings.Contains(value, "\n") ||
 		strings.Contains(value, ",") || strings.Contains(value, "\\") {
 		return "\"" + strings.ReplaceAll(value, "\"", "\"\"") + "\""
-	} else {
-		return value
 	}
-}
-
-func getUseOpenSSL() bool {
-	useOpenSSLOnly, present := os.LookupEnv(useOpenSSLOnlyKey)
-	if !present {
-		return false
-	}
-	if useOpenSSL, err := strconv.ParseBool(useOpenSSLOnly); err == nil {
-		return useOpenSSL
-	}
-	return false
+	return value
 }

@@ -88,64 +88,26 @@ func (sc *snowflakeConn) exec(
 	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
 
 	requestID := getOrGenerateRequestIDFromContext(ctx)
-	uploader := bindUploader{
-		sc:        sc,
-		ctx:       ctx,
-		stagePath: "@" + stageName + "/" + requestID.String(),
-	}
-	numBinds := uploader.arrayBindValueCount(bindings)
-	var bindStagePath string
-	arrayBindThreshold := sc.getArrayBindStageThreshold()
-	if 0 < arrayBindThreshold && arrayBindThreshold <= numBinds &&
-		!describeOnly && uploader.isArrayBind(bindings) {
-		uploader.upload(bindings)
-		bindStagePath = uploader.stagePath
-	}
-
-	if bindStagePath != "" {
-		// bulk array inserts binding
-		req.Bindings = nil
-		req.BindStage = bindStagePath
-	} else {
-		// traditional binding
-		req.Bindings, err = uploader.getBindValues(bindings)
-		if err != nil {
-			return nil, err
-		}
-		req.BindStage = ""
-	}
-	if numBinds > 0 {
-		counter := 0
-		if uploader.isArrayBind(bindings) {
-			numRowsPrinted := maxBindingParamsForLogging / len(bindings)
-			if numRowsPrinted <= 0 {
-				numRowsPrinted = 1
+	if len(bindings) > 0 {
+		arrayBindThreshold := sc.getArrayBindStageThreshold()
+		numBinds := arrayBindValueCount(bindings)
+		if 0 < arrayBindThreshold && arrayBindThreshold <= numBinds && !describeOnly && isArrayBind(bindings) {
+			// bulk array insert binding
+			uploader := bindUploader{
+				sc:        sc,
+				ctx:       ctx,
+				stagePath: "@" + stageName + "/" + requestID.String(),
 			}
-			for _, bind := range bindings {
-				_, bindRows := snowflakeArrayToString(&bind)
-				if numRowsPrinted >= len(bindRows) {
-					numRowsPrinted = len(bindRows)
-				}
-				var rows strings.Builder
-				rows.WriteString("[")
-				for i := 0; i < numRowsPrinted; i++ {
-					rows.WriteString(bindRows[i] + ", ")
-				}
-				rows.WriteString("]")
-				logger.Infof("column: %v", rows.String())
-				counter += numRowsPrinted
-				if counter >= maxBindingParamsForLogging {
-					break
-				}
-			}
+			uploader.upload(bindings)
+			req.Bindings = nil
+			req.BindStage = uploader.stagePath
 		} else {
-			for _, bind := range bindings {
-				if counter >= maxBindingParamsForLogging {
-					break
-				}
-				counter++
-				logger.Infof("column %v: %v", bind.Name, bind.Value)
+			// variable or array binding
+			req.Bindings, err = getBindValues(bindings)
+			if err != nil {
+				return nil, err
 			}
+			req.BindStage = ""
 		}
 	}
 	logger.WithContext(ctx).Infof("bindings: %v", req.Bindings)

@@ -2,7 +2,7 @@
 
 package gosnowflake
 
-//lint:file-ignore U1000 Ignore all unused code
+//lint:file-ignore U1000 TODO SNOW-29352
 
 import (
 	"bytes"
@@ -11,83 +11,12 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"strconv"
-)
-
-const (
-	blockSize = int(aes.BlockSize / 8)
 )
 
 type snowflakeFileEncryption struct {
 	QueryStageMasterKey string `json:"queryStageMasterKey,omitempty"`
 	QueryID             string `json:"queryId,omitempty"`
 	SMKID               int64  `json:"smkId,omitempty"`
-}
-
-func (sfe *snowflakeFileEncryption) encryptStream(src *bytes.Buffer, out *bytes.Buffer, chunkSize int) encryptMetadata {
-	if chunkSize == 0 {
-		chunkSize = blockSize * 4 * 1024
-	}
-	decodedKey, _ := base64.StdEncoding.DecodeString(sfe.QueryStageMasterKey)
-	keySize := len(decodedKey)
-
-	em := new(encryptMetadata)
-	ivData := em.getSecureRandom(blockSize)
-	fileKey := em.getSecureRandom(keySize)
-
-	block, err := aes.NewCipher(fileKey)
-	if err != nil {
-		panic(err)
-	}
-	mode := cipher.NewCBCEncrypter(block, ivData)
-	cipherText := make([]byte, aes.BlockSize+src.Len())
-
-	padded := false
-	for {
-		buf := getByteBufferContent(&src)
-		if len(*buf) == 0 {
-			break
-		} else if len(*buf)&blockSize != 0 {
-			*buf = PKCS5Padding(*buf, blockSize)
-			padded = true
-		}
-		mode.CryptBlocks(cipherText[aes.BlockSize:], *buf)
-		out.Write(cipherText)
-	}
-	if !padded {
-		blockSizeHex := []byte(strconv.FormatInt(int64(blockSize), 16))
-		if len(blockSizeHex) != 1 {
-			panic("yikes")
-		}
-		blockSizeCipher := make([]byte, blockSize)
-		for i := range blockSizeCipher {
-			blockSizeCipher[i] = blockSizeHex[0]
-		}
-		chunk := make([]byte, blockSize)
-		mode.CryptBlocks(chunk, blockSizeCipher)
-		out.Write(chunk)
-	}
-
-	// encrypt key with QRMK
-	var encKek []byte
-	block, _ = aes.NewCipher(decodedKey)
-	stream := cipher.NewCFBEncrypter(block, ivData) // TODO look into different encryptor
-	fileKey = PKCS5Padding(fileKey, blockSize)
-	stream.XORKeyStream(encKek, fileKey)
-
-	matDesc := materialDescriptor{
-		sfe.SMKID,
-		sfe.QueryID,
-		keySize * 8,
-	}
-
-	key, _ := base64.StdEncoding.DecodeString(string(encKek))
-	iv, _ := base64.StdEncoding.DecodeString(string(ivData))
-	return encryptMetadata{
-		string(key),
-		string(iv),
-		matdescToUnicode(matDesc),
-	}
 }
 
 // PUT requests return a single encryptionMaterial object whereas GET requests
@@ -108,6 +37,71 @@ func (ew *encryptionWrapper) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, &ew.snowflakeFileEncryption)
 }
 
+type encryptMetadata struct {
+	key     string
+	iv      string
+	matdesc string
+}
+
+func encryptStream(sfe *snowflakeFileEncryption, src *bytes.Buffer, out *bytes.Buffer, chunkSize int) *encryptMetadata {
+	if chunkSize == 0 {
+		chunkSize = aes.BlockSize * 4 * 1024
+	}
+	decodedKey, _ := base64.StdEncoding.DecodeString(sfe.QueryStageMasterKey)
+	keySize := len(decodedKey)
+
+	ivData := getSecureRandom(aes.BlockSize)
+	fileKey := getSecureRandom(keySize)
+
+	block, err := aes.NewCipher(fileKey)
+	if err != nil {
+		panic(err)
+	}
+	mode := cipher.NewCBCEncrypter(block, ivData)
+	cipherText := make([]byte, aes.BlockSize+src.Len()) // sizeOf(initializationVector) + sizeOf(src)
+
+	padded := false
+	for {
+		buf := getByteBufferContent(&src)
+		if len(*buf) == 0 {
+			break
+		} else if len(*buf) % aes.BlockSize != 0 {
+			*buf = padBytesLength(*buf, aes.BlockSize)
+			padded = true
+		}
+		mode.CryptBlocks(cipherText[aes.BlockSize:], *buf)
+		out.Write(cipherText)
+	}
+	if !padded {
+		blockSizeCipher := make([]byte, aes.BlockSize)
+		for i := range blockSizeCipher {
+			blockSizeCipher[i] = []byte(string(rune(aes.BlockSize)))[0]
+		}
+		chunk := make([]byte, aes.BlockSize)
+		mode.CryptBlocks(chunk, blockSizeCipher)
+		out.Write(chunk)
+	}
+
+	// encrypt key with QRMK
+	var encKek []byte
+	block, _ = aes.NewCipher(decodedKey)
+	block.Encrypt(encKek, padBytesLength(fileKey, aes.BlockSize))
+
+	matDesc := materialDescriptor{
+		sfe.SMKID,
+		sfe.QueryID,
+		keySize * 8,
+	}
+
+	key, _ := base64.StdEncoding.DecodeString(string(encKek))
+	iv, _ := base64.StdEncoding.DecodeString(string(ivData))
+	return &encryptMetadata{
+		string(key),
+		string(iv),
+		matdescToUnicode(matDesc),
+	}
+}
+
 type materialDescriptor struct {
 	SmkID   int64  `json:"smkId"`
 	QueryID string `json:"queryId"`
@@ -119,25 +113,19 @@ func matdescToUnicode(matdesc materialDescriptor) string {
 	return string(s)
 }
 
-type encryptMetadata struct {
-	key     string
-	iv      string
-	matdesc string
-}
-
-func (em *encryptMetadata) getSecureRandom(byteLength int) []byte {
+func getSecureRandom(byteLength int) []byte {
 	token := make([]byte, byteLength)
 	rand.Read(token)
 	return token
 }
 
-func PKCS5Padding(src []byte, blockSize int) []byte {
-	padding := blockSize - len(src)%blockSize
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(src, padtext...)
+func padBytesLength(src []byte, blockSize int) []byte {
+	padLength := blockSize - len(src)%blockSize
+	padText := bytes.Repeat([]byte{byte(padLength)}, padLength)
+	return append(src, padText...)
 }
 
-func PKCS5UnPadding(src []byte) []byte {
+func unpadBytesLength(src []byte) []byte {
 	length := len(src)
 	unpadding := int(src[length-1])
 	return src[:(length - unpadding)]

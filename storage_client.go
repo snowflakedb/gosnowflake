@@ -2,11 +2,11 @@
 
 package gosnowflake
 
-//lint:file-ignore U1000 Ignore all unused code
+//lint:file-ignore U1000 TODO SNOW-29352
 
 // implemented by localUtil and cloudUtil
 type storageUtil interface {
-	createClient(execResponseStageInfo, bool) cloudClient
+	createClient(*execResponseStageInfo, bool) cloudClient
 	uploadOneFileWithRetry(*fileMetadata)
 	downloadOneFile()
 }

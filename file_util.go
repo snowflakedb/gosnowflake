@@ -2,14 +2,13 @@
 
 package gosnowflake
 
-//lint:file-ignore U1000 Ignore all unused code
+//lint:file-ignore U1000 TODO SNOW-29352
 
 import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/base64"
-	"hash"
 	"io"
 	"io/ioutil"
 	usr "os/user"
@@ -30,25 +29,23 @@ func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.
 }
 
 func (util *snowflakeFileUtil) getDigestAndSize(src **bytes.Buffer) (string, int64) {
-	useOpenSSL := getUseOpenSSL()
-	var m hash.Hash
-	if !useOpenSSL {
-		m = sha256.New()
-	}
-
+	m := sha256.New()
 	buf := getByteBufferContent(src)
-	if !useOpenSSL {
-		m.Write(*buf)
-	}
-	var digest string
-	if !useOpenSSL {
-		digest = base64.StdEncoding.EncodeToString(m.Sum(nil))
-	}
-	return digest, int64((*src).Len())
+	m.Write(*buf)
+	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*src).Len())
 }
 
 func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64) {
 	return util.getDigestAndSize(stream)
+}
+
+func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (string, int64) {
+	src, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		panic(err)
+	}
+	buf := bytes.NewBuffer(src)
+	return util.getDigestAndSize(&buf)
 }
 
 // file metadata for PUT/GET
@@ -57,7 +54,7 @@ type fileMetadata struct {
 	srcFileName        string
 	srcFileSize        int
 	stageLocationType  cloudType
-	stageInfo          execResponseStageInfo
+	stageInfo          *execResponseStageInfo
 	srcCompressionType *compressionType
 	dstCompressionType *compressionType
 	requireCompress    bool
@@ -105,7 +102,7 @@ type fileTransferResultType struct {
 	errorDetails       error
 }
 
-type FileHeader struct {
+type fileHeader struct {
 	digest             string
 	contentLength      int64
 	encryptionMetadata encryptMetadata

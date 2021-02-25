@@ -49,12 +49,12 @@ type execResponseChunk struct {
 }
 
 type execResponseCredentials struct {
-	AWS_KEY_ID      string `json:"AWS_KEY_ID,omitempty"`
-	AWS_SECRET_KEY  string `json:"AWS_SECRET_KEY,omitempty"`
-	AWS_TOKEN       string `json:"AWS_TOKEN,omitempty"`
-	AWS_ID          string `json:"AWS_ID,omitempty"`
-	AWS_KEY         string `json:"AWS_KEY,omitempty"`
-	AZURE_SAS_TOKEN string `json:"AZURE_SAS_TOKEN,omitempty"`
+	AwsKeyID      string `json:"AWS_KEY_ID,omitempty"`
+	AwsSecretKey  string `json:"AWS_SECRET_KEY,omitempty"`
+	AwsToken      string `json:"AWS_TOKEN,omitempty"`
+	AwsID         string `json:"AWS_ID,omitempty"`
+	AwsKey        string `json:"AWS_KEY,omitempty"`
+	AzureSasToken string `json:"AZURE_SAS_TOKEN,omitempty"`
 }
 
 type execResponseStageInfo struct {

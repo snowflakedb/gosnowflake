@@ -18,8 +18,8 @@ const (
 	createStageStmt = "CREATE TEMPORARY STAGE " + stageName + " file_format=" +
 		"(type=csv field_optionally_enclosed_by='\"')"
 
-	inputStreamBufferSize      = 1024 * 1024 * 10
-	maxBindingParamsForLogging = 1000
+	// size (in bytes) of max input stream (10MB default) as per JDBC specs
+	inputStreamBufferSize = 1024 * 1024 * 10
 )
 
 type bindUploader struct {
@@ -137,46 +137,6 @@ func (bu *bindUploader) createStageIfNeeded() error {
 	return nil
 }
 
-func (bu *bindUploader) getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, error) {
-	if bu.bindings != nil {
-		return bu.bindings, nil
-	}
-	tsmode := timestampNtzType
-	idx := 1
-	var err error
-	bu.bindings = make(map[string]execBindParameter, len(bindings))
-	for _, binding := range bindings {
-		t := goTypeToSnowflake(binding.Value, tsmode)
-		logger.WithContext(bu.ctx).Debugf("tmode: %v\n", t)
-		if t == changeType {
-			tsmode, err = dataTypeMode(binding.Value)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			var val interface{}
-			if t == sliceType {
-				// retrieve array binding data
-				t, val = snowflakeArrayToString(&binding)
-			} else {
-				val, err = valueToString(binding.Value, tsmode)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if t == nullType || t == unSupportedType {
-				t = textType // if null or not supported, pass to GS as text
-			}
-			bu.bindings[strconv.Itoa(idx)] = execBindParameter{
-				Type:  t.String(),
-				Value: val,
-			}
-			idx++
-		}
-	}
-	return bu.bindings, nil
-}
-
 // transpose the columns to rows and write them to a list of bytes
 func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte, error) {
 	numColumns := len(columns)
@@ -231,15 +191,57 @@ func (bu *bindUploader) createCSVRecord(data []string) []byte {
 	return []byte(b.String())
 }
 
-func (bu *bindUploader) arrayBindValueCount(bindValues []driver.NamedValue) int {
-	if !bu.isArrayBind(bindValues) {
+func (bu *bindUploader) close() {
+	if !bu.closed {
+		bu.closed = true
+	}
+}
+
+func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, error) {
+	tsmode := timestampNtzType
+	idx := 1
+	var err error
+	bindValues := make(map[string]execBindParameter, len(bindings))
+	for _, binding := range bindings {
+		t := goTypeToSnowflake(binding.Value, tsmode)
+		if t == changeType {
+			tsmode, err = dataTypeMode(binding.Value)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			var val interface{}
+			if t == sliceType {
+				// retrieve array binding data
+				t, val = snowflakeArrayToString(&binding)
+			} else {
+				val, err = valueToString(binding.Value, tsmode)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if t == nullType || t == unSupportedType {
+				t = textType // if null or not supported, pass to GS as text
+			}
+			bindValues[strconv.Itoa(idx)] = execBindParameter{
+				Type:  t.String(),
+				Value: val,
+			}
+			idx++
+		}
+	}
+	return bindValues, nil
+}
+
+func arrayBindValueCount(bindValues []driver.NamedValue) int {
+	if !isArrayBind(bindValues) {
 		return 0
 	}
 	_, arr := snowflakeArrayToString(&bindValues[0])
 	return len(bindValues) * len(arr)
 }
 
-func (bu *bindUploader) isArrayBind(bindings []driver.NamedValue) bool {
+func isArrayBind(bindings []driver.NamedValue) bool {
 	if len(bindings) == 0 {
 		return false
 	}
@@ -249,12 +251,6 @@ func (bu *bindUploader) isArrayBind(bindings []driver.NamedValue) bool {
 		}
 	}
 	return true
-}
-
-func (bu *bindUploader) close() {
-	if !bu.closed {
-		bu.closed = true
-	}
 }
 
 func supportedArrayBind(nv *driver.NamedValue) bool {
