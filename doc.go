@@ -511,6 +511,102 @@ example:
 Preparing statements and using bind variables are also not supported for multi-statement queries.
 
 
+Aysnchronous Queries
+
+The Go Snowflake Driver supports asynchronous execution of SQL statements.
+Asynchronous execution allows you to start executing a statement and then
+retrieve the result later without being blocked while waiting. While waiting
+for the result of a SQL statement, you can perform other tasks, including
+executing other SQL statements.
+
+Most of the steps to execute an asynchronous query are the same as the
+steps to execute a synchronous query. However, there is an additional step,
+which is that you must call the WithAsyncMode() function to update
+your Context object to specify that asynchronous mode is enabled.
+
+In the code below, the call to "WithAsyncMode()" is specific
+to asynchronous mode. The rest of the code is compatible with both
+asynchronous mode and synchronous mode.
+
+	...
+
+	// Update your Context object to specify asynchronous mode:
+	ctx := WithAsyncMode(context.Background())
+
+	// Execute your query as usual by calling:
+	rows, _ := db.QueryContext(ctx, query_string)
+
+	// Retrieve the results as usual by calling:
+	for rows.Next()  {
+		err := rows.Scan(...)
+		...
+	}
+
+The function db.queryContext() returns an object of type snowflakeRows
+regardless of whether the query is synchronous or asynchronous. However:
+
+	* If the query is synchronous, then db.queryContext() does not return until
+		the query has finished and the result set has been loaded into the
+		snowflakeRows object.
+	* If the query is asynchronous, then db.queryContext() returns a
+		potentially incomplete snowflakeRows object that is filled in later
+		in the background.
+
+The call to the Next() function of snowflakeRows is always synchronous (i.e. blocking).
+If the query has not yet completed and the snowflakeRows object (named "rows" in this
+example) has not been filled in yet, then rows.Next() waits until the result set has been filled in.
+
+More generally, calls to any Golang SQL API function implemented in snowflakeRows or
+snowflakeResult are blocking calls, and wait if results aren’t yet available.
+(Examples of other synchronous calls include: snowflakeRows.Err(), snowflakeRows.Columns(),
+snowflakeRows.columnTypes(), snowflakeRows.Scan(), and snowflakeResult.RowsAffected().)
+
+Because the example code above executes only one query and no other activity, there is
+no significant difference in behavior between asynchronous and synchronous behavior.
+The differences become significant if, for example, you want to perform some other
+activity after the query starts and before it completes. The example code below starts
+multiple queries, which run in the background, and then retrieves the results later.
+
+This example uses small SELECT statements that do not retrieve enough data to require
+asynchronous handling. However, the technique works for larger data sets, and for
+situations where the programmer might want to do other work after starting the queries
+and before retrieving the results.
+
+	package gosnowflake
+
+	import  (
+		"context"
+		"database/sql"
+		"database/sql/driver"
+		"fmt"
+		"log"
+		"os"
+		sf "github.com/snowflakedb/gosnowflake"
+		)
+
+	...
+
+	func DemonstrateAsyncMode(db *sql.DB) {
+
+		// Enable asynchronous mode.
+		ctx := WithAsyncMode(context.Background())
+
+		// Execute the first query asynchronously.
+		rows_1, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT 1.23"))
+		defer rows_1.Close()
+
+		// Execute the second query asynchronously.
+		rows_2, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT 3.21"))
+		defer rows_2.Close()
+
+		// Retrieve and check the results of the first query.
+		CheckResults(rows_1, 1.23)
+
+		// Retrieve and check the results of the second query.
+		CheckResults(rows_2, 3.21)
+	}
+
+
 Limitations
 
 GET and PUT operations are unsupported.
