@@ -18,7 +18,7 @@ import (
 
 	"strconv"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "gosnowflake"
 )
 
 func TestLargeResultSet(t *testing.T) {

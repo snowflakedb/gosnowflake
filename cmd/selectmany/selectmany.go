@@ -16,7 +16,7 @@ import (
 
 	"runtime/debug"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "gosnowflake"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")

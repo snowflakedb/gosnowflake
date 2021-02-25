@@ -11,7 +11,7 @@ import (
 	"os"
 	"strconv"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "gosnowflake"
 	"time"
 )
 
