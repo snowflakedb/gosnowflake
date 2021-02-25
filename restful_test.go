@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -92,8 +91,8 @@ func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 
 func TestUnitPostQueryHelperError(t *testing.T) {
 	sr := &snowflakeRestful{
-		FuncPost:      postTestError,
-		TokenAccessor: getSimpleTokenAccessor(),
+		Token:    "token",
+		FuncPost: postTestError,
 	}
 	var err error
 	var requestID uuid.UUID
@@ -124,36 +123,6 @@ func renewSessionTestError(_ context.Context, _ *snowflakeRestful, _ time.Durati
 	return errors.New("failed to renew session in tests")
 }
 
-func TestUnitPostQueryHelperUsesToken(t *testing.T) {
-	accessor := getSimpleTokenAccessor()
-	token := "token123"
-	accessor.SetTokens(token, "", 0)
-
-	var err error
-	postQueryTest := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID, _ *Config) (*execResponse, error) {
-		if headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, token) {
-			t.Fatalf("authorization key doesn't match, %v vs %v", headers[headerAuthorizationKey], fmt.Sprintf(headerSnowflakeToken, token))
-		}
-		dd := &execResponseData{}
-		return &execResponse{
-			Data:    *dd,
-			Message: "",
-			Code:    "0",
-			Success: true,
-		}, nil
-	}
-	sr := &snowflakeRestful{
-		FuncPost:         postTestRenew,
-		FuncPostQuery:    postQueryTest,
-		FuncRenewSession: renewSessionTest,
-		TokenAccessor:    accessor,
-	}
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, uuid.New(), &Config{})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-}
-
 func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 	var err error
 	origRequestID := uuid.New()
@@ -171,10 +140,10 @@ func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 		}, nil
 	}
 	sr := &snowflakeRestful{
+		Token:            "token",
 		FuncPost:         postTestRenew,
 		FuncPostQuery:    postQueryTest,
 		FuncRenewSession: renewSessionTest,
-		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 
 	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, origRequestID, &Config{})
@@ -189,35 +158,10 @@ func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 }
 
 func TestUnitRenewRestfulSession(t *testing.T) {
-	accessor := getSimpleTokenAccessor()
-	oldToken, oldMasterToken, oldSessionID := "oldtoken", "oldmaster", 100
-	newToken, newMasterToken, newSessionID := "newtoken", "newmaster", 200
-	postTestSuccessWithNewTokens := func(_ context.Context, _ *snowflakeRestful, _ *url.URL, headers map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
-		if headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, oldMasterToken) {
-			t.Fatalf("authorization key doesn't match, %v vs %v", headers[headerAuthorizationKey], fmt.Sprintf(headerSnowflakeToken, oldMasterToken))
-		}
-		tr := &renewSessionResponse{
-			Data: renewSessionResponseMain{
-				SessionToken: newToken,
-				MasterToken:  newMasterToken,
-				SessionID:    newSessionID,
-			},
-			Message: "",
-			Success: true,
-		}
-		ba, err := json.Marshal(tr)
-		if err != nil {
-			t.Fatalf("failed to serialize token response %v", err)
-		}
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       &fakeResponseBody{body: ba},
-		}, nil
-	}
-
 	sr := &snowflakeRestful{
-		FuncPost:      postTestAfterRenew,
-		TokenAccessor: accessor,
+		MasterToken: "mtoken",
+		Token:       "token",
+		FuncPost:    postTestAfterRenew,
 	}
 	err := renewRestfulSession(context.Background(), sr, time.Second)
 	if err != nil {
@@ -238,28 +182,11 @@ func TestUnitRenewRestfulSession(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed to run post request after the renewal")
 	}
-	accessor.SetTokens(oldToken, oldMasterToken, oldSessionID)
-	sr.FuncPost = postTestSuccessWithNewTokens
-	err = renewRestfulSession(context.Background(), sr, time.Second)
-	if err != nil {
-		t.Fatal("should not have failed to run post request after the renewal")
-	}
-	token, masterToken, sessionID := accessor.GetTokens()
-	if token != newToken {
-		t.Fatalf("unexpected new token %v", token)
-	}
-	if masterToken != newMasterToken {
-		t.Fatalf("unexpected new master token %v", masterToken)
-	}
-	if sessionID != newSessionID {
-		t.Fatalf("unexpected new session id %v", sessionID)
-	}
 }
 
 func TestUnitCloseSession(t *testing.T) {
 	sr := &snowflakeRestful{
-		FuncPost:      postTestAfterRenew,
-		TokenAccessor: getSimpleTokenAccessor(),
+		FuncPost: postTestAfterRenew,
 	}
 	err := closeSession(context.Background(), sr, time.Second)
 	if err != nil {
@@ -284,8 +211,7 @@ func TestUnitCloseSession(t *testing.T) {
 
 func TestUnitCancelQuery(t *testing.T) {
 	sr := &snowflakeRestful{
-		FuncPost:      postTestAfterRenew,
-		TokenAccessor: getSimpleTokenAccessor(),
+		FuncPost: postTestAfterRenew,
 	}
 	ctx := context.Background()
 	err := cancelQuery(ctx, sr, getOrGenerateRequestIDFromContext(ctx), time.Second)

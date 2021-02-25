@@ -294,6 +294,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		logger.WithContext(ctx).Debugf("number of updated rows: %#v", updatedRows)
 		return &snowflakeResult{
 			affectedRows: updatedRows,
+			execResp:     data,
 			insertID:     -1,
 			queryID:      sc.QueryID,
 		}, nil // last insert id is not supported by Snowflake
@@ -338,19 +339,28 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 		return data.Data.AsyncRows, nil
 	}
 
-	rows := new(snowflakeRows)
-	rows.sc = sc
-	rows.ChunkDownloader = populateChunkDownloader(ctx, sc, data.Data)
-	rows.queryID = sc.QueryID
-
-	if sc.isMultiStmt(data.Data) {
-		err := sc.handleMultiQuery(ctx, data.Data, rows)
-		if err != nil {
-			return nil, err
-		}
+	downloadResults := true
+	if strings.HasPrefix(query, "/*NODOWNLOAD*/") {
+		downloadResults = false
 	}
 
-	rows.ChunkDownloader.start()
+	rows := new(snowflakeRows)
+	rows.execResp = data
+	rows.sc = sc
+	rows.RowType = data.Data.RowType
+	rows.queryID = sc.QueryID
+
+	if downloadResults {
+		rows.ChunkDownloader = populateChunkDownloader(ctx, sc, data.Data)
+		if sc.isMultiStmt(data.Data) {
+			err := sc.handleMultiQuery(ctx, data.Data, rows)
+			if err != nil {
+				return nil, err
+			}
+		}
+		rows.ChunkDownloader.start()
+	}
+
 	return rows, err
 }
 
@@ -583,9 +593,8 @@ func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) 
 	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	param.Add(requestGUIDKey, uuid.New().String())
-	token, _, _ := sc.rest.TokenAccessor.GetTokens()
-	if token != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
+	if sc.rest.Token != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sc.rest.Token)
 	}
 	url := sc.rest.getFullURL(resultPath, &param)
 	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
@@ -637,8 +646,7 @@ func getAsync(
 		sfError.QueryID = rows.queryID
 	}
 	defer close(errChannel)
-	token, _, _ := sr.TokenAccessor.GetTokens()
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 	resp, err := sr.FuncGet(ctx, sr, URL, headers, timeout)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)

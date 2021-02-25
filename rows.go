@@ -29,7 +29,9 @@ var (
 
 type snowflakeRows struct {
 	sc              *snowflakeConn
-	ChunkDownloader chunkDownloader
+	RowType         []execResponseRowType
+	ChunkDownloader chunkDownloader `json:"-"`
+	execResp        *execResponse
 	queryID         string
 	status          queryStatus
 	err             error

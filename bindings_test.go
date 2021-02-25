@@ -40,7 +40,7 @@ func TestBindingFloat64(t *testing.T) {
 					dbt.Errorf("%s: %g != %g", v, expected, out)
 				}
 			} else {
-				dbt.Errorf("%s: no data", v)
+				dbt.Fatalf("%s: no data", v)
 			}
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
@@ -90,10 +90,10 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 		var ntz, vltz, dt, tm time.Time
 		columnTypes, err := rows.ColumnTypes()
 		if err != nil {
-			dbt.Errorf("column type error. err: %v", err)
+			dbt.Fatalf("column type error. err: %v", err)
 		}
 		if columnTypes[0].Name() != "NTZ" {
-			dbt.Errorf("expected column name: %v, got: %v", "TEST", columnTypes[0])
+			dbt.Fatalf("expected column name: %v, got: %v", "TEST", columnTypes[0])
 		}
 		canNull := dbt.mustNullable(columnTypes[0])
 		if !canNull {
@@ -106,10 +106,10 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 		dbt.mustFailLength(columnTypes[0])
 		cols, err := rows.Columns()
 		if err != nil {
-			dbt.Errorf("failed to get columns. err: %v", err)
+			dbt.Fatalf("failed to get columns. err: %v", err)
 		}
 		if len(cols) != 4 || cols[0] != "NTZ" || cols[1] != "LTZ" || cols[2] != "DT" || cols[3] != "TM" {
-			dbt.Errorf("failed to get columns. got: %v", cols)
+			dbt.Fatalf("failed to get columns. got: %v", cols)
 		}
 		if rows.Next() {
 			rows.Scan(&ntz, &vltz, &dt, &tm)
@@ -130,7 +130,7 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 					expected.UnixNano(), expected, tm.UnixNano(), tm)
 			}
 		} else {
-			dbt.Error("no data")
+			dbt.Fatal("no data")
 		}
 		dbt.mustExec("DROP TABLE tztest")
 	})
@@ -148,13 +148,13 @@ func TestBindingBinary(t *testing.T) {
 		if rows.Next() {
 			var rb []byte
 			if err := rows.Scan(&rb); err != nil {
-				dbt.Errorf("failed to scan data. err: %v", err)
+				dbt.Fatalf("failed to scan data. err: %v", err)
 			}
 			if !bytes.Equal(b, rb) {
 				dbt.Errorf("failed to match data. expected: %v, got: %v", b, rb)
 			}
 		} else {
-			dbt.Errorf("no data")
+			dbt.Fatalf("no data")
 		}
 		dbt.mustExec("DROP TABLE bintest")
 	})
@@ -184,7 +184,7 @@ func TestBindingTimestampTZ(t *testing.T) {
 			}
 			// fmt.Printf("returned value: %v, %v, %v\n", v, v.UnixNano(), expected.UnixNano())
 		} else {
-			dbt.Error("no data")
+			dbt.Fatal("no data")
 		}
 		dbt.mustExec("DROP TABLE tztest")
 	})
@@ -197,12 +197,12 @@ func TestBindingInterface(t *testing.T) {
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
 		defer rows.Close()
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
 		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
 		if err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
+			dbt.Fatalf("failed to scan: %#v", err)
 		}
 		var s string
 		var ok bool
@@ -233,12 +233,12 @@ func TestBindingArrowInterface(t *testing.T) {
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
 		defer rows.Close()
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
 		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
 		if err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
+			dbt.Fatalf("failed to scan: %#v", err)
 		}
 		var s1 *big.Float
 		var s2 int64
@@ -292,7 +292,7 @@ func TestBindingArray(t *testing.T) {
 				t.Fatalf("failed to fetch. expected: 1, 0.1, true, test1. got: %v, %v, %v, %v", v1, v2, v3, v4)
 			}
 		} else {
-			t.Error("failed to query")
+			t.Fatal("failed to query")
 		}
 
 		if rows.Next() {
@@ -304,7 +304,7 @@ func TestBindingArray(t *testing.T) {
 				t.Fatalf("failed to fetch. expected: 2, 2.34, false, test2. got: %v, %v, %v, %v", v1, v2, v3, v4)
 			}
 		} else {
-			t.Error("failed to query")
+			t.Fatal("failed to query")
 		}
 
 		if rows.Next() {
@@ -316,7 +316,7 @@ func TestBindingArray(t *testing.T) {
 				t.Fatalf("failed to fetch. expected: 3, test3. got: %v, %v, %v, %v", v1, v2, v3, v4)
 			}
 		} else {
-			t.Error("failed to query")
+			t.Fatal("failed to query")
 		}
 	})
 }

@@ -602,18 +602,18 @@ func TestArrowBigInt(t *testing.T) {
 		dbt.mustExec(enableArrow)
 		rows := dbt.mustQuery(fmt.Sprintf("SELECT %s::NUMBER(%v, %v) AS C", tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		defer rows.Close()
 		var v *big.Int
 		err := rows.Scan(&v)
 		if err != nil {
-			dbt.Errorf("failed to scan. %#v", err)
+			dbt.Fatalf("failed to scan. %#v", err)
 		}
 
 		b, ok := new(big.Int).SetString(tc.num, 10)
 		if !ok {
-			dbt.Errorf("failed to convert %v big.Int.", tc.num)
+			dbt.Fatalf("failed to convert %v big.Int.", tc.num)
 		}
 		if v.Cmp(b) != 0 {
 			dbt.Errorf("big.Int value mismatch: expected %v, got %v", b, v)
@@ -717,12 +717,14 @@ func TestArrowBigFloat(t *testing.T) {
 		rows := dbt.mustQuery(fmt.Sprintf("SELECT %s::NUMBER(%v, %v) AS C", tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
 			dbt.Error("failed to query")
+			continue
 		}
 		defer rows.Close()
 		var v *big.Float
 		err := rows.Scan(&v)
 		if err != nil {
 			dbt.Errorf("failed to scan. %#v", err)
+			continue
 		}
 
 		prec := v.Prec()
@@ -742,15 +744,15 @@ func TestVariousTypes(t *testing.T) {
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
 		defer rows.Close()
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		cc, err := rows.Columns()
 		if err != nil {
-			dbt.Errorf("columns: %v", cc)
+			dbt.Fatalf("columns: %v", cc)
 		}
 		ct, err := rows.ColumnTypes()
 		if err != nil {
-			dbt.Errorf("column types: %v", ct)
+			dbt.Fatalf("column types: %v", ct)
 		}
 		var v1 float32
 		var v2 int
@@ -760,10 +762,10 @@ func TestVariousTypes(t *testing.T) {
 		var v6 bool
 		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
 		if err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
+			dbt.Fatalf("failed to scan: %#v", err)
 		}
 		if v1 != 1.0 {
-			dbt.Errorf("failed to scan. %#v", v1)
+			dbt.Fatalf("failed to scan. %#v", v1)
 		}
 		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C3" || ct[3].Name() != "C4" || ct[4].Name() != "C5" || ct[5].Name() != "C6" {
 			dbt.Errorf("failed to get column names: %#v", ct)
@@ -790,7 +792,7 @@ func TestVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get length. %#v", ct[0])
 		}
 		if v2 != 2 {
-			dbt.Errorf("failed to scan. %#v", v2)
+			dbt.Fatalf("failed to scan. %#v", v2)
 		}
 		pr, sc = dbt.mustDecimalSize(ct[1])
 		if pr != 38 || sc != 0 {
@@ -802,7 +804,7 @@ func TestVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[1])
 		}
 		if v3 != "t3" {
-			dbt.Errorf("failed to scan. %#v", v3)
+			dbt.Fatalf("failed to scan. %#v", v3)
 		}
 		dbt.mustFailDecimalSize(ct[2])
 		cLen = dbt.mustLength(ct[2])
@@ -814,7 +816,7 @@ func TestVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[2])
 		}
 		if v4 != 4.2 {
-			dbt.Errorf("failed to scan. %#v", v4)
+			dbt.Fatalf("failed to scan. %#v", v4)
 		}
 		dbt.mustFailDecimalSize(ct[3])
 		dbt.mustFailLength(ct[3])
@@ -823,7 +825,7 @@ func TestVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[3])
 		}
 		if !bytes.Equal(v5, []byte{0xab, 0xcd}) {
-			dbt.Errorf("failed to scan. %#v", v5)
+			dbt.Fatalf("failed to scan. %#v", v5)
 		}
 		dbt.mustFailDecimalSize(ct[4])
 		cLen = dbt.mustLength(ct[4]) // BINARY
@@ -835,7 +837,7 @@ func TestVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[4])
 		}
 		if !v6 {
-			dbt.Errorf("failed to scan. %#v", v6)
+			dbt.Fatalf("failed to scan. %#v", v6)
 		}
 		dbt.mustFailDecimalSize(ct[5])
 		dbt.mustFailLength(ct[5])
@@ -854,7 +856,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
 		defer rows.Close()
 		if !rows.Next() {
-			dbt.Error("failed to query")
+			dbt.Fatal("failed to query")
 		}
 		cc, err := rows.Columns()
 		if err != nil {
@@ -872,10 +874,10 @@ func TestArrowVariousTypes(t *testing.T) {
 		var v6 bool
 		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
 		if err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
+			dbt.Fatalf("failed to scan: %#v", err)
 		}
 		if v1.Cmp(big.NewFloat(1.0)) != 0 {
-			dbt.Errorf("failed to scan. %#v", *v1)
+			dbt.Fatalf("failed to scan. %#v", *v1)
 		}
 		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C3" || ct[3].Name() != "C4" || ct[4].Name() != "C5" || ct[5].Name() != "C6" {
 			dbt.Errorf("failed to get column names: %#v", ct)
@@ -902,7 +904,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get length. %#v", ct[0])
 		}
 		if v2 != 2 {
-			dbt.Errorf("failed to scan. %#v", v2)
+			dbt.Fatalf("failed to scan. %#v", v2)
 		}
 		pr, sc = dbt.mustDecimalSize(ct[1])
 		if pr != 38 || sc != 0 {
@@ -914,7 +916,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[1])
 		}
 		if v3 != "t3" {
-			dbt.Errorf("failed to scan. %#v", v3)
+			dbt.Fatalf("failed to scan. %#v", v3)
 		}
 		dbt.mustFailDecimalSize(ct[2])
 		cLen = dbt.mustLength(ct[2])
@@ -926,7 +928,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[2])
 		}
 		if v4 != 4.2 {
-			dbt.Errorf("failed to scan. %#v", v4)
+			dbt.Fatalf("failed to scan. %#v", v4)
 		}
 		dbt.mustFailDecimalSize(ct[3])
 		dbt.mustFailLength(ct[3])
@@ -935,7 +937,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[3])
 		}
 		if !bytes.Equal(v5, []byte{0xab, 0xcd}) {
-			dbt.Errorf("failed to scan. %#v", v5)
+			dbt.Fatalf("failed to scan. %#v", v5)
 		}
 		dbt.mustFailDecimalSize(ct[4])
 		cLen = dbt.mustLength(ct[4]) // BINARY
@@ -947,7 +949,7 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get nullable. %#v", ct[4])
 		}
 		if !v6 {
-			dbt.Errorf("failed to scan. %#v", v6)
+			dbt.Fatalf("failed to scan. %#v", v6)
 		}
 		dbt.mustFailDecimalSize(ct[5])
 		dbt.mustFailLength(ct[5])

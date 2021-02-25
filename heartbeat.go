@@ -62,8 +62,7 @@ func (hc *heartbeat) heartbeatMain() error {
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
-	token, _, _ := hc.restful.TokenAccessor.GetTokens()
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, hc.restful.Token)
 
 	fullURL := hc.restful.getFullURL(heartBeatPath, params)
 	timeout := hc.restful.RequestTimeout

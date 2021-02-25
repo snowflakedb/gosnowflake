@@ -49,9 +49,11 @@ type snowflakeRestful struct {
 	LoginTimeout   time.Duration // Login timeout
 	RequestTimeout time.Duration // request timeout
 
-	Client        *http.Client
-	TokenAccessor TokenAccessor
-	HeartBeat     *heartbeat
+	Client      *http.Client
+	Token       string
+	MasterToken string
+	SessionID   int
+	HeartBeat   *heartbeat
 
 	Connection          *snowflakeConn
 	FuncPostQuery       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID, *Config) (*execResponse, error)
@@ -172,9 +174,8 @@ func postRestfulQueryHelper(
 	params.Add(requestIDKey, requestID.String())
 	params.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	params.Add(requestGUIDKey, uuid.New().String())
-	token, _, _ := sr.TokenAccessor.GetTokens()
-	if token != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
+	if sr.Token != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 	}
 
 	var resp *http.Response
@@ -189,7 +190,7 @@ func postRestfulQueryHelper(
 	if resp.StatusCode == http.StatusOK {
 		logger.WithContext(ctx).Infof("postQuery: resp: %v", resp)
 		var respd execResponse
-		err = json.NewDecoder(resp.Body).Decode(&respd)
+		err = decodeResponse(resp.Body, &respd)
 		if err != nil {
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
@@ -243,8 +244,7 @@ func postRestfulQueryHelper(
 			}
 
 			logger.Info("ping pong")
-			token, _, _ := sr.TokenAccessor.GetTokens()
-			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
+			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 			fullURL := sr.getFullURL(resultURL, nil)
 
 			resp, err = sr.FuncGet(ctx, sr, fullURL, headers, timeout)
@@ -253,7 +253,7 @@ func postRestfulQueryHelper(
 				return nil, err
 			}
 			respd = execResponse{} // reset the response
-			err = json.NewDecoder(resp.Body).Decode(&respd)
+			err = decodeResponse(resp.Body, &respd)
 			resp.Body.Close()
 			if err != nil {
 				logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
@@ -298,8 +298,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
-	token, _, _ := sr.TokenAccessor.GetTokens()
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
 	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, nil, 5*time.Second, false)
 	if err != nil {
@@ -308,7 +307,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		var respd renewSessionResponse
-		err = json.NewDecoder(resp.Body).Decode(&respd)
+		err = decodeResponse(resp.Body, &respd)
 		if err != nil {
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return err
@@ -347,15 +346,14 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	params.Add(requestGUIDKey, uuid.New().String())
 	fullURL := sr.getFullURL(tokenRequestPath, params)
 
-	token, masterToken, _ := sr.TokenAccessor.GetTokens()
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, masterToken)
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.MasterToken)
 
 	body := make(map[string]string)
-	body["oldSessionToken"] = token
+	body["oldSessionToken"] = sr.Token
 	body["requestType"] = "RENEW"
 
 	var reqBody []byte
@@ -371,7 +369,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		var respd renewSessionResponse
-		err = json.NewDecoder(resp.Body).Decode(&respd)
+		err = decodeResponse(resp.Body, &respd)
 		if err != nil {
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return err
@@ -386,7 +384,8 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 				Message: respd.Message,
 			}
 		}
-		sr.TokenAccessor.SetTokens(respd.Data.SessionToken, respd.Data.MasterToken, respd.Data.SessionID)
+		sr.Token = respd.Data.SessionToken
+		sr.MasterToken = respd.Data.MasterToken
 		return nil
 	}
 	b, err := ioutil.ReadAll(resp.Body)
@@ -416,8 +415,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID uuid.UUID,
 	headers["Content-Type"] = headerContentTypeApplicationJSON
 	headers["accept"] = headerAcceptTypeApplicationSnowflake
 	headers["User-Agent"] = userAgent
-	token, _, _ := sr.TokenAccessor.GetTokens()
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sr.Token)
 
 	req := make(map[string]string)
 	req[requestIDKey] = requestID.String()
@@ -434,7 +432,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID uuid.UUID,
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		var respd cancelQueryResponse
-		err = json.NewDecoder(resp.Body).Decode(&respd)
+		err = decodeResponse(resp.Body, &respd)
 		if err != nil {
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return err

@@ -90,7 +90,9 @@ func authenticateBySAML(
 	}
 	if !respd.Success {
 		logger.Errorln("Authentication FAILED")
-		sr.TokenAccessor.SetTokens("", "", -1)
+		sr.Token = ""
+		sr.MasterToken = ""
+		sr.SessionID = -1
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
 			code = -1
