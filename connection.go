@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -87,31 +86,35 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
 
-	tsmode := "TIMESTAMP_NTZ"
+	tsmode := timestampNtzType
 	idx := 1
 	if len(bindings) > 0 {
 		req.Bindings = make(map[string]execBindParameter, len(bindings))
-		for i, n := 0, len(bindings); i < n; i++ {
-			t := goTypeToSnowflake(bindings[i].Value, tsmode)
+		for _, binding := range bindings {
+			t := goTypeToSnowflake(binding.Value, tsmode)
 			logger.WithContext(ctx).Debugf("tmode: %v\n", t)
-			if t == "CHANGE_TYPE" {
-				tsmode, err = dataTypeMode(bindings[i].Value)
+			if t == changeType {
+				tsmode, err = dataTypeMode(binding.Value)
 				if err != nil {
 					return nil, err
 				}
 			} else {
-				var v1 interface{}
-				if t == "ARRAY" {
-					t, v1 = arrayToString(bindings[i].Value)
+				var val interface{}
+				if t == sliceType {
+					// retrieve array binding data
+					t, val = snowflakeArrayToString(&binding)
 				} else {
-					v1, err = valueToString(bindings[i].Value, tsmode)
+					val, err = valueToString(binding.Value, tsmode)
+					if err != nil {
+						return nil, err
+					}
 				}
-				if err != nil {
-					return nil, err
+				if t == nullType || t == unSupportedType {
+					t = textType // if null or not supported, pass to GS as text
 				}
 				req.Bindings[strconv.Itoa(idx)] = execBindParameter{
-					Type:  t,
-					Value: v1,
+					Type:  t.String(),
+					Value: val,
 				}
 				idx++
 			}
@@ -383,14 +386,13 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 	return err
 }
 
+// CheckNamedValue determines which types are handled by this driver aside from
+// the instances captured by driver.Value
 func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
-	switch reflect.TypeOf(nv.Value) {
-	case reflect.TypeOf([]int{0}), reflect.TypeOf([]int64{0}), reflect.TypeOf([]float64{0}),
-		reflect.TypeOf([]bool{false}), reflect.TypeOf([]string{""}):
-		return nil
-	default:
+	if supported := supportedArrayBind(nv); !supported {
 		return driver.ErrSkip
 	}
+	return nil
 }
 
 func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParameter) {

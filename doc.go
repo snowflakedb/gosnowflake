@@ -255,8 +255,8 @@ binds arrays to the parameters in the INSERT statement.
 	boolArray := []bool{true, false, true}
 	strArray := []string{"test1", "test2", "test3"}
 	...
-	// Insert the data from the arrays into the table.
-	_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", intArray, fltArray, boolArray, strArray)
+	// Insert the data from the arrays and wrap in an Array() function into the table.
+	_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
 
 Note: For alternative ways to load data into the Snowflake database (including bulk loading using the COPY command), see
 Loading Data Into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).

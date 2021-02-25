@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -10,23 +10,23 @@ import (
 
 type tcDataTypeMode struct {
 	tp    driver.Value
-	tmode string
+	tmode snowflakeType
 	err   error
 }
 
 func TestDataTypeMode(t *testing.T) {
 	var testcases = []tcDataTypeMode{
-		{tp: DataTypeTimestampLtz, tmode: "TIMESTAMP_LTZ", err: nil},
-		{tp: DataTypeTimestampNtz, tmode: "TIMESTAMP_NTZ", err: nil},
-		{tp: DataTypeTimestampTz, tmode: "TIMESTAMP_TZ", err: nil},
-		{tp: DataTypeDate, tmode: "DATE", err: nil},
-		{tp: DataTypeTime, tmode: "TIME", err: nil},
-		{tp: DataTypeBinary, tmode: "BINARY", err: nil},
-		{tp: DataTypeFixed, tmode: "FIXED",
+		{tp: DataTypeTimestampLtz, tmode: timestampLtzType, err: nil},
+		{tp: DataTypeTimestampNtz, tmode: timestampNtzType, err: nil},
+		{tp: DataTypeTimestampTz, tmode: timestampTzType, err: nil},
+		{tp: DataTypeDate, tmode: dateType, err: nil},
+		{tp: DataTypeTime, tmode: timeType, err: nil},
+		{tp: DataTypeBinary, tmode: binaryType, err: nil},
+		{tp: DataTypeFixed, tmode: fixedType,
 			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
-		{tp: DataTypeReal, tmode: "REAL",
+		{tp: DataTypeReal, tmode: realType,
 			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
-		{tp: 123, tmode: "",
+		{tp: 123, tmode: nullType,
 			err: fmt.Errorf(errMsgInvalidByteArray, 123)},
 	}
 	for _, ts := range testcases {

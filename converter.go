@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -6,65 +6,69 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/decimal128"
 	"math"
 	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/decimal128"
 )
 
 // goTypeToSnowflake translates Go data type to Snowflake data type.
-func goTypeToSnowflake(v driver.Value, tsmode string) string {
-	switch v := v.(type) {
+func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
+	switch t := v.(type) {
 	case int64:
-		return "FIXED"
+		return fixedType
 	case float64:
-		return "REAL"
+		return realType
 	case bool:
-		return "BOOLEAN"
+		return booleanType
 	case string:
-		return "TEXT"
+		return textType
 	case []byte:
-		if tsmode == "BINARY" {
-			return "BINARY" // may be redundant but ensures BINARY type
+		if tsmode == binaryType {
+			return binaryType // may be redundant but ensures BINARY type
 		}
-		if v == nil || len(v) != 1 {
-			return "TEXT" // invalid byte array. won't take as BINARY
+		if t == nil {
+			return nullType // invalid byte array. won't take as BINARY
 		}
-		_, err := dataTypeMode(v)
-		if err != nil {
-			return "TEXT" // not supported dataType
+		if len(t) != 1 {
+			return unSupportedType
 		}
-		return "CHANGE_TYPE"
-	case []int, []int64, []float64, []bool, []string:
-		return "ARRAY"
+		if _, err := dataTypeMode(t); err != nil {
+			return unSupportedType
+		}
+		return changeType
 	case time.Time:
 		return tsmode
 	}
-	return "TEXT"
+	if supportedArrayBind(&driver.NamedValue{Value: v}) {
+		return sliceType
+	}
+	return unSupportedType
 }
 
 // snowflakeTypeToGo translates Snowflake data type to Go data type.
-func snowflakeTypeToGo(dbtype string, scale int64) reflect.Type {
+func snowflakeTypeToGo(dbtype snowflakeType, scale int64) reflect.Type {
 	switch dbtype {
-	case "fixed":
+	case fixedType:
 		if scale == 0 {
 			return reflect.TypeOf(int64(0))
 		}
 		return reflect.TypeOf(float64(0))
-	case "real":
+	case realType:
 		return reflect.TypeOf(float64(0))
-	case "text", "variant", "object", "array":
+	case textType, variantType, objectType, arrayType:
 		return reflect.TypeOf("")
-	case "date", "time", "timestamp_ltz", "timestamp_ntz", "timestamp_tz":
+	case dateType, timeType, timestampLtzType, timestampNtzType, timestampTzType:
 		return reflect.TypeOf(time.Now())
-	case "binary":
+	case binaryType:
 		return reflect.TypeOf([]byte{})
-	case "boolean":
+	case booleanType:
 		return reflect.TypeOf(true)
 	}
 	logger.Errorf("unsupported dbtype is specified. %v", dbtype)
@@ -73,7 +77,7 @@ func snowflakeTypeToGo(dbtype string, scale int64) reflect.Type {
 
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
-func valueToString(v driver.Value, tsmode string) (*string, error) {
+func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 	logger.Debugf("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	if v == nil {
 		return nil, nil
@@ -97,7 +101,7 @@ func valueToString(v driver.Value, tsmode string) (*string, error) {
 			return nil, nil
 		}
 		if bd, ok := v.([]byte); ok {
-			if tsmode == "BINARY" {
+			if tsmode == binaryType {
 				s := hex.EncodeToString(bd)
 				return &s, nil
 			}
@@ -108,19 +112,19 @@ func valueToString(v driver.Value, tsmode string) (*string, error) {
 	case reflect.Struct:
 		if tm, ok := v.(time.Time); ok {
 			switch tsmode {
-			case "DATE":
+			case dateType:
 				_, offset := tm.Zone()
 				tm = tm.Add(time.Second * time.Duration(offset))
 				s := fmt.Sprintf("%d", tm.Unix()*1000)
 				return &s, nil
-			case "TIME":
+			case timeType:
 				s := fmt.Sprintf("%d",
 					(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
 				return &s, nil
-			case "TIMESTAMP_NTZ", "TIMESTAMP_LTZ":
+			case timestampNtzType, timestampLtzType:
 				s := fmt.Sprintf("%d", tm.UnixNano())
 				return &s, nil
-			case "TIMESTAMP_TZ":
+			case timestampTzType:
 				_, offset := tm.Zone()
 				s := fmt.Sprintf("%v %v", tm.UnixNano(), offset/60+1440)
 				return &s, nil
@@ -246,37 +250,6 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 	return nil
 }
 
-func arrayToString(v driver.Value) (string, []string) {
-	var t string
-	var arr []string
-	switch a := v.(type) {
-	case []int:
-		t = "FIXED"
-		for _, x := range a {
-			arr = append(arr, strconv.Itoa(x))
-		}
-	case []int64:
-		t = "FIXED"
-		for _, x := range a {
-			arr = append(arr, strconv.Itoa(int(x)))
-		}
-	case []float64:
-		t = "REAL"
-		for _, x := range a {
-			arr = append(arr, fmt.Sprintf("%g", x))
-		}
-	case []bool:
-		t = "BOOLEAN"
-		for _, x := range a {
-			arr = append(arr, strconv.FormatBool(x))
-		}
-	case []string:
-		t = "TEXT"
-		arr = a
-	}
-	return t, arr
-}
-
 var decimalShift = new(big.Int).Exp(big.NewInt(2), big.NewInt(64), nil)
 
 func intToBigFloat(val int64, scale int64) *big.Float {
@@ -333,8 +306,8 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 	}
 	logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
 
-	switch strings.ToUpper(srcColumnMeta.Type) {
-	case "FIXED":
+	switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
+	case fixedType:
 		switch srcValue.DataType().ID() {
 		case arrow.DECIMAL:
 			for i, num := range array.NewDecimal128Data(data).Values() {
@@ -392,7 +365,7 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			}
 		}
 		return err
-	case "BOOLEAN":
+	case booleanType:
 		boolData := array.NewBooleanData(data)
 		for i := range *destcol {
 			if !srcValue.IsNull(i) {
@@ -400,14 +373,14 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			}
 		}
 		return err
-	case "REAL":
+	case realType:
 		for i, float64 := range array.NewFloat64Data(data).Float64Values() {
 			if !srcValue.IsNull(i) {
 				(*destcol)[i] = float64
 			}
 		}
 		return err
-	case "TEXT", "ARRAY", "VARIANT", "OBJECT":
+	case textType, arrayType, variantType, objectType:
 		strings := array.NewStringData(data)
 		for i := range *destcol {
 			if !srcValue.IsNull(i) {
@@ -415,7 +388,7 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			}
 		}
 		return err
-	case "BINARY":
+	case binaryType:
 		binaryData := array.NewBinaryData(data)
 		for i := range *destcol {
 			if !srcValue.IsNull(i) {
@@ -423,7 +396,7 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			}
 		}
 		return err
-	case "DATE":
+	case dateType:
 		for i, date32 := range array.NewDate32Data(data).Date32Values() {
 			if !srcValue.IsNull(i) {
 				t0 := time.Unix(int64(date32)*86400, 0).UTC()
@@ -431,7 +404,7 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			}
 		}
 		return err
-	case "TIME":
+	case timeType:
 		if srcValue.DataType().ID() == arrow.INT64 {
 			for i, int64 := range array.NewInt64Data(data).Int64Values() {
 				if !srcValue.IsNull(i) {
@@ -448,7 +421,7 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			}
 		}
 		return err
-	case "TIMESTAMP_NTZ":
+	case timestampNtzType:
 		if srcValue.DataType().ID() == arrow.STRUCT {
 			structData := array.NewStructData(data)
 			epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
@@ -466,7 +439,7 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			}
 		}
 		return err
-	case "TIMESTAMP_LTZ":
+	case timestampLtzType:
 		if srcValue.DataType().ID() == arrow.STRUCT {
 			structData := array.NewStructData(data)
 			epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
@@ -486,7 +459,7 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			}
 		}
 		return err
-	case "TIMESTAMP_TZ":
+	case timestampTzType:
 		structData := array.NewStructData(data)
 		if structData.NumField() == 2 {
 			epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
@@ -515,4 +488,105 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 
 	err = fmt.Errorf("unsupported data type")
 	return err
+}
+
+type intArray []int
+type int32Array []int32
+type int64Array []int64
+type float64Array []float64
+type float32Array []float32
+type boolArray []bool
+type stringArray []string
+type byteArray [][]byte
+
+// Array takes in a column of a row to be inserted via array binding, bulk or
+// otherwise, and converts it into a native snowflake type for binding
+func Array(a interface{}) interface{} {
+	switch t := a.(type) {
+	case []int:
+		return (*intArray)(&t)
+	case []int32:
+		return (*int32Array)(&t)
+	case []int64:
+		return (*int64Array)(&t)
+	case []float64:
+		return (*float64Array)(&t)
+	case []float32:
+		return (*float32Array)(&t)
+	case []bool:
+		return (*boolArray)(&t)
+	case []string:
+		return (*stringArray)(&t)
+	case [][]byte:
+		return (*byteArray)(&t)
+
+	case *[]int:
+		return (*intArray)(t)
+	case *[]int32:
+		return (*int32Array)(t)
+	case *[]int64:
+		return (*int64Array)(t)
+	case *[]float64:
+		return (*float64Array)(t)
+	case *[]float32:
+		return (*float32Array)(t)
+	case *[]bool:
+		return (*boolArray)(t)
+	case *[]string:
+		return (*stringArray)(t)
+	case *[][]byte:
+		return (*byteArray)(t)
+	default:
+		return a
+	}
+}
+
+func snowflakeArrayToString(nv *driver.NamedValue) (snowflakeType, []string) {
+	var t snowflakeType
+	var arr []string
+	switch reflect.TypeOf(nv.Value) {
+	case reflect.TypeOf(&intArray{}):
+		t = fixedType
+		a := nv.Value.(*intArray)
+		for _, x := range *a {
+			arr = append(arr, strconv.Itoa(x))
+		}
+	case reflect.TypeOf(&int64Array{}):
+		t = fixedType
+		a := nv.Value.(*int64Array)
+		for _, x := range *a {
+			arr = append(arr, strconv.Itoa(int(x)))
+		}
+	case reflect.TypeOf(&int32Array{}):
+		t = fixedType
+		a := nv.Value.(*int32Array)
+		for _, x := range *a {
+			arr = append(arr, strconv.Itoa(int(x)))
+		}
+	case reflect.TypeOf(&float64Array{}):
+		t = realType
+		a := nv.Value.(*float64Array)
+		for _, x := range *a {
+			arr = append(arr, fmt.Sprintf("%g", x))
+		}
+	case reflect.TypeOf(&float32Array{}):
+		t = realType
+		a := nv.Value.(*float32Array)
+		for _, x := range *a {
+			arr = append(arr, fmt.Sprintf("%g", x))
+		}
+	case reflect.TypeOf(&boolArray{}):
+		t = booleanType
+		a := nv.Value.(*boolArray)
+		for _, x := range *a {
+			arr = append(arr, strconv.FormatBool(x))
+		}
+	case reflect.TypeOf(&stringArray{}):
+		t = textType
+		a := nv.Value.(*stringArray)
+		arr = *a
+	default:
+		return unSupportedType, nil
+	}
+	return t, arr
 }
