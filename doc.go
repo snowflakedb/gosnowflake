@@ -451,9 +451,10 @@ The following pseudo-code shows how to process multiple result sets:
 
 		}
 
-The function db.execContext() returns a single result, which is the sum of the results of the individual statements.
-For example, if your multi-statement query executed two UPDATE statements, each of which updated 10 rows,
-then the result returned would be 20. Individual results for individual statements are not available.
+The function db.ExecContext() returns a single result, which is the sum of the number of rows changed by each
+individual statement. For example, if your multi-statement query executed two UPDATE statements, each of which
+updated 10 rows, then the result returned would be 20. Individual row counts for individual statements are not
+available.
 
 The following code shows how to retrieve the result of a multi-statement query executed through db.ExecContext():
 
@@ -487,7 +488,8 @@ multi-statement query, use QueryContext(). You can retrieve the result sets for 
 and you can retrieve or ignore the row counts for the non-query statements.
 
 
-If any of the SQL statements fail to compile or execute, execution is aborted. Any previous statements that ran before are unaffected.
+If a SQL statement passed to ExecQuery() or QueryContext() fails to compile or execute, that statement is
+aborted, and subsequent statements are not executed. Any statements prior to the aborted statement are unaffected.
 
 For example, if the statements below are run as one multi-statement query, the multi-statement query fails on the
 third statement, and an exception is thrown.
