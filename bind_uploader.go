@@ -15,7 +15,8 @@ func supportedArrayBind(nv *driver.NamedValue) bool {
 		reflect.TypeOf(&stringArray{}), reflect.TypeOf(&byteArray{}):
 		return true
 	default:
-		// TODO date, variant, timestamp, object, array, time
+		// TODO SNOW-292862 date, timestamp, time
+		// TODO SNOW-176486 variant, object, array
 		return false
 	}
 }

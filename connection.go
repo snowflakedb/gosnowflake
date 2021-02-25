@@ -100,7 +100,7 @@ func (sc *snowflakeConn) exec(
 				}
 			} else {
 				var val interface{}
-				if t == slice {
+				if t == sliceType {
 					// retrieve array binding data
 					t, val = snowflakeArrayToString(&binding)
 				} else {
@@ -109,7 +109,7 @@ func (sc *snowflakeConn) exec(
 						return nil, err
 					}
 				}
-				if t == null || t == notSupported {
+				if t == nullType || t == unSupportedType {
 					t = textType // if null or not supported, pass to GS as text
 				}
 				req.Bindings[strconv.Itoa(idx)] = execBindParameter{

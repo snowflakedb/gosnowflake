@@ -34,22 +34,22 @@ func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 			return binaryType // may be redundant but ensures BINARY type
 		}
 		if t == nil {
-			return null // invalid byte array. won't take as BINARY
+			return nullType // invalid byte array. won't take as BINARY
 		}
 		if len(t) != 1 {
-			return notSupported
+			return unSupportedType
 		}
 		if _, err := dataTypeMode(t); err != nil {
-			return notSupported
+			return unSupportedType
 		}
 		return changeType
 	case time.Time:
 		return tsmode
 	}
 	if supportedArrayBind(&driver.NamedValue{Value: v}) {
-		return slice
+		return sliceType
 	}
-	return notSupported
+	return unSupportedType
 }
 
 // snowflakeTypeToGo translates Snowflake data type to Go data type.
@@ -586,7 +586,7 @@ func snowflakeArrayToString(nv *driver.NamedValue) (snowflakeType, []string) {
 		a := nv.Value.(*stringArray)
 		arr = *a
 	default:
-		return notSupported, nil
+		return unSupportedType, nil
 	}
 	return t, arr
 }

@@ -23,29 +23,29 @@ type tcGoTypeToSnowflake struct {
 
 func TestGoTypeToSnowflake(t *testing.T) {
 	testcases := []tcGoTypeToSnowflake{
-		{in: int64(123), tmode: null, out: fixedType},
-		{in: float64(234.56), tmode: null, out: realType},
-		{in: true, tmode: null, out: booleanType},
-		{in: "teststring", tmode: null, out: textType},
-		{in: Array([]int{1}), tmode: null, out: slice},
-		{in: DataTypeBinary, tmode: null, out: changeType},
-		{in: DataTypeTimestampLtz, tmode: null, out: changeType},
-		{in: DataTypeTimestampNtz, tmode: null, out: changeType},
-		{in: DataTypeTimestampTz, tmode: null, out: changeType},
+		{in: int64(123), tmode: nullType, out: fixedType},
+		{in: float64(234.56), tmode: nullType, out: realType},
+		{in: true, tmode: nullType, out: booleanType},
+		{in: "teststring", tmode: nullType, out: textType},
+		{in: Array([]int{1}), tmode: nullType, out: sliceType},
+		{in: DataTypeBinary, tmode: nullType, out: changeType},
+		{in: DataTypeTimestampLtz, tmode: nullType, out: changeType},
+		{in: DataTypeTimestampNtz, tmode: nullType, out: changeType},
+		{in: DataTypeTimestampTz, tmode: nullType, out: changeType},
 		{in: time.Now(), tmode: timestampNtzType, out: timestampNtzType},
 		{in: time.Now(), tmode: timestampTzType, out: timestampTzType},
 		{in: time.Now(), tmode: timestampLtzType, out: timestampLtzType},
 		{in: []byte{1, 2, 3}, tmode: binaryType, out: binaryType},
 		// negative
-		{in: 123, tmode: null, out: notSupported},
-		{in: int8(12), tmode: null, out: notSupported},
-		{in: int32(456), tmode: null, out: notSupported},
-		{in: uint(456), tmode: null, out: notSupported},
-		{in: uint8(12), tmode: null, out: notSupported},
-		{in: uint64(456), tmode: null, out: notSupported},
-		{in: []byte{100}, tmode: null, out: notSupported},
-		{in: nil, tmode: null, out: notSupported},
-		{in: []int{1}, tmode: null, out: notSupported},
+		{in: 123, tmode: nullType, out: unSupportedType},
+		{in: int8(12), tmode: nullType, out: unSupportedType},
+		{in: int32(456), tmode: nullType, out: unSupportedType},
+		{in: uint(456), tmode: nullType, out: unSupportedType},
+		{in: uint8(12), tmode: nullType, out: unSupportedType},
+		{in: uint64(456), tmode: nullType, out: unSupportedType},
+		{in: []byte{100}, tmode: nullType, out: unSupportedType},
+		{in: nil, tmode: nullType, out: unSupportedType},
+		{in: []int{1}, tmode: nullType, out: unSupportedType},
 	}
 	for _, test := range testcases {
 		a := goTypeToSnowflake(test.in, test.tmode)
@@ -89,7 +89,7 @@ func TestSnowflakeTypeToGo(t *testing.T) {
 
 func TestValueToString(t *testing.T) {
 	v := cmplx.Sqrt(-5 + 12i) // should never happen as Go sql package must have already validated.
-	_, err := valueToString(v, null)
+	_, err := valueToString(v, nullType)
 	if err == nil {
 		t.Errorf("should raise error: %v", v)
 	}

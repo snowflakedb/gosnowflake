@@ -26,10 +26,10 @@ const (
 	timeType
 	booleanType
 	// the following are not snowflake types per se but internal types
-	null
-	slice
+	nullType
+	sliceType
 	changeType
-	notSupported
+	unSupportedType
 )
 
 var snowflakeTypes = [...]string{"FIXED", "REAL", "TEXT", "DATE", "VARIANT",
@@ -48,11 +48,11 @@ func getSnowflakeType(typ string) snowflakeType {
 	for i, sft := range snowflakeTypes {
 		if sft == typ {
 			return snowflakeType(i)
-		} else if snowflakeType(i) == null {
+		} else if snowflakeType(i) == nullType {
 			break
 		}
 	}
-	return null
+	return nullType
 }
 
 var (
@@ -101,10 +101,10 @@ func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
 		case bytes.Equal(bd, DataTypeBinary):
 			tsmode = binaryType
 		default:
-			return null, fmt.Errorf(errMsgInvalidByteArray, v)
+			return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
 		}
 	} else {
-		return null, fmt.Errorf(errMsgInvalidByteArray, v)
+		return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
 	}
 	return tsmode, nil
 }

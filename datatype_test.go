@@ -26,7 +26,7 @@ func TestDataTypeMode(t *testing.T) {
 			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
 		{tp: DataTypeReal, tmode: realType,
 			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
-		{tp: 123, tmode: null,
+		{tp: 123, tmode: nullType,
 			err: fmt.Errorf(errMsgInvalidByteArray, 123)},
 	}
 	for _, ts := range testcases {
