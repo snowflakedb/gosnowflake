@@ -2,8 +2,6 @@
 
 package gosnowflake
 
-//lint:file-ignore U1000 Ignore all unused code
-
 import (
 	"context"
 	"database/sql/driver"

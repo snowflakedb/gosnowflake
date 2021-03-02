@@ -7,14 +7,14 @@ package gosnowflake
 // implemented by localUtil and cloudUtil
 type storageUtil interface {
 	createClient(*execResponseStageInfo, bool) cloudClient
-	uploadOneFileWithRetry(*fileMetadata)
+	uploadOneFileWithRetry(*fileMetadata) error
 	downloadOneFile()
 }
 
 // implemented by snowflakeS3Util, snowflakeAzureUtil and snowflakeGcsUtil
 type cloudUtil interface {
-	getFileHeader()
-	uploadFile()
+	getFileHeader(*fileMetadata, string) *fileHeader
+	uploadFile(string, *fileMetadata, *encryptMetadata, int64)
 	nativeDownloadFile()
 }
 

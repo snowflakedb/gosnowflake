@@ -20,18 +20,27 @@ type snowflakeFileUtil struct {
 }
 
 func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.Buffer) (*bytes.Buffer, int) {
-	buf := getByteBufferContent(srcStream)
+	r := getReaderFromBuffer(srcStream)
+	buf, _ := ioutil.ReadAll(r)
 	var c bytes.Buffer
 	w := gzip.NewWriter(&c)
-	w.Write(*buf) // write buf to gzip writer
+	w.Write(buf) // write buf to gzip writer
 	w.Close()
 	return &c, c.Len()
 }
 
 func (util *snowflakeFileUtil) getDigestAndSize(src **bytes.Buffer) (string, int64) {
+	chunkSize := 16 * 4 * 1024
 	m := sha256.New()
-	buf := getByteBufferContent(src)
-	m.Write(*buf)
+	r := getReaderFromBuffer(src)
+	for {
+		chunk := make([]byte, chunkSize)
+		n, err := r.Read(chunk)
+		if n == 0 || err != nil {
+			break
+		}
+		m.Write(chunk[:n])
+	}
 	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*src).Len())
 }
 
@@ -84,7 +93,7 @@ type fileMetadata struct {
 	presignedURL            string
 	errorDetails            error
 	lastError               error
-	noSleepingTime          int64
+	noSleepingTime          bool
 	lastMaxConcurrency      int
 	localLocation           string
 	localDigest             string
@@ -108,15 +117,11 @@ type fileHeader struct {
 	encryptionMetadata encryptMetadata
 }
 
-func getByteBufferContent(src **bytes.Buffer) *[]byte {
+func getReaderFromBuffer(src **bytes.Buffer) io.Reader {
 	var b bytes.Buffer
 	tee := io.TeeReader(*src, &b) // read src to buf
-	buf, err := ioutil.ReadAll(tee)
-	if err != nil {
-		return nil
-	}
-	*src = &b // revert pointer back
-	return &buf
+	*src = &b                     // revert pointer back
+	return tee
 }
 
 func baseName(path string) string {

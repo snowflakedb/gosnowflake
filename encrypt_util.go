@@ -11,6 +11,9 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"io"
+	"io/ioutil"
+	"os"
 )
 
 type snowflakeFileEncryption struct {
@@ -43,7 +46,13 @@ type encryptMetadata struct {
 	matdesc string
 }
 
-func encryptStream(sfe *snowflakeFileEncryption, src *bytes.Buffer, out *bytes.Buffer, chunkSize int) *encryptMetadata {
+// encryptStream encrypts a stream buffer using AES128 block cipher in CBC mode
+// with PKCS5 padding
+func encryptStream(
+	sfe *snowflakeFileEncryption,
+	src io.Reader,
+	out io.Writer,
+	chunkSize int) (*encryptMetadata, error) {
 	if chunkSize == 0 {
 		chunkSize = aes.BlockSize * 4 * 1024
 	}
@@ -53,39 +62,40 @@ func encryptStream(sfe *snowflakeFileEncryption, src *bytes.Buffer, out *bytes.B
 	ivData := getSecureRandom(aes.BlockSize)
 	fileKey := getSecureRandom(keySize)
 
-	block, err := aes.NewCipher(fileKey)
-	if err != nil {
-		panic(err)
-	}
+	block, _ := aes.NewCipher(fileKey)
 	mode := cipher.NewCBCEncrypter(block, ivData)
-	cipherText := make([]byte, aes.BlockSize+src.Len()) // sizeOf(initializationVector) + sizeOf(src)
+	cipherText := make([]byte, chunkSize)
 
+	// encrypt file with CBC
+	var err error
 	padded := false
 	for {
-		buf := getByteBufferContent(&src)
-		if len(*buf) == 0 {
+		chunk := make([]byte, chunkSize)
+		n, err := src.Read(chunk)
+		if n == 0 || err != nil {
 			break
-		} else if len(*buf) % aes.BlockSize != 0 {
-			*buf = padBytesLength(*buf, aes.BlockSize)
+		} else if n%aes.BlockSize != 0 {
+			chunk = padBytesLength(chunk[:n], aes.BlockSize)
 			padded = true
 		}
-		mode.CryptBlocks(cipherText[aes.BlockSize:], *buf)
-		out.Write(cipherText)
+		mode.CryptBlocks(cipherText, chunk)
+		out.Write(cipherText[:len(chunk)])
+	}
+	if err != nil {
+		return nil, err
 	}
 	if !padded {
-		blockSizeCipher := make([]byte, aes.BlockSize)
-		for i := range blockSizeCipher {
-			blockSizeCipher[i] = []byte(string(rune(aes.BlockSize)))[0]
-		}
+		blockSizeCipher := bytes.Repeat([]byte{byte(aes.BlockSize)}, aes.BlockSize)
 		chunk := make([]byte, aes.BlockSize)
 		mode.CryptBlocks(chunk, blockSizeCipher)
 		out.Write(chunk)
 	}
 
-	// encrypt key with QRMK
-	var encKek []byte
+	// encrypt key with CFB
 	block, _ = aes.NewCipher(decodedKey)
-	block.Encrypt(encKek, padBytesLength(fileKey, aes.BlockSize))
+	stream := cipher.NewCFBEncrypter(block, ivData)
+	encryptedFileKey := make([]byte, len(fileKey))
+	stream.XORKeyStream(encryptedFileKey, fileKey)
 
 	matDesc := materialDescriptor{
 		sfe.SMKID,
@@ -93,13 +103,75 @@ func encryptStream(sfe *snowflakeFileEncryption, src *bytes.Buffer, out *bytes.B
 		keySize * 8,
 	}
 
-	key, _ := base64.StdEncoding.DecodeString(string(encKek))
-	iv, _ := base64.StdEncoding.DecodeString(string(ivData))
 	return &encryptMetadata{
-		string(key),
-		string(iv),
+		base64.StdEncoding.EncodeToString(encryptedFileKey),
+		base64.StdEncoding.EncodeToString(ivData),
 		matdescToUnicode(matDesc),
+	}, nil
+}
+
+func encryptFile(sfe *snowflakeFileEncryption, filename string, chunkSize int, tmpDir string) (*encryptMetadata, string, error) {
+	if chunkSize == 0 {
+		chunkSize = aes.BlockSize * 4 * 1024
 	}
+	tmpOutputFile, _ := ioutil.TempFile(tmpDir, baseName(filename)+"#")
+	infile, err := os.OpenFile(filename, os.O_CREATE|os.O_RDONLY, os.ModePerm)
+	meta, err := encryptStream(sfe, infile, tmpOutputFile, chunkSize)
+	if err != nil {
+		return nil, "", err
+	}
+	return meta, tmpOutputFile.Name(), nil
+}
+
+func decryptFile(metadata *encryptMetadata, sfe *snowflakeFileEncryption, filename string, chunkSize int, tmpDir string) (string, error) {
+	if chunkSize == 0 {
+		chunkSize = aes.BlockSize * 4 * 1024
+	}
+	decodedKey, _ := base64.StdEncoding.DecodeString(sfe.QueryStageMasterKey)
+	keyBytes, _ := base64.StdEncoding.DecodeString(metadata.key) // encrypted file key
+	ivBytes, _ := base64.StdEncoding.DecodeString(metadata.iv)
+
+	// decrypt file key
+	var err error
+	block, _ := aes.NewCipher(decodedKey)
+	stream := cipher.NewCFBDecrypter(block, ivBytes)
+	fileKey := keyBytes
+	stream.XORKeyStream(fileKey, fileKey)
+
+	// decrypt file
+	block, _ = aes.NewCipher(fileKey)
+	mode := cipher.NewCBCDecrypter(block, ivBytes)
+
+	tmpOutputFile, err := ioutil.TempFile(tmpDir, baseName(filename)+"#")
+	if err != nil {
+		return "", err
+	}
+	infile, err := os.OpenFile(filename, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+	var totalFileSize int
+	var prevChunk []byte
+	for {
+		chunk := make([]byte, chunkSize)
+		n, err := infile.Read(chunk)
+		if n == 0 || err != nil {
+			break
+		}
+		totalFileSize += n
+		chunk = chunk[:n]
+		mode.CryptBlocks(chunk, chunk)
+		tmpOutputFile.Write(chunk)
+		prevChunk = chunk
+	}
+	if err != nil {
+		return "", err
+	}
+	if prevChunk != nil {
+		totalFileSize -= paddingOffset(prevChunk)
+	}
+	tmpOutputFile.Truncate(int64(totalFileSize))
+	return tmpOutputFile.Name(), nil
 }
 
 type materialDescriptor struct {
@@ -125,8 +197,7 @@ func padBytesLength(src []byte, blockSize int) []byte {
 	return append(src, padText...)
 }
 
-func unpadBytesLength(src []byte) []byte {
+func paddingOffset(src []byte) int {
 	length := len(src)
-	unpadding := int(src[length-1])
-	return src[:(length - unpadding)]
+	return int(src[length-1])
 }

@@ -44,7 +44,7 @@ const (
 type resultStatus int
 
 const (
-	err resultStatus = iota
+	errStatus resultStatus = iota
 	uploaded
 	downloaded
 	collision
@@ -459,9 +459,11 @@ func (sfa *snowflakeFileTransferAgent) download(largeFileMetadata []fileMetadata
 	// TODO SNOW-206124
 }
 
-func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMetadata) {
+func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMetadata) error {
 	idx := 0
 	fileMetaLen := len(fileMetas)
+	errChan := make(chan error)
+	var err error
 	for idx < fileMetaLen {
 		endOfIdx := intMin(fileMetaLen, idx+int(sfa.parallel))
 		targetMeta := fileMetas[idx:endOfIdx]
@@ -470,12 +472,19 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 			results := make([]*fileMetadata, fileMetaLen)
 			for i, meta := range targetMeta {
 				wg.Add(1)
-				go func(k int, m *fileMetadata) {
+				go func(k int, m *fileMetadata, errChan chan error) {
 					defer wg.Done()
-					results[k] = sfa.uploadOneFile(m)
-				}(i, meta)
+					var uploadErr error
+					results[k], uploadErr = sfa.uploadOneFile(m)
+					errChan <- uploadErr
+				}(i, meta, errChan)
 			}
 			wg.Wait()
+			for err = range errChan {
+				if err != nil {
+					return err
+				}
+			}
 
 			retryMeta := make([]*fileMetadata, 0)
 			for _, result := range results {
@@ -501,22 +510,27 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 		}
 		idx += int(sfa.parallel)
 	}
+	return err
 }
 
-func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMetadata) {
+func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMetadata) error {
 	idx := 0
 	fileMetaLen := len(fileMetas)
 	for idx < fileMetaLen {
-		res := sfa.uploadOneFile(fileMetas[idx])
+		res, err := sfa.uploadOneFile(fileMetas[idx])
+		if err != nil {
+			return err
+		}
 		sfa.results = append(sfa.results, res)
 		idx++
 		if injectWaitPut > 0 {
 			time.Sleep(injectWaitPut)
 		}
 	}
+	return nil
 }
 
-func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) *fileMetadata {
+func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileMetadata, error) {
 	fmt.Println("upload one file")
 	meta.realSrcFileName = meta.srcFileName
 	tmpDir := os.TempDir()
@@ -544,8 +558,11 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) *fileMe
 	}
 
 	client := sfa.getStorageClient(sfa.stageLocationType)
-	client.uploadOneFileWithRetry(meta)
-	return meta
+	err := client.uploadOneFileWithRetry(meta)
+	if err != nil {
+		return nil, err
+	}
+	return meta, nil
 }
 
 func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []fileMetadata) {

@@ -16,7 +16,7 @@ func (util *localUtil) createClient(info *execResponseStageInfo, useAccelerateEn
 	return nil
 }
 
-func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) {
+func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 	var frd *bufio.Reader
 	if meta.srcStream != nil {
 		b := meta.srcStream
@@ -32,25 +32,26 @@ func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) {
 
 	output, err := os.OpenFile(filepath.Join(expandUser(meta.stageInfo.Location), meta.dstFileName), os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer output.Close()
 	data := make([]byte, meta.uploadSize)
 	for {
 		n, err := frd.Read(data)
 		if err != nil && err != io.EOF {
-			panic(err)
+			return err
 		}
 		if n == 0 {
 			break
 		}
 
 		if _, err = output.Write(data); err != nil {
-			panic(err)
+			return err
 		}
 	}
 	meta.dstFileSize = meta.uploadSize
 	meta.resStatus = uploaded
+	return nil
 }
 
 func (util *localUtil) downloadOneFile() {
