@@ -544,13 +544,13 @@ asynchronous mode and synchronous mode.
 		...
 	}
 
-The function db.queryContext() returns an object of type snowflakeRows
+The function db.QueryContext() returns an object of type snowflakeRows
 regardless of whether the query is synchronous or asynchronous. However:
 
-	* If the query is synchronous, then db.queryContext() does not return until
+	* If the query is synchronous, then db.QueryContext() does not return until
 		the query has finished and the result set has been loaded into the
 		snowflakeRows object.
-	* If the query is asynchronous, then db.queryContext() returns a
+	* If the query is asynchronous, then db.QueryContext() returns a
 		potentially incomplete snowflakeRows object that is filled in later
 		in the background.
 
