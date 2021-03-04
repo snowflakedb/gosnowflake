@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"io"
 	"io/ioutil"
+	"net/url"
 	usr "os/user"
 	"path/filepath"
 	"strings"
@@ -59,10 +60,12 @@ func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (string,
 
 // file metadata for PUT/GET
 type fileMetadata struct {
-	name               string
-	srcFileName        string
-	srcFileSize        int
-	stageLocationType  cloudType
+	name              string
+	srcFileName       string
+	srcFileSize       int
+	stageLocationType cloudType
+	resStatus         resultStatus
+
 	stageInfo          *execResponseStageInfo
 	srcCompressionType *compressionType
 	dstCompressionType *compressionType
@@ -75,28 +78,30 @@ type fileMetadata struct {
 	dstFileSize        int64
 	overwrite          bool
 	sfa                *snowflakeFileTransferAgent
-	client             cloudClient
+	client             cloudClient // GetObjectOutput (S3), ContainerURL (Azure), string (GCS)
 	realSrcFileName    string
 	tmpDir             string
-	resStatus          resultStatus
+	presignedURL       *url.URL
+	errorDetails       error
+	lastError          error
+	noSleepingTime     bool
+	lastMaxConcurrency int
+	localLocation      string
+	localDigest        string
 
 	/* streaming PUT */
 	srcStream     *bytes.Buffer
 	realSrcStream *bytes.Buffer
 
-	putCallback             string
-	putAzureCallback        string
-	putCallbackOutputStream string
-	getCallback             string
-	getAzureCallback        string
-	getCallbackOutputStream string
-	presignedURL            string
-	errorDetails            error
-	lastError               error
-	noSleepingTime          bool
-	lastMaxConcurrency      int
-	localLocation           string
-	localDigest             string
+	/* PUT */
+	putCallback             *snowflakeProgressPercentage
+	putAzureCallback        *snowflakeProgressPercentage
+	putCallbackOutputStream *io.Writer
+
+	/* GET */
+	getCallback             *snowflakeProgressPercentage
+	getAzureCallback        *snowflakeProgressPercentage
+	getCallbackOutputStream *io.Writer
 }
 
 type fileTransferResultType struct {
@@ -114,7 +119,7 @@ type fileTransferResultType struct {
 type fileHeader struct {
 	digest             string
 	contentLength      int64
-	encryptionMetadata encryptMetadata
+	encryptionMetadata *encryptMetadata
 }
 
 func getReaderFromBuffer(src **bytes.Buffer) io.Reader {

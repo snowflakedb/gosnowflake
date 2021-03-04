@@ -13,13 +13,10 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"testing"
 	"time"
 )
-
-const isWindows bool = runtime.GOOS == "windows"
 
 func TestEncryptDecryptFile(t *testing.T) {
 	encMat := snowflakeFileEncryption{

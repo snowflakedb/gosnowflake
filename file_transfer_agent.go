@@ -7,9 +7,11 @@ package gosnowflake
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -21,9 +23,10 @@ type commandType string
 
 const (
 	fileProtocol      = "file://"
-	dataSizeThreshold = 67108864
+	dataSizeThreshold = 64 * 1024 * 1024
 	bigFileThreshold  = 200 * 1024 * 1024
 	injectWaitPut     = 0
+	isWindows         = runtime.GOOS == "windows"
 )
 
 const (
@@ -88,15 +91,15 @@ type snowflakeFileTransferAgent struct {
 
 	/* PUT */
 	forcePutOverwrite       bool
-	putCallback             string
-	putAzureCallback        string
-	putCallbackOutputStream string
+	putCallback             *snowflakeProgressPercentage
+	putAzureCallback        *snowflakeProgressPercentage
+	putCallbackOutputStream *io.Writer
 
 	/* GET */
 	presignedURLs           []string
-	getCallback             string
-	getAzureCallback        string
-	getCallbackOutputStream string
+	getCallback             *snowflakeProgressPercentage
+	getAzureCallback        *snowflakeProgressPercentage
+	getCallbackOutputStream *io.Writer
 }
 
 func (sfa *snowflakeFileTransferAgent) execute() error {
@@ -691,4 +694,14 @@ func isFileTransfer(query string) bool {
 	putRe := regexp.MustCompile(putRegexp)
 	getRe := regexp.MustCompile(getRegexp)
 	return putRe.Match([]byte(query)) || getRe.Match([]byte(query))
+}
+
+type snowflakeProgressPercentage struct {
+	filename        string
+	fileSize        float64
+	outputStream    *io.Writer
+	showProgressBar bool
+	seenSoFar       int
+	done            bool
+	startTime       time.Time
 }

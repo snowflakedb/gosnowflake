@@ -324,11 +324,16 @@ func TestBindingArray(t *testing.T) {
 // TestBindingBulkArray tests bulk array binding via the usage of the Array
 // function that converts the passed Golang slice to a Snowflake array type
 func TestBindingBulkArray(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	if runningOnGithubAction() {
 		t.Skip("client_stage_array_binding_threshold value is internal")
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQL)
-		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1") // TODO fix
 		defer dbt.mustExec(deleteTableSQL)
+		_, err := dbt.db.Exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
+		if err != nil {
+			t.Error(err)
+		}
 
 		intArray := []int{1, 2, 3}
 		fltArray := []float64{0.1, 2.34, 5.678}
