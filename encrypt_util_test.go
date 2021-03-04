@@ -4,7 +4,9 @@ package gosnowflake
 
 import (
 	"bufio"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -127,18 +129,18 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) string {
 				gzipOut, _ := gzipCmd.StdoutPipe()
 				gzipErr, _ := gzipCmd.StderrPipe()
 				gzipCmd.Start()
-				stdOut, _ := ioutil.ReadAll(gzipOut)
-				stdErr, _ := ioutil.ReadAll(gzipErr)
-				fmt.Println(stdOut, stdErr)
+				ioutil.ReadAll(gzipOut)
+				ioutil.ReadAll(gzipErr)
 				gzipCmd.Wait()
 			} else {
-				//var buf bytes.Buffer
-				//w := gzip.NewWriter(&buf)
-				//fIn, _ := os.OpenFile(fname, os.O_CREATE|os.O_RDONLY, os.ModePerm)
-				//w.Write(fIn)
-				//fOut, _ := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, os.ModePerm)
-				//
-				//io.Copy(fOut, fIn)
+				fOut, _ := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, os.ModePerm)
+				w := gzip.NewWriter(fOut)
+				defer w.Close()
+				fIn, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+				_, err := io.Copy(w, fIn)
+				if err != nil {
+					return ""
+				}
 			}
 		}
 	}

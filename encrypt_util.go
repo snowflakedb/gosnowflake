@@ -116,6 +116,9 @@ func encryptFile(sfe *snowflakeFileEncryption, filename string, chunkSize int, t
 	}
 	tmpOutputFile, _ := ioutil.TempFile(tmpDir, baseName(filename)+"#")
 	infile, err := os.OpenFile(filename, os.O_CREATE|os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return nil, "", err
+	}
 	meta, err := encryptStream(sfe, infile, tmpOutputFile, chunkSize)
 	if err != nil {
 		return nil, "", err
