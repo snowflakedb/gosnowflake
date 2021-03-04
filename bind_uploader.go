@@ -147,27 +147,27 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 		}
 	}
 
-	_, arr := snowflakeArrayToString(&columns[0])
-	numRows := len(arr)
-	for i := 0; i < numColumns; i++ {
-		_, arr = snowflakeArrayToString(&columns[i])
-		iNumRows := len(arr)
-		if iNumRows != numRows {
-			return nil, &SnowflakeError{
-				Number:      ErrBindSerialization,
-				Message:     errMsgBindColumnMismatch,
-				MessageArgs: []interface{}{i, iNumRows, numRows},
-			}
-		}
-	}
-
+	_, column := snowflakeArrayToString(&columns[0])
+	numRows := len(column)
 	csvRows := make([][]byte, 0)
 	rows := make([][]string, 0)
 	for rowIdx := 0; rowIdx < numRows; rowIdx++ {
 		rows = append(rows, make([]string, numColumns))
 	}
-	for colIdx := 0; colIdx < numColumns; colIdx++ {
-		_, column := snowflakeArrayToString(&columns[colIdx])
+
+	for rowIdx := 0; rowIdx < numRows; rowIdx++ {
+		rows[rowIdx][0] = column[rowIdx]
+	}
+	for colIdx := 1; colIdx < numColumns; colIdx++ {
+		_, column = snowflakeArrayToString(&columns[colIdx])
+		iNumRows := len(column)
+		if iNumRows != numRows {
+			return nil, &SnowflakeError{
+				Number:      ErrBindSerialization,
+				Message:     errMsgBindColumnMismatch,
+				MessageArgs: []interface{}{colIdx, iNumRows, numRows},
+			}
+		}
 		for rowIdx := 0; rowIdx < numRows; rowIdx++ {
 			rows[rowIdx][colIdx] = column[rowIdx] // length of column = number of rows
 		}

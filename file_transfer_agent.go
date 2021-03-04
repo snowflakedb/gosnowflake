@@ -125,7 +125,6 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 		if _, err := os.Stat(sfa.stageInfo.Location); os.IsNotExist(err) {
 			err = os.MkdirAll(sfa.stageInfo.Location, os.ModePerm) // TODO what if not enough permissions?
 			if err != nil {
-				fmt.Println("")
 				panic(err)
 			}
 		}
@@ -465,11 +464,11 @@ func (sfa *snowflakeFileTransferAgent) download(largeFileMetadata []fileMetadata
 func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMetadata) error {
 	idx := 0
 	fileMetaLen := len(fileMetas)
-	errChan := make(chan error)
 	var err error
 	for idx < fileMetaLen {
 		endOfIdx := intMin(fileMetaLen, idx+int(sfa.parallel))
 		targetMeta := fileMetas[idx:endOfIdx]
+		errChan := make(chan error, len(targetMeta))
 		for {
 			var wg sync.WaitGroup
 			results := make([]*fileMetadata, fileMetaLen)
@@ -483,9 +482,14 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 				}(i, meta, errChan)
 			}
 			wg.Wait()
+			count := 0
 			for err = range errChan {
 				if err != nil {
 					return err
+				}
+				count++
+				if count == len(targetMeta) {
+					break
 				}
 			}
 
