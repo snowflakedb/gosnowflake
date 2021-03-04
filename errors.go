@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -98,6 +98,30 @@ const (
 	// ErrNoDefaultTransactionIsolationLevel is an error code for the case where non default isolation level is specified.
 	ErrNoDefaultTransactionIsolationLevel = 263001
 
+	/* file transfer */
+
+	// ErrInvalidStageFs is an error code denoting an inavlid stage in the file system
+	ErrInvalidStageFs = 264001
+	// ErrFailedToUploadToStage is an error code denoting the failure to upload a file to the stage
+	ErrFailedToUploadToStage = 264003
+	// ErrInvalidStageLocation is an error code denoting an invalid stage location
+	ErrInvalidStageLocation = 264004
+	// ErrLocalPathNotDirectory is an error code denoting a local path that is not a directory
+	ErrLocalPathNotDirectory = 264005
+	// ErrFileNotExists is an error code denoting the file to be transferred does not exist
+	ErrFileNotExists = 264006
+	// ErrCompressionNotSupported is an error code denoting the user specified compression type is not supported
+	ErrCompressionNotSupported = 264007
+	// ErrInternalNotMatchEncryptMaterial is an error code denoting the encryption material specified does not match
+	ErrInternalNotMatchEncryptMaterial = 264008
+
+	/* binding */
+
+	// ErrBindSerialization is an error code for a failed serialization of bind variables
+	ErrBindSerialization = 265001
+	// ErrBindUpload is an error code for the uploading process of bind elements to the stage
+	ErrBindUpload = 265002
+
 	/* converter */
 
 	// ErrInvalidTimestampTz is an error code for the case where a returned TIMESTAMP_TZ internal value is invalid
@@ -156,6 +180,7 @@ const (
 	errMsgOCSPStatusUnknown                  = "OCSP unknown"
 	errMsgOCSPInvalidValidity                = "invalid validity: producedAt: %v, thisUpdate: %v, nextUpdate: %v"
 	errMsgOCSPNoOCSPResponderURL             = "no OCSP server is attached to the certificate. %v"
+	errMsgBindColumnMismatch                 = "column %v has a different number of binds (%v) than column 1 (%v)"
 )
 
 var (

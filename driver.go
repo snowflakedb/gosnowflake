@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"net/http"
+	"os"
 	"sync/atomic"
 )
 
@@ -134,4 +135,8 @@ var logger = CreateDefaultLogger()
 func init() {
 	sql.Register("snowflake", &SnowflakeDriver{})
 	logger.SetLogLevel("error")
+}
+
+func runningOnGithubAction() bool {
+	return os.Getenv("GITHUB_ACTIONS") != ""
 }

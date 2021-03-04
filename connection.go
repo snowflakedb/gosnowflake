@@ -31,6 +31,7 @@ const (
 const (
 	sessionClientSessionKeepAlive          = "client_session_keep_alive"
 	sessionClientValidateDefaultParameters = "CLIENT_VALIDATE_DEFAULT_PARAMETERS"
+	sessionArrayBindStageThreshold         = "client_stage_array_binding_threshold"
 	serviceName                            = "service_name"
 )
 
@@ -58,7 +59,7 @@ func (sc *snowflakeConn) isDml(v int64) bool {
 
 // isMultiStmt returns true if the statement type code is of type multistatement
 // Note that the statement type code is also equivalent to type INSERT, so an additional check of the name is required
-func (sc *snowflakeConn) isMultiStmt(data execResponseData) bool {
+func (sc *snowflakeConn) isMultiStmt(data *execResponseData) bool {
 	return data.StatementTypeID == statementTypeIDMulti && data.RowType[0].Name == "multiple statement execution"
 }
 
@@ -86,45 +87,37 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
 
-	tsmode := timestampNtzType
-	idx := 1
+	requestID := getOrGenerateRequestIDFromContext(ctx)
 	if len(bindings) > 0 {
-		req.Bindings = make(map[string]execBindParameter, len(bindings))
-		for _, binding := range bindings {
-			t := goTypeToSnowflake(binding.Value, tsmode)
-			logger.WithContext(ctx).Debugf("tmode: %v\n", t)
-			if t == changeType {
-				tsmode, err = dataTypeMode(binding.Value)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				var val interface{}
-				if t == sliceType {
-					// retrieve array binding data
-					t, val = snowflakeArrayToString(&binding)
-				} else {
-					val, err = valueToString(binding.Value, tsmode)
-					if err != nil {
-						return nil, err
-					}
-				}
-				if t == nullType || t == unSupportedType {
-					t = textType // if null or not supported, pass to GS as text
-				}
-				req.Bindings[strconv.Itoa(idx)] = execBindParameter{
-					Type:  t.String(),
-					Value: val,
-				}
-				idx++
+		arrayBindThreshold := sc.getArrayBindStageThreshold()
+		numBinds := arrayBindValueCount(bindings)
+		if 0 < arrayBindThreshold && arrayBindThreshold <= numBinds && !describeOnly && isArrayBind(bindings) {
+			// bulk array insert binding
+			uploader := bindUploader{
+				sc:        sc,
+				ctx:       ctx,
+				stagePath: "@" + stageName + "/" + requestID.String(),
 			}
+			uploader.upload(bindings)
+			req.Bindings = nil
+			req.BindStage = uploader.stagePath
+		} else {
+			// variable or array binding
+			req.Bindings, err = getBindValues(bindings)
+			if err != nil {
+				return nil, err
+			}
+			req.BindStage = ""
 		}
 	}
 	logger.WithContext(ctx).Infof("bindings: %v", req.Bindings)
 
 	headers := make(map[string]string)
 	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeApplicationSnowflake // TODO v1.1: change to JSON in case of PUT/GET
+	headers["accept"] = headerAcceptTypeApplicationSnowflake
+	if isFileTransfer(query) {
+		headers["accept"] = headerContentTypeApplicationJSON
+	}
 	headers["User-Agent"] = userAgent
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers["X-Snowflake-Service"] = *serviceName
@@ -136,8 +129,6 @@ func (sc *snowflakeConn) exec(
 	}
 
 	var data *execResponse
-
-	requestID := getOrGenerateRequestIDFromContext(ctx)
 	data, err = sc.rest.FuncPostQuery(ctx, sc.rest, &url.Values{}, headers, jsonBody, sc.rest.RequestTimeout, requestID, sc.cfg)
 	if err != nil {
 		return data, err
@@ -297,7 +288,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			insertID:     -1,
 			queryID:      sc.QueryID,
 		}, nil // last insert id is not supported by Snowflake
-	} else if sc.isMultiStmt(data.Data) {
+	} else if sc.isMultiStmt(&data.Data) {
 		return sc.handleMultiExec(ctx, data.Data)
 	}
 	logger.Debug("DDL")
@@ -343,7 +334,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	rows.ChunkDownloader = populateChunkDownloader(ctx, sc, data.Data)
 	rows.queryID = sc.QueryID
 
-	if sc.isMultiStmt(data.Data) {
+	if sc.isMultiStmt(&data.Data) {
 		err := sc.handleMultiQuery(ctx, data.Data, rows)
 		if err != nil {
 			return nil, err
@@ -429,6 +420,18 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 		return false
 	}
 	return strings.Compare(*v, "true") == 0
+}
+
+func (sc *snowflakeConn) getArrayBindStageThreshold() int {
+	v, ok := sc.cfg.Params[sessionArrayBindStageThreshold]
+	if !ok {
+		return 0
+	}
+	num, err := strconv.Atoi(*v)
+	if err != nil {
+		return 0
+	}
+	return num
 }
 
 func (sc *snowflakeConn) startHeartBeat() {
@@ -668,7 +671,7 @@ func getAsync(
 			res.insertID = -1
 			if sc.isDml(respd.Data.StatementTypeID) {
 				res.affectedRows, _ = updateRows(respd.Data)
-			} else if sc.isMultiStmt(respd.Data) {
+			} else if sc.isMultiStmt(&respd.Data) {
 				r, err := sc.handleMultiExec(ctx, respd.Data)
 				if err != nil {
 					res.errChannel <- err
@@ -688,7 +691,7 @@ func getAsync(
 			rows.sc = sc
 			rows.ChunkDownloader = populateChunkDownloader(ctx, sc, respd.Data)
 			rows.queryID = respd.Data.QueryID
-			if sc.isMultiStmt(respd.Data) {
+			if sc.isMultiStmt(&respd.Data) {
 				err = sc.handleMultiQuery(ctx, respd.Data, rows)
 				if err != nil {
 					rows.errChannel <- err

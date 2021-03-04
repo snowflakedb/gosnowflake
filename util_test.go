@@ -181,3 +181,23 @@ func TestToNamedValues(t *testing.T) {
 		}
 	}
 }
+
+type tcIntArrayMin struct {
+	in  []int
+	out int
+}
+
+func TestGetMin(t *testing.T) {
+	testcases := []tcIntArrayMin{
+		{[]int{1, 2, 3, 4, 5}, 1},
+		{[]int{10, 25, 15, 5, 20}, 5},
+		{[]int{15, 12, 9, 6, 3}, 3},
+		{[]int{123, 123, 123, 123, 123}, 123},
+	}
+	for _, test := range testcases {
+		a := getMin(test.in)
+		if test.out != a {
+			t.Errorf("failed get min. in: %v, expected: %v, got: %v", test.in, test.out, a)
+		}
+	}
+}
