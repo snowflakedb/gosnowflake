@@ -15,7 +15,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/ocsp"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -30,6 +29,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/crypto/ocsp"
 )
 
 // caRoot includes the CA certificates.
@@ -722,7 +723,7 @@ func initOCSPCache() {
 	logger.Infof("reading OCSP Response cache file. %v\n", cacheFileName)
 	f, err := os.Open(cacheFileName)
 	if err != nil {
-		logger.Errorf("failed to open. Ignored. %v\n", err)
+		logger.Infof("failed to open. Ignored. %v\n", err)
 		return
 	}
 	defer f.Close()
@@ -735,7 +736,7 @@ func initOCSPCache() {
 		if err := dec.Decode(&buf); err == io.EOF {
 			break
 		} else if err != nil {
-			logger.Errorf("failed to read. Ignored. %v\n", err)
+			logger.Infof("failed to read. Ignored. %v\n", err)
 			return
 		}
 	}
@@ -796,7 +797,7 @@ func extractOCSPCacheResponseValue(cacheValue []interface{}, subject, issuer *x5
 		// check the revocation status here
 		r, err = ocsp.ParseResponse(b, issuer)
 		if err != nil {
-			logger.Warnf("the second cache element is not a valid OCSP Response. Ignored. subject: %v\n", subjectName)
+			logger.Infof("the second cache element is not a valid OCSP Response. Ignored. subject: %v\n", subjectName)
 			return &ocspStatus{
 				code: ocspFailedParseResponse,
 				err:  fmt.Errorf("failed to parse OCSP Respose. subject: %v, err: %v", subjectName, err),
