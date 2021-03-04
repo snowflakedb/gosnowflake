@@ -3,7 +3,11 @@ module github.com/snowflakedb/gosnowflake
 go 1.15
 
 require (
+	github.com/Azure/azure-storage-blob-go v0.13.0
 	github.com/apache/arrow/go/arrow v0.0.0-20200601151325-b2287a20f230
+	github.com/aws/aws-sdk-go-v2 v1.2.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.1.1
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.2.0
 	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
