@@ -3,4 +3,4 @@ repos:
 # - repo: https://github.com/snowflakedb/casec_precommit.git # HTTPS
   rev: v1.5
   hooks:
-  - id: secret-scanner
+  - id: snapps-secret-scanner
