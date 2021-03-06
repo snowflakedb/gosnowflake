@@ -33,27 +33,27 @@ func (util *snowflakeS3Util) createClient(info *execResponseStageInfo, useAccele
 
 // storageUtil implementation
 func (util *snowflakeS3Util) uploadOneFileWithRetry(meta *fileMetadata) error {
-	// TODO
+	// TODO SNOW-294154
 	return nil
 }
 
 // storageUtil implementation
 func (util *snowflakeS3Util) downloadOneFile() {
-	// TODO
+	// TODO SNOW-294151
 }
 
 // cloudUtil implementation
 func (util *snowflakeS3Util) getFileHeader(meta *fileMetadata, filename string) *fileHeader {
-	// TODO
+	// TODO SNOW-294154
 	return nil
 }
 
 // cloudUtil implementation
 func (util *snowflakeS3Util) uploadFile(dataFile string, meta *fileMetadata, encryptMeta *encryptMetadata, maxConcurrency int64) {
-	// TODO
+	// TODO SNOW-294154
 }
 
 // cloudUtil implementation
 func (util *snowflakeS3Util) nativeDownloadFile() {
-	// TODO
+	// TODO SNOW-294151
 }

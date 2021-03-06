@@ -91,7 +91,7 @@ type fileMetadata struct {
 	showProgressBar                 bool
 	gcsFileHeaderDigest             string
 	gcsFileHeaderContentLength      int
-	gcsFileHeaderEncryptionMetadata *encryptMetadata
+	gcsFileHeaderEncryptionMeta *encryptMetadata
 
 	/* streaming PUT */
 	srcStream     *bytes.Buffer
