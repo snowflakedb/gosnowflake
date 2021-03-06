@@ -589,11 +589,11 @@ func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudT
 	if stageLocationType == local {
 		return &localUtil{}
 	} else if stageLocationType == s3Client {
-		return nil // TODO SNOW-29352
+		return &snowflakeS3Util{}
 	} else if stageLocationType == azureClient {
-		return nil // TODO SNOW-29352
+		return &snowflakeAzureUtil{}
 	} else if stageLocationType == gcsClient {
-		return nil // TODO SNOW-29352
+		return &snowflakeGcsUtil{}
 	}
 	return nil
 }
