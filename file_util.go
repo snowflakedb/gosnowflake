@@ -66,28 +66,32 @@ type fileMetadata struct {
 	stageLocationType cloudType
 	resStatus         resultStatus
 
-	stageInfo          *execResponseStageInfo
-	srcCompressionType *compressionType
-	dstCompressionType *compressionType
-	requireCompress    bool
-	dstFileName        string
-	parallel           int64
-	sha256Digest       string
-	uploadSize         int64
-	encryptionMaterial *snowflakeFileEncryption
-	dstFileSize        int64
-	overwrite          bool
-	sfa                *snowflakeFileTransferAgent
-	client             cloudClient // GetObjectOutput (S3), ContainerURL (Azure), string (GCS)
-	realSrcFileName    string
-	tmpDir             string
-	presignedURL       *url.URL
-	errorDetails       error
-	lastError          error
-	noSleepingTime     bool
-	lastMaxConcurrency int
-	localLocation      string
-	localDigest        string
+	stageInfo                       *execResponseStageInfo
+	srcCompressionType              *compressionType
+	dstCompressionType              *compressionType
+	requireCompress                 bool
+	dstFileName                     string
+	parallel                        int64
+	sha256Digest                    string
+	uploadSize                      int64
+	encryptionMaterial              *snowflakeFileEncryption
+	dstFileSize                     int64
+	overwrite                       bool
+	sfa                             *snowflakeFileTransferAgent
+	client                          cloudClient // GetObjectOutput (S3), ContainerURL (Azure), string (GCS)
+	realSrcFileName                 string
+	tmpDir                          string
+	presignedURL                    *url.URL
+	errorDetails                    error
+	lastError                       error
+	noSleepingTime                  bool
+	lastMaxConcurrency              int
+	localLocation                   string
+	localDigest                     string
+	showProgressBar                 bool
+	gcsFileHeaderDigest             string
+	gcsFileHeaderContentLength      int
+	gcsFileHeaderEncryptionMeta *encryptMetadata
 
 	/* streaming PUT */
 	srcStream     *bytes.Buffer

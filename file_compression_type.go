@@ -3,7 +3,6 @@
 package gosnowflake
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -123,7 +122,6 @@ func (fct *fileCompressionType) init() {
 }
 
 func (fct *fileCompressionType) lookupByMimeSubType(mimeSubType string) *compressionType {
-	fmt.Println(mimeSubType)
 	if val, ok := fct.subTypeToMeta[strings.ToLower(mimeSubType)]; ok {
 		return &val
 	}
