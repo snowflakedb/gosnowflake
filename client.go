@@ -30,12 +30,12 @@ type InternalClient interface {
 
 // HTTPClient implements InternalClient
 type HTTPClient struct {
-	cfg Config
+	cfg *Config
 	st  http.RoundTripper
 }
 
 // SetConfig sets config
-func (cli *HTTPClient) SetConfig(config Config) {
+func (cli *HTTPClient) SetConfig(config *Config) {
 	cli.cfg = config
 	cli.st = SnowflakeTransport
 	if config.Transporter == nil {
