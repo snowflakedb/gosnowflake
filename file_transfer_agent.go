@@ -24,14 +24,13 @@ type commandType string
 const (
 	fileProtocol      = "file://"
 	dataSizeThreshold = 64 * 1024 * 1024
-	bigFileThreshold  = 200 * 1024 * 1024
 	injectWaitPut     = 0
 	isWindows         = runtime.GOOS == "windows"
 )
 
 const (
 	uploadCommand   commandType = "UPLOAD"
-	downloadCommand commandType = "DOWNLOAD"
+	downloadCommand commandType = "DOWNLOAD" // TODO SNOW-294151
 	unknownCommand  commandType = "UNKNOWN"
 	putRegexp       string      = `(?i)^(?:/\*.*\*/\s*)*put\s+`
 	getRegexp       string      = `(?i)^(?:/\*.*\*/\s*)*get\s+`
@@ -103,7 +102,6 @@ type snowflakeFileTransferAgent struct {
 }
 
 func (sfa *snowflakeFileTransferAgent) execute() error {
-	fmt.Println("execute")
 	var err error
 	err = sfa.parseCommand()
 	if err != nil {
@@ -123,7 +121,7 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 
 	if sfa.stageLocationType == local {
 		if _, err := os.Stat(sfa.stageInfo.Location); os.IsNotExist(err) {
-			err = os.MkdirAll(sfa.stageInfo.Location, os.ModePerm) // TODO what if not enough permissions?
+			err = os.MkdirAll(sfa.stageInfo.Location, os.ModePerm)
 			if err != nil {
 				panic(err)
 			}
@@ -163,14 +161,14 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 		sfa.upload(largeFileMetas, smallFileMetas)
 	}
 
-	//if sfa.commandType == downloadCommand {
-	//	// TODO SNOW-206124
-	//}
+	if sfa.commandType == downloadCommand {
+		// TODO SNOW-206124
+		panic("not implemented")
+	}
 	return nil
 }
 
 func (sfa *snowflakeFileTransferAgent) parseCommand() error {
-	fmt.Println("parse command")
 	if sfa.data.Command != "" {
 		sfa.commandType = commandType(sfa.data.Command)
 	} else {
@@ -255,7 +253,6 @@ func (sfa *snowflakeFileTransferAgent) initEncryptionMaterial() {
 }
 
 func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
-	fmt.Println("init file metadata")
 	sfa.fileMetadata = make([]*fileMetadata, 0)
 	if sfa.commandType == uploadCommand {
 		if len(sfa.srcFiles) == 0 {
@@ -289,7 +286,6 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 }
 
 func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
-	fmt.Println("process file compression type")
 	var userSpecifiedSourceCompression *compressionType
 	var autoDetect bool
 	fct := new(fileCompressionType)
@@ -538,7 +534,6 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMe
 }
 
 func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileMetadata, error) {
-	fmt.Println("upload one file")
 	meta.realSrcFileName = meta.srcFileName
 	tmpDir := os.TempDir()
 	meta.tmpDir = tmpDir
@@ -589,11 +584,11 @@ func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudT
 	if stageLocationType == local {
 		return &localUtil{}
 	} else if stageLocationType == s3Client {
-		return nil // TODO SNOW-29352
+		return &snowflakeS3Util{}
 	} else if stageLocationType == azureClient {
-		return nil // TODO SNOW-29352
+		return &snowflakeAzureUtil{}
 	} else if stageLocationType == gcsClient {
-		return nil // TODO SNOW-29352
+		return &snowflakeGcsUtil{}
 	}
 	return nil
 }
