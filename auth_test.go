@@ -251,6 +251,51 @@ func getDefaultSnowflakeConn() *snowflakeConn {
 	return sc
 }
 
+func TestUnitAuthenticateWithTokenAccessor(t *testing.T) {
+	expectedSessionID := 123
+	expectedMasterToken := "master_token"
+	expectedToken := "auth_token"
+
+	ta := getSimpleTokenAccessor()
+	ta.SetTokens(expectedToken, expectedMasterToken, expectedSessionID)
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = AuthTypeTokenAccessor
+	sc.cfg.TokenAccessor = ta
+	sr := &snowflakeRestful{
+		FuncPostAuth:  postAuthFailServiceIssue,
+		TokenAccessor: ta,
+	}
+	sc.rest = sr
+
+	// FuncPostAuth is set to fail, but AuthTypeTokenAccessor should not even make a call to FuncPostAuth
+	resp, err := authenticate(context.TODO(), sc, []byte{}, []byte{})
+	if err != nil {
+		t.Fatalf("should not have failed, err %v", err)
+	}
+
+	if resp.SessionID != expectedSessionID {
+		t.Fatalf("Expected session id %v but got %v", expectedSessionID, resp.SessionID)
+	}
+	if resp.Token != expectedToken {
+		t.Fatalf("Expected token %v but got %v", expectedToken, resp.Token)
+	}
+	if resp.MasterToken != expectedMasterToken {
+		t.Fatalf("Expected master token %v but got %v", expectedMasterToken, resp.MasterToken)
+	}
+	if resp.SessionInfo.DatabaseName != sc.cfg.Database {
+		t.Fatalf("Expected database %v but got %v", sc.cfg.Database, resp.SessionInfo.DatabaseName)
+	}
+	if resp.SessionInfo.WarehouseName != sc.cfg.Warehouse {
+		t.Fatalf("Expected warehouse %v but got %v", sc.cfg.Warehouse, resp.SessionInfo.WarehouseName)
+	}
+	if resp.SessionInfo.RoleName != sc.cfg.Role {
+		t.Fatalf("Expected role %v but got %v", sc.cfg.Role, resp.SessionInfo.RoleName)
+	}
+	if resp.SessionInfo.SchemaName != sc.cfg.Schema {
+		t.Fatalf("Expected schema %v but got %v", sc.cfg.Schema, resp.SessionInfo.SchemaName)
+	}
+}
+
 func TestUnitAuthenticate(t *testing.T) {
 	var err error
 	var driverErr *SnowflakeError

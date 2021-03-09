@@ -39,6 +39,8 @@ const (
 	AuthTypeOkta
 	// AuthTypeJwt is to use Jwt to perform authentication
 	AuthTypeJwt
+	// AuthTypeTokenAccessor is to use the provided token accessor and bypass authentication
+	AuthTypeTokenAccessor
 )
 
 func determineAuthenticatorType(cfg *Config, value string) error {
@@ -101,6 +103,8 @@ func (authType AuthType) String() string {
 		return "OKTA"
 	case AuthTypeJwt:
 		return "SNOWFLAKE_JWT"
+	case AuthTypeTokenAccessor:
+		return "TOKENACCESSOR"
 	default:
 		return "UNKNOWN"
 	}
@@ -318,6 +322,21 @@ func authenticate(
 			requestMain.Passcode = sc.cfg.Passcode
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		}
+	case AuthTypeTokenAccessor:
+		logger.Info("Bypass authentication using existing token from token accessor")
+		sessionInfo := authResponseSessionInfo{
+			DatabaseName:  sc.cfg.Database,
+			SchemaName:    sc.cfg.Schema,
+			WarehouseName: sc.cfg.Warehouse,
+			RoleName:      sc.cfg.Role,
+		}
+		token, masterToken, sessionID := sc.cfg.TokenAccessor.GetTokens()
+		return &authResponseMain{
+			Token:       token,
+			MasterToken: masterToken,
+			SessionID:   sessionID,
+			SessionInfo: sessionInfo,
+		}, nil
 	}
 
 	authRequest := authRequest{
