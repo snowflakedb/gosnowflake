@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -122,6 +124,61 @@ func renewSessionTest(_ context.Context, _ *snowflakeRestful, _ time.Duration) e
 
 func renewSessionTestError(_ context.Context, _ *snowflakeRestful, _ time.Duration) error {
 	return errors.New("failed to renew session in tests")
+}
+
+func TestUnitTokenAccessorRenewSession(t *testing.T) {
+	accessor := getSimpleTokenAccessor()
+	oldToken := "test"
+	accessor.SetTokens(oldToken, "master", 123)
+	var counter int32 = 0
+
+	expectedToken := "new token"
+	expectedMaster := "new master"
+	expectedSession := 321
+
+	renewSessionDummy := func(_ context.Context, sr *snowflakeRestful, _ time.Duration) error {
+		accessor.SetTokens(expectedToken, expectedMaster, expectedSession)
+		atomic.AddInt32(&counter, 1)
+		return nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncRenewSession: renewSessionDummy,
+		TokenAccessor:    accessor,
+	}
+
+	var wg sync.WaitGroup
+	var renewalError error
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			err := sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken)
+			if err != nil {
+				renewalError = err
+			}
+			wg.Done()
+		}()
+	}
+	// wait for all competing goroutines to finish calling renew expired session token
+	wg.Wait()
+
+	if renewalError != nil {
+		t.Fatalf("failed to renew session, error %v", renewalError)
+	}
+	newToken, newMaster, newSession := accessor.GetTokens()
+	if newToken != expectedToken {
+		t.Fatalf("token %v does not match expected %v", newToken, expectedToken)
+	}
+	if newMaster != expectedMaster {
+		t.Fatalf("master token %v does not match expected %v", newMaster, expectedMaster)
+	}
+	if newSession != expectedSession {
+		t.Fatalf("session %v does not match expected %v", newSession, expectedSession)
+	}
+	// only the first renewal will go through and FuncRenewSession should be called exactly once
+	if counter != 1 {
+		t.Fatalf("renew expired session was called more than once: %v", counter)
+	}
 }
 
 func TestUnitPostQueryHelperUsesToken(t *testing.T) {
