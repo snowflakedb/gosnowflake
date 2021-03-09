@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -465,5 +466,64 @@ func TestCanEarlyExitForOCSP(t *testing.T) {
 		if !(tt.retFailClosed == nil && r == nil) && !(tt.retFailClosed != nil && r != nil && tt.retFailClosed.code == r.code) {
 			t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailClosed, r)
 		}
+	}
+}
+
+func TestInitOCSPCacheFileCreation(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("cannot write to github file system")
+	}
+	tmpFileName := cacheFileName + "_tmp" // cacheFileName is global
+	dst, err := os.Create(tmpFileName)
+	if err != nil {
+		t.Error(err)
+	}
+	defer dst.Close()
+
+	var src *os.File
+	if _, err = os.Stat(cacheFileName); errors.Is(err, os.ErrNotExist) {
+		// file does not exist
+		t.Logf("file %v does not exist", cacheFileName)
+		if _, err = os.Create(cacheFileName); err != nil {
+			t.Error(err)
+		}
+	} else if err != nil {
+		t.Error(err)
+	} else {
+		// file exists
+		src, err = os.Open(cacheFileName)
+		if err != nil {
+			t.Error(err)
+		}
+		defer src.Close()
+		// copy original contents to temporary file
+		if _, err = io.Copy(dst, src); err != nil {
+			t.Error(err)
+		}
+		if err = os.Remove(cacheFileName); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// cleanup
+	defer func() {
+		src, _ = os.Open(tmpFileName)
+		defer src.Close()
+		dst, _ = os.OpenFile(cacheFileName, os.O_WRONLY, os.ModePerm)
+		defer dst.Close()
+		// copy temporary file contents back to original file
+		if _, err = io.Copy(dst, src); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Remove(tmpFileName); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	initOCSPCache()
+	if _, err = os.Stat(cacheFileName); errors.Is(err, os.ErrNotExist) {
+		t.Error(err)
+	} else if err != nil {
+		t.Error(err)
 	}
 }
