@@ -124,10 +124,11 @@ type TokenAccessor interface {
 }
 
 type simpleTokenAccessor struct {
-	token       string
-	masterToken string
-	sessionID   int
-	lock        sync.Mutex
+	token        string
+	masterToken  string
+	sessionID    int
+	accessorLock sync.Mutex   // Used to implement accessor's Lock and Unlock
+	tokenLock    sync.RWMutex // Used to synchronize SetTokens and GetTokens
 }
 
 func getSimpleTokenAccessor() TokenAccessor {
@@ -135,20 +136,24 @@ func getSimpleTokenAccessor() TokenAccessor {
 }
 
 func (sta *simpleTokenAccessor) Lock() error {
-	sta.lock.Lock()
+	sta.accessorLock.Lock()
 	return nil
 }
 
 func (sta *simpleTokenAccessor) Unlock() error {
-	sta.lock.Unlock()
+	sta.accessorLock.Unlock()
 	return nil
 }
 
 func (sta *simpleTokenAccessor) GetTokens() (token string, masterToken string, sessionID int) {
+	sta.tokenLock.RLock()
+	defer sta.tokenLock.RUnlock()
 	return sta.token, sta.masterToken, sta.sessionID
 }
 
 func (sta *simpleTokenAccessor) SetTokens(token string, masterToken string, sessionID int) {
+	sta.tokenLock.Lock()
+	defer sta.tokenLock.Unlock()
 	sta.token = token
 	sta.masterToken = masterToken
 	sta.sessionID = sessionID
