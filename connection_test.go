@@ -171,7 +171,10 @@ func TestServiceName(t *testing.T) {
 	}
 }
 
+var closedSessionCount = 0
+
 func closeSessionMock(_ context.Context, _ *snowflakeRestful, _ time.Duration) error {
+	closedSessionCount++
 	return &SnowflakeError{
 		Number: ErrSessionGone,
 	}
@@ -191,7 +194,24 @@ func TestCloseIgnoreSessionGone(t *testing.T) {
 	}
 }
 
-// test
+func TestClientSessionPersist(t *testing.T) {
+	sr := &snowflakeRestful{
+		FuncCloseSession: closeSessionMock,
+	}
+	sc := &snowflakeConn{
+		cfg:  &Config{Params: map[string]*string{}},
+		rest: sr,
+	}
+	sc.cfg.KeepSessionAlive = true
+	count := closedSessionCount
+	if sc.Close() != nil {
+		t.Error("Connection close should not return error")
+	}
+	if count != closedSessionCount {
+		t.Fatal("close session was called")
+	}
+}
+
 func TestFetchResultByQueryID(t *testing.T) {
 	fetchResultByQueryID(t, nil, nil)
 }
