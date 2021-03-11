@@ -495,10 +495,10 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		}
 	}
 	headers := make(map[string]string)
-	headers["Content-Type"] = "application/ocsp-request"
-	headers["Accept"] = "application/ocsp-response"
-	headers["Content-Length"] = strconv.Itoa(len(ocspReq))
-	headers["Host"] = hostname
+	headers[httpHeaderContentType] = "application/ocsp-request"
+	headers[httpHeaderAccept] = "application/ocsp-response"
+	headers[httpHeaderContentLength] = strconv.Itoa(len(ocspReq))
+	headers[httpHeaderHost] = hostname
 	timeoutStr := os.Getenv(ocspTestResponderTimeoutEnv)
 	timeout := defaultOCSPResponderTimeout
 	if timeoutStr != "" {

@@ -58,10 +58,7 @@ func (hc *heartbeat) heartbeatMain() error {
 	params := &url.Values{}
 	params.Add(requestIDKey, uuid.New().String())
 	params.Add(requestGUIDKey, uuid.New().String())
-	headers := make(map[string]string)
-	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeApplicationSnowflake
-	headers["User-Agent"] = userAgent
+	headers := getHeaders()
 	token, _, _ := hc.restful.TokenAccessor.GetTokens()
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 

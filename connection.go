@@ -18,6 +18,15 @@ import (
 )
 
 const (
+	httpHeaderContentType   = "Content-Type"
+	httpHeaderAccept        = "accept"
+	httpHeaderUserAgent     = "User-Agent"
+	httpHeaderServiceName   = "X-Snowflake-Service"
+	httpHeaderContentLength = "Content-Length"
+	httpHeaderHost          = "Host"
+)
+
+const (
 	statementTypeIDMulti = int64(0x1000)
 
 	statementTypeIDDml              = int64(0x3000)
@@ -38,7 +47,7 @@ const (
 type resultType string
 
 const (
-	snowflakeResultType paramKey   = "snowflakeResultType"
+	snowflakeResultType contextKey = "snowflakeResultType"
 	execResultType      resultType = "exec"
 	queryResultType     resultType = "query"
 )
@@ -112,15 +121,12 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("bindings: %v", req.Bindings)
 
-	headers := make(map[string]string)
-	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeApplicationSnowflake
+	headers := getHeaders()
 	if isFileTransfer(query) {
-		headers["accept"] = headerContentTypeApplicationJSON
+		headers[httpHeaderUserAgent] = headerContentTypeApplicationJSON
 	}
-	headers["User-Agent"] = userAgent
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
-		headers["X-Snowflake-Service"] = *serviceName
+		headers[httpHeaderServiceName] = *serviceName
 	}
 
 	jsonBody, err := json.Marshal(req)
@@ -575,12 +581,9 @@ func getChildResults(IDs string, types string) []childResult {
 }
 
 func (sc *snowflakeConn) getQueryResult(ctx context.Context, resultPath string) (*execResponse, error) {
-	headers := make(map[string]string)
-	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeApplicationSnowflake
-	headers["User-Agent"] = userAgent
+	headers := getHeaders()
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
-		headers["X-Snowflake-Service"] = *serviceName
+		headers[httpHeaderServiceName] = *serviceName
 	}
 	param := make(url.Values)
 	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())

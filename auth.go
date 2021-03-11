@@ -117,13 +117,13 @@ var platform = fmt.Sprintf("%v-%v", runtime.Compiler, runtime.GOARCH)
 var operatingSystem = runtime.GOOS
 
 // userAgent shows up in User-Agent HTTP header
-var userAgent = fmt.Sprintf("%v/%v/%v/%v/%v-%v",
+var userAgent = fmt.Sprintf("%v/%v (%v-%v) %v/%v",
 	clientType,
 	SnowflakeGoDriverVersion,
-	runtime.Compiler,
-	runtime.Version(),
 	operatingSystem,
-	runtime.GOARCH)
+	runtime.GOARCH,
+	runtime.Compiler,
+	runtime.Version())
 
 type authRequestClientEnvironment struct {
 	Application string `json:"APPLICATION"`
@@ -254,9 +254,9 @@ func postAuth(
 // with Snowflake.
 func getHeaders() map[string]string {
 	headers := make(map[string]string)
-	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeApplicationSnowflake
-	headers["User-Agent"] = userAgent
+	headers[httpHeaderContentType] = headerContentTypeApplicationJSON
+	headers[httpHeaderAccept] = headerAcceptTypeApplicationSnowflake
+	headers[httpHeaderUserAgent] = userAgent
 	return headers
 }
 

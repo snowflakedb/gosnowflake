@@ -22,7 +22,7 @@ const serviceNameAppend = "a"
 // This way it could test both the send and receive logic
 func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID, _ *Config) (*execResponse, error) {
 	var serviceName string
-	if serviceHeader, ok := headers["X-Snowflake-Service"]; ok {
+	if serviceHeader, ok := headers[httpHeaderServiceName]; ok {
 		serviceName = serviceHeader + serviceNameAppend
 	} else {
 		serviceName = serviceNameStub

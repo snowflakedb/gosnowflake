@@ -59,9 +59,9 @@ func authenticateBySAML(
 ) (samlResponse []byte, err error) {
 	logger.WithContext(ctx).Info("step 1: query GS to obtain IDP token and SSO url")
 	headers := make(map[string]string)
-	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerContentTypeApplicationJSON
-	headers["User-Agent"] = userAgent
+	headers[httpHeaderContentType] = headerContentTypeApplicationJSON
+	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
+	headers[httpHeaderUserAgent] = userAgent
 
 	clientEnvironment := authRequestClientEnvironment{
 		Application: application,
@@ -138,7 +138,7 @@ func authenticateBySAML(
 	params.Add("onetimetoken", respa.CookieToken)
 
 	headers = make(map[string]string)
-	headers["accept"] = "*/*"
+	headers[httpHeaderAccept] = "*/*"
 	bd, err := sr.FuncGetSSO(ctx, sr, params, headers, respd.Data.SSOURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
