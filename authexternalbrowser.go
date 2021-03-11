@@ -90,9 +90,9 @@ func getIdpURLProofKey(
 	callbackPort int) (string, string, error) {
 
 	headers := make(map[string]string)
-	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerContentTypeApplicationJSON
-	headers["User-Agent"] = userAgent
+	headers[httpHeaderContentType] = headerContentTypeApplicationJSON
+	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
+	headers[httpHeaderUserAgent] = userAgent
 
 	clientEnvironment := authRequestClientEnvironment{
 		Application: application,
