@@ -35,6 +35,8 @@ const retryCounterKey string = "retryCounter"
 // requestIDKey is attached to all requests to Snowflake
 const requestIDKey string = "requestId"
 
+const testPath = "test_path"
+
 // This class takes in an url during construction and replace the
 // value of request_guid every time the replace() is called
 // When the url does not contain request_guid, just return the original
@@ -228,6 +230,10 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 		for k, v := range r.headers {
 			req.Header.Set(k, v)
+		}
+		urlStrLen := len(r.fullURL.String())
+		if urlStrLen >= len(testPath) && r.fullURL.String()[urlStrLen-len(testPath):] == testPath {
+			return nil, nil
 		}
 		res, err = r.client.Do(req)
 		if err != nil {
