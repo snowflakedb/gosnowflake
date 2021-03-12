@@ -31,23 +31,32 @@ type InternalClient interface {
 // HTTPClient implements InternalClient
 type HTTPClient struct {
 	cfg *Config
-	st  http.RoundTripper
+	client clientInterface
 }
 
 // SetConfig sets config
 func (cli *HTTPClient) SetConfig(config *Config) {
 	cli.cfg = config
-	cli.st = SnowflakeTransport
+	cli.cfg.Transporter = SnowflakeTransport
 	if config.Transporter == nil {
 		if config.InsecureMode {
-			cli.st = snowflakeInsecureTransport
+			cli.cfg.Transporter = snowflakeInsecureTransport
 		} else {
 			ocspResponseCacheLock.Lock()
 			atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(config.OCSPFailOpen))
 			ocspResponseCacheLock.Unlock()
 		}
 	} else {
-		cli.st = config.Transporter
+		cli.cfg.Transporter = config.Transporter
+	}
+
+	if cli.cfg.TokenAccessor == nil {
+		cli.cfg.TokenAccessor = getSimpleTokenAccessor()
+	}
+
+	cli.client = &http.Client{
+		Timeout: defaultClientTimeout,
+		Transport: cli.cfg.Transporter,
 	}
 }
 
@@ -55,10 +64,7 @@ func (cli *HTTPClient) SetConfig(config *Config) {
 func (cli *HTTPClient) Get(path string, headers map[string]string, timeout time.Duration) (*http.Response, error) {
 	return newRetryHTTP(
 		context.Background(),
-		&http.Client{
-			Timeout:   defaultClientTimeout,
-			Transport: cli.st,
-		},
+		cli.client,
 		http.NewRequest,
 		&url.URL{Scheme: cli.cfg.Protocol,
 			Host: cli.cfg.Host + ":" + strconv.Itoa(cli.cfg.Port),
@@ -72,10 +78,7 @@ func (cli *HTTPClient) Get(path string, headers map[string]string, timeout time.
 // Post implements InternalClient
 func (cli *HTTPClient) Post(path string, headers map[string]string, body []byte, timeout time.Duration) (*http.Response, error) {
 	return newRetryHTTP(context.Background(),
-		&http.Client{
-			Timeout:   defaultClientTimeout,
-			Transport: cli.st,
-		},
+		cli.client,
 		http.NewRequest,
 		&url.URL{Scheme: cli.cfg.Protocol,
 			Host: cli.cfg.Host + ":" + strconv.Itoa(cli.cfg.Port),
@@ -84,4 +87,8 @@ func (cli *HTTPClient) Post(path string, headers map[string]string, body []byte,
 		headers,
 		timeout,
 	).doPost().setBody(body).doRaise4XX(true).execute()
+}
+
+func (cli *HTTPClient) setClient(client clientInterface) {
+	cli.client = client
 }
