@@ -17,8 +17,9 @@ func TestHTTPClientGet(t *testing.T) {
 	c, _ := sf.Open(dsn)
 	conn := c.(*snowflakeConn)
 	httpClient.SetConfig(conn.cfg)
+	httpClient.setClient(&fakeHTTPClient{success: true})
 
-	_, err := httpClient.Get(testPath, getHeaders(), defaultClientTimeout)
+	_, err := httpClient.Get("test_path", getHeaders(), defaultClientTimeout)
 	if err != nil {
 		t.Error(err)
 	}
@@ -35,8 +36,9 @@ func TestHTTPClientPost(t *testing.T) {
 	c, _ := sf.Open(dsn)
 	conn := c.(*snowflakeConn)
 	httpClient.SetConfig(conn.cfg)
+	httpClient.setClient(&fakeHTTPClient{success: true})
 
-	_, err := httpClient.Post(testPath, getHeaders(), nil, defaultClientTimeout)
+	_, err := httpClient.Post("test_path", getHeaders(), nil, defaultClientTimeout)
 	if err != nil {
 		t.Error(err)
 	}
