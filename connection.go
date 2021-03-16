@@ -542,6 +542,11 @@ func (sc *snowflakeConn) handleMultiQuery(ctx context.Context, data execResponse
 	return nil
 }
 
+// Return a new InternalClient
+func (sc *snowflakeConn) newInternalClient() InternalClient {
+	return &restClient{sr: sc.rest}
+}
+
 func setResultType(ctx context.Context, resType resultType) context.Context {
 	return context.WithValue(ctx, snowflakeResultType, resType)
 }
