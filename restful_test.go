@@ -126,7 +126,40 @@ func renewSessionTestError(_ context.Context, _ *snowflakeRestful, _ time.Durati
 	return errors.New("failed to renew session in tests")
 }
 
-func TestUnitTokenAccessorRenewSession(t *testing.T) {
+func TestUnitTokenAccessorDoesNotRenewStaleToken(t *testing.T) {
+	accessor := getSimpleTokenAccessor()
+	oldToken := "test"
+	accessor.SetTokens(oldToken, "master", 123)
+
+	renewSessionCalled := false
+	renewSessionDummy := func(_ context.Context, sr *snowflakeRestful, _ time.Duration) error {
+		// should not have gotten to actual renewal
+		renewSessionCalled = true
+		return nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncRenewSession: renewSessionDummy,
+		TokenAccessor:    accessor,
+	}
+
+	// try to intentionally renew with stale token
+	sr.renewExpiredSessionToken(context.Background(), time.Hour, "stale-token")
+
+	if renewSessionCalled {
+		t.Fatal("FuncRenewSession should not have been called")
+	}
+
+	// set the current token to empty, should still call renew even if stale token is passed in
+	accessor.SetTokens("", "master", 123)
+	sr.renewExpiredSessionToken(context.Background(), time.Hour, "stale-token")
+
+	if !renewSessionCalled {
+		t.Fatal("FuncRenewSession should have been called because current token is empty")
+	}
+}
+
+func TestUnitTokenAccessorRenewSessionContention(t *testing.T) {
 	accessor := getSimpleTokenAccessor()
 	oldToken := "test"
 	accessor.SetTokens(oldToken, "master", 123)
@@ -147,20 +180,29 @@ func TestUnitTokenAccessorRenewSession(t *testing.T) {
 		TokenAccessor:    accessor,
 	}
 
-	var wg sync.WaitGroup
+	var renewalsStart sync.WaitGroup
+	var renewalsDone sync.WaitGroup
 	var renewalError error
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
+	numRoutines := 50
+	for i := 0; i < numRoutines; i++ {
+		renewalsDone.Add(1)
+		renewalsStart.Add(1)
 		go func() {
+			// wait for all goroutines to have been created before proceeding to race against each other
+			renewalsStart.Wait()
 			err := sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken)
 			if err != nil {
 				renewalError = err
 			}
-			wg.Done()
+			renewalsDone.Done()
 		}()
 	}
+
+	// unlock all of the waiting goroutines simultaneously
+	renewalsStart.Add(-numRoutines)
+
 	// wait for all competing goroutines to finish calling renew expired session token
-	wg.Wait()
+	renewalsDone.Wait()
 
 	if renewalError != nil {
 		t.Fatalf("failed to renew session, error %v", renewalError)
