@@ -36,6 +36,7 @@ type snowflakeRows struct {
 	status              queryStatus
 	err                 error
 	errChannel          chan error
+	monitoring          *QueryMonitoringData
 }
 
 type snowflakeValue interface{}
@@ -139,6 +140,10 @@ func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
 
 func (rows *snowflakeRows) GetQueryID() string {
 	return rows.queryID
+}
+
+func (rows *snowflakeRows) Monitoring() *QueryMonitoringData {
+	return rows.monitoring
 }
 
 func (rows *snowflakeRows) GetStatus() queryStatus {

@@ -18,6 +18,7 @@ type SnowflakeResult interface {
 	GetQueryID() string
 	GetStatus() queryStatus
 	GetArrowBatches() ([]*ArrowBatch, error)
+	Monitoring() *QueryMonitoringData
 }
 
 type snowflakeResult struct {
@@ -27,6 +28,7 @@ type snowflakeResult struct {
 	status       queryStatus
 	err          error
 	errChannel   chan error
+	monitoring   *QueryMonitoringData
 }
 
 func (res *snowflakeResult) LastInsertId() (int64, error) {
@@ -72,4 +74,8 @@ func (res *snowflakeResult) waitForAsyncExecStatus() error {
 		return res.err
 	}
 	return nil
+}
+
+func (res *snowflakeResult) Monitoring() *QueryMonitoringData {
+	return res.monitoring
 }

@@ -118,6 +118,33 @@ type SnowflakeConnection interface {
 	GetQueryStatus(ctx context.Context, queryID string) (*SnowflakeQueryStatus, error)
 }
 
+// getMonitoringResult fetches the result at /monitoring/queries/qid and
+// deserializes it into the provided res (which is given as a generic interface
+// to allow different callers to request different views on the raw response)
+func (sc *snowflakeConn) getMonitoringResult(ctx context.Context, qid string, res interface{}) error {
+	headers := make(map[string]string)
+	param := make(url.Values)
+	param.Add(requestGUIDKey, NewUUID().String())
+	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
+	}
+	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
+	url := sc.rest.getFullURL(resultPath, &param)
+
+	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+		return err
+	}
+	var statusResp = statusResponse{}
+	if err = json.NewDecoder(res.Body).Decode(&statusResp); err != nil {
+		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 // checkQueryStatus returns the status given the query ID. If successful,
 // the error will be nil, indicating there is a complete query result to fetch.
 // Other than nil, there are three error types that can be returned:
@@ -131,24 +158,11 @@ func (sc *snowflakeConn) checkQueryStatus(
 	ctx context.Context,
 	qid string) (
 	*retStatus, error) {
-	headers := make(map[string]string)
-	param := make(url.Values)
-	param.Add(requestGUIDKey, NewUUID().String())
-	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
-	}
-	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
-	url := sc.rest.getFullURL(resultPath, &param)
+	var statusResp statusResponse
 
-	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	err := sc.getMonitoringResult(ctx, qid, &statusResp)
 	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-		return nil, err
-	}
-	var statusResp = statusResponse{}
-	if err = json.NewDecoder(res.Body).Decode(&statusResp); err != nil {
-		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return nil, err
+		return err
 	}
 
 	if !statusResp.Success || len(statusResp.Data.Queries) == 0 {
