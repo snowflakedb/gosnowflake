@@ -197,3 +197,33 @@ func sfqStatusIsStillRunning(status QueryStatusFromServer) bool {
 	_, exist := sfqueryStatusRunning[status]
 	return exist
 }
+
+// QueryMonitoringData is the struct returned by a request to /montitoring/queries/$qid
+// Contains metadata about a query run
+type QueryMonitoringData struct {
+	ID                  string           `json:"id"`
+	Status              string           `json:"status"`
+	State               string           `json:"state"`
+	ClientSendTime      int64            `json:"clientSendTime"`
+	StartTime           int64            `json:"startTime"`
+	EndTime             int64            `json:"endTime"`
+	TotalDuration       int64            `json:"totalDuration"`
+	ClusterNumber       int              `json:"clusterNumber"`
+	WarehouseID         int              `json:"warehouseId"`
+	WarehouseName       string           `json:"warehouseName"`
+	WarehouseServerType string           `json:"warehouseServerType"`
+	QueryTag            string           `json:"queryTag"`
+	MajorVersionNumber  int              `json:"majorVersionNumber"`
+	MinorVersionNumber  int              `json:"minorVersionNumber"`
+	PatchVersionNumber  int              `json:"patchVersionNumber"`
+	Stats               map[string]int64 `json:"stats"`
+}
+
+type monitoringResponse struct {
+	Data struct {
+		Queries []QueryMonitoringData `json:"queries"`
+	} `json:"data"`
+	Message string `json:"message"`
+	Code    string `json:"code"`
+	Success bool   `json:"success"`
+}

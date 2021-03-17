@@ -58,6 +58,14 @@ const (
 	queryResultType     resultType = "query"
 )
 
+var (
+	// FetchQueryMonitoringDataThreshold specifies the threshold, over which we'll fetch the monitoring
+	// data for a Snowflake query. We use a time-based threshold, since there is a non-zero latency cost
+	// to fetch this data and we want to bound the additional latency. By default we bound to a 2% increase
+	// in latency - assuming worst case 100ms - when fetching this metadata.
+	FetchQueryMonitoringDataThreshold time.Duration = 5 * time.Second
+)
+
 type snowflakeConn struct {
 	ctx             context.Context
 	cfg             *Config
@@ -214,6 +222,29 @@ func (sc *snowflakeConn) exec(
 	return data, err
 }
 
+func (sc *snowflakeConn) monitoring(qid string, runtime time.Duration) (*QueryMonitoringData, error) {
+	// Exit early if this was a "fast" query
+	if runtime < FetchQueryMonitoringDataThreshold {
+		return nil, nil
+	}
+
+	// Bound the GET request to 1 second in the absolute worst case.
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	var m monitoringResponse
+	err := sc.getMonitoringResult(ctx, qid, &m)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(m.Data.Queries) != 1 {
+		return nil, nil
+	}
+
+	return &m.Data.Queries[0], nil
+}
+
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	return sc.BeginTx(sc.ctx, driver.TxOptions{})
 }
@@ -303,6 +334,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	isDesc := isDescribeOnly(ctx)
 	// TODO handle isInternal
 	ctx = setResultType(ctx, execResultType)
+	qStart := time.Now()
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
@@ -332,13 +364,24 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			return nil, err
 		}
 		logger.WithContext(ctx).Debugf("number of updated rows: %#v", updatedRows)
-		return &snowflakeResult{
+		rows := &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1,
 			queryID:      sc.QueryID,
-		}, nil // last insert id is not supported by Snowflake
+		} // last insert id is not supported by Snowflake
+		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
+			rows.monitoring = m
+		}
+		return rows, nil
 	} else if sc.isMultiStmt(&data.Data) {
-		return sc.handleMultiExec(ctx, data.Data)
+		rows, err := sc.handleMultiExec(ctx, data.Data)
+		if err != nil {
+			return nil, err
+		}
+		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
+			rows.monitoring = m
+		}
+		return rows, nil
 	}
 	logger.Debug("DDL")
 	return driver.ResultNoRows, nil
@@ -372,6 +415,7 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	ctx = setResultType(ctx, queryResultType)
+	qStart := time.Now()
 	// TODO: handle isInternal
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
@@ -398,6 +442,10 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.queryID = sc.QueryID
+
+	if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
+		rows.monitoring = m
+	}
 
 	if sc.isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
@@ -517,7 +565,7 @@ func (sc *snowflakeConn) stopHeartBeat() {
 	sc.rest.HeartBeat.stop()
 }
 
-func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseData) (driver.Result, error) {
+func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseData) (*snowflakeResult, error) {
 	var updatedRows int64
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 	for _, child := range childResults {
@@ -645,6 +693,34 @@ func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath stri
 	return respd, nil
 }
 
+// getMonitoringResult fetches the result at /monitoring/queries/qid and
+// deserializes it into the provided res (which is given as a generic interface
+// to allow different callers to request different views on the raw response)
+func (sc *snowflakeConn) getMonitoringResult(ctx context.Context, qid string, res interface{}) error {
+	headers := make(map[string]string)
+	param := make(url.Values)
+	param.Add(requestGUIDKey, uuid.New().String())
+	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
+	}
+	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
+	url := sc.rest.getFullURL(resultPath, &param)
+
+	resp, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+		return err
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(res)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 // checkQueryStatus return error==nil means the query completed successfully and there is complete query result to fetch.
 // when the GS could not return a status (when a query was just submitted GS might not be able to return a status)
 // an ErrQueryStatus will be returned.
@@ -656,28 +732,12 @@ func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath stri
 // 3, ErrQueryIsRunning, if the requested query is still running and might have complete result later, these statuses
 // were listed in query.sfqueryStatusRunning
 func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error {
-	headers := make(map[string]string)
-	param := make(url.Values)
-	param.Add(requestGUIDKey, uuid.New().String())
-	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
-	}
-	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
-	url := sc.rest.getFullURL(resultPath, &param)
+	var statusResp statusResponse
 
-	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	err := sc.getMonitoringResult(ctx, qid, &statusResp)
 	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		return err
 	}
-	var statusResp = statusResponse{}
-
-	err = json.NewDecoder(res.Body).Decode(&statusResp)
-	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return err
-	}
-
 	if !statusResp.Success || len(statusResp.Data.Queries) == 0 {
 		logger.WithContext(ctx).Errorf("status query returned not-success or no status returned.")
 		return &SnowflakeError{
