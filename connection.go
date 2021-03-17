@@ -9,7 +9,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -56,6 +56,14 @@ const (
 	snowflakeResultType contextKey = "snowflakeResultType"
 	execResultType      resultType = "exec"
 	queryResultType     resultType = "query"
+)
+
+var (
+	// FetchQueryMonitoringDataThresholdMs specifies the ms threshold, over which we'll fetch the monitoring
+	// data for a Snowflake query. We use a time-based threshold, since there is a non-zero latency cost
+	// to fetch this data and we want to bound the additional latency. By default we bound to a 2% increase
+	// in latency - assuming worst case 100ms - when fetching this metadata.
+	FetchQueryMonitoringDataThreshold time.Duration = 5 * time.Second
 )
 
 type snowflakeConn struct {
@@ -211,6 +219,54 @@ func (sc *snowflakeConn) exec(
 	return data, err
 }
 
+func (sc *snowflakeConn) monitoring(qid string, runtimeSec time.Duration) (*QueryMonitoringData, error) {
+	// Exit early if this was a "fast" query
+	if runtimeSec < FetchQueryMonitoringDataThreshold {
+		return nil, nil
+	}
+
+	fullURL := fmt.Sprintf(
+		"%s://%s:%d/monitoring/queries/%s",
+		sc.rest.Protocol, sc.rest.Host, sc.rest.Port, qid,
+	)
+
+	// Bound the GET request to 1 second in the absolute worst case.
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	headers := make(map[string]string)
+	headers["accept"] = "application/json"
+	headers["User-Agent"] = userAgent
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sc.rest.Token)
+
+	resp, err := sc.rest.FuncGet(ctx, sc.rest, fullURL, headers, sc.rest.RequestTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// (max) NOTE we don't expect this to fail
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("response returned code %d: %v", resp.StatusCode, b)
+	}
+
+	var m monitoringResponse
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+
+	if len(m.Data.Queries) != 1 {
+		return nil, nil
+	}
+
+	return &m.Data.Queries[0], nil
+}
+
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	return sc.BeginTx(sc.ctx, driver.TxOptions{})
 }
@@ -300,6 +356,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	isDesc := isDescribeOnly(ctx)
 	// TODO handle isInternal
 	ctx = setResultType(ctx, execResultType)
+	qStart := time.Now()
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
@@ -314,7 +371,6 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 				Message:  err.Error(),
 				QueryID:  data.Data.QueryID}
 		}
-		return nil, err
 	}
 
 	// if async exec, return result object right away
@@ -329,12 +385,17 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			return nil, err
 		}
 		logger.WithContext(ctx).Debugf("number of updated rows: %#v", updatedRows)
-		return &snowflakeResult{
+		rows := &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1,
 			queryID:      sc.QueryID,
-		}, nil // last insert id is not supported by Snowflake
+		} // last insert id is not supported by Snowflake
+		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
+			rows.monitoring = m
+		}
+		return rows, nil
 	} else if sc.isMultiStmt(&data.Data) {
+		// TODO(greg): add monitoring for multi exec
 		return sc.handleMultiExec(ctx, data.Data)
 	}
 	logger.Debug("DDL")
@@ -369,6 +430,7 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	ctx = setResultType(ctx, queryResultType)
+	qStart := time.Now()
 	// TODO: handle isInternal
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
@@ -396,6 +458,11 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	rows.sc = sc
 	rows.queryID = sc.QueryID
 
+	// TODO(greg): handle monitoring for multi query
+	if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
+		rows.monitoring = m
+	}
+
 	if sc.isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
 		err := sc.handleMultiQuery(ctx, data.Data, rows)
@@ -407,7 +474,7 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	}
 
 	rows.ChunkDownloader.start()
-	return rows, err
+	return rows, nil
 }
 
 func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
