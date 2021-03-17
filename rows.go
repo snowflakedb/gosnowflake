@@ -48,6 +48,7 @@ type snowflakeRows struct {
 	RowType         []execResponseRowType
 	ChunkDownloader *snowflakeChunkDownloader
 	queryID         string
+	monitoring      *QueryMonitoringData
 }
 
 func (rows *snowflakeRows) Close() (err error) {
@@ -145,6 +146,9 @@ func rowTypesToColumnTypes(rows []execResponseRowType) []ColumnType {
 
 func (rows *snowflakeRows) QueryID() string {
 	return rows.queryID
+}
+func (rows *snowflakeRows) Monitoring() *QueryMonitoringData {
+	return rows.monitoring
 }
 
 func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {

@@ -71,3 +71,33 @@ type execResponse struct {
 	Code    string           `json:"code"`
 	Success bool             `json:"success"`
 }
+
+type monitoringResponse struct {
+	Data    monitoringResponseData `json:"data"`
+	Message string                 `json:"message"`
+	Code    string                 `json:"code"`
+	Success bool                   `json:"success"`
+}
+
+type monitoringResponseData struct {
+	Queries []QueryMonitoringData `json:"queries"`
+}
+
+type QueryMonitoringData struct {
+	Id                  string           `json:"id"`
+	Status              string           `json:"status"`
+	State               string           `json:"state"`
+	ClientSendTime      int64            `json:"clientSendTime"`
+	StartTime           int64            `json:"startTime"`
+	EndTime             int64            `json:"endTime"`
+	TotalDuration       int64            `json:"totalDuration"`
+	ClusterNumber       int              `json:"clusterNumber"`
+	WarehouseId         int              `json:"warehouseId"`
+	WarehouseName       string           `json:"warehouseName"`
+	WarehouseServerType string           `json:"warehouseServerType"`
+	QueryTag            string           `json:"queryTag"`
+	MajorVersionNumber  int              `json:"majorVersionNumber"`
+	MinorVersionNumber  int              `json:"minorVersionNumber"`
+	PatchVersionNumber  int              `json:"patchVersionNumber"`
+	Stats               map[string]int64 `json:"stats"`
+}

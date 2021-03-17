@@ -7,10 +7,14 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -24,6 +28,14 @@ const (
 
 const (
 	sessionClientSessionKeepAlive = "client_session_keep_alive"
+)
+
+var (
+	// FetchQueryMonitoringDataThresholdMs specifies the ms threshold, over which we'll fetch the monitoring
+	// data for a Snowflake query. We use a time-based threshold, since there is a non-zero latency cost
+	// to fetch this data and we want to bound the additional latency. By default we bound to a 2% increase
+	// in latency - assuming worst case 100ms - when fetching this metadata.
+	FetchQueryMonitoringDataThreshold time.Duration = 5 * time.Second
 )
 
 type snowflakeConn struct {
@@ -135,6 +147,54 @@ func (sc *snowflakeConn) exec(
 	return data, err
 }
 
+func (sc *snowflakeConn) monitoring(qid string, runtimeSec time.Duration) (*QueryMonitoringData, error) {
+	// Exit early if this was a "fast" query
+	if runtimeSec < FetchQueryMonitoringDataThreshold {
+		return nil, nil
+	}
+
+	fullURL := fmt.Sprintf(
+		"%s://%s:%d/monitoring/queries/%s",
+		sc.rest.Protocol, sc.rest.Host, sc.rest.Port, qid,
+	)
+
+	// Bound the GET request to 1 second in the absolute worst case.
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	headers := make(map[string]string)
+	headers["accept"] = "application/json"
+	headers["User-Agent"] = userAgent
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sc.rest.Token)
+
+	resp, err := sc.rest.FuncGet(ctx, sc.rest, fullURL, headers, sc.rest.RequestTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// (max) NOTE we don't expect this to fail
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("response returned code %d: %v", resp.StatusCode, b)
+	}
+
+	var m monitoringResponse
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+
+	if len(m.Data.Queries) != 1 {
+		return nil, nil
+	}
+
+	return &m.Data.Queries[0], nil
+}
+
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	return sc.BeginTx(context.TODO(), driver.TxOptions{})
 }
@@ -211,6 +271,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		return nil, driver.ErrBadConn
 	}
 	// TODO: handle noResult and isInternal
+	qStart := time.Now()
 	data, err := sc.exec(ctx, query, false, false, false, args)
 	if err != nil {
 		return nil, err
@@ -227,11 +288,16 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			updatedRows += v
 		}
 		glog.V(2).Infof("number of updated rows: %#v", updatedRows)
-		return &snowflakeResult{
+		rows := &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1,
 			queryID:      sc.QueryID,
-		}, nil // last insert id is not supported by Snowflake
+		}
+
+		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
+			rows.monitoring = m
+		}
+		return rows, nil
 	}
 	glog.V(2).Info("DDL")
 	return driver.ResultNoRows, nil
@@ -258,6 +324,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 		return nil, driver.ErrBadConn
 	}
 	// TODO: handle noResult and isInternal
+	qStart := time.Now()
 	data, err := sc.exec(ctx, query, false, false, false, args)
 	if err != nil {
 		glog.V(2).Infof("error: %v", err)
@@ -281,9 +348,14 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 		FuncDownloadHelper: downloadChunkHelper,
 		FuncGet:            getChunk,
 	}
+
+	if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
+		rows.monitoring = m
+	}
+
 	rows.queryID = sc.QueryID
 	rows.ChunkDownloader.start()
-	return rows, err
+	return rows, nil
 }
 
 func (sc *snowflakeConn) Exec(
