@@ -59,6 +59,7 @@ type snowflakeConn struct {
 	SequenceCounter uint64
 	QueryID         string
 	SQLState        string
+	internal        InternalClient
 }
 
 // isDml returns true if the statement type code is in the range of DML.

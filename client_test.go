@@ -3,43 +3,58 @@
 package gosnowflake
 
 import (
+	"context"
+	"net/http"
+	"net/url"
 	"testing"
 )
 
-func TestHTTPClientGet(t *testing.T) {
-	client := NewClient().client
-	httpClient, ok := client.(*HTTPClient)
-	if !ok {
-		t.Fatal("failed to convert to HTTP client")
-	}
-
-	sf := new(SnowflakeDriver)
-	c, _ := sf.Open(dsn)
-	conn := c.(*snowflakeConn)
-	httpClient.SetConfig(conn.cfg)
-	httpClient.setClient(&fakeHTTPClient{success: true})
-
-	_, err := httpClient.Get("test_path", getHeaders(), defaultClientTimeout)
-	if err != nil {
-		t.Error(err)
-	}
+type DummyTransport struct {
+	postRequests int
+	getRequests  int
 }
 
-func TestHTTPClientPost(t *testing.T) {
-	client := NewClient().client
-	httpClient, ok := client.(*HTTPClient)
-	if !ok {
-		t.Fatal("failed to convert to HTTP client")
+func (t *DummyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.URL.Path == "" {
+		if r.Method == "GET" {
+			t.getRequests++
+		} else if r.Method == "POST" {
+			t.postRequests++
+		}
+		return &http.Response{StatusCode: 200}, nil
 	}
+	return snowflakeInsecureTransport.RoundTrip(r)
+}
 
-	sf := new(SnowflakeDriver)
-	c, _ := sf.Open(dsn)
-	conn := c.(*snowflakeConn)
-	httpClient.SetConfig(conn.cfg)
-	httpClient.setClient(&fakeHTTPClient{success: true})
-
-	_, err := httpClient.Post("test_path", getHeaders(), nil, defaultClientTimeout)
+func TestInternalClient(t *testing.T) {
+	config, err := ParseDSN(dsn)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("failed to parse dsn. dsn: %v, err: %v", dsn, err)
 	}
+	transport := DummyTransport{}
+	config.Transporter = &transport
+	driver := SnowflakeDriver{}
+	db, err := driver.OpenWithConfig(context.Background(), *config)
+	if err != nil {
+		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
+	}
+
+	internalClient := (db.(*snowflakeConn)).internal
+	resp, err := internalClient.Get(context.Background(), &url.URL{}, make(map[string]string), 0)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fail()
+	}
+	if transport.getRequests != 1 {
+		t.Fatalf("Expected exactly one GET request, got %v", transport.getRequests)
+	}
+
+	resp, err = internalClient.Post(context.Background(), &url.URL{}, make(map[string]string), make([]byte, 0), 0, false)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fail()
+	}
+	if transport.postRequests != 1 {
+		t.Fatalf("Expected exactly one POST request, got %v", transport.postRequests)
+	}
+
+	db.Close()
 }
