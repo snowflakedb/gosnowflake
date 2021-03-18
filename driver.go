@@ -127,6 +127,7 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 	sc.populateSessionParameters(authData.Parameters)
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
 	sc.startHeartBeat()
+	sc.internal = &httpClient{sr: sc.rest}
 	return sc, nil
 }
 
