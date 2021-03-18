@@ -7,8 +7,6 @@ import (
 	"database/sql/driver"
 )
 
-type paramKey string
-
 type snowflakeStmt struct {
 	sc    *snowflakeConn
 	query string

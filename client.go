@@ -15,11 +15,11 @@ type InternalClient interface {
 	Post(context.Context, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
 }
 
-type hTTPClient struct {
+type httpClient struct {
 	sr *snowflakeRestful
 }
 
-func (cli *hTTPClient) Get(
+func (cli *httpClient) Get(
 	ctx context.Context,
 	url *url.URL,
 	headers map[string]string,
@@ -27,7 +27,7 @@ func (cli *hTTPClient) Get(
 	return cli.sr.FuncGet(ctx, cli.sr, url, headers, timeout)
 }
 
-func (cli *hTTPClient) Post(
+func (cli *httpClient) Post(
 	ctx context.Context,
 	url *url.URL,
 	headers map[string]string,

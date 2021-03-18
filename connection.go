@@ -92,8 +92,8 @@ func (sc *snowflakeConn) exec(
 		DescribeOnly: describeOnly,
 		SequenceID:   counter,
 	}
-	if key := ctx.Value(MultiStatementCount); key != nil {
-		req.Parameters[string(MultiStatementCount)] = key
+	if key := ctx.Value(multiStatementCount); key != nil {
+		req.Parameters[string(multiStatementCount)] = key
 	}
 	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
 
@@ -124,7 +124,7 @@ func (sc *snowflakeConn) exec(
 
 	headers := getHeaders()
 	if isFileTransfer(query) {
-		headers[httpHeaderUserAgent] = headerContentTypeApplicationJSON
+		headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 	}
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers[httpHeaderServiceName] = *serviceName
@@ -726,7 +726,7 @@ func getAsync(
 }
 
 func getQueryIDChan(ctx context.Context) chan<- string {
-	v := ctx.Value(QueryIDChan)
+	v := ctx.Value(queryIDChan)
 	if v == nil {
 		return nil
 	}
