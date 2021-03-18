@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -122,6 +124,190 @@ func renewSessionTest(_ context.Context, _ *snowflakeRestful, _ time.Duration) e
 
 func renewSessionTestError(_ context.Context, _ *snowflakeRestful, _ time.Duration) error {
 	return errors.New("failed to renew session in tests")
+}
+
+func TestUnitTokenAccessorDoesNotRenewStaleToken(t *testing.T) {
+	accessor := getSimpleTokenAccessor()
+	oldToken := "test"
+	accessor.SetTokens(oldToken, "master", 123)
+
+	renewSessionCalled := false
+	renewSessionDummy := func(_ context.Context, sr *snowflakeRestful, _ time.Duration) error {
+		// should not have gotten to actual renewal
+		renewSessionCalled = true
+		return nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncRenewSession: renewSessionDummy,
+		TokenAccessor:    accessor,
+	}
+
+	// try to intentionally renew with stale token
+	sr.renewExpiredSessionToken(context.Background(), time.Hour, "stale-token")
+
+	if renewSessionCalled {
+		t.Fatal("FuncRenewSession should not have been called")
+	}
+
+	// set the current token to empty, should still call renew even if stale token is passed in
+	accessor.SetTokens("", "master", 123)
+	sr.renewExpiredSessionToken(context.Background(), time.Hour, "stale-token")
+
+	if !renewSessionCalled {
+		t.Fatal("FuncRenewSession should have been called because current token is empty")
+	}
+}
+
+type wrappedAccessor struct {
+	ta              TokenAccessor
+	lockCallCount   int32
+	unlockCallCount int32
+}
+
+func (wa *wrappedAccessor) Lock() error {
+	atomic.AddInt32(&wa.lockCallCount, 1)
+	err := wa.ta.Lock()
+	return err
+}
+
+func (wa *wrappedAccessor) Unlock() {
+	atomic.AddInt32(&wa.unlockCallCount, 1)
+	wa.ta.Unlock()
+}
+
+func (wa *wrappedAccessor) GetTokens() (token string, masterToken string, sessionID int) {
+	return wa.ta.GetTokens()
+}
+
+func (wa *wrappedAccessor) SetTokens(token string, masterToken string, sessionID int) {
+	wa.ta.SetTokens(token, masterToken, sessionID)
+}
+
+func TestUnitTokenAccessorRenewBlocked(t *testing.T) {
+	accessor := wrappedAccessor{
+		ta: getSimpleTokenAccessor(),
+	}
+	oldToken := "test"
+	accessor.SetTokens(oldToken, "master", 123)
+
+	renewSessionCalled := false
+	renewSessionDummy := func(_ context.Context, sr *snowflakeRestful, _ time.Duration) error {
+		renewSessionCalled = true
+		return nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncRenewSession: renewSessionDummy,
+		TokenAccessor:    &accessor,
+	}
+
+	// intentionally lock the accessor first
+	accessor.Lock()
+
+	// try to intentionally renew with stale token
+	var renewalStart sync.WaitGroup
+	var renewalDone sync.WaitGroup
+	renewalStart.Add(1)
+	renewalDone.Add(1)
+	go func() {
+		renewalStart.Done()
+		sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken)
+		renewalDone.Done()
+	}()
+
+	// wait for renewal to start and get blocked on lock
+	renewalStart.Wait()
+	// should be blocked and not be able to call renew session
+	if renewSessionCalled {
+		t.Fail()
+	}
+
+	// rotate the token again so that the session token is considered stale
+	accessor.SetTokens("new-token", "m", 321)
+
+	// unlock so that renew can happen
+	accessor.Unlock()
+	renewalDone.Wait()
+
+	// renewal should be done but token should still not
+	// have been renewed since we intentionally swapped token while locked
+	if renewSessionCalled {
+		t.Fail()
+	}
+
+	// wait for accessor defer unlock
+	accessor.Lock()
+	if accessor.lockCallCount != 3 {
+		t.Fatalf("Expected Lock() to be called thrice, but got %v", accessor.lockCallCount)
+	}
+	if accessor.unlockCallCount != 2 {
+		t.Fatalf("Expected Unlock() to be called twice, but got %v", accessor.unlockCallCount)
+	}
+}
+
+func TestUnitTokenAccessorRenewSessionContention(t *testing.T) {
+	accessor := getSimpleTokenAccessor()
+	oldToken := "test"
+	accessor.SetTokens(oldToken, "master", 123)
+	var counter int32 = 0
+
+	expectedToken := "new token"
+	expectedMaster := "new master"
+	expectedSession := 321
+
+	renewSessionDummy := func(_ context.Context, sr *snowflakeRestful, _ time.Duration) error {
+		accessor.SetTokens(expectedToken, expectedMaster, expectedSession)
+		atomic.AddInt32(&counter, 1)
+		return nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncRenewSession: renewSessionDummy,
+		TokenAccessor:    accessor,
+	}
+
+	var renewalsStart sync.WaitGroup
+	var renewalsDone sync.WaitGroup
+	var renewalError error
+	numRoutines := 50
+	for i := 0; i < numRoutines; i++ {
+		renewalsDone.Add(1)
+		renewalsStart.Add(1)
+		go func() {
+			// wait for all goroutines to have been created before proceeding to race against each other
+			renewalsStart.Wait()
+			err := sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken)
+			if err != nil {
+				renewalError = err
+			}
+			renewalsDone.Done()
+		}()
+	}
+
+	// unlock all of the waiting goroutines simultaneously
+	renewalsStart.Add(-numRoutines)
+
+	// wait for all competing goroutines to finish calling renew expired session token
+	renewalsDone.Wait()
+
+	if renewalError != nil {
+		t.Fatalf("failed to renew session, error %v", renewalError)
+	}
+	newToken, newMaster, newSession := accessor.GetTokens()
+	if newToken != expectedToken {
+		t.Fatalf("token %v does not match expected %v", newToken, expectedToken)
+	}
+	if newMaster != expectedMaster {
+		t.Fatalf("master token %v does not match expected %v", newMaster, expectedMaster)
+	}
+	if newSession != expectedSession {
+		t.Fatalf("session %v does not match expected %v", newSession, expectedSession)
+	}
+	// only the first renewal will go through and FuncRenewSession should be called exactly once
+	if counter != 1 {
+		t.Fatalf("renew expired session was called more than once: %v", counter)
+	}
 }
 
 func TestUnitPostQueryHelperUsesToken(t *testing.T) {

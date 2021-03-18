@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -118,23 +119,40 @@ func toNamedValues(values []driver.Value) []driver.NamedValue {
 type TokenAccessor interface {
 	GetTokens() (token string, masterToken string, sessionID int)
 	SetTokens(token string, masterToken string, sessionID int)
+	Lock() error
+	Unlock()
 }
 
 type simpleTokenAccessor struct {
-	token       string
-	masterToken string
-	sessionID   int
+	token        string
+	masterToken  string
+	sessionID    int
+	accessorLock sync.Mutex   // Used to implement accessor's Lock and Unlock
+	tokenLock    sync.RWMutex // Used to synchronize SetTokens and GetTokens
 }
 
 func getSimpleTokenAccessor() TokenAccessor {
 	return &simpleTokenAccessor{sessionID: -1}
 }
 
+func (sta *simpleTokenAccessor) Lock() error {
+	sta.accessorLock.Lock()
+	return nil
+}
+
+func (sta *simpleTokenAccessor) Unlock() {
+	sta.accessorLock.Unlock()
+}
+
 func (sta *simpleTokenAccessor) GetTokens() (token string, masterToken string, sessionID int) {
+	sta.tokenLock.RLock()
+	defer sta.tokenLock.RUnlock()
 	return sta.token, sta.masterToken, sta.sessionID
 }
 
 func (sta *simpleTokenAccessor) SetTokens(token string, masterToken string, sessionID int) {
+	sta.tokenLock.Lock()
+	defer sta.tokenLock.Unlock()
 	sta.token = token
 	sta.masterToken = masterToken
 	sta.sessionID = sessionID

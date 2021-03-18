@@ -78,7 +78,7 @@ func (hc *heartbeat) heartbeatMain() error {
 			return err
 		}
 		if respd.Code == sessionExpiredCode {
-			err = hc.restful.FuncRenewSession(context.TODO(), hc.restful, timeout)
+			err = hc.restful.renewExpiredSessionToken(context.Background(), timeout, token)
 			if err != nil {
 				return err
 			}

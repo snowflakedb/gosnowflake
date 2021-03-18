@@ -87,6 +87,21 @@ func (sr *snowflakeRestful) getFullURL(path string, params *url.Values) *url.URL
 	return ret
 }
 
+// Renew the snowflake session if the current token is still the stale token specified
+func (sr *snowflakeRestful) renewExpiredSessionToken(ctx context.Context, timeout time.Duration, expiredToken string) error {
+	err := sr.TokenAccessor.Lock()
+	if err != nil {
+		return err
+	}
+	defer sr.TokenAccessor.Unlock()
+	currentToken, _, _ := sr.TokenAccessor.GetTokens()
+	if expiredToken == currentToken || currentToken == "" {
+		// Only renew the session if the current token is still the expired token or current token is empty
+		return sr.FuncRenewSession(ctx, sr, timeout)
+	}
+	return nil
+}
+
 type renewSessionResponse struct {
 	Data    renewSessionResponseMain `json:"data"`
 	Message string                   `json:"message"`
@@ -195,7 +210,7 @@ func postRestfulQueryHelper(
 			return nil, err
 		}
 		if respd.Code == sessionExpiredCode {
-			err = sr.FuncRenewSession(ctx, sr, timeout)
+			err = sr.renewExpiredSessionToken(ctx, timeout, token)
 			if err != nil {
 				return nil, err
 			}
@@ -260,7 +275,7 @@ func postRestfulQueryHelper(
 				return nil, err
 			}
 			if respd.Code == sessionExpiredCode {
-				err = sr.FuncRenewSession(ctx, sr, timeout)
+				err = sr.renewExpiredSessionToken(ctx, timeout, token)
 				if err != nil {
 					return nil, err
 				}

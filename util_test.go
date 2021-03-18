@@ -5,6 +5,9 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"math/rand"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -41,6 +44,34 @@ func TestSimpleTokenAccessor(t *testing.T) {
 	}
 	if sessionID != expectedSessionID {
 		t.Errorf("unexpected session id %v", sessionID)
+	}
+}
+
+func TestSimpleTokenAccessorGetTokensSynchronization(t *testing.T) {
+	accessor := getSimpleTokenAccessor()
+	var wg sync.WaitGroup
+	failed := false
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func() {
+			// set a random session and token
+			session := rand.Int()
+			sessionStr := strconv.Itoa(session)
+			accessor.SetTokens("t"+sessionStr, "m"+sessionStr, session)
+
+			// read back session and token and verify that invariant still holds
+			token, masterToken, session := accessor.GetTokens()
+			sessionStr = strconv.Itoa(session)
+			if "t"+sessionStr != token || "m"+sessionStr != masterToken {
+				failed = true
+			}
+			wg.Done()
+		}()
+	}
+	// wait for all competing goroutines to finish setting and getting tokens
+	wg.Wait()
+	if failed {
+		t.Fail()
 	}
 }
 
