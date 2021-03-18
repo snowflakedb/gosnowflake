@@ -9,19 +9,19 @@ import (
 	"time"
 )
 
-// InternalClient is implemented by restClient
+// InternalClient is implemented by internalClient
 type InternalClient interface {
 	Get(context.Context, *url.URL, map[string]string, time.Duration) (*http.Response, error)
 	Post(context.Context, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
 }
 
-// restClient implements InternalClient
-type restClient struct {
+// internalClient implements InternalClient
+type internalClient struct {
 	sr *snowflakeRestful
 }
 
 // Get implements InternalClient
-func (cli *restClient) Get(
+func (cli *internalClient) Get(
 	ctx context.Context,
 	url *url.URL,
 	headers map[string]string,
@@ -30,7 +30,7 @@ func (cli *restClient) Get(
 }
 
 // Post implements InternalClient
-func (cli *restClient) Post(
+func (cli *internalClient) Post(
 	ctx context.Context,
 	url *url.URL,
 	headers map[string]string,

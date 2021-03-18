@@ -56,6 +56,7 @@ type snowflakeConn struct {
 	ctx             context.Context
 	cfg             *Config
 	rest            *snowflakeRestful
+	internal        InternalClient
 	SequenceCounter uint64
 	QueryID         string
 	SQLState        string
@@ -540,11 +541,6 @@ func (sc *snowflakeConn) handleMultiQuery(ctx context.Context, data execResponse
 		}
 	}
 	return nil
-}
-
-// Return a new InternalClient
-func (sc *snowflakeConn) newInternalClient() InternalClient {
-	return &restClient{sr: sc.rest}
 }
 
 func setResultType(ctx context.Context, resType resultType) context.Context {
