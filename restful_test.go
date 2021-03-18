@@ -222,11 +222,17 @@ func TestUnitTokenAccessorRenewBlocked(t *testing.T) {
 	if renewSessionCalled {
 		t.Fail()
 	}
+
+	// rotate the token again so that the session token is considered stale
+	accessor.SetTokens("new-token", "m", 321)
+
 	// unlock so that renew can happen
 	accessor.Unlock()
 	renewalDone.Wait()
-	// should have done renewing
-	if !renewSessionCalled {
+
+	// renewal should be done but token should still not
+	// have been renewed since we intentionally swapped token while locked
+	if renewSessionCalled {
 		t.Fail()
 	}
 
