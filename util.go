@@ -120,7 +120,7 @@ type TokenAccessor interface {
 	GetTokens() (token string, masterToken string, sessionID int)
 	SetTokens(token string, masterToken string, sessionID int)
 	Lock() error
-	Unlock() error
+	Unlock()
 }
 
 type simpleTokenAccessor struct {
@@ -140,9 +140,8 @@ func (sta *simpleTokenAccessor) Lock() error {
 	return nil
 }
 
-func (sta *simpleTokenAccessor) Unlock() error {
+func (sta *simpleTokenAccessor) Unlock() {
 	sta.accessorLock.Unlock()
-	return nil
 }
 
 func (sta *simpleTokenAccessor) GetTokens() (token string, masterToken string, sessionID int) {

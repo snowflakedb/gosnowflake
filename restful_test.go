@@ -159,6 +159,87 @@ func TestUnitTokenAccessorDoesNotRenewStaleToken(t *testing.T) {
 	}
 }
 
+type wrappedAccessor struct {
+	ta              TokenAccessor
+	lockCallCount   int32
+	unlockCallCount int32
+}
+
+func (wa *wrappedAccessor) Lock() error {
+	atomic.AddInt32(&wa.lockCallCount, 1)
+	err := wa.ta.Lock()
+	return err
+}
+
+func (wa *wrappedAccessor) Unlock() {
+	atomic.AddInt32(&wa.unlockCallCount, 1)
+	wa.ta.Unlock()
+}
+
+func (wa *wrappedAccessor) GetTokens() (token string, masterToken string, sessionID int) {
+	return wa.ta.GetTokens()
+}
+
+func (wa *wrappedAccessor) SetTokens(token string, masterToken string, sessionID int) {
+	wa.ta.SetTokens(token, masterToken, sessionID)
+}
+
+func TestUnitTokenAccessorRenewBlocked(t *testing.T) {
+	accessor := wrappedAccessor{
+		ta: getSimpleTokenAccessor(),
+	}
+	oldToken := "test"
+	accessor.SetTokens(oldToken, "master", 123)
+
+	renewSessionCalled := false
+	renewSessionDummy := func(_ context.Context, sr *snowflakeRestful, _ time.Duration) error {
+		renewSessionCalled = true
+		return nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncRenewSession: renewSessionDummy,
+		TokenAccessor:    &accessor,
+	}
+
+	// intentionally lock the accessor first
+	accessor.Lock()
+
+	// try to intentionally renew with stale token
+	var renewalStart sync.WaitGroup
+	var renewalDone sync.WaitGroup
+	renewalStart.Add(1)
+	renewalDone.Add(1)
+	go func() {
+		renewalStart.Done()
+		sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken)
+		renewalDone.Done()
+	}()
+
+	// wait for renewal to start and get blocked on lock
+	renewalStart.Wait()
+	// should be blocked and not be able to call renew session
+	if renewSessionCalled {
+		t.Fail()
+	}
+	// unlock so that renew can happen
+	accessor.Unlock()
+	renewalDone.Wait()
+	// should have done renewing
+	if !renewSessionCalled {
+		t.Fail()
+	}
+
+	// wait for accessor defer unlock
+	accessor.Lock()
+	if accessor.lockCallCount != 3 {
+		t.Fatalf("Expected Lock() to be called thrice, but got %v", accessor.lockCallCount)
+	}
+	if accessor.unlockCallCount != 2 {
+		t.Fatalf("Expected Unlock() to be called twice, but got %v", accessor.unlockCallCount)
+	}
+}
+
 func TestUnitTokenAccessorRenewSessionContention(t *testing.T) {
 	accessor := getSimpleTokenAccessor()
 	oldToken := "test"
