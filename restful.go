@@ -42,6 +42,12 @@ const (
 	heartBeatPath            = "/session/heartbeat"
 )
 
+// FuncGetType httpclient GET method to return http.Response
+type FuncGetType func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
+
+// FuncPostType httpclient POST method to return http.Response
+type FuncPostType func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
+
 type snowflakeRestful struct {
 	Host           string
 	Port           int
@@ -53,11 +59,12 @@ type snowflakeRestful struct {
 	TokenAccessor TokenAccessor
 	HeartBeat     *heartbeat
 
-	Connection          *snowflakeConn
+	Connection *snowflakeConn
+
 	FuncPostQuery       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID, *Config) (*execResponse, error)
 	FuncPostQueryHelper func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID, *Config) (*execResponse, error)
-	FuncPost            func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
-	FuncGet             func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
+	FuncPost            FuncPostType
+	FuncGet             FuncGetType
 	FuncRenewSession    func(context.Context, *snowflakeRestful, time.Duration) error
 	FuncPostAuth        func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration) (*authResponse, error)
 	FuncCloseSession    func(context.Context, *snowflakeRestful, time.Duration) error

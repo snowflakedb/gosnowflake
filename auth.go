@@ -415,3 +415,52 @@ func prepareJWTToken(config *Config) (string, error) {
 
 	return tokenString, err
 }
+
+// Authenticate with sc.cfg
+func authenticateWithConfig(sc *snowflakeConn) error {
+	var authData *authResponseMain
+	var samlResponse []byte
+	var proofKey []byte
+	var err error
+	logger.Infof("Authenticating via %v", sc.cfg.Authenticator.String())
+	switch sc.cfg.Authenticator {
+	case AuthTypeExternalBrowser:
+		samlResponse, proofKey, err = authenticateByExternalBrowser(
+			sc.ctx,
+			sc.rest,
+			sc.cfg.Authenticator.String(),
+			sc.cfg.Application,
+			sc.cfg.Account,
+			sc.cfg.User,
+			sc.cfg.Password)
+		if err != nil {
+			sc.cleanup()
+			return err
+		}
+	case AuthTypeOkta:
+		samlResponse, err = authenticateBySAML(
+			sc.ctx,
+			sc.rest,
+			sc.cfg.OktaURL,
+			sc.cfg.Application,
+			sc.cfg.Account,
+			sc.cfg.User,
+			sc.cfg.Password)
+		if err != nil {
+			sc.cleanup()
+			return err
+		}
+	}
+	authData, err = authenticate(
+		sc.ctx,
+		sc,
+		samlResponse,
+		proofKey)
+	if err != nil {
+		sc.cleanup()
+		return err
+	}
+	sc.populateSessionParameters(authData.Parameters)
+	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
+	return nil
+}

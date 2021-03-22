@@ -25,6 +25,8 @@ const (
 	snowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
 	// streamChunkDownload determines whether to use a stream based chunk downloader
 	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
+	// FetchResultByID the queryID of query result to fetch
+	FetchResultByID contextKey = "SF_FETCH_RESULT_BY_ID"
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
