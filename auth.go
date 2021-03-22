@@ -416,7 +416,7 @@ func prepareJWTToken(config *Config) (string, error) {
 	return tokenString, err
 }
 
-//authenticate with sc.cfg
+// Authenticate with sc.cfg
 func authenticateWithConfig(sc *snowflakeConn) error {
 	var authData *authResponseMain
 	var samlResponse []byte

@@ -67,6 +67,9 @@ type snowflakeConn struct {
 var queryIDPattern = `[\w\-_]+`
 var queryIDRegexp = regexp.MustCompile(queryIDPattern)
 
+const (
+	urlQueriesResultFmt string = "/queries/%s/result"
+)
 // isDml returns true if the statement type code is in the range of DML.
 func (sc *snowflakeConn) isDml(v int64) bool {
 	return statementTypeIDDml <= v && v <= statementTypeIDMultiTableInsert
@@ -308,20 +311,16 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 }
 
 func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	qid, _ := getResumeQueryID(ctx)
+	qid, err := getResumeQueryID(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if qid == "" {
 		return sc.queryContextInternal(ctx, query, args)
 	}
 
-	// so there is a queryID in context for which we want to fetch the result
-	if !queryIDRegexp.MatchString(qid) {
-		return nil, &SnowflakeError{
-			Number:  ErrQueryIDFormat,
-			Message: "Invalid QID",
-			QueryID: qid}
-	}
 	// first we will check the status of this particular query to find out if there is result to fetch
-	err := sc.checkQueryStatus(ctx, qid)
+	err = sc.checkQueryStatus(ctx, qid)
 	if err == nil || (err != nil && err.(*SnowflakeError).Number == ErrQueryIsRunning) {
 		// the query is running. Rows object will be returned from here.
 		return sc.buildRowsForRunningQuery(ctx, qid)
@@ -369,6 +368,7 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	rows.queryID = sc.QueryID
 
 	if sc.isMultiStmt(&data.Data) {
+		// handleMultiQuery is responsible to fill rows with childResults
 		err := sc.handleMultiQuery(ctx, data.Data, rows)
 		if err != nil {
 			return nil, err
@@ -491,7 +491,7 @@ func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseD
 	var updatedRows int64
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 	for _, child := range childResults {
-		resultPath := fmt.Sprintf("/queries/%s/result", child.id)
+		resultPath := fmt.Sprintf(urlQueriesResultFmt, child.id)
 		childData, err := sc.getQueryResultResp(ctx, resultPath)
 		if err != nil {
 			logger.Errorf("error: %v", err)
@@ -536,6 +536,7 @@ func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseD
 	}, nil
 }
 
+// Fill the correspondent rows and add chunk downloader into the rows when iterate the childResults
 func (sc *snowflakeConn) handleMultiQuery(ctx context.Context, data execResponseData, rows *snowflakeRows) error {
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 
@@ -693,7 +694,7 @@ func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error
 
 // Fetch query result for a query id from /queries/<qid>/result endpoint.
 func (sc *snowflakeConn) rowsForRunningQuery(ctx context.Context, qid string, rows *snowflakeRows) error {
-	resultPath := fmt.Sprintf("/queries/%s/result", qid)
+	resultPath := fmt.Sprintf(urlQueriesResultFmt, qid)
 	resp, err := sc.getQueryResultResp(ctx, resultPath)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
@@ -747,6 +748,13 @@ func getResumeQueryID(ctx context.Context) (string, error) {
 	strVal, ok := val.(string)
 	if !ok {
 		return "", fmt.Errorf("failed to cast val %+v to string", val)
+	}
+	// so there is a queryID in context for which we want to fetch the result
+	if !queryIDRegexp.MatchString(strVal) {
+		return strVal, &SnowflakeError{
+			Number:  ErrQueryIDFormat,
+			Message: "Invalid QID",
+			QueryID: strVal}
 	}
 	return strVal, nil
 }

@@ -211,13 +211,12 @@ func (rows *snowflakeRows) waitForAsyncQueryStatus() error {
 	return nil
 }
 
-func (rows *snowflakeRows) addDownloader(newDL chunkDownloader) error {
+func (rows *snowflakeRows) addDownloader(newDL chunkDownloader) {
 	if rows.ChunkDownloader == nil {
 		rows.ChunkDownloader = newDL
 		rows.tailChunkDownloader = newDL
-		return nil
+		return
 	}
 	rows.tailChunkDownloader.setNextChunkDownloader(newDL)
 	rows.tailChunkDownloader = newDL
-	return nil
 }

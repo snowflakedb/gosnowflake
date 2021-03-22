@@ -248,7 +248,6 @@ func fetchResultByQueryID(t *testing.T, customget FuncGetType, expectedFetchErr 
 	if err != nil {
 		return err
 	}
-	sc.startHeartBeat()
 
 	_, err = sc.Exec("create or replace table ut_conn(c1 number, c2 string)"+
 		" as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 from table(generator(rowcount => 100)))", nil)
