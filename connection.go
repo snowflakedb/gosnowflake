@@ -218,9 +218,11 @@ func (sc *snowflakeConn) Close() (err error) {
 	logger.WithContext(sc.ctx).Infoln("Close")
 	sc.stopHeartBeat()
 
-	err = sc.rest.FuncCloseSession(sc.ctx, sc.rest, sc.rest.RequestTimeout)
-	if err != nil {
-		logger.Error(err)
+	if !sc.cfg.KeepSessionAlive {
+		err = sc.rest.FuncCloseSession(sc.ctx, sc.rest, sc.rest.RequestTimeout)
+		if err != nil {
+			logger.Error(err)
+		}
 	}
 	sc.cleanup()
 	return nil
