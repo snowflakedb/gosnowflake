@@ -26,9 +26,10 @@ const (
 
 // Snowflake Server Error code
 const (
-	sessionExpiredCode       = "390112"
-	queryInProgressCode      = "333333"
-	queryInProgressAsyncCode = "333334"
+	sessionExpiredCode                 = "390112"
+	queryInProgressCode                = "333333"
+	queryInProgressAsyncCode           = "333334"
+	statementNotCurrentlyExecutingCode = 605 // "000605"
 )
 
 // Snowflake Server Endpoints
@@ -153,9 +154,20 @@ func postRestfulQuery(
 		return data, err
 	}
 
-	err = sr.FuncCancelQuery(context.TODO(), sr, requestID, timeout)
-	if err != nil {
-		return nil, err
+	const numRetries = 3
+	for i := 0; i < numRetries; i++ {
+		err = sr.FuncCancelQuery(context.TODO(), sr, requestID, timeout)
+
+		sfError, ok := err.(*SnowflakeError)
+		if ok && sfError.Number == statementNotCurrentlyExecutingCode {
+			// Try again in a second, in case we tried to cancel too quickly
+			time.Sleep(time.Second)
+			continue
+		} else if err != nil {
+			return nil, err
+		} else {
+			break
+		}
 	}
 	return nil, ctx.Err()
 }
