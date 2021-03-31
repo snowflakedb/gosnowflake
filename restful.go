@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -155,21 +156,25 @@ func postRestfulQuery(
 	}
 
 	const numRetries = 3
-	for i := 0; i < numRetries; i++ {
+	// Add 1 to numRetries to include the initial attempt (which is not
+	// technically a retry)
+	for i := 0; i < numRetries+1; i++ {
 		err = sr.FuncCancelQuery(context.TODO(), sr, requestID, timeout)
 
 		sfError, ok := err.(*SnowflakeError)
 		if ok && sfError.Number == statementNotCurrentlyExecutingCode {
-			// Try again in a second, in case we tried to cancel too quickly
-			time.Sleep(time.Second)
-			continue
+			// Try again, in case we tried to cancel too quickly, with
+			// exponential backoff
+			expBackoff := time.Duration(math.Pow(2, float64(i)))
+			time.Sleep(time.Second * expBackoff)
 		} else if err != nil {
 			return nil, err
 		} else {
-			break
+			// We successfully canceled the request
+			return nil, ctx.Err()
 		}
 	}
-	return nil, ctx.Err()
+	return nil, err
 }
 
 func postRestfulQueryHelper(
