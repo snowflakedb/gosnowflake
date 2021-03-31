@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - semgrep2
 jobs:
   semgrep:
     name: Scan
