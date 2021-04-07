@@ -453,6 +453,12 @@ func TestMultiStatementVaryingColumnCount(t *testing.T) {
 
 	multiStmtQuery := "select c1 from test_tbl;\n" +
 		"select c1,c2 from test_tbl;"
+	
+	
+	multiStmtQuery2 := "select c1 from test_tbl;\n" +
+		"select c1,c2 from test_tbl;"
+	
+	
 	db.Exec("create or replace table test_tbl(c1 int, c2 int)")
 	db.Exec("insert into test_tbl values(1, 0)")
 	ctx, _ := WithMultiStatement(context.Background(), 0)
