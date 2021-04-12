@@ -3,11 +3,13 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -20,12 +22,14 @@ import (
 )
 
 const (
-	httpHeaderContentType   = "Content-Type"
-	httpHeaderAccept        = "accept"
-	httpHeaderUserAgent     = "User-Agent"
-	httpHeaderServiceName   = "X-Snowflake-Service"
-	httpHeaderContentLength = "Content-Length"
-	httpHeaderHost          = "Host"
+	httpHeaderContentType      = "Content-Type"
+	httpHeaderAccept           = "accept"
+	httpHeaderUserAgent        = "User-Agent"
+	httpHeaderServiceName      = "X-Snowflake-Service"
+	httpHeaderContentLength    = "Content-Length"
+	httpHeaderHost             = "Host"
+	httpHeaderValueOctetStream = "application/octet-stream"
+	httpHeaderContentEncoding  = "Content-Encoding"
 )
 
 const (
@@ -115,7 +119,7 @@ func (sc *snowflakeConn) exec(
 			uploader := bindUploader{
 				sc:        sc,
 				ctx:       ctx,
-				stagePath: "@" + stageName + "/" + requestID.String(),
+				stagePath: "@" + bindStageName + "/" + requestID.String(),
 			}
 			uploader.upload(bindings)
 			req.Bindings = nil
@@ -168,6 +172,34 @@ func (sc *snowflakeConn) exec(
 			QueryID:  data.Data.QueryID,
 		}
 	}
+	if isFileTransfer(query) {
+		sfa := snowflakeFileTransferAgent{
+			sc:      sc,
+			data:    &data.Data,
+			command: query,
+			options: new(SnowflakeFileTransferOptions),
+		}
+		if fs := getFileStream(ctx); fs != nil {
+			sfa.sourceStream = fs
+			if isInternal {
+				sfa.data.AutoCompress = false
+			}
+		}
+		if op := getFileTransferOptions(ctx); op != nil {
+			sfa.options = op
+		}
+		if sfa.options.multiPartThreshold == 0 {
+			sfa.options.multiPartThreshold = dataSizeThreshold
+		}
+		if err = sfa.execute(); err != nil {
+			return nil, err
+		}
+		data, err = sfa.result()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	logger.WithContext(ctx).Info("Exec/Query SUCCESS")
 	sc.cfg.Database = data.Data.FinalDatabaseName
 	sc.cfg.Schema = data.Data.FinalSchemaName
@@ -874,6 +906,29 @@ func getQueryIDChan(ctx context.Context) chan<- string {
 	}
 	c, _ := v.(chan<- string)
 	return c
+}
+
+func getFileStream(ctx context.Context) *bytes.Buffer {
+	s := ctx.Value(fileStreamFile)
+	r, ok := s.(io.Reader)
+	if !ok {
+		return nil
+	}
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r)
+	return buf
+}
+
+func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
+	v := ctx.Value(fileTransferOptions)
+	if v == nil {
+		return nil
+	}
+	o, ok := v.(*SnowflakeFileTransferOptions)
+	if !ok {
+		return nil
+	}
+	return o
 }
 
 // returns snowflake chunk downloader by default or stream based chunk

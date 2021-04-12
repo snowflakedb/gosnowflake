@@ -14,7 +14,7 @@ type compressionType struct {
 	isSupported   bool
 }
 
-var compressionTypes = map[string]compressionType{
+var compressionTypes = map[string]*compressionType{
 	"GZIP": {
 		"GZIP",
 		".gz",
@@ -108,22 +108,30 @@ var compressionTypes = map[string]compressionType{
 	},
 }
 
-type fileCompressionType struct {
-	subTypeToMeta map[string]compressionType
-}
+var mimeSubTypeToCompression map[string]*compressionType
+var extensionToCompression map[string]*compressionType
 
-func (fct *fileCompressionType) init() {
-	fct.subTypeToMeta = make(map[string]compressionType)
+func init() {
+	mimeSubTypeToCompression = make(map[string]*compressionType)
+	extensionToCompression = make(map[string]*compressionType)
 	for _, meta := range compressionTypes {
-		for _, subType := range meta.mimeSubtypes {
-			fct.subTypeToMeta[subType] = meta
+		extensionToCompression[meta.fileExtension] = meta
+		for _, subtype := range meta.mimeSubtypes {
+			mimeSubTypeToCompression[subtype] = meta
 		}
 	}
 }
 
-func (fct *fileCompressionType) lookupByMimeSubType(mimeSubType string) *compressionType {
-	if val, ok := fct.subTypeToMeta[strings.ToLower(mimeSubType)]; ok {
-		return &val
+func lookupByMimeSubType(mimeSubType string) *compressionType {
+	if val, ok := mimeSubTypeToCompression[strings.ToLower(mimeSubType)]; ok {
+		return val
 	}
-	return new(compressionType)
+	return nil
+}
+
+func lookupByExtension(extension string) *compressionType {
+	if val, ok := extensionToCompression[strings.ToLower(extension)]; ok {
+		return val
+	}
+	return nil
 }

@@ -18,6 +18,8 @@ import (
 	"time"
 )
 
+const timeFormat = "2006-01-02T15:04:05"
+
 func TestEncryptDecryptFile(t *testing.T) {
 	encMat := snowflakeFileEncryption{
 		"ztke8tIdVt1zmlQIZm0BMA==",
@@ -105,16 +107,20 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) string {
 		f, _ := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 		for j := 0; j < k; j++ {
 			num := rand.Float64() * 10000
-			tm := time.Unix(int64(rand.Float64()*30000-15000), 0)
+			min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+			max := time.Date(2070, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
+			delta := max - min
+			sec := rand.Int63n(delta) + min
+			tm := time.Unix(sec, 0)
 			dt := tm.Format("2021-03-01")
-			tm = time.Unix(int64(rand.Float64()*30000-15000), 0)
-			ts := tm.Format("2021-03-01 18:00:00")
-			tm = time.Unix(int64(rand.Float64()*30000-15000), 0)
-			tsltz := tm.Format("2021-03-01 18:00:00")
-			tm = time.Unix(int64(rand.Float64()*30000-15000), 0)
-			tsntz := tm.Format("2021-03-01 18:00:00")
-			tm = time.Unix(int64(rand.Float64()*30000-15000), 0)
-			tstz := tm.Format("2021-03-01 18:00:00")
+			sec = rand.Int63n(delta) + min
+			ts := time.Unix(sec, 0).Format(timeFormat)
+			sec = rand.Int63n(delta) + min
+			tsltz := time.Unix(sec, 0).Format(timeFormat)
+			sec = rand.Int63n(delta) + min
+			tsntz := time.Unix(sec, 0).Format(timeFormat)
+			sec = rand.Int63n(delta) + min
+			tstz := time.Unix(sec, 0).Format(timeFormat)
 			pct := rand.Float64() * 1000
 			ratio := fmt.Sprintf("%.2f", rand.Float64()*1000)
 			rec := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v\n", num, dt, ts, tsltz, tsntz, tstz, pct, ratio)

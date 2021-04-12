@@ -6,7 +6,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"os"
 )
 
 // SnowflakeDriver is a context of Go Driver
@@ -47,8 +46,4 @@ var logger = CreateDefaultLogger()
 func init() {
 	sql.Register("snowflake", &SnowflakeDriver{})
 	logger.SetLogLevel("error")
-}
-
-func runningOnGithubAction() bool {
-	return os.Getenv("GITHUB_ACTIONS") != ""
 }

@@ -267,14 +267,14 @@ func TestBindingArrowInterface(t *testing.T) {
 // TestBindingArray tests basic array binding via the usage of the Array
 // function that converts the passed Golang slice to a Snowflake array type
 func TestBindingArray(t *testing.T) {
+	intArray := []int{1, 2, 3}
+	fltArray := []float64{0.1, 2.34, 5.678}
+	boolArray := []bool{true, false, true}
+	strArray := []string{"test1", "test2", "test3"}
+
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQL)
 		defer dbt.mustExec(deleteTableSQL)
-
-		intArray := []int{1, 2, 3}
-		fltArray := []float64{0.1, 2.34, 5.678}
-		boolArray := []bool{true, false, true}
-		strArray := []string{"test1", "test2", "test3"}
 		dbt.mustExec(insertSQL, Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
 		rows := dbt.mustQuery(selectAllSQL)
 		defer rows.Close()
@@ -284,8 +284,7 @@ func TestBindingArray(t *testing.T) {
 		var v3 bool
 		var v4 string
 		if rows.Next() {
-			err := rows.Scan(&v1, &v2, &v3, &v4)
-			if err != nil {
+			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
 				t.Fatal(err)
 			}
 			if v1 != 1 && v2 != 0.1 && v3 != true && v4 != "test1" {
@@ -296,8 +295,7 @@ func TestBindingArray(t *testing.T) {
 		}
 
 		if rows.Next() {
-			err := rows.Scan(&v1, &v2, &v3, &v4)
-			if err != nil {
+			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
 				t.Fatal(err)
 			}
 			if v1 != 2 && v2 != 2.34 && v3 != false && v4 != "test2" {
@@ -308,8 +306,7 @@ func TestBindingArray(t *testing.T) {
 		}
 
 		if rows.Next() {
-			err := rows.Scan(&v1, &v2, &v3, &v4)
-			if err != nil {
+			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
 				t.Fatal(err)
 			}
 			if v1 != 3 && v2 != 5.678 && v3 != true && v4 != "test3" {
@@ -327,18 +324,19 @@ func TestBindingBulkArray(t *testing.T) {
 	if runningOnGithubAction() {
 		t.Skip("client_stage_array_binding_threshold value is internal")
 	}
+
+	intArray := []int{1, 2, 3}
+	fltArray := []float64{0.1, 2.34, 5.678}
+	boolArray := []bool{true, false, true}
+	strArray := []string{"test1", "test2", "test3"}
+
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQL)
 		defer dbt.mustExec(deleteTableSQL)
-		_, err := dbt.db.Exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
-		if err != nil {
+		if _, err := dbt.db.Exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1"); err != nil {
 			t.Error(err)
 		}
 
-		intArray := []int{1, 2, 3}
-		fltArray := []float64{0.1, 2.34, 5.678}
-		boolArray := []bool{true, false, true}
-		strArray := []string{"test1", "test2", "test3"}
 		dbt.mustExec(insertSQL, Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
 		rows := dbt.mustQuery(selectAllSQL)
 		defer rows.Close()
@@ -348,8 +346,7 @@ func TestBindingBulkArray(t *testing.T) {
 		var v3 bool
 		var v4 string
 		if rows.Next() {
-			err := rows.Scan(&v1, &v2, &v3, &v4)
-			if err != nil {
+			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
 				t.Fatal(err)
 			}
 			if v1 != 1 && v2 != 0.1 && v3 != true && v4 != "test1" {
@@ -360,8 +357,7 @@ func TestBindingBulkArray(t *testing.T) {
 		}
 
 		if rows.Next() {
-			err := rows.Scan(&v1, &v2, &v3, &v4)
-			if err != nil {
+			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
 				t.Fatal(err)
 			}
 			if v1 != 2 && v2 != 2.34 && v3 != false && v4 != "test2" {
@@ -372,8 +368,7 @@ func TestBindingBulkArray(t *testing.T) {
 		}
 
 		if rows.Next() {
-			err := rows.Scan(&v1, &v2, &v3, &v4)
-			if err != nil {
+			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
 				t.Fatal(err)
 			}
 			if v1 != 3 && v2 != 5.678 && v3 != true && v4 != "test3" {

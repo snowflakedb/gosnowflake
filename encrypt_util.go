@@ -2,8 +2,6 @@
 
 package gosnowflake
 
-//lint:file-ignore U1000 TODO SNOW-29352
-
 import (
 	"bytes"
 	"crypto/aes"
@@ -11,9 +9,11 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
 )
 
 type snowflakeFileEncryption struct {
@@ -59,10 +59,10 @@ func encryptStream(
 	decodedKey, _ := base64.StdEncoding.DecodeString(sfe.QueryStageMasterKey)
 	keySize := len(decodedKey)
 
-	ivData := getSecureRandom(aes.BlockSize)
 	fileKey := getSecureRandom(keySize)
-
 	block, _ := aes.NewCipher(fileKey)
+	ivData := getSecureRandom(block.BlockSize())
+
 	mode := cipher.NewCBCEncrypter(block, ivData)
 	cipherText := make([]byte, chunkSize)
 
@@ -91,16 +91,17 @@ func encryptStream(
 		out.Write(chunk)
 	}
 
-	// encrypt key with CFB
-	block, _ = aes.NewCipher(decodedKey)
-	stream := cipher.NewCFBEncrypter(block, ivData)
+	// encrypt key with ECB
+	fileKey = padBytesLength(fileKey, block.BlockSize())
 	encryptedFileKey := make([]byte, len(fileKey))
-	stream.XORKeyStream(encryptedFileKey, fileKey)
+	if err = encryptECB(encryptedFileKey, fileKey, decodedKey); err != nil {
+		return nil, err
+	}
 
 	matDesc := materialDescriptor{
-		sfe.SMKID,
+		strconv.Itoa(int(sfe.SMKID)),
 		sfe.QueryID,
-		keySize * 8,
+		strconv.Itoa(keySize * 8),
 	}
 
 	return &encryptMetadata{
@@ -108,6 +109,38 @@ func encryptStream(
 		base64.StdEncoding.EncodeToString(ivData),
 		matdescToUnicode(matDesc),
 	}, nil
+}
+
+func encryptECB(encrypted []byte, fileKey []byte, decodedKey []byte) error {
+	block, _ := aes.NewCipher(decodedKey)
+	if len(fileKey)%block.BlockSize() != 0 {
+		return fmt.Errorf("input not full of blocks")
+	}
+	if len(encrypted) < len(fileKey) {
+		return fmt.Errorf("output length is smaller than input length")
+	}
+	for len(fileKey) > 0 {
+		block.Encrypt(encrypted, fileKey[:block.BlockSize()])
+		encrypted = encrypted[block.BlockSize():]
+		fileKey = fileKey[block.BlockSize():]
+	}
+	return nil
+}
+
+func decryptECB(decrypted []byte, keyBytes []byte, decodedKey []byte) error {
+	block, _ := aes.NewCipher(decodedKey)
+	if len(keyBytes)%block.BlockSize() != 0 {
+		return fmt.Errorf("input not full of blocks")
+	}
+	if len(decrypted) < len(keyBytes) {
+		return fmt.Errorf("output length is smaller than input length")
+	}
+	for len(keyBytes) > 0 {
+		block.Decrypt(decrypted, keyBytes[:block.BlockSize()])
+		keyBytes = keyBytes[block.BlockSize():]
+		decrypted = decrypted[block.BlockSize():]
+	}
+	return nil
 }
 
 func encryptFile(sfe *snowflakeFileEncryption, filename string, chunkSize int, tmpDir string) (*encryptMetadata, string, error) {
@@ -135,14 +168,14 @@ func decryptFile(metadata *encryptMetadata, sfe *snowflakeFileEncryption, filena
 	ivBytes, _ := base64.StdEncoding.DecodeString(metadata.iv)
 
 	// decrypt file key
-	var err error
-	block, _ := aes.NewCipher(decodedKey)
-	stream := cipher.NewCFBDecrypter(block, ivBytes)
-	fileKey := keyBytes
-	stream.XORKeyStream(fileKey, fileKey)
+	decryptedKey := make([]byte, len(keyBytes))
+	if err := decryptECB(decryptedKey, keyBytes, decodedKey); err != nil {
+		return "", err
+	}
+	decryptedKey = paddingTrim(decryptedKey)
 
 	// decrypt file
-	block, _ = aes.NewCipher(fileKey)
+	block, _ := aes.NewCipher(decryptedKey)
 	mode := cipher.NewCBCDecrypter(block, ivBytes)
 
 	tmpOutputFile, err := ioutil.TempFile(tmpDir, baseName(filename)+"#")
@@ -178,9 +211,9 @@ func decryptFile(metadata *encryptMetadata, sfe *snowflakeFileEncryption, filena
 }
 
 type materialDescriptor struct {
-	SmkID   int64  `json:"smkId"`
+	SmkID   string `json:"smkId"`
 	QueryID string `json:"queryId"`
-	KeySize int    `json:"keySize"`
+	KeySize string `json:"keySize"`
 }
 
 func matdescToUnicode(matdesc materialDescriptor) string {
@@ -198,6 +231,11 @@ func padBytesLength(src []byte, blockSize int) []byte {
 	padLength := blockSize - len(src)%blockSize
 	padText := bytes.Repeat([]byte{byte(padLength)}, padLength)
 	return append(src, padText...)
+}
+
+func paddingTrim(src []byte) []byte {
+	unpadding := src[len(src)-1]
+	return src[:len(src)-int(unpadding)]
 }
 
 func paddingOffset(src []byte) int {

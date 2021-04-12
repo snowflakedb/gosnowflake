@@ -2,7 +2,7 @@
 
 package gosnowflake
 
-//lint:file-ignore U1000 TODO SNOW-29352
+//lint:file-ignore U1000 SNOW-294151
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/url"
+	"os"
 	usr "os/user"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,21 @@ func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.
 	w.Write(buf) // write buf to gzip writer
 	w.Close()
 	return &c, c.Len()
+}
+
+func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir string) (string, int64) {
+	basename := baseName(fileName)
+	gzipFileName := filepath.Join(tmpDir, basename+"_c.gz")
+
+	fr, _ := os.OpenFile(fileName, os.O_RDONLY, os.ModePerm)
+	defer fr.Close()
+	fw, _ := os.OpenFile(gzipFileName, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	gzw := gzip.NewWriter(fw)
+	defer gzw.Close()
+	io.Copy(gzw, fr)
+
+	stat, _ := os.Stat(gzipFileName)
+	return gzipFileName, stat.Size()
 }
 
 func (util *snowflakeFileUtil) getDigestAndSize(src **bytes.Buffer) (string, int64) {
@@ -49,63 +65,61 @@ func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) 
 	return util.getDigestAndSize(stream)
 }
 
-func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (string, int64) {
+func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (string, int64, error) {
 	src, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		panic(err)
+		return "", 0, err
 	}
 	buf := bytes.NewBuffer(src)
-	return util.getDigestAndSize(&buf)
+	digest, size := util.getDigestAndSize(&buf)
+	return digest, size, err
 }
 
 // file metadata for PUT/GET
 type fileMetadata struct {
-	name              string
-	srcFileName       string
-	srcFileSize       int
-	stageLocationType cloudType
-	resStatus         resultStatus
+	name               string
+	sfa                *snowflakeFileTransferAgent
+	stageLocationType  cloudType
+	resStatus          resultStatus
+	stageInfo          *execResponseStageInfo
+	encryptionMaterial *snowflakeFileEncryption
 
-	stageInfo                       *execResponseStageInfo
-	srcCompressionType              *compressionType
-	dstCompressionType              *compressionType
-	requireCompress                 bool
-	dstFileName                     string
-	parallel                        int64
-	sha256Digest                    string
-	uploadSize                      int64
-	encryptionMaterial              *snowflakeFileEncryption
-	dstFileSize                     int64
-	overwrite                       bool
-	sfa                             *snowflakeFileTransferAgent
-	client                          cloudClient // GetObjectOutput (S3), ContainerURL (Azure), string (GCS)
-	realSrcFileName                 string
-	tmpDir                          string
-	presignedURL                    *url.URL
-	errorDetails                    error
-	lastError                       error
-	noSleepingTime                  bool
-	lastMaxConcurrency              int
-	localLocation                   string
-	localDigest                     string
-	showProgressBar                 bool
-	gcsFileHeaderDigest             string
-	gcsFileHeaderContentLength      int
-	gcsFileHeaderEncryptionMeta *encryptMetadata
+	srcFileName        string
+	realSrcFileName    string
+	srcFileSize        int
+	srcCompressionType *compressionType
+	uploadSize         int64
+	dstFileSize        int64
+	dstFileName        string
+	dstCompressionType *compressionType
+
+	client             cloudClient // *s3.Client (S3), *azblob.ContainerURL (Azure), string (GCS)
+	requireCompress    bool
+	parallel           int64
+	sha256Digest       string
+	overwrite          bool
+	tmpDir             string
+	errorDetails       error
+	lastError          error
+	noSleepingTime     bool
+	lastMaxConcurrency int
+	localLocation      string
+	localDigest        string
+	options            *SnowflakeFileTransferOptions
 
 	/* streaming PUT */
 	srcStream     *bytes.Buffer
 	realSrcStream *bytes.Buffer
 
-	/* PUT */
-	putCallback             *snowflakeProgressPercentage
-	putAzureCallback        *snowflakeProgressPercentage
-	putCallbackOutputStream *io.Writer
+	/* GCS */
+	presignedURL                *url.URL
+	gcsFileHeaderDigest         string
+	gcsFileHeaderContentLength  int64
+	gcsFileHeaderEncryptionMeta *encryptMetadata
 
-	/* GET */
-	getCallback             *snowflakeProgressPercentage
-	getAzureCallback        *snowflakeProgressPercentage
-	getCallbackOutputStream *io.Writer
+	/* mock */
+	mockUploader s3UploadAPI
+	mockHeader   s3HeaderAPI
 }
 
 type fileTransferResultType struct {
