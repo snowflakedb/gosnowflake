@@ -16,7 +16,7 @@ github.com/apache/arrow/go/arrow/internal/debug
 github.com/apache/arrow/go/arrow/internal/flatbuf
 github.com/apache/arrow/go/arrow/ipc
 github.com/apache/arrow/go/arrow/memory
-# github.com/aws/aws-sdk-go-v2 v1.2.0
+# github.com/aws/aws-sdk-go-v2 v1.3.2
 ## explicit
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/arn
@@ -26,31 +26,37 @@ github.com/aws/aws-sdk-go-v2/aws/retry
 github.com/aws/aws-sdk-go-v2/aws/signer/internal/v4
 github.com/aws/aws-sdk-go-v2/aws/signer/v4
 github.com/aws/aws-sdk-go-v2/aws/transport/http
+github.com/aws/aws-sdk-go-v2/internal/awsutil
 github.com/aws/aws-sdk-go-v2/internal/endpoints
 github.com/aws/aws-sdk-go-v2/internal/rand
 github.com/aws/aws-sdk-go-v2/internal/sdk
+github.com/aws/aws-sdk-go-v2/internal/sdkio
 github.com/aws/aws-sdk-go-v2/internal/strings
 github.com/aws/aws-sdk-go-v2/internal/sync/singleflight
 github.com/aws/aws-sdk-go-v2/internal/timeconv
-# github.com/aws/aws-sdk-go-v2/credentials v1.1.1
+# github.com/aws/aws-sdk-go-v2/credentials v1.1.5
 ## explicit
 github.com/aws/aws-sdk-go-v2/credentials
-# github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.0.1
+# github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.1.2
+## explicit
+github.com/aws/aws-sdk-go-v2/feature/s3/manager
+# github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.0.4
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
-# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.0.2
+# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.0.6
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
-# github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.1.0
+# github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.2.2
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared/arn
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared/config
-# github.com/aws/aws-sdk-go-v2/service/s3 v1.2.0
+# github.com/aws/aws-sdk-go-v2/service/s3 v1.5.0
 ## explicit
 github.com/aws/aws-sdk-go-v2/service/s3
 github.com/aws/aws-sdk-go-v2/service/s3/internal/arn
 github.com/aws/aws-sdk-go-v2/service/s3/internal/customizations
 github.com/aws/aws-sdk-go-v2/service/s3/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/s3/types
-# github.com/aws/smithy-go v1.1.0
+# github.com/aws/smithy-go v1.3.1
+## explicit
 github.com/aws/smithy-go
 github.com/aws/smithy-go/encoding
 github.com/aws/smithy-go/encoding/httpbinding
@@ -72,6 +78,8 @@ github.com/google/flatbuffers/go
 # github.com/google/uuid v1.1.1
 ## explicit
 github.com/google/uuid
+# github.com/jmespath/go-jmespath v0.4.0
+github.com/jmespath/go-jmespath
 # github.com/mattn/go-ieproxy v0.0.1
 github.com/mattn/go-ieproxy
 # github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4

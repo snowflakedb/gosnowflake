@@ -14,11 +14,19 @@ import (
 
 // Places an Object Lock configuration on the specified bucket. The rule specified
 // in the Object Lock configuration will be applied by default to every new object
-// placed in the specified bucket. DefaultRetention requires either Days or Years.
-// You can't specify both at the same time. Related Resources
+// placed in the specified bucket. For more information, see Locking Objects
+// (https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lock.html).
 //
-// * Locking Objects
-// (https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lock.html)
+// * The
+// DefaultRetention settings require both a mode and a period.
+//
+// * The
+// DefaultRetention period can be either Days or Years but you must select one. You
+// cannot specify Days and Years at the same time.
+//
+// * You can only enable Object
+// Lock for new buckets. If you want to turn on Object Lock for an existing bucket,
+// contact AWS Support.
 func (c *Client) PutObjectLockConfiguration(ctx context.Context, params *PutObjectLockConfigurationInput, optFns ...func(*Options)) (*PutObjectLockConfigurationOutput, error) {
 	if params == nil {
 		params = &PutObjectLockConfigurationInput{}
@@ -45,7 +53,7 @@ type PutObjectLockConfigurationInput struct {
 	// Interface (CLI) or AWS SDKs, this field is calculated automatically.
 	ContentMD5 *string
 
-	// The account id of the expected bucket owner. If the bucket is owned by a
+	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
 
@@ -176,6 +184,7 @@ func addPutObjectLockConfigurationUpdateEndpoint(stack *middleware.Stack, option
 		UsePathStyle:            options.UsePathStyle,
 		UseAccelerate:           options.UseAccelerate,
 		SupportsAccelerate:      true,
+		TargetS3ObjectLambda:    false,
 		EndpointResolver:        options.EndpointResolver,
 		EndpointResolverOptions: options.EndpointOptions,
 		UseDualstack:            options.UseDualstack,
