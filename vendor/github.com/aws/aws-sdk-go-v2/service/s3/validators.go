@@ -1790,6 +1790,26 @@ func (m *validateOpUploadPart) HandleInitialize(ctx context.Context, in middlewa
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpWriteGetObjectResponse struct {
+}
+
+func (*validateOpWriteGetObjectResponse) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpWriteGetObjectResponse) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*WriteGetObjectResponseInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpWriteGetObjectResponseInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 func addOpAbortMultipartUploadValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAbortMultipartUpload{}, middleware.After)
 }
@@ -2144,6 +2164,10 @@ func addOpUploadPartCopyValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpUploadPartValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpUploadPart{}, middleware.After)
+}
+
+func addOpWriteGetObjectResponseValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpWriteGetObjectResponse{}, middleware.After)
 }
 
 func validateAccessControlPolicy(v *types.AccessControlPolicy) error {
@@ -4780,13 +4804,13 @@ func validateOpPutBucketAclInput(v *PutBucketAclInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "PutBucketAclInput"}
+	if v.Bucket == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Bucket"))
+	}
 	if v.AccessControlPolicy != nil {
 		if err := validateAccessControlPolicy(v.AccessControlPolicy); err != nil {
 			invalidParams.AddNested("AccessControlPolicy", err.(smithy.InvalidParamsError))
 		}
-	}
-	if v.Bucket == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Bucket"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -5154,16 +5178,16 @@ func validateOpPutObjectAclInput(v *PutObjectAclInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "PutObjectAclInput"}
-	if v.AccessControlPolicy != nil {
-		if err := validateAccessControlPolicy(v.AccessControlPolicy); err != nil {
-			invalidParams.AddNested("AccessControlPolicy", err.(smithy.InvalidParamsError))
-		}
-	}
 	if v.Bucket == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("Bucket"))
 	}
 	if v.Key == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("Key"))
+	}
+	if v.AccessControlPolicy != nil {
+		if err := validateAccessControlPolicy(v.AccessControlPolicy); err != nil {
+			invalidParams.AddNested("AccessControlPolicy", err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -5344,6 +5368,24 @@ func validateOpUploadPartInput(v *UploadPartInput) error {
 	}
 	if v.UploadId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("UploadId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpWriteGetObjectResponseInput(v *WriteGetObjectResponseInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "WriteGetObjectResponseInput"}
+	if v.RequestRoute == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("RequestRoute"))
+	}
+	if v.RequestToken == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("RequestToken"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

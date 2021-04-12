@@ -14,11 +14,13 @@ import (
 
 // Returns metadata about all versions of the objects in a bucket. You can also use
 // request parameters as selection criteria to return metadata about a subset of
-// all the object versions. A 200 OK response can contain valid or invalid XML.
-// Make sure to design your application to parse the contents of the response and
-// handle it appropriately. To use this operation, you must have READ access to the
-// bucket. This action is not supported by Amazon S3 on Outposts. The following
-// operations are related to ListObjectVersions:
+// all the object versions. To use this operation, you must have permissions to
+// perform the s3:ListBucketVersions action. Be aware of the name difference. A 200
+// OK response can contain valid or invalid XML. Make sure to design your
+// application to parse the contents of the response and handle it appropriately.
+// To use this operation, you must have READ access to the bucket. This action is
+// not supported by Amazon S3 on Outposts. The following operations are related to
+// ListObjectVersions:
 //
 // * ListObjectsV2
 // (https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html)
@@ -71,14 +73,14 @@ type ListObjectVersionsInput struct {
 	// response.
 	EncodingType types.EncodingType
 
-	// The account id of the expected bucket owner. If the bucket is owned by a
+	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
 
 	// Specifies the key to start with when listing objects in a bucket.
 	KeyMarker *string
 
-	// Sets the maximum number of keys returned in the response. By default the API
+	// Sets the maximum number of keys returned in the response. By default the action
 	// returns up to 1,000 key names. The response might contain fewer keys but will
 	// never contain more. If additional keys satisfy the search criteria, but were not
 	// returned because max-keys was exceeded, the response contains true. To return
@@ -257,6 +259,7 @@ func addListObjectVersionsUpdateEndpoint(stack *middleware.Stack, options Option
 		UsePathStyle:            options.UsePathStyle,
 		UseAccelerate:           options.UseAccelerate,
 		SupportsAccelerate:      true,
+		TargetS3ObjectLambda:    false,
 		EndpointResolver:        options.EndpointResolver,
 		EndpointResolverOptions: options.EndpointOptions,
 		UseDualstack:            options.UseDualstack,

@@ -274,7 +274,7 @@ func fetchResultByQueryID(t *testing.T, customget FuncGetType, expectedFetchErr 
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	
+
 	rows1, err := sc.QueryContext(ctx, "select min(c1) as ms, sum(c1) from ut_conn group by (c1 % 10) order by ms", nil)
 	if err != nil {
 		t.Fatalf("Query failed: %v", err)
