@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/Azure/azure-storage-blob-go v0.13.0
-	github.com/apache/arrow/go/arrow v0.0.0-20200601151325-b2287a20f230
+	github.com/apache/arrow/go/arrow v0.0.0-20200817174511-886d87bdea78
 	github.com/aws/aws-sdk-go-v2 v1.3.2
 	github.com/aws/aws-sdk-go-v2/credentials v1.1.5
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.1.2

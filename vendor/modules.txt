@@ -3,7 +3,7 @@ github.com/Azure/azure-pipeline-go/pipeline
 # github.com/Azure/azure-storage-blob-go v0.13.0
 ## explicit
 github.com/Azure/azure-storage-blob-go/azblob
-# github.com/apache/arrow/go/arrow v0.0.0-20200601151325-b2287a20f230
+# github.com/apache/arrow/go/arrow v0.0.0-20200817174511-886d87bdea78
 ## explicit
 github.com/apache/arrow/go/arrow
 github.com/apache/arrow/go/arrow/array
