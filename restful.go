@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -27,10 +26,9 @@ const (
 
 // Snowflake Server Error code
 const (
-	sessionExpiredCode                 = "390112"
-	queryInProgressCode                = "333333"
-	queryInProgressAsyncCode           = "333334"
-	statementNotCurrentlyExecutingCode = 605 // "000605"
+	sessionExpiredCode       = "390112"
+	queryInProgressCode      = "333333"
+	queryInProgressAsyncCode = "333334"
 )
 
 // Snowflake Server Endpoints
@@ -155,26 +153,11 @@ func postRestfulQuery(
 		return data, err
 	}
 
-	const numRetries = 3
-	// Add 1 to numRetries to include the initial attempt (which is not
-	// technically a retry)
-	for i := 0; i < numRetries+1; i++ {
-		err = sr.FuncCancelQuery(context.TODO(), sr, requestID, timeout)
-
-		sfError, ok := err.(*SnowflakeError)
-		if ok && sfError.Number == statementNotCurrentlyExecutingCode {
-			// Try again, in case we tried to cancel too quickly, with
-			// exponential backoff
-			expBackoff := time.Duration(math.Pow(2, float64(i)))
-			time.Sleep(time.Second * expBackoff)
-		} else if err != nil {
-			return nil, err
-		} else {
-			// We successfully canceled the request
-			return nil, ctx.Err()
-		}
+	err = sr.FuncCancelQuery(context.TODO(), sr, requestID, timeout)
+	if err != nil {
+		return nil, err
 	}
-	return nil, err
+	return nil, ctx.Err()
 }
 
 func postRestfulQueryHelper(
