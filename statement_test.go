@@ -10,32 +10,29 @@ import (
 	"testing"
 )
 
-func TestGetQueryID(t *testing.T) {
+func openDB(t *testing.T) *sql.DB {
 	var db *sql.DB
 	var err error
 
 	if db, err = sql.Open("snowflake", dsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
+	return db
+}
+
+func TestGetQueryID(t *testing.T) {
+	db := openDB(t)
 	defer db.Close()
 
 	ctx := context.TODO()
 	conn, _ := db.Conn(ctx)
 
-	err = conn.Raw(func(x interface{}) error {
-		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "select 1")
-		if err != nil {
-			return err
-		}
-		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+	err := conn.Raw(func(x interface{}) error {
+		rows, err := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
-		qid := rows.(SnowflakeResult).GetQueryID()
-		if qid == "" {
-			t.Fatal("should have returned a query ID string")
-		}
 
 		_, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
 		if err == nil {
@@ -58,23 +55,8 @@ func TestGetQueryID(t *testing.T) {
 	}
 }
 
-func getDB(t *testing.T) *sql.DB {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	return db
-}
-
 func TestEmitQueryID(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
+	db := openDB(t)
 	defer db.Close()
 
 	queryIDChan := make(chan string, 1)
@@ -114,19 +96,17 @@ func TestEmitQueryID(t *testing.T) {
 
 // End-to-end test to fetch result with queryID
 func TestE2EFetchResultByID(t *testing.T) {
-	var err error
-	db := getDB(t)
-
+	db := openDB(t)
 	defer db.Close()
-	_, err = db.Exec("create or replace table test_fetch_result(c1 number, c2 string)" +
-		"as select 10, 'z'")
-	if err != nil {
+
+	if _, err := db.Exec("create or replace table test_fetch_result(" +
+		"c1 number, c2 string) as select 10, 'z'"); err != nil {
 		t.Fatalf("failed to create table: %v", err)
 	}
 
 	ctx := context.Background()
 	conn, _ := db.Conn(ctx)
-	err = conn.Raw(func(x interface{}) error {
+	err := conn.Raw(func(x interface{}) error {
 		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "select * from test_fetch_result")
 		if err != nil {
 			return err
@@ -138,7 +118,7 @@ func TestE2EFetchResultByID(t *testing.T) {
 		}
 		qid := rows1.(SnowflakeResult).GetQueryID()
 
-		newCtx := context.WithValue(context.Background(), FetchResultByID, qid)
+		newCtx := context.WithValue(context.Background(), fetchResultByID, qid)
 		rows2, err := db.QueryContext(newCtx, "")
 		if err != nil {
 			t.Fatalf("Fetch Query Result by ID failed: %v", err)

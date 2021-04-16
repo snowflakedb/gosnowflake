@@ -584,28 +584,33 @@ and before retrieving the results.
 		"log"
 		"os"
 		sf "github.com/snowflakedb/gosnowflake"
-		)
+    )
 
 	...
 
 	func DemonstrateAsyncMode(db *sql.DB) {
-
 		// Enable asynchronous mode.
 		ctx := WithAsyncMode(context.Background())
+		// Establish connection
+		conn, _ := db.Conn(ctx)
 
-		// Execute the first query asynchronously.
-		rows_1, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT 1.23"))
-		defer rows_1.Close()
+		// Unwrap connection
+		err = conn.Raw(func(x interface{}) error {
+			// Execute asynchronous query
+			rows, _ := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
+			defer rows.Close()
 
-		// Execute the second query asynchronously.
-		rows_2, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT 3.21"))
-		defer rows_2.Close()
-
-		// Retrieve and check the results of the first query.
-		CheckResults(rows_1, 1.23)
-
-		// Retrieve and check the results of the second query.
-		CheckResults(rows_2, 3.21)
+			// Retrieve and check results of the query after casting the result
+			status := rows.(SnowflakeResult).GetStatus()
+			if status == QueryStatusComplete {
+				// do something
+			} else if status == QueryStatusInProgress {
+				// do something
+			} else if status == QueryFailed {
+				// do something
+			}
+			return nil
+		})
 	}
 
 
