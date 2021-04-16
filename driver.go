@@ -28,7 +28,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
 	logger.Info("OpenWithConfig")
 	var err error
-	sc, err := buildSnowFlakeConn(ctx, config)
+	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {
 		return nil, err
 	}

@@ -70,6 +70,7 @@ var queryIDRegexp = regexp.MustCompile(queryIDPattern)
 const (
 	urlQueriesResultFmt string = "/queries/%s/result"
 )
+
 // isDml returns true if the statement type code is in the range of DML.
 func (sc *snowflakeConn) isDml(v int64) bool {
 	return statementTypeIDDml <= v && v <= statementTypeIDMultiTableInsert
@@ -743,7 +744,7 @@ func isAsyncMode(ctx context.Context) (bool, error) {
 }
 
 func getResumeQueryID(ctx context.Context) (string, error) {
-	val := ctx.Value(FetchResultByID)
+	val := ctx.Value(fetchResultByID)
 	if val == nil {
 		return "", nil
 	}
@@ -867,7 +868,7 @@ func getAsync(
 }
 
 func getQueryIDChan(ctx context.Context) chan<- string {
-	v := ctx.Value(queryIDChan)
+	v := ctx.Value(queryIDChannel)
 	if v == nil {
 		return nil
 	}
@@ -911,7 +912,7 @@ func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execRe
 	}
 }
 
-func buildSnowFlakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
+func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
 		SequenceCounter: 0,
 		ctx:             ctx,

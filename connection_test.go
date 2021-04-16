@@ -254,10 +254,9 @@ func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL
 // this function is going to: 1, create a table, 2, query on this table,
 //      3, fetch result of query in step 2, mock running status and error status of that query.
 func fetchResultByQueryID(t *testing.T, customget FuncGetType, expectedFetchErr *SnowflakeError) error {
-
 	config, _ := ParseDSN(dsn)
 	ctx := context.Background()
-	sc, err := buildSnowFlakeConn(ctx, *config)
+	sc, err := buildSnowflakeConn(ctx, *config)
 	if customget != nil {
 		sc.rest.FuncGet = customget
 	}
@@ -281,7 +280,7 @@ func fetchResultByQueryID(t *testing.T, customget FuncGetType, expectedFetchErr 
 	}
 
 	qid := rows1.(SnowflakeResult).GetQueryID()
-	newCtx := context.WithValue(ctx, FetchResultByID, qid)
+	newCtx := WithFetchResultByID(ctx, qid)
 
 	rows2, err := sc.QueryContext(newCtx, "", nil)
 	if err != nil {

@@ -26,9 +26,9 @@ const (
 
 // Snowflake Server Error code
 const (
-	sessionExpiredCode       = "390112"
 	queryInProgressCode      = "333333"
 	queryInProgressAsyncCode = "333334"
+	sessionExpiredCode       = "390112"
 )
 
 // Snowflake Server Endpoints

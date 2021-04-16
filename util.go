@@ -19,14 +19,14 @@ const (
 	multiStatementCount contextKey = "MULTI_STATEMENT_COUNT"
 	// asyncMode tells the server to not block the request on executing the entire query
 	asyncMode contextKey = "ASYNC_MODE_QUERY"
-	// queryIDChan is the channel to receive the query ID from
-	queryIDChan contextKey = "QUERY_ID_CHANNEL"
+	// queryIDChannel is the channel to receive the query ID from
+	queryIDChannel contextKey = "QUERY_ID_CHANNEL"
 	// snowflakeRequestIDKey is optional context key to specify request id
 	snowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
 	// streamChunkDownload determines whether to use a stream based chunk downloader
 	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
-	// FetchResultByID the queryID of query result to fetch
-	FetchResultByID contextKey = "SF_FETCH_RESULT_BY_ID"
+	// fetchResultByID the queryID of query result to fetch
+	fetchResultByID contextKey = "SF_FETCH_RESULT_BY_ID"
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
@@ -41,7 +41,7 @@ func WithAsyncMode(ctx context.Context) context.Context {
 
 // WithQueryIDChan returns a context that contains the channel to receive the query ID
 func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
-	return context.WithValue(ctx, queryIDChan, c)
+	return context.WithValue(ctx, queryIDChannel, c)
 }
 
 // WithRequestID returns a new context with the specified snowflake request id
@@ -52,6 +52,11 @@ func WithRequestID(ctx context.Context, requestID uuid.UUID) context.Context {
 // WithStreamDownloader returns a context that allows the use of a stream based chunk downloader
 func WithStreamDownloader(ctx context.Context) context.Context {
 	return context.WithValue(ctx, streamChunkDownload, true)
+}
+
+// WithFetchResultByID returns a context that allows retrieving the result by query ID
+func WithFetchResultByID(ctx context.Context, queryID string) context.Context {
+	return context.WithValue(ctx, fetchResultByID, queryID)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
