@@ -9,6 +9,8 @@ type ExecResponseChunk = execResponseChunk
 type SnowflakeRows = snowflakeRows
 type SnowflakeChunkDownloader = snowflakeChunkDownloader
 type SnowflakeRestful = snowflakeRestful
+type SnowflakeValue = snowflakeValue
+type ChunkRowType = chunkRowType
 
 // Methods
 
