@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -145,6 +146,8 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 			}
 		}
 	}
+
+	sfa.updateFileMetadataWithPresignedURL()
 
 	smallFileMetas := make([]*fileMetadata, 0)
 	largeFileMetas := make([]*fileMetadata, 0)
@@ -470,22 +473,28 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 }
 
 func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() error {
-	storageClient := sfa.getStorageClient(sfa.stageLocationType)
-
-	// presigned URL only applies to remote storage
-	var client interface{} = storageClient
-	if _, ok := client.(remoteStorageUtil); !ok {
-		return &SnowflakeError{}
-	}
-
 	// presigned URL only applies to GCS
-	if _, ok := client.(snowflakeGcsUtil); ok {
+	if sfa.stageLocationType == gcsClient {
 		if sfa.commandType == uploadCommand {
 			filePathToBeReplaced := sfa.getLocalFilePathFromCommand(sfa.command)
 			for _, meta := range sfa.fileMetadata {
-				filePathToBeReplacedWith := meta.dstFileName
+				filePathToBeReplacedWith := strings.TrimRight(filePathToBeReplaced, meta.dstFileName) + meta.dstFileName
 				commandWithSingleFile := strings.ReplaceAll(sfa.command, filePathToBeReplaced, filePathToBeReplacedWith)
-				data, err := sfa.sc.exec(sfa.sc.ctx, commandWithSingleFile, false, false, false, []driver.NamedValue{})
+				req := execRequest{
+					SQLText: commandWithSingleFile,
+				}
+				headers := getHeaders()
+				headers[httpHeaderAccept] = headerContentTypeApplicationJSON
+				jsonBody, _ := json.Marshal(req)
+				data, err := sfa.sc.rest.FuncPostQuery(
+					sfa.sc.ctx,
+					sfa.sc.rest,
+					&url.Values{},
+					headers,
+					jsonBody,
+					sfa.sc.rest.RequestTimeout,
+					getOrGenerateRequestIDFromContext(sfa.sc.ctx),
+					sfa.sc.cfg)
 				if err != nil {
 					return err
 				}
@@ -543,7 +552,7 @@ func (sfa *snowflakeFileTransferAgent) getLocalFilePathFromCommand(command strin
 	if len(command) == 0 || !strings.Contains(command, fileProtocol) {
 		return ""
 	}
-	if regexp.MustCompile(putRegexp).Match([]byte(command)) {
+	if !regexp.MustCompile(putRegexp).Match([]byte(command)) {
 		return ""
 	}
 
@@ -555,7 +564,7 @@ func (sfa *snowflakeFileTransferAgent) getLocalFilePathFromCommand(command strin
 	var filePathEndIdx = 0
 
 	if isFilePathQuoted {
-		filePathEndIdx = strings.Index(command[filePathBeginIdx:], "'")
+		filePathEndIdx = filePathBeginIdx + strings.Index(command[filePathBeginIdx:], "'")
 		if filePathEndIdx > filePathBeginIdx {
 			filePath = command[filePathBeginIdx:filePathEndIdx]
 		}
@@ -881,12 +890,12 @@ type snowflakeProgressPercentage struct {
 	fileSize        float64
 	outputStream    *io.Writer
 	showProgressBar bool
-	seenSoFar       int
+	seenSoFar       int64
 	done            bool
 	startTime       time.Time
 }
 
-func (spp *snowflakeProgressPercentage) call(bytesAmount int) {
+func (spp *snowflakeProgressPercentage) call(bytesAmount int64) {
 	if spp.outputStream != nil {
 		spp.seenSoFar += bytesAmount
 		percentage := percent(spp.seenSoFar, spp.fileSize)
@@ -896,7 +905,7 @@ func (spp *snowflakeProgressPercentage) call(bytesAmount int) {
 	}
 }
 
-func percent(seenSoFar int, size float64) float64 {
+func percent(seenSoFar int64, size float64) float64 {
 	if float64(seenSoFar) >= size || size <= 0 {
 		return 1.0
 	}

@@ -242,3 +242,26 @@ func paddingOffset(src []byte) int {
 	length := len(src)
 	return int(src[length-1])
 }
+
+type contentKey struct {
+	KeyID         string `json:"KeyId,omitempty"`
+	EncryptionKey string `json:"EncryptedKey,omitempty"`
+	Algorithm     string `json:"Algorithm,omitempty"`
+}
+
+type encryptionAgent struct {
+	Protocol            string `json:"Protocol,omitempty"`
+	EncryptionAlgorithm string `json:"EncryptionAlgorithm,omitempty"`
+}
+
+type keyMetadata struct {
+	EncryptionLibrary string `json:"EncryptionLibrary,omitempty"`
+}
+
+type encryptionData struct {
+	EncryptionMode      string          `json:"EncryptionMode,omitempty"`
+	WrappedContentKey   contentKey      `json:"WrappedContentKey,omitempty"`
+	EncryptionAgent     encryptionAgent `json:"EncryptionAgent,omitempty"`
+	ContentEncryptionIV string          `json:"ContentEncryptionIV,omitempty"`
+	KeyWrappingMetadata keyMetadata     `json:"KeyWrappingMetadata,omitempty"`
+}

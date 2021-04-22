@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -72,20 +73,15 @@ func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, compress
 		}
 	}
 
-	var putCommand strings.Builder
 	// use a placeholder for source file
-	putCommand.WriteString("put file:///tmp/placeholder ")
-	// add stage name surrounded by quotations in case special chars are used in directory name
-	putCommand.WriteString("'")
-	putCommand.WriteString(stageName)
-	putCommand.WriteString("'")
-	putCommand.WriteString(" overwrite=true")
+	putCommand := fmt.Sprintf("put 'file:///tmp/placeholder' '%v' overwrite=true", stageName)
+	// for Windows queries
+	putCommand = strings.ReplaceAll(putCommand, "\\", "\\\\")
 	// prepare context for PUT command
 	ctx := WithFileStream(bu.ctx, inputStream)
 	ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{
 		compressSourceFromStream: compressData})
-	return bu.sc.exec(
-		ctx, putCommand.String(), false, true, false, []driver.NamedValue{})
+	return bu.sc.exec(ctx, putCommand, false, true, false, []driver.NamedValue{})
 }
 
 func (bu *bindUploader) createStageIfNeeded() error {

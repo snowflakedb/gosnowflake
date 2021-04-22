@@ -66,7 +66,7 @@ func TestPutError(t *testing.T) {
 
 func TestPercentage(t *testing.T) {
 	testcases := []struct {
-		seen     int
+		seen     int64
 		size     float64
 		expected float64
 	}{
@@ -395,7 +395,7 @@ func TestPutOverwrite(t *testing.T) {
 			}
 		}
 		if s6 != skipped.String() {
-			t.Errorf("expected SKIPPED, got %v", s6)
+			t.Fatalf("expected SKIPPED, got %v", s6)
 		}
 
 		f, _ = os.Open(testData)
