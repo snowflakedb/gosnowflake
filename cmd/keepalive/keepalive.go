@@ -11,8 +11,9 @@ import (
 	"os"
 	"strconv"
 
-	sf "github.com/snowflakedb/gosnowflake"
 	"time"
+
+	sf "github.com/observeinc/gosnowflake"
 )
 
 // getDSN constructs a DSN based on the test connection parameters
