@@ -34,8 +34,8 @@ import (
 // (https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucketMetricsConfiguration.html)
 //
 // *
-// PutBucketMetricsConfiguration
-// (https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketMetricsConfiguration.html)
+// GetBucketMetricsConfiguration
+// (https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketMetricsConfiguration.html)
 //
 // *
 // ListBucketMetricsConfigurations
@@ -142,6 +142,9 @@ func (c *Client) addOperationPutBucketMetricsConfigurationMiddlewares(stack *mid
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = swapWithCustomHTTPSignerMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpPutBucketMetricsConfigurationValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -193,13 +196,14 @@ func addPutBucketMetricsConfigurationUpdateEndpoint(stack *middleware.Stack, opt
 		Accessor: s3cust.UpdateEndpointParameterAccessor{
 			GetBucketFromInput: getPutBucketMetricsConfigurationBucketMember,
 		},
-		UsePathStyle:            options.UsePathStyle,
-		UseAccelerate:           options.UseAccelerate,
-		SupportsAccelerate:      true,
-		TargetS3ObjectLambda:    false,
-		EndpointResolver:        options.EndpointResolver,
-		EndpointResolverOptions: options.EndpointOptions,
-		UseDualstack:            options.UseDualstack,
-		UseARNRegion:            options.UseARNRegion,
+		UsePathStyle:                   options.UsePathStyle,
+		UseAccelerate:                  options.UseAccelerate,
+		SupportsAccelerate:             true,
+		TargetS3ObjectLambda:           false,
+		EndpointResolver:               options.EndpointResolver,
+		EndpointResolverOptions:        options.EndpointOptions,
+		UseDualstack:                   options.UseDualstack,
+		UseARNRegion:                   options.UseARNRegion,
+		DisableMultiRegionAccessPoints: options.DisableMultiRegionAccessPoints,
 	})
 }

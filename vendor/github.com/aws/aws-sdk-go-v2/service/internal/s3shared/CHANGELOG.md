@@ -1,3 +1,24 @@
+# v1.7.2 (2021-10-11)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.1 (2021-09-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.0 (2021-09-02)
+
+* **Feature**: Add support for S3 Multi-Region Access Point ARNs.
+
+# v1.6.0 (2021-08-27)
+
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.5.3 (2021-08-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.5.2 (2021-08-04)
 
 * **Dependency Update**: Updated `github.com/aws/smithy-go` to latest version.

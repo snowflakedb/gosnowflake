@@ -44,16 +44,16 @@ import (
 //
 // *
 // Encryption request headers, like x-amz-server-side-encryption, should not be
-// sent for GET requests if your object uses server-side encryption with CMKs
-// stored in AWS KMS (SSE-KMS) or server-side encryption with Amazon S3–managed
-// encryption keys (SSE-S3). If your object does use these types of keys, you’ll
-// get an HTTP 400 BadRequest error.
+// sent for GET requests if your object uses server-side encryption with KMS keys
+// (SSE-KMS) or server-side encryption with Amazon S3–managed encryption keys
+// (SSE-S3). If your object does use these types of keys, you’ll get an HTTP 400
+// BadRequest error.
 //
-// * The last modified property in this case is
-// the creation date of the object.
+// * The last modified property in this case is the creation
+// date of the object.
 //
-// Request headers are limited to 8 KB in size.
-// For more information, see Common Request Headers
+// Request headers are limited to 8 KB in size. For more
+// information, see Common Request Headers
 // (https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonRequestHeaders.html).
 // Consider the following when using request headers:
 //
@@ -82,9 +82,9 @@ import (
 // code.
 //
 // For more information about conditional requests, see RFC 7232
-// (https://tools.ietf.org/html/rfc7232). Permissions You need the s3:GetObject
-// permission for this operation. For more information, see Specifying Permissions
-// in a Policy
+// (https://tools.ietf.org/html/rfc7232). Permissions You need the relevant read
+// object (or version) permission for this operation. For more information, see
+// Specifying Permissions in a Policy
 // (https://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html). If
 // the object you request does not exist, the error Amazon S3 returns depends on
 // whether you also have the s3:ListBucket permission.
@@ -122,17 +122,17 @@ type HeadObjectInput struct {
 	// access point, you must direct requests to the access point hostname. The access
 	// point hostname takes the form
 	// AccessPointName-AccountId.s3-accesspoint.Region.amazonaws.com. When using this
-	// action with an access point through the AWS SDKs, you provide the access point
-	// ARN in place of the bucket name. For more information about access point ARNs,
-	// see Using access points
+	// action with an access point through the Amazon Web Services SDKs, you provide
+	// the access point ARN in place of the bucket name. For more information about
+	// access point ARNs, see Using access points
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-access-points.html)
 	// in the Amazon S3 User Guide. When using this action with Amazon S3 on Outposts,
 	// you must direct requests to the S3 on Outposts hostname. The S3 on Outposts
 	// hostname takes the form
 	// AccessPointName-AccountId.outpostID.s3-outposts.Region.amazonaws.com. When using
-	// this action using S3 on Outposts through the AWS SDKs, you provide the Outposts
-	// bucket ARN in place of the bucket name. For more information about S3 on
-	// Outposts ARNs, see Using S3 on Outposts
+	// this action using S3 on Outposts through the Amazon Web Services SDKs, you
+	// provide the Outposts bucket ARN in place of the bucket name. For more
+	// information about S3 on Outposts ARNs, see Using S3 on Outposts
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html) in the
 	// Amazon S3 User Guide.
 	//
@@ -216,7 +216,7 @@ type HeadObjectOutput struct {
 	ArchiveStatus types.ArchiveStatus
 
 	// Indicates whether the object uses an S3 Bucket Key for server-side encryption
-	// with AWS KMS (SSE-KMS).
+	// with Amazon Web Services KMS (SSE-KMS).
 	BucketKeyEnabled bool
 
 	// Specifies caching behavior along the request/reply chain.
@@ -351,15 +351,15 @@ type HeadObjectOutput struct {
 	// verification of the customer-provided encryption key.
 	SSECustomerKeyMD5 *string
 
-	// If present, specifies the ID of the AWS Key Management Service (AWS KMS)
-	// symmetric customer managed customer master key (CMK) that was used for the
+	// If present, specifies the ID of the Amazon Web Services Key Management Service
+	// (Amazon Web Services KMS) symmetric customer managed key that was used for the
 	// object.
 	SSEKMSKeyId *string
 
-	// If the object is stored using server-side encryption either with an AWS KMS
-	// customer master key (CMK) or an Amazon S3-managed encryption key, the response
-	// includes this header with the value of the server-side encryption algorithm used
-	// when storing this object in Amazon S3 (for example, AES256, aws:kms).
+	// If the object is stored using server-side encryption either with an Amazon Web
+	// Services KMS key or an Amazon S3-managed encryption key, the response includes
+	// this header with the value of the server-side encryption algorithm used when
+	// storing this object in Amazon S3 (for example, AES256, aws:kms).
 	ServerSideEncryption types.ServerSideEncryption
 
 	// Provides storage class information of the object. Amazon S3 returns this header
@@ -425,6 +425,9 @@ func (c *Client) addOperationHeadObjectMiddlewares(stack *middleware.Stack, opti
 		return err
 	}
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = swapWithCustomHTTPSignerMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addOpHeadObjectValidationMiddleware(stack); err != nil {
@@ -780,14 +783,15 @@ func addHeadObjectUpdateEndpoint(stack *middleware.Stack, options Options) error
 		Accessor: s3cust.UpdateEndpointParameterAccessor{
 			GetBucketFromInput: getHeadObjectBucketMember,
 		},
-		UsePathStyle:            options.UsePathStyle,
-		UseAccelerate:           options.UseAccelerate,
-		SupportsAccelerate:      true,
-		TargetS3ObjectLambda:    false,
-		EndpointResolver:        options.EndpointResolver,
-		EndpointResolverOptions: options.EndpointOptions,
-		UseDualstack:            options.UseDualstack,
-		UseARNRegion:            options.UseARNRegion,
+		UsePathStyle:                   options.UsePathStyle,
+		UseAccelerate:                  options.UseAccelerate,
+		SupportsAccelerate:             true,
+		TargetS3ObjectLambda:           false,
+		EndpointResolver:               options.EndpointResolver,
+		EndpointResolverOptions:        options.EndpointOptions,
+		UseDualstack:                   options.UseDualstack,
+		UseARNRegion:                   options.UseARNRegion,
+		DisableMultiRegionAccessPoints: options.DisableMultiRegionAccessPoints,
 	})
 }
 

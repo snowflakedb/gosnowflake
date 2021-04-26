@@ -60,7 +60,7 @@ type GetBucketNotificationConfigurationInput struct {
 // element is empty, notifications are turned off for the bucket.
 type GetBucketNotificationConfigurationOutput struct {
 
-	// Describes the AWS Lambda functions to invoke and the events for which to invoke
+	// Describes the Lambda functions to invoke and the events for which to invoke
 	// them.
 	LambdaFunctionConfigurations []types.LambdaFunctionConfiguration
 
@@ -123,6 +123,9 @@ func (c *Client) addOperationGetBucketNotificationConfigurationMiddlewares(stack
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = swapWithCustomHTTPSignerMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetBucketNotificationConfigurationValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -174,13 +177,14 @@ func addGetBucketNotificationConfigurationUpdateEndpoint(stack *middleware.Stack
 		Accessor: s3cust.UpdateEndpointParameterAccessor{
 			GetBucketFromInput: getGetBucketNotificationConfigurationBucketMember,
 		},
-		UsePathStyle:            options.UsePathStyle,
-		UseAccelerate:           options.UseAccelerate,
-		SupportsAccelerate:      true,
-		TargetS3ObjectLambda:    false,
-		EndpointResolver:        options.EndpointResolver,
-		EndpointResolverOptions: options.EndpointOptions,
-		UseDualstack:            options.UseDualstack,
-		UseARNRegion:            options.UseARNRegion,
+		UsePathStyle:                   options.UsePathStyle,
+		UseAccelerate:                  options.UseAccelerate,
+		SupportsAccelerate:             true,
+		TargetS3ObjectLambda:           false,
+		EndpointResolver:               options.EndpointResolver,
+		EndpointResolverOptions:        options.EndpointOptions,
+		UseDualstack:                   options.UseDualstack,
+		UseARNRegion:                   options.UseARNRegion,
+		DisableMultiRegionAccessPoints: options.DisableMultiRegionAccessPoints,
 	})
 }

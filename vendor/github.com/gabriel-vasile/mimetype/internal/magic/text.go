@@ -1,6 +1,7 @@
 package magic
 
 import (
+	"bufio"
 	"bytes"
 
 	"github.com/gabriel-vasile/mimetype/internal/charset"
@@ -131,7 +132,16 @@ func Text(raw []byte, limit uint32) bool {
 	if cset := charset.FromBOM(raw); cset != "" {
 		return true
 	}
-	return isText(raw)
+	// Binary data bytes as defined here: https://mimesniff.spec.whatwg.org/#binary-data-byte
+	for _, b := range raw {
+		if b <= 0x08 ||
+			b == 0x0B ||
+			0x0E <= b && b <= 0x1A ||
+			0x1C <= b && b <= 0x1F {
+			return false
+		}
+	}
+	return true
 }
 
 // Php matches a PHP: Hypertext Preprocessor file.
@@ -142,27 +152,33 @@ func Php(raw []byte, limit uint32) bool {
 	return phpScriptF(raw, limit)
 }
 
-// Json matches a JavaScript Object Notation file.
-func Json(raw []byte, limit uint32) bool {
+// JSON matches a JavaScript Object Notation file.
+func JSON(raw []byte, limit uint32) bool {
+	raw = trimLWS(raw)
+	if len(raw) == 0 || (raw[0] != '[' && raw[0] != '{') {
+		return false
+	}
 	parsed, err := json.Scan(raw)
+	// If the full file content was provided, check there is no error.
 	if len(raw) < int(limit) {
 		return err == nil
 	}
 
-	return parsed == len(raw)
+	// If a section of the file was provided, check if all of it was parsed.
+	return parsed == len(raw) && len(raw) > 0
 }
 
-// GeoJson matches a RFC 7946 GeoJSON file.
+// GeoJSON matches a RFC 7946 GeoJSON file.
 //
-// GeoJson detection implies searching for key:value pairs like: `"type": "Feature"`
+// GeoJSON detection implies searching for key:value pairs like: `"type": "Feature"`
 // in the input.
 // BUG(gabriel-vasile): The "type" key should be searched for in the root object.
-func GeoJson(raw []byte, limit uint32) bool {
+func GeoJSON(raw []byte, limit uint32) bool {
 	raw = trimLWS(raw)
 	if len(raw) == 0 {
 		return false
 	}
-	// GeoJSON is always a JSON object, not a JSON array.
+	// GeoJSON is always a JSON object, not a JSON array or any other JSON value.
 	if raw[0] != '{' {
 		return false
 	}
@@ -190,7 +206,7 @@ func GeoJson(raw []byte, limit uint32) bool {
 	// Skip any whitespace after the colon.
 	raw = trimLWS(raw[1:])
 
-	geoJsonTypes := [][]byte{
+	geoJSONTypes := [][]byte{
 		[]byte(`"Feature"`),
 		[]byte(`"FeatureCollection"`),
 		[]byte(`"Point"`),
@@ -201,7 +217,7 @@ func GeoJson(raw []byte, limit uint32) bool {
 		[]byte(`"MultiPolygon"`),
 		[]byte(`"GeometryCollection"`),
 	}
-	for _, t := range geoJsonTypes {
+	for _, t := range geoJSONTypes {
 		if bytes.HasPrefix(raw, t) {
 			return true
 		}
@@ -210,59 +226,68 @@ func GeoJson(raw []byte, limit uint32) bool {
 	return false
 }
 
-// NdJson matches a Newline delimited JSON file.
-func NdJson(raw []byte, limit uint32) bool {
-	// Separator with carriage return and new line `\r\n`.
-	srn := []byte{0x0D, 0x0A}
-
-	// Separator with only new line `\n`.
-	sn := []byte{0x0A}
-
-	// Total bytes scanned.
-	parsed := 0
-
-	// Split by `srn`.
-	for rni, insrn := range bytes.Split(raw, srn) {
-		// Separator byte count should be added only after the first split.
-		if rni != 0 {
-			// Add two as `\r\n` is used for split.
-			parsed += 2
+// NdJSON matches a Newline delimited JSON file.
+func NdJSON(raw []byte, limit uint32) bool {
+	lCount := 0
+	sc := bufio.NewScanner(dropLastLine(raw, limit))
+	for sc.Scan() {
+		l := sc.Bytes()
+		// Empty lines are allowed in NDJSON.
+		if l = trimRWS(trimLWS(l)); len(l) == 0 {
+			continue
 		}
-		// Split again by `sn`.
-		for ni, insn := range bytes.Split(insrn, sn) {
-			// Separator byte count should be added only after the first split.
-			if ni != 0 {
-				// Add one as `\n` is used for split.
-				parsed++
-			}
-			// Empty line is valid.
-			if len(insn) == 0 {
-				continue
-			}
-			p, err := json.Scan(insn)
-			parsed += p
-			if parsed < int(limit) && err != nil {
-				return false
-			}
+		_, err := json.Scan(l)
+		if err != nil {
+			return false
+		}
+		lCount++
+	}
+
+	return lCount > 1
+}
+
+// Har matches a HAR Spec file.
+// Spec: http://www.softwareishard.com/blog/har-12-spec/
+func HAR(raw []byte, limit uint32) bool {
+	s := []byte(`"log"`)
+	si, sl := bytes.Index(raw, s), len(s)
+
+	if si == -1 {
+		return false
+	}
+
+	// If the "log" string is the suffix of the input,
+	// there is no need to search for the value of the key.
+	if si+sl == len(raw) {
+		return false
+	}
+	// Skip the "log" part.
+	raw = raw[si+sl:]
+	// Skip any whitespace before the colon.
+	raw = trimLWS(raw)
+	// Check for colon.
+	if len(raw) == 0 || raw[0] != ':' {
+		return false
+	}
+	// Skip any whitespace after the colon.
+	raw = trimLWS(raw[1:])
+
+	harJsonTypes := [][]byte{
+		[]byte(`"version"`),
+		[]byte(`"creator"`),
+		[]byte(`"entries"`),
+	}
+	for _, t := range harJsonTypes {
+		si := bytes.Index(raw, t)
+		if si > -1 {
+			return true
 		}
 	}
 
-	// Empty inputs should not pass as valid NDJSON with 0 lines.
-	return parsed > 2 && parsed == len(raw)
+	return false
 }
 
 // Svg matches a SVG file.
 func Svg(raw []byte, limit uint32) bool {
 	return bytes.Contains(raw, []byte("<svg"))
-}
-
-// isText considers any file containing null bytes as a binary file.
-// There is plenty room for disagreement regarding what should be considered a
-// text file. This approach is used by diff, cat, and other linux utilities.
-func isText(raw []byte) bool {
-	l := 8000
-	if len(raw) > l {
-		raw = raw[:l]
-	}
-	return bytes.IndexByte(raw, 0) == -1
 }

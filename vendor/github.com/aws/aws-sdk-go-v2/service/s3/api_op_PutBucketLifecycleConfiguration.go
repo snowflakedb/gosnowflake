@@ -47,14 +47,14 @@ import (
 // (https://docs.aws.amazon.com/AmazonS3/latest/dev/intro-lifecycle-rules.html).
 // Permissions By default, all Amazon S3 resources are private, including buckets,
 // objects, and related subresources (for example, lifecycle configuration and
-// website configuration). Only the resource owner (that is, the AWS account that
-// created it) can access the resource. The resource owner can optionally grant
-// access permissions to others by writing an access policy. For this operation, a
-// user must get the s3:PutLifecycleConfiguration permission. You can also
-// explicitly deny permissions. Explicit deny also supersedes any other
-// permissions. If you want to block users or accounts from removing or deleting
-// objects from your bucket, you must deny them permissions for the following
-// actions:
+// website configuration). Only the resource owner (that is, the Amazon Web
+// Services account that created it) can access the resource. The resource owner
+// can optionally grant access permissions to others by writing an access policy.
+// For this operation, a user must get the s3:PutLifecycleConfiguration permission.
+// You can also explicitly deny permissions. Explicit deny also supersedes any
+// other permissions. If you want to block users or accounts from removing or
+// deleting objects from your bucket, you must deny them permissions for the
+// following actions:
 //
 // * s3:DeleteObject
 //
@@ -163,6 +163,9 @@ func (c *Client) addOperationPutBucketLifecycleConfigurationMiddlewares(stack *m
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = swapWithCustomHTTPSignerMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpPutBucketLifecycleConfigurationValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -217,13 +220,14 @@ func addPutBucketLifecycleConfigurationUpdateEndpoint(stack *middleware.Stack, o
 		Accessor: s3cust.UpdateEndpointParameterAccessor{
 			GetBucketFromInput: getPutBucketLifecycleConfigurationBucketMember,
 		},
-		UsePathStyle:            options.UsePathStyle,
-		UseAccelerate:           options.UseAccelerate,
-		SupportsAccelerate:      true,
-		TargetS3ObjectLambda:    false,
-		EndpointResolver:        options.EndpointResolver,
-		EndpointResolverOptions: options.EndpointOptions,
-		UseDualstack:            options.UseDualstack,
-		UseARNRegion:            options.UseARNRegion,
+		UsePathStyle:                   options.UsePathStyle,
+		UseAccelerate:                  options.UseAccelerate,
+		SupportsAccelerate:             true,
+		TargetS3ObjectLambda:           false,
+		EndpointResolver:               options.EndpointResolver,
+		EndpointResolverOptions:        options.EndpointOptions,
+		UseDualstack:                   options.UseDualstack,
+		UseARNRegion:                   options.UseARNRegion,
+		DisableMultiRegionAccessPoints: options.DisableMultiRegionAccessPoints,
 	})
 }
