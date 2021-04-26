@@ -32,7 +32,7 @@ func (c *Client) PutObjectLockConfiguration(ctx context.Context, params *PutObje
 		params = &PutObjectLockConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutObjectLockConfiguration", params, optFns, addOperationPutObjectLockConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutObjectLockConfiguration", params, optFns, c.addOperationPutObjectLockConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ type PutObjectLockConfigurationInput struct {
 	// about downloading objects from requester pays buckets, see Downloading Objects
 	// in Requestor Pays Buckets
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html)
-	// in the Amazon S3 Developer Guide.
+	// in the Amazon S3 User Guide.
 	RequestPayer types.RequestPayer
 
 	// A token to allow Object Lock to be enabled for an existing bucket.
@@ -82,7 +82,7 @@ type PutObjectLockConfigurationOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationPutObjectLockConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutObjectLockConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutObjectLockConfiguration{}, middleware.After)
 	if err != nil {
 		return err

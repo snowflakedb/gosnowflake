@@ -22,7 +22,7 @@ import (
 // It can take a while for the deletion of a replication configuration to fully
 // propagate. For information about replication configuration, see Replication
 // (https://docs.aws.amazon.com/AmazonS3/latest/dev/replication.html) in the Amazon
-// S3 Developer Guide. The following operations are related to
+// S3 User Guide. The following operations are related to
 // DeleteBucketReplication:
 //
 // * PutBucketReplication
@@ -36,7 +36,7 @@ func (c *Client) DeleteBucketReplication(ctx context.Context, params *DeleteBuck
 		params = &DeleteBucketReplicationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketReplication", params, optFns, addOperationDeleteBucketReplicationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketReplication", params, optFns, c.addOperationDeleteBucketReplicationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ type DeleteBucketReplicationOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationDeleteBucketReplicationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteBucketReplicationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpDeleteBucketReplication{}, middleware.After)
 	if err != nil {
 		return err

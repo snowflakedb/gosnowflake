@@ -50,7 +50,7 @@ func (c *Client) AbortMultipartUpload(ctx context.Context, params *AbortMultipar
 		params = &AbortMultipartUploadInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "AbortMultipartUpload", params, optFns, addOperationAbortMultipartUploadMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AbortMultipartUpload", params, optFns, c.addOperationAbortMultipartUploadMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ type AbortMultipartUploadInput struct {
 	// AccessPointName-AccountId.s3-accesspoint.Region.amazonaws.com. When using this
 	// action with an access point through the AWS SDKs, you provide the access point
 	// ARN in place of the bucket name. For more information about access point ARNs,
-	// see Using Access Points
+	// see Using access points
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-access-points.html)
 	// in the Amazon S3 User Guide. When using this action with Amazon S3 on Outposts,
 	// you must direct requests to the S3 on Outposts hostname. The S3 on Outposts
@@ -102,7 +102,7 @@ type AbortMultipartUploadInput struct {
 	// about downloading objects from requester pays buckets, see Downloading Objects
 	// in Requestor Pays Buckets
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html)
-	// in the Amazon S3 Developer Guide.
+	// in the Amazon S3 User Guide.
 	RequestPayer types.RequestPayer
 }
 
@@ -116,7 +116,7 @@ type AbortMultipartUploadOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationAbortMultipartUploadMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAbortMultipartUploadMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpAbortMultipartUpload{}, middleware.After)
 	if err != nil {
 		return err

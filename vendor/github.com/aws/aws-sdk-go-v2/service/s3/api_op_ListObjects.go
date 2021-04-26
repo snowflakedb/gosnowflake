@@ -46,7 +46,7 @@ func (c *Client) ListObjects(ctx context.Context, params *ListObjectsInput, optF
 		params = &ListObjectsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ListObjects", params, optFns, addOperationListObjectsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ListObjects", params, optFns, c.addOperationListObjectsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ type ListObjectsInput struct {
 	// AccessPointName-AccountId.s3-accesspoint.Region.amazonaws.com. When using this
 	// action with an access point through the AWS SDKs, you provide the access point
 	// ARN in place of the bucket name. For more information about access point ARNs,
-	// see Using Access Points
+	// see Using access points
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-access-points.html)
 	// in the Amazon S3 User Guide. When using this action with Amazon S3 on Outposts,
 	// you must direct requests to the S3 on Outposts hostname. The S3 on Outposts
@@ -167,7 +167,7 @@ type ListObjectsOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationListObjectsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationListObjectsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpListObjects{}, middleware.After)
 	if err != nil {
 		return err

@@ -148,7 +148,7 @@ func (c *Client) PutBucketAcl(ctx context.Context, params *PutBucketAclInput, op
 		params = &PutBucketAclInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketAcl", params, optFns, addOperationPutBucketAclMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketAcl", params, optFns, c.addOperationPutBucketAclMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,9 @@ type PutBucketAclInput struct {
 	// Allows grantee to read the bucket ACL.
 	GrantReadACP *string
 
-	// Allows grantee to create, overwrite, and delete any object in the bucket.
+	// Allows grantee to create new objects in the bucket. For the bucket and object
+	// owners of existing objects, also allows deletions and overwrites of those
+	// objects.
 	GrantWrite *string
 
 	// Allows grantee to write the ACL for the applicable bucket.
@@ -204,7 +206,7 @@ type PutBucketAclOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationPutBucketAclMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketAclMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketAcl{}, middleware.After)
 	if err != nil {
 		return err

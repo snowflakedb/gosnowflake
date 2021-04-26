@@ -30,7 +30,7 @@ func (c *Client) GetObjectTorrent(ctx context.Context, params *GetObjectTorrentI
 		params = &GetObjectTorrentInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetObjectTorrent", params, optFns, addOperationGetObjectTorrentMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetObjectTorrent", params, optFns, c.addOperationGetObjectTorrentMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ type GetObjectTorrentInput struct {
 	// about downloading objects from requester pays buckets, see Downloading Objects
 	// in Requestor Pays Buckets
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html)
-	// in the Amazon S3 Developer Guide.
+	// in the Amazon S3 User Guide.
 	RequestPayer types.RequestPayer
 }
 
@@ -78,7 +78,7 @@ type GetObjectTorrentOutput struct {
 	ResultMetadata middleware.Metadata
 }
 
-func addOperationGetObjectTorrentMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetObjectTorrentMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetObjectTorrent{}, middleware.After)
 	if err != nil {
 		return err
