@@ -29,7 +29,7 @@ var (
 
 type snowflakeRows struct {
 	sc                  *snowflakeConn
-	ChunkDownloader     chunkDownloader
+	ChunkDownloader     chunkDownloader `json:"-"`
 	execResp            *execResponse
 	tailChunkDownloader chunkDownloader
 	queryID             string
