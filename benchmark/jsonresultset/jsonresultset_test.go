@@ -18,7 +18,7 @@ import (
 
 	"runtime/debug"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/observeinc/gosnowflake"
 )
 
 func TestJsonResultSet(t *testing.T) {
