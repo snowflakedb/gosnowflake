@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
-	rlog "github.com/sirupsen/logrus"
-	sf "github.com/snowflakedb/gosnowflake"
 	"log"
 	"strings"
+
+	sf "github.com/observeinc/gosnowflake"
+
+	rlog "github.com/sirupsen/logrus"
 )
 
 type testLogger struct {
