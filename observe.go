@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/mailru/easyjson"
+	_ "github.com/mailru/easyjson/gen"
 	"github.com/mailru/easyjson/jlexer"
 )
 
