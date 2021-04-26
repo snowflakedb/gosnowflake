@@ -1,12 +1,10 @@
-// +build !amd64,!arm,!arm64 appengine !gc noasm
-
 package lz4block
 
 import (
 	"encoding/binary"
 )
 
-func decodeBlock(dst, src, dict []byte) (ret int) {
+func decodeBlockGo(dst, src, dict []byte) (ret int) {
 	// Restrict capacities so we don't read or write out of bounds.
 	dst = dst[:len(dst):len(dst)]
 	src = src[:len(src):len(src)]
@@ -56,16 +54,12 @@ func decodeBlock(dst, src, dict []byte) (ret int) {
 					}
 				}
 			case lLen == 0xF:
-				for {
-					x := uint(src[si])
-					if lLen += x; int(lLen) < 0 {
-						return hasError
-					}
+				for src[si] == 0xFF {
+					lLen += 0xFF
 					si++
-					if x != 0xFF {
-						break
-					}
 				}
+				lLen += uint(src[si])
+				si++
 				fallthrough
 			default:
 				copy(dst[di:di+lLen], src[si:si+lLen])
@@ -86,19 +80,16 @@ func decodeBlock(dst, src, dict []byte) (ret int) {
 		si += 2
 
 		// Match.
-		mLen := minMatch + b&0xF
-		if mLen == minMatch+0xF {
-			for {
-				x := uint(src[si])
-				if mLen += x; int(mLen) < 0 {
-					return hasError
-				}
+		mLen := b & 0xF
+		if mLen == 0xF {
+			for src[si] == 0xFF {
+				mLen += 0xFF
 				si++
-				if x != 0xFF {
-					break
-				}
 			}
+			mLen += uint(src[si])
+			si++
 		}
+		mLen += minMatch
 
 		// Copy the match.
 		if di < offset {

@@ -1,3 +1,91 @@
+# v1.11.12 (2022-05-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.11 (2022-05-16)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.10 (2022-05-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.9 (2022-05-06)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.8 (2022-05-03)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.7 (2022-04-27)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.6 (2022-04-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.5 (2022-04-12)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.4 (2022-04-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.3 (2022-03-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.2 (2022-03-24)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.1 (2022-03-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.0 (2022-03-08)
+
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.10.0 (2022-02-24)
+
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.1 (2022-01-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.0 (2022-01-14)
+
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.0 (2022-01-07)
+
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.5 (2021-12-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.4 (2021-12-02)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.3 (2021-11-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.2 (2021-11-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.7.1 (2021-11-12)
 
 * **Dependency Update**: Updated to the latest SDK module versions

@@ -1,7 +1,6 @@
 package lz4
 
 import (
-	"bytes"
 	"io"
 
 	"github.com/pierrec/lz4/v4/internal/lz4block"
@@ -261,17 +260,4 @@ func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
 			return
 		}
 	}
-}
-
-// ValidFrameHeader returns a bool indicating if the given bytes slice matches a LZ4 header.
-func ValidFrameHeader(in []byte) (bool, error) {
-	f := lz4stream.NewFrame()
-	err := f.ParseHeaders(bytes.NewReader(in))
-	if err == nil {
-		return true, nil
-	}
-	if err == lz4errors.ErrInvalidFrame {
-		return false, nil
-	}
-	return false, err
 }

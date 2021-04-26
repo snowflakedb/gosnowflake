@@ -11,13 +11,12 @@ import (
 )
 
 const (
-	tableBits        = 15                               // Bits used in the table
-	tableSize        = 1 << tableBits                   // Size of the table
-	tableShardCnt    = 1 << (tableBits - dictShardBits) // Number of shards in the table
-	tableShardSize   = tableSize / tableShardCnt        // Size of an individual shard
-	tableFastHashLen = 6
-	tableMask        = tableSize - 1 // Mask for table indices. Redundant, but can eliminate bounds checks.
-	maxMatchLength   = 131074
+	tableBits      = 15                               // Bits used in the table
+	tableSize      = 1 << tableBits                   // Size of the table
+	tableShardCnt  = 1 << (tableBits - dictShardBits) // Number of shards in the table
+	tableShardSize = tableSize / tableShardCnt        // Size of an individual shard
+	tableMask      = tableSize - 1                    // Mask for table indices. Redundant, but can eliminate bounds checks.
+	maxMatchLength = 131074
 )
 
 type tableEntry struct {
@@ -123,8 +122,8 @@ encodeLoop:
 				panic("offset0 was 0")
 			}
 
-			nextHash := hashLen(cv, hashLog, tableFastHashLen)
-			nextHash2 := hashLen(cv>>8, hashLog, tableFastHashLen)
+			nextHash := hash6(cv, hashLog)
+			nextHash2 := hash6(cv>>8, hashLog)
 			candidate := e.table[nextHash]
 			candidate2 := e.table[nextHash2]
 			repIndex := s - offset1 + 2
@@ -302,7 +301,7 @@ encodeLoop:
 			}
 
 			// Store this, since we have it.
-			nextHash := hashLen(cv, hashLog, tableFastHashLen)
+			nextHash := hash6(cv, hashLog)
 			e.table[nextHash] = tableEntry{offset: s + e.cur, val: uint32(cv)}
 			seq.matchLen = uint32(l) - zstdMinMatch
 			seq.litLen = 0
@@ -406,8 +405,8 @@ encodeLoop:
 		// By not using them for the first 3 matches
 
 		for {
-			nextHash := hashLen(cv, hashLog, tableFastHashLen)
-			nextHash2 := hashLen(cv>>8, hashLog, tableFastHashLen)
+			nextHash := hash6(cv, hashLog)
+			nextHash2 := hash6(cv>>8, hashLog)
 			candidate := e.table[nextHash]
 			candidate2 := e.table[nextHash2]
 			repIndex := s - offset1 + 2
@@ -590,7 +589,7 @@ encodeLoop:
 			}
 
 			// Store this, since we have it.
-			nextHash := hashLen(cv, hashLog, tableFastHashLen)
+			nextHash := hash6(cv, hashLog)
 			e.table[nextHash] = tableEntry{offset: s + e.cur, val: uint32(cv)}
 			seq.matchLen = uint32(l) - zstdMinMatch
 			seq.litLen = 0
@@ -716,8 +715,8 @@ encodeLoop:
 				panic("offset0 was 0")
 			}
 
-			nextHash := hashLen(cv, hashLog, tableFastHashLen)
-			nextHash2 := hashLen(cv>>8, hashLog, tableFastHashLen)
+			nextHash := hash6(cv, hashLog)
+			nextHash2 := hash6(cv>>8, hashLog)
 			candidate := e.table[nextHash]
 			candidate2 := e.table[nextHash2]
 			repIndex := s - offset1 + 2
@@ -897,7 +896,7 @@ encodeLoop:
 			}
 
 			// Store this, since we have it.
-			nextHash := hashLen(cv, hashLog, tableFastHashLen)
+			nextHash := hash6(cv, hashLog)
 			e.table[nextHash] = tableEntry{offset: s + e.cur, val: uint32(cv)}
 			e.markShardDirty(nextHash)
 			seq.matchLen = uint32(l) - zstdMinMatch
@@ -958,9 +957,9 @@ func (e *fastEncoderDict) Reset(d *dict, singleBlock bool) {
 				const hashLog = tableBits
 
 				cv := load6432(d.content, i-e.maxMatchOff)
-				nextHash := hashLen(cv, hashLog, tableFastHashLen)      // 0 -> 5
-				nextHash1 := hashLen(cv>>8, hashLog, tableFastHashLen)  // 1 -> 6
-				nextHash2 := hashLen(cv>>16, hashLog, tableFastHashLen) // 2 -> 7
+				nextHash := hash6(cv, hashLog)      // 0 -> 5
+				nextHash1 := hash6(cv>>8, hashLog)  // 1 -> 6
+				nextHash2 := hash6(cv>>16, hashLog) // 2 -> 7
 				e.dictTable[nextHash] = tableEntry{
 					val:    uint32(cv),
 					offset: i,
