@@ -232,6 +232,48 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExten
 	}
 }
 
+func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...interface{}) (rows *RowsExtended) {
+	// handler interrupt signal
+	ctx, cancel := context.WithCancel(ctx)
+	c := make(chan os.Signal, 1)
+	c0 := make(chan bool, 1)
+	signal.Notify(c, os.Interrupt)
+	defer func() {
+		signal.Stop(c)
+	}()
+	go func() {
+		select {
+		case <-c:
+			fmt.Println("Caught signal, canceling...")
+			cancel()
+		case <-ctx.Done():
+			fmt.Println("Done")
+		case <-c0:
+		}
+		close(c)
+	}()
+
+	rs, err := dbt.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		dbt.fail("query", query, err)
+	}
+	return &RowsExtended{
+		rows:      rs,
+		closeChan: &c0,
+	}
+}
+
+func (dbt *DBTest) mustQueryAssertCount(query string, expected int, args ...interface{}) {
+	rows := dbt.mustQuery(query, args...)
+	cnt := 0
+	for rows.Next() {
+		cnt++
+	}
+	if cnt != expected {
+		dbt.Fatalf("expected %v, got %v", expected, cnt)
+	}
+}
+
 func (dbt *DBTest) fail(method, query string, err error) {
 	if len(query) > 300 {
 		query = "[query too large to print]"
@@ -243,6 +285,14 @@ func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result) 
 	res, err := dbt.db.Exec(query, args...)
 	if err != nil {
 		dbt.fail("exec", query, err)
+	}
+	return res
+}
+
+func (dbt *DBTest) mustExecContext(ctx context.Context, query string, args ...interface{}) (res sql.Result) {
+	res, err := dbt.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		dbt.fail("exec context", query, err)
 	}
 	return res
 }
@@ -315,6 +365,14 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 		test(dbt)
 		dbt.db.Exec("DROP TABLE IF EXISTS test")
 	}
+}
+
+func runningOnGithubAction() bool {
+	return os.Getenv("GITHUB_ACTIONS") != ""
+}
+
+func runningOnAWS() bool {
+	return os.Getenv("CLOUD_PROVIDER") == "AWS"
 }
 
 func TestBogusUserPasswordParameters(t *testing.T) {

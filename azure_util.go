@@ -49,8 +49,9 @@ func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename strin
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) uploadFile(dataFile string, meta *fileMetadata, encryptMeta *encryptMetadata, maxConcurrency int64) {
+func (util *snowflakeAzureUtil) uploadFile(dataFile string, meta *fileMetadata, encryptMeta *encryptMetadata, maxConcurrency int, multiPartThreshold int64) error {
 	// TODO SNOW-294155
+	return nil
 }
 
 // cloudUtil implementation

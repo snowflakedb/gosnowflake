@@ -11,11 +11,9 @@ import (
 	"strings"
 )
 
-//lint:file-ignore U1000 Ignore all unused code
-
 const (
-	stageName       = "SYSTEM$BIND"
-	createStageStmt = "CREATE TEMPORARY STAGE " + stageName + " file_format=" +
+	bindStageName   = "SYSTEM$BIND"
+	createStageStmt = "CREATE TEMPORARY STAGE " + bindStageName + " file_format=" +
 		"(type=csv field_optionally_enclosed_by='\"')"
 
 	// size (in bytes) of max input stream (10MB default) as per JDBC specs
@@ -26,48 +24,42 @@ type bindUploader struct {
 	ctx            context.Context
 	sc             *snowflakeConn
 	stagePath      string
-	closed         bool
 	fileCount      int
 	arrayBindStage string
-	bindings       map[string]execBindParameter
 }
 
-func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponseData, error) {
-	if !bu.closed {
-		bindingRows, _ := bu.buildRowsAsBytes(bindings)
-		startIdx := 0
-		numBytes := 0
-		rowNum := 0
-		bu.fileCount = 0
-		var data *execResponseData
-		var err error
-		for rowNum < len(bindingRows) {
-			for numBytes < inputStreamBufferSize && rowNum < len(bindingRows) {
-				numBytes += len(bindingRows[rowNum])
-				rowNum++
-			}
-			// concatenate all byte arrays into 1 and put into input stream
-			var b bytes.Buffer
-			b.Grow(numBytes)
-			for i := startIdx; i < rowNum; i++ {
-				b.Write(bindingRows[i])
-			}
-
-			bu.fileCount++
-			filename := strconv.Itoa(bu.fileCount)
-			data, err = bu.uploadStreamInternal(&b, filename, true)
-			if err != nil {
-				return nil, err
-			}
-			startIdx = rowNum
-			numBytes = 0
+func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, error) {
+	bindingRows, _ := bu.buildRowsAsBytes(bindings)
+	startIdx := 0
+	numBytes := 0
+	rowNum := 0
+	bu.fileCount = 0
+	var data *execResponse
+	var err error
+	for rowNum < len(bindingRows) {
+		for numBytes < inputStreamBufferSize && rowNum < len(bindingRows) {
+			numBytes += len(bindingRows[rowNum])
+			rowNum++
 		}
-		return data, nil
+		// concatenate all byte arrays into 1 and put into input stream
+		var b bytes.Buffer
+		b.Grow(numBytes)
+		for i := startIdx; i < rowNum; i++ {
+			b.Write(bindingRows[i])
+		}
+
+		bu.fileCount++
+		data, err = bu.uploadStreamInternal(&b, true)
+		if err != nil {
+			return nil, err
+		}
+		startIdx = rowNum
+		numBytes = 0
 	}
-	return nil, nil
+	return data, nil
 }
 
-func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, dstFilename string, compressData bool) (*execResponseData, error) {
+func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, compressData bool) (*execResponse, error) {
 	err := bu.createStageIfNeeded()
 	if err != nil {
 		return nil, err
@@ -79,12 +71,6 @@ func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, dstFilen
 			Message: "stage name is null",
 		}
 	}
-	if dstFilename == "" {
-		return nil, &SnowflakeError{
-			Number:  ErrBindUpload,
-			Message: "destination file is null",
-		}
-	}
 
 	var putCommand strings.Builder
 	// use a placeholder for source file
@@ -94,20 +80,12 @@ func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, dstFilen
 	putCommand.WriteString(stageName)
 	putCommand.WriteString("'")
 	putCommand.WriteString(" overwrite=true")
-	data, err := bu.sc.exec(bu.ctx, putCommand.String(), false, false, false, []driver.NamedValue{})
-	if err != nil {
-		return nil, err
-	}
-
-	sfa := &snowflakeFileTransferAgent{
-		data:                       data.Data,
-		command:                    putCommand.String(),
-		sourceStream:               inputStream,
-		dstFileNameForStreamSource: dstFilename,
-		compressSourceFromStream:   compressData,
-	}
-	sfa.execute()
-	return sfa.result()
+	// prepare context for PUT command
+	ctx := WithFileStream(bu.ctx, inputStream)
+	ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{
+		compressSourceFromStream: compressData})
+	return bu.sc.exec(
+		ctx, putCommand.String(), false, true, false, []driver.NamedValue{})
 }
 
 func (bu *bindUploader) createStageIfNeeded() error {
@@ -129,7 +107,7 @@ func (bu *bindUploader) createStageIfNeeded() error {
 	if err != nil {
 		return err
 	}
-	bu.arrayBindStage = stageName
+	bu.arrayBindStage = bindStageName
 	if err != nil {
 		newThreshold := "0"
 		bu.sc.cfg.Params[sessionArrayBindStageThreshold] = &newThreshold
@@ -189,12 +167,6 @@ func (bu *bindUploader) createCSVRecord(data []string) []byte {
 	}
 	b.WriteString("\n")
 	return []byte(b.String())
-}
-
-func (bu *bindUploader) close() {
-	if !bu.closed {
-		bu.closed = true
-	}
 }
 
 func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, error) {

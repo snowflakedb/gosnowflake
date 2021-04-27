@@ -30,6 +30,13 @@ func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 		frd = bufio.NewReader(f)
 	}
 
+	if !meta.overwrite {
+		if _, err := os.Stat(filepath.Join(expandUser(meta.stageInfo.Location), meta.dstFileName)); err == nil {
+			meta.dstFileSize = 0
+			meta.resStatus = skipped
+			return nil
+		}
+	}
 	output, err := os.OpenFile(filepath.Join(expandUser(meta.stageInfo.Location), meta.dstFileName), os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		return err
