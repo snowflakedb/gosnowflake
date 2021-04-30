@@ -35,6 +35,8 @@ const (
 	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
 	// describeOnly returns the description of the query
 	describeOnly contextKey = "DESCRIBE_ONLY"
+	// queryTag is a parameter that allows clients to append metadata to a query
+	queryTag contextKey = "QUERY_TAG"
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
@@ -80,6 +82,12 @@ func WithFileTransferOptions(ctx context.Context, options *SnowflakeFileTransfer
 // WithDescribeOnly returns a context that enables a describe only query
 func WithDescribeOnly(ctx context.Context) context.Context {
 	return context.WithValue(ctx, describeOnly, true)
+}
+
+// WithQueryTag returns a context that will set the given tag as the QUERY_TAG
+// parameter on any queries that are run
+func WithQueryTag(ctx context.Context, tag string) context.Context {
+	return context.WithValue(ctx, queryTag, tag)
 }
 
 // Get the request ID from the context if specified, otherwise generate one

@@ -167,3 +167,29 @@ func TestWithDescribeOnly(t *testing.T) {
 		}
 	})
 }
+
+func TestWithQueryTag(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		testQueryTag := "TEST QUERY TAG"
+		ctx := WithQueryTag(context.Background(), testQueryTag)
+
+		// This query itself will be part of the history and will have the query tag
+		rows := dbt.mustQueryContext(
+			ctx,
+			"SELECT QUERY_TAG FROM table(information_schema.query_history_by_session())")
+		if !rows.Next() {
+			t.Fatal("no rows")
+		}
+		var tag sql.NullString
+		err := rows.Scan(&tag)
+		if err != nil {
+			t.Error(err)
+		}
+		if !tag.Valid {
+			t.Fatal("no tag set")
+		}
+		if tag.String != testQueryTag {
+			t.Fatalf("expected tag '%s' but got '%s'", testQueryTag, tag.String)
+		}
+	})
+}

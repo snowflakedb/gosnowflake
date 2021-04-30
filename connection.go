@@ -108,6 +108,9 @@ func (sc *snowflakeConn) exec(
 	if key := ctx.Value(multiStatementCount); key != nil {
 		req.Parameters[string(multiStatementCount)] = key
 	}
+	if tag := ctx.Value(queryTag); tag != nil {
+		req.Parameters[string(queryTag)] = tag
+	}
 	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
 
 	requestID := getOrGenerateRequestIDFromContext(ctx)
