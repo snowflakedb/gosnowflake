@@ -26,6 +26,7 @@ const (
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
 	arrowBatches          contextKey = "ARROW_BATCHES"
 	arrowAlloc            contextKey = "ARROW_ALLOC"
+	queryTag              contextKey = "QUERY_TAG"
 )
 
 const (
@@ -97,6 +98,12 @@ func WithArrowBatches(ctx context.Context) context.Context {
 // objects.
 func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Context {
 	return context.WithValue(ctx, arrowAlloc, pool)
+}
+
+// WithQueryTag returns a context that will set the given tag as the QUERY_TAG
+// parameter on any queries that are run
+func WithQueryTag(ctx context.Context, tag string) context.Context {
+	return context.WithValue(ctx, queryTag, tag)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
