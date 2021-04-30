@@ -166,39 +166,28 @@ func TestWithDescribeOnly(t *testing.T) {
 	})
 }
 
-func TestCallStatement(t *testing.T) {
-	t.Skip("USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS is not yet supported")
-
+func TestWithQueryTag(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		in1 := float64(1)
-		in2 := string("[2,3]")
-		expected := "1 \"[2,3]\" [2,3]"
-		var out string
+		testQueryTag := "TEST QUERY TAG"
+		ctx := WithQueryTag(context.Background(), testQueryTag)
 
-		dbt.db.Exec("ALTER SESSION SET USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS = true")
-
-		dbt.mustExec("create or replace procedure " +
-			"TEST_SP_CALL_STMT_ENABLED(in1 float, in2 variant) " +
-			"returns string language javascript as $$ " +
-			"let res = snowflake.execute({sqlText: 'select ? c1, ? c2', binds:[IN1, JSON.stringify(IN2)]}); " +
-			"res.next(); " +
-			"return res.getColumnValueAsString(1) + ' ' + res.getColumnValueAsString(2) + ' ' + IN2; " +
-			"$$;")
-
-		stmt, err := dbt.db.Prepare("call TEST_SP_CALL_STMT_ENABLED(?, to_variant(?))")
+		// This query itself will be part of the history and will have the query tag
+		rows := dbt.mustQueryContext(
+			ctx,
+			"SELECT QUERY_TAG FROM table(information_schema.query_history_by_session())")
+		if !rows.Next() {
+			t.Fatal("no rows")
+		}
+		var tag sql.NullString
+		err := rows.Scan(&tag)
 		if err != nil {
-			dbt.Errorf("failed to prepare query: %v", err)
+			t.Error(err)
 		}
-		defer stmt.Close()
-		err = stmt.QueryRow(in1, in2).Scan(&out)
-		if err != nil {
-			dbt.Errorf("failed to scan: %v", err)
+		if !tag.Valid {
+			t.Fatal("no tag set")
 		}
-
-		if expected != out {
-			dbt.Errorf("expected: %s, got: %s", expected, out)
+		if tag.String != testQueryTag {
+			t.Fatalf("expected tag '%s' but got '%s'", testQueryTag, tag.String)
 		}
-
-		dbt.mustExec("drop procedure if exists TEST_SP_CALL_STMT_ENABLED(float, variant)")
 	})
 }
