@@ -30,6 +30,13 @@ const (
 	sessionClientSessionKeepAlive = "client_session_keep_alive"
 )
 
+type paramsKeyType int
+
+const (
+	_                       = iota
+	paramsKey paramsKeyType = iota
+)
+
 var (
 	// FetchQueryMonitoringDataThresholdMs specifies the ms threshold, over which we'll fetch the monitoring
 	// data for a Snowflake query. We use a time-based threshold, since there is a non-zero latency cost
@@ -73,8 +80,15 @@ func (sc *snowflakeConn) exec(
 		AsyncExec:    noResult,
 		SequenceID:   counter,
 		DescribeOnly: describeOnly,
+		Parameters:   make(map[string]string),
 	}
 	req.IsInternal = isInternal
+	statementParams := GetContextStatementParameters(ctx)
+	if statementParams != nil {
+		for k, v := range statementParams {
+			req.Parameters[k] = v
+		}
+	}
 	tsmode := "TIMESTAMP_NTZ"
 	idx := 1
 	if len(parameters) > 0 {
@@ -249,6 +263,27 @@ func (sc *snowflakeConn) Close() (err error) {
 	sc.cleanup()
 	return nil
 }
+
+func WithContextStatementParameters(ctx context.Context, params map[string]string) context.Context {
+	glog.V(2).Infoln("Adding parameters")
+	existingParams := GetContextStatementParameters(ctx)
+	if existingParams != nil {
+		for k, v := range params {
+			existingParams[k] = v
+		}
+		params = existingParams
+	}
+	return context.WithValue(ctx, paramsKey, params)
+}
+
+func GetContextStatementParameters(ctx context.Context) map[string]string {
+	glog.V(2).Infoln("Retrieving parameters")
+	if params, ok := ctx.Value(paramsKey).(map[string]string); ok {
+		return params
+	}
+	return nil
+}
+
 func (sc *snowflakeConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	glog.V(2).Infoln("Prepare")
 	if sc.rest == nil {
