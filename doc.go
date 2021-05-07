@@ -26,8 +26,8 @@ Use the Open() function to create a database handle with connection parameters:
 
 The Go Snowflake Driver supports the following connection syntaxes (or data source name (DSN) formats):
 
-	* username[:password]@accountname/dbname/schemaname[?param1=value&...&paramN=valueN
-	* username[:password]@accountname/dbname[?param1=value&...&paramN=valueN
+	* username[:password]@accountname/dbname/schemaname[?param1=value&...&paramN=valueN]
+	* username[:password]@accountname/dbname[?param1=value&...&paramN=valueN]
 	* username[:password]@hostname:port/dbname/schemaname?account=<your_account>[&param1=value&...&paramN=valueN]
 
 where all parameters must be escaped or use Config and DSN to construct a DSN string.
