@@ -10,6 +10,7 @@ type SnowflakeRows = snowflakeRows
 type SnowflakeRestful = snowflakeRestful
 type SnowflakeValue = snowflakeValue
 type ChunkRowType = chunkRowType
+type SimpleTokenAccessor = simpleTokenAccessor
 
 // Methods
 
