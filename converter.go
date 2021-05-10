@@ -18,6 +18,8 @@ import (
 	"github.com/apache/arrow/go/arrow/decimal128"
 )
 
+const format = "2006-01-02 15:04:05.999999999"
+
 // goTypeToSnowflake translates Go data type to Snowflake data type.
 func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 	switch t := v.(type) {
@@ -490,18 +492,25 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 	return err
 }
 
-type intArray []int
-type int32Array []int32
-type int64Array []int64
-type float64Array []float64
-type float32Array []float32
-type boolArray []bool
-type stringArray []string
-type byteArray [][]byte
+type (
+	intArray          []int
+	int32Array        []int32
+	int64Array        []int64
+	float64Array      []float64
+	float32Array      []float32
+	boolArray         []bool
+	stringArray       []string
+	byteArray         [][]byte
+	timestampNtzArray []time.Time
+	timestampLtzArray []time.Time
+	timestampTzArray  []time.Time
+	dateArray         []time.Time
+	timeArray         []time.Time
+)
 
 // Array takes in a column of a row to be inserted via array binding, bulk or
 // otherwise, and converts it into a native snowflake type for binding
-func Array(a interface{}) interface{} {
+func Array(a interface{}, typ ...snowflakeType) interface{} {
 	switch t := a.(type) {
 	case []int:
 		return (*intArray)(&t)
@@ -519,6 +528,24 @@ func Array(a interface{}) interface{} {
 		return (*stringArray)(&t)
 	case [][]byte:
 		return (*byteArray)(&t)
+	case []time.Time:
+		if len(typ) < 1 {
+			return a
+		}
+		switch typ[0] {
+		case timestampNtzType:
+			return (*timestampNtzArray)(&t)
+		case timestampLtzType:
+			return (*timestampLtzArray)(&t)
+		case timestampTzType:
+			return (*timestampTzArray)(&t)
+		case dateType:
+			return (*dateArray)(&t)
+		case timeType:
+			return (*timeArray)(&t)
+		default:
+			return a
+		}
 
 	case *[]int:
 		return (*intArray)(t)
@@ -536,55 +563,142 @@ func Array(a interface{}) interface{} {
 		return (*stringArray)(t)
 	case *[][]byte:
 		return (*byteArray)(t)
+	case *[]time.Time:
+		if len(typ) < 1 {
+			return a
+		}
+		switch typ[0] {
+		case timestampNtzType:
+			return (*timestampNtzArray)(t)
+		case timestampLtzType:
+			return (*timestampLtzArray)(t)
+		case timestampTzType:
+			return (*timestampTzArray)(t)
+		case dateType:
+			return (*dateArray)(t)
+		case timeType:
+			return (*timeArray)(t)
+		default:
+			return a
+		}
 	default:
 		return a
 	}
 }
 
-func snowflakeArrayToString(nv *driver.NamedValue) (snowflakeType, []string) {
+// snowflakeArrayToString converts the array binding to snowflake's native
+// string type. The string value differs whether it's directly bound or
+// uploaded via stream.
+func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, []*string) {
 	var t snowflakeType
-	var arr []string
+	var arr []*string
 	switch reflect.TypeOf(nv.Value) {
 	case reflect.TypeOf(&intArray{}):
 		t = fixedType
 		a := nv.Value.(*intArray)
 		for _, x := range *a {
-			arr = append(arr, strconv.Itoa(x))
+			v := strconv.Itoa(x)
+			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&int64Array{}):
 		t = fixedType
 		a := nv.Value.(*int64Array)
 		for _, x := range *a {
-			arr = append(arr, strconv.Itoa(int(x)))
+			v := strconv.FormatInt(x, 10)
+			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&int32Array{}):
 		t = fixedType
 		a := nv.Value.(*int32Array)
 		for _, x := range *a {
-			arr = append(arr, strconv.Itoa(int(x)))
+			v := strconv.Itoa(int(x))
+			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&float64Array{}):
 		t = realType
 		a := nv.Value.(*float64Array)
 		for _, x := range *a {
-			arr = append(arr, fmt.Sprintf("%g", x))
+			v := fmt.Sprintf("%g", x)
+			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&float32Array{}):
 		t = realType
 		a := nv.Value.(*float32Array)
 		for _, x := range *a {
-			arr = append(arr, fmt.Sprintf("%g", x))
+			v := fmt.Sprintf("%g", x)
+			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&boolArray{}):
 		t = booleanType
 		a := nv.Value.(*boolArray)
 		for _, x := range *a {
-			arr = append(arr, strconv.FormatBool(x))
+			v := strconv.FormatBool(x)
+			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&stringArray{}):
 		t = textType
 		a := nv.Value.(*stringArray)
-		arr = *a
+		for _, x := range *a {
+			v := x // necessary for address to be not overwritten
+			arr = append(arr, &v)
+		}
+	case reflect.TypeOf(&byteArray{}):
+		t = binaryType
+		a := nv.Value.(*byteArray)
+		for _, x := range *a {
+			v := hex.EncodeToString(x)
+			arr = append(arr, &v)
+		}
+	case reflect.TypeOf(&timestampNtzArray{}):
+		t = timestampNtzType
+		a := nv.Value.(*timestampNtzArray)
+		for _, x := range *a {
+			v := strconv.FormatInt(x.UnixNano(), 10)
+			arr = append(arr, &v)
+		}
+	case reflect.TypeOf(&timestampLtzArray{}):
+		t = timestampLtzType
+		a := nv.Value.(*timestampLtzArray)
+		for _, x := range *a {
+			v := strconv.FormatInt(x.UnixNano(), 10)
+			arr = append(arr, &v)
+		}
+	case reflect.TypeOf(&timestampTzArray{}):
+		t = timestampTzType
+		a := nv.Value.(*timestampTzArray)
+		for _, x := range *a {
+			var v string
+			if stream {
+				v = x.Format(format)
+			} else {
+				_, offset := x.Zone()
+				v = fmt.Sprintf("%v %v", x.UnixNano(), offset/60+1440)
+			}
+			arr = append(arr, &v)
+		}
+	case reflect.TypeOf(&dateArray{}):
+		t = dateType
+		a := nv.Value.(*dateArray)
+		for _, x := range *a {
+			_, offset := x.Zone()
+			x = x.Add(time.Second * time.Duration(offset))
+			v := fmt.Sprintf("%d", x.Unix()*1000)
+			arr = append(arr, &v)
+		}
+	case reflect.TypeOf(&timeArray{}):
+		t = timeType
+		a := nv.Value.(*timeArray)
+		for _, x := range *a {
+			var v string
+			if stream {
+				v = x.Format(format[11:19])
+			} else {
+				h, m, s := x.Clock()
+				tm := int64(h)*int64(time.Hour) + int64(m)*int64(time.Minute) + int64(s)*int64(time.Second) + int64(x.Nanosecond())
+				v = strconv.FormatInt(tm, 10)
+			}
+			arr = append(arr, &v)
+		}
 	default:
 		return unSupportedType, nil
 	}

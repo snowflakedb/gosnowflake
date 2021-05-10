@@ -40,7 +40,8 @@ var (
 )
 
 const (
-	enableArrow = "ALTER SESSION SET GO_QUERY_RESULT_FORMAT = ARROW_FORCE "
+	forceArrow  = "ALTER SESSION SET GO_QUERY_RESULT_FORMAT = ARROW_FORCE"
+	PSTLocation = "America/Los_Angeles"
 )
 
 // The tests require the following parameters in the environment variables.
@@ -613,7 +614,7 @@ func testInt(t *testing.T, arrow bool) {
 		// SIGNED
 		for _, v := range types {
 			if arrow {
-				dbt.mustExec(enableArrow)
+				dbt.mustExec(forceArrow)
 			}
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
@@ -657,7 +658,7 @@ func TestArrowBigInt(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		dbt.mustExec(enableArrow)
+		dbt.mustExec(forceArrow)
 		rows := dbt.mustQuery(fmt.Sprintf("SELECT %s::NUMBER(%v, %v) AS C", tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
 			dbt.Error("failed to query")
@@ -695,7 +696,7 @@ func testFloat32(t *testing.T, arrow bool) {
 		var rows *RowsExtended
 		for _, v := range types {
 			if arrow {
-				dbt.mustExec(enableArrow)
+				dbt.mustExec(forceArrow)
 			}
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
@@ -733,7 +734,7 @@ func testFloat64(t *testing.T, arrow bool) {
 		var rows *RowsExtended
 		for _, v := range types {
 			if arrow {
-				dbt.mustExec(enableArrow)
+				dbt.mustExec(forceArrow)
 			}
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (42.23)")
@@ -771,7 +772,7 @@ func TestArrowBigFloat(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		dbt.mustExec(enableArrow)
+		dbt.mustExec(forceArrow)
 		rows := dbt.mustQuery(fmt.Sprintf("SELECT %s::NUMBER(%v, %v) AS C", tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
 			dbt.Error("failed to query")
@@ -907,7 +908,7 @@ func TestVariousTypes(t *testing.T) {
 
 func TestArrowVariousTypes(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(enableArrow)
+		dbt.mustExec(forceArrow)
 		rows := dbt.mustQuery(
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
 		defer rows.Close()
@@ -1028,7 +1029,7 @@ func TestArrowString(t *testing.T) {
 func testString(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		if arrow {
-			dbt.mustExec(enableArrow)
+			dbt.mustExec(forceArrow)
 		}
 		types := []string{"CHAR(255)", "VARCHAR(255)", "TEXT", "STRING"}
 		in := "κόσμε üöäßñóùéàâÿœ'îë Árvíztűrő いろはにほへとちりぬるを イロハニホヘト דג סקרן чащах  น่าฟังเอย"
@@ -1172,7 +1173,7 @@ func testSimpleDateTimeTimestampFetch(t *testing.T, arrow bool) {
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
 		if arrow {
-			dbt.mustExec(enableArrow)
+			dbt.mustExec(forceArrow)
 		}
 		for _, f := range fetchTypes {
 			rows := dbt.mustQuery("SELECT CURRENT_DATE(), CURRENT_TIME(), CURRENT_TIMESTAMP()")
@@ -1202,7 +1203,6 @@ func testDateTime(t *testing.T, arrow bool) {
 		}
 		return t.Add(dur)
 	}
-	format := "2006-01-02 15:04:05.999999999"
 	t0 := time.Time{}
 	tstr0 := "0000-00-00 00:00:00.000000000"
 	testcases := []tcDateTimeTimestamp{
@@ -1243,7 +1243,7 @@ func testDateTime(t *testing.T, arrow bool) {
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
 		if arrow {
-			dbt.mustExec(enableArrow)
+			dbt.mustExec(forceArrow)
 		}
 		for _, setups := range testcases {
 			for _, setup := range setups.tests {
@@ -1266,7 +1266,6 @@ func TestArrowTimestampLTZ(t *testing.T) {
 }
 
 func testTimestampLTZ(t *testing.T, arrow bool) {
-	format := "2006-01-02 15:04:05.999999999"
 	// Set session time zone in Los Angeles, same as machine
 	createDSN("America/Los_Angeles")
 	location, err := time.LoadLocation("America/Los_Angeles")
@@ -1317,7 +1316,7 @@ func testTimestampLTZ(t *testing.T, arrow bool) {
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
 		if arrow {
-			dbt.mustExec(enableArrow)
+			dbt.mustExec(forceArrow)
 		}
 		for _, setups := range testcases {
 			for _, setup := range setups.tests {
@@ -1349,7 +1348,6 @@ func testTimestampTZ(t *testing.T, arrow bool) {
 		}
 		return r
 	}
-	format := "2006-01-02 15:04:05.999999999"
 	testcases := []tcDateTimeTimestamp{
 		{
 			dbtype:  "TIMESTAMP_TZ(9)",
@@ -1370,7 +1368,7 @@ func testTimestampTZ(t *testing.T, arrow bool) {
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
 		if arrow {
-			dbt.mustExec(enableArrow)
+			dbt.mustExec(forceArrow)
 		}
 		for _, setups := range testcases {
 			for _, setup := range setups.tests {
@@ -1395,7 +1393,7 @@ func TestArrowNULL(t *testing.T) {
 func testNULL(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		if arrow {
-			dbt.mustExec(enableArrow)
+			dbt.mustExec(forceArrow)
 		}
 		nullStmt, err := dbt.db.Prepare("SELECT NULL")
 		if err != nil {
@@ -1558,7 +1556,7 @@ func TestArrowVariant(t *testing.T) {
 func testVariant(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		if arrow {
-			dbt.mustExec(enableArrow)
+			dbt.mustExec(forceArrow)
 		}
 		rows := dbt.mustQuery(`select parse_json('[{"id":1, "name":"test1"},{"id":2, "name":"test2"}]')`)
 		defer rows.Close()
@@ -1585,7 +1583,7 @@ func TestArrowArray(t *testing.T) {
 func testArray(t *testing.T, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		if arrow {
-			dbt.mustExec(enableArrow)
+			dbt.mustExec(forceArrow)
 		}
 		rows := dbt.mustQuery(`select as_array(parse_json('[{"id":1, "name":"test1"},{"id":2, "name":"test2"}]'))`)
 		defer rows.Close()
@@ -1619,7 +1617,7 @@ func TestLargeSetResultWithArrowDecoder(t *testing.T) {
 func testLargeSetResult(t *testing.T, numrows int, arrow bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		if arrow {
-			dbt.mustExec(enableArrow)
+			dbt.mustExec(forceArrow)
 		}
 		rows := dbt.mustQuery(fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
 		defer rows.Close()

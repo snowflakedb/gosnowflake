@@ -9,17 +9,18 @@ import (
 // TestPreparedStatement creates a basic prepared statement, inserting values
 // after the statement has been prepared
 func TestPreparedStatement(t *testing.T) {
-
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(createTableSQL)
+		dbt.mustExec("create or replace table test_prep_statement(c1 INTEGER, c2 FLOAT, c3 BOOLEAN, c4 STRING)")
 		defer dbt.mustExec(deleteTableSQL)
 
 		intArray := []int{1, 2, 3}
 		fltArray := []float64{0.1, 2.34, 5.678}
 		boolArray := []bool{true, false, true}
 		strArray := []string{"test1", "test2", "test3"}
-		stmt := dbt.mustPrepare(insertSQL)
-		stmt.Exec(Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
+		stmt := dbt.mustPrepare("insert into TEST_PREP_STATEMENT values(?, ?, ?, ?)")
+		if _, err := stmt.Exec(Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray)); err != nil {
+			t.Fatal(err)
+		}
 		rows := dbt.mustQuery(selectAllSQL)
 		defer rows.Close()
 

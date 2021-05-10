@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	createTableSQL = "create or replace table test_prep_statement(c1 INTEGER, " +
-		"c2 FLOAT, c3 BOOLEAN, c4 STRING)"
+	createTableSQL = `create or replace table test_prep_statement(c1 INTEGER,
+		c2 FLOAT, c3 BOOLEAN, c4 STRING, C5 BINARY, C6 TIMESTAMP_NTZ,
+		C7 TIMESTAMP_LTZ, C8 TIMESTAMP_TZ, C9 DATE, C10 TIME)`
 	deleteTableSQL   = "drop table if exists TEST_PREP_STATEMENT"
-	insertSQL        = "insert into TEST_PREP_STATEMENT values(?, ?, ?, ?)"
+	insertSQL        = "insert into TEST_PREP_STATEMENT values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	selectAllSQL     = "select * from TEST_PREP_STATEMENT ORDER BY 1"
 	updateSQL        = "update TEST_PREP_STATEMENT set C4 = 'newString' where C1 = ?"
 	deleteSQL        = "delete from TEST_PREP_STATEMENT where C1 = ?"
@@ -67,7 +68,7 @@ func TestBindingUint64(t *testing.T) {
 }
 
 func TestBindingDateTimeTimestamp(t *testing.T) {
-	createDSN("America/Los_Angeles")
+	createDSN(PSTLocation)
 	runTests(t, dsn, func(dbt *DBTest) {
 		expected := time.Now()
 		dbt.mustExec(
@@ -77,12 +78,11 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 			dbt.Fatal(err.Error())
 		}
 		defer stmt.Close()
-		_, err = stmt.Exec(
+		if _, err = stmt.Exec(
 			DataTypeTimestampNtz, expected,
 			DataTypeTimestampLtz, expected,
 			DataTypeDate, expected,
-			DataTypeTime, expected)
-		if err != nil {
+			DataTypeTime, expected); err != nil {
 			dbt.Fatal(err)
 		}
 		rows := dbt.mustQuery("SELECT ntz,ltz,dt,tm FROM tztest WHERE id=?", 1)
@@ -169,8 +169,7 @@ func TestBindingTimestampTZ(t *testing.T) {
 			dbt.Fatal(err.Error())
 		}
 		defer stmt.Close()
-		_, err = stmt.Exec(DataTypeTimestampTz, expected)
-		if err != nil {
+		if _, err = stmt.Exec(DataTypeTimestampTz, expected); err != nil {
 			dbt.Fatal(err)
 		}
 		rows := dbt.mustQuery("SELECT tz FROM tztest WHERE id=?", 1)
@@ -182,7 +181,6 @@ func TestBindingTimestampTZ(t *testing.T) {
 				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
 					expected.UnixNano(), expected, v.UnixNano(), v)
 			}
-			// fmt.Printf("returned value: %v, %v, %v\n", v, v.UnixNano(), expected.UnixNano())
 		} else {
 			dbt.Error("no data")
 		}
@@ -200,8 +198,7 @@ func TestBindingInterface(t *testing.T) {
 			dbt.Error("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
-		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
-		if err != nil {
+		if err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
 		var s string
@@ -227,7 +224,7 @@ func TestBindingInterface(t *testing.T) {
 
 func TestBindingArrowInterface(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(enableArrow)
+		dbt.mustExec(forceArrow)
 		var err error
 		rows := dbt.mustQuery(
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
@@ -236,8 +233,7 @@ func TestBindingArrowInterface(t *testing.T) {
 			dbt.Error("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
-		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
-		if err != nil {
+		if err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
 		var s1 *big.Float
@@ -267,55 +263,7 @@ func TestBindingArrowInterface(t *testing.T) {
 // TestBindingArray tests basic array binding via the usage of the Array
 // function that converts the passed Golang slice to a Snowflake array type
 func TestBindingArray(t *testing.T) {
-	intArray := []int{1, 2, 3}
-	fltArray := []float64{0.1, 2.34, 5.678}
-	boolArray := []bool{true, false, true}
-	strArray := []string{"test1", "test2", "test3"}
-
-	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(createTableSQL)
-		defer dbt.mustExec(deleteTableSQL)
-		dbt.mustExec(insertSQL, Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
-		rows := dbt.mustQuery(selectAllSQL)
-		defer rows.Close()
-
-		var v1 int
-		var v2 float64
-		var v3 bool
-		var v4 string
-		if rows.Next() {
-			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
-				t.Fatal(err)
-			}
-			if v1 != 1 && v2 != 0.1 && v3 != true && v4 != "test1" {
-				t.Fatalf("failed to fetch. expected: 1, 0.1, true, test1. got: %v, %v, %v, %v", v1, v2, v3, v4)
-			}
-		} else {
-			t.Error("failed to query")
-		}
-
-		if rows.Next() {
-			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
-				t.Fatal(err)
-			}
-			if v1 != 2 && v2 != 2.34 && v3 != false && v4 != "test2" {
-				t.Fatalf("failed to fetch. expected: 2, 2.34, false, test2. got: %v, %v, %v, %v", v1, v2, v3, v4)
-			}
-		} else {
-			t.Error("failed to query")
-		}
-
-		if rows.Next() {
-			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
-				t.Fatal(err)
-			}
-			if v1 != 3 && v2 != 5.678 && v3 != true && v4 != "test3" {
-				t.Fatalf("failed to fetch. expected: 3, test3. got: %v, %v, %v, %v", v1, v2, v3, v4)
-			}
-		} else {
-			t.Error("failed to query")
-		}
-	})
+	testBindingArray(t, false)
 }
 
 // TestBindingBulkArray tests bulk array binding via the usage of the Array
@@ -324,58 +272,89 @@ func TestBindingBulkArray(t *testing.T) {
 	if runningOnGithubAction() {
 		t.Skip("client_stage_array_binding_threshold value is internal")
 	}
+	testBindingArray(t, true)
+}
 
+func testBindingArray(t *testing.T, bulk bool) {
+	tz := time.Now()
+	createDSN(PSTLocation)
 	intArray := []int{1, 2, 3}
 	fltArray := []float64{0.1, 2.34, 5.678}
 	boolArray := []bool{true, false, true}
 	strArray := []string{"test1", "test2", "test3"}
+	byteArray := [][]byte{{0x01, 0x02, 0x03}, {0x04, 0x05, 0x06}, {0x07, 0x08, 0x09}}
+
+	now := time.Now()
+	loc, _ := time.LoadLocation(PSTLocation)
+	ntzArray := []time.Time{now, now.Add(1), now.Add(2)}
+	ltzArray := []time.Time{now.Add(3).In(loc), now.Add(4).In(loc), now.Add(5).In(loc)}
+	tzArray := []time.Time{tz.Add(6).In(loc), tz.Add(7).In(loc), tz.Add(8).In(loc)}
+	dtArray := []time.Time{now.Add(9), now.Add(10), now.Add(11)}
+	tmArray := []time.Time{now.Add(12), now.Add(13), now.Add(14)}
 
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQL)
 		defer dbt.mustExec(deleteTableSQL)
-		if _, err := dbt.db.Exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1"); err != nil {
-			t.Error(err)
+		if bulk {
+			if _, err := dbt.db.Exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1"); err != nil {
+				t.Error(err)
+			}
 		}
 
-		dbt.mustExec(insertSQL, Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
+		dbt.mustExec(insertSQL, Array(&intArray), Array(&fltArray),
+			Array(&boolArray), Array(&strArray), Array(&byteArray),
+			Array(&ntzArray, timestampNtzType), Array(&ltzArray, timestampLtzType),
+			Array(&tzArray, timestampTzType), Array(&dtArray, dateType),
+			Array(&tmArray, timeType))
 		rows := dbt.mustQuery(selectAllSQL)
 		defer rows.Close()
 
-		var v1 int
-		var v2 float64
-		var v3 bool
-		var v4 string
-		if rows.Next() {
-			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
+		var v0 int
+		var v1 float64
+		var v2 bool
+		var v3 string
+		var v4 []byte
+		var v5, v6, v7, v8, v9 time.Time
+		cnt := 0
+		for i := 0; rows.Next(); i++ {
+			if err := rows.Scan(&v0, &v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8, &v9); err != nil {
 				t.Fatal(err)
 			}
-			if v1 != 1 && v2 != 0.1 && v3 != true && v4 != "test1" {
-				t.Fatalf("failed to fetch. expected: 1, 0.1, true, test1. got: %v, %v, %v, %v", v1, v2, v3, v4)
+			if v0 != intArray[i] {
+				t.Fatalf("failed to fetch. expected %v, got: %v", intArray[i], v0)
 			}
-		} else {
-			t.Error("failed to query")
+			if v1 != fltArray[i] {
+				t.Fatalf("failed to fetch. expected %v, got: %v", fltArray[i], v1)
+			}
+			if v2 != boolArray[i] {
+				t.Fatalf("failed to fetch. expected %v, got: %v", boolArray[i], v2)
+			}
+			if v3 != strArray[i] {
+				t.Fatalf("failed to fetch. expected %v, got: %v", strArray[i], v3)
+			}
+			if !bytes.Equal(v4, byteArray[i]) {
+				t.Fatalf("failed to fetch. expected %v, got: %v", byteArray[i], v4)
+			}
+			if v5.UnixNano() != ntzArray[i].UnixNano() {
+				t.Fatalf("failed to fetch. expected %v, got: %v", ntzArray[i], v5)
+			}
+			if v6.UnixNano() != ltzArray[i].UnixNano() {
+				t.Fatalf("failed to fetch. expected %v, got: %v", ltzArray[i], v6)
+			}
+			if v7.UnixNano() != tzArray[i].UnixNano() {
+				t.Fatalf("failed to fetch. expected %v, got: %v", tzArray[i], v7)
+			}
+			if v8.Year() != dtArray[i].Year() || v8.Month() != dtArray[i].Month() || v8.Day() != dtArray[i].Day() {
+				t.Fatalf("failed to fetch. expected %v, got: %v", dtArray[i], v8)
+			}
+			if v9.Hour() != tmArray[i].Hour() || v9.Minute() != tmArray[i].Minute() || v9.Second() != tmArray[i].Second() {
+				t.Fatalf("failed to fetch. expected %v, got: %v", tmArray[i], v9)
+			}
+			cnt++
 		}
-
-		if rows.Next() {
-			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
-				t.Fatal(err)
-			}
-			if v1 != 2 && v2 != 2.34 && v3 != false && v4 != "test2" {
-				t.Fatalf("failed to fetch. expected: 2, 2.34, false, test2. got: %v, %v, %v, %v", v1, v2, v3, v4)
-			}
-		} else {
-			t.Error("failed to query")
-		}
-
-		if rows.Next() {
-			if err := rows.Scan(&v1, &v2, &v3, &v4); err != nil {
-				t.Fatal(err)
-			}
-			if v1 != 3 && v2 != 5.678 && v3 != true && v4 != "test3" {
-				t.Fatalf("failed to fetch. expected: 3, test3. got: %v, %v, %v, %v", v1, v2, v3, v4)
-			}
-		} else {
-			t.Error("failed to query")
+		if cnt != len(intArray) {
+			t.Fatal("failed to query")
 		}
 	})
+	createDSN("UTC")
 }
