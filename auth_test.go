@@ -252,7 +252,7 @@ func getDefaultSnowflakeConn() *snowflakeConn {
 }
 
 func TestUnitAuthenticateWithTokenAccessor(t *testing.T) {
-	expectedSessionID := 123
+	expectedSessionID := int64(123)
 	expectedMasterToken := "master_token"
 	expectedToken := "auth_token"
 

@@ -176,11 +176,11 @@ func (wa *wrappedAccessor) Unlock() {
 	wa.ta.Unlock()
 }
 
-func (wa *wrappedAccessor) GetTokens() (token string, masterToken string, sessionID int) {
+func (wa *wrappedAccessor) GetTokens() (token string, masterToken string, sessionID int64) {
 	return wa.ta.GetTokens()
 }
 
-func (wa *wrappedAccessor) SetTokens(token string, masterToken string, sessionID int) {
+func (wa *wrappedAccessor) SetTokens(token string, masterToken string, sessionID int64) {
 	wa.ta.SetTokens(token, masterToken, sessionID)
 }
 
@@ -254,7 +254,7 @@ func TestUnitTokenAccessorRenewSessionContention(t *testing.T) {
 
 	expectedToken := "new token"
 	expectedMaster := "new master"
-	expectedSession := 321
+	expectedSession := int64(321)
 
 	renewSessionDummy := func(_ context.Context, sr *snowflakeRestful, _ time.Duration) error {
 		accessor.SetTokens(expectedToken, expectedMaster, expectedSession)
@@ -376,8 +376,8 @@ func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 
 func TestUnitRenewRestfulSession(t *testing.T) {
 	accessor := getSimpleTokenAccessor()
-	oldToken, oldMasterToken, oldSessionID := "oldtoken", "oldmaster", 100
-	newToken, newMasterToken, newSessionID := "newtoken", "newmaster", 200
+	oldToken, oldMasterToken, oldSessionID := "oldtoken", "oldmaster", int64(100)
+	newToken, newMasterToken, newSessionID := "newtoken", "newmaster", int64(200)
 	postTestSuccessWithNewTokens := func(_ context.Context, _ *snowflakeRestful, _ *url.URL, headers map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
 		if headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, oldMasterToken) {
 			t.Fatalf("authorization key doesn't match, %v vs %v", headers[headerAuthorizationKey], fmt.Sprintf(headerSnowflakeToken, oldMasterToken))
