@@ -140,8 +140,8 @@ func toNamedValues(values []driver.Value) []driver.NamedValue {
 
 // TokenAccessor manages the session token and master token
 type TokenAccessor interface {
-	GetTokens() (token string, masterToken string, sessionID int)
-	SetTokens(token string, masterToken string, sessionID int)
+	GetTokens() (token string, masterToken string, sessionID int64)
+	SetTokens(token string, masterToken string, sessionID int64)
 	Lock() error
 	Unlock()
 }
@@ -149,7 +149,7 @@ type TokenAccessor interface {
 type simpleTokenAccessor struct {
 	token        string
 	masterToken  string
-	sessionID    int
+	sessionID    int64
 	accessorLock sync.Mutex   // Used to implement accessor's Lock and Unlock
 	tokenLock    sync.RWMutex // Used to synchronize SetTokens and GetTokens
 }
@@ -167,13 +167,13 @@ func (sta *simpleTokenAccessor) Unlock() {
 	sta.accessorLock.Unlock()
 }
 
-func (sta *simpleTokenAccessor) GetTokens() (token string, masterToken string, sessionID int) {
+func (sta *simpleTokenAccessor) GetTokens() (token string, masterToken string, sessionID int64) {
 	sta.tokenLock.RLock()
 	defer sta.tokenLock.RUnlock()
 	return sta.token, sta.masterToken, sta.sessionID
 }
 
-func (sta *simpleTokenAccessor) SetTokens(token string, masterToken string, sessionID int) {
+func (sta *simpleTokenAccessor) SetTokens(token string, masterToken string, sessionID int64) {
 	sta.tokenLock.Lock()
 	defer sta.tokenLock.Unlock()
 	sta.token = token

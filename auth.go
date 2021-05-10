@@ -176,7 +176,7 @@ type authResponseMain struct {
 	RemMeValidity       time.Duration           `json:"remMeValidityInSeconds"`
 	HealthCheckInterval time.Duration           `json:"healthCheckInterval"`
 	NewClientForUpgrade string                  `json:"newClientForUpgrade"`
-	SessionID           int                     `json:"sessionId"`
+	SessionID           int64                   `json:"sessionId"`
 	Parameters          []nameValueParameter    `json:"parameters"`
 	SessionInfo         authResponseSessionInfo `json:"sessionInfo"`
 	TokenURL            string                  `json:"tokenUrl,omitempty"`

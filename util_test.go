@@ -33,7 +33,7 @@ func TestSimpleTokenAccessor(t *testing.T) {
 		t.Errorf("unexpected session id %v", sessionID)
 	}
 
-	expectedToken, expectedMasterToken, expectedSessionID := "token123", "master123", 123
+	expectedToken, expectedMasterToken, expectedSessionID := "token123", "master123", int64(123)
 	accessor.SetTokens(expectedToken, expectedMasterToken, expectedSessionID)
 	token, masterToken, sessionID = accessor.GetTokens()
 	if token != expectedToken {
@@ -55,13 +55,13 @@ func TestSimpleTokenAccessorGetTokensSynchronization(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			// set a random session and token
-			session := rand.Int()
-			sessionStr := strconv.Itoa(session)
+			session := rand.Int63()
+			sessionStr := strconv.FormatInt(session, 10)
 			accessor.SetTokens("t"+sessionStr, "m"+sessionStr, session)
 
 			// read back session and token and verify that invariant still holds
 			token, masterToken, session := accessor.GetTokens()
-			sessionStr = strconv.Itoa(session)
+			sessionStr = strconv.FormatInt(session, 10)
 			if "t"+sessionStr != token || "m"+sessionStr != masterToken {
 				failed = true
 			}
