@@ -198,8 +198,10 @@ func sfqStatusIsStillRunning(status QueryStatusFromServer) bool {
 	return exist
 }
 
+// QueryMonitoringData is the struct returned by a request to /montitoring/queries/$qid
+// Contains metadata about a query run
 type QueryMonitoringData struct {
-	Id                  string           `json:"id"`
+	ID                  string           `json:"id"`
 	Status              string           `json:"status"`
 	State               string           `json:"state"`
 	ClientSendTime      int64            `json:"clientSendTime"`
@@ -207,7 +209,7 @@ type QueryMonitoringData struct {
 	EndTime             int64            `json:"endTime"`
 	TotalDuration       int64            `json:"totalDuration"`
 	ClusterNumber       int              `json:"clusterNumber"`
-	WarehouseId         int              `json:"warehouseId"`
+	WarehouseID         int              `json:"warehouseId"`
 	WarehouseName       string           `json:"warehouseName"`
 	WarehouseServerType string           `json:"warehouseServerType"`
 	QueryTag            string           `json:"queryTag"`

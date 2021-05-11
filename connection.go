@@ -60,7 +60,7 @@ const (
 )
 
 var (
-	// FetchQueryMonitoringDataThresholdMs specifies the ms threshold, over which we'll fetch the monitoring
+	// FetchQueryMonitoringDataThreshold specifies the threshold, over which we'll fetch the monitoring
 	// data for a Snowflake query. We use a time-based threshold, since there is a non-zero latency cost
 	// to fetch this data and we want to bound the additional latency. By default we bound to a 2% increase
 	// in latency - assuming worst case 100ms - when fetching this metadata.
@@ -220,9 +220,9 @@ func (sc *snowflakeConn) exec(
 	return data, err
 }
 
-func (sc *snowflakeConn) monitoring(qid string, runtimeSec time.Duration) (*QueryMonitoringData, error) {
+func (sc *snowflakeConn) monitoring(qid string, runtime time.Duration) (*QueryMonitoringData, error) {
 	// Exit early if this was a "fast" query
-	if runtimeSec < FetchQueryMonitoringDataThreshold {
+	if runtime < FetchQueryMonitoringDataThreshold {
 		return nil, nil
 	}
 
