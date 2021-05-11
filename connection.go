@@ -395,8 +395,14 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		}
 		return rows, nil
 	} else if sc.isMultiStmt(&data.Data) {
-		// TODO(greg): add monitoring for multi exec
-		return sc.handleMultiExec(ctx, data.Data)
+		rows, err := sc.handleMultiExec(ctx, data.Data)
+		if err != nil {
+			return nil, err
+		}
+		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
+			rows.monitoring = m
+		}
+		return rows, nil
 	}
 	logger.Debug("DDL")
 	return driver.ResultNoRows, nil
@@ -458,7 +464,6 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	rows.sc = sc
 	rows.queryID = sc.QueryID
 
-	// TODO(greg): handle monitoring for multi query
 	if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
 		rows.monitoring = m
 	}
