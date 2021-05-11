@@ -33,6 +33,8 @@ const (
 	fileStreamFile contextKey = "STREAMING_PUT_FILE"
 	// fileTransferOptions allows the user to pass in custom
 	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
+	// describeOnly returns the description of the query
+	describeOnly contextKey = "DESCRIBE_ONLY"
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
@@ -73,6 +75,11 @@ func WithFileStream(ctx context.Context, reader io.Reader) context.Context {
 // WithFileTransferOptions returns a context that contains the address of file transfer options
 func WithFileTransferOptions(ctx context.Context, options *SnowflakeFileTransferOptions) context.Context {
 	return context.WithValue(ctx, fileTransferOptions, options)
+}
+
+// WithDescribeOnly returns a context that enables a describe only query
+func WithDescribeOnly(ctx context.Context) context.Context {
+	return context.WithValue(ctx, describeOnly, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one

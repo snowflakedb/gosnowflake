@@ -234,7 +234,8 @@ func (sc *snowflakeConn) BeginTx(ctx context.Context, opts driver.TxOptions) (dr
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	_, err := sc.exec(ctx, "BEGIN", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
+	isDesc := isDescribeOnly(ctx)
+	_, err := sc.exec(ctx, "BEGIN", false /* noResult */, false /* isInternal */, isDesc, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -266,10 +267,7 @@ func (sc *snowflakeConn) PrepareContext(ctx context.Context, query string) (driv
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	noResult, err := isAsyncMode(ctx)
-	if err != nil {
-		return nil, err
-	}
+	noResult := isAsyncMode(ctx)
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, true /* describeOnly */, []driver.NamedValue{})
 	if err != nil {
 		if data != nil {
@@ -298,13 +296,11 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	noResult, err := isAsyncMode(ctx)
-	if err != nil {
-		return nil, err
-	}
+	noResult := isAsyncMode(ctx)
+	isDesc := isDescribeOnly(ctx)
 	// TODO handle isInternal
 	ctx = setResultType(ctx, execResultType)
-	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, false /* describeOnly */, args)
+	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
 		if data != nil {
@@ -370,13 +366,11 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 		return nil, driver.ErrBadConn
 	}
 
-	noResult, err := isAsyncMode(ctx)
-	if err != nil {
-		return nil, err
-	}
+	noResult := isAsyncMode(ctx)
+	isDesc := isDescribeOnly(ctx)
 	ctx = setResultType(ctx, queryResultType)
 	// TODO: handle isInternal
-	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, false /* describeOnly */, args)
+	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
@@ -439,12 +433,10 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 	if sc.rest == nil {
 		return driver.ErrBadConn
 	}
-	noResult, err := isAsyncMode(ctx)
-	if err != nil {
-		return err
-	}
+	noResult := isAsyncMode(ctx)
+	isDesc := isDescribeOnly(ctx)
 	// TODO: handle isInternal
-	_, err = sc.exec(ctx, "SELECT 1", noResult, false /* isInternal */, false /* describeOnly */, []driver.NamedValue{})
+	_, err := sc.exec(ctx, "SELECT 1", noResult, false /* isInternal */, isDesc, []driver.NamedValue{})
 	return err
 }
 
@@ -763,16 +755,13 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(ctx context.Context, qid strin
 	return rows, err
 }
 
-func isAsyncMode(ctx context.Context) (bool, error) {
+func isAsyncMode(ctx context.Context) bool {
 	val := ctx.Value(asyncMode)
 	if val == nil {
-		return false, nil
+		return false
 	}
-	boolVal, ok := val.(bool)
-	if !ok {
-		return false, fmt.Errorf("failed to cast val %+v to bool", val)
-	}
-	return boolVal, nil
+	a, ok := val.(bool)
+	return ok && a
 }
 
 func getResumeQueryID(ctx context.Context) (string, error) {
@@ -929,6 +918,15 @@ func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
 		return nil
 	}
 	return o
+}
+
+func isDescribeOnly(ctx context.Context) bool {
+	v := ctx.Value(describeOnly)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
 }
 
 // returns snowflake chunk downloader by default or stream based chunk

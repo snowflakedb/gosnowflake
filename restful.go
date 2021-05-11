@@ -232,7 +232,7 @@ func postRestfulQueryHelper(
 
 		var resultURL string
 		isSessionRenewed := false
-		noResult, _ := isAsyncMode(ctx)
+		noResult := isAsyncMode(ctx)
 
 		// if asynchronous query in progress, kick off retrieval but return object
 		if respd.Code == queryInProgressAsyncCode && noResult {
