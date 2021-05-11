@@ -9,6 +9,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -371,6 +372,7 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 				Message:  err.Error(),
 				QueryID:  data.Data.QueryID}
 		}
+		return nil, err
 	}
 
 	// if async exec, return result object right away
@@ -479,7 +481,7 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	}
 
 	rows.ChunkDownloader.start()
-	return rows, nil
+	return rows, err
 }
 
 func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
