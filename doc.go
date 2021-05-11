@@ -242,7 +242,7 @@ Note: SQL NULL values are converted to Golang nil values, and vice-versa.
 Preview Feature: Support for Arrow Data Format
 
 This feature is in preview. Snowflake recommends using this feature only in development systems, not production systems.
-This preview is available to all customers. 
+This preview is available to all customers.
 
 The Go Snowflake Driver now supports the Arrow data format for data transfers between Snowflake and the Golang client. The Arrow data format
 avoids extra conversions between binary and textual representations of the data. The Arrow data format can improve performance and reduce
@@ -273,7 +273,7 @@ This parameter can be set only at the session level.
 
 Usage notes:
 
-- The Arrow data format can reduce rounding errors in floating point numbers. 
+- The Arrow data format can reduce rounding errors in floating point numbers.
   You might see slightly different values for floating point numbers when using Arrow format than when using JSON format.
 
 - For some numeric data types, the driver can retrieve larger values when using the Arrow format than when using the

@@ -142,3 +142,28 @@ func TestE2EFetchResultByID(t *testing.T) {
 		t.Fatalf("failed to drop table: %v", err)
 	}
 }
+
+func TestWithDescribeOnly(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		ctx := WithDescribeOnly(context.Background())
+		rows := dbt.mustQueryContext(
+			ctx,
+			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		cols, err := rows.Columns()
+		if err != nil {
+			t.Error(err)
+		}
+		types, err := rows.ColumnTypes()
+		if err != nil {
+			t.Error(err)
+		}
+		for i, col := range cols {
+			if types[i].Name() != col {
+				t.Fatalf("column name mismatch. expected: %v, got: %v", col, types[i].Name())
+			}
+		}
+		if rows.Next() {
+			t.Fatal("there should not be any rows in describe only mode")
+		}
+	})
+}
