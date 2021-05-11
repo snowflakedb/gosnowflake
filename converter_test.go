@@ -201,12 +201,12 @@ func TestArrayToString(t *testing.T) {
 		{in: driver.NamedValue{Value: &stringArray{"foo", "bar", "baz"}}, typ: textType, out: []string{"foo", "bar", "baz"}},
 	}
 	for _, test := range testcases {
-		s, a := snowflakeArrayToString(&test.in)
+		s, a := snowflakeArrayToString(&test.in, false)
 		if s != test.typ {
 			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.typ, s)
 		}
 		for i, v := range a {
-			if v != test.out[i] {
+			if *v != test.out[i] {
 				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out[i], a)
 			}
 		}

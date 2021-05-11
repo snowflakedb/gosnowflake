@@ -125,7 +125,7 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 		}
 	}
 
-	_, column := snowflakeArrayToString(&columns[0])
+	_, column := snowflakeArrayToString(&columns[0], true)
 	numRows := len(column)
 	csvRows := make([][]byte, 0)
 	rows := make([][]string, 0)
@@ -134,10 +134,10 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 	}
 
 	for rowIdx := 0; rowIdx < numRows; rowIdx++ {
-		rows[rowIdx][0] = column[rowIdx]
+		rows[rowIdx][0] = *column[rowIdx]
 	}
 	for colIdx := 1; colIdx < numColumns; colIdx++ {
-		_, column = snowflakeArrayToString(&columns[colIdx])
+		_, column = snowflakeArrayToString(&columns[colIdx], true)
 		iNumRows := len(column)
 		if iNumRows != numRows {
 			return nil, &SnowflakeError{
@@ -147,7 +147,7 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 			}
 		}
 		for rowIdx := 0; rowIdx < numRows; rowIdx++ {
-			rows[rowIdx][colIdx] = column[rowIdx] // length of column = number of rows
+			rows[rowIdx][colIdx] = *column[rowIdx] // length of column = number of rows
 		}
 	}
 	for _, row := range rows {
@@ -185,7 +185,7 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 			var val interface{}
 			if t == sliceType {
 				// retrieve array binding data
-				t, val = snowflakeArrayToString(&binding)
+				t, val = snowflakeArrayToString(&binding, false)
 			} else {
 				val, err = valueToString(binding.Value, tsmode)
 				if err != nil {
@@ -209,7 +209,7 @@ func arrayBindValueCount(bindValues []driver.NamedValue) int {
 	if !isArrayBind(bindValues) {
 		return 0
 	}
-	_, arr := snowflakeArrayToString(&bindValues[0])
+	_, arr := snowflakeArrayToString(&bindValues[0], false)
 	return len(bindValues) * len(arr)
 }
 
@@ -230,10 +230,22 @@ func supportedArrayBind(nv *driver.NamedValue) bool {
 	case reflect.TypeOf(&intArray{}), reflect.TypeOf(&int32Array{}),
 		reflect.TypeOf(&int64Array{}), reflect.TypeOf(&float64Array{}),
 		reflect.TypeOf(&float32Array{}), reflect.TypeOf(&boolArray{}),
-		reflect.TypeOf(&stringArray{}), reflect.TypeOf(&byteArray{}):
+		reflect.TypeOf(&stringArray{}), reflect.TypeOf(&byteArray{}),
+		reflect.TypeOf(&timestampNtzArray{}), reflect.TypeOf(&timestampLtzArray{}),
+		reflect.TypeOf(&timestampTzArray{}), reflect.TypeOf(&dateArray{}),
+		reflect.TypeOf(&timeArray{}):
 		return true
+	case reflect.TypeOf([]uint8{}):
+		// internal binding ts mode
+		val, _ := nv.Value.([]uint8)
+		if len(val) == 0 {
+			return true // for null binds
+		}
+		if fixedType <= snowflakeType(val[0]) && snowflakeType(val[0]) <= unSupportedType {
+			return true
+		}
+		return false
 	default:
-		// TODO SNOW-292862 date, timestamp, time
 		// TODO SNOW-176486 variant, object, array
 		return false
 	}
