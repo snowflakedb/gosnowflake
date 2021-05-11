@@ -226,34 +226,33 @@ func (sc *snowflakeConn) monitoring(qid string, runtimeSec time.Duration) (*Quer
 		return nil, nil
 	}
 
-	fullURL := fmt.Sprintf(
-		"%s://%s:%d/monitoring/queries/%s",
-		sc.rest.Protocol, sc.rest.Host, sc.rest.Port, qid,
-	)
-
 	// Bound the GET request to 1 second in the absolute worst case.
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
 	headers := make(map[string]string)
-	headers["accept"] = "application/json"
-	headers["User-Agent"] = userAgent
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, sc.rest.Token)
+	param := make(url.Values)
+	param.Add(requestGUIDKey, uuid.New().String())
+	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
+	}
+	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
+	url := sc.rest.getFullURL(resultPath, &param)
 
-	resp, err := sc.rest.FuncGet(ctx, sc.rest, fullURL, headers, sc.rest.RequestTimeout)
+	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer res.Body.Close()
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
 
 	// (max) NOTE we don't expect this to fail
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("response returned code %d: %v", resp.StatusCode, b)
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("response returned code %d: %v", res.StatusCode, b)
 	}
 
 	var m monitoringResponse
@@ -588,7 +587,7 @@ func (sc *snowflakeConn) stopHeartBeat() {
 	sc.rest.HeartBeat.stop()
 }
 
-func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseData) (driver.Result, error) {
+func (sc *snowflakeConn) handleMultiExec(ctx context.Context, data execResponseData) (*snowflakeResult, error) {
 	var updatedRows int64
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 	for _, child := range childResults {
