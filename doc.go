@@ -768,8 +768,67 @@ and before retrieving the results.
 	}
 
 
+Preview Feature: Support For PUT on AWS
+
+This feature is in preview. Snowflake recommends using this feature only in
+development systems, not production systems. This preview is available to all
+customers.
+
+The Go Snowflake Driver supports the PUT command on AWS. The PUT command
+copies a file from the local computer (the computer on which the Golang client
+is running) to a stage on the cloud platform computer.
+
+The Go Snowflake Driver supports the same command parameters as are documented
+in the main PUT documentation at
+https://docs.snowflake.com/en/sql-reference/sql/put.html .
+
+The Go Snowflake Driver supports PUT commands to the following types of
+stages:
+
+* A named internal stage.
+* The table's stage.
+* The user's default stage.
+
+To execute a PUT command in Golang, construct the command as a string and pass
+it to the db.Query() function. The syntax is:
+
+    db.Query("PUT file://<local_file> <stage_identifier> <optional_parameters>")
+
+For example:
+
+    db.Query("PUT file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
+
+The "<local_file>" should include the file path as well as the name. Snowflake
+recommends using an absolute path rather than a relative path.
+
+Different client platforms (e.g. linux, Windows) have different path name
+conventions; make sure that you specify path names appropriately. This is
+particularly important on Windows, which uses the backslash character as
+both an escape character and as a separator in path names.
+
+If you wish to send information from a stream (rather than a file), then use
+code similar to the code below. (The ReplaceAll() function is needed on Windows
+to handle backslashes in the path to the file.)
+
+    fileStream, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+    defer func() {
+        if fileStream != nil {
+            fileStream.Close()
+        }
+    } ()
+
+    sql := "put 'file://%v' @%%%v auto_compress=true parallel=30"
+    sqlText := fmt.Sprintf(sql,
+                           strings.ReplaceAll(fname, "\\", "\\\\"),
+                           tableName)
+    dbt.mustExecContext(WithFileStream(context.Background(), fileStream),
+                        sqlText)
+
+
 Limitations
 
-GET and PUT operations are unsupported.
+	* GET operations are unsupported.
+	* PUT operations are unsupported.
+
 */
 package gosnowflake
