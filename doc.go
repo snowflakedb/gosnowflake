@@ -792,11 +792,11 @@ stages:
 To execute a PUT command in Golang, construct the command as a string and pass
 it to the db.Query() function. The syntax is:
 
-    db.Query("PUT <local_file> <stage_identifier> <optional_parameters>")
+    db.Query("PUT file://<local_file> <stage_identifier> <optional_parameters>")
 
 For example:
 
-    db.Query("PUT /tmp/my_data_file @~ auto_compress=false overwrite=false")
+    db.Query("PUT file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
 
 The "<local_file>" should include the file path as well as the name. Snowflake
 recommends using an absolute path rather than a relative path.
