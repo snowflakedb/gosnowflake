@@ -57,11 +57,11 @@ func authenticateBySAML(
 	user string,
 	password string,
 ) (samlResponse []byte, err error) {
-	logger.Info("step 1: query GS to obtain IDP token and SSO url")
+	logger.WithContext(ctx).Info("step 1: query GS to obtain IDP token and SSO url")
 	headers := make(map[string]string)
-	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerContentTypeApplicationJSON
-	headers["User-Agent"] = userAgent
+	headers[httpHeaderContentType] = headerContentTypeApplicationJSON
+	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
+	headers[httpHeaderUserAgent] = userAgent
 
 	clientEnvironment := authRequestClientEnvironment{
 		Application: application,
@@ -83,16 +83,14 @@ func authenticateBySAML(
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("PARAMS for Auth: %v, %v", params, sr)
+	logger.WithContext(ctx).Infof("PARAMS for Auth: %v, %v", params, sr)
 	respd, err := sr.FuncPostAuthSAML(ctx, sr, headers, jsonBody, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
 	if !respd.Success {
 		logger.Errorln("Authentication FAILED")
-		sr.Token = ""
-		sr.MasterToken = ""
-		sr.SessionID = -1
+		sr.TokenAccessor.SetTokens("", "", -1)
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
 			code = -1
@@ -104,7 +102,7 @@ func authenticateBySAML(
 			Message:  respd.Message,
 		}
 	}
-	logger.Info("step 2: validate Token and SSO URL has the same prefix as oktaURL")
+	logger.WithContext(ctx).Info("step 2: validate Token and SSO URL has the same prefix as oktaURL")
 	var tokenURL *url.URL
 	var ssoURL *url.URL
 	if tokenURL, err = url.Parse(respd.Data.TokenURL); err != nil {
@@ -121,7 +119,7 @@ func authenticateBySAML(
 			MessageArgs: []interface{}{oktaURL, respd.Data.TokenURL, respd.Data.SSOURL},
 		}
 	}
-	logger.Info("step 3: query IDP token url to authenticate and retrieve access token")
+	logger.WithContext(ctx).Info("step 3: query IDP token url to authenticate and retrieve access token")
 	jsonBody, err = json.Marshal(authOKTARequest{
 		Username: user,
 		Password: password,
@@ -134,25 +132,25 @@ func authenticateBySAML(
 		return nil, err
 	}
 
-	logger.Info("step 4: query IDP URL snowflake app to get SAML response")
+	logger.WithContext(ctx).Info("step 4: query IDP URL snowflake app to get SAML response")
 	params = &url.Values{}
 	params.Add("RelayState", "/some/deep/link")
 	params.Add("onetimetoken", respa.CookieToken)
 
 	headers = make(map[string]string)
-	headers["accept"] = "*/*"
+	headers[httpHeaderAccept] = "*/*"
 	bd, err := sr.FuncGetSSO(ctx, sr, params, headers, respd.Data.SSOURL, sr.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("step 5: validate post_back_url matches Snowflake URL")
+	logger.WithContext(ctx).Info("step 5: validate post_back_url matches Snowflake URL")
 	tgtURL, err := postBackURL(bd)
 	if err != nil {
 		return nil, err
 	}
 
 	fullURL := sr.getURL()
-	logger.Infof("tgtURL: %v, origURL: %v", tgtURL, fullURL)
+	logger.WithContext(ctx).Infof("tgtURL: %v, origURL: %v", tgtURL, fullURL)
 	if !isPrefixEqual(tgtURL, fullURL) {
 		return nil, &SnowflakeError{
 			Number:      ErrCodeSSOURLNotMatch,
@@ -205,7 +203,7 @@ func postAuthSAML(
 	data *authResponse, err error) {
 
 	params := &url.Values{}
-	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx))
+	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	fullURL := sr.getFullURL(authenticatorRequestPath, params)
 
 	logger.Infof("fullURL: %v", fullURL)
@@ -218,7 +216,7 @@ func postAuthSAML(
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.Errorf("failed to decode JSON. err: %v", err)
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		return &respd, nil
@@ -243,7 +241,7 @@ func postAuthSAML(
 	}
 	_, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logger.Errorf("failed to extract HTTP response body. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
 	return nil, &SnowflakeError{
@@ -276,7 +274,7 @@ func postAuthOKTA(
 		var respd authOKTAResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.Errorf("failed to decode JSON. err: %v", err)
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		return &respd, nil
@@ -286,8 +284,8 @@ func postAuthOKTA(
 		logger.Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
-	logger.Infof("HTTP: %v, URL: %v", resp.StatusCode, fullURL)
-	logger.Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v", resp.StatusCode, fullURL)
+	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuthOKTA,
 		SQLState:    SQLStateConnectionRejected,
@@ -309,7 +307,7 @@ func getSSO(
 		return nil, err
 	}
 	fullURL.RawQuery = params.Encode()
-	logger.Infof("fullURL: %v", fullURL)
+	logger.WithContext(ctx).Infof("fullURL: %v", fullURL)
 	resp, err := sr.FuncGet(ctx, sr, fullURL, headers, timeout)
 	if err != nil {
 		return nil, err
@@ -317,14 +315,14 @@ func getSSO(
 	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logger.Errorf("failed to extract HTTP response body. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
 	if resp.StatusCode == http.StatusOK {
 		return b, nil
 	}
-	logger.Infof("HTTP: %v, URL: %v ", resp.StatusCode, fullURL)
-	logger.Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v ", resp.StatusCode, fullURL)
+	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToGetSSO,
 		SQLState:    SQLStateConnectionRejected,

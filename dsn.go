@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -6,6 +6,8 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
+	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -48,6 +50,7 @@ type Config struct {
 
 	Params map[string]*string // other connection parameters
 
+	ClientIP net.IP // IP address for network check
 	Protocol string // http or https (optional)
 	Host     string // hostname (optional)
 	Port     int    // port (optional)
@@ -62,14 +65,19 @@ type Config struct {
 	LoginTimeout     time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
 	RequestTimeout   time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
 	JWTExpireTimeout time.Duration // JWT expire after timeout
+	ClientTimeout    time.Duration // Timeout for network round trip + read out http response
 
 	Application  string           // application name.
 	InsecureMode bool             // driver doesn't check certificate revocation status
 	OCSPFailOpen OCSPFailOpenMode // OCSP Fail Open
 
-	Token string // Token to use for OAuth other forms of token based auth
+	Token            string        // Token to use for OAuth other forms of token based auth
+	TokenAccessor    TokenAccessor // Optional token accessor to use
+	KeepSessionAlive bool          // Enables the session to persist even after the connection is closed
 
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
+
+	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
@@ -391,6 +399,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if cfg.JWTExpireTimeout == 0 {
 		cfg.JWTExpireTimeout = defaultJWTTimeout
 	}
+	if cfg.ClientTimeout == 0 {
+		cfg.ClientTimeout = defaultClientTimeout
+	}
 	if strings.Trim(cfg.Application, " ") == "" {
 		cfg.Application = clientType
 	}
@@ -413,7 +424,7 @@ func fillMissingConfigParameters(cfg *Config) error {
 	return nil
 }
 
-// transformAccountToHost transforms host to accout name
+// transformAccountToHost transforms host to account name
 func transformAccountToHost(cfg *Config) (err error) {
 	if cfg.Port == 0 && !strings.HasSuffix(cfg.Host, defaultDomain) && cfg.Host != "" {
 		// account name is specified instead of host:port

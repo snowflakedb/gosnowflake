@@ -5,8 +5,13 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"math/rand"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type tcIntMinMax struct {
@@ -15,12 +20,72 @@ type tcIntMinMax struct {
 	out int
 }
 
+func TestSimpleTokenAccessor(t *testing.T) {
+	accessor := getSimpleTokenAccessor()
+	token, masterToken, sessionID := accessor.GetTokens()
+	if token != "" {
+		t.Errorf("unexpected token %v", token)
+	}
+	if masterToken != "" {
+		t.Errorf("unexpected master token %v", masterToken)
+	}
+	if sessionID != -1 {
+		t.Errorf("unexpected session id %v", sessionID)
+	}
+
+	expectedToken, expectedMasterToken, expectedSessionID := "token123", "master123", int64(123)
+	accessor.SetTokens(expectedToken, expectedMasterToken, expectedSessionID)
+	token, masterToken, sessionID = accessor.GetTokens()
+	if token != expectedToken {
+		t.Errorf("unexpected token %v", token)
+	}
+	if masterToken != expectedMasterToken {
+		t.Errorf("unexpected master token %v", masterToken)
+	}
+	if sessionID != expectedSessionID {
+		t.Errorf("unexpected session id %v", sessionID)
+	}
+}
+
+func TestSimpleTokenAccessorGetTokensSynchronization(t *testing.T) {
+	accessor := getSimpleTokenAccessor()
+	var wg sync.WaitGroup
+	failed := false
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func() {
+			// set a random session and token
+			session := rand.Int63()
+			sessionStr := strconv.FormatInt(session, 10)
+			accessor.SetTokens("t"+sessionStr, "m"+sessionStr, session)
+
+			// read back session and token and verify that invariant still holds
+			token, masterToken, session := accessor.GetTokens()
+			sessionStr = strconv.FormatInt(session, 10)
+			if "t"+sessionStr != token || "m"+sessionStr != masterToken {
+				failed = true
+			}
+			wg.Done()
+		}()
+	}
+	// wait for all competing goroutines to finish setting and getting tokens
+	wg.Wait()
+	if failed {
+		t.Fail()
+	}
+}
+
 func TestGetRequestIDFromContext(t *testing.T) {
-	expectedRequestID := "snowflake-request-id"
+	expectedRequestID := uuid.New()
 	ctx := WithRequestID(context.Background(), expectedRequestID)
 	requestID := getOrGenerateRequestIDFromContext(ctx)
 	if requestID != expectedRequestID {
-		t.Errorf("unexpected request id")
+		t.Errorf("unexpected request id: %v, expected: %v", requestID, expectedRequestID)
+	}
+	ctx = WithRequestID(context.Background(), uuid.Nil)
+	requestID = getOrGenerateRequestIDFromContext(ctx)
+	if requestID == uuid.Nil {
+		t.Errorf("unexpected request id, should not be nil")
 	}
 }
 
@@ -144,6 +209,26 @@ func TestToNamedValues(t *testing.T) {
 
 		if !compareNamedValues(test.out, a) {
 			t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.values, test.out, test.out, a)
+		}
+	}
+}
+
+type tcIntArrayMin struct {
+	in  []int
+	out int
+}
+
+func TestGetMin(t *testing.T) {
+	testcases := []tcIntArrayMin{
+		{[]int{1, 2, 3, 4, 5}, 1},
+		{[]int{10, 25, 15, 5, 20}, 5},
+		{[]int{15, 12, 9, 6, 3}, 3},
+		{[]int{123, 123, 123, 123, 123}, 123},
+	}
+	for _, test := range testcases {
+		a := getMin(test.in)
+		if test.out != a {
+			t.Errorf("failed get min. in: %v, expected: %v, got: %v", test.in, test.out, a)
 		}
 	}
 }

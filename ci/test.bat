@@ -13,13 +13,13 @@ if not defined PARAMETER_FILENAME (
     exit /b 1
 )
 
-gpg --quiet --batch --yes --decrypt --passphrase=%PARAMETERS_SECRET% --output parameters.json .github/workflows/%PARAMETER_FILENAME%
+gpg --quiet --batch --yes --decrypt --passphrase="%PARAMETERS_SECRET%" --output parameters.json .github/workflows/%PARAMETER_FILENAME%
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] failed to decrypt the test parameters 
     exit /b 1
 )
 
-gpg --quiet --batch --yes --decrypt --passphrase=%PARAMETERS_SECRET% --output rsa-2048-private-key.p8 .github/workflows/rsa-2048-private-key.p8.gpg
+gpg --quiet --batch --yes --decrypt --passphrase="%PARAMETERS_SECRET%" --output rsa-2048-private-key.p8 .github/workflows/rsa-2048-private-key.p8.gpg
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] failed to decrypt the test parameters 
     exit /b 1

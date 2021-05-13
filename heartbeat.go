@@ -58,11 +58,9 @@ func (hc *heartbeat) heartbeatMain() error {
 	params := &url.Values{}
 	params.Add(requestIDKey, uuid.New().String())
 	params.Add(requestGUIDKey, uuid.New().String())
-	headers := make(map[string]string)
-	headers["Content-Type"] = headerContentTypeApplicationJSON
-	headers["accept"] = headerAcceptTypeApplicationSnowflake
-	headers["User-Agent"] = userAgent
-	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, hc.restful.Token)
+	headers := getHeaders()
+	token, _, _ := hc.restful.TokenAccessor.GetTokens()
+	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 
 	fullURL := hc.restful.getFullURL(heartBeatPath, params)
 	timeout := hc.restful.RequestTimeout
@@ -80,7 +78,7 @@ func (hc *heartbeat) heartbeatMain() error {
 			return err
 		}
 		if respd.Code == sessionExpiredCode {
-			err = hc.restful.FuncRenewSession(context.TODO(), hc.restful, timeout)
+			err = hc.restful.renewExpiredSessionToken(context.Background(), timeout, token)
 			if err != nil {
 				return err
 			}

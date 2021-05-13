@@ -60,7 +60,8 @@ func getTestHTMLSuccess(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 
 func TestUnitPostAuthSAML(t *testing.T) {
 	sr := &snowflakeRestful{
-		FuncPost: postTestError,
+		FuncPost:      postTestError,
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	var err error
 	_, err = postAuthSAML(context.TODO(), sr, make(map[string]string), []byte{}, 0)
@@ -81,7 +82,8 @@ func TestUnitPostAuthSAML(t *testing.T) {
 
 func TestUnitPostAuthOKTA(t *testing.T) {
 	sr := &snowflakeRestful{
-		FuncPost: postTestError,
+		FuncPost:      postTestError,
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	var err error
 	_, err = postAuthOKTA(context.TODO(), sr, make(map[string]string), []byte{}, "hahah", 0)
@@ -102,7 +104,8 @@ func TestUnitPostAuthOKTA(t *testing.T) {
 
 func TestUnitGetSSO(t *testing.T) {
 	sr := &snowflakeRestful{
-		FuncGet: getTestError,
+		FuncGet:       getTestError,
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	var err error
 	_, err = getSSO(context.TODO(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
@@ -188,6 +191,7 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 		Host:             "abc.com",
 		Port:             443,
 		FuncPostAuthSAML: postAuthSAMLError,
+		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	var err error
 	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
