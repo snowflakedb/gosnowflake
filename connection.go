@@ -230,33 +230,9 @@ func (sc *snowflakeConn) monitoring(qid string, runtime time.Duration) (*QueryMo
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	headers := make(map[string]string)
-	param := make(url.Values)
-	param.Add(requestGUIDKey, uuid.New().String())
-	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
-	}
-	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
-	url := sc.rest.getFullURL(resultPath, &param)
-
-	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	b, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// (max) NOTE we don't expect this to fail
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("response returned code %d: %v", res.StatusCode, b)
-	}
-
 	var m monitoringResponse
-	if err := json.Unmarshal(b, &m); err != nil {
+	err := sc.getMonitoringResult(ctx, qid, &m)
+	if err != nil {
 		return nil, err
 	}
 
@@ -715,6 +691,34 @@ func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath stri
 	return respd, nil
 }
 
+// getMonitoringResult fetches the result at /monitoring/queries/qid and
+// deserializes it into the provided res (which is given as a generic interface
+// to allow different callers to request different views on the raw response)
+func (sc *snowflakeConn) getMonitoringResult(ctx context.Context, qid string, res interface{}) error {
+	headers := make(map[string]string)
+	param := make(url.Values)
+	param.Add(requestGUIDKey, uuid.New().String())
+	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
+		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
+	}
+	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
+	url := sc.rest.getFullURL(resultPath, &param)
+
+	resp, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+		return err
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(res)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 // checkQueryStatus return error==nil means the query completed successfully and there is complete query result to fetch.
 // when the GS could not return a status (when a query was just submitted GS might not be able to return a status)
 // an ErrQueryStatus will be returned.
@@ -726,28 +730,12 @@ func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath stri
 // 3, ErrQueryIsRunning, if the requested query is still running and might have complete result later, these statuses
 // were listed in query.sfqueryStatusRunning
 func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error {
-	headers := make(map[string]string)
-	param := make(url.Values)
-	param.Add(requestGUIDKey, uuid.New().String())
-	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
-	}
-	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
-	url := sc.rest.getFullURL(resultPath, &param)
+	var statusResp statusResponse
 
-	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	err := sc.getMonitoringResult(ctx, qid, &statusResp)
 	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		return err
 	}
-	var statusResp = statusResponse{}
-
-	err = json.NewDecoder(res.Body).Decode(&statusResp)
-	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return err
-	}
-
 	if !statusResp.Success || len(statusResp.Data.Queries) == 0 {
 		logger.WithContext(ctx).Errorf("status query returned not-success or no status returned.")
 		return &SnowflakeError{
