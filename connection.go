@@ -59,14 +59,6 @@ const (
 	queryResultType     resultType = "query"
 )
 
-var (
-	// FetchQueryMonitoringDataThreshold specifies the threshold, over which we'll fetch the monitoring
-	// data for a Snowflake query. We use a time-based threshold, since there is a non-zero latency cost
-	// to fetch this data and we want to bound the additional latency. By default we bound to a 2% increase
-	// in latency - assuming worst case 100ms - when fetching this metadata.
-	FetchQueryMonitoringDataThreshold time.Duration = 5 * time.Second
-)
-
 type snowflakeConn struct {
 	ctx             context.Context
 	cfg             *Config
@@ -220,12 +212,7 @@ func (sc *snowflakeConn) exec(
 	return data, err
 }
 
-func (sc *snowflakeConn) monitoring(qid string, runtime time.Duration) (*QueryMonitoringData, error) {
-	// Exit early if this was a "fast" query
-	if runtime < FetchQueryMonitoringDataThreshold {
-		return nil, nil
-	}
-
+func (sc *snowflakeConn) monitoring(qid string) (*QueryMonitoringData, error) {
 	// Bound the GET request to 1 second in the absolute worst case.
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -332,7 +319,6 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	isDesc := isDescribeOnly(ctx)
 	// TODO handle isInternal
 	ctx = setResultType(ctx, execResultType)
-	qStart := time.Now()
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
@@ -367,8 +353,10 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 			insertID:     -1,
 			queryID:      sc.QueryID,
 		} // last insert id is not supported by Snowflake
-		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
-			rows.monitoring = m
+		if monitoringEnabled(ctx) {
+			if m, err := sc.monitoring(sc.QueryID); err == nil {
+				rows.monitoring = m
+			}
 		}
 		return rows, nil
 	} else if sc.isMultiStmt(&data.Data) {
@@ -376,8 +364,10 @@ func (sc *snowflakeConn) ExecContext(ctx context.Context, query string, args []d
 		if err != nil {
 			return nil, err
 		}
-		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
-			rows.monitoring = m
+		if monitoringEnabled(ctx) {
+			if m, err := sc.monitoring(sc.QueryID); err == nil {
+				rows.monitoring = m
+			}
 		}
 		return rows, nil
 	}
@@ -413,7 +403,6 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	ctx = setResultType(ctx, queryResultType)
-	qStart := time.Now()
 	// TODO: handle isInternal
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
@@ -441,8 +430,10 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 	rows.sc = sc
 	rows.queryID = sc.QueryID
 
-	if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
-		rows.monitoring = m
+	if monitoringEnabled(ctx) {
+		if m, err := sc.monitoring(sc.QueryID); err == nil {
+			rows.monitoring = m
+		}
 	}
 
 	if sc.isMultiStmt(&data.Data) {
@@ -983,6 +974,15 @@ func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
 
 func isDescribeOnly(ctx context.Context) bool {
 	v := ctx.Value(describeOnly)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
+}
+
+func monitoringEnabled(ctx context.Context) bool {
+	v := ctx.Value(monitoring)
 	if v == nil {
 		return false
 	}

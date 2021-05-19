@@ -35,6 +35,8 @@ const (
 	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
 	// describeOnly returns the description of the query
 	describeOnly contextKey = "DESCRIBE_ONLY"
+	// monitoring collects monitoring data for the query
+	monitoring contextKey = "MONITORING"
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
@@ -80,6 +82,11 @@ func WithFileTransferOptions(ctx context.Context, options *SnowflakeFileTransfer
 // WithDescribeOnly returns a context that enables a describe only query
 func WithDescribeOnly(ctx context.Context) context.Context {
 	return context.WithValue(ctx, describeOnly, true)
+}
+
+// WithMonitoring returns a context that collects monitoring data on queries
+func WithMonitoring(ctx context.Context) context.Context {
+	return context.WithValue(ctx, monitoring, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
