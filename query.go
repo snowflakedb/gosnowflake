@@ -219,13 +219,11 @@ type QueryMonitoringData struct {
 	Stats               map[string]int64 `json:"stats"`
 }
 
-type monitoringResponseData struct {
-	Queries []QueryMonitoringData `json:"queries"`
-}
-
 type monitoringResponse struct {
-	Data    monitoringResponseData `json:"data"`
-	Message string                 `json:"message"`
-	Code    string                 `json:"code"`
-	Success bool                   `json:"success"`
+	Data struct {
+		Queries []QueryMonitoringData `json:"queries"`
+	} `json:"data"`
+	Message string `json:"message"`
+	Code    string `json:"code"`
+	Success bool   `json:"success"`
 }
