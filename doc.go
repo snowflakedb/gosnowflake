@@ -828,7 +828,7 @@ to handle backslashes in the path to the file.)
 Limitations
 
 	* GET operations are unsupported.
-	* PUT operations are unsupported.
+	* PUT operations are unsupported. (PUT is available in preview mode on AWS only.)
 
 */
 package gosnowflake
