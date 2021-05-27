@@ -10,6 +10,9 @@ import (
 )
 
 func TestAsyncMode(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("TODO(SIG-12287): re-enable TestAsyncMode")
+	}
 	var db *sql.DB
 	var err error
 
