@@ -14,11 +14,11 @@ type noopTestDriver struct {
 	conn   *snowflakeConn
 }
 
-func (d noopTestDriver) Open(_ string) (driver.Conn, error) {
+func (d *noopTestDriver) Open(_ string) (driver.Conn, error) {
 	return nil, nil
 }
 
-func (d noopTestDriver) OpenWithConfig(_ context.Context, config Config) (driver.Conn, error) {
+func (d *noopTestDriver) OpenWithConfig(_ context.Context, config Config) (driver.Conn, error) {
 	d.config = config
 	return d.conn, nil
 }
@@ -31,7 +31,7 @@ func TestConnector(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse dsn %s", dsn)
 	}
-	connector := NewConnector(mock, *config)
+	connector := NewConnector(&mock, *config)
 	connection, err := connector.Connect(context.Background())
 	if err != nil {
 		t.Fatalf("Connect error %s", err)
