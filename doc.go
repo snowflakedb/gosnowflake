@@ -155,7 +155,7 @@ as shown in demo code at cmd/logger.go. To redirect the logs SFlogger.SetOutput 
 
 Query request ID
 
-Specific query request ID can be set in the context and will be passed through
+A specific query request ID can be set in the context and will be passed through
 in place of the default randomized request ID. For example:
 
 	requestID := uuid.MustParse("6ba7b812-9dad-11d1-80b4-00c04fd430c8")
