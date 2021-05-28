@@ -47,7 +47,7 @@ func (rsu *remoteStorageUtil) getNativeCloudType(cli string) cloudUtil {
 
 // call cloud utils' native create client methods
 func (rsu *remoteStorageUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) cloudClient {
-	utilClass := rsu.getNativeCloudType(info.LocationType).(cloudUtil)
+	utilClass := rsu.getNativeCloudType(info.LocationType)
 	return utilClass.createClient(info, useAccelerateEndpoint)
 }
 
