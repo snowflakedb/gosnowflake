@@ -19,9 +19,9 @@ const (
 
 // SnowflakeResult provides the associated query ID
 type SnowflakeResult interface {
+	GetMonitoring() *QueryMonitoringData
 	GetQueryID() string
 	GetStatus() queryStatus
-	Monitoring() *QueryMonitoringData
 }
 
 type snowflakeResult struct {
@@ -72,6 +72,6 @@ func (res *snowflakeResult) waitForAsyncExecStatus() error {
 	return nil
 }
 
-func (res *snowflakeResult) Monitoring() *QueryMonitoringData {
+func (res *snowflakeResult) GetMonitoring() *QueryMonitoringData {
 	return res.monitoring
 }

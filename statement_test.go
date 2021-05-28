@@ -7,7 +7,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"io"
+	"reflect"
 	"testing"
+	"time"
 )
 
 func openDB(t *testing.T) *sql.DB {
@@ -166,4 +169,79 @@ func TestWithDescribeOnly(t *testing.T) {
 			t.Fatal("there should not be any rows in describe only mode")
 		}
 	})
+}
+
+func TestWithMonitoring(t *testing.T) {
+	db := openDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	conn, _ := db.Conn(ctx)
+	err := conn.Raw(func(x interface{}) error {
+		ctx = WithMonitoring(ctx)
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "SELECT current_timestamp, system$wait(100, 'MILLISECONDS')")
+		if err != nil {
+			return err
+		}
+
+		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err != nil {
+			return err
+		}
+		qid := rows.(SnowflakeResult).GetQueryID()
+		mData := rows.(SnowflakeResult).GetMonitoring()
+
+		dest := make([]driver.Value, 2)
+		err = rows.Next(dest)
+		if err != nil && err != io.EOF {
+			t.Error(err)
+		}
+
+		// Get millisecond-level resolution to match the timestamps in the metadata
+		ts := dest[0].(time.Time).UnixNano() / 1000000
+		startDiff := ts - mData.StartTime
+		// TODO: Is this fudge factor (in case current_timestamp gets executed
+		// slightly after StartTime is recorded) necessary? If current_timestamp is
+		// definitionally set to StartTime, we can just test for equality.
+		if startDiff > 5 {
+			t.Fatalf("Too large a skew between current_timestamp (%d) and StartTime (%d)", ts, mData.StartTime)
+		}
+
+		if _, ok := mData.Stats["compilationTime"]; !ok {
+			t.Fatalf("Expected stats to include compilationTime")
+		}
+
+		if mData.TotalDuration < 100 {
+			t.Fatalf("Duration (%d) wasn't greater than sleep time (100)", mData.TotalDuration)
+		}
+		if mData.TotalDuration != mData.EndTime-mData.StartTime {
+			t.Fatalf("Expected TotalDuration %d - %d = %d but got %d", mData.EndTime, mData.StartTime, mData.EndTime-mData.StartTime, mData.TotalDuration)
+		}
+
+		type stringTest struct {
+			key   string
+			value string
+		}
+
+		cases := [4]stringTest{
+			{"ID", qid},
+			{"Status", "SUCCESS"},
+			{"State", "SUCCEEDED"},
+			{"WarehouseName", warehouse},
+			// TODO(greg): add WithQueryTag here once that PR merges
+		}
+
+		m := reflect.ValueOf(mData).Elem()
+		for _, c := range cases {
+			v := m.FieldByName(c.key)
+			if v.String() != c.value {
+				t.Fatalf("Expected %s %s but got %s", c.key, c.value, v)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Error(err)
+	}
 }

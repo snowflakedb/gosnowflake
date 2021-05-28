@@ -141,7 +141,7 @@ func (rows *snowflakeRows) GetQueryID() string {
 	return rows.queryID
 }
 
-func (rows *snowflakeRows) Monitoring() *QueryMonitoringData {
+func (rows *snowflakeRows) GetMonitoring() *QueryMonitoringData {
 	return rows.monitoring
 }
 
