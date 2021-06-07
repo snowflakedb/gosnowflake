@@ -2,8 +2,6 @@
 
 package gosnowflake
 
-//lint:file-ignore U1000 SNOW-294151
-
 import (
 	"bytes"
 	"context"
@@ -30,7 +28,6 @@ const (
 )
 
 type snowflakeS3Util struct {
-	meta *fileMetadata
 }
 
 type s3Location struct {
@@ -38,7 +35,6 @@ type s3Location struct {
 	s3Path     string
 }
 
-// storageUtil implementation
 func (util *snowflakeS3Util) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) cloudClient {
 	stageCredentials := info.Creds
 	var resolver s3.EndpointResolver
@@ -55,11 +51,6 @@ func (util *snowflakeS3Util) createClient(info *execResponseStageInfo, useAccele
 		EndpointResolver: resolver,
 		UseAccelerate:    useAccelerateEndpoint,
 	})
-}
-
-// storageUtil implementation
-func (util *snowflakeS3Util) downloadOneFile() {
-	// TODO SNOW-294151
 }
 
 type s3HeaderAPI interface {
@@ -147,7 +138,7 @@ func (util *snowflakeS3Util) uploadFile(
 	var uploader s3UploadAPI
 	uploader = manager.NewUploader(client, func(u *manager.Uploader) {
 		u.Concurrency = maxConcurrency
-		u.PartSize = multiPartThreshold
+		u.PartSize = int64Max(multiPartThreshold, manager.DefaultUploadPartSize)
 	})
 	if meta.mockUploader != nil {
 		uploader = meta.mockUploader
