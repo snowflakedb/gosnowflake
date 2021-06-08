@@ -768,15 +768,15 @@ and before retrieving the results.
 	}
 
 
-Support For PUT on AWS (Preview Feature)
+Support For PUT (Preview Feature)
 
 This feature is in preview. Snowflake recommends using this feature only in
 development systems, not production systems. This preview is available to all
 customers.
 
-The Go Snowflake Driver supports the PUT command on AWS. The PUT command
-copies a file from the local computer (the computer on which the Golang client
-is running) to a stage on the cloud platform computer.
+The Go Snowflake Driver supports the PUT command on AWS, Azure and GCP. The PUT
+command copies a file from the local computer (the computer on which the Golang
+client is running) to a stage on the cloud platform computer.
 
 The Go Snowflake Driver supports the same command parameters as are documented
 in the main PUT documentation at
@@ -828,7 +828,7 @@ to handle backslashes in the path to the file.)
 Limitations
 
 	* GET operations are unsupported.
-	* PUT operations are unsupported. (PUT is available in preview mode on AWS only.)
+	* PUT operations are unsupported. (PUT is available in preview mode)
 
 */
 package gosnowflake
