@@ -1,0 +1,17 @@
+# v1.2.3 (2021-06-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.2.2 (2021-05-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.2.1 (2021-05-20)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.2.0 (2021-05-14)
+
+* **Feature**: Constant has been added to modules to enable runtime version inspection for reporting.
+* **Dependency Update**: Updated to the latest SDK module versions
+
