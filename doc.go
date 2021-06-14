@@ -155,7 +155,7 @@ as shown in demo code at cmd/logger.go. To redirect the logs SFlogger.SetOutput 
 
 Query request ID
 
-Specific query request ID can be set in the context and will be passed through
+A specific query request ID can be set in the context and will be passed through
 in place of the default randomized request ID. For example:
 
 	requestID := uuid.MustParse("6ba7b812-9dad-11d1-80b4-00c04fd430c8")
@@ -239,7 +239,7 @@ Footnotes:
 Note: SQL NULL values are converted to Golang nil values, and vice-versa.
 
 
-Preview Feature: Support for Arrow Data Format
+Support for Arrow Data Format (Preview Feature)
 
 This feature is in preview. Snowflake recommends using this feature only in development systems, not production systems.
 This preview is available to all customers.
@@ -260,8 +260,8 @@ To use JSON format, execute:
 
 The valid values for the parameter are:
 
-- ARROW
-- JSON
+	* ARROW
+	* JSON
 
 The default value is 'JSON'. The default will change in the future.
 
@@ -273,15 +273,15 @@ This parameter can be set only at the session level.
 
 Usage notes:
 
-- The Arrow data format can reduce rounding errors in floating point numbers.
-  You might see slightly different values for floating point numbers when using Arrow format than when using JSON format.
+	* The Arrow data format can reduce rounding errors in floating point numbers.
+          You might see slightly different values for floating point numbers when using Arrow format than when using JSON format.
 
-- For some numeric data types, the driver can retrieve larger values when using the Arrow format than when using the
-  JSON format. For example, using Arrow format allows the full range of SQL NUMERIC(38,0) values to be retrieved,
-  while using JSON format allows only values in the range supported by the Golang int64 data type.
+	* For some numeric data types, the driver can retrieve larger values when using the Arrow format than when using the
+	  JSON format. For example, using Arrow format allows the full range of SQL NUMERIC(38,0) values to be retrieved,
+	  while using JSON format allows only values in the range supported by the Golang int64 data type.
 
-  Users should ensure that Golang variables are declared using the appropriate data type for the full range of values
-  contained in the column. For an example, see below.
+	  Users should ensure that Golang variables are declared using the appropriate data type for the full range of values
+	  contained in the column. For an example, see below.
 
 When using the Arrow format, the driver supports more Golang data types and more ways to convert SQL values to those Golang data types.
 The table below lists the supported Snowflake SQL data types and the corresponding Golang data types. The columns are:
@@ -667,7 +667,7 @@ example:
 Preparing statements and using bind variables are also not supported for multi-statement queries.
 
 
-Aysnchronous Queries
+Asynchronous Queries
 
 The Go Snowflake Driver supports asynchronous execution of SQL statements.
 Asynchronous execution allows you to start executing a statement and then
@@ -768,15 +768,15 @@ and before retrieving the results.
 	}
 
 
-Preview Feature: Support For PUT on AWS
+Support For PUT (Preview Feature)
 
 This feature is in preview. Snowflake recommends using this feature only in
 development systems, not production systems. This preview is available to all
 customers.
 
-The Go Snowflake Driver supports the PUT command on AWS. The PUT command
-copies a file from the local computer (the computer on which the Golang client
-is running) to a stage on the cloud platform computer.
+The Go Snowflake Driver supports the PUT command on AWS, Azure and GCP. The PUT
+command copies a file from the local computer (the computer on which the Golang
+client is running) to a stage on the cloud platform computer.
 
 The Go Snowflake Driver supports the same command parameters as are documented
 in the main PUT documentation at
@@ -785,9 +785,9 @@ https://docs.snowflake.com/en/sql-reference/sql/put.html .
 The Go Snowflake Driver supports PUT commands to the following types of
 stages:
 
-* A named internal stage.
-* The table's stage.
-* The user's default stage.
+	* A named internal stage.
+	* The table's stage.
+	* The user's default stage.
 
 To execute a PUT command in Golang, construct the command as a string and pass
 it to the db.Query() function. The syntax is:
@@ -828,7 +828,7 @@ to handle backslashes in the path to the file.)
 Limitations
 
 	* GET operations are unsupported.
-	* PUT operations are unsupported.
+	* PUT operations are unsupported. (PUT is available in preview mode)
 
 */
 package gosnowflake

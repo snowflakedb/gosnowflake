@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -357,4 +358,41 @@ func testBindingArray(t *testing.T, bulk bool) {
 		}
 	})
 	createDSN("UTC")
+}
+
+func TestBulkArrayBinding(t *testing.T) {
+	if runningOnGithubAction() && !runningOnAWS() {
+		t.Skip("skipping non aws environment; safeguard to be removed after azure/gcs put support")
+	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string)", dbname))
+		numRows := 100000
+		intArr := make([]int, numRows)
+		strArr := make([]string, numRows)
+		for i := 0; i < numRows; i++ {
+			intArr[i] = i
+			strArr[i] = "test" + strconv.Itoa(i)
+		}
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?)", dbname), Array(&intArr), Array(&strArr))
+		rows := dbt.mustQuery("select * from " + dbname)
+		cnt := 0
+		var i int
+		var s string
+		for rows.Next() {
+			if err := rows.Scan(&i, &s); err != nil {
+				t.Fatal(err)
+			}
+			if i != cnt {
+				t.Errorf("expected: %v, got: %v", cnt, i)
+			}
+			exp := "test" + strconv.Itoa(cnt)
+			if s != exp {
+				t.Errorf("expected: %v, got: %v", exp, s)
+			}
+			cnt++
+		}
+		if cnt != numRows {
+			t.Fatalf("expected %v rows, got %v", numRows, cnt)
+		}
+	})
 }

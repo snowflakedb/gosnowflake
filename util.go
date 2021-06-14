@@ -115,6 +115,13 @@ func intMax(a, b int) int {
 	return b
 }
 
+func int64Max(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func getMin(arr []int) int {
 	if len(arr) == 0 {
 		return -1
