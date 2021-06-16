@@ -446,7 +446,7 @@ Batch Inserts and Binding Parameters
 When you use array binding to insert a large number of values, the driver can
 improve performance by streaming the data (without creating files on the local
 machine) to a temporary stage for ingestion. The driver automatically does this
-when the number of values exceeds a threshold.
+when the number of values exceeds a threshold (no changes are needed to user code).
 
 In order for the driver to send the data to a temporary stage, the user must have the following privilege on the schema:
 
