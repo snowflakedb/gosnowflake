@@ -401,8 +401,8 @@ Binding Parameters
 
 Binding allows an SQL statement to use a value that is stored in a Golang variable.
 
-Without binding, an SQL statement specifies values by specifying literals inside the statement. For example, the following
-statement uses the literal value ``42`` in an UPDATE statement:
+Without binding, an SQL statement specifies values by specifying literals inside the statement.
+For example, the following statement uses the literal value ``42`` in an UPDATE statement:
 
 	_, err = db.Exec("UPDATE table1 SET integer_column = 42 WHERE ID = 1000")
 
