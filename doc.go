@@ -397,7 +397,27 @@ of the returned value:
     }
 
 
-Binding Parameters to Array Variables For Batch Inserts
+Binding Parameters
+
+Binding allows an SQL statement to use a value that is stored in a Golang variable.
+
+Without binding, an SQL statement specifies values by specifying literals inside the statement. For example, the following
+statement uses the literal value ``42`` in an UPDATE statement:
+
+	_, err = db.Exec("UPDATE table1 SET integer_column = 42 WHERE ID = 1000")
+
+With binding, you can execute a SQL statement that uses a value that is inside a variable. For example:
+
+	var my_integer_variable int = 42
+	_, err = db.Exec("UPDATE table1 SET integer_column = ? WHERE ID = 1000", my_integer_variable)
+
+The ``?`` inside the ``VALUES`` clause specifies that the SQL statement uses the value from a variable.
+
+Binding data that involves time zones can require special handling. For details, see the section
+titled "Timestamps with Time Zones".
+
+
+Binding Parameters to Array Variables
 
 Version 1.3.9 (and later) of the Go Snowflake Driver supports the ability to bind an array variable to a parameter in a SQL
 INSERT statement. You can use this technique to insert multiple rows in a single batch.
@@ -418,7 +438,31 @@ binds arrays to the parameters in the INSERT statement.
 	_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
 
 Note: For alternative ways to load data into the Snowflake database (including bulk loading using the COPY command), see
-Loading Data Into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).
+Loading Data into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).
+
+
+Batch Inserts and Binding Parameters
+
+When you use array binding to insert a large number of values, the driver can
+improve performance by streaming the data (without creating files on the local
+machine) to a temporary stage for ingestion. The driver automatically does this
+when the number of values exceeds a threshold.
+
+In order for the driver to send the data to a temporary stage, the user must have the following privilege on the schema:
+
+    CREATE STAGE.
+
+If the user does not have this privilege, the driver falls back to sending the data with the query to the Snowflake database.
+
+In addition, the current database and schema for the session must be set. If these are not set,
+the CREATE TEMPORARY STAGE command executed by the driver can fail with the following error:
+
+	CREATE TEMPORARY STAGE SYSTEM$BIND file_format=(type=csv field_optionally_enclosed_by='"')
+	Cannot perform CREATE STAGE. This session does not have a current schema. Call 'USE SCHEMA', or use a qualified name.
+
+For alternative ways to load data into the Snowflake database (including bulk loading using the COPY command),
+see Loading Data into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).
+
 
 Binding a Parameter to a Time Type
 
