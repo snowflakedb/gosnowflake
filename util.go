@@ -37,6 +37,10 @@ const (
 	describeOnly contextKey = "DESCRIBE_ONLY"
 )
 
+const (
+	cancelRetry contextKey = "CANCEL_RETRY"
+)
+
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
 func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
 	return context.WithValue(ctx, multiStatementCount, num), nil
