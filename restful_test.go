@@ -52,6 +52,25 @@ func postTestAppUnexpectedError(_ context.Context, _ *snowflakeRestful, _ *url.U
 	}, nil
 }
 
+func postTestQueryNotExecuting(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
+	dd := &execResponseData{}
+	er := &execResponse{
+		Data:    *dd,
+		Message: "",
+		Code:    queryNotExecuting,
+		Success: false,
+	}
+	ba, err := json.Marshal(er)
+	if err != nil {
+		panic(err)
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &fakeResponseBody{body: ba},
+	}, nil
+}
+
 func postTestRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
 	dd := &execResponseData{}
 	er := &execResponse{
@@ -90,6 +109,30 @@ func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 		StatusCode: http.StatusOK,
 		Body:       &fakeResponseBody{body: ba},
 	}, nil
+}
+
+func cancelTestRetry(ctx context.Context, sr *snowflakeRestful, requestID uuid.UUID, timeout time.Duration) error {
+	ctxRetry := getCancelRetry(ctx)
+	u := url.URL{}
+	reqByte, _ := json.Marshal(make(map[string]string))
+	resp, err := sr.FuncPost(ctx, sr, &u, getHeaders(), reqByte, timeout, false)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode == http.StatusOK {
+		var respd cancelQueryResponse
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
+			return err
+		}
+		if !respd.Success && respd.Code == queryNotExecuting && ctxRetry != 0 {
+			return sr.FuncCancelQuery(context.WithValue(ctx, cancelRetry, ctxRetry-1), sr, requestID, timeout)
+		}
+		if ctxRetry == 0 {
+			return nil
+		}
+	}
+	return fmt.Errorf("cancel retry failed")
 }
 
 func TestUnitPostQueryHelperError(t *testing.T) {
@@ -492,5 +535,18 @@ func TestUnitCancelQuery(t *testing.T) {
 	err = cancelQuery(context.Background(), sr, getOrGenerateRequestIDFromContext(ctx), time.Second)
 	if err == nil {
 		t.Fatal("should have failed to close session")
+	}
+}
+
+func TestCancelRetry(t *testing.T) {
+	sr := &snowflakeRestful{
+		TokenAccessor:   getSimpleTokenAccessor(),
+		FuncPost:        postTestQueryNotExecuting,
+		FuncCancelQuery: cancelTestRetry,
+	}
+	ctx := context.Background()
+	err := cancelQuery(ctx, sr, getOrGenerateRequestIDFromContext(ctx), time.Second)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
