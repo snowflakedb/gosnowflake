@@ -65,6 +65,7 @@ type snowflakeConn struct {
 	SequenceCounter uint64
 	QueryID         string
 	SQLState        string
+	telemetry       *snowflakeTelemetry
 	internal        InternalClient
 }
 
@@ -992,6 +993,14 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	} else {
 		tokenAccessor = getSimpleTokenAccessor()
 	}
+	sc.telemetry = &snowflakeTelemetry{
+		flushSize: defaultFlushSize,
+		enabled:   true,
+	}
+	if sc.cfg.DisableTelemetry {
+		sc.telemetry.enabled = false
+	}
+
 	// authenticate
 	sc.rest = &snowflakeRestful{
 		Host:     sc.cfg.Host,

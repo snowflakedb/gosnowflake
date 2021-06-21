@@ -132,6 +132,14 @@ type cancelQueryResponse struct {
 	Success bool        `json:"success"`
 }
 
+type telemetryResponse struct {
+	Data    interface{}       `json:"data,omitempty"`
+	Message string            `json:"message"`
+	Code    string            `json:"code"`
+	Success bool              `json:"success"`
+	Headers map[string]string `json:"headers,omitempty"`
+}
+
 func postRestful(
 	ctx context.Context,
 	sr *snowflakeRestful,

@@ -78,6 +78,8 @@ type Config struct {
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
 
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
+
+	DisableTelemetry bool // indicates whether to disable telemetry
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
