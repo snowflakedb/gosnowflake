@@ -38,8 +38,8 @@ func (st *snowflakeTelemetry) addLog(data *telemetryData) error {
 		return fmt.Errorf("telemetry disabled; not adding log")
 	}
 	st.mutex.Lock()
-	defer st.mutex.Unlock()
 	st.logs = append(st.logs, data)
+	st.mutex.Unlock()
 	if len(st.logs) >= st.flushSize {
 		if err := st.sendBatch(); err != nil {
 			return err
@@ -55,7 +55,13 @@ func (st *snowflakeTelemetry) sendBatch() error {
 	type telemetry struct {
 		Logs []*telemetryData `json:"logs"`
 	}
-	s := &telemetry{st.logs}
+
+	st.mutex.Lock()
+	logsToSend := st.logs
+	st.logs = make([]*telemetryData, 0)
+	st.mutex.Unlock()
+
+	s := &telemetry{logsToSend}
 	body, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -81,6 +87,5 @@ func (st *snowflakeTelemetry) sendBatch() error {
 		st.enabled = false
 		return fmt.Errorf("telemetry send failed with error code: %v, message: %v", respd.Code, respd.Message)
 	}
-	st.logs = make([]*telemetryData, 0)
 	return nil
 }

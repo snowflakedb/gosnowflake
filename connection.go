@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -251,6 +252,7 @@ func (sc *snowflakeConn) cleanup() {
 
 func (sc *snowflakeConn) Close() (err error) {
 	logger.WithContext(sc.ctx).Infoln("Close")
+	sc.telemetry.sendBatch()
 	sc.stopHeartBeat()
 
 	if !sc.cfg.KeepSessionAlive {
@@ -993,10 +995,6 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	} else {
 		tokenAccessor = getSimpleTokenAccessor()
 	}
-	sc.telemetry = &snowflakeTelemetry{
-		flushSize: defaultFlushSize,
-		enabled:   true,
-	}
 	if sc.cfg.DisableTelemetry {
 		sc.telemetry.enabled = false
 	}
@@ -1025,6 +1023,12 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		FuncPostAuthSAML:    postAuthSAML,
 		FuncPostAuthOKTA:    postAuthOKTA,
 		FuncGetSSO:          getSSO,
+	}
+	sc.telemetry = &snowflakeTelemetry{
+		flushSize: defaultFlushSize,
+		sr:        sc.rest,
+		mutex:     &sync.Mutex{},
+		enabled:   true,
 	}
 	return sc, nil
 }

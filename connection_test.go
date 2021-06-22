@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -173,6 +174,10 @@ func TestServiceName(t *testing.T) {
 
 var closedSessionCount = 0
 
+var testTelemetry = &snowflakeTelemetry{
+	mutex: &sync.Mutex{},
+}
+
 func closeSessionMock(_ context.Context, _ *snowflakeRestful, _ time.Duration) error {
 	closedSessionCount++
 	return &SnowflakeError{
@@ -187,6 +192,7 @@ func TestCloseIgnoreSessionGone(t *testing.T) {
 	sc := &snowflakeConn{
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
+		telemetry: testTelemetry,
 	}
 
 	if sc.Close() != nil {
@@ -201,6 +207,7 @@ func TestClientSessionPersist(t *testing.T) {
 	sc := &snowflakeConn{
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
+		telemetry: testTelemetry,
 	}
 	sc.cfg.KeepSessionAlive = true
 	count := closedSessionCount
