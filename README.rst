@@ -96,6 +96,72 @@ Submitting Pull Requests
 
 You may use your preferred editor to edit the driver code. Make certain to run ``make fmt lint`` before submitting any pull request to Snowflake. This command formats your source code according to the standard Go style and detects any coding style issues.
 
+Updating to Latest Upstream
+----------------------------------------------------------------------
+
+In general, we want to keep our fork up-to-date with changes from the `upstream gosnowflake repo <https://github.com/snowflakedb/gosnowflake>`_. Follow these steps to pull upstream changes into our fork.
+
+First, add the upstream repo as a remote:
+
+.. code-block:: bash
+
+    git remote add upstream git@github.com:snowflakedb/gosnowflake.git
+    git fetch upstream master
+
+To see the number of commits in ``upstream/master`` but not in ``origin/master``:
+
+.. code-block:: bash
+
+    git log --oneline origin/master..upstream/master | wc -l
+
+To see the number of commits in ``origin/master`` but not in ``upstream/master``:
+
+.. code-block:: bash
+
+    git log --oneline upstream/master..origin/master | wc -l
+
+Next, we want to create a merge commit that incorporates changes from the upstream repo with changes in our fork. These steps are based on `a blog post about maintaining long-lived forks <https://die-antwort.eu/techblog/2016-08-git-tricks-for-maintaining-a-long-lived-fork/>`_.
+
+.. code-block:: bash
+
+    # Create a branch reset-to-upstream that is up-to-date with upstream.
+    git checkout -b reset-to-upstream upstream/master
+
+    # Merge master into this branch, effectively ignoring all changes from master.
+    git merge --strategy=ours master
+
+    # Switch back to master and merge the temporary branch into a new branch
+    # off of master (will be a fast-forward merge).
+    git checkout master
+    git checkout -b update-master-with-upstream
+    git merge reset-to-upstream
+
+    # List commits that only exist in the fork.
+    git log upstream/master..master --no-merges | cat
+
+    # Cherry-pick changes from the fork as needed.
+    git cherry-pick <hash> <hash> <hash>
+
+Now we can push the branch ``update-master-with-upstream`` to our fork's origin, and create a pull request.
+
+Once that's done, we can run the Multiplex benchmarks with the new version of gosnowflake. In your local copy of the mono-go repo, update Multiplex to use the version of gosnowflake in ``update-master-with-upstream``:
+
+.. code-block:: bash
+
+    go get github.com/sigmacomputing/gosnowflake@<new gosnowflake commit hash>
+
+Create a commit with this update, along with any fixes to get Multiplex to work with the latest driver version.
+
+To run the benchmark, populate the file ``multiplex/scripts/parameters.json`` with Snowflake testing credentials, which can be found in the Sigma Engineering 1Password vault. Then, run the benchmark script to compare the old and new branches, and redirect output to a csv file.
+
+.. code-block:: bash
+
+    ./multiplex/scripts/query_bench.sh <old commit hash> <new commit hash> > ~/tmp/gosnowflake-bench-2021-06-11.csv
+
+Once that's done running, add a new page to the `Snowflake Go Driver Updates workbook <https://staging.sigmacomputing.io/sigma-on-sigma/workbook/Snowflake-Go-Driver-Updates-Hm0VmWLJZbgi9m4hWayjK>`_ with the results from your benchmark run. If there were any errors while running any of the queries or there was a substantial regression in query runtime, investigate before merging. If everything looks good (all queries ran, median and p90 runtime are within a few percent), merge the commit into gosnowflake.
+
+After the update is merged to gosnowflake, go back to the ``mono-go`` repo and run ``go get github.com/sigmacomputing/gosnowflake@master`` to update the version of gosnowflake that Multiplex uses. Create a PR for the upgrade, get feedback, and merge it into master.
+
 Support
 ----------------------------------------------------------------------
 
