@@ -1,3 +1,5 @@
+// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+
 package gosnowflake
 
 import (
@@ -9,12 +11,11 @@ import (
 func TestCtxVal(t *testing.T) {
 	type favContextKey string
 
-	f := func(ctx context.Context, k favContextKey) {
+	f := func(ctx context.Context, k favContextKey) error {
 		if v := ctx.Value(k); v != nil {
-			fmt.Println("found value:", v)
-			return
+			return nil
 		}
-		fmt.Println("key not found:", k)
+		return fmt.Errorf("key not found: %v", k)
 	}
 
 	k := favContextKey("language")
@@ -22,11 +23,19 @@ func TestCtxVal(t *testing.T) {
 
 	k2 := favContextKey("data")
 	ctx2 := context.WithValue(ctx, k2, "Snowflake")
-	f(ctx, k)
-	f(ctx, favContextKey("color"))
+	if err := f(ctx, k); err != nil {
+		t.Error(err)
+	}
+	if err := f(ctx, "color"); err == nil {
+		t.Error("should not have been found in context")
+	}
 
-	f(ctx2, k)
-	f(ctx2, k2)
+	if err := f(ctx2, k); err != nil {
+		t.Error(err)
+	}
+	if err := f(ctx2, k2); err != nil {
+		t.Error(err)
+	}
 }
 
 func TestLogEntryCtx(t *testing.T) {
@@ -40,8 +49,4 @@ func TestLogEntryCtx(t *testing.T) {
 	l2 := log.WithFields(*fs2)
 	l1.Info("Hello 1")
 	l2.Warning("Hello 2")
-
-	//log.WithContext(ctx).Info("new log text 1")
-	//log.WithContext(ctx2).Info("new log text 2")
-
 }

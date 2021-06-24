@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -641,7 +641,7 @@ func validateWithCache(subject, issuer *x509.Certificate) (*ocspStatus, []byte, 
 
 func downloadOCSPCacheServer() {
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
-		logger.Infof("skipping downloading OCSP Cache.")
+		logger.Infof("cache server disabled. skipping downloading OCSP Cache.")
 		return
 	}
 	ocspCacheServerURL := os.Getenv(cacheServerURLEnv)
@@ -722,7 +722,7 @@ func initOCSPCache() {
 	logger.Infof("reading OCSP Response cache file. %v\n", cacheFileName)
 	f, err := os.OpenFile(cacheFileName, os.O_CREATE|os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		logger.Errorf("failed to open. Ignored. %v\n", err)
+		logger.Debugf("failed to open. Ignored. %v\n", err)
 		return
 	}
 	defer f.Close()
@@ -732,10 +732,10 @@ func initOCSPCache() {
 	r := bufio.NewReader(f)
 	dec := json.NewDecoder(r)
 	for {
-		if err := dec.Decode(&buf); err == io.EOF {
+		if err = dec.Decode(&buf); err == io.EOF {
 			break
 		} else if err != nil {
-			logger.Errorf("failed to read. Ignored. %v\n", err)
+			logger.Debugf("failed to read. Ignored. %v\n", err)
 			return
 		}
 	}
@@ -815,6 +815,10 @@ func extractOCSPCacheResponseValue(cacheValue []interface{}, subject, issuer *x5
 // writeOCSPCacheFile writes a OCSP Response cache file. This is called if all revocation status is success.
 // lock file is used to mitigate race condition with other process.
 func writeOCSPCacheFile() {
+	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
+		logger.Infof("cache server disabled. skipping writing OCSP Cache.")
+		return
+	}
 	logger.Infof("writing OCSP Response cache file. %v\n", cacheFileName)
 	cacheLockFileName := cacheFileName + ".lck"
 	err := os.Mkdir(cacheLockFileName, 0600)
@@ -822,21 +826,19 @@ func writeOCSPCacheFile() {
 	case os.IsExist(err):
 		statinfo, err := os.Stat(cacheLockFileName)
 		if err != nil {
-			logger.Errorf("failed to write OCSP response cache file. file: %v, err: %v. ignored.\n", cacheFileName, err)
+			logger.Debugf("failed to write OCSP response cache file. file: %v, err: %v. ignored.\n", cacheFileName, err)
 			return
 		}
 		if time.Since(statinfo.ModTime()) < 15*time.Minute {
-			logger.Warnf("other process locks the cache file. %v. ignored.\n", cacheFileName)
+			logger.Debugf("other process locks the cache file. %v. ignored.\n", cacheFileName)
 			return
 		}
-		err = os.Remove(cacheLockFileName)
-		if err != nil {
-			logger.Errorf("failed to delete lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
+		if err = os.Remove(cacheLockFileName); err != nil {
+			logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
 			return
 		}
-		err = os.Mkdir(cacheLockFileName, 0600)
-		if err != nil {
-			logger.Errorf("failed to delete lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
+		if err = os.Mkdir(cacheLockFileName, 0600); err != nil {
+			logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
 			return
 		}
 	}
@@ -850,12 +852,11 @@ func writeOCSPCacheFile() {
 
 	j, err := json.Marshal(buf)
 	if err != nil {
-		logger.Errorf("failed to convert OCSP Response cache to JSON. ignored.")
+		logger.Debugf("failed to convert OCSP Response cache to JSON. ignored.")
 		return
 	}
-	err = ioutil.WriteFile(cacheFileName, j, 0644)
-	if err != nil {
-		logger.Errorf("failed to write OCSP Response cache. err: %v. ignored.\n", err)
+	if err = ioutil.WriteFile(cacheFileName, j, 0644); err != nil {
+		logger.Debugf("failed to write OCSP Response cache. err: %v. ignored.\n", err)
 	}
 }
 
@@ -910,7 +911,7 @@ func createOCSPCacheDir() {
 	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
 		err := os.MkdirAll(cacheDir, os.ModePerm)
 		if err != nil {
-			logger.Errorf("failed to create cache directory. %v, err: %v. ignored\n", cacheDir, err)
+			logger.Debugf("failed to create cache directory. %v, err: %v. ignored\n", cacheDir, err)
 		}
 	}
 	cacheFileName = filepath.Join(cacheDir, cacheFileBaseName)

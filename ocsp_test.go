@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -473,7 +473,12 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 	if runningOnGithubAction() {
 		t.Skip("cannot write to github file system")
 	}
-	tmpFileName := cacheFileName + "_tmp" // cacheFileName is global
+	dirName, err := os.UserHomeDir()
+	if err != nil {
+		t.Error(err)
+	}
+	srcFileName := dirName + "/.cache/snowflake/ocsp_response_cache.json"
+	tmpFileName := srcFileName + "_tmp"
 	dst, err := os.Create(tmpFileName)
 	if err != nil {
 		t.Error(err)
@@ -481,17 +486,19 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 	defer dst.Close()
 
 	var src *os.File
-	if _, err = os.Stat(cacheFileName); errors.Is(err, os.ErrNotExist) {
+	if _, err = os.Stat(srcFileName); errors.Is(err, os.ErrNotExist) {
 		// file does not exist
-		t.Logf("file %v does not exist", cacheFileName)
-		if _, err = os.Create(cacheFileName); err != nil {
+		if err = os.MkdirAll(dirName+"/.cache/snowflake/", os.ModePerm); err != nil {
+			t.Error(err)
+		}
+		if _, err = os.Create(srcFileName); err != nil {
 			t.Error(err)
 		}
 	} else if err != nil {
 		t.Error(err)
 	} else {
 		// file exists
-		src, err = os.Open(cacheFileName)
+		src, err = os.Open(srcFileName)
 		if err != nil {
 			t.Error(err)
 		}
@@ -500,7 +507,7 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 		if _, err = io.Copy(dst, src); err != nil {
 			t.Error(err)
 		}
-		if err = os.Remove(cacheFileName); err != nil {
+		if err = os.Remove(srcFileName); err != nil {
 			t.Error(err)
 		}
 	}
@@ -509,7 +516,7 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 	defer func() {
 		src, _ = os.Open(tmpFileName)
 		defer src.Close()
-		dst, _ = os.OpenFile(cacheFileName, os.O_WRONLY, os.ModePerm)
+		dst, _ = os.OpenFile(srcFileName, os.O_WRONLY, os.ModePerm)
 		defer dst.Close()
 		// copy temporary file contents back to original file
 		if _, err = io.Copy(dst, src); err != nil {
@@ -521,7 +528,7 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 	}()
 
 	initOCSPCache()
-	if _, err = os.Stat(cacheFileName); errors.Is(err, os.ErrNotExist) {
+	if _, err = os.Stat(srcFileName); errors.Is(err, os.ErrNotExist) {
 		t.Error(err)
 	} else if err != nil {
 		t.Error(err)
