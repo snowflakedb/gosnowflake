@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -227,7 +228,8 @@ func TestBindingArrowInterface(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(forceArrow)
 		var err error
-		rows := dbt.mustQuery(
+		rows := dbt.mustQueryContext(
+			WithHigherPrecision(context.Background()),
 			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
 		defer rows.Close()
 		if !rows.Next() {
@@ -257,6 +259,42 @@ func TestBindingArrowInterface(t *testing.T) {
 		s4, ok = v4.(float64)
 		if !ok || s4 != 4.2 {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v4)
+		}
+	})
+}
+
+func TestBindingArrowInterfaceString(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow)
+		rows := dbt.mustQuery(
+			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		defer rows.Close()
+		if !rows.Next() {
+			dbt.Error("failed to query")
+		}
+		var v1, v2, v3, v4, v5, v6 interface{}
+		if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
+			dbt.Errorf("failed to scan: %#v", err)
+		}
+		if s, ok := v1.(string); !ok {
+			dbt.Error("failed to convert to string")
+		} else if d, err := strconv.ParseFloat(s, 64); err != nil {
+			dbt.Errorf("failed to convert to float. value: %v, err: %v", v1, err)
+		} else if d != 1.00 {
+			dbt.Errorf("failed to fetch. expected: 1.00, value: %v", v1)
+		}
+		if s, ok := v2.(string); !ok || s != "2" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
+		}
+		if s, ok := v3.(string); !ok || s != "t3" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
+		}
+		if s, ok := v4.(string); !ok {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v4)
+		} else if d, err := strconv.ParseFloat(s, 64); err != nil {
+			dbt.Errorf("failed to convert to float. value: %v, err: %v", v1, err)
+		} else if d != 4.2 {
+			dbt.Errorf("failed to fetch. expected: 4.2, value: %v", v1)
 		}
 	})
 }

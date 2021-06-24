@@ -192,81 +192,25 @@ See cmd/selectmany.go for the full example.
 
 Supported Data Types
 
-Queries return SQL column type information in the ColumnType type. The
-DatabaseTypeName method returns strings representing Snowflake data types.
-The following table shows those strings, the corresponding Snowflake data
-type, and the corresponding Golang native data type. The columns are:
-
-   1. The string representation of the data type.
-   2. The SQL data type.
-   3. The default Golang data type that is returned when you use snowflakeRows.Scan() to read data from
-      JSON data format via an interface{}. (All returned values are JSON strings.)
-   4. The standard Golang data type that is returned when you use snowflakeRows.Scan() to read data from
-      JSON data format directly.
-   5. Footnotes numbers.
-
-This table shows the data types:
-
-  =============================================================================================
-                 |                                    | Default Go  | Supported  |
-  String         |                                    | Data Type   | Go Data    |
-  Representation | Snowflake Data Type                | for Scan()  | Types for  | Footnotes
-                 |                                    | interface{} | Scan()     |
-                 |                                    | (JSON)      | (JSON)     |
-  ==============================================================================================
-  BOOLEAN        | BOOLEAN                            | string      | bool       |
-  TEXT           | VARCHAR/STRING                     | string      | string     |
-  REAL           | REAL/DOUBLE                        | string      | float64    | [1]  [2]
-  FIXED          | INTEGER that fits in int64         | string      | int64      | [1]  [2]
-  FIXED          | NUMBER(P, S) where S > 0           | string      |            | [1]  [3]
-  DATE           | DATE                               | string      | time.Time  |
-  TIME           | TIME                               | string      | time.Time  |
-  TIMESTAMP_LTZ  | TIMESTAMP_LTZ                      | string      | time.Time  |
-  TIMESTAMP_NTZ  | TIMESTAMP_NTZ                      | string      | time.Time  |
-  TIMESTAMP_TZ   | TIMESTAMP_TZ                       | string      | time.Time  |
-  BINARY         | BINARY                             | string      | []byte     |
-  ARRAY          | ARRAY                              | string      | string     |
-  OBJECT         | OBJECT                             | string      | string     |
-  VARIANT        | VARIANT                            | string      | string     |
-
-Footnotes:
-
-  [1] Converting from a higher precision data type to a lower precision data type via the snowflakeRows.Scan() method can lose low bits (lose precision), lose high bits (completely change the value), or result in error.
-
-  [2] Attempting to convert from a higher precision data type to a lower precision data type via interface{} causes an error.
-
-  [3] If the value in Snowflake is too large to fit into the corresponding Golang data type, then conversion can return either an int64 with the high bits truncated or an error.
-
-Note: SQL NULL values are converted to Golang nil values, and vice-versa.
-
-
-Support for Arrow Data Format (Preview Feature)
-
-This feature is in preview. Snowflake recommends using this feature only in development systems, not production systems.
-This preview is available to all customers.
-
-The Go Snowflake Driver now supports the Arrow data format for data transfers between Snowflake and the Golang client. The Arrow data format
-avoids extra conversions between binary and textual representations of the data. The Arrow data format can improve performance and reduce
-memory consumption in clients.
+The Go Snowflake Driver now supports the Arrow data format for data transfers
+between Snowflake and the Golang client. The Arrow data format avoids extra
+conversions between binary and textual representations of the data. The Arrow
+data format can improve performance and reduce memory consumption in clients.
 
 Snowflake continues to support the JSON data format.
 
-The data format is controlled by the session-level parameter GO_QUERY_RESULT_FORMAT. To use Arrow format, execute:
-
-	ALTER SESSION SET GO_QUERY_RESULT_FORMAT = 'ARROW';
-
-To use JSON format, execute:
+The data format is controlled by the session-level parameter
+GO_QUERY_RESULT_FORMAT. To use JSON format, execute:
 
 	ALTER SESSION SET GO_QUERY_RESULT_FORMAT = 'JSON';
 
 The valid values for the parameter are:
 
-	* ARROW
+	* ARROW (default)
 	* JSON
 
-The default value is 'JSON'. The default will change in the future.
-
-If the user attempts to set the parameter to an invalid value, an error is returned.
+If the user attempts to set the parameter to an invalid value, an error is
+returned.
 
 The parameter name and the parameter value are case-insensitive.
 
@@ -274,72 +218,99 @@ This parameter can be set only at the session level.
 
 Usage notes:
 
-	* The Arrow data format can reduce rounding errors in floating point numbers.
-          You might see slightly different values for floating point numbers when using Arrow format than when using JSON format.
+	* The Arrow data format reduces rounding errors in floating point numbers. You might see slightly
+	  different values for floating point numbers when using Arrow format than when using JSON format.
+	  In order to take advantage of the increased precision, you must pass in the context.Context object
+	  provided by the WithHigherPrecision function when querying.
 
-	* For some numeric data types, the driver can retrieve larger values when using the Arrow format than when using the
-	  JSON format. For example, using Arrow format allows the full range of SQL NUMERIC(38,0) values to be retrieved,
-	  while using JSON format allows only values in the range supported by the Golang int64 data type.
+	* For some numeric data types, the driver can retrieve larger values when using the Arrow format than
+	  when using the JSON format. For example, using Arrow format allows the full range of SQL NUMERIC(38,0)
+	  values to be retrieved, while using JSON format allows only values in the range supported by the
+	  Golang int64 data type.
 
-	  Users should ensure that Golang variables are declared using the appropriate data type for the full range of values
-	  contained in the column. For an example, see below.
+	  Users should ensure that Golang variables are declared using the appropriate data type for the full
+	  range of values contained in the column. For an example, see below.
 
-When using the Arrow format, the driver supports more Golang data types and more ways to convert SQL values to those Golang data types.
-The table below lists the supported Snowflake SQL data types and the corresponding Golang data types. The columns are:
+When using the Arrow format, the driver supports more Golang data types and
+more ways to convert SQL values to those Golang data types. The table below
+lists the supported Snowflake SQL data types and the corresponding Golang
+data types. The columns are:
 
    1. The SQL data type.
    2. The default Golang data type that is returned when you use snowflakeRows.Scan() to read data from
       Arrow data format via an interface{}.
-   3. The possible Golang data types that can be returned when you use snowflakeRows.Scan() to read data from
-      Arrow data format directly.
+   3. The possible Golang data types that can be returned when you use snowflakeRows.Scan() to read data
+      from Arrow data format directly.
    4. The default Golang data type that is returned when you use snowflakeRows.Scan() to read data from
-      JSON data format via an interface{}. (All returned values are JSON strings.)
+      JSON data format via an interface{}. (All returned values are strings.)
    5. The standard Golang data type that is returned when you use snowflakeRows.Scan() to read data from
       JSON data format directly.
 
-  ==================================================================================================================================
-  SQL Data Type                       | Default Go  | Supported Go Data Types for Scan() (ARROW)           | Default Go  | Supported
-                                      | Data Type   |                                                      | Data Type   | Go Data
-                                      | for Scan()  |                                                      | for Scan()  | Type for
-                                      | interface{} |                                                      | interface{} | Scan()
-                                      | (ARROW)     |                                                      | (JSON)      | (JSON)
-  ==================================================================================================================================
-    BOOLEAN                           | bool        | bool                                                 | string      | bool
-    VARCHAR                           | string      | string                                               | string      | string
-    DOUBLE                            | float64     | float32, float64                           [1] , [2] | string      | float64
-    INTEGER that fits in int64        | int64       | int, int8, int16, int32, int64             [1] , [2] | string      | int64
-    INTEGER that doesn't fit in int64 | \*big.Int   | int, int8, int16, int32, int64, \*big.Int  [1] , [3] | string      | [5]
-    NUMBER(P, S) where S > 0          | \*big.Float | float32, float64, \*big.Float              [1] , [4] | string      | [5]
-    DATE                              | time.Time   | time.Time                                            | string      | time.Time
-    TIME                              | time.Time   | time.Time                                            | string      | time.Time
-    TIMESTAMP_LTZ                     | time.Time   | time.Time                                            | string      | time.Time
-    TIMESTAMP_NTZ                     | time.Time   | time.Time                                            | string      | time.Time
-    TIMESTAMP_TZ                      | time.Time   | time.Time                                            | string      | time.Time
-    BINARY                            | []byte      | []byte                                               | string      | []byte
-    ARRAY                             | string      | string                                               | string      | string
-    OBJECT                            | string      | string                                               | string      | string
-    VARIANT                           | string      | string                                               | string      | string
+  Go Data Types for Scan()
+  ===================================================================================================================
+                         |                    ARROW                    |                    JSON
+  ===================================================================================================================
+  SQL Data Type          | Default Go Data Type   | Supported Go Data  | Default Go Data Type   | Supported Go Data
+                         | for Scan() interface{} | Types for Scan()   | for Scan() interface{} | Types for Scan()
+  ===================================================================================================================
+    BOOLEAN              | bool                                        | string                 | bool
+  -------------------------------------------------------------------------------------------------------------------
+    VARCHAR              | string                                      | string
+  -------------------------------------------------------------------------------------------------------------------
+    DOUBLE               | float32, float64                  [1] , [2] | string                 | float32, float64
+  -------------------------------------------------------------------------------------------------------------------
+    INTEGER that         | int, int8, int16, int32, int64              | string                 | int, int8, int16,
+    fits in int64        |                                   [1] , [2] |                        | int32, int64
+  -------------------------------------------------------------------------------------------------------------------
+    INTEGER that doesn't | int, int8, int16, int32, int64, \*big.Int   | string                 | error
+    fit in int64         |                       [1] , [2] , [3] , [4] |
+  -------------------------------------------------------------------------------------------------------------------
+    NUMBER(P, S)         | float32, float64, \*big.Float               | string                 | float32, float64
+    where S > 0          |                       [1] , [2] , [3] , [5] |
+  -------------------------------------------------------------------------------------------------------------------
+    DATE                 | time.Time                                   | string                 | time.Time
+  -------------------------------------------------------------------------------------------------------------------
+    TIME                 | time.Time                                   | string                 | time.Time
+  -------------------------------------------------------------------------------------------------------------------
+    TIMESTAMP_LTZ        | time.Time                                   | string                 | time.Time
+  -------------------------------------------------------------------------------------------------------------------
+    TIMESTAMP_NTZ        | time.Time                                   | string                 | time.Time
+  -------------------------------------------------------------------------------------------------------------------
+    TIMESTAMP_TZ         | time.Time                                   | string                 | time.Time
+  -------------------------------------------------------------------------------------------------------------------
+    BINARY               | []byte                                      | string                 | []byte
+  -------------------------------------------------------------------------------------------------------------------
+    ARRAY                | string                                      | string
+  -------------------------------------------------------------------------------------------------------------------
+    OBJECT               | string                                      | string
+  -------------------------------------------------------------------------------------------------------------------
+    VARIANT              | string                                      | string
 
-  [1] Converting from a higher precision data type to a lower precision data type via the snowflakeRows.Scan() method
-      can lose low bits (lose precision), lose high bits (completely change the value), or result in error.
+  [1] Converting from a higher precision data type to a lower precision data type via the snowflakeRows.Scan()
+      method can lose low bits (lose precision), lose high bits (completely change the value), or result in error.
 
-  [2] Attempting to convert from a higher precision data type to a lower precision data type via interface{} causes an error.
+  [2] Attempting to convert from a higher precision data type to a lower precision data type via interface{}
+      causes an error.
 
-  [3] You cannot directly Scan() into the alternative data types via snowflakeRows.Scan(), but can convert to those data
-      types by using .Int64()/.String()/.Uint64() methods. For an example, see below.
+  [3] Higher precision data types like \*big.Int and \*big.Float can be accessed by querying with a context
+      returned by WithHigherPrecision().
 
-  [4] You cannot directly Scan() into the alternative data types via snowflakeRows.Scan(), but can convert to those data
-      types by using .Float32()/.String()/.Float64() methods. For an example, see below.
+  [4] You cannot directly Scan() into the alternative data types via snowflakeRows.Scan(), but can convert to
+      those data types by using .Int64()/.String()/.Uint64() methods. For an example, see below.
 
-  [5] Returns either an int64 with the high bits truncated or an error.
+  [5] You cannot directly Scan() into the alternative data types via snowflakeRows.Scan(), but can convert to
+      those data types by using .Float32()/.String()/.Float64() methods. For an example, see below.
 
 Note: SQL NULL values are converted to Golang nil values, and vice-versa.
 
-The following example shows how to retrieve very large values using the math/big package. This example retrieves a large
-INTEGER value to an interface and then extracts a big.Int value from that interface. If the value
-fits into an int64, then the code also copies the value to a variable of type int64.
+The following example shows how to retrieve very large values using the math/big
+package. This example retrieves a large INTEGER value to an interface and then
+extracts a big.Int value from that interface. If the value fits into an int64,
+then the code also copies the value to a variable of type int64. Note that a
+context that enables higher precision must be passed in with the query.
 
-       import math/big
+       import "context"
+       import "math/big"
 
        ...
 
@@ -349,7 +320,7 @@ fits into an int64, then the code also copies the value to a variable of type in
        var rows snowflakeRows
 
        ...
-
+       rows = db.QueryContext(WithHigherPrecision(context.Background), <query>)
        rows.Scan(&my_interface)
        my_big_int_pointer, ok = my_interface.(*big.Int)
        if my_big_int_pointer.IsInt64() {
@@ -365,7 +336,7 @@ If the variable named "rows" contains a big.Int, then each of the following fail
 
        rows.Scan(&my_int64)
 
-       my_int64, ok = my_interface.(int64)
+       my_int64, _ = my_interface.(int64)
 
 Similar code and rules also apply to big.Float values.
 

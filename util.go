@@ -25,20 +25,20 @@ const (
 	queryIDChannel contextKey = "QUERY_ID_CHANNEL"
 	// snowflakeRequestIDKey is optional context key to specify request id
 	snowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
-	// streamChunkDownload determines whether to use a stream based chunk downloader
-	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
 	// fetchResultByID the queryID of query result to fetch
 	fetchResultByID contextKey = "SF_FETCH_RESULT_BY_ID"
 	// fileStreamFile is the address of the file to be uploaded via PUT
 	fileStreamFile contextKey = "STREAMING_PUT_FILE"
 	// fileTransferOptions allows the user to pass in custom
 	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
-	// describeOnly returns the description of the query
-	describeOnly contextKey = "DESCRIBE_ONLY"
+	// enableHigherPrecision returns numbers with higher precision in a *big format
+	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
 )
 
 const (
-	cancelRetry contextKey = "CANCEL_RETRY"
+	describeOnly        contextKey = "DESCRIBE_ONLY"
+	cancelRetry         contextKey = "CANCEL_RETRY"
+	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
@@ -84,6 +84,13 @@ func WithFileTransferOptions(ctx context.Context, options *SnowflakeFileTransfer
 // WithDescribeOnly returns a context that enables a describe only query
 func WithDescribeOnly(ctx context.Context) context.Context {
 	return context.WithValue(ctx, describeOnly, true)
+}
+
+// WithHigherPrecision returns a context that enables higher precision by
+// returning a *big.Int or *big.Float variable when querying rows for column
+// types with numbers that don't fit into its native Golang counterpart
+func WithHigherPrecision(ctx context.Context) context.Context {
+	return context.WithValue(ctx, enableHigherPrecision, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
