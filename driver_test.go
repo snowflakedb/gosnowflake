@@ -40,9 +40,10 @@ var (
 )
 
 const (
-	forceArrow      = "ALTER SESSION SET GO_QUERY_RESULT_FORMAT = ARROW_FORCE"
-	selectNumberSQL = "SELECT %s::NUMBER(%v, %v) AS C"
-	PSTLocation     = "America/Los_Angeles"
+	forceArrow            = "ALTER SESSION SET GO_QUERY_RESULT_FORMAT = ARROW_FORCE"
+	selectNumberSQL       = "SELECT %s::NUMBER(%v, %v) AS C"
+	selectRandomGenerator = "SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))"
+	PSTLocation           = "America/Los_Angeles"
 )
 
 // The tests require the following parameters in the environment variables.
@@ -643,17 +644,15 @@ func testInt(t *testing.T, arrow bool) {
 	})
 }
 
-type tcBigNum struct {
-	num  string
-	prec int
-	sc   int
-}
-
 func TestArrowBigInt(t *testing.T) {
 	db := openDB(t)
 	dbt := &DBTest{t, db}
 
-	testcases := []tcBigNum{
+	testcases := []struct {
+		num  string
+		prec int
+		sc   int
+	}{
 		{"10000000000000000000000000000000000000", 38, 0},
 		{"-10000000000000000000000000000000000000", 38, 0},
 		{"12345678901234567890123456789012345678", 38, 0},
@@ -762,7 +761,11 @@ func TestArrowBigFloat(t *testing.T) {
 	db := openDB(t)
 	dbt := &DBTest{t, db}
 
-	testcases := []tcBigNum{
+	testcases := []struct {
+		num  string
+		prec int
+		sc   int
+	}{
 		{"1.23", 30, 2},
 		{"1.0000000000000000000000000000000000000", 38, 37},
 		{"-1.0000000000000000000000000000000000000", 38, 37},
@@ -1843,7 +1846,7 @@ func testLargeSetResult(t *testing.T, numrows int, arrow bool) {
 		if arrow {
 			dbt.mustExec(forceArrow)
 		}
-		rows := dbt.mustQuery(fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+		rows := dbt.mustQuery(fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
 		cnt := 0
 		var idx int
@@ -2433,59 +2436,34 @@ func createDSNWithClientSessionKeepAlive() {
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
-	var db *sql.DB
-	var err error
-	var rows *sql.Rows
-
 	createDSNWithClientSessionKeepAlive()
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-	rows, err = db.Query("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
-	if err != nil {
-		t.Errorf("failed to run show parameters. err: %v", err)
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		t.Fatal("failed to get timezone.")
-	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
+		if !rows.Next() {
+			t.Fatal("failed to get timezone.")
+		}
 
-	p, err := ScanSnowflakeParameter(rows)
-	if err != nil {
-		t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
-	}
-	if p.Value != "true" {
-		t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
-	}
-	rows, err = db.Query("select count(*) from table(generator(timelimit=>30))")
-	if err != nil {
-		t.Errorf("failed to run a query: %v", err)
-	}
-	defer rows.Close()
+		p, err := ScanSnowflakeParameter(rows.rows)
+		if err != nil {
+			t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
+		}
+		if p.Value != "true" {
+			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
+		}
+
+		rows = dbt.mustQuery("select count(*) from table(generator(timelimit=>30))")
+		defer rows.Close()
+	})
 }
 
 func TestTimePrecision(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec("create or replace table z3 (t1 time(5))")
-	if err != nil {
-		t.Errorf("error while executing query. err : %v", err)
-	}
-	res, err := db.Query("select * from z3")
-	if err != nil {
-		t.Errorf("error while executing query. err : %v", err)
-	}
-
-	cols, _ := res.ColumnTypes()
-	pres, _, _ := cols[0].DecimalSize()
-	if pres != 5 {
-		t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
-	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("create or replace table z3 (t1 time(5))")
+		rows := dbt.mustQuery("select * from z3")
+		cols, _ := rows.ColumnTypes()
+		pres, _, _ := cols[0].DecimalSize()
+		if pres != 5 {
+			t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
+		}
+	})
 }

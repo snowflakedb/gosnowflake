@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -368,33 +367,28 @@ func assertEmptyChunkRow(row chunkRowType) bool {
 }
 
 func TestWithStreamDownloader(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
 	ctx := WithStreamDownloader(context.Background())
 	numrows := 100000
-	rows, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
-	defer rows.Close()
-
 	cnt := 0
 	var idx int
 	var v string
-	// Next() will block and wait until results are available
-	for rows.Next() {
-		err := rows.Scan(&idx, &v)
-		if err != nil {
-			t.Fatal(err)
-		}
-		cnt++
-	}
-	logger.Infof("NextResultSet: %v", rows.NextResultSet())
 
-	if cnt != numrows {
-		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
-	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
+		defer rows.Close()
+
+		// Next() will block and wait until results are available
+		for rows.Next() {
+			err := rows.Scan(&idx, &v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cnt++
+		}
+		logger.Infof("NextResultSet: %v", rows.NextResultSet())
+
+		if cnt != numrows {
+			t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
+		}
+	})
 }
