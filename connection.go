@@ -1082,3 +1082,24 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 	return sc, nil
 }
+
+// FetchResult returns a Rows handle for a previously issued query,
+// given the snowflake query-id. This functionality is not used by the
+// go sql library but is exported to clients who can make use of this
+// capability explicitly.
+//
+// See the ResultFetcher interface.
+func (sc *snowflakeConn) FetchResult(ctx context.Context, qid string) (driver.Rows, error) {
+	return sc.buildRowsForRunningQuery(ctx, qid)
+}
+
+// ResultFetcher is an interface which allows a query result to be
+// fetched given the corresponding snowflake query-id.
+//
+// The raw gosnowflake connection implements this interface and we
+// export it so that clients can access this functionality, bypassing
+// the alternative which is the query it via the RESULT_SCAN table
+// function.
+type ResultFetcher interface {
+	FetchResult(ctx context.Context, qid string) (driver.Rows, error)
+}
