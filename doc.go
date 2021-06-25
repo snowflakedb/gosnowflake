@@ -223,6 +223,10 @@ Usage notes:
 	  In order to take advantage of the increased precision, you must pass in the context.Context object
 	  provided by the WithHigherPrecision function when querying.
 
+	* Traditionally, the rows.Scan() method returned a string when a variable of types interface was passed
+	  in. Turning on the flag ENABLE_HIGHER_PRECISION via WithHigherPrecision will return the natural,
+	  expected data type as well.
+
 	* For some numeric data types, the driver can retrieve larger values when using the Arrow format than
 	  when using the JSON format. For example, using Arrow format allows the full range of SQL NUMERIC(38,0)
 	  values to be retrieved, while using JSON format allows only values in the range supported by the

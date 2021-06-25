@@ -16,6 +16,7 @@ func TestAsyncMode(t *testing.T) {
 	var v string
 
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
 
@@ -47,6 +48,7 @@ func TestAsyncMode(t *testing.T) {
 func TestAsyncQueryFail(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQueryContext(ctx, "selectt 1")
 		defer rows.Close()
 
@@ -68,6 +70,7 @@ func TestMultipleAsyncQueries(t *testing.T) {
 	ch2 := make(chan string)
 
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows1 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s1, 30))
 		defer rows1.Close()
 		rows2 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s2, 10))

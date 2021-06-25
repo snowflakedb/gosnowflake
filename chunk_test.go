@@ -1,3 +1,5 @@
+// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+
 package gosnowflake
 
 import (
@@ -162,8 +164,7 @@ func testDecodeOk(t *testing.T, s string) {
 }
 
 func testDecodeErr(t *testing.T, s string) {
-	_, err := decodeLargeChunk(strings.NewReader(s), 0, 0)
-	if err == nil {
+	if _, err := decodeLargeChunk(strings.NewReader(s), 0, 0); err == nil {
 		t.Fatalf("expected decode to fail for input: %s", s)
 	}
 }
@@ -196,8 +197,7 @@ func TestStreamChunkDownloaderFirstRows(t *testing.T) {
 		if !downloader.hasNextResultSet() {
 			t.Error("failed to retrieve next result set")
 		}
-		err := downloader.nextResultSet()
-		if err != nil {
+		if err := downloader.nextResultSet(); err != nil {
 			t.Fatalf("failed to retrieve data. err: %v", err)
 		}
 		row, err := downloader.next()
@@ -239,8 +239,7 @@ func TestStreamChunkDownloaderChunks(t *testing.T) {
 		if !downloader.hasNextResultSet() {
 			t.Error("failed to retrieve next result set")
 		}
-		err := downloader.nextResultSet()
-		if err != nil {
+		if err := downloader.nextResultSet(); err != nil {
 			t.Fatalf("failed to retrieve data. err: %v", err)
 		}
 		row, err := downloader.next()
@@ -282,8 +281,7 @@ func TestCopyChunkStream(t *testing.T) {
 
 	r := strings.NewReader(`["foo","bar",null],["bar",null,"foo"],[]`)
 	c := make(chan []*string, 3)
-	err := copyChunkStream(r, c)
-	if err != nil {
+	if err := copyChunkStream(r, c); err != nil {
 		t.Fatalf("error while copying chunk stream. err: %v", err)
 	}
 	assertEqualRows([]*string{&foo, &bar, nil}, <-c)
@@ -298,22 +296,19 @@ func TestCopyChunkStreamInvalid(t *testing.T) {
 
 	r = strings.NewReader("oops")
 	c = make(chan []*string, 1)
-	err = copyChunkStream(r, c)
-	if err == nil {
+	if err = copyChunkStream(r, c); err == nil {
 		t.Fatalf("should fail to retrieve data. err: %v", err)
 	}
 
 	r = strings.NewReader(`[["foo"], ["bar"]]`)
 	c = make(chan []*string, 1)
-	err = copyChunkStream(r, c)
-	if err == nil {
+	if err = copyChunkStream(r, c); err == nil {
 		t.Fatalf("should fail to retrieve data. err: %v", err)
 	}
 
 	r = strings.NewReader(`{"foo": "bar"}`)
 	c = make(chan []*string, 1)
-	err = copyChunkStream(r, c)
-	if err == nil {
+	if err = copyChunkStream(r, c); err == nil {
 		t.Fatalf("should fail to retrieve data. err: %v", err)
 	}
 }

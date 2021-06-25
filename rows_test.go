@@ -43,6 +43,7 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 		FuncDownload:       nil,
 		FuncDownloadHelper: nil,
 		RowSet:             rowSetType{RowType: rt, JSON: cc},
+		QueryResultFormat:  "json",
 	}
 	rows.ChunkDownloader.start()
 	dest := make([]driver.Value, 2)

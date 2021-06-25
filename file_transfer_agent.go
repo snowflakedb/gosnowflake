@@ -859,6 +859,7 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 			data.RowSet = ccrs
 			cc := make([]chunkRowType, len(ccrs))
 			populateJSONRowSet(cc, ccrs)
+			data.QueryResultFormat = "json"
 			rt := []execResponseRowType{
 				{Name: "source", ByteLength: 10000, Length: 10000, Type: "TEXT", Scale: 0, Nullable: false},
 				{Name: "target", ByteLength: 10000, Length: 10000, Type: "TEXT", Scale: 0, Nullable: false},

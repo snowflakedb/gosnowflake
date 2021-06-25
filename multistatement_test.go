@@ -4,7 +4,6 @@ package gosnowflake
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 )
 
@@ -323,12 +322,7 @@ func TestMultiStatementCountZero(t *testing.T) {
 }
 
 func TestMultiStatementCountMismatch(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
+	db := openDB(t)
 	defer db.Close()
 
 	multiStmtQuery := "select 123;\n" +
@@ -337,7 +331,7 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 		"select '000';"
 
 	ctx, _ := WithMultiStatement(context.Background(), 3)
-	if _, err = db.QueryContext(ctx, multiStmtQuery); err == nil {
+	if _, err := db.QueryContext(ctx, multiStmtQuery); err == nil {
 		t.Fatal("should have failed to query multiple statements")
 	}
 }

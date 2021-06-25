@@ -141,9 +141,7 @@ func TestE2EFetchResultByID(t *testing.T) {
 func TestWithDescribeOnly(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		ctx := WithDescribeOnly(context.Background())
-		rows := dbt.mustQueryContext(
-			ctx,
-			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		rows := dbt.mustQueryContext(ctx, selectVariousTypes)
 		cols, err := rows.Columns()
 		if err != nil {
 			t.Error(err)
