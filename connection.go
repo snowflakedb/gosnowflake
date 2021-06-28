@@ -59,6 +59,7 @@ const (
 	queryResultType     resultType = "query"
 )
 
+// SnowflakeConn implements sql.Conn interface
 type SnowflakeConn struct {
 	ctx             context.Context
 	cfg             *Config
@@ -213,10 +214,12 @@ func (sc *SnowflakeConn) exec(
 	return data, err
 }
 
+// Begin starts a transaction.
 func (sc *SnowflakeConn) Begin() (driver.Tx, error) {
 	return sc.BeginTx(sc.ctx, driver.TxOptions{})
 }
 
+// BeginTx starts a transaction.
 func (sc *SnowflakeConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	logger.WithContext(ctx).Info("BeginTx")
 	if opts.ReadOnly {
@@ -250,6 +253,7 @@ func (sc *SnowflakeConn) cleanup() {
 	sc.cfg = nil
 }
 
+// Close cleans up a connection.
 func (sc *SnowflakeConn) Close() (err error) {
 	logger.WithContext(sc.ctx).Infoln("Close")
 	sc.telemetry.sendBatch()
@@ -265,6 +269,7 @@ func (sc *SnowflakeConn) Close() (err error) {
 	return nil
 }
 
+// PrepareContext creates a prepared statement for later queries or executions.
 func (sc *SnowflakeConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	logger.WithContext(sc.ctx).Infoln("Prepare")
 	if sc.rest == nil {
@@ -294,6 +299,7 @@ func (sc *SnowflakeConn) PrepareContext(ctx context.Context, query string) (driv
 	return stmt, nil
 }
 
+// ExecContext executes a query without returning any rows.
 func (sc *SnowflakeConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
 	if sc.rest == nil {
@@ -344,6 +350,7 @@ func (sc *SnowflakeConn) ExecContext(ctx context.Context, query string, args []d
 	return driver.ResultNoRows, nil
 }
 
+// QueryContext executes a query that returns rows, typically a SELECT.
 func (sc *SnowflakeConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	qid, err := getResumeQueryID(ctx)
 	if err != nil {
@@ -413,10 +420,12 @@ func (sc *SnowflakeConn) queryContextInternal(ctx context.Context, query string,
 	return rows, err
 }
 
+// Prepare creates a prepared statement for later queries or executions.
 func (sc *SnowflakeConn) Prepare(query string) (driver.Stmt, error) {
 	return sc.PrepareContext(sc.ctx, query)
 }
 
+// Exec executes a query without returning any rows.
 func (sc *SnowflakeConn) Exec(
 	query string,
 	args []driver.Value) (
@@ -424,6 +433,7 @@ func (sc *SnowflakeConn) Exec(
 	return sc.ExecContext(sc.ctx, query, toNamedValues(args))
 }
 
+// Query executes a query that returns rows, typically a SELECT.
 func (sc *SnowflakeConn) Query(
 	query string,
 	args []driver.Value) (
@@ -431,6 +441,7 @@ func (sc *SnowflakeConn) Query(
 	return sc.QueryContext(sc.ctx, query, toNamedValues(args))
 }
 
+// Ping verifies the connection to the database is still alive.
 func (sc *SnowflakeConn) Ping(ctx context.Context) error {
 	logger.WithContext(ctx).Infoln("Ping")
 	if sc.rest == nil {
