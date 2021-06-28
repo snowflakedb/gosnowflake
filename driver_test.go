@@ -2166,7 +2166,7 @@ func TestOpenWithTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
 	}
-	conn := db.(*snowflakeConn)
+	conn := db.(*SnowflakeConn)
 	if conn.rest.Client.Transport != transport {
 		t.Fatal("transport doesn't match")
 	}
@@ -2182,7 +2182,7 @@ func TestOpenWithTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
 	}
-	conn = db.(*snowflakeConn)
+	conn = db.(*SnowflakeConn)
 	if conn.rest.Client.Transport != transport {
 		t.Fatal("transport doesn't match")
 	}

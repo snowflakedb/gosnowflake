@@ -64,7 +64,7 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 		FuncPostQuery: postQueryMock,
 	}
 
-	sc := &snowflakeConn{
+	sc := &SnowflakeConn{
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
@@ -102,7 +102,7 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 		FuncGet:       funcGetMock,
 		TokenAccessor: ta,
 	}
-	sc := &snowflakeConn{
+	sc := &SnowflakeConn{
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
@@ -133,7 +133,7 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 		FuncPostQuery: postQueryMock,
 	}
 
-	sc := &snowflakeConn{
+	sc := &SnowflakeConn{
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
@@ -152,7 +152,7 @@ func TestServiceName(t *testing.T) {
 		FuncPostQuery: postQueryMock,
 	}
 
-	sc := &snowflakeConn{
+	sc := &SnowflakeConn{
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
@@ -189,7 +189,7 @@ func TestCloseIgnoreSessionGone(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncCloseSession: closeSessionMock,
 	}
-	sc := &snowflakeConn{
+	sc := &SnowflakeConn{
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 		telemetry: testTelemetry,
@@ -204,7 +204,7 @@ func TestClientSessionPersist(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncCloseSession: closeSessionMock,
 	}
-	sc := &snowflakeConn{
+	sc := &SnowflakeConn{
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 		telemetry: testTelemetry,

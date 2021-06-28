@@ -226,7 +226,7 @@ func postAuthCheckJWTToken(_ context.Context, _ *snowflakeRestful, _ *url.Values
 	}, nil
 }
 
-func getDefaultSnowflakeConn() *snowflakeConn {
+func getDefaultSnowflakeConn() *SnowflakeConn {
 	cfg := Config{
 		Account:            "a",
 		User:               "u",
@@ -244,7 +244,7 @@ func getDefaultSnowflakeConn() *snowflakeConn {
 	sr := &snowflakeRestful{
 		TokenAccessor: getSimpleTokenAccessor(),
 	}
-	sc := &snowflakeConn{
+	sc := &SnowflakeConn{
 		rest: sr,
 		cfg:  &cfg,
 	}

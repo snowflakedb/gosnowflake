@@ -36,7 +36,7 @@ type chunkDownloader interface {
 }
 
 type snowflakeChunkDownloader struct {
-	sc                 *snowflakeConn
+	sc                 *SnowflakeConn
 	ctx                context.Context
 	Total              int64
 	TotalRowIndex      int64

@@ -97,7 +97,7 @@ type SnowflakeFileTransferOptions struct {
 }
 
 type snowflakeFileTransferAgent struct {
-	sc                          *snowflakeConn
+	sc                          *SnowflakeConn
 	data                        *execResponseData
 	command                     string
 	commandType                 commandType

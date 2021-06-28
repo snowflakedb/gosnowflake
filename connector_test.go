@@ -11,7 +11,7 @@ import (
 
 type noopTestDriver struct {
 	config Config
-	conn   *snowflakeConn
+	conn   *SnowflakeConn
 }
 
 func (d *noopTestDriver) Open(_ string) (driver.Conn, error) {
@@ -24,7 +24,7 @@ func (d *noopTestDriver) OpenWithConfig(_ context.Context, config Config) (drive
 }
 
 func TestConnector(t *testing.T) {
-	conn := snowflakeConn{}
+	conn := SnowflakeConn{}
 	mock := noopTestDriver{conn: &conn}
 	createDSN("UTC")
 	config, err := ParseDSN(dsn)

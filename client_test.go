@@ -39,7 +39,7 @@ func TestInternalClient(t *testing.T) {
 		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
 	}
 
-	internalClient := (db.(*snowflakeConn)).internal
+	internalClient := (db.(*SnowflakeConn)).internal
 	resp, err := internalClient.Get(context.Background(), &url.URL{}, make(map[string]string), 0)
 	if err != nil || resp.StatusCode != 200 {
 		t.Fail()

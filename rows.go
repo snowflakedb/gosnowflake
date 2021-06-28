@@ -28,7 +28,7 @@ var (
 )
 
 type snowflakeRows struct {
-	sc                  *snowflakeConn
+	sc                  *SnowflakeConn
 	ChunkDownloader     chunkDownloader
 	tailChunkDownloader chunkDownloader
 	queryID             string

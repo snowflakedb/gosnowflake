@@ -7,7 +7,7 @@ import (
 )
 
 type snowflakeTx struct {
-	sc *snowflakeConn
+	sc *SnowflakeConn
 }
 
 func (tx *snowflakeTx) Commit() (err error) {

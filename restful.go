@@ -60,7 +60,7 @@ type snowflakeRestful struct {
 	TokenAccessor TokenAccessor
 	HeartBeat     *heartbeat
 
-	Connection *snowflakeConn
+	Connection *SnowflakeConn
 
 	FuncPostQuery       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID, *Config) (*execResponse, error)
 	FuncPostQueryHelper func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, uuid.UUID, *Config) (*execResponse, error)

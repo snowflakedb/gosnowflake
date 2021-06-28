@@ -8,7 +8,7 @@ import (
 )
 
 type snowflakeStmt struct {
-	sc    *snowflakeConn
+	sc    *SnowflakeConn
 	query string
 }
 

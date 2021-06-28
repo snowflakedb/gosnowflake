@@ -23,7 +23,7 @@ const (
 
 type bindUploader struct {
 	ctx            context.Context
-	sc             *snowflakeConn
+	sc             *SnowflakeConn
 	stagePath      string
 	fileCount      int
 	arrayBindStage string

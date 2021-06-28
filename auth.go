@@ -263,7 +263,7 @@ func getHeaders() map[string]string {
 // Used to authenticate the user with Snowflake.
 func authenticate(
 	ctx context.Context,
-	sc *snowflakeConn,
+	sc *SnowflakeConn,
 	samlResponse []byte,
 	proofKey []byte,
 ) (resp *authResponseMain, err error) {
@@ -417,7 +417,7 @@ func prepareJWTToken(config *Config) (string, error) {
 }
 
 // Authenticate with sc.cfg
-func authenticateWithConfig(sc *snowflakeConn) error {
+func authenticateWithConfig(sc *SnowflakeConn) error {
 	var authData *authResponseMain
 	var samlResponse []byte
 	var proofKey []byte
