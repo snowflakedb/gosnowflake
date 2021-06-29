@@ -450,7 +450,7 @@ when the number of values exceeds a threshold (no changes are needed to user cod
 
 In order for the driver to send the data to a temporary stage, the user must have the following privilege on the schema:
 
-    CREATE STAGE.
+    CREATE STAGE
 
 If the user does not have this privilege, the driver falls back to sending the data with the query to the Snowflake database.
 
@@ -515,7 +515,7 @@ example, sf is an alias for the gosnowflake package:
 	var b = []byte{0x01, 0x02, 0x03}
 	_, err = stmt.Exec(sf.DataTypeBinary, b)
 
-Maximum number of Result Set Chunk Downloader
+Maximum Number of Result Set Chunk Downloader
 
 The driver directly downloads a result set from the cloud storage if the size is large. It is
 required to shift workloads from the Snowflake database to the clients for scale. The download takes place by goroutine
@@ -531,7 +531,7 @@ memory footprint by itself. Consider Custom JSON Decoder.
 	sf.MaxChunkDownloadWorkers = 2
 
 
-Experimental: Custom JSON Decoder for parsing Result Set
+Custom JSON Decoder for Parsing Result Set (Experimental)
 
 The application may have the driver use a custom JSON decoder that incrementally parses the result set as follows.
 
@@ -813,6 +813,8 @@ and before retrieving the results.
 
 
 Limitations
+
+The Go Snowflake Driver has the following limitations:
 
 	* GET operations are unsupported.
 	* PUT operations are unsupported.
