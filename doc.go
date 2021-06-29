@@ -24,23 +24,20 @@ Use the Open() function to create a database handle with connection parameters:
 
 	db, err := sql.Open("snowflake", "<connection string>")
 
-The Go Snowflake Driver supports the following connection syntaxes (or data source name (DSN) formats).
-The first three lines use the newer format (supported by the Organizations feature of Snowflake).
-The last three lines use the older format.
+The Go Snowflake Driver supports the following connection syntaxes (or data source name (DSN) formats):
 
-	* username[:password]@<organization_name>-<account_name>/dbname/schemaname[?param1=value&...&paramN=valueN]
-	* username[:password]@<organization_name>-<account_name>/dbname/[?param1=value&...&paramN=valueN]
-	* username[:password]@hostname:port/dbname/schemaname?account=<organization_name>-<account_name>[&param1=value&...&paramN=valueN]
-
-	* username[:password]@accountname/dbname/schemaname[?param1=value&...&paramN=valueN]
-	* username[:password]@accountname/dbname[?param1=value&...&paramN=valueN]
-	* username[:password]@hostname:port/dbname/schemaname?account=<your_account>[&param1=value&...&paramN=valueN]
+	* username[:password]@<account_identifier>/dbname/schemaname[?param1=value&...&paramN=valueN]
+	* username[:password]@<account_identifier>/dbname[?param1=value&...&paramN=valueN]
+	* username[:password]@hostname:port/dbname/schemaname?account=<account_identifier>[&param1=value&...&paramN=valueN]
 
 where all parameters must be escaped or use Config and DSN to construct a DSN string.
+For information about account identifiers, see the Snowflake Documentation
+(https://docs.snowflake.com/en/user-guide/admin-account-identifier.html).
 
 The following example opens a database handle with the Snowflake account
-my_organization-my_account where the username is jsmith, password is mypassword, database is
-mydb, schema is testschema, and warehouse is mywh:
+named "my_account" under the organization named "my_organization",
+where the username is "jsmith", password is "mypassword", database is "mydb",
+schema is "testschema", and warehouse is "mywh":
 
 	db, err := sql.Open("snowflake", "jsmith:mypassword@my_organization-my_account/mydb/testschema?warehouse=mywh")
 
@@ -51,25 +48,11 @@ The connection string (DSN) can contain both connection parameters (described be
 
 The following connection parameters are supported:
 
-	* account <string>: Specifies the name of your Snowflake account, where string is the name
-		assigned to your account by Snowflake.
+	* account <string>: Specifies your Snowflake account, where "<string>" is the account
+		identifier assigned to your account by Snowflake.
 
-		For newer accounts, and for older accounts converted to use the Organizations feature,
-		your full account name is your organization name followed by a dash followed by the
-		name of your account within your organization. For example: "my_organization-my_account".
-
-		For other accounts, your account name is the first segment in the domain in the URL that
-		you received from Snowflake (e.g. "abc123" in "https://abc123.snowflakecomputing.com").
-
-		For accounts using the older account naming convention ONLY:
-		If you are not on us-west-2 region or AWS deployment, then append the region
-		after the account name, e.g. "<account>.<region>". If you are not on
-		AWS deployment, then append not only the region, but also the platform
-		(e.g. "<account>.<region>.<platform>"). Account, region, and platform
-		should be separated by a period ("."), as shown above. If you are using
-		a global url, then append connection group and "global"
-		(e.g., "account-<connection_group>.global"). Account and connection group are
-		separated by a dash ("-"), as shown above.
+		For information about account identifiers, see the Snowflake Documentation
+		(https://docs.snowflake.com/en/user-guide/admin-account-identifier.html).
 
 		This parameter is optional if your account is specified after the "@" character.
 
