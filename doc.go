@@ -31,7 +31,7 @@ The Go Snowflake Driver supports the following connection syntaxes (or data sour
 	* username[:password]@hostname:port/dbname/schemaname?account=<account_identifier>[&param1=value&...&paramN=valueN]
 
 where all parameters must be escaped or use Config and DSN to construct a DSN string.
-For information about account identifiers, see the Snowflake Documentation
+For information about account identifiers, see the Snowflake documentation
 (https://docs.snowflake.com/en/user-guide/admin-account-identifier.html).
 
 The following example opens a database handle with the Snowflake account
@@ -50,11 +50,14 @@ The following connection parameters are supported:
 
 	* account <string>: Specifies your Snowflake account, where "<string>" is the account
 		identifier assigned to your account by Snowflake.
-
-		For information about account identifiers, see the Snowflake Documentation
+		For information about account identifiers, see the Snowflake documentation
 		(https://docs.snowflake.com/en/user-guide/admin-account-identifier.html).
 
-		This parameter is optional if your account is specified after the "@" character.
+		If you are using a global URL, then append the connection group and ".global"
+		(e.g. "<account_identifier>-<connection_group>.global"). The account identifier and the
+		connection group are separated by a dash ("-"), as shown above.
+
+		This parameter is optional if your account identifier is specified after the "@" character.
 
 	* region <string>: DEPRECATED. You may specify a region, such as
 		"eu-central-1", with this parameter. However, since this parameter
