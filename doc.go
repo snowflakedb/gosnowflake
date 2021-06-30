@@ -31,6 +31,7 @@ The Go Snowflake Driver supports the following connection syntaxes (or data sour
 	* username[:password]@hostname:port/dbname/schemaname?account=<account_identifier>[&param1=value&...&paramN=valueN]
 
 where all parameters must be escaped or use Config and DSN to construct a DSN string.
+
 For information about account identifiers, see the Snowflake documentation
 (https://docs.snowflake.com/en/user-guide/admin-account-identifier.html).
 
