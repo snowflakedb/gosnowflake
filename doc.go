@@ -80,9 +80,8 @@ The following connection parameters are supported:
 
 	* passcode: Specifies the passcode provided by Duo when using multi-factor authentication (MFA) for login.
 
-	* passcodeInPassword: false by default. Set to true if the MFA passcode is
-		embedded in the login password. Appends the MFA passcode to the end of the
-		password.
+	* passcodeInPassword: false by default. Set to true if the MFA passcode is embedded
+		in the login password. Appends the MFA passcode to the end of the password.
 
 	* loginTimeout: Specifies the timeout, in seconds, for login. The default
 		is 60 seconds. The login request gives up after the timeout length if the
