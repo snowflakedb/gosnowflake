@@ -10,7 +10,7 @@ Clients can use the database/sql package directly. For example:
 	)
 
 	func main() {
-		db, err := sql.Open("snowflake", "user:password@myaccount/mydb")
+		db, err := sql.Open("snowflake", "user:password@my_organization-my_account/mydb")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -26,17 +26,21 @@ Use the Open() function to create a database handle with connection parameters:
 
 The Go Snowflake Driver supports the following connection syntaxes (or data source name (DSN) formats):
 
-	* username[:password]@accountname/dbname/schemaname[?param1=value&...&paramN=valueN]
-	* username[:password]@accountname/dbname[?param1=value&...&paramN=valueN]
-	* username[:password]@hostname:port/dbname/schemaname?account=<your_account>[&param1=value&...&paramN=valueN]
+	* username[:password]@<account_identifier>/dbname/schemaname[?param1=value&...&paramN=valueN]
+	* username[:password]@<account_identifier>/dbname[?param1=value&...&paramN=valueN]
+	* username[:password]@hostname:port/dbname/schemaname?account=<account_identifier>[&param1=value&...&paramN=valueN]
 
 where all parameters must be escaped or use Config and DSN to construct a DSN string.
 
-The following example opens a database handle with the Snowflake account
-myaccount where the username is jsmith, password is mypassword, database is
-mydb, schema is testschema, and warehouse is mywh:
+For information about account identifiers, see the Snowflake documentation
+(https://docs.snowflake.com/en/user-guide/admin-account-identifier.html).
 
-	db, err := sql.Open("snowflake", "jsmith:mypassword@myaccount/mydb/testschema?warehouse=mywh")
+The following example opens a database handle with the Snowflake account
+named "my_account" under the organization named "my_organization",
+where the username is "jsmith", password is "mypassword", database is "mydb",
+schema is "testschema", and warehouse is "mywh":
+
+	db, err := sql.Open("snowflake", "jsmith:mypassword@my_organization-my_account/mydb/testschema?warehouse=mywh")
 
 Connection Parameters
 
@@ -45,19 +49,16 @@ The connection string (DSN) can contain both connection parameters (described be
 
 The following connection parameters are supported:
 
-	* account <string>: Specifies the name of your Snowflake account, where string is the name
-		assigned to your account by Snowflake. In the URL you received from
-		Snowflake, your account name is the first segment in the domain (e.g.
-		abc123 in https://abc123.snowflakecomputing.com). This parameter is
-		optional if your account is specified after the @ character. If you
-		are not on us-west-2 region or AWS deployment, then append the region
-		after the account name, e.g. "<account>.<region>". If you are not on
-		AWS deployment, then append not only the region, but also the platform
-		(e.g. "<account>.<region>.<platform>"). Account, region, and platform
-		should be separated by a period ("."), as shown above. If you are using
-		a global url, then append connection group and "global"
-		(e.g., "account-<connection_group>.global"). Account and connection group are
-		separated by a dash ("-"), as shown above.
+	* account <string>: Specifies your Snowflake account, where "<string>" is the account
+		identifier assigned to your account by Snowflake.
+		For information about account identifiers, see the Snowflake documentation
+		(https://docs.snowflake.com/en/user-guide/admin-account-identifier.html).
+
+		If you are using a global URL, then append the connection group and ".global"
+		(e.g. "<account_identifier>-<connection_group>.global"). The account identifier and the
+		connection group are separated by a dash ("-"), as shown above.
+
+		This parameter is optional if your account identifier is specified after the "@" character.
 
 	* region <string>: DEPRECATED. You may specify a region, such as
 		"eu-central-1", with this parameter. However, since this parameter
@@ -79,9 +80,8 @@ The following connection parameters are supported:
 
 	* passcode: Specifies the passcode provided by Duo when using multi-factor authentication (MFA) for login.
 
-	* passcodeInPassword: false by default. Set to true if the MFA passcode is
-		embedded in the login password. Appends the MFA passcode to the end of the
-		password.
+	* passcodeInPassword: false by default. Set to true if the MFA passcode is embedded
+		in the login password. Appends the MFA passcode to the end of the password.
 
 	* loginTimeout: Specifies the timeout, in seconds, for login. The default
 		is 60 seconds. The login request gives up after the timeout length if the
@@ -450,7 +450,7 @@ when the number of values exceeds a threshold (no changes are needed to user cod
 
 In order for the driver to send the data to a temporary stage, the user must have the following privilege on the schema:
 
-    CREATE STAGE.
+    CREATE STAGE
 
 If the user does not have this privilege, the driver falls back to sending the data with the query to the Snowflake database.
 
@@ -515,7 +515,7 @@ example, sf is an alias for the gosnowflake package:
 	var b = []byte{0x01, 0x02, 0x03}
 	_, err = stmt.Exec(sf.DataTypeBinary, b)
 
-Maximum number of Result Set Chunk Downloader
+Maximum Number of Result Set Chunk Downloader
 
 The driver directly downloads a result set from the cloud storage if the size is large. It is
 required to shift workloads from the Snowflake database to the clients for scale. The download takes place by goroutine
@@ -531,7 +531,7 @@ memory footprint by itself. Consider Custom JSON Decoder.
 	sf.MaxChunkDownloadWorkers = 2
 
 
-Experimental: Custom JSON Decoder for parsing Result Set
+Custom JSON Decoder for Parsing Result Set (Experimental)
 
 The application may have the driver use a custom JSON decoder that incrementally parses the result set as follows.
 
@@ -813,6 +813,8 @@ and before retrieving the results.
 
 
 Limitations
+
+The Go Snowflake Driver has the following limitations:
 
 	* GET operations are unsupported.
 	* PUT operations are unsupported.
