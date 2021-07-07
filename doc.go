@@ -131,7 +131,7 @@ Proxy
 
 The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.
 
-NO_PROXY specifies which hostname endings should be allowed to bypass the proxy server, e.g. no_proxy=.amazonaws.com means that AWS S3 access does not need to go through the proxy.
+NO_PROXY specifies which hostname endings should be allowed to bypass the proxy server, e.g. no_proxy=.amazonaws.com means that Amazon S3 access does not need to go through the proxy.
 
 NO_PROXY does not support wildcards. Each value specified should be one of the following:
 
@@ -399,9 +399,9 @@ of the returned value:
 
 Binding Parameters
 
-Binding allows an SQL statement to use a value that is stored in a Golang variable.
+Binding allows a SQL statement to use a value that is stored in a Golang variable.
 
-Without binding, an SQL statement specifies values by specifying literals inside the statement.
+Without binding, a SQL statement specifies values by specifying literals inside the statement.
 For example, the following statement uses the literal value ``42`` in an UPDATE statement:
 
 	_, err = db.Exec("UPDATE table1 SET integer_column = 42 WHERE ID = 1000")
