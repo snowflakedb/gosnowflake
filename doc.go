@@ -42,6 +42,7 @@ schema is "testschema", and warehouse is "mywh":
 
 	db, err := sql.Open("snowflake", "jsmith:mypassword@my_organization-my_account/mydb/testschema?warehouse=mywh")
 
+
 Connection Parameters
 
 The connection string (DSN) can contain both connection parameters (described below) and session parameters
