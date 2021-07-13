@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 )
 
 const (
@@ -70,7 +71,7 @@ func (st *snowflakeTelemetry) sendBatch() error {
 	if token, _, _ := st.sr.TokenAccessor.GetTokens(); token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	}
-	resp, err := st.sr.FuncPost(context.Background(), st.sr, st.sr.getFullURL(telemetryPath, nil), headers, body, 5, true)
+	resp, err := st.sr.FuncPost(context.Background(), st.sr, st.sr.getFullURL(telemetryPath, nil), headers, body, 10*time.Second, true)
 	if err != nil {
 		return err
 	}

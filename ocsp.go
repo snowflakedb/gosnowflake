@@ -266,6 +266,9 @@ func decodeCertIDKey(k *certIDKey) string {
 }
 
 func checkOCSPResponseCache(encodedCertID *certIDKey, subject, issuer *x509.Certificate) *ocspStatus {
+	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
+		return &ocspStatus{code: ocspNoServer}
+	}
 	ocspResponseCacheLock.RLock()
 	gotValueFromCache := ocspResponseCache[*encodedCertID]
 	ocspResponseCacheLock.RUnlock()
@@ -641,7 +644,6 @@ func validateWithCache(subject, issuer *x509.Certificate) (*ocspStatus, []byte, 
 
 func downloadOCSPCacheServer() {
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
-		logger.Infof("cache server disabled. skipping downloading OCSP Cache.")
 		return
 	}
 	ocspCacheServerURL := os.Getenv(cacheServerURLEnv)
@@ -716,6 +718,9 @@ func overrideCacheDir() {
 
 // initOCSPCache initializes OCSP Response cache file.
 func initOCSPCache() {
+	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
+		return
+	}
 	ocspResponseCache = make(map[certIDKey][]interface{})
 	ocspResponseCacheLock = &sync.RWMutex{}
 
@@ -816,7 +821,6 @@ func extractOCSPCacheResponseValue(cacheValue []interface{}, subject, issuer *x5
 // lock file is used to mitigate race condition with other process.
 func writeOCSPCacheFile() {
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
-		logger.Infof("cache server disabled. skipping writing OCSP Cache.")
 		return
 	}
 	logger.Infof("writing OCSP Response cache file. %v\n", cacheFileName)
@@ -885,6 +889,11 @@ func readCACerts() {
 
 // createOCSPCacheDir creates OCSP response cache directory and set the cache file name.
 func createOCSPCacheDir() {
+	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
+		logger.Info(`OCSP Cache Server disabled. All further access and use of
+			OCSP Cache will be disabled for this OCSP Status Query`)
+		return
+	}
 	cacheDir = os.Getenv(cacheDirEnv)
 	if cacheDir == "" {
 		cacheDir = os.Getenv("SNOWFLAKE_TEST_WORKSPACE")
@@ -909,8 +918,7 @@ func createOCSPCacheDir() {
 	}
 
 	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
-		err := os.MkdirAll(cacheDir, os.ModePerm)
-		if err != nil {
+		if err = os.MkdirAll(cacheDir, os.ModePerm); err != nil {
 			logger.Debugf("failed to create cache directory. %v, err: %v. ignored\n", cacheDir, err)
 		}
 	}
@@ -920,7 +928,7 @@ func createOCSPCacheDir() {
 
 // deleteOCSPCacheFile deletes the OCSP response cache file
 func deleteOCSPCacheFile() {
-	_ = os.Remove(cacheFileName)
+	os.Remove(cacheFileName)
 }
 
 func init() {

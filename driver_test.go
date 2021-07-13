@@ -1340,8 +1340,8 @@ func TestTimestampLTZ(t *testing.T) {
 
 func testTimestampLTZ(t *testing.T, json bool) {
 	// Set session time zone in Los Angeles, same as machine
-	createDSN("America/Los_Angeles")
-	location, err := time.LoadLocation("America/Los_Angeles")
+	createDSN(PSTLocation)
+	location, err := time.LoadLocation(PSTLocation)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1943,7 +1943,7 @@ func TestTransactionOptions(t *testing.T) {
 }
 
 func TestTimezoneSessionParameter(t *testing.T) {
-	createDSN("America/Los_Angeles")
+	createDSN(PSTLocation)
 	db := openDB(t)
 	defer db.Close()
 
@@ -1960,8 +1960,8 @@ func TestTimezoneSessionParameter(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to run get timezone value. err: %v", err)
 	}
-	if p.Value != "America/Los_Angeles" {
-		t.Fatalf("failed to get an expected timezone. got: %v", p.Value)
+	if p.Value != PSTLocation {
+		t.Errorf("failed to get an expected timezone. got: %v", p.Value)
 	}
 	createDSN("UTC")
 }
