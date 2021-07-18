@@ -817,8 +817,7 @@ Limitations
 
 The Go Snowflake Driver has the following limitations:
 
-	* GET operations are unsupported.
-	* PUT operations are unsupported.
+	* GET operations (https://docs.snowflake.com/en/sql-reference/sql/get.html) are unsupported.
 
 */
 package gosnowflake
