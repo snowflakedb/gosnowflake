@@ -686,6 +686,8 @@ If you want to execute a mix of query and non-query statements (e.g. a mix of SE
 multi-statement query, use QueryContext(). You can retrieve the result sets for the queries,
 and you can retrieve or ignore the row counts for the non-query statements.
 
+Note: PUT statements are not supported for multi-statement queries.
+
 
 If a SQL statement passed to ExecQuery() or QueryContext() fails to compile or execute, that statement is
 aborted, and subsequent statements are not executed. Any statements prior to the aborted statement are unaffected.
@@ -863,6 +865,8 @@ to handle backslashes in the path to the file.)
 		tableName)
 	dbt.mustExecContext(WithFileStream(context.Background(), fileStream),
 		sqlText)
+
+Note: PUT statements are not supported for multi-statement queries.
 
 
 Limitations
