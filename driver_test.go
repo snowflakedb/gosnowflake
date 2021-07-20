@@ -40,16 +40,18 @@ var (
 )
 
 const (
-	forceArrow      = "ALTER SESSION SET GO_QUERY_RESULT_FORMAT = ARROW_FORCE"
-	selectNumberSQL = "SELECT %s::NUMBER(%v, %v) AS C"
-	PSTLocation     = "America/Los_Angeles"
+	forceArrow            = "ALTER SESSION SET GO_QUERY_RESULT_FORMAT = ARROW_FORCE"
+	selectNumberSQL       = "SELECT %s::NUMBER(%v, %v) AS C"
+	selectVariousTypes    = "SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6"
+	selectRandomGenerator = "SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))"
+	PSTLocation           = "America/Los_Angeles"
 )
 
 // The tests require the following parameters in the environment variables.
-// SNOWFLAKE_TEST_USER, SNOWFLAKE_TEST_PASSWORD, SNOWFLAKE_TEST_ACCOUNT, SNOWFLAKE_TEST_DATABASE,
-// SNOWFLAKE_TEST_SCHEMA, SNOWFLAKE_TEST_WAREHOUSE.
-// Optionally you may specify SNOWFLAKE_TEST_PROTOCOL, SNOWFLAKE_TEST_HOST and SNOWFLAKE_TEST_PORT to specify
-// the endpoint.
+// SNOWFLAKE_TEST_USER, SNOWFLAKE_TEST_PASSWORD, SNOWFLAKE_TEST_ACCOUNT,
+// SNOWFLAKE_TEST_DATABASE, SNOWFLAKE_TEST_SCHEMA, SNOWFLAKE_TEST_WAREHOUSE.
+// Optionally you may specify SNOWFLAKE_TEST_PROTOCOL, SNOWFLAKE_TEST_HOST
+// and SNOWFLAKE_TEST_PORT to specify the endpoint.
 func init() {
 	// get environment variables
 	env := func(key, defaultValue string) string {
@@ -155,13 +157,11 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	}
 
-	_, err := setup()
-	if err != nil {
+	if _, err := setup(); err != nil {
 		panic(err)
 	}
 	ret := m.Run()
-	err = teardown()
-	if err != nil {
+	if err := teardown(); err != nil {
 		panic(err)
 	}
 	os.Exit(ret)
@@ -182,9 +182,11 @@ func (rs *RowsExtended) Close() error {
 	close(*rs.closeChan)
 	return rs.rows.Close()
 }
+
 func (rs *RowsExtended) ColumnTypes() ([]*sql.ColumnType, error) {
 	return rs.rows.ColumnTypes()
 }
+
 func (rs *RowsExtended) Columns() ([]string, error) {
 	return rs.rows.Columns()
 }
@@ -192,9 +194,11 @@ func (rs *RowsExtended) Columns() ([]string, error) {
 func (rs *RowsExtended) Err() error {
 	return rs.rows.Err()
 }
+
 func (rs *RowsExtended) Next() bool {
 	return rs.rows.Next()
 }
+
 func (rs *RowsExtended) NextResultSet() bool {
 	return rs.rows.NextResultSet()
 }
@@ -310,8 +314,7 @@ func (dbt *DBTest) mustDecimalSize(ct *sql.ColumnType) (pr int64, sc int64) {
 
 func (dbt *DBTest) mustFailDecimalSize(ct *sql.ColumnType) {
 	var ok bool
-	_, _, ok = ct.DecimalSize()
-	if ok {
+	if _, _, ok = ct.DecimalSize(); ok {
 		dbt.Fatalf("should not return decimal size. %v", ct)
 	}
 }
@@ -327,8 +330,7 @@ func (dbt *DBTest) mustLength(ct *sql.ColumnType) (cLen int64) {
 
 func (dbt *DBTest) mustFailLength(ct *sql.ColumnType) {
 	var ok bool
-	_, ok = ct.Length()
-	if ok {
+	if _, ok = ct.Length(); ok {
 		dbt.Fatalf("should not return length. %v", ct)
 	}
 }
@@ -357,8 +359,7 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("DROP TABLE IF EXISTS test")
-	if err != nil {
+	if _, err = db.Exec("DROP TABLE IF EXISTS test"); err != nil {
 		t.Fatalf("failed to drop table: %v", err)
 	}
 
@@ -407,8 +408,7 @@ func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
 	}
 	// actual connection won't happen until run a query
 	defer db.Close()
-	_, err = db.Exec("SELECT 1")
-	if err == nil {
+	if _, err = db.Exec("SELECT 1"); err == nil {
 		t.Fatal("should cause an error.")
 	}
 	if driverErr, ok := err.(*SnowflakeError); ok {
@@ -446,8 +446,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	}
 	// actual connection won't happen until run a query
 	defer db.Close()
-	_, err = db.Exec("SELECT 1")
-	if err == nil {
+	if _, err = db.Exec("SELECT 1"); err == nil {
 		t.Fatal("should cause an error.")
 	}
 	found := false
@@ -463,6 +462,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 
 func TestCommentOnlyQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		query := "--"
 		// just a comment, no query
 		rows, err := dbt.db.Query(query)
@@ -480,17 +480,16 @@ func TestCommentOnlyQuery(t *testing.T) {
 
 func TestEmptyQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		query := "select 1 from dual where 1=0"
 		// just a comment, no query
 		rows := dbt.db.QueryRow(query)
 		var v1 interface{}
-		err := rows.Scan(&v1)
-		if err != sql.ErrNoRows {
+		if err := rows.Scan(&v1); err != sql.ErrNoRows {
 			dbt.Errorf("should fail. err: %v", err)
 		}
 		rows = dbt.db.QueryRowContext(context.Background(), query)
-		err = rows.Scan(&v1)
-		if err != sql.ErrNoRows {
+		if err := rows.Scan(&v1); err != sql.ErrNoRows {
 			dbt.Errorf("should fail. err: %v", err)
 		}
 	})
@@ -498,12 +497,12 @@ func TestEmptyQuery(t *testing.T) {
 
 func TestEmptyQueryWithRequestID(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		query := "select 1"
 		ctx := WithRequestID(context.Background(), uuid.New())
 		rows := dbt.db.QueryRowContext(ctx, query)
 		var v1 interface{}
-		err := rows.Scan(&v1)
-		if err != nil {
+		if err := rows.Scan(&v1); err != nil {
 			dbt.Errorf("should not have failed with valid request id. err: %v", err)
 		}
 	})
@@ -511,6 +510,7 @@ func TestEmptyQueryWithRequestID(t *testing.T) {
 
 func TestCRUD(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		// Create Table
 		dbt.mustExec("CREATE TABLE test (value BOOLEAN)")
 
@@ -549,7 +549,6 @@ func TestCRUD(t *testing.T) {
 			if !out {
 				dbt.Errorf("%t should be true", out)
 			}
-
 			if rows.Next() {
 				dbt.Error("unexpected Data")
 			}
@@ -575,7 +574,6 @@ func TestCRUD(t *testing.T) {
 			if out {
 				dbt.Errorf("%t should be true", out)
 			}
-
 			if rows.Next() {
 				dbt.Error("unexpected Data")
 			}
@@ -609,12 +607,9 @@ func TestInt(t *testing.T) {
 	testInt(t, false)
 }
 
-func TestArrowInt(t *testing.T) {
-	testInt(t, true)
-}
-
-func testInt(t *testing.T, arrow bool) {
+func testInt(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		types := []string{"INT", "INTEGER"}
 		in := int64(42)
 		var out int64
@@ -622,8 +617,8 @@ func testInt(t *testing.T, arrow bool) {
 
 		// SIGNED
 		for _, v := range types {
-			if arrow {
-				dbt.mustExec(forceArrow)
+			if json {
+				dbt.mustExec(forceJSON)
 			}
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
@@ -643,17 +638,15 @@ func testInt(t *testing.T, arrow bool) {
 	})
 }
 
-type tcBigNum struct {
-	num  string
-	prec int
-	sc   int
-}
-
 func TestArrowBigInt(t *testing.T) {
 	db := openDB(t)
 	dbt := &DBTest{t, db}
 
-	testcases := []tcBigNum{
+	testcases := []struct {
+		num  string
+		prec int
+		sc   int
+	}{
 		{"10000000000000000000000000000000000000", 38, 0},
 		{"-10000000000000000000000000000000000000", 38, 0},
 		{"12345678901234567890123456789012345678", 38, 0},
@@ -663,7 +656,7 @@ func TestArrowBigInt(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()),
 			fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
@@ -689,19 +682,16 @@ func TestFloat32(t *testing.T) {
 	testFloat32(t, false)
 }
 
-func TestArrowFloat32(t *testing.T) {
-	testFloat32(t, true)
-}
-
-func testFloat32(t *testing.T, arrow bool) {
+func testFloat32(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		types := [2]string{"FLOAT", "DOUBLE"}
 		in := float32(42.23)
 		var out float32
 		var rows *RowsExtended
 		for _, v := range types {
-			if arrow {
-				dbt.mustExec(forceArrow)
+			if json {
+				dbt.mustExec(forceJSON)
 			}
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
@@ -727,19 +717,16 @@ func TestFloat64(t *testing.T) {
 	testFloat64(t, false)
 }
 
-func TestArrowFloat64(t *testing.T) {
-	testFloat64(t, true)
-}
-
-func testFloat64(t *testing.T, arrow bool) {
+func testFloat64(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		types := [2]string{"FLOAT", "DOUBLE"}
 		expected := 42.23
 		var out float64
 		var rows *RowsExtended
 		for _, v := range types {
-			if arrow {
-				dbt.mustExec(forceArrow)
+			if json {
+				dbt.mustExec(forceJSON)
 			}
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (42.23)")
@@ -762,7 +749,11 @@ func TestArrowBigFloat(t *testing.T) {
 	db := openDB(t)
 	dbt := &DBTest{t, db}
 
-	testcases := []tcBigNum{
+	testcases := []struct {
+		num  string
+		prec int
+		sc   int
+	}{
 		{"1.23", 30, 2},
 		{"1.0000000000000000000000000000000000000", 38, 37},
 		{"-1.0000000000000000000000000000000000000", 38, 37},
@@ -773,10 +764,9 @@ func TestArrowBigFloat(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()),
-			fmt.Sprintf("SELECT %s::NUMBER(%v, %v) AS C",
-				tc.num, tc.prec, tc.sc))
+			fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
@@ -816,6 +806,7 @@ func TestArrowIntPrecision(t *testing.T) {
 
 	t.Run("arrow_disabled_scan_int64", func(t *testing.T) {
 		for _, tc := range intTestcases {
+			dbt.mustExec(forceJSON)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
 				dbt.Error("failed to query")
@@ -829,6 +820,7 @@ func TestArrowIntPrecision(t *testing.T) {
 	})
 	t.Run("arrow_disabled_scan_string", func(t *testing.T) {
 		for _, tc := range intTestcases {
+			dbt.mustExec(forceJSON)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
 				dbt.Error("failed to query")
@@ -887,11 +879,7 @@ func TestArrowIntPrecision(t *testing.T) {
 // rows.Scan() method. Note that for lower precision types we do not attempt
 // to check the value as precision could be lost.
 func TestArrowFloatPrecision(t *testing.T) {
-	var db *sql.DB
-	var err error
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
+	db := openDB(t)
 	dbt := &DBTest{t, db}
 
 	fltTestcases := []struct {
@@ -910,39 +898,42 @@ func TestArrowFloatPrecision(t *testing.T) {
 
 	t.Run("arrow_disabled_scan_float64", func(t *testing.T) {
 		for _, tc := range fltTestcases {
+			dbt.mustExec(forceJSON)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
 				dbt.Error("failed to query")
 			}
 			defer rows.Close()
 			var v float64
-			if err = rows.Scan(&v); err != nil {
+			if err := rows.Scan(&v); err != nil {
 				dbt.Errorf("failed to scan. %#v", err)
 			}
 		}
 	})
 	t.Run("arrow_disabled_scan_float32", func(t *testing.T) {
 		for _, tc := range fltTestcases {
+			dbt.mustExec(forceJSON)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
 				dbt.Error("failed to query")
 			}
 			defer rows.Close()
 			var v float32
-			if err = rows.Scan(&v); err != nil {
+			if err := rows.Scan(&v); err != nil {
 				dbt.Errorf("failed to scan. %#v", err)
 			}
 		}
 	})
 	t.Run("arrow_disabled_scan_string", func(t *testing.T) {
 		for _, tc := range fltTestcases {
+			dbt.mustExec(forceJSON)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
 				dbt.Error("failed to query")
 			}
 			defer rows.Close()
 			var v string
-			if err = rows.Scan(&v); err != nil {
+			if err := rows.Scan(&v); err != nil {
 				dbt.Errorf("failed to scan. %#v", err)
 			}
 			if !strings.EqualFold(v, tc.num) {
@@ -959,7 +950,7 @@ func TestArrowFloatPrecision(t *testing.T) {
 			}
 			defer rows.Close()
 			var v float64
-			if err = rows.Scan(&v); err != nil {
+			if err := rows.Scan(&v); err != nil {
 				dbt.Errorf("failed to scan. %#v", err)
 			}
 		}
@@ -973,7 +964,7 @@ func TestArrowFloatPrecision(t *testing.T) {
 			}
 			defer rows.Close()
 			var v float32
-			if err = rows.Scan(&v); err != nil {
+			if err := rows.Scan(&v); err != nil {
 				dbt.Errorf("failed to scan. %#v", err)
 			}
 		}
@@ -987,7 +978,7 @@ func TestArrowFloatPrecision(t *testing.T) {
 			}
 			defer rows.Close()
 			var v string
-			if err = rows.Scan(&v); err != nil {
+			if err := rows.Scan(&v); err != nil {
 				dbt.Errorf("failed to scan. %#v", err)
 			}
 		}
@@ -1003,7 +994,7 @@ func TestArrowFloatPrecision(t *testing.T) {
 			}
 			defer rows.Close()
 			var v *big.Float
-			if err = rows.Scan(&v); err != nil {
+			if err := rows.Scan(&v); err != nil {
 				dbt.Errorf("failed to scan. %#v", err)
 			}
 
@@ -1019,123 +1010,11 @@ func TestArrowFloatPrecision(t *testing.T) {
 	})
 }
 
-func TestVariousTypes(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
-		rows := dbt.mustQuery(
-			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
-		defer rows.Close()
-		if !rows.Next() {
-			dbt.Error("failed to query")
-		}
-		cc, err := rows.Columns()
-		if err != nil {
-			dbt.Errorf("columns: %v", cc)
-		}
-		ct, err := rows.ColumnTypes()
-		if err != nil {
-			dbt.Errorf("column types: %v", ct)
-		}
-		var v1 float32
-		var v2 int
-		var v3 string
-		var v4 float64
-		var v5 []byte
-		var v6 bool
-		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
-		if err != nil {
-			dbt.Errorf("failed to scan: %#v", err)
-		}
-		if v1 != 1.0 {
-			dbt.Errorf("failed to scan. %#v", v1)
-		}
-		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C3" || ct[3].Name() != "C4" || ct[4].Name() != "C5" || ct[5].Name() != "C6" {
-			dbt.Errorf("failed to get column names: %#v", ct)
-		}
-		if ct[0].ScanType() != reflect.TypeOf(float64(0)) {
-			dbt.Errorf("failed to get scan type. expected: %v, got: %v", reflect.TypeOf(float64(0)), ct[0].ScanType())
-		}
-		if ct[1].ScanType() != reflect.TypeOf(int64(0)) {
-			dbt.Errorf("failed to get scan type. expected: %v, got: %v", reflect.TypeOf(int64(0)), ct[1].ScanType())
-		}
-		var pr, sc int64
-		var cLen int64
-		var canNull bool
-		pr, sc = dbt.mustDecimalSize(ct[0])
-		if pr != 30 || sc != 2 {
-			dbt.Errorf("failed to get precision and scale. %#v", ct[0])
-		}
-		dbt.mustFailLength(ct[0])
-		canNull = dbt.mustNullable(ct[0])
-		if canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[0])
-		}
-		if cLen != 0 {
-			dbt.Errorf("failed to get length. %#v", ct[0])
-		}
-		if v2 != 2 {
-			dbt.Errorf("failed to scan. %#v", v2)
-		}
-		pr, sc = dbt.mustDecimalSize(ct[1])
-		if pr != 38 || sc != 0 {
-			dbt.Errorf("failed to get precision and scale. %#v", ct[1])
-		}
-		dbt.mustFailLength(ct[1])
-		canNull = dbt.mustNullable(ct[1])
-		if canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[1])
-		}
-		if v3 != "t3" {
-			dbt.Errorf("failed to scan. %#v", v3)
-		}
-		dbt.mustFailDecimalSize(ct[2])
-		cLen = dbt.mustLength(ct[2])
-		if cLen != 2 {
-			dbt.Errorf("failed to get length. %#v", ct[2])
-		}
-		canNull = dbt.mustNullable(ct[2])
-		if canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[2])
-		}
-		if v4 != 4.2 {
-			dbt.Errorf("failed to scan. %#v", v4)
-		}
-		dbt.mustFailDecimalSize(ct[3])
-		dbt.mustFailLength(ct[3])
-		canNull = dbt.mustNullable(ct[3])
-		if canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[3])
-		}
-		if !bytes.Equal(v5, []byte{0xab, 0xcd}) {
-			dbt.Errorf("failed to scan. %#v", v5)
-		}
-		dbt.mustFailDecimalSize(ct[4])
-		cLen = dbt.mustLength(ct[4]) // BINARY
-		if cLen != 8388608 {
-			dbt.Errorf("failed to get length. %#v", ct[4])
-		}
-		canNull = dbt.mustNullable(ct[4])
-		if canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[4])
-		}
-		if !v6 {
-			dbt.Errorf("failed to scan. %#v", v6)
-		}
-		dbt.mustFailDecimalSize(ct[5])
-		dbt.mustFailLength(ct[5])
-		/*canNull = dbt.mustNullable(ct[5])
-		if canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[5])
-		}*/
-
-	})
-}
-
 func TestArrowVariousTypes(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQueryContext(
-			WithHigherPrecision(context.Background()),
-			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+			WithHigherPrecision(context.Background()), selectVariousTypes)
 		defer rows.Close()
 		if !rows.Next() {
 			dbt.Error("failed to query")
@@ -1171,14 +1050,12 @@ func TestArrowVariousTypes(t *testing.T) {
 		}
 		var pr, sc int64
 		var cLen int64
-		var canNull bool
 		pr, sc = dbt.mustDecimalSize(ct[0])
 		if pr != 30 || sc != 2 {
 			dbt.Errorf("failed to get precision and scale. %#v", ct[0])
 		}
 		dbt.mustFailLength(ct[0])
-		canNull = dbt.mustNullable(ct[0])
-		if canNull {
+		if canNull := dbt.mustNullable(ct[0]); canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[0])
 		}
 		if cLen != 0 {
@@ -1192,20 +1069,17 @@ func TestArrowVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to get precision and scale. %#v", ct[1])
 		}
 		dbt.mustFailLength(ct[1])
-		canNull = dbt.mustNullable(ct[1])
-		if canNull {
+		if canNull := dbt.mustNullable(ct[1]); canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[1])
 		}
 		if v3 != "t3" {
 			dbt.Errorf("failed to scan. %#v", v3)
 		}
 		dbt.mustFailDecimalSize(ct[2])
-		cLen = dbt.mustLength(ct[2])
-		if cLen != 2 {
+		if cLen = dbt.mustLength(ct[2]); cLen != 2 {
 			dbt.Errorf("failed to get length. %#v", ct[2])
 		}
-		canNull = dbt.mustNullable(ct[2])
-		if canNull {
+		if canNull := dbt.mustNullable(ct[2]); canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[2])
 		}
 		if v4 != 4.2 {
@@ -1213,20 +1087,17 @@ func TestArrowVariousTypes(t *testing.T) {
 		}
 		dbt.mustFailDecimalSize(ct[3])
 		dbt.mustFailLength(ct[3])
-		canNull = dbt.mustNullable(ct[3])
-		if canNull {
+		if canNull := dbt.mustNullable(ct[3]); canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[3])
 		}
 		if !bytes.Equal(v5, []byte{0xab, 0xcd}) {
 			dbt.Errorf("failed to scan. %#v", v5)
 		}
 		dbt.mustFailDecimalSize(ct[4])
-		cLen = dbt.mustLength(ct[4]) // BINARY
-		if cLen != 8388608 {
+		if cLen = dbt.mustLength(ct[4]); cLen != 8388608 { // BINARY
 			dbt.Errorf("failed to get length. %#v", ct[4])
 		}
-		canNull = dbt.mustNullable(ct[4])
-		if canNull {
+		if canNull := dbt.mustNullable(ct[4]); canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[4])
 		}
 		if !v6 {
@@ -1238,7 +1109,6 @@ func TestArrowVariousTypes(t *testing.T) {
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[5])
 		}*/
-
 	})
 }
 
@@ -1246,14 +1116,11 @@ func TestString(t *testing.T) {
 	testString(t, false)
 }
 
-func TestArrowString(t *testing.T) {
-	testString(t, true)
-}
-
-func testString(t *testing.T, arrow bool) {
+func testString(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		if arrow {
-			dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		if json {
+			dbt.mustExec(forceJSON)
 		}
 		types := []string{"CHAR(255)", "VARCHAR(255)", "TEXT", "STRING"}
 		in := "κόσμε üöäßñóùéàâÿœ'îë Árvíztűrő いろはにほへとちりぬるを イロハニホヘト דג סקרן чащах  น่าฟังเอย"
@@ -1262,7 +1129,6 @@ func testString(t *testing.T, arrow bool) {
 
 		for _, v := range types {
 			dbt.mustExec("CREATE TABLE test (value " + v + ")")
-
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 
 			rows = dbt.mustQuery("SELECT value FROM test")
@@ -1275,7 +1141,6 @@ func testString(t *testing.T, arrow bool) {
 			} else {
 				dbt.Errorf("%s: no data", v)
 			}
-
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 
@@ -1283,18 +1148,18 @@ func testString(t *testing.T, arrow bool) {
 		dbt.mustExec("CREATE TABLE test (id int, value STRING)")
 
 		id := 2
-		in = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
-			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
-			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
-			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. " +
-			"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, " +
-			"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, " +
-			"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. " +
-			"Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet."
+		in = `Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam
+			nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam
+			erat, sed diam voluptua. At vero eos et accusam et justo duo
+			dolores et ea rebum. Stet clita kasd gubergren, no sea takimata
+			sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet,
+			consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt
+			ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero
+			eos et accusam et justo duo dolores et ea rebum. Stet clita kasd
+			gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.`
 		dbt.mustExec("INSERT INTO test VALUES (?, ?)", id, in)
 
-		err := dbt.db.QueryRow("SELECT value FROM test WHERE id = ?", id).Scan(&out)
-		if err != nil {
+		if err := dbt.db.QueryRow("SELECT value FROM test WHERE id = ?", id).Scan(&out); err != nil {
 			dbt.Fatalf("Error on BLOB-Query: %s", err.Error())
 		} else if out != in {
 			dbt.Errorf("BLOB: %s != %s", in, out)
@@ -1333,8 +1198,7 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 	}
 
 	var dst interface{}
-	err = rows.Scan(&dst)
-	if err != nil {
+	if err = rows.Scan(&dst); err != nil {
 		dbt.Errorf("%s: %s", dbtype, err)
 		return
 	}
@@ -1353,7 +1217,6 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 		if val.UnixNano() == tt.t.UnixNano() {
 			return
 		}
-		fmt.Println(val.UnixNano(), tt.t.UnixNano())
 		t.Logf("source:%v, expected: %v, got:%v", tt.s, tt.t, val)
 		dbt.Errorf("%s to string: expected %q, got %q",
 			dbtype,
@@ -1361,7 +1224,6 @@ func (tt timeTest) run(t *testing.T, dbt *DBTest, dbtype, tlayout string) {
 			val.Format(tlayout),
 		)
 	default:
-		fmt.Printf("%#v\n", []interface{}{dbtype, tlayout, tt.s, tt.t})
 		dbt.Errorf("%s: unhandled type %T (is '%v')",
 			dbtype, val, val,
 		)
@@ -1372,18 +1234,11 @@ func TestSimpleDateTimeTimestampFetch(t *testing.T) {
 	testSimpleDateTimeTimestampFetch(t, false)
 }
 
-func TestArrowSimpleDateTimeTimestampFetch(t *testing.T) {
-	testSimpleDateTimeTimestampFetch(t, true)
-}
-
-func testSimpleDateTimeTimestampFetch(t *testing.T, arrow bool) {
+func testSimpleDateTimeTimestampFetch(t *testing.T, json bool) {
 	var scan = func(rows *RowsExtended, cd interface{}, ct interface{}, cts interface{}) {
-		err := rows.Scan(cd, ct, cts)
-		if err != nil {
+		if err := rows.Scan(cd, ct, cts); err != nil {
 			t.Fatal(err)
 		}
-		// fmt.Printf("cd: %v, ct: %v, cts: %v", cd, ct, cts)
-		// no error should occurs
 	}
 	var fetchTypes = []func(*RowsExtended){
 		func(rows *RowsExtended) {
@@ -1396,8 +1251,9 @@ func testSimpleDateTimeTimestampFetch(t *testing.T, arrow bool) {
 		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
-		if arrow {
-			dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		if json {
+			dbt.mustExec(forceJSON)
 		}
 		for _, f := range fetchTypes {
 			rows := dbt.mustQuery("SELECT CURRENT_DATE(), CURRENT_TIME(), CURRENT_TIMESTAMP()")
@@ -1415,11 +1271,7 @@ func TestDateTime(t *testing.T) {
 	testDateTime(t, false)
 }
 
-func TestArrowDateTime(t *testing.T) {
-	testDateTime(t, true)
-}
-
-func testDateTime(t *testing.T, arrow bool) {
+func testDateTime(t *testing.T, json bool) {
 	afterTime := func(t time.Time, d string) time.Time {
 		dur, err := time.ParseDuration(d)
 		if err != nil {
@@ -1466,8 +1318,9 @@ func testDateTime(t *testing.T, arrow bool) {
 		}},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
-		if arrow {
-			dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		if json {
+			dbt.mustExec(forceJSON)
 		}
 		for _, setups := range testcases {
 			for _, setup := range setups.tests {
@@ -1485,11 +1338,7 @@ func TestTimestampLTZ(t *testing.T) {
 	testTimestampLTZ(t, false)
 }
 
-func TestArrowTimestampLTZ(t *testing.T) {
-	testTimestampLTZ(t, true)
-}
-
-func testTimestampLTZ(t *testing.T, arrow bool) {
+func testTimestampLTZ(t *testing.T, json bool) {
 	// Set session time zone in Los Angeles, same as machine
 	createDSN("America/Los_Angeles")
 	location, err := time.LoadLocation("America/Los_Angeles")
@@ -1539,8 +1388,9 @@ func testTimestampLTZ(t *testing.T, arrow bool) {
 		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
-		if arrow {
-			dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		if json {
+			dbt.mustExec(forceJSON)
 		}
 		for _, setups := range testcases {
 			for _, setup := range setups.tests {
@@ -1560,11 +1410,7 @@ func TestTimestampTZ(t *testing.T) {
 	testTimestampTZ(t, false)
 }
 
-func TestArrowTimestampTZ(t *testing.T) {
-	testTimestampTZ(t, true)
-}
-
-func testTimestampTZ(t *testing.T, arrow bool) {
+func testTimestampTZ(t *testing.T, json bool) {
 	sflo := func(offsets string) (loc *time.Location) {
 		r, err := LocationWithOffsetString(offsets)
 		if err != nil {
@@ -1591,8 +1437,9 @@ func testTimestampTZ(t *testing.T, arrow bool) {
 		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
-		if arrow {
-			dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		if json {
+			dbt.mustExec(forceJSON)
 		}
 		for _, setups := range testcases {
 			for _, setup := range setups.tests {
@@ -1610,14 +1457,11 @@ func TestNULL(t *testing.T) {
 	testNULL(t, false)
 }
 
-func TestArrowNULL(t *testing.T) {
-	testNULL(t, true)
-}
-
-func testNULL(t *testing.T, arrow bool) {
+func testNULL(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		if arrow {
-			dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		if json {
+			dbt.mustExec(forceJSON)
 		}
 		nullStmt, err := dbt.db.Prepare("SELECT NULL")
 		if err != nil {
@@ -1752,7 +1596,6 @@ func testNULL(t *testing.T, arrow bool) {
 
 		// Insert NULL
 		dbt.mustExec("CREATE TABLE test (dummmy1 int, value int, dummy2 int)")
-
 		dbt.mustExec("INSERT INTO test VALUES (?, ?, ?)", 1, nil, 2)
 
 		var out interface{}
@@ -1773,21 +1616,17 @@ func TestVariant(t *testing.T) {
 	testVariant(t, false)
 }
 
-func TestArrowVariant(t *testing.T) {
-	testVariant(t, true)
-}
-
-func testVariant(t *testing.T, arrow bool) {
+func testVariant(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		if arrow {
-			dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		if json {
+			dbt.mustExec(forceJSON)
 		}
 		rows := dbt.mustQuery(`select parse_json('[{"id":1, "name":"test1"},{"id":2, "name":"test2"}]')`)
 		defer rows.Close()
 		var v string
 		if rows.Next() {
-			err := rows.Scan(&v)
-			if err != nil {
+			if err := rows.Scan(&v); err != nil {
 				t.Fatal(err)
 			}
 		} else {
@@ -1800,21 +1639,17 @@ func TestArray(t *testing.T) {
 	testArray(t, false)
 }
 
-func TestArrowArray(t *testing.T) {
-	testArray(t, true)
-}
-
-func testArray(t *testing.T, arrow bool) {
+func testArray(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		if arrow {
-			dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		if json {
+			dbt.mustExec(forceJSON)
 		}
 		rows := dbt.mustQuery(`select as_array(parse_json('[{"id":1, "name":"test1"},{"id":2, "name":"test2"}]'))`)
 		defer rows.Close()
 		var v string
 		if rows.Next() {
-			err := rows.Scan(&v)
-			if err != nil {
+			if err := rows.Scan(&v); err != nil {
 				t.Fatal(err)
 			}
 		} else {
@@ -1828,29 +1663,19 @@ func TestLargeSetResult(t *testing.T) {
 	testLargeSetResult(t, 100000, false)
 }
 
-func TestLargeSetResultWithCustomJSONDecoder(t *testing.T) {
-	CustomJSONDecoderEnabled = true
-	// less number of rows to avoid Travis timeout
-	testLargeSetResult(t, 20000, false)
-}
-
-func TestLargeSetResultWithArrowDecoder(t *testing.T) {
-	testLargeSetResult(t, 10000, true)
-}
-
-func testLargeSetResult(t *testing.T, numrows int, arrow bool) {
+func testLargeSetResult(t *testing.T, numrows int, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		if arrow {
-			dbt.mustExec(forceArrow)
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		if json {
+			dbt.mustExec(forceJSON)
 		}
-		rows := dbt.mustQuery(fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
+		rows := dbt.mustQuery(fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
 		cnt := 0
 		var idx int
 		var v string
 		for rows.Next() {
-			err := rows.Scan(&idx, &v)
-			if err != nil {
+			if err := rows.Scan(&idx, &v); err != nil {
 				t.Fatal(err)
 			}
 			cnt++
@@ -1865,6 +1690,7 @@ func testLargeSetResult(t *testing.T, numrows int, arrow bool) {
 
 func TestPingpongQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		numrows := 1
 		rows := dbt.mustQuery("SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 60))")
 		defer rows.Close()
@@ -1880,9 +1706,9 @@ func TestPingpongQuery(t *testing.T) {
 
 func TestDML(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec("CREATE OR REPLACE TABLE test(c1 int, c2 string)")
-		err := insertData(dbt, false)
-		if err != nil {
+		if err := insertData(dbt, false); err != nil {
 			dbt.Fatalf("failed to insert data: %v", err)
 		}
 		results, err := queryTest(dbt)
@@ -1892,8 +1718,7 @@ func TestDML(t *testing.T) {
 		if len(*results) != 0 {
 			dbt.Fatalf("number of returned data didn't match. expected 0, got: %v", len(*results))
 		}
-		err = insertData(dbt, true)
-		if err != nil {
+		if err = insertData(dbt, true); err != nil {
 			dbt.Fatalf("failed to insert data: %v", err)
 		}
 		results, err = queryTest(dbt)
@@ -1905,6 +1730,7 @@ func TestDML(t *testing.T) {
 		}
 	})
 }
+
 func insertData(dbt *DBTest, commit bool) error {
 	tx, err := dbt.db.Begin()
 	if err != nil {
@@ -1929,13 +1755,11 @@ func insertData(dbt *DBTest, commit bool) error {
 		dbt.Fatalf("number of returned data didn't match. expected 2, got: %v", len(*results))
 	}
 	if commit {
-		err = tx.Commit()
-		if err != nil {
+		if err = tx.Commit(); err != nil {
 			return err
 		}
 	} else {
-		err = tx.Rollback()
-		if err != nil {
+		if err = tx.Rollback(); err != nil {
 			return err
 		}
 	}
@@ -1950,13 +1774,10 @@ func queryTestTx(tx *sql.Tx) (*map[int]string, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	if err != nil {
-		return nil, err
-	}
+
 	results := make(map[int]string, 2)
 	for rows.Next() {
-		err := rows.Scan(&c1, &c2)
-		if err != nil {
+		if err = rows.Scan(&c1, &c2); err != nil {
 			return nil, err
 		}
 		results[c1] = c2
@@ -1972,13 +1793,9 @@ func queryTest(dbt *DBTest) (*map[int]string, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	if err != nil {
-		return nil, err
-	}
 	results := make(map[int]string, 2)
 	for rows.Next() {
-		err := rows.Scan(&c1, &c2)
-		if err != nil {
+		if err = rows.Scan(&c1, &c2); err != nil {
 			return nil, err
 		}
 		results[c1] = c2
@@ -1993,18 +1810,14 @@ func TestRowsClose(t *testing.T) {
 		if err != nil {
 			dbt.Fatal(err)
 		}
-
-		err = rows.Close()
-		if err != nil {
+		if err = rows.Close(); err != nil {
 			dbt.Fatal(err)
 		}
 
 		if rows.Next() {
 			dbt.Fatal("unexpected row after rows.Close()")
 		}
-
-		err = rows.Err()
-		if err != nil {
+		if err = rows.Err(); err != nil {
 			dbt.Fatal(err)
 		}
 	})
@@ -2017,12 +1830,10 @@ func TestResultNoRows(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to execute DDL. err: %v", err)
 		}
-		_, err = row.RowsAffected()
-		if err == nil {
+		if _, err = row.RowsAffected(); err == nil {
 			t.Fatal("should have failed to get RowsAffected")
 		}
-		_, err = row.LastInsertId()
-		if err == nil {
+		if _, err = row.LastInsertId(); err == nil {
 			t.Fatal("should have failed to get LastInsertID")
 		}
 	})
@@ -2030,16 +1841,13 @@ func TestResultNoRows(t *testing.T) {
 
 func TestCancelQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		ctx := context.Background()
-		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
 		_, err := dbt.db.QueryContext(ctx, "SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 100))")
-
 		if err == nil {
 			dbt.Fatal("No timeout error returned")
 		}
-
 		if err.Error() != "context deadline exceeded" {
 			dbt.Fatalf("Timeout error mismatch: expect %v, receive %v", context.DeadlineExceeded, err.Error())
 		}
@@ -2047,52 +1855,39 @@ func TestCancelQuery(t *testing.T) {
 }
 
 func TestInvalidConnection(t *testing.T) {
-	var db *sql.DB
-	var err error
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	err = db.Close()
-	if err != nil {
+	db := openDB(t)
+	if err := db.Close(); err != nil {
 		t.Error("should not cause error in Close")
 	}
-	err = db.Close()
-	if err != nil {
+	if err := db.Close(); err != nil {
 		t.Error("should not cause error in the second call of Close")
 	}
-	_, err = db.Exec("CREATE TABLE OR REPLACE test0(c1 int)")
-	if err == nil {
+	if _, err := db.Exec("CREATE TABLE OR REPLACE test0(c1 int)"); err == nil {
 		t.Error("should fail to run Exec")
 	}
-	_, err = db.Query("SELECT CURRENT_TIMESTAMP()")
-	if err == nil {
+	if _, err := db.Query("SELECT CURRENT_TIMESTAMP()"); err == nil {
 		t.Error("should fail to run Query")
 	}
-	_, err = db.Begin()
-	if err == nil {
+	if _, err := db.Begin(); err == nil {
 		t.Error("should fail to run Begin")
 	}
 }
 
 func TestPing(t *testing.T) {
-	var db *sql.DB
-	var err error
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	if err = db.Ping(); err != nil {
+	db := openDB(t)
+	if err := db.Ping(); err != nil {
 		t.Fatalf("failed to ping. %v, err: %v", dsn, err)
 	}
-	if err = db.PingContext(context.Background()); err != nil {
+	if err := db.PingContext(context.Background()); err != nil {
 		t.Fatalf("failed to ping with context. %v, err: %v", dsn, err)
 	}
-	if err = db.Close(); err != nil {
+	if err := db.Close(); err != nil {
 		t.Fatalf("failed to close db. %v, err: %v", dsn, err)
 	}
-	if err = db.Ping(); err == nil {
+	if err := db.Ping(); err == nil {
 		t.Fatal("should have failed to ping")
 	}
-	if err = db.PingContext(context.Background()); err == nil {
+	if err := db.PingContext(context.Background()); err == nil {
 		t.Fatal("should have failed to ping with context")
 	}
 }
@@ -2120,53 +1915,39 @@ $$
 }
 
 func TestTransactionOptions(t *testing.T) {
-	var db *sql.DB
-	var err error
-	var driverErr *SnowflakeError
-	var ok bool
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
 	var tx *sql.Tx
+	var err error
+
+	db := openDB(t)
+	defer db.Close()
+
 	tx, err = db.BeginTx(context.Background(), &sql.TxOptions{})
 	if err != nil {
 		t.Fatal("failed to start transaction.")
 	}
-	err = tx.Rollback()
-	if err != nil {
+	if err = tx.Rollback(); err != nil {
 		t.Fatal("failed to rollback")
 	}
-	_, err = db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
-	if err == nil {
+	if _, err = db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true}); err == nil {
 		t.Fatal("should have failed.")
 	}
-	driverErr, ok = err.(*SnowflakeError)
-	if !ok || driverErr.Number != ErrNoReadOnlyTransaction {
+	if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoReadOnlyTransaction {
 		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoReadOnlyTransaction)
 	}
-	_, err = db.BeginTx(context.Background(), &sql.TxOptions{Isolation: 100})
-	if err == nil {
+	if _, err = db.BeginTx(context.Background(), &sql.TxOptions{Isolation: 100}); err == nil {
 		t.Fatal("should have failed.")
 	}
-	driverErr, ok = err.(*SnowflakeError)
-	if !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
+	if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
 		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoDefaultTransactionIsolationLevel)
 	}
 }
 
 func TestTimezoneSessionParameter(t *testing.T) {
-	var db *sql.DB
-	var err error
-	var rows *sql.Rows
-
 	createDSN("America/Los_Angeles")
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
+	db := openDB(t)
 	defer db.Close()
-	rows, err = db.Query("SHOW PARAMETERS LIKE 'TIMEZONE'")
+
+	rows, err := db.Query("SHOW PARAMETERS LIKE 'TIMEZONE'")
 	if err != nil {
 		t.Errorf("failed to run show parameters. err: %v", err)
 	}
@@ -2187,9 +1968,9 @@ func TestTimezoneSessionParameter(t *testing.T) {
 
 func TestLargeSetResultCancel(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		c := make(chan error)
-		ctx := context.Background()
-		ctx, cancel := context.WithCancel(ctx)
+		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
 			// attempt to run a 100 seconds query, but it should be canceled in 1 second
 			timelimit := 100
@@ -2214,15 +1995,13 @@ func TestLargeSetResultCancel(t *testing.T) {
 	})
 }
 
-type tcValidateDatabaseParameter struct {
-	dsn       string
-	params    map[string]string
-	errorCode int
-}
-
 func TestValidateDatabaseParameter(t *testing.T) {
 	baseDSN := fmt.Sprintf("%s:%s@%s", user, pass, host)
-	testcases := []tcValidateDatabaseParameter{
+	testcases := []struct {
+		dsn       string
+		params    map[string]string
+		errorCode int
+	}{
 		{
 			dsn:       baseDSN + fmt.Sprintf("/%s/%s", "NOT_EXISTS", "NOT_EXISTS"),
 			errorCode: ErrObjectNotExistOrAuthorized,
@@ -2265,8 +2044,7 @@ func TestValidateDatabaseParameter(t *testing.T) {
 			t.Fatalf("error creating a connection object: %s", err.Error())
 		}
 		defer db.Close()
-		_, err = db.Exec("SELECT 1")
-		if err == nil {
+		if _, err = db.Exec("SELECT 1"); err == nil {
 			t.Fatal("should cause an error.")
 		}
 		if driverErr, ok := err.(*SnowflakeError); ok {
@@ -2291,14 +2069,14 @@ func TestSpecifyWarehouseDatabase(t *testing.T) {
 		t.Fatalf("error creating a connection object: %s", err.Error())
 	}
 	defer db.Close()
-	_, err = db.Exec("SELECT 1")
-	if err != nil {
+	if _, err = db.Exec("SELECT 1"); err != nil {
 		t.Fatalf("failed to execute a select 1: %v", err)
 	}
 }
 
 func TestFetchNil(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQuery("SELECT * FROM values(3,4),(null, 5) order by 2")
 		defer rows.Close()
 		var c1 sql.NullInt64
@@ -2306,8 +2084,7 @@ func TestFetchNil(t *testing.T) {
 
 		var results []sql.NullInt64
 		for rows.Next() {
-			err := rows.Scan(&c1, &c2)
-			if err != nil {
+			if err := rows.Scan(&c1, &c2); err != nil {
 				dbt.Fatal(err)
 			}
 			results = append(results, c1)
@@ -2336,13 +2113,11 @@ func TestPingInvalidHost(t *testing.T) {
 		t.Fatalf("failed to initalize the connetion. err: %v", err)
 	}
 	ctx := context.Background()
-	err = db.PingContext(ctx)
-	if err == nil {
+	if err = db.PingContext(ctx); err == nil {
 		t.Fatal("should cause an error")
 	}
-	driverErr, ok := err.(*SnowflakeError)
-
-	if !ok || ok && driverErr.Number != ErrCodeFailedToConnect { // Failed to connect error
+	if driverErr, ok := err.(*SnowflakeError); !ok || ok && driverErr.Number != ErrCodeFailedToConnect {
+		// Failed to connect error
 		t.Fatalf("error didn't match")
 	}
 }
@@ -2433,59 +2208,35 @@ func createDSNWithClientSessionKeepAlive() {
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
-	var db *sql.DB
-	var err error
-	var rows *sql.Rows
-
 	createDSNWithClientSessionKeepAlive()
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-	rows, err = db.Query("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
-	if err != nil {
-		t.Errorf("failed to run show parameters. err: %v", err)
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		t.Fatal("failed to get timezone.")
-	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
+		if !rows.Next() {
+			t.Fatal("failed to get timezone.")
+		}
 
-	p, err := ScanSnowflakeParameter(rows)
-	if err != nil {
-		t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
-	}
-	if p.Value != "true" {
-		t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
-	}
-	rows, err = db.Query("select count(*) from table(generator(timelimit=>30))")
-	if err != nil {
-		t.Errorf("failed to run a query: %v", err)
-	}
-	defer rows.Close()
+		p, err := ScanSnowflakeParameter(rows.rows)
+		if err != nil {
+			t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
+		}
+		if p.Value != "true" {
+			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
+		}
+
+		rows = dbt.mustQuery("select count(*) from table(generator(timelimit=>30))")
+		defer rows.Close()
+	})
 }
 
 func TestTimePrecision(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec("create or replace table z3 (t1 time(5))")
-	if err != nil {
-		t.Errorf("error while executing query. err : %v", err)
-	}
-	res, err := db.Query("select * from z3")
-	if err != nil {
-		t.Errorf("error while executing query. err : %v", err)
-	}
-
-	cols, _ := res.ColumnTypes()
-	pres, _, _ := cols[0].DecimalSize()
-	if pres != 5 {
-		t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
-	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		dbt.mustExec("create or replace table z3 (t1 time(5))")
+		rows := dbt.mustQuery("select * from z3")
+		cols, _ := rows.ColumnTypes()
+		if pres, _, _ := cols[0].DecimalSize(); pres != 5 {
+			t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
+		}
+	})
 }

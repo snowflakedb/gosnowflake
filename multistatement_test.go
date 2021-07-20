@@ -4,158 +4,105 @@ package gosnowflake
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 )
 
 func TestMultiStatementExecuteNoResultSet(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec("drop table if exists test_multi_statement_txn")
-	if err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
-
-	_, err = db.Exec("create or replace table test_multi_statement_txn(c1 number, c2 string)" +
-		"as select 10, 'z'")
-	if err != nil {
-		t.Fatalf("failed to create table: %v", err)
-	}
-
 	ctx, _ := WithMultiStatement(context.Background(), 4)
 	multiStmtQuery := "begin;\n" +
 		"delete from test_multi_statement_txn;\n" +
 		"insert into test_multi_statement_txn values (1, 'a'), (2, 'b');\n" +
 		"commit;"
-	res, err := db.ExecContext(ctx, multiStmtQuery)
-	if err != nil {
-		t.Fatalf("failed to execute multiple statements: %v", err)
-	}
-	count, err := res.RowsAffected()
-	if err != nil {
-		t.Fatalf("res.RowsAffected() returned error: %v", err)
-	}
-	if count != 3 {
-		t.Fatalf("expected 3 affected rows, got %d", count)
-	}
 
-	_, err = db.Exec("drop table if exists test_multi_statement_txn")
-	if err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("drop table if exists test_multi_statement_txn")
+		dbt.mustExec(`create or replace table test_multi_statement_txn(
+			c1 number, c2 string) as select 10, 'z'`)
+		defer dbt.mustExec("drop table if exists test_multi_statement_txn")
+
+		res := dbt.mustExecContext(ctx, multiStmtQuery)
+		count, err := res.RowsAffected()
+		if err != nil {
+			t.Fatalf("res.RowsAffected() returned error: %v", err)
+		}
+		if count != 3 {
+			t.Fatalf("expected 3 affected rows, got %d", count)
+		}
+	})
 }
 
 func TestMultiStatementQueryResultSet(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
+	ctx, _ := WithMultiStatement(context.Background(), 4)
 	multiStmtQuery := "select 123;\n" +
 		"select 456;\n" +
 		"select 789;\n" +
 		"select '000';"
 
-	ctx, _ := WithMultiStatement(context.Background(), 4)
-	rows, err := db.QueryContext(ctx, multiStmtQuery)
-	if err != nil {
-		t.Fatalf("failed to query multiple statements: %v", err)
-	}
-	defer rows.Close()
 	var v1, v2, v3 int64
 	var v4 string
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
 
-	// first statement
-	if rows.Next() {
-		err = rows.Scan(&v1)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		// first statement
+		if rows.Next() {
+			if err := rows.Scan(&v1); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v1 != 123 {
+				t.Fatalf("failed to fetch. value: %v", v1)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-		if v1 != 123 {
-			t.Fatalf("failed to fetch. value: %v", v1)
-		}
-	} else {
-		t.Error("failed to query")
-	}
 
-	// second statement
-	if !rows.NextResultSet() {
-		t.Error("failed to retrieve next result set")
-	}
-	if rows.Next() {
-		err = rows.Scan(&v2)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		// second statement
+		if !rows.NextResultSet() {
+			t.Error("failed to retrieve next result set")
 		}
-		if v2 != 456 {
-			t.Fatalf("failed to fetch. value: %v", v2)
+		if rows.Next() {
+			if err := rows.Scan(&v2); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v2 != 456 {
+				t.Fatalf("failed to fetch. value: %v", v2)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-	} else {
-		t.Error("failed to query")
-	}
 
-	// third statement
-	if !rows.NextResultSet() {
-		t.Error("failed to retrieve next result set")
-	}
-	if rows.Next() {
-		err = rows.Scan(&v3)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		// third statement
+		if !rows.NextResultSet() {
+			t.Error("failed to retrieve next result set")
 		}
-		if v3 != 789 {
-			t.Fatalf("failed to fetch. value: %v", v3)
+		if rows.Next() {
+			if err := rows.Scan(&v3); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v3 != 789 {
+				t.Fatalf("failed to fetch. value: %v", v3)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-	} else {
-		t.Error("failed to query")
-	}
 
-	// fourth statement
-	if !rows.NextResultSet() {
-		t.Error("failed to retrieve next result set")
-	}
-	if rows.Next() {
-		err = rows.Scan(&v4)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		// fourth statement
+		if !rows.NextResultSet() {
+			t.Error("failed to retrieve next result set")
 		}
-		if v4 != "000" {
-			t.Fatalf("failed to fetch. value: %v", v4)
+		if rows.Next() {
+			if err := rows.Scan(&v4); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v4 != "000" {
+				t.Fatalf("failed to fetch. value: %v", v4)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-	} else {
-		t.Error("failed to query")
-	}
+	})
 }
 
 func TestMultiStatementExecuteResultSet(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec("drop table if exists test_multi_statement_txn_rb")
-	if err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
-
-	_, err = db.Exec("create or replace table test_multi_statement_txn_rb(c1 number, c2 string)" +
-		"as select 10, 'z'")
-	if err != nil {
-		t.Fatalf("failed to create table: %v", err)
-	}
-
 	ctx, _ := WithMultiStatement(context.Background(), 6)
 	multiStmtQuery := "begin;\n" +
 		"delete from test_multi_statement_txn_rb;\n" +
@@ -164,270 +111,218 @@ func TestMultiStatementExecuteResultSet(t *testing.T) {
 		"select 2;\n" +
 		"rollback;"
 
-	res, err := db.ExecContext(ctx, multiStmtQuery)
-	if err != nil {
-		t.Fatalf("failed to execute statement: %v", err)
-	}
-	count, err := res.RowsAffected()
-	if err != nil {
-		t.Fatalf("res.RowsAffected() returned error: %s", err.Error())
-	}
-	if count != 3 {
-		t.Fatalf("expected 3 affected rows, got %d", count)
-	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("drop table if exists test_multi_statement_txn_rb")
+		dbt.mustExec(`create or replace table test_multi_statement_txn_rb(
+			c1 number, c2 string) as select 10, 'z'`)
+		defer dbt.mustExec("drop table if exists test_multi_statement_txn_rb")
 
-	_, err = db.Exec("drop table if exists test_multi_statement_txn_rb")
-	if err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
+		res := dbt.mustExecContext(ctx, multiStmtQuery)
+		count, err := res.RowsAffected()
+		if err != nil {
+			t.Fatalf("res.RowsAffected() returned error: %v", err)
+		}
+		if count != 3 {
+			t.Fatalf("expected 3 affected rows, got %d", count)
+		}
+	})
 }
 
 func TestMultiStatementQueryNoResultSet(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec("drop table if exists test_multi_statement_txn")
-	if err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
-
-	_, err = db.Exec("create or replace table test_multi_statement_txn(c1 number, c2 string)" +
-		"as select 10, 'z'")
-	if err != nil {
-		t.Fatalf("failed to create table: %v", err)
-	}
-
 	ctx, _ := WithMultiStatement(context.Background(), 4)
 	multiStmtQuery := "begin;\n" +
 		"delete from test_multi_statement_txn;\n" +
 		"insert into test_multi_statement_txn values (1, 'a'), (2, 'b');\n" +
 		"commit;"
-	_, err = db.QueryContext(ctx, multiStmtQuery)
-	if err != nil {
-		t.Fatalf("failed to query multiple statements: %v", err)
-	}
 
-	_, err = db.Exec("drop table if exists test_multi_statement_txn")
-	if err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("drop table if exists test_multi_statement_txn")
+		dbt.mustExec(`create or replace table test_multi_statement_txn(
+			c1 number, c2 string) as select 10, 'z'`)
+		defer dbt.mustExec("drop table if exists tfmuest_multi_statement_txn")
+
+		dbt.mustQueryContext(ctx, multiStmtQuery)
+	})
 }
 
 func TestMultiStatementExecuteMix(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
 	ctx, _ := WithMultiStatement(context.Background(), 3)
 	multiStmtQuery := "create or replace temporary table test_multi (cola int);\n" +
 		"insert into test_multi values (1), (2);\n" +
 		"select cola from test_multi order by cola asc;"
-	res, err := db.ExecContext(ctx, multiStmtQuery)
-	if err != nil {
-		t.Fatal("failed to execute statement: ", err)
-	}
 
-	count, err := res.RowsAffected()
-	if err != nil {
-		t.Fatalf("res.RowsAffected() returned error: %s", err.Error())
-	}
-	if count != 2 {
-		t.Fatalf("expected 3 affected rows, got %d", count)
-	}
-}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("drop table if exists test_multi_statement_txn")
+		dbt.mustExec(`create or replace table test_multi_statement_txn(
+			c1 number, c2 string) as select 10, 'z'`)
+		defer dbt.mustExec("drop table if exists test_multi_statement_txn")
 
-func TestMultiStatementQueryMix(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	ctx, _ := WithMultiStatement(context.Background(), 3)
-	multiStmtQuery := "create or replace temporary table test_multi (cola int);\n" +
-		"insert into test_multi values (1), (2);\n" +
-		"select cola from test_multi order by cola asc;"
-	rows, err := db.QueryContext(ctx, multiStmtQuery)
-	if err != nil {
-		t.Fatal("failed to execute statement: ", err)
-	}
-	defer rows.Close()
-
-	// first statement
-	if !rows.Next() {
-		t.Error("failed to query")
-	}
-
-	var count, v int
-	// second statement
-	rows.NextResultSet()
-	if rows.Next() {
-		err = rows.Scan(&count)
+		res := dbt.mustExecContext(ctx, multiStmtQuery)
+		count, err := res.RowsAffected()
 		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+			t.Fatalf("res.RowsAffected() returned error: %v", err)
 		}
 		if count != 2 {
 			t.Fatalf("expected 2 affected rows, got %d", count)
 		}
-	}
+	})
+}
 
-	expected := 1
-	// third statement
-	rows.NextResultSet()
-	for rows.Next() {
-		err = rows.Scan(&v)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+func TestMultiStatementQueryMix(t *testing.T) {
+	ctx, _ := WithMultiStatement(context.Background(), 3)
+	multiStmtQuery := "create or replace temporary table test_multi (cola int);\n" +
+		"insert into test_multi values (1), (2);\n" +
+		"select cola from test_multi order by cola asc;"
+
+	var count, v int
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("drop table if exists test_multi_statement_txn")
+		dbt.mustExec(`create or replace table test_multi_statement_txn(
+			c1 number, c2 string) as select 10, 'z'`)
+		defer dbt.mustExec("drop table if exists test_multi_statement_txn")
+
+		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
+		defer rows.Close()
+
+		// first statement
+		if !rows.Next() {
+			t.Error("failed to query")
 		}
-		if v != expected {
-			t.Fatalf("failed to fetch. value: %v", v)
+
+		// second statement
+		rows.NextResultSet()
+		if rows.Next() {
+			if err := rows.Scan(&count); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if count != 2 {
+				t.Fatalf("expected 2 affected rows, got %d", count)
+			}
 		}
-		expected++
-	}
+
+		expected := 1
+		// third statement
+		rows.NextResultSet()
+		for rows.Next() {
+			if err := rows.Scan(&v); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v != expected {
+				t.Fatalf("failed to fetch. value: %v", v)
+			}
+			expected++
+		}
+	})
 }
 
 func TestMultiStatementCountZero(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
 	ctx, _ := WithMultiStatement(context.Background(), 0)
 	var v1 int
 	var v2 string
 	var v3 float64
 	var v4 bool
 
-	// first query
-	multiStmtQuery1 := "select 123;\n" +
-		"select '456';"
-	rows1, err := db.QueryContext(ctx, multiStmtQuery1)
-	if err != nil {
-		t.Fatalf("failed to query multiple statements: %v", err)
-	}
-	defer rows1.Close()
-	// first statement
-	if rows1.Next() {
-		err = rows1.Scan(&v1)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+	runTests(t, dsn, func(dbt *DBTest) {
+		// first query
+		multiStmtQuery1 := "select 123;\n" +
+			"select '456';"
+		rows1 := dbt.mustQueryContext(ctx, multiStmtQuery1)
+		defer rows1.Close()
+		// first statement
+		if rows1.Next() {
+			if err := rows1.Scan(&v1); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v1 != 123 {
+				t.Fatalf("failed to fetch. value: %v", v1)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-		if v1 != 123 {
-			t.Fatalf("failed to fetch. value: %v", v1)
-		}
-	} else {
-		t.Error("failed to query")
-	}
 
-	// second statement
-	if !rows1.NextResultSet() {
-		t.Error("failed to retrieve next result set")
-	}
-	if rows1.Next() {
-		err = rows1.Scan(&v2)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		// second statement
+		if !rows1.NextResultSet() {
+			t.Error("failed to retrieve next result set")
 		}
-		if v2 != "456" {
-			t.Fatalf("failed to fetch. value: %v", v2)
+		if rows1.Next() {
+			if err := rows1.Scan(&v2); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v2 != "456" {
+				t.Fatalf("failed to fetch. value: %v", v2)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-	} else {
-		t.Error("failed to query")
-	}
 
-	// second query
-	multiStmtQuery2 := "select 789;\n" +
-		"select 'foo';\n" +
-		"select 0.123;\n" +
-		"select true;"
-	rows2, err := db.QueryContext(ctx, multiStmtQuery2)
-	if err != nil {
-		t.Fatalf("failed to query multiple statements: %v", err)
-	}
-	defer rows2.Close()
-	// first statement
-	if rows2.Next() {
-		err = rows2.Scan(&v1)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		// second query
+		multiStmtQuery2 := "select 789;\n" +
+			"select 'foo';\n" +
+			"select 0.123;\n" +
+			"select true;"
+		rows2 := dbt.mustQueryContext(ctx, multiStmtQuery2)
+		defer rows2.Close()
+		// first statement
+		if rows2.Next() {
+			if err := rows2.Scan(&v1); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v1 != 789 {
+				t.Fatalf("failed to fetch. value: %v", v1)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-		if v1 != 789 {
-			t.Fatalf("failed to fetch. value: %v", v1)
-		}
-	} else {
-		t.Error("failed to query")
-	}
 
-	// second statement
-	if !rows2.NextResultSet() {
-		t.Error("failed to retrieve next result set")
-	}
-	if rows2.Next() {
-		err = rows2.Scan(&v2)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		// second statement
+		if !rows2.NextResultSet() {
+			t.Error("failed to retrieve next result set")
 		}
-		if v2 != "foo" {
-			t.Fatalf("failed to fetch. value: %v", v2)
+		if rows2.Next() {
+			if err := rows2.Scan(&v2); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v2 != "foo" {
+				t.Fatalf("failed to fetch. value: %v", v2)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-	} else {
-		t.Error("failed to query")
-	}
 
-	// third statement
-	if !rows2.NextResultSet() {
-		t.Error("failed to retrieve next result set")
-	}
-	if rows2.Next() {
-		err = rows2.Scan(&v3)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		// third statement
+		if !rows2.NextResultSet() {
+			t.Error("failed to retrieve next result set")
 		}
-		if v3 != 0.123 {
-			t.Fatalf("failed to fetch. value: %v", v3)
+		if rows2.Next() {
+			if err := rows2.Scan(&v3); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v3 != 0.123 {
+				t.Fatalf("failed to fetch. value: %v", v3)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-	} else {
-		t.Error("failed to query")
-	}
 
-	// fourth statement
-	if !rows2.NextResultSet() {
-		t.Error("failed to retrieve next result set")
-	}
-	if rows2.Next() {
-		err = rows2.Scan(&v4)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		// fourth statement
+		if !rows2.NextResultSet() {
+			t.Error("failed to retrieve next result set")
 		}
-		if v4 != true {
-			t.Fatalf("failed to fetch. value: %v", v4)
+		if rows2.Next() {
+			if err := rows2.Scan(&v4); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v4 != true {
+				t.Fatalf("failed to fetch. value: %v", v4)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-	} else {
-		t.Error("failed to query")
-	}
+	})
 }
 
 func TestMultiStatementCountMismatch(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
+	db := openDB(t)
 	defer db.Close()
 
 	multiStmtQuery := "select 123;\n" +
@@ -436,58 +331,49 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 		"select '000';"
 
 	ctx, _ := WithMultiStatement(context.Background(), 3)
-	_, err = db.QueryContext(ctx, multiStmtQuery)
-	if err == nil {
+	if _, err := db.QueryContext(ctx, multiStmtQuery); err == nil {
 		t.Fatal("should have failed to query multiple statements")
 	}
 }
 
 func TestMultiStatementVaryingColumnCount(t *testing.T) {
-	var db *sql.DB
-	var err error
-
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
 	multiStmtQuery := "select c1 from test_tbl;\n" +
 		"select c1,c2 from test_tbl;"
-	db.Exec("create or replace table test_tbl(c1 int, c2 int)")
-	db.Exec("insert into test_tbl values(1, 0)")
 	ctx, _ := WithMultiStatement(context.Background(), 0)
-	rows, err := db.QueryContext(ctx, multiStmtQuery)
-	if err != nil {
-		t.Error(err)
-	}
-	defer rows.Close()
 
 	var v1, v2 int
-	if rows.Next() {
-		err = rows.Scan(&v1)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
-		}
-		if v1 != 1 {
-			t.Fatalf("failed to fetch. value: %v", v1)
-		}
-	} else {
-		t.Error("failed to query")
-	}
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("create or replace table test_tbl(c1 int, c2 int)")
+		dbt.mustExec("insert into test_tbl values(1, 0)")
+		defer dbt.mustExec("drop table if exists test_tbl")
 
-	if !rows.NextResultSet() {
-		t.Error("failed to retrieve next result set")
-	}
-	if rows.Next() {
-		err = rows.Scan(&v1, &v2)
-		if err != nil {
-			t.Errorf("failed to scan: %#v", err)
+		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
+		defer rows.Close()
+
+		if rows.Next() {
+			if err := rows.Scan(&v1); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v1 != 1 {
+				t.Fatalf("failed to fetch. value: %v", v1)
+			}
+		} else {
+			t.Error("failed to query")
 		}
-		if v1 != 1 || v2 != 0 {
-			t.Fatalf("failed to fetch. value: %v, %v", v1, v2)
+
+		if !rows.NextResultSet() {
+			t.Error("failed to retrieve next result set")
 		}
-	} else {
-		t.Error("failed to query")
-	}
-	db.Exec("drop table if exists test_tbl")
+
+		if rows.Next() {
+			if err := rows.Scan(&v1, &v2); err != nil {
+				t.Errorf("failed to scan: %#v", err)
+			}
+			if v1 != 1 || v2 != 0 {
+				t.Fatalf("failed to fetch. value: %v, %v", v1, v2)
+			}
+		} else {
+			t.Error("failed to query")
+		}
+	})
 }

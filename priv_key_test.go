@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 // +build go1.10
 
 package gosnowflake
@@ -76,22 +76,17 @@ func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
 func TestJWTAuthentication(t *testing.T) {
 	// For private key generated on the fly, we want to load the public key to the server first
 	if !customPrivateKey {
-		db, err := sql.Open("snowflake", dsn)
-		if err != nil {
-			t.Fatalf("error creating a connection object: %s", err.Error())
-		}
+		db := openDB(t)
 		// Load server's public key to database
 		pubKeyByte, err := x509.MarshalPKIXPublicKey(testPrivKey.Public())
 		if err != nil {
 			t.Fatalf("error marshaling public key: %s", err.Error())
 		}
-		_, err = db.Exec("USE ROLE ACCOUNTADMIN")
-		if err != nil {
+		if _, err = db.Exec("USE ROLE ACCOUNTADMIN"); err != nil {
 			t.Fatalf("error changin role: %s", err.Error())
 		}
 		encodedKey := base64.StdEncoding.EncodeToString(pubKeyByte)
-		_, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", user, encodedKey))
-		if err != nil {
+		if _, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", user, encodedKey)); err != nil {
 			t.Fatalf("error setting server's public key: %s", err.Error())
 		}
 		db.Close()
@@ -103,8 +98,7 @@ func TestJWTAuthentication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating a connection object: %s", err.Error())
 	}
-	_, err = db.Exec("SELECT 1")
-	if err != nil {
+	if _, err = db.Exec("SELECT 1"); err != nil {
 		t.Fatalf("error executing: %s", err.Error())
 	}
 	db.Close()
@@ -113,8 +107,7 @@ func TestJWTAuthentication(t *testing.T) {
 	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	jwtDSN = appendPrivateKeyString(&dsn, invalidPrivateKey)
 	db, _ = sql.Open("snowflake", jwtDSN)
-	_, err = db.Exec("SELECT 1")
-	if err == nil {
+	if _, err = db.Exec("SELECT 1"); err == nil {
 		t.Fatalf("An invalid jwt token can pass")
 	}
 
