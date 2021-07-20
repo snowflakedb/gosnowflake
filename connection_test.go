@@ -190,8 +190,8 @@ func TestCloseIgnoreSessionGone(t *testing.T) {
 		FuncCloseSession: closeSessionMock,
 	}
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:       &Config{Params: map[string]*string{}},
+		rest:      sr,
 		telemetry: testTelemetry,
 	}
 
@@ -205,8 +205,8 @@ func TestClientSessionPersist(t *testing.T) {
 		FuncCloseSession: closeSessionMock,
 	}
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:       &Config{Params: map[string]*string{}},
+		rest:      sr,
 		telemetry: testTelemetry,
 	}
 	sc.cfg.KeepSessionAlive = true

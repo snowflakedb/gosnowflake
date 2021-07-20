@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
@@ -298,9 +299,13 @@ func stringFloatToDecimal(src string, scale int64) (decimal128.Num, bool) {
 	return decimal128.New(high.Int64(), low.Uint64()), ok
 }
 
-// Arrow Interface (Column) converter. This is called when Arrow chunks are downloaded to convert to the corresponding
-// row type.
-func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, srcValue array.Interface) error {
+// Arrow Interface (Column) converter. This is called when Arrow chunks are
+// downloaded to convert to the corresponding row type.
+func arrowToValue(
+	destcol *[]snowflakeValue,
+	srcColumnMeta execResponseRowType,
+	srcValue array.Interface,
+	higherPrecision bool) error {
 	data := srcValue.Data()
 	var err error
 	if len(*destcol) != srcValue.Data().Len() {
@@ -315,9 +320,18 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			for i, num := range array.NewDecimal128Data(data).Values() {
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
-						(*destcol)[i] = decimalToBigInt(num)
+						if higherPrecision {
+							(*destcol)[i] = decimalToBigInt(num)
+						} else {
+							(*destcol)[i] = decimalToBigInt(num).String()
+						}
 					} else {
-						(*destcol)[i] = decimalToBigFloat(num, srcColumnMeta.Scale)
+						f := decimalToBigFloat(num, srcColumnMeta.Scale)
+						if higherPrecision {
+							(*destcol)[i] = f
+						} else {
+							(*destcol)[i] = fmt.Sprintf("%f", f)
+						}
 					}
 				}
 			}
@@ -325,10 +339,18 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			for i, val := range array.NewInt64Data(data).Int64Values() {
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
-						(*destcol)[i] = val
+						if higherPrecision {
+							(*destcol)[i] = val
+						} else {
+							(*destcol)[i] = fmt.Sprintf("%d", val)
+						}
 					} else {
-						f := intToBigFloat(val, srcColumnMeta.Scale)
-						(*destcol)[i] = f
+						if higherPrecision {
+							f := intToBigFloat(val, srcColumnMeta.Scale)
+							(*destcol)[i] = f
+						} else {
+							(*destcol)[i] = fmt.Sprintf("%f", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+						}
 					}
 				}
 			}
@@ -336,10 +358,18 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			for i, val := range array.NewInt32Data(data).Int32Values() {
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
-						(*destcol)[i] = int64(val)
+						if higherPrecision {
+							(*destcol)[i] = int64(val)
+						} else {
+							(*destcol)[i] = fmt.Sprintf("%d", val)
+						}
 					} else {
-						f := intToBigFloat(int64(val), srcColumnMeta.Scale)
-						(*destcol)[i] = f
+						if higherPrecision {
+							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
+							(*destcol)[i] = f
+						} else {
+							(*destcol)[i] = fmt.Sprintf("%f", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+						}
 					}
 				}
 			}
@@ -347,10 +377,18 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			for i, val := range array.NewInt16Data(data).Int16Values() {
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
-						(*destcol)[i] = int64(val)
+						if higherPrecision {
+							(*destcol)[i] = int64(val)
+						} else {
+							(*destcol)[i] = fmt.Sprintf("%d", val)
+						}
 					} else {
-						f := intToBigFloat(int64(val), srcColumnMeta.Scale)
-						(*destcol)[i] = f
+						if higherPrecision {
+							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
+							(*destcol)[i] = f
+						} else {
+							(*destcol)[i] = fmt.Sprintf("%f", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+						}
 					}
 				}
 			}
@@ -358,10 +396,18 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 			for i, val := range array.NewInt8Data(data).Int8Values() {
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
-						(*destcol)[i] = int64(val)
+						if higherPrecision {
+							(*destcol)[i] = int64(val)
+						} else {
+							(*destcol)[i] = fmt.Sprintf("%d", val)
+						}
 					} else {
-						f := intToBigFloat(int64(val), srcColumnMeta.Scale)
-						(*destcol)[i] = f
+						if higherPrecision {
+							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
+							(*destcol)[i] = f
+						} else {
+							(*destcol)[i] = fmt.Sprintf("%f", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+						}
 					}
 				}
 			}
@@ -376,9 +422,13 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 		}
 		return err
 	case realType:
-		for i, float64 := range array.NewFloat64Data(data).Float64Values() {
+		for i, flt64 := range array.NewFloat64Data(data).Float64Values() {
 			if !srcValue.IsNull(i) {
-				(*destcol)[i] = float64
+				if higherPrecision {
+					(*destcol)[i] = flt64
+				} else {
+					(*destcol)[i] = fmt.Sprintf("%f", flt64)
+				}
 			}
 		}
 		return err
@@ -408,17 +458,17 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 		return err
 	case timeType:
 		if srcValue.DataType().ID() == arrow.INT64 {
-			for i, int64 := range array.NewInt64Data(data).Int64Values() {
+			for i, i64 := range array.NewInt64Data(data).Int64Values() {
 				if !srcValue.IsNull(i) {
 					t0 := time.Time{}
-					(*destcol)[i] = t0.Add(time.Duration(int64))
+					(*destcol)[i] = t0.Add(time.Duration(i64))
 				}
 			}
 		} else {
-			for i, int32 := range array.NewInt32Data(data).Int32Values() {
+			for i, i32 := range array.NewInt32Data(data).Int32Values() {
 				if !srcValue.IsNull(i) {
 					t0 := time.Time{}
-					(*destcol)[i] = t0.Add(time.Duration(int64(int32) * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
+					(*destcol)[i] = t0.Add(time.Duration(int64(i32) * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
 				}
 			}
 		}
@@ -488,8 +538,7 @@ func arrowToValue(destcol *[]snowflakeValue, srcColumnMeta execResponseRowType, 
 		return err
 	}
 
-	err = fmt.Errorf("unsupported data type")
-	return err
+	return fmt.Errorf("unsupported data type")
 }
 
 type (
@@ -703,4 +752,13 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		return unSupportedType, nil
 	}
 	return t, arr
+}
+
+func higherPrecisionEnabled(ctx context.Context) bool {
+	v := ctx.Value(enableHigherPrecision)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
 }
