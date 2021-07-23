@@ -67,7 +67,7 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "data")
 	tmpDir = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
 	defer os.RemoveAll(tmpDir)
-	files, err := filepath.Glob(tmpDir + "/file*")
+	files, err := filepath.Glob(filepath.Join(tmpDir, "file*"))
 	if err != nil {
 		t.Error(err)
 	}

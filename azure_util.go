@@ -165,8 +165,11 @@ func (util *snowflakeAzureUtil) uploadFile(
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) nativeDownloadFile() {
-	// TODO SNOW-294151
+func (util *snowflakeAzureUtil) nativeDownloadFile(
+	meta *fileMetadata,
+	fullDstFileName string,
+	maxConcurrency int64) error {
+	return nil
 }
 
 func (util *snowflakeAzureUtil) extractContainerNameAndPath(location string) *azureLocation {

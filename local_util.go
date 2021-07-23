@@ -4,15 +4,19 @@ package gosnowflake
 
 import (
 	"bufio"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 )
 
 type localUtil struct {
 }
 
-func (util *localUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) cloudClient {
+func (util *localUtil) createClient(_ *execResponseStageInfo, _ bool) cloudClient {
 	return nil
 }
 
@@ -61,6 +65,35 @@ func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 	return nil
 }
 
-func (util *localUtil) downloadOneFile() {
-	// TODO SNOW-206124
+func (util *localUtil) downloadOneFile(meta *fileMetadata) error {
+	srcFileName := meta.srcFileName
+	if strings.HasPrefix(meta.srcFileName, fmt.Sprintf("%b", os.PathSeparator)) {
+		srcFileName = srcFileName[1:]
+	}
+	fullSrcFileName := path.Join(expandUser(meta.stageInfo.Location), srcFileName)
+	fullDstFileName := path.Join(expandUser(meta.localLocation), baseName(meta.dstFileName))
+	baseDir, err := getDirectory()
+	if err != nil {
+		return err
+	}
+	if _, err = os.Stat(baseDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(baseDir, os.ModePerm); err != nil {
+			return err
+		}
+	}
+
+	data, err := ioutil.ReadFile(fullSrcFileName)
+	if err != nil {
+		return err
+	}
+	if err = ioutil.WriteFile(fullDstFileName, data, os.ModePerm); err != nil {
+		return err
+	}
+	fi, err := os.Stat(fullDstFileName)
+	if err != nil {
+		return err
+	}
+	meta.dstFileSize = fi.Size()
+	meta.resStatus = downloaded
+	return nil
 }

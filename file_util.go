@@ -86,7 +86,7 @@ type fileMetadata struct {
 
 	srcFileName        string
 	realSrcFileName    string
-	srcFileSize        int
+	srcFileSize        int64
 	srcCompressionType *compressionType
 	uploadSize         int64
 	dstFileSize        int64
@@ -126,7 +126,7 @@ type fileTransferResultType struct {
 	name               string
 	srcFileName        string
 	dstFileName        string
-	srcFileSize        int
+	srcFileSize        int64
 	dstFileSize        int64
 	srcCompressionType *compressionType
 	dstCompressionType *compressionType
@@ -167,4 +167,12 @@ func expandUser(path string) string {
 		path = filepath.Join(dir, path[2:])
 	}
 	return path
+}
+
+func getDirectory() (string, error) {
+	ex, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(ex), nil
 }

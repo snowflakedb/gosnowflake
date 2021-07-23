@@ -8,10 +8,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -19,21 +21,21 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-func TestPutFileWithAWS(t *testing.T) {
+func TestPutGetFileWithAWS(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	testPutWithAWS(t, false)
+	testPutGetWithAWS(t, false)
 }
 
-func TestPutStreamWithAWS(t *testing.T) {
+func TestPutGetStreamWithAWS(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	testPutWithAWS(t, true)
+	testPutGetWithAWS(t, true)
 }
 
-func testPutWithAWS(t *testing.T, isStream bool) {
+func testPutGetWithAWS(t *testing.T, isStream bool) {
 	tmpDir, _ := ioutil.TempDir("", "aws_put")
 	defer os.RemoveAll(tmpDir)
 	fname := filepath.Join(tmpDir, "test_put_get_with_aws.txt.gz")
@@ -83,7 +85,55 @@ func testPutWithAWS(t *testing.T, isStream bool) {
 
 		dbt.mustExec(fmt.Sprintf("copy into @%%%v from %v file_format=("+
 			"type=csv compression='gzip')", tableName, tableName))
-		dbt.mustQueryAssertCount("ls @%"+tableName, 1)
+
+		var s0, s1, s2, s3 string
+		rows := dbt.mustQuery(fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir))
+		defer rows.Close()
+		for rows.Next() {
+			if err := rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+				t.Error(err)
+			}
+			if !strings.HasPrefix(s0, "data_") {
+				t.Error("a file was not downloaded by GET")
+			}
+			if v, err := strconv.Atoi(s1); err != nil || v != 36 {
+				t.Error("did not return the right file size")
+			}
+			if s2 != "DOWNLOADED" {
+				t.Error("did not return DOWNLOADED status")
+			}
+			if s3 != "" {
+				t.Errorf("returned %v", s3)
+			}
+		}
+
+		files, err := filepath.Glob(filepath.Join(tmpDir, "data_*"))
+		if err != nil {
+			t.Error(err)
+		}
+		fileName := files[0]
+		f, _ := os.Open(fileName)
+		gz, err := gzip.NewReader(f)
+		if err != nil {
+			t.Error(err)
+		}
+		var contents string
+		for {
+			c := make([]byte, defaultChunkBufferSize)
+			if n, err := gz.Read(c); err != nil {
+				if err == io.EOF {
+					contents = contents + string(c[:n])
+					break
+				}
+				t.Error(err)
+			} else {
+				contents = contents + string(c[:n])
+			}
+		}
+
+		if contents != originalContents {
+			t.Error("output is different from the original file")
+		}
 	})
 }
 

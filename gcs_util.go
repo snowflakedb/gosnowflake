@@ -30,14 +30,10 @@ type gcsLocation struct {
 }
 
 func (util *snowflakeGcsUtil) createClient(info *execResponseStageInfo, _ bool) cloudClient {
-	securityToken := info.Creds.GcsAccessToken
-	var client cloudClient
-	if securityToken != "" {
-		client = securityToken
-	} else {
-		client = ""
+	if info.Creds.GcsAccessToken != "" {
+		return info.Creds.GcsAccessToken
 	}
-	return client
+	return ""
 }
 
 // cloudUtil implementation
@@ -214,8 +210,11 @@ func (util *snowflakeGcsUtil) uploadFile(dataFile string, meta *fileMetadata, en
 }
 
 // cloudUtil implementation
-func (util *snowflakeGcsUtil) nativeDownloadFile() {
-	// TODO SNOW-294151
+func (util *snowflakeGcsUtil) nativeDownloadFile(
+	meta *fileMetadata,
+	fullDstFileName string,
+	maxConcurrency int64) error {
+	return nil
 }
 
 func (util *snowflakeGcsUtil) extractBucketNameAndPath(location string) *gcsLocation {
