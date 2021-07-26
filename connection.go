@@ -645,6 +645,11 @@ func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath stri
 	return respd, nil
 }
 
+// GetQueryStatus is a public version of checkQueryStatus exposed by
+func (sc *snowflakeConn) GetQueryStatus(ctx context.Context, qid string) error {
+	return sc.checkQueryStatus(ctx, qid)
+}
+
 // checkQueryStatus return error==nil means the query completed successfully and there is complete query result to fetch.
 // when the GS could not return a status (when a query was just submitted GS might not be able to return a status)
 // an ErrQueryStatus will be returned.
