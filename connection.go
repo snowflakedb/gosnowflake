@@ -645,7 +645,7 @@ func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath stri
 	return respd, nil
 }
 
-// GetQueryStatus is a public version of checkQueryStatus exposed by
+// GetQueryStatus is a public version of checkQueryStatus exposed by the SnowflakeConnectionAPI interface
 func (sc *snowflakeConn) GetQueryStatus(ctx context.Context, qid string) error {
 	return sc.checkQueryStatus(ctx, qid)
 }
