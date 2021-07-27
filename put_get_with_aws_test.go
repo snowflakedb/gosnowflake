@@ -62,18 +62,15 @@ func testPutGetWithAWS(t *testing.T, isStream bool) {
 		}()
 
 		sql := "put 'file://%v' @%%%v auto_compress=true parallel=30"
+		var sqlText string
 		if isStream {
-			sqlText := fmt.Sprintf(
-				sql,
-				strings.ReplaceAll(fname, "\\", "\\\\"),
-				tableName)
+			sqlText = fmt.Sprintf(
+				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
 			dbt.mustExecContext(WithFileStream(
 				context.Background(), fileStream), sqlText)
 		} else {
-			sqlText := fmt.Sprintf(
-				sql,
-				strings.ReplaceAll(fname, "\\", "\\\\"),
-				tableName)
+			sqlText = fmt.Sprintf(
+				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
 			dbt.mustExec(sqlText)
 		}
 		// check file is PUT
@@ -83,11 +80,13 @@ func testPutGetWithAWS(t *testing.T, isStream bool) {
 		dbt.mustExec("rm @%" + tableName)
 		dbt.mustQueryAssertCount("ls @%"+tableName, 0)
 
-		dbt.mustExec(fmt.Sprintf("copy into @%%%v from %v file_format=("+
-			"type=csv compression='gzip')", tableName, tableName))
+		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
+			compression='gzip')`, tableName, tableName))
 
 		var s0, s1, s2, s3 string
-		rows := dbt.mustQuery(fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir))
+		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		rows := dbt.mustQuery(sqlText)
 		defer rows.Close()
 		for rows.Next() {
 			if err := rows.Scan(&s0, &s1, &s2, &s3); err != nil {

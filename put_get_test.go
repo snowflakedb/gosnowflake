@@ -187,10 +187,10 @@ func TestLoadS3(t *testing.T) {
 		defer dbt.mustExec("drop table if exists tweets")
 		dbt.mustQueryAssertCount("ls @%tweets", 0)
 
-		rows := dbt.mustQuery(fmt.Sprintf("copy into tweets from "+
-			"s3://sfc-dev1-data/twitter/O1k/tweets/ credentials=("+
-			"AWS_KEY_ID='%v' AWS_SECRET_KEY='%v') file_format=("+
-			"skip_header=1 null_if=('') field_optionally_enclosed_by='\"')",
+		rows := dbt.mustQuery(fmt.Sprintf(`copy into tweets from
+			s3://sfc-dev1-data/twitter/O1k/tweets/ credentials=(AWS_KEY_ID='%v'
+			AWS_SECRET_KEY='%v') file_format=(skip_header=1 null_if=('')
+			field_optionally_enclosed_by='\"')`,
 			data.awsAccessKeyID, data.awsSecretAccessKey))
 		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 string
 		cnt := 0
@@ -221,14 +221,12 @@ func TestPutLocalFile(t *testing.T) {
 		dbt.mustExec("alter session set DISABLE_PUT_AND_GET_ON_EXTERNAL_STAGE=false")
 		dbt.mustExec("use schema " + data.database + ".gotesting_schema")
 		execQuery := fmt.Sprintf(
-			"create or replace table gotest_putget_t1 ("+
-				"c1 STRING, c2 STRING, c3 STRING,c4 STRING, c5 STRING, "+
-				"c6 STRING, c7 STRING, c8 STRING, c9 STRING) "+
-				"stage_file_format = ( field_delimiter = '|' "+
-				"error_on_column_count_mismatch=false) "+
-				"stage_copy_options = (purge=false) "+
-				"stage_location = (url = 's3://%v/%v' credentials = ("+
-				"AWS_KEY_ID='%v' AWS_SECRET_KEY='%v'))",
+			`create or replace table gotest_putget_t1 (c1 STRING, c2 STRING,
+			c3 STRING, c4 STRING, c5 STRING, c6 STRING, c7 STRING, c8 STRING,
+			c9 STRING) stage_file_format = ( field_delimiter = '|'
+			error_on_column_count_mismatch=false) stage_copy_options =
+			(purge=false) stage_location = (url = 's3://%v/%v' credentials =
+			(AWS_KEY_ID='%v' AWS_SECRET_KEY='%v'))"`,
 			data.userBucket,
 			data.stage,
 			data.awsAccessKeyID,
@@ -236,8 +234,8 @@ func TestPutLocalFile(t *testing.T) {
 		dbt.mustExec(execQuery)
 		defer dbt.mustExec("drop table if exists gotest_putget_t1")
 
-		execQuery = fmt.Sprintf("put file://%v/test_data/orders_10*.csv "+
-			"@%%gotest_putget_t1", data.dir)
+		execQuery = fmt.Sprintf(`put file://%v/test_data/orders_10*.csv
+			@%%gotest_putget_t1`, data.dir)
 		dbt.mustExec(execQuery)
 		dbt.mustQueryAssertCount("ls @%gotest_putget_t1", 2)
 
@@ -259,8 +257,8 @@ func TestPutLocalFile(t *testing.T) {
 			}
 		}
 
-		rows = dbt.mustQuery("select STATUS from information_schema" +
-			".load_history where table_name='gotest_putget_t1'")
+		rows = dbt.mustQuery(`select STATUS from information_schema
+			.load_history where table_name='gotest_putget_t1'`)
 		if rows.Next() {
 			rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9)
 			if s1 != "LOADED" {
@@ -288,9 +286,9 @@ func TestPutLoadFromUserStage(t *testing.T) {
 			data.awsAccessKeyID, data.awsSecretAccessKey)
 		dbt.mustExec(execQuery)
 
-		execQuery = "create or replace table gotest_putget_t2 (" +
-			"c1 STRING, c2 STRING, c3 STRING,c4 STRING, c5 STRING, " +
-			"c6 STRING, c7 STRING, c8 STRING, c9 STRING)"
+		execQuery = `create or replace table gotest_putget_t2 (c1 STRING,
+			c2 STRING, c3 STRING,c4 STRING, c5 STRING, c6 STRING, c7 STRING,
+			c8 STRING, c9 STRING)`
 		dbt.mustExec(execQuery)
 		defer dbt.mustExec("drop table if exists gotest_putget_t2")
 		defer dbt.mustExec("drop stage if exists " + data.stage)
@@ -300,9 +298,9 @@ func TestPutLoadFromUserStage(t *testing.T) {
 		dbt.mustExec(execQuery)
 		dbt.mustQueryAssertCount("ls @%gotest_putget_t2", 0)
 
-		rows := dbt.mustQuery(fmt.Sprintf("copy into gotest_putget_t2 from "+
-			"@%v file_format = (field_delimiter = '|' "+
-			"error_on_column_count_mismatch=false) purge=true", data.stage))
+		rows := dbt.mustQuery(fmt.Sprintf(`copy into gotest_putget_t2 from @%v
+			file_format = (field_delimiter = '|' error_on_column_count_mismatch
+			=false) purge=true`, data.stage))
 		var s0, s1, s2, s3, s4, s5 string
 		var s6, s7, s8, s9 interface{}
 		orders100 := fmt.Sprintf("s3://%v/%v/orders_100.csv.gz",
@@ -332,8 +330,13 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	defer f.Close()
 
 	runTests(t, dsn, func(dbt *DBTest) {
+		if _, err := dbt.db.Exec("use role sysadmin"); err != nil {
+			t.Skip("snowflake admin account not accessible")
+		}
 		dbt.mustExec("rm @~/test_put_uncompress_file")
-		dbt.mustExec(fmt.Sprintf("put file://%v @~/test_put_uncompress_file auto_compress=FALSE", testData))
+		sqlText := fmt.Sprintf("put file://%v @~/test_put_uncompress_file auto_compress=FALSE", testData)
+		sqlText = strings.ReplaceAll(sqlText, "\\", "\\\\")
+		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/test_put_uncompress_file")
 		rows := dbt.mustQuery("ls @~/test_put_uncompress_file")
 		var file, s1, s2, s3 string

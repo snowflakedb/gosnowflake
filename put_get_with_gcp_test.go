@@ -55,10 +55,12 @@ func TestPutGetWithGCP(t *testing.T) {
 		dbt.mustExec("rm @%" + tableName)
 		dbt.mustQueryAssertCount("ls @%"+tableName, 0)
 
-		dbt.mustExec(fmt.Sprintf("copy into @%%%v from %v file_format=("+
-			"type=csv compression='gzip')", tableName, tableName))
+		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
+			compression='gzip')`, tableName, tableName))
 
-		rows = dbt.mustQuery(fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir))
+		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		rows = dbt.mustQuery(sqlText)
 		defer rows.Close()
 		for rows.Next() {
 			if err := rows.Scan(&s0, &s1, &s2, &s3); err != nil {

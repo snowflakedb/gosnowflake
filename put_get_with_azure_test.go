@@ -57,11 +57,12 @@ func testPutGetWithAzure(t *testing.T, isStream bool) {
 
 		var rows *RowsExtended
 		sql := "put 'file://%v' @%%%v auto_compress=true parallel=30"
+		var sqlText string
 		if isStream {
-			sqlText := fmt.Sprintf(sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
+			sqlText = fmt.Sprintf(sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
 			rows = dbt.mustQueryContext(WithFileStream(context.Background(), fileStream), sqlText)
 		} else {
-			sqlText := fmt.Sprintf(sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
+			sqlText = fmt.Sprintf(sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
 			rows = dbt.mustQuery(sqlText)
 		}
 
@@ -79,10 +80,12 @@ func testPutGetWithAzure(t *testing.T, isStream bool) {
 		dbt.mustExec("rm @%" + tableName)
 		dbt.mustQueryAssertCount("ls @%"+tableName, 0)
 
-		dbt.mustExec(fmt.Sprintf("copy into @%%%v from %v file_format=("+
-			"type=csv compression='gzip')", tableName, tableName))
+		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
+			compression='gzip')`, tableName, tableName))
 
-		rows = dbt.mustQuery(fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir))
+		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		rows = dbt.mustQuery(sqlText)
 		defer rows.Close()
 		for rows.Next() {
 			if err := rows.Scan(&s0, &s1, &s2, &s3); err != nil {
