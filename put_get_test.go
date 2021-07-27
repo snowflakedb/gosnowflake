@@ -323,9 +323,9 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	os.MkdirAll("data", os.ModePerm)
-	testData := filepath.Join("data", "data.txt")
-	defer os.RemoveAll("data")
+	tmpDir, _ := ioutil.TempDir("", "aws_put")
+	defer os.RemoveAll(tmpDir)
+	testData := filepath.Join(tmpDir, "data.txt")
 	f, _ := os.OpenFile(testData, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	f.WriteString("test1,test2\ntest3,test4")
 	f.Sync()
