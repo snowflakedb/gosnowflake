@@ -14,8 +14,8 @@ import (
 
 const (
 	bindStageName   = "SYSTEM$BIND"
-	createStageStmt = "CREATE TEMPORARY STAGE " + bindStageName + " file_format=" +
-		"(type=csv field_optionally_enclosed_by='\"')"
+	createStageStmt = "CREATE OR REPLACE TEMPORARY STAGE " + bindStageName +
+		" file_format=" + "(type=csv field_optionally_enclosed_by='\"')"
 
 	// size (in bytes) of max input stream (10MB default) as per JDBC specs
 	inputStreamBufferSize = 1024 * 1024 * 10
@@ -31,9 +31,7 @@ type bindUploader struct {
 
 func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, error) {
 	bindingRows, _ := bu.buildRowsAsBytes(bindings)
-	startIdx := 0
-	numBytes := 0
-	rowNum := 0
+	startIdx, numBytes, rowNum := 0, 0, 0
 	bu.fileCount = 0
 	var data *execResponse
 	var err error
@@ -50,7 +48,7 @@ func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, err
 		}
 
 		bu.fileCount++
-		data, err = bu.uploadStreamInternal(&b, true)
+		data, err = bu.uploadStreamInternal(&b, bu.fileCount, true)
 		if err != nil {
 			return nil, err
 		}
@@ -60,9 +58,8 @@ func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, err
 	return data, nil
 }
 
-func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, compressData bool) (*execResponse, error) {
-	err := bu.createStageIfNeeded()
-	if err != nil {
+func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, dstFileName int, compressData bool) (*execResponse, error) {
+	if err := bu.createStageIfNeeded(); err != nil {
 		return nil, err
 	}
 	stageName := bu.stagePath
@@ -74,7 +71,7 @@ func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, compress
 	}
 
 	// use a placeholder for source file
-	putCommand := fmt.Sprintf("put 'file:///tmp/placeholder' '%v' overwrite=true", stageName)
+	putCommand := fmt.Sprintf("put 'file:///tmp/placeholder/%v' '%v' overwrite=true", dstFileName, stageName)
 	// for Windows queries
 	putCommand = strings.ReplaceAll(putCommand, "\\", "\\\\")
 	// prepare context for PUT command
@@ -89,6 +86,11 @@ func (bu *bindUploader) createStageIfNeeded() error {
 		return nil
 	}
 	data, err := bu.sc.exec(bu.ctx, createStageStmt, false, false, false, []driver.NamedValue{})
+	if err != nil {
+		newThreshold := "0"
+		bu.sc.cfg.Params[sessionArrayBindStageThreshold] = &newThreshold
+		return err
+	}
 	if !data.Success {
 		code, err := strconv.Atoi(data.Code)
 		if err != nil {
@@ -100,14 +102,7 @@ func (bu *bindUploader) createStageIfNeeded() error {
 			Message:  err.Error(),
 			QueryID:  data.Data.QueryID}
 	}
-	if err != nil {
-		return err
-	}
 	bu.arrayBindStage = bindStageName
-	if err != nil {
-		newThreshold := "0"
-		bu.sc.cfg.Params[sessionArrayBindStageThreshold] = &newThreshold
-	}
 	return nil
 }
 

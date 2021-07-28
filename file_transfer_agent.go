@@ -1015,7 +1015,7 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 				{Name: "message", ByteLength: 10000, Length: 10000, Type: "TEXT", Scale: 0, Nullable: false},
 			}
 			data.RowType = rt
-			return &execResponse{Data: *data}, nil
+			return &execResponse{Data: *data, Success: true}, nil
 		}
 	} else { // DOWNLOAD
 		if len(sfa.results) > 0 {
@@ -1063,7 +1063,7 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 				{Name: "message", ByteLength: 10000, Length: 10000, Type: "TEXT", Scale: 0, Nullable: false},
 			}
 			data.RowType = rt
-			return &execResponse{Data: *data}, nil
+			return &execResponse{Data: *data, Success: true}, nil
 		}
 	}
 	return nil, &SnowflakeError{
