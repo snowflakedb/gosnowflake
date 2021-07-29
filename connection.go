@@ -647,6 +647,7 @@ func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath stri
 
 // QueryStatus is a public struct that returns metadata about the query execution
 type QueryStatus struct {
+	SQLText      string
 	StartTime    int64
 	EndTime      int64
 	ScanBytes    int64
@@ -657,6 +658,7 @@ type QueryStatus struct {
 func (sc *snowflakeConn) GetQueryStatus(ctx context.Context, qid string) (*QueryStatus, error) {
 	queryRet, err := sc.checkQueryStatus(ctx, qid)
 	return &QueryStatus{
+		SQLText:      queryRet.SQLText,
 		StartTime:    queryRet.StartTime,
 		EndTime:      queryRet.EndTime,
 		ScanBytes:    queryRet.Stats.ScanBytes,
