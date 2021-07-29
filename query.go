@@ -172,7 +172,7 @@ var sfqueryStatusError = map[QueryStatusFromServer]struct{}{
 type retStatus struct {
 	Status       string `json:"status"`
 	ErrorMessage string `json:"errorMessage"`
-	ErrorCode    int    `json:"errorCode"`
+	ErrorCode    int    `json:"errorCode,string"`
 }
 
 type statusResponse struct {
