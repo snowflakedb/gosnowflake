@@ -466,6 +466,26 @@ func TestArrowToValue(t *testing.T) {
 			},
 		},
 		{
+			logical: "timestamp_ntz",
+			values:  []time.Time{time.Now(), localTime},
+			rowType: execResponseRowType{Scale: 3},
+			builder: array.NewInt64Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, t := range vs.([]time.Time) {
+					b.(*array.Int64Builder).Append(t.UnixNano() / 1000000)
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]time.Time)
+				for i := range srcvs {
+					if srcvs[i].UnixNano()/1000000 != dst[i].(time.Time).UnixNano()/1000000 {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
 			logical: "timestamp_ltz",
 			values:  []time.Time{time.Now(), localTime},
 			rowType: execResponseRowType{Scale: 9},
@@ -479,6 +499,26 @@ func TestArrowToValue(t *testing.T) {
 				srcvs := src.([]time.Time)
 				for i := range srcvs {
 					if srcvs[i].UnixNano() != dst[i].(time.Time).UnixNano() {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical: "timestamp_ltz",
+			values:  []time.Time{time.Now(), localTime},
+			rowType: execResponseRowType{Scale: 3},
+			builder: array.NewInt64Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, t := range vs.([]time.Time) {
+					b.(*array.Int64Builder).Append(t.UnixNano() / 1000000)
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]time.Time)
+				for i := range srcvs {
+					if srcvs[i].UnixNano()/1000000 != dst[i].(time.Time).UnixNano()/1000000 {
 						return i
 					}
 				}
