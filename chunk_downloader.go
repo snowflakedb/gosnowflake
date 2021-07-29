@@ -98,7 +98,8 @@ func (scd *snowflakeChunkDownloader) start() error {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
 		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
-		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType)
+		higherPrecision := higherPrecisionEnabled(scd.ctx)
+		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType, higherPrecision)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
@@ -214,10 +215,10 @@ func (scd *snowflakeChunkDownloader) getChunkMetas() []execResponseChunk {
 }
 
 func (scd *snowflakeChunkDownloader) getQueryResultFormat() resultFormat {
-	if scd.QueryResultFormat == "arrow" {
-		return arrowFormat
+	if scd.QueryResultFormat == "json" {
+		return jsonFormat
 	}
-	return jsonFormat
+	return arrowFormat
 }
 
 func (scd *snowflakeChunkDownloader) setNextChunkDownloader(nextDownloader chunkDownloader) {
@@ -381,7 +382,8 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			int(scd.totalUncompressedSize()),
 			memory.NewGoAllocator(),
 		}
-		respd, err = arc.decodeArrowChunk(scd.RowSet.RowType)
+		highPrec := higherPrecisionEnabled(scd.ctx)
+		respd, err = arc.decodeArrowChunk(scd.RowSet.RowType, highPrec)
 		if err != nil {
 			return err
 		}

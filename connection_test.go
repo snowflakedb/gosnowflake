@@ -19,8 +19,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const serviceNameStub = "SV"
-const serviceNameAppend = "a"
+const (
+	serviceNameStub   = "SV"
+	serviceNameAppend = "a"
+)
 
 // postQueryMock would generate a response based on the X-Snowflake-Service header, to generate a response
 // with the SERVICE_NAME field appending a character at the end of the header
@@ -68,8 +70,7 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	_, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
-	if err != nil {
+	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 }
@@ -106,8 +107,7 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	_, err := sc.getQueryResultResp(context.Background(), "")
-	if err != nil {
+	if _, err := sc.getQueryResultResp(context.Background(), ""); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 }
@@ -137,8 +137,7 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	_, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
-	if err != nil {
+	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 }
@@ -190,8 +189,8 @@ func TestCloseIgnoreSessionGone(t *testing.T) {
 		FuncCloseSession: closeSessionMock,
 	}
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:       &Config{Params: map[string]*string{}},
+		rest:      sr,
 		telemetry: testTelemetry,
 	}
 
@@ -205,8 +204,8 @@ func TestClientSessionPersist(t *testing.T) {
 		FuncCloseSession: closeSessionMock,
 	}
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:       &Config{Params: map[string]*string{}},
+		rest:      sr,
 		telemetry: testTelemetry,
 	}
 	sc.cfg.KeepSessionAlive = true
@@ -270,14 +269,13 @@ func fetchResultByQueryID(t *testing.T, customget FuncGetType, expectedFetchErr 
 	if err != nil {
 		return err
 	}
-	err = authenticateWithConfig(sc)
-	if err != nil {
+	if err = authenticateWithConfig(sc); err != nil {
 		return err
 	}
 
-	_, err = sc.Exec("create or replace table ut_conn(c1 number, c2 string)"+
-		" as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 from table(generator(rowcount => 100)))", nil)
-	if err != nil {
+	if _, err = sc.Exec(`create or replace table ut_conn(c1 number, c2 string)
+		as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 from
+		table(generator(rowcount => 100)))`, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
@@ -302,8 +300,7 @@ func fetchResultByQueryID(t *testing.T, customget FuncGetType, expectedFetchErr 
 	dest := make([]driver.Value, 2)
 	cnt := 0
 	for {
-		err = rows2.Next(dest)
-		if err != nil {
+		if err = rows2.Next(dest); err != nil {
 			if err == io.EOF {
 				break
 			} else {

@@ -9,8 +9,7 @@ import (
 )
 
 // SnowflakeDriver is a context of Go Driver
-type SnowflakeDriver struct {
-}
+type SnowflakeDriver struct{}
 
 // Open creates a new connection.
 func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {

@@ -43,12 +43,12 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 		FuncDownload:       nil,
 		FuncDownloadHelper: nil,
 		RowSet:             rowSetType{RowType: rt, JSON: cc},
+		QueryResultFormat:  "json",
 	}
 	rows.ChunkDownloader.start()
 	dest := make([]driver.Value, 2)
 	for i = 0; i < len(cc); i++ {
-		err := rows.Next(dest)
-		if err != nil {
+		if err := rows.Next(dest); err != nil {
 			t.Fatalf("failed to get value. err: %v", err)
 		}
 		if dest[0] != sts1 {
@@ -58,8 +58,7 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 			t.Fatalf("failed to get value. expected: %v, got: %v", sts2, dest[1])
 		}
 	}
-	err := rows.Next(dest)
-	if err != io.EOF {
+	if err := rows.Next(dest); err != io.EOF {
 		t.Fatalf("failed to finish getting data. err: %v", err)
 	}
 	logger.Infof("dest: %v", dest)

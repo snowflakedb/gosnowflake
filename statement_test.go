@@ -27,7 +27,7 @@ func TestGetQueryID(t *testing.T) {
 	ctx := context.TODO()
 	conn, _ := db.Conn(ctx)
 
-	err := conn.Raw(func(x interface{}) error {
+	if err := conn.Raw(func(x interface{}) error {
 		rows, err := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
 		if err != nil {
 			return err
@@ -49,16 +49,12 @@ func TestGetQueryID(t *testing.T) {
 			t.Fatal("should have been able to cast to Snowflake Error")
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf("failed to prepare statement. err: %v", err)
 	}
 }
 
 func TestEmitQueryID(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
-
 	queryIDChan := make(chan string, 1)
 	numrows := 100000
 	ctx := WithAsyncMode(context.Background())
@@ -73,17 +69,18 @@ func TestEmitQueryID(t *testing.T) {
 	cnt := 0
 	var idx int
 	var v string
-	rows, _ := db.QueryContext(ctx, fmt.Sprintf("SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows))
-	defer rows.Close()
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
+		defer rows.Close()
 
-	for rows.Next() {
-		err := rows.Scan(&idx, &v)
-		if err != nil {
-			t.Fatal(err)
+		for rows.Next() {
+			if err := rows.Scan(&idx, &v); err != nil {
+				t.Fatal(err)
+			}
+			cnt++
 		}
-		cnt++
-	}
-	logger.Infof("NextResultSet: %v", rows.NextResultSet())
+		logger.Infof("NextResultSet: %v", rows.NextResultSet())
+	})
 
 	queryID := <-goRoutineChan
 	if queryID == "" {
@@ -99,14 +96,14 @@ func TestE2EFetchResultByID(t *testing.T) {
 	db := openDB(t)
 	defer db.Close()
 
-	if _, err := db.Exec("create or replace table test_fetch_result(" +
-		"c1 number, c2 string) as select 10, 'z'"); err != nil {
+	if _, err := db.Exec(`create or replace table test_fetch_result(c1 number,
+		c2 string) as select 10, 'z'`); err != nil {
 		t.Fatalf("failed to create table: %v", err)
 	}
 
 	ctx := context.Background()
 	conn, _ := db.Conn(ctx)
-	err := conn.Raw(func(x interface{}) error {
+	if err := conn.Raw(func(x interface{}) error {
 		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "select * from test_fetch_result")
 		if err != nil {
 			return err
@@ -132,13 +129,11 @@ func TestE2EFetchResultByID(t *testing.T) {
 			t.Fatalf("Query result is not expected: %v", err)
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf("failed to drop table: %v", err)
 	}
 
-	_, err = db.Exec("drop table if exists test_fetch_result")
-	if err != nil {
+	if _, err := db.Exec("drop table if exists test_fetch_result"); err != nil {
 		t.Fatalf("failed to drop table: %v", err)
 	}
 }
@@ -146,9 +141,7 @@ func TestE2EFetchResultByID(t *testing.T) {
 func TestWithDescribeOnly(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		ctx := WithDescribeOnly(context.Background())
-		rows := dbt.mustQueryContext(
-			ctx,
-			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		rows := dbt.mustQueryContext(ctx, selectVariousTypes)
 		cols, err := rows.Columns()
 		if err != nil {
 			t.Error(err)

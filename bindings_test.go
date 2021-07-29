@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -15,14 +16,9 @@ const (
 	createTableSQL = `create or replace table test_prep_statement(c1 INTEGER,
 		c2 FLOAT, c3 BOOLEAN, c4 STRING, C5 BINARY, C6 TIMESTAMP_NTZ,
 		C7 TIMESTAMP_LTZ, C8 TIMESTAMP_TZ, C9 DATE, C10 TIME)`
-	deleteTableSQL   = "drop table if exists TEST_PREP_STATEMENT"
-	insertSQL        = "insert into TEST_PREP_STATEMENT values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-	selectAllSQL     = "select * from TEST_PREP_STATEMENT ORDER BY 1"
-	updateSQL        = "update TEST_PREP_STATEMENT set C4 = 'newString' where C1 = ?"
-	deleteSQL        = "delete from TEST_PREP_STATEMENT where C1 = ?"
-	selectSQL        = "select * from TEST_PREP_STATEMENT where C1 = ?"
-	enableCacheReuse = "alter session set USE_CACHED_RESULT=true"
-	tableFuncSQL     = "select 1 from table(generator(rowCount => ?))"
+	deleteTableSQL = "drop table if exists TEST_PREP_STATEMENT"
+	insertSQL      = "insert into TEST_PREP_STATEMENT values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	selectAllSQL   = "select * from TEST_PREP_STATEMENT ORDER BY 1"
 )
 
 func TestBindingFloat64(t *testing.T) {
@@ -32,6 +28,7 @@ func TestBindingFloat64(t *testing.T) {
 		var out float64
 		var rows *RowsExtended
 		for _, v := range types {
+			dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
 			dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
 			rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
@@ -56,9 +53,9 @@ func TestBindingUint64(t *testing.T) {
 		types := []string{"INTEGER"}
 		expected := uint64(18446744073709551615)
 		for _, v := range types {
+			dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
-			_, err := dbt.db.Exec("INSERT INTO test VALUES (1, ?)", expected)
-			if err == nil {
+			if _, err := dbt.db.Exec("INSERT INTO test VALUES (1, ?)", expected); err == nil {
 				dbt.Fatal("should fail as uint64 values with high bit set are not supported.")
 			} else {
 				logger.Infof("expected err: %v", err)
@@ -71,6 +68,7 @@ func TestBindingUint64(t *testing.T) {
 func TestBindingDateTimeTimestamp(t *testing.T) {
 	createDSN(PSTLocation)
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		expected := time.Now()
 		dbt.mustExec(
 			"CREATE OR REPLACE TABLE tztest (id int, ntz timestamp_ntz, ltz timestamp_ltz, dt date, tm time)")
@@ -141,6 +139,7 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 
 func TestBindingBinary(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec("CREATE OR REPLACE TABLE bintest (id int, b binary)")
 		var b = []byte{0x01, 0x02, 0x03}
 		dbt.mustExec("INSERT INTO bintest(id,b) VALUES(1, ?)", DataTypeBinary, b)
@@ -163,6 +162,7 @@ func TestBindingBinary(t *testing.T) {
 
 func TestBindingTimestampTZ(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		expected := time.Now()
 		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, tz timestamp_tz)")
 		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,tz) VALUES(1, ?)")
@@ -191,72 +191,63 @@ func TestBindingTimestampTZ(t *testing.T) {
 
 func TestBindingInterface(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		var err error
-		rows := dbt.mustQuery(
-			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		rows := dbt.mustQueryContext(
+			WithHigherPrecision(context.Background()), selectVariousTypes)
 		defer rows.Close()
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
-		if err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
+		if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
-		var s string
-		var ok bool
-		s, ok = v1.(string)
-		if !ok || s != "1.00" {
+		if s1, ok := v1.(*big.Float); !ok || s1.Cmp(big.NewFloat(1.0)) != 0 {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v1)
 		}
-		s, ok = v2.(string)
-		if !ok || s != "2" {
+		if s2, ok := v2.(int64); !ok || s2 != 2 {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
 		}
-		s, ok = v3.(string)
-		if !ok || s != "t3" {
+		if s3, ok := v3.(string); !ok || s3 != "t3" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
 		}
-		s, ok = v4.(string)
-		if !ok || s != "4.2" {
+		if s4, ok := v4.(float64); !ok || s4 != 4.2 {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v4)
 		}
 	})
 }
 
-func TestBindingArrowInterface(t *testing.T) {
+func TestBindingInterfaceString(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(forceArrow)
-		var err error
-		rows := dbt.mustQuery(
-			"SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6")
+		rows := dbt.mustQuery(selectVariousTypes)
 		defer rows.Close()
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
 		var v1, v2, v3, v4, v5, v6 interface{}
-		if err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
+		if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
-		var s1 *big.Float
-		var s2 int64
-		var s3 string
-		var s4 float64
-		var ok bool
-		s1, ok = v1.(*big.Float)
-		if !ok || s1.Cmp(big.NewFloat(1.0)) != 0 {
-			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v1)
+		if s, ok := v1.(string); !ok {
+			dbt.Error("failed to convert to string")
+		} else if d, err := strconv.ParseFloat(s, 64); err != nil {
+			dbt.Errorf("failed to convert to float. value: %v, err: %v", v1, err)
+		} else if d != 1.00 {
+			dbt.Errorf("failed to fetch. expected: 1.00, value: %v", v1)
 		}
-		s2, ok = v2.(int64)
-		if !ok || s2 != 2 {
+		if s, ok := v2.(string); !ok || s != "2" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
 		}
-		s3, ok = v3.(string)
-		if !ok || s3 != "t3" {
+		if s, ok := v3.(string); !ok || s != "t3" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
 		}
-		s4, ok = v4.(float64)
-		if !ok || s4 != 4.2 {
+		if s, ok := v4.(string); !ok {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v4)
+		} else if d, err := strconv.ParseFloat(s, 64); err != nil {
+			dbt.Errorf("failed to convert to float. value: %v, err: %v", v1, err)
+		} else if d != 4.2 {
+			dbt.Errorf("failed to fetch. expected: 4.2, value: %v", v1)
 		}
 	})
 }
@@ -294,6 +285,7 @@ func testBindingArray(t *testing.T, bulk bool) {
 	tmArray := []time.Time{now.Add(12), now.Add(13), now.Add(14)}
 
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec(createTableSQL)
 		defer dbt.mustExec(deleteTableSQL)
 		if bulk {
@@ -365,6 +357,7 @@ func TestBulkArrayBinding(t *testing.T) {
 		t.Skip("skipping non aws environment; safeguard to be removed after azure/gcs put support")
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string)", dbname))
 		numRows := 100000
 		intArr := make([]int, numRows)
@@ -385,8 +378,7 @@ func TestBulkArrayBinding(t *testing.T) {
 			if i != cnt {
 				t.Errorf("expected: %v, got: %v", cnt, i)
 			}
-			exp := "test" + strconv.Itoa(cnt)
-			if s != exp {
+			if exp := "test" + strconv.Itoa(cnt); s != exp {
 				t.Errorf("expected: %v, got: %v", exp, s)
 			}
 			cnt++
