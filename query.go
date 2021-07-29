@@ -173,6 +173,7 @@ type retStatus struct {
 	Status       string   `json:"status"`
 	ErrorMessage string   `json:"errorMessage"`
 	ErrorCode    int      `json:"errorCode,string"`
+	SQLText      string   `json:"sqlText"`
 	StartTime    int64    `json:"startTime"`
 	EndTime      int64    `json:"endTime"`
 	Stats        retStats `json:"stats"`
