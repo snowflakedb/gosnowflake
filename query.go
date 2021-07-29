@@ -170,9 +170,17 @@ var sfqueryStatusError = map[QueryStatusFromServer]struct{}{
 	SFQueryFailedWithIncident: dummy, SFQueryDisconnected: dummy, SFQueryBlocked: dummy}
 
 type retStatus struct {
-	Status       string `json:"status"`
-	ErrorMessage string `json:"errorMessage"`
-	ErrorCode    int    `json:"errorCode,string"`
+	Status       string   `json:"status"`
+	ErrorMessage string   `json:"errorMessage"`
+	ErrorCode    int      `json:"errorCode,string"`
+	StartTime    int64    `json:"startTime"`
+	EndTime      int64    `json:"endTime"`
+	Stats        retStats `json:"stats"`
+}
+
+type retStats struct {
+	ScanBytes    int64 `json:"scanBytes"`
+	ProducedRows int64 `json:"producedRows"`
 }
 
 type statusResponse struct {

@@ -354,7 +354,7 @@ func (sc *snowflakeConn) QueryContext(ctx context.Context, query string, args []
 	}
 
 	// first we will check the status of this particular query to find out if there is result to fetch
-	err = sc.checkQueryStatus(ctx, qid)
+	_, err = sc.checkQueryStatus(ctx, qid)
 	if err == nil || (err != nil && err.(*SnowflakeError).Number == ErrQueryIsRunning) {
 		// the query is running. Rows object will be returned from here.
 		return sc.buildRowsForRunningQuery(ctx, qid)
@@ -645,9 +645,23 @@ func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath stri
 	return respd, nil
 }
 
+// QueryStatus is a public struct that returns metadata about the query execution
+type QueryStatus struct {
+	StartTime    int64
+	EndTime      int64
+	ScanBytes    int64
+	ProducedRows int64
+}
+
 // GetQueryStatus is a public version of checkQueryStatus exposed by the SnowflakeConnectionAPI interface
-func (sc *snowflakeConn) GetQueryStatus(ctx context.Context, qid string) error {
-	return sc.checkQueryStatus(ctx, qid)
+func (sc *snowflakeConn) GetQueryStatus(ctx context.Context, qid string) (*QueryStatus, error) {
+	queryRet, err := sc.checkQueryStatus(ctx, qid)
+	return &QueryStatus{
+		StartTime:    queryRet.StartTime,
+		EndTime:      queryRet.EndTime,
+		ScanBytes:    queryRet.Stats.ScanBytes,
+		ProducedRows: queryRet.Stats.ProducedRows,
+	}, err
 }
 
 // checkQueryStatus return error==nil means the query completed successfully and there is complete query result to fetch.
@@ -660,7 +674,8 @@ func (sc *snowflakeConn) GetQueryStatus(ctx context.Context, qid string) error {
 // an error status included in query.sfqueryStatusError
 // 3, ErrQueryIsRunning, if the requested query is still running and might have complete result later, these statuses
 // were listed in query.sfqueryStatusRunning
-func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error {
+// A struct is returned with metadata about the query execution.
+func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) (queryRet retStatus, err error) {
 	headers := make(map[string]string)
 	param := make(url.Values)
 	param.Add(requestGUIDKey, uuid.New().String())
@@ -673,26 +688,27 @@ func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error
 	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-		return err
+		return queryRet, err
 	}
 	var statusResp = statusResponse{}
 
 	err = json.NewDecoder(res.Body).Decode(&statusResp)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return err
+		return queryRet, err
 	}
 
 	if !statusResp.Success || len(statusResp.Data.Queries) == 0 {
 		logger.WithContext(ctx).Errorf("status query returned not-success or no status returned.")
-		return &SnowflakeError{
+		return queryRet, &SnowflakeError{
 			Number:  ErrQueryStatus,
 			Message: "status query returned not-success or no status returned. Please retry"}
 	}
 
-	var queryRet = statusResp.Data.Queries[0]
+	queryRet = statusResp.Data.Queries[0]
+
 	if queryRet.ErrorCode != 0 {
-		return &SnowflakeError{
+		return queryRet, &SnowflakeError{
 			Number: ErrQueryStatus,
 			Message: fmt.Sprintf("server ErrorCode=%d, ErrorMessage=%s",
 				queryRet.ErrorCode, queryRet.ErrorMessage),
@@ -704,7 +720,7 @@ func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error
 	// returned errorCode is 0. Now check what is the returned status of the query.
 	var qstatus = strToSFQueryStatus(queryRet.Status)
 	if sfqStatusIsAnError(qstatus) {
-		return &SnowflakeError{
+		return queryRet, &SnowflakeError{
 			Number: ErrQueryReportedError,
 			Message: fmt.Sprintf("%s: status from server: [%s]",
 				queryRet.ErrorMessage, queryRet.Status),
@@ -714,7 +730,7 @@ func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error
 	}
 
 	if sfqStatusIsStillRunning(qstatus) {
-		return &SnowflakeError{
+		return queryRet, &SnowflakeError{
 			Number: ErrQueryIsRunning,
 			Message: fmt.Sprintf("%s: status from server: [%s]",
 				queryRet.ErrorMessage, queryRet.Status),
@@ -724,7 +740,7 @@ func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error
 	}
 
 	//success
-	return nil
+	return queryRet, nil
 }
 
 // Fetch query result for a query id from /queries/<qid>/result endpoint.
