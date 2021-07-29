@@ -533,7 +533,7 @@ func TestArrowToValue(t *testing.T) {
 			meta := tc.rowType
 			meta.Type = tc.logical
 
-			err := arrowToValue(&dest, meta, arr)
+			err := arrowToValue(&dest, meta, arr, true)
 			if err != nil {
 				t.Fatalf("error: %s", err)
 			}
