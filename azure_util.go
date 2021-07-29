@@ -178,7 +178,11 @@ func (util *snowflakeAzureUtil) nativeDownloadFile(
 		}
 	}
 
-	f, _ := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 	blobURL := azContainerURL.NewBlockBlobURL(path)
 	if err := azblob.DownloadBlobToFile(context.Background(), blobURL.BlobURL, 0, azblob.CountToEnd, f, azblob.DownloadFromBlobOptions{
 		Parallelism: uint16(maxConcurrency),

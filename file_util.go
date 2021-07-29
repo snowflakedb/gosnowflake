@@ -2,8 +2,6 @@
 
 package gosnowflake
 
-//lint:file-ignore U1000 SNOW-294151
-
 import (
 	"bytes"
 	"compress/gzip"
@@ -104,7 +102,6 @@ type fileMetadata struct {
 	noSleepingTime     bool
 	lastMaxConcurrency int
 	localLocation      string
-	localDigest        string
 	options            *SnowflakeFileTransferOptions
 
 	/* streaming PUT */
@@ -147,6 +144,7 @@ func getReaderFromBuffer(src **bytes.Buffer) io.Reader {
 	return tee
 }
 
+// baseName returns the pathname of the path provided
 func baseName(path string) string {
 	base := filepath.Base(path)
 	if base == "." || base == "/" {
@@ -158,6 +156,7 @@ func baseName(path string) string {
 	return base
 }
 
+// expandUser returns the argument with an initial component of ~
 func expandUser(path string) string {
 	usr, _ := usr.Current()
 	dir := usr.HomeDir
@@ -169,6 +168,7 @@ func expandUser(path string) string {
 	return path
 }
 
+// getDirectory retrieves the current working directory
 func getDirectory() (string, error) {
 	ex, err := os.Executable()
 	if err != nil {

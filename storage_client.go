@@ -5,7 +5,6 @@ package gosnowflake
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"path"
@@ -188,7 +187,9 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 	var lastErr error
 	maxRetry := defaultMaxRetry
 	for retry := 0; retry < maxRetry; retry++ {
-		utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency)
+		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency); err != nil {
+			return err
+		}
 		if meta.resStatus == downloaded {
 			if meta.encryptionMaterial != nil {
 				if meta.presignedURL != nil {
@@ -199,9 +200,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 				if err != nil {
 					return err
 				}
-				src, _ := os.Open(tmpDstFileName)
-				dst, _ := os.Create(fullDstFileName)
-				if _, err = io.Copy(dst, src); err != nil {
+				if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
 					return err
 				}
 			}

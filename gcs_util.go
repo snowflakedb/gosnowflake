@@ -254,6 +254,7 @@ func (util *snowflakeGcsUtil) nativeDownloadFile(
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	if _, err = io.Copy(f, resp.Body); err != nil {
 		return err
 	}

@@ -205,6 +205,7 @@ func (util *snowflakeS3Util) nativeDownloadFile(
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	downloader := manager.NewDownloader(client, func(u *manager.Downloader) {
 		u.Concurrency = int(maxConcurrency)
 	})

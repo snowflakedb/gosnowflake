@@ -647,11 +647,13 @@ func (sfa *snowflakeFileTransferAgent) download(
 	}
 
 	if len(smallFileMetadata) > 0 {
+		logger.WithContext(sfa.sc.ctx).Infof("downloading %v small files", len(smallFileMetadata))
 		if err := sfa.downloadFilesParallel(smallFileMetadata); err != nil {
 			return err
 		}
 	}
 	if len(largeFileMetadata) > 0 {
+		logger.WithContext(sfa.sc.ctx).Infof("downloading %v large files", len(largeFileMetadata))
 		if err := sfa.downloadFilesSequential(largeFileMetadata); err != nil {
 			return err
 		}
@@ -824,12 +826,16 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 			if len(retryMeta) == 0 {
 				break
 			}
+			logger.WithContext(sfa.sc.ctx).Infof("%v retries found", len(retryMeta))
 
 			needRenewToken := false
 			for _, result := range retryMeta {
 				if result.resStatus == renewToken {
 					needRenewToken = true
 				}
+				logger.WithContext(sfa.sc.ctx).Infof(
+					"retying download file %v with status %v",
+					result.name, result.resStatus)
 			}
 
 			if needRenewToken {
@@ -900,7 +906,7 @@ func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fil
 			meta.resStatus = errStatus
 		}
 		meta.errorDetails = fmt.Errorf(err.Error() + ", file=" + meta.dstFileName)
-		return nil, err
+		return meta, err
 	}
 	return meta, nil
 }

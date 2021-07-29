@@ -3,12 +3,16 @@
 package gosnowflake
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	usr "os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -134,79 +138,6 @@ func createTestData(dbt *DBTest) (*tcPutGetData, error) {
 	return &ret, nil
 }
 
-func TestLoadS3(t *testing.T) {
-	if runningOnGithubAction() && !runningOnAWS() {
-		t.Skip("skipping non aws environment")
-	}
-	runTests(t, dsn, func(dbt *DBTest) {
-		data, err := createTestData(dbt)
-		if err != nil {
-			t.Skip("snowflake admin account not accessible")
-		}
-		defer cleanupPut(dbt, data)
-		dbt.mustExec("use warehouse " + data.warehouse)
-		dbt.mustExec("use schema " + data.database + ".gotesting_schema")
-		execQuery := "create or replace table tweets(created_at timestamp, " +
-			"id number, id_str string, text string, source string, " +
-			"in_reply_to_status_id number, " +
-			"in_reply_to_status_id_str string, in_reply_to_user_id number, " +
-			"in_reply_to_user_id_str string, " +
-			"in_reply_to_screen_name string, user__id number, " +
-			"user__id_str string, user__name string, " +
-			"user__screen_name string, user__location string, " +
-			"user__description string, user__url string, " +
-			"user__entities__description__urls string, " +
-			"user__protected string, user__followers_count number, " +
-			"user__friends_count number, user__listed_count number, " +
-			"user__created_at timestamp, user__favourites_count number, " +
-			"user__utc_offset number, user__time_zone string, " +
-			"user__geo_enabled string, user__verified string, " +
-			"user__statuses_count number, user__lang string, " +
-			"user__contributors_enabled string, user__is_translator string, " +
-			"user__profile_background_color string, " +
-			"user__profile_background_image_url string, " +
-			"user__profile_background_image_url_https string, " +
-			"user__profile_background_tile string, " +
-			"user__profile_image_url string, " +
-			"user__profile_image_url_https string, " +
-			"user__profile_link_color string, " +
-			"user__profile_sidebar_border_color string, " +
-			"user__profile_sidebar_fill_color string, " +
-			"user__profile_text_color string, " +
-			"user__profile_use_background_image string, " +
-			"user__default_profile string, " +
-			"user__default_profile_image string, user__following string, " +
-			"user__follow_request_sent string, user__notifications string, " +
-			"geo string, coordinates string, place string, " +
-			"contributors string, retweet_count number, " +
-			"favorite_count number, entities__hashtags string, " +
-			"entities__symbols string, entities__urls string, " +
-			"entities__user_mentions string, favorited string, " +
-			"retweeted string, lang string)"
-		dbt.mustExec(execQuery)
-		defer dbt.mustExec("drop table if exists tweets")
-		dbt.mustQueryAssertCount("ls @%tweets", 0)
-
-		rows := dbt.mustQuery(fmt.Sprintf(`copy into tweets from
-			s3://sfc-dev1-data/twitter/O1k/tweets/ credentials=(AWS_KEY_ID='%v'
-			AWS_SECRET_KEY='%v') file_format=(skip_header=1 null_if=('')
-			field_optionally_enclosed_by='\"')`,
-			data.awsAccessKeyID, data.awsSecretAccessKey))
-		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 string
-		cnt := 0
-		for rows.Next() {
-			rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9)
-			cnt++
-		}
-		if cnt != 1 {
-			t.Fatal("copy into tweets did not set row count to 1")
-		}
-		if s0 != "s3://sfc-dev1-data/twitter/O1k/tweets/1.csv.gz" {
-			t.Fatalf("got %v as file", s0)
-		}
-	})
-}
-
 func TestPutLocalFile(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
@@ -226,7 +157,7 @@ func TestPutLocalFile(t *testing.T) {
 			c9 STRING) stage_file_format = ( field_delimiter = '|'
 			error_on_column_count_mismatch=false) stage_copy_options =
 			(purge=false) stage_location = (url = 's3://%v/%v' credentials =
-			(AWS_KEY_ID='%v' AWS_SECRET_KEY='%v'))"`,
+			(AWS_KEY_ID='%v' AWS_SECRET_KEY='%v'))`,
 			data.userBucket,
 			data.stage,
 			data.awsAccessKeyID,
@@ -268,60 +199,11 @@ func TestPutLocalFile(t *testing.T) {
 	})
 }
 
-func TestPutLoadFromUserStage(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
-		data, err := createTestData(dbt)
-		if err != nil {
-			t.Skip("snowflake admin account not accessible")
-		}
-		defer cleanupPut(dbt, data)
-		dbt.mustExec("alter session set DISABLE_PUT_AND_GET_ON_EXTERNAL_STAGE=false")
-		dbt.mustExec("use warehouse " + data.warehouse)
-		dbt.mustExec("use schema " + data.database + ".gotesting_schema")
-
-		execQuery := fmt.Sprintf(
-			"create or replace stage %v url = 's3://%v/%v' credentials = ("+
-				"AWS_KEY_ID='%v' AWS_SECRET_KEY='%v')",
-			data.stage, data.userBucket, data.stage,
-			data.awsAccessKeyID, data.awsSecretAccessKey)
-		dbt.mustExec(execQuery)
-
-		execQuery = `create or replace table gotest_putget_t2 (c1 STRING,
-			c2 STRING, c3 STRING,c4 STRING, c5 STRING, c6 STRING, c7 STRING,
-			c8 STRING, c9 STRING)`
-		dbt.mustExec(execQuery)
-		defer dbt.mustExec("drop table if exists gotest_putget_t2")
-		defer dbt.mustExec("drop stage if exists " + data.stage)
-
-		execQuery = fmt.Sprintf("put file://%v/test_data/orders_10*.csv @%v",
-			data.dir, data.stage)
-		dbt.mustExec(execQuery)
-		dbt.mustQueryAssertCount("ls @%gotest_putget_t2", 0)
-
-		rows := dbt.mustQuery(fmt.Sprintf(`copy into gotest_putget_t2 from @%v
-			file_format = (field_delimiter = '|' error_on_column_count_mismatch
-			=false) purge=true`, data.stage))
-		var s0, s1, s2, s3, s4, s5 string
-		var s6, s7, s8, s9 interface{}
-		orders100 := fmt.Sprintf("s3://%v/%v/orders_100.csv.gz",
-			data.userBucket, data.stage)
-		orders101 := fmt.Sprintf("s3://%v/%v/orders_101.csv.gz",
-			data.userBucket, data.stage)
-		for rows.Next() {
-			rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9)
-			if s0 != orders100 && s0 != orders101 {
-				t.Fatalf("copy did not load orders files. got: %v", s0)
-			}
-		}
-		dbt.mustQueryAssertCount(fmt.Sprintf("ls @%v", data.stage), 0)
-	})
-}
-
 func TestPutWithAutoCompressFalse(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, _ := ioutil.TempDir("", "aws_put")
+	tmpDir, _ := ioutil.TempDir("", "put")
 	defer os.RemoveAll(tmpDir)
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, _ := os.OpenFile(testData, os.O_CREATE|os.O_WRONLY, os.ModePerm)
@@ -424,6 +306,126 @@ func TestPutOverwrite(t *testing.T) {
 		}
 		if s0 != fmt.Sprintf("test_put_overwrite/%v.gz", baseName(testData)) {
 			t.Fatalf("expected test_put_overwrite/%v.gz, got %v", baseName(testData), s0)
+		}
+	})
+}
+
+func TestPutGetFile(t *testing.T) {
+	testPutGet(t, false)
+}
+
+func TestPutGetStream(t *testing.T) {
+	testPutGet(t, true)
+}
+
+func testPutGet(t *testing.T, isStream bool) {
+	tmpDir, _ := ioutil.TempDir("", "put_get")
+	defer os.RemoveAll(tmpDir)
+	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
+	originalContents := "123,test1\n456,test2\n"
+	tableName := randomString(5)
+
+	var b bytes.Buffer
+	gzw := gzip.NewWriter(&b)
+	gzw.Write([]byte(originalContents))
+	gzw.Close()
+	if err := ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+		t.Fatal("could not write to gzip file")
+	}
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("create or replace table " + tableName +
+			" (a int, b string)")
+		fileStream, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+		defer func() {
+			defer dbt.mustExec("drop table " + tableName)
+			if fileStream != nil {
+				fileStream.Close()
+			}
+		}()
+
+		var sqlText string
+		var rows *RowsExtended
+		sql := "put 'file://%v' @%%%v auto_compress=true parallel=30"
+		ctx := context.Background()
+		if isStream {
+			sqlText = fmt.Sprintf(
+				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
+			rows = dbt.mustQueryContext(WithFileStream(ctx, fileStream), sqlText)
+		} else {
+			sqlText = fmt.Sprintf(
+				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
+			rows = dbt.mustQuery(sqlText)
+		}
+
+		var s0, s1, s2, s3, s4, s5, s6, s7 string
+		if rows.Next() {
+			if err := rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if s6 != uploaded.String() {
+			t.Fatalf("expected %v, got: %v", uploaded, s6)
+		}
+		// check file is PUT
+		dbt.mustQueryAssertCount("ls @%"+tableName, 1)
+
+		dbt.mustExec("copy into " + tableName)
+		dbt.mustExec("rm @%" + tableName)
+		dbt.mustQueryAssertCount("ls @%"+tableName, 0)
+
+		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
+			compression='gzip')`, tableName, tableName))
+
+		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		rows = dbt.mustQuery(sqlText)
+		defer rows.Close()
+		for rows.Next() {
+			if err := rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+				t.Error(err)
+			}
+			if !strings.HasPrefix(s0, "data_") {
+				t.Error("a file was not downloaded by GET")
+			}
+			if v, err := strconv.Atoi(s1); err != nil || v != 36 {
+				t.Error("did not return the right file size")
+			}
+			if s2 != "DOWNLOADED" {
+				t.Error("did not return DOWNLOADED status")
+			}
+			if s3 != "" {
+				t.Errorf("returned %v", s3)
+			}
+		}
+
+		files, err := filepath.Glob(filepath.Join(tmpDir, "data_*"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fileName := files[0]
+		f, _ := os.Open(fileName)
+		defer f.Close()
+		gz, err := gzip.NewReader(f)
+		if err != nil {
+			t.Error(err)
+		}
+		var contents string
+		for {
+			c := make([]byte, defaultChunkBufferSize)
+			if n, err := gz.Read(c); err != nil {
+				if err == io.EOF {
+					contents = contents + string(c[:n])
+					break
+				}
+				t.Error(err)
+			} else {
+				contents = contents + string(c[:n])
+			}
+		}
+
+		if contents != originalContents {
+			t.Error("output is different from the original file")
 		}
 	})
 }
