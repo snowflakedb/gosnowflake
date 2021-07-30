@@ -59,7 +59,8 @@ The following connection parameters are supported:
 		(e.g. "<account_identifier>-<connection_group>.global"). The account identifier and the
 		connection group are separated by a dash ("-"), as shown above.
 
-		This parameter is optional if your account identifier is specified after the "@" character.
+		This parameter is optional if your account identifier is specified after the "@" character
+		in the connection string.
 
 	* region <string>: DEPRECATED. You may specify a region, such as
 		"eu-central-1", with this parameter. However, since this parameter
