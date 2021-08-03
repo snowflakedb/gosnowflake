@@ -29,7 +29,6 @@ func TestBindingFloat64(t *testing.T) {
 		var out float64
 		var rows *RowsExtended
 		for _, v := range types {
-			dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
 			dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
 			rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
@@ -54,7 +53,6 @@ func TestBindingUint64(t *testing.T) {
 		types := []string{"INTEGER"}
 		expected := uint64(18446744073709551615)
 		for _, v := range types {
-			dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
 			if _, err := dbt.db.Exec("INSERT INTO test VALUES (1, ?)", expected); err == nil {
 				dbt.Fatal("should fail as uint64 values with high bit set are not supported.")
@@ -69,7 +67,6 @@ func TestBindingUint64(t *testing.T) {
 func TestBindingDateTimeTimestamp(t *testing.T) {
 	createDSN(PSTLocation)
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		expected := time.Now()
 		dbt.mustExec(
 			"CREATE OR REPLACE TABLE tztest (id int, ntz timestamp_ntz, ltz timestamp_ltz, dt date, tm time)")
@@ -140,7 +137,6 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 
 func TestBindingBinary(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec("CREATE OR REPLACE TABLE bintest (id int, b binary)")
 		var b = []byte{0x01, 0x02, 0x03}
 		dbt.mustExec("INSERT INTO bintest(id,b) VALUES(1, ?)", DataTypeBinary, b)
@@ -163,7 +159,6 @@ func TestBindingBinary(t *testing.T) {
 
 func TestBindingTimestampTZ(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		expected := time.Now()
 		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, tz timestamp_tz)")
 		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,tz) VALUES(1, ?)")
@@ -192,7 +187,6 @@ func TestBindingTimestampTZ(t *testing.T) {
 
 func TestBindingInterface(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQueryContext(
 			WithHigherPrecision(context.Background()), selectVariousTypes)
 		defer rows.Close()
@@ -220,7 +214,6 @@ func TestBindingInterface(t *testing.T) {
 
 func TestBindingInterfaceString(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow)
 		rows := dbt.mustQuery(selectVariousTypes)
 		defer rows.Close()
 		if !rows.Next() {
@@ -286,7 +279,6 @@ func testBindingArray(t *testing.T, bulk bool) {
 	tmArray := []time.Time{now.Add(12), now.Add(13), now.Add(14)}
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec(createTableSQL)
 		defer dbt.mustExec(deleteTableSQL)
 		if bulk {
@@ -355,7 +347,6 @@ func testBindingArray(t *testing.T, bulk bool) {
 
 func TestBulkArrayBinding(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string)", dbname))
 		numRows := 100000
 		intArr := make([]int, numRows)
@@ -400,7 +391,6 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 	ctx := context.Background()
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec(fmt.Sprintf("CREATE TABLE %s (C VARCHAR(64) NOT NULL)", tempTableName))
 		defer dbt.mustExec("drop table " + tempTableName)
 

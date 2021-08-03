@@ -558,9 +558,8 @@ func newStreamChunkDownloader(
 }
 
 func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error {
-	headers := f.headers
-	if len(headers) == 0 {
-		headers = map[string]string{
+	if len(f.headers) == 0 {
+		f.headers = map[string]string{
 			headerSseCAlgorithm: headerSseCAes,
 			headerSseCKey:       f.qrmk,
 		}

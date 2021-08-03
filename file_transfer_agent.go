@@ -577,9 +577,7 @@ func (sfa *snowflakeFileTransferAgent) getLocalFilePathFromCommand(command strin
 	filePathBeginIdx := strings.Index(command, fileProtocol)
 	isFilePathQuoted := command[filePathBeginIdx-1] == '\''
 	filePathBeginIdx += len(fileProtocol)
-
-	filePath := ""
-	var filePathEndIdx = 0
+	filePath, filePathEndIdx := "", 0
 
 	if isFilePathQuoted {
 		filePathEndIdx = filePathBeginIdx + strings.Index(command[filePathBeginIdx:], "'")
