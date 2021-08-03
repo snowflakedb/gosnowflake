@@ -853,4 +853,3 @@ The Go Snowflake Driver has the following limitations:
 
 */
 package gosnowflake
-

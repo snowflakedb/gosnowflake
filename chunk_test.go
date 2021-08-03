@@ -369,13 +369,13 @@ func TestWithStreamDownloader(t *testing.T) {
 	var v string
 
 	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceJSON)
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
 
 		// Next() will block and wait until results are available
 		for rows.Next() {
-			err := rows.Scan(&idx, &v)
-			if err != nil {
+			if err := rows.Scan(&idx, &v); err != nil {
 				t.Fatal(err)
 			}
 			cnt++
