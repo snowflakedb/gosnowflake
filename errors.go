@@ -100,8 +100,10 @@ const (
 
 	/* file transfer */
 
-	// ErrInvalidStageFs is an error code denoting an inavlid stage in the file system
+	// ErrInvalidStageFs is an error code denoting an invalid stage in the file system
 	ErrInvalidStageFs = 264001
+	// ErrFailedToDownloadFromStage is an error code denoting the failure to download a file from the stage
+	ErrFailedToDownloadFromStage = 264002
 	// ErrFailedToUploadToStage is an error code denoting the failure to upload a file to the stage
 	ErrFailedToUploadToStage = 264003
 	// ErrInvalidStageLocation is an error code denoting an invalid stage location

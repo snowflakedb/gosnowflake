@@ -12,78 +12,74 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-func TestPutFileWithAWS(t *testing.T) {
+func TestLoadS3(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	testPutWithAWS(t, false)
-}
-
-func TestPutStreamWithAWS(t *testing.T) {
-	if runningOnGithubAction() && !runningOnAWS() {
-		t.Skip("skipping non aws environment")
-	}
-	testPutWithAWS(t, true)
-}
-
-func testPutWithAWS(t *testing.T, isStream bool) {
-	tmpDir, _ := ioutil.TempDir("", "aws_put")
-	defer os.RemoveAll(tmpDir)
-	fname := filepath.Join(tmpDir, "test_put_get_with_aws.txt.gz")
-	originalContents := "123,test1\n456,test2\n"
-	tableName := randomString(5)
-
-	var b bytes.Buffer
-	gzw := gzip.NewWriter(&b)
-	gzw.Write([]byte(originalContents))
-	gzw.Close()
-	if err := ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
-		t.Fatal("could not write to gzip file")
-	}
-
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("create or replace table " + tableName +
-			" (a int, b string)")
-		fileStream, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
-		defer func() {
-			defer dbt.mustExec("drop table " + tableName)
-			if fileStream != nil {
-				fileStream.Close()
-			}
-		}()
-
-		sql := "put 'file://%v' @%%%v auto_compress=true parallel=30"
-		if isStream {
-			sqlText := fmt.Sprintf(
-				sql,
-				strings.ReplaceAll(fname, "\\", "\\\\"),
-				tableName)
-			dbt.mustExecContext(WithFileStream(
-				context.Background(), fileStream), sqlText)
-		} else {
-			sqlText := fmt.Sprintf(
-				sql,
-				strings.ReplaceAll(fname, "\\", "\\\\"),
-				tableName)
-			dbt.mustExec(sqlText)
+		data, err := createTestData(dbt)
+		if err != nil {
+			t.Skip("snowflake admin account not accessible")
 		}
-		// check file is PUT
-		dbt.mustQueryAssertCount("ls @%"+tableName, 1)
+		defer cleanupPut(dbt, data)
+		dbt.mustExec("use warehouse " + data.warehouse)
+		dbt.mustExec("use schema " + data.database + ".gotesting_schema")
+		execQuery := `create or replace table tweets(created_at timestamp,
+			id number, id_str string, text string, source string,
+			in_reply_to_status_id number, in_reply_to_status_id_str string,
+			in_reply_to_user_id number, in_reply_to_user_id_str string,
+			in_reply_to_screen_name string, user__id number, user__id_str string,
+			user__name string, user__screen_name string, user__location string,
+			user__description string, user__url string,
+			user__entities__description__urls string, user__protected string,
+			user__followers_count number, user__friends_count number,
+			user__listed_count number, user__created_at timestamp,
+			user__favourites_count number, user__utc_offset number,
+			user__time_zone string, user__geo_enabled string,
+			user__verified string, user__statuses_count number, user__lang string,
+			user__contributors_enabled string, user__is_translator string,
+			user__profile_background_color string,
+			user__profile_background_image_url string,
+			user__profile_background_image_url_https string,
+			user__profile_background_tile string, user__profile_image_url string,
+			user__profile_image_url_https string, user__profile_link_color string,
+			user__profile_sidebar_border_color string,
+			user__profile_sidebar_fill_color string, user__profile_text_color string,
+			user__profile_use_background_image string, user__default_profile string,
+			user__default_profile_image string, user__following string,
+			user__follow_request_sent string, user__notifications string,
+			geo string, coordinates string, place string, contributors string,
+			retweet_count number, favorite_count number, entities__hashtags string,
+			entities__symbols string, entities__urls string,
+			entities__user_mentions string, favorited string, retweeted string,
+			lang string)`
+		dbt.mustExec(execQuery)
+		defer dbt.mustExec("drop table if exists tweets")
+		dbt.mustQueryAssertCount("ls @%tweets", 0)
 
-		dbt.mustExec("copy into " + tableName)
-		dbt.mustExec("rm @%" + tableName)
-		dbt.mustQueryAssertCount("ls @%"+tableName, 0)
-
-		dbt.mustExec(fmt.Sprintf("copy into @%%%v from %v file_format=("+
-			"type=csv compression='gzip')", tableName, tableName))
-		dbt.mustQueryAssertCount("ls @%"+tableName, 1)
+		rows := dbt.mustQuery(fmt.Sprintf(`copy into tweets from
+			s3://sfc-dev1-data/twitter/O1k/tweets/ credentials=(AWS_KEY_ID='%v'
+			AWS_SECRET_KEY='%v') file_format=(skip_header=1 null_if=('')
+			field_optionally_enclosed_by='\"')`,
+			data.awsAccessKeyID, data.awsSecretAccessKey))
+		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 string
+		cnt := 0
+		for rows.Next() {
+			rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9)
+			cnt++
+		}
+		if cnt != 1 {
+			t.Fatal("copy into tweets did not set row count to 1")
+		}
+		if s0 != "s3://sfc-dev1-data/twitter/O1k/tweets/1.csv.gz" {
+			t.Fatalf("got %v as file", s0)
+		}
 	})
 }
 

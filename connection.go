@@ -401,8 +401,7 @@ func (sc *snowflakeConn) queryContextInternal(ctx context.Context, query string,
 
 	if sc.isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
-		err := sc.handleMultiQuery(ctx, data.Data, rows)
-		if err != nil {
+		if err = sc.handleMultiQuery(ctx, data.Data, rows); err != nil {
 			return nil, err
 		}
 	} else {
@@ -571,8 +570,7 @@ func (sc *snowflakeConn) handleMultiQuery(ctx context.Context, data execResponse
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 
 	for _, child := range childResults {
-		err := sc.rowsForRunningQuery(ctx, child.id, rows)
-		if err != nil {
+		if err := sc.rowsForRunningQuery(ctx, child.id, rows); err != nil {
 			return err
 		}
 	}
@@ -645,16 +643,15 @@ func (sc *snowflakeConn) getQueryResultResp(ctx context.Context, resultPath stri
 	return respd, nil
 }
 
-// checkQueryStatus return error==nil means the query completed successfully and there is complete query result to fetch.
-// when the GS could not return a status (when a query was just submitted GS might not be able to return a status)
-// an ErrQueryStatus will be returned.
-// Other than error==nil, There are three error types will be returned:
-// 1. ErrQueryStatus, when GS could not return any status or report error due to any reason - connection,
-// permission, etc.
-// 2, ErrQueryReportedError, if the requested query was terminated, aborted, and GS returned
-// an error status included in query.sfqueryStatusError
-// 3, ErrQueryIsRunning, if the requested query is still running and might have complete result later, these statuses
-// were listed in query.sfqueryStatusRunning
+// checkQueryStatus returns the status given the query ID. If successful,
+// the error will be nil, indicating there is a complete query result to fetch.
+// Other than nil, there are three error types that can be returned:
+// 1. ErrQueryStatus, if GS cannot return any kind of status due to any reason,
+// i.e. connection, permission, if a query was just submitted, etc.
+// 2, ErrQueryReportedError, if the requested query was terminated or aborted
+// and GS returned an error status included in query. SFQueryFailedWithError
+// 3, ErrQueryIsRunning, if the requested query is still running and might have
+// a complete result later, these statuses were listed in query. SFQueryRunning
 func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error {
 	headers := make(map[string]string)
 	param := make(url.Values)
@@ -935,7 +932,8 @@ func isDescribeOnly(ctx context.Context) bool {
 // returns snowflake chunk downloader by default or stream based chunk
 // downloader if option provided through context
 func populateChunkDownloader(ctx context.Context, sc *snowflakeConn, data execResponseData) chunkDownloader {
-	if useStreamDownloader(ctx) {
+	if useStreamDownloader(ctx) && data.QueryResultFormat == "json" {
+		// stream chunk downloading only works for row based data formats, i.e. json
 		fetcher := &httpStreamChunkFetcher{
 			ctx:      ctx,
 			client:   sc.rest.Client,

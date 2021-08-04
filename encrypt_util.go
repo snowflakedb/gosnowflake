@@ -143,7 +143,12 @@ func decryptECB(decrypted []byte, keyBytes []byte, decodedKey []byte) error {
 	return nil
 }
 
-func encryptFile(sfe *snowflakeFileEncryption, filename string, chunkSize int, tmpDir string) (*encryptMetadata, string, error) {
+func encryptFile(
+	sfe *snowflakeFileEncryption,
+	filename string,
+	chunkSize int,
+	tmpDir string) (
+	*encryptMetadata, string, error) {
 	if chunkSize == 0 {
 		chunkSize = aes.BlockSize * 4 * 1024
 	}
@@ -159,7 +164,13 @@ func encryptFile(sfe *snowflakeFileEncryption, filename string, chunkSize int, t
 	return meta, tmpOutputFile.Name(), nil
 }
 
-func decryptFile(metadata *encryptMetadata, sfe *snowflakeFileEncryption, filename string, chunkSize int, tmpDir string) (string, error) {
+func decryptFile(
+	metadata *encryptMetadata,
+	sfe *snowflakeFileEncryption,
+	filename string,
+	chunkSize int,
+	tmpDir string) (
+	string, error) {
 	if chunkSize == 0 {
 		chunkSize = aes.BlockSize * 4 * 1024
 	}
@@ -182,10 +193,12 @@ func decryptFile(metadata *encryptMetadata, sfe *snowflakeFileEncryption, filena
 	if err != nil {
 		return "", err
 	}
+	defer tmpOutputFile.Close()
 	infile, err := os.OpenFile(filename, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		return "", err
 	}
+	defer infile.Close()
 	var totalFileSize int
 	var prevChunk []byte
 	for {

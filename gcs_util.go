@@ -30,14 +30,10 @@ type gcsLocation struct {
 }
 
 func (util *snowflakeGcsUtil) createClient(info *execResponseStageInfo, _ bool) cloudClient {
-	securityToken := info.Creds.GcsAccessToken
-	var client cloudClient
-	if securityToken != "" {
-		client = securityToken
-	} else {
-		client = ""
+	if info.Creds.GcsAccessToken != "" {
+		return info.Creds.GcsAccessToken
 	}
-	return client
+	return ""
 }
 
 // cloudUtil implementation
@@ -214,8 +210,83 @@ func (util *snowflakeGcsUtil) uploadFile(dataFile string, meta *fileMetadata, en
 }
 
 // cloudUtil implementation
-func (util *snowflakeGcsUtil) nativeDownloadFile() {
-	// TODO SNOW-294151
+func (util *snowflakeGcsUtil) nativeDownloadFile(
+	meta *fileMetadata,
+	fullDstFileName string,
+	maxConcurrency int64) error {
+	downloadURL := meta.presignedURL
+	var accessToken string
+	gcsHeaders := make(map[string]string)
+
+	if downloadURL == nil {
+		downloadURL = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		accessToken = meta.client.(string)
+		if accessToken != "" {
+			gcsHeaders["Authorization"] = "Bearer " + accessToken
+		}
+	}
+
+	req, err := http.NewRequest("GET", downloadURL.String(), nil)
+	if err != nil {
+		return err
+	}
+	for k, v := range gcsHeaders {
+		req.Header.Add(k, v)
+	}
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	if resp.StatusCode != http.StatusOK {
+		meta.lastError = fmt.Errorf(resp.Status)
+		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
+			meta.lastError = fmt.Errorf(resp.Status)
+			meta.resStatus = needRetry
+		} else if accessToken == "" && resp.StatusCode == 400 && meta.lastError == nil {
+			meta.lastError = fmt.Errorf(resp.Status)
+			meta.resStatus = renewPresignedURL
+		} else if accessToken != "" && util.isTokenExpired(resp) {
+			meta.lastError = fmt.Errorf(resp.Status)
+			meta.resStatus = renewToken
+		}
+		return meta.lastError
+	}
+
+	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err = io.Copy(f, resp.Body); err != nil {
+		return err
+	}
+
+	var encryptMeta encryptMetadata
+	if resp.Header.Get(gcsMetadataEncryptionDataProp) != "" {
+		var encryptData *encryptionData
+		if err = json.Unmarshal([]byte(resp.Header.Get(gcsMetadataEncryptionDataProp)), &encryptData); err != nil {
+			return err
+		}
+		if encryptData != nil {
+			encryptMeta = encryptMetadata{
+				encryptData.WrappedContentKey.EncryptionKey,
+				encryptData.ContentEncryptionIV,
+				"",
+			}
+			if key := resp.Header.Get(gcsMetadataMatdescKey); key != "" {
+				encryptMeta.matdesc = key
+			}
+		}
+	}
+
+	fi, err := os.Stat(fullDstFileName)
+	if err != nil {
+		return err
+	}
+	meta.srcFileSize = fi.Size()
+	meta.resStatus = downloaded
+	meta.gcsFileHeaderDigest = resp.Header.Get(gcsMetadataSfcDigest)
+	meta.gcsFileHeaderContentLength = resp.ContentLength
+	meta.gcsFileHeaderEncryptionMeta = &encryptMeta
+	return nil
 }
 
 func (util *snowflakeGcsUtil) extractBucketNameAndPath(location string) *gcsLocation {
