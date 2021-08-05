@@ -188,9 +188,51 @@ func (util *snowflakeS3Util) uploadFile(
 }
 
 // cloudUtil implementation
-func (util *snowflakeS3Util) nativeDownloadFile() {
-	// TODO SNOW-294151
-	panic("not implemented")
+func (util *snowflakeS3Util) nativeDownloadFile(
+	meta *fileMetadata,
+	fullDstFileName string,
+	maxConcurrency int64) error {
+	s3loc := util.extractBucketNameAndPath(meta.stageInfo.Location)
+	s3path := s3loc.s3Path + strings.TrimLeft(meta.dstFileName, "/")
+	client, ok := meta.client.(*s3.Client)
+	if !ok {
+		return &SnowflakeError{
+			Message: "failed to cast to s3 client",
+		}
+	}
+
+	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	downloader := manager.NewDownloader(client, func(u *manager.Downloader) {
+		u.Concurrency = int(maxConcurrency)
+	})
+	if _, err = downloader.Download(context.Background(), f, &s3.GetObjectInput{
+		Bucket: &s3loc.bucketName,
+		Key:    &s3path,
+	}); err != nil {
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			if ae.ErrorCode() == expiredToken {
+				meta.resStatus = renewToken
+				return err
+			} else if strings.Contains(ae.ErrorCode(), errNoWsaeconnaborted) {
+				meta.lastError = err
+				meta.resStatus = needRetryWithLowerConcurrency
+				return err
+			}
+			meta.lastError = err
+			meta.resStatus = errStatus
+			return err
+		}
+		meta.lastError = err
+		meta.resStatus = needRetry
+		return err
+	}
+	meta.resStatus = downloaded
+	return nil
 }
 
 func (util *snowflakeS3Util) extractBucketNameAndPath(location string) *s3Location {

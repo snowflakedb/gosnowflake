@@ -165,8 +165,32 @@ func (util *snowflakeAzureUtil) uploadFile(
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) nativeDownloadFile() {
-	// TODO SNOW-294151
+func (util *snowflakeAzureUtil) nativeDownloadFile(
+	meta *fileMetadata,
+	fullDstFileName string,
+	maxConcurrency int64) error {
+	azureLoc := util.extractContainerNameAndPath(meta.stageInfo.Location)
+	path := azureLoc.path + strings.TrimLeft(meta.dstFileName, "/")
+	azContainerURL, ok := meta.client.(*azblob.ContainerURL)
+	if !ok {
+		return &SnowflakeError{
+			Message: "failed to cast to azure client",
+		}
+	}
+
+	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	blobURL := azContainerURL.NewBlockBlobURL(path)
+	if err := azblob.DownloadBlobToFile(context.Background(), blobURL.BlobURL, 0, azblob.CountToEnd, f, azblob.DownloadFromBlobOptions{
+		Parallelism: uint16(maxConcurrency),
+	}); err != nil {
+		return err
+	}
+	meta.resStatus = downloaded
+	return nil
 }
 
 func (util *snowflakeAzureUtil) extractContainerNameAndPath(location string) *azureLocation {

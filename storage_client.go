@@ -6,6 +6,9 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"os"
+	"path"
+	"path/filepath"
 	"time"
 )
 
@@ -18,7 +21,7 @@ const (
 type storageUtil interface {
 	createClient(*execResponseStageInfo, bool) cloudClient
 	uploadOneFileWithRetry(*fileMetadata) error
-	downloadOneFile()
+	downloadOneFile(*fileMetadata) error
 }
 
 // implemented by snowflakeS3Util, snowflakeAzureUtil and snowflakeGcsUtil
@@ -26,7 +29,7 @@ type cloudUtil interface {
 	createClient(*execResponseStageInfo, bool) cloudClient
 	getFileHeader(*fileMetadata, string) *fileHeader
 	uploadFile(string, *fileMetadata, *encryptMetadata, int, int64) error
-	nativeDownloadFile()
+	nativeDownloadFile(*fileMetadata, string, int64) error
 }
 
 type cloudClient interface{}
@@ -157,7 +160,76 @@ func (rsu *remoteStorageUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 	return nil
 }
 
-func (rsu *remoteStorageUtil) downloadOneFile() {
-	// TODO SNOW-294151
-	panic("not implemented")
+func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
+	fullDstFileName := path.Join(meta.localLocation, baseName(meta.dstFileName))
+	fullDstFileName = expandUser(fullDstFileName)
+	if !filepath.IsAbs(fullDstFileName) {
+		cwd, _ := os.Getwd()
+		fullDstFileName = filepath.Join(cwd, fullDstFileName)
+	}
+	baseDir, err := getDirectory()
+	if err != nil {
+		return err
+	}
+	if _, err = os.Stat(baseDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(baseDir, os.ModePerm); err != nil {
+			return err
+		}
+	}
+
+	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType)
+	header := utilClass.getFileHeader(meta, meta.srcFileName)
+	if header != nil {
+		meta.srcFileSize = header.contentLength
+	}
+
+	maxConcurrency := meta.parallel
+	var lastErr error
+	maxRetry := defaultMaxRetry
+	for retry := 0; retry < maxRetry; retry++ {
+		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency); err != nil {
+			return err
+		}
+		if meta.resStatus == downloaded {
+			if meta.encryptionMaterial != nil {
+				if meta.presignedURL != nil {
+					header = utilClass.getFileHeader(meta, meta.srcFileName)
+				}
+				tmpDstFileName, err := decryptFile(header.encryptionMetadata,
+					meta.encryptionMaterial, fullDstFileName, 0, meta.tmpDir)
+				if err != nil {
+					return err
+				}
+				if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
+					return err
+				}
+			}
+			if fi, err := os.Stat(fullDstFileName); err == nil {
+				meta.dstFileSize = fi.Size()
+			}
+			return nil
+		} else if meta.resStatus == renewPresignedURL {
+			return nil
+		} else if meta.resStatus == renewToken {
+			return nil
+		} else if meta.resStatus == needRetryWithLowerConcurrency {
+			maxConcurrency = meta.parallel - int64(retry)*meta.parallel/int64(maxRetry)
+			maxConcurrency = int64Max(defaultConcurrency, maxConcurrency)
+			meta.lastMaxConcurrency = int(maxConcurrency)
+			if !meta.noSleepingTime {
+				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
+				time.Sleep(time.Duration(sleepingTime) * time.Second)
+			}
+		} else if meta.resStatus == needRetry {
+			if !meta.noSleepingTime {
+				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
+				time.Sleep(time.Duration(sleepingTime) * time.Second)
+			}
+		}
+		lastErr = meta.lastError
+	}
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("unkown error downloading %v", fullDstFileName)
 }

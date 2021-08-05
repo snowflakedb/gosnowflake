@@ -116,7 +116,7 @@ type execResponseData struct {
 	SourceCompression       string                `json:"sourceCompression,omitempty"`
 	ShowEncryptionParameter bool                  `json:"clientShowEncryptionParameter,omitempty"`
 	EncryptionMaterial      encryptionWrapper     `json:"encryptionMaterial,omitempty"`
-	PresignedURLs           []string              `json:"presignedUrl,omitempty"`
+	PresignedURLs           []string              `json:"presignedUrls,omitempty"`
 	StageInfo               execResponseStageInfo `json:"stageInfo,omitempty"`
 	Command                 string                `json:"command,omitempty"`
 	Kind                    string                `json:"kind,omitempty"`
