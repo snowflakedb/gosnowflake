@@ -29,7 +29,7 @@ func (c *Client) DeleteBucketCors(ctx context.Context, params *DeleteBucketCorsI
 		params = &DeleteBucketCorsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketCors", params, optFns, addOperationDeleteBucketCorsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketCors", params, optFns, c.addOperationDeleteBucketCorsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -49,14 +49,18 @@ type DeleteBucketCorsInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteBucketCorsOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteBucketCorsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteBucketCorsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpDeleteBucketCors{}, middleware.After)
 	if err != nil {
 		return err

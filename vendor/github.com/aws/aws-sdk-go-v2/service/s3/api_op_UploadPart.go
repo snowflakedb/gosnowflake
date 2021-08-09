@@ -6,6 +6,7 @@ import (
 	"context"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	s3cust "github.com/aws/aws-sdk-go-v2/service/s3/internal/customizations"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go/middleware"
@@ -113,7 +114,7 @@ func (c *Client) UploadPart(ctx context.Context, params *UploadPartInput, optFns
 		params = &UploadPartInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "UploadPart", params, optFns, addOperationUploadPartMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "UploadPart", params, optFns, c.addOperationUploadPartMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +132,7 @@ type UploadPartInput struct {
 	// AccessPointName-AccountId.s3-accesspoint.Region.amazonaws.com. When using this
 	// action with an access point through the AWS SDKs, you provide the access point
 	// ARN in place of the bucket name. For more information about access point ARNs,
-	// see Using Access Points
+	// see Using access points
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-access-points.html)
 	// in the Amazon S3 User Guide. When using this action with Amazon S3 on Outposts,
 	// you must direct requests to the S3 on Outposts hostname. The S3 on Outposts
@@ -163,9 +164,6 @@ type UploadPartInput struct {
 	UploadId *string
 
 	// Object data.
-	//
-	// For using values that are not seekable (io.Seeker) see,
-	// https://aws.github.io/aws-sdk-go-v2/docs/sdk-utilisties/s3/#unseekable-streaming-input
 	Body io.Reader
 
 	// Size of the body in bytes. This parameter is useful when the size of the body
@@ -186,7 +184,7 @@ type UploadPartInput struct {
 	// about downloading objects from requester pays buckets, see Downloading Objects
 	// in Requestor Pays Buckets
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html)
-	// in the Amazon S3 Developer Guide.
+	// in the Amazon S3 User Guide.
 	RequestPayer types.RequestPayer
 
 	// Specifies the algorithm to use to when encrypting the object (for example,
@@ -205,6 +203,8 @@ type UploadPartInput struct {
 	// Amazon S3 uses this header for a message integrity check to ensure that the
 	// encryption key was transmitted without error.
 	SSECustomerKeyMD5 *string
+
+	noSmithyDocumentSerde
 }
 
 type UploadPartOutput struct {
@@ -239,9 +239,11 @@ type UploadPartOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationUploadPartMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationUploadPartMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpUploadPart{}, middleware.After)
 	if err != nil {
 		return err
@@ -345,4 +347,38 @@ func addUploadPartUpdateEndpoint(stack *middleware.Stack, options Options) error
 		UseDualstack:            options.UseDualstack,
 		UseARNRegion:            options.UseARNRegion,
 	})
+}
+
+// PresignUploadPart is used to generate a presigned HTTP Request which contains
+// presigned URL, signed headers and HTTP method used.
+func (c *PresignClient) PresignUploadPart(ctx context.Context, params *UploadPartInput, optFns ...func(*PresignOptions)) (*v4.PresignedHTTPRequest, error) {
+	if params == nil {
+		params = &UploadPartInput{}
+	}
+	options := c.options.copy()
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	clientOptFns := append(options.ClientOptions, withNopHTTPClientAPIOption)
+
+	result, _, err := c.client.invokeOperation(ctx, "UploadPart", params, clientOptFns,
+		c.client.addOperationUploadPartMiddlewares,
+		presignConverter(options).convertToPresignMiddleware,
+		func(stack *middleware.Stack, options Options) error {
+			return awshttp.RemoveContentTypeHeader(stack)
+		},
+		addUploadPartPayloadAsUnsigned,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	out := result.(*v4.PresignedHTTPRequest)
+	return out, nil
+}
+
+func addUploadPartPayloadAsUnsigned(stack *middleware.Stack, options Options) error {
+	v4.RemoveContentSHA256HeaderMiddleware(stack)
+	v4.RemoveComputePayloadSHA256Middleware(stack)
+	return v4.AddUnsignedPayloadMiddleware(stack)
 }

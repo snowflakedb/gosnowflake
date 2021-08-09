@@ -18,7 +18,7 @@ func (c *Client) ListBuckets(ctx context.Context, params *ListBucketsInput, optF
 		params = &ListBucketsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ListBuckets", params, optFns, addOperationListBucketsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ListBuckets", params, optFns, c.addOperationListBucketsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +29,7 @@ func (c *Client) ListBuckets(ctx context.Context, params *ListBucketsInput, optF
 }
 
 type ListBucketsInput struct {
+	noSmithyDocumentSerde
 }
 
 type ListBucketsOutput struct {
@@ -41,9 +42,11 @@ type ListBucketsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationListBucketsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationListBucketsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpListBuckets{}, middleware.After)
 	if err != nil {
 		return err

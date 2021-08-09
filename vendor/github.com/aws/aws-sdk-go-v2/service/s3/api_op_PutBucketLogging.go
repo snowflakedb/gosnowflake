@@ -63,7 +63,7 @@ func (c *Client) PutBucketLogging(ctx context.Context, params *PutBucketLoggingI
 		params = &PutBucketLoggingInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketLogging", params, optFns, addOperationPutBucketLoggingMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketLogging", params, optFns, c.addOperationPutBucketLoggingMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -93,14 +93,18 @@ type PutBucketLoggingInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketLoggingOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketLoggingMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketLoggingMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketLogging{}, middleware.After)
 	if err != nil {
 		return err

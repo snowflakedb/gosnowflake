@@ -45,7 +45,7 @@ func (c *Client) PutBucketEncryption(ctx context.Context, params *PutBucketEncry
 		params = &PutBucketEncryptionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketEncryption", params, optFns, addOperationPutBucketEncryptionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketEncryption", params, optFns, c.addOperationPutBucketEncryptionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -80,14 +80,18 @@ type PutBucketEncryptionInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketEncryptionOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketEncryptionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketEncryptionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketEncryption{}, middleware.After)
 	if err != nil {
 		return err

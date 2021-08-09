@@ -41,7 +41,7 @@ func (c *Client) ListObjectVersions(ctx context.Context, params *ListObjectVersi
 		params = &ListObjectVersionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ListObjectVersions", params, optFns, addOperationListObjectVersionsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ListObjectVersions", params, optFns, c.addOperationListObjectVersionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +96,8 @@ type ListObjectVersionsInput struct {
 
 	// Specifies the object version you want to start listing from.
 	VersionIdMarker *string
+
+	noSmithyDocumentSerde
 }
 
 type ListObjectVersionsOutput struct {
@@ -158,9 +160,11 @@ type ListObjectVersionsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationListObjectVersionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationListObjectVersionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpListObjectVersions{}, middleware.After)
 	if err != nil {
 		return err

@@ -106,7 +106,7 @@ func (c *Client) HeadObject(ctx context.Context, params *HeadObjectInput, optFns
 		params = &HeadObjectInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "HeadObject", params, optFns, addOperationHeadObjectMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "HeadObject", params, optFns, c.addOperationHeadObjectMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ type HeadObjectInput struct {
 	// AccessPointName-AccountId.s3-accesspoint.Region.amazonaws.com. When using this
 	// action with an access point through the AWS SDKs, you provide the access point
 	// ARN in place of the bucket name. For more information about access point ARNs,
-	// see Using Access Points
+	// see Using access points
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-access-points.html)
 	// in the Amazon S3 User Guide. When using this action with Amazon S3 on Outposts,
 	// you must direct requests to the S3 on Outposts hostname. The S3 on Outposts
@@ -182,7 +182,7 @@ type HeadObjectInput struct {
 	// about downloading objects from requester pays buckets, see Downloading Objects
 	// in Requestor Pays Buckets
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html)
-	// in the Amazon S3 Developer Guide.
+	// in the Amazon S3 User Guide.
 	RequestPayer types.RequestPayer
 
 	// Specifies the algorithm to use to when encrypting the object (for example,
@@ -203,6 +203,8 @@ type HeadObjectInput struct {
 
 	// VersionId used to reference a specific version of the object.
 	VersionId *string
+
+	noSmithyDocumentSerde
 }
 
 type HeadObjectOutput struct {
@@ -376,9 +378,11 @@ type HeadObjectOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationHeadObjectMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationHeadObjectMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpHeadObject{}, middleware.After)
 	if err != nil {
 		return err
@@ -785,4 +789,35 @@ func addHeadObjectUpdateEndpoint(stack *middleware.Stack, options Options) error
 		UseDualstack:            options.UseDualstack,
 		UseARNRegion:            options.UseARNRegion,
 	})
+}
+
+// PresignHeadObject is used to generate a presigned HTTP Request which contains
+// presigned URL, signed headers and HTTP method used.
+func (c *PresignClient) PresignHeadObject(ctx context.Context, params *HeadObjectInput, optFns ...func(*PresignOptions)) (*v4.PresignedHTTPRequest, error) {
+	if params == nil {
+		params = &HeadObjectInput{}
+	}
+	options := c.options.copy()
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	clientOptFns := append(options.ClientOptions, withNopHTTPClientAPIOption)
+
+	result, _, err := c.client.invokeOperation(ctx, "HeadObject", params, clientOptFns,
+		c.client.addOperationHeadObjectMiddlewares,
+		presignConverter(options).convertToPresignMiddleware,
+		addHeadObjectPayloadAsUnsigned,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	out := result.(*v4.PresignedHTTPRequest)
+	return out, nil
+}
+
+func addHeadObjectPayloadAsUnsigned(stack *middleware.Stack, options Options) error {
+	v4.RemoveContentSHA256HeaderMiddleware(stack)
+	v4.RemoveComputePayloadSHA256Middleware(stack)
+	return v4.AddUnsignedPayloadMiddleware(stack)
 }

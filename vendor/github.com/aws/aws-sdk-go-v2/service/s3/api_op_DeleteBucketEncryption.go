@@ -36,7 +36,7 @@ func (c *Client) DeleteBucketEncryption(ctx context.Context, params *DeleteBucke
 		params = &DeleteBucketEncryptionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketEncryption", params, optFns, addOperationDeleteBucketEncryptionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketEncryption", params, optFns, c.addOperationDeleteBucketEncryptionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +57,18 @@ type DeleteBucketEncryptionInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteBucketEncryptionOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteBucketEncryptionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteBucketEncryptionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpDeleteBucketEncryption{}, middleware.After)
 	if err != nil {
 		return err

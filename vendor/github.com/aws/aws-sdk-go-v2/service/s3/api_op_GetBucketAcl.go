@@ -25,7 +25,7 @@ func (c *Client) GetBucketAcl(ctx context.Context, params *GetBucketAclInput, op
 		params = &GetBucketAclInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketAcl", params, optFns, addOperationGetBucketAclMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketAcl", params, optFns, c.addOperationGetBucketAclMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,8 @@ type GetBucketAclInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketAclOutput struct {
@@ -57,9 +59,11 @@ type GetBucketAclOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketAclMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketAclMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketAcl{}, middleware.After)
 	if err != nil {
 		return err

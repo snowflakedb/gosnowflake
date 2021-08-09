@@ -29,7 +29,7 @@ func (c *Client) GetBucketOwnershipControls(ctx context.Context, params *GetBuck
 		params = &GetBucketOwnershipControlsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketOwnershipControls", params, optFns, addOperationGetBucketOwnershipControlsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketOwnershipControls", params, optFns, c.addOperationGetBucketOwnershipControlsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +49,8 @@ type GetBucketOwnershipControlsInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketOwnershipControlsOutput struct {
@@ -59,9 +61,11 @@ type GetBucketOwnershipControlsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketOwnershipControlsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketOwnershipControlsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketOwnershipControls{}, middleware.After)
 	if err != nil {
 		return err

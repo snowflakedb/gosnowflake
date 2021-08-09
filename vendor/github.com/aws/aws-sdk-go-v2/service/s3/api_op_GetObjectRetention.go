@@ -20,7 +20,7 @@ func (c *Client) GetObjectRetention(ctx context.Context, params *GetObjectRetent
 		params = &GetObjectRetentionInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetObjectRetention", params, optFns, addOperationGetObjectRetentionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetObjectRetention", params, optFns, c.addOperationGetObjectRetentionMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ type GetObjectRetentionInput struct {
 	// AccessPointName-AccountId.s3-accesspoint.Region.amazonaws.com. When using this
 	// action with an access point through the AWS SDKs, you provide the access point
 	// ARN in place of the bucket name. For more information about access point ARNs,
-	// see Using Access Points
+	// see Using access points
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-access-points.html)
 	// in the Amazon S3 User Guide.
 	//
@@ -59,11 +59,13 @@ type GetObjectRetentionInput struct {
 	// about downloading objects from requester pays buckets, see Downloading Objects
 	// in Requestor Pays Buckets
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html)
-	// in the Amazon S3 Developer Guide.
+	// in the Amazon S3 User Guide.
 	RequestPayer types.RequestPayer
 
 	// The version ID for the object whose retention settings you want to retrieve.
 	VersionId *string
+
+	noSmithyDocumentSerde
 }
 
 type GetObjectRetentionOutput struct {
@@ -73,9 +75,11 @@ type GetObjectRetentionOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetObjectRetentionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetObjectRetentionMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetObjectRetention{}, middleware.After)
 	if err != nil {
 		return err

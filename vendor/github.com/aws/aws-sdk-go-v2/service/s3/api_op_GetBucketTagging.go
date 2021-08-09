@@ -37,7 +37,7 @@ func (c *Client) GetBucketTagging(ctx context.Context, params *GetBucketTaggingI
 		params = &GetBucketTaggingInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketTagging", params, optFns, addOperationGetBucketTaggingMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketTagging", params, optFns, c.addOperationGetBucketTaggingMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +57,8 @@ type GetBucketTaggingInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketTaggingOutput struct {
@@ -68,9 +70,11 @@ type GetBucketTaggingOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketTaggingMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketTaggingMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketTagging{}, middleware.After)
 	if err != nil {
 		return err

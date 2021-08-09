@@ -62,7 +62,7 @@ func (c *Client) GetBucketLifecycleConfiguration(ctx context.Context, params *Ge
 		params = &GetBucketLifecycleConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketLifecycleConfiguration", params, optFns, addOperationGetBucketLifecycleConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketLifecycleConfiguration", params, optFns, c.addOperationGetBucketLifecycleConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +82,8 @@ type GetBucketLifecycleConfigurationInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketLifecycleConfigurationOutput struct {
@@ -91,9 +93,11 @@ type GetBucketLifecycleConfigurationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketLifecycleConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketLifecycleConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketLifecycleConfiguration{}, middleware.After)
 	if err != nil {
 		return err

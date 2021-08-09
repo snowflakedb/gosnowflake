@@ -14,8 +14,8 @@ import (
 
 // Creates a new lifecycle configuration for the bucket or replaces an existing
 // lifecycle configuration. For information about lifecycle configuration, see
-// Managing Access Permissions to Your Amazon S3 Resources
-// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-access-control.html).
+// Managing your storage lifecycle
+// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lifecycle-mgmt.html).
 // Bucket lifecycle configuration now supports specifying a lifecycle rule using an
 // object key name prefix, one or more object tags, or a combination of both.
 // Accordingly, this section describes the latest API. The previous version of the
@@ -84,7 +84,7 @@ func (c *Client) PutBucketLifecycleConfiguration(ctx context.Context, params *Pu
 		params = &PutBucketLifecycleConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketLifecycleConfiguration", params, optFns, addOperationPutBucketLifecycleConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketLifecycleConfiguration", params, optFns, c.addOperationPutBucketLifecycleConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -107,14 +107,18 @@ type PutBucketLifecycleConfigurationInput struct {
 
 	// Container for lifecycle rules. You can add as many as 1,000 rules.
 	LifecycleConfiguration *types.BucketLifecycleConfiguration
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketLifecycleConfigurationOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketLifecycleConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketLifecycleConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketLifecycleConfiguration{}, middleware.After)
 	if err != nil {
 		return err

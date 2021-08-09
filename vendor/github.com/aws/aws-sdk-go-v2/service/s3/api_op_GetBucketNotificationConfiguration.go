@@ -32,7 +32,7 @@ func (c *Client) GetBucketNotificationConfiguration(ctx context.Context, params 
 		params = &GetBucketNotificationConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketNotificationConfiguration", params, optFns, addOperationGetBucketNotificationConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketNotificationConfiguration", params, optFns, c.addOperationGetBucketNotificationConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,8 @@ type GetBucketNotificationConfigurationInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 // A container for specifying the notification configuration of the bucket. If this
@@ -72,9 +74,11 @@ type GetBucketNotificationConfigurationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketNotificationConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketNotificationConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketNotificationConfiguration{}, middleware.After)
 	if err != nil {
 		return err

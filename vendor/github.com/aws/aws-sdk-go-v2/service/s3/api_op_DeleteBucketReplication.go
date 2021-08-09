@@ -22,7 +22,7 @@ import (
 // It can take a while for the deletion of a replication configuration to fully
 // propagate. For information about replication configuration, see Replication
 // (https://docs.aws.amazon.com/AmazonS3/latest/dev/replication.html) in the Amazon
-// S3 Developer Guide. The following operations are related to
+// S3 User Guide. The following operations are related to
 // DeleteBucketReplication:
 //
 // * PutBucketReplication
@@ -36,7 +36,7 @@ func (c *Client) DeleteBucketReplication(ctx context.Context, params *DeleteBuck
 		params = &DeleteBucketReplicationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketReplication", params, optFns, addOperationDeleteBucketReplicationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketReplication", params, optFns, c.addOperationDeleteBucketReplicationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -56,14 +56,18 @@ type DeleteBucketReplicationInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteBucketReplicationOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteBucketReplicationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteBucketReplicationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpDeleteBucketReplication{}, middleware.After)
 	if err != nil {
 		return err

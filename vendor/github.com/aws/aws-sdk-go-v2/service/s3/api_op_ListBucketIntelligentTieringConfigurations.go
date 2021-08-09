@@ -44,7 +44,7 @@ func (c *Client) ListBucketIntelligentTieringConfigurations(ctx context.Context,
 		params = &ListBucketIntelligentTieringConfigurationsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ListBucketIntelligentTieringConfigurations", params, optFns, addOperationListBucketIntelligentTieringConfigurationsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ListBucketIntelligentTieringConfigurations", params, optFns, c.addOperationListBucketIntelligentTieringConfigurationsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +65,8 @@ type ListBucketIntelligentTieringConfigurationsInput struct {
 	// The ContinuationToken that represents a placeholder from where this request
 	// should begin.
 	ContinuationToken *string
+
+	noSmithyDocumentSerde
 }
 
 type ListBucketIntelligentTieringConfigurationsOutput struct {
@@ -88,9 +90,11 @@ type ListBucketIntelligentTieringConfigurationsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationListBucketIntelligentTieringConfigurationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationListBucketIntelligentTieringConfigurationsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpListBucketIntelligentTieringConfigurations{}, middleware.After)
 	if err != nil {
 		return err

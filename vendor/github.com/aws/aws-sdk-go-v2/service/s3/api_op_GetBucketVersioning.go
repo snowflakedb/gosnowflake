@@ -34,7 +34,7 @@ func (c *Client) GetBucketVersioning(ctx context.Context, params *GetBucketVersi
 		params = &GetBucketVersioningInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketVersioning", params, optFns, addOperationGetBucketVersioningMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketVersioning", params, optFns, c.addOperationGetBucketVersioningMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +54,8 @@ type GetBucketVersioningInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketVersioningOutput struct {
@@ -68,9 +70,11 @@ type GetBucketVersioningOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketVersioningMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketVersioningMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketVersioning{}, middleware.After)
 	if err != nil {
 		return err

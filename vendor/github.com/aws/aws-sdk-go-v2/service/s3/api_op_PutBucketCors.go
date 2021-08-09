@@ -59,7 +59,7 @@ func (c *Client) PutBucketCors(ctx context.Context, params *PutBucketCorsInput, 
 		params = &PutBucketCorsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketCors", params, optFns, addOperationPutBucketCorsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketCors", params, optFns, c.addOperationPutBucketCorsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -94,14 +94,18 @@ type PutBucketCorsInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketCorsOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketCorsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketCorsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketCors{}, middleware.After)
 	if err != nil {
 		return err
