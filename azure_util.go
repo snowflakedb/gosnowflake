@@ -47,7 +47,9 @@ func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename strin
 		return nil
 	}
 
-	b := container.NewBlockBlobURL(filename)
+	azureLoc := util.extractContainerNameAndPath(meta.stageInfo.Location)
+	path := azureLoc.path + strings.TrimLeft(filename, "/")
+	b := container.NewBlockBlobURL(path)
 	resp, err := b.GetProperties(context.Background(), azblob.BlobAccessConditions{}, azblob.ClientProvidedKeyOptions{})
 	if err != nil {
 		var se azblob.StorageError
@@ -137,6 +139,7 @@ func (util *snowflakeAzureUtil) uploadFile(
 		})
 	} else {
 		f, _ := os.OpenFile(dataFile, os.O_RDONLY, os.ModePerm)
+		defer f.Close()
 		fi, _ := f.Stat()
 		_, err = azblob.UploadFileToBlockBlob(context.Background(), f, blobURL, azblob.UploadToBlockBlobOptions{
 			BlockSize:   fi.Size(),

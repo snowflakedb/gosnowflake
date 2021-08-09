@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -353,9 +354,6 @@ func testBindingArray(t *testing.T, bulk bool) {
 }
 
 func TestBulkArrayBinding(t *testing.T) {
-	if runningOnGithubAction() && !runningOnAWS() {
-		t.Skip("skipping non aws environment; safeguard to be removed after azure/gcs put support")
-	}
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string)", dbname))
@@ -385,6 +383,49 @@ func TestBulkArrayBinding(t *testing.T) {
 		}
 		if cnt != numRows {
 			t.Fatalf("expected %v rows, got %v", numRows, cnt)
+		}
+	})
+}
+
+func TestBulkArrayMultiPartBinding(t *testing.T) {
+	rowCount := 1000000 // large enough to be partitioned into multiple files
+	rand.Seed(time.Now().UnixNano())
+	randomIter := rand.Intn(3) + 2
+	randomStrings := make([]string, rowCount)
+	str := randomString(30)
+	for i := 0; i < rowCount; i++ {
+		randomStrings[i] = str
+	}
+	tempTableName := fmt.Sprintf("test_table_%v", randomString(5))
+	ctx := context.Background()
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
+		dbt.mustExec(fmt.Sprintf("CREATE TABLE %s (C VARCHAR(64) NOT NULL)", tempTableName))
+		defer dbt.mustExec("drop table " + tempTableName)
+
+		for i := 0; i < randomIter; i++ {
+			dbt.mustExecContext(ctx,
+				fmt.Sprintf("INSERT INTO %s VALUES (?)", tempTableName),
+				Array(&randomStrings))
+			rows := dbt.mustQuery("select count(*) from " + tempTableName)
+			if rows.Next() {
+				var count int
+				if err := rows.Scan(&count); err != nil {
+					t.Error(err)
+				}
+			}
+		}
+
+		rows := dbt.mustQuery("select count(*) from " + tempTableName)
+		if rows.Next() {
+			var count int
+			if err := rows.Scan(&count); err != nil {
+				t.Error(err)
+			}
+			if count != randomIter*rowCount {
+				t.Errorf("expected %v rows, got %v rows intead", randomIter*rowCount, count)
+			}
 		}
 	})
 }
