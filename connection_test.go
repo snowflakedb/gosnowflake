@@ -75,7 +75,7 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */,
+	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */,
+	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestServiceName(t *testing.T) {
 
 	expectServiceName := serviceNameStub
 	for i := 0; i < 5; i++ {
-		sc.exec(context.TODO(), "", false /* noResult */,
+		sc.exec(context.TODO(), "", false, /* noResult */
 			false /* isInternal */, false /* describeOnly */, nil)
 		if actualServiceName, ok := sc.cfg.Params[serviceName]; ok {
 			if *actualServiceName != expectServiceName {

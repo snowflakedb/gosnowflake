@@ -506,3 +506,12 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID uuid.UUID,
 		MessageArgs: []interface{}{resp.StatusCode, fullURL},
 	}
 }
+
+func getQueryIDChan(ctx context.Context) chan<- string {
+	v := ctx.Value(queryIDChannel)
+	if v == nil {
+		return nil
+	}
+	c, _ := v.(chan<- string)
+	return c
+}
