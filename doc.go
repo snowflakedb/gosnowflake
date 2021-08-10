@@ -791,42 +791,36 @@ and before retrieving the results.
 	}
 
 
-Support For PUT
+Support For PUT and GET
 
-The Go Snowflake Driver supports the PUT command on AWS, Azure and GCP. The PUT
-command copies a file from the local computer (the computer on which the Golang
-client is running) to a stage on the cloud platform computer.
+The Go Snowflake Driver supports the PUT and GET commands. The PUT command copies 
+a file from the local computer (the computer on which the Golang client is running) 
+to a stage on the cloud platform computer.
 
-The Go Snowflake Driver supports the same command parameters as are documented
-in the main PUT documentation at
-https://docs.snowflake.com/en/sql-reference/sql/put.html .
+See the following for information on the syntax and supported parameters:
 
-The Go Snowflake Driver supports PUT commands to the following types of
-stages:
-	* A named internal stage.
-	* The table's stage.
-	* The user's default stage.
+  * PUT: https://docs.snowflake.com/en/sql-reference/sql/put.html
+  * GET: https://docs.snowflake.com/en/sql-reference/sql/get.html
 
-To execute a PUT command in Golang, construct the command as a string and pass
-it to the db.Query() function. The syntax is:
+Using PUT
 
-	db.Query("PUT file://<local_file> <stage_identifier> <optional_parameters>")
+The following example shows how to run a PUT command by passing a string to the 
+db.Query() function:
 
-For example:
+  db.Query("PUT file://<local_file> <stage_identifier> <optional_parameters>")
+
+"<local_file>" should include the file path as well as the name. Snowflake recommends 
+using an absolute path rather than a relative path. For example:
 
 	db.Query("PUT file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
 
-The "<local_file>" should include the file path as well as the name. Snowflake
-recommends using an absolute path rather than a relative path.
-
 Different client platforms (e.g. linux, Windows) have different path name
-conventions; make sure that you specify path names appropriately. This is
+conventions. Ensure that you specify path names appropriately. This is
 particularly important on Windows, which uses the backslash character as
 both an escape character and as a separator in path names.
 
-If you wish to send information from a stream (rather than a file), then use
-code similar to the code below. (The ReplaceAll() function is needed on Windows
-to handle backslashes in the path to the file.)
+To send information from a stream (rather than a file) use code similar to the code below. 
+(The ReplaceAll() function is needed on Windows to handle backslashes in the path to the file.)
 
 	fileStream, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
 	defer func() {
@@ -844,12 +838,17 @@ to handle backslashes in the path to the file.)
 
 Note: PUT statements are not supported for multi-statement queries.
 
+Using GET
 
-Limitations
+The following example shows how to run a GET command by passing a string to the 
+db.Query() function:
 
-The Go Snowflake Driver has the following limitations:
+  db.Query("GET file://<local_file> <stage_identifier> <optional_parameters>")
 
-	* GET operations (https://docs.snowflake.com/en/sql-reference/sql/get.html) are unsupported.
+"<local_file>" should include the file path as well as the name. Snowflake recommends using 
+an absolute path rather than a relative path. For example:
+
+  db.Query("GET file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
 
 */
 package gosnowflake
