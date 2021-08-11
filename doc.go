@@ -297,7 +297,7 @@ data types. The columns are:
   [2] Attempting to convert from a higher precision data type to a lower precision data type via interface{}
       causes an error.
 
-  [3] Higher precision data types like \*big.Int and \*big.Float can be accessed by querying with a context
+  [3] Higher precision data types like *big.Int and *big.Float can be accessed by querying with a context
       returned by WithHigherPrecision().
 
   [4] You cannot directly Scan() into the alternative data types via snowflakeRows.Scan(), but can convert to
