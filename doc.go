@@ -852,5 +852,6 @@ an absolute path rather than a relative path. For example:
 
   db.Query("GET file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
 
+
 */
 package gosnowflake
