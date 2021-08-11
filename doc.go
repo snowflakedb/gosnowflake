@@ -793,9 +793,11 @@ and before retrieving the results.
 
 Support For PUT and GET
 
-The Go Snowflake Driver supports the PUT and GET commands. The PUT command copies 
-a file from the local computer (the computer on which the Golang client is running) 
-to a stage on the cloud platform computer.
+The Go Snowflake Driver supports the PUT and GET commands. 
+
+The PUT command copies a file from a local computer (the computer where the 
+Golang client is running) to a stage on the cloud platform. The GET command 
+copies data files from a stage on the cloud platform to a local computer.
 
 See the following for information on the syntax and supported parameters:
 
