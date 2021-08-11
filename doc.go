@@ -267,10 +267,10 @@ data types. The columns are:
     INTEGER that         | int, int8, int16, int32, int64              | string                 | int, int8, int16,
     fits in int64        |                                   [1] , [2] |                        | int32, int64
   -------------------------------------------------------------------------------------------------------------------
-    INTEGER that doesn't | int, int8, int16, int32, int64, \*big.Int   | string                 | error
+    INTEGER that doesn't | int, int8, int16, int32, int64,  *big.Int   | string                 | error
     fit in int64         |                       [1] , [2] , [3] , [4] |
   -------------------------------------------------------------------------------------------------------------------
-    NUMBER(P, S)         | float32, float64, \*big.Float               | string                 | float32, float64
+    NUMBER(P, S)         | float32, float64,  *big.Float               | string                 | float32, float64
     where S > 0          |                       [1] , [2] , [3] , [5] |
   -------------------------------------------------------------------------------------------------------------------
     DATE                 | time.Time                                   | string                 | time.Time
