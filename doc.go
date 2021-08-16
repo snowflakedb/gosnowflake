@@ -267,10 +267,10 @@ data types. The columns are:
     INTEGER that         | int, int8, int16, int32, int64              | string                 | int, int8, int16,
     fits in int64        |                                   [1] , [2] |                        | int32, int64
   -------------------------------------------------------------------------------------------------------------------
-    INTEGER that doesn't | int, int8, int16, int32, int64, \*big.Int   | string                 | error
+    INTEGER that doesn't | int, int8, int16, int32, int64,  *big.Int   | string                 | error
     fit in int64         |                       [1] , [2] , [3] , [4] |
   -------------------------------------------------------------------------------------------------------------------
-    NUMBER(P, S)         | float32, float64, \*big.Float               | string                 | float32, float64
+    NUMBER(P, S)         | float32, float64,  *big.Float               | string                 | float32, float64
     where S > 0          |                       [1] , [2] , [3] , [5] |
   -------------------------------------------------------------------------------------------------------------------
     DATE                 | time.Time                                   | string                 | time.Time
@@ -297,7 +297,7 @@ data types. The columns are:
   [2] Attempting to convert from a higher precision data type to a lower precision data type via interface{}
       causes an error.
 
-  [3] Higher precision data types like \*big.Int and \*big.Float can be accessed by querying with a context
+  [3] Higher precision data types like *big.Int and *big.Float can be accessed by querying with a context
       returned by WithHigherPrecision().
 
   [4] You cannot directly Scan() into the alternative data types via snowflakeRows.Scan(), but can convert to
@@ -791,42 +791,38 @@ and before retrieving the results.
 	}
 
 
-Support For PUT
+Support For PUT and GET
 
-The Go Snowflake Driver supports the PUT command on AWS, Azure and GCP. The PUT
-command copies a file from the local computer (the computer on which the Golang
-client is running) to a stage on the cloud platform computer.
+The Go Snowflake Driver supports the PUT and GET commands. 
 
-The Go Snowflake Driver supports the same command parameters as are documented
-in the main PUT documentation at
-https://docs.snowflake.com/en/sql-reference/sql/put.html .
+The PUT command copies a file from a local computer (the computer where the 
+Golang client is running) to a stage on the cloud platform. The GET command 
+copies data files from a stage on the cloud platform to a local computer.
 
-The Go Snowflake Driver supports PUT commands to the following types of
-stages:
-	* A named internal stage.
-	* The table's stage.
-	* The user's default stage.
+See the following for information on the syntax and supported parameters:
 
-To execute a PUT command in Golang, construct the command as a string and pass
-it to the db.Query() function. The syntax is:
+  * PUT: https://docs.snowflake.com/en/sql-reference/sql/put.html
+  * GET: https://docs.snowflake.com/en/sql-reference/sql/get.html
 
-	db.Query("PUT file://<local_file> <stage_identifier> <optional_parameters>")
+Using PUT
 
-For example:
+The following example shows how to run a PUT command by passing a string to the 
+db.Query() function:
+
+  db.Query("PUT file://<local_file> <stage_identifier> <optional_parameters>")
+
+"<local_file>" should include the file path as well as the name. Snowflake recommends 
+using an absolute path rather than a relative path. For example:
 
 	db.Query("PUT file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
 
-The "<local_file>" should include the file path as well as the name. Snowflake
-recommends using an absolute path rather than a relative path.
-
 Different client platforms (e.g. linux, Windows) have different path name
-conventions; make sure that you specify path names appropriately. This is
+conventions. Ensure that you specify path names appropriately. This is
 particularly important on Windows, which uses the backslash character as
 both an escape character and as a separator in path names.
 
-If you wish to send information from a stream (rather than a file), then use
-code similar to the code below. (The ReplaceAll() function is needed on Windows
-to handle backslashes in the path to the file.)
+To send information from a stream (rather than a file) use code similar to the code below. 
+(The ReplaceAll() function is needed on Windows to handle backslashes in the path to the file.)
 
 	fileStream, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
 	defer func() {
@@ -844,12 +840,17 @@ to handle backslashes in the path to the file.)
 
 Note: PUT statements are not supported for multi-statement queries.
 
+Using GET
 
-Limitations
+The following example shows how to run a GET command by passing a string to the 
+db.Query() function:
 
-The Go Snowflake Driver has the following limitations:
+  db.Query("GET file://<local_file> <stage_identifier> <optional_parameters>")
 
-	* GET operations (https://docs.snowflake.com/en/sql-reference/sql/get.html) are unsupported.
+"<local_file>" should include the file path as well as the name. Snowflake recommends using 
+an absolute path rather than a relative path. For example:
+
+  db.Query("GET file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
 
 */
 package gosnowflake
