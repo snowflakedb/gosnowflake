@@ -42,7 +42,6 @@ var (
 )
 
 const (
-	forceArrow            = "ALTER SESSION SET GO_QUERY_RESULT_FORMAT = ARROW_FORCE"
 	selectNumberSQL       = "SELECT %s::NUMBER(%v, %v) AS C"
 	selectVariousTypes    = "SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6"
 	selectRandomGenerator = "SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))"
@@ -464,7 +463,6 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 
 func TestCommentOnlyQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		query := "--"
 		// just a comment, no query
 		rows, err := dbt.db.Query(query)
@@ -482,7 +480,6 @@ func TestCommentOnlyQuery(t *testing.T) {
 
 func TestEmptyQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		query := "select 1 from dual where 1=0"
 		// just a comment, no query
 		rows := dbt.db.QueryRow(query)
@@ -499,7 +496,6 @@ func TestEmptyQuery(t *testing.T) {
 
 func TestEmptyQueryWithRequestID(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		query := "select 1"
 		ctx := WithRequestID(context.Background(), uuid.New())
 		rows := dbt.db.QueryRowContext(ctx, query)
@@ -512,7 +508,6 @@ func TestEmptyQueryWithRequestID(t *testing.T) {
 
 func TestCRUD(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		// Create Table
 		dbt.mustExec("CREATE TABLE test (value BOOLEAN)")
 
@@ -611,7 +606,6 @@ func TestInt(t *testing.T) {
 
 func testInt(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		types := []string{"INT", "INTEGER"}
 		in := int64(42)
 		var out int64
@@ -658,7 +652,6 @@ func TestArrowBigInt(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()),
 			fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
@@ -686,7 +679,6 @@ func TestFloat32(t *testing.T) {
 
 func testFloat32(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		types := [2]string{"FLOAT", "DOUBLE"}
 		in := float32(42.23)
 		var out float32
@@ -721,7 +713,6 @@ func TestFloat64(t *testing.T) {
 
 func testFloat64(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		types := [2]string{"FLOAT", "DOUBLE"}
 		expected := 42.23
 		var out float64
@@ -766,7 +757,6 @@ func TestArrowBigFloat(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()),
 			fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 		if !rows.Next() {
@@ -836,7 +826,6 @@ func TestArrowIntPrecision(t *testing.T) {
 	})
 	t.Run("arrow_enabled_scan_big_int", func(t *testing.T) {
 		for _, tc := range intTestcases {
-			dbt.mustExec(forceArrow)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
 				dbt.Error("failed to query")
@@ -853,7 +842,6 @@ func TestArrowIntPrecision(t *testing.T) {
 	})
 	t.Run("arrow_high_precision_enabled_scan_big_int", func(t *testing.T) {
 		for _, tc := range intTestcases {
-			dbt.mustExec(forceArrow)
 			rows := dbt.mustQueryContext(
 				WithHigherPrecision(context.Background()),
 				fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
@@ -945,7 +933,6 @@ func TestArrowFloatPrecision(t *testing.T) {
 	})
 	t.Run("arrow_enabled_scan_float64", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			dbt.mustExec(forceArrow)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
 				dbt.Error("failed to query")
@@ -959,7 +946,6 @@ func TestArrowFloatPrecision(t *testing.T) {
 	})
 	t.Run("arrow_enabled_scan_float32", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			dbt.mustExec(forceArrow)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
 				dbt.Error("failed to query")
@@ -973,7 +959,6 @@ func TestArrowFloatPrecision(t *testing.T) {
 	})
 	t.Run("arrow_enabled_scan_string", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			dbt.mustExec(forceArrow)
 			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
 			if !rows.Next() {
 				dbt.Error("failed to query")
@@ -987,7 +972,6 @@ func TestArrowFloatPrecision(t *testing.T) {
 	})
 	t.Run("arrow_high_precision_enabled_scan_big_float", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			dbt.mustExec(forceArrow)
 			rows := dbt.mustQueryContext(
 				WithHigherPrecision(context.Background()),
 				fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
@@ -1014,7 +998,6 @@ func TestArrowFloatPrecision(t *testing.T) {
 
 func TestArrowVariousTypes(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQueryContext(
 			WithHigherPrecision(context.Background()), selectVariousTypes)
 		defer rows.Close()
@@ -1120,7 +1103,6 @@ func TestString(t *testing.T) {
 
 func testString(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1253,7 +1235,6 @@ func testSimpleDateTimeTimestampFetch(t *testing.T, json bool) {
 		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1320,7 +1301,6 @@ func testDateTime(t *testing.T, json bool) {
 		}},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1390,7 +1370,6 @@ func testTimestampLTZ(t *testing.T, json bool) {
 		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1439,7 +1418,6 @@ func testTimestampTZ(t *testing.T, json bool) {
 		},
 	}
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1461,7 +1439,6 @@ func TestNULL(t *testing.T) {
 
 func testNULL(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1620,7 +1597,6 @@ func TestVariant(t *testing.T) {
 
 func testVariant(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1643,7 +1619,6 @@ func TestArray(t *testing.T) {
 
 func testArray(t *testing.T, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1667,7 +1642,6 @@ func TestLargeSetResult(t *testing.T) {
 
 func testLargeSetResult(t *testing.T, numrows int, json bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1692,7 +1666,6 @@ func testLargeSetResult(t *testing.T, numrows int, json bool) {
 
 func TestPingpongQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		numrows := 1
 		rows := dbt.mustQuery("SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 60))")
 		defer rows.Close()
@@ -1708,7 +1681,6 @@ func TestPingpongQuery(t *testing.T) {
 
 func TestDML(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec("CREATE OR REPLACE TABLE test(c1 int, c2 string)")
 		if err := insertData(dbt, false); err != nil {
 			dbt.Fatalf("failed to insert data: %v", err)
@@ -1970,7 +1942,6 @@ func TestTimezoneSessionParameter(t *testing.T) {
 
 func TestLargeSetResultCancel(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
@@ -2078,7 +2049,6 @@ func TestSpecifyWarehouseDatabase(t *testing.T) {
 
 func TestFetchNil(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQuery("SELECT * FROM values(3,4),(null, 5) order by 2")
 		defer rows.Close()
 		var c1 sql.NullInt64
@@ -2212,7 +2182,6 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// the session parameter.
 	createDSNWithClientSessionKeepAlive()
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
 		if !rows.Next() {
 			t.Fatal("failed to get timezone.")
@@ -2233,7 +2202,6 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 
 func TestTimePrecision(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(forceArrow) // TODO remove after Arrow GA
 		dbt.mustExec("create or replace table z3 (t1 time(5))")
 		rows := dbt.mustQuery("select * from z3")
 		cols, _ := rows.ColumnTypes()

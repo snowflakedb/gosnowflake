@@ -30,13 +30,13 @@ func TestPutError(t *testing.T) {
 	os.Chmod(file1, 0000)
 
 	data := &execResponseData{
-		Command:           "UPLOAD",
+		Command:           string(uploadCommand),
 		AutoCompress:      false,
 		SrcLocations:      []string{file1},
 		SourceCompression: "none",
 		StageInfo: execResponseStageInfo{
 			Location:     remoteLocation,
-			LocationType: "LOCAL_FS",
+			LocationType: string(local),
 			Path:         "remote_loc",
 		},
 	}

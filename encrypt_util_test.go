@@ -95,7 +95,7 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	if err = scanner.Err(); err != nil {
 		t.Error(err)
 	}
-	if cnt != numberOfLines {
+	if cnt != numberOfLines && cnt != numberOfLines+1 {
 		t.Fatalf("incorrect number of lines. expected: %v, got: %v", numberOfLines, cnt)
 	}
 }
@@ -128,6 +128,7 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) string {
 			rec := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v\n", num, dt, ts, tsltz, tsntz, tstz, pct, ratio)
 			f.Write([]byte(rec))
 		}
+		f.Close()
 		if compress {
 			if !isWindows {
 				gzipCmd := exec.Command("gzip", filepath.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10)))
