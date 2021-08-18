@@ -328,7 +328,7 @@ func (sc *snowflakeConn) QueryContext(
 	}
 
 	// check the query status to find out if there is a result to fetch
-	err = sc.checkQueryStatus(ctx, qid)
+	_, err = sc.checkQueryStatus(ctx, qid)
 	if err == nil || (err != nil && err.(*SnowflakeError).Number == ErrQueryIsRunning) {
 		// the query is running. Rows object will be returned from here.
 		return sc.buildRowsForRunningQuery(ctx, qid)
@@ -427,6 +427,22 @@ func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
 		return driver.ErrSkip
 	}
 	return nil
+}
+
+func (sc *snowflakeConn) GetQueryStatus(
+	ctx context.Context,
+	queryID string) (
+	*SnowflakeQueryStatus, error) {
+	queryRet, err := sc.checkQueryStatus(ctx, queryID)
+	return &SnowflakeQueryStatus{
+		queryRet.SQLText,
+		queryRet.StartTime,
+		queryRet.EndTime,
+		queryRet.ErrorCode,
+		queryRet.ErrorMessage,
+		queryRet.Stats.ScanBytes,
+		queryRet.Stats.ProducedRows,
+	}, err
 }
 
 func (sc *snowflakeConn) handleMultiExec(

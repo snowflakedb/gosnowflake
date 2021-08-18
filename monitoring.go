@@ -17,11 +17,11 @@ import (
 const urlQueriesResultFmt = "/queries/%s/result"
 
 // QueryStatus is status returned from server
-type QueryStatus int
+type queryResultStatus int
 
 // Query Status defined at server side
 const (
-	SFQueryRunning QueryStatus = iota
+	SFQueryRunning queryResultStatus = iota
 	SFQueryAborting
 	SFQuerySuccess
 	SFQueryFailedWithError
@@ -39,14 +39,14 @@ const (
 	SFQueryNoData
 )
 
-func (qs QueryStatus) String() string {
+func (qs queryResultStatus) String() string {
 	return [...]string{"RUNNING", "ABORTING", "SUCCESS", "FAILED_WITH_ERROR",
 		"ABORTED", "QUEUED", "FAILED_WITH_INCIDENT", "DISCONNECTED",
 		"RESUMING_WAREHOUSE", "QUEUED_REPAIRING_WAREHOUSE", "RESTARTED",
 		"BLOCKED", "NO_DATA"}[qs]
 }
 
-func (qs QueryStatus) isRunning() bool {
+func (qs queryResultStatus) isRunning() bool {
 	switch qs {
 	case SFQueryRunning, SFQueryResumingWarehouse, SFQueryQueued,
 		SFQueryQueueRepairingWarehouse, SFQueryNoData:
@@ -56,7 +56,7 @@ func (qs QueryStatus) isRunning() bool {
 	}
 }
 
-func (qs QueryStatus) isError() bool {
+func (qs queryResultStatus) isError() bool {
 	switch qs {
 	case SFQueryAborting, SFQueryFailedWithError, SFQueryAborted,
 		SFQueryFailedWithIncident, SFQueryDisconnected, SFQueryBlocked:
@@ -66,7 +66,7 @@ func (qs QueryStatus) isError() bool {
 	}
 }
 
-var strQueryStatusMap = map[string]QueryStatus{"RUNNING": SFQueryRunning,
+var strQueryStatusMap = map[string]queryResultStatus{"RUNNING": SFQueryRunning,
 	"ABORTING": SFQueryAborting, "SUCCESS": SFQuerySuccess,
 	"FAILED_WITH_ERROR": SFQueryFailedWithError, "ABORTED": SFQueryAborted,
 	"QUEUED": SFQueryQueued, "FAILED_WITH_INCIDENT": SFQueryFailedWithIncident,
@@ -77,9 +77,18 @@ var strQueryStatusMap = map[string]QueryStatus{"RUNNING": SFQueryRunning,
 	"BLOCKED":                    SFQueryBlocked, "NO_DATA": SFQueryNoData}
 
 type retStatus struct {
-	Status       string `json:"status"`
-	ErrorMessage string `json:"errorMessage"`
-	ErrorCode    int    `json:"errorCode"`
+	Status       string   `json:"status"`
+	SQLText      string   `json:"sqlText"`
+	StartTime    int64    `json:"startTime"`
+	EndTime      int64    `json:"endTime"`
+	ErrorCode    int      `json:"errorCode"`
+	ErrorMessage string   `json:"errorMessage"`
+	Stats        retStats `json:"stats"`
+}
+
+type retStats struct {
+	ScanBytes    int64 `json:"scanBytes"`
+	ProducedRows int64 `json:"producedRows"`
 }
 
 type statusResponse struct {
@@ -91,8 +100,24 @@ type statusResponse struct {
 	Success bool   `json:"success"`
 }
 
-func strToQueryStatus(in string) QueryStatus {
+func strToQueryStatus(in string) queryResultStatus {
 	return strQueryStatusMap[in]
+}
+
+// SnowflakeQueryStatus is the query status metadata of a snowflake query
+type SnowflakeQueryStatus struct {
+	SQLText      string
+	StartTime    int64
+	EndTime      int64
+	ErrorCode    int
+	ErrorMessage string
+	ScanBytes    int64
+	ProducedRows int64
+}
+
+// SnowflakeConnection is a wrapper to snowflakeConn that exposes API functions
+type SnowflakeConnection interface {
+	GetQueryStatus(ctx context.Context, queryID string) (*SnowflakeQueryStatus, error)
 }
 
 // checkQueryStatus returns the status given the query ID. If successful,
@@ -104,7 +129,10 @@ func strToQueryStatus(in string) QueryStatus {
 // and GS returned an error status included in query. SFQueryFailedWithError
 // 3, ErrQueryIsRunning, if the requested query is still running and might have
 // a complete result later, these statuses were listed in query. SFQueryRunning
-func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error {
+func (sc *snowflakeConn) checkQueryStatus(
+	ctx context.Context,
+	qid string) (
+	*retStatus, error) {
 	headers := make(map[string]string)
 	param := make(url.Values)
 	param.Add(requestGUIDKey, uuid.New().String())
@@ -117,25 +145,24 @@ func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error
 	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-		return err
+		return nil, err
 	}
 	var statusResp = statusResponse{}
-
 	if err = json.NewDecoder(res.Body).Decode(&statusResp); err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return err
+		return nil, err
 	}
 
 	if !statusResp.Success || len(statusResp.Data.Queries) == 0 {
 		logger.WithContext(ctx).Errorf("status query returned not-success or no status returned.")
-		return &SnowflakeError{
+		return nil, &SnowflakeError{
 			Number:  ErrQueryStatus,
 			Message: "status query returned not-success or no status returned. Please retry"}
 	}
 
-	var queryRet = statusResp.Data.Queries[0]
+	queryRet := statusResp.Data.Queries[0]
 	if queryRet.ErrorCode != 0 {
-		return &SnowflakeError{
+		return &queryRet, &SnowflakeError{
 			Number: ErrQueryStatus,
 			Message: fmt.Sprintf("server ErrorCode=%d, ErrorMessage=%s",
 				queryRet.ErrorCode, queryRet.ErrorMessage),
@@ -145,9 +172,9 @@ func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error
 	}
 
 	// returned errorCode is 0. Now check what is the returned status of the query.
-	var qStatus = strToQueryStatus(queryRet.Status)
+	qStatus := strToQueryStatus(queryRet.Status)
 	if qStatus.isError() {
-		return &SnowflakeError{
+		return &queryRet, &SnowflakeError{
 			Number: ErrQueryReportedError,
 			Message: fmt.Sprintf("%s: status from server: [%s]",
 				queryRet.ErrorMessage, queryRet.Status),
@@ -157,7 +184,7 @@ func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error
 	}
 
 	if qStatus.isRunning() {
-		return &SnowflakeError{
+		return &queryRet, &SnowflakeError{
 			Number: ErrQueryIsRunning,
 			Message: fmt.Sprintf("%s: status from server: [%s]",
 				queryRet.ErrorMessage, queryRet.Status),
@@ -166,7 +193,7 @@ func (sc *snowflakeConn) checkQueryStatus(ctx context.Context, qid string) error
 		}
 	}
 	//success
-	return nil
+	return &queryRet, nil
 }
 
 func (sc *snowflakeConn) getQueryResultResp(
