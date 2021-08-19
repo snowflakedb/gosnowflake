@@ -40,7 +40,7 @@ func (c *Client) GetBucketInventoryConfiguration(ctx context.Context, params *Ge
 		params = &GetBucketInventoryConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketInventoryConfiguration", params, optFns, addOperationGetBucketInventoryConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketInventoryConfiguration", params, optFns, c.addOperationGetBucketInventoryConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +65,8 @@ type GetBucketInventoryConfigurationInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketInventoryConfigurationOutput struct {
@@ -74,9 +76,11 @@ type GetBucketInventoryConfigurationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketInventoryConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketInventoryConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketInventoryConfiguration{}, middleware.After)
 	if err != nil {
 		return err

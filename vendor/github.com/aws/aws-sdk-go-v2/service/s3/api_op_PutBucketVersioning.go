@@ -48,7 +48,7 @@ func (c *Client) PutBucketVersioning(ctx context.Context, params *PutBucketVersi
 		params = &PutBucketVersioningInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketVersioning", params, optFns, addOperationPutBucketVersioningMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketVersioning", params, optFns, c.addOperationPutBucketVersioningMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -84,14 +84,18 @@ type PutBucketVersioningInput struct {
 	// The concatenation of the authentication device's serial number, a space, and the
 	// value that is displayed on your authentication device.
 	MFA *string
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketVersioningOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketVersioningMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketVersioningMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketVersioning{}, middleware.After)
 	if err != nil {
 		return err

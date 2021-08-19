@@ -43,7 +43,7 @@ func (c *Client) DeleteBucketIntelligentTieringConfiguration(ctx context.Context
 		params = &DeleteBucketIntelligentTieringConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketIntelligentTieringConfiguration", params, optFns, addOperationDeleteBucketIntelligentTieringConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketIntelligentTieringConfiguration", params, optFns, c.addOperationDeleteBucketIntelligentTieringConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -65,14 +65,18 @@ type DeleteBucketIntelligentTieringConfigurationInput struct {
 	//
 	// This member is required.
 	Id *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteBucketIntelligentTieringConfigurationOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteBucketIntelligentTieringConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteBucketIntelligentTieringConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpDeleteBucketIntelligentTieringConfiguration{}, middleware.After)
 	if err != nil {
 		return err

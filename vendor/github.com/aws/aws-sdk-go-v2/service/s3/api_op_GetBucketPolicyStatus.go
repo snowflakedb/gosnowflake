@@ -42,7 +42,7 @@ func (c *Client) GetBucketPolicyStatus(ctx context.Context, params *GetBucketPol
 		params = &GetBucketPolicyStatusInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketPolicyStatus", params, optFns, addOperationGetBucketPolicyStatusMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketPolicyStatus", params, optFns, c.addOperationGetBucketPolicyStatusMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +62,8 @@ type GetBucketPolicyStatusInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketPolicyStatusOutput struct {
@@ -71,9 +73,11 @@ type GetBucketPolicyStatusOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketPolicyStatusMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketPolicyStatusMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketPolicyStatus{}, middleware.After)
 	if err != nil {
 		return err

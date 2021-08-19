@@ -21,7 +21,7 @@ func (c *Client) GetObjectLockConfiguration(ctx context.Context, params *GetObje
 		params = &GetObjectLockConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetObjectLockConfiguration", params, optFns, addOperationGetObjectLockConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetObjectLockConfiguration", params, optFns, c.addOperationGetObjectLockConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ type GetObjectLockConfigurationInput struct {
 	// AccessPointName-AccountId.s3-accesspoint.Region.amazonaws.com. When using this
 	// action with an access point through the AWS SDKs, you provide the access point
 	// ARN in place of the bucket name. For more information about access point ARNs,
-	// see Using Access Points
+	// see Using access points
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-access-points.html)
 	// in the Amazon S3 User Guide.
 	//
@@ -49,6 +49,8 @@ type GetObjectLockConfigurationInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetObjectLockConfigurationOutput struct {
@@ -58,9 +60,11 @@ type GetObjectLockConfigurationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetObjectLockConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetObjectLockConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetObjectLockConfiguration{}, middleware.After)
 	if err != nil {
 		return err

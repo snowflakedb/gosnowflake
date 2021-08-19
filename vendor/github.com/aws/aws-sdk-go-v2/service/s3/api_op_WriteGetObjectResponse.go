@@ -56,7 +56,7 @@ func (c *Client) WriteGetObjectResponse(ctx context.Context, params *WriteGetObj
 		params = &WriteGetObjectResponseInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "WriteGetObjectResponse", params, optFns, addOperationWriteGetObjectResponseMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "WriteGetObjectResponse", params, optFns, c.addOperationWriteGetObjectResponseMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -242,14 +242,18 @@ type WriteGetObjectResponseInput struct {
 
 	// An ID used to reference a specific version of the object.
 	VersionId *string
+
+	noSmithyDocumentSerde
 }
 
 type WriteGetObjectResponseOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationWriteGetObjectResponseMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationWriteGetObjectResponseMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpWriteGetObjectResponse{}, middleware.After)
 	if err != nil {
 		return err

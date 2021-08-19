@@ -25,7 +25,7 @@ func (c *Client) GetBucketRequestPayment(ctx context.Context, params *GetBucketR
 		params = &GetBucketRequestPaymentInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketRequestPayment", params, optFns, addOperationGetBucketRequestPaymentMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketRequestPayment", params, optFns, c.addOperationGetBucketRequestPaymentMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,8 @@ type GetBucketRequestPaymentInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketRequestPaymentOutput struct {
@@ -54,9 +56,11 @@ type GetBucketRequestPaymentOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketRequestPaymentMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketRequestPaymentMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketRequestPayment{}, middleware.After)
 	if err != nil {
 		return err

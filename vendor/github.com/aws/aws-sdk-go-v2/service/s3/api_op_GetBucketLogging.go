@@ -27,7 +27,7 @@ func (c *Client) GetBucketLogging(ctx context.Context, params *GetBucketLoggingI
 		params = &GetBucketLoggingInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketLogging", params, optFns, addOperationGetBucketLoggingMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketLogging", params, optFns, c.addOperationGetBucketLoggingMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +47,8 @@ type GetBucketLoggingInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketLoggingOutput struct {
@@ -54,14 +56,16 @@ type GetBucketLoggingOutput struct {
 	// Describes where logs are stored and the prefix that Amazon S3 assigns to all log
 	// object keys for a bucket. For more information, see PUT Bucket logging
 	// (https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlogging.html) in
-	// the Amazon Simple Storage Service API Reference.
+	// the Amazon S3 API Reference.
 	LoggingEnabled *types.LoggingEnabled
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketLoggingMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketLoggingMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketLogging{}, middleware.After)
 	if err != nil {
 		return err

@@ -37,7 +37,7 @@ func (c *Client) DeleteBucketPolicy(ctx context.Context, params *DeleteBucketPol
 		params = &DeleteBucketPolicyInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketPolicy", params, optFns, addOperationDeleteBucketPolicyMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketPolicy", params, optFns, c.addOperationDeleteBucketPolicyMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +57,18 @@ type DeleteBucketPolicyInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteBucketPolicyOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteBucketPolicyMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteBucketPolicyMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpDeleteBucketPolicy{}, middleware.After)
 	if err != nil {
 		return err

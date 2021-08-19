@@ -36,7 +36,7 @@ func (c *Client) PutBucketPolicy(ctx context.Context, params *PutBucketPolicyInp
 		params = &PutBucketPolicyInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketPolicy", params, optFns, addOperationPutBucketPolicyMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketPolicy", params, optFns, c.addOperationPutBucketPolicyMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -69,14 +69,18 @@ type PutBucketPolicyInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketPolicyOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketPolicyMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketPolicyMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketPolicy{}, middleware.After)
 	if err != nil {
 		return err

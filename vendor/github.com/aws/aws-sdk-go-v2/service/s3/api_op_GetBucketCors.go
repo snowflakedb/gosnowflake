@@ -30,7 +30,7 @@ func (c *Client) GetBucketCors(ctx context.Context, params *GetBucketCorsInput, 
 		params = &GetBucketCorsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketCors", params, optFns, addOperationGetBucketCorsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketCors", params, optFns, c.addOperationGetBucketCorsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +50,8 @@ type GetBucketCorsInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketCorsOutput struct {
@@ -60,9 +62,11 @@ type GetBucketCorsOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketCorsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketCorsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketCors{}, middleware.After)
 	if err != nil {
 		return err

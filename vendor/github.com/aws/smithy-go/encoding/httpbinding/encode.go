@@ -8,7 +8,12 @@ import (
 	"strings"
 )
 
-const contentLengthHeader = "Content-Length"
+const (
+	contentLengthHeader = "Content-Length"
+	floatNaN            = "NaN"
+	floatInfinity       = "Infinity"
+	floatNegInfinity    = "-Infinity"
+)
 
 // An Encoder provides encoding of REST URI path, query, and header components
 // of an HTTP request. Can also encode a stream as the payload.
@@ -83,7 +88,7 @@ func (e *Encoder) Headers(prefix string) Headers {
 	}
 }
 
-// HasHeader returns if a header with the key specified exists with one more
+// HasHeader returns if a header with the key specified exists with one or
 // more value.
 func (e Encoder) HasHeader(key string) bool {
 	return len(e.header[key]) != 0
@@ -102,4 +107,10 @@ func (e *Encoder) SetQuery(key string) QueryValue {
 // AddQuery returns a QueryValue used for appending the given query key
 func (e *Encoder) AddQuery(key string) QueryValue {
 	return NewQueryValue(e.query, key, true)
+}
+
+// HasQuery returns if a query with the key specified exists with one or
+// more value.
+func (e *Encoder) HasQuery(key string) bool {
+	return len(e.query.Get(key)) != 0
 }

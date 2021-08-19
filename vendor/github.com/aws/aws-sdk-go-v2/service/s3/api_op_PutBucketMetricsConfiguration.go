@@ -56,7 +56,7 @@ func (c *Client) PutBucketMetricsConfiguration(ctx context.Context, params *PutB
 		params = &PutBucketMetricsConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketMetricsConfiguration", params, optFns, addOperationPutBucketMetricsConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketMetricsConfiguration", params, optFns, c.addOperationPutBucketMetricsConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -86,14 +86,18 @@ type PutBucketMetricsConfigurationInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketMetricsConfigurationOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketMetricsConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketMetricsConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketMetricsConfiguration{}, middleware.After)
 	if err != nil {
 		return err

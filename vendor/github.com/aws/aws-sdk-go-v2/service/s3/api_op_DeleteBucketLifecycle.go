@@ -35,7 +35,7 @@ func (c *Client) DeleteBucketLifecycle(ctx context.Context, params *DeleteBucket
 		params = &DeleteBucketLifecycleInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketLifecycle", params, optFns, addOperationDeleteBucketLifecycleMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketLifecycle", params, optFns, c.addOperationDeleteBucketLifecycleMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -55,14 +55,18 @@ type DeleteBucketLifecycleInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type DeleteBucketLifecycleOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeleteBucketLifecycleMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteBucketLifecycleMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpDeleteBucketLifecycle{}, middleware.After)
 	if err != nil {
 		return err

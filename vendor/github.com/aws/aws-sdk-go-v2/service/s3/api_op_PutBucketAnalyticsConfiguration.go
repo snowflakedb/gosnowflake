@@ -81,7 +81,7 @@ func (c *Client) PutBucketAnalyticsConfiguration(ctx context.Context, params *Pu
 		params = &PutBucketAnalyticsConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketAnalyticsConfiguration", params, optFns, addOperationPutBucketAnalyticsConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketAnalyticsConfiguration", params, optFns, c.addOperationPutBucketAnalyticsConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -111,14 +111,18 @@ type PutBucketAnalyticsConfigurationInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketAnalyticsConfigurationOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketAnalyticsConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketAnalyticsConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketAnalyticsConfiguration{}, middleware.After)
 	if err != nil {
 		return err

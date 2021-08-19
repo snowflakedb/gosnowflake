@@ -40,7 +40,7 @@ func (c *Client) GetBucketReplication(ctx context.Context, params *GetBucketRepl
 		params = &GetBucketReplicationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetBucketReplication", params, optFns, addOperationGetBucketReplicationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetBucketReplication", params, optFns, c.addOperationGetBucketReplicationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +60,8 @@ type GetBucketReplicationInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type GetBucketReplicationOutput struct {
@@ -70,9 +72,11 @@ type GetBucketReplicationOutput struct {
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationGetBucketReplicationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationGetBucketReplicationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpGetBucketReplication{}, middleware.After)
 	if err != nil {
 		return err

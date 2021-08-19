@@ -52,7 +52,7 @@ func (c *Client) PutBucketNotificationConfiguration(ctx context.Context, params 
 		params = &PutBucketNotificationConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketNotificationConfiguration", params, optFns, addOperationPutBucketNotificationConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketNotificationConfiguration", params, optFns, c.addOperationPutBucketNotificationConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -78,14 +78,18 @@ type PutBucketNotificationConfigurationInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketNotificationConfigurationOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketNotificationConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketNotificationConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketNotificationConfiguration{}, middleware.After)
 	if err != nil {
 		return err

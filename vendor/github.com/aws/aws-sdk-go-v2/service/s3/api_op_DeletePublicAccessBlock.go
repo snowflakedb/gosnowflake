@@ -40,7 +40,7 @@ func (c *Client) DeletePublicAccessBlock(ctx context.Context, params *DeletePubl
 		params = &DeletePublicAccessBlockInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeletePublicAccessBlock", params, optFns, addOperationDeletePublicAccessBlockMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeletePublicAccessBlock", params, optFns, c.addOperationDeletePublicAccessBlockMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -60,14 +60,18 @@ type DeletePublicAccessBlockInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type DeletePublicAccessBlockOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationDeletePublicAccessBlockMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeletePublicAccessBlockMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpDeletePublicAccessBlock{}, middleware.After)
 	if err != nil {
 		return err

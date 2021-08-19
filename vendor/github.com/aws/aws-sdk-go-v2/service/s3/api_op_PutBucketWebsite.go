@@ -88,7 +88,7 @@ func (c *Client) PutBucketWebsite(ctx context.Context, params *PutBucketWebsiteI
 		params = &PutBucketWebsiteInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketWebsite", params, optFns, addOperationPutBucketWebsiteMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketWebsite", params, optFns, c.addOperationPutBucketWebsiteMiddlewares)
 	if err != nil {
 		return nil, err
 	}
@@ -120,14 +120,18 @@ type PutBucketWebsiteInput struct {
 	// The account ID of the expected bucket owner. If the bucket is owned by a
 	// different account, the request will fail with an HTTP 403 (Access Denied) error.
 	ExpectedBucketOwner *string
+
+	noSmithyDocumentSerde
 }
 
 type PutBucketWebsiteOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
+
+	noSmithyDocumentSerde
 }
 
-func addOperationPutBucketWebsiteMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketWebsiteMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketWebsite{}, middleware.After)
 	if err != nil {
 		return err
