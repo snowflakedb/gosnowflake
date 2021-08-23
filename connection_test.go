@@ -75,7 +75,7 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */,
+	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -146,16 +146,17 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */,
+	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 }
 
 // TestServiceName tests two things:
-// 1. request header would contain X-Snowflake-Service if the cfg parameters contains SERVICE_NAME
-// 2. SERVICE_NAME would be update by response payload
-// It is achieved through an interactive postQueryMock that would generate response based on header
+// 1. request header contains X-Snowflake-Service if the cfg parameters
+// contains SERVICE_NAME
+// 2. SERVICE_NAME is updated by response payload
+// Uses interactive postQueryMock that generates a response based on header
 func TestServiceName(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPostQuery: postQueryMock,
@@ -168,7 +169,7 @@ func TestServiceName(t *testing.T) {
 
 	expectServiceName := serviceNameStub
 	for i := 0; i < 5; i++ {
-		sc.exec(context.TODO(), "", false /* noResult */,
+		sc.exec(context.TODO(), "", false, /* noResult */
 			false /* isInternal */, false /* describeOnly */, nil)
 		if actualServiceName, ok := sc.cfg.Params[serviceName]; ok {
 			if *actualServiceName != expectServiceName {
@@ -178,7 +179,6 @@ func TestServiceName(t *testing.T) {
 		} else {
 			t.Error("No service name in the response")
 		}
-
 		expectServiceName += serviceNameAppend
 	}
 }
@@ -257,7 +257,7 @@ func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 
 func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	var jsonStr = `{"data" : { "queries" : [{"status" : "RUNNING", "state" :
+	jsonStr := `{"data" : { "queries" : [{"status" : "RUNNING", "state" :
 		"FILE_SET_INITIALIZATION", "errorCode" : 0, "errorMessage" : null}] },
 		"code" : null, "message" : null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
@@ -265,9 +265,9 @@ func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, ful
 
 func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	var jsonStr = `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR",
-		"errorCode" : 0, "errorMessage" : ""}] }, "code" : null,
-		"message" : null, "success" : true }`
+	jsonStr := `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR",
+		"errorCode" : 0, "errorMessage" : ""}] }, "code" : null, "message" :
+		null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
 
@@ -276,13 +276,13 @@ func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL
 // of that query.
 func fetchResultByQueryID(
 	t *testing.T,
-	customget FuncGetType,
+	customGet FuncGetType,
 	expectedFetchErr *SnowflakeError) error {
 	config, _ := ParseDSN(dsn)
 	ctx := context.Background()
 	sc, err := buildSnowflakeConn(ctx, *config)
-	if customget != nil {
-		sc.rest.FuncGet = customget
+	if customGet != nil {
+		sc.rest.FuncGet = customGet
 	}
 	if err != nil {
 		return err
@@ -351,5 +351,41 @@ func TestPrivateLink(t *testing.T) {
 	expectedURL = "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v"
 	if retryURL != expectedURL {
 		t.Errorf("expected: %v, got: %v", expectedURL, retryURL)
+	}
+}
+
+func TestGetQueryStatus(t *testing.T) {
+	config, _ := ParseDSN(dsn)
+	ctx := context.Background()
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	if _, err = sc.Exec(`create or replace table ut_conn(c1 number, c2 string)
+		as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 from
+		table(generator(rowcount => 100)))`, nil); err != nil {
+		t.Error(err)
+	}
+
+	rows, err := sc.QueryContext(ctx, "select min(c1) as ms, sum(c1) from ut_conn group by (c1 % 10) order by ms", nil)
+	if err != nil {
+		t.Error(err)
+	}
+	qid := rows.(SnowflakeResult).GetQueryID()
+
+	// use conn as type holder for SnowflakeConnection placeholder
+	var conn interface{} = sc
+	qStatus, err := conn.(SnowflakeConnection).GetQueryStatus(ctx, qid)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if qStatus.ErrorCode != 0 || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
+		t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v",
+			qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows)
 	}
 }
