@@ -32,22 +32,21 @@ import (
 	"time"
 )
 
-// caRoot includes the CA certificates.
-var caRoot map[string]*x509.Certificate
+var (
+	// caRoot includes the CA certificates.
+	caRoot map[string]*x509.Certificate
+	// certPOol includes the CA certificates.
+	certPool *x509.CertPool
+	// cacheDir is the location of OCSP response cache file
+	cacheDir = ""
+	// cacheFileName is the file name of OCSP response cache file
+	cacheFileName = ""
+	// cacheUpdated is true if the memory cache is updated
+	cacheUpdated = true
+)
 
-// certPOol includes the CA certificates.
-var certPool *x509.CertPool
-
-// cacheDir is the location of OCSP response cache file
-var cacheDir = ""
-
-// cacheFileName is the file name of OCSP response cache file
-var cacheFileName = ""
-
-// cacheUpdated is true if the memory cache is updated
-var cacheUpdated = true
-
-// OCSPFailOpenMode is OCSP fail open mode. OCSPFailOpenTrue by default and may set to ocspModeFailClosed for fail closed mode
+// OCSPFailOpenMode is OCSP fail open mode. OCSPFailOpenTrue by default and may
+// set to ocspModeFailClosed for fail closed mode
 type OCSPFailOpenMode uint32
 
 const (
@@ -82,6 +81,7 @@ const (
 	cacheServerEnabledEnv = "SF_OCSP_RESPONSE_CACHE_SERVER_ENABLED"
 	cacheServerURLEnv     = "SF_OCSP_RESPONSE_CACHE_SERVER_URL"
 	cacheDirEnv           = "SF_OCSP_RESPONSE_CACHE_DIR"
+	ocspRetryURLEnv       = "SF_OCSP_RESPONSE_RETRY_URL"
 )
 
 const (
@@ -89,7 +89,7 @@ const (
 	ocspTestInjectUnknownStatusEnv        = "SF_OCSP_TEST_INJECT_UNKNOWN_STATUS"
 	ocspTestResponseCacheServerTimeoutEnv = "SF_OCSP_TEST_OCSP_RESPONSE_CACHE_SERVER_TIMEOUT"
 	ocspTestResponderTimeoutEnv           = "SF_OCSP_TEST_OCSP_RESPONDER_TIMEOUT"
-	ocspTestResponderURLEnv               = "SF_OCSP_RESPONDER_URL"
+	ocspTestResponderURLEnv               = "SF_OCSP_TEST_RESPONDER_URL"
 	ocspTestNoOCSPURLEnv                  = "SF_OCSP_TEST_NO_OCSP_RESPONDER_URL"
 )
 
@@ -489,7 +489,12 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		}
 	}
 	hostnameStr := os.Getenv(ocspTestResponderURLEnv)
-	hostname := u.Hostname()
+	var hostname string
+	if retryURL := os.Getenv(ocspRetryURLEnv); retryURL != "" {
+		hostname = fmt.Sprintf(retryURL, u.Hostname(), base64.StdEncoding.EncodeToString(ocspReq))
+	} else {
+		hostname = u.Hostname()
+	}
 	if hostnameStr != "" {
 		u0, err := url.Parse(hostnameStr)
 		if err == nil {

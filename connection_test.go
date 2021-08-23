@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -24,10 +25,12 @@ const (
 	serviceNameAppend = "a"
 )
 
-// postQueryMock would generate a response based on the X-Snowflake-Service header, to generate a response
-// with the SERVICE_NAME field appending a character at the end of the header
-// This way it could test both the send and receive logic
-func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID, _ *Config) (*execResponse, error) {
+// postQueryMock generates a response based on the X-Snowflake-Service header,
+// to generate a response with the SERVICE_NAME field appending a character at
+// the end of the header. This way it could test both the send and receive logic
+func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values,
+	headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID,
+	_ *Config) (*execResponse, error) {
 	var serviceName string
 	if serviceHeader, ok := headers[httpHeaderServiceName]; ok {
 		serviceName = serviceHeader + serviceNameAppend
@@ -48,7 +51,9 @@ func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values, header
 
 func TestExecWithEmptyRequestID(t *testing.T) {
 	ctx := WithRequestID(context.Background(), uuid.Nil)
-	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID uuid.UUID, _ *Config) (*execResponse, error) {
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
+		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
+		requestID uuid.UUID, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if len(requestID) == 0 {
 			t.Fatal("requestID is empty")
@@ -70,7 +75,8 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil); err != nil {
+	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */,
+		false /* describeOnly */, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 }
@@ -79,7 +85,8 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 	ta := getSimpleTokenAccessor()
 	token := "snowflake-test-token"
 	ta.SetTokens(token, "", 1)
-	funcGetMock := func(_ context.Context, _ *snowflakeRestful, _ *url.URL, headers map[string]string, _ time.Duration) (*http.Response, error) {
+	funcGetMock := func(_ context.Context, _ *snowflakeRestful, _ *url.URL,
+		headers map[string]string, _ time.Duration) (*http.Response, error) {
 		if headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, token) {
 			t.Fatalf("header authorization key is not correct: %v", headers[headerAuthorizationKey])
 		}
@@ -115,7 +122,9 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 func TestExecWithSpecificRequestID(t *testing.T) {
 	origRequestID := uuid.New()
 	ctx := WithRequestID(context.Background(), origRequestID)
-	postQueryMock := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID uuid.UUID, _ *Config) (*execResponse, error) {
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
+		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
+		requestID uuid.UUID, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if requestID != origRequestID {
 			t.Fatal("requestID doesn't match")
@@ -137,7 +146,8 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 		cfg:  &Config{Params: map[string]*string{}},
 		rest: sr,
 	}
-	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil); err != nil {
+	if _, err := sc.exec(ctx, "", false /* noResult */, false /* isInternal */,
+		false /* describeOnly */, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 }
@@ -158,10 +168,12 @@ func TestServiceName(t *testing.T) {
 
 	expectServiceName := serviceNameStub
 	for i := 0; i < 5; i++ {
-		sc.exec(context.TODO(), "", false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
+		sc.exec(context.TODO(), "", false /* noResult */,
+			false /* isInternal */, false /* describeOnly */, nil)
 		if actualServiceName, ok := sc.cfg.Params[serviceName]; ok {
 			if *actualServiceName != expectServiceName {
-				t.Errorf("service name mis-match. expected %v, actual %v", expectServiceName, actualServiceName)
+				t.Errorf("service name mis-match. expected %v, actual %v",
+					expectServiceName, actualServiceName)
 			}
 		} else {
 			t.Error("No service name in the response")
@@ -227,13 +239,13 @@ func TestFetchRunningQueryByID(t *testing.T) {
 }
 
 func TestFetchErrorQueryByID(t *testing.T) {
-	err := &SnowflakeError{
-		Number: ErrQueryReportedError}
-	fetchResultByQueryID(t, returnQueryIsErrStatus, err)
+	fetchResultByQueryID(t, returnQueryIsErrStatus, &SnowflakeError{
+		Number: ErrQueryReportedError})
 }
 
 func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
-	vals map[string]string, _ time.Duration, jsonStr string) (*http.Response, error) {
+	vals map[string]string, _ time.Duration, jsonStr string) (
+	*http.Response, error) {
 	if strings.Contains(url.Path, "/monitoring/queries/") {
 		return &http.Response{
 			StatusCode: http.StatusOK,
@@ -245,21 +257,27 @@ func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 
 func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	var jsonStr = `{"data" : { "queries" : [{"status" : "RUNNING", "state" : "FILE_SET_INITIALIZATION",
-        "errorCode" : 0, "errorMessage" : null}] }, "code" : null, "message" : null, "success" : true }`
+	var jsonStr = `{"data" : { "queries" : [{"status" : "RUNNING", "state" :
+		"FILE_SET_INITIALIZATION", "errorCode" : 0, "errorMessage" : null}] },
+		"code" : null, "message" : null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
 
 func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	var jsonStr = `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR", "errorCode" : 0, "errorMessage" : ""}] },
-       "code" : null, "message" : null, "success" : true }`
+	var jsonStr = `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR",
+		"errorCode" : 0, "errorMessage" : ""}] }, "code" : null,
+		"message" : null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
 
 // this function is going to: 1, create a table, 2, query on this table,
-//      3, fetch result of query in step 2, mock running status and error status of that query.
-func fetchResultByQueryID(t *testing.T, customget FuncGetType, expectedFetchErr *SnowflakeError) error {
+// 3, fetch result of query in step 2, mock running status and error status
+// of that query.
+func fetchResultByQueryID(
+	t *testing.T,
+	customget FuncGetType,
+	expectedFetchErr *SnowflakeError) error {
 	config, _ := ParseDSN(dsn)
 	ctx := context.Background()
 	sc, err := buildSnowflakeConn(ctx, *config)
@@ -313,4 +331,25 @@ func fetchResultByQueryID(t *testing.T, customget FuncGetType, expectedFetchErr 
 		t.Fatalf("rowcount is not expected 10: %v", cnt)
 	}
 	return nil
+}
+
+func TestPrivateLink(t *testing.T) {
+	if _, err := buildSnowflakeConn(context.Background(), Config{
+		Account:  "testaccount",
+		User:     "testuser",
+		Password: "testpassword",
+		Host:     "testaccount.us-east-1.privatelink.snowflakecomputing.com",
+	}); err != nil {
+		t.Error(err)
+	}
+	ocspURL := os.Getenv(cacheServerURLEnv)
+	expectedURL := "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json"
+	if ocspURL != expectedURL {
+		t.Errorf("expected: %v, got: %v", expectedURL, ocspURL)
+	}
+	retryURL := os.Getenv(ocspRetryURLEnv)
+	expectedURL = "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v"
+	if retryURL != expectedURL {
+		t.Errorf("expected: %v, got: %v", expectedURL, retryURL)
+	}
 }

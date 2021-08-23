@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -755,6 +756,18 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(ctx context.Context, qid strin
 	return rows, err
 }
 
+func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
+	ocspCacheServer := fmt.Sprintf("http://ocsp.%v/ocsp_response_cache.json", host)
+	if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
+		return err
+	}
+	ocspRetryHost := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
+	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHost); err != nil {
+		return err
+	}
+	return nil
+}
+
 func isAsyncMode(ctx context.Context) bool {
 	val := ctx.Value(asyncMode)
 	if val == nil {
@@ -986,6 +999,15 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	} else {
 		// use the custom transport
 		st = sc.cfg.Transporter
+	}
+	if strings.HasSuffix(sc.cfg.Host, "privatelink.snowflakecomputing.com") {
+		if err := sc.setupOCSPPrivatelink(sc.cfg.Application, sc.cfg.Host); err != nil {
+			return nil, err
+		}
+	} else {
+		if _, set := os.LookupEnv(cacheServerURLEnv); set {
+			os.Unsetenv(cacheServerURLEnv)
+		}
 	}
 	var tokenAccessor TokenAccessor
 	if sc.cfg.TokenAccessor != nil {
