@@ -16,14 +16,25 @@ const (
 	defaultFlushSize = 100
 )
 
-type telemetryMessage struct {
-	Type    string `json:"type,omitempty"`
-	QueryID string `json:"QueryID,omitempty"`
-}
+const (
+	typeKey          = "type"
+	queryIDKey       = "QueryID"
+	driverTypeKey    = "DriverType"
+	driverVersionKey = "DriverVersion"
+	sqlStateKey      = "SQLState"
+	reasonKey        = "reason"
+	errorNumberKey   = "ErrorNumber"
+	stacktraceKey    = "Stacktrace"
+	exceptionKey     = "Exception"
+)
+
+const (
+	sqlException = "client_sql_exception"
+)
 
 type telemetryData struct {
 	Timestamp int64             `json:"timestamp,omitempty"`
-	Message   *telemetryMessage `json:"message,omitempty"`
+	Message   map[string]string `json:"message,omitempty"`
 }
 
 type snowflakeTelemetry struct {
@@ -51,7 +62,9 @@ func (st *snowflakeTelemetry) addLog(data *telemetryData) error {
 
 func (st *snowflakeTelemetry) sendBatch() error {
 	if !st.enabled {
-		return fmt.Errorf("telemetry disabled; not sending log")
+		err := fmt.Errorf("telemetry disabled; not sending log")
+		logger.Debug(err)
+		return err
 	}
 	type telemetry struct {
 		Logs []*telemetryData `json:"logs"`
@@ -62,31 +75,48 @@ func (st *snowflakeTelemetry) sendBatch() error {
 	st.logs = make([]*telemetryData, 0)
 	st.mutex.Unlock()
 
+	if len(logsToSend) == 0 {
+		logger.Debug("nothing to send to telemetry")
+		return nil
+	}
+
 	s := &telemetry{logsToSend}
 	body, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
+	logger.Debugf("sending %v logs to telemetry. inband telemetry payload "+
+		"being sent: %v", len(logsToSend), string(body))
+
 	headers := getHeaders()
 	if token, _, _ := st.sr.TokenAccessor.GetTokens(); token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	}
 	resp, err := st.sr.FuncPost(context.Background(), st.sr, st.sr.getFullURL(telemetryPath, nil), headers, body, 10*time.Second, true)
 	if err != nil {
+		logger.Info("failed to upload metrics to telemetry. err: %v", err)
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("non-successful response from telemetry server: %v. "+
+			"disabling telemetry", resp.StatusCode)
+		logger.Info(err)
 		st.enabled = false
-		return fmt.Errorf("failed to upload metrics to telemetry")
+		return err
 	}
 	var respd telemetryResponse
 	if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
+		logger.Info(err)
 		st.enabled = false
 		return err
 	}
 	if !respd.Success {
+		err = fmt.Errorf("telemetry send failed with error code: %v, message: %v",
+			respd.Code, respd.Message)
+		logger.Info(err)
 		st.enabled = false
-		return fmt.Errorf("telemetry send failed with error code: %v, message: %v", respd.Code, respd.Message)
+		return err
 	}
+	logger.Debug("successfully uploaded metrics to telemetry")
 	return nil
 }

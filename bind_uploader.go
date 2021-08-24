@@ -58,16 +58,20 @@ func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, err
 	return data, nil
 }
 
-func (bu *bindUploader) uploadStreamInternal(inputStream *bytes.Buffer, dstFileName int, compressData bool) (*execResponse, error) {
+func (bu *bindUploader) uploadStreamInternal(
+	inputStream *bytes.Buffer,
+	dstFileName int,
+	compressData bool) (
+	*execResponse, error) {
 	if err := bu.createStageIfNeeded(); err != nil {
 		return nil, err
 	}
 	stageName := bu.stagePath
 	if stageName == "" {
-		return nil, &SnowflakeError{
+		return nil, (&SnowflakeError{
 			Number:  ErrBindUpload,
 			Message: "stage name is null",
-		}
+		}).exceptionTelemetry(bu.sc)
 	}
 
 	// use a placeholder for source file
@@ -96,11 +100,12 @@ func (bu *bindUploader) createStageIfNeeded() error {
 		if err != nil {
 			return err
 		}
-		return &SnowflakeError{
+		return (&SnowflakeError{
 			Number:   code,
 			SQLState: data.Data.SQLState,
 			Message:  err.Error(),
-			QueryID:  data.Data.QueryID}
+			QueryID:  data.Data.QueryID,
+		}).exceptionTelemetry(bu.sc)
 	}
 	bu.arrayBindStage = bindStageName
 	return nil
@@ -110,10 +115,10 @@ func (bu *bindUploader) createStageIfNeeded() error {
 func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte, error) {
 	numColumns := len(columns)
 	if columns[0].Value == nil {
-		return nil, &SnowflakeError{
+		return nil, (&SnowflakeError{
 			Number:  ErrBindSerialization,
 			Message: "no binds found in the first column",
-		}
+		}).exceptionTelemetry(bu.sc)
 	}
 
 	_, column := snowflakeArrayToString(&columns[0], true)
@@ -131,11 +136,11 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 		_, column = snowflakeArrayToString(&columns[colIdx], true)
 		iNumRows := len(column)
 		if iNumRows != numRows {
-			return nil, &SnowflakeError{
+			return nil, (&SnowflakeError{
 				Number:      ErrBindSerialization,
 				Message:     errMsgBindColumnMismatch,
 				MessageArgs: []interface{}{colIdx, iNumRows, numRows},
-			}
+			}).exceptionTelemetry(bu.sc)
 		}
 		for rowIdx := 0; rowIdx < numRows; rowIdx++ {
 			rows[rowIdx][colIdx] = *column[rowIdx] // length of column = number of rows
