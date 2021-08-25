@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"os"
 )
 
 // SnowflakeDriver is a context of Go Driver
@@ -43,9 +44,16 @@ func (d SnowflakeDriver) OpenWithConfig(
 	return sc, nil
 }
 
+func runningOnGithubAction() bool {
+	return os.Getenv("GITHUB_ACTIONS") != ""
+}
+
 var logger = CreateDefaultLogger()
 
 func init() {
 	sql.Register("snowflake", &SnowflakeDriver{})
 	logger.SetLogLevel("error")
+	if runningOnGithubAction() {
+		logger.SetLogLevel("fatal")
+	}
 }

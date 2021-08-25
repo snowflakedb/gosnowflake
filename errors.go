@@ -1,9 +1,10 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"time"
 )
@@ -35,17 +36,13 @@ func (se *SnowflakeError) Error() string {
 	return fmt.Sprintf("%06d: %s", se.Number, message)
 }
 
-func (se *SnowflakeError) generateTelemetryStacktrace() string {
-	return "" // TODO
-}
-
 func (se *SnowflakeError) generateTelemetryExceptionData() *telemetryData {
 	data := &telemetryData{
 		Message: map[string]string{
 			typeKey:          sqlException,
 			driverTypeKey:    "Go",
 			driverVersionKey: SnowflakeGoDriverVersion,
-			stacktraceKey:    se.generateTelemetryStacktrace(), // TODO add secret detector
+			stacktraceKey:    maskSecrets(string(debug.Stack())),
 		},
 		Timestamp: time.Now().UnixNano(),
 	}
