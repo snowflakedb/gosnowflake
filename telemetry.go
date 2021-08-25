@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	telemetryPath    = "/telemetry/send"
-	defaultFlushSize = 100
+	telemetryPath           = "/telemetry/send"
+	defaultTelemetryTimeout = 10 * time.Second
+	defaultFlushSize        = 100
 )
 
 const (
@@ -29,7 +30,8 @@ const (
 )
 
 const (
-	sqlException = "client_sql_exception"
+	sqlException         = "client_sql_exception"
+	connectionParameters = "client_connection_parameters"
 )
 
 type telemetryData struct {
@@ -92,7 +94,9 @@ func (st *snowflakeTelemetry) sendBatch() error {
 	if token, _, _ := st.sr.TokenAccessor.GetTokens(); token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	}
-	resp, err := st.sr.FuncPost(context.Background(), st.sr, st.sr.getFullURL(telemetryPath, nil), headers, body, 10*time.Second, true)
+	resp, err := st.sr.FuncPost(context.Background(), st.sr,
+		st.sr.getFullURL(telemetryPath, nil), headers, body,
+		defaultTelemetryTimeout, true)
 	if err != nil {
 		logger.Info("failed to upload metrics to telemetry. err: %v", err)
 		return err

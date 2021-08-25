@@ -23,18 +23,21 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 }
 
 // OpenWithConfig creates a new connection with the given Config.
-func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
+func (d SnowflakeDriver) OpenWithConfig(
+	ctx context.Context,
+	config Config) (
+	driver.Conn, error) {
 	logger.Info("OpenWithConfig")
-	var err error
 	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 
-	err = authenticateWithConfig(sc)
-	if err != nil {
+	if err = authenticateWithConfig(sc); err != nil {
 		return nil, err
 	}
+	sc.connectionTelemetry(&config)
+
 	sc.startHeartBeat()
 	sc.internal = &httpClient{sr: sc.rest}
 	return sc, nil

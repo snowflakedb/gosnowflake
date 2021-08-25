@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
@@ -47,6 +48,22 @@ func (sc *snowflakeConn) getArrayBindStageThreshold() int {
 		return 0
 	}
 	return num
+}
+
+func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
+	data := &telemetryData{
+		Message: map[string]string{
+			typeKey:          connectionParameters,
+			driverTypeKey:    "Go",
+			driverVersionKey: SnowflakeGoDriverVersion,
+		},
+		Timestamp: time.Now().UnixNano(),
+	}
+	for k, v := range cfg.Params {
+		data.Message[k] = *v
+	}
+	sc.telemetry.addLog(data)
+	sc.telemetry.sendBatch()
 }
 
 // processFileTransfer creates a snowflakeFileTransferAgent object to process
