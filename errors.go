@@ -1,9 +1,12 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
 import (
 	"fmt"
+	"runtime/debug"
+	"strconv"
+	"time"
 )
 
 // SnowflakeError is a error type including various Snowflake specific information.
@@ -31,6 +34,49 @@ func (se *SnowflakeError) Error() string {
 		return fmt.Sprintf("%06d: %s: %s", se.Number, se.QueryID, message)
 	}
 	return fmt.Sprintf("%06d: %s", se.Number, message)
+}
+
+func (se *SnowflakeError) generateTelemetryExceptionData() *telemetryData {
+	data := &telemetryData{
+		Message: map[string]string{
+			typeKey:          sqlException,
+			driverTypeKey:    "Go",
+			driverVersionKey: SnowflakeGoDriverVersion,
+			stacktraceKey:    maskSecrets(string(debug.Stack())),
+		},
+		Timestamp: time.Now().UnixNano(),
+	}
+	if se.QueryID != "" {
+		data.Message[queryIDKey] = se.QueryID
+	}
+	if se.SQLState != "" {
+		data.Message[sqlStateKey] = se.SQLState
+	}
+	if se.Message != "" {
+		data.Message[reasonKey] = se.Message
+	}
+	if len(se.MessageArgs) > 0 {
+		data.Message[reasonKey] = fmt.Sprintf(se.Message, se.MessageArgs...)
+	}
+	if se.Number != 0 {
+		data.Message[errorNumberKey] = strconv.Itoa(se.Number)
+	}
+	return data
+}
+
+func (se *SnowflakeError) sendExceptionTelemetry(sc *snowflakeConn, data *telemetryData) error {
+	if sc != nil {
+		return sc.telemetry.addLog(data)
+	}
+	return nil // TODO oob telemetry
+}
+
+func (se *SnowflakeError) exceptionTelemetry(sc *snowflakeConn) *SnowflakeError {
+	data := se.generateTelemetryExceptionData()
+	if err := se.sendExceptionTelemetry(sc, data); err != nil {
+		logger.Debugf("failed to log to telemetry: %v", data)
+	}
+	return se
 }
 
 const (

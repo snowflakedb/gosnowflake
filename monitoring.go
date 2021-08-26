@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -16,7 +16,7 @@ import (
 
 const urlQueriesResultFmt = "/queries/%s/result"
 
-// QueryStatus is status returned from server
+// queryResultStatus is status returned from server
 type queryResultStatus int
 
 // Query Status defined at server side
@@ -155,42 +155,43 @@ func (sc *snowflakeConn) checkQueryStatus(
 
 	if !statusResp.Success || len(statusResp.Data.Queries) == 0 {
 		logger.WithContext(ctx).Errorf("status query returned not-success or no status returned.")
-		return nil, &SnowflakeError{
+		return nil, (&SnowflakeError{
 			Number:  ErrQueryStatus,
-			Message: "status query returned not-success or no status returned. Please retry"}
+			Message: "status query returned not-success or no status returned. Please retry",
+		}).exceptionTelemetry(sc)
 	}
 
 	queryRet := statusResp.Data.Queries[0]
 	if queryRet.ErrorCode != 0 {
-		return &queryRet, &SnowflakeError{
+		return &queryRet, (&SnowflakeError{
 			Number: ErrQueryStatus,
 			Message: fmt.Sprintf("server ErrorCode=%d, ErrorMessage=%s",
 				queryRet.ErrorCode, queryRet.ErrorMessage),
 			IncludeQueryID: true,
 			QueryID:        qid,
-		}
+		}).exceptionTelemetry(sc)
 	}
 
 	// returned errorCode is 0. Now check what is the returned status of the query.
 	qStatus := strToQueryStatus(queryRet.Status)
 	if qStatus.isError() {
-		return &queryRet, &SnowflakeError{
+		return &queryRet, (&SnowflakeError{
 			Number: ErrQueryReportedError,
 			Message: fmt.Sprintf("%s: status from server: [%s]",
 				queryRet.ErrorMessage, queryRet.Status),
 			IncludeQueryID: true,
 			QueryID:        qid,
-		}
+		}).exceptionTelemetry(sc)
 	}
 
 	if qStatus.isRunning() {
-		return &queryRet, &SnowflakeError{
+		return &queryRet, (&SnowflakeError{
 			Number: ErrQueryIsRunning,
 			Message: fmt.Sprintf("%s: status from server: [%s]",
 				queryRet.ErrorMessage, queryRet.Status),
 			IncludeQueryID: true,
 			QueryID:        qid,
-		}
+		}).exceptionTelemetry(sc)
 	}
 	//success
 	return &queryRet, nil
@@ -239,11 +240,12 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 			if err != nil {
 				return err
 			}
-			return &SnowflakeError{
+			return (&SnowflakeError{
 				Number:   code,
 				SQLState: resp.Data.SQLState,
 				Message:  err.Error(),
-				QueryID:  resp.Data.QueryID}
+				QueryID:  resp.Data.QueryID,
+			}).exceptionTelemetry(sc)
 		}
 		return err
 	}

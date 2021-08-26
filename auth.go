@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -376,11 +376,11 @@ func authenticate(
 			code = -1
 			return nil, err
 		}
-		return nil, &SnowflakeError{
+		return nil, (&SnowflakeError{
 			Number:   code,
 			SQLState: SQLStateConnectionRejected,
 			Message:  respd.Message,
-		}
+		}).exceptionTelemetry(sc)
 	}
 	logger.Info("Authentication SUCCESS")
 	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)

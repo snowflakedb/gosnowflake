@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -148,12 +148,12 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
-		return nil, &SnowflakeError{
+		return nil, (&SnowflakeError{
 			Number:   code,
 			SQLState: data.Data.SQLState,
 			Message:  data.Message,
 			QueryID:  data.Data.QueryID,
-		}
+		}).exceptionTelemetry(sc)
 	}
 	if isFileTransfer(query) {
 		data, err = sc.processFileTransfer(ctx, data, query, isInternal)
@@ -183,18 +183,18 @@ func (sc *snowflakeConn) BeginTx(
 	driver.Tx, error) {
 	logger.WithContext(ctx).Info("BeginTx")
 	if opts.ReadOnly {
-		return nil, &SnowflakeError{
+		return nil, (&SnowflakeError{
 			Number:   ErrNoReadOnlyTransaction,
 			SQLState: SQLStateFeatureNotSupported,
 			Message:  errMsgNoReadOnlyTransaction,
-		}
+		}).exceptionTelemetry(sc)
 	}
 	if int(opts.Isolation) != int(sql.LevelDefault) {
-		return nil, &SnowflakeError{
+		return nil, (&SnowflakeError{
 			Number:   ErrNoDefaultTransactionIsolationLevel,
 			SQLState: SQLStateFeatureNotSupported,
 			Message:  errMsgNoDefaultTransactionIsolationLevel,
-		}
+		}).exceptionTelemetry(sc)
 	}
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
@@ -244,12 +244,12 @@ func (sc *snowflakeConn) PrepareContext(
 			if err != nil {
 				return nil, err
 			}
-			return nil, &SnowflakeError{
+			return nil, (&SnowflakeError{
 				Number:   code,
 				SQLState: data.Data.SQLState,
 				Message:  err.Error(),
 				QueryID:  data.Data.QueryID,
-			}
+			}).exceptionTelemetry(sc)
 		}
 		return nil, err
 	}
@@ -281,11 +281,12 @@ func (sc *snowflakeConn) ExecContext(
 			if err != nil {
 				return nil, err
 			}
-			return nil, &SnowflakeError{
+			return nil, (&SnowflakeError{
 				Number:   code,
 				SQLState: data.Data.SQLState,
 				Message:  err.Error(),
-				QueryID:  data.Data.QueryID}
+				QueryID:  data.Data.QueryID,
+			}).exceptionTelemetry(sc)
 		}
 		return nil, err
 	}
@@ -358,11 +359,12 @@ func (sc *snowflakeConn) queryContextInternal(
 			if err != nil {
 				return nil, err
 			}
-			return nil, &SnowflakeError{
+			return nil, (&SnowflakeError{
 				Number:   code,
 				SQLState: data.Data.SQLState,
 				Message:  err.Error(),
-				QueryID:  data.Data.QueryID}
+				QueryID:  data.Data.QueryID,
+			}).exceptionTelemetry(sc)
 		}
 		return nil, err
 	}
@@ -461,11 +463,12 @@ func (sc *snowflakeConn) handleMultiExec(
 				return nil, err
 			}
 			if childData != nil {
-				return nil, &SnowflakeError{
+				return nil, (&SnowflakeError{
 					Number:   code,
 					SQLState: childData.Data.SQLState,
 					Message:  err.Error(),
-					QueryID:  childData.Data.QueryID}
+					QueryID:  childData.Data.QueryID,
+				}).exceptionTelemetry(sc)
 			}
 			return nil, err
 		}
@@ -478,11 +481,12 @@ func (sc *snowflakeConn) handleMultiExec(
 					if err != nil {
 						return nil, err
 					}
-					return nil, &SnowflakeError{
+					return nil, (&SnowflakeError{
 						Number:   code,
 						SQLState: childData.Data.SQLState,
 						Message:  err.Error(),
-						QueryID:  childData.Data.QueryID}
+						QueryID:  childData.Data.QueryID,
+					}).exceptionTelemetry(sc)
 				}
 				return nil, err
 			}
