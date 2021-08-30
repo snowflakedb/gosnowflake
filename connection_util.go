@@ -89,8 +89,8 @@ func (sc *snowflakeConn) processFileTransfer(
 	if op := getFileTransferOptions(ctx); op != nil {
 		sfa.options = op
 	}
-	if sfa.options.multiPartThreshold == 0 {
-		sfa.options.multiPartThreshold = dataSizeThreshold
+	if sfa.options.MultiPartThreshold == 0 {
+		sfa.options.MultiPartThreshold = dataSizeThreshold
 	}
 	if err := sfa.execute(); err != nil {
 		return nil, err

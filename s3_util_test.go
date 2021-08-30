@@ -72,7 +72,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			multiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: dataSizeThreshold,
 		},
 		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
 			return nil, &smithy.GenericAPIError{
@@ -137,7 +137,7 @@ func TestUploadOneFileToS3ConnReset(t *testing.T) {
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			multiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: dataSizeThreshold,
 		},
 		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
 			return nil, &smithy.GenericAPIError{
@@ -184,7 +184,7 @@ func TestUploadFileWithS3UploadFailedError(t *testing.T) {
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			multiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: dataSizeThreshold,
 		},
 		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
 			return nil, &smithy.GenericAPIError{
