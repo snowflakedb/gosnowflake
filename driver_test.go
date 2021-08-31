@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -369,10 +369,6 @@ func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
 		test(dbt)
 		dbt.db.Exec("DROP TABLE IF EXISTS test")
 	}
-}
-
-func runningOnGithubAction() bool {
-	return os.Getenv("GITHUB_ACTIONS") != ""
 }
 
 func runningOnAWS() bool {

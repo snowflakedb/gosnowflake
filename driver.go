@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"os"
 )
 
 // SnowflakeDriver is a context of Go Driver
@@ -23,21 +24,28 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 }
 
 // OpenWithConfig creates a new connection with the given Config.
-func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
+func (d SnowflakeDriver) OpenWithConfig(
+	ctx context.Context,
+	config Config) (
+	driver.Conn, error) {
 	logger.Info("OpenWithConfig")
-	var err error
 	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 
-	err = authenticateWithConfig(sc)
-	if err != nil {
+	if err = authenticateWithConfig(sc); err != nil {
 		return nil, err
 	}
+	sc.connectionTelemetry(&config)
+
 	sc.startHeartBeat()
 	sc.internal = &httpClient{sr: sc.rest}
 	return sc, nil
+}
+
+func runningOnGithubAction() bool {
+	return os.Getenv("GITHUB_ACTIONS") != ""
 }
 
 var logger = CreateDefaultLogger()
@@ -45,4 +53,7 @@ var logger = CreateDefaultLogger()
 func init() {
 	sql.Register("snowflake", &SnowflakeDriver{})
 	logger.SetLogLevel("error")
+	if runningOnGithubAction() {
+		logger.SetLogLevel("fatal")
+	}
 }
