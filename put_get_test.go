@@ -44,7 +44,7 @@ func TestPutError(t *testing.T) {
 	fta := &snowflakeFileTransferAgent{
 		data: data,
 		options: &SnowflakeFileTransferOptions{
-			raisePutGetError: false,
+			RaisePutGetError: false,
 		},
 	}
 	if err := fta.execute(); err != nil {
@@ -57,7 +57,7 @@ func TestPutError(t *testing.T) {
 	fta = &snowflakeFileTransferAgent{
 		data: data,
 		options: &SnowflakeFileTransferOptions{
-			raisePutGetError: true,
+			RaisePutGetError: true,
 		},
 	}
 	if err := fta.execute(); err != nil {
@@ -269,8 +269,12 @@ func TestPutOverwrite(t *testing.T) {
 		}
 
 		f, _ = os.Open(testData)
+		ctx := WithFileTransferOptions(context.Background(),
+			&SnowflakeFileTransferOptions{
+				DisablePutOverwrite: true,
+			})
 		rows = dbt.mustQueryContext(
-			WithFileStream(context.Background(), f),
+			WithFileStream(ctx, f),
 			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite",
 				strings.ReplaceAll(testData, "\\", "\\\\")))
 		f.Close()
