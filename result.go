@@ -20,6 +20,7 @@ type SnowflakeResult interface {
 	GetQueryID() string
 	GetStatus() queryStatus
 	Monitoring() *QueryMonitoringData
+	QueryGraph() *QueryGraphData
 }
 
 type snowflakeResult struct {
