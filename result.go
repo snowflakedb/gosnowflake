@@ -19,6 +19,7 @@ const (
 type SnowflakeResult interface {
 	GetQueryID() string
 	GetStatus() queryStatus
+	Monitoring() *QueryMonitoringData
 }
 
 type snowflakeResult struct {
@@ -28,6 +29,8 @@ type snowflakeResult struct {
 	status       queryStatus
 	err          error
 	errChannel   chan error
+		monitoring   *QueryMonitoringData
+	queryGraph   *QueryGraphData
 }
 
 func (res *snowflakeResult) LastInsertId() (int64, error) {
@@ -66,4 +69,11 @@ func (res *snowflakeResult) waitForAsyncExecStatus() error {
 		return res.err
 	}
 	return nil
+}
+
+func (res *snowflakeResult) Monitoring() *QueryMonitoringData {
+	return res.monitoring
+}
+func (res *snowflakeResult) QueryGraph() *QueryGraphData {
+	return res.queryGraph
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
 
 package gosnowflake
 
@@ -35,6 +35,8 @@ type snowflakeRows struct {
 	status              queryStatus
 	err                 error
 	errChannel          chan error
+	monitoring          *QueryMonitoringData
+	queryGraph          *QueryGraphData
 }
 
 type snowflakeValue interface{}
@@ -138,6 +140,14 @@ func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
 
 func (rows *snowflakeRows) GetQueryID() string {
 	return rows.queryID
+}
+
+func (rows *snowflakeRows) Monitoring() *QueryMonitoringData {
+	return rows.monitoring
+}
+
+func (res *snowflakeRows) QueryGraph() *QueryGraphData {
+	return res.queryGraph
 }
 
 func (rows *snowflakeRows) GetStatus() queryStatus {
