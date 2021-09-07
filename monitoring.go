@@ -268,49 +268,56 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 	return rows, nil
 }
 
-func (sc *snowflakeConn) monitoring(qid string, runtime time.Duration) (*QueryMonitoringData, error) {
+func mkMonitoringFetcher(sc *snowflakeConn, qid string, runtime time.Duration) *monitoringResult {
 	// Exit early if this was a "fast" query
 	if runtime < FetchQueryMonitoringDataThreshold {
-		return nil, nil
+		return nil
 	}
 
-	// Bound the GET request to 1 second in the absolute worst case.
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	queryGraphChan := make(chan *QueryGraphData, 1)
+	go queryGraph(sc, qid, queryGraphChan)
+
+	monitoringChan := make(chan *QueryMonitoringData, 1)
+	go monitoring(sc, qid, monitoringChan)
+
+	return &monitoringResult{
+		monitoringChan: monitoringChan,
+		queryGraphChan: queryGraphChan,
+	}
+}
+
+func monitoring(
+	sc *snowflakeConn,
+	qid string,
+	resp chan<- *QueryMonitoringData,
+) {
+	defer close(resp)
+
+	ctx, cancel := context.WithTimeout(context.Background(), sc.rest.RequestTimeout)
 	defer cancel()
 
 	var m monitoringResponse
 	err := sc.getMonitoringResult(ctx, "queries", qid, &m)
-	if err != nil {
-		return nil, err
+	if err == nil && len(m.Data.Queries) == 1 {
+		resp <- &m.Data.Queries[0]
 	}
-
-	if len(m.Data.Queries) != 1 {
-		return nil, nil
-	}
-
-	return &m.Data.Queries[0], nil
 }
 
-func (sc *snowflakeConn) queryGraph(qid string, runtime time.Duration) (*QueryGraphData, error) {
-	// Exit early if this was a "fast" query
-	if runtime < FetchQueryMonitoringDataThreshold {
-		return nil, nil
-	}
+func queryGraph(
+	sc *snowflakeConn,
+	qid string,
+	resp chan<- *QueryGraphData,
+) {
+	defer close(resp)
 
 	// Bound the GET request to 1 second in the absolute worst case.
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), sc.rest.RequestTimeout)
 	defer cancel()
 
 	var qg queryGraphResponse
 	err := sc.getMonitoringResult(ctx, "query-plan-data", qid, &qg)
-	if err != nil {
-		return nil, err
-	}
-
-	if qg.Success {
-		return &qg.Data, nil
-	} else {
-		return nil, nil
+	if err == nil && qg.Success {
+		resp <- &qg.Data
 	}
 }
 
@@ -329,7 +336,7 @@ func (sc *snowflakeConn) getMonitoringResult(ctx context.Context, endpoint, qid 
 
 	resp, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
 	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to get response for %s. err: %v", endpoint, err)
 		return err
 	}
 

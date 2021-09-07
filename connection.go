@@ -308,12 +308,9 @@ func (sc *snowflakeConn) ExecContext(
 			insertID:     -1,
 			queryID:      sc.QueryID,
 		} // last insert id is not supported by Snowflake
-		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
-			rows.monitoring = m
-		}
-		if qg, err := sc.queryGraph(sc.QueryID, time.Since(qStart)); err == nil {
-			rows.queryGraph = qg
-		}
+
+		rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
+
 		return rows, nil
 	} else if isMultiStmt(&data.Data) {
 		return sc.handleMultiExec(ctx, data.Data)
@@ -384,13 +381,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.queryID = sc.QueryID
-
-	if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
-		rows.monitoring = m
-	}
-	if qg, err := sc.queryGraph(sc.QueryID, time.Since(qStart)); err == nil {
-		rows.queryGraph = qg
-	}
+	rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
 
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults

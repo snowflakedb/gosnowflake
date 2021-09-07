@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const (
@@ -35,8 +36,7 @@ type snowflakeRows struct {
 	status              queryStatus
 	err                 error
 	errChannel          chan error
-	monitoring          *QueryMonitoringData
-	queryGraph          *QueryGraphData
+	monitoring          *monitoringResult
 }
 
 type snowflakeValue interface{}
@@ -142,12 +142,12 @@ func (rows *snowflakeRows) GetQueryID() string {
 	return rows.queryID
 }
 
-func (rows *snowflakeRows) Monitoring() *QueryMonitoringData {
-	return rows.monitoring
+func (rows *snowflakeRows) Monitoring(wait time.Duration) *QueryMonitoringData {
+	return rows.monitoring.Monitoring(wait)
 }
 
-func (res *snowflakeRows) QueryGraph() *QueryGraphData {
-	return res.queryGraph
+func (rows *snowflakeRows) QueryGraph(wait time.Duration) *QueryGraphData {
+	return rows.monitoring.QueryGraph(wait)
 }
 
 func (rows *snowflakeRows) GetStatus() queryStatus {
