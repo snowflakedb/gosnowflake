@@ -15,13 +15,13 @@ const (
 )
 
 var (
-	awsKeyRegexp = regexp.MustCompile(awsKeyPattern)
-	awsTokenRegexp = regexp.MustCompile(awsTokenPattern)
-	sasTokenRegexp = regexp.MustCompile(sasTokenPattern)
-	privateKeyRegexp = regexp.MustCompile(privateKeyPattern)
-	privateKeyDataRegexp = regexp.MustCompile(privateKeyDataPattern)
+	awsKeyRegexp          = regexp.MustCompile(awsKeyPattern)
+	awsTokenRegexp        = regexp.MustCompile(awsTokenPattern)
+	sasTokenRegexp        = regexp.MustCompile(sasTokenPattern)
+	privateKeyRegexp      = regexp.MustCompile(privateKeyPattern)
+	privateKeyDataRegexp  = regexp.MustCompile(privateKeyDataPattern)
 	connectionTokenRegexp = regexp.MustCompile(connectionTokenPattern)
-	passwordRegexp = regexp.MustCompile(passwordPattern)
+	passwordRegexp        = regexp.MustCompile(passwordPattern)
 )
 
 func maskConnectionToken(text string) string {

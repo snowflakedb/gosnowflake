@@ -32,7 +32,7 @@ SCAN_DIRECTORIES=$( cd $THIS_DIR/../.. && pwd )
 
 if [[ -n "$PROJECT_NAME" ]]; then
     rm -f wss-unified-agent.jar 
-    curl -LO https://github.com/whitesource/unified-agent-distribution/releases/latest/download/wss-unified-agent.jar
+    curl -LO https://github.com/whitesource/unified-agent-distribution/releases/download/v21.7.2/wss-unified-agent.jar
 fi
 SCAN_CONFIG=wss-golang-agent.config
 cat > $SCAN_CONFIG <<CONFIG

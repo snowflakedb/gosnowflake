@@ -82,14 +82,14 @@ func (rs resultStatus) isSet() bool {
 // files transfers such as PUT/GET
 type SnowflakeFileTransferOptions struct {
 	showProgressBar    bool
-	raisePutGetError   bool
-	multiPartThreshold int64
+	RaisePutGetError   bool
+	MultiPartThreshold int64
 
 	/* streaming PUT */
 	compressSourceFromStream bool
 
 	/* PUT */
-	forcePutOverwrite       bool
+	DisablePutOverwrite     bool
 	putCallback             *snowflakeProgressPercentage
 	putAzureCallback        *snowflakeProgressPercentage
 	putCallbackOutputStream *io.Writer
@@ -171,8 +171,8 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 		meta.sfa = sfa
 		meta.options = sfa.options
 		if sfa.stageLocationType != local {
-			sizeThreshold := sfa.options.multiPartThreshold
-			meta.options.multiPartThreshold = sizeThreshold
+			sizeThreshold := sfa.options.MultiPartThreshold
+			meta.options.MultiPartThreshold = sizeThreshold
 			if meta.srcFileSize > sizeThreshold {
 				meta.parallel = sfa.parallel
 				largeFileMetas = append(largeFileMetas, meta)
@@ -259,7 +259,7 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 	if sfa.data.Parallel != 0 {
 		sfa.parallel = sfa.data.Parallel
 	}
-	sfa.overwrite = sfa.data.Overwrite || sfa.options.forcePutOverwrite
+	sfa.overwrite = !sfa.options.DisablePutOverwrite
 	sfa.stageLocationType = cloudType(strings.ToUpper(sfa.data.StageInfo.LocationType))
 	sfa.stageInfo = &sfa.data.StageInfo
 	sfa.presignedURLs = make([]string, 0)
@@ -981,7 +981,7 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 				errorDetails := meta.errorDetails
 				srcFileSize := meta.srcFileSize
 				dstFileSize := meta.dstFileSize
-				if sfa.options.raisePutGetError && errorDetails != nil {
+				if sfa.options.RaisePutGetError && errorDetails != nil {
 					return nil, (&SnowflakeError{
 						Number:   ErrFailedToUploadToStage,
 						SQLState: sfa.data.SQLState,
@@ -1046,7 +1046,7 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 			for _, meta := range sfa.results {
 				dstFileSize := meta.dstFileSize
 				errorDetails := meta.errorDetails
-				if sfa.options.raisePutGetError && errorDetails != nil {
+				if sfa.options.RaisePutGetError && errorDetails != nil {
 					return nil, (&SnowflakeError{
 						Number:   ErrFailedToDownloadFromStage,
 						SQLState: sfa.data.SQLState,
