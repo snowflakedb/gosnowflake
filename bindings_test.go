@@ -137,18 +137,22 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 
 func TestBindingBinary(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("CREATE OR REPLACE TABLE bintest (id int, b binary)")
+		dbt.mustExec("CREATE OR REPLACE TABLE bintest (id int, b binary, c binary)")
 		var b = []byte{0x01, 0x02, 0x03}
-		dbt.mustExec("INSERT INTO bintest(id,b) VALUES(1, ?)", DataTypeBinary, b)
-		rows := dbt.mustQuery("SELECT b FROM bintest WHERE id=?", 1)
+		dbt.mustExec("INSERT INTO bintest(id,b,c) VALUES(1, ?, ?)", DataTypeBinary, b, DataTypeBinary, b)
+		rows := dbt.mustQuery("SELECT b, c FROM bintest WHERE id=?", 1)
 		defer rows.Close()
 		if rows.Next() {
 			var rb []byte
-			if err := rows.Scan(&rb); err != nil {
+			var rc []byte
+			if err := rows.Scan(&rb, &rc); err != nil {
 				dbt.Errorf("failed to scan data. err: %v", err)
 			}
 			if !bytes.Equal(b, rb) {
 				dbt.Errorf("failed to match data. expected: %v, got: %v", b, rb)
+			}
+			if !bytes.Equal(b, rc) {
+				dbt.Errorf("failed to match data. expected: %v, got: %v", b, rc)
 			}
 		} else {
 			dbt.Errorf("no data")
