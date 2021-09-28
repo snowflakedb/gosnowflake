@@ -436,6 +436,9 @@ func (sc *snowflakeConn) GetQueryStatus(
 	queryID string) (
 	*SnowflakeQueryStatus, error) {
 	queryRet, err := sc.checkQueryStatus(ctx, queryID)
+	if err != nil {
+		return nil, err
+	}
 	return &SnowflakeQueryStatus{
 		queryRet.SQLText,
 		queryRet.StartTime,
@@ -444,7 +447,7 @@ func (sc *snowflakeConn) GetQueryStatus(
 		queryRet.ErrorMessage,
 		queryRet.Stats.ScanBytes,
 		queryRet.Stats.ProducedRows,
-	}, err
+	}, nil
 }
 
 func (sc *snowflakeConn) handleMultiExec(
