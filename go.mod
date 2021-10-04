@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.12.0
 	github.com/aws/smithy-go v1.7.0
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
+	github.com/gabriel-vasile/mimetype v1.3.1
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/klauspost/compress v1.13.4 // indirect

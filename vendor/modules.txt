@@ -75,6 +75,12 @@ github.com/aws/smithy-go/waiter
 # github.com/form3tech-oss/jwt-go v3.2.5+incompatible
 ## explicit
 github.com/form3tech-oss/jwt-go
+# github.com/gabriel-vasile/mimetype v1.3.1
+## explicit
+github.com/gabriel-vasile/mimetype
+github.com/gabriel-vasile/mimetype/internal/charset
+github.com/gabriel-vasile/mimetype/internal/json
+github.com/gabriel-vasile/mimetype/internal/magic
 # github.com/golang/snappy v0.0.4
 ## explicit
 github.com/golang/snappy
@@ -111,6 +117,8 @@ github.com/sirupsen/logrus
 golang.org/x/crypto/ocsp
 # golang.org/x/net v0.0.0-20210813160813-60bc85c4be6d
 ## explicit
+golang.org/x/net/html
+golang.org/x/net/html/atom
 golang.org/x/net/http/httpproxy
 golang.org/x/net/idna
 # golang.org/x/sys v0.0.0-20210818153620-00dd8d7831e7
