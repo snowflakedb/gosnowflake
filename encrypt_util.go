@@ -68,27 +68,20 @@ func encryptStream(
 
 	// encrypt file with CBC
 	var err error
-	padded := false
 	for {
 		chunk := make([]byte, chunkSize)
 		n, err := src.Read(chunk)
 		if n == 0 || err != nil {
 			break
-		} else if n%aes.BlockSize != 0 {
+		} else if n%aes.BlockSize != 0 || n != chunkSize {
 			chunk = padBytesLength(chunk[:n], aes.BlockSize)
-			padded = true
 		}
 		mode.CryptBlocks(cipherText, chunk)
 		out.Write(cipherText[:len(chunk)])
+
 	}
 	if err != nil {
 		return nil, err
-	}
-	if !padded {
-		blockSizeCipher := bytes.Repeat([]byte{byte(aes.BlockSize)}, aes.BlockSize)
-		chunk := make([]byte, aes.BlockSize)
-		mode.CryptBlocks(chunk, blockSizeCipher)
-		out.Write(chunk)
 	}
 
 	// encrypt key with ECB

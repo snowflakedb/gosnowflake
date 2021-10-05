@@ -3,7 +3,10 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"strings"
+
+	"github.com/gabriel-vasile/mimetype"
 )
 
 type compressionType struct {
@@ -120,6 +123,12 @@ func init() {
 			mimeSubTypeToCompression[subtype] = meta
 		}
 	}
+	mimetype.Extend(func(raw []byte, limit uint32) bool {
+		return bytes.HasPrefix(raw, []byte("PAR1"))
+	}, "snowflake/parquet", ".parquet")
+	mimetype.Extend(func(raw []byte, limit uint32) bool {
+		return bytes.HasPrefix(raw, []byte("ORC"))
+	}, "snowflake/orc", ".orc")
 }
 
 func lookupByMimeSubType(mimeSubType string) *compressionType {
