@@ -91,7 +91,7 @@ func runLargeResultSet() {
 	db, err := sql.Open("snowflake", dsn)
 	defer db.Close()
 	if err != nil {
-		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
+		log.Fatalf("failed to connect. err: %v", err)
 	}
 
 	query := `select * from

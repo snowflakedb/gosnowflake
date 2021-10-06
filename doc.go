@@ -793,10 +793,10 @@ and before retrieving the results.
 
 Support For PUT and GET
 
-The Go Snowflake Driver supports the PUT and GET commands. 
+The Go Snowflake Driver supports the PUT and GET commands.
 
-The PUT command copies a file from a local computer (the computer where the 
-Golang client is running) to a stage on the cloud platform. The GET command 
+The PUT command copies a file from a local computer (the computer where the
+Golang client is running) to a stage on the cloud platform. The GET command
 copies data files from a stage on the cloud platform to a local computer.
 
 See the following for information on the syntax and supported parameters:
@@ -806,12 +806,12 @@ See the following for information on the syntax and supported parameters:
 
 Using PUT
 
-The following example shows how to run a PUT command by passing a string to the 
+The following example shows how to run a PUT command by passing a string to the
 db.Query() function:
 
   db.Query("PUT file://<local_file> <stage_identifier> <optional_parameters>")
 
-"<local_file>" should include the file path as well as the name. Snowflake recommends 
+"<local_file>" should include the file path as well as the name. Snowflake recommends
 using an absolute path rather than a relative path. For example:
 
 	db.Query("PUT file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
@@ -821,7 +821,7 @@ conventions. Ensure that you specify path names appropriately. This is
 particularly important on Windows, which uses the backslash character as
 both an escape character and as a separator in path names.
 
-To send information from a stream (rather than a file) use code similar to the code below. 
+To send information from a stream (rather than a file) use code similar to the code below.
 (The ReplaceAll() function is needed on Windows to handle backslashes in the path to the file.)
 
 	fileStream, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
@@ -842,12 +842,12 @@ Note: PUT statements are not supported for multi-statement queries.
 
 Using GET
 
-The following example shows how to run a GET command by passing a string to the 
+The following example shows how to run a GET command by passing a string to the
 db.Query() function:
 
   db.Query("GET file://<local_file> <stage_identifier> <optional_parameters>")
 
-"<local_file>" should include the file path as well as the name. Snowflake recommends using 
+"<local_file>" should include the file path as well as the name. Snowflake recommends using
 an absolute path rather than a relative path. For example:
 
   db.Query("GET file:///tmp/my_data_file @~ auto_compress=false overwrite=false")

@@ -75,7 +75,7 @@ func run(dsn string) {
 
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
-		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
+		log.Fatalf("failed to connect. err: %v", err)
 	}
 	defer db.Close()
 	query := `select * from
