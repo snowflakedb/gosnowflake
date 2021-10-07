@@ -127,7 +127,7 @@ func setup() (string, error) {
 	var db *sql.DB
 	var err error
 	if db, err = sql.Open("snowflake", dsn); err != nil {
-		return "", fmt.Errorf("failed to open db. %v, err: %v", dsn, err)
+		return "", fmt.Errorf("failed to open db. err: %v", err)
 	}
 	defer db.Close()
 	if _, err = db.Exec(fmt.Sprintf("CREATE OR REPLACE SCHEMA %v", schemaname)); err != nil {
@@ -1846,13 +1846,13 @@ func TestInvalidConnection(t *testing.T) {
 func TestPing(t *testing.T) {
 	db := openDB(t)
 	if err := db.Ping(); err != nil {
-		t.Fatalf("failed to ping. %v, err: %v", dsn, err)
+		t.Fatalf("failed to ping. err: %v", err)
 	}
 	if err := db.PingContext(context.Background()); err != nil {
-		t.Fatalf("failed to ping with context. %v, err: %v", dsn, err)
+		t.Fatalf("failed to ping with context. err: %v", err)
 	}
 	if err := db.Close(); err != nil {
-		t.Fatalf("failed to close db. %v, err: %v", dsn, err)
+		t.Fatalf("failed to close db. err: %v", err)
 	}
 	if err := db.Ping(); err == nil {
 		t.Fatal("should have failed to ping")
@@ -2093,7 +2093,7 @@ func TestPingInvalidHost(t *testing.T) {
 func TestOpenWithConfig(t *testing.T) {
 	config, err := ParseDSN(dsn)
 	if err != nil {
-		t.Fatalf("failed to parse dsn. dsn: %v, err: %v", dsn, err)
+		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
 	driver := SnowflakeDriver{}
 	db, err := driver.OpenWithConfig(context.Background(), *config)
@@ -2115,7 +2115,7 @@ func (t *CountingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 func TestOpenWithTransport(t *testing.T) {
 	config, err := ParseDSN(dsn)
 	if err != nil {
-		t.Fatalf("failed to parse dsn. dsn: %v, err: %v", dsn, err)
+		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
 	countingTransport := CountingTransport{}
 	var transport http.RoundTripper = &countingTransport

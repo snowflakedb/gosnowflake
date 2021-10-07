@@ -29,7 +29,7 @@ func (t *DummyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 func TestInternalClient(t *testing.T) {
 	config, err := ParseDSN(dsn)
 	if err != nil {
-		t.Fatalf("failed to parse dsn. dsn: %v, err: %v", dsn, err)
+		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
 	transport := DummyTransport{}
 	config.Transporter = &transport

@@ -29,7 +29,7 @@ func TestConnector(t *testing.T) {
 	createDSN("UTC")
 	config, err := ParseDSN(dsn)
 	if err != nil {
-		t.Fatalf("Failed to parse dsn %s", dsn)
+		t.Fatal("Failed to parse dsn")
 	}
 	connector := NewConnector(&mock, *config)
 	connection, err := connector.Connect(context.Background())
