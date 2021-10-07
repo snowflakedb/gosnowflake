@@ -153,6 +153,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.PasscodeInPassword {
 		params.Add("passcodeInPassword", strconv.FormatBool(cfg.PasscodeInPassword))
 	}
+	if cfg.ClientTimeout != defaultClientTimeout {
+		params.Add("clientTimeout", strconv.FormatInt(int64(cfg.ClientTimeout/time.Second), 10))
+	}
 	if cfg.LoginTimeout != defaultLoginTimeout {
 		params.Add("loginTimeout", strconv.FormatInt(int64(cfg.LoginTimeout/time.Second), 10))
 	}
@@ -528,6 +531,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.PasscodeInPassword = vv
+		case "clientTimeout":
+			cfg.ClientTimeout, err = parseTimeout(value)
+			if err != nil {
+				return
+			}
 		case "loginTimeout":
 			cfg.LoginTimeout, err = parseTimeout(value)
 			if err != nil {
