@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
+	"github.com/gabriel-vasile/mimetype"
 )
 
 type cloudType string
@@ -443,23 +444,16 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 		var currentFileCompressionType *compressionType
 		if autoDetect {
 			currentFileCompressionType = lookupByExtension(filepath.Ext(fileName))
-			test := make([]byte, 4)
 			if currentFileCompressionType == nil {
+				var mtype *mimetype.MIME
 				if meta.srcStream != nil {
 					r := getReaderFromBuffer(&meta.srcStream)
-					if _, err := r.Read(test); err != nil {
-						return err
-					}
+					mtype, _ = mimetype.DetectReader(r)
 					ioutil.ReadAll(r) // flush out tee buffer
 				} else {
-					f, _ := os.OpenFile(fileName, os.O_RDONLY, os.ModePerm)
-					f.Read(test)
+					mtype, _ = mimetype.DetectFile(fileName)
 				}
-				if len(test) > 0 && bytes.Equal(test[:3], []byte{'O', 'R', 'C'}) {
-					currentFileCompressionType = compressionTypes["ORC"]
-				} else if len(test) > 0 && bytes.Equal(test, []byte{'P', 'A', 'R', '1'}) {
-					currentFileCompressionType = compressionTypes["PARQUET"]
-				}
+				currentFileCompressionType = lookupByExtension(mtype.Extension())
 			}
 
 			if currentFileCompressionType != nil && !currentFileCompressionType.isSupported {

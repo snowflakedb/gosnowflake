@@ -95,7 +95,7 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	if err = scanner.Err(); err != nil {
 		t.Error(err)
 	}
-	if cnt != numberOfLines && cnt != numberOfLines+1 {
+	if cnt != numberOfLines {
 		t.Fatalf("incorrect number of lines. expected: %v, got: %v", numberOfLines, cnt)
 	}
 }
