@@ -246,8 +246,13 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 				// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
 				break
 			}
-			logger.WithContext(r.ctx).Warningf(
-				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
+			if res.Request != nil {
+				logger.WithContext(r.ctx).Warningf(
+					"failed http connection. HTTP Status: %v. headers %v. request %v. retrying...\n", res.StatusCode, res.Header, res.Request.URL)
+			} else {
+				logger.WithContext(r.ctx).Warningf(
+					"failed http connection. HTTP Status: %v. headers %v. retrying...\n", res.StatusCode, res.Header)
+			}
 			res.Body.Close()
 		}
 		// uses decorrelated jitter backoff
@@ -261,8 +266,8 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 				if err != nil {
 					return nil, err
 				}
-				if res != nil {
-					return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Hanging?", r.timeout, res.StatusCode)
+				if res != nil && res.Request != nil {
+						return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Header: %v. request: %v. Hanging?", r.timeout, res.StatusCode, res.Header, res.Request.URL)
 				}
 				return nil, fmt.Errorf("timeout after %s. Hanging?", r.timeout)
 			}
@@ -276,7 +281,11 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			rUpdater = newRetryUpdate(r.fullURL)
 		}
 		r.fullURL = rUpdater.replaceOrAdd(retryCounter)
-		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
+		if res != nil && res.Request != nil {
+			logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retry-count: %d retrying. headers: %v. request: %v", sleepTime, totalTimeout, retryCounter, res.Header, res.Request.URL)
+		} else {
+			logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retry-count: %d retrying.", sleepTime, totalTimeout, retryCounter)
+		}
 
 		await := time.NewTimer(sleepTime)
 		select {
@@ -284,6 +293,11 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			// retry the request
 		case <-r.ctx.Done():
 			await.Stop()
+			if res != nil && res.Request != nil {
+				logger.WithContext(r.ctx).Infof("abandoning request: retry-count: %d. headers: %v. request: %v", retryCounter, res.Header, res.Request.URL)
+			} else {
+				logger.WithContext(r.ctx).Infof("abandoning request: retry-count: %d.", retryCounter)
+			}
 			return res, r.ctx.Err()
 		}
 	}
