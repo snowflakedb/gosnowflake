@@ -270,7 +270,7 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 
 func mkMonitoringFetcher(sc *snowflakeConn, qid string, runtime time.Duration) *monitoringResult {
 	// Exit early if this was a "fast" query
-	if runtime < FetchQueryMonitoringDataThreshold {
+	if runtime < sc.cfg.QueryMonitoringThreshold {
 		return nil
 	}
 

@@ -207,6 +207,16 @@ func (r *retryHTTP) setBody(body []byte) *retryHTTP {
 	return r
 }
 
+const numSampledResponseBodyBytes = 5 * 1024
+
+func getBodyTrace(res *http.Response) []byte {
+	sampleReader := io.LimitReader(res.Body, numSampledResponseBodyBytes)
+	sampledResponseBytes := make([]byte, numSampledResponseBodyBytes)
+	sampleReader.Read(sampledResponseBytes)
+
+	return sampledResponseBytes
+}
+
 func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
 	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
@@ -229,6 +239,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			req.Header.Set(k, v)
 		}
 		res, err = r.client.Do(req)
+		var sampledResponseBody []byte
 		if err != nil {
 			// check if it can retry.
 			doExit, err := r.isRetryableError(err)
@@ -246,9 +257,10 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 				// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
 				break
 			}
+			sampledResponseBody = getBodyTrace(res)
 			if res.Request != nil {
 				logger.WithContext(r.ctx).Warningf(
-					"failed http connection. HTTP Status: %v. headers %v. request %v. retrying...\n", res.StatusCode, res.Header, res.Request.URL)
+					"failed http connection. HTTP Status: %v. headers %v. request %v. body %s. retrying...\n", res.StatusCode, res.Header, res.Request.URL, sampledResponseBody)
 			} else {
 				logger.WithContext(r.ctx).Warningf(
 					"failed http connection. HTTP Status: %v. headers %v. retrying...\n", res.StatusCode, res.Header)
@@ -267,7 +279,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 					return nil, err
 				}
 				if res != nil && res.Request != nil {
-						return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Header: %v. request: %v. Hanging?", r.timeout, res.StatusCode, res.Header, res.Request.URL)
+					return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Header: %v. request: %v. body: %s. Hanging?", r.timeout, res.StatusCode, res.Header, res.Request.URL, sampledResponseBody)
 				}
 				return nil, fmt.Errorf("timeout after %s. Hanging?", r.timeout)
 			}
@@ -294,7 +306,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		case <-r.ctx.Done():
 			await.Stop()
 			if res != nil && res.Request != nil {
-				logger.WithContext(r.ctx).Infof("abandoning request: retry-count: %d. headers: %v. request: %v", retryCounter, res.Header, res.Request.URL)
+				logger.WithContext(r.ctx).Infof("abandoning request: retry-count: %d. headers: %v. request: %v. body: %s\n", retryCounter, res.Header, res.Request.URL, sampledResponseBody)
 			} else {
 				logger.WithContext(r.ctx).Infof("abandoning request: retry-count: %d.", retryCounter)
 			}
