@@ -661,7 +661,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		tokenAccessor = getSimpleTokenAccessor()
 	}
 	if sc.cfg.DisableTelemetry {
-		sc.telemetry.enabled = false
+		sc.telemetry = &snowflakeTelemetry{enabled: false}
 	}
 
 	// authenticate

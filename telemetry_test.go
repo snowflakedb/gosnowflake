@@ -86,3 +86,18 @@ func TestTelemetrySQLException(t *testing.T) {
 		t.Errorf("there should be no telemetry data in log. found: %v", len(st.logs))
 	}
 }
+
+func TestDisableTelemetry(t *testing.T) {
+	config, _ := ParseDSN(dsn)
+	config.DisableTelemetry = true
+	sc, err := buildSnowflakeConn(context.Background(), *config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = sc.Query("select 1", nil); err != nil {
+		t.Fatal(err)
+	}
+}
