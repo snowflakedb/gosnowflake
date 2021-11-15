@@ -54,6 +54,7 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 	data := &telemetryData{
 		Message: map[string]string{
 			typeKey:          connectionParameters,
+			sourceKey:        telemetrySource,
 			driverTypeKey:    "Go",
 			driverVersionKey: SnowflakeGoDriverVersion,
 		},
