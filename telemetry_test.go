@@ -34,7 +34,7 @@ func TestTelemetryAddLog(t *testing.T) {
 				typeKey:    "client_telemetry_type",
 				queryIDKey: "123",
 			},
-			Timestamp: time.Now().UnixMilli(),
+			Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 		}); err != nil {
 			t.Fatal(err)
 		}
