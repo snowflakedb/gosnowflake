@@ -58,7 +58,7 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 			driverTypeKey:    "Go",
 			driverVersionKey: SnowflakeGoDriverVersion,
 		},
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now().UnixMilli(),
 	}
 	for k, v := range cfg.Params {
 		data.Message[k] = *v
