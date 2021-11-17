@@ -54,10 +54,11 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 	data := &telemetryData{
 		Message: map[string]string{
 			typeKey:          connectionParameters,
+			sourceKey:        telemetrySource,
 			driverTypeKey:    "Go",
 			driverVersionKey: SnowflakeGoDriverVersion,
 		},
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 	}
 	for k, v := range cfg.Params {
 		data.Message[k] = *v

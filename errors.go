@@ -40,11 +40,12 @@ func (se *SnowflakeError) generateTelemetryExceptionData() *telemetryData {
 	data := &telemetryData{
 		Message: map[string]string{
 			typeKey:          sqlException,
+			sourceKey:        telemetrySource,
 			driverTypeKey:    "Go",
 			driverVersionKey: SnowflakeGoDriverVersion,
 			stacktraceKey:    maskSecrets(string(debug.Stack())),
 		},
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 	}
 	if se.QueryID != "" {
 		data.Message[queryIDKey] = se.QueryID
