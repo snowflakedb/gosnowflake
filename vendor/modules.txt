@@ -84,15 +84,15 @@ github.com/aws/smithy-go/time
 github.com/aws/smithy-go/transport/http
 github.com/aws/smithy-go/transport/http/internal/io
 github.com/aws/smithy-go/waiter
-# github.com/form3tech-oss/jwt-go v3.2.5+incompatible
-## explicit
-github.com/form3tech-oss/jwt-go
 # github.com/gabriel-vasile/mimetype v1.4.0
 ## explicit
 github.com/gabriel-vasile/mimetype
 github.com/gabriel-vasile/mimetype/internal/charset
 github.com/gabriel-vasile/mimetype/internal/json
 github.com/gabriel-vasile/mimetype/internal/magic
+# github.com/golang-jwt/jwt/v4 v4.1.0
+## explicit
+github.com/golang-jwt/jwt/v4
 # github.com/golang/snappy v0.0.4
 ## explicit
 # github.com/google/flatbuffers v2.0.0+incompatible

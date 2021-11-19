@@ -10,9 +10,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.7.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.19.0
 	github.com/aws/smithy-go v1.9.0
-	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
 	github.com/gabriel-vasile/mimetype v1.4.0
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/golang-jwt/jwt/v4 v4.1.0
 	github.com/google/uuid v1.3.0
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/pierrec/lz4/v4 v4.1.11 // indirect
