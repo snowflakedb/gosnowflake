@@ -12,25 +12,30 @@ import (
 // and allows for more precise results once the base type of file has been
 // identified.
 //
-// root is a matcher which passes for any slice of bytes.
-// When a matcher passes the check, the children magic
+// root is a detector which passes for any slice of bytes.
+// When a detector passes the check, the children detectors
 // are tried in order to find a more accurate MIME type.
 var root = newMIME("application/octet-stream", "",
 	func([]byte, uint32) bool { return true },
-	xpm, sevenZ, zip, pdf, fdf, ole, ps, psd, p7s, ogg, png, jpg, jp2, jpx, jpm, gif, webp,
-	exe, elf, ar, tar, xar, bz2, fits, tiff, bmp, ico, mp3, flac, midi, ape,
-	musePack, amr, wav, aiff, au, mpeg, quickTime, mqv, mp4, webM, threeGP,
-	threeG2, avi, flv, mkv, asf, aac, voc, aMp4, m4a, m3u, m4v, rmvb,
-	gzip, class, swf, crx, ttf, woff, woff2, otf, eot, wasm,
-	shx, dbf, dcm, rar, djvu, mobi, lit, bpg, sqlite3, dwg, nes, lnk, macho, qcp,
-	icns, heic, heicSeq, heif, heifSeq, hdr, mrc, mdb, accdb, zstd, cab,
-	rpm, xz, lzip, torrent, cpio, tzif, xcf, pat, gbr, glb,
+	xpm, sevenZ, zip, pdf, fdf, ole, ps, psd, p7s, ogg, png, jpg, jxl, jp2, jpx,
+	jpm, gif, webp, exe, elf, ar, tar, xar, bz2, fits, tiff, bmp, ico, mp3, flac,
+	midi, ape, musePack, amr, wav, aiff, au, mpeg, quickTime, mqv, mp4, webM,
+	threeGP, threeG2, avi, flv, mkv, asf, aac, voc, aMp4, m4a, m3u, m4v, rmvb,
+	gzip, class, swf, crx, ttf, woff, woff2, otf, eot, wasm, shx, dbf, dcm, rar,
+	djvu, mobi, lit, bpg, sqlite3, dwg, nes, lnk, macho, qcp, icns, heic,
+	heicSeq, heif, heifSeq, hdr, mrc, mdb, accdb, zstd, cab, rpm, xz, lzip,
+	torrent, cpio, tzif, xcf, pat, gbr, glb,
 	// Keep text last because it is the slowest check
 	text,
 )
 
-// rootMu guards the root tree and the readLimit used when creating the detection buffer.
-var rootMu sync.RWMutex
+// errMIME is returned from Detect functions when err is not nil.
+// Detect could return root for erroneous cases, but it needs to lock mu in order to do so.
+// errMIME is same as root but it does not require locking.
+var errMIME = newMIME("application/octet-stream", "", func([]byte, uint32) bool { return false })
+
+// mu guards access to the root MIME tree. Access to root must be synchonized with this lock.
+var mu = &sync.RWMutex{}
 
 // The list of nodes appended to the root node.
 var (
@@ -53,9 +58,11 @@ var (
 	pptx = newMIME("application/vnd.openxmlformats-officedocument.presentationml.presentation", ".pptx", magic.Pptx)
 	epub = newMIME("application/epub+zip", ".epub", magic.Epub)
 	jar  = newMIME("application/jar", ".jar", magic.Jar)
-	ole  = newMIME("application/x-ole-storage", "", magic.Ole, aaf, msg, xls, pub, ppt, doc)
-	aaf  = newMIME("application/octet-stream", ".aaf", magic.Aaf)
-	doc  = newMIME("application/msword", ".doc", magic.Doc).
+	ole  = newMIME("application/x-ole-storage", "", magic.Ole, msi, aaf, msg, xls, pub, ppt, doc)
+	msi  = newMIME("application/x-ms-installer", ".msi", magic.Msi).
+		alias("application/x-windows-installer", "application/x-msi")
+	aaf = newMIME("application/octet-stream", ".aaf", magic.Aaf)
+	doc = newMIME("application/msword", ".doc", magic.Doc).
 		alias("application/vnd.ms-word")
 	ppt = newMIME("application/vnd.ms-powerpoint", ".ppt", magic.Ppt).
 		alias("application/mspowerpoint")
@@ -69,13 +76,14 @@ var (
 		alias("application/x-ogg")
 	oggAudio = newMIME("audio/ogg", ".oga", magic.OggAudio)
 	oggVideo = newMIME("video/ogg", ".ogv", magic.OggVideo)
-	text     = newMIME("text/plain", ".txt", magic.Text, html, svg, xml, php, js, lua, perl, python, json, ndJson, rtf, tcl, csv, tsv, vCard, iCalendar, warc)
+	text     = newMIME("text/plain", ".txt", magic.Text, html, svg, xml, php, js, lua, perl, python, json, ndJSON, rtf, tcl, csv, tsv, vCard, iCalendar, warc)
 	xml      = newMIME("text/xml", ".xml", magic.Xml, rss, atom, x3d, kml, xliff, collada, gml, gpx, tcx, amf, threemf, xfdf, owl2)
-	json     = newMIME("application/json", ".json", magic.Json, geoJson)
+	json     = newMIME("application/json", ".json", magic.JSON, geoJSON, har)
+	har      = newMIME("application/json", ".har", magic.HAR)
 	csv      = newMIME("text/csv", ".csv", magic.Csv)
 	tsv      = newMIME("text/tab-separated-values", ".tsv", magic.Tsv)
-	geoJson  = newMIME("application/geo+json", ".geojson", magic.GeoJson)
-	ndJson   = newMIME("application/x-ndjson", ".ndjson", magic.NdJson)
+	geoJSON  = newMIME("application/geo+json", ".geojson", magic.GeoJSON)
+	ndJSON   = newMIME("application/x-ndjson", ".ndjson", magic.NdJSON)
 	html     = newMIME("text/html", ".html", magic.Html)
 	php      = newMIME("text/x-php", ".php", magic.Php)
 	rtf      = newMIME("text/rtf", ".rtf", magic.Rtf)
@@ -104,6 +112,7 @@ var (
 	threemf = newMIME("application/vnd.ms-package.3dmanufacturing-3dmodel+xml", ".3mf", magic.Threemf)
 	png     = newMIME("image/png", ".png", magic.Png)
 	jpg     = newMIME("image/jpeg", ".jpg", magic.Jpg)
+	jxl     = newMIME("image/jxl", ".jxl", magic.Jxl)
 	jp2     = newMIME("image/jp2", ".jp2", magic.Jp2)
 	jpx     = newMIME("image/jpx", ".jpf", magic.Jpx)
 	jpm     = newMIME("image/jpm", ".jpm", magic.Jpm).
@@ -212,8 +221,9 @@ var (
 	djvu    = newMIME("image/vnd.djvu", ".djvu", magic.DjVu)
 	mobi    = newMIME("application/x-mobipocket-ebook", ".mobi", magic.Mobi)
 	lit     = newMIME("application/x-ms-reader", ".lit", magic.Lit)
-	sqlite3 = newMIME("application/x-sqlite3", ".sqlite", magic.Sqlite)
-	dwg     = newMIME("image/vnd.dwg", ".dwg", magic.Dwg).
+	sqlite3 = newMIME("application/vnd.sqlite3", ".sqlite", magic.Sqlite).
+		alias("application/x-sqlite3")
+	dwg = newMIME("image/vnd.dwg", ".dwg", magic.Dwg).
 		alias("image/x-dwg", "application/acad", "application/x-acad",
 			"application/autocad_dwg", "application/dwg", "application/x-dwg",
 			"application/x-autocad", "drawing/dwg")

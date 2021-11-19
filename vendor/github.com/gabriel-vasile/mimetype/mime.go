@@ -56,6 +56,7 @@ func (m *MIME) Is(expectedMIME string) bool {
 	if expectedMIME == found {
 		return true
 	}
+
 	for _, alias := range m.aliases {
 		if alias == expectedMIME {
 			return true
@@ -150,4 +151,37 @@ func (m *MIME) cloneHierarchy(ps map[string]string) *MIME {
 	}
 
 	return ret
+}
+
+func (m *MIME) lookup(mime string) *MIME {
+	for _, n := range append(m.aliases, m.mime) {
+		if n == mime {
+			return m
+		}
+	}
+
+	for _, c := range m.children {
+		if m := c.lookup(mime); m != nil {
+			return m
+		}
+	}
+	return nil
+}
+
+// Extend adds detection for a sub-format. The detector is a function
+// returning true when the raw input file satisfies a signature.
+// The sub-format will be detected if all the detectors in the parent chain return true.
+// The extension should include the leading dot, as in ".html".
+func (m *MIME) Extend(detector func(raw []byte, limit uint32) bool, mime, extension string, aliases ...string) {
+	c := &MIME{
+		mime:      mime,
+		extension: extension,
+		detector:  detector,
+		parent:    m,
+		aliases:   aliases,
+	}
+
+	mu.Lock()
+	m.children = append([]*MIME{c}, m.children...)
+	mu.Unlock()
 }
