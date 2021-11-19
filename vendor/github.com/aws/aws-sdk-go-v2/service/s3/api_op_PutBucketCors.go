@@ -87,8 +87,9 @@ type PutBucketCorsInput struct {
 	// The base64-encoded 128-bit MD5 digest of the data. This header must be used as a
 	// message integrity check to verify that the request body was not corrupted in
 	// transit. For more information, go to RFC 1864.
-	// (http://www.ietf.org/rfc/rfc1864.txt) For requests made using the AWS Command
-	// Line Interface (CLI) or AWS SDKs, this field is calculated automatically.
+	// (http://www.ietf.org/rfc/rfc1864.txt) For requests made using the Amazon Web
+	// Services Command Line Interface (CLI) or Amazon Web Services SDKs, this field is
+	// calculated automatically.
 	ContentMD5 *string
 
 	// The account ID of the expected bucket owner. If the bucket is owned by a
@@ -150,6 +151,12 @@ func (c *Client) addOperationPutBucketCorsMiddlewares(stack *middleware.Stack, o
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = swapWithCustomHTTPSignerMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = smithyhttp.AddContentChecksumMiddleware(stack); err != nil {
+		return err
+	}
 	if err = addOpPutBucketCorsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -172,9 +179,6 @@ func (c *Client) addOperationPutBucketCorsMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = addRequestResponseLogging(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddContentChecksumMiddleware(stack); err != nil {
 		return err
 	}
 	return nil
@@ -204,13 +208,13 @@ func addPutBucketCorsUpdateEndpoint(stack *middleware.Stack, options Options) er
 		Accessor: s3cust.UpdateEndpointParameterAccessor{
 			GetBucketFromInput: getPutBucketCorsBucketMember,
 		},
-		UsePathStyle:            options.UsePathStyle,
-		UseAccelerate:           options.UseAccelerate,
-		SupportsAccelerate:      true,
-		TargetS3ObjectLambda:    false,
-		EndpointResolver:        options.EndpointResolver,
-		EndpointResolverOptions: options.EndpointOptions,
-		UseDualstack:            options.UseDualstack,
-		UseARNRegion:            options.UseARNRegion,
+		UsePathStyle:                   options.UsePathStyle,
+		UseAccelerate:                  options.UseAccelerate,
+		SupportsAccelerate:             true,
+		TargetS3ObjectLambda:           false,
+		EndpointResolver:               options.EndpointResolver,
+		EndpointResolverOptions:        options.EndpointOptions,
+		UseARNRegion:                   options.UseARNRegion,
+		DisableMultiRegionAccessPoints: options.DisableMultiRegionAccessPoints,
 	})
 }

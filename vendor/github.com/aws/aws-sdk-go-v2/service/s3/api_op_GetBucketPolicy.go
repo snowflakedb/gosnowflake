@@ -12,16 +12,17 @@ import (
 )
 
 // Returns the policy of a specified bucket. If you are using an identity other
-// than the root user of the AWS account that owns the bucket, the calling identity
-// must have the GetBucketPolicy permissions on the specified bucket and belong to
-// the bucket owner's account in order to use this operation. If you don't have
-// GetBucketPolicy permissions, Amazon S3 returns a 403 Access Denied error. If you
-// have the correct permissions, but you're not using an identity that belongs to
-// the bucket owner's account, Amazon S3 returns a 405 Method Not Allowed error. As
-// a security precaution, the root user of the AWS account that owns a bucket can
-// always use this operation, even if the policy explicitly denies the root user
-// the ability to perform this action. For more information about bucket policies,
-// see Using Bucket Policies and User Policies
+// than the root user of the Amazon Web Services account that owns the bucket, the
+// calling identity must have the GetBucketPolicy permissions on the specified
+// bucket and belong to the bucket owner's account in order to use this operation.
+// If you don't have GetBucketPolicy permissions, Amazon S3 returns a 403 Access
+// Denied error. If you have the correct permissions, but you're not using an
+// identity that belongs to the bucket owner's account, Amazon S3 returns a 405
+// Method Not Allowed error. As a security precaution, the root user of the Amazon
+// Web Services account that owns a bucket can always use this operation, even if
+// the policy explicitly denies the root user the ability to perform this action.
+// For more information about bucket policies, see Using Bucket Policies and User
+// Policies
 // (https://docs.aws.amazon.com/AmazonS3/latest/dev/using-iam-policies.html). The
 // following action is related to GetBucketPolicy:
 //
@@ -112,6 +113,9 @@ func (c *Client) addOperationGetBucketPolicyMiddlewares(stack *middleware.Stack,
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = swapWithCustomHTTPSignerMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetBucketPolicyValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -163,13 +167,13 @@ func addGetBucketPolicyUpdateEndpoint(stack *middleware.Stack, options Options) 
 		Accessor: s3cust.UpdateEndpointParameterAccessor{
 			GetBucketFromInput: getGetBucketPolicyBucketMember,
 		},
-		UsePathStyle:            options.UsePathStyle,
-		UseAccelerate:           options.UseAccelerate,
-		SupportsAccelerate:      true,
-		TargetS3ObjectLambda:    false,
-		EndpointResolver:        options.EndpointResolver,
-		EndpointResolverOptions: options.EndpointOptions,
-		UseDualstack:            options.UseDualstack,
-		UseARNRegion:            options.UseARNRegion,
+		UsePathStyle:                   options.UsePathStyle,
+		UseAccelerate:                  options.UseAccelerate,
+		SupportsAccelerate:             true,
+		TargetS3ObjectLambda:           false,
+		EndpointResolver:               options.EndpointResolver,
+		EndpointResolverOptions:        options.EndpointOptions,
+		UseARNRegion:                   options.UseARNRegion,
+		DisableMultiRegionAccessPoints: options.DisableMultiRegionAccessPoints,
 	})
 }

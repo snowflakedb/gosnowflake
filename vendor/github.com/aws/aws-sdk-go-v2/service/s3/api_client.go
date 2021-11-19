@@ -10,11 +10,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	internalConfig "github.com/aws/aws-sdk-go-v2/internal/configsources"
 	acceptencodingcust "github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding"
 	presignedurlcust "github.com/aws/aws-sdk-go-v2/service/internal/presigned-url"
 	"github.com/aws/aws-sdk-go-v2/service/internal/s3shared"
 	s3sharedconfig "github.com/aws/aws-sdk-go-v2/service/internal/s3shared/config"
 	s3cust "github.com/aws/aws-sdk-go-v2/service/s3/internal/customizations"
+	"github.com/aws/aws-sdk-go-v2/service/s3/internal/v4a"
 	smithy "github.com/aws/smithy-go"
 	smithydocument "github.com/aws/smithy-go/document"
 	"github.com/aws/smithy-go/logging"
@@ -49,9 +51,13 @@ func New(options Options, optFns ...func(*Options)) *Client {
 
 	resolveDefaultEndpointConfiguration(&options)
 
+	resolveHTTPSignerV4a(&options)
+
 	for _, fn := range optFns {
 		fn(&options)
 	}
+
+	resolveCredentialProvider(&options)
 
 	client := &Client{
 		options: options,
@@ -71,6 +77,9 @@ type Options struct {
 
 	// The credentials object to use when signing requests.
 	Credentials aws.CredentialsProvider
+
+	// Allows you to disable S3 Multi-Region access points feature.
+	DisableMultiRegionAccessPoints bool
 
 	// The endpoint options to be used when attempting to resolve an endpoint.
 	EndpointOptions EndpointResolverOptions
@@ -102,13 +111,20 @@ type Options struct {
 	// DNS compatible to work with accelerate.
 	UseAccelerate bool
 
-	// Allows you to enable Dualstack endpoint support for the service.
+	// Allows you to enable dual-stack endpoint support for the service.
+	//
+	// Deprecated: Set dual-stack by setting UseDualStackEndpoint on
+	// EndpointResolverOptions. When EndpointResolverOptions' UseDualStackEndpoint
+	// field is set it overrides this field value.
 	UseDualstack bool
 
 	// Allows you to enable the client to use path-style addressing, i.e.,
 	// https://s3.amazonaws.com/BUCKET/KEY. By default, the S3 client will use virtual
 	// hosted bucket addressing when possible(https://BUCKET.s3.amazonaws.com/KEY).
 	UsePathStyle bool
+
+	// Signature Version 4a (SigV4a) Signer
+	httpSignerV4a httpSignerV4a
 
 	// The HTTP client to invoke API calls with. Defaults to client's default HTTP
 	// implementation if nil.
@@ -149,6 +165,12 @@ func (c *Client) invokeOperation(ctx context.Context, opID string, params interf
 	for _, fn := range optFns {
 		fn(&options)
 	}
+
+	setSafeEventStreamClientLogMode(&options, opID)
+
+	finalizeClientEndpointResolverOptions(&options)
+
+	resolveCredentialProvider(&options)
 
 	for _, fn := range stackFns {
 		if err := fn(stack, options); err != nil {
@@ -200,6 +222,8 @@ func NewFromConfig(cfg aws.Config, optFns ...func(*Options)) *Client {
 	resolveAWSRetryerProvider(cfg, &opts)
 	resolveAWSEndpointResolver(cfg, &opts)
 	resolveUseARNRegion(cfg, &opts)
+	resolveUseDualStackEndpoint(cfg, &opts)
+	resolveUseFIPSEndpoint(cfg, &opts)
 	return New(opts, optFns...)
 }
 
@@ -228,7 +252,7 @@ func resolveAWSEndpointResolver(cfg aws.Config, o *Options) {
 	if cfg.EndpointResolver == nil {
 		return
 	}
-	o.EndpointResolver = withEndpointResolver(cfg.EndpointResolver, NewDefaultEndpointResolver())
+	o.EndpointResolver = withEndpointResolver(cfg.EndpointResolver, cfg.EndpointResolverWithOptions, NewDefaultEndpointResolver())
 }
 
 func addClientUserAgent(stack *middleware.Stack) error {
@@ -286,6 +310,81 @@ func resolveUseARNRegion(cfg aws.Config, o *Options) error {
 	return nil
 }
 
+// resolves dual-stack endpoint configuration
+func resolveUseDualStackEndpoint(cfg aws.Config, o *Options) error {
+	if len(cfg.ConfigSources) == 0 {
+		return nil
+	}
+	value, found, err := internalConfig.ResolveUseDualStackEndpoint(context.Background(), cfg.ConfigSources)
+	if err != nil {
+		return err
+	}
+	if found {
+		o.EndpointOptions.UseDualStackEndpoint = value
+	}
+	return nil
+}
+
+// resolves FIPS endpoint configuration
+func resolveUseFIPSEndpoint(cfg aws.Config, o *Options) error {
+	if len(cfg.ConfigSources) == 0 {
+		return nil
+	}
+	value, found, err := internalConfig.ResolveUseFIPSEndpoint(context.Background(), cfg.ConfigSources)
+	if err != nil {
+		return err
+	}
+	if found {
+		o.EndpointOptions.UseFIPSEndpoint = value
+	}
+	return nil
+}
+
+func resolveCredentialProvider(o *Options) {
+	if o.Credentials == nil {
+		return
+	}
+	if _, ok := o.Credentials.(v4a.CredentialsProvider); ok {
+		return
+	}
+
+	switch o.Credentials.(type) {
+	case aws.AnonymousCredentials, *aws.AnonymousCredentials:
+		return
+
+	}
+
+	o.Credentials = &v4a.SymmetricCredentialAdaptor{SymmetricProvider: o.Credentials}
+}
+func swapWithCustomHTTPSignerMiddleware(stack *middleware.Stack, o Options) error {
+	mw := s3cust.NewSignHTTPRequestMiddleware(s3cust.SignHTTPRequestMiddlewareOptions{
+		CredentialsProvider: o.Credentials,
+		V4Signer:            o.HTTPSignerV4,
+		V4aSigner:           o.httpSignerV4a,
+		LogSigning:          o.ClientLogMode.IsSigning(),
+	})
+	return s3cust.RegisterSigningMiddleware(stack, mw)
+}
+
+type httpSignerV4a interface {
+	SignHTTP(ctx context.Context, credentials v4a.Credentials, r *http.Request, payloadHash string, service string, regionSet []string, signingTime time.Time, optFns ...func(*v4a.SignerOptions)) error
+}
+
+func resolveHTTPSignerV4a(o *Options) {
+	if o.httpSignerV4a != nil {
+		return
+	}
+	o.httpSignerV4a = newDefaultV4aSigner(*o)
+}
+
+func newDefaultV4aSigner(o Options) *v4a.Signer {
+	return v4a.NewSigner(func(so *v4a.SignerOptions) {
+		so.Logger = o.Logger
+		so.LogSigning = o.ClientLogMode.IsSigning()
+		so.DisableURIPathEscaping = true
+	})
+}
+
 func addMetadataRetrieverMiddleware(stack *middleware.Stack) error {
 	return s3shared.AddMetadataRetrieverMiddleware(stack)
 }
@@ -331,6 +430,16 @@ type HTTPPresignerV4 interface {
 	) (url string, signedHeader http.Header, err error)
 }
 
+// httpPresignerV4a represents sigv4a presigner interface used by presign url
+// client
+type httpPresignerV4a interface {
+	PresignHTTP(
+		ctx context.Context, credentials v4a.Credentials, r *http.Request,
+		payloadHash string, service string, regionSet []string, signingTime time.Time,
+		optFns ...func(*v4a.SignerOptions),
+	) (url string, signedHeader http.Header, err error)
+}
+
 // PresignOptions represents the presign client options
 type PresignOptions struct {
 
@@ -345,6 +454,9 @@ type PresignOptions struct {
 	// be the duration in seconds the presigned URL should be considered valid for. If
 	// not set or set to zero, presign url would default to expire after 900 seconds.
 	Expires time.Duration
+
+	// presignerV4a is the presigner used by the presign url client
+	presignerV4a httpPresignerV4a
 }
 
 func (o PresignOptions) copy() PresignOptions {
@@ -399,6 +511,10 @@ func NewPresignClient(c *Client, optFns ...func(*PresignOptions)) *PresignClient
 		options.Presigner = newDefaultV4Signer(c.options)
 	}
 
+	if options.presignerV4a == nil {
+		options.presignerV4a = newDefaultV4aSigner(c.options)
+	}
+
 	return &PresignClient{
 		client:  c,
 		options: options,
@@ -425,6 +541,19 @@ func (c presignConverter) convertToPresignMiddleware(stack *middleware.Stack, op
 	if err != nil {
 		return err
 	}
+
+	// add multi-region access point presigner
+	signermv := s3cust.NewPresignHTTPRequestMiddleware(s3cust.PresignHTTPRequestMiddlewareOptions{
+		CredentialsProvider: options.Credentials,
+		V4Presigner:         c.Presigner,
+		V4aPresigner:        c.presignerV4a,
+		LogSigning:          options.ClientLogMode.IsSigning(),
+	})
+	err = s3cust.RegisterPreSigningMiddleware(stack, signermv)
+	if err != nil {
+		return err
+	}
+
 	if c.Expires < 0 {
 		return fmt.Errorf("presign URL duration must be 0 or greater, %v", c.Expires)
 	}

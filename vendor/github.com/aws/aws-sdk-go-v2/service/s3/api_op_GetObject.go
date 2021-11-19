@@ -43,15 +43,15 @@ import (
 // about restoring archived objects, see Restoring Archived Objects
 // (https://docs.aws.amazon.com/AmazonS3/latest/dev/restoring-objects.html).
 // Encryption request headers, like x-amz-server-side-encryption, should not be
-// sent for GET requests if your object uses server-side encryption with CMKs
-// stored in AWS KMS (SSE-KMS) or server-side encryption with Amazon S3–managed
-// encryption keys (SSE-S3). If your object does use these types of keys, you’ll
-// get an HTTP 400 BadRequest error. If you encrypt an object by using server-side
-// encryption with customer-provided encryption keys (SSE-C) when you store the
-// object in Amazon S3, then when you GET the object, you must use the following
-// headers:
+// sent for GET requests if your object uses server-side encryption with KMS keys
+// (SSE-KMS) or server-side encryption with Amazon S3–managed encryption keys
+// (SSE-S3). If your object does use these types of keys, you’ll get an HTTP 400
+// BadRequest error. If you encrypt an object by using server-side encryption with
+// customer-provided encryption keys (SSE-C) when you store the object in Amazon
+// S3, then when you GET the object, you must use the following headers:
 //
-// * x-amz-server-side-encryption-customer-algorithm
+// *
+// x-amz-server-side-encryption-customer-algorithm
 //
 // *
 // x-amz-server-side-encryption-customer-key
@@ -62,14 +62,13 @@ import (
 // For more information about SSE-C,
 // see Server-Side Encryption (Using Customer-Provided Encryption Keys)
 // (https://docs.aws.amazon.com/AmazonS3/latest/dev/ServerSideEncryptionCustomerKeys.html).
-// Assuming you have permission to read object tags (permission for the
-// s3:GetObjectVersionTagging action), the response also returns the
-// x-amz-tagging-count header that provides the count of number of tags associated
-// with the object. You can use GetObjectTagging
+// Assuming you have the relevant permission to read object tags, the response also
+// returns the x-amz-tagging-count header that provides the count of number of tags
+// associated with the object. You can use GetObjectTagging
 // (https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObjectTagging.html) to
 // retrieve the tag set associated with an object. Permissions You need the
-// s3:GetObject permission for this operation. For more information, see Specifying
-// Permissions in a Policy
+// relevant read object (or version) permission for this operation. For more
+// information, see Specifying Permissions in a Policy
 // (https://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html). If
 // the object you request does not exist, the error Amazon S3 returns depends on
 // whether you also have the s3:ListBucket permission.
@@ -83,10 +82,17 @@ import (
 // error.
 //
 // Versioning By default, the GET action returns the current version of an
-// object. To return a different version, use the versionId subresource. If the
-// current version of the object is a delete marker, Amazon S3 behaves as if the
-// object was deleted and includes x-amz-delete-marker: true in the response. For
-// more information about versioning, see PutBucketVersioning
+// object. To return a different version, use the versionId subresource.
+//
+// * You
+// need the s3:GetObjectVersion permission to access a specific version of an
+// object.
+//
+// * If the current version of the object is a delete marker, Amazon S3
+// behaves as if the object was deleted and includes x-amz-delete-marker: true in
+// the response.
+//
+// For more information about versioning, see PutBucketVersioning
 // (https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketVersioning.html).
 // Overriding Response Header Values There are times when you want to override
 // certain response header values in a GET response. For example, you might
@@ -155,17 +161,19 @@ type GetObjectInput struct {
 	// point, you must direct requests to the access point hostname. The access point
 	// hostname takes the form
 	// AccessPointName-AccountId.s3-accesspoint.Region.amazonaws.com. When using this
-	// action with an access point through the AWS SDKs, you provide the access point
-	// ARN in place of the bucket name. For more information about access point ARNs,
-	// see Using access points
+	// action with an access point through the Amazon Web Services SDKs, you provide
+	// the access point ARN in place of the bucket name. For more information about
+	// access point ARNs, see Using access points
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-access-points.html)
-	// in the Amazon S3 User Guide. When using this action with Amazon S3 on Outposts,
-	// you must direct requests to the S3 on Outposts hostname. The S3 on Outposts
+	// in the Amazon S3 User Guide. When using an Object Lambda access point the
 	// hostname takes the form
+	// AccessPointName-AccountId.s3-object-lambda.Region.amazonaws.com. When using this
+	// action with Amazon S3 on Outposts, you must direct requests to the S3 on
+	// Outposts hostname. The S3 on Outposts hostname takes the form
 	// AccessPointName-AccountId.outpostID.s3-outposts.Region.amazonaws.com. When using
-	// this action using S3 on Outposts through the AWS SDKs, you provide the Outposts
-	// bucket ARN in place of the bucket name. For more information about S3 on
-	// Outposts ARNs, see Using S3 on Outposts
+	// this action using S3 on Outposts through the Amazon Web Services SDKs, you
+	// provide the Outposts bucket ARN in place of the bucket name. For more
+	// information about S3 on Outposts ARNs, see Using S3 on Outposts
 	// (https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html) in the
 	// Amazon S3 User Guide.
 	//
@@ -266,7 +274,7 @@ type GetObjectOutput struct {
 	Body io.ReadCloser
 
 	// Indicates whether the object uses an S3 Bucket Key for server-side encryption
-	// with AWS KMS (SSE-KMS).
+	// with Amazon Web Services KMS (SSE-KMS).
 	BucketKeyEnabled bool
 
 	// Specifies caching behavior along the request/reply chain.
@@ -357,8 +365,8 @@ type GetObjectOutput struct {
 	// verification of the customer-provided encryption key.
 	SSECustomerKeyMD5 *string
 
-	// If present, specifies the ID of the AWS Key Management Service (AWS KMS)
-	// symmetric customer managed customer master key (CMK) that was used for the
+	// If present, specifies the ID of the Amazon Web Services Key Management Service
+	// (Amazon Web Services KMS) symmetric customer managed key that was used for the
 	// object.
 	SSEKMSKeyId *string
 
@@ -429,6 +437,9 @@ func (c *Client) addOperationGetObjectMiddlewares(stack *middleware.Stack, optio
 	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = swapWithCustomHTTPSignerMiddleware(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetObjectValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -479,14 +490,14 @@ func addGetObjectUpdateEndpoint(stack *middleware.Stack, options Options) error 
 		Accessor: s3cust.UpdateEndpointParameterAccessor{
 			GetBucketFromInput: getGetObjectBucketMember,
 		},
-		UsePathStyle:            options.UsePathStyle,
-		UseAccelerate:           options.UseAccelerate,
-		SupportsAccelerate:      true,
-		TargetS3ObjectLambda:    false,
-		EndpointResolver:        options.EndpointResolver,
-		EndpointResolverOptions: options.EndpointOptions,
-		UseDualstack:            options.UseDualstack,
-		UseARNRegion:            options.UseARNRegion,
+		UsePathStyle:                   options.UsePathStyle,
+		UseAccelerate:                  options.UseAccelerate,
+		SupportsAccelerate:             true,
+		TargetS3ObjectLambda:           false,
+		EndpointResolver:               options.EndpointResolver,
+		EndpointResolverOptions:        options.EndpointOptions,
+		UseARNRegion:                   options.UseARNRegion,
+		DisableMultiRegionAccessPoints: options.DisableMultiRegionAccessPoints,
 	})
 }
 

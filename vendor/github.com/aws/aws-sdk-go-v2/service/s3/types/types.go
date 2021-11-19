@@ -114,12 +114,22 @@ type AnalyticsExportDestination struct {
 // filter is provided, all objects will be considered in any analysis.
 //
 // The following types satisfy this interface:
+//  AnalyticsFilterMemberAnd
 //  AnalyticsFilterMemberPrefix
 //  AnalyticsFilterMemberTag
-//  AnalyticsFilterMemberAnd
 type AnalyticsFilter interface {
 	isAnalyticsFilter()
 }
+
+// A conjunction (logical AND) of predicates, which is used in evaluating an
+// analytics filter. The operator must have at least two predicates.
+type AnalyticsFilterMemberAnd struct {
+	Value AnalyticsAndOperator
+
+	noSmithyDocumentSerde
+}
+
+func (*AnalyticsFilterMemberAnd) isAnalyticsFilter() {}
 
 // The prefix to use when evaluating an analytics filter.
 type AnalyticsFilterMemberPrefix struct {
@@ -138,16 +148,6 @@ type AnalyticsFilterMemberTag struct {
 }
 
 func (*AnalyticsFilterMemberTag) isAnalyticsFilter() {}
-
-// A conjunction (logical AND) of predicates, which is used in evaluating an
-// analytics filter. The operator must have at least two predicates.
-type AnalyticsFilterMemberAnd struct {
-	Value AnalyticsAndOperator
-
-	noSmithyDocumentSerde
-}
-
-func (*AnalyticsFilterMemberAnd) isAnalyticsFilter() {}
 
 // Contains information about where to publish the analytics results.
 type AnalyticsS3BucketDestination struct {
@@ -175,7 +175,8 @@ type AnalyticsS3BucketDestination struct {
 }
 
 // In terms of implementation, a Bucket is a resource. An Amazon S3 bucket name is
-// globally unique, and the namespace is shared by all AWS accounts.
+// globally unique, and the namespace is shared by all Amazon Web Services
+// accounts.
 type Bucket struct {
 
 	// Date the bucket was created. This date can change when making changes to your
@@ -277,12 +278,16 @@ type Condition struct {
 	noSmithyDocumentSerde
 }
 
+//
+type ContinuationEvent struct {
+	noSmithyDocumentSerde
+}
+
 // Container for all response elements.
 type CopyObjectResult struct {
 
 	// Returns the ETag of the new object. The ETag reflects only changes to the
-	// contents of an object, not its metadata. The source and destination ETag is
-	// identical for a successfully copied non-multipart object.
+	// contents of an object, not its metadata.
 	ETag *string
 
 	// Creation date of the object.
@@ -563,16 +568,16 @@ type Destination struct {
 
 	// Specify this only in a cross-account scenario (where source and destination
 	// bucket owners are not the same), and you want to change replica ownership to the
-	// AWS account that owns the destination bucket. If this is not specified in the
-	// replication configuration, the replicas are owned by same AWS account that owns
-	// the source object.
+	// Amazon Web Services account that owns the destination bucket. If this is not
+	// specified in the replication configuration, the replicas are owned by same
+	// Amazon Web Services account that owns the source object.
 	AccessControlTranslation *AccessControlTranslation
 
 	// Destination bucket owner account ID. In a cross-account scenario, if you direct
-	// Amazon S3 to change replica ownership to the AWS account that owns the
-	// destination bucket by specifying the AccessControlTranslation property, this is
-	// the account ID of the destination bucket owner. For more information, see
-	// Replication Additional Configuration: Changing the Replica Owner
+	// Amazon S3 to change replica ownership to the Amazon Web Services account that
+	// owns the destination bucket by specifying the AccessControlTranslation property,
+	// this is the account ID of the destination bucket owner. For more information,
+	// see Replication Additional Configuration: Changing the Replica Owner
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-change-owner.html)
 	// in the Amazon S3 User Guide.
 	Account *string
@@ -615,11 +620,11 @@ type Encryption struct {
 	KMSContext *string
 
 	// If the encryption type is aws:kms, this optional value specifies the ID of the
-	// symmetric customer managed AWS KMS CMK to use for encryption of job results.
-	// Amazon S3 only supports symmetric CMKs. For more information, see Using
-	// symmetric and asymmetric keys
+	// symmetric customer managed key to use for encryption of job results. Amazon S3
+	// only supports symmetric keys. For more information, see Using symmetric and
+	// asymmetric keys
 	// (https://docs.aws.amazon.com/kms/latest/developerguide/symmetric-asymmetric.html)
-	// in the AWS Key Management Service Developer Guide.
+	// in the Amazon Web Services Key Management Service Developer Guide.
 	KMSKeyId *string
 
 	noSmithyDocumentSerde
@@ -629,15 +634,22 @@ type Encryption struct {
 // destination for replicated objects.
 type EncryptionConfiguration struct {
 
-	// Specifies the ID (Key ARN or Alias ARN) of the customer managed AWS KMS key
-	// stored in AWS Key Management Service (KMS) for the destination bucket. Amazon S3
-	// uses this key to encrypt replica objects. Amazon S3 only supports symmetric,
-	// customer managed KMS keys. For more information, see Using symmetric and
-	// asymmetric keys
+	// Specifies the ID (Key ARN or Alias ARN) of the customer managed Amazon Web
+	// Services KMS key stored in Amazon Web Services Key Management Service (KMS) for
+	// the destination bucket. Amazon S3 uses this key to encrypt replica objects.
+	// Amazon S3 only supports symmetric, customer managed KMS keys. For more
+	// information, see Using symmetric and asymmetric keys
 	// (https://docs.aws.amazon.com/kms/latest/developerguide/symmetric-asymmetric.html)
-	// in the AWS Key Management Service Developer Guide.
+	// in the Amazon Web Services Key Management Service Developer Guide.
 	ReplicaKmsKeyID *string
 
+	noSmithyDocumentSerde
+}
+
+// A message that indicates the request is complete and no more messages will be
+// sent. You should not assume that the request is complete until the client
+// receives an EndEvent.
+type EndEvent struct {
 	noSmithyDocumentSerde
 }
 
@@ -660,79 +672,80 @@ type Error struct {
 	// *
 	// Code: AccountProblem
 	//
-	// * Description: There is a problem with your AWS account
-	// that prevents the action from completing successfully. Contact AWS Support for
-	// further assistance.
+	// * Description: There is a problem with your Amazon Web
+	// Services account that prevents the action from completing successfully. Contact
+	// Amazon Web Services Support for further assistance.
 	//
-	// * HTTP Status Code: 403 Forbidden
+	// * HTTP Status Code: 403
+	// Forbidden
 	//
-	// * SOAP Fault Code
-	// Prefix: Client
+	// * SOAP Fault Code Prefix: Client
 	//
 	// * Code: AllAccessDisabled
 	//
-	// * Description: All access to this
-	// Amazon S3 resource has been disabled. Contact AWS Support for further
-	// assistance.
+	// *
+	// Description: All access to this Amazon S3 resource has been disabled. Contact
+	// Amazon Web Services Support for further assistance.
 	//
-	// * HTTP Status Code: 403 Forbidden
-	//
-	// * SOAP Fault Code Prefix:
-	// Client
-	//
-	// * Code: AmbiguousGrantByEmailAddress
-	//
-	// * Description: The email address
-	// you provided is associated with more than one account.
-	//
-	// * HTTP Status Code: 400
-	// Bad Request
+	// * HTTP Status Code: 403
+	// Forbidden
 	//
 	// * SOAP Fault Code Prefix: Client
 	//
 	// * Code:
-	// AuthorizationHeaderMalformed
+	// AmbiguousGrantByEmailAddress
 	//
-	// * Description: The authorization header you
-	// provided is invalid.
+	// * Description: The email address you provided is
+	// associated with more than one account.
 	//
 	// * HTTP Status Code: 400 Bad Request
 	//
-	// * HTTP Status Code:
-	// N/A
+	// *
+	// SOAP Fault Code Prefix: Client
+	//
+	// * Code: AuthorizationHeaderMalformed
+	//
+	// *
+	// Description: The authorization header you provided is invalid.
+	//
+	// * HTTP Status
+	// Code: 400 Bad Request
+	//
+	// * HTTP Status Code: N/A
 	//
 	// * Code: BadDigest
 	//
-	// * Description: The Content-MD5 you specified did not
-	// match what we received.
+	// *
+	// Description: The Content-MD5 you specified did not match what we received.
 	//
-	// * HTTP Status Code: 400 Bad Request
-	//
-	// * SOAP Fault Code
-	// Prefix: Client
-	//
-	// * Code: BucketAlreadyExists
-	//
-	// * Description: The requested bucket
-	// name is not available. The bucket namespace is shared by all users of the
-	// system. Please select a different name and try again.
-	//
-	// * HTTP Status Code: 409
-	// Conflict
+	// *
+	// HTTP Status Code: 400 Bad Request
 	//
 	// * SOAP Fault Code Prefix: Client
 	//
+	// * Code:
+	// BucketAlreadyExists
+	//
+	// * Description: The requested bucket name is not available.
+	// The bucket namespace is shared by all users of the system. Please select a
+	// different name and try again.
+	//
+	// * HTTP Status Code: 409 Conflict
+	//
+	// * SOAP Fault
+	// Code Prefix: Client
+	//
 	// * Code: BucketAlreadyOwnedByYou
 	//
-	// *
-	// Description: The bucket you tried to create already exists, and you own it.
-	// Amazon S3 returns this error in all AWS Regions except in the North Virginia
-	// Region. For legacy compatibility, if you re-create an existing bucket that you
-	// already own in the North Virginia Region, Amazon S3 returns 200 OK and resets
-	// the bucket access control lists (ACLs).
+	// * Description: The bucket
+	// you tried to create already exists, and you own it. Amazon S3 returns this error
+	// in all Amazon Web Services Regions except in the North Virginia Region. For
+	// legacy compatibility, if you re-create an existing bucket that you already own
+	// in the North Virginia Region, Amazon S3 returns 200 OK and resets the bucket
+	// access control lists (ACLs).
 	//
-	// * Code: 409 Conflict (in all Regions
-	// except the North Virginia Region)
+	// * Code: 409 Conflict (in all Regions except the
+	// North Virginia Region)
 	//
 	// * SOAP Fault Code Prefix: Client
 	//
@@ -853,68 +866,58 @@ type Error struct {
 	//
 	// * Code: InvalidAccessKeyId
 	//
-	// * Description: The AWS access key ID you
-	// provided does not exist in our records.
+	// * Description: The Amazon Web Services
+	// access key ID you provided does not exist in our records.
 	//
-	// * HTTP Status Code: 403 Forbidden
+	// * HTTP Status Code:
+	// 403 Forbidden
+	//
+	// * SOAP Fault Code Prefix: Client
+	//
+	// * Code:
+	// InvalidAddressingHeader
+	//
+	// * Description: You must specify the Anonymous role.
 	//
 	// *
-	// SOAP Fault Code Prefix: Client
+	// HTTP Status Code: N/A
 	//
-	// * Code: InvalidAddressingHeader
+	// * SOAP Fault Code Prefix: Client
 	//
-	// * Description:
-	// You must specify the Anonymous role.
-	//
-	// * HTTP Status Code: N/A
-	//
-	// * SOAP Fault Code
-	// Prefix: Client
-	//
-	// * Code: InvalidArgument
+	// * Code:
+	// InvalidArgument
 	//
 	// * Description: Invalid Argument
 	//
-	// * HTTP
-	// Status Code: 400 Bad Request
+	// * HTTP Status Code: 400 Bad
+	// Request
+	//
+	// * SOAP Fault Code Prefix: Client
+	//
+	// * Code: InvalidBucketName
+	//
+	// *
+	// Description: The specified bucket is not valid.
+	//
+	// * HTTP Status Code: 400 Bad
+	// Request
+	//
+	// * SOAP Fault Code Prefix: Client
+	//
+	// * Code: InvalidBucketState
+	//
+	// *
+	// Description: The request is not valid with the current state of the bucket.
+	//
+	// *
+	// HTTP Status Code: 409 Conflict
 	//
 	// * SOAP Fault Code Prefix: Client
 	//
 	// * Code:
-	// InvalidBucketName
+	// InvalidDigest
 	//
-	// * Description: The specified bucket is not valid.
-	//
-	// * HTTP
-	// Status Code: 400 Bad Request
-	//
-	// * SOAP Fault Code Prefix: Client
-	//
-	// * Code:
-	// InvalidBucketState
-	//
-	// * Description: The request is not valid with the current
-	// state of the bucket.
-	//
-	// * HTTP Status Code: 409 Conflict
-	//
-	// * SOAP Fault Code
-	// Prefix: Client
-	//
-	// * Code: InvalidDigest
-	//
-	// * Description: The Content-MD5 you
-	// specified is not valid.
-	//
-	// * HTTP Status Code: 400 Bad Request
-	//
-	// * SOAP Fault Code
-	// Prefix: Client
-	//
-	// * Code: InvalidEncryptionAlgorithmError
-	//
-	// * Description: The
-	// encryption request you specified is not valid. The valid value is AES256.
+	// * Description: The Content-MD5 you specified is not valid.
 	//
 	// *
 	// HTTP Status Code: 400 Bad Request
@@ -922,11 +925,21 @@ type Error struct {
 	// * SOAP Fault Code Prefix: Client
 	//
 	// * Code:
-	// InvalidLocationConstraint
+	// InvalidEncryptionAlgorithmError
 	//
-	// * Description: The specified location constraint is
-	// not valid. For more information about Regions, see How to Select a Region for
-	// Your Buckets
+	// * Description: The encryption request you
+	// specified is not valid. The valid value is AES256.
+	//
+	// * HTTP Status Code: 400 Bad
+	// Request
+	//
+	// * SOAP Fault Code Prefix: Client
+	//
+	// * Code: InvalidLocationConstraint
+	//
+	// *
+	// Description: The specified location constraint is not valid. For more
+	// information about Regions, see How to Select a Region for Your Buckets
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingBucket.html#access-bucket-intro).
 	//
 	// *
@@ -970,89 +983,38 @@ type Error struct {
 	// * Code: InvalidPayer
 	//
 	// * Description: All access to
-	// this object has been disabled. Please contact AWS Support for further
-	// assistance.
+	// this object has been disabled. Please contact Amazon Web Services Support for
+	// further assistance.
 	//
 	// * HTTP Status Code: 403 Forbidden
 	//
-	// * SOAP Fault Code Prefix:
-	// Client
+	// * SOAP Fault Code
+	// Prefix: Client
 	//
 	// * Code: InvalidPolicyDocument
 	//
-	// * Description: The content of the form
-	// does not meet the conditions specified in the policy document.
-	//
-	// * HTTP Status
-	// Code: 400 Bad Request
-	//
-	// * SOAP Fault Code Prefix: Client
-	//
-	// * Code: InvalidRange
-	//
-	// *
-	// Description: The requested range cannot be satisfied.
-	//
-	// * HTTP Status Code: 416
-	// Requested Range Not Satisfiable
-	//
-	// * SOAP Fault Code Prefix: Client
-	//
-	// * Code:
-	// InvalidRequest
-	//
-	// * Description: Please use AWS4-HMAC-SHA256.
-	//
-	// * HTTP Status Code:
-	// 400 Bad Request
-	//
-	// * Code: N/A
-	//
-	// * Code: InvalidRequest
-	//
-	// * Description: SOAP
-	// requests must be made over an HTTPS connection.
-	//
-	// * HTTP Status Code: 400 Bad
-	// Request
-	//
-	// * SOAP Fault Code Prefix: Client
-	//
-	// * Code: InvalidRequest
-	//
-	// *
-	// Description: Amazon S3 Transfer Acceleration is not supported for buckets with
-	// non-DNS compliant names.
-	//
-	// * HTTP Status Code: 400 Bad Request
-	//
-	// * Code: N/A
-	//
-	// *
-	// Code: InvalidRequest
-	//
-	// * Description: Amazon S3 Transfer Acceleration is not
-	// supported for buckets with periods (.) in their names.
-	//
-	// * HTTP Status Code: 400
-	// Bad Request
-	//
-	// * Code: N/A
-	//
-	// * Code: InvalidRequest
-	//
-	// * Description: Amazon S3
-	// Transfer Accelerate endpoint only supports virtual style requests.
+	// * Description: The content of the
+	// form does not meet the conditions specified in the policy document.
 	//
 	// * HTTP
 	// Status Code: 400 Bad Request
 	//
-	// * Code: N/A
+	// * SOAP Fault Code Prefix: Client
+	//
+	// * Code:
+	// InvalidRange
+	//
+	// * Description: The requested range cannot be satisfied.
+	//
+	// * HTTP
+	// Status Code: 416 Requested Range Not Satisfiable
+	//
+	// * SOAP Fault Code Prefix:
+	// Client
 	//
 	// * Code: InvalidRequest
 	//
-	// *
-	// Description: Amazon S3 Transfer Accelerate is not configured on this bucket.
+	// * Description: Please use AWS4-HMAC-SHA256.
 	//
 	// *
 	// HTTP Status Code: 400 Bad Request
@@ -1062,18 +1024,18 @@ type Error struct {
 	// * Code: InvalidRequest
 	//
 	// *
-	// Description: Amazon S3 Transfer Accelerate is disabled on this bucket.
+	// Description: SOAP requests must be made over an HTTPS connection.
 	//
-	// * HTTP
-	// Status Code: 400 Bad Request
+	// * HTTP Status
+	// Code: 400 Bad Request
 	//
-	// * Code: N/A
+	// * SOAP Fault Code Prefix: Client
 	//
-	// * Code: InvalidRequest
+	// * Code:
+	// InvalidRequest
 	//
-	// *
-	// Description: Amazon S3 Transfer Acceleration is not supported on this bucket.
-	// Contact AWS Support for more information.
+	// * Description: Amazon S3 Transfer Acceleration is not supported
+	// for buckets with non-DNS compliant names.
 	//
 	// * HTTP Status Code: 400 Bad
 	// Request
@@ -1083,81 +1045,133 @@ type Error struct {
 	// * Code: InvalidRequest
 	//
 	// * Description: Amazon S3 Transfer
-	// Acceleration cannot be enabled on this bucket. Contact AWS Support for more
-	// information.
+	// Acceleration is not supported for buckets with periods (.) in their names.
+	//
+	// *
+	// HTTP Status Code: 400 Bad Request
+	//
+	// * Code: N/A
+	//
+	// * Code: InvalidRequest
+	//
+	// *
+	// Description: Amazon S3 Transfer Accelerate endpoint only supports virtual style
+	// requests.
 	//
 	// * HTTP Status Code: 400 Bad Request
 	//
 	// * Code: N/A
 	//
 	// * Code:
-	// InvalidSecurity
+	// InvalidRequest
 	//
-	// * Description: The provided security credentials are not
-	// valid.
+	// * Description: Amazon S3 Transfer Accelerate is not configured
+	// on this bucket.
 	//
-	// * HTTP Status Code: 403 Forbidden
+	// * HTTP Status Code: 400 Bad Request
 	//
-	// * SOAP Fault Code Prefix: Client
+	// * Code: N/A
 	//
-	// *
-	// Code: InvalidSOAPRequest
+	// * Code:
+	// InvalidRequest
 	//
-	// * Description: The SOAP request body is invalid.
+	// * Description: Amazon S3 Transfer Accelerate is disabled on this
+	// bucket.
+	//
+	// * HTTP Status Code: 400 Bad Request
+	//
+	// * Code: N/A
+	//
+	// * Code:
+	// InvalidRequest
+	//
+	// * Description: Amazon S3 Transfer Acceleration is not supported
+	// on this bucket. Contact Amazon Web Services Support for more information.
 	//
 	// *
 	// HTTP Status Code: 400 Bad Request
 	//
+	// * Code: N/A
+	//
+	// * Code: InvalidRequest
+	//
+	// *
+	// Description: Amazon S3 Transfer Acceleration cannot be enabled on this bucket.
+	// Contact Amazon Web Services Support for more information.
+	//
+	// * HTTP Status Code:
+	// 400 Bad Request
+	//
+	// * Code: N/A
+	//
+	// * Code: InvalidSecurity
+	//
+	// * Description: The
+	// provided security credentials are not valid.
+	//
+	// * HTTP Status Code: 403
+	// Forbidden
+	//
+	// * SOAP Fault Code Prefix: Client
+	//
+	// * Code: InvalidSOAPRequest
+	//
+	// *
+	// Description: The SOAP request body is invalid.
+	//
+	// * HTTP Status Code: 400 Bad
+	// Request
+	//
+	// * SOAP Fault Code Prefix: Client
+	//
+	// * Code: InvalidStorageClass
+	//
+	// *
+	// Description: The storage class you specified is not valid.
+	//
+	// * HTTP Status Code:
+	// 400 Bad Request
+	//
 	// * SOAP Fault Code Prefix: Client
 	//
 	// * Code:
-	// InvalidStorageClass
+	// InvalidTargetBucketForLogging
 	//
-	// * Description: The storage class you specified is not
-	// valid.
-	//
-	// * HTTP Status Code: 400 Bad Request
-	//
-	// * SOAP Fault Code Prefix: Client
-	//
-	// *
-	// Code: InvalidTargetBucketForLogging
-	//
-	// * Description: The target bucket for
-	// logging does not exist, is not owned by you, or does not have the appropriate
-	// grants for the log-delivery group.
-	//
-	// * HTTP Status Code: 400 Bad Request
-	//
-	// * SOAP
-	// Fault Code Prefix: Client
-	//
-	// * Code: InvalidToken
-	//
-	// * Description: The provided
-	// token is malformed or otherwise invalid.
-	//
-	// * HTTP Status Code: 400 Bad Request
-	//
-	// *
-	// SOAP Fault Code Prefix: Client
-	//
-	// * Code: InvalidURI
-	//
-	// * Description: Couldn't
-	// parse the specified URI.
+	// * Description: The target bucket for logging does
+	// not exist, is not owned by you, or does not have the appropriate grants for the
+	// log-delivery group.
 	//
 	// * HTTP Status Code: 400 Bad Request
 	//
 	// * SOAP Fault Code
 	// Prefix: Client
 	//
+	// * Code: InvalidToken
+	//
+	// * Description: The provided token is
+	// malformed or otherwise invalid.
+	//
+	// * HTTP Status Code: 400 Bad Request
+	//
+	// * SOAP
+	// Fault Code Prefix: Client
+	//
+	// * Code: InvalidURI
+	//
+	// * Description: Couldn't parse the
+	// specified URI.
+	//
+	// * HTTP Status Code: 400 Bad Request
+	//
+	// * SOAP Fault Code Prefix:
+	// Client
+	//
 	// * Code: KeyTooLongError
 	//
 	// * Description: Your key is too long.
 	//
-	// *
-	// HTTP Status Code: 400 Bad Request
+	// * HTTP
+	// Status Code: 400 Bad Request
 	//
 	// * SOAP Fault Code Prefix: Client
 	//
@@ -1375,42 +1389,42 @@ type Error struct {
 	//
 	// * Description: Your account is not signed up for the Amazon S3
 	// service. You must sign up before you can use Amazon S3. You can sign up at the
-	// following URL: https://aws.amazon.com/s3
+	// following URL: Amazon S3 (http://aws.amazon.com/s3)
 	//
-	// * HTTP Status Code: 403 Forbidden
+	// * HTTP Status Code: 403
+	// Forbidden
+	//
+	// * SOAP Fault Code Prefix: Client
+	//
+	// * Code: OperationAborted
+	//
+	// *
+	// Description: A conflicting conditional action is currently in progress against
+	// this resource. Try again.
+	//
+	// * HTTP Status Code: 409 Conflict
+	//
+	// * SOAP Fault Code
+	// Prefix: Client
+	//
+	// * Code: PermanentRedirect
+	//
+	// * Description: The bucket you are
+	// attempting to access must be addressed using the specified endpoint. Send all
+	// future requests to this endpoint.
+	//
+	// * HTTP Status Code: 301 Moved Permanently
 	//
 	// *
 	// SOAP Fault Code Prefix: Client
 	//
-	// * Code: OperationAborted
-	//
-	// * Description: A
-	// conflicting conditional action is currently in progress against this resource.
-	// Try again.
-	//
-	// * HTTP Status Code: 409 Conflict
-	//
-	// * SOAP Fault Code Prefix:
-	// Client
-	//
-	// * Code: PermanentRedirect
-	//
-	// * Description: The bucket you are attempting
-	// to access must be addressed using the specified endpoint. Send all future
-	// requests to this endpoint.
-	//
-	// * HTTP Status Code: 301 Moved Permanently
-	//
-	// * SOAP
-	// Fault Code Prefix: Client
-	//
 	// * Code: PreconditionFailed
 	//
-	// * Description: At least
-	// one of the preconditions you specified did not hold.
+	// * Description: At
+	// least one of the preconditions you specified did not hold.
 	//
-	// * HTTP Status Code: 412
-	// Precondition Failed
+	// * HTTP Status Code:
+	// 412 Precondition Failed
 	//
 	// * SOAP Fault Code Prefix: Client
 	//
@@ -1480,8 +1494,8 @@ type Error struct {
 	//
 	// *
 	// Description: The request signature we calculated does not match the signature
-	// you provided. Check your AWS secret access key and signing method. For more
-	// information, see REST Authentication
+	// you provided. Check your Amazon Web Services secret access key and signing
+	// method. For more information, see REST Authentication
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html) and
 	// SOAP Authentication
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/SOAPAuthentication.html) for
@@ -1673,31 +1687,31 @@ type Grantee struct {
 	DisplayName *string
 
 	// Email address of the grantee. Using email addresses to specify a grantee is only
-	// supported in the following AWS Regions:
+	// supported in the following Amazon Web Services Regions:
 	//
-	// * US East (N. Virginia)
+	// * US East (N.
+	// Virginia)
 	//
-	// * US West (N.
-	// California)
+	// * US West (N. California)
 	//
 	// * US West (Oregon)
 	//
-	// * Asia Pacific (Singapore)
-	//
 	// * Asia Pacific
-	// (Sydney)
+	// (Singapore)
+	//
+	// * Asia Pacific (Sydney)
 	//
 	// * Asia Pacific (Tokyo)
 	//
-	// * Europe (Ireland)
+	// * Europe
+	// (Ireland)
 	//
-	// * South America (São
-	// Paulo)
+	// * South America (São Paulo)
 	//
-	// For a list of all the Amazon S3 supported Regions and endpoints, see
-	// Regions and Endpoints
-	// (https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region) in the AWS
-	// General Reference.
+	// For a list of all the Amazon S3
+	// supported Regions and endpoints, see Regions and Endpoints
+	// (https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region) in the
+	// Amazon Web Services General Reference.
 	EmailAddress *string
 
 	// The canonical user ID of the grantee.
@@ -1733,8 +1747,8 @@ type Initiator struct {
 	// Name of the Principal.
 	DisplayName *string
 
-	// If the principal is an AWS account, it provides the Canonical User ID. If the
-	// principal is an IAM User, it provides a user ARN value.
+	// If the principal is an Amazon Web Services account, it provides the Canonical
+	// User ID. If the principal is an IAM User, it provides a user ARN value.
 	ID *string
 
 	noSmithyDocumentSerde
@@ -1967,10 +1981,10 @@ type JSONOutput struct {
 	noSmithyDocumentSerde
 }
 
-// A container for specifying the configuration for AWS Lambda notifications.
+// A container for specifying the configuration for Lambda notifications.
 type LambdaFunctionConfiguration struct {
 
-	// The Amazon S3 bucket event for which to invoke the AWS Lambda function. For more
+	// The Amazon S3 bucket event for which to invoke the Lambda function. For more
 	// information, see Supported Event Types
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html) in the
 	// Amazon S3 User Guide.
@@ -1978,7 +1992,7 @@ type LambdaFunctionConfiguration struct {
 	// This member is required.
 	Events []Event
 
-	// The Amazon Resource Name (ARN) of the AWS Lambda function that Amazon S3 invokes
+	// The Amazon Resource Name (ARN) of the Lambda function that Amazon S3 invokes
 	// when the specified event type occurs.
 	//
 	// This member is required.
@@ -2094,12 +2108,23 @@ type LifecycleRuleAndOperator struct {
 // Filter must have exactly one of Prefix, Tag, or And specified.
 //
 // The following types satisfy this interface:
+//  LifecycleRuleFilterMemberAnd
 //  LifecycleRuleFilterMemberPrefix
 //  LifecycleRuleFilterMemberTag
-//  LifecycleRuleFilterMemberAnd
 type LifecycleRuleFilter interface {
 	isLifecycleRuleFilter()
 }
+
+// This is used in a Lifecycle Rule Filter to apply a logical AND to two or more
+// predicates. The Lifecycle Rule will apply to any object matching all of the
+// predicates configured inside the And operator.
+type LifecycleRuleFilterMemberAnd struct {
+	Value LifecycleRuleAndOperator
+
+	noSmithyDocumentSerde
+}
+
+func (*LifecycleRuleFilterMemberAnd) isLifecycleRuleFilter() {}
 
 // Prefix identifying one or more objects to which the rule applies. Replacement
 // must be made for object keys containing special characters (such as carriage
@@ -2122,17 +2147,6 @@ type LifecycleRuleFilterMemberTag struct {
 }
 
 func (*LifecycleRuleFilterMemberTag) isLifecycleRuleFilter() {}
-
-// This is used in a Lifecycle Rule Filter to apply a logical AND to two or more
-// predicates. The Lifecycle Rule will apply to any object matching all of the
-// predicates configured inside the And operator.
-type LifecycleRuleFilterMemberAnd struct {
-	Value LifecycleRuleAndOperator
-
-	noSmithyDocumentSerde
-}
-
-func (*LifecycleRuleFilterMemberAnd) isLifecycleRuleFilter() {}
 
 // Describes where logs are stored and the prefix that Amazon S3 assigns to all log
 // object keys for a bucket. For more information, see PUT Bucket logging
@@ -2196,6 +2210,9 @@ type Metrics struct {
 // all of the predicates in order for the filter to apply.
 type MetricsAndOperator struct {
 
+	// The access point ARN used when evaluating an AND predicate.
+	AccessPointArn *string
+
 	// The prefix used when evaluating an AND predicate.
 	Prefix *string
 
@@ -2209,9 +2226,8 @@ type MetricsAndOperator struct {
 // by the metrics configuration ID) from an Amazon S3 bucket. If you're updating an
 // existing metrics configuration, note that this is a full replacement of the
 // existing metrics configuration. If you don't include the elements you want to
-// keep, they are erased. For more information, see  PUT Bucket metrics
-// (https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html)
-// in the Amazon S3 API Reference.
+// keep, they are erased. For more information, see PutBucketMetricsConfiguration
+// (https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html).
 type MetricsConfiguration struct {
 
 	// The ID used to identify the metrics configuration.
@@ -2220,24 +2236,47 @@ type MetricsConfiguration struct {
 	Id *string
 
 	// Specifies a metrics configuration filter. The metrics configuration will only
-	// include objects that meet the filter's criteria. A filter must be a prefix, a
-	// tag, or a conjunction (MetricsAndOperator).
+	// include objects that meet the filter's criteria. A filter must be a prefix, an
+	// object tag, an access point ARN, or a conjunction (MetricsAndOperator).
 	Filter MetricsFilter
 
 	noSmithyDocumentSerde
 }
 
 // Specifies a metrics configuration filter. The metrics configuration only
-// includes objects that meet the filter's criteria. A filter must be a prefix, a
-// tag, or a conjunction (MetricsAndOperator).
+// includes objects that meet the filter's criteria. A filter must be a prefix, an
+// object tag, an access point ARN, or a conjunction (MetricsAndOperator). For more
+// information, see PutBucketMetricsConfiguration
+// (https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketMetricsConfiguration.html).
 //
 // The following types satisfy this interface:
+//  MetricsFilterMemberAccessPointArn
+//  MetricsFilterMemberAnd
 //  MetricsFilterMemberPrefix
 //  MetricsFilterMemberTag
-//  MetricsFilterMemberAnd
 type MetricsFilter interface {
 	isMetricsFilter()
 }
+
+// The access point ARN used when evaluating a metrics filter.
+type MetricsFilterMemberAccessPointArn struct {
+	Value string
+
+	noSmithyDocumentSerde
+}
+
+func (*MetricsFilterMemberAccessPointArn) isMetricsFilter() {}
+
+// A conjunction (logical AND) of predicates, which is used in evaluating a metrics
+// filter. The operator must have at least two predicates, and an object must match
+// all of the predicates in order for the filter to apply.
+type MetricsFilterMemberAnd struct {
+	Value MetricsAndOperator
+
+	noSmithyDocumentSerde
+}
+
+func (*MetricsFilterMemberAnd) isMetricsFilter() {}
 
 // The prefix used when evaluating a metrics filter.
 type MetricsFilterMemberPrefix struct {
@@ -2256,17 +2295,6 @@ type MetricsFilterMemberTag struct {
 }
 
 func (*MetricsFilterMemberTag) isMetricsFilter() {}
-
-// A conjunction (logical AND) of predicates, which is used in evaluating a metrics
-// filter. The operator must have at least two predicates, and an object must match
-// all of the predicates in order for the filter to apply.
-type MetricsFilterMemberAnd struct {
-	Value MetricsAndOperator
-
-	noSmithyDocumentSerde
-}
-
-func (*MetricsFilterMemberAnd) isMetricsFilter() {}
 
 // Container for the MultipartUpload for the Amazon S3 object.
 type MultipartUpload struct {
@@ -2336,7 +2364,7 @@ type NoncurrentVersionTransition struct {
 // element is empty, notifications are turned off for the bucket.
 type NotificationConfiguration struct {
 
-	// Describes the AWS Lambda functions to invoke and the events for which to invoke
+	// Describes the Lambda functions to invoke and the events for which to invoke
 	// them.
 	LambdaFunctionConfigurations []LambdaFunctionConfiguration
 
@@ -2372,17 +2400,18 @@ type Object struct {
 	// created and how it is encrypted as described below:
 	//
 	// * Objects created by the
-	// PUT Object, POST Object, or Copy operation, or through the AWS Management
-	// Console, and are encrypted by SSE-S3 or plaintext, have ETags that are an MD5
+	// PUT Object, POST Object, or Copy operation, or through the Amazon Web Services
+	// Management Console, and are encrypted by SSE-S3 or plaintext, have ETags that
+	// are an MD5 digest of their object data.
+	//
+	// * Objects created by the PUT Object,
+	// POST Object, or Copy operation, or through the Amazon Web Services Management
+	// Console, and are encrypted by SSE-C or SSE-KMS, have ETags that are not an MD5
 	// digest of their object data.
 	//
-	// * Objects created by the PUT Object, POST Object,
-	// or Copy operation, or through the AWS Management Console, and are encrypted by
-	// SSE-C or SSE-KMS, have ETags that are not an MD5 digest of their object data.
-	//
-	// *
-	// If an object is created by either the Multipart Upload or Part Copy operation,
-	// the ETag is not an MD5 digest, regardless of the method of encryption.
+	// * If an object is created by either the Multipart
+	// Upload or Part Copy operation, the ETag is not an MD5 digest, regardless of the
+	// method of encryption.
 	ETag *string
 
 	// The name that you assign to an object. You use the object key to retrieve the
@@ -2594,6 +2623,30 @@ type PolicyStatus struct {
 	noSmithyDocumentSerde
 }
 
+// This data type contains information about progress of an operation.
+type Progress struct {
+
+	// The current number of uncompressed object bytes processed.
+	BytesProcessed int64
+
+	// The current number of bytes of records payload data returned.
+	BytesReturned int64
+
+	// The current number of object bytes scanned.
+	BytesScanned int64
+
+	noSmithyDocumentSerde
+}
+
+// This data type contains information about the progress event of an operation.
+type ProgressEvent struct {
+
+	// The Progress event details.
+	Details *Progress
+
+	noSmithyDocumentSerde
+}
+
 // The PublicAccessBlock configuration that you want to apply to this Amazon S3
 // bucket. You can enable the configuration options in any combination. For more
 // information about when Amazon S3 considers a bucket or object public, see The
@@ -2632,11 +2685,12 @@ type PublicAccessBlockConfiguration struct {
 	IgnorePublicAcls bool
 
 	// Specifies whether Amazon S3 should restrict public bucket policies for this
-	// bucket. Setting this element to TRUE restricts access to this bucket to only AWS
-	// service principals and authorized users within this account if the bucket has a
-	// public policy. Enabling this setting doesn't affect previously stored bucket
-	// policies, except that public and cross-account access within any public bucket
-	// policy, including non-public delegation to specific accounts, is blocked.
+	// bucket. Setting this element to TRUE restricts access to this bucket to only
+	// Amazon Web Service principals and authorized users within this account if the
+	// bucket has a public policy. Enabling this setting doesn't affect previously
+	// stored bucket policies, except that public and cross-account access within any
+	// public bucket policy, including non-public delegation to specific accounts, is
+	// blocked.
 	RestrictPublicBuckets bool
 
 	noSmithyDocumentSerde
@@ -2666,6 +2720,15 @@ type QueueConfiguration struct {
 	// An optional unique identifier for configurations in a notification
 	// configuration. If you don't provide one, Amazon S3 will assign an ID.
 	Id *string
+
+	noSmithyDocumentSerde
+}
+
+// The container for the records event.
+type RecordsEvent struct {
+
+	// The byte array of partial, one or more result records.
+	Payload []byte
 
 	noSmithyDocumentSerde
 }
@@ -2745,9 +2808,9 @@ type ReplicaModifications struct {
 // size of a replication configuration is 2 MB.
 type ReplicationConfiguration struct {
 
-	// The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM)
-	// role that Amazon S3 assumes when replicating objects. For more information, see
-	// How to Set Up Replication
+	// The Amazon Resource Name (ARN) of the Identity and Access Management (IAM) role
+	// that Amazon S3 assumes when replicating objects. For more information, see How
+	// to Set Up Replication
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-how-setup.html) in
 	// the Amazon S3 User Guide.
 	//
@@ -2826,8 +2889,8 @@ type ReplicationRule struct {
 	// A container that describes additional filters for identifying the source objects
 	// that you want to replicate. You can choose to enable or disable the replication
 	// of these objects. Currently, Amazon S3 supports only the filter that you can
-	// specify for objects created with server-side encryption using a customer master
-	// key (CMK) stored in AWS Key Management Service (SSE-KMS).
+	// specify for objects created with server-side encryption using a customer managed
+	// key stored in Amazon Web Services Key Management Service (SSE-KMS).
 	SourceSelectionCriteria *SourceSelectionCriteria
 
 	noSmithyDocumentSerde
@@ -2858,12 +2921,29 @@ type ReplicationRuleAndOperator struct {
 // applies. A Filter must specify exactly one Prefix, Tag, or an And child element.
 //
 // The following types satisfy this interface:
+//  ReplicationRuleFilterMemberAnd
 //  ReplicationRuleFilterMemberPrefix
 //  ReplicationRuleFilterMemberTag
-//  ReplicationRuleFilterMemberAnd
 type ReplicationRuleFilter interface {
 	isReplicationRuleFilter()
 }
+
+// A container for specifying rule filters. The filters determine the subset of
+// objects to which the rule applies. This element is required only if you specify
+// more than one filter. For example:
+//
+// * If you specify both a Prefix and a Tag
+// filter, wrap these filters in an And tag.
+//
+// * If you specify a filter based on
+// multiple tags, wrap the Tag elements in an And tag.
+type ReplicationRuleFilterMemberAnd struct {
+	Value ReplicationRuleAndOperator
+
+	noSmithyDocumentSerde
+}
+
+func (*ReplicationRuleFilterMemberAnd) isReplicationRuleFilter() {}
 
 // An object key name prefix that identifies the subset of objects to which the
 // rule applies. Replacement must be made for object keys containing special
@@ -2888,23 +2968,6 @@ type ReplicationRuleFilterMemberTag struct {
 
 func (*ReplicationRuleFilterMemberTag) isReplicationRuleFilter() {}
 
-// A container for specifying rule filters. The filters determine the subset of
-// objects to which the rule applies. This element is required only if you specify
-// more than one filter. For example:
-//
-// * If you specify both a Prefix and a Tag
-// filter, wrap these filters in an And tag.
-//
-// * If you specify a filter based on
-// multiple tags, wrap the Tag elements in an And tag.
-type ReplicationRuleFilterMemberAnd struct {
-	Value ReplicationRuleAndOperator
-
-	noSmithyDocumentSerde
-}
-
-func (*ReplicationRuleFilterMemberAnd) isReplicationRuleFilter() {}
-
 // A container specifying S3 Replication Time Control (S3 RTC) related information,
 // including whether S3 RTC is enabled and the time when all objects and operations
 // on objects must be replicated. Must be specified together with a Metrics block.
@@ -2928,7 +2991,7 @@ type ReplicationTime struct {
 // and replication metrics EventThreshold.
 type ReplicationTimeValue struct {
 
-	// Contains an integer specifying time in minutes. Valid values: 15 minutes.
+	// Contains an integer specifying time in minutes. Valid value: 15
 	Minutes int32
 
 	noSmithyDocumentSerde
@@ -2941,6 +3004,16 @@ type RequestPaymentConfiguration struct {
 	//
 	// This member is required.
 	Payer Payer
+
+	noSmithyDocumentSerde
+}
+
+// Container for specifying if periodic QueryProgress messages should be sent.
+type RequestProgress struct {
+
+	// Specifies whether periodic QueryProgress frames should be sent. Valid values:
+	// TRUE, FALSE. Default value: FALSE.
+	Enabled bool
 
 	noSmithyDocumentSerde
 }
@@ -3042,6 +3115,84 @@ type S3Location struct {
 	noSmithyDocumentSerde
 }
 
+// Specifies the byte range of the object to get the records from. A record is
+// processed when its first byte is contained by the range. This parameter is
+// optional, but when specified, it must not be empty. See RFC 2616, Section
+// 14.35.1 about how to specify the start and end of the range.
+type ScanRange struct {
+
+	// Specifies the end of the byte range. This parameter is optional. Valid values:
+	// non-negative integers. The default value is one less than the size of the object
+	// being queried. If only the End parameter is supplied, it is interpreted to mean
+	// scan the last N bytes of the file. For example, 50 means scan the last 50 bytes.
+	End int64
+
+	// Specifies the start of the byte range. This parameter is optional. Valid values:
+	// non-negative integers. The default value is 0. If only start is supplied, it
+	// means scan from that point to the end of the file.For example; 50 means scan
+	// from byte 50 until the end of the file.
+	Start int64
+
+	noSmithyDocumentSerde
+}
+
+// The container for selecting objects from a content event stream.
+//
+// The following types satisfy this interface:
+//  SelectObjectContentEventStreamMemberCont
+//  SelectObjectContentEventStreamMemberEnd
+//  SelectObjectContentEventStreamMemberProgress
+//  SelectObjectContentEventStreamMemberRecords
+//  SelectObjectContentEventStreamMemberStats
+type SelectObjectContentEventStream interface {
+	isSelectObjectContentEventStream()
+}
+
+// The Continuation Event.
+type SelectObjectContentEventStreamMemberCont struct {
+	Value ContinuationEvent
+
+	noSmithyDocumentSerde
+}
+
+func (*SelectObjectContentEventStreamMemberCont) isSelectObjectContentEventStream() {}
+
+// The End Event.
+type SelectObjectContentEventStreamMemberEnd struct {
+	Value EndEvent
+
+	noSmithyDocumentSerde
+}
+
+func (*SelectObjectContentEventStreamMemberEnd) isSelectObjectContentEventStream() {}
+
+// The Progress Event.
+type SelectObjectContentEventStreamMemberProgress struct {
+	Value ProgressEvent
+
+	noSmithyDocumentSerde
+}
+
+func (*SelectObjectContentEventStreamMemberProgress) isSelectObjectContentEventStream() {}
+
+// The Records Event.
+type SelectObjectContentEventStreamMemberRecords struct {
+	Value RecordsEvent
+
+	noSmithyDocumentSerde
+}
+
+func (*SelectObjectContentEventStreamMemberRecords) isSelectObjectContentEventStream() {}
+
+// The Stats Event.
+type SelectObjectContentEventStreamMemberStats struct {
+	Value StatsEvent
+
+	noSmithyDocumentSerde
+}
+
+func (*SelectObjectContentEventStreamMemberStats) isSelectObjectContentEventStream() {}
+
 // Describes the parameters for Select job types.
 type SelectParameters struct {
 
@@ -3081,12 +3232,12 @@ type ServerSideEncryptionByDefault struct {
 	// This member is required.
 	SSEAlgorithm ServerSideEncryption
 
-	// AWS Key Management Service (KMS) customer AWS KMS key ID to use for the default
-	// encryption. This parameter is allowed if and only if SSEAlgorithm is set to
-	// aws:kms. You can specify the key ID or the Amazon Resource Name (ARN) of the KMS
-	// key. However, if you are using encryption with cross-account operations, you
-	// must use a fully qualified KMS key ARN. For more information, see Using
-	// encryption for cross-account operations
+	// Amazon Web Services Key Management Service (KMS) customer Amazon Web Services
+	// KMS key ID to use for the default encryption. This parameter is allowed if and
+	// only if SSEAlgorithm is set to aws:kms. You can specify the key ID or the Amazon
+	// Resource Name (ARN) of the KMS key. However, if you are using encryption with
+	// cross-account operations, you must use a fully qualified KMS key ARN. For more
+	// information, see Using encryption for cross-account operations
 	// (https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html#bucket-encryption-update-bucket-policy).
 	// For example:
 	//
@@ -3099,7 +3250,7 @@ type ServerSideEncryptionByDefault struct {
 	// S3 only supports symmetric KMS keys and not asymmetric KMS keys. For more
 	// information, see Using symmetric and asymmetric keys
 	// (https://docs.aws.amazon.com/kms/latest/developerguide/symmetric-asymmetric.html)
-	// in the AWS Key Management Service Developer Guide.
+	// in the Amazon Web Services Key Management Service Developer Guide.
 	KMSMasterKeyID *string
 
 	noSmithyDocumentSerde
@@ -3140,8 +3291,8 @@ type ServerSideEncryptionRule struct {
 // A container that describes additional filters for identifying the source objects
 // that you want to replicate. You can choose to enable or disable the replication
 // of these objects. Currently, Amazon S3 supports only the filter that you can
-// specify for objects created with server-side encryption using a customer master
-// key (CMK) stored in AWS Key Management Service (SSE-KMS).
+// specify for objects created with server-side encryption using a customer managed
+// key stored in Amazon Web Services Key Management Service (SSE-KMS).
 type SourceSelectionCriteria struct {
 
 	// A filter that you can specify for selections for modifications on replicas.
@@ -3154,8 +3305,8 @@ type SourceSelectionCriteria struct {
 	ReplicaModifications *ReplicaModifications
 
 	// A container for filter information for the selection of Amazon S3 objects
-	// encrypted with AWS KMS. If you include SourceSelectionCriteria in the
-	// replication configuration, this element is required.
+	// encrypted with Amazon Web Services KMS. If you include SourceSelectionCriteria
+	// in the replication configuration, this element is required.
 	SseKmsEncryptedObjects *SseKmsEncryptedObjects
 
 	noSmithyDocumentSerde
@@ -3164,8 +3315,9 @@ type SourceSelectionCriteria struct {
 // Specifies the use of SSE-KMS to encrypt delivered inventory reports.
 type SSEKMS struct {
 
-	// Specifies the ID of the AWS Key Management Service (AWS KMS) symmetric customer
-	// managed customer master key (CMK) to use for encrypting inventory reports.
+	// Specifies the ID of the Amazon Web Services Key Management Service (Amazon Web
+	// Services KMS) symmetric customer managed key to use for encrypting inventory
+	// reports.
 	//
 	// This member is required.
 	KeyId *string
@@ -3174,11 +3326,12 @@ type SSEKMS struct {
 }
 
 // A container for filter information for the selection of S3 objects encrypted
-// with AWS KMS.
+// with Amazon Web Services KMS.
 type SseKmsEncryptedObjects struct {
 
 	// Specifies whether Amazon S3 replicates objects created with server-side
-	// encryption using an AWS KMS key stored in AWS Key Management Service.
+	// encryption using an Amazon Web Services KMS key stored in Amazon Web Services
+	// Key Management Service.
 	//
 	// This member is required.
 	Status SseKmsEncryptedObjectsStatus
@@ -3188,6 +3341,30 @@ type SseKmsEncryptedObjects struct {
 
 // Specifies the use of SSE-S3 to encrypt delivered inventory reports.
 type SSES3 struct {
+	noSmithyDocumentSerde
+}
+
+// Container for the stats details.
+type Stats struct {
+
+	// The total number of uncompressed object bytes processed.
+	BytesProcessed int64
+
+	// The total number of bytes of records payload data returned.
+	BytesReturned int64
+
+	// The total number of object bytes scanned.
+	BytesScanned int64
+
+	noSmithyDocumentSerde
+}
+
+// Container for the Stats Event.
+type StatsEvent struct {
+
+	// The Stats event details.
+	Details *Stats
+
 	noSmithyDocumentSerde
 }
 
@@ -3383,7 +3560,8 @@ type UnknownUnionMember struct {
 	noSmithyDocumentSerde
 }
 
-func (*UnknownUnionMember) isAnalyticsFilter()       {}
-func (*UnknownUnionMember) isLifecycleRuleFilter()   {}
-func (*UnknownUnionMember) isMetricsFilter()         {}
-func (*UnknownUnionMember) isReplicationRuleFilter() {}
+func (*UnknownUnionMember) isAnalyticsFilter()                {}
+func (*UnknownUnionMember) isLifecycleRuleFilter()            {}
+func (*UnknownUnionMember) isMetricsFilter()                  {}
+func (*UnknownUnionMember) isReplicationRuleFilter()          {}
+func (*UnknownUnionMember) isSelectObjectContentEventStream() {}
