@@ -29,12 +29,21 @@ func putGetUserStage(t *testing.T, tmpDir string, numberOfFiles int, numberOfLin
 	if os.Getenv("AWS_SECRET_ACCESS_KEY") == "" {
 		t.Fatal("no aws secret access key found")
 	}
-	tmpDir, _ = ioutil.TempDir(tmpDir, "data")
-	tmpDir = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
+	tmpDir, err := ioutil.TempDir(tmpDir, "data")
+	if err != nil {
+		t.Error(err)
+	}
+	tmpDir, err = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
+	if err != nil {
+		t.Error(err)
+	}
 	defer os.RemoveAll(tmpDir)
 	var files string
 	if isStream {
-		list, _ := ioutil.ReadDir(tmpDir)
+		list, err := ioutil.ReadDir(tmpDir)
+		if err != nil {
+			t.Error(err)
+		}
 		file := list[0].Name()
 		files = filepath.Join(tmpDir, file)
 	} else {
@@ -83,7 +92,10 @@ func putGetUserStage(t *testing.T, tmpDir string, numberOfFiles int, numberOfLin
 		if rows.Next() {
 			rows.Scan(&cnt)
 		}
-		count, _ := strconv.Atoi(cnt)
+		count, err := strconv.Atoi(cnt)
+		if err != nil {
+			t.Error(err)
+		}
 		if count != numberOfFiles*numberOfLines {
 			t.Errorf("count did not match expected number. count: %v, expected: %v", count, numberOfFiles*numberOfLines)
 		}

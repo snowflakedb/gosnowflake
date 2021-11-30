@@ -25,17 +25,19 @@ func TestGetQueryID(t *testing.T) {
 	defer db.Close()
 
 	ctx := context.TODO()
-	conn, _ := db.Conn(ctx)
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Error(err)
+	}
 
-	if err := conn.Raw(func(x interface{}) error {
+	if err = conn.Raw(func(x interface{}) error {
 		rows, err := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 
-		_, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1")
-		if err == nil {
+		if _, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1"); err == nil {
 			t.Fatal("should have failed to execute query")
 		}
 		if driverErr, ok := err.(*SnowflakeError); ok {
@@ -102,8 +104,11 @@ func TestE2EFetchResultByID(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	conn, _ := db.Conn(ctx)
-	if err := conn.Raw(func(x interface{}) error {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = conn.Raw(func(x interface{}) error {
 		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "select * from test_fetch_result")
 		if err != nil {
 			return err

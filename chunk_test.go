@@ -325,9 +325,9 @@ func generateStreamChunkDownloaderChunks(urls []string, numRows, numCols int) (m
 }
 
 func generateStreamChunkRows(numRows, numCols int) [][]*string {
-	rows := [][]*string{}
+	var rows [][]*string
 	for i := 0; i < numRows; i++ {
-		cols := []*string{}
+		var cols []*string
 		for j := 0; j < numCols; j++ {
 			col := fmt.Sprintf("%d", rand.Intn(1000))
 			cols = append(cols, &col)

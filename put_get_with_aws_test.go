@@ -87,7 +87,10 @@ func TestPutWithInvalidToken(t *testing.T) {
 	if !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, _ := ioutil.TempDir("", "aws_put")
+	tmpDir, err := ioutil.TempDir("", "aws_put")
+	if err != nil {
+		t.Error(err)
+	}
 	defer os.RemoveAll(tmpDir)
 	fname := filepath.Join(tmpDir, "test_put_get_with_aws.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
@@ -100,7 +103,10 @@ func TestPutWithInvalidToken(t *testing.T) {
 		t.Fatal("could not write to gzip file")
 	}
 
-	config, _ := ParseDSN(dsn)
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
 	sc, err := buildSnowflakeConn(context.Background(), *config)
 	if err != nil {
 		t.Fatal(err)
@@ -116,9 +122,12 @@ func TestPutWithInvalidToken(t *testing.T) {
 	}
 	defer sc.Exec("drop table "+tableName, nil)
 
-	jsonBody, _ := json.Marshal(execRequest{
+	jsonBody, err := json.Marshal(execRequest{
 		SQLText: fmt.Sprintf("put 'file://%v' @%%%v", fname, tableName),
 	})
+	if err != nil {
+		t.Error(err)
+	}
 	headers := getHeaders()
 	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 	data, err := sc.rest.FuncPostQuery(
@@ -129,12 +138,22 @@ func TestPutWithInvalidToken(t *testing.T) {
 	}
 
 	s3Util := new(snowflakeS3Util)
-	client := s3Util.createClient(&data.Data.StageInfo, false).(*s3.Client)
+	s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
+	if err != nil {
+		t.Error(err)
+	}
+	client := s3Cli.(*s3.Client)
 
-	s3Loc := s3Util.extractBucketNameAndPath(data.Data.StageInfo.Location)
+	s3Loc, err := s3Util.extractBucketNameAndPath(data.Data.StageInfo.Location)
+	if err != nil {
+		t.Error(err)
+	}
 	s3Path := s3Loc.s3Path + baseName(fname) + ".gz"
 
-	f, _ := os.Open(fname)
+	f, err := os.Open(fname)
+	if err != nil {
+		t.Error(err)
+	}
 	defer f.Close()
 	uploader := manager.NewUploader(client)
 	if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
@@ -160,7 +179,11 @@ func TestPutWithInvalidToken(t *testing.T) {
 			AwsSecretKey: data.Data.StageInfo.Creds.AwsSecretKey,
 		},
 	}
-	client = s3Util.createClient(&info, false).(*s3.Client)
+	s3Cli, err = s3Util.createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+	client = s3Cli.(*s3.Client)
 
 	uploader = manager.NewUploader(client)
 	if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
@@ -176,7 +199,10 @@ func TestPretendToPutButList(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, _ := ioutil.TempDir("", "aws_put")
+	tmpDir, err := ioutil.TempDir("", "aws_put")
+	if err != nil {
+		t.Error(err)
+	}
 	defer os.RemoveAll(tmpDir)
 	fname := filepath.Join(tmpDir, "test_put_get_with_aws.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
@@ -189,7 +215,10 @@ func TestPretendToPutButList(t *testing.T) {
 		t.Fatal("could not write to gzip file")
 	}
 
-	config, _ := ParseDSN(dsn)
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
 	sc, err := buildSnowflakeConn(context.Background(), *config)
 	if err != nil {
 		t.Fatal(err)
@@ -205,9 +234,12 @@ func TestPretendToPutButList(t *testing.T) {
 	}
 	defer sc.Exec("drop table "+tableName, nil)
 
-	jsonBody, _ := json.Marshal(execRequest{
+	jsonBody, err := json.Marshal(execRequest{
 		SQLText: fmt.Sprintf("put 'file://%v' @%%%v", fname, tableName),
 	})
+	if err != nil {
+		t.Error(err)
+	}
 	headers := getHeaders()
 	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 	data, err := sc.rest.FuncPostQuery(
@@ -218,7 +250,11 @@ func TestPretendToPutButList(t *testing.T) {
 	}
 
 	s3Util := new(snowflakeS3Util)
-	client := s3Util.createClient(&data.Data.StageInfo, false).(*s3.Client)
+	s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
+	if err != nil {
+		t.Error(err)
+	}
+	client := s3Cli.(*s3.Client)
 	if _, err = client.ListBuckets(context.Background(),
 		&s3.ListBucketsInput{}); err == nil {
 		t.Fatal("list buckets should fail")

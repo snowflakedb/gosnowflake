@@ -16,8 +16,8 @@ import (
 type localUtil struct {
 }
 
-func (util *localUtil) createClient(_ *execResponseStageInfo, _ bool) cloudClient {
-	return nil
+func (util *localUtil) createClient(_ *execResponseStageInfo, _ bool) (cloudClient, error) {
+	return nil, nil
 }
 
 func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
@@ -29,19 +29,26 @@ func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 		}
 		frd = bufio.NewReader(b)
 	} else {
-		f, _ := os.Open(meta.realSrcFileName)
+		f, err := os.Open(meta.realSrcFileName)
+		if err != nil {
+			return err
+		}
 		defer f.Close()
 		frd = bufio.NewReader(f)
 	}
 
+	user, err := expandUser(meta.stageInfo.Location)
+	if err != nil {
+		return err
+	}
 	if !meta.overwrite {
-		if _, err := os.Stat(filepath.Join(expandUser(meta.stageInfo.Location), meta.dstFileName)); err == nil {
+		if _, err := os.Stat(filepath.Join(user, meta.dstFileName)); err == nil {
 			meta.dstFileSize = 0
 			meta.resStatus = skipped
 			return nil
 		}
 	}
-	output, err := os.OpenFile(filepath.Join(expandUser(meta.stageInfo.Location), meta.dstFileName), os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	output, err := os.OpenFile(filepath.Join(user, meta.dstFileName), os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -70,8 +77,16 @@ func (util *localUtil) downloadOneFile(meta *fileMetadata) error {
 	if strings.HasPrefix(meta.srcFileName, fmt.Sprintf("%b", os.PathSeparator)) {
 		srcFileName = srcFileName[1:]
 	}
-	fullSrcFileName := path.Join(expandUser(meta.stageInfo.Location), srcFileName)
-	fullDstFileName := path.Join(expandUser(meta.localLocation), baseName(meta.dstFileName))
+	user, err := expandUser(meta.stageInfo.Location)
+	if err != nil {
+		return err
+	}
+	fullSrcFileName := path.Join(user, srcFileName)
+	user, err = expandUser(meta.localLocation)
+	if err != nil {
+		return err
+	}
+	fullDstFileName := path.Join(user, baseName(meta.dstFileName))
 	baseDir, err := getDirectory()
 	if err != nil {
 		return err

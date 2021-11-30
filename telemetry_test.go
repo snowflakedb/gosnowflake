@@ -11,7 +11,10 @@ import (
 )
 
 func TestTelemetryAddLog(t *testing.T) {
-	config, _ := ParseDSN(dsn)
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
 	sc, err := buildSnowflakeConn(context.Background(), *config)
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +52,10 @@ func TestTelemetryAddLog(t *testing.T) {
 }
 
 func TestTelemetrySQLException(t *testing.T) {
-	config, _ := ParseDSN(dsn)
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
 	sc, err := buildSnowflakeConn(context.Background(), *config)
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +94,10 @@ func TestTelemetrySQLException(t *testing.T) {
 }
 
 func TestDisableTelemetry(t *testing.T) {
-	config, _ := ParseDSN(dsn)
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
 	config.DisableTelemetry = true
 	sc, err := buildSnowflakeConn(context.Background(), *config)
 	if err != nil {

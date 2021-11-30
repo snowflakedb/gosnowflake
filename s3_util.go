@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 
@@ -35,7 +36,7 @@ type s3Location struct {
 	s3Path     string
 }
 
-func (util *snowflakeS3Util) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) cloudClient {
+func (util *snowflakeS3Util) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
 	stageCredentials := info.Creds
 	var resolver s3.EndpointResolver
 	if info.EndPoint != "" {
@@ -50,7 +51,7 @@ func (util *snowflakeS3Util) createClient(info *execResponseStageInfo, useAccele
 			stageCredentials.AwsToken)),
 		EndpointResolver: resolver,
 		UseAccelerate:    useAccelerateEndpoint,
-	})
+	}), nil
 }
 
 type s3HeaderAPI interface {
@@ -58,12 +59,15 @@ type s3HeaderAPI interface {
 }
 
 // cloudUtil implementation
-func (util *snowflakeS3Util) getFileHeader(meta *fileMetadata, filename string) *fileHeader {
-	headObjInput := util.getS3Object(meta, filename)
+func (util *snowflakeS3Util) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
+	headObjInput, err := util.getS3Object(meta, filename)
+	if err != nil {
+		return nil, err
+	}
 	var s3Cli s3HeaderAPI
 	s3Cli, ok := meta.client.(*s3.Client)
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("could not parse client to s3.Client")
 	}
 	if meta.mockHeader != nil {
 		s3Cli = meta.mockHeader
@@ -78,14 +82,14 @@ func (util *snowflakeS3Util) getFileHeader(meta *fileMetadata, filename string) 
 					digest:             "",
 					contentLength:      0,
 					encryptionMetadata: nil,
-				}
+				}, nil
 			} else if ae.ErrorCode() == expiredToken {
 				meta.resStatus = renewToken
-				return nil
+				return nil, fmt.Errorf("received expired token. renewing")
 			}
 			meta.resStatus = errStatus
 			meta.lastError = err
-			return nil
+			return nil, fmt.Errorf("error while retrieving header")
 		}
 	}
 
@@ -102,7 +106,7 @@ func (util *snowflakeS3Util) getFileHeader(meta *fileMetadata, filename string) 
 		out.Metadata[sfcDigest],
 		out.ContentLength,
 		&encMeta,
-	}
+	}, nil
 }
 
 type s3UploadAPI interface {
@@ -126,7 +130,10 @@ func (util *snowflakeS3Util) uploadFile(
 		s3Meta[amzMatdesc] = encryptMeta.matdesc
 	}
 
-	s3loc := util.extractBucketNameAndPath(meta.stageInfo.Location)
+	s3loc, err := util.extractBucketNameAndPath(meta.stageInfo.Location)
+	if err != nil {
+		return err
+	}
 	s3path := s3loc.s3Path + strings.TrimLeft(meta.dstFileName, "/")
 
 	client, ok := meta.client.(*s3.Client)
@@ -144,7 +151,6 @@ func (util *snowflakeS3Util) uploadFile(
 		uploader = meta.mockUploader
 	}
 
-	var err error
 	if meta.srcStream != nil {
 		uploadStream := meta.srcStream
 		if meta.realSrcStream != nil {
@@ -157,7 +163,11 @@ func (util *snowflakeS3Util) uploadFile(
 			Metadata: s3Meta,
 		})
 	} else {
-		file, _ := os.Open(dataFile)
+		var file *os.File
+		file, err = os.Open(dataFile)
+		if err != nil {
+			return err
+		}
 		_, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
 			Bucket:   &s3loc.bucketName,
 			Key:      &s3path,
@@ -192,7 +202,10 @@ func (util *snowflakeS3Util) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
 	maxConcurrency int64) error {
-	s3loc := util.extractBucketNameAndPath(meta.stageInfo.Location)
+	s3loc, err := util.extractBucketNameAndPath(meta.stageInfo.Location)
+	if err != nil {
+		return err
+	}
 	s3path := s3loc.s3Path + strings.TrimLeft(meta.dstFileName, "/")
 	client, ok := meta.client.(*s3.Client)
 	if !ok {
@@ -235,8 +248,11 @@ func (util *snowflakeS3Util) nativeDownloadFile(
 	return nil
 }
 
-func (util *snowflakeS3Util) extractBucketNameAndPath(location string) *s3Location {
-	stageLocation := expandUser(location)
+func (util *snowflakeS3Util) extractBucketNameAndPath(location string) (*s3Location, error) {
+	stageLocation, err := expandUser(location)
+	if err != nil {
+		return nil, err
+	}
 	bucketName := stageLocation
 	s3Path := ""
 
@@ -247,14 +263,17 @@ func (util *snowflakeS3Util) extractBucketNameAndPath(location string) *s3Locati
 			s3Path += "/"
 		}
 	}
-	return &s3Location{bucketName, s3Path}
+	return &s3Location{bucketName, s3Path}, nil
 }
 
-func (util *snowflakeS3Util) getS3Object(meta *fileMetadata, filename string) *s3.HeadObjectInput {
-	s3loc := util.extractBucketNameAndPath(meta.stageInfo.Location)
+func (util *snowflakeS3Util) getS3Object(meta *fileMetadata, filename string) (*s3.HeadObjectInput, error) {
+	s3loc, err := util.extractBucketNameAndPath(meta.stageInfo.Location)
+	if err != nil {
+		return nil, err
+	}
 	s3path := s3loc.s3Path + strings.TrimLeft(filename, "/")
 	return &s3.HeadObjectInput{
 		Bucket: &s3loc.bucketName,
 		Key:    &s3path,
-	}
+	}, nil
 }

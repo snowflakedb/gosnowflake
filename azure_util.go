@@ -25,7 +25,7 @@ type azureLocation struct {
 	path          string
 }
 
-func (util *snowflakeAzureUtil) createClient(info *execResponseStageInfo, _ bool) cloudClient {
+func (util *snowflakeAzureUtil) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
 	sasToken := info.Creds.AzureSasToken
 	p := azblob.NewPipeline(azblob.NewAnonymousCredential(), azblob.PipelineOptions{
 		Retry: azblob.RetryOptions{
@@ -35,19 +35,25 @@ func (util *snowflakeAzureUtil) createClient(info *execResponseStageInfo, _ bool
 		},
 	})
 
-	u, _ := url.Parse(fmt.Sprintf("https://%s.%s/%s%s", info.StorageAccount, info.EndPoint, info.Path, sasToken))
+	u, err := url.Parse(fmt.Sprintf("https://%s.%s/%s%s", info.StorageAccount, info.EndPoint, info.Path, sasToken))
+	if err != nil {
+		return nil, err
+	}
 	containerURL := azblob.NewContainerURL(*u, p)
-	return &containerURL
+	return &containerURL, nil
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename string) *fileHeader {
+func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
 	container, ok := meta.client.(*azblob.ContainerURL)
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("failed to parse client to azblob.ContainerURL")
 	}
 
-	azureLoc := util.extractContainerNameAndPath(meta.stageInfo.Location)
+	azureLoc, err := util.extractContainerNameAndPath(meta.stageInfo.Location)
+	if err != nil {
+		return nil, err
+	}
 	path := azureLoc.path + strings.TrimLeft(filename, "/")
 	b := container.NewBlockBlobURL(path)
 	resp, err := b.GetProperties(context.Background(), azblob.BlobAccessConditions{}, azblob.ClientProvidedKeyOptions{})
@@ -56,21 +62,21 @@ func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename strin
 		if errors.As(err, &se) {
 			if se.ServiceCode() == azblob.ServiceCodeBlobNotFound {
 				meta.resStatus = notFoundFile
-				return &fileHeader{}
+				return nil, fmt.Errorf("could not find file")
 			} else if se.Response().StatusCode == 403 {
 				meta.resStatus = renewToken
-				return nil
+				return nil, fmt.Errorf("received 403, attempting to renew")
 			}
 		}
 		meta.resStatus = errStatus
-		return nil
+		return nil, err
 	}
 
 	meta.resStatus = uploaded
 	metadata := resp.NewMetadata()
 	var encData encryptionData
 	if err = json.Unmarshal([]byte(metadata["encryptiondata"]), &encData); err != nil {
-		return nil
+		return nil, err
 	}
 	encryptionMetadata := encryptMetadata{
 		encData.WrappedContentKey.EncryptionKey,
@@ -82,7 +88,7 @@ func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename strin
 		metadata["sfcdigest"],
 		int64(len(metadata)),
 		&encryptionMetadata,
-	}
+	}, nil
 }
 
 // cloudUtil implementation
@@ -112,12 +118,18 @@ func (util *snowflakeAzureUtil) uploadFile(
 				"Java 5.3.0",
 			},
 		}
-		metadata, _ := json.Marshal(ed)
+		metadata, err := json.Marshal(ed)
+		if err != nil {
+			return err
+		}
 		azureMeta["encryptiondata"] = string(metadata)
 		azureMeta["matdesc"] = encryptMeta.matdesc
 	}
 
-	azureLoc := util.extractContainerNameAndPath(meta.stageInfo.Location)
+	azureLoc, err := util.extractContainerNameAndPath(meta.stageInfo.Location)
+	if err != nil {
+		return err
+	}
 	path := azureLoc.path + strings.TrimLeft(meta.dstFileName, "/")
 	azContainerURL, ok := meta.client.(*azblob.ContainerURL)
 	if !ok {
@@ -126,7 +138,6 @@ func (util *snowflakeAzureUtil) uploadFile(
 		}
 	}
 
-	var err error
 	blobURL := azContainerURL.NewBlockBlobURL(path)
 	if meta.srcStream != nil {
 		uploadSrc := meta.srcStream
@@ -138,9 +149,18 @@ func (util *snowflakeAzureUtil) uploadFile(
 			Metadata:   azureMeta,
 		})
 	} else {
-		f, _ := os.OpenFile(dataFile, os.O_RDONLY, os.ModePerm)
+		var f *os.File
+		f, err = os.OpenFile(dataFile, os.O_RDONLY, os.ModePerm)
+		if err != nil {
+			return err
+		}
 		defer f.Close()
-		fi, _ := f.Stat()
+
+		var fi os.FileInfo
+		fi, err = f.Stat()
+		if err != nil {
+			return err
+		}
 		_, err = azblob.UploadFileToBlockBlob(context.Background(), f, blobURL, azblob.UploadToBlockBlobOptions{
 			BlockSize:   fi.Size(),
 			Parallelism: uint16(maxConcurrency),
@@ -172,7 +192,10 @@ func (util *snowflakeAzureUtil) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
 	maxConcurrency int64) error {
-	azureLoc := util.extractContainerNameAndPath(meta.stageInfo.Location)
+	azureLoc, err := util.extractContainerNameAndPath(meta.stageInfo.Location)
+	if err != nil {
+		return err
+	}
 	path := azureLoc.path + strings.TrimLeft(meta.dstFileName, "/")
 	azContainerURL, ok := meta.client.(*azblob.ContainerURL)
 	if !ok {
@@ -196,8 +219,11 @@ func (util *snowflakeAzureUtil) nativeDownloadFile(
 	return nil
 }
 
-func (util *snowflakeAzureUtil) extractContainerNameAndPath(location string) *azureLocation {
-	stageLocation := expandUser(location)
+func (util *snowflakeAzureUtil) extractContainerNameAndPath(location string) (*azureLocation, error) {
+	stageLocation, err := expandUser(location)
+	if err != nil {
+		return nil, err
+	}
 	containerName := stageLocation
 	path := ""
 
@@ -208,7 +234,7 @@ func (util *snowflakeAzureUtil) extractContainerNameAndPath(location string) *az
 			path += "/"
 		}
 	}
-	return &azureLocation{containerName, path}
+	return &azureLocation{containerName, path}, nil
 }
 
 func (util *snowflakeAzureUtil) detectAzureTokenExpireError(resp *http.Response) bool {

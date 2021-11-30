@@ -5,14 +5,15 @@ package gosnowflake
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
 	"math/big"
 	"math/cmplx"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/memory"
 )
 
 type tcGoTypeToSnowflake struct {

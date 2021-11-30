@@ -5,9 +5,10 @@ package gosnowflake
 import (
 	"bytes"
 	"encoding/base64"
+	"io"
+
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
-	"io"
 )
 
 type arrowResultChunk struct {
