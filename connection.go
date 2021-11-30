@@ -417,6 +417,7 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	// TODO: handle isInternal
+	ctx = setResultType(ctx, execResultType)
 	_, err := sc.exec(ctx, "SELECT 1", noResult, false, /* isInternal */
 		isDesc, []driver.NamedValue{})
 	return err
