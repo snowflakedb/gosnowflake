@@ -124,9 +124,10 @@ func (util *snowflakeGcsUtil) uploadFile(
 	multiPartThreshold int64) error {
 	uploadURL := meta.presignedURL
 	var accessToken string
+	var err error
 
 	if uploadURL == nil {
-		_, err := util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		_, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
 		if err != nil {
 			return err
 		}
@@ -181,7 +182,8 @@ func (util *snowflakeGcsUtil) uploadFile(
 			uploadSrc = meta.realSrcStream
 		}
 	} else {
-		if _, err := os.OpenFile(dataFile, os.O_RDONLY, os.ModePerm); err != nil {
+		uploadSrc, err = os.OpenFile(dataFile, os.O_RDONLY, os.ModePerm)
+		if err != nil {
 			return err
 		}
 	}
@@ -241,10 +243,11 @@ func (util *snowflakeGcsUtil) nativeDownloadFile(
 	maxConcurrency int64) error {
 	downloadURL := meta.presignedURL
 	var accessToken string
+	var err error
 	gcsHeaders := make(map[string]string)
 
 	if downloadURL == nil {
-		_, err := util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		downloadURL, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
 		if err != nil {
 			return err
 		}
