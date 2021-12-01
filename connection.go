@@ -236,6 +236,7 @@ func (sc *snowflakeConn) PrepareContext(
 		return nil, driver.ErrBadConn
 	}
 	noResult := isAsyncMode(ctx)
+	ctx = setResultType(ctx, execResultType)
 	data, err := sc.exec(ctx, query, noResult, false, /* isInternal */
 		true /* describeOnly */, []driver.NamedValue{})
 	if err != nil {
