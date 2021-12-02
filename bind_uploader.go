@@ -30,11 +30,13 @@ type bindUploader struct {
 }
 
 func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, error) {
-	bindingRows, _ := bu.buildRowsAsBytes(bindings)
+	bindingRows, err := bu.buildRowsAsBytes(bindings)
+	if err != nil {
+		return nil, err
+	}
 	startIdx, numBytes, rowNum := 0, 0, 0
 	bu.fileCount = 0
 	var data *execResponse
-	var err error
 	for rowNum < len(bindingRows) {
 		for numBytes < inputStreamBufferSize && rowNum < len(bindingRows) {
 			numBytes += len(bindingRows[rowNum])
@@ -233,7 +235,10 @@ func supportedArrayBind(nv *driver.NamedValue) bool {
 		return true
 	case reflect.TypeOf([]uint8{}):
 		// internal binding ts mode
-		val, _ := nv.Value.([]uint8)
+		val, ok := nv.Value.([]uint8)
+		if !ok {
+			return ok
+		}
 		if len(val) == 0 {
 			return true // for null binds
 		}

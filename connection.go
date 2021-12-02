@@ -528,7 +528,7 @@ func getAsync(
 	res *snowflakeResult,
 	rows *snowflakeRows,
 	cfg *Config,
-) {
+) error {
 	resType := getResultType(ctx)
 	var errChannel chan error
 	sfError := &SnowflakeError{
@@ -550,7 +550,7 @@ func getAsync(
 		sfError.Message = err.Error()
 		errChannel <- sfError
 		close(errChannel)
-		return
+		return err
 	}
 	if resp.Body != nil {
 		defer resp.Body.Close()
@@ -564,7 +564,7 @@ func getAsync(
 		sfError.Message = err.Error()
 		errChannel <- sfError
 		close(errChannel)
-		return
+		return err
 	}
 
 	sc := &snowflakeConn{rest: sr, cfg: cfg}
@@ -572,19 +572,22 @@ func getAsync(
 		if resType == execResultType {
 			res.insertID = -1
 			if isDml(respd.Data.StatementTypeID) {
-				res.affectedRows, _ = updateRows(respd.Data)
+				res.affectedRows, err = updateRows(respd.Data)
+				if err != nil {
+					return err
+				}
 			} else if isMultiStmt(&respd.Data) {
 				r, err := sc.handleMultiExec(ctx, respd.Data)
 				if err != nil {
 					res.errChannel <- err
 					close(errChannel)
-					return
+					return err
 				}
 				res.affectedRows, err = r.RowsAffected()
 				if err != nil {
 					res.errChannel <- err
 					close(errChannel)
-					return
+					return err
 				}
 			}
 			res.queryID = respd.Data.QueryID
@@ -593,11 +596,10 @@ func getAsync(
 			rows.sc = sc
 			rows.queryID = respd.Data.QueryID
 			if isMultiStmt(&respd.Data) {
-				err = sc.handleMultiQuery(ctx, respd.Data, rows)
-				if err != nil {
+				if err = sc.handleMultiQuery(ctx, respd.Data, rows); err != nil {
 					rows.errChannel <- err
 					close(errChannel)
-					return
+					return err
 				}
 			} else {
 				rows.addDownloader(populateChunkDownloader(ctx, sc, respd.Data))
@@ -622,6 +624,7 @@ func getAsync(
 			QueryID:  respd.Data.QueryID,
 		}
 	}
+	return nil
 }
 
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {

@@ -271,7 +271,10 @@ func testBindingArray(t *testing.T, bulk bool) {
 	byteArray := [][]byte{{0x01, 0x02, 0x03}, {0x04, 0x05, 0x06}, {0x07, 0x08, 0x09}}
 
 	now := time.Now()
-	loc, _ := time.LoadLocation(PSTLocation)
+	loc, err := time.LoadLocation(PSTLocation)
+	if err != nil {
+		t.Error(err)
+	}
 	ntzArray := []time.Time{now, now.Add(1), now.Add(2)}
 	ltzArray := []time.Time{now.Add(3).In(loc), now.Add(4).In(loc), now.Add(5).In(loc)}
 	tzArray := []time.Time{tz.Add(6).In(loc), tz.Add(7).In(loc), tz.Add(8).In(loc)}

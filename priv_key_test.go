@@ -105,9 +105,15 @@ func TestJWTAuthentication(t *testing.T) {
 	db.Close()
 
 	// Test that an invalid private key cannot pass
-	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	invalidPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Error(err)
+	}
 	jwtDSN = appendPrivateKeyString(&dsn, invalidPrivateKey)
-	db, _ = sql.Open("snowflake", jwtDSN)
+	db, err = sql.Open("snowflake", jwtDSN)
+	if err != nil {
+		t.Error(err)
+	}
 	if _, err = db.Exec("SELECT 1"); err == nil {
 		t.Fatalf("An invalid jwt token can pass")
 	}

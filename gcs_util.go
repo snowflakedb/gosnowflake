@@ -29,26 +29,29 @@ type gcsLocation struct {
 	path       string
 }
 
-func (util *snowflakeGcsUtil) createClient(info *execResponseStageInfo, _ bool) cloudClient {
+func (util *snowflakeGcsUtil) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
 	if info.Creds.GcsAccessToken != "" {
-		return info.Creds.GcsAccessToken
+		return info.Creds.GcsAccessToken, nil
 	}
-	return ""
+	return "", nil
 }
 
 // cloudUtil implementation
-func (util *snowflakeGcsUtil) getFileHeader(meta *fileMetadata, filename string) *fileHeader {
+func (util *snowflakeGcsUtil) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
 	if meta.resStatus == uploaded || meta.resStatus == downloaded {
 		return &fileHeader{
 			digest:             meta.gcsFileHeaderDigest,
 			contentLength:      meta.gcsFileHeaderContentLength,
 			encryptionMetadata: meta.gcsFileHeaderEncryptionMeta,
-		}
+		}, nil
 	}
 	if meta.presignedURL != nil {
 		meta.resStatus = notFoundFile
 	} else {
-		URL := util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(filename, "/"))
+		URL, err := util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(filename, "/"))
+		if err != nil {
+			return nil, err
+		}
 		accessToken := meta.client.(string)
 		gcsHeaders := map[string]string{
 			"Authorization": "Bearer " + accessToken,
@@ -56,18 +59,21 @@ func (util *snowflakeGcsUtil) getFileHeader(meta *fileMetadata, filename string)
 
 		req, err := http.NewRequest("HEAD", URL.String(), nil)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		for k, v := range gcsHeaders {
 			req.Header.Add(k, v)
 		}
 		client := &http.Client{}
-		resp, _ := client.Do(req)
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
 		if resp.StatusCode != http.StatusOK {
 			if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
 				meta.lastError = fmt.Errorf(resp.Status)
 				meta.resStatus = needRetry
-				return nil
+				return nil, meta.lastError
 			}
 			if resp.StatusCode == 404 {
 				meta.resStatus = notFoundFile
@@ -77,11 +83,14 @@ func (util *snowflakeGcsUtil) getFileHeader(meta *fileMetadata, filename string)
 			}
 			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = errStatus
-			return nil
+			return nil, meta.lastError
 		}
 
 		digest := resp.Header.Get(gcsMetadataSfcDigest)
-		contentLength, _ := strconv.Atoi(resp.Header.Get("content-length"))
+		contentLength, err := strconv.Atoi(resp.Header.Get("content-length"))
+		if err != nil {
+			return nil, err
+		}
 		var encryptionMeta *encryptMetadata
 		if resp.Header.Get(gcsMetadataEncryptionDataProp) != "" {
 			var encryptData *encryptionData
@@ -101,18 +110,27 @@ func (util *snowflakeGcsUtil) getFileHeader(meta *fileMetadata, filename string)
 			digest:             digest,
 			contentLength:      int64(contentLength),
 			encryptionMetadata: encryptionMeta,
-		}
+		}, nil
 	}
-	return nil
+	return nil, nil
 }
 
 // cloudUtil implementation
-func (util *snowflakeGcsUtil) uploadFile(dataFile string, meta *fileMetadata, encryptMeta *encryptMetadata, maxConcurrency int, multiPartThreshold int64) error {
+func (util *snowflakeGcsUtil) uploadFile(
+	dataFile string,
+	meta *fileMetadata,
+	encryptMeta *encryptMetadata,
+	maxConcurrency int,
+	multiPartThreshold int64) error {
 	uploadURL := meta.presignedURL
 	var accessToken string
+	var err error
 
 	if uploadURL == nil {
-		uploadURL = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		_, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		if err != nil {
+			return err
+		}
 		accessToken = meta.client.(string)
 	}
 
@@ -149,7 +167,10 @@ func (util *snowflakeGcsUtil) uploadFile(dataFile string, meta *fileMetadata, en
 				"Java 5.3.0",
 			},
 		}
-		b, _ := json.Marshal(&encryptData)
+		b, err := json.Marshal(&encryptData)
+		if err != nil {
+			return err
+		}
 		gcsHeaders[gcsMetadataEncryptionDataProp] = string(b)
 		gcsHeaders[gcsMetadataMatdescKey] = encryptMeta.matdesc
 	}
@@ -161,7 +182,10 @@ func (util *snowflakeGcsUtil) uploadFile(dataFile string, meta *fileMetadata, en
 			uploadSrc = meta.realSrcStream
 		}
 	} else {
-		uploadSrc, _ = os.OpenFile(dataFile, os.O_RDONLY, os.ModePerm)
+		uploadSrc, err = os.OpenFile(dataFile, os.O_RDONLY, os.ModePerm)
+		if err != nil {
+			return err
+		}
 	}
 
 	req, err := http.NewRequest("PUT", uploadURL.String(), uploadSrc)
@@ -172,7 +196,10 @@ func (util *snowflakeGcsUtil) uploadFile(dataFile string, meta *fileMetadata, en
 		req.Header.Add(k, v)
 	}
 	client := &http.Client{}
-	resp, _ := client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
 	if resp.StatusCode != http.StatusOK {
 		meta.lastError = fmt.Errorf(resp.Status)
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
@@ -216,10 +243,14 @@ func (util *snowflakeGcsUtil) nativeDownloadFile(
 	maxConcurrency int64) error {
 	downloadURL := meta.presignedURL
 	var accessToken string
+	var err error
 	gcsHeaders := make(map[string]string)
 
 	if downloadURL == nil {
-		downloadURL = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		downloadURL, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		if err != nil {
+			return err
+		}
 		accessToken = meta.client.(string)
 		if accessToken != "" {
 			gcsHeaders["Authorization"] = "Bearer " + accessToken
@@ -234,7 +265,10 @@ func (util *snowflakeGcsUtil) nativeDownloadFile(
 		req.Header.Add(k, v)
 	}
 	client := &http.Client{}
-	resp, _ := client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
 	if resp.StatusCode != http.StatusOK {
 		meta.lastError = fmt.Errorf(resp.Status)
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
@@ -302,11 +336,14 @@ func (util *snowflakeGcsUtil) extractBucketNameAndPath(location string) *gcsLoca
 	return &gcsLocation{containerName, path}
 }
 
-func (util *snowflakeGcsUtil) generateFileURL(stageLocation string, filename string) *url.URL {
+func (util *snowflakeGcsUtil) generateFileURL(stageLocation string, filename string) (*url.URL, error) {
 	gcsLoc := util.extractBucketNameAndPath(stageLocation)
 	fullFilePath := gcsLoc.path + filename
-	URL, _ := url.Parse("https://storage.googleapis.com/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
-	return URL
+	URL, err := url.Parse("https://storage.googleapis.com/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
+	if err != nil {
+		return nil, err
+	}
+	return URL, nil
 }
 
 func (util *snowflakeGcsUtil) isTokenExpired(resp *http.Response) bool {

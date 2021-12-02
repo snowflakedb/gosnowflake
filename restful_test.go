@@ -114,7 +114,10 @@ func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 func cancelTestRetry(ctx context.Context, sr *snowflakeRestful, requestID uuid.UUID, timeout time.Duration) error {
 	ctxRetry := getCancelRetry(ctx)
 	u := url.URL{}
-	reqByte, _ := json.Marshal(make(map[string]string))
+	reqByte, err := json.Marshal(make(map[string]string))
+	if err != nil {
+		return err
+	}
 	resp, err := sr.FuncPost(ctx, sr, &u, getHeaders(), reqByte, timeout, false)
 	if err != nil {
 		return err

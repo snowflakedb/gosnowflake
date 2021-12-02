@@ -434,7 +434,10 @@ func getCancelRetry(ctx context.Context) int {
 	if val == nil {
 		return 5
 	}
-	cnt, _ := val.(int)
+	cnt, ok := val.(int)
+	if !ok {
+		return -1
+	}
 	return cnt
 }
 
@@ -472,8 +475,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID uuid.UUID,
 		}
 		ctxRetry := getCancelRetry(ctx)
 		if !respd.Success && respd.Code == sessionExpiredCode {
-			err := sr.FuncRenewSession(ctx, sr, timeout)
-			if err != nil {
+			if err = sr.FuncRenewSession(ctx, sr, timeout); err != nil {
 				return err
 			}
 			return sr.FuncCancelQuery(ctx, sr, requestID, timeout)
@@ -512,6 +514,9 @@ func getQueryIDChan(ctx context.Context) chan<- string {
 	if v == nil {
 		return nil
 	}
-	c, _ := v.(chan<- string)
+	c, ok := v.(chan<- string)
+	if !ok {
+		return nil
+	}
 	return c
 }

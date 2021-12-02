@@ -35,7 +35,10 @@ func getDSN() (string, *sf.Config, error) {
 	port := env("SNOWFLAKE_TEST_PORT", false)
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
 
-	portStr, _ := strconv.Atoi(port)
+	portStr, err := strconv.Atoi(port)
+	if err != nil {
+		return "", nil, err
+	}
 	cfg := &sf.Config{
 		Account:  account,
 		User:     user,

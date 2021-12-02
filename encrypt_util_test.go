@@ -50,9 +50,15 @@ func TestEncryptDecryptFile(t *testing.T) {
 	}
 	defer os.Remove(decryptedFile)
 
-	fd, _ = os.OpenFile(decryptedFile, os.O_RDONLY, os.ModePerm)
+	fd, err = os.OpenFile(decryptedFile, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
 	defer fd.Close()
-	content, _ := ioutil.ReadAll(fd)
+	content, err := ioutil.ReadAll(fd)
+	if err != nil {
+		t.Error(err)
+	}
 	if string(content) != data {
 		t.Fatalf("data did not match content. expected: %v, got: %v", data, string(content))
 	}
@@ -66,8 +72,14 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	}
 	numberOfFiles := 1
 	numberOfLines := 10000
-	tmpDir, _ := ioutil.TempDir("", "data")
-	tmpDir = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
+	tmpDir, err := ioutil.TempDir("", "data")
+	if err != nil {
+		t.Error(err)
+	}
+	tmpDir, err = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
+	if err != nil {
+		t.Error(err)
+	}
 	defer os.RemoveAll(tmpDir)
 	files, err := filepath.Glob(filepath.Join(tmpDir, "file*"))
 	if err != nil {
@@ -87,7 +99,10 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	defer os.Remove(decryptedFile)
 
 	cnt := 0
-	fd, _ := os.OpenFile(decryptedFile, os.O_RDONLY, os.ModePerm)
+	fd, err := os.OpenFile(decryptedFile, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
 		cnt++
@@ -100,13 +115,19 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	}
 }
 
-func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) string {
+func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string, error) {
 	if tmpDir == "" {
-		tmpDir, _ = ioutil.TempDir(tmpDir, "data")
+		_, err := ioutil.TempDir(tmpDir, "data")
+		if err != nil {
+			return "", err
+		}
 	}
 	for i := 0; i < n; i++ {
 		fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10))
-		f, _ := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+		f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+		if err != nil {
+			return "", err
+		}
 		for j := 0; j < k; j++ {
 			num := rand.Float64() * 10000
 			min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
@@ -132,22 +153,34 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) string {
 		if compress {
 			if !isWindows {
 				gzipCmd := exec.Command("gzip", filepath.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10)))
-				gzipOut, _ := gzipCmd.StdoutPipe()
-				gzipErr, _ := gzipCmd.StderrPipe()
+				gzipOut, err := gzipCmd.StdoutPipe()
+				if err != nil {
+					return "", err
+				}
+				gzipErr, err := gzipCmd.StderrPipe()
+				if err != nil {
+					return "", err
+				}
 				gzipCmd.Start()
 				ioutil.ReadAll(gzipOut)
 				ioutil.ReadAll(gzipErr)
 				gzipCmd.Wait()
 			} else {
-				fOut, _ := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, os.ModePerm)
+				fOut, err := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, os.ModePerm)
+				if err != nil {
+					return "", err
+				}
 				w := gzip.NewWriter(fOut)
-				fIn, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
-				if _, err := io.Copy(w, fIn); err != nil {
-					return ""
+				fIn, err := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+				if err != nil {
+					return "", err
+				}
+				if _, err = io.Copy(w, fIn); err != nil {
+					return "", err
 				}
 				w.Close()
 			}
 		}
 	}
-	return tmpDir
+	return tmpDir, nil
 }

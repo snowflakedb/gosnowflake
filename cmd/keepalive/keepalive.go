@@ -10,9 +10,9 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	sf "github.com/snowflakedb/gosnowflake"
-	"time"
 )
 
 // getDSN constructs a DSN based on the test connection parameters
@@ -38,7 +38,10 @@ func getDSN() (string, *sf.Config, error) {
 	valueTrue := "true"
 	params["client_session_keep_alive"] = &valueTrue
 
-	portStr, _ := strconv.Atoi(port)
+	portStr, err := strconv.Atoi(port)
+	if err != nil {
+		return "", nil, err
+	}
 	cfg := &sf.Config{
 		Account:  account,
 		User:     user,

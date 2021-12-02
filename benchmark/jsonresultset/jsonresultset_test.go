@@ -64,7 +64,10 @@ func getDSN() (dsn string, cfg *sf.Config, err error) {
 		sf.MaxChunkDownloadWorkers = n0
 	}
 
-	portStr, _ := strconv.Atoi(port)
+	portStr, err := strconv.Atoi(port)
+	if err != nil {
+		return "", nil, err
+	}
 	cfg = &sf.Config{
 		Account:  account,
 		User:     user,

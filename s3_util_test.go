@@ -30,7 +30,10 @@ func TestExtractBucketNameAndPath(t *testing.T) {
 		{"sfc-dev1-regression///", "sfc-dev1-regression", "//"},
 	}
 	for _, test := range testcases {
-		s3Loc := s3util.extractBucketNameAndPath(test.in)
+		s3Loc, err := s3util.extractBucketNameAndPath(test.in)
+		if err != nil {
+			t.Error(err)
+		}
 		if s3Loc.bucketName != test.bucket {
 			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.bucket, s3Loc.bucketName)
 		}
@@ -58,14 +61,21 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 		LocationType: "S3",
 	}
 	initialParallel := int64(100)
-	dir, _ := os.Getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
 
+	s3Cli, err := new(snowflakeS3Util).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
 		stageLocationType: "S3",
 		noSleepingTime:    true,
 		parallel:          initialParallel,
-		client:            new(snowflakeS3Util).createClient(&info, false),
+		client:            s3Cli,
 		sha256Digest:      "123456789abcdef",
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
@@ -123,14 +133,21 @@ func TestUploadOneFileToS3ConnReset(t *testing.T) {
 		LocationType: "S3",
 	}
 	initialParallel := int64(100)
-	dir, _ := os.Getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
 
+	s3Cli, err := new(snowflakeS3Util).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
 		stageLocationType: "S3",
 		noSleepingTime:    true,
 		parallel:          initialParallel,
-		client:            new(snowflakeS3Util).createClient(&info, false),
+		client:            s3Cli,
 		sha256Digest:      "123456789abcdef",
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
@@ -170,14 +187,21 @@ func TestUploadFileWithS3UploadFailedError(t *testing.T) {
 		LocationType: "S3",
 	}
 	initialParallel := int64(100)
-	dir, _ := os.Getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
 
+	s3Cli, err := new(snowflakeS3Util).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
 		stageLocationType: "S3",
 		noSleepingTime:    true,
 		parallel:          initialParallel,
-		client:            new(snowflakeS3Util).createClient(&info, false),
+		client:            s3Cli,
 		sha256Digest:      "123456789abcdef",
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
@@ -231,7 +255,7 @@ func TestGetHeadExpiryError(t *testing.T) {
 			}
 		}),
 	}
-	if header := new(snowflakeS3Util).getFileHeader(&meta, "file.txt"); header != nil {
+	if header, err := new(snowflakeS3Util).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != renewToken {
@@ -250,7 +274,7 @@ func TestGetHeaderUnexpectedError(t *testing.T) {
 			}
 		}),
 	}
-	if header := new(snowflakeS3Util).getFileHeader(&meta, "file.txt"); header != nil {
+	if header, err := new(snowflakeS3Util).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != errStatus {

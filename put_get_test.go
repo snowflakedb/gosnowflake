@@ -21,11 +21,17 @@ func TestPutError(t *testing.T) {
 	if isWindows {
 		t.Skip("permission model is different")
 	}
-	tmpDir, _ := ioutil.TempDir("", "putfiledir")
+	tmpDir, err := ioutil.TempDir("", "putfiledir")
+	if err != nil {
+		t.Error(err)
+	}
 	defer os.RemoveAll(tmpDir)
 	file1 := filepath.Join(tmpDir, "file1")
 	remoteLocation := filepath.Join(tmpDir, "remote_loc")
-	f, _ := os.OpenFile(file1, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.OpenFile(file1, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
 	f.WriteString("test1")
 	os.Chmod(file1, 0000)
 
@@ -103,18 +109,30 @@ func cleanupPut(dbt *DBTest, td *tcPutGetData) {
 }
 
 func createTestData(dbt *DBTest) (*tcPutGetData, error) {
-	keyID, _ := os.LookupEnv("AWS_ACCESS_KEY_ID")
-	secretKey, _ := os.LookupEnv("AWS_SECRET_ACCESS_KEY")
+	keyID, ok := os.LookupEnv("AWS_ACCESS_KEY_ID")
+	if !ok {
+		return nil, fmt.Errorf("key id invalid")
+	}
+	secretKey, ok := os.LookupEnv("AWS_SECRET_ACCESS_KEY")
+	if !ok {
+		return nil, fmt.Errorf("secret key invalid")
+	}
 	bucket, present := os.LookupEnv("SF_AWS_USER_BUCKET")
 	if !present {
-		usr, _ := usr.Current()
+		usr, err := usr.Current()
+		if err != nil {
+			return nil, err
+		}
 		bucket = fmt.Sprintf("sfc-dev1-regression/%v/reg", usr.Username)
 	}
 	uniqueName := randomString(10)
 	database := fmt.Sprintf("%v_db", uniqueName)
 	wh := fmt.Sprintf("%v_wh", uniqueName)
 
-	dir, _ := os.Getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 	ret := tcPutGetData{
 		dir,
 		keyID,
@@ -203,16 +221,22 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, _ := ioutil.TempDir("", "put")
+	tmpDir, err := ioutil.TempDir("", "put")
+	if err != nil {
+		t.Error(err)
+	}
 	defer os.RemoveAll(tmpDir)
 	testData := filepath.Join(tmpDir, "data.txt")
-	f, _ := os.OpenFile(testData, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.OpenFile(testData, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
 	f.WriteString("test1,test2\ntest3,test4")
 	f.Sync()
 	defer f.Close()
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		if _, err := dbt.db.Exec("use role sysadmin"); err != nil {
+		if _, err = dbt.db.Exec("use role sysadmin"); err != nil {
 			t.Skip("snowflake admin account not accessible")
 		}
 		dbt.mustExec("rm @~/test_put_uncompress_file")
@@ -237,10 +261,16 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 }
 
 func TestPutOverwrite(t *testing.T) {
-	tmpDir, _ := ioutil.TempDir("", "data")
+	tmpDir, err := ioutil.TempDir("", "data")
+	if err != nil {
+		t.Error(err)
+	}
 	defer os.RemoveAll(tmpDir)
 	testData := filepath.Join(tmpDir, "data.txt")
-	f, _ := os.OpenFile(testData, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	f, err := os.OpenFile(testData, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
 	f.WriteString("test1,test2\ntest3,test4\n")
 	f.Close()
 
@@ -323,7 +353,10 @@ func TestPutGetStream(t *testing.T) {
 }
 
 func testPutGet(t *testing.T, isStream bool) {
-	tmpDir, _ := ioutil.TempDir("", "put_get")
+	tmpDir, err := ioutil.TempDir("", "put_get")
+	if err != nil {
+		t.Error(err)
+	}
 	defer os.RemoveAll(tmpDir)
 	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
@@ -340,7 +373,10 @@ func testPutGet(t *testing.T, isStream bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
-		fileStream, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+		fileStream, err := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+		if err != nil {
+			t.Error(err)
+		}
 		defer func() {
 			defer dbt.mustExec("drop table " + tableName)
 			if fileStream != nil {
@@ -408,7 +444,10 @@ func testPutGet(t *testing.T, isStream bool) {
 			t.Fatal(err)
 		}
 		fileName := files[0]
-		f, _ := os.Open(fileName)
+		f, err := os.Open(fileName)
+		if err != nil {
+			t.Error(err)
+		}
 		defer f.Close()
 		gz, err := gzip.NewReader(f)
 		if err != nil {

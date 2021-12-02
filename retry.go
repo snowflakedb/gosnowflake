@@ -4,20 +4,19 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"context"
-
-	"sync"
+	"github.com/google/uuid"
 )
 
 var random *rand.Rand

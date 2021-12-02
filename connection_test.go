@@ -278,7 +278,10 @@ func fetchResultByQueryID(
 	t *testing.T,
 	customGet FuncGetType,
 	expectedFetchErr *SnowflakeError) error {
-	config, _ := ParseDSN(dsn)
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		return err
+	}
 	ctx := context.Background()
 	sc, err := buildSnowflakeConn(ctx, *config)
 	if customGet != nil {
@@ -355,7 +358,10 @@ func TestPrivateLink(t *testing.T) {
 }
 
 func TestGetQueryStatus(t *testing.T) {
-	config, _ := ParseDSN(dsn)
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
 	ctx := context.Background()
 	sc, err := buildSnowflakeConn(ctx, *config)
 	if err != nil {

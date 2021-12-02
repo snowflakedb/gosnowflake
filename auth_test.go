@@ -455,16 +455,17 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 	sc.rest = sr
 
 	// A valid JWT token should pass
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
-	if err != nil {
+	if _, err = authenticate(context.TODO(), sc, []byte{}, []byte{}); err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
 	// An invalid JWT token should not pass
-	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	invalidPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Error(err)
+	}
 	sc.cfg.PrivateKey = invalidPrivateKey
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
-	if err == nil {
+	if _, err = authenticate(context.TODO(), sc, []byte{}, []byte{}); err == nil {
 		t.Fatalf("invalid token passed")
 	}
 }

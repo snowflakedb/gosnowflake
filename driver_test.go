@@ -2200,8 +2200,11 @@ func TestTimePrecision(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table z3 (t1 time(5))")
 		rows := dbt.mustQuery("select * from z3")
-		cols, _ := rows.ColumnTypes()
-		if pres, _, _ := cols[0].DecimalSize(); pres != 5 {
+		cols, err := rows.ColumnTypes()
+		if err != nil {
+			t.Error(err)
+		}
+		if pres, _, ok := cols[0].DecimalSize(); pres != 5 || !ok {
 			t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
 		}
 	})
