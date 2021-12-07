@@ -292,9 +292,9 @@ func testBindingArray(t *testing.T, bulk bool) {
 
 		dbt.mustExec(insertSQL, Array(&intArray), Array(&fltArray),
 			Array(&boolArray), Array(&strArray), Array(&byteArray),
-			Array(&ntzArray, timestampNtzType), Array(&ltzArray, timestampLtzType),
-			Array(&tzArray, timestampTzType), Array(&dtArray, dateType),
-			Array(&tmArray, timeType))
+			Array(&ntzArray, TimestampNTZType), Array(&ltzArray, TimestampLTZType),
+			Array(&tzArray, TimestampTZType), Array(&dtArray, DateType),
+			Array(&tmArray, TimeType))
 		rows := dbt.mustQuery(selectAllSQL)
 		defer rows.Close()
 
