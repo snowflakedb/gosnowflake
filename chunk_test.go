@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/apache/arrow/go/arrow/array"
 	"io"
 	"math/rand"
 	"strings"
@@ -382,6 +383,40 @@ func TestWithStreamDownloader(t *testing.T) {
 		}
 		logger.Infof("NextResultSet: %v", rows.NextResultSet())
 
+		if cnt != numrows {
+			t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
+		}
+	})
+}
+
+func TestWithArrowRecordsChan(t *testing.T) {
+	ch := make(chan []array.Record, 1)
+	ctx := WithArrowRecordChan(context.Background(), ch)
+	numrows := 10
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
+		defer rows.Close()
+
+		go func() {
+			for {
+				if !rows.Next() {
+					return
+				}
+			}
+		}()
+		cnt := 0
+		for {
+			records, ok := <-ch
+			if ok {
+				for _, r := range records {
+					cnt += int(r.NumRows())
+				}
+			} else {
+				// channel is closed
+				break
+			}
+		}
 		if cnt != numrows {
 			t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 		}
