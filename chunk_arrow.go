@@ -6,44 +6,42 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"io"
+
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
-	"io"
 )
 
 type arrowResultChunk struct {
-	ctx              context.Context
 	reader           ipc.Reader
 	rowCount         int
 	uncompressedSize int
 	allocator        memory.Allocator
 }
 
-func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
+func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
-	var arrowRecords []array.Record
-
-	for {
-		record, err := arc.reader.Read()
-		if err == io.EOF {
-			if arrowRecordChan := getArrowRecordChan(arc.ctx); arrowRecordChan != nil {
-				arrowRecordChan <- arrowRecords
-			}
-			return chunkRows, nil
-		} else if err != nil {
+	if arrowRecordChan := getArrowRecordChan(ctx); arrowRecordChan != nil {
+		numRows, err := arc.writeToArrowChan(arrowRecordChan)
+		if err != nil {
 			return nil, err
 		}
+		chunkRows = append(chunkRows, make([]chunkRowType, numRows)...)
+		return chunkRows, nil
+	} else {
+		for {
+			record, err := arc.reader.Read()
+			if err == io.EOF {
+				return chunkRows, nil
+			} else if err != nil {
+				return nil, err
+			}
 
-		numRows := int(record.NumRows())
-		columns := record.Columns()
-		tmpRows := make([]chunkRowType, numRows)
-
-		if isArrowRecordChanEnabled(arc.ctx) {
-			record.Retain()
-			arrowRecords = append(arrowRecords, record)
-		} else {
+			numRows := int(record.NumRows())
+			columns := record.Columns()
+			tmpRows := make([]chunkRowType, numRows)
 			for colIdx, col := range columns {
 				destcol := make([]snowflakeValue, numRows)
 				if err = arrowToValue(&destcol, rowType[colIdx], col, highPrec); err != nil {
@@ -57,16 +55,16 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 					tmpRows[rowIdx].ArrowRow[colIdx] = destcol[rowIdx]
 				}
 			}
+			chunkRows = append(chunkRows, tmpRows...)
+			arc.rowCount += numRows
 		}
-		chunkRows = append(chunkRows, tmpRows...)
-		arc.rowCount += numRows
 	}
 }
 
 /**
 Build arrow chunk based on RowSet of base64
 */
-func buildFirstArrowChunk(ctx context.Context, rowsetBase64 string) arrowResultChunk {
+func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
 	rowSetBytes, err := base64.StdEncoding.DecodeString(rowsetBase64)
 	if err != nil {
 		return arrowResultChunk{}
@@ -76,19 +74,40 @@ func buildFirstArrowChunk(ctx context.Context, rowsetBase64 string) arrowResultC
 		return arrowResultChunk{}
 	}
 
-	return arrowResultChunk{ctx, *rr, 0, 0, memory.NewGoAllocator()}
+	return arrowResultChunk{*rr, 0, 0, memory.NewGoAllocator()}
+}
+
+/**
+Writes []array.Record to array record channel. Returns number of rows from records written to channel
+*/
+func (arc *arrowResultChunk) writeToArrowChan(ch chan<- []array.Record) (int, error) {
+	var numRows int
+	var records []array.Record
+
+	for {
+		record, err := arc.reader.Read()
+		if err == io.EOF {
+			ch <- records
+			return numRows, nil
+		} else if err != nil {
+			return numRows, err
+		}
+
+		record.Retain()
+		records = append(records, record)
+
+		currentRows := int(record.NumRows())
+		numRows += currentRows
+		arc.rowCount += currentRows
+	}
 }
 
 func getArrowRecordChan(ctx context.Context) chan<- []array.Record {
-	if ctx == nil {
-		return nil
-	}
 	v := ctx.Value(arrowRecordChannel)
 	if v == nil {
 		return nil
 	}
-	c, ok := v.(chan []array.Record)
-	if ok {
+	if c, ok := v.(chan []array.Record); ok {
 		return c
 	}
 	return nil

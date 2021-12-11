@@ -5,12 +5,13 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
-	"github.com/apache/arrow/go/arrow/array"
 	"io"
 	"math/rand"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/apache/arrow/go/arrow/array"
 
 	"github.com/google/uuid"
 )

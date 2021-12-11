@@ -8,9 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -20,6 +17,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/ipc"
+	"github.com/apache/arrow/go/arrow/memory"
 )
 
 type chunkDownloader interface {
@@ -110,9 +111,9 @@ func (scd *snowflakeChunkDownloader) start() error {
 	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
-		firstArrowChunk := buildFirstArrowChunk(scd.ctx, scd.RowSet.RowSetBase64)
+		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
-		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType, higherPrecision)
+		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.ctx, scd.RowSet.RowType, higherPrecision)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
@@ -400,23 +401,25 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 		if err != nil {
 			return err
 		}
-		var ctx context.Context
-		if isArrowRecordChanEnabled(scd.ctx) {
-			ch := make(chan []array.Record, 10) // TODO: is there a way to know how many array.Record will it be split up into within one routine?
-			scd.ArrowChannels.mu.Lock()
-			scd.ArrowChannels.c[idx] = ch
-			scd.ArrowChannels.mu.Unlock()
-			ctx = context.WithValue(scd.ctx, arrowRecordChannel, ch)
-		}
 		arc := arrowResultChunk{
-			ctx,
 			*ipcReader,
 			0,
 			int(scd.totalUncompressedSize()),
 			memory.NewGoAllocator(),
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
-		respd, err = arc.decodeArrowChunk(scd.RowSet.RowType, highPrec)
+
+		var ctx context.Context
+		if isArrowRecordChanEnabled(scd.ctx) {
+			ch := make(chan []array.Record, 1)
+			scd.ArrowChannels.mu.Lock()
+			scd.ArrowChannels.c[idx] = ch
+			scd.ArrowChannels.mu.Unlock()
+			ctx = context.WithValue(scd.ctx, arrowRecordChannel, ch)
+		} else {
+			ctx = scd.ctx
+		}
+		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec)
 		if err != nil {
 			return err
 		}
