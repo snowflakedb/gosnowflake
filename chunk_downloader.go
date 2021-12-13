@@ -49,7 +49,7 @@ type snowflakeChunkDownloader struct {
 	CurrentIndex       int
 	ChunkHeader        map[string]string
 	ChunkMetas         []execResponseChunk
-	ArrowChannels      *arrowChans
+	ArrowChannels      *sync.Map
 	Chunks             map[int][]chunkRowType
 	ChunksChan         chan int
 	ChunksError        chan *chunkError
@@ -64,11 +64,6 @@ type snowflakeChunkDownloader struct {
 	FuncDownload       func(context.Context, *snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
 	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
-}
-
-type arrowChans struct {
-	mu sync.Mutex
-	c  map[int]chan []array.Record
 }
 
 func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
@@ -103,9 +98,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
 
 	if isArrowRecordChanEnabled(scd.ctx) {
-		scd.ArrowChannels = &arrowChans{
-			c: make(map[int]chan []array.Record),
-		}
+		scd.ArrowChannels = &sync.Map{}
 	}
 
 	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
@@ -204,13 +197,13 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 		}
 		logger.Debugf("ready: chunk %v", scd.CurrentChunkIndex+1)
 		if arrowRecordChan := getArrowRecordChan(scd.ctx); arrowRecordChan != nil {
-			scd.ArrowChannels.mu.Lock()
-			records, ok := <-scd.ArrowChannels.c[scd.CurrentChunkIndex]
-			scd.ArrowChannels.mu.Unlock()
+			val, ok := scd.ArrowChannels.Load(scd.CurrentChunkIndex)
 			if ok {
+				ch := val.(chan []array.Record)
+				records := <- ch
 				arrowRecordChan <- records
+				close(ch)
 			}
-			close(scd.ArrowChannels.c[scd.CurrentChunkIndex])
 		}
 		scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
 		scd.ChunksMutex.Unlock()
@@ -412,9 +405,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 		var ctx context.Context
 		if isArrowRecordChanEnabled(scd.ctx) {
 			ch := make(chan []array.Record, 1)
-			scd.ArrowChannels.mu.Lock()
-			scd.ArrowChannels.c[idx] = ch
-			scd.ArrowChannels.mu.Unlock()
+			scd.ArrowChannels.Store(idx, ch)
 			ctx = context.WithValue(scd.ctx, arrowRecordChannel, ch)
 		} else {
 			ctx = scd.ctx
