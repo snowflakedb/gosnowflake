@@ -90,12 +90,11 @@ func (arc *arrowResultChunk) writeToArrowChan(ch chan<- []array.Record, rowType 
 		} else if err != nil {
 			return numRows, err
 		}
-		rawRecord.Retain() // TODO: can remove?
 		record, err := arrowToRecord(rawRecord, rowType)
+		rawRecord.Release()
 		if err != nil {
 			return numRows, err
 		}
-		//rawRecord.Release()
 		records = append(records, record)
 
 		currentRows := int(record.NumRows())
