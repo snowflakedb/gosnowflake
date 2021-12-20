@@ -874,7 +874,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 			}
 		case timeType:
 			tb := array.NewTime64Builder(pool, &arrow.Time64Type{})
-			if col.DataType().ID() == arrow.TIME64 {
+			if col.DataType().ID() == arrow.INT64 || col.DataType().ID() == arrow.TIME64 {
 				for i, i64 := range array.NewInt64Data(data).Int64Values() {
 					if !col.IsNull(i) {
 						tb.Append(arrow.Time64(i64))
