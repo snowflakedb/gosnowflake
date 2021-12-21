@@ -234,7 +234,7 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 	resultPath := fmt.Sprintf(urlQueriesResultFmt, qid)
 	resp, err := sc.getQueryResultResp(ctx, resultPath)
 	if err != nil {
-		logger.WithContext(ctx).Errorf("error: %v", err)
+		logger.WithContext(ctx).Errorf("Error while getting rows for running query: %v", err)
 		if resp != nil {
 			code, err := strconv.Atoi(resp.Code)
 			if err != nil {
