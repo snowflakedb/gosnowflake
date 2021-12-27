@@ -42,6 +42,7 @@ type snowflakeChunkDownloader struct {
 	ctx                context.Context
 	Total              int64
 	TotalRowIndex      int64
+	ArrowChannels      *sync.Map
 	CellCount          int
 	CurrentChunk       []chunkRowType
 	CurrentChunkIndex  int
@@ -49,7 +50,6 @@ type snowflakeChunkDownloader struct {
 	CurrentIndex       int
 	ChunkHeader        map[string]string
 	ChunkMetas         []execResponseChunk
-	ArrowChannels      *sync.Map
 	Chunks             map[int][]chunkRowType
 	ChunksChan         chan int
 	ChunksError        chan *chunkError
@@ -435,6 +435,7 @@ func populateJSONRowSet(dst []chunkRowType, src [][]*string) {
 	}
 }
 
+// Returns true if there exist a ArrowRecordChan within the context. See WithArrowRecordChan for functionality.
 func isArrowRecordChanEnabled(ctx context.Context) bool {
 	return getArrowRecordChan(ctx) != nil
 }
