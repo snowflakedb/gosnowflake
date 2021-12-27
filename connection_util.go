@@ -260,7 +260,6 @@ func populateChunkDownloader(
 		return newStreamChunkDownloader(ctx, fetcher, data.Total, data.RowType,
 			data.RowSet, data.Chunks)
 	}
-
 	return &snowflakeChunkDownloader{
 		sc:                 sc,
 		ctx:                ctx,

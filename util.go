@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apache/arrow/go/arrow/array"
+
 	"github.com/google/uuid"
 )
 
@@ -33,6 +35,8 @@ const (
 	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
 	// enableHigherPrecision returns numbers with higher precision in a *big format
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
+	// arrowRecordChannel is the channel to receive the arrow record
+	arrowRecordChannel contextKey = "ARROW_RECORD_CHANNEL"
 )
 
 const (
@@ -54,6 +58,11 @@ func WithAsyncMode(ctx context.Context) context.Context {
 // WithQueryIDChan returns a context that contains the channel to receive the query ID
 func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 	return context.WithValue(ctx, queryIDChannel, c)
+}
+
+// WithArrowRecordChan returns a context that contains the channel to receive arrow records
+func WithArrowRecordChan(ctx context.Context, c chan []array.Record) context.Context {
+	return context.WithValue(ctx, arrowRecordChannel, c)
 }
 
 // WithRequestID returns a new context with the specified snowflake request id
