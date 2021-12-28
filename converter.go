@@ -777,9 +777,9 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 	for i, col := range record.Columns() {
 		srcColumnMeta := rowType[i]
 		data := col.Data()
-		converted := false
 
 		//TODO: confirm that it is okay to be using higher precision logic for conversions
+		var newCol = col
 		switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
 		case fixedType:
 			switch col.DataType().ID() {
@@ -795,8 +795,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 							ib.AppendNull()
 						}
 					}
-					converted = true
-					cols = append(cols, ib.NewArray())
+					newCol = ib.NewArray()
 				} else {
 					fb := array.NewFloat64Builder(pool)
 					for i, num := range array.NewDecimal128Data(data).Values() {
@@ -808,8 +807,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 							fb.AppendNull()
 						}
 					}
-					converted = true
-					cols = append(cols, fb.NewArray())
+					newCol = fb.NewArray()
 				}
 			case arrow.INT8:
 				if srcColumnMeta.Scale != 0 {
@@ -823,8 +821,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 							fb.AppendNull()
 						}
 					}
-					converted = true
-					cols = append(cols, fb.NewArray())
+					newCol = fb.NewArray()
 				}
 			case arrow.INT16:
 				if srcColumnMeta.Scale != 0 {
@@ -838,8 +835,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 							fb.AppendNull()
 						}
 					}
-					converted = true
-					cols = append(cols, fb.NewArray())
+					newCol = fb.NewArray()
 				}
 			case arrow.INT32:
 				if srcColumnMeta.Scale != 0 {
@@ -853,8 +849,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 							fb.AppendNull()
 						}
 					}
-					converted = true
-					cols = append(cols, fb.NewArray())
+					newCol = fb.NewArray()
 				}
 			case arrow.INT64:
 				if srcColumnMeta.Scale != 0 {
@@ -868,8 +863,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 							fb.AppendNull()
 						}
 					}
-					converted = true
-					cols = append(cols, fb.NewArray())
+					newCol = fb.NewArray()
 				}
 			}
 		case timeType:
@@ -891,8 +885,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 					}
 				}
 			}
-			converted = true
-			cols = append(cols, tb.NewArray())
+			newCol = tb.NewArray()
 		case timestampNtzType:
 			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{})
 			if col.DataType().ID() == arrow.STRUCT {
@@ -917,8 +910,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 					}
 				}
 			}
-			converted = true
-			cols = append(cols, tb.NewArray())
+			newCol = tb.NewArray()
 		case timestampLtzType:
 			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{TimeZone: "UTC"})
 			if col.DataType().ID() == arrow.STRUCT {
@@ -945,8 +937,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 					}
 				}
 			}
-			converted = true
-			cols = append(cols, tb.NewArray())
+			newCol = tb.NewArray()
 		case timestampTzType:
 			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{})
 			structData := array.NewStructData(data)
@@ -978,13 +969,9 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 					}
 				}
 			}
-			converted = true
-			cols = append(cols, tb.NewArray())
+			newCol = tb.NewArray()
 		}
-		// append raw column if there is no need to transform it
-		if !converted {
-			cols = append(cols, col)
-		}
+		cols = append(cols, newCol)
 	}
 	return array.NewRecord(s, cols, numRows), nil
 }
@@ -994,74 +981,45 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType) (*arrow.Sch
 	for i := 0; i < len(sc.Fields()); i++ {
 		f := sc.Field(i)
 		srcColumnMeta := rowType[i]
-		converted := false
+		converted := true
 
+		var t arrow.DataType
 		switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
 		case fixedType:
 			switch f.Type.ID() {
 			case arrow.DECIMAL:
 				if srcColumnMeta.Scale == 0 {
-					newField := arrow.Field{
-						Name:     f.Name,
-						Type:     &arrow.Int64Type{},
-						Nullable: f.Nullable,
-						Metadata: f.Metadata,
-					}
-					converted = true
-					fields = append(fields, newField)
+					t = &arrow.Int64Type{}
 				} else {
-					newField := arrow.Field{
-						Name:     f.Name,
-						Type:     &arrow.Float64Type{},
-						Nullable: f.Nullable,
-						Metadata: f.Metadata,
-					}
-					converted = true
-					fields = append(fields, newField)
+					t = &arrow.Float64Type{}
 				}
 			default:
 				if srcColumnMeta.Scale != 0 {
-					newField := arrow.Field{
-						Name:     f.Name,
-						Type:     &arrow.Float64Type{},
-						Nullable: f.Nullable,
-						Metadata: f.Metadata,
-					}
-					converted = true
-					fields = append(fields, newField)
+					t = &arrow.Float64Type{}
+				} else {
+					converted = false
 				}
 			}
 		case timeType:
-			newField := arrow.Field{
-				Name:     f.Name,
-				Type:     &arrow.Time64Type{},
-				Nullable: f.Nullable,
-				Metadata: f.Metadata,
-			}
-			converted = true
-			fields = append(fields, newField)
+			t = &arrow.Time64Type{}
 		case timestampNtzType, timestampTzType:
-			newField := arrow.Field{
-				Name:     f.Name,
-				Type:     &arrow.TimestampType{},
-				Nullable: f.Nullable,
-				Metadata: f.Metadata,
-			}
-			converted = true
-			fields = append(fields, newField)
+			t = &arrow.TimestampType{}
 		case timestampLtzType:
-			newField := arrow.Field{
+			t = &arrow.TimestampType{TimeZone: "UTC"}
+		default:
+			converted = false
+		}
+
+		var newField = f
+		if converted {
+			newField = arrow.Field{
 				Name:     f.Name,
-				Type:     &arrow.TimestampType{TimeZone: "UTC"},
+				Type:     t,
 				Nullable: f.Nullable,
 				Metadata: f.Metadata,
 			}
-			converted = true
-			fields = append(fields, newField)
 		}
-		if !converted {
-			fields = append(fields, f)
-		}
+		fields = append(fields, newField)
 	}
 	meta := sc.Metadata()
 	return arrow.NewSchema(fields, &meta), nil
