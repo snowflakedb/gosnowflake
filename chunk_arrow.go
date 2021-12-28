@@ -24,7 +24,7 @@ func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []exe
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
 	if arrowRecordChan := getArrowRecordChan(ctx); arrowRecordChan != nil {
-		numRows, err := arc.writeToArrowChan(arrowRecordChan)
+		numRows, err := arc.writeToArrowChan(arrowRecordChan, rowType)
 		if err != nil {
 			return nil, err
 		}
@@ -78,20 +78,23 @@ func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
 
 
 // Writes []array.Record to array record channel. Returns number of rows from records written to channel
-func (arc *arrowResultChunk) writeToArrowChan(ch chan<- []array.Record) (int, error) {
+func (arc *arrowResultChunk) writeToArrowChan(ch chan<- []array.Record, rowType []execResponseRowType) (int, error) {
 	var numRows int
 	var records []array.Record
 
 	for {
-		record, err := arc.reader.Read()
+		rawRecord, err := arc.reader.Read()
 		if err == io.EOF {
 			ch <- records
 			return numRows, nil
 		} else if err != nil {
 			return numRows, err
 		}
-
-		record.Retain()
+		record, err := arrowToRecord(rawRecord, rowType)
+		rawRecord.Release()
+		if err != nil {
+			return numRows, err
+		}
 		records = append(records, record)
 
 		currentRows := int(record.NumRows())
