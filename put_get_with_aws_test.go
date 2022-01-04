@@ -291,7 +291,7 @@ func TestPutGetAWSStage(t *testing.T) {
 		var createStageQuery string
 		keyID, secretKey, _, err := getAWSCredentials()
 		if err != nil {
-			t.Error(err)
+			t.Skip("snowflake admin account not accessible")
 		}
 		createStageQuery = fmt.Sprintf(createStageStmt,
 			stageName,
