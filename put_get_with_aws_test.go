@@ -8,10 +8,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -259,4 +262,112 @@ func TestPretendToPutButList(t *testing.T) {
 		&s3.ListBucketsInput{}); err == nil {
 		t.Fatal("list buckets should fail")
 	}
+}
+
+func TestPutGetAWSStage(t *testing.T) {
+	if runningOnGithubAction() && !runningOnAWS() {
+		t.Skip("skipping non aws environment")
+	}
+
+	tmpDir, err := ioutil.TempDir("", "put_get")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	name := "test_put_get.txt.gz"
+	fname := filepath.Join(tmpDir, name)
+	originalContents := "123,test1\n456,test2\n"
+	stageName := "test_put_get_stage_" + randomString(5)
+
+	var b bytes.Buffer
+	gzw := gzip.NewWriter(&b)
+	gzw.Write([]byte(originalContents))
+	gzw.Close()
+	if err = ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+		t.Fatal("could not write to gzip file")
+	}
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		var createStageQuery string
+		keyID, secretKey, _, err := getAWSCredentials()
+		if err != nil {
+			t.Error(err)
+		}
+		createStageQuery = fmt.Sprintf(createStageStmt,
+			stageName,
+			"s3://"+stageName,
+			fmt.Sprintf("AWS_KEY_ID='%v' AWS_SECRET_KEY='%v'", keyID, secretKey))
+		dbt.mustExec(createStageQuery)
+
+		defer dbt.mustExec("DROP STAGE IF EXISTS " + stageName)
+
+		sql := "put 'file://%v' @~/%v auto_compress=false"
+		sqlText := fmt.Sprintf(sql, strings.ReplaceAll(fname, "\\", "\\\\"), stageName)
+		rows := dbt.mustQuery(sqlText)
+
+		var s0, s1, s2, s3, s4, s5, s6, s7 string
+		if rows.Next() {
+			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if s6 != uploaded.String() {
+			t.Fatalf("expected %v, got: %v", uploaded, s6)
+		}
+
+		sql = fmt.Sprintf("get @~/%v 'file://%v'", stageName, tmpDir)
+		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		rows = dbt.mustQuery(sqlText)
+		defer rows.Close()
+		for rows.Next() {
+			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+				t.Error(err)
+			}
+
+			if strings.Compare(s0, name) != 0 {
+				t.Error("a file was not downloaded by GET")
+			}
+			if v, err := strconv.Atoi(s1); err != nil || v != 41 {
+				t.Error("did not return the right file size")
+			}
+			if s2 != "DOWNLOADED" {
+				t.Error("did not return DOWNLOADED status")
+			}
+			if s3 != "" {
+				t.Errorf("returned %v", s3)
+			}
+		}
+
+		files, err := filepath.Glob(filepath.Join(tmpDir, "*"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fileName := files[0]
+		f, err := os.Open(fileName)
+		if err != nil {
+			t.Error(err)
+		}
+		defer f.Close()
+		gz, err := gzip.NewReader(f)
+		if err != nil {
+			t.Error(err)
+		}
+		var contents string
+		for {
+			c := make([]byte, defaultChunkBufferSize)
+			if n, err := gz.Read(c); err != nil {
+				if err == io.EOF {
+					contents = contents + string(c[:n])
+					break
+				}
+				t.Error(err)
+			} else {
+				contents = contents + string(c[:n])
+			}
+		}
+
+		if contents != originalContents {
+			t.Error("output is different from the original file")
+		}
+	})
 }
