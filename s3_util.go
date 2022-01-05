@@ -202,11 +202,7 @@ func (util *snowflakeS3Util) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
 	maxConcurrency int64) error {
-	s3loc, err := util.extractBucketNameAndPath(meta.stageInfo.Location)
-	if err != nil {
-		return err
-	}
-	s3path := s3loc.s3Path + strings.TrimLeft(meta.dstFileName, "/")
+	s3Obj, _ := util.getS3Object(meta, meta.srcFileName)
 	client, ok := meta.client.(*s3.Client)
 	if !ok {
 		return &SnowflakeError{
@@ -223,8 +219,8 @@ func (util *snowflakeS3Util) nativeDownloadFile(
 		u.Concurrency = int(maxConcurrency)
 	})
 	if _, err = downloader.Download(context.Background(), f, &s3.GetObjectInput{
-		Bucket: &s3loc.bucketName,
-		Key:    &s3path,
+		Bucket: s3Obj.Bucket,
+		Key:    s3Obj.Key,
 	}); err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {

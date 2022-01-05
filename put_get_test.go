@@ -17,6 +17,8 @@ import (
 	"testing"
 )
 
+const createStageStmt = "CREATE OR REPLACE STAGE %v URL = '%v' CREDENTIALS = (%v)"
+
 func TestPutError(t *testing.T) {
 	if isWindows {
 		t.Skip("permission model is different")
@@ -53,10 +55,10 @@ func TestPutError(t *testing.T) {
 			RaisePutGetError: false,
 		},
 	}
-	if err := fta.execute(); err != nil {
+	if err = fta.execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fta.result(); err != nil {
+	if _, err = fta.result(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -66,10 +68,10 @@ func TestPutError(t *testing.T) {
 			RaisePutGetError: true,
 		},
 	}
-	if err := fta.execute(); err != nil {
+	if err = fta.execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fta.result(); err == nil {
+	if _, err = fta.result(); err == nil {
 		t.Fatalf("should raise permission error")
 	}
 }
@@ -108,22 +110,30 @@ func cleanupPut(dbt *DBTest, td *tcPutGetData) {
 	dbt.mustExec("drop warehouse " + td.warehouse)
 }
 
-func createTestData(dbt *DBTest) (*tcPutGetData, error) {
+func getAWSCredentials() (string, string, string, error) {
 	keyID, ok := os.LookupEnv("AWS_ACCESS_KEY_ID")
 	if !ok {
-		return nil, fmt.Errorf("key id invalid")
+		return "", "", "", fmt.Errorf("key id invalid")
 	}
 	secretKey, ok := os.LookupEnv("AWS_SECRET_ACCESS_KEY")
 	if !ok {
-		return nil, fmt.Errorf("secret key invalid")
+		return keyID, "", "", fmt.Errorf("secret key invalid")
 	}
 	bucket, present := os.LookupEnv("SF_AWS_USER_BUCKET")
 	if !present {
 		usr, err := usr.Current()
 		if err != nil {
-			return nil, err
+			return keyID, secretKey, "", err
 		}
 		bucket = fmt.Sprintf("sfc-dev1-regression/%v/reg", usr.Username)
+	}
+	return keyID, secretKey, bucket, nil
+}
+
+func createTestData(dbt *DBTest) (*tcPutGetData, error) {
+	keyID, secretKey, bucket, err := getAWSCredentials()
+	if err != nil {
+		return nil, err
 	}
 	uniqueName := randomString(10)
 	database := fmt.Sprintf("%v_db", uniqueName)
@@ -143,7 +153,7 @@ func createTestData(dbt *DBTest) (*tcPutGetData, error) {
 		bucket,
 	}
 
-	if _, err := dbt.db.Exec("use role sysadmin"); err != nil {
+	if _, err = dbt.db.Exec("use role sysadmin"); err != nil {
 		return nil, err
 	}
 	dbt.mustExec(fmt.Sprintf(
@@ -275,7 +285,6 @@ func TestPutOverwrite(t *testing.T) {
 	f.Close()
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		var err error
 		if _, err = dbt.db.Exec("use role sysadmin"); err != nil {
 			t.Skip("snowflake admin account not accessible")
 		}
@@ -366,7 +375,7 @@ func testPutGet(t *testing.T, isStream bool) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err := ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err = ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
@@ -400,7 +409,7 @@ func testPutGet(t *testing.T, isStream bool) {
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
 		if rows.Next() {
-			if err := rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -422,7 +431,7 @@ func testPutGet(t *testing.T, isStream bool) {
 		rows = dbt.mustQuery(sqlText)
 		defer rows.Close()
 		for rows.Next() {
-			if err := rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 				t.Error(err)
 			}
 			if !strings.HasPrefix(s0, "data_") {

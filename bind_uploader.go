@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	bindStageName   = "SYSTEM$BIND"
-	createStageStmt = "CREATE OR REPLACE TEMPORARY STAGE " + bindStageName +
+	bindStageName            = "SYSTEM$BIND"
+	createTemporaryStageStmt = "CREATE OR REPLACE TEMPORARY STAGE " + bindStageName +
 		" file_format=" + "(type=csv field_optionally_enclosed_by='\"')"
 
 	// size (in bytes) of max input stream (10MB default) as per JDBC specs
@@ -91,7 +91,7 @@ func (bu *bindUploader) createStageIfNeeded() error {
 	if bu.arrayBindStage != "" {
 		return nil
 	}
-	data, err := bu.sc.exec(bu.ctx, createStageStmt, false, false, false, []driver.NamedValue{})
+	data, err := bu.sc.exec(bu.ctx, createTemporaryStageStmt, false, false, false, []driver.NamedValue{})
 	if err != nil {
 		newThreshold := "0"
 		bu.sc.cfg.Params[sessionArrayBindStageThreshold] = &newThreshold
