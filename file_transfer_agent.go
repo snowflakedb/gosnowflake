@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -588,7 +588,7 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 
 func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
 	if sfa.stageLocationType == s3Client {
-		s3Util := new(snowflakeS3Util)
+		s3Util := new(snowflakeS3Client)
 		s3Loc, err := s3Util.extractBucketNameAndPath(sfa.stageInfo.Location)
 		if err != nil {
 			return err
