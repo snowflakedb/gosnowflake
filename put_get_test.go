@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -10,7 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	usr "os/user"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -121,11 +121,11 @@ func getAWSCredentials() (string, string, string, error) {
 	}
 	bucket, present := os.LookupEnv("SF_AWS_USER_BUCKET")
 	if !present {
-		usr, err := usr.Current()
+		user, err := user.Current()
 		if err != nil {
 			return keyID, secretKey, "", err
 		}
-		bucket = fmt.Sprintf("sfc-dev1-regression/%v/reg", usr.Username)
+		bucket = fmt.Sprintf("sfc-dev1-regression/%v/reg", user.Username)
 	}
 	return keyID, secretKey, bucket, nil
 }

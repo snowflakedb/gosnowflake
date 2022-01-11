@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -140,7 +140,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s3Util := new(snowflakeS3Util)
+	s3Util := new(snowflakeS3Client)
 	s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
 	if err != nil {
 		t.Error(err)
@@ -252,7 +252,7 @@ func TestPretendToPutButList(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s3Util := new(snowflakeS3Util)
+	s3Util := new(snowflakeS3Client)
 	s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
 	if err != nil {
 		t.Error(err)

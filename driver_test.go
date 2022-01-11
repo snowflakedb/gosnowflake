@@ -1,8 +1,6 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
-
-//lint:file-ignore U1000 Ignore all unused code
 
 import (
 	"bytes"
@@ -26,7 +24,7 @@ import (
 )
 
 var (
-	user             string
+	username         string
 	pass             string
 	account          string
 	dbname           string
@@ -61,7 +59,7 @@ func init() {
 		}
 		return defaultValue
 	}
-	user = env("SNOWFLAKE_TEST_USER", "testuser")
+	username = env("SNOWFLAKE_TEST_USER", "testuser")
 	pass = env("SNOWFLAKE_TEST_PASSWORD", "testpassword")
 	account = env("SNOWFLAKE_TEST_ACCOUNT", "testaccount")
 	dbname = env("SNOWFLAKE_TEST_DATABASE", "testdb")
@@ -84,7 +82,7 @@ func init() {
 }
 
 func createDSN(timezone string) {
-	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, schemaname)
+	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
 
 	parameters := url.Values{}
 	parameters.Add("timezone", timezone)
@@ -375,18 +373,10 @@ func runningOnAWS() bool {
 	return os.Getenv("CLOUD_PROVIDER") == "AWS"
 }
 
-func runningOnAzure() bool {
-	return os.Getenv("CLOUD_PROVIDER") == "AZURE"
-}
-
-func runningOnGCP() bool {
-	return os.Getenv("CLOUD_PROVIDER") == "GCP"
-}
-
 func TestBogusUserPasswordParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
 	invalidUserPassErrorTests(invalidDNS, t)
-	invalidDNS = fmt.Sprintf("%s:%s@%s", user, "INVALID_PASSWORD", host)
+	invalidDNS = fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
 	invalidUserPassErrorTests(invalidDNS, t)
 }
 
@@ -421,9 +411,9 @@ func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
 }
 
 func TestBogusHostNameParameters(t *testing.T) {
-	invalidDNS := fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST:1234")
+	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
 	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution"}, t)
-	invalidDNS = fmt.Sprintf("%s:%s@%s", user, pass, "INVALID_HOST")
+	invalidDNS = fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST")
 	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer", "EOF", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution"}, t)
 }
 
@@ -1965,7 +1955,7 @@ func TestLargeSetResultCancel(t *testing.T) {
 }
 
 func TestValidateDatabaseParameter(t *testing.T) {
-	baseDSN := fmt.Sprintf("%s:%s@%s", user, pass, host)
+	baseDSN := fmt.Sprintf("%s:%s@%s", username, pass, host)
 	testcases := []struct {
 		dsn       string
 		params    map[string]string
@@ -2025,7 +2015,7 @@ func TestValidateDatabaseParameter(t *testing.T) {
 }
 
 func TestSpecifyWarehouseDatabase(t *testing.T) {
-	dsn := fmt.Sprintf("%s:%s@%s/%s", user, pass, host, dbname)
+	dsn := fmt.Sprintf("%s:%s@%s/%s", username, pass, host, dbname)
 	parameters := url.Values{}
 	parameters.Add("account", account)
 	parameters.Add("warehouse", warehouse)
@@ -2152,7 +2142,7 @@ func TestOpenWithTransport(t *testing.T) {
 }
 
 func createDSNWithClientSessionKeepAlive() {
-	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", user, pass, host, dbname, schemaname)
+	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
 
 	parameters := url.Values{}
 	parameters.Add("client_session_keep_alive", "true")

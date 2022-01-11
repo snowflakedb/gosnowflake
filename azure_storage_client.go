@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -17,7 +17,7 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 )
 
-type snowflakeAzureUtil struct {
+type snowflakeAzureClient struct {
 }
 
 type azureLocation struct {
@@ -25,7 +25,7 @@ type azureLocation struct {
 	path          string
 }
 
-func (util *snowflakeAzureUtil) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
+func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
 	sasToken := info.Creds.AzureSasToken
 	p := azblob.NewPipeline(azblob.NewAnonymousCredential(), azblob.PipelineOptions{
 		Retry: azblob.RetryOptions{
@@ -44,7 +44,7 @@ func (util *snowflakeAzureUtil) createClient(info *execResponseStageInfo, _ bool
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
+func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
 	container, ok := meta.client.(*azblob.ContainerURL)
 	if !ok {
 		return nil, fmt.Errorf("failed to parse client to azblob.ContainerURL")
@@ -92,7 +92,7 @@ func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename strin
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) uploadFile(
+func (util *snowflakeAzureClient) uploadFile(
 	dataFile string,
 	meta *fileMetadata,
 	encryptMeta *encryptMetadata,
@@ -188,7 +188,7 @@ func (util *snowflakeAzureUtil) uploadFile(
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) nativeDownloadFile(
+func (util *snowflakeAzureClient) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
 	maxConcurrency int64) error {
@@ -219,7 +219,7 @@ func (util *snowflakeAzureUtil) nativeDownloadFile(
 	return nil
 }
 
-func (util *snowflakeAzureUtil) extractContainerNameAndPath(location string) (*azureLocation, error) {
+func (util *snowflakeAzureClient) extractContainerNameAndPath(location string) (*azureLocation, error) {
 	stageLocation, err := expandUser(location)
 	if err != nil {
 		return nil, err
@@ -237,7 +237,7 @@ func (util *snowflakeAzureUtil) extractContainerNameAndPath(location string) (*a
 	return &azureLocation{containerName, path}, nil
 }
 
-func (util *snowflakeAzureUtil) detectAzureTokenExpireError(resp *http.Response) bool {
+func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Response) bool {
 	if resp.StatusCode != 403 {
 		return false
 	}
