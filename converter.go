@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -21,6 +21,21 @@ import (
 )
 
 const format = "2006-01-02 15:04:05.999999999"
+
+type timezoneType int
+
+const (
+	// TimestampNTZType denotes a NTZ timezoneType for array binds
+	TimestampNTZType timezoneType = iota
+	// TimestampLTZType denotes a LTZ timezoneType for array binds
+	TimestampLTZType
+	// TimestampTZType denotes a TZ timezoneType for array binds
+	TimestampTZType
+	// DateType denotes a date type for array binds
+	DateType
+	// TimeType denotes a time type for array binds
+	TimeType
+)
 
 // goTypeToSnowflake translates Go data type to Snowflake data type.
 func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
@@ -560,7 +575,7 @@ type (
 
 // Array takes in a column of a row to be inserted via array binding, bulk or
 // otherwise, and converts it into a native snowflake type for binding
-func Array(a interface{}, typ ...snowflakeType) interface{} {
+func Array(a interface{}, typ ...timezoneType) interface{} {
 	switch t := a.(type) {
 	case []int:
 		return (*intArray)(&t)
@@ -583,15 +598,15 @@ func Array(a interface{}, typ ...snowflakeType) interface{} {
 			return a
 		}
 		switch typ[0] {
-		case timestampNtzType:
+		case TimestampNTZType:
 			return (*timestampNtzArray)(&t)
-		case timestampLtzType:
+		case TimestampLTZType:
 			return (*timestampLtzArray)(&t)
-		case timestampTzType:
+		case TimestampTZType:
 			return (*timestampTzArray)(&t)
-		case dateType:
+		case DateType:
 			return (*dateArray)(&t)
-		case timeType:
+		case TimeType:
 			return (*timeArray)(&t)
 		default:
 			return a
@@ -618,15 +633,15 @@ func Array(a interface{}, typ ...snowflakeType) interface{} {
 			return a
 		}
 		switch typ[0] {
-		case timestampNtzType:
+		case TimestampNTZType:
 			return (*timestampNtzArray)(t)
-		case timestampLtzType:
+		case TimestampLTZType:
 			return (*timestampLtzArray)(t)
-		case timestampTzType:
+		case TimestampTZType:
 			return (*timestampTzArray)(t)
-		case dateType:
+		case DateType:
 			return (*dateArray)(t)
-		case timeType:
+		case TimeType:
 			return (*timeArray)(t)
 		default:
 			return a
