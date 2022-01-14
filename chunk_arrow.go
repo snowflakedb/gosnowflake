@@ -20,6 +20,8 @@ type arrowResultChunk struct {
 	allocator        memory.Allocator
 }
 
+// REF func (arc *arrowResultChunk) decodeArrowBatch(...) ([]array.Record, error)
+
 func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
@@ -75,7 +77,6 @@ func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
 
 	return arrowResultChunk{*rr, 0, 0, memory.NewGoAllocator()}
 }
-
 
 // Writes []array.Record to array record channel. Returns number of rows from records written to channel
 func (arc *arrowResultChunk) writeToArrowChan(ch chan<- []array.Record, rowType []execResponseRowType) (int, error) {

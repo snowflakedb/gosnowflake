@@ -66,6 +66,15 @@ type snowflakeChunkDownloader struct {
 	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
 }
 
+type Batch struct {
+	idx int
+	scd *snowflakeChunkDownloader
+	// REF (b *Batch) Fetch() ([]array.Record, error)
+	//  FuncDownloadHelper(ctx, scd, idx)
+	//  return scd.Batches[idx]
+	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
+}
+
 func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
 	for _, c := range scd.ChunkMetas {
 		acc += c.UncompressedSize
@@ -90,6 +99,8 @@ func (scd *snowflakeChunkDownloader) nextResultSet() error {
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
+	// REF if batches, instantiate sdc.Batches and return
+
 	scd.CurrentChunkSize = len(scd.RowSet.JSON) // cache the size
 	scd.CurrentIndex = -1                       // initial chunks idx
 	scd.CurrentChunkIndex = -1                  // initial chunk
@@ -98,20 +109,32 @@ func (scd *snowflakeChunkDownloader) start() error {
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
 
 	if isArrowRecordChanEnabled(scd.ctx) {
+		// REF scd.Batches = [][]array.Record
 		scd.ArrowChannels = &sync.Map{}
 	}
 
+	// REF; bypass this
 	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
 		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
+		// REF first chunk  is downloaded and converted, not necessary with batches
 		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.ctx, scd.RowSet.RowType, higherPrecision)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
 		}
 	}
+
+	// REF; populate resultbatches slice with chunks
+	// for i := range len(scd.ChunkMetas) {
+	//	 scd.ResultBatches[i] = arrowResultChunk{
+	//		*ipcReader,
+	//		0,
+	//		int(scd.totalUncompressedSize()),
+	//		memory.NewGoAllocator(),
+	//	}
 
 	// start downloading chunks if exists
 	chunkMetaLen := len(scd.ChunkMetas)
@@ -200,7 +223,7 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 			val, ok := scd.ArrowChannels.Load(scd.CurrentChunkIndex)
 			if ok {
 				ch := val.(chan []array.Record)
-				records := <- ch
+				records := <-ch
 				arrowRecordChan <- records
 				close(ch)
 			}
@@ -311,6 +334,7 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 	}
 }
 
+// REF : Fetch wraps this; get scd.Batches[idx]; arrow release on batches[idx] + GC
 func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) error {
 	headers := make(map[string]string)
 	if len(scd.ChunkHeader) > 0 {
@@ -410,6 +434,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 		} else {
 			ctx = scd.ctx
 		}
+		// REF scd.Batches[idx], err = arc.decodeArrowBatch()
 		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec)
 		if err != nil {
 			return err
