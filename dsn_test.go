@@ -858,9 +858,9 @@ func TestDSN(t *testing.T) {
 		},
 		{
 			cfg: &Config{
-				User:     "u",
-				Password: "p",
-				Account:  "a.e",
+				User:                     "u",
+				Password:                 "p",
+				Account:                  "a.e",
 				QueryMonitoringThreshold: 20 * time.Second,
 			},
 			dsn: "u:p@a.e.snowflakecomputing.com:443?ocspFailOpen=true&queryMonitoringThreshold=20&region=e&validateDefaultParameters=true",

@@ -276,6 +276,7 @@ func (sc *snowflakeConn) ExecContext(
 	isDesc := isDescribeOnly(ctx)
 	// TODO handle isInternal
 	ctx = setResultType(ctx, execResultType)
+	qStart := time.Now()
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
@@ -306,7 +307,7 @@ func (sc *snowflakeConn) ExecContext(
 			return nil, err
 		}
 		logger.WithContext(ctx).Debugf("number of updated rows: %#v", updatedRows)
-		return &snowflakeResult{
+		rows := &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1,
 			queryID:      sc.QueryID,
@@ -357,6 +358,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	ctx = setResultType(ctx, queryResultType)
+	qStart := time.Now()
 	// TODO: handle isInternal
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
@@ -398,11 +400,11 @@ func (sc *snowflakeConn) queryContextInternal(
 	// SIG-16907: we occasionally panic on a nil value here, adding tracing to help diagnose.
 	if rows == nil {
 		logger.WithContext(ctx).Infof("Debug: rows nil: is-multi-stmt? %v, err: %v", isMultiStmt(&data.Data), err)
-	}
-	if rows.ChunkDownloader == nil {
+	} else if rows.ChunkDownloader == nil {
 		logger.WithContext(ctx).Infof("Debug: rows-chunk-downloader nil: is-multi-stmt? %v, err: %v", isMultiStmt(&data.Data), err)
+	} else {
+		rows.ChunkDownloader.start()
 	}
-	rows.ChunkDownloader.start()
 	return rows, err
 }
 
