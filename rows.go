@@ -27,6 +27,11 @@ var (
 	maxChunkDownloaderErrorCounter = 5
 )
 
+// SnowflakeRows provides an API for methods exposed to the clients
+type SnowflakeRows interface {
+	GetBatches() ([]*ResultBatch, error)
+}
+
 type snowflakeRows struct {
 	sc                  *snowflakeConn
 	ChunkDownloader     chunkDownloader
@@ -142,6 +147,10 @@ func (rows *snowflakeRows) GetQueryID() string {
 
 func (rows *snowflakeRows) GetStatus() queryStatus {
 	return rows.status
+}
+
+func (rows *snowflakeRows) GetBatches() ([]*ResultBatch, error) {
+	return rows.ChunkDownloader.getResultBatches(), nil
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {

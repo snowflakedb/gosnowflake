@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -386,4 +387,45 @@ func TestWithStreamDownloader(t *testing.T) {
 			t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 		}
 	})
+}
+
+func TestWithDistributedResultBatches(t *testing.T) {
+	ctx := WithDistributedResultBatches(context.Background())
+	numrows := 100
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	query := fmt.Sprintf(selectRandomGenerator, numrows)
+	rows, err := sc.QueryContext(ctx, query, []driver.NamedValue{})
+	if err != nil {
+		t.Error(err)
+	}
+	defer rows.Close()
+	batches, err := rows.(*snowflakeRows).GetBatches()
+	if err != nil {
+		t.Error(err)
+	}
+
+	cnt := 0
+	for _, b := range batches {
+		err := b.Fetch()
+		if err != nil {
+			t.Error(err)
+		}
+		for _, r := range *b.Rec {
+			cnt += int(r.NumRows())
+		}
+	}
+	if cnt != numrows {
+		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
+	}
 }

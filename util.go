@@ -33,6 +33,8 @@ const (
 	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
 	// enableHigherPrecision returns numbers with higher precision in a *big format
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
+	// distributedResultBatches allows the user to retrieve array record download workers
+	distributedResultBatches contextKey = "DISTRIBUTED_RESULT_BATCH"
 )
 
 const (
@@ -91,6 +93,12 @@ func WithDescribeOnly(ctx context.Context) context.Context {
 // types with numbers that don't fit into its native Golang counterpart
 func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
+}
+
+// WithDistributedResultBatches returns a context that allows users to retrieve
+// arrow.Record download workers upon querying
+func WithDistributedResultBatches(ctx context.Context) context.Context {
+	return context.WithValue(ctx, distributedResultBatches, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one

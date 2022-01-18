@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/apache/arrow/go/arrow/array"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -34,6 +35,7 @@ type chunkDownloader interface {
 	getRowType() []execResponseRowType
 	setNextChunkDownloader(downloader chunkDownloader)
 	getNextChunkDownloader() chunkDownloader
+	getResultBatches() []*ResultBatch
 }
 
 type snowflakeChunkDownloader struct {
@@ -55,9 +57,11 @@ type snowflakeChunkDownloader struct {
 	ChunksFinalErrors  []*chunkError
 	ChunksMutex        *sync.Mutex
 	DoneDownloadCond   *sync.Cond
+	FirstBatch         *ResultBatch
 	NextDownloader     chunkDownloader
 	Qrmk               string
 	QueryResultFormat  string
+	ResultBatches      []*ResultBatch
 	RowSet             rowSetType
 	FuncDownload       func(context.Context, *snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
@@ -88,13 +92,15 @@ func (scd *snowflakeChunkDownloader) nextResultSet() error {
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
+	if usesDistributedBatches(scd.ctx) {
+		return setUpDistributedBatches(scd)
+	}
 	scd.CurrentChunkSize = len(scd.RowSet.JSON) // cache the size
 	scd.CurrentIndex = -1                       // initial chunks idx
 	scd.CurrentChunkIndex = -1                  // initial chunk
 
 	scd.CurrentChunk = make([]chunkRowType, scd.CurrentChunkSize)
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
-
 	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
@@ -234,6 +240,13 @@ func (scd *snowflakeChunkDownloader) getRowType() []execResponseRowType {
 	return scd.RowSet.RowType
 }
 
+func (scd *snowflakeChunkDownloader) getResultBatches() []*ResultBatch {
+	if scd.FirstBatch.Rec == nil {
+		return scd.ResultBatches
+	}
+	return append([]*ResultBatch{scd.FirstBatch}, scd.ResultBatches...)
+}
+
 func getChunk(
 	ctx context.Context,
 	scd *snowflakeChunkDownloader,
@@ -246,6 +259,33 @@ func getChunk(
 		return nil, err
 	}
 	return newRetryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, u, headers, timeout).execute()
+}
+
+func setUpDistributedBatches(scd *snowflakeChunkDownloader) error {
+	var err error
+	chunkMetaLen := len(scd.ChunkMetas)
+	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
+	scd.FirstBatch = &ResultBatch{
+		idx:                0,
+		scd:                scd,
+		funcDownloadHelper: scd.FuncDownloadHelper,
+	}
+	// decode first chunk if possible
+	if firstArrowChunk.allocator != nil {
+		scd.FirstBatch.Rec, err = firstArrowChunk.decodeArrowBatch(scd)
+		if err != nil {
+			return err
+		}
+	}
+	scd.ResultBatches = make([]*ResultBatch, chunkMetaLen)
+	for i := 0; i < chunkMetaLen; i++ {
+		scd.ResultBatches[i] = &ResultBatch{
+			idx:                i,
+			scd:                scd,
+			funcDownloadHelper: scd.FuncDownloadHelper,
+		}
+	}
+	return nil
 }
 
 /* largeResultSetReader is a reader that wraps the large result set with leading and tailing brackets. */
@@ -383,6 +423,13 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			int(scd.totalUncompressedSize()),
 			memory.NewGoAllocator(),
 		}
+		if usesDistributedBatches(scd.ctx) {
+			scd.ResultBatches[idx].Rec, err = arc.decodeArrowBatch(scd)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
 		respd, err = arc.decodeArrowChunk(scd.RowSet.RowType, highPrec)
 		if err != nil {
@@ -515,6 +562,10 @@ func (scd *streamChunkDownloader) getRowType() []execResponseRowType {
 	return scd.RowSet.RowType
 }
 
+func (scd *streamChunkDownloader) getResultBatches() []*ResultBatch {
+	return nil
+}
+
 func useStreamDownloader(ctx context.Context) bool {
 	val := ctx.Value(streamChunkDownload)
 	if val == nil {
@@ -632,4 +683,33 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 		}
 	}
 	return nil
+}
+
+// A ResultBatch object encapsulates a function that retrieves a subset of rows in a result set.
+type ResultBatch struct {
+	Rec                *[]array.Record
+	idx                int
+	scd                *snowflakeChunkDownloader
+	funcDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
+}
+
+// Fetch returns an array of records representing a chunk in the query
+func (rb *ResultBatch) Fetch() error {
+	if rb.Rec != nil {
+		return nil
+	}
+	err := rb.funcDownloadHelper(context.Background(), rb.scd, rb.idx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func usesDistributedBatches(ctx context.Context) bool {
+	val := ctx.Value(distributedResultBatches)
+	if val == nil {
+		return false
+	}
+	a, ok := val.(bool)
+	return ok && a
 }
