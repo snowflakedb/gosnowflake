@@ -73,8 +73,7 @@ func main() {
 	defer rows.Close()
 	var v int
 	for rows.Next() {
-		err := rows.Scan(&v)
-		if err != nil {
+		if err = rows.Scan(&v); err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
 		}
 		if v != 1 {

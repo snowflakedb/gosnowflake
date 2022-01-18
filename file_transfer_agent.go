@@ -29,8 +29,10 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 )
 
-type cloudType string
-type commandType string
+type (
+	cloudType   string
+	commandType string
+)
 
 const (
 	fileProtocol              = "file://"
@@ -44,8 +46,9 @@ const (
 	uploadCommand   commandType = "UPLOAD"
 	downloadCommand commandType = "DOWNLOAD"
 	unknownCommand  commandType = "UNKNOWN"
-	putRegexp       string      = `(?i)^(?:/\*.*\*/\s*)*put\s+`
-	getRegexp       string      = `(?i)^(?:/\*.*\*/\s*)*get\s+`
+
+	putRegexp string = `(?i)^(?:/\*.*\*/\s*)*put\s+`
+	getRegexp string = `(?i)^(?:/\*.*\*/\s*)*get\s+`
 )
 
 const (
@@ -346,8 +349,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				Number:   ErrFileNotExists,
 				SQLState: sfa.data.SQLState,
 				QueryID:  sfa.data.QueryID,
-				Message: fmt.Sprintf("file does not exist: %v",
-					fileName),
+				Message:  fmt.Sprintf("file does not exist: %v", fileName),
 			}).exceptionTelemetry(sfa.sc)
 		}
 		if sfa.sourceStream != nil {
@@ -369,16 +371,14 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 						Number:   ErrFileNotExists,
 						SQLState: sfa.data.SQLState,
 						QueryID:  sfa.data.QueryID,
-						Message: fmt.Sprintf("file does not exist: %v",
-							fileName),
+						Message:  fmt.Sprintf("file does not exist: %v", fileName),
 					}).exceptionTelemetry(sfa.sc)
 				} else if fi.IsDir() {
 					return (&SnowflakeError{
 						Number:   ErrFileNotExists,
 						SQLState: sfa.data.SQLState,
 						QueryID:  sfa.data.QueryID,
-						Message: fmt.Sprintf("not a file but a directory: %v",
-							fileName),
+						Message:  fmt.Sprintf("not a file but a directory: %v", fileName),
 					}).exceptionTelemetry(sfa.sc)
 				}
 				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
@@ -403,11 +403,9 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 		for _, fileName := range sfa.srcFiles {
 			if len(fileName) > 0 {
 				firstPathSep := strings.Index(fileName, "/")
-				var dstFileName string
+				dstFileName := fileName
 				if firstPathSep >= 0 {
 					dstFileName = fileName[firstPathSep+1:]
-				} else {
-					dstFileName = fileName
 				}
 				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
 					name:              baseName(fileName),
@@ -633,7 +631,8 @@ func (sfa *snowflakeFileTransferAgent) getLocalFilePathFromCommand(command strin
 	filePathBeginIdx := strings.Index(command, fileProtocol)
 	isFilePathQuoted := command[filePathBeginIdx-1] == '\''
 	filePathBeginIdx += len(fileProtocol)
-	filePath, filePathEndIdx := "", 0
+	var filePathEndIdx int
+	filePath := ""
 
 	if isFilePathQuoted {
 		filePathEndIdx = filePathBeginIdx + strings.Index(command[filePathBeginIdx:], "'")
@@ -1016,7 +1015,8 @@ func (sfa *snowflakeFileTransferAgent) renewExpiredClient() (cloudClient, error)
 }
 
 func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
-	data := new(execResponseData)
+	// inherit old response data
+	data := sfa.data
 	rowset := make([]fileTransferResultType, 0)
 	if sfa.commandType == uploadCommand {
 		if len(sfa.results) > 0 {

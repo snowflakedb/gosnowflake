@@ -25,6 +25,25 @@ const (
 	serviceNameAppend = "a"
 )
 
+func TestInvalidConnection(t *testing.T) {
+	db := openDB(t)
+	if err := db.Close(); err != nil {
+		t.Error("should not cause error in Close")
+	}
+	if err := db.Close(); err != nil {
+		t.Error("should not cause error in the second call of Close")
+	}
+	if _, err := db.Exec("CREATE TABLE OR REPLACE test0(c1 int)"); err == nil {
+		t.Error("should fail to run Exec")
+	}
+	if _, err := db.Query("SELECT CURRENT_TIMESTAMP()"); err == nil {
+		t.Error("should fail to run Query")
+	}
+	if _, err := db.Begin(); err == nil {
+		t.Error("should fail to run Begin")
+	}
+}
+
 // postQueryMock generates a response based on the X-Snowflake-Service header,
 // to generate a response with the SERVICE_NAME field appending a character at
 // the end of the header. This way it could test both the send and receive logic
@@ -276,7 +295,7 @@ func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL
 // of that query.
 func fetchResultByQueryID(
 	t *testing.T,
-	customGet FuncGetType,
+	customGet funcGetType,
 	expectedFetchErr *SnowflakeError) error {
 	config, err := ParseDSN(dsn)
 	if err != nil {
