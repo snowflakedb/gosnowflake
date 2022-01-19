@@ -33,6 +33,8 @@ const (
 	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
 	// enableHigherPrecision returns numbers with higher precision in a *big format
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
+	// queryTag is a parameter that allows clients to append metadata to a query
+	queryTag contextKey = "QUERY_TAG"
 )
 
 const (
@@ -91,6 +93,12 @@ func WithDescribeOnly(ctx context.Context) context.Context {
 // types with numbers that don't fit into its native Golang counterpart
 func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
+}
+
+// WithQueryTag returns a context that will set the given tag as the QUERY_TAG
+// parameter on any queries that are run
+func WithQueryTag(ctx context.Context, tag string) context.Context {
+	return context.WithValue(ctx, queryTag, tag)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
