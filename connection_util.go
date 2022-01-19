@@ -224,24 +224,6 @@ func getResumeQueryID(ctx context.Context) (string, error) {
 	return strVal, nil
 }
 
-type childResult struct {
-	id  string
-	typ string
-}
-
-func getChildResults(IDs string, types string) []childResult {
-	if IDs == "" {
-		return nil
-	}
-	queryIDs := strings.Split(IDs, ",")
-	resultTypes := strings.Split(types, ",")
-	res := make([]childResult, len(queryIDs))
-	for i, id := range queryIDs {
-		res[i] = childResult{id, resultTypes[i]}
-	}
-	return res
-}
-
 // returns snowflake chunk downloader by default or stream based chunk
 // downloader if option provided through context
 func populateChunkDownloader(
