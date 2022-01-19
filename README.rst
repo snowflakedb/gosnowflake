@@ -142,6 +142,8 @@ Next, we want to create a merge commit that incorporates changes from the upstre
     # Cherry-pick changes from the fork as needed.
     git cherry-pick <hash> <hash> <hash>
 
+**Note**: ensure that `go.mod` uses `sigmacomputing/gosnowflake` as its module name, and (2) references the correct upstream *version* for `snowflakedb/gosnowflake`
+
 Now we can push the branch ``update-master-with-upstream`` to our fork's origin, and create a pull request.
 
 Once that's done, we can run the Multiplex benchmarks with the new version of gosnowflake. In your local copy of the mono-go repo, update Multiplex to use the version of gosnowflake in ``update-master-with-upstream``:

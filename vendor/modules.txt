@@ -123,6 +123,9 @@ github.com/pkg/browser
 # github.com/sirupsen/logrus v1.8.1
 ## explicit
 github.com/sirupsen/logrus
+# github.com/snowflakedb/gosnowflake v1.6.5
+## explicit
+github.com/snowflakedb/gosnowflake
 # golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
 ## explicit
 golang.org/x/crypto/ocsp
