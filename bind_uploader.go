@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -165,6 +167,34 @@ func (bu *bindUploader) createCSVRecord(data []string) []byte {
 	}
 	b.WriteString("\n")
 	return []byte(b.String())
+}
+
+func (sc *snowflakeConn) processBindings(
+	ctx context.Context,
+	bindings []driver.NamedValue,
+	describeOnly bool,
+	requestID uuid.UUID,
+	req *execRequest) error {
+	arrayBindThreshold := sc.getArrayBindStageThreshold()
+	numBinds := arrayBindValueCount(bindings)
+	if 0 < arrayBindThreshold && arrayBindThreshold <= numBinds && !describeOnly && isArrayBind(bindings) {
+		uploader := bindUploader{
+			sc:        sc,
+			ctx:       ctx,
+			stagePath: "@" + bindStageName + "/" + requestID.String(),
+		}
+		uploader.upload(bindings)
+		req.Bindings = nil
+		req.BindStage = uploader.stagePath
+	} else {
+		var err error
+		req.Bindings, err = getBindValues(bindings)
+		if err != nil {
+			return err
+		}
+		req.BindStage = ""
+	}
+	return nil
 }
 
 func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, error) {

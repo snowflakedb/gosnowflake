@@ -52,9 +52,7 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 	}
 }
 
-/**
-Build arrow chunk based on RowSet of base64
-*/
+// Build arrow chunk based on RowSet of base64
 func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
 	rowSetBytes, err := base64.StdEncoding.DecodeString(rowsetBase64)
 	if err != nil {
