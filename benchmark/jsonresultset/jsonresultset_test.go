@@ -123,7 +123,8 @@ func runJSONResultSet() {
 	var v1 string
 	counter := 0
 	for rows.Next() {
-		if err = rows.Scan(&v1); err != nil {
+		err := rows.Scan(&v1)
+		if err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
 		}
 		if counter%1000000 == 0 {
