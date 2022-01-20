@@ -12,8 +12,6 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
-
-	"github.com/apache/arrow/go/arrow/array"
 )
 
 func TestBadChunkData(t *testing.T) {
