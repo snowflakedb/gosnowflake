@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/apache/arrow/go/arrow/array"
 
 	"github.com/google/uuid"
 )
@@ -56,6 +58,11 @@ func WithAsyncMode(ctx context.Context) context.Context {
 // WithQueryIDChan returns a context that contains the channel to receive the query ID
 func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 	return context.WithValue(ctx, queryIDChannel, c)
+}
+
+// WithArrowRecordChan returns a context that contains the channel to receive arrow records
+func WithArrowRecordChan(ctx context.Context, c chan []array.Record) context.Context {
+	return context.WithValue(ctx, arrowRecordChannel, c)
 }
 
 // WithRequestID returns a new context with the specified snowflake request id

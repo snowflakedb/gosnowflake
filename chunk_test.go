@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -12,6 +12,8 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+
+	"github.com/apache/arrow/go/arrow/array"
 )
 
 func TestBadChunkData(t *testing.T) {

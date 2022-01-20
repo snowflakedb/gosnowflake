@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -21,7 +21,7 @@ type tcBucketPath struct {
 }
 
 func TestExtractBucketNameAndPath(t *testing.T) {
-	s3util := new(snowflakeS3Util)
+	s3util := new(snowflakeS3Client)
 	testcases := []tcBucketPath{
 		{"sfc-dev1-regression/test_sub_dir/", "sfc-dev1-regression", "test_sub_dir/"},
 		{"sfc-dev1-regression/dir/test_stg/test_sub_dir/", "sfc-dev1-regression", "dir/test_stg/test_sub_dir/"},
@@ -66,7 +66,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Util).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -138,7 +138,7 @@ func TestUploadOneFileToS3ConnReset(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Util).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -192,7 +192,7 @@ func TestUploadFileWithS3UploadFailedError(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Util).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -255,7 +255,7 @@ func TestGetHeadExpiryError(t *testing.T) {
 			}
 		}),
 	}
-	if header, err := new(snowflakeS3Util).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != renewToken {
@@ -274,7 +274,7 @@ func TestGetHeaderUnexpectedError(t *testing.T) {
 			}
 		}),
 	}
-	if header, err := new(snowflakeS3Util).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != errStatus {

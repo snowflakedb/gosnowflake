@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -21,7 +21,7 @@ const (
 	gcsFileHeaderDigest           = "gcs-file-header-digest"
 )
 
-type snowflakeGcsUtil struct {
+type snowflakeGcsClient struct {
 }
 
 type gcsLocation struct {
@@ -29,7 +29,7 @@ type gcsLocation struct {
 	path       string
 }
 
-func (util *snowflakeGcsUtil) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
+func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
 	if info.Creds.GcsAccessToken != "" {
 		return info.Creds.GcsAccessToken, nil
 	}
@@ -37,7 +37,7 @@ func (util *snowflakeGcsUtil) createClient(info *execResponseStageInfo, _ bool) 
 }
 
 // cloudUtil implementation
-func (util *snowflakeGcsUtil) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
+func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
 	if meta.resStatus == uploaded || meta.resStatus == downloaded {
 		return &fileHeader{
 			digest:             meta.gcsFileHeaderDigest,
@@ -116,7 +116,7 @@ func (util *snowflakeGcsUtil) getFileHeader(meta *fileMetadata, filename string)
 }
 
 // cloudUtil implementation
-func (util *snowflakeGcsUtil) uploadFile(
+func (util *snowflakeGcsClient) uploadFile(
 	dataFile string,
 	meta *fileMetadata,
 	encryptMeta *encryptMetadata,
@@ -237,7 +237,7 @@ func (util *snowflakeGcsUtil) uploadFile(
 }
 
 // cloudUtil implementation
-func (util *snowflakeGcsUtil) nativeDownloadFile(
+func (util *snowflakeGcsClient) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
 	maxConcurrency int64) error {
@@ -323,7 +323,7 @@ func (util *snowflakeGcsUtil) nativeDownloadFile(
 	return nil
 }
 
-func (util *snowflakeGcsUtil) extractBucketNameAndPath(location string) *gcsLocation {
+func (util *snowflakeGcsClient) extractBucketNameAndPath(location string) *gcsLocation {
 	containerName := location
 	var path string
 	if strings.Contains(location, "/") {
@@ -336,7 +336,7 @@ func (util *snowflakeGcsUtil) extractBucketNameAndPath(location string) *gcsLoca
 	return &gcsLocation{containerName, path}
 }
 
-func (util *snowflakeGcsUtil) generateFileURL(stageLocation string, filename string) (*url.URL, error) {
+func (util *snowflakeGcsClient) generateFileURL(stageLocation string, filename string) (*url.URL, error) {
 	gcsLoc := util.extractBucketNameAndPath(stageLocation)
 	fullFilePath := gcsLoc.path + filename
 	URL, err := url.Parse("https://storage.googleapis.com/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
@@ -346,6 +346,6 @@ func (util *snowflakeGcsUtil) generateFileURL(stageLocation string, filename str
 	return URL, nil
 }
 
-func (util *snowflakeGcsUtil) isTokenExpired(resp *http.Response) bool {
+func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
 	return resp.StatusCode == 401
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -43,6 +44,7 @@ type snowflakeChunkDownloader struct {
 	ctx                context.Context
 	Total              int64
 	TotalRowIndex      int64
+	ArrowChannels      *sync.Map
 	CellCount          int
 	CurrentChunk       []chunkRowType
 	CurrentChunkIndex  int
@@ -101,12 +103,13 @@ func (scd *snowflakeChunkDownloader) start() error {
 
 	scd.CurrentChunk = make([]chunkRowType, scd.CurrentChunkSize)
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
+
 	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
 		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
-		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType, higherPrecision)
+		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.ctx, scd.RowSet.RowType, higherPrecision)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
@@ -181,7 +184,6 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 		if scd.CurrentChunkIndex > 1 {
 			scd.Chunks[scd.CurrentChunkIndex-1] = nil // detach the previously used chunk
 		}
-
 		for scd.Chunks[scd.CurrentChunkIndex] == nil {
 			logger.Debugf("waiting for chunk idx: %v/%v",
 				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
@@ -197,6 +199,15 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 			scd.DoneDownloadCond.Wait()
 		}
 		logger.Debugf("ready: chunk %v", scd.CurrentChunkIndex+1)
+		if arrowRecordChan := getArrowRecordChan(scd.ctx); arrowRecordChan != nil {
+			val, ok := scd.ArrowChannels.Load(scd.CurrentChunkIndex)
+			if ok {
+				ch := val.(chan []array.Record)
+				records := <- ch
+				arrowRecordChan <- records
+				close(ch)
+			}
+		}
 		scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
 		scd.ChunksMutex.Unlock()
 		scd.CurrentChunkSize = len(scd.CurrentChunk)
@@ -209,6 +220,9 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 	if len(scd.ChunkMetas) > 0 {
 		close(scd.ChunksError)
 		close(scd.ChunksChan)
+	}
+	if arrowRecordChan := getArrowRecordChan(scd.ctx); arrowRecordChan != nil {
+		close(arrowRecordChan)
 	}
 	return chunkRowType{}, io.EOF
 }
@@ -431,7 +445,16 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			return nil
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
-		respd, err = arc.decodeArrowChunk(scd.RowSet.RowType, highPrec)
+
+		var ctx context.Context
+		if isArrowRecordChanEnabled(scd.ctx) {
+			ch := make(chan []array.Record, 1)
+			scd.ArrowChannels.Store(idx, ch)
+			ctx = context.WithValue(scd.ctx, arrowRecordChannel, ch)
+		} else {
+			ctx = scd.ctx
+		}
+		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec)
 		if err != nil {
 			return err
 		}
@@ -454,6 +477,11 @@ func populateJSONRowSet(dst []chunkRowType, src [][]*string) {
 	for i, row := range src {
 		dst[i].RowSet = row
 	}
+}
+
+// Returns true if there exist a ArrowRecordChan within the context. See WithArrowRecordChan for functionality.
+func isArrowRecordChanEnabled(ctx context.Context) bool {
+	return getArrowRecordChan(ctx) != nil
 }
 
 type streamChunkDownloader struct {
