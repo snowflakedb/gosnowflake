@@ -198,7 +198,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	if err != nil {
 		return err
 	}
-	path := azureLoc.path + strings.TrimLeft(meta.dstFileName, "/")
+	path := azureLoc.path + strings.TrimLeft(meta.srcFileName, "/")
 	azContainerURL, ok := meta.client.(*azblob.ContainerURL)
 	if !ok {
 		return &SnowflakeError{
