@@ -80,6 +80,8 @@ type Config struct {
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 
 	DisableTelemetry bool // indicates whether to disable telemetry
+
+	DisableFileTransfers bool // do not allow any file transfers to any endpoint
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED

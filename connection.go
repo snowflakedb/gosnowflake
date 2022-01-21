@@ -136,6 +136,14 @@ func (sc *snowflakeConn) exec(
 
 	// handle PUT/GET commands
 	if isFileTransfer(query) {
+		if sc.cfg.DisableFileTransfers {
+			return nil, (&SnowflakeError{
+				Number:   code, //TODO do we need a specific code here?
+				SQLState: data.Data.SQLState,
+				Message:  data.Message,
+				QueryID:  data.Data.QueryID,
+			}).exceptionTelemetry(sc)
+		}
 		data, err = sc.processFileTransfer(ctx, data, query, isInternal)
 		if err != nil {
 			return nil, err
