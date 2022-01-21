@@ -396,18 +396,21 @@ func (sc *snowflakeConn) queryContextInternal(
 		if err = sc.handleMultiQuery(ctx, data.Data, rows); err != nil {
 			return nil, err
 		}
+		if data.Data.ResultIDs == "" && rows.ChunkDownloader == nil {
+			// SIG-16907: We have no results to download here.
+			logger.WithContext(ctx).Errorf("Encountered empty result-ids for a multi-statement request. Query-id: %s, Query: %s", data.Data.QueryID, query)
+			return nil, (&SnowflakeError{
+				Number:   ErrQueryIDFormat,
+				SQLState: data.Data.SQLState,
+				Message:  "ExecResponse for multi-statement request had no ResultIDs",
+				QueryID:  data.Data.QueryID,
+			}).exceptionTelemetry(sc)
+		}
 	} else {
 		rows.addDownloader(populateChunkDownloader(ctx, sc, data.Data))
 	}
 
-	// SIG-16907: we occasionally panic on a nil value here, adding tracing to help diagnose.
-	if rows == nil {
-		logger.WithContext(ctx).Infof("Debug: rows nil: is-multi-stmt? %v, err: %v", isMultiStmt(&data.Data), err)
-	} else if rows.ChunkDownloader == nil {
-		logger.WithContext(ctx).Infof("Debug: rows-chunk-downloader nil: is-multi-stmt? %v, err: %v", isMultiStmt(&data.Data), err)
-	} else {
-		rows.ChunkDownloader.start()
-	}
+	rows.ChunkDownloader.start()
 	return rows, err
 }
 
