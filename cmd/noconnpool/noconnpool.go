@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"sync"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/dominodatalab/gosnowflake"
 )
 
 // getDSN constructs a DSN based on the test connection parameters

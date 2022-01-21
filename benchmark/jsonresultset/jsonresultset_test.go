@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/dominodatalab/gosnowflake"
 )
 
 func TestJsonResultSet(t *testing.T) {
