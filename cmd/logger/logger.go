@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	rlog "github.com/sirupsen/logrus"
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/dominodatalab/gosnowflake"
 	"log"
 	"strings"
 )

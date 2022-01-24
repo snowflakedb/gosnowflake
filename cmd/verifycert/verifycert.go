@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/dominodatalab/gosnowflake"
 )
 
 func main() {
