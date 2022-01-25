@@ -71,8 +71,7 @@ func BenchmarkGetDigestAndSizeForStream(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				buf.Reset()
-				_, _ = buf.ReadFrom(io.LimitReader(cr, size))
-				_, _ = util.getDigestAndSizeForStream(&buf)
+				_, _, _ = util.getDigestAndSizeForStream(io.LimitReader(cr, size))
 			}
 		})
 	}
