@@ -115,6 +115,28 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	}
 }
 
+func BenchmarkEncryptStream(b *testing.B) {
+	var (
+		encMat = snowflakeFileEncryption{
+			"ztke8tIdVt1zmlQIZm0BMA==",
+			"123873c7-3a66-40c4-ab89-e3722fbccce1",
+			3112,
+		}
+		cr cheapReader
+		w  = ioutil.Discard
+	)
+
+	for _, size := range benchmarkInputSizes {
+		b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
+			b.ReportAllocs()
+			var r = io.LimitReader(cr, size)
+			for i := 0; i < b.N; i++ {
+				_, _ = encryptStream(&encMat, r, w, 0)
+			}
+		})
+	}
+}
+
 func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string, error) {
 	if tmpDir == "" {
 		_, err := ioutil.TempDir(tmpDir, "data")
