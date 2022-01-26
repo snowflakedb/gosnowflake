@@ -36,8 +36,8 @@ const (
 // conditions in the acquire and release code. There should not be
 // a performance implication since these fns are called infrequently.
 var (
-	globalExecRespCacheMu sync.Mutex
-	globalExecRespCache   map[string]*execRespCache
+	globalExecRespCacheMu = sync.Mutex{}
+	globalExecRespCache   = map[string]*execRespCache{}
 )
 
 func acquireExecRespCache(id string) *execRespCache {
