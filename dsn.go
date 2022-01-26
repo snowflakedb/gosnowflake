@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -87,6 +89,9 @@ type Config struct {
 	// to fetch this data and we want to bound the additional latency. By default we bound to a 2% increase
 	// in latency - assuming worst case 100ms - when fetching this metadata.
 	QueryMonitoringThreshold time.Duration
+	// An identifier for this Config. Used to associate multiple connection instances with
+	// a single logical sql.DB connection.
+	ConnectionId string
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
@@ -203,6 +208,10 @@ func DSN(cfg *Config) (dsn string, err error) {
 	params.Add("validateDefaultParameters", strconv.FormatBool(cfg.ValidateDefaultParameters != ConfigBoolFalse))
 
 	params.Add("queryMonitoringThreshold", strconv.FormatInt(int64(cfg.QueryMonitoringThreshold/time.Second), 10))
+
+	if cfg.ConnectionId != "" {
+		params.Add("connectionId", cfg.ConnectionId)
+	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
 	if params.Encode() != "" {
@@ -430,6 +439,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 
 	if cfg.QueryMonitoringThreshold == 0 {
 		cfg.QueryMonitoringThreshold = defaultQueryMonitoringThreshold
+	}
+	if cfg.ConnectionId == "" {
+		cfg.ConnectionId = uuid.New().String()
 	}
 
 	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {

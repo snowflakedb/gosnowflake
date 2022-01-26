@@ -61,6 +61,7 @@ type snowflakeConn struct {
 	SQLState        string
 	telemetry       *snowflakeTelemetry
 	internal        InternalClient
+	execRespCache   *execRespCache
 }
 
 var (
@@ -217,6 +218,9 @@ func (sc *snowflakeConn) cleanup() {
 	defer sc.restMu.Unlock()
 	sc.rest = nil
 	sc.cfg = nil
+
+	releaseExecRespCache(sc.execRespCache)
+	sc.execRespCache = nil
 }
 
 func (sc *snowflakeConn) Close() (err error) {
@@ -693,6 +697,9 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 	if sc.cfg.DisableTelemetry {
 		sc.telemetry = &snowflakeTelemetry{enabled: false}
+	}
+	if sc.cfg.ConnectionId != "" {
+		sc.execRespCache = acquireExecRespCache(sc.cfg.ConnectionId)
 	}
 
 	// authenticate

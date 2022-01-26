@@ -199,8 +199,12 @@ func (sc *snowflakeConn) checkQueryStatus(
 
 func (sc *snowflakeConn) getQueryResultResp(
 	ctx context.Context,
-	resultPath string) (
-	*execResponse, error) {
+	resultPath string,
+) (*execResponse, error) {
+	if respd, ok := sc.execRespCache.load(resultPath); ok {
+		return respd, nil
+	}
+
 	headers := getHeaders()
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers[httpHeaderServiceName] = *serviceName
@@ -224,6 +228,8 @@ func (sc *snowflakeConn) getQueryResultResp(
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 		return nil, err
 	}
+
+	sc.execRespCache.store(resultPath, respd)
 	return respd, nil
 }
 
