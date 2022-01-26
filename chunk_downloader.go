@@ -93,7 +93,7 @@ func (scd *snowflakeChunkDownloader) nextResultSet() error {
 
 func (scd *snowflakeChunkDownloader) start() error {
 	if usesDistributedBatches(scd.ctx) {
-		return setUpDistributedBatches(scd)
+		return startDistributedBatches(scd)
 	}
 	scd.CurrentChunkSize = len(scd.RowSet.JSON) // cache the size
 	scd.CurrentIndex = -1                       // initial chunks idx
@@ -261,7 +261,7 @@ func getChunk(
 	return newRetryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, u, headers, timeout).execute()
 }
 
-func setUpDistributedBatches(scd *snowflakeChunkDownloader) error {
+func startDistributedBatches(scd *snowflakeChunkDownloader) error {
 	var err error
 	chunkMetaLen := len(scd.ChunkMetas)
 	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
@@ -685,7 +685,7 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 	return nil
 }
 
-// A ResultBatch object encapsulates a function that retrieves a subset of rows in a result set.
+// ResultBatch object encapsulates a function that retrieves a subset of rows in a result set.
 type ResultBatch struct {
 	Rec                *[]array.Record
 	idx                int
@@ -698,11 +698,7 @@ func (rb *ResultBatch) Fetch() error {
 	if rb.Rec != nil {
 		return nil
 	}
-	err := rb.funcDownloadHelper(context.Background(), rb.scd, rb.idx)
-	if err != nil {
-		return err
-	}
-	return nil
+	return rb.funcDownloadHelper(context.Background(), rb.scd, rb.idx)
 }
 
 func usesDistributedBatches(ctx context.Context) bool {
@@ -711,5 +707,5 @@ func usesDistributedBatches(ctx context.Context) bool {
 		return false
 	}
 	a, ok := val.(bool)
-	return ok && a
+	return a && ok
 }
