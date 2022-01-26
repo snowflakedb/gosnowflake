@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -97,6 +99,9 @@ type Config struct {
 	IDToken                        string     // Internally used to cache the Id Token for external browser
 	ClientRequestMfaToken          ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
 	ClientStoreTemporaryCredential ConfigBool // When true the ID token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
+	// An identifier for this Config. Used to associate multiple connection instances with
+	// a single logical sql.DB connection.
+	ConnectionID string
 }
 
 // Validate enables testing if config is correct.
@@ -241,6 +246,10 @@ func DSN(cfg *Config) (dsn string, err error) {
 
 	if cfg.ClientStoreTemporaryCredential != configBoolNotSet {
 		params.Add("clientStoreTemporaryCredential", strconv.FormatBool(cfg.ClientStoreTemporaryCredential != ConfigBoolFalse))
+	}
+	
+	if cfg.ConnectionID != "" {
+		params.Add("connectionId", cfg.ConnectionID)
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -466,6 +475,10 @@ func fillMissingConfigParameters(cfg *Config) error {
 
 	if cfg.ValidateDefaultParameters == configBoolNotSet {
 		cfg.ValidateDefaultParameters = ConfigBoolTrue
+	}
+
+	if cfg.ConnectionID == "" {
+		cfg.ConnectionID = uuid.New().String()
 	}
 
 	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {

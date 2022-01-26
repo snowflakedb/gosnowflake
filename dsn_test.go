@@ -777,63 +777,70 @@ func TestDSN(t *testing.T) {
 	testcases := []tcDSN{
 		{
 			cfg: &Config{
-				User:     "u",
-				Password: "p",
-				Account:  "a-aofnadsf.somewhere.azure",
+				User:         "u",
+				Password:     "p",
+				Account:      "a-aofnadsf.somewhere.azure",
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a-aofnadsf.somewhere.azure.snowflakecomputing.com:443?ocspFailOpen=true&region=somewhere.azure&validateDefaultParameters=true",
+			dsn: "u:p@a-aofnadsf.somewhere.azure.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&region=somewhere.azure&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
-				User:     "u",
-				Password: "p",
-				Account:  "a-aofnadsf.global",
+				User:         "u",
+				Password:     "p",
+				Account:      "a-aofnadsf.global",
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a-aofnadsf.global.snowflakecomputing.com:443?ocspFailOpen=true&region=global&validateDefaultParameters=true",
+			dsn: "u:p@a-aofnadsf.global.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&region=global&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
-				User:     "u",
-				Password: "p",
-				Account:  "a-aofnadsf.global",
-				Region:   "us-west-2",
+				User:         "u",
+				Password:     "p",
+				Account:      "a-aofnadsf.global",
+				Region:       "us-west-2",
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a-aofnadsf.global.snowflakecomputing.com:443?ocspFailOpen=true&region=global&validateDefaultParameters=true",
+			dsn: "u:p@a-aofnadsf.global.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&region=global&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
-				User:     "u",
-				Password: "p",
-				Account:  "a-aofnadsf.global",
-				Region:   "r",
+				User:         "u",
+				Password:     "p",
+				Account:      "a-aofnadsf.global",
+				Region:       "r",
+				ConnectionID: testConnectionID,
 			},
 			err: errInvalidRegion(),
 		},
 		{
 			cfg: &Config{
-				User:     "u",
-				Password: "p",
-				Account:  "a",
+				User:         "u",
+				Password:     "p",
+				Account:      "a",
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
+			dsn: "u:p@a.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
-				User:     "u",
-				Password: "p",
-				Account:  "a",
-				Region:   "us-west-2",
+				User:         "u",
+				Password:     "p",
+				Account:      "a",
+				Region:       "us-west-2",
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
+			dsn: "u:p@a.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
-				User:     "u",
-				Password: "p",
-				Account:  "a",
-				Region:   "r",
+				User:         "u",
+				Password:     "p",
+				Account:      "a",
+				Region:       "r",
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a.r.snowflakecomputing.com:443?ocspFailOpen=true&region=r&validateDefaultParameters=true",
+			dsn: "u:p@a.r.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&region=r&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -875,7 +882,7 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "a.e",
 			},
-			dsn: "u:p@a.e.snowflakecomputing.com:443?ocspFailOpen=true&region=e&validateDefaultParameters=true",
+			dsn: "u:p@a.e.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&region=e&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -884,7 +891,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.e",
 				Region:   "us-west-2",
 			},
-			dsn: "u:p@a.e.snowflakecomputing.com:443?ocspFailOpen=true&region=e&validateDefaultParameters=true",
+			dsn: "u:p@a.e.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&region=e&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -910,8 +917,9 @@ func TestDSN(t *testing.T) {
 				LoginTimeout:       10 * time.Second,
 				RequestTimeout:     300 * time.Second,
 				Application:        "special go",
+				ConnectionID:       testConnectionID,
 			},
-			dsn: "u:p@a.b.snowflakecomputing.com:443?application=special+go&database=db&loginTimeout=10&ocspFailOpen=true&passcode=db&passcodeInPassword=true&region=b&requestTimeout=300&role=ro&schema=sc&validateDefaultParameters=true",
+			dsn: "u:p@a.b.snowflakecomputing.com:443?application=special+go&connectionId=abcd-0123-4567-1234&database=db&loginTimeout=10&ocspFailOpen=true&passcode=db&passcodeInPassword=true&queryMonitoringThreshold=5&region=b&requestTimeout=300&role=ro&schema=sc&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -943,8 +951,9 @@ func TestDSN(t *testing.T) {
 					Scheme: "https",
 					Host:   "sc.okta.com",
 				},
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=https%3A%2F%2Fsc.okta.com&ocspFailOpen=true&validateDefaultParameters=true",
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=https%3A%2F%2Fsc.okta.com&connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -954,8 +963,9 @@ func TestDSN(t *testing.T) {
 				Params: map[string]*string{
 					"TIMESTAMP_OUTPUT_FORMAT": &tmfmt,
 				},
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&ocspFailOpen=true&region=e&validateDefaultParameters=true",
+			dsn: "u:p@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&region=e&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -965,8 +975,9 @@ func TestDSN(t *testing.T) {
 				Params: map[string]*string{
 					"TIMESTAMP_OUTPUT_FORMAT": &tmfmt,
 				},
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:%3A%40abc@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&ocspFailOpen=true&region=e&validateDefaultParameters=true",
+			dsn: "u:%3A%40abc@a.e.snowflakecomputing.com:443?TIMESTAMP_OUTPUT_FORMAT=MM-DD-YYYY&connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&region=e&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -974,8 +985,9 @@ func TestDSN(t *testing.T) {
 				Password:     "p",
 				Account:      "a",
 				OCSPFailOpen: OCSPFailOpenTrue,
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
+			dsn: "u:p@a.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -983,8 +995,9 @@ func TestDSN(t *testing.T) {
 				Password:     "p",
 				Account:      "a",
 				OCSPFailOpen: OCSPFailOpenFalse,
+				ConnectionID: testConnectionID,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=false&validateDefaultParameters=true",
+			dsn: "u:p@a.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=false&queryMonitoringThreshold=5&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -992,8 +1005,9 @@ func TestDSN(t *testing.T) {
 				Password:                  "p",
 				Account:                   "a",
 				ValidateDefaultParameters: ConfigBoolFalse,
+				ConnectionID:              testConnectionID,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=false",
+			dsn: "u:p@a.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&validateDefaultParameters=false",
 		},
 		{
 			cfg: &Config{
@@ -1001,8 +1015,9 @@ func TestDSN(t *testing.T) {
 				Password:                  "p",
 				Account:                   "a",
 				ValidateDefaultParameters: ConfigBoolTrue,
+				ConnectionID:              testConnectionID,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
+			dsn: "u:p@a.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -1011,7 +1026,7 @@ func TestDSN(t *testing.T) {
 				Account:      "a",
 				InsecureMode: true,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?insecureMode=true&ocspFailOpen=true&validateDefaultParameters=true",
+			dsn: "u:p@a.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&insecureMode=true&ocspFailOpen=true&queryMonitoringThreshold=5&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -1019,7 +1034,55 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "a.b.c",
 			},
-			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true",,
+		},
+		{
+			cfg: &Config{
+				User:         "u",
+				Password:     "p",
+				Account:      "a.b.c",
+				Region:       "us-west-2",
+				ConnectionID: testConnectionID,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?connectionId=abcd-0123-4567-1234&ocspFailOpen=true&queryMonitoringThreshold=5&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:         "u",
+				Password:     "p",
+				Account:      "a.b.c",
+				Region:       "r",
+				ConnectionID: testConnectionID,
+			},
+			err: errInvalidRegion(),
+		},
+		{
+			cfg: &Config{
+				User:             "u",
+				Password:         "p",
+				Account:          "a.b.c",
+				ClientTimeout:    300 * time.Second,
+				JWTClientTimeout: 60 * time.Second,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientTimeout=300&jwtClientTimeout=60&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:             "u",
+				Password:         "p",
+				Account:          "a.b.c",
+				ClientTimeout:    300 * time.Second,
+				JWTExpireTimeout: 30 * time.Second,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientTimeout=300&jwtTimeout=30&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.b.c",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&protocol=http&region=b.c&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -1028,7 +1091,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.b.c",
 				Region:   "us-west-2",
 			},
-			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tracing=debug&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -1076,6 +1139,44 @@ func TestDSN(t *testing.T) {
 				Tracing:  "debug",
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tracing=debug&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                  "u",
+				Password:              "p",
+				Account:               "a.b.c",
+				Authenticator:         AuthTypeUsernamePasswordMFA,
+				ClientRequestMfaToken: ConfigBoolTrue,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=username_password_mfa&clientRequestMfaToken=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                  "u",
+				Password:              "p",
+				Account:               "a.b.c",
+				Authenticator:         AuthTypeUsernamePasswordMFA,
+				ClientRequestMfaToken: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=username_password_mfa&clientRequestMfaToken=false&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:      "u",
+				Password:  "p",
+				Account:   "a.b.c",
+				Warehouse: "wh",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true&warehouse=wh",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.b.c",
+				Token:    "t",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&token=t&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
