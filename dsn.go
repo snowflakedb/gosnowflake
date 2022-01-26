@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -82,6 +84,10 @@ type Config struct {
 	DisableTelemetry bool // indicates whether to disable telemetry
 
 	Tracing string // sets logging level
+
+	// An identifier for this Config. Used to associate multiple connection instances with
+	// a single logical sql.DB connection.
+	ConnectionID string
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
@@ -199,6 +205,10 @@ func DSN(cfg *Config) (dsn string, err error) {
 	params.Add("ocspFailOpen", strconv.FormatBool(cfg.OCSPFailOpen != OCSPFailOpenFalse))
 
 	params.Add("validateDefaultParameters", strconv.FormatBool(cfg.ValidateDefaultParameters != ConfigBoolFalse))
+
+	if cfg.ConnectionID != "" {
+		params.Add("connectionId", cfg.ConnectionID)
+	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
 	if params.Encode() != "" {
@@ -422,6 +432,10 @@ func fillMissingConfigParameters(cfg *Config) error {
 
 	if cfg.ValidateDefaultParameters == configBoolNotSet {
 		cfg.ValidateDefaultParameters = ConfigBoolTrue
+	}
+
+	if cfg.ConnectionID == "" {
+		cfg.ConnectionID = uuid.New().String()
 	}
 
 	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {
