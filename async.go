@@ -51,7 +51,7 @@ func (sr *snowflakeRestful) getAsync(
 	resType := getResultType(ctx)
 	var errChannel chan error
 	sfError := &SnowflakeError{
-		Number: -1,
+		Number: ErrAsync,
 	}
 	if resType == execResultType {
 		errChannel = res.errChannel

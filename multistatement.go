@@ -32,6 +32,14 @@ func (sc *snowflakeConn) handleMultiExec(
 	ctx context.Context,
 	data execResponseData) (
 	driver.Result, error) {
+	if data.ResultIDs == "" {
+		return nil, (&SnowflakeError{
+			Number:   ErrNoResultIDs,
+			SQLState: data.SQLState,
+			Message:  errMsgNoResultIDs,
+			QueryID:  data.QueryID,
+		}).exceptionTelemetry(sc)
+	}
 	var updatedRows int64
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 	for _, child := range childResults {
@@ -88,6 +96,14 @@ func (sc *snowflakeConn) handleMultiQuery(
 	ctx context.Context,
 	data execResponseData,
 	rows *snowflakeRows) error {
+	if data.ResultIDs == "" {
+		return (&SnowflakeError{
+			Number:   ErrNoResultIDs,
+			SQLState: data.SQLState,
+			Message:  errMsgNoResultIDs,
+			QueryID:  data.QueryID,
+		}).exceptionTelemetry(sc)
+	}
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 	for _, child := range childResults {
 		if err := sc.rowsForRunningQuery(ctx, child.id, rows); err != nil {
