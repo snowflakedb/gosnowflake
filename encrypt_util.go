@@ -71,10 +71,10 @@ func encryptStream(
 
 	mode := cipher.NewCBCEncrypter(block, ivData)
 	cipherText := make([]byte, chunkSize)
+	chunk := make([]byte, chunkSize)
 
 	// encrypt file with CBC
 	for {
-		chunk := make([]byte, chunkSize)
 		n, err := src.Read(chunk)
 		if n == 0 || err != nil {
 			break
@@ -83,7 +83,6 @@ func encryptStream(
 		}
 		mode.CryptBlocks(cipherText, chunk)
 		out.Write(cipherText[:len(chunk)])
-
 	}
 	if err != nil {
 		return nil, err
