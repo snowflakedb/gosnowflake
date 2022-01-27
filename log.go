@@ -20,7 +20,7 @@ const SFSessionIDKey contextKey = "LOG_SESSION_ID"
 const SFSessionUserKey contextKey = "LOG_USER"
 
 // LogKeys these keys in context should be included in logging messages when using logger.WithContext
-var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
+var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey, snowflakeRequestIDKey}
 
 // SFLogger Snowflake logger interface to expose FieldLogger defined in logrus
 type SFLogger interface {
