@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -66,6 +68,15 @@ type snowflakeChunkDownloader struct {
 	FuncDownload       func(context.Context, *snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
 	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
+}
+
+type wrappedPanic struct {
+	stackTrace string
+	err        error
+}
+
+func (w *wrappedPanic) Error() string {
+	return fmt.Sprintf("Panic within GoSnowflake: %v\nStack-trace:\n %s", w.err, w.stackTrace)
 }
 
 func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
@@ -330,6 +341,28 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 	logger.Infof("download start chunk: %v", idx+1)
 	defer scd.DoneDownloadCond.Broadcast()
 
+	defer func() {
+		var ret *wrappedPanic
+		if err := recover(); err != nil {
+			logger.Infof("GoSnowflake chunk-downloader trapping error: %v", err)
+			stackTrace := make([]byte, 2048)
+			runtime.Stack(stackTrace, false)
+			// TODO(agam): properly format the stack-trace-payload
+			switch errResolved := err.(type) {
+			case string:
+				ret = &wrappedPanic{
+					err:        errors.New(errResolved),
+					stackTrace: string(stackTrace),
+				}
+			case error:
+				ret = &wrappedPanic{err: errResolved, stackTrace: string(stackTrace)}
+			default:
+				ret = &wrappedPanic{err: errors.New("Panic within GoSnowflake"), stackTrace: string(stackTrace)}
+			}
+			// Pass this through our error-channel
+			scd.ChunksError <- &chunkError{Index: idx, Error: ret}
+		}
+	}()
 	if err := scd.FuncDownloadHelper(ctx, scd, idx); err != nil {
 		logger.Errorf(
 			"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
@@ -504,7 +537,7 @@ func (scd *streamChunkDownloader) start() error {
 			if readErr == io.EOF {
 				logger.WithContext(scd.ctx).Infof("downloading done. downloader id: %v", scd.id)
 			} else {
-				logger.WithContext(scd.ctx).Debugf("downloading error. downloader id: %v", scd.id)
+				logger.WithContext(scd.ctx).Infof("downloading error. downloader id: %v, err: %v", scd.id, readErr)
 			}
 			scd.readErr = readErr
 			close(scd.rowStream)
