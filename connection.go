@@ -698,8 +698,8 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	if sc.cfg.DisableTelemetry {
 		sc.telemetry = &snowflakeTelemetry{enabled: false}
 	}
-	if sc.cfg.ConnectionId != "" {
-		sc.execRespCache = acquireExecRespCache(sc.cfg.ConnectionId)
+	if sc.cfg.ConnectionID != "" {
+		sc.execRespCache = acquireExecRespCache(sc.cfg.ConnectionID)
 	}
 
 	// authenticate

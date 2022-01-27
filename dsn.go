@@ -91,7 +91,7 @@ type Config struct {
 	QueryMonitoringThreshold time.Duration
 	// An identifier for this Config. Used to associate multiple connection instances with
 	// a single logical sql.DB connection.
-	ConnectionId string
+	ConnectionID string
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
@@ -209,8 +209,8 @@ func DSN(cfg *Config) (dsn string, err error) {
 
 	params.Add("queryMonitoringThreshold", strconv.FormatInt(int64(cfg.QueryMonitoringThreshold/time.Second), 10))
 
-	if cfg.ConnectionId != "" {
-		params.Add("connectionId", cfg.ConnectionId)
+	if cfg.ConnectionID != "" {
+		params.Add("connectionId", cfg.ConnectionID)
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -440,8 +440,8 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if cfg.QueryMonitoringThreshold == 0 {
 		cfg.QueryMonitoringThreshold = defaultQueryMonitoringThreshold
 	}
-	if cfg.ConnectionId == "" {
-		cfg.ConnectionId = uuid.New().String()
+	if cfg.ConnectionID == "" {
+		cfg.ConnectionID = uuid.New().String()
 	}
 
 	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {
