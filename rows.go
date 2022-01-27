@@ -168,6 +168,11 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 		// includes io.EOF
 		if err == io.EOF {
 			rows.ChunkDownloader.reset()
+		} else {
+			// SIG-17456: we want to bubble up errors within GoSnowflake so they can be caught by Multiplex.
+			if innerPanic, ok := err.(*wrappedPanic); ok {
+				panic(innerPanic)
+			}
 		}
 		return err
 	}
