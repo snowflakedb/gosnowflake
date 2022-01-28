@@ -407,7 +407,7 @@ func TestGetQueryStatus(t *testing.T) {
 		t.Error(err)
 	}
 
-	if qStatus.ErrorCode != 0 || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
+	if qStatus.ErrorCode != "0" || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
 		t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v",
 			qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows)
 	}
