@@ -275,7 +275,7 @@ func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
 	jsonStr := `{"data" : { "queries" : [{"status" : "RUNNING", "state" :
-		"FILE_SET_INITIALIZATION", "errorCode" : 0, "errorMessage" : null}] },
+		"FILE_SET_INITIALIZATION", "errorCode" : "", "errorMessage" : null}] },
 		"code" : null, "message" : null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
@@ -283,7 +283,7 @@ func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, ful
 func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
 	jsonStr := `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR",
-		"errorCode" : 0, "errorMessage" : ""}] }, "code" : null, "message" :
+		"errorCode" : "", "errorMessage" : ""}] }, "code" : null, "message" :
 		null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
@@ -407,7 +407,7 @@ func TestGetQueryStatus(t *testing.T) {
 		t.Error(err)
 	}
 	if qStatus == nil {
-		t.Error("there was no query status returned")
+		t.Fatal("there was no query status returned")
 	}
 
 	if qStatus.ErrorCode != "" || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
