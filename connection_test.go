@@ -406,9 +406,34 @@ func TestGetQueryStatus(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	if qStatus == nil {
+		t.Error("there was no query status returned")
+	}
 
-	if qStatus.ErrorCode != "0" || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
+	if qStatus.ErrorCode != "" || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
 		t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v",
 			qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows)
+	}
+}
+
+func TestGetInvalidQueryStatus(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.Background()
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	sc.rest.RequestTimeout = 1 * time.Second
+
+	qStatus, err := sc.checkQueryStatus(ctx, "1234")
+	if err == nil || qStatus != nil {
+		t.Error("expected an error")
 	}
 }

@@ -160,7 +160,7 @@ func (sc *snowflakeConn) checkQueryStatus(
 	}
 
 	queryRet := statusResp.Data.Queries[0]
-	if queryRet.ErrorCode != "0" {
+	if queryRet.ErrorCode != "" {
 		return &queryRet, (&SnowflakeError{
 			Number:         ErrQueryStatus,
 			Message:        errMsgQueryStatus,
