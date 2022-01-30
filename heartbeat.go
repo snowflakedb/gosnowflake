@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -56,8 +54,8 @@ func (hc *heartbeat) stop() {
 func (hc *heartbeat) heartbeatMain() error {
 	logger.Info("Heartbeating!")
 	params := &url.Values{}
-	params.Add(requestIDKey, uuid.New().String())
-	params.Add(requestGUIDKey, uuid.New().String())
+	params.Add(requestIDKey, newUUID().String())
+	params.Add(requestGUIDKey, newUUID().String())
 	headers := getHeaders()
 	token, _, _ := hc.restful.TokenAccessor.GetTokens()
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)

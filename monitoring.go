@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const urlQueriesResultFmt = "/queries/%s/result"
@@ -135,7 +133,7 @@ func (sc *snowflakeConn) checkQueryStatus(
 	*retStatus, error) {
 	headers := make(map[string]string)
 	param := make(url.Values)
-	param.Add(requestGUIDKey, uuid.New().String())
+	param.Add(requestGUIDKey, newUUID().String())
 	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
 	}
@@ -208,7 +206,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 	param := make(url.Values)
 	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
-	param.Add(requestGUIDKey, uuid.New().String())
+	param.Add(requestGUIDKey, newUUID().String())
 	token, _, _ := sc.rest.TokenAccessor.GetTokens()
 	if token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)

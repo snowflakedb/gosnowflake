@@ -10,8 +10,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -173,7 +171,7 @@ func (sc *snowflakeConn) processBindings(
 	ctx context.Context,
 	bindings []driver.NamedValue,
 	describeOnly bool,
-	requestID uuid.UUID,
+	requestID uuid,
 	req *execRequest) error {
 	arrayBindThreshold := sc.getArrayBindStageThreshold()
 	numBinds := arrayBindValueCount(bindings)
