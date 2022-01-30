@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-const RFC4122 = 0x40
+const rfc4122 = 0x40
 
 type uuid [16]byte
 
@@ -16,7 +16,7 @@ var nilUUID uuid
 func newUUID() uuid {
 	var u uuid
 	rand.Read(u[:])
-	u[8] = (u[8] | RFC4122) & 0x7F
+	u[8] = (u[8] | rfc4122) & 0x7F
 
 	var version byte = 4
 	u[6] = (u[6] & 0xF) | (version << 4)
