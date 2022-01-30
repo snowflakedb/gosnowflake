@@ -847,8 +847,10 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	if meta.srcStream != nil {
 		if meta.realSrcStream != nil {
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(meta.realSrcStream)
+			meta.realSrcStream.Reset()
 		} else {
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(meta.srcStream)
+			meta.srcStream.Reset()
 		}
 		if err != nil {
 			return meta, err
