@@ -15,8 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 var random *rand.Rand
@@ -81,7 +79,7 @@ generated uuid
 */
 func (replacer *requestGUIDReplace) replace() *url.URL {
 	replacer.urlValues.Del(requestGUIDKey)
-	replacer.urlValues.Add(requestGUIDKey, uuid.New().String())
+	replacer.urlValues.Add(requestGUIDKey, newUUID().String())
 	replacer.urlPtr.RawQuery = replacer.urlValues.Encode()
 	return replacer.urlPtr
 }

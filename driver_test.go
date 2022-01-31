@@ -16,8 +16,6 @@ import (
 	"syscall"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 var (
@@ -445,7 +443,7 @@ func TestEmptyQuery(t *testing.T) {
 func TestEmptyQueryWithRequestID(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		query := "select 1"
-		ctx := WithRequestID(context.Background(), uuid.New())
+		ctx := WithRequestID(context.Background(), newUUID())
 		rows := dbt.db.QueryRowContext(ctx, query)
 		var v1 interface{}
 		if err := rows.Scan(&v1); err != nil {

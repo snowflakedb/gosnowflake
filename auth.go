@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/form3tech-oss/jwt-go"
-	"github.com/google/uuid"
 )
 
 const (
@@ -199,7 +198,7 @@ func postAuth(
 	timeout time.Duration) (
 	data *authResponse, err error) {
 	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
-	params.Add(requestGUIDKey, uuid.New().String())
+	params.Add(requestGUIDKey, newUUID().String())
 
 	fullURL := sr.getFullURL(loginRequestPath, params)
 	logger.Infof("full URL: %v", fullURL)

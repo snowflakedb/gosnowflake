@@ -16,8 +16,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -48,7 +46,7 @@ func TestInvalidConnection(t *testing.T) {
 // to generate a response with the SERVICE_NAME field appending a character at
 // the end of the header. This way it could test both the send and receive logic
 func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values,
-	headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID,
+	headers map[string]string, _ []byte, _ time.Duration, _ uuid,
 	_ *Config) (*execResponse, error) {
 	var serviceName string
 	if serviceHeader, ok := headers[httpHeaderServiceName]; ok {
@@ -69,10 +67,10 @@ func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values,
 }
 
 func TestExecWithEmptyRequestID(t *testing.T) {
-	ctx := WithRequestID(context.Background(), uuid.Nil)
+	ctx := WithRequestID(context.Background(), nilUUID)
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
 		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
-		requestID uuid.UUID, _ *Config) (*execResponse, error) {
+		requestID uuid, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if len(requestID) == 0 {
 			t.Fatal("requestID is empty")
@@ -139,11 +137,11 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 }
 
 func TestExecWithSpecificRequestID(t *testing.T) {
-	origRequestID := uuid.New()
+	origRequestID := newUUID()
 	ctx := WithRequestID(context.Background(), origRequestID)
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
 		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
-		requestID uuid.UUID, _ *Config) (*execResponse, error) {
+		requestID uuid, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if requestID != origRequestID {
 			t.Fatal("requestID doesn't match")
