@@ -275,7 +275,7 @@ func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
 	jsonStr := `{"data" : { "queries" : [{"status" : "RUNNING", "state" :
-		"FILE_SET_INITIALIZATION", "errorCode" : 0, "errorMessage" : null}] },
+		"FILE_SET_INITIALIZATION", "errorCode" : "", "errorMessage" : null}] },
 		"code" : null, "message" : null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
@@ -283,7 +283,7 @@ func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, ful
 func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
 	jsonStr := `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR",
-		"errorCode" : 0, "errorMessage" : ""}] }, "code" : null, "message" :
+		"errorCode" : "", "errorMessage" : ""}] }, "code" : null, "message" :
 		null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
@@ -406,9 +406,34 @@ func TestGetQueryStatus(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	if qStatus == nil {
+		t.Fatal("there was no query status returned")
+	}
 
-	if qStatus.ErrorCode != 0 || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
+	if qStatus.ErrorCode != "" || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
 		t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v",
 			qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows)
+	}
+}
+
+func TestGetInvalidQueryStatus(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.Background()
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	sc.rest.RequestTimeout = 1 * time.Second
+
+	qStatus, err := sc.checkQueryStatus(ctx, "1234")
+	if err == nil || qStatus != nil {
+		t.Error("expected an error")
 	}
 }

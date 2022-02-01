@@ -266,6 +266,7 @@ const (
 	errMsgInternalNotMatchEncryptMaterial    = "number of downloading files doesn't match the encryption materials. files=%v, encmat=%v"
 	errMsgFailedToConvertToS3Client          = "failed to convert interface to s3 client"
 	errMsgNoResultIDs                        = "no result IDs returned with the multi-statement query"
+	errMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
 )
 
 var (

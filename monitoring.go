@@ -79,7 +79,7 @@ type retStatus struct {
 	SQLText      string   `json:"sqlText"`
 	StartTime    int64    `json:"startTime"`
 	EndTime      int64    `json:"endTime"`
-	ErrorCode    int      `json:"errorCode"`
+	ErrorCode    string   `json:"errorCode"`
 	ErrorMessage string   `json:"errorMessage"`
 	Stats        retStats `json:"stats"`
 }
@@ -107,7 +107,7 @@ type SnowflakeQueryStatus struct {
 	SQLText      string
 	StartTime    int64
 	EndTime      int64
-	ErrorCode    int
+	ErrorCode    string
 	ErrorMessage string
 	ScanBytes    int64
 	ProducedRows int64
@@ -160,11 +160,11 @@ func (sc *snowflakeConn) checkQueryStatus(
 	}
 
 	queryRet := statusResp.Data.Queries[0]
-	if queryRet.ErrorCode != 0 {
+	if queryRet.ErrorCode != "" {
 		return &queryRet, (&SnowflakeError{
-			Number: ErrQueryStatus,
-			Message: fmt.Sprintf("server ErrorCode=%d, ErrorMessage=%s",
-				queryRet.ErrorCode, queryRet.ErrorMessage),
+			Number:         ErrQueryStatus,
+			Message:        errMsgQueryStatus,
+			MessageArgs:    []interface{}{queryRet.ErrorCode, queryRet.ErrorMessage},
 			IncludeQueryID: true,
 			QueryID:        qid,
 		}).exceptionTelemetry(sc)
