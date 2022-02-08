@@ -5,8 +5,6 @@ package gosnowflake
 type queryStatus string
 
 const (
-	// QueryStatusWaiting denotes a query execution waiting to happen
-	QueryStatusWaiting queryStatus = "queryStatusWaiting"
 	// QueryStatusInProgress denotes a query execution in progress
 	QueryStatusInProgress queryStatus = "queryStatusInProgress"
 	// QueryStatusComplete denotes a completed query execution

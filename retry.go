@@ -15,8 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 var random *rand.Rand
@@ -25,19 +23,18 @@ func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
-// requestGUIDKey is attached to every request against Snowflake
-const requestGUIDKey string = "request_guid"
+const (
+	// requestGUIDKey is attached to every request against Snowflake
+	requestGUIDKey string = "request_guid"
+	// retryCounterKey is attached to query-request from the second time
+	retryCounterKey string = "retryCounter"
+	// requestIDKey is attached to all requests to Snowflake
+	requestIDKey string = "requestId"
+)
 
-// retryCounterKey is attached to query-request from the second time
-const retryCounterKey string = "retryCounter"
-
-// requestIDKey is attached to all requests to Snowflake
-const requestIDKey string = "requestId"
-
-// This class takes in an url during construction and replace the
-// value of request_guid every time the replace() is called
-// When the url does not contain request_guid, just return the original
-// url
+// This class takes in an url during construction and replaces the value of
+// request_guid every time replace() is called. If the url does not contain
+// request_guid, just return the original url
 type requestGUIDReplacer interface {
 	// replace the url with new ID
 	replace() *url.URL
@@ -82,7 +79,7 @@ generated uuid
 */
 func (replacer *requestGUIDReplace) replace() *url.URL {
 	replacer.urlValues.Del(requestGUIDKey)
-	replacer.urlValues.Add(requestGUIDKey, uuid.New().String())
+	replacer.urlValues.Add(requestGUIDKey, newUUID().String())
 	replacer.urlPtr.RawQuery = replacer.urlValues.Encode()
 	return replacer.urlPtr
 }

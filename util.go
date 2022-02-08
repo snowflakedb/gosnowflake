@@ -10,28 +10,18 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type contextKey string
 
 const (
-	// multiStatementCount controls the number of queries to execute in a single API call
-	multiStatementCount contextKey = "MULTI_STATEMENT_COUNT"
-	// asyncMode tells the server to not block the request on executing the entire query
-	asyncMode contextKey = "ASYNC_MODE_QUERY"
-	// queryIDChannel is the channel to receive the query ID from
-	queryIDChannel contextKey = "QUERY_ID_CHANNEL"
-	// snowflakeRequestIDKey is optional context key to specify request id
+	multiStatementCount   contextKey = "MULTI_STATEMENT_COUNT"
+	asyncMode             contextKey = "ASYNC_MODE_QUERY"
+	queryIDChannel        contextKey = "QUERY_ID_CHANNEL"
 	snowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
-	// fetchResultByID the queryID of query result to fetch
-	fetchResultByID contextKey = "SF_FETCH_RESULT_BY_ID"
-	// fileStreamFile is the address of the file to be uploaded via PUT
-	fileStreamFile contextKey = "STREAMING_PUT_FILE"
-	// fileTransferOptions allows the user to pass in custom
-	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
-	// enableHigherPrecision returns numbers with higher precision in a *big format
+	fetchResultByID       contextKey = "SF_FETCH_RESULT_BY_ID"
+	fileStreamFile        contextKey = "STREAMING_PUT_FILE"
+	fileTransferOptions   contextKey = "FILE_TRANSFER_OPTIONS"
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
 	// distributedResultBatches allows users to retrieve array record download workers
 	distributedResultBatches contextKey = "DISTRIBUTED_RESULT_BATCH"
@@ -59,7 +49,7 @@ func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 }
 
 // WithRequestID returns a new context with the specified snowflake request id
-func WithRequestID(ctx context.Context, requestID uuid.UUID) context.Context {
+func WithRequestID(ctx context.Context, requestID uuid) context.Context {
 	return context.WithValue(ctx, snowflakeRequestIDKey, requestID)
 }
 
@@ -102,12 +92,12 @@ func WithDistributedResultBatches(ctx context.Context) context.Context {
 }
 
 // Get the request ID from the context if specified, otherwise generate one
-func getOrGenerateRequestIDFromContext(ctx context.Context) uuid.UUID {
-	requestID, ok := ctx.Value(snowflakeRequestIDKey).(uuid.UUID)
-	if ok && requestID != uuid.Nil {
+func getOrGenerateRequestIDFromContext(ctx context.Context) uuid {
+	requestID, ok := ctx.Value(snowflakeRequestIDKey).(uuid)
+	if ok && requestID != nilUUID {
 		return requestID
 	}
-	return uuid.New()
+	return newUUID()
 }
 
 // integer min

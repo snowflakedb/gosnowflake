@@ -154,7 +154,7 @@ func (rows *snowflakeRows) GetBatches() ([]*ResultBatch, error) {
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
-	if err := rows.waitForAsyncQueryStatus(); err != nil {
+	if err = rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
 	row, err := rows.ChunkDownloader.next()
@@ -174,7 +174,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 		for i, n := 0, len(row.RowSet); i < n; i++ {
 			// could move to chunk downloader so that each go routine
 			// can convert data
-			err := stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i])
+			err = stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i])
 			if err != nil {
 				return err
 			}

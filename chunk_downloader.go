@@ -222,10 +222,7 @@ func (scd *snowflakeChunkDownloader) getChunkMetas() []execResponseChunk {
 }
 
 func (scd *snowflakeChunkDownloader) getQueryResultFormat() resultFormat {
-	if scd.QueryResultFormat == "json" {
-		return jsonFormat
-	}
-	return arrowFormat
+	return resultFormat(scd.QueryResultFormat)
 }
 
 func (scd *snowflakeChunkDownloader) setNextChunkDownloader(nextDownloader chunkDownloader) {
