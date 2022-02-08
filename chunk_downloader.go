@@ -93,7 +93,7 @@ func (scd *snowflakeChunkDownloader) nextResultSet() error {
 
 func (scd *snowflakeChunkDownloader) start() error {
 	if usesDistributedBatches(scd.ctx) {
-		return startDistributedBatches(scd)
+		return scd.startDistributedBatches()
 	}
 	scd.CurrentChunkSize = len(scd.RowSet.JSON) // cache the size
 	scd.CurrentIndex = -1                       // initial chunks idx
@@ -261,7 +261,7 @@ func getChunk(
 	return newRetryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, u, headers, timeout).execute()
 }
 
-func startDistributedBatches(scd *snowflakeChunkDownloader) error {
+func (scd *snowflakeChunkDownloader) startDistributedBatches() error {
 	var err error
 	chunkMetaLen := len(scd.ChunkMetas)
 	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
@@ -424,8 +424,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			memory.NewGoAllocator(),
 		}
 		if usesDistributedBatches(scd.ctx) {
-			scd.ResultBatches[idx].Rec, err = arc.decodeArrowBatch(scd)
-			if err != nil {
+			if scd.ResultBatches[idx].Rec, err = arc.decodeArrowBatch(scd); err != nil {
 				return err
 			}
 			return nil

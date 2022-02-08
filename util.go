@@ -33,7 +33,7 @@ const (
 	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
 	// enableHigherPrecision returns numbers with higher precision in a *big format
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
-	// distributedResultBatches allows the user to retrieve array record download workers
+	// distributedResultBatches allows users to retrieve array record download workers
 	distributedResultBatches contextKey = "DISTRIBUTED_RESULT_BATCH"
 )
 
