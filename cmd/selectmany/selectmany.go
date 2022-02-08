@@ -16,7 +16,7 @@ import (
 
 	"runtime/debug"
 
-	sf "github.com/dominodatalab/gosnowflake"
+	sf "github.com/snowflakedb/gosnowflake"
 )
 
 var (

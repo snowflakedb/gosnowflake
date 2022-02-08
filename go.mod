@@ -1,4 +1,4 @@
-module github.com/dominodatalab/gosnowflake
+module github.com/snowflakedb/gosnowflake
 
 go 1.16
 
