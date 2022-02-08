@@ -4,7 +4,6 @@ package gosnowflake
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"io"
 
@@ -20,17 +19,9 @@ type arrowResultChunk struct {
 	allocator        memory.Allocator
 }
 
-func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
+func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
-	if arrowRecordChan := getArrowRecordChan(ctx); arrowRecordChan != nil {
-		numRows, err := arc.writeToArrowChan(arrowRecordChan, rowType)
-		if err != nil {
-			return nil, err
-		}
-		chunkRows = append(chunkRows, make([]chunkRowType, numRows)...)
-		return chunkRows, nil
-	}
 	for {
 		record, err := arc.reader.Read()
 		if err == io.EOF {
@@ -42,6 +33,7 @@ func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []exe
 		numRows := int(record.NumRows())
 		columns := record.Columns()
 		tmpRows := make([]chunkRowType, numRows)
+
 		for colIdx, col := range columns {
 			destcol := make([]snowflakeValue, numRows)
 			if err = arrowToValue(&destcol, rowType[colIdx], col, highPrec); err != nil {
@@ -60,6 +52,27 @@ func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []exe
 	}
 }
 
+func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]array.Record, error) {
+	var records []array.Record
+
+	for {
+		rawRecord, err := arc.reader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		record, err := arrowToRecord(rawRecord, scd.RowSet.RowType)
+		rawRecord.Release()
+		if err != nil {
+			return nil, err
+		}
+		record.Retain()
+		records = append(records, record)
+	}
+	return &records, nil
+}
+
 /**
 Build arrow chunk based on RowSet of base64
 */
@@ -74,43 +87,4 @@ func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
 	}
 
 	return arrowResultChunk{*rr, 0, 0, memory.NewGoAllocator()}
-}
-
-
-// Writes []array.Record to array record channel. Returns number of rows from records written to channel
-func (arc *arrowResultChunk) writeToArrowChan(ch chan<- []array.Record, rowType []execResponseRowType) (int, error) {
-	var numRows int
-	var records []array.Record
-
-	for {
-		rawRecord, err := arc.reader.Read()
-		if err == io.EOF {
-			ch <- records
-			return numRows, nil
-		} else if err != nil {
-			return numRows, err
-		}
-		record, err := arrowToRecord(rawRecord, rowType)
-		rawRecord.Release()
-		if err != nil {
-			return numRows, err
-		}
-		records = append(records, record)
-
-		currentRows := int(record.NumRows())
-		numRows += currentRows
-		arc.rowCount += currentRows
-	}
-}
-
-// Getter for ArrowRecordChan within context. Returns nil if it is not found. See WithArrowRecordChan for functionality.
-func getArrowRecordChan(ctx context.Context) chan<- []array.Record {
-	v := ctx.Value(arrowRecordChannel)
-	if v == nil {
-		return nil
-	}
-	if c, ok := v.(chan []array.Record); ok {
-		return c
-	}
-	return nil
 }

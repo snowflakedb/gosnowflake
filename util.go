@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/arrow/array"
-
 	"github.com/google/uuid"
 )
 
@@ -35,8 +33,8 @@ const (
 	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
 	// enableHigherPrecision returns numbers with higher precision in a *big format
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
-	// arrowRecordChannel is the channel to receive the arrow record
-	arrowRecordChannel contextKey = "ARROW_RECORD_CHANNEL"
+	// distributedResultBatches allows users to retrieve array record download workers
+	distributedResultBatches contextKey = "DISTRIBUTED_RESULT_BATCH"
 )
 
 const (
@@ -58,11 +56,6 @@ func WithAsyncMode(ctx context.Context) context.Context {
 // WithQueryIDChan returns a context that contains the channel to receive the query ID
 func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 	return context.WithValue(ctx, queryIDChannel, c)
-}
-
-// WithArrowRecordChan returns a context that contains the channel to receive arrow records
-func WithArrowRecordChan(ctx context.Context, c chan []array.Record) context.Context {
-	return context.WithValue(ctx, arrowRecordChannel, c)
 }
 
 // WithRequestID returns a new context with the specified snowflake request id
@@ -100,6 +93,12 @@ func WithDescribeOnly(ctx context.Context) context.Context {
 // types with numbers that don't fit into its native Golang counterpart
 func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
+}
+
+// WithDistributedResultBatches returns a context that allows users to retrieve
+// arrow.Record download workers upon querying
+func WithDistributedResultBatches(ctx context.Context) context.Context {
+	return context.WithValue(ctx, distributedResultBatches, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one

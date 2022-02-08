@@ -575,10 +575,10 @@ func TestArrowToRecord(t *testing.T) {
 	for _, tc := range []struct {
 		logical  string
 		physical string
-		sc		 *arrow.Schema
+		sc       *arrow.Schema
 		rowType  execResponseRowType
 		values   interface{}
-		nrows	 int
+		nrows    int
 		builder  array.Builder
 		append   func(b array.Builder, vs interface{})
 		compare  func(src interface{}, rec array.Record) int
@@ -586,18 +586,18 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical:  "fixed",
 			physical: "number", // default: number(38, 0)
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
 			values:   []int64{1, 2},
-			nrows:	  2,
+			nrows:    2,
 			builder:  array.NewInt64Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 		},
 		{
 			logical:  "fixed",
 			physical: "number(38,0)",
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 30, Scale: 2}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 30, Scale: 2}}}, nil),
 			values:   []string{"10000000000000000000000000000000000000", "-12345678901234567890123456789012345678"},
-			nrows:	  2,
+			nrows:    2,
 			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 30, Scale: 2}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, s := range vs.([]string) {
@@ -627,9 +627,9 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "fixed",
 			physical: "number(38,37)",
 			rowType:  execResponseRowType{Scale: 37},
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 38, Scale: 37}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 38, Scale: 37}}}, nil),
 			values:   []string{"1.2345678901234567890123456789012345678", "-9.9999999999999999999999999999999999999"},
-			nrows:	  2,
+			nrows:    2,
 			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 37}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, s := range vs.([]string) {
@@ -658,34 +658,34 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical:  "fixed",
 			physical: "int8",
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int8Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int8Type{}}}, nil),
 			values:   []int8{1, 2},
-			nrows:	  2,
+			nrows:    2,
 			builder:  array.NewInt8Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
 		},
 		{
 			logical:  "fixed",
 			physical: "int16",
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int16Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int16Type{}}}, nil),
 			values:   []int16{1, 2},
-			nrows:	  2,
+			nrows:    2,
 			builder:  array.NewInt16Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
 		},
 		{
 			logical:  "fixed",
 			physical: "int32",
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int32Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int32Type{}}}, nil),
 			values:   []int32{1, 2},
-			nrows:	  2,
+			nrows:    2,
 			builder:  array.NewInt32Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
 		},
 		{
 			logical:  "fixed",
 			physical: "int64",
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
 			values:   []int64{1, 2},
 			nrows:    2,
 			builder:  array.NewInt64Builder(pool),
@@ -695,7 +695,7 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "fixed",
 			physical: "float8",
 			rowType:  execResponseRowType{Scale: 1},
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int8Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int8Type{}}}, nil),
 			values:   []int8{10, 16},
 			nrows:    2,
 			builder:  array.NewInt8Builder(pool),
@@ -715,7 +715,7 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "fixed",
 			physical: "float16",
 			rowType:  execResponseRowType{Scale: 1},
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int16Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int16Type{}}}, nil),
 			values:   []int16{20, 26},
 			nrows:    2,
 			builder:  array.NewInt16Builder(pool),
@@ -735,7 +735,7 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "fixed",
 			physical: "float32",
 			rowType:  execResponseRowType{Scale: 2},
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int32Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int32Type{}}}, nil),
 			values:   []int32{200, 265},
 			nrows:    2,
 			builder:  array.NewInt32Builder(pool),
@@ -755,7 +755,7 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "fixed",
 			physical: "float64",
 			rowType:  execResponseRowType{Scale: 5},
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
 			values:   []int64{12345, 234567},
 			nrows:    2,
 			builder:  array.NewInt64Builder(pool),
@@ -773,16 +773,16 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical: "boolean",
-			sc:		 arrow.NewSchema([]arrow.Field{{Type: &arrow.BooleanType{}}}, nil),
+			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.BooleanType{}}}, nil),
 			values:  []bool{true, false},
-			nrows:    2,
+			nrows:   2,
 			builder: array.NewBooleanBuilder(pool),
 			append:  func(b array.Builder, vs interface{}) { b.(*array.BooleanBuilder).AppendValues(vs.([]bool), valids) },
 		},
 		{
 			logical:  "real",
 			physical: "float",
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Float64Type{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Float64Type{}}}, nil),
 			values:   []float64{1, 2},
 			nrows:    2,
 			builder:  array.NewFloat64Builder(pool),
@@ -791,7 +791,7 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical:  "text",
 			physical: "string",
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}}}, nil),
 			values:   []string{"foo", "bar"},
 			nrows:    2,
 			builder:  array.NewStringBuilder(pool),
@@ -799,17 +799,17 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical: "binary",
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.BinaryType{}}}, nil),
+			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.BinaryType{}}}, nil),
 			values:  [][]byte{[]byte("foo"), []byte("bar")},
-			nrows:    2,
+			nrows:   2,
 			builder: array.NewBinaryBuilder(pool, arrow.BinaryTypes.Binary),
 			append:  func(b array.Builder, vs interface{}) { b.(*array.BinaryBuilder).AppendValues(vs.([][]byte), valids) },
 		},
 		{
 			logical: "date",
-			sc:		  arrow.NewSchema([]arrow.Field{{Type: &arrow.Date32Type{}}}, nil),
+			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.Date32Type{}}}, nil),
 			values:  []time.Time{time.Now(), localTime},
-			nrows:    2,
+			nrows:   2,
 			builder: array.NewDate32Builder(pool),
 			append: func(b array.Builder, vs interface{}) {
 				for _, d := range vs.([]time.Time) {
@@ -819,9 +819,9 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical: "time",
-			sc:		 arrow.NewSchema([]arrow.Field{{Type: &arrow.Time64Type{}}}, nil),
+			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.Time64Type{}}}, nil),
 			values:  []time.Time{time.Now(), time.Now()},
-			nrows:    2,
+			nrows:   2,
 			builder: array.NewTime64Builder(pool, &arrow.Time64Type{}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, t := range vs.([]time.Time) {
@@ -841,9 +841,9 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical: "timestamp_ntz",
 			values:  []time.Time{time.Now(), localTime},
-			nrows:    2,
+			nrows:   2,
 			rowType: execResponseRowType{Scale: 9},
-			sc:		 arrow.NewSchema([]arrow.Field{{Type: &arrow.TimestampType{}}}, nil),
+			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.TimestampType{}}}, nil),
 			builder: array.NewTimestampBuilder(pool, &arrow.TimestampType{}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, t := range vs.([]time.Time) {
@@ -863,9 +863,9 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical: "timestamp_ltz",
 			values:  []time.Time{time.Now(), localTime},
-			nrows:    2,
+			nrows:   2,
 			rowType: execResponseRowType{Scale: 9},
-			sc:		 arrow.NewSchema([]arrow.Field{{Type: &arrow.TimestampType{}}}, nil),
+			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.TimestampType{}}}, nil),
 			builder: array.NewTimestampBuilder(pool, &arrow.TimestampType{}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, t := range vs.([]time.Time) {
@@ -885,8 +885,8 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical: "timestamp_tz",
 			values:  []time.Time{time.Now(), localTime},
-			nrows:	  2,
-			sc:		 arrow.NewSchema([]arrow.Field{{Type: arrow.StructOf(field1, field2)}}, nil),
+			nrows:   2,
+			sc:      arrow.NewSchema([]arrow.Field{{Type: arrow.StructOf(field1, field2)}}, nil),
 			builder: array.NewStructBuilder(pool, tzStruct),
 			append: func(b array.Builder, vs interface{}) {
 				sb := b.(*array.StructBuilder)
@@ -910,8 +910,8 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical: "array",
 			values:  [][]string{{"foo", "bar"}, {"baz", "quz", "quux"}},
-			nrows:	 2,
-			sc:		 arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}}}, nil),
+			nrows:   2,
+			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}}}, nil),
 			builder: array.NewStringBuilder(pool),
 			append: func(b array.Builder, vs interface{}) {
 				for _, a := range vs.([][]string) {
@@ -922,8 +922,8 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical: "object",
 			values:  []testObj{{0, "foo"}, {1, "bar"}},
-			nrows:	 2,
-			sc:		 arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}}}, nil),
+			nrows:   2,
+			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}}}, nil),
 			builder: array.NewStringBuilder(pool),
 			append: func(b array.Builder, vs interface{}) {
 				for _, o := range vs.([]testObj) {
@@ -957,7 +957,7 @@ func TestArrowToRecord(t *testing.T) {
 				}
 			} else {
 				for i, c := range transformedRec.Columns() {
-					rawCol :=  rawRec.Column(i)
+					rawCol := rawRec.Column(i)
 					if rawCol != c {
 						t.Fatalf("error: expected column %s, got column %s", rawCol, c)
 					}

@@ -5,14 +5,13 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
 	"strings"
 	"testing"
-
-	"github.com/apache/arrow/go/arrow/array"
 )
 
 func TestBadChunkData(t *testing.T) {
@@ -390,36 +389,43 @@ func TestWithStreamDownloader(t *testing.T) {
 	})
 }
 
-func TestWithArrowRecordsChan(t *testing.T) {
-	ch := make(chan []array.Record, 1)
-	ctx := WithArrowRecordChan(context.Background(), ch)
-	numrows := 10
+func TestWithDistributedResultBatches(t *testing.T) {
+	ctx := WithDistributedResultBatches(context.Background())
+	numrows := 100
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
 
-	runTests(t, dsn, func(dbt *DBTest) {
-		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
-		defer rows.Close()
+	query := fmt.Sprintf(selectRandomGenerator, numrows)
+	rows, err := sc.QueryContext(ctx, query, []driver.NamedValue{})
+	if err != nil {
+		t.Error(err)
+	}
+	defer rows.Close()
+	batches, err := rows.(*snowflakeRows).GetBatches()
+	if err != nil {
+		t.Error(err)
+	}
 
-		go func() {
-			for {
-				if !rows.Next() {
-					return
-				}
-			}
-		}()
-		cnt := 0
-		for {
-			records, ok := <-ch
-			if ok {
-				for _, r := range records {
-					cnt += int(r.NumRows())
-				}
-			} else {
-				// channel is closed
-				break
-			}
+	cnt := 0
+	for _, b := range batches {
+		err := b.Fetch()
+		if err != nil {
+			t.Error(err)
 		}
-		if cnt != numrows {
-			t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
+		for _, r := range *b.Rec {
+			cnt += int(r.NumRows())
 		}
-	})
+	}
+	if cnt != numrows {
+		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
+	}
 }
