@@ -682,7 +682,7 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 	return nil
 }
 
-// ResultBatch object encapsulates a function that retrieves a subset of rows in a result set.
+// ResultBatch object represents a chunk of data, or subset of rows, retrievable in array.Record format
 type ResultBatch struct {
 	Rec                *[]array.Record
 	idx                int
@@ -691,11 +691,15 @@ type ResultBatch struct {
 }
 
 // Fetch returns an array of records representing a chunk in the query
-func (rb *ResultBatch) Fetch() error {
+func (rb *ResultBatch) Fetch() (*[]array.Record, error) {
+	// chunk has already been downloaded
 	if rb.Rec != nil {
-		return nil
+		return rb.Rec, nil
 	}
-	return rb.funcDownloadHelper(context.Background(), rb.scd, rb.idx)
+	if err := rb.funcDownloadHelper(context.Background(), rb.scd, rb.idx); err != nil {
+		return nil, err
+	}
+	return rb.Rec, nil
 }
 
 func usesDistributedBatches(ctx context.Context) bool {

@@ -86,7 +86,7 @@ func WithHigherPrecision(ctx context.Context) context.Context {
 }
 
 // WithDistributedResultBatches returns a context that allows users to retrieve
-// arrow.Record download workers upon querying
+// array.Record download workers upon querying
 func WithDistributedResultBatches(ctx context.Context) context.Context {
 	return context.WithValue(ctx, distributedResultBatches, true)
 }

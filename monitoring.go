@@ -116,7 +116,6 @@ type SnowflakeQueryStatus struct {
 // SnowflakeConnection is a wrapper to snowflakeConn that exposes API functions
 type SnowflakeConnection interface {
 	GetQueryStatus(ctx context.Context, queryID string) (*SnowflakeQueryStatus, error)
-	QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error)
 }
 
 // checkQueryStatus returns the status given the query ID. If successful,

@@ -27,11 +27,6 @@ var (
 	maxChunkDownloaderErrorCounter = 5
 )
 
-// SnowflakeRows provides an API for methods exposed to the clients
-type SnowflakeRows interface {
-	GetBatches() ([]*ResultBatch, error)
-}
-
 type snowflakeRows struct {
 	sc                  *snowflakeConn
 	ChunkDownloader     chunkDownloader
@@ -149,6 +144,7 @@ func (rows *snowflakeRows) GetStatus() queryStatus {
 	return rows.status
 }
 
+// GetBatches returns an array of ResultBatch objects to retrieve data in array.Record format
 func (rows *snowflakeRows) GetBatches() ([]*ResultBatch, error) {
 	return rows.ChunkDownloader.getResultBatches(), nil
 }

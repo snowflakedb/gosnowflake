@@ -7,7 +7,6 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
-	"github.com/apache/arrow/go/arrow/memory"
 	"math"
 	"math/big"
 	"reflect"
@@ -18,6 +17,7 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/decimal128"
+	"github.com/apache/arrow/go/arrow/memory"
 )
 
 const format = "2006-01-02 15:04:05.999999999"
