@@ -391,7 +391,7 @@ func TestWithStreamDownloader(t *testing.T) {
 
 func TestWithDistributedResultBatches(t *testing.T) {
 	ctx := WithDistributedResultBatches(context.Background())
-	numrows := 100
+	numrows := 3000 // approximately 6 ResultBatch objects
 	config, err := ParseDSN(dsn)
 	if err != nil {
 		t.Error(err)
@@ -417,7 +417,7 @@ func TestWithDistributedResultBatches(t *testing.T) {
 
 	cnt := 0
 	for _, b := range batches {
-		err := b.Fetch()
+		_, err := b.Fetch()
 		if err != nil {
 			t.Error(err)
 		}
