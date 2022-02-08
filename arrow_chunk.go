@@ -22,6 +22,7 @@ type arrowResultChunk struct {
 func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
+
 	for {
 		record, err := arc.reader.Read()
 		if err == io.EOF {

@@ -182,6 +182,7 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 		if scd.CurrentChunkIndex > 1 {
 			scd.Chunks[scd.CurrentChunkIndex-1] = nil // detach the previously used chunk
 		}
+
 		for scd.Chunks[scd.CurrentChunkIndex] == nil {
 			logger.Debugf("waiting for chunk idx: %v/%v",
 				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
