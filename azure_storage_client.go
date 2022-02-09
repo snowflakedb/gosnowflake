@@ -156,16 +156,18 @@ func (util *snowflakeAzureClient) uploadFile(
 		}
 		defer f.Close()
 
-		var fi os.FileInfo
-		fi, err = f.Stat()
-		if err != nil {
-			return err
-		}
-		_, err = azblob.UploadFileToBlockBlob(context.Background(), f, blobURL, azblob.UploadToBlockBlobOptions{
-			BlockSize:   fi.Size(),
-			Parallelism: uint16(maxConcurrency),
+		blobOptions := azblob.UploadToBlockBlobOptions{
+			BlobHTTPHeaders: azblob.BlobHTTPHeaders{
+				ContentType:     httpHeaderValueOctetStream,
+				ContentEncoding: "utf-8",
+			},
 			Metadata:    azureMeta,
-		})
+			Parallelism: uint16(maxConcurrency),
+		}
+		if meta.options.putAzureCallback != nil {
+			blobOptions.Progress = meta.options.putAzureCallback.call
+		}
+		_, err = azblob.UploadFileToBlockBlob(context.Background(), f, blobURL, blobOptions)
 	}
 	if err != nil {
 		var se azblob.StorageError
@@ -196,7 +198,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	if err != nil {
 		return err
 	}
-	path := azureLoc.path + strings.TrimLeft(meta.dstFileName, "/")
+	path := azureLoc.path + strings.TrimLeft(meta.srcFileName, "/")
 	azContainerURL, ok := meta.client.(*azblob.ContainerURL)
 	if !ok {
 		return &SnowflakeError{
@@ -210,9 +212,9 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	}
 	defer f.Close()
 	blobURL := azContainerURL.NewBlockBlobURL(path)
-	if err := azblob.DownloadBlobToFile(context.Background(), blobURL.BlobURL, 0, azblob.CountToEnd, f, azblob.DownloadFromBlobOptions{
-		Parallelism: uint16(maxConcurrency),
-	}); err != nil {
+	if err = azblob.DownloadBlobToFile(
+		context.Background(), blobURL.BlobURL, 0, azblob.CountToEnd, f,
+		azblob.DownloadFromBlobOptions{Parallelism: uint16(maxConcurrency)}); err != nil {
 		return err
 	}
 	meta.resStatus = downloaded

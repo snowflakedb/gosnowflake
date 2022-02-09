@@ -19,6 +19,10 @@ import (
 type snowflakeFileUtil struct {
 }
 
+const (
+	fileChunkSize = 16 * 4 * 1024
+)
+
 func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.Buffer) (*bytes.Buffer, int, error) {
 	r := getReaderFromBuffer(srcStream)
 	buf, err := ioutil.ReadAll(r)
@@ -56,33 +60,46 @@ func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir stri
 	return gzipFileName, stat.Size(), nil
 }
 
-func (util *snowflakeFileUtil) getDigestAndSize(src **bytes.Buffer) (string, int64) {
-	chunkSize := 16 * 4 * 1024
+func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64, error) {
 	m := sha256.New()
-	r := getReaderFromBuffer(src)
+	r := getReaderFromBuffer(stream)
+	chunk := make([]byte, fileChunkSize)
+
 	for {
-		chunk := make([]byte, chunkSize)
 		n, err := r.Read(chunk)
-		if n == 0 || err != nil {
+		if err == io.EOF {
 			break
+		} else if err != nil {
+			return "", 0, err
 		}
 		m.Write(chunk[:n])
 	}
-	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*src).Len())
-}
-
-func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64) {
-	return util.getDigestAndSize(stream)
+	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*stream).Len()), nil
 }
 
 func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (string, int64, error) {
-	src, err := ioutil.ReadFile(fileName)
+	f, err := os.Open(fileName)
 	if err != nil {
 		return "", 0, err
 	}
-	buf := bytes.NewBuffer(src)
-	digest, size := util.getDigestAndSize(&buf)
-	return digest, size, err
+	defer f.Close()
+
+	var total int64
+	m := sha256.New()
+	chunk := make([]byte, fileChunkSize)
+
+	for {
+		n, err := f.Read(chunk)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return "", 0, err
+		}
+		total += int64(n)
+		m.Write(chunk[:n])
+	}
+	f.Seek(0, io.SeekStart)
+	return base64.StdEncoding.EncodeToString(m.Sum(nil)), total, nil
 }
 
 // file metadata for PUT/GET

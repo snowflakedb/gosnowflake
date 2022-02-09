@@ -27,7 +27,6 @@ const (
 	reasonKey        = "reason"
 	errorNumberKey   = "ErrorNumber"
 	stacktraceKey    = "Stacktrace"
-	exceptionKey     = "Exception"
 )
 
 const (
