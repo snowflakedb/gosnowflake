@@ -63,9 +63,9 @@ func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir stri
 func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64, error) {
 	m := sha256.New()
 	r := getReaderFromBuffer(stream)
+	chunk := make([]byte, fileChunkSize)
 
 	for {
-		chunk := make([]byte, fileChunkSize)
 		n, err := r.Read(chunk)
 		if err == io.EOF {
 			break
