@@ -35,7 +35,7 @@ type chunkDownloader interface {
 	getRowType() []execResponseRowType
 	setNextChunkDownloader(downloader chunkDownloader)
 	getNextChunkDownloader() chunkDownloader
-	getResultBatches() []*ResultBatch
+	getArrowBatches() []*ArrowBatch
 }
 
 type snowflakeChunkDownloader struct {
@@ -57,11 +57,11 @@ type snowflakeChunkDownloader struct {
 	ChunksFinalErrors  []*chunkError
 	ChunksMutex        *sync.Mutex
 	DoneDownloadCond   *sync.Cond
-	FirstBatch         *ResultBatch
+	FirstBatch         *ArrowBatch
 	NextDownloader     chunkDownloader
 	Qrmk               string
 	QueryResultFormat  string
-	ResultBatches      []*ResultBatch
+	ArrowBatches       []*ArrowBatch
 	RowSet             rowSetType
 	FuncDownload       func(context.Context, *snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
@@ -92,8 +92,8 @@ func (scd *snowflakeChunkDownloader) nextResultSet() error {
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
-	if usesDistributedBatches(scd.ctx) {
-		return scd.startDistributedBatches()
+	if usesArrowBatches(scd.ctx) {
+		return scd.startArrowBatches()
 	}
 	scd.CurrentChunkSize = len(scd.RowSet.JSON) // cache the size
 	scd.CurrentIndex = -1                       // initial chunks idx
@@ -238,11 +238,11 @@ func (scd *snowflakeChunkDownloader) getRowType() []execResponseRowType {
 	return scd.RowSet.RowType
 }
 
-func (scd *snowflakeChunkDownloader) getResultBatches() []*ResultBatch {
+func (scd *snowflakeChunkDownloader) getArrowBatches() []*ArrowBatch {
 	if scd.FirstBatch.rec == nil {
-		return scd.ResultBatches
+		return scd.ArrowBatches
 	}
-	return append([]*ResultBatch{scd.FirstBatch}, scd.ResultBatches...)
+	return append([]*ArrowBatch{scd.FirstBatch}, scd.ArrowBatches...)
 }
 
 func getChunk(
@@ -259,11 +259,11 @@ func getChunk(
 	return newRetryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, u, headers, timeout).execute()
 }
 
-func (scd *snowflakeChunkDownloader) startDistributedBatches() error {
+func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 	var err error
 	chunkMetaLen := len(scd.ChunkMetas)
 	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64)
-	scd.FirstBatch = &ResultBatch{
+	scd.FirstBatch = &ArrowBatch{
 		idx:                0,
 		scd:                scd,
 		funcDownloadHelper: scd.FuncDownloadHelper,
@@ -275,9 +275,9 @@ func (scd *snowflakeChunkDownloader) startDistributedBatches() error {
 			return err
 		}
 	}
-	scd.ResultBatches = make([]*ResultBatch, chunkMetaLen)
+	scd.ArrowBatches = make([]*ArrowBatch, chunkMetaLen)
 	for i := 0; i < chunkMetaLen; i++ {
-		scd.ResultBatches[i] = &ResultBatch{
+		scd.ArrowBatches[i] = &ArrowBatch{
 			idx:                i,
 			scd:                scd,
 			funcDownloadHelper: scd.FuncDownloadHelper,
@@ -421,12 +421,12 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			int(scd.totalUncompressedSize()),
 			memory.NewGoAllocator(),
 		}
-		if usesDistributedBatches(scd.ctx) {
-			if scd.ResultBatches[idx].rec, err = arc.decodeArrowBatch(scd); err != nil {
+		if usesArrowBatches(scd.ctx) {
+			if scd.ArrowBatches[idx].rec, err = arc.decodeArrowBatch(scd); err != nil {
 				return err
 			}
 			// updating metadata
-			scd.ResultBatches[idx].rowCount = countResultBatchRows(scd.ResultBatches[idx].rec)
+			scd.ArrowBatches[idx].rowCount = countArrowBatchRows(scd.ArrowBatches[idx].rec)
 			return nil
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
@@ -561,7 +561,7 @@ func (scd *streamChunkDownloader) getRowType() []execResponseRowType {
 	return scd.RowSet.RowType
 }
 
-func (scd *streamChunkDownloader) getResultBatches() []*ResultBatch {
+func (scd *streamChunkDownloader) getArrowBatches() []*ArrowBatch {
 	return nil
 }
 
@@ -684,8 +684,8 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 	return nil
 }
 
-// ResultBatch object represents a chunk of data, or subset of rows, retrievable in array.Record format
-type ResultBatch struct {
+// ArrowBatch object represents a chunk of data, or subset of rows, retrievable in array.Record format
+type ArrowBatch struct {
 	rec                *[]array.Record
 	idx                int
 	rowCount           int
@@ -694,11 +694,11 @@ type ResultBatch struct {
 }
 
 // Fetch returns an array of records representing a chunk in the query
-func (rb *ResultBatch) Fetch() (*[]array.Record, error) {
+func (rb *ArrowBatch) Fetch() (*[]array.Record, error) {
 	// chunk has already been downloaded
 	if rb.rec != nil {
 		// updating metadata
-		rb.rowCount = countResultBatchRows(rb.rec)
+		rb.rowCount = countArrowBatchRows(rb.rec)
 		return rb.rec, nil
 	}
 	if err := rb.funcDownloadHelper(context.Background(), rb.scd, rb.idx); err != nil {
@@ -707,8 +707,8 @@ func (rb *ResultBatch) Fetch() (*[]array.Record, error) {
 	return rb.rec, nil
 }
 
-func usesDistributedBatches(ctx context.Context) bool {
-	val := ctx.Value(distributedResultBatches)
+func usesArrowBatches(ctx context.Context) bool {
+	val := ctx.Value(arrowBatches)
 	if val == nil {
 		return false
 	}
@@ -716,7 +716,7 @@ func usesDistributedBatches(ctx context.Context) bool {
 	return a && ok
 }
 
-func countResultBatchRows(recs *[]array.Record) int {
+func countArrowBatchRows(recs *[]array.Record) int {
 	var cnt int
 	for _, r := range *recs {
 		cnt += int(r.NumRows())

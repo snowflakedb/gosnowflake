@@ -23,7 +23,7 @@ const (
 	fileStreamFile        contextKey = "STREAMING_PUT_FILE"
 	fileTransferOptions   contextKey = "FILE_TRANSFER_OPTIONS"
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
-	distributedResultBatches contextKey = "DISTRIBUTED_RESULT_BATCH"
+	arrowBatches          contextKey = "ARROW_BATCHES"
 )
 
 const (
@@ -84,10 +84,10 @@ func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
 }
 
-// WithDistributedResultBatches returns a context that allows users to retrieve
+// WithArrowBatches returns a context that allows users to retrieve
 // array.Record download workers upon querying
-func WithDistributedResultBatches(ctx context.Context) context.Context {
-	return context.WithValue(ctx, distributedResultBatches, true)
+func WithArrowBatches(ctx context.Context) context.Context {
+	return context.WithValue(ctx, arrowBatches, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one

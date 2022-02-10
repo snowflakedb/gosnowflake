@@ -390,9 +390,9 @@ func TestWithStreamDownloader(t *testing.T) {
 	})
 }
 
-func TestWithDistributedResultBatches(t *testing.T) {
-	ctx := WithDistributedResultBatches(context.Background())
-	numrows := 3000 // approximately 6 ResultBatch objects
+func TestWithArrowBatches(t *testing.T) {
+	ctx := WithArrowBatches(context.Background())
+	numrows := 3000 // approximately 6 ArrowBatch objects
 	config, err := ParseDSN(dsn)
 	if err != nil {
 		t.Error(err)
@@ -413,7 +413,7 @@ func TestWithDistributedResultBatches(t *testing.T) {
 	defer rows.Close()
 
 	// getting result batches
-	batches, err := rows.(*snowflakeRows).GetBatches()
+	batches, err := rows.(*snowflakeRows).GetArrowBatches()
 	if err != nil {
 		t.Error(err)
 	}
@@ -461,6 +461,6 @@ func TestWithDistributedResultBatches(t *testing.T) {
 		t.Errorf("number of rows from records didn't match. expected: %v, got: %v", numrows, cnt.recVal)
 	}
 	if cnt.metaVal != numrows {
-		t.Errorf("number of rows from result batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
+		t.Errorf("number of rows from arrow batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
 	}
 }

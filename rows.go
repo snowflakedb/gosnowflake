@@ -144,9 +144,9 @@ func (rows *snowflakeRows) GetStatus() queryStatus {
 	return rows.status
 }
 
-// GetBatches returns an array of ResultBatch objects to retrieve data in array.Record format
-func (rows *snowflakeRows) GetBatches() ([]*ResultBatch, error) {
-	return rows.ChunkDownloader.getResultBatches(), nil
+// GetArrowBatches returns an array of ArrowBatch objects to retrieve data in array.Record format
+func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
+	return rows.ChunkDownloader.getArrowBatches(), nil
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
