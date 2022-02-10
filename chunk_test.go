@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/rand"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -410,22 +411,56 @@ func TestWithDistributedResultBatches(t *testing.T) {
 		t.Error(err)
 	}
 	defer rows.Close()
+
+	// getting result batches
 	batches, err := rows.(*snowflakeRows).GetBatches()
 	if err != nil {
 		t.Error(err)
 	}
-
-	cnt := 0
-	for _, b := range batches {
-		_, err := b.Fetch()
-		if err != nil {
-			t.Error(err)
-		}
-		for _, r := range *b.Rec {
-			cnt += int(r.NumRows())
-		}
+	numBatches := len(batches)
+	maxWorkers := 10 // enough for 3000 rows
+	type count struct {
+		m       sync.Mutex
+		recVal  int
+		metaVal int
 	}
-	if cnt != numrows {
-		t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
+	cnt := count{recVal: 0}
+	var wg sync.WaitGroup
+	chunks := make(chan int, numBatches)
+
+	// kicking off download workers - each of which will call fetch on a different result batch
+	for w := 1; w <= maxWorkers; w++ {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, chunks <-chan int) {
+			defer wg.Done()
+
+			for i := range chunks {
+				rec, err := batches[i].Fetch()
+				if err != nil {
+					t.Error(err)
+				}
+				for _, r := range *rec {
+					cnt.m.Lock()
+					cnt.recVal += int(r.NumRows())
+					cnt.m.Unlock()
+				}
+				cnt.m.Lock()
+				cnt.metaVal += batches[i].rowCount
+				cnt.m.Unlock()
+			}
+		}(&wg, chunks)
+	}
+	for j := 0; j < numBatches; j++ {
+		chunks <- j
+	}
+	close(chunks)
+
+	// wait for workers to finish fetching and check row counts
+	wg.Wait()
+	if cnt.recVal != numrows {
+		t.Errorf("number of rows from records didn't match. expected: %v, got: %v", numrows, cnt.recVal)
+	}
+	if cnt.metaVal != numrows {
+		t.Errorf("number of rows from result batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
 	}
 }

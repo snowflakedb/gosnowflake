@@ -53,8 +53,8 @@ func (res *snowflakeResult) GetStatus() queryStatus {
 
 func (res *snowflakeResult) GetBatches() ([]*ResultBatch, error) {
 	return nil, &SnowflakeError{
-		Number:   ErrNotImplemented,
-		Message:  errMsgNotImplemented,
+		Number:  ErrNotImplemented,
+		Message: errMsgNotImplemented,
 	}
 }
 

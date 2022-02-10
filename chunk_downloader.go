@@ -239,7 +239,7 @@ func (scd *snowflakeChunkDownloader) getRowType() []execResponseRowType {
 }
 
 func (scd *snowflakeChunkDownloader) getResultBatches() []*ResultBatch {
-	if scd.FirstBatch.Rec == nil {
+	if scd.FirstBatch.rec == nil {
 		return scd.ResultBatches
 	}
 	return append([]*ResultBatch{scd.FirstBatch}, scd.ResultBatches...)
@@ -270,7 +270,7 @@ func (scd *snowflakeChunkDownloader) startDistributedBatches() error {
 	}
 	// decode first chunk if possible
 	if firstArrowChunk.allocator != nil {
-		scd.FirstBatch.Rec, err = firstArrowChunk.decodeArrowBatch(scd)
+		scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
 		if err != nil {
 			return err
 		}
@@ -422,9 +422,11 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			memory.NewGoAllocator(),
 		}
 		if usesDistributedBatches(scd.ctx) {
-			if scd.ResultBatches[idx].Rec, err = arc.decodeArrowBatch(scd); err != nil {
+			if scd.ResultBatches[idx].rec, err = arc.decodeArrowBatch(scd); err != nil {
 				return err
 			}
+			// updating metadata
+			scd.ResultBatches[idx].rowCount = countResultBatchRows(scd.ResultBatches[idx].rec)
 			return nil
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
@@ -684,8 +686,9 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 
 // ResultBatch object represents a chunk of data, or subset of rows, retrievable in array.Record format
 type ResultBatch struct {
-	Rec                *[]array.Record
+	rec                *[]array.Record
 	idx                int
+	rowCount           int
 	scd                *snowflakeChunkDownloader
 	funcDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
 }
@@ -693,13 +696,15 @@ type ResultBatch struct {
 // Fetch returns an array of records representing a chunk in the query
 func (rb *ResultBatch) Fetch() (*[]array.Record, error) {
 	// chunk has already been downloaded
-	if rb.Rec != nil {
-		return rb.Rec, nil
+	if rb.rec != nil {
+		// updating metadata
+		rb.rowCount = countResultBatchRows(rb.rec)
+		return rb.rec, nil
 	}
 	if err := rb.funcDownloadHelper(context.Background(), rb.scd, rb.idx); err != nil {
 		return nil, err
 	}
-	return rb.Rec, nil
+	return rb.rec, nil
 }
 
 func usesDistributedBatches(ctx context.Context) bool {
@@ -709,4 +714,12 @@ func usesDistributedBatches(ctx context.Context) bool {
 	}
 	a, ok := val.(bool)
 	return a && ok
+}
+
+func countResultBatchRows(recs *[]array.Record) int {
+	var cnt int
+	for _, r := range *recs {
+		cnt += int(r.NumRows())
+	}
+	return cnt
 }
