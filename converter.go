@@ -17,6 +17,7 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/decimal128"
+	"github.com/apache/arrow/go/arrow/memory"
 )
 
 const format = "2006-01-02 15:04:05.999999999"
@@ -776,4 +777,265 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	}
 	d, ok := v.(bool)
 	return ok && d
+}
+
+func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Record, error) {
+	s, err := recordToSchema(record.Schema(), rowType)
+	if err != nil {
+		return nil, err
+	}
+
+	var cols []array.Interface
+	numRows := record.NumRows()
+	pool := memory.NewGoAllocator()
+
+	for i, col := range record.Columns() {
+		srcColumnMeta := rowType[i]
+		data := col.Data()
+
+		//TODO: confirm that it is okay to be using higher precision logic for conversions
+		var newCol = col
+		switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
+		case fixedType:
+			switch col.DataType().ID() {
+			case arrow.DECIMAL:
+				if srcColumnMeta.Scale == 0 {
+					ib := array.NewInt64Builder(pool)
+					for i, num := range array.NewDecimal128Data(data).Values() {
+						if !col.IsNull(i) {
+							bi := decimalToBigInt(num)
+							val := bi.Int64()
+							ib.Append(val)
+						} else {
+							ib.AppendNull()
+						}
+					}
+					newCol = ib.NewArray()
+				} else {
+					fb := array.NewFloat64Builder(pool)
+					for i, num := range array.NewDecimal128Data(data).Values() {
+						if !col.IsNull(i) {
+							f := decimalToBigFloat(num, srcColumnMeta.Scale)
+							val, _ := f.Float64()
+							fb.Append(val)
+						} else {
+							fb.AppendNull()
+						}
+					}
+					newCol = fb.NewArray()
+				}
+			case arrow.INT8:
+				if srcColumnMeta.Scale != 0 {
+					fb := array.NewFloat64Builder(pool)
+					for i, val := range array.NewInt8Data(data).Int8Values() {
+						if !col.IsNull(i) {
+							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
+							val, _ := f.Float64()
+							fb.Append(val)
+						} else {
+							fb.AppendNull()
+						}
+					}
+					newCol = fb.NewArray()
+				}
+			case arrow.INT16:
+				if srcColumnMeta.Scale != 0 {
+					fb := array.NewFloat64Builder(pool)
+					for i, val := range array.NewInt16Data(data).Int16Values() {
+						if !col.IsNull(i) {
+							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
+							val, _ := f.Float64()
+							fb.Append(val)
+						} else {
+							fb.AppendNull()
+						}
+					}
+					newCol = fb.NewArray()
+				}
+			case arrow.INT32:
+				if srcColumnMeta.Scale != 0 {
+					fb := array.NewFloat64Builder(pool)
+					for i, val := range array.NewInt32Data(data).Int32Values() {
+						if !col.IsNull(i) {
+							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
+							val, _ := f.Float64()
+							fb.Append(val)
+						} else {
+							fb.AppendNull()
+						}
+					}
+					newCol = fb.NewArray()
+				}
+			case arrow.INT64:
+				if srcColumnMeta.Scale != 0 {
+					fb := array.NewFloat64Builder(pool)
+					for i, val := range array.NewInt64Data(data).Int64Values() {
+						if !col.IsNull(i) {
+							f := intToBigFloat(val, srcColumnMeta.Scale)
+							val, _ := f.Float64()
+							fb.Append(val)
+						} else {
+							fb.AppendNull()
+						}
+					}
+					newCol = fb.NewArray()
+				}
+			}
+		case timeType:
+			tb := array.NewTime64Builder(pool, &arrow.Time64Type{})
+			if col.DataType().ID() == arrow.INT64 || col.DataType().ID() == arrow.TIME64 {
+				for i, i64 := range array.NewInt64Data(data).Int64Values() {
+					if !col.IsNull(i) {
+						tb.Append(arrow.Time64(i64))
+					} else {
+						tb.AppendNull()
+					}
+				}
+			} else {
+				for i, i32 := range array.NewInt32Data(data).Int32Values() {
+					if !col.IsNull(i) {
+						tb.Append(arrow.Time64(int64(i32)))
+					} else {
+						tb.AppendNull()
+					}
+				}
+			}
+			newCol = tb.NewArray()
+		case timestampNtzType:
+			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{})
+			if col.DataType().ID() == arrow.STRUCT {
+				structData := array.NewStructData(data)
+				epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
+				fraction := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
+				for i := 0; i < int(numRows); i++ {
+					if !col.IsNull(i) {
+						val := time.Unix(epoch[i], int64(fraction[i]))
+						tb.Append(arrow.Timestamp(val.UnixNano()))
+					} else {
+						tb.AppendNull()
+					}
+				}
+			} else {
+				for i, t := range array.NewInt64Data(data).Int64Values() {
+					if !col.IsNull(i) {
+						val := time.Unix(0, t*int64(math.Pow10(9-int(srcColumnMeta.Scale)))).UTC()
+						tb.Append(arrow.Timestamp(val.UnixNano()))
+					} else {
+						tb.AppendNull()
+					}
+				}
+			}
+			newCol = tb.NewArray()
+		case timestampLtzType:
+			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{TimeZone: "UTC"})
+			if col.DataType().ID() == arrow.STRUCT {
+				structData := array.NewStructData(data)
+				epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
+				fraction := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
+				for i := 0; i < int(numRows); i++ {
+					if !col.IsNull(i) {
+						val := time.Unix(epoch[i], int64(fraction[i]))
+						tb.Append(arrow.Timestamp(val.UnixNano()))
+					} else {
+						tb.AppendNull()
+					}
+				}
+			} else {
+				for i, t := range array.NewInt64Data(data).Int64Values() {
+					if !col.IsNull(i) {
+						q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
+						r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
+						val := time.Unix(q, r)
+						tb.Append(arrow.Timestamp(val.UnixNano()))
+					} else {
+						tb.AppendNull()
+					}
+				}
+			}
+			newCol = tb.NewArray()
+		case timestampTzType:
+			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{})
+			structData := array.NewStructData(data)
+			if structData.NumField() == 2 {
+				epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
+				timezone := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
+				for i := 0; i < int(numRows); i++ {
+					if !col.IsNull(i) {
+						loc := Location(int(timezone[i]) - 1440)
+						tt := time.Unix(epoch[i], 0)
+						val := tt.In(loc)
+						tb.Append(arrow.Timestamp(val.UnixNano()))
+					} else {
+						tb.AppendNull()
+					}
+				}
+			} else {
+				epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
+				fraction := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
+				timezone := array.NewInt32Data(structData.Field(2).Data()).Int32Values()
+				for i := 0; i < int(numRows); i++ {
+					if !col.IsNull(i) {
+						loc := Location(int(timezone[i]) - 1440)
+						tt := time.Unix(epoch[i], int64(fraction[i]))
+						val := tt.In(loc)
+						tb.Append(arrow.Timestamp(val.UnixNano()))
+					} else {
+						tb.AppendNull()
+					}
+				}
+			}
+			newCol = tb.NewArray()
+		}
+		cols = append(cols, newCol)
+	}
+	return array.NewRecord(s, cols, numRows), nil
+}
+
+func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType) (*arrow.Schema, error) {
+	var fields []arrow.Field
+	for i := 0; i < len(sc.Fields()); i++ {
+		f := sc.Field(i)
+		srcColumnMeta := rowType[i]
+		converted := true
+
+		var t arrow.DataType
+		switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
+		case fixedType:
+			switch f.Type.ID() {
+			case arrow.DECIMAL:
+				if srcColumnMeta.Scale == 0 {
+					t = &arrow.Int64Type{}
+				} else {
+					t = &arrow.Float64Type{}
+				}
+			default:
+				if srcColumnMeta.Scale != 0 {
+					t = &arrow.Float64Type{}
+				} else {
+					converted = false
+				}
+			}
+		case timeType:
+			t = &arrow.Time64Type{}
+		case timestampNtzType, timestampTzType:
+			t = &arrow.TimestampType{}
+		case timestampLtzType:
+			t = &arrow.TimestampType{TimeZone: "UTC"}
+		default:
+			converted = false
+		}
+
+		var newField = f
+		if converted {
+			newField = arrow.Field{
+				Name:     f.Name,
+				Type:     t,
+				Nullable: f.Nullable,
+				Metadata: f.Metadata,
+			}
+		}
+		fields = append(fields, newField)
+	}
+	meta := sc.Metadata()
+	return arrow.NewSchema(fields, &meta), nil
 }

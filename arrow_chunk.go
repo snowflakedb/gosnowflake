@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"io"
 
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -50,6 +51,27 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 		chunkRows = append(chunkRows, tmpRows...)
 		arc.rowCount += numRows
 	}
+}
+
+func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]array.Record, error) {
+	var records []array.Record
+
+	for {
+		rawRecord, err := arc.reader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		record, err := arrowToRecord(rawRecord, scd.RowSet.RowType)
+		rawRecord.Release()
+		if err != nil {
+			return nil, err
+		}
+		record.Retain()
+		records = append(records, record)
+	}
+	return &records, nil
 }
 
 // Build arrow chunk based on RowSet of base64

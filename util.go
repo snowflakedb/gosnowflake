@@ -23,6 +23,7 @@ const (
 	fileStreamFile        contextKey = "STREAMING_PUT_FILE"
 	fileTransferOptions   contextKey = "FILE_TRANSFER_OPTIONS"
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
+	arrowBatches          contextKey = "ARROW_BATCHES"
 )
 
 const (
@@ -81,6 +82,12 @@ func WithDescribeOnly(ctx context.Context) context.Context {
 // types with numbers that don't fit into its native Golang counterpart
 func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
+}
+
+// WithArrowBatches returns a context that allows users to retrieve
+// array.Record download workers upon querying
+func WithArrowBatches(ctx context.Context) context.Context {
+	return context.WithValue(ctx, arrowBatches, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
