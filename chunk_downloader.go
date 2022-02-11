@@ -187,8 +187,7 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 			logger.Debugf("waiting for chunk idx: %v/%v",
 				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
 
-			err := scd.checkErrorRetry()
-			if err != nil {
+			if err := scd.checkErrorRetry(); err != nil {
 				scd.ChunksMutex.Unlock()
 				return chunkRowType{}, err
 			}
@@ -570,11 +569,8 @@ func useStreamDownloader(ctx context.Context) bool {
 	if val == nil {
 		return false
 	}
-	boolVal, ok := val.(bool)
-	if !ok {
-		return false
-	}
-	return boolVal
+	s, ok := val.(bool)
+	return s && ok
 }
 
 type streamChunkFetcher interface {
