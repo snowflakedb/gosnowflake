@@ -219,7 +219,8 @@ func getResumeQueryID(ctx context.Context) (string, error) {
 		return strVal, &SnowflakeError{
 			Number:  ErrQueryIDFormat,
 			Message: "Invalid QID",
-			QueryID: strVal}
+			QueryID: strVal,
+		}
 	}
 	return strVal, nil
 }
@@ -230,7 +231,7 @@ func populateChunkDownloader(
 	ctx context.Context,
 	sc *snowflakeConn,
 	data execResponseData) chunkDownloader {
-	if useStreamDownloader(ctx) && data.QueryResultFormat == "json" {
+	if useStreamDownloader(ctx) && resultFormat(data.QueryResultFormat) == jsonFormat {
 		// stream chunk downloading only works for row based data formats, i.e. json
 		fetcher := &httpStreamChunkFetcher{
 			ctx:      ctx,

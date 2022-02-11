@@ -49,6 +49,8 @@ const (
 	queryResultType     resultType = "query"
 )
 
+const privateLinkSuffix = "privatelink.snowflakecomputing.com"
+
 type snowflakeConn struct {
 	ctx             context.Context
 	cfg             *Config
@@ -451,7 +453,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		// use the custom transport
 		st = sc.cfg.Transporter
 	}
-	if strings.HasSuffix(sc.cfg.Host, "privatelink.snowflakecomputing.com") {
+	if strings.HasSuffix(sc.cfg.Host, privateLinkSuffix) {
 		if err := sc.setupOCSPPrivatelink(sc.cfg.Application, sc.cfg.Host); err != nil {
 			return nil, err
 		}
