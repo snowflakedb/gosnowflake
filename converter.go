@@ -473,17 +473,16 @@ func arrowToValue(
 		}
 		return err
 	case timeType:
+		t0 := time.Time{}
 		if srcValue.DataType().ID() == arrow.INT64 {
 			for i, i64 := range array.NewInt64Data(data).Int64Values() {
 				if !srcValue.IsNull(i) {
-					t0 := time.Time{}
-					(*destcol)[i] = t0.Add(time.Duration(i64))
+					(*destcol)[i] = t0.Add(time.Duration(i64 * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
 				}
 			}
 		} else {
 			for i, i32 := range array.NewInt32Data(data).Int32Values() {
 				if !srcValue.IsNull(i) {
-					t0 := time.Time{}
 					(*destcol)[i] = t0.Add(time.Duration(int64(i32) * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
 				}
 			}
@@ -502,7 +501,10 @@ func arrowToValue(
 		} else {
 			for i, t := range array.NewInt64Data(data).Int64Values() {
 				if !srcValue.IsNull(i) {
-					(*destcol)[i] = time.Unix(0, t*int64(math.Pow10(9-int(srcColumnMeta.Scale)))).UTC()
+					scale := int(srcColumnMeta.Scale)
+					epoch := t / int64(math.Pow10(scale))
+					fraction := (t % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
+					(*destcol)[i] = time.Unix(epoch, fraction).UTC()
 				}
 			}
 		}
@@ -611,7 +613,6 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 		default:
 			return a
 		}
-
 	case *[]int:
 		return (*intArray)(t)
 	case *[]int32:
