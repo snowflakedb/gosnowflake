@@ -110,17 +110,10 @@ func runLargeResultSet() {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}
 	defer rows.Close()
-	var v1 int
-	var v2 int
-	var v3 int
-	var v4 int
-	var v5 int
-	var v6 int
-	var v7 int
+	var v1, v2, v3, v4, v5, v6, v7 int
 	counter := 0
 	for rows.Next() {
-		err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
-		if err != nil {
+		if err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7); err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
 		}
 		if counter%1000000 == 0 {

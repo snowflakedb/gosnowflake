@@ -1,10 +1,6 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
-//go:build go1.10
-// +build go1.10
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
-
-// This file contains variables or functions of test cases that we want to run for go version >= 1.10
 
 // For compile concern, should any newly added variables or functions here must also be added with same
 // name or signature but with default or empty content in the priv_key_test.go(See addParseDSNTest)
@@ -87,7 +83,7 @@ func TestJWTAuthentication(t *testing.T) {
 			t.Fatalf("error changin role: %s", err.Error())
 		}
 		encodedKey := base64.StdEncoding.EncodeToString(pubKeyByte)
-		if _, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", user, encodedKey)); err != nil {
+		if _, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", username, encodedKey)); err != nil {
 			t.Fatalf("error setting server's public key: %s", err.Error())
 		}
 		db.Close()

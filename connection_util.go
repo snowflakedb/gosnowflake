@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -219,27 +219,10 @@ func getResumeQueryID(ctx context.Context) (string, error) {
 		return strVal, &SnowflakeError{
 			Number:  ErrQueryIDFormat,
 			Message: "Invalid QID",
-			QueryID: strVal}
+			QueryID: strVal,
+		}
 	}
 	return strVal, nil
-}
-
-type childResult struct {
-	id  string
-	typ string
-}
-
-func getChildResults(IDs string, types string) []childResult {
-	if IDs == "" {
-		return nil
-	}
-	queryIDs := strings.Split(IDs, ",")
-	resultTypes := strings.Split(types, ",")
-	res := make([]childResult, len(queryIDs))
-	for i, id := range queryIDs {
-		res[i] = childResult{id, resultTypes[i]}
-	}
-	return res
 }
 
 // returns snowflake chunk downloader by default or stream based chunk
@@ -248,7 +231,7 @@ func populateChunkDownloader(
 	ctx context.Context,
 	sc *snowflakeConn,
 	data execResponseData) chunkDownloader {
-	if useStreamDownloader(ctx) && data.QueryResultFormat == "json" {
+	if useStreamDownloader(ctx) && resultFormat(data.QueryResultFormat) == jsonFormat {
 		// stream chunk downloading only works for row based data formats, i.e. json
 		fetcher := &httpStreamChunkFetcher{
 			ctx:      ctx,

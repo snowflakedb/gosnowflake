@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const urlQueriesResultFmt = "/queries/%s/result"
@@ -81,7 +79,7 @@ type retStatus struct {
 	SQLText      string   `json:"sqlText"`
 	StartTime    int64    `json:"startTime"`
 	EndTime      int64    `json:"endTime"`
-	ErrorCode    int      `json:"errorCode"`
+	ErrorCode    string   `json:"errorCode"`
 	ErrorMessage string   `json:"errorMessage"`
 	Stats        retStats `json:"stats"`
 }
@@ -109,7 +107,7 @@ type SnowflakeQueryStatus struct {
 	SQLText      string
 	StartTime    int64
 	EndTime      int64
-	ErrorCode    int
+	ErrorCode    string
 	ErrorMessage string
 	ScanBytes    int64
 	ProducedRows int64
@@ -135,7 +133,7 @@ func (sc *snowflakeConn) checkQueryStatus(
 	*retStatus, error) {
 	headers := make(map[string]string)
 	param := make(url.Values)
-	param.Add(requestGUIDKey, uuid.New().String())
+	param.Add(requestGUIDKey, newUUID().String())
 	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
 	}
@@ -162,11 +160,11 @@ func (sc *snowflakeConn) checkQueryStatus(
 	}
 
 	queryRet := statusResp.Data.Queries[0]
-	if queryRet.ErrorCode != 0 {
+	if queryRet.ErrorCode != "" {
 		return &queryRet, (&SnowflakeError{
-			Number: ErrQueryStatus,
-			Message: fmt.Sprintf("server ErrorCode=%d, ErrorMessage=%s",
-				queryRet.ErrorCode, queryRet.ErrorMessage),
+			Number:         ErrQueryStatus,
+			Message:        errMsgQueryStatus,
+			MessageArgs:    []interface{}{queryRet.ErrorCode, queryRet.ErrorMessage},
 			IncludeQueryID: true,
 			QueryID:        qid,
 		}).exceptionTelemetry(sc)
@@ -208,7 +206,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 	param := make(url.Values)
 	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
-	param.Add(requestGUIDKey, uuid.New().String())
+	param.Add(requestGUIDKey, newUUID().String())
 	token, _, _ := sc.rest.TokenAccessor.GetTokens()
 	if token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)

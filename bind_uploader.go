@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	bindStageName   = "SYSTEM$BIND"
-	createStageStmt = "CREATE OR REPLACE TEMPORARY STAGE " + bindStageName +
+	bindStageName            = "SYSTEM$BIND"
+	createTemporaryStageStmt = "CREATE OR REPLACE TEMPORARY STAGE " + bindStageName +
 		" file_format=" + "(type=csv field_optionally_enclosed_by='\"')"
 
 	// size (in bytes) of max input stream (10MB default) as per JDBC specs
@@ -91,7 +91,7 @@ func (bu *bindUploader) createStageIfNeeded() error {
 	if bu.arrayBindStage != "" {
 		return nil
 	}
-	data, err := bu.sc.exec(bu.ctx, createStageStmt, false, false, false, []driver.NamedValue{})
+	data, err := bu.sc.exec(bu.ctx, createTemporaryStageStmt, false, false, false, []driver.NamedValue{})
 	if err != nil {
 		newThreshold := "0"
 		bu.sc.cfg.Params[sessionArrayBindStageThreshold] = &newThreshold
@@ -165,6 +165,34 @@ func (bu *bindUploader) createCSVRecord(data []string) []byte {
 	}
 	b.WriteString("\n")
 	return []byte(b.String())
+}
+
+func (sc *snowflakeConn) processBindings(
+	ctx context.Context,
+	bindings []driver.NamedValue,
+	describeOnly bool,
+	requestID uuid,
+	req *execRequest) error {
+	arrayBindThreshold := sc.getArrayBindStageThreshold()
+	numBinds := arrayBindValueCount(bindings)
+	if 0 < arrayBindThreshold && arrayBindThreshold <= numBinds && !describeOnly && isArrayBind(bindings) {
+		uploader := bindUploader{
+			sc:        sc,
+			ctx:       ctx,
+			stagePath: "@" + bindStageName + "/" + requestID.String(),
+		}
+		uploader.upload(bindings)
+		req.Bindings = nil
+		req.BindStage = uploader.stagePath
+	} else {
+		var err error
+		req.Bindings, err = getBindValues(bindings)
+		if err != nil {
+			return err
+		}
+		req.BindStage = ""
+	}
+	return nil
 }
 
 func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, error) {

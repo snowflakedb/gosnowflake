@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2019-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -16,8 +16,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -25,11 +23,30 @@ const (
 	serviceNameAppend = "a"
 )
 
+func TestInvalidConnection(t *testing.T) {
+	db := openDB(t)
+	if err := db.Close(); err != nil {
+		t.Error("should not cause error in Close")
+	}
+	if err := db.Close(); err != nil {
+		t.Error("should not cause error in the second call of Close")
+	}
+	if _, err := db.Exec("CREATE TABLE OR REPLACE test0(c1 int)"); err == nil {
+		t.Error("should fail to run Exec")
+	}
+	if _, err := db.Query("SELECT CURRENT_TIMESTAMP()"); err == nil {
+		t.Error("should fail to run Query")
+	}
+	if _, err := db.Begin(); err == nil {
+		t.Error("should fail to run Begin")
+	}
+}
+
 // postQueryMock generates a response based on the X-Snowflake-Service header,
 // to generate a response with the SERVICE_NAME field appending a character at
 // the end of the header. This way it could test both the send and receive logic
 func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values,
-	headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID,
+	headers map[string]string, _ []byte, _ time.Duration, _ uuid,
 	_ *Config) (*execResponse, error) {
 	var serviceName string
 	if serviceHeader, ok := headers[httpHeaderServiceName]; ok {
@@ -50,10 +67,10 @@ func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values,
 }
 
 func TestExecWithEmptyRequestID(t *testing.T) {
-	ctx := WithRequestID(context.Background(), uuid.Nil)
+	ctx := WithRequestID(context.Background(), nilUUID)
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
 		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
-		requestID uuid.UUID, _ *Config) (*execResponse, error) {
+		requestID uuid, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if len(requestID) == 0 {
 			t.Fatal("requestID is empty")
@@ -120,11 +137,11 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 }
 
 func TestExecWithSpecificRequestID(t *testing.T) {
-	origRequestID := uuid.New()
+	origRequestID := newUUID()
 	ctx := WithRequestID(context.Background(), origRequestID)
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
 		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
-		requestID uuid.UUID, _ *Config) (*execResponse, error) {
+		requestID uuid, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if requestID != origRequestID {
 			t.Fatal("requestID doesn't match")
@@ -258,7 +275,7 @@ func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
 	jsonStr := `{"data" : { "queries" : [{"status" : "RUNNING", "state" :
-		"FILE_SET_INITIALIZATION", "errorCode" : 0, "errorMessage" : null}] },
+		"FILE_SET_INITIALIZATION", "errorCode" : "", "errorMessage" : null}] },
 		"code" : null, "message" : null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
@@ -266,7 +283,7 @@ func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, ful
 func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
 	jsonStr := `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR",
-		"errorCode" : 0, "errorMessage" : ""}] }, "code" : null, "message" :
+		"errorCode" : "", "errorMessage" : ""}] }, "code" : null, "message" :
 		null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
@@ -276,7 +293,7 @@ func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL
 // of that query.
 func fetchResultByQueryID(
 	t *testing.T,
-	customGet FuncGetType,
+	customGet funcGetType,
 	expectedFetchErr *SnowflakeError) error {
 	config, err := ParseDSN(dsn)
 	if err != nil {
@@ -389,9 +406,34 @@ func TestGetQueryStatus(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	if qStatus == nil {
+		t.Fatal("there was no query status returned")
+	}
 
-	if qStatus.ErrorCode != 0 || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
+	if qStatus.ErrorCode != "" || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
 		t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v",
 			qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows)
+	}
+}
+
+func TestGetInvalidQueryStatus(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.Background()
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	sc.rest.RequestTimeout = 1 * time.Second
+
+	qStatus, err := sc.checkQueryStatus(ctx, "1234")
+	if err == nil || qStatus != nil {
+		t.Error("expected an error")
 	}
 }

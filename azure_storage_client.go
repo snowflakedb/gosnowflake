@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -17,7 +17,7 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 )
 
-type snowflakeAzureUtil struct {
+type snowflakeAzureClient struct {
 }
 
 type azureLocation struct {
@@ -25,7 +25,7 @@ type azureLocation struct {
 	path          string
 }
 
-func (util *snowflakeAzureUtil) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
+func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
 	sasToken := info.Creds.AzureSasToken
 	p := azblob.NewPipeline(azblob.NewAnonymousCredential(), azblob.PipelineOptions{
 		Retry: azblob.RetryOptions{
@@ -44,7 +44,7 @@ func (util *snowflakeAzureUtil) createClient(info *execResponseStageInfo, _ bool
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
+func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
 	container, ok := meta.client.(*azblob.ContainerURL)
 	if !ok {
 		return nil, fmt.Errorf("failed to parse client to azblob.ContainerURL")
@@ -92,7 +92,7 @@ func (util *snowflakeAzureUtil) getFileHeader(meta *fileMetadata, filename strin
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) uploadFile(
+func (util *snowflakeAzureClient) uploadFile(
 	dataFile string,
 	meta *fileMetadata,
 	encryptMeta *encryptMetadata,
@@ -156,16 +156,18 @@ func (util *snowflakeAzureUtil) uploadFile(
 		}
 		defer f.Close()
 
-		var fi os.FileInfo
-		fi, err = f.Stat()
-		if err != nil {
-			return err
-		}
-		_, err = azblob.UploadFileToBlockBlob(context.Background(), f, blobURL, azblob.UploadToBlockBlobOptions{
-			BlockSize:   fi.Size(),
-			Parallelism: uint16(maxConcurrency),
+		blobOptions := azblob.UploadToBlockBlobOptions{
+			BlobHTTPHeaders: azblob.BlobHTTPHeaders{
+				ContentType:     httpHeaderValueOctetStream,
+				ContentEncoding: "utf-8",
+			},
 			Metadata:    azureMeta,
-		})
+			Parallelism: uint16(maxConcurrency),
+		}
+		if meta.options.putAzureCallback != nil {
+			blobOptions.Progress = meta.options.putAzureCallback.call
+		}
+		_, err = azblob.UploadFileToBlockBlob(context.Background(), f, blobURL, blobOptions)
 	}
 	if err != nil {
 		var se azblob.StorageError
@@ -188,7 +190,7 @@ func (util *snowflakeAzureUtil) uploadFile(
 }
 
 // cloudUtil implementation
-func (util *snowflakeAzureUtil) nativeDownloadFile(
+func (util *snowflakeAzureClient) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
 	maxConcurrency int64) error {
@@ -196,7 +198,7 @@ func (util *snowflakeAzureUtil) nativeDownloadFile(
 	if err != nil {
 		return err
 	}
-	path := azureLoc.path + strings.TrimLeft(meta.dstFileName, "/")
+	path := azureLoc.path + strings.TrimLeft(meta.srcFileName, "/")
 	azContainerURL, ok := meta.client.(*azblob.ContainerURL)
 	if !ok {
 		return &SnowflakeError{
@@ -210,16 +212,16 @@ func (util *snowflakeAzureUtil) nativeDownloadFile(
 	}
 	defer f.Close()
 	blobURL := azContainerURL.NewBlockBlobURL(path)
-	if err := azblob.DownloadBlobToFile(context.Background(), blobURL.BlobURL, 0, azblob.CountToEnd, f, azblob.DownloadFromBlobOptions{
-		Parallelism: uint16(maxConcurrency),
-	}); err != nil {
+	if err = azblob.DownloadBlobToFile(
+		context.Background(), blobURL.BlobURL, 0, azblob.CountToEnd, f,
+		azblob.DownloadFromBlobOptions{Parallelism: uint16(maxConcurrency)}); err != nil {
 		return err
 	}
 	meta.resStatus = downloaded
 	return nil
 }
 
-func (util *snowflakeAzureUtil) extractContainerNameAndPath(location string) (*azureLocation, error) {
+func (util *snowflakeAzureClient) extractContainerNameAndPath(location string) (*azureLocation, error) {
 	stageLocation, err := expandUser(location)
 	if err != nil {
 		return nil, err
@@ -237,7 +239,7 @@ func (util *snowflakeAzureUtil) extractContainerNameAndPath(location string) (*a
 	return &azureLocation{containerName, path}, nil
 }
 
-func (util *snowflakeAzureUtil) detectAzureTokenExpireError(resp *http.Response) bool {
+func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Response) bool {
 	if resp.StatusCode != 403 {
 		return false
 	}

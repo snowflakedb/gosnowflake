@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -39,11 +39,11 @@ type remoteStorageUtil struct {
 
 func (rsu *remoteStorageUtil) getNativeCloudType(cli string) cloudUtil {
 	if cloudType(cli) == s3Client {
-		return &snowflakeS3Util{}
+		return &snowflakeS3Client{}
 	} else if cloudType(cli) == azureClient {
-		return &snowflakeAzureUtil{}
+		return &snowflakeAzureClient{}
 	} else if cloudType(cli) == gcsClient {
-		return &snowflakeGcsUtil{}
+		return &snowflakeGcsClient{}
 	}
 	return nil
 }

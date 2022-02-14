@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -10,8 +10,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type tcIntMinMax struct {
@@ -76,15 +74,15 @@ func TestSimpleTokenAccessorGetTokensSynchronization(t *testing.T) {
 }
 
 func TestGetRequestIDFromContext(t *testing.T) {
-	expectedRequestID := uuid.New()
+	expectedRequestID := newUUID()
 	ctx := WithRequestID(context.Background(), expectedRequestID)
 	requestID := getOrGenerateRequestIDFromContext(ctx)
 	if requestID != expectedRequestID {
 		t.Errorf("unexpected request id: %v, expected: %v", requestID, expectedRequestID)
 	}
-	ctx = WithRequestID(context.Background(), uuid.Nil)
+	ctx = WithRequestID(context.Background(), nilUUID)
 	requestID = getOrGenerateRequestIDFromContext(ctx)
-	if requestID == uuid.Nil {
+	if requestID == nilUUID {
 		t.Errorf("unexpected request id, should not be nil")
 	}
 }
