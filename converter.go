@@ -224,7 +224,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
-		*dest = time.Unix(sec, nsec)
+		*dest = time.Unix(sec, nsec).In(localLocation)
 		return nil
 	case "timestamp_tz":
 		logger.Debugf("tz: %v", *srcValue)
@@ -516,7 +516,7 @@ func arrowToValue(
 			fraction := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
 			for i := range *destcol {
 				if !srcValue.IsNull(i) {
-					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i]))
+					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i])).In(localLocation)
 				}
 			}
 		} else {
@@ -524,7 +524,7 @@ func arrowToValue(
 				if !srcValue.IsNull(i) {
 					q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
 					r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
-					(*destcol)[i] = time.Unix(q, r)
+					(*destcol)[i] = time.Unix(q, r).In(localLocation)
 				}
 			}
 		}
@@ -1021,7 +1021,7 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType) (*arrow.Sch
 		case timestampNtzType, timestampTzType:
 			t = &arrow.TimestampType{}
 		case timestampLtzType:
-			t = &arrow.TimestampType{TimeZone: "UTC"}
+			t = &arrow.TimestampType{TimeZone: localLocation.String()}
 		default:
 			converted = false
 		}
