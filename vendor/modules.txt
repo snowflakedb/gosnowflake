@@ -143,8 +143,12 @@ github.com/gsterjov/go-libsecret
 # github.com/jmespath/go-jmespath v0.4.0
 ## explicit; go 1.14
 github.com/jmespath/go-jmespath
+<<<<<<< HEAD
 # github.com/klauspost/compress v1.15.11
 ## explicit; go 1.17
+=======
+# github.com/klauspost/compress v1.13.6
+>>>>>>> a6f698d ([Feature] Allow clients to specify any/null DataType explicitly)
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
