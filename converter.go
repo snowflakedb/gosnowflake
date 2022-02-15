@@ -224,7 +224,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
-		*dest = time.Unix(sec, nsec)
+		*dest = time.Unix(sec, nsec).In(localLocation)
 		return nil
 	case "timestamp_tz":
 		logger.Debugf("tz: %v", *srcValue)
@@ -473,17 +473,16 @@ func arrowToValue(
 		}
 		return err
 	case timeType:
+		t0 := time.Time{}
 		if srcValue.DataType().ID() == arrow.INT64 {
 			for i, i64 := range array.NewInt64Data(data).Int64Values() {
 				if !srcValue.IsNull(i) {
-					t0 := time.Time{}
-					(*destcol)[i] = t0.Add(time.Duration(i64))
+					(*destcol)[i] = t0.Add(time.Duration(i64 * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
 				}
 			}
 		} else {
 			for i, i32 := range array.NewInt32Data(data).Int32Values() {
 				if !srcValue.IsNull(i) {
-					t0 := time.Time{}
 					(*destcol)[i] = t0.Add(time.Duration(int64(i32) * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
 				}
 			}
@@ -502,7 +501,10 @@ func arrowToValue(
 		} else {
 			for i, t := range array.NewInt64Data(data).Int64Values() {
 				if !srcValue.IsNull(i) {
-					(*destcol)[i] = time.Unix(0, t*int64(math.Pow10(9-int(srcColumnMeta.Scale)))).UTC()
+					scale := int(srcColumnMeta.Scale)
+					epoch := t / int64(math.Pow10(scale))
+					fraction := (t % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
+					(*destcol)[i] = time.Unix(epoch, fraction).UTC()
 				}
 			}
 		}
@@ -514,7 +516,7 @@ func arrowToValue(
 			fraction := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
 			for i := range *destcol {
 				if !srcValue.IsNull(i) {
-					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i]))
+					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i])).In(localLocation)
 				}
 			}
 		} else {
@@ -522,7 +524,7 @@ func arrowToValue(
 				if !srcValue.IsNull(i) {
 					q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
 					r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
-					(*destcol)[i] = time.Unix(q, r)
+					(*destcol)[i] = time.Unix(q, r).In(localLocation)
 				}
 			}
 		}
@@ -611,7 +613,6 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 		default:
 			return a
 		}
-
 	case *[]int:
 		return (*intArray)(t)
 	case *[]int32:
@@ -1020,7 +1021,7 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType) (*arrow.Sch
 		case timestampNtzType, timestampTzType:
 			t = &arrow.TimestampType{}
 		case timestampLtzType:
-			t = &arrow.TimestampType{TimeZone: "UTC"}
+			t = &arrow.TimestampType{TimeZone: localLocation.String()}
 		default:
 			converted = false
 		}
