@@ -211,24 +211,24 @@ func (sc *snowflakeConn) processBindings(
 }
 
 func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, error) {
-	tsmode := timestampNtzType
 	idx := 1
 	var err error
 	bindValues := make(map[string]execBindParameter, len(bindings))
+	var dataType SnowflakeDataType
 	for _, binding := range bindings {
-		t := goTypeToSnowflake(binding.Value, tsmode)
-		if t == changeType {
-			tsmode, err = dataTypeMode(binding.Value)
-			if err != nil {
-				return nil, err
-			}
-		} else {
+		switch binding.Value.(type) {
+		case SnowflakeDataType:
+			// This binding is just specifying the type for subsequent bindings
+			dataType = binding.Value.(SnowflakeDataType)
+		default:
+			// This binding is an actual parameter for the query
+			t := goTypeToSnowflake(binding.Value, dataType)
 			var val interface{}
 			if t == sliceType {
 				// retrieve array binding data
 				t, val = snowflakeArrayToString(&binding, false)
 			} else {
-				val, err = valueToString(binding.Value, tsmode)
+				val, err = valueToString(binding.Value, dataType)
 				if err != nil {
 					return nil, err
 				}

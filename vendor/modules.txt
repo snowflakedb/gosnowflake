@@ -110,7 +110,6 @@ github.com/google/uuid
 ## explicit; go 1.14
 github.com/jmespath/go-jmespath
 # github.com/klauspost/compress v1.13.6
-## explicit; go 1.15
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
@@ -121,7 +120,6 @@ github.com/klauspost/compress/zstd/internal/xxhash
 ## explicit; go 1.14
 github.com/mattn/go-ieproxy
 # github.com/pierrec/lz4/v4 v4.1.11
-## explicit; go 1.14
 github.com/pierrec/lz4/v4
 github.com/pierrec/lz4/v4/internal/lz4block
 github.com/pierrec/lz4/v4/internal/lz4errors
@@ -140,19 +138,16 @@ github.com/snowflakedb/gosnowflake
 ## explicit; go 1.17
 golang.org/x/crypto/ocsp
 # golang.org/x/net v0.0.0-20211118161319-6a13c67c3ce4
-## explicit; go 1.17
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/http/httpproxy
 golang.org/x/net/idna
 # golang.org/x/sys v0.0.0-20211117180635-dee7805ff2e1
-## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 # golang.org/x/text v0.3.7
-## explicit; go 1.17
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
