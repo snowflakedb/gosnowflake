@@ -5,7 +5,6 @@ package gosnowflake
 import (
 	"bytes"
 	"database/sql"
-	"database/sql/driver"
 	"fmt"
 )
 
@@ -25,8 +24,8 @@ const (
 	binaryType
 	timeType
 	booleanType
-	// the following are not snowflake types per se but internal types
 	nullType
+	// the following are not snowflake types per se but internal types
 	sliceType
 	changeType
 	unSupportedType
@@ -76,58 +75,86 @@ func getSnowflakeType(typ string) snowflakeType {
 	return snowflakeToDriverType[typ]
 }
 
+// SnowflakeDataType is the type used by clients to explicitly indicate the type
+// of an argument to ExecContext and friends. We use a separate public-facing
+// type rather than a Go primitive type so that we can always differentiate
+// between args that indicate type and args that are values.
+type SnowflakeDataType []byte
+
+// Equals checks if dt and o represent the same type indicator
+func (dt SnowflakeDataType) Equals(o SnowflakeDataType) bool {
+	return bytes.Equal(([]byte)(dt), ([]byte)(o))
+}
+
 var (
 	// DataTypeFixed is a FIXED datatype.
-	DataTypeFixed = []byte{fixedType.Byte()}
+	DataTypeFixed = SnowflakeDataType{fixedType.Byte()}
 	// DataTypeReal is a REAL datatype.
-	DataTypeReal = []byte{realType.Byte()}
+	DataTypeReal = SnowflakeDataType{realType.Byte()}
 	// DataTypeText is a TEXT datatype.
-	DataTypeText = []byte{textType.Byte()}
+	DataTypeText = SnowflakeDataType{textType.Byte()}
 	// DataTypeDate is a Date datatype.
-	DataTypeDate = []byte{dateType.Byte()}
+	DataTypeDate = SnowflakeDataType{dateType.Byte()}
 	// DataTypeVariant is a TEXT datatype.
-	DataTypeVariant = []byte{variantType.Byte()}
+	DataTypeVariant = SnowflakeDataType{variantType.Byte()}
 	// DataTypeTimestampLtz is a TIMESTAMP_LTZ datatype.
-	DataTypeTimestampLtz = []byte{timestampLtzType.Byte()}
+	DataTypeTimestampLtz = SnowflakeDataType{timestampLtzType.Byte()}
 	// DataTypeTimestampNtz is a TIMESTAMP_NTZ datatype.
-	DataTypeTimestampNtz = []byte{timestampNtzType.Byte()}
+	DataTypeTimestampNtz = SnowflakeDataType{timestampNtzType.Byte()}
 	// DataTypeTimestampTz is a TIMESTAMP_TZ datatype.
-	DataTypeTimestampTz = []byte{timestampTzType.Byte()}
+	DataTypeTimestampTz = SnowflakeDataType{timestampTzType.Byte()}
 	// DataTypeObject is a OBJECT datatype.
-	DataTypeObject = []byte{objectType.Byte()}
+	DataTypeObject = SnowflakeDataType{objectType.Byte()}
 	// DataTypeArray is a ARRAY datatype.
-	DataTypeArray = []byte{arrayType.Byte()}
+	DataTypeArray = SnowflakeDataType{arrayType.Byte()}
 	// DataTypeBinary is a BINARY datatype.
-	DataTypeBinary = []byte{binaryType.Byte()}
+	DataTypeBinary = SnowflakeDataType{binaryType.Byte()}
 	// DataTypeTime is a TIME datatype.
-	DataTypeTime = []byte{timeType.Byte()}
+	DataTypeTime = SnowflakeDataType{timeType.Byte()}
 	// DataTypeBoolean is a BOOLEAN datatype.
-	DataTypeBoolean = []byte{booleanType.Byte()}
+	DataTypeBoolean = SnowflakeDataType{booleanType.Byte()}
+	// DataTypeNull is a NULL datatype.
+	DataTypeNull = SnowflakeDataType{nullType.Byte()}
 )
 
-// dataTypeMode returns the subsequent data type in a string representation.
-func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
-	if bd, ok := v.([]byte); ok {
+func clientTypeToInternal(cType SnowflakeDataType) (iType snowflakeType, err error) {
+	if cType != nil {
 		switch {
-		case bytes.Equal(bd, DataTypeDate):
-			tsmode = dateType
-		case bytes.Equal(bd, DataTypeTime):
-			tsmode = timeType
-		case bytes.Equal(bd, DataTypeTimestampLtz):
-			tsmode = timestampLtzType
-		case bytes.Equal(bd, DataTypeTimestampNtz):
-			tsmode = timestampNtzType
-		case bytes.Equal(bd, DataTypeTimestampTz):
-			tsmode = timestampTzType
-		case bytes.Equal(bd, DataTypeBinary):
-			tsmode = binaryType
+		case cType.Equals(DataTypeFixed):
+			iType = fixedType
+		case cType.Equals(DataTypeReal):
+			iType = realType
+		case cType.Equals(DataTypeText):
+			iType = textType
+		case cType.Equals(DataTypeDate):
+			iType = dateType
+		case cType.Equals(DataTypeVariant):
+			iType = variantType
+		case cType.Equals(DataTypeTimestampLtz):
+			iType = timestampLtzType
+		case cType.Equals(DataTypeTimestampNtz):
+			iType = timestampNtzType
+		case cType.Equals(DataTypeTimestampTz):
+			iType = timestampTzType
+		case cType.Equals(DataTypeObject):
+			iType = objectType
+		case cType.Equals(DataTypeArray):
+			iType = arrayType
+		case cType.Equals(DataTypeBinary):
+			iType = binaryType
+		case cType.Equals(DataTypeTime):
+			iType = timeType
+		case cType.Equals(DataTypeBoolean):
+			iType = booleanType
+		case cType.Equals(DataTypeNull):
+			iType = nullType
 		default:
-			return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
+			return nullType, fmt.Errorf(errMsgInvalidByteArray, ([]byte)(cType))
 		}
 	} else {
-		return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
+		return nullType, fmt.Errorf(errMsgInvalidByteArray, nil)
 	}
-	return tsmode, nil
+	return iType, nil
 }
 
 // SnowflakeParameter includes the columns output from SHOW PARAMETER command.

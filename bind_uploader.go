@@ -211,10 +211,10 @@ func (sc *snowflakeConn) processBindings(
 }
 
 func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, error) {
-	tsmode := timestampNtzType
 	idx := 1
 	var err error
 	bindValues := make(map[string]execBindParameter, len(bindings))
+	var dataType SnowflakeDataType
 	for _, binding := range bindings {
 		if tnt, ok := binding.Value.(TypedNullTime); ok {
 			tsmode = convertTzTypeToSnowflakeType(tnt.TzType)
@@ -232,7 +232,7 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 				// retrieve array binding data
 				t, val = snowflakeArrayToString(&binding, false)
 			} else {
-				val, err = valueToString(binding.Value, tsmode)
+				val, err = valueToString(binding.Value, dataType)
 				if err != nil {
 					return nil, err
 				}

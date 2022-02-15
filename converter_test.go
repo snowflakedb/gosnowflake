@@ -65,7 +65,7 @@ func stringFloatToInt(src string, scale int64) (int64, bool) {
 
 type tcGoTypeToSnowflake struct {
 	in    interface{}
-	tmode snowflakeType
+	tmode SnowflakeDataType
 	out   snowflakeType
 }
 
@@ -117,15 +117,15 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: Array([]interface{}{time.Now()}, DateType), tmode: timestampNtzType, out: sliceType},
 		{in: Array([]interface{}{time.Now()}, TimeType), tmode: timestampTzType, out: sliceType},
 		// negative
-		{in: 123, tmode: nullType, out: unSupportedType},
-		{in: int8(12), tmode: nullType, out: unSupportedType},
-		{in: int32(456), tmode: nullType, out: unSupportedType},
-		{in: uint(456), tmode: nullType, out: unSupportedType},
-		{in: uint8(12), tmode: nullType, out: unSupportedType},
-		{in: uint64(456), tmode: nullType, out: unSupportedType},
-		{in: []byte{100}, tmode: nullType, out: unSupportedType},
-		{in: []int{1}, tmode: nullType, out: unSupportedType},
-		{in: nil, tmode: nullType, out: unSupportedType},
+		{in: 123, tmode: nil, out: unSupportedType},
+		{in: int8(12), tmode: nil, out: unSupportedType},
+		{in: int32(456), tmode: nil, out: unSupportedType},
+		{in: uint(456), tmode: nil, out: unSupportedType},
+		{in: uint8(12), tmode: nil, out: unSupportedType},
+		{in: uint64(456), tmode: nil, out: unSupportedType},
+		{in: []byte{100}, tmode: nil, out: unSupportedType},
+		{in: nil, tmode: nil, out: unSupportedType},
+		{in: []int{1}, tmode: nil, out: unSupportedType},
 	}
 	for _, test := range testcases {
 		t.Run(fmt.Sprintf("%v_%v_%v", test.in, test.out, test.tmode), func(t *testing.T) {
@@ -174,7 +174,7 @@ func TestSnowflakeTypeToGo(t *testing.T) {
 
 func TestValueToString(t *testing.T) {
 	v := cmplx.Sqrt(-5 + 12i) // should never happen as Go sql package must have already validated.
-	_, err := valueToString(v, nullType)
+	_, err := valueToString(v, nil)
 	if err == nil {
 		t.Errorf("should raise error: %v", v)
 	}
@@ -188,7 +188,7 @@ func TestValueToString(t *testing.T) {
 	expectedFloat64 := "1.1"
 	expectedString := "teststring"
 
-	if s, err := valueToString(localTime, timestampLtzType); err != nil {
+	if s, err := valueToString(localTime, DataTypeTimestampLtz); err != nil {
 		t.Error("unexpected error")
 	} else if s == nil {
 		t.Errorf("expected '%v', got %v", expectedUnixTime, s)
@@ -196,7 +196,7 @@ func TestValueToString(t *testing.T) {
 		t.Errorf("expected '%v', got '%v'", expectedUnixTime, *s)
 	}
 
-	if s, err := valueToString(utcTime, timestampLtzType); err != nil {
+	if s, err := valueToString(utcTime, DataTypeTimestampLtz); err != nil {
 		t.Error("unexpected error")
 	} else if s == nil {
 		t.Errorf("expected '%v', got %v", expectedUnixTime, s)
