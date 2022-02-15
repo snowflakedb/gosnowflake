@@ -48,6 +48,7 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: DataTypeBinary, tmode: nil, out: changeType},
 		{in: DataTypeTime, tmode: nil, out: changeType},
 		{in: DataTypeBoolean, tmode: nil, out: changeType},
+		{in: DataTypeNull, tmode: nil, out: changeType},
 		// negative
 		{in: 123, tmode: nil, out: unSupportedType},
 		{in: int8(12), tmode: nil, out: unSupportedType},

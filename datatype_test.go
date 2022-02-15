@@ -28,6 +28,7 @@ func TestClientTypeToInternal(t *testing.T) {
 		{tp: DataTypeBinary, tmode: binaryType, err: nil},
 		{tp: DataTypeTime, tmode: timeType, err: nil},
 		{tp: DataTypeBoolean, tmode: booleanType, err: nil},
+		{tp: DataTypeNull, tmode: nullType, err: nil},
 		{tp: nil, tmode: nullType,
 			err: fmt.Errorf(errMsgInvalidByteArray, nil)},
 	}

@@ -24,8 +24,8 @@ const (
 	binaryType
 	timeType
 	booleanType
-	// the following are not snowflake types per se but internal types
 	nullType
+	// the following are not snowflake types per se but internal types
 	sliceType
 	changeType
 	unSupportedType
@@ -92,6 +92,8 @@ var (
 	DataTypeTime = SnowflakeDataType{timeType.Byte()}
 	// DataTypeBoolean is a BOOLEAN datatype.
 	DataTypeBoolean = SnowflakeDataType{booleanType.Byte()}
+	// DataTypeNull is a NULL datatype.
+	DataTypeNull = SnowflakeDataType{nullType.Byte()}
 )
 
 func clientTypeToInternal(cType SnowflakeDataType) (iType snowflakeType, err error) {
@@ -123,6 +125,8 @@ func clientTypeToInternal(cType SnowflakeDataType) (iType snowflakeType, err err
 			iType = timeType
 		case cType.Equals(DataTypeBoolean):
 			iType = booleanType
+		case cType.Equals(DataTypeNull):
+			iType = nullType
 		default:
 			return nullType, fmt.Errorf(errMsgInvalidByteArray, ([]byte)(cType))
 		}
