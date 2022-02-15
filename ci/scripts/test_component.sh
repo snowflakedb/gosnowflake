@@ -12,4 +12,5 @@ if [[ -n "$GITHUB_WORKFLOW" ]]; then
 fi
 env | grep SNOWFLAKE | grep -v PASS | sort
 cd $TOPDIR
-go test -timeout 30m -race $COVFLAGS -v . 
+go test -timeout 30m -race $COVFLAGS -v .
+
