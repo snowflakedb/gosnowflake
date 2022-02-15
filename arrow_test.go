@@ -316,8 +316,7 @@ func TestArrowTimePrecision(t *testing.T) {
 		defer dbt.mustExec("DROP TABLE IF EXISTS t")
 		dbt.mustExec("INSERT INTO t VALUES ('23:59:59.99999', '23:59:59.999999', '23:59:59.9999999', '23:59:59.99999999');")
 
-		ctx := WithHigherPrecision(context.Background())
-		rows := dbt.mustQueryContext(ctx, "select * from t")
+		rows := dbt.mustQuery("select * from t")
 		var c5, c6, c7, c8 time.Time
 		for rows.Next() {
 			if err := rows.Scan(&c5, &c6, &c7, &c8); err != nil {
@@ -362,7 +361,7 @@ func TestArrowTimePrecision(t *testing.T) {
 		  '9999-12-31T23:59:59.99999999'
 		);`)
 
-		rows = dbt.mustQueryContext(ctx, "select * from t_ntz")
+		rows = dbt.mustQuery("select * from t_ntz")
 		var c1, c2, c3, c4 time.Time
 		for rows.Next() {
 			if err := rows.Scan(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8); err != nil {
