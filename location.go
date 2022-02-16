@@ -9,8 +9,11 @@ import (
 	"time"
 )
 
-var timezones map[int]*time.Location
-var updateTimezoneMutex *sync.Mutex
+var (
+	localLocation       *time.Location
+	timezones           map[int]*time.Location
+	updateTimezoneMutex *sync.Mutex
+)
 
 // Location returns an offset (minutes) based Location object for Snowflake database.
 func Location(offset int) *time.Location {

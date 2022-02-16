@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestArrowBigInt(t *testing.T) {
@@ -305,6 +306,93 @@ func TestArrowFloatPrecision(t *testing.T) {
 			if v.Cmp(b) != 0 {
 				dbt.Errorf("big.Float value mismatch: expected %v, got %v", b, v)
 			}
+		}
+	})
+}
+
+func TestArrowTimePrecision(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("CREATE TABLE t (col5 TIME(5), col6 TIME(6), col7 TIME(7), col8 TIME(8));")
+		defer dbt.mustExec("DROP TABLE IF EXISTS t")
+		dbt.mustExec("INSERT INTO t VALUES ('23:59:59.99999', '23:59:59.999999', '23:59:59.9999999', '23:59:59.99999999');")
+
+		rows := dbt.mustQuery("select * from t")
+		var c5, c6, c7, c8 time.Time
+		for rows.Next() {
+			if err := rows.Scan(&c5, &c6, &c7, &c8); err != nil {
+				t.Errorf("values were not scanned: %v", err)
+			}
+		}
+
+		nano := 999999990
+		expected := time.Time{}.Add(23*time.Hour + 59*time.Minute + 59*time.Second + 99*time.Millisecond)
+		if c8.Unix() != expected.Unix() || c8.Nanosecond() != nano {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c8)
+		}
+		if c7.Unix() != expected.Unix() || c7.Nanosecond() != nano-(nano%1e2) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c7)
+		}
+		if c6.Unix() != expected.Unix() || c6.Nanosecond() != nano-(nano%1e3) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c6)
+		}
+		if c5.Unix() != expected.Unix() || c5.Nanosecond() != nano-(nano%1e4) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c5)
+		}
+
+		dbt.mustExec(`CREATE TABLE t_ntz (
+		  col1 TIMESTAMP_NTZ(1),
+		  col2 TIMESTAMP_NTZ(2),
+		  col3 TIMESTAMP_NTZ(3),
+		  col4 TIMESTAMP_NTZ(4),
+		  col5 TIMESTAMP_NTZ(5),
+		  col6 TIMESTAMP_NTZ(6),
+		  col7 TIMESTAMP_NTZ(7),
+		  col8 TIMESTAMP_NTZ(8)
+		);`)
+		defer dbt.mustExec("DROP TABLE IF EXISTS t_ntz")
+		dbt.mustExec(`INSERT INTO t_ntz VALUES (
+		  '9999-12-31T23:59:59.9',
+		  '9999-12-31T23:59:59.99',
+		  '9999-12-31T23:59:59.999',
+		  '9999-12-31T23:59:59.9999',
+		  '9999-12-31T23:59:59.99999',
+		  '9999-12-31T23:59:59.999999',
+		  '9999-12-31T23:59:59.9999999',
+		  '9999-12-31T23:59:59.99999999'
+		);`)
+
+		rows = dbt.mustQuery("select * from t_ntz")
+		var c1, c2, c3, c4 time.Time
+		for rows.Next() {
+			if err := rows.Scan(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8); err != nil {
+				t.Errorf("values were not scanned: %v", err)
+			}
+		}
+
+		expected = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
+		if c8.Unix() != expected.Unix() || c8.Nanosecond() != nano {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c8)
+		}
+		if c7.Unix() != expected.Unix() || c7.Nanosecond() != nano-(nano%1e2) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c7)
+		}
+		if c6.Unix() != expected.Unix() || c6.Nanosecond() != nano-(nano%1e3) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c6)
+		}
+		if c5.Unix() != expected.Unix() || c5.Nanosecond() != nano-(nano%1e4) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c5)
+		}
+		if c4.Unix() != expected.Unix() || c4.Nanosecond() != nano-(nano%1e5) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c4)
+		}
+		if c3.Unix() != expected.Unix() || c3.Nanosecond() != nano-(nano%1e6) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c3)
+		}
+		if c2.Unix() != expected.Unix() || c2.Nanosecond() != nano-(nano%1e7) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c2)
+		}
+		if c1.Unix() != expected.Unix() || c1.Nanosecond() != nano-(nano%1e8) {
+			t.Errorf("the value did not match. expected: %v, got: %v", expected, c1)
 		}
 	})
 }
