@@ -4,7 +4,6 @@ package gosnowflake
 
 import (
 	"context"
-	"database/sql/driver"
 	"fmt"
 	"strconv"
 	"strings"
@@ -31,7 +30,7 @@ func getChildResults(IDs string, types string) []childResult {
 func (sc *snowflakeConn) handleMultiExec(
 	ctx context.Context,
 	data execResponseData) (
-	driver.Result, error) {
+	*snowflakeResult, error) {
 	if data.ResultIDs == "" {
 		return nil, (&SnowflakeError{
 			Number:   ErrNoResultIDs,
