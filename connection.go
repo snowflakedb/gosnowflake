@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -50,6 +51,14 @@ const (
 )
 
 const privateLinkSuffix = "privatelink.snowflakecomputing.com"
+
+var (
+	// FetchQueryMonitoringDataThreshold specifies the threshold, over which we'll fetch the monitoring
+	// data for a Snowflake query. We use a time-based threshold, since there is a non-zero latency cost
+	// to fetch this data and we want to bound the additional latency. By default we bound to a 2% increase
+	// in latency - assuming worst case 100ms - when fetching this metadata.
+	FetchQueryMonitoringDataThreshold time.Duration = 5 * time.Second
+)
 
 type snowflakeConn struct {
 	ctx             context.Context
@@ -150,6 +159,29 @@ func (sc *snowflakeConn) exec(
 	return data, err
 }
 
+func (sc *snowflakeConn) monitoring(qid string, runtime time.Duration) (*QueryMonitoringData, error) {
+	// Exit early if this was a "fast" query
+	if runtime < FetchQueryMonitoringDataThreshold {
+		return nil, nil
+	}
+
+	// Bound the GET request to 1 second in the absolute worst case.
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	var m monitoringResponse
+	err := sc.getMonitoringResult(ctx, qid, &m)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(m.Data.Queries) != 1 {
+		return nil, nil
+	}
+
+	return &m.Data.Queries[0], nil
+}
+
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
 	return sc.BeginTx(sc.ctx, driver.TxOptions{})
 }
@@ -232,6 +264,7 @@ func (sc *snowflakeConn) ExecContext(
 	isDesc := isDescribeOnly(ctx)
 	// TODO handle isInternal
 	ctx = setResultType(ctx, execResultType)
+	qStart := time.Now()
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
@@ -262,13 +295,24 @@ func (sc *snowflakeConn) ExecContext(
 			return nil, err
 		}
 		logger.WithContext(ctx).Debugf("number of updated rows: %#v", updatedRows)
-		return &snowflakeResult{
+		rows := &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1,
 			queryID:      sc.QueryID,
-		}, nil // last insert id is not supported by Snowflake
+		} // last insert id is not supported by Snowflake
+
+		rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
+
+		return rows, nil
 	} else if isMultiStmt(&data.Data) {
-		return sc.handleMultiExec(ctx, data.Data)
+		rows, err := sc.handleMultiExec(ctx, data.Data)
+		if err != nil {
+			return nil, err
+		}
+		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
+			rows.monitoring = m
+		}
+		return rows, nil
 	}
 	logger.Debug("DDL")
 	return driver.ResultNoRows, nil
@@ -309,6 +353,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	ctx = setResultType(ctx, queryResultType)
+	qStart := time.Now()
 	// TODO: handle isInternal
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
@@ -336,6 +381,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.queryID = sc.QueryID
+	rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
 
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
@@ -484,4 +530,43 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 
 	return sc, nil
+}
+
+// FetchResult returns a Rows handle for a previously issued query,
+// given the snowflake query-id. This functionality is not used by the
+// go sql library but is exported to clients who can make use of this
+// capability explicitly.
+//
+// See the ResultFetcher interface.
+func (sc *snowflakeConn) FetchResult(ctx context.Context, qid string) (driver.Rows, error) {
+	return sc.buildRowsForRunningQuery(ctx, qid)
+}
+
+// ResultFetcher is an interface which allows a query result to be
+// fetched given the corresponding snowflake query-id.
+//
+// The raw gosnowflake connection implements this interface and we
+// export it so that clients can access this functionality, bypassing
+// the alternative which is the query it via the RESULT_SCAN table
+// function.
+type ResultFetcher interface {
+	FetchResult(ctx context.Context, qid string) (driver.Rows, error)
+}
+
+// MonitoringResultFetcher is an interface which allows to fetch monitoringResult
+// with snowflake connection and query-id.
+type MonitoringResultFetcher interface {
+	FetchMonitoringResult(queryID string) (*monitoringResult, error)
+}
+
+// FetchMonitoringResult returns a monitoringResult object
+// Multiplex can call monitoringResult.Monitoring() to get the QueryMonitoringData
+func (sc *snowflakeConn) FetchMonitoringResult(queryID string) (*monitoringResult, error) {
+	if sc.rest == nil {
+		return nil, driver.ErrBadConn
+	}
+
+	// set the fake runtime just to bypass fast query
+	monitoringResult := mkMonitoringFetcher(sc, queryID, time.Minute*10)
+	return monitoringResult, nil
 }
