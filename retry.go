@@ -204,6 +204,19 @@ func (r *retryHTTP) setBody(body []byte) *retryHTTP {
 	return r
 }
 
+func getBodyTrace(ctx context.Context, res *http.Response) []byte {
+	numSampledResponseBodyBytes, ok := GetEnvIntFlag(ctx, responseBodySampleSize)
+	if !ok {
+		return make([]byte, 0)
+	}
+
+	sampleReader := io.LimitReader(res.Body, numSampledResponseBodyBytes)
+	sampledResponseBytes := make([]byte, numSampledResponseBodyBytes)
+	sampleReader.Read(sampledResponseBytes)
+
+	return sampledResponseBytes
+}
+
 func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
 	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
@@ -212,6 +225,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 
 	var rIDReplacer requestGUIDReplacer
 	var rUpdater retryCounterUpdater
+	shouldDumpResponseInfo, _ := GetEnvBoolFlag(r.ctx, verboseRetryLogging)
 
 	for {
 		req, err := r.req(r.method, r.fullURL.String(), bytes.NewReader(r.body))
@@ -226,6 +240,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			req.Header.Set(k, v)
 		}
 		res, err = r.client.Do(req)
+		var sampledResponseBody []byte
 		if err != nil {
 			// check if it can retry.
 			doExit, err := r.isRetryableError(err)
@@ -243,8 +258,19 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 				// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
 				break
 			}
-			logger.WithContext(r.ctx).Warningf(
-				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
+			sampledResponseBody = getBodyTrace(r.ctx, res)
+			if shouldDumpResponseInfo {
+				if res.Request != nil {
+					logger.WithContext(r.ctx).Warningf(
+						"failed http connection. HTTP Status: %v. headers %v. request %v. body %s. retrying...\n", res.StatusCode, res.Header, res.Request.URL, sampledResponseBody)
+				} else {
+					logger.WithContext(r.ctx).Warningf(
+						"failed http connection. HTTP Status: %v. headers %v. body %s. retrying...\n", res.StatusCode, res.Header, sampledResponseBody)
+				}
+			} else {
+				logger.WithContext(r.ctx).Warningf(
+					"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
+			}
 			res.Body.Close()
 		}
 		// uses decorrelated jitter backoff
@@ -259,6 +285,12 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 					return nil, err
 				}
 				if res != nil {
+					if shouldDumpResponseInfo {
+						if res.Request != nil {
+							return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Header: %v. request: %v. body: %s. Hanging?", r.timeout, res.StatusCode, res.Header, res.Request.URL, sampledResponseBody)
+						}
+						return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Header: %v. body: %s. Hanging?", r.timeout, res.StatusCode, res.Header, sampledResponseBody)
+					}
 					return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Hanging?", r.timeout, res.StatusCode)
 				}
 				return nil, fmt.Errorf("timeout after %s. Hanging?", r.timeout)
@@ -273,7 +305,11 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			rUpdater = newRetryUpdate(r.fullURL)
 		}
 		r.fullURL = rUpdater.replaceOrAdd(retryCounter)
-		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
+		if shouldDumpResponseInfo && res != nil && res.Request != nil {
+			logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retry-count: %d retrying. headers: %v. request: %v", sleepTime, totalTimeout, retryCounter, res.Header, res.Request.URL)
+		} else {
+			logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retry-count: %d retrying.", sleepTime, totalTimeout, retryCounter)
+		}
 
 		await := time.NewTimer(sleepTime)
 		select {
@@ -281,6 +317,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			// retry the request
 		case <-r.ctx.Done():
 			await.Stop()
+			if shouldDumpResponseInfo && res != nil && res.Request != nil {
+				logger.WithContext(r.ctx).Infof("abandoning request: retry-count: %d. headers: %v. request: %v. body: %s\n", retryCounter, res.Header, res.Request.URL, sampledResponseBody)
+			}
 			return res, r.ctx.Err()
 		}
 	}

@@ -55,11 +55,13 @@ type snowflakeConn struct {
 	ctx             context.Context
 	cfg             *Config
 	rest            *snowflakeRestful
+	restMu          sync.RWMutex // guard shutdown race
 	SequenceCounter uint64
 	QueryID         string
 	SQLState        string
 	telemetry       *snowflakeTelemetry
 	internal        InternalClient
+	execRespCache   *execRespCache
 }
 
 var (
@@ -88,6 +90,9 @@ func (sc *snowflakeConn) exec(
 	}
 	if key := ctx.Value(multiStatementCount); key != nil {
 		req.Parameters[string(multiStatementCount)] = key
+	}
+	if tag := ctx.Value(queryTag); tag != nil {
+		req.Parameters[string(queryTag)] = tag
 	}
 	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
 
@@ -191,8 +196,13 @@ func (sc *snowflakeConn) BeginTx(
 
 func (sc *snowflakeConn) cleanup() {
 	// must flush log buffer while the process is running.
+	sc.restMu.Lock()
+	defer sc.restMu.Unlock()
 	sc.rest = nil
 	sc.cfg = nil
+
+	releaseExecRespCache(sc.execRespCache)
+	sc.execRespCache = nil
 }
 
 func (sc *snowflakeConn) Close() (err error) {
@@ -255,6 +265,7 @@ func (sc *snowflakeConn) ExecContext(
 	isDesc := isDescribeOnly(ctx)
 	// TODO handle isInternal
 	ctx = setResultType(ctx, execResultType)
+	qStart := time.Now()
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
@@ -285,11 +296,15 @@ func (sc *snowflakeConn) ExecContext(
 			return nil, err
 		}
 		logger.WithContext(ctx).Debugf("number of updated rows: %#v", updatedRows)
-		return &snowflakeResult{
+		rows := &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1,
 			queryID:      sc.QueryID,
-		}, nil // last insert id is not supported by Snowflake
+		} // last insert id is not supported by Snowflake
+
+		rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
+
+		return rows, nil
 	} else if isMultiStmt(&data.Data) {
 		return sc.handleMultiExec(ctx, data.Data)
 	}
@@ -332,6 +347,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	ctx = setResultType(ctx, queryResultType)
+	qStart := time.Now()
 	// TODO: handle isInternal
 	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
 	if err != nil {
@@ -359,11 +375,22 @@ func (sc *snowflakeConn) queryContextInternal(
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.queryID = sc.QueryID
+	rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
 
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
 		if err = sc.handleMultiQuery(ctx, data.Data, rows); err != nil {
 			return nil, err
+		}
+		if data.Data.ResultIDs == "" && rows.ChunkDownloader == nil {
+			// SIG-16907: We have no results to download here.
+			logger.WithContext(ctx).Errorf("Encountered empty result-ids for a multi-statement request. Query-id: %s, Query: %s", data.Data.QueryID, query)
+			return nil, (&SnowflakeError{
+				Number:   ErrQueryIDFormat,
+				SQLState: data.Data.SQLState,
+				Message:  "ExecResponse for multi-statement request had no ResultIDs",
+				QueryID:  data.Data.QueryID,
+			}).exceptionTelemetry(sc)
 		}
 	} else {
 		rows.addDownloader(populateChunkDownloader(ctx, sc, data.Data))
@@ -407,6 +434,11 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 // CheckNamedValue determines which types are handled by this driver aside from
 // the instances captured by driver.Value
 func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
+	if _, ok := nv.Value.(SnowflakeDataType); ok {
+		// Pass SnowflakeDataType args through without modification so that we can
+		// distinguish them from arguments of type []byte
+		return nil
+	}
 	if supported := supportedArrayBind(nv); !supported {
 		return driver.ErrSkip
 	}
@@ -435,7 +467,7 @@ func (sc *snowflakeConn) GetQueryStatus(
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
 		SequenceCounter: 0,
-		ctx:             ctx,
+		ctx:             AddEnvFlags(ctx),
 		cfg:             &config,
 	}
 	var st http.RoundTripper = SnowflakeTransport
@@ -471,6 +503,9 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	if sc.cfg.DisableTelemetry {
 		sc.telemetry = &snowflakeTelemetry{enabled: false}
 	}
+	if sc.cfg.ConnectionID != "" {
+		sc.execRespCache = acquireExecRespCache(sc.cfg.ConnectionID)
+	}
 
 	// authenticate
 	sc.rest = &snowflakeRestful{
@@ -504,4 +539,43 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		enabled:   true,
 	}
 	return sc, nil
+}
+
+// FetchResult returns a Rows handle for a previously issued query,
+// given the snowflake query-id. This functionality is not used by the
+// go sql library but is exported to clients who can make use of this
+// capability explicitly.
+//
+// See the ResultFetcher interface.
+func (sc *snowflakeConn) FetchResult(ctx context.Context, qid string) (driver.Rows, error) {
+	return sc.buildRowsForRunningQuery(ctx, qid)
+}
+
+// ResultFetcher is an interface which allows a query result to be
+// fetched given the corresponding snowflake query-id.
+//
+// The raw gosnowflake connection implements this interface and we
+// export it so that clients can access this functionality, bypassing
+// the alternative which is the query it via the RESULT_SCAN table
+// function.
+type ResultFetcher interface {
+	FetchResult(ctx context.Context, qid string) (driver.Rows, error)
+}
+
+// MonitoringResultFetcher is an interface which allows to fetch monitoringResult
+// with snowflake connection and query-id.
+type MonitoringResultFetcher interface {
+	FetchMonitoringResult(queryID string) (*monitoringResult, error)
+}
+
+// FetchMonitoringResult returns a monitoringResult object
+// Multiplex can call monitoringResult.Monitoring() to get the QueryMonitoringData
+func (sc *snowflakeConn) FetchMonitoringResult(queryID string) (*monitoringResult, error) {
+	if sc.rest == nil {
+		return nil, driver.ErrBadConn
+	}
+
+	// set the fake runtime just to bypass fast query
+	monitoringResult := mkMonitoringFetcher(sc, queryID, time.Minute*10)
+	return monitoringResult, nil
 }

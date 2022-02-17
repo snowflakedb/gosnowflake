@@ -1494,6 +1494,9 @@ func TestValidateDatabaseParameter(t *testing.T) {
 }
 
 func TestSpecifyWarehouseDatabase(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("TODO(SIG-12288): re-enable TestSpecifyWarehouseDatabase")
+	}
 	dsn := fmt.Sprintf("%s:%s@%s/%s", username, pass, host, dbname)
 	parameters := url.Values{}
 	parameters.Add("account", account)

@@ -126,3 +126,108 @@ type execResponse struct {
 	Code    string           `json:"code"`
 	Success bool             `json:"success"`
 }
+
+// QueryMonitoringData is the struct returned by a request to /montitoring/queries/$qid
+// Contains metadata about a query run
+type QueryMonitoringData struct {
+	ID                  string           `json:"id"`
+	Status              string           `json:"status"`
+	State               string           `json:"state"`
+	ClientSendTime      int64            `json:"clientSendTime"`
+	StartTime           int64            `json:"startTime"`
+	EndTime             int64            `json:"endTime"`
+	TotalDuration       int64            `json:"totalDuration"`
+	ClusterNumber       int              `json:"clusterNumber"`
+	WarehouseID         int              `json:"warehouseId"`
+	WarehouseName       string           `json:"warehouseName"`
+	WarehouseServerType string           `json:"warehouseServerType"`
+	QueryTag            string           `json:"queryTag"`
+	MajorVersionNumber  int              `json:"majorVersionNumber"`
+	MinorVersionNumber  int              `json:"minorVersionNumber"`
+	PatchVersionNumber  int              `json:"patchVersionNumber"`
+	Stats               map[string]int64 `json:"stats"`
+}
+
+type monitoringResponse struct {
+	Data struct {
+		Queries []QueryMonitoringData `json:"queries"`
+	} `json:"data"`
+	Message string `json:"message"`
+	Code    string `json:"code"`
+	Success bool   `json:"success"`
+}
+
+type queryGraphResponse struct {
+	Data    QueryGraphData `json:"data"`
+	Message string         `json:"message"`
+	Code    string         `json:"code"`
+	Success bool           `json:"success"`
+}
+
+// QueryGraphData is a list of graphs of all of the execution steps in a given
+// query
+type QueryGraphData struct {
+	Steps []QueryGraphStep `json:"steps"`
+}
+
+// QueryGraphStep is a graph of a particular step in a query, along with
+// metadata about that step
+type QueryGraphStep struct {
+	Step           int                `json:"step"`
+	Description    string             `json:"description"`
+	TimeInMs       int                `json:"timeInMs"`
+	State          string             `json:"state"`
+	ExecutionGraph ExecutionGraphData `json:"graphData"`
+}
+
+// ExecutionGraphData is a graph of a particular step in a query
+type ExecutionGraphData struct {
+	Nodes  []ExecutionGraphNode  `json:"nodes"`
+	Edges  []ExecutionGraphEdge  `json:"edges"`
+	Global ExecutionGraphGlobals `json:"global"`
+}
+
+// ExecutionGraphNode is a node in an ExecutionGraphData
+type ExecutionGraphNode struct {
+	ID         int                      `json:"id"`
+	LogicalID  int                      `json:"logicalId"`
+	Name       string                   `json:"name"`
+	Title      string                   `json:"title"`
+	Statistics ExecutionGraphStatistics `json:"statistics"`
+	Waits      []ExecutionGraphWait     `json:"waits"`
+	TotalStats ExecutionGraphWait       `json:"totalStats"`
+}
+
+// ExecutionGraphEdge is an edge between two ExecutionGraphNodes in an
+// ExecutionGraphData
+type ExecutionGraphEdge struct {
+	ID   string `json:"id"`
+	Src  int    `json:"src"`
+	Dst  int    `json:"dst"`
+	Rows int    `json:"rows"`
+}
+
+// ExecutionGraphGlobals stores global metadata for an entire execution graph
+type ExecutionGraphGlobals struct {
+	Statistics ExecutionGraphStatistics `json:"statistics"`
+	Waits      []ExecutionGraphWait     `json:"waits"`
+	TotalStats ExecutionGraphWait       `json:"totalStats"`
+}
+
+// ExecutionGraphStatistics is a k-v map of statistics on an execution graph
+type ExecutionGraphStatistics map[string][]ExecutionGraphStatistic
+
+// ExecutionGraphStatistic is a single record of some statistic on an execution
+// graph
+type ExecutionGraphStatistic struct {
+	Name  string  `json:"name"`
+	Value float64 `json:"value"`
+	Unit  string  `json:"unit"`
+}
+
+// ExecutionGraphWait is the duration of a step in an execution graph
+type ExecutionGraphWait struct {
+	Name       string  `json:"name"`
+	Value      float64 `json:"value"`
+	Percentage float64 `json:"percentage"`
+}
