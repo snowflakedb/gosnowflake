@@ -126,3 +126,95 @@ type execResponse struct {
 	Code    string           `json:"code"`
 	Success bool             `json:"success"`
 }
+
+// QueryMonitoringData is the struct returned by a request to /montitoring/queries/$qid
+// Contains metadata about a query run
+type QueryMonitoringData struct {
+	ID                  string           `json:"id"`
+	Status              string           `json:"status"`
+	State               string           `json:"state"`
+	ClientSendTime      int64            `json:"clientSendTime"`
+	StartTime           int64            `json:"startTime"`
+	EndTime             int64            `json:"endTime"`
+	TotalDuration       int64            `json:"totalDuration"`
+	ClusterNumber       int              `json:"clusterNumber"`
+	WarehouseID         int              `json:"warehouseId"`
+	WarehouseName       string           `json:"warehouseName"`
+	WarehouseServerType string           `json:"warehouseServerType"`
+	QueryTag            string           `json:"queryTag"`
+	MajorVersionNumber  int              `json:"majorVersionNumber"`
+	MinorVersionNumber  int              `json:"minorVersionNumber"`
+	PatchVersionNumber  int              `json:"patchVersionNumber"`
+	Stats               map[string]int64 `json:"stats"`
+}
+
+type monitoringResponse struct {
+	Data struct {
+		Queries []QueryMonitoringData `json:"queries"`
+	} `json:"data"`
+	Message string `json:"message"`
+	Code    string `json:"code"`
+	Success bool   `json:"success"`
+}
+
+type queryGraphResponse struct {
+	Data    QueryGraphData `json:"data"`
+	Message string         `json:"message"`
+	Code    string         `json:"code"`
+	Success bool           `json:"success"`
+}
+
+type QueryGraphData struct {
+	Steps []QueryGraphStep `json:"steps"`
+}
+
+type QueryGraphStep struct {
+	Step           int                `json:"step"`
+	Description    string             `json:"description"`
+	TimeInMs       int                `json:"timeInMs"`
+	State          string             `json:"state"`
+	ExecutionGraph ExecutionGraphData `json:"graphData"`
+}
+
+type ExecutionGraphData struct {
+	Nodes  []ExecutionGraphNode  `json:"nodes"`
+	Edges  []ExecutionGraphEdge  `json:"edges"`
+	Global ExecutionGraphGlobals `json:"global"`
+}
+
+type ExecutionGraphNode struct {
+	Id         int                      `json:"id"`
+	LogicalId  int                      `json:"logicalId"`
+	Name       string                   `json:"name"`
+	Title      string                   `json:"title"`
+	Statistics ExecutionGraphStatistics `json:"statistics"`
+	Waits      []ExecutionGraphWait     `json:"waits"`
+	TotalStats ExecutionGraphWait       `json:"totalStats"`
+}
+
+type ExecutionGraphEdge struct {
+	Id   string `json:"id"`
+	Src  int    `json:"src"`
+	Dst  int    `json:"dst"`
+	Rows int    `json:"rows"`
+}
+
+type ExecutionGraphGlobals struct {
+	Statistics ExecutionGraphStatistics `json:"statistics"`
+	Waits      []ExecutionGraphWait     `json:"waits"`
+	TotalStats ExecutionGraphWait       `json:"totalStats"`
+}
+
+type ExecutionGraphStatistics map[string][]ExecutionGraphStatistic
+
+type ExecutionGraphStatistic struct {
+	Name  string  `json:"name"`
+	Value float64 `json:"value"`
+	Unit  string  `json:"unit"`
+}
+
+type ExecutionGraphWait struct {
+	Name       string  `json:"name"`
+	Value      float64 `json:"value"`
+	Percentage float64 `json:"percentage"`
+}
