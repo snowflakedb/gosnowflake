@@ -437,3 +437,38 @@ func TestGetInvalidQueryStatus(t *testing.T) {
 		t.Error("expected an error")
 	}
 }
+
+func TestExecWithServerSideError(t *testing.T) {
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
+		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
+		requestID uuid, _ *Config) (*execResponse, error) {
+		dd := &execResponseData{}
+		return &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    "",
+			Success: false,
+		}, nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery: postQueryMock,
+	}
+	sc := &snowflakeConn{
+		cfg:       &Config{Params: map[string]*string{}},
+		rest:      sr,
+		telemetry: testTelemetry,
+	}
+	_, err := sc.exec(context.Background(), "", false, /* noResult */
+		false /* isInternal */, false /* describeOnly */, nil)
+	if err == nil {
+		t.Error("expected a server side error")
+	}
+	sfe := err.(*SnowflakeError)
+	if sfe.Number != -1 || sfe.SQLState != "-1" || sfe.QueryID != "-1" {
+		t.Errorf("incorrect snowflake error. expected: %v, got: %v", ErrUnknownError, *sfe)
+	}
+	if !strings.Contains(sfe.Message, "an unknown server side error occurred") {
+		t.Errorf("incorrect message. expected: %v, got: %v", ErrUnknownError.Message, sfe.Message)
+	}
+}

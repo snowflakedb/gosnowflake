@@ -80,6 +80,24 @@ func (se *SnowflakeError) exceptionTelemetry(sc *snowflakeConn) *SnowflakeError 
 	return se
 }
 
+// return populated error fields replacing the default response
+func populateErrorFields(code int, data *execResponse) *SnowflakeError {
+	err := ErrUnknownError
+	if code != -1 {
+		err.Number = code
+	}
+	if data.Data.SQLState != "" {
+		err.SQLState = data.Data.SQLState
+	}
+	if data.Message != "" {
+		err.Message = data.Message
+	}
+	if data.Data.QueryID != "" {
+		err.QueryID = data.Data.QueryID
+	}
+	return err
+}
+
 const (
 	/* connection */
 
@@ -289,4 +307,12 @@ var (
 	ErrInvalidRegion = &SnowflakeError{
 		Number:  ErrCodeRegionOverlap,
 		Message: "two regions specified"}
+
+	// ErrUnknownError is returned if the server side returns an error without meaningful message.
+	ErrUnknownError = &SnowflakeError{
+		Number:   -1,
+		SQLState: "-1",
+		Message:  "an unknown server side error occurred",
+		QueryID:  "-1",
+	}
 )
