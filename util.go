@@ -6,7 +6,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"io"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -212,14 +211,4 @@ func escapeForCSV(value string) string {
 		return "\"" + strings.ReplaceAll(value, "\"", "\"\"") + "\""
 	}
 	return value
-}
-
-func randomString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = alpha[rand.Intn(len(alpha))]
-	}
-	return string(b)
 }

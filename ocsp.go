@@ -287,13 +287,6 @@ func deleteOCSPCache(encodedCertID *certIDKey) {
 	ocspResponseCacheLock.Unlock()
 }
 
-// deleteOCSPCacheAll deletes all entries in the OCSP response cache on memory
-func deleteOCSPCacheAll() {
-	ocspResponseCacheLock.Lock()
-	defer ocspResponseCacheLock.Unlock()
-	ocspResponseCache = make(map[certIDKey][]interface{})
-}
-
 func validateOCSP(ocspRes *ocsp.Response) *ocspStatus {
 	curTime := time.Now()
 
@@ -929,11 +922,6 @@ func createOCSPCacheDir() {
 	}
 	cacheFileName = filepath.Join(cacheDir, cacheFileBaseName)
 	logger.Infof("reset OCSP cache file. %v", cacheFileName)
-}
-
-// deleteOCSPCacheFile deletes the OCSP response cache file
-func deleteOCSPCacheFile() {
-	os.Remove(cacheFileName)
 }
 
 func init() {
