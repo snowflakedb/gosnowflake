@@ -96,7 +96,6 @@ github.com/gabriel-vasile/mimetype/internal/magic
 # github.com/google/flatbuffers v2.0.0+incompatible
 github.com/google/flatbuffers/go
 # github.com/google/uuid v1.3.0
-## explicit
 github.com/google/uuid
 # github.com/jmespath/go-jmespath v0.4.0
 github.com/jmespath/go-jmespath

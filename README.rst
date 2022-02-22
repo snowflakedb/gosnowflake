@@ -127,7 +127,7 @@ Next, we want to create a merge commit that incorporates changes from the upstre
     # Create a branch reset-to-upstream that is up-to-date with upstream.
     git checkout -b reset-to-upstream upstream/master
 
-    # Merge master into this branch, effectively ignoring all changes from master.
+    # Merge master into this branch, fixing any conflicts
     git merge --strategy=ours master
 
     # Switch back to master and merge the temporary branch into a new branch
@@ -136,11 +136,10 @@ Next, we want to create a merge commit that incorporates changes from the upstre
     git checkout -b update-master-with-upstream
     git merge reset-to-upstream
 
-    # List commits that only exist in the fork.
-    git log upstream/master..master --no-merges | cat
+    # Sanity check: verify this shows only _our_ changes
+    git log --oneline upstream/master..HEAD
 
-    # Cherry-pick changes from the fork as needed.
-    git cherry-pick <hash> <hash> <hash>
+    # Fix any code breakage because of changes to types/includes etc.
 
 **Note**: ensure that `go.mod` uses `sigmacomputing/gosnowflake` as its module name, and (2) references the correct upstream *version* for `snowflakedb/gosnowflake`
 

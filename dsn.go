@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -441,7 +439,7 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.QueryMonitoringThreshold = defaultQueryMonitoringThreshold
 	}
 	if cfg.ConnectionID == "" {
-		cfg.ConnectionID = uuid.New().String()
+		cfg.ConnectionID = newUUID().String()
 	}
 
 	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {

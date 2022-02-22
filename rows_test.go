@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"io"
@@ -13,10 +14,81 @@ import (
 	"time"
 )
 
+type RowsExtended struct {
+	rows      *sql.Rows
+	closeChan *chan bool
+}
+
+func (rs *RowsExtended) Close() error {
+	*rs.closeChan <- true
+	close(*rs.closeChan)
+	return rs.rows.Close()
+}
+
+func (rs *RowsExtended) ColumnTypes() ([]*sql.ColumnType, error) {
+	return rs.rows.ColumnTypes()
+}
+
+func (rs *RowsExtended) Columns() ([]string, error) {
+	return rs.rows.Columns()
+}
+
+func (rs *RowsExtended) Err() error {
+	return rs.rows.Err()
+}
+
+func (rs *RowsExtended) Next() bool {
+	return rs.rows.Next()
+}
+
+func (rs *RowsExtended) NextResultSet() bool {
+	return rs.rows.NextResultSet()
+}
+
+func (rs *RowsExtended) Scan(dest ...interface{}) error {
+	return rs.rows.Scan(dest...)
+}
+
 // test variables
 var (
 	rowsInChunk = 123
 )
+
+// Special cases where rows are already closed
+func TestRowsClose(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows, err := dbt.db.Query("SELECT 1")
+		if err != nil {
+			dbt.Fatal(err)
+		}
+		if err = rows.Close(); err != nil {
+			dbt.Fatal(err)
+		}
+
+		if rows.Next() {
+			dbt.Fatal("unexpected row after rows.Close()")
+		}
+		if err = rows.Err(); err != nil {
+			dbt.Fatal(err)
+		}
+	})
+}
+
+func TestResultNoRows(t *testing.T) {
+	// DDL
+	runTests(t, dsn, func(dbt *DBTest) {
+		row, err := dbt.db.Exec("CREATE OR REPLACE TABLE test(c1 int)")
+		if err != nil {
+			t.Fatalf("failed to execute DDL. err: %v", err)
+		}
+		if _, err = row.RowsAffected(); err == nil {
+			t.Fatal("should have failed to get RowsAffected")
+		}
+		if _, err = row.LastInsertId(); err == nil {
+			t.Fatal("should have failed to get LastInsertID")
+		}
+	})
+}
 
 func TestRowsWithoutChunkDownloader(t *testing.T) {
 	sts1 := "1"

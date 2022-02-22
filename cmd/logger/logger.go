@@ -9,7 +9,7 @@ import (
 )
 
 type testLogger struct {
-	rlog.Logger
+	*rlog.Logger
 }
 
 func (log *testLogger) SetLogLevel(level string) error {
@@ -22,7 +22,7 @@ func (log *testLogger) SetLogLevel(level string) error {
 }
 
 func createTestLogger() testLogger {
-	var logging = testLogger{*rlog.New()}
+	var logging = testLogger{rlog.New()}
 	var formatter = rlog.JSONFormatter{CallerPrettyfier: sf.SFCallerPrettyfier}
 	logging.SetReportCaller(true)
 	logging.SetFormatter(&formatter)

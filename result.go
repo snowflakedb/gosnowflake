@@ -9,8 +9,6 @@ import (
 type queryStatus string
 
 const (
-	// QueryStatusWaiting denotes a query execution waiting to happen
-	QueryStatusWaiting queryStatus = "queryStatusWaiting"
 	// QueryStatusInProgress denotes a query execution in progress
 	QueryStatusInProgress queryStatus = "queryStatusInProgress"
 	// QueryStatusComplete denotes a completed query execution
@@ -19,10 +17,11 @@ const (
 	QueryFailed queryStatus = "queryFailed"
 )
 
-// SnowflakeResult provides the associated query ID
+// SnowflakeResult provides an API for methods exposed to the clients
 type SnowflakeResult interface {
 	GetQueryID() string
 	GetStatus() queryStatus
+	GetArrowBatches() ([]*ArrowBatch, error)
 	Monitoring(time.Duration) *QueryMonitoringData
 	QueryGraph(time.Duration) *QueryGraphData
 }
@@ -65,6 +64,13 @@ func (res *snowflakeResult) GetQueryID() string {
 
 func (res *snowflakeResult) GetStatus() queryStatus {
 	return res.status
+}
+
+func (res *snowflakeResult) GetArrowBatches() ([]*ArrowBatch, error) {
+	return nil, &SnowflakeError{
+		Number:  ErrNotImplemented,
+		Message: errMsgNotImplemented,
+	}
 }
 
 func (res *snowflakeResult) waitForAsyncExecStatus() error {
