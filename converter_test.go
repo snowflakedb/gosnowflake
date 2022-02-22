@@ -5,7 +5,6 @@ package gosnowflake
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/apache/arrow/go/arrow/decimal128"
 	"math/big"
 	"math/cmplx"
 	"reflect"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 

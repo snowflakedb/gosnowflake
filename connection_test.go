@@ -441,7 +441,7 @@ func TestGetInvalidQueryStatus(t *testing.T) {
 func TestExecWithServerSideError(t *testing.T) {
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
 		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
-		requestID uuid, _ *Config) (*execResponse, error) {
+		requestID UUID, _ *Config) (*execResponse, error) {
 		dd := &execResponseData{}
 		return &execResponse{
 			Data:    *dd,

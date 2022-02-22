@@ -160,7 +160,7 @@ Query request ID
 A specific query request ID can be set in the context and will be passed through
 in place of the default randomized request ID. For example:
 
-	requestID := uuid.MustParse("6ba7b812-9dad-11d1-80b4-00c04fd430c8")
+	requestID := ParseUUID("6ba7b812-9dad-11d1-80b4-00c04fd430c8")
 	ctxWithID := WithRequestID(ctx, requestID)
 	rows, err := db.QueryContext(ctxWithID, query)
 
