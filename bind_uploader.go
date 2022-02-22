@@ -171,7 +171,7 @@ func (sc *snowflakeConn) processBindings(
 	ctx context.Context,
 	bindings []driver.NamedValue,
 	describeOnly bool,
-	requestID uuid,
+	requestID UUID,
 	req *execRequest) error {
 	arrayBindThreshold := sc.getArrayBindStageThreshold()
 	numBinds := arrayBindValueCount(bindings)

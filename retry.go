@@ -75,11 +75,11 @@ type requestGUIDReplace struct {
 
 /**
 This function would replace they value of the requestGUIDKey in a url with a newly
-generated uuid
+generated UUID
 */
 func (replacer *requestGUIDReplace) replace() *url.URL {
 	replacer.urlValues.Del(requestGUIDKey)
-	replacer.urlValues.Add(requestGUIDKey, newUUID().String())
+	replacer.urlValues.Add(requestGUIDKey, NewUUID().String())
 	replacer.urlPtr.RawQuery = replacer.urlValues.Encode()
 	return replacer.urlPtr
 }

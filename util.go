@@ -48,7 +48,7 @@ func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 }
 
 // WithRequestID returns a new context with the specified snowflake request id
-func WithRequestID(ctx context.Context, requestID uuid) context.Context {
+func WithRequestID(ctx context.Context, requestID UUID) context.Context {
 	return context.WithValue(ctx, snowflakeRequestIDKey, requestID)
 }
 
@@ -91,12 +91,12 @@ func WithArrowBatches(ctx context.Context) context.Context {
 }
 
 // Get the request ID from the context if specified, otherwise generate one
-func getOrGenerateRequestIDFromContext(ctx context.Context) uuid {
-	requestID, ok := ctx.Value(snowflakeRequestIDKey).(uuid)
+func getOrGenerateRequestIDFromContext(ctx context.Context) UUID {
+	requestID, ok := ctx.Value(snowflakeRequestIDKey).(UUID)
 	if ok && requestID != nilUUID {
 		return requestID
 	}
-	return newUUID()
+	return NewUUID()
 }
 
 // integer min

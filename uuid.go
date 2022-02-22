@@ -9,12 +9,14 @@ import (
 
 const rfc4122 = 0x40
 
-type uuid [16]byte
+// UUID is a RFC4122 compliant uuid type
+type UUID [16]byte
 
-var nilUUID uuid
+var nilUUID UUID
 
-func newUUID() uuid {
-	var u uuid
+// NewUUID creates a new snowflake UUID
+func NewUUID() UUID {
+	var u UUID
 	rand.Read(u[:])
 	u[8] = (u[8] | rfc4122) & 0x7F
 
@@ -23,6 +25,6 @@ func newUUID() uuid {
 	return u
 }
 
-func (u uuid) String() string {
+func (u UUID) String() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", u[0:4], u[4:6], u[6:8], u[8:10], u[10:])
 }
