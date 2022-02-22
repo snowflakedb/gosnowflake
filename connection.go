@@ -128,12 +128,7 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
-		return nil, (&SnowflakeError{
-			Number:   code,
-			SQLState: data.Data.SQLState,
-			Message:  data.Message,
-			QueryID:  data.Data.QueryID,
-		}).exceptionTelemetry(sc)
+		return nil, (populateErrorFields(code, data)).exceptionTelemetry(sc)
 	}
 
 	// handle PUT/GET commands
