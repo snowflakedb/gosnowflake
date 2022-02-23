@@ -453,6 +453,13 @@ func arrowToValue(
 		}
 		return err
 	case textType, arrayType, variantType, objectType:
+		// SIG-17456: the following attempt to treat underlying arrow data as a
+		// string-array can panic if the source-data is not really a string array.
+		if len(srcValue.Data().Buffers()) != 3 {
+			logger.Infof(
+				"Snowflake data type being treated as a string: %v, arrow data type: %v, buffer-len %d",
+				srcColumnMeta.Type, srcValue.DataType(), len(srcValue.Data().Buffers()))
+		}
 		strings := array.NewStringData(data)
 		for i := range *destcol {
 			if !srcValue.IsNull(i) {
