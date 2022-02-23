@@ -109,7 +109,7 @@ func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 	}, nil
 }
 
-func cancelTestRetry(ctx context.Context, sr *snowflakeRestful, requestID uuid, timeout time.Duration) error {
+func cancelTestRetry(ctx context.Context, sr *snowflakeRestful, requestID UUID, timeout time.Duration) error {
 	ctxRetry := getCancelRetry(ctx)
 	u := url.URL{}
 	reqByte, err := json.Marshal(make(map[string]string))
@@ -142,19 +142,19 @@ func TestUnitPostQueryHelperError(t *testing.T) {
 		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	var err error
-	requestID := newUUID()
+	requestID := NewUUID()
 	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, requestID, &Config{})
 	if err == nil {
 		t.Fatalf("should have failed to post")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
-	requestID = newUUID()
+	requestID = NewUUID()
 	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, requestID, &Config{})
 	if err == nil {
 		t.Fatalf("should have failed to post")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
-	requestID = newUUID()
+	requestID = NewUUID()
 	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, requestID, &Config{})
 	if err == nil {
 		t.Fatalf("should have failed to post")
@@ -359,7 +359,7 @@ func TestUnitPostQueryHelperUsesToken(t *testing.T) {
 	accessor.SetTokens(token, "", 0)
 
 	var err error
-	postQueryTest := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ uuid, _ *Config) (*execResponse, error) {
+	postQueryTest := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ UUID, _ *Config) (*execResponse, error) {
 		if headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, token) {
 			t.Fatalf("authorization key doesn't match, %v vs %v", headers[headerAuthorizationKey], fmt.Sprintf(headerSnowflakeToken, token))
 		}
@@ -377,7 +377,7 @@ func TestUnitPostQueryHelperUsesToken(t *testing.T) {
 		FuncRenewSession: renewSessionTest,
 		TokenAccessor:    accessor,
 	}
-	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, newUUID(), &Config{})
+	_, err = postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, NewUUID(), &Config{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -385,8 +385,8 @@ func TestUnitPostQueryHelperUsesToken(t *testing.T) {
 
 func TestUnitPostQueryHelperRenewSession(t *testing.T) {
 	var err error
-	origRequestID := newUUID()
-	postQueryTest := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID uuid, _ *Config) (*execResponse, error) {
+	origRequestID := NewUUID()
+	postQueryTest := func(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ []byte, _ time.Duration, requestID UUID, _ *Config) (*execResponse, error) {
 		// ensure the same requestID is used after the session token is renewed.
 		if requestID != origRequestID {
 			t.Fatal("requestID doesn't match")

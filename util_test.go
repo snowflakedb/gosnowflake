@@ -74,7 +74,7 @@ func TestSimpleTokenAccessorGetTokensSynchronization(t *testing.T) {
 }
 
 func TestGetRequestIDFromContext(t *testing.T) {
-	expectedRequestID := newUUID()
+	expectedRequestID := NewUUID()
 	ctx := WithRequestID(context.Background(), expectedRequestID)
 	requestID := getOrGenerateRequestIDFromContext(ctx)
 	if requestID != expectedRequestID {

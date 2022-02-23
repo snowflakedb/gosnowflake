@@ -26,6 +26,18 @@ func unsetenv(k string) {
 	}
 }
 
+// deleteOCSPCacheFile deletes the OCSP response cache file
+func deleteOCSPCacheFile() {
+	os.Remove(cacheFileName)
+}
+
+// deleteOCSPCacheAll deletes all entries in the OCSP response cache on memory
+func deleteOCSPCacheAll() {
+	ocspResponseCacheLock.Lock()
+	defer ocspResponseCacheLock.Unlock()
+	ocspResponseCache = make(map[certIDKey][]interface{})
+}
+
 func cleanup() {
 	deleteOCSPCacheFile()
 	deleteOCSPCacheAll()

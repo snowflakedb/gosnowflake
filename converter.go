@@ -289,32 +289,6 @@ func decimalToBigFloat(num decimal128.Num, scale int64) *big.Float {
 	return new(big.Float).Quo(f, s)
 }
 
-func stringIntToDecimal(src string) (decimal128.Num, bool) {
-	b, ok := new(big.Int).SetString(src, 10)
-	if !ok {
-		return decimal128.Num{}, ok
-	}
-	var high, low big.Int
-	high.QuoRem(b, decimalShift, &low)
-	return decimal128.New(high.Int64(), low.Uint64()), ok
-}
-
-func stringFloatToDecimal(src string, scale int64) (decimal128.Num, bool) {
-	b, ok := new(big.Float).SetString(src)
-	if !ok {
-		return decimal128.Num{}, ok
-	}
-	s := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(scale), nil))
-	n := new(big.Float).Mul(b, s)
-	if !n.IsInt() {
-		return decimal128.Num{}, false
-	}
-	var high, low, z big.Int
-	n.Int(&z)
-	high.QuoRem(&z, decimalShift, &low)
-	return decimal128.New(high.Int64(), low.Uint64()), ok
-}
-
 // Arrow Interface (Column) converter. This is called when Arrow chunks are
 // downloaded to convert to the corresponding row type.
 func arrowToValue(

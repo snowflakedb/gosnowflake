@@ -6,7 +6,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"io"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -48,7 +47,7 @@ func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 }
 
 // WithRequestID returns a new context with the specified snowflake request id
-func WithRequestID(ctx context.Context, requestID uuid) context.Context {
+func WithRequestID(ctx context.Context, requestID UUID) context.Context {
 	return context.WithValue(ctx, snowflakeRequestIDKey, requestID)
 }
 
@@ -91,12 +90,12 @@ func WithArrowBatches(ctx context.Context) context.Context {
 }
 
 // Get the request ID from the context if specified, otherwise generate one
-func getOrGenerateRequestIDFromContext(ctx context.Context) uuid {
-	requestID, ok := ctx.Value(snowflakeRequestIDKey).(uuid)
+func getOrGenerateRequestIDFromContext(ctx context.Context) UUID {
+	requestID, ok := ctx.Value(snowflakeRequestIDKey).(UUID)
 	if ok && requestID != nilUUID {
 		return requestID
 	}
-	return newUUID()
+	return NewUUID()
 }
 
 // integer min
@@ -212,14 +211,4 @@ func escapeForCSV(value string) string {
 		return "\"" + strings.ReplaceAll(value, "\"", "\"\"") + "\""
 	}
 	return value
-}
-
-func randomString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = alpha[rand.Intn(len(alpha))]
-	}
-	return string(b)
 }

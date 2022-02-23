@@ -9,15 +9,27 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 const createStageStmt = "CREATE OR REPLACE STAGE %v URL = '%v' CREDENTIALS = (%v)"
+
+func randomString(n int) string {
+	rand.Seed(time.Now().UnixNano())
+	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = alpha[rand.Intn(len(alpha))]
+	}
+	return string(b)
+}
 
 func TestPutError(t *testing.T) {
 	if isWindows {
