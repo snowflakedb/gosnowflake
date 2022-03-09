@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path"
@@ -216,6 +217,36 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 					return err
 				}
 				if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
+					// Rename failed and both paths are absolute meaning that files exist on different partitions
+					// causing failure
+					if path.IsAbs(tmpDstFileName) && path.IsAbs(fullDstFileName) {
+						tmpDstRootDirectory := GetRootDirectory(tmpDstFileName)
+						fullDstRootDirectory := GetRootDirectory(fullDstFileName)
+
+						if tmpDstRootDirectory != fullDstRootDirectory {
+							src, err := os.Open(tmpDstFileName)
+							if err != nil {
+								return err
+							}
+							defer src.Close()
+
+							dst, err := os.Create(fullDstFileName)
+							if err != nil {
+								return err
+							}
+							defer dst.Close()
+
+							if _, err := io.Copy(dst, src); err != nil {
+								return err
+							}
+							if err := os.Remove(tmpDstFileName); err != nil {
+								return err
+							}
+
+							return nil
+						}
+					}
+
 					return err
 				}
 			}

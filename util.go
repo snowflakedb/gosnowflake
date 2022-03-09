@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"io"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -211,4 +212,19 @@ func escapeForCSV(value string) string {
 		return "\"" + strings.ReplaceAll(value, "\"", "\"\"") + "\""
 	}
 	return value
+}
+
+func GetRootDirectory(filePath string) string {
+	if len(filePath) < 1 {
+		return filePath
+	}
+
+	directories := strings.Split(filePath, "/")
+
+	// Absolute paths start with '/' so we ignore first location in directories array
+	if path.IsAbs(filePath) && len(directories) > 1 {
+		return directories[1]
+	}
+
+	return directories[0]
 }
