@@ -86,6 +86,31 @@ func TestMultipleAsyncQueries(t *testing.T) {
 	})
 }
 
+func TestMultipleAsyncSuccessAndFailedQueries(t *testing.T) {
+	ctx := WithAsyncMode(context.Background())
+	s2 := "bar"
+	ch1 := make(chan string)
+	ch2 := make(chan string)
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows1 := dbt.mustQueryContext(ctx, "selectt ")
+		_ = rows1.Close()
+		rows2 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct 'bar' from table (generator(timelimit=>10))"))
+		defer func() { _ = rows2.Close() }()
+
+		//go retrieveRows(rows1, ch1)
+		go retrieveRows(rows2, ch2)
+		select {
+		case res := <-ch1:
+			t.Fatalf("value %v should not have been called earlier.", res)
+		case res := <-ch2:
+			if res != s2 {
+				t.Fatalf("query failed. expected: %v, got: %v", s2, res)
+			}
+		}
+	})
+}
+
 func retrieveRows(rows *RowsExtended, ch chan string) {
 	var s string
 	for rows.Next() {
