@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestAsyncMode(t *testing.T) {
@@ -75,6 +76,7 @@ func TestMultipleAsyncQueries(t *testing.T) {
 
 		go retrieveRows(rows1, ch1)
 		go retrieveRows(rows2, ch2)
+
 		select {
 		case res := <-ch1:
 			t.Fatalf("value %v should not have been called earlier.", res)
@@ -82,6 +84,40 @@ func TestMultipleAsyncQueries(t *testing.T) {
 			if res != s2 {
 				t.Fatalf("query failed. expected: %v, got: %v", s2, res)
 			}
+		}
+	})
+}
+
+func TestMultipleAsyncSuccessAndFailedQueries(t *testing.T) {
+	ctx := WithAsyncMode(context.Background())
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	s1 := "foo"
+	s2 := "bar"
+	ch1 := make(chan string)
+	ch2 := make(chan string)
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows1 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%s' from table (generator(timelimit=>3))", s1))
+		defer rows1.Close()
+
+		rows2 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%s' from table (generator(timelimit=>7))", s2))
+		defer rows2.Close()
+
+		go retrieveRows(rows1, ch1)
+		go retrieveRows(rows2, ch2)
+
+		res1 := <-ch1
+		if res1 != s1 {
+			t.Fatalf("query failed. expected: %v, got: %v", s1, res1)
+		}
+
+		// wait until rows2 is done
+		<-ch2
+		driverErr, ok := rows2.Err().(*SnowflakeError)
+		if !ok || driverErr == nil || driverErr.Number != ErrAsync {
+			t.Fatalf("Snowflake ErrAsync expected. got: %T, %v", rows2.Err(), rows2.Err())
 		}
 	})
 }
