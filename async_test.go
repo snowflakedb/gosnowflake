@@ -59,6 +59,52 @@ func TestAsyncModeCancel(t *testing.T) {
 	})
 }
 
+const (
+	//selectTimelineGenerator = "SELECT COUNT(*) FROM TABLE(GENERATOR(TIMELIMIT=>%v))"
+	selectTimelineGenerator = "SELECT SYSTEM$WAIT(%v, 'SECONDS')"
+)
+
+func TestAsyncModeNoFetch(t *testing.T) {
+	ctx := WithAsyncMode(WithAsyncModeNoFetch(context.Background()))
+	// the default behavior of the async wait is to wait for 45s. We want to make sure we wait until the query actually
+	// completes, so we make the test take longer than 45s
+	secondsToRun := 50
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		start := time.Now()
+		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectTimelineGenerator, secondsToRun))
+		defer rows.Close()
+
+		// Next() will block and wait until results are available
+		if rows.Next() == true {
+			t.Fatalf("next should have returned no rows")
+		}
+		columns, err := rows.Columns()
+		if columns != nil {
+			t.Fatalf("there should be no column array returned")
+		}
+		if err == nil {
+			t.Fatalf("we should have an error thrown")
+		}
+		if rows.Scan(nil) == nil {
+			t.Fatalf("we should have an error thrown")
+		}
+		if (time.Second * time.Duration(secondsToRun)) > time.Since(start) {
+			t.Fatalf("tset should should have run for %d seconds", secondsToRun)
+		}
+
+		dbt.mustExec("create or replace table test_async_exec (value boolean)")
+		res := dbt.mustExecContext(ctx, "insert into test_async_exec values (true)")
+		count, err := res.RowsAffected()
+		if err != nil {
+			t.Fatalf("res.RowsAffected() returned error: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("expected 1 affected row, got %d", count)
+		}
+	})
+}
+
 func TestAsyncQueryFail(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
 	runTests(t, dsn, func(dbt *DBTest) {

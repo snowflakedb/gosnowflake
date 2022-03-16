@@ -16,6 +16,7 @@ type contextKey string
 const (
 	multiStatementCount   contextKey = "MULTI_STATEMENT_COUNT"
 	asyncMode             contextKey = "ASYNC_MODE_QUERY"
+	asyncModeNoFetch      contextKey = "ASYNC_MODE_NO_FETCH_QUERY"
 	queryIDChannel        contextKey = "QUERY_ID_CHANNEL"
 	snowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
 	fetchResultByID       contextKey = "SF_FETCH_RESULT_BY_ID"
@@ -40,6 +41,11 @@ func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
 // WithAsyncMode returns a context that allows execution of query in async mode
 func WithAsyncMode(ctx context.Context) context.Context {
 	return context.WithValue(ctx, asyncMode, true)
+}
+
+// WithAsyncModeNoFetch returns a context that, when you execute a query in async mode, will not fetch results
+func WithAsyncModeNoFetch(ctx context.Context) context.Context {
+	return context.WithValue(ctx, asyncModeNoFetch, true)
 }
 
 // WithQueryIDChan returns a context that contains the channel to receive the query ID
