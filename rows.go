@@ -37,6 +37,7 @@ type snowflakeRows struct {
 	err                 error
 	errChannel          chan error
 	monitoring          *monitoringResult
+	asyncRequestID      uuid
 }
 
 type snowflakeValue interface{}

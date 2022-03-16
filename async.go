@@ -16,7 +16,8 @@ func (sr *snowflakeRestful) processAsync(
 	respd *execResponse,
 	headers map[string]string,
 	timeout time.Duration,
-	cfg *Config) (*execResponse, error) {
+	cfg *Config,
+	requestID uuid) (*execResponse, error) {
 	// placeholder object to return to user while retrieving results
 	rows := new(snowflakeRows)
 	res := new(snowflakeResult)
@@ -34,9 +35,10 @@ func (sr *snowflakeRestful) processAsync(
 	default:
 		return respd, nil
 	}
-
 	// spawn goroutine to retrieve asynchronous results
-	go sr.getAsync(ctx, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows, cfg)
+	go func() {
+		_ = sr.getAsync(ctx, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows, requestID, cfg)
+	}()
 	return respd, nil
 }
 
@@ -47,6 +49,7 @@ func (sr *snowflakeRestful) getAsync(
 	timeout time.Duration,
 	res *snowflakeResult,
 	rows *snowflakeRows,
+	requestID uuid,
 	cfg *Config) error {
 	resType := getResultType(ctx)
 	var errChannel chan error
@@ -68,6 +71,13 @@ func (sr *snowflakeRestful) getAsync(
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		sfError.Message = err.Error()
 		errChannel <- sfError
+		// if we failed here because of top level context cancellation we want to cancel the original query
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			// use the default top level 1 sec timeout for cancellation as throughout the driver
+			if err := cancelQuery(context.TODO(), sr, requestID, time.Second); err != nil {
+				logger.WithContext(ctx).Errorf("failed to cancel async query, err: %v", err)
+			}
+		}
 		return err
 	}
 	if resp.Body != nil {

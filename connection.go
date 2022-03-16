@@ -566,17 +566,17 @@ type ResultFetcher interface {
 // MonitoringResultFetcher is an interface which allows to fetch monitoringResult
 // with snowflake connection and query-id.
 type MonitoringResultFetcher interface {
-	FetchMonitoringResult(queryID string) (*monitoringResult, error)
+	FetchMonitoringResult(queryID string, runtime time.Duration) (*monitoringResult, error)
 }
 
 // FetchMonitoringResult returns a monitoringResult object
 // Multiplex can call monitoringResult.Monitoring() to get the QueryMonitoringData
-func (sc *snowflakeConn) FetchMonitoringResult(queryID string) (*monitoringResult, error) {
+func (sc *snowflakeConn) FetchMonitoringResult(queryID string, runtime time.Duration) (*monitoringResult, error) {
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
 
 	// set the fake runtime just to bypass fast query
-	monitoringResult := mkMonitoringFetcher(sc, queryID, time.Minute*10)
+	monitoringResult := mkMonitoringFetcher(sc, queryID, runtime)
 	return monitoringResult, nil
 }
