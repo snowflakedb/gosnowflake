@@ -301,7 +301,7 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 
 func mkMonitoringFetcher(sc *snowflakeConn, qid string, runtime time.Duration) *monitoringResult {
 	// Exit early if this was a "fast" query
-	if runtime < FetchQueryMonitoringDataThreshold {
+	if runtime < sc.cfg.MonitoringFetcher.QueryRuntimeThreshold {
 		return nil
 	}
 
@@ -324,14 +324,31 @@ func monitoring(
 ) {
 	defer close(resp)
 
-	ctx, cancel := context.WithTimeout(context.Background(), sc.rest.RequestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), sc.cfg.MonitoringFetcher.MaxDuration)
 	defer cancel()
 
-	var m monitoringResponse
-	err := sc.getMonitoringResult(ctx, "queries", qid, &m)
-	if err == nil && len(m.Data.Queries) == 1 {
-		resp <- &m.Data.Queries[0]
+	var queryMonitoringData *QueryMonitoringData
+	for {
+		var m monitoringResponse
+		if err := sc.getMonitoringResult(ctx, "queries", qid, &m); err != nil {
+			break
+		}
+
+		if len(m.Data.Queries) == 1 {
+			queryMonitoringData = &m.Data.Queries[0]
+			if !strToQueryStatus(queryMonitoringData.Status).isRunning() {
+				break
+			}
+		}
+
+		time.Sleep(sc.cfg.MonitoringFetcher.RetrySleepDuration)
 	}
+
+	if queryMonitoringData != nil {
+		resp <- queryMonitoringData
+	}
+
+	return
 }
 
 func queryGraph(
@@ -342,7 +359,7 @@ func queryGraph(
 	defer close(resp)
 
 	// Bound the GET request to 1 second in the absolute worst case.
-	ctx, cancel := context.WithTimeout(context.Background(), sc.rest.RequestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), sc.cfg.MonitoringFetcher.MaxDuration)
 	defer cancel()
 
 	var qg queryGraphResponse

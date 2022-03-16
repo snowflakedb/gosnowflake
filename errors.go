@@ -245,6 +245,14 @@ const (
 	ErrRoleNotExist = 390189
 	// ErrObjectNotExistOrAuthorized is a GS error code for the case that the server-side object specified does not exist
 	ErrObjectNotExistOrAuthorized = 390201
+
+	/* Extra error code */
+
+	// ErrQueryExecutionInProgress is returned when monitoring an async query reaches 45s
+	ErrQueryExecutionInProgress = 333333
+
+	// ErrAsyncExecutionInProgress is returned when monitoring an async query reaches 45s
+	ErrAsyncExecutionInProgress = 333334
 )
 
 const (
@@ -285,6 +293,7 @@ const (
 	errMsgFailedToConvertToS3Client          = "failed to convert interface to s3 client"
 	errMsgNoResultIDs                        = "no result IDs returned with the multi-statement query"
 	errMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
+	errMsgAsyncWithNoResults                 = "async with no results"
 )
 
 var (
