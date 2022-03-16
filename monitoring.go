@@ -247,6 +247,20 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 		}
 		return err
 	}
+	if !resp.Success {
+		message := resp.Message
+		code, err := strconv.Atoi(resp.Code)
+		if err != nil {
+			code = ErrQueryStatus
+			message = fmt.Sprintf("%s: (failed to parse original code: %s: %s)", message, resp.Code, err.Error())
+		}
+		return (&SnowflakeError{
+			Number:   code,
+			SQLState: resp.Data.SQLState,
+			Message:  message,
+			QueryID:  resp.Data.QueryID,
+		}).exceptionTelemetry(sc)
+	}
 	rows.addDownloader(populateChunkDownloader(ctx, sc, resp.Data))
 	return nil
 }
