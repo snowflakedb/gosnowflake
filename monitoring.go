@@ -237,17 +237,31 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 	resp, err := sc.getQueryResultResp(ctx, resultPath)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
+		if resp != nil {
+			code, err := strconv.Atoi(resp.Code)
+			if err != nil {
+				return err
+			}
+			return (&SnowflakeError{
+				Number:   code,
+				SQLState: resp.Data.SQLState,
+				Message:  err.Error(),
+				QueryID:  resp.Data.QueryID,
+			}).exceptionTelemetry(sc)
+		}
 		return err
 	}
 	if !resp.Success {
+		message := resp.Message
 		code, err := strconv.Atoi(resp.Code)
 		if err != nil {
-			return err
+			code = ErrQueryStatus
+			message = fmt.Sprintf("%s: (failed to parse original code: %s: %s)", message, resp.Code, err.Error())
 		}
 		return (&SnowflakeError{
 			Number:   code,
 			SQLState: resp.Data.SQLState,
-			Message:  resp.Message,
+			Message:  message,
 			QueryID:  resp.Data.QueryID,
 		}).exceptionTelemetry(sc)
 	}
