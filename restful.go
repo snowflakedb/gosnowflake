@@ -272,7 +272,7 @@ func postRestfulQueryHelper(
 
 		// if asynchronous query in progress, kick off retrieval but return object
 		if respd.Code == queryInProgressAsyncCode && isAsyncMode(ctx) {
-			return sr.processAsync(ctx, &respd, headers, timeout, cfg)
+			return sr.processAsync(ctx, &respd, headers, timeout, cfg, requestID)
 		}
 		for isSessionRenewed || respd.Code == queryInProgressCode ||
 			respd.Code == queryInProgressAsyncCode {
