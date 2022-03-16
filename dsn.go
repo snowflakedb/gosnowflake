@@ -22,6 +22,11 @@ const (
 	defaultRequestTimeout = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout     = 60 * time.Second
 	defaultDomain         = ".snowflakecomputing.com"
+
+	// default monitoring fetcher config values
+	defaultMonitoringFetcherQueryMonitoringThreshold = 45 * time.Second
+	defaultMonitoringFetcherMaxDuration              = 10 * time.Second
+	defaultMonitoringFetcherRetrySleepDuration       = 250 * time.Second
 )
 
 // ConfigBool is a type to represent true or false in the Config
@@ -83,9 +88,28 @@ type Config struct {
 
 	DisableTelemetry bool // indicates whether to disable telemetry
 
+	// Monitoring fetcher config
+	MonitoringFetcher MonitoringFetcherConfig
+
 	// An identifier for this Config. Used to associate multiple connection instances with
 	// a single logical sql.DB connection.
 	ConnectionID string
+}
+
+// MonitoringFetcherConfig provides some knobs to control the behavior of the monitoring data fetcher
+type MonitoringFetcherConfig struct {
+	// QueryRuntimeThreshold specifies the threshold, over which we'll fetch the monitoring
+	// data for a successful snowflake query. We use a time-based threshold, since there is
+	// a non-zero latency cost to fetch this data, and we want to bound the additional latency.
+	// By default, we bound to a 2% increase in latency - assuming worst case 100ms - when
+	// fetching this metadata.
+	QueryRuntimeThreshold time.Duration
+
+	// max time to wait until we get a proper monitoring sample for a query
+	MaxDuration time.Duration
+
+	// Wait time between monitoring retries
+	RetrySleepDuration time.Duration
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
@@ -200,6 +224,16 @@ func DSN(cfg *Config) (dsn string, err error) {
 	params.Add("ocspFailOpen", strconv.FormatBool(cfg.OCSPFailOpen != OCSPFailOpenFalse))
 
 	params.Add("validateDefaultParameters", strconv.FormatBool(cfg.ValidateDefaultParameters != ConfigBoolFalse))
+
+	if cfg.MonitoringFetcher.QueryRuntimeThreshold != defaultMonitoringFetcherQueryMonitoringThreshold {
+		params.Add("monitoringFetcher_queryRuntimeThresholdMs", durationAsMillis(cfg.MonitoringFetcher.QueryRuntimeThreshold))
+	}
+	if cfg.MonitoringFetcher.MaxDuration != defaultMonitoringFetcherMaxDuration {
+		params.Add("monitoringFetcher_maxDurationMs", durationAsMillis(cfg.MonitoringFetcher.MaxDuration))
+	}
+	if cfg.MonitoringFetcher.RetrySleepDuration != defaultMonitoringFetcherRetrySleepDuration {
+		params.Add("monitoringFetcher_retrySleepDurationMs", durationAsMillis(cfg.MonitoringFetcher.RetrySleepDuration))
+	}
 
 	if cfg.ConnectionID != "" {
 		params.Add("connectionId", cfg.ConnectionID)
@@ -429,6 +463,16 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.ValidateDefaultParameters = ConfigBoolTrue
 	}
 
+	if cfg.MonitoringFetcher.QueryRuntimeThreshold == 0 {
+		cfg.MonitoringFetcher.QueryRuntimeThreshold = defaultMonitoringFetcherQueryMonitoringThreshold
+	}
+	if cfg.MonitoringFetcher.MaxDuration == 0 {
+		cfg.MonitoringFetcher.MaxDuration = defaultMonitoringFetcherMaxDuration
+	}
+	if cfg.MonitoringFetcher.RetrySleepDuration == 0 {
+		cfg.MonitoringFetcher.RetrySleepDuration = defaultMonitoringFetcherRetrySleepDuration
+	}
+
 	if cfg.ConnectionID == "" {
 		cfg.ConnectionID = uuid.New().String()
 	}
@@ -618,6 +662,21 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			} else {
 				cfg.ValidateDefaultParameters = ConfigBoolFalse
 			}
+		case "monitoringFetcher_queryRuntimeThresholdMs":
+			cfg.MonitoringFetcher.QueryRuntimeThreshold, err = parseMillisToDuration(value)
+			if err != nil {
+				return err
+			}
+		case "monitoringFetcher_maxDurationMs":
+			cfg.MonitoringFetcher.MaxDuration, err = parseMillisToDuration(value)
+			if err != nil {
+				return err
+			}
+		case "monitoringFetcher_retrySleepDurationMs":
+			cfg.MonitoringFetcher.RetrySleepDuration, err = parseMillisToDuration(value)
+			if err != nil {
+				return err
+			}
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
@@ -626,6 +685,19 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		}
 	}
 	return
+}
+
+func parseMillisToDuration(value string) (time.Duration, error) {
+	intValue, err := strconv.ParseInt(value, 10, 64)
+	if err == nil {
+		return time.Millisecond * time.Duration(intValue), nil
+	}
+
+	return 0, err
+}
+
+func durationAsMillis(duration time.Duration) string {
+	return strconv.FormatInt(duration.Milliseconds(), 10)
 }
 
 func parseTimeout(value string) (time.Duration, error) {
