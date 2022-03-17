@@ -13,6 +13,9 @@ Go Snowflake Driver
 
 This topic provides instructions for installing, running, and modifying the Go Snowflake Driver. The driver supports Go's `database/sql <https://golang.org/pkg/database/sql/>`_ package.
 
+For information about the functionality of the Go Snowflake Driver, see
+the doc.go file in this directory.
+
 Prerequisites
 ================================================================================
 
