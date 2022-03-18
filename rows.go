@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -71,12 +72,16 @@ func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err.Error()
 	}
+	if rows.ChunkDownloader == nil {
+		return ""
+	}
+
 	return strings.ToUpper(rows.ChunkDownloader.getRowType()[index].Type)
 }
 
 // ColumnTypeLength returns the length of the column
 func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
-	if err := rows.waitForAsyncQueryStatus(); err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil || rows.ChunkDownloader == nil {
 		return 0, false
 	}
 	if index < 0 || index > len(rows.ChunkDownloader.getRowType()) {
@@ -90,7 +95,7 @@ func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
 }
 
 func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
-	if err := rows.waitForAsyncQueryStatus(); err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil || rows.ChunkDownloader == nil {
 		return false, false
 	}
 	if index < 0 || index > len(rows.ChunkDownloader.getRowType()) {
@@ -100,7 +105,7 @@ func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
 }
 
 func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
-	if err := rows.waitForAsyncQueryStatus(); err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil || rows.ChunkDownloader == nil {
 		return 0, 0, false
 	}
 	rowType := rows.ChunkDownloader.getRowType()
@@ -119,7 +124,7 @@ func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale
 }
 
 func (rows *snowflakeRows) Columns() []string {
-	if err := rows.waitForAsyncQueryStatus(); err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil || rows.ChunkDownloader == nil {
 		return make([]string, 0)
 	}
 	logger.Debug("Rows.Columns")
@@ -131,7 +136,7 @@ func (rows *snowflakeRows) Columns() []string {
 }
 
 func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
-	if err := rows.waitForAsyncQueryStatus(); err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil || rows.ChunkDownloader == nil {
 		return nil
 	}
 	return snowflakeTypeToGo(
@@ -163,6 +168,9 @@ func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 	if err = rows.waitForAsyncQueryStatus(); err != nil {
 		return err
+	}
+	if rows.ChunkDownloader == nil {
+		return fmt.Errorf(errMsgAsyncWithNoResults)
 	}
 	row, err := rows.ChunkDownloader.next()
 	if err != nil {
@@ -196,7 +204,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 }
 
 func (rows *snowflakeRows) HasNextResultSet() bool {
-	if err := rows.waitForAsyncQueryStatus(); err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil || rows.ChunkDownloader == nil {
 		return false
 	}
 	return rows.ChunkDownloader.hasNextResultSet()
@@ -206,6 +214,10 @@ func (rows *snowflakeRows) NextResultSet() error {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
+	if rows.ChunkDownloader == nil {
+		return fmt.Errorf(errMsgAsyncWithNoResults)
+	}
+
 	if len(rows.ChunkDownloader.getChunkMetas()) == 0 {
 		if rows.ChunkDownloader.getNextChunkDownloader() == nil {
 			return io.EOF

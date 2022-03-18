@@ -45,6 +45,45 @@ func TestAsyncMode(t *testing.T) {
 	})
 }
 
+func TestAsyncModeNoFetch(t *testing.T) {
+	ctx := WithAsyncModeNoFetch(WithAsyncMode(context.Background()))
+	numrows := 100000
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
+		defer rows.Close()
+
+		// Next() will block and wait until results are available
+		if rows.Next() == true {
+			t.Fatalf("next should have returned no rows")
+		}
+		if err := rows.Err(); err == nil {
+			t.Fatalf("we should have an error thrown")
+		}
+		columns, err := rows.Columns()
+		if columns != nil {
+			t.Fatalf("there should be no column array returned")
+		}
+		if err == nil {
+			t.Fatalf("we should have an error thrown")
+		}
+
+		if rows.Scan(nil) == nil {
+			t.Fatalf("we should have an error thrown")
+		}
+
+		dbt.mustExec("create or replace table test_async_exec (value boolean)")
+		res := dbt.mustExecContext(ctx, "insert into test_async_exec values (true)")
+		count, err := res.RowsAffected()
+		if err != nil {
+			t.Fatalf("res.RowsAffected() returned error: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("expected 1 affected row, got %d", count)
+		}
+	})
+}
+
 func TestAsyncQueryFail(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
 	runTests(t, dsn, func(dbt *DBTest) {

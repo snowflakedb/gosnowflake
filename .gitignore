@@ -11,3 +11,4 @@ wss-golang-agent.config
 wss-unified-agent.jar
 whitesource/
 *.swp
+/vendor/github.com/snowflakedb/gosnowflake
