@@ -78,7 +78,7 @@ func (sr *snowflakeRestful) getAsync(
 	// the get call pulling for result status is
 	var response *execResponse
 	var err error
-	for response == nil || (!response.Success && parseCode(response.Code) == ErrQueryExecutionInProgress) {
+	for response == nil || isQueryInProgress(response) {
 		response, err = sr.getAsyncOrStatus(ctx, URL, headers, timeout)
 
 		if err != nil {
@@ -146,6 +146,19 @@ func (sr *snowflakeRestful) getAsync(
 		}
 	}
 	return nil
+}
+
+func isQueryInProgress(execResponse *execResponse) bool {
+	if !execResponse.Success {
+		return false
+	}
+
+	switch parseCode(execResponse.Code) {
+	case ErrQueryExecutionInProgress, ErrAsyncExecutionInProgress:
+		return true
+	default:
+		return false
+	}
 }
 
 func parseCode(codeStr string) int {

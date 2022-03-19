@@ -232,6 +232,9 @@ const (
 
 	// ErrQueryExecutionInProgress is returned when monitoring an async query reaches 45s
 	ErrQueryExecutionInProgress = 333333
+
+	// ErrAsyncExecutionInProgress is returned when monitoring an async query reaches 45s
+	ErrAsyncExecutionInProgress = 333334
 )
 
 const (
