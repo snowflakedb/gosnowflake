@@ -45,7 +45,7 @@ For detailed documentation and basic usage examples, please see the documentatio
 Sample Programs
 ================================================================================
 
-Snowflake provides a set of sample programs to test with. Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/go`` and make certain to 
+Snowflake provides a set of sample programs to test with. Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/go`` and make certain to
 include ``$GOPATH/bin`` in the environment variable ``$PATH``. Run the ``make`` command to build all sample programs.
 
 .. code-block:: go
