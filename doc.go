@@ -3,8 +3,8 @@
 Introduction
 
 This document describes the functionality of the Go Snowflake Driver.
-(For information about installing, running, and modifying the driver, see
-the file README.rst in this directory.)
+(For information about installing, running, and modifying the driver,
+see the file README.rst in this directory.)
 
 Package gosnowflake is a pure Go Snowflake driver for the database/sql package.
 
