@@ -186,7 +186,7 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 
 //localLocation is nil from this bug https://github.com/snowflakedb/gosnowflake/issues/566.
 //If its nil, we will give default from Now()
-func getLocalLocationIfAvailable( localLocation *time.Location ) *time.Location {
+func getLocalLocationIfAvailable(localLocation *time.Location) *time.Location {
 	if localLocation != nil {
 		return localLocation
 	}
@@ -234,7 +234,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
-		*dest = time.Unix(sec, nsec).In( getLocalLocationIfAvailable(localLocation) )
+		*dest = time.Unix(sec, nsec).In(getLocalLocationIfAvailable(localLocation))
 		return nil
 	case "timestamp_tz":
 		logger.Debugf("tz: %v", *srcValue)
