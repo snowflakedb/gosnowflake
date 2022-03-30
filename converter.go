@@ -184,6 +184,16 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 	return sec, nsec, nil
 }
 
+//localLocation is nil from this bug https://github.com/snowflakedb/gosnowflake/issues/566.
+//If its nil, we will give default from Now()
+func getLocalLocationIfAvailable( localLocation *time.Location ) *time.Location {
+	if localLocation != nil {
+		return localLocation
+	}
+
+	return time.Now().Location()
+}
+
 // stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
 // data.
 func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcValue *string) error {
@@ -224,7 +234,7 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
-		*dest = time.Unix(sec, nsec).In(localLocation)
+		*dest = time.Unix(sec, nsec).In( getLocalLocationIfAvailable(localLocation) )
 		return nil
 	case "timestamp_tz":
 		logger.Debugf("tz: %v", *srcValue)
