@@ -861,3 +861,4 @@ an absolute path rather than a relative path. For example:
 
 */
 package gosnowflake
+
