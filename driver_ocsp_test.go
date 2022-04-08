@@ -451,12 +451,28 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
-	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("failed to extract error SnowflakeError: %v", err)
+	if err == nil {
+		t.Fatalf("should failed to connect. err:  %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
-		t.Fatalf("should failed to connect %v", err)
+
+	switch errType := err.(type) {
+	// Before Go 1.17
+	case *SnowflakeError:
+		driverErr, ok := err.(*SnowflakeError)
+		if !ok {
+			t.Fatalf("failed to extract error SnowflakeError: %v", err)
+		}
+		if driverErr.Number != ErrCodeFailedToConnect {
+			t.Fatalf("should have failed to connect. err: %v", err)
+		}
+	// Go 1.18 and after rejects SHA-1 certificates, therefore a different error is returned (https://github.com/golang/go/issues/41682)
+	case *url.Error:
+		expectedErrMsg := "bad OCSP signature"
+		if !strings.Contains(err.Error(), expectedErrMsg) {
+			t.Fatalf("should have failed with bad OCSP signature. err:  %v", err)
+		}
+	default:
+		t.Fatalf("should failed to connect. err type: %v, err:  %v", errType, err)
 	}
 }
 
