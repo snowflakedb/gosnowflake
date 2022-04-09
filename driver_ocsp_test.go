@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"net/url"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -672,7 +673,15 @@ func TestExpiredCertificate(t *testing.T) {
 	}
 	_, ok = urlErr.Err.(x509.CertificateInvalidError)
 	if !ok {
-		t.Fatalf("failed to extract error Certificate error: %v", err)
+		if runtime.GOOS == "darwin" {
+			// Go 1.18 on Mac: errors.errorString is thrown
+			errString := urlErr.Err.Error()
+			if !strings.HasPrefix(errString, "x509:") || !strings.HasSuffix(errString, "certificate is expired") {
+				t.Fatalf("failed to extract error Certificate error: %v", err)
+			}
+		} else {
+			t.Fatalf("failed to extract error Certificate error: %v", err)
+		}
 	}
 }
 
