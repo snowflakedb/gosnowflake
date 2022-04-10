@@ -129,7 +129,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 	chunkMetaLen := len(scd.ChunkMetas)
 	if chunkMetaLen > 0 {
 		logger.Debugf("MaxChunkDownloadWorkers: %v", MaxChunkDownloadWorkers)
-		logger.Debugf("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
+		logger.Infof("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.DoneDownloadCond = sync.NewCond(scd.ChunksMutex)
 		scd.Chunks = make(map[int][]chunkRowType)
@@ -467,7 +467,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			return err
 		}
 	}
-	logger.Debugf(
+	logger.Infof(
 		"decoded %d rows w/ %d bytes in %s (chunk %v)",
 		scd.ChunkMetas[idx].RowCount,
 		scd.ChunkMetas[idx].UncompressedSize,
