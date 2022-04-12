@@ -28,7 +28,7 @@ jobs:
             matrix:
                 # TODO(SIG-12289): re-enable tests on cloud providers other than AWS
                 cloud: [ 'AWS' ]
-                go: [ '1.17', '1.16' ]
+                go: [ '1.17' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v1
