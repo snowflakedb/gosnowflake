@@ -17,6 +17,7 @@ type arrowResultChunk struct {
 	rowCount         int
 	uncompressedSize int
 	allocator        memory.Allocator
+	params           map[string]*string
 }
 
 func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
@@ -37,7 +38,8 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 
 		for colIdx, col := range columns {
 			destcol := make([]snowflakeValue, numRows)
-			if err = arrowToValue(&destcol, rowType[colIdx], col, highPrec); err != nil {
+			loc := getCurrentLocation(arc.params)
+			if err = arrowToValue(&destcol, rowType[colIdx], col, loc, highPrec); err != nil {
 				return nil, err
 			}
 
@@ -63,7 +65,8 @@ func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[
 		} else if err != nil {
 			return nil, err
 		}
-		record, err := arrowToRecord(rawRecord, scd.RowSet.RowType)
+		loc := getCurrentLocation(arc.params)
+		record, err := arrowToRecord(rawRecord, scd.RowSet.RowType, loc)
 		rawRecord.Release()
 		if err != nil {
 			return nil, err
@@ -75,7 +78,7 @@ func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[
 }
 
 // Build arrow chunk based on RowSet of base64
-func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
+func buildFirstArrowChunk(rowsetBase64 string, params map[string]*string) arrowResultChunk {
 	rowSetBytes, err := base64.StdEncoding.DecodeString(rowsetBase64)
 	if err != nil {
 		return arrowResultChunk{}
@@ -85,5 +88,5 @@ func buildFirstArrowChunk(rowsetBase64 string) arrowResultChunk {
 		return arrowResultChunk{}
 	}
 
-	return arrowResultChunk{*rr, 0, 0, memory.NewGoAllocator()}
+	return arrowResultChunk{*rr, 0, 0, memory.NewGoAllocator(), params}
 }

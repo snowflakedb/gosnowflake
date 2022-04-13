@@ -152,15 +152,6 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 		logger.Debugf("parameter. name: %v, value: %v", param.Name, v)
 		sc.cfg.Params[strings.ToLower(param.Name)] = &v
 	}
-	if tz, ok := sc.cfg.Params["timezone"]; ok {
-		var err error
-		localLocation, err = time.LoadLocation(*tz)
-		if err != nil {
-			localLocation = time.Now().Location()
-		}
-	} else {
-		localLocation = time.Now().Location()
-	}
 }
 
 func isAsyncMode(ctx context.Context) bool {
