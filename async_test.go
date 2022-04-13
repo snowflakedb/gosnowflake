@@ -44,6 +44,17 @@ func TestAsyncMode(t *testing.T) {
 	})
 }
 
+func TestAsyncModeCancel(t *testing.T) {
+	withCancelCtx, cancel := context.WithCancel(context.Background())
+	ctx := WithAsyncMode(withCancelCtx)
+	numrows := 100000
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
+		cancel()
+	})
+}
+
 func TestAsyncQueryFail(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
 	runTests(t, dsn, func(dbt *DBTest) {
