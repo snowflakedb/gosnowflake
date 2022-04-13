@@ -224,6 +224,9 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
+		if localLocation == nil {
+			localLocation = time.Now().Location()
+		}
 		*dest = time.Unix(sec, nsec).In(localLocation)
 		return nil
 	case "timestamp_tz":

@@ -153,7 +153,11 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 		sc.cfg.Params[strings.ToLower(param.Name)] = &v
 	}
 	if tz, ok := sc.cfg.Params["timezone"]; ok {
-		localLocation, _ = time.LoadLocation(*tz)
+		var err error
+		localLocation, err = time.LoadLocation(*tz)
+		if err != nil {
+			localLocation = time.Now().Location()
+		}
 	} else {
 		localLocation = time.Now().Location()
 	}

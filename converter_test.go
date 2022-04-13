@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql/driver"
 	"fmt"
 	"math/big"
@@ -991,6 +992,43 @@ func TestArrowToRecord(t *testing.T) {
 				}
 			}
 		})
-
 	}
+}
+
+func TestTimestampLTZLocation(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.Background()
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+	originalLocation := localLocation
+
+	gibberish := "asdf"
+	sc.cfg.Params["timezone"] = &gibberish
+	sc.populateSessionParameters([]nameValueParameter{})
+	// localLocation should have changed to default value
+	if localLocation != time.Local {
+		t.Errorf("expected local location to be local. got: %v", localLocation)
+	}
+
+	localLocation = nil
+	src := "1549491451.123456789"
+	var dest driver.Value
+	if err = stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	// localLocation should have changed to default value
+	if localLocation != time.Local {
+		t.Errorf("expected local location to be local. got: %v", localLocation)
+	}
+
+	// reset to original value
+	localLocation = originalLocation
 }
