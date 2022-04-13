@@ -971,7 +971,6 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType, loc *time
 		}
 		cols = append(cols, newCol)
 	}
-	fmt.Println(s)
 	return array.NewRecord(s, cols, numRows), nil
 }
 
