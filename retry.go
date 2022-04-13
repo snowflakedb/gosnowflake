@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -306,6 +307,11 @@ func (r *retryHTTP) isRetryableError(err error) (bool, error) {
 		}
 		if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
 			// Certificate is self-signed
+			return true, err
+		}
+		errString := urlError.Err.Error()
+		if runtime.GOOS == "darwin" && strings.HasPrefix(errString, "x509:") && strings.HasSuffix(errString, "certificate is expired") {
+			// Certificate is expired
 			return true, err
 		}
 
