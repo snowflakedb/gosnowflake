@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const (
@@ -170,7 +171,11 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 		for i, n := 0, len(row.RowSet); i < n; i++ {
 			// could move to chunk downloader so that each go routine
 			// can convert data
-			err = stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i])
+			var loc *time.Location
+			if rows.sc != nil {
+				loc = getCurrentLocation(rows.sc.cfg.Params)
+			}
+			err = stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i], loc)
 			if err != nil {
 				return err
 			}

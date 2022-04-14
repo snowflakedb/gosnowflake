@@ -184,9 +184,13 @@ func extractTimestamp(srcValue *string) (sec int64, nsec int64, err error) {
 	return sec, nsec, nil
 }
 
-// stringToValue converts a pointer of string data to an arbitrary golang variable. This is mainly used in fetching
-// data.
-func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcValue *string) error {
+// stringToValue converts a pointer of string data to an arbitrary golang variable
+// This is mainly used in fetching data.
+func stringToValue(
+	dest *driver.Value,
+	srcColumnMeta execResponseRowType,
+	srcValue *string,
+	loc *time.Location) error {
 	if srcValue == nil {
 		logger.Debugf("snowflake data type: %v, raw value: nil", srcColumnMeta.Type)
 		*dest = nil
@@ -224,7 +228,10 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 		if err != nil {
 			return err
 		}
-		*dest = time.Unix(sec, nsec).In(localLocation)
+		if loc == nil {
+			loc = time.Now().Location()
+		}
+		*dest = time.Unix(sec, nsec).In(loc)
 		return nil
 	case "timestamp_tz":
 		logger.Debugf("tz: %v", *srcValue)
@@ -295,6 +302,7 @@ func arrowToValue(
 	destcol *[]snowflakeValue,
 	srcColumnMeta execResponseRowType,
 	srcValue array.Interface,
+	loc *time.Location,
 	higherPrecision bool) error {
 	data := srcValue.Data()
 	var err error
@@ -490,7 +498,7 @@ func arrowToValue(
 			fraction := array.NewInt32Data(structData.Field(1).Data()).Int32Values()
 			for i := range *destcol {
 				if !srcValue.IsNull(i) {
-					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i])).In(localLocation)
+					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i])).In(loc)
 				}
 			}
 		} else {
@@ -498,7 +506,7 @@ func arrowToValue(
 				if !srcValue.IsNull(i) {
 					q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
 					r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
-					(*destcol)[i] = time.Unix(q, r).In(localLocation)
+					(*destcol)[i] = time.Unix(q, r).In(loc)
 				}
 			}
 		}
@@ -754,8 +762,8 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Record, error) {
-	s, err := recordToSchema(record.Schema(), rowType)
+func arrowToRecord(record array.Record, rowType []execResponseRowType, loc *time.Location) (array.Record, error) {
+	s, err := recordToSchema(record.Schema(), rowType, loc)
 	if err != nil {
 		return nil, err
 	}
@@ -902,7 +910,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 			}
 			newCol = tb.NewArray()
 		case timestampLtzType:
-			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{TimeZone: "UTC"})
+			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: loc.String()})
 			if col.DataType().ID() == arrow.STRUCT {
 				structData := array.NewStructData(data)
 				epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
@@ -966,7 +974,7 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType) (array.Re
 	return array.NewRecord(s, cols, numRows), nil
 }
 
-func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType) (*arrow.Schema, error) {
+func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location) (*arrow.Schema, error) {
 	var fields []arrow.Field
 	for i := 0; i < len(sc.Fields()); i++ {
 		f := sc.Field(i)
@@ -995,7 +1003,7 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType) (*arrow.Sch
 		case timestampNtzType, timestampTzType:
 			t = &arrow.TimestampType{}
 		case timestampLtzType:
-			t = &arrow.TimestampType{TimeZone: localLocation.String()}
+			t = &arrow.TimestampType{TimeZone: loc.String()}
 		default:
 			converted = false
 		}

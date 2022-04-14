@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	localLocation       *time.Location
 	timezones           map[int]*time.Location
 	updateTimezoneMutex *sync.Mutex
 )
@@ -89,4 +88,17 @@ func init() {
 		logger.Debugf("offset: %v", i)
 		timezones[i] = genTimezone(i)
 	}
+}
+
+// retrieve current location based on connection
+func getCurrentLocation(params map[string]*string) *time.Location {
+	loc := time.Now().Location()
+	var err error
+	if tz, ok := params["timezone"]; ok {
+		loc, err = time.LoadLocation(*tz)
+		if err != nil {
+			loc = time.Now().Location()
+		}
+	}
+	return loc
 }
