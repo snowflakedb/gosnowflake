@@ -212,24 +212,6 @@ func (sc *snowflakeConn) PrepareContext(
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	noResult := isAsyncMode(ctx)
-	data, err := sc.exec(ctx, query, noResult, false, /* isInternal */
-		true /* describeOnly */, []driver.NamedValue{})
-	if err != nil {
-		if data != nil {
-			code, err := strconv.Atoi(data.Code)
-			if err != nil {
-				return nil, err
-			}
-			return nil, (&SnowflakeError{
-				Number:   code,
-				SQLState: data.Data.SQLState,
-				Message:  err.Error(),
-				QueryID:  data.Data.QueryID,
-			}).exceptionTelemetry(sc)
-		}
-		return nil, err
-	}
 	stmt := &snowflakeStmt{
 		sc:    sc,
 		query: query,
