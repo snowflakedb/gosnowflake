@@ -465,10 +465,7 @@ func TestExecWithServerSideError(t *testing.T) {
 		t.Error("expected a server side error")
 	}
 	sfe := err.(*SnowflakeError)
-	if sfe.Number != -1 || sfe.SQLState != "-1" || sfe.QueryID != "-1" {
-		t.Errorf("incorrect snowflake error. expected: %v, got: %v", ErrUnknownError, *sfe)
-	}
-	if !strings.Contains(sfe.Message, "an unknown server side error occurred") {
+	if sfe.Message != ErrUnknownError.Message {
 		t.Errorf("incorrect message. expected: %v, got: %v", ErrUnknownError.Message, sfe.Message)
 	}
 }
