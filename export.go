@@ -2,6 +2,11 @@ package gosnowflake
 
 // This file just exports types, functions and methods as needed
 
+import (
+	"database/sql/driver"
+	"time"
+)
+
 // Types
 type ExecResponse = execResponse
 type ExecResponseRowType = execResponseRowType
@@ -31,4 +36,8 @@ func (sr *snowflakeRows) SetExecResponse(er *ExecResponse) {
 
 func (sr *snowflakeResult) SetExecResponse(er *ExecResponse) {
 	sr.execResp = er
+}
+
+func StringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcValue *string, loc *time.Location) error {
+	return stringToValue(dest, srcColumnMeta, srcValue, loc)
 }
