@@ -22,11 +22,12 @@ on:
 
 jobs:
     build-test-linux:
+        environment: gosnowflake-ci-env
         runs-on: ubuntu-latest
         strategy:
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.19', '1.18' ]
+                go: [ '1.19', '1.18', '1.17' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v1
@@ -43,6 +44,7 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
+<<<<<<< HEAD
     build-test-mac:
         runs-on: macos-latest
         strategy:
@@ -91,3 +93,5 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ci\\test.bat
+=======
+>>>>>>> 321a110 ([Maintenance] Create Fork)
