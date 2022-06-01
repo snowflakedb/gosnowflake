@@ -171,6 +171,9 @@ github.com/pkg/browser
 # github.com/sirupsen/logrus v1.9.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus
+# github.com/snowflakedb/gosnowflake v1.6.10
+## explicit; go 1.17
+github.com/snowflakedb/gosnowflake
 # golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
 ## explicit; go 1.17
 golang.org/x/crypto/ocsp

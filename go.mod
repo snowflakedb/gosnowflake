@@ -1,4 +1,4 @@
-module github.com/snowflakedb/gosnowflake
+module github.com/sigmacomputing/gosnowflake
 
 go 1.18
 
@@ -40,6 +40,7 @@ require (
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.16 // indirect
+	github.com/snowflakedb/gosnowflake v1.6.10
 	golang.org/x/net v0.5.0 // indirect
 	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/term v0.4.0 // indirect

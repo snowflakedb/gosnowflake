@@ -22,11 +22,12 @@ on:
 
 jobs:
     build-test-linux:
+        environment: gosnowflake-ci-env
         runs-on: ubuntu-latest
         strategy:
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.19', '1.18' ]
+                go: [ '1.19', '1.18', '1.17' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v1
