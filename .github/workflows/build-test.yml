@@ -22,10 +22,12 @@ on:
 
 jobs:
     build-test-linux:
+        environment: gosnowflake-ci-env
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                cloud: [ 'AWS', 'AZURE', 'GCP' ]
+                # TODO(SIG-12289): re-enable tests on cloud providers other than AWS
+                cloud: [ 'AWS' ]
                 go: [ '1.18', '1.17' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
@@ -45,55 +47,3 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
-    build-test-mac:
-        runs-on: macos-latest
-        strategy:
-            matrix:
-                cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.18', '1.17' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
-        steps:
-            - uses: actions/checkout@v1
-            - name: Setup go
-              uses: actions/setup-go@v2
-              with:
-                  go-version: ${{ matrix.go }}
-            - name: Format, Lint and WSS
-              shell: bash
-              env:
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
-              run: ./ci/build.sh
-            - name: Test
-              shell: bash
-              env:
-                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-                CLOUD_PROVIDER: ${{ matrix.cloud }}
-              run: ./ci/test.sh
-    build-test-windows:
-        runs-on: windows-latest
-        strategy:
-            matrix:
-                cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.18', '1.17' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
-        steps:
-            - uses: actions/checkout@v1
-            - name: Setup go
-              uses: actions/setup-go@v2
-              with:
-                  go-version: ${{ matrix.go }}
-            - name: Format, Lint and WSS
-              shell: cmd
-              env:
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
-              run: ci\\build.bat
-            - uses: actions/setup-python@v1
-              with:
-                python-version: '3.x'
-                architecture: 'x64'
-            - name: Test
-              shell: cmd
-              env:
-                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-                CLOUD_PROVIDER: ${{ matrix.cloud }}
-              run: ci\\test.bat
