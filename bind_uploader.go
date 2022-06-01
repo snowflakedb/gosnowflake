@@ -20,7 +20,7 @@ const (
 
 	// size (in bytes) of max input stream (10MB default) as per JDBC specs
 	// Temporary fix for TestBulkArrayMultiPartBindingInt:
-	// mulipart binding upload failed when the first data file is exactly 10MB
+	// multipart binding upload failed when the first data file is exactly 10MB
 	inputStreamBufferSize = int(1024*1024*10 - unsafe.Sizeof(int(0)))
 )
 
