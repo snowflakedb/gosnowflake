@@ -10,6 +10,9 @@ import (
 )
 
 func TestAsyncMode(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("TODO(SIG-12287): re-enable TestAsyncMode")
+	}
 	ctx := WithAsyncMode(context.Background())
 	numrows := 100000
 	cnt := 0

@@ -27,6 +27,7 @@ concurrency:
 
 jobs:
     build-test-linux:
+        environment: gosnowflake-ci-env
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false

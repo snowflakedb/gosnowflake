@@ -77,6 +77,9 @@ Set the Snowflake connection info in ``parameters.json``:
         "SNOWFLAKE_TEST_ROLE":      "<your_role>"
     }
 }
+
+You can find the complete file in the [Sigma 1Password](https://my.1password.com/vaults/likk64vc3hl7iaozanwj3dn7vu/allitems/72eslwc2yrglsfadkepljc45ai)
+
 ```
 
 Install [jq](https://stedolan.github.io/jq) so that the parameters can get parsed correctly, and run ``make test`` in your Go development environment:
@@ -109,4 +112,34 @@ You may use your preferred editor to edit the driver code. Make certain to run `
 
 For official support, contact Snowflake support at:
 [https://support.snowflake.net/](https://support.snowflake.net/).
+
+## Setting up the CI credentials
+
+You shouldn't need to do this, but in case we need to rotate the CI credentials, here are the steps I followed to create them:
+
+1. Install ``gpg`` if you don't already have it:
+
+```
+brew install gpg
+```
+
+2. Get the `gpg passphrase <https://my.1password.com/vaults/likk64vc3hl7iaozanwj3dn7vu/allitems/esdnmyqh5c3cze3k67tqrkd5s4>`_ and the raw `parameters.json file <https://my.1password.com/vaults/likk64vc3hl7iaozanwj3dn7vu/allitems/72eslwc2yrglsfadkepljc45ai>`_ from the Sigma 1Password.
+
+3. Use ``gpg``'s symmetric encryption mode to encrypt the ``parameters.json`` file. You'll be prompted twice to enter the passphrase:
+
+```
+gpg --symmetric --cipher-algo AES256 --output .github/workflows/parameters_aws_golang.json.gpg parameters.json
+```
+
+4. Get the `TEST_USER private key <https://sigmacomputing.1password.com/vaults/likk64vc3hl7iaozanwj3dn7vu/allitems/7g4gv6wjbbh6bgt7t6v6dlbhke>`_ from the Sigma 1Password. The TEST_USER keypair secret includes a public key, an encrypted private key, and the passphrase used to encrypt the private key; copy only the encrypted private key into ``rsa-2048-private-key-enc.p8``)
+
+5. Remove the passphrase from the private key (you'll be prompted for the private key passphrase), then use ``gpg``'s symmetric encryption mode to encrypt the resulting unencrypted private key (we only need one layer of encryption and it's easier to standardize on ``gpg``). As with the ``parameters.json`` file, you'll be prompted twice to enter the gpg passphrase:
+
+```
+openssl pkcs8 -in rsa-2048-private-key-enc.p8 -out rsa-2048-private-key.p8
+gpg --symmetric --cipher-algo AES256 --output .github/workflows/rsa-2048-private-key.p8.gpg rsa-2048-private-key.p8
+```
+
+6. Ensure that the gpg passphrase is configured properly in the `GitHub Environment <https://docs.github.com/en/actions/reference/environments>`_
+
 
