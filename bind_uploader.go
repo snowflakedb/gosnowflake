@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unsafe"
 )
 
 const (
@@ -18,7 +19,9 @@ const (
 		" file_format=" + "(type=csv field_optionally_enclosed_by='\"')"
 
 	// size (in bytes) of max input stream (10MB default) as per JDBC specs
-	inputStreamBufferSize = 1024 * 1024 * 10
+	// Temporary fix for TestBulkArrayMultiPartBindingInt:
+	// mulipart binding upload failed when the first data file is exactly 10MB
+	inputStreamBufferSize = int(1024*1024*10 - unsafe.Sizeof(int(0)))
 )
 
 type bindUploader struct {
