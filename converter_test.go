@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql/driver"
 	"fmt"
 	"math/big"
@@ -177,8 +178,7 @@ func TestStringToValue(t *testing.T) {
 		rowType = &execResponseRowType{
 			Type: tt,
 		}
-		err = stringToValue(&dest, *rowType, &source)
-		if err == nil {
+		if err = stringToValue(&dest, *rowType, &source, nil); err == nil {
 			t.Errorf("should raise error. type: %v, value:%v", tt, source)
 		}
 	}
@@ -197,15 +197,14 @@ func TestStringToValue(t *testing.T) {
 			rowType = &execResponseRowType{
 				Type: tt,
 			}
-			err = stringToValue(&dest, *rowType, &ss)
-			if err == nil {
+			if err = stringToValue(&dest, *rowType, &ss, nil); err == nil {
 				t.Errorf("should raise error. type: %v, value:%v", tt, source)
 			}
 		}
 	}
 
 	src := "1549491451.123456789"
-	if err = stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src); err != nil {
+	if err = stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	} else if ts, ok := dest.(time.Time); !ok {
 		t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
@@ -561,8 +560,7 @@ func TestArrowToValue(t *testing.T) {
 			meta := tc.rowType
 			meta.Type = tc.logical
 
-			err := arrowToValue(&dest, meta, arr, true)
-			if err != nil {
+			if err := arrowToValue(&dest, meta, arr, localTime.Location(), true); err != nil {
 				t.Fatalf("error: %s", err)
 			}
 
@@ -972,7 +970,7 @@ func TestArrowToRecord(t *testing.T) {
 			meta := tc.rowType
 			meta.Type = tc.logical
 
-			transformedRec, err := arrowToRecord(rawRec, []execResponseRowType{meta})
+			transformedRec, err := arrowToRecord(rawRec, []execResponseRowType{meta}, localTime.Location())
 			if err != nil {
 				t.Fatalf("error: %s", err)
 			}
@@ -991,6 +989,45 @@ func TestArrowToRecord(t *testing.T) {
 				}
 			}
 		})
+	}
+}
 
+func TestTimestampLTZLocation(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.Background()
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	src := "1549491451.123456789"
+	var dest driver.Value
+	loc, _ := time.LoadLocation(PSTLocation)
+	if err = stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, loc); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	ts, ok := dest.(time.Time)
+	if !ok {
+		t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
+	}
+	if ts.Location() != loc {
+		t.Errorf("expected location to be %v, got '%v'", loc, ts.Location())
+	}
+
+	if err = stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, nil); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	ts, ok = dest.(time.Time)
+	if !ok {
+		t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
+	}
+	if ts.Location() != time.Local {
+		t.Errorf("expected location to be local, got '%v'", ts.Location())
 	}
 }

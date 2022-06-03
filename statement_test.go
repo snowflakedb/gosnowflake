@@ -37,7 +37,7 @@ func TestGetQueryID(t *testing.T) {
 		}
 		defer rows.Close()
 
-		if _, err = x.(driver.ConnPrepareContext).PrepareContext(ctx, "selectt 1"); err == nil {
+		if _, err = x.(driver.QueryerContext).QueryContext(ctx, "selectt 1", nil); err == nil {
 			t.Fatal("should have failed to execute query")
 		}
 		if driverErr, ok := err.(*SnowflakeError); ok {
