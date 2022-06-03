@@ -308,14 +308,8 @@ func (sc *snowflakeConn) QueryContext(
 	// check the query status to find out if there is a result to fetch
 	_, err = sc.checkQueryStatus(ctx, qid)
 
-	//check if err can be cast to SnowflakeError
-	var sErr *SnowflakeError
-	var ok bool
-	if err != nil {
-		sErr, ok = err.(*SnowflakeError)
-	}
-
-	if err == nil || (ok && sErr.Number == ErrQueryIsRunning) {
+	// Check if query can be casted to *SnowflakeError and see if its running
+	if sfError, ok := getSnowflakeError(err); ok && sfError.Number == ErrQueryIsRunning {
 		// the query is running. Rows object will be returned from here.
 		return sc.buildRowsForRunningQuery(ctx, qid)
 	}

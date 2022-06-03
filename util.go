@@ -212,3 +212,12 @@ func escapeForCSV(value string) string {
 	}
 	return value
 }
+
+func getSnowflakeError(err error) (*SnowflakeError, bool) {
+	var sfError *SnowflakeError
+	var ok bool
+	if err != nil {
+		sfError, ok = err.(*SnowflakeError)
+	}
+	return sfError, ok
+}

@@ -230,3 +230,19 @@ func TestGetMin(t *testing.T) {
 		}
 	}
 }
+
+func TestGetSnowflakeError(t *testing.T) {
+	sfErr, ok := getSnowflakeError(nil)
+	if ok || sfErr != nil {
+		t.Errorf("failed to validate SnowflakeError for nil err, expected: false, nil, got: %t, %v", ok, sfErr)
+	}
+	sfErr, ok = getSnowflakeError(context.Canceled)
+	if ok || sfErr != nil {
+		t.Errorf("failed to validate SnowflakeError for non SnowflakeError expected: false, nil, got: %t, %v", ok, sfErr)
+	}
+	e := &SnowflakeError{Number: ErrAsync}
+	sfErr, ok = getSnowflakeError(e)
+	if !ok || sfErr == nil {
+		t.Errorf("failed to validate SnowflakeError  expected: true, %v got: %t, %v", e, ok, sfErr)
+	}
+}
