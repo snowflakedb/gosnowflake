@@ -25,7 +25,7 @@ func (sr *snowflakeRestful) processAsync(
 	headers map[string]string,
 	timeout time.Duration,
 	cfg *Config,
-	requestID uuid) (*execResponse, error) {
+	requestID UUID) (*execResponse, error) {
 	// placeholder object to return to user while retrieving results
 	rows := new(snowflakeRows)
 	res := new(snowflakeResult)
@@ -57,7 +57,7 @@ func (sr *snowflakeRestful) getAsync(
 	timeout time.Duration,
 	res *snowflakeResult,
 	rows *snowflakeRows,
-	requestID uuid,
+	requestID UUID,
 	cfg *Config) error {
 	resType := getResultType(ctx)
 	var errChannel chan error
