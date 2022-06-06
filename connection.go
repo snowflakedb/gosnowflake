@@ -52,14 +52,6 @@ const (
 
 const privateLinkSuffix = "privatelink.snowflakecomputing.com"
 
-var (
-	// FetchQueryMonitoringDataThreshold specifies the threshold, over which we'll fetch the monitoring
-	// data for a Snowflake query. We use a time-based threshold, since there is a non-zero latency cost
-	// to fetch this data and we want to bound the additional latency. By default we bound to a 2% increase
-	// in latency - assuming worst case 100ms - when fetching this metadata.
-	FetchQueryMonitoringDataThreshold time.Duration = 5 * time.Second
-)
-
 type snowflakeConn struct {
 	ctx             context.Context
 	cfg             *Config
@@ -162,29 +154,6 @@ func (sc *snowflakeConn) exec(
 	sc.SQLState = data.Data.SQLState
 	sc.populateSessionParameters(data.Data.Parameters)
 	return data, err
-}
-
-func (sc *snowflakeConn) monitoring(qid string, runtime time.Duration) (*QueryMonitoringData, error) {
-	// Exit early if this was a "fast" query
-	if runtime < FetchQueryMonitoringDataThreshold {
-		return nil, nil
-	}
-
-	// Bound the GET request to 1 second in the absolute worst case.
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	var m monitoringResponse
-	err := sc.getMonitoringResult(ctx, qid, &m)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(m.Data.Queries) != 1 {
-		return nil, nil
-	}
-
-	return &m.Data.Queries[0], nil
 }
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
@@ -319,9 +288,8 @@ func (sc *snowflakeConn) ExecContext(
 		if err != nil {
 			return nil, err
 		}
-		if m, err := sc.monitoring(sc.QueryID, time.Since(qStart)); err == nil {
-			rows.monitoring = m
-		}
+		rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
+
 		return rows, nil
 	}
 	logger.Debug("DDL")
