@@ -44,7 +44,6 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
-<<<<<<< HEAD
     build-test-mac:
         runs-on: macos-latest
         strategy:
@@ -93,5 +92,3 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ci\\test.bat
-=======
->>>>>>> 321a110 ([Maintenance] Create Fork)

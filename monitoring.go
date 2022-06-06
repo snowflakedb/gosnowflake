@@ -147,6 +147,10 @@ func (sc *snowflakeConn) checkQueryStatus(
 	}
 	defer res.Body.Close()
 	var statusResp = statusResponse{}
+	err = sc.getMonitoringResult(ctx, "queries", qid, &statusResp)
+	if err != nil {
+		return nil, err
+	}
 	if err = json.NewDecoder(res.Body).Decode(&statusResp); err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 		return nil, err
