@@ -169,10 +169,14 @@ type queryGraphResponse struct {
 	Success bool           `json:"success"`
 }
 
+// QueryGraphData is a list of graphs of all of the execution steps in a given
+// query
 type QueryGraphData struct {
 	Steps []QueryGraphStep `json:"steps"`
 }
 
+// QueryGraphStep is a graph of a particular step in a query, along with
+// metadata about that step
 type QueryGraphStep struct {
 	Step           int                `json:"step"`
 	Description    string             `json:"description"`
@@ -181,15 +185,17 @@ type QueryGraphStep struct {
 	ExecutionGraph ExecutionGraphData `json:"graphData"`
 }
 
+// ExecutionGraphData is a graph of a particular step in a query
 type ExecutionGraphData struct {
 	Nodes  []ExecutionGraphNode  `json:"nodes"`
 	Edges  []ExecutionGraphEdge  `json:"edges"`
 	Global ExecutionGraphGlobals `json:"global"`
 }
 
+// ExecutionGraphNode is a node in an ExecutionGraphData
 type ExecutionGraphNode struct {
-	Id         int                      `json:"id"`
-	LogicalId  int                      `json:"logicalId"`
+	ID         int                      `json:"id"`
+	LogicalID  int                      `json:"logicalId"`
 	Name       string                   `json:"name"`
 	Title      string                   `json:"title"`
 	Statistics ExecutionGraphStatistics `json:"statistics"`
@@ -197,27 +203,34 @@ type ExecutionGraphNode struct {
 	TotalStats ExecutionGraphWait       `json:"totalStats"`
 }
 
+// ExecutionGraphEdge is an edge between two ExecutionGraphNodes in an
+// ExecutionGraphData
 type ExecutionGraphEdge struct {
-	Id   string `json:"id"`
+	ID   string `json:"id"`
 	Src  int    `json:"src"`
 	Dst  int    `json:"dst"`
 	Rows int    `json:"rows"`
 }
 
+// ExecutionGraphGlobals stores global metadata for an entire execution graph
 type ExecutionGraphGlobals struct {
 	Statistics ExecutionGraphStatistics `json:"statistics"`
 	Waits      []ExecutionGraphWait     `json:"waits"`
 	TotalStats ExecutionGraphWait       `json:"totalStats"`
 }
 
+// ExecutionGraphStatistics is a k-v map of statistics on an execution graph
 type ExecutionGraphStatistics map[string][]ExecutionGraphStatistic
 
+// ExecutionGraphStatistic is a single record of some statistic on an execution
+// graph
 type ExecutionGraphStatistic struct {
 	Name  string  `json:"name"`
 	Value float64 `json:"value"`
 	Unit  string  `json:"unit"`
 }
 
+// ExecutionGraphWait is the duration of a step in an execution graph
 type ExecutionGraphWait struct {
 	Name       string  `json:"name"`
 	Value      float64 `json:"value"`

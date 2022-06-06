@@ -21,6 +21,7 @@ const (
 type SnowflakeResult interface {
 	GetQueryID() string
 	GetStatus() queryStatus
+	GetArrowBatches() ([]*ArrowBatch, error)
 	Monitoring(time.Duration) *QueryMonitoringData
 	QueryGraph(time.Duration) *QueryGraphData
 }
