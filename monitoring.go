@@ -118,32 +118,6 @@ type SnowflakeConnection interface {
 	GetQueryStatus(ctx context.Context, queryID string) (*SnowflakeQueryStatus, error)
 }
 
-// getMonitoringResult fetches the result at /monitoring/queries/qid and
-// deserializes it into the provided res (which is given as a generic interface
-// to allow different callers to request different views on the raw response)
-func (sc *snowflakeConn) getMonitoringResult(ctx context.Context, qid string, res interface{}) error {
-	headers := make(map[string]string)
-	param := make(url.Values)
-	param.Add(requestGUIDKey, NewUUID().String())
-	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
-		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
-	}
-	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
-	url := sc.rest.getFullURL(resultPath, &param)
-
-	resp, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
-	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-		return err
-	}
-	if err = json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return err
-	}
-
-	return nil
-}
-
 // checkQueryStatus returns the status given the query ID. If successful,
 // the error will be nil, indicating there is a complete query result to fetch.
 // Other than nil, there are three error types that can be returned:
@@ -159,7 +133,7 @@ func (sc *snowflakeConn) checkQueryStatus(
 	*retStatus, error) {
 	var statusResp statusResponse
 
-	err := sc.getMonitoringResult(ctx, qid, &statusResp)
+	err := sc.getMonitoringResult(ctx, "queries", qid, &statusResp)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		return nil, err
@@ -387,7 +361,7 @@ func (sc *snowflakeConn) getMonitoringResult(ctx context.Context, endpoint, qid 
 	defer sc.restMu.RUnlock()
 	headers := make(map[string]string)
 	param := make(url.Values)
-	param.Add(requestGUIDKey, uuid.New().String())
+	param.Add(requestGUIDKey, NewUUID().String())
 	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
 	}
