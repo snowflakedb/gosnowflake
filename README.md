@@ -55,7 +55,7 @@ In the following example, the program ``select1.go`` is built and installed in `
 
 # Development
 
-The developer notes are hosted with the source code on `GitHub <https://github.com/snowflakedb/gosnowflake>`_.
+The developer notes are hosted with the source code on [GitHub](https://github.com/snowflakedb/gosnowflake).
 
 ## Testing Code
 
@@ -76,9 +76,8 @@ Set the Snowflake connection info in ``parameters.json``:
         }
     }
 
-Install `jq <https://stedolan.github.io/jq/>`_ so that the parameters can get parsed correctly, and run ``make test`` in your Go development environment:
+Install [jq](https://stedolan.github.io/jq) so that the parameters can get parsed correctly, and run ``make test`` in your Go development environment:
 
-.. code-block:: bash
 
     make test
 
@@ -89,5 +88,5 @@ You may use your preferred editor to edit the driver code. Make certain to run `
 ## Support
 
 For official support, contact Snowflake support at:
-https://support.snowflake.net/
+[https://support.snowflake.net/](https://support.snowflake.net/).
 
