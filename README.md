@@ -39,19 +39,19 @@ For detailed documentation and basic usage examples, please see the documentatio
 Snowflake provides a set of sample programs to test with. Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/go`` and make certain to 
 include ``$GOPATH/bin`` in the environment variable ``$PATH``. Run the ``make`` command to build all sample programs.
 
-.. code-block:: go
-
+```
     make install
+```
 
 In the following example, the program ``select1.go`` is built and installed in ``$GOPATH/bin`` and can be run from the command line:
 
-.. code-block:: bash
-
+```
     SNOWFLAKE_TEST_ACCOUNT=<your_account> \
     SNOWFLAKE_TEST_USER=<your_user> \
     SNOWFLAKE_TEST_PASSWORD=<your_password> \
     select1
     Congrats! You have successfully run SELECT 1 with Snowflake DB!
+```
 
 # Development
 
@@ -62,8 +62,7 @@ The developer notes are hosted with the source code on [GitHub](https://github.c
 
 Set the Snowflake connection info in ``parameters.json``:
 
-.. code-block:: json
-
+```
     {
         "testconnection": {
             "SNOWFLAKE_TEST_USER":      "<your_user>",
@@ -75,11 +74,13 @@ Set the Snowflake connection info in ``parameters.json``:
             "SNOWFLAKE_TEST_ROLE":      "<your_role>"
         }
     }
+```
 
 Install [jq](https://stedolan.github.io/jq) so that the parameters can get parsed correctly, and run ``make test`` in your Go development environment:
 
-
+```
     make test
+```
 
 ## Submitting Pull Requests
 
