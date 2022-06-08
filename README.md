@@ -25,7 +25,7 @@ The latest driver requires the [Go language](https://golang.org/) 1.17 or higher
 
 Get Gosnowflake source code, if not installed.
 
-```sh
+```
 go get -u github.com/snowflakedb/gosnowflake
 ```
 
@@ -50,6 +50,7 @@ SNOWFLAKE_TEST_ACCOUNT=<your_account> \
 SNOWFLAKE_TEST_USER=<your_user> \
 SNOWFLAKE_TEST_PASSWORD=<your_password> \
 select1
+
 Congrats! You have successfully run SELECT 1 with Snowflake DB!
 ```
 
