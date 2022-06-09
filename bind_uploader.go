@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"unsafe"
 )
 
 const (
@@ -19,9 +18,7 @@ const (
 		" file_format=" + "(type=csv field_optionally_enclosed_by='\"')"
 
 	// size (in bytes) of max input stream (10MB default) as per JDBC specs
-	// Temporary fix for TestBulkArrayMultiPartBindingInt:
-	// multipart binding upload failed when the first data file is exactly 10MB
-	inputStreamBufferSize = int(1024*1024*10 - unsafe.Sizeof(int(0)))
+	inputStreamBufferSize = 1024 * 1024 * 10
 )
 
 type bindUploader struct {
@@ -41,7 +38,7 @@ func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, err
 	bu.fileCount = 0
 	var data *execResponse
 	for rowNum < len(bindingRows) {
-		for numBytes < inputStreamBufferSize && rowNum < len(bindingRows) {
+		for rowNum < len(bindingRows) && numBytes + len(bindingRows[rowNum]) < inputStreamBufferSize {
 			numBytes += len(bindingRows[rowNum])
 			rowNum++
 		}
