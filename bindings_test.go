@@ -422,3 +422,37 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 		}
 	})
 }
+
+func TestBulkArrayMultiPartBindingInt(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("create or replace table binding_test (c1 integer)")
+		startNum := 1000000
+		endNum := 3000000
+		numRows := endNum - startNum
+		intArr := make([]int, numRows)
+		for i := startNum; i < endNum; i++ {
+			intArr[i-startNum] = i
+		}
+		_, err := dbt.db.Exec("insert into binding_test values (?)", Array(&intArr))
+		if err != nil {
+			t.Errorf("Should have succeeded to insert. err: %v", err)
+		}
+
+		rows := dbt.mustQuery("select * from binding_test order by c1")
+		cnt := startNum
+		var i int
+		for rows.Next() {
+			if err := rows.Scan(&i); err != nil {
+				t.Fatal(err)
+			}
+			if i != cnt {
+				t.Errorf("expected: %v, got: %v", cnt, i)
+			}
+			cnt++
+		}
+		if cnt != endNum {
+			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
+		}
+		dbt.mustExec("DROP TABLE binding_test")
+	})
+}
