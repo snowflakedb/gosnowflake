@@ -165,3 +165,45 @@ func TestWithDescribeOnly(t *testing.T) {
 		}
 	})
 }
+
+func TestCallStatement(t *testing.T) {
+	if !runningOnGithubAction() {
+		t.Skip("Run against test server with USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS enabled.")
+	}
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		in1 := float64(1)
+		in2 := string("[2,3]")
+		expected := "1 \"[2,3]\" [2,3]"
+		var out string
+
+		_, err := dbt.db.Exec("ALTER SESSION SET USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS = true")
+		if err != nil {
+			dbt.Errorf("failed to execute query: %v", err)
+		}
+
+		dbt.mustExec("create or replace procedure " +
+			"TEST_SP_CALL_STMT_ENABLED(in1 float, in2 variant) " +
+			"returns string language javascript as $$ " +
+			"let res = snowflake.execute({sqlText: 'select ? c1, ? c2', binds:[IN1, JSON.stringify(IN2)]}); " +
+			"res.next(); " +
+			"return res.getColumnValueAsString(1) + ' ' + res.getColumnValueAsString(2) + ' ' + IN2; " +
+			"$$;")
+
+		stmt, err := dbt.db.Prepare("call TEST_SP_CALL_STMT_ENABLED(?, to_variant(?))")
+		if err != nil {
+			dbt.Errorf("failed to prepare query: %v", err)
+		}
+		defer stmt.Close()
+		err = stmt.QueryRow(in1, in2).Scan(&out)
+		if err != nil {
+			dbt.Errorf("failed to scan: %v", err)
+		}
+
+		if expected != out {
+			dbt.Errorf("expected: %s, got: %s", expected, out)
+		}
+
+		dbt.mustExec("drop procedure if exists TEST_SP_CALL_STMT_ENABLED(float, variant)")
+	})
+}
