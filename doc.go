@@ -7,6 +7,8 @@ Clients can use the database/sql package directly. For example:
 		"database/sql"
 
 		_ "github.com/snowflakedb/gosnowflake"
+
+		"log"
 	)
 
 	func main() {
