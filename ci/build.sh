@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Format, lint scan Golang driver
+# Format, lint and WhiteSource scan Golang driver
 #
 set -e
 set -o pipefail
