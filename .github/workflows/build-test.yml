@@ -34,9 +34,12 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
+<<<<<<< HEAD
             - name: Format, Lint and WSS
               shell: bash
               run: ./ci/build.sh
+=======
+>>>>>>> 69d380b3acb3166a54d83f4ccc534658ed993a2c
             - name: Test
               shell: bash
               env:
@@ -56,11 +59,6 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-            - name: Format, Lint and WSS
-              shell: bash
-              env:
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
-              run: ./ci/build.sh
             - name: Test
               shell: bash
               env:
@@ -82,8 +80,6 @@ jobs:
                   go-version: ${{ matrix.go }}
             - name: Format, Lint and WSS
               shell: cmd
-              env:
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ci\\build.bat
             - uses: actions/setup-python@v1
               with:
