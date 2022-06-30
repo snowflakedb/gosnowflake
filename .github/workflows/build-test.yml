@@ -34,12 +34,9 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-<<<<<<< HEAD
-            - name: Format, Lint and WSS
+            - name: Format, Lint
               shell: bash
               run: ./ci/build.sh
-=======
->>>>>>> 69d380b3acb3166a54d83f4ccc534658ed993a2c
             - name: Test
               shell: bash
               env:
@@ -59,6 +56,9 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
+            - name: Format, Lint
+              shell: bash
+              run: ./ci/build.sh
             - name: Test
               shell: bash
               env:
@@ -78,7 +78,7 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-            - name: Format, Lint and WSS
+            - name: Format, Lint
               shell: cmd
               run: ci\\build.bat
             - uses: actions/setup-python@v1
