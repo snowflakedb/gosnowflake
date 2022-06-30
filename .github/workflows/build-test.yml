@@ -36,8 +36,6 @@ jobs:
                   go-version: ${{ matrix.go }}
             - name: Format, Lint and WSS
               shell: bash
-              env:
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ./ci/build.sh
             - name: Test
               shell: bash
