@@ -106,7 +106,10 @@ func TestDisableTelemetry(t *testing.T) {
 	if err = authenticateWithConfig(sc); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = sc.Query("select 1", nil); err != nil {
-		t.Fatal(err)
+	if !sc.cfg.DisableTelemetry {
+		t.Errorf("DisableTelemetry should be true. DisableTelemetry: %v", sc.cfg.DisableTelemetry)
+	}
+	if sc.telemetry.enabled {
+		t.Errorf("telemetry should be disabled.")
 	}
 }
