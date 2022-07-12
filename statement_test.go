@@ -167,20 +167,13 @@ func TestWithDescribeOnly(t *testing.T) {
 }
 
 func TestCallStatement(t *testing.T) {
-	if !runningOnGithubAction() {
-		t.Skip("Run against test server with USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS enabled.")
-	}
-
 	runTests(t, dsn, func(dbt *DBTest) {
 		in1 := float64(1)
 		in2 := string("[2,3]")
 		expected := "1 \"[2,3]\" [2,3]"
 		var out string
 
-		_, err := dbt.db.Exec("ALTER SESSION SET USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS = true")
-		if err != nil {
-			dbt.Errorf("failed to execute query: %v", err)
-		}
+		dbt.db.Exec("ALTER SESSION SET USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS = true")
 
 		dbt.mustExec("create or replace procedure " +
 			"TEST_SP_CALL_STMT_ENABLED(in1 float, in2 variant) " +
