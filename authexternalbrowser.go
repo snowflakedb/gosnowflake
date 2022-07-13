@@ -147,7 +147,7 @@ func getTokenFromResponse(response string) (string, error) {
 			MessageArgs: []interface{}{response},
 		}
 	}
-	token := strings.TrimLeft(arr[0], start)
+	token := strings.TrimPrefix(arr[0], start)
 	token = strings.Split(token, " ")[0]
 	return token, nil
 }
