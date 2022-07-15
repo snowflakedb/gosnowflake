@@ -471,11 +471,17 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		FuncPostAuthOKTA:    postAuthOKTA,
 		FuncGetSSO:          getSSO,
 	}
-	sc.telemetry = &snowflakeTelemetry{
-		flushSize: defaultFlushSize,
-		sr:        sc.rest,
-		mutex:     &sync.Mutex{},
-		enabled:   !sc.cfg.DisableTelemetry,
+
+	if sc.cfg.DisableTelemetry {
+		sc.telemetry = &snowflakeTelemetry{enabled: false}
+	} else {
+		sc.telemetry = &snowflakeTelemetry{
+			flushSize: defaultFlushSize,
+			sr:        sc.rest,
+			mutex:     &sync.Mutex{},
+			enabled:   true,
+		}
 	}
+
 	return sc, nil
 }
