@@ -119,7 +119,7 @@ func TestEnableTelemetry(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	config.DisableTelemetry = true
+	config.DisableTelemetry = false
 	sc, err := buildSnowflakeConn(context.Background(), *config)
 	if err != nil {
 		t.Fatal(err)
