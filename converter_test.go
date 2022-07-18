@@ -715,6 +715,16 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt8Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+			compare: func(src interface{}, convertedRec array.Record) int {
+				srcvs := src.([]int8)
+				for i, val := range array.NewInt64Data(convertedRec.Column(0).Data()).Int64Values() {
+					rawInt := int64(srcvs[i])
+					if rawInt != val {
+						return i
+					}
+				}
+				return -1
+			},
 		},
 		{
 			logical:  "fixed",
@@ -724,6 +734,16 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt16Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
+			compare: func(src interface{}, convertedRec array.Record) int {
+				srcvs := src.([]int16)
+				for i, val := range array.NewInt64Data(convertedRec.Column(0).Data()).Int64Values() {
+					rawInt := int64(srcvs[i])
+					if rawInt != val {
+						return i
+					}
+				}
+				return -1
+			},
 		},
 		{
 			logical:  "fixed",
@@ -733,6 +753,16 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt32Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
+			compare: func(src interface{}, convertedRec array.Record) int {
+				srcvs := src.([]int32)
+				for i, val := range array.NewInt64Data(convertedRec.Column(0).Data()).Int64Values() {
+					rawInt := int64(srcvs[i])
+					if rawInt != val {
+						return i
+					}
+				}
+				return -1
+			},
 		},
 		{
 			logical:  "fixed",
