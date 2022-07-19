@@ -6,8 +6,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"io"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
@@ -74,6 +77,62 @@ func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[
 		records = append(records, record)
 	}
 	return &records, nil
+}
+
+// Note(Qing): Previously, the gosnowflake driver decodes the raw arrow chunks fetched from snowflake by
+// calling the decodeArrowBatch() function above. Instead of decoding here, we directly pass the raw records
+// to evaluator, along with neccesary metadata needed.
+func (arc *arrowResultChunk) passRawArrowBatch(scd *snowflakeChunkDownloader) (*[]array.Record, error) {
+	var records []array.Record
+
+	for {
+		rawRecord, err := arc.reader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		// Here we check all metadata from snowflake are preserved, so evaluator can decode accordingly
+		for idx, field := range rawRecord.Schema().Fields() {
+			// NOTE(Qing): Sometimes we see the rowtype metadata specify nullable as false but then still
+			// reveive nullable arrow records. Given that, we do not check the nullability here. Also, no
+			// need to compare names.
+			if !checkMetadata(field.Metadata, scd.RowSet.RowType[idx]) {
+				logger.Error("Lack or mismatch of necessary metadata to decode fetched raw arrow records")
+				return nil, &SnowflakeError{
+					Message: "Lack or mismatch of necessary metadata to decode fetched raw arrow records",
+				}
+			}
+		}
+		rawRecord.Retain()
+		records = append(records, rawRecord)
+	}
+	return &records, nil
+}
+
+func checkMetadata(actual arrow.Metadata, expected execResponseRowType) bool {
+	// LogicalType seems to be the only REALLY necessary metadata.
+	var hasLogicalType bool
+
+	for idx, key := range actual.Keys() {
+		switch strings.ToUpper(key) {
+		case "LOGICALTYPE":
+			hasLogicalType = true
+			if !strings.EqualFold(actual.Values()[idx], expected.Type) {
+				return false
+			}
+		case "SCALE":
+			switch strings.ToUpper(expected.Type) {
+			case "FIXED", "TIME", "TIMESTAMP_LTZ", "TIMESTAMP_NTZ":
+				if i64, err := strconv.ParseInt(actual.Values()[idx], 10, 64); err != nil || i64 != expected.Scale {
+					return false
+				}
+			default:
+			}
+		default:
+		}
+	}
+	return hasLogicalType
 }
 
 // Build arrow chunk based on RowSet of base64
