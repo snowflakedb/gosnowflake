@@ -324,7 +324,11 @@ func (sr *snowflakeRestful) getAsync(
 				} else {
 					rows.addDownloader(populateChunkDownloader(ctx, sc, response.Data))
 				}
-				_ = rows.ChunkDownloader.start()
+				if err := rows.ChunkDownloader.start(); err != nil {
+					rows.errChannel <- err
+					close(errChannel)
+					return err
+				}
 			}
 			rows.errChannel <- nil // mark query status complete
 		}
