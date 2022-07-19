@@ -293,7 +293,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 	}
 	// decode first chunk if possible
 	if firstArrowChunk.allocator != nil {
-		scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
+		scd.FirstBatch.rec, err = firstArrowChunk.passRawArrowBatch(scd)
 		if err != nil {
 			return err
 		}
@@ -473,7 +473,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			scd.pool,
 		}
 		if usesArrowBatches(scd.ctx) {
-			if scd.ArrowBatches[idx].rec, err = arc.decodeArrowBatch(scd); err != nil {
+			if scd.ArrowBatches[idx].rec, err = arc.passRawArrowBatch(scd); err != nil {
 				return err
 			}
 			// updating metadata
@@ -743,14 +743,14 @@ type ArrowBatch struct {
 }
 
 // Fetch returns an array of records representing a chunk in the query
-func (rb *ArrowBatch) Fetch() (*[]arrow.Record, error) {
+func (rb *ArrowBatch) Fetch(ctx context.Context) (*[]arrow.Record, error) {
 	// chunk has already been downloaded
 	if rb.rec != nil {
 		// updating metadata
 		rb.rowCount = countArrowBatchRows(rb.rec)
 		return rb.rec, nil
 	}
-	if err := rb.funcDownloadHelper(context.Background(), rb.scd, rb.idx); err != nil {
+	if err := rb.funcDownloadHelper(ctx, rb.scd, rb.idx); err != nil {
 		return nil, err
 	}
 	return rb.rec, nil
