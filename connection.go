@@ -445,9 +445,6 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	} else {
 		tokenAccessor = getSimpleTokenAccessor()
 	}
-	if sc.cfg.DisableTelemetry {
-		sc.telemetry = &snowflakeTelemetry{enabled: false}
-	}
 
 	// authenticate
 	sc.rest = &snowflakeRestful{
@@ -474,11 +471,17 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		FuncPostAuthOKTA:    postAuthOKTA,
 		FuncGetSSO:          getSSO,
 	}
-	sc.telemetry = &snowflakeTelemetry{
-		flushSize: defaultFlushSize,
-		sr:        sc.rest,
-		mutex:     &sync.Mutex{},
-		enabled:   true,
+
+	if sc.cfg.DisableTelemetry {
+		sc.telemetry = &snowflakeTelemetry{enabled: false}
+	} else {
+		sc.telemetry = &snowflakeTelemetry{
+			flushSize: defaultFlushSize,
+			sr:        sc.rest,
+			mutex:     &sync.Mutex{},
+			enabled:   true,
+		}
 	}
+
 	return sc, nil
 }

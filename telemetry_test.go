@@ -106,7 +106,31 @@ func TestDisableTelemetry(t *testing.T) {
 	if err = authenticateWithConfig(sc); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = sc.Query("select 1", nil); err != nil {
+	if !sc.cfg.DisableTelemetry {
+		t.Errorf("DisableTelemetry should be true. DisableTelemetry: %v", sc.cfg.DisableTelemetry)
+	}
+	if sc.telemetry.enabled {
+		t.Errorf("telemetry should be disabled.")
+	}
+}
+
+func TestEnableTelemetry(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	config.DisableTelemetry = false
+	sc, err := buildSnowflakeConn(context.Background(), *config)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Fatal(err)
+	}
+	if sc.cfg.DisableTelemetry {
+		t.Errorf("DisableTelemetry should be false. DisableTelemetry: %v", sc.cfg.DisableTelemetry)
+	}
+	if !sc.telemetry.enabled {
+		t.Errorf("telemetry should be enabled.")
 	}
 }
