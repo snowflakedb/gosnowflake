@@ -167,6 +167,8 @@ func TestWithDescribeOnly(t *testing.T) {
 }
 
 func TestCallStatement(t *testing.T) {
+	t.Skip("USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS is not yet supported")
+
 	runTests(t, dsn, func(dbt *DBTest) {
 		in1 := float64(1)
 		in2 := string("[2,3]")
