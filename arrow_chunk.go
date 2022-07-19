@@ -111,7 +111,7 @@ func compareMetadata(actual arrow.Metadata, expected execResponseRowType) bool {
 	for idx, key := range actual.Keys() {
 		switch strings.ToUpper(key) {
 		case "LOGICALTYPE":
-			if strings.EqualFold(actual.Values()[idx], expected.Type) {
+			if !strings.EqualFold(actual.Values()[idx], expected.Type) {
 				return false
 			}
 		case "PRECISION":
