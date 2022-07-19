@@ -288,7 +288,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 	}
 	// decode first chunk if possible
 	if firstArrowChunk.allocator != nil {
-		scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
+		scd.FirstBatch.rec, err = firstArrowChunk.passRawArrowBatch(scd)
 		if err != nil {
 			return err
 		}
@@ -467,7 +467,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			loc,
 		}
 		if usesArrowBatches(scd.ctx) {
-			if scd.ArrowBatches[idx].rec, err = arc.decodeArrowBatch(scd); err != nil {
+			if scd.ArrowBatches[idx].rec, err = arc.passRawArrowBatch(scd); err != nil {
 				return err
 			}
 			// updating metadata
