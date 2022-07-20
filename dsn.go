@@ -80,6 +80,8 @@ type Config struct {
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 
 	DisableTelemetry bool // indicates whether to disable telemetry
+
+	AWSKMSKeyARN string // KMS Arn used to sign the JWT.
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
@@ -604,6 +606,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			} else {
 				cfg.ValidateDefaultParameters = ConfigBoolFalse
 			}
+		case "AWSKMSKeyARN":
+			cfg.AWSKMSKeyARN = value
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

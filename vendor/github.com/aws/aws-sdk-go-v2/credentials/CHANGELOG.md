@@ -1,3 +1,58 @@
+# v1.12.0 (2022-04-25)
+
+* **Feature**: Adds Duration and Policy options that can be used when creating stscreds.WebIdentityRoleProvider credentials provider.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.2 (2022-03-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.1 (2022-03-24)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.11.0 (2022-03-23)
+
+* **Feature**: Update `ec2rolecreds` package's `Provider` to implememnt support for CredentialsCache new optional caching strategy interfaces, HandleFailRefreshCredentialsCacheStrategy and AdjustExpiresByCredentialsCacheStrategy.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.10.0 (2022-03-08)
+
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.0 (2022-02-24)
+
+* **Feature**: Adds support for `SourceIdentity` to `stscreds.AssumeRoleProvider` [#1588](https://github.com/aws/aws-sdk-go-v2/pull/1588). Fixes [#1575](https://github.com/aws/aws-sdk-go-v2/issues/1575)
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.0 (2022-01-14)
+
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.0 (2022-01-07)
+
+* **Feature**: Updated `github.com/aws/smithy-go` to latest version
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.6.5 (2021-12-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.6.4 (2021-12-02)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.6.3 (2021-11-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.6.2 (2021-11-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.6.1 (2021-11-12)
 
 * **Dependency Update**: Updated to the latest SDK module versions

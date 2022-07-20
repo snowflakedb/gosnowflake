@@ -9,6 +9,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -17,7 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/form3tech-oss/jwt-go"
+	jwt "github.com/golang-jwt/jwt/v4"
+	"github.com/matelang/jwt-go-aws-kms/v2/jwtkms"
 )
 
 const (
@@ -304,10 +307,17 @@ func authenticate(
 		requestMain.RawSAMLResponse = string(samlResponse)
 	case AuthTypeJwt:
 		requestMain.Authenticator = AuthTypeJwt.String()
-
-		jwtTokenString, err := prepareJWTToken(sc.cfg)
-		if err != nil {
-			return nil, err
+		var jwtTokenString string
+		if sc.cfg.AWSKMSKeyARN != "" {
+			jwtTokenString, err = prepareJWTTokenWithKMS(sc.cfg)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			jwtTokenString, err = prepareJWTToken(sc.cfg)
+			if err != nil {
+				return nil, err
+			}
 		}
 		requestMain.Token = jwtTokenString
 	case AuthTypeSnowflake:
@@ -407,6 +417,40 @@ func prepareJWTToken(config *Config) (string, error) {
 	})
 
 	tokenString, err := token.SignedString(config.PrivateKey)
+
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, err
+}
+
+func prepareJWTTokenWithKMS(config *Config) (string, error) {
+	ctx := context.Background()
+	awscfg, err := awsconfig.LoadDefaultConfig(ctx)
+	if err != nil {
+		return "", nil
+	}
+	kc, err := kms.NewFromConfig(awscfg).GetPublicKey(ctx, &kms.GetPublicKeyInput{KeyId: &config.AWSKMSKeyARN})
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256(kc.PublicKey)
+	accountName := strings.ToUpper(config.Account)
+	userName := strings.ToUpper(config.User)
+
+	issueAtTime := time.Now().UTC()
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"iss": fmt.Sprintf("%s.%s.%s", accountName, userName, "SHA256:"+base64.StdEncoding.EncodeToString(hash[:])),
+		"sub": fmt.Sprintf("%s.%s", accountName, userName),
+		"iat": issueAtTime.Unix(),
+		"nbf": time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
+		"exp": issueAtTime.Add(config.JWTExpireTimeout).Unix(),
+	})
+
+	kmsConfig := jwtkms.NewKMSConfig(kms.NewFromConfig(awscfg), "keyID", false)
+
+	tokenString, err := token.SignedString(kmsConfig.WithContext(context.Background()))
 
 	if err != nil {
 		return "", err
