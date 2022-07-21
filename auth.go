@@ -41,6 +41,8 @@ const (
 	AuthTypeOkta
 	// AuthTypeJwt is to use Jwt to perform authentication
 	AuthTypeJwt
+	// AuthTypeKMSJwt is to use KMS Key to sign and create Jwt to perform authentication
+	AuthTypeKMSJwt
 	// AuthTypeTokenAccessor is to use the provided token accessor and bypass authentication
 	AuthTypeTokenAccessor
 )
@@ -56,6 +58,9 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 		return nil
 	} else if upperCaseValue == AuthTypeJwt.String() {
 		cfg.Authenticator = AuthTypeJwt
+		return nil
+	} else if upperCaseValue == AuthTypeKMSJwt.String() {
+		cfg.Authenticator = AuthTypeKMSJwt
 		return nil
 	} else if upperCaseValue == AuthTypeExternalBrowser.String() {
 		cfg.Authenticator = AuthTypeExternalBrowser
@@ -105,6 +110,8 @@ func (authType AuthType) String() string {
 		return "OKTA"
 	case AuthTypeJwt:
 		return "SNOWFLAKE_JWT"
+	case AuthTypeKMSJwt:
+		return "SNOWFLAKE_JWT_KMS"
 	case AuthTypeTokenAccessor:
 		return "TOKENACCESSOR"
 	default:
@@ -307,17 +314,16 @@ func authenticate(
 		requestMain.RawSAMLResponse = string(samlResponse)
 	case AuthTypeJwt:
 		requestMain.Authenticator = AuthTypeJwt.String()
-		var jwtTokenString string
-		if sc.cfg.AWSKMSKeyARN != "" {
-			jwtTokenString, err = prepareJWTTokenWithKMS(sc.cfg)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			jwtTokenString, err = prepareJWTToken(sc.cfg)
-			if err != nil {
-				return nil, err
-			}
+		jwtTokenString, err := prepareJWTToken(sc.cfg)
+		if err != nil {
+			return nil, err
+		}
+		requestMain.Token = jwtTokenString
+	case AuthTypeKMSJwt:
+		requestMain.Authenticator = AuthTypeJwt.String()
+		jwtTokenString, err := prepareJWTTokenWithKMS(sc.cfg)
+		if err != nil {
+			return nil, err
 		}
 		requestMain.Token = jwtTokenString
 	case AuthTypeSnowflake:
@@ -440,7 +446,7 @@ func prepareJWTTokenWithKMS(config *Config) (string, error) {
 	userName := strings.ToUpper(config.User)
 
 	issueAtTime := time.Now().UTC()
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+	token := jwt.NewWithClaims(jwtkms.SigningMethodRS256, jwt.MapClaims{
 		"iss": fmt.Sprintf("%s.%s.%s", accountName, userName, "SHA256:"+base64.StdEncoding.EncodeToString(hash[:])),
 		"sub": fmt.Sprintf("%s.%s", accountName, userName),
 		"iat": issueAtTime.Unix(),
@@ -448,7 +454,7 @@ func prepareJWTTokenWithKMS(config *Config) (string, error) {
 		"exp": issueAtTime.Add(config.JWTExpireTimeout).Unix(),
 	})
 
-	kmsConfig := jwtkms.NewKMSConfig(kms.NewFromConfig(awscfg), "keyID", false)
+	kmsConfig := jwtkms.NewKMSConfig(kms.NewFromConfig(awscfg), config.AWSKMSKeyARN, false)
 
 	tokenString, err := token.SignedString(kmsConfig.WithContext(context.Background()))
 
