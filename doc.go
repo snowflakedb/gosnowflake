@@ -562,6 +562,32 @@ Note: As of February 2020, Golang's official library does not support passcode-e
 For security purposes, Snowflake highly recommends that you store the passcode-encrypted private key on the disk and
 decrypt the key in your application using a library you trust.
 
+JWT authentication using AWS KMS
+
+To enable this feature, construct the DSN with fields "authenticator=SNOWFLAKE_JWT_KMS&awskmskeyarn=<kms_arn>",
+or using a Config structure specifying:
+
+	config := &Config{
+		...
+		Authenticator: "SNOWFLAKE_JWT_KMS"
+		AWSKMSKeyARN:   "arn:aws:kms:us-east-1:123456789:key/mrk-12345"
+	}
+
+The KMS Key must be a RSA key and the matching public key must be downloaded and saved to the Snowflake.
+On the server side, you can alter the public key with the SQL command:
+
+	ALTER USER <your_user_name> SET RSA_PUBLIC_KEY='<your_public_key>';
+
+The <your_public_key> should be a base64 Standard encoded PKI public key string. You can download it from AWS Console,
+or use cli.
+
+	aws kms get-public-key \
+		--key-id 1234abcd-12ab-34cd-56ef-1234567890ab \
+		--output text \
+		--query PublicKey | base64 --decode > public_key.der
+
+Note: Executor of the driver must have AWS iam permission (kms:Sign) given, otherwise access will error out.
+
 
 Executing Multiple Statements in One Call
 
