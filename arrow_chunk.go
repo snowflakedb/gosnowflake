@@ -102,6 +102,7 @@ func (arc *arrowResultChunk) passRawArrowBatch(scd *snowflakeChunkDownloader) (*
 				}
 			}
 		}
+		rawRecord.Retain()
 		records = append(records, rawRecord)
 	}
 	return &records, nil
