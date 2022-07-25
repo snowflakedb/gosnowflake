@@ -116,17 +116,13 @@ func compareMetadata(actual arrow.Metadata, expected execResponseRowType) bool {
 			if !strings.EqualFold(actual.Values()[idx], expected.Type) {
 				return false
 			}
-		case "PRECISION":
-			if i64, err := strconv.ParseInt(actual.Values()[idx], 10, 64); err != nil || i64 != expected.Precision {
-				return false
-			}
 		case "SCALE":
-			if i64, err := strconv.ParseInt(actual.Values()[idx], 10, 64); err != nil || i64 != expected.Scale {
-				return false
-			}
-		case "BYTELENGTH":
-			if i64, err := strconv.ParseInt(actual.Values()[idx], 10, 64); err != nil || i64 != expected.ByteLength {
-				return false
+			switch strings.ToUpper(expected.Type) {
+			case "FIXED", "TIMESTAMP_LTZ", "TIMESTAMP_NTZ":
+				if i64, err := strconv.ParseInt(actual.Values()[idx], 10, 64); err != nil || i64 != expected.Scale {
+					return false
+				}
+			default:
 			}
 		default:
 		}
