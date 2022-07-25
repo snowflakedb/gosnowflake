@@ -97,6 +97,7 @@ func (arc *arrowResultChunk) passRawArrowBatch(scd *snowflakeChunkDownloader) (*
 			if field.Nullable != scd.RowSet.RowType[idx].Nullable ||
 				field.Name != scd.RowSet.RowType[idx].Name ||
 				!compareMetadata(field.Metadata, scd.RowSet.RowType[idx]) {
+				logger.Error("Lack or mismatch of necessary metadata to decode fetched raw arrow records")
 				return nil, &SnowflakeError{
 					Message: "Lack or mismatch of necessary metadata to decode fetched raw arrow records",
 				}
