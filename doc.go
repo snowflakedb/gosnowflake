@@ -414,7 +414,7 @@ binds arrays to the parameters in the INSERT statement.
 	// Insert the data from the arrays and wrap in an Array() function into the table.
 	_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
 
-If the array contains SQL NULL values, use slice []interface{} which allows Golang nil values.
+If the array contains SQL NULL values, use slice []interface{}, which allows Golang nil values.
 This feature is available in version 1.6.12 (and later) of the driver. For exmaple,
 
  	// Define the arrays containing the data to insert.
@@ -442,7 +442,7 @@ This feature is available in version 1.6.12 (and later) of the driver. For exmap
 		}
 	}
 
-Currently, the driver does not support date, time and timestamps types when slice []interface{} is used in array binding.
+Currently, the driver does not support the DATE, TIME, TIMESTAMP_LTZ, TIMESTAMP_NTZ and TIMESTAMP_TZ data types when slice []interface{} is used in array binding.
 
 Note: For alternative ways to load data into the Snowflake database (including bulk loading using the COPY command), see
 Loading Data into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).
