@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -20,6 +21,18 @@ const (
 	deleteTableSQL = "drop table if exists TEST_PREP_STATEMENT"
 	insertSQL      = "insert into TEST_PREP_STATEMENT values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	selectAllSQL   = "select * from TEST_PREP_STATEMENT ORDER BY 1"
+
+	createTableSQLBulkArray = `create or replace table test_bulk_array(c1 INTEGER,
+		c2 FLOAT, c3 BOOLEAN, c4 STRING, C5 BINARY)`
+	deleteTableSQLBulkArray = "drop table if exists test_bulk_array"
+	insertSQLBulkArray      = "insert into test_bulk_array values(?, ?, ?, ?, ?)"
+	selectAllSQLBulkArray   = "select * from test_bulk_array ORDER BY 1"
+
+	createTableSQLBulkArrayDateTimeTimestamp = `create or replace table test_bulk_array_DateTimeTimestamp(
+		C1 TIMESTAMP_NTZ, C2 TIMESTAMP_LTZ, C3 TIMESTAMP_TZ, C4 DATE, C5 TIME)`
+	deleteTableSQLBulkArrayDateTimeTimestamp = "drop table if exists test_bulk_array_DateTimeTimestamp"
+	insertSQLBulkArrayDateTimeTimestamp      = "insert into test_bulk_array_DateTimeTimestamp values(?, ?, ?, ?, ?)"
+	selectAllSQLBulkArrayDateTimeTimestamp   = "select * from test_bulk_array_DateTimeTimestamp ORDER BY 1"
 )
 
 func TestBindingFloat64(t *testing.T) {
@@ -381,6 +394,204 @@ func TestBulkArrayBinding(t *testing.T) {
 	})
 }
 
+func TestBulkArrayBindingInterfaceFail(t *testing.T) {
+	numRows := 5
+	intArray := make([]int, numRows)
+	for i := 0; i < numRows; i++ {
+		intArray[i] = i
+	}
+
+	mixTypesArray := make([]interface{}, numRows)
+	mixTypesArray[0] = int(1)
+	mixTypesArray[1] = string("2")
+	mixTypesArray[2] = float64(3.45)
+	mixTypesArray[3] = []byte{0x01, 0x02, 0x03}
+	mixTypesArray[4] = true
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("CREATE TABLE test (id int, value int)")
+		defer dbt.mustExec("DROP TABLE IF EXISTS test")
+
+		_, err := dbt.db.Exec("INSERT INTO test VALUES (?, ?)", Array(&intArray), Array(&mixTypesArray))
+		if err == nil {
+			dbt.Fatal("should fail when the array contains a mix of different data types.")
+		}
+	})
+}
+
+func TestBulkArrayBindingInterfaceNil(t *testing.T) {
+	nilArray := make([]interface{}, 1)
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(createTableSQLBulkArray)
+		defer dbt.mustExec(deleteTableSQLBulkArray)
+
+		dbt.mustExec(insertSQLBulkArray, Array(&nilArray), Array(&nilArray),
+			Array(&nilArray), Array(&nilArray), Array(&nilArray))
+		rows := dbt.mustQuery(selectAllSQLBulkArray)
+		defer rows.Close()
+
+		var v0 sql.NullInt32
+		var v1 sql.NullFloat64
+		var v2 sql.NullBool
+		var v3 sql.NullString
+		var v4 []byte
+
+		cnt := 0
+		for i := 0; rows.Next(); i++ {
+			if err := rows.Scan(&v0, &v1, &v2, &v3, &v4); err != nil {
+				t.Fatal(err)
+			}
+			if v0.Valid {
+				t.Fatalf("failed to fetch the INTEGER column V0. expected %v, got: %v", nilArray[i], v0)
+			}
+			if v1.Valid {
+				t.Fatalf("failed to fetch the FLOAT column. expected %v, got: %v", nilArray[i], v1)
+			}
+			if v2.Valid {
+				t.Fatalf("failed to fetch the BOOLEAN column. expected %v, got: %v", nilArray[i], v2)
+			}
+			if v3.Valid {
+				t.Fatalf("failed to fetch the STRING column. expected %v, got: %v", nilArray[i], v3)
+			}
+			if v4 != nil {
+				t.Fatalf("failed to fetch the BINARY column. expected %v, got: %v", nilArray[i], v4)
+			}
+			cnt++
+		}
+		if cnt != len(nilArray) {
+			t.Fatal("failed to query")
+		}
+	})
+}
+
+func TestBulkArrayBindingInterface(t *testing.T) {
+	intArray := make([]interface{}, 3)
+	intArray[0] = int32(100)
+	intArray[1] = int32(200)
+
+	fltArray := make([]interface{}, 3)
+	fltArray[0] = float64(0.1)
+	fltArray[2] = float64(5.678)
+
+	boolArray := make([]interface{}, 3)
+	boolArray[1] = false
+	boolArray[2] = true
+
+	strArray := make([]interface{}, 3)
+	strArray[2] = "test3"
+
+	byteArray := make([]interface{}, 3)
+	byteArray[0] = []byte{0x01, 0x02, 0x03}
+	byteArray[2] = []byte{0x07, 0x08, 0x09}
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(createTableSQLBulkArray)
+		defer dbt.mustExec(deleteTableSQLBulkArray)
+
+		dbt.mustExec(insertSQLBulkArray, Array(&intArray), Array(&fltArray),
+			Array(&boolArray), Array(&strArray), Array(&byteArray))
+		rows := dbt.mustQuery(selectAllSQLBulkArray)
+		defer rows.Close()
+
+		var v0 sql.NullInt32
+		var v1 sql.NullFloat64
+		var v2 sql.NullBool
+		var v3 sql.NullString
+		var v4 []byte
+
+		cnt := 0
+		for i := 0; rows.Next(); i++ {
+			if err := rows.Scan(&v0, &v1, &v2, &v3, &v4); err != nil {
+				t.Fatal(err)
+			}
+			if v0.Valid {
+				if v0.Int32 != intArray[i] {
+					t.Fatalf("failed to fetch. expected %v, got: %v", intArray[i], v0.Int32)
+				}
+			} else if intArray[i] != nil {
+				t.Fatalf("failed to fetch. expected %v, got: %v", intArray[i], v0)
+			}
+			if v1.Valid {
+				if v1.Float64 != fltArray[i] {
+					t.Fatalf("failed to fetch. expected %v, got: %v", fltArray[i], v1.Float64)
+				}
+			} else if fltArray[i] != nil {
+				t.Fatalf("failed to fetch. expected %v, got: %v", fltArray[i], v1)
+			}
+			if v2.Valid {
+				if v2.Bool != boolArray[i] {
+					t.Fatalf("failed to fetch. expected %v, got: %v", boolArray[i], v2.Bool)
+				}
+			} else if boolArray[i] != nil {
+				t.Fatalf("failed to fetch. expected %v, got: %v", boolArray[i], v2)
+			}
+			if v3.Valid {
+				if v3.String != strArray[i] {
+					t.Fatalf("failed to fetch. expected %v, got: %v", strArray[i], v3.String)
+				}
+			} else if strArray[i] != nil {
+				t.Fatalf("failed to fetch. expected %v, got: %v", strArray[i], v3)
+			}
+			if byteArray[i] != nil {
+				if !bytes.Equal(v4, byteArray[i].([]byte)) {
+					t.Fatalf("failed to fetch. expected %v, got: %v", byteArray[i], v4)
+				}
+			} else if v4 != nil {
+				t.Fatalf("failed to fetch. expected %v, got: %v", byteArray[i], v4)
+			}
+			cnt++
+		}
+		if cnt != len(intArray) {
+			t.Fatal("failed to query")
+		}
+	})
+}
+
+func TestBulkArrayBindingInterfaceDateTimeTimestamp(t *testing.T) {
+	tz := time.Now()
+	createDSN(PSTLocation)
+
+	now := time.Now()
+	loc, err := time.LoadLocation(PSTLocation)
+	if err != nil {
+		t.Error(err)
+	}
+	ntzArray := make([]interface{}, 3)
+	ntzArray[0] = now
+	ntzArray[1] = now.Add(1)
+
+	ltzArray := make([]interface{}, 3)
+	ltzArray[1] = now.Add(2).In(loc)
+	ltzArray[2] = now.Add(3).In(loc)
+
+	tzArray := make([]interface{}, 3)
+	tzArray[0] = tz.Add(4).In(loc)
+	tzArray[2] = tz.Add(5).In(loc)
+
+	dtArray := make([]interface{}, 3)
+	dtArray[0] = tz.Add(6).In(loc)
+	dtArray[1] = now.Add(7).In(loc)
+
+	tmArray := make([]interface{}, 3)
+	tmArray[1] = now.Add(8).In(loc)
+	tmArray[2] = now.Add(9).In(loc)
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(createTableSQLBulkArrayDateTimeTimestamp)
+		defer dbt.mustExec(deleteTableSQLBulkArrayDateTimeTimestamp)
+
+		_, err := dbt.db.Exec(insertSQLBulkArrayDateTimeTimestamp,
+			Array(&ntzArray, TimestampNTZType), Array(&ltzArray, TimestampLTZType),
+			Array(&tzArray, TimestampTZType), Array(&dtArray, DateType),
+			Array(&tmArray, TimeType))
+		if err == nil {
+			t.Fatal("Date, time and timestamp are not supported in array binding using []interface{}")
+		}
+	})
+	createDSN("UTC")
+}
+
 func TestBulkArrayMultiPartBinding(t *testing.T) {
 	rowCount := 1000000 // large enough to be partitioned into multiple files
 	rand.Seed(time.Now().UnixNano())
@@ -447,6 +658,56 @@ func TestBulkArrayMultiPartBindingInt(t *testing.T) {
 			}
 			if i != cnt {
 				t.Errorf("expected: %v, got: %v", cnt, i)
+			}
+			cnt++
+		}
+		if cnt != endNum {
+			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
+		}
+		dbt.mustExec("DROP TABLE binding_test")
+	})
+}
+
+func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("create or replace table binding_test (c1 integer, c2 string)")
+		startNum := 1000000
+		endNum := 3000000
+		numRows := endNum - startNum
+
+		// Integer and string arrays with the last row is NULL
+		intArr := make([]interface{}, numRows)
+		stringArr := make([]interface{}, numRows)
+		for i := startNum; i < endNum-1; i++ {
+			intArr[i-startNum] = i
+			stringArr[i-startNum] = fmt.Sprint(i)
+		}
+
+		_, err := dbt.db.Exec("insert into binding_test values (?, ?)", Array(&intArr), Array(&stringArr))
+		if err != nil {
+			t.Errorf("Should have succeeded to insert. err: %v", err)
+		}
+
+		rows := dbt.mustQuery("select * from binding_test order by c1")
+		cnt := startNum
+		var i sql.NullInt32
+		var s sql.NullString
+		for rows.Next() {
+			if err := rows.Scan(&i, &s); err != nil {
+				t.Fatal(err)
+			}
+			// Verify column c1
+			if cnt == endNum-1 && i.Valid {
+				t.Errorf("expected: %v, got: %v", cnt, i)
+			} else if i.Valid && int(i.Int32) != cnt {
+				t.Errorf("expected: %v, got: %v", cnt, i)
+			}
+
+			// Verify column c2
+			if cnt == endNum-1 && s.Valid {
+				t.Errorf("expected: %v, got: %v", cnt, s)
+			} else if i.Valid && s.String != fmt.Sprint(cnt) {
+				t.Errorf("expected: %v, got: %v", cnt, s)
 			}
 			cnt++
 		}

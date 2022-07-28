@@ -748,7 +748,78 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 			arr = append(arr, &v)
 		}
 	default:
-		return unSupportedType, nil
+		// Support for bulk array binding insertion using []interface{}
+		nvValue := reflect.ValueOf(nv)
+		if nvValue.Kind() == reflect.Ptr {
+			interfaceSlice := reflect.Indirect(reflect.ValueOf(nv.Value))
+			if interfaceSlice.Kind() == reflect.Slice {
+				t, arr = interfaceSliceToString(interfaceSlice, interfaceSlice.Len(), stream)
+			}
+		} else {
+			return unSupportedType, nil
+		}
+	}
+	return t, arr
+}
+
+func interfaceSliceToString(interfaceSlice reflect.Value, interfaceSliceLen int, stream bool) (snowflakeType, []*string) {
+	var t snowflakeType
+	var arr []*string
+
+	for i := 0; i < interfaceSliceLen; i++ {
+		val := interfaceSlice.Index(i)
+		if val.CanInterface() {
+			switch val.Interface().(type) {
+			case int:
+				t = fixedType
+				x := val.Interface().(int)
+				v := strconv.Itoa(x)
+				arr = append(arr, &v)
+			case int32:
+				t = fixedType
+				x := val.Interface().(int32)
+				v := strconv.Itoa(int(x))
+				arr = append(arr, &v)
+			case int64:
+				t = fixedType
+				x := val.Interface().(int64)
+				v := strconv.FormatInt(x, 10)
+				arr = append(arr, &v)
+			case float32:
+				t = realType
+				x := val.Interface().(float32)
+				v := fmt.Sprintf("%g", x)
+				arr = append(arr, &v)
+			case float64:
+				t = realType
+				x := val.Interface().(float64)
+				v := fmt.Sprintf("%g", x)
+				arr = append(arr, &v)
+			case bool:
+				t = booleanType
+				x := val.Interface().(bool)
+				v := strconv.FormatBool(x)
+				arr = append(arr, &v)
+			case string:
+				t = textType
+				x := val.Interface().(string)
+				arr = append(arr, &x)
+			case []byte:
+				t = binaryType
+				x := val.Interface().([]byte)
+				v := hex.EncodeToString(x)
+				arr = append(arr, &v)
+			case time.Time:
+				// Support for bulk array binding insertion using []interface{}
+				return unSupportedType, nil
+			default:
+				if val.Interface() != nil {
+					return unSupportedType, nil
+				}
+
+				arr = append(arr, nil)
+			}
+		}
 	}
 	return t, arr
 }
