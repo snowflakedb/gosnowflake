@@ -174,7 +174,7 @@ func (bu *bindUploader) createCSVRecord(data []interface{}) []byte {
 		value, ok := data[i].(string)
 		if ok {
 			b.WriteString(escapeForCSV(value))
-		} else {
+		} else if !reflect.ValueOf(data[i]).IsNil() {
 			logger.Debugf("Cannot convert value to string in createCSVRecord. value: %v", data[i])
 		}
 	}
