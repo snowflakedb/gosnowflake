@@ -669,6 +669,10 @@ func TestBulkArrayMultiPartBindingInt(t *testing.T) {
 }
 
 func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("Failed on Github. Error: ThreadSanitizer failed to allocate 0x000004000000 (67108864) bytes at 0x040129000000 (error code: 1455)")
+	}
+
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table binding_test (c1 integer, c2 string)")
 		startNum := 1000000
