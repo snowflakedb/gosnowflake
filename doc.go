@@ -414,6 +414,36 @@ binds arrays to the parameters in the INSERT statement.
 	// Insert the data from the arrays and wrap in an Array() function into the table.
 	_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
 
+If the array contains SQL NULL values, use slice []interface{}, which allows Golang nil values.
+This feature is available in version 1.6.12 (and later) of the driver. For exmaple,
+
+ 	// Define the arrays containing the data to insert.
+ 	strArray := make([]interface{}, 3)
+	strArray[0] = "test1"
+	strArray[1] = "test2"
+	strArray[2] = nil // This line is optional as nil is the default value.
+	...
+	// Create a table and insert the data from the array as shown above.
+	_, err = db.Exec("create or replace table my_table(c1 string)")
+	_, err = db.Exec("insert into my_table values (?)", Array(&strArray))
+	...
+	// Use sql.NullString to fetch the string column that contains NULL values.
+	var s sql.NullString
+	rows, _ := db.Query("select * from my_table")
+	for rows.Next() {
+		err := rows.Scan(&s)
+		if err != nil {
+			log.Fatalf("Failed to scan. err: %v", err)
+		}
+		if s.Valid {
+			fmt.Println("Retrieved value:", s.String)
+		} else {
+			fmt.Println("Retrieved value: NULL")
+		}
+	}
+
+Currently, the driver does not support the DATE, TIME, TIMESTAMP_LTZ, TIMESTAMP_NTZ and TIMESTAMP_TZ data types when slice []interface{} is used in array binding.
+
 Note: For alternative ways to load data into the Snowflake database (including bulk loading using the COPY command), see
 Loading Data into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).
 
