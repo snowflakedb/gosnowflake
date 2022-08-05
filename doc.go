@@ -112,6 +112,8 @@ The following connection parameters are supported:
 	* validateDefaultParameters: true by default. Set to false to disable checks on existence and privileges check for
 								 Database, Schema, Warehouse and Role when setting up the connection
 
+    * tracing: Specifies the logging level to be used. Set to error by default.
+
 All other parameters are interpreted as session parameters (https://docs.snowflake.com/en/sql-reference/parameters.html).
 For example, the TIMESTAMP_OUTPUT_FORMAT session parameter can be set by adding:
 
