@@ -215,6 +215,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	var rUpdater retryCounterUpdater
 
 	for {
+		logger.Debugf("retry count: %v", retryCounter)
 		req, err := r.req(r.method, r.fullURL.String(), bytes.NewReader(r.body))
 		if err != nil {
 			return nil, err
