@@ -94,9 +94,10 @@ func (arc *arrowResultChunk) passRawArrowBatch(scd *snowflakeChunkDownloader) (*
 		}
 		// Here we check all metadata from snowflake are preserved, so evaluator can decode accordingly
 		for idx, field := range rawRecord.Schema().Fields() {
-			if field.Nullable != scd.RowSet.RowType[idx].Nullable ||
-				field.Name != scd.RowSet.RowType[idx].Name ||
-				!compareMetadata(field.Metadata, scd.RowSet.RowType[idx]) {
+			// NOTE(Qing): Sometimes we see the rowtype metadata specify nullable as false but then still
+			// reveive nullable arrow records. Given that, we do not check the nullability here. Also, no
+			// need to compare names.
+			if !compareMetadata(field.Metadata, scd.RowSet.RowType[idx]) {
 				logger.Error("Lack or mismatch of necessary metadata to decode fetched raw arrow records")
 				return nil, &SnowflakeError{
 					Message: "Lack or mismatch of necessary metadata to decode fetched raw arrow records",
