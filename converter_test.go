@@ -71,6 +71,11 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: Array([]interface{}{true}), tmode: nullType, out: sliceType},
 		{in: Array([]interface{}{"teststring"}), tmode: nullType, out: sliceType},
 		{in: Array([]interface{}{[]byte{1, 2, 3}}), tmode: nullType, out: sliceType},
+		{in: Array([]interface{}{time.Now()}), tmode: timestampNtzType, out: sliceType},
+		{in: Array([]interface{}{time.Now()}), tmode: timestampTzType, out: sliceType},
+		{in: Array([]interface{}{time.Now()}), tmode: timestampLtzType, out: sliceType},
+		{in: Array([]interface{}{time.Now()}), tmode: dateType, out: sliceType},
+		{in: Array([]interface{}{time.Now()}), tmode: timeType, out: sliceType},
 		// negative
 		{in: 123, tmode: nullType, out: unSupportedType},
 		{in: int8(12), tmode: nullType, out: unSupportedType},
@@ -80,11 +85,6 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: uint64(456), tmode: nullType, out: unSupportedType},
 		{in: []byte{100}, tmode: nullType, out: unSupportedType},
 		{in: nil, tmode: nullType, out: unSupportedType},
-		{in: Array([]interface{}{time.Now()}), tmode: timestampNtzType, out: unSupportedType},
-		{in: Array([]interface{}{time.Now()}), tmode: timestampTzType, out: unSupportedType},
-		{in: Array([]interface{}{time.Now()}), tmode: timestampLtzType, out: unSupportedType},
-		{in: Array([]interface{}{time.Now()}), tmode: dateType, out: unSupportedType},
-		{in: Array([]interface{}{time.Now()}), tmode: timeType, out: unSupportedType},
 	}
 	for _, test := range testcases {
 		a := goTypeToSnowflake(test.in, test.tmode)
