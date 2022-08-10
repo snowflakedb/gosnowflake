@@ -442,7 +442,11 @@ This feature is available in version 1.6.12 (and later) of the driver. For exmap
 		}
 	}
 
-Currently, the driver does not support the DATE, TIME, TIMESTAMP_LTZ, TIMESTAMP_NTZ and TIMESTAMP_TZ data types when slice []interface{} is used in array binding.
+For slices []interface{} containing time.Time values, a binding parameter flag is required for the preceding array variable in the Array() function.
+This feature is available in version 1.6.13 (and later) of the driver. For exmaple,
+
+	_, err = db.Exec("create or replace table my_table(c1 timestamp_ntz, c2 timestamp_ltz)")
+	_, err = db.Exec("insert into my_table values (?,?)", Array(&ntzArray, sf.TimestampNTZType), Array(&ltzArray, sf.TimestampLTZType))
 
 Note: For alternative ways to load data into the Snowflake database (including bulk loading using the COPY command), see
 Loading Data into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).
