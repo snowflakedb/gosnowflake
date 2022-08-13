@@ -20,6 +20,11 @@ import (
 
 const timeFormat = "2006-01-02T15:04:05"
 
+type encryptDecryptTestFile struct {
+	numberOfBytesInEachRow int
+	numberOfLines          int
+}
+
 func TestEncryptDecryptFile(t *testing.T) {
 	encMat := snowflakeFileEncryption{
 		"ztke8tIdVt1zmlQIZm0BMA==",
@@ -64,12 +69,43 @@ func TestEncryptDecryptFile(t *testing.T) {
 	}
 }
 
+func TestEncryptDecryptFilePadding(t *testing.T) {
+	encMat := snowflakeFileEncryption{
+		"ztke8tIdVt1zmlQIZm0BMA==",
+		"123873c7-3a66-40c4-ab89-e3722fbccce1",
+		3112,
+	}
+
+	testcases := []encryptDecryptTestFile{
+		// file size is a multiple of 65536 bytes
+		{numberOfBytesInEachRow: 8, numberOfLines: 16384},
+		{numberOfBytesInEachRow: 16, numberOfLines: 4096},
+		// file size is not a multiple of 65536 bytes
+		{numberOfBytesInEachRow: 8, numberOfLines: 10240},
+		{numberOfBytesInEachRow: 16, numberOfLines: 6144},
+	}
+
+	for _, test := range testcases {
+		tmpDir, err := ioutil.TempDir("", "data")
+		if err != nil {
+			t.Error(err)
+		}
+		tmpDir, err = generateKLinesOfNByteRows(test.numberOfLines, test.numberOfBytesInEachRow, tmpDir)
+		if err != nil {
+			t.Error(err)
+		}
+
+		encryptDecryptFile(t, encMat, test.numberOfLines, tmpDir)
+	}
+}
+
 func TestEncryptDecryptLargeFile(t *testing.T) {
 	encMat := snowflakeFileEncryption{
 		"ztke8tIdVt1zmlQIZm0BMA==",
 		"123873c7-3a66-40c4-ab89-e3722fbccce1",
 		3112,
 	}
+
 	numberOfFiles := 1
 	numberOfLines := 10000
 	tmpDir, err := ioutil.TempDir("", "data")
@@ -80,6 +116,11 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	encryptDecryptFile(t, encMat, numberOfLines, tmpDir)
+}
+
+func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected int, tmpDir string) {
 	defer os.RemoveAll(tmpDir)
 	files, err := filepath.Glob(filepath.Join(tmpDir, "file*"))
 	if err != nil {
@@ -110,9 +151,31 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	if err = scanner.Err(); err != nil {
 		t.Error(err)
 	}
-	if cnt != numberOfLines {
-		t.Fatalf("incorrect number of lines. expected: %v, got: %v", numberOfLines, cnt)
+	if cnt != expected {
+		t.Fatalf("incorrect number of lines. expected: %v, got: %v", expected, cnt)
 	}
+}
+
+func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (string, error) {
+	if tmpDir == "" {
+		_, err := ioutil.TempDir(tmpDir, "data")
+		if err != nil {
+			return "", err
+		}
+	}
+	fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(numLines*numBytes), 10))
+	f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+
+	for j := 0; j < numLines; j++ {
+		str := randomString(numBytes - 1) // \n is the last character
+		rec := fmt.Sprintf("%v\n", str)
+		f.Write([]byte(rec))
+	}
+	f.Close()
+	return tmpDir, nil
 }
 
 func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string, error) {
