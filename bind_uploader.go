@@ -39,7 +39,7 @@ func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, err
 	bu.fileCount = 0
 	var data *execResponse
 	for rowNum < len(bindingRows) {
-		for rowNum < len(bindingRows) && numBytes+len(bindingRows[rowNum]) < inputStreamBufferSize {
+		for numBytes < inputStreamBufferSize && rowNum < len(bindingRows) {
 			numBytes += len(bindingRows[rowNum])
 			rowNum++
 		}
