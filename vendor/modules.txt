@@ -1,3 +1,9 @@
+# github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+## explicit
+github.com/99designs/go-keychain
+# github.com/99designs/keyring v1.2.1
+## explicit; go 1.17
+github.com/99designs/keyring
 # github.com/Azure/azure-pipeline-go v0.2.3
 ## explicit; go 1.14
 github.com/Azure/azure-pipeline-go/pipeline
@@ -100,6 +106,19 @@ github.com/aws/smithy-go/time
 github.com/aws/smithy-go/transport/http
 github.com/aws/smithy-go/transport/http/internal/io
 github.com/aws/smithy-go/waiter
+# github.com/danieljoos/wincred v1.1.2
+## explicit; go 1.13
+github.com/danieljoos/wincred
+# github.com/dvsekhvalnov/jose2go v1.5.0
+## explicit; go 1.15
+github.com/dvsekhvalnov/jose2go
+github.com/dvsekhvalnov/jose2go/aes
+github.com/dvsekhvalnov/jose2go/arrays
+github.com/dvsekhvalnov/jose2go/base64url
+github.com/dvsekhvalnov/jose2go/compact
+github.com/dvsekhvalnov/jose2go/kdf
+github.com/dvsekhvalnov/jose2go/keys/ecc
+github.com/dvsekhvalnov/jose2go/padding
 # github.com/form3tech-oss/jwt-go v3.2.5+incompatible
 ## explicit
 github.com/form3tech-oss/jwt-go
@@ -109,12 +128,22 @@ github.com/gabriel-vasile/mimetype
 github.com/gabriel-vasile/mimetype/internal/charset
 github.com/gabriel-vasile/mimetype/internal/json
 github.com/gabriel-vasile/mimetype/internal/magic
+<<<<<<< HEAD
 # github.com/google/flatbuffers v2.0.8+incompatible
+=======
+# github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2
+## explicit; go 1.12
+github.com/godbus/dbus
+# github.com/google/flatbuffers v2.0.0+incompatible
+>>>>>>> 073829f (add connection caching)
 ## explicit
 github.com/google/flatbuffers/go
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
+# github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c
+## explicit
+github.com/gsterjov/go-libsecret
 # github.com/jmespath/go-jmespath v0.4.0
 ## explicit; go 1.14
 github.com/jmespath/go-jmespath
@@ -130,7 +159,14 @@ github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/mattn/go-ieproxy v0.0.9
 ## explicit; go 1.14
 github.com/mattn/go-ieproxy
+<<<<<<< HEAD
 # github.com/pierrec/lz4/v4 v4.1.16
+=======
+# github.com/mtibben/percent v0.2.1
+## explicit; go 1.14
+github.com/mtibben/percent
+# github.com/pierrec/lz4/v4 v4.1.11
+>>>>>>> 073829f (add connection caching)
 ## explicit; go 1.14
 github.com/pierrec/lz4/v4
 github.com/pierrec/lz4/v4/internal/lz4block
@@ -152,12 +188,20 @@ golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/http/httpproxy
 golang.org/x/net/idna
+<<<<<<< HEAD
 # golang.org/x/sys v0.0.0-20220926163933-8cfa568d3c25
+=======
+# golang.org/x/sys v0.0.0-20220204135822-1c1b9b1eba6a
+>>>>>>> 073829f (add connection caching)
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
+# golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
+## explicit; go 1.17
+golang.org/x/term
 # golang.org/x/text v0.3.7
 ## explicit; go 1.17
 golang.org/x/text/secure/bidirule

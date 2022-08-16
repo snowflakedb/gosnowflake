@@ -3213,6 +3213,7 @@ type ModuleInfo struct {
 }
 
 const ALL_PROCESSOR_GROUPS = 0xFFFF
+<<<<<<< HEAD
 
 type Rect struct {
 	Left   int32
@@ -3258,3 +3259,5 @@ const (
 	DWMWA_TEXT_COLOR                     = 36
 	DWMWA_VISIBLE_FRAME_BORDER_THICKNESS = 37
 )
+=======
+>>>>>>> 073829f (add connection caching)
