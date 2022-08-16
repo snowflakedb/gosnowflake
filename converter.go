@@ -37,6 +37,11 @@ const (
 	TimeType
 )
 
+type timezoneTypeArrayBinding struct {
+	tzType            timezoneType
+	timezoneTypeArray interface{}
+}
+
 // goTypeToSnowflake translates Go data type to Snowflake data type.
 func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 	switch t := v.(type) {
@@ -629,6 +634,13 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 		default:
 			return a
 		}
+	case []interface{}, *[]interface{}:
+		// Support for bulk array binding insertion using []interface{}
+		if len(typ) < 1 {
+			return a
+		}
+
+		return timezoneTypeArrayBinding{typ[0], a}
 	default:
 		return a
 	}
@@ -751,22 +763,30 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		// Support for bulk array binding insertion using []interface{}
 		nvValue := reflect.ValueOf(nv)
 		if nvValue.Kind() == reflect.Ptr {
-			interfaceSlice := reflect.Indirect(reflect.ValueOf(nv.Value))
-			if interfaceSlice.Kind() == reflect.Slice {
-				t, arr = interfaceSliceToString(interfaceSlice, interfaceSlice.Len(), stream)
+			value := reflect.Indirect(reflect.ValueOf(nv.Value))
+			if value.Kind() == reflect.Slice {
+				return interfaceSliceToString(value, stream)
+			} else if value.Kind() == reflect.Struct {
+				timeStruct, ok := value.Interface().(timezoneTypeArrayBinding)
+				if ok {
+					timeInterfaceSlice := reflect.Indirect(reflect.ValueOf(timeStruct.timezoneTypeArray))
+					if timeInterfaceSlice.Kind() == reflect.Slice {
+						timeArray := reflect.Indirect(reflect.ValueOf(timeInterfaceSlice.Interface()))
+						return interfaceSliceToString(timeArray, stream, timeStruct.tzType)
+					}
+				}
 			}
-		} else {
-			return unSupportedType, nil
 		}
+		return unSupportedType, nil
 	}
 	return t, arr
 }
 
-func interfaceSliceToString(interfaceSlice reflect.Value, interfaceSliceLen int, stream bool) (snowflakeType, []*string) {
+func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ...timezoneType) (snowflakeType, []*string) {
 	var t snowflakeType
 	var arr []*string
 
-	for i := 0; i < interfaceSliceLen; i++ {
+	for i := 0; i < interfaceSlice.Len(); i++ {
 		val := interfaceSlice.Index(i)
 		if val.CanInterface() {
 			switch val.Interface().(type) {
@@ -810,8 +830,50 @@ func interfaceSliceToString(interfaceSlice reflect.Value, interfaceSliceLen int,
 				v := hex.EncodeToString(x)
 				arr = append(arr, &v)
 			case time.Time:
-				// Support for bulk array binding insertion using []interface{}
-				return unSupportedType, nil
+				if len(tzType) < 1 {
+					return unSupportedType, nil
+				}
+
+				x := val.Interface().(time.Time)
+				switch tzType[0] {
+				case TimestampNTZType:
+					t = timestampNtzType
+					v := strconv.FormatInt(x.UnixNano(), 10)
+					arr = append(arr, &v)
+				case TimestampLTZType:
+					t = timestampLtzType
+					v := strconv.FormatInt(x.UnixNano(), 10)
+					arr = append(arr, &v)
+				case TimestampTZType:
+					t = timestampTzType
+					var v string
+					if stream {
+						v = x.Format(format)
+					} else {
+						_, offset := x.Zone()
+						v = fmt.Sprintf("%v %v", x.UnixNano(), offset/60+1440)
+					}
+					arr = append(arr, &v)
+				case DateType:
+					t = dateType
+					_, offset := x.Zone()
+					x = x.Add(time.Second * time.Duration(offset))
+					v := fmt.Sprintf("%d", x.Unix()*1000)
+					arr = append(arr, &v)
+				case TimeType:
+					t = timeType
+					var v string
+					if stream {
+						v = x.Format(format[11:19])
+					} else {
+						h, m, s := x.Clock()
+						tm := int64(h)*int64(time.Hour) + int64(m)*int64(time.Minute) + int64(s)*int64(time.Second) + int64(x.Nanosecond())
+						v = strconv.FormatInt(tm, 10)
+					}
+					arr = append(arr, &v)
+				default:
+					return unSupportedType, nil
+				}
 			default:
 				if val.Interface() != nil {
 					return unSupportedType, nil
