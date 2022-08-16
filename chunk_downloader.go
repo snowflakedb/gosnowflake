@@ -361,7 +361,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 	}
 	bufStream := bufio.NewReader(resp.Body)
 	defer resp.Body.Close()
-	logger.Infof("response returned chunk: %v for URL: %v, resp: %v", idx+1, scd.ChunkMetas[idx].URL, resp)
+	logger.Debugf("response returned chunk: %v for URL: %v", idx+1, scd.ChunkMetas[idx].URL)
 	if resp.StatusCode != http.StatusOK {
 		b, err := ioutil.ReadAll(bufStream)
 		if err != nil {
