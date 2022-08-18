@@ -76,20 +76,26 @@ func encryptStream(
 	// encrypt file with CBC
 	padded := false
 	for {
+		// read the stream buffer up to len(chunk) bytes into chunk
+		// note that all spaces in chunk may be used even if Read() returns n < len(chunk)
 		n, err := src.Read(chunk)
 		if n == 0 || err != nil {
 			break
-		} else if n%aes.BlockSize != 0 || n != chunkSize {
+		} else if n%aes.BlockSize != 0 {
+			// add padding to the end of the chunk and update the length n
 			chunk = padBytesLength(chunk[:n], aes.BlockSize)
+			n = len(chunk)
 			padded = true
 		}
-		mode.CryptBlocks(cipherText, chunk)
-		out.Write(cipherText[:len(chunk)])
+		// make sure only n bytes of chunk is used
+		mode.CryptBlocks(cipherText, chunk[:n])
+		out.Write(cipherText[:n])
 	}
 	if err != nil {
 		return nil, err
 	}
 
+	// add padding if not yet added
 	if !padded {
 		padding := bytes.Repeat([]byte(string(rune(aes.BlockSize))), aes.BlockSize)
 		mode.CryptBlocks(cipherText, padding)
