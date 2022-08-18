@@ -77,12 +77,17 @@ func TestEncryptDecryptFilePadding(t *testing.T) {
 	}
 
 	testcases := []encryptDecryptTestFile{
-		// file size is a multiple of 65536 bytes
+		// File size is a multiple of 65536 bytes (chunkSize)
 		{numberOfBytesInEachRow: 8, numberOfLines: 16384},
 		{numberOfBytesInEachRow: 16, numberOfLines: 4096},
-		// file size is not a multiple of 65536 bytes
+		// File size is not a multiple of 65536 bytes (chunkSize)
 		{numberOfBytesInEachRow: 8, numberOfLines: 10240},
 		{numberOfBytesInEachRow: 16, numberOfLines: 6144},
+		// The second chunk's size is a multiple of 16 bytes (aes.BlockSize)
+		{numberOfBytesInEachRow: 16, numberOfLines: 4097},
+		// The second chunk's size is not a multiple of 16 bytes (aes.BlockSize)
+		{numberOfBytesInEachRow: 12, numberOfLines: 5462},
+		{numberOfBytesInEachRow: 10, numberOfLines: 6556},
 	}
 
 	for _, test := range testcases {
