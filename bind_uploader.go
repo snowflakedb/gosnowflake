@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -39,7 +38,7 @@ func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, err
 	bu.fileCount = 0
 	var data *execResponse
 	for rowNum < len(bindingRows) {
-		for rowNum < len(bindingRows) && numBytes+len(bindingRows[rowNum]) < inputStreamBufferSize {
+		for numBytes < inputStreamBufferSize && rowNum < len(bindingRows) {
 			numBytes += len(bindingRows[rowNum])
 			rowNum++
 		}
@@ -295,24 +294,11 @@ func supportedArrayBind(nv *driver.NamedValue) bool {
 		// Support for bulk array binding insertion using []interface{}
 		nvValue := reflect.ValueOf(nv)
 		if nvValue.Kind() == reflect.Ptr {
-			interfaceSlice := reflect.Indirect(reflect.ValueOf(nv.Value))
-			if interfaceSlice.Kind() == reflect.Slice {
-				for i := 0; i < interfaceSlice.Len(); i++ {
-					val := interfaceSlice.Index(i)
-					if val.CanInterface() {
-						switch val.Interface().(type) {
-						case time.Time:
-							// TODO support date, time, timestamps
-							return false
-						default:
-							continue
-						}
-					}
-				}
+			value := reflect.Indirect(reflect.ValueOf(nv.Value))
+			if value.Kind() == reflect.Slice || value.Kind() == reflect.Struct {
 				return true
 			}
 		}
-
 		return false
 	}
 }
