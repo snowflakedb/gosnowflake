@@ -14,29 +14,24 @@ func TestPutGetFileSmallDataViaUserStage(t *testing.T) {
 	if os.Getenv("AWS_ACCESS_KEY_ID") == "" {
 		t.Skip("this test requires to change the internal parameter")
 	}
-	putGetUserStage(t, "", 5, 1, false)
+	putGetUserStage(t, 5, 1, false)
 }
 
 func TestPutGetStreamSmallDataViaUserStage(t *testing.T) {
 	if os.Getenv("AWS_ACCESS_KEY_ID") == "" {
 		t.Skip("this test requires to change the internal parameter")
 	}
-	putGetUserStage(t, "", 1, 1, true)
+	putGetUserStage(t, 1, 1, true)
 }
 
-func putGetUserStage(t *testing.T, tmpDir string, numberOfFiles int, numberOfLines int, isStream bool) {
+func putGetUserStage(t *testing.T, numberOfFiles int, numberOfLines int, isStream bool) {
 	if os.Getenv("AWS_SECRET_ACCESS_KEY") == "" {
 		t.Fatal("no aws secret access key found")
 	}
-	tmpDir, err := os.MkdirTemp(tmpDir, "data")
+	tmpDir, err := generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, t.TempDir())
 	if err != nil {
 		t.Error(err)
 	}
-	tmpDir, err = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
 	var files string
 	if isStream {
 		list, err := os.ReadDir(tmpDir)

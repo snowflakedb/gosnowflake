@@ -91,11 +91,7 @@ func TestEncryptDecryptFilePadding(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(fmt.Sprintf("%v_%v", test.numberOfBytesInEachRow, test.numberOfLines), func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", "data")
-			if err != nil {
-				t.Error(err)
-			}
-			tmpDir, err = generateKLinesOfNByteRows(test.numberOfLines, test.numberOfBytesInEachRow, tmpDir)
+			tmpDir, err := generateKLinesOfNByteRows(test.numberOfLines, test.numberOfBytesInEachRow, t.TempDir())
 			if err != nil {
 				t.Error(err)
 			}
@@ -114,11 +110,7 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 
 	numberOfFiles := 1
 	numberOfLines := 10000
-	tmpDir, err := os.MkdirTemp("", "data")
-	if err != nil {
-		t.Error(err)
-	}
-	tmpDir, err = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
+	tmpDir, err := generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, t.TempDir())
 	if err != nil {
 		t.Error(err)
 	}
@@ -163,12 +155,6 @@ func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected i
 }
 
 func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (string, error) {
-	if tmpDir == "" {
-		_, err := os.MkdirTemp(tmpDir, "data")
-		if err != nil {
-			return "", err
-		}
-	}
 	fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(numLines*numBytes), 10))
 	f, err := os.Create(fname)
 	if err != nil {
@@ -185,12 +171,6 @@ func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (strin
 }
 
 func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string, error) {
-	if tmpDir == "" {
-		_, err := os.MkdirTemp(tmpDir, "data")
-		if err != nil {
-			return "", err
-		}
-	}
 	for i := 0; i < n; i++ {
 		fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10))
 		f, err := os.Create(fname)
