@@ -34,19 +34,17 @@ func TestPutError(t *testing.T) {
 	if isWindows {
 		t.Skip("permission model is different")
 	}
-	tmpDir, err := os.MkdirTemp("", "putfiledir")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1")
 	remoteLocation := filepath.Join(tmpDir, "remote_loc")
 	f, err := os.OpenFile(file1, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		t.Error(err)
 	}
+	defer f.Close()
 	f.WriteString("test1")
 	os.Chmod(file1, 0000)
+	defer os.Chmod(file1, 0777)
 
 	data := &execResponseData{
 		Command:           string(uploadCommand),
@@ -242,11 +240,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, err := os.MkdirTemp("", "put")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.OpenFile(testData, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
@@ -282,11 +276,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 }
 
 func TestPutOverwrite(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "data")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.OpenFile(testData, os.O_CREATE|os.O_RDWR, os.ModePerm)
 	if err != nil {
@@ -373,11 +363,7 @@ func TestPutGetStream(t *testing.T) {
 }
 
 func testPutGet(t *testing.T, isStream bool) {
-	tmpDir, err := os.MkdirTemp("", "put_get")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
 	tableName := randomString(5)
@@ -386,7 +372,7 @@ func testPutGet(t *testing.T, isStream bool) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
