@@ -80,6 +80,8 @@ type Config struct {
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 
 	DisableTelemetry bool // indicates whether to disable telemetry
+
+	Tracing string // sets logging level
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
@@ -189,6 +191,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.InsecureMode {
 		params.Add("insecureMode", strconv.FormatBool(cfg.InsecureMode))
+	}
+	if cfg.Tracing != "" {
+		params.Add("tracing", cfg.Tracing)
 	}
 
 	params.Add("ocspFailOpen", strconv.FormatBool(cfg.OCSPFailOpen != OCSPFailOpenFalse))
@@ -604,6 +609,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			} else {
 				cfg.ValidateDefaultParameters = ConfigBoolFalse
 			}
+		case "tracing":
+			cfg.Tracing = value
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
