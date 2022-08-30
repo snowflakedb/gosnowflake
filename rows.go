@@ -28,6 +28,13 @@ var (
 	maxChunkDownloaderErrorCounter = 5
 )
 
+// SnowflakeRows provides an API for methods exposed to the clients
+type SnowflakeRows interface {
+	GetQueryID() string
+	GetStatus() queryStatus
+	GetArrowBatches() ([]*ArrowBatch, error)
+}
+
 type snowflakeRows struct {
 	sc                  *snowflakeConn
 	ChunkDownloader     chunkDownloader
