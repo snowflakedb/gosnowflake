@@ -186,6 +186,7 @@ func (sc *snowflakeConn) BeginTx(
 
 func (sc *snowflakeConn) cleanup() {
 	// must flush log buffer while the process is running.
+	sc.rest.Client.CloseIdleConnections()
 	sc.rest = nil
 	sc.cfg = nil
 }
@@ -194,13 +195,13 @@ func (sc *snowflakeConn) Close() (err error) {
 	logger.WithContext(sc.ctx).Infoln("Close")
 	sc.telemetry.sendBatch()
 	sc.stopHeartBeat()
+	defer sc.cleanup()
 
 	if !sc.cfg.KeepSessionAlive {
 		if err = sc.rest.FuncCloseSession(sc.ctx, sc.rest, sc.rest.RequestTimeout); err != nil {
 			logger.Error(err)
 		}
 	}
-	sc.cleanup()
 	return nil
 }
 
