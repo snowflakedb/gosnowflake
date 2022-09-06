@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -90,11 +89,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 	if !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, err := ioutil.TempDir("", "aws_put")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	fname := filepath.Join(tmpDir, "test_put_get_with_aws.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
 
@@ -102,7 +97,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err := ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
@@ -202,11 +197,7 @@ func TestPretendToPutButList(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, err := ioutil.TempDir("", "aws_put")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	fname := filepath.Join(tmpDir, "test_put_get_with_aws.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
 
@@ -214,7 +205,7 @@ func TestPretendToPutButList(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err := ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
@@ -269,11 +260,7 @@ func TestPutGetAWSStage(t *testing.T) {
 		t.Skip("skipping non aws environment")
 	}
 
-	tmpDir, err := ioutil.TempDir("", "put_get")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	name := "test_put_get.txt.gz"
 	fname := filepath.Join(tmpDir, name)
 	originalContents := "123,test1\n456,test2\n"
@@ -283,7 +270,7 @@ func TestPutGetAWSStage(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 

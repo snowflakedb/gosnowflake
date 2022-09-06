@@ -7,7 +7,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -60,7 +59,7 @@ func TestEncryptDecryptFile(t *testing.T) {
 		t.Error(err)
 	}
 	defer fd.Close()
-	content, err := ioutil.ReadAll(fd)
+	content, err := io.ReadAll(fd)
 	if err != nil {
 		t.Error(err)
 	}
@@ -91,11 +90,8 @@ func TestEncryptDecryptFilePadding(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		tmpDir, err := ioutil.TempDir("", "data")
-		if err != nil {
-			t.Error(err)
-		}
-		tmpDir, err = generateKLinesOfNByteRows(test.numberOfLines, test.numberOfBytesInEachRow, tmpDir)
+		tmpDir := t.TempDir()
+		tmpDir, err := generateKLinesOfNByteRows(t, test.numberOfLines, test.numberOfBytesInEachRow, tmpDir)
 		if err != nil {
 			t.Error(err)
 		}
@@ -113,11 +109,8 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 
 	numberOfFiles := 1
 	numberOfLines := 10000
-	tmpDir, err := ioutil.TempDir("", "data")
-	if err != nil {
-		t.Error(err)
-	}
-	tmpDir, err = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
+	tmpDir := t.TempDir()
+	tmpDir, err := generateKLinesOfNFiles(t, numberOfLines, numberOfFiles, false, tmpDir)
 	if err != nil {
 		t.Error(err)
 	}
@@ -126,6 +119,7 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 }
 
 func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected int, tmpDir string) {
+	t.Helper()
 	defer os.RemoveAll(tmpDir)
 	files, err := filepath.Glob(filepath.Join(tmpDir, "file*"))
 	if err != nil {
@@ -161,9 +155,10 @@ func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected i
 	}
 }
 
-func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (string, error) {
+func generateKLinesOfNByteRows(t *testing.T, numLines int, numBytes int, tmpDir string) (string, error) {
+	t.Helper()
 	if tmpDir == "" {
-		_, err := ioutil.TempDir(tmpDir, "data")
+		_, err := os.MkdirTemp(tmpDir, "data")
 		if err != nil {
 			return "", err
 		}
@@ -183,9 +178,10 @@ func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (strin
 	return tmpDir, nil
 }
 
-func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string, error) {
+func generateKLinesOfNFiles(t *testing.T, k int, n int, compress bool, tmpDir string) (string, error) {
+	t.Helper()
 	if tmpDir == "" {
-		_, err := ioutil.TempDir(tmpDir, "data")
+		_, err := os.MkdirTemp(tmpDir, "data")
 		if err != nil {
 			return "", err
 		}
@@ -230,8 +226,8 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 					return "", err
 				}
 				gzipCmd.Start()
-				ioutil.ReadAll(gzipOut)
-				ioutil.ReadAll(gzipErr)
+				io.ReadAll(gzipOut)
+				io.ReadAll(gzipErr)
 				gzipCmd.Wait()
 			} else {
 				fOut, err := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, os.ModePerm)

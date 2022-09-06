@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/user"
@@ -35,11 +34,7 @@ func TestPutError(t *testing.T) {
 	if isWindows {
 		t.Skip("permission model is different")
 	}
-	tmpDir, err := ioutil.TempDir("", "putfiledir")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1")
 	remoteLocation := filepath.Join(tmpDir, "remote_loc")
 	f, err := os.OpenFile(file1, os.O_CREATE|os.O_WRONLY, os.ModePerm)
@@ -243,11 +238,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, err := ioutil.TempDir("", "put")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.OpenFile(testData, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
@@ -283,11 +274,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 }
 
 func TestPutOverwrite(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "data")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.OpenFile(testData, os.O_CREATE|os.O_RDWR, os.ModePerm)
 	if err != nil {
@@ -374,11 +361,7 @@ func TestPutGetStream(t *testing.T) {
 }
 
 func testPutGet(t *testing.T, isStream bool) {
-	tmpDir, err := ioutil.TempDir("", "put_get")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
 	tableName := randomString(5)
@@ -387,7 +370,7 @@ func testPutGet(t *testing.T, isStream bool) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 

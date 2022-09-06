@@ -4,7 +4,7 @@ package main
 import (
 	"bytes"
 	"flag"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -36,7 +36,7 @@ func main() {
 	if res.StatusCode != http.StatusOK {
 		log.Fatalf("failed to get 200: %v", res.StatusCode)
 	}
-	_, err = ioutil.ReadAll(res.Body)
+	_, err = io.ReadAll(res.Body)
 	if err != nil {
 		log.Fatalf("failed to read content body for %v", targetURL)
 	}

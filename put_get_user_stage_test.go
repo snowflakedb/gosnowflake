@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,18 +28,18 @@ func putGetUserStage(t *testing.T, tmpDir string, numberOfFiles int, numberOfLin
 	if os.Getenv("AWS_SECRET_ACCESS_KEY") == "" {
 		t.Fatal("no aws secret access key found")
 	}
-	tmpDir, err := ioutil.TempDir(tmpDir, "data")
+	tmpDir, err := os.MkdirTemp(tmpDir, "data")
 	if err != nil {
 		t.Error(err)
 	}
-	tmpDir, err = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
+	tmpDir, err = generateKLinesOfNFiles(t, numberOfLines, numberOfFiles, false, tmpDir)
 	if err != nil {
 		t.Error(err)
 	}
 	defer os.RemoveAll(tmpDir)
 	var files string
 	if isStream {
-		list, err := ioutil.ReadDir(tmpDir)
+		list, err := os.ReadDir(tmpDir)
 		if err != nil {
 			t.Error(err)
 		}
