@@ -314,7 +314,7 @@ func TestOCSPRetry(t *testing.T) {
 		body:    []byte{1, 2, 3},
 	}
 	res, b, st := retryOCSP(
-		context.TODO(),
+		context.Background(),
 		client, fakeRequestFunc,
 		dummyOCSPHost,
 		make(map[string]string), []byte{0}, certs[len(certs)-1], 10*time.Second)
@@ -327,7 +327,7 @@ func TestOCSPRetry(t *testing.T) {
 		body:    []byte{1, 2, 3},
 	}
 	res, b, st = retryOCSP(
-		context.TODO(),
+		context.Background(),
 		client, fakeRequestFunc,
 		dummyOCSPHost,
 		make(map[string]string), []byte{0}, certs[len(certs)-1], 5*time.Second)
@@ -347,7 +347,7 @@ func TestOCSPCacheServerRetry(t *testing.T) {
 		body:    []byte{1, 2, 3},
 	}
 	res, st := checkOCSPCacheServer(
-		context.TODO(), client, fakeRequestFunc, dummyOCSPHost, 20*time.Second)
+		context.Background(), client, fakeRequestFunc, dummyOCSPHost, 20*time.Second)
 	if st.err == nil {
 		t.Errorf("should fail: %v", res)
 	}
@@ -357,7 +357,7 @@ func TestOCSPCacheServerRetry(t *testing.T) {
 		body:    []byte{1, 2, 3},
 	}
 	res, st = checkOCSPCacheServer(
-		context.TODO(), client, fakeRequestFunc, dummyOCSPHost, 10*time.Second)
+		context.Background(), client, fakeRequestFunc, dummyOCSPHost, 10*time.Second)
 	if st.err == nil {
 		t.Errorf("should fail: %v", res)
 	}

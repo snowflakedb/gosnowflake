@@ -170,7 +170,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		fakeRequestFunc, urlPtr, make(map[string]string), 60*time.Second).doPost().setBody([]byte{0}).execute()
 	if err != nil {
@@ -199,7 +199,7 @@ func TestRetryQueryFail(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		fakeRequestFunc, urlPtr, make(map[string]string), 60*time.Second).doPost().setBody([]byte{0}).execute()
 	if err == nil {
@@ -229,7 +229,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		fakeRequestFunc, urlPtr, make(map[string]string), 60*time.Second).doPost().setBody([]byte{0}).execute()
 	if err != nil {
@@ -249,7 +249,7 @@ func TestRetryLoginRequest(t *testing.T) {
 		success: false,
 		timeout: true,
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		fakeRequestFunc, urlPtr, make(map[string]string), 10*time.Second).doPost().setBody([]byte{0}).execute()
 	if err == nil {

@@ -666,7 +666,7 @@ func downloadOCSPCacheServer() {
 		Timeout:   timeout,
 		Transport: snowflakeInsecureTransport,
 	}
-	ret, ocspStatus := checkOCSPCacheServer(context.TODO(), ocspClient, http.NewRequest, u, timeout)
+	ret, ocspStatus := checkOCSPCacheServer(context.Background(), ocspClient, http.NewRequest, u, timeout)
 	if ocspStatus.code != ocspSuccess {
 		return
 	}
@@ -703,7 +703,7 @@ func getAllRevocationStatus(ctx context.Context, verifiedChains []*x509.Certific
 // verifyPeerCertificateSerial verifies the certificate revocation status in serial.
 func verifyPeerCertificateSerial(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
 	overrideCacheDir()
-	return verifyPeerCertificate(context.TODO(), verifiedChains)
+	return verifyPeerCertificate(context.Background(), verifiedChains)
 }
 
 func overrideCacheDir() {

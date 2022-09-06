@@ -40,8 +40,8 @@ func TestCtxVal(t *testing.T) {
 
 func TestLogEntryCtx(t *testing.T) {
 	var log = logger
-	var ctx1 = context.WithValue(context.TODO(), SFSessionIDKey, "sessID1")
-	var ctx2 = context.WithValue(context.TODO(), SFSessionUserKey, "admin")
+	var ctx1 = context.WithValue(context.Background(), SFSessionIDKey, "sessID1")
+	var ctx2 = context.WithValue(context.Background(), SFSessionUserKey, "admin")
 
 	fs1 := context2Fields(ctx1)
 	fs2 := context2Fields(ctx2)

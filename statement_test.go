@@ -24,7 +24,7 @@ func TestGetQueryID(t *testing.T) {
 	db := openDB(t)
 	defer db.Close()
 
-	ctx := context.TODO()
+	ctx := context.Background()
 	conn, err := db.Conn(ctx)
 	if err != nil {
 		t.Error(err)
