@@ -2,7 +2,7 @@ name: Run semgrep checks
 
 on:
   pull_request:
-      branches: [main]
+      branches: [main, master]
 
 permissions:
   contents: read
