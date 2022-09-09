@@ -195,7 +195,8 @@ func stringToValue(
 	dest *driver.Value,
 	srcColumnMeta execResponseRowType,
 	srcValue *string,
-	loc *time.Location) error {
+	loc *time.Location,
+) error {
 	if srcValue == nil {
 		logger.Debugf("snowflake data type: %v, raw value: nil", srcColumnMeta.Type)
 		*dest = nil
@@ -308,7 +309,8 @@ func arrowToValue(
 	srcColumnMeta execResponseRowType,
 	srcValue array.Interface,
 	loc *time.Location,
-	higherPrecision bool) error {
+	higherPrecision bool,
+) error {
 	data := srcValue.Data()
 	var err error
 	if len(*destcol) != srcValue.Data().Len() {
@@ -427,11 +429,7 @@ func arrowToValue(
 	case realType:
 		for i, flt64 := range array.NewFloat64Data(data).Float64Values() {
 			if !srcValue.IsNull(i) {
-				if higherPrecision {
-					(*destcol)[i] = flt64
-				} else {
-					(*destcol)[i] = fmt.Sprintf("%f", flt64)
-				}
+				(*destcol)[i] = flt64
 			}
 		}
 		return err
@@ -909,8 +907,8 @@ func arrowToRecord(record array.Record, rowType []execResponseRowType, loc *time
 		srcColumnMeta := rowType[i]
 		data := col.Data()
 
-		//TODO: confirm that it is okay to be using higher precision logic for conversions
-		var newCol = col
+		// TODO: confirm that it is okay to be using higher precision logic for conversions
+		newCol := col
 		switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
 		case fixedType:
 			switch col.DataType().ID() {
@@ -1141,7 +1139,7 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 			converted = false
 		}
 
-		var newField = f
+		newField := f
 		if converted {
 			newField = arrow.Field{
 				Name:     f.Name,
