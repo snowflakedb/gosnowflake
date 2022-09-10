@@ -154,6 +154,10 @@ func (rows *snowflakeRows) GetStatus() queryStatus {
 
 // GetArrowBatches returns an array of ArrowBatch objects to retrieve data in array.Record format
 func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
+		return nil, err
+	}
+
 	return rows.ChunkDownloader.getArrowBatches(), nil
 }
 
