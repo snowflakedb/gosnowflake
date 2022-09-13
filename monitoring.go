@@ -258,6 +258,44 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 	return nil
 }
 
+// Wait for query to complete from a query id from /queries/<qid>/result endpoint.
+func (sc *snowflakeConn) blockOnRunningQuery(
+    ctx context.Context, qid string) error {
+    resultPath := fmt.Sprintf(urlQueriesResultFmt, qid)
+    resp, err := sc.getQueryResultResp(ctx, resultPath)
+    if err != nil {
+        logger.WithContext(ctx).Errorf("error: %v", err)
+        if resp != nil {
+            code, err := strconv.Atoi(resp.Code)
+            if err != nil {
+                return err
+            }
+            return (&SnowflakeError{
+                Number:   code,
+                SQLState: resp.Data.SQLState,
+                Message:  err.Error(),
+                QueryID:  resp.Data.QueryID,
+            }).exceptionTelemetry(sc)
+        }
+        return err
+    }
+    if !resp.Success {
+        message := resp.Message
+        code, err := strconv.Atoi(resp.Code)
+        if err != nil {
+            code = ErrQueryStatus
+            message = fmt.Sprintf("%s: (failed to parse original code: %s: %s)", message, resp.Code, err.Error())
+        }
+        return (&SnowflakeError{
+            Number:   code,
+            SQLState: resp.Data.SQLState,
+            Message:  message,
+            QueryID:  resp.Data.QueryID,
+        }).exceptionTelemetry(sc)
+    }
+    return nil
+}
+
 // prepare a Rows object to return for query of 'qid'
 func (sc *snowflakeConn) buildRowsForRunningQuery(
 	ctx context.Context,
@@ -273,6 +311,16 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 		return nil, err
 	}
 	return rows, nil
+}
+
+func (sc *snowflakeConn) blockOnQueryCompletion(
+    ctx context.Context,
+    qid string,
+) (error) {
+    if err := sc.blockOnRunningQuery(ctx, qid); err != nil {
+        return err
+    }
+    return nil
 }
 
 func mkMonitoringFetcher(sc *snowflakeConn, qid string, runtime time.Duration) *monitoringResult {
