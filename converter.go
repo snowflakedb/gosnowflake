@@ -427,11 +427,7 @@ func arrowToValue(
 	case realType:
 		for i, flt64 := range array.NewFloat64Data(data).Float64Values() {
 			if !srcValue.IsNull(i) {
-				if higherPrecision {
-					(*destcol)[i] = flt64
-				} else {
-					(*destcol)[i] = fmt.Sprintf("%f", flt64)
-				}
+				(*destcol)[i] = flt64
 			}
 		}
 		return err
