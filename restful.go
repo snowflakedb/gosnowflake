@@ -270,6 +270,12 @@ func postRestfulQueryHelper(
 
 		isSessionRenewed := false
 
+		// If this is a SubmitSync operation and the query is still running, return
+		// immediately. The caller will be responsible for using the query ID to
+		// fetch query results.
+		if respd.Code == queryInProgressCode && isSubmitSync(ctx) {
+			return &respd, nil
+		}
 		// if asynchronous query in progress, kick off retrieval but return object
 		if respd.Code == queryInProgressAsyncCode && isAsyncMode(ctx) {
 			return sr.processAsync(ctx, &respd, headers, timeout, cfg, requestID)
