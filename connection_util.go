@@ -162,6 +162,15 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 	}
 }
 
+func isSubmitSync(ctx context.Context) bool {
+	val := ctx.Value(submitSync)
+	if val == nil {
+		return false
+	}
+	a, ok := val.(bool)
+	return a && ok
+}
+
 func isAsyncMode(ctx context.Context) bool {
 	val := ctx.Value(asyncMode)
 	if val == nil {
