@@ -374,6 +374,12 @@ func (sc *snowflakeConn) queryContextInternal(
 	rows.queryID = sc.QueryID
 	rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
 
+	if isSubmitSync(ctx) && data.Code == queryInProgressCode {
+		rows.status = QueryStatusInProgress
+		return rows, nil
+	}
+	rows.status = QueryStatusComplete
+
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
 		if err = sc.handleMultiQuery(ctx, data.Data, rows); err != nil {
@@ -827,4 +833,30 @@ func (sc *snowflakeConn) FetchMonitoringResult(queryID string, runtime time.Dura
 	// set the fake runtime just to bypass fast query
 	monitoringResult := mkMonitoringFetcher(sc, queryID, runtime)
 	return monitoringResult, nil
+}
+
+// QuerySubmitter is an interface that allows executing a query synchronously
+// while only fetching the result if the query completes within 45 seconds.
+type QuerySubmitter interface {
+	SubmitQuerySync(ctx context.Context, query string) (SnowflakeResult, error)
+}
+
+// SubmitQuerySync submits the given query for execution, and waits synchronously
+// for up to 45 seconds.
+// If the query complete within that duration, the SnowflakeResult is marked as complete,
+// and the results can be fetched via the GetArrowBatches() method.
+// Otherwise, the caller can use the provided query ID to fetch the query's results
+// asynchronously. The caller must fetch the results of a query that is still running
+// within 300 seconds, otherwise the query will be aborted.
+func (sc *snowflakeConn) SubmitQuerySync(
+	ctx context.Context,
+	query string,
+	args ...driver.NamedValue,
+) (SnowflakeResult, error) {
+	rows, err := sc.queryContextInternal(WithSubmitSync(WithArrowBatches(ctx)), query, args)
+	if err != nil {
+		return nil, err
+	}
+
+	return rows.(*snowflakeRows), nil
 }
