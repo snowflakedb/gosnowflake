@@ -409,6 +409,11 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	return cfg, nil
 }
 
+// FillMissingConfigParameters fills missing parameters in the given config.
+func FillMissingConfigParameters(cfg *Config) error {
+	return fillMissingConfigParameters(cfg)
+}
+
 func fillMissingConfigParameters(cfg *Config) error {
 	posDash := strings.LastIndex(cfg.Account, "-")
 	if posDash > 0 {
