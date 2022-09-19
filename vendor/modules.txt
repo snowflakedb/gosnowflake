@@ -133,7 +133,7 @@ github.com/pkg/browser
 # github.com/sirupsen/logrus v1.8.1
 ## explicit; go 1.13
 github.com/sirupsen/logrus
-# github.com/snowflakedb/gosnowflake v1.6.10
+# github.com/snowflakedb/gosnowflake v1.6.13
 ## explicit; go 1.17
 github.com/snowflakedb/gosnowflake
 # golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
