@@ -811,7 +811,7 @@ func (sc *snowflakeConn) FetchResult(ctx context.Context, qid string) (driver.Ro
 // go sql library but is exported to clients who can make use of this
 // capability explicitly.
 func (sc *snowflakeConn) WaitForQueryCompletion(ctx context.Context, qid string) error {
-    return sc.blockOnQueryCompletion(ctx, qid)
+	return sc.blockOnQueryCompletion(ctx, qid)
 }
 
 // ResultFetcher is an interface which allows a query result to be
@@ -868,4 +868,19 @@ func (sc *snowflakeConn) SubmitQuerySync(
 	}
 
 	return rows.(*snowflakeRows), nil
+}
+
+// TokenGetter is an interface that can be used to get the current tokens and session
+// ID from a Snowflake connection. This returns the following values:
+//  - token: The temporary credential used to authenticate requests to Snowflake's API.
+//           This is valid for one hour.
+//  - masterToken: Used to refresh the auth token above. Valid for four hours.
+//  - sessionID: The ID of the Snowflake session corresponding to this connection.
+type TokenGetter interface {
+	GetTokens() (token string, masterToken string, sessionID int64)
+}
+
+func (sc *snowflakeConn) GetTokens() (token string, masterToken string, sessionID int64) {
+	// TODO: If possible, check if the token will expire soon, and refresh it preemptively.
+	return sc.rest.TokenAccessor.GetTokens()
 }
