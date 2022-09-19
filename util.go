@@ -208,6 +208,11 @@ type simpleTokenAccessor struct {
 	tokenLock    sync.RWMutex // Used to synchronize SetTokens and GetTokens
 }
 
+// GetSimpleTokenAccessor returns an empty TokenAccessor.
+func GetSimpleTokenAccessor() TokenAccessor {
+	return getSimpleTokenAccessor()
+}
+
 func getSimpleTokenAccessor() TokenAccessor {
 	return &simpleTokenAccessor{sessionID: -1}
 }
