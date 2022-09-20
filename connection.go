@@ -186,7 +186,9 @@ func (sc *snowflakeConn) BeginTx(
 
 func (sc *snowflakeConn) cleanup() {
 	// must flush log buffer while the process is running.
-	sc.rest.Client.CloseIdleConnections()
+	if sc.rest != nil && sc.rest.Client != nil {
+		sc.rest.Client.CloseIdleConnections()
+	}
 	sc.rest = nil
 	sc.cfg = nil
 }
