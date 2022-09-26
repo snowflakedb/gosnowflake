@@ -12,6 +12,10 @@ import (
 var (
 	timezones           map[int]*time.Location
 	updateTimezoneMutex *sync.Mutex
+
+	localLocation      *time.Location
+	locationCache      = make(map[string]*time.Location)
+	locationCacheMutex sync.RWMutex
 )
 
 // Location returns an offset (minutes) based Location object for Snowflake database.
@@ -88,17 +92,33 @@ func init() {
 		logger.Debugf("offset: %v", i)
 		timezones[i] = genTimezone(i)
 	}
+
+	localLocation = time.Now().Location()
 }
 
 // retrieve current location based on connection
 func getCurrentLocation(params map[string]*string) *time.Location {
-	loc := time.Now().Location()
-	var err error
-	if tz, ok := params["timezone"]; ok {
+	tz, ok := params["timezone"]
+	if !ok {
+		return localLocation
+	}
+
+	locationCacheMutex.RLock()
+	loc, ok := locationCache[*tz]
+	locationCacheMutex.RUnlock()
+
+	if !ok {
+		locationCacheMutex.Lock()
+		defer locationCacheMutex.Unlock()
+
+		var err error
 		loc, err = time.LoadLocation(*tz)
 		if err != nil {
-			loc = time.Now().Location()
+			loc = localLocation
 		}
+
+		locationCache[*tz] = loc
 	}
+
 	return loc
 }
