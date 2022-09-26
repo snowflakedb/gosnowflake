@@ -154,6 +154,8 @@ func (rows *snowflakeRows) GetStatus() queryStatus {
 
 // GetArrowBatches returns an array of ArrowBatch objects to retrieve data in array.Record format
 func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
+	// Wait for all arrow batches before fetching.
+	// Otherwise, a panic error "invalid memory address or nil pointer dereference" will be thrown.
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return nil, err
 	}

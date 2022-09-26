@@ -464,3 +464,80 @@ func TestWithArrowBatches(t *testing.T) {
 		t.Errorf("number of rows from arrow batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
 	}
 }
+
+func TestWithArrowBatchesAsync(t *testing.T) {
+	ctx := WithAsyncMode(context.Background())
+	ctx = WithArrowBatches(ctx)
+	numrows := 50000 // approximately 10 ArrowBatch objects
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	query := fmt.Sprintf(selectRandomGenerator, numrows)
+	rows, err := sc.QueryContext(ctx, query, []driver.NamedValue{})
+	if err != nil {
+		t.Error(err)
+	}
+	defer rows.Close()
+
+	// getting result batches
+	// this will fail if GetArrowBatches() is not a blocking call
+	batches, err := rows.(*snowflakeRows).GetArrowBatches()
+	if err != nil {
+		t.Error(err)
+	}
+	numBatches := len(batches)
+	maxWorkers := 10
+	type count struct {
+		m       sync.Mutex
+		recVal  int
+		metaVal int
+	}
+	cnt := count{recVal: 0}
+	var wg sync.WaitGroup
+	chunks := make(chan int, numBatches)
+
+	// kicking off download workers - each of which will call fetch on a different result batch
+	for w := 1; w <= maxWorkers; w++ {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, chunks <-chan int) {
+			defer wg.Done()
+
+			for i := range chunks {
+				rec, err := batches[i].Fetch()
+				if err != nil {
+					t.Error(err)
+				}
+				for _, r := range *rec {
+					cnt.m.Lock()
+					cnt.recVal += int(r.NumRows())
+					cnt.m.Unlock()
+				}
+				cnt.m.Lock()
+				cnt.metaVal += batches[i].rowCount
+				cnt.m.Unlock()
+			}
+		}(&wg, chunks)
+	}
+	for j := 0; j < numBatches; j++ {
+		chunks <- j
+	}
+	close(chunks)
+
+	// wait for workers to finish fetching and check row counts
+	wg.Wait()
+	if cnt.recVal != numrows {
+		t.Errorf("number of rows from records didn't match. expected: %v, got: %v", numrows, cnt.recVal)
+	}
+	if cnt.metaVal != numrows {
+		t.Errorf("number of rows from arrow batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
+	}
+}
