@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -82,6 +83,8 @@ type Config struct {
 	DisableTelemetry bool // indicates whether to disable telemetry
 
 	Tracing string // sets logging level
+
+	loc atomic.Value
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
@@ -93,6 +96,15 @@ func (c *Config) ocspMode() string {
 		return ocspModeFailOpen
 	}
 	return ocspModeFailClosed
+}
+
+func (c *Config) location() *time.Location {
+	if loc, ok := c.loc.Load().(*time.Location); ok {
+		return loc
+	}
+	loc := getCurrentLocation(c.Params)
+	c.loc.Store(loc)
+	return loc
 }
 
 // DSN constructs a DSN for Snowflake db.
