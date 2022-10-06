@@ -27,21 +27,23 @@ type authOKTAResponse struct {
 /*
 authenticateBySAML authenticates a user by SAML
 SAML Authentication
-1.  query GS to obtain IDP token and SSO url
-2.  IMPORTANT Client side validation:
-	validate both token url and sso url contains same prefix
-	(protocol + host + port) as the given authenticator url.
-	Explanation:
-	This provides a way for the user to 'authenticate' the IDP it is
-	sending his/her credentials to.  Without such a check, the user could
-	be coerced to provide credentials to an IDP impersonator.
-3.  query IDP token url to authenticate and retrieve access token
-4.  given access token, query IDP URL snowflake app to get SAML response
-5.  IMPORTANT Client side validation:
-	validate the post back url come back with the SAML response
-	contains the same prefix as the Snowflake's server url, which is the
-	intended destination url to Snowflake.
+ 1. query GS to obtain IDP token and SSO url
+ 2. IMPORTANT Client side validation:
+    validate both token url and sso url contains same prefix
+    (protocol + host + port) as the given authenticator url.
+    Explanation:
+    This provides a way for the user to 'authenticate' the IDP it is
+    sending his/her credentials to.  Without such a check, the user could
+    be coerced to provide credentials to an IDP impersonator.
+ 3. query IDP token url to authenticate and retrieve access token
+ 4. given access token, query IDP URL snowflake app to get SAML response
+ 5. IMPORTANT Client side validation:
+    validate the post back url come back with the SAML response
+    contains the same prefix as the Snowflake's server url, which is the
+    intended destination url to Snowflake.
+
 Explanation:
+
 	This emulates the behavior of IDP initiated login flow in the user
 	browser where the IDP instructs the browser to POST the SAML
 	assertion to the specific SP endpoint.  This is critical in

@@ -1,6 +1,6 @@
 module github.com/snowflakedb/gosnowflake
 
-go 1.17
+go 1.18
 
 require (
 	github.com/Azure/azure-storage-blob-go v0.15.0
