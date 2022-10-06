@@ -226,6 +226,25 @@ func postAuthCheckJWTToken(_ context.Context, _ *snowflakeRestful, _ *url.Values
 	}, nil
 }
 
+func postAuthCheckUsernamePasswordMfa(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
+	var ar authRequest
+	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+		return nil, err
+	}
+
+	return &authResponse{
+		Success: true,
+		Data: authResponseMain{
+			Token:       "t",
+			MasterToken: "m",
+			MfaToken:    "mockedMfaToken",
+			SessionInfo: authResponseSessionInfo{
+				DatabaseName: "dbn",
+			},
+		},
+	}, nil
+}
+
 func getDefaultSnowflakeConn() *snowflakeConn {
 	cfg := Config{
 		Account:            "a",
@@ -467,5 +486,22 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 	sc.cfg.PrivateKey = invalidPrivateKey
 	if _, err = authenticate(context.TODO(), sc, []byte{}, []byte{}); err == nil {
 		t.Fatalf("invalid token passed")
+	}
+}
+
+func TestUnitAuthenticateUsernamePasswordMfa(t *testing.T) {
+	var err error
+	sr := &snowflakeRestful{
+		FuncPostAuth:  postAuthCheckUsernamePasswordMfa,
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = AuthTypeUsernamePasswordMFA
+	requestMfaToken := "true"
+	sc.cfg.Params[clientRequestMfaToken] = &requestMfaToken
+	sc.rest = sr
+	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	if err != nil {
+		t.Fatalf("failed to run. err: %v", err)
 	}
 }
