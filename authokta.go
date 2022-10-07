@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -241,7 +241,7 @@ func postAuthSAML(
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
 		}
 	}
-	_, err = ioutil.ReadAll(resp.Body)
+	_, err = io.ReadAll(resp.Body)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
@@ -281,7 +281,7 @@ func postAuthOKTA(
 		}
 		return &respd, nil
 	}
-	_, err = ioutil.ReadAll(resp.Body)
+	_, err = io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
@@ -315,7 +315,7 @@ func getSSO(
 		return nil, err
 	}
 	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
