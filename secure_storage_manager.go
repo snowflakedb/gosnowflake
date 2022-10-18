@@ -4,7 +4,6 @@ package gosnowflake
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -223,7 +222,7 @@ func readTemporaryCacheFile() map[string]string {
 		logger.Debug("Cache file doesn't exist. Skipping reading credential file.")
 		return nil
 	}
-	jsonData, err := ioutil.ReadFile(credCache)
+	jsonData, err := os.ReadFile(credCache)
 	if err != nil {
 		logger.Debugf("Failed to read credential file: %v", err)
 		return nil
@@ -268,7 +267,7 @@ func writeTemporaryCacheFile(input []byte) {
 		}
 		defer os.RemoveAll(credCacheLockFileName)
 
-		if err = ioutil.WriteFile(credCache, input, 0644); err != nil {
+		if err = os.WriteFile(credCache, input, 0644); err != nil {
 			logger.Debugf("Failed to write the cache file. File: %v err: %v.", credCache, err)
 		}
 	}
