@@ -720,6 +720,11 @@ func (rb *ArrowBatch) Fetch() (*[]array.Record, error) {
 	return rb.rec, nil
 }
 
+// GetRowCount returns the number of rows in an arrow batch
+func (rb *ArrowBatch) GetRowCount() int {
+	return rb.rowCount
+}
+
 func usesArrowBatches(ctx context.Context) bool {
 	val := ctx.Value(arrowBatches)
 	if val == nil {
