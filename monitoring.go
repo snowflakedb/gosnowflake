@@ -331,6 +331,11 @@ func (sc *snowflakeConn) blockOnRunningQuery(
 					return err
 				}
 			}
+			if code == -1 {
+				ok, deadline := ctx.Deadline()
+				logger.WithContext(ctx).Errorf("Deadline: %v, ok: %v", deadline, ok)
+				logger.WithContext(ctx).Errorf("response: %v, error: %v", resp, err)
+			}
 			return (&SnowflakeError{
 				Number:   code,
 				SQLState: resp.Data.SQLState,
