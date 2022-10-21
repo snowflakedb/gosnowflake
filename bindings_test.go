@@ -249,13 +249,6 @@ func TestBindingInterfaceString(t *testing.T) {
 		if s, ok := v3.(string); !ok || s != "t3" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
 		}
-		if s, ok := v4.(string); !ok {
-			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v4)
-		} else if d, err := strconv.ParseFloat(s, 64); err != nil {
-			dbt.Errorf("failed to convert to float. value: %v, err: %v", v1, err)
-		} else if d != 4.2 {
-			dbt.Errorf("failed to fetch. expected: 4.2, value: %v", v1)
-		}
 	})
 }
 

@@ -335,7 +335,7 @@ func arrowToValue(
 						if higherPrecision {
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%g", f)
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, f)
 						}
 					}
 				}
@@ -354,7 +354,7 @@ func arrowToValue(
 							f := intToBigFloat(val, srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%g", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -373,7 +373,7 @@ func arrowToValue(
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%g", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -392,7 +392,7 @@ func arrowToValue(
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%g", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -411,7 +411,7 @@ func arrowToValue(
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%g", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -431,11 +431,7 @@ func arrowToValue(
 		// e.g. FLOAT/REAL/DOUBLE
 		for i, flt64 := range array.NewFloat64Data(data).Float64Values() {
 			if !srcValue.IsNull(i) {
-				if higherPrecision {
-					(*destcol)[i] = flt64
-				} else {
-					(*destcol)[i] = fmt.Sprintf("%g", flt64)
-				}
+				(*destcol)[i] = flt64
 			}
 		}
 		return err
