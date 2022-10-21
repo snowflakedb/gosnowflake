@@ -253,21 +253,11 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 	}
 	url := sc.rest.getFullURL(resultPath, &param)
 
-
-	deadline, ok := ctx.Deadline()
-	var timeout time.Duration
-	if !ok {
-		timeout = sc.rest.RequestTimeout
-	} else {
-		// if we have a context deadline set we want to override the default
-		timeout = deadline.Sub(time.Now())
-	}
-
 	// internally, pulls on FuncGet until we have a result at the result location (queryID)
 	var response *execResponse
 	var err error
 	for response == nil || isQueryInProgress(response) {
-		response, err = sc.rest.getAsyncOrStatus(ctx, url, headers, timeout)
+		response, err = sc.rest.getAsyncOrStatus(ctx, url, headers, sc.rest.RequestTimeout)
 
 		// if the context is canceled, we have to cancel it manually now
 		if err != nil {
