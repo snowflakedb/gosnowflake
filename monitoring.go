@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -189,13 +190,31 @@ func (sc *snowflakeConn) checkQueryStatus(
 	return &queryRet, nil
 }
 
-// Waits 45 seconds for a query response; return early if query finishes 
+// try using the cache, log the cached result, but return the non
+// cached result
+func shouldSkipCache(ctx context.Context) bool {
+	val := ctx.Value(skipCache)
+	if val == nil {
+		return false
+	}
+	a, ok := val.(bool)
+	return a && ok
+}
+
+// Waits 45 seconds for a query response; return early if query finishes
 func (sc *snowflakeConn) getQueryResultResp(
 	ctx context.Context,
 	resultPath string,
 ) (*execResponse, error) {
+	var cachedResponse *execResponse
+	cachedResponse = nil
 	if respd, ok := sc.execRespCache.load(resultPath); ok {
-		return respd, nil
+		cachedResponse = respd
+		// return the cached response, unless we pass the flag saying to
+		// bypass the cache
+		if !shouldSkipCache(ctx) {
+			return respd, nil
+		}
 	}
 
 	headers := getHeaders()
@@ -225,6 +244,47 @@ func (sc *snowflakeConn) getQueryResultResp(
 		return nil, err
 	}
 
+	// if we are skipping the cache, log difference between cached and non cached result
+	if shouldSkipCache(ctx) {
+		qid := respd.Data.QueryID
+
+		// if there was no response in the cache anyway, log that and dont try to log anything else
+		if cachedResponse == nil {
+			logger.WithContext(ctx).Errorf("cached queryId: %v did not use cache", qid)
+
+		} else {
+			// log if there are any differences in the arrow encooded first chunk
+			arrowCached := cachedResponse.Data.RowSetBase64
+			arrowNonCached := respd.Data.RowSetBase64
+			if arrowCached != arrowNonCached {
+				logger.WithContext(ctx).Errorf("cached queryId arrow not equal: %v, arrowCached: %v, arrowNonCached: %v", qid, arrowCached, arrowNonCached)
+			} else {
+				logger.WithContext(ctx).Errorf("cached queryId: %v arrow portion is the same", qid)
+			}
+
+			// see how many rows there are in the cached chunks
+			chunksCached := cachedResponse.Data.Chunks
+			rowsCached := 0
+			for _, chunk := range chunksCached {
+				rowsCached += chunk.RowCount
+			}
+
+			// see how many rows there are in non cached chunks
+			chunksNonCached := cachedResponse.Data.Chunks
+			rowsNonCached := 0
+			for _, chunk := range chunksNonCached {
+				rowsNonCached += chunk.RowCount
+			}
+
+			if rowsNonCached == rowsCached {
+				logger.WithContext(ctx).Errorf("cached queryId: %v rows from chunks is the same", qid)
+			} else {
+				logger.WithContext(ctx).Errorf("cached queryId rows from chunks not equal: %v, rowsCached: %v, rowsNonCached: %v", qid, rowsCached, rowsNonCached)
+			}
+
+		}
+	}
+
 	sc.execRespCache.store(resultPath, respd)
 	return respd, nil
 }
@@ -233,9 +293,12 @@ func (sc *snowflakeConn) getQueryResultResp(
 func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 	ctx context.Context,
 	resultPath string,
+	qid string,
 ) (*execResponse, error) {
 	// if we already have the response; return that
-	if cachedResponse, ok := sc.execRespCache.load(resultPath); ok {
+	cachedResponse, ok := sc.execRespCache.load(resultPath)
+	logger.WithContext(ctx).Errorf("use cache: %v", ok)
+	if ok {
 		return cachedResponse, nil
 	}
 	requestID := getOrGenerateRequestIDFromContext(ctx)
@@ -253,21 +316,14 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 	}
 	url := sc.rest.getFullURL(resultPath, &param)
 
-
-	deadline, ok := ctx.Deadline()
-	var timeout time.Duration
-	if !ok {
-		timeout = sc.rest.RequestTimeout
-	} else {
-		// if we have a context deadline set we want to override the default
-		timeout = deadline.Sub(time.Now())
-	}
-
 	// internally, pulls on FuncGet until we have a result at the result location (queryID)
 	var response *execResponse
 	var err error
-	for response == nil || isQueryInProgress(response) {
-		response, err = sc.rest.getAsyncOrStatus(ctx, url, headers, timeout)
+	retries := 0
+
+	startTime := time.Now()
+	for response == nil || isQueryInProgress(response) || badResponse(ctx, response, qid, &retries, err) {
+		response, err = sc.rest.getAsyncOrStatus(WithReportAsyncError(ctx), url, headers, sc.rest.RequestTimeout)
 
 		// if the context is canceled, we have to cancel it manually now
 		if err != nil {
@@ -282,8 +338,48 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 		}
 	}
 
+	if !response.Success {
+		logEverything(ctx, qid, response, startTime)
+	}
+
 	sc.execRespCache.store(resultPath, response)
 	return response, nil
+}
+
+// we want to retry if the query was not successful, but also did not fail
+func badResponse(ctx context.Context, response *execResponse, qid string, retries *int, err error) bool {
+	retryable := false
+	// retry if query failed but there is no error
+	if (!response.Success) && (err == nil) && (*retries < 3) {
+		*retries++
+		retryable = true
+
+	}
+	logger.WithContext(ctx).Errorf("should retry queryId: %v, retryable: %v", qid, retryable)
+	return retryable
+
+}
+
+func logEverything(ctx context.Context, qid string, response *execResponse, startTime time.Time) {
+	deadline, ok := ctx.Deadline()
+	logger.WithContext(ctx).Errorf("failed queryId: %v, deadline: %v, ok: %v", qid, deadline, ok)
+	logger.WithContext(ctx).Errorf("failed queryId: %v, runtime: %v", qid, time.Now().Sub(startTime))
+
+	var pcs [32]uintptr
+	stackEntries := runtime.Callers(1, pcs[:])
+	stackTrace := pcs[0:stackEntries]
+	logger.WithContext(ctx).Errorf("failed queryId: %v, stackTrace: %v", qid, stackTrace)
+
+	select {
+	case <-ctx.Done():
+		cancelReason := ctx.Err()
+		logger.WithContext(ctx).Errorf("failed queryId: %v, cancel reason: %v", qid, cancelReason)
+	default:
+		logger.WithContext(ctx).Errorf("failed queryId: %v, query not canceled", qid)
+	}
+
+	logger.WithContext(ctx).Errorf("failed queryId: %v, response message: %v", qid, response.Message)
+	logger.WithContext(ctx).Errorf("failed queryId: %v, response code: %v", qid, response.Code)
 }
 
 // Fetch query result for a query id from /queries/<qid>/result endpoint.
@@ -330,7 +426,7 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 func (sc *snowflakeConn) blockOnRunningQuery(
 	ctx context.Context, qid string) error {
 	resultPath := fmt.Sprintf(urlQueriesResultFmt, qid)
-	resp, err := sc.waitForCompletedQueryResultResp(ctx, resultPath)
+	resp, err := sc.waitForCompletedQueryResultResp(ctx, resultPath, qid)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if resp != nil {
@@ -339,6 +435,14 @@ func (sc *snowflakeConn) blockOnRunningQuery(
 				code, err = strconv.Atoi(resp.Code)
 				if err != nil {
 					return err
+				}
+			}
+			if code == -1 {
+				ok, deadline := ctx.Deadline()
+				logger.WithContext(ctx).Errorf("deadline: %v, ok: %v, queryId: %v", deadline, ok, resp.Data.QueryID)
+				logger.WithContext(ctx).Errorf("resp.success: %v, message: %v, error: %v, queryId: %v", resp.Success, resp.Message, err, resp.Data.QueryID)
+				if sc.rest == nil {
+					logger.WithContext(ctx).Errorf("sullSnowflakeRestful")
 				}
 			}
 			return (&SnowflakeError{
@@ -358,6 +462,14 @@ func (sc *snowflakeConn) blockOnRunningQuery(
 			if err != nil {
 				code = ErrQueryStatus
 				message = fmt.Sprintf("%s: (failed to parse original code: %s: %s)", message, resp.Code, err.Error())
+			}
+		}
+		if code == -1 {
+			ok, deadline := ctx.Deadline()
+			logger.WithContext(ctx).Errorf("deadline: %v, ok: %v, queryId: %v", deadline, ok, resp.Data.QueryID)
+			logger.WithContext(ctx).Errorf("resp.success: %v, message: %v, error: %v, queryId: %v", resp.Success, resp.Message, err, resp.Data.QueryID)
+			if sc.rest == nil {
+				logger.WithContext(ctx).Errorf("sullSnowflakeRestful")
 			}
 		}
 		return (&SnowflakeError{
@@ -388,13 +500,13 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 }
 
 func (sc *snowflakeConn) blockOnQueryCompletion(
-    ctx context.Context,
-    qid string,
+	ctx context.Context,
+	qid string,
 ) error {
-    if err := sc.blockOnRunningQuery(ctx, qid); err != nil {
-        return err
-    }
-    return nil
+	if err := sc.blockOnRunningQuery(ctx, qid); err != nil {
+		return err
+	}
+	return nil
 }
 
 func mkMonitoringFetcher(sc *snowflakeConn, qid string, runtime time.Duration) *monitoringResult {
