@@ -31,6 +31,8 @@ const (
 	arrowAlloc            contextKey = "ARROW_ALLOC"
 	queryTag              contextKey = "QUERY_TAG"
 	submitSync            contextKey = "SUBMIT_SYNC"
+	reportAsyncError      contextKey = "REPORT_ASYNC_ERROR"
+	skipCache             contextKey = "SKIP_CACHE"
 )
 
 const (
@@ -121,6 +123,20 @@ func WithQueryTag(ctx context.Context, tag string) context.Context {
 func WithSubmitSync(ctx context.Context) context.Context {
 	return context.WithValue(ctx, submitSync, true)
 }
+
+// WithReportAsyncError returns a context that enables execution to panic and return
+// any data that could be useful for debugging waitForCompletedQueryResultResp
+func WithReportAsyncError(ctx context.Context) context.Context {
+	return context.WithValue(ctx, reportAsyncError, true)
+}
+
+// WithSkipCache returns a context that enables execution to bypass the using the cache
+// in multiplex, this can be set on a per org basis 
+// *** leave this in on rebase ***
+func WithSkipCache(ctx context.Context) context.Context {
+	return context.WithValue(ctx, skipCache, true)
+}
+
 
 // Get the request ID from the context if specified, otherwise generate one
 func getOrGenerateRequestIDFromContext(ctx context.Context) UUID {
