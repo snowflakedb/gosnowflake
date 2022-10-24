@@ -28,6 +28,13 @@ var (
 	maxChunkDownloaderErrorCounter = 5
 )
 
+// SnowflakeRows provides an API for methods exposed to the clients
+type SnowflakeRows interface {
+	GetQueryID() string
+	GetStatus() queryStatus
+	GetArrowBatches() ([]*ArrowBatch, error)
+}
+
 type snowflakeRows struct {
 	sc                  *snowflakeConn
 	ChunkDownloader     chunkDownloader
@@ -147,6 +154,12 @@ func (rows *snowflakeRows) GetStatus() queryStatus {
 
 // GetArrowBatches returns an array of ArrowBatch objects to retrieve data in array.Record format
 func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
+	// Wait for all arrow batches before fetching.
+	// Otherwise, a panic error "invalid memory address or nil pointer dereference" will be thrown.
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
+		return nil, err
+	}
+
 	return rows.ChunkDownloader.getArrowBatches(), nil
 }
 
