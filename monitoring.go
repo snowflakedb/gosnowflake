@@ -182,7 +182,6 @@ func (sc *snowflakeConn) checkQueryStatus(
 	return &queryRet, nil
 }
 
-// Waits 45 seconds for a query response; return early if query finishes 
 func (sc *snowflakeConn) getQueryResultResp(
 	ctx context.Context,
 	resultPath string,
@@ -222,18 +221,16 @@ func (sc *snowflakeConn) getQueryResultResp(
 // Waits for the query to complete, then returns the response
 func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 	ctx context.Context,
-	resultPath string,
+	qid string,
 ) (*execResponse, error) {
-	// if we already have the response; return that
-	if cachedResponse, ok := sc.execRespCache.load(resultPath); ok {
-		return cachedResponse, nil
-	}
-	requestID := getOrGenerateRequestIDFromContext(ctx)
+	resultPath := fmt.Sprintf(urlQueriesResultFmt, qid)
+
 	headers := getHeaders()
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers[httpHeaderServiceName] = *serviceName
 	}
 	param := make(url.Values)
+	requestID := getOrGenerateRequestIDFromContext(ctx)
 	param.Add(requestIDKey, requestID.String())
 	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	param.Add(requestGUIDKey, NewUUID().String())
@@ -241,13 +238,14 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 	if token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	}
+
 	url := sc.rest.getFullURL(resultPath, &param)
 
 	// internally, pulls on FuncGet until we have a result at the result location (queryID)
 	var response *execResponse
-	var err error
+
 	for response == nil || isQueryInProgress(response) {
-		response, err = sc.rest.getAsyncOrStatus(ctx, url, headers, sc.rest.RequestTimeout)
+		response, err := sc.rest.getAsyncStatus(ctx, url, headers, sc.rest.RequestTimeout)
 
 		// if the context is canceled, we have to cancel it manually now
 		if err != nil {
@@ -258,11 +256,18 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 					logger.WithContext(ctx).Errorf("failed to cancel async query, err: %v", err)
 				}
 			}
-			return nil, err
+			return nil, &SnowflakeError{
+				Number:   parseCode(response.Code),
+				SQLState: response.Data.SQLState,
+				Message:  response.Message,
+				QueryID:  response.Data.QueryID,
+			}
 		}
 	}
 
+	// store response for result path if result is not error
 	sc.execRespCache.store(resultPath, response)
+
 	return response, nil
 }
 
@@ -309,8 +314,7 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 // Wait for query to complete from a query id from /queries/<qid>/result endpoint.
 func (sc *snowflakeConn) blockOnRunningQuery(
 	ctx context.Context, qid string) error {
-	resultPath := fmt.Sprintf(urlQueriesResultFmt, qid)
-	resp, err := sc.waitForCompletedQueryResultResp(ctx, resultPath)
+	resp, err := sc.waitForCompletedQueryResultResp(ctx, qid)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if resp != nil {
@@ -373,13 +377,13 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 }
 
 func (sc *snowflakeConn) blockOnQueryCompletion(
-    ctx context.Context,
-    qid string,
+	ctx context.Context,
+	qid string,
 ) error {
-    if err := sc.blockOnRunningQuery(ctx, qid); err != nil {
-        return err
-    }
-    return nil
+	if err := sc.blockOnRunningQuery(ctx, qid); err != nil {
+		return err
+	}
+	return nil
 }
 
 func mkMonitoringFetcher(sc *snowflakeConn, qid string, runtime time.Duration) *monitoringResult {

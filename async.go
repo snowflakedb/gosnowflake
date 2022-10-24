@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"time"
@@ -192,4 +193,44 @@ func (sr *snowflakeRestful) getAsyncOrStatus(
 	}
 
 	return response, nil
+}
+
+// waits 45 seconds, returns early if results are found
+func (sr *snowflakeRestful) getAsyncStatus(
+	ctx context.Context,
+	url *url.URL,
+	headers map[string]string,
+	timeout time.Duration) (*execResponse, error) {
+	resp, err := sr.FuncGet(ctx, sr, url, headers, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var respd execResponse
+
+	if resp.StatusCode == http.StatusOK {
+		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+			return nil, err
+		}
+		// if the session is expired, get a new token and try one more time
+		if respd.Code == sessionExpiredCode {
+			token, _, _ := sr.TokenAccessor.GetTokens()
+			if err = sr.renewExpiredSessionToken(ctx, timeout, token); err != nil {
+				return nil, err
+			}
+			resp, err = sr.FuncGet(ctx, sr, url, headers, timeout)
+			if err != nil {
+				return nil, err
+			}
+			if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
+				logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+				return nil, err
+			}
+		}
+	}
+
+	return &respd, nil
 }
