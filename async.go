@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"time"
@@ -178,9 +179,18 @@ func (sr *snowflakeRestful) getAsyncOrStatus(
 	url *url.URL,
 	headers map[string]string,
 	timeout time.Duration) (*execResponse, error) {
+	startTime := time.Now()
 	resp, err := sr.FuncGet(ctx, sr, url, headers, timeout)
 	if err != nil {
 		return nil, err
+	}
+	if reportAsyncErrorFromContext(ctx) {
+		// if we dont get a response, or we get a bad response, this is not expected, so derive the information to know
+		// why this happened and panic with that message
+		if resp == nil || resp.StatusCode != http.StatusOK {
+			panicMessage := newPanicMessage(ctx, resp, startTime, timeout)
+			panic(panicMessage)
+		}
 	}
 	if resp.Body != nil {
 		defer func() { _ = resp.Body.Close() }()

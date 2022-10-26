@@ -182,7 +182,7 @@ func (sc *snowflakeConn) checkQueryStatus(
 	return &queryRet, nil
 }
 
-// Waits 45 seconds for a query response; return early if query finishes 
+// Waits 45 seconds for a query response; return early if query finishes
 func (sc *snowflakeConn) getQueryResultResp(
 	ctx context.Context,
 	resultPath string,
@@ -247,7 +247,7 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 	var response *execResponse
 	var err error
 	for response == nil || isQueryInProgress(response) {
-		response, err = sc.rest.getAsyncOrStatus(ctx, url, headers, sc.rest.RequestTimeout)
+		response, err = sc.rest.getAsyncOrStatus(WithReportAsyncError(ctx), url, headers, sc.rest.RequestTimeout)
 
 		// if the context is canceled, we have to cancel it manually now
 		if err != nil {
@@ -373,13 +373,13 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 }
 
 func (sc *snowflakeConn) blockOnQueryCompletion(
-    ctx context.Context,
-    qid string,
+	ctx context.Context,
+	qid string,
 ) error {
-    if err := sc.blockOnRunningQuery(ctx, qid); err != nil {
-        return err
-    }
-    return nil
+	if err := sc.blockOnRunningQuery(ctx, qid); err != nil {
+		return err
+	}
+	return nil
 }
 
 func mkMonitoringFetcher(sc *snowflakeConn, qid string, runtime time.Duration) *monitoringResult {
