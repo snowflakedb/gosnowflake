@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 )
@@ -173,7 +172,7 @@ func encryptFile(
 	if chunkSize == 0 {
 		chunkSize = aes.BlockSize * 4 * 1024
 	}
-	tmpOutputFile, err := ioutil.TempFile(tmpDir, baseName(filename)+"#")
+	tmpOutputFile, err := os.CreateTemp(tmpDir, baseName(filename)+"#")
 	if err != nil {
 		return nil, "", err
 	}
@@ -225,7 +224,7 @@ func decryptFile(
 	}
 	mode := cipher.NewCBCDecrypter(block, ivBytes)
 
-	tmpOutputFile, err := ioutil.TempFile(tmpDir, baseName(filename)+"#")
+	tmpOutputFile, err := os.CreateTemp(tmpDir, baseName(filename)+"#")
 	if err != nil {
 		return "", err
 	}

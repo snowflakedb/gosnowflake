@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	usr "os/user"
@@ -25,7 +24,7 @@ const (
 
 func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.Buffer) (*bytes.Buffer, int, error) {
 	r := getReaderFromBuffer(srcStream)
-	buf, err := ioutil.ReadAll(r)
+	buf, err := io.ReadAll(r)
 	if err != nil {
 		return nil, -1, err
 	}

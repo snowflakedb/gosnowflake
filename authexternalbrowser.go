@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -42,7 +41,7 @@ func buildResponse(application string) bytes.Buffer {
 		Proto:         "HTTP/1.1",
 		ProtoMajor:    1,
 		ProtoMinor:    1,
-		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
+		Body:          io.NopCloser(bytes.NewBufferString(body)),
 		ContentLength: int64(len(body)),
 		Request:       nil,
 		Header:        make(http.Header),
@@ -153,14 +152,14 @@ func getTokenFromResponse(response string) (string, error) {
 }
 
 // Authentication by an external browser takes place via the following:
-// - the golang snowflake driver communicates to Snowflake that the user wishes to
-//   authenticate via external browser
-// - snowflake sends back the IDP Url configured at the Snowflake side for the
-//   provided account
-// - the default browser is opened to that URL
-// - user authenticates at the IDP, and is redirected to Snowflake
-// - Snowflake directs the user back to the driver
-// - authenticate is complete!
+//   - the golang snowflake driver communicates to Snowflake that the user wishes to
+//     authenticate via external browser
+//   - snowflake sends back the IDP Url configured at the Snowflake side for the
+//     provided account
+//   - the default browser is opened to that URL
+//   - user authenticates at the IDP, and is redirected to Snowflake
+//   - Snowflake directs the user back to the driver
+//   - authenticate is complete!
 func authenticateByExternalBrowser(
 	ctx context.Context,
 	sr *snowflakeRestful,

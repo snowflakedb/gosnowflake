@@ -1,7 +1,6 @@
 // Example: Authenticate with OAuth. In order for this to work, one should
 // complete the OAuth flow to get an access token, which is beyond (for now!)
 // the scope of this example.
-//
 package main
 
 import (

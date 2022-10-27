@@ -1,5 +1,4 @@
 // Example: Set the session parameter in DSN and verify it
-//
 package main
 
 import (

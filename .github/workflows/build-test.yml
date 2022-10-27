@@ -26,7 +26,7 @@ jobs:
         strategy:
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.18', '1.17' ]
+                go: [ '1.19', '1.18' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v1
@@ -48,7 +48,7 @@ jobs:
         strategy:
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.18', '1.17' ]
+                go: [ '1.19', '1.18' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v1
@@ -70,7 +70,7 @@ jobs:
         strategy:
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.18', '1.17' ]
+                go: [ '1.19', '1.18' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v1
