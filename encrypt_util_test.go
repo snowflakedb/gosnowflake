@@ -7,7 +7,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -60,7 +59,7 @@ func TestEncryptDecryptFile(t *testing.T) {
 		t.Error(err)
 	}
 	defer fd.Close()
-	content, err := ioutil.ReadAll(fd)
+	content, err := io.ReadAll(fd)
 	if err != nil {
 		t.Error(err)
 	}
@@ -91,7 +90,7 @@ func TestEncryptDecryptFilePadding(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		tmpDir, err := ioutil.TempDir("", "data")
+		tmpDir, err := os.MkdirTemp("", "data")
 		if err != nil {
 			t.Error(err)
 		}
@@ -113,7 +112,7 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 
 	numberOfFiles := 1
 	numberOfLines := 10000
-	tmpDir, err := ioutil.TempDir("", "data")
+	tmpDir, err := os.MkdirTemp("", "data")
 	if err != nil {
 		t.Error(err)
 	}
@@ -163,7 +162,7 @@ func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected i
 
 func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (string, error) {
 	if tmpDir == "" {
-		_, err := ioutil.TempDir(tmpDir, "data")
+		_, err := os.MkdirTemp(tmpDir, "data")
 		if err != nil {
 			return "", err
 		}
@@ -185,7 +184,7 @@ func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (strin
 
 func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string, error) {
 	if tmpDir == "" {
-		_, err := ioutil.TempDir(tmpDir, "data")
+		_, err := os.MkdirTemp(tmpDir, "data")
 		if err != nil {
 			return "", err
 		}
@@ -230,8 +229,8 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 					return "", err
 				}
 				gzipCmd.Start()
-				ioutil.ReadAll(gzipOut)
-				ioutil.ReadAll(gzipErr)
+				io.ReadAll(gzipOut)
+				io.ReadAll(gzipErr)
 				gzipCmd.Wait()
 			} else {
 				fOut, err := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, os.ModePerm)

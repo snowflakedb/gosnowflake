@@ -16,7 +16,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"net/http"
@@ -430,7 +429,7 @@ func retryOCSP(
 		}
 	}
 	logger.Debug("reading contents")
-	ocspResBytes, err = ioutil.ReadAll(res.Body)
+	ocspResBytes, err = io.ReadAll(res.Body)
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedExtractResponse,
@@ -858,7 +857,7 @@ func writeOCSPCacheFile() {
 		logger.Debugf("failed to convert OCSP Response cache to JSON. ignored.")
 		return
 	}
-	if err = ioutil.WriteFile(cacheFileName, j, 0644); err != nil {
+	if err = os.WriteFile(cacheFileName, j, 0644); err != nil {
 		logger.Debugf("failed to write OCSP Response cache. err: %v. ignored.\n", err)
 	}
 }
