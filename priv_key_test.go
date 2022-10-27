@@ -14,7 +14,6 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -50,7 +49,7 @@ func setupPrivateKey() {
 	} else {
 		// path to the DER file
 		customPrivateKey = true
-		data, _ := ioutil.ReadFile(privKeyPath)
+		data, _ := os.ReadFile(privKeyPath)
 		block, _ := pem.Decode(data)
 		if block == nil || block.Type != "PRIVATE KEY" {
 			panic(fmt.Sprintf("%v is not a public key in PEM format.", privKeyPath))
