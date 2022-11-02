@@ -358,6 +358,7 @@ func NewCallbackCDecl(fn interface{}) uintptr {
 //sys	SetCommTimeouts(handle Handle, timeouts *CommTimeouts) (err error)
 //sys	GetActiveProcessorCount(groupNumber uint16) (ret uint32)
 //sys	GetMaximumProcessorCount(groupNumber uint16) (ret uint32)
+<<<<<<< HEAD
 //sys	EnumWindows(enumFunc uintptr, param unsafe.Pointer) (err error) = user32.EnumWindows
 //sys	EnumChildWindows(hwnd HWND, enumFunc uintptr, param unsafe.Pointer) = user32.EnumChildWindows
 //sys	GetClassName(hwnd HWND, className *uint16, maxCount int32) (copied int32, err error) = user32.GetClassNameW
@@ -367,6 +368,8 @@ func NewCallbackCDecl(fn interface{}) uintptr {
 //sys	IsWindowUnicode(hwnd HWND) (isUnicode bool) = user32.IsWindowUnicode
 //sys	IsWindowVisible(hwnd HWND) (isVisible bool) = user32.IsWindowVisible
 //sys	GetGUIThreadInfo(thread uint32, info *GUIThreadInfo) (err error) = user32.GetGUIThreadInfo
+=======
+>>>>>>> 073829f (add connection caching)
 
 // Volume Management Functions
 //sys	DefineDosDevice(flags uint32, deviceName *uint16, targetPath *uint16) (err error) = DefineDosDeviceW
