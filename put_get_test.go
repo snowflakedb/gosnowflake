@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/user"
@@ -35,7 +34,7 @@ func TestPutError(t *testing.T) {
 	if isWindows {
 		t.Skip("permission model is different")
 	}
-	tmpDir, err := ioutil.TempDir("", "putfiledir")
+	tmpDir, err := os.MkdirTemp("", "putfiledir")
 	if err != nil {
 		t.Error(err)
 	}
@@ -243,7 +242,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, err := ioutil.TempDir("", "put")
+	tmpDir, err := os.MkdirTemp("", "put")
 	if err != nil {
 		t.Error(err)
 	}
@@ -283,7 +282,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 }
 
 func TestPutOverwrite(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "data")
+	tmpDir, err := os.MkdirTemp("", "data")
 	if err != nil {
 		t.Error(err)
 	}
@@ -374,7 +373,7 @@ func TestPutGetStream(t *testing.T) {
 }
 
 func testPutGet(t *testing.T, isStream bool) {
-	tmpDir, err := ioutil.TempDir("", "put_get")
+	tmpDir, err := os.MkdirTemp("", "put_get")
 	if err != nil {
 		t.Error(err)
 	}
@@ -387,7 +386,7 @@ func testPutGet(t *testing.T, isStream bool) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 

@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -90,7 +89,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 	if !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, err := ioutil.TempDir("", "aws_put")
+	tmpDir, err := os.MkdirTemp("", "aws_put")
 	if err != nil {
 		t.Error(err)
 	}
@@ -102,7 +101,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err := ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
@@ -202,7 +201,7 @@ func TestPretendToPutButList(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, err := ioutil.TempDir("", "aws_put")
+	tmpDir, err := os.MkdirTemp("", "aws_put")
 	if err != nil {
 		t.Error(err)
 	}
@@ -214,7 +213,7 @@ func TestPretendToPutButList(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err := ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
@@ -269,7 +268,7 @@ func TestPutGetAWSStage(t *testing.T) {
 		t.Skip("skipping non aws environment")
 	}
 
-	tmpDir, err := ioutil.TempDir("", "put_get")
+	tmpDir, err := os.MkdirTemp("", "put_get")
 	if err != nil {
 		t.Error(err)
 	}
@@ -283,7 +282,7 @@ func TestPutGetAWSStage(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = ioutil.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 

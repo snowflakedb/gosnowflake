@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -266,7 +265,7 @@ func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 	if strings.Contains(url.Path, "/monitoring/queries/") {
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(jsonStr)),
+			Body:       io.NopCloser(strings.NewReader(jsonStr)),
 		}, nil
 	}
 	return getRestful(ctx, rest, url, vals, rest.RequestTimeout)
@@ -404,15 +403,18 @@ func TestGetQueryStatus(t *testing.T) {
 	var conn interface{} = sc
 	qStatus, err := conn.(SnowflakeConnection).GetQueryStatus(ctx, qid)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("failed to get query status err = %s", err.Error())
+		return
 	}
 	if qStatus == nil {
-		t.Fatal("there was no query status returned")
+		t.Error("there was no query status returned")
+		return
 	}
 
-	if qStatus.ErrorCode != "" || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
+	if qStatus.ErrorCode != "" || qStatus.ScanBytes != 2048 || qStatus.ProducedRows != 10 {
 		t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v",
 			qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows)
+		return
 	}
 }
 

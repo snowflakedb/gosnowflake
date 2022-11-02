@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -363,7 +362,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 	defer resp.Body.Close()
 	logger.Debugf("response returned chunk: %v for URL: %v", idx+1, scd.ChunkMetas[idx].URL)
 	if resp.StatusCode != http.StatusOK {
-		b, err := ioutil.ReadAll(bufStream)
+		b, err := io.ReadAll(bufStream)
 		if err != nil {
 			return err
 		}
@@ -639,7 +638,7 @@ func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error 
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		b, err := ioutil.ReadAll(res.Body)
+		b, err := io.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
@@ -718,6 +717,11 @@ func (rb *ArrowBatch) Fetch() (*[]array.Record, error) {
 		return nil, err
 	}
 	return rb.rec, nil
+}
+
+// GetRowCount returns the number of rows in an arrow batch
+func (rb *ArrowBatch) GetRowCount() int {
+	return rb.rowCount
 }
 
 func usesArrowBatches(ctx context.Context) bool {

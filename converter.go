@@ -318,6 +318,8 @@ func arrowToValue(
 
 	switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
 	case fixedType:
+		// Snowflake data types that are fixed-point numbers will fall into this category
+		// e.g. NUMBER, DECIMAL/NUMERIC, INT/INTEGER
 		switch srcValue.DataType().ID() {
 		case arrow.DECIMAL:
 			for i, num := range array.NewDecimal128Data(data).Values() {
@@ -333,7 +335,7 @@ func arrowToValue(
 						if higherPrecision {
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%f", f)
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, f)
 						}
 					}
 				}
@@ -352,7 +354,7 @@ func arrowToValue(
 							f := intToBigFloat(val, srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%f", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -371,7 +373,7 @@ func arrowToValue(
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%f", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -390,7 +392,7 @@ func arrowToValue(
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%f", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -409,7 +411,7 @@ func arrowToValue(
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%f", float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -425,13 +427,11 @@ func arrowToValue(
 		}
 		return err
 	case realType:
+		// Snowflake data types that are floating-point numbers will fall in this category
+		// e.g. FLOAT/REAL/DOUBLE
 		for i, flt64 := range array.NewFloat64Data(data).Float64Values() {
 			if !srcValue.IsNull(i) {
-				if higherPrecision {
-					(*destcol)[i] = flt64
-				} else {
-					(*destcol)[i] = fmt.Sprintf("%f", flt64)
-				}
+				(*destcol)[i] = flt64
 			}
 		}
 		return err

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -243,7 +243,7 @@ func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Respons
 	if resp.StatusCode != 403 {
 		return false
 	}
-	azureErr, err := ioutil.ReadAll(resp.Body)
+	azureErr, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false
 	}

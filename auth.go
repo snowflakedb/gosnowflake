@@ -9,7 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -234,7 +234,7 @@ func postAuth(
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
 		}
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
