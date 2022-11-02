@@ -615,6 +615,8 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
 			if errors.As(err, &ae) {
 				if ae.ErrorCode() == "AccessDenied" {
 					return nil
+				} else if ae.ErrorCode() == "MethodNotAllowed" {
+					return nil
 				}
 			}
 			return err
