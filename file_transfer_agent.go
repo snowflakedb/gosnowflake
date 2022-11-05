@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"net/url"
 	"os"
@@ -467,7 +466,7 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 					if err != nil {
 						return err
 					}
-					ioutil.ReadAll(r) // flush out tee buffer
+					io.ReadAll(r) // flush out tee buffer
 				} else {
 					mtype, err = mimetype.DetectFile(fileName)
 					if err != nil {
@@ -615,6 +614,8 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
 			var ae smithy.APIError
 			if errors.As(err, &ae) {
 				if ae.ErrorCode() == "AccessDenied" {
+					return nil
+				} else if ae.ErrorCode() == "MethodNotAllowed" {
 					return nil
 				}
 			}
@@ -829,7 +830,7 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMe
 
 func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileMetadata, error) {
 	meta.realSrcFileName = meta.srcFileName
-	tmpDir, err := ioutil.TempDir("", "")
+	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		return nil, err
 	}
@@ -976,7 +977,7 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesSequential(fileMetas []*file
 }
 
 func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fileMetadata, error) {
-	tmpDir, err := ioutil.TempDir("", "")
+	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		return nil, err
 	}

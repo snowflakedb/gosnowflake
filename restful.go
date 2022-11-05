@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -271,7 +271,7 @@ func postRestfulQueryHelper(
 		}
 		return &respd, nil
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
@@ -321,7 +321,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 		}
 		return nil
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return err
@@ -382,7 +382,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 		sr.TokenAccessor.SetTokens(respd.Data.SessionToken, respd.Data.MasterToken, respd.Data.SessionID)
 		return nil
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return err
@@ -461,7 +461,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID UUID, time
 			}
 		}
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return err

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -266,7 +265,7 @@ func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 	if strings.Contains(url.Path, "/monitoring/queries/") {
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(jsonStr)),
+			Body:       io.NopCloser(strings.NewReader(jsonStr)),
 		}, nil
 	}
 	return getRestful(ctx, rest, url, vals, rest.RequestTimeout)
