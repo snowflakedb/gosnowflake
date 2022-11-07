@@ -491,6 +491,17 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
+		{
+			dsn: "u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&clientTimeout=300&client_session_keep_alive=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
+				ClientTimeout:    300 * time.Second,
+				KeepSessionAlive: true,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
 	}
 
 	for i, test := range testcases {
@@ -572,6 +583,10 @@ func TestParseDSN(t *testing.T) {
 			if test.config.ClientTimeout != cfg.ClientTimeout {
 				t.Fatalf("%d: Failed to match ClientTimeout. expected: %v, got: %v",
 					i, test.config.ClientTimeout, cfg.ClientTimeout)
+			}
+			if test.config.KeepSessionAlive != cfg.KeepSessionAlive {
+				t.Fatalf("%d: Failed to match KeepSessionAlive. expected: %v, got: %v",
+					i, test.config.KeepSessionAlive, cfg.KeepSessionAlive)
 			}
 		case test.err != nil:
 			driverErrE, okE := test.err.(*SnowflakeError)

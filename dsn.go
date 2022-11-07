@@ -179,6 +179,10 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.Token != "" {
 		params.Add("token", cfg.Token)
 	}
+	if cfg.KeepSessionAlive {
+		params.Add("client_session_keep_alive", strconv.FormatBool(cfg.KeepSessionAlive))
+	}
+
 	if cfg.Params != nil {
 		for k, v := range cfg.Params {
 			params.Add(k, *v)
