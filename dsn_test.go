@@ -502,6 +502,7 @@ func TestParseDSN(t *testing.T) {
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
+		},
 	}
 
 	for i, test := range testcases {
