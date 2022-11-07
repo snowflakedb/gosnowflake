@@ -360,8 +360,5 @@ const (
 	SYS_LANDLOCK_RESTRICT_SELF  = 5446
 	SYS_PROCESS_MRELEASE        = 5448
 	SYS_FUTEX_WAITV             = 5449
-<<<<<<< HEAD
 	SYS_SET_MEMPOLICY_HOME_NODE = 5450
-=======
->>>>>>> 073829f (add connection caching)
 )
