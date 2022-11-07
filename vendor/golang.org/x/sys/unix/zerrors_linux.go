@@ -2224,12 +2224,9 @@ const (
 	PERF_MEM_BLK_NA                             = 0x1
 	PERF_MEM_BLK_SHIFT                          = 0x28
 	PERF_MEM_HOPS_0                             = 0x1
-<<<<<<< HEAD
 	PERF_MEM_HOPS_1                             = 0x2
 	PERF_MEM_HOPS_2                             = 0x3
 	PERF_MEM_HOPS_3                             = 0x4
-=======
->>>>>>> 073829f (add connection caching)
 	PERF_MEM_HOPS_SHIFT                         = 0x2b
 	PERF_MEM_LOCK_LOCKED                        = 0x2
 	PERF_MEM_LOCK_NA                            = 0x1
@@ -2592,14 +2589,9 @@ const (
 	RTC_FEATURE_ALARM                           = 0x0
 	RTC_FEATURE_ALARM_RES_2S                    = 0x3
 	RTC_FEATURE_ALARM_RES_MINUTE                = 0x1
-<<<<<<< HEAD
 	RTC_FEATURE_ALARM_WAKEUP_ONLY               = 0x7
 	RTC_FEATURE_BACKUP_SWITCH_MODE              = 0x6
 	RTC_FEATURE_CNT                             = 0x8
-=======
-	RTC_FEATURE_BACKUP_SWITCH_MODE              = 0x6
-	RTC_FEATURE_CNT                             = 0x7
->>>>>>> 073829f (add connection caching)
 	RTC_FEATURE_CORRECTION                      = 0x5
 	RTC_FEATURE_NEED_WEEK_DAY                   = 0x2
 	RTC_FEATURE_UPDATE_INTERRUPT                = 0x4
