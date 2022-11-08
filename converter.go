@@ -139,14 +139,14 @@ func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 			case dateType:
 				_, offset := tm.Zone()
 				tm = tm.Add(time.Second * time.Duration(offset))
-				s := fmt.Sprintf("%d", tm.Unix()*1000)
+				s := strconv.FormatInt(tm.Unix()*1000, 10)
 				return &s, nil
 			case timeType:
-				s := fmt.Sprintf("%d",
-					(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
+				ns := (tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9 + tm.Nanosecond()
+				s := strconv.FormatInt(int64(ns), 10)
 				return &s, nil
 			case timestampNtzType, timestampLtzType:
-				s := fmt.Sprintf("%d", tm.UnixNano())
+				s := strconv.FormatInt(tm.UnixNano(), 10)
 				return &s, nil
 			case timestampTzType:
 				_, offset := tm.Zone()
@@ -336,6 +336,7 @@ func arrowToValue(
 							(*destcol)[i] = f
 						} else {
 							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, f)
+							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, f)
 						}
 					}
 				}
@@ -347,14 +348,14 @@ func arrowToValue(
 						if higherPrecision {
 							(*destcol)[i] = val
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%d", val)
+							(*destcol)[i] = strconv.FormatInt(val, 10)
 						}
 					} else {
 						if higherPrecision {
 							f := intToBigFloat(val, srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = strconv.FormatFloat(float64(val)/math.Pow10(int(srcColumnMeta.Scale)), 'f', int(srcColumnMeta.Scale), 64)
 						}
 					}
 				}
@@ -366,14 +367,14 @@ func arrowToValue(
 						if higherPrecision {
 							(*destcol)[i] = int64(val)
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%d", val)
+							(*destcol)[i] = strconv.FormatInt(int64(val), 10)
 						}
 					} else {
 						if higherPrecision {
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = strconv.FormatFloat(float64(val)/math.Pow10(int(srcColumnMeta.Scale)), 'f', int(srcColumnMeta.Scale), 64)
 						}
 					}
 				}
@@ -385,14 +386,14 @@ func arrowToValue(
 						if higherPrecision {
 							(*destcol)[i] = int64(val)
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%d", val)
+							(*destcol)[i] = strconv.FormatInt(int64(val), 10)
 						}
 					} else {
 						if higherPrecision {
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = strconv.FormatFloat(float64(val)/math.Pow10(int(srcColumnMeta.Scale)), 'f', int(srcColumnMeta.Scale), 64)
 						}
 					}
 				}
@@ -404,14 +405,14 @@ func arrowToValue(
 						if higherPrecision {
 							(*destcol)[i] = int64(val)
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%d", val)
+							(*destcol)[i] = strconv.FormatInt(int64(val), 10)
 						}
 					} else {
 						if higherPrecision {
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
 							(*destcol)[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							(*destcol)[i] = strconv.FormatFloat(float64(val)/math.Pow10(int(srcColumnMeta.Scale)), 'f', int(srcColumnMeta.Scale), 64)
 						}
 					}
 				}
@@ -742,7 +743,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		for _, x := range *a {
 			_, offset := x.Zone()
 			x = x.Add(time.Second * time.Duration(offset))
-			v := fmt.Sprintf("%d", x.Unix()*1000)
+			v := strconv.FormatInt(x.Unix()*1000, 10)
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&timeArray{}):
@@ -858,7 +859,7 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 					t = dateType
 					_, offset := x.Zone()
 					x = x.Add(time.Second * time.Duration(offset))
-					v := fmt.Sprintf("%d", x.Unix()*1000)
+					v := strconv.FormatInt(x.Unix()*1000, 10)
 					arr = append(arr, &v)
 				case TimeType:
 					t = timeType
