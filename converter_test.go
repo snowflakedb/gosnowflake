@@ -570,7 +570,7 @@ func TestArrowToValue(t *testing.T) {
 			meta := tc.rowType
 			meta.Type = tc.logical
 
-			if err := arrowToValue(&dest, meta, arr, localTime.Location(), true); err != nil {
+			if err := arrowToValue(dest, meta, arr, localTime.Location(), true); err != nil {
 				t.Fatalf("error: %s", err)
 			}
 
