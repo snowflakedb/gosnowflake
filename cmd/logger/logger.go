@@ -2,32 +2,11 @@ package main
 
 import (
 	"bytes"
-	rlog "github.com/sirupsen/logrus"
-	sf "github.com/snowflakedb/gosnowflake"
 	"log"
 	"strings"
+
+	sf "github.com/snowflakedb/gosnowflake"
 )
-
-type testLogger struct {
-	*rlog.Logger
-}
-
-func (log *testLogger) SetLogLevel(level string) error {
-	actualLevel, err := rlog.ParseLevel(level)
-	if err != nil {
-		return err
-	}
-	log.Level = actualLevel
-	return nil
-}
-
-func createTestLogger() testLogger {
-	var logging = testLogger{rlog.New()}
-	var formatter = rlog.JSONFormatter{CallerPrettyfier: sf.SFCallerPrettyfier}
-	logging.SetReportCaller(true)
-	logging.SetFormatter(&formatter)
-	return logging
-}
 
 func main() {
 	buf := &bytes.Buffer{}

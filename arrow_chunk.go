@@ -14,11 +14,9 @@ import (
 )
 
 type arrowResultChunk struct {
-	reader           ipc.Reader
-	rowCount         int
-	uncompressedSize int
-	allocator        memory.Allocator
-	loc              *time.Location
+	reader   ipc.Reader
+	rowCount int
+	loc      *time.Location
 }
 
 func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
