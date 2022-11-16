@@ -235,7 +235,9 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 	resultPath string,
 ) (*execResponse, error) {
 	// if we already have the response; return that
-	if cachedResponse, ok := sc.execRespCache.load(resultPath); ok {
+	cachedResponse, ok := sc.execRespCache.load(resultPath)
+	logger.WithContext(ctx).Errorf("use cache: %v", ok)
+	if ok {
 		return cachedResponse, nil
 	}
 	requestID := getOrGenerateRequestIDFromContext(ctx)
