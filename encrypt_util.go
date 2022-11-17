@@ -215,7 +215,10 @@ func decryptFile(
 	if err = decryptECB(decryptedKey, keyBytes, decodedKey); err != nil {
 		return "", err
 	}
-	decryptedKey = paddingTrim(decryptedKey)
+	decryptedKey, err = paddingTrim(decryptedKey)
+	if err != nil {
+		return "", err
+	}
 
 	// decrypt file
 	block, err := aes.NewCipher(decryptedKey)
@@ -241,6 +244,10 @@ func decryptFile(
 		n, err := infile.Read(chunk)
 		if n == 0 || err != nil {
 			break
+		} else if n%aes.BlockSize != 0 {
+			// add padding to the end of the chunk and update the length n
+			chunk = padBytesLength(chunk[:n], aes.BlockSize)
+			n = len(chunk)
 		}
 		totalFileSize += n
 		chunk = chunk[:n]
@@ -284,9 +291,16 @@ func padBytesLength(src []byte, blockSize int) []byte {
 	return append(src, padText...)
 }
 
-func paddingTrim(src []byte) []byte {
+func paddingTrim(src []byte) ([]byte, error) {
 	unpadding := src[len(src)-1]
-	return src[:len(src)-int(unpadding)]
+	n := int(unpadding)
+	if n == 0 || n > len(src) {
+		return nil, &SnowflakeError{
+			Number:  ErrInvalidPadding,
+			Message: errMsgInvalidPadding,
+		}
+	}
+	return src[:len(src)-n], nil
 }
 
 func paddingOffset(src []byte) int {
