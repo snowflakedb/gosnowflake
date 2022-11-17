@@ -187,6 +187,8 @@ const (
 	ErrFailedToConvertToS3Client = 264010
 	// ErrNotImplemented is an error code denoting the file transfer feature is not implemented
 	ErrNotImplemented = 264011
+	// ErrInvalidPadding is an error code denoting the invalid padding of decryption key
+	ErrInvalidPadding = 264012
 
 	/* binding */
 
@@ -285,6 +287,7 @@ const (
 	errMsgFailedToConvertToS3Client          = "failed to convert interface to s3 client"
 	errMsgNoResultIDs                        = "no result IDs returned with the multi-statement query"
 	errMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
+	errMsgInvalidPadding                     = "invalid padding on input"
 )
 
 var (
