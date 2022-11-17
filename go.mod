@@ -37,7 +37,7 @@ require (
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.15.11 // indirect
-	github.com/mattn/go-ieproxy v0.0.9 // indirect
+	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.16 // indirect
 	golang.org/x/net v0.0.0-20221002022538-bcab6841153b // indirect
