@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -233,6 +234,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 	ctx context.Context,
 	resultPath string,
+	qid string,
 ) (*execResponse, error) {
 	// if we already have the response; return that
 	cachedResponse, ok := sc.execRespCache.load(resultPath)
@@ -258,6 +260,8 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 	// internally, pulls on FuncGet until we have a result at the result location (queryID)
 	var response *execResponse
 	var err error
+
+	startTime := time.Now()
 	for response == nil || isQueryInProgress(response) {
 		response, err = sc.rest.getAsyncOrStatus(WithReportAsyncError(ctx), url, headers, sc.rest.RequestTimeout)
 
@@ -272,10 +276,36 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 			}
 			return nil, err
 		}
+	} 
+
+	if ! response.Success {
+		logEverything(ctx, qid, response, startTime)
 	}
 
 	sc.execRespCache.store(resultPath, response)
 	return response, nil
+}
+
+func logEverything(ctx context.Context, qid string, response *execResponse, startTime time.Time) {
+	deadline, ok := ctx.Deadline()
+	logger.WithContext(ctx).Errorf("failed queryId: %v, deadline: %v, ok: %v", qid, deadline, ok)
+	logger.WithContext(ctx).Errorf("failed queryId: %v, runtime: %v", qid, time.Now().Sub(startTime))
+
+	var pcs [32]uintptr
+	stackEntries := runtime.Callers(1, pcs[:])
+	stackTrace := pcs[0:stackEntries]
+	logger.WithContext(ctx).Errorf("failed queryId: %v, stackTrace: %v", qid, stackTrace)
+
+	select {
+	case <-ctx.Done():
+		cancelReason := ctx.Err()
+		logger.WithContext(ctx).Errorf("failed queryId: %v, cancel reason: %v", qid, cancelReason)
+	default:
+		logger.WithContext(ctx).Errorf("failed queryId: %v, query not canceled", qid)
+	}
+
+	logger.WithContext(ctx).Errorf("failed queryId: %v, response message: %v", qid, response.Message)
+	logger.WithContext(ctx).Errorf("failed queryId: %v, response code: %v", qid, response.Code)
 }
 
 // Fetch query result for a query id from /queries/<qid>/result endpoint.
@@ -322,7 +352,7 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 func (sc *snowflakeConn) blockOnRunningQuery(
 	ctx context.Context, qid string) error {
 	resultPath := fmt.Sprintf(urlQueriesResultFmt, qid)
-	resp, err := sc.waitForCompletedQueryResultResp(ctx, resultPath)
+	resp, err := sc.waitForCompletedQueryResultResp(ctx, resultPath, qid)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if resp != nil {
