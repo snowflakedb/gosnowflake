@@ -282,10 +282,45 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 		logEverything(ctx, qid, response, startTime)
 		_, statusErr := sc.checkQueryStatus(ctx, qid)
 		logger.WithContext(ctx).Errorf("failed queryId: %v, statusErr: %v", qid, statusErr)
+		retryResponse, retryErr := sc.rest.getAsyncOrStatus(WithReportAsyncError(ctx), url, headers, sc.rest.RequestTimeout)
+		couldRetry := shouldRetry(ctx, response, err)
+		logger.WithContext(ctx).Errorf("failed queryId: %v, couldRetry: %v, retryResponseSuccess: %v, retryErr: %v", qid, couldRetry, retryResponse.Success, retryErr)
 	}
 
 	sc.execRespCache.store(resultPath, response)
 	return response, nil
+}
+
+// we want to retry if the query was not successful, but also did not fail
+func shouldRetry(ctx context.Context, response *execResponse, err error) bool {
+	// if deadline has passed dont retty
+	deadline, ok := ctx.Deadline()
+	if ok && (deadline.Before(deadline)) {
+		return false
+	}
+
+	// if context has been canceled dont retry
+	select {
+	case <-ctx.Done():
+		return false
+	}
+
+	// if there is a response succeeds, dont retry 
+	if response.Success {
+		return false
+	}
+
+	// if there is a response message dont retry 
+	if response.Message != "" {
+		return false
+	}
+
+	// ig there is a response code dont retry
+	if response.Code != "" {
+		return false 
+	}
+
+	return true
 }
 
 func logEverything(ctx context.Context, qid string, response *execResponse, startTime time.Time) {
