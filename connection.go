@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
 	"os"
@@ -560,22 +559,7 @@ func (sc *snowflakeConn) FetchResult(ctx context.Context, qid string) (driver.Ro
 // go sql library but is exported to clients who can make use of this
 // capability explicitly.
 func (sc *snowflakeConn) WaitForQueryCompletion(ctx context.Context, qid string) error {
-	// if the query is already done, we dont need to wait for it
-	_, err := sc.checkQueryStatus(ctx, qid)
-	// query is complete and has succeeded
-	if err == nil {
-		return nil
-	}
-	// if error = query is still running; wait for it to complete
-	var snowflakeError *SnowflakeError
-	if errors.As(err, &snowflakeError) {
-		if snowflakeError.Number == ErrQueryIsRunning {
-			return sc.blockOnQueryCompletion(ctx, qid)
-		}
-	}
-
-	// query is complete because of an error; return that error
-	return err
+	return sc.blockOnQueryCompletion(ctx, qid)
 }
 
 // ResultFetcher is an interface which allows a query result to be
