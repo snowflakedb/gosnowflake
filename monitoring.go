@@ -190,13 +190,31 @@ func (sc *snowflakeConn) checkQueryStatus(
 	return &queryRet, nil
 }
 
+// try using the cache, log the cached result, but return the non
+// cached result
+func shouldSkipCache(ctx context.Context) bool {
+	val := ctx.Value(skipCache)
+	if val == nil {
+		return false
+	}
+	a, ok := val.(bool)
+	return a && ok
+}
+
 // Waits 45 seconds for a query response; return early if query finishes
 func (sc *snowflakeConn) getQueryResultResp(
 	ctx context.Context,
 	resultPath string,
 ) (*execResponse, error) {
+	var cachedResponse *execResponse
+	cachedResponse = nil
 	if respd, ok := sc.execRespCache.load(resultPath); ok {
-		return respd, nil
+		cachedResponse = respd
+		// return the cached response, unless we pass the flag saying to
+		// bypass the cache
+		if !shouldSkipCache(ctx) {
+			return respd, nil
+		}
 	}
 
 	headers := getHeaders()
@@ -224,6 +242,47 @@ func (sc *snowflakeConn) getQueryResultResp(
 	if err = json.NewDecoder(res.Body).Decode(&respd); err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 		return nil, err
+	}
+
+	// if we are skipping the cache, log difference between cached and non cached result
+	if shouldSkipCache(ctx) {
+		qid := respd.Data.QueryID
+
+		// if there was no response in the cache anyway, log that and dont try to log anything else
+		if cachedResponse == nil {
+			logger.WithContext(ctx).Errorf("cached queryId: %v did not use cache", qid)
+
+		} else {
+			// log if there are any differences in the arrow encooded first chunk
+			arrowCached := cachedResponse.Data.RowSetBase64
+			arrowNonCached := respd.Data.RowSetBase64
+			if arrowCached != arrowNonCached {
+				logger.WithContext(ctx).Errorf("cached queryId arrow not equal: %v, arrowCached: %v, arrowNonCached: %v", qid, arrowCached, arrowNonCached)
+			} else {
+				logger.WithContext(ctx).Errorf("cached queryId: %v arrow portion is the same", qid)
+			}
+
+			// see how many rows there are in the cached chunks
+			chunksCached := cachedResponse.Data.Chunks
+			rowsCached := 0
+			for _, chunk := range chunksCached {
+				rowsCached += chunk.RowCount
+			}
+
+			// see how many rows there are in non cached chunks
+			chunksNonCached := cachedResponse.Data.Chunks
+			rowsNonCached := 0
+			for _, chunk := range chunksNonCached {
+				rowsNonCached += chunk.RowCount
+			}
+
+			if rowsNonCached == rowsCached {
+				logger.WithContext(ctx).Errorf("cached queryId: %v rows from chunks is the same", qid)
+			} else {
+				logger.WithContext(ctx).Errorf("cached queryId rows from chunks not equal: %v, rowsCached: %v, rowsNonCached: %v", qid, rowsCached, rowsNonCached)
+			}
+
+		}
 	}
 
 	sc.execRespCache.store(resultPath, respd)
@@ -276,9 +335,9 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 			}
 			return nil, err
 		}
-	} 
+	}
 
-	if ! response.Success {
+	if !response.Success {
 		logEverything(ctx, qid, response, startTime)
 		_, statusErr := sc.checkQueryStatus(ctx, qid)
 		logger.WithContext(ctx).Errorf("failed queryId: %v, statusErr: %v", qid, statusErr)
@@ -305,19 +364,19 @@ func shouldRetry(ctx context.Context, response *execResponse, err error) bool {
 		return false
 	}
 
-	// if there is a response succeeds, dont retry 
+	// if there is a response succeeds, dont retry
 	if response.Success {
 		return false
 	}
 
-	// if there is a response message dont retry 
+	// if there is a response message dont retry
 	if response.Message != "" {
 		return false
 	}
 
 	// ig there is a response code dont retry
 	if response.Code != "" {
-		return false 
+		return false
 	}
 
 	return true
