@@ -3208,11 +3208,7 @@ const (
 	DEVLINK_ATTR_RATE_NODE_NAME                        = 0xa8
 	DEVLINK_ATTR_RATE_PARENT_NODE_NAME                 = 0xa9
 	DEVLINK_ATTR_REGION_MAX_SNAPSHOTS                  = 0xaa
-<<<<<<< HEAD
 	DEVLINK_ATTR_MAX                                   = 0xae
-=======
-	DEVLINK_ATTR_MAX                                   = 0xaa
->>>>>>> 073829f (add connection caching)
 	DEVLINK_DPIPE_FIELD_MAPPING_TYPE_NONE              = 0x0
 	DEVLINK_DPIPE_FIELD_MAPPING_TYPE_IFINDEX           = 0x1
 	DEVLINK_DPIPE_MATCH_TYPE_FIELD_EXACT               = 0x0
@@ -4109,7 +4105,6 @@ const (
 	NL_POLICY_TYPE_ATTR_MASK            = 0xc
 	NL_POLICY_TYPE_ATTR_MAX             = 0xc
 )
-<<<<<<< HEAD
 
 type CANBitTiming struct {
 	Bitrate      uint32
@@ -5612,5 +5607,3 @@ const (
 	AUDIT_NLGRP_NONE    = 0x0
 	AUDIT_NLGRP_READLOG = 0x1
 )
-=======
->>>>>>> 073829f (add connection caching)

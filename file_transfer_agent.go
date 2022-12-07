@@ -253,7 +253,7 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 		if err != nil {
 			return err
 		}
-		if fi, err := os.Stat(sfa.localLocation); !fi.IsDir() || err != nil {
+		if fi, err := os.Stat(sfa.localLocation); err != nil || !fi.IsDir() {
 			return (&SnowflakeError{
 				Number:      ErrLocalPathNotDirectory,
 				SQLState:    sfa.data.SQLState,
