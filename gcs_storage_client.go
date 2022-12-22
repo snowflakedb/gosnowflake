@@ -127,7 +127,7 @@ func (util *snowflakeGcsClient) uploadFile(
 	var err error
 
 	if uploadURL == nil {
-		_, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		uploadURL, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
 		if err != nil {
 			return err
 		}
