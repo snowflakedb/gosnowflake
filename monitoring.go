@@ -3,10 +3,12 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"runtime"
 	"strconv"
@@ -218,14 +220,13 @@ func (sc *snowflakeConn) getQueryResultResp(
 	resultPath string,
 ) (*execResponse, error) {
 	var cachedResponse *execResponse
-	cachedResponse = nil
-	if respd, ok := sc.execRespCache.load(resultPath); ok {
-		cachedResponse = respd
+	if res, ok := sc.execRespCache.load(resultPath); ok {
 		// return the cached response, unless we pass the flag saying to
 		// bypass the cache
-		if !shouldSkipCache(ctx) {
-			return respd, nil
+		if res.Success && !shouldSkipCache(ctx) {
+			return res, nil
 		}
+		cachedResponse = res
 	}
 
 	headers := getHeaders()
@@ -248,11 +249,17 @@ func (sc *snowflakeConn) getQueryResultResp(
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		return nil, err
 	}
-	defer res.Body.Close()
+	if res.Body != nil {
+		defer func() { _ = res.Body.Close() }()
+	}
 	var respd *execResponse
 	if err = json.NewDecoder(res.Body).Decode(&respd); err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 		return nil, err
+	}
+
+	if !respd.Success && respd.Code == "" && respd.Message == "" {
+		logger.WithContext(ctx).Errorf("failed to build a proper exec response. received body: %s", string(bodyBytes))
 	}
 
 	// if we are skipping the cache, log difference between cached and non cached result
@@ -262,7 +269,6 @@ func (sc *snowflakeConn) getQueryResultResp(
 		// if there was no response in the cache anyway, log that and dont try to log anything else
 		if cachedResponse == nil {
 			logger.WithContext(ctx).Errorf("cached queryId: %v did not use cache", qid)
-
 		} else {
 			// log if there are any differences in the arrow encooded first chunk
 			arrowCached := cachedResponse.Data.RowSetBase64
@@ -296,7 +302,10 @@ func (sc *snowflakeConn) getQueryResultResp(
 		}
 	}
 
-	sc.execRespCache.store(resultPath, respd)
+	if respd.Success {
+		sc.execRespCache.store(resultPath, respd)
+	}
+
 	return respd, nil
 }
 
@@ -351,9 +360,10 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 
 	if !response.Success {
 		logEverything(ctx, qid, response, startTime)
+	} else {
+		sc.execRespCache.store(resultPath, response)
 	}
 
-	sc.execRespCache.store(resultPath, response)
 	return response, nil
 }
 
