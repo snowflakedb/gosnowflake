@@ -119,12 +119,11 @@ func WithReportAsyncError(ctx context.Context) context.Context {
 }
 
 // WithSkipCache returns a context that enables execution to bypass the using the cache
-// in multiplex, this can be set on a per org basis 
+// in multiplex, this can be set on a per org basis
 // *** leave this in on rebase ***
 func WithSkipCache(ctx context.Context) context.Context {
 	return context.WithValue(ctx, skipCache, true)
 }
-
 
 // Get the request ID from the context if specified, otherwise generate one
 func getOrGenerateRequestIDFromContext(ctx context.Context) UUID {

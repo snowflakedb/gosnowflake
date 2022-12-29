@@ -74,7 +74,8 @@ type requestGUIDReplace struct {
 	urlValues url.Values
 }
 
-/**
+/*
+*
 This function would replace they value of the requestGUIDKey in a url with a newly
 generated UUID
 */
