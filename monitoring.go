@@ -3,12 +3,10 @@
 package gosnowflake
 
 import (
-	"bytes"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/url"
 	"runtime"
 	"strconv"
@@ -220,13 +218,14 @@ func (sc *snowflakeConn) getQueryResultResp(
 	resultPath string,
 ) (*execResponse, error) {
 	var cachedResponse *execResponse
-	if res, ok := sc.execRespCache.load(resultPath); ok {
+	cachedResponse = nil
+	if respd, ok := sc.execRespCache.load(resultPath); ok {
+		cachedResponse = respd
 		// return the cached response, unless we pass the flag saying to
 		// bypass the cache
-		if res.Success && !shouldSkipCache(ctx) {
-			return res, nil
+		if !shouldSkipCache(ctx) {
+			return respd, nil
 		}
-		cachedResponse = res
 	}
 
 	headers := getHeaders()
@@ -258,10 +257,6 @@ func (sc *snowflakeConn) getQueryResultResp(
 		return nil, err
 	}
 
-	if !respd.Success && respd.Code == "" && respd.Message == "" {
-		logger.WithContext(ctx).Errorf("failed to build a proper exec response. received body: %s", string(bodyBytes))
-	}
-
 	// if we are skipping the cache, log difference between cached and non cached result
 	if shouldSkipCache(ctx) {
 		qid := respd.Data.QueryID
@@ -269,6 +264,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 		// if there was no response in the cache anyway, log that and dont try to log anything else
 		if cachedResponse == nil {
 			logger.WithContext(ctx).Errorf("cached queryId: %v did not use cache", qid)
+
 		} else {
 			// log if there are any differences in the arrow encooded first chunk
 			arrowCached := cachedResponse.Data.RowSetBase64
@@ -302,10 +298,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 		}
 	}
 
-	if respd.Success {
-		sc.execRespCache.store(resultPath, respd)
-	}
-
+	sc.execRespCache.store(resultPath, respd)
 	return respd, nil
 }
 
@@ -360,10 +353,9 @@ func (sc *snowflakeConn) waitForCompletedQueryResultResp(
 
 	if !response.Success {
 		logEverything(ctx, qid, response, startTime)
-	} else {
-		sc.execRespCache.store(resultPath, response)
 	}
 
+	sc.execRespCache.store(resultPath, response)
 	return response, nil
 }
 
