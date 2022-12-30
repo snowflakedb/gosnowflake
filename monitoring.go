@@ -428,6 +428,12 @@ func (sc *snowflakeConn) blockOnRunningQuery(
 				if err != nil {
 					return err
 				}
+				return (&SnowflakeError{
+					Number:   code,
+					SQLState: resp.Data.SQLState,
+					Message:  err.Error(),
+					QueryID:  resp.Data.QueryID,
+				}).exceptionTelemetry(sc)
 			}
 			if code == -1 {
 				ok, deadline := ctx.Deadline()
@@ -437,12 +443,6 @@ func (sc *snowflakeConn) blockOnRunningQuery(
 					logger.WithContext(ctx).Errorf("sullSnowflakeRestful")
 				}
 			}
-			return (&SnowflakeError{
-				Number:   code,
-				SQLState: resp.Data.SQLState,
-				Message:  err.Error(),
-				QueryID:  resp.Data.QueryID,
-			}).exceptionTelemetry(sc)
 		}
 		return err
 	}
@@ -455,6 +455,12 @@ func (sc *snowflakeConn) blockOnRunningQuery(
 				code = ErrQueryStatus
 				message = fmt.Sprintf("%s: (failed to parse original code: %s: %s)", message, resp.Code, err.Error())
 			}
+			return (&SnowflakeError{
+				Number:   code,
+				SQLState: resp.Data.SQLState,
+				Message:  message,
+				QueryID:  resp.Data.QueryID,
+			}).exceptionTelemetry(sc)
 		}
 		if code == -1 {
 			ok, deadline := ctx.Deadline()
@@ -464,12 +470,6 @@ func (sc *snowflakeConn) blockOnRunningQuery(
 				logger.WithContext(ctx).Errorf("sullSnowflakeRestful")
 			}
 		}
-		return (&SnowflakeError{
-			Number:   code,
-			SQLState: resp.Data.SQLState,
-			Message:  message,
-			QueryID:  resp.Data.QueryID,
-		}).exceptionTelemetry(sc)
 	}
 	return nil
 }
