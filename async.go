@@ -98,7 +98,9 @@ func (sr *snowflakeRestful) getAsync(
 	}
 
 	sc := &snowflakeConn{rest: sr, cfg: cfg}
-	if response.Success {
+	// the result response sometimes contains only Data and not anything else.
+	// if code is not set we treat as success
+	if response.Success || response.Code == "" {
 		if resType == execResultType {
 			res.insertID = -1
 			if isDml(response.Data.StatementTypeID) {
