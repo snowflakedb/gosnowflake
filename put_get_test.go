@@ -514,10 +514,8 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		t.Fatal("could not write to gzip file")
 	}
 
+	dsn = dsn + "&GCS_USE_DOWNSCOPED_CREDENTIAL=true"
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("alter session set GCS_USE_DOWNSCOPED_CREDENTIAL=true;")
-		dbt.mustExec("alter session set FORCE_GCP_USE_DOWNSCOPED_CREDENTIAL = true;")
-
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
 		fileStream, err := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
