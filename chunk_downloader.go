@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/ipc"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 )
@@ -696,10 +696,9 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 	return nil
 }
 
-// ArrowBatch object represents a chunk of data, or subset of rows, retrievable in array.Record format
+// ArrowBatch object represents a chunk of data, or subset of rows, retrievable in arrow.Record format
 type ArrowBatch struct {
-	//lint:ignore SA1019 this needs to be resolved to update Arrow
-	rec                *[]array.Record
+	rec                *[]arrow.Record
 	idx                int
 	rowCount           int
 	scd                *snowflakeChunkDownloader
@@ -707,9 +706,7 @@ type ArrowBatch struct {
 }
 
 // Fetch returns an array of records representing a chunk in the query
-//
-//lint:ignore SA1019 this needs to be resolved to update Arrow
-func (rb *ArrowBatch) Fetch() (*[]array.Record, error) {
+func (rb *ArrowBatch) Fetch() (*[]arrow.Record, error) {
 	// chunk has already been downloaded
 	if rb.rec != nil {
 		// updating metadata
@@ -736,8 +733,7 @@ func usesArrowBatches(ctx context.Context) bool {
 	return a && ok
 }
 
-//lint:ignore SA1019 this needs to be resolved to update Arrow
-func countArrowBatchRows(recs *[]array.Record) int {
+func countArrowBatchRows(recs *[]arrow.Record) int {
 	var cnt int
 	for _, r := range *recs {
 		cnt += int(r.NumRows())

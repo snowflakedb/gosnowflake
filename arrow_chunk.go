@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/ipc"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 )
@@ -55,10 +55,8 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 	}
 }
 
-//lint:ignore SA1019 this needs to be resolved to update Arrow
-func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]array.Record, error) {
-	//lint:ignore SA1019 this needs to be resolved to update Arrow
-	var records []array.Record
+func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]arrow.Record, error) {
+	var records []arrow.Record
 
 	for {
 		rawRecord, err := arc.reader.Read()

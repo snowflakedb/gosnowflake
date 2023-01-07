@@ -616,8 +616,7 @@ func TestArrowToRecord(t *testing.T) {
 		nrows    int
 		builder  array.Builder
 		append   func(b array.Builder, vs interface{})
-		//lint:ignore SA1019 this needs to be resolved to update Arrow
-		compare func(src interface{}, rec array.Record) int
+		compare  func(src interface{}, rec arrow.Record) int
 	}{
 		{
 			logical:  "fixed",
@@ -644,8 +643,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Decimal128Builder).Append(num)
 				}
 			},
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]string)
 				for i, dec := range array.NewInt64Data(convertedRec.Column(0).Data()).Int64Values() {
 					num, ok := stringIntToDecimal(srcvs[i])
@@ -677,8 +675,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Decimal128Builder).Append(num)
 				}
 			},
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]string)
 				for i, dec := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
 					num, ok := stringFloatToDecimal(srcvs[i], 37)
@@ -738,8 +735,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt8Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int8)
 				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
 					rawFloat, _ := intToBigFloat(int64(srcvs[i]), 1).Float64()
@@ -759,8 +755,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt16Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int16)
 				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
 					rawFloat, _ := intToBigFloat(int64(srcvs[i]), 1).Float64()
@@ -780,8 +775,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt32Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int32)
 				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
 					rawFloat, _ := intToBigFloat(int64(srcvs[i]), 2).Float64()
@@ -801,8 +795,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt64Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int64)
 				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
 					rawFloat, _ := intToBigFloat(srcvs[i], 5).Float64()
@@ -870,8 +863,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Time64Builder).Append(arrow.Time64(t.UnixNano()))
 				}
 			},
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range array.NewTime64Data(convertedRec.Column(0).Data()).Time64Values() {
 					if srcvs[i].UnixNano() != int64(t) {
@@ -893,8 +885,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.TimestampBuilder).Append(arrow.Timestamp(t.UnixNano()))
 				}
 			},
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range array.NewTimestampData(convertedRec.Column(0).Data()).TimestampValues() {
 					if srcvs[i].UnixNano() != int64(t) {
@@ -916,8 +907,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.TimestampBuilder).Append(arrow.Timestamp(t.UnixNano()))
 				}
 			},
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range array.NewTimestampData(convertedRec.Column(0).Data()).TimestampValues() {
 					if srcvs[i].UnixNano() != int64(t) {
@@ -942,8 +932,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.UnixNano()))
 				}
 			},
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			compare: func(src interface{}, convertedRec array.Record) int {
+			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range array.NewTimestampData(convertedRec.Column(0).Data()).TimestampValues() {
 					if srcvs[i].Unix() != time.Unix(0, int64(t)).Unix() {
@@ -987,8 +976,7 @@ func TestArrowToRecord(t *testing.T) {
 			tc.append(b, tc.values)
 			arr := b.NewArray()
 			defer arr.Release()
-			//lint:ignore SA1019 this needs to be resolved to update Arrow
-			rawRec := array.NewRecord(tc.sc, []array.Interface{arr}, int64(tc.nrows))
+			rawRec := array.NewRecord(tc.sc, []arrow.Array{arr}, int64(tc.nrows))
 			meta := tc.rowType
 			meta.Type = tc.logical
 
