@@ -306,8 +306,7 @@ func decimalToBigFloat(num decimal128.Num, scale int64) *big.Float {
 func arrowToValue(
 	destcol *[]snowflakeValue,
 	srcColumnMeta execResponseRowType,
-	//lint:ignore SA1019 this needs to be resolved to update Arrow
-	srcValue array.Interface,
+	srcValue arrow.Array,
 	loc *time.Location,
 	higherPrecision bool) error {
 	data := srcValue.Data()
@@ -896,15 +895,13 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-//lint:ignore SA1019 this needs to be resolved to update Arrow
-func arrowToRecord(record array.Record, rowType []execResponseRowType, loc *time.Location) (array.Record, error) {
+func arrowToRecord(record arrow.Record, rowType []execResponseRowType, loc *time.Location) (arrow.Record, error) {
 	s, err := recordToSchema(record.Schema(), rowType, loc)
 	if err != nil {
 		return nil, err
 	}
 
-	//lint:ignore SA1019 this needs to be resolved to update Arrow
-	var cols []array.Interface
+	var cols []arrow.Array
 	numRows := record.NumRows()
 	pool := memory.NewGoAllocator()
 
