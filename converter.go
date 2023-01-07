@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/decimal128"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
 const format = "2006-01-02 15:04:05.999999999"
@@ -306,6 +306,7 @@ func decimalToBigFloat(num decimal128.Num, scale int64) *big.Float {
 func arrowToValue(
 	destcol *[]snowflakeValue,
 	srcColumnMeta execResponseRowType,
+	//lint:ignore SA1019 this needs to be resolved to update Arrow
 	srcValue array.Interface,
 	loc *time.Location,
 	higherPrecision bool) error {
@@ -895,12 +896,14 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
+//lint:ignore SA1019 this needs to be resolved to update Arrow
 func arrowToRecord(record array.Record, rowType []execResponseRowType, loc *time.Location) (array.Record, error) {
 	s, err := recordToSchema(record.Schema(), rowType, loc)
 	if err != nil {
 		return nil, err
 	}
 
+	//lint:ignore SA1019 this needs to be resolved to update Arrow
 	var cols []array.Interface
 	numRows := record.NumRows()
 	pool := memory.NewGoAllocator()

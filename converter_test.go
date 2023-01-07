@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/decimal128"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {
@@ -616,7 +616,8 @@ func TestArrowToRecord(t *testing.T) {
 		nrows    int
 		builder  array.Builder
 		append   func(b array.Builder, vs interface{})
-		compare  func(src interface{}, rec array.Record) int
+		//lint:ignore SA1019 this needs to be resolved to update Arrow
+		compare func(src interface{}, rec array.Record) int
 	}{
 		{
 			logical:  "fixed",
@@ -643,6 +644,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Decimal128Builder).Append(num)
 				}
 			},
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]string)
 				for i, dec := range array.NewInt64Data(convertedRec.Column(0).Data()).Int64Values() {
@@ -675,6 +677,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Decimal128Builder).Append(num)
 				}
 			},
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]string)
 				for i, dec := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
@@ -735,6 +738,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt8Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]int8)
 				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
@@ -755,6 +759,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt16Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]int16)
 				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
@@ -775,6 +780,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt32Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]int32)
 				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
@@ -795,6 +801,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt64Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]int64)
 				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
@@ -863,6 +870,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Time64Builder).Append(arrow.Time64(t.UnixNano()))
 				}
 			},
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range array.NewTime64Data(convertedRec.Column(0).Data()).Time64Values() {
@@ -885,6 +893,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.TimestampBuilder).Append(arrow.Timestamp(t.UnixNano()))
 				}
 			},
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range array.NewTimestampData(convertedRec.Column(0).Data()).TimestampValues() {
@@ -907,6 +916,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.TimestampBuilder).Append(arrow.Timestamp(t.UnixNano()))
 				}
 			},
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range array.NewTimestampData(convertedRec.Column(0).Data()).TimestampValues() {
@@ -932,6 +942,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.UnixNano()))
 				}
 			},
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			compare: func(src interface{}, convertedRec array.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range array.NewTimestampData(convertedRec.Column(0).Data()).TimestampValues() {
@@ -976,6 +987,7 @@ func TestArrowToRecord(t *testing.T) {
 			tc.append(b, tc.values)
 			arr := b.NewArray()
 			defer arr.Release()
+			//lint:ignore SA1019 this needs to be resolved to update Arrow
 			rawRec := array.NewRecord(tc.sc, []array.Interface{arr}, int64(tc.nrows))
 			meta := tc.rowType
 			meta.Type = tc.logical
