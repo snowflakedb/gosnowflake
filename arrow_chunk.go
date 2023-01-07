@@ -8,9 +8,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow/ipc"
+	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
 type arrowResultChunk struct {
@@ -55,7 +55,9 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 	}
 }
 
+//lint:ignore SA1019 this needs to be resolved to update Arrow
 func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]array.Record, error) {
+	//lint:ignore SA1019 this needs to be resolved to update Arrow
 	var records []array.Record
 
 	for {
