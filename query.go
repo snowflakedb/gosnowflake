@@ -145,6 +145,7 @@ type QueryMonitoringData struct {
 	MajorVersionNumber  int              `json:"majorVersionNumber"`
 	MinorVersionNumber  int              `json:"minorVersionNumber"`
 	PatchVersionNumber  int              `json:"patchVersionNumber"`
+	StatesDuration      string           `json:"statesDuration"`
 	Stats               map[string]int64 `json:"stats"`
 }
 
