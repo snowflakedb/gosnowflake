@@ -418,6 +418,14 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		ctx:             ctx,
 		cfg:             &config,
 	}
+	// do not share ptr to Params map!
+	if sc.cfg.Params != nil {
+		copyParams := make(map[string]*string, len(sc.cfg.Params))
+		for k, v := range sc.cfg.Params {
+			copyParams[k] = v
+		}
+		sc.cfg.Params = copyParams
+	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {
 		if sc.cfg.InsecureMode {
