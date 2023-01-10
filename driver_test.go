@@ -333,6 +333,10 @@ func runningOnAWS() bool {
 	return os.Getenv("CLOUD_PROVIDER") == "AWS"
 }
 
+func runningOnGCP() bool {
+	return os.Getenv("CLOUD_PROVIDER") == "GCP"
+}
+
 func TestBogusUserPasswordParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
 	invalidUserPassErrorTests(invalidDNS, t)
