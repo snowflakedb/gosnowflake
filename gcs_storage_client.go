@@ -31,8 +31,10 @@ type gcsLocation struct {
 
 func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
 	if info.Creds.GcsAccessToken != "" {
+		logger.Debug("Using GCS downscoped token")
 		return info.Creds.GcsAccessToken, nil
 	}
+	logger.Debug("No access token received from GS, using presigned url")
 	return "", nil
 }
 
@@ -127,7 +129,7 @@ func (util *snowflakeGcsClient) uploadFile(
 	var err error
 
 	if uploadURL == nil {
-		_, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		uploadURL, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
 		if err != nil {
 			return err
 		}
@@ -246,8 +248,8 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 	var err error
 	gcsHeaders := make(map[string]string)
 
-	if downloadURL == nil {
-		downloadURL, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+	if downloadURL == nil || downloadURL.String() == "" {
+		downloadURL, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.srcFileName, "/"))
 		if err != nil {
 			return err
 		}
@@ -274,6 +276,8 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
 			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = needRetry
+		} else if resp.StatusCode == 404 {
+			meta.resStatus = notFoundFile
 		} else if accessToken == "" && resp.StatusCode == 400 && meta.lastError == nil {
 			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = renewPresignedURL
@@ -329,7 +333,7 @@ func (util *snowflakeGcsClient) extractBucketNameAndPath(location string) *gcsLo
 	if strings.Contains(location, "/") {
 		containerName = location[:strings.Index(location, "/")]
 		path = location[strings.Index(location, "/")+1:]
-		if path != "" && strings.HasSuffix(location, "/") {
+		if path != "" && !strings.HasSuffix(path, "/") {
 			path += "/"
 		}
 	}
