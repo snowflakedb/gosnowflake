@@ -164,6 +164,18 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 		sc.cfg.Params[strings.ToLower(param.Name)] = &v
 		paramsMutex.Unlock()
 	}
+
+	// cache session parameters
+	paramsMutex.Lock()
+	if len(sc.cfg.Params) != 0 {
+		if len(sc.commonParams) == 0 {
+			sc.commonParams = make(map[string]*string)
+		}
+		for k, v := range sc.cfg.Params {
+			sc.commonParams[strings.ToLower(k)] = v
+		}
+	}
+	paramsMutex.Unlock()
 }
 
 func isAsyncMode(ctx context.Context) bool {

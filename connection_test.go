@@ -583,6 +583,9 @@ func TestQueryArrowStreamError(t *testing.T) {
 }
 
 func TestExecContextError(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("run locally")
+	}
 	ctx := context.Background()
 	config, err := ParseDSN(dsn)
 	if err != nil {
@@ -697,4 +700,64 @@ func TestBeginCreatesTransaction(t *testing.T) {
 		t.Fatal("should have created a transaction with connection")
 	}
 	sc.Close()
+}
+
+func TestHTAPOptimization(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("run locally")
+	}
+	ctx := context.Background()
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Fatal(err)
+	}
+	account := os.Getenv("SNOWFLAKE_TEST_ACCOUNT")
+	database := os.Getenv("SNOWFLAKE_TEST_DATABASE")
+	warehouse := os.Getenv("SNOWFLAKE_TEST_WAREHOUSE")
+
+	sc.Exec("ALTER ACCOUNT "+account+" set ENABLE_SNOW_654741_FOR_TESTING=true", nil)
+	defer sc.Exec("ALTER ACCOUNT "+account+" unset ENABLE_SNOW_654741_FOR_TESTING=false", nil)
+
+	if !strings.EqualFold(database, sc.cfg.Database) {
+		t.Fatalf("database name mismatch: expected %v, but got %v", database, sc.cfg.Database)
+	}
+	if !strings.EqualFold(schemaname, sc.cfg.Schema) {
+		t.Fatalf("schema name mismatch: expected %v, but got %v", schemaname, sc.cfg.Schema)
+	}
+	if !strings.EqualFold(warehouse, sc.cfg.Warehouse) {
+		t.Fatalf("warehouse name mismatch: expected %v, but got %v", warehouse, sc.cfg.Warehouse)
+	}
+
+	// Set TIMESTAMP_OUTPUT_FORMAT (which is a session parameter) to check its value later
+	sc.Exec("alter session set TIMESTAMP_OUTPUT_FORMAT='YYYY-MM-DD HH24:MI:SS.FFTZH'", nil)
+
+	// create and insert data test table to use for select statement
+	sc.Exec("create or replace table testtable1 (cola string, colb int)", nil)
+	sc.Exec("insert into testtable1 values ('row1', 1), ('row2', 2), ('row3', 3)", nil)
+	sc.Exec("select * from testtable1", nil)
+
+	// Check that database, schema, and warehouse have the same values as before even though the select
+	// statement will return no parameters or metadata
+	if !strings.EqualFold(database, sc.cfg.Database) {
+		t.Fatalf("database name mismatch: expected %v, but got %v", database, sc.cfg.Database)
+	}
+	if !strings.EqualFold(schemaname, sc.cfg.Schema) {
+		t.Fatalf("schema name mismatch: expected %v, but got %v", schemaname, sc.cfg.Schema)
+	}
+	if !strings.EqualFold(warehouse, sc.cfg.Warehouse) {
+		t.Fatalf("warehouse name mismatch: expected %v, but got %v", warehouse, sc.cfg.Warehouse)
+	}
+
+	// Check the TIMESTAMP_OUTPUT_FORMAT parameter has the same value as before the select statement
+	format := sc.commonParams["timestamp_output_format"]
+	if *format != "YYYY-MM-DD HH24:MI:SS.FFTZH" {
+		t.Fatalf("session parameter mismatch: expected YYYY-MM-DD HH24:MI:SS.FFTZH, but got %v", format)
+	}
 }

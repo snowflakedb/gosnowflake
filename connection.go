@@ -68,6 +68,7 @@ type snowflakeConn struct {
 	SQLState        string
 	telemetry       *snowflakeTelemetry
 	internal        InternalClient
+	commonParams    map[string]*string
 }
 
 var (
@@ -154,13 +155,27 @@ func (sc *snowflakeConn) exec(
 	}
 
 	logger.WithContext(ctx).Info("Exec/Query SUCCESS")
-	sc.cfg.Database = data.Data.FinalDatabaseName
-	sc.cfg.Schema = data.Data.FinalSchemaName
+	if data.Data.FinalDatabaseName != "" {
+		sc.cfg.Database = data.Data.FinalDatabaseName
+	}
+	if data.Data.FinalSchemaName != "" {
+		sc.cfg.Schema = data.Data.FinalSchemaName
+	}
 	sc.cfg.Role = data.Data.FinalRoleName
-	sc.cfg.Warehouse = data.Data.FinalWarehouseName
+	if data.Data.FinalWarehouseName != "" {
+		sc.cfg.Warehouse = data.Data.FinalWarehouseName
+	}
 	sc.QueryID = data.Data.QueryID
 	sc.SQLState = data.Data.SQLState
+	// Use cached parameters if no parameters are returned with the query response
 	sc.populateSessionParameters(data.Data.Parameters)
+	paramsMutex.Lock()
+	if len(sc.cfg.Params) == 0 {
+		for k, v := range sc.commonParams {
+			sc.cfg.Params[strings.ToLower(k)] = v
+		}
+	}
+	paramsMutex.Unlock()
 	return data, err
 }
 
