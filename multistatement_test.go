@@ -4,7 +4,10 @@ package gosnowflake
 
 import (
 	"context"
+	"io"
+	"os"
 	"testing"
+	"time"
 )
 
 func TestMultiStatementExecuteNoResultSet(t *testing.T) {
@@ -375,5 +378,48 @@ func TestMultiStatementVaryingColumnCount(t *testing.T) {
 		} else {
 			t.Error("failed to query")
 		}
+	})
+}
+
+// The total completion time should be similar to the duration of the query on Snowflake UI.
+func TestMultiStatementExecutePerformance(t *testing.T) {
+	ctx, _ := WithMultiStatement(context.Background(), 100)
+	runTests(t, dsn, func(dbt *DBTest) {
+		file, err := os.Open("test_data/multistatements.sql")
+		if err != nil {
+			t.Fatalf("failed opening file: %s", err)
+		}
+		defer file.Close()
+		statements, err := io.ReadAll(file)
+		if err != nil {
+			t.Fatalf("failed reading file: %s", err)
+		}
+
+		sql := string(statements)
+
+		start := time.Now()
+		res := dbt.mustExecContext(ctx, sql)
+		duration := time.Since(start)
+
+		count, err := res.RowsAffected()
+		if err != nil {
+			t.Fatalf("res.RowsAffected() returned error: %v", err)
+		}
+		if count != 0 {
+			t.Fatalf("expected 0 affected rows, got %d", count)
+		}
+		t.Logf("The total completion time was %v", duration)
+
+		file, err = os.Open("test_data/multistatements_drop.sql")
+		if err != nil {
+			t.Fatalf("failed opening file: %s", err)
+		}
+		defer file.Close()
+		statements, err = io.ReadAll(file)
+		if err != nil {
+			t.Fatalf("failed reading file: %s", err)
+		}
+		sql = string(statements)
+		dbt.mustExecContext(ctx, sql)
 	})
 }
