@@ -492,3 +492,121 @@ func testPutGet(t *testing.T, isStream bool) {
 		}
 	})
 }
+func TestPutGetGcsDownscopedCredential(t *testing.T) {
+	if runningOnGithubAction() && !runningOnGCP() {
+		t.Skip("skipping non GCP environment")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "put_get")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
+	originalContents := "123,test1\n456,test2\n"
+	tableName := randomString(5)
+
+	var b bytes.Buffer
+	gzw := gzip.NewWriter(&b)
+	gzw.Write([]byte(originalContents))
+	gzw.Close()
+	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+		t.Fatal("could not write to gzip file")
+	}
+
+	dsn = dsn + "&GCS_USE_DOWNSCOPED_CREDENTIAL=true"
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("create or replace table " + tableName +
+			" (a int, b string)")
+		fileStream, err := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+		if err != nil {
+			t.Error(err)
+		}
+		defer func() {
+			defer dbt.mustExec("drop table " + tableName)
+			if fileStream != nil {
+				fileStream.Close()
+			}
+		}()
+
+		var sqlText string
+		var rows *RowsExtended
+		sql := "put 'file://%v' @%%%v auto_compress=true parallel=30"
+		sqlText = fmt.Sprintf(
+			sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
+		rows = dbt.mustQuery(sqlText)
+
+		var s0, s1, s2, s3, s4, s5, s6, s7 string
+		if rows.Next() {
+			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if s6 != uploaded.String() {
+			t.Fatalf("expected %v, got: %v", uploaded, s6)
+		}
+		// check file is PUT
+		dbt.mustQueryAssertCount("ls @%"+tableName, 1)
+
+		dbt.mustExec("copy into " + tableName)
+		dbt.mustExec("rm @%" + tableName)
+		dbt.mustQueryAssertCount("ls @%"+tableName, 0)
+
+		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
+            compression='gzip')`, tableName, tableName))
+
+		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		rows = dbt.mustQuery(sqlText)
+		defer rows.Close()
+		for rows.Next() {
+			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+				t.Error(err)
+			}
+			if !strings.HasPrefix(s0, "data_") {
+				t.Error("a file was not downloaded by GET")
+			}
+			if v, err := strconv.Atoi(s1); err != nil || v != 36 {
+				t.Error("did not return the right file size")
+			}
+			if s2 != "DOWNLOADED" {
+				t.Error("did not return DOWNLOADED status")
+			}
+			if s3 != "" {
+				t.Errorf("returned %v", s3)
+			}
+		}
+
+		files, err := filepath.Glob(filepath.Join(tmpDir, "data_*"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fileName := files[0]
+		f, err := os.Open(fileName)
+		if err != nil {
+			t.Error(err)
+		}
+		defer f.Close()
+		gz, err := gzip.NewReader(f)
+		if err != nil {
+			t.Error(err)
+		}
+		var contents string
+		for {
+			c := make([]byte, defaultChunkBufferSize)
+			if n, err := gz.Read(c); err != nil {
+				if err == io.EOF {
+					contents = contents + string(c[:n])
+					break
+				}
+				t.Error(err)
+			} else {
+				contents = contents + string(c[:n])
+			}
+		}
+
+		if contents != originalContents {
+			t.Error("output is different from the original file")
+		}
+	})
+}
