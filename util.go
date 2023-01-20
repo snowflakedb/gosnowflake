@@ -31,6 +31,7 @@ const (
 	submitSync            contextKey = "SUBMIT_SYNC"
 	reportAsyncError      contextKey = "REPORT_ASYNC_ERROR"
 	skipCache             contextKey = "SKIP_CACHE"
+	logSfResponseForCacheBug contextKey = "LOG_SF_RESPONSE_FOR_CACHE_BUG"
 )
 
 const (
@@ -102,18 +103,17 @@ func WithArrowBatches(ctx context.Context) context.Context {
 	return context.WithValue(ctx, arrowBatches, true)
 }
 
-<<<<<<< HEAD
 // WithArrowAllocator returns a context embedding the provided allocator
 // which will be utilized by chunk downloaders when constructing Arrow
 // objects.
 func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Context {
 	return context.WithValue(ctx, arrowAlloc, pool)
-=======
+}
+
 // WithQueryTag returns a context that will set the given tag as the QUERY_TAG
 // parameter on any queries that are run
 func WithQueryTag(ctx context.Context, tag string) context.Context {
 	return context.WithValue(ctx, queryTag, tag)
->>>>>>> a9448d9 ([Feature] allow clients to set QUERY_TAG parameter via context)
 }
 
 // WithSubmitSync returns a context that enables execution of a query that waits
@@ -130,12 +130,19 @@ func WithReportAsyncError(ctx context.Context) context.Context {
 }
 
 // WithSkipCache returns a context that enables execution to bypass the using the cache
-// in multiplex, this can be set on a per org basis 
+// in multiplex, this can be set on a per org basis
 // *** leave this in on rebase ***
 func WithSkipCache(ctx context.Context) context.Context {
 	return context.WithValue(ctx, skipCache, true)
 }
 
+// WithLogSfResponseForCacheBug returns a context that enables execution to log sf result when success is not true but body is empty
+// this is to help sf debug cache issue
+// in multiplex, this can be set on a per org basis
+// *** leave this in on rebase ***
+func WithLogSfResponseForCacheBug(ctx context.Context) context.Context {
+	return context.WithValue(ctx, logSfResponseForCacheBug, true)
+}
 
 // Get the request ID from the context if specified, otherwise generate one
 func getOrGenerateRequestIDFromContext(ctx context.Context) UUID {
