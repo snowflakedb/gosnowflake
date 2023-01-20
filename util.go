@@ -14,20 +14,21 @@ import (
 type contextKey string
 
 const (
-	multiStatementCount   contextKey = "MULTI_STATEMENT_COUNT"
-	asyncMode             contextKey = "ASYNC_MODE_QUERY"
-	asyncModeNoFetch      contextKey = "ASYNC_MODE_NO_FETCH_QUERY"
-	queryIDChannel        contextKey = "QUERY_ID_CHANNEL"
-	snowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
-	fetchResultByID       contextKey = "SF_FETCH_RESULT_BY_ID"
-	fileStreamFile        contextKey = "STREAMING_PUT_FILE"
-	fileTransferOptions   contextKey = "FILE_TRANSFER_OPTIONS"
-	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
-	arrowBatches          contextKey = "ARROW_BATCHES"
-	queryTag              contextKey = "QUERY_TAG"
-	submitSync            contextKey = "SUBMIT_SYNC"
-	reportAsyncError      contextKey = "REPORT_ASYNC_ERROR"
-	skipCache             contextKey = "SKIP_CACHE"
+	multiStatementCount      contextKey = "MULTI_STATEMENT_COUNT"
+	asyncMode                contextKey = "ASYNC_MODE_QUERY"
+	asyncModeNoFetch         contextKey = "ASYNC_MODE_NO_FETCH_QUERY"
+	queryIDChannel           contextKey = "QUERY_ID_CHANNEL"
+	snowflakeRequestIDKey    contextKey = "SNOWFLAKE_REQUEST_ID"
+	fetchResultByID          contextKey = "SF_FETCH_RESULT_BY_ID"
+	fileStreamFile           contextKey = "STREAMING_PUT_FILE"
+	fileTransferOptions      contextKey = "FILE_TRANSFER_OPTIONS"
+	enableHigherPrecision    contextKey = "ENABLE_HIGHER_PRECISION"
+	arrowBatches             contextKey = "ARROW_BATCHES"
+	queryTag                 contextKey = "QUERY_TAG"
+	submitSync               contextKey = "SUBMIT_SYNC"
+	reportAsyncError         contextKey = "REPORT_ASYNC_ERROR"
+	skipCache                contextKey = "SKIP_CACHE"
+	logSfResponseForCacheBug contextKey = "LOG_SF_RESPONSE_FOR_CACHE_BUG"
 )
 
 const (
@@ -119,12 +120,19 @@ func WithReportAsyncError(ctx context.Context) context.Context {
 }
 
 // WithSkipCache returns a context that enables execution to bypass the using the cache
-// in multiplex, this can be set on a per org basis 
+// in multiplex, this can be set on a per org basis
 // *** leave this in on rebase ***
 func WithSkipCache(ctx context.Context) context.Context {
 	return context.WithValue(ctx, skipCache, true)
 }
 
+// WithLogSfResponseForCacheBug returns a context that enables execution to log sf result when success is not true but body is empty
+// this is to help sf debug cache issue
+// in multiplex, this can be set on a per org basis
+// *** leave this in on rebase ***
+func WithLogSfResponseForCacheBug(ctx context.Context) context.Context {
+	return context.WithValue(ctx, logSfResponseForCacheBug, true)
+}
 
 // Get the request ID from the context if specified, otherwise generate one
 func getOrGenerateRequestIDFromContext(ctx context.Context) UUID {
