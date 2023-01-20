@@ -497,11 +497,14 @@ func TestUnitAuthenticateUsernamePasswordMfa(t *testing.T) {
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeUsernamePasswordMFA
-	requestMfaToken := "true"
-	sc.cfg.Params[clientRequestMfaToken] = &requestMfaToken
+	sc.cfg.ClientRequestMfaToken = true
 	sc.rest = sr
 	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
+}
+
+func TestMfaConnectionCaching() {
+
 }
