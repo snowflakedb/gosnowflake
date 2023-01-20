@@ -3,10 +3,12 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"runtime"
 	"strconv"
@@ -201,6 +203,16 @@ func shouldSkipCache(ctx context.Context) bool {
 	return a && ok
 }
 
+// check if we want to log sf response for debugging cache bug
+func shouldLogSfResponseForCacheBug(ctx context.Context) bool {
+	val := ctx.Value(logSfResponseForCacheBug)
+	if val == nil {
+		return false
+	}
+	a, ok := val.(bool)
+	return a && ok
+}
+
 // Waits 45 seconds for a query response; return early if query finishes
 func (sc *snowflakeConn) getQueryResultResp(
 	ctx context.Context,
@@ -237,10 +249,38 @@ func (sc *snowflakeConn) getQueryResultResp(
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		return nil, err
 	}
+	// defer for logging sf cache bug if logging is enabled
+	if res.Body != nil {
+		defer func() { _ = res.Body.Close() }()
+	}
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to read bytes from result body. err: %v", err)
+		return nil, err
+	}
+
 	var respd *execResponse
-	if err = json.NewDecoder(res.Body).Decode(&respd); err != nil {
+	if err = json.NewDecoder(bytes.NewReader(bodyBytes)).Decode(&respd); err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 		return nil, err
+	}
+
+	// log when Success is false but body has data
+	if !respd.Success && respd.Code == "" && respd.Message == "" {
+		logger.WithContext(ctx).Errorf("Response body is non-empty but isSuccess is false")
+	}
+
+	// log to get data points for sf to debug cache issue, should log only for staging org
+	if shouldLogSfResponseForCacheBug(ctx) {
+		logHeader, errHeader := json.Marshal(res.Header)
+		if errHeader != nil {
+			logger.WithContext(ctx).Errorf("failed to read header from result header. errHeader: %v", errHeader)
+			return nil, errHeader
+		}
+		// log for debugging header and response when Success is false but body has data
+		if !respd.Success && respd.Code == "" && respd.Message == "" {
+			logger.WithContext(ctx).Errorf("failed to build a proper exec response. received body: %s with header %s", string(bodyBytes), string(logHeader))
+		}
 	}
 
 	// if we are skipping the cache, log difference between cached and non cached result
