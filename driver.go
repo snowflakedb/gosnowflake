@@ -7,7 +7,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"os"
+	"sync"
 )
+
+var paramsMutex *sync.Mutex
 
 // SnowflakeDriver is a context of Go Driver
 type SnowflakeDriver struct{}
@@ -59,4 +62,5 @@ func init() {
 	if runningOnGithubAction() {
 		logger.SetLogLevel("fatal")
 	}
+	paramsMutex = &sync.Mutex{}
 }

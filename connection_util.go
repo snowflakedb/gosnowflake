@@ -14,7 +14,9 @@ import (
 )
 
 func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
+	paramsMutex.Lock()
 	v, ok := sc.cfg.Params[sessionClientSessionKeepAlive]
+	paramsMutex.Unlock()
 	if !ok {
 		return false
 	}
@@ -22,7 +24,9 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 }
 
 func (sc *snowflakeConn) isClientStoreTemporaryCredential() bool {
+	paramsMutex.Lock()
 	v, ok := sc.cfg.Params[clientStoreTemporaryCredential]
+	paramsMutex.Unlock()
 	if !ok {
 		return false
 	}
@@ -30,7 +34,9 @@ func (sc *snowflakeConn) isClientStoreTemporaryCredential() bool {
 }
 
 func (sc *snowflakeConn) isClientRequestMfaToken() bool {
+	paramsMutex.Lock()
 	v, ok := sc.cfg.Params[clientRequestMfaToken]
+	paramsMutex.Unlock()
 	if !ok {
 		return false
 	}
@@ -55,7 +61,9 @@ func (sc *snowflakeConn) stopHeartBeat() {
 }
 
 func (sc *snowflakeConn) getArrayBindStageThreshold() int {
+	paramsMutex.Lock()
 	v, ok := sc.cfg.Params[sessionArrayBindStageThreshold]
+	paramsMutex.Unlock()
 	if !ok {
 		return 0
 	}
@@ -76,9 +84,11 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 		},
 		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 	}
+	paramsMutex.Lock()
 	for k, v := range cfg.Params {
 		data.Message[k] = *v
 	}
+	paramsMutex.Unlock()
 	sc.telemetry.addLog(data)
 	sc.telemetry.sendBatch()
 }
@@ -166,7 +176,9 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 			}
 		}
 		logger.Debugf("parameter. name: %v, value: %v", param.Name, v)
+		paramsMutex.Lock()
 		sc.cfg.Params[strings.ToLower(param.Name)] = &v
+		paramsMutex.Unlock()
 	}
 }
 

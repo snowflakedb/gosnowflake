@@ -295,10 +295,12 @@ func authenticate(
 	}
 
 	sessionParameters := make(map[string]interface{})
+	paramsMutex.Lock()
 	for k, v := range sc.cfg.Params {
 		// upper casing to normalize keys
 		sessionParameters[strings.ToUpper(k)] = *v
 	}
+	paramsMutex.Unlock()
 
 	sessionParameters[sessionClientValidateDefaultParameters] = sc.cfg.ValidateDefaultParameters != ConfigBoolFalse
 	requestMain := authRequestData{
@@ -469,7 +471,9 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	paramBoolValue := "true"
 	if sc.cfg.Authenticator == AuthTypeExternalBrowser {
 		if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+			paramsMutex.Lock()
 			sc.cfg.Params[clientStoreTemporaryCredential] = &paramBoolValue
+			paramsMutex.Unlock()
 		}
 		if sc.isClientStoreTemporaryCredential() {
 			fillCachedIDToken(sc)
@@ -478,7 +482,9 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 
 	if sc.cfg.Authenticator == AuthTypeUsernamePasswordMFA {
 		if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+			paramsMutex.Lock()
 			sc.cfg.Params[clientRequestMfaToken] = &paramBoolValue
+			paramsMutex.Unlock()
 		}
 		if sc.isClientRequestMfaToken() {
 			fillCachedMfaToken(sc)

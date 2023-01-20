@@ -105,9 +105,11 @@ func (sc *snowflakeConn) exec(
 	if isFileTransfer(query) {
 		headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 	}
+	paramsMutex.Lock()
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers[httpHeaderServiceName] = *serviceName
 	}
+	paramsMutex.Unlock()
 
 	jsonBody, err := json.Marshal(req)
 	if err != nil {
