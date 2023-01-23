@@ -302,10 +302,10 @@ func authenticate(
 
 	sessionParameters[sessionClientValidateDefaultParameters] = sc.cfg.ValidateDefaultParameters != ConfigBoolFalse
 	if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
-	    sessionParameters[clientRequestMfaToken] = true
+		sessionParameters[clientRequestMfaToken] = true
 	}
 	if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
-	    sessionParameters[clientStoreTemporaryCredential] = true
+		sessionParameters[clientStoreTemporaryCredential] = true
 	}
 	requestMain := authRequestData{
 		ClientAppID:       clientType,
@@ -320,6 +320,7 @@ func authenticate(
 		if sc.cfg.IDToken != "" {
 			requestMain.Authenticator = idTokenAuthenticator
 			requestMain.Token = sc.cfg.IDToken
+			requestMain.LoginName = sc.cfg.User
 		} else {
 			requestMain.ProofKey = string(proofKey)
 			requestMain.Token = string(samlResponse)
@@ -431,7 +432,7 @@ func authenticate(
 		setCredential(sc, mfaToken, token)
 	}
 	if sessionParameters[clientStoreTemporaryCredential] == true {
-	    token := respd.Data.MfaToken
+		token := respd.Data.IDToken
 		setCredential(sc, idToken, token)
 	}
 	return &respd.Data, nil

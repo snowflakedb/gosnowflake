@@ -6,10 +6,12 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -232,12 +234,37 @@ func postAuthCheckUsernamePasswordMfa(_ context.Context, _ *snowflakeRestful, _ 
 		return nil, err
 	}
 
+	if ar.Data.SessionParameters["CLIENT_REQUEST_MFA_TOKEN"] != true {
+		return nil, fmt.Errorf("expected client_request_mfa_token to be true but was %v", ar.Data.SessionParameters["CLIENT_REQUEST_MFA_TOKEN"])
+	}
 	return &authResponse{
 		Success: true,
 		Data: authResponseMain{
 			Token:       "t",
 			MasterToken: "m",
 			MfaToken:    "mockedMfaToken",
+			SessionInfo: authResponseSessionInfo{
+				DatabaseName: "dbn",
+			},
+		},
+	}, nil
+}
+
+func postAuthCheckExternalBrowser(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
+	var ar authRequest
+	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+		return nil, err
+	}
+
+	if ar.Data.SessionParameters["CLIENT_STORE_TEMPORARY_CREDENTIAL"] != true {
+		return nil, fmt.Errorf("expected client_store_temporary_credential to be true but was %v", ar.Data.SessionParameters["CLIENT_STORE_TEMPORARY_CREDENTIAL"])
+	}
+	return &authResponse{
+		Success: true,
+		Data: authResponseMain{
+			Token:       "t",
+			MasterToken: "m",
+			IDToken:     "mockedIDToken",
 			SessionInfo: authResponseSessionInfo{
 				DatabaseName: "dbn",
 			},
@@ -497,7 +524,7 @@ func TestUnitAuthenticateUsernamePasswordMfa(t *testing.T) {
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeUsernamePasswordMFA
-	sc.cfg.ClientRequestMfaToken = true
+	sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 	sc.rest = sr
 	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
 	if err != nil {
@@ -505,6 +532,68 @@ func TestUnitAuthenticateUsernamePasswordMfa(t *testing.T) {
 	}
 }
 
-func TestMfaConnectionCaching() {
+func TestUnitAuthenticateExternalBrowser(t *testing.T) {
+	var err error
+	sr := &snowflakeRestful{
+		FuncPostAuth:  postAuthCheckExternalBrowser,
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = AuthTypeExternalBrowser
+	sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
+	sc.rest = sr
+	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	if err != nil {
+		t.Fatalf("failed to run. err: %v", err)
+	}
+}
 
+// To run this test you need to set environment variables in parameters.json to a user with MFA authentication enabled
+// Set any other snowflake_test variables needed for database, schema, role for this user
+func TestUsernamePasswordMfaCaching(t *testing.T) {
+	t.Skip("manual test for MFA token caching")
+
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	// connect with MFA authentication
+	user := os.Getenv("SNOWFLAKE_TEST_MFA_USER")
+	password := os.Getenv("SNOWFLAKE_TEST_MFA_PASSWORD")
+	config.User = user
+	config.Password = password
+	config.Authenticator = AuthTypeUsernamePasswordMFA
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	for i := 0; i < 3; i++ {
+		// should only be prompted to authenticate first time around.
+		_, err := db.Query("select current_user()")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// To run this test you need to set SNOWFLAKE_TEST_EXT_BROWSER_USER environment variable to an external browser user
+// Set any other snowflake_test variables needed for database, schema, role for this user
+func TestExternalBrowserCaching(t *testing.T) {
+	t.Skip("manual test for external browser token caching")
+
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	// connect with external browser authentication
+	user := os.Getenv("SNOWFLAKE_TEST_EXT_BROWSER_USER")
+	config.User = user
+	config.Authenticator = AuthTypeExternalBrowser
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	for i := 0; i < 3; i++ {
+		// should only be prompted to authenticate first time around.
+		_, err := db.Query("select current_user()")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 }

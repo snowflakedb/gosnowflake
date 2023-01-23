@@ -83,10 +83,10 @@ type Config struct {
 
 	Tracing string // sets logging level
 
-	MfaToken string // Internally used to cache the MFA token
-	IDToken  string // Internally used to cache the Id Token for external browser
-	ClientRequestMfaToken ConfigBool
-	ClientStoreTemporaryCredential ConfigBool
+	MfaToken                       string     // Internally used to cache the MFA token
+	IDToken                        string     // Internally used to cache the Id Token for external browser
+	ClientRequestMfaToken          ConfigBool // Internally used for MFa connection caching
+	ClientStoreTemporaryCredential ConfigBool // Internall used for ID token connection caching
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
