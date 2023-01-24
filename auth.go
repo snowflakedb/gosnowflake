@@ -295,10 +295,12 @@ func authenticate(
 	}
 
 	sessionParameters := make(map[string]interface{})
+	paramsMutex.Lock()
 	for k, v := range sc.cfg.Params {
 		// upper casing to normalize keys
 		sessionParameters[strings.ToUpper(k)] = *v
 	}
+	paramsMutex.Unlock()
 
 	sessionParameters[sessionClientValidateDefaultParameters] = sc.cfg.ValidateDefaultParameters != ConfigBoolFalse
 	if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
