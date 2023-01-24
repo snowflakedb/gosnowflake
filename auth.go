@@ -303,6 +303,12 @@ func authenticate(
 	paramsMutex.Unlock()
 
 	sessionParameters[sessionClientValidateDefaultParameters] = sc.cfg.ValidateDefaultParameters != ConfigBoolFalse
+	if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
+		sessionParameters[clientRequestMfaToken] = true
+	}
+	if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+		sessionParameters[clientStoreTemporaryCredential] = true
+	}
 	requestMain := authRequestData{
 		ClientAppID:       clientType,
 		ClientAppVersion:  SnowflakeGoDriverVersion,
@@ -316,6 +322,7 @@ func authenticate(
 		if sc.cfg.IDToken != "" {
 			requestMain.Authenticator = idTokenAuthenticator
 			requestMain.Token = sc.cfg.IDToken
+			requestMain.LoginName = sc.cfg.User
 		} else {
 			requestMain.ProofKey = string(proofKey)
 			requestMain.Token = string(samlResponse)
@@ -403,10 +410,10 @@ func authenticate(
 	if !respd.Success {
 		logger.Errorln("Authentication FAILED")
 		sc.rest.TokenAccessor.SetTokens("", "", -1)
-		if sessionParameters[clientRequestMfaToken] == "true" {
+		if sessionParameters[clientRequestMfaToken] == true {
 			deleteCredential(sc, mfaToken)
 		}
-		if sessionParameters[clientStoreTemporaryCredential] == "true" {
+		if sessionParameters[clientStoreTemporaryCredential] == true {
 			deleteCredential(sc, idToken)
 		}
 		code, err := strconv.Atoi(respd.Code)
@@ -422,11 +429,13 @@ func authenticate(
 	}
 	logger.Info("Authentication SUCCESS")
 	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
-	if sc.isClientRequestMfaToken() {
-		setCredential(sc, mfaToken, respd.Data.MfaToken)
+	if sessionParameters[clientRequestMfaToken] == true {
+		token := respd.Data.MfaToken
+		setCredential(sc, mfaToken, token)
 	}
-	if sc.isClientStoreTemporaryCredential() {
-		setCredential(sc, idToken, respd.Data.IDToken)
+	if sessionParameters[clientStoreTemporaryCredential] == true {
+		token := respd.Data.IDToken
+		setCredential(sc, idToken, token)
 	}
 	return &respd.Data, nil
 }
@@ -468,25 +477,20 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	var err error
 	//var consentCacheIdToken = true
 
-	paramBoolValue := "true"
 	if sc.cfg.Authenticator == AuthTypeExternalBrowser {
 		if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-			paramsMutex.Lock()
-			sc.cfg.Params[clientStoreTemporaryCredential] = &paramBoolValue
-			paramsMutex.Unlock()
+			sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		}
-		if sc.isClientStoreTemporaryCredential() {
+		if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
 			fillCachedIDToken(sc)
 		}
 	}
 
 	if sc.cfg.Authenticator == AuthTypeUsernamePasswordMFA {
 		if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-			paramsMutex.Lock()
-			sc.cfg.Params[clientRequestMfaToken] = &paramBoolValue
-			paramsMutex.Unlock()
+			sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 		}
-		if sc.isClientRequestMfaToken() {
+		if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
 			fillCachedMfaToken(sc)
 		}
 	}

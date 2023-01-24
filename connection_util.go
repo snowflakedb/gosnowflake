@@ -23,26 +23,6 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 	return strings.Compare(*v, "true") == 0
 }
 
-func (sc *snowflakeConn) isClientStoreTemporaryCredential() bool {
-	paramsMutex.Lock()
-	v, ok := sc.cfg.Params[clientStoreTemporaryCredential]
-	paramsMutex.Unlock()
-	if !ok {
-		return false
-	}
-	return strings.Compare(*v, "true") == 0
-}
-
-func (sc *snowflakeConn) isClientRequestMfaToken() bool {
-	paramsMutex.Lock()
-	v, ok := sc.cfg.Params[clientRequestMfaToken]
-	paramsMutex.Unlock()
-	if !ok {
-		return false
-	}
-	return strings.Compare(*v, "true") == 0
-}
-
 func (sc *snowflakeConn) startHeartBeat() {
 	if !sc.isClientSessionKeepAliveEnabled() {
 		return
