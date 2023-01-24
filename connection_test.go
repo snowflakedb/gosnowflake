@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -473,4 +474,36 @@ func TestExecWithServerSideError(t *testing.T) {
 	if !strings.Contains(sfe.Message, "an unknown server side error occurred") {
 		t.Errorf("incorrect message. expected: %v, got: %v", ErrUnknownError.Message, sfe.Message)
 	}
+}
+
+func TestConcurrentReadOnParams(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	wg := sync.WaitGroup{}
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			for c := 0; c < 10; c++ {
+				stmt, err := db.PrepareContext(context.Background(), "SELECT * FROM information_schema.columns WHERE table_schema = ?")
+				if err != nil {
+					t.Error(err)
+				}
+				rows, err := stmt.Query("INFORMATION_SCHEMA")
+				if err != nil {
+					t.Error(err)
+				}
+				if rows == nil {
+					continue
+				}
+				_ = rows.Close()
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	defer db.Close()
 }
