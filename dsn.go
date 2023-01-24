@@ -85,8 +85,8 @@ type Config struct {
 
 	MfaToken                       string     // Internally used to cache the MFA token
 	IDToken                        string     // Internally used to cache the Id Token for external browser
-	ClientRequestMfaToken          ConfigBool // Internally used for MFa connection caching
-	ClientStoreTemporaryCredential ConfigBool // Internall used for ID token connection caching
+	ClientRequestMfaToken          ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
+	ClientStoreTemporaryCredential ConfigBool // When true the ID token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED

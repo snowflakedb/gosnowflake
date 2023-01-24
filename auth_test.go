@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -563,6 +564,9 @@ func TestUsernamePasswordMfaCaching(t *testing.T) {
 	config.User = user
 	config.Password = password
 	config.Authenticator = AuthTypeUsernamePasswordMFA
+	if runtime.GOOS == "linux" {
+		config.ClientRequestMfaToken = ConfigBoolTrue
+	}
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
 	for i := 0; i < 3; i++ {
@@ -587,6 +591,9 @@ func TestExternalBrowserCaching(t *testing.T) {
 	user := os.Getenv("SNOWFLAKE_TEST_EXT_BROWSER_USER")
 	config.User = user
 	config.Authenticator = AuthTypeExternalBrowser
+	if runtime.GOOS == "linux" {
+		config.ClientStoreTemporaryCredential = ConfigBoolTrue
+	}
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
 	for i := 0; i < 3; i++ {
