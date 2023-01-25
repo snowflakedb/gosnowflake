@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strconv"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 const urlQueriesResultFmt = "/queries/%s/result"
@@ -629,6 +631,10 @@ func (sc *snowflakeConn) getMonitoringResult(ctx context.Context, endpoint, qid 
 	headers := make(map[string]string)
 	param := make(url.Values)
 	param.Add(requestGUIDKey, NewUUID().String())
+	if sc.rest == nil || sc.rest.TokenAccessor == nil {
+		return xerrors.Errorf("missing token accessor when getting monitoring data")
+	}
+
 	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
 	}
