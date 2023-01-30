@@ -7,6 +7,11 @@ import (
 	"database/sql/driver"
 )
 
+// SnowflakeStmt provides an API for methods exposed to the clients
+type SnowflakeStmt interface {
+	GetQueryID() string
+}
+
 type snowflakeStmt struct {
 	sc    *snowflakeConn
 	query string
@@ -43,3 +48,7 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Query")
 	return stmt.sc.Query(stmt.query, args)
 }
+
+func (stmt *snowflakeStmt) GetQueryID() string {
+	return stmt.sc.QueryID
+}	
