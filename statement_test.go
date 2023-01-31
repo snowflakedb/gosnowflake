@@ -227,11 +227,11 @@ func TestGetQueryIDFromStmt(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		secondQueryId := stmt.(SnowflakeStmt).GetQueryID()
-		if firstQueryID == "" || secondQueryId == "" {
+		secondQueryID := stmt.(SnowflakeStmt).GetQueryID()
+		if firstQueryID == "" || secondQueryID == "" {
 			t.Fatalf("Failed to get stmt last query ID")
 		}
-		if firstQueryID == secondQueryId {
+		if firstQueryID == secondQueryID {
 			t.Fatalf("Failed to get ID of last executed query. ID: %v", firstQueryID)
 		}
 		return nil

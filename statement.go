@@ -51,4 +51,4 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 
 func (stmt *snowflakeStmt) GetQueryID() string {
 	return stmt.sc.QueryID
-}	
+}

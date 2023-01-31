@@ -881,5 +881,36 @@ db.Query() function:
 an absolute path rather than a relative path. For example:
 
 	db.Query("GET file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
+
+# Retrieving Last Query ID
+
+The Go Snowflake driver supports retrieving the query ID of the last executed query.
+
+The following example shows how to retrieve the query ID from the snowflakeStmt object:
+
+	if err = conn.Raw(func(x interface{}) error {
+		// Prepare the query
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "select 1")
+		if err != nil {
+			return err
+		}
+		// Execute the query
+		rows, err = stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err != nil {
+			return err
+		}
+		...
+		// Retrieve the query ID
+		qid := stmt.(SnowflakeStmt).GetQueryID()
+		....
+		return nil
+	}); err != nil {
+		t.Fatalf("failed to prepare statement. err: %v", err)
+	}
+
+To retrieve the query ID from the snowflakeRows/snowflakeResult object use:
+
+	qid := rows.(SnowflakeRows).GetQueryID()
+	qid := rows.(SnowflakeResult).GetQueryID()
 */
 package gosnowflake
