@@ -578,6 +578,34 @@ func TestUsernamePasswordMfaCaching(t *testing.T) {
 	}
 }
 
+// To run this test you need to set environment variables in parameters.json to a user with MFA authentication enabled
+// Set any other snowflake_test variables needed for database, schema, role for this user
+func TestDisableUsernamePasswordMfaCaching(t *testing.T) {
+	t.Skip("manual test for disabling MFA token caching")
+
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	// connect with MFA authentication
+	user := os.Getenv("SNOWFLAKE_TEST_MFA_USER")
+	password := os.Getenv("SNOWFLAKE_TEST_MFA_PASSWORD")
+	config.User = user
+	config.Password = password
+	config.Authenticator = AuthTypeUsernamePasswordMFA
+	// disable MFA token caching
+	config.ClientRequestMfaToken = ConfigBoolFalse
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	for i := 0; i < 3; i++ {
+		// should be prompted to authenticate 3 times.
+		_, err := db.Query("select current_user()")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // To run this test you need to set SNOWFLAKE_TEST_EXT_BROWSER_USER environment variable to an external browser user
 // Set any other snowflake_test variables needed for database, schema, role for this user
 func TestExternalBrowserCaching(t *testing.T) {
@@ -598,6 +626,32 @@ func TestExternalBrowserCaching(t *testing.T) {
 	db := sql.OpenDB(connector)
 	for i := 0; i < 3; i++ {
 		// should only be prompted to authenticate first time around.
+		_, err := db.Query("select current_user()")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// To run this test you need to set SNOWFLAKE_TEST_EXT_BROWSER_USER environment variable to an external browser user
+// Set any other snowflake_test variables needed for database, schema, role for this user
+func TestDisableExternalBrowserCaching(t *testing.T) {
+	t.Skip("manual test for disabling external browser token caching")
+
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	// connect with external browser authentication
+	user := os.Getenv("SNOWFLAKE_TEST_EXT_BROWSER_USER")
+	config.User = user
+	config.Authenticator = AuthTypeExternalBrowser
+	// disable external browser token caching
+	config.ClientStoreTemporaryCredential = ConfigBoolFalse
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	for i := 0; i < 3; i++ {
+		// should be prompted to authenticate 3 times.
 		_, err := db.Query("select current_user()")
 		if err != nil {
 			t.Fatal(err)
