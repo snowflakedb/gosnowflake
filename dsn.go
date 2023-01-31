@@ -205,6 +205,14 @@ func DSN(cfg *Config) (dsn string, err error) {
 
 	params.Add("validateDefaultParameters", strconv.FormatBool(cfg.ValidateDefaultParameters != ConfigBoolFalse))
 
+	if cfg.ClientRequestMfaToken != configBoolNotSet {
+		params.Add("clientRequestMfaToken", strconv.FormatBool(cfg.ClientRequestMfaToken != ConfigBoolFalse))
+	}
+
+	if cfg.ClientStoreTemporaryCredential != configBoolNotSet {
+		params.Add("clientStoreTemporaryCredential", strconv.FormatBool(cfg.ClientStoreTemporaryCredential != ConfigBoolFalse))
+	}
+
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
 	if params.Encode() != "" {
 		dsn += "?" + params.Encode()
@@ -613,6 +621,28 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				cfg.ValidateDefaultParameters = ConfigBoolTrue
 			} else {
 				cfg.ValidateDefaultParameters = ConfigBoolFalse
+			}
+		case "clientRequestMfaToken":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.ClientRequestMfaToken = ConfigBoolTrue
+			} else {
+				cfg.ClientRequestMfaToken = ConfigBoolFalse
+			}
+		case "clientStoreTemporaryCredential":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
+			} else {
+				cfg.ClientStoreTemporaryCredential = ConfigBoolFalse
 			}
 		case "tracing":
 			cfg.Tracing = value
