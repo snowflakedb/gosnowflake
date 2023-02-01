@@ -1018,7 +1018,7 @@ func arrowToRecord(record arrow.Record, rowType []execResponseRowType, loc *time
 			}
 			newCol = tb.NewArray()
 		case timestampNtzType:
-			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{})
+			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Nanosecond})
 			if col.DataType().ID() == arrow.STRUCT {
 				structData := array.NewStructData(data)
 				epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
@@ -1070,7 +1070,7 @@ func arrowToRecord(record arrow.Record, rowType []execResponseRowType, loc *time
 			}
 			newCol = tb.NewArray()
 		case timestampTzType:
-			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{})
+			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Nanosecond})
 			structData := array.NewStructData(data)
 			if structData.NumField() == 2 {
 				epoch := array.NewInt64Data(structData.Field(0).Data()).Int64Values()
@@ -1134,9 +1134,9 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 		case timeType:
 			t = &arrow.Time64Type{}
 		case timestampNtzType, timestampTzType:
-			t = &arrow.TimestampType{}
+			t = &arrow.TimestampType{Unit: arrow.Nanosecond}
 		case timestampLtzType:
-			t = &arrow.TimestampType{TimeZone: loc.String()}
+			t = &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: loc.String()}
 		default:
 			converted = false
 		}
