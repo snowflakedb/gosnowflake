@@ -13,16 +13,29 @@ import (
 	rlog "github.com/sirupsen/logrus"
 )
 
-//SFSessionIDKey is context key of session id
+// SFSessionIDKey is context key of session id
 const SFSessionIDKey contextKey = "LOG_SESSION_ID"
 
-//SFSessionUserKey is context key of  user id of a session
+// SFSessionUserKey is context key of  user id of a session
 const SFSessionUserKey contextKey = "LOG_USER"
 
-//LogKeys these keys in context should be included in logging messages when using logger.WithContext
+// LogKeys these keys in context should be included in logging messages when using logger.WithContext
 var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
 
-//SFLogger Snowflake logger interface to expose FieldLogger defined in logrus
+var clientLogContextHooks = map[string]ClientLogContextHook{}
+
+// ClientLogContextHook is a client-defined hook that can be used to insert log
+// fields based on the Context.
+type ClientLogContextHook func(context.Context) interface{}
+
+// RegisterClientLogContextHook registers a hook that can be used to extract fields
+// from the Context and associated with log messages using the provided key. This
+// function is not thread-safe and should only be called on startup.
+func RegisterClientLogContextHook(key string, hook ClientLogContextHook) {
+	clientLogContextHooks[key] = hook
+}
+
+// SFLogger Snowflake logger interface to expose FieldLogger defined in logrus
 type SFLogger interface {
 	rlog.Ext1FieldLogger
 	SetLogLevel(level string) error
@@ -30,7 +43,7 @@ type SFLogger interface {
 	SetOutput(output io.Writer)
 }
 
-//SFCallerPrettyfier to provide base file name and function name from calling frame used in SFLogger
+// SFCallerPrettyfier to provide base file name and function name from calling frame used in SFLogger
 func SFCallerPrettyfier(frame *runtime.Frame) (string, string) {
 	return path.Base(frame.Function), fmt.Sprintf("%s:%d", path.Base(frame.File), frame.Line)
 }
@@ -39,7 +52,7 @@ type defaultLogger struct {
 	inner *rlog.Logger
 }
 
-//SetLogLevel set logging level for calling defaultLogger
+// SetLogLevel set logging level for calling defaultLogger
 func (log *defaultLogger) SetLogLevel(level string) error {
 	actualLevel, err := rlog.ParseLevel(level)
 	if err != nil {
@@ -49,13 +62,13 @@ func (log *defaultLogger) SetLogLevel(level string) error {
 	return nil
 }
 
-//WithContext return Entry to include fields in context
+// WithContext return Entry to include fields in context
 func (log *defaultLogger) WithContext(ctx context.Context) *rlog.Entry {
 	fields := context2Fields(ctx)
 	return log.inner.WithFields(*fields)
 }
 
-//CreateDefaultLogger return a new instance of SFLogger with default config
+// CreateDefaultLogger return a new instance of SFLogger with default config
 func CreateDefaultLogger() SFLogger {
 	var rLogger = rlog.New()
 	var formatter = rlog.TextFormatter{CallerPrettyfier: SFCallerPrettyfier}
@@ -311,5 +324,12 @@ func context2Fields(ctx context.Context) *rlog.Fields {
 			fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
 		}
 	}
+
+	for key, hook := range clientLogContextHooks {
+		if value := hook(ctx); value != nil {
+			fields[key] = value
+		}
+	}
+
 	return &fields
 }
