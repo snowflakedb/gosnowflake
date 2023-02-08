@@ -872,10 +872,10 @@ func (sc *snowflakeConn) SubmitQuerySync(
 
 // TokenGetter is an interface that can be used to get the current tokens and session
 // ID from a Snowflake connection. This returns the following values:
-//  - token: The temporary credential used to authenticate requests to Snowflake's API.
-//           This is valid for one hour.
-//  - masterToken: Used to refresh the auth token above. Valid for four hours.
-//  - sessionID: The ID of the Snowflake session corresponding to this connection.
+//   - token: The temporary credential used to authenticate requests to Snowflake's API.
+//     This is valid for one hour.
+//   - masterToken: Used to refresh the auth token above. Valid for four hours.
+//   - sessionID: The ID of the Snowflake session corresponding to this connection.
 type TokenGetter interface {
 	GetTokens() (token string, masterToken string, sessionID int64)
 }
