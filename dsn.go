@@ -90,16 +90,13 @@ type Config struct {
 
 	Tracing string // sets logging level
 
-<<<<<<< HEAD
 	MfaToken                       string     // Internally used to cache the MFA token
 	IDToken                        string     // Internally used to cache the Id Token for external browser
 	ClientRequestMfaToken          ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
 	ClientStoreTemporaryCredential ConfigBool // When true the ID token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
-=======
 	// Monitoring fetcher config
 	MonitoringFetcher MonitoringFetcherConfig
 
->>>>>>> 95d57be ([Feature] Improvements to Async handling)
 	// An identifier for this Config. Used to associate multiple connection instances with
 	// a single logical sql.DB connection.
 	ConnectionID string
@@ -244,7 +241,7 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.ClientStoreTemporaryCredential != configBoolNotSet {
 		params.Add("clientStoreTemporaryCredential", strconv.FormatBool(cfg.ClientStoreTemporaryCredential != ConfigBoolFalse))
 	}
-	
+
 	if cfg.MonitoringFetcher.QueryRuntimeThreshold != defaultMonitoringFetcherQueryMonitoringThreshold {
 		params.Add("monitoringFetcher_queryRuntimeThresholdMs", durationAsMillis(cfg.MonitoringFetcher.QueryRuntimeThreshold))
 	}
