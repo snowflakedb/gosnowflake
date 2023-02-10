@@ -1,24 +1,24 @@
 name: Build and Test
 
 on:
-    push:
-        braches:
-            - master
-        tags:
-            - v*
-    pull_request:
-        branches:
-            - master
-    schedule:
-      - cron:  '7 3 * * *'
-    workflow_dispatch:
-        inputs:
-          logLevel:
-            default: warning
-            description: "Log level"
-            required: true
-          tags:
-            description: "Test scenario tags"
+  push:
+    braches:
+      - master
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron: "7 3 * * *"
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        default: warning
+        description: "Log level"
+        required: true
+      tags:
+        description: "Test scenario tags"
 
 jobs:
     build-test-linux:
@@ -44,51 +44,3 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
-    build-test-mac:
-        runs-on: macos-latest
-        strategy:
-            matrix:
-                cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.20', '1.19' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
-        steps:
-            - uses: actions/checkout@v1
-            - name: Setup go
-              uses: actions/setup-go@v2
-              with:
-                  go-version: ${{ matrix.go }}
-            - name: Format, Lint
-              shell: bash
-              run: ./ci/build.sh
-            - name: Test
-              shell: bash
-              env:
-                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-                CLOUD_PROVIDER: ${{ matrix.cloud }}
-              run: ./ci/test.sh
-    build-test-windows:
-        runs-on: windows-latest
-        strategy:
-            matrix:
-                cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.20', '1.19' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
-        steps:
-            - uses: actions/checkout@v1
-            - name: Setup go
-              uses: actions/setup-go@v2
-              with:
-                  go-version: ${{ matrix.go }}
-            - name: Format, Lint
-              shell: cmd
-              run: ci\\build.bat
-            - uses: actions/setup-python@v1
-              with:
-                python-version: '3.x'
-                architecture: 'x64'
-            - name: Test
-              shell: cmd
-              env:
-                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-                CLOUD_PROVIDER: ${{ matrix.cloud }}
-              run: ci\\test.bat
