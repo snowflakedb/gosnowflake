@@ -251,6 +251,45 @@ func postAuthCheckUsernamePasswordMfa(_ context.Context, _ *snowflakeRestful, _ 
 	}, nil
 }
 
+func postAuthCheckUsernamePasswordMfaToken(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
+	var ar authRequest
+	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+		return nil, err
+	}
+
+	if ar.Data.Token != "mockedMfaToken" {
+		return nil, fmt.Errorf("unexpected mfa token: %v", ar.Data.Token)
+	}
+	return &authResponse{
+		Success: true,
+		Data: authResponseMain{
+			Token:       "t",
+			MasterToken: "m",
+			MfaToken:    "mockedMfaToken",
+			SessionInfo: authResponseSessionInfo{
+				DatabaseName: "dbn",
+			},
+		},
+	}, nil
+}
+
+func postAuthCheckUsernamePasswordMfaFailed(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
+	var ar authRequest
+	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+		return nil, err
+	}
+
+	if ar.Data.Token != "mockedMfaToken" {
+		return nil, fmt.Errorf("unexpected mfa token: %v", ar.Data.Token)
+	}
+	return &authResponse{
+		Success: false,
+		Data:    authResponseMain{},
+		Message: "auth failed",
+		Code:    "260008",
+	}, nil
+}
+
 func postAuthCheckExternalBrowser(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
 	var ar authRequest
 	if err := json.Unmarshal(jsonBody, &ar); err != nil {
@@ -270,6 +309,45 @@ func postAuthCheckExternalBrowser(_ context.Context, _ *snowflakeRestful, _ *url
 				DatabaseName: "dbn",
 			},
 		},
+	}, nil
+}
+
+func postAuthCheckExternalBrowserToken(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
+	var ar authRequest
+	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+		return nil, err
+	}
+
+	if ar.Data.Token != "mockedIDToken" {
+		return nil, fmt.Errorf("unexpected mfatoken: %v", ar.Data.Token)
+	}
+	return &authResponse{
+		Success: true,
+		Data: authResponseMain{
+			Token:       "t",
+			MasterToken: "m",
+			IDToken:     "mockedIDToken",
+			SessionInfo: authResponseSessionInfo{
+				DatabaseName: "dbn",
+			},
+		},
+	}, nil
+}
+
+func postAuthCheckExternalBrowserFailed(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, jsonBody []byte, _ time.Duration) (*authResponse, error) {
+	var ar authRequest
+	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+		return nil, err
+	}
+
+	if ar.Data.SessionParameters["CLIENT_STORE_TEMPORARY_CREDENTIAL"] != true {
+		return nil, fmt.Errorf("expected client_store_temporary_credential to be true but was %v", ar.Data.SessionParameters["CLIENT_STORE_TEMPORARY_CREDENTIAL"])
+	}
+	return &authResponse{
+		Success: false,
+		Data:    authResponseMain{},
+		Message: "auth failed",
+		Code:    "260008",
 	}, nil
 }
 
@@ -531,6 +609,36 @@ func TestUnitAuthenticateUsernamePasswordMfa(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
+
+	sr.FuncPostAuth = postAuthCheckUsernamePasswordMfaToken
+	sc.cfg.MfaToken = "mockedMfaToken"
+	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	if err != nil {
+		t.Fatalf("failed to run. err: %v", err)
+	}
+
+	sr.FuncPostAuth = postAuthCheckUsernamePasswordMfaFailed
+	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+}
+
+func TestUnitAuthenticateWithConfigMFA(t *testing.T) {
+	var err error
+	sr := &snowflakeRestful{
+		FuncPostAuth:  postAuthCheckUsernamePasswordMfa,
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = AuthTypeUsernamePasswordMFA
+	sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
+	sc.rest = sr
+	sc.ctx = context.TODO()
+	err = authenticateWithConfig(sc)
+	if err != nil {
+		t.Fatalf("failed to run. err: %v", err)
+	}
 }
 
 func TestUnitAuthenticateExternalBrowser(t *testing.T) {
@@ -546,6 +654,19 @@ func TestUnitAuthenticateExternalBrowser(t *testing.T) {
 	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
+	}
+
+	sr.FuncPostAuth = postAuthCheckExternalBrowserToken
+	sc.cfg.IDToken = "mockedIDToken"
+	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	if err != nil {
+		t.Fatalf("failed to run. err: %v", err)
+	}
+
+	sr.FuncPostAuth = postAuthCheckExternalBrowserFailed
+	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	if err == nil {
+		t.Fatal("should have failed")
 	}
 }
 

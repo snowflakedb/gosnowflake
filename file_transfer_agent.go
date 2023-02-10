@@ -655,9 +655,8 @@ func (sfa *snowflakeFileTransferAgent) getLocalFilePathFromCommand(command strin
 		}
 		filePathEndIdx = -1
 		if getMin(indexList) != -1 {
-			filePathEndIdx = getMin(indexList)
+			filePathEndIdx = filePathBeginIdx + getMin(indexList)
 		}
-
 		if filePathEndIdx > filePathBeginIdx {
 			filePath = command[filePathBeginIdx:filePathEndIdx]
 		} else {

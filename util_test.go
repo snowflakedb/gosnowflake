@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2017-2023 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -16,6 +16,10 @@ type tcIntMinMax struct {
 	v1  int
 	v2  int
 	out int
+}
+
+type tcUUID struct {
+	uuid string
 }
 
 func TestSimpleTokenAccessor(t *testing.T) {
@@ -222,6 +226,7 @@ func TestGetMin(t *testing.T) {
 		{[]int{10, 25, 15, 5, 20}, 5},
 		{[]int{15, 12, 9, 6, 3}, 3},
 		{[]int{123, 123, 123, 123, 123}, 123},
+		{[]int{}, -1},
 	}
 	for _, test := range testcases {
 		a := getMin(test.in)
@@ -268,6 +273,40 @@ func TestEncodeURL(t *testing.T) {
 		result := urlEncode(test.in)
 		if test.out != result {
 			t.Errorf("Failed to encode string, input %v, expected: %v, got: %v", test.in, test.out, result)
+		}
+	}
+}
+
+func TestParseUUID(t *testing.T) {
+	testcases := []tcUUID{
+		{"6ba7b812-9dad-11d1-80b4-00c04fd430c8"},
+		{"00302010-0504-0706-0809-0a0b0c0d0e0f"},
+	}
+
+	for _, test := range testcases {
+		requestID := ParseUUID(test.uuid)
+		if requestID.String() != test.uuid {
+			t.Fatalf("failed to parse uuid")
+		}
+	}
+}
+
+type tcEscapeCsv struct {
+	in  string
+	out string
+}
+
+func TestEscapeForCSV(t *testing.T) {
+	testcases := []tcEscapeCsv{
+		{"", "\"\""},
+		{"\n", "\"\n\""},
+		{"test\\", "\"test\\\""},
+	}
+
+	for _, test := range testcases {
+		result := escapeForCSV(test.in)
+		if test.out != result {
+			t.Errorf("Failed to escape string, input %v, expected: %v, got: %v", test.in, test.out, result)
 		}
 	}
 }

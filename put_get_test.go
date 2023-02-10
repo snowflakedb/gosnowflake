@@ -610,3 +610,73 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		}
 	})
 }
+
+func TestPutGetLargeFile(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "put")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
+	originalContents := make([]byte, dataSizeThreshold)
+	if _, err := rand.Read(originalContents); err != nil {
+		t.Error(err)
+	}
+	var b bytes.Buffer
+	gzw := gzip.NewWriter(&b)
+	gzw.Write([]byte(originalContents))
+	gzw.Close()
+	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+		t.Fatal("could not write to gzip file")
+	}
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		var sqlText string
+		sql := "put 'file://%v' @~/test_put_get auto_compress=true parallel=30"
+		sqlText = fmt.Sprintf(
+			sql, strings.ReplaceAll(fname, "\\", "\\\\"))
+		dbt.mustQuery(sqlText)
+
+		tmpDir, err := os.MkdirTemp("", "get")
+		if err != nil {
+			t.Error(err)
+		}
+		defer os.RemoveAll(tmpDir)
+		sql = fmt.Sprintf("get @~/test_put_get 'file://%v'", tmpDir)
+		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		dbt.mustQuery(sqlText)
+		files, err := filepath.Glob(filepath.Join(tmpDir, "test_*"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fileName := files[0]
+		f, err := os.Open(fileName)
+		if err != nil {
+			t.Error(err)
+		}
+		defer f.Close()
+		gz, err := gzip.NewReader(f)
+		if err != nil {
+			t.Error(err)
+		}
+		var contents string
+		for {
+			c := make([]byte, defaultChunkBufferSize)
+			if n, err := gz.Read(c); err != nil {
+				if err == io.EOF {
+					contents = contents + string(c[:n])
+					break
+				}
+				t.Error(err)
+			} else {
+				contents = contents + string(c[:n])
+			}
+		}
+
+		if contents != string(originalContents[:]) {
+			t.Error("output is different from the original file")
+		}
+
+		dbt.mustExec("rm @~/test_put_get")
+	})
+}

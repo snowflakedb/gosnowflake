@@ -1,9 +1,11 @@
-// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2021-2023 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
 import (
 	"context"
+	"errors"
+	"io"
 	"os"
 	"path"
 	"strconv"
@@ -17,7 +19,7 @@ import (
 type tcBucketPath struct {
 	in     string
 	bucket string
-	s3path string
+	path   string
 }
 
 func TestExtractBucketNameAndPath(t *testing.T) {
@@ -37,8 +39,8 @@ func TestExtractBucketNameAndPath(t *testing.T) {
 		if s3Loc.bucketName != test.bucket {
 			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.bucket, s3Loc.bucketName)
 		}
-		if s3Loc.s3Path != test.s3path {
-			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.s3path, s3Loc.s3Path)
+		if s3Loc.s3Path != test.path {
+			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.path, s3Loc.s3Path)
 		}
 	}
 }
@@ -53,9 +55,6 @@ func (m mockUploadObjectAPI) Upload(
 }
 
 func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
-	if !runningOnAWS() {
-		t.Skip("skipping non aws environment")
-	}
 	info := execResponseStageInfo{
 		Location:     "sfc-customer-stage/rwyi-testacco/users/9220/",
 		LocationType: "S3",
@@ -73,7 +72,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
 		stageLocationType: "S3",
-		noSleepingTime:    true,
+		noSleepingTime:    false,
 		parallel:          initialParallel,
 		client:            s3Cli,
 		sha256Digest:      "123456789abcdef",
@@ -279,5 +278,296 @@ func TestGetHeaderUnexpectedError(t *testing.T) {
 	}
 	if meta.resStatus != errStatus {
 		t.Fatalf("expected %v result status, got: %v", errStatus, meta.resStatus)
+	}
+}
+
+func TestGetHeaderNotFoundError(t *testing.T) {
+	meta := fileMetadata{
+		client:    s3.New(s3.Options{}),
+		stageInfo: &execResponseStageInfo{Location: ""},
+		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+			return nil, &smithy.GenericAPIError{
+				Code: notFound,
+			}
+		}),
+	}
+
+	_, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if meta.resStatus != notFoundFile {
+		t.Fatalf("expected %v result status, got: %v", errStatus, meta.resStatus)
+	}
+}
+
+type mockDownloadObjectAPI func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error)
+
+func (m mockDownloadObjectAPI) Download(
+	ctx context.Context,
+	w io.WriterAt,
+	params *s3.GetObjectInput,
+	optFns ...func(*manager.Downloader)) (int64, error) {
+	return m(ctx, w, params, optFns...)
+}
+
+func TestDownloadFileWithS3TokenExpired(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "sfc-teststage/rwyitestacco/users/1234/",
+		LocationType: "S3",
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	downloadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "S3",
+		noSleepingTime:    true,
+		client:            s3Cli,
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		overwrite:         true,
+		srcFileName:       "data1.txt.gz",
+		localLocation:     dir,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
+			return 0, &smithy.GenericAPIError{
+				Code: expiredToken,
+				Message: "An error occurred (ExpiredToken) when calling the " +
+					"operation: The provided token has expired.",
+			}
+		}),
+		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+			return &s3.HeadObjectOutput{}, nil
+		}),
+	}
+	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+	if downloadMeta.resStatus != renewToken {
+		t.Fatalf("expected %v result status, got: %v",
+			renewToken, downloadMeta.resStatus)
+	}
+}
+
+func TestDownloadFileWithS3ConnReset(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "sfc-teststage/rwyitestacco/users/1234/",
+		LocationType: "S3",
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	downloadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "S3",
+		noSleepingTime:    true,
+		client:            s3Cli,
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		overwrite:         true,
+		srcFileName:       "data1.txt.gz",
+		localLocation:     dir,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
+			return 0, &smithy.GenericAPIError{
+				Code:    strconv.Itoa(-1),
+				Message: "mock err, connection aborted",
+			}
+		}),
+		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+			return &s3.HeadObjectOutput{}, nil
+		}),
+	}
+	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+	if downloadMeta.lastMaxConcurrency != 0 {
+		t.Fatalf("expected no concurrency. got: %v",
+			downloadMeta.lastMaxConcurrency)
+	}
+}
+
+func TestDownloadOneFileToS3WSAEConnAborted(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "sfc-teststage/rwyitestacco/users/1234/",
+		LocationType: "S3",
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	downloadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "S3",
+		noSleepingTime:    true,
+		client:            s3Cli,
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		overwrite:         true,
+		srcFileName:       "data1.txt.gz",
+		localLocation:     dir,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
+			return 0, &smithy.GenericAPIError{
+				Code:    errNoWsaeconnaborted,
+				Message: "mock err, connection aborted",
+			}
+		}),
+		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+			return &s3.HeadObjectOutput{}, nil
+		}),
+	}
+	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+
+	if downloadMeta.resStatus != needRetryWithLowerConcurrency {
+		t.Fatalf("expected %v result status, got: %v",
+			needRetryWithLowerConcurrency, downloadMeta.resStatus)
+	}
+}
+
+func TestDownloadOneFileToS3Failed(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "sfc-teststage/rwyitestacco/users/1234/",
+		LocationType: "S3",
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	downloadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "S3",
+		noSleepingTime:    true,
+		client:            s3Cli,
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		overwrite:         true,
+		srcFileName:       "data1.txt.gz",
+		localLocation:     dir,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		mockDownloader: mockDownloadObjectAPI(func(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
+			return 0, errors.New("Failed to upload file")
+		}),
+		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+			return &s3.HeadObjectOutput{}, nil
+		}),
+	}
+	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+
+	if downloadMeta.resStatus != needRetry {
+		t.Fatalf("expected %v result status, got: %v",
+			needRetry, downloadMeta.resStatus)
+	}
+}
+
+func TestUploadFileToS3ClientCastFail(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "sfc-customer-stage/rwyi-testacco/users/9220/",
+		LocationType: "S3",
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+	uploadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "S3",
+		noSleepingTime:    false,
+		client:            azureCli,
+		sha256Digest:      "123456789abcdef",
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
+		overwrite:         true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+	}
+
+	uploadMeta.realSrcFileName = uploadMeta.srcFileName
+	fi, err := os.Stat(uploadMeta.srcFileName)
+	if err != nil {
+		t.Error(err)
+	}
+	uploadMeta.uploadSize = fi.Size()
+
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+}
+
+func TestGetHeaderClientCastFail(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "sfc-customer-stage/rwyi-testacco/users/9220/",
+		LocationType: "S3",
+	}
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	meta := fileMetadata{
+		client:    azureCli,
+		stageInfo: &execResponseStageInfo{Location: ""},
+		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+			return nil, &smithy.GenericAPIError{
+				Code: notFound,
+			}
+		}),
+	}
+
+	_, err = new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
+	if err == nil {
+		t.Fatal("should have failed")
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2021-2023 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -40,6 +40,33 @@ func TestAsyncMode(t *testing.T) {
 		}
 		if count != 1 {
 			t.Fatalf("expected 1 affected row, got %d", count)
+		}
+	})
+}
+
+func TestAsyncModeMultiStatement(t *testing.T) {
+	withMultiStmtCtx, _ := WithMultiStatement(context.Background(), 6)
+	ctx := WithAsyncMode(withMultiStmtCtx)
+	multiStmtQuery := "begin;\n" +
+		"delete from test_multi_statement_async;\n" +
+		"insert into test_multi_statement_async values (1, 'a'), (2, 'b');\n" +
+		"select 1;\n" +
+		"select 2;\n" +
+		"rollback;"
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("drop table if exists test_multi_statement_async")
+		dbt.mustExec(`create or replace table test_multi_statement_async(
+			c1 number, c2 string) as select 10, 'z'`)
+		defer dbt.mustExec("drop table if exists test_multi_statement_async")
+
+		res := dbt.mustExecContext(ctx, multiStmtQuery)
+		count, err := res.RowsAffected()
+		if err != nil {
+			t.Fatalf("res.RowsAffected() returned error: %v", err)
+		}
+		if count != 3 {
+			t.Fatalf("expected 3 affected rows, got %d", count)
 		}
 	})
 }

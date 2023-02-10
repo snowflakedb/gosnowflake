@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2017-2023 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -42,6 +42,20 @@ func TestDataTypeMode(t *testing.T) {
 			if err == nil {
 				t.Errorf("should raise an error: %v", ts.err)
 			}
+		}
+	}
+}
+
+func TestPopulateSnowflakeParameter(t *testing.T) {
+	columns := []string{"key", "value", "default", "level", "description", "set_by_user", "set_in_job", "set_on", "set_by_thread_id", "set_by_thread_name", "set_by_class", "parameter_comment", "type", "is_expired", "expires_at", "set_by_controlling_parameter", "activate_version", "partial_rollout"}
+	p := SnowflakeParameter{}
+	cols := make([]interface{}, len(columns))
+	for i := 0; i < len(columns); i++ {
+		cols[i] = populateSnowflakeParameter(columns[i], &p)
+	}
+	for i := 0; i < len(cols); i++ {
+		if cols[i] == nil {
+			t.Fatal("failed to populate parameter")
 		}
 	}
 }
