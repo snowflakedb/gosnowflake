@@ -1,24 +1,24 @@
 name: Build and Test
 
 on:
-    push:
-        braches:
-            - master
-        tags:
-            - v*
-    pull_request:
-        branches:
-            - master
-    schedule:
-      - cron:  '7 3 * * *'
-    workflow_dispatch:
-        inputs:
-          logLevel:
-            default: warning
-            description: "Log level"
-            required: true
-          tags:
-            description: "Test scenario tags"
+  push:
+    braches:
+      - master
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron: "7 3 * * *"
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        default: warning
+        description: "Log level"
+        required: true
+      tags:
+        description: "Test scenario tags"
 
 concurrency:
   # older builds for the same pull request numer or branch should be cancelled
