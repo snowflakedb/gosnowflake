@@ -67,6 +67,10 @@ type chunkError struct {
 }
 
 func (rows *snowflakeRows) Close() (err error) {
+	if rows == nil {
+		return fmt.Errorf("Close: nil snowflakeRows")
+	}
+
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
@@ -248,6 +252,10 @@ func (rows *snowflakeRows) NextResultSet() error {
 }
 
 func (rows *snowflakeRows) waitForAsyncQueryStatus() error {
+	if rows == nil {
+		return fmt.Errorf("waitForAsyncQueryStatus: nil snowflakeRows")
+	}
+
 	// if async query, block until query is finished
 	if rows.status == QueryStatusInProgress {
 		err := <-rows.errChannel
