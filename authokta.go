@@ -21,7 +21,8 @@ type authOKTARequest struct {
 }
 
 type authOKTAResponse struct {
-	CookieToken string `json:"cookieToken"`
+	CookieToken  string `json:"cookieToken"`
+	SessionToken string `json:"sessionToken"`
 }
 
 /*
@@ -137,7 +138,13 @@ func authenticateBySAML(
 	logger.WithContext(ctx).Info("step 4: query IDP URL snowflake app to get SAML response")
 	params = &url.Values{}
 	params.Add("RelayState", "/some/deep/link")
-	params.Add("onetimetoken", respa.CookieToken)
+	var oneTimeToken string
+	if respa.SessionToken != "" {
+		oneTimeToken = respa.SessionToken
+	} else {
+		oneTimeToken = respa.CookieToken
+	}
+	params.Add("onetimetoken", oneTimeToken)
 
 	headers = make(map[string]string)
 	headers[httpHeaderAccept] = "*/*"
