@@ -9,7 +9,7 @@ IF !ERRORLEVEL! NEQ 0 go install golang.org/x/lint/golint@latest
 where make2help
 IF !ERRORLEVEL! NEQ 0 go install github.com/Songmu/make2help/cmd/make2help@latest
 where staticcheck
-IF !ERRORLEVEL! NEQ 0 go install honnef.co/go/tools/cmd/staticcheck@latest
+IF !ERRORLEVEL! NEQ 0 go install honnef.co/go/tools/cmd/staticcheck@v0.3
 
 echo [INFO] Go mod
 go mod tidy
