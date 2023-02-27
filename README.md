@@ -92,6 +92,12 @@ make cov
 
 For more detailed analysis, results are printed to ``coverage.txt`` in the project directory.
 
+To read the coverage report, run:
+
+```
+go tool cover -html=coverage.txt
+```
+
 ## Submitting Pull Requests
 
 You may use your preferred editor to edit the driver code. Make certain to run ``make fmt lint`` before submitting any pull request to Snowflake. This command formats your source code according to the standard Go style and detects any coding style issues.
