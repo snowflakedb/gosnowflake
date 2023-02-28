@@ -46,10 +46,11 @@ func (b *fakeResponseBody) Close() error {
 }
 
 type fakeHTTPClient struct {
-	cnt     int    // number of retry
-	success bool   // return success after retry in cnt times
-	timeout bool   // timeout
-	body    []byte // return body
+	cnt        int    // number of retry
+	success    bool   // return success after retry in cnt times
+	timeout    bool   // timeout
+	body       []byte // return body
+	statusCode int    // status code
 }
 
 func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
@@ -71,7 +72,11 @@ func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 				timeout: true,
 			}
 		}
-		retcode = 0
+		if c.statusCode != 0 {
+			retcode = c.statusCode
+		} else {
+			retcode = 0
+		}
 	}
 
 	ret := &http.Response{
@@ -255,6 +260,32 @@ func TestRetryLoginRequest(t *testing.T) {
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
+	values, err = url.ParseQuery(urlPtr.RawQuery)
+	if err != nil {
+		t.Fatalf("failed to fail to parse the URL: %v", err)
+	}
+	if values.Get(retryCounterKey) != "" {
+		t.Fatalf("no retry counter should be attached: %v", retryCounterKey)
+	}
+}
+
+func TestLoginRetry429(t *testing.T) {
+	client := &fakeHTTPClient{
+		cnt:        3,
+		success:    true,
+		statusCode: 429,
+	}
+	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
+	if err != nil {
+		t.Fatal("failed to parse the test URL")
+	}
+	_, err = newRetryHTTP(context.TODO(),
+		client,
+		fakeRequestFunc, urlPtr, make(map[string]string), 60*time.Second).doRaise4XX(true).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
+	if err != nil {
+		t.Fatal("failed to run retry")
+	}
+	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
 		t.Fatalf("failed to fail to parse the URL: %v", err)
