@@ -478,7 +478,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	//var consentCacheIdToken = true
 
 	if sc.cfg.Authenticator == AuthTypeExternalBrowser {
-		if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientStoreTemporaryCredential == configBoolNotSet {
 			sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		}
 		if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
@@ -487,7 +487,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	}
 
 	if sc.cfg.Authenticator == AuthTypeUsernamePasswordMFA {
-		if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientRequestMfaToken == configBoolNotSet {
 			sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 		}
 		if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {

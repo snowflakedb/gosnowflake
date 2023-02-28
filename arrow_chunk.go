@@ -8,9 +8,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 type arrowResultChunk struct {
@@ -55,8 +55,8 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 	}
 }
 
-func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]array.Record, error) {
-	var records []array.Record
+func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]arrow.Record, error) {
+	var records []arrow.Record
 
 	for {
 		rawRecord, err := arc.reader.Read()
