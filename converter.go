@@ -345,7 +345,6 @@ func arrowToValue(
 							destcol[i] = num.ToString(0)
 						}
 					} else {
-						f := decimalToBigFloat(num, srcColumnMeta.Scale)
 						if higherPrecision {
 							destcol[i] = f
 						} else {
