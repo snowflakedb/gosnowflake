@@ -1,8 +1,8 @@
 package gosnowflake
 
 import (
-	"regexp",
 	"net/url"
+	"regexp"
 )
 
 var (
