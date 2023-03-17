@@ -256,15 +256,12 @@ func TestBulkArrayBindingInterfaceNil(t *testing.T) {
 	nilArray := make([]interface{}, 1)
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(createTableSQL)
-		defer dbt.mustExec(deleteTableSQL)
+		dbt.mustExec(createTableSQLBulkArray)
+		defer dbt.mustExec(deleteTableSQLBulkArray)
 
-		dbt.mustExec(insertSQL, Array(&nilArray), Array(&nilArray),
-			Array(&nilArray), Array(&nilArray), Array(&nilArray),
-			Array(&nilArray, TimestampNTZType), Array(&nilArray, TimestampTZType),
-			Array(&nilArray, TimestampTZType), Array(&nilArray, DateType),
-			Array(&nilArray, TimeType))
-		rows := dbt.mustQuery(selectAllSQL)
+		dbt.mustExec(insertSQLBulkArray, Array(&nilArray), Array(&nilArray),
+			Array(&nilArray), Array(&nilArray), Array(&nilArray))
+		rows := dbt.mustQuery(selectAllSQLBulkArray)
 		defer rows.Close()
 
 		var v0 sql.NullInt32
@@ -272,42 +269,26 @@ func TestBulkArrayBindingInterfaceNil(t *testing.T) {
 		var v2 sql.NullBool
 		var v3 sql.NullString
 		var v4 []byte
-		var v5, v6, v7, v8, v9 sql.NullTime
 
 		cnt := 0
 		for i := 0; rows.Next(); i++ {
-			if err := rows.Scan(&v0, &v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8, &v9); err != nil {
+			if err := rows.Scan(&v0, &v1, &v2, &v3, &v4); err != nil {
 				t.Fatal(err)
 			}
 			if v0.Valid {
-				t.Fatalf("failed to fetch the sql.NullInt32 column v0. expected %v, got: %v", nilArray[i], v0)
+				t.Fatalf("failed to fetch the INTEGER column V0. expected %v, got: %v", nilArray[i], v0)
 			}
 			if v1.Valid {
-				t.Fatalf("failed to fetch the sql.NullFloat64 column v1. expected %v, got: %v", nilArray[i], v1)
+				t.Fatalf("failed to fetch the FLOAT column. expected %v, got: %v", nilArray[i], v1)
 			}
 			if v2.Valid {
-				t.Fatalf("failed to fetch the sql.NullBool column v2. expected %v, got: %v", nilArray[i], v2)
+				t.Fatalf("failed to fetch the BOOLEAN column. expected %v, got: %v", nilArray[i], v2)
 			}
 			if v3.Valid {
-				t.Fatalf("failed to fetch the sql.NullString column v3. expected %v, got: %v", nilArray[i], v3)
+				t.Fatalf("failed to fetch the STRING column. expected %v, got: %v", nilArray[i], v3)
 			}
 			if v4 != nil {
-				t.Fatalf("failed to fetch the []byte column v4. expected %v, got: %v", nilArray[i], v4)
-			}
-			if v5.Valid {
-				t.Fatalf("failed to fetch the sql.NullTime column v5. expected %v, got: %v", nilArray[i], v5)
-			}
-			if v6.Valid {
-				t.Fatalf("failed to fetch the sql.NullTime column v6. expected %v, got: %v", nilArray[i], v6)
-			}
-			if v7.Valid {
-				t.Fatalf("failed to fetch the sql.NullTime column v7. expected %v, got: %v", nilArray[i], v7)
-			}
-			if v8.Valid {
-				t.Fatalf("failed to fetch the sql.NullTime column v8. expected %v, got: %v", nilArray[i], v8)
-			}
-			if v9.Valid {
-				t.Fatalf("failed to fetch the sql.NullTime column v9. expected %v, got: %v", nilArray[i], v9)
+				t.Fatalf("failed to fetch the BINARY column. expected %v, got: %v", nilArray[i], v4)
 			}
 			cnt++
 		}
@@ -359,38 +340,38 @@ func TestBulkArrayBindingInterface(t *testing.T) {
 			}
 			if v0.Valid {
 				if v0.Int32 != intArray[i] {
-					t.Fatalf("failed to fetch the sql.NullInt32 column v0. expected %v, got: %v", intArray[i], v0.Int32)
+					t.Fatalf("failed to fetch. expected %v, got: %v", intArray[i], v0.Int32)
 				}
 			} else if intArray[i] != nil {
-				t.Fatalf("failed to fetch the sql.NullInt32 column v0. expected %v, got: %v", intArray[i], v0)
+				t.Fatalf("failed to fetch. expected %v, got: %v", intArray[i], v0)
 			}
 			if v1.Valid {
 				if v1.Float64 != fltArray[i] {
-					t.Fatalf("failed to fetch the sql.NullFloat64 column v1. expected %v, got: %v", fltArray[i], v1.Float64)
+					t.Fatalf("failed to fetch. expected %v, got: %v", fltArray[i], v1.Float64)
 				}
 			} else if fltArray[i] != nil {
-				t.Fatalf("failed to fetch the sql.NullFloat64 column v1. expected %v, got: %v", fltArray[i], v1)
+				t.Fatalf("failed to fetch. expected %v, got: %v", fltArray[i], v1)
 			}
 			if v2.Valid {
 				if v2.Bool != boolArray[i] {
-					t.Fatalf("failed to fetch the sql.NullBool column v2. expected %v, got: %v", boolArray[i], v2.Bool)
+					t.Fatalf("failed to fetch. expected %v, got: %v", boolArray[i], v2.Bool)
 				}
 			} else if boolArray[i] != nil {
-				t.Fatalf("failed to fetch the sql.NullBool column v2. expected %v, got: %v", boolArray[i], v2)
+				t.Fatalf("failed to fetch. expected %v, got: %v", boolArray[i], v2)
 			}
 			if v3.Valid {
 				if v3.String != strArray[i] {
-					t.Fatalf("failed to fetch the sql.NullString column v3. expected %v, got: %v", strArray[i], v3.String)
+					t.Fatalf("failed to fetch. expected %v, got: %v", strArray[i], v3.String)
 				}
 			} else if strArray[i] != nil {
-				t.Fatalf("failed to fetch the sql.NullString column v3. expected %v, got: %v", strArray[i], v3)
+				t.Fatalf("failed to fetch. expected %v, got: %v", strArray[i], v3)
 			}
 			if byteArray[i] != nil {
 				if !bytes.Equal(v4, byteArray[i].([]byte)) {
-					t.Fatalf("failed to fetch the []byte column v4. expected %v, got: %v", byteArray[i], v4)
+					t.Fatalf("failed to fetch. expected %v, got: %v", byteArray[i], v4)
 				}
 			} else if v4 != nil {
-				t.Fatalf("failed to fetch the []byte column v4. expected %v, got: %v", byteArray[i], v4)
+				t.Fatalf("failed to fetch. expected %v, got: %v", byteArray[i], v4)
 			}
 			cnt++
 		}
@@ -433,64 +414,12 @@ func TestBulkArrayBindingInterfaceDateTimeTimestamp(t *testing.T) {
 		dbt.mustExec(createTableSQLBulkArrayDateTimeTimestamp)
 		defer dbt.mustExec(deleteTableSQLBulkArrayDateTimeTimestamp)
 
-		dbt.mustExec(insertSQLBulkArrayDateTimeTimestamp,
+		_, err := dbt.db.Exec(insertSQLBulkArrayDateTimeTimestamp,
 			Array(&ntzArray, TimestampNTZType), Array(&ltzArray, TimestampLTZType),
 			Array(&tzArray, TimestampTZType), Array(&dtArray, DateType),
 			Array(&tmArray, TimeType))
-
-		rows := dbt.mustQuery(selectAllSQLBulkArrayDateTimeTimestamp)
-		defer rows.Close()
-
-		var v0, v1, v2, v3, v4 sql.NullTime
-
-		cnt := 0
-		for i := 0; rows.Next(); i++ {
-			if err := rows.Scan(&v0, &v1, &v2, &v3, &v4); err != nil {
-				t.Fatal(err)
-			}
-			if v0.Valid {
-				if v0.Time.UnixNano() != ntzArray[i].(time.Time).UnixNano() {
-					t.Fatalf("failed to fetch the column v0. expected %v, got: %v", ntzArray[i], v0)
-				}
-			} else if ntzArray[i] != nil {
-				t.Fatalf("failed to fetch the column v0. expected %v, got: %v", ntzArray[i], v0)
-			}
-			if v1.Valid {
-				if v1.Time.UnixNano() != ltzArray[i].(time.Time).UnixNano() {
-					t.Fatalf("failed to fetch the column v1. expected %v, got: %v", ltzArray[i], v1)
-				}
-			} else if ltzArray[i] != nil {
-				t.Fatalf("failed to fetch the column v1. expected %v, got: %v", ltzArray[i], v1)
-			}
-			if v2.Valid {
-				if v2.Time.UnixNano() != tzArray[i].(time.Time).UnixNano() {
-					t.Fatalf("failed to fetch the column v2. expected %v, got: %v", tzArray[i], v2)
-				}
-			} else if tzArray[i] != nil {
-				t.Fatalf("failed to fetch the column v2. expected %v, got: %v", tzArray[i], v2)
-			}
-			if v3.Valid {
-				if v3.Time.Year() != dtArray[i].(time.Time).Year() ||
-					v3.Time.Month() != dtArray[i].(time.Time).Month() ||
-					v3.Time.Day() != dtArray[i].(time.Time).Day() {
-					t.Fatalf("failed to fetch the column v3. expected %v, got: %v", dtArray[i], v3)
-				}
-			} else if dtArray[i] != nil {
-				t.Fatalf("failed to fetch the column v3. expected %v, got: %v", dtArray[i], v3)
-			}
-			if v4.Valid {
-				if v4.Time.Hour() != tmArray[i].(time.Time).Hour() ||
-					v4.Time.Minute() != tmArray[i].(time.Time).Minute() ||
-					v4.Time.Second() != tmArray[i].(time.Time).Second() {
-					t.Fatalf("failed to fetch the column v4. expected %v, got: %v", tmArray[i], v4)
-				}
-			} else if tmArray[i] != nil {
-				t.Fatalf("failed to fetch the column v4. expected %v, got: %v", tmArray[i], v4)
-			}
-			cnt++
-		}
-		if cnt != len(ntzArray) {
-			t.Fatal("failed to query")
+		if err == nil {
+			t.Fatal("Date, time and timestamp are not supported in array binding using []interface{}")
 		}
 	})
 	createDSN("UTC")
