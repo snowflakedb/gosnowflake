@@ -68,3 +68,7 @@ replace golang.org/x/crypto => golang.org/x/crypto v0.7.0
 replace gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.4.0
 
 replace golang.org/x/sys => golang.org/x/sys v0.6.0
+
+replace golang.org/x/text => golang.org/x/text v0.8.0
+
+replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
