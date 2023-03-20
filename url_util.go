@@ -11,7 +11,7 @@ var (
 
 func isValidURL(targetURL string) bool {
 	if !matcher.MatchString(targetURL) {
-		logger.infof(" The provided SSO URL is invalid")
+		logger.Infof(" The provided URL is not a valid URL - " + targetURL)
 		return false
 	}
 	return true
