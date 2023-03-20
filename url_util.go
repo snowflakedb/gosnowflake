@@ -18,5 +18,12 @@ func isValidURL(targetURL string) bool {
 }
 
 func urlEncode(targetString string) string {
-	return url.PathEscape(targetString)
+	// We use QueryEscape instead of PathEscape here
+	// for consistency across Drivers. For example:
+	// QueryEscape escapes space as "+" whereas PE
+	// it as %20F. PE also does not escape @ or &
+	// either but QE does.
+	// The behavior of QE in Golang is more in sync
+	// with URL encoders in Python and Java hence the choice
+	return url.QueryEscape(targetString)
 }
