@@ -292,12 +292,8 @@ func supportedArrayBind(nv *driver.NamedValue) bool {
 		// TODO SNOW-176486 variant, object, array
 
 		// Support for bulk array binding insertion using []interface{}
-		nvValue := reflect.ValueOf(nv)
-		if nvValue.Kind() == reflect.Ptr {
-			value := reflect.Indirect(reflect.ValueOf(nv.Value))
-			if value.Kind() == reflect.Slice || value.Kind() == reflect.Struct {
-				return true
-			}
+		if isInterfaceArrayBinding(nv.Value) {
+			return true
 		}
 		return false
 	}

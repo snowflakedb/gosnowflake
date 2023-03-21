@@ -198,6 +198,100 @@ func TestBindingTimestampTZ(t *testing.T) {
 	})
 }
 
+// SNOW-755844: Test the use of a pointer *time.Time type in user-defined structures to perform updates/inserts
+func TestBindingTimePtrInStruct(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		type timePtrStruct struct {
+			id      *int
+			timeVal *time.Time
+		}
+		var expectedID int = 1
+		var expectedTime time.Time = time.Now()
+		var testStruct timePtrStruct = timePtrStruct{id: &expectedID, timeVal: &expectedTime}
+		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
+
+		runInsertQuery := false
+		for i := 0; i < 2; i++ {
+			if !runInsertQuery {
+				_, err := dbt.db.Exec("INSERT INTO timeStructTest(id,tz) VALUES(?, ?)", testStruct.id, testStruct.timeVal)
+				if err != nil {
+					dbt.Fatal(err.Error())
+				}
+				runInsertQuery = true
+			} else {
+				// Update row with a new time value
+				expectedTime = time.Now().Add(1)
+				testStruct.timeVal = &expectedTime
+				_, err := dbt.db.Exec("UPDATE timeStructTest SET tz = ? where id = ?", testStruct.timeVal, testStruct.id)
+				if err != nil {
+					dbt.Fatal(err.Error())
+				}
+			}
+
+			rows := dbt.mustQuery("SELECT tz FROM timeStructTest WHERE id=?", &expectedID)
+			defer rows.Close()
+			var v time.Time
+			if rows.Next() {
+				rows.Scan(&v)
+				if expectedTime.UnixNano() != v.UnixNano() {
+					dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+						expectedTime.UnixNano(), expectedTime, v.UnixNano(), v)
+				}
+			} else {
+				dbt.Error("no data")
+			}
+		}
+		dbt.mustExec("DROP TABLE timeStructTest")
+	})
+}
+
+// SNOW-755844: Test the use of a time.Time type in user-defined structures to perform updates/inserts
+func TestBindingTimeInStruct(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		type timeStruct struct {
+			id      int
+			timeVal time.Time
+		}
+		var expectedID int = 1
+		var expectedTime time.Time = time.Now()
+		var testStruct timeStruct = timeStruct{id: expectedID, timeVal: expectedTime}
+		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
+
+		runInsertQuery := false
+		for i := 0; i < 2; i++ {
+			if !runInsertQuery {
+				_, err := dbt.db.Exec("INSERT INTO timeStructTest(id,tz) VALUES(?, ?)", testStruct.id, testStruct.timeVal)
+				if err != nil {
+					dbt.Fatal(err.Error())
+				}
+				runInsertQuery = true
+			} else {
+				// Update row with a new time value
+				expectedTime = time.Now().Add(1)
+				testStruct.timeVal = expectedTime
+				_, err := dbt.db.Exec("UPDATE timeStructTest SET tz = ? where id = ?", testStruct.timeVal, testStruct.id)
+				if err != nil {
+					dbt.Fatal(err.Error())
+				}
+			}
+
+			rows := dbt.mustQuery("SELECT tz FROM timeStructTest WHERE id=?", &expectedID)
+			defer rows.Close()
+			var v time.Time
+			if rows.Next() {
+				rows.Scan(&v)
+				if expectedTime.UnixNano() != v.UnixNano() {
+					dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
+						expectedTime.UnixNano(), expectedTime, v.UnixNano(), v)
+				}
+			} else {
+				dbt.Error("no data")
+			}
+		}
+		dbt.mustExec("DROP TABLE timeStructTest")
+	})
+}
+
 func TestBindingInterface(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(
