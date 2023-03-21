@@ -37,9 +37,21 @@ const (
 	TimeType
 )
 
-type timezoneTypeArrayBinding struct {
+type interfaceArrayBinding struct {
+	hasTimezone       bool
 	tzType            timezoneType
 	timezoneTypeArray interface{}
+}
+
+func isInterfaceArrayBinding(t interface{}) bool {
+	switch t.(type) {
+	case interfaceArrayBinding:
+		return true
+	case *interfaceArrayBinding:
+		return true
+	default:
+		return false
+	}
 }
 
 // goTypeToSnowflake translates Go data type to Snowflake data type.
@@ -637,10 +649,14 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 	case []interface{}, *[]interface{}:
 		// Support for bulk array binding insertion using []interface{}
 		if len(typ) < 1 {
-			return a
+			return interfaceArrayBinding{
+				hasTimezone:       false,
+				timezoneTypeArray: a}
 		}
-
-		return timezoneTypeArrayBinding{typ[0], a}
+		return interfaceArrayBinding{
+			hasTimezone:       true,
+			tzType:            typ[0],
+			timezoneTypeArray: a}
 	default:
 		return a
 	}
@@ -764,16 +780,14 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		nvValue := reflect.ValueOf(nv)
 		if nvValue.Kind() == reflect.Ptr {
 			value := reflect.Indirect(reflect.ValueOf(nv.Value))
-			if value.Kind() == reflect.Slice {
-				return interfaceSliceToString(value, stream)
-			} else if value.Kind() == reflect.Struct {
-				timeStruct, ok := value.Interface().(timezoneTypeArrayBinding)
+			if isInterfaceArrayBinding(value.Interface()) {
+				timeStruct, ok := value.Interface().(interfaceArrayBinding)
 				if ok {
 					timeInterfaceSlice := reflect.Indirect(reflect.ValueOf(timeStruct.timezoneTypeArray))
-					if timeInterfaceSlice.Kind() == reflect.Slice {
-						timeArray := reflect.Indirect(reflect.ValueOf(timeInterfaceSlice.Interface()))
-						return interfaceSliceToString(timeArray, stream, timeStruct.tzType)
+					if timeStruct.hasTimezone {
+						return interfaceSliceToString(timeInterfaceSlice, stream, timeStruct.tzType)
 					}
+					return interfaceSliceToString(timeInterfaceSlice, stream)
 				}
 			}
 		}
