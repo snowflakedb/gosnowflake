@@ -491,6 +491,20 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
+		{
+			dsn: "u:p@a?database=d?client_session_keep_alive=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "d", Schema: "",
+				JWTExpireTimeout:          defaultJWTTimeout,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				KeepSessionAlive:          true,
+			},
+			ocspMode: ocspModeFailOpen,
+		},
 	}
 
 	for i, test := range testcases {
@@ -572,6 +586,10 @@ func TestParseDSN(t *testing.T) {
 			if test.config.ClientTimeout != cfg.ClientTimeout {
 				t.Fatalf("%d: Failed to match ClientTimeout. expected: %v, got: %v",
 					i, test.config.ClientTimeout, cfg.ClientTimeout)
+			}
+			if test.config.KeepSessionAlive != cfg.KeepSessionAlive {
+				t.Fatalf("%d: Failed to match KeepSessionAlive. expected: %v, got: %v",
+					i, test.config.KeepSessionAlive, cfg.KeepSessionAlive)
 			}
 		case test.err != nil:
 			driverErrE, okE := test.err.(*SnowflakeError)
@@ -855,6 +873,15 @@ func TestDSN(t *testing.T) {
 				ClientTimeout: 300 * time.Second,
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientTimeout=300&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:             "u",
+				Password:         "p",
+				Account:          "a-aofnadsf.somewhere.azure",
+				KeepSessionAlive: true,
+			},
+			dsn: "u:p@a-aofnadsf.somewhere.azure.snowflakecomputing.com:443?ocspFailOpen=true&region=somewhere.azure&validateDefaultParameters=true&client_session_keep_alive=true",
 		},
 	}
 	for _, test := range testcases {

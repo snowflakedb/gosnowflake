@@ -186,6 +186,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 			params.Add(k, *v)
 		}
 	}
+	if cfg.KeepSessionAlive {
+		params.Add("client_session_keep_alive", strconv.FormatBool(cfg.KeepSessionAlive))
+	}
 	if cfg.PrivateKey != nil {
 		privateKeyInBytes, err := marshalPKCS8PrivateKey(cfg.PrivateKey)
 		if err != nil {
@@ -597,6 +600,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 
 		case "token":
 			cfg.Token = value
+		case "client_session_keep_alive":
+			cfg.KeepSessionAlive, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
 		case "privateKey":
 			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(value)
