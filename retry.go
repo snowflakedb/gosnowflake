@@ -239,7 +239,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			logger.WithContext(r.ctx).Warningf(
 				"failed http connection. no response is returned. err: %v. retrying...\n", err)
 		} else {
-			if res.StatusCode == http.StatusOK || r.raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 {
+			if res.StatusCode == http.StatusOK || r.raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != 429 {
 				// exit if success
 				// or
 				// abort connection if raise4XX flag is enabled and the range of HTTP status code are 4XX.
