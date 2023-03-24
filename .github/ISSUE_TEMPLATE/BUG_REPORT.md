@@ -29,7 +29,6 @@ You may get the server version by running a query:
 ```
 SELECT CURRENT_VERSION();
 ```
-   
 5. What did you do?
 
    If possible, provide a recipe for reproducing the error.

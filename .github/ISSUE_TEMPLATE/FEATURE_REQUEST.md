@@ -9,7 +9,6 @@ If you need urgent assistance then file the feature request using the support pr
 https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge
 otherwise continue here.
 -->
-
 ## What is the current behavior?
 
 ## What is the desired behavior?
