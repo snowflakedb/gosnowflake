@@ -3,17 +3,17 @@ module github.com/snowflakedb/gosnowflake
 go 1.19
 
 require (
-	github.com/99designs/keyring v1.2.1
+	github.com/99designs/keyring v1.2.2
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.0.0
-	github.com/apache/arrow/go/v10 v10.0.1
-	github.com/aws/aws-sdk-go-v2 v1.16.16
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.20
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.33
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.11
-	github.com/aws/smithy-go v1.13.3
+	github.com/apache/arrow/go/v11 v11.0.0
+	github.com/aws/aws-sdk-go-v2 v1.17.7
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.18
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.59
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.31.0
+	github.com/aws/smithy-go v1.13.5
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
-	github.com/gabriel-vasile/mimetype v1.4.1
+	github.com/gabriel-vasile/mimetype v1.4.2
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/sirupsen/logrus v1.9.0
 	golang.org/x/crypto v0.7.0
@@ -24,14 +24,14 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.1.2 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/apache/thrift v0.16.0 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.8 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.23 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.17 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.14 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.18 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.17 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.17 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.10 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.31 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.25 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.26 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.25 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.14.0 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
 	github.com/goccy/go-json v0.9.11 // indirect
@@ -43,6 +43,7 @@ require (
 	github.com/klauspost/asmfmt v1.3.2 // indirect
 	github.com/klauspost/compress v1.15.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8 // indirect
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
@@ -56,19 +57,3 @@ require (
 	golang.org/x/tools v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 )
-
-replace github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.14.15
-
-replace golang.org/x/image => golang.org/x/image v0.6.0
-
-replace golang.org/x/net => golang.org/x/net v0.8.0
-
-replace golang.org/x/crypto => golang.org/x/crypto v0.7.0
-
-replace gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.4.0
-
-replace golang.org/x/sys => golang.org/x/sys v0.6.0
-
-replace golang.org/x/text => golang.org/x/text v0.8.0
-
-replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
