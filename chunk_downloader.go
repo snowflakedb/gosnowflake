@@ -154,7 +154,9 @@ func (scd *snowflakeChunkDownloader) schedule() {
 func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 	select {
 	case errc := <-scd.ChunksError:
-		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter && errc.Error != context.Canceled {
+		if scd.ChunksErrorCounter < maxChunkDownloaderErrorCounter &&
+			errc.Error != context.Canceled &&
+			errc.Error != context.DeadlineExceeded {
 			// add the index to the chunks channel so that the download will be retried.
 			go scd.FuncDownload(scd.ctx, scd, errc.Index)
 			scd.ChunksErrorCounter++
