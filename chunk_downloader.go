@@ -19,7 +19,6 @@ import (
 
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/ipc"
-	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 type chunkDownloader interface {
@@ -410,8 +409,6 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 		arc := arrowResultChunk{
 			*ipcReader,
 			0,
-			int(scd.totalUncompressedSize()),
-			memory.NewGoAllocator(),
 			loc,
 		}
 		if usesArrowBatches(scd.ctx) {

@@ -10,15 +10,12 @@ import (
 
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/ipc"
-	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 type arrowResultChunk struct {
-	reader           ipc.Reader
-	rowCount         int
-	uncompressedSize int
-	allocator        memory.Allocator
-	loc              *time.Location
+	reader   ipc.Reader
+	rowCount int
+	loc      *time.Location
 }
 
 func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
@@ -84,5 +81,5 @@ func buildFirstArrowChunk(rowsetBase64 string, loc *time.Location) arrowResultCh
 		return arrowResultChunk{}
 	}
 
-	return arrowResultChunk{*rr, 0, 0, memory.NewGoAllocator(), loc}
+	return arrowResultChunk{*rr, 0, loc}
 }
