@@ -346,9 +346,9 @@ func arrowToValue(
 						}
 					} else {
 						if higherPrecision {
-							destcol[i] = f
+							destcol[i] = big.NewFloat(num.ToFloat64(int32(srcColumnMeta.Scale)))
 						} else {
-							destcol[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, f)
+							destcol[i] = num.ToString(int32(srcColumnMeta.Scale))
 						}
 					}
 				}

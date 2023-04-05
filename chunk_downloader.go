@@ -57,7 +57,6 @@ type snowflakeChunkDownloader struct {
 	ChunksFinalErrors  []*chunkError
 	ChunksMutex        *sync.Mutex
 	DoneDownloadCond   *sync.Cond
-	FirstBatch         *ArrowBatch
 	NextDownloader     chunkDownloader
 	Qrmk               string
 	QueryResultFormat  string
@@ -244,10 +243,7 @@ func (scd *snowflakeChunkDownloader) getRowType() []execResponseRowType {
 }
 
 func (scd *snowflakeChunkDownloader) getArrowBatches() []*ArrowBatch {
-	if scd.FirstBatch.rec == nil {
-		return scd.ArrowBatches
-	}
-	return append([]*ArrowBatch{scd.FirstBatch}, scd.ArrowBatches...)
+	return scd.ArrowBatches
 }
 
 func getChunk(
