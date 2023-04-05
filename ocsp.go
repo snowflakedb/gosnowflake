@@ -828,11 +828,11 @@ func writeOCSPCacheFile() {
 	case os.IsExist(err):
 		statinfo, err := os.Stat(cacheLockFileName)
 		if err != nil {
-			logger.Debugf("failed to write OCSP response cache file. file: %v, err: %v. ignored.\n", cacheFileName, err)
+			logger.Debugf("failed to get file info for cache lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
 			return
 		}
 		if time.Since(statinfo.ModTime()) < 15*time.Minute {
-			logger.Debugf("other process locks the cache file. %v. ignored.\n", cacheFileName)
+			logger.Debugf("other process locks the cache file. %v. ignored.\n", cacheLockFileName)
 			return
 		}
 		if err = os.Remove(cacheLockFileName); err != nil {
@@ -840,9 +840,14 @@ func writeOCSPCacheFile() {
 			return
 		}
 		if err = os.Mkdir(cacheLockFileName, 0600); err != nil {
-			logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
+			logger.Debugf("failed to create lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
 			return
 		}
+	}
+	// if mkdir fails for any other reason: permission denied, operation not permitted, I/O error, too many open files, etc.
+	if err != nil {
+		logger.Debugf("failed to create lock file. file %v, err: %v. ignored.\n", cacheLockFileName, err)
+		return
 	}
 	defer os.RemoveAll(cacheLockFileName)
 
