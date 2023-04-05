@@ -152,7 +152,7 @@ func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 			case dateType:
 				_, offset := tm.Zone()
 				tm = tm.Add(time.Second * time.Duration(offset))
-				s := fmt.Sprintf("%d", tm.Unix()*1000)
+				s := strconv.FormatInt(tm.Unix()*1000, 10)
 				return &s, nil
 			case timeType:
 				s := fmt.Sprintf("%d",
@@ -318,14 +318,14 @@ func decimalToBigFloat(num decimal128.Num, scale int64) *big.Float {
 // Arrow Interface (Column) converter. This is called when Arrow chunks are
 // downloaded to convert to the corresponding row type.
 func arrowToValue(
-	destcol *[]snowflakeValue,
+	destcol []snowflakeValue,
 	srcColumnMeta execResponseRowType,
 	srcValue arrow.Array,
 	loc *time.Location,
 	higherPrecision bool) error {
 
 	var err error
-	if len(*destcol) != srcValue.Len() {
+	if len(destcol) != srcValue.Len() {
 		err = fmt.Errorf("array interface length mismatch")
 	}
 	logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
@@ -340,15 +340,15 @@ func arrowToValue(
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
 						if higherPrecision {
-							(*destcol)[i] = num.BigInt()
+							destcol[i] = num.BigInt()
 						} else {
-							(*destcol)[i] = num.ToString(0)
+							destcol[i] = num.ToString(0)
 						}
 					} else {
 						if higherPrecision {
-							(*destcol)[i] = big.NewFloat(num.ToFloat64(int32(srcColumnMeta.Scale)))
+							destcol[i] = big.NewFloat(num.ToFloat64(int32(srcColumnMeta.Scale)))
 						} else {
-							(*destcol)[i] = num.ToString(int32(srcColumnMeta.Scale))
+							destcol[i] = num.ToString(int32(srcColumnMeta.Scale))
 						}
 					}
 				}
@@ -358,16 +358,16 @@ func arrowToValue(
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
 						if higherPrecision {
-							(*destcol)[i] = val
+							destcol[i] = val
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%d", val)
+							destcol[i] = fmt.Sprintf("%d", val)
 						}
 					} else {
 						if higherPrecision {
 							f := intToBigFloat(val, srcColumnMeta.Scale)
-							(*destcol)[i] = f
+							destcol[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							destcol[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -377,16 +377,16 @@ func arrowToValue(
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
 						if higherPrecision {
-							(*destcol)[i] = int64(val)
+							destcol[i] = int64(val)
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%d", val)
+							destcol[i] = fmt.Sprintf("%d", val)
 						}
 					} else {
 						if higherPrecision {
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
-							(*destcol)[i] = f
+							destcol[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							destcol[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -396,16 +396,16 @@ func arrowToValue(
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
 						if higherPrecision {
-							(*destcol)[i] = int64(val)
+							destcol[i] = int64(val)
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%d", val)
+							destcol[i] = fmt.Sprintf("%d", val)
 						}
 					} else {
 						if higherPrecision {
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
-							(*destcol)[i] = f
+							destcol[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							destcol[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -415,16 +415,16 @@ func arrowToValue(
 				if !srcValue.IsNull(i) {
 					if srcColumnMeta.Scale == 0 {
 						if higherPrecision {
-							(*destcol)[i] = int64(val)
+							destcol[i] = int64(val)
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%d", val)
+							destcol[i] = fmt.Sprintf("%d", val)
 						}
 					} else {
 						if higherPrecision {
 							f := intToBigFloat(int64(val), srcColumnMeta.Scale)
-							(*destcol)[i] = f
+							destcol[i] = f
 						} else {
-							(*destcol)[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
+							destcol[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, float64(val)/math.Pow10(int(srcColumnMeta.Scale)))
 						}
 					}
 				}
@@ -433,9 +433,9 @@ func arrowToValue(
 		return err
 	case booleanType:
 		boolData := srcValue.(*array.Boolean)
-		for i := range *destcol {
+		for i := range destcol {
 			if !srcValue.IsNull(i) {
-				(*destcol)[i] = boolData.Value(i)
+				destcol[i] = boolData.Value(i)
 			}
 		}
 		return err
@@ -444,23 +444,23 @@ func arrowToValue(
 		// e.g. FLOAT/REAL/DOUBLE
 		for i, flt64 := range srcValue.(*array.Float64).Float64Values() {
 			if !srcValue.IsNull(i) {
-				(*destcol)[i] = flt64
+				destcol[i] = flt64
 			}
 		}
 		return err
 	case textType, arrayType, variantType, objectType:
 		strings := srcValue.(*array.String)
-		for i := range *destcol {
+		for i := range destcol {
 			if !srcValue.IsNull(i) {
-				(*destcol)[i] = strings.Value(i)
+				destcol[i] = strings.Value(i)
 			}
 		}
 		return err
 	case binaryType:
 		binaryData := srcValue.(*array.Binary)
-		for i := range *destcol {
+		for i := range destcol {
 			if !srcValue.IsNull(i) {
-				(*destcol)[i] = binaryData.Value(i)
+				destcol[i] = binaryData.Value(i)
 			}
 		}
 		return err
@@ -468,7 +468,7 @@ func arrowToValue(
 		for i, date32 := range srcValue.(*array.Date32).Date32Values() {
 			if !srcValue.IsNull(i) {
 				t0 := time.Unix(int64(date32)*86400, 0).UTC()
-				(*destcol)[i] = t0
+				destcol[i] = t0
 			}
 		}
 		return err
@@ -477,13 +477,13 @@ func arrowToValue(
 		if srcValue.DataType().ID() == arrow.INT64 {
 			for i, i64 := range srcValue.(*array.Int64).Int64Values() {
 				if !srcValue.IsNull(i) {
-					(*destcol)[i] = t0.Add(time.Duration(i64 * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
+					destcol[i] = t0.Add(time.Duration(i64 * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
 				}
 			}
 		} else {
 			for i, i32 := range srcValue.(*array.Int32).Int32Values() {
 				if !srcValue.IsNull(i) {
-					(*destcol)[i] = t0.Add(time.Duration(int64(i32) * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
+					destcol[i] = t0.Add(time.Duration(int64(i32) * int64(math.Pow10(9-int(srcColumnMeta.Scale)))))
 				}
 			}
 		}
@@ -493,9 +493,9 @@ func arrowToValue(
 			structData := srcValue.(*array.Struct)
 			epoch := structData.Field(0).(*array.Int64).Int64Values()
 			fraction := structData.Field(1).(*array.Int32).Int32Values()
-			for i := range *destcol {
+			for i := range destcol {
 				if !srcValue.IsNull(i) {
-					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i])).UTC()
+					destcol[i] = time.Unix(epoch[i], int64(fraction[i])).UTC()
 				}
 			}
 		} else {
@@ -504,7 +504,7 @@ func arrowToValue(
 					scale := int(srcColumnMeta.Scale)
 					epoch := t / int64(math.Pow10(scale))
 					fraction := (t % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
-					(*destcol)[i] = time.Unix(epoch, fraction).UTC()
+					destcol[i] = time.Unix(epoch, fraction).UTC()
 				}
 			}
 		}
@@ -514,9 +514,9 @@ func arrowToValue(
 			structData := srcValue.(*array.Struct)
 			epoch := structData.Field(0).(*array.Int64).Int64Values()
 			fraction := structData.Field(1).(*array.Int32).Int32Values()
-			for i := range *destcol {
+			for i := range destcol {
 				if !srcValue.IsNull(i) {
-					(*destcol)[i] = time.Unix(epoch[i], int64(fraction[i])).In(loc)
+					destcol[i] = time.Unix(epoch[i], int64(fraction[i])).In(loc)
 				}
 			}
 		} else {
@@ -524,7 +524,7 @@ func arrowToValue(
 				if !srcValue.IsNull(i) {
 					q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
 					r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
-					(*destcol)[i] = time.Unix(q, r).In(loc)
+					destcol[i] = time.Unix(q, r).In(loc)
 				}
 			}
 		}
@@ -534,22 +534,22 @@ func arrowToValue(
 		if structData.NumField() == 2 {
 			epoch := structData.Field(0).(*array.Int64).Int64Values()
 			timezone := structData.Field(1).(*array.Int32).Int32Values()
-			for i := range *destcol {
+			for i := range destcol {
 				if !srcValue.IsNull(i) {
 					loc := Location(int(timezone[i]) - 1440)
 					tt := time.Unix(epoch[i], 0)
-					(*destcol)[i] = tt.In(loc)
+					destcol[i] = tt.In(loc)
 				}
 			}
 		} else {
 			epoch := structData.Field(0).(*array.Int64).Int64Values()
 			fraction := structData.Field(1).(*array.Int32).Int32Values()
 			timezone := structData.Field(2).(*array.Int32).Int32Values()
-			for i := range *destcol {
+			for i := range destcol {
 				if !srcValue.IsNull(i) {
 					loc := Location(int(timezone[i]) - 1440)
 					tt := time.Unix(epoch[i], int64(fraction[i]))
-					(*destcol)[i] = tt.In(loc)
+					destcol[i] = tt.In(loc)
 				}
 			}
 		}

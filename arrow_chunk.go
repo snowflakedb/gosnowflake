@@ -25,34 +25,31 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
 
-	for {
-		record, err := arc.reader.Read()
-		if err == io.EOF {
-			return chunkRows, nil
-		} else if err != nil {
-			return nil, err
-		}
+	for arc.reader.Next() {
+		record := arc.reader.Record()
 
+		start := len(chunkRows)
 		numRows := int(record.NumRows())
 		columns := record.Columns()
-		tmpRows := make([]chunkRowType, numRows)
+		chunkRows = append(chunkRows, make([]chunkRowType, numRows)...)
+		for i := start; i < start+numRows; i++ {
+			chunkRows[i].ArrowRow = make([]snowflakeValue, len(columns))
+		}
 
 		for colIdx, col := range columns {
-			destcol := make([]snowflakeValue, numRows)
-			if err = arrowToValue(&destcol, rowType[colIdx], col, arc.loc, highPrec); err != nil {
+			values := make([]snowflakeValue, numRows)
+			if err := arrowToValue(values, rowType[colIdx], col, arc.loc, highPrec); err != nil {
 				return nil, err
 			}
 
-			for rowIdx := 0; rowIdx < numRows; rowIdx++ {
-				if colIdx == 0 {
-					tmpRows[rowIdx] = chunkRowType{ArrowRow: make([]snowflakeValue, len(columns))}
-				}
-				tmpRows[rowIdx].ArrowRow[colIdx] = destcol[rowIdx]
+			for i := range values {
+				chunkRows[start+i].ArrowRow[colIdx] = values[i]
 			}
 		}
-		chunkRows = append(chunkRows, tmpRows...)
 		arc.rowCount += numRows
 	}
+
+	return chunkRows, arc.reader.Err()
 }
 
 func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]arrow.Record, error) {
