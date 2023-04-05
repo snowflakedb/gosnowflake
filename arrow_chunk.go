@@ -5,17 +5,18 @@ package gosnowflake
 import (
 	"bytes"
 	"encoding/base64"
-	"io"
 	"time"
 
 	"github.com/apache/arrow/go/v11/arrow"
 	"github.com/apache/arrow/go/v11/arrow/ipc"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 type arrowResultChunk struct {
-	reader   ipc.Reader
-	rowCount int
-	loc      *time.Location
+	reader    *ipc.Reader
+	rowCount  int
+	loc       *time.Location
+	allocator memory.Allocator
 }
 
 func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
@@ -52,34 +53,31 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]arrow.Record, error) {
 	var records []arrow.Record
 
-	for {
-		rawRecord, err := arc.reader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, err
-		}
-		record, err := arrowToRecord(rawRecord, scd.RowSet.RowType, arc.loc)
-		rawRecord.Release()
+	for arc.reader.Next() {
+		rawRecord := arc.reader.Record()
+
+		record, err := arrowToRecord(rawRecord, arc.allocator, scd.RowSet.RowType, arc.loc)
+		// rawRecord.Release()
 		if err != nil {
 			return nil, err
 		}
 		record.Retain()
 		records = append(records, record)
 	}
-	return &records, nil
+
+	return &records, arc.reader.Err()
 }
 
 // Build arrow chunk based on RowSet of base64
-func buildFirstArrowChunk(rowsetBase64 string, loc *time.Location) arrowResultChunk {
+func buildFirstArrowChunk(rowsetBase64 string, loc *time.Location, alloc memory.Allocator) arrowResultChunk {
 	rowSetBytes, err := base64.StdEncoding.DecodeString(rowsetBase64)
 	if err != nil {
 		return arrowResultChunk{}
 	}
-	rr, err := ipc.NewReader(bytes.NewReader(rowSetBytes))
+	rr, err := ipc.NewReader(bytes.NewReader(rowSetBytes), ipc.WithAllocator(alloc))
 	if err != nil {
 		return arrowResultChunk{}
 	}
 
-	return arrowResultChunk{*rr, 0, loc}
+	return arrowResultChunk{rr, 0, loc, alloc}
 }

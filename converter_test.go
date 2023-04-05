@@ -259,6 +259,7 @@ func TestArrowToValue(t *testing.T) {
 	dest := make([]snowflakeValue, 2)
 
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
 	var valids []bool // AppendValues() with an empty valid array adds every value by default
 
 	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
@@ -599,7 +600,8 @@ func TestArrowToValue(t *testing.T) {
 
 func TestArrowToRecord(t *testing.T) {
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	var valids []bool // AppendValues() with an empty valid array adds every value by default
+	defer pool.AssertSize(t, 0) // ensure no arrow memory leaks
+	var valids []bool           // AppendValues() with an empty valid array adds every value by default
 
 	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
 
@@ -635,10 +637,10 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical:  "fixed",
 			physical: "number(38,0)",
-			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 30, Scale: 2}}}, nil),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 38, Scale: 0}}}, nil),
 			values:   []string{"10000000000000000000000000000000000000", "-12345678901234567890123456789012345678"},
 			nrows:    2,
-			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 30, Scale: 2}),
+			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 0}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, s := range vs.([]string) {
 					num, ok := stringIntToDecimal(s)
@@ -650,7 +652,7 @@ func TestArrowToRecord(t *testing.T) {
 			},
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]string)
-				for i, dec := range array.NewInt64Data(convertedRec.Column(0).Data()).Int64Values() {
+				for i, dec := range convertedRec.Column(0).(*array.Int64).Int64Values() {
 					num, ok := stringIntToDecimal(srcvs[i])
 					if !ok {
 						return i
@@ -668,26 +670,26 @@ func TestArrowToRecord(t *testing.T) {
 			physical: "number(38,37)",
 			rowType:  execResponseRowType{Scale: 37},
 			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 38, Scale: 37}}}, nil),
-			values:   []string{"1.2345678901234567890123456789012345678", "-9.9999999999999999999999999999999999999"},
+			values:   []string{"1.2345678901234567890123456789012345678", "-9.999999999999999"},
 			nrows:    2,
 			builder:  array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 37}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, s := range vs.([]string) {
-					num, ok := stringFloatToDecimal(s, 37)
-					if !ok {
-						t.Fatalf("failed to convert to decimal")
+					num, err := decimal128.FromString(s, 38, 37)
+					if err != nil {
+						t.Fatalf("failed to convert to decimal: %s", err)
 					}
 					b.(*array.Decimal128Builder).Append(num)
 				}
 			},
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]string)
-				for i, dec := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
-					num, ok := stringFloatToDecimal(srcvs[i], 37)
-					if !ok {
+				for i, dec := range convertedRec.Column(0).(*array.Float64).Float64Values() {
+					num, err := decimal128.FromString(srcvs[i], 38, 37)
+					if err != nil {
 						return i
 					}
-					srcDec, _ := decimalToBigFloat(num, 37).Float64()
+					srcDec := num.ToFloat64(37)
 					if srcDec != dec {
 						return i
 					}
@@ -742,7 +744,7 @@ func TestArrowToRecord(t *testing.T) {
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int8)
-				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
+				for i, f := range convertedRec.Column(0).(*array.Float64).Float64Values() {
 					rawFloat, _ := intToBigFloat(int64(srcvs[i]), 1).Float64()
 					if rawFloat != f {
 						return i
@@ -762,7 +764,7 @@ func TestArrowToRecord(t *testing.T) {
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int16)
-				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
+				for i, f := range convertedRec.Column(0).(*array.Float64).Float64Values() {
 					rawFloat, _ := intToBigFloat(int64(srcvs[i]), 1).Float64()
 					if rawFloat != f {
 						return i
@@ -782,7 +784,7 @@ func TestArrowToRecord(t *testing.T) {
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int32)
-				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
+				for i, f := range convertedRec.Column(0).(*array.Float64).Float64Values() {
 					rawFloat, _ := intToBigFloat(int64(srcvs[i]), 2).Float64()
 					if rawFloat != f {
 						return i
@@ -802,7 +804,7 @@ func TestArrowToRecord(t *testing.T) {
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int64)
-				for i, f := range array.NewFloat64Data(convertedRec.Column(0).Data()).Float64Values() {
+				for i, f := range convertedRec.Column(0).(*array.Float64).Float64Values() {
 					rawFloat, _ := intToBigFloat(srcvs[i], 5).Float64()
 					if rawFloat != f {
 						return i
@@ -859,10 +861,10 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical: "time",
-			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.Time64Type{}}}, nil),
+			sc:      arrow.NewSchema([]arrow.Field{{Type: arrow.FixedWidthTypes.Time64ns}}, nil),
 			values:  []time.Time{time.Now(), time.Now()},
 			nrows:   2,
-			builder: array.NewTime64Builder(pool, &arrow.Time64Type{}),
+			builder: array.NewTime64Builder(pool, arrow.FixedWidthTypes.Time64ns.(*arrow.Time64Type)),
 			append: func(b array.Builder, vs interface{}) {
 				for _, t := range vs.([]time.Time) {
 					b.(*array.Time64Builder).Append(arrow.Time64(t.UnixNano()))
@@ -870,8 +872,9 @@ func TestArrowToRecord(t *testing.T) {
 			},
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
-				for i, t := range array.NewTime64Data(convertedRec.Column(0).Data()).Time64Values() {
-					if srcvs[i].UnixNano() != int64(t) {
+				arr := convertedRec.Column(0).(*array.Time64)
+				for i := 0; i < arr.Len(); i++ {
+					if srcvs[i].UnixNano() != int64(arr.Value(i)) {
 						return i
 					}
 				}
@@ -892,7 +895,7 @@ func TestArrowToRecord(t *testing.T) {
 			},
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
-				for i, t := range array.NewTimestampData(convertedRec.Column(0).Data()).TimestampValues() {
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if srcvs[i].UnixNano() != int64(t) {
 						return i
 					}
@@ -914,7 +917,7 @@ func TestArrowToRecord(t *testing.T) {
 			},
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
-				for i, t := range array.NewTimestampData(convertedRec.Column(0).Data()).TimestampValues() {
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if srcvs[i].UnixNano() != int64(t) {
 						return i
 					}
@@ -939,7 +942,7 @@ func TestArrowToRecord(t *testing.T) {
 			},
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
-				for i, t := range array.NewTimestampData(convertedRec.Column(0).Data()).TimestampValues() {
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if srcvs[i].Unix() != time.Unix(0, int64(t)).Unix() {
 						return i
 					}
@@ -977,23 +980,30 @@ func TestArrowToRecord(t *testing.T) {
 			testName += " " + tc.physical
 		}
 		t.Run(testName, func(t *testing.T) {
+			scope := memory.NewCheckedAllocatorScope(pool)
+			defer scope.CheckSize(t)
+
 			b := tc.builder
+			defer b.Release()
 			tc.append(b, tc.values)
 			arr := b.NewArray()
 			defer arr.Release()
 			rawRec := array.NewRecord(tc.sc, []arrow.Array{arr}, int64(tc.nrows))
+			defer rawRec.Release()
+
 			meta := tc.rowType
 			meta.Type = tc.logical
 
-			transformedRec, err := arrowToRecord(rawRec, []execResponseRowType{meta}, localTime.Location())
+			transformedRec, err := arrowToRecord(rawRec, pool, []execResponseRowType{meta}, localTime.Location())
 			if err != nil {
 				t.Fatalf("error: %s", err)
 			}
+			defer transformedRec.Release()
 
 			if tc.compare != nil {
 				idx := tc.compare(tc.values, transformedRec)
 				if idx != -1 {
-					t.Fatalf("error: column array value mistmatch at index %v", idx)
+					t.Fatalf("error: column array value mismatch at index %v", idx)
 				}
 			} else {
 				for i, c := range transformedRec.Columns() {

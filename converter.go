@@ -345,10 +345,11 @@ func arrowToValue(
 							destcol[i] = num.ToString(0)
 						}
 					} else {
+						f := decimalToBigFloat(num, srcColumnMeta.Scale)
 						if higherPrecision {
-							destcol[i] = big.NewFloat(num.ToFloat64(int32(srcColumnMeta.Scale)))
+							destcol[i] = f
 						} else {
-							destcol[i] = num.ToString(int32(srcColumnMeta.Scale))
+							destcol[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, f)
 						}
 					}
 				}
@@ -912,7 +913,7 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-func arrowToRecord(record arrow.Record, rowType []execResponseRowType, loc *time.Location) (arrow.Record, error) {
+func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location) (arrow.Record, error) {
 	s, err := recordToSchema(record.Schema(), rowType, loc)
 	if err != nil {
 		return nil, err
@@ -920,7 +921,6 @@ func arrowToRecord(record arrow.Record, rowType []execResponseRowType, loc *time
 
 	var cols []arrow.Array
 	numRows := record.NumRows()
-	pool := memory.NewGoAllocator()
 	ctx := compute.WithAllocator(context.Background(), pool)
 
 	for i, col := range record.Columns() {
@@ -937,7 +937,9 @@ func arrowToRecord(record arrow.Record, rowType []execResponseRowType, loc *time
 				} else {
 					toType = arrow.PrimitiveTypes.Float64
 				}
-				newCol, err = compute.CastArray(ctx, col, compute.SafeCastOptions(toType))
+				// we're fine truncating so no error for data loss here.
+				// so we use UnsafeCastOptions.
+				newCol, err = compute.CastArray(ctx, col, compute.UnsafeCastOptions(toType))
 				if err != nil {
 					return nil, err
 				}
@@ -974,9 +976,9 @@ func arrowToRecord(record arrow.Record, rowType []execResponseRowType, loc *time
 					}
 				}
 			} else {
-				for i, t := range col.(*array.Int64).Int64Values() {
+				for i, t := range col.(*array.Timestamp).TimestampValues() {
 					if !col.IsNull(i) {
-						val := time.Unix(0, t*int64(math.Pow10(9-int(srcColumnMeta.Scale)))).UTC()
+						val := time.Unix(0, int64(t)*int64(math.Pow10(9-int(srcColumnMeta.Scale)))).UTC()
 						tb.Append(arrow.Timestamp(val.UnixNano()))
 					} else {
 						tb.AppendNull()
@@ -1001,10 +1003,10 @@ func arrowToRecord(record arrow.Record, rowType []execResponseRowType, loc *time
 					}
 				}
 			} else {
-				for i, t := range col.(*array.Int64).Int64Values() {
+				for i, t := range col.(*array.Timestamp).TimestampValues() {
 					if !col.IsNull(i) {
-						q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
-						r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
+						q := int64(t) / int64(math.Pow10(int(srcColumnMeta.Scale)))
+						r := int64(t) % int64(math.Pow10(int(srcColumnMeta.Scale)))
 						val := time.Unix(q, r)
 						tb.Append(arrow.Timestamp(val.UnixNano()))
 					} else {
@@ -1080,7 +1082,7 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 				}
 			}
 		case timeType:
-			t = &arrow.Time64Type{}
+			t = &arrow.Time64Type{Unit: arrow.Nanosecond}
 		case timestampNtzType, timestampTzType:
 			t = &arrow.TimestampType{Unit: arrow.Nanosecond}
 		case timestampLtzType:

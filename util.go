@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 type contextKey string
@@ -23,6 +25,7 @@ const (
 	fileTransferOptions   contextKey = "FILE_TRANSFER_OPTIONS"
 	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
 	arrowBatches          contextKey = "ARROW_BATCHES"
+	arrowAlloc            contextKey = "ARROW_ALLOC"
 )
 
 const (
@@ -87,6 +90,13 @@ func WithHigherPrecision(ctx context.Context) context.Context {
 // arrow.Record download workers upon querying
 func WithArrowBatches(ctx context.Context) context.Context {
 	return context.WithValue(ctx, arrowBatches, true)
+}
+
+// WithArrowAllocator returns a context embedding the provided allocator
+// which will be utilized by chunk downloaders when constructing Arrow
+// objects.
+func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Context {
+	return context.WithValue(ctx, arrowAlloc, pool)
 }
 
 // Get the request ID from the context if specified, otherwise generate one

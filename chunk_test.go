@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 func TestBadChunkData(t *testing.T) {
@@ -404,6 +406,10 @@ func TestWithArrowBatches(t *testing.T) {
 	if err = authenticateWithConfig(sc); err != nil {
 		t.Error(err)
 	}
+
+	pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer pool.AssertSize(t, 0)
+	ctx = WithArrowAllocator(ctx, pool)
 
 	query := fmt.Sprintf(selectRandomGenerator, numrows)
 	rows, err := sc.QueryContext(ctx, query, []driver.NamedValue{})
