@@ -230,3 +230,44 @@ func TestGetMin(t *testing.T) {
 		}
 	}
 }
+
+type tcURLList struct {
+	in  string
+	out bool
+}
+
+func TestValidURL(t *testing.T) {
+	testcases := []tcURLList{
+		{"https://ssoTestURL.okta.com", true},
+		{"https://ssoTestURL.okta.com:8080", true},
+		{"https://ssoTestURL.okta.com/testpathvalue", true},
+		{"-a calculator", false},
+		{"This is a random test", false},
+		{"file://TestForFile", false},
+	}
+	for _, test := range testcases {
+		result := isValidURL(test.in)
+		if test.out != result {
+			t.Errorf("Failed to validate URL, input :%v, expected: %v, got: %v", test.in, test.out, result)
+		}
+	}
+}
+
+type tcEncodeList struct {
+	in  string
+	out string
+}
+
+func TestEncodeURL(t *testing.T) {
+	testcases := []tcEncodeList{
+		{"Hello @World", "Hello+%40World"},
+		{"Test//String", "Test%2F%2FString"},
+	}
+
+	for _, test := range testcases {
+		result := urlEncode(test.in)
+		if test.out != result {
+			t.Errorf("Failed to encode string, input %v, expected: %v, got: %v", test.in, test.out, result)
+		}
+	}
+}
