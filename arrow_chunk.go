@@ -52,16 +52,15 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 
 func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]arrow.Record, error) {
 	var records []arrow.Record
+	defer arc.reader.Release()
 
 	for arc.reader.Next() {
 		rawRecord := arc.reader.Record()
 
 		record, err := arrowToRecord(rawRecord, arc.allocator, scd.RowSet.RowType, arc.loc)
-		// rawRecord.Release()
 		if err != nil {
 			return nil, err
 		}
-		record.Retain()
 		records = append(records, record)
 	}
 

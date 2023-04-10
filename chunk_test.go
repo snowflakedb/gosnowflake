@@ -449,6 +449,7 @@ func TestWithArrowBatches(t *testing.T) {
 					cnt.m.Lock()
 					cnt.recVal += int(r.NumRows())
 					cnt.m.Unlock()
+					r.Release()
 				}
 				cnt.m.Lock()
 				cnt.metaVal += batches[i].rowCount
@@ -486,6 +487,10 @@ func TestWithArrowBatchesAsync(t *testing.T) {
 	if err = authenticateWithConfig(sc); err != nil {
 		t.Error(err)
 	}
+
+	pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer pool.AssertSize(t, 0)
+	ctx = WithArrowAllocator(ctx, pool)
 
 	query := fmt.Sprintf(selectRandomGenerator, numrows)
 	rows, err := sc.QueryContext(ctx, query, []driver.NamedValue{})
@@ -526,6 +531,7 @@ func TestWithArrowBatchesAsync(t *testing.T) {
 					cnt.m.Lock()
 					cnt.recVal += int(r.NumRows())
 					cnt.m.Unlock()
+					r.Release()
 				}
 				cnt.m.Lock()
 				cnt.metaVal += batches[i].rowCount
