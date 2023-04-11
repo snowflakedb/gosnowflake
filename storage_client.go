@@ -98,7 +98,10 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 			}
 		}
 		if meta.overwrite || meta.resStatus == notFoundFile {
-			utilClass.uploadFile(dataFile, meta, encryptMeta, maxConcurrency, meta.options.MultiPartThreshold)
+			err := utilClass.uploadFile(dataFile, meta, encryptMeta, maxConcurrency, meta.options.MultiPartThreshold)
+			if err != nil {
+				logger.Debugf("Error uploading %v. err: %v", dataFile, err)
+			}
 		}
 		if meta.resStatus == uploaded || meta.resStatus == renewToken || meta.resStatus == renewPresignedURL {
 			return nil
