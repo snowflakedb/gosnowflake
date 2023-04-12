@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -260,6 +261,11 @@ func TestFetchErrorQueryByID(t *testing.T) {
 		Number: ErrQueryReportedError})
 }
 
+func TestFetchMalformedJsonQueryByID(t *testing.T) {
+	expectedErr := errors.New("invalid character '}' after object key")
+	fetchResultByQueryID(t, returnQueryMalformedJSON, expectedErr)
+}
+
 func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 	vals map[string]string, _ time.Duration, jsonStr string) (
 	*http.Response, error) {
@@ -288,13 +294,19 @@ func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
 
+func returnQueryMalformedJSON(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
+	vals map[string]string, duration time.Duration) (*http.Response, error) {
+	jsonStr := `{"malformedJson"}`
+	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
+}
+
 // this function is going to: 1, create a table, 2, query on this table,
 // 3, fetch result of query in step 2, mock running status and error status
 // of that query.
 func fetchResultByQueryID(
 	t *testing.T,
 	customGet funcGetType,
-	expectedFetchErr *SnowflakeError) error {
+	expectedFetchErr error) error {
 	config, err := ParseDSN(dsn)
 	if err != nil {
 		return err
@@ -327,8 +339,15 @@ func fetchResultByQueryID(
 
 	rows2, err := sc.QueryContext(newCtx, "", nil)
 	if err != nil {
-		if expectedFetchErr != nil { // got expected error number
-			if expectedFetchErr.Number == err.(*SnowflakeError).Number {
+		snowflakeErr, ok := err.(*SnowflakeError)
+		if ok && expectedFetchErr != nil { // got expected error number
+			if expectedSnowflakeErr, ok := expectedFetchErr.(*SnowflakeError); ok {
+				if expectedSnowflakeErr.Number == snowflakeErr.Number {
+					return nil
+				}
+			}
+		} else if !ok { // not a SnowflakeError
+			if strings.Contains(err.Error(), expectedFetchErr.Error()) {
 				return nil
 			}
 		}
