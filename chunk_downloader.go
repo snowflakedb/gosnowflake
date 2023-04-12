@@ -184,7 +184,7 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 		}
 
 		scd.ChunksMutex.Lock()
-		if scd.CurrentChunkIndex > 1 {
+		if scd.CurrentChunkIndex > 0 {
 			scd.Chunks[scd.CurrentChunkIndex-1] = nil // detach the previously used chunk
 		}
 
