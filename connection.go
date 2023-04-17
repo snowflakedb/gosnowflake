@@ -3,10 +3,16 @@
 package gosnowflake
 
 import (
+	"bufio"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/json"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -413,6 +420,184 @@ func (sc *snowflakeConn) GetQueryStatus(
 		queryRet.Stats.ScanBytes,
 		queryRet.Stats.ProducedRows,
 	}, nil
+}
+
+// QueryArrowStream returns batches which can be queried for their raw arrow
+// ipc stream of bytes. This way consumers don't need to be using the exact
+// same version of Arrow as the connection is using internally in order
+// to consume Arrow data.
+func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string) ([]ArrowStreamBatch, error) {
+	ctx = WithArrowBatches(context.WithValue(ctx, asyncMode, false))
+	ctx = setResultType(ctx, queryResultType)
+	data, err := sc.exec(ctx, query, false, false /* isinternal */, false, nil)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("error: %v", err)
+		if data != nil {
+			code, err := strconv.Atoi(data.Code)
+			if err != nil {
+				return nil, err
+			}
+			return nil, (&SnowflakeError{
+				Number:   code,
+				SQLState: data.Data.SQLState,
+				Message:  err.Error(),
+				QueryID:  data.Data.QueryID,
+			}).exceptionTelemetry(sc)
+		}
+		return nil, err
+	}
+
+	return (&snowflakeArrowStreamChunkDownloader{
+		sc:          sc,
+		ctx:         ctx,
+		ChunkMetas:  data.Data.Chunks,
+		Total:       data.Data.Total,
+		Qrmk:        data.Data.Qrmk,
+		ChunkHeader: data.Data.ChunkHeaders,
+		FuncGet:     getChunk,
+		RowSet: rowSetType{
+			RowType:      data.Data.RowType,
+			JSON:         data.Data.RowSet,
+			RowSetBase64: data.Data.RowSetBase64,
+		},
+	}).getBatches()
+}
+
+type ArrowStreamBatch struct {
+	idx int
+	scd *snowflakeArrowStreamChunkDownloader
+	Loc *time.Location
+	rr  io.ReadCloser
+}
+
+// gzip.Reader.Close does NOT close the underlying reader, so we
+// need to wrap with wrapReader so that closing will close the
+// response body (or any other reader that we want to gzip uncompress)
+type wrapReader struct {
+	*gzip.Reader
+	wrapped io.ReadCloser
+}
+
+func (w *wrapReader) Close() error {
+	if err := w.Reader.Close(); err != nil {
+		return err
+	}
+	return w.wrapped.Close()
+}
+
+func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) error {
+	headers := make(map[string]string)
+	if len(asb.scd.ChunkHeader) > 0 {
+		logger.Debug("chunk header is provided")
+		for k, v := range asb.scd.ChunkHeader {
+			logger.Debugf("adding header: %v, value: %v", k, v)
+
+			headers[k] = v
+		}
+	} else {
+		headers[headerSseCAlgorithm] = headerSseCAes
+		headers[headerSseCKey] = asb.scd.Qrmk
+	}
+
+	resp, err := asb.scd.FuncGet(ctx, asb.scd.sc, asb.scd.ChunkMetas[asb.idx].URL, headers, asb.scd.sc.rest.RequestTimeout)
+	if err != nil {
+		return err
+	}
+	logger.Debugf("response returned chunk: %v for URL: %v", asb.idx+1, asb.scd.ChunkMetas[asb.idx].URL)
+	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		logger.Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, asb.scd.ChunkMetas[asb.idx].URL, b)
+		logger.Infof("Header: %v", resp.Header)
+		return &SnowflakeError{
+			Number:      ErrFailedToGetChunk,
+			SQLState:    SQLStateConnectionFailure,
+			Message:     errMsgFailedToGetChunk,
+			MessageArgs: []interface{}{asb.idx},
+		}
+	}
+
+	defer func() {
+		if asb.rr == nil {
+			resp.Body.Close()
+		}
+	}()
+
+	bufStream := bufio.NewReader(resp.Body)
+	gzipMagic, err := bufStream.Peek(2)
+	if err != nil {
+		return err
+	}
+
+	if gzipMagic[0] == 0x1f && gzipMagic[1] == 0x8b {
+		// detect and uncompress gzip
+		bufStream0, err := gzip.NewReader(bufStream)
+		if err != nil {
+			return err
+		}
+		// gzip.Reader.Close() does NOT close the underlying
+		// reader, so we need to wrap it and ensure close will
+		// close the response body. Otherwise we'll leak it.
+		asb.rr = &wrapReader{Reader: bufStream0, wrapped: resp.Body}
+	} else {
+		asb.rr = resp.Body
+	}
+	return nil
+}
+
+func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, error) {
+	if asb.rr == nil {
+		if err := asb.downloadChunkStreamHelper(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	return asb.rr, nil
+}
+
+type snowflakeArrowStreamChunkDownloader struct {
+	sc          *snowflakeConn
+	ctx         context.Context
+	ChunkMetas  []execResponseChunk
+	Total       int64
+	Qrmk        string
+	ChunkHeader map[string]string
+	FuncGet     func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
+	RowSet      rowSetType
+}
+
+func (scd *snowflakeArrowStreamChunkDownloader) getBatches() (out []ArrowStreamBatch, err error) {
+	chunkMetaLen := len(scd.ChunkMetas) + 1 // add one for the first batch
+	var loc *time.Location
+	if scd.sc != nil {
+		loc = getCurrentLocation(scd.sc.cfg.Params)
+	}
+
+	// first batch
+	rowSetBytes, err := base64.StdEncoding.DecodeString(scd.RowSet.RowSetBase64)
+	if err != nil {
+		return nil, err
+	}
+
+	out = make([]ArrowStreamBatch, chunkMetaLen)
+	out[0] = ArrowStreamBatch{
+		scd: scd,
+		Loc: loc,
+		rr:  ioutil.NopCloser(bytes.NewReader(rowSetBytes)),
+	}
+
+	for i := range out[1:] {
+		out[i+1] = ArrowStreamBatch{
+			idx: i,
+			Loc: loc,
+			scd: scd,
+		}
+	}
+	return
 }
 
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {

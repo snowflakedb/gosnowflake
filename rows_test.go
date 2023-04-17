@@ -359,7 +359,7 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 	}
 }
 
-func getChunkTestInvalidResponseBody(_ context.Context, _ *snowflakeChunkDownloader, _ string, _ map[string]string, _ time.Duration) (
+func getChunkTestInvalidResponseBody(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (
 	*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusOK,
@@ -401,7 +401,7 @@ func TestDownloadChunkInvalidResponseBody(t *testing.T) {
 	}
 }
 
-func getChunkTestErrorStatus(_ context.Context, _ *snowflakeChunkDownloader, _ string, _ map[string]string, _ time.Duration) (
+func getChunkTestErrorStatus(_ context.Context, _ *snowflakeConn, _ string, _ map[string]string, _ time.Duration) (
 	*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusBadGateway,
