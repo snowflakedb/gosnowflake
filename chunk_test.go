@@ -572,13 +572,18 @@ func TestQueryArrowStream(t *testing.T) {
 	}
 
 	query := fmt.Sprintf(selectRandomGenerator, numrows)
-	batches, expected, err := sc.QueryArrowStream(ctx, query)
+	loader, err := sc.QueryArrowStream(ctx, query)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if expected != int64(numrows) {
-		t.Errorf("total numrows did not match expected, wanted %v, got %v", numrows, expected)
+	if loader.Total != int64(numrows) {
+		t.Errorf("total numrows did not match expected, wanted %v, got %v", numrows, loader.Total)
+	}
+
+	batches, err := loader.GetBatches()
+	if err != nil {
+		t.Error(err)
 	}
 
 	numBatches := len(batches)

@@ -426,7 +426,7 @@ func (sc *snowflakeConn) GetQueryStatus(
 // ipc stream of bytes. This way consumers don't need to be using the exact
 // same version of Arrow as the connection is using internally in order
 // to consume Arrow data.
-func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string) ([]ArrowStreamBatch, int64, error) {
+func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string) (*snowflakeArrowStreamChunkDownloader, error) {
 	ctx = WithArrowBatches(context.WithValue(ctx, asyncMode, false))
 	ctx = setResultType(ctx, queryResultType)
 	data, err := sc.exec(ctx, query, false, false /* isinternal */, false, nil)
@@ -435,19 +435,19 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string) ([]
 		if data != nil {
 			code, err := strconv.Atoi(data.Code)
 			if err != nil {
-				return nil, -1, err
+				return nil, err
 			}
-			return nil, -1, (&SnowflakeError{
+			return nil, (&SnowflakeError{
 				Number:   code,
 				SQLState: data.Data.SQLState,
 				Message:  err.Error(),
 				QueryID:  data.Data.QueryID,
 			}).exceptionTelemetry(sc)
 		}
-		return nil, -1, err
+		return nil, err
 	}
 
-	return (&snowflakeArrowStreamChunkDownloader{
+	return &snowflakeArrowStreamChunkDownloader{
 		sc:          sc,
 		ChunkMetas:  data.Data.Chunks,
 		Total:       data.Data.Total,
@@ -459,7 +459,7 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string) ([]
 			JSON:         data.Data.RowSet,
 			RowSetBase64: data.Data.RowSetBase64,
 		},
-	}).getBatches()
+	}, nil
 }
 
 type ArrowStreamBatch struct {
@@ -561,6 +561,13 @@ func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, erro
 	return asb.rr, nil
 }
 
+type ArrowStreamLoader interface {
+	GetBatches() ([]ArrowStreamBatch, error)
+	TotalRows() int64
+	RowTypes() []execResponseRowType
+	Location() *time.Location
+}
+
 type snowflakeArrowStreamChunkDownloader struct {
 	sc          *snowflakeConn
 	ChunkMetas  []execResponseChunk
@@ -571,17 +578,24 @@ type snowflakeArrowStreamChunkDownloader struct {
 	RowSet      rowSetType
 }
 
-func (scd *snowflakeArrowStreamChunkDownloader) getBatches() (out []ArrowStreamBatch, totalNum int64, err error) {
-	chunkMetaLen := len(scd.ChunkMetas) + 1 // add one for the first batch
-	var loc *time.Location
+func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
 	if scd.sc != nil {
-		loc = getCurrentLocation(scd.sc.cfg.Params)
+		return getCurrentLocation(scd.sc.cfg.Params)
 	}
+	return nil
+}
+func (scd *snowflakeArrowStreamChunkDownloader) TotalRows() int64 { return scd.Total }
+func (scd *snowflakeArrowStreamChunkDownloader) RowTypes() []execResponseRowType {
+	return scd.RowSet.RowType
+}
+func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamBatch, err error) {
+	chunkMetaLen := len(scd.ChunkMetas) + 1 // add one for the first batch
+	loc := scd.Location()
 
 	// first batch
 	rowSetBytes, err := base64.StdEncoding.DecodeString(scd.RowSet.RowSetBase64)
 	if err != nil {
-		return nil, -1, err
+		return nil, err
 	}
 
 	out = make([]ArrowStreamBatch, chunkMetaLen)
@@ -603,7 +617,6 @@ func (scd *snowflakeArrowStreamChunkDownloader) getBatches() (out []ArrowStreamB
 	}
 
 	out[0].numrows = scd.Total - totalCounted
-	totalNum = scd.Total
 	return
 }
 
