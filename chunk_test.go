@@ -572,15 +572,20 @@ func TestQueryArrowStream(t *testing.T) {
 	}
 
 	query := fmt.Sprintf(selectRandomGenerator, numrows)
-	batches, err := sc.QueryArrowStream(ctx, query)
+	batches, expected, err := sc.QueryArrowStream(ctx, query)
 	if err != nil {
 		t.Error(err)
 	}
 
+	if expected != int64(numrows) {
+		t.Errorf("total numrows did not match expected, wanted %v, got %v", numrows, expected)
+	}
+
 	numBatches := len(batches)
-	maxWorkers := 1
+	maxWorkers := 8
 	chunks := make(chan int, numBatches)
 	total := int64(0)
+	meta := int64(0)
 
 	var wg sync.WaitGroup
 	wg.Add(maxWorkers)
@@ -614,6 +619,7 @@ func TestQueryArrowStream(t *testing.T) {
 				if err := r.Close(); err != nil {
 					t.Error(err)
 				}
+				atomic.AddInt64(&meta, batches[i].NumRows())
 			}
 		}()
 	}
@@ -626,5 +632,8 @@ func TestQueryArrowStream(t *testing.T) {
 
 	if total != int64(numrows) {
 		t.Errorf("number of rows from records didn't match. expected: %v, got: %v", numrows, total)
+	}
+	if meta != int64(numrows) {
+		t.Errorf("number of rows from batch metadata didn't match. expected: %v, got: %v", numrows, total)
 	}
 }
