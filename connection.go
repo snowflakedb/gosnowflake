@@ -426,7 +426,7 @@ func (sc *snowflakeConn) GetQueryStatus(
 // ipc stream of bytes. This way consumers don't need to be using the exact
 // same version of Arrow as the connection is using internally in order
 // to consume Arrow data.
-func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string) (*snowflakeArrowStreamChunkDownloader, error) {
+func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string) (ArrowStreamLoader, error) {
 	ctx = WithArrowBatches(context.WithValue(ctx, asyncMode, false))
 	ctx = setResultType(ctx, queryResultType)
 	data, err := sc.exec(ctx, query, false, false /* isinternal */, false, nil)

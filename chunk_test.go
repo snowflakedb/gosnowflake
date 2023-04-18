@@ -577,8 +577,8 @@ func TestQueryArrowStream(t *testing.T) {
 		t.Error(err)
 	}
 
-	if loader.Total != int64(numrows) {
-		t.Errorf("total numrows did not match expected, wanted %v, got %v", numrows, loader.Total)
+	if loader.TotalRows() != int64(numrows) {
+		t.Errorf("total numrows did not match expected, wanted %v, got %v", numrows, loader.TotalRows())
 	}
 
 	batches, err := loader.GetBatches()
