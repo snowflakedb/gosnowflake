@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/ipc"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/ipc"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 type chunkDownloader interface {
@@ -128,7 +128,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 		scd.ChunksChan = make(chan int, chunkMetaLen)
 		scd.ChunksError = make(chan *chunkError, MaxChunkDownloadWorkers)
 		for i := 0; i < chunkMetaLen; i++ {
-			var chunk = scd.ChunkMetas[i]
+			chunk := scd.ChunkMetas[i]
 			logger.Debugf("add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
 				i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)
 			scd.ChunksChan <- i
@@ -255,7 +255,8 @@ func getChunk(
 	fullURL string,
 	headers map[string]string,
 	timeout time.Duration) (
-	*http.Response, error) {
+	*http.Response, error,
+) {
 	u, err := url.Parse(fullURL)
 	if err != nil {
 		return nil, err
@@ -496,7 +497,7 @@ func (scd *streamChunkDownloader) nextResultSet() error {
 
 func (scd *streamChunkDownloader) start() error {
 	go func() {
-		var readErr = io.EOF
+		readErr := io.EOF
 
 		logger.WithContext(scd.ctx).Infof(
 			"start downloading. downloader id: %v, %v/%v rows, %v chunks",
@@ -607,7 +608,8 @@ func newStreamChunkDownloader(
 	total int64,
 	rowType []execResponseRowType,
 	firstRows [][]*string,
-	chunks []execResponseChunk) *streamChunkDownloader {
+	chunks []execResponseChunk,
+) *streamChunkDownloader {
 	return &streamChunkDownloader{
 		ctx:        ctx,
 		id:         rand.Int63(),

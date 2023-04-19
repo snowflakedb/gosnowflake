@@ -1,3 +1,70 @@
+# v1.31.0 (2023-03-21)
+
+* **Feature**: port v1 sdk 100-continue http header customization for s3 PutObject/UploadPart request and enable user config
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.30.6 (2023-03-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.30.5 (2023-02-22)
+
+* **Bug Fix**: Prevent nil pointer dereference when retrieving error codes.
+
+# v1.30.4 (2023-02-20)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.30.3 (2023-02-14)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.30.2 (2023-02-03)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.30.1 (2023-01-23)
+
+* No change notes available for this release.
+
+# v1.30.0 (2023-01-05)
+
+* **Feature**: Add `ErrorCodeOverride` field to all error structs (aws/smithy-go#401).
+
+# v1.29.6 (2022-12-15)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.5 (2022-12-02)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.4 (2022-11-22)
+
+* No change notes available for this release.
+
+# v1.29.3 (2022-11-16)
+
+* No change notes available for this release.
+
+# v1.29.2 (2022-11-10)
+
+* No change notes available for this release.
+
+# v1.29.1 (2022-10-24)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.29.0 (2022-10-21)
+
+* **Feature**: S3 on Outposts launches support for automatic bucket-style alias. You can use the automatic access point alias instead of an access point ARN for any object-level operation in an Outposts bucket.
+* **Bug Fix**: The SDK client has been updated to utilize the `aws.IsCredentialsProvider` function for determining if `aws.AnonymousCredentials` has been configured for the `CredentialProvider`.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.28.0 (2022-10-19)
+
+* **Feature**: Updates internal logic for constructing API endpoints. We have added rule-based endpoints and internal model parameters.
+
 # v1.27.11 (2022-09-20)
 
 * **Dependency Update**: Updated to the latest SDK module versions

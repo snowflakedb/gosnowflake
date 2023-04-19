@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v10/arrow"
-	"github.com/apache/arrow/go/v10/arrow/array"
-	"github.com/apache/arrow/go/v10/arrow/decimal128"
-	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v11/arrow"
+	"github.com/apache/arrow/go/v11/arrow/array"
+	"github.com/apache/arrow/go/v11/arrow/decimal128"
+	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
 const format = "2006-01-02 15:04:05.999999999"
@@ -207,7 +207,8 @@ func stringToValue(
 	dest *driver.Value,
 	srcColumnMeta execResponseRowType,
 	srcValue *string,
-	loc *time.Location) error {
+	loc *time.Location,
+) error {
 	if srcValue == nil {
 		logger.Debugf("snowflake data type: %v, raw value: nil", srcColumnMeta.Type)
 		*dest = nil
@@ -320,7 +321,8 @@ func arrowToValue(
 	srcColumnMeta execResponseRowType,
 	srcValue arrow.Array,
 	loc *time.Location,
-	higherPrecision bool) error {
+	higherPrecision bool,
+) error {
 	data := srcValue.Data()
 	var err error
 	if len(*destcol) != srcValue.Data().Len() {
@@ -651,12 +653,14 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 		if len(typ) < 1 {
 			return interfaceArrayBinding{
 				hasTimezone:       false,
-				timezoneTypeArray: a}
+				timezoneTypeArray: a,
+			}
 		}
 		return interfaceArrayBinding{
 			hasTimezone:       true,
 			tzType:            typ[0],
-			timezoneTypeArray: a}
+			timezoneTypeArray: a,
+		}
 	default:
 		return a
 	}
@@ -923,8 +927,8 @@ func arrowToRecord(record arrow.Record, rowType []execResponseRowType, loc *time
 		srcColumnMeta := rowType[i]
 		data := col.Data()
 
-		//TODO: confirm that it is okay to be using higher precision logic for conversions
-		var newCol = col
+		// TODO: confirm that it is okay to be using higher precision logic for conversions
+		newCol := col
 		switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
 		case fixedType:
 			switch col.DataType().ID() {
@@ -1155,7 +1159,7 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 			converted = false
 		}
 
-		var newField = f
+		newField := f
 		if converted {
 			newField = arrow.Field{
 				Name:     f.Name,
