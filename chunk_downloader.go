@@ -269,14 +269,14 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 		loc = getCurrentLocation(scd.sc.cfg.Params)
 	}
 	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
-	scd.FirstBatch = &ArrowBatch{
+	firstBatch := &ArrowBatch{
 		idx:                0,
 		scd:                scd,
 		funcDownloadHelper: scd.FuncDownloadHelper,
 	}
 	// decode first chunk if possible
 	if firstArrowChunk.allocator != nil {
-		scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
+		firstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
 		if err != nil {
 			return err
 		}
@@ -288,6 +288,10 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 			scd:                scd,
 			funcDownloadHelper: scd.FuncDownloadHelper,
 		}
+	}
+
+	if firstBatch.rec != nil {
+		scd.ArrowBatches = append([]*ArrowBatch{firstBatch}, scd.ArrowBatches...)
 	}
 	return nil
 }
