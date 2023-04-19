@@ -49,6 +49,8 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
     build-test-mac:
         runs-on: macos-latest
         strategy:
@@ -72,6 +74,8 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
     build-test-windows:
         runs-on: windows-latest
         strategy:
@@ -99,3 +103,5 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ci\\test.bat
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
