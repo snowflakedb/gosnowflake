@@ -40,6 +40,7 @@ type chunkDownloader interface {
 type snowflakeChunkDownloader struct {
 	sc                 *snowflakeConn
 	ctx                context.Context
+	pool               memory.Allocator
 	Total              int64
 	TotalRowIndex      int64
 	CellCount          int
@@ -108,7 +109,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 		if scd.sc != nil {
 			loc = getCurrentLocation(scd.sc.cfg.Params)
 		}
-		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc)
+		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
 		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType, higherPrecision)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
@@ -271,7 +272,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 	if scd.sc != nil {
 		loc = getCurrentLocation(scd.sc.cfg.Params)
 	}
-	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc)
+	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 	scd.FirstBatch = &ArrowBatch{
 		idx:                0,
 		scd:                scd,
@@ -285,7 +286,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 		}
 	}
 	scd.ArrowBatches = make([]*ArrowBatch, chunkMetaLen)
-	for i := 0; i < chunkMetaLen; i++ {
+	for i := range scd.ArrowBatches {
 		scd.ArrowBatches[i] = &ArrowBatch{
 			idx:                i,
 			scd:                scd,
@@ -422,7 +423,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 		respd = make([]chunkRowType, len(decRespd))
 		populateJSONRowSet(respd, decRespd)
 	} else {
-		ipcReader, err := ipc.NewReader(source)
+		ipcReader, err := ipc.NewReader(source, ipc.WithAllocator(scd.pool))
 		if err != nil {
 			return err
 		}
@@ -431,11 +432,10 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			loc = getCurrentLocation(scd.sc.cfg.Params)
 		}
 		arc := arrowResultChunk{
-			*ipcReader,
+			ipcReader,
 			0,
-			int(scd.totalUncompressedSize()),
-			memory.NewGoAllocator(),
 			loc,
+			scd.pool,
 		}
 		if usesArrowBatches(scd.ctx) {
 			if scd.ArrowBatches[idx].rec, err = arc.decodeArrowBatch(scd); err != nil {
@@ -724,6 +724,14 @@ func (rb *ArrowBatch) Fetch() (*[]arrow.Record, error) {
 // GetRowCount returns the number of rows in an arrow batch
 func (rb *ArrowBatch) GetRowCount() int {
 	return rb.rowCount
+}
+
+func getAllocator(ctx context.Context) memory.Allocator {
+	pool, ok := ctx.Value(arrowAlloc).(memory.Allocator)
+	if !ok {
+		return memory.DefaultAllocator
+	}
+	return pool
 }
 
 func usesArrowBatches(ctx context.Context) bool {

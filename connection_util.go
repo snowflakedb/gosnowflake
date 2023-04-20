@@ -255,6 +255,7 @@ func populateChunkDownloader(
 	return &snowflakeChunkDownloader{
 		sc:                 sc,
 		ctx:                ctx,
+		pool:               getAllocator(ctx),
 		CurrentChunk:       make([]chunkRowType, len(data.RowSet)),
 		ChunkMetas:         data.Chunks,
 		Total:              data.Total,
