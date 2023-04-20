@@ -57,6 +57,7 @@ type snowflakeChunkDownloader struct {
 	ChunksFinalErrors  []*chunkError
 	ChunksMutex        *sync.Mutex
 	DoneDownloadCond   *sync.Cond
+	FirstBatch         *ArrowBatch
 	NextDownloader     chunkDownloader
 	Qrmk               string
 	QueryResultFormat  string
@@ -243,7 +244,10 @@ func (scd *snowflakeChunkDownloader) getRowType() []execResponseRowType {
 }
 
 func (scd *snowflakeChunkDownloader) getArrowBatches() []*ArrowBatch {
-	return scd.ArrowBatches
+	if scd.FirstBatch.rec == nil {
+		return scd.ArrowBatches
+	}
+	return append([]*ArrowBatch{scd.FirstBatch}, scd.ArrowBatches...)
 }
 
 func getChunk(
@@ -269,14 +273,14 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 		loc = getCurrentLocation(scd.sc.cfg.Params)
 	}
 	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
-	firstBatch := &ArrowBatch{
+	scd.FirstBatch = &ArrowBatch{
 		idx:                0,
 		scd:                scd,
 		funcDownloadHelper: scd.FuncDownloadHelper,
 	}
 	// decode first chunk if possible
 	if firstArrowChunk.allocator != nil {
-		firstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
+		scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
 		if err != nil {
 			return err
 		}
@@ -288,10 +292,6 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 			scd:                scd,
 			funcDownloadHelper: scd.FuncDownloadHelper,
 		}
-	}
-
-	if firstBatch.rec != nil {
-		scd.ArrowBatches = append([]*ArrowBatch{firstBatch}, scd.ArrowBatches...)
 	}
 	return nil
 }

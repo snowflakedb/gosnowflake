@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -462,6 +461,9 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 	}, nil
 }
 
+// ArrowStreamBatch is a type describing a potentially yet-to-be-downloaded
+// Arrow IPC stream. Call `GetStream` to download and retrieve an io.Reader
+// that can be used with ipc.NewReader to get record batch results.
 type ArrowStreamBatch struct {
 	idx     int
 	numrows int64
@@ -470,6 +472,8 @@ type ArrowStreamBatch struct {
 	rr      io.ReadCloser
 }
 
+// NumRows returns the total number of rows that the metadata stated should
+// be in this stream of record batches.
 func (asb *ArrowStreamBatch) NumRows() int64 { return asb.numrows }
 
 // gzip.Reader.Close does NOT close the underlying reader, so we
@@ -551,6 +555,9 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 	return nil
 }
 
+// GetStream returns a stream of bytes consisting of an Arrow IPC Record
+// batch stream. Close should be called on the returned stream when done
+// to ensure no leaked memory.
 func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, error) {
 	if asb.rr == nil {
 		if err := asb.downloadChunkStreamHelper(ctx); err != nil {
@@ -561,6 +568,8 @@ func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, erro
 	return asb.rr, nil
 }
 
+// ArrowStreamLoader is a convenience interface for downloading
+// Snowflake results via multiple Arrow Record Batch streams.
 type ArrowStreamLoader interface {
 	GetBatches() ([]ArrowStreamBatch, error)
 	TotalRows() int64
@@ -602,7 +611,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 	out[0] = ArrowStreamBatch{
 		scd: scd,
 		Loc: loc,
-		rr:  ioutil.NopCloser(bytes.NewReader(rowSetBytes)),
+		rr:  io.NopCloser(bytes.NewReader(rowSetBytes)),
 	}
 
 	var totalCounted int64

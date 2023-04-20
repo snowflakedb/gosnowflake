@@ -345,10 +345,11 @@ func arrowToValue(
 							destcol[i] = num.ToString(0)
 						}
 					} else {
+						f := decimalToBigFloat(num, srcColumnMeta.Scale)
 						if higherPrecision {
-							destcol[i] = big.NewFloat(num.ToFloat64(int32(srcColumnMeta.Scale)))
+							destcol[i] = f
 						} else {
-							destcol[i] = num.ToString(int32(srcColumnMeta.Scale))
+							destcol[i] = fmt.Sprintf("%.*f", srcColumnMeta.Scale, f)
 						}
 					}
 				}

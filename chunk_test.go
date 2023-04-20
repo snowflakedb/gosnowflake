@@ -15,8 +15,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/apache/arrow/go/v11/arrow/ipc"
 	"github.com/apache/arrow/go/v11/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
 )
 
 func TestBadChunkData(t *testing.T) {
