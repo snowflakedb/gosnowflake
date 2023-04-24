@@ -294,7 +294,8 @@ func (sc *snowflakeConn) QueryContext(
 
 	// check the query status to find out if there is a result to fetch
 	_, err = sc.checkQueryStatus(ctx, qid)
-	if err == nil || (err != nil && err.(*SnowflakeError).Number == ErrQueryIsRunning) {
+	snowflakeErr, isSnowflakeError := err.(*SnowflakeError)
+	if err == nil || (isSnowflakeError && snowflakeErr.Number == ErrQueryIsRunning) {
 		// the query is running. Rows object will be returned from here.
 		return sc.buildRowsForRunningQuery(ctx, qid)
 	}
