@@ -12,8 +12,10 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
+	"github.com/apache/arrow/go/v11/arrow/ipc"
 	"github.com/apache/arrow/go/v11/arrow/memory"
 )
 
@@ -551,5 +553,95 @@ func TestWithArrowBatchesAsync(t *testing.T) {
 	}
 	if cnt.metaVal != numrows {
 		t.Errorf("number of rows from arrow batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
+	}
+}
+
+func TestQueryArrowStream(t *testing.T) {
+	ctx := context.Background()
+	numrows := 50000 // approximately 10 ArrowBatch objects
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	query := fmt.Sprintf(selectRandomGenerator, numrows)
+	loader, err := sc.QueryArrowStream(ctx, query)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if loader.TotalRows() != int64(numrows) {
+		t.Errorf("total numrows did not match expected, wanted %v, got %v", numrows, loader.TotalRows())
+	}
+
+	batches, err := loader.GetBatches()
+	if err != nil {
+		t.Error(err)
+	}
+
+	numBatches := len(batches)
+	maxWorkers := 8
+	chunks := make(chan int, numBatches)
+	total := int64(0)
+	meta := int64(0)
+
+	var wg sync.WaitGroup
+	wg.Add(maxWorkers)
+
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	for w := 0; w < maxWorkers; w++ {
+		go func() {
+			defer wg.Done()
+
+			for i := range chunks {
+				r, err := batches[i].GetStream(ctx)
+				if err != nil {
+					t.Error(err)
+					continue
+				}
+				rdr, err := ipc.NewReader(r, ipc.WithAllocator(mem))
+				if err != nil {
+					t.Errorf("Error creating IPC reader for stream %d: %s", i, err)
+					r.Close()
+					continue
+				}
+
+				for rdr.Next() {
+					rec := rdr.Record()
+					atomic.AddInt64(&total, rec.NumRows())
+				}
+
+				if rdr.Err() != nil {
+					t.Error(rdr.Err())
+				}
+				rdr.Release()
+				if err := r.Close(); err != nil {
+					t.Error(err)
+				}
+				atomic.AddInt64(&meta, batches[i].NumRows())
+			}
+		}()
+	}
+
+	for j := 0; j < numBatches; j++ {
+		chunks <- j
+	}
+	close(chunks)
+	wg.Wait()
+
+	if total != int64(numrows) {
+		t.Errorf("number of rows from records didn't match. expected: %v, got: %v", numrows, total)
+	}
+	if meta != int64(numrows) {
+		t.Errorf("number of rows from batch metadata didn't match. expected: %v, got: %v", numrows, total)
 	}
 }

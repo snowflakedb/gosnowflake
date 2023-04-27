@@ -65,7 +65,7 @@ type snowflakeChunkDownloader struct {
 	RowSet             rowSetType
 	FuncDownload       func(context.Context, *snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
-	FuncGet            func(context.Context, *snowflakeChunkDownloader, string, map[string]string, time.Duration) (*http.Response, error)
+	FuncGet            func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
 }
 
 func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
@@ -254,7 +254,7 @@ func (scd *snowflakeChunkDownloader) getArrowBatches() []*ArrowBatch {
 
 func getChunk(
 	ctx context.Context,
-	scd *snowflakeChunkDownloader,
+	sc *snowflakeConn,
 	fullURL string,
 	headers map[string]string,
 	timeout time.Duration) (
@@ -264,7 +264,7 @@ func getChunk(
 	if err != nil {
 		return nil, err
 	}
-	return newRetryHTTP(ctx, scd.sc.rest.Client, http.NewRequest, u, headers, timeout).execute()
+	return newRetryHTTP(ctx, sc.rest.Client, http.NewRequest, u, headers, timeout).execute()
 }
 
 func (scd *snowflakeChunkDownloader) startArrowBatches() error {
@@ -358,7 +358,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		headers[headerSseCKey] = scd.Qrmk
 	}
 
-	resp, err := scd.FuncGet(ctx, scd, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)
+	resp, err := scd.FuncGet(ctx, scd.sc, scd.ChunkMetas[idx].URL, headers, scd.sc.rest.RequestTimeout)
 	if err != nil {
 		return err
 	}
