@@ -606,10 +606,13 @@ func TestQueryArrowStream(t *testing.T) {
 				r, err := batches[i].GetStream(ctx)
 				if err != nil {
 					t.Error(err)
+					continue
 				}
 				rdr, err := ipc.NewReader(r, ipc.WithAllocator(mem))
 				if err != nil {
-					t.Error(err)
+					t.Errorf("Error creating IPC reader for stream %d: %s", i, err)
+					r.Close()
+					continue
 				}
 
 				for rdr.Next() {

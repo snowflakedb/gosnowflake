@@ -482,13 +482,15 @@ func (asb *ArrowStreamBatch) NumRows() int64 { return asb.numrows }
 // need to wrap with wrapReader so that closing will close the
 // response body (or any other reader that we want to gzip uncompress)
 type wrapReader struct {
-	*gzip.Reader
+	io.Reader
 	wrapped io.ReadCloser
 }
 
 func (w *wrapReader) Close() error {
-	if err := w.Reader.Close(); err != nil {
-		return err
+	if cl, ok := w.Reader.(io.ReadCloser); ok {
+		if err := cl.Close(); err != nil {
+			return err
+		}
 	}
 	return w.wrapped.Close()
 }
@@ -552,7 +554,7 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 		// close the response body. Otherwise we'll leak it.
 		asb.rr = &wrapReader{Reader: bufStream0, wrapped: resp.Body}
 	} else {
-		asb.rr = resp.Body
+		asb.rr = &wrapReader{Reader: bufStream, wrapped: resp.Body}
 	}
 	return nil
 }
