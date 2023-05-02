@@ -159,7 +159,11 @@ func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 					(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
 				return &s, nil
 			case timestampNtzType, timestampLtzType:
-				s := fmt.Sprintf("%d", tm.UnixNano())
+				unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Unix()), 10)
+				m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
+				unixTime.Mul(unixTime, m)
+				tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Nanosecond()), 10)
+				s := unixTime.Add(unixTime, tmNanos).String()
 				return &s, nil
 			case timestampTzType:
 				_, offset := tm.Zone()

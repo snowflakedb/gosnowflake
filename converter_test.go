@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"io"
 	"math/big"
 	"math/cmplx"
 	"reflect"
@@ -1054,5 +1055,87 @@ func TestTimestampLTZLocation(t *testing.T) {
 	}
 	if ts.Location() != time.Local {
 		t.Errorf("expected location to be local, got '%v'", ts.Location())
+	}
+}
+
+func TestSmallTimestampBinding(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.Background()
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+	timeValue, err := time.Parse("2006-01-02 15:04:05", "1600-10-10 10:10:10")
+	if err != nil {
+		t.Fatalf("failed to parse time: %v", err)
+	}
+	parameters := []driver.NamedValue{
+		{Ordinal: 1, Value: DataTypeTimestampNtz},
+		{Ordinal: 2, Value: timeValue},
+	}
+
+	rows, err := sc.QueryContext(ctx, "SELECT ?", parameters)
+	if err != nil {
+		t.Fatalf("failed to run query: %v", err)
+	}
+	defer rows.Close()
+
+	scanValues := make([]driver.Value, 1)
+	for {
+		if err := rows.Next(scanValues); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatalf("failed to run query: %v", err)
+		}
+		if scanValues[0] != timeValue {
+			t.Fatalf("unexpected result. expected: %v, got: %v", timeValue, scanValues[0])
+		}
+	}
+}
+
+func TestLargeTimestampBinding(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := context.Background()
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+	timeValue, err := time.Parse("2006-01-02 15:04:05", "9000-10-10 10:10:10")
+	if err != nil {
+		t.Fatalf("failed to parse time: %v", err)
+	}
+	parameters := []driver.NamedValue{
+		{Ordinal: 1, Value: DataTypeTimestampNtz},
+		{Ordinal: 2, Value: timeValue},
+	}
+
+	rows, err := sc.QueryContext(ctx, "SELECT ?", parameters)
+	if err != nil {
+		t.Fatalf("failed to run query: %v", err)
+	}
+	defer rows.Close()
+
+	scanValues := make([]driver.Value, 1)
+	for {
+		if err := rows.Next(scanValues); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatalf("failed to run query: %v", err)
+		}
+		if scanValues[0] != timeValue {
+			t.Fatalf("unexpected result. expected: %v, got: %v", timeValue, scanValues[0])
+		}
 	}
 }
