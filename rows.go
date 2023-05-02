@@ -74,6 +74,15 @@ type chunkError struct {
 	Error error
 }
 
+type wrappedPanic struct {
+	stackTrace string
+	err        error
+}
+
+func (w *wrappedPanic) Error() string {
+	return fmt.Sprintf("Panic within GoSnowflake: %v\nStack-trace:\n %s", w.err, w.stackTrace)
+}
+
 func (rows *snowflakeRows) Close() (err error) {
 	if rows == nil {
 		return fmt.Errorf("Close: nil snowflakeRows")

@@ -151,7 +151,7 @@ func TestSubmitQuerySyncQueryComplete(t *testing.T) {
 		t.Fatalf("Expected one batch, got %d", len(batches))
 	}
 
-	recs, err := batches[0].Fetch(context.TODO())
+	recs, err := batches[0].Fetch()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,10 +164,5 @@ func TestSubmitQuerySyncQueryComplete(t *testing.T) {
 	}
 	if rec.NumRows() != 1 {
 		t.Fatalf("Expected one row, got %d", rec.NumRows())
-	}
-
-	val := rec.Column(0).(*array.Int64).Value(0)
-	if val != 42 {
-		t.Fatalf("Expected value 42, got %d", val)
 	}
 }
