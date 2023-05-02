@@ -7,7 +7,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"math/cmplx"
 	"reflect"
@@ -1081,7 +1080,6 @@ func TestSmallTimestampBinding(t *testing.T) {
 		{Ordinal: 2, Value: timeValue},
 	}
 
-	fmt.Printf("parameters: %v\n", parameters)
 	rows, err := sc.QueryContext(ctx, "SELECT ?", parameters)
 	if err != nil {
 		t.Fatalf("failed to run query: %v", err)
@@ -1093,12 +1091,11 @@ func TestSmallTimestampBinding(t *testing.T) {
 		if err := rows.Next(scanValues); err == io.EOF {
 			break
 		} else if err != nil {
-			log.Fatalf("failed to run query: %v", err)
+			t.Fatalf("failed to run query: %v", err)
 		}
 		if scanValues[0] != timeValue {
 			t.Fatalf("unexpected result. expected: %v, got: %v", timeValue, scanValues[0])
 		}
-		fmt.Printf("values: %v\n", scanValues)
 	}
 }
 
@@ -1124,7 +1121,6 @@ func TestLargeTimestampBinding(t *testing.T) {
 		{Ordinal: 2, Value: timeValue},
 	}
 
-	fmt.Printf("parameters: %v\n", parameters)
 	rows, err := sc.QueryContext(ctx, "SELECT ?", parameters)
 	if err != nil {
 		t.Fatalf("failed to run query: %v", err)
@@ -1136,7 +1132,7 @@ func TestLargeTimestampBinding(t *testing.T) {
 		if err := rows.Next(scanValues); err == io.EOF {
 			break
 		} else if err != nil {
-			log.Fatalf("failed to run query: %v", err)
+			t.Fatalf("failed to run query: %v", err)
 		}
 		if scanValues[0] != timeValue {
 			t.Fatalf("unexpected result. expected: %v, got: %v", timeValue, scanValues[0])
