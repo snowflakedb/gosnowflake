@@ -273,7 +273,7 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
-					Status:     "400 Unauthorized",
+					Status:     "401 Unauthorized",
 					StatusCode: 401,
 				}, nil
 			},
@@ -602,7 +602,7 @@ func TestGetHeaderReturnsError(t *testing.T) {
 	}
 }
 
-func TestGetHeaderNotAllowed(t *testing.T) {
+func TestGetHeaderBadRequest(t *testing.T) {
 	info := execResponseStageInfo{
 		Location:     "gcs/teststage/users/34/",
 		LocationType: "GCS",
@@ -616,7 +616,7 @@ func TestGetHeaderNotAllowed(t *testing.T) {
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
-					Status:     "400 Not Allowed",
+					Status:     "400 Bad Request",
 					StatusCode: 400,
 				}, nil
 			},
@@ -757,5 +757,203 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 	if uploadMeta.resStatus != renewPresignedURL {
 		t.Fatalf("expected %v result status, got: %v",
 			renewPresignedURL, uploadMeta.resStatus)
+	}
+}
+
+func TestGetFileHeaderEncryptionData(t *testing.T) {
+	mockEncDataResp := "{\"EncryptionMode\":\"FullBlob\",\"WrappedContentKey\": {\"KeyId\":\"symmKey1\",\"EncryptedKey\":\"testencryptedkey12345678910==\",\"Algorithm\":\"AES_CBC_256\"},\"EncryptionAgent\": {\"Protocol\":\"1.0\",\"EncryptionAlgorithm\":\"AES_CBC_256\"},\"ContentEncryptionIV\":\"testIVkey12345678910==\",\"KeyWrappingMetadata\":{\"EncryptionLibrary\":\"Java 5.3.0\"}}"
+	mockMatDesc := "{\"queryid\":\"01abc874-0406-1bf0-0000-53b10668e056\",\"smkid\":\"92019681909886\",\"key\":\"128\"}"
+	info := execResponseStageInfo{
+		Location:     "gcs/teststage/users/34/",
+		LocationType: "GCS",
+		Creds: execResponseCredentials{
+			GcsAccessToken: "test-token-124456577",
+		},
+	}
+	meta := fileMetadata{
+		client:    info.Creds.GcsAccessToken,
+		stageInfo: &info,
+		mockGcsClient: &clientMock{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					Status:     "200 OK",
+					StatusCode: 200,
+					Header: http.Header{
+						"X-Goog-Meta-Encryptiondata": []string{mockEncDataResp},
+						"Content-Length":             []string{"4256"},
+						"X-Goog-Meta-Sfc-Digest":     []string{"123456789abcdef"},
+						"X-Goog-Meta-Matdesc":        []string{mockMatDesc},
+					},
+				}, nil
+			},
+		},
+	}
+	header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedFileHeader := &fileHeader{
+		digest:        "123456789abcdef",
+		contentLength: 4256,
+		encryptionMetadata: &encryptMetadata{
+			key:     "testencryptedkey12345678910==",
+			iv:      "testIVkey12345678910==",
+			matdesc: mockMatDesc,
+		},
+	}
+	if header.contentLength != expectedFileHeader.contentLength || header.digest != expectedFileHeader.digest || header.encryptionMetadata.iv != expectedFileHeader.encryptionMetadata.iv || header.encryptionMetadata.key != expectedFileHeader.encryptionMetadata.key || header.encryptionMetadata.matdesc != expectedFileHeader.encryptionMetadata.matdesc {
+		t.Fatalf("unexpected file header. expected: %v, got: %v", expectedFileHeader, header)
+	}
+}
+
+func TestUploadFileToGcsNoStatus(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs-blob/storage/users/456/",
+		LocationType: "GCS",
+	}
+	encMat := snowflakeFileEncryption{
+		QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==",
+		QueryID:             "01abc874-0406-1bf0-0000-53b10668e056",
+		SMKID:               92019681909886,
+	}
+	initialParallel := int64(100)
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+	uploadMeta := fileMetadata{
+		name:               "data1.txt.gz",
+		stageLocationType:  "GCS",
+		noSleepingTime:     true,
+		parallel:           initialParallel,
+		client:             gcsCli,
+		sha256Digest:       "123456789abcdef",
+		stageInfo:          &info,
+		dstFileName:        "data1.txt.gz",
+		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
+		overwrite:          true,
+		dstCompressionType: compressionTypes["GZIP"],
+		encryptionMaterial: &encMat,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		mockGcsClient: &clientMock{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					Status:     "401 Unauthorized",
+					StatusCode: 401,
+				}, nil
+			},
+		},
+	}
+
+	uploadMeta.realSrcFileName = uploadMeta.srcFileName
+	fi, err := os.Stat(uploadMeta.srcFileName)
+	if err != nil {
+		t.Error(err)
+	}
+	uploadMeta.uploadSize = fi.Size()
+
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+}
+
+func TestDownloadFileFromGcsError(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs/teststage/users/34/",
+		LocationType: "GCS",
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	downloadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "GCS",
+		noSleepingTime:    true,
+		client:            gcsCli,
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		overwrite:         true,
+		srcFileName:       "data1.txt.gz",
+		localLocation:     dir,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		mockGcsClient: &clientMock{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					Status:     "403 Unauthorized",
+					StatusCode: 401,
+				}, nil
+			},
+		},
+		resStatus: downloaded, // bypass file header request
+	}
+	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+}
+
+func TestDownloadFileWithBadRequest(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs/teststage/users/34/",
+		LocationType: "GCS",
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	downloadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "GCS",
+		noSleepingTime:    true,
+		client:            gcsCli,
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		overwrite:         true,
+		srcFileName:       "data1.txt.gz",
+		localLocation:     dir,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		mockGcsClient: &clientMock{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					Status:     "400 Bad Request",
+					StatusCode: 400,
+				}, nil
+			},
+		},
+		resStatus: downloaded, // bypass file header request
+	}
+	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+
+	if downloadMeta.resStatus != renewPresignedURL {
+		t.Fatalf("expected %v result status, got: %v",
+			renewPresignedURL, downloadMeta.resStatus)
 	}
 }

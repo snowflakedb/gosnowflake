@@ -100,7 +100,10 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		var encryptionMeta *encryptMetadata
 		if resp.Header.Get(gcsMetadataEncryptionDataProp) != "" {
 			var encryptData *encryptionData
-			json.Unmarshal([]byte(resp.Header.Get(gcsMetadataEncryptionDataProp)), encryptData)
+			err := json.Unmarshal([]byte(resp.Header.Get(gcsMetadataEncryptionDataProp)), &encryptData)
+			if err != nil {
+				logger.Error(err)
+			}
 			if encryptData != nil {
 				encryptionMeta = &encryptMetadata{
 					key: encryptData.WrappedContentKey.EncryptionKey,

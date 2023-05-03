@@ -526,3 +526,134 @@ func TestConcurrentReadOnParams(t *testing.T) {
 	wg.Wait()
 	defer db.Close()
 }
+
+func postQueryTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ UUID, _ *Config) (*execResponse, error) {
+	return nil, errors.New("failed to get query response")
+}
+
+func postQueryFail(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ UUID, _ *Config) (*execResponse, error) {
+	dd := &execResponseData{
+		QueryID:  "1eFhmhe23242kmfd540GgGre",
+		SQLState: "22008",
+	}
+	return &execResponse{
+		Data:    *dd,
+		Message: "failed to get query response",
+		Code:    "12345",
+		Success: false,
+	}, errors.New("failed to get query response")
+}
+
+func TestQueryArrowStreamError(t *testing.T) {
+	ctx := context.Background()
+	numrows := 50000 // approximately 10 ArrowBatch objects
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	query := fmt.Sprintf(selectRandomGenerator, numrows)
+	sr := &snowflakeRestful{
+		FuncPostQuery:  postQueryTest,
+		TokenAccessor:  getSimpleTokenAccessor(),
+		RequestTimeout: 10,
+	}
+	sc.rest = sr
+	_, err = sc.QueryArrowStream(ctx, query)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+
+	sc.rest.FuncPostQuery = postQueryFail
+	_, err = sc.QueryArrowStream(ctx, query)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+	_, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("should be snowflake error. err: %v", err)
+	}
+}
+
+func TestExecContextError(t *testing.T) {
+	ctx := context.Background()
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery:  postQueryTest,
+		TokenAccessor:  getSimpleTokenAccessor(),
+		RequestTimeout: 10,
+	}
+
+	sc.rest = sr
+
+	_, err = sc.ExecContext(ctx, "SELECT 1", []driver.NamedValue{})
+	if err == nil {
+		t.Fatalf("should have raised an error")
+	}
+
+	sc.rest.FuncPostQuery = postQueryFail
+	_, err = sc.ExecContext(ctx, "SELECT 1", []driver.NamedValue{})
+	if err == nil {
+		t.Fatalf("should have raised an error")
+	}
+	_, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("should be snowflake error. err: %v", err)
+	}
+}
+
+func TestQueryContextError(t *testing.T) {
+	ctx := context.Background()
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery:  postQueryTest,
+		TokenAccessor:  getSimpleTokenAccessor(),
+		RequestTimeout: 10,
+	}
+
+	sc.rest = sr
+
+	_, err = sc.QueryContext(ctx, "SELECT 1", []driver.NamedValue{})
+	if err == nil {
+		t.Fatalf("should have raised an error")
+	}
+
+	sc.rest.FuncPostQuery = postQueryFail
+	_, err = sc.QueryContext(ctx, "SELECT 1", []driver.NamedValue{})
+	if err == nil {
+		t.Fatalf("should have raised an error")
+	}
+	_, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("should be snowflake error. err: %v", err)
+	}
+}
