@@ -87,8 +87,7 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: uint64(456), tmode: nil, out: unSupportedType},
 		{in: []byte{100}, tmode: nil, out: unSupportedType},
 		{in: nil, tmode: nil, out: unSupportedType},
-		// NOTE(Qing): Not sure why previously it passes the test as unSupportedType?
-		{in: []int{1}, tmode: nil, out: sliceType},
+		{in: []int{1}, tmode: nil, out: unSupportedType},
 	}
 	for _, test := range testcases {
 		a := goTypeToSnowflake(test.in, test.tmode)
