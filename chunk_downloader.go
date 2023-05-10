@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/ipc"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/ipc"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 type chunkDownloader interface {

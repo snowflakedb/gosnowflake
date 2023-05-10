@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v11/arrow"
-	"github.com/apache/arrow/go/v11/arrow/array"
-	"github.com/apache/arrow/go/v11/arrow/decimal128"
-	"github.com/apache/arrow/go/v11/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {

@@ -9,8 +9,7 @@ setup:
 
 ## Install dependencies
 deps: setup
-	go mod tidy
-	go mod vendor
+	go mod tidy	
 
 ## Show help
 help:
