@@ -68,6 +68,7 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		}
 		var client gcsAPI
 		client = &http.Client{}
+		// for testing only
 		if meta.mockGcsClient != nil {
 			client = meta.mockGcsClient
 		}
@@ -210,6 +211,7 @@ func (util *snowflakeGcsClient) uploadFile(
 	}
 	var client gcsAPI
 	client = &http.Client{}
+	// for testing only
 	if meta.mockGcsClient != nil {
 		client = meta.mockGcsClient
 	}
@@ -284,6 +286,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 	}
 	var client gcsAPI
 	client = &http.Client{}
+	// for testing only
 	if meta.mockGcsClient != nil {
 		client = meta.mockGcsClient
 	}

@@ -1,7 +1,7 @@
 NAME:=gosnowflake
 VERSION:=$(shell git describe --tags --abbrev=0)
 REVISION:=$(shell git rev-parse --short HEAD)
-COVFLAGS:=
+COVFLAGS:="-coverprofile=coverage.txt -covermode=atomic"
 
 ## Run fmt, lint and test
 all: fmt lint cov

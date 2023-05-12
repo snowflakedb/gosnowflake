@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -567,6 +568,104 @@ func TestGetHeaderClientCastFail(t *testing.T) {
 	}
 
 	_, err = new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+}
+
+func TestS3UploadRetryWithHeaderNotFound(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "sfc-customer-stage/rwyi-testacco/users/9220/",
+		LocationType: "S3",
+	}
+	initialParallel := int64(100)
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+	uploadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "S3",
+		noSleepingTime:    false,
+		parallel:          initialParallel,
+		client:            s3Cli,
+		sha256Digest:      "123456789abcdef",
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
+		overwrite:         true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
+			return &manager.UploadOutput{
+				Location: "https://sfc-customer-stage/rwyi-testacco/users/9220/data1.txt.gz",
+			}, nil
+		}),
+		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+			return nil, &smithy.GenericAPIError{
+				Code: notFound,
+			}
+		}),
+	}
+
+	uploadMeta.realSrcFileName = uploadMeta.srcFileName
+	fi, err := os.Stat(uploadMeta.srcFileName)
+	if err != nil {
+		t.Error(err)
+	}
+	uploadMeta.uploadSize = fi.Size()
+
+	err = new(remoteStorageUtil).uploadOneFileWithRetry(&uploadMeta)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if uploadMeta.resStatus != errStatus {
+		t.Fatalf("expected %v result status, got: %v", errStatus, uploadMeta.resStatus)
+	}
+}
+
+func TestS3UploadStreamFailed(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "sfc-customer-stage/rwyi-testacco/users/9220/",
+		LocationType: "S3",
+	}
+	initialParallel := int64(100)
+	src := []byte{65, 66, 67}
+
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	uploadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "S3",
+		noSleepingTime:    true,
+		parallel:          initialParallel,
+		client:            s3Cli,
+		sha256Digest:      "123456789abcdef",
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		srcStream:         bytes.NewBuffer(src),
+		overwrite:         true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
+			return nil, errors.New("unexpected error uploading file")
+		}),
+	}
+
+	uploadMeta.realSrcStream = uploadMeta.srcStream
+
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}

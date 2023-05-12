@@ -610,3 +610,30 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		}
 	})
 }
+
+func TestPutLargeFile(t *testing.T) {
+	sourceDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("rm @~/test_put_largefile")
+		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @%v", sourceDir, "~/test_put_largefile")
+		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
+		dbt.mustExec(sqlText)
+		defer dbt.mustExec("rm @~/test_put_largefile")
+		rows := dbt.mustQuery("ls @~/test_put_largefile")
+		var file, s1, s2, s3 string
+		if rows.Next() {
+			if err := rows.Scan(&file, &s1, &s2, &s3); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		if !strings.Contains(file, "largefile.txt.gz") {
+			t.Fatalf("should contain file. got: %v", file)
+		}
+
+	})
+}

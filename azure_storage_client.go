@@ -77,6 +77,7 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 	}
 	var blobClient azureAPI
 	blobClient = containerClient.NewBlockBlobClient(path)
+	// for testing only
 	if meta.mockAzureClient != nil {
 		blobClient = meta.mockAzureClient
 	}
@@ -188,6 +189,7 @@ func (util *snowflakeAzureClient) uploadFile(
 	}
 	var blobClient azureAPI
 	blobClient = containerClient.NewBlockBlobClient(path)
+	// for testing only
 	if meta.mockAzureClient != nil {
 		blobClient = meta.mockAzureClient
 	}
@@ -267,6 +269,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	}
 	var blobClient azureAPI
 	blobClient = containerClient.NewBlockBlobClient(path)
+	// for testing only
 	if meta.mockAzureClient != nil {
 		blobClient = meta.mockAzureClient
 	}

@@ -334,7 +334,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 	uploadMeta := fileMetadata{
 		name:               "data1.txt.gz",
 		stageLocationType:  "AZURE",
-		noSleepingTime:     true,
+		noSleepingTime:     false,
 		parallel:           initialParallel,
 		client:             azureCli,
 		sha256Digest:       "123456789abcdef",
