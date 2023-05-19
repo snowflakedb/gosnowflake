@@ -46,6 +46,9 @@ func (hc *heartbeat) start() {
 }
 
 func (hc *heartbeat) stop() {
+	if hc.shutdownChan == nil {
+		return
+	}
 	hc.shutdownChan <- true
 	close(hc.shutdownChan)
 	logger.Info("heartbeat stopped")
