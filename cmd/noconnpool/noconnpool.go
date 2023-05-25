@@ -32,10 +32,17 @@ func getDSN() (string, *sf.Config, error) {
 	user := env("SNOWFLAKE_TEST_USER", true)
 	password := env("SNOWFLAKE_TEST_PASSWORD", true)
 	host := env("SNOWFLAKE_TEST_HOST", false)
-	port := env("SNOWFLAKE_TEST_PORT", false)
+	portStr := env("SNOWFLAKE_TEST_PORT", false)
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
 
-	portStr, err := strconv.Atoi(port)
+	port := 443 // snowflake default port
+	var err error
+	if len(portStr) > 0 {
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			return "", nil, err
+		}
+	}
 	if err != nil {
 		return "", nil, err
 	}
@@ -44,7 +51,7 @@ func getDSN() (string, *sf.Config, error) {
 		User:     user,
 		Password: password,
 		Host:     host,
-		Port:     portStr,
+		Port:     port,
 		Protocol: protocol,
 	}
 

@@ -52,7 +52,6 @@ func getDSN() (string, *sf.Config, error) {
 	rsaPrivateKey, _ := privKey.(*rsa.PrivateKey)
 
 	port := 443 // snowflake default port
-	//var err error
 	if len(portStr) > 0 {
 		port, err = strconv.Atoi(portStr)
 		if err != nil {
