@@ -7,15 +7,16 @@ import (
 	"io"
 
 	"github.com/mailru/easyjson"
-	_ "github.com/mailru/easyjson/gen"
+	_ "github.com/mailru/easyjson/gen" // This is required to have go mod vendor not remove the package
 	"github.com/mailru/easyjson/jlexer"
 )
 
 const (
-	// limit http response to be 100MB to avoid overwhelming the scheduler
+	// ResponseBodyLimit limits http response to be 100MB to avoid overwhelming the scheduler
 	ResponseBodyLimit = 100 * 1024 * 1024
 )
 
+// ErrResponseTooLarge means the reponse is too large (thanks linter for these useful comments!)
 var ErrResponseTooLarge = fmt.Errorf("response is too large")
 
 func decodeResponse(body io.ReadCloser, resp interface{}) error {
