@@ -466,6 +466,7 @@ func (sc *snowflakeConn) GetQueryStatus(
 		queryRet.ErrorMessage,
 		queryRet.Stats.ScanBytes,
 		queryRet.Stats.ProducedRows,
+		queryRet.Status,
 	}, nil
 }
 

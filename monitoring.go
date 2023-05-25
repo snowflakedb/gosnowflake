@@ -116,6 +116,7 @@ type SnowflakeQueryStatus struct {
 	ErrorMessage string
 	ScanBytes    int64
 	ProducedRows int64
+	Status       string
 }
 
 // SnowflakeConnection is a wrapper to snowflakeConn that exposes API functions
