@@ -5,7 +5,10 @@ package gosnowflake
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 )
 
 func TestTransactionOptions(t *testing.T) {
@@ -33,5 +36,67 @@ func TestTransactionOptions(t *testing.T) {
 	}
 	if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
 		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoDefaultTransactionIsolationLevel)
+	}
+}
+
+// SNOW-823072: Test that transaction uses the context object supplied by BeginTx(), not from the parent connection
+func TestTransactionContext(t *testing.T) {
+	var tx *sql.Tx
+	var err error
+
+	db := openDB(t)
+	defer db.Close()
+
+	ctx1, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	ctx2 := context.Background()
+
+	pingWithRetry := withRetry(PingFunc, 5, 3*time.Second)
+
+	err = pingWithRetry(ctx1, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tx, err = db.BeginTx(ctx2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx2, "SELECT SYSTEM$WAIT(10, 'SECONDS')")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer db.Close()
+}
+
+func PingFunc(ctx context.Context, db *sql.DB) error {
+	return db.PingContext(ctx)
+}
+
+// Helper function for SNOW-823072 repro
+func withRetry(fn func(context.Context, *sql.DB) error, numAttempts int, timeout time.Duration) func(context.Context, *sql.DB) error {
+	return func(ctx context.Context, db *sql.DB) error {
+		for currAttempt := 1; currAttempt <= numAttempts; currAttempt++ {
+			ctx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+			err := fn(ctx, db)
+			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					continue
+				}
+				return err
+			}
+			return nil
+		}
+		return fmt.Errorf("context deadline exceeded, failed after [%d] attempts", numAttempts)
 	}
 }

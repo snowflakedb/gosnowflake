@@ -191,7 +191,7 @@ func (sc *snowflakeConn) BeginTx(
 		false /* isInternal */, isDesc, nil); err != nil {
 		return nil, err
 	}
-	return &snowflakeTx{sc}, nil
+	return &snowflakeTx{sc, ctx}, nil
 }
 
 func (sc *snowflakeConn) cleanup() {
