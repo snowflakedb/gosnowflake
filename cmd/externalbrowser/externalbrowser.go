@@ -26,19 +26,23 @@ func getDSN() (string, *sf.Config, error) {
 	account := env("SNOWFLAKE_TEST_ACCOUNT", true)
 	user := env("SNOWFLAKE_TEST_USER", true)
 	host := env("SNOWFLAKE_TEST_HOST", false)
-	port := env("SNOWFLAKE_TEST_PORT", false)
+	portStr := env("SNOWFLAKE_TEST_PORT", false)
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
 
-	portStr, err := strconv.Atoi(port)
-	if err != nil {
-		return "", nil, err
+	port := 443 // snowflake default port
+	var err error
+	if len(portStr) > 0 {
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 	cfg := &sf.Config{
 		Authenticator: sf.AuthTypeExternalBrowser,
 		Account:       account,
 		User:          user,
 		Host:          host,
-		Port:          portStr,
+		Port:          port,
 		Protocol:      protocol,
 	}
 
