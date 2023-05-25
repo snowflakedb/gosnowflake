@@ -167,6 +167,7 @@ type DBTest struct {
 }
 
 func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
+	dbt.T.Helper()
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
@@ -198,6 +199,7 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExten
 }
 
 func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...interface{}) (rows *RowsExtended) {
+	dbt.T.Helper()
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(ctx)
 	c := make(chan os.Signal, 1)
@@ -229,6 +231,7 @@ func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...i
 }
 
 func (dbt *DBTest) mustQueryAssertCount(query string, expected int, args ...interface{}) {
+	dbt.T.Helper()
 	rows := dbt.mustQuery(query, args...)
 	cnt := 0
 	for rows.Next() {
@@ -240,6 +243,7 @@ func (dbt *DBTest) mustQueryAssertCount(query string, expected int, args ...inte
 }
 
 func (dbt *DBTest) fail(method, query string, err error) {
+	dbt.T.Helper()
 	if len(query) > 300 {
 		query = "[query too large to print]"
 	}
@@ -247,6 +251,7 @@ func (dbt *DBTest) fail(method, query string, err error) {
 }
 
 func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result) {
+	dbt.T.Helper()
 	res, err := dbt.db.Exec(query, args...)
 	if err != nil {
 		dbt.fail("exec", query, err)
@@ -255,6 +260,7 @@ func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result) 
 }
 
 func (dbt *DBTest) mustExecContext(ctx context.Context, query string, args ...interface{}) (res sql.Result) {
+	dbt.T.Helper()
 	res, err := dbt.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("exec context", query, err)
@@ -263,6 +269,7 @@ func (dbt *DBTest) mustExecContext(ctx context.Context, query string, args ...in
 }
 
 func (dbt *DBTest) mustDecimalSize(ct *sql.ColumnType) (pr int64, sc int64) {
+	dbt.T.Helper()
 	var ok bool
 	pr, sc, ok = ct.DecimalSize()
 	if !ok {
@@ -272,6 +279,7 @@ func (dbt *DBTest) mustDecimalSize(ct *sql.ColumnType) (pr int64, sc int64) {
 }
 
 func (dbt *DBTest) mustFailDecimalSize(ct *sql.ColumnType) {
+	dbt.T.Helper()
 	var ok bool
 	if _, _, ok = ct.DecimalSize(); ok {
 		dbt.Fatalf("should not return decimal size. %v", ct)
@@ -279,6 +287,7 @@ func (dbt *DBTest) mustFailDecimalSize(ct *sql.ColumnType) {
 }
 
 func (dbt *DBTest) mustLength(ct *sql.ColumnType) (cLen int64) {
+	dbt.T.Helper()
 	var ok bool
 	cLen, ok = ct.Length()
 	if !ok {
@@ -288,6 +297,7 @@ func (dbt *DBTest) mustLength(ct *sql.ColumnType) (cLen int64) {
 }
 
 func (dbt *DBTest) mustFailLength(ct *sql.ColumnType) {
+	dbt.T.Helper()
 	var ok bool
 	if _, ok = ct.Length(); ok {
 		dbt.Fatalf("should not return length. %v", ct)
@@ -295,6 +305,7 @@ func (dbt *DBTest) mustFailLength(ct *sql.ColumnType) {
 }
 
 func (dbt *DBTest) mustNullable(ct *sql.ColumnType) (canNull bool) {
+	dbt.T.Helper()
 	var ok bool
 	canNull, ok = ct.Nullable()
 	if !ok {
@@ -304,6 +315,7 @@ func (dbt *DBTest) mustNullable(ct *sql.ColumnType) (canNull bool) {
 }
 
 func (dbt *DBTest) mustPrepare(query string) (stmt *sql.Stmt) {
+	dbt.T.Helper()
 	stmt, err := dbt.db.Prepare(query)
 	if err != nil {
 		dbt.fail("prepare", query, err)
