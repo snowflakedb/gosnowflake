@@ -3,7 +3,11 @@
 package gosnowflake
 
 import (
+	"context"
+	"errors"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestGetTokenFromResponseFail(t *testing.T) {
@@ -42,5 +46,69 @@ func TestGetTokenFromResponse(t *testing.T) {
 	}
 	if token != expected {
 		t.Errorf("Expected: %s, found: %s", expected, token)
+	}
+}
+
+func TestBuildResponse(t *testing.T) {
+	resp := buildResponse("Go")
+	bytes := resp.Bytes()
+	respStr := string(bytes[:])
+	if !strings.Contains(respStr, "Your identity was confirmed and propagated to Snowflake Go.\nYou can close this window now and go back where you started from.") {
+		t.Fatalf("failed to build response")
+	}
+}
+
+func postAuthExternalBrowserError(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{}, errors.New("failed to get SAML response")
+}
+
+func postAuthExternalBrowserFail(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: false,
+		Message: "external browser auth failed",
+	}, nil
+}
+
+func postAuthExternalBrowserFailWithCode(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: false,
+		Message: "failed to connect to db",
+		Code:    "260008",
+	}, nil
+}
+
+func TestUnitAuthenticateByExternalBrowser(t *testing.T) {
+	authenticator := "externalbrowser"
+	application := "testapp"
+	account := "testaccount"
+	user := "u"
+	password := "p"
+	sr := &snowflakeRestful{
+		Protocol:         "https",
+		Host:             "abc.com",
+		Port:             443,
+		FuncPostAuthSAML: postAuthExternalBrowserError,
+		TokenAccessor:    getSimpleTokenAccessor(),
+	}
+	_, _, err := authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	sr.FuncPostAuthSAML = postAuthExternalBrowserFail
+	_, _, err = authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	sr.FuncPostAuthSAML = postAuthExternalBrowserFailWithCode
+	_, _, err = authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	driverErr, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("should be snowflake error. err: %v", err)
+	}
+	if driverErr.Number != ErrCodeFailedToConnect {
+		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeFailedToConnect, driverErr.Number)
 	}
 }

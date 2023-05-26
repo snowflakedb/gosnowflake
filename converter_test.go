@@ -122,6 +122,7 @@ func TestSnowflakeTypeToGo(t *testing.T) {
 		{in: arrayType, scale: 0, out: reflect.TypeOf("")},
 		{in: binaryType, scale: 0, out: reflect.TypeOf([]byte{})},
 		{in: booleanType, scale: 0, out: reflect.TypeOf(true)},
+		{in: sliceType, scale: 0, out: reflect.TypeOf("")},
 	}
 	for _, test := range testcases {
 		a := snowflakeTypeToGo(test.in, test.scale)
@@ -238,8 +239,10 @@ type tcArrayToString struct {
 func TestArrayToString(t *testing.T) {
 	testcases := []tcArrayToString{
 		{in: driver.NamedValue{Value: &intArray{1, 2}}, typ: fixedType, out: []string{"1", "2"}},
+		{in: driver.NamedValue{Value: &int32Array{1, 2}}, typ: fixedType, out: []string{"1", "2"}},
 		{in: driver.NamedValue{Value: &int64Array{3, 4, 5}}, typ: fixedType, out: []string{"3", "4", "5"}},
 		{in: driver.NamedValue{Value: &float64Array{6.7}}, typ: realType, out: []string{"6.7"}},
+		{in: driver.NamedValue{Value: &float32Array{1.5}}, typ: realType, out: []string{"1.5"}},
 		{in: driver.NamedValue{Value: &boolArray{true, false}}, typ: booleanType, out: []string{"true", "false"}},
 		{in: driver.NamedValue{Value: &stringArray{"foo", "bar", "baz"}}, typ: textType, out: []string{"foo", "bar", "baz"}},
 	}

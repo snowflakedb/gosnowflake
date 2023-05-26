@@ -449,3 +449,46 @@ func TestDownloadChunkErrorStatus(t *testing.T) {
 		t.Fatal("should have caused an error and queued in scd.ChunksError")
 	}
 }
+
+func TestWithArrowBatchesNotImplementedForResult(t *testing.T) {
+	ctx := WithArrowBatches(context.Background())
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	if _, err = sc.Exec("create or replace table testArrowBatches (a int, b int)", nil); err != nil {
+		t.Fatal(err)
+	}
+	defer sc.Exec("drop table if exists testArrowBatches", nil)
+
+	result, err := sc.ExecContext(ctx, "insert into testArrowBatches values (1, 2), (3, 4), (5, 6)", []driver.NamedValue{})
+	if err != nil {
+		t.Error(err)
+	}
+
+	result.(*snowflakeResult).GetStatus()
+	queryID := result.(*snowflakeResult).GetQueryID()
+	if queryID != sc.QueryID {
+		t.Fatalf("failed to get query ID")
+	}
+
+	_, err = result.(*snowflakeResult).GetArrowBatches()
+	if err == nil {
+		t.Fatal("should have raised an error")
+	}
+	driverErr, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("should be snowflake error. err: %v", err)
+	}
+	if driverErr.Number != ErrNotImplemented {
+		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrNotImplemented, driverErr.Number)
+	}
+}

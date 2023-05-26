@@ -7,7 +7,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"net/http"
+	"net/url"
 	"testing"
+	"time"
 )
 
 func openDB(t *testing.T) *sql.DB {
@@ -201,4 +204,81 @@ func TestCallStatement(t *testing.T) {
 
 		dbt.mustExec("drop procedure if exists TEST_SP_CALL_STMT_ENABLED(float, variant)")
 	})
+}
+
+func TestStmtExec(t *testing.T) {
+	db := openDB(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`create or replace table test_table(col1 int, col2 int)`); err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = conn.Raw(func(x interface{}) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "insert into test_table values (1, 2)")
+		if err != nil {
+			t.Error(err)
+		}
+		_, err = stmt.(*snowflakeStmt).Exec(nil)
+		if err != nil {
+			t.Error(err)
+		}
+		_, err = stmt.(*snowflakeStmt).Query(nil)
+		if err != nil {
+			t.Error(err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("failed to drop table: %v", err)
+	}
+
+	if _, err := db.Exec("drop table if exists test_table"); err != nil {
+		t.Fatalf("failed to drop table: %v", err)
+	}
+}
+
+func getStatusSuccessButInvalidJSONfunc(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ time.Duration) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
+	}, nil
+}
+
+func TestUnitCheckQueryStatus(t *testing.T) {
+	sc := getDefaultSnowflakeConn()
+	ctx := context.Background()
+	qid := NewUUID()
+
+	sr := &snowflakeRestful{
+		FuncGet:       getStatusSuccessButInvalidJSONfunc,
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+	sc.rest = sr
+	_, err := sc.checkQueryStatus(ctx, qid.String())
+	if err == nil {
+		t.Fatal("invalid json. should have failed")
+	}
+	sc.rest.FuncGet = funcGetQueryRespFail
+	_, err = sc.checkQueryStatus(ctx, qid.String())
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+
+	sc.rest.FuncGet = funcGetQueryRespError
+	_, err = sc.checkQueryStatus(ctx, qid.String())
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+	driverErr, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("should be snowflake error. err: %v", err)
+	}
+	if driverErr.Number != ErrQueryStatus {
+		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrQueryStatus, driverErr.Number)
+	}
 }

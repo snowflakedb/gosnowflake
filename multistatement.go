@@ -52,35 +52,23 @@ func (sc *snowflakeConn) handleMultiExec(
 			childData, err := sc.getQueryResultResp(ctx, resultPath)
 			if err != nil {
 				logger.Errorf("error: %v", err)
+				return nil, err
+			}
+			if childData != nil && !childData.Success {
 				code, err := strconv.Atoi(childData.Code)
 				if err != nil {
 					return nil, err
 				}
-				if childData != nil {
-					return nil, (&SnowflakeError{
-						Number:   code,
-						SQLState: childData.Data.SQLState,
-						Message:  err.Error(),
-						QueryID:  childData.Data.QueryID,
-					}).exceptionTelemetry(sc)
-				}
-				return nil, err
+				return nil, (&SnowflakeError{
+					Number:   code,
+					SQLState: childData.Data.SQLState,
+					Message:  childData.Message,
+					QueryID:  childData.Data.QueryID,
+				}).exceptionTelemetry(sc)
 			}
 			count, err := updateRows(childData.Data)
 			if err != nil {
 				logger.WithContext(ctx).Errorf("error: %v", err)
-				if childData != nil {
-					code, err := strconv.Atoi(childData.Code)
-					if err != nil {
-						return nil, err
-					}
-					return nil, (&SnowflakeError{
-						Number:   code,
-						SQLState: childData.Data.SQLState,
-						Message:  err.Error(),
-						QueryID:  childData.Data.QueryID,
-					}).exceptionTelemetry(sc)
-				}
 				return nil, err
 			}
 			updatedRows += count
