@@ -3,12 +3,14 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql/driver"
 	"errors"
 )
 
 type snowflakeTx struct {
-	sc *snowflakeConn
+	sc  *snowflakeConn
+	ctx context.Context
 }
 
 type txCommand int
@@ -44,7 +46,7 @@ func (tx *snowflakeTx) execTxCommand(command txCommand) (err error) {
 	if tx.sc == nil || tx.sc.rest == nil {
 		return driver.ErrBadConn
 	}
-	_, err = tx.sc.exec(tx.sc.ctx, txStr, false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
+	_, err = tx.sc.exec(tx.ctx, txStr, false /* noResult */, false /* isInternal */, false /* describeOnly */, nil)
 	if err != nil {
 		return
 	}
