@@ -20,7 +20,7 @@ const (
 	rollback
 )
 
-func (cmd txCommand) string() (txStr string, err error) {
+func (cmd txCommand) string() (string, error) {
 	switch cmd {
 	case commit:
 		return "COMMIT", nil
@@ -30,18 +30,18 @@ func (cmd txCommand) string() (txStr string, err error) {
 	return "", errors.New("unsupported transaction command")
 }
 
-func (tx *snowflakeTx) Commit() (err error) {
+func (tx *snowflakeTx) Commit() error {
 	return tx.execTxCommand(commit)
 }
 
-func (tx *snowflakeTx) Rollback() (err error) {
+func (tx *snowflakeTx) Rollback() error {
 	return tx.execTxCommand(rollback)
 }
 
 func (tx *snowflakeTx) execTxCommand(command txCommand) (err error) {
 	txStr, err := command.string()
 	if err != nil {
-		return err
+		return
 	}
 	if tx.sc == nil || tx.sc.rest == nil {
 		return driver.ErrBadConn
