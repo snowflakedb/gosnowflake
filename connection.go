@@ -249,9 +249,9 @@ func (sc *snowflakeConn) ExecContext(
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
 		if data != nil {
-			code, err := strconv.Atoi(data.Code)
-			if err != nil {
-				return nil, err
+			code, e := strconv.Atoi(data.Code)
+			if e != nil {
+				return nil, e
 			}
 			return nil, (&SnowflakeError{
 				Number:   code,
@@ -328,9 +328,9 @@ func (sc *snowflakeConn) queryContextInternal(
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
-			code, err := strconv.Atoi(data.Code)
-			if err != nil {
-				return nil, err
+			code, e := strconv.Atoi(data.Code)
+			if e != nil {
+				return nil, e
 			}
 			return nil, (&SnowflakeError{
 				Number:   code,
@@ -434,9 +434,9 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
-			code, err := strconv.Atoi(data.Code)
-			if err != nil {
-				return nil, err
+			code, e := strconv.Atoi(data.Code)
+			if e != nil {
+				return nil, e
 			}
 			return nil, (&SnowflakeError{
 				Number:   code,

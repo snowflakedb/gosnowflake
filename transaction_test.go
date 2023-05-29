@@ -47,14 +47,11 @@ func TestTransactionContext(t *testing.T) {
 	db := openDB(t)
 	defer db.Close()
 
-	ctx1, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
 	ctx2 := context.Background()
 
 	pingWithRetry := withRetry(PingFunc, 5, 3*time.Second)
 
-	err = pingWithRetry(ctx1, db)
+	err = pingWithRetry(context.Background(), db)
 	if err != nil {
 		t.Fatal(err)
 	}

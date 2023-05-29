@@ -120,6 +120,20 @@ func getIdpURLProofKey(
 	if err != nil {
 		return "", "", err
 	}
+	if !respd.Success {
+		logger.Errorln("Authentication FAILED")
+		sr.TokenAccessor.SetTokens("", "", -1)
+		code, err := strconv.Atoi(respd.Code)
+		if err != nil {
+			code = -1
+			return "", "", err
+		}
+		return "", "", &SnowflakeError{
+			Number:   code,
+			SQLState: SQLStateConnectionRejected,
+			Message:  respd.Message,
+		}
+	}
 	return respd.Data.SSOURL, respd.Data.ProofKey, nil
 }
 

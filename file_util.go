@@ -143,8 +143,11 @@ type fileMetadata struct {
 	gcsFileHeaderEncryptionMeta *encryptMetadata
 
 	/* mock */
-	mockUploader s3UploadAPI
-	mockHeader   s3HeaderAPI
+	mockUploader    s3UploadAPI
+	mockDownloader  s3DownloadAPI
+	mockHeader      s3HeaderAPI
+	mockGcsClient   gcsAPI
+	mockAzureClient azureAPI
 }
 
 type fileTransferResultType struct {

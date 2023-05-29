@@ -30,6 +30,13 @@ type azureLocation struct {
 	path          string
 }
 
+type azureAPI interface {
+	UploadStream(ctx context.Context, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error)
+	UploadFile(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error)
+	DownloadFile(ctx context.Context, file *os.File, o *blob.DownloadFileOptions) (int64, error)
+	GetProperties(ctx context.Context, o *blob.GetPropertiesOptions) (blob.GetPropertiesResponse, error)
+}
+
 func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
 	sasToken := info.Creds.AzureSasToken
 	u, err := url.Parse(fmt.Sprintf("https://%s.%s/%s%s", info.StorageAccount, info.EndPoint, info.Path, sasToken))
@@ -68,7 +75,12 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 			Message: "failed to create container client",
 		}
 	}
-	blobClient := containerClient.NewBlockBlobClient(path)
+	var blobClient azureAPI
+	blobClient = containerClient.NewBlockBlobClient(path)
+	// for testing only
+	if meta.mockAzureClient != nil {
+		blobClient = meta.mockAzureClient
+	}
 	resp, err := blobClient.GetProperties(context.Background(), &blob.GetPropertiesOptions{
 		AccessConditions: &blob.AccessConditions{},
 		CPKInfo:          &blob.CPKInfo{},
@@ -91,8 +103,12 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 	meta.resStatus = uploaded
 	metadata := resp.Metadata
 	var encData encryptionData
-	if err = json.Unmarshal([]byte(*metadata["Encryptiondata"]), &encData); err != nil {
-		return nil, err
+
+	_, ok = metadata["Encryptiondata"]
+	if ok {
+		if err = json.Unmarshal([]byte(*metadata["Encryptiondata"]), &encData); err != nil {
+			return nil, err
+		}
 	}
 
 	matdesc, ok := metadata["Matdesc"]
@@ -171,7 +187,12 @@ func (util *snowflakeAzureClient) uploadFile(
 			Message: "failed to create container client",
 		}
 	}
-	blobClient := containerClient.NewBlockBlobClient(path)
+	var blobClient azureAPI
+	blobClient = containerClient.NewBlockBlobClient(path)
+	// for testing only
+	if meta.mockAzureClient != nil {
+		blobClient = meta.mockAzureClient
+	}
 	if meta.srcStream != nil {
 		uploadSrc := meta.srcStream
 		if meta.realSrcStream != nil {
@@ -207,7 +228,7 @@ func (util *snowflakeAzureClient) uploadFile(
 	if err != nil {
 		var se *azcore.ResponseError
 		if errors.As(err, &se) {
-			if se.StatusCode == 403 && util.detectAzureTokenExpireError(se.RawResponse.Request.Response) {
+			if se.StatusCode == 403 && util.detectAzureTokenExpireError(se.RawResponse) {
 				meta.resStatus = renewToken
 			} else {
 				meta.resStatus = needRetry
@@ -246,7 +267,12 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 			Message: "failed to create container client",
 		}
 	}
-	blobClient := containerClient.NewBlockBlobClient(path)
+	var blobClient azureAPI
+	blobClient = containerClient.NewBlockBlobClient(path)
+	// for testing only
+	if meta.mockAzureClient != nil {
+		blobClient = meta.mockAzureClient
+	}
 	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		return err

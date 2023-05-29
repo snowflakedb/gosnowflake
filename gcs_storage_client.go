@@ -66,12 +66,19 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		for k, v := range gcsHeaders {
 			req.Header.Add(k, v)
 		}
-		client := &http.Client{}
+		var client gcsAPI
+		client = &http.Client{}
+		// for testing only
+		if meta.mockGcsClient != nil {
+			client = meta.mockGcsClient
+		}
 		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
+			meta.lastError = fmt.Errorf(resp.Status)
+			meta.resStatus = errStatus
 			if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
 				meta.lastError = fmt.Errorf(resp.Status)
 				meta.resStatus = needRetry
@@ -83,8 +90,6 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 				meta.lastError = fmt.Errorf(resp.Status)
 				meta.resStatus = renewToken
 			}
-			meta.lastError = fmt.Errorf(resp.Status)
-			meta.resStatus = errStatus
 			return nil, meta.lastError
 		}
 
@@ -96,7 +101,10 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		var encryptionMeta *encryptMetadata
 		if resp.Header.Get(gcsMetadataEncryptionDataProp) != "" {
 			var encryptData *encryptionData
-			json.Unmarshal([]byte(resp.Header.Get(gcsMetadataEncryptionDataProp)), encryptData)
+			err := json.Unmarshal([]byte(resp.Header.Get(gcsMetadataEncryptionDataProp)), &encryptData)
+			if err != nil {
+				logger.Error(err)
+			}
 			if encryptData != nil {
 				encryptionMeta = &encryptMetadata{
 					key: encryptData.WrappedContentKey.EncryptionKey,
@@ -115,6 +123,10 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		}, nil
 	}
 	return nil, nil
+}
+
+type gcsAPI interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 // cloudUtil implementation
@@ -197,13 +209,17 @@ func (util *snowflakeGcsClient) uploadFile(
 	for k, v := range gcsHeaders {
 		req.Header.Add(k, v)
 	}
-	client := &http.Client{}
+	var client gcsAPI
+	client = &http.Client{}
+	// for testing only
+	if meta.mockGcsClient != nil {
+		client = meta.mockGcsClient
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		meta.lastError = fmt.Errorf(resp.Status)
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
 			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = needRetry
@@ -213,6 +229,8 @@ func (util *snowflakeGcsClient) uploadFile(
 		} else if accessToken != "" && util.isTokenExpired(resp) {
 			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = renewToken
+		} else {
+			meta.lastError = fmt.Errorf(resp.Status)
 		}
 		return meta.lastError
 	}
@@ -266,17 +284,22 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 	for k, v := range gcsHeaders {
 		req.Header.Add(k, v)
 	}
-	client := &http.Client{}
+	var client gcsAPI
+	client = &http.Client{}
+	// for testing only
+	if meta.mockGcsClient != nil {
+		client = meta.mockGcsClient
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		meta.lastError = fmt.Errorf(resp.Status)
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
 			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = needRetry
 		} else if resp.StatusCode == 404 {
+			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = notFoundFile
 		} else if accessToken == "" && resp.StatusCode == 400 && meta.lastError == nil {
 			meta.lastError = fmt.Errorf(resp.Status)
@@ -284,6 +307,9 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		} else if accessToken != "" && util.isTokenExpired(resp) {
 			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = renewToken
+		} else {
+			meta.lastError = fmt.Errorf(resp.Status)
+
 		}
 		return meta.lastError
 	}

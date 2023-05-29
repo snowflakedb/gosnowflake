@@ -237,19 +237,19 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 	resp, err := sc.getQueryResultResp(ctx, resultPath)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
-		if resp != nil {
-			code, err := strconv.Atoi(resp.Code)
-			if err != nil {
-				return err
-			}
-			return (&SnowflakeError{
-				Number:   code,
-				SQLState: resp.Data.SQLState,
-				Message:  err.Error(),
-				QueryID:  resp.Data.QueryID,
-			}).exceptionTelemetry(sc)
-		}
 		return err
+	}
+	if !resp.Success {
+		code, err := strconv.Atoi(resp.Code)
+		if err != nil {
+			return err
+		}
+		return (&SnowflakeError{
+			Number:   code,
+			SQLState: resp.Data.SQLState,
+			Message:  resp.Message,
+			QueryID:  resp.Data.QueryID,
+		}).exceptionTelemetry(sc)
 	}
 	rows.addDownloader(populateChunkDownloader(ctx, sc, resp.Data))
 	return nil

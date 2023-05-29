@@ -4,7 +4,10 @@ package gosnowflake
 
 import (
 	"context"
+	"errors"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"sync"
 	"testing"
 	"time"
@@ -132,5 +135,211 @@ func TestEnableTelemetry(t *testing.T) {
 	}
 	if !sc.telemetry.enabled {
 		t.Errorf("telemetry should be enabled.")
+	}
+}
+
+func funcPostTelemetryRespFail(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
+	return nil, errors.New("failed to upload metrics to telemetry")
+}
+
+func TestTelemetryError(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(context.Background(), *config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Fatal(err)
+	}
+	sr := &snowflakeRestful{
+		FuncPost:      funcPostTelemetryRespFail,
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+	st := &snowflakeTelemetry{
+		sr:        sr,
+		mutex:     &sync.Mutex{},
+		enabled:   true,
+		flushSize: defaultFlushSize,
+	}
+
+	if err = st.addLog(&telemetryData{
+		Message: map[string]string{
+			typeKey:    "client_telemetry_type",
+			queryIDKey: "123",
+		},
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	err = st.sendBatch()
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+}
+
+func TestTelemetryDisabledOnBadResponse(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(context.Background(), *config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Fatal(err)
+	}
+	sr := &snowflakeRestful{
+		FuncPost:      postTestAppBadGatewayError,
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+	st := &snowflakeTelemetry{
+		sr:        sr,
+		mutex:     &sync.Mutex{},
+		enabled:   true,
+		flushSize: defaultFlushSize,
+	}
+
+	if err = st.addLog(&telemetryData{
+		Message: map[string]string{
+			typeKey:    "client_telemetry_type",
+			queryIDKey: "123",
+		},
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err = st.sendBatch()
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+	if st.enabled == true {
+		t.Fatal("telemetry should be disabled")
+	}
+
+	st.enabled = true
+	st.sr.FuncPost = postTestQueryNotExecuting
+	if err = st.addLog(&telemetryData{
+		Message: map[string]string{
+			typeKey:    "client_telemetry_type",
+			queryIDKey: "123",
+		},
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err = st.sendBatch()
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+	if st.enabled == true {
+		t.Fatal("telemetry should be disabled")
+	}
+
+	st.enabled = true
+	st.sr.FuncPost = postTestSuccessButInvalidJSON
+	if err = st.addLog(&telemetryData{
+		Message: map[string]string{
+			typeKey:    "client_telemetry_type",
+			queryIDKey: "123",
+		},
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err = st.sendBatch()
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+	if st.enabled == true {
+		t.Fatal("telemetry should be disabled")
+	}
+}
+
+func TestTelemetryDisabled(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(context.Background(), *config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Fatal(err)
+	}
+	sr := &snowflakeRestful{
+		FuncPost:      postTestAppBadGatewayError,
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+	st := &snowflakeTelemetry{
+		sr:        sr,
+		mutex:     &sync.Mutex{},
+		enabled:   false, // disable
+		flushSize: defaultFlushSize,
+	}
+	if err = st.addLog(&telemetryData{
+		Message: map[string]string{
+			typeKey:    "client_telemetry_type",
+			queryIDKey: "123",
+		},
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
+	}); err == nil {
+		t.Fatal("should have failed")
+	}
+	st.enabled = true
+	if err = st.addLog(&telemetryData{
+		Message: map[string]string{
+			typeKey:    "client_telemetry_type",
+			queryIDKey: "123",
+		},
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	st.enabled = false
+	err = st.sendBatch()
+	if err == nil {
+		t.Fatal("should have failed")
+	}
+}
+
+func TestAddLogError(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(context.Background(), *config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Fatal(err)
+	}
+
+	sr := &snowflakeRestful{
+		FuncPost:      funcPostTelemetryRespFail,
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+
+	st := &snowflakeTelemetry{
+		sr:        sr,
+		mutex:     &sync.Mutex{},
+		enabled:   true,
+		flushSize: 1,
+	}
+
+	if err = st.addLog(&telemetryData{
+		Message: map[string]string{
+			typeKey:    "client_telemetry_type",
+			queryIDKey: "123",
+		},
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
+	}); err == nil {
+		t.Fatal("should have failed")
 	}
 }
