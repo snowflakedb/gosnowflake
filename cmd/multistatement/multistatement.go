@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -29,6 +30,8 @@ func getDSN() (string, *sf.Config, error) {
 	host := env("SNOWFLAKE_TEST_HOST", false)
 	portStr := env("SNOWFLAKE_TEST_PORT", false)
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
+	database := env("SNOWFLAKE_TEST_DATABASE", true)
+	schema := env("SNOWFLAKE_TEST_SCHEMA", true)
 
 	port := 443
 	var err error
@@ -46,6 +49,8 @@ func getDSN() (string, *sf.Config, error) {
 		Host:     host,
 		Port:     port,
 		Protocol: protocol,
+		Database: database,
+		Schema:   schema,
 	}
 
 	dsn, err := sf.DSN(cfg)
@@ -69,6 +74,12 @@ func main() {
 
 	defer db.Close()
 
+	printSelectDemo(db)
+	printModifyingDemo(db)
+}
+
+func printSelectDemo(db *sql.DB) {
+	fmt.Println("SELECTs only")
 	numberOfQueries := 2
 	query := `
 		WITH table1 AS (SELECT 'table 1, row 1', 11 UNION SELECT 'table 1, row 2', 12)
@@ -78,10 +89,9 @@ func main() {
 		SELECT * FROM table2;
 	`
 
-	context, err := sf.WithMultiStatement(context.Background(), numberOfQueries)
-	if err != nil {
-		log.Fatalf("Error while creating multi statement context: %v", err)
-	}
+	fmt.Println(query)
+
+	context := createMultistatementContext(numberOfQueries)
 
 	result, err := db.QueryContext(context, query)
 	if err != nil {
@@ -104,4 +114,40 @@ func main() {
 	if result.Err() != nil {
 		log.Fatalf("Error while reading results: %v", err)
 	}
+}
+
+func printModifyingDemo(db *sql.DB) {
+	fmt.Println("Modifications only")
+	numberOfQueries := 4
+	tableSuffix := time.Now().UnixMilli()
+	query := fmt.Sprintf(`
+		CREATE TABLE multistatement_test_%d (id integer);
+		INSERT INTO multistatement_test_%d VALUES (1);
+		INSERT INTO multistatement_test_%d VALUES (2), (3);
+		DROP TABLE multistatement_test_%d
+	`, tableSuffix, tableSuffix, tableSuffix, tableSuffix)
+
+	fmt.Println(query)
+
+	context := createMultistatementContext(numberOfQueries)
+
+	result, err := db.ExecContext(context, query)
+	if err != nil {
+		log.Fatalf("Error while querying snowflake: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Fatalf("Error while reading rows affected: %v", rowsAffected)
+	}
+
+	fmt.Printf("Rows affected: %d, expected: %d\n", rowsAffected, 3)
+}
+
+func createMultistatementContext(numberOfQueries int) context.Context {
+	context, err := sf.WithMultiStatement(context.Background(), numberOfQueries)
+	if err != nil {
+		log.Fatalf("Error while creating multi statement context: %v", err)
+	}
+	return context
 }
