@@ -73,12 +73,12 @@ func main() {
 	fmt.Println("Lets simulate long running query by passing execution logic as a function")
 	driverRows := runAsyncDriverQuery(db, "CALL SYSTEM$WAIT(10, 'SECONDS')")
 	fmt.Println("The query is running asynchronously - you can continue your workflow after starting the query")
-	printDriverResult(driverRows)
+	printDriverRowsResult(driverRows)
 
 	fmt.Println("Lets simulate long running query using the standard sql package")
 	sqlRows := runAsyncSqlQuery(db, "CALL SYSTEM$WAIT(10, 'SECONDS')")
 	fmt.Println("The query is running asynchronously - you can continue your workflow after starting the query")
-	printSqlResult(sqlRows)
+	printSqlRowsResult(sqlRows)
 }
 
 func runAsyncDriverQuery(db *sql.DB, query string) driver.Rows {
@@ -119,7 +119,7 @@ func runAsyncSqlQuery(db *sql.DB, query string) *sql.Rows {
 	return rows
 }
 
-func printDriverResult(rows driver.Rows) {
+func printDriverRowsResult(rows driver.Rows) {
 	fmt.Println(strings.Join(rows.Columns(), ", "))
 
 	dest := make([]driver.Value, 1)
@@ -130,7 +130,7 @@ func printDriverResult(rows driver.Rows) {
 	}
 }
 
-func printSqlResult(rows *sql.Rows) {
+func printSqlRowsResult(rows *sql.Rows) {
 	cols, err := rows.Columns()
 	if err != nil {
 		log.Fatalf("failed to get columns. err: %v", err)
