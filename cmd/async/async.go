@@ -70,18 +70,18 @@ func main() {
 	}
 	defer db.Close()
 
-	fmt.Println("Lets simulate long running query using driver interfaces")
-	rows := runAsyncQuery(db, "CALL SYSTEM$WAIT(10, 'SECONDS')")
+	fmt.Println("Lets simulate long running query by passing execution logic as a function")
+	driverRows := runAsyncDriverQuery(db, "CALL SYSTEM$WAIT(10, 'SECONDS')")
 	fmt.Println("The query is running asynchronously - you can continue your workflow after starting the query")
-	printResult(rows)
+	printDriverResult(driverRows)
 
 	fmt.Println("Lets simulate long running query using the standard sql package")
-	rows2 := runAsyncQuery2(db, "CALL SYSTEM$WAIT(10, 'SECONDS')")
+	sqlRows := runAsyncSqlQuery(db, "CALL SYSTEM$WAIT(10, 'SECONDS')")
 	fmt.Println("The query is running asynchronously - you can continue your workflow after starting the query")
-	printResult2(rows2)
+	printSqlResult(sqlRows)
 }
 
-func runAsyncQuery(db *sql.DB, query string) driver.Rows {
+func runAsyncDriverQuery(db *sql.DB, query string) driver.Rows {
 	// Enable asynchronous mode
 	ctx := sf.WithAsyncMode(context.Background())
 
@@ -105,7 +105,7 @@ func runAsyncQuery(db *sql.DB, query string) driver.Rows {
 	return rows
 }
 
-func runAsyncQuery2(db *sql.DB, query string) *sql.Rows {
+func runAsyncSqlQuery(db *sql.DB, query string) *sql.Rows {
 	// Enable asynchronous mode
 	ctx := sf.WithAsyncMode(context.Background())
 
@@ -119,7 +119,7 @@ func runAsyncQuery2(db *sql.DB, query string) *sql.Rows {
 	return rows
 }
 
-func printResult(rows driver.Rows) {
+func printDriverResult(rows driver.Rows) {
 	fmt.Println(strings.Join(rows.Columns(), ", "))
 
 	dest := make([]driver.Value, 1)
@@ -130,7 +130,7 @@ func printResult(rows driver.Rows) {
 	}
 }
 
-func printResult2(rows *sql.Rows) {
+func printSqlResult(rows *sql.Rows) {
 	cols, err := rows.Columns()
 	if err != nil {
 		log.Fatalf("failed to get columns. err: %v", err)
