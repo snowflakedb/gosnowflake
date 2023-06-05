@@ -19,7 +19,7 @@ func getDSN() (string, *sf.Config, error) {
 			return value
 		}
 		if failOnMissing {
-			log.Fatalf("#{key} environment not set")
+			log.Fatalf("%v environment not set", key)
 		}
 		return ""
 	}

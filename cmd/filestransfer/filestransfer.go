@@ -33,7 +33,7 @@ func getDSN() (string, *sf.Config, error) {
 	password := env("SNOWFLAKE_TEST_PASSWORD", true)
 	database := env("SNOWFLAKE_TEST_DATABASE", true)
 	warehouse := env("SNOWFLAKE_TEST_WAREHOUSE", true)
-	host := env("SNOWFLAKE_TEST_HOST", true)
+	host := env("SNOWFLAKE_TEST_HOST", false)
 	schema := env("SNOWFLAKE_TEST_SCHEMA", true)
 	portStr := env("SNOWFLAKE_TEST_PORT", false)
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
@@ -102,12 +102,14 @@ func main() {
 		log.Fatalf("error while creating DSN from config: %v, error: %v", cfg, err)
 	}
 	db, err := sql.Open("snowflake", dsn)
+	defer db.Close()
 
 	//Creating table to which the data from CSV file will be copied
 	_, err = db.Exec("CREATE OR REPLACE TABLE GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE(num integer, text varchar);")
 	if err != nil {
 		log.Fatalf("error while creating table; err: %v", err)
 	}
+	defer db.Exec("DROP TABLE IF EXISTS GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
 
 	//Uploading data_to_upload.csv to internal stage for table GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE
 	currentDir, _ := os.Getwd()
@@ -139,6 +141,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error while querying data from table; err: %v", err)
 	}
+	defer rows.Close()
 	printRows(rows)
 
 	//Downloading file from stage area
@@ -158,10 +161,4 @@ func main() {
 		log.Fatalf("error while reading file; err: %v", err)
 	}
 	fmt.Printf("Downloaded file content: \n%v\n", content)
-
-	defer func() {
-		db.Exec("DROP TABLE IF EXISTS GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
-		rows.Close()
-		db.Close()
-	}()
 }
