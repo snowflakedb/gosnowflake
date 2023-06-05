@@ -18,6 +18,8 @@ import (
 	sf "github.com/snowflakedb/gosnowflake"
 )
 
+const customFormatCsvDataToUpload = "NUM; TEXT\n1; foo\n2; bar\n3; baz"
+
 func getDSN() (string, *sf.Config, error) {
 	env := func(key string, failOnMissing bool) string {
 		if value := os.Getenv(key); value != "" {
@@ -67,6 +69,20 @@ func getDSN() (string, *sf.Config, error) {
 	return dsn, cfg, nil
 }
 
+func tmpFileWithDataToUpload() string {
+	tempFile, err := os.CreateTemp("", "data_to_upload.csv")
+	if err != nil {
+		log.Fatalf("error during creating temp file; err: %v", err)
+	}
+	_, err = tempFile.Write([]byte(customFormatCsvDataToUpload))
+	if err != nil {
+		log.Fatalf("error during writing data to temp file; err: %v", err)
+	}
+	absolutePath := tempFile.Name()
+	fmt.Printf("Tmp file with data to upload created at %v with content %#v\n", absolutePath, customFormatCsvDataToUpload)
+	return absolutePath
+}
+
 func decompressAndRead(file *os.File) (string, error) {
 	gzipReader, err := gzip.NewReader(file)
 	defer gzipReader.Close()
@@ -112,10 +128,9 @@ func main() {
 	defer db.Exec("DROP TABLE IF EXISTS GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
 
 	//Uploading data_to_upload.csv to internal stage for table GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE
-	currentDir, _ := os.Getwd()
-	fmt.Printf("CurrentDir: %v\n", currentDir)
-	filePath := currentDir + "/cmd/filestransfer/data_to_upload.csv"
-	_, err = db.Exec("PUT file://" + filePath + " @%GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
+	tmpFilePath := tmpFileWithDataToUpload()
+	defer os.Remove(tmpFilePath)
+	_, err = db.Exec(fmt.Sprintf("PUT file://%v @%%GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;", tmpFilePath))
 	if err != nil {
 		log.Fatalf("error while uploading file; err: %v", err)
 	}
@@ -134,7 +149,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error while copying data into table; err: %v", err)
 	}
-	fmt.Println("Data successfully loaded into table.")
+	fmt.Println("Data successfully loaded into table. Querying...")
 
 	//Querying loaded data from table
 	rows, err := db.Query("SELECT * FROM GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
@@ -144,15 +159,16 @@ func main() {
 	defer rows.Close()
 	printRows(rows)
 
-	//Downloading file from stage area
-	_, err = db.Exec("GET @%GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE/data_to_upload.csv file:///tmp/;")
+	//Downloading file from stage area to system's TMP directory
+	tmpDir := os.TempDir()
+	_, err = db.Exec(fmt.Sprintf("GET @%%GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE/data_to_upload.csv file://%v/;", tmpDir))
 	if err != nil {
 		log.Fatalf("error while downloading data from internal stage area; err: %v", err)
 	}
-	fmt.Println("File successfully downloaded from internal stage area.")
+	fmt.Printf("File successfully downloaded from internal stage area to %v\n", tmpDir)
 
 	//Reading from downloaded file
-	file, err := os.Open("/tmp/data_to_upload.csv.gz")
+	file, err := os.Open(fmt.Sprintf("%v/data_to_upload.csv.gz", tmpDir))
 	if err != nil {
 		log.Fatalf("error while opening downloaded file; err: %v", err)
 	}
@@ -160,5 +176,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("error while reading file; err: %v", err)
 	}
-	fmt.Printf("Downloaded file content: \n%v\n", content)
+	fmt.Printf("Downloaded file content: %#v\n", content)
 }
