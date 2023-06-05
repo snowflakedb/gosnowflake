@@ -1,4 +1,4 @@
-// Example: No connection pool
+// Example: Files transfer using PUT/GET commands
 //
 // This example shows how to transfer files to staging area, from which data can be loaded into snowflake
 // database tables. Apart from sending files to staging area using PUT command, files can also be downloaded
@@ -23,8 +23,8 @@ func getDSN() (string, *sf.Config, error) {
 		if value := os.Getenv(key); value != "" {
 			return value
 		}
-		if failOnMissing == true {
-			log.Fatalf("#{key} environment variable not set")
+		if failOnMissing {
+			log.Fatalf("%v environment variable not set", key)
 		}
 		return ""
 	}
@@ -82,14 +82,12 @@ func decompressAndRead(file *os.File) (string, error) {
 }
 
 func printRows(rows *sql.Rows) {
-	i := 1
-	for rows.Next() {
+	for i := 1; rows.Next(); i++ {
 		var col1, col2 string
 		if err := rows.Scan(&col1, &col2); err != nil {
 			log.Fatalf("error while scaning rows; err: %v", err)
 		}
 		fmt.Printf("Row %v: %v, %v\n", i, col1, col2)
-		i++
 	}
 }
 
@@ -106,16 +104,16 @@ func main() {
 	db, err := sql.Open("snowflake", dsn)
 
 	//Creating table to which the data from CSV file will be copied
-	_, err = db.Exec("CREATE OR REPLACE TABLE TEST_FILE_DATA(num integer, text varchar);")
+	_, err = db.Exec("CREATE OR REPLACE TABLE GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE(num integer, text varchar);")
 	if err != nil {
 		log.Fatalf("error while creating table; err: %v", err)
 	}
-	defer db.Close()
 
-	//Uploading data_to_upload.csv to internal stage for table TEST_FILE_DATA
+	//Uploading data_to_upload.csv to internal stage for table GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE
 	currentDir, _ := os.Getwd()
+	fmt.Printf("CurrentDir: %v\n", currentDir)
 	filePath := currentDir + "/cmd/filestransfer/data_to_upload.csv"
-	_, err = db.Exec("PUT file://" + filePath + " @%TEST_FILE_DATA;")
+	_, err = db.Exec("PUT file://" + filePath + " @%GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
 	if err != nil {
 		log.Fatalf("error while uploading file; err: %v", err)
 	}
@@ -130,22 +128,21 @@ func main() {
 	fmt.Println("Custom CSV format successfully created.")
 
 	//Loading data from files in stage area into table
-	_, err = db.Exec("COPY INTO TEST_FILE_DATA FILE_FORMAT = CUSTOM_CSV_FORMAT;")
+	_, err = db.Exec("COPY INTO GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE FILE_FORMAT = CUSTOM_CSV_FORMAT;")
 	if err != nil {
 		log.Fatalf("error while copying data into table; err: %v", err)
 	}
 	fmt.Println("Data successfully loaded into table.")
 
 	//Querying loaded data from table
-	rows, err := db.Query("SELECT * FROM TEST_FILE_DATA;")
-	defer rows.Close()
+	rows, err := db.Query("SELECT * FROM GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
 	if err != nil {
 		log.Fatalf("error while querying data from table; err: %v", err)
 	}
 	printRows(rows)
 
 	//Downloading file from stage area
-	_, err = db.Exec("GET @%TEST_FILE_DATA/data_to_upload.csv file:///tmp/;")
+	_, err = db.Exec("GET @%GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE/data_to_upload.csv file:///tmp/;")
 	if err != nil {
 		log.Fatalf("error while downloading data from internal stage area; err: %v", err)
 	}
@@ -157,8 +154,14 @@ func main() {
 		log.Fatalf("error while opening downloaded file; err: %v", err)
 	}
 	content, err := decompressAndRead(file)
-	fmt.Printf("Downloaded file content: \n%v", content)
 	if err != nil {
 		log.Fatalf("error while reading file; err: %v", err)
 	}
+	fmt.Printf("Downloaded file content: \n%v\n", content)
+
+	defer func() {
+		db.Exec("DROP TABLE IF EXISTS GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
+		rows.Close()
+		db.Close()
+	}()
 }
