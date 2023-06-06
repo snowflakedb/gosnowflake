@@ -34,9 +34,9 @@ func getDSN() (string, *sf.Config, error) {
 	user := env("SNOWFLAKE_TEST_USER", true)
 	password := env("SNOWFLAKE_TEST_PASSWORD", true)
 	database := env("SNOWFLAKE_TEST_DATABASE", true)
+	schema := env("SNOWFLAKE_TEST_SCHEMA", true)
 	warehouse := env("SNOWFLAKE_TEST_WAREHOUSE", true)
 	host := env("SNOWFLAKE_TEST_HOST", false)
-	schema := env("SNOWFLAKE_TEST_SCHEMA", true)
 	portStr := env("SNOWFLAKE_TEST_PORT", false)
 	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
 
@@ -69,12 +69,12 @@ func getDSN() (string, *sf.Config, error) {
 	return dsn, cfg, nil
 }
 
-func tmpFileWithDataToUpload() string {
+func createTmpFile(content string) string {
 	tempFile, err := os.CreateTemp("", "data_to_upload.csv")
 	if err != nil {
 		log.Fatalf("error during creating temp file; err: %v", err)
 	}
-	_, err = tempFile.Write([]byte(customFormatCsvDataToUpload))
+	_, err = tempFile.Write([]byte(content))
 	if err != nil {
 		log.Fatalf("error during writing data to temp file; err: %v", err)
 	}
@@ -99,7 +99,8 @@ func decompressAndRead(file *os.File) (string, error) {
 
 func printRows(rows *sql.Rows) {
 	for i := 1; rows.Next(); i++ {
-		var col1, col2 string
+		var col1 int
+		var col2 string
 		if err := rows.Scan(&col1, &col2); err != nil {
 			log.Fatalf("error while scaning rows; err: %v", err)
 		}
@@ -128,7 +129,7 @@ func main() {
 	defer db.Exec("DROP TABLE IF EXISTS GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
 
 	//Uploading data_to_upload.csv to internal stage for table GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE
-	tmpFilePath := tmpFileWithDataToUpload()
+	tmpFilePath := createTmpFile(customFormatCsvDataToUpload)
 	defer os.Remove(tmpFilePath)
 	_, err = db.Exec(fmt.Sprintf("PUT file://%v @%%GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;", tmpFilePath))
 	if err != nil {
