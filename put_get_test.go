@@ -394,16 +394,12 @@ func testPutGet(t *testing.T, isStream bool) {
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
+		defer dbt.mustExec("drop table " + tableName)
 		fileStream, err := os.Open(fname)
 		if err != nil {
 			t.Error(err)
 		}
-		defer func() {
-			defer dbt.mustExec("drop table " + tableName)
-			if fileStream != nil {
-				fileStream.Close()
-			}
-		}()
+		defer fileStream.Close()
 
 		var sqlText string
 		var rows *RowsExtended
@@ -475,6 +471,7 @@ func testPutGet(t *testing.T, isStream bool) {
 		if err != nil {
 			t.Error(err)
 		}
+		defer gz.Close()
 		var contents string
 		for {
 			c := make([]byte, defaultChunkBufferSize)

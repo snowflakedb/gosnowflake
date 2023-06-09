@@ -119,7 +119,6 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 }
 
 func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected int, tmpDir string) {
-	defer os.RemoveAll(tmpDir)
 	files, err := filepath.Glob(filepath.Join(tmpDir, "file*"))
 	if err != nil {
 		t.Error(err)
@@ -142,6 +141,8 @@ func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected i
 	if err != nil {
 		t.Error(err)
 	}
+	defer fd.Close()
+
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
 		cnt++
@@ -228,6 +229,8 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 					return "", err
 				}
 				w.Close()
+				fOut.Close()
+				fIn.Close()
 			}
 		}
 	}
