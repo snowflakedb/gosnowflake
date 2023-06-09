@@ -7,12 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime/pprof"
-	"strconv"
-
-	_ "net/http/pprof"
 
 	"runtime/debug"
 
@@ -23,46 +21,6 @@ var (
 	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 	memprofile = flag.String("memprofile", "", "write memory profile to this file")
 )
-
-// getDSN constructs a DSN based on the test connection parameters
-func getDSN() (string, *sf.Config, error) {
-	env := func(k string, failOnMissing bool) string {
-		if value := os.Getenv(k); value != "" {
-			return value
-		}
-		if failOnMissing {
-			log.Fatalf("%v environment variable is not set.", k)
-		}
-		return ""
-	}
-
-	account := env("SNOWFLAKE_TEST_ACCOUNT", true)
-	user := env("SNOWFLAKE_TEST_USER", true)
-	password := env("SNOWFLAKE_TEST_PASSWORD", true)
-	host := env("SNOWFLAKE_TEST_HOST", false)
-	portStr := env("SNOWFLAKE_TEST_PORT", false)
-	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
-
-	port := 443 // snowflake default port
-	var err error
-	if len(portStr) > 0 {
-		port, err = strconv.Atoi(portStr)
-		if err != nil {
-			return "", nil, err
-		}
-	}
-	cfg := &sf.Config{
-		Account:  account,
-		User:     user,
-		Password: password,
-		Host:     host,
-		Port:     port,
-		Protocol: protocol,
-	}
-
-	dsn, err := sf.DSN(cfg)
-	return dsn, cfg, err
-}
 
 // run is an actual main
 func run(dsn string) {
@@ -128,7 +86,18 @@ func main() {
 		flag.Parse()
 	}
 
-	dsn, cfg, err := getDSN()
+	cfg, err := sf.GetConfigFromEnv([]sf.ConfigParam{
+		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
+		{"User", "SNOWFLAKE_TEST_USER", true},
+		{"Password", "SNOWFLAKE_TEST_PASSWORD", true},
+		{"Host", "SNOWFLAKE_TEST_HOST", false},
+		{"Port", "SNOWFLAKE_TEST_PORT", false},
+		{"Protocol", "SNOWFLAKE_TEST_PROTOCOL", false},
+	})
+	if err != nil {
+		log.Fatalf("failed to create Config, err: %v", err)
+	}
+	dsn, err := sf.DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
