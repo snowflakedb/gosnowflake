@@ -48,7 +48,7 @@ func runLargeResultSet() {
 		}
 	}()
 
-	cfg, err := sf.GetConfigFromEnv([]sf.ConfigParam{
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
 		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
 		{"User", "SNOWFLAKE_TEST_USER", true},
 		{"Password", "SNOWFLAKE_TEST_PASSWORD", true},

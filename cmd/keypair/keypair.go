@@ -17,7 +17,7 @@ func main() {
 		flag.Parse()
 	}
 
-	cfg, err := sf.GetConfigFromEnv([]sf.ConfigParam{
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
 		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
 		{"User", "SNOWFLAKE_TEST_USER", true},
 		{"Host", "SNOWFLAKE_TEST_HOST", false},

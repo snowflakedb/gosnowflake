@@ -4,11 +4,15 @@ package gosnowflake
 
 import (
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -664,4 +668,111 @@ func parseTimeout(value string) (time.Duration, error) {
 		return time.Duration(0), err
 	}
 	return time.Duration(vv * int64(time.Second)), nil
+}
+
+type ConfigParam struct {
+	Name          string
+	EnvString     string
+	FailOnMissing bool
+}
+
+func GetFromEnv(name string, failOnMissing bool) (string, error) {
+	if value := os.Getenv(name); value != "" {
+		return value, nil
+	}
+	if failOnMissing {
+		return "", errors.New(fmt.Sprintf("%v environment variable is not set.", name))
+	}
+	return "", nil
+}
+
+func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
+	var account, user, password, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
+	var privateKey *rsa.PrivateKey
+	var err error
+	if len(properties) == 0 || properties == nil {
+		return nil, errors.New("missing configuration parameters for the connection")
+	} else {
+		for _, p := range properties {
+			value, err := GetFromEnv(p.EnvString, p.FailOnMissing)
+			if err != nil {
+				return nil, err
+			}
+			switch p.Name {
+			case "Account":
+				account = value
+			case "User":
+				user = value
+			case "Password":
+				password = value
+			case "Role":
+				role = value
+			case "Host":
+				host = value
+			case "Port":
+				portStr = value
+			case "Protocol":
+				protocol = value
+			case "Warehouse":
+				warehouse = value
+			case "Database":
+				database = value
+			case "Region":
+				region = value
+			case "Passcode":
+				passcode = value
+			case "Schema":
+				schema = value
+			case "Application":
+				application = value
+			case "PrivateKey":
+				privateKey, err = parsePrivateKeyFromFile(value)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	port := 443 // snowflake default port
+	if len(portStr) > 0 {
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	cfg := &Config{
+		Account:     account,
+		User:        user,
+		Password:    password,
+		Role:        role,
+		Host:        host,
+		Port:        port,
+		Protocol:    protocol,
+		Warehouse:   warehouse,
+		Database:    database,
+		Schema:      schema,
+		PrivateKey:  privateKey,
+		Region:      region,
+		Passcode:    passcode,
+		Application: application,
+	}
+	return cfg, nil
+}
+
+func parsePrivateKeyFromFile(path string) (*rsa.PrivateKey, error) {
+	bytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(bytes)
+	if block == nil {
+		return nil, errors.New("failed to parse PEM block containing the private key")
+	}
+	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return privateKey.(*rsa.PrivateKey), nil
 }

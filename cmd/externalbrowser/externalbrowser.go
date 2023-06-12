@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	sf "github.com/snowflakedb/gosnowflake"
 	"log"
+
+	sf "github.com/snowflakedb/gosnowflake"
 )
 
 // A simple test program for authenticating with an external browser.
@@ -15,7 +16,7 @@ func main() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
-	cfg, err := sf.GetConfigFromEnv([]sf.ConfigParam{
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
 		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
 		{"User", "SNOWFLAKE_TEST_USER", true},
 		{"Host", "SNOWFLAKE_TEST_HOST", false},

@@ -49,8 +49,9 @@ func runJSONResultSet() {
 		case <-ctx.Done():
 		}
 	}()
-	setCustomConfig()
-	cfg, err := sf.GetConfigFromEnv([]sf.ConfigParam{
+	setCustomJsonDecoder()
+	setMaxChunkDownloadWorkers()
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
 		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
 		{"User", "SNOWFLAKE_TEST_USER", true},
 		{"Password", "SNOWFLAKE_TEST_PASSWORD", true},
@@ -93,21 +94,24 @@ func runJSONResultSet() {
 	}
 }
 
-func setCustomConfig() {
-	customJsonDecoderEnabled, err := sf.GetFromEnv("SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLED", true)
+func setMaxChunkDownloadWorkers() {
+	maxChunkDownloadWorkersStr, err := sf.GetFromEnv("SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS", false)
 	if err != nil {
 		log.Fatal(err)
 	}
-	sf.CustomJSONDecoderEnabled = strings.EqualFold("true", customJsonDecoderEnabled)
-	maxChunkDownloadWorkers, err := sf.GetFromEnv("SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS", false)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if maxChunkDownloadWorkers != "" {
-		n0, err := strconv.Atoi(maxChunkDownloadWorkers)
+	if maxChunkDownloadWorkersStr != "" {
+		maxChunkDownloadWorkers, err := strconv.Atoi(maxChunkDownloadWorkersStr)
 		if err != nil {
 			log.Fatalf("invalid value for SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS: %v", maxChunkDownloadWorkers)
 		}
-		sf.MaxChunkDownloadWorkers = n0
+		sf.MaxChunkDownloadWorkers = maxChunkDownloadWorkers
 	}
+}
+
+func setCustomJsonDecoder() {
+	customJsonDecoderEnabledStr, err := sf.GetFromEnv("SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLED", true)
+	if err != nil {
+		log.Fatal(err)
+	}
+	sf.CustomJSONDecoderEnabled = strings.EqualFold("true", customJsonDecoderEnabledStr)
 }
