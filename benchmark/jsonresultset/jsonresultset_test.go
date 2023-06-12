@@ -49,16 +49,16 @@ func runJSONResultSet() {
 		case <-ctx.Done():
 		}
 	}()
-	setCustomJsonDecoder()
+	setCustomJSONDecoder()
 	setMaxChunkDownloadWorkers()
 	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
-		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
-		{"User", "SNOWFLAKE_TEST_USER", true},
-		{"Password", "SNOWFLAKE_TEST_PASSWORD", true},
-		{"Role", "SNOWFLAKE_TEST_ROLE", false},
-		{"Host", "SNOWFLAKE_TEST_HOST", false},
-		{"Port", "SNOWFLAKE_TEST_PORT", false},
-		{"Protocol", "SNOWFLAKE_TEST_PROTOCOL", false},
+		{Name: "Account", EnvString: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
+		{Name: "User", EnvString: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
+		{Name: "Password", EnvString: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
+		{Name: "Role", EnvString: "SNOWFLAKE_TEST_ROLE", FailOnMissing: false},
+		{Name: "Host", EnvString: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
+		{Name: "Port", EnvString: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
+		{Name: "Protocol", EnvString: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
 	})
 	if err != nil {
 		log.Fatalf("failed to create Config, err: %v", err)
@@ -108,10 +108,10 @@ func setMaxChunkDownloadWorkers() {
 	}
 }
 
-func setCustomJsonDecoder() {
-	customJsonDecoderEnabledStr, err := sf.GetFromEnv("SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLED", true)
+func setCustomJSONDecoder() {
+	customJSONDecoderEnabledStr, err := sf.GetFromEnv("SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLED", true)
 	if err != nil {
 		log.Fatal(err)
 	}
-	sf.CustomJSONDecoderEnabled = strings.EqualFold("true", customJsonDecoderEnabledStr)
+	sf.CustomJSONDecoderEnabled = strings.EqualFold("true", customJSONDecoderEnabledStr)
 }

@@ -670,12 +670,14 @@ func parseTimeout(value string) (time.Duration, error) {
 	return time.Duration(vv * int64(time.Second)), nil
 }
 
+// ConfigParam is used to bind the name of the Config field with the environment variable and set the requirement for it
 type ConfigParam struct {
 	Name          string
 	EnvString     string
 	FailOnMissing bool
 }
 
+// GetFromEnv is used to get the value of an environment variable from the system
 func GetFromEnv(name string, failOnMissing bool) (string, error) {
 	if value := os.Getenv(name); value != "" {
 		return value, nil
@@ -686,50 +688,50 @@ func GetFromEnv(name string, failOnMissing bool) (string, error) {
 	return "", nil
 }
 
+// GetConfigFromEnv is used to parse the environment variable values to specific fields of the Config
 func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 	var account, user, password, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
 	var privateKey *rsa.PrivateKey
 	var err error
 	if len(properties) == 0 || properties == nil {
 		return nil, errors.New("missing configuration parameters for the connection")
-	} else {
-		for _, p := range properties {
-			value, err := GetFromEnv(p.EnvString, p.FailOnMissing)
+	}
+	for _, p := range properties {
+		value, err := GetFromEnv(p.EnvString, p.FailOnMissing)
+		if err != nil {
+			return nil, err
+		}
+		switch p.Name {
+		case "Account":
+			account = value
+		case "User":
+			user = value
+		case "Password":
+			password = value
+		case "Role":
+			role = value
+		case "Host":
+			host = value
+		case "Port":
+			portStr = value
+		case "Protocol":
+			protocol = value
+		case "Warehouse":
+			warehouse = value
+		case "Database":
+			database = value
+		case "Region":
+			region = value
+		case "Passcode":
+			passcode = value
+		case "Schema":
+			schema = value
+		case "Application":
+			application = value
+		case "PrivateKey":
+			privateKey, err = parsePrivateKeyFromFile(value)
 			if err != nil {
 				return nil, err
-			}
-			switch p.Name {
-			case "Account":
-				account = value
-			case "User":
-				user = value
-			case "Password":
-				password = value
-			case "Role":
-				role = value
-			case "Host":
-				host = value
-			case "Port":
-				portStr = value
-			case "Protocol":
-				protocol = value
-			case "Warehouse":
-				warehouse = value
-			case "Database":
-				database = value
-			case "Region":
-				region = value
-			case "Passcode":
-				passcode = value
-			case "Schema":
-				schema = value
-			case "Application":
-				application = value
-			case "PrivateKey":
-				privateKey, err = parsePrivateKeyFromFile(value)
-				if err != nil {
-					return nil, err
-				}
 			}
 		}
 	}

@@ -18,12 +18,12 @@ func main() {
 	}
 
 	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
-		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
-		{"User", "SNOWFLAKE_TEST_USER", true},
-		{"Host", "SNOWFLAKE_TEST_HOST", false},
-		{"Port", "SNOWFLAKE_TEST_PORT", false},
-		{"Protocol", "SNOWFLAKE_TEST_PROTOCOL", false},
-		{"PrivateKey", "SNOWFLAKE_TEST_PRIVATE_KEY", true},
+		{Name: "Account", EnvString: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
+		{Name: "User", EnvString: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
+		{Name: "Host", EnvString: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
+		{Name: "Port", EnvString: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
+		{Name: "Protocol", EnvString: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
+		{Name: "PrivateKey", EnvString: "SNOWFLAKE_TEST_PRIVATE_KEY", FailOnMissing: true},
 	})
 	if err != nil {
 		log.Fatalf("failed to create Config, err: %v", err)
