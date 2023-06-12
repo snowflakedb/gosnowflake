@@ -681,7 +681,7 @@ func GetFromEnv(name string, failOnMissing bool) (string, error) {
 		return value, nil
 	}
 	if failOnMissing {
-		return "", errors.New(fmt.Sprintf("%v environment variable is not set.", name))
+		return "", fmt.Errorf("%v environment variable is not set", name)
 	}
 	return "", nil
 }
