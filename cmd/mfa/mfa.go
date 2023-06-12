@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	sf "github.com/snowflakedb/gosnowflake"
 	"log"
+
+	sf "github.com/snowflakedb/gosnowflake"
 )
 
 func main() {

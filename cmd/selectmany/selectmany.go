@@ -10,9 +10,8 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime/pprof"
-
 	"runtime/debug"
+	"runtime/pprof"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
