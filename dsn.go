@@ -677,17 +677,6 @@ type ConfigParam struct {
 	FailOnMissing bool
 }
 
-// GetFromEnv is used to get the value of an environment variable from the system
-func GetFromEnv(name string, failOnMissing bool) (string, error) {
-	if value := os.Getenv(name); value != "" {
-		return value, nil
-	}
-	if failOnMissing {
-		return "", fmt.Errorf("%v environment variable is not set", name)
-	}
-	return "", nil
-}
-
 // GetConfigFromEnv is used to parse the environment variable values to specific fields of the Config
 func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 	var account, user, password, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string

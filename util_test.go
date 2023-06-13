@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"math/rand"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -308,5 +309,25 @@ func TestEscapeForCSV(t *testing.T) {
 		if test.out != result {
 			t.Errorf("Failed to escape string, input %v, expected: %v, got: %v", test.in, test.out, result)
 		}
+	}
+}
+
+func TestGetFromEnv(t *testing.T) {
+	os.Setenv("SF_TEST", "test")
+	defer os.Unsetenv("SF_TEST")
+	result, err := GetFromEnv("SF_TEST", true)
+
+	if err != nil {
+		t.Error("failed to read SF_TEST environment variable")
+	}
+	if result != "test" {
+		t.Errorf("incorrect value read for SF_TEST. Expected: test, read %v", result)
+	}
+}
+
+func TestGetFromEnvFailOnMissing(t *testing.T) {
+	_, err := GetFromEnv("SF_TEST_MISSING", true)
+	if err == nil {
+		t.Error("should report error when there is missing env parameter")
 	}
 }
