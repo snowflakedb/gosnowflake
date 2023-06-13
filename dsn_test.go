@@ -7,12 +7,12 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -941,7 +941,7 @@ func TestGetFromEnv(t *testing.T) {
 		t.Error("failed to read SF_TEST environment variable")
 	}
 	if result != "test" {
-		t.Errorf("Incorrect value read for SF_TEST. Expected: test, read %v", result)
+		t.Errorf("incorrect value read for SF_TEST. Expected: test, read %v", result)
 	}
 }
 
@@ -974,7 +974,6 @@ func TestGetConfigFromEnv(t *testing.T) {
 		"SF_TEST_APPLICATION": {"Application", "application"},
 	}
 	var properties = make([]*ConfigParam, len(envMap))
-	//TODO: Do not use append - directly add the param to the map
 	i := 0
 	for key, ctv := range envMap {
 		os.Setenv(key, ctv.value)
@@ -1000,27 +999,31 @@ func TestGetConfigFromEnv(t *testing.T) {
 }
 
 func checkConfig(cfg Config, envMap map[string]configParamToValue) error {
-	v := reflect.ValueOf(cfg)
-	typeOfCfg := v.Type()
-	cfgValues := make(map[string]interface{}, v.NumField())
-	for i := 0; i < v.NumField(); i++ {
-		cfgValues[typeOfCfg.Field(i).Name] = v.Field(i).Interface()
+	appendError := func(errArray []string, envName string, expected string, received string) []string {
+		errArray = append(errArray, fmt.Sprintf("field %v expected value: %v, received value: %v", envName, expected, received))
+		return errArray
 	}
 
-	var errorsStr string
-	for k, ctv := range envMap {
+	value := reflect.ValueOf(cfg)
+	typeOfCfg := value.Type()
+	cfgValues := make(map[string]interface{}, value.NumField())
+	for i := 0; i < value.NumField(); i++ {
+		cfgValues[typeOfCfg.Field(i).Name] = value.Field(i).Interface()
+	}
+
+	var errArray []string
+	for key, ctv := range envMap {
 		if ctv.configParam == "Port" {
-			portStr := strconv.Itoa(cfgValues[ctv.configParam].(int))
-			if portStr != ctv.value {
-				errorsStr = errorsStr + fmt.Sprintf("Field %v expected value: %v, received value %v\n", k, ctv.value, cfgValues[ctv.configParam])
+			if portStr := strconv.Itoa(cfgValues[ctv.configParam].(int)); portStr != ctv.value {
+				errArray = appendError(errArray, key, ctv.value, cfgValues[ctv.configParam].(string))
 			}
 		} else if cfgValues[ctv.configParam] != ctv.value {
-			errorsStr = errorsStr + fmt.Sprintf("Field %v expected value: %v, received value %v\n", k, ctv.value, cfgValues[ctv.configParam])
+			errArray = appendError(errArray, key, ctv.value, cfgValues[ctv.configParam].(string))
 		}
 	}
 
-	if errorsStr != "" {
-		return errors.New(errorsStr)
+	if errArray != nil {
+		return fmt.Errorf(strings.Join(errArray, "\n"))
 	}
 
 	return nil

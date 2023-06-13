@@ -673,7 +673,7 @@ func parseTimeout(value string) (time.Duration, error) {
 // ConfigParam is used to bind the name of the Config field with the environment variable and set the requirement for it
 type ConfigParam struct {
 	Name          string
-	EnvString     string
+	EnvName       string
 	FailOnMissing bool
 }
 
@@ -696,12 +696,12 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 	if len(properties) == 0 || properties == nil {
 		return nil, errors.New("missing configuration parameters for the connection")
 	}
-	for _, p := range properties {
-		value, err := GetFromEnv(p.EnvString, p.FailOnMissing)
+	for _, prop := range properties {
+		value, err := GetFromEnv(prop.EnvName, prop.FailOnMissing)
 		if err != nil {
 			return nil, err
 		}
-		switch p.Name {
+		switch prop.Name {
 		case "Account":
 			account = value
 		case "User":
