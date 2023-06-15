@@ -28,7 +28,7 @@ func main() {
 	}
 	tmfmt := "MM-DD-YYYY"
 	cfg.Params = map[string]*string{
-		"TIMESTAMP_OUTPUT_FORMAT": &tmfmt,
+		"TIMESTAMP_OUTPUT_FORMAT": &tmfmt, // session parameter
 	}
 	dsn, err := sf.DSN(cfg)
 	if err != nil {
