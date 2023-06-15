@@ -6,12 +6,13 @@ import (
 	"database/sql/driver"
 	"flag"
 	"fmt"
-	sf "github.com/snowflakedb/gosnowflake"
 	"io"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+
+	sf "github.com/snowflakedb/gosnowflake"
 )
 
 func getDSN() (string, *sf.Config, error) {

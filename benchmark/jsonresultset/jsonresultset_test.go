@@ -7,6 +7,8 @@ import (
 	"log"
 	_ "net/http/pprof"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 
 	"database/sql"
@@ -15,9 +17,6 @@ import (
 	"os/signal"
 
 	"runtime/debug"
-
-	"strconv"
-	"strings"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -28,58 +27,6 @@ func TestJsonResultSet(t *testing.T) {
 
 func BenchmarkJsonResultSet(*testing.B) {
 	runJSONResultSet()
-}
-
-// getDSN constructs a DSN based on the test connection parameters
-func getDSN() (dsn string, cfg *sf.Config, err error) {
-	env := func(k string, failOnMissing bool) string {
-		if value := os.Getenv(k); value != "" {
-			return value
-		}
-		if failOnMissing {
-			log.Fatalf("%v environment variable is not set.", k)
-		}
-		return ""
-	}
-
-	account := env("SNOWFLAKE_TEST_ACCOUNT", true)
-	user := env("SNOWFLAKE_TEST_USER", true)
-	password := env("SNOWFLAKE_TEST_PASSWORD", true)
-	host := env("SNOWFLAKE_TEST_HOST", false)
-	port := env("SNOWFLAKE_TEST_PORT", false)
-	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
-	role := env("SNOWFLAKE_TEST_ROLE", false)
-
-	// Use the customer JSON Decoder
-	s := env("SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLED", true)
-	sf.CustomJSONDecoderEnabled = strings.EqualFold("true", s)
-
-	// Set the maximum chunk download workers
-	n := env("SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS", false)
-	if n != "" {
-		n0, err := strconv.Atoi(n)
-		if err != nil {
-			log.Fatalf("invalid value for SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS: %v", n)
-		}
-		sf.MaxChunkDownloadWorkers = n0
-	}
-
-	portStr, err := strconv.Atoi(port)
-	if err != nil {
-		return "", nil, err
-	}
-	cfg = &sf.Config{
-		Account:  account,
-		User:     user,
-		Password: password,
-		Host:     host,
-		Role:     role,
-		Port:     portStr,
-		Protocol: protocol,
-	}
-
-	dsn, err = sf.DSN(cfg)
-	return dsn, cfg, err
 }
 
 func runJSONResultSet() {
@@ -102,8 +49,21 @@ func runJSONResultSet() {
 		case <-ctx.Done():
 		}
 	}()
-
-	dsn, cfg, err := getDSN()
+	setCustomJSONDecoder()
+	setMaxChunkDownloadWorkers()
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
+		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
+		{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
+		{Name: "Password", EnvName: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
+		{Name: "Role", EnvName: "SNOWFLAKE_TEST_ROLE", FailOnMissing: false},
+		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
+		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
+		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
+	})
+	if err != nil {
+		log.Fatalf("failed to create Config, err: %v", err)
+	}
+	dsn, err := sf.DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
@@ -132,4 +92,26 @@ func runJSONResultSet() {
 		}
 		counter++
 	}
+}
+
+func setMaxChunkDownloadWorkers() {
+	maxChunkDownloadWorkersStr, err := sf.GetFromEnv("SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS", false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if maxChunkDownloadWorkersStr != "" {
+		maxChunkDownloadWorkers, err := strconv.Atoi(maxChunkDownloadWorkersStr)
+		if err != nil {
+			log.Fatalf("invalid value for SNOWFLAKE_TEST_MAX_CHUNK_DOWNLOAD_WORKERS: %v", maxChunkDownloadWorkers)
+		}
+		sf.MaxChunkDownloadWorkers = maxChunkDownloadWorkers
+	}
+}
+
+func setCustomJSONDecoder() {
+	customJSONDecoderEnabledStr, err := sf.GetFromEnv("SNOWFLAKE_TEST_CUSTOME_JSON_DECODER_ENABLED", true)
+	if err != nil {
+		log.Fatal(err)
+	}
+	sf.CustomJSONDecoderEnabled = strings.EqualFold("true", customJSONDecoderEnabledStr)
 }

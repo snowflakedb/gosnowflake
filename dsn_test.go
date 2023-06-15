@@ -3,9 +3,16 @@
 package gosnowflake
 
 import (
+	cr "crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net/url"
+	"os"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -878,4 +885,126 @@ func TestDSN(t *testing.T) {
 			continue
 		}
 	}
+}
+
+func TestParsePrivateKeyFromFileMissingFile(t *testing.T) {
+	_, err := parsePrivateKeyFromFile("nonexistent")
+
+	if err == nil {
+		t.Error("should report error for nonexistent file")
+	}
+}
+
+func TestParsePrivateKeyFromFileIncorrectData(t *testing.T) {
+	pemFile := createTmpFile("exampleKey.pem", []byte("gibberish"))
+	_, err := parsePrivateKeyFromFile(pemFile)
+
+	if err == nil {
+		t.Error("should report error for wrong data in file")
+	}
+}
+
+func TestParsePrivateKeyFromFile(t *testing.T) {
+	generatedKey, _ := rsa.GenerateKey(cr.Reader, 1024)
+	pemKey, _ := x509.MarshalPKCS8PrivateKey(generatedKey)
+	pemData := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: pemKey,
+		},
+	)
+	keyFile := createTmpFile("exampleKey.pem", pemData)
+	defer os.Remove(keyFile)
+
+	parsedKey, err := parsePrivateKeyFromFile(keyFile)
+	if err != nil {
+		t.Errorf("unable to parse pam file from path: %v, err: %v", keyFile, err)
+	} else if !parsedKey.Equal(generatedKey) {
+		t.Errorf("generated key does not equal to parsed key from file\ngeneratedKey=%v\nparsedKey=%v",
+			generatedKey, parsedKey)
+	}
+}
+
+func createTmpFile(fileName string, content []byte) string {
+	tempFile, _ := os.CreateTemp("", fileName)
+	tempFile.Write(content)
+	absolutePath := tempFile.Name()
+	return absolutePath
+}
+
+type configParamToValue struct {
+	configParam string
+	value       string
+}
+
+func TestGetConfigFromEnv(t *testing.T) {
+	envMap := map[string]configParamToValue{
+		"SF_TEST_ACCOUNT":     {"Account", "account"},
+		"SF_TEST_USER":        {"User", "user"},
+		"SF_TEST_PASSWORD":    {"Password", "password"},
+		"SF_TEST_ROLE":        {"Role", "role"},
+		"SF_TEST_HOST":        {"Host", "host"},
+		"SF_TEST_PORT":        {"Port", "8080"},
+		"SF_TEST_PROTOCOL":    {"Protocol", "http"},
+		"SF_TEST_WAREHOUSE":   {"Warehouse", "warehouse"},
+		"SF_TEST_DATABASE":    {"Database", "database"},
+		"SF_TEST_REGION":      {"Region", "region"},
+		"SF_TEST_PASSCODE":    {"Passcode", "passcode"},
+		"SF_TEST_SCHEMA":      {"Schema", "schema"},
+		"SF_TEST_APPLICATION": {"Application", "application"},
+	}
+	var properties = make([]*ConfigParam, len(envMap))
+	i := 0
+	for key, ctv := range envMap {
+		os.Setenv(key, ctv.value)
+		cfgParam := ConfigParam{ctv.configParam, key, true}
+		properties[i] = &cfgParam
+		i++
+	}
+	defer func() {
+		for key := range envMap {
+			os.Unsetenv(key)
+		}
+	}()
+
+	cfg, err := GetConfigFromEnv(properties)
+	if err != nil {
+		t.Errorf("unable to parse env variables to Config, err: %v", err)
+	}
+
+	err = checkConfig(*cfg, envMap)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func checkConfig(cfg Config, envMap map[string]configParamToValue) error {
+	appendError := func(errArray []string, envName string, expected string, received string) []string {
+		errArray = append(errArray, fmt.Sprintf("field %v expected value: %v, received value: %v", envName, expected, received))
+		return errArray
+	}
+
+	value := reflect.ValueOf(cfg)
+	typeOfCfg := value.Type()
+	cfgValues := make(map[string]interface{}, value.NumField())
+	for i := 0; i < value.NumField(); i++ {
+		cfgValues[typeOfCfg.Field(i).Name] = value.Field(i).Interface()
+	}
+
+	var errArray []string
+	for key, ctv := range envMap {
+		if ctv.configParam == "Port" {
+			if portStr := strconv.Itoa(cfgValues[ctv.configParam].(int)); portStr != ctv.value {
+				errArray = appendError(errArray, key, ctv.value, cfgValues[ctv.configParam].(string))
+			}
+		} else if cfgValues[ctv.configParam] != ctv.value {
+			errArray = appendError(errArray, key, ctv.value, cfgValues[ctv.configParam].(string))
+		}
+	}
+
+	if errArray != nil {
+		return fmt.Errorf(strings.Join(errArray, "\n"))
+	}
+
+	return nil
 }
