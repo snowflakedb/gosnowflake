@@ -209,7 +209,7 @@ func (sc *snowflakeConn) Close() (err error) {
 	sc.stopHeartBeat()
 	defer sc.cleanup()
 
-	if !sc.cfg.KeepSessionAlive {
+	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
 		if err = sc.rest.FuncCloseSession(sc.ctx, sc.rest, sc.rest.RequestTimeout); err != nil {
 			logger.Error(err)
 		}
