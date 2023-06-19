@@ -748,6 +748,9 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 
 			retryMeta := make([]*fileMetadata, 0)
 			for i, result := range results {
+				if result == nil {
+					return fmt.Errorf("err during upload: %v", errors[i])
+				}
 				result.errorDetails = errors[i]
 				if result.resStatus == renewToken || result.resStatus == renewPresignedURL {
 					retryMeta = append(retryMeta, result)
