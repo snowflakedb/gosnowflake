@@ -44,7 +44,7 @@ func TestPutError(t *testing.T) {
 	defer f.Close()
 	f.WriteString("test1")
 	os.Chmod(file1, 0000)
-	defer os.Chmod(file1, 0777)
+	defer os.Chmod(file1, 0644)
 
 	data := &execResponseData{
 		Command:           string(uploadCommand),
