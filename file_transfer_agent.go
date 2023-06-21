@@ -746,11 +746,21 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 			}
 			wg.Wait()
 
-			retryMeta := make([]*fileMetadata, 0)
+			// append errors with no result associated to separate table
+			var errorMessages []string
 			for i, result := range results {
 				if result == nil {
-					return fmt.Errorf("err during upload: %v", errors[i])
+					errorMessages = append(errorMessages, errors[i].Error())
 				}
+			}
+			if errorMessages != nil {
+				// sort the error messages to be more deterministic as the goroutines may finish in different order each time
+				sort.Strings(errorMessages)
+				return fmt.Errorf("errors during file upload:\n%v", strings.Join(errorMessages, "\n"))
+			}
+
+			retryMeta := make([]*fileMetadata, 0)
+			for i, result := range results {
 				result.errorDetails = errors[i]
 				if result.resStatus == renewToken || result.resStatus == renewPresignedURL {
 					retryMeta = append(retryMeta, result)

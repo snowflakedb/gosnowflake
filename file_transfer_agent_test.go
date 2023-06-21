@@ -556,8 +556,13 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 	}
 
 	// Make sure that the test uses read only directory
+	originalTmpDir, envPresent := os.LookupEnv("TMPDIR")
 	os.Setenv("TMPDIR", roPath)
-	defer os.Unsetenv("TMPDIR")
+	if envPresent {
+		defer os.Setenv("TMPDIR", originalTmpDir)
+	} else {
+		defer os.Unsetenv("TMPDIR")
+	}
 
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
@@ -589,7 +594,7 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 	if err == nil {
 		t.Fatal("should error when the filesystem is read only")
 	}
-	if !strings.Contains(err.Error(), "err during upload: mkdir") {
+	if !strings.Contains(err.Error(), "errors during file upload:\nmkdir") {
 		t.Fatalf("should error when creating the temporary directory. Instead errored with: %v", err)
 	}
 }
