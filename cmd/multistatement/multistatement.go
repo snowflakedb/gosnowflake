@@ -67,7 +67,7 @@ func printSelectDemo(db *sql.DB) {
 
 	defer result.Close()
 
-	for result.NextResultSet() {
+	for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = result.NextResultSet() {
 		for result.Next() {
 			var str string
 			var int int
