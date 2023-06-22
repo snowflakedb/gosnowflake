@@ -597,7 +597,7 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 		fileMetadata:      []*fileMetadata{&uploadMeta},
 	}
 
-	// Enable parallel transfer
+	// Set max parallel uploads to 1
 	sfa.parallel = 1
 
 	err = sfa.uploadFilesParallel([]*fileMetadata{&uploadMeta})
