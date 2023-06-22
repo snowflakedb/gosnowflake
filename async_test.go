@@ -136,3 +136,38 @@ func retrieveRows(rows *RowsExtended, ch chan string) {
 	ch <- s
 	close(ch)
 }
+
+func TestLongRunningAsyncQuery(t *testing.T) {
+	db := openDB(t)
+	defer db.Close()
+
+	ctx, _ := WithMultiStatement(context.Background(), 0)
+	query := "CALL SYSTEM$WAIT(50, 'SECONDS');use snowflake_sample_data"
+
+	rows, err := db.QueryContext(WithAsyncMode(ctx), query)
+	if err != nil {
+		t.Fatalf("failed to run a query. %v, err: %v", query, err)
+	}
+	defer rows.Close()
+	var v string
+	i := 0
+	for {
+		for rows.Next() {
+			err := rows.Scan(&v)
+			if err != nil {
+				t.Fatalf("failed to get result. err: %v", err)
+			}
+			if v == "" {
+				t.Fatal("should have returned a result")
+			}
+			results := []string{"waited 50 seconds", "Statement executed successfully."}
+			if v != results[i] {
+				t.Fatalf("unexpected result returned. expected: %v, but got: %v", results[i], v)
+			}
+			i++
+		}
+		if !rows.NextResultSet() {
+			break
+		}
+	}
+}
