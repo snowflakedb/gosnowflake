@@ -557,21 +557,9 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 
 	// Make sure that the test uses read only directory
 	if isWindows {
-		originalTmpDir, envPresent := os.LookupEnv("TEMP")
-		os.Setenv("TEMP", roPath)
-		if envPresent {
-			defer os.Setenv("TEMP", originalTmpDir)
-		} else {
-			defer os.Unsetenv("TEMP")
-		}
+		t.Setenv("TEMP", roPath)
 	} else {
-		originalTmpDir, envPresent := os.LookupEnv("TMPDIR")
-		os.Setenv("TMPDIR", roPath)
-		if envPresent {
-			defer os.Setenv("TMPDIR", originalTmpDir)
-		} else {
-			defer os.Unsetenv("TMPDIR")
-		}
+		t.Setenv("TMPDIR", roPath)
 	}
 
 	uploadMeta := fileMetadata{
