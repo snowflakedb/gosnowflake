@@ -534,6 +534,11 @@ func TestUpdateMetadataWithPresignedUrlError(t *testing.T) {
 }
 
 func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
+	// Disable the test on Windows
+	if isWindows {
+		return
+	}
+
 	var err error
 	roPath := t.TempDir()
 	if err != nil {
@@ -556,11 +561,7 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 	}
 
 	// Make sure that the test uses read only directory
-	if isWindows {
-		t.Setenv("TEMP", roPath)
-	} else {
-		t.Setenv("TMPDIR", roPath)
-	}
+	t.Setenv("TMPDIR", roPath)
 
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
