@@ -746,7 +746,7 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 			}
 			wg.Wait()
 
-			// append errors with no result associated to separate table
+			// append errors with no result associated to separate array
 			var errorMessages []string
 			for i, result := range results {
 				if result == nil {
