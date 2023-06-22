@@ -750,7 +750,11 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 			var errorMessages []string
 			for i, result := range results {
 				if result == nil {
-					errorMessages = append(errorMessages, errors[i].Error())
+					if errors[i] == nil {
+						errorMessages = append(errorMessages, "unknown error")
+					} else {
+						errorMessages = append(errorMessages, errors[i].Error())
+					}
 				}
 			}
 			if errorMessages != nil {
