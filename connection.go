@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -398,6 +399,11 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 // CheckNamedValue determines which types are handled by this driver aside from
 // the instances captured by driver.Value
 func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
+	switch reflect.TypeOf(nv.Value) {
+	case reflect.TypeOf(sql.NullString{}), reflect.TypeOf(sql.NullInt64{}),
+		reflect.TypeOf(sql.NullBool{}), reflect.TypeOf(sql.NullFloat64{}):
+		return nil
+	}
 	if supported := supportedArrayBind(nv); !supported {
 		return driver.ErrSkip
 	}

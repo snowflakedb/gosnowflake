@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
@@ -58,13 +59,13 @@ func isInterfaceArrayBinding(t interface{}) bool {
 // goTypeToSnowflake translates Go data type to Snowflake data type.
 func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 	switch t := v.(type) {
-	case int64:
+	case int64, sql.NullInt64:
 		return fixedType
-	case float64:
+	case float64, sql.NullFloat64:
 		return realType
-	case bool:
+	case bool, sql.NullBool:
 		return booleanType
-	case string:
+	case string, sql.NullString:
 		return textType
 	case []byte:
 		if tsmode == binaryType {
@@ -170,6 +171,33 @@ func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 				s := fmt.Sprintf("%v %v", tm.UnixNano(), offset/60+1440)
 				return &s, nil
 			}
+		}
+		if ns, ok := v.(sql.NullString); ok {
+			if !ns.Valid {
+				return nil, nil
+			}
+			return &ns.String, nil
+		}
+		if ns, ok := v.(sql.NullInt64); ok {
+			if !ns.Valid {
+				return nil, nil
+			}
+			s := strconv.FormatInt(ns.Int64, 10)
+			return &s, nil
+		}
+		if ns, ok := v.(sql.NullFloat64); ok {
+			if !ns.Valid {
+				return nil, nil
+			}
+			s := strconv.FormatFloat(ns.Float64, 'g', -1, 32)
+			return &s, nil
+		}
+		if ns, ok := v.(sql.NullBool); ok {
+			if !ns.Valid {
+				return nil, nil
+			}
+			s := strconv.FormatBool(ns.Bool)
+			return &s, nil
 		}
 	}
 	return nil, fmt.Errorf("unsupported type: %v", v1.Kind())

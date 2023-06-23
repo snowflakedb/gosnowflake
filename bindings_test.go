@@ -861,3 +861,42 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 		dbt.mustExec("DROP TABLE binding_test")
 	})
 }
+
+func TestFunctionNullSelect(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec(`
+		CREATE OR REPLACE FUNCTION NULLPARAMFUNCTION("param1" text, "param2" number, "param3" double)
+		RETURNS TABLE ("res1" text, "res2" number, "res3" double)
+		LANGUAGE SQL
+		AS 'select param1, param2, param3';
+		`)
+		if rows, err := dbt.db.Query("select * from table(NULLPARAMFUNCTION(?, ?, ?))", sql.NullString{}, sql.NullInt64{}, sql.NullFloat64{}); err != nil {
+			t.Fatal(err)
+		} else {
+			if rows.Err() != nil {
+				t.Fatal(err)
+			} else {
+				if !rows.Next() {
+					t.Fatal()
+				} else {
+					var r1 sql.NullString
+					var r2 sql.NullInt64
+					var r3 sql.NullFloat64
+					err = rows.Scan(&r1, &r2, &r3)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if r1.Valid {
+						t.Fatal(err)
+					}
+					if r2.Valid {
+						t.Fatal(err)
+					}
+					if r3.Valid {
+						t.Fatal(err)
+					}
+				}
+			}
+		}
+	})
+}
