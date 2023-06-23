@@ -532,3 +532,68 @@ func TestUpdateMetadataWithPresignedUrlError(t *testing.T) {
 		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCommandNotRecognized, driverErr.Number)
 	}
 }
+
+func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
+	// Disable the test on Windows
+	if isWindows {
+		return
+	}
+
+	var err error
+	roPath := t.TempDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set the temp directory to read only
+	err = os.Chmod(roPath, 0444)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	info := execResponseStageInfo{
+		Location:     "gcs-blob/storage/users/456/",
+		LocationType: "GCS",
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Make sure that the test uses read only directory
+	t.Setenv("TMPDIR", roPath)
+
+	uploadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "GCS",
+		noSleepingTime:    true,
+		client:            gcsClient,
+		sha256Digest:      "123456789abcdef",
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		srcFileName:       path.Join(dir, "/test_data/data1.txt"),
+		overwrite:         true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+	}
+
+	sfa := &snowflakeFileTransferAgent{
+		sc:                nil,
+		commandType:       uploadCommand,
+		command:           "put file:///tmp/test_data/data1.txt @~",
+		stageLocationType: gcsClient,
+		fileMetadata:      []*fileMetadata{&uploadMeta},
+	}
+
+	// Set max parallel uploads to 1
+	sfa.parallel = 1
+
+	err = sfa.uploadFilesParallel([]*fileMetadata{&uploadMeta})
+	if err == nil {
+		t.Fatal("should error when the filesystem is read only")
+	}
+	if !strings.Contains(err.Error(), "errors during file upload:\nmkdir") {
+		t.Fatalf("should error when creating the temporary directory. Instead errored with: %v", err)
+	}
+}
