@@ -73,6 +73,7 @@ type snowflakeConn struct {
 var (
 	queryIDPattern = `[\w\-_]+`
 	queryIDRegexp  = regexp.MustCompile(queryIDPattern)
+	errMutex = &sync.Mutex{}
 )
 
 func (sc *snowflakeConn) exec(
@@ -138,7 +139,10 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
-		return nil, (populateErrorFields(code, data)).exceptionTelemetry(sc)
+		errMutex.Lock()
+		defer errMutex.Unlock()
+		err = (populateErrorFields(code, data)).exceptionTelemetry(sc)
+		return nil, err
 	}
 
 	// handle PUT/GET commands
