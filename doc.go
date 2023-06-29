@@ -799,7 +799,7 @@ Because the example code above executes only one query and no other activity, th
 no significant difference in behavior between asynchronous and synchronous behavior.
 The differences become significant if, for example, you want to perform some other
 activity after the query starts and before it completes. The example code below starts
-query, which run in the background, and then retrieves the results later.
+a query, which run in the background, and then retrieves the results later.
 
 This example uses small SELECT statements that do not retrieve enough data to require
 asynchronous handling. However, the technique works for larger data sets, and for
