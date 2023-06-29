@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -234,4 +235,25 @@ func GetFromEnv(name string, failOnMissing bool) (string, error) {
 		return "", fmt.Errorf("%v environment variable is not set", name)
 	}
 	return "", nil
+}
+
+func toStringSlice(arr []int) []string {
+	strArr := make([]string, len(arr))
+	for i, val := range arr {
+		strArr[i] = strconv.Itoa(val)
+	}
+	return strArr
+}
+
+func parseToIntArray(value string) ([]int, error) {
+	codesAsStr := strings.Split(value, ",")
+	codes := make([]int, len(codesAsStr))
+	for i, valAsStr := range codesAsStr {
+		val, err := strconv.Atoi(valAsStr)
+		if err != nil {
+			return nil, err
+		}
+		codes[i] = val
+	}
+	return codes, nil
 }

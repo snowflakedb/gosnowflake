@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -23,9 +24,14 @@ const (
 	defaultLoginTimeout           = 60 * time.Second  // Timeout for retry for login EXCLUDING clientTimeout
 	defaultRequestTimeout         = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout             = 60 * time.Second
+	defaultJWTMaxRetries          = 10
 	defaultExternalBrowserTimeout = 120 * time.Second // Timeout for external browser login
 	defaultDomain                 = ".snowflakecomputing.com"
 )
+
+var defaultJWTRetryForCodes = []int{
+	390144, // JWT is invalid
+}
 
 // ConfigBool is a type to represent true or false in the Config
 type ConfigBool uint8
@@ -81,7 +87,9 @@ type Config struct {
 	TokenAccessor    TokenAccessor // Optional token accessor to use
 	KeepSessionAlive bool          // Enables the session to persist even after the connection is closed
 
-	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
+	PrivateKey       *rsa.PrivateKey // Private key used to sign JWT
+	JWTMaxRetries    int             // How many retries should be performed before failing authentication
+	JWTRetryForCodes []int           // Which error codes should end with auth retry
 
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 
@@ -177,6 +185,12 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.JWTExpireTimeout != defaultJWTTimeout {
 		params.Add("jwtTimeout", strconv.FormatInt(int64(cfg.JWTExpireTimeout/time.Second), 10))
+	}
+	if cfg.JWTMaxRetries != defaultJWTMaxRetries {
+		params.Add("jwtMaxRetries", strconv.Itoa(cfg.JWTMaxRetries))
+	}
+	if !reflect.DeepEqual(cfg.JWTRetryForCodes, defaultJWTRetryForCodes[:]) {
+		params.Add("jwtRetryForCodes", strings.Join(toStringSlice(cfg.JWTRetryForCodes), ","))
 	}
 	if cfg.Application != clientType {
 		params.Add("application", cfg.Application)
@@ -428,6 +442,12 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if cfg.JWTExpireTimeout == 0 {
 		cfg.JWTExpireTimeout = defaultJWTTimeout
 	}
+	if cfg.JWTMaxRetries == 0 {
+		cfg.JWTMaxRetries = defaultJWTMaxRetries
+	}
+	if len(cfg.JWTRetryForCodes) == 0 {
+		cfg.JWTRetryForCodes = defaultJWTRetryForCodes[:]
+	}
 	if cfg.ClientTimeout == 0 {
 		cfg.ClientTimeout = defaultClientTimeout
 	}
@@ -575,6 +595,16 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "jwtTimeout":
 			cfg.JWTExpireTimeout, err = parseTimeout(value)
+			if err != nil {
+				return err
+			}
+		case "jwtMaxRetries":
+			cfg.JWTMaxRetries, err = strconv.Atoi(value)
+			if err != nil {
+				return err
+			}
+		case "jwtRetryForCodes":
+			cfg.JWTRetryForCodes, err = parseToIntArray(value)
 			if err != nil {
 				return err
 			}

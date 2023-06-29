@@ -5,8 +5,10 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"log"
 	"math/rand"
 	"os"
+	"reflect"
 	"strconv"
 	"sync"
 	"testing"
@@ -330,4 +332,50 @@ func TestGetFromEnvFailOnMissing(t *testing.T) {
 	if err == nil {
 		t.Error("should report error when there is missing env parameter")
 	}
+}
+
+func TestToStringSlice(t *testing.T) {
+	t.Run("TestToStringSlice - empty", func(t *testing.T) {
+		if len(toStringSlice(make([]int, 0))) != 0 {
+			t.Error("Should be 0 length")
+		}
+	})
+	t.Run("TestToStringSlice - single element", func(t *testing.T) {
+		if !reflect.DeepEqual(toStringSlice([]int{1}), []string{"1"}) {
+			t.Error("Should convert single int correctly")
+		}
+	})
+	t.Run("TestToStringSlice - multiple elements", func(t *testing.T) {
+		if !reflect.DeepEqual(toStringSlice([]int{1, 2}), []string{"1", "2"}) {
+			t.Error("Should convert single int correctly")
+		}
+	})
+}
+
+func TestParseToIntArray(t *testing.T) {
+	t.Run("TestParseToIntArray - string", func(t *testing.T) {
+		_, err := parseToIntArray("abc")
+		if err == nil {
+			t.Error("Parsing string should end with error")
+		}
+	})
+	t.Run("TestParseToIntArray - empty string", func(t *testing.T) {
+		_, err := parseToIntArray("")
+		log.Print(err)
+		if err == nil {
+			t.Error("Parsing empty string should end with error")
+		}
+	})
+	t.Run("TestParseToIntArray - single number", func(t *testing.T) {
+		res, _ := parseToIntArray("1")
+		if !reflect.DeepEqual([]int{1}, res) {
+			t.Error("Should parse single element")
+		}
+	})
+	t.Run("TestParseToIntArray - multiple numbers", func(t *testing.T) {
+		res, _ := parseToIntArray("1,2")
+		if !reflect.DeepEqual([]int{1, 2}, res) {
+			t.Error("Should parse multiple elements")
+		}
+	})
 }
