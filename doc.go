@@ -568,8 +568,8 @@ or using a Config structure specifying:
 
 	config := &Config{
 		...
-		Authenticator: "SNOWFLAKE_JWT"
-		PrivateKey:   "<your_private_key_struct in *rsa.PrivateKey type>"
+		Authenticator: AuthTypeJwt,
+		PrivateKey:   "<your_private_key_struct in *rsa.PrivateKey type>",
 	}
 
 The <your_private_key> should be a base64 URL encoded PKCS8 rsa private key string. One way to encode a byte slice to URL
@@ -598,6 +598,25 @@ To generate the valid key pair, you can execute the following commands in the sh
 Note: As of February 2020, Golang's official library does not support passcode-encrypted PKCS8 private key.
 For security purposes, Snowflake highly recommends that you store the passcode-encrypted private key on the disk and
 decrypt the key in your application using a library you trust.
+
+# External browser authentication
+
+The driver allows to authenticate through the external browser.
+
+When connection is created, the driver will open the browser window and ask the user to sign in.
+
+To enable this feature, construct the DSN with field "authenticator=EXTERNALBROWSER" or using a Config structure specifying:
+
+	config := &Config{
+		...
+		Authenticator: AuthTypeExternalBrowser,
+	}
+
+The external browser authentication implements timeout mechanism which defaults to 120s and can be changed as follows:
+
+	config := &Config{
+		ExternalBrowserTimeout: 240 * time.Second, // Requires time.Duration
+	}
 
 # Executing Multiple Statements in One Call
 
