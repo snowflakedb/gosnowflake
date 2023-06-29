@@ -613,7 +613,7 @@ following Authenticator specified:
 		Authenticator: AuthTypeExternalBrowser,
 	}
 
-The external browser authentication implements timeout mechanism. This prevents the driver to hang interminably when
+The external browser authentication implements timeout mechanism. This prevents the driver from hanging interminably when
 browser window was closed, or not responding.
 
 Timeout defaults to 120s and can be changed as follows:
