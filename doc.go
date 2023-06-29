@@ -616,7 +616,8 @@ following Authenticator specified:
 The external browser authentication implements timeout mechanism. This prevents the driver from hanging interminably when
 browser window was closed, or not responding.
 
-Timeout defaults to 120s and can be changed as follows:
+Timeout defaults to 120s and can be changed through setting DSN field "externalBrowserTimeout=240" (time in seconds)
+or using a Config structure with following ExternalBrowserTimeout specified:
 
 	config := &Config{
 		ExternalBrowserTimeout: 240 * time.Second, // Requires time.Duration
