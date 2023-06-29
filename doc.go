@@ -799,12 +799,12 @@ Because the example code above executes only one query and no other activity, th
 no significant difference in behavior between asynchronous and synchronous behavior.
 The differences become significant if, for example, you want to perform some other
 activity after the query starts and before it completes. The example code below starts
-multiple queries, which run in the background, and then retrieves the results later.
+query, which run in the background, and then retrieves the results later.
 
 This example uses small SELECT statements that do not retrieve enough data to require
 asynchronous handling. However, the technique works for larger data sets, and for
 situations where the programmer might want to do other work after starting the queries
-and before retrieving the results.
+and before retrieving the results. For a more elaborative example please see cmd/async/async.go
 
 		package gosnowflake
 
@@ -821,28 +821,17 @@ and before retrieving the results.
 		...
 
 		func DemonstrateAsyncMode(db *sql.DB) {
-			// Enable asynchronous mode.
-			ctx := WithAsyncMode(context.Background())
-			// Establish connection
-			conn, _ := db.Conn(ctx)
+			// Enable asynchronous mode
+			ctx := sf.WithAsyncMode(context.Background())
 
-			// Unwrap connection
-			err = conn.Raw(func(x interface{}) error {
-				// Execute asynchronous query
-				rows, _ := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
-				defer rows.Close()
+			// Run the query with asynchronous context
+			rows, _ := db.QueryContext(ctx, "select 1")
 
-				// Retrieve and check results of the query after casting the result
-				status := rows.(SnowflakeResult).GetStatus()
-				if status == QueryStatusComplete {
-					// do something
-				} else if status == QueryStatusInProgress {
-					// do something
-				} else if status == QueryFailed {
-					// do something
-				}
-				return nil
-			})
+			// do something as the workflow continues whereas the query is computing in the background
+			...
+
+			// Get the data when you are ready to handle it
+			cols, err := rows.Columns()
 		}
 
 # Support For PUT and GET
