@@ -285,7 +285,7 @@ func authenticate(
 	sc *snowflakeConn,
 	samlResponse []byte,
 	proofKey []byte,
-) (resp *authResponseMain, err error) {
+) (*authResponseMain, error) {
 	headers := getHeaders()
 	clientEnvironment := authRequestClientEnvironment{
 		Application: sc.cfg.Application,
@@ -309,59 +309,8 @@ func authenticate(
 	if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
 		sessionParameters[clientStoreTemporaryCredential] = true
 	}
-	requestMain := authRequestData{
-		ClientAppID:       clientType,
-		ClientAppVersion:  SnowflakeGoDriverVersion,
-		AccountName:       sc.cfg.Account,
-		SessionParameters: sessionParameters,
-		ClientEnvironment: clientEnvironment,
-	}
 
-	switch sc.cfg.Authenticator {
-	case AuthTypeExternalBrowser:
-		if sc.cfg.IDToken != "" {
-			requestMain.Authenticator = idTokenAuthenticator
-			requestMain.Token = sc.cfg.IDToken
-			requestMain.LoginName = sc.cfg.User
-		} else {
-			requestMain.ProofKey = string(proofKey)
-			requestMain.Token = string(samlResponse)
-			requestMain.LoginName = sc.cfg.User
-			requestMain.Authenticator = AuthTypeExternalBrowser.String()
-		}
-	case AuthTypeOAuth:
-		requestMain.LoginName = sc.cfg.User
-		requestMain.Authenticator = AuthTypeOAuth.String()
-		requestMain.Token = sc.cfg.Token
-	case AuthTypeOkta:
-		requestMain.RawSAMLResponse = string(samlResponse)
-	case AuthTypeJwt:
-		requestMain.Authenticator = AuthTypeJwt.String()
-
-		jwtTokenString, err := prepareJWTToken(sc.cfg)
-		if err != nil {
-			return nil, err
-		}
-		requestMain.Token = jwtTokenString
-	case AuthTypeSnowflake:
-		logger.Info("Username and password")
-		requestMain.LoginName = sc.cfg.User
-		requestMain.Password = sc.cfg.Password
-		switch {
-		case sc.cfg.PasscodeInPassword:
-			requestMain.ExtAuthnDuoMethod = "passcode"
-		case sc.cfg.Passcode != "":
-			requestMain.Passcode = sc.cfg.Passcode
-			requestMain.ExtAuthnDuoMethod = "passcode"
-		}
-	case AuthTypeUsernamePasswordMFA:
-		logger.Info("Username and password MFA")
-		requestMain.LoginName = sc.cfg.User
-		requestMain.Password = sc.cfg.Password
-		if sc.cfg.MfaToken != "" {
-			requestMain.Token = sc.cfg.MfaToken
-		}
-	case AuthTypeTokenAccessor:
+	if sc.cfg.Authenticator == AuthTypeTokenAccessor {
 		logger.Info("Bypass authentication using existing token from token accessor")
 		sessionInfo := authResponseSessionInfo{
 			DatabaseName:  sc.cfg.Database,
@@ -378,32 +327,7 @@ func authenticate(
 		}, nil
 	}
 
-	authRequest := authRequest{
-		Data: requestMain,
-	}
-	params := &url.Values{}
-	if sc.cfg.Database != "" {
-		params.Add("databaseName", sc.cfg.Database)
-	}
-	if sc.cfg.Schema != "" {
-		params.Add("schemaName", sc.cfg.Schema)
-	}
-	if sc.cfg.Warehouse != "" {
-		params.Add("warehouse", sc.cfg.Warehouse)
-	}
-	if sc.cfg.Role != "" {
-		params.Add("roleName", sc.cfg.Role)
-	}
-
-	jsonBody, err := json.Marshal(authRequest)
-	if err != nil {
-		return
-	}
-
-	logger.WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
-		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
-
-	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, params, headers, jsonBody, sc.rest.LoginTimeout)
+	respd, err := tryAuth(ctx, sc, samlResponse, proofKey, sessionParameters, clientEnvironment, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -438,6 +362,118 @@ func authenticate(
 		setCredential(sc, idToken, token)
 	}
 	return &respd.Data, nil
+}
+
+func createAuthParams(sc *snowflakeConn) *url.Values {
+	params := &url.Values{}
+	if sc.cfg.Database != "" {
+		params.Add("databaseName", sc.cfg.Database)
+	}
+	if sc.cfg.Schema != "" {
+		params.Add("schemaName", sc.cfg.Schema)
+	}
+	if sc.cfg.Warehouse != "" {
+		params.Add("warehouse", sc.cfg.Warehouse)
+	}
+	if sc.cfg.Role != "" {
+		params.Add("roleName", sc.cfg.Role)
+	}
+	return params
+}
+
+func tryAuth(
+	ctx context.Context,
+	sc *snowflakeConn,
+	samlResponse []byte,
+	proofKey []byte,
+	sessionParameters map[string]interface{},
+	clientEnvironment authRequestClientEnvironment,
+	headers map[string]string,
+) (*authResponse, error) {
+	params := createAuthParams(sc)
+	authRequest, err := buildAuthRequestData(sc, sessionParameters, clientEnvironment, proofKey, samlResponse)
+	if err != nil {
+		return nil, err
+	}
+	jsonBody, err := json.Marshal(authRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
+		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
+
+	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, params, headers, jsonBody, sc.rest.LoginTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return respd, nil
+}
+
+func buildAuthRequestData(
+	sc *snowflakeConn,
+	sessionParameters map[string]interface{},
+	clientEnvironment authRequestClientEnvironment,
+	proofKey []byte,
+	samlResponse []byte,
+) (*authRequest, error) {
+	authRequestData := authRequestData{
+		ClientAppID:       clientType,
+		ClientAppVersion:  SnowflakeGoDriverVersion,
+		AccountName:       sc.cfg.Account,
+		SessionParameters: sessionParameters,
+		ClientEnvironment: clientEnvironment,
+	}
+
+	switch sc.cfg.Authenticator {
+	case AuthTypeExternalBrowser:
+		if sc.cfg.IDToken != "" {
+			authRequestData.Authenticator = idTokenAuthenticator
+			authRequestData.Token = sc.cfg.IDToken
+			authRequestData.LoginName = sc.cfg.User
+		} else {
+			authRequestData.ProofKey = string(proofKey)
+			authRequestData.Token = string(samlResponse)
+			authRequestData.LoginName = sc.cfg.User
+			authRequestData.Authenticator = AuthTypeExternalBrowser.String()
+		}
+	case AuthTypeOAuth:
+		authRequestData.LoginName = sc.cfg.User
+		authRequestData.Authenticator = AuthTypeOAuth.String()
+		authRequestData.Token = sc.cfg.Token
+	case AuthTypeOkta:
+		authRequestData.RawSAMLResponse = string(samlResponse)
+	case AuthTypeJwt:
+		authRequestData.Authenticator = AuthTypeJwt.String()
+
+		jwtTokenString, err := prepareJWTToken(sc.cfg)
+		if err != nil {
+			return nil, err
+		}
+		authRequestData.Token = jwtTokenString
+	case AuthTypeSnowflake:
+		logger.Info("Username and password")
+		authRequestData.LoginName = sc.cfg.User
+		authRequestData.Password = sc.cfg.Password
+		switch {
+		case sc.cfg.PasscodeInPassword:
+			authRequestData.ExtAuthnDuoMethod = "passcode"
+		case sc.cfg.Passcode != "":
+			authRequestData.Passcode = sc.cfg.Passcode
+			authRequestData.ExtAuthnDuoMethod = "passcode"
+		}
+	case AuthTypeUsernamePasswordMFA:
+		logger.Info("Username and password MFA")
+		authRequestData.LoginName = sc.cfg.User
+		authRequestData.Password = sc.cfg.Password
+		if sc.cfg.MfaToken != "" {
+			authRequestData.Token = sc.cfg.MfaToken
+		}
+	}
+	authRequest := authRequest{
+		Data: authRequestData,
+	}
+	return &authRequest, nil
 }
 
 // Generate a JWT token in string given the configuration
