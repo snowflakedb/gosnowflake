@@ -825,13 +825,22 @@ and before retrieving the results. For a more elaborative example please see cmd
 			ctx := sf.WithAsyncMode(context.Background())
 
 			// Run the query with asynchronous context
-			rows, _ := db.QueryContext(ctx, "select 1")
+			rows, err := db.QueryContext(ctx, "select 1")
+			if err != nil {
+				// handle error
+			}
 
 			// do something as the workflow continues whereas the query is computing in the background
 			...
 
 			// Get the data when you are ready to handle it
-			cols, err := rows.Columns()
+			var val int
+			err = rows.Scan(&val)
+			if err != nil {
+				// handle error
+			}
+
+			...
 		}
 
 # Support For PUT and GET
