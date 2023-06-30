@@ -73,7 +73,7 @@ type snowflakeConn struct {
 var (
 	queryIDPattern = `[\w\-_]+`
 	queryIDRegexp  = regexp.MustCompile(queryIDPattern)
-	errMutex       = &sync.Mutex{}
+	errMutex = &sync.Mutex{}
 )
 
 func (sc *snowflakeConn) exec(
