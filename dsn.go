@@ -19,11 +19,12 @@ import (
 )
 
 const (
-	defaultClientTimeout  = 900 * time.Second // Timeout for network round trip + read out http response
-	defaultLoginTimeout   = 60 * time.Second  // Timeout for retry for login EXCLUDING clientTimeout
-	defaultRequestTimeout = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
-	defaultJWTTimeout     = 60 * time.Second
-	defaultDomain         = ".snowflakecomputing.com"
+	defaultClientTimeout          = 900 * time.Second // Timeout for network round trip + read out http response
+	defaultLoginTimeout           = 60 * time.Second  // Timeout for retry for login EXCLUDING clientTimeout
+	defaultRequestTimeout         = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
+	defaultJWTTimeout             = 60 * time.Second
+	defaultExternalBrowserTimeout = 120 * time.Second // Timeout for external browser login
+	defaultDomain                 = ".snowflakecomputing.com"
 )
 
 // ConfigBool is a type to represent true or false in the Config
@@ -66,10 +67,11 @@ type Config struct {
 
 	OktaURL *url.URL
 
-	LoginTimeout     time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
-	RequestTimeout   time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
-	JWTExpireTimeout time.Duration // JWT expire after timeout
-	ClientTimeout    time.Duration // Timeout for network round trip + read out http response
+	LoginTimeout           time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
+	RequestTimeout         time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
+	JWTExpireTimeout       time.Duration // JWT expire after timeout
+	ClientTimeout          time.Duration // Timeout for network round trip + read out http response
+	ExternalBrowserTimeout time.Duration // Timeout for external browser login
 
 	Application  string           // application name.
 	InsecureMode bool             // driver doesn't check certificate revocation status
@@ -428,6 +430,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 	}
 	if cfg.ClientTimeout == 0 {
 		cfg.ClientTimeout = defaultClientTimeout
+	}
+	if cfg.ExternalBrowserTimeout == 0 {
+		cfg.ExternalBrowserTimeout = defaultExternalBrowserTimeout
 	}
 	if strings.Trim(cfg.Application, " ") == "" {
 		cfg.Application = clientType

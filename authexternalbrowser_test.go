@@ -83,6 +83,7 @@ func TestUnitAuthenticateByExternalBrowser(t *testing.T) {
 	account := "testaccount"
 	user := "u"
 	password := "p"
+	timeout := defaultExternalBrowserTimeout
 	sr := &snowflakeRestful{
 		Protocol:         "https",
 		Host:             "abc.com",
@@ -90,17 +91,17 @@ func TestUnitAuthenticateByExternalBrowser(t *testing.T) {
 		FuncPostAuthSAML: postAuthExternalBrowserError,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
-	_, _, err := authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password)
+	_, _, err := authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password, timeout)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthExternalBrowserFail
-	_, _, err = authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password)
+	_, _, err = authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password, timeout)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthExternalBrowserFailWithCode
-	_, _, err = authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password)
+	_, _, err = authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password, timeout)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -110,5 +111,25 @@ func TestUnitAuthenticateByExternalBrowser(t *testing.T) {
 	}
 	if driverErr.Number != ErrCodeFailedToConnect {
 		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeFailedToConnect, driverErr.Number)
+	}
+}
+
+func TestAuthenticationTimeout(t *testing.T) {
+	authenticator := "externalbrowser"
+	application := "testapp"
+	account := "testaccount"
+	user := "u"
+	password := "p"
+	timeout := 0 * time.Second
+	sr := &snowflakeRestful{
+		Protocol:         "https",
+		Host:             "abc.com",
+		Port:             443,
+		FuncPostAuthSAML: postAuthExternalBrowserError,
+		TokenAccessor:    getSimpleTokenAccessor(),
+	}
+	_, _, err := authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password, timeout)
+	if err.Error() != "authentication timed out" {
+		t.Fatal("should have timed out")
 	}
 }
