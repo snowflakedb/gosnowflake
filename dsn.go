@@ -178,6 +178,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.JWTExpireTimeout != defaultJWTTimeout {
 		params.Add("jwtTimeout", strconv.FormatInt(int64(cfg.JWTExpireTimeout/time.Second), 10))
 	}
+	if cfg.ExternalBrowserTimeout != defaultExternalBrowserTimeout {
+		params.Add("externalBrowserTimeout", strconv.FormatInt(int64(cfg.ExternalBrowserTimeout/time.Second), 10))
+	}
 	if cfg.Application != clientType {
 		params.Add("application", cfg.Application)
 	}
@@ -575,6 +578,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "jwtTimeout":
 			cfg.JWTExpireTimeout, err = parseTimeout(value)
+			if err != nil {
+				return err
+			}
+		case "externalBrowserTimeout":
+			cfg.ExternalBrowserTimeout, err = parseTimeout(value)
 			if err != nil {
 				return err
 			}
