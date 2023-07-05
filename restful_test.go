@@ -22,6 +22,13 @@ func postTestError(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[str
 	}, errors.New("failed to run post method")
 }
 
+func postAuthTestError(_ context.Context, _ *http.Client, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
+	}, errors.New("failed to run post method")
+}
+
 func postTestSuccessButInvalidJSON(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusOK,
@@ -36,6 +43,13 @@ func postTestAppBadGatewayError(_ context.Context, _ *snowflakeRestful, _ *url.U
 	}, nil
 }
 
+func postAuthTestAppBadGatewayError(_ context.Context, _ *http.Client, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusBadGateway,
+		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
+	}, nil
+}
+
 func postTestAppForbiddenError(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusForbidden,
@@ -43,7 +57,14 @@ func postTestAppForbiddenError(_ context.Context, _ *snowflakeRestful, _ *url.UR
 	}, nil
 }
 
-func postTestAppUnexpectedError(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
+func postAuthTestAppForbiddenError(_ context.Context, _ *http.Client, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusForbidden,
+		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
+	}, nil
+}
+
+func postAuthTestAppUnexpectedError(_ context.Context, _ *http.Client, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusInsufficientStorage,
 		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
@@ -75,6 +96,26 @@ func postTestRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[str
 		Data:    *dd,
 		Message: "",
 		Code:    sessionExpiredCode,
+		Success: true,
+	}
+
+	ba, err := json.Marshal(er)
+	logger.Infof("encoded JSON: %v", ba)
+	if err != nil {
+		panic(err)
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &fakeResponseBody{body: ba},
+	}, nil
+}
+
+func postAuthTestAfterRenew(_ context.Context, _ *http.Client, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool) (*http.Response, error) {
+	dd := &execResponseData{}
+	er := &execResponse{
+		Data:    *dd,
+		Message: "",
+		Code:    "",
 		Success: true,
 	}
 

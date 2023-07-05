@@ -20,6 +20,7 @@ import (
 
 const (
 	defaultClientTimeout          = 900 * time.Second // Timeout for network round trip + read out http response
+	defaultJWTClientTimeout       = 10 * time.Second  // Timeout for network round trip + read out http response but used for JWT auth
 	defaultLoginTimeout           = 60 * time.Second  // Timeout for retry for login EXCLUDING clientTimeout
 	defaultRequestTimeout         = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout             = 60 * time.Second
@@ -71,6 +72,7 @@ type Config struct {
 	RequestTimeout         time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
 	JWTExpireTimeout       time.Duration // JWT expire after timeout
 	ClientTimeout          time.Duration // Timeout for network round trip + read out http response
+	JWTClientTimeout       time.Duration // Timeout for network round trip + read out http response used when JWT token auth is taking place
 	ExternalBrowserTimeout time.Duration // Timeout for external browser login
 
 	Application  string           // application name.
@@ -168,6 +170,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.ClientTimeout != defaultClientTimeout {
 		params.Add("clientTimeout", strconv.FormatInt(int64(cfg.ClientTimeout/time.Second), 10))
+	}
+	if cfg.JWTClientTimeout != defaultJWTClientTimeout {
+		params.Add("jwtClientTimeout", strconv.FormatInt(int64(cfg.JWTClientTimeout/time.Second), 10))
 	}
 	if cfg.LoginTimeout != defaultLoginTimeout {
 		params.Add("loginTimeout", strconv.FormatInt(int64(cfg.LoginTimeout/time.Second), 10))
@@ -434,6 +439,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if cfg.ClientTimeout == 0 {
 		cfg.ClientTimeout = defaultClientTimeout
 	}
+	if cfg.JWTClientTimeout == 0 {
+		cfg.JWTClientTimeout = defaultJWTClientTimeout
+	}
 	if cfg.ExternalBrowserTimeout == 0 {
 		cfg.ExternalBrowserTimeout = defaultExternalBrowserTimeout
 	}
@@ -563,6 +571,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.PasscodeInPassword = vv
 		case "clientTimeout":
 			cfg.ClientTimeout, err = parseTimeout(value)
+			if err != nil {
+				return
+			}
+		case "jwtClientTimeout":
+			cfg.JWTClientTimeout, err = parseTimeout(value)
 			if err != nil {
 				return
 			}

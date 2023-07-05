@@ -212,6 +212,7 @@ type authResponse struct {
 func postAuth(
 	ctx context.Context,
 	sr *snowflakeRestful,
+	client *http.Client,
 	params *url.Values,
 	headers map[string]string,
 	body []byte,
@@ -222,7 +223,7 @@ func postAuth(
 
 	fullURL := sr.getFullURL(loginRequestPath, params)
 	logger.Infof("full URL: %v", fullURL)
-	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, true)
+	resp, err := sr.FuncAuthPost(ctx, client, fullURL, headers, body, timeout, true)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +404,7 @@ func authenticate(
 	logger.WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
 		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
 
-	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, params, headers, jsonBody, sc.rest.LoginTimeout)
+	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, jsonBody, sc.rest.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
