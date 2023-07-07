@@ -400,6 +400,15 @@ The “?“ inside the “VALUES“ clause specifies that the SQL statement uses
 Binding data that involves time zones can require special handling. For details, see the section
 titled "Timestamps with Time Zones".
 
+The driver takes advantage of sql.Null types which enables the proper handling of null parameters inside function calls, i.e.:
+
+	rows, err := db.Query("SELECT * FROM TABLE(SOMEFUNCTION(?))", sql.NullBool{})
+
+The timestamp nullability had to be achieved by wrapping the sql.NullTime type as the Snowflake provides several date and time types
+which are mapped to single Go time.Time type:
+
+	rows, err := db.Query("SELECT * FROM TABLE(SOMEFUNCTION(?))", sf.TypedNullTime{sql.NullTime{}, sf.TimestampLTZType})
+
 # Binding Parameters to Array Variables
 
 Version 1.3.9 (and later) of the Go Snowflake Driver supports the ability to bind an array variable to a parameter in a SQL

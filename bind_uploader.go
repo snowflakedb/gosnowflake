@@ -216,9 +216,9 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 	var err error
 	bindValues := make(map[string]execBindParameter, len(bindings))
 	for _, binding := range bindings {
-		if ntw, ok := binding.Value.(NullTimeWrapper); ok {
-			tsmode = convertTzTypeToSnowflakeType(ntw.tzType)
-			binding.Value = ntw.time
+		if ntw, ok := binding.Value.(TypedNullTime); ok {
+			tsmode = convertTzTypeToSnowflakeType(ntw.TzType)
+			binding.Value = ntw.Time
 		}
 		t := goTypeToSnowflake(binding.Value, tsmode)
 		if t == changeType {
@@ -307,7 +307,7 @@ func supportedArrayBind(nv *driver.NamedValue) bool {
 func supportedNullBind(nv *driver.NamedValue) bool {
 	switch reflect.TypeOf(nv.Value) {
 	case reflect.TypeOf(sql.NullString{}), reflect.TypeOf(sql.NullInt64{}),
-		reflect.TypeOf(sql.NullBool{}), reflect.TypeOf(sql.NullFloat64{}), reflect.TypeOf(NullTimeWrapper{}):
+		reflect.TypeOf(sql.NullBool{}), reflect.TypeOf(sql.NullFloat64{}), reflect.TypeOf(TypedNullTime{}):
 		return true
 	}
 	return false

@@ -1152,11 +1152,11 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 	return arrow.NewSchema(fields, &meta), nil
 }
 
-// NullTimeWrapper is required to properly bind the null value with the snowflakeType as the Snowflake functions
+// TypedNullTime is required to properly bind the null value with the snowflakeType as the Snowflake functions
 // require the type of the field to be provided explicitly for the null values
-type NullTimeWrapper struct {
-	time   sql.NullTime
-	tzType timezoneType
+type TypedNullTime struct {
+	Time   sql.NullTime
+	TzType timezoneType
 }
 
 func convertTzTypeToSnowflakeType(tzType timezoneType) snowflakeType {
