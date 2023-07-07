@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -859,5 +860,67 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
 		}
 		dbt.mustExec("DROP TABLE binding_test")
+	})
+}
+
+func TestFunctionParameters(t *testing.T) {
+	testcases := []struct {
+		paramType  string
+		input      interface{}
+		nullResult bool
+	}{
+		{"text", sql.NullString{}, true},
+		{"number", sql.NullInt64{}, true},
+		{"float", sql.NullFloat64{}, true},
+		{"boolean", sql.NullBool{}, true},
+		{"text", "string", false},
+		{"number", 123, false},
+		{"float", 123.01, false},
+		{"boolean", true, false},
+		{"date", NullTimeWrapper{sql.NullTime{}, DateType}, true},
+		{"datetime", NullTimeWrapper{sql.NullTime{}, TimestampNTZType}, true},
+		{"time", NullTimeWrapper{sql.NullTime{}, TimeType}, true},
+		{"timestamp", NullTimeWrapper{sql.NullTime{}, TimestampNTZType}, true},
+		{"timestamp_ntz", NullTimeWrapper{sql.NullTime{}, TimestampNTZType}, true},
+		{"timestamp_ltz", NullTimeWrapper{sql.NullTime{}, TimestampLTZType}, true},
+		{"timestamp_tz", NullTimeWrapper{sql.NullTime{}, TimestampTZType}, true},
+		{"date", time.Now(), false},
+		{"datetime", time.Now(), false},
+		{"time", time.Now(), false},
+		{"timestamp", time.Now(), false},
+		{"timestamp_ntz", time.Now(), false},
+		{"timestamp_ltz", time.Now(), false},
+		{"timestamp_tz", time.Now(), false},
+	}
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		for _, tc := range testcases {
+			query := fmt.Sprintf(`
+				CREATE OR REPLACE FUNCTION NULLPARAMFUNCTION("param1" %v)
+				RETURNS TABLE("r1" %v)
+				LANGUAGE SQL
+				AS 'select param1';`, tc.paramType, tc.paramType)
+			dbt.mustExec(query)
+			if rows, err := dbt.db.Query("select * from table(NULLPARAMFUNCTION(?))", tc.input); err != nil {
+				t.Fatal(err)
+			} else {
+				if rows.Err() != nil {
+					t.Fatal(err)
+				} else {
+					if !rows.Next() {
+						t.Fatal()
+					} else {
+						var r1 interface{}
+						err = rows.Scan(&r1)
+						if tc.nullResult && r1 != nil {
+							t.Fatalf("the result for %v is of type %v but should be null", tc.paramType, reflect.TypeOf(r1))
+						}
+						if !tc.nullResult && r1 == nil {
+							t.Fatalf("the result for %v should not be null", tc.paramType)
+						}
+					}
+				}
+			}
+		}
 	})
 }

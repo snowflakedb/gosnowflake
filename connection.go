@@ -402,10 +402,10 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 // CheckNamedValue determines which types are handled by this driver aside from
 // the instances captured by driver.Value
 func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
-	if supported := supportedArrayBind(nv); !supported {
-		return driver.ErrSkip
+	if supportedNullBind(nv) || supportedArrayBind(nv) {
+		return nil
 	}
-	return nil
+	return driver.ErrSkip
 }
 
 func (sc *snowflakeConn) GetQueryStatus(

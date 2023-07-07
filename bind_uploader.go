@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"reflect"
@@ -215,6 +216,10 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 	var err error
 	bindValues := make(map[string]execBindParameter, len(bindings))
 	for _, binding := range bindings {
+		if ntw, ok := binding.Value.(NullTimeWrapper); ok {
+			tsmode = convertTzTypeToSnowflakeType(ntw.tzType)
+			binding.Value = ntw.time
+		}
 		t := goTypeToSnowflake(binding.Value, tsmode)
 		if t == changeType {
 			tsmode, err = dataTypeMode(binding.Value)
@@ -297,4 +302,13 @@ func supportedArrayBind(nv *driver.NamedValue) bool {
 		}
 		return false
 	}
+}
+
+func supportedNullBind(nv *driver.NamedValue) bool {
+	switch reflect.TypeOf(nv.Value) {
+	case reflect.TypeOf(sql.NullString{}), reflect.TypeOf(sql.NullInt64{}),
+		reflect.TypeOf(sql.NullBool{}), reflect.TypeOf(sql.NullFloat64{}), reflect.TypeOf(NullTimeWrapper{}):
+		return true
+	}
+	return false
 }
