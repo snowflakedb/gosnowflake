@@ -131,6 +131,7 @@ func TestParseDSN(t *testing.T) {
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -538,7 +539,8 @@ func TestParseDSN(t *testing.T) {
 				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
-				ClientTimeout: 300 * time.Second,
+				ClientTimeout:          300 * time.Second,
+				ExternalBrowserTimeout: defaultExternalBrowserTimeout,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -624,6 +626,10 @@ func TestParseDSN(t *testing.T) {
 			if test.config.ClientTimeout != cfg.ClientTimeout {
 				t.Fatalf("%d: Failed to match ClientTimeout. expected: %v, got: %v",
 					i, test.config.ClientTimeout, cfg.ClientTimeout)
+			}
+			if test.config.ExternalBrowserTimeout != cfg.ExternalBrowserTimeout {
+				t.Fatalf("%d: Failed to match ExternalBrowserTimeout. expected: %v, got: %v",
+					i, test.config.ExternalBrowserTimeout, cfg.ExternalBrowserTimeout)
 			}
 		case test.err != nil:
 			driverErrE, okE := test.err.(*SnowflakeError)
