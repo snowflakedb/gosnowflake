@@ -216,9 +216,9 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 	var err error
 	bindValues := make(map[string]execBindParameter, len(bindings))
 	for _, binding := range bindings {
-		if ntw, ok := binding.Value.(TypedNullTime); ok {
-			tsmode = convertTzTypeToSnowflakeType(ntw.TzType)
-			binding.Value = ntw.Time
+		if tnt, ok := binding.Value.(TypedNullTime); ok {
+			tsmode = convertTzTypeToSnowflakeType(tnt.TzType)
+			binding.Value = tnt.Time
 		}
 		t := goTypeToSnowflake(binding.Value, tsmode)
 		if t == changeType {
