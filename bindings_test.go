@@ -912,6 +912,9 @@ func TestFunctionParameters(t *testing.T) {
 					} else {
 						var r1 interface{}
 						err = rows.Scan(&r1)
+						if err != nil {
+							t.Fatal(err)
+						}
 						if tc.nullResult && r1 != nil {
 							t.Fatalf("the result for %v is of type %v but should be null", tc.paramType, reflect.TypeOf(r1))
 						}
