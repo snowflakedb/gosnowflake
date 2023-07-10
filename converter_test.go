@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"math/cmplx"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -163,7 +164,7 @@ func TestValueToString(t *testing.T) {
 }
 
 func TestExtractTimestamp(t *testing.T) {
-	s := "1234abcdef"
+	s := "1234abcdef" // pragma: allowlist secret
 	_, _, err := extractTimestamp(&s)
 	if err == nil {
 		t.Errorf("should raise error: %v", s)
@@ -1139,6 +1140,40 @@ func TestLargeTimestampBinding(t *testing.T) {
 		}
 		if scanValues[0] != timeValue {
 			t.Fatalf("unexpected result. expected: %v, got: %v", timeValue, scanValues[0])
+		}
+	}
+}
+
+func TestTimeTypeValueToString(t *testing.T) {
+	timeValue, err := time.Parse("2006-01-02 15:04:05", "2020-01-02 10:11:12")
+	if err != nil {
+		t.Fatal(err)
+	}
+	offsetTimeValue, err := time.ParseInLocation("2006-01-02 15:04:05", "2020-01-02 10:11:12", Location(6*60))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testcases := []struct {
+		in     time.Time
+		tsmode snowflakeType
+		out    string
+	}{
+		{timeValue, dateType, "1577959872000"},
+		{timeValue, timeType, "36672000000000"},
+		{timeValue, timestampNtzType, "1577959872000000000"},
+		{timeValue, timestampLtzType, "1577959872000000000"},
+		{timeValue, timestampTzType, "1577959872000000000 1440"},
+		{offsetTimeValue, timestampTzType, "1577938272000000000 1800"},
+	}
+
+	for _, tc := range testcases {
+		output, err := timeTypeValueToString(tc.in, tc.tsmode)
+		if err != nil {
+			t.Error(err)
+		}
+		if strings.Compare(tc.out, *output) != 0 {
+			t.Errorf("failed to convert time %v of type %v. expected: %v, received: %v", tc.in, tc.tsmode, tc.out, *output)
 		}
 	}
 }

@@ -180,13 +180,6 @@ func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 			s := strconv.FormatBool(typedVal.Bool)
 			return &s, nil
 		}
-		if ns, ok := v.(sql.NullBool); ok {
-			if !ns.Valid {
-				return nil, nil
-			}
-			s := strconv.FormatBool(ns.Bool)
-			return &s, nil
-		}
 	}
 	return nil, fmt.Errorf("unsupported type: %v", v1.Kind())
 }
