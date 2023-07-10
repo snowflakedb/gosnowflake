@@ -73,7 +73,7 @@ type snowflakeConn struct {
 var (
 	queryIDPattern = `[\w\-_]+`
 	queryIDRegexp  = regexp.MustCompile(queryIDPattern)
-	errMutex = &sync.Mutex{}
+	errMutex       = &sync.Mutex{}
 )
 
 func (sc *snowflakeConn) exec(
@@ -718,11 +718,16 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 			Timeout:   sc.cfg.ClientTimeout,
 			Transport: st,
 		},
+		JWTClient: &http.Client{
+			Timeout:   sc.cfg.JWTClientTimeout,
+			Transport: st,
+		},
 		TokenAccessor:       tokenAccessor,
 		LoginTimeout:        sc.cfg.LoginTimeout,
 		RequestTimeout:      sc.cfg.RequestTimeout,
 		FuncPost:            postRestful,
 		FuncGet:             getRestful,
+		FuncAuthPost:        postAuthRestful,
 		FuncPostQuery:       postRestfulQuery,
 		FuncPostQueryHelper: postRestfulQueryHelper,
 		FuncRenewSession:    renewRestfulSession,

@@ -42,8 +42,9 @@ const (
 )
 
 type (
-	funcGetType  func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
-	funcPostType func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
+	funcGetType      func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
+	funcPostType     func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
+	funcAuthPostType func(context.Context, *http.Client, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
 )
 
 type snowflakeRestful struct {
@@ -54,6 +55,7 @@ type snowflakeRestful struct {
 	RequestTimeout time.Duration // request timeout
 
 	Client        *http.Client
+	JWTClient     *http.Client
 	TokenAccessor TokenAccessor
 	HeartBeat     *heartbeat
 
@@ -63,11 +65,12 @@ type snowflakeRestful struct {
 	FuncPostQueryHelper func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, UUID, *Config) (*execResponse, error)
 	FuncPost            funcPostType
 	FuncGet             funcGetType
+	FuncAuthPost        funcAuthPostType
 	FuncRenewSession    func(context.Context, *snowflakeRestful, time.Duration) error
-	FuncPostAuth        func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration) (*authResponse, error)
 	FuncCloseSession    func(context.Context, *snowflakeRestful, time.Duration) error
 	FuncCancelQuery     func(context.Context, *snowflakeRestful, UUID, time.Duration) error
 
+	FuncPostAuth     func(context.Context, *snowflakeRestful, *http.Client, *url.Values, map[string]string, []byte, time.Duration) (*authResponse, error)
 	FuncPostAuthSAML func(context.Context, *snowflakeRestful, map[string]string, []byte, time.Duration) (*authResponse, error)
 	FuncPostAuthOKTA func(context.Context, *snowflakeRestful, map[string]string, []byte, string, time.Duration) (*authOKTAResponse, error)
 	FuncGetSSO       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, string, time.Duration) ([]byte, error)
@@ -90,6 +93,16 @@ func (sr *snowflakeRestful) getFullURL(path string, params *url.Values) *url.URL
 		ret.RawQuery = params.Encode()
 	}
 	return ret
+}
+
+// We need separate client for JWT, because if token processing takes too long, token may be already expired.
+func (sr *snowflakeRestful) getClientFor(authType AuthType) *http.Client {
+	switch authType {
+	case AuthTypeJwt:
+		return sr.JWTClient
+	default:
+		return sr.Client
+	}
 }
 
 // Renew the snowflake session if the current token is still the stale token specified
@@ -159,6 +172,19 @@ func getRestful(
 	*http.Response, error) {
 	return newRetryHTTP(
 		ctx, sr.Client, http.NewRequest, fullURL, headers, timeout).execute()
+}
+
+func postAuthRestful(
+	ctx context.Context,
+	client *http.Client,
+	fullURL *url.URL,
+	headers map[string]string,
+	body []byte,
+	timeout time.Duration,
+	raise4XX bool) (
+	*http.Response, error) {
+	return newRetryHTTP(
+		ctx, client, http.NewRequest, fullURL, headers, timeout).doPost().setBody(body).doRaise4XX(raise4XX).execute()
 }
 
 func postRestfulQuery(
