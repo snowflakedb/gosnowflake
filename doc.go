@@ -400,7 +400,7 @@ The “?“ inside the “VALUES“ clause specifies that the SQL statement uses
 Binding data that involves time zones can require special handling. For details, see the section
 titled "Timestamps with Time Zones".
 
-The driver takes advantage of sql.Null types which enables the proper handling of null parameters inside function calls, i.e.:
+Version 1.6.23 (and later) of the driver takes advantage of sql.Null types which enables the proper handling of null parameters inside function calls, i.e.:
 
 	rows, err := db.Query("SELECT * FROM TABLE(SOMEFUNCTION(?))", sql.NullBool{})
 
