@@ -7,6 +7,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -114,4 +115,27 @@ func TestJWTAuthentication(t *testing.T) {
 	}
 
 	db.Close()
+}
+
+func TestJWTTokenTimeout(t *testing.T) {
+	resetHTTPMocks(t)
+
+	dsn := "user:pass@localhost:12345/db/schema?account=jwtAuthTokenTimeout&protocol=http&jwtClientTimeout=1"
+	dsn = appendPrivateKeyString(&dsn, testPrivKey)
+	db, err := sql.Open("snowflake", dsn)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	defer db.Close()
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	defer conn.Close()
+
+	invocations := getMocksInvocations(t)
+	if invocations != 3 {
+		t.Errorf("Unexpected number of invocations, expected 3, got %v", invocations)
+	}
 }

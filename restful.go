@@ -44,8 +44,13 @@ const (
 type (
 	funcGetType      func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
 	funcPostType     func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
-	funcAuthPostType func(context.Context, *http.Client, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
+	funcAuthPostType func(context.Context, *http.Client, *url.URL, map[string]string, bodyCreatorType, time.Duration, bool) (*http.Response, error)
+	bodyCreatorType  func() ([]byte, error)
 )
+
+var emptyBodyCreator = func() ([]byte, error) {
+	return []byte{}, nil
+}
 
 type snowflakeRestful struct {
 	Host           string
@@ -70,7 +75,7 @@ type snowflakeRestful struct {
 	FuncCloseSession    func(context.Context, *snowflakeRestful, time.Duration) error
 	FuncCancelQuery     func(context.Context, *snowflakeRestful, UUID, time.Duration) error
 
-	FuncPostAuth     func(context.Context, *snowflakeRestful, *http.Client, *url.Values, map[string]string, []byte, time.Duration) (*authResponse, error)
+	FuncPostAuth     func(context.Context, *snowflakeRestful, *http.Client, *url.Values, map[string]string, bodyCreatorType, time.Duration) (*authResponse, error)
 	FuncPostAuthSAML func(context.Context, *snowflakeRestful, map[string]string, []byte, time.Duration) (*authResponse, error)
 	FuncPostAuthOKTA func(context.Context, *snowflakeRestful, map[string]string, []byte, string, time.Duration) (*authOKTAResponse, error)
 	FuncGetSSO       func(context.Context, *snowflakeRestful, *url.Values, map[string]string, string, time.Duration) ([]byte, error)
@@ -159,8 +164,11 @@ func postRestful(
 	timeout time.Duration,
 	raise4XX bool) (
 	*http.Response, error) {
-	return newRetryHTTP(
-		ctx, sr.Client, http.NewRequest, fullURL, headers, timeout).doPost().setBody(body).doRaise4XX(raise4XX).execute()
+	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout).
+		doPost().
+		setBody(body).
+		doRaise4XX(raise4XX).
+		execute()
 }
 
 func getRestful(
@@ -170,8 +178,7 @@ func getRestful(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return newRetryHTTP(
-		ctx, sr.Client, http.NewRequest, fullURL, headers, timeout).execute()
+	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout).execute()
 }
 
 func postAuthRestful(
@@ -179,12 +186,15 @@ func postAuthRestful(
 	client *http.Client,
 	fullURL *url.URL,
 	headers map[string]string,
-	body []byte,
+	bodyCreator bodyCreatorType,
 	timeout time.Duration,
 	raise4XX bool) (
 	*http.Response, error) {
-	return newRetryHTTP(
-		ctx, client, http.NewRequest, fullURL, headers, timeout).doPost().setBody(body).doRaise4XX(raise4XX).execute()
+	return newRetryHTTP(ctx, client, http.NewRequest, fullURL, headers, timeout).
+		doPost().
+		setBodyCreator(bodyCreator).
+		doRaise4XX(raise4XX).
+		execute()
 }
 
 func postRestfulQuery(

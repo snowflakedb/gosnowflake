@@ -215,7 +215,7 @@ func postAuth(
 	client *http.Client,
 	params *url.Values,
 	headers map[string]string,
-	body []byte,
+	bodyCreator bodyCreatorType,
 	timeout time.Duration) (
 	data *authResponse, err error) {
 	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
@@ -223,7 +223,7 @@ func postAuth(
 
 	fullURL := sr.getFullURL(loginRequestPath, params)
 	logger.Infof("full URL: %v", fullURL)
-	resp, err := sr.FuncAuthPost(ctx, client, fullURL, headers, body, timeout, true)
+	resp, err := sr.FuncAuthPost(ctx, client, fullURL, headers, bodyCreator, timeout, true)
 	if err != nil {
 		return nil, err
 	}
@@ -287,6 +287,23 @@ func authenticate(
 	samlResponse []byte,
 	proofKey []byte,
 ) (resp *authResponseMain, err error) {
+	if sc.cfg.Authenticator == AuthTypeTokenAccessor {
+		logger.Info("Bypass authentication using existing token from token accessor")
+		sessionInfo := authResponseSessionInfo{
+			DatabaseName:  sc.cfg.Database,
+			SchemaName:    sc.cfg.Schema,
+			WarehouseName: sc.cfg.Warehouse,
+			RoleName:      sc.cfg.Role,
+		}
+		token, masterToken, sessionID := sc.cfg.TokenAccessor.GetTokens()
+		return &authResponseMain{
+			Token:       token,
+			MasterToken: masterToken,
+			SessionID:   sessionID,
+			SessionInfo: sessionInfo,
+		}, nil
+	}
+
 	headers := getHeaders()
 	clientEnvironment := authRequestClientEnvironment{
 		Application: sc.cfg.Application,
@@ -310,6 +327,67 @@ func authenticate(
 	if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
 		sessionParameters[clientStoreTemporaryCredential] = true
 	}
+	bodyCreator := func() ([]byte, error) {
+		return createRequestBody(sc, sessionParameters, clientEnvironment, proofKey, samlResponse)
+	}
+
+	params := &url.Values{}
+	if sc.cfg.Database != "" {
+		params.Add("databaseName", sc.cfg.Database)
+	}
+	if sc.cfg.Schema != "" {
+		params.Add("schemaName", sc.cfg.Schema)
+	}
+	if sc.cfg.Warehouse != "" {
+		params.Add("warehouse", sc.cfg.Warehouse)
+	}
+	if sc.cfg.Role != "" {
+		params.Add("roleName", sc.cfg.Role)
+	}
+
+	logger.WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
+		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
+
+	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, bodyCreator, sc.rest.LoginTimeout)
+	if err != nil {
+		return nil, err
+	}
+	if !respd.Success {
+		logger.Errorln("Authentication FAILED")
+		sc.rest.TokenAccessor.SetTokens("", "", -1)
+		if sessionParameters[clientRequestMfaToken] == true {
+			deleteCredential(sc, mfaToken)
+		}
+		if sessionParameters[clientStoreTemporaryCredential] == true {
+			deleteCredential(sc, idToken)
+		}
+		code, err := strconv.Atoi(respd.Code)
+		if err != nil {
+			code = -1
+			return nil, err
+		}
+		return nil, (&SnowflakeError{
+			Number:   code,
+			SQLState: SQLStateConnectionRejected,
+			Message:  respd.Message,
+		}).exceptionTelemetry(sc)
+	}
+	logger.Info("Authentication SUCCESS")
+	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
+	if sessionParameters[clientRequestMfaToken] == true {
+		token := respd.Data.MfaToken
+		setCredential(sc, mfaToken, token)
+	}
+	if sessionParameters[clientStoreTemporaryCredential] == true {
+		token := respd.Data.IDToken
+		setCredential(sc, idToken, token)
+	}
+	return &respd.Data, nil
+}
+
+func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface{},
+	clientEnvironment authRequestClientEnvironment, proofKey []byte, samlResponse []byte,
+) ([]byte, error) {
 	requestMain := authRequestData{
 		ClientAppID:       clientType,
 		ClientAppVersion:  SnowflakeGoDriverVersion,
@@ -362,83 +440,16 @@ func authenticate(
 		if sc.cfg.MfaToken != "" {
 			requestMain.Token = sc.cfg.MfaToken
 		}
-	case AuthTypeTokenAccessor:
-		logger.Info("Bypass authentication using existing token from token accessor")
-		sessionInfo := authResponseSessionInfo{
-			DatabaseName:  sc.cfg.Database,
-			SchemaName:    sc.cfg.Schema,
-			WarehouseName: sc.cfg.Warehouse,
-			RoleName:      sc.cfg.Role,
-		}
-		token, masterToken, sessionID := sc.cfg.TokenAccessor.GetTokens()
-		return &authResponseMain{
-			Token:       token,
-			MasterToken: masterToken,
-			SessionID:   sessionID,
-			SessionInfo: sessionInfo,
-		}, nil
 	}
 
 	authRequest := authRequest{
 		Data: requestMain,
 	}
-	params := &url.Values{}
-	if sc.cfg.Database != "" {
-		params.Add("databaseName", sc.cfg.Database)
-	}
-	if sc.cfg.Schema != "" {
-		params.Add("schemaName", sc.cfg.Schema)
-	}
-	if sc.cfg.Warehouse != "" {
-		params.Add("warehouse", sc.cfg.Warehouse)
-	}
-	if sc.cfg.Role != "" {
-		params.Add("roleName", sc.cfg.Role)
-	}
-
 	jsonBody, err := json.Marshal(authRequest)
-	if err != nil {
-		return
-	}
-
-	logger.WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
-		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
-
-	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, jsonBody, sc.rest.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
-	if !respd.Success {
-		logger.Errorln("Authentication FAILED")
-		sc.rest.TokenAccessor.SetTokens("", "", -1)
-		if sessionParameters[clientRequestMfaToken] == true {
-			deleteCredential(sc, mfaToken)
-		}
-		if sessionParameters[clientStoreTemporaryCredential] == true {
-			deleteCredential(sc, idToken)
-		}
-		code, err := strconv.Atoi(respd.Code)
-		if err != nil {
-			code = -1
-			return nil, err
-		}
-		return nil, (&SnowflakeError{
-			Number:   code,
-			SQLState: SQLStateConnectionRejected,
-			Message:  respd.Message,
-		}).exceptionTelemetry(sc)
-	}
-	logger.Info("Authentication SUCCESS")
-	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
-	if sessionParameters[clientRequestMfaToken] == true {
-		token := respd.Data.MfaToken
-		setCredential(sc, mfaToken, token)
-	}
-	if sessionParameters[clientStoreTemporaryCredential] == true {
-		token := respd.Data.IDToken
-		setCredential(sc, idToken, token)
-	}
-	return &respd.Data, nil
+	return jsonBody, nil
 }
 
 // Generate a JWT token in string given the configuration
