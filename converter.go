@@ -149,18 +149,19 @@ func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 		return &s, nil
 	case reflect.Struct:
 		switch typedVal := v.(type) {
+		case time.Time:
+			return timeTypeValueToString(typedVal, tsmode)
 		case sql.NullTime:
 			if !typedVal.Valid {
 				return nil, nil
 			}
 			return timeTypeValueToString(typedVal.Time, tsmode)
-		case time.Time:
-			return timeTypeValueToString(typedVal, tsmode)
-		case sql.NullString:
+		case sql.NullBool:
 			if !typedVal.Valid {
 				return nil, nil
 			}
-			return &typedVal.String, nil
+			s := strconv.FormatBool(typedVal.Bool)
+			return &s, nil
 		case sql.NullInt64:
 			if !typedVal.Valid {
 				return nil, nil
@@ -173,12 +174,11 @@ func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 			}
 			s := strconv.FormatFloat(typedVal.Float64, 'g', -1, 32)
 			return &s, nil
-		case sql.NullBool:
+		case sql.NullString:
 			if !typedVal.Valid {
 				return nil, nil
 			}
-			s := strconv.FormatBool(typedVal.Bool)
-			return &s, nil
+			return &typedVal.String, nil
 		}
 	}
 	return nil, fmt.Errorf("unsupported type: %v", v1.Kind())
