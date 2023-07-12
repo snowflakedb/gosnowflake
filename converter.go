@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
@@ -58,13 +59,13 @@ func isInterfaceArrayBinding(t interface{}) bool {
 // goTypeToSnowflake translates Go data type to Snowflake data type.
 func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 	switch t := v.(type) {
-	case int64:
+	case int64, sql.NullInt64:
 		return fixedType
-	case float64:
+	case float64, sql.NullFloat64:
 		return realType
-	case bool:
+	case bool, sql.NullBool:
 		return booleanType
-	case string:
+	case string, sql.NullString:
 		return textType
 	case []byte:
 		if tsmode == binaryType {
@@ -80,7 +81,7 @@ func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 			return unSupportedType
 		}
 		return changeType
-	case time.Time:
+	case time.Time, sql.NullTime:
 		return tsmode
 	}
 	if supportedArrayBind(&driver.NamedValue{Value: v}) {
@@ -147,32 +148,66 @@ func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 		s := v1.String()
 		return &s, nil
 	case reflect.Struct:
-		if tm, ok := v.(time.Time); ok {
-			switch tsmode {
-			case dateType:
-				_, offset := tm.Zone()
-				tm = tm.Add(time.Second * time.Duration(offset))
-				s := strconv.FormatInt(tm.Unix()*1000, 10)
-				return &s, nil
-			case timeType:
-				s := fmt.Sprintf("%d",
-					(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
-				return &s, nil
-			case timestampNtzType, timestampLtzType:
-				unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Unix()), 10)
-				m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
-				unixTime.Mul(unixTime, m)
-				tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Nanosecond()), 10)
-				s := unixTime.Add(unixTime, tmNanos).String()
-				return &s, nil
-			case timestampTzType:
-				_, offset := tm.Zone()
-				s := fmt.Sprintf("%v %v", tm.UnixNano(), offset/60+1440)
-				return &s, nil
+		switch typedVal := v.(type) {
+		case time.Time:
+			return timeTypeValueToString(typedVal, tsmode)
+		case sql.NullTime:
+			if !typedVal.Valid {
+				return nil, nil
 			}
+			return timeTypeValueToString(typedVal.Time, tsmode)
+		case sql.NullBool:
+			if !typedVal.Valid {
+				return nil, nil
+			}
+			s := strconv.FormatBool(typedVal.Bool)
+			return &s, nil
+		case sql.NullInt64:
+			if !typedVal.Valid {
+				return nil, nil
+			}
+			s := strconv.FormatInt(typedVal.Int64, 10)
+			return &s, nil
+		case sql.NullFloat64:
+			if !typedVal.Valid {
+				return nil, nil
+			}
+			s := strconv.FormatFloat(typedVal.Float64, 'g', -1, 32)
+			return &s, nil
+		case sql.NullString:
+			if !typedVal.Valid {
+				return nil, nil
+			}
+			return &typedVal.String, nil
 		}
 	}
 	return nil, fmt.Errorf("unsupported type: %v", v1.Kind())
+}
+
+func timeTypeValueToString(tm time.Time, tsmode snowflakeType) (*string, error) {
+	switch tsmode {
+	case dateType:
+		_, offset := tm.Zone()
+		tm = tm.Add(time.Second * time.Duration(offset))
+		s := strconv.FormatInt(tm.Unix()*1000, 10)
+		return &s, nil
+	case timeType:
+		s := fmt.Sprintf("%d",
+			(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
+		return &s, nil
+	case timestampNtzType, timestampLtzType:
+		unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Unix()), 10)
+		m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
+		unixTime.Mul(unixTime, m)
+		tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Nanosecond()), 10)
+		s := unixTime.Add(unixTime, tmNanos).String()
+		return &s, nil
+	case timestampTzType:
+		_, offset := tm.Zone()
+		s := fmt.Sprintf("%v %v", tm.UnixNano(), offset/60+1440)
+		return &s, nil
+	}
+	return nil, fmt.Errorf("unsupported time type: %v", tsmode)
 }
 
 // extractTimestamp extracts the internal timestamp data to epoch time in seconds and milliseconds
@@ -1108,4 +1143,27 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 	}
 	meta := sc.Metadata()
 	return arrow.NewSchema(fields, &meta), nil
+}
+
+// TypedNullTime is required to properly bind the null value with the snowflakeType as the Snowflake functions
+// require the type of the field to be provided explicitly for the null values
+type TypedNullTime struct {
+	Time   sql.NullTime
+	TzType timezoneType
+}
+
+func convertTzTypeToSnowflakeType(tzType timezoneType) snowflakeType {
+	switch tzType {
+	case TimestampNTZType:
+		return timestampNtzType
+	case TimestampLTZType:
+		return timestampLtzType
+	case TimestampTZType:
+		return timestampTzType
+	case DateType:
+		return dateType
+	case TimeType:
+		return timeType
+	}
+	return unSupportedType
 }

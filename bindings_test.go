@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -859,5 +860,73 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
 		}
 		dbt.mustExec("DROP TABLE binding_test")
+	})
+}
+
+func TestFunctionParameters(t *testing.T) {
+	testcases := []struct {
+		testDesc   string
+		paramType  string
+		input      interface{}
+		nullResult bool
+	}{
+		{"textAndNullStringResultInNull", "text", sql.NullString{}, true},
+		{"numberAndNullInt64ResultInNull", "number", sql.NullInt64{}, true},
+		{"floatAndNullFloat64ResultInNull", "float", sql.NullFloat64{}, true},
+		{"booleanAndAndNullBoolResultInNull", "boolean", sql.NullBool{}, true},
+		{"dateAndTypedNullTimeResultInNull", "date", TypedNullTime{sql.NullTime{}, DateType}, true},
+		{"datetimeAndTypedNullTimeResultInNull", "datetime", TypedNullTime{sql.NullTime{}, TimestampNTZType}, true},
+		{"timeAndTypedNullTimeResultInNull", "time", TypedNullTime{sql.NullTime{}, TimeType}, true},
+		{"timestampAndTypedNullTimeResultInNull", "timestamp", TypedNullTime{sql.NullTime{}, TimestampNTZType}, true},
+		{"timestamp_ntzAndTypedNullTimeResultInNull", "timestamp_ntz", TypedNullTime{sql.NullTime{}, TimestampNTZType}, true},
+		{"timestamp_ltzAndTypedNullTimeResultInNull", "timestamp_ltz", TypedNullTime{sql.NullTime{}, TimestampLTZType}, true},
+		{"timestamp_tzAndTypedNullTimeResultInNull", "timestamp_tz", TypedNullTime{sql.NullTime{}, TimestampTZType}, true},
+		{"textAndStringResultInNotNull", "text", "string", false},
+		{"numberAndIntegerResultInNotNull", "number", 123, false},
+		{"floatAndFloatResultInNotNull", "float", 123.01, false},
+		{"booleanAndBooleanResultInNotNull", "boolean", true, false},
+		{"dateAndTimeResultInNotNull", "date", time.Now(), false},
+		{"datetimeAndTimeResultInNotNull", "datetime", time.Now(), false},
+		{"timeAndTimeResultInNotNull", "time", time.Now(), false},
+		{"timestampAndTimeResultInNotNull", "timestamp", time.Now(), false},
+		{"timestamp_ntzAndTimeResultInNotNull", "timestamp_ntz", time.Now(), false},
+		{"timestamp_ltzAndTimeResultInNotNull", "timestamp_ltz", time.Now(), false},
+		{"timestamp_tzAndTimeResultInNotNull", "timestamp_tz", time.Now(), false},
+	}
+
+	runTests(t, dsn, func(dbt *DBTest) {
+		for _, tc := range testcases {
+			t.Run(tc.testDesc, func(t *testing.T) {
+				query := fmt.Sprintf(`
+				CREATE OR REPLACE FUNCTION NULLPARAMFUNCTION("param1" %v)
+				RETURNS TABLE("r1" %v)
+				LANGUAGE SQL
+				AS 'select param1';`, tc.paramType, tc.paramType)
+				dbt.mustExec(query)
+				if rows, err := dbt.db.Query("select * from table(NULLPARAMFUNCTION(?))", tc.input); err != nil {
+					t.Fatal(err)
+				} else {
+					if rows.Err() != nil {
+						t.Fatal(err)
+					} else {
+						if !rows.Next() {
+							t.Fatal()
+						} else {
+							var r1 interface{}
+							err = rows.Scan(&r1)
+							if err != nil {
+								t.Fatal(err)
+							}
+							if tc.nullResult && r1 != nil {
+								t.Fatalf("the result for %v is of type %v but should be null", tc.paramType, reflect.TypeOf(r1))
+							}
+							if !tc.nullResult && r1 == nil {
+								t.Fatalf("the result for %v should not be null", tc.paramType)
+							}
+						}
+					}
+				}
+			})
+		}
 	})
 }
