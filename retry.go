@@ -161,15 +161,15 @@ type clientInterface interface {
 }
 
 type retryHTTP struct {
-	ctx      context.Context
-	client   clientInterface
-	req      requestFunc
-	method   string
-	fullURL  *url.URL
-	headers  map[string]string
-	body     []byte
-	timeout  time.Duration
-	raise4XX bool
+	ctx         context.Context
+	client      clientInterface
+	req         requestFunc
+	method      string
+	fullURL     *url.URL
+	headers     map[string]string
+	bodyCreator bodyCreatorType
+	timeout     time.Duration
+	raise4XX    bool
 }
 
 func newRetryHTTP(ctx context.Context,
@@ -185,8 +185,8 @@ func newRetryHTTP(ctx context.Context,
 	instance.method = "GET"
 	instance.fullURL = fullURL
 	instance.headers = headers
-	instance.body = nil
 	instance.timeout = timeout
+	instance.bodyCreator = emptyBodyCreator
 	instance.raise4XX = false
 	return &instance
 }
@@ -202,7 +202,14 @@ func (r *retryHTTP) doPost() *retryHTTP {
 }
 
 func (r *retryHTTP) setBody(body []byte) *retryHTTP {
-	r.body = body
+	r.bodyCreator = func() ([]byte, error) {
+		return body, nil
+	}
+	return r
+}
+
+func (r *retryHTTP) setBodyCreator(bodyCreator bodyCreatorType) *retryHTTP {
+	r.bodyCreator = bodyCreator
 	return r
 }
 
@@ -217,7 +224,11 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 
 	for {
 		logger.Debugf("retry count: %v", retryCounter)
-		req, err := r.req(r.method, r.fullURL.String(), bytes.NewReader(r.body))
+		body, err := r.bodyCreator()
+		if err != nil {
+			return nil, err
+		}
+		req, err := r.req(r.method, r.fullURL.String(), bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}

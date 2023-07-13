@@ -3,7 +3,9 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -50,10 +52,17 @@ type fakeHTTPClient struct {
 	success    bool   // return success after retry in cnt times
 	timeout    bool   // timeout
 	body       []byte // return body
+	reqBody    []byte // last request body
 	statusCode int    // status code
 }
 
 func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	if req != nil {
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(req.Body)
+		c.reqBody = buf.Bytes()
+	}
+
 	c.cnt--
 	if c.cnt < 0 {
 		c.cnt = 0
@@ -266,6 +275,33 @@ func TestRetryLoginRequest(t *testing.T) {
 	}
 	if values.Get(retryCounterKey) != "" {
 		t.Fatalf("no retry counter should be attached: %v", retryCounterKey)
+	}
+}
+
+func TestRetryAuthLoginRequest(t *testing.T) {
+	logger.Info("Retry N times always with newer body")
+	client := &fakeHTTPClient{
+		cnt:     3,
+		success: true,
+		timeout: true,
+	}
+	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
+	if err != nil {
+		t.Fatal("failed to parse the test URL")
+	}
+	execID := 0
+	bodyCreator := func() ([]byte, error) {
+		execID++
+		return []byte(fmt.Sprintf("execID: %d", execID)), nil
+	}
+	_, err = newRetryHTTP(context.TODO(),
+		client,
+		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second).doPost().setBodyCreator(bodyCreator).execute()
+	if err != nil {
+		t.Fatal("failed to run retry")
+	}
+	if lastReqBody := string(client.reqBody); lastReqBody != "execID: 3" {
+		t.Fatalf("body should be updated on each request, expected: execID: 3, last body: %v", lastReqBody)
 	}
 }
 
