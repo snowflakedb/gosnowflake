@@ -390,16 +390,11 @@ func fillMissingConfigParameters(cfg *Config) error {
 		return ErrEmptyAccount
 	}
 
-	if cfg.Authenticator != AuthTypeOAuth && strings.Trim(cfg.User, " ") == "" {
-		// oauth does not require a username
+	if authRequiresUser(cfg) && strings.TrimSpace(cfg.User) == "" {
 		return ErrEmptyUsername
 	}
 
-	if cfg.Authenticator != AuthTypeExternalBrowser &&
-		cfg.Authenticator != AuthTypeOAuth &&
-		cfg.Authenticator != AuthTypeJwt &&
-		strings.Trim(cfg.Password, " ") == "" {
-		// no password parameter is required for EXTERNALBROWSER, OAUTH or JWT.
+	if authRequiresPassword(cfg) && strings.TrimSpace(cfg.Password) == "" {
 		return ErrEmptyPassword
 	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
@@ -465,6 +460,19 @@ func fillMissingConfigParameters(cfg *Config) error {
 		}
 	}
 	return nil
+}
+
+func authRequiresUser(cfg *Config) bool {
+	return cfg.Authenticator != AuthTypeOAuth &&
+		cfg.Authenticator != AuthTypeTokenAccessor &&
+		cfg.Authenticator != AuthTypeExternalBrowser
+}
+
+func authRequiresPassword(cfg *Config) bool {
+	return cfg.Authenticator != AuthTypeOAuth &&
+		cfg.Authenticator != AuthTypeTokenAccessor &&
+		cfg.Authenticator != AuthTypeExternalBrowser &&
+		cfg.Authenticator != AuthTypeJwt
 }
 
 // transformAccountToHost transforms host to account name
