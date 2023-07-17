@@ -20,6 +20,10 @@ type SnowflakeResult interface {
 	GetArrowBatches() ([]*ArrowBatch, error)
 }
 
+type SnowflakeChunkResult interface {
+	GetChunkMetas() []ExecResponseChunk
+}
+
 type snowflakeResult struct {
 	affectedRows int64
 	insertID     int64 // Snowflake doesn't support last insert id

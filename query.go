@@ -39,6 +39,10 @@ type execResponseRowType struct {
 	Nullable   bool   `json:"nullable"`
 }
 
+type ExecResponseChunk struct {
+	execResponseChunk
+}
+
 type execResponseChunk struct {
 	URL              string `json:"url"`
 	RowCount         int    `json:"rowCount"`
