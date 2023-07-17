@@ -578,11 +578,18 @@ func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, erro
 
 // ArrowStreamLoader is a convenience interface for downloading
 // Snowflake results via multiple Arrow Record Batch streams.
+//
+// Some queries from Snowflake do not return Arrow data regardless
+// of the settings, such as "SHOW WAREHOUSES". In these cases,
+// you'll find TotalRows() > 0 but GetBatches returns no batches
+// and no errors. In this case, the data is accessible via JSONData
+// with the actual types matching up to the metadata in RowTypes.
 type ArrowStreamLoader interface {
 	GetBatches() ([]ArrowStreamBatch, error)
 	TotalRows() int64
 	RowTypes() []execResponseRowType
 	Location() *time.Location
+	JSONData() [][]*string
 }
 
 type snowflakeArrowStreamChunkDownloader struct {
@@ -604,6 +611,9 @@ func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
 func (scd *snowflakeArrowStreamChunkDownloader) TotalRows() int64 { return scd.Total }
 func (scd *snowflakeArrowStreamChunkDownloader) RowTypes() []execResponseRowType {
 	return scd.RowSet.RowType
+}
+func (scd *snowflakeArrowStreamChunkDownloader) JSONData() [][]*string {
+	return scd.RowSet.JSON
 }
 
 // the server might have had an empty first batch, check if we can decode
