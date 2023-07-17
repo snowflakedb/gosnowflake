@@ -240,7 +240,7 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 			if t == nullType || t == unSupportedType {
 				t = textType // if null or not supported, pass to GS as text
 			}
-			bindValues[strconv.Itoa(idx)] = execBindParameter{
+			bindValues[bindingName(binding, idx)] = execBindParameter{
 				Type:  t.String(),
 				Value: val,
 			}
@@ -248,6 +248,13 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 		}
 	}
 	return bindValues, nil
+}
+
+func bindingName(nv driver.NamedValue, idx int) string {
+	if nv.Name != "" {
+		return nv.Name
+	}
+	return strconv.Itoa(idx)
 }
 
 func arrayBindValueCount(bindValues []driver.NamedValue) int {
