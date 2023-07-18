@@ -37,7 +37,9 @@ func (sc *snowflakeConn) stopHeartBeat() {
 	if !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
-	sc.rest.HeartBeat.stop()
+	if sc.rest.HeartBeat != nil {
+		sc.rest.HeartBeat.stop()
+	}
 }
 
 func (sc *snowflakeConn) getArrayBindStageThreshold() int {

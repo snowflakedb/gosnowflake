@@ -39,6 +39,13 @@ type execResponseRowType struct {
 	Nullable   bool   `json:"nullable"`
 }
 
+// ExecResponseChunk is created for export rather than change the original one
+type ExecResponseChunk struct {
+	RowCount         int   `json:"rowCount"`
+	UncompressedSize int64 `json:"uncompressedSize"`
+	CompressedSize   int64 `json:"compressedSize"`
+}
+
 type execResponseChunk struct {
 	URL              string `json:"url"`
 	RowCount         int    `json:"rowCount"`

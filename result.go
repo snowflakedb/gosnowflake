@@ -26,6 +26,11 @@ type SnowflakeResult interface {
 	QueryGraph(time.Duration) *QueryGraphData
 }
 
+// SnowflakeChunkResult for snowflake chunk results
+type SnowflakeChunkResult interface {
+	GetChunkMetas() []ExecResponseChunk
+}
+
 type snowflakeResult struct {
 	affectedRows int64
 	insertID     int64 // Snowflake doesn't support last insert id

@@ -191,6 +191,19 @@ func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
 	return rows.ChunkDownloader.getArrowBatches(), nil
 }
 
+func (rows *snowflakeRows) GetChunkMetas() []ExecResponseChunk {
+	execResponseChunkPrivate := rows.ChunkDownloader.getChunkMetas()
+	execResponseChunkExport := make([]ExecResponseChunk, len(execResponseChunkPrivate))
+	for i := 0; i < len(execResponseChunkPrivate); i++ {
+		execResponseChunkExport[i] = ExecResponseChunk{
+			RowCount:         execResponseChunkPrivate[i].RowCount,
+			UncompressedSize: execResponseChunkPrivate[i].UncompressedSize,
+			CompressedSize:   execResponseChunkPrivate[i].CompressedSize,
+		}
+	}
+	return execResponseChunkExport
+}
+
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 	if err = rows.waitForAsyncQueryStatus(); err != nil {
 		return err
