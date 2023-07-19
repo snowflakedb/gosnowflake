@@ -6,6 +6,7 @@ on:
 jobs:
   whitesource:
     runs-on: ubuntu-latest
+    permissions: write-all
     if: ${{ github.event.pull_request.user.login == 'sfc-gh-snyk-sca-sa' }}
     steps:
     - name: checkout
