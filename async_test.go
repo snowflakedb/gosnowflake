@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 )
@@ -105,10 +106,18 @@ func TestMultipleAsyncQueries(t *testing.T) {
 	ch1 := make(chan string)
 	ch2 := make(chan string)
 
+	db := openDB(t)
+
 	runTests(t, dsn, func(dbt *DBTest) {
-		rows1 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s1, 30))
+		rows1, err := db.QueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s1, 30))
+		if err != nil {
+			t.Fatalf("can't read rows1: %v", err)
+		}
 		defer rows1.Close()
-		rows2 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s2, 10))
+		rows2, err := db.QueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s2, 10))
+		if err != nil {
+			t.Fatalf("can't read rows2: %v", err)
+		}
 		defer rows2.Close()
 
 		go retrieveRows(rows1, ch1)
@@ -124,7 +133,7 @@ func TestMultipleAsyncQueries(t *testing.T) {
 	})
 }
 
-func retrieveRows(rows *RowsExtended, ch chan string) {
+func retrieveRows(rows *sql.Rows, ch chan string) {
 	var s string
 	for rows.Next() {
 		if err := rows.Scan(&s); err != nil {
@@ -138,13 +147,13 @@ func retrieveRows(rows *RowsExtended, ch chan string) {
 }
 
 func TestLongRunningAsyncQuery(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+	conn := openConn(t)
+	defer conn.Close()
 
 	ctx, _ := WithMultiStatement(context.Background(), 0)
 	query := "CALL SYSTEM$WAIT(50, 'SECONDS');use snowflake_sample_data"
 
-	rows, err := db.QueryContext(WithAsyncMode(ctx), query)
+	rows, err := conn.QueryContext(WithAsyncMode(ctx), query)
 	if err != nil {
 		t.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}

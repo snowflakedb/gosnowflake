@@ -18,22 +18,32 @@ func openDB(t *testing.T) *sql.DB {
 	var err error
 
 	if db, err = sql.Open("snowflake", dsn); err != nil {
-		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
+		t.Fatalf("failed to open db. %v", err)
 	}
+
 	return db
 }
 
-func TestGetQueryID(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+func openConn(t *testing.T) *sql.Conn {
+	var db *sql.DB
+	var conn *sql.Conn
+	var err error
 
-	ctx := context.TODO()
-	conn, err := db.Conn(ctx)
-	if err != nil {
-		t.Error(err)
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
+	if conn, err = db.Conn(context.Background()); err != nil {
+		t.Fatalf("failed to open connection: %v", err)
+	}
+	return conn
+}
 
-	if err = conn.Raw(func(x interface{}) error {
+func TestGetQueryID(t *testing.T) {
+	ctx := context.Background()
+	conn := openConn(t)
+	defer conn.Close()
+
+	if err := conn.Raw(func(x interface{}) error {
 		rows, err := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
 		if err != nil {
 			return err
@@ -150,6 +160,7 @@ func TestWithDescribeOnly(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		ctx := WithDescribeOnly(context.Background())
 		rows := dbt.mustQueryContext(ctx, selectVariousTypes)
+		defer rows.Close()
 		cols, err := rows.Columns()
 		if err != nil {
 			t.Error(err)
@@ -178,7 +189,7 @@ func TestCallStatement(t *testing.T) {
 		expected := "1 \"[2,3]\" [2,3]"
 		var out string
 
-		dbt.db.Exec("ALTER SESSION SET USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS = true")
+		dbt.exec("ALTER SESSION SET USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS = true")
 
 		dbt.mustExec("create or replace procedure " +
 			"TEST_SP_CALL_STMT_ENABLED(in1 float, in2 variant) " +
@@ -188,7 +199,7 @@ func TestCallStatement(t *testing.T) {
 			"return res.getColumnValueAsString(1) + ' ' + res.getColumnValueAsString(2) + ' ' + IN2; " +
 			"$$;")
 
-		stmt, err := dbt.db.Prepare("call TEST_SP_CALL_STMT_ENABLED(?, to_variant(?))")
+		stmt, err := dbt.conn.PrepareContext(context.Background(), "call TEST_SP_CALL_STMT_ENABLED(?, to_variant(?))")
 		if err != nil {
 			dbt.Errorf("failed to prepare query: %v", err)
 		}
@@ -207,19 +218,15 @@ func TestCallStatement(t *testing.T) {
 }
 
 func TestStmtExec(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+	ctx := context.Background()
+	conn := openConn(t)
+	defer conn.Close()
 
-	if _, err := db.Exec(`create or replace table test_table(col1 int, col2 int)`); err != nil {
+	if _, err := conn.ExecContext(ctx, `create or replace table test_table(col1 int, col2 int)`); err != nil {
 		t.Fatalf("failed to create table: %v", err)
 	}
 
-	ctx := context.Background()
-	conn, err := db.Conn(ctx)
-	if err != nil {
-		t.Error(err)
-	}
-	if err = conn.Raw(func(x interface{}) error {
+	if err := conn.Raw(func(x interface{}) error {
 		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "insert into test_table values (1, 2)")
 		if err != nil {
 			t.Error(err)
@@ -237,7 +244,7 @@ func TestStmtExec(t *testing.T) {
 		t.Fatalf("failed to drop table: %v", err)
 	}
 
-	if _, err := db.Exec("drop table if exists test_table"); err != nil {
+	if _, err := conn.ExecContext(ctx, "drop table if exists test_table"); err != nil {
 		t.Fatalf("failed to drop table: %v", err)
 	}
 }

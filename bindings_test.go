@@ -68,7 +68,7 @@ func TestBindingUint64(t *testing.T) {
 		expected := uint64(18446744073709551615)
 		for _, v := range types {
 			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
-			if _, err := dbt.db.Exec("INSERT INTO test VALUES (1, ?)", expected); err == nil {
+			if _, err := dbt.exec("INSERT INTO test VALUES (1, ?)", expected); err == nil {
 				dbt.Fatal("should fail as uint64 values with high bit set are not supported.")
 			} else {
 				logger.Infof("expected err: %v", err)
@@ -84,7 +84,7 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 		expected := time.Now()
 		dbt.mustExec(
 			"CREATE OR REPLACE TABLE tztest (id int, ntz timestamp_ntz, ltz timestamp_ltz, dt date, tm time)")
-		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,ntz,ltz,dt,tm) VALUES(1,?,?,?,?)")
+		stmt, err := dbt.prepare("INSERT INTO tztest(id,ntz,ltz,dt,tm) VALUES(1,?,?,?,?)")
 		if err != nil {
 			dbt.Fatal(err.Error())
 		}
@@ -175,7 +175,7 @@ func TestBindingTimestampTZ(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		expected := time.Now()
 		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, tz timestamp_tz)")
-		stmt, err := dbt.db.Prepare("INSERT INTO tztest(id,tz) VALUES(1, ?)")
+		stmt, err := dbt.prepare("INSERT INTO tztest(id,tz) VALUES(1, ?)")
 		if err != nil {
 			dbt.Fatal(err.Error())
 		}
@@ -214,7 +214,7 @@ func TestBindingTimePtrInStruct(t *testing.T) {
 		runInsertQuery := false
 		for i := 0; i < 2; i++ {
 			if !runInsertQuery {
-				_, err := dbt.db.Exec("INSERT INTO timeStructTest(id,tz) VALUES(?, ?)", testStruct.id, testStruct.timeVal)
+				_, err := dbt.exec("INSERT INTO timeStructTest(id,tz) VALUES(?, ?)", testStruct.id, testStruct.timeVal)
 				if err != nil {
 					dbt.Fatal(err.Error())
 				}
@@ -223,7 +223,7 @@ func TestBindingTimePtrInStruct(t *testing.T) {
 				// Update row with a new time value
 				expectedTime = time.Now().Add(1)
 				testStruct.timeVal = &expectedTime
-				_, err := dbt.db.Exec("UPDATE timeStructTest SET tz = ? where id = ?", testStruct.timeVal, testStruct.id)
+				_, err := dbt.exec("UPDATE timeStructTest SET tz = ? where id = ?", testStruct.timeVal, testStruct.id)
 				if err != nil {
 					dbt.Fatal(err.Error())
 				}
@@ -261,7 +261,7 @@ func TestBindingTimeInStruct(t *testing.T) {
 		runInsertQuery := false
 		for i := 0; i < 2; i++ {
 			if !runInsertQuery {
-				_, err := dbt.db.Exec("INSERT INTO timeStructTest(id,tz) VALUES(?, ?)", testStruct.id, testStruct.timeVal)
+				_, err := dbt.exec("INSERT INTO timeStructTest(id,tz) VALUES(?, ?)", testStruct.id, testStruct.timeVal)
 				if err != nil {
 					dbt.Fatal(err.Error())
 				}
@@ -270,7 +270,7 @@ func TestBindingTimeInStruct(t *testing.T) {
 				// Update row with a new time value
 				expectedTime = time.Now().Add(1)
 				testStruct.timeVal = expectedTime
-				_, err := dbt.db.Exec("UPDATE timeStructTest SET tz = ? where id = ?", testStruct.timeVal, testStruct.id)
+				_, err := dbt.exec("UPDATE timeStructTest SET tz = ? where id = ?", testStruct.timeVal, testStruct.id)
 				if err != nil {
 					dbt.Fatal(err.Error())
 				}
@@ -630,7 +630,7 @@ func testBindingArray(t *testing.T, bulk bool) {
 		dbt.mustExec(createTableSQL)
 		defer dbt.mustExec(deleteTableSQL)
 		if bulk {
-			if _, err := dbt.db.Exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1"); err != nil {
+			if _, err := dbt.exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1"); err != nil {
 				t.Error(err)
 			}
 		}
@@ -705,6 +705,7 @@ func TestBulkArrayBinding(t *testing.T) {
 		}
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?)", dbname), Array(&intArr), Array(&strArr))
 		rows := dbt.mustQuery("select * from " + dbname)
+		defer rows.Close()
 		cnt := 0
 		var i int
 		var s string
@@ -747,6 +748,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 				fmt.Sprintf("INSERT INTO %s VALUES (?)", tempTableName),
 				Array(&randomStrings))
 			rows := dbt.mustQuery("select count(*) from " + tempTableName)
+			defer rows.Close()
 			if rows.Next() {
 				var count int
 				if err := rows.Scan(&count); err != nil {
@@ -756,6 +758,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 		}
 
 		rows := dbt.mustQuery("select count(*) from " + tempTableName)
+		defer rows.Close()
 		if rows.Next() {
 			var count int
 			if err := rows.Scan(&count); err != nil {
@@ -778,12 +781,13 @@ func TestBulkArrayMultiPartBindingInt(t *testing.T) {
 		for i := startNum; i < endNum; i++ {
 			intArr[i-startNum] = i
 		}
-		_, err := dbt.db.Exec("insert into binding_test values (?)", Array(&intArr))
+		_, err := dbt.exec("insert into binding_test values (?)", Array(&intArr))
 		if err != nil {
 			t.Errorf("Should have succeeded to insert. err: %v", err)
 		}
 
 		rows := dbt.mustQuery("select * from binding_test order by c1")
+		defer rows.Close()
 		cnt := startNum
 		var i int
 		for rows.Next() {
@@ -825,12 +829,13 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 		stringArr[2] = nil
 		stringArr[3] = nil
 
-		_, err := dbt.db.Exec("insert into binding_test values (?, ?)", Array(&intArr), Array(&stringArr))
+		_, err := dbt.exec("insert into binding_test values (?, ?)", Array(&intArr), Array(&stringArr))
 		if err != nil {
 			t.Errorf("Should have succeeded to insert. err: %v", err)
 		}
 
 		rows := dbt.mustQuery("select * from binding_test order by c1,c2")
+		defer rows.Close()
 		cnt := startNum
 		var i sql.NullInt32
 		var s sql.NullString
@@ -903,28 +908,27 @@ func TestFunctionParameters(t *testing.T) {
 				LANGUAGE SQL
 				AS 'select param1';`, tc.paramType, tc.paramType)
 				dbt.mustExec(query)
-				if rows, err := dbt.db.Query("select * from table(NULLPARAMFUNCTION(?))", tc.input); err != nil {
+				rows, err := dbt.query("select * from table(NULLPARAMFUNCTION(?))", tc.input)
+				if err != nil {
 					t.Fatal(err)
-				} else {
-					if rows.Err() != nil {
-						t.Fatal(err)
-					} else {
-						if !rows.Next() {
-							t.Fatal()
-						} else {
-							var r1 any
-							err = rows.Scan(&r1)
-							if err != nil {
-								t.Fatal(err)
-							}
-							if tc.nullResult && r1 != nil {
-								t.Fatalf("the result for %v is of type %v but should be null", tc.paramType, reflect.TypeOf(r1))
-							}
-							if !tc.nullResult && r1 == nil {
-								t.Fatalf("the result for %v should not be null", tc.paramType)
-							}
-						}
-					}
+				}
+				defer rows.Close()
+				if rows.Err() != nil {
+					t.Fatal(err)
+				}
+				if !rows.Next() {
+					t.Fatal("no rows fetched")
+				}
+				var r1 any
+				err = rows.Scan(&r1)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if tc.nullResult && r1 != nil {
+					t.Fatalf("the result for %v is of type %v but should be null", tc.paramType, reflect.TypeOf(r1))
+				}
+				if !tc.nullResult && r1 == nil {
+					t.Fatalf("the result for %v should not be null", tc.paramType)
 				}
 			})
 		}
@@ -987,7 +991,7 @@ func TestVariousBindingModes(t *testing.T) {
 				t.Run(tc.testDesc+" "+bindingMode.param, func(t *testing.T) {
 					query := fmt.Sprintf(`CREATE OR REPLACE TABLE BINDING_MODES(param1 %v)`, tc.paramType)
 					dbt.mustExec(query)
-					if _, err := dbt.db.Exec(fmt.Sprintf("INSERT INTO BINDING_MODES VALUES (%v)", bindingMode.param), bindingMode.transform(tc.input)); err != nil {
+					if _, err := dbt.exec(fmt.Sprintf("INSERT INTO BINDING_MODES VALUES (%v)", bindingMode.param), bindingMode.transform(tc.input)); err != nil {
 						t.Fatal(err)
 					}
 					if tc.isNil {
@@ -995,10 +999,11 @@ func TestVariousBindingModes(t *testing.T) {
 					} else {
 						query = fmt.Sprintf("SELECT * FROM BINDING_MODES WHERE param1 = %v", bindingMode.param)
 					}
-					rows, err := dbt.db.Query(query, bindingMode.transform(tc.input))
+					rows, err := dbt.query(query, bindingMode.transform(tc.input))
 					if err != nil {
 						t.Fatal(err)
 					}
+					defer rows.Close()
 					if !rows.Next() {
 						t.Fatal("Expected to return a row")
 					}

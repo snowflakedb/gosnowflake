@@ -163,7 +163,7 @@ func TestMain(m *testing.M) {
 
 type DBTest struct {
 	*testing.T
-	db *sql.DB
+	conn *sql.Conn
 }
 
 func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
@@ -187,7 +187,7 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExten
 		close(c)
 	}()
 
-	rs, err := dbt.db.QueryContext(ctx, query, args...)
+	rs, err := dbt.conn.QueryContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("query", query, err)
 	}
@@ -218,7 +218,7 @@ func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...i
 		close(c)
 	}()
 
-	rs, err := dbt.db.QueryContext(ctx, query, args...)
+	rs, err := dbt.conn.QueryContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("query", query, err)
 	}
@@ -228,8 +228,13 @@ func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...i
 	}
 }
 
+func (dbt *DBTest) query(query string, args ...any) (*sql.Rows, error) {
+	return dbt.conn.QueryContext(context.Background(), query, args...)
+}
+
 func (dbt *DBTest) mustQueryAssertCount(query string, expected int, args ...interface{}) {
 	rows := dbt.mustQuery(query, args...)
+	defer rows.Close()
 	cnt := 0
 	for rows.Next() {
 		cnt++
@@ -237,6 +242,10 @@ func (dbt *DBTest) mustQueryAssertCount(query string, expected int, args ...inte
 	if cnt != expected {
 		dbt.Fatalf("expected %v, got %v", expected, cnt)
 	}
+}
+
+func (dbt *DBTest) prepare(query string) (*sql.Stmt, error) {
+	return dbt.conn.PrepareContext(context.Background(), query)
 }
 
 func (dbt *DBTest) fail(method, query string, err error) {
@@ -247,19 +256,19 @@ func (dbt *DBTest) fail(method, query string, err error) {
 }
 
 func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result) {
-	res, err := dbt.db.Exec(query, args...)
-	if err != nil {
-		dbt.fail("exec", query, err)
-	}
-	return res
+	return dbt.mustExecContext(context.Background(), query, args...)
 }
 
 func (dbt *DBTest) mustExecContext(ctx context.Context, query string, args ...interface{}) (res sql.Result) {
-	res, err := dbt.db.ExecContext(ctx, query, args...)
+	res, err := dbt.conn.ExecContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("exec context", query, err)
 	}
 	return res
+}
+
+func (dbt *DBTest) exec(query string, args ...any) (sql.Result, error) {
+	return dbt.conn.ExecContext(context.Background(), query, args...)
 }
 
 func (dbt *DBTest) mustDecimalSize(ct *sql.ColumnType) (pr int64, sc int64) {
@@ -304,7 +313,7 @@ func (dbt *DBTest) mustNullable(ct *sql.ColumnType) (canNull bool) {
 }
 
 func (dbt *DBTest) mustPrepare(query string) (stmt *sql.Stmt) {
-	stmt, err := dbt.db.Prepare(query)
+	stmt, err := dbt.conn.PrepareContext(context.Background(), query)
 	if err != nil {
 		dbt.fail("prepare", query, err)
 	}
@@ -312,20 +321,18 @@ func (dbt *DBTest) mustPrepare(query string) (stmt *sql.Stmt) {
 }
 
 func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		t.Fatalf("error connecting: %s", err.Error())
-	}
-	defer db.Close()
+	ctx := context.Background()
+	conn := openConn(t)
+	dbt := &DBTest{t, conn}
+	defer conn.Close()
 
-	if _, err = db.Exec("DROP TABLE IF EXISTS test"); err != nil {
+	if _, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test"); err != nil {
 		t.Fatalf("failed to drop table: %v", err)
 	}
 
-	dbt := &DBTest{t, db}
 	for _, test := range tests {
 		test(dbt)
-		dbt.db.Exec("DROP TABLE IF EXISTS test")
+		dbt.conn.ExecContext(ctx, "DROP TABLE IF EXISTS test")
 	}
 }
 
@@ -415,7 +422,7 @@ func TestCommentOnlyQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		query := "--"
 		// just a comment, no query
-		rows, err := dbt.db.Query(query)
+		rows, err := dbt.query(query)
 		if err == nil {
 			rows.Close()
 			dbt.fail("query", query, err)
@@ -432,12 +439,12 @@ func TestEmptyQuery(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		query := "select 1 from dual where 1=0"
 		// just a comment, no query
-		rows := dbt.db.QueryRow(query)
-		var v1 interface{}
+		rows := dbt.conn.QueryRowContext(context.Background(), query)
+		var v1 any
 		if err := rows.Scan(&v1); err != sql.ErrNoRows {
 			dbt.Errorf("should fail. err: %v", err)
 		}
-		rows = dbt.db.QueryRowContext(context.Background(), query)
+		rows = dbt.conn.QueryRowContext(context.Background(), query)
 		if err := rows.Scan(&v1); err != sql.ErrNoRows {
 			dbt.Errorf("should fail. err: %v", err)
 		}
@@ -448,7 +455,7 @@ func TestEmptyQueryWithRequestID(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		query := "select 1"
 		ctx := WithRequestID(context.Background(), NewUUID())
-		rows := dbt.db.QueryRowContext(ctx, query)
+		rows := dbt.conn.QueryRowContext(ctx, query)
 		var v1 interface{}
 		if err := rows.Scan(&v1); err != nil {
 			dbt.Errorf("should not have failed with valid request id. err: %v", err)
@@ -695,7 +702,7 @@ func testString(t *testing.T, json bool) {
 			gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.`
 		dbt.mustExec("INSERT INTO test VALUES (?, ?)", id, in)
 
-		if err := dbt.db.QueryRow("SELECT value FROM test WHERE id = ?", id).Scan(&out); err != nil {
+		if err := dbt.conn.QueryRowContext(context.Background(), "SELECT value FROM test WHERE id = ?", id).Scan(&out); err != nil {
 			dbt.Fatalf("Error on BLOB-Query: %s", err.Error())
 		} else if out != in {
 			dbt.Errorf("BLOB: %s != %s", in, out)
@@ -994,13 +1001,13 @@ func testNULL(t *testing.T, json bool) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
-		nullStmt, err := dbt.db.Prepare("SELECT NULL")
+		nullStmt, err := dbt.conn.PrepareContext(context.Background(), "SELECT NULL")
 		if err != nil {
 			dbt.Fatal(err)
 		}
 		defer nullStmt.Close()
 
-		nonNullStmt, err := dbt.db.Prepare("SELECT 1")
+		nonNullStmt, err := dbt.conn.PrepareContext(context.Background(), "SELECT 1")
 		if err != nil {
 			dbt.Fatal(err)
 		}
@@ -1101,7 +1108,7 @@ func testNULL(t *testing.T, json bool) {
 		// Insert nil
 		b = nil
 		success := false
-		if err = dbt.db.QueryRow("SELECT ? IS NULL", b).Scan(&success); err != nil {
+		if err = dbt.conn.QueryRowContext(context.Background(), "SELECT ? IS NULL", b).Scan(&success); err != nil {
 			dbt.Fatal(err)
 		}
 		if !success {
@@ -1110,7 +1117,7 @@ func testNULL(t *testing.T, json bool) {
 		}
 		// Check input==output with input==nil
 		b = nil
-		if err = dbt.db.QueryRow("SELECT ?", b).Scan(&b); err != nil {
+		if err = dbt.conn.QueryRowContext(context.Background(), "SELECT ?", b).Scan(&b); err != nil {
 			dbt.Fatal(err)
 		}
 		if b != nil {
@@ -1118,7 +1125,7 @@ func testNULL(t *testing.T, json bool) {
 		}
 		// Check input==output with input!=nil
 		b = []byte("")
-		if err = dbt.db.QueryRow("SELECT ?", b).Scan(&b); err != nil {
+		if err = dbt.conn.QueryRowContext(context.Background(), "SELECT ?", b).Scan(&b); err != nil {
 			dbt.Fatal(err)
 		}
 		if b == nil {
@@ -1258,7 +1265,7 @@ func TestDML(t *testing.T) {
 }
 
 func insertData(dbt *DBTest, commit bool) error {
-	tx, err := dbt.db.Begin()
+	tx, err := dbt.conn.BeginTx(context.Background(), nil)
 	if err != nil {
 		dbt.Fatalf("failed to begin transaction: %v", err)
 	}
@@ -1314,7 +1321,7 @@ func queryTestTx(tx *sql.Tx) (*map[int]string, error) {
 func queryTest(dbt *DBTest) (*map[int]string, error) {
 	var c1 int
 	var c2 string
-	rows, err := dbt.db.Query("SELECT c1, c2 FROM test")
+	rows, err := dbt.query("SELECT c1, c2 FROM test")
 	if err != nil {
 		return nil, err
 	}
@@ -1334,7 +1341,7 @@ func TestCancelQuery(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		_, err := dbt.db.QueryContext(ctx, "SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 100))")
+		_, err := dbt.conn.QueryContext(ctx, "SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 100))")
 		if err == nil {
 			dbt.Fatal("No timeout error returned")
 		}
@@ -1345,8 +1352,8 @@ func TestCancelQuery(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	db := openDB(t)
-	if err := db.Ping(); err != nil {
+	db := openConn(t)
+	if err := db.PingContext(context.Background()); err != nil {
 		t.Fatalf("failed to ping. err: %v", err)
 	}
 	if err := db.PingContext(context.Background()); err != nil {
@@ -1355,7 +1362,7 @@ func TestPing(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Fatalf("failed to close db. err: %v", err)
 	}
-	if err := db.Ping(); err == nil {
+	if err := db.PingContext(context.Background()); err == nil {
 		t.Fatal("should have failed to ping")
 	}
 	if err := db.PingContext(context.Background()); err == nil {
@@ -1387,10 +1394,10 @@ $$
 
 func TestTimezoneSessionParameter(t *testing.T) {
 	createDSN(PSTLocation)
-	db := openDB(t)
-	defer db.Close()
+	conn := openConn(t)
+	defer conn.Close()
 
-	rows, err := db.Query("SHOW PARAMETERS LIKE 'TIMEZONE'")
+	rows, err := conn.QueryContext(context.Background(), "SHOW PARAMETERS LIKE 'TIMEZONE'")
 	if err != nil {
 		t.Errorf("failed to run show parameters. err: %v", err)
 	}
@@ -1416,7 +1423,7 @@ func TestLargeSetResultCancel(t *testing.T) {
 		go func() {
 			// attempt to run a 100 seconds query, but it should be canceled in 1 second
 			timelimit := 100
-			rows, err := dbt.db.QueryContext(
+			rows, err := dbt.conn.QueryContext(
 				ctx,
 				fmt.Sprintf("SELECT COUNT(*) FROM TABLE(GENERATOR(timelimit=>%v))", timelimit))
 			if err != nil {
@@ -1652,6 +1659,7 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 	createDSNWithClientSessionKeepAlive()
 	runTests(t, dsn, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
+		defer rows.Close()
 		if !rows.Next() {
 			t.Fatal("failed to get timezone.")
 		}
@@ -1664,8 +1672,8 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
 		}
 
-		rows = dbt.mustQuery("select count(*) from table(generator(timelimit=>30))")
-		defer rows.Close()
+		rows2 := dbt.mustQuery("select count(*) from table(generator(timelimit=>30))")
+		defer rows2.Close()
 	})
 }
 
@@ -1673,6 +1681,7 @@ func TestTimePrecision(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table z3 (t1 time(5))")
 		rows := dbt.mustQuery("select * from z3")
+		defer rows.Close()
 		cols, err := rows.ColumnTypes()
 		if err != nil {
 			t.Error(err)

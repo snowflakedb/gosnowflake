@@ -32,13 +32,13 @@ func TestInvalidConnection(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Error("should not cause error in the second call of Close")
 	}
-	if _, err := db.Exec("CREATE TABLE OR REPLACE test0(c1 int)"); err == nil {
+	if _, err := db.ExecContext(context.Background(), "CREATE TABLE OR REPLACE test0(c1 int)"); err == nil {
 		t.Error("should fail to run Exec")
 	}
-	if _, err := db.Query("SELECT CURRENT_TIMESTAMP()"); err == nil {
+	if _, err := db.QueryContext(context.Background(), "SELECT CURRENT_TIMESTAMP()"); err == nil {
 		t.Error("should fail to run Query")
 	}
-	if _, err := db.Begin(); err == nil {
+	if _, err := db.BeginTx(context.Background(), nil); err == nil {
 		t.Error("should fail to run Begin")
 	}
 }
