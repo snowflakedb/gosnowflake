@@ -657,3 +657,131 @@ func TestQueryContextError(t *testing.T) {
 		t.Fatalf("should be snowflake error. err: %v", err)
 	}
 }
+
+func TestConcurrentExecContextWithUnsuccessfulDataError(t *testing.T) {
+	ctx := context.Background()
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery:  postQueryHTTPOKWithUnsuccessfulData,
+		TokenAccessor:  getSimpleTokenAccessor(),
+		RequestTimeout: 10,
+	}
+
+	sc.rest = sr
+
+	wg := sync.WaitGroup{}
+	errs := make(chan error, 10)
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			uuid := NewUUID()
+			_, err := sc.ExecContext(WithRequestID(context.Background(), uuid), "SELECT 1", []driver.NamedValue{})
+			if err == nil {
+				errs <- fmt.Errorf("should have raised an error")
+			}
+			time.Sleep(5 * time.Millisecond)
+			if strings.Contains(err.Error(), string(uuid.String())) != true {
+				errs <- fmt.Errorf("error %s should contain uuid %s", err.Error(), uuid)
+			}
+			wg.Done()
+		}()
+	}
+	go func() {
+		wg.Wait()
+		close(errs)
+	}()
+
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func postQueryHTTPOKWithUnsuccessfulData(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, x UUID, _ *Config) (*execResponse, error) {
+	dd := &execResponseData{
+		QueryID:  "1eFhmhe23242kmfd540GgGre",
+		SQLState: "22008",
+	}
+	return &execResponse{
+		Data:    *dd,
+		Message: fmt.Sprintf("failed to get query response %s", x),
+		Code:    "12345",
+		Success: false,
+	}, nil
+}
+
+func TestConcurrentExecContextWithErroredHTTPCall(t *testing.T) {
+	ctx := context.Background()
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery:  postQueryWithError,
+		TokenAccessor:  getSimpleTokenAccessor(),
+		RequestTimeout: 10,
+	}
+
+	sc.rest = sr
+
+	wg := sync.WaitGroup{}
+	errs := make(chan error, 10)
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			uuid := NewUUID()
+			_, err := sc.ExecContext(WithRequestID(context.Background(), uuid), "SELECT 1", []driver.NamedValue{})
+			if err == nil {
+				errs <- fmt.Errorf("should have raised an error")
+			}
+			time.Sleep(5 * time.Millisecond)
+			if strings.Contains(err.Error(), string(uuid.String())) != true {
+				errs <- fmt.Errorf("error %s should contain uuid %s", err.Error(), uuid)
+			}
+			wg.Done()
+		}()
+	}
+	go func() {
+		wg.Wait()
+		close(errs)
+	}()
+
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func postQueryWithError(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, x UUID, _ *Config) (*execResponse, error) {
+	dd := &execResponseData{
+		QueryID:  "1eFhmhe23242kmfd540GgGre",
+		SQLState: "22008",
+	}
+	return &execResponse{
+		Data:    *dd,
+		Message: fmt.Sprintf("failed to get query response %s", x),
+		Code:    "12345",
+		Success: false,
+	}, fmt.Errorf("failed to get query response %s", x)
+}
