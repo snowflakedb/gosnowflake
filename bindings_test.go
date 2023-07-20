@@ -43,7 +43,7 @@ func TestBindingFloat64(t *testing.T) {
 		var out float64
 		var rows *RowsExtended
 		for _, v := range types {
-			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
+			dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE test (id int, value %v)", v))
 			dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
 			rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
 			defer rows.Close()
@@ -67,7 +67,7 @@ func TestBindingUint64(t *testing.T) {
 		types := []string{"INTEGER"}
 		expected := uint64(18446744073709551615)
 		for _, v := range types {
-			dbt.mustExec(fmt.Sprintf("CREATE TABLE test (id int, value %v)", v))
+			dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE test (id int, value %v)", v))
 			if _, err := dbt.exec("INSERT INTO test VALUES (1, ?)", expected); err == nil {
 				dbt.Fatal("should fail as uint64 values with high bit set are not supported.")
 			} else {
