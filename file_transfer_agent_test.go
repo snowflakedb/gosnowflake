@@ -70,7 +70,7 @@ func TestUnitDownloadWithInvalidLocalPath(t *testing.T) {
 	f.Close()
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		if _, err = dbt.db.Exec("use role sysadmin"); err != nil {
+		if _, err = dbt.exec("use role sysadmin"); err != nil {
 			t.Skip("snowflake admin account not accessible")
 		}
 		dbt.mustExec("rm @~/test_get")
@@ -79,7 +79,7 @@ func TestUnitDownloadWithInvalidLocalPath(t *testing.T) {
 		dbt.mustExec(sqlText)
 
 		sqlText = fmt.Sprintf("get @~/test_get/data.txt file://%v\\get", tmpDir)
-		if _, err = dbt.db.Query(sqlText); err == nil {
+		if _, err = dbt.query(sqlText); err == nil {
 			t.Fatalf("should return local path not directory error.")
 		}
 		dbt.mustExec("rm @~/test_get")

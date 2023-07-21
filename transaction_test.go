@@ -15,23 +15,23 @@ func TestTransactionOptions(t *testing.T) {
 	var tx *sql.Tx
 	var err error
 
-	db := openDB(t)
-	defer db.Close()
+	conn := openConn(t)
+	defer conn.Close()
 
-	tx, err = db.BeginTx(context.Background(), &sql.TxOptions{})
+	tx, err = conn.BeginTx(context.Background(), &sql.TxOptions{})
 	if err != nil {
 		t.Fatal("failed to start transaction.")
 	}
 	if err = tx.Rollback(); err != nil {
 		t.Fatal("failed to rollback")
 	}
-	if _, err = db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true}); err == nil {
+	if _, err = conn.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true}); err == nil {
 		t.Fatal("should have failed.")
 	}
 	if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoReadOnlyTransaction {
 		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoReadOnlyTransaction)
 	}
-	if _, err = db.BeginTx(context.Background(), &sql.TxOptions{Isolation: 100}); err == nil {
+	if _, err = conn.BeginTx(context.Background(), &sql.TxOptions{Isolation: 100}); err == nil {
 		t.Fatal("should have failed.")
 	}
 	if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
@@ -44,25 +44,25 @@ func TestTransactionContext(t *testing.T) {
 	var tx *sql.Tx
 	var err error
 
-	db := openDB(t)
-	defer db.Close()
+	conn := openConn(t)
+	defer conn.Close()
 
-	ctx2 := context.Background()
+	ctx := context.Background()
 
 	pingWithRetry := withRetry(PingFunc, 5, 3*time.Second)
 
-	err = pingWithRetry(context.Background(), db)
+	err = pingWithRetry(context.Background(), conn)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tx, err = db.BeginTx(ctx2, nil)
+	tx, err = conn.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx2, "SELECT SYSTEM$WAIT(10, 'SECONDS')")
+	_, err = tx.ExecContext(ctx, "SELECT SYSTEM$WAIT(10, 'SECONDS')")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,17 +71,15 @@ func TestTransactionContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	defer db.Close()
 }
 
-func PingFunc(ctx context.Context, db *sql.DB) error {
-	return db.PingContext(ctx)
+func PingFunc(ctx context.Context, conn *sql.Conn) error {
+	return conn.PingContext(ctx)
 }
 
 // Helper function for SNOW-823072 repro
-func withRetry(fn func(context.Context, *sql.DB) error, numAttempts int, timeout time.Duration) func(context.Context, *sql.DB) error {
-	return func(ctx context.Context, db *sql.DB) error {
+func withRetry(fn func(context.Context, *sql.Conn) error, numAttempts int, timeout time.Duration) func(context.Context, *sql.Conn) error {
+	return func(ctx context.Context, db *sql.Conn) error {
 		for currAttempt := 1; currAttempt <= numAttempts; currAttempt++ {
 			ctx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()

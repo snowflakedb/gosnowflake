@@ -50,6 +50,7 @@ func TestMultiStatementQueryResultSet(t *testing.T) {
 	var v4 string
 	runTests(t, dsn, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
+		defer rows.Close()
 
 		// first statement
 		if rows.Next() {
@@ -149,7 +150,8 @@ func TestMultiStatementQueryNoResultSet(t *testing.T) {
 			c1 number, c2 string) as select 10, 'z'`)
 		defer dbt.mustExec("drop table if exists tfmuest_multi_statement_txn")
 
-		dbt.mustQueryContext(ctx, multiStmtQuery)
+		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
+		defer rows.Close()
 	})
 }
 
@@ -330,8 +332,8 @@ func TestMultiStatementCountZero(t *testing.T) {
 }
 
 func TestMultiStatementCountMismatch(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+	conn := openConn(t)
+	defer conn.Close()
 
 	multiStmtQuery := "select 123;\n" +
 		"select 456;\n" +
@@ -339,7 +341,7 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 		"select '000';"
 
 	ctx, _ := WithMultiStatement(context.Background(), 3)
-	if _, err := db.QueryContext(ctx, multiStmtQuery); err == nil {
+	if _, err := conn.QueryContext(ctx, multiStmtQuery); err == nil {
 		t.Fatal("should have failed to query multiple statements")
 	}
 }

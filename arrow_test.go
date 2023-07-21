@@ -14,8 +14,9 @@ import (
 )
 
 func TestArrowBigInt(t *testing.T) {
-	db := openDB(t)
-	dbt := &DBTest{t, db}
+	conn := openConn(t)
+	defer conn.Close()
+	dbt := &DBTest{t, conn}
 
 	testcases := []struct {
 		num  string
@@ -24,7 +25,7 @@ func TestArrowBigInt(t *testing.T) {
 	}{
 		{"10000000000000000000000000000000000000", 38, 0},
 		{"-10000000000000000000000000000000000000", 38, 0},
-		{"12345678901234567890123456789012345678", 38, 0},
+		{"12345678901234567890123456789012345678", 38, 0}, // #pragma: allowlist secret
 		{"-12345678901234567890123456789012345678", 38, 0},
 		{"99999999999999999999999999999999999999", 38, 0},
 		{"-99999999999999999999999999999999999999", 38, 0},
@@ -53,8 +54,9 @@ func TestArrowBigInt(t *testing.T) {
 }
 
 func TestArrowBigFloat(t *testing.T) {
-	db := openDB(t)
-	dbt := &DBTest{t, db}
+	conn := openConn(t)
+	defer conn.Close()
+	dbt := &DBTest{t, conn}
 
 	testcases := []struct {
 		num  string
@@ -95,7 +97,12 @@ func TestArrowBigFloat(t *testing.T) {
 
 func TestArrowIntPrecision(t *testing.T) {
 	db := openDB(t)
-	dbt := &DBTest{t, db}
+	defer db.Close()
+
+	_, err := db.Exec(forceJSON)
+	if err != nil {
+		t.Fatalf("failed to set JSON as result type: %v", err)
+	}
 
 	intTestcases := []struct {
 		num  string
@@ -104,7 +111,7 @@ func TestArrowIntPrecision(t *testing.T) {
 	}{
 		{"10000000000000000000000000000000000000", 38, 0},
 		{"-10000000000000000000000000000000000000", 38, 0},
-		{"12345678901234567890123456789012345678", 38, 0},
+		{"12345678901234567890123456789012345678", 38, 0}, // pragma: allowlist secret
 		{"-12345678901234567890123456789012345678", 38, 0},
 		{"99999999999999999999999999999999999999", 38, 0},
 		{"-99999999999999999999999999999999999999", 38, 0},
@@ -112,68 +119,77 @@ func TestArrowIntPrecision(t *testing.T) {
 
 	t.Run("arrow_disabled_scan_int64", func(t *testing.T) {
 		for _, tc := range intTestcases {
-			dbt.mustExec(forceJSON)
-			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v int64
 			if err := rows.Scan(&v); err == nil {
-				dbt.Error("should fail to scan")
+				t.Error("should fail to scan")
 			}
 		}
 	})
 	t.Run("arrow_disabled_scan_string", func(t *testing.T) {
 		for _, tc := range intTestcases {
-			dbt.mustExec(forceJSON)
-			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
+			}
+			defer rows.Close()
 			if !rows.Next() {
-				dbt.Error("failed to query")
+				t.Error("failed to query")
 			}
 			defer rows.Close()
 			var v int64
 			if err := rows.Scan(&v); err == nil {
-				dbt.Error("should fail to scan")
+				t.Error("should fail to scan")
 			}
 		}
 	})
 	t.Run("arrow_enabled_scan_big_int", func(t *testing.T) {
 		for _, tc := range intTestcases {
-			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v string
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				t.Errorf("failed to scan. %#v", err)
 			}
 			if !strings.EqualFold(v, tc.num) {
-				dbt.Errorf("int value mismatch: expected %v, got %v", tc.num, v)
+				t.Errorf("int value mismatch: expected %v, got %v", tc.num, v)
 			}
 		}
 	})
 	t.Run("arrow_high_precision_enabled_scan_big_int", func(t *testing.T) {
 		for _, tc := range intTestcases {
-			rows := dbt.mustQueryContext(
-				WithHigherPrecision(context.Background()),
-				fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.QueryContext(WithHigherPrecision(context.Background()), fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v *big.Int
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				t.Errorf("failed to scan. %#v", err)
 			}
 
 			b, ok := new(big.Int).SetString(tc.num, 10)
 			if !ok {
-				dbt.Errorf("failed to convert %v big.Int.", tc.num)
+				t.Errorf("failed to convert %v big.Int.", tc.num)
 			}
 			if v.Cmp(b) != 0 {
-				dbt.Errorf("big.Int value mismatch: expected %v, got %v", b, v)
+				t.Errorf("big.Int value mismatch: expected %v, got %v", b, v)
 			}
 		}
 	})
@@ -184,7 +200,12 @@ func TestArrowIntPrecision(t *testing.T) {
 // to check the value as precision could be lost.
 func TestArrowFloatPrecision(t *testing.T) {
 	db := openDB(t)
-	dbt := &DBTest{t, db}
+	defer db.Close()
+
+	_, err := db.Exec(forceJSON)
+	if err != nil {
+		t.Fatalf("failed to set JSON as result type: %v", err)
+	}
 
 	fltTestcases := []struct {
 		num  string
@@ -202,109 +223,125 @@ func TestArrowFloatPrecision(t *testing.T) {
 
 	t.Run("arrow_disabled_scan_float64", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			dbt.mustExec(forceJSON)
-			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v float64
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				t.Errorf("failed to scan. %#v", err)
 			}
 		}
 	})
 	t.Run("arrow_disabled_scan_float32", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			dbt.mustExec(forceJSON)
-			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v float32
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				t.Errorf("failed to scan. %#v", err)
 			}
 		}
 	})
 	t.Run("arrow_disabled_scan_string", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			dbt.mustExec(forceJSON)
-			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v string
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				t.Errorf("failed to scan. %#v", err)
 			}
 			if !strings.EqualFold(v, tc.num) {
-				dbt.Errorf("int value mismatch: expected %v, got %v", tc.num, v)
+				t.Errorf("int value mismatch: expected %v, got %v", tc.num, v)
 			}
 		}
 	})
 	t.Run("arrow_enabled_scan_float64", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v float64
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				t.Errorf("failed to scan. %#v", err)
 			}
 		}
 	})
 	t.Run("arrow_enabled_scan_float32", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v float32
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				t.Errorf("failed to scan. %#v", err)
 			}
 		}
 	})
 	t.Run("arrow_enabled_scan_string", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			rows := dbt.mustQuery(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.Query(fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v string
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				t.Errorf("failed to scan. %#v", err)
 			}
 		}
 	})
 	t.Run("arrow_high_precision_enabled_scan_big_float", func(t *testing.T) {
 		for _, tc := range fltTestcases {
-			rows := dbt.mustQueryContext(
-				WithHigherPrecision(context.Background()),
-				fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-			if !rows.Next() {
-				dbt.Error("failed to query")
+			rows, err := db.QueryContext(WithHigherPrecision(context.Background()), fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if err != nil {
+				t.Fatalf("failed to query: %v", err)
 			}
 			defer rows.Close()
+			if !rows.Next() {
+				t.Error("failed to query")
+			}
 			var v *big.Float
 			if err := rows.Scan(&v); err != nil {
-				dbt.Errorf("failed to scan. %#v", err)
+				t.Errorf("failed to scan. %#v", err)
 			}
 
 			prec := v.Prec()
 			b, ok := new(big.Float).SetPrec(prec).SetString(tc.num)
 			if !ok {
-				dbt.Errorf("failed to convert %v to big.Float.", tc.num)
+				t.Errorf("failed to convert %v to big.Float.", tc.num)
 			}
 			if v.Cmp(b) != 0 {
-				dbt.Errorf("big.Float value mismatch: expected %v, got %v", b, v)
+				t.Errorf("big.Float value mismatch: expected %v, got %v", b, v)
 			}
 		}
 	})
@@ -317,6 +354,7 @@ func TestArrowTimePrecision(t *testing.T) {
 		dbt.mustExec("INSERT INTO t VALUES ('23:59:59.99999', '23:59:59.999999', '23:59:59.9999999', '23:59:59.99999999');")
 
 		rows := dbt.mustQuery("select * from t")
+		defer rows.Close()
 		var c5, c6, c7, c8 time.Time
 		for rows.Next() {
 			if err := rows.Scan(&c5, &c6, &c7, &c8); err != nil {
@@ -361,10 +399,11 @@ func TestArrowTimePrecision(t *testing.T) {
 		  '9999-12-31T23:59:59.99999999'
 		);`)
 
-		rows = dbt.mustQuery("select * from t_ntz")
+		rows2 := dbt.mustQuery("select * from t_ntz")
+		defer rows2.Close()
 		var c1, c2, c3, c4 time.Time
-		for rows.Next() {
-			if err := rows.Scan(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8); err != nil {
+		for rows2.Next() {
+			if err := rows2.Scan(&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8); err != nil {
 				t.Errorf("values were not scanned: %v", err)
 			}
 		}

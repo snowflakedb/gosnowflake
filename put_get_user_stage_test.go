@@ -87,6 +87,7 @@ func putGetUserStage(t *testing.T, tmpDir string, numberOfFiles int, numberOfLin
 		dbt.mustExec(fmt.Sprintf("copy into %v from @%v", dbname, stageName))
 
 		rows := dbt.mustQuery("select count(*) from " + dbname)
+		defer rows.Close()
 		var cnt string
 		if rows.Next() {
 			rows.Scan(&cnt)
@@ -134,6 +135,7 @@ func TestPutLoadFromUserStage(t *testing.T) {
 		rows := dbt.mustQuery(fmt.Sprintf(`copy into gotest_putget_t2 from @%v
 			file_format = (field_delimiter = '|' error_on_column_count_mismatch
 			=false) purge=true`, data.stage))
+		defer rows.Close()
 		var s0, s1, s2, s3, s4, s5 string
 		var s6, s7, s8, s9 interface{}
 		orders100 := fmt.Sprintf("s3://%v/%v/orders_100.csv.gz",

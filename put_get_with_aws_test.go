@@ -70,6 +70,7 @@ func TestLoadS3(t *testing.T) {
 			AWS_SECRET_KEY='%v') file_format=(skip_header=1 null_if=('')
 			field_optionally_enclosed_by='\"')`,
 			data.awsAccessKeyID, data.awsSecretAccessKey))
+		defer rows.Close()
 		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 string
 		cnt := 0
 		for rows.Next() {
@@ -303,6 +304,7 @@ func TestPutGetAWSStage(t *testing.T) {
 		sql := "put 'file://%v' @~/%v auto_compress=false"
 		sqlText := fmt.Sprintf(sql, strings.ReplaceAll(fname, "\\", "\\\\"), stageName)
 		rows := dbt.mustQuery(sqlText)
+		defer rows.Close()
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
 		if rows.Next() {
