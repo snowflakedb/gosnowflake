@@ -321,18 +321,12 @@ func (dbt *DBTest) mustPrepare(query string) (stmt *sql.Stmt) {
 }
 
 func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
-	ctx := context.Background()
 	conn := openConn(t)
 	dbt := &DBTest{t, conn}
 	defer conn.Close()
 
-	if _, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test"); err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
-
 	for _, test := range tests {
 		test(dbt)
-		dbt.conn.ExecContext(ctx, "DROP TABLE IF EXISTS test")
 	}
 }
 
@@ -466,7 +460,7 @@ func TestEmptyQueryWithRequestID(t *testing.T) {
 func TestCRUD(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		// Create Table
-		dbt.mustExec("CREATE TABLE test (value BOOLEAN)")
+		dbt.mustExec("CREATE OR REPLACE TABLE test (value BOOLEAN)")
 
 		// Test for unexpected Data
 		var out bool
@@ -573,7 +567,7 @@ func testInt(t *testing.T, json bool) {
 			if json {
 				dbt.mustExec(forceJSON)
 			}
-			dbt.mustExec("CREATE TABLE test (value " + v + ")")
+			dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 			rows = dbt.mustQuery("SELECT value FROM test")
 			defer rows.Close()
@@ -605,7 +599,7 @@ func testFloat32(t *testing.T, json bool) {
 			if json {
 				dbt.mustExec(forceJSON)
 			}
-			dbt.mustExec("CREATE TABLE test (value " + v + ")")
+			dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 			rows = dbt.mustQuery("SELECT value FROM test")
 			defer rows.Close()
@@ -639,7 +633,7 @@ func testFloat64(t *testing.T, json bool) {
 			if json {
 				dbt.mustExec(forceJSON)
 			}
-			dbt.mustExec("CREATE TABLE test (value " + v + ")")
+			dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (42.23)")
 			rows = dbt.mustQuery("SELECT value FROM test")
 			defer rows.Close()
@@ -671,7 +665,7 @@ func testString(t *testing.T, json bool) {
 		var rows *RowsExtended
 
 		for _, v := range types {
-			dbt.mustExec("CREATE TABLE test (value " + v + ")")
+			dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
 			dbt.mustExec("INSERT INTO test VALUES (?)", in)
 
 			rows = dbt.mustQuery("SELECT value FROM test")
@@ -688,7 +682,7 @@ func testString(t *testing.T, json bool) {
 		}
 
 		// BLOB (Snowflake doesn't support BLOB type but STRING covers large text data)
-		dbt.mustExec("CREATE TABLE test (id int, value STRING)")
+		dbt.mustExec("CREATE OR REPLACE TABLE test (id int, value STRING)")
 
 		id := 2
 		in = `Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam
@@ -1133,7 +1127,7 @@ func testNULL(t *testing.T, json bool) {
 		}
 
 		// Insert NULL
-		dbt.mustExec("CREATE TABLE test (dummmy1 int, value int, dummy2 int)")
+		dbt.mustExec("CREATE OR REPLACE TABLE test (dummmy1 int, value int, dummy2 int)")
 		dbt.mustExec("INSERT INTO test VALUES (?, ?, ?)", 1, nil, 2)
 
 		var out interface{}
