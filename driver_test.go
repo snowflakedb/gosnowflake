@@ -41,6 +41,36 @@ const (
 	PSTLocation           = "America/Los_Angeles"
 )
 
+var db *sql.DB
+
+func openDB(t *testing.T) *sql.DB {
+	var db *sql.DB
+	var err error
+
+	if db, err = sql.Open("snowflake", dsn); err != nil {
+		t.Fatalf("failed to open db. %v", err)
+	}
+
+	return db
+}
+
+func openConn(t *testing.T) *sql.Conn {
+	var conn *sql.Conn
+	var err error
+
+	if db == nil {
+		db = openDB(t)
+	}
+
+	if conn, err = db.Conn(context.Background()); err != nil {
+		t.Fatalf("failed to open connection: %v", err)
+	}
+	if _, err := conn.ExecContext(context.Background(), fmt.Sprintf("USE SCHEMA %v", schemaname)); err != nil {
+		t.Fatalf("failed to use schema: %v", err)
+	}
+	return conn
+}
+
 // The tests require the following parameters in the environment variables.
 // SNOWFLAKE_TEST_USER, SNOWFLAKE_TEST_PASSWORD, SNOWFLAKE_TEST_ACCOUNT,
 // SNOWFLAKE_TEST_DATABASE, SNOWFLAKE_TEST_SCHEMA, SNOWFLAKE_TEST_WAREHOUSE.
@@ -132,16 +162,10 @@ func setup() (string, error) {
 
 // teardown drops the test schema
 func teardown() error {
-	var db *sql.DB
-	var err error
-	if db, err = sql.Open("snowflake", dsn); err != nil {
-		return fmt.Errorf("failed to open db. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-	if _, err = db.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %v", schemaname)); err != nil {
+	if _, err := db.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %v", schemaname)); err != nil {
 		return fmt.Errorf("failed to create schema. %v", err)
 	}
-	return nil
+	return db.Close()
 }
 
 func TestMain(m *testing.M) {
@@ -1388,7 +1412,12 @@ $$
 
 func TestTimezoneSessionParameter(t *testing.T) {
 	createDSN(PSTLocation)
-	conn := openConn(t)
+	db := openDB(t)
+	defer db.Close()
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		conn.Close()
+	}
 	defer conn.Close()
 
 	rows, err := conn.QueryContext(context.Background(), "SHOW PARAMETERS LIKE 'TIMEZONE'")
@@ -1650,25 +1679,38 @@ func createDSNWithClientSessionKeepAlive() {
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
+	ctx := context.Background()
 	createDSNWithClientSessionKeepAlive()
-	runTests(t, dsn, func(dbt *DBTest) {
-		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
-		defer rows.Close()
-		if !rows.Next() {
-			t.Fatal("failed to get timezone.")
-		}
+	db := openDB(t)
+	defer db.Close()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	rows, err := conn.QueryContext(ctx, "SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		t.Fatal("failed to get timezone.")
+	}
 
-		p, err := ScanSnowflakeParameter(rows.rows)
-		if err != nil {
-			t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
-		}
-		if p.Value != "true" {
-			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
-		}
+	p, err := ScanSnowflakeParameter(rows)
+	if err != nil {
+		t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
+	}
+	if p.Value != "true" {
+		t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
+	}
 
-		rows2 := dbt.mustQuery("select count(*) from table(generator(timelimit=>30))")
-		defer rows2.Close()
-	})
+	// just simple query to check if it works with keep-alive
+	rows2, err := conn.QueryContext(ctx, "select count(*) from table(generator(timelimit=>30))")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows2.Close()
 }
 
 func TestTimePrecision(t *testing.T) {
