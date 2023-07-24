@@ -37,9 +37,10 @@ const (
 )
 
 const (
-	statementTypeIDMulti            = int64(0x1000)
+	statementTypeIDSelect           = int64(0x1000)
 	statementTypeIDDml              = int64(0x3000)
 	statementTypeIDMultiTableInsert = statementTypeIDDml + int64(0x500)
+	statementTypeIDMultistatement   = int64(0xA000)
 )
 
 const (

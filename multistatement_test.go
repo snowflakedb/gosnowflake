@@ -23,10 +23,7 @@ func TestMultiStatementExecuteNoResultSet(t *testing.T) {
 		"commit;"
 
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec("drop table if exists test_multi_statement_txn")
-		dbt.mustExec(`create or replace table test_multi_statement_txn(
-			c1 number, c2 string) as select 10, 'z'`)
-		defer dbt.mustExec("drop table if exists test_multi_statement_txn")
+		dbt.mustExec(`create or replace table test_multi_statement_txn(c1 number, c2 string) as select 10, 'z'`)
 
 		res := dbt.mustExecContext(ctx, multiStmtQuery)
 		count, err := res.RowsAffected()
@@ -48,6 +45,7 @@ func TestMultiStatementQueryResultSet(t *testing.T) {
 
 	var v1, v2, v3 int64
 	var v4 string
+
 	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
 		defer rows.Close()

@@ -13,6 +13,27 @@ import (
 	"time"
 )
 
+//A test just to show Snowflake version
+func TestCheckVersion(t *testing.T) {
+	conn := openConn(t)
+	defer conn.Close()
+
+	rows, err := conn.QueryContext(context.Background(), "SELECT current_version()")
+	if err != nil {
+		t.Error(err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		t.Fatalf("failed to find any row")
+	}
+	var s string
+	if err = rows.Scan(&s); err != nil {
+		t.Fatal(err)
+	}
+	println(s)
+}
+
 func TestArrowBigInt(t *testing.T) {
 	conn := openConn(t)
 	defer conn.Close()
