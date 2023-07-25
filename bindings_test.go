@@ -19,21 +19,18 @@ const (
 	createTableSQL = `create or replace table test_prep_statement(c1 INTEGER,
 		c2 FLOAT, c3 BOOLEAN, c4 STRING, C5 BINARY, C6 TIMESTAMP_NTZ,
 		C7 TIMESTAMP_LTZ, C8 TIMESTAMP_TZ, C9 DATE, C10 TIME)`
-	deleteTableSQL = "drop table if exists TEST_PREP_STATEMENT"
-	insertSQL      = "insert into TEST_PREP_STATEMENT values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-	selectAllSQL   = "select * from TEST_PREP_STATEMENT ORDER BY 1"
+	insertSQL    = "insert into TEST_PREP_STATEMENT values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	selectAllSQL = "select * from TEST_PREP_STATEMENT ORDER BY 1"
 
 	createTableSQLBulkArray = `create or replace table test_bulk_array(c1 INTEGER,
 		c2 FLOAT, c3 BOOLEAN, c4 STRING, C5 BINARY)`
-	deleteTableSQLBulkArray = "drop table if exists test_bulk_array"
-	insertSQLBulkArray      = "insert into test_bulk_array values(?, ?, ?, ?, ?)"
-	selectAllSQLBulkArray   = "select * from test_bulk_array ORDER BY 1"
+	insertSQLBulkArray    = "insert into test_bulk_array values(?, ?, ?, ?, ?)"
+	selectAllSQLBulkArray = "select * from test_bulk_array ORDER BY 1"
 
 	createTableSQLBulkArrayDateTimeTimestamp = `create or replace table test_bulk_array_DateTimeTimestamp(
 		C1 TIMESTAMP_NTZ, C2 TIMESTAMP_LTZ, C3 TIMESTAMP_TZ, C4 DATE, C5 TIME)`
-	deleteTableSQLBulkArrayDateTimeTimestamp = "drop table if exists test_bulk_array_DateTimeTimestamp"
-	insertSQLBulkArrayDateTimeTimestamp      = "insert into test_bulk_array_DateTimeTimestamp values(?, ?, ?, ?, ?)"
-	selectAllSQLBulkArrayDateTimeTimestamp   = "select * from test_bulk_array_DateTimeTimestamp ORDER BY 1"
+	insertSQLBulkArrayDateTimeTimestamp    = "insert into test_bulk_array_DateTimeTimestamp values(?, ?, ?, ?, ?)"
+	selectAllSQLBulkArrayDateTimeTimestamp = "select * from test_bulk_array_DateTimeTimestamp ORDER BY 1"
 )
 
 func TestBindingFloat64(t *testing.T) {
@@ -55,7 +52,6 @@ func TestBindingFloat64(t *testing.T) {
 			} else {
 				dbt.Errorf("%s: no data", v)
 			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
 }
@@ -73,7 +69,6 @@ func TestBindingUint64(t *testing.T) {
 			} else {
 				logger.Infof("expected err: %v", err)
 			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
 }
@@ -143,7 +138,6 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 		} else {
 			dbt.Error("no data")
 		}
-		dbt.mustExec("DROP TABLE tztest")
 	})
 
 	createDSN("UTC")
@@ -167,7 +161,6 @@ func TestBindingBinary(t *testing.T) {
 		} else {
 			dbt.Errorf("no data")
 		}
-		dbt.mustExec("DROP TABLE bintest")
 	})
 }
 
@@ -195,7 +188,6 @@ func TestBindingTimestampTZ(t *testing.T) {
 		} else {
 			dbt.Error("no data")
 		}
-		dbt.mustExec("DROP TABLE tztest")
 	})
 }
 
@@ -242,7 +234,6 @@ func TestBindingTimePtrInStruct(t *testing.T) {
 				dbt.Error("no data")
 			}
 		}
-		dbt.mustExec("DROP TABLE timeStructTest")
 	})
 }
 
@@ -289,7 +280,6 @@ func TestBindingTimeInStruct(t *testing.T) {
 				dbt.Error("no data")
 			}
 		}
-		dbt.mustExec("DROP TABLE timeStructTest")
 	})
 }
 
@@ -352,7 +342,6 @@ func TestBulkArrayBindingInterfaceNil(t *testing.T) {
 
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQL)
-		defer dbt.mustExec(deleteTableSQL)
 
 		dbt.mustExec(insertSQL, Array(&nilArray), Array(&nilArray),
 			Array(&nilArray), Array(&nilArray), Array(&nilArray),
@@ -434,7 +423,6 @@ func TestBulkArrayBindingInterface(t *testing.T) {
 
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQLBulkArray)
-		defer dbt.mustExec(deleteTableSQLBulkArray)
 
 		dbt.mustExec(insertSQLBulkArray, Array(&intArray), Array(&fltArray),
 			Array(&boolArray), Array(&strArray), Array(&byteArray))
@@ -526,7 +514,6 @@ func TestBulkArrayBindingInterfaceDateTimeTimestamp(t *testing.T) {
 
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQLBulkArrayDateTimeTimestamp)
-		defer dbt.mustExec(deleteTableSQLBulkArrayDateTimeTimestamp)
 
 		dbt.mustExec(insertSQLBulkArrayDateTimeTimestamp,
 			Array(&ntzArray, TimestampNTZType), Array(&ltzArray, TimestampLTZType),
@@ -628,7 +615,6 @@ func testBindingArray(t *testing.T, bulk bool) {
 
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQL)
-		defer dbt.mustExec(deleteTableSQL)
 		if bulk {
 			if _, err := dbt.exec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1"); err != nil {
 				t.Error(err)
@@ -740,8 +726,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 	ctx := context.Background()
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec(fmt.Sprintf("CREATE TABLE %s (C VARCHAR(64) NOT NULL)", tempTableName))
-		defer dbt.mustExec("drop table " + tempTableName)
+		dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE %s (C VARCHAR(64) NOT NULL)", tempTableName))
 
 		for i := 0; i < randomIter; i++ {
 			dbt.mustExecContext(ctx,
@@ -802,7 +787,6 @@ func TestBulkArrayMultiPartBindingInt(t *testing.T) {
 		if cnt != endNum {
 			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
 		}
-		dbt.mustExec("DROP TABLE binding_test")
 	})
 }
 
@@ -864,7 +848,6 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 		if cnt != endNum {
 			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
 		}
-		dbt.mustExec("DROP TABLE binding_test")
 	})
 }
 

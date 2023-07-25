@@ -150,10 +150,6 @@ func TestE2EFetchResultByID(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to drop table: %v", err)
 	}
-
-	if _, err := db.Exec("drop table if exists test_fetch_result"); err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
 }
 
 func TestWithDescribeOnly(t *testing.T) {
@@ -241,10 +237,6 @@ func TestStmtExec(t *testing.T) {
 		}
 		return nil
 	}); err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
-
-	if _, err := conn.ExecContext(ctx, "drop table if exists test_table"); err != nil {
 		t.Fatalf("failed to drop table: %v", err)
 	}
 }

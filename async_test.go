@@ -56,10 +56,8 @@ func TestAsyncModeMultiStatement(t *testing.T) {
 		"rollback;"
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("drop table if exists test_multi_statement_async")
 		dbt.mustExec(`create or replace table test_multi_statement_async(
 			c1 number, c2 string) as select 10, 'z'`)
-		defer dbt.mustExec("drop table if exists test_multi_statement_async")
 
 		res := dbt.mustExecContext(ctx, multiStmtQuery)
 		count, err := res.RowsAffected()

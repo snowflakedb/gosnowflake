@@ -579,8 +579,6 @@ func testInt(t *testing.T, json bool) {
 			} else {
 				dbt.Errorf("%s: no data", v)
 			}
-
-			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
 }
@@ -614,7 +612,6 @@ func testFloat32(t *testing.T, json bool) {
 			} else {
 				dbt.Errorf("%s: no data", v)
 			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
 }
@@ -645,7 +642,6 @@ func testFloat64(t *testing.T, json bool) {
 			} else {
 				dbt.Errorf("%s: no data", v)
 			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 	})
 }
@@ -678,7 +674,6 @@ func testString(t *testing.T, json bool) {
 			} else {
 				dbt.Errorf("%s: no data", v)
 			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
 
 		// BLOB (Snowflake doesn't support BLOB type but STRING covers large text data)

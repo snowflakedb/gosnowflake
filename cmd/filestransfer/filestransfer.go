@@ -90,7 +90,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("error while creating table; err: %v", err)
 	}
-	defer db.Exec("DROP TABLE IF EXISTS GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
 
 	//Uploading data_to_upload.csv to internal stage for table GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE
 	tmpFilePath := createTmpFile(customFormatCsvDataToUpload)

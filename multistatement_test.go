@@ -23,10 +23,8 @@ func TestMultiStatementExecuteNoResultSet(t *testing.T) {
 		"commit;"
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("drop table if exists test_multi_statement_txn")
 		dbt.mustExec(`create or replace table test_multi_statement_txn(
 			c1 number, c2 string) as select 10, 'z'`)
-		defer dbt.mustExec("drop table if exists test_multi_statement_txn")
 
 		res := dbt.mustExecContext(ctx, multiStmtQuery)
 		count, err := res.RowsAffected()
@@ -121,10 +119,8 @@ func TestMultiStatementExecuteResultSet(t *testing.T) {
 		"rollback;"
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("drop table if exists test_multi_statement_txn_rb")
 		dbt.mustExec(`create or replace table test_multi_statement_txn_rb(
 			c1 number, c2 string) as select 10, 'z'`)
-		defer dbt.mustExec("drop table if exists test_multi_statement_txn_rb")
 
 		res := dbt.mustExecContext(ctx, multiStmtQuery)
 		count, err := res.RowsAffected()
@@ -145,10 +141,8 @@ func TestMultiStatementQueryNoResultSet(t *testing.T) {
 		"commit;"
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("drop table if exists test_multi_statement_txn")
 		dbt.mustExec(`create or replace table test_multi_statement_txn(
 			c1 number, c2 string) as select 10, 'z'`)
-		defer dbt.mustExec("drop table if exists tfmuest_multi_statement_txn")
 
 		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
 		defer rows.Close()
@@ -162,10 +156,8 @@ func TestMultiStatementExecuteMix(t *testing.T) {
 		"select cola from test_multi order by cola asc;"
 
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("drop table if exists test_multi_statement_txn")
 		dbt.mustExec(`create or replace table test_multi_statement_txn(
 			c1 number, c2 string) as select 10, 'z'`)
-		defer dbt.mustExec("drop table if exists test_multi_statement_txn")
 
 		res := dbt.mustExecContext(ctx, multiStmtQuery)
 		count, err := res.RowsAffected()
@@ -186,10 +178,8 @@ func TestMultiStatementQueryMix(t *testing.T) {
 
 	var count, v int
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("drop table if exists test_multi_statement_txn")
 		dbt.mustExec(`create or replace table test_multi_statement_txn(
 			c1 number, c2 string) as select 10, 'z'`)
-		defer dbt.mustExec("drop table if exists test_multi_statement_txn")
 
 		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
 		defer rows.Close()
@@ -355,7 +345,6 @@ func TestMultiStatementVaryingColumnCount(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table test_tbl(c1 int, c2 int)")
 		dbt.mustExec("insert into test_tbl values(1, 0)")
-		defer dbt.mustExec("drop table if exists test_tbl")
 
 		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
 		defer rows.Close()

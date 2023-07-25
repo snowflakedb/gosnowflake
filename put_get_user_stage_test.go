@@ -82,7 +82,6 @@ func putGetUserStage(t *testing.T, tmpDir string, numberOfFiles int, numberOfLin
 			}
 			dbt.mustExec("rm @" + stageName)
 			dbt.mustExec("drop stage if exists " + stageName)
-			dbt.mustExec("drop table if exists " + dbname)
 		}()
 		dbt.mustExec(fmt.Sprintf("copy into %v from @%v", dbname, stageName))
 
@@ -124,7 +123,6 @@ func TestPutLoadFromUserStage(t *testing.T) {
 			c2 STRING, c3 STRING,c4 STRING, c5 STRING, c6 STRING, c7 STRING,
 			c8 STRING, c9 STRING)`
 		dbt.mustExec(execQuery)
-		defer dbt.mustExec("drop table if exists gotest_putget_t2")
 		defer dbt.mustExec("drop stage if exists " + data.stage)
 
 		execQuery = fmt.Sprintf("put file://%v/test_data/orders_10*.csv @%v",

@@ -349,8 +349,7 @@ func TestArrowFloatPrecision(t *testing.T) {
 
 func TestArrowTimePrecision(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("CREATE TABLE t (col5 TIME(5), col6 TIME(6), col7 TIME(7), col8 TIME(8));")
-		defer dbt.mustExec("DROP TABLE IF EXISTS t")
+		dbt.mustExec("CREATE OR REPLACE TABLE t (col5 TIME(5), col6 TIME(6), col7 TIME(7), col8 TIME(8));")
 		dbt.mustExec("INSERT INTO t VALUES ('23:59:59.99999', '23:59:59.999999', '23:59:59.9999999', '23:59:59.99999999');")
 
 		rows := dbt.mustQuery("select * from t")
@@ -377,7 +376,7 @@ func TestArrowTimePrecision(t *testing.T) {
 			t.Errorf("the value did not match. expected: %v, got: %v", expected, c5)
 		}
 
-		dbt.mustExec(`CREATE TABLE t_ntz (
+		dbt.mustExec(`CREATE OR REPLACE TABLE t_ntz (
 		  col1 TIMESTAMP_NTZ(1),
 		  col2 TIMESTAMP_NTZ(2),
 		  col3 TIMESTAMP_NTZ(3),
@@ -387,7 +386,6 @@ func TestArrowTimePrecision(t *testing.T) {
 		  col7 TIMESTAMP_NTZ(7),
 		  col8 TIMESTAMP_NTZ(8)
 		);`)
-		defer dbt.mustExec("DROP TABLE IF EXISTS t_ntz")
 		dbt.mustExec(`INSERT INTO t_ntz VALUES (
 		  '9999-12-31T23:59:59.9',
 		  '9999-12-31T23:59:59.99',

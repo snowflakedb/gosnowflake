@@ -11,7 +11,6 @@ import (
 func TestPreparedStatement(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table test_prep_statement(c1 INTEGER, c2 FLOAT, c3 BOOLEAN, c4 STRING)")
-		defer dbt.mustExec(deleteTableSQL)
 
 		intArray := []int{1, 2, 3}
 		fltArray := []float64{0.1, 2.34, 5.678}

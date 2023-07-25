@@ -467,7 +467,6 @@ func TestWithArrowBatchesNotImplementedForResult(t *testing.T) {
 	if _, err = sc.Exec("create or replace table testArrowBatches (a int, b int)", nil); err != nil {
 		t.Fatal(err)
 	}
-	defer sc.Exec("drop table if exists testArrowBatches", nil)
 
 	result, err := sc.ExecContext(ctx, "insert into testArrowBatches values (1, 2), (3, 4), (5, 6)", []driver.NamedValue{})
 	if err != nil {

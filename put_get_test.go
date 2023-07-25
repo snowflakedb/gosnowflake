@@ -202,7 +202,6 @@ func TestPutLocalFile(t *testing.T) {
 			data.awsAccessKeyID,
 			data.awsSecretAccessKey)
 		dbt.mustExec(execQuery)
-		defer dbt.mustExec("drop table if exists gotest_putget_t1")
 
 		execQuery = fmt.Sprintf(`put file://%v/test_data/orders_10*.csv
 			@%%gotest_putget_t1`, data.dir)
@@ -404,7 +403,6 @@ func testPutGet(t *testing.T, isStream bool) {
 			t.Error(err)
 		}
 		defer func() {
-			defer dbt.mustExec("drop table " + tableName)
 			if fileStream != nil {
 				fileStream.Close()
 			}
@@ -530,7 +528,6 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 			t.Error(err)
 		}
 		defer func() {
-			defer dbt.mustExec("drop table " + tableName)
 			if fileStream != nil {
 				fileStream.Close()
 			}

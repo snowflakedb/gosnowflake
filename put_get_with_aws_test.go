@@ -62,7 +62,6 @@ func TestLoadS3(t *testing.T) {
 			entities__user_mentions string, favorited string, retweeted string,
 			lang string)`
 		dbt.mustExec(execQuery)
-		defer dbt.mustExec("drop table if exists tweets")
 		dbt.mustQueryAssertCount("ls @%tweets", 0)
 
 		rows := dbt.mustQuery(fmt.Sprintf(`copy into tweets from
@@ -123,7 +122,6 @@ func TestPutWithInvalidToken(t *testing.T) {
 		" (a int, b string)", nil); err != nil {
 		t.Fatal(err)
 	}
-	defer sc.Exec("drop table "+tableName, nil)
 
 	jsonBody, err := json.Marshal(execRequest{
 		SQLText: fmt.Sprintf("put 'file://%v' @%%%v", fname, tableName),
@@ -235,7 +233,6 @@ func TestPretendToPutButList(t *testing.T) {
 		" (a int, b string)", nil); err != nil {
 		t.Fatal(err)
 	}
-	defer sc.Exec("drop table "+tableName, nil)
 
 	jsonBody, err := json.Marshal(execRequest{
 		SQLText: fmt.Sprintf("put 'file://%v' @%%%v", fname, tableName),
