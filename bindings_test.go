@@ -24,9 +24,9 @@ const (
 	selectAllSQL   = "select * from TEST_PREP_STATEMENT ORDER BY 1"
 
 	createTableSQLBulkArray = `create or replace table test_bulk_array(c1 INTEGER,
-		c2 FLOAT, c3 BOOLEAN, c4 STRING, C5 BINARY)`
+		c2 FLOAT, c3 BOOLEAN, c4 STRING, C5 BINARY, C6 INTEGER)`
 	deleteTableSQLBulkArray = "drop table if exists test_bulk_array"
-	insertSQLBulkArray      = "insert into test_bulk_array values(?, ?, ?, ?, ?)"
+	insertSQLBulkArray      = "insert into test_bulk_array values(?, ?, ?, ?, ?, ?)"
 	selectAllSQLBulkArray   = "select * from test_bulk_array ORDER BY 1"
 
 	createTableSQLBulkArrayDateTimeTimestamp = `create or replace table test_bulk_array_DateTimeTimestamp(
@@ -432,12 +432,16 @@ func TestBulkArrayBindingInterface(t *testing.T) {
 	byteArray[0] = []byte{0x01, 0x02, 0x03}
 	byteArray[2] = []byte{0x07, 0x08, 0x09}
 
+	int64Array := make([]any, 3)
+	int64Array[0] = int64(100)
+	int64Array[1] = int64(200)
+
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQLBulkArray)
 		defer dbt.mustExec(deleteTableSQLBulkArray)
 
 		dbt.mustExec(insertSQLBulkArray, Array(&intArray), Array(&fltArray),
-			Array(&boolArray), Array(&strArray), Array(&byteArray))
+			Array(&boolArray), Array(&strArray), Array(&byteArray), Array(&int64Array))
 		rows := dbt.mustQuery(selectAllSQLBulkArray)
 		defer rows.Close()
 
@@ -446,10 +450,11 @@ func TestBulkArrayBindingInterface(t *testing.T) {
 		var v2 sql.NullBool
 		var v3 sql.NullString
 		var v4 []byte
+		var v5 sql.NullInt64
 
 		cnt := 0
 		for i := 0; rows.Next(); i++ {
-			if err := rows.Scan(&v0, &v1, &v2, &v3, &v4); err != nil {
+			if err := rows.Scan(&v0, &v1, &v2, &v3, &v4, &v5); err != nil {
 				t.Fatal(err)
 			}
 			if v0.Valid {
@@ -486,6 +491,13 @@ func TestBulkArrayBindingInterface(t *testing.T) {
 				}
 			} else if v4 != nil {
 				t.Fatalf("failed to fetch the []byte column v4. expected %v, got: %v", byteArray[i], v4)
+			}
+			if v5.Valid {
+				if v5.Int64 != int64Array[i] {
+					t.Fatalf("failed to fetch the sql.NullInt64 column v5. expected %v, got: %v", int64Array[i], v5.Int64)
+				}
+			} else if int64Array[i] != nil {
+				t.Fatalf("failed to fetch the sql.NullInt64 column v5. expected %v, got: %v", int64Array[i], v5)
 			}
 			cnt++
 		}

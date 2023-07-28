@@ -4,9 +4,11 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"math/cmplx"
 	"reflect"
@@ -46,6 +48,21 @@ func stringFloatToDecimal(src string, scale int64) (decimal128.Num, bool) {
 	return decimal128.New(high.Int64(), low.Uint64()), ok
 }
 
+func stringFloatToInt(src string, scale int64) (int64, bool) {
+	b, ok := new(big.Float).SetString(src)
+	if !ok {
+		return 0, ok
+	}
+	s := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(scale), nil))
+	n := new(big.Float).Mul(b, s)
+	var z big.Int
+	n.Int(&z)
+	if !z.IsInt64() {
+		return 0, false
+	}
+	return z.Int64(), true
+}
+
 type tcGoTypeToSnowflake struct {
 	in    interface{}
 	tmode snowflakeType
@@ -59,6 +76,23 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: true, tmode: nullType, out: booleanType},
 		{in: "teststring", tmode: nullType, out: textType},
 		{in: Array([]int{1}), tmode: nullType, out: sliceType},
+		{in: Array(&[]int{1}), tmode: nullType, out: sliceType},
+		{in: Array([]int32{1}), tmode: nullType, out: sliceType},
+		{in: Array(&[]int32{1}), tmode: nullType, out: sliceType},
+		{in: Array([]int64{1}), tmode: nullType, out: sliceType},
+		{in: Array(&[]int64{1}), tmode: nullType, out: sliceType},
+		{in: Array([]float64{1.1}), tmode: nullType, out: sliceType},
+		{in: Array(&[]float64{1.1}), tmode: nullType, out: sliceType},
+		{in: Array([]float32{1.1}), tmode: nullType, out: sliceType},
+		{in: Array(&[]float32{1.1}), tmode: nullType, out: sliceType},
+		{in: Array([]bool{true}), tmode: nullType, out: sliceType},
+		{in: Array([]string{"test string"}), tmode: nullType, out: sliceType},
+		{in: Array([][]byte{}), tmode: nullType, out: sliceType},
+		{in: Array([]time.Time{time.Now()}, TimestampNTZType), tmode: timestampNtzType, out: sliceType},
+		{in: Array([]time.Time{time.Now()}, TimestampLTZType), tmode: timestampLtzType, out: sliceType},
+		{in: Array([]time.Time{time.Now()}, TimestampTZType), tmode: timestampTzType, out: sliceType},
+		{in: Array([]time.Time{time.Now()}, DateType), tmode: dateType, out: sliceType},
+		{in: Array([]time.Time{time.Now()}, TimeType), tmode: timeType, out: sliceType},
 		{in: DataTypeBinary, tmode: nullType, out: changeType},
 		{in: DataTypeTimestampLtz, tmode: nullType, out: changeType},
 		{in: DataTypeTimestampNtz, tmode: nullType, out: changeType},
@@ -145,6 +179,10 @@ func TestValueToString(t *testing.T) {
 	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
 	utcTime := time.Date(2019, 2, 6, 22, 17, 31, 123456789, time.UTC)
 	expectedUnixTime := "1549491451123456789" // time.Unix(1549491451, 123456789).Format(time.RFC3339) == "2019-02-06T14:17:31-08:00"
+	expectedBool := "true"
+	expectedInt64 := "1"
+	expectedFloat64 := "1.1"
+	expectedString := "teststring"
 
 	if s, err := valueToString(localTime, timestampLtzType); err != nil {
 		t.Error("unexpected error")
@@ -160,6 +198,38 @@ func TestValueToString(t *testing.T) {
 		t.Errorf("expected '%v', got %v", expectedUnixTime, s)
 	} else if *s != expectedUnixTime {
 		t.Errorf("expected '%v', got '%v'", expectedUnixTime, *s)
+	}
+
+	if s, err := valueToString(sql.NullBool{Bool: true, Valid: true}, timestampLtzType); err != nil {
+		t.Error("unexpected error")
+	} else if s == nil {
+		t.Errorf("expected '%v', got %v", expectedBool, s)
+	} else if *s != expectedBool {
+		t.Errorf("expected '%v', got '%v'", expectedBool, *s)
+	}
+
+	if s, err := valueToString(sql.NullInt64{Int64: 1, Valid: true}, timestampLtzType); err != nil {
+		t.Error("unexpected error")
+	} else if s == nil {
+		t.Errorf("expected '%v', got %v", expectedInt64, s)
+	} else if *s != expectedInt64 {
+		t.Errorf("expected '%v', got '%v'", expectedInt64, *s)
+	}
+
+	if s, err := valueToString(sql.NullFloat64{Float64: 1.1, Valid: true}, timestampLtzType); err != nil {
+		t.Error("unexpected error")
+	} else if s == nil {
+		t.Errorf("expected '%v', got %v", expectedFloat64, s)
+	} else if *s != expectedFloat64 {
+		t.Errorf("expected '%v', got '%v'", expectedFloat64, *s)
+	}
+
+	if s, err := valueToString(sql.NullString{String: "teststring", Valid: true}, timestampLtzType); err != nil {
+		t.Error("unexpected error")
+	} else if s == nil {
+		t.Errorf("expected '%v', got %v", expectedString, s)
+	} else if *s != expectedString {
+		t.Errorf("expected '%v', got '%v'", expectedString, *s)
 	}
 }
 
@@ -279,20 +349,86 @@ func TestArrowToValue(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		logical  string
-		physical string
-		rowType  execResponseRowType
-		values   interface{}
-		builder  array.Builder
-		append   func(b array.Builder, vs interface{})
-		compare  func(src interface{}, dst []snowflakeValue) int
+		logical         string
+		physical        string
+		rowType         execResponseRowType
+		values          interface{}
+		builder         array.Builder
+		append          func(b array.Builder, vs interface{})
+		compare         func(src interface{}, dst []snowflakeValue) int
+		higherPrecision bool
 	}{
 		{
+			logical:         "fixed",
+			physical:        "number", // default: number(38, 0)
+			values:          []int64{1, 2},
+			builder:         array.NewInt64Builder(pool),
+			append:          func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			higherPrecision: true,
+		},
+		{
 			logical:  "fixed",
-			physical: "number", // default: number(38, 0)
-			values:   []int64{1, 2},
+			physical: "number(38,5)",
+			rowType:  execResponseRowType{Scale: 5},
+			values:   []string{"1.05430", "2.08983"},
 			builder:  array.NewInt64Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringFloatToInt(s, 5)
+					if !ok {
+						t.Fatalf("failed to convert to int")
+					}
+					b.(*array.Int64Builder).Append(num)
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringFloatToInt(srcvs[i], 5)
+					if !ok {
+						return i
+					}
+					srcDec := intToBigFloat(num, 5)
+					dstDec := dst[i].(*big.Float)
+					if srcDec.Cmp(dstDec) != 0 {
+						return i
+					}
+				}
+				return -1
+			},
+			higherPrecision: true,
+		},
+		{
+			logical:  "fixed",
+			physical: "number(38,5)",
+			rowType:  execResponseRowType{Scale: 5},
+			values:   []string{"1.05430", "2.08983"},
+			builder:  array.NewInt64Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringFloatToInt(s, 5)
+					if !ok {
+						t.Fatalf("failed to convert to int")
+					}
+					b.(*array.Int64Builder).Append(num)
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringFloatToInt(srcvs[i], 5)
+					if !ok {
+						return i
+					}
+					srcDec := fmt.Sprintf("%.*f", 5, float64(num)/math.Pow10(int(5)))
+					dstDec := dst[i]
+					if srcDec != dstDec {
+						return i
+					}
+				}
+				return -1
+			},
+			higherPrecision: false,
 		},
 		{
 			logical:  "fixed",
@@ -323,6 +459,7 @@ func TestArrowToValue(t *testing.T) {
 				}
 				return -1
 			},
+			higherPrecision: true,
 		},
 		{
 			logical:  "fixed",
@@ -354,6 +491,7 @@ func TestArrowToValue(t *testing.T) {
 				}
 				return -1
 			},
+			higherPrecision: true,
 		},
 		{
 			logical:  "fixed",
@@ -370,6 +508,7 @@ func TestArrowToValue(t *testing.T) {
 				}
 				return -1
 			},
+			higherPrecision: true,
 		},
 		{
 			logical:  "fixed",
@@ -386,6 +525,7 @@ func TestArrowToValue(t *testing.T) {
 				}
 				return -1
 			},
+			higherPrecision: true,
 		},
 		{
 			logical:  "fixed",
@@ -402,13 +542,79 @@ func TestArrowToValue(t *testing.T) {
 				}
 				return -1
 			},
+			higherPrecision: true,
 		},
 		{
 			logical:  "fixed",
-			physical: "int64",
-			values:   []int64{1, 2},
-			builder:  array.NewInt64Builder(pool),
-			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			physical: "int32",
+			values:   []string{"1.23456", "2.34567"},
+			rowType:  execResponseRowType{Scale: 5},
+			builder:  array.NewInt32Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringFloatToInt(s, 5)
+					if !ok {
+						t.Fatalf("failed to convert to int")
+					}
+					b.(*array.Int32Builder).Append(int32(num))
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringFloatToInt(srcvs[i], 5)
+					if !ok {
+						return i
+					}
+					srcDec := intToBigFloat(num, 5)
+					dstDec := dst[i].(*big.Float)
+					if srcDec.Cmp(dstDec) != 0 {
+						return i
+					}
+				}
+				return -1
+			},
+			higherPrecision: true,
+		},
+		{
+			logical:  "fixed",
+			physical: "int32",
+			values:   []string{"1.23456", "2.34567"},
+			rowType:  execResponseRowType{Scale: 5},
+			builder:  array.NewInt32Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringFloatToInt(s, 5)
+					if !ok {
+						t.Fatalf("failed to convert to int")
+					}
+					b.(*array.Int32Builder).Append(int32(num))
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringFloatToInt(srcvs[i], 5)
+					if !ok {
+						return i
+					}
+					srcDec := fmt.Sprintf("%.*f", 5, float64(num)/math.Pow10(int(5)))
+					dstDec := dst[i]
+					if srcDec != dstDec {
+						return i
+					}
+				}
+				return -1
+			},
+			higherPrecision: false,
+		},
+		{
+			logical:         "fixed",
+			physical:        "int64",
+			values:          []int64{1, 2},
+			builder:         array.NewInt64Builder(pool),
+			append:          func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			higherPrecision: true,
 		},
 		{
 			logical: "boolean",
@@ -465,6 +671,7 @@ func TestArrowToValue(t *testing.T) {
 				}
 				return -1
 			},
+			higherPrecision: true,
 		},
 		{
 			logical: "timestamp_ntz",
@@ -581,7 +788,9 @@ func TestArrowToValue(t *testing.T) {
 			meta := tc.rowType
 			meta.Type = tc.logical
 
-			if err := arrowToValue(dest, meta, arr, localTime.Location(), true); err != nil {
+			withHigherPrecision := tc.higherPrecision
+
+			if err := arrowToValue(dest, meta, arr, localTime.Location(), withHigherPrecision); err != nil {
 				t.Fatalf("error: %s", err)
 			}
 
