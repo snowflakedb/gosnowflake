@@ -657,3 +657,42 @@ func TestQueryContextError(t *testing.T) {
 		t.Fatalf("should be snowflake error. err: %v", err)
 	}
 }
+
+func TestPrepareQuery(t *testing.T) {
+	ctx := context.Background()
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+	_, err = sc.Prepare("SELECT 1")
+
+	if err != nil {
+		t.Fatalf("failed to prepare query. err: %v", err)
+	}
+}
+
+func TestBeginCreatesTransaction(t *testing.T) {
+	ctx := context.Background()
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(ctx, *config)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Error(err)
+	}
+	tx, _ := sc.Begin()
+	if tx == nil {
+		t.Fatal("should have created a transaction with connection")
+	}
+}

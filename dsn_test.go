@@ -900,12 +900,23 @@ func TestDSN(t *testing.T) {
 		},
 		{
 			cfg: &Config{
-				User:          "u",
-				Password:      "p",
-				Account:       "a",
-				Authenticator: AuthTypeExternalBrowser,
+				User:                           "u",
+				Password:                       "p",
+				Account:                        "a",
+				Authenticator:                  AuthTypeExternalBrowser,
+				ClientStoreTemporaryCredential: ConfigBoolTrue,
 			},
-			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=externalbrowser&ocspFailOpen=true&validateDefaultParameters=true",
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=externalbrowser&clientStoreTemporaryCredential=true&ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                           "u",
+				Password:                       "p",
+				Account:                        "a",
+				Authenticator:                  AuthTypeExternalBrowser,
+				ClientStoreTemporaryCredential: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=externalbrowser&clientStoreTemporaryCredential=false&ocspFailOpen=true&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
@@ -1022,6 +1033,72 @@ func TestDSN(t *testing.T) {
 				JWTClientTimeout: 60 * time.Second,
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientTimeout=300&jwtClientTimeout=60&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:             "u",
+				Password:         "p",
+				Account:          "a.b.c",
+				ClientTimeout:    300 * time.Second,
+				JWTExpireTimeout: 30 * time.Second,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientTimeout=300&jwtTimeout=30&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.b.c",
+				Protocol: "http",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&protocol=http&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.b.c",
+				Tracing:  "debug",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tracing=debug&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                  "u",
+				Password:              "p",
+				Account:               "a.b.c",
+				Authenticator:         AuthTypeUsernamePasswordMFA,
+				ClientRequestMfaToken: ConfigBoolTrue,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=username_password_mfa&clientRequestMfaToken=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                  "u",
+				Password:              "p",
+				Account:               "a.b.c",
+				Authenticator:         AuthTypeUsernamePasswordMFA,
+				ClientRequestMfaToken: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=username_password_mfa&clientRequestMfaToken=false&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:      "u",
+				Password:  "p",
+				Account:   "a.b.c",
+				Warehouse: "wh",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true&warehouse=wh",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "a.b.c",
+				Token:    "t",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&token=t&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {
