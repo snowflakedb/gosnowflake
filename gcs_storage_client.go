@@ -196,7 +196,7 @@ func (util *snowflakeGcsClient) uploadFile(
 			uploadSrc = meta.realSrcStream
 		}
 	} else {
-		uploadSrc, err = os.OpenFile(dataFile, os.O_RDONLY, os.ModePerm)
+		uploadSrc, err = os.OpenFile(dataFile, os.O_RDONLY, 0666)
 		if err != nil {
 			return err
 		}
@@ -314,7 +314,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		return meta.lastError
 	}
 
-	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}

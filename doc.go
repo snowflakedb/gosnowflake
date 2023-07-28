@@ -889,7 +889,7 @@ both an escape character and as a separator in path names.
 To send information from a stream (rather than a file) use code similar to the code below.
 (The ReplaceAll() function is needed on Windows to handle backslashes in the path to the file.)
 
-	fileStream, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+	fileStream, _ := os.OpenFile(fname, os.O_RDONLY, 0666)
 	defer func() {
 		if fileStream != nil {
 			fileStream.Close()

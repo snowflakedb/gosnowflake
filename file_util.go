@@ -39,12 +39,12 @@ func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir stri
 	basename := baseName(fileName)
 	gzipFileName := filepath.Join(tmpDir, basename+"_c.gz")
 
-	fr, err := os.OpenFile(fileName, os.O_RDONLY, os.ModePerm)
+	fr, err := os.OpenFile(fileName, os.O_RDONLY, 0666)
 	if err != nil {
 		return "", -1, err
 	}
 	defer fr.Close()
-	fw, err := os.OpenFile(gzipFileName, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	fw, err := os.OpenFile(gzipFileName, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return "", -1, err
 	}

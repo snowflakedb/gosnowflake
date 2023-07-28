@@ -102,7 +102,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), 0666); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
@@ -214,7 +214,7 @@ func TestPretendToPutButList(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), 0666); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
@@ -283,7 +283,7 @@ func TestPutGetAWSStage(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err = os.WriteFile(fname, b.Bytes(), 0666); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
