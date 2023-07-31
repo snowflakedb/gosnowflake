@@ -608,6 +608,10 @@ Note: As of February 2020, Golang's official library does not support passcode-e
 For security purposes, Snowflake highly recommends that you store the passcode-encrypted private key on the disk and
 decrypt the key in your application using a library you trust.
 
+JWT tokens are recreated on each retry and they are valid (`exp` claim) for `jwtTimeout` seconds.
+Each retry timeout is configured by `jwtClientTimeout`.
+Retries are limited by total time of `loginTimeout`.
+
 # External browser authentication
 
 The driver allows to authenticate using the external browser.
