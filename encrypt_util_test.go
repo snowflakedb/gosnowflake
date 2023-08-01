@@ -54,7 +54,7 @@ func TestEncryptDecryptFile(t *testing.T) {
 	}
 	defer os.Remove(decryptedFile)
 
-	fd, err = os.OpenFile(decryptedFile, os.O_RDONLY, readWriteFileMode)
+	fd, err = os.Open(decryptedFile)
 	if err != nil {
 		t.Error(err)
 	}
@@ -144,7 +144,7 @@ func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected i
 	defer os.Remove(decryptedFile)
 
 	cnt := 0
-	fd, err := os.OpenFile(decryptedFile, os.O_RDONLY, readWriteFileMode)
+	fd, err := os.Open(decryptedFile)
 	if err != nil {
 		t.Error(err)
 	}
@@ -238,7 +238,7 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 					return "", err
 				}
 				w := gzip.NewWriter(fOut)
-				fIn, err := os.OpenFile(fname, os.O_RDONLY, readWriteFileMode)
+				fIn, err := os.Open(fname)
 				if err != nil {
 					return "", err
 				}

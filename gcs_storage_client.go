@@ -196,7 +196,7 @@ func (util *snowflakeGcsClient) uploadFile(
 			uploadSrc = meta.realSrcStream
 		}
 	} else {
-		uploadSrc, err = os.OpenFile(dataFile, os.O_RDONLY, readWriteFileMode)
+		uploadSrc, err = os.Open(dataFile)
 		if err != nil {
 			return err
 		}

@@ -232,7 +232,7 @@ func decryptFile(
 		return "", err
 	}
 	defer tmpOutputFile.Close()
-	infile, err := os.OpenFile(filename, os.O_RDONLY, readWriteFileMode)
+	infile, err := os.Open(filename)
 	if err != nil {
 		return "", err
 	}

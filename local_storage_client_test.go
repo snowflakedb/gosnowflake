@@ -73,7 +73,7 @@ func TestLocalUpload(t *testing.T) {
 	if uploadMeta.resStatus != skipped {
 		t.Fatal("overwrite is false. should have skipped")
 	}
-	fileStream, _ := os.OpenFile(fname, os.O_RDONLY, readWriteFileMode)
+	fileStream, _ := os.Open(fname)
 	ctx := WithFileStream(context.Background(), fileStream)
 	uploadMeta.srcStream = getFileStream(ctx)
 

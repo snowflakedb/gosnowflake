@@ -399,7 +399,7 @@ func testPutGet(t *testing.T, isStream bool) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
-		fileStream, err := os.OpenFile(fname, os.O_RDONLY, readWriteFileMode)
+		fileStream, err := os.Open(fname)
 		if err != nil {
 			t.Error(err)
 		}
@@ -525,7 +525,7 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
-		fileStream, err := os.OpenFile(fname, os.O_RDONLY, readWriteFileMode)
+		fileStream, err := os.Open(fname)
 		if err != nil {
 			t.Error(err)
 		}

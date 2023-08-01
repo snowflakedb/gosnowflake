@@ -204,7 +204,7 @@ func (util *snowflakeAzureClient) uploadFile(
 		})
 	} else {
 		var f *os.File
-		f, err = os.OpenFile(dataFile, os.O_RDONLY, readWriteFileMode)
+		f, err = os.Open(dataFile)
 		if err != nil {
 			return err
 		}
