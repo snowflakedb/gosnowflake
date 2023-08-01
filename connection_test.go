@@ -676,6 +676,7 @@ func TestPrepareQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to prepare query. err: %v", err)
 	}
+	sc.Close()
 }
 
 func TestBeginCreatesTransaction(t *testing.T) {
@@ -695,4 +696,5 @@ func TestBeginCreatesTransaction(t *testing.T) {
 	if tx == nil {
 		t.Fatal("should have created a transaction with connection")
 	}
+	sc.Close()
 }
