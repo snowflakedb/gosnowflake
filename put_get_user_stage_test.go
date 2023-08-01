@@ -49,7 +49,7 @@ func putGetUserStage(t *testing.T, tmpDir string, numberOfFiles int, numberOfLin
 		files = filepath.Join(tmpDir, "file*")
 	}
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		stageName := fmt.Sprintf("%v_stage_%v_%v", dbname, numberOfFiles, numberOfLines)
 		sqlText := `create or replace table %v (aa int, dt date, ts timestamp,
 			tsltz timestamp_ltz, tsntz timestamp_ntz, tstz timestamp_tz,
@@ -103,7 +103,7 @@ func putGetUserStage(t *testing.T, tmpDir string, numberOfFiles int, numberOfLin
 }
 
 func TestPutLoadFromUserStage(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		data, err := createTestData(dbt)
 		if err != nil {
 			t.Skip("snowflake admin account not accessible")

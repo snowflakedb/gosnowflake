@@ -374,7 +374,7 @@ func TestWithStreamDownloader(t *testing.T) {
 	var idx int
 	var v string
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(forceJSON)
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()

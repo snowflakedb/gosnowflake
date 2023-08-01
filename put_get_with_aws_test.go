@@ -24,7 +24,7 @@ func TestLoadS3(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		data, err := createTestData(dbt)
 		if err != nil {
 			t.Skip("snowflake admin account not accessible")
@@ -287,7 +287,7 @@ func TestPutGetAWSStage(t *testing.T) {
 		t.Fatal("could not write to gzip file")
 	}
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		var createStageQuery string
 		keyID, secretKey, _, err := getAWSCredentials()
 		if err != nil {

@@ -84,7 +84,7 @@ func TestEmitQueryID(t *testing.T) {
 	cnt := 0
 	var idx int
 	var v string
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
 
@@ -157,7 +157,7 @@ func TestE2EFetchResultByID(t *testing.T) {
 }
 
 func TestWithDescribeOnly(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		ctx := WithDescribeOnly(context.Background())
 		rows := dbt.mustQueryContext(ctx, selectVariousTypes)
 		defer rows.Close()
@@ -181,7 +181,7 @@ func TestWithDescribeOnly(t *testing.T) {
 }
 
 func TestCallStatement(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		in1 := float64(1)
 		in2 := string("[2,3]")
 		expected := "1 \"[2,3]\" [2,3]"
