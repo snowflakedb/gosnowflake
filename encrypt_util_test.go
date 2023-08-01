@@ -33,7 +33,7 @@ func TestEncryptDecryptFile(t *testing.T) {
 	data := "test data"
 	inputFile := "test_encrypt_decrypt_file"
 
-	fd, err := os.OpenFile(inputFile, os.O_CREATE|os.O_WRONLY, 0666)
+	fd, err := os.OpenFile(inputFile, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -54,7 +54,7 @@ func TestEncryptDecryptFile(t *testing.T) {
 	}
 	defer os.Remove(decryptedFile)
 
-	fd, err = os.OpenFile(decryptedFile, os.O_RDONLY, 0666)
+	fd, err = os.OpenFile(decryptedFile, os.O_RDONLY, readWriteFileMode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -144,7 +144,7 @@ func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected i
 	defer os.Remove(decryptedFile)
 
 	cnt := 0
-	fd, err := os.OpenFile(decryptedFile, os.O_RDONLY, 0666)
+	fd, err := os.OpenFile(decryptedFile, os.O_RDONLY, readWriteFileMode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -168,7 +168,7 @@ func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (strin
 		}
 	}
 	fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(numLines*numBytes), 10))
-	f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, 0666)
+	f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
 	if err != nil {
 		return "", err
 	}
@@ -191,7 +191,7 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 	}
 	for i := 0; i < n; i++ {
 		fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10))
-		f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, 0666)
+		f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
 		if err != nil {
 			return "", err
 		}
@@ -233,12 +233,12 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 				io.ReadAll(gzipErr)
 				gzipCmd.Wait()
 			} else {
-				fOut, err := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, 0666)
+				fOut, err := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, readWriteFileMode)
 				if err != nil {
 					return "", err
 				}
 				w := gzip.NewWriter(fOut)
-				fIn, err := os.OpenFile(fname, os.O_RDONLY, 0666)
+				fIn, err := os.OpenFile(fname, os.O_RDONLY, readWriteFileMode)
 				if err != nil {
 					return "", err
 				}
