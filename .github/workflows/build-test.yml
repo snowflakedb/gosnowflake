@@ -20,6 +20,11 @@ on:
           tags:
             description: "Test scenario tags"
 
+concurrency:
+  # older builds for the same pull request numer or branch should be cancelled
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
     build-test-linux:
         runs-on: ubuntu-latest
