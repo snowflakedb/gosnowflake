@@ -33,7 +33,7 @@ func TestEncryptDecryptFile(t *testing.T) {
 	data := "test data"
 	inputFile := "test_encrypt_decrypt_file"
 
-	fd, err := os.OpenFile(inputFile, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
+	fd, err := os.Create(inputFile)
 	if err != nil {
 		t.Error(err)
 	}
@@ -168,7 +168,7 @@ func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (strin
 		}
 	}
 	fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(numLines*numBytes), 10))
-	f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
+	f, err := os.Create(fname)
 	if err != nil {
 		return "", err
 	}
@@ -191,7 +191,7 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 	}
 	for i := 0; i < n; i++ {
 		fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10))
-		f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
+		f, err := os.Create(fname)
 		if err != nil {
 			return "", err
 		}
@@ -233,7 +233,7 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 				io.ReadAll(gzipErr)
 				gzipCmd.Wait()
 			} else {
-				fOut, err := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, readWriteFileMode)
+				fOut, err := os.Create(fname + ".gz")
 				if err != nil {
 					return "", err
 				}

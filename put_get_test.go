@@ -41,7 +41,7 @@ func TestPutError(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	file1 := filepath.Join(tmpDir, "file1")
 	remoteLocation := filepath.Join(tmpDir, "remote_loc")
-	f, err := os.OpenFile(file1, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
+	f, err := os.Create(file1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -250,7 +250,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	testData := filepath.Join(tmpDir, "data.txt")
-	f, err := os.OpenFile(testData, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
+	f, err := os.Create(testData)
 	if err != nil {
 		t.Error(err)
 	}
@@ -291,7 +291,7 @@ func TestPutOverwrite(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	testData := filepath.Join(tmpDir, "data.txt")
-	f, err := os.OpenFile(testData, os.O_CREATE|os.O_RDWR, readWriteFileMode)
+	f, err := os.Create(testData)
 	if err != nil {
 		t.Error(err)
 	}
