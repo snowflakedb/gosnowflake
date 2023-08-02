@@ -515,7 +515,7 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 	defer func() {
 		src, _ = os.Open(tmpFileName)
 		defer src.Close()
-		dst, _ = os.OpenFile(srcFileName, os.O_WRONLY, os.ModePerm)
+		dst, _ = os.OpenFile(srcFileName, os.O_WRONLY, readWriteFileMode)
 		defer dst.Close()
 		// copy temporary file contents back to original file
 		if _, err = io.Copy(dst, src); err != nil {

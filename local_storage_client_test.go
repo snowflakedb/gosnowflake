@@ -25,7 +25,7 @@ func TestLocalUpload(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 	putDir, err := os.MkdirTemp("", "put")
@@ -73,7 +73,7 @@ func TestLocalUpload(t *testing.T) {
 	if uploadMeta.resStatus != skipped {
 		t.Fatal("overwrite is false. should have skipped")
 	}
-	fileStream, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+	fileStream, _ := os.Open(fname)
 	ctx := WithFileStream(context.Background(), fileStream)
 	uploadMeta.srcStream = getFileStream(ctx)
 
@@ -116,7 +116,7 @@ func TestDownloadLocalFile(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err := os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 	putDir, err := os.MkdirTemp("", "put")

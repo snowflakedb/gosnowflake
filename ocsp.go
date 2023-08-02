@@ -723,7 +723,7 @@ func initOCSPCache() {
 	ocspResponseCacheLock = &sync.RWMutex{}
 
 	logger.Infof("reading OCSP Response cache file. %v\n", cacheFileName)
-	f, err := os.OpenFile(cacheFileName, os.O_CREATE|os.O_RDONLY, os.ModePerm)
+	f, err := os.OpenFile(cacheFileName, os.O_CREATE|os.O_RDONLY, readWriteFileMode)
 	if err != nil {
 		logger.Debugf("failed to open. Ignored. %v\n", err)
 		return

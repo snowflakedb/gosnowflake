@@ -217,7 +217,7 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 		}
 	}
 
-	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
 	if err != nil {
 		return err
 	}

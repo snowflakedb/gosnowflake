@@ -204,7 +204,7 @@ func (util *snowflakeAzureClient) uploadFile(
 		})
 	} else {
 		var f *os.File
-		f, err = os.OpenFile(dataFile, os.O_RDONLY, os.ModePerm)
+		f, err = os.Open(dataFile)
 		if err != nil {
 			return err
 		}
@@ -273,7 +273,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	if meta.mockAzureClient != nil {
 		blobClient = meta.mockAzureClient
 	}
-	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
 	if err != nil {
 		return err
 	}

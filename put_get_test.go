@@ -41,7 +41,7 @@ func TestPutError(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	file1 := filepath.Join(tmpDir, "file1")
 	remoteLocation := filepath.Join(tmpDir, "remote_loc")
-	f, err := os.OpenFile(file1, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.Create(file1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -250,7 +250,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	testData := filepath.Join(tmpDir, "data.txt")
-	f, err := os.OpenFile(testData, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.Create(testData)
 	if err != nil {
 		t.Error(err)
 	}
@@ -291,7 +291,7 @@ func TestPutOverwrite(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	testData := filepath.Join(tmpDir, "data.txt")
-	f, err := os.OpenFile(testData, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	f, err := os.Create(testData)
 	if err != nil {
 		t.Error(err)
 	}
@@ -392,14 +392,14 @@ func testPutGet(t *testing.T, isStream bool) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err = os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
-		fileStream, err := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+		fileStream, err := os.Open(fname)
 		if err != nil {
 			t.Error(err)
 		}
@@ -517,7 +517,7 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err = os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
@@ -525,7 +525,7 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
-		fileStream, err := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+		fileStream, err := os.Open(fname)
 		if err != nil {
 			t.Error(err)
 		}

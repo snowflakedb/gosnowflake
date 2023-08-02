@@ -176,7 +176,7 @@ func encryptFile(
 	if err != nil {
 		return nil, "", err
 	}
-	infile, err := os.OpenFile(filename, os.O_CREATE|os.O_RDONLY, os.ModePerm)
+	infile, err := os.OpenFile(filename, os.O_CREATE|os.O_RDONLY, readWriteFileMode)
 	if err != nil {
 		return nil, "", err
 	}
@@ -232,7 +232,7 @@ func decryptFile(
 		return "", err
 	}
 	defer tmpOutputFile.Close()
-	infile, err := os.OpenFile(filename, os.O_RDONLY, os.ModePerm)
+	infile, err := os.Open(filename)
 	if err != nil {
 		return "", err
 	}

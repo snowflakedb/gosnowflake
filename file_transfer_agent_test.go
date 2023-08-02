@@ -62,7 +62,7 @@ func TestUnitDownloadWithInvalidLocalPath(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	testData := filepath.Join(tmpDir, "data.txt")
-	f, err := os.OpenFile(testData, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	f, err := os.Create(testData)
 	if err != nil {
 		t.Error(err)
 	}
