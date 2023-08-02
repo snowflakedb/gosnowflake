@@ -16,7 +16,7 @@ func TestAsyncMode(t *testing.T) {
 	var idx int
 	var v string
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
 
@@ -55,7 +55,7 @@ func TestAsyncModeMultiStatement(t *testing.T) {
 		"select 2;\n" +
 		"rollback;"
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("drop table if exists test_multi_statement_async")
 		dbt.mustExec(`create or replace table test_multi_statement_async(
 			c1 number, c2 string) as select 10, 'z'`)
@@ -77,7 +77,7 @@ func TestAsyncModeCancel(t *testing.T) {
 	ctx := WithAsyncMode(withCancelCtx)
 	numrows := 100000
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		cancel()
 	})
@@ -85,7 +85,7 @@ func TestAsyncModeCancel(t *testing.T) {
 
 func TestAsyncQueryFail(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, "selectt 1")
 		defer rows.Close()
 
@@ -108,7 +108,7 @@ func TestMultipleAsyncQueries(t *testing.T) {
 
 	db := openDB(t)
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		rows1, err := db.QueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s1, 30))
 		if err != nil {
 			t.Fatalf("can't read rows1: %v", err)

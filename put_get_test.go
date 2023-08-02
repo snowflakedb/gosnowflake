@@ -181,7 +181,7 @@ func TestPutLocalFile(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		data, err := createTestData(dbt)
 		if err != nil {
 			t.Skip("snowflake admin account not accessible")
@@ -258,7 +258,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	f.Sync()
 	defer f.Close()
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if _, err = dbt.exec("use role sysadmin"); err != nil {
 			t.Skip("snowflake admin account not accessible")
 		}
@@ -298,7 +298,7 @@ func TestPutOverwrite(t *testing.T) {
 	f.WriteString("test1,test2\ntest3,test4\n")
 	f.Close()
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if _, err = dbt.exec("use role sysadmin"); err != nil {
 			t.Skip("snowflake admin account not accessible")
 		}
@@ -396,7 +396,7 @@ func testPutGet(t *testing.T, isStream bool) {
 		t.Fatal("could not write to gzip file")
 	}
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
 		fileStream, err := os.Open(fname)
@@ -522,7 +522,7 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 	}
 
 	dsn = dsn + "&GCS_USE_DOWNSCOPED_CREDENTIAL=true"
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
 		fileStream, err := os.Open(fname)
@@ -625,7 +625,7 @@ func TestPutLargeFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("rm @~/test_put_largefile")
 		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @%v", sourceDir, "~/test_put_largefile")
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")

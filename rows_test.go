@@ -56,7 +56,7 @@ var (
 
 // Special cases where rows are already closed
 func TestRowsClose(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		rows, err := dbt.query("SELECT 1")
 		if err != nil {
 			dbt.Fatal(err)
@@ -76,7 +76,7 @@ func TestRowsClose(t *testing.T) {
 
 func TestResultNoRows(t *testing.T) {
 	// DDL
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		row, err := dbt.exec("CREATE OR REPLACE TABLE test(c1 int)")
 		if err != nil {
 			t.Fatalf("failed to execute DDL. err: %v", err)

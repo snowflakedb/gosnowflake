@@ -69,7 +69,7 @@ func TestUnitDownloadWithInvalidLocalPath(t *testing.T) {
 	f.WriteString("test1,test2\ntest3,test4\n")
 	f.Close()
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if _, err = dbt.exec("use role sysadmin"); err != nil {
 			t.Skip("snowflake admin account not accessible")
 		}

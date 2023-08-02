@@ -37,7 +37,7 @@ const (
 )
 
 func TestBindingFloat64(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		expected := 42.23
 		var out float64
@@ -63,7 +63,7 @@ func TestBindingFloat64(t *testing.T) {
 // TestBindingUint64 tests uint64 binding. Should fail as unit64 is not a
 // supported binding value by Go's sql package.
 func TestBindingUint64(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		types := []string{"INTEGER"}
 		expected := uint64(18446744073709551615)
 		for _, v := range types {
@@ -80,7 +80,7 @@ func TestBindingUint64(t *testing.T) {
 
 func TestBindingDateTimeTimestamp(t *testing.T) {
 	createDSN(PSTLocation)
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		expected := time.Now()
 		dbt.mustExec(
 			"CREATE OR REPLACE TABLE tztest (id int, ntz timestamp_ntz, ltz timestamp_ltz, dt date, tm time)")
@@ -150,7 +150,7 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 }
 
 func TestBindingBinary(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE bintest (id int, b binary)")
 		var b = []byte{0x01, 0x02, 0x03}
 		dbt.mustExec("INSERT INTO bintest(id,b) VALUES(1, ?)", DataTypeBinary, b)
@@ -172,7 +172,7 @@ func TestBindingBinary(t *testing.T) {
 }
 
 func TestBindingTimestampTZ(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		expected := time.Now()
 		dbt.mustExec("CREATE OR REPLACE TABLE tztest (id int, tz timestamp_tz)")
 		stmt, err := dbt.prepare("INSERT INTO tztest(id,tz) VALUES(1, ?)")
@@ -201,7 +201,7 @@ func TestBindingTimestampTZ(t *testing.T) {
 
 // SNOW-755844: Test the use of a pointer *time.Time type in user-defined structures to perform updates/inserts
 func TestBindingTimePtrInStruct(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		type timePtrStruct struct {
 			id      *int
 			timeVal *time.Time
@@ -248,7 +248,7 @@ func TestBindingTimePtrInStruct(t *testing.T) {
 
 // SNOW-755844: Test the use of a time.Time type in user-defined structures to perform updates/inserts
 func TestBindingTimeInStruct(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		type timeStruct struct {
 			id      int
 			timeVal time.Time
@@ -294,7 +294,7 @@ func TestBindingTimeInStruct(t *testing.T) {
 }
 
 func TestBindingInterface(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(
 			WithHigherPrecision(context.Background()), selectVariousTypes)
 		defer rows.Close()
@@ -321,7 +321,7 @@ func TestBindingInterface(t *testing.T) {
 }
 
 func TestBindingInterfaceString(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQuery(selectVariousTypes)
 		defer rows.Close()
 		if !rows.Next() {
@@ -350,7 +350,7 @@ func TestBindingInterfaceString(t *testing.T) {
 func TestBulkArrayBindingInterfaceNil(t *testing.T) {
 	nilArray := make([]any, 1)
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQL)
 		defer dbt.mustExec(deleteTableSQL)
 
@@ -436,7 +436,7 @@ func TestBulkArrayBindingInterface(t *testing.T) {
 	int64Array[0] = int64(100)
 	int64Array[1] = int64(200)
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQLBulkArray)
 		defer dbt.mustExec(deleteTableSQLBulkArray)
 
@@ -536,7 +536,7 @@ func TestBulkArrayBindingInterfaceDateTimeTimestamp(t *testing.T) {
 	tmArray[1] = now.Add(8).In(loc)
 	tmArray[2] = now.Add(9).In(loc)
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQLBulkArrayDateTimeTimestamp)
 		defer dbt.mustExec(deleteTableSQLBulkArrayDateTimeTimestamp)
 
@@ -638,7 +638,7 @@ func testBindingArray(t *testing.T, bulk bool) {
 	dtArray := []time.Time{now.Add(9), now.Add(10), now.Add(11)}
 	tmArray := []time.Time{now.Add(12), now.Add(13), now.Add(14)}
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(createTableSQL)
 		defer dbt.mustExec(deleteTableSQL)
 		if bulk {
@@ -706,7 +706,7 @@ func testBindingArray(t *testing.T, bulk bool) {
 }
 
 func TestBulkArrayBinding(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string)", dbname))
 		numRows := 100000
 		intArr := make([]int, numRows)
@@ -751,7 +751,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 	tempTableName := fmt.Sprintf("test_table_%v", randomString(5))
 	ctx := context.Background()
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(fmt.Sprintf("CREATE TABLE %s (C VARCHAR(64) NOT NULL)", tempTableName))
 		defer dbt.mustExec("drop table " + tempTableName)
 
@@ -784,7 +784,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 }
 
 func TestBulkArrayMultiPartBindingInt(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table binding_test (c1 integer)")
 		startNum := 1000000
 		endNum := 3000000
@@ -819,7 +819,7 @@ func TestBulkArrayMultiPartBindingInt(t *testing.T) {
 }
 
 func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table binding_test (c1 integer, c2 string)")
 		startNum := 1000000
 		endNum := 2000000
@@ -911,7 +911,7 @@ func TestFunctionParameters(t *testing.T) {
 		{"timestamp_tzAndTimeResultInNotNull", "timestamp_tz", time.Now(), false},
 	}
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
 			t.Run(tc.testDesc, func(t *testing.T) {
 				query := fmt.Sprintf(`
@@ -997,7 +997,7 @@ func TestVariousBindingModes(t *testing.T) {
 		},
 	}
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
 			for _, bindingMode := range bindingModes {
 				t.Run(tc.testDesc+" "+bindingMode.param, func(t *testing.T) {

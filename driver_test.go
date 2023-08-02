@@ -320,14 +320,12 @@ func (dbt *DBTest) mustPrepare(query string) (stmt *sql.Stmt) {
 	return stmt
 }
 
-func runTests(t *testing.T, dsn string, tests ...func(dbt *DBTest)) {
+func runDBTest(t *testing.T, test func(dbt *DBTest)) {
 	conn := openConn(t)
-	dbt := &DBTest{t, conn}
 	defer conn.Close()
+	dbt := &DBTest{t, conn}
 
-	for _, test := range tests {
-		test(dbt)
-	}
+	test(dbt)
 }
 
 func runningOnAWS() bool {
@@ -413,7 +411,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 }
 
 func TestCommentOnlyQuery(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		query := "--"
 		// just a comment, no query
 		rows, err := dbt.query(query)
@@ -430,7 +428,7 @@ func TestCommentOnlyQuery(t *testing.T) {
 }
 
 func TestEmptyQuery(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		query := "select 1 from dual where 1=0"
 		// just a comment, no query
 		rows := dbt.conn.QueryRowContext(context.Background(), query)
@@ -446,7 +444,7 @@ func TestEmptyQuery(t *testing.T) {
 }
 
 func TestEmptyQueryWithRequestID(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		query := "select 1"
 		ctx := WithRequestID(context.Background(), NewUUID())
 		rows := dbt.conn.QueryRowContext(ctx, query)
@@ -458,7 +456,7 @@ func TestEmptyQueryWithRequestID(t *testing.T) {
 }
 
 func TestCRUD(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		// Create Table
 		dbt.mustExec("CREATE OR REPLACE TABLE test (value BOOLEAN)")
 
@@ -556,7 +554,7 @@ func TestInt(t *testing.T) {
 }
 
 func testInt(t *testing.T, json bool) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		types := []string{"INT", "INTEGER"}
 		in := int64(42)
 		var out int64
@@ -590,7 +588,7 @@ func TestFloat32(t *testing.T) {
 }
 
 func testFloat32(t *testing.T, json bool) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		in := float32(42.23)
 		var out float32
@@ -624,7 +622,7 @@ func TestFloat64(t *testing.T) {
 }
 
 func testFloat64(t *testing.T, json bool) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		expected := 42.23
 		var out float64
@@ -655,7 +653,7 @@ func TestString(t *testing.T) {
 }
 
 func testString(t *testing.T, json bool) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -787,7 +785,7 @@ func testSimpleDateTimeTimestampFetch(t *testing.T, json bool) {
 			scan(rows, &cd, &ct, &cts)
 		},
 	}
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -853,7 +851,7 @@ func testDateTime(t *testing.T, json bool) {
 			{t: time.Date(2011, 11, 20, 21, 27, 37, 123456789, time.UTC)},
 		}},
 	}
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -922,7 +920,7 @@ func testTimestampLTZ(t *testing.T, json bool) {
 			},
 		},
 	}
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -970,7 +968,7 @@ func testTimestampTZ(t *testing.T, json bool) {
 			},
 		},
 	}
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -991,7 +989,7 @@ func TestNULL(t *testing.T) {
 }
 
 func testNULL(t *testing.T, json bool) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1149,7 +1147,7 @@ func TestVariant(t *testing.T) {
 }
 
 func testVariant(t *testing.T, json bool) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1171,7 +1169,7 @@ func TestArray(t *testing.T) {
 }
 
 func testArray(t *testing.T, json bool) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1194,7 +1192,7 @@ func TestLargeSetResult(t *testing.T) {
 }
 
 func testLargeSetResult(t *testing.T, numrows int, json bool) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1218,7 +1216,7 @@ func testLargeSetResult(t *testing.T, numrows int, json bool) {
 }
 
 func TestPingpongQuery(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		numrows := 1
 		rows := dbt.mustQuery("SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 60))")
 		defer rows.Close()
@@ -1233,7 +1231,7 @@ func TestPingpongQuery(t *testing.T) {
 }
 
 func TestDML(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test(c1 int, c2 string)")
 		if err := insertData(dbt, false); err != nil {
 			dbt.Fatalf("failed to insert data: %v", err)
@@ -1331,7 +1329,7 @@ func queryTest(dbt *DBTest) (*map[int]string, error) {
 }
 
 func TestCancelQuery(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -1366,7 +1364,7 @@ func TestPing(t *testing.T) {
 
 func TestDoubleDollar(t *testing.T) {
 	// no escape is required for dollar signs
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		sql := `create or replace function dateErr(I double) returns date
 language javascript strict
 as $$
@@ -1411,7 +1409,7 @@ func TestTimezoneSessionParameter(t *testing.T) {
 }
 
 func TestLargeSetResultCancel(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
@@ -1518,7 +1516,7 @@ func TestSpecifyWarehouseDatabase(t *testing.T) {
 }
 
 func TestFetchNil(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SELECT * FROM values(3,4),(null, 5) order by 2")
 		defer rows.Close()
 		var c1 sql.NullInt64
@@ -1651,7 +1649,7 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
 	createDSNWithClientSessionKeepAlive()
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
 		defer rows.Close()
 		if !rows.Next() {
@@ -1672,7 +1670,7 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 }
 
 func TestTimePrecision(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table z3 (t1 time(5))")
 		rows := dbt.mustQuery("select * from z3")
 		defer rows.Close()
