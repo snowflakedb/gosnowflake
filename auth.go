@@ -70,6 +70,9 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 	} else if upperCaseValue == AuthTypeUsernamePasswordMFA.String() {
 		cfg.Authenticator = AuthTypeUsernamePasswordMFA
 		return nil
+	} else if upperCaseValue == AuthTypeTokenAccessor.String() {
+		cfg.Authenticator = AuthTypeTokenAccessor
+		return nil
 	} else {
 		// possibly Okta case
 		oktaURLString, err := url.QueryUnescape(lowerCaseValue)

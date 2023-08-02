@@ -3,9 +3,11 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -595,5 +597,33 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "errors during file upload:\nmkdir") {
 		t.Fatalf("should error when creating the temporary directory. Instead errored with: %v", err)
+	}
+}
+
+func TestUnitUpdateProgess(t *testing.T) {
+	var b bytes.Buffer
+	buf := io.Writer(&b)
+	buf.Write([]byte("testing"))
+
+	spp := &snowflakeProgressPercentage{
+		filename:        "test.txt",
+		fileSize:        float64(1500),
+		outputStream:    &buf,
+		showProgressBar: true,
+		done:            false,
+	}
+
+	spp.call(0)
+	if spp.done != false {
+		t.Fatal("should not be done.")
+	}
+
+	if spp.seenSoFar != 0 {
+		t.Fatalf("expected seenSoFar to be 0 but was %v", spp.seenSoFar)
+	}
+
+	spp.call(1516)
+	if spp.done != true {
+		t.Fatal("should be done after updating progess")
 	}
 }
