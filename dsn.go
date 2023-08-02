@@ -91,10 +91,23 @@ type Config struct {
 
 	Tracing string // sets logging level
 
+	TmpDirPath string // sets temporary directory used by a driver for operations like encrypting, compressing etc
+
 	MfaToken                       string     // Internally used to cache the MFA token
 	IDToken                        string     // Internally used to cache the Id Token for external browser
 	ClientRequestMfaToken          ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
 	ClientStoreTemporaryCredential ConfigBool // When true the ID token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
+}
+
+// Validate enables testing if config is correct.
+// A driver client may call it manually, but it is also called during opening first connection.
+func (c *Config) Validate() error {
+	if c.TmpDirPath != "" {
+		if _, err := os.Stat(c.TmpDirPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
@@ -213,6 +226,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Tracing != "" {
 		params.Add("tracing", cfg.Tracing)
+	}
+	if cfg.TmpDirPath != "" {
+		params.Add("tmpDirPath", cfg.TmpDirPath)
 	}
 
 	params.Add("ocspFailOpen", strconv.FormatBool(cfg.OCSPFailOpen != OCSPFailOpenFalse))
@@ -684,6 +700,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "tracing":
 			cfg.Tracing = value
+		case "tmpDirPath":
+			cfg.TmpDirPath = value
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

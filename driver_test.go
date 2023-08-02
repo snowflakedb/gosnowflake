@@ -1575,6 +1575,18 @@ func TestOpenWithConfig(t *testing.T) {
 	db.Close()
 }
 
+func TestOpenWithInvalidConfig(t *testing.T) {
+	config, err := ParseDSN("u:p@h?tmpDirPath=%2Fnon-existing")
+	if err != nil {
+		t.Fatalf("failed to parse dsn. err: %v", err)
+	}
+	driver := SnowflakeDriver{}
+	_, err = driver.OpenWithConfig(context.Background(), *config)
+	if err == nil || !strings.Contains(err.Error(), "/non-existing") {
+		t.Fatalf("should fail on missing directory")
+	}
+}
+
 type CountingTransport struct {
 	requests int
 }

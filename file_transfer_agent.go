@@ -836,7 +836,7 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMe
 
 func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileMetadata, error) {
 	meta.realSrcFileName = meta.srcFileName
-	tmpDir, err := os.MkdirTemp("", "")
+	tmpDir, err := os.MkdirTemp(sfa.sc.cfg.TmpDirPath, "")
 	if err != nil {
 		return nil, err
 	}
@@ -951,7 +951,7 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 }
 
 func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fileMetadata, error) {
-	tmpDir, err := os.MkdirTemp("", "")
+	tmpDir, err := os.MkdirTemp(sfa.sc.cfg.TmpDirPath, "")
 	if err != nil {
 		return nil, err
 	}

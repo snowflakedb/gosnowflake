@@ -536,9 +536,8 @@ func TestUpdateMetadataWithPresignedUrlError(t *testing.T) {
 }
 
 func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
-	// Disable the test on Windows
 	if isWindows {
-		return
+		t.Skip("permission model is different")
 	}
 
 	var err error
@@ -581,15 +580,15 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 	}
 
 	sfa := &snowflakeFileTransferAgent{
-		sc:                nil,
+		sc: &snowflakeConn{
+			cfg: &Config{},
+		},
 		commandType:       uploadCommand,
 		command:           "put file:///tmp/test_data/data1.txt @~",
 		stageLocationType: gcsClient,
 		fileMetadata:      []*fileMetadata{&uploadMeta},
+		parallel:          1,
 	}
-
-	// Set max parallel uploads to 1
-	sfa.parallel = 1
 
 	err = sfa.uploadFilesParallel([]*fileMetadata{&uploadMeta})
 	if err == nil {
@@ -625,5 +624,131 @@ func TestUnitUpdateProgess(t *testing.T) {
 	spp.call(1516)
 	if spp.done != true {
 		t.Fatal("should be done after updating progess")
+	}
+}
+
+func TestCustomTmpDirPath(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		t.Fatalf("cannot create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+	uploadFile := filepath.Join(tmpDir, "data.txt")
+	f, err := os.Create(uploadFile)
+	if err != nil {
+		t.Error(err)
+	}
+	f.WriteString("test1,test2\ntest3,test4\n")
+	f.Close()
+
+	uploadMeta := &fileMetadata{
+		name:              "data.txt.gz",
+		stageLocationType: "local",
+		noSleepingTime:    true,
+		client:            local,
+		sha256Digest:      "123456789abcdef",
+		stageInfo: &execResponseStageInfo{
+			Location:     tmpDir,
+			LocationType: "local",
+		},
+		dstFileName: "data.txt.gz",
+		srcFileName: uploadFile,
+		overwrite:   true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+	}
+
+	downloadFile := filepath.Join(tmpDir, "download.txt")
+	downloadMeta := &fileMetadata{
+		name:              "data.txt.gz",
+		stageLocationType: "local",
+		noSleepingTime:    true,
+		client:            local,
+		sha256Digest:      "123456789abcdef",
+		stageInfo: &execResponseStageInfo{
+			Location:     tmpDir,
+			LocationType: "local",
+		},
+		srcFileName: "data.txt.gz",
+		dstFileName: downloadFile,
+		overwrite:   true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+	}
+
+	sfa := snowflakeFileTransferAgent{
+		sc: &snowflakeConn{
+			cfg: &Config{
+				TmpDirPath: tmpDir,
+			},
+		},
+		stageLocationType: local,
+	}
+	_, err = sfa.uploadOneFile(uploadMeta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = sfa.downloadOneFile(downloadMeta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("download.txt")
+}
+
+func TestReadonlyTmpDirPathShouldFail(t *testing.T) {
+	if isWindows {
+		t.Skip("permission model is different")
+	}
+	tmpDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		t.Fatalf("cannot create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	uploadFile := filepath.Join(tmpDir, "data.txt")
+	f, err := os.Create(uploadFile)
+	if err != nil {
+		t.Error(err)
+	}
+	f.WriteString("test1,test2\ntest3,test4\n")
+	f.Close()
+
+	err = os.Chmod(tmpDir, 0400)
+	if err != nil {
+		t.Fatalf("cannot mark directory as readonly: %v", err)
+	}
+	defer os.Chmod(tmpDir, 0600)
+
+	uploadMeta := &fileMetadata{
+		name:              "data.txt.gz",
+		stageLocationType: "local",
+		noSleepingTime:    true,
+		client:            local,
+		sha256Digest:      "123456789abcdef",
+		stageInfo: &execResponseStageInfo{
+			Location:     tmpDir,
+			LocationType: "local",
+		},
+		dstFileName: "data.txt.gz",
+		srcFileName: uploadFile,
+		overwrite:   true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+	}
+
+	sfa := snowflakeFileTransferAgent{
+		sc: &snowflakeConn{
+			cfg: &Config{
+				TmpDirPath: tmpDir,
+			},
+		},
+		stageLocationType: local,
+	}
+	_, err = sfa.uploadOneFile(uploadMeta)
+	if err == nil {
+		t.Fatalf("should not upload file as temporary directory is not readable")
 	}
 }

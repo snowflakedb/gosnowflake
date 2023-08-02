@@ -65,6 +65,9 @@ func TestPutError(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			RaisePutGetError: false,
 		},
+		sc: &snowflakeConn{
+			cfg: &Config{},
+		},
 	}
 	if err = fta.execute(); err != nil {
 		t.Fatal(err)
@@ -77,6 +80,9 @@ func TestPutError(t *testing.T) {
 		data: data,
 		options: &SnowflakeFileTransferOptions{
 			RaisePutGetError: true,
+		},
+		sc: &snowflakeConn{
+			cfg: &Config{},
 		},
 	}
 	if err = fta.execute(); err != nil {

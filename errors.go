@@ -66,7 +66,7 @@ func (se *SnowflakeError) generateTelemetryExceptionData() *telemetryData {
 }
 
 func (se *SnowflakeError) sendExceptionTelemetry(sc *snowflakeConn, data *telemetryData) error {
-	if sc != nil {
+	if sc != nil && sc.telemetry != nil {
 		return sc.telemetry.addLog(data)
 	}
 	return nil // TODO oob telemetry
