@@ -54,4 +54,3 @@ func TestUnitPostHeartbeat(t *testing.T) {
 		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrFailedToHeartbeat, driverErr.Number)
 	}
 }
-

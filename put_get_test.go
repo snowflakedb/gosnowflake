@@ -99,9 +99,10 @@ func TestPercentage(t *testing.T) {
 		{14, 28, 0.5},
 	}
 	for _, test := range testcases {
-		if percent(test.seen, test.size) != test.expected {
+		spp := snowflakeProgressPercentage{}
+		if spp.percent(test.seen, test.size) != test.expected {
 			t.Fatalf("percentage conversion failed. %v/%v, expected: %v, got: %v",
-				test.seen, test.size, test.expected, percent(test.seen, test.size))
+				test.seen, test.size, test.expected, spp.percent(test.seen, test.size))
 		}
 	}
 }
