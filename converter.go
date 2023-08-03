@@ -953,7 +953,7 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 					return nil, err
 				}
 				defer newCol.Release()
-			} else if srcColumnMeta.Scale != 0 {
+			} else if srcColumnMeta.Scale != 0 && col.DataType().ID() != arrow.INT64 {
 				result, err := compute.Divide(ctx, compute.ArithmeticOptions{NoCheckOverflow: true},
 					&compute.ArrayDatum{Value: newCol.Data()},
 					compute.NewDatum(math.Pow10(int(srcColumnMeta.Scale))))
@@ -962,6 +962,23 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 				}
 				defer result.Release()
 				newCol = result.(*compute.ArrayDatum).MakeArray()
+				defer newCol.Release()
+			} else if srcColumnMeta.Scale != 0 && col.DataType().ID() == arrow.INT64 {
+				// gosnowflake driver uses compute.Divide() which could bring `integer value not in range: -9007199254740992 to 9007199254740992` error
+				// before we figure this out, we can convert to arrow.Decimal and follow the same code path as above.
+				values := col.(*array.Int64).Int64Values()
+				decimalValues := make([]decimal128.Num, len(values))
+				for i, val := range values {
+					decimalValues[i] = decimal128.FromI64(val)
+				}
+				builder := array.NewDecimal128Builder(memory.NewCheckedAllocator(memory.NewGoAllocator()), &arrow.Decimal128Type{Precision: int32(srcColumnMeta.Precision), Scale: int32(srcColumnMeta.Scale)})
+				builder.AppendValues(decimalValues, nil)
+				decimalArray := builder.NewArray()
+				builder.Release()
+				newCol, err = compute.CastArray(ctx, decimalArray, compute.UnsafeCastOptions(arrow.PrimitiveTypes.Float64))
+				if err != nil {
+					return nil, err
+				}
 				defer newCol.Release()
 			}
 		case timeType:
