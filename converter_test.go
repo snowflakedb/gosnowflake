@@ -1060,7 +1060,7 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical:  "fixed",
 			physical: "float64",
-			rowType:  execResponseRowType{Scale: 5},
+			rowType:  execResponseRowType{Precision: 38, Scale: 5},
 			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
 			values:   []int64{12345, 234567},
 			nrows:    2,
@@ -1069,7 +1069,7 @@ func TestArrowToRecord(t *testing.T) {
 			compare: func(src interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int64)
 				for i, f := range convertedRec.Column(0).(*array.Float64).Float64Values() {
-					rawFloat, _ := intToBigFloat(srcvs[i], 5).Float64()
+					rawFloat := float64(srcvs[i]) / 1e5
 					if rawFloat != f {
 						return i
 					}
