@@ -51,6 +51,8 @@ jobs:
               run: ./ci/test.sh
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
     build-test-mac:
         runs-on: macos-latest
         strategy:
@@ -76,6 +78,8 @@ jobs:
               run: ./ci/test.sh
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
     build-test-windows:
         runs-on: windows-latest
         strategy:
@@ -105,3 +109,5 @@ jobs:
               run: ci\\test.bat
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
