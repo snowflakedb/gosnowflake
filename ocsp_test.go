@@ -44,24 +44,25 @@ func TestOCSP(t *testing.T) {
 			_ = os.Remove(cacheFileName) // clear cache file
 			ocspResponseCache = make(map[certIDKey][]interface{})
 			for _, tr := range transports {
-				c := &http.Client{
-					Transport: tr,
-					Timeout:   30 * time.Second,
-				}
-				req, err := http.NewRequest("GET", tgt, bytes.NewReader(nil))
-				if err != nil {
-					t.Fatalf("fail to create a request. err: %v", err)
-				}
-				res, err := c.Do(req)
-				if err != nil {
-					t.Fatalf("failed to GET contents. err: %v", err)
-				}
-				defer res.Body.Close()
-				_, err = io.ReadAll(res.Body)
-				if err != nil {
-					t.Fatalf("failed to read content body for %v", tgt)
-				}
-
+				t.Run(fmt.Sprintf("%v_%v", tgt, enabled), func(t *testing.T) {
+					c := &http.Client{
+						Transport: tr,
+						Timeout:   30 * time.Second,
+					}
+					req, err := http.NewRequest("GET", tgt, bytes.NewReader(nil))
+					if err != nil {
+						t.Fatalf("fail to create a request. err: %v", err)
+					}
+					res, err := c.Do(req)
+					if err != nil {
+						t.Fatalf("failed to GET contents. err: %v", err)
+					}
+					defer res.Body.Close()
+					_, err = io.ReadAll(res.Body)
+					if err != nil {
+						t.Fatalf("failed to read content body for %v", tgt)
+					}
+				})
 			}
 		}
 	}
@@ -115,9 +116,11 @@ func TestUnitIsInValidityRange(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		if tc.ret != isInValidityRange(currentTime, tc.thisTime, tc.nextTime) {
-			t.Fatalf("failed to check validity. should be: %v, currentTime: %v, thisTime: %v, nextTime: %v", tc.ret, currentTime, tc.thisTime, tc.nextTime)
-		}
+		t.Run(fmt.Sprintf("%v_%v", tc.thisTime, tc.nextTime), func(t *testing.T) {
+			if tc.ret != isInValidityRange(currentTime, tc.thisTime, tc.nextTime) {
+				t.Fatalf("failed to check validity. should be: %v, currentTime: %v, thisTime: %v, nextTime: %v", tc.ret, currentTime, tc.thisTime, tc.nextTime)
+			}
+		})
 	}
 }
 
@@ -128,43 +131,45 @@ func TestUnitEncodeCertIDGood(t *testing.T) {
 		"sfcdev1.blob.core.windows.net:443",
 	}
 	for _, tt := range targetURLs {
-		chainedCerts := getCert(tt)
-		for i := 0; i < len(chainedCerts)-1; i++ {
-			subject := chainedCerts[i]
-			issuer := chainedCerts[i+1]
-			ocspServers := subject.OCSPServer
-			if len(ocspServers) == 0 {
-				t.Fatalf("no OCSP server is found. cert: %v", subject.Subject)
+		t.Run(tt, func(t *testing.T) {
+			chainedCerts := getCert(tt)
+			for i := 0; i < len(chainedCerts)-1; i++ {
+				subject := chainedCerts[i]
+				issuer := chainedCerts[i+1]
+				ocspServers := subject.OCSPServer
+				if len(ocspServers) == 0 {
+					t.Fatalf("no OCSP server is found. cert: %v", subject.Subject)
+				}
+				ocspReq, err := ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{})
+				if err != nil {
+					t.Fatalf("failed to create OCSP request. err: %v", err)
+				}
+				var ost *ocspStatus
+				_, ost = extractCertIDKeyFromRequest(ocspReq)
+				if ost.err != nil {
+					t.Fatalf("failed to extract cert ID from the OCSP request. err: %v", ost.err)
+				}
+				// better hash. Not sure if the actual OCSP server accepts this, though.
+				ocspReq, err = ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{Hash: crypto.SHA512})
+				if err != nil {
+					t.Fatalf("failed to create OCSP request. err: %v", err)
+				}
+				_, ost = extractCertIDKeyFromRequest(ocspReq)
+				if ost.err != nil {
+					t.Fatalf("failed to extract cert ID from the OCSP request. err: %v", ost.err)
+				}
+				// tweaked request binary
+				ocspReq, err = ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{Hash: crypto.SHA512})
+				if err != nil {
+					t.Fatalf("failed to create OCSP request. err: %v", err)
+				}
+				ocspReq[10] = 0 // random change
+				_, ost = extractCertIDKeyFromRequest(ocspReq)
+				if ost.err == nil {
+					t.Fatal("should have failed")
+				}
 			}
-			ocspReq, err := ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{})
-			if err != nil {
-				t.Fatalf("failed to create OCSP request. err: %v", err)
-			}
-			var ost *ocspStatus
-			_, ost = extractCertIDKeyFromRequest(ocspReq)
-			if ost.err != nil {
-				t.Fatalf("failed to extract cert ID from the OCSP request. err: %v", ost.err)
-			}
-			// better hash. Not sure if the actual OCSP server accepts this, though.
-			ocspReq, err = ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{Hash: crypto.SHA512})
-			if err != nil {
-				t.Fatalf("failed to create OCSP request. err: %v", err)
-			}
-			_, ost = extractCertIDKeyFromRequest(ocspReq)
-			if ost.err != nil {
-				t.Fatalf("failed to extract cert ID from the OCSP request. err: %v", ost.err)
-			}
-			// tweaked request binary
-			ocspReq, err = ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{Hash: crypto.SHA512})
-			if err != nil {
-				t.Fatalf("failed to create OCSP request. err: %v", err)
-			}
-			ocspReq[10] = 0 // random change
-			_, ost = extractCertIDKeyFromRequest(ocspReq)
-			if ost.err == nil {
-				t.Fatal("should have failed")
-			}
-		}
+		})
 	}
 }
 
@@ -203,12 +208,12 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
 	}
 	// actual OCSP but it fails to parse, because an invalid issuer certificate is given.
-	actualOcspResponse := "MIIB0woBAKCCAcwwggHIBgkrBgEFBQcwAQEEggG5MIIBtTCBnqIWBBSxPsNpA/i/RwHUmCYaCALvY2QrwxgPMjAxNz" +
-		"A1MTYyMjAwMDBaMHMwcTBJMAkGBSsOAwIaBQAEFN+qEuMosQlBk+KfQoLOR0BClVijBBSxPsNpA/i/RwHUmCYaCALvY2QrwwIQBOHnp" +
-		"Nxc8vNtwCtCuF0Vn4AAGA8yMDE3MDUxNjIyMDAwMFqgERgPMjAxNzA1MjMyMjAwMDBaMA0GCSqGSIb3DQEBCwUAA4IBAQCuRGwqQsKy" +
-		"IAAGHgezTfG0PzMYgGD/XRDhU+2i08WTJ4Zs40Lu88cBeRXWF3iiJSpiX3/OLgfI7iXmHX9/sm2SmeNWc0Kb39bk5Lw1jwezf8hcI9+" +
-		"mZHt60vhUgtgZk21SsRlTZ+S4VXwtDqB1Nhv6cnSnfrL2A9qJDZS2ltPNOwebWJnznDAs2dg+KxmT2yBXpHM1kb0EOolWvNgORbgIgB" +
-		"koRzw/UU7zKsqiTB0ZN/rgJp+MocTdqQSGKvbZyR8d4u8eNQqi1x4Pk3yO/pftANFaJKGB+JPgKS3PQAqJaXcipNcEfqtl7y4PO6kqA" +
+	actualOcspResponse := "MIIB0woBAKCCAcwwggHIBgkrBgEFBQcwAQEEggG5MIIBtTCBnqIWBBSxPsNpA/i/RwHUmCYaCALvY2QrwxgPMjAxNz" + // pragma: allowlist secret
+		"A1MTYyMjAwMDBaMHMwcTBJMAkGBSsOAwIaBQAEFN+qEuMosQlBk+KfQoLOR0BClVijBBSxPsNpA/i/RwHUmCYaCALvY2QrwwIQBOHnp" + // pragma: allowlist secret
+		"Nxc8vNtwCtCuF0Vn4AAGA8yMDE3MDUxNjIyMDAwMFqgERgPMjAxNzA1MjMyMjAwMDBaMA0GCSqGSIb3DQEBCwUAA4IBAQCuRGwqQsKy" + // pragma: allowlist secret
+		"IAAGHgezTfG0PzMYgGD/XRDhU+2i08WTJ4Zs40Lu88cBeRXWF3iiJSpiX3/OLgfI7iXmHX9/sm2SmeNWc0Kb39bk5Lw1jwezf8hcI9+" + // pragma: allowlist secret
+		"mZHt60vhUgtgZk21SsRlTZ+S4VXwtDqB1Nhv6cnSnfrL2A9qJDZS2ltPNOwebWJnznDAs2dg+KxmT2yBXpHM1kb0EOolWvNgORbgIgB" + // pragma: allowlist secret
+		"koRzw/UU7zKsqiTB0ZN/rgJp+MocTdqQSGKvbZyR8d4u8eNQqi1x4Pk3yO/pftANFaJKGB+JPgKS3PQAqJaXcipNcEfqtl7y4PO6kqA" + // pragma: allowlist secret
 		"Jb4xI/OTXIrRA5TsT4cCioE"
 	// issuer is not a true issuer certificate
 	ocspResponseCache[dummyKey] = []interface{}{float64(currentTime - 1000), actualOcspResponse}
@@ -451,20 +456,22 @@ func TestCanEarlyExitForOCSP(t *testing.T) {
 	}
 
 	for idx, tt := range testcases {
-		ocspFailOpen = OCSPFailOpenTrue
-		expectedLen := len(tt.results)
-		if tt.resultLen > 0 {
-			expectedLen = tt.resultLen
-		}
-		r := canEarlyExitForOCSP(tt.results, expectedLen)
-		if !(tt.retFailOpen == nil && r == nil) && !(tt.retFailOpen != nil && r != nil && tt.retFailOpen.code == r.code) {
-			t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailOpen, r)
-		}
-		ocspFailOpen = OCSPFailOpenFalse
-		r = canEarlyExitForOCSP(tt.results, expectedLen)
-		if !(tt.retFailClosed == nil && r == nil) && !(tt.retFailClosed != nil && r != nil && tt.retFailClosed.code == r.code) {
-			t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailClosed, r)
-		}
+		t.Run("", func(t *testing.T) {
+			ocspFailOpen = OCSPFailOpenTrue
+			expectedLen := len(tt.results)
+			if tt.resultLen > 0 {
+				expectedLen = tt.resultLen
+			}
+			r := canEarlyExitForOCSP(tt.results, expectedLen)
+			if !(tt.retFailOpen == nil && r == nil) && !(tt.retFailOpen != nil && r != nil && tt.retFailOpen.code == r.code) {
+				t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailOpen, r)
+			}
+			ocspFailOpen = OCSPFailOpenFalse
+			r = canEarlyExitForOCSP(tt.results, expectedLen)
+			if !(tt.retFailClosed == nil && r == nil) && !(tt.retFailClosed != nil && r != nil && tt.retFailClosed.code == r.code) {
+				t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailClosed, r)
+			}
+		})
 	}
 }
 

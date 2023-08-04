@@ -28,16 +28,18 @@ func TestExtractContainerNameAndPath(t *testing.T) {
 		{"sfc-dev1-regression///", "sfc-dev1-regression", "//"},
 	}
 	for _, test := range testcases {
-		azureLoc, err := azureUtil.extractContainerNameAndPath(test.in)
-		if err != nil {
-			t.Error(err)
-		}
-		if azureLoc.containerName != test.bucket {
-			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.bucket, azureLoc.containerName)
-		}
-		if azureLoc.path != test.path {
-			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.path, azureLoc.path)
-		}
+		t.Run(test.in, func(t *testing.T) {
+			azureLoc, err := azureUtil.extractContainerNameAndPath(test.in)
+			if err != nil {
+				t.Error(err)
+			}
+			if azureLoc.containerName != test.bucket {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.bucket, azureLoc.containerName)
+			}
+			if azureLoc.path != test.path {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.path, azureLoc.path)
+			}
+		})
 	}
 }
 

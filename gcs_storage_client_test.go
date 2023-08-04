@@ -30,13 +30,15 @@ func TestExtractBucketAndPath(t *testing.T) {
 		{"sfc-dev1-regression///", "sfc-dev1-regression", "//"},
 	}
 	for _, test := range testcases {
-		gcsLoc := gcsUtil.extractBucketNameAndPath(test.in)
-		if gcsLoc.bucketName != test.bucket {
-			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.bucket, gcsLoc.bucketName)
-		}
-		if gcsLoc.path != test.path {
-			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.path, gcsLoc.path)
-		}
+		t.Run(test.in, func(t *testing.T) {
+			gcsLoc := gcsUtil.extractBucketNameAndPath(test.in)
+			if gcsLoc.bucketName != test.bucket {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.bucket, gcsLoc.bucketName)
+			}
+			if gcsLoc.path != test.path {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.path, gcsLoc.path)
+			}
+		})
 	}
 }
 
@@ -102,17 +104,19 @@ func TestGenerateFileURL(t *testing.T) {
 		{"sfc-dev1-regression///", "file5", "sfc-dev1-regression", "//file5"},
 	}
 	for _, test := range testcases {
-		gcsURL, err := gcsUtil.generateFileURL(test.location, test.fname)
-		if err != nil {
-			t.Error(err)
-		}
-		expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.QueryEscape(test.filepath))
-		if err != nil {
-			t.Error(err)
-		}
-		if gcsURL.String() != expectedURL.String() {
-			t.Fatalf("failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
-		}
+		t.Run(test.location, func(t *testing.T) {
+			gcsURL, err := gcsUtil.generateFileURL(test.location, test.fname)
+			if err != nil {
+				t.Error(err)
+			}
+			expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.QueryEscape(test.filepath))
+			if err != nil {
+				t.Error(err)
+			}
+			if gcsURL.String() != expectedURL.String() {
+				t.Fatalf("failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
+			}
+		})
 	}
 }
 

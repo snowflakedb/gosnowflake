@@ -448,10 +448,12 @@ func TestUnitGetChildResults(t *testing.T) {
 			{"03aa3265-0405-ab7c-0000-53b106343aba", "12544"}}},
 	}
 	for _, test := range testcases {
-		res := getChildResults(test.ids, test.types)
-		if !reflect.DeepEqual(res, test.out) {
-			t.Fatalf("Child result should be equal, expected %v, actual %v", res, test.out)
-		}
+		t.Run(test.ids, func(t *testing.T) {
+			res := getChildResults(test.ids, test.types)
+			if !reflect.DeepEqual(res, test.out) {
+				t.Fatalf("Child result should be equal, expected %v, actual %v", res, test.out)
+			}
+		})
 	}
 }
 

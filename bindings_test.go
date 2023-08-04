@@ -43,20 +43,22 @@ func TestBindingFloat64(t *testing.T) {
 		var out float64
 		var rows *RowsExtended
 		for _, v := range types {
-			dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE test (id int, value %v)", v))
-			dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
-			rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
-			defer rows.Close()
-			if rows.Next() {
-				rows.Scan(&out)
-				if expected != out {
-					dbt.Errorf("%s: %g != %g", v, expected, out)
+			t.Run(v, func(t *testing.T) {
+				dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE test (id int, value %v)", v))
+				dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
+				rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
+				defer rows.Close()
+				if rows.Next() {
+					rows.Scan(&out)
+					if expected != out {
+						dbt.Errorf("%s: %g != %g", v, expected, out)
+					}
+				} else {
+					dbt.Errorf("%s: no data", v)
 				}
-			} else {
-				dbt.Errorf("%s: no data", v)
-			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
+			})
 		}
+		dbt.mustExec("DROP TABLE IF EXISTS test")
 	})
 }
 
@@ -64,17 +66,14 @@ func TestBindingFloat64(t *testing.T) {
 // supported binding value by Go's sql package.
 func TestBindingUint64(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		types := []string{"INTEGER"}
 		expected := uint64(18446744073709551615)
-		for _, v := range types {
-			dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE test (id int, value %v)", v))
-			if _, err := dbt.exec("INSERT INTO test VALUES (1, ?)", expected); err == nil {
-				dbt.Fatal("should fail as uint64 values with high bit set are not supported.")
-			} else {
-				logger.Infof("expected err: %v", err)
-			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
+		dbt.mustExec("CREATE OR REPLACE TABLE test (id int, value INTEGER)")
+		if _, err := dbt.exec("INSERT INTO test VALUES (1, ?)", expected); err == nil {
+			dbt.Fatal("should fail as uint64 values with high bit set are not supported.")
+		} else {
+			logger.Infof("expected err: %v", err)
 		}
+		dbt.mustExec("DROP TABLE IF EXISTS test")
 	})
 }
 
