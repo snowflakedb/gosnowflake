@@ -1156,21 +1156,21 @@ type snowflakeProgressPercentage struct {
 func (spp *snowflakeProgressPercentage) call(bytesAmount int64) {
 	if spp.outputStream != nil {
 		spp.seenSoFar += bytesAmount
-		percentage := percent(spp.seenSoFar, spp.fileSize)
+		percentage := spp.percent(spp.seenSoFar, spp.fileSize)
 		if !spp.done {
-			spp.done = updateProgress(spp.filename, spp.startTime, spp.fileSize, percentage, spp.outputStream, spp.showProgressBar)
+			spp.done = spp.updateProgress(spp.filename, spp.startTime, spp.fileSize, percentage, spp.outputStream, spp.showProgressBar)
 		}
 	}
 }
 
-func percent(seenSoFar int64, size float64) float64 {
+func (spp *snowflakeProgressPercentage) percent(seenSoFar int64, size float64) float64 {
 	if float64(seenSoFar) >= size || size <= 0 {
 		return 1.0
 	}
 	return float64(seenSoFar) / size
 }
 
-func updateProgress(filename string, startTime time.Time, totalSize float64, progress float64, outputStream *io.Writer, showProgressBar bool) bool {
+func (spp *snowflakeProgressPercentage) updateProgress(filename string, startTime time.Time, totalSize float64, progress float64, outputStream *io.Writer, showProgressBar bool) bool {
 	barLength := 10
 	totalSize /= mb
 	status := ""

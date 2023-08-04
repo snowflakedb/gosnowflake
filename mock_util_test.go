@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+/** This file contains helper functions for tests only. **/
+
 func resetHTTPMocks(t *testing.T) {
 	_, err := http.Post("http://localhost:12345/reset", "text/plain", nil)
 	if err != nil {

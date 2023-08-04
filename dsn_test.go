@@ -1100,6 +1100,15 @@ func TestDSN(t *testing.T) {
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&token=t&validateDefaultParameters=true",
 		},
+		{
+			cfg: &Config{
+				User:          "u",
+				Password:      "p",
+				Account:       "a.b.c",
+				Authenticator: AuthTypeTokenAccessor,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=tokenaccessor&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
 	}
 	for _, test := range testcases {
 		dsn, err := DSN(test.cfg)
