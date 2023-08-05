@@ -999,6 +999,15 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 						tb.AppendNull()
 					}
 				}
+			} else if col.DataType().ID() == arrow.INT64 {
+				for i, t := range col.(*array.Int64).Int64Values() {
+					if !col.IsNull(i) {
+						val := time.Unix(0, t*int64(math.Pow10(9-int(srcColumnMeta.Scale)))).UTC()
+						tb.Append(arrow.Timestamp(val.UnixNano()))
+					} else {
+						tb.AppendNull()
+					}
+				}
 			} else {
 				for i, t := range col.(*array.Timestamp).TimestampValues() {
 					if !col.IsNull(i) {
@@ -1021,6 +1030,17 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 				for i := 0; i < int(numRows); i++ {
 					if !col.IsNull(i) {
 						val := time.Unix(epoch[i], int64(fraction[i]))
+						tb.Append(arrow.Timestamp(val.UnixNano()))
+					} else {
+						tb.AppendNull()
+					}
+				}
+			} else if col.DataType().ID() == arrow.INT64 {
+				for i, t := range col.(*array.Int64).Int64Values() {
+					if !col.IsNull(i) {
+						q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
+						r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
+						val := time.Unix(q, r)
 						tb.Append(arrow.Timestamp(val.UnixNano()))
 					} else {
 						tb.AppendNull()
