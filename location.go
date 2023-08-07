@@ -91,16 +91,20 @@ func init() {
 }
 
 // retrieve current location based on connection
-func getCurrentLocation(params map[string]*string) *time.Location {
+func (sc *snowflakeConn) getCurrentLocation() *time.Location {
+	if sc.location != nil {
+		return sc.location
+	}
 	loc := time.Now().Location()
 	var err error
 	paramsMutex.Lock()
-	if tz, ok := params["timezone"]; ok {
+	defer paramsMutex.Unlock()
+	if tz, ok := sc.cfg.Params["timezone"]; ok {
 		loc, err = time.LoadLocation(*tz)
 		if err != nil {
 			loc = time.Now().Location()
 		}
 	}
-	paramsMutex.Unlock()
+	sc.location = loc
 	return loc
 }

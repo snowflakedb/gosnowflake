@@ -106,8 +106,8 @@ func (scd *snowflakeChunkDownloader) start() error {
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
 		var loc *time.Location
-		if scd.sc != nil && scd.sc.cfg != nil {
-			loc = getCurrentLocation(scd.sc.cfg.Params)
+		if scd.sc != nil {
+			loc = scd.sc.getCurrentLocation()
 		}
 		firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
@@ -271,8 +271,8 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 	var err error
 	chunkMetaLen := len(scd.ChunkMetas)
 	var loc *time.Location
-	if scd.sc != nil && scd.sc.cfg != nil {
-		loc = getCurrentLocation(scd.sc.cfg.Params)
+	if scd.sc != nil {
+		loc = scd.sc.getCurrentLocation()
 	}
 	firstArrowChunk := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 	scd.FirstBatch = &ArrowBatch{
@@ -430,8 +430,8 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			return err
 		}
 		var loc *time.Location
-		if scd.sc != nil && scd.sc.cfg != nil {
-			loc = getCurrentLocation(scd.sc.cfg.Params)
+		if scd.sc != nil {
+			loc = scd.sc.getCurrentLocation()
 		}
 		arc := arrowResultChunk{
 			ipcReader,

@@ -186,7 +186,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 			// can convert data
 			var loc *time.Location
 			if rows.sc != nil {
-				loc = getCurrentLocation(rows.sc.cfg.Params)
+				loc = rows.sc.getCurrentLocation()
 			}
 			err = stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i], loc)
 			if err != nil {

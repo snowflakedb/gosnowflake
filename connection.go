@@ -68,6 +68,7 @@ type snowflakeConn struct {
 	SQLState        string
 	telemetry       *snowflakeTelemetry
 	internal        InternalClient
+	location        *time.Location
 }
 
 var (
@@ -604,7 +605,7 @@ type snowflakeArrowStreamChunkDownloader struct {
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
 	if scd.sc != nil {
-		return getCurrentLocation(scd.sc.cfg.Params)
+		return scd.sc.getCurrentLocation()
 	}
 	return nil
 }
