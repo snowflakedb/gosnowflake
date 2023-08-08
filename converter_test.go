@@ -1213,6 +1213,29 @@ func TestArrowToRecord(t *testing.T) {
 			},
 		},
 		{
+			logical:  "timestamp_ltz",
+			physical: "int64",
+			values:   []time.Time{time.Now(), localTime},
+			nrows:    2,
+			rowType:  execResponseRowType{Scale: 9},
+			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
+			builder:  array.NewInt64Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, t := range vs.([]time.Time) {
+					b.(*array.Int64Builder).Append(t.UnixNano())
+				}
+			},
+			compare: func(src interface{}, convertedRec arrow.Record) int {
+				srcvs := src.([]time.Time)
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
+					if srcvs[i].UnixNano() != int64(t) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
 			logical: "timestamp_tz",
 			values:  []time.Time{time.Now(), localTime},
 			nrows:   2,
