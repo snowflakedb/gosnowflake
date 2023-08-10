@@ -886,6 +886,17 @@ func TestArrowToRecord(t *testing.T) {
 			append:  func(b array.Builder, vs interface{}) { b.(*array.BinaryBuilder).AppendValues(vs.([][]byte), valids) },
 		},
 		{
+			logical: "non utf-8 binary",
+			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.BinaryType{}}}, nil),
+			values: [][]byte{
+				{0x8F},
+				{0x9F},
+			},
+			nrows:   2,
+			builder: array.NewBinaryBuilder(pool, arrow.BinaryTypes.Binary),
+			append:  func(b array.Builder, vs interface{}) { b.(*array.BinaryBuilder).AppendValues(vs.([][]byte), valids) },
+		},
+		{
 			logical: "date",
 			sc:      arrow.NewSchema([]arrow.Field{{Type: &arrow.Date32Type{}}}, nil),
 			values:  []time.Time{time.Now(), localTime},
