@@ -580,6 +580,20 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
+		{
+			dsn: "u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&tmpDirPath=%2Ftmp",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
+				ClientTimeout:          defaultClientTimeout,
+				JWTClientTimeout:       defaultJWTClientTimeout,
+				ExternalBrowserTimeout: defaultExternalBrowserTimeout,
+				TmpDirPath:             "/tmp",
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -726,6 +740,9 @@ func TestParseDSN(t *testing.T) {
 				if test.config.ExternalBrowserTimeout != cfg.ExternalBrowserTimeout {
 					t.Fatalf("%d: Failed to match ExternalBrowserTimeout. expected: %v, got: %v",
 						i, test.config.ExternalBrowserTimeout, cfg.ExternalBrowserTimeout)
+				}
+				if test.config.TmpDirPath != cfg.TmpDirPath {
+					t.Fatalf("%v: Failed to match TmpDirPatch. expected: %v, got: %v", i, test.config.TmpDirPath, cfg.TmpDirPath)
 				}
 			case test.err != nil:
 				driverErrE, okE := test.err.(*SnowflakeError)
@@ -1109,6 +1126,15 @@ func TestDSN(t *testing.T) {
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=tokenaccessor&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
+		{
+			cfg: &Config{
+				User:       "u",
+				Password:   "p",
+				Account:    "a.b.c",
+				TmpDirPath: "/tmp",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tmpDirPath=%2Ftmp&validateDefaultParameters=true",
+		},
 	}
 	for _, test := range testcases {
 		dsn, err := DSN(test.cfg)
@@ -1253,4 +1279,13 @@ func checkConfig(cfg Config, envMap map[string]configParamToValue) error {
 	}
 
 	return nil
+}
+
+func TestConfigValidateTmpDirPath(t *testing.T) {
+	cfg := &Config{
+		TmpDirPath: "/not/existing",
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("Should fail on not existing TmpDirPath")
+	}
 }
