@@ -4,7 +4,10 @@ package gosnowflake
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 	"testing"
+	"time"
 )
 
 type tcLocation struct {
@@ -95,5 +98,49 @@ func TestWithOffsetString(t *testing.T) {
 				t.Fatalf("location string didn't match. expected: %v, got: %v", t0.tt, loc)
 			}
 		}
+	}
+}
+
+func TestGetCurrentLocation(t *testing.T) {
+	specificTz := "Pacific/Honolulu"
+	specificLoc, err := time.LoadLocation(specificTz)
+	if err != nil {
+		t.Fatalf("Cannot initialize specific timezone location")
+	}
+	incorrectTz := "Not/exists"
+	testcases := []struct {
+		params map[string]*string
+		loc    *time.Location
+	}{
+		{
+			params: map[string]*string{},
+			loc:    time.Now().Location(),
+		},
+		{
+			params: map[string]*string{
+				"timezone": nil,
+			},
+			loc: time.Now().Location(),
+		},
+		{
+			params: map[string]*string{
+				"timezone": &specificTz,
+			},
+			loc: specificLoc,
+		},
+		{
+			params: map[string]*string{
+				"timezone": &incorrectTz,
+			},
+			loc: time.Now().Location(),
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("%v", tc.loc), func(t *testing.T) {
+			loc := getCurrentLocation(tc.params)
+			if !reflect.DeepEqual(*loc, *tc.loc) {
+				t.Fatalf("location mismatch. expected: %v, got: %v", tc.loc, loc)
+			}
+		})
 	}
 }

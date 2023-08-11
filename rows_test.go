@@ -492,3 +492,33 @@ func TestWithArrowBatchesNotImplementedForResult(t *testing.T) {
 		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrNotImplemented, driverErr.Number)
 	}
 }
+
+func TestLocationChangesAfterAlterSession(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("CREATE OR REPLACE TABLE location_timestamp_ltz (val timestamp_ltz)")
+		defer dbt.mustExec("DROP TABLE location_timestamp_ltz")
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		dbt.mustExec("INSERT INTO location_timestamp_ltz VALUES('2023-08-09 10:00:00')")
+		rows1 := dbt.mustQuery("SELECT * FROM location_timestamp_ltz")
+		defer rows1.Close()
+		if !rows1.Next() {
+			t.Fatalf("cannot read a record")
+		}
+		var t1 time.Time
+		rows1.Scan(&t1)
+		if t1.Location().String() != "Europe/Warsaw" {
+			t.Fatalf("should return time in Warsaw timezone")
+		}
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Pacific/Honolulu'")
+		rows2 := dbt.mustQuery("SELECT * FROM location_timestamp_ltz")
+		defer rows2.Close()
+		if !rows2.Next() {
+			t.Fatalf("cannot read a record")
+		}
+		var t2 time.Time
+		rows2.Scan(&t2)
+		if t2.Location().String() != "Pacific/Honolulu" {
+			t.Fatalf("should return time in Honolulu timezone")
+		}
+	})
+}
