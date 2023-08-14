@@ -533,3 +533,21 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestCacheServerDisabled(t *testing.T) {
+	_ = os.Setenv(cacheServerEnabledEnv, "false")
+
+	if _, err := buildSnowflakeConn(context.Background(), Config{
+		Account:  "testaccount",
+		User:     "testuser",
+		Password: "testpassword",
+		Host:     "testaccount.us-east-1.snowflakecomputing.com",
+	}); err != nil {
+		t.Error(err)
+	}
+
+	ocspURL := os.Getenv(cacheServerURLEnv)
+	if ocspURL != "" {
+		t.Fatalf("cache server is disabled. Expected empty url but got %v ", cacheServerURLEnv)
+	}
+}
