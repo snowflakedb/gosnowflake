@@ -1045,12 +1045,6 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 				newCol = builder.NewArray()
 				builder.Release()
 				defer newCol.Release()
-			} else if col.DataType().ID() == arrow.BINARY {
-				newCol, err = compute.CastArray(ctx, col, compute.SafeCastOptions(arrow.BinaryTypes.String))
-				if err != nil {
-					return nil, err
-				}
-				defer newCol.Release()
 			}
 		case timeType:
 			newCol, err = compute.CastArray(ctx, col, compute.SafeCastOptions(arrow.FixedWidthTypes.Time64ns))
