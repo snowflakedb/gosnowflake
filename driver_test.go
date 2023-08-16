@@ -562,24 +562,26 @@ func testInt(t *testing.T, json bool) {
 
 		// SIGNED
 		for _, v := range types {
-			if json {
-				dbt.mustExec(forceJSON)
-			}
-			dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
-			dbt.mustExec("INSERT INTO test VALUES (?)", in)
-			rows = dbt.mustQuery("SELECT value FROM test")
-			defer rows.Close()
-			if rows.Next() {
-				rows.Scan(&out)
-				if in != out {
-					dbt.Errorf("%s: %d != %d", v, in, out)
+			t.Run(v, func(t *testing.T) {
+				if json {
+					dbt.mustExec(forceJSON)
 				}
-			} else {
-				dbt.Errorf("%s: no data", v)
-			}
+				dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
+				dbt.mustExec("INSERT INTO test VALUES (?)", in)
+				rows = dbt.mustQuery("SELECT value FROM test")
+				defer rows.Close()
+				if rows.Next() {
+					rows.Scan(&out)
+					if in != out {
+						dbt.Errorf("%s: %d != %d", v, in, out)
+					}
+				} else {
+					dbt.Errorf("%s: no data", v)
+				}
 
-			dbt.mustExec("DROP TABLE IF EXISTS test")
+			})
 		}
+		dbt.mustExec("DROP TABLE IF EXISTS test")
 	})
 }
 
@@ -594,26 +596,28 @@ func testFloat32(t *testing.T, json bool) {
 		var out float32
 		var rows *RowsExtended
 		for _, v := range types {
-			if json {
-				dbt.mustExec(forceJSON)
-			}
-			dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
-			dbt.mustExec("INSERT INTO test VALUES (?)", in)
-			rows = dbt.mustQuery("SELECT value FROM test")
-			defer rows.Close()
-			if rows.Next() {
-				err := rows.Scan(&out)
-				if err != nil {
-					dbt.Errorf("failed to scan data: %v", err)
+			t.Run(v, func(t *testing.T) {
+				if json {
+					dbt.mustExec(forceJSON)
 				}
-				if in != out {
-					dbt.Errorf("%s: %g != %g", v, in, out)
+				dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
+				dbt.mustExec("INSERT INTO test VALUES (?)", in)
+				rows = dbt.mustQuery("SELECT value FROM test")
+				defer rows.Close()
+				if rows.Next() {
+					err := rows.Scan(&out)
+					if err != nil {
+						dbt.Errorf("failed to scan data: %v", err)
+					}
+					if in != out {
+						dbt.Errorf("%s: %g != %g", v, in, out)
+					}
+				} else {
+					dbt.Errorf("%s: no data", v)
 				}
-			} else {
-				dbt.Errorf("%s: no data", v)
-			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
+			})
 		}
+		dbt.mustExec("DROP TABLE IF EXISTS test")
 	})
 }
 
@@ -628,23 +632,25 @@ func testFloat64(t *testing.T, json bool) {
 		var out float64
 		var rows *RowsExtended
 		for _, v := range types {
-			if json {
-				dbt.mustExec(forceJSON)
-			}
-			dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
-			dbt.mustExec("INSERT INTO test VALUES (42.23)")
-			rows = dbt.mustQuery("SELECT value FROM test")
-			defer rows.Close()
-			if rows.Next() {
-				rows.Scan(&out)
-				if expected != out {
-					dbt.Errorf("%s: %g != %g", v, expected, out)
+			t.Run(v, func(t *testing.T) {
+				if json {
+					dbt.mustExec(forceJSON)
 				}
-			} else {
-				dbt.Errorf("%s: no data", v)
-			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
+				dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
+				dbt.mustExec("INSERT INTO test VALUES (42.23)")
+				rows = dbt.mustQuery("SELECT value FROM test")
+				defer rows.Close()
+				if rows.Next() {
+					rows.Scan(&out)
+					if expected != out {
+						dbt.Errorf("%s: %g != %g", v, expected, out)
+					}
+				} else {
+					dbt.Errorf("%s: no data", v)
+				}
+			})
 		}
+		dbt.mustExec("DROP TABLE IF EXISTS test")
 	})
 }
 
@@ -663,21 +669,23 @@ func testString(t *testing.T, json bool) {
 		var rows *RowsExtended
 
 		for _, v := range types {
-			dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
-			dbt.mustExec("INSERT INTO test VALUES (?)", in)
+			t.Run(v, func(t *testing.T) {
+				dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
+				dbt.mustExec("INSERT INTO test VALUES (?)", in)
 
-			rows = dbt.mustQuery("SELECT value FROM test")
-			defer rows.Close()
-			if rows.Next() {
-				rows.Scan(&out)
-				if in != out {
-					dbt.Errorf("%s: %s != %s", v, in, out)
+				rows = dbt.mustQuery("SELECT value FROM test")
+				defer rows.Close()
+				if rows.Next() {
+					rows.Scan(&out)
+					if in != out {
+						dbt.Errorf("%s: %s != %s", v, in, out)
+					}
+				} else {
+					dbt.Errorf("%s: no data", v)
 				}
-			} else {
-				dbt.Errorf("%s: no data", v)
-			}
-			dbt.mustExec("DROP TABLE IF EXISTS test")
+			})
 		}
+		dbt.mustExec("DROP TABLE IF EXISTS test")
 
 		// BLOB (Snowflake doesn't support BLOB type but STRING covers large text data)
 		dbt.mustExec("CREATE OR REPLACE TABLE test (id int, value STRING)")
@@ -856,13 +864,15 @@ func testDateTime(t *testing.T, json bool) {
 			dbt.mustExec(forceJSON)
 		}
 		for _, setups := range testcases {
-			for _, setup := range setups.tests {
-				if setup.s == "" {
-					// fill time string wherever Go can reliable produce it
-					setup.s = setup.t.Format(setups.tlayout)
+			t.Run(setups.dbtype, func(t *testing.T) {
+				for _, setup := range setups.tests {
+					if setup.s == "" {
+						// fill time string wherever Go can reliable produce it
+						setup.s = setup.t.Format(setups.tlayout)
+					}
+					setup.run(t, dbt, setups.dbtype, setups.tlayout)
 				}
-				setup.run(t, dbt, setups.dbtype, setups.tlayout)
-			}
+			})
 		}
 	})
 }
@@ -925,13 +935,15 @@ func testTimestampLTZ(t *testing.T, json bool) {
 			dbt.mustExec(forceJSON)
 		}
 		for _, setups := range testcases {
-			for _, setup := range setups.tests {
-				if setup.s == "" {
-					// fill time string wherever Go can reliable produce it
-					setup.s = setup.t.Format(setups.tlayout)
+			t.Run(setups.dbtype, func(t *testing.T) {
+				for _, setup := range setups.tests {
+					if setup.s == "" {
+						// fill time string wherever Go can reliable produce it
+						setup.s = setup.t.Format(setups.tlayout)
+					}
+					setup.run(t, dbt, setups.dbtype, setups.tlayout)
 				}
-				setup.run(t, dbt, setups.dbtype, setups.tlayout)
-			}
+			})
 		}
 	})
 	// Revert timezone to UTC, which is default for the test suit
@@ -973,13 +985,15 @@ func testTimestampTZ(t *testing.T, json bool) {
 			dbt.mustExec(forceJSON)
 		}
 		for _, setups := range testcases {
-			for _, setup := range setups.tests {
-				if setup.s == "" {
-					// fill time string wherever Go can reliable produce it
-					setup.s = setup.t.Format(setups.tlayout)
+			t.Run(setups.dbtype, func(t *testing.T) {
+				for _, setup := range setups.tests {
+					if setup.s == "" {
+						// fill time string wherever Go can reliable produce it
+						setup.s = setup.t.Format(setups.tlayout)
+					}
+					setup.run(t, dbt, setups.dbtype, setups.tlayout)
 				}
-				setup.run(t, dbt, setups.dbtype, setups.tlayout)
-			}
+			})
 		}
 	})
 }
@@ -1467,32 +1481,34 @@ func TestValidateDatabaseParameter(t *testing.T) {
 		},
 	}
 	for idx, tc := range testcases {
-		newDSN := tc.dsn
-		parameters := url.Values{}
-		if protocol != "" {
-			parameters.Add("protocol", protocol)
-		}
-		if account != "" {
-			parameters.Add("account", account)
-		}
-		for k, v := range tc.params {
-			parameters.Add(k, v)
-		}
-		newDSN += "?" + parameters.Encode()
-		db, err := sql.Open("snowflake", newDSN)
-		// actual connection won't happen until run a query
-		if err != nil {
-			t.Fatalf("error creating a connection object: %s", err.Error())
-		}
-		defer db.Close()
-		if _, err = db.Exec("SELECT 1"); err == nil {
-			t.Fatal("should cause an error.")
-		}
-		if driverErr, ok := err.(*SnowflakeError); ok {
-			if driverErr.Number != tc.errorCode { // not exist error
-				t.Errorf("got unexpected error: %v in %v", err, idx)
+		t.Run(dsn, func(t *testing.T) {
+			newDSN := tc.dsn
+			parameters := url.Values{}
+			if protocol != "" {
+				parameters.Add("protocol", protocol)
 			}
-		}
+			if account != "" {
+				parameters.Add("account", account)
+			}
+			for k, v := range tc.params {
+				parameters.Add(k, v)
+			}
+			newDSN += "?" + parameters.Encode()
+			db, err := sql.Open("snowflake", newDSN)
+			// actual connection won't happen until run a query
+			if err != nil {
+				t.Fatalf("error creating a connection object: %s", err.Error())
+			}
+			defer db.Close()
+			if _, err = db.Exec("SELECT 1"); err == nil {
+				t.Fatal("should cause an error.")
+			}
+			if driverErr, ok := err.(*SnowflakeError); ok {
+				if driverErr.Number != tc.errorCode { // not exist error
+					t.Errorf("got unexpected error: %v in %v", err, idx)
+				}
+			}
+		})
 	}
 }
 

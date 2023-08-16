@@ -116,10 +116,12 @@ func TestUnitGetLocalFilePathFromCommand(t *testing.T) {
 		{"PUT 'file2:///tmp/my_data_file.txt' @~ overwrite=true", ""},
 	}
 	for _, test := range testcases {
-		path := sfa.getLocalFilePathFromCommand(test.command)
-		if path != test.path {
-			t.Fatalf("unexpected file path. expected: %v, but got: %v", test.path, path)
-		}
+		t.Run(test.command, func(t *testing.T) {
+			path := sfa.getLocalFilePathFromCommand(test.command)
+			if path != test.path {
+				t.Fatalf("unexpected file path. expected: %v, but got: %v", test.path, path)
+			}
+		})
 	}
 }
 
@@ -150,11 +152,13 @@ func TestUnitProcessFileCompressionType(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		sfa.srcCompression = test.srcCompression
-		err = sfa.processFileCompressionType()
-		if err != nil {
-			t.Fatalf("failed to process file compression")
-		}
+		t.Run(test.srcCompression, func(t *testing.T) {
+			sfa.srcCompression = test.srcCompression
+			err = sfa.processFileCompressionType()
+			if err != nil {
+				t.Fatalf("failed to process file compression")
+			}
+		})
 	}
 
 	// test invalid compression type error

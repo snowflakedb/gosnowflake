@@ -33,16 +33,18 @@ func TestExtractBucketNameAndPath(t *testing.T) {
 		{"sfc-dev1-regression///", "sfc-dev1-regression", "//"},
 	}
 	for _, test := range testcases {
-		s3Loc, err := s3util.extractBucketNameAndPath(test.in)
-		if err != nil {
-			t.Error(err)
-		}
-		if s3Loc.bucketName != test.bucket {
-			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.bucket, s3Loc.bucketName)
-		}
-		if s3Loc.s3Path != test.path {
-			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.path, s3Loc.s3Path)
-		}
+		t.Run(test.in, func(t *testing.T) {
+			s3Loc, err := s3util.extractBucketNameAndPath(test.in)
+			if err != nil {
+				t.Error(err)
+			}
+			if s3Loc.bucketName != test.bucket {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.bucket, s3Loc.bucketName)
+			}
+			if s3Loc.s3Path != test.path {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.path, s3Loc.s3Path)
+			}
+		})
 	}
 }
 

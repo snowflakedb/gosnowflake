@@ -81,23 +81,25 @@ func TestWithOffsetString(t *testing.T) {
 		},
 	}
 	for _, t0 := range testcases {
-		loc, err := LocationWithOffsetString(t0.ss)
-		if t0.err != nil {
-			if t0.err != err {
-				driverError1, ok1 := t0.err.(*SnowflakeError)
-				driverError2, ok2 := err.(*SnowflakeError)
-				if ok1 && ok2 && driverError1.Number != driverError2.Number {
-					t.Fatalf("error expected: %v, got: %v", t0.err, err)
+		t.Run(t0.ss, func(t *testing.T) {
+			loc, err := LocationWithOffsetString(t0.ss)
+			if t0.err != nil {
+				if t0.err != err {
+					driverError1, ok1 := t0.err.(*SnowflakeError)
+					driverError2, ok2 := err.(*SnowflakeError)
+					if ok1 && ok2 && driverError1.Number != driverError2.Number {
+						t.Fatalf("error expected: %v, got: %v", t0.err, err)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("%v", err)
+				}
+				if t0.tt != loc.String() {
+					t.Fatalf("location string didn't match. expected: %v, got: %v", t0.tt, loc)
 				}
 			}
-		} else {
-			if err != nil {
-				t.Fatalf("%v", err)
-			}
-			if t0.tt != loc.String() {
-				t.Fatalf("location string didn't match. expected: %v, got: %v", t0.tt, loc)
-			}
-		}
+		})
 	}
 }
 

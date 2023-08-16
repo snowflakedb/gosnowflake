@@ -148,18 +148,20 @@ func TestStoreTemporaryCredental(t *testing.T) {
 	}
 	sc := getDefaultSnowflakeConn()
 	for _, test := range testcases {
-		writeTemporaryCredential(sc, test.credType, test.token)
-		target := convertTarget(sc.cfg.Host, sc.cfg.User, test.credType)
-		_, ok := localCredCache[target]
-		if !ok {
-			t.Fatalf("failed to write credential to local cache")
-		}
-		tmpCred := readTemporaryCredential(sc, test.credType)
-		if tmpCred == "" {
-			t.Fatalf("failed to read credential from temporary cache")
-		} else {
-			deleteTemporaryCredential(sc, test.credType)
-		}
+		t.Run(test.token, func(t *testing.T) {
+			writeTemporaryCredential(sc, test.credType, test.token)
+			target := convertTarget(sc.cfg.Host, sc.cfg.User, test.credType)
+			_, ok := localCredCache[target]
+			if !ok {
+				t.Fatalf("failed to write credential to local cache")
+			}
+			tmpCred := readTemporaryCredential(sc, test.credType)
+			if tmpCred == "" {
+				t.Fatalf("failed to read credential from temporary cache")
+			} else {
+				deleteTemporaryCredential(sc, test.credType)
+			}
+		})
 	}
 }
 

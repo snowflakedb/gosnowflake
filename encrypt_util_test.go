@@ -90,16 +90,18 @@ func TestEncryptDecryptFilePadding(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		tmpDir, err := os.MkdirTemp("", "data")
-		if err != nil {
-			t.Error(err)
-		}
-		tmpDir, err = generateKLinesOfNByteRows(test.numberOfLines, test.numberOfBytesInEachRow, tmpDir)
-		if err != nil {
-			t.Error(err)
-		}
+		t.Run(fmt.Sprintf("%v_%v", test.numberOfBytesInEachRow, test.numberOfLines), func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "data")
+			if err != nil {
+				t.Error(err)
+			}
+			tmpDir, err = generateKLinesOfNByteRows(test.numberOfLines, test.numberOfBytesInEachRow, tmpDir)
+			if err != nil {
+				t.Error(err)
+			}
 
-		encryptDecryptFile(t, encMat, test.numberOfLines, tmpDir)
+			encryptDecryptFile(t, encMat, test.numberOfLines, tmpDir)
+		})
 	}
 }
 

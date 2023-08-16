@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"math/rand"
 	"os"
 	"strconv"
@@ -108,10 +109,12 @@ func TestIntMin(t *testing.T) {
 		{123, 123, 123},
 	}
 	for _, test := range testcases {
-		a := intMin(test.v1, test.v2)
-		if test.out != a {
-			t.Errorf("failed int min. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
+			a := intMin(test.v1, test.v2)
+			if test.out != a {
+				t.Errorf("failed int min. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
+			}
+		})
 	}
 }
 func TestIntMax(t *testing.T) {
@@ -122,10 +125,12 @@ func TestIntMax(t *testing.T) {
 		{123, 123, 123},
 	}
 	for _, test := range testcases {
-		a := intMax(test.v1, test.v2)
-		if test.out != a {
-			t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
+			a := intMax(test.v1, test.v2)
+			if test.out != a {
+				t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
+			}
+		})
 	}
 }
 
@@ -143,10 +148,12 @@ func TestDurationMin(t *testing.T) {
 		{123 * time.Second, 123 * time.Second, 123 * time.Second},
 	}
 	for _, test := range testcases {
-		a := durationMin(test.v1, test.v2)
-		if test.out != a {
-			t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
+			a := durationMin(test.v1, test.v2)
+			if test.out != a {
+				t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
+			}
+		})
 	}
 }
 
@@ -158,10 +165,12 @@ func TestDurationMax(t *testing.T) {
 		{123 * time.Second, 123 * time.Second, 123 * time.Second},
 	}
 	for _, test := range testcases {
-		a := durationMax(test.v1, test.v2)
-		if test.out != a {
-			t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
+			a := durationMax(test.v1, test.v2)
+			if test.out != a {
+				t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
+			}
+		})
 	}
 }
 
@@ -208,11 +217,13 @@ func TestToNamedValues(t *testing.T) {
 		},
 	}
 	for _, test := range testcases {
-		a := toNamedValues(test.values)
+		t.Run("", func(t *testing.T) {
+			a := toNamedValues(test.values)
 
-		if !compareNamedValues(test.out, a) {
-			t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.values, test.out, test.out, a)
-		}
+			if !compareNamedValues(test.out, a) {
+				t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.values, test.out, test.out, a)
+			}
+		})
 	}
 }
 
@@ -230,10 +241,12 @@ func TestGetMin(t *testing.T) {
 		{[]int{}, -1},
 	}
 	for _, test := range testcases {
-		a := getMin(test.in)
-		if test.out != a {
-			t.Errorf("failed get min. in: %v, expected: %v, got: %v", test.in, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v", test.out), func(t *testing.T) {
+			a := getMin(test.in)
+			if test.out != a {
+				t.Errorf("failed get min. in: %v, expected: %v, got: %v", test.in, test.out, a)
+			}
+		})
 	}
 }
 
@@ -252,10 +265,12 @@ func TestValidURL(t *testing.T) {
 		{"file://TestForFile", false},
 	}
 	for _, test := range testcases {
-		result := isValidURL(test.in)
-		if test.out != result {
-			t.Errorf("Failed to validate URL, input :%v, expected: %v, got: %v", test.in, test.out, result)
-		}
+		t.Run(test.in, func(t *testing.T) {
+			result := isValidURL(test.in)
+			if test.out != result {
+				t.Errorf("Failed to validate URL, input :%v, expected: %v, got: %v", test.in, test.out, result)
+			}
+		})
 	}
 }
 
@@ -271,10 +286,12 @@ func TestEncodeURL(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		result := urlEncode(test.in)
-		if test.out != result {
-			t.Errorf("Failed to encode string, input %v, expected: %v, got: %v", test.in, test.out, result)
-		}
+		t.Run(test.in, func(t *testing.T) {
+			result := urlEncode(test.in)
+			if test.out != result {
+				t.Errorf("Failed to encode string, input %v, expected: %v, got: %v", test.in, test.out, result)
+			}
+		})
 	}
 }
 
@@ -285,10 +302,12 @@ func TestParseUUID(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		requestID := ParseUUID(test.uuid)
-		if requestID.String() != test.uuid {
-			t.Fatalf("failed to parse uuid")
-		}
+		t.Run(test.uuid, func(t *testing.T) {
+			requestID := ParseUUID(test.uuid)
+			if requestID.String() != test.uuid {
+				t.Fatalf("failed to parse uuid")
+			}
+		})
 	}
 }
 
@@ -305,10 +324,12 @@ func TestEscapeForCSV(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		result := escapeForCSV(test.in)
-		if test.out != result {
-			t.Errorf("Failed to escape string, input %v, expected: %v, got: %v", test.in, test.out, result)
-		}
+		t.Run(test.out, func(t *testing.T) {
+			result := escapeForCSV(test.in)
+			if test.out != result {
+				t.Errorf("Failed to escape string, input %v, expected: %v, got: %v", test.in, test.out, result)
+			}
+		})
 	}
 }
 

@@ -654,7 +654,7 @@ func TestParseDSN(t *testing.T) {
 	}
 
 	for i, test := range testcases {
-		t.Run("TestParseDSN", func(t *testing.T) {
+		t.Run(test.dsn, func(t *testing.T) {
 			cfg, err := ParseDSN(test.dsn)
 			switch {
 			case test.err == nil:
@@ -1137,25 +1137,24 @@ func TestDSN(t *testing.T) {
 		},
 	}
 	for _, test := range testcases {
-		dsn, err := DSN(test.cfg)
-		if test.err == nil && err == nil {
-			if dsn != test.dsn {
-				t.Errorf("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
+		t.Run(test.dsn, func(t *testing.T) {
+			dsn, err := DSN(test.cfg)
+			if test.err == nil && err == nil {
+				if dsn != test.dsn {
+					t.Errorf("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
+				}
+				_, err := ParseDSN(dsn)
+				if err != nil {
+					t.Errorf("failed to parse DSN. dsn: %v, err: %v", dsn, err)
+				}
 			}
-			_, err := ParseDSN(dsn)
-			if err != nil {
-				t.Errorf("failed to parse DSN. dsn: %v, err: %v", dsn, err)
+			if test.err != nil && err == nil {
+				t.Errorf("expected error. dsn: %v, err: %v", test.dsn, test.err)
 			}
-			continue
-		}
-		if test.err != nil && err == nil {
-			t.Errorf("expected error. dsn: %v, err: %v", test.dsn, test.err)
-			continue
-		}
-		if err != nil && test.err == nil {
-			t.Errorf("failed to match. err: %v", err)
-			continue
-		}
+			if err != nil && test.err == nil {
+				t.Errorf("failed to match. err: %v", err)
+			}
+		})
 	}
 }
 

@@ -128,10 +128,12 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: nil, tmode: nullType, out: unSupportedType},
 	}
 	for _, test := range testcases {
-		a := goTypeToSnowflake(test.in, test.tmode)
-		if a != test.out {
-			t.Errorf("failed. in: %v, tmode: %v, expected: %v, got: %v", test.in, test.tmode, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.in, test.out, test.tmode), func(t *testing.T) {
+			a := goTypeToSnowflake(test.in, test.tmode)
+			if a != test.out {
+				t.Errorf("failed. in: %v, tmode: %v, expected: %v, got: %v", test.in, test.tmode, test.out, a)
+			}
+		})
 	}
 }
 
@@ -160,11 +162,13 @@ func TestSnowflakeTypeToGo(t *testing.T) {
 		{in: sliceType, scale: 0, out: reflect.TypeOf("")},
 	}
 	for _, test := range testcases {
-		a := snowflakeTypeToGo(test.in, test.scale)
-		if a != test.out {
-			t.Errorf("failed. in: %v, scale: %v, expected: %v, got: %v",
-				test.in, test.scale, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v", test.in, test.out), func(t *testing.T) {
+			a := snowflakeTypeToGo(test.in, test.scale)
+			if a != test.out {
+				t.Errorf("failed. in: %v, scale: %v, expected: %v, got: %v",
+					test.in, test.scale, test.out, a)
+			}
+		})
 	}
 }
 
@@ -263,12 +267,14 @@ func TestStringToValue(t *testing.T) {
 	}
 
 	for _, tt := range types {
-		rowType = &execResponseRowType{
-			Type: tt,
-		}
-		if err = stringToValue(&dest, *rowType, &source, nil); err == nil {
-			t.Errorf("should raise error. type: %v, value:%v", tt, source)
-		}
+		t.Run(tt, func(t *testing.T) {
+			rowType = &execResponseRowType{
+				Type: tt,
+			}
+			if err = stringToValue(&dest, *rowType, &source, nil); err == nil {
+				t.Errorf("should raise error. type: %v, value:%v", tt, source)
+			}
+		})
 	}
 
 	sources := []string{
@@ -282,12 +288,14 @@ func TestStringToValue(t *testing.T) {
 
 	for _, ss := range sources {
 		for _, tt := range types {
-			rowType = &execResponseRowType{
-				Type: tt,
-			}
-			if err = stringToValue(&dest, *rowType, &ss, nil); err == nil {
-				t.Errorf("should raise error. type: %v, value:%v", tt, source)
-			}
+			t.Run(ss+tt, func(t *testing.T) {
+				rowType = &execResponseRowType{
+					Type: tt,
+				}
+				if err = stringToValue(&dest, *rowType, &ss, nil); err == nil {
+					t.Errorf("should raise error. type: %v, value:%v", tt, source)
+				}
+			})
 		}
 	}
 
@@ -318,15 +326,17 @@ func TestArrayToString(t *testing.T) {
 		{in: driver.NamedValue{Value: &stringArray{"foo", "bar", "baz"}}, typ: textType, out: []string{"foo", "bar", "baz"}},
 	}
 	for _, test := range testcases {
-		s, a := snowflakeArrayToString(&test.in, false)
-		if s != test.typ {
-			t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.typ, s)
-		}
-		for i, v := range a {
-			if *v != test.out[i] {
-				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out[i], a)
+		t.Run(strings.Join(test.out, "_"), func(t *testing.T) {
+			s, a := snowflakeArrayToString(&test.in, false)
+			if s != test.typ {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.typ, s)
 			}
-		}
+			for i, v := range a {
+				if *v != test.out[i] {
+					t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out[i], a)
+				}
+			}
+		})
 	}
 }
 
@@ -1377,12 +1387,14 @@ func TestTimeTypeValueToString(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		output, err := timeTypeValueToString(tc.in, tc.tsmode)
-		if err != nil {
-			t.Error(err)
-		}
-		if strings.Compare(tc.out, *output) != 0 {
-			t.Errorf("failed to convert time %v of type %v. expected: %v, received: %v", tc.in, tc.tsmode, tc.out, *output)
-		}
+		t.Run(tc.out, func(t *testing.T) {
+			output, err := timeTypeValueToString(tc.in, tc.tsmode)
+			if err != nil {
+				t.Error(err)
+			}
+			if strings.Compare(tc.out, *output) != 0 {
+				t.Errorf("failed to convert time %v of type %v. expected: %v, received: %v", tc.in, tc.tsmode, tc.out, *output)
+			}
+		})
 	}
 }

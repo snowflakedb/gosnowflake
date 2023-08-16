@@ -33,10 +33,12 @@ func TestBaseName(t *testing.T) {
 	}
 
 	for _, test := range testcases {
-		base := baseName(test.in)
-		if test.out != base {
-			t.Errorf("Failed to get base, input %v, expected: %v, got: %v", test.in, test.out, base)
-		}
+		t.Run(test.in, func(t *testing.T) {
+			base := baseName(test.in)
+			if test.out != base {
+				t.Errorf("Failed to get base, input %v, expected: %v, got: %v", test.in, test.out, base)
+			}
+		})
 	}
 }
 
