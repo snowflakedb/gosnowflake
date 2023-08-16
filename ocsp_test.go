@@ -30,7 +30,7 @@ func TestOCSP(t *testing.T) {
 	targetURL := []string{
 		"https://sfctest0.snowflakecomputing.com/",
 		"https://s3-us-west-2.amazonaws.com/sfc-snowsql-updates/?prefix=1.1/windows_x86_64",
-		"https://sfcdev1.blob.core.windows.net/",
+		"https://sfcdev2.blob.core.windows.net/",
 	}
 
 	transports := []*http.Transport{
@@ -128,7 +128,7 @@ func TestUnitEncodeCertIDGood(t *testing.T) {
 	targetURLs := []string{
 		"faketestaccount.snowflakecomputing.com:443",
 		"s3-us-west-2.amazonaws.com:443",
-		"sfcdev1.blob.core.windows.net:443",
+		"sfcdev2.blob.core.windows.net:443",
 	}
 	for _, tt := range targetURLs {
 		t.Run(tt, func(t *testing.T) {
