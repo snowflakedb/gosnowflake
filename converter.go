@@ -1005,47 +1005,6 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 		// TODO: confirm that it is okay to be using higher precision logic for conversions
 		newCol := col
 		switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
-		case fixedType:
-			var toType arrow.DataType
-			if col.DataType().ID() == arrow.DECIMAL || col.DataType().ID() == arrow.DECIMAL256 {
-				if srcColumnMeta.Scale == 0 {
-					toType = arrow.PrimitiveTypes.Int64
-				} else {
-					toType = arrow.PrimitiveTypes.Float64
-				}
-				// we're fine truncating so no error for data loss here.
-				// so we use UnsafeCastOptions.
-				newCol, err = compute.CastArray(ctx, col, compute.UnsafeCastOptions(toType))
-				if err != nil {
-					return nil, err
-				}
-				defer newCol.Release()
-			} else if srcColumnMeta.Scale != 0 && col.DataType().ID() != arrow.INT64 {
-				result, err := compute.Divide(ctx, compute.ArithmeticOptions{NoCheckOverflow: true},
-					&compute.ArrayDatum{Value: newCol.Data()},
-					compute.NewDatum(math.Pow10(int(srcColumnMeta.Scale))))
-				if err != nil {
-					return nil, err
-				}
-				defer result.Release()
-				newCol = result.(*compute.ArrayDatum).MakeArray()
-				defer newCol.Release()
-			} else if srcColumnMeta.Scale != 0 && col.DataType().ID() == arrow.INT64 {
-				// gosnowflake driver uses compute.Divide() which could bring `integer value not in range: -9007199254740992 to 9007199254740992` error
-				// if we convert int64 to BigDecimal and then use compute.CastArray to convert BigDecimal to float64, we won't have enough precision.
-				// e.g 0.1 as (38,19) will result 0.09999999999999999
-				values := col.(*array.Int64).Int64Values()
-				floatValues := make([]float64, len(values))
-
-				for i, val := range values {
-					floatValues[i], _ = intToBigFloat(val, srcColumnMeta.Scale).Float64()
-				}
-				builder := array.NewFloat64Builder(memory.NewCheckedAllocator(memory.NewGoAllocator()))
-				builder.AppendValues(floatValues, nil)
-				newCol = builder.NewArray()
-				builder.Release()
-				defer newCol.Release()
-			}
 		case timeType:
 			newCol, err = compute.CastArray(ctx, col, compute.SafeCastOptions(arrow.FixedWidthTypes.Time64ns))
 			if err != nil {
