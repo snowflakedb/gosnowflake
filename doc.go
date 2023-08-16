@@ -869,7 +869,7 @@ See the following for information on the syntax and supported parameters:
   - PUT: https://docs.snowflake.com/en/sql-reference/sql/put.html
   - GET: https://docs.snowflake.com/en/sql-reference/sql/get.html
 
-# Using PUT
+## Using PUT
 
 The following example shows how to run a PUT command by passing a string to the
 db.Query() function:
@@ -905,7 +905,7 @@ To send information from a stream (rather than a file) use code similar to the c
 
 Note: PUT statements are not supported for multi-statement queries.
 
-# Using GET
+## Using GET
 
 The following example shows how to run a GET command by passing a string to the
 db.Query() function:
@@ -916,5 +916,14 @@ db.Query() function:
 an absolute path rather than a relative path. For example:
 
 	db.Query("GET file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
+
+## Specifying temporary directory for encryption and compression
+
+Putting and getting requires compression and/or encryption, which is done in the OS temporary directory.
+If you cannot use default temporary directory for your OS or you want to specify it yourself, you can use "tmpDirPath" DSN parameter.
+Remember, to encode slashes.
+Example:
+
+	u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&tmpDirPath=%2Fother%2Ftmp
 */
 package gosnowflake
