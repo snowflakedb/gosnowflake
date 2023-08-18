@@ -145,7 +145,7 @@ func getAWSCredentials() (string, string, string, error) {
 		if err != nil {
 			return keyID, secretKey, "", err
 		}
-		bucket = fmt.Sprintf("sfc-dev1-regression/%v/reg", user.Username)
+		bucket = fmt.Sprintf("sfc-eng-regression/%v/reg", user.Username)
 	}
 	return keyID, secretKey, bucket, nil
 }

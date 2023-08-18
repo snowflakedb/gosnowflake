@@ -23,11 +23,11 @@ type tcFileURL struct {
 func TestExtractBucketAndPath(t *testing.T) {
 	gcsUtil := new(snowflakeGcsClient)
 	testcases := []tcBucketPath{
-		{"sfc-dev1-regression/test_sub_dir/", "sfc-dev1-regression", "test_sub_dir/"},
-		{"sfc-dev1-regression/dir/test_stg/test_sub_dir/", "sfc-dev1-regression", "dir/test_stg/test_sub_dir/"},
-		{"sfc-dev1-regression/", "sfc-dev1-regression", ""},
-		{"sfc-dev1-regression//", "sfc-dev1-regression", "/"},
-		{"sfc-dev1-regression///", "sfc-dev1-regression", "//"},
+		{"sfc-eng-regression/test_sub_dir/", "sfc-eng-regression", "test_sub_dir/"},
+		{"sfc-eng-regression/dir/test_stg/test_sub_dir/", "sfc-eng-regression", "dir/test_stg/test_sub_dir/"},
+		{"sfc-eng-regression/", "sfc-eng-regression", ""},
+		{"sfc-eng-regression//", "sfc-eng-regression", "/"},
+		{"sfc-eng-regression///", "sfc-eng-regression", "//"},
 	}
 	for _, test := range testcases {
 		t.Run(test.in, func(t *testing.T) {
@@ -97,11 +97,11 @@ func TestIsTokenExpiredWith404(t *testing.T) {
 func TestGenerateFileURL(t *testing.T) {
 	gcsUtil := new(snowflakeGcsClient)
 	testcases := []tcFileURL{
-		{"sfc-dev1-regression/test_sub_dir/", "file1", "sfc-dev1-regression", "test_sub_dir/file1"},
-		{"sfc-dev1-regression/dir/test_stg/test_sub_dir/", "file2", "sfc-dev1-regression", "dir/test_stg/test_sub_dir/file2"},
-		{"sfc-dev1-regression/", "file3", "sfc-dev1-regression", "file3"},
-		{"sfc-dev1-regression//", "file4", "sfc-dev1-regression", "/file4"},
-		{"sfc-dev1-regression///", "file5", "sfc-dev1-regression", "//file5"},
+		{"sfc-eng-regression/test_sub_dir/", "file1", "sfc-eng-regression", "test_sub_dir/file1"},
+		{"sfc-eng-regression/dir/test_stg/test_sub_dir/", "file2", "sfc-eng-regression", "dir/test_stg/test_sub_dir/file2"},
+		{"sfc-eng-regression/", "file3", "sfc-eng-regression", "file3"},
+		{"sfc-eng-regression//", "file4", "sfc-eng-regression", "/file4"},
+		{"sfc-eng-regression///", "file5", "sfc-eng-regression", "//file5"},
 	}
 	for _, test := range testcases {
 		t.Run(test.location, func(t *testing.T) {

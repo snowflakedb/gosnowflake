@@ -26,11 +26,11 @@ type tcBucketPath struct {
 func TestExtractBucketNameAndPath(t *testing.T) {
 	s3util := new(snowflakeS3Client)
 	testcases := []tcBucketPath{
-		{"sfc-dev1-regression/test_sub_dir/", "sfc-dev1-regression", "test_sub_dir/"},
-		{"sfc-dev1-regression/dir/test_stg/test_sub_dir/", "sfc-dev1-regression", "dir/test_stg/test_sub_dir/"},
-		{"sfc-dev1-regression/", "sfc-dev1-regression", ""},
-		{"sfc-dev1-regression//", "sfc-dev1-regression", "/"},
-		{"sfc-dev1-regression///", "sfc-dev1-regression", "//"},
+		{"sfc-eng-regression/test_sub_dir/", "sfc-eng-regression", "test_sub_dir/"},
+		{"sfc-eng-regression/dir/test_stg/test_sub_dir/", "sfc-eng-regression", "dir/test_stg/test_sub_dir/"},
+		{"sfc-eng-regression/", "sfc-eng-regression", ""},
+		{"sfc-eng-regression//", "sfc-eng-regression", "/"},
+		{"sfc-eng-regression///", "sfc-eng-regression", "//"},
 	}
 	for _, test := range testcases {
 		t.Run(test.in, func(t *testing.T) {

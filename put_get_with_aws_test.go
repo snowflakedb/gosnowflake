@@ -66,7 +66,7 @@ func TestLoadS3(t *testing.T) {
 		dbt.mustQueryAssertCount("ls @%tweets", 0)
 
 		rows := dbt.mustQuery(fmt.Sprintf(`copy into tweets from
-			s3://sfc-dev1-data/twitter/O1k/tweets/ credentials=(AWS_KEY_ID='%v'
+			s3://sfc-eng-data/twitter/O1k/tweets/ credentials=(AWS_KEY_ID='%v'
 			AWS_SECRET_KEY='%v') file_format=(skip_header=1 null_if=('')
 			field_optionally_enclosed_by='\"')`,
 			data.awsAccessKeyID, data.awsSecretAccessKey))
@@ -80,7 +80,7 @@ func TestLoadS3(t *testing.T) {
 		if cnt != 1 {
 			t.Fatal("copy into tweets did not set row count to 1")
 		}
-		if s0 != "s3://sfc-dev1-data/twitter/O1k/tweets/1.csv.gz" {
+		if s0 != "s3://sfc-eng-data/twitter/O1k/tweets/1.csv.gz" {
 			t.Fatalf("got %v as file", s0)
 		}
 	})

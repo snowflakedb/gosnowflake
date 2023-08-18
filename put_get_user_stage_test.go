@@ -57,7 +57,7 @@ func putGetUserStage(t *testing.T, tmpDir string, numberOfFiles int, numberOfLin
 		dbt.mustExec(fmt.Sprintf(sqlText, dbname))
 		userBucket := os.Getenv("SF_AWS_USER_BUCKET")
 		if userBucket == "" {
-			userBucket = fmt.Sprintf("sfc-dev1-regression/%v/reg", username)
+			userBucket = fmt.Sprintf("sfc-eng-regression/%v/reg", username)
 		}
 		sqlText = `create or replace stage %v url='s3://%v}/%v-%v-%v'
 			credentials = (AWS_KEY_ID='%v' AWS_SECRET_KEY='%v')`
