@@ -105,7 +105,7 @@ func (sr *snowflakeRestful) getAsync(
 
 	}
 
-	sc := &snowflakeConn{rest: sr, cfg: cfg}
+	sc := &snowflakeConn{rest: sr, cfg: cfg, queryContextCache: (&queryContextCache{}).init()}
 	if respd.Success {
 		if resType == execResultType {
 			res.insertID = -1

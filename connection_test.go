@@ -90,8 +90,9 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:               &Config{Params: map[string]*string{}},
+		rest:              sr,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
@@ -161,8 +162,9 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:               &Config{Params: map[string]*string{}},
+		rest:              sr,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
@@ -181,8 +183,9 @@ func TestServiceName(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:               &Config{Params: map[string]*string{}},
+		rest:              sr,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 
 	expectServiceName := serviceNameStub
@@ -219,9 +222,10 @@ func TestCloseIgnoreSessionGone(t *testing.T) {
 		FuncCloseSession: closeSessionMock,
 	}
 	sc := &snowflakeConn{
-		cfg:       &Config{Params: map[string]*string{}},
-		rest:      sr,
-		telemetry: testTelemetry,
+		cfg:               &Config{Params: map[string]*string{}},
+		rest:              sr,
+		telemetry:         testTelemetry,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 
 	if sc.Close() != nil {

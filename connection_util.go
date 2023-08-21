@@ -39,7 +39,7 @@ func (sc *snowflakeConn) stopHeartBeat() {
 	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
-	if sc.rest != nil {
+	if sc.rest != nil && sc.rest.HeartBeat != nil {
 		sc.rest.HeartBeat.stop()
 	}
 }

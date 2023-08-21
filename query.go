@@ -118,6 +118,11 @@ type execResponseData struct {
 	Command                 string                `json:"command,omitempty"`
 	Kind                    string                `json:"kind,omitempty"`
 	Operation               string                `json:"operation,omitempty"`
+
+	// HTAP
+	QueryContext struct {
+		Entries []queryContextEntry `json:"entries,omitempty"`
+	} `json:"queryContext,omitempty"`
 }
 
 type execResponse struct {

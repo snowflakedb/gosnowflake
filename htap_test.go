@@ -100,3 +100,50 @@ func trimWhitespaces(s string) string {
 		"\n", "",
 	)
 }
+
+func TestAddingQueryContextCacheEntry(t *testing.T) {
+	runSnowflakeConnTest(t, func(sc *snowflakeConn) {
+		t.Run("First query (may be on empty cache)", func(t *testing.T) {
+			entriesBefore := sc.queryContextCache.entries
+			if _, err := sc.Query("SELECT 1", nil); err != nil {
+				t.Fatalf("cannot query. %v", err)
+			}
+			entriesAfter := sc.queryContextCache.entries
+
+			if !containsNewEntries(entriesAfter, entriesBefore) {
+				t.Error("no new entries added to the query context cache")
+			}
+		})
+
+		t.Run("Second query (cache should not be empty)", func(t *testing.T) {
+			entriesBefore := sc.queryContextCache.entries
+			if len(entriesBefore) == 0 {
+				t.Fatalf("cache should not be empty after first query")
+			}
+			if _, err := sc.Query("SELECT 1", nil); err != nil {
+				t.Fatalf("cannot query. %v", err)
+			}
+			entriesAfter := sc.queryContextCache.entries
+
+			if !containsNewEntries(entriesAfter, entriesBefore) {
+				t.Error("no new entries added to the query context cache")
+			}
+		})
+	})
+}
+
+func containsNewEntries(entriesAfter []queryContextEntry, entriesBefore []queryContextEntry) bool {
+	if len(entriesAfter) > len(entriesBefore) {
+		return true
+	}
+
+	for _, entryAfter := range entriesAfter {
+		for _, entryBefore := range entriesBefore {
+			if !reflect.DeepEqual(entryBefore, entryAfter) {
+				return true
+			}
+		}
+	}
+
+	return false
+}

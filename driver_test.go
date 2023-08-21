@@ -328,6 +328,23 @@ func runDBTest(t *testing.T, test func(dbt *DBTest)) {
 	test(dbt)
 }
 
+func runSnowflakeConnTest(t *testing.T, test func(sc *snowflakeConn)) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	sc, err := buildSnowflakeConn(context.Background(), *config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sc.Close()
+	if err = authenticateWithConfig(sc); err != nil {
+		t.Fatal(err)
+	}
+
+	test(sc)
+}
+
 func runningOnAWS() bool {
 	return os.Getenv("CLOUD_PROVIDER") == "AWS"
 }
