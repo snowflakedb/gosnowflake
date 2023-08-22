@@ -487,6 +487,7 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		hostname = fmt.Sprintf(retryURL, u.Hostname(), base64.StdEncoding.EncodeToString(ocspReq))
 		u0, err := url.Parse(hostname)
 		if err == nil {
+			hostname = u0.Hostname()
 			u = u0
 		}
 	} else {
