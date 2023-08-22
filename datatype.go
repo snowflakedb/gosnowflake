@@ -32,7 +32,7 @@ const (
 	unSupportedType
 )
 
-var stringToSnowflakeType = map[string]snowflakeType{
+var snowflakeToDriverType = map[string]snowflakeType{
 	"FIXED":         fixedType,
 	"REAL":          realType,
 	"TEXT":          textType,
@@ -51,11 +51,14 @@ var stringToSnowflakeType = map[string]snowflakeType{
 	"CHANGE_TYPE":   changeType,
 	"NOT_SUPPORTED": unSupportedType}
 
-var snowflakeTypeToString = invertMap(stringToSnowflakeType)
+var driverTypeToSnowflake = invertMap(snowflakeToDriverType)
 
 func invertMap(m map[string]snowflakeType) map[snowflakeType]string {
 	inv := make(map[snowflakeType]string)
 	for k, v := range m {
+		if _, exists := inv[v]; exists {
+			panic("failed to create driverTypeToSnowflake map due to duplicated values")
+		}
 		inv[v] = k
 	}
 	return inv
@@ -66,11 +69,11 @@ func (st snowflakeType) Byte() byte {
 }
 
 func (st snowflakeType) String() string {
-	return snowflakeTypeToString[st]
+	return driverTypeToSnowflake[st]
 }
 
 func getSnowflakeType(typ string) snowflakeType {
-	return stringToSnowflakeType[typ]
+	return snowflakeToDriverType[typ]
 }
 
 var (
