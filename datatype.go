@@ -56,7 +56,7 @@ var driverTypeToSnowflake = invertMap(snowflakeToDriverType)
 func invertMap(m map[string]snowflakeType) map[snowflakeType]string {
 	inv := make(map[snowflakeType]string)
 	for k, v := range m {
-		if _, exists := inv[v]; exists {
+		if _, ok := inv[v]; ok {
 			panic("failed to create driverTypeToSnowflake map due to duplicated values")
 		}
 		inv[v] = k
