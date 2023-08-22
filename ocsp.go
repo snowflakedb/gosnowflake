@@ -485,6 +485,10 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	var hostname string
 	if retryURL := os.Getenv(ocspRetryURLEnv); retryURL != "" {
 		hostname = fmt.Sprintf(retryURL, u.Hostname(), base64.StdEncoding.EncodeToString(ocspReq))
+		u0, err := url.Parse(hostname)
+		if err == nil {
+			u = u0
+		}
 	} else {
 		hostname = u.Hostname()
 	}
@@ -495,6 +499,10 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 			u = u0
 		}
 	}
+
+	logger.Debugf("Fetching OCSP response from server: %v\n", u)
+	logger.Debugf("Host in headers: %v\n", hostname)
+
 	headers := make(map[string]string)
 	headers[httpHeaderContentType] = "application/ocsp-request"
 	headers[httpHeaderAccept] = "application/ocsp-response"
