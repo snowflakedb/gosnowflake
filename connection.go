@@ -64,8 +64,6 @@ type snowflakeConn struct {
 	cfg             *Config
 	rest            *snowflakeRestful
 	SequenceCounter uint64
-	QueryID         string
-	SQLState        string
 	telemetry       *snowflakeTelemetry
 	internal        InternalClient
 }
@@ -158,8 +156,6 @@ func (sc *snowflakeConn) exec(
 	sc.cfg.Schema = data.Data.FinalSchemaName
 	sc.cfg.Role = data.Data.FinalRoleName
 	sc.cfg.Warehouse = data.Data.FinalWarehouseName
-	sc.QueryID = data.Data.QueryID
-	sc.SQLState = data.Data.SQLState
 	sc.populateSessionParameters(data.Data.Parameters)
 	return data, err
 }
@@ -282,7 +278,7 @@ func (sc *snowflakeConn) ExecContext(
 		return &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1,
-			queryID:      sc.QueryID,
+			queryID:      data.Data.QueryID,
 		}, nil // last insert id is not supported by Snowflake
 	} else if isMultiStmt(&data.Data) {
 		return sc.handleMultiExec(ctx, data.Data)
@@ -353,7 +349,7 @@ func (sc *snowflakeConn) queryContextInternal(
 
 	rows := new(snowflakeRows)
 	rows.sc = sc
-	rows.queryID = sc.QueryID
+	rows.queryID = data.Data.QueryID
 
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
