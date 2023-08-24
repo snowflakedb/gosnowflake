@@ -303,16 +303,53 @@ func TestGetQueryIDFromStmt(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		_, err = stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		rows1, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
 		if err != nil {
 			return err
 		}
-		firstQueryID := stmt.(SnowflakeStmt).GetQueryID()
-		_, err = stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		firstQueryID := rows1.(SnowflakeRows).GetQueryID()
+		rows2, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
 		if err != nil {
 			return err
 		}
-		secondQueryID := stmt.(SnowflakeStmt).GetQueryID()
+		secondQueryID := rows2.(SnowflakeRows).GetQueryID()
+		if firstQueryID == "" || secondQueryID == "" {
+			t.Fatalf("Failed to get stmt last query ID")
+		}
+		if firstQueryID == secondQueryID {
+			t.Fatalf("Failed to get ID of last executed query. ID: %v", firstQueryID)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("failed to prepare statement. err: %v", err)
+	}
+}
+
+func TestDescribeOnly(t *testing.T) {
+	db := openDB(t)
+	defer db.Close()
+
+	ctx := WithDescribeOnly(context.TODO())
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if err = conn.Raw(func(x interface{}) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "select 1")
+		if err != nil {
+			return err
+		}
+		rows1, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err != nil {
+			return err
+		}
+		firstQueryID := rows1.(SnowflakeRows).GetQueryID()
+		rows2, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err != nil {
+			return err
+		}
+		secondQueryID := rows2.(SnowflakeRows).GetQueryID()
 		if firstQueryID == "" || secondQueryID == "" {
 			t.Fatalf("Failed to get stmt last query ID")
 		}
