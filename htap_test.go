@@ -101,10 +101,166 @@ func trimWhitespaces(s string) string {
 	)
 }
 
+func TestSortingByPriority(t *testing.T) {
+	qcc := (&queryContextCache{}).init()
+	sc := htapTestSnowflakeConn()
+
+	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
+	qceB := queryContextEntry{ID: 13, Timestamp: 124, Priority: 9, Context: "b"}
+	qceC := queryContextEntry{ID: 14, Timestamp: 125, Priority: 6, Context: "c"}
+	qceD := queryContextEntry{ID: 15, Timestamp: 126, Priority: 8, Context: "d"}
+
+	t.Run("Add to empty cache", func(t *testing.T) {
+		qcc.add(sc, qceA)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceA}) {
+			t.Fatalf("no entries added to cache. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with different id, timestamp and priority - greater priority", func(t *testing.T) {
+		qcc.add(sc, qceB)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceA, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with different id, timestamp and priority - lesser priority", func(t *testing.T) {
+		qcc.add(sc, qceC)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceC, qceA, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with different id, timestamp and priority - priority in the middle", func(t *testing.T) {
+		qcc.add(sc, qceD)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceC, qceA, qceD, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+}
+
+func TestAddingQcesWithTheSameIdAndLaterTimestamp(t *testing.T) {
+	qcc := (&queryContextCache{}).init()
+	sc := htapTestSnowflakeConn()
+
+	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
+	qceB := queryContextEntry{ID: 13, Timestamp: 124, Priority: 9, Context: "b"}
+	qceC := queryContextEntry{ID: 12, Timestamp: 125, Priority: 6, Context: "c"}
+	qceD := queryContextEntry{ID: 12, Timestamp: 126, Priority: 6, Context: "d"}
+
+	t.Run("Add to empty cache", func(t *testing.T) {
+		qcc.add(sc, qceA)
+		qcc.add(sc, qceB)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceA, qceB}) {
+			t.Fatalf("no entries added to cache. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with different priority", func(t *testing.T) {
+		qcc.add(sc, qceC)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceC, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with same priority", func(t *testing.T) {
+		qcc.add(sc, qceD)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceD, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+}
+
+func TestAddingQcesWithTheSameIdAndSameTimestamp(t *testing.T) {
+	qcc := (&queryContextCache{}).init()
+	sc := htapTestSnowflakeConn()
+
+	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
+	qceB := queryContextEntry{ID: 13, Timestamp: 124, Priority: 9, Context: "b"}
+	qceC := queryContextEntry{ID: 12, Timestamp: 123, Priority: 6, Context: "c"}
+	qceD := queryContextEntry{ID: 12, Timestamp: 123, Priority: 6, Context: "d"}
+
+	t.Run("Add to empty cache", func(t *testing.T) {
+		qcc.add(sc, qceA)
+		qcc.add(sc, qceB)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceA, qceB}) {
+			t.Fatalf("no entries added to cache. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with different priority", func(t *testing.T) {
+		qcc.add(sc, qceC)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceC, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with same priority", func(t *testing.T) {
+		qcc.add(sc, qceD)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceC, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+}
+
+func TestAddingQcesWithTheSameIdAndEarlierTimestamp(t *testing.T) {
+	qcc := (&queryContextCache{}).init()
+	sc := htapTestSnowflakeConn()
+
+	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
+	qceB := queryContextEntry{ID: 13, Timestamp: 124, Priority: 9, Context: "b"}
+	qceC := queryContextEntry{ID: 12, Timestamp: 122, Priority: 6, Context: "c"}
+	qceD := queryContextEntry{ID: 12, Timestamp: 122, Priority: 7, Context: "d"}
+
+	t.Run("Add to empty cache", func(t *testing.T) {
+		qcc.add(sc, qceA)
+		qcc.add(sc, qceB)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceA, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with different priority", func(t *testing.T) {
+		qcc.add(sc, qceC)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceA, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with same priority", func(t *testing.T) {
+		qcc.add(sc, qceD)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceA, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+}
+
+func TestAddingQcesWithDifferentId(t *testing.T) {
+	qcc := (&queryContextCache{}).init()
+	sc := htapTestSnowflakeConn()
+
+	qceA := queryContextEntry{ID: 12, Timestamp: 123, Priority: 7, Context: "a"}
+	qceB := queryContextEntry{ID: 13, Timestamp: 124, Priority: 9, Context: "b"}
+	qceC := queryContextEntry{ID: 14, Timestamp: 122, Priority: 7, Context: "c"}
+	qceD := queryContextEntry{ID: 15, Timestamp: 122, Priority: 6, Context: "d"}
+
+	t.Run("Add to empty cache", func(t *testing.T) {
+		qcc.add(sc, qceA)
+		qcc.add(sc, qceB)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceA, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with same priority", func(t *testing.T) {
+		qcc.add(sc, qceC)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceC, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+	t.Run("Add another entry with different priority", func(t *testing.T) {
+		qcc.add(sc, qceD)
+		if !reflect.DeepEqual(qcc.entries, []queryContextEntry{qceD, qceC, qceB}) {
+			t.Fatalf("unexpected qcc entries. %v", qcc.entries)
+		}
+	})
+}
+
 func TestAddingQueryContextCacheEntry(t *testing.T) {
 	runSnowflakeConnTest(t, func(sc *snowflakeConn) {
 		t.Run("First query (may be on empty cache)", func(t *testing.T) {
-			entriesBefore := sc.queryContextCache.entries
+			entriesBefore := make([]queryContextEntry, len(sc.queryContextCache.entries))
+			copy(entriesBefore, sc.queryContextCache.entries)
 			if _, err := sc.Query("SELECT 1", nil); err != nil {
 				t.Fatalf("cannot query. %v", err)
 			}
@@ -116,11 +272,12 @@ func TestAddingQueryContextCacheEntry(t *testing.T) {
 		})
 
 		t.Run("Second query (cache should not be empty)", func(t *testing.T) {
-			entriesBefore := sc.queryContextCache.entries
+			entriesBefore := make([]queryContextEntry, len(sc.queryContextCache.entries))
+			copy(entriesBefore, sc.queryContextCache.entries)
 			if len(entriesBefore) == 0 {
 				t.Fatalf("cache should not be empty after first query")
 			}
-			if _, err := sc.Query("SELECT 1", nil); err != nil {
+			if _, err := sc.Query("SELECT 2", nil); err != nil {
 				t.Fatalf("cannot query. %v", err)
 			}
 			entriesAfter := sc.queryContextCache.entries
@@ -249,5 +406,13 @@ func TestNoQcesClearsCache(t *testing.T) {
 
 	if len(qcc.entries) != 0 {
 		t.Errorf("after adding empty context list cache should be cleared")
+	}
+}
+
+func htapTestSnowflakeConn() *snowflakeConn {
+	return &snowflakeConn{
+		cfg: &Config{
+			Params: map[string]*string{},
+		},
 	}
 }

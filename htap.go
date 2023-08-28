@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"sort"
 	"strconv"
 	"sync"
 )
@@ -33,7 +34,36 @@ func (qcc *queryContextCache) add(sc *snowflakeConn, qces ...queryContextEntry) 
 	if len(qces) == 0 {
 		qcc.prune(0)
 	} else {
-		qcc.entries = append(qcc.entries, qces...)
+		for _, newQce := range qces {
+			logger.Debugf("adding query context: %v", newQce)
+			newQceProcessed := false
+			for existingQceIdx, existingQce := range qcc.entries {
+				if newQce.ID == existingQce.ID {
+					newQceProcessed = true
+					if newQce.Timestamp > existingQce.Timestamp {
+						qcc.entries[existingQceIdx] = newQce
+					} else if newQce.Timestamp == existingQce.Timestamp {
+						if newQce.Priority != existingQce.Priority {
+							qcc.entries[existingQceIdx] = newQce
+						}
+					}
+				}
+			}
+			if !newQceProcessed {
+				for existingQceIdx, existingQce := range qcc.entries {
+					if newQce.Priority == existingQce.Priority {
+						qcc.entries[existingQceIdx] = newQce
+						newQceProcessed = true
+					}
+				}
+			}
+			if !newQceProcessed {
+				qcc.entries = append(qcc.entries, newQce)
+			}
+		}
+		sort.Slice(qcc.entries, func(idx1, idx2 int) bool {
+			return qcc.entries[idx1].Priority < qcc.entries[idx2].Priority
+		})
 		qcc.prune(qcc.getQueryContextCacheSize(sc))
 	}
 }
