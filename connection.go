@@ -60,12 +60,13 @@ const (
 const privateLinkSuffix = "privatelink.snowflakecomputing.com"
 
 type snowflakeConn struct {
-	ctx             context.Context
-	cfg             *Config
-	rest            *snowflakeRestful
-	SequenceCounter uint64
-	telemetry       *snowflakeTelemetry
-	internal        InternalClient
+	ctx               context.Context
+	cfg               *Config
+	rest              *snowflakeRestful
+	SequenceCounter   uint64
+	telemetry         *snowflakeTelemetry
+	internal          InternalClient
+	queryContextCache *queryContextCache
 }
 
 var (
@@ -140,6 +141,8 @@ func (sc *snowflakeConn) exec(
 		err = (populateErrorFields(code, data)).exceptionTelemetry(sc)
 		return nil, err
 	}
+
+	sc.queryContextCache.add(data.Data.QueryContext.Entries...)
 
 	// handle PUT/GET commands
 	if isFileTransfer(query) {
@@ -677,9 +680,10 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
-		SequenceCounter: 0,
-		ctx:             ctx,
-		cfg:             &config,
+		SequenceCounter:   0,
+		ctx:               ctx,
+		cfg:               &config,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {
