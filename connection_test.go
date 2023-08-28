@@ -547,28 +547,25 @@ func postQueryFail(_ context.Context, _ *snowflakeRestful, _ *url.Values, header
 }
 
 func TestErrorReportingOnConcurrentFails(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Fatal("Failed to parse dsn")
-	}
-	connector := NewConnector(SnowflakeDriver{}, *config)
-	db := sql.OpenDB(connector)
+	db := openDB(t)
 	defer db.Close()
-
+	var wg sync.WaitGroup
+	wg.Add(15)
 	for i := 0; i < 5; i++ {
-		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_ABC", "TABLE_ABC", t)
-		go executeQueryAndConfirmMessage(db, "Select * from TABLE_DEF", "TABLE_DEF", t)
-		go executeQueryAndConfirmMessage(db, "Select * from TABLE_GHI", "TABLE_GHI", t)
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_ABC", "TABLE_ABC", t, &wg)
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_DEF", "TABLE_DEF", t, &wg)
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_GHI", "TABLE_GHI", t, &wg)
 	}
-	time.Sleep(2 * time.Second)
+	wg.Wait()
 }
 
-func executeQueryAndConfirmMessage(db *sql.DB, query string, expectedErrorTable string, t *testing.T) {
+func executeQueryAndConfirmMessage(db *sql.DB, query string, expectedErrorTable string, t *testing.T, wg *sync.WaitGroup) {
+	defer wg.Done()
 	_, err := db.Exec(query)
 	message := err.(*SnowflakeError).Message
 	if !strings.Contains(message, expectedErrorTable) {
-		t.Error("QueryID: " + err.(*SnowflakeError).QueryID + ", Message: " +
-			err.(*SnowflakeError).Message + " ##### Expected error message table name: " + expectedErrorTable)
+		t.Errorf("QueryID: %s, Message %s ###### Expected error message table name: %s",
+			err.(*SnowflakeError).QueryID, err.(*SnowflakeError).Message, expectedErrorTable)
 	}
 }
 

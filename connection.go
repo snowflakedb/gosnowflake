@@ -137,8 +137,6 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
-		errMutex.Lock()
-		defer errMutex.Unlock()
 		err = (populateErrorFields(code, data)).exceptionTelemetry(sc)
 		return nil, err
 	}
