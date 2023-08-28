@@ -139,7 +139,7 @@ func DSN(cfg *Config) (dsn string, err error) {
 	posDot := strings.Index(cfg.Account, ".")
 	if posDot > 0 {
 		if cfg.Region != "" {
-			return "", ErrInvalidRegion
+			return "", errInvalidRegion()
 		}
 		cfg.Region = cfg.Account[posDot+1:]
 		cfg.Account = cfg.Account[:posDot]
@@ -403,15 +403,15 @@ func fillMissingConfigParameters(cfg *Config) error {
 		}
 	}
 	if strings.Trim(cfg.Account, " ") == "" {
-		return ErrEmptyAccount
+		return errEmptyAccount()
 	}
 
 	if authRequiresUser(cfg) && strings.TrimSpace(cfg.User) == "" {
-		return ErrEmptyUsername
+		return errEmptyUsername()
 	}
 
 	if authRequiresPassword(cfg) && strings.TrimSpace(cfg.Password) == "" {
-		return ErrEmptyPassword
+		return errEmptyPassword()
 	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
 		cfg.Protocol = "https"

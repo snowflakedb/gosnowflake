@@ -491,11 +491,12 @@ func TestExecWithServerSideError(t *testing.T) {
 		t.Error("expected a server side error")
 	}
 	sfe := err.(*SnowflakeError)
+	errUnknownError := errUnknownError()
 	if sfe.Number != -1 || sfe.SQLState != "-1" || sfe.QueryID != "-1" {
-		t.Errorf("incorrect snowflake error. expected: %v, got: %v", ErrUnknownError, *sfe)
+		t.Errorf("incorrect snowflake error. expected: %v, got: %v", errUnknownError, *sfe)
 	}
 	if !strings.Contains(sfe.Message, "an unknown server side error occurred") {
-		t.Errorf("incorrect message. expected: %v, got: %v", ErrUnknownError.Message, sfe.Message)
+		t.Errorf("incorrect message. expected: %v, got: %v", errUnknownError.Message, sfe.Message)
 	}
 }
 
@@ -547,6 +548,30 @@ func postQueryFail(_ context.Context, _ *snowflakeRestful, _ *url.Values, header
 		Code:    "12345",
 		Success: false,
 	}, errors.New("failed to get query response")
+}
+
+func TestErrorReportingOnConcurrentFails(t *testing.T) {
+	db := openDB(t)
+	defer db.Close()
+	var wg sync.WaitGroup
+	n := 5
+	wg.Add(3 * n)
+	for i := 0; i < n; i++ {
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_ABC", "TABLE_ABC", t, &wg)
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_DEF", "TABLE_DEF", t, &wg)
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_GHI", "TABLE_GHI", t, &wg)
+	}
+	wg.Wait()
+}
+
+func executeQueryAndConfirmMessage(db *sql.DB, query string, expectedErrorTable string, t *testing.T, wg *sync.WaitGroup) {
+	defer wg.Done()
+	_, err := db.Exec(query)
+	message := err.(*SnowflakeError).Message
+	if !strings.Contains(message, expectedErrorTable) {
+		t.Errorf("QueryID: %s, Message %s ###### Expected error message table name: %s",
+			err.(*SnowflakeError).QueryID, err.(*SnowflakeError).Message, expectedErrorTable)
+	}
 }
 
 func TestQueryArrowStreamError(t *testing.T) {

@@ -25,7 +25,6 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
-
 	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
 	privKeyPKCS1 := generatePKCS1String(testPrivKey)
 	testcases := []tcParseDSN{
@@ -201,7 +200,7 @@ func TestParseDSN(t *testing.T) {
 				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyPassword,
+			err:      errEmptyPassword(),
 		},
 		{
 			dsn: "@host:123/db/schema?account=ac&protocol=http",
@@ -216,7 +215,7 @@ func TestParseDSN(t *testing.T) {
 				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyUsername,
+			err:      errEmptyUsername(),
 		},
 		{
 			dsn: "user:p@host:123/db/schema?protocol=http",
@@ -231,7 +230,7 @@ func TestParseDSN(t *testing.T) {
 				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyAccount,
+			err:      errEmptyAccount(),
 		},
 		{
 			dsn: "u:p@a.snowflakecomputing.com/db/pa?account=a&protocol=https&role=r&timezone=UTC&warehouse=w",
@@ -415,12 +414,12 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn:    "u:u@/+/+?account=+&=0",
 			config: &Config{},
-			err:    ErrEmptyAccount,
+			err:    errEmptyAccount(),
 		},
 		{
 			dsn:    "u:u@/+/+?account=+&=+&=+",
 			config: &Config{},
-			err:    ErrEmptyAccount,
+			err:    errEmptyAccount(),
 		},
 		{
 			dsn: "user%40%2F1:p%3A%40s@/db%2F?account=ac",
@@ -630,7 +629,7 @@ func TestParseDSN(t *testing.T) {
 				Authenticator:             at,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyUsername,
+			err:      errEmptyUsername(),
 		})
 	}
 
@@ -649,7 +648,7 @@ func TestParseDSN(t *testing.T) {
 				Authenticator:             at,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyPassword,
+			err:      errEmptyPassword(),
 		})
 	}
 
@@ -775,7 +774,6 @@ type tcDSN struct {
 
 func TestDSN(t *testing.T) {
 	tmfmt := "MM-DD-YYYY"
-
 	testcases := []tcDSN{
 		{
 			cfg: &Config{
@@ -809,7 +807,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a-aofnadsf.global",
 				Region:   "r",
 			},
-			err: ErrInvalidRegion,
+			err: errInvalidRegion(),
 		},
 		{
 			cfg: &Config{
@@ -853,7 +851,7 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "a",
 			},
-			err: ErrEmptyUsername,
+			err: errEmptyUsername(),
 		},
 		{
 			cfg: &Config{
@@ -861,7 +859,7 @@ func TestDSN(t *testing.T) {
 				Password: "",
 				Account:  "a",
 			},
-			err: ErrEmptyPassword,
+			err: errEmptyPassword(),
 		},
 		{
 			cfg: &Config{
@@ -869,7 +867,7 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "",
 			},
-			err: ErrEmptyAccount,
+			err: errEmptyAccount(),
 		},
 		{
 			cfg: &Config{
@@ -895,7 +893,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.e",
 				Region:   "r",
 			},
-			err: ErrInvalidRegion,
+			err: errInvalidRegion(),
 		},
 		{
 			cfg: &Config{
@@ -1039,7 +1037,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.b.c",
 				Region:   "r",
 			},
-			err: ErrInvalidRegion,
+			err: errInvalidRegion(),
 		},
 		{
 			cfg: &Config{
