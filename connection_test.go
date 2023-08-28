@@ -554,8 +554,9 @@ func TestErrorReportingOnConcurrentFails(t *testing.T) {
 	db := openDB(t)
 	defer db.Close()
 	var wg sync.WaitGroup
-	wg.Add(15)
-	for i := 0; i < 5; i++ {
+	n := 5
+	wg.Add(3 * n)
+	for i := 0; i < n; i++ {
 		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_ABC", "TABLE_ABC", t, &wg)
 		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_DEF", "TABLE_DEF", t, &wg)
 		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_GHI", "TABLE_GHI", t, &wg)
