@@ -168,6 +168,36 @@ in place of the default randomized request ID. For example:
 	ctxWithID := WithRequestID(ctx, requestID)
 	rows, err := db.QueryContext(ctxWithID, query)
 
+# Last query ID
+
+If you need query ID for your query you have to use raw connection.
+
+For queries:
+```
+
+	err := conn.Raw(func(x any) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "SELECT 1")
+		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		rows.(SnowflakeRows).GetQueryID()
+		stmt.(SnowflakeStmt).GetQueryID()
+		return nil
+	}
+
+```
+
+For execs:
+```
+
+	err := conn.Raw(func(x any) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "INSERT INTO TestStatementQueryIdForExecs VALUES (1)")
+		result, err := stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+		result.(SnowflakeResult).GetQueryID()
+		stmt.(SnowflakeStmt).GetQueryID()
+		return nil
+	}
+
+```
+
 # Canceling Query by CtrlC
 
 From 0.5.0, a signal handling responsibility has moved to the applications. If you want to cancel a
