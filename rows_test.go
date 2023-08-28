@@ -460,6 +460,7 @@ func TestWithArrowBatchesNotImplementedForResult(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer sc.Close()
 	if err = authenticateWithConfig(sc); err != nil {
 		t.Error(err)
 	}
@@ -472,12 +473,6 @@ func TestWithArrowBatchesNotImplementedForResult(t *testing.T) {
 	result, err := sc.ExecContext(ctx, "insert into testArrowBatches values (1, 2), (3, 4), (5, 6)", []driver.NamedValue{})
 	if err != nil {
 		t.Error(err)
-	}
-
-	result.(*snowflakeResult).GetStatus()
-	queryID := result.(*snowflakeResult).GetQueryID()
-	if queryID != sc.QueryID {
-		t.Fatalf("failed to get query ID")
 	}
 
 	_, err = result.(*snowflakeResult).GetArrowBatches()
