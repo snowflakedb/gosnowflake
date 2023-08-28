@@ -546,6 +546,32 @@ func postQueryFail(_ context.Context, _ *snowflakeRestful, _ *url.Values, header
 	}, errors.New("failed to get query response")
 }
 
+func TestErrorReportingOnConcurrentFails(t *testing.T) {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+
+	for i := 0; i < 5; i++ {
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_ABC", "TABLE_ABC", t)
+		go executeQueryAndConfirmMessage(db, "Select * from TABLE_DEF", "TABLE_DEF", t)
+		go executeQueryAndConfirmMessage(db, "Select * from TABLE_GHI", "TABLE_GHI", t)
+	}
+	time.Sleep(2 * time.Second)
+}
+
+func executeQueryAndConfirmMessage(db *sql.DB, query string, expectedErrorTable string, t *testing.T) {
+	_, err := db.Exec(query)
+	message := err.(*SnowflakeError).Message
+	if !strings.Contains(message, expectedErrorTable) {
+		t.Error("QueryID: " + err.(*SnowflakeError).QueryID + ", Message: " +
+			err.(*SnowflakeError).Message + " ##### Expected error message table name: " + expectedErrorTable)
+	}
+}
+
 func TestQueryArrowStreamError(t *testing.T) {
 	ctx := context.Background()
 	numrows := 50000 // approximately 10 ArrowBatch objects
