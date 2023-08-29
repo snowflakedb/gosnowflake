@@ -7,9 +7,15 @@ import (
 	"database/sql/driver"
 )
 
+// SnowflakeStmt represents the prepared statement in driver.
+type SnowflakeStmt interface {
+	GetQueryID() string
+}
+
 type snowflakeStmt struct {
-	sc    *snowflakeConn
-	query string
+	sc          *snowflakeConn
+	query       string
+	lastQueryID string
 }
 
 func (stmt *snowflakeStmt) Close() error {
@@ -26,20 +32,32 @@ func (stmt *snowflakeStmt) NumInput() int {
 
 func (stmt *snowflakeStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.ExecContext")
-	return stmt.sc.ExecContext(ctx, stmt.query, args)
+	result, err := stmt.sc.ExecContext(ctx, stmt.query, args)
+	stmt.lastQueryID = result.(SnowflakeResult).GetQueryID()
+	return result, err
 }
 
 func (stmt *snowflakeStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.QueryContext")
-	return stmt.sc.QueryContext(ctx, stmt.query, args)
+	rows, err := stmt.sc.QueryContext(ctx, stmt.query, args)
+	stmt.lastQueryID = rows.(SnowflakeRows).GetQueryID()
+	return rows, err
 }
 
 func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Exec")
-	return stmt.sc.Exec(stmt.query, args)
+	result, err := stmt.sc.Exec(stmt.query, args)
+	stmt.lastQueryID = result.(SnowflakeResult).GetQueryID()
+	return result, err
 }
 
 func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Query")
-	return stmt.sc.Query(stmt.query, args)
+	rows, err := stmt.sc.Query(stmt.query, args)
+	stmt.lastQueryID = rows.(SnowflakeRows).GetQueryID()
+	return rows, err
+}
+
+func (stmt *snowflakeStmt) GetQueryID() string {
+	return stmt.lastQueryID
 }
