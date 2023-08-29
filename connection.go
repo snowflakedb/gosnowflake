@@ -141,7 +141,7 @@ func (sc *snowflakeConn) exec(
 		return nil, err
 	}
 
-	sc.queryContextCache.add(data.Data.QueryContext.Entries...)
+	sc.queryContextCache.add(sc, data.Data.QueryContext.Entries...)
 
 	// handle PUT/GET commands
 	if isFileTransfer(query) {
