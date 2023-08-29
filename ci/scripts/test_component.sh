@@ -13,3 +13,4 @@ fi
 env | grep SNOWFLAKE | grep -v PASS | sort
 cd $TOPDIR
 go test -timeout 30m -race -coverprofile=coverage.txt -covermode=atomic -v . 
+

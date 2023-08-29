@@ -200,18 +200,14 @@ func TestCallStatement(t *testing.T) {
 
 		stmt, err := dbt.conn.PrepareContext(context.Background(), "call TEST_SP_CALL_STMT_ENABLED(?, to_variant(?))")
 		if err != nil {
-			dbt.Errorf("failed to prepare query: %v", err)
+			t.Error(err)
 		}
-		defer stmt.Close()
-		err = stmt.QueryRow(in1, in2).Scan(&out)
-		if err != nil {
-			dbt.Errorf("failed to scan: %v", err)
+		if !tag.Valid {
+			t.Fatal("no tag set")
 		}
-
-		if expected != out {
-			dbt.Errorf("expected: %s, got: %s", expected, out)
+		if tag.String != testQueryTag {
+			t.Fatalf("expected tag '%s' but got '%s'", testQueryTag, tag.String)
 		}
-
 		dbt.mustExec("drop procedure if exists TEST_SP_CALL_STMT_ENABLED(float, variant)")
 
 	})

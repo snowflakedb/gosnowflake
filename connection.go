@@ -439,6 +439,14 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
 	if supportedNullBind(nv) || supportedArrayBind(nv) {
 		return nil
+  }
+	if _, ok := nv.Value.(SnowflakeDataType); ok {
+		// Pass SnowflakeDataType args through without modification so that we can
+		// distinguish them from arguments of type []byte
+		return nil
+	}
+	if supported := supportedArrayBind(nv); !supported {
+		return driver.ErrSkip
 	}
 	return driver.ErrSkip
 }

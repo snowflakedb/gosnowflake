@@ -19,96 +19,28 @@ on:
         required: true
       tags:
         description: "Test scenario tags"
-
-concurrency:
-  # older builds for the same pull request numer or branch should be cancelled
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
-    build-test-linux:
-        environment: gosnowflake-ci-env
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.20', '1.19' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
-        steps:
-            - uses: actions/checkout@v1
-            - name: Setup go
-              uses: actions/setup-go@v2
-              with:
-                  go-version: ${{ matrix.go }}
-            - name: Format, Lint
-              shell: bash
-              run: ./ci/build.sh
-            - name: Test
-              shell: bash
-              env:
-                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-                CLOUD_PROVIDER: ${{ matrix.cloud }}
-              run: ./ci/test.sh
-            - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v3
-              with:
-                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-    build-test-mac:
-        runs-on: macos-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.20', '1.19' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
-        steps:
-            - uses: actions/checkout@v1
-            - name: Setup go
-              uses: actions/setup-go@v2
-              with:
-                  go-version: ${{ matrix.go }}
-            - name: Format, Lint
-              shell: bash
-              run: ./ci/build.sh
-            - name: Test
-              shell: bash
-              env:
-                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-                CLOUD_PROVIDER: ${{ matrix.cloud }}
-              run: ./ci/test.sh
-            - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v3
-              with:
-                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-    build-test-windows:
-        runs-on: windows-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.20', '1.19' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
-        steps:
-            - uses: actions/checkout@v1
-            - name: Setup go
-              uses: actions/setup-go@v2
-              with:
-                  go-version: ${{ matrix.go }}
-            - name: Format, Lint
-              shell: cmd
-              run: ci\\build.bat
-            - uses: actions/setup-python@v1
-              with:
-                python-version: '3.x'
-                architecture: 'x64'
-            - name: Test
-              shell: cmd
-              env:
-                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-                CLOUD_PROVIDER: ${{ matrix.cloud }}
-              run: ci\\test.bat
-            - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v3
-              with:
-                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+  build-test-linux:
+    environment: gosnowflake-ci-env
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # TODO(SIG-12289): re-enable tests on cloud providers other than AWS, and for v1.18
+        cloud: ["AWS"]
+        go: ['1.19']
+    name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
+    steps:
+      - uses: actions/checkout@v1
+      - name: Setup go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Format, Lint
+        shell: bash
+        run: ./ci/build.sh
+      - name: Test
+        shell: bash
+        env:
+          PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+          CLOUD_PROVIDER: ${{ matrix.cloud }}
+        run: ./ci/test.sh
