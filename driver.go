@@ -57,7 +57,7 @@ func runningOnGithubAction() bool {
 var logger = CreateDefaultLogger()
 
 func init() {
-	sql.Register("snowflake", &SnowflakeDriver{})
+	sql.Register("sigmacomputing/gosnowflake", &SnowflakeDriver{})
 	logger.SetLogLevel("error")
 	if runningOnGithubAction() {
 		logger.SetLogLevel("fatal")
