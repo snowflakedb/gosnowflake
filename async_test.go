@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 	"time"
@@ -94,7 +95,7 @@ func TestAsyncModeNoFetch(t *testing.T) {
 	// completes, so we make the test take longer than 45s
 	secondsToRun := 50
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		start := time.Now()
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectTimelineGenerator, secondsToRun))
 		defer rows.Close()
@@ -190,11 +191,19 @@ func TestMultipleAsyncSuccessAndFailedQueries(t *testing.T) {
 	ch1 := make(chan string)
 	ch2 := make(chan string)
 
-	runTests(t, dsn, func(dbt *DBTest) {
-		rows1 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%s' from table (generator(timelimit=>3))", s1))
+	db := openDB(t)
+
+	runDBTest(t, func(dbt *DBTest) {
+		rows1, err := db.QueryContext(ctx, fmt.Sprintf("select distinct '%s' from table (generator(timelimit=>3))", s1))
+		if err != nil {
+			t.Fatalf("can't read rows1: %v", err)
+		}
 		defer rows1.Close()
 
-		rows2 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%s' from table (generator(timelimit=>7))", s2))
+		rows2, err := db.QueryContext(ctx, fmt.Sprintf("select distinct '%s' from table (generator(timelimit=>7))", s2))
+		if err != nil {
+			t.Fatalf("can't read rows2: %v", err)
+		}
 		defer rows2.Close()
 
 		go retrieveRows(rows1, ch1)
@@ -214,41 +223,7 @@ func TestMultipleAsyncSuccessAndFailedQueries(t *testing.T) {
 	})
 }
 
-func TestMultipleAsyncSuccessAndFailedQueries(t *testing.T) {
-	ctx := WithAsyncMode(context.Background())
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
-	defer cancel()
-
-	s1 := "foo"
-	s2 := "bar"
-	ch1 := make(chan string)
-	ch2 := make(chan string)
-
-	runTests(t, dsn, func(dbt *DBTest) {
-		rows1 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%s' from table (generator(timelimit=>3))", s1))
-		defer rows1.Close()
-
-		rows2 := dbt.mustQueryContext(ctx, fmt.Sprintf("select distinct '%s' from table (generator(timelimit=>7))", s2))
-		defer rows2.Close()
-
-		go retrieveRows(rows1, ch1)
-		go retrieveRows(rows2, ch2)
-
-		res1 := <-ch1
-		if res1 != s1 {
-			t.Fatalf("query failed. expected: %v, got: %v", s1, res1)
-		}
-
-		// wait until rows2 is done
-		<-ch2
-		driverErr, ok := rows2.Err().(*SnowflakeError)
-		if !ok || driverErr == nil || driverErr.Number != ErrAsync {
-			t.Fatalf("Snowflake ErrAsync expected. got: %T, %v", rows2.Err(), rows2.Err())
-		}
-	})
-}
-
-func retrieveRows(rows *RowsExtended, ch chan string) {
+func retrieveRows(rows *sql.Rows, ch chan string) {
 	var s string
 	for rows.Next() {
 		if err := rows.Scan(&s); err != nil {
