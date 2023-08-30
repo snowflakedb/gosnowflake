@@ -85,6 +85,10 @@ func (sc *snowflakeConn) exec(
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
 
+	queryContext, err := buildQueryContext(sc.queryContextCache)
+	if err != nil {
+		logger.Errorf("error while building query context: %v", err)
+	}
 	req := execRequest{
 		SQLText:      query,
 		AsyncExec:    noResult,
@@ -92,6 +96,7 @@ func (sc *snowflakeConn) exec(
 		IsInternal:   isInternal,
 		DescribeOnly: describeOnly,
 		SequenceID:   counter,
+		QueryContext: queryContext,
 	}
 	if key := ctx.Value(multiStatementCount); key != nil {
 		req.Parameters[string(multiStatementCount)] = key
@@ -171,6 +176,27 @@ func extractQueryContext(data *execResponse) (queryContext, error) {
 	var queryContext queryContext
 	err := json.Unmarshal(data.Data.QueryContext, &queryContext)
 	return queryContext, err
+}
+
+func buildQueryContext(qcc *queryContextCache) (requestQueryContext, error) {
+	rqc := requestQueryContext{}
+	if qcc == nil || len(qcc.entries) == 0 {
+		logger.Debugf("empty qcc")
+		return rqc, nil
+	}
+	for _, qce := range qcc.entries {
+		contextData := contextData{}
+		if qce.Context == "" {
+			contextData.Base64Data = qce.Context
+		}
+		rqc.Entries = append(rqc.Entries, requestQueryContextEntry{
+			ID:        qce.ID,
+			Priority:  qce.Priority,
+			Timestamp: qce.Timestamp,
+			Context:   contextData,
+		})
+	}
+	return rqc, nil
 }
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {

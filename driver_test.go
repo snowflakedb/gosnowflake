@@ -387,6 +387,7 @@ func runSnowflakeConnTest(t *testing.T, test func(sct *SCTest)) {
 	}
 
 	sct := &SCTest{t, sc}
+
 	test(sct)
 }
 
