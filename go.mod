@@ -1,4 +1,4 @@
-module github.com/sigmacomputing/gosnowflake
+module github.com/sigmacomputing+gosnowflake
 
 go 1.19
 

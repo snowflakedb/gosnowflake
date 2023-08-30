@@ -72,7 +72,7 @@ func TestOCSPFailOpen(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -110,7 +110,7 @@ func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -149,7 +149,7 @@ func TestOCSPFailOpenValidityError(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -188,7 +188,7 @@ func TestOCSPFailClosedValidityError(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -232,7 +232,7 @@ func TestOCSPFailOpenUnknownStatus(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -271,7 +271,7 @@ func TestOCSPFailClosedUnknownStatus(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -316,7 +316,7 @@ func TestOCSPFailOpenRevokedStatus(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -361,7 +361,7 @@ func TestOCSPFailClosedRevokedStatus(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -405,7 +405,7 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -444,7 +444,7 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -500,7 +500,7 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -540,7 +540,7 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -583,7 +583,7 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -622,7 +622,7 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -659,7 +659,7 @@ func TestExpiredCertificate(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -705,7 +705,7 @@ func TestSelfSignedCertificate(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -746,7 +746,7 @@ func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()
@@ -785,7 +785,7 @@ func TestOCSPFailClosedNoOCSPURL(t *testing.T) {
 		t.Fatalf("failed to build URL from Config: %v", config)
 	}
 
-	if db, err = sql.Open("snowflake", testURL); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
 	}
 	defer db.Close()

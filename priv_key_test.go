@@ -90,7 +90,7 @@ func TestJWTAuthentication(t *testing.T) {
 
 	// Test that a valid private key can pass
 	jwtDSN := appendPrivateKeyString(&dsn, testPrivKey)
-	db, err := sql.Open("snowflake", jwtDSN)
+	db, err := sql.Open("sigmacomputing+gosnowflake", jwtDSN)
 	if err != nil {
 		t.Fatalf("error creating a connection object: %s", err.Error())
 	}
@@ -105,7 +105,7 @@ func TestJWTAuthentication(t *testing.T) {
 		t.Error(err)
 	}
 	jwtDSN = appendPrivateKeyString(&dsn, invalidPrivateKey)
-	db, err = sql.Open("snowflake", jwtDSN)
+	db, err = sql.Open("sigmacomputing+gosnowflake", jwtDSN)
 	if err != nil {
 		t.Error(err)
 	}

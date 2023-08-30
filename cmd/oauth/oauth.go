@@ -35,7 +35,7 @@ func main() {
 	escapedToken := url.QueryEscape(token)
 
 	dsn := fmt.Sprintf("%v?authenticator=OAUTH&token=%v", account, escapedToken)
-	db, err := sql.Open("snowflake", dsn)
+	db, err := sql.Open("sigmacomputing+gosnowflake", dsn)
 	if err != nil {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
 	}

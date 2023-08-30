@@ -60,7 +60,7 @@ func main() {
 	}
 
 	// The external browser flow should start with the call to Open
-	db, err := sql.Open("snowflake", dsn)
+	db, err := sql.Open("sigmacomputing+gosnowflake", dsn)
 	if err != nil {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
 	}

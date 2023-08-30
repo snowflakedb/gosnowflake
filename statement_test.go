@@ -14,7 +14,7 @@ func openDB(t *testing.T) *sql.DB {
 	var db *sql.DB
 	var err error
 
-	if db, err = sql.Open("snowflake", dsn); err != nil {
+	if db, err = sql.Open("sigmacomputing+gosnowflake", dsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
 	return db
