@@ -291,7 +291,7 @@ func (sc *snowflakeConn) ExecContext(
 			queryID:      data.Data.QueryID,
 		} // last insert id is not supported by Snowflake
 
-		rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
+		rows.monitoring = mkMonitoringFetcher(sc, data.Data.QueryID, time.Since(qStart))
 
 		return rows, nil
 	} else if isMultiStmt(&data.Data) {
@@ -299,7 +299,7 @@ func (sc *snowflakeConn) ExecContext(
 		if err != nil {
 			return nil, err
 		}
-		rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
+		rows.monitoring = mkMonitoringFetcher(sc, data.Data.QueryID, time.Since(qStart))
 
 		return rows, nil
 	}
@@ -370,7 +370,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.queryID = data.Data.QueryID
-	rows.monitoring = mkMonitoringFetcher(sc, sc.QueryID, time.Since(qStart))
+	rows.monitoring = mkMonitoringFetcher(sc, data.Data.QueryID, time.Since(qStart))
 
 	if isSubmitSync(ctx) && data.Code == queryInProgressCode {
 		rows.status = QueryStatusInProgress
@@ -439,7 +439,7 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
 	if supportedNullBind(nv) || supportedArrayBind(nv) {
 		return nil
-  }
+	}
 	if _, ok := nv.Value.(SnowflakeDataType); ok {
 		// Pass SnowflakeDataType args through without modification so that we can
 		// distinguish them from arguments of type []byte

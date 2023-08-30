@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 )
 
@@ -73,17 +74,6 @@ func (st snowflakeType) String() string {
 
 func getSnowflakeType(typ string) snowflakeType {
 	return snowflakeToDriverType[typ]
-}
-
-// SnowflakeDataType is the type used by clients to explicitly indicate the type
-// of an argument to ExecContext and friends. We use a separate public-facing
-// type rather than a Go primitive type so that we can always differentiate
-// between args that indicate type and args that are values.
-type SnowflakeDataType []byte
-
-// Equals checks if dt and o represent the same type indicator
-func (dt SnowflakeDataType) Equals(o SnowflakeDataType) bool {
-	return bytes.Equal(([]byte)(dt), ([]byte)(o))
 }
 
 // SnowflakeDataType is the type used by clients to explicitly indicate the type
@@ -166,6 +156,31 @@ func clientTypeToInternal(cType SnowflakeDataType) (iType snowflakeType, err err
 		return nullType, fmt.Errorf(errMsgInvalidByteArray, nil)
 	}
 	return iType, nil
+}
+
+// dataTypeMode returns the subsequent data type in a string representation.
+func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
+	if bd, ok := v.([]byte); ok {
+		switch {
+		case bytes.Equal(bd, DataTypeDate):
+			tsmode = dateType
+		case bytes.Equal(bd, DataTypeTime):
+			tsmode = timeType
+		case bytes.Equal(bd, DataTypeTimestampLtz):
+			tsmode = timestampLtzType
+		case bytes.Equal(bd, DataTypeTimestampNtz):
+			tsmode = timestampNtzType
+		case bytes.Equal(bd, DataTypeTimestampTz):
+			tsmode = timestampTzType
+		case bytes.Equal(bd, DataTypeBinary):
+			tsmode = binaryType
+		default:
+			return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
+		}
+	} else {
+		return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
+	}
+	return tsmode, nil
 }
 
 // SnowflakeParameter includes the columns output from SHOW PARAMETER command.

@@ -36,34 +36,6 @@ const (
 	selectAllSQLBulkArrayDateTimeTimestamp   = "select * from test_bulk_array_DateTimeTimestamp ORDER BY 1"
 )
 
-func TestBindingNull(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("CREATE TABLE test (id int, c1 STRING, c2 BOOLEAN)")
-		_, err := dbt.db.Exec("INSERT INTO test VALUES (1, ?, ?)",
-			DataTypeText, "hello",
-			DataTypeNull, nil,
-		)
-		if err != nil {
-			dbt.Fatal(err)
-		}
-		dbt.mustExec("DROP TABLE IF EXISTS test")
-	})
-}
-
-func TestBindingFloat64(t *testing.T) {
-	runTests(t, dsn, func(dbt *DBTest) {
-		dbt.mustExec("CREATE TABLE test (id int, c1 STRING, c2 BOOLEAN)")
-		_, err := dbt.db.Exec("INSERT INTO test VALUES (1, ?, ?)",
-			DataTypeText, "hello",
-			DataTypeNull, nil,
-		)
-		if err != nil {
-			dbt.Fatal(err)
-		}
-		dbt.mustExec("DROP TABLE IF EXISTS test")
-	})
-}
-
 func TestBindingFloat64(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}

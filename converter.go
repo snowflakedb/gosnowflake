@@ -57,36 +57,32 @@ func isInterfaceArrayBinding(t interface{}) bool {
 }
 
 // goTypeToSnowflake translates Go data type to Snowflake data type.
-func goTypeToSnowflake(v driver.Value, dataType SnowflakeDataType) snowflakeType {
-	if dataType == nil {
-		switch t := v.(type) {
-		case SnowflakeDataType:
-			return changeType
-		case int64, sql.NullInt64:
-			return fixedType
-		case float64, sql.NullFloat64:
-			return realType
-		case bool, sql.NullBool:
-			return booleanType
-		case string, sql.NullString:
-			return textType
-		case []byte:
-			if t == nil {
-				return nullType // invalid byte array. won't take as BINARY
-			}
-			// If we don't have an explicit data type, binary blobs are unsupported
-			return unSupportedType
-		case time.Time, sql.NullTime:
-			// Default timestamp type
-			return timestampNtzType
+func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
+	switch t := v.(type) {
+	case int64, sql.NullInt64:
+		return fixedType
+	case float64, sql.NullFloat64:
+		return realType
+	case bool, sql.NullBool:
+		return booleanType
+	case string, sql.NullString:
+		return textType
+	case []byte:
+		if tsmode == binaryType {
+			return binaryType // may be redundant but ensures BINARY type
 		}
-	} else {
-		// If we have an explicit type, use it
-		ty, err := clientTypeToInternal(dataType)
-		if err != nil {
+		if t == nil {
+			return nullType // invalid byte array. won't take as BINARY
+		}
+		if len(t) != 1 {
 			return unSupportedType
 		}
-		return ty
+		if _, err := dataTypeMode(t); err != nil {
+			return unSupportedType
+		}
+		return changeType
+	case time.Time, sql.NullTime:
+		return tsmode
 	}
 	if supportedArrayBind(&driver.NamedValue{Value: v}) {
 		return sliceType
@@ -119,7 +115,7 @@ func snowflakeTypeToGo(dbtype snowflakeType, scale int64) reflect.Type {
 
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
-func valueToString(v driver.Value, dataType SnowflakeDataType) (*string, error) {
+func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
 	logger.Debugf("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	if v == nil {
 		return nil, nil
@@ -143,7 +139,7 @@ func valueToString(v driver.Value, dataType SnowflakeDataType) (*string, error) 
 			return nil, nil
 		}
 		if bd, ok := v.([]byte); ok {
-			if dataType != nil && dataType.Equals(DataTypeBinary) {
+			if tsmode == binaryType {
 				s := hex.EncodeToString(bd)
 				return &s, nil
 			}

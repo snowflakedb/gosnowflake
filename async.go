@@ -44,7 +44,7 @@ func (sr *snowflakeRestful) processAsync(
 	default:
 		return respd, nil
 	}
-// spawn goroutine to retrieve asynchronous results
+	// spawn goroutine to retrieve asynchronous results
 	go func() {
 		_ = sr.getAsync(ctx, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows, requestID, cfg)
 	}()
@@ -58,7 +58,7 @@ func (sr *snowflakeRestful) getAsync(
 	timeout time.Duration,
 	res *snowflakeResult,
 	rows *snowflakeRows,
-	requestID uuid,
+	requestID UUID,
 	cfg *Config) error {
 	resType := getResultType(ctx)
 	var errChannel chan error

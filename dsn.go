@@ -100,8 +100,6 @@ type Config struct {
 
 	TmpDirPath string // sets temporary directory used by a driver for operations like encrypting, compressing etc
 
-	TmpDirPath string // sets temporary directory used by a driver for operations like encrypting, compressing etc
-
 	MfaToken                       string     // Internally used to cache the MFA token
 	IDToken                        string     // Internally used to cache the Id Token for external browser
 	ClientRequestMfaToken          ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
@@ -459,7 +457,7 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.Authenticator != AuthTypeTokenAccessor &&
 		strings.Trim(cfg.User, " ") == "" {
 		// oauth and token accessor do not require a username
-		return ErrEmptyUsername
+		return errEmptyUsername()
 	}
 
 	if cfg.Authenticator != AuthTypeExternalBrowser &&
@@ -468,7 +466,7 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.Authenticator != AuthTypeTokenAccessor &&
 		strings.Trim(cfg.Password, " ") == "" {
 		// no password parameter is required for EXTERNALBROWSER, OAUTH JWT, or TOKENACCESSOR.
-		return ErrEmptyPassword
+		return errEmptyPassword()
 	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
 		cfg.Protocol = "https"
