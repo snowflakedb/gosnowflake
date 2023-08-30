@@ -147,3 +147,107 @@ func containsNewEntries(entriesAfter []queryContextEntry, entriesBefore []queryC
 
 	return false
 }
+
+func TestPruneBySessionValue(t *testing.T) {
+	qce1 := queryContextEntry{1, 1, 1, nil}
+	qce2 := queryContextEntry{2, 2, 2, nil}
+	qce3 := queryContextEntry{3, 3, 3, nil}
+
+	testcases := []struct {
+		size     string
+		expected []queryContextEntry
+	}{
+		{
+			size:     "1",
+			expected: []queryContextEntry{qce1},
+		},
+		{
+			size:     "2",
+			expected: []queryContextEntry{qce1, qce2},
+		},
+		{
+			size:     "3",
+			expected: []queryContextEntry{qce1, qce2, qce3},
+		},
+		{
+			size:     "4",
+			expected: []queryContextEntry{qce1, qce2, qce3},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.size, func(t *testing.T) {
+			sc := &snowflakeConn{
+				cfg: &Config{
+					Params: map[string]*string{
+						queryContextCacheSizeParamName: &tc.size,
+					},
+				},
+			}
+
+			qcc := (&queryContextCache{}).init()
+
+			qcc.add(sc, qce1)
+			qcc.add(sc, qce2)
+			qcc.add(sc, qce3)
+
+			if !reflect.DeepEqual(qcc.entries, tc.expected) {
+				t.Errorf("unexpected cache entries. expected: %v, got: %v", tc.expected, qcc.entries)
+			}
+		})
+	}
+}
+
+func TestPruneByDefaultValue(t *testing.T) {
+	qce1 := queryContextEntry{1, 1, 1, nil}
+	qce2 := queryContextEntry{2, 2, 2, nil}
+	qce3 := queryContextEntry{3, 3, 3, nil}
+	qce4 := queryContextEntry{4, 4, 4, nil}
+	qce5 := queryContextEntry{5, 5, 5, nil}
+	qce6 := queryContextEntry{6, 6, 6, nil}
+
+	sc := &snowflakeConn{
+		cfg: &Config{
+			Params: map[string]*string{},
+		},
+	}
+
+	qcc := (&queryContextCache{}).init()
+	qcc.add(sc, qce1)
+	qcc.add(sc, qce2)
+	qcc.add(sc, qce3)
+	qcc.add(sc, qce4)
+	qcc.add(sc, qce5)
+
+	if len(qcc.entries) != 5 {
+		t.Fatalf("Expected 5 elements, got: %v", len(qcc.entries))
+	}
+
+	qcc.add(sc, qce6)
+	if len(qcc.entries) != 5 {
+		t.Fatalf("Expected 5 elements, got: %v", len(qcc.entries))
+	}
+}
+
+func TestNoQcesClearsCache(t *testing.T) {
+	qce1 := queryContextEntry{1, 1, 1, nil}
+
+	sc := &snowflakeConn{
+		cfg: &Config{
+			Params: map[string]*string{},
+		},
+	}
+
+	qcc := (&queryContextCache{}).init()
+	qcc.add(sc, qce1)
+
+	if len(qcc.entries) != 1 {
+		t.Fatalf("improperly inited cache")
+	}
+
+	qcc.add(sc)
+
+	if len(qcc.entries) != 0 {
+		t.Errorf("after adding empty context list cache should be cleared")
+	}
+}
