@@ -26,6 +26,12 @@ The latest driver requires the [Go language](https://golang.org/) 1.19 or higher
 
 # Installation
 
+If you don't have a project initialized, set it up.
+
+```sh
+go mod init example.com/snowflake
+```
+
 Get Gosnowflake source code, if not installed.
 
 ```sh
