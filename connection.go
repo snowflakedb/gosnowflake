@@ -165,10 +165,18 @@ func (sc *snowflakeConn) exec(
 	}
 
 	logger.WithContext(ctx).Info("Exec/Query SUCCESS")
-	sc.cfg.Database = data.Data.FinalDatabaseName
-	sc.cfg.Schema = data.Data.FinalSchemaName
-	sc.cfg.Role = data.Data.FinalRoleName
-	sc.cfg.Warehouse = data.Data.FinalWarehouseName
+	if data.Data.FinalDatabaseName != "" {
+		sc.cfg.Database = data.Data.FinalDatabaseName
+	}
+	if data.Data.FinalSchemaName != "" {
+		sc.cfg.Schema = data.Data.FinalSchemaName
+	}
+	if data.Data.FinalWarehouseName != "" {
+		sc.cfg.Warehouse = data.Data.FinalWarehouseName
+	}
+	if data.Data.FinalRoleName != "" {
+		sc.cfg.Role = data.Data.FinalRoleName
+	}
 	sc.populateSessionParameters(data.Data.Parameters)
 	return data, err
 }
