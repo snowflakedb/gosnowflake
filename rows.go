@@ -47,9 +47,11 @@ type snowflakeRows struct {
 }
 
 func (rows *snowflakeRows) getLocation() *time.Location {
+	paramsMutex.Lock()
 	if rows.location == nil && rows.sc != nil && rows.sc.cfg != nil {
 		rows.location = getCurrentLocation(rows.sc.cfg.Params)
 	}
+	paramsMutex.Unlock()
 	return rows.location
 }
 

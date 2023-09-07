@@ -94,13 +94,11 @@ func init() {
 func getCurrentLocation(params map[string]*string) *time.Location {
 	loc := time.Now().Location()
 	var err error
-	paramsMutex.Lock()
 	if tz, ok := params["timezone"]; ok && tz != nil {
 		loc, err = time.LoadLocation(*tz)
 		if err != nil {
 			loc = time.Now().Location()
 		}
 	}
-	paramsMutex.Unlock()
 	return loc
 }
