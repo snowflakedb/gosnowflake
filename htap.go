@@ -79,7 +79,11 @@ func (qcc *queryContextCache) prune(size int) {
 }
 
 func (qcc *queryContextCache) getQueryContextCacheSize(sc *snowflakeConn) int {
-	if sizeStr, ok := sc.cfg.Params[queryContextCacheSizeParamName]; ok {
+	paramsMutex.Lock()
+	sizeStr, ok := sc.cfg.Params[queryContextCacheSizeParamName]
+	paramsMutex.Unlock()
+
+	if ok {
 		size, err := strconv.Atoi(*sizeStr)
 		if err != nil {
 			logger.Warnf("cannot parse %v as int as query context cache size: %v", sizeStr, err)
