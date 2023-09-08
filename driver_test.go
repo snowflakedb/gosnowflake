@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"database/sql"
+	"database/sql/driver"
 	"flag"
 	"fmt"
 	"net/http"
@@ -320,6 +321,49 @@ func (dbt *DBTest) mustPrepare(query string) (stmt *sql.Stmt) {
 	return stmt
 }
 
+type SCTest struct {
+	*testing.T
+	sc *snowflakeConn
+}
+
+func (sct *SCTest) fail(method, query string, err error) {
+	if len(query) > 300 {
+		query = "[query too large to print]"
+	}
+	sct.Fatalf("error on %s [%s]: %s", method, query, err.Error())
+}
+
+func (sct *SCTest) mustExec(query string, args []driver.Value) driver.Result {
+	result, err := sct.sc.Exec(query, args)
+	if err != nil {
+		sct.fail("exec", query, err)
+	}
+	return result
+}
+func (sct *SCTest) mustQuery(query string, args []driver.Value) driver.Rows {
+	rows, err := sct.sc.Query(query, args)
+	if err != nil {
+		sct.fail("query", query, err)
+	}
+	return rows
+}
+
+func (sct *SCTest) mustQueryContext(ctx context.Context, query string, args []driver.NamedValue) driver.Rows {
+	rows, err := sct.sc.QueryContext(ctx, query, args)
+	if err != nil {
+		sct.fail("QueryContext", query, err)
+	}
+	return rows
+}
+
+func (sct *SCTest) mustExecContext(ctx context.Context, query string, args []driver.NamedValue) driver.Result {
+	result, err := sct.sc.ExecContext(ctx, query, args)
+	if err != nil {
+		sct.fail("ExecContext", query, err)
+	}
+	return result
+}
+
 func runDBTest(t *testing.T, test func(dbt *DBTest)) {
 	conn := openConn(t)
 	defer conn.Close()
@@ -328,7 +372,7 @@ func runDBTest(t *testing.T, test func(dbt *DBTest)) {
 	test(dbt)
 }
 
-func runSnowflakeConnTest(t *testing.T, test func(sc *snowflakeConn)) {
+func runSnowflakeConnTest(t *testing.T, test func(sct *SCTest)) {
 	config, err := ParseDSN(dsn)
 	if err != nil {
 		t.Error(err)
@@ -342,7 +386,8 @@ func runSnowflakeConnTest(t *testing.T, test func(sc *snowflakeConn)) {
 		t.Fatal(err)
 	}
 
-	test(sc)
+	sct := &SCTest{t, sc}
+	test(sct)
 }
 
 func runningOnAWS() bool {

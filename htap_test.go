@@ -257,14 +257,12 @@ func TestAddingQcesWithDifferentId(t *testing.T) {
 }
 
 func TestAddingQueryContextCacheEntry(t *testing.T) {
-	runSnowflakeConnTest(t, func(sc *snowflakeConn) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
 		t.Run("First query (may be on empty cache)", func(t *testing.T) {
-			entriesBefore := make([]queryContextEntry, len(sc.queryContextCache.entries))
-			copy(entriesBefore, sc.queryContextCache.entries)
-			if _, err := sc.Query("SELECT 1", nil); err != nil {
-				t.Fatalf("cannot query. %v", err)
-			}
-			entriesAfter := sc.queryContextCache.entries
+			entriesBefore := make([]queryContextEntry, len(sct.sc.queryContextCache.entries))
+			copy(entriesBefore, sct.sc.queryContextCache.entries)
+			sct.mustQuery("SELECT 1", nil)
+			entriesAfter := sct.sc.queryContextCache.entries
 
 			if !containsNewEntries(entriesAfter, entriesBefore) {
 				t.Error("no new entries added to the query context cache")
@@ -272,15 +270,13 @@ func TestAddingQueryContextCacheEntry(t *testing.T) {
 		})
 
 		t.Run("Second query (cache should not be empty)", func(t *testing.T) {
-			entriesBefore := make([]queryContextEntry, len(sc.queryContextCache.entries))
-			copy(entriesBefore, sc.queryContextCache.entries)
+			entriesBefore := make([]queryContextEntry, len(sct.sc.queryContextCache.entries))
+			copy(entriesBefore, sct.sc.queryContextCache.entries)
 			if len(entriesBefore) == 0 {
 				t.Fatalf("cache should not be empty after first query")
 			}
-			if _, err := sc.Query("SELECT 2", nil); err != nil {
-				t.Fatalf("cannot query. %v", err)
-			}
-			entriesAfter := sc.queryContextCache.entries
+			sct.mustQuery("SELECT 2", nil)
+			entriesAfter := sct.sc.queryContextCache.entries
 
 			if !containsNewEntries(entriesAfter, entriesBefore) {
 				t.Error("no new entries added to the query context cache")
