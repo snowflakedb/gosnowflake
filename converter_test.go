@@ -1242,125 +1242,90 @@ func TestArrowToRecord(t *testing.T) {
 }
 
 func TestTimestampLTZLocation(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Error(err)
-	}
-	ctx := context.Background()
-	sc, err := buildSnowflakeConn(ctx, *config)
-	if err != nil {
-		t.Error(err)
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Error(err)
-	}
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		src := "1549491451.123456789"
+		var dest driver.Value
+		loc, _ := time.LoadLocation(PSTLocation)
+		if err := stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, loc); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		ts, ok := dest.(time.Time)
+		if !ok {
+			t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
+		}
+		if ts.Location() != loc {
+			t.Errorf("expected location to be %v, got '%v'", loc, ts.Location())
+		}
 
-	src := "1549491451.123456789"
-	var dest driver.Value
-	loc, _ := time.LoadLocation(PSTLocation)
-	if err = stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, loc); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	ts, ok := dest.(time.Time)
-	if !ok {
-		t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
-	}
-	if ts.Location() != loc {
-		t.Errorf("expected location to be %v, got '%v'", loc, ts.Location())
-	}
-
-	if err = stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, nil); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	ts, ok = dest.(time.Time)
-	if !ok {
-		t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
-	}
-	if ts.Location() != time.Local {
-		t.Errorf("expected location to be local, got '%v'", ts.Location())
-	}
+		if err := stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, nil); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		ts, ok = dest.(time.Time)
+		if !ok {
+			t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
+		}
+		if ts.Location() != time.Local {
+			t.Errorf("expected location to be local, got '%v'", ts.Location())
+		}
+	})
 }
 
 func TestSmallTimestampBinding(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Error(err)
-	}
-	ctx := context.Background()
-	sc, err := buildSnowflakeConn(ctx, *config)
-	if err != nil {
-		t.Error(err)
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Error(err)
-	}
-	timeValue, err := time.Parse("2006-01-02 15:04:05", "1600-10-10 10:10:10")
-	if err != nil {
-		t.Fatalf("failed to parse time: %v", err)
-	}
-	parameters := []driver.NamedValue{
-		{Ordinal: 1, Value: DataTypeTimestampNtz},
-		{Ordinal: 2, Value: timeValue},
-	}
-
-	rows, err := sc.QueryContext(ctx, "SELECT ?", parameters)
-	if err != nil {
-		t.Fatalf("failed to run query: %v", err)
-	}
-	defer rows.Close()
-
-	scanValues := make([]driver.Value, 1)
-	for {
-		if err := rows.Next(scanValues); err == io.EOF {
-			break
-		} else if err != nil {
-			t.Fatalf("failed to run query: %v", err)
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		ctx := context.Background()
+		timeValue, err := time.Parse("2006-01-02 15:04:05", "1600-10-10 10:10:10")
+		if err != nil {
+			t.Fatalf("failed to parse time: %v", err)
 		}
-		if scanValues[0] != timeValue {
-			t.Fatalf("unexpected result. expected: %v, got: %v", timeValue, scanValues[0])
+		parameters := []driver.NamedValue{
+			{Ordinal: 1, Value: DataTypeTimestampNtz},
+			{Ordinal: 2, Value: timeValue},
 		}
-	}
+
+		rows := sct.mustQueryContext(ctx, "SELECT ?", parameters)
+		defer rows.Close()
+
+		scanValues := make([]driver.Value, 1)
+		for {
+			if err := rows.Next(scanValues); err == io.EOF {
+				break
+			} else if err != nil {
+				t.Fatalf("failed to run query: %v", err)
+			}
+			if scanValues[0] != timeValue {
+				t.Fatalf("unexpected result. expected: %v, got: %v", timeValue, scanValues[0])
+			}
+		}
+	})
 }
 
 func TestLargeTimestampBinding(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Error(err)
-	}
-	ctx := context.Background()
-	sc, err := buildSnowflakeConn(ctx, *config)
-	if err != nil {
-		t.Error(err)
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Error(err)
-	}
-	timeValue, err := time.Parse("2006-01-02 15:04:05", "9000-10-10 10:10:10")
-	if err != nil {
-		t.Fatalf("failed to parse time: %v", err)
-	}
-	parameters := []driver.NamedValue{
-		{Ordinal: 1, Value: DataTypeTimestampNtz},
-		{Ordinal: 2, Value: timeValue},
-	}
-
-	rows, err := sc.QueryContext(ctx, "SELECT ?", parameters)
-	if err != nil {
-		t.Fatalf("failed to run query: %v", err)
-	}
-	defer rows.Close()
-
-	scanValues := make([]driver.Value, 1)
-	for {
-		if err := rows.Next(scanValues); err == io.EOF {
-			break
-		} else if err != nil {
-			t.Fatalf("failed to run query: %v", err)
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		ctx := context.Background()
+		timeValue, err := time.Parse("2006-01-02 15:04:05", "9000-10-10 10:10:10")
+		if err != nil {
+			t.Fatalf("failed to parse time: %v", err)
 		}
-		if scanValues[0] != timeValue {
-			t.Fatalf("unexpected result. expected: %v, got: %v", timeValue, scanValues[0])
+		parameters := []driver.NamedValue{
+			{Ordinal: 1, Value: DataTypeTimestampNtz},
+			{Ordinal: 2, Value: timeValue},
 		}
-	}
+
+		rows := sct.mustQueryContext(ctx, "SELECT ?", parameters)
+		defer rows.Close()
+
+		scanValues := make([]driver.Value, 1)
+		for {
+			if err := rows.Next(scanValues); err == io.EOF {
+				break
+			} else if err != nil {
+				t.Fatalf("failed to run query: %v", err)
+			}
+			if scanValues[0] != timeValue {
+				t.Fatalf("unexpected result. expected: %v, got: %v", timeValue, scanValues[0])
+			}
+		}
+	})
 }
 
 func TestTimeTypeValueToString(t *testing.T) {

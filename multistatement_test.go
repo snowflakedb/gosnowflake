@@ -481,115 +481,97 @@ func funcGetQueryRespError(_ context.Context, _ *snowflakeRestful, _ *url.URL, _
 }
 
 func TestUnitHandleMultiExec(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Error(err)
-	}
-	sc, err := buildSnowflakeConn(context.Background(), *config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Fatal(err)
-	}
-	data := &execResponseData{
-		ResultIDs:   "",
-		ResultTypes: "",
-	}
-	_, err = sc.handleMultiExec(context.Background(), *data)
-	if err == nil {
-		t.Fatalf("should have failed")
-	}
-	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrNoResultIDs {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrNoResultIDs, driverErr.Number)
-	}
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		data := execResponseData{
+			ResultIDs:   "",
+			ResultTypes: "",
+		}
+		_, err := sct.sc.handleMultiExec(context.Background(), data)
+		if err == nil {
+			t.Fatalf("should have failed")
+		}
+		driverErr, ok := err.(*SnowflakeError)
+		if !ok {
+			t.Fatalf("should be snowflake error. err: %v", err)
+		}
+		if driverErr.Number != ErrNoResultIDs {
+			t.Fatalf("unexpected error code. expected: %v, got: %v", ErrNoResultIDs, driverErr.Number)
+		}
 
-	sr := &snowflakeRestful{
-		FuncGet:       funcGetQueryRespFail,
-		TokenAccessor: getSimpleTokenAccessor(),
-	}
-	data = &execResponseData{
-		ResultIDs:   "1eFhmhe23242kmfd540GgGre,1eFhmhe23242kmfd540GgGre",
-		ResultTypes: "12544,12544",
-	}
-	sc.rest = sr
-	_, err = sc.handleMultiExec(context.Background(), *data)
-	if err == nil {
-		t.Fatalf("should have failed")
-	}
+		data = execResponseData{
+			ResultIDs:   "1eFhmhe23242kmfd540GgGre,1eFhmhe23242kmfd540GgGre",
+			ResultTypes: "12544,12544",
+		}
+		sct.sc.rest = &snowflakeRestful{
+			FuncGet:          funcGetQueryRespFail,
+			FuncCloseSession: closeSessionMock,
+			TokenAccessor:    getSimpleTokenAccessor(),
+		}
+		_, err = sct.sc.handleMultiExec(context.Background(), data)
+		if err == nil {
+			t.Fatalf("should have failed")
+		}
 
-	sc.rest.FuncGet = funcGetQueryRespError
-	data.SQLState = "01112"
-	_, err = sc.handleMultiExec(context.Background(), *data)
-	if err == nil {
-		t.Fatalf("should have failed")
-	}
-	driverErr, ok = err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrFailedToPostQuery {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrFailedToPostQuery, driverErr.Number)
-	}
+		sct.sc.rest.FuncGet = funcGetQueryRespError
+		data.SQLState = "01112"
+		_, err = sct.sc.handleMultiExec(context.Background(), data)
+		if err == nil {
+			t.Fatalf("should have failed")
+		}
+		driverErr, ok = err.(*SnowflakeError)
+		if !ok {
+			t.Fatalf("should be snowflake error. err: %v", err)
+		}
+		if driverErr.Number != ErrFailedToPostQuery {
+			t.Fatalf("unexpected error code. expected: %v, got: %v", ErrFailedToPostQuery, driverErr.Number)
+		}
+	})
 }
 
 func TestUnitHandleMultiQuery(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Error(err)
-	}
-	sc, err := buildSnowflakeConn(context.Background(), *config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Fatal(err)
-	}
-	data := &execResponseData{
-		ResultIDs:   "",
-		ResultTypes: "",
-	}
-	rows := new(snowflakeRows)
-	err = sc.handleMultiQuery(context.Background(), *data, rows)
-	if err == nil {
-		t.Fatalf("should have failed")
-	}
-	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrNoResultIDs {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrNoResultIDs, driverErr.Number)
-	}
-	sr := &snowflakeRestful{
-		FuncGet:       funcGetQueryRespFail,
-		TokenAccessor: getSimpleTokenAccessor(),
-	}
-	data = &execResponseData{
-		ResultIDs:   "1eFhmhe23242kmfd540GgGre,1eFhmhe23242kmfd540GgGre",
-		ResultTypes: "12544,12544",
-	}
-	sc.rest = sr
-	err = sc.handleMultiQuery(context.Background(), *data, rows)
-	if err == nil {
-		t.Fatalf("should have failed")
-	}
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		data := execResponseData{
+			ResultIDs:   "",
+			ResultTypes: "",
+		}
+		rows := new(snowflakeRows)
+		err := sct.sc.handleMultiQuery(context.Background(), data, rows)
+		if err == nil {
+			t.Fatalf("should have failed")
+		}
+		driverErr, ok := err.(*SnowflakeError)
+		if !ok {
+			t.Fatalf("should be snowflake error. err: %v", err)
+		}
+		if driverErr.Number != ErrNoResultIDs {
+			t.Fatalf("unexpected error code. expected: %v, got: %v", ErrNoResultIDs, driverErr.Number)
+		}
+		data = execResponseData{
+			ResultIDs:   "1eFhmhe23242kmfd540GgGre,1eFhmhe23242kmfd540GgGre",
+			ResultTypes: "12544,12544",
+		}
+		sct.sc.rest = &snowflakeRestful{
+			FuncGet:          funcGetQueryRespFail,
+			FuncCloseSession: closeSessionMock,
+			TokenAccessor:    getSimpleTokenAccessor(),
+		}
+		err = sct.sc.handleMultiQuery(context.Background(), data, rows)
+		if err == nil {
+			t.Fatalf("should have failed")
+		}
 
-	sc.rest.FuncGet = funcGetQueryRespError
-	data.SQLState = "01112"
-	err = sc.handleMultiQuery(context.Background(), *data, rows)
-	if err == nil {
-		t.Fatalf("should have failed")
-	}
-	driverErr, ok = err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrFailedToPostQuery {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrFailedToPostQuery, driverErr.Number)
-	}
+		sct.sc.rest.FuncGet = funcGetQueryRespError
+		data.SQLState = "01112"
+		err = sct.sc.handleMultiQuery(context.Background(), data, rows)
+		if err == nil {
+			t.Fatalf("should have failed")
+		}
+		driverErr, ok = err.(*SnowflakeError)
+		if !ok {
+			t.Fatalf("should be snowflake error. err: %v", err)
+		}
+		if driverErr.Number != ErrFailedToPostQuery {
+			t.Fatalf("unexpected error code. expected: %v, got: %v", ErrFailedToPostQuery, driverErr.Number)
+		}
+	})
 }
