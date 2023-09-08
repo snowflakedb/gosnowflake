@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -120,9 +121,7 @@ type execResponseData struct {
 	Operation               string                `json:"operation,omitempty"`
 
 	// HTAP
-	QueryContext struct {
-		Entries []queryContextEntry `json:"entries,omitempty"`
-	} `json:"queryContext,omitempty"`
+	QueryContext json.RawMessage `json:"queryContext,omitempty"`
 }
 
 type execResponse struct {

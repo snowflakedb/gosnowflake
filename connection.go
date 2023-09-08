@@ -141,7 +141,14 @@ func (sc *snowflakeConn) exec(
 		return nil, err
 	}
 
-	sc.queryContextCache.add(sc, data.Data.QueryContext.Entries...)
+	if !sc.cfg.DisableQueryContextCache && data.Data.QueryContext != nil {
+		queryContext, err := extractQueryContext(data)
+		if err != nil {
+			logger.Errorf("error while decoding query context: ", err)
+		} else {
+			sc.queryContextCache.add(sc, queryContext.Entries...)
+		}
+	}
 
 	// handle PUT/GET commands
 	if isFileTransfer(query) {
@@ -158,6 +165,12 @@ func (sc *snowflakeConn) exec(
 	sc.cfg.Warehouse = data.Data.FinalWarehouseName
 	sc.populateSessionParameters(data.Data.Parameters)
 	return data, err
+}
+
+func extractQueryContext(data *execResponse) (queryContext, error) {
+	var queryContext queryContext
+	err := json.Unmarshal(data.Data.QueryContext, &queryContext)
+	return queryContext, err
 }
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
