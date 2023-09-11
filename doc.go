@@ -118,6 +118,9 @@ The following connection parameters are supported:
   - tracing: Specifies the logging level to be used. Set to error by default.
     Valid values are trace, debug, info, print, warning, error, fatal, panic.
 
+  - disableQueryContextCache: disables parsing of query context returned from server and resending it to server as well.
+    Default value is false.
+
 All other parameters are interpreted as session parameters (https://docs.snowflake.com/en/sql-reference/parameters.html).
 For example, the TIMESTAMP_OUTPUT_FORMAT session parameter can be set by adding:
 

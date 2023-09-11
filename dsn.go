@@ -97,6 +97,8 @@ type Config struct {
 	IDToken                        string     // Internally used to cache the Id Token for external browser
 	ClientRequestMfaToken          ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
 	ClientStoreTemporaryCredential ConfigBool // When true the ID token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
+
+	DisableQueryContextCache bool // Should HTAP query context cache be disabled
 }
 
 // Validate enables testing if config is correct.
@@ -229,6 +231,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.TmpDirPath != "" {
 		params.Add("tmpDirPath", cfg.TmpDirPath)
+	}
+	if cfg.DisableQueryContextCache {
+		params.Add("disableQueryContextCache", "true")
 	}
 
 	params.Add("ocspFailOpen", strconv.FormatBool(cfg.OCSPFailOpen != OCSPFailOpenFalse))
@@ -702,6 +707,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Tracing = value
 		case "tmpDirPath":
 			cfg.TmpDirPath = value
+		case "disableQueryContextCache":
+			var b bool
+			b, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.DisableQueryContextCache = b
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

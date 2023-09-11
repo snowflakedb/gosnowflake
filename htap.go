@@ -11,6 +11,10 @@ const (
 	defaultQueryContextCacheSize   = 5
 )
 
+type queryContext struct {
+	Entries []queryContextEntry `json:"entries,omitempty"`
+}
+
 type queryContextEntry struct {
 	ID        int   `json:"id"`
 	Timestamp int64 `json:"timestamp"`
