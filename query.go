@@ -28,6 +28,22 @@ type execRequest struct {
 	Parameters   map[string]interface{}       `json:"parameters,omitempty"`
 	Bindings     map[string]execBindParameter `json:"bindings,omitempty"`
 	BindStage    string                       `json:"bindStage,omitempty"`
+	QueryContext requestQueryContext          `json:"queryContextDTO,omitempty"`
+}
+
+type requestQueryContext struct {
+	Entries []requestQueryContextEntry `json:"entries,omitempty"`
+}
+
+type requestQueryContextEntry struct {
+	Context   contextData `json:"context,omitempty"`
+	ID        int         `json:"id"`
+	Priority  int         `json:"priority"`
+	Timestamp int64       `json:"timestamp,omitempty"`
+}
+
+type contextData struct {
+	Base64Data string `json:"base64Data,omitempty"`
 }
 
 type execResponseRowType struct {

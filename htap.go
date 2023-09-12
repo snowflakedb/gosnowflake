@@ -16,10 +16,10 @@ type queryContext struct {
 }
 
 type queryContextEntry struct {
-	ID        int   `json:"id"`
-	Timestamp int64 `json:"timestamp"`
-	Priority  int   `json:"priority"`
-	Context   any   `json:"context,omitempty"`
+	ID        int    `json:"id"`
+	Timestamp int64  `json:"timestamp"`
+	Priority  int    `json:"priority"`
+	Context   string `json:"context,omitempty"`
 }
 
 type queryContextCache struct {
