@@ -87,115 +87,102 @@ func TestLoadS3(t *testing.T) {
 }
 
 func TestPutWithInvalidToken(t *testing.T) {
-	if !runningOnAWS() {
-		t.Skip("skipping non aws environment")
-	}
-	tmpDir, err := os.MkdirTemp("", "aws_put")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
-	fname := filepath.Join(tmpDir, "test_put_get_with_aws.txt.gz")
-	originalContents := "123,test1\n456,test2\n"
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		if !runningOnAWS() {
+			t.Skip("skipping non aws environment")
+		}
+		tmpDir, err := os.MkdirTemp("", "aws_put")
+		if err != nil {
+			t.Error(err)
+		}
+		defer os.RemoveAll(tmpDir)
+		fname := filepath.Join(tmpDir, "test_put_get_with_aws.txt.gz")
+		originalContents := "123,test1\n456,test2\n"
 
-	var b bytes.Buffer
-	gzw := gzip.NewWriter(&b)
-	gzw.Write([]byte(originalContents))
-	gzw.Close()
-	if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
-		t.Fatal("could not write to gzip file")
-	}
+		var b bytes.Buffer
+		gzw := gzip.NewWriter(&b)
+		gzw.Write([]byte(originalContents))
+		gzw.Close()
+		if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
+			t.Fatal("could not write to gzip file")
+		}
 
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Error(err)
-	}
-	sc, err := buildSnowflakeConn(context.Background(), *config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Fatal(err)
-	}
+		tableName := randomString(5)
+		sct.mustExec("create or replace table "+tableName+" (a int, b string)", nil)
+		defer sct.mustExec("drop table "+tableName, nil)
 
-	tableName := randomString(5)
-	if _, err = sc.Exec("create or replace table "+tableName+
-		" (a int, b string)", nil); err != nil {
-		t.Fatal(err)
-	}
-	defer sc.Exec("drop table "+tableName, nil)
+		jsonBody, err := json.Marshal(execRequest{
+			SQLText: fmt.Sprintf("put 'file://%v' @%%%v", fname, tableName),
+		})
+		if err != nil {
+			t.Error(err)
+		}
+		headers := getHeaders()
+		headers[httpHeaderAccept] = headerContentTypeApplicationJSON
+		data, err := sct.sc.rest.FuncPostQuery(
+			sct.sc.ctx, sct.sc.rest, &url.Values{}, headers, jsonBody,
+			sct.sc.rest.RequestTimeout, getOrGenerateRequestIDFromContext(sct.sc.ctx), sct.sc.cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	jsonBody, err := json.Marshal(execRequest{
-		SQLText: fmt.Sprintf("put 'file://%v' @%%%v", fname, tableName),
+		s3Util := new(snowflakeS3Client)
+		s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
+		if err != nil {
+			t.Error(err)
+		}
+		client := s3Cli.(*s3.Client)
+
+		s3Loc, err := s3Util.extractBucketNameAndPath(data.Data.StageInfo.Location)
+		if err != nil {
+			t.Error(err)
+		}
+		s3Path := s3Loc.s3Path + baseName(fname) + ".gz"
+
+		f, err := os.Open(fname)
+		if err != nil {
+			t.Error(err)
+		}
+		defer f.Close()
+		uploader := manager.NewUploader(client)
+		if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
+			Bucket: &s3Loc.bucketName,
+			Key:    &s3Path,
+			Body:   f,
+		}); err != nil {
+			t.Fatal(err)
+		}
+
+		parentPath := filepath.Dir(filepath.Dir(s3Path)) + "/"
+		if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
+			Bucket: &s3Loc.bucketName,
+			Key:    &parentPath,
+			Body:   f,
+		}); err == nil {
+			t.Fatal("should have failed attempting to put file in parent path")
+		}
+
+		info := execResponseStageInfo{
+			Creds: execResponseCredentials{
+				AwsID:        data.Data.StageInfo.Creds.AwsID,
+				AwsSecretKey: data.Data.StageInfo.Creds.AwsSecretKey,
+			},
+		}
+		s3Cli, err = s3Util.createClient(&info, false)
+		if err != nil {
+			t.Error(err)
+		}
+		client = s3Cli.(*s3.Client)
+
+		uploader = manager.NewUploader(client)
+		if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
+			Bucket: &s3Loc.bucketName,
+			Key:    &s3Path,
+			Body:   f,
+		}); err == nil {
+			t.Fatal("should have failed attempting to put with missing aws token")
+		}
 	})
-	if err != nil {
-		t.Error(err)
-	}
-	headers := getHeaders()
-	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
-	data, err := sc.rest.FuncPostQuery(
-		sc.ctx, sc.rest, &url.Values{}, headers, jsonBody,
-		sc.rest.RequestTimeout, getOrGenerateRequestIDFromContext(sc.ctx), sc.cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	s3Util := new(snowflakeS3Client)
-	s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
-	if err != nil {
-		t.Error(err)
-	}
-	client := s3Cli.(*s3.Client)
-
-	s3Loc, err := s3Util.extractBucketNameAndPath(data.Data.StageInfo.Location)
-	if err != nil {
-		t.Error(err)
-	}
-	s3Path := s3Loc.s3Path + baseName(fname) + ".gz"
-
-	f, err := os.Open(fname)
-	if err != nil {
-		t.Error(err)
-	}
-	defer f.Close()
-	uploader := manager.NewUploader(client)
-	if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
-		Bucket: &s3Loc.bucketName,
-		Key:    &s3Path,
-		Body:   f,
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	parentPath := filepath.Dir(filepath.Dir(s3Path)) + "/"
-	if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
-		Bucket: &s3Loc.bucketName,
-		Key:    &parentPath,
-		Body:   f,
-	}); err == nil {
-		t.Fatal("should have failed attempting to put file in parent path")
-	}
-
-	info := execResponseStageInfo{
-		Creds: execResponseCredentials{
-			AwsID:        data.Data.StageInfo.Creds.AwsID,
-			AwsSecretKey: data.Data.StageInfo.Creds.AwsSecretKey,
-		},
-	}
-	s3Cli, err = s3Util.createClient(&info, false)
-	if err != nil {
-		t.Error(err)
-	}
-	client = s3Cli.(*s3.Client)
-
-	uploader = manager.NewUploader(client)
-	if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
-		Bucket: &s3Loc.bucketName,
-		Key:    &s3Path,
-		Body:   f,
-	}); err == nil {
-		t.Fatal("should have failed attempting to put with missing aws token")
-	}
 }
 
 func TestPretendToPutButList(t *testing.T) {
@@ -218,50 +205,38 @@ func TestPretendToPutButList(t *testing.T) {
 		t.Fatal("could not write to gzip file")
 	}
 
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Error(err)
-	}
-	sc, err := buildSnowflakeConn(context.Background(), *config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Fatal(err)
-	}
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		tableName := randomString(5)
+		sct.mustExec("create or replace table "+tableName+
+			" (a int, b string)", nil)
+		defer sct.sc.Exec("drop table "+tableName, nil)
 
-	tableName := randomString(5)
-	if _, err = sc.Exec("create or replace table "+tableName+
-		" (a int, b string)", nil); err != nil {
-		t.Fatal(err)
-	}
-	defer sc.Exec("drop table "+tableName, nil)
+		jsonBody, err := json.Marshal(execRequest{
+			SQLText: fmt.Sprintf("put 'file://%v' @%%%v", fname, tableName),
+		})
+		if err != nil {
+			t.Error(err)
+		}
+		headers := getHeaders()
+		headers[httpHeaderAccept] = headerContentTypeApplicationJSON
+		data, err := sct.sc.rest.FuncPostQuery(
+			sct.sc.ctx, sct.sc.rest, &url.Values{}, headers, jsonBody,
+			sct.sc.rest.RequestTimeout, getOrGenerateRequestIDFromContext(sct.sc.ctx), sct.sc.cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	jsonBody, err := json.Marshal(execRequest{
-		SQLText: fmt.Sprintf("put 'file://%v' @%%%v", fname, tableName),
+		s3Util := new(snowflakeS3Client)
+		s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
+		if err != nil {
+			t.Error(err)
+		}
+		client := s3Cli.(*s3.Client)
+		if _, err = client.ListBuckets(context.Background(),
+			&s3.ListBucketsInput{}); err == nil {
+			t.Fatal("list buckets should fail")
+		}
 	})
-	if err != nil {
-		t.Error(err)
-	}
-	headers := getHeaders()
-	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
-	data, err := sc.rest.FuncPostQuery(
-		sc.ctx, sc.rest, &url.Values{}, headers, jsonBody,
-		sc.rest.RequestTimeout, getOrGenerateRequestIDFromContext(sc.ctx), sc.cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	s3Util := new(snowflakeS3Client)
-	s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
-	if err != nil {
-		t.Error(err)
-	}
-	client := s3Cli.(*s3.Client)
-	if _, err = client.ListBuckets(context.Background(),
-		&s3.ListBucketsInput{}); err == nil {
-		t.Fatal("list buckets should fail")
-	}
 }
 
 func TestPutGetAWSStage(t *testing.T) {

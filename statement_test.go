@@ -1,4 +1,5 @@
 // Copyright (c) 2020-2022 Snowflake Computing Inc. All rights reserved.
+//lint:file-ignore SA1019 Ignore deprecated methods. We should leave them as-is to keep backward compatibility.
 
 package gosnowflake
 
@@ -286,4 +287,130 @@ func TestUnitCheckQueryStatus(t *testing.T) {
 	if driverErr.Number != ErrQueryStatus {
 		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrQueryStatus, driverErr.Number)
 	}
+}
+
+func TestStatementQueryIdForQueries(t *testing.T) {
+	ctx := context.Background()
+	conn := openConn(t)
+	defer conn.Close()
+
+	testcases := []struct {
+		name string
+		f    func(stmt driver.Stmt) (driver.Rows, error)
+	}{
+		{
+			"query",
+			func(stmt driver.Stmt) (driver.Rows, error) {
+				return stmt.Query(nil)
+			},
+		},
+		{
+			"queryContext",
+			func(stmt driver.Stmt) (driver.Rows, error) {
+				return stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := conn.Raw(func(x any) error {
+				stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "SELECT 1")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if stmt.(SnowflakeStmt).GetQueryID() != "" {
+					t.Error("queryId should be empty before executing any query")
+				}
+				firstQuery, err := tc.f(stmt)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if stmt.(SnowflakeStmt).GetQueryID() == "" {
+					t.Error("queryId should not be empty after executing query")
+				}
+				if stmt.(SnowflakeStmt).GetQueryID() != firstQuery.(SnowflakeRows).GetQueryID() {
+					t.Error("queryId should be equal among query result and prepared statement")
+				}
+				secondQuery, err := tc.f(stmt)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if stmt.(SnowflakeStmt).GetQueryID() == "" {
+					t.Error("queryId should not be empty after executing query")
+				}
+				if stmt.(SnowflakeStmt).GetQueryID() != secondQuery.(SnowflakeRows).GetQueryID() {
+					t.Error("queryId should be equal among query result and prepared statement")
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestStatementQueryIdForExecs(t *testing.T) {
+	ctx := context.Background()
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("CREATE TABLE TestStatementQueryIdForExecs (v INTEGER)")
+		defer dbt.mustExec("DROP TABLE IF EXISTS TestStatementQueryIdForExecs")
+
+		testcases := []struct {
+			name string
+			f    func(stmt driver.Stmt) (driver.Result, error)
+		}{
+			{
+				"exec",
+				func(stmt driver.Stmt) (driver.Result, error) {
+					return stmt.Exec(nil)
+				},
+			},
+			{
+				"execContext",
+				func(stmt driver.Stmt) (driver.Result, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+				},
+			},
+		}
+
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				err := dbt.conn.Raw(func(x any) error {
+					stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "INSERT INTO TestStatementQueryIdForExecs VALUES (1)")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() != "" {
+						t.Error("queryId should be empty before executing any query")
+					}
+					firstExec, err := tc.f(stmt)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() == "" {
+						t.Error("queryId should not be empty after executing query")
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() != firstExec.(SnowflakeResult).GetQueryID() {
+						t.Error("queryId should be equal among query result and prepared statement")
+					}
+					secondExec, err := tc.f(stmt)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() == "" {
+						t.Error("queryId should not be empty after executing query")
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() != secondExec.(SnowflakeResult).GetQueryID() {
+						t.Error("queryId should be equal among query result and prepared statement")
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
+	})
 }

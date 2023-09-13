@@ -39,7 +39,7 @@ func (sc *snowflakeConn) stopHeartBeat() {
 	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
-	if sc.rest != nil {
+	if sc.rest != nil && sc.rest.HeartBeat != nil {
 		sc.rest.HeartBeat.stop()
 	}
 }
@@ -213,8 +213,8 @@ func updateRows(data execResponseData) (int64, error) {
 // Note that the statement type code is also equivalent to type INSERT, so an
 // additional check of the name is required
 func isMultiStmt(data *execResponseData) bool {
-	return data.StatementTypeID == statementTypeIDMulti &&
-		data.RowType[0].Name == "multiple statement execution"
+	var isMultistatementByReturningSelect = data.StatementTypeID == statementTypeIDSelect && data.RowType[0].Name == "multiple statement execution"
+	return isMultistatementByReturningSelect || data.StatementTypeID == statementTypeIDMultistatement
 }
 
 func getResumeQueryID(ctx context.Context) (string, error) {

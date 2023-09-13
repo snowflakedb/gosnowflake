@@ -25,7 +25,6 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
-
 	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
 	privKeyPKCS1 := generatePKCS1String(testPrivKey)
 	testcases := []tcParseDSN{
@@ -201,7 +200,7 @@ func TestParseDSN(t *testing.T) {
 				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyPassword,
+			err:      errEmptyPassword(),
 		},
 		{
 			dsn: "@host:123/db/schema?account=ac&protocol=http",
@@ -216,7 +215,7 @@ func TestParseDSN(t *testing.T) {
 				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyUsername,
+			err:      errEmptyUsername(),
 		},
 		{
 			dsn: "user:p@host:123/db/schema?protocol=http",
@@ -231,7 +230,7 @@ func TestParseDSN(t *testing.T) {
 				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyAccount,
+			err:      errEmptyAccount(),
 		},
 		{
 			dsn: "u:p@a.snowflakecomputing.com/db/pa?account=a&protocol=https&role=r&timezone=UTC&warehouse=w",
@@ -415,12 +414,12 @@ func TestParseDSN(t *testing.T) {
 		{
 			dsn:    "u:u@/+/+?account=+&=0",
 			config: &Config{},
-			err:    ErrEmptyAccount,
+			err:    errEmptyAccount(),
 		},
 		{
 			dsn:    "u:u@/+/+?account=+&=+&=+",
 			config: &Config{},
-			err:    ErrEmptyAccount,
+			err:    errEmptyAccount(),
 		},
 		{
 			dsn: "user%40%2F1:p%3A%40s@/db%2F?account=ac",
@@ -573,9 +572,10 @@ func TestParseDSN(t *testing.T) {
 				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
 				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
-				ClientTimeout:          300 * time.Second,
-				JWTClientTimeout:       45 * time.Second,
-				ExternalBrowserTimeout: defaultExternalBrowserTimeout,
+				ClientTimeout:            300 * time.Second,
+				JWTClientTimeout:         45 * time.Second,
+				ExternalBrowserTimeout:   defaultExternalBrowserTimeout,
+				DisableQueryContextCache: false,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -590,6 +590,20 @@ func TestParseDSN(t *testing.T) {
 				JWTClientTimeout:       defaultJWTClientTimeout,
 				ExternalBrowserTimeout: defaultExternalBrowserTimeout,
 				TmpDirPath:             "/tmp",
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&disableQueryContextCache=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
+				ClientTimeout:            defaultClientTimeout,
+				JWTClientTimeout:         defaultJWTClientTimeout,
+				ExternalBrowserTimeout:   defaultExternalBrowserTimeout,
+				DisableQueryContextCache: true,
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
@@ -630,7 +644,7 @@ func TestParseDSN(t *testing.T) {
 				Authenticator:             at,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyUsername,
+			err:      errEmptyUsername(),
 		})
 	}
 
@@ -649,7 +663,7 @@ func TestParseDSN(t *testing.T) {
 				Authenticator:             at,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      ErrEmptyPassword,
+			err:      errEmptyPassword(),
 		})
 	}
 
@@ -744,6 +758,9 @@ func TestParseDSN(t *testing.T) {
 				if test.config.TmpDirPath != cfg.TmpDirPath {
 					t.Fatalf("%v: Failed to match TmpDirPatch. expected: %v, got: %v", i, test.config.TmpDirPath, cfg.TmpDirPath)
 				}
+				if test.config.DisableQueryContextCache != cfg.DisableQueryContextCache {
+					t.Fatalf("%v: Failed to match DisableQueryContextCache. expected: %v, got: %v", i, test.config.DisableQueryContextCache, cfg.DisableQueryContextCache)
+				}
 			case test.err != nil:
 				driverErrE, okE := test.err.(*SnowflakeError)
 				driverErrG, okG := err.(*SnowflakeError)
@@ -775,7 +792,6 @@ type tcDSN struct {
 
 func TestDSN(t *testing.T) {
 	tmfmt := "MM-DD-YYYY"
-
 	testcases := []tcDSN{
 		{
 			cfg: &Config{
@@ -809,7 +825,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a-aofnadsf.global",
 				Region:   "r",
 			},
-			err: ErrInvalidRegion,
+			err: errInvalidRegion(),
 		},
 		{
 			cfg: &Config{
@@ -853,7 +869,7 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "a",
 			},
-			err: ErrEmptyUsername,
+			err: errEmptyUsername(),
 		},
 		{
 			cfg: &Config{
@@ -861,7 +877,7 @@ func TestDSN(t *testing.T) {
 				Password: "",
 				Account:  "a",
 			},
-			err: ErrEmptyPassword,
+			err: errEmptyPassword(),
 		},
 		{
 			cfg: &Config{
@@ -869,7 +885,7 @@ func TestDSN(t *testing.T) {
 				Password: "p",
 				Account:  "",
 			},
-			err: ErrEmptyAccount,
+			err: errEmptyAccount(),
 		},
 		{
 			cfg: &Config{
@@ -895,7 +911,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.e",
 				Region:   "r",
 			},
-			err: ErrInvalidRegion,
+			err: errInvalidRegion(),
 		},
 		{
 			cfg: &Config{
@@ -1039,7 +1055,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.b.c",
 				Region:   "r",
 			},
-			err: ErrInvalidRegion,
+			err: errInvalidRegion(),
 		},
 		{
 			cfg: &Config{
@@ -1134,6 +1150,15 @@ func TestDSN(t *testing.T) {
 				TmpDirPath: "/tmp",
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tmpDirPath=%2Ftmp&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                     "u",
+				Password:                 "p",
+				Account:                  "a.b.c",
+				DisableQueryContextCache: true,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?disableQueryContextCache=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {

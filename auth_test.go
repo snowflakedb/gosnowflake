@@ -368,26 +368,24 @@ func postAuthCheckExternalBrowserFailed(_ context.Context, _ *snowflakeRestful, 
 }
 
 func getDefaultSnowflakeConn() *snowflakeConn {
-	cfg := Config{
-		Account:            "a",
-		User:               "u",
-		Password:           "p",
-		Database:           "d",
-		Schema:             "s",
-		Warehouse:          "w",
-		Role:               "r",
-		Region:             "",
-		Params:             make(map[string]*string),
-		PasscodeInPassword: false,
-		Passcode:           "",
-		Application:        "testapp",
-	}
-	sr := &snowflakeRestful{
-		TokenAccessor: getSimpleTokenAccessor(),
-	}
 	sc := &snowflakeConn{
-		rest:      sr,
-		cfg:       &cfg,
+		rest: &snowflakeRestful{
+			TokenAccessor: getSimpleTokenAccessor(),
+		},
+		cfg: &Config{
+			Account:            "a",
+			User:               "u",
+			Password:           "p",
+			Database:           "d",
+			Schema:             "s",
+			Warehouse:          "w",
+			Role:               "r",
+			Region:             "",
+			Params:             make(map[string]*string),
+			PasscodeInPassword: false,
+			Passcode:           "",
+			Application:        "testapp",
+		},
 		telemetry: &snowflakeTelemetry{enabled: false},
 	}
 	return sc

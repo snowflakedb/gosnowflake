@@ -37,9 +37,10 @@ const (
 )
 
 const (
-	statementTypeIDMulti            = int64(0x1000)
+	statementTypeIDSelect           = int64(0x1000)
 	statementTypeIDDml              = int64(0x3000)
 	statementTypeIDMultiTableInsert = statementTypeIDDml + int64(0x500)
+	statementTypeIDMultistatement   = int64(0xA000)
 )
 
 const (
@@ -60,20 +61,18 @@ const (
 const privateLinkSuffix = "privatelink.snowflakecomputing.com"
 
 type snowflakeConn struct {
-	ctx             context.Context
-	cfg             *Config
-	rest            *snowflakeRestful
-	SequenceCounter uint64
-	QueryID         string
-	SQLState        string
-	telemetry       *snowflakeTelemetry
-	internal        InternalClient
+	ctx               context.Context
+	cfg               *Config
+	rest              *snowflakeRestful
+	SequenceCounter   uint64
+	telemetry         *snowflakeTelemetry
+	internal          InternalClient
+	queryContextCache *queryContextCache
 }
 
 var (
 	queryIDPattern = `[\w\-_]+`
 	queryIDRegexp  = regexp.MustCompile(queryIDPattern)
-	errMutex       = &sync.Mutex{}
 )
 
 func (sc *snowflakeConn) exec(
@@ -87,6 +86,10 @@ func (sc *snowflakeConn) exec(
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
 
+	queryContext, err := buildQueryContext(sc.queryContextCache)
+	if err != nil {
+		logger.Errorf("error while building query context: %v", err)
+	}
 	req := execRequest{
 		SQLText:      query,
 		AsyncExec:    noResult,
@@ -94,6 +97,7 @@ func (sc *snowflakeConn) exec(
 		IsInternal:   isInternal,
 		DescribeOnly: describeOnly,
 		SequenceID:   counter,
+		QueryContext: queryContext,
 	}
 	if key := ctx.Value(multiStatementCount); key != nil {
 		req.Parameters[string(multiStatementCount)] = key
@@ -139,10 +143,17 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
-		errMutex.Lock()
-		defer errMutex.Unlock()
 		err = (populateErrorFields(code, data)).exceptionTelemetry(sc)
 		return nil, err
+	}
+
+	if !sc.cfg.DisableQueryContextCache && data.Data.QueryContext != nil {
+		queryContext, err := extractQueryContext(data)
+		if err != nil {
+			logger.Errorf("error while decoding query context: ", err)
+		} else {
+			sc.queryContextCache.add(sc, queryContext.Entries...)
+		}
 	}
 
 	// handle PUT/GET commands
@@ -158,10 +169,35 @@ func (sc *snowflakeConn) exec(
 	sc.cfg.Schema = data.Data.FinalSchemaName
 	sc.cfg.Role = data.Data.FinalRoleName
 	sc.cfg.Warehouse = data.Data.FinalWarehouseName
-	sc.QueryID = data.Data.QueryID
-	sc.SQLState = data.Data.SQLState
 	sc.populateSessionParameters(data.Data.Parameters)
 	return data, err
+}
+
+func extractQueryContext(data *execResponse) (queryContext, error) {
+	var queryContext queryContext
+	err := json.Unmarshal(data.Data.QueryContext, &queryContext)
+	return queryContext, err
+}
+
+func buildQueryContext(qcc *queryContextCache) (requestQueryContext, error) {
+	rqc := requestQueryContext{}
+	if qcc == nil || len(qcc.entries) == 0 {
+		logger.Debugf("empty qcc")
+		return rqc, nil
+	}
+	for _, qce := range qcc.entries {
+		contextData := contextData{}
+		if qce.Context == "" {
+			contextData.Base64Data = qce.Context
+		}
+		rqc.Entries = append(rqc.Entries, requestQueryContextEntry{
+			ID:        qce.ID,
+			Priority:  qce.Priority,
+			Timestamp: qce.Timestamp,
+			Context:   contextData,
+		})
+	}
+	return rqc, nil
 }
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
@@ -282,7 +318,7 @@ func (sc *snowflakeConn) ExecContext(
 		return &snowflakeResult{
 			affectedRows: updatedRows,
 			insertID:     -1,
-			queryID:      sc.QueryID,
+			queryID:      data.Data.QueryID,
 		}, nil // last insert id is not supported by Snowflake
 	} else if isMultiStmt(&data.Data) {
 		return sc.handleMultiExec(ctx, data.Data)
@@ -353,7 +389,7 @@ func (sc *snowflakeConn) queryContextInternal(
 
 	rows := new(snowflakeRows)
 	rows.sc = sc
-	rows.queryID = sc.QueryID
+	rows.queryID = data.Data.QueryID
 
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
@@ -683,9 +719,10 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
-		SequenceCounter: 0,
-		ctx:             ctx,
-		cfg:             &config,
+		SequenceCounter:   0,
+		ctx:               ctx,
+		cfg:               &config,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {

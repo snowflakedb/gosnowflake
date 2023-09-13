@@ -118,6 +118,9 @@ The following connection parameters are supported:
   - tracing: Specifies the logging level to be used. Set to error by default.
     Valid values are trace, debug, info, print, warning, error, fatal, panic.
 
+  - disableQueryContextCache: disables parsing of query context returned from server and resending it to server as well.
+    Default value is false.
+
 All other parameters are interpreted as session parameters (https://docs.snowflake.com/en/sql-reference/parameters.html).
 For example, the TIMESTAMP_OUTPUT_FORMAT session parameter can be set by adding:
 
@@ -167,6 +170,36 @@ in place of the default randomized request ID. For example:
 	requestID := ParseUUID("6ba7b812-9dad-11d1-80b4-00c04fd430c8")
 	ctxWithID := WithRequestID(ctx, requestID)
 	rows, err := db.QueryContext(ctxWithID, query)
+
+# Last query ID
+
+If you need query ID for your query you have to use raw connection.
+
+For queries:
+```
+
+	err := conn.Raw(func(x any) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "SELECT 1")
+		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		rows.(SnowflakeRows).GetQueryID()
+		stmt.(SnowflakeStmt).GetQueryID()
+		return nil
+	}
+
+```
+
+For execs:
+```
+
+	err := conn.Raw(func(x any) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "INSERT INTO TestStatementQueryIdForExecs VALUES (1)")
+		result, err := stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+		result.(SnowflakeResult).GetQueryID()
+		stmt.(SnowflakeStmt).GetQueryID()
+		return nil
+	}
+
+```
 
 # Canceling Query by CtrlC
 
