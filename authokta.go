@@ -216,7 +216,7 @@ func postAuthSAML(
 	fullURL := sr.getFullURL(authenticatorRequestPath, params)
 
 	logger.Infof("fullURL: %v", fullURL)
-	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, true)
+	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, true, defaultTimeProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +274,7 @@ func postAuthOKTA(
 	if err != nil {
 		return nil, err
 	}
-	resp, err := sr.FuncPost(ctx, sr, targetURL, headers, body, timeout, false)
+	resp, err := sr.FuncPost(ctx, sr, targetURL, headers, body, timeout, false, defaultTimeProvider)
 	if err != nil {
 		return nil, err
 	}

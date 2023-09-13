@@ -43,7 +43,7 @@ const (
 
 type (
 	funcGetType      func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
-	funcPostType     func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, bool) (*http.Response, error)
+	funcPostType     func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, bool, currentTimeProvider) (*http.Response, error)
 	funcAuthPostType func(context.Context, *http.Client, *url.URL, map[string]string, bodyCreatorType, time.Duration, bool) (*http.Response, error)
 	bodyCreatorType  func() ([]byte, error)
 )
@@ -162,9 +162,10 @@ func postRestful(
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration,
-	raise4XX bool) (
+	raise4XX bool,
+	currentTimeProvider currentTimeProvider) (
 	*http.Response, error) {
-	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout).
+	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, currentTimeProvider).
 		doPost().
 		setBody(body).
 		doRaise4XX(raise4XX).
@@ -178,7 +179,7 @@ func getRestful(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout).execute()
+	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, defaultTimeProvider).execute()
 }
 
 func postAuthRestful(
@@ -190,7 +191,7 @@ func postAuthRestful(
 	timeout time.Duration,
 	raise4XX bool) (
 	*http.Response, error) {
-	return newRetryHTTP(ctx, client, http.NewRequest, fullURL, headers, timeout).
+	return newRetryHTTP(ctx, client, http.NewRequest, fullURL, headers, timeout, defaultTimeProvider).
 		doPost().
 		setBodyCreator(bodyCreator).
 		doRaise4XX(raise4XX).
@@ -233,7 +234,6 @@ func postRestfulQueryHelper(
 	data *execResponse, err error) {
 	logger.Infof("params: %v", params)
 	params.Add(requestIDKey, requestID.String())
-	params.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
 	params.Add(requestGUIDKey, NewUUID().String())
 	token, _, _ := sr.TokenAccessor.GetTokens()
 	if token != "" {
@@ -242,7 +242,7 @@ func postRestfulQueryHelper(
 
 	var resp *http.Response
 	fullURL := sr.getFullURL(queryRequestPath, params)
-	resp, err = sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, true)
+	resp, err = sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, true, defaultTimeProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +334,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	token, _, _ := sr.TokenAccessor.GetTokens()
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 
-	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, nil, 5*time.Second, false)
+	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, nil, 5*time.Second, false, defaultTimeProvider)
 	if err != nil {
 		return err
 	}
@@ -393,7 +393,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 		return err
 	}
 
-	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, reqBody, timeout, false)
+	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, reqBody, timeout, false, defaultTimeProvider)
 	if err != nil {
 		return err
 	}
@@ -465,7 +465,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID UUID, time
 		return err
 	}
 
-	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, reqByte, timeout, false)
+	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, reqByte, timeout, false, defaultTimeProvider)
 	if err != nil {
 		return err
 	}
