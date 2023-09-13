@@ -415,6 +415,11 @@ func retryOCSP(
 		ctx, client, req, ocspHost, headers,
 		totalTimeout*time.Duration(multiplier)).doPost().setBody(reqBody).execute()
 	if err != nil {
+		logger.Infof("error when executing POST request to retry OCSP: %v", err)
+		logger.Infof("falling back to GET OCSP request")
+		res, err = newRetryHTTP(
+			ctx, client, req, ocspHost, headers,
+			totalTimeout*time.Duration(multiplier)).execute()
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedSubmit,
 			err:  err,
@@ -448,6 +453,17 @@ func retryOCSP(
 	return ocspRes, ocspResBytes, &ocspStatus{
 		code: ocspSuccess,
 	}
+}
+
+func fullOCSPURL(url *url.URL) string {
+	fullUrl := url.Hostname()
+	if url.Path != "" {
+		if !strings.HasPrefix(url.Path, "/") {
+			fullUrl += "/"
+		}
+		fullUrl += url.Path
+	}
+	return fullUrl
 }
 
 // getRevocationStatus checks the certificate revocation status for subject using issuer certificate.
@@ -484,14 +500,14 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	hostnameStr := os.Getenv(ocspTestResponderURLEnv)
 	var hostname string
 	if retryURL := os.Getenv(ocspRetryURLEnv); retryURL != "" {
-		hostname = fmt.Sprintf(retryURL, u.Hostname(), base64.StdEncoding.EncodeToString(ocspReq))
+		hostname = fmt.Sprintf(retryURL, fullOCSPURL(u), base64.StdEncoding.EncodeToString(ocspReq))
 		u0, err := url.Parse(hostname)
 		if err == nil {
 			hostname = u0.Hostname()
 			u = u0
 		}
 	} else {
-		hostname = u.Hostname()
+		hostname = fullOCSPURL(u)
 	}
 	if hostnameStr != "" {
 		u0, err := url.Parse(hostnameStr)
