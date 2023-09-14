@@ -415,11 +415,6 @@ func retryOCSP(
 		ctx, client, req, ocspHost, headers,
 		totalTimeout*time.Duration(multiplier)).doPost().setBody(reqBody).execute()
 	if err != nil {
-		logger.Infof("error when executing POST request to retry OCSP: %v", err)
-		logger.Infof("falling back to GET OCSP request")
-		res, err = newRetryHTTP(
-			ctx, client, req, ocspHost, headers,
-			totalTimeout*time.Duration(multiplier)).execute()
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedSubmit,
 			err:  err,
@@ -433,7 +428,6 @@ func retryOCSP(
 			err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
 		}
 	}
-	logger.Debug("reading contents")
 	ocspResBytes, err = io.ReadAll(res.Body)
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
@@ -441,7 +435,58 @@ func retryOCSP(
 			err:  err,
 		}
 	}
-	logger.Debug("parsing OCSP response")
+	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
+	if err != nil {
+		logger.Warnf("error when parsing ocsp response: %v\n", err)
+		logger.Warnf("performing GET fallback request to OCSP\n")
+		return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
+	}
+
+	logger.Debugf("OCSP ResponseStatus from server: %v\n", ocspRes.Status)
+	return ocspRes, ocspResBytes, &ocspStatus{
+		code: ocspSuccess,
+	}
+}
+
+func fallbackRetryOCSPToGETRequest(
+	ctx context.Context,
+	client clientInterface,
+	req requestFunc,
+	ocspHost *url.URL,
+	headers map[string]string,
+	issuer *x509.Certificate,
+	totalTimeout time.Duration) (
+	ocspRes *ocsp.Response,
+	ocspResBytes []byte,
+	ocspS *ocspStatus) {
+	multiplier := 1
+	if atomic.LoadUint32((*uint32)(&ocspFailOpen)) == (uint32)(OCSPFailOpenFalse) {
+		multiplier = 3 // up to 3 times for Fail Close mode
+	}
+	res, err := newRetryHTTP(
+		ctx, client, req, ocspHost, headers,
+		totalTimeout*time.Duration(multiplier)).execute()
+	if err != nil {
+		return ocspRes, ocspResBytes, &ocspStatus{
+			code: ocspFailedSubmit,
+			err:  err,
+		}
+	}
+	defer res.Body.Close()
+	logger.Debugf("GET fallback StatusCode from OCSP Server: %v\n", res.StatusCode)
+	if res.StatusCode != http.StatusOK {
+		return ocspRes, ocspResBytes, &ocspStatus{
+			code: ocspFailedResponse,
+			err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
+		}
+	}
+	ocspResBytes, err = io.ReadAll(res.Body)
+	if err != nil {
+		return ocspRes, ocspResBytes, &ocspStatus{
+			code: ocspFailedExtractResponse,
+			err:  err,
+		}
+	}
 	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
@@ -450,6 +495,7 @@ func retryOCSP(
 		}
 	}
 
+	logger.Debugf("GET fallback OCSP ResponseStatus from server: %v\n", ocspRes.Status)
 	return ocspRes, ocspResBytes, &ocspStatus{
 		code: ocspSuccess,
 	}
