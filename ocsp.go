@@ -515,14 +515,14 @@ func printStatus(response *ocsp.Response) string {
 }
 
 func fullOCSPURL(url *url.URL) string {
-	fullUrl := url.Hostname()
+	fullURL := url.Hostname()
 	if url.Path != "" {
 		if !strings.HasPrefix(url.Path, "/") {
-			fullUrl += "/"
+			fullURL += "/"
 		}
-		fullUrl += url.Path
+		fullURL += url.Path
 	}
-	return fullUrl
+	return fullURL
 }
 
 // getRevocationStatus checks the certificate revocation status for subject using issuer certificate.
