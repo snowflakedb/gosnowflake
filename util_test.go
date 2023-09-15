@@ -24,6 +24,18 @@ type tcUUID struct {
 	uuid string
 }
 
+type constTypeProvider struct {
+	constTime int64
+}
+
+func (ctp *constTypeProvider) currentTime() int64 {
+	return ctp.constTime
+}
+
+func constTimeProvider(constTime int64) *constTypeProvider {
+	return &constTypeProvider{constTime: constTime}
+}
+
 func TestSimpleTokenAccessor(t *testing.T) {
 	accessor := getSimpleTokenAccessor()
 	token, masterToken, sessionID := accessor.GetTokens()

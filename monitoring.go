@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"time"
 )
 
 const urlQueriesResultFmt = "/queries/%s/result"
@@ -208,7 +207,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 	paramsMutex.Unlock()
 	param := make(url.Values)
 	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
-	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
+	param.Add("clientStartTime", strconv.FormatInt(sc.currentTimeProvider.currentTime(), 10))
 	param.Add(requestGUIDKey, NewUUID().String())
 	token, _, _ := sc.rest.TokenAccessor.GetTokens()
 	if token != "" {

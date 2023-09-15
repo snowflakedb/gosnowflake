@@ -319,7 +319,7 @@ func TestOCSPRetry(t *testing.T) {
 	}
 	res, b, st := retryOCSP(
 		context.TODO(),
-		client, fakeRequestFunc,
+		client, emptyRequest,
 		dummyOCSPHost,
 		make(map[string]string), []byte{0}, certs[len(certs)-1], 10*time.Second)
 	if st.err == nil {
