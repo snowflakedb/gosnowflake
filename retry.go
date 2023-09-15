@@ -27,8 +27,12 @@ func init() {
 const (
 	// requestGUIDKey is attached to every request against Snowflake
 	requestGUIDKey string = "request_guid"
-	// retryCounterKey is attached to query-request from the second time
-	retryCounterKey string = "retryCounter"
+	// retryCountKey is attached to query-request from the second time
+	retryCountKey string = "retryCount"
+	// retryReasonKey contains last HTTP status or 0 if timeout
+	retryReasonKey string = "retryReason"
+	// clientStartTime contains a time when client started request (first request, not retries)
+	clientStartTimeKey string = "clientStartTime"
 	// requestIDKey is attached to all requests to Snowflake
 	requestIDKey string = "requestId"
 )
@@ -86,42 +90,91 @@ func (replacer *requestGUIDReplace) replace() *url.URL {
 	return replacer.urlPtr
 }
 
-type retryCounterUpdater interface {
+type retryCountUpdater interface {
 	replaceOrAdd(retry int) *url.URL
 }
 
-type retryCounterUpdate struct {
+type retryCountUpdate struct {
 	urlPtr    *url.URL
 	urlValues url.Values
 }
 
 // this replacer does nothing but replace the url
-type transientReplaceOrAdd struct {
+type transientRetryCountUpdater struct {
 	urlPtr *url.URL
 }
 
-func (replaceOrAdder *transientReplaceOrAdd) replaceOrAdd(retry int) *url.URL {
+func (replaceOrAdder *transientRetryCountUpdater) replaceOrAdd(retry int) *url.URL {
 	return replaceOrAdder.urlPtr
 }
 
-func (replacer *retryCounterUpdate) replaceOrAdd(retry int) *url.URL {
-	replacer.urlValues.Del(retryCounterKey)
-	replacer.urlValues.Add(retryCounterKey, strconv.Itoa(retry))
+func (replacer *retryCountUpdate) replaceOrAdd(retry int) *url.URL {
+	replacer.urlValues.Del(retryCountKey)
+	replacer.urlValues.Add(retryCountKey, strconv.Itoa(retry))
 	replacer.urlPtr.RawQuery = replacer.urlValues.Encode()
 	return replacer.urlPtr
 }
 
-func newRetryUpdate(urlPtr *url.URL) retryCounterUpdater {
-	if !strings.HasPrefix(urlPtr.Path, queryRequestPath) {
+func newRetryCountUpdater(urlPtr *url.URL) retryCountUpdater {
+	if !isQueryRequest(urlPtr) {
 		// nop if not query-request
-		return &transientReplaceOrAdd{urlPtr}
+		return &transientRetryCountUpdater{urlPtr}
 	}
 	values, err := url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
 		// nop if the URL is not valid
-		return &transientReplaceOrAdd{urlPtr}
+		return &transientRetryCountUpdater{urlPtr}
 	}
-	return &retryCounterUpdate{urlPtr, values}
+	return &retryCountUpdate{urlPtr, values}
+}
+
+type retryReasonUpdater interface {
+	replaceOrAdd(reason int) *url.URL
+}
+
+type retryReasonUpdate struct {
+	url *url.URL
+}
+
+func (retryReasonUpdater *retryReasonUpdate) replaceOrAdd(reason int) *url.URL {
+	query := retryReasonUpdater.url.Query()
+	query.Del(retryReasonKey)
+	query.Add(retryReasonKey, strconv.Itoa(reason))
+	retryReasonUpdater.url.RawQuery = query.Encode()
+	return retryReasonUpdater.url
+}
+
+type transientRetryReasonUpdater struct {
+	url *url.URL
+}
+
+func (retryReasonUpdater *transientRetryReasonUpdater) replaceOrAdd(_ int) *url.URL {
+	return retryReasonUpdater.url
+}
+
+func newRetryReasonUpdater(url *url.URL) retryReasonUpdater {
+	if !isQueryRequest(url) {
+		return &transientRetryReasonUpdater{url}
+	}
+	return &retryReasonUpdate{url}
+}
+
+func ensureClientStartTimeIsSet(url *url.URL, clientStartTime string) *url.URL {
+	if !isQueryRequest(url) {
+		// nop if not query-request
+		return url
+	}
+	query := url.Query()
+	if query.Has(clientStartTimeKey) {
+		return url
+	}
+	query.Add(clientStartTimeKey, clientStartTime)
+	url.RawQuery = query.Encode()
+	return url
+}
+
+func isQueryRequest(url *url.URL) bool {
+	return strings.HasPrefix(url.Path, queryRequestPath)
 }
 
 type waitAlgo struct {
@@ -161,15 +214,16 @@ type clientInterface interface {
 }
 
 type retryHTTP struct {
-	ctx         context.Context
-	client      clientInterface
-	req         requestFunc
-	method      string
-	fullURL     *url.URL
-	headers     map[string]string
-	bodyCreator bodyCreatorType
-	timeout     time.Duration
-	raise4XX    bool
+	ctx                 context.Context
+	client              clientInterface
+	req                 requestFunc
+	method              string
+	fullURL             *url.URL
+	headers             map[string]string
+	bodyCreator         bodyCreatorType
+	timeout             time.Duration
+	raise4XX            bool
+	currentTimeProvider currentTimeProvider
 }
 
 func newRetryHTTP(ctx context.Context,
@@ -177,7 +231,8 @@ func newRetryHTTP(ctx context.Context,
 	req requestFunc,
 	fullURL *url.URL,
 	headers map[string]string,
-	timeout time.Duration) *retryHTTP {
+	timeout time.Duration,
+	currentTimeProvider currentTimeProvider) *retryHTTP {
 	instance := retryHTTP{}
 	instance.ctx = ctx
 	instance.client = client
@@ -188,6 +243,7 @@ func newRetryHTTP(ctx context.Context,
 	instance.timeout = timeout
 	instance.bodyCreator = emptyBodyCreator
 	instance.raise4XX = false
+	instance.currentTimeProvider = currentTimeProvider
 	return &instance
 }
 
@@ -218,9 +274,11 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
 	sleepTime := time.Duration(0)
+	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
 
-	var rIDReplacer requestGUIDReplacer
-	var rUpdater retryCounterUpdater
+	var requestGUIDReplacer requestGUIDReplacer
+	var retryCountUpdater retryCountUpdater
+	var retryReasonUpdater retryReasonUpdater
 
 	for {
 		logger.Debugf("retry count: %v", retryCounter)
@@ -279,15 +337,25 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			}
 		}
 		retryCounter++
-		if rIDReplacer == nil {
-			rIDReplacer = newRequestGUIDReplace(r.fullURL)
+		if requestGUIDReplacer == nil {
+			requestGUIDReplacer = newRequestGUIDReplace(r.fullURL)
 		}
-		r.fullURL = rIDReplacer.replace()
-		if rUpdater == nil {
-			rUpdater = newRetryUpdate(r.fullURL)
+		r.fullURL = requestGUIDReplacer.replace()
+		if retryCountUpdater == nil {
+			retryCountUpdater = newRetryCountUpdater(r.fullURL)
 		}
-		r.fullURL = rUpdater.replaceOrAdd(retryCounter)
+		r.fullURL = retryCountUpdater.replaceOrAdd(retryCounter)
+		if retryReasonUpdater == nil {
+			retryReasonUpdater = newRetryReasonUpdater(r.fullURL)
+		}
+		retryReason := 0
+		if res != nil {
+			retryReason = res.StatusCode
+		}
+		r.fullURL = retryReasonUpdater.replaceOrAdd(retryReason)
+		r.fullURL = ensureClientStartTimeIsSet(r.fullURL, clientStartTime)
 		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
+		logger.WithContext(r.ctx).Infof("retry count: %v, retry reason: %v", retryCounter, retryReason)
 
 		await := time.NewTimer(sleepTime)
 		select {

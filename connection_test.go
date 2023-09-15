@@ -130,8 +130,9 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 		TokenAccessor: ta,
 	}
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:                 &Config{Params: map[string]*string{}},
+		rest:                sr,
+		currentTimeProvider: defaultTimeProvider,
 	}
 	if _, err := sc.getQueryResultResp(context.Background(), ""); err != nil {
 		t.Fatalf("err: %v", err)

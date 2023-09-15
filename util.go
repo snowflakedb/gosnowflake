@@ -36,6 +36,10 @@ const (
 	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
 )
 
+var (
+	defaultTimeProvider = &unixTimeProvider{}
+)
+
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
 func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
 	return context.WithValue(ctx, multiStatementCount, num), nil
@@ -234,4 +238,15 @@ func GetFromEnv(name string, failOnMissing bool) (string, error) {
 		return "", fmt.Errorf("%v environment variable is not set", name)
 	}
 	return "", nil
+}
+
+type currentTimeProvider interface {
+	currentTime() int64
+}
+
+type unixTimeProvider struct {
+}
+
+func (utp *unixTimeProvider) currentTime() int64 {
+	return time.Now().UnixMilli()
 }

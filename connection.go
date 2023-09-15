@@ -61,13 +61,14 @@ const (
 const privateLinkSuffix = "privatelink.snowflakecomputing.com"
 
 type snowflakeConn struct {
-	ctx               context.Context
-	cfg               *Config
-	rest              *snowflakeRestful
-	SequenceCounter   uint64
-	telemetry         *snowflakeTelemetry
-	internal          InternalClient
-	queryContextCache *queryContextCache
+	ctx                 context.Context
+	cfg                 *Config
+	rest                *snowflakeRestful
+	SequenceCounter     uint64
+	telemetry           *snowflakeTelemetry
+	internal            InternalClient
+	queryContextCache   *queryContextCache
+	currentTimeProvider currentTimeProvider
 }
 
 var (
@@ -165,10 +166,18 @@ func (sc *snowflakeConn) exec(
 	}
 
 	logger.WithContext(ctx).Info("Exec/Query SUCCESS")
-	sc.cfg.Database = data.Data.FinalDatabaseName
-	sc.cfg.Schema = data.Data.FinalSchemaName
-	sc.cfg.Role = data.Data.FinalRoleName
-	sc.cfg.Warehouse = data.Data.FinalWarehouseName
+	if data.Data.FinalDatabaseName != "" {
+		sc.cfg.Database = data.Data.FinalDatabaseName
+	}
+	if data.Data.FinalSchemaName != "" {
+		sc.cfg.Schema = data.Data.FinalSchemaName
+	}
+	if data.Data.FinalWarehouseName != "" {
+		sc.cfg.Warehouse = data.Data.FinalWarehouseName
+	}
+	if data.Data.FinalRoleName != "" {
+		sc.cfg.Role = data.Data.FinalRoleName
+	}
 	sc.populateSessionParameters(data.Data.Parameters)
 	return data, err
 }
@@ -719,10 +728,11 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
-		SequenceCounter:   0,
-		ctx:               ctx,
-		cfg:               &config,
-		queryContextCache: (&queryContextCache{}).init(),
+		SequenceCounter:     0,
+		ctx:                 ctx,
+		cfg:                 &config,
+		queryContextCache:   (&queryContextCache{}).init(),
+		currentTimeProvider: defaultTimeProvider,
 	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {

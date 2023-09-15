@@ -48,7 +48,7 @@ func TestInternalClient(t *testing.T) {
 		t.Fatalf("Expected exactly one GET request, got %v", transport.getRequests)
 	}
 
-	resp, err = internalClient.Post(context.Background(), &url.URL{}, make(map[string]string), make([]byte, 0), 0, false)
+	resp, err = internalClient.Post(context.Background(), &url.URL{}, make(map[string]string), make([]byte, 0), 0, false, defaultTimeProvider)
 	if err != nil || resp.StatusCode != 200 {
 		t.Fail()
 	}

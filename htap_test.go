@@ -1,9 +1,12 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql/driver"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -408,4 +411,166 @@ func TestHybridTablesE2E(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestHTAPOptimizations(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("insufficient permissions")
+	}
+	for _, useHtapOptimizations := range []bool{true, false} {
+		runSnowflakeConnTest(t, func(sct *SCTest) {
+			t.Run("useHtapOptimizations="+strconv.FormatBool(useHtapOptimizations), func(t *testing.T) {
+				if useHtapOptimizations {
+					sct.mustExec("ALTER SESSION SET ENABLE_SNOW_654741_FOR_TESTING = true", nil)
+				}
+				runID := time.Now().UnixMilli()
+				t.Run("Schema", func(t *testing.T) {
+					newSchema := fmt.Sprintf("test_schema_%v", runID)
+					if strings.EqualFold(sct.sc.cfg.Schema, newSchema) {
+						t.Errorf("schema should not be switched")
+					}
+
+					sct.mustExec(fmt.Sprintf("CREATE SCHEMA %v", newSchema), nil)
+					defer sct.mustExec(fmt.Sprintf("DROP SCHEMA %v", newSchema), nil)
+
+					if !strings.EqualFold(sct.sc.cfg.Schema, newSchema) {
+						t.Errorf("schema should be switched, expected %v, got %v", newSchema, sct.sc.cfg.Schema)
+					}
+
+					query := sct.mustQuery("SELECT 1", nil)
+					query.Close()
+
+					if !strings.EqualFold(sct.sc.cfg.Schema, newSchema) {
+						t.Errorf("schema should be switched, expected %v, got %v", newSchema, sct.sc.cfg.Schema)
+					}
+				})
+				t.Run("Database", func(t *testing.T) {
+					newDatabase := fmt.Sprintf("test_database_%v", runID)
+					if strings.EqualFold(sct.sc.cfg.Database, newDatabase) {
+						t.Errorf("database should not be switched")
+					}
+
+					sct.mustExec(fmt.Sprintf("CREATE DATABASE %v", newDatabase), nil)
+					defer sct.mustExec(fmt.Sprintf("DROP DATABASE %v", newDatabase), nil)
+
+					if !strings.EqualFold(sct.sc.cfg.Database, newDatabase) {
+						t.Errorf("database should be switched, expected %v, got %v", newDatabase, sct.sc.cfg.Database)
+					}
+
+					query := sct.mustQuery("SELECT 1", nil)
+					query.Close()
+
+					if !strings.EqualFold(sct.sc.cfg.Database, newDatabase) {
+						t.Errorf("database should be switched, expected %v, got %v", newDatabase, sct.sc.cfg.Database)
+					}
+				})
+				t.Run("Warehouse", func(t *testing.T) {
+					newWarehouse := fmt.Sprintf("test_warehouse_%v", runID)
+					if strings.EqualFold(sct.sc.cfg.Warehouse, newWarehouse) {
+						t.Errorf("warehouse should not be switched")
+					}
+
+					sct.mustExec(fmt.Sprintf("CREATE WAREHOUSE %v", newWarehouse), nil)
+					defer sct.mustExec(fmt.Sprintf("DROP WAREHOUSE %v", newWarehouse), nil)
+
+					if !strings.EqualFold(sct.sc.cfg.Warehouse, newWarehouse) {
+						t.Errorf("warehouse should be switched, expected %v, got %v", newWarehouse, sct.sc.cfg.Warehouse)
+					}
+
+					query := sct.mustQuery("SELECT 1", nil)
+					query.Close()
+
+					if !strings.EqualFold(sct.sc.cfg.Warehouse, newWarehouse) {
+						t.Errorf("warehouse should be switched, expected %v, got %v", newWarehouse, sct.sc.cfg.Warehouse)
+					}
+				})
+				t.Run("Role", func(t *testing.T) {
+					if strings.EqualFold(sct.sc.cfg.Role, "PUBLIC") {
+						t.Errorf("role should not be public for this test")
+					}
+
+					sct.mustExec("USE ROLE public", nil)
+
+					if !strings.EqualFold(sct.sc.cfg.Role, "PUBLIC") {
+						t.Errorf("role should be switched, expected public, got %v", sct.sc.cfg.Role)
+					}
+
+					query := sct.mustQuery("SELECT 1", nil)
+					query.Close()
+
+					if !strings.EqualFold(sct.sc.cfg.Role, "PUBLIC") {
+						t.Errorf("role should be switched, expected public, got %v", sct.sc.cfg.Role)
+					}
+				})
+				t.Run("Session param - DATE_OUTPUT_FORMAT", func(t *testing.T) {
+					if !strings.EqualFold(*sct.sc.cfg.Params["date_output_format"], "YYYY-MM-DD") {
+						t.Errorf("should use default date_output_format, but got: %v", *sct.sc.cfg.Params["date_output_format"])
+					}
+
+					sct.mustExec("ALTER SESSION SET DATE_OUTPUT_FORMAT = 'DD-MM-YYYY'", nil)
+					defer sct.mustExec("ALTER SESSION SET DATE_OUTPUT_FORMAT = 'YYYY-MM-DD'", nil)
+
+					if !strings.EqualFold(*sct.sc.cfg.Params["date_output_format"], "DD-MM-YYYY") {
+						t.Errorf("date output format should be switched, expected DD-MM-YYYY, got %v", sct.sc.cfg.Params["date_output_format"])
+					}
+
+					query := sct.mustQuery("SELECT 1", nil)
+					query.Close()
+
+					if !strings.EqualFold(*sct.sc.cfg.Params["date_output_format"], "DD-MM-YYYY") {
+						t.Errorf("date output format should be switched, expected DD-MM-YYYY, got %v", sct.sc.cfg.Params["date_output_format"])
+					}
+				})
+			})
+		})
+	}
+}
+
+func TestConnIsCleanAfterClose(t *testing.T) {
+	// We create a new db here to not use the default pool as we can leave it in dirty state.
+	t.Skip("Fails, because connection is returned to a pool dirty")
+	ctx := context.Background()
+	runID := time.Now().UnixMilli()
+
+	db := openDB(t)
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	dbt := DBTest{t, conn}
+
+	dbt.mustExec(forceJSON)
+
+	var dbName string
+	rows1 := dbt.mustQuery("SELECT CURRENT_DATABASE()")
+	rows1.Next()
+	rows1.Scan(&dbName)
+
+	newDbName := fmt.Sprintf("test_database_%v", runID)
+	dbt.mustExec("CREATE DATABASE " + newDbName)
+
+	rows1.Close()
+	conn.Close()
+
+	conn2, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dbt2 := DBTest{t, conn2}
+
+	var dbName2 string
+	rows2 := dbt2.mustQuery("SELECT CURRENT_DATABASE()")
+	defer rows2.Close()
+	rows2.Next()
+	rows2.Scan(&dbName2)
+
+	if !strings.EqualFold(dbName, dbName2) {
+		t.Errorf("fresh connection from pool should have original database")
+	}
 }
