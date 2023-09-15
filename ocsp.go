@@ -360,14 +360,14 @@ func checkOCSPCacheServer(
 	headers := make(map[string]string)
 	res, err := newRetryHTTP(ctx, client, req, ocspServerHost, headers, totalTimeout, defaultTimeProvider).execute()
 	if err != nil {
-		logger.Errorf("failed to get OCSP cache from OCSP Cache Server. %v\n", err)
+		logger.Errorf("failed to get OCSP cache from OCSP Cache Server. %v", err)
 		return nil, &ocspStatus{
 			code: ocspFailedSubmit,
 			err:  err,
 		}
 	}
 	defer res.Body.Close()
-	logger.Debugf("StatusCode from OCSP Cache Server: %v\n", res.StatusCode)
+	logger.Debugf("StatusCode from OCSP Cache Server: %v", res.StatusCode)
 	if res.StatusCode != http.StatusOK {
 		return nil, &ocspStatus{
 			code: ocspFailedResponse,
@@ -381,7 +381,7 @@ func checkOCSPCacheServer(
 		if err := dec.Decode(&respd); err == io.EOF {
 			break
 		} else if err != nil {
-			logger.Errorf("failed to decode OCSP cache. %v\n", err)
+			logger.Errorf("failed to decode OCSP cache. %v", err)
 			return nil, &ocspStatus{
 				code: ocspFailedExtractResponse,
 				err:  err,
@@ -437,12 +437,12 @@ func retryOCSP(
 	}
 	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
 	if err != nil {
-		logger.Warnf("error when parsing ocsp response: %v\n", err)
-		logger.Warnf("performing GET fallback request to OCSP\n")
+		logger.Warnf("error when parsing ocsp response: %v", err)
+		logger.Warnf("performing GET fallback request to OCSP")
 		return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
 	}
 
-	logger.Debugf("OCSP Status from server: %v\n", ocspRes.Status)
+	logger.Debugf("OCSP Status from server: %v", ocspRes.Status)
 	return ocspRes, ocspResBytes, &ocspStatus{
 		code: ocspSuccess,
 	}
@@ -463,9 +463,8 @@ func fallbackRetryOCSPToGETRequest(
 	if atomic.LoadUint32((*uint32)(&ocspFailOpen)) == (uint32)(OCSPFailOpenFalse) {
 		multiplier = 3 // up to 3 times for Fail Close mode
 	}
-	res, err := newRetryHTTP(
-		ctx, client, req, ocspHost, headers,
-		totalTimeout*time.Duration(multiplier)).execute()
+	res, err := newRetryHTTP(ctx, client, req, ocspHost, headers,
+		totalTimeout*time.Duration(multiplier), defaultTimeProvider).execute()
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedSubmit,
@@ -473,7 +472,7 @@ func fallbackRetryOCSPToGETRequest(
 		}
 	}
 	defer res.Body.Close()
-	logger.Debugf("GET fallback StatusCode from OCSP Server: %v\n", res.StatusCode)
+	logger.Debugf("GET fallback StatusCode from OCSP Server: %v", res.StatusCode)
 	if res.StatusCode != http.StatusOK {
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedResponse,
@@ -495,7 +494,7 @@ func fallbackRetryOCSPToGETRequest(
 		}
 	}
 
-	logger.Debugf("GET fallback OCSP Status from server: %v\n", printStatus(ocspRes))
+	logger.Debugf("GET fallback OCSP Status from server: %v", printStatus(ocspRes))
 	return ocspRes, ocspResBytes, &ocspStatus{
 		code: ocspSuccess,
 	}
@@ -527,7 +526,7 @@ func fullOCSPURL(url *url.URL) string {
 
 // getRevocationStatus checks the certificate revocation status for subject using issuer certificate.
 func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate) *ocspStatus {
-	logger.Infof("Subject: %v, Issuer: %v\n", subject.Subject, issuer.Subject)
+	logger.Infof("Subject: %v, Issuer: %v", subject.Subject, issuer.Subject)
 
 	status, ocspReq, encodedCertID := validateWithCache(subject, issuer)
 	if isValidOCSPStatus(status.code) {
@@ -536,8 +535,8 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	if ocspReq == nil || encodedCertID == nil {
 		return status
 	}
-	logger.Infof("cache missed\n")
-	logger.Infof("OCSP Server: %v\n", subject.OCSPServer)
+	logger.Infof("cache missed")
+	logger.Infof("OCSP Server: %v", subject.OCSPServer)
 	if len(subject.OCSPServer) == 0 || isTestNoOCSPURL() {
 		return &ocspStatus{
 			code: ocspNoServer,
@@ -576,8 +575,8 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		}
 	}
 
-	logger.Debugf("Fetching OCSP response from server: %v\n", u)
-	logger.Debugf("Host in headers: %v\n", hostname)
+	logger.Debugf("Fetching OCSP response from server: %v", u)
+	logger.Debugf("Host in headers: %v", hostname)
 
 	headers := make(map[string]string)
 	headers[httpHeaderContentType] = "application/ocsp-request"

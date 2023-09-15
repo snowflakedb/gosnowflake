@@ -285,9 +285,9 @@ func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
 	if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
 		return err
 	}
-	ocspRetryHost := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
-	logger.Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHost)
-	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHost); err != nil {
+	ocspRetryHostTemplate := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
+	logger.Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHostTemplate)
+	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHostTemplate); err != nil {
 		return err
 	}
 	return nil
