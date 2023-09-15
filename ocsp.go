@@ -442,7 +442,7 @@ func retryOCSP(
 		return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
 	}
 
-	logger.Debugf("OCSP ResponseStatus from server: %v\n", ocspRes.Status)
+	logger.Debugf("OCSP Status from server: %v\n", ocspRes.Status)
 	return ocspRes, ocspResBytes, &ocspStatus{
 		code: ocspSuccess,
 	}
@@ -495,9 +495,22 @@ func fallbackRetryOCSPToGETRequest(
 		}
 	}
 
-	logger.Debugf("GET fallback OCSP ResponseStatus from server: %v\n", ocspRes.Status)
+	logger.Debugf("GET fallback OCSP Status from server: %v\n", printStatus(ocspRes))
 	return ocspRes, ocspResBytes, &ocspStatus{
 		code: ocspSuccess,
+	}
+}
+
+func printStatus(response *ocsp.Response) string {
+	switch response.Status {
+	case ocsp.Good:
+		return "Good"
+	case ocsp.Revoked:
+		return "Revoked"
+	case ocsp.Unknown:
+		return "Unknown"
+	default:
+		return fmt.Sprintf("%d", response.Status)
 	}
 }
 
