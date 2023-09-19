@@ -442,12 +442,14 @@ func retryOCSP(
 		return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
 	}
 
-	logger.Debugf("OCSP Status from server: %v", ocspRes.Status)
+	logger.Debugf("OCSP Status from server: %v", printStatus(ocspRes))
 	return ocspRes, ocspResBytes, &ocspStatus{
 		code: ocspSuccess,
 	}
 }
 
+// fallbackRetryOCSPToGETRequest is the third level of retry method. Some OCSP responders do not support POST requests
+// and will return with a "malformed" request error. In that case we also try to perform a GET request
 func fallbackRetryOCSPToGETRequest(
 	ctx context.Context,
 	client clientInterface,
