@@ -340,6 +340,44 @@ func TestOCSPRetry(t *testing.T) {
 	}
 }
 
+func TestFullOCSPURL(t *testing.T) {
+	testcases := []tcFullOCSPURL{
+		{
+			url:               &url.URL{Host: "some-ocsp-url.com"},
+			expectedURLString: "some-ocsp-url.com",
+		},
+		{
+			url: &url.URL{
+				Host: "some-ocsp-url.com",
+				Path: "/some-path",
+			},
+			expectedURLString: "some-ocsp-url.com/some-path",
+		},
+		{
+			url: &url.URL{
+				Host: "some-ocsp-url.com",
+				Path: "some-path",
+			},
+			expectedURLString: "some-ocsp-url.com/some-path",
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run("", func(t *testing.T) {
+			returnedStringURL := fullOCSPURL(testcase.url)
+			if returnedStringURL != testcase.expectedURLString {
+				t.Fatalf("failed to match returned OCSP url string; expected: %v, got: %v",
+					testcase.expectedURLString, returnedStringURL)
+			}
+		})
+	}
+}
+
+type tcFullOCSPURL struct {
+	url               *url.URL
+	expectedURLString string
+}
+
 func TestOCSPCacheServerRetry(t *testing.T) {
 	dummyOCSPHost := &url.URL{
 		Scheme: "https",

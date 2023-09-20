@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-//A test just to show Snowflake version
+// A test just to show Snowflake version
 func TestCheckVersion(t *testing.T) {
 	conn := openConn(t)
 	defer conn.Close()

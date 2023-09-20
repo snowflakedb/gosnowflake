@@ -281,11 +281,13 @@ func populateChunkDownloader(
 
 func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
 	ocspCacheServer := fmt.Sprintf("http://ocsp.%v/ocsp_response_cache.json", host)
+	logger.Debugf("OCSP Cache Server for Privatelink: %v\n", ocspCacheServer)
 	if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
 		return err
 	}
-	ocspRetryHost := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
-	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHost); err != nil {
+	ocspRetryHostTemplate := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
+	logger.Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHostTemplate)
+	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHostTemplate); err != nil {
 		return err
 	}
 	return nil

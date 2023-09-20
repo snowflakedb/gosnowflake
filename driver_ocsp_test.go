@@ -49,6 +49,7 @@ func cleanup() {
 	unsetenv(ocspTestResponderTimeoutEnv)
 	unsetenv(ocspTestResponderURLEnv)
 	unsetenv(ocspTestNoOCSPURLEnv)
+	unsetenv(ocspRetryURLEnv)
 	unsetenv(cacheDirEnv)
 }
 
