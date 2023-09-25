@@ -279,10 +279,12 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 		idx:                0,
 		scd:                scd,
 		funcDownloadHelper: scd.FuncDownloadHelper,
+		loc:                loc,
 	}
 	// decode first chunk if possible
 	if firstArrowChunk.allocator != nil {
-		scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
+		originalTimestamp := originalTimestampEnabled(scd.ctx)
+		scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd, originalTimestamp)
 		if err != nil {
 			return err
 		}
@@ -293,6 +295,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 			idx:                i,
 			scd:                scd,
 			funcDownloadHelper: scd.FuncDownloadHelper,
+			loc:                loc,
 		}
 	}
 	return nil
@@ -440,7 +443,8 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			scd.pool,
 		}
 		if usesArrowBatches(scd.ctx) {
-			if scd.ArrowBatches[idx].rec, err = arc.decodeArrowBatch(scd); err != nil {
+			originalTimestamp := originalTimestampEnabled(scd.ctx)
+			if scd.ArrowBatches[idx].rec, err = arc.decodeArrowBatch(scd, originalTimestamp); err != nil {
 				return err
 			}
 			// updating metadata
@@ -708,6 +712,7 @@ type ArrowBatch struct {
 	scd                *snowflakeChunkDownloader
 	funcDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
 	ctx                context.Context
+	loc                *time.Location
 }
 
 // WithContext sets the context which will be used for this ArrowBatch.

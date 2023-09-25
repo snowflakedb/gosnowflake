@@ -354,6 +354,74 @@ func decimalToBigFloat(num decimal128.Num, scale int64) *big.Float {
 	return new(big.Float).Quo(f, s)
 }
 
+// ArrowSnowflakeTimestampToTime converts original timestamp returned by Snowflake to time.TIme
+func ArrowSnowflakeTimestampToTime(rec arrow.Record, rb *ArrowBatch, colIdx int, recIdx int) *time.Time {
+	scale := int(rb.scd.RowSet.RowType[colIdx].Scale)
+	dbType := strings.ToUpper(rb.scd.RowSet.RowType[colIdx].Type)
+	return arrowSnowflakeTimestampToTime(rec.Column(colIdx), getSnowflakeType(dbType), scale, recIdx, rb.loc)
+}
+
+func arrowSnowflakeTimestampToTime(
+	column arrow.Array,
+	sfType snowflakeType,
+	scale int,
+	recIdx int,
+	loc *time.Location) *time.Time {
+
+	if column.IsNull(recIdx) {
+		return nil
+	}
+	var ret time.Time
+	switch sfType {
+	case timestampNtzType:
+		if column.DataType().ID() == arrow.STRUCT {
+			structData := column.(*array.Struct)
+			epoch := structData.Field(0).(*array.Int64).Int64Values()
+			fraction := structData.Field(1).(*array.Int32).Int32Values()
+			ret = time.Unix(epoch[recIdx], int64(fraction[recIdx])).UTC()
+		} else {
+			intData := column.(*array.Int64)
+			value := intData.Value(recIdx)
+			epoch := value / int64(math.Pow10(scale))
+			fraction := (value % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
+			ret = time.Unix(epoch, fraction).UTC()
+		}
+		return &ret
+	case timestampLtzType:
+		if column.DataType().ID() == arrow.STRUCT {
+			structData := column.(*array.Struct)
+			epoch := structData.Field(0).(*array.Int64).Int64Values()
+			fraction := structData.Field(1).(*array.Int32).Int32Values()
+			ret = time.Unix(epoch[recIdx], int64(fraction[recIdx])).In(loc)
+		} else {
+			intData := column.(*array.Int64)
+			value := intData.Value(recIdx)
+			epoch := value / int64(math.Pow10(scale))
+			fraction := (value % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
+			ret = time.Unix(epoch, fraction).In(loc)
+		}
+		return &ret
+	case timestampTzType:
+		structData := column.(*array.Struct)
+		if structData.NumField() == 2 {
+			value := structData.Field(0).(*array.Int64).Int64Values()
+			timezone := structData.Field(1).(*array.Int32).Int32Values()
+			loc := Location(int(timezone[recIdx]) - 1440)
+			epoch := value[recIdx] / int64(math.Pow10(scale))
+			fraction := value[recIdx] % int64(math.Pow10(scale)) * int64(math.Pow10(9-scale))
+			ret = time.Unix(epoch, fraction).In(loc)
+		} else {
+			epoch := structData.Field(0).(*array.Int64).Int64Values()
+			fraction := structData.Field(1).(*array.Int32).Int32Values()
+			timezone := structData.Field(2).(*array.Int32).Int32Values()
+			loc := Location(int(timezone[recIdx]) - 1440)
+			ret = time.Unix(epoch[recIdx], int64(fraction[recIdx])).In(loc)
+		}
+		return &ret
+	}
+	return nil
+}
+
 // Arrow Interface (Column) converter. This is called when Arrow chunks are
 // downloaded to convert to the corresponding row type.
 func arrowToValue(
@@ -369,7 +437,8 @@ func arrowToValue(
 	}
 	logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
 
-	switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
+	snowflakeType := getSnowflakeType(strings.ToUpper(srcColumnMeta.Type))
+	switch snowflakeType {
 	case fixedType:
 		// Snowflake data types that are fixed-point numbers will fall into this category
 		// e.g. NUMBER, DECIMAL/NUMERIC, INT/INTEGER
@@ -528,69 +597,11 @@ func arrowToValue(
 			}
 		}
 		return err
-	case timestampNtzType:
-		if srcValue.DataType().ID() == arrow.STRUCT {
-			structData := srcValue.(*array.Struct)
-			epoch := structData.Field(0).(*array.Int64).Int64Values()
-			fraction := structData.Field(1).(*array.Int32).Int32Values()
-			for i := range destcol {
-				if !srcValue.IsNull(i) {
-					destcol[i] = time.Unix(epoch[i], int64(fraction[i])).UTC()
-				}
-			}
-		} else {
-			for i, t := range srcValue.(*array.Int64).Int64Values() {
-				if !srcValue.IsNull(i) {
-					scale := int(srcColumnMeta.Scale)
-					epoch := t / int64(math.Pow10(scale))
-					fraction := (t % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
-					destcol[i] = time.Unix(epoch, fraction).UTC()
-				}
-			}
-		}
-		return err
-	case timestampLtzType:
-		if srcValue.DataType().ID() == arrow.STRUCT {
-			structData := srcValue.(*array.Struct)
-			epoch := structData.Field(0).(*array.Int64).Int64Values()
-			fraction := structData.Field(1).(*array.Int32).Int32Values()
-			for i := range destcol {
-				if !srcValue.IsNull(i) {
-					destcol[i] = time.Unix(epoch[i], int64(fraction[i])).In(loc)
-				}
-			}
-		} else {
-			for i, t := range srcValue.(*array.Int64).Int64Values() {
-				if !srcValue.IsNull(i) {
-					q := t / int64(math.Pow10(int(srcColumnMeta.Scale)))
-					r := t % int64(math.Pow10(int(srcColumnMeta.Scale)))
-					destcol[i] = time.Unix(q, r).In(loc)
-				}
-			}
-		}
-		return err
-	case timestampTzType:
-		structData := srcValue.(*array.Struct)
-		if structData.NumField() == 2 {
-			epoch := structData.Field(0).(*array.Int64).Int64Values()
-			timezone := structData.Field(1).(*array.Int32).Int32Values()
-			for i := range destcol {
-				if !srcValue.IsNull(i) {
-					loc := Location(int(timezone[i]) - 1440)
-					tt := time.Unix(epoch[i], 0)
-					destcol[i] = tt.In(loc)
-				}
-			}
-		} else {
-			epoch := structData.Field(0).(*array.Int64).Int64Values()
-			fraction := structData.Field(1).(*array.Int32).Int32Values()
-			timezone := structData.Field(2).(*array.Int32).Int32Values()
-			for i := range destcol {
-				if !srcValue.IsNull(i) {
-					loc := Location(int(timezone[i]) - 1440)
-					tt := time.Unix(epoch[i], int64(fraction[i]))
-					destcol[i] = tt.In(loc)
-				}
+	case timestampNtzType, timestampLtzType, timestampTzType:
+		for i := range destcol {
+			var ts = arrowSnowflakeTimestampToTime(srcValue, snowflakeType, int(srcColumnMeta.Scale), i, loc)
+			if ts != nil {
+				destcol[i] = *ts
 			}
 		}
 		return err
@@ -952,8 +963,17 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location) (arrow.Record, error) {
-	s, err := recordToSchema(record.Schema(), rowType, loc)
+func originalTimestampEnabled(ctx context.Context) bool {
+	v := ctx.Value(enableOriginalTimestamp)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
+}
+
+func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location, originalTimestamp bool) (arrow.Record, error) {
+	s, err := recordToSchema(record.Schema(), rowType, loc, originalTimestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -967,7 +987,8 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 
 		// TODO: confirm that it is okay to be using higher precision logic for conversions
 		newCol := col
-		switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
+		snowflakeType := getSnowflakeType(strings.ToUpper(srcColumnMeta.Type))
+		switch snowflakeType {
 		case fixedType:
 			var toType arrow.DataType
 			if col.DataType().ID() == arrow.DECIMAL || col.DataType().ID() == arrow.DECIMAL256 {
@@ -1000,103 +1021,44 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 				return nil, err
 			}
 			defer newCol.Release()
-		case timestampNtzType:
-			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Nanosecond})
-			if col.DataType().ID() == arrow.STRUCT {
-				structData := col.(*array.Struct)
-				epoch := structData.Field(0).(*array.Int64).Int64Values()
-				fraction := structData.Field(1).(*array.Int32).Int32Values()
-				for i := 0; i < int(numRows); i++ {
-					if !col.IsNull(i) {
-						val := time.Unix(epoch[i], int64(fraction[i]))
-						tb.Append(arrow.Timestamp(val.UnixNano()))
-					} else {
-						tb.AppendNull()
-					}
-				}
+		case timestampNtzType, timestampLtzType, timestampTzType:
+			if originalTimestamp {
+				// do nothing - return timestamp as is
 			} else {
-				for i, t := range col.(*array.Timestamp).TimestampValues() {
-					if !col.IsNull(i) {
-						val := time.Unix(0, int64(t)*int64(math.Pow10(9-int(srcColumnMeta.Scale)))).UTC()
-						tb.Append(arrow.Timestamp(val.UnixNano()))
-					} else {
-						tb.AppendNull()
-					}
+				var tb *array.TimestampBuilder
+				if snowflakeType == timestampLtzType {
+					tb = array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: loc.String()})
+				} else {
+					tb = array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Nanosecond})
 				}
-			}
-			newCol = tb.NewArray()
-			defer newCol.Release()
-			tb.Release()
-		case timestampLtzType:
-			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: loc.String()})
-			if col.DataType().ID() == arrow.STRUCT {
-				structData := col.(*array.Struct)
-				epoch := structData.Field(0).(*array.Int64).Int64Values()
-				fraction := structData.Field(1).(*array.Int32).Int32Values()
 				for i := 0; i < int(numRows); i++ {
-					if !col.IsNull(i) {
-						val := time.Unix(epoch[i], int64(fraction[i]))
-						tb.Append(arrow.Timestamp(val.UnixNano()))
+					ts := arrowSnowflakeTimestampToTime(col, snowflakeType, int(srcColumnMeta.Scale), i, loc)
+					if ts != nil {
+						ar := arrow.Timestamp(ts.UnixNano())
+						if ts.Year() != ar.ToTime(arrow.Nanosecond).Year() {
+							return nil, &SnowflakeError{
+								Number:   ErrTooHighTimestampPrecision,
+								SQLState: SQLStateInvalidDataTimeFormat,
+								Message:  fmt.Sprintf("Cannot convert timestamp %v in column %v to Arrow.Timestamp data type due to too high precision. Please use context with WithOriginalTimestamp.", ts.UTC(), srcColumnMeta.Name),
+							}
+						}
+						tb.Append(ar)
 					} else {
 						tb.AppendNull()
 					}
 				}
-			} else {
-				for i, t := range col.(*array.Timestamp).TimestampValues() {
-					if !col.IsNull(i) {
-						q := int64(t) / int64(math.Pow10(int(srcColumnMeta.Scale)))
-						r := int64(t) % int64(math.Pow10(int(srcColumnMeta.Scale)))
-						val := time.Unix(q, r)
-						tb.Append(arrow.Timestamp(val.UnixNano()))
-					} else {
-						tb.AppendNull()
-					}
-				}
+
+				newCol = tb.NewArray()
+				defer newCol.Release()
+				tb.Release()
 			}
-			newCol = tb.NewArray()
-			defer newCol.Release()
-			tb.Release()
-		case timestampTzType:
-			tb := array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Nanosecond})
-			structData := col.(*array.Struct)
-			if structData.NumField() == 2 {
-				epoch := structData.Field(0).(*array.Int64).Int64Values()
-				timezone := structData.Field(1).(*array.Int32).Int32Values()
-				for i := 0; i < int(numRows); i++ {
-					if !col.IsNull(i) {
-						loc := Location(int(timezone[i]) - 1440)
-						tt := time.Unix(epoch[i], 0)
-						val := tt.In(loc)
-						tb.Append(arrow.Timestamp(val.UnixNano()))
-					} else {
-						tb.AppendNull()
-					}
-				}
-			} else {
-				epoch := structData.Field(0).(*array.Int64).Int64Values()
-				fraction := structData.Field(1).(*array.Int32).Int32Values()
-				timezone := structData.Field(2).(*array.Int32).Int32Values()
-				for i := 0; i < int(numRows); i++ {
-					if !col.IsNull(i) {
-						loc := Location(int(timezone[i]) - 1440)
-						tt := time.Unix(epoch[i], int64(fraction[i]))
-						val := tt.In(loc)
-						tb.Append(arrow.Timestamp(val.UnixNano()))
-					} else {
-						tb.AppendNull()
-					}
-				}
-			}
-			newCol = tb.NewArray()
-			defer newCol.Release()
-			tb.Release()
 		}
 		cols = append(cols, newCol)
 	}
 	return array.NewRecord(s, cols, numRows), nil
 }
 
-func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location) (*arrow.Schema, error) {
+func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, originalTimestamp bool) (*arrow.Schema, error) {
 	var fields []arrow.Field
 	for i := 0; i < len(sc.Fields()); i++ {
 		f := sc.Field(i)
@@ -1123,9 +1085,19 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 		case timeType:
 			t = &arrow.Time64Type{Unit: arrow.Nanosecond}
 		case timestampNtzType, timestampTzType:
-			t = &arrow.TimestampType{Unit: arrow.Nanosecond}
+			if originalTimestamp {
+				// do nothing - return timestamp as is
+				converted = false
+			} else {
+				t = &arrow.TimestampType{Unit: arrow.Nanosecond}
+			}
 		case timestampLtzType:
-			t = &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: loc.String()}
+			if originalTimestamp {
+				// do nothing - return timestamp as is
+				converted = false
+			} else {
+				t = &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: loc.String()}
+			}
 		default:
 			converted = false
 		}
