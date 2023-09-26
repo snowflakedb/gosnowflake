@@ -650,11 +650,9 @@ type snowflakeArrowStreamChunkDownloader struct {
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
-	paramsMutex.Lock()
 	if scd.sc != nil {
 		return getCurrentLocation(scd.sc.cfg.Params)
 	}
-	paramsMutex.Unlock()
 	return nil
 }
 func (scd *snowflakeArrowStreamChunkDownloader) TotalRows() int64 { return scd.Total }
