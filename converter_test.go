@@ -1181,7 +1181,7 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical:  "timestamp_ntz",
-			physical: "int64 with originalTimestamp", // timestamp_ntz with scale 0..3 -> int64
+			physical: "int64 with original timestamp", // timestamp_ntz with scale 0..3 -> int64
 			values:   []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond), localTimeFarIntoFuture.Truncate(time.Millisecond)},
 			orgTS:    true,
 			nrows:    3,
@@ -1206,7 +1206,7 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical:  "timestamp_ntz",
-			physical: "struct with originalTimestamp", // timestamp_ntz with scale 4..9 -> int64 + int32
+			physical: "struct with original timestamp", // timestamp_ntz with scale 4..9 -> int64 + int32
 			values:   []time.Time{time.Now(), localTime, localTimeFarIntoFuture},
 			orgTS:    true,
 			nrows:    3,
@@ -1301,7 +1301,7 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical:  "timestamp_ltz",
-			physical: "int64 with originalTimestamp", // timestamp_ntz with scale 0..3 -> int64
+			physical: "int64 with original timestamp", // timestamp_ntz with scale 0..3 -> int64
 			values:   []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond), localTimeFarIntoFuture.Truncate(time.Millisecond)},
 			orgTS:    true,
 			nrows:    3,
@@ -1326,7 +1326,7 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical:  "timestamp_ltz",
-			physical: "struct with originalTimestamp", // timestamp_ntz with scale 4..9 -> int64 + int32
+			physical: "struct with original timestamp", // timestamp_ntz with scale 4..9 -> int64 + int32
 			values:   []time.Time{time.Now(), localTime, localTimeFarIntoFuture},
 			orgTS:    true,
 			nrows:    3,
@@ -1410,7 +1410,7 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical:  "timestamp_tz",
-			physical: "struct2 with originalTimestamp", // timestamp_ntz with scale 0..3 -> int64 + int32
+			physical: "struct2 with original timestamp", // timestamp_ntz with scale 0..3 -> int64 + int32
 			values:   []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond), localTimeFarIntoFuture.Truncate(time.Millisecond)},
 			orgTS:    true,
 			nrows:    3,
@@ -1439,7 +1439,7 @@ func TestArrowToRecord(t *testing.T) {
 		},
 		{
 			logical:  "timestamp_tz",
-			physical: "struct3 with originalTimestamp", // timestamp_ntz with scale 4..9 -> int64 + int32 + int32
+			physical: "struct3 with original timestamp", // timestamp_ntz with scale 4..9 -> int64 + int32 + int32
 			values:   []time.Time{time.Now(), localTime, localTimeFarIntoFuture},
 			orgTS:    true,
 			nrows:    3,
@@ -1602,8 +1602,8 @@ func TestSmallTimestampBinding(t *testing.T) {
 func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 	timestamps := [3]string{
 		"2000-10-10 10:10:10.123456789", // neutral
-		"9999-12-12 23:59:59.123456789", // max
-		"0001-01-01 00:00:00.123456789"} // min
+		"9999-12-12 23:59:59.999999999", // max
+		"0001-01-01 00:00:00.000000000"} // min
 	types := [3]string{"TIMESTAMP_NTZ", "TIMESTAMP_LTZ", "TIMESTAMP_TZ"}
 
 	runDBTest(t, func(sct *DBTest) {
@@ -1640,8 +1640,8 @@ func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 
 func TestTimestampConversionWithArrowBatchesFailsForDistantDates(t *testing.T) {
 	timestamps := [2]string{
-		"9999-12-12 23:59:59.123456789", // max
-		"0001-01-01 00:00:00.123456789"} // min
+		"9999-12-12 23:59:59.999999999", // max
+		"0001-01-01 00:00:00.000000000"} // min
 	types := [3]string{"TIMESTAMP_NTZ", "TIMESTAMP_LTZ", "TIMESTAMP_TZ"}
 
 	expectedError := "Cannot convert timestamp"
@@ -1678,8 +1678,8 @@ func TestTimestampConversionWithArrowBatchesFailsForDistantDates(t *testing.T) {
 func TestTimestampConversionWithArrowBatchesAndWithOriginalTimestamp(t *testing.T) {
 	timestamps := [3]string{
 		"2000-10-10 10:10:10.123456789", // neutral
-		"9999-12-12 23:59:59.123456789", // max
-		"0001-01-01 00:00:00.123456789"} // min
+		"9999-12-12 23:59:59.999999999", // max
+		"0001-01-01 00:00:00.000000000"} // min
 	types := [3]string{"TIMESTAMP_NTZ", "TIMESTAMP_LTZ", "TIMESTAMP_TZ"}
 
 	runSnowflakeConnTest(t, func(sct *SCTest) {

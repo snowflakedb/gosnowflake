@@ -354,7 +354,7 @@ func decimalToBigFloat(num decimal128.Num, scale int64) *big.Float {
 	return new(big.Float).Quo(f, s)
 }
 
-// ArrowSnowflakeTimestampToTime converts original timestamp returned by Snowflake to time.TIme
+// ArrowSnowflakeTimestampToTime converts original timestamp returned by Snowflake to time.Time
 func ArrowSnowflakeTimestampToTime(rec arrow.Record, rb *ArrowBatch, colIdx int, recIdx int) *time.Time {
 	scale := int(rb.scd.RowSet.RowType[colIdx].Scale)
 	dbType := strings.ToUpper(rb.scd.RowSet.RowType[colIdx].Type)
@@ -382,8 +382,8 @@ func arrowSnowflakeTimestampToTime(
 		} else {
 			intData := column.(*array.Int64)
 			value := intData.Value(recIdx)
-			epoch := value / int64(math.Pow10(scale))
-			fraction := (value % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
+			epoch := extractEpoch(value, scale)
+			fraction := extractFraction(value, scale)
 			ret = time.Unix(epoch, fraction).UTC()
 		}
 		return &ret
@@ -396,8 +396,8 @@ func arrowSnowflakeTimestampToTime(
 		} else {
 			intData := column.(*array.Int64)
 			value := intData.Value(recIdx)
-			epoch := value / int64(math.Pow10(scale))
-			fraction := (value % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
+			epoch := extractEpoch(value, scale)
+			fraction := extractFraction(value, scale)
 			ret = time.Unix(epoch, fraction).In(loc)
 		}
 		return &ret
@@ -406,9 +406,9 @@ func arrowSnowflakeTimestampToTime(
 		if structData.NumField() == 2 {
 			value := structData.Field(0).(*array.Int64).Int64Values()
 			timezone := structData.Field(1).(*array.Int32).Int32Values()
+			epoch := extractEpoch(value[recIdx], scale)
+			fraction := extractFraction(value[recIdx], scale)
 			loc := Location(int(timezone[recIdx]) - 1440)
-			epoch := value[recIdx] / int64(math.Pow10(scale))
-			fraction := value[recIdx] % int64(math.Pow10(scale)) * int64(math.Pow10(9-scale))
 			ret = time.Unix(epoch, fraction).In(loc)
 		} else {
 			epoch := structData.Field(0).(*array.Int64).Int64Values()
@@ -420,6 +420,14 @@ func arrowSnowflakeTimestampToTime(
 		return &ret
 	}
 	return nil
+}
+
+func extractEpoch(value int64, scale int) int64 {
+	return value / int64(math.Pow10(scale))
+}
+
+func extractFraction(value int64, scale int) int64 {
+	return (value % int64(math.Pow10(scale))) * int64(math.Pow10(9-scale))
 }
 
 // Arrow Interface (Column) converter. This is called when Arrow chunks are
@@ -972,8 +980,8 @@ func originalTimestampEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location, originalTimestamp bool) (arrow.Record, error) {
-	s, err := recordToSchema(record.Schema(), rowType, loc, originalTimestamp)
+func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location, useOriginalTimestamp bool) (arrow.Record, error) {
+	s, err := recordToSchema(record.Schema(), rowType, loc, useOriginalTimestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -1022,7 +1030,7 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 			}
 			defer newCol.Release()
 		case timestampNtzType, timestampLtzType, timestampTzType:
-			if originalTimestamp {
+			if useOriginalTimestamp {
 				// do nothing - return timestamp as is
 			} else {
 				var tb *array.TimestampBuilder
@@ -1058,7 +1066,7 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 	return array.NewRecord(s, cols, numRows), nil
 }
 
-func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, originalTimestamp bool) (*arrow.Schema, error) {
+func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, useOriginalTimestamp bool) (*arrow.Schema, error) {
 	var fields []arrow.Field
 	for i := 0; i < len(sc.Fields()); i++ {
 		f := sc.Field(i)
@@ -1085,14 +1093,14 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 		case timeType:
 			t = &arrow.Time64Type{Unit: arrow.Nanosecond}
 		case timestampNtzType, timestampTzType:
-			if originalTimestamp {
+			if useOriginalTimestamp {
 				// do nothing - return timestamp as is
 				converted = false
 			} else {
 				t = &arrow.TimestampType{Unit: arrow.Nanosecond}
 			}
 		case timestampLtzType:
-			if originalTimestamp {
+			if useOriginalTimestamp {
 				// do nothing - return timestamp as is
 				converted = false
 			} else {
