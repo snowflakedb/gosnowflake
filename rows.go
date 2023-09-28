@@ -47,7 +47,7 @@ type snowflakeRows struct {
 }
 
 func (rows *snowflakeRows) getLocation() *time.Location {
-	if rows.location == nil && rows.sc != nil && rows.sc.cfg != nil {
+	if rows.location == nil && rows.sc != nil && rows.sc.getConnConfig() != nil {
 		rows.location = getCurrentLocation(rows.sc.cfg.Params)
 	}
 	return rows.location

@@ -13,6 +13,12 @@ import (
 	"time"
 )
 
+func (sc *snowflakeConn) getConnConfig() *Config {
+	paramsMutex.Lock()
+	defer paramsMutex.Unlock()
+	return sc.cfg
+}
+
 func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 	paramsMutex.Lock()
 	v, ok := sc.cfg.Params[sessionClientSessionKeepAlive]
@@ -24,7 +30,7 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 }
 
 func (sc *snowflakeConn) startHeartBeat() {
-	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
+	if sc.getConnConfig() != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
 	if sc.rest != nil {
@@ -36,7 +42,7 @@ func (sc *snowflakeConn) startHeartBeat() {
 }
 
 func (sc *snowflakeConn) stopHeartBeat() {
-	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
+	if sc.getConnConfig() != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
 	if sc.rest != nil && sc.rest.HeartBeat != nil {
