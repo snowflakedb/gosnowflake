@@ -107,7 +107,7 @@ func TestEnableTelemetry(t *testing.T) {
 	})
 }
 
-func funcPostTelemetryRespFail(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ bool, _ currentTimeProvider) (*http.Response, error) {
+func funcPostTelemetryRespFail(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ currentTimeProvider) (*http.Response, error) {
 	return nil, errors.New("failed to upload metrics to telemetry")
 }
 

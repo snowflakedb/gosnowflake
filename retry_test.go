@@ -421,7 +421,7 @@ func TestLoginRetry429(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.TODO(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider).doRaise4XX(true).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}

@@ -5,13 +5,12 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
 	"fmt"
+	"golang.org/x/exp/slices"
 	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,6 +18,15 @@ import (
 )
 
 var random *rand.Rand
+
+var endpointsEligibleForRetry = []string{
+	loginRequestPath,
+	queryRequestPath,
+	tokenRequestPath,
+	authenticatorRequestPath,
+}
+
+var statusCodesEligibleForRetry = []int{http.StatusTooManyRequests, http.StatusServiceUnavailable}
 
 func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -222,7 +230,6 @@ type retryHTTP struct {
 	headers             map[string]string
 	bodyCreator         bodyCreatorType
 	timeout             time.Duration
-	raise4XX            bool
 	currentTimeProvider currentTimeProvider
 }
 
@@ -242,14 +249,8 @@ func newRetryHTTP(ctx context.Context,
 	instance.headers = headers
 	instance.timeout = timeout
 	instance.bodyCreator = emptyBodyCreator
-	instance.raise4XX = false
 	instance.currentTimeProvider = currentTimeProvider
 	return &instance
-}
-
-func (r *retryHTTP) doRaise4XX(raise4XX bool) *retryHTTP {
-	r.raise4XX = raise4XX
-	return r
 }
 
 func (r *retryHTTP) doPost() *retryHTTP {
@@ -298,27 +299,19 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			req.Header.Set(k, v)
 		}
 		res, err = r.client.Do(req)
+		// check if it can retry.
+		retryable, err := r.isRetryableError(req, res, err)
+		if !retryable {
+			return res, err
+		}
 		if err != nil {
-			// check if it can retry.
-			doExit, err := r.isRetryableError(err)
-			if doExit {
-				return res, err
-			}
-			// cannot just return 4xx and 5xx status as the error can be sporadic. run often helps.
 			logger.WithContext(r.ctx).Warningf(
-				"failed http connection. no response is returned. err: %v. retrying...\n", err)
+				"failed http connection. err: %v. retrying...\n", err)
 		} else {
-			if res.StatusCode == http.StatusOK || r.raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != 429 {
-				// exit if success
-				// or
-				// abort connection if raise4XX flag is enabled and the range of HTTP status code are 4XX.
-				// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
-				break
-			}
 			logger.WithContext(r.ctx).Warningf(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
-			res.Body.Close()
 		}
+		res.Body.Close()
 		// uses decorrelated jitter backoff
 		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
 
@@ -366,36 +359,13 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			return res, r.ctx.Err()
 		}
 	}
-	return res, err
 }
 
-func (r *retryHTTP) isRetryableError(err error) (bool, error) {
-	urlError, isURLError := err.(*url.Error)
-	if isURLError {
-		// context cancel or timeout
-		if urlError.Err == context.DeadlineExceeded || urlError.Err == context.Canceled {
-			return true, urlError.Err
-		}
-		if driverError, ok := urlError.Err.(*SnowflakeError); ok {
-			// Certificate Revoked
-			if driverError.Number == ErrOCSPStatusRevoked {
-				return true, err
-			}
-		}
-		if _, ok := urlError.Err.(x509.CertificateInvalidError); ok {
-			// Certificate is invalid
-			return true, err
-		}
-		if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
-			// Certificate is self-signed
-			return true, err
-		}
-		errString := urlError.Err.Error()
-		if runtime.GOOS == "darwin" && strings.HasPrefix(errString, "x509:") && strings.HasSuffix(errString, "certificate is expired") {
-			// Certificate is expired
-			return true, err
-		}
-
+func (r *retryHTTP) isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
+	if res == nil {
+		return false, err
 	}
-	return false, err
+	isRetryableURL := slices.Contains(endpointsEligibleForRetry, req.URL.Path)
+	isRetryableStatus := slices.Contains(statusCodesEligibleForRetry, res.StatusCode)
+	return isRetryableURL && isRetryableStatus, err
 }
