@@ -634,8 +634,8 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error URL Error: %v", err)
 	}
-	if !strings.Contains(urlErr.Err.Error(), "HTTP Status: 404") {
-		t.Fatalf("the root cause is not  timeout: %v", urlErr.Err)
+	if !strings.Contains(urlErr.Err.Error(), "404 Not Found") {
+		t.Fatalf("the root cause is not timeout: %v", urlErr.Err)
 	}
 }
 

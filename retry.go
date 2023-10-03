@@ -360,7 +360,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 }
 
 func (r *retryHTTP) isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
-	if res == nil {
+	if res == nil || req == nil {
 		return false, err
 	}
 	isRetryableURL := contains(endpointsEligibleForRetry, req.URL.Path)
