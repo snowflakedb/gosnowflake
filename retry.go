@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"golang.org/x/exp/slices"
 	"io"
 	"math/rand"
 	"net/http"
@@ -21,7 +20,6 @@ var random *rand.Rand
 
 var endpointsEligibleForRetry = []string{
 	loginRequestPath,
-	queryRequestPath,
 	tokenRequestPath,
 	authenticatorRequestPath,
 }
@@ -365,7 +363,7 @@ func (r *retryHTTP) isRetryableError(req *http.Request, res *http.Response, err 
 	if res == nil {
 		return false, err
 	}
-	isRetryableURL := slices.Contains(endpointsEligibleForRetry, req.URL.Path)
-	isRetryableStatus := slices.Contains(statusCodesEligibleForRetry, res.StatusCode)
+	isRetryableURL := contains(endpointsEligibleForRetry, req.URL.Path)
+	isRetryableStatus := contains(statusCodesEligibleForRetry, res.StatusCode)
 	return isRetryableURL && isRetryableStatus, err
 }
