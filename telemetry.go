@@ -56,7 +56,8 @@ func (st *snowflakeTelemetry) addLog(data *telemetryData) error {
 	st.logs = append(st.logs, data)
 	st.mutex.Unlock()
 	if len(st.logs) >= st.flushSize {
-		if err := st.sendBatch(); err != nil {
+		err := st.sendBatch()
+		if err != nil {
 			return err
 		}
 	}
@@ -111,7 +112,8 @@ func (st *snowflakeTelemetry) sendBatch() error {
 		return err
 	}
 	var respd telemetryResponse
-	if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
+	err = json.NewDecoder(resp.Body).Decode(&respd)
+	if err != nil {
 		logger.Info(err)
 		st.enabled = false
 		return err

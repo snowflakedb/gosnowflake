@@ -249,7 +249,8 @@ func (util *snowflakeGcsClient) uploadFile(
 
 	meta.gcsFileHeaderDigest = gcsHeaders[gcsFileHeaderDigest]
 	meta.gcsFileHeaderContentLength = meta.uploadSize
-	if err = json.Unmarshal([]byte(gcsHeaders[gcsMetadataEncryptionDataProp]), &encryptMeta); err != nil {
+	err = json.Unmarshal([]byte(gcsHeaders[gcsMetadataEncryptionDataProp]), &encryptMeta)
+	if err != nil {
 		return err
 	}
 	meta.gcsFileHeaderEncryptionMeta = encryptMeta
@@ -319,14 +320,16 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		return err
 	}
 	defer f.Close()
-	if _, err = io.Copy(f, resp.Body); err != nil {
+	_, err = io.Copy(f, resp.Body)
+	if err != nil {
 		return err
 	}
 
 	var encryptMeta encryptMetadata
 	if resp.Header.Get(gcsMetadataEncryptionDataProp) != "" {
 		var encryptData *encryptionData
-		if err = json.Unmarshal([]byte(resp.Header.Get(gcsMetadataEncryptionDataProp)), &encryptData); err != nil {
+		err = json.Unmarshal([]byte(resp.Header.Get(gcsMetadataEncryptionDataProp)), &encryptData)
+		if err != nil {
 			return err
 		}
 		if encryptData != nil {

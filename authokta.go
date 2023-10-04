@@ -108,10 +108,12 @@ func authenticateBySAML(
 	logger.WithContext(ctx).Info("step 2: validate Token and SSO URL has the same prefix as oktaURL")
 	var tokenURL *url.URL
 	var ssoURL *url.URL
-	if tokenURL, err = url.Parse(respd.Data.TokenURL); err != nil {
+	tokenURL, err = url.Parse(respd.Data.TokenURL)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse token URL. %v", respd.Data.TokenURL)
 	}
-	if ssoURL, err = url.Parse(respd.Data.TokenURL); err != nil {
+	ssoURL, err = url.Parse(respd.Data.TokenURL)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse ssoURL URL. %v", respd.Data.SSOURL)
 	}
 	if !isPrefixEqual(oktaURL, ssoURL) || !isPrefixEqual(oktaURL, tokenURL) {

@@ -216,7 +216,8 @@ func postRestfulQuery(
 		return data, err
 	}
 
-	if err = sr.FuncCancelQuery(context.TODO(), sr, requestID, timeout); err != nil {
+	err = sr.FuncCancelQuery(context.TODO(), sr, requestID, timeout)
+	if err != nil {
 		return nil, err
 	}
 	return nil, ctx.Err()
@@ -251,12 +252,14 @@ func postRestfulQueryHelper(
 	if resp.StatusCode == http.StatusOK {
 		logger.WithContext(ctx).Infof("postQuery: resp: %v", resp)
 		var respd execResponse
-		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		if respd.Code == sessionExpiredCode {
-			if err = sr.renewExpiredSessionToken(ctx, timeout, token); err != nil {
+			err = sr.renewExpiredSessionToken(ctx, timeout, token)
+			if err != nil {
 				return nil, err
 			}
 			return sr.FuncPostQuery(ctx, sr, params, headers, body, timeout, requestID, cfg)
@@ -297,7 +300,8 @@ func postRestfulQueryHelper(
 				return nil, err
 			}
 			if respd.Code == sessionExpiredCode {
-				if err = sr.renewExpiredSessionToken(ctx, timeout, token); err != nil {
+				err = sr.renewExpiredSessionToken(ctx, timeout, token)
+				if err != nil {
 					return nil, err
 				}
 				isSessionRenewed = true
@@ -341,7 +345,8 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		var respd renewSessionResponse
-		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return err
 		}
@@ -472,13 +477,15 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID UUID, time
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		var respd cancelQueryResponse
-		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&respd)
+		if err != nil {
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return err
 		}
 		ctxRetry := getCancelRetry(ctx)
 		if !respd.Success && respd.Code == sessionExpiredCode {
-			if err = sr.FuncRenewSession(ctx, sr, timeout); err != nil {
+			err = sr.FuncRenewSession(ctx, sr, timeout)
+			if err != nil {
 				return err
 			}
 			return sr.FuncCancelQuery(ctx, sr, requestID, timeout)

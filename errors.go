@@ -74,7 +74,8 @@ func (se *SnowflakeError) sendExceptionTelemetry(sc *snowflakeConn, data *teleme
 
 func (se *SnowflakeError) exceptionTelemetry(sc *snowflakeConn) *SnowflakeError {
 	data := se.generateTelemetryExceptionData()
-	if err := se.sendExceptionTelemetry(sc, data); err != nil {
+	err := se.sendExceptionTelemetry(sc, data)
+	if err != nil {
 		logger.Debugf("failed to log to telemetry: %v", data)
 	}
 	return se

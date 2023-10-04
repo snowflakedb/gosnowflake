@@ -146,7 +146,8 @@ func (sc *snowflakeConn) checkQueryStatus(
 	}
 	defer res.Body.Close()
 	var statusResp = statusResponse{}
-	if err = json.NewDecoder(res.Body).Decode(&statusResp); err != nil {
+	err = json.NewDecoder(res.Body).Decode(&statusResp)
+	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 		return nil, err
 	}
@@ -221,7 +222,8 @@ func (sc *snowflakeConn) getQueryResultResp(
 	}
 	defer res.Body.Close()
 	var respd *execResponse
-	if err = json.NewDecoder(res.Body).Decode(&respd); err != nil {
+	err = json.NewDecoder(res.Body).Decode(&respd)
+	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 		return nil, err
 	}
@@ -262,7 +264,8 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.queryID = qid
-	if err := sc.rowsForRunningQuery(ctx, qid, rows); err != nil {
+	err := sc.rowsForRunningQuery(ctx, qid, rows)
+	if err != nil {
 		return nil, err
 	}
 	rows.ChunkDownloader.start()

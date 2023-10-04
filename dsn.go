@@ -105,7 +105,8 @@ type Config struct {
 // A driver client may call it manually, but it is also called during opening first connection.
 func (c *Config) Validate() error {
 	if c.TmpDirPath != "" {
-		if _, err := os.Stat(c.TmpDirPath); err != nil {
+		_, err := os.Stat(c.TmpDirPath)
+		if err != nil {
 			return err
 		}
 	}
@@ -551,7 +552,8 @@ func parseUserPassword(posAt int, dsn string) (user, password string) {
 func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
 	for j := posQuestion + 1; j < len(dsn); j++ {
 		if dsn[j] == '?' {
-			if err = parseDSNParams(cfg, dsn[j+1:]); err != nil {
+			err = parseDSNParams(cfg, dsn[j+1:])
+			if err != nil {
 				return
 			}
 			break

@@ -52,7 +52,8 @@ func createCredentialCacheDir() {
 	}
 
 	if _, err := os.Stat(credCacheDir); os.IsNotExist(err) {
-		if err = os.MkdirAll(credCacheDir, os.ModePerm); err != nil {
+		err = os.MkdirAll(credCacheDir, os.ModePerm)
+		if err != nil {
 			logger.Debugf("Failed to create cache directory. %v, err: %v. ignored\n", credCacheDir, err)
 		}
 	}
@@ -75,7 +76,8 @@ func setCredential(sc *snowflakeConn, credType, token string) {
 				Key:  target,
 				Data: []byte(token),
 			}
-			if err := ring.Set(item); err != nil {
+			err := ring.Set(item)
+			if err != nil {
 				logger.Debugf("Failed to write to Windows credential manager. Err: %v", err)
 			}
 		} else if runtime.GOOS == "darwin" {
@@ -88,7 +90,8 @@ func setCredential(sc *snowflakeConn, credType, token string) {
 				Key:  account,
 				Data: []byte(token),
 			}
-			if err := ring.Set(item); err != nil {
+			err := ring.Set(item)
+			if err != nil {
 				logger.Debugf("Failed to write to keychain. Err: %v", err)
 			}
 		} else if runtime.GOOS == "linux" {
@@ -256,18 +259,21 @@ func writeTemporaryCacheFile(input []byte) {
 				logger.Debugf("other process locks the cache file. %v. ignored.\n", credCache)
 				return
 			}
-			if err = os.Remove(credCacheLockFileName); err != nil {
+			err = os.Remove(credCacheLockFileName)
+			if err != nil {
 				logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", credCacheLockFileName, err)
 				return
 			}
-			if err = os.Mkdir(credCacheLockFileName, 0600); err != nil {
+			err = os.Mkdir(credCacheLockFileName, 0600)
+			if err != nil {
 				logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", credCacheLockFileName, err)
 				return
 			}
 		}
 		defer os.RemoveAll(credCacheLockFileName)
 
-		if err = os.WriteFile(credCache, input, 0644); err != nil {
+		err = os.WriteFile(credCache, input, 0644)
+		if err != nil {
 			logger.Debugf("Failed to write the cache file. File: %v err: %v.", credCache, err)
 		}
 	}

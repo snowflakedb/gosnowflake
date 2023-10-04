@@ -106,7 +106,8 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 
 	_, ok = metadata["Encryptiondata"]
 	if ok {
-		if err = json.Unmarshal([]byte(*metadata["Encryptiondata"]), &encData); err != nil {
+		err = json.Unmarshal([]byte(*metadata["Encryptiondata"]), &encData)
+		if err != nil {
 			return nil, err
 		}
 	}
