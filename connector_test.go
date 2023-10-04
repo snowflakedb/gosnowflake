@@ -47,3 +47,27 @@ func TestConnector(t *testing.T) {
 		t.Fatalf("Missing driver")
 	}
 }
+
+func TestConnectorWithMissingConfig(t *testing.T) {
+	conn := snowflakeConn{}
+	mock := noopTestDriver{conn: &conn}
+	config := Config{
+		User:     "u",
+		Password: "p",
+		Account:  "",
+	}
+	expectedErr := errEmptyAccount()
+
+	connector := NewConnector(&mock, config)
+	_, err := connector.Connect(context.Background())
+	if err == nil {
+		t.Fatalf("should have failed")
+	}
+	driverErr, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("Snowflake error is expected. err: %v", err.Error())
+	}
+	if driverErr.Number != expectedErr.Number || driverErr.Message != expectedErr.Message {
+		t.Fatalf("Snowflake error did not match. expected: %v, got: %v", expectedErr, driverErr)
+	}
+}
