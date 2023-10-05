@@ -980,7 +980,7 @@ func originalTimestampEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location, ctx context.Context) (arrow.Record, error) {
+func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location) (arrow.Record, error) {
 	useOriginalTimestamp := originalTimestampEnabled(ctx)
 
 	s, err := recordToSchema(record.Schema(), rowType, loc, useOriginalTimestamp)
@@ -990,7 +990,7 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 
 	var cols []arrow.Array
 	numRows := record.NumRows()
-	ctxAlloc := compute.WithAllocator(context.Background(), pool)
+	ctxAlloc := compute.WithAllocator(ctx, pool)
 
 	for i, col := range record.Columns() {
 		srcColumnMeta := rowType[i]

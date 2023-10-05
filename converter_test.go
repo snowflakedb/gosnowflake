@@ -1516,7 +1516,7 @@ func TestArrowToRecord(t *testing.T) {
 				ctx = WithOriginalTimestamp(ctx)
 			}
 
-			transformedRec, err := arrowToRecord(rawRec, pool, []execResponseRowType{meta}, localTime.Location(), ctx)
+			transformedRec, err := arrowToRecord(ctx, rawRec, pool, []execResponseRowType{meta}, localTime.Location())
 			if err != nil {
 				if tc.error == "" || !strings.Contains(err.Error(), tc.error) {
 					t.Fatalf("error: %s", err)
