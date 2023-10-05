@@ -50,14 +50,14 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 	return chunkRows, arc.reader.Err()
 }
 
-func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader, useOriginalTimestamp bool) (*[]arrow.Record, error) {
+func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]arrow.Record, error) {
 	var records []arrow.Record
 	defer arc.reader.Release()
 
 	for arc.reader.Next() {
 		rawRecord := arc.reader.Record()
 
-		record, err := arrowToRecord(rawRecord, arc.allocator, scd.RowSet.RowType, arc.loc, useOriginalTimestamp)
+		record, err := arrowToRecord(rawRecord, arc.allocator, scd.RowSet.RowType, arc.loc, scd.ctx)
 		if err != nil {
 			return nil, err
 		}

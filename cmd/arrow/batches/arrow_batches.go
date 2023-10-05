@@ -9,10 +9,11 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
-	sf "github.com/snowflakedb/gosnowflake"
 	"log"
 	"sync"
 	"time"
+
+	sf "github.com/snowflakedb/gosnowflake"
 )
 
 type sampleRecord struct {
@@ -39,9 +40,6 @@ func main() {
 		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
 		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
 		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
-		{Name: "Database", EnvName: "SNOWFLAKE_TEST_DATABASE", FailOnMissing: false},
-		{Name: "Schema", EnvName: "SNOWFLAKE_TEST_SCHEMA", FailOnMissing: false},
-		{Name: "Role", EnvName: "SNOWFLAKE_TEST_ROLE", FailOnMissing: false},
 	})
 	if err != nil {
 		log.Fatalf("failed to create Config, err: %v", err)
@@ -128,7 +126,7 @@ func convertFromColumnsToRows(records *[]arrow.Record, sampleRecordsPerBatch [][
 				workerID: workerID,
 				number:   intColumn,
 				string:   record.Column(1).(*array.String).Value(rowID),
-				ts:       sf.ArrowSnowflakeTimestampToTime(record, batch, 2, rowID),
+				ts:       batch.ArrowSnowflakeTimestampToTime(record, 2, rowID),
 			}
 			sampleRecordsPerBatch[batchID][totalRowID] = sampleRecord
 			totalRowID++

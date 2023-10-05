@@ -834,8 +834,8 @@ func TestArrowToRecord(t *testing.T) {
 	epochField := arrow.Field{Name: "epoch", Type: &arrow.Int64Type{}}
 	timezoneField := arrow.Field{Name: "timezone", Type: &arrow.Int32Type{}}
 	fractionField := arrow.Field{Name: "fraction", Type: &arrow.Int32Type{}}
-	timestampTzStruct2 := arrow.StructOf(epochField, timezoneField)
-	timestampTzStruct3 := arrow.StructOf(epochField, fractionField, timezoneField)
+	timestampTzStructWithoutFraction := arrow.StructOf(epochField, timezoneField)
+	timestampTzStructWithFraction := arrow.StructOf(epochField, fractionField, timezoneField)
 	timestampNtzStruct := arrow.StructOf(epochField, fractionField)
 	timestampLtzStruct := arrow.StructOf(epochField, fractionField)
 
@@ -851,7 +851,7 @@ func TestArrowToRecord(t *testing.T) {
 		rowType  execResponseRowType
 		values   interface{}
 		error    string
-		orgTS    bool
+		origTS   bool
 		nrows    int
 		builder  array.Builder
 		append   func(b array.Builder, vs interface{})
@@ -1183,7 +1183,7 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "timestamp_ntz",
 			physical: "int64 with original timestamp", // timestamp_ntz with scale 0..3 -> int64
 			values:   []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond), localTimeFarIntoFuture.Truncate(time.Millisecond)},
-			orgTS:    true,
+			origTS:   true,
 			nrows:    3,
 			rowType:  execResponseRowType{Scale: 3},
 			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
@@ -1208,7 +1208,7 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "timestamp_ntz",
 			physical: "struct with original timestamp", // timestamp_ntz with scale 4..9 -> int64 + int32
 			values:   []time.Time{time.Now(), localTime, localTimeFarIntoFuture},
-			orgTS:    true,
+			origTS:   true,
 			nrows:    3,
 			rowType:  execResponseRowType{Scale: 9},
 			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampNtzStruct}}, nil),
@@ -1303,7 +1303,7 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "timestamp_ltz",
 			physical: "int64 with original timestamp", // timestamp_ntz with scale 0..3 -> int64
 			values:   []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond), localTimeFarIntoFuture.Truncate(time.Millisecond)},
-			orgTS:    true,
+			origTS:   true,
 			nrows:    3,
 			rowType:  execResponseRowType{Scale: 3},
 			sc:       arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
@@ -1328,7 +1328,7 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "timestamp_ltz",
 			physical: "struct with original timestamp", // timestamp_ntz with scale 4..9 -> int64 + int32
 			values:   []time.Time{time.Now(), localTime, localTimeFarIntoFuture},
-			orgTS:    true,
+			origTS:   true,
 			nrows:    3,
 			rowType:  execResponseRowType{Scale: 9},
 			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampLtzStruct}}, nil),
@@ -1359,8 +1359,8 @@ func TestArrowToRecord(t *testing.T) {
 			values:   []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond)},
 			nrows:    2,
 			rowType:  execResponseRowType{Scale: 3},
-			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampTzStruct2}}, nil),
-			builder:  array.NewStructBuilder(pool, timestampTzStruct2),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampTzStructWithoutFraction}}, nil),
+			builder:  array.NewStructBuilder(pool, timestampTzStructWithoutFraction),
 			append: func(b array.Builder, vs interface{}) {
 				sb := b.(*array.StructBuilder)
 				valids = []bool{true, true}
@@ -1386,8 +1386,8 @@ func TestArrowToRecord(t *testing.T) {
 			values:   []time.Time{time.Now(), localTime},
 			nrows:    2,
 			rowType:  execResponseRowType{Scale: 9},
-			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampTzStruct3}}, nil),
-			builder:  array.NewStructBuilder(pool, timestampTzStruct3),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampTzStructWithFraction}}, nil),
+			builder:  array.NewStructBuilder(pool, timestampTzStructWithFraction),
 			append: func(b array.Builder, vs interface{}) {
 				sb := b.(*array.StructBuilder)
 				valids = []bool{true, true}
@@ -1412,11 +1412,11 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "timestamp_tz",
 			physical: "struct2 with original timestamp", // timestamp_ntz with scale 0..3 -> int64 + int32
 			values:   []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond), localTimeFarIntoFuture.Truncate(time.Millisecond)},
-			orgTS:    true,
+			origTS:   true,
 			nrows:    3,
 			rowType:  execResponseRowType{Scale: 3},
-			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampTzStruct2}}, nil),
-			builder:  array.NewStructBuilder(pool, timestampTzStruct2),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampTzStructWithoutFraction}}, nil),
+			builder:  array.NewStructBuilder(pool, timestampTzStructWithoutFraction),
 			append: func(b array.Builder, vs interface{}) {
 				sb := b.(*array.StructBuilder)
 				valids = []bool{true, true, true}
@@ -1441,11 +1441,11 @@ func TestArrowToRecord(t *testing.T) {
 			logical:  "timestamp_tz",
 			physical: "struct3 with original timestamp", // timestamp_ntz with scale 4..9 -> int64 + int32 + int32
 			values:   []time.Time{time.Now(), localTime, localTimeFarIntoFuture},
-			orgTS:    true,
+			origTS:   true,
 			nrows:    3,
 			rowType:  execResponseRowType{Scale: 9},
-			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampTzStruct3}}, nil),
-			builder:  array.NewStructBuilder(pool, timestampTzStruct3),
+			sc:       arrow.NewSchema([]arrow.Field{{Type: timestampTzStructWithFraction}}, nil),
+			builder:  array.NewStructBuilder(pool, timestampTzStructWithFraction),
 			append: func(b array.Builder, vs interface{}) {
 				sb := b.(*array.StructBuilder)
 				valids = []bool{true, true, true}
@@ -1511,29 +1511,33 @@ func TestArrowToRecord(t *testing.T) {
 			meta := tc.rowType
 			meta.Type = tc.logical
 
-			transformedRec, err := arrowToRecord(rawRec, pool, []execResponseRowType{meta}, localTime.Location(), tc.orgTS)
+			ctx := context.Background()
+			if tc.origTS {
+				ctx = WithOriginalTimestamp(ctx)
+			}
+
+			transformedRec, err := arrowToRecord(rawRec, pool, []execResponseRowType{meta}, localTime.Location(), ctx)
 			if err != nil {
-				if strings.Contains(err.Error(), tc.error) {
-					return
+				if tc.error == "" || !strings.Contains(err.Error(), tc.error) {
+					t.Fatalf("error: %s", err)
 				}
-				t.Fatalf("error: %s", err)
 			} else {
-				if len(tc.error) > 0 {
+				defer transformedRec.Release()
+				if tc.error != "" {
 					t.Fatalf("expected error: %s", tc.error)
 				}
-			}
-			defer transformedRec.Release()
 
-			if tc.compare != nil {
-				idx := tc.compare(tc.values, transformedRec)
-				if idx != -1 {
-					t.Fatalf("error: column array value mismatch at index %v", idx)
-				}
-			} else {
-				for i, c := range transformedRec.Columns() {
-					rawCol := rawRec.Column(i)
-					if rawCol != c {
-						t.Fatalf("error: expected column %s, got column %s", rawCol, c)
+				if tc.compare != nil {
+					idx := tc.compare(tc.values, transformedRec)
+					if idx != -1 {
+						t.Fatalf("error: column array value mismatch at index %v", idx)
+					}
+				} else {
+					for i, c := range transformedRec.Columns() {
+						rawCol := rawRec.Column(i)
+						if rawCol != c {
+							t.Fatalf("error: expected column %s, got column %s", rawCol, c)
+						}
 					}
 				}
 			}
@@ -1718,13 +1722,13 @@ func TestTimestampConversionWithArrowBatchesAndWithOriginalTimestamp(t *testing.
 						}
 						exp := ts.Truncate(time.Duration(math.Pow10(9 - scale)))
 						for _, r := range *rec {
-							act := ArrowSnowflakeTimestampToTime(r, batches[0], 0, 0)
+							defer r.Release()
+							act := batches[0].ArrowSnowflakeTimestampToTime(r, 0, 0)
 							if act == nil {
 								t.Fatalf("unexpected result. expected: %v, got: nil", exp)
 							} else if !exp.Equal(*act) {
 								t.Fatalf("unexpected result. expected: %v, got: %v", exp, act)
 							}
-							r.Release()
 						}
 					})
 				}

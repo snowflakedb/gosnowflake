@@ -355,9 +355,9 @@ func decimalToBigFloat(num decimal128.Num, scale int64) *big.Float {
 }
 
 // ArrowSnowflakeTimestampToTime converts original timestamp returned by Snowflake to time.Time
-func ArrowSnowflakeTimestampToTime(rec arrow.Record, rb *ArrowBatch, colIdx int, recIdx int) *time.Time {
+func (rb *ArrowBatch) ArrowSnowflakeTimestampToTime(rec arrow.Record, colIdx int, recIdx int) *time.Time {
 	scale := int(rb.scd.RowSet.RowType[colIdx].Scale)
-	dbType := strings.ToUpper(rb.scd.RowSet.RowType[colIdx].Type)
+	dbType := rb.scd.RowSet.RowType[colIdx].Type
 	return arrowSnowflakeTimestampToTime(rec.Column(colIdx), getSnowflakeType(dbType), scale, recIdx, rb.loc)
 }
 
@@ -445,7 +445,7 @@ func arrowToValue(
 	}
 	logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
 
-	snowflakeType := getSnowflakeType(strings.ToUpper(srcColumnMeta.Type))
+	snowflakeType := getSnowflakeType(srcColumnMeta.Type)
 	switch snowflakeType {
 	case fixedType:
 		// Snowflake data types that are fixed-point numbers will fall into this category
@@ -980,7 +980,9 @@ func originalTimestampEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location, useOriginalTimestamp bool) (arrow.Record, error) {
+func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location, ctx context.Context) (arrow.Record, error) {
+	useOriginalTimestamp := originalTimestampEnabled(ctx)
+
 	s, err := recordToSchema(record.Schema(), rowType, loc, useOriginalTimestamp)
 	if err != nil {
 		return nil, err
@@ -988,14 +990,14 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 
 	var cols []arrow.Array
 	numRows := record.NumRows()
-	ctx := compute.WithAllocator(context.Background(), pool)
+	ctxAlloc := compute.WithAllocator(context.Background(), pool)
 
 	for i, col := range record.Columns() {
 		srcColumnMeta := rowType[i]
 
 		// TODO: confirm that it is okay to be using higher precision logic for conversions
 		newCol := col
-		snowflakeType := getSnowflakeType(strings.ToUpper(srcColumnMeta.Type))
+		snowflakeType := getSnowflakeType(srcColumnMeta.Type)
 		switch snowflakeType {
 		case fixedType:
 			var toType arrow.DataType
@@ -1007,13 +1009,13 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 				}
 				// we're fine truncating so no error for data loss here.
 				// so we use UnsafeCastOptions.
-				newCol, err = compute.CastArray(ctx, col, compute.UnsafeCastOptions(toType))
+				newCol, err = compute.CastArray(ctxAlloc, col, compute.UnsafeCastOptions(toType))
 				if err != nil {
 					return nil, err
 				}
 				defer newCol.Release()
 			} else if srcColumnMeta.Scale != 0 {
-				result, err := compute.Divide(ctx, compute.ArithmeticOptions{NoCheckOverflow: true},
+				result, err := compute.Divide(ctxAlloc, compute.ArithmeticOptions{NoCheckOverflow: true},
 					&compute.ArrayDatum{Value: newCol.Data()},
 					compute.NewDatum(math.Pow10(int(srcColumnMeta.Scale))))
 				if err != nil {
@@ -1024,7 +1026,7 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 				defer newCol.Release()
 			}
 		case timeType:
-			newCol, err = compute.CastArray(ctx, col, compute.SafeCastOptions(arrow.FixedWidthTypes.Time64ns))
+			newCol, err = compute.CastArray(ctxAlloc, col, compute.SafeCastOptions(arrow.FixedWidthTypes.Time64ns))
 			if err != nil {
 				return nil, err
 			}
@@ -1039,10 +1041,13 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 				} else {
 					tb = array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Nanosecond})
 				}
+				defer tb.Release()
+
 				for i := 0; i < int(numRows); i++ {
 					ts := arrowSnowflakeTimestampToTime(col, snowflakeType, int(srcColumnMeta.Scale), i, loc)
 					if ts != nil {
 						ar := arrow.Timestamp(ts.UnixNano())
+						// in case of overflow in arrow timestamp return error
 						if ts.Year() != ar.ToTime(arrow.Nanosecond).Year() {
 							return nil, &SnowflakeError{
 								Number:   ErrTooHighTimestampPrecision,
@@ -1058,7 +1063,6 @@ func arrowToRecord(record arrow.Record, pool memory.Allocator, rowType []execRes
 
 				newCol = tb.NewArray()
 				defer newCol.Release()
-				tb.Release()
 			}
 		}
 		cols = append(cols, newCol)
@@ -1074,7 +1078,7 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 		converted := true
 
 		var t arrow.DataType
-		switch getSnowflakeType(strings.ToUpper(srcColumnMeta.Type)) {
+		switch getSnowflakeType(srcColumnMeta.Type) {
 		case fixedType:
 			switch f.Type.ID() {
 			case arrow.DECIMAL:
