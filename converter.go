@@ -386,7 +386,6 @@ func arrowSnowflakeTimestampToTime(
 			fraction := extractFraction(value, scale)
 			ret = time.Unix(epoch, fraction).UTC()
 		}
-		return &ret
 	case timestampLtzType:
 		if column.DataType().ID() == arrow.STRUCT {
 			structData := column.(*array.Struct)
@@ -400,7 +399,6 @@ func arrowSnowflakeTimestampToTime(
 			fraction := extractFraction(value, scale)
 			ret = time.Unix(epoch, fraction).In(loc)
 		}
-		return &ret
 	case timestampTzType:
 		structData := column.(*array.Struct)
 		if structData.NumField() == 2 {
@@ -408,18 +406,17 @@ func arrowSnowflakeTimestampToTime(
 			timezone := structData.Field(1).(*array.Int32).Int32Values()
 			epoch := extractEpoch(value[recIdx], scale)
 			fraction := extractFraction(value[recIdx], scale)
-			loc := Location(int(timezone[recIdx]) - 1440)
-			ret = time.Unix(epoch, fraction).In(loc)
+			locTz := Location(int(timezone[recIdx]) - 1440)
+			ret = time.Unix(epoch, fraction).In(locTz)
 		} else {
 			epoch := structData.Field(0).(*array.Int64).Int64Values()
 			fraction := structData.Field(1).(*array.Int32).Int32Values()
 			timezone := structData.Field(2).(*array.Int32).Int32Values()
-			loc := Location(int(timezone[recIdx]) - 1440)
-			ret = time.Unix(epoch[recIdx], int64(fraction[recIdx])).In(loc)
+			locTz := Location(int(timezone[recIdx]) - 1440)
+			ret = time.Unix(epoch[recIdx], int64(fraction[recIdx])).In(locTz)
 		}
-		return &ret
 	}
-	return nil
+	return &ret
 }
 
 func extractEpoch(value int64, scale int) int64 {
