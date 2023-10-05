@@ -227,14 +227,63 @@ func TestRetryQuerySuccess(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.TODO(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456)).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolTrue}).doPost().setBody([]byte{0}).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
-		t.Fatal("failed to fail to parse the URL")
+		t.Fatal("failed to parse the URL")
+	}
+	retry, err := strconv.Atoi(values.Get(retryCountKey))
+	if err != nil {
+		t.Fatalf("failed to get retry counter: %v", err)
+	}
+	if retry < 2 {
+		t.Fatalf("not enough retry counter: %v", retry)
+	}
+}
+
+func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
+	logger.Info("Retry N times and Success")
+	client := &fakeHTTPClient{
+		cnt:        3,
+		success:    true,
+		statusCode: 429,
+		expectedQueryParams: map[int]map[string]string{
+			0: {
+				"retryCount":      "",
+				"retryReason":     "",
+				"clientStartTime": "",
+			},
+			1: {
+				"retryCount":      "1",
+				"retryReason":     "",
+				"clientStartTime": "123456",
+			},
+			2: {
+				"retryCount":      "2",
+				"retryReason":     "",
+				"clientStartTime": "123456",
+			},
+		},
+		t: t,
+	}
+	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
+	if err != nil {
+		t.Fatal("failed to parse the test URL")
+	}
+	_, err = newRetryHTTP(context.TODO(),
+		client,
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolFalse}).doPost().setBody([]byte{0}).execute()
+	if err != nil {
+		t.Fatal("failed to run retry")
+	}
+	var values url.Values
+	values, err = url.ParseQuery(urlPtr.RawQuery)
+	if err != nil {
+		t.Fatal("failed to parse the URL")
 	}
 	retry, err := strconv.Atoi(values.Get(retryCountKey))
 	if err != nil {
@@ -273,14 +322,14 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.TODO(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456)).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), nil).doPost().setBody([]byte{0}).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
-		t.Fatal("failed to fail to parse the URL")
+		t.Fatal("failed to parse the URL")
 	}
 	retry, err := strconv.Atoi(values.Get(retryCountKey))
 	if err != nil {
@@ -303,14 +352,14 @@ func TestRetryQueryFail(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.TODO(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
-		t.Fatalf("failed to fail to parse the URL: %v", err)
+		t.Fatalf("failed to parse the URL: %v", err)
 	}
 	retry, err := strconv.Atoi(values.Get(retryCountKey))
 	if err != nil {
@@ -349,14 +398,14 @@ func TestRetryLoginRequest(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.TODO(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
-		t.Fatalf("failed to fail to parse the URL: %v", err)
+		t.Fatalf("failed to parse the URL: %v", err)
 	}
 	if values.Get(retryCountKey) != "" {
 		t.Fatalf("no retry counter should be attached: %v", retryCountKey)
@@ -369,13 +418,13 @@ func TestRetryLoginRequest(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.TODO(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 10*time.Second, defaultTimeProvider).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 10*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
-		t.Fatalf("failed to fail to parse the URL: %v", err)
+		t.Fatalf("failed to parse the URL: %v", err)
 	}
 	if values.Get(retryCountKey) != "" {
 		t.Fatalf("no retry counter should be attached: %v", retryCountKey)
@@ -400,7 +449,7 @@ func TestRetryAuthLoginRequest(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.TODO(),
 		client,
-		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider).doPost().setBodyCreator(bodyCreator).execute()
+		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBodyCreator(bodyCreator).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
@@ -421,14 +470,14 @@ func TestLoginRetry429(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.TODO(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider).doRaise4XX(true).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doRaise4XX(true).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
-		t.Fatalf("failed to fail to parse the URL: %v", err)
+		t.Fatalf("failed to parse the URL: %v", err)
 	}
 	if values.Get(retryCountKey) != "" {
 		t.Fatalf("no retry counter should be attached: %v", retryCountKey)
