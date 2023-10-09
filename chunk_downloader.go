@@ -264,7 +264,7 @@ func getChunk(
 	if err != nil {
 		return nil, err
 	}
-	return newRetryHTTP(ctx, sc.rest.Client, http.NewRequest, u, headers, timeout, sc.currentTimeProvider).execute()
+	return newRetryHTTP(ctx, sc.rest.Client, http.NewRequest, u, headers, timeout, sc.currentTimeProvider, sc.cfg).execute()
 }
 
 func (scd *snowflakeChunkDownloader) startArrowBatches() error {
@@ -636,7 +636,7 @@ func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error 
 	if err != nil {
 		return err
 	}
-	res, err := newRetryHTTP(context.Background(), f.client, http.NewRequest, fullURL, f.headers, 0, defaultTimeProvider).execute()
+	res, err := newRetryHTTP(context.Background(), f.client, http.NewRequest, fullURL, f.headers, 0, defaultTimeProvider, nil).execute()
 	if err != nil {
 		return err
 	}

@@ -152,8 +152,13 @@ func (retryReasonUpdater *transientRetryReasonUpdater) replaceOrAdd(_ int) *url.
 	return retryReasonUpdater.url
 }
 
-func newRetryReasonUpdater(url *url.URL) retryReasonUpdater {
+func newRetryReasonUpdater(url *url.URL, cfg *Config) retryReasonUpdater {
+	// not a query request
 	if !isQueryRequest(url) {
+		return &transientRetryReasonUpdater{url}
+	}
+	// implicitly disabled retry reason
+	if cfg != nil && cfg.IncludeRetryReason == ConfigBoolFalse {
 		return &transientRetryReasonUpdater{url}
 	}
 	return &retryReasonUpdate{url}
@@ -224,6 +229,7 @@ type retryHTTP struct {
 	timeout             time.Duration
 	raise4XX            bool
 	currentTimeProvider currentTimeProvider
+	cfg                 *Config
 }
 
 func newRetryHTTP(ctx context.Context,
@@ -232,7 +238,8 @@ func newRetryHTTP(ctx context.Context,
 	fullURL *url.URL,
 	headers map[string]string,
 	timeout time.Duration,
-	currentTimeProvider currentTimeProvider) *retryHTTP {
+	currentTimeProvider currentTimeProvider,
+	cfg *Config) *retryHTTP {
 	instance := retryHTTP{}
 	instance.ctx = ctx
 	instance.client = client
@@ -244,6 +251,7 @@ func newRetryHTTP(ctx context.Context,
 	instance.bodyCreator = emptyBodyCreator
 	instance.raise4XX = false
 	instance.currentTimeProvider = currentTimeProvider
+	instance.cfg = cfg
 	return &instance
 }
 
@@ -346,7 +354,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 		r.fullURL = retryCountUpdater.replaceOrAdd(retryCounter)
 		if retryReasonUpdater == nil {
-			retryReasonUpdater = newRetryReasonUpdater(r.fullURL)
+			retryReasonUpdater = newRetryReasonUpdater(r.fullURL, r.cfg)
 		}
 		retryReason := 0
 		if res != nil {

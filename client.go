@@ -35,5 +35,5 @@ func (cli *httpClient) Post(
 	timeout time.Duration,
 	raise4xx bool,
 	currentTimeProvider currentTimeProvider) (*http.Response, error) {
-	return cli.sr.FuncPost(ctx, cli.sr, url, headers, body, timeout, raise4xx, currentTimeProvider)
+	return cli.sr.FuncPost(ctx, cli.sr, url, headers, body, timeout, raise4xx, currentTimeProvider, nil)
 }
