@@ -24,6 +24,12 @@ func TestUnitPostHeartbeat(t *testing.T) {
 			t.Fatalf("failed to heartbeat and renew session. err: %v", err)
 		}
 
+		heartbeat.restful.FuncPost = postTestError
+		err = heartbeat.heartbeatMain()
+		if err == nil {
+			t.Fatal("should have failed")
+		}
+
 		heartbeat.restful.FuncPost = postTestSuccessButInvalidJSON
 		err = heartbeat.heartbeatMain()
 		if err == nil {
