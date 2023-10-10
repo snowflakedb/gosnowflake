@@ -409,7 +409,7 @@ func (sc *snowflakeConn) queryContextInternal(
 		rows.addDownloader(populateChunkDownloader(ctx, sc, data.Data))
 	}
 
-	rows.ChunkDownloader.start()
+	err = rows.ChunkDownloader.start()
 	return rows, err
 }
 

@@ -57,7 +57,7 @@ func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[
 	for arc.reader.Next() {
 		rawRecord := arc.reader.Record()
 
-		record, err := arrowToRecord(rawRecord, arc.allocator, scd.RowSet.RowType, arc.loc)
+		record, err := arrowToRecord(scd.ctx, rawRecord, arc.allocator, scd.RowSet.RowType, arc.loc)
 		if err != nil {
 			return nil, err
 		}

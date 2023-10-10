@@ -279,6 +279,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 		idx:                0,
 		scd:                scd,
 		funcDownloadHelper: scd.FuncDownloadHelper,
+		loc:                loc,
 	}
 	// decode first chunk if possible
 	if firstArrowChunk.allocator != nil {
@@ -293,6 +294,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 			idx:                i,
 			scd:                scd,
 			funcDownloadHelper: scd.FuncDownloadHelper,
+			loc:                loc,
 		}
 	}
 	return nil
@@ -708,6 +710,7 @@ type ArrowBatch struct {
 	scd                *snowflakeChunkDownloader
 	funcDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
 	ctx                context.Context
+	loc                *time.Location
 }
 
 // WithContext sets the context which will be used for this ArrowBatch.
