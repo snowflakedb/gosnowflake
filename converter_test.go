@@ -539,6 +539,70 @@ func TestArrowToValue(t *testing.T) {
 		},
 		{
 			logical:  "fixed",
+			physical: "int16",
+			values:   []string{"1.2345", "2.3456"},
+			rowType:  execResponseRowType{Scale: 4},
+			builder:  array.NewInt16Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringFloatToInt(s, 4)
+					if !ok {
+						t.Fatalf("failed to convert to int")
+					}
+					b.(*array.Int16Builder).Append(int16(num))
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringFloatToInt(srcvs[i], 4)
+					if !ok {
+						return i
+					}
+					srcDec := intToBigFloat(num, 4)
+					dstDec := dst[i].(*big.Float)
+					if srcDec.Cmp(dstDec) != 0 {
+						return i
+					}
+				}
+				return -1
+			},
+			higherPrecision: true,
+		},
+		{
+			logical:  "fixed",
+			physical: "int16",
+			values:   []string{"1.2345", "2.3456"},
+			rowType:  execResponseRowType{Scale: 4},
+			builder:  array.NewInt16Builder(pool),
+			append: func(b array.Builder, vs interface{}) {
+				for _, s := range vs.([]string) {
+					num, ok := stringFloatToInt(s, 4)
+					if !ok {
+						t.Fatalf("failed to convert to int")
+					}
+					b.(*array.Int16Builder).Append(int16(num))
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				srcvs := src.([]string)
+				for i := range srcvs {
+					num, ok := stringFloatToInt(srcvs[i], 4)
+					if !ok {
+						return i
+					}
+					srcDec := fmt.Sprintf("%.*f", 4, float64(num)/math.Pow10(int(4)))
+					dstDec := dst[i]
+					if srcDec != dstDec {
+						return i
+					}
+				}
+				return -1
+			},
+			higherPrecision: false,
+		},
+		{
+			logical:  "fixed",
 			physical: "int32",
 			values:   []int32{1, 2},
 			builder:  array.NewInt32Builder(pool),
