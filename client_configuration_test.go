@@ -130,6 +130,12 @@ func TestParseConfigurationFails(t *testing.T) {
 			}`,
 			ExpectedErrorMessageToContain: "ClientConfigCommonProps.common.log_path",
 		},
+		{
+			Name:                          "TestWithoutCommon",
+			FileName:                      "config_4.json",
+			FileContents:                  "{}",
+			ExpectedErrorMessageToContain: "common section in client config not found",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
