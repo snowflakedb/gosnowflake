@@ -99,6 +99,8 @@ type Config struct {
 	ClientStoreTemporaryCredential ConfigBool // When true the ID token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
 
 	DisableQueryContextCache bool // Should HTAP query context cache be disabled
+
+	IncludeRetryReason ConfigBool // Should retried request contain retry reason
 }
 
 // Validate enables testing if config is correct.
@@ -235,6 +237,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.DisableQueryContextCache {
 		params.Add("disableQueryContextCache", "true")
+	}
+	if cfg.IncludeRetryReason == ConfigBoolFalse {
+		params.Add("includeRetryReason", "false")
 	}
 
 	params.Add("ocspFailOpen", strconv.FormatBool(cfg.OCSPFailOpen != OCSPFailOpenFalse))
@@ -472,6 +477,10 @@ func fillMissingConfigParameters(cfg *Config) error {
 
 	if cfg.ValidateDefaultParameters == configBoolNotSet {
 		cfg.ValidateDefaultParameters = ConfigBoolTrue
+	}
+
+	if cfg.IncludeRetryReason == configBoolNotSet {
+		cfg.IncludeRetryReason = ConfigBoolTrue
 	}
 
 	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {
@@ -716,6 +725,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.DisableQueryContextCache = b
+		case "includeRetryReason":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.IncludeRetryReason = ConfigBoolTrue
+			} else {
+				cfg.IncludeRetryReason = ConfigBoolFalse
+			}
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
