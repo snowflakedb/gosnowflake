@@ -24,7 +24,14 @@ var endpointsEligibleForRetry = []string{
 	authenticatorRequestPath,
 }
 
-var statusCodesEligibleForRetry = []int{http.StatusTooManyRequests, http.StatusServiceUnavailable}
+var statusCodesEligibleForRetry = []int{
+	http.StatusTooManyRequests,
+	http.StatusServiceUnavailable,
+	http.StatusBadRequest,
+	http.StatusForbidden,
+	http.StatusMethodNotAllowed,
+	http.StatusRequestTimeout,
+}
 
 func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -189,12 +196,8 @@ type waitAlgo struct {
 	cap   time.Duration // maximum wait time
 }
 
-func randSecondDuration(n time.Duration) time.Duration {
-	return time.Duration(random.Int63n(int64(n/time.Second))) * time.Second
-}
-
 // decorrelated jitter backoff
-func (w *waitAlgo) decorr(attempt int, sleep time.Duration) time.Duration {
+func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, sleep time.Duration) time.Duration {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	t := 3*sleep - w.base
@@ -205,6 +208,12 @@ func (w *waitAlgo) decorr(attempt int, sleep time.Duration) time.Duration {
 		return durationMin(w.cap, randSecondDuration(-t)+3*sleep)
 	}
 	return w.base
+}
+
+func (w *waitAlgo) getJitter(currWaitTime int) float64 {
+	multiplicationFactor := (random.Float64() * 2) - 1 // random float between (-1, 1)
+	jitterAmount := 0.5 * float64(currWaitTime) * multiplicationFactor
+	return jitterAmount
 }
 
 var defaultWaitAlgo = &waitAlgo{
@@ -298,7 +307,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 		res, err = r.client.Do(req)
 		// check if it can retry.
-		retryable, err := r.isRetryableError(req, res, err)
+		retryable, err := isRetryableError(req, res, err)
 		if !retryable {
 			return res, err
 		}
@@ -311,7 +320,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 		res.Body.Close()
 		// uses decorrelated jitter backoff
-		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
+		sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(retryCounter, sleepTime)
 
 		if totalTimeout > 0 {
 			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
@@ -359,11 +368,14 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	}
 }
 
-func (r *retryHTTP) isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
+func isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
 	if res == nil || req == nil {
 		return false, err
 	}
 	isRetryableURL := contains(endpointsEligibleForRetry, req.URL.Path)
-	isRetryableStatus := contains(statusCodesEligibleForRetry, res.StatusCode)
-	return isRetryableURL && isRetryableStatus, err
+	return isRetryableURL && isRetryableStatus(res.StatusCode), err
+}
+
+func isRetryableStatus(statusCode int) bool {
+	return (statusCode >= 500 && statusCode < 600) || contains(statusCodesEligibleForRetry, statusCode)
 }
