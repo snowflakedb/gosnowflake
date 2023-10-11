@@ -112,7 +112,7 @@ func authenticateBySAML(
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse token URL. %v", respd.Data.TokenURL)
 	}
-	ssoURL, err = url.Parse(respd.Data.TokenURL)
+	ssoURL, err = url.Parse(respd.Data.SSOURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ssoURL URL. %v", respd.Data.SSOURL)
 	}

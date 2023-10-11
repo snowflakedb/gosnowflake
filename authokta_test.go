@@ -123,6 +123,10 @@ func TestUnitGetSSO(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get HTML content. err: %v", err)
 	}
+	_, err = getSSO(context.TODO(), sr, &url.Values{}, make(map[string]string), "invalid!@url$%^", 0)
+	if err == nil {
+		t.Fatal("should have failed to parse URL.")
+	}
 }
 
 func postAuthSAMLError(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
@@ -151,6 +155,28 @@ func postAuthSAMLAuthSuccessButInvalidURL(_ context.Context, _ *snowflakeRestful
 		Data: authResponseMain{
 			TokenURL: "https://1abc.com/token",
 			SSOURL:   "https://2abc.com/sso",
+		},
+	}, nil
+}
+
+func postAuthSAMLAuthSuccessButInvalidTokenURL(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: true,
+		Message: "",
+		Data: authResponseMain{
+			TokenURL: "invalid!@url$%^",
+			SSOURL:   "https://abc.com/sso",
+		},
+	}, nil
+}
+
+func postAuthSAMLAuthSuccessButInvalidSSOURL(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: true,
+		Message: "",
+		Data: authResponseMain{
+			TokenURL: "https://abc.com/token",
+			SSOURL:   "invalid!@url$%^",
 		},
 	}, nil
 }
@@ -239,6 +265,16 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 	}
 	if driverErr.Number != ErrCodeIdpConnectionError {
 		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeIdpConnectionError, driverErr.Number)
+	}
+	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidTokenURL
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidSSOURL
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccess
 	sr.FuncPostAuthOKTA = postAuthOKTAError
