@@ -11,6 +11,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"log"
 	"sync"
+	"time"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -20,10 +21,11 @@ type sampleRecord struct {
 	workerID int
 	number   int32
 	string   string
+	ts       *time.Time
 }
 
 func (s sampleRecord) String() string {
-	return fmt.Sprintf("batchID: %v, workerID: %v, number: %v, string: %v", s.batchID, s.workerID, s.number, s.string)
+	return fmt.Sprintf("batchID: %v, workerID: %v, number: %v, string: %v, ts: %v", s.batchID, s.workerID, s.number, s.string, s.ts)
 }
 
 func main() {
@@ -48,8 +50,14 @@ func main() {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
 
-	ctx := sf.WithArrowAllocator(sf.WithArrowBatches(context.Background()), memory.DefaultAllocator)
-	query := "SELECT SEQ4(), 'example ' || (SEQ4() * 2) FROM TABLE(GENERATOR(ROWCOUNT=>30000))"
+	ctx :=
+		sf.WithOriginalTimestamp(
+			sf.WithArrowAllocator(
+				sf.WithArrowBatches(context.Background()), memory.DefaultAllocator))
+
+	query := "SELECT SEQ4(), 'example ' || (SEQ4() * 2), " +
+		" TO_TIMESTAMP_NTZ('9999-01-01 13:13:13.' || LPAD(SEQ4(),9,'0'))  ltz " +
+		" FROM TABLE(GENERATOR(ROWCOUNT=>30000))"
 
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
@@ -88,7 +96,7 @@ func main() {
 				}
 				sampleRecordsPerBatch[batchID] = make([]sampleRecord, batches[batchID].GetRowCount())
 				totalRowID := 0
-				convertFromColumnsToRows(records, sampleRecordsPerBatch, batchID, workerId, totalRowID)
+				convertFromColumnsToRows(records, sampleRecordsPerBatch, batchID, workerId, totalRowID, batches[batchID])
 			}
 		}(&waitGroup, batchIds, workerID)
 	}
@@ -110,7 +118,7 @@ func main() {
 }
 
 func convertFromColumnsToRows(records *[]arrow.Record, sampleRecordsPerBatch [][]sampleRecord, batchID int,
-	workerID int, totalRowID int) {
+	workerID int, totalRowID int, batch *sf.ArrowBatch) {
 	for _, record := range *records {
 		for rowID, intColumn := range record.Column(0).(*array.Int32).Int32Values() {
 			sampleRecord := sampleRecord{
@@ -118,6 +126,7 @@ func convertFromColumnsToRows(records *[]arrow.Record, sampleRecordsPerBatch [][
 				workerID: workerID,
 				number:   intColumn,
 				string:   record.Column(1).(*array.String).Value(rowID),
+				ts:       batch.ArrowSnowflakeTimestampToTime(record, 2, rowID),
 			}
 			sampleRecordsPerBatch[batchID][totalRowID] = sampleRecord
 			totalRowID++

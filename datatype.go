@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"strings"
 )
 
 type snowflakeType int
@@ -73,7 +74,7 @@ func (st snowflakeType) String() string {
 }
 
 func getSnowflakeType(typ string) snowflakeType {
-	return snowflakeToDriverType[typ]
+	return snowflakeToDriverType[strings.ToUpper(typ)]
 }
 
 var (

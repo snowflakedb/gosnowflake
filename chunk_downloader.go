@@ -264,7 +264,7 @@ func getChunk(
 	if err != nil {
 		return nil, err
 	}
-	return newRetryHTTP(ctx, sc.rest.Client, http.NewRequest, u, headers, timeout, sc.currentTimeProvider).execute()
+	return newRetryHTTP(ctx, sc.rest.Client, http.NewRequest, u, headers, timeout, sc.currentTimeProvider, sc.cfg).execute()
 }
 
 func (scd *snowflakeChunkDownloader) startArrowBatches() error {
@@ -279,6 +279,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 		idx:                0,
 		scd:                scd,
 		funcDownloadHelper: scd.FuncDownloadHelper,
+		loc:                loc,
 	}
 	// decode first chunk if possible
 	if firstArrowChunk.allocator != nil {
@@ -293,6 +294,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 			idx:                i,
 			scd:                scd,
 			funcDownloadHelper: scd.FuncDownloadHelper,
+			loc:                loc,
 		}
 	}
 	return nil
@@ -636,7 +638,7 @@ func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error 
 	if err != nil {
 		return err
 	}
-	res, err := newRetryHTTP(context.Background(), f.client, http.NewRequest, fullURL, f.headers, 0, defaultTimeProvider).execute()
+	res, err := newRetryHTTP(context.Background(), f.client, http.NewRequest, fullURL, f.headers, 0, defaultTimeProvider, nil).execute()
 	if err != nil {
 		return err
 	}
@@ -708,6 +710,7 @@ type ArrowBatch struct {
 	scd                *snowflakeChunkDownloader
 	funcDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
 	ctx                context.Context
+	loc                *time.Location
 }
 
 // WithContext sets the context which will be used for this ArrowBatch.

@@ -148,7 +148,7 @@ func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
 		return nil
 	}
 	return snowflakeTypeToGo(
-		getSnowflakeType(strings.ToUpper(rows.ChunkDownloader.getRowType()[index].Type)),
+		getSnowflakeType(rows.ChunkDownloader.getRowType()[index].Type),
 		rows.ChunkDownloader.getRowType()[index].Scale)
 }
 
