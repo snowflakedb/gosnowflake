@@ -20,7 +20,7 @@ const (
 	Trace string = "TRACE" // trace log level
 )
 
-// ClientConfig properties root
+// ClientConfig config root
 type ClientConfig struct {
 	Common *ClientConfigCommonProps `json:"common"`
 }
@@ -35,18 +35,18 @@ func parseClientConfiguration(filePath string) (*ClientConfig, error) {
 	if filePath == "" {
 		return nil, nil
 	}
-	fileContents, readError := os.ReadFile(filePath)
-	if readError != nil {
-		return nil, parsingClientConfigError(readError)
+	fileContents, readErr := os.ReadFile(filePath)
+	if readErr != nil {
+		return nil, parsingClientConfigError(readErr)
 	}
 	var clientConfig ClientConfig
-	parseError := json.Unmarshal(fileContents, &clientConfig)
-	if parseError != nil {
-		return nil, parsingClientConfigError(parseError)
+	parseErr := json.Unmarshal(fileContents, &clientConfig)
+	if parseErr != nil {
+		return nil, parsingClientConfigError(parseErr)
 	}
-	validateError := validateClientConfiguration(&clientConfig)
-	if validateError != nil {
-		return nil, parsingClientConfigError(validateError)
+	validateErr := validateClientConfiguration(&clientConfig)
+	if validateErr != nil {
+		return nil, parsingClientConfigError(validateErr)
 	}
 	return &clientConfig, nil
 }

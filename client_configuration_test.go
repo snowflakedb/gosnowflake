@@ -11,28 +11,18 @@ import (
 	"testing"
 )
 
-type PositiveTestCase struct {
-	Name             string
-	FileName         string
-	FileContents     string
-	ExpectedLogLevel *string
-	ExpectedLogPath  *string
-}
-
-type NegativeTestCase struct {
-	Name                          string
-	FileName                      string
-	FileContents                  string
-	ExpectedErrorMessageToContain string
-}
-
 func TestThatParsesConfiguration(t *testing.T) {
-	// given
-	dir := CreateTempDirectory(t, "conf_parse_tests_")
-	testCases := []PositiveTestCase{
+	dir := t.TempDir()
+	testCases := []struct {
+		Name             string
+		FileName         string
+		FileContents     string
+		ExpectedLogLevel *string
+		ExpectedLogPath  *string
+	}{
 		{
 			Name:     "TestWithLogLevelUpperCase",
-			FileName: "config.json",
+			FileName: "config_1.json",
 			FileContents: `{
 				"common": {
 					"log_level" : "INFO",
@@ -44,7 +34,7 @@ func TestThatParsesConfiguration(t *testing.T) {
 		},
 		{
 			Name:     "TestWithLogLevelLowerCase",
-			FileName: "config.json",
+			FileName: "config_2.json",
 			FileContents: `{
 				"common": {
 					"log_level" : "info",
@@ -56,7 +46,7 @@ func TestThatParsesConfiguration(t *testing.T) {
 		},
 		{
 			Name:     "TestWithMissingValues",
-			FileName: "config.json",
+			FileName: "config_3.json",
 			FileContents: `{
 				"common": {}
 			}`,
@@ -64,29 +54,52 @@ func TestThatParsesConfiguration(t *testing.T) {
 			ExpectedLogPath:  nil,
 		},
 	}
-	for _, testCase := range testCases {
-		t.Run(testCase.Name, func(t *testing.T) {
-			fileName := CreateFile(t, testCase.FileName, testCase.FileContents, dir)
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			fileName := CreateFile(t, tc.FileName, tc.FileContents, dir)
 
-			// when
 			config, err := parseClientConfiguration(fileName)
 
-			// then
 			assert := assert.New(t)
 			assert.Equal(nil, err, "Error should be nil")
-			assert.Equal(testCase.ExpectedLogLevel, config.Common.LogLevel, "Log level should be as expected")
-			assert.Equal(testCase.ExpectedLogPath, config.Common.LogPath, "Log path should be as expected")
+			assert.Equal(tc.ExpectedLogLevel, config.Common.LogLevel, "Log level should be as expected")
+			assert.Equal(tc.ExpectedLogPath, config.Common.LogPath, "Log path should be as expected")
 		})
 	}
 }
 
-func TestThatFailsToParse(t *testing.T) {
-	// given
-	dir := CreateTempDirectory(t, "conf_negative_parse_tests_")
-	testCases := []NegativeTestCase{
+func TestParseAllLogLevels(t *testing.T) {
+	dir := t.TempDir()
+	for _, logLevel := range []string{"OFF", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"} {
+		t.Run(logLevel, func(t *testing.T) {
+			fileContents := fmt.Sprintf(`{
+				"common": {
+					"log_level" : "%s",
+					"log_path" : "/some-path/some-directory"
+				}
+			}`, logLevel)
+			fileName := CreateFile(t, fmt.Sprintf("config_%s.json", logLevel), fileContents, dir)
+
+			config, err := parseClientConfiguration(fileName)
+
+			assert := assert.New(t)
+			assert.Equal(nil, err, "Error should be nil")
+			assert.Equal(logLevel, *config.Common.LogLevel, "Log level should be as expected")
+		})
+	}
+}
+
+func TestParseConfigurationFails(t *testing.T) {
+	dir := t.TempDir()
+	testCases := []struct {
+		Name                          string
+		FileName                      string
+		FileContents                  string
+		ExpectedErrorMessageToContain string
+	}{
 		{
 			Name:     "TestWithWrongLogLevel",
-			FileName: "config.json",
+			FileName: "config_1.json",
 			FileContents: `{
 				"common": {
 					"log_level" : "something weird",
@@ -97,7 +110,7 @@ func TestThatFailsToParse(t *testing.T) {
 		},
 		{
 			Name:     "TestWithWrongTypeOfLogLevel",
-			FileName: "config.json",
+			FileName: "config_2.json",
 			FileContents: `{
 				"common": {
 					"log_level" : 15,
@@ -108,7 +121,7 @@ func TestThatFailsToParse(t *testing.T) {
 		},
 		{
 			Name:     "TestWithWrongTypeOfLogPath",
-			FileName: "config.json",
+			FileName: "config_3.json",
 			FileContents: `{
 				"common": {
 					"log_level" : "INFO",
@@ -118,22 +131,20 @@ func TestThatFailsToParse(t *testing.T) {
 			ExpectedErrorMessageToContain: "ClientConfigCommonProps.common.log_path",
 		},
 	}
-	for _, testCase := range testCases {
-		t.Run(testCase.Name, func(t *testing.T) {
-			fileName := CreateFile(t, testCase.FileName, testCase.FileContents, dir)
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			fileName := CreateFile(t, tc.FileName, tc.FileContents, dir)
 
-			// when
 			_, err := parseClientConfiguration(fileName)
 
-			// then
 			assert := assert.New(t)
 			assert.Equal(err != nil, true, "Error should not be nil")
 			errMessage := fmt.Sprint(err)
 			expectedPrefix := "parsing client config failed"
 			assert.Equal(strings.HasPrefix(errMessage, expectedPrefix), true,
 				fmt.Sprintf("Error message: \"%s\" should start with prefix: \"%s\"", errMessage, expectedPrefix))
-			assert.Equal(strings.Contains(errMessage, testCase.ExpectedErrorMessageToContain), true,
-				fmt.Sprintf("Error message: \"%s\" should contain given phrase: \"%s\"", errMessage, testCase.ExpectedErrorMessageToContain))
+			assert.Equal(strings.Contains(errMessage, tc.ExpectedErrorMessageToContain), true,
+				fmt.Sprintf("Error message: \"%s\" should contain given phrase: \"%s\"", errMessage, tc.ExpectedErrorMessageToContain))
 		})
 	}
 }
@@ -147,18 +158,7 @@ func CreateFile(t *testing.T, fileName string, fileContents string, directory st
 	fullFileName := path.Join(directory, fileName)
 	writeErr := os.WriteFile(fullFileName, []byte(fileContents), 0644)
 	if writeErr != nil {
-		t.Error("Could not create file")
+		t.Fatal("Could not create file")
 	}
 	return fullFileName
-}
-
-func CreateTempDirectory(t *testing.T, dirPattern string) string {
-	dir, dirErr := os.MkdirTemp(os.TempDir(), dirPattern)
-	if dirErr != nil {
-		t.Error("Failed to create test directory")
-	}
-	t.Cleanup(func() {
-		os.RemoveAll(dir)
-	})
-	return dir
 }
