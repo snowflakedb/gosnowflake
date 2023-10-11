@@ -104,7 +104,7 @@ func TestThatFailsToParse(t *testing.T) {
 					"log_path" : "/some-path/some-directory"
 				}
 			}`,
-			ExpectedErrorMessageToContain: "ClientConfigCommonProps.Common.log_level",
+			ExpectedErrorMessageToContain: "ClientConfigCommonProps.common.log_level",
 		},
 		{
 			Name:     "TestWithWrongTypeOfLogPath",
@@ -115,7 +115,7 @@ func TestThatFailsToParse(t *testing.T) {
 					"log_path" : true
 				}
 			}`,
-			ExpectedErrorMessageToContain: "ClientConfigCommonProps.Common.log_path",
+			ExpectedErrorMessageToContain: "ClientConfigCommonProps.common.log_path",
 		},
 	}
 	for _, testCase := range testCases {
