@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -135,6 +136,14 @@ func postAuthSAMLAuthFail(_ context.Context, _ *snowflakeRestful, _ map[string]s
 	}, nil
 }
 
+func postAuthSAMLAuthFailWithCode(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: false,
+		Code:    strconv.Itoa(ErrCodeIdpConnectionError),
+		Message: "SAML auth failed",
+	}, nil
+}
+
 func postAuthSAMLAuthSuccessButInvalidURL(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
 	return &authResponse{
 		Success: true,
@@ -177,6 +186,10 @@ func getSSOSuccess(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[
 	return []byte(`<html><form id="1" action="https&#x3a;&#x2f;&#x2f;abc.com&#x2f;"></form></html>`), nil
 }
 
+func getSSOSuccessButWrongPrefixURL(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
+	return []byte(`<html><form id="1" action="https&#x3a;&#x2f;&#x2f;1abc.com&#x2f;"></form></html>`), nil
+}
+
 func TestUnitAuthenticateBySAML(t *testing.T) {
 	authenticator := &url.URL{
 		Scheme: "https",
@@ -203,12 +216,24 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
-	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidURL
+	sr.FuncPostAuthSAML = postAuthSAMLAuthFailWithCode
 	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	driverErr, ok := err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("should be snowflake error. err: %v", err)
+	}
+	if driverErr.Number != ErrCodeIdpConnectionError {
+		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeIdpConnectionError, driverErr.Number)
+	}
+	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidURL
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	driverErr, ok = err.(*SnowflakeError)
 	if !ok {
 		t.Fatalf("should be snowflake error. err: %v", err)
 	}
@@ -236,5 +261,17 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
 	if err != nil {
 		t.Fatalf("failed. err: %v", err)
+	}
+	sr.FuncGetSSO = getSSOSuccessButWrongPrefixURL
+	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	if err == nil {
+		t.Fatal("should have failed.")
+	}
+	driverErr, ok = err.(*SnowflakeError)
+	if !ok {
+		t.Fatalf("should be snowflake error. err: %v", err)
+	}
+	if driverErr.Number != ErrCodeSSOURLNotMatch {
+		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeSSOURLNotMatch, driverErr.Number)
 	}
 }
