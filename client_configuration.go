@@ -10,19 +10,22 @@ import (
 	"strings"
 )
 
+// log levels for easy logging
 const (
-	Off   string = "OFF"
-	Error string = "ERROR"
-	Warn  string = "WARN"
-	Info  string = "INFO"
-	Debug string = "DEBUG"
-	Trace string = "TRACE"
+	Off   string = "OFF"   // log level for logging switched off
+	Error string = "ERROR" // error log level
+	Warn  string = "WARN"  // warn log level
+	Info  string = "INFO"  // info log level
+	Debug string = "DEBUG" // debug log level
+	Trace string = "TRACE" // trace log level
 )
 
+// ClientConfig properties root
 type ClientConfig struct {
-	Common *ClientConfigCommonProps `json:common`
+	Common *ClientConfigCommonProps `json:"common"`
 }
 
+// ClientConfigCommonProps properties from "common" section
 type ClientConfigCommonProps struct {
 	LogLevel *string `json:"log_level"`
 	LogPath  *string `json:"log_path"`
