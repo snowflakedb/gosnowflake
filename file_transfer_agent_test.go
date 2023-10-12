@@ -658,3 +658,96 @@ func TestReadonlyTmpDirPathShouldFail(t *testing.T) {
 		t.Fatalf("should not upload file as temporary directory is not readable")
 	}
 }
+
+func TestUploadDownloadOneFileRequireCompress(t *testing.T) {
+	testUploadDownloadOneFile(t, false)
+}
+
+func TestUploadDownloadOneFileRequireCompressStream(t *testing.T) {
+	testUploadDownloadOneFile(t, true)
+}
+
+func testUploadDownloadOneFile(t *testing.T, isStream bool) {
+	tmpDir, err := os.MkdirTemp("", "data")
+	if err != nil {
+		t.Fatalf("cannot create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+	uploadFile := filepath.Join(tmpDir, "data.txt")
+	f, err := os.Create(uploadFile)
+	if err != nil {
+		t.Error(err)
+	}
+	f.WriteString("test1,test2\ntest3,test4\n")
+	f.Close()
+
+	uploadMeta := &fileMetadata{
+		name:              "data.txt.gz",
+		stageLocationType: "local",
+		noSleepingTime:    true,
+		client:            local,
+		sha256Digest:      "123456789abcdef",
+		stageInfo: &execResponseStageInfo{
+			Location:     tmpDir,
+			LocationType: "local",
+		},
+		dstFileName: "data.txt.gz",
+		srcFileName: uploadFile,
+		overwrite:   true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		requireCompress: true,
+	}
+
+	downloadFile := filepath.Join(tmpDir, "download.txt")
+	downloadMeta := &fileMetadata{
+		name:              "data.txt.gz",
+		stageLocationType: "local",
+		noSleepingTime:    true,
+		client:            local,
+		sha256Digest:      "123456789abcdef",
+		stageInfo: &execResponseStageInfo{
+			Location:     tmpDir,
+			LocationType: "local",
+		},
+		srcFileName: "data.txt.gz",
+		dstFileName: downloadFile,
+		overwrite:   true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+	}
+
+	sfa := snowflakeFileTransferAgent{
+		sc: &snowflakeConn{
+			cfg: &Config{
+				TmpDirPath: tmpDir,
+			},
+		},
+		stageLocationType: local,
+	}
+
+	if isStream {
+		fileStream, _ := os.Open(uploadFile)
+		ctx := WithFileStream(context.Background(), fileStream)
+		uploadMeta.srcStream = getFileStream(ctx)
+	}
+
+	_, err = sfa.uploadOneFile(uploadMeta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uploadMeta.resStatus != uploaded {
+		t.Fatalf("failed to upload file")
+	}
+
+	_, err = sfa.downloadOneFile(downloadMeta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if downloadMeta.resStatus != downloaded {
+		t.Fatalf("failed to download file")
+	}
+	defer os.Remove("download.txt")
+}

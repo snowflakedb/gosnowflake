@@ -305,6 +305,9 @@ func TestPutOverwrite(t *testing.T) {
 	f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
+		if _, err = dbt.exec("use role sysadmin"); err != nil {
+			t.Skip("snowflake admin account not accessible")
+		}
 		dbt.mustExec("rm @~/test_put_overwrite")
 
 		f, _ = os.Open(testData)
