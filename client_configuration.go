@@ -35,18 +35,18 @@ func parseClientConfiguration(filePath string) (*ClientConfig, error) {
 	if filePath == "" {
 		return nil, nil
 	}
-	fileContents, readErr := os.ReadFile(filePath)
-	if readErr != nil {
-		return nil, parsingClientConfigError(readErr)
+	fileContents, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, parsingClientConfigError(err)
 	}
 	var clientConfig ClientConfig
-	parseErr := json.Unmarshal(fileContents, &clientConfig)
-	if parseErr != nil {
-		return nil, parsingClientConfigError(parseErr)
+	err = json.Unmarshal(fileContents, &clientConfig)
+	if err != nil {
+		return nil, parsingClientConfigError(err)
 	}
-	validateErr := validateClientConfiguration(&clientConfig)
-	if validateErr != nil {
-		return nil, parsingClientConfigError(validateErr)
+	err = validateClientConfiguration(&clientConfig)
+	if err != nil {
+		return nil, parsingClientConfigError(err)
 	}
 	return &clientConfig, nil
 }
