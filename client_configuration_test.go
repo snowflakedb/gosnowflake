@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestThatParsesConfiguration(t *testing.T) {
+func TestParseConfiguration(t *testing.T) {
 	dir := t.TempDir()
 	testCases := []struct {
 		Name             string
