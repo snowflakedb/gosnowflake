@@ -63,9 +63,6 @@ func TestUnitDownloadWithInvalidLocalPath(t *testing.T) {
 	f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
-		if _, err = dbt.exec("use role sysadmin"); err != nil {
-			t.Skip("snowflake admin account not accessible")
-		}
 		dbt.mustExec("rm @~/test_get")
 		sqlText := fmt.Sprintf("put file://%v @~/test_get", testData)
 		sqlText = strings.ReplaceAll(sqlText, "\\", "\\\\")

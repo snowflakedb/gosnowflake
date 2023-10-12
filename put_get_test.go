@@ -268,9 +268,6 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	defer f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
-		if _, err = dbt.exec("use role sysadmin"); err != nil {
-			t.Skip("snowflake admin account not accessible")
-		}
 		dbt.mustExec("rm @~/test_put_uncompress_file")
 		sqlText := fmt.Sprintf("put file://%v @~/test_put_uncompress_file auto_compress=FALSE", testData)
 		sqlText = strings.ReplaceAll(sqlText, "\\", "\\\\")
@@ -308,9 +305,6 @@ func TestPutOverwrite(t *testing.T) {
 	f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
-		if _, err = dbt.exec("use role sysadmin"); err != nil {
-			t.Skip("snowflake admin account not accessible")
-		}
 		dbt.mustExec("rm @~/test_put_overwrite")
 
 		f, _ = os.Open(testData)
