@@ -27,8 +27,8 @@ type ClientConfig struct {
 
 // ClientConfigCommonProps properties from "common" section
 type ClientConfigCommonProps struct {
-	LogLevel *string `json:"log_level"`
-	LogPath  *string `json:"log_path"`
+	LogLevel string `json:"log_level,omitempty"`
+	LogPath  string `json:"log_path,omitempty"`
 }
 
 func parseClientConfiguration(filePath string) (*ClientConfig, error) {
@@ -62,13 +62,13 @@ func validateClientConfiguration(clientConfig *ClientConfig) error {
 	if clientConfig.Common == nil {
 		return errors.New("common section in client config not found")
 	}
-	return validateLogLevel(clientConfig)
+	return validateLogLevel(*clientConfig)
 }
 
-func validateLogLevel(clientConfig *ClientConfig) error {
+func validateLogLevel(clientConfig ClientConfig) error {
 	var logLevel = clientConfig.Common.LogLevel
-	if logLevel != nil && *logLevel != "" {
-		_, error := toLogLevel(*logLevel)
+	if logLevel != "" {
+		_, error := toLogLevel(logLevel)
 		if error != nil {
 			return error
 		}
@@ -76,12 +76,12 @@ func validateLogLevel(clientConfig *ClientConfig) error {
 	return nil
 }
 
-func toLogLevel(logLevelString string) (*string, error) {
+func toLogLevel(logLevelString string) (string, error) {
 	var logLevel = strings.ToUpper(logLevelString)
 	switch logLevel {
 	case Off, Error, Warn, Info, Debug, Trace:
-		return &logLevel, nil
+		return logLevel, nil
 	default:
-		return nil, errors.New("unknown log level: " + logLevelString)
+		return "", errors.New("unknown log level: " + logLevelString)
 	}
 }

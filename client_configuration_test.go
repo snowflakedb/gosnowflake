@@ -17,8 +17,8 @@ func TestParseConfiguration(t *testing.T) {
 		Name             string
 		FileName         string
 		FileContents     string
-		ExpectedLogLevel *string
-		ExpectedLogPath  *string
+		ExpectedLogLevel string
+		ExpectedLogPath  string
 	}{
 		{
 			Name:     "TestWithLogLevelUpperCase",
@@ -29,8 +29,8 @@ func TestParseConfiguration(t *testing.T) {
 					"log_path" : "/some-path/some-directory"
 				}
 			}`,
-			ExpectedLogLevel: toStringPointer("INFO"),
-			ExpectedLogPath:  toStringPointer("/some-path/some-directory"),
+			ExpectedLogLevel: "INFO",
+			ExpectedLogPath:  "/some-path/some-directory",
 		},
 		{
 			Name:     "TestWithLogLevelLowerCase",
@@ -41,8 +41,8 @@ func TestParseConfiguration(t *testing.T) {
 					"log_path" : "/some-path/some-directory"
 				}
 			}`,
-			ExpectedLogLevel: toStringPointer("info"),
-			ExpectedLogPath:  toStringPointer("/some-path/some-directory"),
+			ExpectedLogLevel: "info",
+			ExpectedLogPath:  "/some-path/some-directory",
 		},
 		{
 			Name:     "TestWithMissingValues",
@@ -50,8 +50,8 @@ func TestParseConfiguration(t *testing.T) {
 			FileContents: `{
 				"common": {}
 			}`,
-			ExpectedLogLevel: nil,
-			ExpectedLogPath:  nil,
+			ExpectedLogLevel: "",
+			ExpectedLogPath:  "",
 		},
 	}
 	for _, tc := range testCases {
@@ -84,7 +84,7 @@ func TestParseAllLogLevels(t *testing.T) {
 
 			assert := assert.New(t)
 			assert.Equal(nil, err, "Error should be nil")
-			assert.Equal(logLevel, *config.Common.LogLevel, "Log level should be as expected")
+			assert.Equal(logLevel, config.Common.LogLevel, "Log level should be as expected")
 		})
 	}
 }
@@ -153,11 +153,6 @@ func TestParseConfigurationFails(t *testing.T) {
 				fmt.Sprintf("Error message: \"%s\" should contain given phrase: \"%s\"", errMessage, tc.ExpectedErrorMessageToContain))
 		})
 	}
-}
-
-func toStringPointer(value string) *string {
-	var copyOfValue = value
-	return &copyOfValue
 }
 
 func CreateFile(t *testing.T, fileName string, fileContents string, directory string) string {
