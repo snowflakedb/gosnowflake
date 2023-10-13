@@ -13,60 +13,60 @@ import (
 func TestParseConfiguration(t *testing.T) {
 	dir := t.TempDir()
 	testCases := []struct {
-		Name             string
-		FileName         string
-		FileContents     string
-		ExpectedLogLevel string
-		ExpectedLogPath  string
+		testName         string
+		fileName         string
+		fileContents     string
+		expectedLogLevel string
+		expectedLogPath  string
 	}{
 		{
-			Name:     "TestWithLogLevelUpperCase",
-			FileName: "config_1.json",
-			FileContents: `{
+			testName: "TestWithLogLevelUpperCase",
+			fileName: "config_1.json",
+			fileContents: `{
 				"common": {
 					"log_level" : "INFO",
 					"log_path" : "/some-path/some-directory"
 				}
 			}`,
-			ExpectedLogLevel: "INFO",
-			ExpectedLogPath:  "/some-path/some-directory",
+			expectedLogLevel: "INFO",
+			expectedLogPath:  "/some-path/some-directory",
 		},
 		{
-			Name:     "TestWithLogLevelLowerCase",
-			FileName: "config_2.json",
-			FileContents: `{
+			testName: "TestWithLogLevelLowerCase",
+			fileName: "config_2.json",
+			fileContents: `{
 				"common": {
 					"log_level" : "info",
 					"log_path" : "/some-path/some-directory"
 				}
 			}`,
-			ExpectedLogLevel: "info",
-			ExpectedLogPath:  "/some-path/some-directory",
+			expectedLogLevel: "info",
+			expectedLogPath:  "/some-path/some-directory",
 		},
 		{
-			Name:     "TestWithMissingValues",
-			FileName: "config_3.json",
-			FileContents: `{
+			testName: "TestWithMissingValues",
+			fileName: "config_3.json",
+			fileContents: `{
 				"common": {}
 			}`,
-			ExpectedLogLevel: "",
-			ExpectedLogPath:  "",
+			expectedLogLevel: "",
+			expectedLogPath:  "",
 		},
 	}
 	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
-			fileName := CreateFile(t, tc.FileName, tc.FileContents, dir)
+		t.Run(tc.testName, func(t *testing.T) {
+			fileName := createFile(t, tc.fileName, tc.fileContents, dir)
 
 			config, err := parseClientConfiguration(fileName)
 
 			if err != nil {
 				t.Fatalf("Error should be nil but was %s", err)
 			}
-			if config.Common.LogLevel != tc.ExpectedLogLevel {
-				t.Errorf("Log level should be %s but was %s", tc.ExpectedLogLevel, config.Common.LogLevel)
+			if config.Common.LogLevel != tc.expectedLogLevel {
+				t.Errorf("Log level should be %s but was %s", tc.expectedLogLevel, config.Common.LogLevel)
 			}
-			if config.Common.LogPath != tc.ExpectedLogPath {
-				t.Errorf("Log path should be %s but was %s", tc.ExpectedLogPath, config.Common.LogPath)
+			if config.Common.LogPath != tc.expectedLogPath {
+				t.Errorf("Log path should be %s but was %s", tc.expectedLogPath, config.Common.LogPath)
 			}
 		})
 	}
@@ -82,7 +82,7 @@ func TestParseAllLogLevels(t *testing.T) {
 					"log_path" : "/some-path/some-directory"
 				}
 			}`, logLevel)
-			fileName := CreateFile(t, fmt.Sprintf("config_%s.json", logLevel), fileContents, dir)
+			fileName := createFile(t, fmt.Sprintf("config_%s.json", logLevel), fileContents, dir)
 
 			config, err := parseClientConfiguration(fileName)
 
@@ -99,54 +99,54 @@ func TestParseAllLogLevels(t *testing.T) {
 func TestParseConfigurationFails(t *testing.T) {
 	dir := t.TempDir()
 	testCases := []struct {
-		Name                          string
-		FileName                      string
+		testName                      string
+		fileName                      string
 		FileContents                  string
-		ExpectedErrorMessageToContain string
+		expectedErrorMessageToContain string
 	}{
 		{
-			Name:     "TestWithWrongLogLevel",
-			FileName: "config_1.json",
+			testName: "TestWithWrongLogLevel",
+			fileName: "config_1.json",
 			FileContents: `{
 				"common": {
 					"log_level" : "something weird",
 					"log_path" : "/some-path/some-directory"
 				}
 			}`,
-			ExpectedErrorMessageToContain: "unknown log level",
+			expectedErrorMessageToContain: "unknown log level",
 		},
 		{
-			Name:     "TestWithWrongTypeOfLogLevel",
-			FileName: "config_2.json",
+			testName: "TestWithWrongTypeOfLogLevel",
+			fileName: "config_2.json",
 			FileContents: `{
 				"common": {
 					"log_level" : 15,
 					"log_path" : "/some-path/some-directory"
 				}
 			}`,
-			ExpectedErrorMessageToContain: "ClientConfigCommonProps.common.log_level",
+			expectedErrorMessageToContain: "ClientConfigCommonProps.common.log_level",
 		},
 		{
-			Name:     "TestWithWrongTypeOfLogPath",
-			FileName: "config_3.json",
+			testName: "TestWithWrongTypeOfLogPath",
+			fileName: "config_3.json",
 			FileContents: `{
 				"common": {
 					"log_level" : "INFO",
 					"log_path" : true
 				}
 			}`,
-			ExpectedErrorMessageToContain: "ClientConfigCommonProps.common.log_path",
+			expectedErrorMessageToContain: "ClientConfigCommonProps.common.log_path",
 		},
 		{
-			Name:                          "TestWithoutCommon",
-			FileName:                      "config_4.json",
+			testName:                      "TestWithoutCommon",
+			fileName:                      "config_4.json",
 			FileContents:                  "{}",
-			ExpectedErrorMessageToContain: "common section in client config not found",
+			expectedErrorMessageToContain: "common section in client config not found",
 		},
 	}
 	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
-			fileName := CreateFile(t, tc.FileName, tc.FileContents, dir)
+		t.Run(tc.testName, func(t *testing.T) {
+			fileName := createFile(t, tc.fileName, tc.FileContents, dir)
 
 			_, err := parseClientConfiguration(fileName)
 
@@ -158,17 +158,17 @@ func TestParseConfigurationFails(t *testing.T) {
 			if !strings.HasPrefix(errMessage, expectedPrefix) {
 				t.Errorf("Error message: \"%s\" should start with prefix: \"%s\"", errMessage, expectedPrefix)
 			}
-			if !strings.Contains(errMessage, tc.ExpectedErrorMessageToContain) {
-				t.Errorf("Error message: \"%s\" should contain given phrase: \"%s\"", errMessage, tc.ExpectedErrorMessageToContain)
+			if !strings.Contains(errMessage, tc.expectedErrorMessageToContain) {
+				t.Errorf("Error message: \"%s\" should contain given phrase: \"%s\"", errMessage, tc.expectedErrorMessageToContain)
 			}
 		})
 	}
 }
 
-func CreateFile(t *testing.T, fileName string, fileContents string, directory string) string {
+func createFile(t *testing.T, fileName string, fileContents string, directory string) string {
 	fullFileName := path.Join(directory, fileName)
-	writeErr := os.WriteFile(fullFileName, []byte(fileContents), 0644)
-	if writeErr != nil {
+	err := os.WriteFile(fullFileName, []byte(fileContents), 0644)
+	if err != nil {
 		t.Fatal("Could not create file")
 	}
 	return fullFileName

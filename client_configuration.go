@@ -12,12 +12,12 @@ import (
 
 // log levels for easy logging
 const (
-	Off   string = "OFF"   // log level for logging switched off
-	Error string = "ERROR" // error log level
-	Warn  string = "WARN"  // warn log level
-	Info  string = "INFO"  // info log level
-	Debug string = "DEBUG" // debug log level
-	Trace string = "TRACE" // trace log level
+	levelOff   string = "OFF"   // log level for logging switched off
+	levelError string = "ERROR" // error log level
+	levelWarn  string = "WARN"  // warn log level
+	levelInfo  string = "INFO"  // info log level
+	levelDebug string = "DEBUG" // debug log level
+	levelTrace string = "TRACE" // trace log level
 )
 
 // ClientConfig config root
@@ -79,7 +79,7 @@ func validateLogLevel(clientConfig ClientConfig) error {
 func toLogLevel(logLevelString string) (string, error) {
 	var logLevel = strings.ToUpper(logLevelString)
 	switch logLevel {
-	case Off, Error, Warn, Info, Debug, Trace:
+	case levelOff, levelError, levelWarn, levelInfo, levelDebug, levelTrace:
 		return logLevel, nil
 	default:
 		return "", errors.New("unknown log level: " + logLevelString)
