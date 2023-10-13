@@ -48,7 +48,7 @@ func assertHasPrefix(t *testing.T, actual string, expectedPrefix string, descrip
 
 func joinDescriptions(descriptions ...string) string {
 	desc := ""
-	if descriptions != nil && len(descriptions) > 0 {
+	if len(descriptions) > 0 {
 		desc = " while checking: " + strings.Join(descriptions, " ")
 	}
 	return desc
