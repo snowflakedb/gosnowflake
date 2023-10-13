@@ -4,7 +4,6 @@ package gosnowflake
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path"
 	"strings"
@@ -60,10 +59,15 @@ func TestParseConfiguration(t *testing.T) {
 
 			config, err := parseClientConfiguration(fileName)
 
-			assert := assert.New(t)
-			assert.Equal(nil, err, "Error should be nil")
-			assert.Equal(tc.ExpectedLogLevel, config.Common.LogLevel, "Log level should be as expected")
-			assert.Equal(tc.ExpectedLogPath, config.Common.LogPath, "Log path should be as expected")
+			if err != nil {
+				t.Fatalf("Error should be nil but was %s", err)
+			}
+			if config.Common.LogLevel != tc.ExpectedLogLevel {
+				t.Errorf("Log level should be %s but was %s", tc.ExpectedLogLevel, config.Common.LogLevel)
+			}
+			if config.Common.LogPath != tc.ExpectedLogPath {
+				t.Errorf("Log path should be %s but was %s", tc.ExpectedLogPath, config.Common.LogPath)
+			}
 		})
 	}
 }
@@ -82,9 +86,12 @@ func TestParseAllLogLevels(t *testing.T) {
 
 			config, err := parseClientConfiguration(fileName)
 
-			assert := assert.New(t)
-			assert.Equal(nil, err, "Error should be nil")
-			assert.Equal(logLevel, config.Common.LogLevel, "Log level should be as expected")
+			if err != nil {
+				t.Fatalf("Error should be nil but was: %s", err)
+			}
+			if config.Common.LogLevel != logLevel {
+				t.Errorf("Log level should be %s but was %s", logLevel, config.Common.LogLevel)
+			}
 		})
 	}
 }
@@ -143,14 +150,17 @@ func TestParseConfigurationFails(t *testing.T) {
 
 			_, err := parseClientConfiguration(fileName)
 
-			assert := assert.New(t)
-			assert.Equal(err != nil, true, "Error should not be nil")
+			if err == nil {
+				t.Fatal("Error should not be nil but was nil")
+			}
 			errMessage := fmt.Sprint(err)
 			expectedPrefix := "parsing client config failed"
-			assert.Equal(strings.HasPrefix(errMessage, expectedPrefix), true,
-				fmt.Sprintf("Error message: \"%s\" should start with prefix: \"%s\"", errMessage, expectedPrefix))
-			assert.Equal(strings.Contains(errMessage, tc.ExpectedErrorMessageToContain), true,
-				fmt.Sprintf("Error message: \"%s\" should contain given phrase: \"%s\"", errMessage, tc.ExpectedErrorMessageToContain))
+			if !strings.HasPrefix(errMessage, expectedPrefix) {
+				t.Errorf("Error message: \"%s\" should start with prefix: \"%s\"", errMessage, expectedPrefix)
+			}
+			if !strings.Contains(errMessage, tc.ExpectedErrorMessageToContain) {
+				t.Errorf("Error message: \"%s\" should contain given phrase: \"%s\"", errMessage, tc.ExpectedErrorMessageToContain)
+			}
 		})
 	}
 }
