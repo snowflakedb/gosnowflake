@@ -10,35 +10,32 @@ import (
 )
 
 func assertNilF(t *testing.T, actual any, descriptions ...string) {
-	errMsg := validateNil(actual, descriptions...)
-	if errMsg != "" {
-		t.Fatal(errMsg)
-	}
+	fatalOnNonEmpty(t, validateNil(actual, descriptions...))
 }
 
 func assertNotNilF(t *testing.T, actual any, descriptions ...string) {
-	errMsg := validateNotNil(actual, descriptions...)
+	fatalOnNonEmpty(t, validateNotNil(actual, descriptions...))
+}
+
+func assertEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
+	errorOnNonEmpty(t, validateEqual(actual, expected, descriptions...))
+}
+
+func assertStringContainsE(t *testing.T, actual string, expectedToContain string, descriptions ...string) {
+	errorOnNonEmpty(t, validateStringContains(actual, expectedToContain, descriptions...))
+}
+
+func assertHasPrefixE(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
+	errorOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
+}
+
+func fatalOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
 		t.Fatal(errMsg)
 	}
 }
 
-func assertEqualE(t *testing.T, actual string, expected string, descriptions ...string) {
-	errMsg := validateEqualStrings(actual, expected, descriptions...)
-	if errMsg != "" {
-		t.Error(errMsg)
-	}
-}
-
-func assertStringContainsE(t *testing.T, actual string, expectedToContain string, descriptions ...string) {
-	errMsg := validateStringContains(actual, expectedToContain, descriptions...)
-	if errMsg != "" {
-		t.Error(errMsg)
-	}
-}
-
-func assertHasPrefixE(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
-	errMsg := validateHasPrefix(actual, expectedPrefix, descriptions...)
+func errorOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
 		t.Error(errMsg)
 	}
@@ -60,7 +57,7 @@ func validateNotNil(actual any, descriptions ...string) string {
 	return fmt.Sprintf("expected to be not nil but was not. %s", desc)
 }
 
-func validateEqualStrings(actual any, expected string, descriptions ...string) string {
+func validateEqual(actual any, expected any, descriptions ...string) string {
 	if expected == actual {
 		return ""
 	}
