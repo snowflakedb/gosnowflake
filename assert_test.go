@@ -16,29 +16,8 @@ func assertNilF(t *testing.T, actual any, descriptions ...string) {
 	}
 }
 
-func assertNilE(t *testing.T, actual any, descriptions ...string) {
-	errMsg := validateNil(actual, descriptions...)
-	if errMsg != "" {
-		t.Error(errMsg)
-	}
-}
-
 func assertNotNilF(t *testing.T, actual any, descriptions ...string) {
 	errMsg := validateNotNil(actual, descriptions...)
-	if errMsg != "" {
-		t.Fatal(errMsg)
-	}
-}
-
-func assertNotNilE(t *testing.T, actual any, descriptions ...string) {
-	errMsg := validateNotNil(actual, descriptions...)
-	if errMsg != "" {
-		t.Error(errMsg)
-	}
-}
-
-func assertEqualF(t *testing.T, actual string, expected string, descriptions ...string) {
-	errMsg := validateEqualStrings(actual, expected, descriptions...)
 	if errMsg != "" {
 		t.Fatal(errMsg)
 	}
@@ -51,24 +30,10 @@ func assertEqualE(t *testing.T, actual string, expected string, descriptions ...
 	}
 }
 
-func assertStringContainsF(t *testing.T, actual string, expectedToContain string, descriptions ...string) {
-	errMsg := validateStringContains(actual, expectedToContain, descriptions...)
-	if errMsg != "" {
-		t.Fatal(errMsg)
-	}
-}
-
 func assertStringContainsE(t *testing.T, actual string, expectedToContain string, descriptions ...string) {
 	errMsg := validateStringContains(actual, expectedToContain, descriptions...)
 	if errMsg != "" {
 		t.Error(errMsg)
-	}
-}
-
-func assertHasPrefixF(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
-	errMsg := validateHasPrefix(actual, expectedPrefix, descriptions...)
-	if errMsg != "" {
-		t.Fatal(errMsg)
 	}
 }
 
