@@ -1,13 +1,16 @@
+// Copyright (c) 2023 Snowflake Computing Inc. All rights reserved.
+
 package gosnowflake
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 )
 
 func assertNil(t *testing.T, actual interface{}, descriptions ...string) {
-	if actual != nil {
+	if !isNil(actual) {
 		desc := joinDescriptions(descriptions...)
 		errMsg := fmt.Sprintf("expected \"%s\" to be nil but was not%s", actual, desc)
 		t.Fatal(errMsg)
@@ -15,7 +18,7 @@ func assertNil(t *testing.T, actual interface{}, descriptions ...string) {
 }
 
 func assertNotNil(t *testing.T, actual interface{}, descriptions ...string) {
-	if actual == nil {
+	if isNil(actual) {
 		desc := joinDescriptions(descriptions...)
 		errMsg := fmt.Sprintf("expected to be not nil but was nil%s", desc)
 		t.Fatal(errMsg)
@@ -52,4 +55,12 @@ func joinDescriptions(descriptions ...string) string {
 		desc = " while checking: " + strings.Join(descriptions, " ")
 	}
 	return desc
+}
+
+func isNil(value interface{}) bool {
+	if value == nil {
+		return true
+	}
+	val := reflect.ValueOf(value)
+	return val.Kind() == reflect.Pointer && val.IsNil()
 }
