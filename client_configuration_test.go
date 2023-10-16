@@ -150,6 +150,6 @@ func TestParseConfigurationFails(t *testing.T) {
 func createFile(t *testing.T, fileName string, fileContents string, directory string) string {
 	fullFileName := path.Join(directory, fileName)
 	err := os.WriteFile(fullFileName, []byte(fileContents), 0644)
-	assertNotNil(t, err, "create file error")
+	assertNil(t, err, "create file error")
 	return fullFileName
 }
