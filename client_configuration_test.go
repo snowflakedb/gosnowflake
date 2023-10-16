@@ -58,9 +58,9 @@ func TestParseConfiguration(t *testing.T) {
 
 			config, err := parseClientConfiguration(fileName)
 
-			assertNil(t, err, "parse client configuration error")
-			assertEqual(t, config.Common.LogLevel, tc.expectedLogLevel, "log level")
-			assertEqual(t, config.Common.LogPath, tc.expectedLogPath, "log path")
+			assertNilF(t, err, "parse client configuration error")
+			assertEqualE(t, config.Common.LogLevel, tc.expectedLogLevel, "log level")
+			assertEqualE(t, config.Common.LogPath, tc.expectedLogPath, "log path")
 		})
 	}
 }
@@ -79,8 +79,8 @@ func TestParseAllLogLevels(t *testing.T) {
 
 			config, err := parseClientConfiguration(fileName)
 
-			assertNil(t, err, "parse client config error")
-			assertEqual(t, config.Common.LogLevel, logLevel, "log level")
+			assertNilF(t, err, "parse client config error")
+			assertEqualE(t, config.Common.LogLevel, logLevel, "log level")
 		})
 	}
 }
@@ -139,11 +139,11 @@ func TestParseConfigurationFails(t *testing.T) {
 
 			_, err := parseClientConfiguration(fileName)
 
-			assertNotNil(t, err, "parse client configuration error")
+			assertNotNilF(t, err, "parse client configuration error")
 			errMessage := fmt.Sprint(err)
 			expectedPrefix := "parsing client config failed"
-			assertHasPrefix(t, errMessage, expectedPrefix, "error message")
-			assertStringContains(t, errMessage, tc.expectedErrorMessageToContain, "error message")
+			assertHasPrefixE(t, errMessage, expectedPrefix, "error message")
+			assertStringContainsE(t, errMessage, tc.expectedErrorMessageToContain, "error message")
 		})
 	}
 }
@@ -151,6 +151,6 @@ func TestParseConfigurationFails(t *testing.T) {
 func createFile(t *testing.T, fileName string, fileContents string, directory string) string {
 	fullFileName := path.Join(directory, fileName)
 	err := os.WriteFile(fullFileName, []byte(fileContents), 0644)
-	assertNil(t, err, "create file error")
+	assertNilF(t, err, "create file error")
 	return fullFileName
 }
