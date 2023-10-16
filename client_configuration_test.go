@@ -57,6 +57,7 @@ func TestParseConfiguration(t *testing.T) {
 			fileName := createFile(t, tc.fileName, tc.fileContents, dir)
 
 			config, err := parseClientConfiguration(fileName)
+
 			assertNil(t, err, "parse client configuration error")
 			assertEqual(t, config.Common.LogLevel, tc.expectedLogLevel, "log level")
 			assertEqual(t, config.Common.LogPath, tc.expectedLogPath, "log path")
@@ -142,7 +143,7 @@ func TestParseConfigurationFails(t *testing.T) {
 			errMessage := fmt.Sprint(err)
 			expectedPrefix := "parsing client config failed"
 			assertHasPrefix(t, errMessage, expectedPrefix, "error message")
-			assertContains(t, errMessage, tc.expectedErrorMessageToContain, "error message")
+			assertStringContains(t, errMessage, tc.expectedErrorMessageToContain, "error message")
 		})
 	}
 }
