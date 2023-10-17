@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"testing"
 )
 
@@ -59,15 +58,9 @@ func TestParseConfiguration(t *testing.T) {
 
 			config, err := parseClientConfiguration(fileName)
 
-			if err != nil {
-				t.Fatalf("Error should be nil but was %s", err)
-			}
-			if config.Common.LogLevel != tc.expectedLogLevel {
-				t.Errorf("Log level should be %s but was %s", tc.expectedLogLevel, config.Common.LogLevel)
-			}
-			if config.Common.LogPath != tc.expectedLogPath {
-				t.Errorf("Log path should be %s but was %s", tc.expectedLogPath, config.Common.LogPath)
-			}
+			assertNilF(t, err, "parse client configuration error")
+			assertEqualE(t, config.Common.LogLevel, tc.expectedLogLevel, "log level")
+			assertEqualE(t, config.Common.LogPath, tc.expectedLogPath, "log path")
 		})
 	}
 }
@@ -86,12 +79,8 @@ func TestParseAllLogLevels(t *testing.T) {
 
 			config, err := parseClientConfiguration(fileName)
 
-			if err != nil {
-				t.Fatalf("Error should be nil but was: %s", err)
-			}
-			if config.Common.LogLevel != logLevel {
-				t.Errorf("Log level should be %s but was %s", logLevel, config.Common.LogLevel)
-			}
+			assertNilF(t, err, "parse client config error")
+			assertEqualE(t, config.Common.LogLevel, logLevel, "log level")
 		})
 	}
 }
@@ -150,17 +139,11 @@ func TestParseConfigurationFails(t *testing.T) {
 
 			_, err := parseClientConfiguration(fileName)
 
-			if err == nil {
-				t.Fatal("Error should not be nil but was nil")
-			}
+			assertNotNilF(t, err, "parse client configuration error")
 			errMessage := fmt.Sprint(err)
 			expectedPrefix := "parsing client config failed"
-			if !strings.HasPrefix(errMessage, expectedPrefix) {
-				t.Errorf("Error message: \"%s\" should start with prefix: \"%s\"", errMessage, expectedPrefix)
-			}
-			if !strings.Contains(errMessage, tc.expectedErrorMessageToContain) {
-				t.Errorf("Error message: \"%s\" should contain given phrase: \"%s\"", errMessage, tc.expectedErrorMessageToContain)
-			}
+			assertHasPrefixE(t, errMessage, expectedPrefix, "error message")
+			assertStringContainsE(t, errMessage, tc.expectedErrorMessageToContain, "error message")
 		})
 	}
 }
@@ -168,8 +151,6 @@ func TestParseConfigurationFails(t *testing.T) {
 func createFile(t *testing.T, fileName string, fileContents string, directory string) string {
 	fullFileName := path.Join(directory, fileName)
 	err := os.WriteFile(fullFileName, []byte(fileContents), 0644)
-	if err != nil {
-		t.Fatal("Could not create file")
-	}
+	assertNilF(t, err, "create file error")
 	return fullFileName
 }
