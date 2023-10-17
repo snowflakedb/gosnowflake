@@ -235,7 +235,7 @@ func postAuth(
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.Error("failed to decode JSON. err: %v", err)
+			logger.Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		return &respd, nil
