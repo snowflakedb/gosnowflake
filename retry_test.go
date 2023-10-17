@@ -225,7 +225,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolTrue}).doPost().setBody([]byte{0}).execute()
 	if err != nil {
@@ -274,7 +274,7 @@ func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolFalse}).doPost().setBody([]byte{0}).execute()
 	if err != nil {
@@ -320,7 +320,7 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), nil).doPost().setBody([]byte{0}).execute()
 	if err != nil {
@@ -350,7 +350,7 @@ func TestRetryQueryFail(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
@@ -396,7 +396,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err != nil {
@@ -416,7 +416,7 @@ func TestRetryLoginRequest(t *testing.T) {
 		success: false,
 		timeout: true,
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		emptyRequest, urlPtr, make(map[string]string), 10*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
@@ -447,7 +447,7 @@ func TestRetryAuthLoginRequest(t *testing.T) {
 		execID++
 		return []byte(fmt.Sprintf("execID: %d", execID)), nil
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBodyCreator(bodyCreator).execute()
 	if err != nil {
@@ -468,7 +468,7 @@ func TestLoginRetry429(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to parse the test URL")
 	}
-	_, err = newRetryHTTP(context.TODO(),
+	_, err = newRetryHTTP(context.Background(),
 		client,
 		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doRaise4XX(true).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
 	if err != nil {

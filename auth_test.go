@@ -29,27 +29,27 @@ func TestUnitPostAuth(t *testing.T) {
 	bodyCreator := func() ([]byte, error) {
 		return []byte{0x12, 0x34}, nil
 	}
-	_, err = postAuth(context.TODO(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
+	_, err = postAuth(context.Background(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	sr.FuncAuthPost = postAuthTestError
-	_, err = postAuth(context.TODO(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
+	_, err = postAuth(context.Background(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
 	if err == nil {
 		t.Fatal("should have failed to auth for unknown reason")
 	}
 	sr.FuncAuthPost = postAuthTestAppBadGatewayError
-	_, err = postAuth(context.TODO(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
+	_, err = postAuth(context.Background(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
 	if err == nil {
 		t.Fatal("should have failed to auth for unknown reason")
 	}
 	sr.FuncAuthPost = postAuthTestAppForbiddenError
-	_, err = postAuth(context.TODO(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
+	_, err = postAuth(context.Background(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
 	if err == nil {
 		t.Fatal("should have failed to auth for unknown reason")
 	}
 	sr.FuncAuthPost = postAuthTestAppUnexpectedError
-	_, err = postAuth(context.TODO(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
+	_, err = postAuth(context.Background(), sr, sr.Client, &url.Values{}, make(map[string]string), bodyCreator, 0)
 	if err == nil {
 		t.Fatal("should have failed to auth for unknown reason")
 	}
@@ -131,7 +131,8 @@ func postAuthCheckOAuth(
 	_ *http.Client,
 	_ *url.Values, _ map[string]string,
 	bodyCreator bodyCreatorType,
-	_ time.Duration) (*authResponse, error) {
+	_ time.Duration,
+) (*authResponse, error) {
 	var ar authRequest
 	jsonBody, _ := bodyCreator()
 	if err := json.Unmarshal(jsonBody, &ar); err != nil {
@@ -408,7 +409,7 @@ func TestUnitAuthenticateWithTokenAccessor(t *testing.T) {
 	sc.rest = sr
 
 	// FuncPostAuth is set to fail, but AuthTypeTokenAccessor should not even make a call to FuncPostAuth
-	resp, err := authenticate(context.TODO(), sc, []byte{}, []byte{})
+	resp, err := authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("should not have failed, err %v", err)
 	}
@@ -449,7 +450,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	}
 	sc.rest = sr
 
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -458,7 +459,7 @@ func TestUnitAuthenticate(t *testing.T) {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
 	sr.FuncPostAuth = postAuthFailWrongAccount
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -467,7 +468,7 @@ func TestUnitAuthenticate(t *testing.T) {
 		t.Fatalf("Snowflake error is expected. err: %v", driverErr)
 	}
 	sr.FuncPostAuth = postAuthFailUnknown
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -477,7 +478,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	}
 	ta.SetTokens("bad-token", "bad-master-token", 1)
 	sr.FuncPostAuth = postAuthSuccessWithErrorCode
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -491,7 +492,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	}
 	ta.SetTokens("bad-token", "bad-master-token", 1)
 	sr.FuncPostAuth = postAuthSuccessWithInvalidErrorCode
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -501,7 +502,7 @@ func TestUnitAuthenticate(t *testing.T) {
 	}
 	sr.FuncPostAuth = postAuthSuccess
 	var resp *authResponseMain
-	resp, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	resp, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to auth. err: %v", err)
 	}
@@ -533,7 +534,7 @@ func TestUnitAuthenticateSaml(t *testing.T) {
 		Host:   "blah.okta.com",
 	}
 	sc.rest = sr
-	_, err = authenticate(context.TODO(), sc, []byte("HTML data in bytes from"), []byte{})
+	_, err = authenticate(context.Background(), sc, []byte("HTML data in bytes from"), []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -550,7 +551,7 @@ func TestUnitAuthenticateOAuth(t *testing.T) {
 	sc.cfg.Token = "oauthToken"
 	sc.cfg.Authenticator = AuthTypeOAuth
 	sc.rest = sr
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -566,14 +567,14 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 	sc.cfg.Passcode = "987654321"
 	sc.rest = sr
 
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 	sr.FuncPostAuth = postAuthCheckPasscodeInPassword
 	sc.rest = sr
 	sc.cfg.PasscodeInPassword = true
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
@@ -594,7 +595,7 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 	sc.rest = sr
 
 	// A valid JWT token should pass
-	if _, err = authenticate(context.TODO(), sc, []byte{}, []byte{}); err != nil {
+	if _, err = authenticate(context.Background(), sc, []byte{}, []byte{}); err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
@@ -604,7 +605,7 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 		t.Error(err)
 	}
 	sc.cfg.PrivateKey = invalidPrivateKey
-	if _, err = authenticate(context.TODO(), sc, []byte{}, []byte{}); err == nil {
+	if _, err = authenticate(context.Background(), sc, []byte{}, []byte{}); err == nil {
 		t.Fatalf("invalid token passed")
 	}
 }
@@ -619,20 +620,20 @@ func TestUnitAuthenticateUsernamePasswordMfa(t *testing.T) {
 	sc.cfg.Authenticator = AuthTypeUsernamePasswordMFA
 	sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 	sc.rest = sr
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
 	sr.FuncPostAuth = postAuthCheckUsernamePasswordMfaToken
 	sc.cfg.MfaToken = "mockedMfaToken"
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
 	sr.FuncPostAuth = postAuthCheckUsernamePasswordMfaFailed
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -648,7 +649,7 @@ func TestUnitAuthenticateWithConfigMFA(t *testing.T) {
 	sc.cfg.Authenticator = AuthTypeUsernamePasswordMFA
 	sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 	sc.rest = sr
-	sc.ctx = context.TODO()
+	sc.ctx = context.Background()
 	err = authenticateWithConfig(sc)
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
@@ -665,20 +666,20 @@ func TestUnitAuthenticateExternalBrowser(t *testing.T) {
 	sc.cfg.Authenticator = AuthTypeExternalBrowser
 	sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 	sc.rest = sr
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
 	sr.FuncPostAuth = postAuthCheckExternalBrowserToken
 	sc.cfg.IDToken = "mockedIDToken"
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
 	sr.FuncPostAuth = postAuthCheckExternalBrowserFailed
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed")
 	}

@@ -217,7 +217,7 @@ func postRestfulQuery(
 		return data, err
 	}
 
-	if err = sr.FuncCancelQuery(context.TODO(), sr, requestID, timeout); err != nil {
+	if err = sr.FuncCancelQuery(context.Background(), sr, requestID, timeout); err != nil {
 		return nil, err
 	}
 	return nil, ctx.Err()

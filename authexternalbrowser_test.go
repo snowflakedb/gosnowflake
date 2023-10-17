@@ -91,17 +91,17 @@ func TestUnitAuthenticateByExternalBrowser(t *testing.T) {
 		FuncPostAuthSAML: postAuthExternalBrowserError,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
-	_, _, err := authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password, timeout)
+	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthExternalBrowserFail
-	_, _, err = authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password, timeout)
+	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthExternalBrowserFailWithCode
-	_, _, err = authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password, timeout)
+	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -128,7 +128,7 @@ func TestAuthenticationTimeout(t *testing.T) {
 		FuncPostAuthSAML: postAuthExternalBrowserError,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
-	_, _, err := authenticateByExternalBrowser(context.TODO(), sr, authenticator, application, account, user, password, timeout)
+	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout)
 	if err.Error() != "authentication timed out" {
 		t.Fatal("should have timed out")
 	}
