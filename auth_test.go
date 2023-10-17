@@ -131,7 +131,8 @@ func postAuthCheckOAuth(
 	_ *http.Client,
 	_ *url.Values, _ map[string]string,
 	bodyCreator bodyCreatorType,
-	_ time.Duration) (*authResponse, error) {
+	_ time.Duration,
+) (*authResponse, error) {
 	var ar authRequest
 	jsonBody, _ := bodyCreator()
 	if err := json.Unmarshal(jsonBody, &ar); err != nil {
@@ -619,20 +620,20 @@ func TestUnitAuthenticateUsernamePasswordMfa(t *testing.T) {
 	sc.cfg.Authenticator = AuthTypeUsernamePasswordMFA
 	sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 	sc.rest = sr
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
 	sr.FuncPostAuth = postAuthCheckUsernamePasswordMfaToken
 	sc.cfg.MfaToken = "mockedMfaToken"
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
 	sr.FuncPostAuth = postAuthCheckUsernamePasswordMfaFailed
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -648,7 +649,7 @@ func TestUnitAuthenticateWithConfigMFA(t *testing.T) {
 	sc.cfg.Authenticator = AuthTypeUsernamePasswordMFA
 	sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 	sc.rest = sr
-	sc.ctx = context.TODO()
+	sc.ctx = context.Background()
 	err = authenticateWithConfig(sc)
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
@@ -665,20 +666,20 @@ func TestUnitAuthenticateExternalBrowser(t *testing.T) {
 	sc.cfg.Authenticator = AuthTypeExternalBrowser
 	sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 	sc.rest = sr
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
 	sr.FuncPostAuth = postAuthCheckExternalBrowserToken
 	sc.cfg.IDToken = "mockedIDToken"
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
 	}
 
 	sr.FuncPostAuth = postAuthCheckExternalBrowserFailed
-	_, err = authenticate(context.TODO(), sc, []byte{}, []byte{})
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err == nil {
 		t.Fatal("should have failed")
 	}
