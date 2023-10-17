@@ -1,11 +1,13 @@
-// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2017-2023 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"math/rand"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -16,6 +18,22 @@ type tcIntMinMax struct {
 	v1  int
 	v2  int
 	out int
+}
+
+type tcUUID struct {
+	uuid string
+}
+
+type constTypeProvider struct {
+	constTime int64
+}
+
+func (ctp *constTypeProvider) currentTime() int64 {
+	return ctp.constTime
+}
+
+func constTimeProvider(constTime int64) *constTypeProvider {
+	return &constTypeProvider{constTime: constTime}
 }
 
 func TestSimpleTokenAccessor(t *testing.T) {
@@ -103,10 +121,12 @@ func TestIntMin(t *testing.T) {
 		{123, 123, 123},
 	}
 	for _, test := range testcases {
-		a := intMin(test.v1, test.v2)
-		if test.out != a {
-			t.Errorf("failed int min. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
+			a := intMin(test.v1, test.v2)
+			if test.out != a {
+				t.Errorf("failed int min. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
+			}
+		})
 	}
 }
 func TestIntMax(t *testing.T) {
@@ -117,10 +137,12 @@ func TestIntMax(t *testing.T) {
 		{123, 123, 123},
 	}
 	for _, test := range testcases {
-		a := intMax(test.v1, test.v2)
-		if test.out != a {
-			t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
+			a := intMax(test.v1, test.v2)
+			if test.out != a {
+				t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
+			}
+		})
 	}
 }
 
@@ -138,10 +160,12 @@ func TestDurationMin(t *testing.T) {
 		{123 * time.Second, 123 * time.Second, 123 * time.Second},
 	}
 	for _, test := range testcases {
-		a := durationMin(test.v1, test.v2)
-		if test.out != a {
-			t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
+			a := durationMin(test.v1, test.v2)
+			if test.out != a {
+				t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
+			}
+		})
 	}
 }
 
@@ -153,10 +177,12 @@ func TestDurationMax(t *testing.T) {
 		{123 * time.Second, 123 * time.Second, 123 * time.Second},
 	}
 	for _, test := range testcases {
-		a := durationMax(test.v1, test.v2)
-		if test.out != a {
-			t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.v1, test.v2, test.out), func(t *testing.T) {
+			a := durationMax(test.v1, test.v2)
+			if test.out != a {
+				t.Errorf("failed duratoin max. v1: %v, v2: %v, expected: %v, got: %v", test.v1, test.v2, test.out, a)
+			}
+		})
 	}
 }
 
@@ -203,11 +229,13 @@ func TestToNamedValues(t *testing.T) {
 		},
 	}
 	for _, test := range testcases {
-		a := toNamedValues(test.values)
+		t.Run("", func(t *testing.T) {
+			a := toNamedValues(test.values)
 
-		if !compareNamedValues(test.out, a) {
-			t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.values, test.out, test.out, a)
-		}
+			if !compareNamedValues(test.out, a) {
+				t.Errorf("failed int max. v1: %v, v2: %v, expected: %v, got: %v", test.values, test.out, test.out, a)
+			}
+		})
 	}
 }
 
@@ -222,11 +250,117 @@ func TestGetMin(t *testing.T) {
 		{[]int{10, 25, 15, 5, 20}, 5},
 		{[]int{15, 12, 9, 6, 3}, 3},
 		{[]int{123, 123, 123, 123, 123}, 123},
+		{[]int{}, -1},
 	}
 	for _, test := range testcases {
-		a := getMin(test.in)
-		if test.out != a {
-			t.Errorf("failed get min. in: %v, expected: %v, got: %v", test.in, test.out, a)
-		}
+		t.Run(fmt.Sprintf("%v", test.out), func(t *testing.T) {
+			a := getMin(test.in)
+			if test.out != a {
+				t.Errorf("failed get min. in: %v, expected: %v, got: %v", test.in, test.out, a)
+			}
+		})
+	}
+}
+
+type tcURLList struct {
+	in  string
+	out bool
+}
+
+func TestValidURL(t *testing.T) {
+	testcases := []tcURLList{
+		{"https://ssoTestURL.okta.com", true},
+		{"https://ssoTestURL.okta.com:8080", true},
+		{"https://ssoTestURL.okta.com/testpathvalue", true},
+		{"-a calculator", false},
+		{"This is a random test", false},
+		{"file://TestForFile", false},
+	}
+	for _, test := range testcases {
+		t.Run(test.in, func(t *testing.T) {
+			result := isValidURL(test.in)
+			if test.out != result {
+				t.Errorf("Failed to validate URL, input :%v, expected: %v, got: %v", test.in, test.out, result)
+			}
+		})
+	}
+}
+
+type tcEncodeList struct {
+	in  string
+	out string
+}
+
+func TestEncodeURL(t *testing.T) {
+	testcases := []tcEncodeList{
+		{"Hello @World", "Hello+%40World"},
+		{"Test//String", "Test%2F%2FString"},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.in, func(t *testing.T) {
+			result := urlEncode(test.in)
+			if test.out != result {
+				t.Errorf("Failed to encode string, input %v, expected: %v, got: %v", test.in, test.out, result)
+			}
+		})
+	}
+}
+
+func TestParseUUID(t *testing.T) {
+	testcases := []tcUUID{
+		{"6ba7b812-9dad-11d1-80b4-00c04fd430c8"},
+		{"00302010-0504-0706-0809-0a0b0c0d0e0f"},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.uuid, func(t *testing.T) {
+			requestID := ParseUUID(test.uuid)
+			if requestID.String() != test.uuid {
+				t.Fatalf("failed to parse uuid")
+			}
+		})
+	}
+}
+
+type tcEscapeCsv struct {
+	in  string
+	out string
+}
+
+func TestEscapeForCSV(t *testing.T) {
+	testcases := []tcEscapeCsv{
+		{"", "\"\""},
+		{"\n", "\"\n\""},
+		{"test\\", "\"test\\\""},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.out, func(t *testing.T) {
+			result := escapeForCSV(test.in)
+			if test.out != result {
+				t.Errorf("Failed to escape string, input %v, expected: %v, got: %v", test.in, test.out, result)
+			}
+		})
+	}
+}
+
+func TestGetFromEnv(t *testing.T) {
+	os.Setenv("SF_TEST", "test")
+	defer os.Unsetenv("SF_TEST")
+	result, err := GetFromEnv("SF_TEST", true)
+
+	if err != nil {
+		t.Error("failed to read SF_TEST environment variable")
+	}
+	if result != "test" {
+		t.Errorf("incorrect value read for SF_TEST. Expected: test, read %v", result)
+	}
+}
+
+func TestGetFromEnvFailOnMissing(t *testing.T) {
+	_, err := GetFromEnv("SF_TEST_MISSING", true)
+	if err == nil {
+		t.Error("should report error when there is missing env parameter")
 	}
 }

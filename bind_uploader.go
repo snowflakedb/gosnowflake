@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"reflect"
@@ -38,7 +39,7 @@ func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, err
 	bu.fileCount = 0
 	var data *execResponse
 	for rowNum < len(bindingRows) {
-		for rowNum < len(bindingRows) && numBytes + len(bindingRows[rowNum]) < inputStreamBufferSize {
+		for numBytes < inputStreamBufferSize && rowNum < len(bindingRows) {
 			numBytes += len(bindingRows[rowNum])
 			rowNum++
 		}
@@ -126,13 +127,17 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 	_, column := snowflakeArrayToString(&columns[0], true)
 	numRows := len(column)
 	csvRows := make([][]byte, 0)
-	rows := make([][]string, 0)
+	rows := make([][]interface{}, 0)
 	for rowIdx := 0; rowIdx < numRows; rowIdx++ {
-		rows = append(rows, make([]string, numColumns))
+		rows = append(rows, make([]interface{}, numColumns))
 	}
 
 	for rowIdx := 0; rowIdx < numRows; rowIdx++ {
-		rows[rowIdx][0] = *column[rowIdx]
+		if column[rowIdx] == nil {
+			rows[rowIdx][0] = column[rowIdx]
+		} else {
+			rows[rowIdx][0] = *column[rowIdx]
+		}
 	}
 	for colIdx := 1; colIdx < numColumns; colIdx++ {
 		_, column = snowflakeArrayToString(&columns[colIdx], true)
@@ -145,7 +150,12 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 			}).exceptionTelemetry(bu.sc)
 		}
 		for rowIdx := 0; rowIdx < numRows; rowIdx++ {
-			rows[rowIdx][colIdx] = *column[rowIdx] // length of column = number of rows
+			// length of column = number of rows
+			if column[rowIdx] == nil {
+				rows[rowIdx][colIdx] = column[rowIdx]
+			} else {
+				rows[rowIdx][colIdx] = *column[rowIdx]
+			}
 		}
 	}
 	for _, row := range rows {
@@ -154,14 +164,19 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 	return csvRows, nil
 }
 
-func (bu *bindUploader) createCSVRecord(data []string) []byte {
+func (bu *bindUploader) createCSVRecord(data []interface{}) []byte {
 	var b strings.Builder
 	b.Grow(1024)
 	for i := 0; i < len(data); i++ {
 		if i > 0 {
 			b.WriteString(",")
 		}
-		b.WriteString(escapeForCSV(data[i]))
+		value, ok := data[i].(string)
+		if ok {
+			b.WriteString(escapeForCSV(value))
+		} else if !reflect.ValueOf(data[i]).IsNil() {
+			logger.Debugf("Cannot convert value to string in createCSVRecord. value: %v", data[i])
+		}
 	}
 	b.WriteString("\n")
 	return []byte(b.String())
@@ -201,6 +216,10 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 	var err error
 	bindValues := make(map[string]execBindParameter, len(bindings))
 	for _, binding := range bindings {
+		if tnt, ok := binding.Value.(TypedNullTime); ok {
+			tsmode = convertTzTypeToSnowflakeType(tnt.TzType)
+			binding.Value = tnt.Time
+		}
 		t := goTypeToSnowflake(binding.Value, tsmode)
 		if t == changeType {
 			tsmode, err = dataTypeMode(binding.Value)
@@ -221,7 +240,7 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 			if t == nullType || t == unSupportedType {
 				t = textType // if null or not supported, pass to GS as text
 			}
-			bindValues[strconv.Itoa(idx)] = execBindParameter{
+			bindValues[bindingName(binding, idx)] = execBindParameter{
 				Type:  t.String(),
 				Value: val,
 			}
@@ -229,6 +248,13 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 		}
 	}
 	return bindValues, nil
+}
+
+func bindingName(nv driver.NamedValue, idx int) string {
+	if nv.Name != "" {
+		return nv.Name
+	}
+	return strconv.Itoa(idx)
 }
 
 func arrayBindValueCount(bindValues []driver.NamedValue) int {
@@ -276,6 +302,20 @@ func supportedArrayBind(nv *driver.NamedValue) bool {
 		return false
 	default:
 		// TODO SNOW-176486 variant, object, array
+
+		// Support for bulk array binding insertion using []interface{}
+		if isInterfaceArrayBinding(nv.Value) {
+			return true
+		}
 		return false
 	}
+}
+
+func supportedNullBind(nv *driver.NamedValue) bool {
+	switch reflect.TypeOf(nv.Value) {
+	case reflect.TypeOf(sql.NullString{}), reflect.TypeOf(sql.NullInt64{}),
+		reflect.TypeOf(sql.NullBool{}), reflect.TypeOf(sql.NullFloat64{}), reflect.TypeOf(TypedNullTime{}):
+		return true
+	}
+	return false
 }

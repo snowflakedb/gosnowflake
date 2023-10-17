@@ -28,6 +28,13 @@ var (
 	maxChunkDownloaderErrorCounter = 5
 )
 
+// SnowflakeRows provides an API for methods exposed to the clients
+type SnowflakeRows interface {
+	GetQueryID() string
+	GetStatus() queryStatus
+	GetArrowBatches() ([]*ArrowBatch, error)
+}
+
 type snowflakeRows struct {
 	sc                  *snowflakeConn
 	ChunkDownloader     chunkDownloader
@@ -36,6 +43,14 @@ type snowflakeRows struct {
 	status              queryStatus
 	err                 error
 	errChannel          chan error
+	location            *time.Location
+}
+
+func (rows *snowflakeRows) getLocation() *time.Location {
+	if rows.location == nil && rows.sc != nil && rows.sc.cfg != nil {
+		rows.location = getCurrentLocation(rows.sc.cfg.Params)
+	}
+	return rows.location
 }
 
 type snowflakeValue interface{}
@@ -133,7 +148,7 @@ func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
 		return nil
 	}
 	return snowflakeTypeToGo(
-		getSnowflakeType(strings.ToUpper(rows.ChunkDownloader.getRowType()[index].Type)),
+		getSnowflakeType(rows.ChunkDownloader.getRowType()[index].Type),
 		rows.ChunkDownloader.getRowType()[index].Scale)
 }
 
@@ -145,8 +160,14 @@ func (rows *snowflakeRows) GetStatus() queryStatus {
 	return rows.status
 }
 
-// GetArrowBatches returns an array of ArrowBatch objects to retrieve data in array.Record format
+// GetArrowBatches returns an array of ArrowBatch objects to retrieve data in arrow.Record format
 func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
+	// Wait for all arrow batches before fetching.
+	// Otherwise, a panic error "invalid memory address or nil pointer dereference" will be thrown.
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
+		return nil, err
+	}
+
 	return rows.ChunkDownloader.getArrowBatches(), nil
 }
 
@@ -171,11 +192,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 		for i, n := 0, len(row.RowSet); i < n; i++ {
 			// could move to chunk downloader so that each go routine
 			// can convert data
-			var loc *time.Location
-			if rows.sc != nil {
-				loc = getCurrentLocation(rows.sc.cfg.Params)
-			}
-			err = stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i], loc)
+			err = stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i], rows.getLocation())
 			if err != nil {
 				return err
 			}

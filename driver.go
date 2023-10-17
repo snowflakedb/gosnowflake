@@ -7,7 +7,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"os"
+	"sync"
 )
+
+var paramsMutex *sync.Mutex
 
 // SnowflakeDriver is a context of Go Driver
 type SnowflakeDriver struct{}
@@ -24,10 +27,13 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 }
 
 // OpenWithConfig creates a new connection with the given Config.
-func (d SnowflakeDriver) OpenWithConfig(
-	ctx context.Context,
-	config Config) (
-	driver.Conn, error) {
+func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+	if config.Tracing != "" {
+		logger.SetLogLevel(config.Tracing)
+	}
 	logger.Info("OpenWithConfig")
 	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {
@@ -56,4 +62,5 @@ func init() {
 	if runningOnGithubAction() {
 		logger.SetLogLevel("fatal")
 	}
+	paramsMutex = &sync.Mutex{}
 }

@@ -5,12 +5,11 @@ SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 setup:
 	@which golint &> /dev/null  || go install golang.org/x/lint/golint@latest
 	@which make2help &> /dev/null || go install github.com/Songmu/make2help/cmd/make2help@latest
-	@which staticcheck &> /dev/null || go install honnef.co/go/tools/cmd/staticcheck@latest
+	@which staticcheck &> /dev/null || go install honnef.co/go/tools/cmd/staticcheck@v0.4
 
 ## Install dependencies
 deps: setup
-	go mod tidy
-	go mod vendor
+	go mod tidy	
 
 ## Show help
 help:

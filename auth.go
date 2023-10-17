@@ -9,7 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -22,6 +22,14 @@ import (
 
 const (
 	clientType = "Go"
+)
+
+const (
+	idToken                        = "ID_TOKEN"
+	mfaToken                       = "MFATOKEN"
+	clientStoreTemporaryCredential = "CLIENT_STORE_TEMPORARY_CREDENTIAL"
+	clientRequestMfaToken          = "CLIENT_REQUEST_MFA_TOKEN"
+	idTokenAuthenticator           = "ID_TOKEN"
 )
 
 // AuthType indicates the type of authentication in Snowflake
@@ -40,6 +48,8 @@ const (
 	AuthTypeJwt
 	// AuthTypeTokenAccessor is to use the provided token accessor and bypass authentication
 	AuthTypeTokenAccessor
+	// AuthTypeUsernamePasswordMFA is to use username and password with mfa
+	AuthTypeUsernamePasswordMFA
 )
 
 func determineAuthenticatorType(cfg *Config, value string) error {
@@ -56,6 +66,12 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 		return nil
 	} else if upperCaseValue == AuthTypeExternalBrowser.String() {
 		cfg.Authenticator = AuthTypeExternalBrowser
+		return nil
+	} else if upperCaseValue == AuthTypeUsernamePasswordMFA.String() {
+		cfg.Authenticator = AuthTypeUsernamePasswordMFA
+		return nil
+	} else if upperCaseValue == AuthTypeTokenAccessor.String() {
+		cfg.Authenticator = AuthTypeTokenAccessor
 		return nil
 	} else {
 		// possibly Okta case
@@ -104,6 +120,8 @@ func (authType AuthType) String() string {
 		return "SNOWFLAKE_JWT"
 	case AuthTypeTokenAccessor:
 		return "TOKENACCESSOR"
+	case AuthTypeUsernamePasswordMFA:
+		return "USERNAME_PASSWORD_MFA"
 	default:
 		return "UNKNOWN"
 	}
@@ -168,6 +186,10 @@ type authResponseMain struct {
 	Validity            time.Duration           `json:"validityInSeconds,omitempty"`
 	MasterToken         string                  `json:"masterToken,omitempty"`
 	MasterValidity      time.Duration           `json:"masterValidityInSeconds"`
+	MfaToken            string                  `json:"mfaToken,omitempty"`
+	MfaTokenValidity    time.Duration           `json:"mfaTokenValidityInSeconds"`
+	IDToken             string                  `json:"idToken,omitempty"`
+	IDTokenValidity     time.Duration           `json:"idTokenValidityInSeconds"`
 	DisplayUserName     string                  `json:"displayUserName"`
 	ServerVersion       string                  `json:"serverVersion"`
 	FirstLogin          bool                    `json:"firstLogin"`
@@ -182,6 +204,7 @@ type authResponseMain struct {
 	SSOURL              string                  `json:"ssoUrl,omitempty"`
 	ProofKey            string                  `json:"proofKey,omitempty"`
 }
+
 type authResponse struct {
 	Data    authResponseMain `json:"data"`
 	Message string           `json:"message"`
@@ -192,9 +215,10 @@ type authResponse struct {
 func postAuth(
 	ctx context.Context,
 	sr *snowflakeRestful,
+	client *http.Client,
 	params *url.Values,
 	headers map[string]string,
-	body []byte,
+	bodyCreator bodyCreatorType,
 	timeout time.Duration) (
 	data *authResponse, err error) {
 	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
@@ -202,7 +226,7 @@ func postAuth(
 
 	fullURL := sr.getFullURL(loginRequestPath, params)
 	logger.Infof("full URL: %v", fullURL)
-	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, true)
+	resp, err := sr.FuncAuthPost(ctx, client, fullURL, headers, bodyCreator, timeout, true)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +235,7 @@ func postAuth(
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.Error("failed to decode JSON. err: %v", err)
+			logger.Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		return &respd, nil
@@ -234,7 +258,7 @@ func postAuth(
 			MessageArgs: []interface{}{resp.StatusCode, fullURL},
 		}
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
@@ -266,6 +290,23 @@ func authenticate(
 	samlResponse []byte,
 	proofKey []byte,
 ) (resp *authResponseMain, err error) {
+	if sc.cfg.Authenticator == AuthTypeTokenAccessor {
+		logger.Info("Bypass authentication using existing token from token accessor")
+		sessionInfo := authResponseSessionInfo{
+			DatabaseName:  sc.cfg.Database,
+			SchemaName:    sc.cfg.Schema,
+			WarehouseName: sc.cfg.Warehouse,
+			RoleName:      sc.cfg.Role,
+		}
+		token, masterToken, sessionID := sc.cfg.TokenAccessor.GetTokens()
+		return &authResponseMain{
+			Token:       token,
+			MasterToken: masterToken,
+			SessionID:   sessionID,
+			SessionInfo: sessionInfo,
+		}, nil
+	}
+
 	headers := getHeaders()
 	clientEnvironment := authRequestClientEnvironment{
 		Application: sc.cfg.Application,
@@ -275,13 +316,81 @@ func authenticate(
 	}
 
 	sessionParameters := make(map[string]interface{})
+	paramsMutex.Lock()
 	for k, v := range sc.cfg.Params {
 		// upper casing to normalize keys
 		sessionParameters[strings.ToUpper(k)] = *v
 	}
+	paramsMutex.Unlock()
 
 	sessionParameters[sessionClientValidateDefaultParameters] = sc.cfg.ValidateDefaultParameters != ConfigBoolFalse
+	if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
+		sessionParameters[clientRequestMfaToken] = true
+	}
+	if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+		sessionParameters[clientStoreTemporaryCredential] = true
+	}
+	bodyCreator := func() ([]byte, error) {
+		return createRequestBody(sc, sessionParameters, clientEnvironment, proofKey, samlResponse)
+	}
 
+	params := &url.Values{}
+	if sc.cfg.Database != "" {
+		params.Add("databaseName", sc.cfg.Database)
+	}
+	if sc.cfg.Schema != "" {
+		params.Add("schemaName", sc.cfg.Schema)
+	}
+	if sc.cfg.Warehouse != "" {
+		params.Add("warehouse", sc.cfg.Warehouse)
+	}
+	if sc.cfg.Role != "" {
+		params.Add("roleName", sc.cfg.Role)
+	}
+
+	logger.WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
+		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
+
+	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, bodyCreator, sc.rest.LoginTimeout)
+	if err != nil {
+		return nil, err
+	}
+	if !respd.Success {
+		logger.Errorln("Authentication FAILED")
+		sc.rest.TokenAccessor.SetTokens("", "", -1)
+		if sessionParameters[clientRequestMfaToken] == true {
+			deleteCredential(sc, mfaToken)
+		}
+		if sessionParameters[clientStoreTemporaryCredential] == true {
+			deleteCredential(sc, idToken)
+		}
+		code, err := strconv.Atoi(respd.Code)
+		if err != nil {
+			code = -1
+			return nil, err
+		}
+		return nil, (&SnowflakeError{
+			Number:   code,
+			SQLState: SQLStateConnectionRejected,
+			Message:  respd.Message,
+		}).exceptionTelemetry(sc)
+	}
+	logger.Info("Authentication SUCCESS")
+	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
+	if sessionParameters[clientRequestMfaToken] == true {
+		token := respd.Data.MfaToken
+		setCredential(sc, mfaToken, token)
+	}
+	if sessionParameters[clientStoreTemporaryCredential] == true {
+		token := respd.Data.IDToken
+		setCredential(sc, idToken, token)
+	}
+	return &respd.Data, nil
+}
+
+func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface{},
+	clientEnvironment authRequestClientEnvironment, proofKey []byte, samlResponse []byte,
+) ([]byte, error) {
 	requestMain := authRequestData{
 		ClientAppID:       clientType,
 		ClientAppVersion:  SnowflakeGoDriverVersion,
@@ -292,10 +401,16 @@ func authenticate(
 
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
-		requestMain.ProofKey = string(proofKey)
-		requestMain.Token = string(samlResponse)
-		requestMain.LoginName = sc.cfg.User
-		requestMain.Authenticator = AuthTypeExternalBrowser.String()
+		if sc.cfg.IDToken != "" {
+			requestMain.Authenticator = idTokenAuthenticator
+			requestMain.Token = sc.cfg.IDToken
+			requestMain.LoginName = sc.cfg.User
+		} else {
+			requestMain.ProofKey = string(proofKey)
+			requestMain.Token = string(samlResponse)
+			requestMain.LoginName = sc.cfg.User
+			requestMain.Authenticator = AuthTypeExternalBrowser.String()
+		}
 	case AuthTypeOAuth:
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Authenticator = AuthTypeOAuth.String()
@@ -321,69 +436,23 @@ func authenticate(
 			requestMain.Passcode = sc.cfg.Passcode
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		}
-	case AuthTypeTokenAccessor:
-		logger.Info("Bypass authentication using existing token from token accessor")
-		sessionInfo := authResponseSessionInfo{
-			DatabaseName:  sc.cfg.Database,
-			SchemaName:    sc.cfg.Schema,
-			WarehouseName: sc.cfg.Warehouse,
-			RoleName:      sc.cfg.Role,
+	case AuthTypeUsernamePasswordMFA:
+		logger.Info("Username and password MFA")
+		requestMain.LoginName = sc.cfg.User
+		requestMain.Password = sc.cfg.Password
+		if sc.cfg.MfaToken != "" {
+			requestMain.Token = sc.cfg.MfaToken
 		}
-		token, masterToken, sessionID := sc.cfg.TokenAccessor.GetTokens()
-		return &authResponseMain{
-			Token:       token,
-			MasterToken: masterToken,
-			SessionID:   sessionID,
-			SessionInfo: sessionInfo,
-		}, nil
 	}
 
 	authRequest := authRequest{
 		Data: requestMain,
 	}
-	params := &url.Values{}
-	if sc.cfg.Database != "" {
-		params.Add("databaseName", sc.cfg.Database)
-	}
-	if sc.cfg.Schema != "" {
-		params.Add("schemaName", sc.cfg.Schema)
-	}
-	if sc.cfg.Warehouse != "" {
-		params.Add("warehouse", sc.cfg.Warehouse)
-	}
-	if sc.cfg.Role != "" {
-		params.Add("roleName", sc.cfg.Role)
-	}
-
 	jsonBody, err := json.Marshal(authRequest)
-	if err != nil {
-		return
-	}
-
-	logger.WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
-		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
-
-	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, params, headers, jsonBody, sc.rest.LoginTimeout)
 	if err != nil {
 		return nil, err
 	}
-	if !respd.Success {
-		logger.Errorln("Authentication FAILED")
-		sc.rest.TokenAccessor.SetTokens("", "", -1)
-		code, err := strconv.Atoi(respd.Code)
-		if err != nil {
-			code = -1
-			return nil, err
-		}
-		return nil, (&SnowflakeError{
-			Number:   code,
-			SQLState: SQLStateConnectionRejected,
-			Message:  respd.Message,
-		}).exceptionTelemetry(sc)
-	}
-	logger.Info("Authentication SUCCESS")
-	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
-	return &respd.Data, nil
+	return jsonBody, nil
 }
 
 // Generate a JWT token in string given the configuration
@@ -421,20 +490,43 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	var samlResponse []byte
 	var proofKey []byte
 	var err error
+	//var consentCacheIdToken = true
+
+	if sc.cfg.Authenticator == AuthTypeExternalBrowser {
+		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientStoreTemporaryCredential == configBoolNotSet {
+			sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
+		}
+		if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+			fillCachedIDToken(sc)
+		}
+	}
+
+	if sc.cfg.Authenticator == AuthTypeUsernamePasswordMFA {
+		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientRequestMfaToken == configBoolNotSet {
+			sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
+		}
+		if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
+			fillCachedMfaToken(sc)
+		}
+	}
+
 	logger.Infof("Authenticating via %v", sc.cfg.Authenticator.String())
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
-		samlResponse, proofKey, err = authenticateByExternalBrowser(
-			sc.ctx,
-			sc.rest,
-			sc.cfg.Authenticator.String(),
-			sc.cfg.Application,
-			sc.cfg.Account,
-			sc.cfg.User,
-			sc.cfg.Password)
-		if err != nil {
-			sc.cleanup()
-			return err
+		if sc.cfg.IDToken == "" {
+			samlResponse, proofKey, err = authenticateByExternalBrowser(
+				sc.ctx,
+				sc.rest,
+				sc.cfg.Authenticator.String(),
+				sc.cfg.Application,
+				sc.cfg.Account,
+				sc.cfg.User,
+				sc.cfg.Password,
+				sc.cfg.ExternalBrowserTimeout)
+			if err != nil {
+				sc.cleanup()
+				return err
+			}
 		}
 	case AuthTypeOkta:
 		samlResponse, err = authenticateBySAML(
@@ -462,4 +554,12 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	sc.populateSessionParameters(authData.Parameters)
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
 	return nil
+}
+
+func fillCachedIDToken(sc *snowflakeConn) {
+	getCredential(sc, idToken)
+}
+
+func fillCachedMfaToken(sc *snowflakeConn) {
+	getCredential(sc, mfaToken)
 }

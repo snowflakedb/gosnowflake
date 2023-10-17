@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"time"
 )
 
 const urlQueriesResultFmt = "/queries/%s/result"
@@ -145,6 +144,7 @@ func (sc *snowflakeConn) checkQueryStatus(
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		return nil, err
 	}
+	defer res.Body.Close()
 	var statusResp = statusResponse{}
 	if err = json.NewDecoder(res.Body).Decode(&statusResp); err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
@@ -200,12 +200,14 @@ func (sc *snowflakeConn) getQueryResultResp(
 	resultPath string) (
 	*execResponse, error) {
 	headers := getHeaders()
+	paramsMutex.Lock()
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers[httpHeaderServiceName] = *serviceName
 	}
+	paramsMutex.Unlock()
 	param := make(url.Values)
 	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
-	param.Add("clientStartTime", strconv.FormatInt(time.Now().Unix(), 10))
+	param.Add("clientStartTime", strconv.FormatInt(sc.currentTimeProvider.currentTime(), 10))
 	param.Add(requestGUIDKey, NewUUID().String())
 	token, _, _ := sc.rest.TokenAccessor.GetTokens()
 	if token != "" {
@@ -217,6 +219,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		return nil, err
 	}
+	defer res.Body.Close()
 	var respd *execResponse
 	if err = json.NewDecoder(res.Body).Decode(&respd); err != nil {
 		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
@@ -233,19 +236,19 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 	resp, err := sc.getQueryResultResp(ctx, resultPath)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
-		if resp != nil {
-			code, err := strconv.Atoi(resp.Code)
-			if err != nil {
-				return err
-			}
-			return (&SnowflakeError{
-				Number:   code,
-				SQLState: resp.Data.SQLState,
-				Message:  err.Error(),
-				QueryID:  resp.Data.QueryID,
-			}).exceptionTelemetry(sc)
-		}
 		return err
+	}
+	if !resp.Success {
+		code, err := strconv.Atoi(resp.Code)
+		if err != nil {
+			return err
+		}
+		return (&SnowflakeError{
+			Number:   code,
+			SQLState: resp.Data.SQLState,
+			Message:  resp.Message,
+			QueryID:  resp.Data.QueryID,
+		}).exceptionTelemetry(sc)
 	}
 	rows.addDownloader(populateChunkDownloader(ctx, sc, resp.Data))
 	return nil

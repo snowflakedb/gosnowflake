@@ -5,30 +5,40 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 type contextKey string
 
 const (
-	multiStatementCount   contextKey = "MULTI_STATEMENT_COUNT"
-	asyncMode             contextKey = "ASYNC_MODE_QUERY"
-	queryIDChannel        contextKey = "QUERY_ID_CHANNEL"
-	snowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
-	fetchResultByID       contextKey = "SF_FETCH_RESULT_BY_ID"
-	fileStreamFile        contextKey = "STREAMING_PUT_FILE"
-	fileTransferOptions   contextKey = "FILE_TRANSFER_OPTIONS"
-	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
-	arrowBatches          contextKey = "ARROW_BATCHES"
+	multiStatementCount     contextKey = "MULTI_STATEMENT_COUNT"
+	asyncMode               contextKey = "ASYNC_MODE_QUERY"
+	queryIDChannel          contextKey = "QUERY_ID_CHANNEL"
+	snowflakeRequestIDKey   contextKey = "SNOWFLAKE_REQUEST_ID"
+	fetchResultByID         contextKey = "SF_FETCH_RESULT_BY_ID"
+	fileStreamFile          contextKey = "STREAMING_PUT_FILE"
+	fileTransferOptions     contextKey = "FILE_TRANSFER_OPTIONS"
+	enableHigherPrecision   contextKey = "ENABLE_HIGHER_PRECISION"
+	arrowBatches            contextKey = "ARROW_BATCHES"
+	arrowAlloc              contextKey = "ARROW_ALLOC"
+	enableOriginalTimestamp contextKey = "ENABLE_ORIGINAL_TIMESTAMP"
 )
 
 const (
 	describeOnly        contextKey = "DESCRIBE_ONLY"
 	cancelRetry         contextKey = "CANCEL_RETRY"
 	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
+)
+
+var (
+	defaultTimeProvider = &unixTimeProvider{}
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
@@ -84,9 +94,23 @@ func WithHigherPrecision(ctx context.Context) context.Context {
 }
 
 // WithArrowBatches returns a context that allows users to retrieve
-// array.Record download workers upon querying
+// arrow.Record download workers upon querying
 func WithArrowBatches(ctx context.Context) context.Context {
 	return context.WithValue(ctx, arrowBatches, true)
+}
+
+// WithArrowAllocator returns a context embedding the provided allocator
+// which will be utilized by chunk downloaders when constructing Arrow
+// objects.
+func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Context {
+	return context.WithValue(ctx, arrowAlloc, pool)
+}
+
+// WithOriginalTimestamp in combination with WithArrowBatches returns a context
+// that allows users to retrieve arrow.Record with original timestamp struct returned by Snowflake.
+// It can be used in case arrow.Timestamp cannot fit original timestamp values.
+func WithOriginalTimestamp(ctx context.Context) context.Context {
+	return context.WithValue(ctx, enableOriginalTimestamp, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
@@ -211,4 +235,26 @@ func escapeForCSV(value string) string {
 		return "\"" + strings.ReplaceAll(value, "\"", "\"\"") + "\""
 	}
 	return value
+}
+
+// GetFromEnv is used to get the value of an environment variable from the system
+func GetFromEnv(name string, failOnMissing bool) (string, error) {
+	if value := os.Getenv(name); value != "" {
+		return value, nil
+	}
+	if failOnMissing {
+		return "", fmt.Errorf("%v environment variable is not set", name)
+	}
+	return "", nil
+}
+
+type currentTimeProvider interface {
+	currentTime() int64
+}
+
+type unixTimeProvider struct {
+}
+
+func (utp *unixTimeProvider) currentTime() int64 {
+	return time.Now().UnixMilli()
 }

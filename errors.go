@@ -66,7 +66,7 @@ func (se *SnowflakeError) generateTelemetryExceptionData() *telemetryData {
 }
 
 func (se *SnowflakeError) sendExceptionTelemetry(sc *snowflakeConn, data *telemetryData) error {
-	if sc != nil {
+	if sc != nil && sc.telemetry != nil {
 		return sc.telemetry.addLog(data)
 	}
 	return nil // TODO oob telemetry
@@ -82,7 +82,7 @@ func (se *SnowflakeError) exceptionTelemetry(sc *snowflakeConn) *SnowflakeError 
 
 // return populated error fields replacing the default response
 func populateErrorFields(code int, data *execResponse) *SnowflakeError {
-	err := ErrUnknownError
+	err := errUnknownError()
 	if code != -1 {
 		err.Number = code
 	}
@@ -187,6 +187,8 @@ const (
 	ErrFailedToConvertToS3Client = 264010
 	// ErrNotImplemented is an error code denoting the file transfer feature is not implemented
 	ErrNotImplemented = 264011
+	// ErrInvalidPadding is an error code denoting the invalid padding of decryption key
+	ErrInvalidPadding = 264012
 
 	/* binding */
 
@@ -214,6 +216,8 @@ const (
 	ErrInvalidOffsetStr = 268001
 	// ErrInvalidBinaryHexForm is an error code for the case where a binary data in hex form is invalid.
 	ErrInvalidBinaryHexForm = 268002
+	// ErrTooHighTimestampPrecision is an error code for the case where cannot convert Snowflake timestamp to arrow.Timestamp
+	ErrTooHighTimestampPrecision = 268003
 
 	/* OCSP */
 
@@ -285,34 +289,47 @@ const (
 	errMsgFailedToConvertToS3Client          = "failed to convert interface to s3 client"
 	errMsgNoResultIDs                        = "no result IDs returned with the multi-statement query"
 	errMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
+	errMsgInvalidPadding                     = "invalid padding on input"
 )
 
-var (
-	// ErrEmptyAccount is returned if a DNS doesn't include account parameter.
-	ErrEmptyAccount = &SnowflakeError{
+// Returned if a DNS doesn't include account parameter.
+func errEmptyAccount() *SnowflakeError {
+	return &SnowflakeError{
 		Number:  ErrCodeEmptyAccountCode,
 		Message: "account is empty",
 	}
-	// ErrEmptyUsername is returned if a DNS doesn't include user parameter.
-	ErrEmptyUsername = &SnowflakeError{
+}
+
+// Returned if a DNS doesn't include user parameter.
+func errEmptyUsername() *SnowflakeError {
+	return &SnowflakeError{
 		Number:  ErrCodeEmptyUsernameCode,
 		Message: "user is empty",
 	}
-	// ErrEmptyPassword is returned if a DNS doesn't include password parameter.
-	ErrEmptyPassword = &SnowflakeError{
+}
+
+// Returned if a DNS doesn't include password parameter.
+func errEmptyPassword() *SnowflakeError {
+	return &SnowflakeError{
 		Number:  ErrCodeEmptyPasswordCode,
-		Message: "password is empty"}
+		Message: "password is empty",
+	}
+}
 
-	// ErrInvalidRegion is returned if a DSN's implicit region from account parameter and explicit region parameter conflict.
-	ErrInvalidRegion = &SnowflakeError{
+// Returned if a DSN's implicit region from account parameter and explicit region parameter conflict.
+func errInvalidRegion() *SnowflakeError {
+	return &SnowflakeError{
 		Number:  ErrCodeRegionOverlap,
-		Message: "two regions specified"}
+		Message: "two regions specified",
+	}
+}
 
-	// ErrUnknownError is returned if the server side returns an error without meaningful message.
-	ErrUnknownError = &SnowflakeError{
+// Returned if the server side returns an error without meaningful message.
+func errUnknownError() *SnowflakeError {
+	return &SnowflakeError{
 		Number:   -1,
 		SQLState: "-1",
 		Message:  "an unknown server side error occurred",
 		QueryID:  "-1",
 	}
-)
+}

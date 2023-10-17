@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"net/url"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -50,6 +49,7 @@ func cleanup() {
 	unsetenv(ocspTestResponderTimeoutEnv)
 	unsetenv(ocspTestResponderURLEnv)
 	unsetenv(ocspTestNoOCSPURLEnv)
+	unsetenv(ocspRetryURLEnv)
 	unsetenv(cacheDirEnv)
 }
 
@@ -388,7 +388,7 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerURLEnv, "http://localhost:12345/hang")
+	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponseCacheServerTimeoutEnv, "1000")
 
 	config := &Config{
@@ -427,7 +427,7 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerURLEnv, "http://localhost:12345/hang")
+	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponseCacheServerTimeoutEnv, "1000")
 
 	config := &Config{
@@ -483,7 +483,7 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/hang")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponderTimeoutEnv, "1000")
 
 	config := &Config{
@@ -523,7 +523,7 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/hang")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponderTimeoutEnv, "1000")
 
 	config := &Config{
@@ -567,7 +567,7 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/404")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/404")
 
 	config := &Config{
 		Account:      "fakeaccount10",
@@ -606,7 +606,7 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/404")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/404")
 
 	config := &Config{
 		Account:      "fakeaccount11",
@@ -672,14 +672,11 @@ func TestExpiredCertificate(t *testing.T) {
 		t.Fatalf("failed to extract error URL Error: %v", err)
 	}
 	_, ok = urlErr.Err.(x509.CertificateInvalidError)
+
 	if !ok {
-		if runtime.GOOS == "darwin" {
-			// Go 1.18 on Mac: errors.errorString is thrown
-			errString := urlErr.Err.Error()
-			if !strings.HasPrefix(errString, "x509:") || !strings.HasSuffix(errString, "certificate is expired") {
-				t.Fatalf("failed to extract error Certificate error: %v", err)
-			}
-		} else {
+		// Go 1.20 throws tls CertificateVerification error
+		errString := urlErr.Err.Error()
+		if !strings.Contains(errString, "certificate has expired or is not yet valid") {
 			t.Fatalf("failed to extract error Certificate error: %v", err)
 		}
 	}

@@ -20,13 +20,19 @@ on:
           tags:
             description: "Test scenario tags"
 
+concurrency:
+  # older builds for the same pull request numer or branch should be cancelled
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
     build-test-linux:
         runs-on: ubuntu-latest
         strategy:
+            fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.18', '1.17' ]
+                go: [ '1.20', '1.19' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v1
@@ -43,12 +49,17 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
     build-test-mac:
         runs-on: macos-latest
         strategy:
+            fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.18', '1.17' ]
+                go: [ '1.20', '1.19' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v1
@@ -65,12 +76,17 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
     build-test-windows:
         runs-on: windows-latest
         strategy:
+            fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.18', '1.17' ]
+                go: [ '1.20', '1.19' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v1
@@ -91,3 +107,7 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ci\\test.bat
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}

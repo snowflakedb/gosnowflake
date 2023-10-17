@@ -12,7 +12,11 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+
+	"github.com/apache/arrow/go/v12/arrow/ipc"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 func TestBadChunkData(t *testing.T) {
@@ -370,7 +374,7 @@ func TestWithStreamDownloader(t *testing.T) {
 	var idx int
 	var v string
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(forceJSON)
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
@@ -391,76 +395,219 @@ func TestWithStreamDownloader(t *testing.T) {
 }
 
 func TestWithArrowBatches(t *testing.T) {
-	ctx := WithArrowBatches(context.Background())
-	numrows := 3000 // approximately 6 ArrowBatch objects
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Error(err)
-	}
-	sc, err := buildSnowflakeConn(ctx, *config)
-	if err != nil {
-		t.Error(err)
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Error(err)
-	}
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		ctx := WithArrowBatches(sct.sc.ctx)
+		numrows := 3000 // approximately 6 ArrowBatch objects
 
-	query := fmt.Sprintf(selectRandomGenerator, numrows)
-	rows, err := sc.QueryContext(ctx, query, []driver.NamedValue{})
-	if err != nil {
-		t.Error(err)
-	}
-	defer rows.Close()
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx = WithArrowAllocator(ctx, pool)
 
-	// getting result batches
-	batches, err := rows.(*snowflakeRows).GetArrowBatches()
-	if err != nil {
-		t.Error(err)
-	}
-	numBatches := len(batches)
-	maxWorkers := 10 // enough for 3000 rows
-	type count struct {
-		m       sync.Mutex
-		recVal  int
-		metaVal int
-	}
-	cnt := count{recVal: 0}
-	var wg sync.WaitGroup
-	chunks := make(chan int, numBatches)
+		query := fmt.Sprintf(selectRandomGenerator, numrows)
+		rows := sct.mustQueryContext(ctx, query, []driver.NamedValue{})
+		defer rows.Close()
 
-	// kicking off download workers - each of which will call fetch on a different result batch
-	for w := 1; w <= maxWorkers; w++ {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, chunks <-chan int) {
-			defer wg.Done()
+		// getting result batches
+		batches, err := rows.(*snowflakeRows).GetArrowBatches()
+		if err != nil {
+			t.Error(err)
+		}
+		numBatches := len(batches)
+		maxWorkers := 10 // enough for 3000 rows
+		type count struct {
+			m       sync.Mutex
+			recVal  int
+			metaVal int
+		}
+		cnt := count{recVal: 0}
+		var wg sync.WaitGroup
+		chunks := make(chan int, numBatches)
 
-			for i := range chunks {
-				rec, err := batches[i].Fetch()
-				if err != nil {
-					t.Error(err)
-				}
-				for _, r := range *rec {
+		// kicking off download workers - each of which will call fetch on a different result batch
+		for w := 1; w <= maxWorkers; w++ {
+			wg.Add(1)
+			go func(wg *sync.WaitGroup, chunks <-chan int) {
+				defer wg.Done()
+
+				for i := range chunks {
+					rec, err := batches[i].Fetch()
+					if err != nil {
+						t.Error(err)
+					}
+					for _, r := range *rec {
+						cnt.m.Lock()
+						cnt.recVal += int(r.NumRows())
+						cnt.m.Unlock()
+						r.Release()
+					}
 					cnt.m.Lock()
-					cnt.recVal += int(r.NumRows())
+					cnt.metaVal += batches[i].rowCount
 					cnt.m.Unlock()
 				}
-				cnt.m.Lock()
-				cnt.metaVal += batches[i].rowCount
-				cnt.m.Unlock()
-			}
-		}(&wg, chunks)
-	}
-	for j := 0; j < numBatches; j++ {
-		chunks <- j
-	}
-	close(chunks)
+			}(&wg, chunks)
+		}
+		for j := 0; j < numBatches; j++ {
+			chunks <- j
+		}
+		close(chunks)
 
-	// wait for workers to finish fetching and check row counts
-	wg.Wait()
-	if cnt.recVal != numrows {
-		t.Errorf("number of rows from records didn't match. expected: %v, got: %v", numrows, cnt.recVal)
-	}
-	if cnt.metaVal != numrows {
-		t.Errorf("number of rows from arrow batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
-	}
+		// wait for workers to finish fetching and check row counts
+		wg.Wait()
+		if cnt.recVal != numrows {
+			t.Errorf("number of rows from records didn't match. expected: %v, got: %v", numrows, cnt.recVal)
+		}
+		if cnt.metaVal != numrows {
+			t.Errorf("number of rows from arrow batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
+		}
+	})
+}
+
+func TestWithArrowBatchesAsync(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		ctx := WithAsyncMode(sct.sc.ctx)
+		ctx = WithArrowBatches(ctx)
+		numrows := 50000 // approximately 10 ArrowBatch objects
+
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx = WithArrowAllocator(ctx, pool)
+
+		query := fmt.Sprintf(selectRandomGenerator, numrows)
+		rows := sct.mustQueryContext(ctx, query, []driver.NamedValue{})
+		defer rows.Close()
+
+		// getting result batches
+		// this will fail if GetArrowBatches() is not a blocking call
+		batches, err := rows.(*snowflakeRows).GetArrowBatches()
+		if err != nil {
+			t.Error(err)
+		}
+		numBatches := len(batches)
+		maxWorkers := 10
+		type count struct {
+			m       sync.Mutex
+			recVal  int
+			metaVal int
+		}
+		cnt := count{recVal: 0}
+		var wg sync.WaitGroup
+		chunks := make(chan int, numBatches)
+
+		// kicking off download workers - each of which will call fetch on a different result batch
+		for w := 1; w <= maxWorkers; w++ {
+			wg.Add(1)
+			go func(wg *sync.WaitGroup, chunks <-chan int) {
+				defer wg.Done()
+
+				for i := range chunks {
+					rec, err := batches[i].Fetch()
+					if err != nil {
+						t.Error(err)
+					}
+					for _, r := range *rec {
+						cnt.m.Lock()
+						cnt.recVal += int(r.NumRows())
+						cnt.m.Unlock()
+						r.Release()
+					}
+					cnt.m.Lock()
+					cnt.metaVal += batches[i].rowCount
+					cnt.m.Unlock()
+				}
+			}(&wg, chunks)
+		}
+		for j := 0; j < numBatches; j++ {
+			chunks <- j
+		}
+		close(chunks)
+
+		// wait for workers to finish fetching and check row counts
+		wg.Wait()
+		if cnt.recVal != numrows {
+			t.Errorf("number of rows from records didn't match. expected: %v, got: %v", numrows, cnt.recVal)
+		}
+		if cnt.metaVal != numrows {
+			t.Errorf("number of rows from arrow batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
+		}
+	})
+}
+
+func TestQueryArrowStream(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		numrows := 50000 // approximately 10 ArrowBatch objects
+
+		query := fmt.Sprintf(selectRandomGenerator, numrows)
+		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, query)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if loader.TotalRows() != int64(numrows) {
+			t.Errorf("total numrows did not match expected, wanted %v, got %v", numrows, loader.TotalRows())
+		}
+
+		batches, err := loader.GetBatches()
+		if err != nil {
+			t.Error(err)
+		}
+
+		numBatches := len(batches)
+		maxWorkers := 8
+		chunks := make(chan int, numBatches)
+		total := int64(0)
+		meta := int64(0)
+
+		var wg sync.WaitGroup
+		wg.Add(maxWorkers)
+
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+
+		for w := 0; w < maxWorkers; w++ {
+			go func() {
+				defer wg.Done()
+
+				for i := range chunks {
+					r, err := batches[i].GetStream(sct.sc.ctx)
+					if err != nil {
+						t.Error(err)
+						continue
+					}
+					rdr, err := ipc.NewReader(r, ipc.WithAllocator(mem))
+					if err != nil {
+						t.Errorf("Error creating IPC reader for stream %d: %s", i, err)
+						r.Close()
+						continue
+					}
+
+					for rdr.Next() {
+						rec := rdr.Record()
+						atomic.AddInt64(&total, rec.NumRows())
+					}
+
+					if rdr.Err() != nil {
+						t.Error(rdr.Err())
+					}
+					rdr.Release()
+					if err := r.Close(); err != nil {
+						t.Error(err)
+					}
+					atomic.AddInt64(&meta, batches[i].NumRows())
+				}
+			}()
+		}
+
+		for j := 0; j < numBatches; j++ {
+			chunks <- j
+		}
+		close(chunks)
+		wg.Wait()
+
+		if total != int64(numrows) {
+			t.Errorf("number of rows from records didn't match. expected: %v, got: %v", numrows, total)
+		}
+		if meta != int64(numrows) {
+			t.Errorf("number of rows from batch metadata didn't match. expected: %v, got: %v", numrows, total)
+		}
+	})
 }

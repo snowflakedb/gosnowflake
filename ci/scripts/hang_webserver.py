@@ -4,18 +4,35 @@ from http.server import BaseHTTPRequestHandler,HTTPServer
 from socketserver import ThreadingMixIn
 import threading
 import time
+import json
 
 class HTTPRequestHandler(BaseHTTPRequestHandler):
+    invocations = 0
+
     def do_POST(self):
-        if self.path.startswith('/403'):
+        if self.path.startswith('/reset'):
+            print("Resetting HTTP mocks")
+            HTTPRequestHandler.invocations = 0
+            self.__respond(200)
+        elif self.path.startswith('/invocations'):
+            self.__respond(200, body=str(HTTPRequestHandler.invocations))
+        elif self.path.startswith('/ocsp'):
+            print("ocsp")
+            self.ocspMocks()
+        elif self.path.startswith('/session/v1/login-request'):
+            self.authMocks()
+
+    def ocspMocks(self):
+        if self.path.startswith('/ocsp/403'):
             self.send_response(403)
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()
-        elif self.path.startswith('/404'):
+        elif self.path.startswith('/ocsp/404'):
             self.send_response(404)
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()
-        elif self.path.startswith('/hang'):
+        elif self.path.startswith('/ocsp/hang'):
+            print("Hanging")
             time.sleep(300)
             self.send_response(200, 'OK')
             self.send_header('Content-Type', 'text/plain')
@@ -24,6 +41,36 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_response(200, 'OK')
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()
+
+    def authMocks(self):
+        content_length = int(self.headers.get('content-length', 0))
+        body = self.rfile.read(content_length)
+        jsonBody = json.loads(body)
+        if jsonBody['data']['ACCOUNT_NAME'] == "jwtAuthTokenTimeout":
+            HTTPRequestHandler.invocations += 1
+            if HTTPRequestHandler.invocations >= 3:
+                self.__respond(200, body='''{
+                    "data": {
+                        "token": "someToken"
+                    },
+                    "success": true
+                }''')
+            else:
+                time.sleep(2000)
+                self.send_response(200)
+        else:
+            print("Unknown auth request")
+            self.send_response(500)
+
+    def __respond(self, http_code, content_type='application/json', body=None):
+        print("responding:", body)
+        self.send_response(http_code)
+        self.send_header('Content-Type', content_type)
+        self.end_headers()
+        if body != None:
+            responseBody = bytes(body, "utf-8")
+            self.wfile.write(responseBody)
+
     do_GET = do_POST
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
