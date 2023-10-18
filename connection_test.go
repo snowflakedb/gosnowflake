@@ -191,7 +191,7 @@ func TestServiceName(t *testing.T) {
 
 	expectServiceName := serviceNameStub
 	for i := 0; i < 5; i++ {
-		sc.exec(context.TODO(), "", false, /* noResult */
+		sc.exec(context.Background(), "", false, /* noResult */
 			false /* isInternal */, false /* describeOnly */, nil)
 		if actualServiceName, ok := sc.cfg.Params[serviceName]; ok {
 			if *actualServiceName != expectServiceName {
