@@ -14,19 +14,19 @@ const (
 )
 
 func getClientConfig(filePathFromConnectionString string) (*ClientConfig, error) {
-	configPredefinedFilePaths, err := clientConfigPredefinedFilePaths()
+	configPredefinedFilePaths, err := clientConfigPredefinedDirs()
 	var filePath string
 	filePath, err = findClientConfig(filePathFromConnectionString, configPredefinedFilePaths)
 	if err != nil {
 		return nil, err
 	}
-	if filePath == "" {
+	if filePath == "" { // we did not find a config file
 		return nil, nil
 	}
 	return parseClientConfiguration(filePath)
 }
 
-func findClientConfig(filePathFromConnectionString string, configPredefinedFilePaths []string) (string, error) {
+func findClientConfig(filePathFromConnectionString string, configPredefinedDirs []string) (string, error) {
 	if filePathFromConnectionString != "" {
 		return filePathFromConnectionString, nil
 	}
@@ -34,11 +34,12 @@ func findClientConfig(filePathFromConnectionString string, configPredefinedFileP
 	if envConfigFilePath != "" {
 		return envConfigFilePath, nil
 	}
-	return searchForFirstExistingFile(configPredefinedFilePaths)
+	return searchForConfigFile(configPredefinedDirs)
 }
 
-func searchForFirstExistingFile(filePath []string) (string, error) {
-	for _, filePath := range filePath {
+func searchForConfigFile(directories []string) (string, error) {
+	for _, dir := range directories {
+		filePath := path.Join(dir, defaultConfigName)
 		exists, err := existsFile(filePath)
 		if err != nil {
 			return "", err
@@ -61,15 +62,10 @@ func existsFile(filePath string) (bool, error) {
 	return false, err
 }
 
-func clientConfigPredefinedFilePaths() ([]string, error) {
+func clientConfigPredefinedDirs() ([]string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	dirs := []string{
-		path.Join(".", defaultConfigName),
-		path.Join(homeDir, defaultConfigName),
-		path.Join(os.TempDir(), defaultConfigName),
-	}
-	return dirs, nil
+	return []string{".", homeDir, os.TempDir()}, nil
 }
