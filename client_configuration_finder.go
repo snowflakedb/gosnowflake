@@ -4,7 +4,6 @@ package gosnowflake
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path"
 )
@@ -14,14 +13,44 @@ const (
 	clientConfEnvName = "SF_CLIENT_CONFIG_FILE"
 )
 
-type existsFileChecker interface {
-	existsFile(filePath string) (bool, error)
+func getClientConfig(filePathFromConnectionString string) (*ClientConfig, error) {
+	configPredefinedFilePaths, err := clientConfigPredefinedFilePaths()
+	var filePath string
+	filePath, err = findClientConfig(filePathFromConnectionString, configPredefinedFilePaths)
+	if err != nil {
+		return nil, err
+	}
+	if filePath == "" {
+		return nil, nil
+	}
+	return parseClientConfiguration(filePath)
 }
 
-type existsFileCheckerImpl struct {
+func findClientConfig(filePathFromConnectionString string, configPredefinedFilePaths []string) (string, error) {
+	if filePathFromConnectionString != "" {
+		return filePathFromConnectionString, nil
+	}
+	envConfigFilePath := os.Getenv(clientConfEnvName)
+	if envConfigFilePath != "" {
+		return envConfigFilePath, nil
+	}
+	return searchForFirstExistingFile(configPredefinedFilePaths)
 }
 
-func (existsFileCheckerImpl) existsFile(filePath string) (bool, error) {
+func searchForFirstExistingFile(filePath []string) (string, error) {
+	for _, filePath := range filePath {
+		exists, err := existsFile(filePath)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return filePath, nil
+		}
+	}
+	return "", nil
+}
+
+func existsFile(filePath string) (bool, error) {
 	_, err := os.Stat(filePath)
 	if err == nil {
 		return true, nil
@@ -32,76 +61,15 @@ func (existsFileCheckerImpl) existsFile(filePath string) (bool, error) {
 	return false, err
 }
 
-var efc = existsFileCheckerImpl{}
-
-func getClientConfig(filePathFromConnectionString string) (*ClientConfig, error) {
-	filePath, err := findClientConfig(efc, filePathFromConnectionString)
+func clientConfigPredefinedFilePaths() ([]string, error) {
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	if filePath == "" {
-		return nil, nil
+	dirs := []string{
+		path.Join(".", defaultConfigName),
+		path.Join(homeDir, defaultConfigName),
+		path.Join(os.TempDir(), defaultConfigName),
 	}
-	return parseClientConfiguration(filePath)
-}
-
-func findClientConfig(existsChecker existsFileChecker, filePathFromConnectionString string) (string, error) {
-	if filePathFromConnectionString != "" {
-		return filePathFromConnectionString, nil
-	}
-	envConfigFilePath := os.Getenv(clientConfEnvName)
-	if envConfigFilePath != "" {
-		return envConfigFilePath, nil
-	}
-	return searchInDirectories(existsChecker)
-}
-
-func searchInDirectories(existsChecker existsFileChecker) (string, error) {
-	// search in driver's directory
-	filePath, err := searchInDirectory(existsChecker, ".")
-	if err != nil {
-		return "", findingClientConfigError(err)
-	}
-	if filePath != "" {
-		return filePath, nil
-	}
-	// search in home directory
-	var homeDir string
-	homeDir, err = os.UserHomeDir()
-	if err != nil {
-		return "", findingClientConfigError(err)
-	}
-	filePath, err = searchInDirectory(existsChecker, homeDir)
-	if err != nil {
-		return "", findingClientConfigError(err)
-	}
-	if filePath != "" {
-		return filePath, nil
-	}
-	// search in temporary directory
-	filePath, err = searchInDirectory(existsChecker, os.TempDir())
-	if err != nil {
-		return "", findingClientConfigError(err)
-	}
-	return filePath, nil
-}
-
-func searchInDirectory(existsChecker existsFileChecker, directory string) (string, error) {
-	filePath := defaultConfigFile(directory)
-	exists, err := existsChecker.existsFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	if exists {
-		return filePath, nil
-	}
-	return "", nil
-}
-
-func defaultConfigFile(directory string) string {
-	return path.Join(directory, defaultConfigName)
-}
-
-func findingClientConfigError(err error) error {
-	return fmt.Errorf("finding client config failed: %w", err)
+	return dirs, nil
 }

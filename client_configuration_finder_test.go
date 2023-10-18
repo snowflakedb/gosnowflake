@@ -9,102 +9,113 @@ import (
 )
 
 func TestFindConfigFileFromConnectionParameters(t *testing.T) {
-	mock := existsFileCheckerMock{}
-	mock.mockFileFromConnectionParameters()
-	mock.mockFileFromEnvVariable(t)
-	mock.mockFileFromDriverDir()
-	mock.mockFileFromHomeDir(t)
-	mock.mockFileFromTempDir()
+	dir := t.TempDir()
+	connParameterConfigPath := createFile(t, "conn_parameters_config.json", "random content", dir)
+	envConfigPath := createFile(t, "env_var_config.json", "random content", dir)
+	t.Setenv(clientConfEnvName, envConfigPath)
+	driverConfigPath := createFile(t, "driver_dir_config.json", "random content", dir)
+	homeConfigPath := createFile(t, "home_dir_config.json", "random content", dir)
+	tempConfigPath := createFile(t, "temp_dir_config.json", "random content", dir)
+	dirPredefinedPaths := []string{driverConfigPath, homeConfigPath, tempConfigPath}
 
-	clientConfig, err := findClientConfig(mock, parameterConfigPath())
+	clientConfig, err := findClientConfig(connParameterConfigPath, dirPredefinedPaths)
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, parameterConfigPath(), "config file path")
+	assertEqualE(t, clientConfig, connParameterConfigPath, "config file path")
 }
 
 func TestFindConfigFileFromEnvVariable(t *testing.T) {
-	mock := existsFileCheckerMock{}
-	mock.mockFileFromEnvVariable(t)
-	mock.mockFileFromDriverDir()
-	mock.mockFileFromHomeDir(t)
-	mock.mockFileFromTempDir()
+	dir := t.TempDir()
+	envConfigPath := createFile(t, "env_var_config.json", "random content", dir)
+	t.Setenv(clientConfEnvName, envConfigPath)
+	driverConfigPath := createFile(t, "driver_dir_config.json", "random content", dir)
+	homeConfigPath := createFile(t, "home_dir_config.json", "random content", dir)
+	tempConfigPath := createFile(t, "temp_dir_config.json", "random content", dir)
+	dirPredefinedPaths := []string{driverConfigPath, homeConfigPath, tempConfigPath}
 
-	clientConfig, err := findClientConfig(mock, "")
+	clientConfig, err := findClientConfig("", dirPredefinedPaths)
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, envConfigPath(), "config file path")
+	assertEqualE(t, clientConfig, envConfigPath, "config file path")
 }
 
 func TestFindConfigFileFromDriverDirectory(t *testing.T) {
-	mock := existsFileCheckerMock{}
-	mock.mockFileFromDriverDir()
-	mock.mockFileFromHomeDir(t)
-	mock.mockFileFromTempDir()
+	dir := t.TempDir()
+	driverConfigPath := createFile(t, "driver_dir_config.json", "random content", dir)
+	homeConfigPath := createFile(t, "home_dir_config.json", "random content", dir)
+	tempConfigPath := createFile(t, "temp_dir_config.json", "random content", dir)
+	dirPredefinedPaths := []string{driverConfigPath, homeConfigPath, tempConfigPath}
 
-	clientConfig, err := findClientConfig(mock, "")
+	clientConfig, err := findClientConfig("", dirPredefinedPaths)
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, driverConfigPath(), "config file path")
+	assertEqualE(t, clientConfig, driverConfigPath, "config file path")
 }
 
 func TestFindConfigFileFromHomeDirectory(t *testing.T) {
-	mock := existsFileCheckerMock{}
-	mock.mockFileFromHomeDir(t)
-	mock.mockFileFromTempDir()
+	dir := t.TempDir()
+	driverConfigPath := path.Join(dir, "driver_dir_config.json")
+	homeConfigPath := createFile(t, "home_dir_config.json", "random content", dir)
+	tempConfigPath := createFile(t, "temp_dir_config.json", "random content", dir)
+	dirPredefinedPaths := []string{driverConfigPath, homeConfigPath, tempConfigPath}
 
-	clientConfig, err := findClientConfig(mock, "")
+	clientConfig, err := findClientConfig("", dirPredefinedPaths)
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, homeConfigPath(t), "config file path")
+	assertEqualE(t, clientConfig, homeConfigPath, "config file path")
 }
 
 func TestFindConfigFileFromTempDirectory(t *testing.T) {
-	mock := existsFileCheckerMock{}
-	mock.mockFileFromTempDir()
+	dir := t.TempDir()
+	driverConfigPath := path.Join(dir, "driver_dir_config.json")
+	homeConfigPath := path.Join(dir, "home_dir_config.json")
+	tempConfigPath := createFile(t, "temp_dir_config.json", "random content", dir)
+	dirPredefinedPaths := []string{driverConfigPath, homeConfigPath, tempConfigPath}
 
-	clientConfig, err := findClientConfig(mock, "")
+	clientConfig, err := findClientConfig("", dirPredefinedPaths)
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, tempConfigPath(), "config file path")
+	assertEqualE(t, clientConfig, tempConfigPath, "config file path")
 }
 
 func TestNotFindConfigFileWhenNotDefined(t *testing.T) {
-	mock := existsFileCheckerMock{}
+	dir := t.TempDir()
+	driverConfigPath := path.Join(dir, "driver_dir_config.json")
+	homeConfigPath := path.Join(dir, "home_dir_config.json")
+	tempConfigPath := path.Join(dir, "temp_dir_config.json")
+	dirPredefinedPaths := []string{driverConfigPath, homeConfigPath, tempConfigPath}
 
-	clientConfig, err := findClientConfig(mock, "")
+	clientConfig, err := findClientConfig("", dirPredefinedPaths)
 
 	assertNilF(t, err, "get client config error")
 	assertEqualE(t, clientConfig, "", "config file path")
 }
 
-func TestNotFindNotExistingFile(t *testing.T) {
-	exists, err := efc.existsFile("not-existing-file")
+func TestCreatePredefinedLocationPaths(t *testing.T) {
+	driverConfigPath := path.Join(".", defaultConfigName)
+	homeDir, err := os.UserHomeDir()
+	homeConfigPath := path.Join(homeDir, defaultConfigName)
+	tempConfigPath := path.Join(os.TempDir(), defaultConfigName)
+	var locations []string
 
-	assertNilF(t, err, "exists file error")
-	assertEqualE(t, exists, false, "exists result")
-}
+	locations, err = clientConfigPredefinedFilePaths()
 
-func TestFindExistingFile(t *testing.T) {
-	dir := t.TempDir()
-	fileName := "config.json"
-	createFile(t, fileName, "random content", dir)
-	filePath := path.Join(dir, fileName)
-
-	exists, err := efc.existsFile(filePath)
-
-	assertNilF(t, err, "exists file error")
-	assertEqualE(t, exists, true, "exists result")
+	assertNilF(t, err, "error")
+	assertEqualF(t, len(locations), 3, "size")
+	assertEqualE(t, locations[0], driverConfigPath, "driver config path")
+	assertEqualE(t, locations[1], homeConfigPath, "home config path")
+	assertEqualE(t, locations[2], tempConfigPath, "temp config path")
 }
 
 func TestGetClientConfig(t *testing.T) {
 	dir := t.TempDir()
 	fileName := "config.json"
 	configContents := `{
-		"common": {
-			"log_level" : "INFO",
-			"log_path" : "/some-path/some-directory"
-		}
-	}`
+			"common": {
+				"log_level" : "INFO",
+				"log_path" : "/some-path/some-directory"
+			}
+		}`
 	createFile(t, fileName, configContents, dir)
 	filePath := path.Join(dir, fileName)
 
@@ -121,66 +132,4 @@ func TestNoResultForGetClientConfigWhenNoFileFound(t *testing.T) {
 
 	assertNilF(t, err)
 	assertNilF(t, clientConfig)
-}
-
-type existsFileCheckerMock struct {
-	filePaths []string
-}
-
-func (e existsFileCheckerMock) existsFile(filePath string) (bool, error) {
-	fileOnList := false
-	for _, existingFilePath := range e.filePaths {
-		if filePath == existingFilePath {
-			fileOnList = true
-		}
-	}
-	return fileOnList, nil
-}
-
-func (e *existsFileCheckerMock) mockFileFromConnectionParameters() {
-	e.mockFile(parameterConfigPath())
-}
-
-func (e *existsFileCheckerMock) mockFileFromEnvVariable(t *testing.T) {
-	envConfigPath := envConfigPath()
-	t.Setenv(clientConfEnvName, envConfigPath)
-	e.mockFile(envConfigPath)
-}
-
-func (e *existsFileCheckerMock) mockFileFromDriverDir() {
-	e.mockFile(driverConfigPath())
-}
-
-func (e *existsFileCheckerMock) mockFileFromHomeDir(t *testing.T) {
-	e.mockFile(homeConfigPath(t))
-}
-
-func (e *existsFileCheckerMock) mockFileFromTempDir() {
-	e.mockFile(tempConfigPath())
-}
-
-func (e *existsFileCheckerMock) mockFile(filePath string) {
-	e.filePaths = append(e.filePaths, filePath)
-}
-
-func parameterConfigPath() string {
-	return path.Join("some-directory", "config.json")
-}
-
-func envConfigPath() string {
-	return path.Join("some-other-directory", "config.json")
-}
-
-func driverConfigPath() string {
-	return path.Join(".", defaultConfigName)
-}
-
-func tempConfigPath() string {
-	return path.Join(os.TempDir(), defaultConfigName)
-}
-
-func homeConfigPath(t *testing.T) string {
-	homeDir, err := os.UserHomeDir()
-	assertNilF(t, err)
-	return path.Join(homeDir, defaultConfigName)
 }
