@@ -1,44 +1,44 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"io"
-	"math/rand"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 type contextKey string
 
 const (
-	// multiStatementCount controls the number of queries to execute in a single API call
-	multiStatementCount contextKey = "MULTI_STATEMENT_COUNT"
-	// asyncMode tells the server to not block the request on executing the entire query
-	asyncMode contextKey = "ASYNC_MODE_QUERY"
-	// queryIDChannel is the channel to receive the query ID from
-	queryIDChannel contextKey = "QUERY_ID_CHANNEL"
-	// snowflakeRequestIDKey is optional context key to specify request id
-	snowflakeRequestIDKey contextKey = "SNOWFLAKE_REQUEST_ID"
-	// fetchResultByID the queryID of query result to fetch
-	fetchResultByID contextKey = "SF_FETCH_RESULT_BY_ID"
-	// fileStreamFile is the address of the file to be uploaded via PUT
-	fileStreamFile contextKey = "STREAMING_PUT_FILE"
-	// fileTransferOptions allows the user to pass in custom
-	fileTransferOptions contextKey = "FILE_TRANSFER_OPTIONS"
-	// enableHigherPrecision returns numbers with higher precision in a *big format
-	enableHigherPrecision contextKey = "ENABLE_HIGHER_PRECISION"
+	multiStatementCount     contextKey = "MULTI_STATEMENT_COUNT"
+	asyncMode               contextKey = "ASYNC_MODE_QUERY"
+	queryIDChannel          contextKey = "QUERY_ID_CHANNEL"
+	snowflakeRequestIDKey   contextKey = "SNOWFLAKE_REQUEST_ID"
+	fetchResultByID         contextKey = "SF_FETCH_RESULT_BY_ID"
+	fileStreamFile          contextKey = "STREAMING_PUT_FILE"
+	fileTransferOptions     contextKey = "FILE_TRANSFER_OPTIONS"
+	enableHigherPrecision   contextKey = "ENABLE_HIGHER_PRECISION"
+	arrowBatches            contextKey = "ARROW_BATCHES"
+	arrowAlloc              contextKey = "ARROW_ALLOC"
+	enableOriginalTimestamp contextKey = "ENABLE_ORIGINAL_TIMESTAMP"
 )
 
 const (
 	describeOnly        contextKey = "DESCRIBE_ONLY"
 	cancelRetry         contextKey = "CANCEL_RETRY"
 	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
+)
+
+var (
+	defaultTimeProvider = &unixTimeProvider{}
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
@@ -57,7 +57,7 @@ func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 }
 
 // WithRequestID returns a new context with the specified snowflake request id
-func WithRequestID(ctx context.Context, requestID uuid.UUID) context.Context {
+func WithRequestID(ctx context.Context, requestID UUID) context.Context {
 	return context.WithValue(ctx, snowflakeRequestIDKey, requestID)
 }
 
@@ -93,13 +93,33 @@ func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
 }
 
+// WithArrowBatches returns a context that allows users to retrieve
+// arrow.Record download workers upon querying
+func WithArrowBatches(ctx context.Context) context.Context {
+	return context.WithValue(ctx, arrowBatches, true)
+}
+
+// WithArrowAllocator returns a context embedding the provided allocator
+// which will be utilized by chunk downloaders when constructing Arrow
+// objects.
+func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Context {
+	return context.WithValue(ctx, arrowAlloc, pool)
+}
+
+// WithOriginalTimestamp in combination with WithArrowBatches returns a context
+// that allows users to retrieve arrow.Record with original timestamp struct returned by Snowflake.
+// It can be used in case arrow.Timestamp cannot fit original timestamp values.
+func WithOriginalTimestamp(ctx context.Context) context.Context {
+	return context.WithValue(ctx, enableOriginalTimestamp, true)
+}
+
 // Get the request ID from the context if specified, otherwise generate one
-func getOrGenerateRequestIDFromContext(ctx context.Context) uuid.UUID {
-	requestID, ok := ctx.Value(snowflakeRequestIDKey).(uuid.UUID)
-	if ok && requestID != uuid.Nil {
+func getOrGenerateRequestIDFromContext(ctx context.Context) UUID {
+	requestID, ok := ctx.Value(snowflakeRequestIDKey).(UUID)
+	if ok && requestID != nilUUID {
 		return requestID
 	}
-	return uuid.New()
+	return NewUUID()
 }
 
 // integer min
@@ -217,12 +237,24 @@ func escapeForCSV(value string) string {
 	return value
 }
 
-func randomString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = alpha[rand.Intn(len(alpha))]
+// GetFromEnv is used to get the value of an environment variable from the system
+func GetFromEnv(name string, failOnMissing bool) (string, error) {
+	if value := os.Getenv(name); value != "" {
+		return value, nil
 	}
-	return string(b)
+	if failOnMissing {
+		return "", fmt.Errorf("%v environment variable is not set", name)
+	}
+	return "", nil
+}
+
+type currentTimeProvider interface {
+	currentTime() int64
+}
+
+type unixTimeProvider struct {
+}
+
+func (utp *unixTimeProvider) currentTime() int64 {
+	return time.Now().UnixMilli()
 }

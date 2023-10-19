@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -14,7 +14,9 @@ import (
 )
 
 func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
+	paramsMutex.Lock()
 	v, ok := sc.cfg.Params[sessionClientSessionKeepAlive]
+	paramsMutex.Unlock()
 	if !ok {
 		return false
 	}
@@ -22,24 +24,30 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 }
 
 func (sc *snowflakeConn) startHeartBeat() {
-	if !sc.isClientSessionKeepAliveEnabled() {
+	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
-	sc.rest.HeartBeat = &heartbeat{
-		restful: sc.rest,
+	if sc.rest != nil {
+		sc.rest.HeartBeat = &heartbeat{
+			restful: sc.rest,
+		}
+		sc.rest.HeartBeat.start()
 	}
-	sc.rest.HeartBeat.start()
 }
 
 func (sc *snowflakeConn) stopHeartBeat() {
-	if !sc.isClientSessionKeepAliveEnabled() {
+	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
-	sc.rest.HeartBeat.stop()
+	if sc.rest != nil && sc.rest.HeartBeat != nil {
+		sc.rest.HeartBeat.stop()
+	}
 }
 
 func (sc *snowflakeConn) getArrayBindStageThreshold() int {
+	paramsMutex.Lock()
 	v, ok := sc.cfg.Params[sessionArrayBindStageThreshold]
+	paramsMutex.Unlock()
 	if !ok {
 		return 0
 	}
@@ -58,11 +66,13 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 			driverTypeKey:    "Go",
 			driverVersionKey: SnowflakeGoDriverVersion,
 		},
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 	}
+	paramsMutex.Lock()
 	for k, v := range cfg.Params {
 		data.Message[k] = *v
 	}
+	paramsMutex.Unlock()
 	sc.telemetry.addLog(data)
 	sc.telemetry.sendBatch()
 }
@@ -150,7 +160,9 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 			}
 		}
 		logger.Debugf("parameter. name: %v, value: %v", param.Name, v)
+		paramsMutex.Lock()
 		sc.cfg.Params[strings.ToLower(param.Name)] = &v
+		paramsMutex.Unlock()
 	}
 }
 
@@ -201,8 +213,8 @@ func updateRows(data execResponseData) (int64, error) {
 // Note that the statement type code is also equivalent to type INSERT, so an
 // additional check of the name is required
 func isMultiStmt(data *execResponseData) bool {
-	return data.StatementTypeID == statementTypeIDMulti &&
-		data.RowType[0].Name == "multiple statement execution"
+	var isMultistatementByReturningSelect = data.StatementTypeID == statementTypeIDSelect && data.RowType[0].Name == "multiple statement execution"
+	return isMultistatementByReturningSelect || data.StatementTypeID == statementTypeIDMultistatement
 }
 
 func getResumeQueryID(ctx context.Context) (string, error) {
@@ -219,27 +231,10 @@ func getResumeQueryID(ctx context.Context) (string, error) {
 		return strVal, &SnowflakeError{
 			Number:  ErrQueryIDFormat,
 			Message: "Invalid QID",
-			QueryID: strVal}
+			QueryID: strVal,
+		}
 	}
 	return strVal, nil
-}
-
-type childResult struct {
-	id  string
-	typ string
-}
-
-func getChildResults(IDs string, types string) []childResult {
-	if IDs == "" {
-		return nil
-	}
-	queryIDs := strings.Split(IDs, ",")
-	resultTypes := strings.Split(types, ",")
-	res := make([]childResult, len(queryIDs))
-	for i, id := range queryIDs {
-		res[i] = childResult{id, resultTypes[i]}
-	}
-	return res
 }
 
 // returns snowflake chunk downloader by default or stream based chunk
@@ -248,7 +243,7 @@ func populateChunkDownloader(
 	ctx context.Context,
 	sc *snowflakeConn,
 	data execResponseData) chunkDownloader {
-	if useStreamDownloader(ctx) && data.QueryResultFormat == "json" {
+	if useStreamDownloader(ctx) && resultFormat(data.QueryResultFormat) == jsonFormat {
 		// stream chunk downloading only works for row based data formats, i.e. json
 		fetcher := &httpStreamChunkFetcher{
 			ctx:      ctx,
@@ -264,6 +259,7 @@ func populateChunkDownloader(
 	return &snowflakeChunkDownloader{
 		sc:                 sc,
 		ctx:                ctx,
+		pool:               getAllocator(ctx),
 		CurrentChunk:       make([]chunkRowType, len(data.RowSet)),
 		ChunkMetas:         data.Chunks,
 		Total:              data.Total,
@@ -285,11 +281,13 @@ func populateChunkDownloader(
 
 func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
 	ocspCacheServer := fmt.Sprintf("http://ocsp.%v/ocsp_response_cache.json", host)
+	logger.Debugf("OCSP Cache Server for Privatelink: %v\n", ocspCacheServer)
 	if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
 		return err
 	}
-	ocspRetryHost := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
-	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHost); err != nil {
+	ocspRetryHostTemplate := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
+	logger.Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHostTemplate)
+	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHostTemplate); err != nil {
 		return err
 	}
 	return nil

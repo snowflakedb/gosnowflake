@@ -1,14 +1,15 @@
-// Copyright (c) 2019-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2019-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,8 +17,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -25,11 +24,30 @@ const (
 	serviceNameAppend = "a"
 )
 
+func TestInvalidConnection(t *testing.T) {
+	db := openDB(t)
+	if err := db.Close(); err != nil {
+		t.Error("should not cause error in Close")
+	}
+	if err := db.Close(); err != nil {
+		t.Error("should not cause error in the second call of Close")
+	}
+	if _, err := db.ExecContext(context.Background(), "CREATE TABLE OR REPLACE test0(c1 int)"); err == nil {
+		t.Error("should fail to run Exec")
+	}
+	if _, err := db.QueryContext(context.Background(), "SELECT CURRENT_TIMESTAMP()"); err == nil {
+		t.Error("should fail to run Query")
+	}
+	if _, err := db.BeginTx(context.Background(), nil); err == nil {
+		t.Error("should fail to run Begin")
+	}
+}
+
 // postQueryMock generates a response based on the X-Snowflake-Service header,
 // to generate a response with the SERVICE_NAME field appending a character at
 // the end of the header. This way it could test both the send and receive logic
 func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values,
-	headers map[string]string, _ []byte, _ time.Duration, _ uuid.UUID,
+	headers map[string]string, _ []byte, _ time.Duration, _ UUID,
 	_ *Config) (*execResponse, error) {
 	var serviceName string
 	if serviceHeader, ok := headers[httpHeaderServiceName]; ok {
@@ -50,10 +68,10 @@ func postQueryMock(_ context.Context, _ *snowflakeRestful, _ *url.Values,
 }
 
 func TestExecWithEmptyRequestID(t *testing.T) {
-	ctx := WithRequestID(context.Background(), uuid.Nil)
+	ctx := WithRequestID(context.Background(), nilUUID)
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
 		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
-		requestID uuid.UUID, _ *Config) (*execResponse, error) {
+		requestID UUID, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if len(requestID) == 0 {
 			t.Fatal("requestID is empty")
@@ -72,8 +90,9 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:               &Config{Params: map[string]*string{}},
+		rest:              sr,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
@@ -111,8 +130,9 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 		TokenAccessor: ta,
 	}
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:                 &Config{Params: map[string]*string{}},
+		rest:                sr,
+		currentTimeProvider: defaultTimeProvider,
 	}
 	if _, err := sc.getQueryResultResp(context.Background(), ""); err != nil {
 		t.Fatalf("err: %v", err)
@@ -120,11 +140,11 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 }
 
 func TestExecWithSpecificRequestID(t *testing.T) {
-	origRequestID := uuid.New()
+	origRequestID := NewUUID()
 	ctx := WithRequestID(context.Background(), origRequestID)
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
 		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
-		requestID uuid.UUID, _ *Config) (*execResponse, error) {
+		requestID UUID, _ *Config) (*execResponse, error) {
 		// ensure the same requestID from context is used
 		if requestID != origRequestID {
 			t.Fatal("requestID doesn't match")
@@ -143,8 +163,9 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:               &Config{Params: map[string]*string{}},
+		rest:              sr,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil); err != nil {
@@ -163,13 +184,14 @@ func TestServiceName(t *testing.T) {
 	}
 
 	sc := &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+		cfg:               &Config{Params: map[string]*string{}},
+		rest:              sr,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 
 	expectServiceName := serviceNameStub
 	for i := 0; i < 5; i++ {
-		sc.exec(context.TODO(), "", false, /* noResult */
+		sc.exec(context.Background(), "", false, /* noResult */
 			false /* isInternal */, false /* describeOnly */, nil)
 		if actualServiceName, ok := sc.cfg.Params[serviceName]; ok {
 			if *actualServiceName != expectServiceName {
@@ -201,9 +223,10 @@ func TestCloseIgnoreSessionGone(t *testing.T) {
 		FuncCloseSession: closeSessionMock,
 	}
 	sc := &snowflakeConn{
-		cfg:       &Config{Params: map[string]*string{}},
-		rest:      sr,
-		telemetry: testTelemetry,
+		cfg:               &Config{Params: map[string]*string{}},
+		rest:              sr,
+		telemetry:         testTelemetry,
+		queryContextCache: (&queryContextCache{}).init(),
 	}
 
 	if sc.Close() != nil {
@@ -243,13 +266,18 @@ func TestFetchErrorQueryByID(t *testing.T) {
 		Number: ErrQueryReportedError})
 }
 
+func TestFetchMalformedJsonQueryByID(t *testing.T) {
+	expectedErr := errors.New("invalid character '}' after object key")
+	fetchResultByQueryID(t, returnQueryMalformedJSON, expectedErr)
+}
+
 func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 	vals map[string]string, _ time.Duration, jsonStr string) (
 	*http.Response, error) {
 	if strings.Contains(url.Path, "/monitoring/queries/") {
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(jsonStr)),
+			Body:       io.NopCloser(strings.NewReader(jsonStr)),
 		}, nil
 	}
 	return getRestful(ctx, rest, url, vals, rest.RequestTimeout)
@@ -258,7 +286,7 @@ func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
 func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
 	jsonStr := `{"data" : { "queries" : [{"status" : "RUNNING", "state" :
-		"FILE_SET_INITIALIZATION", "errorCode" : 0, "errorMessage" : null}] },
+		"FILE_SET_INITIALIZATION", "errorCode" : "", "errorMessage" : null}] },
 		"code" : null, "message" : null, "success" : true }`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
@@ -266,8 +294,14 @@ func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, ful
 func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
 	vals map[string]string, duration time.Duration) (*http.Response, error) {
 	jsonStr := `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR",
-		"errorCode" : 0, "errorMessage" : ""}] }, "code" : null, "message" :
+		"errorCode" : "", "errorMessage" : ""}] }, "code" : null, "message" :
 		null, "success" : true }`
+	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
+}
+
+func returnQueryMalformedJSON(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
+	vals map[string]string, duration time.Duration) (*http.Response, error) {
+	jsonStr := `{"malformedJson"}`
 	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
 }
 
@@ -276,9 +310,12 @@ func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL
 // of that query.
 func fetchResultByQueryID(
 	t *testing.T,
-	customGet FuncGetType,
-	expectedFetchErr *SnowflakeError) error {
-	config, _ := ParseDSN(dsn)
+	customGet funcGetType,
+	expectedFetchErr error) error {
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		return err
+	}
 	ctx := context.Background()
 	sc, err := buildSnowflakeConn(ctx, *config)
 	if customGet != nil {
@@ -292,8 +329,8 @@ func fetchResultByQueryID(
 	}
 
 	if _, err = sc.Exec(`create or replace table ut_conn(c1 number, c2 string)
-		as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 from
-		table(generator(rowcount => 100)))`, nil); err != nil {
+							as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 
+							from table(generator(rowcount => 100)))`, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
@@ -307,8 +344,15 @@ func fetchResultByQueryID(
 
 	rows2, err := sc.QueryContext(newCtx, "", nil)
 	if err != nil {
-		if expectedFetchErr != nil { // got expected error number
-			if expectedFetchErr.Number == err.(*SnowflakeError).Number {
+		snowflakeErr, ok := err.(*SnowflakeError)
+		if ok && expectedFetchErr != nil { // got expected error number
+			if expectedSnowflakeErr, ok := expectedFetchErr.(*SnowflakeError); ok {
+				if expectedSnowflakeErr.Number == snowflakeErr.Number {
+					return nil
+				}
+			}
+		} else if !ok { // not a SnowflakeError
+			if strings.Contains(err.Error(), expectedFetchErr.Error()) {
 				return nil
 			}
 		}
@@ -355,37 +399,250 @@ func TestPrivateLink(t *testing.T) {
 }
 
 func TestGetQueryStatus(t *testing.T) {
-	config, _ := ParseDSN(dsn)
-	ctx := context.Background()
-	sc, err := buildSnowflakeConn(ctx, *config)
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec(`create or replace table ut_conn(c1 number, c2 string)
+						as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 
+						from table(generator(rowcount => 100)))`,
+			nil)
+
+		rows := sct.mustQueryContext(sct.sc.ctx, "select min(c1) as ms, sum(c1) from ut_conn group by (c1 % 10) order by ms", nil)
+		qid := rows.(SnowflakeResult).GetQueryID()
+
+		// use conn as type holder for SnowflakeConnection placeholder
+		var conn interface{} = sct.sc
+		qStatus, err := conn.(SnowflakeConnection).GetQueryStatus(sct.sc.ctx, qid)
+		if err != nil {
+			t.Errorf("failed to get query status err = %s", err.Error())
+			return
+		}
+		if qStatus == nil {
+			t.Error("there was no query status returned")
+			return
+		}
+
+		if qStatus.ErrorCode != "" || qStatus.ScanBytes != 2048 || qStatus.ProducedRows != 10 {
+			t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v",
+				qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows)
+			return
+		}
+	})
+}
+
+func TestGetInvalidQueryStatus(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.sc.rest.RequestTimeout = 1 * time.Second
+
+		qStatus, err := sct.sc.checkQueryStatus(sct.sc.ctx, "1234")
+		if err == nil || qStatus != nil {
+			t.Error("expected an error")
+		}
+	})
+}
+
+func TestExecWithServerSideError(t *testing.T) {
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
+		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
+		requestID UUID, _ *Config) (*execResponse, error) {
+		dd := &execResponseData{}
+		return &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    "",
+			Success: false,
+		}, nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery: postQueryMock,
+	}
+	sc := &snowflakeConn{
+		cfg:       &Config{Params: map[string]*string{}},
+		rest:      sr,
+		telemetry: testTelemetry,
+	}
+	_, err := sc.exec(context.Background(), "", false, /* noResult */
+		false /* isInternal */, false /* describeOnly */, nil)
+	if err == nil {
+		t.Error("expected a server side error")
+	}
+	sfe := err.(*SnowflakeError)
+	errUnknownError := errUnknownError()
+	if sfe.Number != -1 || sfe.SQLState != "-1" || sfe.QueryID != "-1" {
+		t.Errorf("incorrect snowflake error. expected: %v, got: %v", errUnknownError, *sfe)
+	}
+	if !strings.Contains(sfe.Message, "an unknown server side error occurred") {
+		t.Errorf("incorrect message. expected: %v, got: %v", errUnknownError.Message, sfe.Message)
+	}
+}
+
+func TestConcurrentReadOnParams(t *testing.T) {
+	config, err := ParseDSN(dsn)
 	if err != nil {
-		t.Error(err)
+		t.Fatal("Failed to parse dsn")
 	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Error(err)
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+	wg := sync.WaitGroup{}
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			for c := 0; c < 10; c++ {
+				stmt, err := db.PrepareContext(context.Background(), "SELECT table_schema FROM information_schema.columns WHERE table_schema = ? LIMIT 1")
+				if err != nil {
+					t.Error(err)
+				}
+				rows, err := stmt.Query("INFORMATION_SCHEMA")
+				if err != nil {
+					t.Error(err)
+				}
+				if rows == nil {
+					continue
+				}
+				rows.Next()
+				var tableName string
+				err = rows.Scan(&tableName)
+				if err != nil {
+					t.Error(err)
+				}
+				_ = rows.Close()
+			}
+			wg.Done()
+		}()
 	}
+	wg.Wait()
+}
 
-	if _, err = sc.Exec(`create or replace table ut_conn(c1 number, c2 string)
-		as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 from
-		table(generator(rowcount => 100)))`, nil); err != nil {
-		t.Error(err)
-	}
+func postQueryTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ UUID, _ *Config) (*execResponse, error) {
+	return nil, errors.New("failed to get query response")
+}
 
-	rows, err := sc.QueryContext(ctx, "select min(c1) as ms, sum(c1) from ut_conn group by (c1 % 10) order by ms", nil)
-	if err != nil {
-		t.Error(err)
+func postQueryFail(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ UUID, _ *Config) (*execResponse, error) {
+	dd := &execResponseData{
+		QueryID:  "1eFhmhe23242kmfd540GgGre",
+		SQLState: "22008",
 	}
-	qid := rows.(SnowflakeResult).GetQueryID()
+	return &execResponse{
+		Data:    *dd,
+		Message: "failed to get query response",
+		Code:    "12345",
+		Success: false,
+	}, errors.New("failed to get query response")
+}
 
-	// use conn as type holder for SnowflakeConnection placeholder
-	var conn interface{} = sc
-	qStatus, err := conn.(SnowflakeConnection).GetQueryStatus(ctx, qid)
-	if err != nil {
-		t.Error(err)
+func TestErrorReportingOnConcurrentFails(t *testing.T) {
+	db := openDB(t)
+	defer db.Close()
+	var wg sync.WaitGroup
+	n := 5
+	wg.Add(3 * n)
+	for i := 0; i < n; i++ {
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_ABC", "TABLE_ABC", t, &wg)
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_DEF", "TABLE_DEF", t, &wg)
+		go executeQueryAndConfirmMessage(db, "SELECT * FROM TABLE_GHI", "TABLE_GHI", t, &wg)
 	}
+	wg.Wait()
+}
 
-	if qStatus.ErrorCode != 0 || qStatus.ScanBytes != 1536 || qStatus.ProducedRows != 10 {
-		t.Errorf("expected no error. got: %v, scan bytes: %v, produced rows: %v",
-			qStatus.ErrorCode, qStatus.ScanBytes, qStatus.ProducedRows)
+func executeQueryAndConfirmMessage(db *sql.DB, query string, expectedErrorTable string, t *testing.T, wg *sync.WaitGroup) {
+	defer wg.Done()
+	_, err := db.Exec(query)
+	message := err.(*SnowflakeError).Message
+	if !strings.Contains(message, expectedErrorTable) {
+		t.Errorf("QueryID: %s, Message %s ###### Expected error message table name: %s",
+			err.(*SnowflakeError).QueryID, err.(*SnowflakeError).Message, expectedErrorTable)
 	}
+}
+
+func TestQueryArrowStreamError(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		numrows := 50000 // approximately 10 ArrowBatch objects
+		query := fmt.Sprintf(selectRandomGenerator, numrows)
+		sct.sc.rest = &snowflakeRestful{
+			FuncPostQuery:    postQueryTest,
+			FuncCloseSession: closeSessionMock,
+			TokenAccessor:    getSimpleTokenAccessor(),
+			RequestTimeout:   10,
+		}
+		_, err := sct.sc.QueryArrowStream(sct.sc.ctx, query)
+		if err == nil {
+			t.Error("should have raised an error")
+		}
+
+		sct.sc.rest.FuncPostQuery = postQueryFail
+		_, err = sct.sc.QueryArrowStream(sct.sc.ctx, query)
+		if err == nil {
+			t.Error("should have raised an error")
+		}
+		_, ok := err.(*SnowflakeError)
+		if !ok {
+			t.Fatalf("should be snowflake error. err: %v", err)
+		}
+	})
+}
+
+func TestExecContextError(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.sc.rest = &snowflakeRestful{
+			FuncPostQuery:    postQueryTest,
+			FuncCloseSession: closeSessionMock,
+			TokenAccessor:    getSimpleTokenAccessor(),
+			RequestTimeout:   10,
+		}
+
+		_, err := sct.sc.ExecContext(sct.sc.ctx, "SELECT 1", []driver.NamedValue{})
+		if err == nil {
+			t.Fatalf("should have raised an error")
+		}
+
+		sct.sc.rest.FuncPostQuery = postQueryFail
+		_, err = sct.sc.ExecContext(sct.sc.ctx, "SELECT 1", []driver.NamedValue{})
+		if err == nil {
+			t.Fatalf("should have raised an error")
+		}
+	})
+}
+
+func TestQueryContextError(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.sc.rest = &snowflakeRestful{
+			FuncPostQuery:    postQueryTest,
+			FuncCloseSession: closeSessionMock,
+			TokenAccessor:    getSimpleTokenAccessor(),
+			RequestTimeout:   10,
+		}
+		_, err := sct.sc.QueryContext(sct.sc.ctx, "SELECT 1", []driver.NamedValue{})
+		if err == nil {
+			t.Fatalf("should have raised an error")
+		}
+
+		sct.sc.rest.FuncPostQuery = postQueryFail
+		_, err = sct.sc.QueryContext(sct.sc.ctx, "SELECT 1", []driver.NamedValue{})
+		if err == nil {
+			t.Fatalf("should have raised an error")
+		}
+		_, ok := err.(*SnowflakeError)
+		if !ok {
+			t.Fatalf("should be snowflake error. err: %v", err)
+		}
+	})
+}
+
+func TestPrepareQuery(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		_, err := sct.sc.Prepare("SELECT 1")
+
+		if err != nil {
+			t.Fatalf("failed to prepare query. err: %v", err)
+		}
+	})
+}
+
+func TestBeginCreatesTransaction(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		tx, _ := sct.sc.Begin()
+		if tx == nil {
+			t.Fatal("should have created a transaction with connection")
+		}
+	})
 }

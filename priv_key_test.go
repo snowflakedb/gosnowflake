@@ -1,16 +1,13 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
-//go:build go1.10
-// +build go1.10
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
-
-// This file contains variables or functions of test cases that we want to run for go version >= 1.10
 
 // For compile concern, should any newly added variables or functions here must also be added with same
 // name or signature but with default or empty content in the priv_key_test.go(See addParseDSNTest)
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -18,7 +15,6 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -54,7 +50,7 @@ func setupPrivateKey() {
 	} else {
 		// path to the DER file
 		customPrivateKey = true
-		data, _ := ioutil.ReadFile(privKeyPath)
+		data, _ := os.ReadFile(privKeyPath)
 		block, _ := pem.Decode(data)
 		if block == nil || block.Type != "PRIVATE KEY" {
 			panic(fmt.Sprintf("%v is not a public key in PEM format.", privKeyPath))
@@ -77,20 +73,20 @@ func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
 func TestJWTAuthentication(t *testing.T) {
 	// For private key generated on the fly, we want to load the public key to the server first
 	if !customPrivateKey {
-		db := openDB(t)
+		conn := openConn(t)
+		defer conn.Close()
 		// Load server's public key to database
 		pubKeyByte, err := x509.MarshalPKIXPublicKey(testPrivKey.Public())
 		if err != nil {
 			t.Fatalf("error marshaling public key: %s", err.Error())
 		}
-		if _, err = db.Exec("USE ROLE ACCOUNTADMIN"); err != nil {
+		if _, err = conn.ExecContext(context.Background(), "USE ROLE ACCOUNTADMIN"); err != nil {
 			t.Fatalf("error changin role: %s", err.Error())
 		}
 		encodedKey := base64.StdEncoding.EncodeToString(pubKeyByte)
-		if _, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", user, encodedKey)); err != nil {
+		if _, err = conn.ExecContext(context.Background(), fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", username, encodedKey)); err != nil {
 			t.Fatalf("error setting server's public key: %s", err.Error())
 		}
-		db.Close()
 	}
 
 	// Test that a valid private key can pass
@@ -105,12 +101,41 @@ func TestJWTAuthentication(t *testing.T) {
 	db.Close()
 
 	// Test that an invalid private key cannot pass
-	invalidPrivateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	invalidPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Error(err)
+	}
 	jwtDSN = appendPrivateKeyString(&dsn, invalidPrivateKey)
-	db, _ = sql.Open("snowflake", jwtDSN)
+	db, err = sql.Open("snowflake", jwtDSN)
+	if err != nil {
+		t.Error(err)
+	}
 	if _, err = db.Exec("SELECT 1"); err == nil {
 		t.Fatalf("An invalid jwt token can pass")
 	}
 
 	db.Close()
+}
+
+func TestJWTTokenTimeout(t *testing.T) {
+	resetHTTPMocks(t)
+
+	dsn := "user:pass@localhost:12345/db/schema?account=jwtAuthTokenTimeout&protocol=http&jwtClientTimeout=1"
+	dsn = appendPrivateKeyString(&dsn, testPrivKey)
+	db, err := sql.Open("snowflake", dsn)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	defer db.Close()
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	defer conn.Close()
+
+	invocations := getMocksInvocations(t)
+	if invocations != 3 {
+		t.Errorf("Unexpected number of invocations, expected 3, got %v", invocations)
+	}
 }

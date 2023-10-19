@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -45,7 +45,7 @@ func (se *SnowflakeError) generateTelemetryExceptionData() *telemetryData {
 			driverVersionKey: SnowflakeGoDriverVersion,
 			stacktraceKey:    maskSecrets(string(debug.Stack())),
 		},
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 	}
 	if se.QueryID != "" {
 		data.Message[queryIDKey] = se.QueryID
@@ -66,7 +66,7 @@ func (se *SnowflakeError) generateTelemetryExceptionData() *telemetryData {
 }
 
 func (se *SnowflakeError) sendExceptionTelemetry(sc *snowflakeConn, data *telemetryData) error {
-	if sc != nil {
+	if sc != nil && sc.telemetry != nil {
 		return sc.telemetry.addLog(data)
 	}
 	return nil // TODO oob telemetry
@@ -78,6 +78,24 @@ func (se *SnowflakeError) exceptionTelemetry(sc *snowflakeConn) *SnowflakeError 
 		logger.Debugf("failed to log to telemetry: %v", data)
 	}
 	return se
+}
+
+// return populated error fields replacing the default response
+func populateErrorFields(code int, data *execResponse) *SnowflakeError {
+	err := errUnknownError()
+	if code != -1 {
+		err.Number = code
+	}
+	if data.Data.SQLState != "" {
+		err.SQLState = data.Data.SQLState
+	}
+	if data.Message != "" {
+		err.Message = data.Message
+	}
+	if data.Data.QueryID != "" {
+		err.QueryID = data.Data.QueryID
+	}
+	return err
 }
 
 const (
@@ -163,6 +181,14 @@ const (
 	ErrCompressionNotSupported = 264007
 	// ErrInternalNotMatchEncryptMaterial is an error code denoting the encryption material specified does not match
 	ErrInternalNotMatchEncryptMaterial = 264008
+	// ErrCommandNotRecognized is an error code denoting the PUT/GET command was not recognized
+	ErrCommandNotRecognized = 264009
+	// ErrFailedToConvertToS3Client is an error code denoting the failure of an interface to s3.Client conversion
+	ErrFailedToConvertToS3Client = 264010
+	// ErrNotImplemented is an error code denoting the file transfer feature is not implemented
+	ErrNotImplemented = 264011
+	// ErrInvalidPadding is an error code denoting the invalid padding of decryption key
+	ErrInvalidPadding = 264012
 
 	/* binding */
 
@@ -170,6 +196,16 @@ const (
 	ErrBindSerialization = 265001
 	// ErrBindUpload is an error code for the uploading process of bind elements to the stage
 	ErrBindUpload = 265002
+
+	/* async */
+
+	// ErrAsync is an error code for an unknown async error
+	ErrAsync = 266001
+
+	/* multi-statement */
+
+	// ErrNoResultIDs is an error code for empty result IDs for multi statement queries
+	ErrNoResultIDs = 267001
 
 	/* converter */
 
@@ -180,6 +216,8 @@ const (
 	ErrInvalidOffsetStr = 268001
 	// ErrInvalidBinaryHexForm is an error code for the case where a binary data in hex form is invalid.
 	ErrInvalidBinaryHexForm = 268002
+	// ErrTooHighTimestampPrecision is an error code for the case where cannot convert Snowflake timestamp to arrow.Timestamp
+	ErrTooHighTimestampPrecision = 268003
 
 	/* OCSP */
 
@@ -192,7 +230,7 @@ const (
 	// ErrOCSPNoOCSPResponderURL is an error code for the case where the OCSP responder URL is not attached.
 	ErrOCSPNoOCSPResponderURL = 269004
 
-	/* Query Status*/
+	/* query Status*/
 
 	// ErrQueryStatus when check the status of a query, receive error or no status
 	ErrQueryStatus = 279001
@@ -241,26 +279,57 @@ const (
 	errMsgOCSPInvalidValidity                = "invalid validity: producedAt: %v, thisUpdate: %v, nextUpdate: %v"
 	errMsgOCSPNoOCSPResponderURL             = "no OCSP server is attached to the certificate. %v"
 	errMsgBindColumnMismatch                 = "column %v has a different number of binds (%v) than column 1 (%v)"
+	errMsgNotImplemented                     = "not implemented"
+	errMsgFeatureNotSupported                = "feature is not supported: %v"
+	errMsgCommandNotRecognized               = "%v command not recognized"
+	errMsgLocalPathNotDirectory              = "the local path is not a directory: %v"
+	errMsgFileNotExists                      = "file does not exist: %v"
+	errMsgInvalidStageFs                     = "destination location type is not valid: %v"
+	errMsgInternalNotMatchEncryptMaterial    = "number of downloading files doesn't match the encryption materials. files=%v, encmat=%v"
+	errMsgFailedToConvertToS3Client          = "failed to convert interface to s3 client"
+	errMsgNoResultIDs                        = "no result IDs returned with the multi-statement query"
+	errMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
+	errMsgInvalidPadding                     = "invalid padding on input"
 )
 
-var (
-	// ErrEmptyAccount is returned if a DNS doesn't include account parameter.
-	ErrEmptyAccount = &SnowflakeError{
+// Returned if a DNS doesn't include account parameter.
+func errEmptyAccount() *SnowflakeError {
+	return &SnowflakeError{
 		Number:  ErrCodeEmptyAccountCode,
 		Message: "account is empty",
 	}
-	// ErrEmptyUsername is returned if a DNS doesn't include user parameter.
-	ErrEmptyUsername = &SnowflakeError{
+}
+
+// Returned if a DNS doesn't include user parameter.
+func errEmptyUsername() *SnowflakeError {
+	return &SnowflakeError{
 		Number:  ErrCodeEmptyUsernameCode,
 		Message: "user is empty",
 	}
-	// ErrEmptyPassword is returned if a DNS doesn't include password parameter.
-	ErrEmptyPassword = &SnowflakeError{
-		Number:  ErrCodeEmptyPasswordCode,
-		Message: "password is empty"}
+}
 
-	// ErrInvalidRegion is returned if a DSN's implicit region from account parameter and explicit region parameter conflict.
-	ErrInvalidRegion = &SnowflakeError{
+// Returned if a DNS doesn't include password parameter.
+func errEmptyPassword() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeEmptyPasswordCode,
+		Message: "password is empty",
+	}
+}
+
+// Returned if a DSN's implicit region from account parameter and explicit region parameter conflict.
+func errInvalidRegion() *SnowflakeError {
+	return &SnowflakeError{
 		Number:  ErrCodeRegionOverlap,
-		Message: "two regions specified"}
-)
+		Message: "two regions specified",
+	}
+}
+
+// Returned if the server side returns an error without meaningful message.
+func errUnknownError() *SnowflakeError {
+	return &SnowflakeError{
+		Number:   -1,
+		SQLState: "-1",
+		Message:  "an unknown server side error occurred",
+		QueryID:  "-1",
+	}
+}

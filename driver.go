@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -7,7 +7,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"os"
+	"sync"
 )
+
+var paramsMutex *sync.Mutex
 
 // SnowflakeDriver is a context of Go Driver
 type SnowflakeDriver struct{}
@@ -15,7 +18,7 @@ type SnowflakeDriver struct{}
 // Open creates a new connection.
 func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	logger.Info("Open")
-	ctx := context.TODO()
+	ctx := context.Background()
 	cfg, err := ParseDSN(dsn)
 	if err != nil {
 		return nil, err
@@ -24,10 +27,13 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 }
 
 // OpenWithConfig creates a new connection with the given Config.
-func (d SnowflakeDriver) OpenWithConfig(
-	ctx context.Context,
-	config Config) (
-	driver.Conn, error) {
+func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+	if config.Tracing != "" {
+		logger.SetLogLevel(config.Tracing)
+	}
 	logger.Info("OpenWithConfig")
 	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {
@@ -56,4 +62,5 @@ func init() {
 	if runningOnGithubAction() {
 		logger.SetLogLevel("fatal")
 	}
+	paramsMutex = &sync.Mutex{}
 }

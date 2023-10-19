@@ -23,7 +23,7 @@ jobs:
           echo ::set-output name=jira::$jira
       - name: Comment on issue
         uses: atlassian/gajira-comment@master
-        if: startsWith(steps.extract.outputs.jira, 'SNOW-')
-        with: 
+        if: startsWith(steps.extract.outputs.jira, 'SNOW-') && github.event.comment.user.login != 'codecov[bot]'
+        with:
           issue: "${{ steps.extract.outputs.jira }}"
           comment: "${{ github.event.comment.user.login }} commented:\n\n${{ github.event.comment.body }}\n\n${{ github.event.comment.html_url }}"

@@ -1,10 +1,9 @@
-// Copyright (c) 2017-2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
-//lint:file-ignore U1000 Ignore all unused code
-
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -29,6 +28,22 @@ type execRequest struct {
 	Parameters   map[string]interface{}       `json:"parameters,omitempty"`
 	Bindings     map[string]execBindParameter `json:"bindings,omitempty"`
 	BindStage    string                       `json:"bindStage,omitempty"`
+	QueryContext requestQueryContext          `json:"queryContextDTO,omitempty"`
+}
+
+type requestQueryContext struct {
+	Entries []requestQueryContextEntry `json:"entries,omitempty"`
+}
+
+type requestQueryContextEntry struct {
+	Context   contextData `json:"context,omitempty"`
+	ID        int         `json:"id"`
+	Priority  int         `json:"priority"`
+	Timestamp int64       `json:"timestamp,omitempty"`
+}
+
+type contextData struct {
+	Base64Data string `json:"base64Data,omitempty"`
 }
 
 type execResponseRowType struct {
@@ -120,6 +135,9 @@ type execResponseData struct {
 	Command                 string                `json:"command,omitempty"`
 	Kind                    string                `json:"kind,omitempty"`
 	Operation               string                `json:"operation,omitempty"`
+
+	// HTAP
+	QueryContext json.RawMessage `json:"queryContext,omitempty"`
 }
 
 type execResponse struct {

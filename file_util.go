@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	usr "os/user"
@@ -19,58 +18,88 @@ import (
 type snowflakeFileUtil struct {
 }
 
-func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.Buffer) (*bytes.Buffer, int) {
+const (
+	fileChunkSize                 = 16 * 4 * 1024
+	readWriteFileMode os.FileMode = 0666
+)
+
+func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.Buffer) (*bytes.Buffer, int, error) {
 	r := getReaderFromBuffer(srcStream)
-	buf, _ := ioutil.ReadAll(r)
+	buf, err := io.ReadAll(r)
+	if err != nil {
+		return nil, -1, err
+	}
 	var c bytes.Buffer
 	w := gzip.NewWriter(&c)
 	w.Write(buf) // write buf to gzip writer
 	w.Close()
-	return &c, c.Len()
+	return &c, c.Len(), nil
 }
 
-func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir string) (string, int64) {
+func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir string) (string, int64, error) {
 	basename := baseName(fileName)
 	gzipFileName := filepath.Join(tmpDir, basename+"_c.gz")
 
-	fr, _ := os.OpenFile(fileName, os.O_RDONLY, os.ModePerm)
+	fr, err := os.Open(fileName)
+	if err != nil {
+		return "", -1, err
+	}
 	defer fr.Close()
-	fw, _ := os.OpenFile(gzipFileName, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	fw, err := os.OpenFile(gzipFileName, os.O_WRONLY|os.O_CREATE, readWriteFileMode)
+	if err != nil {
+		return "", -1, err
+	}
 	gzw := gzip.NewWriter(fw)
 	defer gzw.Close()
 	io.Copy(gzw, fr)
 
-	stat, _ := os.Stat(gzipFileName)
-	return gzipFileName, stat.Size()
+	stat, err := os.Stat(gzipFileName)
+	if err != nil {
+		return "", -1, err
+	}
+	return gzipFileName, stat.Size(), nil
 }
 
-func (util *snowflakeFileUtil) getDigestAndSize(src **bytes.Buffer) (string, int64) {
-	chunkSize := 16 * 4 * 1024
+func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64, error) {
 	m := sha256.New()
-	r := getReaderFromBuffer(src)
+	r := getReaderFromBuffer(stream)
+	chunk := make([]byte, fileChunkSize)
+
 	for {
-		chunk := make([]byte, chunkSize)
 		n, err := r.Read(chunk)
-		if n == 0 || err != nil {
+		if err == io.EOF {
 			break
+		} else if err != nil {
+			return "", 0, err
 		}
 		m.Write(chunk[:n])
 	}
-	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*src).Len())
-}
-
-func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64) {
-	return util.getDigestAndSize(stream)
+	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*stream).Len()), nil
 }
 
 func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (string, int64, error) {
-	src, err := ioutil.ReadFile(fileName)
+	f, err := os.Open(fileName)
 	if err != nil {
 		return "", 0, err
 	}
-	buf := bytes.NewBuffer(src)
-	digest, size := util.getDigestAndSize(&buf)
-	return digest, size, err
+	defer f.Close()
+
+	var total int64
+	m := sha256.New()
+	chunk := make([]byte, fileChunkSize)
+
+	for {
+		n, err := f.Read(chunk)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return "", 0, err
+		}
+		total += int64(n)
+		m.Write(chunk[:n])
+	}
+	f.Seek(0, io.SeekStart)
+	return base64.StdEncoding.EncodeToString(m.Sum(nil)), total, nil
 }
 
 // file metadata for PUT/GET
@@ -115,8 +144,11 @@ type fileMetadata struct {
 	gcsFileHeaderEncryptionMeta *encryptMetadata
 
 	/* mock */
-	mockUploader s3UploadAPI
-	mockHeader   s3HeaderAPI
+	mockUploader    s3UploadAPI
+	mockDownloader  s3DownloadAPI
+	mockHeader      s3HeaderAPI
+	mockGcsClient   gcsAPI
+	mockAzureClient azureAPI
 }
 
 type fileTransferResultType struct {
@@ -157,15 +189,18 @@ func baseName(path string) string {
 }
 
 // expandUser returns the argument with an initial component of ~
-func expandUser(path string) string {
-	usr, _ := usr.Current()
+func expandUser(path string) (string, error) {
+	usr, err := usr.Current()
+	if err != nil {
+		return "", err
+	}
 	dir := usr.HomeDir
 	if path == "~" {
 		path = dir
 	} else if strings.HasPrefix(path, "~/") {
 		path = filepath.Join(dir, path[2:])
 	}
-	return path
+	return path, nil
 }
 
 // getDirectory retrieves the current working directory

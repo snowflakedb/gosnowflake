@@ -1,14 +1,14 @@
-name: Semgrep
+name: Run semgrep checks
+
 on:
-    pull_request:
-        branches:
-            - master
+  pull_request:
+      branches: [main, master]
+
+permissions:
+  contents: read
+
 jobs:
-  semgrep:
-    runs-on: ubuntu-latest
-    name: Semgrep
-    steps:
-    - uses: actions/checkout@v1
-    - name: Semgrep
-      id: semgrep
-      uses: returntocorp/semgrep-action@v1
+  run-semgrep-reusable-workflow:
+    uses: snowflakedb/reusable-workflows/.github/workflows/semgrep-v2.yml@main
+    secrets:
+      token: ${{ secrets.SEMGREP_APP_TOKEN }}

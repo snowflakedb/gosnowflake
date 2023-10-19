@@ -1,3 +1,5 @@
+// Copyright (c) 2019-2022 Snowflake Computing Inc. All rights reserved.
+
 package gosnowflake
 
 import (
@@ -24,6 +26,18 @@ func unsetenv(k string) {
 	}
 }
 
+// deleteOCSPCacheFile deletes the OCSP response cache file
+func deleteOCSPCacheFile() {
+	os.Remove(cacheFileName)
+}
+
+// deleteOCSPCacheAll deletes all entries in the OCSP response cache on memory
+func deleteOCSPCacheAll() {
+	ocspResponseCacheLock.Lock()
+	defer ocspResponseCacheLock.Unlock()
+	ocspResponseCache = make(map[certIDKey][]interface{})
+}
+
 func cleanup() {
 	deleteOCSPCacheFile()
 	deleteOCSPCacheAll()
@@ -35,6 +49,7 @@ func cleanup() {
 	unsetenv(ocspTestResponderTimeoutEnv)
 	unsetenv(ocspTestResponderURLEnv)
 	unsetenv(ocspTestNoOCSPURLEnv)
+	unsetenv(ocspRetryURLEnv)
 	unsetenv(cacheDirEnv)
 }
 
@@ -373,7 +388,7 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerURLEnv, "http://localhost:12345/hang")
+	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponseCacheServerTimeoutEnv, "1000")
 
 	config := &Config{
@@ -412,7 +427,7 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerURLEnv, "http://localhost:12345/hang")
+	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponseCacheServerTimeoutEnv, "1000")
 
 	config := &Config{
@@ -437,12 +452,28 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
-	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("failed to extract error SnowflakeError: %v", err)
+	if err == nil {
+		t.Fatalf("should failed to connect. err:  %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
-		t.Fatalf("should failed to connect %v", err)
+
+	switch errType := err.(type) {
+	// Before Go 1.17
+	case *SnowflakeError:
+		driverErr, ok := err.(*SnowflakeError)
+		if !ok {
+			t.Fatalf("failed to extract error SnowflakeError: %v", err)
+		}
+		if driverErr.Number != ErrCodeFailedToConnect {
+			t.Fatalf("should have failed to connect. err: %v", err)
+		}
+	// Go 1.18 and after rejects SHA-1 certificates, therefore a different error is returned (https://github.com/golang/go/issues/41682)
+	case *url.Error:
+		expectedErrMsg := "bad OCSP signature"
+		if !strings.Contains(err.Error(), expectedErrMsg) {
+			t.Fatalf("should have failed with bad OCSP signature. err:  %v", err)
+		}
+	default:
+		t.Fatalf("should failed to connect. err type: %v, err:  %v", errType, err)
 	}
 }
 
@@ -452,7 +483,7 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/hang")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponderTimeoutEnv, "1000")
 
 	config := &Config{
@@ -492,7 +523,7 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/hang")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponderTimeoutEnv, "1000")
 
 	config := &Config{
@@ -536,7 +567,7 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/404")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/404")
 
 	config := &Config{
 		Account:      "fakeaccount10",
@@ -575,7 +606,7 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/404")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/404")
 
 	config := &Config{
 		Account:      "fakeaccount11",
@@ -641,8 +672,13 @@ func TestExpiredCertificate(t *testing.T) {
 		t.Fatalf("failed to extract error URL Error: %v", err)
 	}
 	_, ok = urlErr.Err.(x509.CertificateInvalidError)
+
 	if !ok {
-		t.Fatalf("failed to extract error Certificate error: %v", err)
+		// Go 1.20 throws tls CertificateVerification error
+		errString := urlErr.Err.Error()
+		if !strings.Contains(errString, "certificate has expired or is not yet valid") {
+			t.Fatalf("failed to extract error Certificate error: %v", err)
+		}
 	}
 }
 

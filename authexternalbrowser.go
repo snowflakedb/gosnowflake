@@ -1,22 +1,21 @@
-package gosnowflake
+// Copyright (c) 2019-2022 Snowflake Computing Inc. All rights reserved.
 
-//
-// Copyright (c) 2019 Snowflake Computing Inc. All right reserved.
-//
+package gosnowflake
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/browser"
 )
@@ -44,7 +43,7 @@ func buildResponse(application string) bytes.Buffer {
 		Proto:         "HTTP/1.1",
 		ProtoMajor:    1,
 		ProtoMinor:    1,
-		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
+		Body:          io.NopCloser(bytes.NewBufferString(body)),
 		ContentLength: int64(len(body)),
 		Request:       nil,
 		Header:        make(http.Header),
@@ -123,6 +122,20 @@ func getIdpURLProofKey(
 	if err != nil {
 		return "", "", err
 	}
+	if !respd.Success {
+		logger.Errorln("Authentication FAILED")
+		sr.TokenAccessor.SetTokens("", "", -1)
+		code, err := strconv.Atoi(respd.Code)
+		if err != nil {
+			code = -1
+			return "", "", err
+		}
+		return "", "", &SnowflakeError{
+			Number:   code,
+			SQLState: SQLStateConnectionRejected,
+			Message:  respd.Message,
+		}
+	}
 	return respd.Data.SSOURL, respd.Data.ProofKey, nil
 }
 
@@ -149,20 +162,17 @@ func getTokenFromResponse(response string) (string, error) {
 			MessageArgs: []interface{}{response},
 		}
 	}
-	token := strings.TrimLeft(arr[0], start)
+	token := strings.TrimPrefix(arr[0], start)
 	token = strings.Split(token, " ")[0]
 	return token, nil
 }
 
-// Authentication by an external browser takes place via the following:
-// - the golang snowflake driver communicates to Snowflake that the user wishes to
-//   authenticate via external browser
-// - snowflake sends back the IDP Url configured at the Snowflake side for the
-//   provided account
-// - the default browser is opened to that URL
-// - user authenticates at the IDP, and is redirected to Snowflake
-// - Snowflake directs the user back to the driver
-// - authenticate is complete!
+type authenticateByExternalBrowserResult struct {
+	escapedSamlResponse []byte
+	proofKey            []byte
+	err                 error
+}
+
 func authenticateByExternalBrowser(
 	ctx context.Context,
 	sr *snowflakeRestful,
@@ -171,10 +181,41 @@ func authenticateByExternalBrowser(
 	account string,
 	user string,
 	password string,
+	externalBrowserTimeout time.Duration,
 ) ([]byte, []byte, error) {
+	resultChan := make(chan authenticateByExternalBrowserResult, 1)
+	go func() {
+		resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, password)
+	}()
+	select {
+	case <-time.After(externalBrowserTimeout):
+		return nil, nil, errors.New("authentication timed out")
+	case result := <-resultChan:
+		return result.escapedSamlResponse, result.proofKey, result.err
+	}
+}
+
+// Authentication by an external browser takes place via the following:
+//   - the golang snowflake driver communicates to Snowflake that the user wishes to
+//     authenticate via external browser
+//   - snowflake sends back the IDP Url configured at the Snowflake side for the
+//     provided account
+//   - the default browser is opened to that URL
+//   - user authenticates at the IDP, and is redirected to Snowflake
+//   - Snowflake directs the user back to the driver
+//   - authenticate is complete!
+func doAuthenticateByExternalBrowser(
+	ctx context.Context,
+	sr *snowflakeRestful,
+	authenticator string,
+	application string,
+	account string,
+	user string,
+	password string,
+) authenticateByExternalBrowserResult {
 	l, err := bindToPort()
 	if err != nil {
-		return nil, nil, err
+		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 	defer l.Close()
 
@@ -182,11 +223,11 @@ func authenticateByExternalBrowser(
 	idpURL, proofKey, err := getIdpURLProofKey(
 		ctx, sr, authenticator, application, account, callbackPort)
 	if err != nil {
-		return nil, nil, err
+		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
 	if err = openBrowser(idpURL); err != nil {
-		return nil, nil, err
+		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
 	encodedSamlResponseChan := make(chan string)
@@ -242,13 +283,13 @@ func authenticateByExternalBrowser(
 	errFromGoroutine = <-errChan
 
 	if errFromGoroutine != nil {
-		return nil, nil, errFromGoroutine
+		return authenticateByExternalBrowserResult{nil, nil, errFromGoroutine}
 	}
 
 	escapedSamlResponse, err := url.QueryUnescape(encodedSamlResponse)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("unable to unescape saml response. err: %v", err)
-		return nil, nil, err
+		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
-	return []byte(escapedSamlResponse), []byte(proofKey), nil
+	return authenticateByExternalBrowserResult{[]byte(escapedSamlResponse), []byte(proofKey), nil}
 }

@@ -5,11 +5,11 @@ setlocal EnableDelayedExpansion
 
 echo [INFO] Download tools
 where golint
-IF !ERRORLEVEL! NEQ 0 go get golang.org/x/lint/golint
+IF !ERRORLEVEL! NEQ 0 go install golang.org/x/lint/golint@latest
 where make2help
-IF !ERRORLEVEL! NEQ 0 go get github.com/Songmu/make2help/cmd/make2help
+IF !ERRORLEVEL! NEQ 0 go install github.com/Songmu/make2help/cmd/make2help@latest
 where staticcheck
-IF !ERRORLEVEL! NEQ 0 go get honnef.co/go/tools/cmd/staticcheck
+IF !ERRORLEVEL! NEQ 0 go install honnef.co/go/tools/cmd/staticcheck@v0.4
 
 echo [INFO] Go mod
 go mod tidy

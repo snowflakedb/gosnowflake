@@ -5,43 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"strconv"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
-
-// getDSN constructs a DSN based on the test connection parameters
-func getDSN() (string, *sf.Config, error) {
-	env := func(k string, failOnMissing bool) string {
-		if value := os.Getenv(k); value != "" {
-			return value
-		}
-		if failOnMissing {
-			log.Fatalf("%v environment variable is not set.", k)
-		}
-		return ""
-	}
-
-	account := env("SNOWFLAKE_TEST_ACCOUNT", true)
-	user := env("SNOWFLAKE_TEST_USER", true)
-	host := env("SNOWFLAKE_TEST_HOST", false)
-	port := env("SNOWFLAKE_TEST_PORT", false)
-	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
-
-	portStr, _ := strconv.Atoi(port)
-	cfg := &sf.Config{
-		Authenticator: sf.AuthTypeExternalBrowser,
-		Account:       account,
-		User:          user,
-		Host:          host,
-		Port:          portStr,
-		Protocol:      protocol,
-	}
-
-	dsn, err := sf.DSN(cfg)
-	return dsn, cfg, err
-}
 
 // A simple test program for authenticating with an external browser.
 // In order for this to work, SSO needs to be set up on Snowflake as per:
@@ -50,8 +16,18 @@ func main() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
-	dsn, cfg, err := getDSN()
-
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
+		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
+		{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
+		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
+		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
+		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
+	})
+	if err != nil {
+		log.Fatalf("failed to create Config, err: %v", err)
+	}
+	cfg.Authenticator = sf.AuthTypeExternalBrowser
+	dsn, err := sf.DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}

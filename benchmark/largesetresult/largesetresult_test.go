@@ -16,8 +16,6 @@ import (
 
 	"runtime/debug"
 
-	"strconv"
-
 	sf "github.com/snowflakedb/gosnowflake"
 )
 
@@ -27,39 +25,6 @@ func TestLargeResultSet(t *testing.T) {
 
 func BenchmarkLargeResultSet(*testing.B) {
 	runLargeResultSet()
-}
-
-// getDSN constructs a DSN based on the test connection parameters
-func getDSN() (dsn string, cfg *sf.Config, err error) {
-	env := func(k string, failOnMissing bool) string {
-		if value := os.Getenv(k); value != "" {
-			return value
-		}
-		if failOnMissing {
-			log.Fatalf("%v environment variable is not set.", k)
-		}
-		return ""
-	}
-
-	account := env("SNOWFLAKE_TEST_ACCOUNT", true)
-	user := env("SNOWFLAKE_TEST_USER", true)
-	password := env("SNOWFLAKE_TEST_PASSWORD", true)
-	host := env("SNOWFLAKE_TEST_HOST", false)
-	port := env("SNOWFLAKE_TEST_PORT", false)
-	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
-
-	portStr, _ := strconv.Atoi(port)
-	cfg = &sf.Config{
-		Account:  account,
-		User:     user,
-		Password: password,
-		Host:     host,
-		Port:     portStr,
-		Protocol: protocol,
-	}
-
-	dsn, err = sf.DSN(cfg)
-	return dsn, cfg, err
 }
 
 func runLargeResultSet() {
@@ -83,7 +48,18 @@ func runLargeResultSet() {
 		}
 	}()
 
-	dsn, cfg, err := getDSN()
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
+		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
+		{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
+		{Name: "Password", EnvName: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
+		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
+		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
+		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
+	})
+	if err != nil {
+		log.Fatalf("failed to create Config, err: %v", err)
+	}
+	dsn, err := sf.DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
@@ -107,17 +83,10 @@ func runLargeResultSet() {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}
 	defer rows.Close()
-	var v1 int
-	var v2 int
-	var v3 int
-	var v4 int
-	var v5 int
-	var v6 int
-	var v7 int
+	var v1, v2, v3, v4, v5, v6, v7 int
 	counter := 0
 	for rows.Next() {
-		err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
-		if err != nil {
+		if err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7); err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
 		}
 		if counter%1000000 == 0 {

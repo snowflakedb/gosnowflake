@@ -20,13 +20,19 @@ on:
           tags:
             description: "Test scenario tags"
 
+concurrency:
+  # older builds for the same pull request numer or branch should be cancelled
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
     build-test-linux:
         runs-on: ubuntu-latest
         strategy:
+            fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.17', '1.16' ]
+                go: [ '1.20', '1.19' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v1
@@ -34,23 +40,27 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-            - name: Format, Lint and WSS
+            - name: Format, Lint
               shell: bash
-              env:
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ./ci/build.sh
             - name: Test
               shell: bash
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
+                GORACE: history_size=7
               run: ./ci/test.sh
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
     build-test-mac:
         runs-on: macos-latest
         strategy:
+            fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.17', '1.16' ]
+                go: [ '1.20', '1.19' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v1
@@ -58,10 +68,8 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-            - name: Format, Lint and WSS
+            - name: Format, Lint
               shell: bash
-              env:
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ./ci/build.sh
             - name: Test
               shell: bash
@@ -69,12 +77,17 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ./ci/test.sh
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
     build-test-windows:
         runs-on: windows-latest
         strategy:
+            fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.17', '1.16' ]
+                go: [ '1.20', '1.19' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v1
@@ -82,10 +95,8 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-            - name: Format, Lint and WSS
+            - name: Format, Lint
               shell: cmd
-              env:
-                WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
               run: ci\\build.bat
             - uses: actions/setup-python@v1
               with:
@@ -97,3 +108,7 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
               run: ci\\test.bat
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}

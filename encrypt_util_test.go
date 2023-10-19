@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All right reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -7,7 +7,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -20,6 +19,11 @@ import (
 
 const timeFormat = "2006-01-02T15:04:05"
 
+type encryptDecryptTestFile struct {
+	numberOfBytesInEachRow int
+	numberOfLines          int
+}
+
 func TestEncryptDecryptFile(t *testing.T) {
 	encMat := snowflakeFileEncryption{
 		"ztke8tIdVt1zmlQIZm0BMA==",
@@ -29,7 +33,7 @@ func TestEncryptDecryptFile(t *testing.T) {
 	data := "test data"
 	inputFile := "test_encrypt_decrypt_file"
 
-	fd, err := os.OpenFile(inputFile, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	fd, err := os.Create(inputFile)
 	if err != nil {
 		t.Error(err)
 	}
@@ -50,11 +54,50 @@ func TestEncryptDecryptFile(t *testing.T) {
 	}
 	defer os.Remove(decryptedFile)
 
-	fd, _ = os.OpenFile(decryptedFile, os.O_RDONLY, os.ModePerm)
+	fd, err = os.Open(decryptedFile)
+	if err != nil {
+		t.Error(err)
+	}
 	defer fd.Close()
-	content, _ := ioutil.ReadAll(fd)
+	content, err := io.ReadAll(fd)
+	if err != nil {
+		t.Error(err)
+	}
 	if string(content) != data {
 		t.Fatalf("data did not match content. expected: %v, got: %v", data, string(content))
+	}
+}
+
+func TestEncryptDecryptFilePadding(t *testing.T) {
+	encMat := snowflakeFileEncryption{
+		"ztke8tIdVt1zmlQIZm0BMA==",
+		"123873c7-3a66-40c4-ab89-e3722fbccce1",
+		3112,
+	}
+
+	testcases := []encryptDecryptTestFile{
+		// File size is a multiple of 65536 bytes (chunkSize)
+		{numberOfBytesInEachRow: 8, numberOfLines: 16384},
+		{numberOfBytesInEachRow: 16, numberOfLines: 4096},
+		// File size is not a multiple of 65536 bytes (chunkSize)
+		{numberOfBytesInEachRow: 8, numberOfLines: 10240},
+		{numberOfBytesInEachRow: 16, numberOfLines: 6144},
+		// The second chunk's size is a multiple of 16 bytes (aes.BlockSize)
+		{numberOfBytesInEachRow: 16, numberOfLines: 4097},
+		// The second chunk's size is not a multiple of 16 bytes (aes.BlockSize)
+		{numberOfBytesInEachRow: 12, numberOfLines: 5462},
+		{numberOfBytesInEachRow: 10, numberOfLines: 6556},
+	}
+
+	for _, test := range testcases {
+		t.Run(fmt.Sprintf("%v_%v", test.numberOfBytesInEachRow, test.numberOfLines), func(t *testing.T) {
+			tmpDir, err := generateKLinesOfNByteRows(test.numberOfLines, test.numberOfBytesInEachRow, t.TempDir())
+			if err != nil {
+				t.Error(err)
+			}
+
+			encryptDecryptFile(t, encMat, test.numberOfLines, tmpDir)
+		})
 	}
 }
 
@@ -64,11 +107,18 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 		"123873c7-3a66-40c4-ab89-e3722fbccce1",
 		3112,
 	}
+
 	numberOfFiles := 1
 	numberOfLines := 10000
-	tmpDir, _ := ioutil.TempDir("", "data")
-	tmpDir = generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, tmpDir)
-	defer os.RemoveAll(tmpDir)
+	tmpDir, err := generateKLinesOfNFiles(numberOfLines, numberOfFiles, false, t.TempDir())
+	if err != nil {
+		t.Error(err)
+	}
+
+	encryptDecryptFile(t, encMat, numberOfLines, tmpDir)
+}
+
+func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected int, tmpDir string) {
 	files, err := filepath.Glob(filepath.Join(tmpDir, "file*"))
 	if err != nil {
 		t.Error(err)
@@ -87,7 +137,12 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	defer os.Remove(decryptedFile)
 
 	cnt := 0
-	fd, _ := os.OpenFile(decryptedFile, os.O_RDONLY, os.ModePerm)
+	fd, err := os.Open(decryptedFile)
+	if err != nil {
+		t.Error(err)
+	}
+	defer fd.Close()
+
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
 		cnt++
@@ -95,18 +150,34 @@ func TestEncryptDecryptLargeFile(t *testing.T) {
 	if err = scanner.Err(); err != nil {
 		t.Error(err)
 	}
-	if cnt != numberOfLines {
-		t.Fatalf("incorrect number of lines. expected: %v, got: %v", numberOfLines, cnt)
+	if cnt != expected {
+		t.Fatalf("incorrect number of lines. expected: %v, got: %v", expected, cnt)
 	}
 }
 
-func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) string {
-	if tmpDir == "" {
-		tmpDir, _ = ioutil.TempDir(tmpDir, "data")
+func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (string, error) {
+	fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(numLines*numBytes), 10))
+	f, err := os.Create(fname)
+	if err != nil {
+		return "", err
 	}
+
+	for j := 0; j < numLines; j++ {
+		str := randomString(numBytes - 1) // \n is the last character
+		rec := fmt.Sprintf("%v\n", str)
+		f.Write([]byte(rec))
+	}
+	f.Close()
+	return tmpDir, nil
+}
+
+func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string, error) {
 	for i := 0; i < n; i++ {
 		fname := path.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10))
-		f, _ := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+		f, err := os.Create(fname)
+		if err != nil {
+			return "", err
+		}
 		for j := 0; j < k; j++ {
 			num := rand.Float64() * 10000
 			min := time.Date(1970, 1, 0, 0, 0, 0, 0, time.UTC).Unix()
@@ -132,22 +203,36 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) string {
 		if compress {
 			if !isWindows {
 				gzipCmd := exec.Command("gzip", filepath.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10)))
-				gzipOut, _ := gzipCmd.StdoutPipe()
-				gzipErr, _ := gzipCmd.StderrPipe()
+				gzipOut, err := gzipCmd.StdoutPipe()
+				if err != nil {
+					return "", err
+				}
+				gzipErr, err := gzipCmd.StderrPipe()
+				if err != nil {
+					return "", err
+				}
 				gzipCmd.Start()
-				ioutil.ReadAll(gzipOut)
-				ioutil.ReadAll(gzipErr)
+				io.ReadAll(gzipOut)
+				io.ReadAll(gzipErr)
 				gzipCmd.Wait()
 			} else {
-				fOut, _ := os.OpenFile(fname+".gz", os.O_CREATE|os.O_WRONLY, os.ModePerm)
+				fOut, err := os.Create(fname + ".gz")
+				if err != nil {
+					return "", err
+				}
 				w := gzip.NewWriter(fOut)
-				fIn, _ := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
-				if _, err := io.Copy(w, fIn); err != nil {
-					return ""
+				fIn, err := os.Open(fname)
+				if err != nil {
+					return "", err
+				}
+				if _, err = io.Copy(w, fIn); err != nil {
+					return "", err
 				}
 				w.Close()
+				fOut.Close()
+				fIn.Close()
 			}
 		}
 	}
-	return tmpDir
+	return tmpDir, nil
 }

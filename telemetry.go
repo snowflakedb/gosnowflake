@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2021-2022 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -27,7 +27,6 @@ const (
 	reasonKey        = "reason"
 	errorNumberKey   = "ErrorNumber"
 	stacktraceKey    = "Stacktrace"
-	exceptionKey     = "Exception"
 )
 
 const (
@@ -98,11 +97,12 @@ func (st *snowflakeTelemetry) sendBatch() error {
 	}
 	resp, err := st.sr.FuncPost(context.Background(), st.sr,
 		st.sr.getFullURL(telemetryPath, nil), headers, body,
-		defaultTelemetryTimeout, true)
+		defaultTelemetryTimeout, true, defaultTimeProvider, nil)
 	if err != nil {
 		logger.Info("failed to upload metrics to telemetry. err: %v", err)
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("non-successful response from telemetry server: %v. "+
 			"disabling telemetry", resp.StatusCode)
