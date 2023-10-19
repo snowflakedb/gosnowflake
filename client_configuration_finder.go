@@ -16,7 +16,7 @@ const (
 func getClientConfig(filePathFromConnectionString string) (*ClientConfig, error) {
 	configPredefinedFilePaths, err := clientConfigPredefinedDirs()
 	var filePath string
-	filePath, err = findClientConfig(filePathFromConnectionString, configPredefinedFilePaths)
+	filePath, err = findClientConfigFilePath(filePathFromConnectionString, configPredefinedFilePaths)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func getClientConfig(filePathFromConnectionString string) (*ClientConfig, error)
 	return parseClientConfiguration(filePath)
 }
 
-func findClientConfig(filePathFromConnectionString string, configPredefinedDirs []string) (string, error) {
+func findClientConfigFilePath(filePathFromConnectionString string, configPredefinedDirs []string) (string, error) {
 	if filePathFromConnectionString != "" {
 		return filePathFromConnectionString, nil
 	}

@@ -17,10 +17,10 @@ func TestFindConfigFileFromConnectionParameters(t *testing.T) {
 	createFile(t, defaultConfigName, "random content", dirs.homeDir)
 	createFile(t, defaultConfigName, "random content", dirs.tempDir)
 
-	clientConfig, err := findClientConfig(connParameterConfigPath, predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath(connParameterConfigPath, predefinedTestDirs(dirs))
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, connParameterConfigPath, "config file path")
+	assertEqualE(t, clientConfigFilePath, connParameterConfigPath, "config file path")
 }
 
 func TestFindConfigFileFromEnvVariable(t *testing.T) {
@@ -31,10 +31,10 @@ func TestFindConfigFileFromEnvVariable(t *testing.T) {
 	createFile(t, defaultConfigName, "random content", dirs.homeDir)
 	createFile(t, defaultConfigName, "random content", dirs.tempDir)
 
-	clientConfig, err := findClientConfig("", predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, envConfigPath, "config file path")
+	assertEqualE(t, clientConfigFilePath, envConfigPath, "config file path")
 }
 
 func TestFindConfigFileFromDriverDirectory(t *testing.T) {
@@ -43,10 +43,10 @@ func TestFindConfigFileFromDriverDirectory(t *testing.T) {
 	createFile(t, defaultConfigName, "random content", dirs.homeDir)
 	createFile(t, defaultConfigName, "random content", dirs.tempDir)
 
-	clientConfig, err := findClientConfig("", predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, driverConfigPath, "config file path")
+	assertEqualE(t, clientConfigFilePath, driverConfigPath, "config file path")
 }
 
 func TestFindConfigFileFromHomeDirectory(t *testing.T) {
@@ -55,10 +55,10 @@ func TestFindConfigFileFromHomeDirectory(t *testing.T) {
 	homeConfigPath := createFile(t, defaultConfigName, "random content", dirs.homeDir)
 	createFile(t, defaultConfigName, "random content", dirs.tempDir)
 
-	clientConfig, err := findClientConfig("", predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, homeConfigPath, "config file path")
+	assertEqualE(t, clientConfigFilePath, homeConfigPath, "config file path")
 }
 
 func TestFindConfigFileFromTempDirectory(t *testing.T) {
@@ -67,10 +67,10 @@ func TestFindConfigFileFromTempDirectory(t *testing.T) {
 	createFile(t, "wrong_file_name.json", "random content", dirs.homeDir)
 	tempConfigPath := createFile(t, defaultConfigName, "random content", dirs.tempDir)
 
-	clientConfig, err := findClientConfig("", predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, tempConfigPath, "config file path")
+	assertEqualE(t, clientConfigFilePath, tempConfigPath, "config file path")
 }
 
 func TestNotFindConfigFileWhenNotDefined(t *testing.T) {
@@ -79,10 +79,10 @@ func TestNotFindConfigFileWhenNotDefined(t *testing.T) {
 	createFile(t, "wrong_file_name.json", "random content", dirs.homeDir)
 	createFile(t, "wrong_file_name.json", "random content", dirs.tempDir)
 
-	clientConfig, err := findClientConfig("", predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfig, "", "config file path")
+	assertEqualE(t, clientConfigFilePath, "", "config file path")
 }
 
 func TestCreatePredefinedDirs(t *testing.T) {
@@ -111,19 +111,19 @@ func TestGetClientConfig(t *testing.T) {
 	createFile(t, fileName, configContents, dir)
 	filePath := path.Join(dir, fileName)
 
-	clientConfig, err := getClientConfig(filePath)
+	clientConfigFilePath, err := getClientConfig(filePath)
 
 	assertNilF(t, err)
-	assertNotNilF(t, clientConfig)
-	assertEqualE(t, clientConfig.Common.LogLevel, "INFO", "log level")
-	assertEqualE(t, clientConfig.Common.LogPath, "/some-path/some-directory", "log path")
+	assertNotNilF(t, clientConfigFilePath)
+	assertEqualE(t, clientConfigFilePath.Common.LogLevel, "INFO", "log level")
+	assertEqualE(t, clientConfigFilePath.Common.LogPath, "/some-path/some-directory", "log path")
 }
 
 func TestNoResultForGetClientConfigWhenNoFileFound(t *testing.T) {
-	clientConfig, err := getClientConfig("")
+	clientConfigFilePath, err := getClientConfig("")
 
 	assertNilF(t, err)
-	assertNilF(t, clientConfig)
+	assertNilF(t, clientConfigFilePath)
 }
 
 func createTestDirectories(t *testing.T) struct {
