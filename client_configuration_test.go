@@ -38,7 +38,7 @@ func TestFindConfigFileFromEnvVariable(t *testing.T) {
 	assertEqualE(t, clientConfigFilePath, envConfigPath, "config file path")
 }
 
-func TestFindConfigFileFromDriverDirectory(t *testing.T) {
+func TestFindConfigFileFromFirstPredefinedDir(t *testing.T) {
 	dirs := createTestDirectories(t)
 	driverConfigPath := createFile(t, defaultConfigName, "random content", dirs.driverDir)
 	createFile(t, defaultConfigName, "random content", dirs.homeDir)
@@ -50,7 +50,7 @@ func TestFindConfigFileFromDriverDirectory(t *testing.T) {
 	assertEqualE(t, clientConfigFilePath, driverConfigPath, "config file path")
 }
 
-func TestFindConfigFileFromHomeDirectory(t *testing.T) {
+func TestFindConfigFileFromSubsequentDirectoryIfNotFoundInPreviousOne(t *testing.T) {
 	dirs := createTestDirectories(t)
 	createFile(t, "wrong_file_name.json", "random content", dirs.driverDir)
 	homeConfigPath := createFile(t, defaultConfigName, "random content", dirs.homeDir)
@@ -60,18 +60,6 @@ func TestFindConfigFileFromHomeDirectory(t *testing.T) {
 
 	assertNilF(t, err, "get client config error")
 	assertEqualE(t, clientConfigFilePath, homeConfigPath, "config file path")
-}
-
-func TestFindConfigFileFromTempDirectory(t *testing.T) {
-	dirs := createTestDirectories(t)
-	createFile(t, "wrong_file_name.json", "random content", dirs.driverDir)
-	createFile(t, "wrong_file_name.json", "random content", dirs.homeDir)
-	tempConfigPath := createFile(t, defaultConfigName, "random content", dirs.tempDir)
-
-	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
-
-	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfigFilePath, tempConfigPath, "config file path")
 }
 
 func TestNotFindConfigFileWhenNotDefined(t *testing.T) {
@@ -89,11 +77,9 @@ func TestNotFindConfigFileWhenNotDefined(t *testing.T) {
 func TestCreatePredefinedDirs(t *testing.T) {
 	homeDir, err := os.UserHomeDir()
 	assertNilF(t, err, "get home dir error")
-	var locations []string
 
-	locations, err = clientConfigPredefinedDirs()
+	locations := clientConfigPredefinedDirs()
 
-	assertNilF(t, err, "error")
 	assertEqualF(t, len(locations), 3, "size")
 	assertEqualE(t, locations[0], ".", "driver directory")
 	assertEqualE(t, locations[1], homeDir, "home directory")

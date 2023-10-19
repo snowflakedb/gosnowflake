@@ -27,9 +27,8 @@ const (
 )
 
 func getClientConfig(filePathFromConnectionString string) (*ClientConfig, error) {
-	configPredefinedFilePaths, err := clientConfigPredefinedDirs()
-	var filePath string
-	filePath, err = findClientConfigFilePath(filePathFromConnectionString, configPredefinedFilePaths)
+	configPredefinedFilePaths := clientConfigPredefinedDirs()
+	filePath, err := findClientConfigFilePath(filePathFromConnectionString, configPredefinedFilePaths)
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +74,13 @@ func existsFile(filePath string) (bool, error) {
 	return false, err
 }
 
-func clientConfigPredefinedDirs() ([]string, error) {
+func clientConfigPredefinedDirs() []string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return nil, err
+		logger.Warnf("Home dir could not be determined: %w", err)
+		return []string{".", os.TempDir()}
 	}
-	return []string{".", homeDir, os.TempDir()}, nil
+	return []string{".", homeDir, os.TempDir()}
 }
 
 // ClientConfig config root
