@@ -14,9 +14,8 @@ func TestFindConfigFileFromConnectionParameters(t *testing.T) {
 	connParameterConfigPath := createFile(t, "conn_parameters_config.json", "random content", dirs.dir)
 	envConfigPath := createFile(t, "env_var_config.json", "random content", dirs.dir)
 	t.Setenv(clientConfEnvName, envConfigPath)
-	createFile(t, defaultConfigName, "random content", dirs.driverDir)
-	createFile(t, defaultConfigName, "random content", dirs.homeDir)
-	createFile(t, defaultConfigName, "random content", dirs.tempDir)
+	createFile(t, defaultConfigName, "random content", dirs.predefinedDir1)
+	createFile(t, defaultConfigName, "random content", dirs.predefinedDir2)
 
 	clientConfigFilePath, err := findClientConfigFilePath(connParameterConfigPath, predefinedTestDirs(dirs))
 
@@ -28,9 +27,8 @@ func TestFindConfigFileFromEnvVariable(t *testing.T) {
 	dirs := createTestDirectories(t)
 	envConfigPath := createFile(t, "env_var_config.json", "random content", dirs.dir)
 	t.Setenv(clientConfEnvName, envConfigPath)
-	createFile(t, defaultConfigName, "random content", dirs.driverDir)
-	createFile(t, defaultConfigName, "random content", dirs.homeDir)
-	createFile(t, defaultConfigName, "random content", dirs.tempDir)
+	createFile(t, defaultConfigName, "random content", dirs.predefinedDir1)
+	createFile(t, defaultConfigName, "random content", dirs.predefinedDir2)
 
 	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
@@ -40,33 +38,30 @@ func TestFindConfigFileFromEnvVariable(t *testing.T) {
 
 func TestFindConfigFileFromFirstPredefinedDir(t *testing.T) {
 	dirs := createTestDirectories(t)
-	driverConfigPath := createFile(t, defaultConfigName, "random content", dirs.driverDir)
-	createFile(t, defaultConfigName, "random content", dirs.homeDir)
-	createFile(t, defaultConfigName, "random content", dirs.tempDir)
+	configPath := createFile(t, defaultConfigName, "random content", dirs.predefinedDir1)
+	createFile(t, defaultConfigName, "random content", dirs.predefinedDir2)
 
 	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfigFilePath, driverConfigPath, "config file path")
+	assertEqualE(t, clientConfigFilePath, configPath, "config file path")
 }
 
 func TestFindConfigFileFromSubsequentDirectoryIfNotFoundInPreviousOne(t *testing.T) {
 	dirs := createTestDirectories(t)
-	createFile(t, "wrong_file_name.json", "random content", dirs.driverDir)
-	homeConfigPath := createFile(t, defaultConfigName, "random content", dirs.homeDir)
-	createFile(t, defaultConfigName, "random content", dirs.tempDir)
+	createFile(t, "wrong_file_name.json", "random content", dirs.predefinedDir1)
+	configPath := createFile(t, defaultConfigName, "random content", dirs.predefinedDir2)
 
 	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
 	assertNilF(t, err, "get client config error")
-	assertEqualE(t, clientConfigFilePath, homeConfigPath, "config file path")
+	assertEqualE(t, clientConfigFilePath, configPath, "config file path")
 }
 
 func TestNotFindConfigFileWhenNotDefined(t *testing.T) {
 	dirs := createTestDirectories(t)
-	createFile(t, "wrong_file_name.json", "random content", dirs.driverDir)
-	createFile(t, "wrong_file_name.json", "random content", dirs.homeDir)
-	createFile(t, "wrong_file_name.json", "random content", dirs.tempDir)
+	createFile(t, "wrong_file_name.json", "random content", dirs.predefinedDir1)
+	createFile(t, "wrong_file_name.json", "random content", dirs.predefinedDir2)
 
 	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
@@ -260,39 +255,32 @@ func createFile(t *testing.T, fileName string, fileContents string, directory st
 }
 
 func createTestDirectories(t *testing.T) struct {
-	dir       string
-	driverDir string
-	homeDir   string
-	tempDir   string
+	dir            string
+	predefinedDir1 string
+	predefinedDir2 string
 } {
 	dir := t.TempDir()
-	driverDir := path.Join(dir, "driver") // we pretend "." to be a folder inside t.TempDir() not to interfere with user's real directories
-	err := os.Mkdir(driverDir, 0755)
-	assertNilF(t, err, "make driver dir error")
-	homeDir := path.Join(dir, "home") // we pretend home directory to be a folder inside t.TempDir() not to interfere with user's real directories
-	err = os.Mkdir(homeDir, 0755)
-	assertNilF(t, err, "make home dir error")
-	tempDir := path.Join(dir, "temp") // we pretend temp directory to be a folder inside t.TempDir() not to interfere with user's real directories
-	err = os.Mkdir(tempDir, 0755)
-	assertNilF(t, err, "make temp dir error")
+	predefinedDir1 := path.Join(dir, "dir1")
+	err := os.Mkdir(predefinedDir1, 0755)
+	assertNilF(t, err, "predefined dir1 error")
+	predefinedDir2 := path.Join(dir, "dir2")
+	err = os.Mkdir(predefinedDir2, 0755)
+	assertNilF(t, err, "predefined dir2 error")
 	return struct {
-		dir       string
-		driverDir string
-		homeDir   string
-		tempDir   string
+		dir            string
+		predefinedDir1 string
+		predefinedDir2 string
 	}{
-		dir:       dir,
-		driverDir: driverDir,
-		homeDir:   homeDir,
-		tempDir:   tempDir,
+		dir:            dir,
+		predefinedDir1: predefinedDir1,
+		predefinedDir2: predefinedDir2,
 	}
 }
 
 func predefinedTestDirs(dirs struct {
-	dir       string
-	driverDir string
-	homeDir   string
-	tempDir   string
+	dir            string
+	predefinedDir1 string
+	predefinedDir2 string
 }) []string {
-	return []string{dirs.driverDir, dirs.homeDir, dirs.tempDir}
+	return []string{dirs.predefinedDir1, dirs.predefinedDir2}
 }
