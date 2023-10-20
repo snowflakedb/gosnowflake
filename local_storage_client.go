@@ -62,8 +62,7 @@ func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 			break
 		}
 
-		_, err = output.Write(data)
-		if err != nil {
+		if _, err = output.Write(data); err != nil {
 			return err
 		}
 	}
@@ -92,8 +91,7 @@ func (util *localUtil) downloadOneFile(meta *fileMetadata) error {
 		return err
 	}
 	if _, err = os.Stat(baseDir); os.IsNotExist(err) {
-		err = os.MkdirAll(baseDir, os.ModePerm)
-		if err != nil {
+		if err = os.MkdirAll(baseDir, os.ModePerm); err != nil {
 			return err
 		}
 	}
@@ -102,8 +100,7 @@ func (util *localUtil) downloadOneFile(meta *fileMetadata) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(fullDstFileName, data, readWriteFileMode)
-	if err != nil {
+	if err = os.WriteFile(fullDstFileName, data, readWriteFileMode); err != nil {
 		return err
 	}
 	fi, err := os.Stat(fullDstFileName)

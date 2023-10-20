@@ -30,16 +30,14 @@ type snowflakeResult struct {
 }
 
 func (res *snowflakeResult) LastInsertId() (int64, error) {
-	err := res.waitForAsyncExecStatus()
-	if err != nil {
+	if err := res.waitForAsyncExecStatus(); err != nil {
 		return -1, err
 	}
 	return res.insertID, nil
 }
 
 func (res *snowflakeResult) RowsAffected() (int64, error) {
-	err := res.waitForAsyncExecStatus()
-	if err != nil {
+	if err := res.waitForAsyncExecStatus(); err != nil {
 		return -1, err
 	}
 	return res.affectedRows, nil

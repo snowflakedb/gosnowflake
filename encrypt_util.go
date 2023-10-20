@@ -104,8 +104,7 @@ func encryptStream(
 	// encrypt key with ECB
 	fileKey = padBytesLength(fileKey, block.BlockSize())
 	encryptedFileKey := make([]byte, len(fileKey))
-	err = encryptECB(encryptedFileKey, fileKey, decodedKey)
-	if err != nil {
+	if err = encryptECB(encryptedFileKey, fileKey, decodedKey); err != nil {
 		return nil, err
 	}
 
@@ -216,8 +215,7 @@ func decryptFile(
 
 	// decrypt file key
 	decryptedKey := make([]byte, len(keyBytes))
-	err = decryptECB(decryptedKey, keyBytes, decodedKey)
-	if err != nil {
+	if err = decryptECB(decryptedKey, keyBytes, decodedKey); err != nil {
 		return "", err
 	}
 	decryptedKey, err = paddingTrim(decryptedKey)

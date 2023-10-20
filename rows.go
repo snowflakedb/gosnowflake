@@ -71,9 +71,8 @@ type chunkError struct {
 	Error error
 }
 
-func (rows *snowflakeRows) Close() error {
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+func (rows *snowflakeRows) Close() (err error) {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
 	logger.WithContext(rows.sc.ctx).Debugln("Rows.Close")
@@ -82,8 +81,7 @@ func (rows *snowflakeRows) Close() error {
 
 // ColumnTypeDatabaseTypeName returns the database column name.
 func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err.Error()
 	}
 	return strings.ToUpper(rows.ChunkDownloader.getRowType()[index].Type)
@@ -91,8 +89,7 @@ func (rows *snowflakeRows) ColumnTypeDatabaseTypeName(index int) string {
 
 // ColumnTypeLength returns the length of the column
 func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return 0, false
 	}
 	if index < 0 || index > len(rows.ChunkDownloader.getRowType()) {
@@ -106,8 +103,7 @@ func (rows *snowflakeRows) ColumnTypeLength(index int) (length int64, ok bool) {
 }
 
 func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return false, false
 	}
 	if index < 0 || index > len(rows.ChunkDownloader.getRowType()) {
@@ -117,8 +113,7 @@ func (rows *snowflakeRows) ColumnTypeNullable(index int) (nullable, ok bool) {
 }
 
 func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return 0, 0, false
 	}
 	rowType := rows.ChunkDownloader.getRowType()
@@ -137,8 +132,7 @@ func (rows *snowflakeRows) ColumnTypePrecisionScale(index int) (precision, scale
 }
 
 func (rows *snowflakeRows) Columns() []string {
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return make([]string, 0)
 	}
 	logger.Debug("Rows.Columns")
@@ -150,8 +144,7 @@ func (rows *snowflakeRows) Columns() []string {
 }
 
 func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return nil
 	}
 	return snowflakeTypeToGo(
@@ -171,8 +164,7 @@ func (rows *snowflakeRows) GetStatus() queryStatus {
 func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
 	// Wait for all arrow batches before fetching.
 	// Otherwise, a panic error "invalid memory address or nil pointer dereference" will be thrown.
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return nil, err
 	}
 
@@ -180,8 +172,7 @@ func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
-	err = rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err = rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
 	row, err := rows.ChunkDownloader.next()
@@ -211,16 +202,14 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 }
 
 func (rows *snowflakeRows) HasNextResultSet() bool {
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return false
 	}
 	return rows.ChunkDownloader.hasNextResultSet()
 }
 
 func (rows *snowflakeRows) NextResultSet() error {
-	err := rows.waitForAsyncQueryStatus()
-	if err != nil {
+	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
 	if len(rows.ChunkDownloader.getChunkMetas()) == 0 {

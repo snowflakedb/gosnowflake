@@ -133,8 +133,7 @@ func (rsu *remoteStorageUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 	retryOuter := true
 	for i := 0; i < 10; i++ {
 		// retry
-		err := rsu.uploadOneFile(meta)
-		if err != nil {
+		if err := rsu.uploadOneFile(meta); err != nil {
 			return err
 		}
 		retryInner := true
@@ -185,8 +184,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 		return err
 	}
 	if _, err = os.Stat(baseDir); os.IsNotExist(err) {
-		err = os.MkdirAll(baseDir, os.ModePerm)
-		if err != nil {
+		if err = os.MkdirAll(baseDir, os.ModePerm); err != nil {
 			return err
 		}
 	}
@@ -204,8 +202,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 	var lastErr error
 	maxRetry := defaultMaxRetry
 	for retry := 0; retry < maxRetry; retry++ {
-		err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency)
-		if err != nil {
+		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency); err != nil {
 			return err
 		}
 		if meta.resStatus == downloaded {
@@ -221,8 +218,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 				if err != nil {
 					return err
 				}
-				err = os.Rename(tmpDstFileName, fullDstFileName)
-				if err != nil {
+				if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
 					return err
 				}
 			}

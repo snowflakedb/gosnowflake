@@ -77,8 +77,7 @@ func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 		if len(t) != 1 {
 			return unSupportedType
 		}
-		_, err := dataTypeMode(t)
-		if err != nil {
+		if _, err := dataTypeMode(t); err != nil {
 			return unSupportedType
 		}
 		return changeType

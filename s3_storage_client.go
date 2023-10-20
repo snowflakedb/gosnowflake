@@ -230,11 +230,10 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 	if meta.mockDownloader != nil {
 		downloader = meta.mockDownloader
 	}
-	_, err = downloader.Download(context.Background(), f, &s3.GetObjectInput{
+	if _, err = downloader.Download(context.Background(), f, &s3.GetObjectInput{
 		Bucket: s3Obj.Bucket,
 		Key:    s3Obj.Key,
-	})
-	if err != nil {
+	}); err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
 			if ae.ErrorCode() == expiredToken {

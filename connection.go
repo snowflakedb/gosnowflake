@@ -108,8 +108,7 @@ func (sc *snowflakeConn) exec(
 	// handle bindings, if required
 	requestID := getOrGenerateRequestIDFromContext(ctx)
 	if len(bindings) > 0 {
-		err = sc.processBindings(ctx, bindings, describeOnly, requestID, &req)
-		if err != nil {
+		if err = sc.processBindings(ctx, bindings, describeOnly, requestID, &req); err != nil {
 			return nil, err
 		}
 	}
@@ -237,9 +236,8 @@ func (sc *snowflakeConn) BeginTx(
 		return nil, driver.ErrBadConn
 	}
 	isDesc := isDescribeOnly(ctx)
-	_, err := sc.exec(ctx, "BEGIN", false, /* noResult */
-		false /* isInternal */, isDesc, nil)
-	if err != nil {
+	if _, err := sc.exec(ctx, "BEGIN", false, /* noResult */
+		false /* isInternal */, isDesc, nil); err != nil {
 		return nil, err
 	}
 	return &snowflakeTx{sc, ctx}, nil
@@ -261,8 +259,7 @@ func (sc *snowflakeConn) Close() (err error) {
 	defer sc.cleanup()
 
 	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
-		err = sc.rest.FuncCloseSession(sc.ctx, sc.rest, sc.rest.RequestTimeout)
-		if err != nil {
+		if err = sc.rest.FuncCloseSession(sc.ctx, sc.rest, sc.rest.RequestTimeout); err != nil {
 			logger.Error(err)
 		}
 	}
@@ -405,8 +402,7 @@ func (sc *snowflakeConn) queryContextInternal(
 
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
-		err = sc.handleMultiQuery(ctx, data.Data, rows)
-		if err != nil {
+		if err = sc.handleMultiQuery(ctx, data.Data, rows); err != nil {
 			return nil, err
 		}
 	} else {
@@ -541,8 +537,7 @@ type wrapReader struct {
 
 func (w *wrapReader) Close() error {
 	if cl, ok := w.Reader.(io.ReadCloser); ok {
-		err := cl.Close()
-		if err != nil {
+		if err := cl.Close(); err != nil {
 			return err
 		}
 	}
@@ -618,8 +613,7 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 // to ensure no leaked memory.
 func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, error) {
 	if asb.rr == nil {
-		err := asb.downloadChunkStreamHelper(ctx)
-		if err != nil {
+		if err := asb.downloadChunkStreamHelper(ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -756,8 +750,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		st = sc.cfg.Transporter
 	}
 	if strings.HasSuffix(sc.cfg.Host, privateLinkSuffix) {
-		err := sc.setupOCSPPrivatelink(sc.cfg.Application, sc.cfg.Host)
-		if err != nil {
+		if err := sc.setupOCSPPrivatelink(sc.cfg.Application, sc.cfg.Host); err != nil {
 			return nil, err
 		}
 	} else {

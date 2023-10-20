@@ -226,8 +226,7 @@ func doAuthenticateByExternalBrowser(
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
-	err = openBrowser(idpURL)
-	if err != nil {
+	if err = openBrowser(idpURL); err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 

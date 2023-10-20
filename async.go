@@ -132,8 +132,7 @@ func (sr *snowflakeRestful) getAsync(
 			rows.sc = sc
 			rows.queryID = respd.Data.QueryID
 			if isMultiStmt(&respd.Data) {
-				err = sc.handleMultiQuery(ctx, respd.Data, rows)
-				if err != nil {
+				if err = sc.handleMultiQuery(ctx, respd.Data, rows); err != nil {
 					rows.errChannel <- err
 					return err
 				}

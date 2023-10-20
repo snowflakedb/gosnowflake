@@ -66,8 +66,7 @@ func (bu *bindUploader) uploadStreamInternal(
 	dstFileName int,
 	compressData bool) (
 	*execResponse, error) {
-	err := bu.createStageIfNeeded()
-	if err != nil {
+	if err := bu.createStageIfNeeded(); err != nil {
 		return nil, err
 	}
 	stageName := bu.stagePath

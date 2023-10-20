@@ -129,31 +129,26 @@ type snowflakeFileTransferAgent struct {
 
 func (sfa *snowflakeFileTransferAgent) execute() error {
 	var err error
-	err = sfa.parseCommand()
-	if err != nil {
+	if err = sfa.parseCommand(); err != nil {
 		return err
 	}
-	err = sfa.initFileMetadata()
-	if err != nil {
+	if err = sfa.initFileMetadata(); err != nil {
 		return err
 	}
 
 	if sfa.commandType == uploadCommand {
-		err = sfa.processFileCompressionType()
-		if err != nil {
+		if err = sfa.processFileCompressionType(); err != nil {
 			return err
 		}
 	}
 
-	err = sfa.transferAccelerateConfig()
-	if err != nil {
+	if err = sfa.transferAccelerateConfig(); err != nil {
 		return err
 	}
 
 	if sfa.commandType == downloadCommand {
 		if _, err = os.Stat(sfa.localLocation); os.IsNotExist(err) {
-			err = os.MkdirAll(sfa.localLocation, os.ModePerm)
-			if err != nil {
+			if err = os.MkdirAll(sfa.localLocation, os.ModePerm); err != nil {
 				return err
 			}
 		}
@@ -161,15 +156,13 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 
 	if sfa.stageLocationType == local {
 		if _, err = os.Stat(sfa.stageInfo.Location); os.IsNotExist(err) {
-			err = os.MkdirAll(sfa.stageInfo.Location, os.ModePerm)
-			if err != nil {
+			if err = os.MkdirAll(sfa.stageInfo.Location, os.ModePerm); err != nil {
 				return err
 			}
 		}
 	}
 
-	err = sfa.updateFileMetadataWithPresignedURL()
-	if err != nil {
+	if err = sfa.updateFileMetadataWithPresignedURL(); err != nil {
 		return err
 	}
 
@@ -197,13 +190,11 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 	}
 
 	if sfa.commandType == uploadCommand {
-		err = sfa.upload(largeFileMetas, smallFileMetas)
-		if err != nil {
+		if err = sfa.upload(largeFileMetas, smallFileMetas); err != nil {
 			return err
 		}
 	} else {
-		err = sfa.download(smallFileMetas)
-		if err != nil {
+		if err = sfa.download(smallFileMetas); err != nil {
 			return err
 		}
 	}
@@ -262,8 +253,7 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 		if err != nil {
 			return err
 		}
-		fi, err := os.Stat(sfa.localLocation)
-		if err != nil || !fi.IsDir() {
+		if fi, err := os.Stat(sfa.localLocation); err != nil || !fi.IsDir() {
 			return (&SnowflakeError{
 				Number:      ErrLocalPathNotDirectory,
 				SQLState:    sfa.data.SQLState,
@@ -693,15 +683,13 @@ func (sfa *snowflakeFileTransferAgent) upload(
 
 	if len(smallFileMetadata) > 0 {
 		logger.Infof("uploading %v small files", len(smallFileMetadata))
-		err = sfa.uploadFilesParallel(smallFileMetadata)
-		if err != nil {
+		if err = sfa.uploadFilesParallel(smallFileMetadata); err != nil {
 			return err
 		}
 	}
 	if len(largeFileMetadata) > 0 {
 		logger.Infof("uploading %v large files", len(largeFileMetadata))
-		err = sfa.uploadFilesSequential(largeFileMetadata)
-		if err != nil {
+		if err = sfa.uploadFilesSequential(largeFileMetadata); err != nil {
 			return err
 		}
 	}
@@ -720,8 +708,7 @@ func (sfa *snowflakeFileTransferAgent) download(
 	}
 
 	logger.WithContext(sfa.sc.ctx).Infof("downloading %v files", len(fileMetadata))
-	err = sfa.downloadFilesParallel(fileMetadata)
-	if err != nil {
+	if err = sfa.downloadFilesParallel(fileMetadata); err != nil {
 		return err
 	}
 	return nil
@@ -882,8 +869,7 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	}
 
 	client := sfa.getStorageClient(sfa.stageLocationType)
-	err = client.uploadOneFileWithRetry(meta)
-	if err != nil {
+	if err = client.uploadOneFileWithRetry(meta); err != nil {
 		return meta, err
 	}
 	return meta, nil
@@ -972,8 +958,7 @@ func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fil
 	meta.tmpDir = tmpDir
 	defer os.RemoveAll(tmpDir) // cleanup
 	client := sfa.getStorageClient(sfa.stageLocationType)
-	err = client.downloadOneFile(meta)
-	if err != nil {
+	if err = client.downloadOneFile(meta); err != nil {
 		meta.dstFileSize = -1
 		if !meta.resStatus.isSet() {
 			meta.resStatus = errStatus

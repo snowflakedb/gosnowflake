@@ -146,8 +146,7 @@ func (lcd *largeChunkDecoder) decodeString() (string, error) {
 		if c == '"' {
 			break
 		} else if c == '\\' {
-			err := lcd.decodeEscaped()
-			if err != nil {
+			if err := lcd.decodeEscaped(); err != nil {
 				return "", err
 			}
 		} else if c < ' ' {

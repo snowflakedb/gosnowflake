@@ -28,8 +28,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 
 // OpenWithConfig creates a new connection with the given Config.
 func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
-	err := config.Validate()
-	if err != nil {
+	if err := config.Validate(); err != nil {
 		return nil, err
 	}
 	if config.Tracing != "" {
@@ -41,8 +40,7 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		return nil, err
 	}
 
-	err = authenticateWithConfig(sc)
-	if err != nil {
+	if err = authenticateWithConfig(sc); err != nil {
 		return nil, err
 	}
 	sc.connectionTelemetry(&config)

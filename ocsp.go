@@ -920,13 +920,11 @@ func writeOCSPCacheFile() {
 			logger.Debugf("other process locks the cache file. %v. ignored.\n", cacheLockFileName)
 			return
 		}
-		err = os.Remove(cacheLockFileName)
-		if err != nil {
+		if err = os.Remove(cacheLockFileName); err != nil {
 			logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
 			return
 		}
-		err = os.Mkdir(cacheLockFileName, 0600)
-		if err != nil {
+		if err = os.Mkdir(cacheLockFileName, 0600); err != nil {
 			logger.Debugf("failed to create lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
 			return
 		}
@@ -949,8 +947,7 @@ func writeOCSPCacheFile() {
 		logger.Debugf("failed to convert OCSP Response cache to JSON. ignored.")
 		return
 	}
-	err = os.WriteFile(cacheFileName, j, 0644)
-	if err != nil {
+	if err = os.WriteFile(cacheFileName, j, 0644); err != nil {
 		logger.Debugf("failed to write OCSP Response cache. err: %v. ignored.\n", err)
 	}
 }
@@ -1009,8 +1006,7 @@ func createOCSPCacheDir() {
 	}
 
 	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
-		err = os.MkdirAll(cacheDir, os.ModePerm)
-		if err != nil {
+		if err = os.MkdirAll(cacheDir, os.ModePerm); err != nil {
 			logger.Debugf("failed to create cache directory. %v, err: %v. ignored\n", cacheDir, err)
 		}
 	}

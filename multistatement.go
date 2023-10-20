@@ -98,8 +98,7 @@ func (sc *snowflakeConn) handleMultiQuery(
 	}
 	childResults := getChildResults(data.ResultIDs, data.ResultTypes)
 	for _, child := range childResults {
-		err := sc.rowsForRunningQuery(ctx, child.id, rows)
-		if err != nil {
+		if err := sc.rowsForRunningQuery(ctx, child.id, rows); err != nil {
 			return err
 		}
 	}
