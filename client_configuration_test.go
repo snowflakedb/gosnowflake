@@ -84,12 +84,7 @@ func TestCreatePredefinedDirs(t *testing.T) {
 func TestGetClientConfig(t *testing.T) {
 	dir := t.TempDir()
 	fileName := "config.json"
-	configContents := `{
-			"common": {
-				"log_level" : "INFO",
-				"log_path" : "/some-path/some-directory"
-			}
-		}`
+	configContents := createClientConfigContent("INFO", "/some-path/some-directory")
 	createFile(t, fileName, configContents, dir)
 	filePath := path.Join(dir, fileName)
 
@@ -118,26 +113,16 @@ func TestParseConfiguration(t *testing.T) {
 		expectedLogPath  string
 	}{
 		{
-			testName: "TestWithLogLevelUpperCase",
-			fileName: "config_1.json",
-			fileContents: `{
-				"common": {
-					"log_level" : "INFO",
-					"log_path" : "/some-path/some-directory"
-				}
-			}`,
+			testName:         "TestWithLogLevelUpperCase",
+			fileName:         "config_1.json",
+			fileContents:     createClientConfigContent("INFO", "/some-path/some-directory"),
 			expectedLogLevel: "INFO",
 			expectedLogPath:  "/some-path/some-directory",
 		},
 		{
-			testName: "TestWithLogLevelLowerCase",
-			fileName: "config_2.json",
-			fileContents: `{
-				"common": {
-					"log_level" : "info",
-					"log_path" : "/some-path/some-directory"
-				}
-			}`,
+			testName:         "TestWithLogLevelLowerCase",
+			fileName:         "config_2.json",
+			fileContents:     createClientConfigContent("info", "/some-path/some-directory"),
 			expectedLogLevel: "info",
 			expectedLogPath:  "/some-path/some-directory",
 		},
@@ -193,14 +178,9 @@ func TestParseConfigurationFails(t *testing.T) {
 		expectedErrorMessageToContain string
 	}{
 		{
-			testName: "TestWithWrongLogLevel",
-			fileName: "config_1.json",
-			FileContents: `{
-				"common": {
-					"log_level" : "something weird",
-					"log_path" : "/some-path/some-directory"
-				}
-			}`,
+			testName:                      "TestWithWrongLogLevel",
+			fileName:                      "config_1.json",
+			FileContents:                  createClientConfigContent("something weird", "/some-path/some-directory"),
 			expectedErrorMessageToContain: "unknown log level",
 		},
 		{
@@ -283,4 +263,16 @@ func predefinedTestDirs(dirs struct {
 	predefinedDir2 string
 }) []string {
 	return []string{dirs.predefinedDir1, dirs.predefinedDir2}
+}
+
+func createClientConfigContent(logLevel string, logPath string) string {
+	return fmt.Sprintf(`{
+			"common": {
+				"log_level" : "%s",
+				"log_path" : "%s"
+			}
+		}`,
+		logLevel,
+		logPath,
+	)
 }
