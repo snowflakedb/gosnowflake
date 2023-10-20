@@ -123,7 +123,7 @@ func TestUnitGetSSO(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get HTML content. err: %v", err)
 	}
-	_, err = getSSO(context.TODO(), sr, &url.Values{}, make(map[string]string), "invalid!@url$%^", 0)
+	_, err = getSSO(context.Background(), sr, &url.Values{}, make(map[string]string), "invalid!@url$%^", 0)
 	if err == nil {
 		t.Fatal("should have failed to parse URL.")
 	}
@@ -255,7 +255,7 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeIdpConnectionError, driverErr.Number)
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidURL
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -267,12 +267,12 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeIdpConnectionError, driverErr.Number)
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidTokenURL
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidSSOURL
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -299,7 +299,7 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 		t.Fatalf("failed. err: %v", err)
 	}
 	sr.FuncGetSSO = getSSOSuccessButWrongPrefixURL
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
