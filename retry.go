@@ -16,6 +16,14 @@ import (
 	"time"
 )
 
+var (
+	// MaxRetryCount specifies maximum number of subsequent retries
+	MaxRetryCount = 7
+
+	// MaxWaitTime specifies maximum wait time throughout subsequent retries
+	MaxWaitTime = 300 //seconds
+)
+
 var random *rand.Rand
 
 var endpointsEligibleForRetry = []string{
@@ -196,36 +204,29 @@ func isQueryRequest(url *url.URL) bool {
 }
 
 type waitAlgo struct {
-	mutex *sync.Mutex   // required for random.Int63n
-	base  time.Duration // base wait time
-	cap   time.Duration // maximum wait time
+	mutex  *sync.Mutex // required for random.Int63n
+	random *rand.Rand
 }
 
 // decorrelated jitter backoff
 func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, sleep time.Duration) time.Duration {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	t := 3*sleep - w.base
-	switch {
-	case t > 0:
-		return durationMin(w.cap, randSecondDuration(t)+w.base)
-	case t < 0:
-		return durationMin(w.cap, randSecondDuration(-t)+3*sleep)
-	}
-	return w.base
+
 }
 
 func (w *waitAlgo) getJitter(currWaitTime int) float64 {
-	multiplicationFactor := (random.Float64() * 2) - 1 // random float between (-1, 1)
-	jitterAmount := 0.5 * float64(currWaitTime) * multiplicationFactor
+	multiplicationFactor := chooseRandomFromValues(w.random, []int{-1, 1}) // random int from [-1, 1]
+	jitterAmount := 0.5 * float64(currWaitTime) * float64(multiplicationFactor)
 	return jitterAmount
 }
 
-var defaultWaitAlgo = &waitAlgo{
-	mutex: &sync.Mutex{},
-	base:  5 * time.Second,
-	cap:   160 * time.Second,
+func chooseRandomFromValues[T any](random *rand.Rand, arr []T) T {
+	valIdx := random.Intn(len(arr))
+	return arr[valIdx]
 }
+
+var defaultWaitAlgo = &waitAlgo{mutex: &sync.Mutex{}, random: random}
 
 type requestFunc func(method, urlStr string, body io.Reader) (*http.Request, error)
 
@@ -289,7 +290,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
 	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
-	sleepTime := time.Duration(0)
+	sleepTime := time.Duration(1)
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
 
 	var requestGUIDReplacer requestGUIDReplacer
@@ -327,7 +328,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
 		}
 		res.Body.Close()
-		// uses decorrelated jitter backoff
+		// uses exponential jitter backoff
 		sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(retryCounter, sleepTime)
 
 		if totalTimeout > 0 {
