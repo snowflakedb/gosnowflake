@@ -48,6 +48,7 @@ jobs:
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
+                GORACE: history_size=7
               run: ./ci/test.sh
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v3

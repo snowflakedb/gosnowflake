@@ -18,7 +18,7 @@ type SnowflakeDriver struct{}
 // Open creates a new connection.
 func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	logger.Info("Open")
-	ctx := context.TODO()
+	ctx := context.Background()
 	cfg, err := ParseDSN(dsn)
 	if err != nil {
 		return nil, err

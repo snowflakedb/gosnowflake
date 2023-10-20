@@ -65,17 +65,17 @@ func TestUnitPostAuthSAML(t *testing.T) {
 		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	var err error
-	_, err = postAuthSAML(context.TODO(), sr, make(map[string]string), []byte{}, 0)
+	_, err = postAuthSAML(context.Background(), sr, make(map[string]string), []byte{}, 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
-	_, err = postAuthSAML(context.TODO(), sr, make(map[string]string), []byte{}, 0)
+	_, err = postAuthSAML(context.Background(), sr, make(map[string]string), []byte{}, 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
-	_, err = postAuthSAML(context.TODO(), sr, make(map[string]string), []byte{0x12, 0x34}, 0)
+	_, err = postAuthSAML(context.Background(), sr, make(map[string]string), []byte{0x12, 0x34}, 0)
 	if err == nil {
 		t.Fatalf("should have failed to post")
 	}
@@ -87,17 +87,17 @@ func TestUnitPostAuthOKTA(t *testing.T) {
 		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	var err error
-	_, err = postAuthOKTA(context.TODO(), sr, make(map[string]string), []byte{}, "hahah", 0)
+	_, err = postAuthOKTA(context.Background(), sr, make(map[string]string), []byte{}, "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPost = postTestAppBadGatewayError
-	_, err = postAuthOKTA(context.TODO(), sr, make(map[string]string), []byte{}, "hahah", 0)
+	_, err = postAuthOKTA(context.Background(), sr, make(map[string]string), []byte{}, "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPost = postTestSuccessButInvalidJSON
-	_, err = postAuthOKTA(context.TODO(), sr, make(map[string]string), []byte{0x12, 0x34}, "haha", 0)
+	_, err = postAuthOKTA(context.Background(), sr, make(map[string]string), []byte{0x12, 0x34}, "haha", 0)
 	if err == nil {
 		t.Fatal("should have failed to run post request after the renewal")
 	}
@@ -109,17 +109,17 @@ func TestUnitGetSSO(t *testing.T) {
 		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	var err error
-	_, err = getSSO(context.TODO(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
+	_, err = getSSO(context.Background(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncGet = getTestAppBadGatewayError
-	_, err = getSSO(context.TODO(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
+	_, err = getSSO(context.Background(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncGet = getTestHTMLSuccess
-	_, err = getSSO(context.TODO(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
+	_, err = getSSO(context.Background(), sr, &url.Values{}, make(map[string]string), "hahah", 0)
 	if err != nil {
 		t.Fatalf("failed to get HTML content. err: %v", err)
 	}
@@ -233,17 +233,17 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	var err error
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthFail
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthFailWithCode
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -278,23 +278,23 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 	}
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccess
 	sr.FuncPostAuthOKTA = postAuthOKTAError
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthOKTA = postAuthOKTASuccess
 	sr.FuncGetSSO = getSSOError
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncGetSSO = getSSOSuccessButInvalidURL
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncGetSSO = getSSOSuccess
-	_, err = authenticateBySAML(context.TODO(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	if err != nil {
 		t.Fatalf("failed. err: %v", err)
 	}

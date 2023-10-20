@@ -191,7 +191,7 @@ func TestServiceName(t *testing.T) {
 
 	expectServiceName := serviceNameStub
 	for i := 0; i < 5; i++ {
-		sc.exec(context.TODO(), "", false, /* noResult */
+		sc.exec(context.Background(), "", false, /* noResult */
 			false /* isInternal */, false /* describeOnly */, nil)
 		if actualServiceName, ok := sc.cfg.Params[serviceName]; ok {
 			if *actualServiceName != expectServiceName {
@@ -476,19 +476,19 @@ func TestExecWithServerSideError(t *testing.T) {
 }
 
 func TestConcurrentReadOnParams(t *testing.T) {
-	t.Skip("Fails randomly")
 	config, err := ParseDSN(dsn)
 	if err != nil {
 		t.Fatal("Failed to parse dsn")
 	}
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
+	defer db.Close()
 	wg := sync.WaitGroup{}
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			for c := 0; c < 10; c++ {
-				stmt, err := db.PrepareContext(context.Background(), "SELECT * FROM information_schema.columns WHERE table_schema = ?")
+				stmt, err := db.PrepareContext(context.Background(), "SELECT table_schema FROM information_schema.columns WHERE table_schema = ? LIMIT 1")
 				if err != nil {
 					t.Error(err)
 				}
@@ -499,13 +499,18 @@ func TestConcurrentReadOnParams(t *testing.T) {
 				if rows == nil {
 					continue
 				}
+				rows.Next()
+				var tableName string
+				err = rows.Scan(&tableName)
+				if err != nil {
+					t.Error(err)
+				}
 				_ = rows.Close()
 			}
 			wg.Done()
 		}()
 	}
 	wg.Wait()
-	defer db.Close()
 }
 
 func postQueryTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ UUID, _ *Config) (*execResponse, error) {
