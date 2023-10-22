@@ -111,7 +111,7 @@ func authenticateBySAML(
 	if tokenURL, err = url.Parse(respd.Data.TokenURL); err != nil {
 		return nil, fmt.Errorf("failed to parse token URL. %v", respd.Data.TokenURL)
 	}
-	if ssoURL, err = url.Parse(respd.Data.TokenURL); err != nil {
+	if ssoURL, err = url.Parse(respd.Data.SSOURL); err != nil {
 		return nil, fmt.Errorf("failed to parse ssoURL URL. %v", respd.Data.SSOURL)
 	}
 	if !isPrefixEqual(oktaURL, ssoURL) || !isPrefixEqual(oktaURL, tokenURL) {
