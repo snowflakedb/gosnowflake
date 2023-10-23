@@ -45,6 +45,22 @@ func TestAsyncMode(t *testing.T) {
 	})
 }
 
+func TestAsyncModePing(t *testing.T) {
+	ctx := WithAsyncMode(context.Background())
+
+	runDBTest(t, func(dbt *DBTest) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("panic during ping: %v", r)
+			}
+		}()
+		err := dbt.conn.PingContext(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestAsyncModeMultiStatement(t *testing.T) {
 	withMultiStmtCtx, _ := WithMultiStatement(context.Background(), 6)
 	ctx := WithAsyncMode(withMultiStmtCtx)
