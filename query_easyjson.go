@@ -397,6 +397,10 @@ func easyjson90b16446DecodeGithubComObserveincGosnowflake1(in *jlexer.Lexer, out
 			out.Kind = string(in.String())
 		case "operation":
 			out.Operation = string(in.String())
+		case "queryContext":
+			if data := in.Raw(); in.Ok() {
+				in.AddError((out.QueryContext).UnmarshalJSON(data))
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -899,6 +903,16 @@ func easyjson90b16446EncodeGithubComObserveincGosnowflake1(out *jwriter.Writer, 
 			out.RawString(prefix)
 		}
 		out.String(string(in.Operation))
+	}
+	if len(in.QueryContext) != 0 {
+		const prefix string = ",\"queryContext\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Raw((in.QueryContext).MarshalJSON())
 	}
 	out.RawByte('}')
 }
