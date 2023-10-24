@@ -483,3 +483,56 @@ func TestLoginRetry429(t *testing.T) {
 		t.Fatalf("no retry counter should be attached: %v", retryCountKey)
 	}
 }
+
+type retryableTc struct {
+	req      *http.Request
+	res      *http.Response
+	expected bool
+}
+
+func TestIsRetryableError(t *testing.T) {
+	tcs := []retryableTc{
+		{
+			req:      nil,
+			res:      nil,
+			expected: false,
+		},
+		{
+			req:      nil,
+			res:      &http.Response{StatusCode: http.StatusBadRequest},
+			expected: false,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      nil,
+			expected: false,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: heartBeatPath}},
+			res:      &http.Response{StatusCode: http.StatusBadRequest},
+			expected: false,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      &http.Response{StatusCode: http.StatusNotFound},
+			expected: false,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      &http.Response{StatusCode: http.StatusTooManyRequests},
+			expected: true,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: tokenRequestPath}},
+			res:      &http.Response{StatusCode: http.StatusServiceUnavailable},
+			expected: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		result, _ := isRetryableError(tc.req, tc.res, errUnknownError())
+		if result != tc.expected {
+			t.Fatalf("expected %v, got %v; request: %v, response: %v", tc.expected, result, tc.req, tc.res)
+		}
+	}
+}

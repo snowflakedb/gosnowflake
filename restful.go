@@ -46,7 +46,7 @@ type (
 	funcPostType     func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, currentTimeProvider, *Config) (*http.Response, error)
 	funcAuthPostType func(context.Context, *http.Client, *url.URL, map[string]string, bodyCreatorType, time.Duration) (*http.Response, error)
 	bodyCreatorType  func() ([]byte, error)
-
+)
 
 var emptyBodyCreator = func() ([]byte, error) {
 	return []byte{}, nil

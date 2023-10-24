@@ -16,12 +16,9 @@ import (
 	"time"
 )
 
-var (
+const (
 	// MaxRetryCount specifies maximum number of subsequent retries
 	MaxRetryCount = 7
-
-	// MaxWaitTime specifies maximum wait time throughout subsequent retries
-	MaxWaitTime = 300 //seconds
 )
 
 var random *rand.Rand
@@ -208,17 +205,21 @@ type waitAlgo struct {
 	random *rand.Rand
 }
 
-// decorrelated jitter backoff
-func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, sleep time.Duration) time.Duration {
+// jitter backoff in seconds
+func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, currWaitTime int) int {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-
+	if attempt < 2 && currWaitTime < 2 {
+		return 2 ^ attempt
+	}
+	jitterSleepTime := (2 ^ attempt) + w.getJitter(currWaitTime)
+	return jitterSleepTime
 }
 
-func (w *waitAlgo) getJitter(currWaitTime int) float64 {
+func (w *waitAlgo) getJitter(currWaitTime int) int {
 	multiplicationFactor := chooseRandomFromValues(w.random, []int{-1, 1}) // random int from [-1, 1]
 	jitterAmount := 0.5 * float64(currWaitTime) * float64(multiplicationFactor)
-	return jitterAmount
+	return int(jitterAmount)
 }
 
 func chooseRandomFromValues[T any](random *rand.Rand, arr []T) T {
@@ -290,7 +291,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
 	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
-	sleepTime := time.Duration(1)
+	sleepTime := 1 // seconds
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
 
 	var requestGUIDReplacer requestGUIDReplacer
@@ -334,15 +335,15 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		if totalTimeout > 0 {
 			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
 			// if any timeout is set
-			totalTimeout -= sleepTime
-			if totalTimeout <= 0 {
+			totalTimeout -= time.Duration(sleepTime) * time.Second
+			if totalTimeout <= 0 || retryCounter >= MaxRetryCount {
 				if err != nil {
 					return nil, err
 				}
 				if res != nil {
-					return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Hanging?", r.timeout, res.StatusCode)
+					return nil, fmt.Errorf("timeout after %s and %v retries. HTTP Status: %v. Hanging?", r.timeout, retryCounter, res.StatusCode)
 				}
-				return nil, fmt.Errorf("timeout after %s. Hanging?", r.timeout)
+				return nil, fmt.Errorf("timeout after %s and %v retries. Hanging?", r.timeout, retryCounter)
 			}
 		}
 		retryCounter++
@@ -366,7 +367,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
 		logger.WithContext(r.ctx).Infof("retry count: %v, retry reason: %v", retryCounter, retryReason)
 
-		await := time.NewTimer(sleepTime)
+		await := time.NewTimer(time.Duration(sleepTime) * time.Second)
 		select {
 		case <-await.C:
 			// retry the request
