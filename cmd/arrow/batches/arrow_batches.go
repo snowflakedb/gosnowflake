@@ -6,14 +6,14 @@ import (
 	"database/sql/driver"
 	"flag"
 	"fmt"
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
 	"log"
 	"sync"
 	"time"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	sf "github.com/observeinc/gosnowflake"
 )
 
 type sampleRecord struct {
