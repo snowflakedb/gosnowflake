@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -546,6 +547,22 @@ func TestIsRetryable(t *testing.T) {
 		result, _ := isRetryableError(tc.req, tc.res, tc.err)
 		if result != tc.expected {
 			t.Fatalf("expected %v, got %v; request: %v, response: %v", tc.expected, result, tc.req, tc.res)
+		}
+	}
+}
+
+func TestExponentialJitterBackoff(t *testing.T) {
+	retryTimes := make([]float64, 10)
+	inputTime := 1.0
+	for i := 0; i < 10; i++ {
+		resultTime := defaultWaitAlgo.calculateWaitBeforeRetry(i+1, inputTime)
+		retryTimes[i] = resultTime
+		inputTime = resultTime
+	}
+
+	for i := 0; i < 9; i++ {
+		if retryTimes[i] >= retryTimes[i+1] {
+			log.Fatalf("expected consequent values to be greater than previous ones; array: %v", retryTimes)
 		}
 	}
 }
