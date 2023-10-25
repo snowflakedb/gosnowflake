@@ -279,6 +279,8 @@ func getHeaders() map[string]string {
 	headers := make(map[string]string)
 	headers[httpHeaderContentType] = headerContentTypeApplicationJSON
 	headers[httpHeaderAccept] = headerAcceptTypeApplicationSnowflake
+	headers[httpClientAppId] = clientType
+	headers[httpClientAppVersion] = SnowflakeGoDriverVersion
 	headers[httpHeaderUserAgent] = userAgent
 	return headers
 }
