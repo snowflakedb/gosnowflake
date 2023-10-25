@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -21,12 +22,21 @@ const (
 	MaxRetryCount = 7
 )
 
+type waitAlgo struct {
+	mutex  *sync.Mutex // required for *rand.Rand usage
+	random *rand.Rand
+}
+
 var random *rand.Rand
+var defaultWaitAlgo *waitAlgo
 
 var endpointsEligibleForRetry = []string{
 	loginRequestPath,
 	tokenRequestPath,
 	authenticatorRequestPath,
+	queryRequestPath,
+	abortRequestPath,
+	sessionRequestPath,
 }
 
 var statusCodesEligibleForRetry = []int{
@@ -40,6 +50,7 @@ var statusCodesEligibleForRetry = []int{
 
 func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
+	defaultWaitAlgo = &waitAlgo{mutex: &sync.Mutex{}, random: random}
 }
 
 const (
@@ -200,34 +211,29 @@ func isQueryRequest(url *url.URL) bool {
 	return strings.HasPrefix(url.Path, queryRequestPath)
 }
 
-type waitAlgo struct {
-	mutex  *sync.Mutex // required for random.Int63n
-	random *rand.Rand
-}
-
 // jitter backoff in seconds
-func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, currWaitTime int) int {
+func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, currWaitTime float64) float64 {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	if attempt < 2 && currWaitTime < 2 {
-		return 2 ^ attempt
+	var jitterPercentage = 0.5
+	if attempt < 2 {
+		jitterPercentage = 0.25 // to ensure there will be sleep time increase between attempts
 	}
-	jitterSleepTime := (2 ^ attempt) + w.getJitter(currWaitTime)
-	return jitterSleepTime
+	jitterAmount := w.getJitter(currWaitTime, jitterPercentage)
+	jitteredSleepTime := math.Pow(2, float64(attempt)) + jitterAmount
+	return jitteredSleepTime
 }
 
-func (w *waitAlgo) getJitter(currWaitTime int) int {
+func (w *waitAlgo) getJitter(currWaitTime float64, jitterPercentage float64) float64 {
 	multiplicationFactor := chooseRandomFromValues(w.random, []int{-1, 1}) // random int from [-1, 1]
-	jitterAmount := 0.5 * float64(currWaitTime) * float64(multiplicationFactor)
-	return int(jitterAmount)
+	jitterAmount := jitterPercentage * currWaitTime * float64(multiplicationFactor)
+	return jitterAmount
 }
 
 func chooseRandomFromValues[T any](random *rand.Rand, arr []T) T {
 	valIdx := random.Intn(len(arr))
 	return arr[valIdx]
 }
-
-var defaultWaitAlgo = &waitAlgo{mutex: &sync.Mutex{}, random: random}
 
 type requestFunc func(method, urlStr string, body io.Reader) (*http.Request, error)
 
@@ -291,7 +297,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
 	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
-	sleepTime := 1 // seconds
+	sleepTime := 1.0 // seconds
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
 
 	var requestGUIDReplacer requestGUIDReplacer
@@ -327,15 +333,16 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		} else {
 			logger.WithContext(r.ctx).Warningf(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
+			res.Body.Close()
 		}
-		res.Body.Close()
 		// uses exponential jitter backoff
+		retryCounter++
 		sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(retryCounter, sleepTime)
 
 		if totalTimeout > 0 {
 			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
 			// if any timeout is set
-			totalTimeout -= time.Duration(sleepTime) * time.Second
+			totalTimeout -= time.Duration(sleepTime * float64(time.Second))
 			if totalTimeout <= 0 || retryCounter >= MaxRetryCount {
 				if err != nil {
 					return nil, err
@@ -346,7 +353,6 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 				return nil, fmt.Errorf("timeout after %s and %v retries. Hanging?", r.timeout, retryCounter)
 			}
 		}
-		retryCounter++
 		if requestGUIDReplacer == nil {
 			requestGUIDReplacer = newRequestGUIDReplace(r.fullURL)
 		}
@@ -367,7 +373,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
 		logger.WithContext(r.ctx).Infof("retry count: %v, retry reason: %v", retryCounter, retryReason)
 
-		await := time.NewTimer(time.Duration(sleepTime) * time.Second)
+		await := time.NewTimer(time.Duration(sleepTime * float64(time.Second)))
 		select {
 		case <-await.C:
 			// retry the request
@@ -379,6 +385,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 }
 
 func isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
+	if err != nil && res == nil { // Failed http connection. Most probably client timeout.
+		return true, err
+	}
 	if res == nil || req == nil {
 		return false, err
 	}

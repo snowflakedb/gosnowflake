@@ -341,10 +341,10 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 }
 
 func TestRetryQueryFail(t *testing.T) {
-	logger.Info("Retry N times and Fail")
+	logger.Info("Retry N times until there is a timeout and Fail")
 	client := &fakeHTTPClient{
-		cnt:     4,
-		success: false,
+		statusCode: http.StatusTooManyRequests,
+		success:    false,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
 	if err != nil {
@@ -352,7 +352,7 @@ func TestRetryQueryFail(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 30*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
@@ -487,29 +487,34 @@ func TestLoginRetry429(t *testing.T) {
 type retryableTc struct {
 	req      *http.Request
 	res      *http.Response
+	err      error
 	expected bool
 }
 
-func TestIsRetryableError(t *testing.T) {
+func TestIsRetryable(t *testing.T) {
 	tcs := []retryableTc{
 		{
 			req:      nil,
 			res:      nil,
+			err:      nil,
 			expected: false,
 		},
 		{
 			req:      nil,
 			res:      &http.Response{StatusCode: http.StatusBadRequest},
+			err:      nil,
 			expected: false,
 		},
 		{
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      nil,
+			err:      nil,
 			expected: false,
 		},
 		{
 			req:      &http.Request{URL: &url.URL{Path: heartBeatPath}},
 			res:      &http.Response{StatusCode: http.StatusBadRequest},
+			err:      nil,
 			expected: false,
 		},
 		{
@@ -519,18 +524,26 @@ func TestIsRetryableError(t *testing.T) {
 		},
 		{
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
-			res:      &http.Response{StatusCode: http.StatusTooManyRequests},
+			res:      nil,
+			err:      errUnknownError(),
 			expected: true,
 		},
 		{
-			req:      &http.Request{URL: &url.URL{Path: tokenRequestPath}},
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      &http.Response{StatusCode: http.StatusTooManyRequests},
+			err:      nil,
+			expected: true,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: queryRequestPath}},
 			res:      &http.Response{StatusCode: http.StatusServiceUnavailable},
+			err:      nil,
 			expected: true,
 		},
 	}
 
 	for _, tc := range tcs {
-		result, _ := isRetryableError(tc.req, tc.res, errUnknownError())
+		result, _ := isRetryableError(tc.req, tc.res, tc.err)
 		if result != tc.expected {
 			t.Fatalf("expected %v, got %v; request: %v, response: %v", tc.expected, result, tc.req, tc.res)
 		}
