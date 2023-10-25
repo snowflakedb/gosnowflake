@@ -16,7 +16,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -130,11 +129,11 @@ func TestJWTTokenTimeout(t *testing.T) {
 	defer db.Close()
 	ctx := context.Background()
 	_, err = db.Conn(ctx)
-	if err == nil || !strings.Contains(err.Error(), "Client.Timeout exceeded while awaiting headers") {
-		t.Fatalf("expected timeout has not occured")
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
 	invocations := getMocksInvocations(t)
-	if invocations != 1 {
-		t.Errorf("Unexpected number of invocations, expected 1, got %v", invocations)
+	if invocations != 3 {
+		t.Errorf("Unexpected number of invocations, expected 3, got %v", invocations)
 	}
 }

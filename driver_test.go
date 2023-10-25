@@ -1414,7 +1414,7 @@ func TestCancelQuery(t *testing.T) {
 		if err == nil {
 			dbt.Fatal("No timeout error returned")
 		}
-		if !strings.Contains(err.Error(), "context deadline exceeded") {
+		if err.Error() != "context deadline exceeded" {
 			dbt.Fatalf("Timeout error mismatch: expect %v, receive %v", context.DeadlineExceeded, err.Error())
 		}
 	})
@@ -1506,7 +1506,7 @@ func TestLargeSetResultCancel(t *testing.T) {
 		time.Sleep(time.Second)
 		cancel()
 		ret := <-c
-		if !strings.Contains(ret.Error(), "context canceled") {
+		if ret.Error() != "context canceled" {
 			t.Fatalf("failed to cancel. err: %v", ret)
 		}
 		close(c)
