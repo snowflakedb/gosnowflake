@@ -43,7 +43,6 @@ var statusCodesEligibleForRetry = []int{
 	http.StatusTooManyRequests,
 	http.StatusServiceUnavailable,
 	http.StatusBadRequest,
-	http.StatusForbidden,
 	http.StatusMethodNotAllowed,
 	http.StatusRequestTimeout,
 }
