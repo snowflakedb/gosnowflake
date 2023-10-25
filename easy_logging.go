@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -41,7 +42,7 @@ func initEasyLogging(configFilePathFromConnectionString string) error {
 	}
 	config, err := getClientConfig(configFilePathFromConnectionString)
 	if err != nil {
-		return err
+		return easyLoggingInitError(err)
 	}
 	if config == nil {
 		easyLoggingInitTrials.setInitTrial(configFilePathFromConnectionString)
@@ -50,17 +51,21 @@ func initEasyLogging(configFilePathFromConnectionString string) error {
 	var logLevel string
 	logLevel, err = getLogLevel(config.Common.LogLevel)
 	if err != nil {
-		return err
+		return easyLoggingInitError(err)
 	}
 	var logPath string
 	logPath, err = getLogPath(config.Common.LogPath)
 	if err != nil {
-		return err
+		return easyLoggingInitError(err)
 	}
 	reconfigureEasyLogging(logLevel, logPath)
 	easyLoggingInitTrials.setInitTrial(configFilePathFromConnectionString)
 	easyLoggingInitTrials.increaseReconfigureCounter()
 	return nil
+}
+
+func easyLoggingInitError(err error) error {
+	return fmt.Errorf("easy logging init failed: %w", err)
 }
 
 func reconfigureEasyLogging(logLevel string, logPath string) error {

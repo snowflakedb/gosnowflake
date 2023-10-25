@@ -43,12 +43,15 @@ type defaultLogger struct {
 
 // SetLogLevel set logging level for calling defaultLogger
 func (log *defaultLogger) SetLogLevel(level string) error {
-	log.enabled = strings.ToUpper(level) != "OFF"
-	actualLevel, err := rlog.ParseLevel(level)
-	if err != nil {
-		return err
+	newEnabled := strings.ToUpper(level) != "OFF"
+	log.enabled = newEnabled
+	if newEnabled {
+		actualLevel, err := rlog.ParseLevel(level)
+		if err != nil {
+			return err
+		}
+		log.inner.SetLevel(actualLevel)
 	}
-	log.inner.SetLevel(actualLevel)
 	return nil
 }
 
