@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"testing"
 )
 
@@ -273,6 +274,6 @@ func createClientConfigContent(logLevel string, logPath string) string {
 			}
 		}`,
 		logLevel,
-		logPath,
+		strings.ReplaceAll(logPath, "\\", "\\\\"),
 	)
 }
