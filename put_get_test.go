@@ -288,6 +288,9 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 }
 
 func TestPutOverwrite(t *testing.T) {
+	if runningOnGCP() {
+		t.Skip("Overwriting is default as long as presigned URLs are enabled")
+	}
 	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(testData)
@@ -298,9 +301,6 @@ func TestPutOverwrite(t *testing.T) {
 	f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
-		if _, err = dbt.exec("use role sysadmin"); err != nil {
-			t.Skip("snowflake admin account not accessible")
-		}
 		dbt.mustExec("rm @~/test_put_overwrite")
 
 		f, _ = os.Open(testData)
@@ -321,24 +321,38 @@ func TestPutOverwrite(t *testing.T) {
 			t.Fatalf("expected UPLOADED, got %v", s6)
 		}
 
+		rows = dbt.mustQuery("ls @~/test_put_overwrite")
+		defer rows.Close()
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			t.Fatal(err)
+		}
+		uploadTime := s3
+
 		f, _ = os.Open(testData)
-		ctx := WithFileTransferOptions(context.Background(),
-			&SnowflakeFileTransferOptions{
-				DisablePutOverwrite: true,
-			})
 		rows = dbt.mustQueryContext(
-			WithFileStream(ctx, f),
+			WithFileStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite",
 				strings.ReplaceAll(testData, "\\", "\\\\")))
 		defer rows.Close()
 		f.Close()
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			t.Fatal(err)
 		}
 		if s6 != skipped.String() {
 			t.Fatalf("expected SKIPPED, got %v", s6)
+		}
+
+		rows = dbt.mustQuery("ls @~/test_put_overwrite")
+		defer rows.Close()
+		assertTrueF(t, rows.Next(), "expected new rows")
+
+		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			t.Fatal(err)
+		}
+		if s3 != uploadTime {
+			t.Fatalf("upload time should have stayed the same, expected: %v, got: %v", uploadTime, s3)
 		}
 
 		f, _ = os.Open(testData)
@@ -346,11 +360,11 @@ func TestPutOverwrite(t *testing.T) {
 			WithFileStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite overwrite=true",
 				strings.ReplaceAll(testData, "\\", "\\\\")))
+		defer rows.Close()
 		f.Close()
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			t.Fatal(err)
 		}
 		if s6 != uploaded.String() {
 			t.Fatalf("expected UPLOADED, got %v", s6)
@@ -358,13 +372,15 @@ func TestPutOverwrite(t *testing.T) {
 
 		rows = dbt.mustQuery("ls @~/test_put_overwrite")
 		defer rows.Close()
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			t.Fatal(err)
 		}
 		if s0 != fmt.Sprintf("test_put_overwrite/%v.gz", baseName(testData)) {
 			t.Fatalf("expected test_put_overwrite/%v.gz, got %v", baseName(testData), s0)
+		}
+		if s3 == uploadTime {
+			t.Fatalf("file should have been overwritten.")
 		}
 	})
 }
@@ -417,10 +433,9 @@ func testPutGet(t *testing.T, isStream bool) {
 		defer rows.Close()
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			t.Fatal(err)
 		}
 		if s6 != uploaded.String() {
 			t.Fatalf("expected %v, got: %v", uploaded, s6)
