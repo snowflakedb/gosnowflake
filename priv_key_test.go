@@ -128,10 +128,12 @@ func TestJWTTokenTimeout(t *testing.T) {
 	}
 	defer db.Close()
 	ctx := context.Background()
-	_, err = db.Conn(ctx)
+	conn, err := db.Conn(ctx)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
+	defer conn.Close()
+
 	invocations := getMocksInvocations(t)
 	if invocations != 3 {
 		t.Errorf("Unexpected number of invocations, expected 3, got %v", invocations)
