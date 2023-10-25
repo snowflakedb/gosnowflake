@@ -34,7 +34,7 @@ const (
 	httpHeaderHost             = "Host"
 	httpHeaderValueOctetStream = "application/octet-stream"
 	httpHeaderContentEncoding  = "Content-Encoding"
-	httpClientAppId            = "CLIENT_APP_ID"
+	httpClientAppID            = "CLIENT_APP_ID"
 	httpClientAppVersion       = "CLIENT_APP_VERSION"
 )
 
