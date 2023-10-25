@@ -5,7 +5,6 @@ package gosnowflake
 import (
 	"fmt"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -36,18 +35,14 @@ func assertHasPrefixE(t *testing.T, actual string, expectedPrefix string, descri
 
 func fatalOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
-		t.Fatal(formatErrorMessage(errMsg))
+		t.Fatal(errMsg)
 	}
 }
 
 func errorOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
-		t.Error(formatErrorMessage(errMsg))
+		t.Error(errMsg)
 	}
-}
-
-func formatErrorMessage(errMsg string) string {
-	return fmt.Sprintf("%s. Thrown from %s", errMsg, thrownFrom())
 }
 
 func validateNil(actual any, descriptions ...string) string {
@@ -100,17 +95,4 @@ func isNil(value any) bool {
 	}
 	val := reflect.ValueOf(value)
 	return val.Kind() == reflect.Pointer && val.IsNil()
-}
-
-func thrownFrom() string {
-	buf := make([]byte, 1024)
-	size := runtime.Stack(buf, false)
-	stack := string(buf[0:size])
-	lines := strings.Split(stack, "\n\t")
-	for i, line := range lines {
-		if i > 0 && !strings.Contains(line, "assert_test.go") {
-			return line
-		}
-	}
-	return stack
 }
