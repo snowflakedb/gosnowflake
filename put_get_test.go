@@ -288,9 +288,6 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 }
 
 func TestPutOverwrite(t *testing.T) {
-	if runningOnGCP() {
-		t.Skip("Overwriting is default as long as presigned URLs are enabled")
-	}
 	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(testData)

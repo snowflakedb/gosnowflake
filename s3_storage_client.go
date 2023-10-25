@@ -80,7 +80,7 @@ func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string
 		if errors.As(err, &ae) {
 			if ae.ErrorCode() == notFound {
 				meta.resStatus = notFoundFile
-				return nil, errors.New("could not find file")
+				return nil, fmt.Errorf("could not find file")
 			} else if ae.ErrorCode() == expiredToken {
 				meta.resStatus = renewToken
 				return nil, fmt.Errorf("received expired token. renewing")
