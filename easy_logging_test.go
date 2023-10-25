@@ -14,7 +14,7 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 	logLevel := levelError
 	contents := createClientConfigContent(logLevel, dir)
 	configFilePath := createFile(t, "config.json", contents, dir)
-	easyLoggingInitTrials.resetInitTrials()
+	easyLoggingInitTrials.reset()
 
 	err := openWithClientConfigFile(t, configFilePath)
 
@@ -39,7 +39,7 @@ func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *tes
 	contents := createClientConfigContent(logLevel, dir)
 	configFilePath := createFile(t, defaultConfigName, contents, os.TempDir())
 	defer os.Remove(configFilePath)
-	easyLoggingInitTrials.resetInitTrials()
+	easyLoggingInitTrials.reset()
 
 	err := openWithClientConfigFile(t, "")
 	assertNilF(t, err, "open config error")
@@ -59,7 +59,7 @@ func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing
 	customLogLevel := levelWarn
 	customFileContent := createClientConfigContent(customLogLevel, dir)
 	customConfigFilePath := createFile(t, "config.json", customFileContent, dir)
-	easyLoggingInitTrials.resetInitTrials()
+	easyLoggingInitTrials.reset()
 
 	err := openWithClientConfigFile(t, "")
 
@@ -75,7 +75,7 @@ func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing
 
 func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
 	dir := t.TempDir()
-	easyLoggingInitTrials.resetInitTrials()
+	easyLoggingInitTrials.reset()
 	configContent := createClientConfigContent("something_unknown", dir)
 	configFilePath := createFile(t, "config.json", configContent, dir)
 
@@ -86,7 +86,7 @@ func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
 }
 
 func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
-	easyLoggingInitTrials.resetInitTrials()
+	easyLoggingInitTrials.reset()
 
 	err := openWithClientConfigFile(t, "/not-existing-file.json")
 	assertNotNilF(t, err, "open config error")
@@ -94,7 +94,7 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 
 func TestLogToConfiguredFile(t *testing.T) {
 	dir := t.TempDir()
-	easyLoggingInitTrials.resetInitTrials()
+	easyLoggingInitTrials.reset()
 	configContent := createClientConfigContent(levelWarn, dir)
 	configFilePath := createFile(t, "config.json", configContent, dir)
 	logFilePath := path.Join(dir, "go", "snowflake.log")

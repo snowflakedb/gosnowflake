@@ -30,7 +30,7 @@ func (i *initTrials) increaseReconfigureCounter() {
 	i.configureCounter++
 }
 
-func (i *initTrials) resetInitTrials() {
+func (i *initTrials) reset() {
 	i.everTriedToInitialize = false
 	i.initParameter = ""
 	i.configureCounter = 0
@@ -114,11 +114,11 @@ func getLogLevel(logLevel string) (string, error) {
 func getLogPath(logPath string) (string, error) {
 	logPathOrDefault := logPath
 	if logPath == "" {
-		logger.Warn("LogPath in client config not found. Using temporary directory as a default value")
 		logPathOrDefault = os.TempDir()
+		logger.Warnf("LogPath in client config not found. Using temporary directory as a default value: %s", logPathOrDefault)
 	}
 	pathWithGoSubdir := path.Join(logPathOrDefault, "go")
-	exists, err := existsDir(pathWithGoSubdir)
+	exists, err := dirExists(pathWithGoSubdir)
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +131,7 @@ func getLogPath(logPath string) (string, error) {
 	return pathWithGoSubdir, nil
 }
 
-func existsDir(dirPath string) (bool, error) {
+func dirExists(dirPath string) (bool, error) {
 	stat, err := os.Stat(dirPath)
 	if err == nil {
 		return stat.IsDir(), nil
