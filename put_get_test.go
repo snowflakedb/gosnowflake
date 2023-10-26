@@ -324,7 +324,7 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 			t.Fatal(err)
 		}
-		md5_column := s2
+		md5Column := s2
 
 		f, _ = os.Open(testData)
 		rows = dbt.mustQueryContext(
@@ -352,7 +352,7 @@ func TestPutOverwrite(t *testing.T) {
 		}
 		if runningOnGCP() {
 			fmt.Print("Skipping the MD5 column check because overwriting is default on GCP as long as presigned URLs are enabled.")
-		} else if s2 != md5_column {
+		} else if s2 != md5Column {
 			t.Fatal("The MD5 column should have stayed the same")
 		}
 
@@ -380,7 +380,7 @@ func TestPutOverwrite(t *testing.T) {
 		if s0 != fmt.Sprintf("test_put_overwrite/%v.gz", baseName(testData)) {
 			t.Fatalf("expected test_put_overwrite/%v.gz, got %v", baseName(testData), s0)
 		}
-		if s2 == md5_column {
+		if s2 == md5Column {
 			t.Fatalf("file should have been overwritten.")
 		}
 	})
