@@ -10,6 +10,7 @@ import (
 )
 
 func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) {
+	t.Cleanup(cleanUp)
 	dir := t.TempDir()
 	logLevel := levelError
 	contents := createClientConfigContent(logLevel, dir)
@@ -31,11 +32,10 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 
 	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), logLevel, "error log level check")
 	assertEqualE(t, easyLoggingInitTrials.configureCounter, 1)
-
-	cleanUp()
 }
 
 func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *testing.T) {
+	t.Cleanup(cleanUp)
 	dir := t.TempDir()
 	logLevel := levelError
 	contents := createClientConfigContent(logLevel, dir)
@@ -50,11 +50,10 @@ func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *tes
 
 	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), logLevel, "error log level check")
 	assertEqualE(t, easyLoggingInitTrials.configureCounter, 1)
-
-	cleanUp()
 }
 
 func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing.T) {
+	t.Cleanup(cleanUp)
 	dir := t.TempDir()
 	tmpDirLogLevel := levelError
 	tmpFileContent := createClientConfigContent(tmpDirLogLevel, dir)
@@ -75,11 +74,10 @@ func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing
 	assertNilF(t, err, "open config error")
 	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), customLogLevel, "custom dir log level check")
 	assertEqualE(t, easyLoggingInitTrials.configureCounter, 2)
-
-	cleanUp()
 }
 
 func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
+	t.Cleanup(cleanUp)
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
 	configContent := createClientConfigContent("something_unknown", dir)
@@ -90,11 +88,10 @@ func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
 	assertNotNilF(t, err, "open config error")
 	assertStringContainsE(t, err.Error(), fmt.Sprint(ErrCodeClientConfigFailed), "error code")
 	assertStringContainsE(t, err.Error(), "parsing client config failed", "error message")
-
-	cleanUp()
 }
 
 func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
+	t.Cleanup(cleanUp)
 	easyLoggingInitTrials.reset()
 
 	err := openWithClientConfigFile(t, "/not-existing-file.json")
@@ -102,11 +99,10 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 	assertNotNilF(t, err, "open config error")
 	assertStringContainsE(t, err.Error(), fmt.Sprint(ErrCodeClientConfigFailed), "error code")
 	assertStringContainsE(t, err.Error(), "parsing client config failed", "error message")
-
-	cleanUp()
 }
 
 func TestLogToConfiguredFile(t *testing.T) {
+	t.Cleanup(cleanUp)
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
 	configContent := createClientConfigContent(levelWarn, dir)
@@ -124,7 +120,10 @@ func TestLogToConfiguredFile(t *testing.T) {
 	var logContents []byte
 	logContents, err = os.ReadFile(logFilePath)
 	assertNilF(t, err, "read file error")
-	logs := filterStrings(strings.Split(strings.ReplaceAll(string(logContents), "\r\n", "\n"), "\n"), notEmpty)
+	notEmptyFunc := func(val string) bool {
+		return val != ""
+	}
+	logs := filterStrings(strings.Split(strings.ReplaceAll(string(logContents), "\r\n", "\n"), "\n"), notEmptyFunc)
 	assertEqualE(t, len(logs), 3, "number of logs")
 	errorLogs := filterStrings(logs, func(val string) bool {
 		return strings.Contains(val, "level=error")
@@ -134,8 +133,6 @@ func TestLogToConfiguredFile(t *testing.T) {
 		return strings.Contains(val, "level=warning")
 	})
 	assertEqualE(t, len(warningLogs), 2, "warning logs count")
-
-	cleanUp()
 }
 
 func cleanUp() {
@@ -153,10 +150,6 @@ func toClientConfigLevel(logLevel string) string {
 	default:
 		return ""
 	}
-}
-
-func notEmpty(val string) bool {
-	return val != ""
 }
 
 func filterStrings(values []string, keep func(string) bool) []string {

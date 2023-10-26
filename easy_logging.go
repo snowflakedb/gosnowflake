@@ -95,7 +95,7 @@ func createLogWriter(logPath string) (io.Writer, *os.File, error) {
 		return os.Stdout, nil, nil
 	}
 	logFileName := path.Join(logPath, "snowflake.log")
-	file, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
+	file, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0640)
 	if err != nil {
 		return nil, nil, err
 	}
