@@ -324,7 +324,7 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 			t.Fatal(err)
 		}
-		uploadTime := s3
+		md5_column := s2
 
 		f, _ = os.Open(testData)
 		rows = dbt.mustQueryContext(
@@ -337,7 +337,9 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
 			t.Fatal(err)
 		}
-		if s6 != skipped.String() {
+		if runningOnGCP() && (s6 != skipped.String() || s6 != uploaded.String()) {
+			t.Fatalf("expected SKIPPED or UPLOADED, got %v", s6)
+		} else if s6 != skipped.String() {
 			t.Fatalf("expected SKIPPED, got %v", s6)
 		}
 
@@ -348,8 +350,10 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 			t.Fatal(err)
 		}
-		if s3 != uploadTime {
-			t.Fatalf("upload time should have stayed the same, expected: %v, got: %v", uploadTime, s3)
+		if runningOnGCP() {
+			fmt.Print("Skipping the MD5 column check because overwriting is default on GCP as long as presigned URLs are enabled.")
+		} else if s2 != md5_column {
+			t.Fatal("The MD5 column should have stayed the same")
 		}
 
 		f, _ = os.Open(testData)
@@ -376,7 +380,7 @@ func TestPutOverwrite(t *testing.T) {
 		if s0 != fmt.Sprintf("test_put_overwrite/%v.gz", baseName(testData)) {
 			t.Fatalf("expected test_put_overwrite/%v.gz, got %v", baseName(testData), s0)
 		}
-		if s3 == uploadTime {
+		if s2 == md5_column {
 			t.Fatalf("file should have been overwritten.")
 		}
 	})
