@@ -340,6 +340,22 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 		},
 		{
+			dsn: "u:p@a?database=d&maxRetryCount=20",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "d", Schema: "",
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				MaxRetryCount:             20,
+			},
+			ocspMode: ocspModeFailOpen,
+		},
+		{
 			dsn: "u:p@a?database=d",
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
@@ -1207,6 +1223,16 @@ func TestDSN(t *testing.T) {
 				TmpDirPath: "/tmp",
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tmpDirPath=%2Ftmp&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:               "u",
+				Password:           "p",
+				Account:            "a.b.c",
+				IncludeRetryReason: ConfigBoolFalse,
+				MaxRetryCount:      30,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?includeRetryReason=false&maxRetryCount=30&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{

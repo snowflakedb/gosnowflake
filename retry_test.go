@@ -228,7 +228,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolTrue}).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolTrue}).doPost().setBody([]byte{0}).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
@@ -277,7 +277,7 @@ func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolFalse}).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolFalse}).doPost().setBody([]byte{0}).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
@@ -323,7 +323,7 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, constTimeProvider(123456), nil).doPost().setBody([]byte{0}).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
@@ -341,7 +341,7 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 	}
 }
 
-func TestRetryQueryFail(t *testing.T) {
+func TestRetryQueryFailWithTimeout(t *testing.T) {
 	logger.Info("Retry N times until there is a timeout and Fail")
 	client := &fakeHTTPClient{
 		statusCode: http.StatusTooManyRequests,
@@ -353,7 +353,37 @@ func TestRetryQueryFail(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 15*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 15*time.Second, 100, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+	if err == nil {
+		t.Fatal("should fail to run retry")
+	}
+	var values url.Values
+	values, err = url.ParseQuery(urlPtr.RawQuery)
+	if err != nil {
+		t.Fatalf("failed to parse the URL: %v", err)
+	}
+	retry, err := strconv.Atoi(values.Get(retryCountKey))
+	if err != nil {
+		t.Fatalf("failed to get retry counter: %v", err)
+	}
+	if retry < 2 {
+		t.Fatalf("not enough retry counter: %v", retry)
+	}
+}
+
+func TestRetryQueryFailWithMaxRetryCount(t *testing.T) {
+	logger.Info("Retry 3 times until retry reaches MaxRetryCount and Fail")
+	client := &fakeHTTPClient{
+		statusCode: http.StatusTooManyRequests,
+		success:    false,
+	}
+	urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
+	if err != nil {
+		t.Fatal("failed to parse the test URL")
+	}
+	_, err = newRetryHTTP(context.Background(),
+		client,
+		emptyRequest, urlPtr, make(map[string]string), 15*time.Hour, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
@@ -399,7 +429,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
@@ -419,7 +449,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 10*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 10*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
@@ -450,7 +480,7 @@ func TestRetryAuthLoginRequest(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBodyCreator(bodyCreator).execute()
+		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, nil).doPost().setBodyCreator(bodyCreator).execute()
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
@@ -471,7 +501,7 @@ func TestLoginRetry429(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
