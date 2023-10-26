@@ -339,7 +339,7 @@ func TestPutOverwrite(t *testing.T) {
 		}
 		if runningOnGCP() && s6 != skipped.String() && s6 != uploaded.String() {
 			t.Fatalf("expected SKIPPED or UPLOADED, got %v", s6)
-		} else if s6 != skipped.String() {
+		} else if !runningOnGCP() && s6 != skipped.String() {
 			t.Fatalf("expected SKIPPED, got %v", s6)
 		}
 
