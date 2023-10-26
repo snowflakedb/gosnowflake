@@ -1119,20 +1119,20 @@ func TestDSN(t *testing.T) {
 				User:             "u",
 				Password:         "p",
 				Account:          "a.b.c",
-				ClientTimeout:    300 * time.Second,
+				ClientTimeout:    400 * time.Second,
 				JWTClientTimeout: 60 * time.Second,
 			},
-			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientTimeout=300&jwtClientTimeout=60&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientTimeout=400&jwtClientTimeout=60&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
 				User:             "u",
 				Password:         "p",
 				Account:          "a.b.c",
-				ClientTimeout:    300 * time.Second,
+				ClientTimeout:    400 * time.Second,
 				JWTExpireTimeout: 30 * time.Second,
 			},
-			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientTimeout=300&jwtTimeout=30&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientTimeout=400&jwtTimeout=30&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{

@@ -12,7 +12,7 @@ import (
 // InternalClient is implemented by HTTPClient
 type InternalClient interface {
 	Get(context.Context, *url.URL, map[string]string, time.Duration) (*http.Response, error)
-	Post(context.Context, *url.URL, map[string]string, []byte, time.Duration, bool, currentTimeProvider) (*http.Response, error)
+	Post(context.Context, *url.URL, map[string]string, []byte, time.Duration, currentTimeProvider) (*http.Response, error)
 }
 
 type httpClient struct {
@@ -33,7 +33,6 @@ func (cli *httpClient) Post(
 	headers map[string]string,
 	body []byte,
 	timeout time.Duration,
-	raise4xx bool,
 	currentTimeProvider currentTimeProvider) (*http.Response, error) {
-	return cli.sr.FuncPost(ctx, cli.sr, url, headers, body, timeout, raise4xx, currentTimeProvider, nil)
+	return cli.sr.FuncPost(ctx, cli.sr, url, headers, body, timeout, currentTimeProvider, nil)
 }
