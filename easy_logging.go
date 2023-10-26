@@ -10,19 +10,19 @@ import (
 
 type initTrials struct {
 	everTriedToInitialize bool
-	initParameter         string
+	clientConfigFileInput string
 	configureCounter      int
 }
 
 var easyLoggingInitTrials = initTrials{
 	everTriedToInitialize: false,
-	initParameter:         "",
+	clientConfigFileInput: "",
 	configureCounter:      0,
 }
 
-func (i *initTrials) setInitTrial(initParameter string) {
+func (i *initTrials) setInitTrial(clientConfigFileInput string) {
 	i.everTriedToInitialize = true
-	i.initParameter = initParameter
+	i.clientConfigFileInput = clientConfigFileInput
 }
 
 func (i *initTrials) increaseReconfigureCounter() {
@@ -31,20 +31,20 @@ func (i *initTrials) increaseReconfigureCounter() {
 
 func (i *initTrials) reset() {
 	i.everTriedToInitialize = false
-	i.initParameter = ""
+	i.clientConfigFileInput = ""
 	i.configureCounter = 0
 }
 
-func initEasyLogging(configFilePathFromConnectionString string) error {
-	if !allowedToInitialize(configFilePathFromConnectionString) {
+func initEasyLogging(clientConfigFileInput string) error {
+	if !allowedToInitialize(clientConfigFileInput) {
 		return nil
 	}
-	config, err := getClientConfig(configFilePathFromConnectionString)
+	config, err := getClientConfig(clientConfigFileInput)
 	if err != nil {
 		return easyLoggingInitError(err)
 	}
 	if config == nil {
-		easyLoggingInitTrials.setInitTrial(configFilePathFromConnectionString)
+		easyLoggingInitTrials.setInitTrial(clientConfigFileInput)
 		return nil
 	}
 	var logLevel string
@@ -58,7 +58,7 @@ func initEasyLogging(configFilePathFromConnectionString string) error {
 		return easyLoggingInitError(err)
 	}
 	reconfigureEasyLogging(logLevel, logPath)
-	easyLoggingInitTrials.setInitTrial(configFilePathFromConnectionString)
+	easyLoggingInitTrials.setInitTrial(clientConfigFileInput)
 	easyLoggingInitTrials.increaseReconfigureCounter()
 	return nil
 }
@@ -102,11 +102,11 @@ func createLogWriter(logPath string) (io.Writer, *os.File, error) {
 	return io.MultiWriter(file, os.Stdout), file, nil
 }
 
-func allowedToInitialize(configFilePathFromConnectionString string) bool {
-	triedToInitializeWithoutConfigFile := easyLoggingInitTrials.everTriedToInitialize && easyLoggingInitTrials.initParameter == ""
-	isAllowedToInitialize := !easyLoggingInitTrials.everTriedToInitialize || (triedToInitializeWithoutConfigFile && configFilePathFromConnectionString != "")
-	if !isAllowedToInitialize && easyLoggingInitTrials.initParameter != configFilePathFromConnectionString {
-		logger.Warnf("Easy logging will not be configured for CLIENT_CONFIG_FILE=%s because it was previously configured for a different client config", configFilePathFromConnectionString)
+func allowedToInitialize(clientConfigFileInput string) bool {
+	triedToInitializeWithoutConfigFile := easyLoggingInitTrials.everTriedToInitialize && easyLoggingInitTrials.clientConfigFileInput == ""
+	isAllowedToInitialize := !easyLoggingInitTrials.everTriedToInitialize || (triedToInitializeWithoutConfigFile && clientConfigFileInput != "")
+	if !isAllowedToInitialize && easyLoggingInitTrials.clientConfigFileInput != clientConfigFileInput {
+		logger.Warnf("Easy logging will not be configured for CLIENT_CONFIG_FILE=%s because it was previously configured for a different client config", clientConfigFileInput)
 	}
 	return isAllowedToInitialize
 }
