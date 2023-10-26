@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	// MaxRetryCount specifies maximum number of subsequent retries
-	MaxRetryCount = 7
+	// defaultMaxRetryCount specifies maximum number of subsequent retries
+	defaultMaxRetryCount = 7
 )
 
 type waitAlgo struct {
@@ -39,9 +39,8 @@ var endpointsEligibleForRetry = []string{
 	sessionRequestPath,
 }
 
-var statusCodesEligibleForRetry = []int{
+var clientErrorsStatusCodesEligibleForRetry = []int{
 	http.StatusTooManyRequests,
-	http.StatusServiceUnavailable,
 	http.StatusBadRequest,
 	http.StatusMethodNotAllowed,
 	http.StatusRequestTimeout,
@@ -342,7 +341,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
 			// if any timeout is set
 			totalTimeout -= time.Duration(sleepTime * float64(time.Second))
-			if totalTimeout <= 0 || retryCounter >= MaxRetryCount {
+			if totalTimeout <= 0 || retryCounter >= defaultMaxRetryCount {
 				if err != nil {
 					return nil, err
 				}
@@ -395,5 +394,5 @@ func isRetryableError(req *http.Request, res *http.Response, err error) (bool, e
 }
 
 func isRetryableStatus(statusCode int) bool {
-	return (statusCode >= 500 && statusCode < 600) || contains(statusCodesEligibleForRetry, statusCode)
+	return (statusCode >= 500 && statusCode < 600) || contains(clientErrorsStatusCodesEligibleForRetry, statusCode)
 }

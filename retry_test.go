@@ -353,7 +353,7 @@ func TestRetryQueryFail(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 30*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 15*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
@@ -485,15 +485,13 @@ func TestLoginRetry429(t *testing.T) {
 	}
 }
 
-type retryableTc struct {
-	req      *http.Request
-	res      *http.Response
-	err      error
-	expected bool
-}
-
 func TestIsRetryable(t *testing.T) {
-	tcs := []retryableTc{
+	tcs := []struct {
+		req      *http.Request
+		res      *http.Response
+		err      error
+		expected bool
+	}{
 		{
 			req:      nil,
 			res:      nil,
