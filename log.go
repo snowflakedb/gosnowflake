@@ -30,7 +30,7 @@ type SFLogger interface {
 	GetLogLevel() string
 	WithContext(ctx context.Context) *rlog.Entry
 	SetOutput(output io.Writer)
-	CloseFileOnReset(file *os.File)
+	CloseFileOnReset(file *os.File) error
 	Reset()
 }
 
@@ -68,17 +68,26 @@ func (log *defaultLogger) GetLogLevel() string {
 }
 
 // CloseFileOnReset set a file to be closed when releasing resources occupied by the logger
-func (log *defaultLogger) CloseFileOnReset(file *os.File) {
+func (log *defaultLogger) CloseFileOnReset(file *os.File) error {
+	if log.file != nil {
+		return fmt.Errorf("could not set a file to close on logger reset because there were already set one")
+	}
 	log.file = file
+	return nil
 }
 
 // Reset replace logger by a default one and release resources occupied by the old one
 func (log *defaultLogger) Reset() {
-	logger = CreateDefaultLogger()
-	if log.file != nil {
-		err := log.file.Close()
+	newLogger := CreateDefaultLogger()
+	SetLogger(&newLogger)
+	closeLogFile(log.file)
+}
+
+func closeLogFile(file *os.File) {
+	if file != nil {
+		err := file.Close()
 		if err != nil {
-			logger.Errorf("failed to close log file while resetting the logger: %s", err)
+			logger.Errorf("failed to close log file: %s", err)
 		}
 	}
 }

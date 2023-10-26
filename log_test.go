@@ -110,7 +110,8 @@ func TestOffLogLevel(t *testing.T) {
 	logger := CreateDefaultLogger()
 	buf := &bytes.Buffer{}
 	logger.SetOutput(buf)
-	logger.SetLogLevel("OFF")
+	err := logger.SetLogLevel("OFF")
+	assertNilF(t, err)
 	SetLogger(&logger)
 
 	logger.Info("info")

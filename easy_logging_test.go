@@ -88,7 +88,8 @@ func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
 	err := openWithClientConfigFile(t, configFilePath)
 
 	assertNotNilF(t, err, "open config error")
-	assertStringContainsE(t, fmt.Sprintf("%s", err), "parsing client config failed", "error message")
+	assertStringContainsE(t, err.Error(), fmt.Sprint(ErrCodeClientConfigFailed), "error code")
+	assertStringContainsE(t, err.Error(), "parsing client config failed", "error message")
 
 	cleanUp()
 }
@@ -97,7 +98,10 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 	easyLoggingInitTrials.reset()
 
 	err := openWithClientConfigFile(t, "/not-existing-file.json")
+
 	assertNotNilF(t, err, "open config error")
+	assertStringContainsE(t, err.Error(), fmt.Sprint(ErrCodeClientConfigFailed), "error code")
+	assertStringContainsE(t, err.Error(), "parsing client config failed", "error message")
 
 	cleanUp()
 }
