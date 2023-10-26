@@ -48,7 +48,6 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		}, nil
 	}
 	if meta.presignedURL != nil {
-		println("meta.presignedURL is not null")
 		meta.resStatus = notFoundFile
 	} else {
 		URL, err := util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(filename, "/"))
