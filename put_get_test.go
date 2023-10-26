@@ -351,7 +351,7 @@ func TestPutOverwrite(t *testing.T) {
 			t.Fatal(err)
 		}
 		if runningOnGCP() {
-			fmt.Print("Skipping the MD5 column check because overwriting is default on GCP as long as presigned URLs are enabled.")
+			fmt.Println("Skipping the MD5 column check because overwriting is default on GCP as long as presigned URLs are enabled.")
 		} else if s2 != md5Column {
 			t.Fatal("The MD5 column should have stayed the same")
 		}
