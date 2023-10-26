@@ -339,7 +339,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
 			// if any timeout is set
 			totalTimeout -= time.Duration(sleepTime * float64(time.Second))
-			if totalTimeout <= 0 || retryCounter >= r.maxRetryCount {
+			if totalTimeout <= 0 || retryCounter > r.maxRetryCount {
 				if err != nil {
 					return nil, err
 				}

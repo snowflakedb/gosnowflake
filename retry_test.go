@@ -367,11 +367,12 @@ func TestRetryQueryFailWithTimeout(t *testing.T) {
 		t.Fatalf("failed to get retry counter: %v", err)
 	}
 	if retry < 2 {
-		t.Fatalf("not enough retry counter: %v", retry)
+		t.Fatalf("not enough retries: %v", retry)
 	}
 }
 
 func TestRetryQueryFailWithMaxRetryCount(t *testing.T) {
+	maxRetryCount := 3
 	logger.Info("Retry 3 times until retry reaches MaxRetryCount and Fail")
 	client := &fakeHTTPClient{
 		statusCode: http.StatusTooManyRequests,
@@ -383,7 +384,7 @@ func TestRetryQueryFailWithMaxRetryCount(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 15*time.Hour, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 15*time.Hour, maxRetryCount, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
@@ -392,12 +393,12 @@ func TestRetryQueryFailWithMaxRetryCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse the URL: %v", err)
 	}
-	retry, err := strconv.Atoi(values.Get(retryCountKey))
+	retryCount, err := strconv.Atoi(values.Get(retryCountKey))
 	if err != nil {
 		t.Fatalf("failed to get retry counter: %v", err)
 	}
-	if retry < 2 {
-		t.Fatalf("not enough retry counter: %v", retry)
+	if retryCount < 3 {
+		t.Fatalf("not enough retries: %v; expected %v", retryCount, maxRetryCount)
 	}
 }
 

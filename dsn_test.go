@@ -336,6 +336,7 @@ func TestParseDSN(t *testing.T) {
 				ClientTimeout:             defaultClientTimeout,
 				JWTClientTimeout:          defaultJWTClientTimeout,
 				IncludeRetryReason:        ConfigBoolTrue,
+				MaxRetryCount:             defaultMaxRetryCount,
 			},
 			ocspMode: ocspModeFailOpen,
 		},
