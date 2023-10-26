@@ -74,24 +74,26 @@ func reconfigureEasyLogging(logLevel string, logPath string) error {
 		return err
 	}
 	var output io.Writer
-	output, err = createLogWriter(logPath)
+	var file *os.File
+	output, file, err = createLogWriter(logPath)
 	if err != nil {
 		return err
 	}
 	logger.SetOutput(output)
+	logger.CloseFileOnReset(file)
 	return nil
 }
 
-func createLogWriter(logPath string) (io.Writer, error) {
+func createLogWriter(logPath string) (io.Writer, *os.File, error) {
 	if strings.EqualFold(logPath, "STDOUT") {
-		return os.Stdout, nil
+		return os.Stdout, nil, nil
 	}
 	logFileName := path.Join(logPath, "snowflake.log")
 	file, err := os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return io.MultiWriter(file, os.Stdout), nil
+	return io.MultiWriter(file, os.Stdout), file, nil
 }
 
 func allowedToInitialize(configFilePathFromConnectionString string) bool {

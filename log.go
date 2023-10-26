@@ -7,6 +7,7 @@ import (
 	"fmt"
 	rlog "github.com/sirupsen/logrus"
 	"io"
+	"os"
 	"path"
 	"runtime"
 	"strings"
@@ -29,6 +30,8 @@ type SFLogger interface {
 	GetLogLevel() string
 	WithContext(ctx context.Context) *rlog.Entry
 	SetOutput(output io.Writer)
+	CloseFileOnReset(file *os.File)
+	Reset()
 }
 
 // SFCallerPrettyfier to provide base file name and function name from calling frame used in SFLogger
@@ -39,6 +42,7 @@ func SFCallerPrettyfier(frame *runtime.Frame) (string, string) {
 type defaultLogger struct {
 	inner   *rlog.Logger
 	enabled bool
+	file    *os.File
 }
 
 // SetLogLevel set logging level for calling defaultLogger
@@ -55,11 +59,28 @@ func (log *defaultLogger) SetLogLevel(level string) error {
 	return nil
 }
 
+// GetLogLevel return current log level
 func (log *defaultLogger) GetLogLevel() string {
 	if !log.enabled {
 		return "OFF"
 	}
 	return log.inner.GetLevel().String()
+}
+
+// CloseFileOnReset set a file to be closed when releasing resources occupied by the logger
+func (log *defaultLogger) CloseFileOnReset(file *os.File) {
+	log.file = file
+}
+
+// Reset replace logger by a default one and release resources occupied by the old one
+func (log *defaultLogger) Reset() {
+	logger = CreateDefaultLogger()
+	if log.file != nil {
+		err := log.file.Close()
+		if err != nil {
+			logger.Errorf("failed to close log file while resetting the logger: %s", err)
+		}
+	}
 }
 
 // WithContext return Entry to include fields in context

@@ -135,8 +135,7 @@ func TestLogToConfiguredFile(t *testing.T) {
 }
 
 func cleanUp() {
-	logger.SetLogLevel(levelInfo)
-	logger.SetOutput(os.Stdout)
+	logger.Reset()
 	easyLoggingInitTrials.reset()
 }
 
