@@ -179,6 +179,7 @@ func getReaderFromBuffer(src **bytes.Buffer) io.Reader {
 // baseName returns the pathname of the path provided
 func baseName(path string) string {
 	base := filepath.Base(path)
+	println(base)
 	if base == "." || base == "/" {
 		return ""
 	}

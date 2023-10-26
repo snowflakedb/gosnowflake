@@ -350,6 +350,9 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 			t.Fatal(err)
 		}
+		println("first")
+		println("s0: " + s0)
+		println("baseName(s0)" + baseName(s0))
 		if runningOnGCP() {
 			fmt.Println("Skipping the MD5 column check because overwriting is default on GCP as long as presigned URLs are enabled.")
 		} else if s2 != md5Column {
@@ -377,6 +380,10 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 			t.Fatal(err)
 		}
+		println("s0: " + s0)
+		println("baseName(s0): " + s0)
+		println("testData: " + testData)
+		println("baseName(testData): " + testData)
 		if s0 != fmt.Sprintf("test_put_overwrite/%v.gz", baseName(testData)) {
 			t.Fatalf("expected test_put_overwrite/%v.gz, got %v", baseName(testData), s0)
 		}

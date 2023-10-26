@@ -175,6 +175,8 @@ func (util *snowflakeAzureClient) uploadFile(
 		return err
 	}
 	path := azureLoc.path + strings.TrimLeft(meta.dstFileName, "/")
+	println("path := azureLoc.path + strings.TrimLeft(meta.dstFileName...")
+	println(path)
 	client, ok := meta.client.(*azblob.Client)
 	if !ok {
 		return &SnowflakeError{
