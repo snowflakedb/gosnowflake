@@ -92,7 +92,6 @@ type SnowflakeFileTransferOptions struct {
 	compressSourceFromStream bool
 
 	/* PUT */
-	DisablePutOverwrite     bool
 	putCallback             *snowflakeProgressPercentage
 	putAzureCallback        *snowflakeProgressPercentage
 	putCallbackOutputStream *io.Writer
@@ -268,7 +267,7 @@ func (sfa *snowflakeFileTransferAgent) parseCommand() error {
 	if sfa.data.Parallel != 0 {
 		sfa.parallel = sfa.data.Parallel
 	}
-	sfa.overwrite = !sfa.options.DisablePutOverwrite
+	sfa.overwrite = sfa.data.Overwrite
 	sfa.stageLocationType = cloudType(strings.ToUpper(sfa.data.StageInfo.LocationType))
 	sfa.stageInfo = &sfa.data.StageInfo
 	sfa.presignedURLs = make([]string, 0)

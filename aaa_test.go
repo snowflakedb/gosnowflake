@@ -1,6 +1,8 @@
 package gosnowflake
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestShowServerVersion(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {

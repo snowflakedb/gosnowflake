@@ -298,16 +298,13 @@ func TestPutOverwrite(t *testing.T) {
 	f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
-		if _, err = dbt.exec("use role sysadmin"); err != nil {
-			t.Skip("snowflake admin account not accessible")
-		}
 		dbt.mustExec("rm @~/test_put_overwrite")
 
 		f, _ = os.Open(testData)
 		rows := dbt.mustQueryContext(
 			WithFileStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite",
-				strings.ReplaceAll(testData, "\\", "\\\\")))
+				strings.ReplaceAll(testData, "\\", "/")))
 		defer rows.Close()
 		f.Close()
 		defer dbt.mustExec("rm @~/test_put_overwrite")
@@ -321,36 +318,60 @@ func TestPutOverwrite(t *testing.T) {
 			t.Fatalf("expected UPLOADED, got %v", s6)
 		}
 
+		rows = dbt.mustQuery("ls @~/test_put_overwrite")
+		defer rows.Close()
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			t.Fatal(err)
+		}
+		md5Column := s2
+
 		f, _ = os.Open(testData)
-		ctx := WithFileTransferOptions(context.Background(),
-			&SnowflakeFileTransferOptions{
-				DisablePutOverwrite: true,
-			})
 		rows = dbt.mustQueryContext(
-			WithFileStream(ctx, f),
+			WithFileStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite",
-				strings.ReplaceAll(testData, "\\", "\\\\")))
+				strings.ReplaceAll(testData, "\\", "/")))
 		defer rows.Close()
 		f.Close()
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			t.Fatal(err)
 		}
-		if s6 != skipped.String() {
+		if runningOnGCP() && s6 != uploaded.String() {
+			// when this condition fails it means, that presgined URLs are replaced with downscoped tokens
+			// when it happens, all clouds should not overwrite by default, so all clouds should pass the `s6 == skipped` test
+			t.Fatalf("expected UPLOADED as long as presigned URLs are used, got %v", s6)
+		} else if !runningOnGCP() && s6 != skipped.String() {
 			t.Fatalf("expected SKIPPED, got %v", s6)
+		}
+
+		rows = dbt.mustQuery("ls @~/test_put_overwrite")
+		defer rows.Close()
+		assertTrueF(t, rows.Next(), "expected new rows")
+
+		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			t.Fatal(err)
+		}
+		if runningOnGCP() {
+			if s2 == md5Column {
+				// when this condition fails it means, that presgined URLs are replaced with downscoped tokens
+				// when it happens, all clouds should not overwrite by default, so all clouds should pass the `s2 == md5Column` check
+				t.Fatal("For GCP and presigned URLs (current on Github Actions) it should be overwritten by default")
+			}
+		} else if s2 != md5Column {
+			t.Fatal("The MD5 column should have stayed the same")
 		}
 
 		f, _ = os.Open(testData)
 		rows = dbt.mustQueryContext(
 			WithFileStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite overwrite=true",
-				strings.ReplaceAll(testData, "\\", "\\\\")))
+				strings.ReplaceAll(testData, "\\", "/")))
+		defer rows.Close()
 		f.Close()
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			t.Fatal(err)
 		}
 		if s6 != uploaded.String() {
 			t.Fatalf("expected UPLOADED, got %v", s6)
@@ -358,13 +379,15 @@ func TestPutOverwrite(t *testing.T) {
 
 		rows = dbt.mustQuery("ls @~/test_put_overwrite")
 		defer rows.Close()
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			t.Fatal(err)
 		}
 		if s0 != fmt.Sprintf("test_put_overwrite/%v.gz", baseName(testData)) {
 			t.Fatalf("expected test_put_overwrite/%v.gz, got %v", baseName(testData), s0)
+		}
+		if s2 == md5Column {
+			t.Fatalf("file should have been overwritten.")
 		}
 	})
 }
@@ -417,10 +440,9 @@ func testPutGet(t *testing.T, isStream bool) {
 		defer rows.Close()
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			t.Fatal(err)
 		}
 		if s6 != uploaded.String() {
 			t.Fatalf("expected %v, got: %v", uploaded, s6)
