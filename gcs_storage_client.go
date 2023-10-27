@@ -34,7 +34,7 @@ func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool
 		logger.Debug("Using GCS downscoped token")
 		return info.Creds.GcsAccessToken, nil
 	}
-	logger.Debug("No access token received from GS, using presigned url")
+	logger.Debugf("No access token received from GS, using presigned url: %s", info.PresignedURL)
 	return "", nil
 }
 
