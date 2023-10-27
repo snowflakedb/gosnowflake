@@ -258,3 +258,12 @@ type unixTimeProvider struct {
 func (utp *unixTimeProvider) currentTime() int64 {
 	return time.Now().UnixMilli()
 }
+
+func contains[T comparable](s []T, e T) bool {
+	for _, v := range s {
+		if v == e {
+			return true
+		}
+	}
+	return false
+}

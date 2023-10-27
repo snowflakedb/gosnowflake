@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -341,10 +342,10 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 }
 
 func TestRetryQueryFail(t *testing.T) {
-	logger.Info("Retry N times and Fail")
+	logger.Info("Retry N times until there is a timeout and Fail")
 	client := &fakeHTTPClient{
-		cnt:     4,
-		success: false,
+		statusCode: http.StatusTooManyRequests,
+		success:    false,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
 	if err != nil {
@@ -352,7 +353,7 @@ func TestRetryQueryFail(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 15*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	if err == nil {
 		t.Fatal("should fail to run retry")
 	}
@@ -470,7 +471,7 @@ func TestLoginRetry429(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doRaise4XX(true).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
 	if err != nil {
 		t.Fatal("failed to run retry")
 	}
@@ -481,5 +482,85 @@ func TestLoginRetry429(t *testing.T) {
 	}
 	if values.Get(retryCountKey) != "" {
 		t.Fatalf("no retry counter should be attached: %v", retryCountKey)
+	}
+}
+
+func TestIsRetryable(t *testing.T) {
+	tcs := []struct {
+		req      *http.Request
+		res      *http.Response
+		err      error
+		expected bool
+	}{
+		{
+			req:      nil,
+			res:      nil,
+			err:      nil,
+			expected: false,
+		},
+		{
+			req:      nil,
+			res:      &http.Response{StatusCode: http.StatusBadRequest},
+			err:      nil,
+			expected: false,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      nil,
+			err:      nil,
+			expected: false,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: heartBeatPath}},
+			res:      &http.Response{StatusCode: http.StatusBadRequest},
+			err:      nil,
+			expected: false,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      &http.Response{StatusCode: http.StatusNotFound},
+			expected: false,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      nil,
+			err:      errUnknownError(),
+			expected: true,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      &http.Response{StatusCode: http.StatusTooManyRequests},
+			err:      nil,
+			expected: true,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: queryRequestPath}},
+			res:      &http.Response{StatusCode: http.StatusServiceUnavailable},
+			err:      nil,
+			expected: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		result, _ := isRetryableError(tc.req, tc.res, tc.err)
+		if result != tc.expected {
+			t.Fatalf("expected %v, got %v; request: %v, response: %v", tc.expected, result, tc.req, tc.res)
+		}
+	}
+}
+
+func TestExponentialJitterBackoff(t *testing.T) {
+	retryTimes := make([]float64, 10)
+	inputTime := 1.0
+	for i := 0; i < 10; i++ {
+		resultTime := defaultWaitAlgo.calculateWaitBeforeRetry(i+1, inputTime)
+		retryTimes[i] = resultTime
+		inputTime = resultTime
+	}
+
+	for i := 0; i < 9; i++ {
+		if retryTimes[i] >= retryTimes[i+1] {
+			log.Fatalf("expected consequent values to be greater than previous ones; array: %v", retryTimes)
+		}
 	}
 }

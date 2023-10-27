@@ -5,23 +5,50 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"net/http"
 	"net/url"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
+const (
+	// defaultMaxRetryCount specifies maximum number of subsequent retries
+	defaultMaxRetryCount = 7
+)
+
+type waitAlgo struct {
+	mutex  *sync.Mutex // required for *rand.Rand usage
+	random *rand.Rand
+}
+
 var random *rand.Rand
+var defaultWaitAlgo *waitAlgo
+
+var endpointsEligibleForRetry = []string{
+	loginRequestPath,
+	tokenRequestPath,
+	authenticatorRequestPath,
+	queryRequestPath,
+	abortRequestPath,
+	sessionRequestPath,
+}
+
+var clientErrorsStatusCodesEligibleForRetry = []int{
+	http.StatusTooManyRequests,
+	http.StatusBadRequest,
+	http.StatusMethodNotAllowed,
+	http.StatusRequestTimeout,
+}
 
 func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
+	defaultWaitAlgo = &waitAlgo{mutex: &sync.Mutex{}, random: random}
 }
 
 const (
@@ -182,34 +209,28 @@ func isQueryRequest(url *url.URL) bool {
 	return strings.HasPrefix(url.Path, queryRequestPath)
 }
 
-type waitAlgo struct {
-	mutex *sync.Mutex   // required for random.Int63n
-	base  time.Duration // base wait time
-	cap   time.Duration // maximum wait time
-}
-
-func randSecondDuration(n time.Duration) time.Duration {
-	return time.Duration(random.Int63n(int64(n/time.Second))) * time.Second
-}
-
-// decorrelated jitter backoff
-func (w *waitAlgo) decorr(attempt int, sleep time.Duration) time.Duration {
+// jitter backoff in seconds
+func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, currWaitTime float64) float64 {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	t := 3*sleep - w.base
-	switch {
-	case t > 0:
-		return durationMin(w.cap, randSecondDuration(t)+w.base)
-	case t < 0:
-		return durationMin(w.cap, randSecondDuration(-t)+3*sleep)
+	var jitterPercentage = 0.5
+	if attempt < 2 {
+		jitterPercentage = 0.25 // to ensure there will be sleep time increase between attempts
 	}
-	return w.base
+	jitterAmount := w.getJitter(currWaitTime, jitterPercentage)
+	jitteredSleepTime := math.Pow(2, float64(attempt)) + jitterAmount
+	return jitteredSleepTime
 }
 
-var defaultWaitAlgo = &waitAlgo{
-	mutex: &sync.Mutex{},
-	base:  5 * time.Second,
-	cap:   160 * time.Second,
+func (w *waitAlgo) getJitter(currWaitTime float64, jitterPercentage float64) float64 {
+	multiplicationFactor := chooseRandomFromValues(w.random, []int{-1, 1}) // random int from [-1, 1]
+	jitterAmount := jitterPercentage * currWaitTime * float64(multiplicationFactor)
+	return jitterAmount
+}
+
+func chooseRandomFromValues[T any](random *rand.Rand, arr []T) T {
+	valIdx := random.Intn(len(arr))
+	return arr[valIdx]
 }
 
 type requestFunc func(method, urlStr string, body io.Reader) (*http.Request, error)
@@ -227,7 +248,6 @@ type retryHTTP struct {
 	headers             map[string]string
 	bodyCreator         bodyCreatorType
 	timeout             time.Duration
-	raise4XX            bool
 	currentTimeProvider currentTimeProvider
 	cfg                 *Config
 }
@@ -249,15 +269,9 @@ func newRetryHTTP(ctx context.Context,
 	instance.headers = headers
 	instance.timeout = timeout
 	instance.bodyCreator = emptyBodyCreator
-	instance.raise4XX = false
 	instance.currentTimeProvider = currentTimeProvider
 	instance.cfg = cfg
 	return &instance
-}
-
-func (r *retryHTTP) doRaise4XX(raise4XX bool) *retryHTTP {
-	r.raise4XX = raise4XX
-	return r
 }
 
 func (r *retryHTTP) doPost() *retryHTTP {
@@ -281,7 +295,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
 	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
-	sleepTime := time.Duration(0)
+	sleepTime := 1.0 // seconds
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
 
 	var requestGUIDReplacer requestGUIDReplacer
@@ -306,45 +320,37 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			req.Header.Set(k, v)
 		}
 		res, err = r.client.Do(req)
+		// check if it can retry.
+		retryable, err := isRetryableError(req, res, err)
+		if !retryable {
+			return res, err
+		}
 		if err != nil {
-			// check if it can retry.
-			doExit, err := r.isRetryableError(err)
-			if doExit {
-				return res, err
-			}
-			// cannot just return 4xx and 5xx status as the error can be sporadic. run often helps.
 			logger.WithContext(r.ctx).Warningf(
-				"failed http connection. no response is returned. err: %v. retrying...\n", err)
+				"failed http connection. err: %v. retrying...\n", err)
 		} else {
-			if res.StatusCode == http.StatusOK || r.raise4XX && res != nil && res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != 429 {
-				// exit if success
-				// or
-				// abort connection if raise4XX flag is enabled and the range of HTTP status code are 4XX.
-				// This is currently used for Snowflake login. The caller must generate an error object based on HTTP status.
-				break
-			}
 			logger.WithContext(r.ctx).Warningf(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
 			res.Body.Close()
 		}
-		// uses decorrelated jitter backoff
-		sleepTime = defaultWaitAlgo.decorr(retryCounter, sleepTime)
+		// uses exponential jitter backoff
+		retryCounter++
+		sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(retryCounter, sleepTime)
 
 		if totalTimeout > 0 {
 			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
 			// if any timeout is set
-			totalTimeout -= sleepTime
-			if totalTimeout <= 0 {
+			totalTimeout -= time.Duration(sleepTime * float64(time.Second))
+			if totalTimeout <= 0 || retryCounter >= defaultMaxRetryCount {
 				if err != nil {
 					return nil, err
 				}
 				if res != nil {
-					return nil, fmt.Errorf("timeout after %s. HTTP Status: %v. Hanging?", r.timeout, res.StatusCode)
+					return nil, fmt.Errorf("timeout after %s and %v retries. HTTP Status: %v. Hanging?", r.timeout, retryCounter, res.StatusCode)
 				}
-				return nil, fmt.Errorf("timeout after %s. Hanging?", r.timeout)
+				return nil, fmt.Errorf("timeout after %s and %v retries. Hanging?", r.timeout, retryCounter)
 			}
 		}
-		retryCounter++
 		if requestGUIDReplacer == nil {
 			requestGUIDReplacer = newRequestGUIDReplace(r.fullURL)
 		}
@@ -365,7 +371,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
 		logger.WithContext(r.ctx).Infof("retry count: %v, retry reason: %v", retryCounter, retryReason)
 
-		await := time.NewTimer(sleepTime)
+		await := time.NewTimer(time.Duration(sleepTime * float64(time.Second)))
 		select {
 		case <-await.C:
 			// retry the request
@@ -374,36 +380,19 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			return res, r.ctx.Err()
 		}
 	}
-	return res, err
 }
 
-func (r *retryHTTP) isRetryableError(err error) (bool, error) {
-	urlError, isURLError := err.(*url.Error)
-	if isURLError {
-		// context cancel or timeout
-		if urlError.Err == context.DeadlineExceeded || urlError.Err == context.Canceled {
-			return true, urlError.Err
-		}
-		if driverError, ok := urlError.Err.(*SnowflakeError); ok {
-			// Certificate Revoked
-			if driverError.Number == ErrOCSPStatusRevoked {
-				return true, err
-			}
-		}
-		if _, ok := urlError.Err.(x509.CertificateInvalidError); ok {
-			// Certificate is invalid
-			return true, err
-		}
-		if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
-			// Certificate is self-signed
-			return true, err
-		}
-		errString := urlError.Err.Error()
-		if runtime.GOOS == "darwin" && strings.HasPrefix(errString, "x509:") && strings.HasSuffix(errString, "certificate is expired") {
-			// Certificate is expired
-			return true, err
-		}
-
+func isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
+	if err != nil && res == nil { // Failed http connection. Most probably client timeout.
+		return true, err
 	}
-	return false, err
+	if res == nil || req == nil {
+		return false, err
+	}
+	isRetryableURL := contains(endpointsEligibleForRetry, req.URL.Path)
+	return isRetryableURL && isRetryableStatus(res.StatusCode), err
+}
+
+func isRetryableStatus(statusCode int) bool {
+	return (statusCode >= 500 && statusCode < 600) || contains(clientErrorsStatusCodesEligibleForRetry, statusCode)
 }

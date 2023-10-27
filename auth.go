@@ -226,7 +226,7 @@ func postAuth(
 
 	fullURL := sr.getFullURL(loginRequestPath, params)
 	logger.Infof("full URL: %v", fullURL)
-	resp, err := sr.FuncAuthPost(ctx, client, fullURL, headers, bodyCreator, timeout, true)
+	resp, err := sr.FuncAuthPost(ctx, client, fullURL, headers, bodyCreator, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -279,6 +279,8 @@ func getHeaders() map[string]string {
 	headers := make(map[string]string)
 	headers[httpHeaderContentType] = headerContentTypeApplicationJSON
 	headers[httpHeaderAccept] = headerAcceptTypeApplicationSnowflake
+	headers[httpClientAppID] = clientType
+	headers[httpClientAppVersion] = SnowflakeGoDriverVersion
 	headers[httpHeaderUserAgent] = userAgent
 	return headers
 }

@@ -364,3 +364,23 @@ func TestGetFromEnvFailOnMissing(t *testing.T) {
 		t.Error("should report error when there is missing env parameter")
 	}
 }
+
+type tcContains[T comparable] struct {
+	arr      []T
+	e        T
+	expected bool
+}
+
+func TestContains(t *testing.T) {
+	performContainsTestcase(tcContains[int]{[]int{1, 2, 3, 5}, 4, false}, t)
+	performContainsTestcase(tcContains[string]{[]string{"a", "b", "C", "F"}, "C", true}, t)
+	performContainsTestcase(tcContains[int]{[]int{1, 2, 3, 5}, 2, true}, t)
+	performContainsTestcase(tcContains[string]{[]string{"a", "b", "C", "F"}, "f", false}, t)
+}
+
+func performContainsTestcase[S comparable](tc tcContains[S], t *testing.T) {
+	result := contains(tc.arr, tc.e)
+	if result != tc.expected {
+		t.Errorf("contains failed; arr: %v, e: %v, should be %v but was %v", tc.arr, tc.e, tc.expected, result)
+	}
+}
