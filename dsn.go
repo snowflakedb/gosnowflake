@@ -19,12 +19,13 @@ import (
 )
 
 const (
-	defaultClientTimeout          = 300 * time.Second // Timeout for network round trip + read out http response
+	defaultClientTimeout          = 900 * time.Second // Timeout for network round trip + read out http response
 	defaultJWTClientTimeout       = 10 * time.Second  // Timeout for network round trip + read out http response but used for JWT auth
-	defaultLoginTimeout           = 60 * time.Second  // Timeout for retry for login EXCLUDING clientTimeout
+	defaultLoginTimeout           = 300 * time.Second // Timeout for retry for login EXCLUDING clientTimeout
 	defaultRequestTimeout         = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout             = 60 * time.Second
 	defaultExternalBrowserTimeout = 120 * time.Second // Timeout for external browser login
+	defaultMaxRetryCount          = 7                 // specifies maximum number of subsequent retries
 	defaultDomain                 = ".snowflakecomputing.com"
 )
 
@@ -74,6 +75,7 @@ type Config struct {
 	ClientTimeout          time.Duration // Timeout for network round trip + read out http response
 	JWTClientTimeout       time.Duration // Timeout for network round trip + read out http response used when JWT token auth is taking place
 	ExternalBrowserTimeout time.Duration // Timeout for external browser login
+	MaxRetryCount          int           // Specifies how many times non-periodic HTTP request can be retried
 
 	Application  string           // application name.
 	InsecureMode bool             // driver doesn't check certificate revocation status
@@ -204,6 +206,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.ExternalBrowserTimeout != defaultExternalBrowserTimeout {
 		params.Add("externalBrowserTimeout", strconv.FormatInt(int64(cfg.ExternalBrowserTimeout/time.Second), 10))
+	}
+	if cfg.MaxRetryCount != defaultMaxRetryCount {
+		params.Add("maxRetryCount", strconv.Itoa(cfg.MaxRetryCount))
 	}
 	if cfg.Application != clientType {
 		params.Add("application", cfg.Application)
@@ -471,6 +476,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if cfg.ExternalBrowserTimeout == 0 {
 		cfg.ExternalBrowserTimeout = defaultExternalBrowserTimeout
 	}
+	if cfg.MaxRetryCount == 0 {
+		cfg.MaxRetryCount = defaultMaxRetryCount
+	}
 	if strings.Trim(cfg.Application, " ") == "" {
 		cfg.Application = clientType
 	}
@@ -639,6 +647,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "externalBrowserTimeout":
 			cfg.ExternalBrowserTimeout, err = parseTimeout(value)
+			if err != nil {
+				return err
+			}
+		case "maxRetryCount":
+			cfg.MaxRetryCount, err = strconv.Atoi(value)
 			if err != nil {
 				return err
 			}

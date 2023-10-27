@@ -44,7 +44,7 @@ const (
 type (
 	funcGetType      func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
 	funcPostType     func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, currentTimeProvider, *Config) (*http.Response, error)
-	funcAuthPostType func(context.Context, *http.Client, *url.URL, map[string]string, bodyCreatorType, time.Duration) (*http.Response, error)
+	funcAuthPostType func(context.Context, *http.Client, *url.URL, map[string]string, bodyCreatorType, time.Duration, int) (*http.Response, error)
 	bodyCreatorType  func() ([]byte, error)
 )
 
@@ -58,6 +58,7 @@ type snowflakeRestful struct {
 	Protocol       string
 	LoginTimeout   time.Duration // Login timeout
 	RequestTimeout time.Duration // request timeout
+	MaxRetryCount  int
 
 	Client        *http.Client
 	JWTClient     *http.Client
@@ -165,7 +166,7 @@ func postRestful(
 	currentTimeProvider currentTimeProvider,
 	cfg *Config) (
 	*http.Response, error) {
-	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, currentTimeProvider, cfg).
+	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, sr.MaxRetryCount, currentTimeProvider, cfg).
 		doPost().
 		setBody(body).
 		execute()
@@ -178,7 +179,7 @@ func getRestful(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, defaultTimeProvider, nil).execute()
+	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, sr.MaxRetryCount, defaultTimeProvider, nil).execute()
 }
 
 func postAuthRestful(
@@ -187,9 +188,10 @@ func postAuthRestful(
 	fullURL *url.URL,
 	headers map[string]string,
 	bodyCreator bodyCreatorType,
-	timeout time.Duration) (
+	timeout time.Duration,
+	maxRetryCount int) (
 	*http.Response, error) {
-	return newRetryHTTP(ctx, client, http.NewRequest, fullURL, headers, timeout, defaultTimeProvider, nil).
+	return newRetryHTTP(ctx, client, http.NewRequest, fullURL, headers, timeout, maxRetryCount, defaultTimeProvider, nil).
 		doPost().
 		setBodyCreator(bodyCreator).
 		execute()
