@@ -174,7 +174,7 @@ This feature was introduced to make tracing of driver's logs easier.
 The feature is activated by a config file which can be:
 
 1. provided as clientConfigFile parameter.
-Remember to encode all special characters on file path if you use DSN string e. g.
+Remember to URL-encode all special characters on file path if you use DSN string e. g.
 `user:pass@account/db?clientConfigFile=%2Fsome-path%2Fclient_config.json` encodes clientConfigFile `/some-path/client_config.json`
 
 2. provided as environmental variable called `SF_CLIENT_CONFIG_FILE` (e. g. `export SF_CLIENT_CONFIG_FILE=/some-path/client_config.json`)
@@ -189,7 +189,7 @@ The search for a config file is executed in the order listed above.
 
 To minimize the number of searches for a configuration file it is executed only:
 - for the first connection
-- for the first connection with CLIENT_CONFIG_FILE parameter.
+- for the first connection with clientConfigFile parameter.
 
 The example of the configuration file is:
 ```
