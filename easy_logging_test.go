@@ -65,15 +65,23 @@ func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing
 	easyLoggingInitTrials.reset()
 
 	err := openWithClientConfigFile(t, "")
+	logger.Error("Error message")
 
 	assertNilF(t, err, "open config error")
 	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), tmpDirLogLevel, "tmp dir log level check")
 	assertEqualE(t, easyLoggingInitTrials.configureCounter, 1)
 
 	err = openWithClientConfigFile(t, customConfigFilePath)
+	logger.Error("Warning message")
+
 	assertNilF(t, err, "open config error")
 	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), customLogLevel, "custom dir log level check")
 	assertEqualE(t, easyLoggingInitTrials.configureCounter, 2)
+	var logContents []byte
+	logContents, err = os.ReadFile(path.Join(dir, "go", "snowflake.log"))
+	assertNilF(t, err, "read file error")
+	logs := notEmptyLines(string(logContents))
+	assertEqualE(t, len(logs), 2, "number of logs")
 }
 
 func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
@@ -120,10 +128,7 @@ func TestLogToConfiguredFile(t *testing.T) {
 	var logContents []byte
 	logContents, err = os.ReadFile(logFilePath)
 	assertNilF(t, err, "read file error")
-	notEmptyFunc := func(val string) bool {
-		return val != ""
-	}
-	logs := filterStrings(strings.Split(strings.ReplaceAll(string(logContents), "\r\n", "\n"), "\n"), notEmptyFunc)
+	logs := notEmptyLines(string(logContents))
 	assertEqualE(t, len(logs), 3, "number of logs")
 	errorLogs := filterStrings(logs, func(val string) bool {
 		return strings.Contains(val, "level=error")
@@ -135,8 +140,16 @@ func TestLogToConfiguredFile(t *testing.T) {
 	assertEqualE(t, len(warningLogs), 2, "warning logs count")
 }
 
+func notEmptyLines(lines string) []string {
+	notEmptyFunc := func(val string) bool {
+		return val != ""
+	}
+	return filterStrings(strings.Split(strings.ReplaceAll(lines, "\r\n", "\n"), "\n"), notEmptyFunc)
+}
+
 func cleanUp() {
-	logger.Reset()
+	newLogger := CreateDefaultLogger()
+	logger.Replace(&newLogger)
 	easyLoggingInitTrials.reset()
 }
 

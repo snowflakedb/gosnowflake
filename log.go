@@ -30,8 +30,8 @@ type SFLogger interface {
 	GetLogLevel() string
 	WithContext(ctx context.Context) *rlog.Entry
 	SetOutput(output io.Writer)
-	CloseFileOnReset(file *os.File) error
-	Reset()
+	CloseFileOnLoggerReplace(file *os.File) error
+	Replace(newLogger *SFLogger)
 }
 
 // SFCallerPrettyfier to provide base file name and function name from calling frame used in SFLogger
@@ -67,19 +67,18 @@ func (log *defaultLogger) GetLogLevel() string {
 	return log.inner.GetLevel().String()
 }
 
-// CloseFileOnReset set a file to be closed when releasing resources occupied by the logger
-func (log *defaultLogger) CloseFileOnReset(file *os.File) error {
-	if log.file != nil {
+// CloseFileOnLoggerReplace set a file to be closed when releasing resources occupied by the logger
+func (log *defaultLogger) CloseFileOnLoggerReplace(file *os.File) error {
+	if log.file != nil && log.file != file {
 		return fmt.Errorf("could not set a file to close on logger reset because there were already set one")
 	}
 	log.file = file
 	return nil
 }
 
-// Reset replace logger by a default one and release resources occupied by the old one
-func (log *defaultLogger) Reset() {
-	newLogger := CreateDefaultLogger()
-	SetLogger(&newLogger)
+// Replace substitute logger by a given one
+func (log *defaultLogger) Replace(newLogger *SFLogger) {
+	SetLogger(newLogger)
 	closeLogFile(log.file)
 }
 

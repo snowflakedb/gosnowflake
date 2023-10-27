@@ -57,10 +57,10 @@ func initEasyLogging(clientConfigFileInput string) error {
 	if err != nil {
 		return easyLoggingInitError(err)
 	}
-	reconfigureEasyLogging(logLevel, logPath)
+	err = reconfigureEasyLogging(logLevel, logPath)
 	easyLoggingInitTrials.setInitTrial(clientConfigFileInput)
 	easyLoggingInitTrials.increaseReconfigureCounter()
-	return nil
+	return err
 }
 
 func easyLoggingInitError(err error) error {
@@ -72,7 +72,8 @@ func easyLoggingInitError(err error) error {
 }
 
 func reconfigureEasyLogging(logLevel string, logPath string) error {
-	err := logger.SetLogLevel(logLevel)
+	newLogger := CreateDefaultLogger()
+	err := newLogger.SetLogLevel(logLevel)
 	if err != nil {
 		return err
 	}
@@ -82,11 +83,12 @@ func reconfigureEasyLogging(logLevel string, logPath string) error {
 	if err != nil {
 		return err
 	}
-	logger.SetOutput(output)
-	err = logger.CloseFileOnReset(file)
+	newLogger.SetOutput(output)
+	err = newLogger.CloseFileOnLoggerReplace(file)
 	if err != nil {
 		logger.Errorf("%s", err)
 	}
+	logger.Replace(&newLogger)
 	return nil
 }
 
