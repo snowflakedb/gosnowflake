@@ -127,6 +127,7 @@ type execResponseData struct {
 	Parallel                int64                 `json:"parallel,omitempty"`
 	Threshold               int64                 `json:"threshold,omitempty"`
 	AutoCompress            bool                  `json:"autoCompress,omitempty"`
+	Overwrite               bool                  `json:"overwrite,omitempty"`
 	SourceCompression       string                `json:"sourceCompression,omitempty"`
 	ShowEncryptionParameter bool                  `json:"clientShowEncryptionParameter,omitempty"`
 	EncryptionMaterial      encryptionWrapper     `json:"encryptionMaterial,omitempty"`
