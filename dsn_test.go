@@ -336,6 +336,23 @@ func TestParseDSN(t *testing.T) {
 				ClientTimeout:             defaultClientTimeout,
 				JWTClientTimeout:          defaultJWTClientTimeout,
 				IncludeRetryReason:        ConfigBoolTrue,
+				MaxRetryCount:             defaultMaxRetryCount,
+			},
+			ocspMode: ocspModeFailOpen,
+		},
+		{
+			dsn: "u:p@a?database=d&maxRetryCount=20",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "d", Schema: "",
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				MaxRetryCount:             20,
 			},
 			ocspMode: ocspModeFailOpen,
 		},
@@ -660,9 +677,39 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
-			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=http%3A%2F%2Fsc.okta.com&ocspFailOpen=true&validateDefaultParameters=true",
-			err: errFailedToParseAuthenticator(),
+			dsn: "u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&includeRetryReason=true&clientConfigFile=%2FUsers%2Fuser%2Fconfig.json",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
+				ClientTimeout:          defaultClientTimeout,
+				JWTClientTimeout:       defaultJWTClientTimeout,
+				ExternalBrowserTimeout: defaultExternalBrowserTimeout,
+				IncludeRetryReason:     ConfigBoolTrue,
+				ClientConfigFile:       "/Users/user/config.json",
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
 		},
+		{
+			dsn: "u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&includeRetryReason=true&clientConfigFile=c%3A%5CUsers%5Cuser%5Cconfig.json",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
+				ClientTimeout:          defaultClientTimeout,
+				JWTClientTimeout:       defaultJWTClientTimeout,
+				ExternalBrowserTimeout: defaultExternalBrowserTimeout,
+				IncludeRetryReason:     ConfigBoolTrue,
+				ClientConfigFile:       "c:\\Users\\user\\config.json",
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+    {
+      dsn: "u:p@a.snowflakecomputing.com:443?authenticator=http%3A%2F%2Fsc.okta.com&ocspFailOpen=true&validateDefaultParameters=true",
+      err: errFailedToParseAuthenticator(),
+    },
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -822,6 +869,7 @@ func TestParseDSN(t *testing.T) {
 				if test.config.IncludeRetryReason != cfg.IncludeRetryReason {
 					t.Fatalf("%v: Failed to match IncludeRetryReason. expected: %v, got: %v", i, test.config.IncludeRetryReason, cfg.IncludeRetryReason)
 				}
+				assertEqualF(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
 			case test.err != nil:
 				driverErrE, okE := test.err.(*SnowflakeError)
 				driverErrG, okG := err.(*SnowflakeError)
@@ -1214,6 +1262,16 @@ func TestDSN(t *testing.T) {
 		},
 		{
 			cfg: &Config{
+				User:               "u",
+				Password:           "p",
+				Account:            "a.b.c",
+				IncludeRetryReason: ConfigBoolFalse,
+				MaxRetryCount:      30,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?includeRetryReason=false&maxRetryCount=30&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
 				User:                     "u",
 				Password:                 "p",
 				Account:                  "a.b.c",
@@ -1239,6 +1297,26 @@ func TestDSN(t *testing.T) {
 				IncludeRetryReason: ConfigBoolTrue,
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:               "u",
+				Password:           "p",
+				Account:            "a.b.c",
+				IncludeRetryReason: ConfigBoolTrue,
+				ClientConfigFile:   "/Users/user/config.json",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientConfigFile=%2FUsers%2Fuser%2Fconfig.json&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:               "u",
+				Password:           "p",
+				Account:            "a.b.c",
+				IncludeRetryReason: ConfigBoolTrue,
+				ClientConfigFile:   "c:\\Users\\user\\config.json",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientConfigFile=c%3A%5CUsers%5Cuser%5Cconfig.json&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {

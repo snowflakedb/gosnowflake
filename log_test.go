@@ -106,6 +106,40 @@ func TestDefaultLogLevel(t *testing.T) {
 	}
 }
 
+func TestOffLogLevel(t *testing.T) {
+	logger := CreateDefaultLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+	err := logger.SetLogLevel("OFF")
+	assertNilF(t, err)
+	SetLogger(&logger)
+
+	logger.Info("info")
+	logger.Infof("info%v", "f")
+	logger.Infoln("infoln")
+	logger.Debug("debug")
+	logger.Debugf("debug%v", "f")
+	logger.Debugln("debugln")
+	logger.Trace("trace")
+	logger.Tracef("trace%v", "f")
+	logger.Traceln("traceln")
+	logger.Print("print")
+	logger.Printf("print%v", "f")
+	logger.Println("println")
+	logger.Warn("warn")
+	logger.Warnf("warn%v", "f")
+	logger.Warnln("warnln")
+	logger.Warning("warning")
+	logger.Warningf("warning%v", "f")
+	logger.Warningln("warningln")
+	logger.Error("error")
+	logger.Errorf("error%v", "f")
+	logger.Errorln("errorln")
+
+	assertEqualE(t, buf.Len(), 0, "log messages count")
+	assertEqualE(t, logger.GetLogLevel(), "OFF", "log level")
+}
+
 func TestLogSetLevel(t *testing.T) {
 	logger := GetLogger()
 	buf := &bytes.Buffer{}

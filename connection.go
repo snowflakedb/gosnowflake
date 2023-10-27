@@ -737,6 +737,10 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		queryContextCache:   (&queryContextCache{}).init(),
 		currentTimeProvider: defaultTimeProvider,
 	}
+	err := initEasyLogging(config.ClientConfigFile)
+	if err != nil {
+		return nil, err
+	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {
 		if sc.cfg.InsecureMode {
@@ -785,6 +789,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		TokenAccessor:       tokenAccessor,
 		LoginTimeout:        sc.cfg.LoginTimeout,
 		RequestTimeout:      sc.cfg.RequestTimeout,
+		MaxRetryCount:       sc.cfg.MaxRetryCount,
 		FuncPost:            postRestful,
 		FuncGet:             getRestful,
 		FuncAuthPost:        postAuthRestful,

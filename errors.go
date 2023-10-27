@@ -125,6 +125,8 @@ const (
 	ErrCodePrivateKeyParseError = 260010
 	// ErrCodeFailedToParseAuthenticator is an error code for the case where a DNS includes an invalid authenticator
 	ErrCodeFailedToParseAuthenticator = 260011
+	// ErrCodeClientConfigFailed is an error code for the case where clientConfigFile is invalid or applying client configuration fails
+	ErrCodeClientConfigFailed = 260012
 
 	/* network */
 
@@ -290,6 +292,7 @@ const (
 	errMsgNoResultIDs                        = "no result IDs returned with the multi-statement query"
 	errMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
 	errMsgInvalidPadding                     = "invalid padding on input"
+	errMsgClientConfigFailed                 = "client configuration failed: %v"
 )
 
 // Returned if a DNS doesn't include account parameter.
