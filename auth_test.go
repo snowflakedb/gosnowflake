@@ -675,18 +675,15 @@ func TestUnitAuthenticateWithConfigOkta(t *testing.T) {
 		Host:   "abc.com",
 	}
 	sc.rest = sr
-	sc.ctx = context.TODO()
+	sc.ctx = context.Background()
 
 	err = authenticateWithConfig(sc)
-	if err != nil {
-		t.Fatalf("failed to run. err: %v", err)
-	}
+	assertNilF(t, err, "expected to have no error.")
 
 	sr.FuncPostAuthSAML = postAuthSAMLError
 	err = authenticateWithConfig(sc)
-	if err == nil {
-		t.Fatalf("should have failed.")
-	}
+	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
+	assertEqualE(t, err.Error(), "failed to get SAML response")
 }
 
 func TestUnitAuthenticateExternalBrowser(t *testing.T) {

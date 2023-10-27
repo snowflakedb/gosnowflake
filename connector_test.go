@@ -60,9 +60,7 @@ func TestConnectorWithMissingConfig(t *testing.T) {
 
 	connector := NewConnector(&mock, config)
 	_, err := connector.Connect(context.Background())
-	if err == nil {
-		t.Fatalf("should have failed")
-	}
+	assertNotNilF(t, err, "the connection should have failed due to empty account.")
 	driverErr, ok := err.(*SnowflakeError)
 	if !ok {
 		t.Fatalf("Snowflake error is expected. err: %v", err.Error())

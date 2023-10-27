@@ -24,10 +24,7 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 }
 
 func (sc *snowflakeConn) isHeartbeatNil() bool {
-	if sc.rest != nil {
-		return sc.rest.HeartBeat == nil
-	}
-	return true
+	return sc.rest == nil || sc.rest.HeartBeat == nil
 }
 
 func (sc *snowflakeConn) startHeartBeat() {

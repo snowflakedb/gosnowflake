@@ -671,11 +671,7 @@ func TestUploadDownloadOneFileRequireCompressStream(t *testing.T) {
 }
 
 func testUploadDownloadOneFile(t *testing.T, isStream bool) {
-	tmpDir, err := os.MkdirTemp("", "data")
-	if err != nil {
-		t.Fatalf("cannot create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	uploadFile := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(uploadFile)
 	if err != nil {
@@ -749,8 +745,8 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.Remove("download.txt")
 	if downloadMeta.resStatus != downloaded {
 		t.Fatalf("failed to download file")
 	}
-	defer os.Remove("download.txt")
 }

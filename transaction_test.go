@@ -97,34 +97,31 @@ func withRetry(fn func(context.Context, *sql.Conn) error, numAttempts int, timeo
 }
 
 func TestTransactionError(t *testing.T) {
-	var err error
-	var tx snowflakeTx
-
 	sr := &snowflakeRestful{
 		FuncPostQuery: postQueryFail,
 	}
-	tx.sc = &snowflakeConn{
-		cfg:  &Config{Params: map[string]*string{}},
-		rest: sr,
+
+	tx := snowflakeTx{
+		sc: &snowflakeConn{
+			cfg:  &Config{Params: map[string]*string{}},
+			rest: sr,
+		},
+		ctx: context.Background(),
 	}
-	tx.ctx = context.Background()
 
 	// test for post query error when executing the txCommand
-	err = tx.execTxCommand(rollback)
-	if err == nil {
-		t.Fatal("should have failed to post query")
-	}
+	err := tx.execTxCommand(rollback)
+	assertNotNilF(t, err, "")
+	assertEqualE(t, err.Error(), "failed to get query response")
 
 	// test for invalid txCommand
 	err = tx.execTxCommand(2)
-	if err == nil {
-		t.Fatal("should have failed to execute unsupported transaction command")
-	}
+	assertNotNilF(t, err, "")
+	assertEqualE(t, err.Error(), "unsupported transaction command")
 
 	// test for bad connection error when snowflakeConn is nil
 	tx.sc = nil
 	err = tx.execTxCommand(rollback)
-	if err == nil {
-		t.Fatal("should have failed to execute txCommand when connection is nil")
-	}
+	assertNotNilF(t, err, "")
+	assertEqualE(t, err.Error(), "driver: bad connection")
 }
