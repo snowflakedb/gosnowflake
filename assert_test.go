@@ -10,6 +10,10 @@ import (
 	"testing"
 )
 
+func assertNilE(t *testing.T, actual any, descriptions ...string) {
+	errorOnNonEmpty(t, validateNil(actual, descriptions...))
+}
+
 func assertNilF(t *testing.T, actual any, descriptions ...string) {
 	fatalOnNonEmpty(t, validateNil(actual, descriptions...))
 }

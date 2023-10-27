@@ -678,7 +678,7 @@ func TestUnitAuthenticateWithConfigOkta(t *testing.T) {
 	sc.ctx = context.Background()
 
 	err = authenticateWithConfig(sc)
-	assertNilF(t, err, "expected to have no error.")
+	assertNilE(t, err, "expected to have no error.")
 
 	sr.FuncPostAuthSAML = postAuthSAMLError
 	err = authenticateWithConfig(sc)

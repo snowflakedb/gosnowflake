@@ -246,22 +246,16 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
 	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrCodeIdpConnectionError {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeIdpConnectionError, driverErr.Number)
-	}
+	assertTrueF(t, ok, "should be a SnowflakeError")
+	assertEqualE(t, driverErr.Number, ErrCodeIdpConnectionError)
+
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidURL
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
 	driverErr, ok = err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrCodeIdpConnectionError {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeIdpConnectionError, driverErr.Number)
-	}
+	assertTrueF(t, ok, "should be a SnowflakeError")
+	assertEqualE(t, driverErr.Number, ErrCodeIdpConnectionError)
+
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidTokenURL
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
@@ -297,10 +291,6 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
 	assertNotNilF(t, err, "should have failed at FuncGetSSO.")
 	driverErr, ok = err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrCodeSSOURLNotMatch {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeSSOURLNotMatch, driverErr.Number)
-	}
+	assertTrueF(t, ok, "should be a SnowflakeError")
+	assertEqualE(t, driverErr.Number, ErrCodeSSOURLNotMatch)
 }
