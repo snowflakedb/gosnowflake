@@ -17,11 +17,6 @@ import (
 	"time"
 )
 
-const (
-	// defaultMaxRetryCount specifies maximum number of subsequent retries
-	defaultMaxRetryCount = 7
-)
-
 type waitAlgo struct {
 	mutex  *sync.Mutex // required for *rand.Rand usage
 	random *rand.Rand
@@ -248,6 +243,7 @@ type retryHTTP struct {
 	headers             map[string]string
 	bodyCreator         bodyCreatorType
 	timeout             time.Duration
+	maxRetryCount       int
 	currentTimeProvider currentTimeProvider
 	cfg                 *Config
 }
@@ -258,6 +254,7 @@ func newRetryHTTP(ctx context.Context,
 	fullURL *url.URL,
 	headers map[string]string,
 	timeout time.Duration,
+	maxRetryCount int,
 	currentTimeProvider currentTimeProvider,
 	cfg *Config) *retryHTTP {
 	instance := retryHTTP{}
@@ -268,6 +265,7 @@ func newRetryHTTP(ctx context.Context,
 	instance.fullURL = fullURL
 	instance.headers = headers
 	instance.timeout = timeout
+	instance.maxRetryCount = maxRetryCount
 	instance.bodyCreator = emptyBodyCreator
 	instance.currentTimeProvider = currentTimeProvider
 	instance.cfg = cfg
@@ -341,7 +339,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
 			// if any timeout is set
 			totalTimeout -= time.Duration(sleepTime * float64(time.Second))
-			if totalTimeout <= 0 || retryCounter >= defaultMaxRetryCount {
+			if totalTimeout <= 0 || retryCounter > r.maxRetryCount {
 				if err != nil {
 					return nil, err
 				}

@@ -223,20 +223,14 @@ func TestRetryQuerySuccess(t *testing.T) {
 		t: t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
-	if err != nil {
-		t.Fatal("failed to parse the test URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolTrue}).doPost().setBody([]byte{0}).execute()
-	if err != nil {
-		t.Fatal("failed to run retry")
-	}
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolTrue}).doPost().setBody([]byte{0}).execute()
+	assertNilF(t, err, "failed to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
-	if err != nil {
-		t.Fatal("failed to parse the URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	retry, err := strconv.Atoi(values.Get(retryCountKey))
 	if err != nil {
 		t.Fatalf("failed to get retry counter: %v", err)
@@ -272,20 +266,14 @@ func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
 		t: t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
-	if err != nil {
-		t.Fatal("failed to parse the test URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolFalse}).doPost().setBody([]byte{0}).execute()
-	if err != nil {
-		t.Fatal("failed to run retry")
-	}
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolFalse}).doPost().setBody([]byte{0}).execute()
+	assertNilF(t, err, "failed to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
-	if err != nil {
-		t.Fatal("failed to parse the URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	retry, err := strconv.Atoi(values.Get(retryCountKey))
 	if err != nil {
 		t.Fatalf("failed to get retry counter: %v", err)
@@ -318,20 +306,14 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 		t: t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
-	if err != nil {
-		t.Fatal("failed to parse the test URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, constTimeProvider(123456), nil).doPost().setBody([]byte{0}).execute()
-	if err != nil {
-		t.Fatal("failed to run retry")
-	}
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, constTimeProvider(123456), nil).doPost().setBody([]byte{0}).execute()
+	assertNilF(t, err, "failed to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
-	if err != nil {
-		t.Fatal("failed to parse the URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	retry, err := strconv.Atoi(values.Get(retryCountKey))
 	if err != nil {
 		t.Fatalf("failed to get retry counter: %v", err)
@@ -341,33 +323,52 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 	}
 }
 
-func TestRetryQueryFail(t *testing.T) {
+func TestRetryQueryFailWithTimeout(t *testing.T) {
 	logger.Info("Retry N times until there is a timeout and Fail")
 	client := &fakeHTTPClient{
 		statusCode: http.StatusTooManyRequests,
 		success:    false,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
-	if err != nil {
-		t.Fatal("failed to parse the test URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 15*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
-	if err == nil {
-		t.Fatal("should fail to run retry")
+		emptyRequest, urlPtr, make(map[string]string), 15*time.Second, 100, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+	assertNotNilF(t, err, "should fail to run retry")
+	var values url.Values
+	values, err = url.ParseQuery(urlPtr.RawQuery)
+	assertNilF(t, err, fmt.Sprintf("failed to parse the URL: %v", err))
+	retry, err := strconv.Atoi(values.Get(retryCountKey))
+	assertNilF(t, err, fmt.Sprintf("failed to get retry counter: %v", err))
+	if retry < 2 {
+		t.Fatalf("not enough retries: %v", retry)
 	}
+}
+
+func TestRetryQueryFailWithMaxRetryCount(t *testing.T) {
+	maxRetryCount := 3
+	logger.Info("Retry 3 times until retry reaches MaxRetryCount and Fail")
+	client := &fakeHTTPClient{
+		statusCode: http.StatusTooManyRequests,
+		success:    false,
+	}
+	urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
+	assertNilF(t, err, "failed to parse the test URL")
+	_, err = newRetryHTTP(context.Background(),
+		client,
+		emptyRequest, urlPtr, make(map[string]string), 15*time.Hour, maxRetryCount, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+	assertNotNilF(t, err, "should fail to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
 		t.Fatalf("failed to parse the URL: %v", err)
 	}
-	retry, err := strconv.Atoi(values.Get(retryCountKey))
+	retryCount, err := strconv.Atoi(values.Get(retryCountKey))
 	if err != nil {
 		t.Fatalf("failed to get retry counter: %v", err)
 	}
-	if retry < 2 {
-		t.Fatalf("not enough retry counter: %v", retry)
+	if retryCount < 3 {
+		t.Fatalf("not enough retries: %v; expected %v", retryCount, maxRetryCount)
 	}
 }
 
@@ -394,35 +395,26 @@ func TestRetryLoginRequest(t *testing.T) {
 		},
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
-	if err != nil {
-		t.Fatal("failed to parse the test URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
-	if err != nil {
-		t.Fatal("failed to run retry")
-	}
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+	assertNilF(t, err, "failed to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
-	if err != nil {
-		t.Fatalf("failed to parse the URL: %v", err)
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	if values.Get(retryCountKey) != "" {
 		t.Fatalf("no retry counter should be attached: %v", retryCountKey)
 	}
 	logger.Info("Retry N times for timeouts and Fail")
 	client = &fakeHTTPClient{
-		cnt:     10,
 		success: false,
 		timeout: true,
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 10*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
-	if err == nil {
-		t.Fatal("should fail to run retry")
-	}
+		emptyRequest, urlPtr, make(map[string]string), 5*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+	assertNotNilF(t, err, "should fail to run retry")
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
 		t.Fatalf("failed to parse the URL: %v", err)
@@ -440,9 +432,7 @@ func TestRetryAuthLoginRequest(t *testing.T) {
 		timeout: true,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
-	if err != nil {
-		t.Fatal("failed to parse the test URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
 	execID := 0
 	bodyCreator := func() ([]byte, error) {
 		execID++
@@ -450,10 +440,8 @@ func TestRetryAuthLoginRequest(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBodyCreator(bodyCreator).execute()
-	if err != nil {
-		t.Fatal("failed to run retry")
-	}
+		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, nil).doPost().setBodyCreator(bodyCreator).execute()
+	assertNilF(t, err, "failed to run retry")
 	if lastReqBody := string(client.reqBody); lastReqBody != "execID: 3" {
 		t.Fatalf("body should be updated on each request, expected: execID: 3, last body: %v", lastReqBody)
 	}
@@ -466,20 +454,16 @@ func TestLoginRetry429(t *testing.T) {
 		statusCode: 429,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
-	if err != nil {
-		t.Fatal("failed to parse the test URL")
-	}
+	assertNilF(t, err, "failed to parse the test URL")
+
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
-	if err != nil {
-		t.Fatal("failed to run retry")
-	}
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
+	assertNilF(t, err, "failed to run retry")
+
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
-	if err != nil {
-		t.Fatalf("failed to parse the URL: %v", err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to parse the URL: %v", err))
 	if values.Get(retryCountKey) != "" {
 		t.Fatalf("no retry counter should be attached: %v", retryCountKey)
 	}

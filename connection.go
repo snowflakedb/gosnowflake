@@ -789,6 +789,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		TokenAccessor:       tokenAccessor,
 		LoginTimeout:        sc.cfg.LoginTimeout,
 		RequestTimeout:      sc.cfg.RequestTimeout,
+		MaxRetryCount:       sc.cfg.MaxRetryCount,
 		FuncPost:            postRestful,
 		FuncGet:             getRestful,
 		FuncAuthPost:        postAuthRestful,
