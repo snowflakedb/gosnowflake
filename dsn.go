@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	defaultClientTimeout          = 300 * time.Second // Timeout for network round trip + read out http response
+	defaultClientTimeout          = 900 * time.Second // Timeout for network round trip + read out http response
 	defaultJWTClientTimeout       = 10 * time.Second  // Timeout for network round trip + read out http response but used for JWT auth
-	defaultLoginTimeout           = 60 * time.Second  // Timeout for retry for login EXCLUDING clientTimeout
+	defaultLoginTimeout           = 300 * time.Second // Timeout for retry for login EXCLUDING clientTimeout
 	defaultRequestTimeout         = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout             = 60 * time.Second
 	defaultExternalBrowserTimeout = 120 * time.Second // Timeout for external browser login
