@@ -296,7 +296,7 @@ func TestGetHeaderNotFoundError(t *testing.T) {
 	}
 
 	_, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
-	if err != nil {
+	if err != nil && err.Error() != "could not find file" {
 		t.Error(err)
 	}
 

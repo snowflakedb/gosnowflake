@@ -237,9 +237,6 @@ func TestParseCommandInvalidStorageClientException(t *testing.T) {
 					EncryptionMaterials:     []snowflakeFileEncryption{mockEncMaterial1},
 				},
 			},
-			options: &SnowflakeFileTransferOptions{
-				DisablePutOverwrite: false,
-			},
 		}
 
 		err = sfa.parseCommand()

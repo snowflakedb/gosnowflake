@@ -960,5 +960,10 @@ Remember, to encode slashes.
 Example:
 
 	u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&tmpDirPath=%2Fother%2Ftmp
+
+## Using custom configuration for PUT/GET
+
+If you want to override some default configuration options, you can use `WithFileTransferOptions` context.
+There are multiple config parameters including progress bars or compression.
 */
 package gosnowflake
