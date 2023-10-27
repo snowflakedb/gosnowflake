@@ -103,6 +103,8 @@ type Config struct {
 	DisableQueryContextCache bool // Should HTAP query context cache be disabled
 
 	IncludeRetryReason ConfigBool // Should retried request contain retry reason
+
+	ClientConfigFile string // File path to the client configuration json file
 }
 
 // Validate enables testing if config is correct.
@@ -256,6 +258,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 
 	if cfg.ClientStoreTemporaryCredential != configBoolNotSet {
 		params.Add("clientStoreTemporaryCredential", strconv.FormatBool(cfg.ClientStoreTemporaryCredential != ConfigBoolFalse))
+	}
+	if cfg.ClientConfigFile != "" {
+		params.Add("clientConfigFile", cfg.ClientConfigFile)
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -747,6 +752,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			} else {
 				cfg.IncludeRetryReason = ConfigBoolFalse
 			}
+		case "clientConfigFile":
+			cfg.ClientConfigFile = value
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

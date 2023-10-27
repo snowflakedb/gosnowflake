@@ -676,6 +676,36 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
+		{
+			dsn: "u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&includeRetryReason=true&clientConfigFile=%2FUsers%2Fuser%2Fconfig.json",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
+				ClientTimeout:          defaultClientTimeout,
+				JWTClientTimeout:       defaultJWTClientTimeout,
+				ExternalBrowserTimeout: defaultExternalBrowserTimeout,
+				IncludeRetryReason:     ConfigBoolTrue,
+				ClientConfigFile:       "/Users/user/config.json",
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&includeRetryReason=true&clientConfigFile=c%3A%5CUsers%5Cuser%5Cconfig.json",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.r.c.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "s", ValidateDefaultParameters: ConfigBoolTrue, OCSPFailOpen: OCSPFailOpenTrue,
+				ClientTimeout:          defaultClientTimeout,
+				JWTClientTimeout:       defaultJWTClientTimeout,
+				ExternalBrowserTimeout: defaultExternalBrowserTimeout,
+				IncludeRetryReason:     ConfigBoolTrue,
+				ClientConfigFile:       "c:\\Users\\user\\config.json",
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -835,6 +865,7 @@ func TestParseDSN(t *testing.T) {
 				if test.config.IncludeRetryReason != cfg.IncludeRetryReason {
 					t.Fatalf("%v: Failed to match IncludeRetryReason. expected: %v, got: %v", i, test.config.IncludeRetryReason, cfg.IncludeRetryReason)
 				}
+				assertEqualF(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
 			case test.err != nil:
 				driverErrE, okE := test.err.(*SnowflakeError)
 				driverErrG, okG := err.(*SnowflakeError)
@@ -1262,6 +1293,26 @@ func TestDSN(t *testing.T) {
 				IncludeRetryReason: ConfigBoolTrue,
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:               "u",
+				Password:           "p",
+				Account:            "a.b.c",
+				IncludeRetryReason: ConfigBoolTrue,
+				ClientConfigFile:   "/Users/user/config.json",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientConfigFile=%2FUsers%2Fuser%2Fconfig.json&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:               "u",
+				Password:           "p",
+				Account:            "a.b.c",
+				IncludeRetryReason: ConfigBoolTrue,
+				ClientConfigFile:   "c:\\Users\\user\\config.json",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientConfigFile=c%3A%5CUsers%5Cuser%5Cconfig.json&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {
