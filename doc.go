@@ -123,6 +123,9 @@ The following connection parameters are supported:
   - disableQueryContextCache: disables parsing of query context returned from server and resending it to server as well.
     Default value is false.
 
+  - clientConfigFile: specifies the location of the client configuration json file.
+    In this file you can configure Easy Logging feature.
+
 All other parameters are interpreted as session parameters (https://docs.snowflake.com/en/sql-reference/parameters.html).
 For example, the TIMESTAMP_OUTPUT_FORMAT session parameter can be set by adding:
 
@@ -163,6 +166,46 @@ Users can use SetLogger in driver.go to set a customized logger for gosnowflake 
 
 In order to enable debug logging for the driver, user could use SetLogLevel("debug") in SFLogger interface
 as shown in demo code at cmd/logger.go. To redirect the logs SFlogger.SetOutput method could do the work.
+
+## Easy Logging
+
+The Easy Logging feature allows you to change log level and the location of a log file for the driver.
+This feature was introduced to make tracing of driver's logs easier.
+The feature is activated by a config file which can be:
+
+1. provided as clientConfigFile parameter.
+Remember to URL-encode all special characters on file path if you use DSN string e. g.
+`user:pass@account/db?clientConfigFile=%2Fsome-path%2Fclient_config.json` encodes clientConfigFile `/some-path/client_config.json`
+
+2. provided as environmental variable called `SF_CLIENT_CONFIG_FILE` (e. g. `export SF_CLIENT_CONFIG_FILE=/some-path/client_config.json`)
+
+3. found in the driver location by searching for sf_client_config.json file
+
+4. found in the home location by searching for sf_client_config.json file
+
+5. found in temp directory location by searching for sf_client_config.json file
+
+The search for a config file is executed in the order listed above.
+
+To minimize the number of searches for a configuration file it is executed only:
+- for the first connection
+- for the first connection with clientConfigFile parameter.
+
+The example of the configuration file is:
+```
+
+	{
+	  "common": {
+		"log_level": "INFO",
+		"log_path": "/some-path/some-directory"
+	  }
+	}
+
+```
+
+Available log levels are: OFF, ERROR, WARN, INFO, DEBUG, TRACE. The log levels are case insensitive.
+
+The logs land into `go` subfolder of given directory `/some-path/some-directory` so in this example: /some-path/some-directory/go.
 
 # Query request ID
 
