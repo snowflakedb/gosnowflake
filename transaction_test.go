@@ -95,3 +95,33 @@ func withRetry(fn func(context.Context, *sql.Conn) error, numAttempts int, timeo
 		return fmt.Errorf("context deadline exceeded, failed after [%d] attempts", numAttempts)
 	}
 }
+
+func TestTransactionError(t *testing.T) {
+	sr := &snowflakeRestful{
+		FuncPostQuery: postQueryFail,
+	}
+
+	tx := snowflakeTx{
+		sc: &snowflakeConn{
+			cfg:  &Config{Params: map[string]*string{}},
+			rest: sr,
+		},
+		ctx: context.Background(),
+	}
+
+	// test for post query error when executing the txCommand
+	err := tx.execTxCommand(rollback)
+	assertNotNilF(t, err, "")
+	assertEqualE(t, err.Error(), "failed to get query response")
+
+	// test for invalid txCommand
+	err = tx.execTxCommand(2)
+	assertNotNilF(t, err, "")
+	assertEqualE(t, err.Error(), "unsupported transaction command")
+
+	// test for bad connection error when snowflakeConn is nil
+	tx.sc = nil
+	err = tx.execTxCommand(rollback)
+	assertNotNilF(t, err, "")
+	assertEqualE(t, err.Error(), "driver: bad connection")
+}

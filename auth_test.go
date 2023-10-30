@@ -656,6 +656,36 @@ func TestUnitAuthenticateWithConfigMFA(t *testing.T) {
 	}
 }
 
+func TestUnitAuthenticateWithConfigOkta(t *testing.T) {
+	var err error
+	sr := &snowflakeRestful{
+		Protocol:         "https",
+		Host:             "abc.com",
+		Port:             443,
+		FuncPostAuthSAML: postAuthSAMLAuthSuccess,
+		FuncPostAuthOKTA: postAuthOKTASuccess,
+		FuncGetSSO:       getSSOSuccess,
+		FuncPostAuth:     postAuthSuccess,
+		TokenAccessor:    getSimpleTokenAccessor(),
+	}
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = AuthTypeOkta
+	sc.cfg.OktaURL = &url.URL{
+		Scheme: "https",
+		Host:   "abc.com",
+	}
+	sc.rest = sr
+	sc.ctx = context.Background()
+
+	err = authenticateWithConfig(sc)
+	assertNilE(t, err, "expected to have no error.")
+
+	sr.FuncPostAuthSAML = postAuthSAMLError
+	err = authenticateWithConfig(sc)
+	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
+	assertEqualE(t, err.Error(), "failed to get SAML response")
+}
+
 func TestUnitAuthenticateExternalBrowser(t *testing.T) {
 	var err error
 	sr := &snowflakeRestful{

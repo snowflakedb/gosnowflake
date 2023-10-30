@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -122,6 +123,10 @@ func TestUnitGetSSO(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get HTML content. err: %v", err)
 	}
+	_, err = getSSO(context.Background(), sr, &url.Values{}, make(map[string]string), "invalid!@url$%^", 0)
+	if err == nil {
+		t.Fatal("should have failed to parse URL.")
+	}
 }
 
 func postAuthSAMLError(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
@@ -135,6 +140,14 @@ func postAuthSAMLAuthFail(_ context.Context, _ *snowflakeRestful, _ map[string]s
 	}, nil
 }
 
+func postAuthSAMLAuthFailWithCode(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: false,
+		Code:    strconv.Itoa(ErrCodeIdpConnectionError),
+		Message: "SAML auth failed",
+	}, nil
+}
+
 func postAuthSAMLAuthSuccessButInvalidURL(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
 	return &authResponse{
 		Success: true,
@@ -142,6 +155,28 @@ func postAuthSAMLAuthSuccessButInvalidURL(_ context.Context, _ *snowflakeRestful
 		Data: authResponseMain{
 			TokenURL: "https://1abc.com/token",
 			SSOURL:   "https://2abc.com/sso",
+		},
+	}, nil
+}
+
+func postAuthSAMLAuthSuccessButInvalidTokenURL(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: true,
+		Message: "",
+		Data: authResponseMain{
+			TokenURL: "invalid!@url$%^",
+			SSOURL:   "https://abc.com/sso",
+		},
+	}, nil
+}
+
+func postAuthSAMLAuthSuccessButInvalidSSOURL(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	return &authResponse{
+		Success: true,
+		Message: "",
+		Data: authResponseMain{
+			TokenURL: "https://abc.com/token",
+			SSOURL:   "invalid!@url$%^",
 		},
 	}, nil
 }
@@ -177,6 +212,10 @@ func getSSOSuccess(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[
 	return []byte(`<html><form id="1" action="https&#x3a;&#x2f;&#x2f;abc.com&#x2f;"></form></html>`), nil
 }
 
+func getSSOSuccessButWrongPrefixURL(_ context.Context, _ *snowflakeRestful, _ *url.Values, _ map[string]string, _ string, _ time.Duration) ([]byte, error) {
+	return []byte(`<html><form id="1" action="https&#x3a;&#x2f;&#x2f;1abc.com&#x2f;"></form></html>`), nil
+}
+
 func TestUnitAuthenticateBySAML(t *testing.T) {
 	authenticator := &url.URL{
 		Scheme: "https",
@@ -195,46 +234,63 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 	}
 	var err error
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
-	if err == nil {
-		t.Fatal("should have failed.")
-	}
+	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
+	assertEqualE(t, err.Error(), "failed to get SAML response")
+
 	sr.FuncPostAuthSAML = postAuthSAMLAuthFail
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
-	if err == nil {
-		t.Fatal("should have failed.")
-	}
+	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
+	assertEqualE(t, err.Error(), "strconv.Atoi: parsing \"\": invalid syntax")
+
+	sr.FuncPostAuthSAML = postAuthSAMLAuthFailWithCode
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
+	driverErr, ok := err.(*SnowflakeError)
+	assertTrueF(t, ok, "should be a SnowflakeError")
+	assertEqualE(t, driverErr.Number, ErrCodeIdpConnectionError)
+
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidURL
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
-	if err == nil {
-		t.Fatal("should have failed.")
-	}
-	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrCodeIdpConnectionError {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeIdpConnectionError, driverErr.Number)
-	}
+	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
+	driverErr, ok = err.(*SnowflakeError)
+	assertTrueF(t, ok, "should be a SnowflakeError")
+	assertEqualE(t, driverErr.Number, ErrCodeIdpConnectionError)
+
+	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidTokenURL
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
+	assertEqualE(t, err.Error(), "failed to parse token URL. invalid!@url$%^")
+
+	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidSSOURL
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
+	assertEqualE(t, err.Error(), "failed to parse SSO URL. invalid!@url$%^")
+
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccess
 	sr.FuncPostAuthOKTA = postAuthOKTAError
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
-	if err == nil {
-		t.Fatal("should have failed.")
-	}
+	assertNotNilF(t, err, "should have failed at FuncPostAuthOKTA.")
+	assertEqualE(t, err.Error(), "failed to get SAML response")
+
 	sr.FuncPostAuthOKTA = postAuthOKTASuccess
 	sr.FuncGetSSO = getSSOError
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
-	if err == nil {
-		t.Fatal("should have failed.")
-	}
+	assertNotNilF(t, err, "should have failed at FuncGetSSO.")
+	assertEqualE(t, err.Error(), "failed to get SSO html")
+
 	sr.FuncGetSSO = getSSOSuccessButInvalidURL
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
-	if err == nil {
-		t.Fatal("should have failed.")
-	}
+	assertNotNilF(t, err, "should have failed at FuncGetSSO.")
+	assertHasPrefixE(t, err.Error(), "failed to find action field in HTML response")
+
 	sr.FuncGetSSO = getSSOSuccess
 	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
-	if err != nil {
-		t.Fatalf("failed. err: %v", err)
-	}
+	assertNilF(t, err, "should have succeeded at FuncGetSSO.")
+
+	sr.FuncGetSSO = getSSOSuccessButWrongPrefixURL
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	assertNotNilF(t, err, "should have failed at FuncGetSSO.")
+	driverErr, ok = err.(*SnowflakeError)
+	assertTrueF(t, ok, "should be a SnowflakeError")
+	assertEqualE(t, driverErr.Number, ErrCodeSSOURLNotMatch)
 }

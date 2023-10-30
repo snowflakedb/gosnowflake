@@ -327,6 +327,14 @@ func errInvalidRegion() *SnowflakeError {
 	}
 }
 
+// Returned if a DSN includes an invalid authenticator.
+func errFailedToParseAuthenticator() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeFailedToParseAuthenticator,
+		Message: "failed to parse an authenticator",
+	}
+}
+
 // Returned if the server side returns an error without meaningful message.
 func errUnknownError() *SnowflakeError {
 	return &SnowflakeError{
