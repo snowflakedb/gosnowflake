@@ -101,7 +101,7 @@ func createLogWriter(logPath string) (io.Writer, *os.File, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return io.MultiWriter(file, os.Stdout), file, nil
+	return file, file, nil
 }
 
 func allowedToInitialize(clientConfigFileInput string) bool {
