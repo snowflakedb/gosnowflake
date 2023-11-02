@@ -219,7 +219,11 @@ func doAuthenticateByExternalBrowser(
 	}
 	defer l.Close()
 
-	callbackPort := l.Addr().(*net.TCPAddr).Port
+	addr, ok := l.Addr().(*net.TCPAddr)
+	if !ok {
+		return authenticateByExternalBrowserResult{nil, nil, fmt.Errorf("interface convertion. expected type *net.TCPAddr but got %T", l.Addr())}
+	}
+	callbackPort := addr.Port
 	idpURL, proofKey, err := getIdpURLProofKey(
 		ctx, sr, authenticator, application, account, callbackPort)
 	if err != nil {
