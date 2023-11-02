@@ -869,5 +869,9 @@ func parsePrivateKeyFromFile(path string) (*rsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return privateKey.(*rsa.PrivateKey), nil
+	pk, ok := privateKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("interface convertion. expected type *rsa.PrivateKey, but got %T", privateKey)
+	}
+	return pk, nil
 }
