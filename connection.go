@@ -482,7 +482,8 @@ func (sc *snowflakeConn) GetQueryStatus(
 func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bindings ...driver.NamedValue) (ArrowStreamLoader, error) {
 	ctx = WithArrowBatches(context.WithValue(ctx, asyncMode, false))
 	ctx = setResultType(ctx, queryResultType)
-	data, err := sc.exec(ctx, query, false, false /* isinternal */, false, bindings)
+	isDesc := isDescribeOnly(ctx)
+	data, err := sc.exec(ctx, query, false, false /* isinternal */, isDesc, bindings)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
