@@ -21,8 +21,7 @@ import (
 const (
 	defaultClientTimeout          = 900 * time.Second // Timeout for network round trip + read out http response
 	defaultJWTClientTimeout       = 10 * time.Second  // Timeout for network round trip + read out http response but used for JWT auth
-	defaultLoginTimeout           = 60 * time.Second  // Timeout for login EXCLUDING clientTimeout
-	defaultRetryLoginTimeout      = 300 * time.Second // Timeout for subsequent login retries
+	defaultLoginTimeout           = 300 * time.Second // Timeout for retry for login EXCLUDING clientTimeout
 	defaultRequestTimeout         = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout             = 60 * time.Second
 	defaultExternalBrowserTimeout = 120 * time.Second // Timeout for external browser login
@@ -70,8 +69,7 @@ type Config struct {
 
 	OktaURL *url.URL
 
-	LoginTimeout           time.Duration // Login timeout EXCLUDING network roundtrip and read out http response
-	RetryLoginTimeout      time.Duration // Login max retries timeout EXCLUDING network roundtrip and read out http response
+	LoginTimeout           time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
 	RequestTimeout         time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
 	JWTExpireTimeout       time.Duration // JWT expire after timeout
 	ClientTimeout          time.Duration // Timeout for network round trip + read out http response
@@ -199,9 +197,6 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.LoginTimeout != defaultLoginTimeout {
 		params.Add("loginTimeout", strconv.FormatInt(int64(cfg.LoginTimeout/time.Second), 10))
-	}
-	if cfg.RetryLoginTimeout != defaultRetryLoginTimeout {
-		params.Add("retryLoginTimeout", strconv.FormatInt(int64(cfg.RetryLoginTimeout/time.Second), 10))
 	}
 	if cfg.RequestTimeout != defaultRequestTimeout {
 		params.Add("requestTimeout", strconv.FormatInt(int64(cfg.RequestTimeout/time.Second), 10))
@@ -463,12 +458,8 @@ func fillMissingConfigParameters(cfg *Config) error {
 			cfg.Host = cfg.Account + defaultDomain
 		}
 	}
-
 	if cfg.LoginTimeout == 0 {
 		cfg.LoginTimeout = defaultLoginTimeout
-	}
-	if cfg.RetryLoginTimeout == 0 {
-		cfg.RetryLoginTimeout = defaultRetryLoginTimeout
 	}
 	if cfg.RequestTimeout == 0 {
 		cfg.RequestTimeout = defaultRequestTimeout
@@ -641,11 +632,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "loginTimeout":
 			cfg.LoginTimeout, err = parseTimeout(value)
-			if err != nil {
-				return
-			}
-		case "retryLoginTimeout":
-			cfg.RetryLoginTimeout, err = parseTimeout(value)
 			if err != nil {
 				return
 			}

@@ -209,8 +209,7 @@ func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, currWaitTime float64) f
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	jitterAmount := w.getJitter(currWaitTime)
-	jitteredSleepTime := chooseRandomFromValues(w.random,
-		[]float64{currWaitTime + jitterAmount, math.Pow(2, float64(attempt)) + jitterAmount})
+	jitteredSleepTime := chooseRandomInRange(currWaitTime+jitterAmount, math.Pow(2, float64(attempt))+jitterAmount)
 	return jitteredSleepTime
 }
 
@@ -222,11 +221,6 @@ func (w *waitAlgo) getJitter(currWaitTime float64) float64 {
 
 func chooseRandomInRange(min float64, max float64) float64 {
 	return rand.Float64()*(max-min) + min
-}
-
-func chooseRandomFromValues[T any](random *rand.Rand, arr []T) T {
-	valIdx := random.Intn(len(arr))
-	return arr[valIdx]
 }
 
 type requestFunc func(method, urlStr string, body io.Reader) (*http.Request, error)
@@ -244,7 +238,6 @@ type retryHTTP struct {
 	headers             map[string]string
 	bodyCreator         bodyCreatorType
 	timeout             time.Duration
-	retryTimeout        time.Duration
 	maxRetryCount       int
 	currentTimeProvider currentTimeProvider
 	cfg                 *Config
@@ -256,7 +249,6 @@ func newRetryHTTP(ctx context.Context,
 	fullURL *url.URL,
 	headers map[string]string,
 	timeout time.Duration,
-	retryTimeout time.Duration,
 	maxRetryCount int,
 	currentTimeProvider currentTimeProvider,
 	cfg *Config) *retryHTTP {
@@ -268,7 +260,6 @@ func newRetryHTTP(ctx context.Context,
 	instance.fullURL = fullURL
 	instance.headers = headers
 	instance.timeout = timeout
-	instance.retryTimeout = retryTimeout
 	instance.maxRetryCount = maxRetryCount
 	instance.bodyCreator = emptyBodyCreator
 	instance.currentTimeProvider = currentTimeProvider
@@ -296,8 +287,6 @@ func (r *retryHTTP) setBodyCreator(bodyCreator bodyCreatorType) *retryHTTP {
 func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
 	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
-	retryTimeout := r.retryTimeout
-	logger.WithContext(r.ctx).Infof("retryHTTP.retryTimeout: %v", retryTimeout)
 	retryCounter := 0
 	sleepTime := 1.0 // seconds
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
@@ -341,11 +330,11 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		retryCounter++
 		sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(retryCounter, sleepTime)
 
-		if retryTimeout > 0 {
+		if totalTimeout > 0 {
 			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
 			// if any timeout is set
-			retryTimeout -= time.Duration(sleepTime * float64(time.Second))
-			if retryTimeout <= 0 || retryCounter > r.maxRetryCount {
+			totalTimeout -= time.Duration(sleepTime * float64(time.Second))
+			if totalTimeout <= 0 || retryCounter > r.maxRetryCount {
 				if err != nil {
 					return nil, err
 				}
@@ -372,7 +361,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 		r.fullURL = retryReasonUpdater.replaceOrAdd(retryReason)
 		r.fullURL = ensureClientStartTimeIsSet(r.fullURL, clientStartTime)
-		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, retryTimeout)
+		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
 		logger.WithContext(r.ctx).Infof("retry count: %v, retry reason: %v", retryCounter, retryReason)
 
 		await := time.NewTimer(time.Duration(sleepTime * float64(time.Second)))
