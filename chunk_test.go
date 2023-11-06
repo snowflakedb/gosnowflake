@@ -618,20 +618,21 @@ func TestQueryArrowStreamDescribeOnly(t *testing.T) {
 
 		query := fmt.Sprintf(selectRandomGenerator, numrows)
 		loader, err := sct.sc.QueryArrowStream(WithDescribeOnly(sct.sc.ctx), query)
-		if err != nil {
-			t.Error(err)
-		}
+		assertNilF(t, err, "failed to run query")
 
 		if loader.TotalRows() != 0 {
 			t.Errorf("total numrows did not match expected, wanted 0, got %v", loader.TotalRows())
 		}
 
 		batches, err := loader.GetBatches()
-		if err != nil {
-			t.Error(err)
-		}
+		assertNilF(t, err, "failed to get result")
 		if len(batches) != 0 {
 			t.Errorf("batches length did not match expected, wanted 0, got %v", len(batches))
+		}
+
+		rowtypes := loader.RowTypes()
+		if len(rowtypes) != 2 {
+			t.Errorf("rowTypes length did not match expected, wanted 2, got %v", len(rowtypes))
 		}
 	})
 }
