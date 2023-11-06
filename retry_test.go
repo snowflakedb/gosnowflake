@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -226,7 +225,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolTrue}).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 300*time.Second, 3, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolTrue}).doPost().setBody([]byte{0}).execute()
 	assertNilF(t, err, "failed to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
@@ -269,7 +268,7 @@ func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
 	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolFalse}).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 300*time.Second, 3, constTimeProvider(123456), &Config{IncludeRetryReason: ConfigBoolFalse}).doPost().setBody([]byte{0}).execute()
 	assertNilF(t, err, "failed to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
@@ -309,7 +308,7 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, constTimeProvider(123456), nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 300*time.Second, 3, constTimeProvider(123456), nil).doPost().setBody([]byte{0}).execute()
 	assertNilF(t, err, "failed to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
@@ -333,7 +332,7 @@ func TestRetryQueryFailWithTimeout(t *testing.T) {
 	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 15*time.Second, 100, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 15*time.Second, 300*time.Second, 100, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	assertNotNilF(t, err, "should fail to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
@@ -356,7 +355,7 @@ func TestRetryQueryFailWithMaxRetryCount(t *testing.T) {
 	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 15*time.Hour, maxRetryCount, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 15*time.Hour, 15*time.Hour, maxRetryCount, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	assertNotNilF(t, err, "should fail to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
@@ -398,7 +397,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 300*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	assertNilF(t, err, "failed to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
@@ -413,7 +412,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 5*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 5*time.Second, 300*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	assertNotNilF(t, err, "should fail to run retry")
 	values, err = url.ParseQuery(urlPtr.RawQuery)
 	if err != nil {
@@ -440,7 +439,7 @@ func TestRetryAuthLoginRequest(t *testing.T) {
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, nil).doPost().setBodyCreator(bodyCreator).execute()
+		http.NewRequest, urlPtr, make(map[string]string), 60*time.Second, 300*time.Second, 3, defaultTimeProvider, nil).doPost().setBodyCreator(bodyCreator).execute()
 	assertNilF(t, err, "failed to run retry")
 	if lastReqBody := string(client.reqBody); lastReqBody != "execID: 3" {
 		t.Fatalf("body should be updated on each request, expected: execID: 3, last body: %v", lastReqBody)
@@ -458,7 +457,7 @@ func TestLoginRetry429(t *testing.T) {
 
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
+		emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 300*time.Second, 3, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute() // enable doRaise4XXX
 	assertNilF(t, err, "failed to run retry")
 
 	var values url.Values
@@ -529,22 +528,6 @@ func TestIsRetryable(t *testing.T) {
 		result, _ := isRetryableError(tc.req, tc.res, tc.err)
 		if result != tc.expected {
 			t.Fatalf("expected %v, got %v; request: %v, response: %v", tc.expected, result, tc.req, tc.res)
-		}
-	}
-}
-
-func TestExponentialJitterBackoff(t *testing.T) {
-	retryTimes := make([]float64, 10)
-	inputTime := 1.0
-	for i := 0; i < 10; i++ {
-		resultTime := defaultWaitAlgo.calculateWaitBeforeRetry(i+1, inputTime)
-		retryTimes[i] = resultTime
-		inputTime = resultTime
-	}
-
-	for i := 0; i < 9; i++ {
-		if retryTimes[i] >= retryTimes[i+1] {
-			log.Fatalf("expected consequent values to be greater than previous ones; array: %v", retryTimes)
 		}
 	}
 }

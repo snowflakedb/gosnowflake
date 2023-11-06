@@ -44,7 +44,7 @@ const (
 type (
 	funcGetType      func(context.Context, *snowflakeRestful, *url.URL, map[string]string, time.Duration) (*http.Response, error)
 	funcPostType     func(context.Context, *snowflakeRestful, *url.URL, map[string]string, []byte, time.Duration, currentTimeProvider, *Config) (*http.Response, error)
-	funcAuthPostType func(context.Context, *http.Client, *url.URL, map[string]string, bodyCreatorType, time.Duration, int) (*http.Response, error)
+	funcAuthPostType func(context.Context, *http.Client, *url.URL, map[string]string, bodyCreatorType, time.Duration, time.Duration, int) (*http.Response, error)
 	bodyCreatorType  func() ([]byte, error)
 )
 
@@ -53,12 +53,13 @@ var emptyBodyCreator = func() ([]byte, error) {
 }
 
 type snowflakeRestful struct {
-	Host           string
-	Port           int
-	Protocol       string
-	LoginTimeout   time.Duration // Login timeout
-	RequestTimeout time.Duration // request timeout
-	MaxRetryCount  int
+	Host              string
+	Port              int
+	Protocol          string
+	LoginTimeout      time.Duration // Login timeout
+	RetryLoginTimeout time.Duration // Login timeout
+	RequestTimeout    time.Duration // request timeout
+	MaxRetryCount     int
 
 	Client        *http.Client
 	JWTClient     *http.Client
@@ -166,7 +167,7 @@ func postRestful(
 	currentTimeProvider currentTimeProvider,
 	cfg *Config) (
 	*http.Response, error) {
-	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, sr.MaxRetryCount, currentTimeProvider, cfg).
+	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, sr.RetryLoginTimeout, sr.MaxRetryCount, currentTimeProvider, cfg).
 		doPost().
 		setBody(body).
 		execute()
@@ -179,7 +180,7 @@ func getRestful(
 	headers map[string]string,
 	timeout time.Duration) (
 	*http.Response, error) {
-	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, sr.MaxRetryCount, defaultTimeProvider, nil).execute()
+	return newRetryHTTP(ctx, sr.Client, http.NewRequest, fullURL, headers, timeout, sr.RetryLoginTimeout, sr.MaxRetryCount, defaultTimeProvider, nil).execute()
 }
 
 func postAuthRestful(
@@ -189,9 +190,10 @@ func postAuthRestful(
 	headers map[string]string,
 	bodyCreator bodyCreatorType,
 	timeout time.Duration,
+	retryTimeout time.Duration,
 	maxRetryCount int) (
 	*http.Response, error) {
-	return newRetryHTTP(ctx, client, http.NewRequest, fullURL, headers, timeout, maxRetryCount, defaultTimeProvider, nil).
+	return newRetryHTTP(ctx, client, http.NewRequest, fullURL, headers, timeout, retryTimeout, maxRetryCount, defaultTimeProvider, nil).
 		doPost().
 		setBodyCreator(bodyCreator).
 		execute()

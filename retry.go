@@ -208,19 +208,20 @@ func isQueryRequest(url *url.URL) bool {
 func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, currWaitTime float64) float64 {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	var jitterPercentage = 0.5
-	if attempt < 2 {
-		jitterPercentage = 0.25 // to ensure there will be sleep time increase between attempts
-	}
-	jitterAmount := w.getJitter(currWaitTime, jitterPercentage)
-	jitteredSleepTime := math.Pow(2, float64(attempt)) + jitterAmount
+	jitterAmount := w.getJitter(currWaitTime)
+	jitteredSleepTime := chooseRandomFromValues(w.random,
+		[]float64{currWaitTime + jitterAmount, math.Pow(2, float64(attempt)) + jitterAmount})
 	return jitteredSleepTime
 }
 
-func (w *waitAlgo) getJitter(currWaitTime float64, jitterPercentage float64) float64 {
-	multiplicationFactor := chooseRandomFromValues(w.random, []int{-1, 1}) // random int from [-1, 1]
-	jitterAmount := jitterPercentage * currWaitTime * float64(multiplicationFactor)
+func (w *waitAlgo) getJitter(currWaitTime float64) float64 {
+	multiplicationFactor := chooseRandomInRange(-1, 1) // random int from [-1, 1]
+	jitterAmount := 0.5 * currWaitTime * multiplicationFactor
 	return jitterAmount
+}
+
+func chooseRandomInRange(min float64, max float64) float64 {
+	return rand.Float64()*(max-min) + min
 }
 
 func chooseRandomFromValues[T any](random *rand.Rand, arr []T) T {
@@ -243,6 +244,7 @@ type retryHTTP struct {
 	headers             map[string]string
 	bodyCreator         bodyCreatorType
 	timeout             time.Duration
+	retryTimeout        time.Duration
 	maxRetryCount       int
 	currentTimeProvider currentTimeProvider
 	cfg                 *Config
@@ -254,6 +256,7 @@ func newRetryHTTP(ctx context.Context,
 	fullURL *url.URL,
 	headers map[string]string,
 	timeout time.Duration,
+	retryTimeout time.Duration,
 	maxRetryCount int,
 	currentTimeProvider currentTimeProvider,
 	cfg *Config) *retryHTTP {
@@ -265,6 +268,7 @@ func newRetryHTTP(ctx context.Context,
 	instance.fullURL = fullURL
 	instance.headers = headers
 	instance.timeout = timeout
+	instance.retryTimeout = retryTimeout
 	instance.maxRetryCount = maxRetryCount
 	instance.bodyCreator = emptyBodyCreator
 	instance.currentTimeProvider = currentTimeProvider
@@ -292,6 +296,8 @@ func (r *retryHTTP) setBodyCreator(bodyCreator bodyCreatorType) *retryHTTP {
 func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
 	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
+	retryTimeout := r.retryTimeout
+	logger.WithContext(r.ctx).Infof("retryHTTP.retryTimeout: %v", retryTimeout)
 	retryCounter := 0
 	sleepTime := 1.0 // seconds
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
@@ -335,11 +341,11 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		retryCounter++
 		sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(retryCounter, sleepTime)
 
-		if totalTimeout > 0 {
+		if retryTimeout > 0 {
 			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
 			// if any timeout is set
-			totalTimeout -= time.Duration(sleepTime * float64(time.Second))
-			if totalTimeout <= 0 || retryCounter > r.maxRetryCount {
+			retryTimeout -= time.Duration(sleepTime * float64(time.Second))
+			if retryTimeout <= 0 || retryCounter > r.maxRetryCount {
 				if err != nil {
 					return nil, err
 				}
@@ -366,7 +372,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 		r.fullURL = retryReasonUpdater.replaceOrAdd(retryReason)
 		r.fullURL = ensureClientStartTimeIsSet(r.fullURL, clientStartTime)
-		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
+		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, retryTimeout)
 		logger.WithContext(r.ctx).Infof("retry count: %v, retry reason: %v", retryCounter, retryReason)
 
 		await := time.NewTimer(time.Duration(sleepTime * float64(time.Second)))
