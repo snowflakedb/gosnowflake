@@ -209,18 +209,14 @@ func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, currWaitTime float64) f
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	jitterAmount := w.getJitter(currWaitTime)
-	jitteredSleepTime := chooseRandomInRange(currWaitTime+jitterAmount, math.Pow(2, float64(attempt))+jitterAmount)
+	jitteredSleepTime := chooseRandomFromRange(currWaitTime+jitterAmount, math.Pow(2, float64(attempt))+jitterAmount)
 	return jitteredSleepTime
 }
 
 func (w *waitAlgo) getJitter(currWaitTime float64) float64 {
-	multiplicationFactor := chooseRandomInRange(-1, 1) // random int from [-1, 1]
+	multiplicationFactor := chooseRandomFromRange(-1, 1)
 	jitterAmount := 0.5 * currWaitTime * multiplicationFactor
 	return jitterAmount
-}
-
-func chooseRandomInRange(min float64, max float64) float64 {
-	return rand.Float64()*(max-min) + min
 }
 
 type requestFunc func(method, urlStr string, body io.Reader) (*http.Request, error)

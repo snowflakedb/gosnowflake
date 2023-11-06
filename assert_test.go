@@ -42,6 +42,10 @@ func assertHasPrefixE(t *testing.T, actual string, expectedPrefix string, descri
 	errorOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
 }
 
+func assertBetweenE(t *testing.T, value float64, min float64, max float64, descriptions ...string) {
+	errorOnNonEmpty(t, validateValueBetween(value, min, max, descriptions...))
+}
+
 func fatalOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
 		t.Fatal(formatErrorMessage(errMsg))
@@ -96,6 +100,14 @@ func validateHasPrefix(actual string, expectedPrefix string, descriptions ...str
 	}
 	desc := joinDescriptions(descriptions...)
 	return fmt.Sprintf("expected \"%s\" to start with \"%s\" but did not. %s", actual, expectedPrefix, desc)
+}
+
+func validateValueBetween(value float64, min float64, max float64, descriptions ...string) string {
+	if value > min && value < max {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected \"%f\" should be between \"%f\" and  \"%f\" but did not. %s", value, min, max, desc)
 }
 
 func joinDescriptions(descriptions ...string) string {
