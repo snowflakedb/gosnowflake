@@ -208,24 +208,15 @@ func isQueryRequest(url *url.URL) bool {
 func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, currWaitTime float64) float64 {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	var jitterPercentage = 0.5
-	if attempt < 2 {
-		jitterPercentage = 0.25 // to ensure there will be sleep time increase between attempts
-	}
-	jitterAmount := w.getJitter(currWaitTime, jitterPercentage)
-	jitteredSleepTime := math.Pow(2, float64(attempt)) + jitterAmount
+	jitterAmount := w.getJitter(currWaitTime)
+	jitteredSleepTime := chooseRandomFromRange(currWaitTime+jitterAmount, math.Pow(2, float64(attempt))+jitterAmount)
 	return jitteredSleepTime
 }
 
-func (w *waitAlgo) getJitter(currWaitTime float64, jitterPercentage float64) float64 {
-	multiplicationFactor := chooseRandomFromValues(w.random, []int{-1, 1}) // random int from [-1, 1]
-	jitterAmount := jitterPercentage * currWaitTime * float64(multiplicationFactor)
+func (w *waitAlgo) getJitter(currWaitTime float64) float64 {
+	multiplicationFactor := chooseRandomFromRange(-1, 1)
+	jitterAmount := 0.5 * currWaitTime * multiplicationFactor
 	return jitterAmount
-}
-
-func chooseRandomFromValues[T any](random *rand.Rand, arr []T) T {
-	valIdx := random.Intn(len(arr))
-	return arr[valIdx]
 }
 
 type requestFunc func(method, urlStr string, body io.Reader) (*http.Request, error)

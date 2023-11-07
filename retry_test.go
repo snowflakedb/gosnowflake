@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -533,18 +532,81 @@ func TestIsRetryable(t *testing.T) {
 	}
 }
 
-func TestExponentialJitterBackoff(t *testing.T) {
-	retryTimes := make([]float64, 10)
-	inputTime := 1.0
-	for i := 0; i < 10; i++ {
-		resultTime := defaultWaitAlgo.calculateWaitBeforeRetry(i+1, inputTime)
-		retryTimes[i] = resultTime
-		inputTime = resultTime
+func TestCalculateRetryWait(t *testing.T) {
+	// test for randomly selected attempt and currWaitTime values
+	// minSleepTime, maxSleepTime are limit values
+	tcs := []struct {
+		attempt      int
+		currWaitTime float64
+		minSleepTime float64
+		maxSleepTime float64
+	}{
+		{
+			attempt:      1,
+			currWaitTime: 3.346609,
+			minSleepTime: 0.326695,
+			maxSleepTime: 5.019914,
+		},
+		{
+			attempt:      2,
+			currWaitTime: 4.260357,
+			minSleepTime: 1.869821,
+			maxSleepTime: 6.390536,
+		},
+		{
+			attempt:      3,
+			currWaitTime: 7.857728,
+			minSleepTime: 3.928864,
+			maxSleepTime: 11.928864,
+		},
+		{
+			attempt:      4,
+			currWaitTime: 7.249255,
+			minSleepTime: 3.624628,
+			maxSleepTime: 19.624628,
+		},
+		{
+			attempt:      5,
+			currWaitTime: 23.598257,
+			minSleepTime: 11.799129,
+			maxSleepTime: 43.799129,
+		},
+		{
+			attempt:      8,
+			currWaitTime: 27.088613,
+			minSleepTime: 13.544306,
+			maxSleepTime: 269.544306,
+		},
+		{
+			attempt:      10,
+			currWaitTime: 30.879329,
+			minSleepTime: 15.439664,
+			maxSleepTime: 1039.439664,
+		},
+		{
+			attempt:      12,
+			currWaitTime: 39.919798,
+			minSleepTime: 19.959899,
+			maxSleepTime: 4115.959899,
+		},
+		{
+			attempt:      15,
+			currWaitTime: 33.750758,
+			minSleepTime: 16.875379,
+			maxSleepTime: 32784.875379,
+		},
+		{
+			attempt:      20,
+			currWaitTime: 32.357793,
+			minSleepTime: 16.178897,
+			maxSleepTime: 1048592.178897,
+		},
 	}
 
-	for i := 0; i < 9; i++ {
-		if retryTimes[i] >= retryTimes[i+1] {
-			log.Fatalf("expected consequent values to be greater than previous ones; array: %v", retryTimes)
-		}
+	for _, tc := range tcs {
+		t.Run(fmt.Sprintf("attmept: %v", tc.attempt), func(t *testing.T) {
+			result := defaultWaitAlgo.calculateWaitBeforeRetry(tc.attempt, tc.currWaitTime)
+			assertBetweenE(t, result, tc.minSleepTime, tc.maxSleepTime)
+		})
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"strings"
 	"sync"
@@ -266,4 +267,8 @@ func contains[T comparable](s []T, e T) bool {
 		}
 	}
 	return false
+}
+
+func chooseRandomFromRange(min float64, max float64) float64 {
+	return rand.Float64()*(max-min) + min
 }
