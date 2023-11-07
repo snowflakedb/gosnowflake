@@ -810,6 +810,40 @@ func TestGetFileHeaderEncryptionData(t *testing.T) {
 	}
 }
 
+func TestGetFileHeaderEncryptionDataInterfaceConversionError(t *testing.T) {
+	mockEncDataResp := "{\"EncryptionMode\":\"FullBlob\",\"WrappedContentKey\": {\"KeyId\":\"symmKey1\",\"EncryptedKey\":\"testencryptedkey12345678910==\",\"Algorithm\":\"AES_CBC_256\"},\"EncryptionAgent\": {\"Protocol\":\"1.0\",\"EncryptionAlgorithm\":\"AES_CBC_256\"},\"ContentEncryptionIV\":\"testIVkey12345678910==\",\"KeyWrappingMetadata\":{\"EncryptionLibrary\":\"Java 5.3.0\"}}"
+	mockMatDesc := "{\"queryid\":\"01abc874-0406-1bf0-0000-53b10668e056\",\"smkid\":\"92019681909886\",\"key\":\"128\"}"
+	info := execResponseStageInfo{
+		Location:     "gcs/teststage/users/34/",
+		LocationType: "GCS",
+		Creds: execResponseCredentials{
+			GcsAccessToken: "test-token-124456577",
+		},
+	}
+	meta := fileMetadata{
+		client:    1,
+		stageInfo: &info,
+		mockGcsClient: &clientMock{
+			DoFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					Status:     "200 OK",
+					StatusCode: 200,
+					Header: http.Header{
+						"X-Goog-Meta-Encryptiondata": []string{mockEncDataResp},
+						"Content-Length":             []string{"4256"},
+						"X-Goog-Meta-Sfc-Digest":     []string{"123456789abcdef"},
+						"X-Goog-Meta-Matdesc":        []string{mockMatDesc},
+					},
+				}, nil
+			},
+		},
+	}
+	_, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt")
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+}
+
 func TestUploadFileToGcsNoStatus(t *testing.T) {
 	info := execResponseStageInfo{
 		Location:     "gcs-blob/storage/users/456/",
@@ -959,5 +993,41 @@ func TestDownloadFileWithBadRequest(t *testing.T) {
 	if downloadMeta.resStatus != renewPresignedURL {
 		t.Fatalf("expected %v result status, got: %v",
 			renewPresignedURL, downloadMeta.resStatus)
+	}
+}
+
+func Test_snowflakeGcsClient_uploadFile(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs/teststage/users/34/",
+		LocationType: "GCS",
+		Creds: execResponseCredentials{
+			GcsAccessToken: "test-token-124456577",
+		},
+	}
+	meta := fileMetadata{
+		client:    1,
+		stageInfo: &info,
+	}
+	err := new(snowflakeGcsClient).uploadFile("somedata", &meta, nil, 1, 1)
+	if err == nil {
+		t.Error("should have raised an error")
+	}
+}
+
+func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "gcs/teststage/users/34/",
+		LocationType: "GCS",
+		Creds: execResponseCredentials{
+			GcsAccessToken: "test-token-124456577",
+		},
+	}
+	meta := fileMetadata{
+		client:    1,
+		stageInfo: &info,
+	}
+	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1)
+	if err == nil {
+		t.Error("should have raised an error")
 	}
 }
