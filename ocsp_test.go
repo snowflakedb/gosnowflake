@@ -42,7 +42,7 @@ func TestOCSP(t *testing.T) {
 		for _, tgt := range targetURL {
 			_ = os.Setenv(cacheServerEnabledEnv, enabled)
 			_ = os.Remove(cacheFileName) // clear cache file
-			ocspResponseCache = make(map[certIDKey][]interface{})
+			ocspResponseCache = make(map[certIDKey]*certCacheValue)
 			for _, tr := range transports {
 				t.Run(fmt.Sprintf("%v_%v", tgt, enabled), func(t *testing.T) {
 					c := &http.Client{
@@ -188,7 +188,7 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	}
 	b64Key := base64.StdEncoding.EncodeToString([]byte("DUMMY_VALUE"))
 	currentTime := float64(time.Now().UTC().Unix())
-	ocspResponseCache[dummyKey0] = []interface{}{currentTime, b64Key}
+	ocspResponseCache[dummyKey0] = &certCacheValue{currentTime, b64Key}
 	subject := &x509.Certificate{}
 	issuer := &x509.Certificate{}
 	ost := checkOCSPResponseCache(&dummyKey, subject, issuer)
@@ -196,13 +196,13 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspMissedCache, ost.code)
 	}
 	// old timestamp
-	ocspResponseCache[dummyKey] = []interface{}{float64(1395054952), b64Key}
+	ocspResponseCache[dummyKey] = &certCacheValue{float64(1395054952), b64Key}
 	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspCacheExpired {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspCacheExpired, ost.code)
 	}
 	// future timestamp
-	ocspResponseCache[dummyKey] = []interface{}{float64(1805054952), b64Key}
+	ocspResponseCache[dummyKey] = &certCacheValue{float64(1805054952), b64Key}
 	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
@@ -216,28 +216,16 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 		"koRzw/UU7zKsqiTB0ZN/rgJp+MocTdqQSGKvbZyR8d4u8eNQqi1x4Pk3yO/pftANFaJKGB+JPgKS3PQAqJaXcipNcEfqtl7y4PO6kqA" + // pragma: allowlist secret
 		"Jb4xI/OTXIrRA5TsT4cCioE"
 	// issuer is not a true issuer certificate
-	ocspResponseCache[dummyKey] = []interface{}{float64(currentTime - 1000), actualOcspResponse}
+	ocspResponseCache[dummyKey] = &certCacheValue{float64(currentTime - 1000), actualOcspResponse}
 	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedParseResponse, ost.code)
 	}
 	// invalid validity
-	ocspResponseCache[dummyKey] = []interface{}{float64(currentTime - 1000), actualOcspResponse}
+	ocspResponseCache[dummyKey] = &certCacheValue{float64(currentTime - 1000), actualOcspResponse}
 	ost = checkOCSPResponseCache(&dummyKey, subject, nil)
 	if ost.code != ocspInvalidValidity {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspInvalidValidity, ost.code)
-	}
-	// wrong timestamp type
-	ocspResponseCache[dummyKey] = []interface{}{uint32(currentTime - 1000), 123456}
-	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
-	if ost.code != ocspFailedDecodeResponse {
-		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
-	}
-	// wrong value type
-	ocspResponseCache[dummyKey] = []interface{}{float64(currentTime - 1000), 123456}
-	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
-	if ost.code != ocspFailedDecodeResponse {
-		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
 	}
 }
 

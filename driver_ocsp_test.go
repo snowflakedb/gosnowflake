@@ -35,7 +35,7 @@ func deleteOCSPCacheFile() {
 func deleteOCSPCacheAll() {
 	ocspResponseCacheLock.Lock()
 	defer ocspResponseCacheLock.Unlock()
-	ocspResponseCache = make(map[certIDKey][]interface{})
+	ocspResponseCache = make(map[certIDKey]*certCacheValue)
 }
 
 func cleanup() {
