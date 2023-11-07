@@ -141,8 +141,13 @@ type certIDKey struct {
 	SerialNumber  string
 }
 
+type certCacheValue struct {
+	ts             float64
+	ocspRespBase64 string
+}
+
 var (
-	ocspResponseCache     map[certIDKey][]interface{}
+	ocspResponseCache     map[certIDKey]*certCacheValue
 	ocspResponseCacheLock *sync.RWMutex
 )
 
@@ -269,9 +274,19 @@ func checkOCSPResponseCache(encodedCertID *certIDKey, subject, issuer *x509.Cert
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
 		return &ocspStatus{code: ocspNoServer}
 	}
-	ocspResponseCacheLock.RLock()
-	gotValueFromCache := ocspResponseCache[*encodedCertID]
-	ocspResponseCacheLock.RUnlock()
+
+	gotValueFromCache, ok := func() (*certCacheValue, bool) {
+		ocspResponseCacheLock.RLock()
+		defer ocspResponseCacheLock.RUnlock()
+		valueFromCache, ok := ocspResponseCache[*encodedCertID]
+		return valueFromCache, ok
+	}()
+	if !ok {
+		return &ocspStatus{
+			code: ocspMissedCache,
+			err:  fmt.Errorf("miss cache data. subject: %v", subject),
+		}
+	}
 
 	status := extractOCSPCacheResponseValue(gotValueFromCache, subject, issuer)
 	if !isValidOCSPStatus(status.code) {
@@ -282,9 +297,9 @@ func checkOCSPResponseCache(encodedCertID *certIDKey, subject, issuer *x509.Cert
 
 func deleteOCSPCache(encodedCertID *certIDKey) {
 	ocspResponseCacheLock.Lock()
+	defer ocspResponseCacheLock.Unlock()
 	delete(ocspResponseCache, *encodedCertID)
 	cacheUpdated = true
-	ocspResponseCacheLock.Unlock()
 }
 
 func validateOCSP(ocspRes *ocsp.Response) *ocspStatus {
@@ -354,7 +369,7 @@ func checkOCSPCacheServer(
 	req requestFunc,
 	ocspServerHost *url.URL,
 	totalTimeout time.Duration) (
-	cacheContent *map[string][]interface{},
+	cacheContent *map[string]*certCacheValue,
 	ocspS *ocspStatus) {
 	var respd map[string][]interface{}
 	headers := make(map[string]string)
@@ -388,7 +403,15 @@ func checkOCSPCacheServer(
 			}
 		}
 	}
-	return &respd, &ocspStatus{
+	buf := make(map[string]*certCacheValue)
+	for key, value := range respd {
+		ok, ts, ocspRespBase64 := extractTsAndOcspRespBase64(value)
+		if !ok {
+			continue
+		}
+		buf[key] = &certCacheValue{ts, ocspRespBase64}
+	}
+	return &buf, &ocspStatus{
 		code: ocspSuccess,
 	}
 }
@@ -608,7 +631,7 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	if !isValidOCSPStatus(ret.code) {
 		return ret // return invalid
 	}
-	v := []interface{}{float64(time.Now().UTC().Unix()), base64.StdEncoding.EncodeToString(ocspResBytes)}
+	v := &certCacheValue{float64(time.Now().UTC().Unix()), base64.StdEncoding.EncodeToString(ocspResBytes)}
 	ocspResponseCacheLock.Lock()
 	ocspResponseCache[*encodedCertID] = v
 	cacheUpdated = true
@@ -804,7 +827,7 @@ func initOCSPCache() {
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
 		return
 	}
-	ocspResponseCache = make(map[certIDKey][]interface{})
+	ocspResponseCache = make(map[certIDKey]*certCacheValue)
 	ocspResponseCacheLock = &sync.RWMutex{}
 
 	logger.Infof("reading OCSP Response cache file. %v\n", cacheFileName)
@@ -816,7 +839,6 @@ func initOCSPCache() {
 	defer f.Close()
 
 	buf := make(map[string][]interface{})
-
 	r := bufio.NewReader(f)
 	dec := json.NewDecoder(r)
 	for {
@@ -827,75 +849,75 @@ func initOCSPCache() {
 			return
 		}
 	}
+
 	for k, cacheValue := range buf {
-		status := extractOCSPCacheResponseValueWithoutSubject(cacheValue)
+		ok, ts, ocspRespBase64 := extractTsAndOcspRespBase64(cacheValue)
+		if !ok {
+			continue
+		}
+		certValue := &certCacheValue{ts, ocspRespBase64}
+		status := extractOCSPCacheResponseValueWithoutSubject(certValue)
 		if !isValidOCSPStatus(status.code) {
 			continue
 		}
 		cacheKey := encodeCertIDKey(k)
-		ocspResponseCache[*cacheKey] = cacheValue
+		ocspResponseCache[*cacheKey] = certValue
 
 	}
 	cacheUpdated = false
 }
-func extractOCSPCacheResponseValueWithoutSubject(cacheValue []interface{}) *ocspStatus {
+
+func extractTsAndOcspRespBase64(value []interface{}) (bool, float64, string) {
+	ts, ok := value[0].(float64)
+	if !ok {
+		logger.Warnf("cannot cast %v as float64", value[0])
+		return false, -1, ""
+	}
+	ocspRespBase64, ok := value[1].(string)
+	if !ok {
+		logger.Warnf("cannot cast %v as string", value[1])
+		return false, -1, ""
+	}
+	return true, ts, ocspRespBase64
+}
+
+func extractOCSPCacheResponseValueWithoutSubject(cacheValue *certCacheValue) *ocspStatus {
 	return extractOCSPCacheResponseValue(cacheValue, nil, nil)
 }
 
-func extractOCSPCacheResponseValue(cacheValue []interface{}, subject, issuer *x509.Certificate) *ocspStatus {
+func extractOCSPCacheResponseValue(certCacheValue *certCacheValue, subject, issuer *x509.Certificate) *ocspStatus {
 	subjectName := "Unknown"
 	if subject != nil {
 		subjectName = subject.Subject.CommonName
 	}
 
 	curTime := time.Now()
-	if len(cacheValue) != 2 {
+	currentTime := float64(curTime.UTC().Unix())
+	if currentTime-certCacheValue.ts >= cacheExpire {
 		return &ocspStatus{
-			code: ocspMissedCache,
-			err:  fmt.Errorf("miss cache data. subject: %v", subjectName),
-		}
-	}
-	if ts, ok := cacheValue[0].(float64); ok {
-		currentTime := float64(curTime.UTC().Unix())
-		if currentTime-ts >= cacheExpire {
-			return &ocspStatus{
-				code: ocspCacheExpired,
-				err: fmt.Errorf("cache expired. current: %v, cache: %v",
-					time.Unix(int64(currentTime), 0).UTC(), time.Unix(int64(ts), 0).UTC()),
-			}
-		}
-	} else {
-		return &ocspStatus{
-			code: ocspFailedDecodeResponse,
-			err:  errors.New("the first cache element is not float64"),
+			code: ocspCacheExpired,
+			err: fmt.Errorf("cache expired. current: %v, cache: %v",
+				time.Unix(int64(currentTime), 0).UTC(), time.Unix(int64(certCacheValue.ts), 0).UTC()),
 		}
 	}
 	var err error
 	var r *ocsp.Response
-	if s, ok := cacheValue[1].(string); ok {
-		var b []byte
-		b, err = base64.StdEncoding.DecodeString(s)
-		if err != nil {
-			return &ocspStatus{
-				code: ocspFailedDecodeResponse,
-				err:  fmt.Errorf("failed to decode OCSP Response value in a cache. subject: %v, err: %v", subjectName, err),
-			}
-		}
-		// check the revocation status here
-		r, err = ocsp.ParseResponse(b, issuer)
-		if err != nil {
-			logger.Warnf("the second cache element is not a valid OCSP Response. Ignored. subject: %v\n", subjectName)
-			return &ocspStatus{
-				code: ocspFailedParseResponse,
-				err:  fmt.Errorf("failed to parse OCSP Respose. subject: %v, err: %v", subjectName, err),
-			}
-		}
-	} else {
+	var b []byte
+	b, err = base64.StdEncoding.DecodeString(certCacheValue.ocspRespBase64)
+	if err != nil {
 		return &ocspStatus{
 			code: ocspFailedDecodeResponse,
-			err:  errors.New("the second cache element is not string"),
+			err:  fmt.Errorf("failed to decode OCSP Response value in a cache. subject: %v, err: %v", subjectName, err),
 		}
-
+	}
+	// check the revocation status here
+	r, err = ocsp.ParseResponse(b, issuer)
+	if err != nil {
+		logger.Warnf("the second cache element is not a valid OCSP Response. Ignored. subject: %v\n", subjectName)
+		return &ocspStatus{
+			code: ocspFailedParseResponse,
+			err:  fmt.Errorf("failed to parse OCSP Respose. subject: %v, err: %v", subjectName, err),
+		}
 	}
 	return validateOCSP(r)
 }
@@ -939,7 +961,7 @@ func writeOCSPCacheFile() {
 	buf := make(map[string][]interface{})
 	for k, v := range ocspResponseCache {
 		cacheKeyInBase64 := decodeCertIDKey(&k)
-		buf[cacheKeyInBase64] = v
+		buf[cacheKeyInBase64] = []interface{}{v.ts, v.ocspRespBase64}
 	}
 
 	j, err := json.Marshal(buf)
