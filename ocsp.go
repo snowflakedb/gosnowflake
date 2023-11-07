@@ -146,9 +146,16 @@ type certCacheValue struct {
 	ocspRespBase64 string
 }
 
+type parsedOcspRespKey struct {
+	ocspRespBase64 string
+	issuer         *x509.Certificate
+}
+
 var (
-	ocspResponseCache     map[certIDKey]*certCacheValue
-	ocspResponseCacheLock *sync.RWMutex
+	ocspResponseCache       map[certIDKey]*certCacheValue
+	ocspParsedRespCache     map[parsedOcspRespKey]*ocspStatus
+	ocspResponseCacheLock   *sync.RWMutex
+	ocspParsedRespCacheLock *sync.Mutex
 )
 
 // copied from crypto/ocsp
@@ -828,7 +835,9 @@ func initOCSPCache() {
 		return
 	}
 	ocspResponseCache = make(map[certIDKey]*certCacheValue)
+	ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
 	ocspResponseCacheLock = &sync.RWMutex{}
+	ocspParsedRespCacheLock = &sync.Mutex{}
 
 	logger.Infof("reading OCSP Response cache file. %v\n", cacheFileName)
 	f, err := os.OpenFile(cacheFileName, os.O_CREATE|os.O_RDONLY, readWriteFileMode)
@@ -900,26 +909,35 @@ func extractOCSPCacheResponseValue(certCacheValue *certCacheValue, subject, issu
 				time.Unix(int64(currentTime), 0).UTC(), time.Unix(int64(certCacheValue.ts), 0).UTC()),
 		}
 	}
-	var err error
-	var r *ocsp.Response
-	var b []byte
-	b, err = base64.StdEncoding.DecodeString(certCacheValue.ocspRespBase64)
-	if err != nil {
-		return &ocspStatus{
-			code: ocspFailedDecodeResponse,
-			err:  fmt.Errorf("failed to decode OCSP Response value in a cache. subject: %v, err: %v", subjectName, err),
+
+	ocspParsedRespCacheLock.Lock()
+	defer ocspParsedRespCacheLock.Unlock()
+	cacheKey := parsedOcspRespKey{certCacheValue.ocspRespBase64, issuer}
+	status, ok := ocspParsedRespCache[cacheKey]
+	if !ok {
+		var err error
+		var b []byte
+		b, err = base64.StdEncoding.DecodeString(certCacheValue.ocspRespBase64)
+		if err != nil {
+			return &ocspStatus{
+				code: ocspFailedDecodeResponse,
+				err:  fmt.Errorf("failed to decode OCSP Response value in a cache. subject: %v, err: %v", subjectName, err),
+			}
 		}
-	}
-	// check the revocation status here
-	r, err = ocsp.ParseResponse(b, issuer)
-	if err != nil {
-		logger.Warnf("the second cache element is not a valid OCSP Response. Ignored. subject: %v\n", subjectName)
-		return &ocspStatus{
-			code: ocspFailedParseResponse,
-			err:  fmt.Errorf("failed to parse OCSP Respose. subject: %v, err: %v", subjectName, err),
+		// check the revocation status here
+		ocspResponse, err := ocsp.ParseResponse(b, issuer)
+
+		if err != nil {
+			logger.Warnf("the second cache element is not a valid OCSP Response. Ignored. subject: %v\n", subjectName)
+			return &ocspStatus{
+				code: ocspFailedParseResponse,
+				err:  fmt.Errorf("failed to parse OCSP Respose. subject: %v, err: %v", subjectName, err),
+			}
 		}
+		status = validateOCSP(ocspResponse)
+		ocspParsedRespCache[cacheKey] = status
 	}
-	return validateOCSP(r)
+	return status
 }
 
 // writeOCSPCacheFile writes a OCSP Response cache file. This is called if all revocation status is success.
