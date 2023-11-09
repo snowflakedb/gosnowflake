@@ -738,10 +738,11 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		queryContextCache:   (&queryContextCache{}).init(),
 		currentTimeProvider: defaultTimeProvider,
 	}
-	err := initEasyLogging(config.ClientConfigFile)
-	if err != nil {
-		return nil, err
-	}
+	// Easy logging is temporarily disabled
+	//err := initEasyLogging(config.ClientConfigFile)
+	//if err != nil {
+	//	return nil, err
+	//}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {
 		if sc.cfg.InsecureMode {
