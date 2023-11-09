@@ -35,6 +35,7 @@ func (i *initTrials) reset() {
 	i.configureCounter = 0
 }
 
+//lint:ignore U1000 Ignore unused function
 func initEasyLogging(clientConfigFileInput string) error {
 	if !allowedToInitialize(clientConfigFileInput) {
 		return nil
