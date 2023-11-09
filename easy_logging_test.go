@@ -10,6 +10,7 @@ import (
 )
 
 func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) {
+	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	dir := t.TempDir()
 	logLevel := levelError
@@ -35,6 +36,7 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 }
 
 func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *testing.T) {
+	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	dir := t.TempDir()
 	logLevel := levelError
@@ -53,6 +55,7 @@ func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *tes
 }
 
 func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing.T) {
+	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	dir := t.TempDir()
 	tmpDirLogLevel := levelError
@@ -85,6 +88,7 @@ func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing
 }
 
 func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
+	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
@@ -99,6 +103,7 @@ func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
 }
 
 func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
+	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	easyLoggingInitTrials.reset()
 
@@ -110,6 +115,7 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 }
 
 func TestLogToConfiguredFile(t *testing.T) {
+	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
