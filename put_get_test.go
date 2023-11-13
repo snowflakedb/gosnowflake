@@ -337,11 +337,7 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
 			t.Fatal(err)
 		}
-		if runningOnGCP() && s6 != uploaded.String() {
-			// when this condition fails it means, that presgined URLs are replaced with downscoped tokens
-			// when it happens, all clouds should not overwrite by default, so all clouds should pass the `s6 == skipped` test
-			t.Fatalf("expected UPLOADED as long as presigned URLs are used, got %v", s6)
-		} else if !runningOnGCP() && s6 != skipped.String() {
+		if s6 != skipped.String() {
 			t.Fatalf("expected SKIPPED, got %v", s6)
 		}
 
@@ -352,13 +348,7 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 			t.Fatal(err)
 		}
-		if runningOnGCP() {
-			if s2 == md5Column {
-				// when this condition fails it means, that presgined URLs are replaced with downscoped tokens
-				// when it happens, all clouds should not overwrite by default, so all clouds should pass the `s2 == md5Column` check
-				t.Fatal("For GCP and presigned URLs (current on Github Actions) it should be overwritten by default")
-			}
-		} else if s2 != md5Column {
+		if s2 != md5Column {
 			t.Fatal("The MD5 column should have stayed the same")
 		}
 
