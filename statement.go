@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 )
 
 // SnowflakeStmt represents the prepared statement in driver.
@@ -33,28 +34,56 @@ func (stmt *snowflakeStmt) NumInput() int {
 func (stmt *snowflakeStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.ExecContext")
 	result, err := stmt.sc.ExecContext(ctx, stmt.query, args)
-	stmt.lastQueryID = result.(SnowflakeResult).GetQueryID()
+	if err != nil {
+		return nil, err
+	}
+	r, ok := result.(SnowflakeResult)
+	if !ok {
+		return nil, fmt.Errorf("interface convertion. expected type SnowflakeResult but got %T", result)
+	}
+	stmt.lastQueryID = r.GetQueryID()
 	return result, err
 }
 
 func (stmt *snowflakeStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.QueryContext")
 	rows, err := stmt.sc.QueryContext(ctx, stmt.query, args)
-	stmt.lastQueryID = rows.(SnowflakeRows).GetQueryID()
-	return rows, err
+	if err != nil {
+		return nil, err
+	}
+	r, ok := rows.(SnowflakeRows)
+	if !ok {
+		return nil, fmt.Errorf("interface convertion. expected type SnowflakeRows but got %T", rows)
+	}
+	stmt.lastQueryID = r.GetQueryID()
+	return rows, nil
 }
 
 func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Exec")
 	result, err := stmt.sc.Exec(stmt.query, args)
-	stmt.lastQueryID = result.(SnowflakeResult).GetQueryID()
+	if err != nil {
+		return nil, err
+	}
+	r, ok := result.(SnowflakeResult)
+	if !ok {
+		return nil, fmt.Errorf("interface convertion. expected type SnowflakeResult but got %T", result)
+	}
+	stmt.lastQueryID = r.GetQueryID()
 	return result, err
 }
 
 func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Query")
 	rows, err := stmt.sc.Query(stmt.query, args)
-	stmt.lastQueryID = rows.(SnowflakeRows).GetQueryID()
+	if err != nil {
+		return nil, err
+	}
+	r, ok := rows.(SnowflakeRows)
+	if !ok {
+		return nil, fmt.Errorf("interface convertion. expected type SnowflakeRows but got %T", rows)
+	}
+	stmt.lastQueryID = r.GetQueryID()
 	return rows, err
 }
 

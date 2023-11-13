@@ -3,6 +3,8 @@
 package gosnowflake
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	cr "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -15,6 +17,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aws/smithy-go/rand"
 )
 
 type tcParseDSN struct {
@@ -1355,6 +1359,33 @@ func TestParsePrivateKeyFromFileIncorrectData(t *testing.T) {
 
 	if err == nil {
 		t.Error("should report error for wrong data in file")
+	}
+}
+
+func TestParsePrivateKeyFromFileNotRSAPrivateKey(t *testing.T) {
+	// Generate an ECDSA private key for testing
+	ecdsaPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate ECDSA private key: %v", err)
+	}
+
+	ecdsaPrivateKeyBytes, err := x509.MarshalECPrivateKey(ecdsaPrivateKey)
+	if err != nil {
+		t.Fatalf("failed to marshal ECDSA private key: %v", err)
+	}
+	pemBlock := &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: ecdsaPrivateKeyBytes,
+	}
+	pemData := pem.EncodeToMemory(pemBlock)
+
+	// Write the PEM data to a temporary file
+	pemFile := createTmpFile("ecdsaKey.pem", pemData)
+
+	// Attempt to parse the private key
+	_, err = parsePrivateKeyFromFile(pemFile)
+	if err == nil {
+		t.Error("expected an error when trying to parse an ECDSA private key as RSA")
 	}
 }
 
