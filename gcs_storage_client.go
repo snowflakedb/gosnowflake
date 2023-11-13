@@ -54,7 +54,10 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		if err != nil {
 			return nil, err
 		}
-		accessToken := meta.client.(string)
+		accessToken, ok := meta.client.(string)
+		if !ok {
+			return nil, fmt.Errorf("interface convertion. expected type string but got %T", meta.client)
+		}
 		gcsHeaders := map[string]string{
 			"Authorization": "Bearer " + accessToken,
 		}
@@ -145,7 +148,11 @@ func (util *snowflakeGcsClient) uploadFile(
 		if err != nil {
 			return err
 		}
-		accessToken = meta.client.(string)
+		var ok bool
+		accessToken, ok = meta.client.(string)
+		if !ok {
+			return fmt.Errorf("interface convertion. expected type string but got %T", meta.client)
+		}
 	}
 
 	var contentEncoding string
@@ -271,7 +278,11 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		if err != nil {
 			return err
 		}
-		accessToken = meta.client.(string)
+		var ok bool
+		accessToken, ok = meta.client.(string)
+		if !ok {
+			return fmt.Errorf("interface convertion. expected type string but got %T", meta.client)
+		}
 		if accessToken != "" {
 			gcsHeaders["Authorization"] = "Bearer " + accessToken
 		}
