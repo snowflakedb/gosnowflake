@@ -48,34 +48,34 @@ func TestSetFailedQueryId(t *testing.T) {
 	failingExec := "INSERT 1 INTO NON_EXISTENT_TABLE"
 
 	testcases := []struct {
-		name     string
-		queryStr string
-		f        func(stmt driver.Stmt) (any, error)
+		name  string
+		query string
+		f     func(stmt driver.Stmt) (any, error)
 	}{
 		{
-			name:     "query",
-			queryStr: failingQuery,
+			name:  "query",
+			query: failingQuery,
 			f: func(stmt driver.Stmt) (any, error) {
 				return stmt.(driver.Stmt).Query(nil)
 			},
 		},
 		{
-			name:     "exec",
-			queryStr: failingExec,
+			name:  "exec",
+			query: failingExec,
 			f: func(stmt driver.Stmt) (any, error) {
 				return stmt.(driver.Stmt).Exec(nil)
 			},
 		},
 		{
-			name:     "queryContext",
-			queryStr: failingQuery,
+			name:  "queryContext",
+			query: failingQuery,
 			f: func(stmt driver.Stmt) (any, error) {
 				return stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
 			},
 		},
 		{
-			name:     "execContext",
-			queryStr: failingExec,
+			name:  "execContext",
+			query: failingExec,
 			f: func(stmt driver.Stmt) (any, error) {
 				return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
 			},
@@ -85,7 +85,7 @@ func TestSetFailedQueryId(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := conn.Raw(func(x any) error {
-				stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, tc.queryStr)
+				stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, tc.query)
 				if err != nil {
 					t.Error(err)
 				}
@@ -104,6 +104,41 @@ func TestSetFailedQueryId(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestAsyncFailQueryId(t *testing.T) {
+	ctx := WithAsyncMode(context.Background())
+	conn := openConn(t)
+	defer conn.Close()
+
+	err := conn.Raw(func(x any) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "SELECTT 1")
+		if err != nil {
+			t.Error(err)
+		}
+		if stmt.(SnowflakeStmt).GetQueryID() != "" {
+			t.Error("queryId should be empty before executing any query")
+		}
+		rows, err := stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+		if err != nil {
+			t.Error("should not fail the initial request")
+		}
+		if rows.(SnowflakeRows).GetStatus() != QueryStatusInProgress {
+			t.Error("should be in progress")
+		}
+		// Wait for the query to complete
+		rows.Next(nil)
+		if rows.(SnowflakeRows).GetStatus() != QueryFailed {
+			t.Error("should have failed")
+		}
+		if rows.(SnowflakeRows).GetQueryID() != stmt.(SnowflakeStmt).GetQueryID() {
+			t.Error("last query id should be the same as rows query id")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
