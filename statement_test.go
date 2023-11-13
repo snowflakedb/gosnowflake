@@ -522,8 +522,8 @@ func TestStatementQueryIdForExecs(t *testing.T) {
 func TestStatementQueryExecs(t *testing.T) {
 	ctx := context.Background()
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec("CREATE TABLE TestStatementQueryIdForExecs (v INTEGER)")
-		defer dbt.mustExec("DROP TABLE IF EXISTS TestStatementQueryIdForExecs")
+		dbt.mustExec("CREATE TABLE TestStatementQueryExecs (v INTEGER)")
+		defer dbt.mustExec("DROP TABLE IF EXISTS TestStatementForExecs")
 
 		testcases := []struct {
 			name    string
@@ -533,7 +533,7 @@ func TestStatementQueryExecs(t *testing.T) {
 		}{
 			{
 				"validExec",
-				"INSERT INTO TestStatementQueryIdForExecs VALUES (1)",
+				"INSERT INTO TestStatementQueryExecs VALUES (1)",
 				func(stmt driver.Stmt) (driver.Result, error) {
 					return stmt.Exec(nil)
 				},
@@ -541,7 +541,7 @@ func TestStatementQueryExecs(t *testing.T) {
 			},
 			{
 				"validExecContext",
-				"INSERT INTO TestStatementQueryIdForExecs VALUES (1)",
+				"INSERT INTO TestStatementQueryExecs VALUES (1)",
 				func(stmt driver.Stmt) (driver.Result, error) {
 					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
 				},
@@ -549,7 +549,7 @@ func TestStatementQueryExecs(t *testing.T) {
 			},
 			{
 				"invalidExec",
-				"INSERT INTO TestStatementQueryIdForExecs VALUES (NULL)",
+				"INSERT INTO TestStatementQueryExecs VALUES ('invalid_data')",
 				func(stmt driver.Stmt) (driver.Result, error) {
 					return stmt.Exec(nil)
 				},
@@ -557,7 +557,7 @@ func TestStatementQueryExecs(t *testing.T) {
 			},
 			{
 				"invalidExecContext",
-				"INSERT INTO TestStatementQueryIdForExecs VALUES (NULL)",
+				"INSERT INTO TestStatementQueryExecs VALUES ('invalid_data')",
 				func(stmt driver.Stmt) (driver.Result, error) {
 					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
 				},
