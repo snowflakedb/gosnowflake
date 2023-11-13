@@ -56,14 +56,14 @@ func TestSetFailedQueryId(t *testing.T) {
 			name:  "query",
 			query: failingQuery,
 			f: func(stmt driver.Stmt) (any, error) {
-				return stmt.(driver.Stmt).Query(nil)
+				return stmt.Query(nil)
 			},
 		},
 		{
 			name:  "exec",
 			query: failingExec,
 			f: func(stmt driver.Stmt) (any, error) {
-				return stmt.(driver.Stmt).Exec(nil)
+				return stmt.Exec(nil)
 			},
 		},
 		{
