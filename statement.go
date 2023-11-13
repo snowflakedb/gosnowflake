@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 )
 
@@ -35,7 +36,10 @@ func (stmt *snowflakeStmt) ExecContext(ctx context.Context, args []driver.NamedV
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.ExecContext")
 	result, err := stmt.sc.ExecContext(ctx, stmt.query, args)
 	if err != nil {
-		stmt.lastQueryID = err.(*SnowflakeError).QueryID
+		var snowflakeError *SnowflakeError
+		if errors.As(err, &snowflakeError) {
+			stmt.lastQueryID = snowflakeError.QueryID
+		}
 		return nil, err
 	}
 	r, ok := result.(SnowflakeResult)
@@ -50,7 +54,10 @@ func (stmt *snowflakeStmt) QueryContext(ctx context.Context, args []driver.Named
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.QueryContext")
 	rows, err := stmt.sc.QueryContext(ctx, stmt.query, args)
 	if err != nil {
-		stmt.lastQueryID = err.(*SnowflakeError).QueryID
+		var snowflakeError *SnowflakeError
+		if errors.As(err, &snowflakeError) {
+			stmt.lastQueryID = snowflakeError.QueryID
+		}
 		return nil, err
 	}
 	r, ok := rows.(SnowflakeRows)
@@ -65,7 +72,10 @@ func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Exec")
 	result, err := stmt.sc.Exec(stmt.query, args)
 	if err != nil {
-		stmt.lastQueryID = err.(*SnowflakeError).QueryID
+		var snowflakeError *SnowflakeError
+		if errors.As(err, &snowflakeError) {
+			stmt.lastQueryID = snowflakeError.QueryID
+		}
 		return nil, err
 	}
 	r, ok := result.(SnowflakeResult)
@@ -80,7 +90,10 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Query")
 	rows, err := stmt.sc.Query(stmt.query, args)
 	if err != nil {
-		stmt.lastQueryID = err.(*SnowflakeError).QueryID
+		var snowflakeError *SnowflakeError
+		if errors.As(err, &snowflakeError) {
+			stmt.lastQueryID = snowflakeError.QueryID
+		}
 		return nil, err
 	}
 	r, ok := rows.(SnowflakeRows)
