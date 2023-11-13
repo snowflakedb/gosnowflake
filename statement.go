@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2017-2023 Snowflake Computing Inc. All rights reserved.
 
 package gosnowflake
 
@@ -33,28 +33,44 @@ func (stmt *snowflakeStmt) NumInput() int {
 func (stmt *snowflakeStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.ExecContext")
 	result, err := stmt.sc.ExecContext(ctx, stmt.query, args)
-	stmt.lastQueryID = result.(SnowflakeResult).GetQueryID()
+	if err != nil {
+		stmt.lastQueryID = err.(*SnowflakeError).QueryID
+	} else {
+		stmt.lastQueryID = result.(SnowflakeResult).GetQueryID()
+	}
 	return result, err
 }
 
 func (stmt *snowflakeStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.QueryContext")
 	rows, err := stmt.sc.QueryContext(ctx, stmt.query, args)
-	stmt.lastQueryID = rows.(SnowflakeRows).GetQueryID()
+	if err != nil {
+		stmt.lastQueryID = err.(*SnowflakeError).QueryID
+	} else {
+		stmt.lastQueryID = rows.(SnowflakeRows).GetQueryID()
+	}
 	return rows, err
 }
 
 func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Exec")
 	result, err := stmt.sc.Exec(stmt.query, args)
-	stmt.lastQueryID = result.(SnowflakeResult).GetQueryID()
+	if err != nil {
+		stmt.lastQueryID = err.(*SnowflakeError).QueryID
+	} else {
+		stmt.lastQueryID = result.(SnowflakeResult).GetQueryID()
+	}
 	return result, err
 }
 
 func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Query")
 	rows, err := stmt.sc.Query(stmt.query, args)
-	stmt.lastQueryID = rows.(SnowflakeRows).GetQueryID()
+	if err != nil {
+		stmt.lastQueryID = err.(*SnowflakeError).QueryID
+	} else {
+		stmt.lastQueryID = rows.(SnowflakeRows).GetQueryID()
+	}
 	return rows, err
 }
 

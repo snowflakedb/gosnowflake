@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Snowflake Computing Inc. All rights reserved.
+// Copyright (c) 2020-2023 Snowflake Computing Inc. All rights reserved.
 //lint:file-ignore SA1019 Ignore deprecated methods. We should leave them as-is to keep backward compatibility.
 
 package gosnowflake
@@ -37,6 +37,74 @@ func openConn(t *testing.T) *sql.Conn {
 		t.Fatalf("failed to open connection: %v", err)
 	}
 	return conn
+}
+
+func TestSetFailedQueryId(t *testing.T) {
+	ctx := context.Background()
+	conn := openConn(t)
+	defer conn.Close()
+
+	failingQuery := "SELECTT 1"
+	failingExec := "INSERT 1 INTO NON_EXISTENT_TABLE"
+
+	testcases := []struct {
+		name     string
+		queryStr string
+		f        func(stmt driver.Stmt) (any, error)
+	}{
+		{
+			name:     "query",
+			queryStr: failingQuery,
+			f: func(stmt driver.Stmt) (any, error) {
+				return stmt.(driver.Stmt).Query(nil)
+			},
+		},
+		{
+			name:     "exec",
+			queryStr: failingExec,
+			f: func(stmt driver.Stmt) (any, error) {
+				return stmt.(driver.Stmt).Exec(nil)
+			},
+		},
+		{
+			name:     "queryContext",
+			queryStr: failingQuery,
+			f: func(stmt driver.Stmt) (any, error) {
+				return stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+			},
+		},
+		{
+			name:     "execContext",
+			queryStr: failingExec,
+			f: func(stmt driver.Stmt) (any, error) {
+				return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := conn.Raw(func(x any) error {
+				stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, tc.queryStr)
+				if err != nil {
+					t.Error(err)
+				}
+				if stmt.(SnowflakeStmt).GetQueryID() != "" {
+					t.Error("queryId should be empty before executing any query")
+				}
+				if _, err := tc.f(stmt); err == nil {
+					t.Error("should have failed to execute the query")
+				}
+				if stmt.(SnowflakeStmt).GetQueryID() == "" {
+					t.Error("should have set the query id")
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 func TestGetQueryID(t *testing.T) {
