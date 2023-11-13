@@ -248,6 +248,40 @@ func TestStmtExec(t *testing.T) {
 	}
 }
 
+func TestStmtExec_Error(t *testing.T) {
+	ctx := context.Background()
+	conn := openConn(t)
+	defer conn.Close()
+
+	// Create a test table
+	if _, err := conn.ExecContext(ctx, `create or replace table test_table(col1 int, col2 int)`); err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	// Attempt to execute an invalid statement
+	if err := conn.Raw(func(x interface{}) error {
+		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "insert into test_table values (?, ?)")
+		if err != nil {
+			t.Fatalf("failed to prepare statement: %v", err)
+		}
+
+		// Intentionally passing a string instead of an integer to cause an error
+		_, err = stmt.(*snowflakeStmt).Exec([]driver.Value{"invalid_data", 2})
+		if err == nil {
+			t.Errorf("expected an error, but got none")
+		}
+
+		return nil
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Drop the test table
+	if _, err := conn.ExecContext(ctx, "drop table if exists test_table"); err != nil {
+		t.Fatalf("failed to drop table: %v", err)
+	}
+}
+
 func getStatusSuccessButInvalidJSONfunc(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ time.Duration) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusOK,
@@ -351,6 +385,76 @@ func TestStatementQueryIdForQueries(t *testing.T) {
 	}
 }
 
+func TestStatementQuery(t *testing.T) {
+	ctx := context.Background()
+	conn := openConn(t)
+	defer conn.Close()
+
+	testcases := []struct {
+		name    string
+		query   string
+		f       func(stmt driver.Stmt) (driver.Rows, error)
+		wantErr bool
+	}{
+		{
+			"validQuery",
+			"SELECT 1",
+			func(stmt driver.Stmt) (driver.Rows, error) {
+				return stmt.Query(nil)
+			},
+			false,
+		},
+		{
+			"validQueryContext",
+			"SELECT 1",
+			func(stmt driver.Stmt) (driver.Rows, error) {
+				return stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+			},
+			false,
+		},
+		{
+			"invalidQuery",
+			"SELECT * FROM non_existing_table",
+			func(stmt driver.Stmt) (driver.Rows, error) {
+				return stmt.Query(nil)
+			},
+			true,
+		},
+		{
+			"invalidQueryContext",
+			"SELECT * FROM non_existing_table",
+			func(stmt driver.Stmt) (driver.Rows, error) {
+				return stmt.(driver.StmtQueryContext).QueryContext(ctx, nil)
+			},
+			true,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := conn.Raw(func(x any) error {
+				stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, tc.query)
+				if err != nil {
+					if tc.wantErr {
+						return nil // expected error
+					}
+					t.Fatal(err)
+				}
+
+				_, err = tc.f(stmt)
+				if (err != nil) != tc.wantErr {
+					t.Fatalf("error = %v, wantErr %v", err, tc.wantErr)
+				}
+
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestStatementQueryIdForExecs(t *testing.T) {
 	ctx := context.Background()
 	runDBTest(t, func(dbt *DBTest) {
@@ -405,6 +509,78 @@ func TestStatementQueryIdForExecs(t *testing.T) {
 					if stmt.(SnowflakeStmt).GetQueryID() != secondExec.(SnowflakeResult).GetQueryID() {
 						t.Error("queryId should be equal among query result and prepared statement")
 					}
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
+	})
+}
+
+func TestStatementQueryExecs(t *testing.T) {
+	ctx := context.Background()
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("CREATE TABLE TestStatementQueryIdForExecs (v INTEGER)")
+		defer dbt.mustExec("DROP TABLE IF EXISTS TestStatementQueryIdForExecs")
+
+		testcases := []struct {
+			name    string
+			query   string
+			f       func(stmt driver.Stmt) (driver.Result, error)
+			wantErr bool
+		}{
+			{
+				"validExec",
+				"INSERT INTO TestStatementQueryIdForExecs VALUES (1)",
+				func(stmt driver.Stmt) (driver.Result, error) {
+					return stmt.Exec(nil)
+				},
+				false,
+			},
+			{
+				"validExecContext",
+				"INSERT INTO TestStatementQueryIdForExecs VALUES (1)",
+				func(stmt driver.Stmt) (driver.Result, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+				},
+				false,
+			},
+			{
+				"invalidExec",
+				"INSERT INTO TestStatementQueryIdForExecs VALUES (NULL)",
+				func(stmt driver.Stmt) (driver.Result, error) {
+					return stmt.Exec(nil)
+				},
+				true,
+			},
+			{
+				"invalidExecContext",
+				"INSERT INTO TestStatementQueryIdForExecs VALUES (NULL)",
+				func(stmt driver.Stmt) (driver.Result, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+				},
+				true,
+			},
+		}
+
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				err := dbt.conn.Raw(func(x any) error {
+					stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, tc.query)
+					if err != nil {
+						if tc.wantErr {
+							return nil // expected error
+						}
+						t.Fatal(err)
+					}
+
+					_, err = tc.f(stmt)
+					if (err != nil) != tc.wantErr {
+						t.Fatalf("error = %v, wantErr %v", err, tc.wantErr)
+					}
+
 					return nil
 				})
 				if err != nil {

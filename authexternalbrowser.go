@@ -56,13 +56,18 @@ func buildResponse(application string) bytes.Buffer {
 // This opens a socket that listens on all available unicast
 // and any anycast IP addresses locally. By specifying "0", we are
 // able to bind to a free port.
-func bindToPort() (net.Listener, error) {
+func createLocalTCPListener() (*net.TCPListener, error) {
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		logger.Infof("unable to bind to a port on localhost,  err: %v", err)
 		return nil, err
 	}
-	return l, nil
+
+	tcpListener, ok := l.(*net.TCPListener)
+	if !ok {
+		return nil, fmt.Errorf("failed to assert type as *net.TCPListener")
+	}
+
+	return tcpListener, nil
 }
 
 // Opens a browser window (or new tab) with the configured IDP Url.
@@ -213,17 +218,13 @@ func doAuthenticateByExternalBrowser(
 	user string,
 	password string,
 ) authenticateByExternalBrowserResult {
-	l, err := bindToPort()
+	l, err := createLocalTCPListener()
 	if err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 	defer l.Close()
 
-	addr, ok := l.Addr().(*net.TCPAddr)
-	if !ok {
-		return authenticateByExternalBrowserResult{nil, nil, fmt.Errorf("interface convertion. expected type *net.TCPAddr but got %T", l.Addr())}
-	}
-	callbackPort := addr.Port
+	callbackPort := l.Addr().(*net.TCPAddr).Port
 	idpURL, proofKey, err := getIdpURLProofKey(
 		ctx, sr, authenticator, application, account, callbackPort)
 	if err != nil {
