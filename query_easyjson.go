@@ -358,6 +358,8 @@ func easyjson90b16446DecodeGithubComObserveincGosnowflake1(in *jlexer.Lexer, out
 			out.Threshold = int64(in.Int64())
 		case "autoCompress":
 			out.AutoCompress = bool(in.Bool())
+		case "overwrite":
+			out.Overwrite = bool(in.Bool())
 		case "sourceCompression":
 			out.SourceCompression = string(in.String())
 		case "clientShowEncryptionParameter":
@@ -814,6 +816,16 @@ func easyjson90b16446EncodeGithubComObserveincGosnowflake1(out *jwriter.Writer, 
 			out.RawString(prefix)
 		}
 		out.Bool(bool(in.AutoCompress))
+	}
+	if in.Overwrite {
+		const prefix string = ",\"overwrite\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Bool(bool(in.Overwrite))
 	}
 	if in.SourceCompression != "" {
 		const prefix string = ",\"sourceCompression\":"
