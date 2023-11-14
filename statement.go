@@ -36,10 +36,7 @@ func (stmt *snowflakeStmt) ExecContext(ctx context.Context, args []driver.NamedV
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.ExecContext")
 	result, err := stmt.sc.ExecContext(ctx, stmt.query, args)
 	if err != nil {
-		var snowflakeError *SnowflakeError
-		if errors.As(err, &snowflakeError) {
-			stmt.lastQueryID = snowflakeError.QueryID
-		}
+		stmt.setQueryIDFromError(err)
 		return nil, err
 	}
 	r, ok := result.(SnowflakeResult)
@@ -54,10 +51,7 @@ func (stmt *snowflakeStmt) QueryContext(ctx context.Context, args []driver.Named
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.QueryContext")
 	rows, err := stmt.sc.QueryContext(ctx, stmt.query, args)
 	if err != nil {
-		var snowflakeError *SnowflakeError
-		if errors.As(err, &snowflakeError) {
-			stmt.lastQueryID = snowflakeError.QueryID
-		}
+		stmt.setQueryIDFromError(err)
 		return nil, err
 	}
 	r, ok := rows.(SnowflakeRows)
@@ -72,10 +66,7 @@ func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Exec")
 	result, err := stmt.sc.Exec(stmt.query, args)
 	if err != nil {
-		var snowflakeError *SnowflakeError
-		if errors.As(err, &snowflakeError) {
-			stmt.lastQueryID = snowflakeError.QueryID
-		}
+		stmt.setQueryIDFromError(err)
 		return nil, err
 	}
 	r, ok := result.(SnowflakeResult)
@@ -90,10 +81,7 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Query")
 	rows, err := stmt.sc.Query(stmt.query, args)
 	if err != nil {
-		var snowflakeError *SnowflakeError
-		if errors.As(err, &snowflakeError) {
-			stmt.lastQueryID = snowflakeError.QueryID
-		}
+		stmt.setQueryIDFromError(err)
 		return nil, err
 	}
 	r, ok := rows.(SnowflakeRows)
@@ -106,4 +94,11 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 
 func (stmt *snowflakeStmt) GetQueryID() string {
 	return stmt.lastQueryID
+}
+
+func (stmt *snowflakeStmt) setQueryIDFromError(err error) {
+	var snowflakeError *SnowflakeError
+	if errors.As(err, &snowflakeError) {
+		stmt.lastQueryID = snowflakeError.QueryID
+	}
 }
