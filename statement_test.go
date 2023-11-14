@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -37,6 +38,48 @@ func openConn(t *testing.T) *sql.Conn {
 		t.Fatalf("failed to open connection: %v", err)
 	}
 	return conn
+}
+
+func TestFailedQueryIdInSnowflakeError(t *testing.T) {
+	failingQuery := "SELECTT 1"
+	failingExec := "INSERT 1 INTO NON_EXISTENT_TABLE"
+
+	runDBTest(t, func(dbt *DBTest) {
+		testcases := []struct {
+			name  string
+			query string
+			f     func(dbt *DBTest) (any, error)
+		}{
+			{
+				name: "query",
+				f: func(dbt *DBTest) (any, error) {
+					return dbt.query(failingQuery)
+				},
+			},
+			{
+				name: "exec",
+				f: func(dbt *DBTest) (any, error) {
+					return dbt.exec(failingExec)
+				},
+			},
+		}
+
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := tc.f(dbt)
+				if err == nil {
+					t.Error("should have failed")
+				}
+				var snowflakeError *SnowflakeError
+				if !errors.As(err, &snowflakeError) {
+					t.Error("should be a SnowflakeError")
+				}
+				if snowflakeError.QueryID == "" {
+					t.Error("QueryID should be set")
+				}
+			})
+		}
+	})
 }
 
 func TestSetFailedQueryId(t *testing.T) {
