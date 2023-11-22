@@ -17,7 +17,6 @@ require (
 	github.com/mailru/easyjson v0.7.7
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/sirupsen/logrus v1.9.3
-	github.com/snowflakedb/gosnowflake v1.6.22
 	golang.org/x/crypto v0.15.0
 )
 
