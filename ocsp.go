@@ -148,7 +148,7 @@ type certCacheValue struct {
 
 type parsedOcspRespKey struct {
 	ocspRespBase64 string
-	issuer         *x509.Certificate
+	certIDBase64   string
 }
 
 var (
@@ -228,7 +228,7 @@ func extractCertIDKeyFromRequest(ocspReq []byte) (*certIDKey, *ocspStatus) {
 	}
 }
 
-func encodeCertIDKey(certIDKeyBase64 string) *certIDKey {
+func decodeCertIDKey(certIDKeyBase64 string) *certIDKey {
 	r, err := base64.StdEncoding.DecodeString(certIDKeyBase64)
 	if err != nil {
 		return nil
@@ -251,7 +251,7 @@ func encodeCertIDKey(certIDKeyBase64 string) *certIDKey {
 	}
 }
 
-func decodeCertIDKey(k *certIDKey) string {
+func encodeCertIDKey(k *certIDKey) string {
 	serialNumber := new(big.Int)
 	serialNumber.SetString(k.SerialNumber, 10)
 	nameHash, err := base64.StdEncoding.DecodeString(k.NameHash)
@@ -277,7 +277,7 @@ func decodeCertIDKey(k *certIDKey) string {
 	return base64.StdEncoding.EncodeToString(encodedCertID)
 }
 
-func checkOCSPResponseCache(encodedCertID *certIDKey, subject, issuer *x509.Certificate) *ocspStatus {
+func checkOCSPResponseCache(certIDKey *certIDKey, subject, issuer *x509.Certificate) *ocspStatus {
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
 		return &ocspStatus{code: ocspNoServer}
 	}
@@ -285,7 +285,7 @@ func checkOCSPResponseCache(encodedCertID *certIDKey, subject, issuer *x509.Cert
 	gotValueFromCache, ok := func() (*certCacheValue, bool) {
 		ocspResponseCacheLock.RLock()
 		defer ocspResponseCacheLock.RUnlock()
-		valueFromCache, ok := ocspResponseCache[*encodedCertID]
+		valueFromCache, ok := ocspResponseCache[*certIDKey]
 		return valueFromCache, ok
 	}()
 	if !ok {
@@ -295,9 +295,9 @@ func checkOCSPResponseCache(encodedCertID *certIDKey, subject, issuer *x509.Cert
 		}
 	}
 
-	status := extractOCSPCacheResponseValue(gotValueFromCache, subject, issuer)
+	status := extractOCSPCacheResponseValue(certIDKey, gotValueFromCache, subject, issuer)
 	if !isValidOCSPStatus(status.code) {
-		deleteOCSPCache(encodedCertID)
+		deleteOCSPCache(certIDKey)
 	}
 	return status
 }
@@ -788,11 +788,11 @@ func downloadOCSPCacheServer() {
 
 	ocspResponseCacheLock.Lock()
 	for k, cacheValue := range *ret {
-		status := extractOCSPCacheResponseValueWithoutSubject(cacheValue)
+		cacheKey := decodeCertIDKey(k)
+		status := extractOCSPCacheResponseValueWithoutSubject(cacheKey, cacheValue)
 		if !isValidOCSPStatus(status.code) {
 			continue
 		}
-		cacheKey := encodeCertIDKey(k)
 		ocspResponseCache[*cacheKey] = cacheValue
 	}
 	cacheUpdated = true
@@ -865,11 +865,11 @@ func initOCSPCache() {
 			continue
 		}
 		certValue := &certCacheValue{ts, ocspRespBase64}
-		status := extractOCSPCacheResponseValueWithoutSubject(certValue)
+		cacheKey := decodeCertIDKey(k)
+		status := extractOCSPCacheResponseValueWithoutSubject(cacheKey, certValue)
 		if !isValidOCSPStatus(status.code) {
 			continue
 		}
-		cacheKey := encodeCertIDKey(k)
 		ocspResponseCache[*cacheKey] = certValue
 
 	}
@@ -890,11 +890,11 @@ func extractTsAndOcspRespBase64(value []interface{}) (bool, float64, string) {
 	return true, ts, ocspRespBase64
 }
 
-func extractOCSPCacheResponseValueWithoutSubject(cacheValue *certCacheValue) *ocspStatus {
-	return extractOCSPCacheResponseValue(cacheValue, nil, nil)
+func extractOCSPCacheResponseValueWithoutSubject(cacheKey *certIDKey, cacheValue *certCacheValue) *ocspStatus {
+	return extractOCSPCacheResponseValue(cacheKey, cacheValue, nil, nil)
 }
 
-func extractOCSPCacheResponseValue(certCacheValue *certCacheValue, subject, issuer *x509.Certificate) *ocspStatus {
+func extractOCSPCacheResponseValue(certIDKey *certIDKey, certCacheValue *certCacheValue, subject, issuer *x509.Certificate) *ocspStatus {
 	subjectName := "Unknown"
 	if subject != nil {
 		subjectName = subject.Subject.CommonName
@@ -912,9 +912,16 @@ func extractOCSPCacheResponseValue(certCacheValue *certCacheValue, subject, issu
 
 	ocspParsedRespCacheLock.Lock()
 	defer ocspParsedRespCacheLock.Unlock()
-	cacheKey := parsedOcspRespKey{certCacheValue.ocspRespBase64, issuer}
+
+	var cacheKey parsedOcspRespKey
+	if certIDKey != nil {
+		cacheKey = parsedOcspRespKey{certCacheValue.ocspRespBase64, encodeCertIDKey(certIDKey)}
+	} else {
+		cacheKey = parsedOcspRespKey{certCacheValue.ocspRespBase64, ""}
+	}
 	status, ok := ocspParsedRespCache[cacheKey]
 	if !ok {
+		logger.Debugf("OCSP status not found in cache; certIdKey: %v", certIDKey)
 		var err error
 		var b []byte
 		b, err = base64.StdEncoding.DecodeString(certCacheValue.ocspRespBase64)
@@ -937,6 +944,7 @@ func extractOCSPCacheResponseValue(certCacheValue *certCacheValue, subject, issu
 		status = validateOCSP(ocspResponse)
 		ocspParsedRespCache[cacheKey] = status
 	}
+	logger.Debugf("OCSP status found in cache: %v; certIdKey: %v", status, certIDKey)
 	return status
 }
 
@@ -978,7 +986,7 @@ func writeOCSPCacheFile() {
 
 	buf := make(map[string][]interface{})
 	for k, v := range ocspResponseCache {
-		cacheKeyInBase64 := decodeCertIDKey(&k)
+		cacheKeyInBase64 := encodeCertIDKey(&k)
 		buf[cacheKeyInBase64] = []interface{}{v.ts, v.ocspRespBase64}
 	}
 
