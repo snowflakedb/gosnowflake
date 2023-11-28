@@ -100,11 +100,25 @@ func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string
 			out.Metadata[amzMatdesc],
 		}
 	}
+	contentLength := convertContentLength(out.ContentLength)
 	return &fileHeader{
 		out.Metadata[sfcDigest],
-		out.ContentLength,
+		contentLength,
 		&encMeta,
 	}, nil
+}
+
+// SNOW-974548 remove this function after upgrading AWS SDK
+func convertContentLength(contentLength any) int64 {
+	switch t := contentLength.(type) {
+	case int64:
+		return t
+	case *int64:
+		if t != nil {
+			return *t
+		}
+	}
+	return 0
 }
 
 type s3UploadAPI interface {

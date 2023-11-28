@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -670,5 +671,36 @@ func TestS3UploadStreamFailed(t *testing.T) {
 	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
+	}
+}
+
+func TestConvertContentLength(t *testing.T) {
+	someInt := int64(1)
+	tcs := []struct {
+		contentLength any
+		desc          string
+		expected      int64
+	}{
+		{
+			contentLength: someInt,
+			desc:          "int",
+			expected:      1,
+		},
+		{
+			contentLength: &someInt,
+			desc:          "pointer",
+			expected:      1,
+		},
+		{
+			contentLength: float64(1),
+			desc:          "another type",
+			expected:      0,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			actual := convertContentLength(tc.contentLength)
+			assertEqualF(t, actual, tc.expected, fmt.Sprintf("expected %v (%T) but got %v (%T)", actual, actual, tc.expected, tc.expected))
+		})
 	}
 }
