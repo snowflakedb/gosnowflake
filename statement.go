@@ -41,7 +41,7 @@ func (stmt *snowflakeStmt) ExecContext(ctx context.Context, args []driver.NamedV
 	}
 	r, ok := result.(SnowflakeResult)
 	if !ok {
-		return nil, fmt.Errorf("interface convertion. expected type SnowflakeResult but got %T", result)
+		return driver.ResultNoRows, nil
 	}
 	stmt.lastQueryID = r.GetQueryID()
 	return result, err
@@ -71,7 +71,7 @@ func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
 	}
 	r, ok := result.(SnowflakeResult)
 	if !ok {
-		return nil, fmt.Errorf("interface convertion. expected type SnowflakeResult but got %T", result)
+		return driver.ResultNoRows, nil
 	}
 	stmt.lastQueryID = r.GetQueryID()
 	return result, err
