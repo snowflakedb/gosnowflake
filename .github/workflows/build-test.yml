@@ -63,8 +63,6 @@ jobs:
                 go: [ '1.20', '1.19' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
-            - name: Sync time
-              run: sudo sntp -Ss time.apple.com
             - uses: actions/checkout@v1
             - name: Setup go
               uses: actions/setup-go@v2
