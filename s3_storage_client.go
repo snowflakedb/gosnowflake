@@ -102,7 +102,7 @@ func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string
 	}
 	return &fileHeader{
 		out.Metadata[sfcDigest],
-		out.ContentLength,
+		aws.ToInt64(out.ContentLength),
 		&encMeta,
 	}, nil
 }
