@@ -335,7 +335,11 @@ func (sc *snowflakeConn) ExecContext(
 		return sc.handleMultiExec(ctx, data.Data)
 	}
 	logger.Debug("DDL")
-	return driver.ResultNoRows, nil
+	return &snowflakeResult{
+		affectedRows: 0,
+		insertID:     -1,
+		queryID:      data.Data.QueryID,
+	}, nil
 }
 
 func (sc *snowflakeConn) QueryContext(

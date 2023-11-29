@@ -40,6 +40,68 @@ func openConn(t *testing.T) *sql.Conn {
 	return conn
 }
 
+func TestDMLExec(t *testing.T) {
+	query := "SELECT 1"
+	runDBTest(t, func(dbt *DBTest) {
+		testcases := []struct {
+			name string
+			f    func(dbt *DBTest) (any, error)
+		}{
+			{
+				name: "Exec",
+				f: func(dbt *DBTest) (any, error) {
+					stmt, _ := dbt.prepare(query)
+					return stmt.Exec()
+				},
+			},
+			{
+				name: "ExecContext",
+				f: func(dbt *DBTest) (any, error) {
+					stmt, _ := dbt.prepare(query)
+					return stmt.ExecContext(context.Background())
+				},
+			},
+		}
+		for _, tc := range testcases {
+			_, err := tc.f(dbt)
+			if err != nil {
+				t.Error(err)
+			}
+		}
+	})
+}
+
+func TestDDLExec(t *testing.T) {
+	query := "CREATE OR REPLACE TABLE TestDDLExec (num NUMBER)"
+	runDBTest(t, func(dbt *DBTest) {
+		testcases := []struct {
+			name string
+			f    func(dbt *DBTest) (any, error)
+		}{
+			{
+				name: "Exec",
+				f: func(dbt *DBTest) (any, error) {
+					stmt, _ := dbt.prepare(query)
+					return stmt.Exec()
+				},
+			},
+			{
+				name: "ExecContext",
+				f: func(dbt *DBTest) (any, error) {
+					stmt, _ := dbt.prepare(query)
+					return stmt.ExecContext(context.Background())
+				},
+			},
+		}
+		for _, tc := range testcases {
+			_, err := tc.f(dbt)
+			if err != nil {
+				t.Error(err)
+			}
+		}
+	})
+}
+
 func TestFailedQueryIdInSnowflakeError(t *testing.T) {
 	failingQuery := "SELECTT 1"
 	failingExec := "INSERT 1 INTO NON_EXISTENT_TABLE"
