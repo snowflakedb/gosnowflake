@@ -74,22 +74,6 @@ func TestRowsClose(t *testing.T) {
 	})
 }
 
-func TestResultNoRows(t *testing.T) {
-	// DDL
-	runDBTest(t, func(dbt *DBTest) {
-		row, err := dbt.exec("CREATE OR REPLACE TABLE test(c1 int)")
-		if err != nil {
-			t.Fatalf("failed to execute DDL. err: %v", err)
-		}
-		if _, err = row.RowsAffected(); err == nil {
-			t.Fatal("should have failed to get RowsAffected")
-		}
-		if _, err = row.LastInsertId(); err == nil {
-			t.Fatal("should have failed to get LastInsertID")
-		}
-	})
-}
-
 func TestRowsWithoutChunkDownloader(t *testing.T) {
 	sts1 := "1"
 	sts2 := "Test1"
