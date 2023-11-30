@@ -194,7 +194,11 @@ func getResultType(ctx context.Context) resultType {
 
 // isDml returns true if the statement type code is in the range of DML.
 func isDml(v int64) bool {
-	return (statementTypeIDDml <= v && v <= statementTypeIDMultiTableInsert) || v == statementTypeIDSelect
+	return statementTypeIDDml <= v && v <= statementTypeIDMultiTableInsert
+}
+
+func isSelect(v int64) bool {
+	return v == statementTypeIDSelect
 }
 
 func updateRows(data execResponseData) (int64, error) {
