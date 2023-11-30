@@ -37,6 +37,7 @@ const (
 	tokenRequestPath         = "/session/token-request"
 	abortRequestPath         = "/queries/v1/abort-request"
 	authenticatorRequestPath = "/session/authenticator-request"
+	monitoringQueriesPath    = "/monitoring/queries"
 	sessionRequestPath       = "/session"
 	heartBeatPath            = "/session/heartbeat"
 )
