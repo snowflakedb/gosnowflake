@@ -7,6 +7,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 )
@@ -144,11 +145,20 @@ func (sc *snowflakeConn) checkQueryStatus(
 		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 		return nil, err
 	}
-	defer res.Body.Close()
 	var statusResp = statusResponse{}
-	if err = json.NewDecoder(res.Body).Decode(&statusResp); err != nil {
-		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return nil, err
+	var contentType = res.Header.Get(httpHeaderContentType)
+	if res.StatusCode != http.StatusServiceUnavailable || contentType != headerContentTypeApplicationJSON {
+		defer res.Body.Close()
+		if err = json.NewDecoder(res.Body).Decode(&statusResp); err != nil {
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+			return nil, err
+		}
+	} else {
+		return nil, (&SnowflakeError{
+			Number: ErrQueryStatus,
+			Message: fmt.Sprintf("status query returned response with a HTTP status [%v] and content type [%v]",
+				res.StatusCode, contentType),
+		}).exceptionTelemetry(sc)
 	}
 
 	if !statusResp.Success || len(statusResp.Data.Queries) == 0 {
