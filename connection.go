@@ -333,20 +333,12 @@ func (sc *snowflakeConn) ExecContext(
 		}, nil // last insert id is not supported by Snowflake
 	} else if isMultiStmt(&data.Data) {
 		return sc.handleMultiExec(ctx, data.Data)
-	} else if isSelect(data.Data.StatementTypeID) {
-		logger.WithContext(ctx).Debugf("SELECT")
-		return &snowflakeResult{
-			affectedRows: 0,
-			insertID:     -1,
-			queryID:      data.Data.QueryID,
-		}, nil
+	} else if isDql(&data.Data) {
+		logger.WithContext(ctx).Debugf("DQL")
+		return driver.ResultNoRows, nil
 	}
 	logger.Debug("DDL")
-	return &snowflakeResult{
-		affectedRows: 0,
-		insertID:     -1,
-		queryID:      data.Data.QueryID,
-	}, nil
+	return driver.ResultNoRows, nil
 }
 
 func (sc *snowflakeConn) QueryContext(

@@ -197,8 +197,8 @@ func isDml(v int64) bool {
 	return statementTypeIDDml <= v && v <= statementTypeIDMultiTableInsert
 }
 
-func isSelect(v int64) bool {
-	return v == statementTypeIDSelect
+func isDql(data *execResponseData) bool {
+	return data.StatementTypeID == statementTypeIDSelect && data.RowType[0].Name != "multiple statement execution"
 }
 
 func updateRows(data execResponseData) (int64, error) {

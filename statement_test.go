@@ -40,23 +40,23 @@ func openConn(t *testing.T) *sql.Conn {
 	return conn
 }
 
-func TestDMLExec(t *testing.T) {
+func TestDQLExec(t *testing.T) {
 	query := "SELECT 1"
 	runDBTest(t, func(dbt *DBTest) {
 		testcases := []struct {
 			name string
-			f    func(dbt *DBTest) (any, error)
+			f    func(dbt *DBTest) (driver.Result, error)
 		}{
 			{
 				name: "Exec",
-				f: func(dbt *DBTest) (any, error) {
+				f: func(dbt *DBTest) (driver.Result, error) {
 					stmt, _ := dbt.prepare(query)
 					return stmt.Exec()
 				},
 			},
 			{
 				name: "ExecContext",
-				f: func(dbt *DBTest) (any, error) {
+				f: func(dbt *DBTest) (driver.Result, error) {
 					stmt, _ := dbt.prepare(query)
 					return stmt.ExecContext(context.Background())
 				},
@@ -74,20 +74,21 @@ func TestDMLExec(t *testing.T) {
 func TestDDLExec(t *testing.T) {
 	query := "CREATE OR REPLACE TABLE TestDDLExec (num NUMBER)"
 	runDBTest(t, func(dbt *DBTest) {
+		defer dbt.mustExec("DROP TABLE IF EXISTS TestDDLExec")
 		testcases := []struct {
 			name string
-			f    func(dbt *DBTest) (any, error)
+			f    func(dbt *DBTest) (driver.Result, error)
 		}{
 			{
 				name: "Exec",
-				f: func(dbt *DBTest) (any, error) {
+				f: func(dbt *DBTest) (driver.Result, error) {
 					stmt, _ := dbt.prepare(query)
 					return stmt.Exec()
 				},
 			},
 			{
 				name: "ExecContext",
-				f: func(dbt *DBTest) (any, error) {
+				f: func(dbt *DBTest) (driver.Result, error) {
 					stmt, _ := dbt.prepare(query)
 					return stmt.ExecContext(context.Background())
 				},
