@@ -34,20 +34,7 @@ func (stmt *snowflakeStmt) NumInput() int {
 
 func (stmt *snowflakeStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.ExecContext")
-	result, err := stmt.sc.ExecContext(ctx, stmt.query, args)
-	if err != nil {
-		stmt.setQueryIDFromError(err)
-		return nil, err
-	}
-	if result == driver.ResultNoRows {
-		return result, nil
-	}
-	r, ok := result.(SnowflakeResult)
-	if !ok {
-		return nil, fmt.Errorf("interface convertion. expected type SnowflakeResult but got %T", result)
-	}
-	stmt.lastQueryID = r.GetQueryID()
-	return result, err
+	return stmt.execInternal(ctx, args)
 }
 
 func (stmt *snowflakeStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
@@ -67,13 +54,24 @@ func (stmt *snowflakeStmt) QueryContext(ctx context.Context, args []driver.Named
 
 func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Exec")
-	result, err := stmt.sc.Exec(stmt.query, args)
+	return stmt.execInternal(nil, toNamedValues(args))
+}
+
+func (stmt *snowflakeStmt) execInternal(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	logger.WithContext(stmt.sc.ctx).Debugln("Stmt.execInternal")
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	stmtCtx := context.WithValue(ctx, executionType, executionTypeStatement)
+	result, err := stmt.sc.ExecContext(stmtCtx, stmt.query, args)
 	if err != nil {
 		stmt.setQueryIDFromError(err)
 		return nil, err
 	}
-	if result == driver.ResultNoRows {
-		return result, nil
+	rnr, ok := result.(*snowflakeResultNoRows)
+	if ok {
+		stmt.lastQueryID = rnr.GetQueryID()
+		return driver.ResultNoRows, nil
 	}
 	r, ok := result.(SnowflakeResult)
 	if !ok {

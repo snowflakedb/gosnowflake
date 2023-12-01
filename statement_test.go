@@ -40,65 +40,68 @@ func openConn(t *testing.T) *sql.Conn {
 	return conn
 }
 
-func TestDQLExec(t *testing.T) {
-	query := "SELECT 1"
-	runDBTest(t, func(dbt *DBTest) {
-		testcases := []struct {
-			name string
-			f    func(dbt *DBTest) (driver.Result, error)
-		}{
-			{
-				name: "Exec",
-				f: func(dbt *DBTest) (driver.Result, error) {
-					stmt, _ := dbt.prepare(query)
-					return stmt.Exec()
-				},
-			},
-			{
-				name: "ExecContext",
-				f: func(dbt *DBTest) (driver.Result, error) {
-					stmt, _ := dbt.prepare(query)
-					return stmt.ExecContext(context.Background())
-				},
-			},
-		}
-		for _, tc := range testcases {
-			_, err := tc.f(dbt)
-			if err != nil {
-				t.Error(err)
-			}
-		}
-	})
-}
-
-func TestDDLExec(t *testing.T) {
-	query := "CREATE OR REPLACE TABLE TestDDLExec (num NUMBER)"
+func TestExecStmt(t *testing.T) {
+	dqlQuery := "SELECT 1"
+	ddlQuery := "CREATE OR REPLACE TABLE TestDDLExec (num NUMBER)"
+	ctx := context.Background()
 	runDBTest(t, func(dbt *DBTest) {
 		defer dbt.mustExec("DROP TABLE IF EXISTS TestDDLExec")
 		testcases := []struct {
-			name string
-			f    func(dbt *DBTest) (driver.Result, error)
+			name  string
+			query string
+			f     func(stmt driver.Stmt) (any, error)
 		}{
 			{
-				name: "Exec",
-				f: func(dbt *DBTest) (driver.Result, error) {
-					stmt, _ := dbt.prepare(query)
-					return stmt.Exec()
+				name:  "dql Exec",
+				query: dqlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.Exec(nil)
 				},
 			},
 			{
-				name: "ExecContext",
-				f: func(dbt *DBTest) (driver.Result, error) {
-					stmt, _ := dbt.prepare(query)
-					return stmt.ExecContext(context.Background())
+				name:  "dql ExecContext",
+				query: dqlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+				},
+			},
+			{
+				name:  "ddl Exec",
+				query: ddlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.Exec(nil)
+				},
+			},
+			{
+				name:  "ddl ExecContext",
+				query: ddlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
 				},
 			},
 		}
 		for _, tc := range testcases {
-			_, err := tc.f(dbt)
-			if err != nil {
-				t.Error(err)
-			}
+			t.Run(tc.name, func(t *testing.T) {
+				err := dbt.conn.Raw(func(x any) error {
+					stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, tc.query)
+					if err != nil {
+						t.Error(err)
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() != "" {
+						t.Error("queryId should be empty before executing any query")
+					}
+					if _, err := tc.f(stmt); err != nil {
+						t.Error("should have not failed to execute the query")
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() == "" {
+						t.Error("should have set the query id")
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
 		}
 	})
 }
