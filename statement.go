@@ -54,7 +54,7 @@ func (stmt *snowflakeStmt) QueryContext(ctx context.Context, args []driver.Named
 
 func (stmt *snowflakeStmt) Exec(args []driver.Value) (driver.Result, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Exec")
-	return stmt.execInternal(nil, toNamedValues(args))
+	return stmt.execInternal(context.Background(), toNamedValues(args))
 }
 
 func (stmt *snowflakeStmt) execInternal(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {

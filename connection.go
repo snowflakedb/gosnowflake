@@ -60,9 +60,11 @@ const (
 	queryResultType     resultType = "query"
 )
 
+type execKey string
+
 const (
-	executionType          = "executionType"
-	executionTypeStatement = "statement"
+	executionType          execKey = "executionType"
+	executionTypeStatement string  = "statement"
 )
 
 const privateLinkSuffix = "privatelink.snowflakecomputing.com"
