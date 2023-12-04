@@ -136,7 +136,7 @@ func (sc *snowflakeConn) checkQueryStatus(
 	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
 	}
-	resultPath := fmt.Sprintf("/monitoring/queries/%s", qid)
+	resultPath := fmt.Sprintf("%s/%s", monitoringQueriesPath, qid)
 	url := sc.rest.getFullURL(resultPath, &param)
 
 	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
