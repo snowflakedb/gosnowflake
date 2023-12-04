@@ -198,7 +198,7 @@ func isDml(v int64) bool {
 }
 
 func isDql(data *execResponseData) bool {
-	return data.StatementTypeID == statementTypeIDSelect && data.RowType[0].Name != "multiple statement execution"
+	return data.StatementTypeID == statementTypeIDSelect && !isMultiStmt(data)
 }
 
 func updateRows(data execResponseData) (int64, error) {
@@ -302,7 +302,7 @@ func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
 
 func isStatementContext(ctx context.Context) bool {
 	v := ctx.Value(executionType)
-	if v != nil && v == executionTypeStatement {
+	if v == executionTypeStatement {
 		return true
 	}
 	return false

@@ -42,9 +42,18 @@ func openConn(t *testing.T) *sql.Conn {
 
 func TestExecStmt(t *testing.T) {
 	dqlQuery := "SELECT 1"
+	dmlQuery := "INSERT INTO TestDDLExec VALUES (1)"
 	ddlQuery := "CREATE OR REPLACE TABLE TestDDLExec (num NUMBER)"
+	multiStmtQuery := "DELETE FROM TestDDLExec;\n" +
+		"SELECT 1;\n" +
+		"SELECT 2;"
 	ctx := context.Background()
+	multiStmtCtx, err := WithMultiStatement(ctx, 3)
+	if err != nil {
+		t.Error(err)
+	}
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(ddlQuery)
 		defer dbt.mustExec("DROP TABLE IF EXISTS TestDDLExec")
 		testcases := []struct {
 			name  string
@@ -79,6 +88,27 @@ func TestExecStmt(t *testing.T) {
 					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
 				},
 			},
+			{
+				name:  "dml Exec",
+				query: dmlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.Exec(nil)
+				},
+			},
+			{
+				name:  "dml ExecContext",
+				query: dmlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+				},
+			},
+			{
+				name:  "multistmt ExecContext",
+				query: multiStmtQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(multiStmtCtx, nil)
+				},
+			},
 		}
 		for _, tc := range testcases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -91,7 +121,7 @@ func TestExecStmt(t *testing.T) {
 						t.Error("queryId should be empty before executing any query")
 					}
 					if _, err := tc.f(stmt); err != nil {
-						t.Error("should have not failed to execute the query")
+						t.Errorf("should have not failed to execute the query, err: %s\n", err)
 					}
 					if stmt.(SnowflakeStmt).GetQueryID() == "" {
 						t.Error("should have set the query id")
