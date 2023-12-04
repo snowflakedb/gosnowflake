@@ -81,11 +81,11 @@ type snowflakeResultNoRows struct {
 }
 
 func (*snowflakeResultNoRows) LastInsertId() (int64, error) {
-	return 0, errors.New("no LastInsertId available after DDL statement")
+	return 0, errors.New("no LastInsertId available")
 }
 
 func (*snowflakeResultNoRows) RowsAffected() (int64, error) {
-	return 0, errors.New("no RowsAffected available after DDL statement")
+	return 0, errors.New("no RowsAffected available")
 }
 
 func (rnr *snowflakeResultNoRows) GetQueryID() string {
