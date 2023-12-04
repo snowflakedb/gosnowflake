@@ -26,6 +26,7 @@ const (
 	binaryType
 	timeType
 	booleanType
+	vectorType
 	// the following are not snowflake types per se but internal types
 	nullType
 	sliceType
@@ -47,6 +48,7 @@ var snowflakeToDriverType = map[string]snowflakeType{
 	"BINARY":        binaryType,
 	"TIME":          timeType,
 	"BOOLEAN":       booleanType,
+	"VECTOR":        vectorType,
 	"NULL":          nullType,
 	"SLICE":         sliceType,
 	"CHANGE_TYPE":   changeType,
@@ -104,6 +106,8 @@ var (
 	DataTypeTime = []byte{timeType.Byte()}
 	// DataTypeBoolean is a BOOLEAN datatype.
 	DataTypeBoolean = []byte{booleanType.Byte()}
+	// DataTypeVector is a VECTOR datatype.
+	DataTypeVector = []byte{vectorType.Byte()}
 )
 
 // dataTypeMode returns the subsequent data type in a string representation.
@@ -129,6 +133,40 @@ func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
 		return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
 	}
 	return tsmode, nil
+}
+
+type vectorElements interface {
+	~int32 | ~float32
+}
+
+// SQLVector is a wrapper type used to support deserializing SQL values into slices
+// in database/sql scans. Cast slice pointers as *SQLVector[T] when passing them to
+// a database/sql Scan method. The slice will be populated with the corresponding
+// column value when the scan completes.
+//
+// Here is an example:
+//
+//	var v []int32
+//	err := rows.Scan((*SQLVector[int32])(&v))
+type SQLVector[T vectorElements] []T
+
+// Vector is syntactic sugar for wrapping slices in SQLVector[t] so that they
+// can be deserialized in database/sql scans.
+//
+// Here is an example:
+//
+//	var v []int32
+//	err := rows.Scan(Vector(&v))
+func Vector[T vectorElements](value *[]T) *SQLVector[T] {
+	return (*SQLVector[T])(value)
+}
+
+func (v *SQLVector[T]) Scan(src any) error {
+	if vec, ok := src.([]T); ok {
+		*v = vec
+		return nil
+	}
+	return fmt.Errorf("cannot convert %T to a vector of type %T", src, *v)
 }
 
 // SnowflakeParameter includes the columns output from SHOW PARAMETER command.

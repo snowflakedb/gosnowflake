@@ -139,35 +139,41 @@ func TestGoTypeToSnowflake(t *testing.T) {
 }
 
 type tcSnowflakeTypeToGo struct {
-	in    snowflakeType
-	scale int64
-	out   reflect.Type
+	in  execResponseRowType
+	out reflect.Type
 }
 
 func TestSnowflakeTypeToGo(t *testing.T) {
 	testcases := []tcSnowflakeTypeToGo{
-		{in: fixedType, scale: 0, out: reflect.TypeOf(int64(0))},
-		{in: fixedType, scale: 2, out: reflect.TypeOf(float64(0))},
-		{in: realType, scale: 0, out: reflect.TypeOf(float64(0))},
-		{in: textType, scale: 0, out: reflect.TypeOf("")},
-		{in: dateType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: timeType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: timestampLtzType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: timestampNtzType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: timestampTzType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: objectType, scale: 0, out: reflect.TypeOf("")},
-		{in: variantType, scale: 0, out: reflect.TypeOf("")},
-		{in: arrayType, scale: 0, out: reflect.TypeOf("")},
-		{in: binaryType, scale: 0, out: reflect.TypeOf([]byte{})},
-		{in: booleanType, scale: 0, out: reflect.TypeOf(true)},
-		{in: sliceType, scale: 0, out: reflect.TypeOf("")},
+		{in: execResponseRowType{Type: "FIXED"}, out: reflect.TypeOf(int64(0))},
+		{in: execResponseRowType{Type: "FIXED", Scale: 2}, out: reflect.TypeOf(float64(0))},
+		{in: execResponseRowType{Type: "REAL"}, out: reflect.TypeOf(float64(0))},
+		{in: execResponseRowType{Type: "TEXT"}, out: reflect.TypeOf("")},
+		{in: execResponseRowType{Type: "TIME"}, out: reflect.TypeOf(time.Now())},
+		{in: execResponseRowType{Type: "TIME"}, out: reflect.TypeOf(time.Now())},
+		{in: execResponseRowType{Type: "TIMESTAMP_LTZ"}, out: reflect.TypeOf(time.Now())},
+		{in: execResponseRowType{Type: "TIMESTAMP_NTZ"}, out: reflect.TypeOf(time.Now())},
+		{in: execResponseRowType{Type: "TIMESTAMP_TZ"}, out: reflect.TypeOf(time.Now())},
+		{in: execResponseRowType{Type: "OBJECT"}, out: reflect.TypeOf("")},
+		{in: execResponseRowType{Type: "VARIANT"}, out: reflect.TypeOf("")},
+		{in: execResponseRowType{Type: "ARRAY"}, out: reflect.TypeOf("")},
+		{in: execResponseRowType{Type: "BINARY"}, out: reflect.TypeOf([]byte{})},
+		{in: execResponseRowType{Type: "BOOLEAN"}, out: reflect.TypeOf(true)},
+		{in: execResponseRowType{Type: "SLICE"}, out: reflect.TypeOf("")},
+		{
+			in:  execResponseRowType{Type: "VECTOR", Fields: []execResponseRowFieldType{{Type: "FIXED"}}},
+			out: reflect.TypeOf([]int32{}),
+		},
+		{
+			in:  execResponseRowType{Type: "VECTOR", Fields: []execResponseRowFieldType{{Type: "REAL"}}},
+			out: reflect.TypeOf([]float32{}),
+		},
 	}
 	for _, test := range testcases {
 		t.Run(fmt.Sprintf("%v_%v", test.in, test.out), func(t *testing.T) {
-			a := snowflakeTypeToGo(test.in, test.scale)
+			a := snowflakeTypeToGo(test.in)
 			if a != test.out {
-				t.Errorf("failed. in: %v, scale: %v, expected: %v, got: %v",
-					test.in, test.scale, test.out, a)
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, a)
 			}
 		})
 	}
@@ -843,6 +849,62 @@ func TestArrowToValue(t *testing.T) {
 				srcvs := src.([]testObj)
 				for i, o := range srcvs {
 					if fmt.Sprint(o) != dst[i].(string) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical: "vector",
+			values:  [][]int32{{1, 2, 3}, {4, 5, 6}},
+			builder: array.NewFixedSizeListBuilder(pool, 3, &arrow.Int32Type{}),
+			append: func(b array.Builder, vs interface{}) {
+				for _, v := range vs.([][]int32) {
+					lb := b.(*array.FixedSizeListBuilder)
+					vb := lb.ValueBuilder().(*array.Int32Builder)
+					if len(v) == 0 {
+						lb.AppendNull()
+						continue
+					}
+
+					lb.Append(true)
+					for _, e := range v {
+						vb.Append(e)
+					}
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				for i, v := range src.([][]int32) {
+					if !reflect.DeepEqual(v, dst[i]) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		{
+			logical: "vector",
+			values:  [][]float32{{1.1, 2.2, 3}, {4.4, 5.5, 6}},
+			builder: array.NewFixedSizeListBuilder(pool, 3, &arrow.Float32Type{}),
+			append: func(b array.Builder, vs interface{}) {
+				for _, v := range vs.([][]float32) {
+					lb := b.(*array.FixedSizeListBuilder)
+					vb := lb.ValueBuilder().(*array.Float32Builder)
+					if len(v) == 0 {
+						lb.AppendNull()
+						continue
+					}
+
+					lb.Append(true)
+					for _, e := range v {
+						vb.Append(e)
+					}
+				}
+			},
+			compare: func(src interface{}, dst []snowflakeValue) int {
+				for i, v := range src.([][]float32) {
+					if !reflect.DeepEqual(v, dst[i]) {
 						return i
 					}
 				}

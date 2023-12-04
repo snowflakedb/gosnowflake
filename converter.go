@@ -91,10 +91,10 @@ func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 }
 
 // snowflakeTypeToGo translates Snowflake data type to Go data type.
-func snowflakeTypeToGo(dbtype snowflakeType, scale int64) reflect.Type {
-	switch dbtype {
+func snowflakeTypeToGo(rowType execResponseRowType) reflect.Type {
+	switch getSnowflakeType(rowType.Type) {
 	case fixedType:
-		if scale == 0 {
+		if rowType.Scale == 0 {
 			return reflect.TypeOf(int64(0))
 		}
 		return reflect.TypeOf(float64(0))
@@ -108,8 +108,22 @@ func snowflakeTypeToGo(dbtype snowflakeType, scale int64) reflect.Type {
 		return reflect.TypeOf([]byte{})
 	case booleanType:
 		return reflect.TypeOf(true)
+	case vectorType:
+		if len(rowType.Fields) != 1 {
+			logger.Errorf("invalid response row type for vector: %+v", rowType)
+			return reflect.TypeOf("")
+		}
+		switch getSnowflakeType(rowType.Fields[0].Type) {
+		case fixedType:
+			return reflect.TypeOf([]int32{})
+		case realType:
+			return reflect.TypeOf([]float32{})
+		default:
+			logger.Errorf("invalid element type for vector: %+v", rowType.Fields[0].Type)
+			return reflect.TypeOf("")
+		}
 	}
-	logger.Errorf("unsupported dbtype is specified. %v", dbtype)
+	logger.Errorf("unsupported dbtype is specified. %v", rowType.Type)
 	return reflect.TypeOf("")
 }
 
@@ -608,6 +622,25 @@ func arrowToValue(
 			if ts != nil {
 				destcol[i] = *ts
 			}
+		}
+		return err
+	case vectorType:
+		vectorData := srcValue.(*array.FixedSizeList)
+		datatype := vectorData.DataType().(*arrow.FixedSizeListType)
+		dim := int(datatype.Len())
+		switch datatype.Elem().ID() {
+		case arrow.INT32:
+			values := vectorData.ListValues().(*array.Int32).Int32Values()
+			for i := 0; i < vectorData.Len(); i++ {
+				destcol[i] = values[i*dim : (i+1)*dim]
+			}
+		case arrow.FLOAT32:
+			values := vectorData.ListValues().(*array.Float32).Float32Values()
+			for i := 0; i < vectorData.Len(); i++ {
+				destcol[i] = values[i*dim : (i+1)*dim]
+			}
+		default:
+			return fmt.Errorf("unsupported element type %q for a vector", datatype.Elem().String())
 		}
 		return err
 	}

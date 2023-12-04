@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -1259,6 +1260,48 @@ func testArray(t *testing.T, json bool) {
 			}
 		} else {
 			t.Fatal("no rows")
+		}
+	})
+}
+
+func TestVector(t *testing.T) {
+	testVector(t, false)
+}
+
+func testVector(t *testing.T, json bool) {
+	runDBTest(t, func(dbt *DBTest) {
+		if json {
+			dbt.mustExec(forceJSON)
+		}
+		// dbt.mustExec(`create temporary table test_vector (i vector(int,3), f vector(float,3))`)
+		rowsInt := dbt.mustQuery(`select [1,2,3]::vector(int, 3)`)
+		defer rowsInt.Close()
+		if ok := rowsInt.Next(); !ok {
+			t.Error("no rows")
+		}
+
+		var gotInt []int32
+		if err := rowsInt.Scan(Vector(&gotInt)); err != nil {
+			t.Error(err)
+		}
+		wantInt := []int32{1, 2, 3}
+		if !slices.Equal(gotInt, wantInt) {
+			t.Errorf("incorrect vector deserialized: got %v, want %v", gotInt, wantInt)
+		}
+
+		rowsFloat := dbt.mustQuery(`select [1.1,2.2,3,4,5]::vector(float, 5)`)
+		defer rowsFloat.Close()
+		if ok := rowsFloat.Next(); !ok {
+			t.Error("no rows")
+		}
+
+		var gotFloat []float32
+		if err := rowsFloat.Scan(Vector(&gotFloat)); err != nil {
+			t.Error(err)
+		}
+		wantFloat := []float32{1.1, 2.2, 3, 4, 5}
+		if !slices.Equal(gotFloat, wantFloat) {
+			t.Errorf("incorrect vector deserialized: got %v, want %v", gotFloat, wantFloat)
 		}
 	})
 }
