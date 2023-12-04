@@ -302,8 +302,5 @@ func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
 
 func isStatementContext(ctx context.Context) bool {
 	v := ctx.Value(executionType)
-	if v == executionTypeStatement {
-		return true
-	}
-	return false
+	return v == executionTypeStatement
 }
