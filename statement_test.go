@@ -840,19 +840,13 @@ func TestWithQueryTag(t *testing.T) {
 		rows := dbt.mustQueryContext(
 			ctx,
 			"SELECT QUERY_TAG FROM table(information_schema.query_history_by_session())")
-		if !rows.Next() {
-			t.Fatal("no rows")
-		}
+		defer rows.Close()
+
+		assertTrueF(t, rows.Next())
 		var tag sql.NullString
 		err := rows.Scan(&tag)
-		if err != nil {
-			t.Error(err)
-		}
-		if !tag.Valid {
-			t.Fatal("no tag set")
-		}
-		if tag.String != testQueryTag {
-			t.Fatalf("expected tag '%s' but got '%s'", testQueryTag, tag.String)
-		}
+		assertNilF(t, err)
+		assertTrueF(t, tag.Valid, "no QUERY_TAG set")
+		assertEqualF(t, tag.String, testQueryTag)
 	})
 }
