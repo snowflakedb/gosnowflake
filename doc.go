@@ -167,6 +167,16 @@ Users can use SetLogger in driver.go to set a customized logger for gosnowflake 
 In order to enable debug logging for the driver, user could use SetLogLevel("debug") in SFLogger interface
 as shown in demo code at cmd/logger.go. To redirect the logs SFlogger.SetOutput method could do the work.
 
+# Query tag
+
+A custom query tag can be set in the context. Each query run with this context
+will include the custom query tag as metadata that will appear in the Query Tag
+column in the Query History log. For example:
+
+	queryTag := "my custom query tag"
+	ctxWithQueryTag := WithQueryTag(ctx, queryTag)
+	rows, err := db.QueryContext(ctxWithQueryTag, query)
+
 # Query request ID
 
 A specific query request ID can be set in the context and will be passed through
