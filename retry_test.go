@@ -494,12 +494,6 @@ func TestIsRetryable(t *testing.T) {
 			expected: false,
 		},
 		{
-			req:      &http.Request{URL: &url.URL{Path: heartBeatPath}},
-			res:      &http.Response{StatusCode: http.StatusBadRequest},
-			err:      nil,
-			expected: false,
-		},
-		{
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      &http.Response{StatusCode: http.StatusNotFound},
 			expected: false,
@@ -525,10 +519,12 @@ func TestIsRetryable(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		result, _ := isRetryableError(tc.req, tc.res, tc.err)
-		if result != tc.expected {
-			t.Fatalf("expected %v, got %v; request: %v, response: %v", tc.expected, result, tc.req, tc.res)
-		}
+		t.Run(fmt.Sprintf("req %v, resp %v", tc.req, tc.res), func(t *testing.T) {
+			result, _ := isRetryableError(tc.req, tc.res, tc.err)
+			if result != tc.expected {
+				t.Fatalf("expected %v, got %v; request: %v, response: %v", tc.expected, result, tc.req, tc.res)
+			}
+		})
 	}
 }
 
@@ -605,8 +601,8 @@ func TestCalculateRetryWait(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(fmt.Sprintf("attmept: %v", tc.attempt), func(t *testing.T) {
-			result := defaultWaitAlgo.calculateWaitBeforeRetry(tc.attempt, tc.currWaitTime)
-			assertBetweenE(t, result, tc.minSleepTime, tc.maxSleepTime)
+			result := defaultWaitAlgo.calculateWaitBeforeRetryForAuthRequest(tc.attempt, time.Duration(tc.currWaitTime*float64(time.Second)))
+			assertBetweenE(t, result.Seconds(), tc.minSleepTime, tc.maxSleepTime)
 		})
 	}
 }

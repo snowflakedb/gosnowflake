@@ -197,7 +197,14 @@ func isDml(v int64) bool {
 	return statementTypeIDDml <= v && v <= statementTypeIDMultiTableInsert
 }
 
+func isDql(data *execResponseData) bool {
+	return data.StatementTypeID == statementTypeIDSelect && !isMultiStmt(data)
+}
+
 func updateRows(data execResponseData) (int64, error) {
+	if data.RowSet == nil {
+		return 0, nil
+	}
 	var count int64
 	for i, n := 0, len(data.RowType); i < n; i++ {
 		v, err := strconv.ParseInt(*data.RowSet[0][i], 10, 64)
@@ -291,4 +298,9 @@ func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
 		return err
 	}
 	return nil
+}
+
+func isStatementContext(ctx context.Context) bool {
+	v := ctx.Value(executionType)
+	return v == executionTypeStatement
 }

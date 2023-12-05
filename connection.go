@@ -60,6 +60,13 @@ const (
 	queryResultType     resultType = "query"
 )
 
+type execKey string
+
+const (
+	executionType          execKey = "executionType"
+	executionTypeStatement string  = "statement"
+)
+
 const privateLinkSuffix = "privatelink.snowflakecomputing.com"
 
 type snowflakeConn struct {
@@ -333,8 +340,17 @@ func (sc *snowflakeConn) ExecContext(
 		}, nil // last insert id is not supported by Snowflake
 	} else if isMultiStmt(&data.Data) {
 		return sc.handleMultiExec(ctx, data.Data)
+	} else if isDql(&data.Data) {
+		logger.WithContext(ctx).Debugf("DQL")
+		if isStatementContext(ctx) {
+			return &snowflakeResultNoRows{queryID: data.Data.QueryID}, nil
+		}
+		return driver.ResultNoRows, nil
 	}
 	logger.Debug("DDL")
+	if isStatementContext(ctx) {
+		return &snowflakeResultNoRows{queryID: data.Data.QueryID}, nil
+	}
 	return driver.ResultNoRows, nil
 }
 

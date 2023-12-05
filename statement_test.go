@@ -40,6 +40,102 @@ func openConn(t *testing.T) *sql.Conn {
 	return conn
 }
 
+func TestExecStmt(t *testing.T) {
+	dqlQuery := "SELECT 1"
+	dmlQuery := "INSERT INTO TestDDLExec VALUES (1)"
+	ddlQuery := "CREATE OR REPLACE TABLE TestDDLExec (num NUMBER)"
+	multiStmtQuery := "DELETE FROM TestDDLExec;\n" +
+		"SELECT 1;\n" +
+		"SELECT 2;"
+	ctx := context.Background()
+	multiStmtCtx, err := WithMultiStatement(ctx, 3)
+	if err != nil {
+		t.Error(err)
+	}
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(ddlQuery)
+		defer dbt.mustExec("DROP TABLE IF EXISTS TestDDLExec")
+		testcases := []struct {
+			name  string
+			query string
+			f     func(stmt driver.Stmt) (any, error)
+		}{
+			{
+				name:  "dql Exec",
+				query: dqlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.Exec(nil)
+				},
+			},
+			{
+				name:  "dql ExecContext",
+				query: dqlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+				},
+			},
+			{
+				name:  "ddl Exec",
+				query: ddlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.Exec(nil)
+				},
+			},
+			{
+				name:  "ddl ExecContext",
+				query: ddlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+				},
+			},
+			{
+				name:  "dml Exec",
+				query: dmlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.Exec(nil)
+				},
+			},
+			{
+				name:  "dml ExecContext",
+				query: dmlQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(ctx, nil)
+				},
+			},
+			{
+				name:  "multistmt ExecContext",
+				query: multiStmtQuery,
+				f: func(stmt driver.Stmt) (any, error) {
+					return stmt.(driver.StmtExecContext).ExecContext(multiStmtCtx, nil)
+				},
+			},
+		}
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				err := dbt.conn.Raw(func(x any) error {
+					stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, tc.query)
+					if err != nil {
+						t.Error(err)
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() != "" {
+						t.Error("queryId should be empty before executing any query")
+					}
+					if _, err := tc.f(stmt); err != nil {
+						t.Errorf("should have not failed to execute the query, err: %s\n", err)
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() == "" {
+						t.Error("should have set the query id")
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
+	})
+}
+
 func TestFailedQueryIdInSnowflakeError(t *testing.T) {
 	failingQuery := "SELECTT 1"
 	failingExec := "INSERT 1 INTO NON_EXISTENT_TABLE"
