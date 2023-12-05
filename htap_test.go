@@ -338,7 +338,6 @@ func TestQueryContextCacheDisabled(t *testing.T) {
 }
 
 func TestHybridTablesE2E(t *testing.T) {
-	t.Skip("Skipping the test until AWS issue is fixed")
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("HTAP is enabled only on AWS")
 	}
