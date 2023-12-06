@@ -332,7 +332,7 @@ func TestRetryQueryFailWithTimeout(t *testing.T) {
 	assertNilF(t, err, "failed to parse the test URL")
 	_, err = newRetryHTTP(context.Background(),
 		client,
-		emptyRequest, urlPtr, make(map[string]string), 15*time.Second, 100, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+		emptyRequest, urlPtr, make(map[string]string), 20*time.Second, 100, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
 	assertNotNilF(t, err, "should fail to run retry")
 	var values url.Values
 	values, err = url.ParseQuery(urlPtr.RawQuery)
