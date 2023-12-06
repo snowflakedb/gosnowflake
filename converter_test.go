@@ -857,7 +857,7 @@ func TestArrowToValue(t *testing.T) {
 		},
 		{
 			logical: "vector",
-			values:  [][]int32{{1, 2, 3}, {4, 5, 6}},
+			values:  [][]int32{nil, {1, 2, 3}},
 			builder: array.NewFixedSizeListBuilder(pool, 3, &arrow.Int32Type{}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, v := range vs.([][]int32) {
@@ -865,6 +865,7 @@ func TestArrowToValue(t *testing.T) {
 					vb := lb.ValueBuilder().(*array.Int32Builder)
 					if len(v) == 0 {
 						lb.AppendNull()
+						vb.AppendValues([]int32{-1, -1, -1}, nil)
 						continue
 					}
 
@@ -885,7 +886,7 @@ func TestArrowToValue(t *testing.T) {
 		},
 		{
 			logical: "vector",
-			values:  [][]float32{{1.1, 2.2, 3}, {4.4, 5.5, 6}},
+			values:  [][]float32{nil, {1.1, 2.2, 3}},
 			builder: array.NewFixedSizeListBuilder(pool, 3, &arrow.Float32Type{}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, v := range vs.([][]float32) {
@@ -893,6 +894,7 @@ func TestArrowToValue(t *testing.T) {
 					vb := lb.ValueBuilder().(*array.Float32Builder)
 					if len(v) == 0 {
 						lb.AppendNull()
+						vb.AppendValues([]float32{-1, -1, -1}, nil)
 						continue
 					}
 

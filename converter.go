@@ -632,12 +632,20 @@ func arrowToValue(
 		case arrow.INT32:
 			values := vectorData.ListValues().(*array.Int32).Int32Values()
 			for i := 0; i < vectorData.Len(); i++ {
-				destcol[i] = values[i*dim : (i+1)*dim]
+				if vectorData.IsNull(i) {
+					destcol[i] = []int32(nil)
+				} else {
+					destcol[i] = values[i*dim : (i+1)*dim]
+				}
 			}
 		case arrow.FLOAT32:
 			values := vectorData.ListValues().(*array.Float32).Float32Values()
 			for i := 0; i < vectorData.Len(); i++ {
-				destcol[i] = values[i*dim : (i+1)*dim]
+				if vectorData.IsNull(i) {
+					destcol[i] = []float32(nil)
+				} else {
+					destcol[i] = values[i*dim : (i+1)*dim]
+				}
 			}
 		default:
 			return fmt.Errorf("unsupported element type %q for a vector", datatype.Elem().String())
