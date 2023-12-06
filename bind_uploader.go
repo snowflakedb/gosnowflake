@@ -196,7 +196,10 @@ func (sc *snowflakeConn) processBindings(
 			ctx:       ctx,
 			stagePath: "@" + bindStageName + "/" + requestID.String(),
 		}
-		uploader.upload(bindings)
+		_, err := uploader.upload(bindings)
+		if err != nil {
+			return err
+		}
 		req.Bindings = nil
 		req.BindStage = uploader.stagePath
 	} else {
