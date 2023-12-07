@@ -68,15 +68,15 @@ func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[
 }
 
 // Build arrow chunk based on RowSet of base64
-func buildFirstArrowChunk(rowsetBase64 string, loc *time.Location, alloc memory.Allocator) arrowResultChunk {
+func buildFirstArrowChunk(rowsetBase64 string, loc *time.Location, alloc memory.Allocator) (arrowResultChunk, error) {
 	rowSetBytes, err := base64.StdEncoding.DecodeString(rowsetBase64)
 	if err != nil {
-		return arrowResultChunk{}
+		return arrowResultChunk{}, err
 	}
 	rr, err := ipc.NewReader(bytes.NewReader(rowSetBytes), ipc.WithAllocator(alloc))
 	if err != nil {
-		return arrowResultChunk{}
+		return arrowResultChunk{}, err
 	}
 
-	return arrowResultChunk{rr, 0, loc, alloc}
+	return arrowResultChunk{rr, 0, loc, alloc}, nil
 }
