@@ -830,3 +830,23 @@ func TestStatementQueryExecs(t *testing.T) {
 		}
 	})
 }
+
+func TestWithQueryTag(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		testQueryTag := "TEST QUERY TAG"
+		ctx := WithQueryTag(context.Background(), testQueryTag)
+
+		// This query itself will be part of the history and will have the query tag
+		rows := dbt.mustQueryContext(
+			ctx,
+			"SELECT QUERY_TAG FROM table(information_schema.query_history_by_session())")
+		defer rows.Close()
+
+		assertTrueF(t, rows.Next())
+		var tag sql.NullString
+		err := rows.Scan(&tag)
+		assertNilF(t, err)
+		assertTrueF(t, tag.Valid, "no QUERY_TAG set")
+		assertEqualF(t, tag.String, testQueryTag)
+	})
+}
