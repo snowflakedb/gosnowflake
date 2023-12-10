@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"slices"
+	"reflect"
 	"strings"
 	"syscall"
 	"testing"
@@ -1285,7 +1285,7 @@ func testVector(t *testing.T, json bool) {
 			t.Error(err)
 		}
 		wantInt := []int32{1, 2, 3}
-		if !slices.Equal(gotInt, wantInt) {
+		if !reflect.DeepEqual(gotInt, wantInt) {
 			t.Errorf("incorrect vector deserialized: got %v, want %v", gotInt, wantInt)
 		}
 
@@ -1300,7 +1300,7 @@ func testVector(t *testing.T, json bool) {
 			t.Error(err)
 		}
 		wantFloat := []float32{1.1, 2.2, 3, 4, 5}
-		if !slices.Equal(gotFloat, wantFloat) {
+		if !reflect.DeepEqual(gotFloat, wantFloat) {
 			t.Errorf("incorrect vector deserialized: got %v, want %v", gotFloat, wantFloat)
 		}
 	})
