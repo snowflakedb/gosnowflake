@@ -66,7 +66,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to run the query. %v, err: %v", createTableQuery, err)
 	}
-
+	defer func() {
+		fmt.Printf("Dropping the table: %v\n", dropQuery)
+		_, err = db.Exec(dropQuery)
+		if err != nil {
+			log.Fatalf("failed to run the query. %v, err: %v", dropQuery, err)
+		}
+	}()
 	fmt.Printf("Inserting VARIANT and OBJECT data into table: %v\n", insertQuery)
 	_, err = db.Exec(insertQuery,
 		string(jsonStr),
@@ -98,11 +104,6 @@ func main() {
 	if rows.Err() != nil {
 		fmt.Printf("ERROR: %v\n", rows.Err())
 		return
-	}
-	fmt.Printf("Dropping the table: %v\n", dropQuery)
-	_, err = db.Exec(dropQuery)
-	if err != nil {
-		log.Fatalf("failed to run the query. %v, err: %v", dropQuery, err)
 	}
 
 }
