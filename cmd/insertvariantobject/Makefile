@@ -1,5 +1,5 @@
 include ../../gosnowflake.mak
-CMD_TARGET=insertvariantobject
+CMD_TARGET=variant
 
 ## Install
 install: cinstall
