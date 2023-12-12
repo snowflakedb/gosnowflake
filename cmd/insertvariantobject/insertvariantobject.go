@@ -2,10 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
-	"encoding/json"
+	"strconv"
+	"time"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -40,23 +42,26 @@ func main() {
 	}
 	defer db.Close()
 
+	tablename := "insert_variant_object_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	param := map[string]string{"key": "value"}
 	jsonStr, err := json.Marshal(param)
 	if err != nil {
 		log.Fatalf("failed to marshal json. err: %v", err)
 	}
 
-	createTableQuery := "CREATE OR REPLACE TABLE insert_variant_object (c1 VARIANT, c2 OBJECT)"
+	createTableQuery := "CREATE TABLE " + tablename + " (c1 VARIANT, c2 OBJECT)"
 
 	// https://docs.snowflake.com/en/sql-reference/functions/parse_json
 	// can do with TO_VARIANT(PARSE_JSON(..)) as well, but PARSE_JSON already produces VARIANT
-	insertQuery := "INSERT INTO insert_variant_object (c1, c2) SELECT PARSE_JSON(?), TO_OBJECT(PARSE_JSON(?))"
+	insertQuery := "INSERT INTO " + tablename + " (c1, c2) SELECT PARSE_JSON(?), TO_OBJECT(PARSE_JSON(?))"
 	// https://docs.snowflake.com/en/sql-reference/data-types-semistructured#object
-	insertOnlyObject := "INSERT INTO insert_variant_object (c2) SELECT OBJECT_CONSTRUCT('name', 'Jones'::VARIANT, 'age',  42::VARIANT)"
+	insertOnlyObject := "INSERT INTO " + tablename + " (c2) SELECT OBJECT_CONSTRUCT('name', 'Jones'::VARIANT, 'age',  42::VARIANT)"
 
-	selectQuery := "SELECT c1, c2 FROM insert_variant_object"
+	selectQuery := "SELECT c1, c2 FROM " + tablename
 
-	fmt.Printf("Running CREATE OR REPLACE TABLE: %v\n", createTableQuery)
+	dropQuery := "DROP TABLE " + tablename
+
+	fmt.Printf("Creating table: %v\n", createTableQuery)
 	_, err = db.Exec(createTableQuery)
 	if err != nil {
 		log.Fatalf("failed to run the query. %v, err: %v", createTableQuery, err)
@@ -72,27 +77,32 @@ func main() {
 	}
 	fmt.Printf("Now for another approach: %v\n", insertOnlyObject)
 	_, err = db.Exec(insertOnlyObject)
-        if err != nil {
-                log.Fatalf("failed to run the query. %v, err: %v", insertOnlyObject, err)
-        }
+	if err != nil {
+		log.Fatalf("failed to run the query. %v, err: %v", insertOnlyObject, err)
+	}
 
 	fmt.Printf("Querying the table into which we just inserted the data: %v\n", selectQuery)
 	rows, err := db.Query(selectQuery)
-        if err != nil {
-                log.Fatalf("failed to run the query. %v, err: %v", selectQuery, err)
-        }
-        defer rows.Close()
+	if err != nil {
+		log.Fatalf("failed to run the query. %v, err: %v", selectQuery, err)
+	}
+	defer rows.Close()
 	var c1, c2 any
 	for rows.Next() {
 		err := rows.Scan(&c1, &c2)
 		if err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
 		}
-		fmt.Printf("%v, %v\n", c1, c2)
+		fmt.Printf("%v (type: %T), %v (type: %T)\n", c1, c1, c2, c2)
 	}
 	if rows.Err() != nil {
 		fmt.Printf("ERROR: %v\n", rows.Err())
 		return
+	}
+	fmt.Printf("Dropping the table: %v\n", dropQuery)
+	_, err = db.Exec(dropQuery)
+	if err != nil {
+		log.Fatalf("failed to run the query. %v, err: %v", dropQuery, err)
 	}
 
 }
