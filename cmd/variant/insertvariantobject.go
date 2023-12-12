@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -42,6 +43,13 @@ func main() {
 	}
 	defer db.Close()
 
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		log.Fatalf("Failed to acquire connection. err: %v", err)
+	}
+	defer conn.Close()
+
 	tablename := "insert_variant_object_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	param := map[string]string{"key": "value"}
 	jsonStr, err := json.Marshal(param)
@@ -62,19 +70,19 @@ func main() {
 	dropQuery := "DROP TABLE " + tablename
 
 	fmt.Printf("Creating table: %v\n", createTableQuery)
-	_, err = db.Exec(createTableQuery)
+	_, err = conn.ExecContext(ctx, createTableQuery)
 	if err != nil {
 		log.Fatalf("failed to run the query. %v, err: %v", createTableQuery, err)
 	}
 	defer func() {
 		fmt.Printf("Dropping the table: %v\n", dropQuery)
-		_, err = db.Exec(dropQuery)
+		_, err = conn.ExecContext(ctx, dropQuery)
 		if err != nil {
 			log.Fatalf("failed to run the query. %v, err: %v", dropQuery, err)
 		}
 	}()
 	fmt.Printf("Inserting VARIANT and OBJECT data into table: %v\n", insertQuery)
-	_, err = db.Exec(insertQuery,
+	_, err = conn.ExecContext(ctx, insertQuery,
 		string(jsonStr),
 		string(jsonStr),
 	)
@@ -82,13 +90,13 @@ func main() {
 		log.Fatalf("failed to run the query. %v, err: %v", insertQuery, err)
 	}
 	fmt.Printf("Now for another approach: %v\n", insertOnlyObject)
-	_, err = db.Exec(insertOnlyObject)
+	_, err = conn.ExecContext(ctx, insertOnlyObject)
 	if err != nil {
 		log.Fatalf("failed to run the query. %v, err: %v", insertOnlyObject, err)
 	}
 
 	fmt.Printf("Querying the table into which we just inserted the data: %v\n", selectQuery)
-	rows, err := db.Query(selectQuery)
+	rows, err := conn.QueryContext(ctx, selectQuery)
 	if err != nil {
 		log.Fatalf("failed to run the query. %v, err: %v", selectQuery, err)
 	}
