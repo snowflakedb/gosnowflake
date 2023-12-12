@@ -636,3 +636,74 @@ func TestQueryArrowStreamDescribeOnly(t *testing.T) {
 		}
 	})
 }
+
+func TestWithArrowBatchesSmallResultSets(t *testing.T) {
+	// query that returns no results
+	emptyParams := queryParams{
+		query:    "select 0 where 1 = 0",
+		expected: []string{},
+		colIndex: 0,
+	}
+	testWithArrowBatchesSmallResultSets(t, emptyParams)
+
+	// query that checks that the timezone is correct
+	timezoneParams := queryParams{
+		query:    "SHOW PARAMETERS LIKE 'TIMEZONE'",
+		expected: []string{"UTC"},
+		colIndex: 1,
+	}
+	testWithArrowBatchesSmallResultSets(t, timezoneParams)
+}
+
+type queryParams struct {
+	query    string   // sql query to run
+	expected []string // array of values in string format
+	colIndex int      // optional: if set, this is the column access data at, otherwise access at col 0
+}
+
+func testWithArrowBatchesSmallResultSets(t *testing.T, params queryParams) {
+	ctx := context.Background()
+
+	// grab a new sqlConn
+	conn := openConn(t)
+	defer conn.Close()
+
+	// use conn.Raw to get back snowflakeRows which can be used to get arrow directly
+	var rows driver.Rows
+	var err error
+	err = conn.Raw(func(x interface{}) error {
+		queryer, implementsQueryContext := x.(driver.QueryerContext)
+		require.True(t, implementsQueryContext, "gosnowflake driver does not implement queryerContext")
+
+		// run the query with arrow batches set to true on the context
+		rows, err = queryer.QueryContext(WithArrowBatches(ctx), params,query, nil)
+		return err
+	})
+	require.NoError(t, err, "error running QueryContext on raw snowflake connection")
+
+	// make sure the rows is the proper type (although it wouldnt be possible for it not to be)
+	sfRows, isSfRows := rows.(*SnowflakeRows)
+	require.True(t, isSfRows, "driver rows could not be cast to snowflakeRows")
+
+	require.NotNil(t, sfRows, "sfRows should not be nil even if there are no results, rather it should be an empty rows object")
+
+	arrowBatches, err := sfRows.GetArrowBatches()
+	require.NoError(t, err, "error getting arrowBatches off sfRows")
+
+	rowsRead := int64(0) // increments by 1 after each row is read
+	for i := range arrowBatches {
+		// batch is type *[]arrow.Record
+		batch, err := arrowBatches[i].Fetch()
+		require.NoError(t, err)
+
+		for _, chunk := range *batch {
+			col := chunk.Column(params.colIndex)
+			for i := 0; i < int(chunk.NumRows()); i++ {
+				require.Equal(t, string(params.expected[rowsRead]), col.ValueStr(i), "Unexpected result at row %d", rowsRead)
+				rowsRead++
+			}
+
+			chunk.Release()
+		}
+	}
+}
