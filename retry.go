@@ -35,8 +35,6 @@ var authEndpoints = []string{
 
 var clientErrorsStatusCodesEligibleForRetry = []int{
 	http.StatusTooManyRequests,
-	http.StatusBadRequest,
-	http.StatusMethodNotAllowed,
 	http.StatusRequestTimeout,
 }
 
