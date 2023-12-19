@@ -134,12 +134,17 @@ func (sr *snowflakeRestful) getAsync(
 			if isMultiStmt(&respd.Data) {
 				if err = sc.handleMultiQuery(ctx, respd.Data, rows); err != nil {
 					rows.errChannel <- err
+					close(rows.errChannel)
 					return err
 				}
 			} else {
 				rows.addDownloader(populateChunkDownloader(ctx, sc, respd.Data))
 			}
-			rows.ChunkDownloader.start()
+			if err = rows.ChunkDownloader.start(); err != nil {
+				rows.errChannel <- err
+				close(rows.errChannel)
+				return err
+			}
 			rows.errChannel <- nil // mark query status complete
 		}
 	} else {

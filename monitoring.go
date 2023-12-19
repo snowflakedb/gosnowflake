@@ -265,6 +265,6 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 	if err := sc.rowsForRunningQuery(ctx, qid, rows); err != nil {
 		return nil, err
 	}
-	rows.ChunkDownloader.start()
-	return rows, nil
+	err := rows.ChunkDownloader.start()
+	return rows, err
 }

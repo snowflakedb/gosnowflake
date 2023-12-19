@@ -217,7 +217,9 @@ func (rows *snowflakeRows) NextResultSet() error {
 			return io.EOF
 		}
 		rows.ChunkDownloader = rows.ChunkDownloader.getNextChunkDownloader()
-		rows.ChunkDownloader.start()
+		if err := rows.ChunkDownloader.start(); err != nil {
+			return err
+		}
 	}
 	return rows.ChunkDownloader.nextResultSet()
 }
