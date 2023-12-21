@@ -740,8 +740,8 @@ func TestBulkArrayBinding(t *testing.T) {
 
 func TestBulkArrayMultiPartBinding(t *testing.T) {
 	rowCount := 1000000 // large enough to be partitioned into multiple files
-	rand.Seed(time.Now().UnixNano())
-	randomIter := rand.Intn(3) + 2
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	randomIter := r.Intn(3) + 2
 	randomStrings := make([]string, rowCount)
 	str := randomString(30)
 	for i := 0; i < rowCount; i++ {

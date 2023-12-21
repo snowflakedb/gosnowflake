@@ -21,8 +21,8 @@ func TestTelemetryAddLog(t *testing.T) {
 			enabled:   true,
 			flushSize: defaultFlushSize,
 		}
-		rand.Seed(time.Now().UnixNano())
-		randNum := rand.Int() % 10000
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		randNum := r.Int() % 10000
 		for i := 0; i < randNum; i++ {
 			if err := st.addLog(&telemetryData{
 				Message: map[string]string{
