@@ -294,9 +294,10 @@ func TestGetHeaderNonApiError(t *testing.T) {
 			return nil, othErr
 		}),
 	}
+
 	header, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
 	assertEqualF(t, header, nil, fmt.Sprintf("expected nil header, got: %v", header))
-	assertNotNilF(t, err, fmt.Sprintf("expected err to not be nil"))
+	assertNotNilF(t, err, "expected err to not be nil")
 	assertEqualF(t, meta.resStatus, errStatus, fmt.Sprintf("expected %v result status for non-APIerror, got: %v", errStatus, meta.resStatus))
 }
 
