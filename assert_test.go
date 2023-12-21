@@ -18,6 +18,9 @@ func assertNilF(t *testing.T, actual any, descriptions ...string) {
 	fatalOnNonEmpty(t, validateNil(actual, descriptions...))
 }
 
+func assertNotNilE(t *testing.T, actual any, descriptions ...string) {
+	errorOnNonEmpty(t, validateNotNil(actual, descriptions...))
+}
 func assertNotNilF(t *testing.T, actual any, descriptions ...string) {
 	fatalOnNonEmpty(t, validateNotNil(actual, descriptions...))
 }
