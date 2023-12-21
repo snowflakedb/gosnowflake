@@ -285,6 +285,21 @@ func TestGetHeaderUnexpectedError(t *testing.T) {
 	}
 }
 
+func TestGetHeaderNonApiError(t *testing.T) {
+	meta := fileMetadata{
+		client:    s3.New(s3.Options{}),
+		stageInfo: &execResponseStageInfo{Location: ""},
+		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+			return nil, errors.New("something went wrong here")
+		}),
+	}
+
+	header, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
+	assertNilE(t, header, fmt.Sprintf("expected header to be nil, actual: %v", header))
+	assertNotNilE(t, err, "expected err to not be nil")
+	assertEqualE(t, meta.resStatus, errStatus, fmt.Sprintf("expected %v result status for non-APIerror, got: %v", errStatus, meta.resStatus))
+}
+
 func TestGetHeaderNotFoundError(t *testing.T) {
 	meta := fileMetadata{
 		client:    s3.New(s3.Options{}),

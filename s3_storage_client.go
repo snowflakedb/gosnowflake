@@ -89,6 +89,9 @@ func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string
 			meta.lastError = err
 			return nil, fmt.Errorf("error while retrieving header")
 		}
+		meta.resStatus = errStatus
+		meta.lastError = err
+		return nil, fmt.Errorf("unexpected error while retrieving header: %v", err)
 	}
 
 	meta.resStatus = uploaded
