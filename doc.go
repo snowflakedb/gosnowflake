@@ -963,7 +963,6 @@ db.Query() function:
 "<local_file>" should include the file path as well as the name. Snowflake recommends using
 an absolute path rather than a relative path. For example:
 
-
 	db.Query("GET @~ file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
 
 ## Specifying temporary directory for encryption and compression
