@@ -49,6 +49,9 @@ func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bo
 				MaxRetries: 60,
 				RetryDelay: 2 * time.Second,
 			},
+			Transport: &http.Client{
+				Transport: SnowflakeTransport,
+			},
 		},
 	})
 	if err != nil {

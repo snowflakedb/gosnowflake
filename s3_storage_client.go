@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 
@@ -52,6 +53,9 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 			stageCredentials.AwsToken)),
 		EndpointResolver: resolver,
 		UseAccelerate:    useAccelerateEndpoint,
+		HTTPClient: &http.Client{
+			Transport: SnowflakeTransport,
+		},
 	}), nil
 }
 
