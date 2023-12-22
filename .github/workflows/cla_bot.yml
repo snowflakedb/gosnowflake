@@ -6,19 +6,24 @@ on:
     types: [opened,closed,synchronize]
 
 jobs:
-  CLAssistant:
+  CLAAssistant:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      statuses: write
     steps:
       - name: "CLA Assistant"
         if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
-        uses: cla-assistant/github-action@master
+        uses: contributor-assistant/github-action/@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PERSONAL_ACCESS_TOKEN : ${{ secrets.CLA_BOT_TOKEN }}
         with:
           path-to-signatures: 'signatures/version1.json'
-          path-to-document: 'https://github.com/Snowflake-Labs/CLA/blob/main/README.md'
+          path-to-document: 'https://github.com/snowflakedb/CLA/blob/main/README.md'
           branch: 'main'
-          allowlist: 'dependabot[bot],github-actions'
+          allowlist: 'dependabot[bot],github-actions,Jenkins User,_jenkins,sfc-gh-snyk-sca-sa,snyk-bot'
           remote-organization-name: 'snowflakedb'
           remote-repository-name: 'cla-db'

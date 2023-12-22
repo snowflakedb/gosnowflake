@@ -7,6 +7,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -72,20 +73,20 @@ func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
 func TestJWTAuthentication(t *testing.T) {
 	// For private key generated on the fly, we want to load the public key to the server first
 	if !customPrivateKey {
-		db := openDB(t)
+		conn := openConn(t)
+		defer conn.Close()
 		// Load server's public key to database
 		pubKeyByte, err := x509.MarshalPKIXPublicKey(testPrivKey.Public())
 		if err != nil {
 			t.Fatalf("error marshaling public key: %s", err.Error())
 		}
-		if _, err = db.Exec("USE ROLE ACCOUNTADMIN"); err != nil {
+		if _, err = conn.ExecContext(context.Background(), "USE ROLE ACCOUNTADMIN"); err != nil {
 			t.Fatalf("error changin role: %s", err.Error())
 		}
 		encodedKey := base64.StdEncoding.EncodeToString(pubKeyByte)
-		if _, err = db.Exec(fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", username, encodedKey)); err != nil {
+		if _, err = conn.ExecContext(context.Background(), fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", username, encodedKey)); err != nil {
 			t.Fatalf("error setting server's public key: %s", err.Error())
 		}
-		db.Close()
 	}
 
 	// Test that a valid private key can pass
@@ -114,4 +115,27 @@ func TestJWTAuthentication(t *testing.T) {
 	}
 
 	db.Close()
+}
+
+func TestJWTTokenTimeout(t *testing.T) {
+	resetHTTPMocks(t)
+
+	dsn := "user:pass@localhost:12345/db/schema?account=jwtAuthTokenTimeout&protocol=http&jwtClientTimeout=1"
+	dsn = appendPrivateKeyString(&dsn, testPrivKey)
+	db, err := sql.Open("snowflake", dsn)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	defer db.Close()
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	defer conn.Close()
+
+	invocations := getMocksInvocations(t)
+	if invocations != 3 {
+		t.Errorf("Unexpected number of invocations, expected 3, got %v", invocations)
+	}
 }

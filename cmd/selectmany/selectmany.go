@@ -9,12 +9,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime/pprof"
-	"strconv"
-
-	_ "net/http/pprof"
-
 	"runtime/debug"
+	"runtime/pprof"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -23,42 +19,6 @@ var (
 	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 	memprofile = flag.String("memprofile", "", "write memory profile to this file")
 )
-
-// getDSN constructs a DSN based on the test connection parameters
-func getDSN() (string, *sf.Config, error) {
-	env := func(k string, failOnMissing bool) string {
-		if value := os.Getenv(k); value != "" {
-			return value
-		}
-		if failOnMissing {
-			log.Fatalf("%v environment variable is not set.", k)
-		}
-		return ""
-	}
-
-	account := env("SNOWFLAKE_TEST_ACCOUNT", true)
-	user := env("SNOWFLAKE_TEST_USER", true)
-	password := env("SNOWFLAKE_TEST_PASSWORD", true)
-	host := env("SNOWFLAKE_TEST_HOST", false)
-	port := env("SNOWFLAKE_TEST_PORT", false)
-	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
-
-	portStr, err := strconv.Atoi(port)
-	if err != nil {
-		return "", nil, err
-	}
-	cfg := &sf.Config{
-		Account:  account,
-		User:     user,
-		Password: password,
-		Host:     host,
-		Port:     portStr,
-		Protocol: protocol,
-	}
-
-	dsn, err := sf.DSN(cfg)
-	return dsn, cfg, err
-}
 
 // run is an actual main
 func run(dsn string) {
@@ -124,7 +84,18 @@ func main() {
 		flag.Parse()
 	}
 
-	dsn, cfg, err := getDSN()
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
+		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
+		{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
+		{Name: "Password", EnvName: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
+		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
+		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
+		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
+	})
+	if err != nil {
+		log.Fatalf("failed to create Config, err: %v", err)
+	}
+	dsn, err := sf.DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}

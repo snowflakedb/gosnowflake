@@ -34,19 +34,17 @@ func TestPutError(t *testing.T) {
 	if isWindows {
 		t.Skip("permission model is different")
 	}
-	tmpDir, err := os.MkdirTemp("", "putfiledir")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	file1 := filepath.Join(tmpDir, "file1")
 	remoteLocation := filepath.Join(tmpDir, "remote_loc")
-	f, err := os.OpenFile(file1, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.Create(file1)
 	if err != nil {
 		t.Error(err)
 	}
+	defer f.Close()
 	f.WriteString("test1")
 	os.Chmod(file1, 0000)
+	defer os.Chmod(file1, 0644)
 
 	data := &execResponseData{
 		Command:           string(uploadCommand),
@@ -65,6 +63,9 @@ func TestPutError(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			RaisePutGetError: false,
 		},
+		sc: &snowflakeConn{
+			cfg: &Config{},
+		},
 	}
 	if err = fta.execute(); err != nil {
 		t.Fatal(err)
@@ -77,6 +78,9 @@ func TestPutError(t *testing.T) {
 		data: data,
 		options: &SnowflakeFileTransferOptions{
 			RaisePutGetError: true,
+		},
+		sc: &snowflakeConn{
+			cfg: &Config{},
 		},
 	}
 	if err = fta.execute(); err != nil {
@@ -99,10 +103,13 @@ func TestPercentage(t *testing.T) {
 		{14, 28, 0.5},
 	}
 	for _, test := range testcases {
-		if percent(test.seen, test.size) != test.expected {
-			t.Fatalf("percentage conversion failed. %v/%v, expected: %v, got: %v",
-				test.seen, test.size, test.expected, percent(test.seen, test.size))
-		}
+		t.Run(fmt.Sprintf("%v_%v_%v", test.seen, test.size, test.expected), func(t *testing.T) {
+			spp := snowflakeProgressPercentage{}
+			if spp.percent(test.seen, test.size) != test.expected {
+				t.Fatalf("percentage conversion failed. %v/%v, expected: %v, got: %v",
+					test.seen, test.size, test.expected, spp.percent(test.seen, test.size))
+			}
+		})
 	}
 }
 
@@ -136,7 +143,7 @@ func getAWSCredentials() (string, string, string, error) {
 		if err != nil {
 			return keyID, secretKey, "", err
 		}
-		bucket = fmt.Sprintf("sfc-dev1-regression/%v/reg", user.Username)
+		bucket = fmt.Sprintf("sfc-eng-regression/%v/reg", user.Username)
 	}
 	return keyID, secretKey, bucket, nil
 }
@@ -164,7 +171,7 @@ func createTestData(dbt *DBTest) (*tcPutGetData, error) {
 		bucket,
 	}
 
-	if _, err = dbt.db.Exec("use role sysadmin"); err != nil {
+	if _, err = dbt.exec("use role sysadmin"); err != nil {
 		return nil, err
 	}
 	dbt.mustExec(fmt.Sprintf(
@@ -181,7 +188,7 @@ func TestPutLocalFile(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		data, err := createTestData(dbt)
 		if err != nil {
 			t.Skip("snowflake admin account not accessible")
@@ -211,6 +218,7 @@ func TestPutLocalFile(t *testing.T) {
 
 		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 string
 		rows := dbt.mustQuery("copy into gotest_putget_t1")
+		defer rows.Close()
 		for rows.Next() {
 			rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9)
 			if s1 != "LOADED" {
@@ -218,19 +226,20 @@ func TestPutLocalFile(t *testing.T) {
 			}
 		}
 
-		rows = dbt.mustQuery("select count(*) from gotest_putget_t1")
+		rows2 := dbt.mustQuery("select count(*) from gotest_putget_t1")
+		defer rows2.Close()
 		var i int
-		if rows.Next() {
-			rows.Scan(&i)
+		if rows2.Next() {
+			rows2.Scan(&i)
 			if i != 75 {
 				t.Fatalf("expected 75 rows, got %v", i)
 			}
 		}
 
-		rows = dbt.mustQuery(`select STATUS from information_schema
-			.load_history where table_name='gotest_putget_t1'`)
-		if rows.Next() {
-			rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9)
+		rows3 := dbt.mustQuery(`select STATUS from information_schema .load_history where table_name='gotest_putget_t1'`)
+		rows3.Close()
+		if rows3.Next() {
+			rows3.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9)
 			if s1 != "LOADED" {
 				t.Fatal("not loaded")
 			}
@@ -242,13 +251,9 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
-	tmpDir, err := os.MkdirTemp("", "put")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
-	f, err := os.OpenFile(testData, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	f, err := os.Create(testData)
 	if err != nil {
 		t.Error(err)
 	}
@@ -256,8 +261,8 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	f.Sync()
 	defer f.Close()
 
-	runTests(t, dsn, func(dbt *DBTest) {
-		if _, err = dbt.db.Exec("use role sysadmin"); err != nil {
+	runDBTest(t, func(dbt *DBTest) {
+		if _, err = dbt.exec("use role sysadmin"); err != nil {
 			t.Skip("snowflake admin account not accessible")
 		}
 		dbt.mustExec("rm @~/test_put_uncompress_file")
@@ -266,6 +271,7 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/test_put_uncompress_file")
 		rows := dbt.mustQuery("ls @~/test_put_uncompress_file")
+		defer rows.Close()
 		var file, s1, s2, s3 string
 		if rows.Next() {
 			if err := rows.Scan(&file, &s1, &s2, &s3); err != nil {
@@ -282,30 +288,24 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 }
 
 func TestPutOverwrite(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "data")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
-	f, err := os.OpenFile(testData, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	f, err := os.Create(testData)
 	if err != nil {
 		t.Error(err)
 	}
 	f.WriteString("test1,test2\ntest3,test4\n")
 	f.Close()
 
-	runTests(t, dsn, func(dbt *DBTest) {
-		if _, err = dbt.db.Exec("use role sysadmin"); err != nil {
-			t.Skip("snowflake admin account not accessible")
-		}
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("rm @~/test_put_overwrite")
 
 		f, _ = os.Open(testData)
 		rows := dbt.mustQueryContext(
 			WithFileStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite",
-				strings.ReplaceAll(testData, "\\", "\\\\")))
+				strings.ReplaceAll(testData, "\\", "/")))
+		defer rows.Close()
 		f.Close()
 		defer dbt.mustExec("rm @~/test_put_overwrite")
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
@@ -318,48 +318,66 @@ func TestPutOverwrite(t *testing.T) {
 			t.Fatalf("expected UPLOADED, got %v", s6)
 		}
 
+		rows = dbt.mustQuery("ls @~/test_put_overwrite")
+		defer rows.Close()
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			t.Fatal(err)
+		}
+		md5Column := s2
+
 		f, _ = os.Open(testData)
-		ctx := WithFileTransferOptions(context.Background(),
-			&SnowflakeFileTransferOptions{
-				DisablePutOverwrite: true,
-			})
 		rows = dbt.mustQueryContext(
-			WithFileStream(ctx, f),
+			WithFileStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite",
-				strings.ReplaceAll(testData, "\\", "\\\\")))
+				strings.ReplaceAll(testData, "\\", "/")))
+		defer rows.Close()
 		f.Close()
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			t.Fatal(err)
 		}
 		if s6 != skipped.String() {
 			t.Fatalf("expected SKIPPED, got %v", s6)
+		}
+
+		rows = dbt.mustQuery("ls @~/test_put_overwrite")
+		defer rows.Close()
+		assertTrueF(t, rows.Next(), "expected new rows")
+
+		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			t.Fatal(err)
+		}
+		if s2 != md5Column {
+			t.Fatal("The MD5 column should have stayed the same")
 		}
 
 		f, _ = os.Open(testData)
 		rows = dbt.mustQueryContext(
 			WithFileStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite overwrite=true",
-				strings.ReplaceAll(testData, "\\", "\\\\")))
+				strings.ReplaceAll(testData, "\\", "/")))
+		defer rows.Close()
 		f.Close()
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			t.Fatal(err)
 		}
 		if s6 != uploaded.String() {
 			t.Fatalf("expected UPLOADED, got %v", s6)
 		}
 
 		rows = dbt.mustQuery("ls @~/test_put_overwrite")
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
-				t.Fatal(err)
-			}
+		defer rows.Close()
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+			t.Fatal(err)
 		}
 		if s0 != fmt.Sprintf("test_put_overwrite/%v.gz", baseName(testData)) {
 			t.Fatalf("expected test_put_overwrite/%v.gz, got %v", baseName(testData), s0)
+		}
+		if s2 == md5Column {
+			t.Fatalf("file should have been overwritten.")
 		}
 	})
 }
@@ -373,11 +391,7 @@ func TestPutGetStream(t *testing.T) {
 }
 
 func testPutGet(t *testing.T, isStream bool) {
-	tmpDir, err := os.MkdirTemp("", "put_get")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
 	tableName := randomString(5)
@@ -386,23 +400,19 @@ func testPutGet(t *testing.T, isStream bool) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
-		fileStream, err := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+		defer dbt.mustExec("drop table " + tableName)
+		fileStream, err := os.Open(fname)
 		if err != nil {
 			t.Error(err)
 		}
-		defer func() {
-			defer dbt.mustExec("drop table " + tableName)
-			if fileStream != nil {
-				fileStream.Close()
-			}
-		}()
+		defer fileStream.Close()
 
 		var sqlText string
 		var rows *RowsExtended
@@ -417,12 +427,12 @@ func testPutGet(t *testing.T, isStream bool) {
 				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
 			rows = dbt.mustQuery(sqlText)
 		}
+		defer rows.Close()
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
-		if rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-				t.Fatal(err)
-			}
+		assertTrueF(t, rows.Next(), "expected new rows")
+		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
+			t.Fatal(err)
 		}
 		if s6 != uploaded.String() {
 			t.Fatalf("expected %v, got: %v", uploaded, s6)
@@ -439,10 +449,10 @@ func testPutGet(t *testing.T, isStream bool) {
 
 		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
-		rows = dbt.mustQuery(sqlText)
-		defer rows.Close()
-		for rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+		rows2 := dbt.mustQuery(sqlText)
+		defer rows2.Close()
+		for rows2.Next() {
+			if err = rows2.Scan(&s0, &s1, &s2, &s3); err != nil {
 				t.Error(err)
 			}
 			if !strings.HasPrefix(s0, "data_") {
@@ -473,6 +483,7 @@ func testPutGet(t *testing.T, isStream bool) {
 		if err != nil {
 			t.Error(err)
 		}
+		defer gz.Close()
 		var contents string
 		for {
 			c := make([]byte, defaultChunkBufferSize)
@@ -510,15 +521,15 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 	gzw := gzip.NewWriter(&b)
 	gzw.Write([]byte(originalContents))
 	gzw.Close()
-	if err = os.WriteFile(fname, b.Bytes(), os.ModePerm); err != nil {
+	if err = os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
 
 	dsn = dsn + "&GCS_USE_DOWNSCOPED_CREDENTIAL=true"
-	runTests(t, dsn, func(dbt *DBTest) {
+	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
-		fileStream, err := os.OpenFile(fname, os.O_RDONLY, os.ModePerm)
+		fileStream, err := os.Open(fname)
 		if err != nil {
 			t.Error(err)
 		}
@@ -535,6 +546,7 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		sqlText = fmt.Sprintf(
 			sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
 		rows = dbt.mustQuery(sqlText)
+		defer rows.Close()
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
 		if rows.Next() {
@@ -557,10 +569,10 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 
 		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
-		rows = dbt.mustQuery(sqlText)
-		defer rows.Close()
-		for rows.Next() {
-			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
+		rows2 := dbt.mustQuery(sqlText)
+		defer rows2.Close()
+		for rows2.Next() {
+			if err = rows2.Scan(&s0, &s1, &s2, &s3); err != nil {
 				t.Error(err)
 			}
 			if !strings.HasPrefix(s0, "data_") {
@@ -608,5 +620,33 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		if contents != originalContents {
 			t.Error("output is different from the original file")
 		}
+	})
+}
+
+func TestPutLargeFile(t *testing.T) {
+	sourceDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("rm @~/test_put_largefile")
+		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @%v", sourceDir, "~/test_put_largefile")
+		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
+		dbt.mustExec(sqlText)
+		defer dbt.mustExec("rm @~/test_put_largefile")
+		rows := dbt.mustQuery("ls @~/test_put_largefile")
+		defer rows.Close()
+		var file, s1, s2, s3 string
+		if rows.Next() {
+			if err := rows.Scan(&file, &s1, &s2, &s3); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		if !strings.Contains(file, "largefile.txt.gz") {
+			t.Fatalf("should contain file. got: %v", file)
+		}
+
 	})
 }

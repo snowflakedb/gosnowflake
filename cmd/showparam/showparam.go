@@ -6,65 +6,35 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"strconv"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
-
-// getDSN constructs a DSN based on the test connection parameters
-func getDSN(params map[string]*string) (string, *sf.Config, error) {
-	env := func(k string, failOnMissing bool) string {
-		if value := os.Getenv(k); value != "" {
-			return value
-		}
-		if failOnMissing {
-			log.Fatalf("%v environment variable is not set.", k)
-		}
-		return ""
-	}
-
-	account := env("SNOWFLAKE_TEST_ACCOUNT", true)
-	user := env("SNOWFLAKE_TEST_USER", true)
-	password := env("SNOWFLAKE_TEST_PASSWORD", true)
-	host := env("SNOWFLAKE_TEST_HOST", false)
-	port := env("SNOWFLAKE_TEST_PORT", false)
-	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
-
-	portStr, err := strconv.Atoi(port)
-	if err != nil {
-		return "", nil, err
-	}
-	cfg := &sf.Config{
-		Account:  account,
-		User:     user,
-		Password: password,
-		Host:     host,
-		Port:     portStr,
-		Protocol: protocol,
-		Params:   params,
-	}
-
-	dsn, err := sf.DSN(cfg)
-	return dsn, cfg, err
-}
 
 func main() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
+		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
+		{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
+		{Name: "Password", EnvName: "SNOWFLAKE_TEST_PASSWORD", FailOnMissing: true},
+		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
+		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
+		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
+	})
+	if err != nil {
+		log.Fatalf("failed to create Config, err: %v", err)
+	}
 	tmfmt := "MM-DD-YYYY"
-	dsn, cfg, err := getDSN(
-		map[string]*string{
-			"TIMESTAMP_OUTPUT_FORMAT": &tmfmt, // session parameter
-		})
+	cfg.Params = map[string]*string{
+		"TIMESTAMP_OUTPUT_FORMAT": &tmfmt, // session parameter
+	}
+	dsn, err := sf.DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
-	if err != nil {
-		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
-	}
+
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
 		log.Fatalf("failed to connect. err: %v", err)

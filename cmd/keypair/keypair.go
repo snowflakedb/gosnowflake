@@ -4,82 +4,32 @@
 package main
 
 import (
-	"crypto/rsa"
-	"crypto/x509"
 	"database/sql"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"strconv"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
-
-// getDSN constructs a DSN based on the test connection parameters
-func getDSN() (string, *sf.Config, error) {
-	env := func(k string, failOnMissing bool) string {
-		if value := os.Getenv(k); value != "" {
-			return value
-		}
-		if failOnMissing {
-			log.Fatalf("%v environment variable is not set.", k)
-		}
-		return ""
-	}
-
-	account := env("SNOWFLAKE_TEST_ACCOUNT", true)
-	user := env("SNOWFLAKE_TEST_USER", true)
-	host := env("SNOWFLAKE_TEST_HOST", false)
-	portStr := env("SNOWFLAKE_TEST_PORT", false)
-	protocol := env("SNOWFLAKE_TEST_PROTOCOL", false)
-	privKeyPath := env("SNOWFLAKE_TEST_PRIVATE_KEY", true)
-
-	// Read and parse the private key
-	data, err := os.ReadFile(privKeyPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	block, _ := pem.Decode([]byte(data))
-	if block == nil {
-		panic("failed to parse PEM block containing the private key")
-	}
-	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	rsaPrivateKey, _ := privKey.(*rsa.PrivateKey)
-
-	port := 443 // snowflake default port
-	//var err error
-	if len(portStr) > 0 {
-		port, err = strconv.Atoi(portStr)
-		if err != nil {
-			return "", nil, err
-		}
-	}
-
-	cfg := &sf.Config{
-		Account:       account,
-		User:          user,
-		Host:          host,
-		Port:          port,
-		Protocol:      protocol,
-		Authenticator: sf.AuthTypeJwt,
-		PrivateKey:    rsaPrivateKey,
-	}
-
-	dsn, err := sf.DSN(cfg)
-	return dsn, cfg, err
-}
 
 func main() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
-	dsn, cfg, err := getDSN()
+	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
+		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
+		{Name: "User", EnvName: "SNOWFLAKE_TEST_USER", FailOnMissing: true},
+		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
+		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
+		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
+		{Name: "PrivateKey", EnvName: "SNOWFLAKE_TEST_PRIVATE_KEY", FailOnMissing: true},
+	})
+	if err != nil {
+		log.Fatalf("failed to create Config, err: %v", err)
+	}
+	cfg.Authenticator = sf.AuthTypeJwt
+	dsn, err := sf.DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}

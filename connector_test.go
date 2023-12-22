@@ -47,3 +47,23 @@ func TestConnector(t *testing.T) {
 		t.Fatalf("Missing driver")
 	}
 }
+
+func TestConnectorWithMissingConfig(t *testing.T) {
+	conn := snowflakeConn{}
+	mock := noopTestDriver{conn: &conn}
+	config := Config{
+		User:     "u",
+		Password: "p",
+		Account:  "",
+	}
+	expectedErr := errEmptyAccount()
+
+	connector := NewConnector(&mock, config)
+	_, err := connector.Connect(context.Background())
+	assertNotNilF(t, err, "the connection should have failed due to empty account.")
+
+	driverErr, ok := err.(*SnowflakeError)
+	assertTrueF(t, ok, "should be a SnowflakeError")
+	assertEqualE(t, driverErr.Number, expectedErr.Number)
+	assertEqualE(t, driverErr.Message, expectedErr.Message)
+}

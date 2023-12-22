@@ -35,7 +35,7 @@ func deleteOCSPCacheFile() {
 func deleteOCSPCacheAll() {
 	ocspResponseCacheLock.Lock()
 	defer ocspResponseCacheLock.Unlock()
-	ocspResponseCache = make(map[certIDKey][]interface{})
+	ocspResponseCache = make(map[certIDKey]*certCacheValue)
 }
 
 func cleanup() {
@@ -49,6 +49,7 @@ func cleanup() {
 	unsetenv(ocspTestResponderTimeoutEnv)
 	unsetenv(ocspTestResponderURLEnv)
 	unsetenv(ocspTestNoOCSPURLEnv)
+	unsetenv(ocspRetryURLEnv)
 	unsetenv(cacheDirEnv)
 }
 
@@ -387,7 +388,7 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerURLEnv, "http://localhost:12345/hang")
+	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponseCacheServerTimeoutEnv, "1000")
 
 	config := &Config{
@@ -426,7 +427,7 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerURLEnv, "http://localhost:12345/hang")
+	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponseCacheServerTimeoutEnv, "1000")
 
 	config := &Config{
@@ -482,7 +483,7 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/hang")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponderTimeoutEnv, "1000")
 
 	config := &Config{
@@ -522,7 +523,7 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/hang")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponderTimeoutEnv, "1000")
 
 	config := &Config{
@@ -566,7 +567,7 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/404")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/404")
 
 	config := &Config{
 		Account:      "fakeaccount10",
@@ -605,7 +606,7 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/404")
+	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/404")
 
 	config := &Config{
 		Account:      "fakeaccount11",
@@ -633,8 +634,8 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error URL Error: %v", err)
 	}
-	if !strings.Contains(urlErr.Err.Error(), "HTTP Status: 404") {
-		t.Fatalf("the root cause is not  timeout: %v", urlErr.Err)
+	if !strings.Contains(urlErr.Err.Error(), "404 Not Found") {
+		t.Fatalf("the root cause is not timeout: %v", urlErr.Err)
 	}
 }
 
