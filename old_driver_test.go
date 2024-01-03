@@ -167,6 +167,14 @@ func TestJSONArray(t *testing.T) {
 	testArray(t, true)
 }
 
+func TestJSONVectorInt(t *testing.T) {
+	testVectorInt(t, true)
+}
+
+func TestJSONVectorFloat(t *testing.T) {
+	testVectorFloat(t, true)
+}
+
 func TestLargeSetJSONResultWithDecoder(t *testing.T) {
 	testLargeSetResult(t, 10000, true)
 }

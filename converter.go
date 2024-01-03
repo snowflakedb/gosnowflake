@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -110,7 +111,7 @@ func snowflakeTypeToGo(rowType execResponseRowType) reflect.Type {
 		return reflect.TypeOf(true)
 	case vectorType:
 		if len(rowType.Fields) != 1 {
-			logger.Errorf("invalid response row type for vector: %+v", rowType)
+			logger.Errorf("invalid result metadata fields for vector: length=%d", len(rowType.Fields))
 			return reflect.TypeOf("")
 		}
 		switch getSnowflakeType(rowType.Fields[0].Type) {
@@ -119,7 +120,7 @@ func snowflakeTypeToGo(rowType execResponseRowType) reflect.Type {
 		case realType:
 			return reflect.TypeOf([]float32{})
 		default:
-			logger.Errorf("invalid element type for vector: %+v", rowType.Fields[0].Type)
+			logger.Errorf("invalid element type for vector: %s", rowType.Fields[0].Type)
 			return reflect.TypeOf("")
 		}
 	}
@@ -342,6 +343,27 @@ func stringToValue(
 			}
 		}
 		*dest = b
+		return nil
+	case "vector":
+		if len(srcColumnMeta.Fields) != 1 {
+			return fmt.Errorf("invalid result metadata fields for vector: length=%d", len(srcColumnMeta.Fields))
+		}
+		switch getSnowflakeType(srcColumnMeta.Fields[0].Type) {
+		case fixedType:
+			values := make([]int32, 0, srcColumnMeta.VectorDimension)
+			if err := json.Unmarshal([]byte(*srcValue), &values); err != nil {
+				return err
+			}
+			*dest = values
+		case realType:
+			values := make([]float32, 0, srcColumnMeta.VectorDimension)
+			if err := json.Unmarshal([]byte(*srcValue), &values); err != nil {
+				return err
+			}
+			*dest = values
+		default:
+			return fmt.Errorf("invalid element type for vector: %s", srcColumnMeta.Fields[0].Type)
+		}
 		return nil
 	}
 	*dest = *srcValue
