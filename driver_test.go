@@ -1286,6 +1286,8 @@ func testVectorInt(t *testing.T, json bool) {
 		},
 	}
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("alter session set enable_vector_data_type='Enable'")
+		defer dbt.mustExec("alter session unset enable_vector_data_type")
 		if json {
 			dbt.mustExec(forceJSON)
 		}
@@ -1332,9 +1334,12 @@ func testVectorFloat(t *testing.T, json bool) {
 		},
 	}
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("alter session set enable_vector_data_type='Enable'")
+		defer dbt.mustExec("alter session unset enable_vector_data_type")
 		if json {
 			dbt.mustExec(forceJSON)
 		}
+
 		for _, tt := range tests {
 			t.Run(tt.msg, func(t *testing.T) {
 				rowsFloat := dbt.mustQuery(tt.query)
