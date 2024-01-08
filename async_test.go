@@ -197,7 +197,7 @@ func TestLongRunningAsyncQuery(t *testing.T) {
 	}
 }
 
-func runLongRunningAsyncQuery(t *testing.T, ctx context.Context) {
+func runLongRunningAsyncQuery(ctx context.Context, t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		_ = dbt.mustQueryContext(ctx, "CALL SYSTEM$WAIT(100, 'SECONDS')")
 	})
@@ -215,7 +215,7 @@ func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {
 	}(goRoutineChan, queryIDChan)
 
 	// Run a long running query asynchronously
-	go runLongRunningAsyncQuery(t, ctx)
+	go runLongRunningAsyncQuery(ctx, t)
 
 	// Get the query ID without waiting for the query to finish
 	queryID := <-goRoutineChan
