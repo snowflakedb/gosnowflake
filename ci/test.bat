@@ -42,4 +42,4 @@ echo [INFO] Database:  %SNOWFLAKE_TEST_DATABASE%
 echo [INFO] Warehouse: %SNOWFLAKE_TEST_WAREHOUSE%
 echo [INFO] Role:      %SNOWFLAKE_TEST_ROLE%
 
-go test --timeout 1h --tags=sfdebug -race -coverprofile=coverage.txt -covermode=atomic -v .
+go test --timeout 30m --tags=sfdebug -race -coverprofile=coverage.txt -covermode=atomic -v .
