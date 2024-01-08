@@ -196,3 +196,63 @@ func TestLongRunningAsyncQuery(t *testing.T) {
 		}
 	}
 }
+
+func runLongRunningAsyncQuery(t *testing.T, ctx context.Context) {
+	runDBTest(t, func(dbt *DBTest) {
+		_ = dbt.mustQueryContext(ctx, "CALL SYSTEM$WAIT(100, 'SECONDS')")
+	})
+}
+
+func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {
+	queryIDChan := make(chan string, 1)
+	ctx := WithAsyncMode(context.Background())
+	ctx = WithQueryIDChan(ctx, queryIDChan)
+
+	goRoutineChan := make(chan string)
+	go func(grCh chan string, qIDch chan string) {
+		queryID := <-queryIDChan
+		grCh <- queryID
+	}(goRoutineChan, queryIDChan)
+
+	// Run a long running query asynchronously
+	go runLongRunningAsyncQuery(t, ctx)
+
+	// Get the query ID without waiting for the query to finish
+	queryID := <-goRoutineChan
+	if queryID == "" {
+		t.Fatal("expected a nonempty query ID")
+	}
+
+	conn := openConn(t)
+	defer conn.Close()
+
+	// Fetch the result using the query ID
+	ctx = WithFetchResultByID(ctx, queryID)
+	rows, err := conn.QueryContext(ctx, "")
+	if err != nil {
+		t.Fatalf("failed to run a query. err: %v", err)
+	}
+	defer rows.Close()
+
+	var v string
+	i := 0
+	for {
+		for rows.Next() {
+			err := rows.Scan(&v)
+			if err != nil {
+				t.Fatalf("failed to get result. err: %v", err)
+			}
+			if v == "" {
+				t.Fatal("should have returned a result")
+			}
+			results := []string{"waited 100 seconds", "Statement executed successfully."}
+			if v != results[i] {
+				t.Fatalf("unexpected result returned. expected: %v, but got: %v", results[i], v)
+			}
+			i++
+		}
+		if !rows.NextResultSet() {
+			break
+		}
+	}
+}

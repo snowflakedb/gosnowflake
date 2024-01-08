@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 const urlQueriesResultFmt = "/queries/%s/result"
@@ -214,17 +215,40 @@ func (sc *snowflakeConn) getQueryResultResp(
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	}
 	url := sc.rest.getFullURL(resultPath, &param)
-	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
-	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-		return nil, err
-	}
-	defer res.Body.Close()
+
 	var respd *execResponse
-	if err = json.NewDecoder(res.Body).Decode(&respd); err != nil {
-		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return nil, err
+	retry := 0
+	retryPattern := []int32{1, 1, 2, 3, 4, 8, 10}
+
+	for {
+		resp, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+		if err != nil {
+			logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+			return nil, err
+		}
+		defer resp.Body.Close()
+		respd = &execResponse{} // reset the response
+		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+			return nil, err
+		}
+		if respd.Code != queryInProgressAsyncCode {
+			// If the query takes longer than 45 seconds to complete the results are not returned.
+			// If the query is still in progress after 45 seconds, retry the request to the /results endpoint.
+			// For all other scenarios continue processing results response
+			break
+		} else {
+			// Sleep before retrying get result request. Exponential backoff up to 5 seconds.
+			// Once 5 second backoff is reached it will keep retrying with this sleeptime.
+			sleepTime := time.Millisecond * time.Duration(500*retryPattern[retry])
+			logger.WithContext(ctx).Infof("Query execution still in progress. Sleep for %v ms", sleepTime)
+			time.Sleep(sleepTime)
+		}
+		if retry < len(retryPattern)-1 {
+			retry++
+		}
 	}
+
 	return respd, nil
 }
 
@@ -238,6 +262,7 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		return err
 	}
+
 	if !resp.Success {
 		code, err := strconv.Atoi(resp.Code)
 		if err != nil {
