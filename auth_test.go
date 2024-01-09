@@ -686,6 +686,22 @@ func TestUnitAuthenticateWithConfigOkta(t *testing.T) {
 	assertEqualE(t, err.Error(), "failed to get SAML response")
 }
 
+func TestUnitAuthenticateWithConfigExternalBrowser(t *testing.T) {
+	var err error
+	sr := &snowflakeRestful{
+		FuncPostAuthSAML: postAuthSAMLError,
+		TokenAccessor:    getSimpleTokenAccessor(),
+	}
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = AuthTypeExternalBrowser
+	sc.rest = sr
+	sc.ctx = context.Background()
+	err = authenticateWithConfig(sc)
+	if err == nil {
+		t.Fatalf("should have failed.")
+	}
+}
+
 func TestUnitAuthenticateExternalBrowser(t *testing.T) {
 	var err error
 	sr := &snowflakeRestful{
