@@ -40,6 +40,7 @@ const (
 	monitoringQueriesPath    = "/monitoring/queries"
 	sessionRequestPath       = "/session"
 	heartBeatPath            = "/session/heartbeat"
+	consoleLoginRequestPath  = "/console/login"
 )
 
 type (

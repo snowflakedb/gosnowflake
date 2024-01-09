@@ -524,7 +524,8 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 				sc.cfg.Account,
 				sc.cfg.User,
 				sc.cfg.Password,
-				sc.cfg.ExternalBrowserTimeout)
+				sc.cfg.ExternalBrowserTimeout,
+				sc.cfg.DisableConsoleLogin)
 			if err != nil {
 				sc.cleanup()
 				return err
