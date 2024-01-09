@@ -126,6 +126,8 @@ The following connection parameters are supported:
   - clientConfigFile: specifies the location of the client configuration json file.
     In this file you can configure Easy Logging feature.
 
+  - disableConsoleLogin: true by default. Set to true false to disable console login.
+
 All other parameters are interpreted as session parameters (https://docs.snowflake.com/en/sql-reference/parameters.html).
 For example, the TIMESTAMP_OUTPUT_FORMAT session parameter can be set by adding:
 
