@@ -26,8 +26,8 @@ const (
 	binaryType
 	timeType
 	booleanType
-	// the following are not snowflake types per se but internal types
 	nullType
+	// the following are not snowflake types per se but internal types
 	sliceType
 	changeType
 	unSupportedType
@@ -104,6 +104,8 @@ var (
 	DataTypeTime = []byte{timeType.Byte()}
 	// DataTypeBoolean is a BOOLEAN datatype.
 	DataTypeBoolean = []byte{booleanType.Byte()}
+	// DataTypeNull is a NULL datatype.
+	DataTypeNull = []byte{nullType.Byte()}
 )
 
 // dataTypeMode returns the subsequent data type in a string representation.
