@@ -197,62 +197,35 @@ func TestLongRunningAsyncQuery(t *testing.T) {
 	}
 }
 
-func runLongRunningAsyncQuery(ctx context.Context, t *testing.T) {
+func TestLongRunningAsyncQueryFetchResultByID2(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		_ = dbt.mustQueryContext(ctx, "CALL SYSTEM$WAIT(100, 'SECONDS')")
-	})
-}
+		queryIDChan := make(chan string, 1)
+		ctx := WithAsyncMode(context.Background())
+		ctx = WithQueryIDChan(ctx, queryIDChan)
 
-func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {
-	queryIDChan := make(chan string, 1)
-	ctx := WithAsyncMode(context.Background())
-	ctx = WithQueryIDChan(ctx, queryIDChan)
+		// Run a long running query asynchronously
+		go dbt.mustExecContext(ctx, "CALL SYSTEM$WAIT(50, 'SECONDS')")
 
-	goRoutineChan := make(chan string)
-	go func(grCh chan string, qIDch chan string) {
+		// Get the query ID without waiting for the query to finish
 		queryID := <-queryIDChan
-		grCh <- queryID
-	}(goRoutineChan, queryIDChan)
+		assertNotNilF(t, queryID, "expected a nonempty query ID")
 
-	// Run a long running query asynchronously
-	go runLongRunningAsyncQuery(ctx, t)
+		ctx = WithFetchResultByID(ctx, queryID)
+		rows := dbt.mustQueryContext(ctx, queryID)
+		defer rows.Close()
 
-	// Get the query ID without waiting for the query to finish
-	queryID := <-goRoutineChan
-	if queryID == "" {
-		t.Fatal("expected a nonempty query ID")
-	}
-
-	conn := openConn(t)
-	defer conn.Close()
-
-	// Fetch the result using the query ID
-	ctx = WithFetchResultByID(ctx, queryID)
-	rows, err := conn.QueryContext(ctx, "")
-	if err != nil {
-		t.Fatalf("failed to run a query. err: %v", err)
-	}
-	defer rows.Close()
-
-	var v string
-	i := 0
-	for {
+		var v string
+		i := 0
 		for rows.Next() {
 			err := rows.Scan(&v)
-			if err != nil {
-				t.Fatalf("failed to get result. err: %v", err)
-			}
-			if v == "" {
-				t.Fatal("should have returned a result")
-			}
-			results := []string{"waited 100 seconds", "Statement executed successfully."}
+			assertNilF(t, err, fmt.Sprintf("failed to get result. err: %v", err))
+			assertNotNilF(t, v, "should have returned a result")
+			results := []string{"waited 50 seconds", "Statement executed successfully."}
 			if v != results[i] {
 				t.Fatalf("unexpected result returned. expected: %v, but got: %v", results[i], v)
 			}
 			i++
 		}
-		if !rows.NextResultSet() {
-			break
-		}
-	}
+		assertFalseF(t, rows.NextResultSet())
+	})
 }
