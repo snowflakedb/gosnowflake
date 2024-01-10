@@ -124,6 +124,8 @@ func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
 			tsmode = timestampTzType
 		case bytes.Equal(bd, DataTypeBinary):
 			tsmode = binaryType
+		case bytes.Equal(bd, DataTypeNull):
+			tsmode = nullType
 		default:
 			return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
 		}
