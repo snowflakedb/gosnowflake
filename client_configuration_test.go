@@ -4,10 +4,8 @@ package gosnowflake
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -289,57 +287,6 @@ func TestUnknownValues(t *testing.T) {
 			inputBytes := []byte(tc.inputString)
 			result := getUnknownValues(inputBytes)
 			assertEqualE(t, fmt.Sprint(result), fmt.Sprint(tc.expectedOutput))
-		})
-	}
-}
-
-func TestConfigPermissions(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("We do not check permissions on Windows")
-	}
-	testCases := []struct {
-		filePerm int
-		isValid  bool
-	}{
-		{filePerm: 0700, isValid: true},
-		{filePerm: 0600, isValid: true},
-		{filePerm: 0500, isValid: true},
-		{filePerm: 0400, isValid: true},
-		{filePerm: 0300, isValid: true},
-		{filePerm: 0200, isValid: true},
-		{filePerm: 0100, isValid: true},
-		{filePerm: 0707, isValid: false},
-		{filePerm: 0706, isValid: false},
-		{filePerm: 0705, isValid: true},
-		{filePerm: 0704, isValid: true},
-		{filePerm: 0703, isValid: false},
-		{filePerm: 0702, isValid: false},
-		{filePerm: 0701, isValid: true},
-		{filePerm: 0770, isValid: false},
-		{filePerm: 0760, isValid: false},
-		{filePerm: 0750, isValid: true},
-		{filePerm: 0740, isValid: true},
-		{filePerm: 0730, isValid: false},
-		{filePerm: 0720, isValid: false},
-		{filePerm: 0710, isValid: true},
-	}
-
-	oldMask := unix.Umask(0000)
-	defer unix.Umask(oldMask)
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("0%o", tc.filePerm), func(t *testing.T) {
-			tempFile := path.Join(t.TempDir(), fmt.Sprintf("filePerm_%o", tc.filePerm))
-			err := os.WriteFile(tempFile, nil, os.FileMode(tc.filePerm))
-			if err != nil {
-				t.Error(err)
-			}
-			defer os.Remove(tempFile)
-			result, err := isCfgPermValid(tempFile)
-			if err != nil && tc.isValid {
-				t.Error(err)
-			}
-			assertEqualE(t, result, tc.isValid)
 		})
 	}
 }

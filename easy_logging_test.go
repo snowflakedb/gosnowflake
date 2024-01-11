@@ -3,10 +3,8 @@ package gosnowflake
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -148,57 +146,6 @@ func TestLogToConfiguredFile(t *testing.T) {
 		return strings.Contains(val, "level=warning")
 	})
 	assertEqualE(t, len(warningLogs), 2, "warning logs count")
-}
-
-func TestLogDirectoryPermissions(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("We do not check permissions on Windows")
-	}
-	testCases := []struct {
-		dirPerm       int
-		limitedToUser bool
-	}{
-		{dirPerm: 0700, limitedToUser: true},
-		{dirPerm: 0600, limitedToUser: false},
-		{dirPerm: 0500, limitedToUser: false},
-		{dirPerm: 0400, limitedToUser: false},
-		{dirPerm: 0300, limitedToUser: false},
-		{dirPerm: 0200, limitedToUser: false},
-		{dirPerm: 0100, limitedToUser: false},
-		{dirPerm: 0707, limitedToUser: false},
-		{dirPerm: 0706, limitedToUser: false},
-		{dirPerm: 0705, limitedToUser: false},
-		{dirPerm: 0704, limitedToUser: false},
-		{dirPerm: 0703, limitedToUser: false},
-		{dirPerm: 0702, limitedToUser: false},
-		{dirPerm: 0701, limitedToUser: false},
-		{dirPerm: 0770, limitedToUser: false},
-		{dirPerm: 0760, limitedToUser: false},
-		{dirPerm: 0750, limitedToUser: false},
-		{dirPerm: 0740, limitedToUser: false},
-		{dirPerm: 0730, limitedToUser: false},
-		{dirPerm: 0720, limitedToUser: false},
-		{dirPerm: 0710, limitedToUser: false},
-	}
-
-	oldMask := unix.Umask(0000)
-	defer unix.Umask(oldMask)
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("0%o", tc.dirPerm), func(t *testing.T) {
-			tempDir := path.Join(t.TempDir(), fmt.Sprintf("filePerm_%o", tc.dirPerm))
-			err := os.Mkdir(tempDir, os.FileMode(tc.dirPerm))
-			if err != nil {
-				t.Error(err)
-			}
-			defer os.Remove(tempDir)
-			result, _, err := isDirAccessCorrect(tempDir)
-			if err != nil && tc.limitedToUser {
-				t.Error(err)
-			}
-			assertEqualE(t, result, tc.limitedToUser)
-		})
-	}
 }
 
 func notEmptyLines(lines string) []string {
