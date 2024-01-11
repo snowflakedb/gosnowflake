@@ -64,7 +64,7 @@ func (sr *snowflakeRestful) getAsync(
 	token, _, _ := sr.TokenAccessor.GetTokens()
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 
-	respd, err := getQueryResult(ctx, sr, URL, headers, timeout)
+	respd, err := getQueryResultWithRetriesForAsyncMode(ctx, sr, URL, headers, timeout)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		sfError.Message = err.Error()
@@ -134,7 +134,7 @@ func (sr *snowflakeRestful) getAsync(
 	return nil
 }
 
-func getQueryResult(
+func getQueryResultWithRetriesForAsyncMode(
 	ctx context.Context,
 	sr *snowflakeRestful,
 	URL *url.URL,
@@ -169,9 +169,11 @@ func getQueryResult(
 			sleepTime := time.Millisecond * time.Duration(500*retryPattern[retry])
 			logger.WithContext(ctx).Infof("Query execution still in progress. Sleep for %v ms", sleepTime)
 			time.Sleep(sleepTime)
-		}
-		if retry < len(retryPattern)-1 {
-			retry++
+
+			if retry < len(retryPattern)-1 {
+				retry++
+				logger.Debugf("retry: %v", retry)
+			}
 		}
 	}
 	return respd, nil

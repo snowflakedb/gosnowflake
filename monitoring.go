@@ -215,7 +215,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 	}
 	url := sc.rest.getFullURL(resultPath, &param)
 
-	respd, err := getQueryResult(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+	respd, err := getQueryResultWithRetriesForAsyncMode(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		return nil, err

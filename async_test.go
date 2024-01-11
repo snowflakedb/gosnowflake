@@ -197,7 +197,7 @@ func TestLongRunningAsyncQuery(t *testing.T) {
 	}
 }
 
-func TestLongRunningAsyncQueryFetchResultByID2(t *testing.T) {
+func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		queryIDChan := make(chan string, 1)
 		ctx := WithAsyncMode(context.Background())
@@ -211,7 +211,7 @@ func TestLongRunningAsyncQueryFetchResultByID2(t *testing.T) {
 		assertNotNilF(t, queryID, "expected a nonempty query ID")
 
 		ctx = WithFetchResultByID(ctx, queryID)
-		rows := dbt.mustQueryContext(ctx, queryID)
+		rows := dbt.mustQueryContext(ctx, "")
 		defer rows.Close()
 
 		var v string
