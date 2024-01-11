@@ -314,6 +314,7 @@ func TestPutOverwrite(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+		print("1: ", s0, " | ", s1, " | ", s2, " | ", s3, " | ", s4, " | ", s5, " | ", s6, " | ", s7, "\n")
 		if s6 != uploaded.String() {
 			t.Fatalf("expected UPLOADED, got %v", s6)
 		}
@@ -325,6 +326,7 @@ func TestPutOverwrite(t *testing.T) {
 			t.Fatal(err)
 		}
 		md5Column := s2
+		print("2: ", s0, " | ", s1, " | ", s2, " | ", s3, "\n")
 
 		f, _ = os.Open(testData)
 		rows = dbt.mustQueryContext(
@@ -337,6 +339,7 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
 			t.Fatal(err)
 		}
+		print("3: ", s0, " | ", s1, " | ", s2, " | ", s3, " | ", s4, " | ", s5, " | ", s6, " | ", s7, "\n")
 		if s6 != skipped.String() {
 			t.Fatalf("expected SKIPPED, got %v", s6)
 		}
@@ -348,6 +351,7 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 			t.Fatal(err)
 		}
+		print("4: ", s0, " | ", s1, " | ", s2, " | ", s3, "\n")
 		if s2 != md5Column {
 			t.Fatal("The MD5 column should have stayed the same")
 		}
@@ -363,6 +367,7 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
 			t.Fatal(err)
 		}
+		print("5: ", s0, " | ", s1, " | ", s2, " | ", s3, " | ", s4, " | ", s5, " | ", s6, " | ", s7, "\n")
 		if s6 != uploaded.String() {
 			t.Fatalf("expected UPLOADED, got %v", s6)
 		}
@@ -373,6 +378,7 @@ func TestPutOverwrite(t *testing.T) {
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 			t.Fatal(err)
 		}
+		print("6: ", s0, " | ", s1, " | ", s2, " | ", s3, "\n")
 		if s0 != fmt.Sprintf("test_put_overwrite/%v.gz", baseName(testData)) {
 			t.Fatalf("expected test_put_overwrite/%v.gz, got %v", baseName(testData), s0)
 		}
