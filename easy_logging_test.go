@@ -3,11 +3,11 @@ package gosnowflake
 import (
 	"context"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"os"
 	"path"
 	"runtime"
 	"strings"
-	"syscall"
 	"testing"
 )
 
@@ -181,8 +181,8 @@ func TestLogDirectoryPermissions(t *testing.T) {
 		{dirPerm: 0710, limitedToUser: false},
 	}
 
-	oldMask := syscall.Umask(0000)
-	defer syscall.Umask(oldMask)
+	oldMask := unix.Umask(0000)
+	defer unix.Umask(oldMask)
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("0%o", tc.dirPerm), func(t *testing.T) {

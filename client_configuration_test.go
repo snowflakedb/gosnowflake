@@ -4,11 +4,11 @@ package gosnowflake
 
 import (
 	"fmt"
+	"golang.org/x/sys/unix"
 	"os"
 	"path"
 	"runtime"
 	"strings"
-	"syscall"
 	"testing"
 )
 
@@ -324,8 +324,8 @@ func TestConfigPermissions(t *testing.T) {
 		{filePerm: 0710, isValid: true},
 	}
 
-	oldMask := syscall.Umask(0000)
-	defer syscall.Umask(oldMask)
+	oldMask := unix.Umask(0000)
+	defer unix.Umask(oldMask)
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("0%o", tc.filePerm), func(t *testing.T) {
