@@ -158,7 +158,7 @@ func getLogPath(logPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if logDirPermValid != true {
+	if !logDirPermValid {
 		logger.Warnf("Log directory: %s could potentially be accessed by others. Directory chmod: 0%o", pathWithGoSubdir, *perm)
 	}
 	return pathWithGoSubdir, nil
