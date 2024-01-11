@@ -28,8 +28,11 @@ const (
 )
 
 func getClientConfig(filePathFromConnectionString string) (*ClientConfig, string, error) {
-	configPredefinedFilePaths := clientConfigPredefinedDirs()
-	filePath := findClientConfigFilePath(filePathFromConnectionString, configPredefinedFilePaths)
+	defaultCfgDir := defaultConfigDirectory()
+	if defaultCfgDir == "" {
+		return nil, "", nil
+	}
+	filePath := findClientConfigFilePath(filePathFromConnectionString, []string{defaultCfgDir})
 	if filePath == "" { // we did not find a config file
 		return nil, "", nil
 	}
@@ -78,13 +81,13 @@ func existsFile(filePath string) (bool, error) {
 	return false, err
 }
 
-func clientConfigPredefinedDirs() []string {
+func defaultConfigDirectory() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		logger.Warnf("Unable to access Home directory for Easy Logging configuration search, err: %v", err)
-		return nil
+		return ""
 	}
-	return []string{homeDir}
+	return homeDir
 }
 
 // ClientConfig config root
@@ -133,18 +136,21 @@ func getUnknownValues(fileContents []byte) map[string]interface{} {
 	err := json.Unmarshal(fileContents, &values)
 	if err != nil {
 		return nil
-
 	}
 	if values["common"] == nil {
 		return nil
 	}
 	commonValues := values["common"].(map[string]interface{})
-	delete(commonValues, "log_level")
-	delete(commonValues, "log_path")
-	if len(commonValues) == 0 {
+	lowercaseCommonValues := make(map[string]interface{}, len(commonValues))
+	for k, v := range commonValues {
+		lowercaseCommonValues[strings.ToLower(k)] = v
+	}
+	delete(lowercaseCommonValues, "log_level")
+	delete(lowercaseCommonValues, "log_path")
+	if len(lowercaseCommonValues) == 0 {
 		return nil
 	}
-	return commonValues
+	return lowercaseCommonValues
 }
 
 func parsingClientConfigError(err error) error {
@@ -173,16 +179,17 @@ func validateLogLevel(clientConfig ClientConfig) error {
 }
 
 func isCfgPermValid(filePath string) (bool, error) {
-	if runtime.GOOS != "windows" {
-		stat, err := os.Stat(filePath)
-		if err != nil {
-			return false, err
-		}
-		perm := stat.Mode()
-		// Check if group (5th LSB) or others (2nd LSB) have a write permission to the file
-		if perm&(1<<4) != 0 || perm&(1<<1) != 0 {
-			return false, fmt.Errorf("configuration file: %s can be modified by group or others", filePath)
-		}
+	if runtime.GOOS == "windows" {
+		return true, nil
+	}
+	stat, err := os.Stat(filePath)
+	if err != nil {
+		return false, err
+	}
+	perm := stat.Mode()
+	// Check if group (5th LSB) or others (2nd LSB) have a write permission to the file
+	if perm&(1<<4) != 0 || perm&(1<<1) != 0 {
+		return false, fmt.Errorf("configuration file: %s can be modified by group or others", filePath)
 	}
 	return true, nil
 }

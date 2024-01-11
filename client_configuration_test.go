@@ -69,10 +69,9 @@ func TestCreatePredefinedDirs(t *testing.T) {
 	homeDir, err := os.UserHomeDir()
 	assertNilF(t, err, "get home dir error")
 
-	locations := clientConfigPredefinedDirs()
+	location := defaultConfigDirectory()
 
-	assertEqualF(t, len(locations), 1, "size")
-	assertEqualE(t, locations[0], homeDir, "home directory")
+	assertEqualE(t, location, homeDir, "home directory")
 }
 
 func TestGetClientConfig(t *testing.T) {
@@ -255,8 +254,8 @@ func TestUnknownValues(t *testing.T) {
 			testName: "KnownAndUnknownProperty",
 			inputString: `{
 				"common": {
-					"log_level": "level",
-					"log_path": "path",
+					"lOg_level": "level",
+					"log_PATH": "path",
 					"unknown_key": "unknown_value"
 				}
 			}`,

@@ -165,18 +165,19 @@ func getLogPath(logPath string) (string, error) {
 }
 
 func isDirAccessCorrect(dirPath string) (bool, *os.FileMode, error) {
-	if runtime.GOOS != "windows" {
-		dirStat, err := os.Stat(dirPath)
-		if err != nil {
-			return false, nil, err
-		}
-		perm := dirStat.Mode().Perm()
-		if perm != 0700 {
-			return false, &perm, nil
-		}
-		return true, &perm, nil
+	if runtime.GOOS == "windows" {
+		return true, nil, nil
+
 	}
-	return true, nil, nil
+	dirStat, err := os.Stat(dirPath)
+	if err != nil {
+		return false, nil, err
+	}
+	perm := dirStat.Mode().Perm()
+	if perm != 0700 {
+		return false, &perm, nil
+	}
+	return true, &perm, nil
 }
 
 func dirExists(dirPath string) (bool, error) {
