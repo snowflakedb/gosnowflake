@@ -958,12 +958,12 @@ Note: PUT statements are not supported for multi-statement queries.
 The following example shows how to run a GET command by passing a string to the
 db.Query() function:
 
-	db.Query("GET file://<local_file> <stage_identifier> <optional_parameters>")
+	db.Query("GET <internal_stage_identifier> file://<local_file> <optional_parameters>")
 
 "<local_file>" should include the file path as well as the name. Snowflake recommends using
 an absolute path rather than a relative path. For example:
 
-	db.Query("GET file:///tmp/my_data_file @~ auto_compress=false overwrite=false")
+	db.Query("GET @~ file:///tmp/my_data_file auto_compress=false overwrite=false")
 
 ## Specifying temporary directory for encryption and compression
 
