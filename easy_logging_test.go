@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 )
 
 func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
-	dir := t.TempDir()
+	logDir := t.TempDir()
 	logLevel := levelError
-	contents := createClientConfigContent(logLevel, dir)
-	configFilePath := createFile(t, "config.json", contents, dir)
+	contents := createClientConfigContent(logLevel, logDir)
+	configFilePath := createFile(t, "config.json", contents, logDir)
 	easyLoggingInitTrials.reset()
 
 	err := openWithClientConfigFile(t, configFilePath)
@@ -36,16 +37,19 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 }
 
 func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
-	dir := t.TempDir()
+	configDir, err := os.UserHomeDir()
+	logDir := t.TempDir()
+	if err != nil {
+		t.Fatal("User Home directory is not accessible")
+	}
 	logLevel := levelError
-	contents := createClientConfigContent(logLevel, dir)
-	configFilePath := createFile(t, defaultConfigName, contents, os.TempDir())
+	contents := createClientConfigContent(logLevel, logDir)
+	configFilePath := createFile(t, defaultConfigName, contents, configDir)
 	defer os.Remove(configFilePath)
 	easyLoggingInitTrials.reset()
 
-	err := openWithClientConfigFile(t, "")
+	err = openWithClientConfigFile(t, "")
 	assertNilF(t, err, "open config error")
 	err = openWithClientConfigFile(t, "")
 	assertNilF(t, err, "open config error")
@@ -55,23 +59,26 @@ func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *tes
 }
 
 func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
-	dir := t.TempDir()
-	tmpDirLogLevel := levelError
-	tmpFileContent := createClientConfigContent(tmpDirLogLevel, dir)
-	tmpDirConfigFilePath := createFile(t, defaultConfigName, tmpFileContent, os.TempDir())
-	defer os.Remove(tmpDirConfigFilePath)
+	configDir, err := os.UserHomeDir()
+	logDir := t.TempDir()
+	if err != nil {
+		t.Fatal("User Home directory is not accessible")
+	}
+	homeConfigLogLevel := levelError
+	homeConfigContent := createClientConfigContent(homeConfigLogLevel, logDir)
+	homeConfigFilePath := createFile(t, defaultConfigName, homeConfigContent, configDir)
+	defer os.Remove(homeConfigFilePath)
 	customLogLevel := levelWarn
-	customFileContent := createClientConfigContent(customLogLevel, dir)
-	customConfigFilePath := createFile(t, "config.json", customFileContent, dir)
+	customFileContent := createClientConfigContent(customLogLevel, logDir)
+	customConfigFilePath := createFile(t, "config.json", customFileContent, configDir)
 	easyLoggingInitTrials.reset()
 
-	err := openWithClientConfigFile(t, "")
+	err = openWithClientConfigFile(t, "")
 	logger.Error("Error message")
 
 	assertNilF(t, err, "open config error")
-	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), tmpDirLogLevel, "tmp dir log level check")
+	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), homeConfigLogLevel, "tmp dir log level check")
 	assertEqualE(t, easyLoggingInitTrials.configureCounter, 1)
 
 	err = openWithClientConfigFile(t, customConfigFilePath)
@@ -81,14 +88,13 @@ func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing
 	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), customLogLevel, "custom dir log level check")
 	assertEqualE(t, easyLoggingInitTrials.configureCounter, 2)
 	var logContents []byte
-	logContents, err = os.ReadFile(path.Join(dir, "go", "snowflake.log"))
+	logContents, err = os.ReadFile(path.Join(logDir, "go", "snowflake.log"))
 	assertNilF(t, err, "read file error")
 	logs := notEmptyLines(string(logContents))
 	assertEqualE(t, len(logs), 2, "number of logs")
 }
 
 func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
@@ -103,7 +109,6 @@ func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
 }
 
 func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	easyLoggingInitTrials.reset()
 
@@ -115,7 +120,6 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 }
 
 func TestLogToConfiguredFile(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
@@ -146,6 +150,57 @@ func TestLogToConfiguredFile(t *testing.T) {
 	assertEqualE(t, len(warningLogs), 2, "warning logs count")
 }
 
+func TestLogDirectoryPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("We do not check permissions on Windows")
+	}
+	testCases := []struct {
+		dirPerm       int
+		limitedToUser bool
+	}{
+		{dirPerm: 0700, limitedToUser: true},
+		{dirPerm: 0600, limitedToUser: false},
+		{dirPerm: 0500, limitedToUser: false},
+		{dirPerm: 0400, limitedToUser: false},
+		{dirPerm: 0300, limitedToUser: false},
+		{dirPerm: 0200, limitedToUser: false},
+		{dirPerm: 0100, limitedToUser: false},
+		{dirPerm: 0707, limitedToUser: false},
+		{dirPerm: 0706, limitedToUser: false},
+		{dirPerm: 0705, limitedToUser: false},
+		{dirPerm: 0704, limitedToUser: false},
+		{dirPerm: 0703, limitedToUser: false},
+		{dirPerm: 0702, limitedToUser: false},
+		{dirPerm: 0701, limitedToUser: false},
+		{dirPerm: 0770, limitedToUser: false},
+		{dirPerm: 0760, limitedToUser: false},
+		{dirPerm: 0750, limitedToUser: false},
+		{dirPerm: 0740, limitedToUser: false},
+		{dirPerm: 0730, limitedToUser: false},
+		{dirPerm: 0720, limitedToUser: false},
+		{dirPerm: 0710, limitedToUser: false},
+	}
+
+	oldMask := syscall.Umask(0000)
+	defer syscall.Umask(oldMask)
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("0%o", tc.dirPerm), func(t *testing.T) {
+			tempDir := path.Join(t.TempDir(), fmt.Sprintf("filePerm_%o", tc.dirPerm))
+			err := os.Mkdir(tempDir, os.FileMode(tc.dirPerm))
+			if err != nil {
+				t.Error(err)
+			}
+			defer os.Remove(tempDir)
+			result, _, err := isDirAccessCorrect(tempDir)
+			if err != nil && tc.limitedToUser {
+				t.Error(err)
+			}
+			assertEqualE(t, result, tc.limitedToUser)
+		})
+	}
+}
+
 func notEmptyLines(lines string) []string {
 	notEmptyFunc := func(val string) bool {
 		return val != ""
@@ -172,7 +227,7 @@ func toClientConfigLevel(logLevel string) string {
 }
 
 func filterStrings(values []string, keep func(string) bool) []string {
-	filteredStrings := []string{}
+	var filteredStrings []string
 	for _, val := range values {
 		if keep(val) {
 			filteredStrings = append(filteredStrings, val)

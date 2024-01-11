@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 )
 
@@ -26,21 +27,24 @@ const (
 	clientConfEnvName = "SF_CLIENT_CONFIG_FILE"
 )
 
-func getClientConfig(filePathFromConnectionString string) (*ClientConfig, error) {
+func getClientConfig(filePathFromConnectionString string) (*ClientConfig, string, error) {
 	configPredefinedFilePaths := clientConfigPredefinedDirs()
 	filePath := findClientConfigFilePath(filePathFromConnectionString, configPredefinedFilePaths)
 	if filePath == "" { // we did not find a config file
-		return nil, nil
+		return nil, "", nil
 	}
-	return parseClientConfiguration(filePath)
+	config, err := parseClientConfiguration(filePath)
+	return config, filePath, err
 }
 
 func findClientConfigFilePath(filePathFromConnectionString string, configPredefinedDirs []string) string {
 	if filePathFromConnectionString != "" {
+		logger.Infof("Using Easy Logging configuration path from a connection string: %s", filePathFromConnectionString)
 		return filePathFromConnectionString
 	}
 	envConfigFilePath := os.Getenv(clientConfEnvName)
 	if envConfigFilePath != "" {
+		logger.Infof("Using Easy Logging configuration path from an environment variable: %s", envConfigFilePath)
 		return envConfigFilePath
 	}
 	return searchForConfigFile(configPredefinedDirs)
@@ -51,13 +55,15 @@ func searchForConfigFile(directories []string) string {
 		filePath := path.Join(dir, defaultConfigName)
 		exists, err := existsFile(filePath)
 		if err != nil {
-			logger.Errorf("Error while searching for the client config in %s directory: %s", dir, err)
+			logger.Debugf("No client config found in directory: %s, err: %s", dir, err)
 			continue
 		}
 		if exists {
+			logger.Infof("Using Easy Logging configuration from a default directory: %s", filePath)
 			return filePath
 		}
 	}
+	logger.Info("No Easy Logging config file found in default directories")
 	return ""
 }
 
@@ -75,10 +81,10 @@ func existsFile(filePath string) (bool, error) {
 func clientConfigPredefinedDirs() []string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		logger.Warnf("Home dir could not be determined: %w", err)
-		return []string{".", os.TempDir()}
+		logger.Warnf("Unable to access Home directory for Easy Logging configuration search, err: %v", err)
+		return nil
 	}
-	return []string{".", homeDir, os.TempDir()}
+	return []string{homeDir}
 }
 
 // ClientConfig config root
@@ -100,16 +106,45 @@ func parseClientConfiguration(filePath string) (*ClientConfig, error) {
 	if err != nil {
 		return nil, parsingClientConfigError(err)
 	}
+	_, err = isCfgPermValid(filePath)
+	if err != nil {
+		return nil, parsingClientConfigError(err)
+	}
 	var clientConfig ClientConfig
 	err = json.Unmarshal(fileContents, &clientConfig)
 	if err != nil {
 		return nil, parsingClientConfigError(err)
+	}
+	unknownValues := getUnknownValues(fileContents)
+	if len(unknownValues) > 0 {
+		for val := range unknownValues {
+			logger.Warnf("Unknown configuration entry: %s with value: %s", val, unknownValues[val])
+		}
 	}
 	err = validateClientConfiguration(&clientConfig)
 	if err != nil {
 		return nil, parsingClientConfigError(err)
 	}
 	return &clientConfig, nil
+}
+
+func getUnknownValues(fileContents []byte) map[string]interface{} {
+	var values map[string]interface{}
+	err := json.Unmarshal(fileContents, &values)
+	if err != nil {
+		return nil
+
+	}
+	if values["common"] == nil {
+		return nil
+	}
+	commonValues := values["common"].(map[string]interface{})
+	delete(commonValues, "log_level")
+	delete(commonValues, "log_path")
+	if len(commonValues) == 0 {
+		return nil
+	}
+	return commonValues
 }
 
 func parsingClientConfigError(err error) error {
@@ -129,12 +164,27 @@ func validateClientConfiguration(clientConfig *ClientConfig) error {
 func validateLogLevel(clientConfig ClientConfig) error {
 	var logLevel = clientConfig.Common.LogLevel
 	if logLevel != "" {
-		_, error := toLogLevel(logLevel)
-		if error != nil {
-			return error
+		_, err := toLogLevel(logLevel)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func isCfgPermValid(filePath string) (bool, error) {
+	if runtime.GOOS != "windows" {
+		stat, err := os.Stat(filePath)
+		if err != nil {
+			return false, err
+		}
+		perm := stat.Mode()
+		// Check if group (5th LSB) or others (2nd LSB) have a write permission to the file
+		if perm&(1<<4) != 0 || perm&(1<<1) != 0 {
+			return false, fmt.Errorf("configuration file: %s can be modified by group or others", filePath)
+		}
+	}
+	return true, nil
 }
 
 func toLogLevel(logLevelString string) (string, error) {

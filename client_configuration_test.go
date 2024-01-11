@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -71,10 +73,8 @@ func TestCreatePredefinedDirs(t *testing.T) {
 
 	locations := clientConfigPredefinedDirs()
 
-	assertEqualF(t, len(locations), 3, "size")
-	assertEqualE(t, locations[0], ".", "driver directory")
-	assertEqualE(t, locations[1], homeDir, "home directory")
-	assertEqualE(t, locations[2], os.TempDir(), "temp directory")
+	assertEqualF(t, len(locations), 1, "size")
+	assertEqualE(t, locations[0], homeDir, "home directory")
 }
 
 func TestGetClientConfig(t *testing.T) {
@@ -84,7 +84,7 @@ func TestGetClientConfig(t *testing.T) {
 	createFile(t, fileName, configContents, dir)
 	filePath := path.Join(dir, fileName)
 
-	clientConfigFilePath, err := getClientConfig(filePath)
+	clientConfigFilePath, _, err := getClientConfig(filePath)
 
 	assertNilF(t, err)
 	assertNotNilF(t, clientConfigFilePath)
@@ -93,7 +93,7 @@ func TestGetClientConfig(t *testing.T) {
 }
 
 func TestNoResultForGetClientConfigWhenNoFileFound(t *testing.T) {
-	clientConfigFilePath, err := getClientConfig("")
+	clientConfigFilePath, _, err := getClientConfig("")
 
 	assertNilF(t, err)
 	assertNilF(t, clientConfigFilePath)
@@ -223,6 +223,127 @@ func TestParseConfigurationFails(t *testing.T) {
 	}
 }
 
+func TestUnknownValues(t *testing.T) {
+	testCases := []struct {
+		testName       string
+		inputString    string
+		expectedOutput map[string]string
+	}{
+		{
+			testName: "EmptyCommon",
+			inputString: `{
+				"common": {}
+			}`,
+			expectedOutput: nil,
+		},
+		{
+			testName: "CommonMissing",
+			inputString: `{
+			}`,
+			expectedOutput: nil,
+		},
+		{
+			testName: "UnknownProperty",
+			inputString: `{
+				"common": {
+					"unknown_key": "unknown_value"
+				}
+			}`,
+			expectedOutput: map[string]string{
+				"unknown_key": "unknown_value",
+			},
+		},
+		{
+			testName: "KnownAndUnknownProperty",
+			inputString: `{
+				"common": {
+					"log_level": "level",
+					"log_path": "path",
+					"unknown_key": "unknown_value"
+				}
+			}`,
+			expectedOutput: map[string]string{
+				"unknown_key": "unknown_value",
+			},
+		},
+		{
+			testName: "KnownProperties",
+			inputString: `{
+				"common": {
+					"log_level": "level",
+					"log_path": "path"
+				}
+			}`,
+			expectedOutput: nil,
+		},
+
+		{
+			testName:       "EmptyInput",
+			inputString:    "",
+			expectedOutput: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			inputBytes := []byte(tc.inputString)
+			result := getUnknownValues(inputBytes)
+			assertEqualE(t, fmt.Sprint(result), fmt.Sprint(tc.expectedOutput))
+		})
+	}
+}
+
+func TestConfigPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("We do not check permissions on Windows")
+	}
+	testCases := []struct {
+		filePerm int
+		isValid  bool
+	}{
+		{filePerm: 0700, isValid: true},
+		{filePerm: 0600, isValid: true},
+		{filePerm: 0500, isValid: true},
+		{filePerm: 0400, isValid: true},
+		{filePerm: 0300, isValid: true},
+		{filePerm: 0200, isValid: true},
+		{filePerm: 0100, isValid: true},
+		{filePerm: 0707, isValid: false},
+		{filePerm: 0706, isValid: false},
+		{filePerm: 0705, isValid: true},
+		{filePerm: 0704, isValid: true},
+		{filePerm: 0703, isValid: false},
+		{filePerm: 0702, isValid: false},
+		{filePerm: 0701, isValid: true},
+		{filePerm: 0770, isValid: false},
+		{filePerm: 0760, isValid: false},
+		{filePerm: 0750, isValid: true},
+		{filePerm: 0740, isValid: true},
+		{filePerm: 0730, isValid: false},
+		{filePerm: 0720, isValid: false},
+		{filePerm: 0710, isValid: true},
+	}
+
+	oldMask := syscall.Umask(0000)
+	defer syscall.Umask(oldMask)
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("0%o", tc.filePerm), func(t *testing.T) {
+			tempFile := path.Join(t.TempDir(), fmt.Sprintf("filePerm_%o", tc.filePerm))
+			err := os.WriteFile(tempFile, nil, os.FileMode(tc.filePerm))
+			if err != nil {
+				t.Error(err)
+			}
+			defer os.Remove(tempFile)
+			result, err := isCfgPermValid(tempFile)
+			if err != nil && tc.isValid {
+				t.Error(err)
+			}
+			assertEqualE(t, result, tc.isValid)
+		})
+	}
+}
+
 func createFile(t *testing.T, fileName string, fileContents string, directory string) string {
 	fullFileName := path.Join(directory, fileName)
 	err := os.WriteFile(fullFileName, []byte(fileContents), 0644)
@@ -237,10 +358,10 @@ func createTestDirectories(t *testing.T) struct {
 } {
 	dir := t.TempDir()
 	predefinedDir1 := path.Join(dir, "dir1")
-	err := os.Mkdir(predefinedDir1, 0755)
+	err := os.Mkdir(predefinedDir1, 0700)
 	assertNilF(t, err, "predefined dir1 error")
 	predefinedDir2 := path.Join(dir, "dir2")
-	err = os.Mkdir(predefinedDir2, 0755)
+	err = os.Mkdir(predefinedDir2, 0700)
 	assertNilF(t, err, "predefined dir2 error")
 	return struct {
 		dir            string
