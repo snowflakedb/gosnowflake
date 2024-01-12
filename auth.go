@@ -501,6 +501,10 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
 			fillCachedIDToken(sc)
 		}
+		// Disable console login by default
+		if sc.cfg.DisableConsoleLogin == configBoolNotSet {
+			sc.cfg.DisableConsoleLogin = ConfigBoolTrue
+		}
 	}
 
 	if sc.cfg.Authenticator == AuthTypeUsernamePasswordMFA {

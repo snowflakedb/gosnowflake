@@ -500,10 +500,6 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.IncludeRetryReason = ConfigBoolTrue
 	}
 
-	if cfg.DisableConsoleLogin == configBoolNotSet {
-		cfg.DisableConsoleLogin = ConfigBoolTrue
-	}
-
 	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {
 		return &SnowflakeError{
 			Number:      ErrCodeFailedToParseHost,

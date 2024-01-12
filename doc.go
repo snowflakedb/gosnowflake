@@ -126,9 +126,6 @@ The following connection parameters are supported:
   - clientConfigFile: specifies the location of the client configuration json file.
     In this file you can configure Easy Logging feature.
 
-  - disableConsoleLogin: true by default. Set to false to enable the console login. Should be used in
-    conjunction with the "externalbrowser" authenticator.
-
 All other parameters are interpreted as session parameters (https://docs.snowflake.com/en/sql-reference/parameters.html).
 For example, the TIMESTAMP_OUTPUT_FORMAT session parameter can be set by adding:
 
@@ -685,13 +682,6 @@ or using a Config structure with following ExternalBrowserTimeout specified:
 
 	config := &Config{
 		ExternalBrowserTimeout: 240 * time.Second, // Requires time.Duration
-	}
-
-If multiple SAML2 integrations are present for the account, users are required to login via the console by setting
-DSN field "disableConsoleLogin=false" or using a Config structure with following DisableConsoleLogin specified:
-
-	config := &Config{
-		DisableConsoleLogin: ConfigBoolFalse, // Requires ConfigBool
 	}
 
 # Executing Multiple Statements in One Call
