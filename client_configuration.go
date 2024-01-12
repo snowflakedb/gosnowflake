@@ -85,7 +85,7 @@ func clientConfigPredefinedDirs() []string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		logger.Warnf("Unable to access Home directory for Easy Logging configuration search, err: %v", err)
-		return []string{}
+		return []string{"."}
 	}
 	return []string{".", homeDir}
 }
