@@ -45,9 +45,7 @@ func TestConfigPermissions(t *testing.T) {
 		t.Run(fmt.Sprintf("0%o", tc.filePerm), func(t *testing.T) {
 			tempFile := path.Join(t.TempDir(), fmt.Sprintf("filePerm_%o", tc.filePerm))
 			err := os.WriteFile(tempFile, nil, os.FileMode(tc.filePerm))
-			if err != nil {
-				t.Error(err)
-			}
+			assertNilE(t, err)
 			defer os.Remove(tempFile)
 			err = isCfgPermValid(tempFile)
 			if err != nil && tc.isValid {
@@ -92,9 +90,7 @@ func TestLogDirectoryPermissions(t *testing.T) {
 		t.Run(fmt.Sprintf("0%o", tc.dirPerm), func(t *testing.T) {
 			tempDir := path.Join(t.TempDir(), fmt.Sprintf("filePerm_%o", tc.dirPerm))
 			err := os.Mkdir(tempDir, os.FileMode(tc.dirPerm))
-			if err != nil {
-				t.Error(err)
-			}
+			assertNilE(t, err)
 			defer os.Remove(tempDir)
 			result, _, err := isDirAccessCorrect(tempDir)
 			if err != nil && tc.limitedToUser {

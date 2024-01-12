@@ -69,9 +69,11 @@ func TestCreatePredefinedDirs(t *testing.T) {
 	homeDir, err := os.UserHomeDir()
 	assertNilF(t, err, "get home dir error")
 
-	location := defaultConfigDirectory()
+	locations := clientConfigPredefinedDirs()
 
-	assertEqualE(t, location, homeDir, "home directory")
+	assertEqualF(t, len(locations), 2, "size")
+	assertEqualE(t, locations[0], ".", "driver directory")
+	assertEqualE(t, locations[1], homeDir, "home directory")
 }
 
 func TestGetClientConfig(t *testing.T) {

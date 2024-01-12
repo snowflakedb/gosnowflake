@@ -28,11 +28,11 @@ const (
 )
 
 func getClientConfig(filePathFromConnectionString string) (*ClientConfig, string, error) {
-	defaultCfgDir := defaultConfigDirectory()
-	if defaultCfgDir == "" {
+	configPredefinedFilePaths := clientConfigPredefinedDirs()
+	if len(configPredefinedFilePaths) == 0 {
 		return nil, "", nil
 	}
-	filePath := findClientConfigFilePath(filePathFromConnectionString, []string{defaultCfgDir})
+	filePath := findClientConfigFilePath(filePathFromConnectionString, configPredefinedFilePaths)
 	if filePath == "" { // we did not find a config file
 		return nil, "", nil
 	}
@@ -58,7 +58,7 @@ func searchForConfigFile(directories []string) string {
 		filePath := path.Join(dir, defaultConfigName)
 		exists, err := existsFile(filePath)
 		if err != nil {
-			logger.Debugf("No client config found in directory: %s, err: %s", dir, err)
+			logger.Errorf("No client config found in directory: %s, err: %s", dir, err)
 			continue
 		}
 		if exists {
@@ -81,13 +81,13 @@ func existsFile(filePath string) (bool, error) {
 	return false, err
 }
 
-func defaultConfigDirectory() string {
+func clientConfigPredefinedDirs() []string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		logger.Warnf("Unable to access Home directory for Easy Logging configuration search, err: %v", err)
-		return ""
+		return []string{}
 	}
-	return homeDir
+	return []string{".", homeDir}
 }
 
 // ClientConfig config root
