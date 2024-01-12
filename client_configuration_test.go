@@ -231,13 +231,13 @@ func TestUnknownValues(t *testing.T) {
 			inputString: `{
 				"common": {}
 			}`,
-			expectedOutput: nil,
+			expectedOutput: map[string]string{},
 		},
 		{
 			testName: "CommonMissing",
 			inputString: `{
 			}`,
-			expectedOutput: nil,
+			expectedOutput: map[string]string{},
 		},
 		{
 			testName: "UnknownProperty",
@@ -271,13 +271,13 @@ func TestUnknownValues(t *testing.T) {
 					"log_path": "path"
 				}
 			}`,
-			expectedOutput: nil,
+			expectedOutput: map[string]string{},
 		},
 
 		{
 			testName:       "EmptyInput",
 			inputString:    "",
-			expectedOutput: nil,
+			expectedOutput: map[string]string{},
 		},
 	}
 

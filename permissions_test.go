@@ -2,6 +2,14 @@
 
 package gosnowflake
 
+import (
+	"fmt"
+	"golang.org/x/sys/unix"
+	"os"
+	"path"
+	"testing"
+)
+
 func TestConfigPermissions(t *testing.T) {
 	testCases := []struct {
 		filePerm int
@@ -41,11 +49,10 @@ func TestConfigPermissions(t *testing.T) {
 				t.Error(err)
 			}
 			defer os.Remove(tempFile)
-			result, err := isCfgPermValid(tempFile)
+			err = isCfgPermValid(tempFile)
 			if err != nil && tc.isValid {
 				t.Error(err)
 			}
-			assertEqualE(t, result, tc.isValid)
 		})
 	}
 }

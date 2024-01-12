@@ -42,12 +42,12 @@ func getClientConfig(filePathFromConnectionString string) (*ClientConfig, string
 
 func findClientConfigFilePath(filePathFromConnectionString string, configPredefinedDirs []string) string {
 	if filePathFromConnectionString != "" {
-		logger.Infof("Using Easy Logging configuration path from a connection string: %s", filePathFromConnectionString)
+		logger.Infof("Using client configuration path from a connection string: %s", filePathFromConnectionString)
 		return filePathFromConnectionString
 	}
 	envConfigFilePath := os.Getenv(clientConfEnvName)
 	if envConfigFilePath != "" {
-		logger.Infof("Using Easy Logging configuration path from an environment variable: %s", envConfigFilePath)
+		logger.Infof("Using client configuration path from an environment variable: %s", envConfigFilePath)
 		return envConfigFilePath
 	}
 	return searchForConfigFile(configPredefinedDirs)
@@ -62,11 +62,11 @@ func searchForConfigFile(directories []string) string {
 			continue
 		}
 		if exists {
-			logger.Infof("Using Easy Logging configuration from a default directory: %s", filePath)
+			logger.Infof("Using client configuration from a default directory: %s", filePath)
 			return filePath
 		}
 	}
-	logger.Info("No Easy Logging config file found in default directories")
+	logger.Info("No client config file found in default directories")
 	return ""
 }
 
@@ -109,7 +109,7 @@ func parseClientConfiguration(filePath string) (*ClientConfig, error) {
 	if err != nil {
 		return nil, parsingClientConfigError(err)
 	}
-	_, err = isCfgPermValid(filePath)
+	err = isCfgPermValid(filePath)
 	if err != nil {
 		return nil, parsingClientConfigError(err)
 	}
@@ -147,9 +147,6 @@ func getUnknownValues(fileContents []byte) map[string]interface{} {
 	}
 	delete(lowercaseCommonValues, "log_level")
 	delete(lowercaseCommonValues, "log_path")
-	if len(lowercaseCommonValues) == 0 {
-		return nil
-	}
 	return lowercaseCommonValues
 }
 
@@ -178,20 +175,20 @@ func validateLogLevel(clientConfig ClientConfig) error {
 	return nil
 }
 
-func isCfgPermValid(filePath string) (bool, error) {
+func isCfgPermValid(filePath string) error {
 	if runtime.GOOS == "windows" {
-		return true, nil
+		return nil
 	}
 	stat, err := os.Stat(filePath)
 	if err != nil {
-		return false, err
+		return err
 	}
 	perm := stat.Mode()
 	// Check if group (5th LSB) or others (2nd LSB) have a write permission to the file
 	if perm&(1<<4) != 0 || perm&(1<<1) != 0 {
-		return false, fmt.Errorf("configuration file: %s can be modified by group or others", filePath)
+		return fmt.Errorf("configuration file: %s can be modified by group or others", filePath)
 	}
-	return true, nil
+	return nil
 }
 
 func toLogLevel(logLevelString string) (string, error) {
