@@ -148,11 +148,7 @@ func getIdpURLProofKey(
 }
 
 // Gets the login URL for multiple SAML
-func getLoginURL(
-	sr *snowflakeRestful,
-	user string,
-	callbackPort int) (string, string, error) {
-
+func getLoginURL(sr *snowflakeRestful, user string, callbackPort int) (string, string, error) {
 	proofKey := generateProofKey()
 
 	params := &url.Values{}
