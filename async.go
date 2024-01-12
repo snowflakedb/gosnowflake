@@ -145,6 +145,8 @@ func getQueryResultWithRetriesForAsyncMode(
 	retryPattern := []int32{1, 1, 2, 3, 4, 8, 10}
 
 	for {
+		logger.WithContext(ctx).Debugf("Retry count for get query result request in async mode: %v", retry)
+
 		resp, err := sr.FuncGet(ctx, sr, URL, headers, timeout)
 		if err != nil {
 			logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
@@ -167,12 +169,11 @@ func getQueryResultWithRetriesForAsyncMode(
 			// Sleep before retrying get result request. Exponential backoff up to 5 seconds.
 			// Once 5 second backoff is reached it will keep retrying with this sleeptime.
 			sleepTime := time.Millisecond * time.Duration(500*retryPattern[retry])
-			logger.WithContext(ctx).Infof("Query execution still in progress. Sleep for %v ms", sleepTime)
+			logger.WithContext(ctx).Infof("Query execution still in progress. Response code: %v, message: %v Sleep for %v ms", respd.Code, respd.Message, sleepTime)
 			time.Sleep(sleepTime)
 
 			if retry < len(retryPattern)-1 {
 				retry++
-				logger.Debugf("retry: %v", retry)
 			}
 		}
 	}

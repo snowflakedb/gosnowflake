@@ -215,16 +215,14 @@ func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {
 		defer rows.Close()
 
 		var v string
-		i := 0
-		for rows.Next() {
-			err := rows.Scan(&v)
-			assertNilF(t, err, fmt.Sprintf("failed to get result. err: %v", err))
-			assertNotNilF(t, v, "should have returned a result")
-			results := []string{"waited 50 seconds", "Statement executed successfully."}
-			if v != results[i] {
-				t.Fatalf("unexpected result returned. expected: %v, but got: %v", results[i], v)
-			}
-			i++
+		assertTrueF(t, rows.Next())
+		err := rows.Scan(&v)
+		assertNilF(t, err, fmt.Sprintf("failed to get result. err: %v", err))
+		assertNotNilF(t, v, "should have returned a result")
+
+		expected := "waited 50 seconds"
+		if v != expected {
+			t.Fatalf("unexpected result returned. expected: %v, but got: %v", expected, v)
 		}
 		assertFalseF(t, rows.NextResultSet())
 	})
