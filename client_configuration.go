@@ -28,11 +28,11 @@ const (
 )
 
 func getClientConfig(filePathFromConnectionString string) (*ClientConfig, string, error) {
-	configPredefinedFilePaths := clientConfigPredefinedDirs()
-	if len(configPredefinedFilePaths) == 0 {
-		return nil, "", nil
+	configPredefinedDirPaths := clientConfigPredefinedDirs()
+	filePath, err := findClientConfigFilePath(filePathFromConnectionString, configPredefinedDirPaths)
+	if err != nil {
+		return nil, "", err
 	}
-	filePath := findClientConfigFilePath(filePathFromConnectionString, configPredefinedFilePaths)
 	if filePath == "" { // we did not find a config file
 		return nil, "", nil
 	}
@@ -40,34 +40,34 @@ func getClientConfig(filePathFromConnectionString string) (*ClientConfig, string
 	return config, filePath, err
 }
 
-func findClientConfigFilePath(filePathFromConnectionString string, configPredefinedDirs []string) string {
+func findClientConfigFilePath(filePathFromConnectionString string, configPredefinedDirs []string) (string, error) {
 	if filePathFromConnectionString != "" {
 		logger.Infof("Using client configuration path from a connection string: %s", filePathFromConnectionString)
-		return filePathFromConnectionString
+		return filePathFromConnectionString, nil
 	}
 	envConfigFilePath := os.Getenv(clientConfEnvName)
 	if envConfigFilePath != "" {
 		logger.Infof("Using client configuration path from an environment variable: %s", envConfigFilePath)
-		return envConfigFilePath
+		return envConfigFilePath, nil
 	}
 	return searchForConfigFile(configPredefinedDirs)
 }
 
-func searchForConfigFile(directories []string) string {
+func searchForConfigFile(directories []string) (string, error) {
 	for _, dir := range directories {
 		filePath := path.Join(dir, defaultConfigName)
 		exists, err := existsFile(filePath)
 		if err != nil {
-			logger.Errorf("No client config found in directory: %s, err: %s", dir, err)
-			continue
+			return "", fmt.Errorf("error while searching for client config in directory: %s, err: %s", dir, err)
 		}
 		if exists {
 			logger.Infof("Using client configuration from a default directory: %s", filePath)
-			return filePath
+			return filePath, nil
 		}
+		logger.Debugf("No client config found in directory: %s", dir)
 	}
 	logger.Info("No client config file found in default directories")
-	return ""
+	return "", nil
 }
 
 func existsFile(filePath string) (bool, error) {
@@ -109,7 +109,7 @@ func parseClientConfiguration(filePath string) (*ClientConfig, error) {
 	if err != nil {
 		return nil, parsingClientConfigError(err)
 	}
-	err = isCfgPermValid(filePath)
+	err = validateCfgPerm(filePath)
 	if err != nil {
 		return nil, parsingClientConfigError(err)
 	}
@@ -175,7 +175,7 @@ func validateLogLevel(clientConfig ClientConfig) error {
 	return nil
 }
 
-func isCfgPermValid(filePath string) error {
+func validateCfgPerm(filePath string) error {
 	if runtime.GOOS == "windows" {
 		return nil
 	}

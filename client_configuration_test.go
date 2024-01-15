@@ -18,8 +18,9 @@ func TestFindConfigFileFromConnectionParameters(t *testing.T) {
 	createFile(t, defaultConfigName, "random content", dirs.predefinedDir1)
 	createFile(t, defaultConfigName, "random content", dirs.predefinedDir2)
 
-	clientConfigFilePath := findClientConfigFilePath(connParameterConfigPath, predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath(connParameterConfigPath, predefinedTestDirs(dirs))
 
+	assertEqualE(t, err, nil)
 	assertEqualE(t, clientConfigFilePath, connParameterConfigPath, "config file path")
 }
 
@@ -30,8 +31,9 @@ func TestFindConfigFileFromEnvVariable(t *testing.T) {
 	createFile(t, defaultConfigName, "random content", dirs.predefinedDir1)
 	createFile(t, defaultConfigName, "random content", dirs.predefinedDir2)
 
-	clientConfigFilePath := findClientConfigFilePath("", predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
+	assertEqualE(t, err, nil)
 	assertEqualE(t, clientConfigFilePath, envConfigPath, "config file path")
 }
 
@@ -40,8 +42,9 @@ func TestFindConfigFileFromFirstPredefinedDir(t *testing.T) {
 	configPath := createFile(t, defaultConfigName, "random content", dirs.predefinedDir1)
 	createFile(t, defaultConfigName, "random content", dirs.predefinedDir2)
 
-	clientConfigFilePath := findClientConfigFilePath("", predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
+	assertEqualE(t, err, nil)
 	assertEqualE(t, clientConfigFilePath, configPath, "config file path")
 }
 
@@ -50,8 +53,9 @@ func TestFindConfigFileFromSubsequentDirectoryIfNotFoundInPreviousOne(t *testing
 	createFile(t, "wrong_file_name.json", "random content", dirs.predefinedDir1)
 	configPath := createFile(t, defaultConfigName, "random content", dirs.predefinedDir2)
 
-	clientConfigFilePath := findClientConfigFilePath("", predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
+	assertEqualE(t, err, nil)
 	assertEqualE(t, clientConfigFilePath, configPath, "config file path")
 }
 
@@ -60,8 +64,9 @@ func TestNotFindConfigFileWhenNotDefined(t *testing.T) {
 	createFile(t, "wrong_file_name.json", "random content", dirs.predefinedDir1)
 	createFile(t, "wrong_file_name.json", "random content", dirs.predefinedDir2)
 
-	clientConfigFilePath := findClientConfigFilePath("", predefinedTestDirs(dirs))
+	clientConfigFilePath, err := findClientConfigFilePath("", predefinedTestDirs(dirs))
 
+	assertEqualE(t, err, nil)
 	assertEqualE(t, clientConfigFilePath, "", "config file path")
 }
 

@@ -47,7 +47,7 @@ func TestConfigPermissions(t *testing.T) {
 			err := os.WriteFile(tempFile, nil, os.FileMode(tc.filePerm))
 			assertNilE(t, err)
 			defer os.Remove(tempFile)
-			err = isCfgPermValid(tempFile)
+			err = validateCfgPerm(tempFile)
 			if err != nil && tc.isValid {
 				t.Error(err)
 			}
