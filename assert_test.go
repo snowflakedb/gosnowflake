@@ -46,6 +46,10 @@ func assertStringContainsE(t *testing.T, actual string, expectedToContain string
 	errorOnNonEmpty(t, validateStringContains(actual, expectedToContain, descriptions...))
 }
 
+func assertStringContainsF(t *testing.T, actual string, expectedToContain string, descriptions ...string) {
+	fatalOnNonEmpty(t, validateStringContains(actual, expectedToContain, descriptions...))
+}
+
 func assertHasPrefixE(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
 	errorOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
 }

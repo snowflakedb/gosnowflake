@@ -105,6 +105,8 @@ type Config struct {
 	IncludeRetryReason ConfigBool // Should retried request contain retry reason
 
 	ClientConfigFile string // File path to the client configuration json file
+
+	DisableConsoleLogin ConfigBool // Indicates whether console login should be disabled
 }
 
 // Validate enables testing if config is correct.
@@ -261,6 +263,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.ClientConfigFile != "" {
 		params.Add("clientConfigFile", cfg.ClientConfigFile)
+	}
+	if cfg.DisableConsoleLogin != configBoolNotSet {
+		params.Add("disableConsoleLogin", strconv.FormatBool(cfg.DisableConsoleLogin != ConfigBoolFalse))
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -754,6 +759,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "clientConfigFile":
 			cfg.ClientConfigFile = value
+		case "disableConsoleLogin":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.DisableConsoleLogin = ConfigBoolTrue
+			} else {
+				cfg.DisableConsoleLogin = ConfigBoolFalse
+			}
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

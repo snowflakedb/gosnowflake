@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"context"
 	"errors"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -91,17 +92,17 @@ func TestUnitAuthenticateByExternalBrowser(t *testing.T) {
 		FuncPostAuthSAML: postAuthExternalBrowserError,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
-	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout)
+	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthExternalBrowserFail
-	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout)
+	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthExternalBrowserFailWithCode
-	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout)
+	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -128,7 +129,7 @@ func TestAuthenticationTimeout(t *testing.T) {
 		FuncPostAuthSAML: postAuthExternalBrowserError,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
-	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout)
+	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)
 	if err.Error() != "authentication timed out" {
 		t.Fatal("should have timed out")
 	}
@@ -145,4 +146,30 @@ func Test_createLocalTCPListener(t *testing.T) {
 
 	// Close the listener after the test.
 	defer listener.Close()
+}
+
+func TestUnitGetLoginURL(t *testing.T) {
+	expectedScheme := "https"
+	expectedHost := "abc.com:443"
+	user := "u"
+	callbackPort := 123
+	sr := &snowflakeRestful{
+		Protocol:      "https",
+		Host:          "abc.com",
+		Port:          443,
+		TokenAccessor: getSimpleTokenAccessor(),
+	}
+
+	loginURL, proofKey, err := getLoginURL(sr, user, callbackPort)
+	assertNilF(t, err, "failed to get login URL")
+	assertNotNilF(t, len(proofKey), "proofKey should be non-empty string")
+
+	urlPtr, err := url.Parse(loginURL)
+	assertNilF(t, err, "failed to parse the login URL")
+	assertEqualF(t, urlPtr.Scheme, expectedScheme)
+	assertEqualF(t, urlPtr.Host, expectedHost)
+	assertEqualF(t, urlPtr.Path, consoleLoginRequestPath)
+	assertStringContainsF(t, urlPtr.RawQuery, "login_name")
+	assertStringContainsF(t, urlPtr.RawQuery, "browser_mode_redirect_port")
+	assertStringContainsF(t, urlPtr.RawQuery, "proof_key")
 }
