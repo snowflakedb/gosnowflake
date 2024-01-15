@@ -160,11 +160,11 @@ func TestUnitGetLoginURL(t *testing.T) {
 		TokenAccessor: getSimpleTokenAccessor(),
 	}
 
-	loginUrl, proofKey, err := getLoginURL(sr, user, callbackPort)
+	loginURL, proofKey, err := getLoginURL(sr, user, callbackPort)
 	assertNilF(t, err, "failed to get login URL")
 	assertNotNilF(t, len(proofKey), "proofKey should be non-empty string")
 
-	urlPtr, err := url.Parse(loginUrl)
+	urlPtr, err := url.Parse(loginURL)
 	assertNilF(t, err, "failed to parse the login URL")
 	assertEqualF(t, urlPtr.Scheme, expectedScheme)
 	assertEqualF(t, urlPtr.Host, expectedHost)
