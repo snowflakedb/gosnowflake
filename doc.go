@@ -216,6 +216,32 @@ For execs:
 
 ```
 
+# Fetch Results by Query ID
+
+The result of your query can be retrieved by setting the query ID in the WithFetchResultByID context.
+```
+
+	// Get the query ID using raw connection as mentioned above:
+	err := conn.Raw(func(x any) error {
+		rows1, err = x.(driver.QueryerContext).QueryContext(ctx, "SELECT 1", nil)
+		queryID = rows1.(sf.SnowflakeRows).GetQueryID()
+		return nil
+	}
+
+	// Update the Context object to specify the query ID
+	fetchResultByIDCtx = sf.WithFetchResultByID(ctx, queryID)
+
+	// Execute an empty string query
+	rows2, err := db.QueryContext(fetchResultByIDCtx, "")
+
+	// Retrieve the results as usual
+	for rows2.Next()  {
+		err = rows2.Scan(...)
+		...
+	}
+
+```
+
 # Canceling Query by CtrlC
 
 From 0.5.0, a signal handling responsibility has moved to the applications. If you want to cancel a
