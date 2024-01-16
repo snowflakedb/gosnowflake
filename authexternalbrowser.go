@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -70,11 +71,11 @@ func createLocalTCPListener() (*net.TCPListener, error) {
 	return tcpListener, nil
 }
 
-// Opens a browser window (or new tab) with the configured IDP Url.
+// Opens a browser window (or new tab) with the configured login Url.
 // This can / will fail if running inside a shell with no display, ie
 // ssh'ing into a box attempting to authenticate via external browser.
-func openBrowser(idpURL string) error {
-	err := browser.OpenURL(idpURL)
+func openBrowser(loginURL string) error {
+	err := browser.OpenURL(loginURL)
 	if err != nil {
 		logger.Infof("failed to open a browser. err: %v", err)
 		return err
@@ -91,6 +92,7 @@ func getIdpURLProofKey(
 	authenticator string,
 	application string,
 	account string,
+	user string,
 	callbackPort int) (string, string, error) {
 
 	headers := make(map[string]string)
@@ -108,6 +110,7 @@ func getIdpURLProofKey(
 		ClientAppID:             clientType,
 		ClientAppVersion:        SnowflakeGoDriverVersion,
 		AccountName:             account,
+		LoginName:               user,
 		ClientEnvironment:       clientEnvironment,
 		Authenticator:           authenticator,
 		BrowserModeRedirectPort: strconv.Itoa(callbackPort),
@@ -142,6 +145,24 @@ func getIdpURLProofKey(
 		}
 	}
 	return respd.Data.SSOURL, respd.Data.ProofKey, nil
+}
+
+// Gets the login URL for multiple SAML
+func getLoginURL(sr *snowflakeRestful, user string, callbackPort int) (string, string, error) {
+	proofKey := generateProofKey()
+
+	params := &url.Values{}
+	params.Add("login_name", user)
+	params.Add("browser_mode_redirect_port", strconv.Itoa(callbackPort))
+	params.Add("proof_key", proofKey)
+	url := sr.getFullURL(consoleLoginRequestPath, params)
+
+	return url.String(), proofKey, nil
+}
+
+func generateProofKey() string {
+	randomness := getSecureRandom(32)
+	return base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString(randomness)
 }
 
 // The response returned from Snowflake looks like so:
@@ -187,10 +208,11 @@ func authenticateByExternalBrowser(
 	user string,
 	password string,
 	externalBrowserTimeout time.Duration,
+	disableConsoleLogin ConfigBool,
 ) ([]byte, []byte, error) {
 	resultChan := make(chan authenticateByExternalBrowserResult, 1)
 	go func() {
-		resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, password)
+		resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, password, disableConsoleLogin)
 	}()
 	select {
 	case <-time.After(externalBrowserTimeout):
@@ -204,7 +226,7 @@ func authenticateByExternalBrowser(
 //   - the golang snowflake driver communicates to Snowflake that the user wishes to
 //     authenticate via external browser
 //   - snowflake sends back the IDP Url configured at the Snowflake side for the
-//     provided account
+//     provided account, or use the multiple SAML way via console login
 //   - the default browser is opened to that URL
 //   - user authenticates at the IDP, and is redirected to Snowflake
 //   - Snowflake directs the user back to the driver
@@ -217,6 +239,7 @@ func doAuthenticateByExternalBrowser(
 	account string,
 	user string,
 	password string,
+	disableConsoleLogin ConfigBool,
 ) authenticateByExternalBrowserResult {
 	l, err := createLocalTCPListener()
 	if err != nil {
@@ -225,13 +248,22 @@ func doAuthenticateByExternalBrowser(
 	defer l.Close()
 
 	callbackPort := l.Addr().(*net.TCPAddr).Port
-	idpURL, proofKey, err := getIdpURLProofKey(
-		ctx, sr, authenticator, application, account, callbackPort)
+
+	var loginURL string
+	var proofKey string
+	if disableConsoleLogin == ConfigBoolTrue {
+		// Gets the IDP URL and Proof Key from Snowflake
+		loginURL, proofKey, err = getIdpURLProofKey(ctx, sr, authenticator, application, account, user, callbackPort)
+	} else {
+		// Multiple SAML way to do authentication via console login
+		loginURL, proofKey, err = getLoginURL(sr, user, callbackPort)
+	}
+
 	if err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
-	if err = openBrowser(idpURL); err != nil {
+	if err = openBrowser(loginURL); err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 

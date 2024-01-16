@@ -714,6 +714,40 @@ func TestParseDSN(t *testing.T) {
 			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=http%3A%2F%2Fsc.okta.com&ocspFailOpen=true&validateDefaultParameters=true",
 			err: errFailedToParseAuthenticator(),
 		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=EXTERNALBROWSER&disableConsoleLogin=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypeExternalBrowser,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableConsoleLogin:       ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=EXTERNALBROWSER&disableConsoleLogin=false",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypeExternalBrowser,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableConsoleLogin:       ConfigBoolFalse,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -872,6 +906,9 @@ func TestParseDSN(t *testing.T) {
 				}
 				if test.config.IncludeRetryReason != cfg.IncludeRetryReason {
 					t.Fatalf("%v: Failed to match IncludeRetryReason. expected: %v, got: %v", i, test.config.IncludeRetryReason, cfg.IncludeRetryReason)
+				}
+				if test.config.DisableConsoleLogin != cfg.DisableConsoleLogin {
+					t.Fatalf("%v: Failed to match DisableConsoleLogin. expected: %v, got: %v", i, test.config.DisableConsoleLogin, cfg.DisableConsoleLogin)
 				}
 				assertEqualF(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
 			case test.err != nil:
@@ -1321,6 +1358,26 @@ func TestDSN(t *testing.T) {
 				ClientConfigFile:   "c:\\Users\\user\\config.json",
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientConfigFile=c%3A%5CUsers%5Cuser%5Cconfig.json&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                "u",
+				Password:            "p",
+				Account:             "a.b.c",
+				Authenticator:       AuthTypeExternalBrowser,
+				DisableConsoleLogin: ConfigBoolTrue,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=externalbrowser&disableConsoleLogin=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                "u",
+				Password:            "p",
+				Account:             "a.b.c",
+				Authenticator:       AuthTypeExternalBrowser,
+				DisableConsoleLogin: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=externalbrowser&disableConsoleLogin=false&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {

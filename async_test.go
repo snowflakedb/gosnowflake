@@ -196,3 +196,34 @@ func TestLongRunningAsyncQuery(t *testing.T) {
 		}
 	}
 }
+
+func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		queryIDChan := make(chan string, 1)
+		ctx := WithAsyncMode(context.Background())
+		ctx = WithQueryIDChan(ctx, queryIDChan)
+
+		// Run a long running query asynchronously
+		go dbt.mustExecContext(ctx, "CALL SYSTEM$WAIT(50, 'SECONDS')")
+
+		// Get the query ID without waiting for the query to finish
+		queryID := <-queryIDChan
+		assertNotNilF(t, queryID, "expected a nonempty query ID")
+
+		ctx = WithFetchResultByID(ctx, queryID)
+		rows := dbt.mustQueryContext(ctx, "")
+		defer rows.Close()
+
+		var v string
+		assertTrueF(t, rows.Next())
+		err := rows.Scan(&v)
+		assertNilF(t, err, fmt.Sprintf("failed to get result. err: %v", err))
+		assertNotNilF(t, v, "should have returned a result")
+
+		expected := "waited 50 seconds"
+		if v != expected {
+			t.Fatalf("unexpected result returned. expected: %v, but got: %v", expected, v)
+		}
+		assertFalseF(t, rows.NextResultSet())
+	})
+}
