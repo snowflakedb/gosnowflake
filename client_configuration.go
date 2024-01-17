@@ -84,7 +84,7 @@ func existsFile(filePath string) (bool, error) {
 func clientConfigPredefinedDirs() []string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		logger.Warnf("Unable to access Home directory for Easy Logging configuration search, err: %v", err)
+		logger.Warnf("Unable to access Home directory for client configuration search, err: %v", err)
 		return []string{"."}
 	}
 	return []string{".", homeDir}

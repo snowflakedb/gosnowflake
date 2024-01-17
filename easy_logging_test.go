@@ -38,9 +38,7 @@ func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *tes
 	defer cleanUp()
 	configDir, err := os.UserHomeDir()
 	logDir := t.TempDir()
-	if err != nil {
-		t.Fatal("User Home directory is not accessible")
-	}
+	assertNilF(t, err, "user home directory error")
 	logLevel := levelError
 	contents := createClientConfigContent(logLevel, logDir)
 	configFilePath := createFile(t, defaultConfigName, contents, configDir)
@@ -60,9 +58,7 @@ func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing
 	defer cleanUp()
 	configDir, err := os.UserHomeDir()
 	logDir := t.TempDir()
-	if err != nil {
-		t.Fatal("User Home directory is not accessible")
-	}
+	assertNilF(t, err, "user home directory error")
 	homeConfigLogLevel := levelError
 	homeConfigContent := createClientConfigContent(homeConfigLogLevel, logDir)
 	homeConfigFilePath := createFile(t, defaultConfigName, homeConfigContent, configDir)
