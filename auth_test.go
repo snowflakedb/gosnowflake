@@ -104,8 +104,11 @@ func postAuthSuccess(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *
 
 func postAuthCheckSAMLResponse(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
 	var ar authRequest
-	jsonBody, _ := bodyCreator()
-	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+	jsonBody, err := bodyCreator()
+	if err != nil {
+		return nil, err
+	}
+	if err = json.Unmarshal(jsonBody, &ar); err != nil {
 		return nil, err
 	}
 	if ar.Data.RawSAMLResponse == "" {
@@ -569,20 +572,24 @@ func TestUnitAuthenticate(t *testing.T) {
 func TestUnitAuthenticateSaml(t *testing.T) {
 	var err error
 	sr := &snowflakeRestful{
-		FuncPostAuth:  postAuthCheckSAMLResponse,
-		TokenAccessor: getSimpleTokenAccessor(),
+		Protocol:         "https",
+		Host:             "abc.com",
+		Port:             443,
+		FuncPostAuthSAML: postAuthSAMLAuthSuccess,
+		FuncPostAuthOKTA: postAuthOKTASuccess,
+		FuncGetSSO:       getSSOSuccess,
+		FuncPostAuth:     postAuthCheckSAMLResponse,
+		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeOkta
 	sc.cfg.OktaURL = &url.URL{
 		Scheme: "https",
-		Host:   "blah.okta.com",
+		Host:   "abc.com",
 	}
 	sc.rest = sr
-	_, err = authenticate(context.Background(), sc, []byte("HTML data in bytes from"), []byte{})
-	if err != nil {
-		t.Fatalf("failed to run. err: %v", err)
-	}
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
+	assertNilF(t, err, "failed to run.")
 }
 
 // Unit test for OAuth.
@@ -710,7 +717,7 @@ func TestUnitAuthenticateWithConfigOkta(t *testing.T) {
 		FuncPostAuthSAML: postAuthSAMLAuthSuccess,
 		FuncPostAuthOKTA: postAuthOKTASuccess,
 		FuncGetSSO:       getSSOSuccess,
-		FuncPostAuth:     postAuthSuccess,
+		FuncPostAuth:     postAuthCheckSAMLResponse,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
