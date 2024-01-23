@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/observeinc/gosnowflake"
 )
 
 func main() {
