@@ -418,6 +418,17 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.Authenticator = AuthTypeOAuth.String()
 		requestMain.Token = sc.cfg.Token
 	case AuthTypeOkta:
+		samlResponse, err := authenticateBySAML(
+			sc.ctx,
+			sc.rest,
+			sc.cfg.OktaURL,
+			sc.cfg.Application,
+			sc.cfg.Account,
+			sc.cfg.User,
+			sc.cfg.Password)
+		if err != nil {
+			return nil, err
+		}
 		requestMain.RawSAMLResponse = string(samlResponse)
 	case AuthTypeJwt:
 		requestMain.Authenticator = AuthTypeJwt.String()
@@ -534,19 +545,6 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 				sc.cleanup()
 				return err
 			}
-		}
-	case AuthTypeOkta:
-		samlResponse, err = authenticateBySAML(
-			sc.ctx,
-			sc.rest,
-			sc.cfg.OktaURL,
-			sc.cfg.Application,
-			sc.cfg.Account,
-			sc.cfg.User,
-			sc.cfg.Password)
-		if err != nil {
-			sc.cleanup()
-			return err
 		}
 	}
 	authData, err = authenticate(
