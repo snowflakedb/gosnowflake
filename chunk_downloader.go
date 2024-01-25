@@ -249,7 +249,7 @@ func (scd *snowflakeChunkDownloader) getRowType() []execResponseRowType {
 }
 
 func (scd *snowflakeChunkDownloader) getArrowBatches() []*ArrowBatch {
-	if scd.FirstBatch.rec == nil {
+	if scd.FirstBatch == nil || scd.FirstBatch.rec == nil {
 		return scd.ArrowBatches
 	}
 	return append([]*ArrowBatch{scd.FirstBatch}, scd.ArrowBatches...)

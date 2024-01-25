@@ -58,6 +58,10 @@ func assertBetweenE(t *testing.T, value float64, min float64, max float64, descr
 	errorOnNonEmpty(t, validateValueBetween(value, min, max, descriptions...))
 }
 
+func assertEmptyE[T any](t *testing.T, actual []T, descriptions ...string) {
+	errorOnNonEmpty(t, validateEmpty(actual, descriptions...))
+}
+
 func fatalOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
 		t.Fatal(formatErrorMessage(errMsg))
@@ -120,6 +124,14 @@ func validateValueBetween(value float64, min float64, max float64, descriptions 
 	}
 	desc := joinDescriptions(descriptions...)
 	return fmt.Sprintf("expected \"%f\" should be between \"%f\" and  \"%f\" but did not. %s", value, min, max, desc)
+}
+
+func validateEmpty[T any](value []T, descriptions ...string) string {
+	if len(value) == 0 {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected \"%v\" to be empty. %s", value, desc)
 }
 
 func joinDescriptions(descriptions ...string) string {
