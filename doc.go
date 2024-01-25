@@ -455,6 +455,41 @@ of the returned value:
 	    }
 	}
 
+## Arrow batches
+
+You can retrieve data in a columnar format similar to the format a server returns.
+You must use `WithArrowBatches` context, similar to the following:
+
+	    var rows driver.Rows
+		err = conn.Raw(func(x interface{}) error {
+			rows, err = x.(driver.QueryerContext).QueryContext(ctx, query, nil)
+			return err
+		})
+
+		...
+
+		batches, err := rows.(sf.SnowflakeRows).GetArrowBatches()
+
+		... // use Arrow records
+
+Limitations:
+
+1. For some queries Snowflake may decide to return data in JSON format (examples: `SHOW PARAMETERS` or `ls @stage`). You cannot use JSON with Arrow batches context.
+2. Snowflake handles timestamps in a range which is higher than available space in Arrow timestamp type. Because of that special treatment should be used (see below).
+
+### Handling timestamps in Arrow batches
+
+Snowflake returns timestamps natively (from backend to driver) in multiple formats.
+The Arrow timestamp is an 8-byte data type, which is insufficient to handle the larger date and time ranges used by Snowflake.
+Also, Snowflake supports 0-9 (nanosecond) digit precision for seconds, while Arrow supports only 3 (millisecond), 6 (microsecond), an 9 (nanosecond) precision.
+Consequently, Snowflake uses a custom timestamp format in Arrow, which differs on timestamp type and precision.
+
+If you want to use timestamps in Arrow batches, you have two options:
+
+ 1. The Go driver can reduce timestamp struct into simple Arrow Timestamp, if all timestamp values fit into Arrow timestamp field.
+ 2. You can use native Snowflake values. In that case you will receive complex structs as described above. To transform Snowflake values into the Golang time.Time struct you can use `ArrowSnowflakeTimestampToTime`.
+    To enable this feature, you must use `WithOriginalTimestamp` context.
+
 # Binding Parameters
 
 Binding allows a SQL statement to use a value that is stored in a Golang variable.
