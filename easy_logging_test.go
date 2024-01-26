@@ -10,12 +10,11 @@ import (
 )
 
 func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
-	dir := t.TempDir()
+	logDir := t.TempDir()
 	logLevel := levelError
-	contents := createClientConfigContent(logLevel, dir)
-	configFilePath := createFile(t, "config.json", contents, dir)
+	contents := createClientConfigContent(logLevel, logDir)
+	configFilePath := createFile(t, "config.json", contents, logDir)
 	easyLoggingInitTrials.reset()
 
 	err := openWithClientConfigFile(t, configFilePath)
@@ -36,16 +35,17 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 }
 
 func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
-	dir := t.TempDir()
+	configDir, err := os.UserHomeDir()
+	logDir := t.TempDir()
+	assertNilF(t, err, "user home directory error")
 	logLevel := levelError
-	contents := createClientConfigContent(logLevel, dir)
-	configFilePath := createFile(t, defaultConfigName, contents, os.TempDir())
+	contents := createClientConfigContent(logLevel, logDir)
+	configFilePath := createFile(t, defaultConfigName, contents, configDir)
 	defer os.Remove(configFilePath)
 	easyLoggingInitTrials.reset()
 
-	err := openWithClientConfigFile(t, "")
+	err = openWithClientConfigFile(t, "")
 	assertNilF(t, err, "open config error")
 	err = openWithClientConfigFile(t, "")
 	assertNilF(t, err, "open config error")
@@ -55,23 +55,24 @@ func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *tes
 }
 
 func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
-	dir := t.TempDir()
-	tmpDirLogLevel := levelError
-	tmpFileContent := createClientConfigContent(tmpDirLogLevel, dir)
-	tmpDirConfigFilePath := createFile(t, defaultConfigName, tmpFileContent, os.TempDir())
-	defer os.Remove(tmpDirConfigFilePath)
+	configDir, err := os.UserHomeDir()
+	logDir := t.TempDir()
+	assertNilF(t, err, "user home directory error")
+	homeConfigLogLevel := levelError
+	homeConfigContent := createClientConfigContent(homeConfigLogLevel, logDir)
+	homeConfigFilePath := createFile(t, defaultConfigName, homeConfigContent, configDir)
+	defer os.Remove(homeConfigFilePath)
 	customLogLevel := levelWarn
-	customFileContent := createClientConfigContent(customLogLevel, dir)
-	customConfigFilePath := createFile(t, "config.json", customFileContent, dir)
+	customFileContent := createClientConfigContent(customLogLevel, logDir)
+	customConfigFilePath := createFile(t, "config.json", customFileContent, configDir)
 	easyLoggingInitTrials.reset()
 
-	err := openWithClientConfigFile(t, "")
+	err = openWithClientConfigFile(t, "")
 	logger.Error("Error message")
 
 	assertNilF(t, err, "open config error")
-	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), tmpDirLogLevel, "tmp dir log level check")
+	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), homeConfigLogLevel, "tmp dir log level check")
 	assertEqualE(t, easyLoggingInitTrials.configureCounter, 1)
 
 	err = openWithClientConfigFile(t, customConfigFilePath)
@@ -81,14 +82,13 @@ func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing
 	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), customLogLevel, "custom dir log level check")
 	assertEqualE(t, easyLoggingInitTrials.configureCounter, 2)
 	var logContents []byte
-	logContents, err = os.ReadFile(path.Join(dir, "go", "snowflake.log"))
+	logContents, err = os.ReadFile(path.Join(logDir, "go", "snowflake.log"))
 	assertNilF(t, err, "read file error")
 	logs := notEmptyLines(string(logContents))
 	assertEqualE(t, len(logs), 2, "number of logs")
 }
 
 func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
@@ -103,7 +103,6 @@ func TestEasyLoggingFailOnUnknownLevel(t *testing.T) {
 }
 
 func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	easyLoggingInitTrials.reset()
 
@@ -115,7 +114,6 @@ func TestEasyLoggingFailOnNotExistingConfigFile(t *testing.T) {
 }
 
 func TestLogToConfiguredFile(t *testing.T) {
-	t.Skip("Skip until easy logging enabled")
 	defer cleanUp()
 	dir := t.TempDir()
 	easyLoggingInitTrials.reset()
@@ -172,7 +170,7 @@ func toClientConfigLevel(logLevel string) string {
 }
 
 func filterStrings(values []string, keep func(string) bool) []string {
-	filteredStrings := []string{}
+	var filteredStrings []string
 	for _, val := range values {
 		if keep(val) {
 			filteredStrings = append(filteredStrings, val)
