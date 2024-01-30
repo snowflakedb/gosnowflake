@@ -19,18 +19,18 @@ import (
 type contextKey string
 
 const (
-	multiStatementCount     contextKey = "MULTI_STATEMENT_COUNT"
-	asyncMode               contextKey = "ASYNC_MODE_QUERY"
-	queryIDChannel          contextKey = "QUERY_ID_CHANNEL"
-	snowflakeRequestIDKey   contextKey = "SNOWFLAKE_REQUEST_ID"
-	fetchResultByID         contextKey = "SF_FETCH_RESULT_BY_ID"
-	fileStreamFile          contextKey = "STREAMING_PUT_FILE"
-	fileTransferOptions     contextKey = "FILE_TRANSFER_OPTIONS"
-	enableHigherPrecision   contextKey = "ENABLE_HIGHER_PRECISION"
-	arrowBatches            contextKey = "ARROW_BATCHES"
-	arrowAlloc              contextKey = "ARROW_ALLOC"
-	enableOriginalTimestamp contextKey = "ENABLE_ORIGINAL_TIMESTAMP"
-	queryTag                contextKey = "QUERY_TAG"
+	multiStatementCount         contextKey = "MULTI_STATEMENT_COUNT"
+	asyncMode                   contextKey = "ASYNC_MODE_QUERY"
+	queryIDChannel              contextKey = "QUERY_ID_CHANNEL"
+	snowflakeRequestIDKey       contextKey = "SNOWFLAKE_REQUEST_ID"
+	fetchResultByID             contextKey = "SF_FETCH_RESULT_BY_ID"
+	fileStreamFile              contextKey = "STREAMING_PUT_FILE"
+	fileTransferOptions         contextKey = "FILE_TRANSFER_OPTIONS"
+	enableHigherPrecision       contextKey = "ENABLE_HIGHER_PRECISION"
+	arrowBatches                contextKey = "ARROW_BATCHES"
+	arrowAlloc                  contextKey = "ARROW_ALLOC"
+	arrowBatchesTimestampOption contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
+	queryTag                    contextKey = "QUERY_TAG"
 )
 
 const (
@@ -108,11 +108,11 @@ func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Cont
 	return context.WithValue(ctx, arrowAlloc, pool)
 }
 
-// WithOriginalTimestamp in combination with WithArrowBatches returns a context
+// WithArrowBatchesTimestampOption in combination with WithArrowBatches returns a context
 // that allows users to retrieve arrow.Record with original timestamp struct returned by Snowflake.
 // It can be used in case arrow.Timestamp cannot fit original timestamp values.
-func WithOriginalTimestamp(ctx context.Context) context.Context {
-	return context.WithValue(ctx, enableOriginalTimestamp, true)
+func WithArrowBatchesTimestampOption(ctx context.Context, option SnowflakeArrowBatchesTimestampOption) context.Context {
+	return context.WithValue(ctx, arrowBatchesTimestampOption, option)
 }
 
 // WithQueryTag returns a context that will set the given tag as the QUERY_TAG
