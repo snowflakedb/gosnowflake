@@ -42,15 +42,15 @@ const (
 type snowflakeArrowBatchesTimestampOption int
 
 const (
-	// arrow.Timestamp in nanosecond precision, could cause ErrTooHighTimestampPrecision if arrow.Timestamp cannot fit original timestamp values.
+	// UseNanosecondTimestamp uses arrow.Timestamp in nanosecond precision, could cause ErrTooHighTimestampPrecision if arrow.Timestamp cannot fit original timestamp values.
 	UseNanosecondTimestamp snowflakeArrowBatchesTimestampOption = iota
-	// arrow.Timestamp in microsecond precision
+	// UseMicrosecondTimestamp uses arrow.Timestamp in microsecond precision
 	UseMicrosecondTimestamp
-	// arrow.Timestamp in millisecond precision
+	// UseMillisecondTimestamp uses arrow.Timestamp in millisecond precision
 	UseMillisecondTimestamp
-	// arrow.Timestamp in second precision
+	// UseSecondTimestamp uses arrow.Timestamp in second precision
 	UseSecondTimestamp
-	// original timestamp struct returned by Snowflake. It can be used in case arrow.Timestamp cannot fit original timestamp values.
+	// UseOriginalTimestamp uses original timestamp struct returned by Snowflake. It can be used in case arrow.Timestamp cannot fit original timestamp values.
 	UseOriginalTimestamp
 )
 
