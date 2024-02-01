@@ -1227,6 +1227,7 @@ func TestArrowToRecord(t *testing.T) {
 				return -1
 			},
 		},
+		// microsecond timestamp_ntz
 		{
 			logical:                     "timestamp_ntz",
 			physical:                    "struct", // timestamp_ntz with scale 4..9 -> int64 + int32
@@ -1255,6 +1256,7 @@ func TestArrowToRecord(t *testing.T) {
 				return -1
 			},
 		},
+		// millisecond timestamp_ntz
 		{
 			logical:                     "timestamp_ntz",
 			physical:                    "struct", // timestamp_ntz with scale 4..9 -> int64 + int32
@@ -1277,6 +1279,35 @@ func TestArrowToRecord(t *testing.T) {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Millisecond)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		// second timestamp_ntz
+		{
+			logical:                     "timestamp_ntz",
+			physical:                    "struct", // timestamp_ntz with scale 4..9 -> int64 + int32
+			values:                      []time.Time{time.Now().Truncate(time.Second), localTime.Truncate(time.Millisecond)},
+			arrowBatchesTimestampOption: UseSecondTimestamp,
+			nrows:                       2,
+			rowType:                     execResponseRowType{Scale: 9},
+			sc:                          arrow.NewSchema([]arrow.Field{{Type: timestampNtzStruct}}, nil),
+			builder:                     array.NewStructBuilder(pool, timestampNtzStruct),
+			append: func(b array.Builder, vs interface{}) {
+				sb := b.(*array.StructBuilder)
+				valids = []bool{true, true}
+				sb.AppendValues(valids)
+				for _, t := range vs.([]time.Time) {
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(t.Unix())
+					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
+				}
+			},
+			compare: func(src interface{}, convertedRec arrow.Record) int {
+				srcvs := src.([]time.Time)
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
+					if !srcvs[i].Equal(t.ToTime(arrow.Second)) {
 						return i
 					}
 				}
@@ -1403,6 +1434,93 @@ func TestArrowToRecord(t *testing.T) {
 				return -1
 			},
 		},
+		// microsecond timestamp_ltz
+		{
+			logical:                     "timestamp_ltz",
+			physical:                    "struct", // timestamp_ntz with scale 4..9 -> int64 + int32
+			values:                      []time.Time{time.Now().Truncate(time.Microsecond), localTime.Truncate(time.Microsecond)},
+			arrowBatchesTimestampOption: UseMicrosecondTimestamp,
+			nrows:                       2,
+			rowType:                     execResponseRowType{Scale: 9},
+			sc:                          arrow.NewSchema([]arrow.Field{{Type: timestampNtzStruct}}, nil),
+			builder:                     array.NewStructBuilder(pool, timestampNtzStruct),
+			append: func(b array.Builder, vs interface{}) {
+				sb := b.(*array.StructBuilder)
+				valids = []bool{true, true}
+				sb.AppendValues(valids)
+				for _, t := range vs.([]time.Time) {
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(t.Unix())
+					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
+				}
+			},
+			compare: func(src interface{}, convertedRec arrow.Record) int {
+				srcvs := src.([]time.Time)
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
+					if !srcvs[i].Equal(t.ToTime(arrow.Microsecond)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		// millisecond timestamp_ltz
+		{
+			logical:                     "timestamp_ltz",
+			physical:                    "struct", // timestamp_ntz with scale 4..9 -> int64 + int32
+			values:                      []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond)},
+			arrowBatchesTimestampOption: UseMillisecondTimestamp,
+			nrows:                       2,
+			rowType:                     execResponseRowType{Scale: 9},
+			sc:                          arrow.NewSchema([]arrow.Field{{Type: timestampNtzStruct}}, nil),
+			builder:                     array.NewStructBuilder(pool, timestampNtzStruct),
+			append: func(b array.Builder, vs interface{}) {
+				sb := b.(*array.StructBuilder)
+				valids = []bool{true, true}
+				sb.AppendValues(valids)
+				for _, t := range vs.([]time.Time) {
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(t.Unix())
+					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
+				}
+			},
+			compare: func(src interface{}, convertedRec arrow.Record) int {
+				srcvs := src.([]time.Time)
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
+					if !srcvs[i].Equal(t.ToTime(arrow.Millisecond)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		// second timestamp_ltz
+		{
+			logical:                     "timestamp_ltz",
+			physical:                    "struct", // timestamp_ntz with scale 4..9 -> int64 + int32
+			values:                      []time.Time{time.Now().Truncate(time.Second), localTime.Truncate(time.Second)},
+			arrowBatchesTimestampOption: UseSecondTimestamp,
+			nrows:                       2,
+			rowType:                     execResponseRowType{Scale: 9},
+			sc:                          arrow.NewSchema([]arrow.Field{{Type: timestampNtzStruct}}, nil),
+			builder:                     array.NewStructBuilder(pool, timestampNtzStruct),
+			append: func(b array.Builder, vs interface{}) {
+				sb := b.(*array.StructBuilder)
+				valids = []bool{true, true}
+				sb.AppendValues(valids)
+				for _, t := range vs.([]time.Time) {
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(t.Unix())
+					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
+				}
+			},
+			compare: func(src interface{}, convertedRec arrow.Record) int {
+				srcvs := src.([]time.Time)
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
+					if !srcvs[i].Equal(t.ToTime(arrow.Second)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
 		{
 			logical:  "timestamp_ltz",
 			physical: "error",
@@ -1522,6 +1640,96 @@ func TestArrowToRecord(t *testing.T) {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Nanosecond)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		// microsecond timestamp_tz
+		{
+			logical:                     "timestamp_tz",
+			physical:                    "struct3", // timestamp_tz with scale 4..9 -> int64 + int32 + int32
+			values:                      []time.Time{time.Now().Truncate(time.Microsecond), localTime.Truncate(time.Microsecond)},
+			arrowBatchesTimestampOption: UseMicrosecondTimestamp,
+			nrows:                       2,
+			rowType:                     execResponseRowType{Scale: 9},
+			sc:                          arrow.NewSchema([]arrow.Field{{Type: timestampTzStructWithFraction}}, nil),
+			builder:                     array.NewStructBuilder(pool, timestampTzStructWithFraction),
+			append: func(b array.Builder, vs interface{}) {
+				sb := b.(*array.StructBuilder)
+				valids = []bool{true, true}
+				sb.AppendValues(valids)
+				for _, t := range vs.([]time.Time) {
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(t.Unix())
+					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
+					sb.FieldBuilder(2).(*array.Int32Builder).Append(int32(0)) // timezone index - not important in tests
+				}
+			},
+			compare: func(src interface{}, convertedRec arrow.Record) int {
+				srcvs := src.([]time.Time)
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
+					if !srcvs[i].Equal(t.ToTime(arrow.Microsecond)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		// millisecond timestamp_tz
+		{
+			logical:                     "timestamp_tz",
+			physical:                    "struct3", // timestamp_tz with scale 4..9 -> int64 + int32 + int32
+			values:                      []time.Time{time.Now().Truncate(time.Millisecond), localTime.Truncate(time.Millisecond)},
+			arrowBatchesTimestampOption: UseMillisecondTimestamp,
+			nrows:                       2,
+			rowType:                     execResponseRowType{Scale: 9},
+			sc:                          arrow.NewSchema([]arrow.Field{{Type: timestampTzStructWithFraction}}, nil),
+			builder:                     array.NewStructBuilder(pool, timestampTzStructWithFraction),
+			append: func(b array.Builder, vs interface{}) {
+				sb := b.(*array.StructBuilder)
+				valids = []bool{true, true}
+				sb.AppendValues(valids)
+				for _, t := range vs.([]time.Time) {
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(t.Unix())
+					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
+					sb.FieldBuilder(2).(*array.Int32Builder).Append(int32(0)) // timezone index - not important in tests
+				}
+			},
+			compare: func(src interface{}, convertedRec arrow.Record) int {
+				srcvs := src.([]time.Time)
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
+					if !srcvs[i].Equal(t.ToTime(arrow.Millisecond)) {
+						return i
+					}
+				}
+				return -1
+			},
+		},
+		// second timestamp_tz
+		{
+			logical:                     "timestamp_tz",
+			physical:                    "struct3", // timestamp_tz with scale 4..9 -> int64 + int32 + int32
+			values:                      []time.Time{time.Now().Truncate(time.Second), localTime.Truncate(time.Second)},
+			arrowBatchesTimestampOption: UseSecondTimestamp,
+			nrows:                       2,
+			rowType:                     execResponseRowType{Scale: 9},
+			sc:                          arrow.NewSchema([]arrow.Field{{Type: timestampTzStructWithFraction}}, nil),
+			builder:                     array.NewStructBuilder(pool, timestampTzStructWithFraction),
+			append: func(b array.Builder, vs interface{}) {
+				sb := b.(*array.StructBuilder)
+				valids = []bool{true, true}
+				sb.AppendValues(valids)
+				for _, t := range vs.([]time.Time) {
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(t.Unix())
+					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
+					sb.FieldBuilder(2).(*array.Int32Builder).Append(int32(0)) // timezone index - not important in tests
+				}
+			},
+			compare: func(src interface{}, convertedRec arrow.Record) int {
+				srcvs := src.([]time.Time)
+				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
+					if !srcvs[i].Equal(t.ToTime(arrow.Second)) {
 						return i
 					}
 				}
