@@ -486,9 +486,10 @@ Consequently, Snowflake uses a custom timestamp format in Arrow, which differs o
 
 If you want to use timestamps in Arrow batches, you have two options:
 
- 1. The Go driver can reduce timestamp struct into simple Arrow Timestamp, if all timestamp values fit into Arrow timestamp field.
+ 1. The Go driver can reduce timestamp struct into simple Arrow Timestamp, if you set `WithArrowBatchesTimestampOption` to nanosecond, microsecond, millisecond or second.
+    For nanosecond, some timestamp values might not fit into Arrow timestamp. E.g after year 2262 or before 1677.
  2. You can use native Snowflake values. In that case you will receive complex structs as described above. To transform Snowflake values into the Golang time.Time struct you can use `ArrowSnowflakeTimestampToTime`.
-    To enable this feature, you must use `WithOriginalTimestamp` context.
+    To enable this feature, you must use `WithArrowBatchesTimestampOption` context with value set to`UseOriginalTimestamp`.
 
 # Binding Parameters
 

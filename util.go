@@ -110,10 +110,11 @@ func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Cont
 
 // WithArrowBatchesTimestampOption in combination with WithArrowBatches returns a context
 // that allows users to retrieve arrow.Record with different timestamp options.
-// UseDefaultNanosecondTimestamp: arrow.Timestamp in nanosecond precision, could cause ErrTooHighTimestampPrecision if arrow.Timestamp cannot fit original timestamp values.
-// UseOriginalTimestamp: original timestamp struct returned by Snowflake. It can be used in case arrow.Timestamp cannot fit original timestamp values.
+// UseNanosecondTimestamp: arrow.Timestamp in nanosecond precision, could cause ErrTooHighTimestampPrecision if arrow.Timestamp cannot fit original timestamp values.
 // UseMicrosecondTimestamp: arrow.Timestamp in microsecond precision
 // UseMillisecondTimestamp: arrow.Timestamp in millisecond precision
+// UseSecondTimestamp: arrow.Timestamp in second precision
+// UseOriginalTimestamp: original timestamp struct returned by Snowflake. It can be used in case arrow.Timestamp cannot fit original timestamp values.
 func WithArrowBatchesTimestampOption(ctx context.Context, option SnowflakeArrowBatchesTimestampOption) context.Context {
 	return context.WithValue(ctx, arrowBatchesTimestampOption, option)
 }

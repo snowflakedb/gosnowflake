@@ -1249,7 +1249,6 @@ func TestArrowToRecord(t *testing.T) {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Microsecond)) {
-						fmt.Println(srcvs[i], t.ToTime(arrow.Microsecond))
 						return i
 					}
 				}
@@ -1641,7 +1640,7 @@ func TestArrowToRecord(t *testing.T) {
 			case UseMicrosecondTimestamp:
 				ctx = WithArrowBatchesTimestampOption(ctx, UseMicrosecondTimestamp)
 			default:
-				ctx = WithArrowBatchesTimestampOption(ctx, UseDefaultNanosecondTimestamp)
+				ctx = WithArrowBatchesTimestampOption(ctx, UseNanosecondTimestamp)
 			}
 
 			transformedRec, err := arrowToRecord(ctx, rawRec, pool, []execResponseRowType{meta}, localTime.Location())

@@ -42,10 +42,11 @@ const (
 type SnowflakeArrowBatchesTimestampOption int
 
 const (
-	UseDefaultNanosecondTimestamp SnowflakeArrowBatchesTimestampOption = iota
-	UseOriginalTimestamp
+	UseNanosecondTimestamp SnowflakeArrowBatchesTimestampOption = iota
 	UseMicrosecondTimestamp
 	UseMillisecondTimestamp
+	UseSecondTimestamp
+	UseOriginalTimestamp
 )
 
 type interfaceArrayBinding struct {
@@ -980,11 +981,11 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 func getArrowBatchesTimestampOption(ctx context.Context) SnowflakeArrowBatchesTimestampOption {
 	v := ctx.Value(arrowBatchesTimestampOption)
 	if v == nil {
-		return UseDefaultNanosecondTimestamp
+		return UseNanosecondTimestamp
 	}
 	o, ok := v.(SnowflakeArrowBatchesTimestampOption)
 	if !ok {
-		return UseDefaultNanosecondTimestamp
+		return UseNanosecondTimestamp
 	}
 	return o
 }
@@ -1050,7 +1051,7 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 					unit = arrow.Microsecond
 				case UseMillisecondTimestamp:
 					unit = arrow.Millisecond
-				case UseDefaultNanosecondTimestamp:
+				case UseNanosecondTimestamp:
 					unit = arrow.Nanosecond
 				}
 				var tb *array.TimestampBuilder
@@ -1070,7 +1071,7 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 							ar = arrow.Timestamp(ts.UnixMicro())
 						case UseMillisecondTimestamp:
 							ar = arrow.Timestamp(ts.UnixMilli())
-						case UseDefaultNanosecondTimestamp:
+						case UseNanosecondTimestamp:
 							ar = arrow.Timestamp(ts.UnixNano())
 							// in case of overflow in arrow timestamp return error
 							// this could only happen for nanosecond case
