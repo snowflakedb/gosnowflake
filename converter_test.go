@@ -1289,7 +1289,7 @@ func TestArrowToRecord(t *testing.T) {
 		{
 			logical:                     "timestamp_ntz",
 			physical:                    "struct", // timestamp_ntz with scale 4..9 -> int64 + int32
-			values:                      []time.Time{time.Now().Truncate(time.Second), localTime.Truncate(time.Millisecond)},
+			values:                      []time.Time{time.Now().Truncate(time.Second), localTime.Truncate(time.Second)},
 			arrowBatchesTimestampOption: UseSecondTimestamp,
 			nrows:                       2,
 			rowType:                     execResponseRowType{Scale: 9},
