@@ -1051,6 +1051,8 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 					unit = arrow.Microsecond
 				case UseMillisecondTimestamp:
 					unit = arrow.Millisecond
+				case UseSecondTimestamp:
+					unit = arrow.Second
 				case UseNanosecondTimestamp:
 					unit = arrow.Nanosecond
 				}
@@ -1071,6 +1073,8 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 							ar = arrow.Timestamp(ts.UnixMicro())
 						case UseMillisecondTimestamp:
 							ar = arrow.Timestamp(ts.UnixMilli())
+						case UseSecondTimestamp:
+							ar = arrow.Timestamp(ts.Unix())
 						case UseNanosecondTimestamp:
 							ar = arrow.Timestamp(ts.UnixNano())
 							// in case of overflow in arrow timestamp return error
@@ -1132,6 +1136,8 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 				t = &arrow.TimestampType{Unit: arrow.Microsecond}
 			} else if timestampOption == UseMillisecondTimestamp {
 				t = &arrow.TimestampType{Unit: arrow.Millisecond}
+			} else if timestampOption == UseSecondTimestamp {
+				t = &arrow.TimestampType{Unit: arrow.Second}
 			} else {
 				t = &arrow.TimestampType{Unit: arrow.Nanosecond}
 			}
@@ -1143,6 +1149,8 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 				t = &arrow.TimestampType{Unit: arrow.Microsecond, TimeZone: loc.String()}
 			} else if timestampOption == UseMillisecondTimestamp {
 				t = &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: loc.String()}
+			} else if timestampOption == UseSecondTimestamp {
+				t = &arrow.TimestampType{Unit: arrow.Second, TimeZone: loc.String()}
 			} else {
 				t = &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: loc.String()}
 			}

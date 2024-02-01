@@ -1635,6 +1635,8 @@ func TestArrowToRecord(t *testing.T) {
 			switch tc.arrowBatchesTimestampOption {
 			case UseOriginalTimestamp:
 				ctx = WithArrowBatchesTimestampOption(ctx, UseOriginalTimestamp)
+			case UseSecondTimestamp:
+				ctx = WithArrowBatchesTimestampOption(ctx, UseSecondTimestamp)
 			case UseMillisecondTimestamp:
 				ctx = WithArrowBatchesTimestampOption(ctx, UseMillisecondTimestamp)
 			case UseMicrosecondTimestamp:
