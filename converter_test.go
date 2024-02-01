@@ -1769,7 +1769,7 @@ func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 	})
 }
 
-func TestTimestampConversionWithArrowBatchesFailsForDistantDates(t *testing.T) {
+func TestTimestampConversionWithArrowBatchesNanosecondFailsForDistantDates(t *testing.T) {
 	timestamps := [2]string{
 		"9999-12-12 23:59:59.999999999", // max
 		"0001-01-01 00:00:00.000000000"} // min
@@ -1798,6 +1798,37 @@ func TestTimestampConversionWithArrowBatchesFailsForDistantDates(t *testing.T) {
 						} else {
 							t.Fatalf("no error, expected: %v ", expectedError)
 
+						}
+					})
+				}
+			}
+		}
+	})
+}
+
+// use arrow.Timestamp with microsecond precision and below should not encounter overflow issue.
+func TestTimestampConversionWithArrowBatchesMicrosecondPassesForDistantDates(t *testing.T) {
+	timestamps := [2]string{
+		"9999-12-12 23:59:59.999999999", // max
+		"0001-01-01 00:00:00.000000000"} // min
+	types := [3]string{"TIMESTAMP_NTZ", "TIMESTAMP_LTZ", "TIMESTAMP_TZ"}
+
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		ctx := WithArrowBatchesTimestampOption(WithArrowBatches(sct.sc.ctx), UseMicrosecondTimestamp)
+
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx = WithArrowAllocator(ctx, pool)
+
+		for _, tsStr := range timestamps {
+			for _, tp := range types {
+				for scale := 0; scale <= 9; scale++ {
+					t.Run(tp+"("+strconv.Itoa(scale)+")_"+tsStr, func(t *testing.T) {
+
+						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
+						_, err := sct.sc.QueryContext(ctx, query, []driver.NamedValue{})
+						if err != nil {
+							t.Fatalf("expect no error but got: %v", err.Error())
 						}
 					})
 				}
