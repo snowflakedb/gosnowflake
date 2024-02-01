@@ -39,13 +39,18 @@ const (
 	TimeType
 )
 
-type SnowflakeArrowBatchesTimestampOption int
+type snowflakeArrowBatchesTimestampOption int
 
 const (
-	UseNanosecondTimestamp SnowflakeArrowBatchesTimestampOption = iota
+	// arrow.Timestamp in nanosecond precision, could cause ErrTooHighTimestampPrecision if arrow.Timestamp cannot fit original timestamp values.
+	UseNanosecondTimestamp snowflakeArrowBatchesTimestampOption = iota
+	// arrow.Timestamp in microsecond precision
 	UseMicrosecondTimestamp
+	// arrow.Timestamp in millisecond precision
 	UseMillisecondTimestamp
+	// arrow.Timestamp in second precision
 	UseSecondTimestamp
+	// original timestamp struct returned by Snowflake. It can be used in case arrow.Timestamp cannot fit original timestamp values.
 	UseOriginalTimestamp
 )
 
@@ -978,12 +983,12 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-func getArrowBatchesTimestampOption(ctx context.Context) SnowflakeArrowBatchesTimestampOption {
+func getArrowBatchesTimestampOption(ctx context.Context) snowflakeArrowBatchesTimestampOption {
 	v := ctx.Value(arrowBatchesTimestampOption)
 	if v == nil {
 		return UseNanosecondTimestamp
 	}
-	o, ok := v.(SnowflakeArrowBatchesTimestampOption)
+	o, ok := v.(snowflakeArrowBatchesTimestampOption)
 	if !ok {
 		return UseNanosecondTimestamp
 	}
@@ -1102,7 +1107,7 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 	return array.NewRecord(s, cols, numRows), nil
 }
 
-func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, timestampOption SnowflakeArrowBatchesTimestampOption) (*arrow.Schema, error) {
+func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, timestampOption snowflakeArrowBatchesTimestampOption) (*arrow.Schema, error) {
 	var fields []arrow.Field
 	for i := 0; i < len(sc.Fields()); i++ {
 		f := sc.Field(i)

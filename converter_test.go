@@ -915,7 +915,7 @@ func TestArrowToRecord(t *testing.T) {
 		rowType                     execResponseRowType
 		values                      interface{}
 		error                       string
-		arrowBatchesTimestampOption SnowflakeArrowBatchesTimestampOption
+		arrowBatchesTimestampOption snowflakeArrowBatchesTimestampOption
 		nrows                       int
 		builder                     array.Builder
 		append                      func(b array.Builder, vs interface{})

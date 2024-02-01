@@ -108,10 +108,11 @@ func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Cont
 	return context.WithValue(ctx, arrowAlloc, pool)
 }
 
-// Deprecated: please use WithArrowBatchesTimestampOption instead.
 // WithOriginalTimestamp in combination with WithArrowBatches returns a context
 // that allows users to retrieve arrow.Record with original timestamp struct returned by Snowflake.
 // It can be used in case arrow.Timestamp cannot fit original timestamp values.
+//
+// Deprecated: please use WithArrowBatchesTimestampOption instead.
 func WithOriginalTimestamp(ctx context.Context) context.Context {
 	return context.WithValue(ctx, arrowBatchesTimestampOption, UseOriginalTimestamp)
 }
@@ -123,7 +124,7 @@ func WithOriginalTimestamp(ctx context.Context) context.Context {
 // UseMillisecondTimestamp: arrow.Timestamp in millisecond precision
 // UseSecondTimestamp: arrow.Timestamp in second precision
 // UseOriginalTimestamp: original timestamp struct returned by Snowflake. It can be used in case arrow.Timestamp cannot fit original timestamp values.
-func WithArrowBatchesTimestampOption(ctx context.Context, option SnowflakeArrowBatchesTimestampOption) context.Context {
+func WithArrowBatchesTimestampOption(ctx context.Context, option snowflakeArrowBatchesTimestampOption) context.Context {
 	return context.WithValue(ctx, arrowBatchesTimestampOption, option)
 }
 
