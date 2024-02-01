@@ -1828,9 +1828,37 @@ func TestTimestampConversionWithArrowBatchesMicrosecondPassesForDistantDates(t *
 					t.Run(tp+"("+strconv.Itoa(scale)+")_"+tsStr, func(t *testing.T) {
 
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
-						_, err := sct.sc.QueryContext(ctx, query, []driver.NamedValue{})
+						rows, err := sct.sc.QueryContext(ctx, query, []driver.NamedValue{})
 						if err != nil {
-							t.Fatalf("expect no error but got: %v", err.Error())
+							t.Fatalf("failed to query: %v", err)
+						}
+						defer rows.Close()
+
+						// getting result batches
+						batches, err := rows.(*snowflakeRows).GetArrowBatches()
+						if err != nil {
+							t.Error(err)
+						}
+
+						rec, err := batches[0].Fetch()
+						if err != nil {
+							t.Error(err)
+						}
+
+						records := *rec
+						r := records[0]
+						defer r.Release()
+						actual := r.Column(0).(*array.Timestamp).TimestampValues()[0]
+						actualYear := actual.ToTime(arrow.Microsecond).Year()
+
+						ts, err := time.Parse("2006-01-02 15:04:05", tsStr)
+						if err != nil {
+							t.Fatalf("failed to parse time: %v", err)
+						}
+						exp := ts.Truncate(time.Duration(math.Pow10(9 - scale)))
+
+						if actualYear != exp.Year() {
+							t.Fatalf("unexpected year in timestamp, expected: %v, got: %v", exp.Year(), actualYear)
 						}
 					})
 				}
