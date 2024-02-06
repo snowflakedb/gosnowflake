@@ -660,7 +660,6 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			// create the data file
 			tmpDir := t.TempDir()
 			fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
-			println("fname: ", fname)
 			tableName := randomString(5)
 			originalContents := fmt.Sprintf("%v,%s,%v\n", randomString(tc), randomString(tc), rand.Intn(100000))
 
