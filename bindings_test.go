@@ -1091,12 +1091,10 @@ func TestInsertLobDataWithLiteralJSON(t *testing.T) {
 }
 
 func TestInsertLobDataWithBindingsArrow(t *testing.T) {
-	t.Skip("test starts failing randomly")
 	testInsertLOBData(t, true, false)
 }
 
 func TestInsertLobDataWithBindingsJSON(t *testing.T) {
-	t.Skip("test starts failing randomly")
 	testInsertLOBData(t, false, false)
 }
 
