@@ -1053,11 +1053,9 @@ func TestLOBRetrievalWithJSON(t *testing.T) {
 func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 	// the LOB sizes to be tested
 	testSizes := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
+	var res string
 
 	runDBTest(t, func(dbt *DBTest) {
-		var out string
-		var rows *RowsExtended
-
 		dbt.exec(enableFeatureMaxLOBSize)
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
@@ -1067,15 +1065,17 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 
 		for _, testSize := range testSizes {
 			t.Run(fmt.Sprintf("testLOB_%v_useArrowFormat=%v", strconv.Itoa(testSize), strconv.FormatBool(useArrowFormat)), func(t *testing.T) {
-				rows = dbt.mustQuery(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
+				rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
+				assertNilF(t, err)
 				defer rows.Close()
-				if rows.Next() {
-					rows.Scan(&out)
-					// verify the length
-					assertEqualF(t, len(out), testSize)
-				} else {
-					dbt.Errorf("no rows returned for the test LOB size %v", testSize)
-				}
+				assertTrueF(t, rows.Next(), fmt.Sprintf("no rows returned for the LOB size %v", testSize))
+
+				// retrieve the result
+				err = rows.Scan(&res)
+				assertNilF(t, err)
+
+				// verify the length of the result
+				assertEqualF(t, len(res), testSize)
 			})
 		}
 		dbt.exec(unsetFeatureMaxLOBSize)
@@ -1125,7 +1125,6 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		var c1 string
 		var c2 string
 		var c3 int
-		var rows *RowsExtended
 
 		dbt.exec(enableFeatureMaxLOBSize)
 		if useArrowFormat {
@@ -1147,46 +1146,45 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 				} else {
 					dbt.mustExec("INSERT INTO lob_test_table VALUES (?, ?, ?)", c1Data, c2Data, c3Data)
 				}
-				rows = dbt.mustQuery("SELECT * FROM lob_test_table")
+				rows, err := dbt.query("SELECT * FROM lob_test_table")
+				assertNilF(t, err)
 				defer rows.Close()
-				if rows.Next() {
-					err := rows.Scan(&c1, &c2, &c3)
-					assertNilF(t, err)
+				assertTrueF(t, rows.Next(), fmt.Sprintf("%s: no rows returned", tc.testDesc))
 
-					// check the number of columns
-					columnTypes, err := rows.ColumnTypes()
-					assertNilF(t, err)
-					assertEqualF(t, len(columnTypes), expectedNumCols)
+				err = rows.Scan(&c1, &c2, &c3)
+				assertNilF(t, err)
 
-					// verify the column metadata: name, type and length
-					for colIdx := 0; colIdx < expectedNumCols; colIdx++ {
-						colName := columnTypes[colIdx].Name()
-						assertEqualF(t, colName, columnMeta[colIdx].columnName)
+				// check the number of columns
+				columnTypes, err := rows.ColumnTypes()
+				assertNilF(t, err)
+				assertEqualF(t, len(columnTypes), expectedNumCols)
 
-						colType := columnTypes[colIdx].ScanType()
-						assertEqualF(t, colType, columnMeta[colIdx].columnType)
+				// verify the column metadata: name, type and length
+				for colIdx := 0; colIdx < expectedNumCols; colIdx++ {
+					colName := columnTypes[colIdx].Name()
+					assertEqualF(t, colName, columnMeta[colIdx].columnName)
 
-						colLength, ok := columnTypes[colIdx].Length()
+					colType := columnTypes[colIdx].ScanType()
+					assertEqualF(t, colType, columnMeta[colIdx].columnType)
 
-						switch colIdx {
-						case 0:
-							assertTrueF(t, ok)
-							assertEqualF(t, colLength, int64(tc.c1Size))
-							// verify the data
-							assertEqualF(t, c1, c1Data)
-						case 1:
-							assertTrueF(t, ok)
-							assertEqualF(t, colLength, int64(tc.c2Size))
-							// verify the data
-							assertEqualF(t, c2, c2Data)
-						case 2:
-							assertFalseF(t, ok)
-							// verify the data
-							assertEqualF(t, c3, c3Data)
-						}
+					colLength, ok := columnTypes[colIdx].Length()
+
+					switch colIdx {
+					case 0:
+						assertTrueF(t, ok)
+						assertEqualF(t, colLength, int64(tc.c1Size))
+						// verify the data
+						assertEqualF(t, c1, c1Data)
+					case 1:
+						assertTrueF(t, ok)
+						assertEqualF(t, colLength, int64(tc.c2Size))
+						// verify the data
+						assertEqualF(t, c2, c2Data)
+					case 2:
+						assertFalseF(t, ok)
+						// verify the data
+						assertEqualF(t, c3, c3Data)
 					}
-				} else {
-					dbt.Errorf("no rows returned for %s", tc.testDesc)
 				}
 			})
 			dbt.mustExec("DROP TABLE IF EXISTS lob_test_table")
