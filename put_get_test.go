@@ -650,3 +650,100 @@ func TestPutLargeFile(t *testing.T) {
 
 	})
 }
+
+func TestPutGetMaxLOBSize(t *testing.T) {
+	t.Skip("test starts failing randomly")
+
+	// the LOB sizes to be tested
+	testCases := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
+
+	runDBTest(t, func(dbt *DBTest) {
+		for _, tc := range testCases {
+			// create the data file
+			tmpDir := t.TempDir()
+			fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
+			tableName := randomString(5)
+			originalContents := fmt.Sprintf("%v,%s,%v\n", randomString(tc), randomString(tc), rand.Intn(100000))
+
+			var b bytes.Buffer
+			gzw := gzip.NewWriter(&b)
+			gzw.Write([]byte(originalContents))
+			gzw.Close()
+			err := os.WriteFile(fname, b.Bytes(), readWriteFileMode)
+			assertNilF(t, err, "could not write to gzip file")
+
+			dbt.mustExec(fmt.Sprintf("create or replace table %s (c1 varchar, c2 varchar(%v), c3 int)", tableName, tc))
+			defer dbt.mustExec("drop table " + tableName)
+			fileStream, err := os.Open(fname)
+			assertNilF(t, err)
+			defer fileStream.Close()
+
+			// test PUT command
+			var sqlText string
+			var rows *RowsExtended
+			sql := "put 'file://%v' @%%%v auto_compress=true parallel=30"
+			sqlText = fmt.Sprintf(
+				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
+			rows = dbt.mustQuery(sqlText)
+			defer rows.Close()
+
+			var s0, s1, s2, s3, s4, s5, s6, s7 string
+			assertTrueF(t, rows.Next(), "expected new rows")
+			err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7)
+			assertNilF(t, err)
+			assertEqualF(t, s6, uploaded.String(), fmt.Sprintf("expected %v, got: %v", uploaded, s6))
+			assertNilF(t, err)
+
+			// check file is PUT
+			dbt.mustQueryAssertCount("ls @%"+tableName, 1)
+
+			dbt.mustExec("copy into " + tableName)
+			dbt.mustExec("rm @%" + tableName)
+			dbt.mustQueryAssertCount("ls @%"+tableName, 0)
+
+			dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
+			compression='gzip')`, tableName, tableName))
+
+			// test GET command
+			sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+			sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+			rows2 := dbt.mustQuery(sqlText)
+			defer rows2.Close()
+			for rows2.Next() {
+				err = rows2.Scan(&s0, &s1, &s2, &s3)
+				assertNilE(t, err)
+				assertTrueF(t, strings.HasPrefix(s0, "data_"), "a file was not downloaded by GET")
+				assertEqualE(t, s2, "DOWNLOADED", "did not return DOWNLOADED status")
+				assertEqualE(t, s3, "", fmt.Sprintf("returned %v", s3))
+			}
+
+			// verify the content in the file
+			files, err := filepath.Glob(filepath.Join(tmpDir, "data_*"))
+			assertNilF(t, err)
+
+			fileName := files[0]
+			f, err := os.Open(fileName)
+			assertNilE(t, err)
+
+			defer f.Close()
+			gz, err := gzip.NewReader(f)
+			assertNilE(t, err)
+
+			defer gz.Close()
+			var contents string
+			for {
+				c := make([]byte, defaultChunkBufferSize)
+				if n, err := gz.Read(c); err != nil {
+					if err == io.EOF {
+						contents = contents + string(c[:n])
+						break
+					}
+					t.Error(err)
+				} else {
+					contents = contents + string(c[:n])
+				}
+			}
+			assertEqualE(t, contents, originalContents, "output is different from the original file")
+		}
+	})
+}
