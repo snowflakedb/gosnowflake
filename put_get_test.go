@@ -652,8 +652,6 @@ func TestPutLargeFile(t *testing.T) {
 }
 
 func TestPutGetMaxLOBSize(t *testing.T) {
-	t.Skip("test starts failing randomly")
-
 	// the LOB sizes to be tested
 	testCases := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
 
