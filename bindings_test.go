@@ -1083,12 +1083,10 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 }
 
 func TestInsertLobDataWithLiteralArrow(t *testing.T) {
-	t.Skip("test starts failing randomly")
 	testInsertLOBData(t, true, true)
 }
 
 func TestInsertLobDataWithLiteralJSON(t *testing.T) {
-	t.Skip("test starts failing randomly")
 	testInsertLOBData(t, false, true)
 }
 
