@@ -1043,12 +1043,10 @@ func TestVariousBindingModes(t *testing.T) {
 }
 
 func TestLOBRetrievalWithArrow(t *testing.T) {
-	t.Skip("test starts failing randomly")
 	testLOBRetrieval(t, true)
 }
 
 func TestLOBRetrievalWithJSON(t *testing.T) {
-	t.Skip("test starts failing randomly")
 	testLOBRetrieval(t, false)
 }
 
