@@ -540,7 +540,7 @@ binds arrays to the parameters in the INSERT statement.
 	_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
 
 If the array contains SQL NULL values, use slice []interface{}, which allows Golang nil values.
-This feature is available in version 1.6.12 (and later) of the driver. For exmaple,
+This feature is available in version 1.6.12 (and later) of the driver. For example,
 
 	 	// Define the arrays containing the data to insert.
 	 	strArray := make([]interface{}, 3)
@@ -568,7 +568,7 @@ This feature is available in version 1.6.12 (and later) of the driver. For exmap
 		}
 
 For slices []interface{} containing time.Time values, a binding parameter flag is required for the preceding array variable in the Array() function.
-This feature is available in version 1.6.13 (and later) of the driver. For exmaple,
+This feature is available in version 1.6.13 (and later) of the driver. For example,
 
 	_, err = db.Exec("create or replace table my_table(c1 timestamp_ntz, c2 timestamp_ltz)")
 	_, err = db.Exec("insert into my_table values (?,?)", Array(&ntzArray, sf.TimestampNTZType), Array(&ltzArray, sf.TimestampLTZType))
