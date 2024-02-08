@@ -988,11 +988,11 @@ func TestVariousBindingModes(t *testing.T) {
 		{"timestamp_ntzAndTypedNullTime", "timestamp_ntz", TypedNullTime{sql.NullTime{}, TimestampNTZType}, true},
 		{"timestamp_ltzAndTypedNullTime", "timestamp_ltz", TypedNullTime{sql.NullTime{}, TimestampLTZType}, true},
 		{"timestamp_tzAndTypedNullTime", "timestamp_tz", TypedNullTime{sql.NullTime{}, TimestampTZType}, true},
-		// {"LOBSmallSize", fmt.Sprintf("varchar(%v)", smallSize), randomString(smallSize), false},
-		// {"LOBOriginSize", fmt.Sprintf("varchar(%v)", originSize), randomString(originSize), false},
-		// {"LOBMediumSize", fmt.Sprintf("varchar(%v)", mediumSize), randomString(mediumSize), false},
-		// {"LOBLargeSize", fmt.Sprintf("varchar(%v)", largeSize), randomString(largeSize), false},
-		// {"LOBMaxSize", fmt.Sprintf("varchar(%v)", maxLOBSize), randomString(maxLOBSize), false},
+		{"LOBSmallSize", fmt.Sprintf("varchar(%v)", smallSize), randomString(smallSize), false},
+		{"LOBOriginSize", fmt.Sprintf("varchar(%v)", originSize), randomString(originSize), false},
+		{"LOBMediumSize", fmt.Sprintf("varchar(%v)", mediumSize), randomString(mediumSize), false},
+		{"LOBLargeSize", fmt.Sprintf("varchar(%v)", largeSize), randomString(largeSize), false},
+		{"LOBMaxSize", fmt.Sprintf("varchar(%v)", maxLOBSize), randomString(maxLOBSize), false},
 	}
 
 	bindingModes := []struct {
