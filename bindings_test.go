@@ -34,6 +34,19 @@ const (
 	deleteTableSQLBulkArrayDateTimeTimestamp = "drop table if exists test_bulk_array_DateTimeTimestamp"
 	insertSQLBulkArrayDateTimeTimestamp      = "insert into test_bulk_array_DateTimeTimestamp values(?, ?, ?, ?, ?)"
 	selectAllSQLBulkArrayDateTimeTimestamp   = "select * from test_bulk_array_DateTimeTimestamp ORDER BY 1"
+
+	enableFeatureMaxLOBSize = "ALTER SESSION SET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY='ENABLED'"
+	unsetFeatureMaxLOBSize  = "ALTER SESSION UNSET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY"
+
+	// For max LOB size tests
+	// maxLOBSize = 128 * 1024 * 1024 // new max LOB size
+	maxLOBSize = 16 * 1024 * 1024 // current max LOB size
+	largeSize  = maxLOBSize / 2
+	mediumSize = largeSize / 2
+	originSize = 16 * 1024 * 1024
+	smallSize  = 16
+	// range to use for generating random numbers
+	lobRandomRange = 100000
 )
 
 func TestBindingFloat64(t *testing.T) {
@@ -975,6 +988,11 @@ func TestVariousBindingModes(t *testing.T) {
 		{"timestamp_ntzAndTypedNullTime", "timestamp_ntz", TypedNullTime{sql.NullTime{}, TimestampNTZType}, true},
 		{"timestamp_ltzAndTypedNullTime", "timestamp_ltz", TypedNullTime{sql.NullTime{}, TimestampLTZType}, true},
 		{"timestamp_tzAndTypedNullTime", "timestamp_tz", TypedNullTime{sql.NullTime{}, TimestampTZType}, true},
+		{"LOBSmallSize", fmt.Sprintf("varchar(%v)", smallSize), randomString(smallSize), false},
+		{"LOBOriginSize", fmt.Sprintf("varchar(%v)", originSize), randomString(originSize), false},
+		{"LOBMediumSize", fmt.Sprintf("varchar(%v)", mediumSize), randomString(mediumSize), false},
+		{"LOBLargeSize", fmt.Sprintf("varchar(%v)", largeSize), randomString(largeSize), false},
+		{"LOBMaxSize", fmt.Sprintf("varchar(%v)", maxLOBSize), randomString(maxLOBSize), false},
 	}
 
 	bindingModes := []struct {
@@ -1021,5 +1039,156 @@ func TestVariousBindingModes(t *testing.T) {
 				})
 			}
 		}
+	})
+}
+
+func TestLOBRetrievalWithArrow(t *testing.T) {
+	testLOBRetrieval(t, true)
+}
+
+func TestLOBRetrievalWithJSON(t *testing.T) {
+	testLOBRetrieval(t, false)
+}
+
+func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
+	// the LOB sizes to be tested
+	testSizes := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
+	var res string
+
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.exec(enableFeatureMaxLOBSize)
+		if useArrowFormat {
+			dbt.mustExec(forceARROW)
+		} else {
+			dbt.mustExec(forceJSON)
+		}
+
+		for _, testSize := range testSizes {
+			t.Run(fmt.Sprintf("testLOB_%v_useArrowFormat=%v", strconv.Itoa(testSize), strconv.FormatBool(useArrowFormat)), func(t *testing.T) {
+				rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
+				assertNilF(t, err)
+				defer rows.Close()
+				assertTrueF(t, rows.Next(), fmt.Sprintf("no rows returned for the LOB size %v", testSize))
+
+				// retrieve the result
+				err = rows.Scan(&res)
+				assertNilF(t, err)
+
+				// verify the length of the result
+				assertEqualF(t, len(res), testSize)
+			})
+		}
+		dbt.exec(unsetFeatureMaxLOBSize)
+	})
+}
+
+func TestInsertLobDataWithLiteralArrow(t *testing.T) {
+	testInsertLOBData(t, true, true)
+}
+
+func TestInsertLobDataWithLiteralJSON(t *testing.T) {
+	testInsertLOBData(t, false, true)
+}
+
+func TestInsertLobDataWithBindingsArrow(t *testing.T) {
+	testInsertLOBData(t, true, false)
+}
+
+func TestInsertLobDataWithBindingsJSON(t *testing.T) {
+	testInsertLOBData(t, false, false)
+}
+
+func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
+	expectedNumCols := 3
+	columnMeta := []struct {
+		columnName string
+		columnType reflect.Type
+	}{
+		{"C1", reflect.TypeOf("")},
+		{"C2", reflect.TypeOf("")},
+		{"C3", reflect.TypeOf(int64(0))},
+	}
+	testCases := []struct {
+		testDesc string
+		c1Size   int
+		c2Size   int
+		c3Size   int
+	}{
+		{"testLOBInsertSmallSize", smallSize, smallSize, lobRandomRange},
+		{"testLOBInsertOriginSize", originSize, originSize, lobRandomRange},
+		{"testLOBInsertMediumSize", mediumSize, originSize, lobRandomRange},
+		{"testLOBInsertLargeSize", largeSize, originSize, lobRandomRange},
+		{"testLOBInsertMaxSize", maxLOBSize, originSize, lobRandomRange},
+	}
+
+	runDBTest(t, func(dbt *DBTest) {
+		var c1 string
+		var c2 string
+		var c3 int
+
+		dbt.exec(enableFeatureMaxLOBSize)
+		if useArrowFormat {
+			dbt.mustExec(forceARROW)
+		} else {
+			dbt.mustExec(forceJSON)
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.testDesc, func(t *testing.T) {
+				// initialize test data
+				c1Data := randomString(tc.c1Size)
+				c2Data := randomString(tc.c2Size)
+				c3Data := rand.Intn(tc.c3Size)
+
+				dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE lob_test_table (c1 varchar(%v), c2 varchar(%v), c3 int)", tc.c1Size, tc.c2Size))
+				if isLiteral {
+					dbt.mustExec(fmt.Sprintf("INSERT INTO lob_test_table VALUES ('%s', '%s', %v)", c1Data, c2Data, c3Data))
+				} else {
+					dbt.mustExec("INSERT INTO lob_test_table VALUES (?, ?, ?)", c1Data, c2Data, c3Data)
+				}
+				rows, err := dbt.query("SELECT * FROM lob_test_table")
+				assertNilF(t, err)
+				defer rows.Close()
+				assertTrueF(t, rows.Next(), fmt.Sprintf("%s: no rows returned", tc.testDesc))
+
+				err = rows.Scan(&c1, &c2, &c3)
+				assertNilF(t, err)
+
+				// check the number of columns
+				columnTypes, err := rows.ColumnTypes()
+				assertNilF(t, err)
+				assertEqualF(t, len(columnTypes), expectedNumCols)
+
+				// verify the column metadata: name, type and length
+				for colIdx := 0; colIdx < expectedNumCols; colIdx++ {
+					colName := columnTypes[colIdx].Name()
+					assertEqualF(t, colName, columnMeta[colIdx].columnName)
+
+					colType := columnTypes[colIdx].ScanType()
+					assertEqualF(t, colType, columnMeta[colIdx].columnType)
+
+					colLength, ok := columnTypes[colIdx].Length()
+
+					switch colIdx {
+					case 0:
+						assertTrueF(t, ok)
+						assertEqualF(t, colLength, int64(tc.c1Size))
+						// verify the data
+						assertEqualF(t, c1, c1Data)
+					case 1:
+						assertTrueF(t, ok)
+						assertEqualF(t, colLength, int64(tc.c2Size))
+						// verify the data
+						assertEqualF(t, c2, c2Data)
+					case 2:
+						assertFalseF(t, ok)
+						// verify the data
+						assertEqualF(t, c3, c3Data)
+					}
+				}
+			})
+			dbt.mustExec("DROP TABLE IF EXISTS lob_test_table")
+		}
+		dbt.exec(unsetFeatureMaxLOBSize)
 	})
 }
