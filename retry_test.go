@@ -606,3 +606,41 @@ func TestCalculateRetryWait(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateRetryWaitForNonAuthRequests(t *testing.T) {
+	// test for randomly selected currWaitTime values
+	// maxSleepTime is the limit value
+	tcs := []struct {
+		currWaitTime float64
+		maxSleepTime float64
+	}{
+		{
+			currWaitTime: 3.346609,
+			maxSleepTime: 10.039827,
+		},
+		{
+			currWaitTime: 4.260357,
+			maxSleepTime: 12.781071,
+		},
+		{
+			currWaitTime: 5.154231,
+			maxSleepTime: 15.462693,
+		},
+		{
+			currWaitTime: 7.249255,
+			maxSleepTime: 16,
+		},
+		{
+			currWaitTime: 23.598257,
+			maxSleepTime: 16,
+		},
+	}
+
+	for _, tc := range tcs {
+		defaultMinSleepTime := 1
+		t.Run(fmt.Sprintf("currWaitTime: %v", tc.currWaitTime), func(t *testing.T) {
+			result := defaultWaitAlgo.calculateWaitBeforeRetry(time.Duration(tc.currWaitTime) * time.Second)
+			assertBetweenInclusiveE(t, result.Seconds(), float64(defaultMinSleepTime), tc.maxSleepTime)
+		})
+	}
+}
