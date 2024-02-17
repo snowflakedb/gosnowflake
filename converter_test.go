@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/apache/arrow/go/v14/arrow"
 	"github.com/apache/arrow/go/v14/arrow/array"
@@ -909,17 +910,18 @@ func TestArrowToRecord(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		logical                     string
-		physical                    string
-		sc                          *arrow.Schema
-		rowType                     execResponseRowType
-		values                      interface{}
-		error                       string
-		arrowBatchesTimestampOption snowflakeArrowBatchesTimestampOption
-		nrows                       int
-		builder                     array.Builder
-		append                      func(b array.Builder, vs interface{})
-		compare                     func(src interface{}, rec arrow.Record) int
+		logical                          string
+		physical                         string
+		sc                               *arrow.Schema
+		rowType                          execResponseRowType
+		values                           interface{}
+		error                            string
+		arrowBatchesTimestampOption      snowflakeArrowBatchesTimestampOption
+		enableArrowBatchesUtf8Validation bool
+		nrows                            int
+		builder                          array.Builder
+		append                           func(b array.Builder, vs interface{})
+		compare                          func(src interface{}, rec arrow.Record) int
 	}{
 		{
 			logical:  "fixed",
@@ -1134,6 +1136,27 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewStringBuilder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.StringBuilder).AppendValues(vs.([]string), valids) },
+		},
+		{
+			logical:                          "text",
+			physical:                         "string with invalid utf8",
+			sc:                               arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}}}, nil),
+			rowType:                          execResponseRowType{Type: "TEXT"},
+			values:                           []string{"\xFF", "bar"},
+			enableArrowBatchesUtf8Validation: true,
+			nrows:                            2,
+			builder:                          array.NewStringBuilder(pool),
+			append:                           func(b array.Builder, vs interface{}) { b.(*array.StringBuilder).AppendValues(vs.([]string), valids) },
+			compare: func(src interface{}, convertedRec arrow.Record) int {
+				srcvs := src.([]string)
+				arr := convertedRec.Column(0).(*array.String)
+				for i := 0; i < arr.Len(); i++ {
+					if !utf8.ValidString(arr.Value(i)) || strings.ToValidUTF8(srcvs[i], "�") != string(arr.Value(i)) {
+						return i
+					}
+				}
+				return -1
+			},
 		},
 		{
 			logical: "binary",
@@ -1851,6 +1874,10 @@ func TestArrowToRecord(t *testing.T) {
 				ctx = WithArrowBatchesTimestampOption(ctx, UseMicrosecondTimestamp)
 			default:
 				ctx = WithArrowBatchesTimestampOption(ctx, UseNanosecondTimestamp)
+			}
+
+			if tc.enableArrowBatchesUtf8Validation {
+				ctx = WithArrowBatchesUtf8Validation(ctx)
 			}
 
 			transformedRec, err := arrowToRecord(ctx, rawRec, pool, []execResponseRowType{meta}, localTime.Location())
