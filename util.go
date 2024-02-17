@@ -129,6 +129,10 @@ func WithArrowBatchesTimestampOption(ctx context.Context, option snowflakeArrowB
 	return context.WithValue(ctx, arrowBatchesTimestampOption, option)
 }
 
+// WithArrowBatchesUtf8Validation in combination with WithArrowBatches returns a context that
+// will validate and replace invalid UTF-8 characters in string columns with the replacement character
+// Theoretically, this should not be necessary, because arrow string column is only intended to contain valid UTF-8 characters.
+// However, in practice, it is possible that the data in the string column is not valid UTF-8.
 func WithArrowBatchesUtf8Validation(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableArrowBatchesUtf8Validation, true)
 
