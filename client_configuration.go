@@ -96,6 +96,9 @@ func clientConfigPredefinedDirs() []string {
 	} else {
 		predefinedDirs = append(predefinedDirs, homeDir)
 	}
+	if predefinedDirs == nil {
+		return []string{}
+	}
 	return predefinedDirs
 }
 
