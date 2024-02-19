@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -82,12 +83,20 @@ func existsFile(filePath string) (bool, error) {
 }
 
 func clientConfigPredefinedDirs() []string {
+	var predefinedDirs []string
+	exeFile, err := os.Executable()
+	if err != nil {
+		logger.Warnf("Unable to access the application directory for client configuration search, err: %v", err)
+	} else {
+		predefinedDirs = append(predefinedDirs, filepath.Dir(exeFile))
+	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		logger.Warnf("Unable to access Home directory for client configuration search, err: %v", err)
-		return []string{"."}
+	} else {
+		predefinedDirs = append(predefinedDirs, homeDir)
 	}
-	return []string{".", homeDir}
+	return predefinedDirs
 }
 
 // ClientConfig config root
