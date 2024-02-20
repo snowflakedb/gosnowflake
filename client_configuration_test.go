@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -71,13 +72,15 @@ func TestNotFindConfigFileWhenNotDefined(t *testing.T) {
 }
 
 func TestCreatePredefinedDirs(t *testing.T) {
+	exeDir, _ := os.Executable()
+	appDir := filepath.Dir(exeDir)
 	homeDir, err := os.UserHomeDir()
 	assertNilF(t, err, "get home dir error")
 
 	locations := clientConfigPredefinedDirs()
 
 	assertEqualF(t, len(locations), 2, "size")
-	assertEqualE(t, locations[0], ".", "driver directory")
+	assertEqualE(t, locations[0], appDir, "driver directory")
 	assertEqualE(t, locations[1], homeDir, "home directory")
 }
 
