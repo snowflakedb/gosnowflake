@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -35,23 +36,45 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 }
 
 func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *testing.T) {
-	defer cleanUp()
-	configDir, err := os.UserHomeDir()
-	logDir := t.TempDir()
-	assertNilF(t, err, "user home directory error")
-	logLevel := levelError
-	contents := createClientConfigContent(logLevel, logDir)
-	configFilePath := createFile(t, defaultConfigName, contents, configDir)
-	defer os.Remove(configFilePath)
-	easyLoggingInitTrials.reset()
+	appExe, err := os.Executable()
+	assertNilF(t, err, "application exe not accessible")
+	userHome, err := os.UserHomeDir()
+	assertNilF(t, err, "user home directory not accessible")
 
-	err = openWithClientConfigFile(t, "")
-	assertNilF(t, err, "open config error")
-	err = openWithClientConfigFile(t, "")
-	assertNilF(t, err, "open config error")
+	testcases := []struct {
+		name string
+		dir  string
+	}{
+		{
+			name: "user home directory",
+			dir:  userHome,
+		},
+		{
+			name: "application directory",
+			dir:  filepath.Dir(appExe),
+		},
+	}
 
-	assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), logLevel, "error log level check")
-	assertEqualE(t, easyLoggingInitTrials.configureCounter, 1)
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			defer cleanUp()
+			logDir := t.TempDir()
+			assertNilF(t, err, "user home directory error")
+			logLevel := levelError
+			contents := createClientConfigContent(logLevel, logDir)
+			configFilePath := createFile(t, defaultConfigName, contents, test.dir)
+			defer os.Remove(configFilePath)
+			easyLoggingInitTrials.reset()
+
+			err = openWithClientConfigFile(t, "")
+			assertNilF(t, err, "open config error")
+			err = openWithClientConfigFile(t, "")
+			assertNilF(t, err, "open config error")
+
+			assertEqualE(t, toClientConfigLevel(logger.GetLogLevel()), logLevel, "error log level check")
+			assertEqualE(t, easyLoggingInitTrials.configureCounter, 1)
+		})
+	}
 }
 
 func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing.T) {

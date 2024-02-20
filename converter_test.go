@@ -893,7 +893,7 @@ func TestArrowToRecord(t *testing.T) {
 	defer pool.AssertSize(t, 0) // ensure no arrow memory leaks
 	var valids []bool           // AppendValues() with an empty valid array adds every value by default
 
-	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
+	localTime := time.Date(2019, 1, 1, 1, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
 	localTimeFarIntoFuture := time.Date(9000, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
 
 	epochField := arrow.Field{Name: "epoch", Type: &arrow.Int64Type{}}

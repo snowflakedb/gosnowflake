@@ -1094,7 +1094,7 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 							ar = arrow.Timestamp(ts.UnixNano())
 							// in case of overflow in arrow timestamp return error
 							// this could only happen for nanosecond case
-							if ts.Year() != ar.ToTime(arrow.Nanosecond).Year() {
+							if ts.UTC().Year() != ar.ToTime(arrow.Nanosecond).Year() {
 								return nil, &SnowflakeError{
 									Number:   ErrTooHighTimestampPrecision,
 									SQLState: SQLStateInvalidDataTimeFormat,
