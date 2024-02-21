@@ -16,7 +16,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/apache/arrow/go/v14/arrow"
 	"github.com/apache/arrow/go/v14/arrow/array"
@@ -915,13 +914,14 @@ func TestArrowToRecord(t *testing.T) {
 		sc                               *arrow.Schema
 		rowType                          execResponseRowType
 		values                           interface{}
+		expected                         interface{}
 		error                            string
 		arrowBatchesTimestampOption      snowflakeArrowBatchesTimestampOption
 		enableArrowBatchesUtf8Validation bool
 		nrows                            int
 		builder                          array.Builder
 		append                           func(b array.Builder, vs interface{})
-		compare                          func(src interface{}, rec arrow.Record) int
+		compare                          func(src interface{}, expected interface{}, rec arrow.Record) int
 	}{
 		{
 			logical:  "fixed",
@@ -948,7 +948,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Decimal128Builder).Append(num)
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]string)
 				for i, dec := range convertedRec.Column(0).(*array.Int64).Int64Values() {
 					num, ok := stringIntToDecimal(srcvs[i])
@@ -980,7 +980,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Decimal128Builder).Append(num)
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]string)
 				for i, dec := range convertedRec.Column(0).(*array.Float64).Float64Values() {
 					num, err := decimal128.FromString(srcvs[i], 38, 37)
@@ -1040,7 +1040,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt8Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int8)
 				for i, f := range convertedRec.Column(0).(*array.Float64).Float64Values() {
 					rawFloat, _ := intToBigFloat(int64(srcvs[i]), 1).Float64()
@@ -1060,7 +1060,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt16Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int16)
 				for i, f := range convertedRec.Column(0).(*array.Float64).Float64Values() {
 					rawFloat, _ := intToBigFloat(int64(srcvs[i]), 1).Float64()
@@ -1080,7 +1080,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt32Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int32)
 				for i, f := range convertedRec.Column(0).(*array.Float64).Float64Values() {
 					rawFloat, _ := intToBigFloat(int64(srcvs[i]), 2).Float64()
@@ -1100,7 +1100,7 @@ func TestArrowToRecord(t *testing.T) {
 			nrows:    2,
 			builder:  array.NewInt64Builder(pool),
 			append:   func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int64)
 				for i, f := range convertedRec.Column(0).(*array.Float64).Float64Values() {
 					rawFloat, _ := intToBigFloat(srcvs[i], 5).Float64()
@@ -1142,16 +1142,16 @@ func TestArrowToRecord(t *testing.T) {
 			physical:                         "string with invalid utf8",
 			sc:                               arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}}}, nil),
 			rowType:                          execResponseRowType{Type: "TEXT"},
-			values:                           []string{"\xFF", "bar"},
+			values:                           []string{"\xFF", "bar", "baz\xFF\xFF"},
+			expected:                         []string{"�", "bar", "baz��"},
 			enableArrowBatchesUtf8Validation: true,
 			nrows:                            2,
 			builder:                          array.NewStringBuilder(pool),
 			append:                           func(b array.Builder, vs interface{}) { b.(*array.StringBuilder).AppendValues(vs.([]string), valids) },
-			compare: func(src interface{}, convertedRec arrow.Record) int {
-				srcvs := src.([]string)
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				arr := convertedRec.Column(0).(*array.String)
 				for i := 0; i < arr.Len(); i++ {
-					if !utf8.ValidString(arr.Value(i)) || strings.ToValidUTF8(srcvs[i], "�") != string(arr.Value(i)) {
+					if expected.([]string)[i] != string(arr.Value(i)) {
 						return i
 					}
 				}
@@ -1189,7 +1189,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Time64Builder).Append(arrow.Time64(t.UnixNano()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				arr := convertedRec.Column(0).(*array.Time64)
 				for i := 0; i < arr.Len(); i++ {
@@ -1213,7 +1213,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Int64Builder).Append(t.UnixMilli()) // Millisecond for scale = 3
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Nanosecond)) {
@@ -1240,7 +1240,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Nanosecond)) {
@@ -1269,7 +1269,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Microsecond)) {
@@ -1298,7 +1298,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Millisecond)) {
@@ -1327,7 +1327,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Second)) {
@@ -1351,7 +1351,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Int64Builder).Append(t.UnixMilli())
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int { return 0 },
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int { return 0 },
 		},
 		{
 			logical:                     "timestamp_ntz",
@@ -1367,7 +1367,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Int64Builder).Append(t.UnixMilli()) // Millisecond for scale = 3
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i := 0; i < convertedRec.Column(0).Len(); i++ {
 					ts := arrowSnowflakeTimestampToTime(convertedRec.Column(0), timestampNtzType, 3, i, nil)
@@ -1396,7 +1396,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i := 0; i < convertedRec.Column(0).Len(); i++ {
 					ts := arrowSnowflakeTimestampToTime(convertedRec.Column(0), timestampNtzType, 9, i, nil)
@@ -1420,7 +1420,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Int64Builder).Append(t.UnixMilli()) // Millisecond for scale = 3
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Nanosecond)) {
@@ -1447,7 +1447,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Nanosecond)) {
@@ -1476,7 +1476,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Microsecond)) {
@@ -1505,7 +1505,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Millisecond)) {
@@ -1534,7 +1534,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Second)) {
@@ -1558,7 +1558,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Int64Builder).Append(t.UnixMilli()) // Millisecond for scale = 3
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int { return 0 },
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int { return 0 },
 		},
 		{
 			logical:                     "timestamp_ltz",
@@ -1574,7 +1574,7 @@ func TestArrowToRecord(t *testing.T) {
 					b.(*array.Int64Builder).Append(t.UnixMilli()) // Millisecond for scale = 3
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i := 0; i < convertedRec.Column(0).Len(); i++ {
 					ts := arrowSnowflakeTimestampToTime(convertedRec.Column(0), timestampLtzType, 3, i, localTime.Location())
@@ -1603,7 +1603,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(t.Nanosecond()))
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i := 0; i < convertedRec.Column(0).Len(); i++ {
 					ts := arrowSnowflakeTimestampToTime(convertedRec.Column(0), timestampLtzType, 9, i, localTime.Location())
@@ -1631,7 +1631,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(0))      // timezone index - not important in tests
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Nanosecond)) {
@@ -1659,7 +1659,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(2).(*array.Int32Builder).Append(int32(0)) // timezone index - not important in tests
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Nanosecond)) {
@@ -1689,7 +1689,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(2).(*array.Int32Builder).Append(int32(0)) // timezone index - not important in tests
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Microsecond)) {
@@ -1719,7 +1719,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(2).(*array.Int32Builder).Append(int32(0)) // timezone index - not important in tests
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Millisecond)) {
@@ -1749,7 +1749,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(2).(*array.Int32Builder).Append(int32(0)) // timezone index - not important in tests
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i, t := range convertedRec.Column(0).(*array.Timestamp).TimestampValues() {
 					if !srcvs[i].Equal(t.ToTime(arrow.Second)) {
@@ -1777,7 +1777,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(1).(*array.Int32Builder).Append(int32(0))      // timezone index - not important in tests
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i := 0; i < convertedRec.Column(0).Len(); i++ {
 					ts := arrowSnowflakeTimestampToTime(convertedRec.Column(0), timestampTzType, 3, i, nil)
@@ -1807,7 +1807,7 @@ func TestArrowToRecord(t *testing.T) {
 					sb.FieldBuilder(2).(*array.Int32Builder).Append(int32(0)) // timezone index - not important in tests
 				}
 			},
-			compare: func(src interface{}, convertedRec arrow.Record) int {
+			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]time.Time)
 				for i := 0; i < convertedRec.Column(0).Len(); i++ {
 					ts := arrowSnowflakeTimestampToTime(convertedRec.Column(0), timestampTzType, 9, i, nil)
@@ -1892,7 +1892,7 @@ func TestArrowToRecord(t *testing.T) {
 				}
 
 				if tc.compare != nil {
-					idx := tc.compare(tc.values, transformedRec)
+					idx := tc.compare(tc.values, tc.expected, transformedRec)
 					if idx != -1 {
 						t.Fatalf("error: column array value mismatch at index %v", idx)
 					}
