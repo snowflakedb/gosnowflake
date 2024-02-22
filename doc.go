@@ -491,6 +491,16 @@ If you want to use timestamps in Arrow batches, you have two options:
  2. You can use native Snowflake values. In that case you will receive complex structs as described above. To transform Snowflake values into the Golang time.Time struct you can use `ArrowSnowflakeTimestampToTime`.
     To enable this feature, you must use `WithArrowBatchesTimestampOption` context with value set to`UseOriginalTimestamp`.
 
+### Invalid UTF-8 characters in Arrow batches
+Snowflake previously allowed users to upload data with invalid UTF-8 characters. Consequently, Arrow records containing string columns in Snowflake could include these invalid UTF-8 characters.
+However, according to the Arrow specifications (https://arrow.apache.org/docs/cpp/api/datatype.html
+and https://github.com/apache/arrow/blob/a03d957b5b8d0425f9d5b6c98b6ee1efa56a1248/go/arrow/datatype.go#L73-L74),
+Arrow string columns should only contain UTF-8 characters.
+
+To address this issue and prevent potential downstream disruptions, the context `enableArrowBatchesUtf8Validation`, is introduced.
+When enabled, this feature iterates through all values in string columns, identifying and replacing any invalid characters with `�`.
+This ensures that Arrow records conform to the UTF-8 standards, preventing validation failures in downstream services like the Rust Arrow library that impose strict validation checks.
+
 # Binding Parameters
 
 Binding allows a SQL statement to use a value that is stored in a Golang variable.
