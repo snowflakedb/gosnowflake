@@ -301,9 +301,8 @@ func isDbusDaemonRunning() bool {
 	if err != nil {
 		// process not running, pidof not available (sysvinit-tools, busybox, etc missing)
 		return false
-	} else {
-		return true
-	}
+	} 
+	return true
 }
 
 func canDbusLeakProcesses() (bool, string) {
