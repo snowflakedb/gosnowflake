@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -291,4 +292,34 @@ func contains[T comparable](s []T, e T) bool {
 
 func chooseRandomFromRange(min float64, max float64) float64 {
 	return rand.Float64()*(max-min) + min
+}
+
+func isDbusDaemonRunning() bool {
+	// TODO: delete this once we replaced 99designs/keyring (SNOW-1017659) and/or keyring#103 is resolved
+	cmd := exec.Command("pidof", "dbus-daemon")
+	_, err := cmd.Output()
+	if err != nil {
+		// process not running, pidof not available (sysvinit-tools, busybox, etc missing)
+		return false
+	} else {
+		return true
+	}
+}
+
+func canDbusLeakProcesses() (bool, string) {
+	// TODO: delete this once we replaced 99designs/keyring (SNOW-1017659) and/or keyring#103 is resolved
+	leak := false
+	message := ""
+
+	valDbus, haveDbus := os.LookupEnv("DBUS_SESSION_BUS_ADDRESS")
+	if !haveDbus || strings.Contains(valDbus, "unix:abstract") {
+		// if DBUS_SESSION_BUS_ADDRESS is not set or set to an abstract socket, it's not necessarily a problem, only
+		if isDbusDaemonRunning() {
+			// we're probably susceptible to https://github.com/99designs/keyring/issues/103 here
+			leak = true
+			message += "DBUS_SESSION_BUS_ADDRESS envvar looks to be not set, this can lead to runaway dbus-daemon processes. " +
+				"To avoid this, set envvar DBUS_SESSION_BUS_ADDRESS=$XDG_RUNTIME_DIR/bus (if it exists) or DBUS_SESSION_BUS_ADDRESS=/dev/null."
+		}
+	}
+	return leak, message
 }
