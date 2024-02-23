@@ -298,11 +298,9 @@ func isDbusDaemonRunning() bool {
 	// TODO: delete this once we replaced 99designs/keyring (SNOW-1017659) and/or keyring#103 is resolved
 	cmd := exec.Command("pidof", "dbus-daemon")
 	_, err := cmd.Output()
-	if err != nil {
-		// process not running, pidof not available (sysvinit-tools, busybox, etc missing)
-		return false
-	} 
-	return true
+
+	// false: process not running, pidof not available (sysvinit-tools, busybox, etc missing)
+	return err == nil
 }
 
 func canDbusLeakProcesses() (bool, string) {
