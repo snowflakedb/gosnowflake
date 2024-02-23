@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 type contextKey string
