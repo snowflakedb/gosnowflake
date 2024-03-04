@@ -1120,7 +1120,7 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 					if col.(*array.String).IsValid(i) {
 						stringValue := col.(*array.String).Value(i)
 						if !utf8.ValidString(stringValue) {
-							logger.Error("Invalid utf8 detected!")
+							logger.Error("Invalid UTF-8 characters detected while reading query response, column: ", srcColumnMeta.Name)
 							stringValue = strings.ToValidUTF8(stringValue, "�")
 						}
 						tb.Append(stringValue)
