@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"os"
+	"runtime"
 	"sync"
 )
 
@@ -57,6 +58,14 @@ func runningOnGithubAction() bool {
 var logger = CreateDefaultLogger()
 
 func init() {
+	if runtime.GOOS == "linux" {
+		// TODO: delete this once we replaced 99designs/keyring (SNOW-1017659) and/or keyring#103 is resolved
+		leak, logMsg := canDbusLeakProcesses()
+		if leak {
+			// 99designs/keyring#103 -> gosnowflake#773
+			logger.Warn(logMsg)
+		}
+	}
 	sql.Register("snowflake", &SnowflakeDriver{})
 	logger.SetLogLevel("error")
 	if runningOnGithubAction() {
