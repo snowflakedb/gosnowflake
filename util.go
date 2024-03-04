@@ -310,7 +310,7 @@ func canDbusLeakProcesses() (bool, string) {
 
 	valDbus, haveDbus := os.LookupEnv("DBUS_SESSION_BUS_ADDRESS")
 	if !haveDbus || strings.Contains(valDbus, "unix:abstract") {
-		// if DBUS_SESSION_BUS_ADDRESS is not set or set to an abstract socket, it's not necessarily a problem, only
+		// if DBUS_SESSION_BUS_ADDRESS is not set or set to an abstract socket, it's not necessarily a problem, only if dbus-daemon is running
 		if isDbusDaemonRunning() {
 			// we're probably susceptible to https://github.com/99designs/keyring/issues/103 here
 			leak = true
