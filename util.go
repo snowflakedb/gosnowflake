@@ -20,18 +20,19 @@ import (
 type contextKey string
 
 const (
-	multiStatementCount         contextKey = "MULTI_STATEMENT_COUNT"
-	asyncMode                   contextKey = "ASYNC_MODE_QUERY"
-	queryIDChannel              contextKey = "QUERY_ID_CHANNEL"
-	snowflakeRequestIDKey       contextKey = "SNOWFLAKE_REQUEST_ID"
-	fetchResultByID             contextKey = "SF_FETCH_RESULT_BY_ID"
-	fileStreamFile              contextKey = "STREAMING_PUT_FILE"
-	fileTransferOptions         contextKey = "FILE_TRANSFER_OPTIONS"
-	enableHigherPrecision       contextKey = "ENABLE_HIGHER_PRECISION"
-	arrowBatches                contextKey = "ARROW_BATCHES"
-	arrowAlloc                  contextKey = "ARROW_ALLOC"
-	arrowBatchesTimestampOption contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
-	queryTag                    contextKey = "QUERY_TAG"
+	multiStatementCount              contextKey = "MULTI_STATEMENT_COUNT"
+	asyncMode                        contextKey = "ASYNC_MODE_QUERY"
+	queryIDChannel                   contextKey = "QUERY_ID_CHANNEL"
+	snowflakeRequestIDKey            contextKey = "SNOWFLAKE_REQUEST_ID"
+	fetchResultByID                  contextKey = "SF_FETCH_RESULT_BY_ID"
+	fileStreamFile                   contextKey = "STREAMING_PUT_FILE"
+	fileTransferOptions              contextKey = "FILE_TRANSFER_OPTIONS"
+	enableHigherPrecision            contextKey = "ENABLE_HIGHER_PRECISION"
+	enableArrowBatchesUtf8Validation contextKey = "ENABLE_ARROW_BATCHES_UTF8_VALIDATION"
+	arrowBatches                     contextKey = "ARROW_BATCHES"
+	arrowAlloc                       contextKey = "ARROW_ALLOC"
+	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
+	queryTag                         contextKey = "QUERY_TAG"
 )
 
 const (
@@ -127,6 +128,15 @@ func WithOriginalTimestamp(ctx context.Context) context.Context {
 // UseOriginalTimestamp: original timestamp struct returned by Snowflake. It can be used in case arrow.Timestamp cannot fit original timestamp values.
 func WithArrowBatchesTimestampOption(ctx context.Context, option snowflakeArrowBatchesTimestampOption) context.Context {
 	return context.WithValue(ctx, arrowBatchesTimestampOption, option)
+}
+
+// WithArrowBatchesUtf8Validation in combination with WithArrowBatches returns a context that
+// will validate and replace invalid UTF-8 characters in string columns with the replacement character
+// Theoretically, this should not be necessary, because arrow string column is only intended to contain valid UTF-8 characters.
+// However, in practice, it is possible that the data in the string column is not valid UTF-8.
+func WithArrowBatchesUtf8Validation(ctx context.Context) context.Context {
+	return context.WithValue(ctx, enableArrowBatchesUtf8Validation, true)
+
 }
 
 // WithQueryTag returns a context that will set the given tag as the QUERY_TAG

@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/apache/arrow/go/v14/arrow"
 	"github.com/apache/arrow/go/v14/arrow/array"
@@ -983,6 +984,15 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
+func arrowBatchesUtf8ValidationEnabled(ctx context.Context) bool {
+	v := ctx.Value(enableArrowBatchesUtf8Validation)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
+}
+
 func getArrowBatchesTimestampOption(ctx context.Context) snowflakeArrowBatchesTimestampOption {
 	v := ctx.Value(arrowBatchesTimestampOption)
 	if v == nil {
@@ -1098,6 +1108,26 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 					}
 				}
 
+				newCol = tb.NewArray()
+				defer newCol.Release()
+			}
+		case textType:
+			if arrowBatchesUtf8ValidationEnabled(ctx) && col.DataType().ID() == arrow.STRING {
+				tb := array.NewStringBuilder(pool)
+				defer tb.Release()
+
+				for i := 0; i < int(numRows); i++ {
+					if col.(*array.String).IsValid(i) {
+						stringValue := col.(*array.String).Value(i)
+						if !utf8.ValidString(stringValue) {
+							logger.Error("Invalid UTF-8 characters detected while reading query response, column: ", srcColumnMeta.Name)
+							stringValue = strings.ToValidUTF8(stringValue, "�")
+						}
+						tb.Append(stringValue)
+					} else {
+						tb.AppendNull()
+					}
+				}
 				newCol = tb.NewArray()
 				defer newCol.Release()
 			}
