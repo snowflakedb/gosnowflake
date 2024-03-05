@@ -90,6 +90,10 @@ The following connection parameters are supported:
     is 60 seconds. The login request gives up after the timeout length if the
     HTTP response is success.
 
+  - requestTimeout: Specifies the timeout, in seconds, for a query to complete.
+    0 (zero) specifies that the driver should wait indefinitely. The default is 0 seconds.
+    The query request gives up after the timeout length if the HTTP response is success.
+
   - authenticator: Specifies the authenticator to use for authenticating user credentials:
 
   - To use the internal Snowflake authenticator, specify snowflake (Default).

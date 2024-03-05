@@ -40,7 +40,8 @@ var clientErrorsStatusCodesEligibleForRetry = []int{
 
 func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
-	defaultWaitAlgo = &waitAlgo{mutex: &sync.Mutex{}, random: random, base: 5 * time.Second, cap: 160 * time.Second}
+	// sleep time before retrying starts from 1s and the max sleep time is 16s
+	defaultWaitAlgo = &waitAlgo{mutex: &sync.Mutex{}, random: random, base: 1 * time.Second, cap: 16 * time.Second}
 }
 
 const (
@@ -211,21 +212,19 @@ func (w *waitAlgo) calculateWaitBeforeRetryForAuthRequest(attempt int, currWaitT
 	return time.Duration(jitteredSleepTime * float64(time.Second))
 }
 
-func (w *waitAlgo) calculateWaitBeforeRetry(attempt int, sleep time.Duration) time.Duration {
+func (w *waitAlgo) calculateWaitBeforeRetry(sleep time.Duration) time.Duration {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	t := 3*sleep - w.base
-	switch {
-	case t > 0:
-		return durationMin(w.cap, randSecondDuration(t)+w.base)
-	case t < 0:
-		return durationMin(w.cap, randSecondDuration(-t)+3*sleep)
-	}
-	return w.base
+	// use decorrelated jitter in retry time
+	randDuration := randMilliSecondDuration(w.base, sleep*3)
+	return durationMin(w.cap, randDuration)
 }
 
-func randSecondDuration(n time.Duration) time.Duration {
-	return time.Duration(random.Int63n(int64(n/time.Second))) * time.Second
+func randMilliSecondDuration(base time.Duration, bound time.Duration) time.Duration {
+	baseNumber := int64(base / time.Millisecond)
+	boundNumber := int64(bound / time.Millisecond)
+	randomDuration := random.Int63n(boundNumber-baseNumber) + baseNumber
+	return time.Duration(randomDuration) * time.Millisecond
 }
 
 func (w *waitAlgo) getJitter(currWaitTime float64) float64 {
@@ -342,7 +341,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		if isLoginRequest(req) {
 			sleepTime = defaultWaitAlgo.calculateWaitBeforeRetryForAuthRequest(retryCounter, sleepTime)
 		} else {
-			sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(retryCounter, sleepTime)
+			sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(sleepTime)
 		}
 
 		if totalTimeout > 0 {
