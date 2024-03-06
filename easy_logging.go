@@ -15,28 +15,22 @@ type initTrials struct {
 	everTriedToInitialize bool
 	clientConfigFileInput string
 	configureCounter      int
-	mu                    sync.RWMutex
+	mu                    sync.Mutex
 }
 
 var easyLoggingInitTrials = initTrials{
 	everTriedToInitialize: false,
 	clientConfigFileInput: "",
 	configureCounter:      0,
-	mu:                    sync.RWMutex{},
+	mu:                    sync.Mutex{},
 }
 
 func (i *initTrials) setInitTrial(clientConfigFileInput string) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-
 	i.everTriedToInitialize = true
 	i.clientConfigFileInput = clientConfigFileInput
 }
 
 func (i *initTrials) increaseReconfigureCounter() {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-
 	i.configureCounter++
 }
 
@@ -50,6 +44,9 @@ func (i *initTrials) reset() {
 }
 
 func initEasyLogging(clientConfigFileInput string) error {
+	easyLoggingInitTrials.mu.Lock()
+	defer easyLoggingInitTrials.mu.Unlock()
+
 	if !allowedToInitialize(clientConfigFileInput) {
 		logger.Info("Skipping Easy Logging initialization as it is not allowed to initialize")
 		return nil
@@ -129,9 +126,6 @@ func createLogWriter(logPath string) (io.Writer, *os.File, error) {
 }
 
 func allowedToInitialize(clientConfigFileInput string) bool {
-	easyLoggingInitTrials.mu.RLock()
-	defer easyLoggingInitTrials.mu.RUnlock()
-
 	triedToInitializeWithoutConfigFile := easyLoggingInitTrials.everTriedToInitialize && easyLoggingInitTrials.clientConfigFileInput == ""
 	isAllowedToInitialize := !easyLoggingInitTrials.everTriedToInitialize || (triedToInitializeWithoutConfigFile && clientConfigFileInput != "")
 	if !isAllowedToInitialize && easyLoggingInitTrials.clientConfigFileInput != clientConfigFileInput {
