@@ -271,32 +271,31 @@ func getChunk(
 }
 
 func (scd *snowflakeChunkDownloader) startArrowBatches() error {
-	if scd.RowSet.RowSetBase64 == "" {
-		return nil
-	}
-	var err error
-	chunkMetaLen := len(scd.ChunkMetas)
 	var loc *time.Location
 	if scd.sc != nil && scd.sc.cfg != nil {
 		loc = getCurrentLocation(scd.sc.cfg.Params)
 	}
-	firstArrowChunk, err := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
-	if err != nil {
-		return err
-	}
-	scd.FirstBatch = &ArrowBatch{
-		idx:                0,
-		scd:                scd,
-		funcDownloadHelper: scd.FuncDownloadHelper,
-		loc:                loc,
-	}
-	// decode first chunk if possible
-	if firstArrowChunk.allocator != nil {
-		scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
+	if scd.RowSet.RowSetBase64 != "" {
+		var err error
+		firstArrowChunk, err := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 		if err != nil {
 			return err
 		}
+		scd.FirstBatch = &ArrowBatch{
+			idx:                0,
+			scd:                scd,
+			funcDownloadHelper: scd.FuncDownloadHelper,
+			loc:                loc,
+		}
+		// decode first chunk if possible
+		if firstArrowChunk.allocator != nil {
+			scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
+			if err != nil {
+				return err
+			}
+		}
 	}
+	chunkMetaLen := len(scd.ChunkMetas)
 	scd.ArrowBatches = make([]*ArrowBatch, chunkMetaLen)
 	for i := range scd.ArrowBatches {
 		scd.ArrowBatches[i] = &ArrowBatch{
