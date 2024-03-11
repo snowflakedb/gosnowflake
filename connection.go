@@ -22,7 +22,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
 )
 
 const (
