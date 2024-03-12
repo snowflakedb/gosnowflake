@@ -8,18 +8,21 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 type initTrials struct {
 	everTriedToInitialize bool
 	clientConfigFileInput string
 	configureCounter      int
+	mu                    sync.Mutex
 }
 
 var easyLoggingInitTrials = initTrials{
 	everTriedToInitialize: false,
 	clientConfigFileInput: "",
 	configureCounter:      0,
+	mu:                    sync.Mutex{},
 }
 
 func (i *initTrials) setInitTrial(clientConfigFileInput string) {
@@ -32,12 +35,18 @@ func (i *initTrials) increaseReconfigureCounter() {
 }
 
 func (i *initTrials) reset() {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
 	i.everTriedToInitialize = false
 	i.clientConfigFileInput = ""
 	i.configureCounter = 0
 }
 
 func initEasyLogging(clientConfigFileInput string) error {
+	easyLoggingInitTrials.mu.Lock()
+	defer easyLoggingInitTrials.mu.Unlock()
+
 	if !allowedToInitialize(clientConfigFileInput) {
 		logger.Info("Skipping Easy Logging initialization as it is not allowed to initialize")
 		return nil
@@ -167,7 +176,6 @@ func getLogPath(logPath string) (string, error) {
 func isDirAccessCorrect(dirPath string) (bool, *os.FileMode, error) {
 	if runtime.GOOS == "windows" {
 		return true, nil, nil
-
 	}
 	dirStat, err := os.Stat(dirPath)
 	if err != nil {

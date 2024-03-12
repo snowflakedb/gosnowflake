@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -165,6 +166,23 @@ func TestLogToConfiguredFile(t *testing.T) {
 		return strings.Contains(val, "level=warning")
 	})
 	assertEqualE(t, len(warningLogs), 2, "warning logs count")
+}
+
+func TestDataRace(t *testing.T) {
+	n := 10
+	wg := sync.WaitGroup{}
+	wg.Add(n)
+
+	for range make([]int, n) {
+		go func() {
+			defer wg.Done()
+
+			err := initEasyLogging("")
+			assertNilF(t, err, "no error from db")
+		}()
+	}
+
+	wg.Wait()
 }
 
 func notEmptyLines(lines string) []string {
