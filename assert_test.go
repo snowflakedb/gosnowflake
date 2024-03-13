@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -32,6 +33,10 @@ func assertEqualE(t *testing.T, actual any, expected any, descriptions ...string
 
 func assertEqualF(t *testing.T, actual any, expected any, descriptions ...string) {
 	fatalOnNonEmpty(t, validateEqual(actual, expected, descriptions...))
+}
+
+func assertBytesEqualE(t *testing.T, actual []byte, expected []byte, descriptions ...string) {
+	errorOnNonEmpty(t, validateBytesEqual(actual, expected, descriptions...))
 }
 
 func assertTrueF(t *testing.T, actual bool, descriptions ...string) {
@@ -100,6 +105,14 @@ func validateNotNil(actual any, descriptions ...string) string {
 
 func validateEqual(actual any, expected any, descriptions ...string) string {
 	if expected == actual {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s", actual, expected, desc)
+}
+
+func validateBytesEqual(actual []byte, expected []byte, descriptions ...string) string {
+	if bytes.Equal(actual, expected) {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)

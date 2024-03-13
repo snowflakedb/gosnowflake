@@ -842,7 +842,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		for _, x := range *a {
 			var v string
 			if stream {
-				v = x.Format(format[11:19])
+				v = fmt.Sprintf("%02d:%02d:%02d.%09d", x.Hour(), x.Minute(), x.Second(), x.Nanosecond())
 			} else {
 				h, m, s := x.Clock()
 				tm := int64(h)*int64(time.Hour) + int64(m)*int64(time.Minute) + int64(s)*int64(time.Second) + int64(x.Nanosecond())
