@@ -616,6 +616,11 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
 					return nil
 				} else if ae.ErrorCode() == "MethodNotAllowed" {
 					return nil
+				} else if strings.EqualFold(ae.ErrorCode(), "UnsupportedArgument") {
+					// In AWS China and US Gov partitions, Transfer Acceleration is not supported
+					// https://docs.amazonaws.cn/en_us/aws/latest/userguide/s3.html#feature-diff
+					// https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/govcloud-s3.html
+					return nil
 				}
 			}
 			return err
