@@ -719,30 +719,89 @@ func testBindingArray(t *testing.T, bulk bool) {
 
 func TestBulkArrayBinding(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string)", dbname))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", dbname))
+		now := time.Now()
+		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
+		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
+		someBinary := []byte{0x01, 0x02, 0x03}
 		numRows := 100000
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
+		ltzArr := make([]time.Time, numRows)
+		tzArr := make([]time.Time, numRows)
+		ntzArr := make([]time.Time, numRows)
+		dateArr := make([]time.Time, numRows)
+		timeArr := make([]time.Time, numRows)
+		binArr := make([][]byte, numRows)
 		for i := 0; i < numRows; i++ {
 			intArr[i] = i
 			strArr[i] = "test" + strconv.Itoa(i)
+			ltzArr[i] = now
+			tzArr[i] = now.Add(time.Hour).UTC()
+			ntzArr[i] = now.Add(2 * time.Hour)
+			dateArr[i] = someDate
+			timeArr[i] = someTime
+			binArr[i] = someBinary
 		}
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?)", dbname), Array(&intArr), Array(&strArr))
-		rows := dbt.mustQuery("select * from " + dbname)
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", dbname), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
+		rows := dbt.mustQuery("select * from " + dbname + " order by c1")
 		defer rows.Close()
 		cnt := 0
 		var i int
 		var s string
+		var ltz, tz, ntz, date, tt time.Time
+		var b []byte
 		for rows.Next() {
-			if err := rows.Scan(&i, &s); err != nil {
+			if err := rows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b); err != nil {
 				t.Fatal(err)
 			}
-			if i != cnt {
-				t.Errorf("expected: %v, got: %v", cnt, i)
+			assertEqualE(t, i, cnt)
+			assertEqualE(t, "test"+strconv.Itoa(cnt), s)
+			assertEqualE(t, ltz.UTC(), now.UTC())
+			assertEqualE(t, tz.UTC(), now.Add(time.Hour).UTC())
+			assertEqualE(t, ntz.UTC(), now.Add(2*time.Hour).UTC())
+			assertEqualE(t, date, someDate)
+			assertEqualE(t, tt, someTime)
+			assertBytesEqualE(t, b, someBinary)
+			cnt++
+		}
+		if cnt != numRows {
+			t.Fatalf("expected %v rows, got %v", numRows, cnt)
+		}
+	})
+}
+
+func TestBulkArrayBindingTimeWithPrecision(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (s time(0), ms time(3), us time(6), ns time(9))", dbname))
+		someTimeWithSeconds := time.Date(1, time.January, 1, 1, 1, 1, 0, time.UTC)
+		someTimeWithMilliseconds := time.Date(1, time.January, 1, 2, 2, 2, 123000000, time.UTC)
+		someTimeWithMicroseconds := time.Date(1, time.January, 1, 3, 3, 3, 123456000, time.UTC)
+		someTimeWithNanoseconds := time.Date(1, time.January, 1, 4, 4, 4, 123456789, time.UTC)
+		numRows := 100000
+		secondsArr := make([]time.Time, numRows)
+		millisecondsArr := make([]time.Time, numRows)
+		microsecondsArr := make([]time.Time, numRows)
+		nanosecondsArr := make([]time.Time, numRows)
+		for i := 0; i < numRows; i++ {
+			secondsArr[i] = someTimeWithSeconds
+			millisecondsArr[i] = someTimeWithMilliseconds
+			microsecondsArr[i] = someTimeWithMicroseconds
+			nanosecondsArr[i] = someTimeWithNanoseconds
+		}
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?)", dbname), Array(&secondsArr, TimeType), Array(&millisecondsArr, TimeType), Array(&microsecondsArr, TimeType), Array(&nanosecondsArr, TimeType))
+		rows := dbt.mustQuery("select * from " + dbname)
+		defer rows.Close()
+		cnt := 0
+		var s, ms, us, ns time.Time
+		for rows.Next() {
+			if err := rows.Scan(&s, &ms, &us, &ns); err != nil {
+				t.Fatal(err)
 			}
-			if exp := "test" + strconv.Itoa(cnt); s != exp {
-				t.Errorf("expected: %v, got: %v", exp, s)
-			}
+			assertEqualE(t, s, someTimeWithSeconds)
+			assertEqualE(t, ms, someTimeWithMilliseconds)
+			assertEqualE(t, us, someTimeWithMicroseconds)
+			assertEqualE(t, ns, someTimeWithNanoseconds)
 			cnt++
 		}
 		if cnt != numRows {
