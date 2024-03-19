@@ -1,0 +1,1 @@
+FROM nexus.int.snowflakecomputing.com:8086/docker/client-go-centos7-go1.21-build:1

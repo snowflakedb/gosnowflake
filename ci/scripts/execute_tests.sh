@@ -12,4 +12,9 @@ if [[ -n "$GITHUB_WORKFLOW" ]]; then
 fi
 env | grep SNOWFLAKE | grep -v PASS | sort
 cd $TOPDIR
-go test -timeout 50m -race -coverprofile=coverage.txt -covermode=atomic -v .
+if [[ -n "$JENKINS_HOME" ]]; then
+  go install github.com/jstemmer/go-junit-report/v2@latest
+  go test -timeout 50m -race -v . | go-junit-report -iocopy -out junit-go.xml
+else
+  go test -timeout 50m -race -coverprofile=coverage.txt -covermode=atomic -v .
+fi
