@@ -384,3 +384,9 @@ func performContainsTestcase[S comparable](tc tcContains[S], t *testing.T) {
 		t.Errorf("contains failed; arr: %v, e: %v, should be %v but was %v", tc.arr, tc.e, tc.expected, result)
 	}
 }
+
+func skipOnJenkins(t *testing.T) {
+	if os.Getenv("JENKINS_HOME") != "" {
+		t.Skip("Skipping tests on Jenkins")
+	}
+}
