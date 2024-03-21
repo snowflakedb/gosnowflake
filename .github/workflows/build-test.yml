@@ -26,6 +26,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+    lint:
+        runs-on: ubuntu-latest
+        strategy:
+          fail-fast: false
+        name: Check linter
+        steps:
+          - uses: actions/checkout@v1
+          - name: Setup go
+            uses: actions/setup-go@v2
+            with:
+              go-version: 1.19
+          - name: Format, Lint
+            shell: bash
+            run: ./ci/build.sh
     build-test-linux:
         runs-on: ubuntu-latest
         strategy:
@@ -40,9 +54,6 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-            - name: Format, Lint
-              shell: bash
-              run: ./ci/build.sh
             - name: Test
               shell: bash
               env:
@@ -68,9 +79,6 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-            - name: Format, Lint
-              shell: bash
-              run: ./ci/build.sh
             - name: Test
               shell: bash
               env:
@@ -95,9 +103,6 @@ jobs:
               uses: actions/setup-go@v2
               with:
                   go-version: ${{ matrix.go }}
-            - name: Format, Lint
-              shell: cmd
-              run: ci\\build.bat
             - uses: actions/setup-python@v1
               with:
                 python-version: '3.x'
