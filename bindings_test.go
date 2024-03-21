@@ -983,6 +983,9 @@ func TestFunctionParameters(t *testing.T) {
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
+		if isExecutingOnJenkins(t) {
+			dbt.exec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
+		}
 		for _, tc := range testcases {
 			t.Run(tc.testDesc, func(t *testing.T) {
 				query := fmt.Sprintf(`
@@ -1184,8 +1187,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		var c1 string
 		var c2 string
 		var c3 int
-
-		dbt.exec(enableFeatureMaxLOBSize)
+		dbt.exec("ALTER SESSION SET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY='ENABLED'")
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
 		} else {

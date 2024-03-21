@@ -390,3 +390,10 @@ func skipOnJenkins(t *testing.T) {
 		t.Skip("Skipping tests on Jenkins")
 	}
 }
+
+func isExecutingOnJenkins(t *testing.T) bool {
+	if os.Getenv("JENKINS_HOME") != "" {
+		return true
+	}
+	return false
+}
