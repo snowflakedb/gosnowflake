@@ -1078,6 +1078,10 @@ func TestVariousBindingModes(t *testing.T) {
 
 	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
+			// TODO enable after SNOW-1264687 is fixed
+			if tc.testDesc == "LOBMaxSize" {
+				skipOnJenkins(t)
+			}
 			for _, bindingMode := range bindingModes {
 				t.Run(tc.testDesc+" "+bindingMode.param, func(t *testing.T) {
 					query := fmt.Sprintf(`CREATE OR REPLACE TABLE BINDING_MODES(param1 %v)`, tc.paramType)
@@ -1145,18 +1149,26 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 }
 
 func TestInsertLobDataWithLiteralArrow(t *testing.T) {
+	// TODO enable after SNOW-1264687 is fixed
+	skipOnJenkins(t)
 	testInsertLOBData(t, true, true)
 }
 
 func TestInsertLobDataWithLiteralJSON(t *testing.T) {
+	// TODO enable after SNOW-1264687 is fixed
+	skipOnJenkins(t)
 	testInsertLOBData(t, false, true)
 }
 
 func TestInsertLobDataWithBindingsArrow(t *testing.T) {
+	// TODO enable after SNOW-1264687 is fixed
+	skipOnJenkins(t)
 	testInsertLOBData(t, true, false)
 }
 
 func TestInsertLobDataWithBindingsJSON(t *testing.T) {
+	// TODO enable after SNOW-1264687 is fixed
+	skipOnJenkins(t)
 	testInsertLOBData(t, false, false)
 }
 

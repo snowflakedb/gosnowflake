@@ -70,6 +70,7 @@ func TestSetAndGetCredentialIdToken(t *testing.T) {
 	}
 }
 func TestCreateCredentialCache(t *testing.T) {
+	skipOnJenkins(t)
 	if runningOnGithubAction() {
 		t.Skip("cannot write to github file system")
 	}
