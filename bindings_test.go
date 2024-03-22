@@ -983,7 +983,7 @@ func TestFunctionParameters(t *testing.T) {
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
-		if isExecutingOnJenkins(t) {
+		if isExecutingOnJenkins() {
 			dbt.exec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
 		}
 		for _, tc := range testcases {

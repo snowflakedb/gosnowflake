@@ -391,9 +391,6 @@ func skipOnJenkins(t *testing.T) {
 	}
 }
 
-func isExecutingOnJenkins(t *testing.T) bool {
-	if os.Getenv("JENKINS_HOME") != "" {
-		return true
-	}
-	return false
+func isExecutingOnJenkins() bool {
+	return os.Getenv("JENKINS_HOME") != ""
 }

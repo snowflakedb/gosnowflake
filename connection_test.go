@@ -420,7 +420,7 @@ func TestGetQueryStatus(t *testing.T) {
 			return
 		}
 		var expectedBytes int64
-		if isExecutingOnJenkins(t) {
+		if isExecutingOnJenkins() {
 			expectedBytes = 1536
 		} else {
 			expectedBytes = 2048
