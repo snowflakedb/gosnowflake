@@ -507,7 +507,7 @@ This ensures that Arrow records conform to the UTF-8 standards, preventing valid
 
 ### BigDecimal in Arrow batches
 Snowflake returns BigDecimal natively (from backend to driver)
-To preserve BigDecimal values within Arrow batches, set the `arrowBatchesOriginalBigDecimal“ value to true in the context using `WithArrowBatchesOriginalBigDecimal“.
+To preserve BigDecimal values within Arrow batches, set the `arrowBatchesOriginalBigDecimal` value to true in the context using `WithArrowBatchesOriginalBigDecimal`.
 This offers two main benefits: it helps avoid precision loss and defers the conversion to upstream services.
 Alternatively, without this setting, all non-zero scale numbers will be converted to float64, potentially resulting in loss of precision.
 
