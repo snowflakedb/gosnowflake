@@ -1005,10 +1005,20 @@ func getArrowBatchesTimestampOption(ctx context.Context) snowflakeArrowBatchesTi
 	return o
 }
 
+func useArrowBatchesOriginalBigDecimal(ctx context.Context) bool {
+	v := ctx.Value(arrowBatchesOriginalBigDecimal)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
+}
+
 func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocator, rowType []execResponseRowType, loc *time.Location) (arrow.Record, error) {
 	arrowBatchesTimestampOption := getArrowBatchesTimestampOption(ctx)
+	useArrowBatchesOriginalBigDecimal := useArrowBatchesOriginalBigDecimal(ctx)
 
-	s, err := recordToSchema(record.Schema(), rowType, loc, arrowBatchesTimestampOption)
+	s, err := recordToSchema(record.Schema(), rowType, loc, arrowBatchesTimestampOption, useArrowBatchesOriginalBigDecimal)
 	if err != nil {
 		return nil, err
 	}
@@ -1026,7 +1036,9 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 		switch snowflakeType {
 		case fixedType:
 			var toType arrow.DataType
-			if col.DataType().ID() == arrow.DECIMAL || col.DataType().ID() == arrow.DECIMAL256 {
+			if useArrowBatchesOriginalBigDecimal {
+				// do nothing - return decimal as is
+			} else if col.DataType().ID() == arrow.DECIMAL || col.DataType().ID() == arrow.DECIMAL256 {
 				if srcColumnMeta.Scale == 0 {
 					toType = arrow.PrimitiveTypes.Int64
 				} else {
@@ -1151,7 +1163,7 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 	return array.NewRecord(s, cols, numRows), nil
 }
 
-func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, timestampOption snowflakeArrowBatchesTimestampOption) (*arrow.Schema, error) {
+func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, timestampOption snowflakeArrowBatchesTimestampOption, useArrowBatchesOriginalBigDecimal bool) (*arrow.Schema, error) {
 	var fields []arrow.Field
 	for i := 0; i < len(sc.Fields()); i++ {
 		f := sc.Field(i)
@@ -1163,13 +1175,17 @@ func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.L
 		case fixedType:
 			switch f.Type.ID() {
 			case arrow.DECIMAL:
-				if srcColumnMeta.Scale == 0 {
+				if useArrowBatchesOriginalBigDecimal {
+					converted = false
+				} else if srcColumnMeta.Scale == 0 {
 					t = &arrow.Int64Type{}
 				} else {
 					t = &arrow.Float64Type{}
 				}
 			default:
-				if srcColumnMeta.Scale != 0 {
+				if useArrowBatchesOriginalBigDecimal {
+					converted = false
+				} else if srcColumnMeta.Scale != 0 {
 					t = &arrow.Float64Type{}
 				} else {
 					converted = false
