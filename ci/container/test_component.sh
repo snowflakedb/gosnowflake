@@ -1,7 +1,5 @@
 #!/bin/bash
-#
-# Build and Test Golang driver
-#
+
 set -e
 set -o pipefail
 

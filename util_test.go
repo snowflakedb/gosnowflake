@@ -385,12 +385,8 @@ func performContainsTestcase[S comparable](tc tcContains[S], t *testing.T) {
 	}
 }
 
-func skipOnJenkins(t *testing.T) {
+func skipOnJenkins(t *testing.T, message string) {
 	if os.Getenv("JENKINS_HOME") != "" {
-		t.Skip("Skipping tests on Jenkins")
+		t.Skip("Skipping test on Jenkins: " + message)
 	}
-}
-
-func isExecutingOnJenkins() bool {
-	return os.Getenv("JENKINS_HOME") != ""
 }

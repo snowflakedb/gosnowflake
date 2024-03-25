@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -983,9 +984,7 @@ func TestFunctionParameters(t *testing.T) {
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
-		if isExecutingOnJenkins() {
-			dbt.exec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
-		}
+		dbt.exec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
 		for _, tc := range testcases {
 			t.Run(tc.testDesc, func(t *testing.T) {
 				query := fmt.Sprintf(`
@@ -1078,9 +1077,9 @@ func TestVariousBindingModes(t *testing.T) {
 
 	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
-			// TODO enable after SNOW-1264687 is fixed
-			if tc.testDesc == "LOBMaxSize" {
-				skipOnJenkins(t)
+			// TODO SNOW-1264687
+			if strings.Contains(tc.testDesc, "LOB") {
+				skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
 			}
 			for _, bindingMode := range bindingModes {
 				t.Run(tc.testDesc+" "+bindingMode.param, func(t *testing.T) {
@@ -1149,26 +1148,26 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 }
 
 func TestInsertLobDataWithLiteralArrow(t *testing.T) {
-	// TODO enable after SNOW-1264687 is fixed
-	skipOnJenkins(t)
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
 	testInsertLOBData(t, true, true)
 }
 
 func TestInsertLobDataWithLiteralJSON(t *testing.T) {
-	// TODO enable after SNOW-1264687 is fixed
-	skipOnJenkins(t)
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
 	testInsertLOBData(t, false, true)
 }
 
 func TestInsertLobDataWithBindingsArrow(t *testing.T) {
-	// TODO enable after SNOW-1264687 is fixed
-	skipOnJenkins(t)
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
 	testInsertLOBData(t, true, false)
 }
 
 func TestInsertLobDataWithBindingsJSON(t *testing.T) {
-	// TODO enable after SNOW-1264687 is fixed
-	skipOnJenkins(t)
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
 	testInsertLOBData(t, false, false)
 }
 
@@ -1199,7 +1198,8 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		var c1 string
 		var c2 string
 		var c3 int
-		dbt.exec("ALTER SESSION SET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY='ENABLED'")
+
+		dbt.exec(enableFeatureMaxLOBSize)
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
 		} else {

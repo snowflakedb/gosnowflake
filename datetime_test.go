@@ -66,6 +66,8 @@ func TestIncorrectSecondsFraction(t *testing.T) {
 func TestSnowflakeFormatToGoFormatIntegrationTest(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("ALTER SESSION SET TIME_OUTPUT_FORMAT = 'HH24:MI:SS.FF'")
+		dbt.mustExec("ALTER SESSION SET TIMESTAMP_OUTPUT_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3 TZHTZM'")
+		dbt.mustExec("ALTER SESSION SET TIMESTAMP_NTZ_OUTPUT_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3'")
 		for _, forceFormat := range []string{forceJSON, forceARROW} {
 			dbt.mustExec(forceFormat)
 
