@@ -149,7 +149,8 @@ func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
 	}
 	return snowflakeTypeToGo(
 		getSnowflakeType(rows.ChunkDownloader.getRowType()[index].Type),
-		rows.ChunkDownloader.getRowType()[index].Scale)
+		rows.ChunkDownloader.getRowType()[index].Scale,
+		rows.ChunkDownloader.getRowType()[index].Fields)
 }
 
 func (rows *snowflakeRows) GetQueryID() string {
@@ -192,7 +193,7 @@ func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {
 		for i, n := 0, len(row.RowSet); i < n; i++ {
 			// could move to chunk downloader so that each go routine
 			// can convert data
-			err = stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i], rows.getLocation())
+			err = stringToValue(&dest[i], rows.ChunkDownloader.getRowType()[i], row.RowSet[i], rows.getLocation(), rows.sc.cfg.Params)
 			if err != nil {
 				return err
 			}
