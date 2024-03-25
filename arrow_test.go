@@ -37,58 +37,53 @@ func TestCheckVersion(t *testing.T) {
 }
 
 func TestArrowBatchHighPrecision(t *testing.T) {
-	conn := openConn(t)
-	defer conn.Close()
-
-	ctx := context.Background()
-
-	var rows driver.Rows
-	var err error
-	err = conn.Raw(func(x interface{}) error {
-		queryer, implementsQueryContext := x.(driver.QueryerContext)
-		if !implementsQueryContext {
-			t.Fatal("snowflake connection driver does not implement queryerContext")
-		}
+	runDBTest(t, func(dbt *DBTest) {
+		ctx := WithArrowBatches(context.Background())
 		query := "select '0.1':: DECIMAL(38, 19) as c"
-		rows, err = queryer.QueryContext(WithArrowBatchesTimestampOption(WithArrowBatches(WithArrowBatchesUtf8Validation(ctx)), UseMicrosecondTimestamp), query, nil)
-		return err
+
+		var rows driver.Rows
+		var err error
+
+		// must use conn.Raw so we can get back driver rows (an interface)
+		// which can be cast to snowflakeRows which exposes GetArrowBatch
+		err = dbt.conn.Raw(func(x interface{}) error {
+			queryer, implementsQueryContext := x.(driver.QueryerContext)
+			assertTrueF(t, implementsQueryContext, "snowflake connection driver does not implement queryerContext")
+
+			rows, err = queryer.QueryContext(WithArrowBatches(ctx), query, nil)
+			return err
+		})
+
+		if err != nil {
+			t.Error(err, "error running select query")
+		}
+
+		sfRows, isSfRows := rows.(SnowflakeRows)
+		assertTrueF(t, isSfRows, "rows should be snowflakeRows")
+
+		arrowBatches, err := sfRows.GetArrowBatches()
+		if err != nil {
+			t.Error(err, "error getting arrow batches")
+		}
+
+		if len(arrowBatches) == 0 {
+			t.Fatal("should have at least one batch")
+		}
+
+		c, err := arrowBatches[0].Fetch()
+		if err != nil {
+			t.Error(err, "error fetching first batch")
+		}
+
+		chunk := *c
+		if len(chunk) == 0 {
+			t.Fatal("should have at least one chunk")
+		}
+
+		strVal := chunk[0].Column(0).ValueStr(0)
+		expected := "1.0"
+		assertEqualF(t, strVal, expected, fmt.Sprintf("should have returned 1.0, but got: %s", strVal))
 	})
-	if err != nil {
-		t.Fatal("error while running query: ", err)
-	}
-
-	sfRows, isSfRows := rows.(SnowflakeRows)
-	if !isSfRows {
-		t.Fatal("rows should be snowflakeRows")
-	}
-	if sfRows == nil {
-		t.Fatal("rows should not be null")
-	}
-
-	arrowBatches, err := sfRows.GetArrowBatches()
-	if err != nil {
-		t.Fatal("error trying to get arrow batches: ", err)
-	}
-
-	if len(arrowBatches) == 0 {
-		t.Fatal("should have at least one batch")
-	}
-
-	c, err := arrowBatches[0].Fetch()
-	if err != nil {
-		t.Fatal("error while fetching chunk: ", err)
-	}
-	
-	chunk := *c
-	if len(chunk) == 0 {
-		t.Fatal("should have at least one chunk")
-	}
-
-	strVal := chunk[0].Column(0).ValueStr(0)
-	expected := "1000000000000000000"
-	if strVal != expected {
-		t.Fatal("should have returned 1000000000000000000, but got: ", strVal)
-	}
 }
 
 func TestArrowBigInt(t *testing.T) {
