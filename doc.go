@@ -505,9 +505,8 @@ To address this issue and prevent potential downstream disruptions, the context 
 When enabled, this feature iterates through all values in string columns, identifying and replacing any invalid characters with `�`.
 This ensures that Arrow records conform to the UTF-8 standards, preventing validation failures in downstream services like the Rust Arrow library that impose strict validation checks.
 
-### BigDecimal in Arrow batches
-Snowflake returns BigDecimal natively (from backend to driver)
-To preserve BigDecimal values within Arrow batches, set the `arrowBatchesOriginalBigDecimal` value to true in the context using `WithArrowBatchesOriginalBigDecimal`.
+### WithHigherPrecision in Arrow batches
+To preserve BigDecimal values within Arrow batches, set the `enableHigherPrecision` value to true in the context using `WithHigherPrecision`.
 This offers two main benefits: it helps avoid precision loss and defers the conversion to upstream services.
 Alternatively, without this setting, all non-zero scale numbers will be converted to float64, potentially resulting in loss of precision.
 

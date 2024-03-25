@@ -32,7 +32,6 @@ const (
 	arrowBatches                     contextKey = "ARROW_BATCHES"
 	arrowAlloc                       contextKey = "ARROW_ALLOC"
 	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
-	arrowBatchesOriginalBigDecimal   contextKey = "ARROW_BATCHES_ORIGINAL_BIG_DECIMAL"
 	queryTag                         contextKey = "QUERY_TAG"
 )
 
@@ -94,6 +93,7 @@ func WithDescribeOnly(ctx context.Context) context.Context {
 // WithHigherPrecision returns a context that enables higher precision by
 // returning a *big.Int or *big.Float variable when querying rows for column
 // types with numbers that don't fit into its native Golang counterpart
+// When used in combination with WithArrowBatches, original BigDecimal in arrow batches will be preserved.
 func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
 }
@@ -138,13 +138,6 @@ func WithArrowBatchesTimestampOption(ctx context.Context, option snowflakeArrowB
 func WithArrowBatchesUtf8Validation(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableArrowBatchesUtf8Validation, true)
 
-}
-
-// WithArrowBatchesOriginalBigDecimal in combination with WithArrowBatches returns a context that
-// preserve the original BigDecimal returned by Snowflake.
-// To decode the BigDecimal, metadata including scale information is required.
-func WithArrowBatchesOriginalBigDecimal(ctx context.Context) context.Context {
-	return context.WithValue(ctx, arrowBatchesOriginalBigDecimal, true)
 }
 
 // WithQueryTag returns a context that will set the given tag as the QUERY_TAG

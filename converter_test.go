@@ -909,20 +909,20 @@ func TestArrowToRecord(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		logical                           string
-		physical                          string
-		sc                                *arrow.Schema
-		rowType                           execResponseRowType
-		values                            interface{}
-		expected                          interface{}
-		error                             string
-		arrowBatchesTimestampOption       snowflakeArrowBatchesTimestampOption
-		enableArrowBatchesUtf8Validation  bool
-		useArrowBatchesOriginalBigDecimal bool
-		nrows                             int
-		builder                           array.Builder
-		append                            func(b array.Builder, vs interface{})
-		compare                           func(src interface{}, expected interface{}, rec arrow.Record) int
+		logical                          string
+		physical                         string
+		sc                               *arrow.Schema
+		rowType                          execResponseRowType
+		values                           interface{}
+		expected                         interface{}
+		error                            string
+		arrowBatchesTimestampOption      snowflakeArrowBatchesTimestampOption
+		enableArrowBatchesUtf8Validation bool
+		withHigherPrecision              bool
+		nrows                            int
+		builder                          array.Builder
+		append                           func(b array.Builder, vs interface{})
+		compare                          func(src interface{}, expected interface{}, rec arrow.Record) int
 	}{
 		{
 			logical:  "fixed",
@@ -965,13 +965,13 @@ func TestArrowToRecord(t *testing.T) {
 			},
 		},
 		{
-			logical:                           "fixed",
-			physical:                          "number(38,0)",
-			sc:                                arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 38, Scale: 0}}}, nil),
-			values:                            []string{"10000000000000000000000000000000000000", "-12345678901234567890123456789012345678"},
-			useArrowBatchesOriginalBigDecimal: true,
-			nrows:                             2,
-			builder:                           array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 0}),
+			logical:             "fixed",
+			physical:            "number(38,0)",
+			sc:                  arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 38, Scale: 0}}}, nil),
+			values:              []string{"10000000000000000000000000000000000000", "-12345678901234567890123456789012345678"},
+			withHigherPrecision: true,
+			nrows:               2,
+			builder:             array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 0}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, s := range vs.([]string) {
 					num, ok := stringIntToDecimal(s)
@@ -1028,14 +1028,14 @@ func TestArrowToRecord(t *testing.T) {
 			},
 		},
 		{
-			logical:                           "fixed",
-			physical:                          "number(38,37)",
-			rowType:                           execResponseRowType{Scale: 37},
-			sc:                                arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 38, Scale: 37}}}, nil),
-			values:                            []string{"1.2345678901234567890123456789012345678", "-9.999999999999999"},
-			useArrowBatchesOriginalBigDecimal: true,
-			nrows:                             2,
-			builder:                           array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 37}),
+			logical:             "fixed",
+			physical:            "number(38,37)",
+			rowType:             execResponseRowType{Scale: 37},
+			sc:                  arrow.NewSchema([]arrow.Field{{Type: &arrow.Decimal128Type{Precision: 38, Scale: 37}}}, nil),
+			values:              []string{"1.2345678901234567890123456789012345678", "-9.999999999999999"},
+			withHigherPrecision: true,
+			nrows:               2,
+			builder:             array.NewDecimal128Builder(pool, &arrow.Decimal128Type{Precision: 38, Scale: 37}),
 			append: func(b array.Builder, vs interface{}) {
 				for _, s := range vs.([]string) {
 					num, err := decimal128.FromString(s, 38, 37)
@@ -1116,15 +1116,15 @@ func TestArrowToRecord(t *testing.T) {
 			},
 		},
 		{
-			logical:                           "fixed",
-			physical:                          "int8",
-			rowType:                           execResponseRowType{Scale: 1},
-			sc:                                arrow.NewSchema([]arrow.Field{{Type: &arrow.Int8Type{}}}, nil),
-			values:                            []int8{10, 16},
-			useArrowBatchesOriginalBigDecimal: true,
-			nrows:                             2,
-			builder:                           array.NewInt8Builder(pool),
-			append:                            func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
+			logical:             "fixed",
+			physical:            "int8",
+			rowType:             execResponseRowType{Scale: 1},
+			sc:                  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int8Type{}}}, nil),
+			values:              []int8{10, 16},
+			withHigherPrecision: true,
+			nrows:               2,
+			builder:             array.NewInt8Builder(pool),
+			append:              func(b array.Builder, vs interface{}) { b.(*array.Int8Builder).AppendValues(vs.([]int8), valids) },
 			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int8)
 				for i, f := range convertedRec.Column(0).(*array.Int8).Int8Values() {
@@ -1156,15 +1156,15 @@ func TestArrowToRecord(t *testing.T) {
 			},
 		},
 		{
-			logical:                           "fixed",
-			physical:                          "int16",
-			rowType:                           execResponseRowType{Scale: 1},
-			sc:                                arrow.NewSchema([]arrow.Field{{Type: &arrow.Int16Type{}}}, nil),
-			values:                            []int16{20, 26},
-			useArrowBatchesOriginalBigDecimal: true,
-			nrows:                             2,
-			builder:                           array.NewInt16Builder(pool),
-			append:                            func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
+			logical:             "fixed",
+			physical:            "int16",
+			rowType:             execResponseRowType{Scale: 1},
+			sc:                  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int16Type{}}}, nil),
+			values:              []int16{20, 26},
+			withHigherPrecision: true,
+			nrows:               2,
+			builder:             array.NewInt16Builder(pool),
+			append:              func(b array.Builder, vs interface{}) { b.(*array.Int16Builder).AppendValues(vs.([]int16), valids) },
 			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int16)
 				for i, f := range convertedRec.Column(0).(*array.Int16).Int16Values() {
@@ -1196,15 +1196,15 @@ func TestArrowToRecord(t *testing.T) {
 			},
 		},
 		{
-			logical:                           "fixed",
-			physical:                          "int32",
-			rowType:                           execResponseRowType{Scale: 2},
-			sc:                                arrow.NewSchema([]arrow.Field{{Type: &arrow.Int32Type{}}}, nil),
-			values:                            []int32{200, 265},
-			useArrowBatchesOriginalBigDecimal: true,
-			nrows:                             2,
-			builder:                           array.NewInt32Builder(pool),
-			append:                            func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
+			logical:             "fixed",
+			physical:            "int32",
+			rowType:             execResponseRowType{Scale: 2},
+			sc:                  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int32Type{}}}, nil),
+			values:              []int32{200, 265},
+			withHigherPrecision: true,
+			nrows:               2,
+			builder:             array.NewInt32Builder(pool),
+			append:              func(b array.Builder, vs interface{}) { b.(*array.Int32Builder).AppendValues(vs.([]int32), valids) },
 			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int32)
 				for i, f := range convertedRec.Column(0).(*array.Int32).Int32Values() {
@@ -1236,15 +1236,15 @@ func TestArrowToRecord(t *testing.T) {
 			},
 		},
 		{
-			logical:                           "fixed",
-			physical:                          "int64",
-			rowType:                           execResponseRowType{Scale: 5},
-			sc:                                arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
-			values:                            []int64{12345, 234567},
-			useArrowBatchesOriginalBigDecimal: true,
-			nrows:                             2,
-			builder:                           array.NewInt64Builder(pool),
-			append:                            func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
+			logical:             "fixed",
+			physical:            "int64",
+			rowType:             execResponseRowType{Scale: 5},
+			sc:                  arrow.NewSchema([]arrow.Field{{Type: &arrow.Int64Type{}}}, nil),
+			values:              []int64{12345, 234567},
+			withHigherPrecision: true,
+			nrows:               2,
+			builder:             array.NewInt64Builder(pool),
+			append:              func(b array.Builder, vs interface{}) { b.(*array.Int64Builder).AppendValues(vs.([]int64), valids) },
 			compare: func(src interface{}, expected interface{}, convertedRec arrow.Record) int {
 				srcvs := src.([]int64)
 				for i, f := range convertedRec.Column(0).(*array.Int64).Int64Values() {
@@ -2024,8 +2024,8 @@ func TestArrowToRecord(t *testing.T) {
 				ctx = WithArrowBatchesUtf8Validation(ctx)
 			}
 
-			if tc.useArrowBatchesOriginalBigDecimal {
-				ctx = WithArrowBatchesOriginalBigDecimal(ctx)
+			if tc.withHigherPrecision {
+				ctx = WithHigherPrecision(ctx)
 			}
 
 			transformedRec, err := arrowToRecord(ctx, rawRec, pool, []execResponseRowType{meta}, localTime.Location())
