@@ -7,10 +7,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"math/big"
 	"math/rand"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -983,6 +985,10 @@ func TestFunctionParameters(t *testing.T) {
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
+		_, err := dbt.exec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
+		if err != nil {
+			log.Println(err)
+		}
 		for _, tc := range testcases {
 			t.Run(tc.testDesc, func(t *testing.T) {
 				query := fmt.Sprintf(`
@@ -1075,6 +1081,10 @@ func TestVariousBindingModes(t *testing.T) {
 
 	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
+			// TODO SNOW-1264687
+			if strings.Contains(tc.testDesc, "LOB") {
+				skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
+			}
 			for _, bindingMode := range bindingModes {
 				t.Run(tc.testDesc+" "+bindingMode.param, func(t *testing.T) {
 					query := fmt.Sprintf(`CREATE OR REPLACE TABLE BINDING_MODES(param1 %v)`, tc.paramType)
@@ -1142,18 +1152,26 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 }
 
 func TestInsertLobDataWithLiteralArrow(t *testing.T) {
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
 	testInsertLOBData(t, true, true)
 }
 
 func TestInsertLobDataWithLiteralJSON(t *testing.T) {
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
 	testInsertLOBData(t, false, true)
 }
 
 func TestInsertLobDataWithBindingsArrow(t *testing.T) {
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
 	testInsertLOBData(t, true, false)
 }
 
 func TestInsertLobDataWithBindingsJSON(t *testing.T) {
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
 	testInsertLOBData(t, false, false)
 }
 

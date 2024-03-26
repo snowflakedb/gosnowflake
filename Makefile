@@ -16,7 +16,7 @@ test_teardown:
 	kill -9 $$(ps -ewf | grep hang_webserver | grep -v grep | awk '{print $$2}') || true
 
 test: deps test_setup
-	./ci/scripts/test_component.sh
+	./ci/scripts/execute_tests.sh
 
 ## Run Coverage tests
 cov:
