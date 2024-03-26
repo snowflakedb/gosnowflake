@@ -54,35 +54,24 @@ func TestArrowBatchHighPrecision(t *testing.T) {
 			return err
 		})
 
-		if err != nil {
-			t.Error(err, "error running select query")
-		}
+		assertNilF(t, err, "error running select query")
 
 		sfRows, isSfRows := rows.(SnowflakeRows)
 		assertTrueF(t, isSfRows, "rows should be snowflakeRows")
 
 		arrowBatches, err := sfRows.GetArrowBatches()
-		if err != nil {
-			t.Error(err, "error getting arrow batches")
-		}
-
-		if len(arrowBatches) == 0 {
-			t.Fatal("should have at least one batch")
-		}
+		assertNilF(t, err, "error getting arrow batches")
+		assertNotEqualF(t, len(arrowBatches), 0, "should have at least one batch")
 
 		c, err := arrowBatches[0].Fetch()
-		if err != nil {
-			t.Error(err, "error fetching first batch")
-		}
+		assertNilF(t, err, "error fetching first batch")
 
 		chunk := *c
-		if len(chunk) == 0 {
-			t.Fatal("should have at least one chunk")
-		}
+		assertNotEqualF(t, len(chunk), 0, "should have at least one chunk")
 
 		strVal := chunk[0].Column(0).ValueStr(0)
-		expected := "1.0"
-		assertEqualF(t, strVal, expected, fmt.Sprintf("should have returned 1.0, but got: %s", strVal))
+		expected := "0.1"
+		assertEqualF(t, strVal, expected, fmt.Sprintf("should have returned 0.1, but got: %s", strVal))
 	})
 }
 

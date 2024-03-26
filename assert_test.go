@@ -35,6 +35,10 @@ func assertEqualF(t *testing.T, actual any, expected any, descriptions ...string
 	fatalOnNonEmpty(t, validateEqual(actual, expected, descriptions...))
 }
 
+func assertNotEqualF(t *testing.T, actual any, expected any, descriptions ...string) {
+	fatalOnNonEmpty(t, validateNotEqual(actual, expected, descriptions...))
+}
+
 func assertBytesEqualE(t *testing.T, actual []byte, expected []byte, descriptions ...string) {
 	errorOnNonEmpty(t, validateBytesEqual(actual, expected, descriptions...))
 }
@@ -109,6 +113,14 @@ func validateEqual(actual any, expected any, descriptions ...string) string {
 	}
 	desc := joinDescriptions(descriptions...)
 	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s", actual, expected, desc)
+}
+
+func validateNotEqual(actual any, expected any, descriptions ...string) string {
+	if expected != actual {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected \"%s\" not to be equal to \"%s\" but they were the same. %s", actual, expected, desc)
 }
 
 func validateBytesEqual(actual []byte, expected []byte, descriptions ...string) string {
