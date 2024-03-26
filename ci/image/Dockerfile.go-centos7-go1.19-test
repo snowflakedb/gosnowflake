@@ -24,8 +24,8 @@ RUN yum -y install python36
 RUN python3 -V
 
 # install Go
-RUN curl -O -L https://go.dev/dl/go1.21.8.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go1.21.8.linux-amd64.tar.gz
+RUN curl -O -L https://go.dev/dl/go1.19.13.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.19.13.linux-amd64.tar.gz
 ENV GOROOT /usr/local/go
 ENV GOPATH=/tmp/go
 ENV GOCACHE=/tmp/cache

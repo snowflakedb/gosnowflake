@@ -984,7 +984,7 @@ func TestFunctionParameters(t *testing.T) {
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.exec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
+		dbt.mustExec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
 		for _, tc := range testcases {
 			t.Run(tc.testDesc, func(t *testing.T) {
 				query := fmt.Sprintf(`
