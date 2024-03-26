@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -984,7 +985,10 @@ func TestFunctionParameters(t *testing.T) {
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
+		_, err := dbt.exec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
+		if err != nil {
+			log.Println(err)
+		}
 		for _, tc := range testcases {
 			t.Run(tc.testDesc, func(t *testing.T) {
 				query := fmt.Sprintf(`
