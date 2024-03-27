@@ -93,6 +93,7 @@ func WithDescribeOnly(ctx context.Context) context.Context {
 // WithHigherPrecision returns a context that enables higher precision by
 // returning a *big.Int or *big.Float variable when querying rows for column
 // types with numbers that don't fit into its native Golang counterpart
+// When used in combination with WithArrowBatches, original BigDecimal in arrow batches will be preserved.
 func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
 }
