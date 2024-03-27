@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"reflect"
 	"strings"
 	"syscall"
 	"testing"
@@ -1259,6 +1260,102 @@ func testArray(t *testing.T, json bool) {
 			}
 		} else {
 			t.Fatal("no rows")
+		}
+	})
+}
+
+func TestVectorInt(t *testing.T) {
+	testVectorInt(t, false)
+}
+
+func testVectorInt(t *testing.T, json bool) {
+	tests := []struct {
+		msg   string
+		query string
+		want  []int32
+	}{
+		{
+			msg:   "1 element vector",
+			query: `select [-5]::vector(int, 1)`,
+			want:  []int32{-5},
+		},
+		{
+			msg:   "3 element vector",
+			query: `select [1,2,-3]::vector(int, 3)`,
+			want:  []int32{1, 2, -3},
+		},
+	}
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("alter session set enable_vector_data_type='Enable'")
+		defer dbt.mustExec("alter session unset enable_vector_data_type")
+		if json {
+			dbt.mustExec(forceJSON)
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.msg, func(t *testing.T) {
+				rowsInt := dbt.mustQuery(tt.query)
+				defer rowsInt.Close()
+				if ok := rowsInt.Next(); !ok {
+					t.Error("no rows")
+				}
+
+				var gotInt []int32
+				if err := rowsInt.Scan(Vector(&gotInt)); err != nil {
+					t.Error(err)
+				}
+				if !reflect.DeepEqual(gotInt, tt.want) {
+					t.Errorf("incorrect vector deserialized: got %v, want %v", gotInt, tt.want)
+				}
+			})
+		}
+	})
+}
+
+func TestVectorFloat(t *testing.T) {
+	testVectorFloat(t, false)
+}
+
+func testVectorFloat(t *testing.T, json bool) {
+	tests := []struct {
+		msg   string
+		query string
+		want  []float32
+	}{
+		{
+			msg:   "1 element vector",
+			query: `select [-5.3]::vector(float, 1)`,
+			want:  []float32{-5.3},
+		},
+		{
+			msg:   "5 element vector",
+			query: `select [1.1,2.2,3.3,-4,5]::vector(float, 5)`,
+			want:  []float32{1.1, 2.2, 3.3, -4, 5},
+		},
+	}
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("alter session set enable_vector_data_type='Enable'")
+		defer dbt.mustExec("alter session unset enable_vector_data_type")
+		if json {
+			dbt.mustExec(forceJSON)
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.msg, func(t *testing.T) {
+				rowsFloat := dbt.mustQuery(tt.query)
+				defer rowsFloat.Close()
+				if ok := rowsFloat.Next(); !ok {
+					t.Error("no rows")
+				}
+
+				var gotFloat []float32
+				if err := rowsFloat.Scan(Vector(&gotFloat)); err != nil {
+					t.Error(err)
+				}
+				if !reflect.DeepEqual(gotFloat, tt.want) {
+					t.Errorf("incorrect vector deserialized: got %v, want %v", gotFloat, tt.want)
+				}
+			})
 		}
 	})
 }

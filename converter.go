@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -107,10 +108,10 @@ func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 }
 
 // snowflakeTypeToGo translates Snowflake data type to Go data type.
-func snowflakeTypeToGo(dbtype snowflakeType, scale int64) reflect.Type {
-	switch dbtype {
+func snowflakeTypeToGo(rowType execResponseRowType) reflect.Type {
+	switch getSnowflakeType(rowType.Type) {
 	case fixedType:
-		if scale == 0 {
+		if rowType.Scale == 0 {
 			return reflect.TypeOf(int64(0))
 		}
 		return reflect.TypeOf(float64(0))
@@ -124,8 +125,22 @@ func snowflakeTypeToGo(dbtype snowflakeType, scale int64) reflect.Type {
 		return reflect.TypeOf([]byte{})
 	case booleanType:
 		return reflect.TypeOf(true)
+	case vectorType:
+		if len(rowType.Fields) != 1 {
+			logger.Errorf("invalid result metadata fields for vector: length=%d", len(rowType.Fields))
+			return reflect.TypeOf("")
+		}
+		switch getSnowflakeType(rowType.Fields[0].Type) {
+		case fixedType:
+			return reflect.TypeOf([]int32{})
+		case realType:
+			return reflect.TypeOf([]float32{})
+		default:
+			logger.Errorf("invalid element type for vector: %s", rowType.Fields[0].Type)
+			return reflect.TypeOf("")
+		}
 	}
-	logger.Errorf("unsupported dbtype is specified. %v", dbtype)
+	logger.Errorf("unsupported dbtype is specified. %v", rowType.Type)
 	return reflect.TypeOf("")
 }
 
@@ -344,6 +359,27 @@ func stringToValue(
 			}
 		}
 		*dest = b
+		return nil
+	case "vector":
+		if len(srcColumnMeta.Fields) != 1 {
+			return fmt.Errorf("invalid result metadata fields for vector: length=%d", len(srcColumnMeta.Fields))
+		}
+		switch getSnowflakeType(srcColumnMeta.Fields[0].Type) {
+		case fixedType:
+			values := make([]int32, 0, srcColumnMeta.VectorDimension)
+			if err := json.Unmarshal([]byte(*srcValue), &values); err != nil {
+				return err
+			}
+			*dest = values
+		case realType:
+			values := make([]float32, 0, srcColumnMeta.VectorDimension)
+			if err := json.Unmarshal([]byte(*srcValue), &values); err != nil {
+				return err
+			}
+			*dest = values
+		default:
+			return fmt.Errorf("invalid element type for vector: %s", srcColumnMeta.Fields[0].Type)
+		}
 		return nil
 	}
 	*dest = *srcValue
@@ -624,6 +660,33 @@ func arrowToValue(
 			if ts != nil {
 				destcol[i] = *ts
 			}
+		}
+		return err
+	case vectorType:
+		vectorData := srcValue.(*array.FixedSizeList)
+		datatype := vectorData.DataType().(*arrow.FixedSizeListType)
+		dim := int(datatype.Len())
+		switch datatype.Elem().ID() {
+		case arrow.INT32:
+			values := vectorData.ListValues().(*array.Int32).Int32Values()
+			for i := 0; i < vectorData.Len(); i++ {
+				if vectorData.IsNull(i) {
+					destcol[i] = []int32(nil)
+				} else {
+					destcol[i] = values[i*dim : (i+1)*dim]
+				}
+			}
+		case arrow.FLOAT32:
+			values := vectorData.ListValues().(*array.Float32).Float32Values()
+			for i := 0; i < vectorData.Len(); i++ {
+				if vectorData.IsNull(i) {
+					destcol[i] = []float32(nil)
+				} else {
+					destcol[i] = values[i*dim : (i+1)*dim]
+				}
+			}
+		default:
+			return fmt.Errorf("unsupported element type %q for a vector", datatype.Elem().String())
 		}
 		return err
 	}

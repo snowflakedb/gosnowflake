@@ -46,14 +46,26 @@ type contextData struct {
 	Base64Data string `json:"base64Data,omitempty"`
 }
 
+type execResponseRowFieldType struct {
+	ByteLength int64                      `json:"byteLength"`
+	Length     int64                      `json:"length"`
+	Type       string                     `json:"type"`
+	Precision  int64                      `json:"precision"`
+	Scale      int64                      `json:"scale"`
+	Nullable   bool                       `json:"nullable"`
+	Fields     []execResponseRowFieldType `json:"fields"`
+}
+
 type execResponseRowType struct {
-	Name       string `json:"name"`
-	ByteLength int64  `json:"byteLength"`
-	Length     int64  `json:"length"`
-	Type       string `json:"type"`
-	Precision  int64  `json:"precision"`
-	Scale      int64  `json:"scale"`
-	Nullable   bool   `json:"nullable"`
+	Name            string                     `json:"name"`
+	ByteLength      int64                      `json:"byteLength"`
+	Length          int64                      `json:"length"`
+	Type            string                     `json:"type"`
+	Precision       int64                      `json:"precision"`
+	Scale           int64                      `json:"scale"`
+	Nullable        bool                       `json:"nullable"`
+	VectorDimension int                        `json:"vectorDimension"`
+	Fields          []execResponseRowFieldType `json:"fields"`
 }
 
 type execResponseChunk struct {
