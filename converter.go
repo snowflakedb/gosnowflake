@@ -1039,7 +1039,7 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 					return nil, err
 				}
 				defer newCol.Release()
-			} else if srcColumnMeta.Scale != 0 {
+			} else if srcColumnMeta.Scale != 0 && col.DataType().ID() != arrow.INT64 {
 				result, err := compute.Divide(ctxAlloc, compute.ArithmeticOptions{NoCheckOverflow: true},
 					&compute.ArrayDatum{Value: newCol.Data()},
 					compute.NewDatum(math.Pow10(int(srcColumnMeta.Scale))))
@@ -1048,6 +1048,20 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 				}
 				defer result.Release()
 				newCol = result.(*compute.ArrayDatum).MakeArray()
+				defer newCol.Release()
+			} else if srcColumnMeta.Scale != 0 && col.DataType().ID() == arrow.INT64 {
+				// gosnowflake driver uses compute.Divide() which could bring `integer value not in range: -9007199254740992 to 9007199254740992` error
+				// if we convert int64 to BigDecimal and then use compute.CastArray to convert BigDecimal to float64, we won't have enough precision.
+				// e.g 0.1 as (38,19) will result 0.09999999999999999
+				values := col.(*array.Int64).Int64Values()
+				floatValues := make([]float64, len(values))
+				for i, val := range values {
+					floatValues[i], _ = intToBigFloat(val, srcColumnMeta.Scale).Float64()
+				}
+				builder := array.NewFloat64Builder(memory.NewCheckedAllocator(memory.NewGoAllocator()))
+				builder.AppendValues(floatValues, nil)
+				newCol = builder.NewArray()
+				builder.Release()
 				defer newCol.Release()
 			}
 		case timeType:
