@@ -60,3 +60,34 @@ func snowflakeFormatToGoFormat(sfFormat string) (string, error) {
 	}
 	return res, nil
 }
+
+func dateTimeFormatByType(dateTimeType string, params map[string]*string) (string, error) {
+	paramsMutex.Lock()
+	defer paramsMutex.Unlock()
+	var format *string
+	switch dateTimeType {
+	case "date":
+		format = params["date_output_format"]
+	case "time":
+		format = params["time_output_format"]
+	case "timestamp_ltz":
+		format = params["timestamp_ltz_output_format"]
+		if format == nil || *format == "" {
+			format = params["timestamp_output_format"]
+		}
+	case "timestamp_tz":
+		format = params["timestamp_tz_output_format"]
+		if format == nil || *format == "" {
+			format = params["timestamp_output_format"]
+		}
+	case "timestamp_ntz":
+		format = params["timestamp_ntz_output_format"]
+		if format == nil || *format == "" {
+			format = params["timestamp_output_format"]
+		}
+	}
+	if format != nil {
+		return *format, nil
+	}
+	return "", errors.New("not known format parameter for " + dateTimeType)
+}

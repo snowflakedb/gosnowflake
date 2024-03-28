@@ -114,7 +114,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 			return err
 		}
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
-		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType, higherPrecision)
+		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType, higherPrecision, scd.sc.cfg.Params)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
@@ -458,7 +458,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			return nil
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
-		respd, err = arc.decodeArrowChunk(scd.RowSet.RowType, highPrec)
+		respd, err = arc.decodeArrowChunk(scd.RowSet.RowType, highPrec, scd.sc.cfg.Params)
 		if err != nil {
 			return err
 		}

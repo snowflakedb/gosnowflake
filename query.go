@@ -47,13 +47,21 @@ type contextData struct {
 }
 
 type execResponseRowType struct {
-	Name       string `json:"name"`
-	ByteLength int64  `json:"byteLength"`
-	Length     int64  `json:"length"`
-	Type       string `json:"type"`
-	Precision  int64  `json:"precision"`
-	Scale      int64  `json:"scale"`
-	Nullable   bool   `json:"nullable"`
+	Name       string          `json:"name"`
+	Fields     []fieldMetadata `json:"fields"`
+	ByteLength int64           `json:"byteLength"`
+	Length     int64           `json:"length"`
+	Type       string          `json:"type"`
+	Precision  int64           `json:"precision"`
+	Scale      int64           `json:"scale"`
+	Nullable   bool            `json:"nullable"`
+}
+
+type fieldMetadata struct {
+	Name   string          `json:"name"`
+	Type   string          `json:"type"`
+	Scale  int             `json:"scale"`
+	Fields []fieldMetadata `json:"fields"`
 }
 
 type execResponseChunk struct {

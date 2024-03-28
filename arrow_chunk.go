@@ -19,7 +19,7 @@ type arrowResultChunk struct {
 	allocator memory.Allocator
 }
 
-func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
+func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool, params map[string]*string) ([]chunkRowType, error) {
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
 
@@ -36,7 +36,7 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 
 		for colIdx, col := range columns {
 			values := make([]snowflakeValue, numRows)
-			if err := arrowToValue(values, rowType[colIdx], col, arc.loc, highPrec); err != nil {
+			if err := arrowToValue(values, rowType[colIdx], col, arc.loc, highPrec, params); err != nil {
 				return nil, err
 			}
 
