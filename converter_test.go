@@ -343,7 +343,7 @@ func TestArrayToString(t *testing.T) {
 	}
 }
 
-func TestArrowToValue(t *testing.T) {
+func TestArrowToValues(t *testing.T) {
 	dest := make([]snowflakeValue, 2)
 
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -867,7 +867,7 @@ func TestArrowToValue(t *testing.T) {
 
 			withHigherPrecision := tc.higherPrecision
 
-			if err := arrowToValue(dest, meta, arr, localTime.Location(), withHigherPrecision, nil); err != nil { // TODO
+			if err := arrowToValues(dest, meta, arr, localTime.Location(), withHigherPrecision, nil); err != nil { // TODO
 				t.Fatalf("error: %s", err)
 			}
 

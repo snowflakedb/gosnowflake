@@ -472,7 +472,7 @@ func extractFraction(value int64, scale int) int64 {
 
 // Arrow Interface (Column) converter. This is called when Arrow chunks are
 // downloaded to convert to the corresponding row type.
-func arrowToValue(
+func arrowToValues(
 	destcol []snowflakeValue,
 	srcColumnMeta execResponseRowType,
 	srcValue arrow.Array,
@@ -480,118 +480,91 @@ func arrowToValue(
 	higherPrecision bool,
 	params map[string]*string) error {
 
-	var err error
 	if len(destcol) != srcValue.Len() {
-		err = fmt.Errorf("array interface length mismatch")
+		return fmt.Errorf("array interface length mismatch")
 	}
 	logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
 
+	var err error
+	for i := range destcol {
+		if destcol[i], err = arrowToValue(i, srcColumnMeta, srcValue, loc, higherPrecision, params); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func arrowToValue(rowIdx int, srcColumnMeta execResponseRowType, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string) (snowflakeValue, error) {
 	snowflakeType := getSnowflakeType(srcColumnMeta.Type)
 	switch snowflakeType {
 	case fixedType:
 		// Snowflake data types that are fixed-point numbers will fall into this category
 		// e.g. NUMBER, DECIMAL/NUMERIC, INT/INTEGER
-		switch data := srcValue.(type) {
+		switch numericValue := srcValue.(type) {
 		case *array.Decimal128:
-			for i := range data.Values() {
-				destcol[i] = arrowDecimal128ToValue(srcValue.(*array.Decimal128), i, higherPrecision, int(srcColumnMeta.Scale))
-			}
+			return arrowDecimal128ToValue(numericValue, rowIdx, higherPrecision, int(srcColumnMeta.Scale)), nil
 		case *array.Int64:
-			for i := range data.Int64Values() {
-				destcol[i] = arrowInt64ToValue(srcValue.(*array.Int64), i, higherPrecision, int(srcColumnMeta.Scale))
-			}
+			return arrowInt64ToValue(numericValue, rowIdx, higherPrecision, int(srcColumnMeta.Scale)), nil
 		case *array.Int32:
-			for i := range data.Int32Values() {
-				destcol[i] = arrowInt32ToValue(srcValue.(*array.Int32), i, higherPrecision, int(srcColumnMeta.Scale))
-			}
+			return arrowInt32ToValue(numericValue, rowIdx, higherPrecision, int(srcColumnMeta.Scale)), nil
 		case *array.Int16:
-			for i := range data.Int16Values() {
-				destcol[i] = arrowInt16ToValue(srcValue.(*array.Int16), i, higherPrecision, int(srcColumnMeta.Scale))
-			}
+			return arrowInt16ToValue(numericValue, rowIdx, higherPrecision, int(srcColumnMeta.Scale)), nil
 		case *array.Int8:
-			for i := range data.Int8Values() {
-				destcol[i] = arrowInt8ToValue(srcValue.(*array.Int8), i, higherPrecision, int(srcColumnMeta.Scale))
-			}
+			return arrowInt8ToValue(numericValue, rowIdx, higherPrecision, int(srcColumnMeta.Scale)), nil
 		}
-		return err
+		return nil, fmt.Errorf("unsupported data type")
 	case booleanType:
-		for i := range destcol {
-			destcol[i] = arrowBoolToValue(srcValue.(*array.Boolean), i)
-		}
-		return err
+		return arrowBoolToValue(srcValue.(*array.Boolean), rowIdx), nil
 	case realType:
 		// Snowflake data types that are floating-point numbers will fall in this category
 		// e.g. FLOAT/REAL/DOUBLE
-		for i := range srcValue.(*array.Float64).Float64Values() {
-			destcol[i] = arrowRealToValue(srcValue.(*array.Float64), i)
-		}
-		return err
+		return arrowRealToValue(srcValue.(*array.Float64), rowIdx), nil
 	case textType, arrayType, variantType:
 		strings := srcValue.(*array.String)
-		for i := range destcol {
-			if !srcValue.IsNull(i) {
-				destcol[i] = strings.Value(i)
-			}
+		if !srcValue.IsNull(rowIdx) {
+			return strings.Value(rowIdx), nil
 		}
-		return err
+		return nil, nil
 	case objectType:
 		if len(srcColumnMeta.Fields) == 0 {
 			// semistructured type without schema
 			strings := srcValue.(*array.String)
-			for i := range destcol {
-				if !srcValue.IsNull(i) {
-					destcol[i] = strings.Value(i)
-				}
+			if !srcValue.IsNull(rowIdx) {
+				return strings.Value(rowIdx), nil
 			}
-			return err
+			return nil, nil
 		}
 		strings, ok := srcValue.(*array.String)
 		if ok {
 			// structured objects as json
-			for i := range destcol {
-				if !srcValue.IsNull(i) {
-					m := make(map[string]any)
-					err = json.Unmarshal([]byte(strings.Value(i)), &m)
-					if err != nil {
-						return err
-					}
-					destcol[i] = buildStructuredTypeRecursive(m, srcColumnMeta.Fields, params)
+			if !srcValue.IsNull(rowIdx) {
+				m := make(map[string]any)
+				err := json.Unmarshal([]byte(strings.Value(rowIdx)), &m)
+				if err != nil {
+					return nil, err
 				}
+				return buildStructuredTypeRecursive(m, srcColumnMeta.Fields, params), nil
 			}
-		} else {
-			// structured objects as native arrow
-			structs := srcValue.(*array.Struct)
-			for rowIdx := range destcol {
-				destcol[rowIdx] = arrowToStructuredType(structs, srcColumnMeta.Fields, loc, rowIdx, higherPrecision, params)
-			}
+			return nil, nil
 		}
-		return err
+		// structured objects as native arrow
+		structs := srcValue.(*array.Struct)
+		return arrowToStructuredType(structs, srcColumnMeta.Fields, loc, rowIdx, higherPrecision, params), nil
 	case binaryType:
-		for i := range destcol {
-			destcol[i] = arrowBinaryToValue(srcValue.(*array.Binary), i)
-		}
-		return err
+		return arrowBinaryToValue(srcValue.(*array.Binary), rowIdx), nil
 	case dateType:
-		for i := range srcValue.(*array.Date32).Date32Values() {
-			destcol[i] = arrowDateToValue(srcValue.(*array.Date32), i)
-		}
-		return err
+		return arrowDateToValue(srcValue.(*array.Date32), rowIdx), nil
 	case timeType:
-		for i := 0; i < srcValue.Len(); i++ {
-			destcol[i] = arrowTimeToValue(srcValue, i, int(srcColumnMeta.Scale))
-		}
-		return err
+		return arrowTimeToValue(srcValue, rowIdx, int(srcColumnMeta.Scale)), nil
 	case timestampNtzType, timestampLtzType, timestampTzType:
-		for i := range destcol {
-			var ts = arrowSnowflakeTimestampToTime(srcValue, snowflakeType, int(srcColumnMeta.Scale), i, loc)
-			if ts != nil {
-				destcol[i] = *ts
-			}
+		v := arrowSnowflakeTimestampToTime(srcValue, snowflakeType, int(srcColumnMeta.Scale), rowIdx, loc)
+		if v != nil {
+			return *v, nil
 		}
-		return err
+		return nil, nil
 	}
 
-	return fmt.Errorf("unsupported data type")
+	return nil, fmt.Errorf("unsupported data type")
 }
 
 func arrowToStructuredType(structs *array.Struct, fieldMetadata []fieldMetadata, loc *time.Location, rowIdx int, higherPrecision bool, params map[string]*string) *structuredType {
