@@ -258,6 +258,7 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.queryID = qid
+	rows.ctx = ctx
 	if err := sc.rowsForRunningQuery(ctx, qid, rows); err != nil {
 		return nil, err
 	}

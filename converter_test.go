@@ -138,35 +138,48 @@ func TestGoTypeToSnowflake(t *testing.T) {
 	}
 }
 
-type tcSnowflakeTypeToGo struct {
-	in     snowflakeType
-	scale  int64
-	out    reflect.Type
-	fields []fieldMetadata
-}
-
 func TestSnowflakeTypeToGo(t *testing.T) {
-	testcases := []tcSnowflakeTypeToGo{
-		{in: fixedType, scale: 0, out: reflect.TypeOf(int64(0))},
-		{in: fixedType, scale: 2, out: reflect.TypeOf(float64(0))},
-		{in: realType, scale: 0, out: reflect.TypeOf(float64(0))},
-		{in: textType, scale: 0, out: reflect.TypeOf("")},
-		{in: dateType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: timeType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: timestampLtzType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: timestampNtzType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: timestampTzType, scale: 0, out: reflect.TypeOf(time.Now())},
-		{in: objectType, scale: 0, out: reflect.TypeOf("")},
-		{in: objectType, scale: 0, fields: []fieldMetadata{{}}, out: reflect.TypeOf(ObjectType{})},
-		{in: variantType, scale: 0, out: reflect.TypeOf("")},
-		{in: arrayType, scale: 0, out: reflect.TypeOf("")},
-		{in: binaryType, scale: 0, out: reflect.TypeOf([]byte{})},
-		{in: booleanType, scale: 0, out: reflect.TypeOf(true)},
-		{in: sliceType, scale: 0, out: reflect.TypeOf("")},
+	testcases := []struct {
+		in     snowflakeType
+		scale  int64
+		fields []fieldMetadata
+		out    reflect.Type
+		ctx    context.Context
+	}{
+		{in: fixedType, scale: 0, out: reflect.TypeOf(int64(0)), ctx: context.Background()},
+		{in: fixedType, scale: 2, out: reflect.TypeOf(float64(0)), ctx: context.Background()},
+		{in: realType, scale: 0, out: reflect.TypeOf(float64(0)), ctx: context.Background()},
+		{in: textType, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
+		{in: dateType, scale: 0, out: reflect.TypeOf(time.Now()), ctx: context.Background()},
+		{in: timeType, scale: 0, out: reflect.TypeOf(time.Now()), ctx: context.Background()},
+		{in: timestampLtzType, scale: 0, out: reflect.TypeOf(time.Now()), ctx: context.Background()},
+		{in: timestampNtzType, scale: 0, out: reflect.TypeOf(time.Now()), ctx: context.Background()},
+		{in: timestampTzType, scale: 0, out: reflect.TypeOf(time.Now()), ctx: context.Background()},
+		{in: objectType, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
+		{in: objectType, scale: 0, fields: []fieldMetadata{{}}, out: reflect.TypeOf(ObjectType{}), ctx: context.Background()},
+		{in: variantType, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
+		{in: arrayType, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
+		{in: binaryType, scale: 0, out: reflect.TypeOf([]byte{}), ctx: context.Background()},
+		{in: booleanType, scale: 0, out: reflect.TypeOf(true), ctx: context.Background()},
+		{in: sliceType, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "fixed", Scale: 0}}, out: reflect.TypeOf([]int64{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "fixed", Scale: 1}}, out: reflect.TypeOf([]float64{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "fixed", Scale: 0}}, out: reflect.TypeOf([]*big.Int{}), ctx: WithHigherPrecision(context.Background())},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "fixed", Scale: 1}}, out: reflect.TypeOf([]*big.Float{}), ctx: WithHigherPrecision(context.Background())},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "real", Scale: 1}}, out: reflect.TypeOf([]float64{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "text"}}, out: reflect.TypeOf([]string{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "date"}}, out: reflect.TypeOf([]time.Time{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "time"}}, out: reflect.TypeOf([]time.Time{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "timestamp_ntz"}}, out: reflect.TypeOf([]time.Time{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "timestamp_ltz"}}, out: reflect.TypeOf([]time.Time{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "timestamp_tz"}}, out: reflect.TypeOf([]time.Time{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "boolean"}}, out: reflect.TypeOf([]bool{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "binary"}}, out: reflect.TypeOf([][]byte{}), ctx: context.Background()},
+		{in: arrayType, scale: 0, fields: []fieldMetadata{{Type: "object"}}, out: reflect.TypeOf([]ObjectType{}), ctx: context.Background()},
 	}
 	for _, test := range testcases {
 		t.Run(fmt.Sprintf("%v_%v", test.in, test.out), func(t *testing.T) {
-			a := snowflakeTypeToGo(test.in, test.scale, test.fields)
+			a := snowflakeTypeToGo(test.ctx, test.in, test.scale, test.fields)
 			if a != test.out {
 				t.Errorf("failed. in: %v, scale: %v, expected: %v, got: %v",
 					test.in, test.scale, test.out, a)
