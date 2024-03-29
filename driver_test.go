@@ -321,6 +321,25 @@ func (dbt *DBTest) mustPrepare(query string) (stmt *sql.Stmt) {
 	return stmt
 }
 
+func (dbt *DBTest) forceJSON() {
+	dbt.mustExec(forceJSON)
+}
+
+func (dbt *DBTest) forceArrow() {
+	dbt.mustExec(forceARROW)
+}
+
+func (dbt *DBTest) forceNativeArrow() { // structured types
+	dbt.mustExec(forceARROW)
+	dbt.mustExec("alter session set ENABLE_STRUCTURED_TYPES_NATIVE_ARROW_FORMAT = true")
+	dbt.mustExec("alter session set FORCE_ENABLE_STRUCTURED_TYPES_NATIVE_ARROW_FORMAT = true")
+}
+
+func (dbt *DBTest) enableStructuredTypes() {
+	dbt.mustExec("alter session set ENABLE_STRUCTURED_TYPES_IN_CLIENT_RESPONSE = true")
+	dbt.mustExec("alter session set IGNORE_CLIENT_VESRION_IN_STRUCTURED_TYPES_RESPONSE = true")
+}
+
 type SCTest struct {
 	*testing.T
 	sc *snowflakeConn
