@@ -105,7 +105,7 @@ func TestStructuredTypeWithAllTypes(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
-			rows := dbt.mustQuery("SELECT 1, {'s': 'some string', 'b': 1, 'i16': 2, 'i': 3, 'i64': 4, 'f32': '1.1', 'f64': 2.2, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child'}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR))")
+			rows := dbt.mustQuery("SELECT 1, {'s': 'some string', 'b': 1, 'i16': 2, 'i': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child'}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR))")
 			defer rows.Close()
 			rows.Next()
 			var ignore int
@@ -116,7 +116,7 @@ func TestStructuredTypeWithAllTypes(t *testing.T) {
 			assertEqualE(t, res.b, byte(1))
 			assertEqualE(t, res.i16, int16(2))
 			assertEqualE(t, res.i, 3)
-			assertEqualE(t, res.i64, int64(4))
+			assertEqualE(t, res.i64, int64(9223372036854775807))
 			assertEqualE(t, res.f32, float32(1.1))
 			assertEqualE(t, res.f64, 2.2)
 			assertEqualE(t, res.bo, true)

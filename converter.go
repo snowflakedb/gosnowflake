@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -280,8 +281,9 @@ func stringToValue(dest *driver.Value, srcColumnMeta execResponseRowType, srcVal
 			return nil
 		}
 		m := make(map[string]any)
-		err := json.Unmarshal([]byte(*srcValue), &m)
-		if err != nil {
+		decoder := json.NewDecoder(bytes.NewBufferString(*srcValue))
+		decoder.UseNumber()
+		if err := decoder.Decode(&m); err != nil {
 			return err
 		}
 		*dest = buildStructuredTypeRecursive(m, srcColumnMeta.Fields, params)
@@ -539,8 +541,9 @@ func arrowToValue(rowIdx int, srcColumnMeta execResponseRowType, srcValue arrow.
 			// structured objects as json
 			if !srcValue.IsNull(rowIdx) {
 				m := make(map[string]any)
-				err := json.Unmarshal([]byte(strings.Value(rowIdx)), &m)
-				if err != nil {
+				decoder := json.NewDecoder(bytes.NewBufferString(strings.Value(rowIdx)))
+				decoder.UseNumber()
+				if err := decoder.Decode(&m); err != nil {
 					return nil, err
 				}
 				return buildStructuredTypeRecursive(m, srcColumnMeta.Fields, params), nil

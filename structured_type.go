@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -81,10 +82,11 @@ func (st *structuredType) GetInt64(fieldName string) (int64, error) {
 	if b, err := getType[int64](st, fieldName, 0); err == nil {
 		return b, err
 	} else if b, err := getType[string](st, fieldName, ""); err == nil {
-		res, err := strconv.ParseInt(b, 10, 64)
-		return int64(res), err
+		return strconv.ParseInt(b, 10, 64)
 	} else if b, err := getType[float64](st, fieldName, 0); err == nil {
 		return int64(b), nil
+	} else if b, err := getType[json.Number](st, fieldName, ""); err == nil {
+		return strconv.ParseInt(string(b), 10, 64)
 	} else {
 		return 0, fmt.Errorf("cannot cast column %v to byte", fieldName)
 	}
@@ -95,7 +97,7 @@ func (st *structuredType) GetBigInt(fieldName string) (*big.Int, error) {
 }
 
 func (st *structuredType) GetFloat32(fieldName string) (float32, error) {
-	f32, err := getType[float64](st, fieldName, 0)
+	f32, err := st.GetFloat64(fieldName)
 	if err != nil {
 		return 0, err
 	}
@@ -103,6 +105,9 @@ func (st *structuredType) GetFloat32(fieldName string) (float32, error) {
 }
 
 func (st *structuredType) GetFloat64(fieldName string) (float64, error) {
+	if b, err := getType[json.Number](st, fieldName, ""); err == nil {
+		return strconv.ParseFloat(string(b), 64)
+	}
 	return getType[float64](st, fieldName, 0)
 }
 
