@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"context"
 	"database/sql/driver"
 	"io"
 	"reflect"
@@ -44,6 +45,7 @@ type snowflakeRows struct {
 	err                 error
 	errChannel          chan error
 	location            *time.Location
+	ctx                 context.Context
 }
 
 func (rows *snowflakeRows) getLocation() *time.Location {
@@ -147,10 +149,7 @@ func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return nil
 	}
-	return snowflakeTypeToGo(
-		getSnowflakeType(rows.ChunkDownloader.getRowType()[index].Type),
-		rows.ChunkDownloader.getRowType()[index].Scale,
-		rows.ChunkDownloader.getRowType()[index].Fields)
+	return snowflakeTypeToGo(rows.ctx, getSnowflakeType(rows.ChunkDownloader.getRowType()[index].Type), rows.ChunkDownloader.getRowType()[index].Scale, rows.ChunkDownloader.getRowType()[index].Fields)
 }
 
 func (rows *snowflakeRows) GetQueryID() string {

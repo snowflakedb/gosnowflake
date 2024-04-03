@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 	"strconv"
 	"time"
 )
@@ -30,6 +31,30 @@ type StructuredType interface {
 	GetBytes(fieldName string) ([]byte, error)
 	GetTime(fieldName string) (time.Time, error)
 	GetStruct(fieldName string, scanner sql.Scanner) (sql.Scanner, error)
+}
+
+// ArrayOfScanners Helper type for scanning array of sql.Scanner values.
+type ArrayOfScanners[T sql.Scanner] []T
+
+func (st *ArrayOfScanners[T]) Scan(val any) error {
+	sts := val.([]*structuredType)
+	*st = make([]T, len(sts))
+	var t T
+	for i, s := range sts {
+		(*st)[i] = reflect.New(reflect.TypeOf(t).Elem()).Interface().(T)
+		if err := (*st)[i].Scan(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ScanArrayOfScanners is a helper function for scanning arrays of sql.Scanner values.
+// Example:
+// var res []*simpleObject
+// err := rows.Scan(ScanArrayOfScanners(&res))
+func ScanArrayOfScanners[T sql.Scanner](value *[]T) *ArrayOfScanners[T] {
+	return (*ArrayOfScanners[T])(value)
 }
 
 type structuredType struct {

@@ -35,6 +35,10 @@ func assertEqualF(t *testing.T, actual any, expected any, descriptions ...string
 	fatalOnNonEmpty(t, validateEqual(actual, expected, descriptions...))
 }
 
+func assertDeepEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
+	errorOnNonEmpty(t, validateDeepEqual(actual, expected, descriptions...))
+}
+
 func assertNotEqualF(t *testing.T, actual any, expected any, descriptions ...string) {
 	fatalOnNonEmpty(t, validateNotEqual(actual, expected, descriptions...))
 }
@@ -113,6 +117,14 @@ func validateNotNil(actual any, descriptions ...string) string {
 
 func validateEqual(actual any, expected any, descriptions ...string) string {
 	if expected == actual {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s", actual, expected, desc)
+}
+
+func validateDeepEqual(actual any, expected any, descriptions ...string) string {
+	if reflect.DeepEqual(actual, expected) {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)

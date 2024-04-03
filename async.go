@@ -30,6 +30,7 @@ func (sr *snowflakeRestful) processAsync(
 		rows.queryID = respd.Data.QueryID
 		rows.status = QueryStatusInProgress
 		rows.errChannel = make(chan error)
+		rows.ctx = ctx
 		respd.Data.AsyncRows = rows
 	default:
 		return respd, nil
