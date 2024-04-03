@@ -611,15 +611,15 @@ func extractFraction(value int64, scale int) int64 {
 func arrowToValues(
 	destcol []snowflakeValue,
 	srcColumnMeta execResponseRowType,
-	srcValue arrow.Array,
+	srcValue *arrow.Array,
 	loc *time.Location,
 	higherPrecision bool,
 	params map[string]*string) error {
 
-	if len(destcol) != srcValue.Len() {
+	if len(destcol) != (*srcValue).Len() {
 		return fmt.Errorf("array interface length mismatch")
 	}
-	logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
+	logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, (*srcValue).DataType())
 
 	var err error
 	for i := range destcol {
@@ -630,13 +630,13 @@ func arrowToValues(
 	return nil
 }
 
-func arrowToValue(rowIdx int, srcColumnMeta execResponseRowType, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string) (snowflakeValue, error) {
+func arrowToValue(rowIdx int, srcColumnMeta execResponseRowType, srcValue *arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string) (snowflakeValue, error) {
 	snowflakeType := getSnowflakeType(srcColumnMeta.Type)
 	switch snowflakeType {
 	case fixedType:
 		// Snowflake data types that are fixed-point numbers will fall into this category
 		// e.g. NUMBER, DECIMAL/NUMERIC, INT/INTEGER
-		switch numericValue := srcValue.(type) {
+		switch numericValue := (*srcValue).(type) {
 		case *array.Decimal128:
 			return arrowDecimal128ToValue(numericValue, rowIdx, higherPrecision, int(srcColumnMeta.Scale)), nil
 		case *array.Int64:
@@ -650,36 +650,36 @@ func arrowToValue(rowIdx int, srcColumnMeta execResponseRowType, srcValue arrow.
 		}
 		return nil, fmt.Errorf("unsupported data type")
 	case booleanType:
-		return arrowBoolToValue(srcValue.(*array.Boolean), rowIdx), nil
+		return arrowBoolToValue((*srcValue).(*array.Boolean), rowIdx), nil
 	case realType:
 		// Snowflake data types that are floating-point numbers will fall in this category
 		// e.g. FLOAT/REAL/DOUBLE
-		return arrowRealToValue(srcValue.(*array.Float64), rowIdx), nil
+		return arrowRealToValue((*srcValue).(*array.Float64), rowIdx), nil
 	case textType, variantType:
-		strings := srcValue.(*array.String)
-		if !srcValue.IsNull(rowIdx) {
+		strings := (*srcValue).(*array.String)
+		if !(*srcValue).IsNull(rowIdx) {
 			return strings.Value(rowIdx), nil
 		}
 		return nil, nil
 	case arrayType:
 		if len(srcColumnMeta.Fields) == 0 {
 			// semistructured type without schema
-			strings := srcValue.(*array.String)
-			if !srcValue.IsNull(rowIdx) {
+			strings := (*srcValue).(*array.String)
+			if !(*srcValue).IsNull(rowIdx) {
 				return strings.Value(rowIdx), nil
 			}
 			return nil, nil
 		}
-		strings, ok := srcValue.(*array.String)
+		strings, ok := (*srcValue).(*array.String)
 		if ok {
 			// structured array as json
-			if !srcValue.IsNull(rowIdx) {
+			if !(*srcValue).IsNull(rowIdx) {
 				val := strings.Value(rowIdx)
 				return buildStructuredArray(srcColumnMeta.Fields[0], &val, params)
 			}
 			return nil, nil
 		}
-		list := srcValue.(*array.List)
+		list := (*srcValue).(*array.List)
 		if list.IsNull(rowIdx) {
 			return nil, nil
 		}
@@ -744,11 +744,11 @@ func arrowToValue(rowIdx int, srcColumnMeta execResponseRowType, srcValue arrow.
 			})
 		case dateType:
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (time.Time, error) {
-				return arrowDateToValue(values.(*array.Date32), int(j)).(time.Time), nil
+				return arrowDateToValue(values.(*array.Date32), j).(time.Time), nil
 			})
 		case timeType:
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (time.Time, error) {
-				return arrowTimeToValue(values, int(j), srcColumnMeta.Fields[0].Scale).(time.Time), nil
+				return arrowTimeToValue(&values, j, srcColumnMeta.Fields[0].Scale).(time.Time), nil
 			})
 		case timestampNtzType, timestampLtzType, timestampTzType:
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (time.Time, error) {
@@ -766,16 +766,16 @@ func arrowToValue(rowIdx int, srcColumnMeta execResponseRowType, srcValue arrow.
 	case objectType:
 		if len(srcColumnMeta.Fields) == 0 {
 			// semistructured type without schema
-			strings := srcValue.(*array.String)
-			if !srcValue.IsNull(rowIdx) {
+			strings := (*srcValue).(*array.String)
+			if !(*srcValue).IsNull(rowIdx) {
 				return strings.Value(rowIdx), nil
 			}
 			return nil, nil
 		}
-		strings, ok := srcValue.(*array.String)
+		strings, ok := (*srcValue).(*array.String)
 		if ok {
 			// structured objects as json
-			if !srcValue.IsNull(rowIdx) {
+			if !(*srcValue).IsNull(rowIdx) {
 				m := make(map[string]any)
 				decoder := json.NewDecoder(bytes.NewBufferString(strings.Value(rowIdx)))
 				decoder.UseNumber()
@@ -787,16 +787,16 @@ func arrowToValue(rowIdx int, srcColumnMeta execResponseRowType, srcValue arrow.
 			return nil, nil
 		}
 		// structured objects as native arrow
-		structs := srcValue.(*array.Struct)
+		structs := (*srcValue).(*array.Struct)
 		return arrowToStructuredType(structs, srcColumnMeta.Fields, loc, rowIdx, higherPrecision, params), nil
 	case binaryType:
-		return arrowBinaryToValue(srcValue.(*array.Binary), rowIdx), nil
+		return arrowBinaryToValue((*srcValue).(*array.Binary), rowIdx), nil
 	case dateType:
-		return arrowDateToValue(srcValue.(*array.Date32), rowIdx), nil
+		return arrowDateToValue((*srcValue).(*array.Date32), rowIdx), nil
 	case timeType:
 		return arrowTimeToValue(srcValue, rowIdx, int(srcColumnMeta.Scale)), nil
 	case timestampNtzType, timestampLtzType, timestampTzType:
-		v := arrowSnowflakeTimestampToTime(srcValue, snowflakeType, int(srcColumnMeta.Scale), rowIdx, loc)
+		v := arrowSnowflakeTimestampToTime((*srcValue), snowflakeType, int(srcColumnMeta.Scale), rowIdx, loc)
 		if v != nil {
 			return *v, nil
 		}
@@ -846,7 +846,8 @@ func arrowToStructuredType(structs *array.Struct, fieldMetadata []fieldMetadata,
 		case dateType:
 			v = arrowDateToValue(structs.Field(colIdx).(*array.Date32), rowIdx)
 		case timeType:
-			v = arrowTimeToValue(structs.Field(colIdx), rowIdx, fieldMetadata[colIdx].Scale)
+			field := structs.Field(colIdx)
+			v = arrowTimeToValue(&field, rowIdx, fieldMetadata[colIdx].Scale)
 		case textType:
 			v = structs.Field(colIdx).(*array.String).Value(rowIdx)
 		case timestampLtzType, timestampTzType, timestampNtzType:
@@ -956,15 +957,15 @@ func arrowDateToValue(srcValue *array.Date32, rowID int) snowflakeValue {
 	return nil
 }
 
-func arrowTimeToValue(srcValue arrow.Array, rowIdx int, scale int) snowflakeValue {
+func arrowTimeToValue(srcValue *arrow.Array, rowIdx int, scale int) snowflakeValue {
 	t0 := time.Time{}
-	if srcValue.DataType().ID() == arrow.INT64 {
-		if !srcValue.IsNull(rowIdx) {
-			return t0.Add(time.Duration(srcValue.(*array.Int64).Value(rowIdx) * int64(math.Pow10(9-scale))))
+	if (*srcValue).DataType().ID() == arrow.INT64 {
+		if !(*srcValue).IsNull(rowIdx) {
+			return t0.Add(time.Duration((*srcValue).(*array.Int64).Value(rowIdx) * int64(math.Pow10(9-scale))))
 		}
 	} else {
-		if !srcValue.IsNull(rowIdx) {
-			return t0.Add(time.Duration(int64(srcValue.(*array.Int32).Value(rowIdx)) * int64(math.Pow10(9-scale))))
+		if !(*srcValue).IsNull(rowIdx) {
+			return t0.Add(time.Duration(int64((*srcValue).(*array.Int32).Value(rowIdx)) * int64(math.Pow10(9-scale))))
 		}
 	}
 	return nil

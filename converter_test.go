@@ -880,7 +880,7 @@ func TestArrowToValues(t *testing.T) {
 
 			withHigherPrecision := tc.higherPrecision
 
-			if err := arrowToValues(dest, meta, arr, localTime.Location(), withHigherPrecision, nil); err != nil { // TODO
+			if err := arrowToValues(dest, meta, &arr, localTime.Location(), withHigherPrecision, nil); err != nil { // TODO
 				t.Fatalf("error: %s", err)
 			}
 
