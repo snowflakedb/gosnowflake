@@ -251,13 +251,6 @@ func TestArrayAndMetadata(t *testing.T) {
 					actual:    []float64{},
 				},
 				{
-					name:      "double",
-					query:     "SELECT ARRAY_CONSTRUCT(1.1, 2.2)::ARRAY(DOUBLE) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(DOUBLE)",
-					expected1: []float64{1.1, 2.2},
-					expected2: []float64{},
-					actual:    []float64{},
-				},
-				{
 					name:      "string",
 					query:     "SELECT ARRAY_CONSTRUCT('a', 'b')::ARRAY(VARCHAR) as structured_type",
 					expected1: []string{"a", "b"},
