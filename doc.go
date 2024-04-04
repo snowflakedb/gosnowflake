@@ -505,6 +505,12 @@ To address this issue and prevent potential downstream disruptions, the context 
 When enabled, this feature iterates through all values in string columns, identifying and replacing any invalid characters with `�`.
 This ensures that Arrow records conform to the UTF-8 standards, preventing validation failures in downstream services like the Rust Arrow library that impose strict validation checks.
 
+### WithHigherPrecision in Arrow batches
+To preserve BigDecimal values within Arrow batches, use `WithHigherPrecision`.
+This offers two main benefits: it helps avoid precision loss and defers the conversion to upstream services.
+Alternatively, without this setting, all non-zero scale numbers will be converted to float64, potentially resulting in loss of precision.
+Zero-scale numbers (DECIMAL256, DECIMAL128) will be converted to int64, which could lead to overflow.
+
 # Binding Parameters
 
 Binding allows a SQL statement to use a value that is stored in a Golang variable.
