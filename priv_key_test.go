@@ -91,7 +91,7 @@ func TestJWTAuthentication(t *testing.T) {
 
 	// Test that a valid private key can pass
 	jwtDSN := appendPrivateKeyString(&dsn, testPrivKey)
-	db, err := sql.Open("snowflake", jwtDSN)
+	db, err := sql.Open(DriverRegistrationName(), jwtDSN)
 	if err != nil {
 		t.Fatalf("error creating a connection object: %s", err.Error())
 	}
@@ -106,7 +106,7 @@ func TestJWTAuthentication(t *testing.T) {
 		t.Error(err)
 	}
 	jwtDSN = appendPrivateKeyString(&dsn, invalidPrivateKey)
-	db, err = sql.Open("snowflake", jwtDSN)
+	db, err = sql.Open(DriverRegistrationName(), jwtDSN)
 	if err != nil {
 		t.Error(err)
 	}
@@ -122,7 +122,7 @@ func TestJWTTokenTimeout(t *testing.T) {
 
 	dsn := "user:pass@localhost:12345/db/schema?account=jwtAuthTokenTimeout&protocol=http&jwtClientTimeout=1"
 	dsn = appendPrivateKeyString(&dsn, testPrivKey)
-	db, err := sql.Open("snowflake", dsn)
+	db, err := sql.Open(DriverRegistrationName(), dsn)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

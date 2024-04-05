@@ -38,7 +38,7 @@ func run(dsn string) {
 		}
 	}()
 
-	db, err := sql.Open("snowflake", dsn)
+	db, err := sql.Open(sf.DriverRegistrationName(), dsn)
 	if err != nil {
 		log.Fatalf("failed to connect. err: %v", err)
 	}

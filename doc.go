@@ -12,7 +12,7 @@ Clients can use the database/sql package directly. For example:
 	)
 
 	func main() {
-		db, err := sql.Open("snowflake", "user:password@my_organization-my_account/mydb")
+		db, err := sql.Open(DriverRegistrationName(), "user:password@my_organization-my_account/mydb")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -24,7 +24,7 @@ Clients can use the database/sql package directly. For example:
 
 Use the Open() function to create a database handle with connection parameters:
 
-	db, err := sql.Open("snowflake", "<connection string>")
+	db, err := sql.Open(DriverRegistrationName(), "<connection string>")
 
 The Go Snowflake Driver supports the following connection syntaxes (or data source name (DSN) formats):
 
@@ -42,7 +42,7 @@ named "my_account" under the organization named "my_organization",
 where the username is "jsmith", password is "mypassword", database is "mydb",
 schema is "testschema", and warehouse is "mywh":
 
-	db, err := sql.Open("snowflake", "jsmith:mypassword@my_organization-my_account/mydb/testschema?warehouse=mywh")
+	db, err := sql.Open(DriverRegistrationName(), "jsmith:mypassword@my_organization-my_account/mydb/testschema?warehouse=mywh")
 
 # Connection Parameters
 

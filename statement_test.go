@@ -19,7 +19,7 @@ func openDB(t *testing.T) *sql.DB {
 	var db *sql.DB
 	var err error
 
-	if db, err = sql.Open("snowflake", dsn); err != nil {
+	if db, err = sql.Open(DriverRegistrationName(), dsn); err != nil {
 		t.Fatalf("failed to open db. %v", err)
 	}
 
@@ -31,7 +31,7 @@ func openConn(t *testing.T) *sql.Conn {
 	var conn *sql.Conn
 	var err error
 
-	if db, err = sql.Open("snowflake", dsn); err != nil {
+	if db, err = sql.Open(DriverRegistrationName(), dsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
 	if conn, err = db.Conn(context.Background()); err != nil {

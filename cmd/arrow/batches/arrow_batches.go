@@ -6,12 +6,13 @@ import (
 	"database/sql/driver"
 	"flag"
 	"fmt"
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/memory"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -59,7 +60,7 @@ func main() {
 		" TO_TIMESTAMP_NTZ('9999-01-01 13:13:13.' || LPAD(SEQ4(),9,'0'))  ltz " +
 		" FROM TABLE(GENERATOR(ROWCOUNT=>30000))"
 
-	db, err := sql.Open("snowflake", dsn)
+	db, err := sql.Open(sf.DriverRegistrationName(), dsn)
 	if err != nil {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
 	}
