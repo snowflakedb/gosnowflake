@@ -55,6 +55,14 @@ func runningOnGithubAction() bool {
 	return os.Getenv("GITHUB_ACTIONS") != ""
 }
 
+func driverRegistrationName() string {
+	registrationName := os.Getenv("REGISTERATION_OVERRIDE")
+	if registrationName != "" {
+		return registrationName
+	}
+	return "snowfake"
+}
+
 var logger = CreateDefaultLogger()
 
 func init() {
@@ -66,7 +74,7 @@ func init() {
 			logger.Warn(logMsg)
 		}
 	}
-	sql.Register("snowflake", &SnowflakeDriver{})
+	sql.Register(driverRegistrationName(), &SnowflakeDriver{})
 	logger.SetLogLevel("error")
 	if runningOnGithubAction() {
 		logger.SetLogLevel("fatal")
