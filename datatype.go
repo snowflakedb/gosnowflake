@@ -23,6 +23,7 @@ const (
 	timestampTzType
 	objectType
 	arrayType
+	mapType
 	binaryType
 	timeType
 	booleanType
@@ -44,6 +45,7 @@ var snowflakeToDriverType = map[string]snowflakeType{
 	"TIMESTAMP_TZ":  timestampTzType,
 	"OBJECT":        objectType,
 	"ARRAY":         arrayType,
+	"MAP":           mapType,
 	"BINARY":        binaryType,
 	"TIME":          timeType,
 	"BOOLEAN":       booleanType,
