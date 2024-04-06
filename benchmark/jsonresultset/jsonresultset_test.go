@@ -68,7 +68,7 @@ func runJSONResultSet() {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
 
-	db, err := sql.Open(sf.DriverRegistrationName(), dsn)
+	db, err := sql.Open("snowflake", dsn)
 	defer db.Close()
 	if err != nil {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)

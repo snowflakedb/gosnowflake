@@ -82,7 +82,7 @@ func main() {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
 
-	db, err := sql.Open(sf.DriverRegistrationName(), dsn)
+	db, err := sql.Open("snowflake", dsn)
 	defer db.Close()
 
 	//Creating table to which the data from CSV file will be copied

@@ -34,7 +34,7 @@ func main() {
 		log.Fatalf("Failed to create DSN from config: %v, error: %v", cfg, err)
 	}
 
-	db, err := sql.Open(sf.DriverRegistrationName(), dsn)
+	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect, dsn: %v, error: %v", dsn, err)
 	}

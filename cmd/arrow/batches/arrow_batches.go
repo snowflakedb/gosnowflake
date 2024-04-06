@@ -60,7 +60,7 @@ func main() {
 		" TO_TIMESTAMP_NTZ('9999-01-01 13:13:13.' || LPAD(SEQ4(),9,'0'))  ltz " +
 		" FROM TABLE(GENERATOR(ROWCOUNT=>30000))"
 
-	db, err := sql.Open(sf.DriverRegistrationName(), dsn)
+	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
 		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
 	}
