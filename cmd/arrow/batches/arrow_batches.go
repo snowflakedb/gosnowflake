@@ -6,13 +6,12 @@ import (
 	"database/sql/driver"
 	"flag"
 	"fmt"
+	"github.com/apache/arrow/go/v15/arrow"	
+	"github.com/apache/arrow/go/v15/arrow/array"	
+	"github.com/apache/arrow/go/v15/arrow/memory"	
 	"log"
 	"sync"
 	"time"
-
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/memory"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )

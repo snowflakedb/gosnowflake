@@ -10,6 +10,8 @@ import (
 	"log"
 	"net/url"
 	"os"
+
+	_ "github.com/snowflakedb/gosnowflake"
 )
 
 func main() {
