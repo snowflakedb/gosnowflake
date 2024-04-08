@@ -444,6 +444,6 @@ func context2Fields(ctx context.Context) *rlog.Fields {
 			fields[key] = value
 		}
 	}
-	
+
 	return &fields
 }
