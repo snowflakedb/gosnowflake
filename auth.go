@@ -225,7 +225,7 @@ func postAuth(
 	params.Add(requestGUIDKey, NewUUID().String())
 
 	fullURL := sr.getFullURL(loginRequestPath, params)
-	logger.Infof("full URL: %v", fullURL)
+	logger.WithContext(ctx).Infof("full URL: %v", fullURL)
 	resp, err := sr.FuncAuthPost(ctx, client, fullURL, headers, bodyCreator, timeout, sr.MaxRetryCount)
 	if err != nil {
 		return nil, err
@@ -235,7 +235,7 @@ func postAuth(
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.Errorf("failed to decode JSON. err: %v", err)
+			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
 		return &respd, nil
@@ -260,11 +260,11 @@ func postAuth(
 	}
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logger.Errorf("failed to extract HTTP response body. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
-	logger.Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 	return nil, &SnowflakeError{
 		Number:      ErrFailedToAuth,
 		SQLState:    SQLStateConnectionRejected,
@@ -293,7 +293,7 @@ func authenticate(
 	proofKey []byte,
 ) (resp *authResponseMain, err error) {
 	if sc.cfg.Authenticator == AuthTypeTokenAccessor {
-		logger.Info("Bypass authentication using existing token from token accessor")
+		logger.WithContext(ctx).Info("Bypass authentication using existing token from token accessor")
 		sessionInfo := authResponseSessionInfo{
 			DatabaseName:  sc.cfg.Database,
 			SchemaName:    sc.cfg.Schema,
@@ -350,7 +350,7 @@ func authenticate(
 		params.Add("roleName", sc.cfg.Role)
 	}
 
-	logger.WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
+	logger.WithContext(ctx).WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
 		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
 
 	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, bodyCreator, sc.rest.LoginTimeout)
@@ -358,7 +358,7 @@ func authenticate(
 		return nil, err
 	}
 	if !respd.Success {
-		logger.Errorln("Authentication FAILED")
+		logger.WithContext(ctx).Errorln("Authentication FAILED")
 		sc.rest.TokenAccessor.SetTokens("", "", -1)
 		if sessionParameters[clientRequestMfaToken] == true {
 			deleteCredential(sc, mfaToken)
@@ -377,7 +377,7 @@ func authenticate(
 			Message:  respd.Message,
 		}).exceptionTelemetry(sc)
 	}
-	logger.Info("Authentication SUCCESS")
+	logger.WithContext(ctx).Info("Authentication SUCCESS")
 	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
 	if sessionParameters[clientRequestMfaToken] == true {
 		token := respd.Data.MfaToken
@@ -439,7 +439,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 		requestMain.Token = jwtTokenString
 	case AuthTypeSnowflake:
-		logger.Info("Username and password")
+		logger.WithContext(sc.ctx).Info("Username and password")
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Password = sc.cfg.Password
 		switch {
@@ -450,7 +450,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		}
 	case AuthTypeUsernamePasswordMFA:
-		logger.Info("Username and password MFA")
+		logger.WithContext(sc.ctx).Info("Username and password MFA")
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Password = sc.cfg.Password
 		if sc.cfg.MfaToken != "" {
@@ -527,7 +527,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		}
 	}
 
-	logger.Infof("Authenticating via %v", sc.cfg.Authenticator.String())
+	logger.WithContext(sc.ctx).Infof("Authenticating via %v", sc.cfg.Authenticator.String())
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
 		if sc.cfg.IDToken == "" {

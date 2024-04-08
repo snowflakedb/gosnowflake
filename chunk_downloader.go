@@ -124,8 +124,8 @@ func (scd *snowflakeChunkDownloader) start() error {
 	// start downloading chunks if exists
 	chunkMetaLen := len(scd.ChunkMetas)
 	if chunkMetaLen > 0 {
-		logger.Debugf("MaxChunkDownloadWorkers: %v", MaxChunkDownloadWorkers)
-		logger.Debugf("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
+		logger.WithContext(scd.ctx).Debugf("MaxChunkDownloadWorkers: %v", MaxChunkDownloadWorkers)
+		logger.WithContext(scd.ctx).Debugf("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.DoneDownloadCond = sync.NewCond(scd.ChunksMutex)
 		scd.Chunks = make(map[int][]chunkRowType)
@@ -133,7 +133,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 		scd.ChunksError = make(chan *chunkError, MaxChunkDownloadWorkers)
 		for i := 0; i < chunkMetaLen; i++ {
 			chunk := scd.ChunkMetas[i]
-			logger.Debugf("add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
+			logger.WithContext(scd.ctx).Debugf("add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
 				i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)
 			scd.ChunksChan <- i
 		}
@@ -147,11 +147,11 @@ func (scd *snowflakeChunkDownloader) start() error {
 func (scd *snowflakeChunkDownloader) schedule() {
 	select {
 	case nextIdx := <-scd.ChunksChan:
-		logger.Infof("schedule chunk: %v", nextIdx+1)
+		logger.WithContext(scd.ctx).Infof("schedule chunk: %v", nextIdx+1)
 		go scd.FuncDownload(scd.ctx, scd, nextIdx)
 	default:
 		// no more download
-		logger.Info("no more download")
+		logger.WithContext(scd.ctx).Info("no more download")
 	}
 }
 
@@ -164,15 +164,15 @@ func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 			// add the index to the chunks channel so that the download will be retried.
 			go scd.FuncDownload(scd.ctx, scd, errc.Index)
 			scd.ChunksErrorCounter++
-			logger.Warningf("chunk idx: %v, err: %v. retrying (%v/%v)...",
+			logger.WithContext(scd.ctx).Warningf("chunk idx: %v, err: %v. retrying (%v/%v)...",
 				errc.Index, errc.Error, scd.ChunksErrorCounter, maxChunkDownloaderErrorCounter)
 		} else {
 			scd.ChunksFinalErrors = append(scd.ChunksFinalErrors, errc)
-			logger.Warningf("chunk idx: %v, err: %v. no further retry", errc.Index, errc.Error)
+			logger.WithContext(scd.ctx).Warningf("chunk idx: %v, err: %v. no further retry", errc.Index, errc.Error)
 			return errc.Error
 		}
 	default:
-		logger.Info("no error is detected.")
+		logger.WithContext(scd.ctx).Info("no error is detected.")
 	}
 	return nil
 }
@@ -195,7 +195,7 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 		}
 
 		for scd.Chunks[scd.CurrentChunkIndex] == nil {
-			logger.Debugf("waiting for chunk idx: %v/%v",
+			logger.WithContext(scd.ctx).Debugf("waiting for chunk idx: %v/%v",
 				scd.CurrentChunkIndex+1, len(scd.ChunkMetas))
 
 			if err := scd.checkErrorRetry(); err != nil {
@@ -207,7 +207,7 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 			// 1) one chunk download finishes or 2) an error occurs.
 			scd.DoneDownloadCond.Wait()
 		}
-		logger.Debugf("ready: chunk %v", scd.CurrentChunkIndex+1)
+		logger.WithContext(scd.ctx).Debugf("ready: chunk %v", scd.CurrentChunkIndex+1)
 		scd.CurrentChunk = scd.Chunks[scd.CurrentChunkIndex]
 		scd.ChunksMutex.Unlock()
 		scd.CurrentChunkSize = len(scd.CurrentChunk)
@@ -216,7 +216,7 @@ func (scd *snowflakeChunkDownloader) next() (chunkRowType, error) {
 		scd.schedule()
 	}
 
-	logger.Debugf("no more data")
+	logger.WithContext(scd.ctx).Debugf("no more data")
 	if len(scd.ChunkMetas) > 0 {
 		close(scd.ChunksError)
 		close(scd.ChunksChan)
@@ -342,11 +342,11 @@ func (r *largeResultSetReader) Read(p []byte) (n int, err error) {
 }
 
 func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) {
-	logger.Infof("download start chunk: %v", idx+1)
+	logger.WithContext(ctx).Infof("download start chunk: %v", idx+1)
 	defer scd.DoneDownloadCond.Broadcast()
 
 	if err := scd.FuncDownloadHelper(ctx, scd, idx); err != nil {
-		logger.Errorf(
+		logger.WithContext(ctx).Errorf(
 			"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
 		scd.ChunksError <- &chunkError{Index: idx, Error: err}
 	} else if scd.ctx.Err() == context.Canceled || scd.ctx.Err() == context.DeadlineExceeded {
@@ -357,9 +357,9 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx int) error {
 	headers := make(map[string]string)
 	if len(scd.ChunkHeader) > 0 {
-		logger.Debug("chunk header is provided.")
+		logger.WithContext(ctx).Debug("chunk header is provided.")
 		for k, v := range scd.ChunkHeader {
-			logger.Debugf("adding header: %v, value: %v", k, v)
+			logger.WithContext(ctx).Debugf("adding header: %v, value: %v", k, v)
 
 			headers[k] = v
 		}
@@ -374,14 +374,14 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 	}
 	bufStream := bufio.NewReader(resp.Body)
 	defer resp.Body.Close()
-	logger.Debugf("response returned chunk: %v for URL: %v", idx+1, scd.ChunkMetas[idx].URL)
+	logger.WithContext(ctx).Debugf("response returned chunk: %v for URL: %v", idx+1, scd.ChunkMetas[idx].URL)
 	if resp.StatusCode != http.StatusOK {
 		b, err := io.ReadAll(bufStream)
 		if err != nil {
 			return err
 		}
-		logger.Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
-		logger.Infof("Header: %v", resp.Header)
+		logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
+		logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 		return &SnowflakeError{
 			Number:      ErrFailedToGetChunk,
 			SQLState:    SQLStateConnectionFailure,
@@ -463,7 +463,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			return err
 		}
 	}
-	logger.Debugf(
+	logger.WithContext(scd.ctx).Debugf(
 		"decoded %d rows w/ %d bytes in %s (chunk %v)",
 		scd.ChunkMetas[idx].RowCount,
 		scd.ChunkMetas[idx].UncompressedSize,

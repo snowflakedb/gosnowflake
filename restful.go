@@ -233,7 +233,7 @@ func postRestfulQueryHelper(
 	requestID UUID,
 	cfg *Config) (
 	data *execResponse, err error) {
-	logger.Infof("params: %v", params)
+	logger.WithContext(ctx).Infof("params: %v", params)
 	params.Add(requestIDKey, requestID.String())
 	params.Add(requestGUIDKey, NewUUID().String())
 	token, _, _ := sr.TokenAccessor.GetTokens()
@@ -281,7 +281,7 @@ func postRestfulQueryHelper(
 				fullURL = sr.getFullURL(respd.Data.GetResultURL, nil)
 			}
 
-			logger.Info("ping pong")
+			logger.WithContext(ctx).Info("ping pong")
 			token, _, _ = sr.TokenAccessor.GetTokens()
 			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 

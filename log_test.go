@@ -4,7 +4,9 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -249,5 +251,75 @@ func TestLogLevelFunctions(t *testing.T) {
 		!strings.Contains(strbuf, "warning") &&
 		!strings.Contains(strbuf, "error") {
 		t.Fatalf("unexpected output in log: %v", strbuf)
+	}
+}
+
+type testRequestIdCtxKey struct{}
+
+func TestLogKeysDefault(t *testing.T) {
+	logger := CreateDefaultLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+
+	ctx := context.Background()
+
+	// set the sessionID on the context to see if we have it in the logs
+	sessionIdContextValue := "sessionID"
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionIdContextValue)
+
+	userContextValue := "madison"
+	ctx = context.WithValue(ctx, SFSessionUserKey, userContextValue)
+
+	// base case (not using RegisterContextVariableToLog to add additional types )
+	logger.WithContext(ctx).Info("test")
+	var strbuf = buf.String()
+	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionIDKey, sessionIdContextValue)) {
+		t.Fatalf("expected that sfSessionIdKey would be in logs if logger.WithContext was used, but got: %v", strbuf)
+	}
+	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionUserKey, userContextValue)) {
+		t.Fatalf("expected that SFSessionUserKey would be in logs if logger.WithContext was used, but got: %v", strbuf)
+	}
+}
+
+func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
+	logger := CreateDefaultLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+
+	ctx := context.Background()
+
+	// set the sessionID on the context to see if we have it in the logs
+	sessionIdContextValue := "sessionID"
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionIdContextValue)
+
+	userContextValue := "madison"
+	ctx = context.WithValue(ctx, SFSessionUserKey, userContextValue)
+
+	// test that RegisterContextVariableToLog works with non string keys
+	logKey := "REQUEST_ID"
+	contextIntVal := 123
+	ctx = context.WithValue(ctx, testRequestIdCtxKey{}, contextIntVal)
+
+	getRequestKeyFunc := func(ctx context.Context) string {
+		if requestContext, ok := ctx.Value(testRequestIdCtxKey{}).(int); ok {
+			return fmt.Sprint(requestContext)
+		}
+		return ""
+	}
+
+	RegisterLogContextHook(logKey, getRequestKeyFunc)
+
+	// base case (not using RegisterContextVariableToLog to add additional types )
+	logger.WithContext(ctx).Info("test")
+	var strbuf = buf.String()
+
+	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionIDKey, sessionIdContextValue)) {
+		t.Fatalf("expected that sfSessionIdKey would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
+	}
+	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionUserKey, userContextValue)) {
+		t.Fatalf("expected that SFSessionUserKey would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
+	}
+	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", logKey, fmt.Sprint(contextIntVal))) {
+		t.Fatalf("expected that REQUEST_ID would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
 }

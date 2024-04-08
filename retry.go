@@ -306,7 +306,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	var retryReasonUpdater retryReasonUpdater
 
 	for {
-		logger.Debugf("retry count: %v", retryCounter)
+		logger.WithContext(r.ctx).Debugf("retry count: %v", retryCounter)
 		body, err := r.bodyCreator()
 		if err != nil {
 			return nil, err

@@ -20,7 +20,21 @@ const SFSessionIDKey contextKey = "LOG_SESSION_ID"
 // SFSessionUserKey is context key of  user id of a session
 const SFSessionUserKey contextKey = "LOG_USER"
 
-// LogKeys these keys in context should be included in logging messages when using logger.WithContext
+// map which stores a string which will be used as a log key to the function which
+// will be called to get the log value out of the context
+var clientLogContextHooks = map[string]ClientLogContextHook{}
+
+// ClientLogContextHook is a client-defined hook that can be used to insert log
+// fields based on the Context.
+type ClientLogContextHook func(context.Context) string
+
+// RegisterClientLogContextHook registers a hook that can be used to extract fields
+// from the Context and associated with log messages using the provided key. This
+// function is not thread-safe and should only be called on startup.
+func RegisterLogContextHook(contextKey string, ctxExtractor ClientLogContextHook) {
+	clientLogContextHooks[contextKey] = ctxExtractor
+}
+
 var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
 
 // SFLogger Snowflake logger interface to expose FieldLogger defined in logrus
@@ -425,5 +439,12 @@ func context2Fields(ctx context.Context) *rlog.Fields {
 			fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
 		}
 	}
+
+	for key, hook := range clientLogContextHooks {
+		if value := hook(ctx); value != "" {
+			fields[key] = value
+		}
+	}
+
 	return &fields
 }
