@@ -95,6 +95,27 @@ Install [jq](https://stedolan.github.io/jq) so that the parameters can get parse
 make test
 ```
 
+## Customize Logging
+
+If you would like to ensure that certain tags are always present in the logs, or to set a particular log level, `RegisterClientLogContextHook` or `SetLogLevel` can be used
+in your init function. See example below.
+```
+import "github.com/snowflakedb/gosnowflake"
+
+func init() {
+    // changes the log level to debug
+	sfLogger := gosnowflake.GetLogger()
+	_ = sfLogger.SetLogLevel("debug")
+
+    // each time the logger is used, the logs will contain a REQUEST_ID field with requestID the value extracted 
+    // from the context
+	gosnowflake.RegisterClientLogContextHook("REQUEST_ID", func(ctx context.Context) interface{} {
+		return requestIdFromContext(ctx)
+	})
+}
+```
+
+
 ## Capturing Code Coverage
 
 Configure your testing environment as described above and run ``make cov``. The coverage percentage will be printed on the console when the testing completes.
