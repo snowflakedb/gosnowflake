@@ -20,6 +20,19 @@ const SFSessionIDKey contextKey = "LOG_SESSION_ID"
 // SFSessionUserKey is context key of  user id of a session
 const SFSessionUserKey contextKey = "LOG_USER"
 
+var clientLogContextHooks = map[string]ClientLogContextHook{}
+
+// ClientLogContextHook is a client-defined hook that can be used to insert log
+// fields based on the Context.
+type ClientLogContextHook func(context.Context) interface{}
+
+// RegisterClientLogContextHook registers a hook that can be used to extract fields
+// from the Context and associated with log messages using the provided key. This
+// function is not thread-safe and should only be called on startup.
+func RegisterClientLogContextHook(key string, hook ClientLogContextHook) {
+	clientLogContextHooks[key] = hook
+}
+
 // LogKeys these keys in context should be included in logging messages when using logger.WithContext
 var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
 
@@ -425,5 +438,12 @@ func context2Fields(ctx context.Context) *rlog.Fields {
 			fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
 		}
 	}
+
+	for key, hook := range clientLogContextHooks {
+		if value := hook(ctx); value != nil {
+			fields[key] = value
+		}
+	}
+	
 	return &fields
 }
