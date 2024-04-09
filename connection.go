@@ -98,7 +98,7 @@ func (sc *snowflakeConn) exec(
 
 	queryContext, err := buildQueryContext(sc.queryContextCache)
 	if err != nil {
-		logger.Errorf("error while building query context: %v", err)
+		logger.WithContext(ctx).Errorf("error while building query context: %v", err)
 	}
 	req := execRequest{
 		SQLText:      query,
@@ -163,7 +163,7 @@ func (sc *snowflakeConn) exec(
 	if !sc.cfg.DisableQueryContextCache && data.Data.QueryContext != nil {
 		queryContext, err := extractQueryContext(data)
 		if err != nil {
-			logger.Errorf("error while decoding query context: ", err)
+			logger.WithContext(ctx).Errorf("error while decoding query context: ", err)
 		} else {
 			sc.queryContextCache.add(sc, queryContext.Entries...)
 		}
@@ -272,7 +272,7 @@ func (sc *snowflakeConn) Close() (err error) {
 
 	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
 		if err = sc.rest.FuncCloseSession(sc.ctx, sc.rest, sc.rest.RequestTimeout); err != nil {
-			logger.Error(err)
+			logger.WithContext(sc.ctx).Error(err)
 		}
 	}
 	return nil
@@ -350,7 +350,7 @@ func (sc *snowflakeConn) ExecContext(
 		}
 		return driver.ResultNoRows, nil
 	}
-	logger.Debug("DDL")
+	logger.WithContext(ctx).Debug("DDL")
 	if isStatementContext(ctx) {
 		return &snowflakeResultNoRows{queryID: data.Data.QueryID}, nil
 	}
@@ -571,7 +571,7 @@ func (w *wrapReader) Close() error {
 func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) error {
 	headers := make(map[string]string)
 	if len(asb.scd.ChunkHeader) > 0 {
-		logger.Debug("chunk header is provided")
+		logger.WithContext(ctx).Debug("chunk header is provided")
 		for k, v := range asb.scd.ChunkHeader {
 			logger.Debugf("adding header: %v, value: %v", k, v)
 
@@ -586,7 +586,7 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 	if err != nil {
 		return err
 	}
-	logger.Debugf("response returned chunk: %v for URL: %v", asb.idx+1, asb.scd.ChunkMetas[asb.idx].URL)
+	logger.WithContext(ctx).Debugf("response returned chunk: %v for URL: %v", asb.idx+1, asb.scd.ChunkMetas[asb.idx].URL)
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		b, err := io.ReadAll(resp.Body)
@@ -594,8 +594,8 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 			return err
 		}
 
-		logger.Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, asb.scd.ChunkMetas[asb.idx].URL, b)
-		logger.Infof("Header: %v", resp.Header)
+		logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, asb.scd.ChunkMetas[asb.idx].URL, b)
+		logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 		return &SnowflakeError{
 			Number:      ErrFailedToGetChunk,
 			SQLState:    SQLStateConnectionFailure,
