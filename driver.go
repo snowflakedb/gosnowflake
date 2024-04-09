@@ -56,7 +56,7 @@ func runningOnGithubAction() bool {
 }
 
 func skipRegisteration() bool {
-	return os.Getenv("SKIP_REGISTERATION") != ""
+	return os.Getenv("GOSNOWFLAKE_SKIP_REGISTERATION") != ""
 }
 
 var logger = CreateDefaultLogger()
