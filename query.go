@@ -57,6 +57,15 @@ type execResponseRowType struct {
 	Nullable   bool            `json:"nullable"`
 }
 
+func (ex *execResponseRowType) toFieldMetadata() fieldMetadata {
+	return fieldMetadata{
+		ex.Name,
+		ex.Type,
+		int(ex.Scale),
+		ex.Fields,
+	}
+}
+
 type fieldMetadata struct {
 	Name   string          `json:"name"`
 	Type   string          `json:"type"`
