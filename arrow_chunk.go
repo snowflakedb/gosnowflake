@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"time"
 
@@ -19,7 +20,7 @@ type arrowResultChunk struct {
 	allocator memory.Allocator
 }
 
-func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool, params map[string]*string) ([]chunkRowType, error) {
+func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []execResponseRowType, highPrec bool, params map[string]*string) ([]chunkRowType, error) {
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
 
@@ -36,7 +37,7 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 
 		for colIdx, col := range columns {
 			values := make([]snowflakeValue, numRows)
-			if err := arrowToValues(values, rowType[colIdx], col, arc.loc, highPrec, params); err != nil {
+			if err := arrowToValues(ctx, values, rowType[colIdx], col, arc.loc, highPrec, params); err != nil {
 				return nil, err
 			}
 
