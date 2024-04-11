@@ -279,16 +279,32 @@ func TestLogKeysDefault(t *testing.T) {
 	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionUserKey, userContextValue)) {
 		t.Fatalf("expected that SFSessionUserKey would be in logs if logger.WithContext was used, but got: %v", strbuf)
 	}
+}
+
+func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
+	logger := CreateDefaultLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+
+	ctx := context.Background()
+
+	// set the sessionID on the context to see if we have it in the logs
+	sessionIdContextValue := "sessionID"
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionIdContextValue)
+
+	userContextValue := "madison"
+	ctx = context.WithValue(ctx, SFSessionUserKey, userContextValue)
 
 	// test that RegisterContextVariableToLog works with non string keys
 	logKey := "REQUEST_ID"
 	contextIntVal := 123
 	RegisterContextVariableToLog(logKey, testRequestIdCtxKey{})
-	ctx = context.WithValue(ctx, logKey, contextIntVal)
+	ctx = context.WithValue(ctx, testRequestIdCtxKey{}, contextIntVal)
 
-	// ensure that the base case is still there
+	// base case (not using RegisterContextVariableToLog to add additional types )
 	logger.WithContext(ctx).Info("test")
-	strbuf = buf.String()
+	var strbuf = buf.String()
+
 	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionIDKey, sessionIdContextValue)) {
 		t.Fatalf("expected that sfSessionIdKey would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
@@ -298,5 +314,4 @@ func TestLogKeysDefault(t *testing.T) {
 	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", logKey, fmt.Sprint(contextIntVal))) {
 		t.Fatalf("expected that REQUEST_ID would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
-
 }
