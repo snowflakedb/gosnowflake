@@ -15,26 +15,23 @@ import (
 )
 
 // SFSessionIDKey is context key of session id
-const SFSessionIDKey contextKey = "LOG_SESSION_ID"
+const SFSessionIDKey = "LOG_SESSION_ID"
 
 // SFSessionUserKey is context key of  user id of a session
-const SFSessionUserKey contextKey = "LOG_USER"
-
-var clientLogContextHooks = map[string]ClientLogContextHook{}
-
-// ClientLogContextHook is a client-defined hook that can be used to insert log
-// fields based on the Context.
-type ClientLogContextHook func(context.Context) interface{}
+const SFSessionUserKey = "LOG_USER"
 
 // RegisterClientLogContextHook registers a hook that can be used to extract fields
 // from the Context and associated with log messages using the provided key. This
 // function is not thread-safe and should only be called on startup.
-func RegisterClientLogContextHook(key string, hook ClientLogContextHook) {
-	clientLogContextHooks[key] = hook
+func RegisterContextVariableToLog(logKey string, ctxKey interface{}) {
+	LogKeys[logKey] = contextKey(ctxKey)
 }
 
 // LogKeys these keys in context should be included in logging messages when using logger.WithContext
-var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
+var LogKeys map[string]contextKey = map[string]contextKey{
+	SFSessionIDKey:   SFSessionIDKey,
+	SFSessionUserKey: SFSessionUserKey,
+}
 
 // SFLogger Snowflake logger interface to expose FieldLogger defined in logrus
 type SFLogger interface {
@@ -433,15 +430,10 @@ func context2Fields(ctx context.Context) *rlog.Fields {
 		return &fields
 	}
 
-	for i := 0; i < len(LogKeys); i++ {
-		if ctx.Value(LogKeys[i]) != nil {
-			fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
-		}
-	}
-
-	for key, hook := range clientLogContextHooks {
-		if value := hook(ctx); value != nil {
-			fields[key] = value
+	for LogKey, contextKey := range LogKeys {
+		ctxValue := ctx.Value(contextKey)
+		if ctxValue != nil {
+			fields[LogKey] = ctxValue
 		}
 	}
 

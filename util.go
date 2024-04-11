@@ -17,28 +17,28 @@ import (
 	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
-type contextKey string
+type contextKey interface{}
 
 const (
-	multiStatementCount              contextKey = "MULTI_STATEMENT_COUNT"
-	asyncMode                        contextKey = "ASYNC_MODE_QUERY"
-	queryIDChannel                   contextKey = "QUERY_ID_CHANNEL"
-	snowflakeRequestIDKey            contextKey = "SNOWFLAKE_REQUEST_ID"
-	fetchResultByID                  contextKey = "SF_FETCH_RESULT_BY_ID"
-	fileStreamFile                   contextKey = "STREAMING_PUT_FILE"
-	fileTransferOptions              contextKey = "FILE_TRANSFER_OPTIONS"
-	enableHigherPrecision            contextKey = "ENABLE_HIGHER_PRECISION"
-	enableArrowBatchesUtf8Validation contextKey = "ENABLE_ARROW_BATCHES_UTF8_VALIDATION"
-	arrowBatches                     contextKey = "ARROW_BATCHES"
-	arrowAlloc                       contextKey = "ARROW_ALLOC"
-	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
-	queryTag                         contextKey = "QUERY_TAG"
+	multiStatementCount              = "MULTI_STATEMENT_COUNT"
+	asyncMode                        = "ASYNC_MODE_QUERY"
+	queryIDChannel                   = "QUERY_ID_CHANNEL"
+	snowflakeRequestIDKey            = "SNOWFLAKE_REQUEST_ID"
+	fetchResultByID                  = "SF_FETCH_RESULT_BY_ID"
+	fileStreamFile                   = "STREAMING_PUT_FILE"
+	fileTransferOptions              = "FILE_TRANSFER_OPTIONS"
+	enableHigherPrecision            = "ENABLE_HIGHER_PRECISION"
+	enableArrowBatchesUtf8Validation = "ENABLE_ARROW_BATCHES_UTF8_VALIDATION"
+	arrowBatches                     = "ARROW_BATCHES"
+	arrowAlloc                       = "ARROW_ALLOC"
+	arrowBatchesTimestampOption      = "ARROW_BATCHES_TIMESTAMP_OPTION"
+	queryTag                         = "QUERY_TAG"
 )
 
 const (
-	describeOnly        contextKey = "DESCRIBE_ONLY"
-	cancelRetry         contextKey = "CANCEL_RETRY"
-	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
+	describeOnly        = "DESCRIBE_ONLY"
+	cancelRetry         = "CANCEL_RETRY"
+	streamChunkDownload = "STREAM_CHUNK_DOWNLOAD"
 )
 
 var (
