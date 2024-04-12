@@ -15,22 +15,22 @@ import (
 )
 
 // SFSessionIDKey is context key of session id
-const SFSessionIDKey = "LOG_SESSION_ID"
+const SFSessionIDKey contextKey = "LOG_SESSION_ID"
 
 // SFSessionUserKey is context key of  user id of a session
-const SFSessionUserKey = "LOG_USER"
+const SFSessionUserKey contextKey = "LOG_USER"
 
 // RegisterClientLogContextHook registers a hook that can be used to extract fields
 // from the Context and associated with log messages using the provided key. This
 // function is not thread-safe and should only be called on startup.
 func RegisterContextVariableToLog(logKey string, ctxKey interface{}) {
-	LogKeys[logKey] = contextKey(ctxKey)
+	LogKeys[logKey] = ctxKey
 }
 
 // LogKeys these keys in context should be included in logging messages when using logger.WithContext
-var LogKeys map[string]contextKey = map[string]contextKey{
-	SFSessionIDKey:   SFSessionIDKey,
-	SFSessionUserKey: SFSessionUserKey,
+var LogKeys map[string]interface{} = map[string]interface{}{
+	string(SFSessionIDKey):   SFSessionIDKey,
+	string(SFSessionUserKey): SFSessionUserKey,
 }
 
 // SFLogger Snowflake logger interface to expose FieldLogger defined in logrus

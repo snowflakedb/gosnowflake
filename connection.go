@@ -55,7 +55,7 @@ const (
 type resultType string
 
 const (
-	snowflakeResultType            = "snowflakeResultType"
+	snowflakeResultType contextKey = "snowflakeResultType"
 	execResultType      resultType = "exec"
 	queryResultType     resultType = "query"
 )
