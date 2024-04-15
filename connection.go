@@ -674,7 +674,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
 	if scd.sc != nil && scd.sc.cfg != nil {
 		return getCurrentLocation(scd.sc.cfg.Params)
 	}
-	return time.UTC
+	return nil
 }
 func (scd *snowflakeArrowStreamChunkDownloader) TotalRows() int64 { return scd.Total }
 func (scd *snowflakeArrowStreamChunkDownloader) RowTypes() []execResponseRowType {

@@ -316,6 +316,9 @@ func stringToValue(
 		}
 		loc := Location(int(offset) - 1440)
 		tt := time.Unix(sec, nsec)
+		if loc == nil {
+			loc = time.Now().Location()
+		}
 		*dest = tt.In(loc)
 		return nil
 	case "binary":
@@ -367,6 +370,9 @@ func arrowSnowflakeTimestampToTime(
 	scale int,
 	recIdx int,
 	loc *time.Location) *time.Time {
+	if loc == nil {
+		loc = time.Now().Location()
+	}
 
 	if column.IsNull(recIdx) {
 		return nil
