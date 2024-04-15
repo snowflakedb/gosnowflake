@@ -413,12 +413,18 @@ func arrowSnowflakeTimestampToTime(
 			epoch := extractEpoch(value[recIdx], scale)
 			fraction := extractFraction(value[recIdx], scale)
 			locTz := Location(int(timezone[recIdx]) - 1440)
+			if locTz == nil {
+				locTz = time.Now().Location()
+			}
 			ret = time.Unix(epoch, fraction).In(locTz)
 		} else {
 			epoch := structData.Field(0).(*array.Int64).Int64Values()
 			fraction := structData.Field(1).(*array.Int32).Int32Values()
 			timezone := structData.Field(2).(*array.Int32).Int32Values()
 			locTz := Location(int(timezone[recIdx]) - 1440)
+			if locTz == nil {
+				locTz = time.Now().Location()
+			}
 			ret = time.Unix(epoch[recIdx], int64(fraction[recIdx])).In(locTz)
 		}
 	}
