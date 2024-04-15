@@ -798,16 +798,16 @@ func arrowToValues(
 	logger.Debugf("snowflake data type: %v, arrow data type: %v", srcColumnMeta.Type, srcValue.DataType())
 
 	var err error
+	snowflakeType := getSnowflakeType(srcColumnMeta.Type)
 	for i := range destcol {
-		if destcol[i], err = arrowToValue(ctx, i, srcColumnMeta, srcValue, loc, higherPrecision, params); err != nil {
+		if destcol[i], err = arrowToValue(ctx, i, srcColumnMeta, srcValue, loc, higherPrecision, params, snowflakeType); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta execResponseRowType, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string) (snowflakeValue, error) {
-	snowflakeType := getSnowflakeType(srcColumnMeta.Type)
+func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta execResponseRowType, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string, snowflakeType snowflakeType) (snowflakeValue, error) {
 	switch snowflakeType {
 	case fixedType:
 		// Snowflake data types that are fixed-point numbers will fall into this category
