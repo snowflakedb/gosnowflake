@@ -298,7 +298,13 @@ func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
 	// test that RegisterContextVariableToLog works with non string keys
 	logKey := "REQUEST_ID"
 	contextIntVal := 123
-	RegisterContextVariableToLog(logKey, testRequestIdCtxKey{})
+	getRequestKeyFunc := func(ctx context.Context) string {
+		if requestContext, ok := ctx.Value(testRequestIdCtxKey{}).(string); ok {
+			return requestContext
+		}
+		return ""
+	}
+	RegisterLogContextHook(logKey, getRequestKeyFunc)
 	ctx = context.WithValue(ctx, testRequestIdCtxKey{}, contextIntVal)
 
 	// base case (not using RegisterContextVariableToLog to add additional types )
