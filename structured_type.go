@@ -40,6 +40,7 @@ type StructuredObject interface {
 	GetTime(fieldName string) (time.Time, error)
 	GetNullTime(fieldName string) (sql.NullTime, error)
 	GetStruct(fieldName string, scanner sql.Scanner) (sql.Scanner, error)
+	GetRaw(fieldName string) (any, error)
 }
 
 // ArrayOfScanners Helper type for scanning array of sql.Scanner values.
@@ -60,10 +61,36 @@ func (st *ArrayOfScanners[T]) Scan(val any) error {
 
 // ScanArrayOfScanners is a helper function for scanning arrays of sql.Scanner values.
 // Example:
-// var res []*simpleObject
-// err := rows.Scan(ScanArrayOfScanners(&res))
+//
+//	var res []*simpleObject
+//	err := rows.Scan(ScanArrayOfScanners(&res))
 func ScanArrayOfScanners[T sql.Scanner](value *[]T) *ArrayOfScanners[T] {
 	return (*ArrayOfScanners[T])(value)
+}
+
+// MapOfScanners Helper type for scanning map of sql.Scanner values.
+type MapOfScanners[K comparable, V sql.Scanner] map[K]V
+
+func (st *MapOfScanners[K, V]) Scan(val any) error {
+	sts := val.(map[K]*structuredType)
+	*st = make(map[K]V)
+	var someV V
+	for k := range sts {
+		(*st)[k] = reflect.New(reflect.TypeOf(someV).Elem()).Interface().(V)
+		if err := (*st)[k].Scan(sts[k]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ScanMapOfScanners is a helper function for scanning maps of sql.Scanner values.
+// Example:
+//
+//	var res map[string]*simpleObject
+//	err := rows.Scan(ScanMapOfScanners(&res))
+func ScanMapOfScanners[K comparable, V sql.Scanner](m *map[K]V) *MapOfScanners[K, V] {
+	return (*MapOfScanners[K, V])(m)
 }
 
 type structuredType struct {
@@ -356,6 +383,9 @@ func (st *structuredType) GetStruct(fieldName string, scanner sql.Scanner) (sql.
 	}
 	err = scanner.Scan(childSt)
 	return scanner, err
+}
+func (st *structuredType) GetRaw(fieldName string) (any, error) {
+	return st.values[fieldName], nil
 }
 
 func (st *structuredType) fieldMetadataByFieldName(fieldName string) (fieldMetadata, error) {
