@@ -190,13 +190,13 @@ func readTemporaryCredential(sc *snowflakeConn, credType string) string {
 // Writes to temporary credential file when OS is Linux.
 func writeTemporaryCredential(sc *snowflakeConn, credType, token string) {
 	target := convertTarget(sc.cfg.Host, sc.cfg.User, credType)
+	temporaryCredCacheLock.Lock()
 	localCredCache[target] = token
 
 	j, err := json.Marshal(localCredCache)
 	if err != nil {
 		logger.Debugf("failed to convert credential to JSON.")
 	}
-	temporaryCredCacheLock.Lock()
 	writeTemporaryCacheFile(j)
 	temporaryCredCacheLock.Unlock()
 }
@@ -206,12 +206,12 @@ func deleteTemporaryCredential(sc *snowflakeConn, credType string) {
 		logger.Debug("Cache file doesn't exist. Skipping deleting credential file.")
 	} else {
 		target := convertTarget(sc.cfg.Host, sc.cfg.User, credType)
+		temporaryCredCacheLock.Lock()
 		delete(localCredCache, target)
 		j, err := json.Marshal(localCredCache)
 		if err != nil {
 			logger.Debugf("failed to convert credential to JSON.")
 		}
-		temporaryCredCacheLock.Lock()
 		writeTemporaryCacheFile(j)
 		temporaryCredCacheLock.Unlock()
 	}
