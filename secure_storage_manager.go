@@ -196,7 +196,8 @@ func writeTemporaryCredential(sc *snowflakeConn, credType, token string) {
 
 	j, err := json.Marshal(localCredCache)
 	if err != nil {
-		logger.Debugf("failed to convert credential to JSON.")
+		logger.Warnf("failed to convert credential to JSON.")
+		return
 	}
 	writeTemporaryCacheFile(j)
 }
@@ -211,7 +212,8 @@ func deleteTemporaryCredential(sc *snowflakeConn, credType string) {
 		delete(localCredCache, target)
 		j, err := json.Marshal(localCredCache)
 		if err != nil {
-			logger.Debugf("failed to convert credential to JSON.")
+			logger.Warnf("failed to convert credential to JSON.")
+			return
 		}
 		writeTemporaryCacheFile(j)
 	}
