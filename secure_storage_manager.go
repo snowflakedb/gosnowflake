@@ -62,7 +62,7 @@ func createCredentialCacheDir() {
 
 func setCredential(sc *snowflakeConn, credType, token string) {
 	if token == "" {
-		logger.WithContext(sc.ctx).Debug("no token provided")
+		logger.Debug("no token provided")
 	} else {
 		var target string
 		if runtime.GOOS == "windows" {
@@ -76,7 +76,7 @@ func setCredential(sc *snowflakeConn, credType, token string) {
 				Data: []byte(token),
 			}
 			if err := ring.Set(item); err != nil {
-				logger.WithContext(sc.ctx).Debugf("Failed to write to Windows credential manager. Err: %v", err)
+				logger.Debugf("Failed to write to Windows credential manager. Err: %v", err)
 			}
 		} else if runtime.GOOS == "darwin" {
 			target = convertTarget(sc.cfg.Host, sc.cfg.User, credType)
@@ -89,13 +89,13 @@ func setCredential(sc *snowflakeConn, credType, token string) {
 				Data: []byte(token),
 			}
 			if err := ring.Set(item); err != nil {
-				logger.WithContext(sc.ctx).Debugf("Failed to write to keychain. Err: %v", err)
+				logger.Debugf("Failed to write to keychain. Err: %v", err)
 			}
 		} else if runtime.GOOS == "linux" {
 			createCredentialCacheDir()
 			writeTemporaryCredential(sc, credType, token)
 		} else {
-			logger.WithContext(sc.ctx).Debug("OS not supported for Local Secure Storage")
+			logger.Debug("OS not supported for Local Secure Storage")
 		}
 	}
 }
@@ -111,7 +111,7 @@ func getCredential(sc *snowflakeConn, credType string) {
 		})
 		i, err := ring.Get(target)
 		if err != nil {
-			logger.WithContext(sc.ctx).Debugf("Failed to read target or could not find it in Windows Credential Manager. Error: %v", err)
+			logger.Debugf("Failed to read target or could not find it in Windows Credential Manager. Error: %v", err)
 		}
 		cred = string(i.Data)
 	} else if runtime.GOOS == "darwin" {
@@ -122,19 +122,19 @@ func getCredential(sc *snowflakeConn, credType string) {
 		account := strings.ToUpper(sc.cfg.User)
 		i, err := ring.Get(account)
 		if err != nil {
-			logger.WithContext(sc.ctx).Debugf("Failed to find the item in keychain or item does not exist. Error: %v", err)
+			logger.Debugf("Failed to find the item in keychain or item does not exist. Error: %v", err)
 		}
 		cred = string(i.Data)
 		if cred == "" {
-			logger.WithContext(sc.ctx).Debug("Returned credential is empty")
+			logger.Debug("Returned credential is empty")
 		} else {
-			logger.WithContext(sc.ctx).Debug("Successfully read token. Returning as string")
+			logger.Debug("Successfully read token. Returning as string")
 		}
 	} else if runtime.GOOS == "linux" {
 		createCredentialCacheDir()
 		cred = readTemporaryCredential(sc, credType)
 	} else {
-		logger.WithContext(sc.ctx).Debug("OS not supported for Local Secure Storage")
+		logger.Debug("OS not supported for Local Secure Storage")
 	}
 
 	if credType == idToken {
@@ -142,7 +142,7 @@ func getCredential(sc *snowflakeConn, credType string) {
 	} else if credType == mfaToken {
 		sc.cfg.MfaToken = cred
 	} else {
-		logger.WithContext(sc.ctx).Debugf("Unrecognized type %v for local cached credential", credType)
+		logger.Debugf("Unrecognized type %v for local cached credential", credType)
 	}
 }
 
@@ -155,7 +155,7 @@ func deleteCredential(sc *snowflakeConn, credType string) {
 		})
 		err := ring.Remove(target)
 		if err != nil {
-			logger.WithContext(sc.ctx).Debugf("Failed to delete target in Windows Credential Manager. Error: %v", err)
+			logger.Debugf("Failed to delete target in Windows Credential Manager. Error: %v", err)
 		}
 	} else if runtime.GOOS == "darwin" {
 		target = convertTarget(sc.cfg.Host, sc.cfg.User, credType)
@@ -165,7 +165,7 @@ func deleteCredential(sc *snowflakeConn, credType string) {
 		account := strings.ToUpper(sc.cfg.User)
 		err := ring.Remove(account)
 		if err != nil {
-			logger.WithContext(sc.ctx).Debugf("Failed to delete target in keychain. Error: %v", err)
+			logger.Debugf("Failed to delete target in keychain. Error: %v", err)
 		}
 	} else if runtime.GOOS == "linux" {
 		deleteTemporaryCredential(sc, credType)
@@ -180,9 +180,9 @@ func readTemporaryCredential(sc *snowflakeConn, credType string) string {
 	temporaryCredCacheLock.RUnlock()
 	cred := localCredCache[target]
 	if cred != "" {
-		logger.WithContext(sc.ctx).Debug("Successfully read token. Returning as string")
+		logger.Debug("Successfully read token. Returning as string")
 	} else {
-		logger.WithContext(sc.ctx).Debug("Returned credential is empty")
+		logger.Debug("Returned credential is empty")
 	}
 	return cred
 }
@@ -194,7 +194,7 @@ func writeTemporaryCredential(sc *snowflakeConn, credType, token string) {
 
 	j, err := json.Marshal(localCredCache)
 	if err != nil {
-		logger.WithContext(sc.ctx).Debugf("failed to convert credential to JSON.")
+		logger.Debugf("failed to convert credential to JSON.")
 	}
 	temporaryCredCacheLock.Lock()
 	writeTemporaryCacheFile(j)
@@ -203,13 +203,13 @@ func writeTemporaryCredential(sc *snowflakeConn, credType, token string) {
 
 func deleteTemporaryCredential(sc *snowflakeConn, credType string) {
 	if credCacheDir == "" {
-		logger.WithContext(sc.ctx).Debug("Cache file doesn't exist. Skipping deleting credential file.")
+		logger.Debug("Cache file doesn't exist. Skipping deleting credential file.")
 	} else {
 		target := convertTarget(sc.cfg.Host, sc.cfg.User, credType)
 		delete(localCredCache, target)
 		j, err := json.Marshal(localCredCache)
 		if err != nil {
-			logger.WithContext(sc.ctx).Debugf("failed to convert credential to JSON.")
+			logger.Debugf("failed to convert credential to JSON.")
 		}
 		temporaryCredCacheLock.Lock()
 		writeTemporaryCacheFile(j)
