@@ -254,7 +254,7 @@ func TestLogLevelFunctions(t *testing.T) {
 	}
 }
 
-type testRequestIdCtxKey struct{}
+type testRequestIDCtxKey struct{}
 
 func TestLogKeysDefault(t *testing.T) {
 	logger := CreateDefaultLogger()
@@ -264,8 +264,8 @@ func TestLogKeysDefault(t *testing.T) {
 	ctx := context.Background()
 
 	// set the sessionID on the context to see if we have it in the logs
-	sessionIdContextValue := "sessionID"
-	ctx = context.WithValue(ctx, SFSessionIDKey, sessionIdContextValue)
+	sessionIDContextValue := "sessionID"
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionIDContextValue)
 
 	userContextValue := "madison"
 	ctx = context.WithValue(ctx, SFSessionUserKey, userContextValue)
@@ -273,7 +273,7 @@ func TestLogKeysDefault(t *testing.T) {
 	// base case (not using RegisterContextVariableToLog to add additional types )
 	logger.WithContext(ctx).Info("test")
 	var strbuf = buf.String()
-	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionIDKey, sessionIdContextValue)) {
+	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionIDKey, sessionIDContextValue)) {
 		t.Fatalf("expected that sfSessionIdKey would be in logs if logger.WithContext was used, but got: %v", strbuf)
 	}
 	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionUserKey, userContextValue)) {
@@ -289,19 +289,19 @@ func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
 	ctx := context.Background()
 
 	// set the sessionID on the context to see if we have it in the logs
-	sessionIdContextValue := "sessionID"
-	ctx = context.WithValue(ctx, SFSessionIDKey, sessionIdContextValue)
+	sessionIDContextValue := "sessionID"
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionIDContextValue)
 
 	userContextValue := "madison"
-	ctx = context.WithValue(ctx, SFSessionUserKey, userContextValue)
+	ctx = context.WithValue(ctx, SFSessionUserKey, sessionIDContextValue)
 
 	// test that RegisterContextVariableToLog works with non string keys
 	logKey := "REQUEST_ID"
 	contextIntVal := 123
-	ctx = context.WithValue(ctx, testRequestIdCtxKey{}, contextIntVal)
+	ctx = context.WithValue(ctx, testRequestIDCtxKey{}, contextIntVal)
 
 	getRequestKeyFunc := func(ctx context.Context) string {
-		if requestContext, ok := ctx.Value(testRequestIdCtxKey{}).(int); ok {
+		if requestContext, ok := ctx.Value(testRequestIDCtxKey{}).(int); ok {
 			return fmt.Sprint(requestContext)
 		}
 		return ""
@@ -313,7 +313,7 @@ func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
 	logger.WithContext(ctx).Info("test")
 	var strbuf = buf.String()
 
-	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionIDKey, sessionIdContextValue)) {
+	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionIDKey, sessionIDContextValue)) {
 		t.Fatalf("expected that sfSessionIdKey would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
 	if !strings.Contains(strbuf, fmt.Sprintf("%s=%s", SFSessionUserKey, userContextValue)) {

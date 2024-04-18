@@ -28,13 +28,15 @@ var clientLogContextHooks = map[string]ClientLogContextHook{}
 // fields based on the Context.
 type ClientLogContextHook func(context.Context) string
 
-// RegisterClientLogContextHook registers a hook that can be used to extract fields
+// RegisterLogContextHook registers a hook that can be used to extract fields
 // from the Context and associated with log messages using the provided key. This
 // function is not thread-safe and should only be called on startup.
 func RegisterLogContextHook(contextKey string, ctxExtractor ClientLogContextHook) {
 	clientLogContextHooks[contextKey] = ctxExtractor
 }
 
+// LogKeys registers string-typed context keys to be written to the logs when
+// logger.WithContext is used
 var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
 
 // SFLogger Snowflake logger interface to expose FieldLogger defined in logrus
