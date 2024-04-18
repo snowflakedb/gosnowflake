@@ -27,7 +27,7 @@ var (
 )
 
 var (
-	temporaryCredCacheLock sync.RWMutex
+	credCacheLock sync.RWMutex
 )
 
 func createCredentialCacheDir() {
@@ -175,9 +175,9 @@ func deleteCredential(sc *snowflakeConn, credType string) {
 // Reads temporary credential file when OS is Linux.
 func readTemporaryCredential(sc *snowflakeConn, credType string) string {
 	target := convertTarget(sc.cfg.Host, sc.cfg.User, credType)
-	temporaryCredCacheLock.Lock()
+	credCacheLock.Lock()
+	defer credCacheLock.Unlock()
 	localCredCache := readTemporaryCacheFile()
-	temporaryCredCacheLock.Unlock()
 	cred := localCredCache[target]
 	if cred != "" {
 		logger.Debug("Successfully read token. Returning as string")
@@ -190,7 +190,8 @@ func readTemporaryCredential(sc *snowflakeConn, credType string) string {
 // Writes to temporary credential file when OS is Linux.
 func writeTemporaryCredential(sc *snowflakeConn, credType, token string) {
 	target := convertTarget(sc.cfg.Host, sc.cfg.User, credType)
-	temporaryCredCacheLock.Lock()
+	credCacheLock.Lock()
+	defer credCacheLock.Unlock()
 	localCredCache[target] = token
 
 	j, err := json.Marshal(localCredCache)
@@ -198,14 +199,14 @@ func writeTemporaryCredential(sc *snowflakeConn, credType, token string) {
 		logger.Debugf("failed to convert credential to JSON.")
 	}
 	writeTemporaryCacheFile(j)
-	temporaryCredCacheLock.Unlock()
 }
 
 func deleteTemporaryCredential(sc *snowflakeConn, credType string) {
 	if credCacheDir == "" {
 		logger.Debug("Cache file doesn't exist. Skipping deleting credential file.")
 	} else {
-		temporaryCredCacheLock.Lock()
+		credCacheLock.Lock()
+		defer credCacheLock.Unlock()
 		target := convertTarget(sc.cfg.Host, sc.cfg.User, credType)
 		delete(localCredCache, target)
 		j, err := json.Marshal(localCredCache)
@@ -213,7 +214,6 @@ func deleteTemporaryCredential(sc *snowflakeConn, credType string) {
 			logger.Debugf("failed to convert credential to JSON.")
 		}
 		writeTemporaryCacheFile(j)
-		temporaryCredCacheLock.Unlock()
 	}
 }
 
