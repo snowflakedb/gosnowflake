@@ -163,7 +163,7 @@ func (sc *snowflakeConn) exec(
 	if !sc.cfg.DisableQueryContextCache && data.Data.QueryContext != nil {
 		queryContext, err := extractQueryContext(data)
 		if err != nil {
-			logger.WithContext(ctx).Errorf("error while decoding query context: ", err)
+			logger.WithContext(ctx).Errorf("error while decoding query context: %v", err)
 		} else {
 			sc.queryContextCache.add(sc, queryContext.Entries...)
 		}
