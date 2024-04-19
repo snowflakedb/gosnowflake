@@ -287,7 +287,7 @@ func TestStringToValue(t *testing.T) {
 			rowType = &execResponseRowType{
 				Type: tt,
 			}
-			if err = stringToValue(&dest, *rowType, &source, nil, nil); err == nil {
+			if err = stringToValue(context.Background(), &dest, *rowType, &source, nil, nil); err == nil {
 				t.Errorf("should raise error. type: %v, value:%v", tt, source)
 			}
 		})
@@ -308,7 +308,7 @@ func TestStringToValue(t *testing.T) {
 				rowType = &execResponseRowType{
 					Type: tt,
 				}
-				if err = stringToValue(&dest, *rowType, &ss, nil, nil); err == nil {
+				if err = stringToValue(context.Background(), &dest, *rowType, &ss, nil, nil); err == nil {
 					t.Errorf("should raise error. type: %v, value:%v", tt, source)
 				}
 			})
@@ -316,7 +316,7 @@ func TestStringToValue(t *testing.T) {
 	}
 
 	src := "1549491451.123456789"
-	if err = stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, nil, nil); err != nil {
+	if err = stringToValue(context.Background(), &dest, execResponseRowType{Type: "timestamp_ltz"}, &src, nil, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	} else if ts, ok := dest.(time.Time); !ok {
 		t.Errorf("expected type: 'time.Time', got '%v'", reflect.TypeOf(dest))
@@ -880,7 +880,7 @@ func TestArrowToValues(t *testing.T) {
 
 			withHigherPrecision := tc.higherPrecision
 
-			if err := arrowToValues(dest, meta, arr, localTime.Location(), withHigherPrecision, nil); err != nil { // TODO
+			if err := arrowToValues(context.Background(), dest, meta, arr, localTime.Location(), withHigherPrecision, nil); err != nil { // TODO
 				t.Fatalf("error: %s", err)
 			}
 
@@ -2077,7 +2077,7 @@ func TestTimestampLTZLocation(t *testing.T) {
 		src := "1549491451.123456789"
 		var dest driver.Value
 		loc, _ := time.LoadLocation(PSTLocation)
-		if err := stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, loc, nil); err != nil {
+		if err := stringToValue(context.Background(), &dest, execResponseRowType{Type: "timestamp_ltz"}, &src, loc, nil); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 		ts, ok := dest.(time.Time)
@@ -2088,7 +2088,7 @@ func TestTimestampLTZLocation(t *testing.T) {
 			t.Errorf("expected location to be %v, got '%v'", loc, ts.Location())
 		}
 
-		if err := stringToValue(&dest, execResponseRowType{Type: "timestamp_ltz"}, &src, nil, nil); err != nil {
+		if err := stringToValue(context.Background(), &dest, execResponseRowType{Type: "timestamp_ltz"}, &src, nil, nil); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 		ts, ok = dest.(time.Time)

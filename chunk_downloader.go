@@ -114,7 +114,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 			return err
 		}
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
-		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.RowSet.RowType, higherPrecision, scd.sc.cfg.Params)
+		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.ctx, scd.RowSet.RowType, higherPrecision, scd.sc.cfg.Params)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
@@ -389,10 +389,10 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 			MessageArgs: []interface{}{idx},
 		}
 	}
-	return decodeChunk(scd, idx, bufStream)
+	return decodeChunk(ctx, scd, idx, bufStream)
 }
 
-func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader) (err error) {
+func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader) (err error) {
 	gzipMagic, err := bufStream.Peek(2)
 	if err != nil {
 		return err
@@ -458,7 +458,7 @@ func decodeChunk(scd *snowflakeChunkDownloader, idx int, bufStream *bufio.Reader
 			return nil
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
-		respd, err = arc.decodeArrowChunk(scd.RowSet.RowType, highPrec, scd.sc.cfg.Params)
+		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec, scd.sc.cfg.Params)
 		if err != nil {
 			return err
 		}

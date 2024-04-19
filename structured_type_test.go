@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"math/big"
 	"reflect"
 	"strings"
@@ -10,25 +11,29 @@ import (
 )
 
 type objectWithAllTypes struct {
-	s    string
-	b    byte
-	i16  int16
-	i    int
-	i64  int64
-	f32  float32
-	f64  float64
-	bo   bool
-	bi   []byte
-	date time.Time
-	time time.Time
-	ltz  time.Time
-	tz   time.Time
-	ntz  time.Time
-	so   simpleObject
+	s         string
+	b         byte
+	i16       int16
+	i32       int32
+	i64       int64
+	f32       float32
+	f64       float64
+	nfraction float64
+	bo        bool
+	bi        []byte
+	date      time.Time
+	time      time.Time
+	ltz       time.Time
+	tz        time.Time
+	ntz       time.Time
+	so        simpleObject
+	sArr      []string
+	f64Arr    []float64
+	someMap   map[string]bool
 }
 
 func (o *objectWithAllTypes) Scan(val any) error {
-	st := val.(StructuredType)
+	st := val.(StructuredObject)
 	var err error
 	if o.s, err = st.GetString("s"); err != nil {
 		return err
@@ -39,7 +44,7 @@ func (o *objectWithAllTypes) Scan(val any) error {
 	if o.i16, err = st.GetInt16("i16"); err != nil {
 		return err
 	}
-	if o.i, err = st.GetInt("i"); err != nil {
+	if o.i32, err = st.GetInt32("i32"); err != nil {
 		return err
 	}
 	if o.i64, err = st.GetInt64("i64"); err != nil {
@@ -49,6 +54,9 @@ func (o *objectWithAllTypes) Scan(val any) error {
 		return err
 	}
 	if o.f64, err = st.GetFloat64("f64"); err != nil {
+		return err
+	}
+	if o.nfraction, err = st.GetFloat64("nfraction"); err != nil {
 		return err
 	}
 	if o.bo, err = st.GetBool("bo"); err != nil {
@@ -77,21 +85,36 @@ func (o *objectWithAllTypes) Scan(val any) error {
 		return err
 	}
 	o.so = *so.(*simpleObject)
+	sArr, err := st.GetRaw("sArr")
+	if err != nil {
+		return err
+	}
+	o.sArr = sArr.([]string)
+	f64Arr, err := st.GetRaw("f64Arr")
+	if err != nil {
+		return err
+	}
+	o.f64Arr = f64Arr.([]float64)
+	someMap, err := st.GetRaw("someMap")
+	if err != nil {
+		return err
+	}
+	o.someMap = someMap.(map[string]bool)
 	return nil
 }
 
 type simpleObject struct {
 	s string
-	i int
+	i int32
 }
 
 func (so *simpleObject) Scan(val any) error {
-	st := val.(StructuredType)
+	st := val.(StructuredObject)
 	var err error
 	if so.s, err = st.GetString("s"); err != nil {
 		return err
 	}
-	if so.i, err = st.GetInt("i"); err != nil {
+	if so.i, err = st.GetInt32("i"); err != nil {
 		return err
 	}
 	return nil
@@ -108,9 +131,9 @@ func TestObjectWithAllTypes(t *testing.T) {
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
-			rows := dbt.mustQuery("SELECT 1, {'s': 'some string', 'b': 1, 'i16': 2, 'i': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER))")
+			rows := dbt.mustQuery("SELECT 1, {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 			defer rows.Close()
 			rows.Next()
 			var ignore int
@@ -120,10 +143,11 @@ func TestObjectWithAllTypes(t *testing.T) {
 			assertEqualE(t, res.s, "some string")
 			assertEqualE(t, res.b, byte(1))
 			assertEqualE(t, res.i16, int16(2))
-			assertEqualE(t, res.i, 3)
+			assertEqualE(t, res.i32, int32(3))
 			assertEqualE(t, res.i64, int64(9223372036854775807))
 			assertEqualE(t, res.f32, float32(1.1))
 			assertEqualE(t, res.f64, 2.2)
+			assertEqualE(t, res.nfraction, 3.3)
 			assertEqualE(t, res.bo, true)
 			assertBytesEqualE(t, res.bi, []byte{'a', 'b', 'c'})
 			assertEqualE(t, res.date, time.Date(2024, time.March, 21, 0, 0, 0, 0, time.UTC))
@@ -134,25 +158,175 @@ func TestObjectWithAllTypes(t *testing.T) {
 			assertTrueE(t, res.tz.Equal(time.Date(2022, time.August, 31, 13, 43, 22, 0, warsawTz)))
 			assertTrueE(t, res.ntz.Equal(time.Date(2023, time.May, 22, 1, 17, 19, 0, time.UTC)))
 			assertEqualE(t, res.so, simpleObject{s: "child", i: 9})
+			assertDeepEqualE(t, res.sArr, []string{"x", "y", "z"})
+			assertDeepEqualE(t, res.f64Arr, []float64{1.1, 2.2, 3.3})
+			assertDeepEqualE(t, res.someMap, map[string]bool{"x": true, "y": false})
 		})
 	})
 }
 
-type HigherPrecisionStruct struct {
-	i *big.Int
-	f *big.Float
+type objectWithAllTypesNullable struct {
+	s       sql.NullString
+	b       sql.NullByte
+	i16     sql.NullInt16
+	i32     sql.NullInt32
+	i64     sql.NullInt64
+	f64     sql.NullFloat64
+	bo      sql.NullBool
+	bi      []byte
+	date    sql.NullTime
+	time    sql.NullTime
+	ltz     sql.NullTime
+	tz      sql.NullTime
+	ntz     sql.NullTime
+	so      *simpleObject
+	sArr    []string
+	f64Arr  []float64
+	someMap map[string]bool
 }
 
-func (hps *HigherPrecisionStruct) Scan(val any) error {
-	st := val.(StructuredType)
+func (o *objectWithAllTypesNullable) Scan(val any) error {
+	st := val.(StructuredObject)
 	var err error
-	if hps.i, err = st.GetBigInt("i"); err != nil {
+	if o.s, err = st.GetNullString("s"); err != nil {
 		return err
 	}
-	if hps.f, err = st.GetBigFloat("f"); err != nil {
+	if o.b, err = st.GetNullByte("b"); err != nil {
 		return err
+	}
+	if o.i16, err = st.GetNullInt16("i16"); err != nil {
+		return err
+	}
+	if o.i32, err = st.GetNullInt32("i32"); err != nil {
+		return err
+	}
+	if o.i64, err = st.GetNullInt64("i64"); err != nil {
+		return err
+	}
+	if o.f64, err = st.GetNullFloat64("f64"); err != nil {
+		return err
+	}
+	if o.bo, err = st.GetNullBool("bo"); err != nil {
+		return err
+	}
+	if o.bi, err = st.GetBytes("bi"); err != nil {
+		return err
+	}
+	if o.date, err = st.GetNullTime("date"); err != nil {
+		return err
+	}
+	if o.time, err = st.GetNullTime("time"); err != nil {
+		return err
+	}
+	if o.ltz, err = st.GetNullTime("ltz"); err != nil {
+		return err
+	}
+	if o.tz, err = st.GetNullTime("tz"); err != nil {
+		return err
+	}
+	if o.ntz, err = st.GetNullTime("ntz"); err != nil {
+		return err
+	}
+	so, err := st.GetStruct("so", &simpleObject{})
+	if err != nil {
+		return err
+	}
+	if so != nil {
+		o.so = so.(*simpleObject)
+	} else {
+		o.so = nil
+	}
+	sArr, err := st.GetRaw("sArr")
+	if err != nil {
+		return err
+	}
+	if sArr != nil {
+		o.sArr = sArr.([]string)
+	}
+	f64Arr, err := st.GetRaw("f64Arr")
+	if err != nil {
+		return err
+	}
+	if f64Arr != nil {
+		o.f64Arr = f64Arr.([]float64)
+	}
+	someMap, err := st.GetRaw("someMap")
+	if err != nil {
+		return err
+	}
+	if someMap != nil {
+		o.someMap = someMap.(map[string]bool)
 	}
 	return nil
+}
+
+func TestObjectWithAllTypesNullable(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	warsawTz, err := time.LoadLocation("Europe/Warsaw")
+	assertNilF(t, err)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			t.Run("null", func(t *testing.T) {
+				rows := dbt.mustQuery("select null, object_construct_keep_null('s', null, 'b', null, 'i16', null, 'i32', null, 'i64', null, 'f64', null, 'bo', null, 'bi', null, 'date', null, 'time', null, 'ltz', null, 'tz', null, 'ntz', null, 'so', null, 'sArr', null, 'f64Arr', null, 'someMap', null)::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				defer rows.Close()
+				rows.Next()
+				var ignore sql.NullInt32
+				var res objectWithAllTypesNullable
+				err := rows.Scan(&ignore, &res)
+				assertNilF(t, err)
+				assertEqualE(t, ignore, sql.NullInt32{Valid: false})
+				assertEqualE(t, res.s, sql.NullString{Valid: false})
+				assertEqualE(t, res.b, sql.NullByte{Valid: false})
+				assertEqualE(t, res.i16, sql.NullInt16{Valid: false})
+				assertEqualE(t, res.i32, sql.NullInt32{Valid: false})
+				assertEqualE(t, res.i64, sql.NullInt64{Valid: false})
+				assertEqualE(t, res.f64, sql.NullFloat64{Valid: false})
+				assertEqualE(t, res.bo, sql.NullBool{Valid: false})
+				assertBytesEqualE(t, res.bi, nil)
+				assertEqualE(t, res.date, sql.NullTime{Valid: false})
+				assertEqualE(t, res.time, sql.NullTime{Valid: false})
+				assertEqualE(t, res.ltz, sql.NullTime{Valid: false})
+				assertEqualE(t, res.tz, sql.NullTime{Valid: false})
+				assertEqualE(t, res.ntz, sql.NullTime{Valid: false})
+				var so *simpleObject
+				assertDeepEqualE(t, res.so, so)
+			})
+			t.Run("not null", func(t *testing.T) {
+				rows := dbt.mustQuery("select 1, object_construct_keep_null('s', 'abc', 'b', 1, 'i16', 2, 'i32', 3, 'i64', 9223372036854775807, 'f64', 2.2, 'bo', true, 'bi', TO_BINARY('616263', 'HEX'), 'date', '2024-03-21'::DATE, 'time', '13:03:02'::TIME, 'ltz', '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz', '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz', '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so', {'s': 'child', 'i': 9}::OBJECT, 'sArr', ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr', ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap', {'x': true, 'y': false})::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				defer rows.Close()
+				rows.Next()
+				var ignore sql.NullInt32
+				var res objectWithAllTypesNullable
+				err := rows.Scan(&ignore, &res)
+				assertNilF(t, err)
+				assertEqualE(t, ignore, sql.NullInt32{Valid: true, Int32: 1})
+				assertEqualE(t, res.s, sql.NullString{Valid: true, String: "abc"})
+				assertEqualE(t, res.b, sql.NullByte{Valid: true, Byte: byte(1)})
+				assertEqualE(t, res.i16, sql.NullInt16{Valid: true, Int16: int16(2)})
+				assertEqualE(t, res.i32, sql.NullInt32{Valid: true, Int32: 3})
+				assertEqualE(t, res.i64, sql.NullInt64{Valid: true, Int64: 9223372036854775807})
+				assertEqualE(t, res.f64, sql.NullFloat64{Valid: true, Float64: 2.2})
+				assertEqualE(t, res.bo, sql.NullBool{Valid: true, Bool: true})
+				assertBytesEqualE(t, res.bi, []byte{'a', 'b', 'c'})
+				assertEqualE(t, res.date, sql.NullTime{Valid: true, Time: time.Date(2024, time.March, 21, 0, 0, 0, 0, time.UTC)})
+				assertTrueE(t, res.time.Valid)
+				assertEqualE(t, res.time.Time.Hour(), 13)
+				assertEqualE(t, res.time.Time.Minute(), 3)
+				assertEqualE(t, res.time.Time.Second(), 2)
+				assertTrueE(t, res.ltz.Valid)
+				assertTrueE(t, res.ltz.Time.Equal(time.Date(2021, time.July, 21, 11, 22, 33, 0, warsawTz)))
+				assertTrueE(t, res.tz.Valid)
+				assertTrueE(t, res.tz.Time.Equal(time.Date(2022, time.August, 31, 13, 43, 22, 0, warsawTz)))
+				assertTrueE(t, res.ntz.Valid)
+				assertTrueE(t, res.ntz.Time.Equal(time.Date(2023, time.May, 22, 1, 17, 19, 0, time.UTC)))
+				assertDeepEqualE(t, res.so, &simpleObject{s: "child", i: 9})
+				assertDeepEqualE(t, res.sArr, []string{"x", "y", "z"})
+				assertDeepEqualE(t, res.f64Arr, []float64{1.1, 2.2, 3.3})
+				assertDeepEqualE(t, res.someMap, map[string]bool{"x": true, "y": false})
+			})
+		})
+	})
 }
 
 func TestObjectMetadata(t *testing.T) {
@@ -426,6 +600,114 @@ func TestArrayOfObjects(t *testing.T) {
 	})
 }
 
+func TestArrayOfArrays(t *testing.T) {
+	warsawTz, err := time.LoadLocation("Europe/Warsaw")
+	assertNilF(t, err)
+	testcases := []struct {
+		name     string
+		query    string
+		actual   any
+		expected any
+	}{
+		{
+			name:     "string",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT('a', 'b', 'c'), ARRAY_CONSTRUCT('d', 'e'))::ARRAY(ARRAY(VARCHAR))",
+			actual:   make([][]string, 2),
+			expected: [][]string{{"a", "b", "c"}, {"d", "e"}},
+		},
+		{
+			name:     "int64",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(1, 2), ARRAY_CONSTRUCT(3, 4))::ARRAY(ARRAY(INTEGER))",
+			actual:   make([][]int64, 2),
+			expected: [][]int64{{1, 2}, {3, 4}},
+		},
+		{
+			name:     "float64 - fixed",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(1.1, 2.2), ARRAY_CONSTRUCT(3.3, 4.4))::ARRAY(ARRAY(NUMBER(38, 19)))",
+			actual:   make([][]float64, 2),
+			expected: [][]float64{{1.1, 2.2}, {3.3, 4.4}},
+		},
+		{
+			name:     "float64 - real",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(1.1, 2.2), ARRAY_CONSTRUCT(3.3, 4.4))::ARRAY(ARRAY(DOUBLE))",
+			actual:   make([][]float64, 2),
+			expected: [][]float64{{1.1, 2.2}, {3.3, 4.4}},
+		},
+		{
+			name:     "bool",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(true, false), ARRAY_CONSTRUCT(false, true, false))::ARRAY(ARRAY(BOOLEAN))",
+			actual:   make([][]bool, 2),
+			expected: [][]bool{{true, false}, {false, true, false}},
+		},
+		{
+			name:     "binary",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(TO_BINARY('6162'), TO_BINARY('6364')), ARRAY_CONSTRUCT(TO_BINARY('6566'), TO_BINARY('6768')))::ARRAY(ARRAY(BINARY))",
+			actual:   make([][][]byte, 2),
+			expected: [][][]byte{{{'a', 'b'}, {'c', 'd'}}, {{'e', 'f'}, {'g', 'h'}}},
+		},
+		{
+			name:     "date",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT('2024-01-01'::DATE, '2024-02-02'::DATE), ARRAY_CONSTRUCT('2024-03-03'::DATE, '2024-04-04'::DATE))::ARRAY(ARRAY(DATE))",
+			actual:   make([][]time.Time, 2),
+			expected: [][]time.Time{{time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 2, 2, 0, 0, 0, 0, time.UTC)}, {time.Date(2024, 3, 3, 0, 0, 0, 0, time.UTC), time.Date(2024, 4, 4, 0, 0, 0, 0, time.UTC)}},
+		},
+		{
+			name:     "time",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT('01:01:01'::TIME, '02:02:02'::TIME), ARRAY_CONSTRUCT('03:03:03'::TIME, '04:04:04'::TIME))::ARRAY(ARRAY(TIME))",
+			actual:   make([][]time.Time, 2),
+			expected: [][]time.Time{{time.Date(0, 1, 1, 1, 1, 1, 0, time.UTC), time.Date(0, 1, 1, 2, 2, 2, 0, time.UTC)}, {time.Date(0, 1, 1, 3, 3, 3, 0, time.UTC), time.Date(0, 1, 1, 4, 4, 4, 0, time.UTC)}},
+		},
+		{
+			name:     "timestamp_ltz",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT('2024-01-05 11:22:33'::TIMESTAMP_LTZ), ARRAY_CONSTRUCT('2001-11-12 11:22:33'::TIMESTAMP_LTZ))::ARRAY(ARRAY(TIMESTAMP_LTZ))",
+			actual:   make([][]time.Time, 2),
+			expected: [][]time.Time{{time.Date(2024, time.January, 5, 11, 22, 33, 0, warsawTz)}, {time.Date(2001, time.November, 12, 11, 22, 33, 0, warsawTz)}},
+		},
+		{
+			name:     "timestamp_ntz",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT('2024-01-05 11:22:33'::TIMESTAMP_NTZ), ARRAY_CONSTRUCT('2001-11-12 11:22:33'::TIMESTAMP_NTZ))::ARRAY(ARRAY(TIMESTAMP_NTZ))",
+			actual:   make([][]time.Time, 2),
+			expected: [][]time.Time{{time.Date(2024, time.January, 5, 11, 22, 33, 0, time.UTC)}, {time.Date(2001, time.November, 12, 11, 22, 33, 0, time.UTC)}},
+		},
+		{
+			name:     "timestamp_tz",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT('2024-01-05 11:22:33 +0100'::TIMESTAMP_TZ), ARRAY_CONSTRUCT('2001-11-12 11:22:33 +0100'::TIMESTAMP_TZ))::ARRAY(ARRAY(TIMESTAMP_TZ))",
+			actual:   make([][]time.Time, 2),
+			expected: [][]time.Time{{time.Date(2024, time.January, 5, 11, 22, 33, 0, warsawTz)}, {time.Date(2001, time.November, 12, 11, 22, 33, 0, warsawTz)}},
+		},
+	}
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			for _, tc := range testcases {
+				t.Run(tc.name, func(t *testing.T) {
+					rows := dbt.mustQuery(tc.query)
+					defer rows.Close()
+					rows.Next()
+					err := rows.Scan(&tc.actual)
+					assertNilF(t, err)
+					if timesOfTimes, ok := tc.expected.([][]time.Time); ok {
+						for i, timeOfTimes := range timesOfTimes {
+							for j, tm := range timeOfTimes {
+								if tc.name == "time" {
+									assertEqualE(t, tm.Hour(), tc.actual.([][]time.Time)[i][j].Hour())
+									assertEqualE(t, tm.Minute(), tc.actual.([][]time.Time)[i][j].Minute())
+									assertEqualE(t, tm.Second(), tc.actual.([][]time.Time)[i][j].Second())
+								} else {
+									assertTrueE(t, tm.Equal(tc.actual.([][]time.Time)[i][j]))
+								}
+							}
+						}
+					} else {
+						assertDeepEqualE(t, tc.actual, tc.expected)
+					}
+				})
+			}
+		})
+	})
+}
+
 func TestMapAndMetadata(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
@@ -658,6 +940,275 @@ func TestMapAndMetadata(t *testing.T) {
 	})
 }
 
+func TestMapOfObjects(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			rows := dbt.mustQuery("SELECT {'x': {'s': 'abc', 'i': 1}, 'y': {'s': 'def', 'i': 2}}::MAP(VARCHAR, OBJECT(s VARCHAR, i INTEGER))")
+			defer rows.Close()
+			var res map[string]*simpleObject
+			rows.Next()
+			err := rows.Scan(ScanMapOfScanners(&res))
+			assertNilF(t, err)
+			assertDeepEqualE(t, res, map[string]*simpleObject{"x": {s: "abc", i: 1}, "y": {s: "def", i: 2}})
+		})
+	})
+}
+
+func TestMapOfArrays(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	warsawTz, err := time.LoadLocation("Europe/Warsaw")
+	assertNilF(t, err)
+	testcases := []struct {
+		name     string
+		query    string
+		actual   any
+		expected any
+	}{
+		{
+			name:     "string",
+			query:    "SELECT {'x': ARRAY_CONSTRUCT('ab', 'cd'), 'y': ARRAY_CONSTRUCT('ef')}::MAP(VARCHAR, ARRAY(VARCHAR))",
+			actual:   make(map[string][]string),
+			expected: map[string][]string{"x": {"ab", "cd"}, "y": {"ef"}},
+		},
+		{
+			name:     "fixed - scale == 0",
+			query:    "SELECT {'x': ARRAY_CONSTRUCT(1, 2), 'y': ARRAY_CONSTRUCT(3, 4)}::MAP(VARCHAR, ARRAY(INTEGER))",
+			actual:   make(map[string][]int64),
+			expected: map[string][]int64{"x": {1, 2}, "y": {3, 4}},
+		},
+		{
+			name:     "fixed - scale != 0",
+			query:    "SELECT {'x': ARRAY_CONSTRUCT(1.1, 2.2), 'y': ARRAY_CONSTRUCT(3.3, 4.4)}::MAP(VARCHAR, ARRAY(NUMBER(38, 19)))",
+			actual:   make(map[string][]float64),
+			expected: map[string][]float64{"x": {1.1, 2.2}, "y": {3.3, 4.4}},
+		},
+		{
+			name:     "real",
+			query:    "SELECT {'x': ARRAY_CONSTRUCT(1.1, 2.2), 'y': ARRAY_CONSTRUCT(3.3, 4.4)}::MAP(VARCHAR, ARRAY(DOUBLE))",
+			actual:   make(map[string][]float64),
+			expected: map[string][]float64{"x": {1.1, 2.2}, "y": {3.3, 4.4}},
+		},
+		{
+			name:     "binary",
+			query:    "SELECT {'x': ARRAY_CONSTRUCT(TO_BINARY('6162')), 'y': ARRAY_CONSTRUCT(TO_BINARY('6364'), TO_BINARY('6566'))}::MAP(VARCHAR, ARRAY(BINARY))",
+			actual:   make(map[string][][]byte),
+			expected: map[string][][]byte{"x": {[]byte{'a', 'b'}}, "y": {[]byte{'c', 'd'}, []byte{'e', 'f'}}},
+		},
+		{
+			name:     "boolean",
+			query:    "SELECT {'x': ARRAY_CONSTRUCT(true, false), 'y': ARRAY_CONSTRUCT(false, true)}::MAP(VARCHAR, ARRAY(BOOLEAN))",
+			actual:   make(map[string][]bool),
+			expected: map[string][]bool{"x": {true, false}, "y": {false, true}},
+		},
+		{
+			name:     "date",
+			query:    "SELECT {'a': ARRAY_CONSTRUCT('2024-04-02'::DATE, '2024-04-03'::DATE)}::MAP(VARCHAR, ARRAY(DATE))",
+			expected: map[string][]time.Time{"a": {time.Date(2024, time.April, 2, 0, 0, 0, 0, time.UTC), time.Date(2024, time.April, 3, 0, 0, 0, 0, time.UTC)}},
+			actual:   make(map[string]time.Time),
+		},
+		{
+			name:     "time",
+			query:    "SELECT {'a': ARRAY_CONSTRUCT('13:03:02'::TIME, '13:03:03'::TIME)}::MAP(VARCHAR, ARRAY(TIME))",
+			expected: map[string][]time.Time{"a": {time.Date(0, 0, 0, 13, 3, 2, 0, time.UTC), time.Date(0, 0, 0, 13, 3, 3, 0, time.UTC)}},
+			actual:   make(map[string]time.Time),
+		},
+		{
+			name:     "timestamp_ntz",
+			query:    "SELECT {'a': ARRAY_CONSTRUCT('2024-01-05 11:22:33'::TIMESTAMP_NTZ, '2024-01-06 11:22:33'::TIMESTAMP_NTZ)}::MAP(VARCHAR, ARRAY(TIMESTAMP_NTZ))",
+			expected: map[string][]time.Time{"a": {time.Date(2024, time.January, 5, 11, 22, 33, 0, time.UTC), time.Date(2024, time.January, 6, 11, 22, 33, 0, time.UTC)}},
+			actual:   make(map[string]time.Time),
+		},
+		{
+			name:     "string timestamp_tz",
+			query:    "SELECT {'a': ARRAY_CONSTRUCT('2024-01-05 11:22:33 +0100'::TIMESTAMP_TZ, '2024-01-06 11:22:33 +0100'::TIMESTAMP_TZ)}::MAP(VARCHAR, ARRAY(TIMESTAMP_TZ))",
+			expected: map[string][]time.Time{"a": {time.Date(2024, time.January, 5, 11, 22, 33, 0, warsawTz), time.Date(2024, time.January, 6, 11, 22, 33, 0, warsawTz)}},
+			actual:   make(map[string]time.Time),
+		},
+		{
+			name:     "string timestamp_ltz",
+			query:    "SELECT {'a': ARRAY_CONSTRUCT('2024-01-05 11:22:33'::TIMESTAMP_LTZ, '2024-01-06 11:22:33'::TIMESTAMP_LTZ)}::MAP(VARCHAR, ARRAY(TIMESTAMP_LTZ))",
+			expected: map[string][]time.Time{"a": {time.Date(2024, time.January, 5, 11, 22, 33, 0, warsawTz), time.Date(2024, time.January, 6, 11, 22, 33, 0, warsawTz)}},
+			actual:   make(map[string]time.Time),
+		},
+	}
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			for _, tc := range testcases {
+				t.Run(tc.name, func(t *testing.T) {
+					rows := dbt.mustQuery(tc.query)
+					defer rows.Close()
+					rows.Next()
+					err := rows.Scan(&tc.actual)
+					assertNilF(t, err)
+					if expected, ok := tc.expected.(map[string][]time.Time); ok {
+						for k, v := range expected {
+							for i, expectedTime := range v {
+								if tc.name == "time" {
+									assertEqualE(t, expectedTime.Hour(), tc.actual.(map[string][]time.Time)[k][i].Hour())
+									assertEqualE(t, expectedTime.Minute(), tc.actual.(map[string][]time.Time)[k][i].Minute())
+									assertEqualE(t, expectedTime.Second(), tc.actual.(map[string][]time.Time)[k][i].Second())
+								} else {
+									assertTrueE(t, expectedTime.Equal(tc.actual.(map[string][]time.Time)[k][i]))
+								}
+							}
+						}
+					} else {
+						assertDeepEqualE(t, tc.actual, tc.expected)
+					}
+				})
+			}
+		})
+	})
+}
+
+func TestNullAndEmptyMaps(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			rows := dbt.mustQuery("SELECT {'a': 1}::MAP(VARCHAR, INTEGER) UNION SELECT NULL UNION SELECT {}::MAP(VARCHAR, INTEGER) UNION SELECT {'d': 4}::MAP(VARCHAR, INTEGER)")
+			defer rows.Close()
+			checkRow := func(rows *RowsExtended, expected *map[string]int64) {
+				rows.Next()
+				var res *map[string]int64
+				err := rows.Scan(&res)
+				assertNilF(t, err)
+				assertDeepEqualE(t, res, expected)
+			}
+			checkRow(rows, &map[string]int64{"a": 1})
+			checkRow(rows, nil)
+			checkRow(rows, &map[string]int64{})
+			checkRow(rows, &map[string]int64{"d": 4})
+		})
+	})
+}
+
+func TestMapWithNullValues(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	warsawTz, err := time.LoadLocation("Europe/Warsaw")
+	assertNilF(t, err)
+	testcases := []struct {
+		name     string
+		query    string
+		actual   any
+		expected any
+	}{
+		{
+			name:     "string",
+			query:    "SELECT object_construct_keep_null('x', 'abc', 'y', null)::MAP(VARCHAR, VARCHAR)",
+			actual:   make(map[string]sql.NullString),
+			expected: map[string]sql.NullString{"x": {Valid: true, String: "abc"}, "y": {Valid: false}},
+		},
+		{
+			name:     "bool",
+			query:    "SELECT object_construct_keep_null('x', true, 'y', null)::MAP(VARCHAR, BOOLEAN)",
+			actual:   make(map[string]sql.NullBool),
+			expected: map[string]sql.NullBool{"x": {Valid: true, Bool: true}, "y": {Valid: false}},
+		},
+		{
+			name:     "fixed - scale == 0",
+			query:    "SELECT object_construct_keep_null('x', 1, 'y', null)::MAP(VARCHAR, BIGINT)",
+			actual:   make(map[string]sql.NullInt64),
+			expected: map[string]sql.NullInt64{"x": {Valid: true, Int64: 1}, "y": {Valid: false}},
+		},
+		{
+			name:     "fixed - scale != 0",
+			query:    "SELECT object_construct_keep_null('x', 1.1, 'y', null)::MAP(VARCHAR, NUMBER(38, 19))",
+			actual:   make(map[string]sql.NullFloat64),
+			expected: map[string]sql.NullFloat64{"x": {Valid: true, Float64: 1.1}, "y": {Valid: false}},
+		},
+		{
+			name:     "real",
+			query:    "SELECT object_construct_keep_null('x', 1.1, 'y', null)::MAP(VARCHAR, DOUBLE)",
+			actual:   make(map[string]sql.NullFloat64),
+			expected: map[string]sql.NullFloat64{"x": {Valid: true, Float64: 1.1}, "y": {Valid: false}},
+		},
+		{
+			name:     "binary",
+			query:    "SELECT object_construct_keep_null('x', TO_BINARY('616263'), 'y', null)::MAP(VARCHAR, BINARY)",
+			actual:   make(map[string][]byte),
+			expected: map[string][]byte{"x": {'a', 'b', 'c'}, "y": nil},
+		},
+		{
+			name:     "date",
+			query:    "SELECT object_construct_keep_null('x', '2024-04-05'::DATE, 'y', null)::MAP(VARCHAR, DATE)",
+			actual:   make(map[string]sql.NullTime),
+			expected: map[string]sql.NullTime{"x": {Valid: true, Time: time.Date(2024, time.April, 5, 0, 0, 0, 0, time.UTC)}, "y": {Valid: false}},
+		},
+		{
+			name:     "time",
+			query:    "SELECT object_construct_keep_null('x', '13:14:15'::TIME, 'y', null)::MAP(VARCHAR, TIME)",
+			actual:   make(map[string]sql.NullTime),
+			expected: map[string]sql.NullTime{"x": {Valid: true, Time: time.Date(1, 0, 0, 13, 14, 15, 0, time.UTC)}, "y": {Valid: false}},
+		},
+		{
+			name:     "timestamp_tz",
+			query:    "SELECT object_construct_keep_null('x', '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'y', null)::MAP(VARCHAR, TIMESTAMP_TZ)",
+			actual:   make(map[string]sql.NullTime),
+			expected: map[string]sql.NullTime{"x": {Valid: true, Time: time.Date(2022, 8, 31, 13, 43, 22, 0, warsawTz)}, "y": {Valid: false}},
+		},
+		{
+			name:     "timestamp_ntz",
+			query:    "SELECT object_construct_keep_null('x', '2022-08-31 13:43:22'::TIMESTAMP_NTZ, 'y', null)::MAP(VARCHAR, TIMESTAMP_NTZ)",
+			actual:   make(map[string]sql.NullTime),
+			expected: map[string]sql.NullTime{"x": {Valid: true, Time: time.Date(2022, 8, 31, 13, 43, 22, 0, time.UTC)}, "y": {Valid: false}},
+		},
+		{
+			name:     "timestamp_ltz",
+			query:    "SELECT object_construct_keep_null('x', '2022-08-31 13:43:22'::TIMESTAMP_LTZ, 'y', null)::MAP(VARCHAR, TIMESTAMP_LTZ)",
+			actual:   make(map[string]sql.NullTime),
+			expected: map[string]sql.NullTime{"x": {Valid: true, Time: time.Date(2022, 8, 31, 13, 43, 22, 0, warsawTz)}, "y": {Valid: false}},
+		},
+	}
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			for _, tc := range testcases {
+				t.Run(tc.name, func(t *testing.T) {
+					rows := dbt.mustQueryContext(WithMapValuesNullable(context.Background()), tc.query)
+					defer rows.Close()
+					rows.Next()
+					err := rows.Scan(&tc.actual)
+					assertNilF(t, err)
+					if tc.name == "time" {
+						for i, nt := range tc.actual.(map[string]sql.NullTime) {
+							assertEqualE(t, nt.Valid, tc.expected.(map[string]sql.NullTime)[i].Valid)
+							assertEqualE(t, nt.Time.Hour(), tc.expected.(map[string]sql.NullTime)[i].Time.Hour())
+							assertEqualE(t, nt.Time.Minute(), tc.expected.(map[string]sql.NullTime)[i].Time.Minute())
+							assertEqualE(t, nt.Time.Second(), tc.expected.(map[string]sql.NullTime)[i].Time.Second())
+						}
+					} else if tc.name == "timestamp_tz" || tc.name == "timestamp_ltz" || tc.name == "timestamp_ntz" {
+						for i, nt := range tc.actual.(map[string]sql.NullTime) {
+							assertEqualE(t, nt.Valid, tc.expected.(map[string]sql.NullTime)[i].Valid)
+							assertTrueE(t, nt.Time.Equal(tc.expected.(map[string]sql.NullTime)[i].Time))
+						}
+					} else {
+						assertDeepEqualE(t, tc.actual, tc.expected)
+					}
+				})
+			}
+		})
+	})
+}
+
+type HigherPrecisionStruct struct {
+	i *big.Int
+	f *big.Float
+}
+
+func (hps *HigherPrecisionStruct) Scan(val any) error {
+	st := val.(StructuredObject)
+	var err error
+	if hps.i, err = st.GetBigInt("i"); err != nil {
+		return err
+	}
+	if hps.f, err = st.GetBigFloat("f"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func TestWithHigherPrecision(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
@@ -721,7 +1272,7 @@ func TestWithHigherPrecision(t *testing.T) {
 				assertEqualE(t, columnTypes[0].Name(), "STRUCTURED_TYPE")
 			})
 			t.Run("map of string to big ints", func(t *testing.T) {
-				rows := dbt.mustQueryContext(ctx, "SELECT {'x': 10000000000000000000000000000000000000}::MAP(VARCHAR, DECIMAL(38, 0)) as structured_type")
+				rows := dbt.mustQueryContext(ctx, "SELECT object_construct_keep_null('x', 10000000000000000000000000000000000000, 'y', null)::MAP(VARCHAR, DECIMAL(38, 0)) as structured_type")
 				defer rows.Close()
 				rows.Next()
 				var v *map[string]*big.Int
@@ -730,6 +1281,7 @@ func TestWithHigherPrecision(t *testing.T) {
 				bigInt, b := new(big.Int).SetString("10000000000000000000000000000000000000", 10)
 				assertTrueF(t, b)
 				assertEqualE(t, bigInt.Cmp((*v)["x"]), 0)
+				assertEqualE(t, (*v)["y"], (*big.Int)(nil))
 				columnTypes, err := rows.ColumnTypes()
 				assertNilF(t, err)
 				assertEqualE(t, len(columnTypes), 1)
@@ -738,7 +1290,7 @@ func TestWithHigherPrecision(t *testing.T) {
 				assertEqualE(t, columnTypes[0].Name(), "STRUCTURED_TYPE")
 			})
 			t.Run("map of string to big floats", func(t *testing.T) {
-				rows := dbt.mustQueryContext(ctx, "SELECT {'x': 1.2345678901234567890123456789012345678}::MAP(VARCHAR, DECIMAL(38, 37)) as structured_type")
+				rows := dbt.mustQueryContext(ctx, "SELECT {'x': 1.2345678901234567890123456789012345678, 'y': null}::MAP(VARCHAR, DECIMAL(38, 37)) as structured_type")
 				defer rows.Close()
 				rows.Next()
 				var v *map[string]*big.Float
@@ -747,6 +1299,7 @@ func TestWithHigherPrecision(t *testing.T) {
 				bigFloat, b := new(big.Float).SetPrec((*v)["x"].Prec()).SetString("1.2345678901234567890123456789012345678")
 				assertTrueE(t, b)
 				assertEqualE(t, bigFloat.Cmp((*v)["x"]), 0)
+				assertEqualE(t, (*v)["y"], (*big.Float)(nil))
 				columnTypes, err := rows.ColumnTypes()
 				assertNilF(t, err)
 				assertEqualE(t, len(columnTypes), 1)
@@ -788,27 +1341,6 @@ func TestWithHigherPrecision(t *testing.T) {
 				assertEqualE(t, columnTypes[0].DatabaseTypeName(), "MAP")
 				assertEqualE(t, columnTypes[0].Name(), "STRUCTURED_TYPE")
 			})
-		})
-	})
-}
-
-func TestNullAndEmptyMaps(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
-	runDBTest(t, func(dbt *DBTest) {
-		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQuery("SELECT {'a': 1}::MAP(VARCHAR, INTEGER) UNION SELECT NULL UNION SELECT {}::MAP(VARCHAR, INTEGER) UNION SELECT {'d': 4}::MAP(VARCHAR, INTEGER)")
-			defer rows.Close()
-			checkRow := func(rows *RowsExtended, expected *map[string]int64) {
-				rows.Next()
-				var res *map[string]int64
-				err := rows.Scan(&res)
-				assertNilF(t, err)
-				assertDeepEqualE(t, res, expected)
-			}
-			checkRow(rows, &map[string]int64{"a": 1})
-			checkRow(rows, nil)
-			checkRow(rows, &map[string]int64{})
-			checkRow(rows, &map[string]int64{"d": 4})
 		})
 	})
 }

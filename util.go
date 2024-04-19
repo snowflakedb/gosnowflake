@@ -33,6 +33,7 @@ const (
 	arrowAlloc                       contextKey = "ARROW_ALLOC"
 	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
 	queryTag                         contextKey = "QUERY_TAG"
+	mapValuesNullable                contextKey = "MAP_VALUES_NULLABLE"
 )
 
 const (
@@ -144,6 +145,12 @@ func WithArrowBatchesUtf8Validation(ctx context.Context) context.Context {
 // parameter on any queries that are run
 func WithQueryTag(ctx context.Context, tag string) context.Context {
 	return context.WithValue(ctx, queryTag, tag)
+}
+
+// WithMapValuesNullable changes how map values are returned.
+// Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
+func WithMapValuesNullable(ctx context.Context) context.Context {
+	return context.WithValue(ctx, mapValuesNullable, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one

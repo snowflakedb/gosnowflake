@@ -147,6 +147,26 @@ Session-level parameters can also be set by using the SQL command "ALTER SESSION
 
 Alternatively, use OpenWithConfig() function to create a database handle with the specified Config.
 
+# Connection Config
+You can also connect to your warehouse using the connection config. The dbSql library states that when you want to take advantage of driver-specific connection features that aren’t
+available in a connection string. Each driver supports its own set of connection properties, often providing ways to customize the connection request specific to the DBMS
+For example:
+
+	c := &gosnowflake.Config{
+		~your credentials go here~
+	}
+	connector := gosnowflake.NewConnector(gosnowflake.SnowflakeDriver{}, *c)
+	db := sql.OpenDB(connector)
+
+If you are using this method, you dont need to pass a driver name to specify the driver type in which
+you are looking to connect. Since the driver name is not needed, you can optionally bypass driver registration
+on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTERATION` in your environment. This is useful you wish to
+register multiple verions of the driver.
+
+Note: GOSNOWFLAKE_SKIP_REGISTERATION should not be used if sql.Open() is used as the method
+to connect to the server, as sql.Open will require registration so it can map the driver name
+to the driver type, which in this case is "snowflake" and SnowflakeDriver{}.
+
 # Proxy
 
 The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.
