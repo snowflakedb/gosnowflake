@@ -5,8 +5,10 @@ package gosnowflake
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -16,6 +18,7 @@ import (
 )
 
 type snowflakeFileUtil struct {
+	// ctx context.Context
 }
 
 const (
@@ -36,7 +39,9 @@ func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.
 	return &c, c.Len(), nil
 }
 
-func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir string) (string, int64, error) {
+func (util *snowflakeFileUtil) compressFileWithGzip(ctx context.Context, fileName string, tmpDir string) (string, int64, error) {
+	fmt.Printf("DEBUG: compressFileWithGzip ctx: %v\n", ctx)
+
 	basename := baseName(fileName)
 	gzipFileName := filepath.Join(tmpDir, basename+"_c.gz")
 

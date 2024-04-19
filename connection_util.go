@@ -86,6 +86,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	isInternal bool) (
 	*execResponse, error) {
 	sfa := snowflakeFileTransferAgent{
+		// ctx:     ctx,
 		sc:      sc,
 		data:    &data.Data,
 		command: query,
@@ -103,10 +104,10 @@ func (sc *snowflakeConn) processFileTransfer(
 	if sfa.options.MultiPartThreshold == 0 {
 		sfa.options.MultiPartThreshold = dataSizeThreshold
 	}
-	if err := sfa.execute(); err != nil {
+	if err := sfa.execute(ctx); err != nil {
 		return nil, err
 	}
-	data, err := sfa.result()
+	data, err := sfa.result(ctx)
 	if err != nil {
 		return nil, err
 	}

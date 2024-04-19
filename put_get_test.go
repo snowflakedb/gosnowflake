@@ -58,6 +58,7 @@ func TestPutError(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	fta := &snowflakeFileTransferAgent{
 		data: data,
 		options: &SnowflakeFileTransferOptions{
@@ -67,10 +68,10 @@ func TestPutError(t *testing.T) {
 			cfg: &Config{},
 		},
 	}
-	if err = fta.execute(); err != nil {
+	if err = fta.execute(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fta.result(); err != nil {
+	if _, err = fta.result(ctx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -83,10 +84,10 @@ func TestPutError(t *testing.T) {
 			cfg: &Config{},
 		},
 	}
-	if err = fta.execute(); err != nil {
+	if err = fta.execute(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fta.result(); err == nil {
+	if _, err = fta.result(ctx); err == nil {
 		t.Fatalf("should raise permission error")
 	}
 }
@@ -743,5 +744,43 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			}
 			assertEqualE(t, contents, originalContents, "output is different from the original file")
 		}
+	})
+}
+
+func TestPutCancel(t *testing.T) {
+	// create a 5GB file for upload
+	tmpDir := t.TempDir()
+	testData := filepath.Join(tmpDir, "data.txt")
+	f, err := os.Create(testData)
+	assertNilF(t, err)
+	err = f.Truncate(5e9)
+	assertNilF(t, err)
+	f.Close()
+
+	runDBTest(t, func(dbt *DBTest) {
+		c := make(chan error)
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			// attempt to upload a large file, but it should be canceled in 2 seconds
+			rows, err := dbt.conn.QueryContext(
+				ctx,
+				fmt.Sprintf("put 'file://%v' @~/test_put_cancel overwrite=true",
+					strings.ReplaceAll(testData, "\\", "/")))
+			if err != nil {
+				c <- err
+				return
+			}
+			defer rows.Close()
+			c <- nil
+		}()
+		// cancel after 2 seconds
+		time.Sleep(2 * time.Second)
+		fmt.Println("Canceled")
+		cancel()
+		ret := <-c
+		if ret.Error() != "context canceled" {
+			t.Fatalf("failed to cancel. err: %v", ret)
+		}
+		close(c)
 	})
 }

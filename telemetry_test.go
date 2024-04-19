@@ -60,7 +60,7 @@ func TestTelemetrySQLException(t *testing.T) {
 				SrcLocations: make([]string, 0),
 			},
 		}
-		if err := sfa.initFileMetadata(); err == nil {
+		if err := sfa.initFileMetadata(context.Background()); err == nil {
 			t.Fatal("this should have thrown an error")
 		}
 		if len(sct.sc.telemetry.logs) != 1 {
