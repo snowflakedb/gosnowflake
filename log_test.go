@@ -292,8 +292,8 @@ func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
 	sessionIDContextValue := "sessionID"
 	ctx = context.WithValue(ctx, SFSessionIDKey, sessionIDContextValue)
 
-	userContextValue := "madison"
-	ctx = context.WithValue(ctx, SFSessionUserKey, sessionIDContextValue)
+	userContextValue := "testUser"
+	ctx = context.WithValue(ctx, SFSessionUserKey, userContextValue)
 
 	// test that RegisterContextVariableToLog works with non string keys
 	logKey := "REQUEST_ID"
