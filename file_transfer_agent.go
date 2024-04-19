@@ -686,13 +686,13 @@ func (sfa *snowflakeFileTransferAgent) upload(
 	}
 
 	if len(smallFileMetadata) > 0 {
-		logger.Infof("uploading %v small files", len(smallFileMetadata))
+		logger.WithContext(sfa.sc.ctx).Infof("uploading %v small files", len(smallFileMetadata))
 		if err = sfa.uploadFilesParallel(smallFileMetadata); err != nil {
 			return err
 		}
 	}
 	if len(largeFileMetadata) > 0 {
-		logger.Infof("uploading %v large files", len(largeFileMetadata))
+		logger.WithContext(sfa.sc.ctx).Infof("uploading %v large files", len(largeFileMetadata))
 		if err = sfa.uploadFilesSequential(largeFileMetadata); err != nil {
 			return err
 		}

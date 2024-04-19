@@ -131,7 +131,7 @@ func getIdpURLProofKey(
 		return "", "", err
 	}
 	if !respd.Success {
-		logger.Errorln("Authentication FAILED")
+		logger.WithContext(ctx).Errorln("Authentication FAILED")
 		sr.TokenAccessor.SetTokens("", "", -1)
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
@@ -287,7 +287,7 @@ func doAuthenticateByExternalBrowser(
 			n, err := c.Read(b)
 			if err != nil {
 				if err != io.EOF {
-					logger.Infof("error reading from socket. err: %v", err)
+					logger.WithContext(ctx).Infof("error reading from socket. err: %v", err)
 					errAccept = &SnowflakeError{
 						Number:      ErrFailedToGetExternalBrowserResponse,
 						SQLState:    SQLStateConnectionRejected,

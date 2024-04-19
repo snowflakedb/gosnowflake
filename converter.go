@@ -137,7 +137,7 @@ func snowflakeTypeToGo(ctx context.Context, dbtype snowflakeType, scale int64, f
 			return reflect.TypeOf("")
 		}
 		if len(fields) != 1 {
-			logger.Warn("Unexpected fields number: " + strconv.Itoa(len(fields)))
+			logger.WithContext(ctx).Warn("Unexpected fields number: " + strconv.Itoa(len(fields)))
 			return reflect.TypeOf("")
 		}
 		switch getSnowflakeType(fields[0].Type) {
@@ -173,7 +173,7 @@ func snowflakeTypeToGo(ctx context.Context, dbtype snowflakeType, scale int64, f
 		}
 		return reflect.TypeOf(map[any]any{})
 	}
-	logger.Errorf("unsupported dbtype is specified. %v", dbtype)
+	logger.WithContext(ctx).Errorf("unsupported dbtype is specified. %v", dbtype)
 	return reflect.TypeOf("")
 }
 
@@ -200,7 +200,7 @@ func snowflakeTypeToGoForMaps[K comparable](ctx context.Context, valueMetadata f
 	case timeType, dateType, timestampTzType, timestampNtzType, timestampLtzType:
 		return reflect.TypeOf(map[K]time.Time{})
 	}
-	logger.Errorf("unsupported dbtype is specified for map value")
+	logger.WithContext(ctx).Errorf("unsupported dbtype is specified for map value")
 	return reflect.TypeOf("")
 }
 
@@ -2084,7 +2084,7 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 					if col.(*array.String).IsValid(i) {
 						stringValue := col.(*array.String).Value(i)
 						if !utf8.ValidString(stringValue) {
-							logger.Error("Invalid UTF-8 characters detected while reading query response, column: ", srcColumnMeta.Name)
+							logger.WithContext(ctx).Error("Invalid UTF-8 characters detected while reading query response, column: ", srcColumnMeta.Name)
 							stringValue = strings.ToValidUTF8(stringValue, "�")
 						}
 						tb.Append(stringValue)
