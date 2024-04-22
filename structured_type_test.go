@@ -1350,6 +1350,7 @@ func TestWithHigherPrecision(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -1379,6 +1380,7 @@ func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatches(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -1414,6 +1416,7 @@ func TestStructuredTypeInArrowBatches(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecision(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -1456,6 +1459,7 @@ func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecision(t *te
 }
 
 func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -1483,6 +1487,7 @@ func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -1511,6 +1516,7 @@ func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
 }
 
 func TestStructuredArrayInArrowBatches(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -1543,6 +1549,7 @@ func TestStructuredArrayInArrowBatches(t *testing.T) {
 }
 
 func TestStructuredMapInArrowBatches(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
