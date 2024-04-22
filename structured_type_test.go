@@ -1415,7 +1415,7 @@ func TestStructuredTypeInArrowBatches(t *testing.T) {
 	})
 }
 
-func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecision(t *testing.T) {
+func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf8Validation(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1424,7 +1424,7 @@ func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecision(t *te
 		var err error
 		var rows driver.Rows
 		err = dbt.conn.Raw(func(sc any) error {
-			ctx := WithHigherPrecision(WithArrowBatchesTimestampOption(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), UseOriginalTimestamp))
+			ctx := WithArrowBatchesUtf8Validation(WithHigherPrecision(WithArrowBatchesTimestampOption(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), UseOriginalTimestamp)))
 			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT 1, {'i': 123, 'f': 12.34, 'n0': 321, 'n19': 1.5, 's': 'some string', 'bi': TO_BINARY('616263', 'HEX'), 'bool': true, 'time': '11:22:33', 'date': '2024-04-18', 'ntz': '2024-04-01 11:22:33', 'tz': '2024-04-02 11:22:33 +0100', 'ltz': '2024-04-03 11:22:33'}::OBJECT(i INTEGER, f DOUBLE, n0 NUMBER(38, 0), n19 NUMBER(38, 19), s VARCHAR, bi BINARY, bool BOOLEAN, time TIME, date DATE, ntz TIMESTAMP_NTZ, tz TIMESTAMP_TZ, ltz TIMESTAMP_LTZ)", nil)
 			return err
 		})

@@ -2101,6 +2101,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 				}
 			}
 			newCol = tb.NewArray()
+		} else {
+			col.Retain()
 		}
 	case objectType:
 		if structCol, ok := col.(*array.Struct); ok {
@@ -2121,9 +2123,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			nullBitmap := memory.NewBufferBytes(structCol.NullBitmapBytes())
 			numberOfNulls := structCol.NullN()
 			return array.NewStructArrayWithNulls(internalCols, fieldNames, nullBitmap, numberOfNulls, 0)
-		} else {
-			return col, nil
 		}
+		return col, nil
 	case arrayType:
 		if _, ok := col.(*array.List); ok {
 			listCol := col.(*array.List)
