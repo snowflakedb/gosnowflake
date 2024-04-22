@@ -1973,11 +1973,9 @@ func arrowToRecord(ctx context.Context, record arrow.Record, pool memory.Allocat
 			return nil, err
 		}
 		cols = append(cols, newCol)
+		defer newCol.Release()
 	}
 	newRecord := array.NewRecord(s, cols, numRows)
-	for _, col := range newRecord.Columns() {
-		col.Release()
-	}
 	return newRecord, nil
 }
 
@@ -1989,6 +1987,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 	case fixedType:
 		if higherPrecisionEnabled {
 			// do nothing - return decimal as is
+			col.Retain()
 		} else if col.DataType().ID() == arrow.DECIMAL || col.DataType().ID() == arrow.DECIMAL256 {
 			var toType arrow.DataType
 			if fieldMetadata.Scale == 0 {
@@ -2033,6 +2032,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 	case timestampNtzType, timestampLtzType, timestampTzType:
 		if timestampOption == UseOriginalTimestamp {
 			// do nothing - return timestamp as is
+			col.Retain()
 		} else {
 			var unit arrow.TimeUnit
 			switch timestampOption {
@@ -2127,6 +2127,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 	case arrayType:
 		if _, ok := col.(*array.List); ok {
 			listCol := col.(*array.List)
+			defer listCol.Release()
 			newCol, err = arrowToRecordSingleColumn(ctx, field.Type.(*arrow.ListType).ElemField(), listCol.ListValues(), fieldMetadata.Fields[0], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
 			if err != nil {
 				return nil, err
@@ -2157,6 +2158,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 		newData := array.NewData(arrow.MapOf(keyCol.DataType(), valueCol.DataType()), mapCol.Len(), mapCol.Data().Buffers(), []arrow.ArrayData{structArr.Data()}, mapCol.NullN(), 0)
 		defer newData.Release()
 		return array.NewMapData(newData), nil
+	default:
+		col.Retain()
 	}
 	return newCol, nil
 }

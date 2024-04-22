@@ -1349,6 +1349,35 @@ func TestWithHigherPrecision(t *testing.T) {
 	})
 }
 
+func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+
+		dbt.forceNativeArrow()
+		var err error
+		var rows driver.Rows
+		err = dbt.conn.Raw(func(sc any) error {
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT 1, {'s': 'some string'}::OBJECT(s VARCHAR)", nil)
+			return err
+		})
+		assertNilF(t, err)
+		defer rows.Close()
+		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(batches), 0)
+		batch, err := batches[0].Fetch()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(*batch), 0)
+		for _, record := range *batch {
+			assertEqualE(t, record.Column(0).(*array.Int8).Value(0), int8(1))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(0).(*array.String).Value(0), "some string")
+			record.Release()
+		}
+	})
+}
+
 func TestStructuredTypeInArrowBatches(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1502,15 +1531,14 @@ func TestStructuredArrayInArrowBatches(t *testing.T) {
 		batch, err := batches[0].Fetch()
 		assertNilF(t, err)
 		assertNotEqualF(t, len(*batch), 0)
-		for _, record := range *batch {
-			assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(0), int64(1))
-			assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(1), int64(2))
-			assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(2), int64(3))
-			assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(3), int64(4))
-			assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(4), int64(5))
-			assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(5), int64(6))
-			record.Release()
-		}
+		record := (*batch)[0]
+		defer record.Release()
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(0), int64(1))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(1), int64(2))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(2), int64(3))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(3), int64(4))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(4), int64(5))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(5), int64(6))
 	})
 }
 
