@@ -2124,11 +2124,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			numberOfNulls := structCol.NullN()
 			return array.NewStructArrayWithNulls(internalCols, fieldNames, nullBitmap, numberOfNulls, 0)
 		}
-		return col, nil
 	case arrayType:
-		if _, ok := col.(*array.List); ok {
-			listCol := col.(*array.List)
-			defer listCol.Release()
+		if listCol, ok := col.(*array.List); ok {
 			newCol, err = arrowToRecordSingleColumn(ctx, field.Type.(*arrow.ListType).ElemField(), listCol.ListValues(), fieldMetadata.Fields[0], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
 			if err != nil {
 				return nil, err

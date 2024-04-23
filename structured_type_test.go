@@ -1545,6 +1545,9 @@ func TestStructuredArrayInArrowBatches(t *testing.T) {
 		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(3), int64(4))
 		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(4), int64(5))
 		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(5), int64(6))
+		assertEqualE(t, record.Column(0).(*array.List).Offsets()[0], int32(0))
+		assertEqualE(t, record.Column(0).(*array.List).Offsets()[1], int32(3))
+		assertEqualE(t, record.Column(0).(*array.List).Offsets()[2], int32(6))
 	})
 }
 
