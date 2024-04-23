@@ -1352,6 +1352,7 @@ func TestWithHigherPrecision(t *testing.T) {
 func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
 		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
@@ -1382,6 +1383,7 @@ func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
 func TestStructuredTypeInArrowBatches(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
 		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
@@ -1418,6 +1420,7 @@ func TestStructuredTypeInArrowBatches(t *testing.T) {
 func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf8Validation(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
 		dbt.forceNativeArrow()
@@ -1461,6 +1464,7 @@ func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf
 func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
 		dbt.forceNativeArrow()
@@ -1489,6 +1493,7 @@ func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
 func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
 		dbt.forceNativeArrow()
@@ -1518,6 +1523,7 @@ func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
 func TestStructuredArrayInArrowBatches(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
 		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
@@ -1554,6 +1560,7 @@ func TestStructuredArrayInArrowBatches(t *testing.T) {
 func TestStructuredMapInArrowBatches(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
 		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))

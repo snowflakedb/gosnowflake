@@ -2244,6 +2244,7 @@ func recordToSchemaSingleField(fieldMetadata fieldMetadata, f arrow.Field, withH
 		if f.Type.ID() == arrow.STRUCT {
 			var internalFields []arrow.Field
 			for idx, internalField := range f.Type.(*arrow.StructType).Fields() {
+				println(fieldMetadata.String())
 				internalConverted, convertedDataType := recordToSchemaSingleField(fieldMetadata.Fields[idx], internalField, withHigherPrecision, timestampOption, loc)
 				converted = converted || internalConverted
 				if internalConverted {
