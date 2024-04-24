@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -71,6 +72,10 @@ type fieldMetadata struct {
 	Type   string          `json:"type"`
 	Scale  int             `json:"scale"`
 	Fields []fieldMetadata `json:"fields"`
+}
+
+func (fm *fieldMetadata) String() string {
+	return fmt.Sprintf("fieldMetadata: %v, %v, %v, %v", fm.Name, fm.Type, fm.Scale, fm.Fields)
 }
 
 type execResponseChunk struct {
