@@ -323,3 +323,20 @@ func TestLogKeysWithRegisterContextVariableToLog(t *testing.T) {
 		t.Fatalf("expected that REQUEST_ID would be in logs if logger.WithContext and RegisterContextVariableToLog was used, but got: %v", strbuf)
 	}
 }
+
+func TestLogMaskSecrets(t *testing.T) {
+	logger := CreateDefaultLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+
+	ctx := context.Background()
+	query := "create user testuser password='testpassword'"
+	logger.WithContext(ctx).Infof("Query: %#v", maskSecrets(query))
+
+	// verify output
+	expected := "create user testuser password='****"
+	var strbuf = buf.String()
+	if !strings.Contains(strbuf, expected) {
+		t.Fatalf("expected that password would be masked. WithContext was used, but got: %v", strbuf)
+	}
+}
