@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/form3tech-oss/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
