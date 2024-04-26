@@ -481,20 +481,6 @@ func fallbackRetryOCSPToGETRequest(
 			err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
 		}
 	}
-	ocspResBytes, err = io.ReadAll(res.Body)
-	if err != nil {
-		return ocspRes, ocspResBytes, &ocspStatus{
-			code: ocspFailedExtractResponse,
-			err:  err,
-		}
-	}
-	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
-	if err != nil {
-		return ocspRes, ocspResBytes, &ocspStatus{
-			code: ocspFailedParseResponse,
-			err:  err,
-		}
-	}
 
 	logger.Debugf("GET fallback OCSP Status from server: %v", printStatus(ocspRes))
 	return ocspRes, ocspResBytes, &ocspStatus{
