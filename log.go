@@ -5,13 +5,14 @@ package gosnowflake
 import (
 	"context"
 	"fmt"
-	rlog "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"path"
 	"runtime"
 	"strings"
 	"time"
+
+	rlog "github.com/sirupsen/logrus"
 )
 
 // SFSessionIDKey is context key of session id
@@ -59,6 +60,16 @@ type defaultLogger struct {
 	inner   *rlog.Logger
 	enabled bool
 	file    *os.File
+}
+
+type sfTextFormatter struct {
+	rlog.TextFormatter
+}
+
+func (f *sfTextFormatter) Format(entry *rlog.Entry) ([]byte, error) {
+	// mask all secrets before calling the default Format method
+	entry.Message = maskSecrets(entry.Message)
+	return f.TextFormatter.Format(entry)
 }
 
 // SetLogLevel set logging level for calling defaultLogger
@@ -116,9 +127,10 @@ func (log *defaultLogger) WithContext(ctx context.Context) *rlog.Entry {
 // CreateDefaultLogger return a new instance of SFLogger with default config
 func CreateDefaultLogger() SFLogger {
 	var rLogger = rlog.New()
-	var formatter = rlog.TextFormatter{CallerPrettyfier: SFCallerPrettyfier}
+	var formatter = new(sfTextFormatter)
+	formatter.CallerPrettyfier = SFCallerPrettyfier
+	rLogger.SetFormatter(formatter)
 	rLogger.SetReportCaller(true)
-	rLogger.SetFormatter(&formatter)
 	var ret = defaultLogger{inner: rLogger, enabled: true}
 	return &ret //(&ret).(*SFLogger)
 }

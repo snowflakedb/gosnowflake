@@ -331,7 +331,7 @@ func TestLogMaskSecrets(t *testing.T) {
 
 	ctx := context.Background()
 	query := "create user testuser password='testpassword'"
-	logger.WithContext(ctx).Infof("Query: %#v", maskSecrets(query))
+	logger.WithContext(ctx).Infof("Query: %#v", query)
 
 	// verify output
 	expected := "create user testuser password='****"
