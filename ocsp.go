@@ -439,7 +439,6 @@ func retryOCSP(
 	if err != nil {
 		logger.Warnf("error when parsing ocsp response: %v", err)
 		logger.Warnf("performing GET fallback request to OCSP")
-		return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
 	}
 
 	logger.Debugf("OCSP Status from server: %v", printStatus(ocspRes))
@@ -461,7 +460,7 @@ func fallbackRetryOCSPToGETRequest(
 	ocspRes *ocsp.Response,
 	ocspResBytes []byte,
 	ocspS *ocspStatus) {
-	
+
 	logger.Debugf("GET fallback OCSP Status from server: %v", printStatus(ocspRes))
 	return ocspRes, ocspResBytes, &ocspStatus{
 		code: ocspSuccess,
