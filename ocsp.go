@@ -461,27 +461,7 @@ func fallbackRetryOCSPToGETRequest(
 	ocspRes *ocsp.Response,
 	ocspResBytes []byte,
 	ocspS *ocspStatus) {
-	multiplier := 1
-	if atomic.LoadUint32((*uint32)(&ocspFailOpen)) == (uint32)(OCSPFailOpenFalse) {
-		multiplier = 3 // up to 3 times for Fail Close mode
-	}
-	res, err := newRetryHTTP(ctx, client, req, ocspHost, headers,
-		totalTimeout*time.Duration(multiplier), defaultTimeProvider).execute()
-	if err != nil {
-		return ocspRes, ocspResBytes, &ocspStatus{
-			code: ocspFailedSubmit,
-			err:  err,
-		}
-	}
-	defer res.Body.Close()
-	logger.Debugf("GET fallback StatusCode from OCSP Server: %v", res.StatusCode)
-	if res.StatusCode != http.StatusOK {
-		return ocspRes, ocspResBytes, &ocspStatus{
-			code: ocspFailedResponse,
-			err:  fmt.Errorf("HTTP code is not OK. %v: %v", res.StatusCode, res.Status),
-		}
-	}
-
+	
 	logger.Debugf("GET fallback OCSP Status from server: %v", printStatus(ocspRes))
 	return ocspRes, ocspResBytes, &ocspStatus{
 		code: ocspSuccess,
