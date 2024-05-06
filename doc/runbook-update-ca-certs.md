@@ -40,8 +40,9 @@ const caRootPEM = `
 `
 ```
 
-replace the part represented by `..certs` above, with the whole content of the `cacerts.pem` which you downloaded. 
-5. Save the edited file and create a PR. 
+replace the part represented by `..certs` above, with the whole content of the `cacerts.pem` which you downloaded.
+
+6. Save the edited file and create a PR.
 
 #### Things to watch out for:
 * Make sure you retain the enclosing opening and closing backticks around the actual CA cert bundle
