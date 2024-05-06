@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -65,6 +66,7 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 			sourceKey:        telemetrySource,
 			driverTypeKey:    "Go",
 			driverVersionKey: SnowflakeGoDriverVersion,
+			golangVersionKey: runtime.Version(),
 		},
 		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 	}

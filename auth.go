@@ -147,7 +147,9 @@ type authRequestClientEnvironment struct {
 	Os          string `json:"OS"`
 	OsVersion   string `json:"OS_VERSION"`
 	OCSPMode    string `json:"OCSP_MODE"`
+	GoVersion   string `json:"GO_VERSION"`
 }
+
 type authRequestData struct {
 	ClientAppID             string                       `json:"CLIENT_APP_ID"`
 	ClientAppVersion        string                       `json:"CLIENT_APP_VERSION"`
@@ -315,6 +317,7 @@ func authenticate(
 		Os:          operatingSystem,
 		OsVersion:   platform,
 		OCSPMode:    sc.cfg.ocspMode(),
+		GoVersion:   runtime.Version(),
 	}
 
 	sessionParameters := make(map[string]interface{})
