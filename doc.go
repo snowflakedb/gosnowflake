@@ -391,11 +391,13 @@ data types. The columns are:
     -------------------------------------------------------------------------------------------------------------------
     BINARY               | []byte                                      | string                 | []byte
     -------------------------------------------------------------------------------------------------------------------
-    ARRAY                | string                                      | string
+    ARRAY [6]            | string / array                              | string / array
     -------------------------------------------------------------------------------------------------------------------
-    OBJECT               | string                                      | string
+    OBJECT [6]           | string / struct                             | string / struct
     -------------------------------------------------------------------------------------------------------------------
     VARIANT              | string                                      | string
+    -------------------------------------------------------------------------------------------------------------------
+    MAP                  | map                                         | map
 
     [1] Converting from a higher precision data type to a lower precision data type via the snowflakeRows.Scan()
     method can lose low bits (lose precision), lose high bits (completely change the value), or result in error.
@@ -412,7 +414,73 @@ data types. The columns are:
     [5] You cannot directly Scan() into the alternative data types via snowflakeRows.Scan(), but can convert to
     those data types by using .Float32()/.String()/.Float64() methods. For an example, see below.
 
+    [6] Arrays and objects can be either semistructured or structured, see more info in section below.
+
 Note: SQL NULL values are converted to Golang nil values, and vice-versa.
+
+## Semistructured and structured types
+
+Snowflake supports two flavours of "structured data" - semistructured and structured.
+Semistructured types are variants, objects and arrays without schema.
+When data is fetched, it's represented as strings and the client is responsible for its interpretation.
+Example table definition:
+
+	CREATE TABLE semistructured (v VARIANT, o OBJECT, a ARRAY)
+
+The data not have any corresponding schema, so values in table may be slightly different.
+
+### Structured types
+
+Structured types differentiate from semistructured types by having specific schema.
+In all rows of the table, values must conform to this schema.
+Example table definition:
+
+	CREATE TABLE structured (o OBJECT(s VARCHAR, i INTEGER), a ARRAY(INTEGER), m MAP(VARCHAR, BOOLEAN))
+
+#### Retrieving structured objects
+
+1. Create a struct, example:
+
+	type simpleObject struct {
+		s string
+		i int32
+	}
+
+2. Implement sql.Scanner interface:
+
+	func (so *simpleObject) Scan(val any) error {
+		st := val.(StructuredObject)
+		var err error
+		if so.s, err = st.GetString("s"); err != nil {
+			return err
+		}
+		if so.i, err = st.GetInt32("i"); err != nil {
+			return err
+		}
+		return nil
+	}
+
+3. Use it in regular scan:
+
+	var res simpleObject
+	err := rows.Scan(&res)
+
+See StructuredObject for all available operations including null support, embedding nested structs, etc.
+
+#### Retrieving structured arrays
+
+Retrieving array of simple types works exactly the same like normal values - using Scan function.
+If you want to scan array of structs, you have to use a helper function ScanArrayOfScanners:
+
+	var res []*simpleObject
+	err := rows.Scan(ScanArrayOfScanners(&res))
+
+#### Retrieving structured maps
+
+# It is very similar to retrieving arrays:
+
+	var res map[string]*simpleObject
+	err := rows.Scan(ScanMapOfScanners(&res))
 
 The following example shows how to retrieve very large values using the math/big
 package. This example retrieves a large INTEGER value to an interface and then
