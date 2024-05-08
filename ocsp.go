@@ -515,6 +515,7 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		}
 	}
 	ocspHost := subject.OCSPServer[0]
+	logger.Debugf("OCSP host retrieved from certificate: %v", ocspHost)
 	u, err := url.Parse(ocspHost)
 	if err != nil {
 		return &ocspStatus{
@@ -530,9 +531,11 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		if err == nil {
 			hostname = u0.Hostname()
 			u = u0
+		} else {
+			logger.Errorf("cannot parse URL: %v", err)
 		}
 	} else {
-		hostname = fullOCSPURL(u)
+		hostname = u.Hostname()
 	}
 	if hostnameStr != "" {
 		u0, err := url.Parse(hostnameStr)
