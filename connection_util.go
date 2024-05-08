@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -65,6 +66,7 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 			sourceKey:        telemetrySource,
 			driverTypeKey:    "Go",
 			driverVersionKey: SnowflakeGoDriverVersion,
+			golangVersionKey: runtime.Version(),
 		},
 		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 	}
@@ -160,7 +162,7 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 				v = vv
 			}
 		}
-		logger.Debugf("parameter. name: %v, value: %v", param.Name, v)
+		logger.WithContext(sc.ctx).Debugf("parameter. name: %v, value: %v", param.Name, v)
 		paramsMutex.Lock()
 		sc.cfg.Params[strings.ToLower(param.Name)] = &v
 		paramsMutex.Unlock()
@@ -289,12 +291,12 @@ func populateChunkDownloader(
 
 func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
 	ocspCacheServer := fmt.Sprintf("http://ocsp.%v/ocsp_response_cache.json", host)
-	logger.Debugf("OCSP Cache Server for Privatelink: %v\n", ocspCacheServer)
+	logger.WithContext(sc.ctx).Debugf("OCSP Cache Server for Privatelink: %v\n", ocspCacheServer)
 	if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
 		return err
 	}
 	ocspRetryHostTemplate := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
-	logger.Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHostTemplate)
+	logger.WithContext(sc.ctx).Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHostTemplate)
 	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHostTemplate); err != nil {
 		return err
 	}

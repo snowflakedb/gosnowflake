@@ -3,6 +3,10 @@ package gosnowflake
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"math/big"
 	"reflect"
 	"strings"
@@ -1342,6 +1346,247 @@ func TestWithHigherPrecision(t *testing.T) {
 				assertEqualE(t, columnTypes[0].Name(), "STRUCTURED_TYPE")
 			})
 		})
+	})
+}
+
+func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+
+		dbt.forceNativeArrow()
+		var err error
+		var rows driver.Rows
+		err = dbt.conn.Raw(func(sc any) error {
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT 1, {'s': 'some string'}::OBJECT(s VARCHAR)", nil)
+			return err
+		})
+		assertNilF(t, err)
+		defer rows.Close()
+		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(batches), 0)
+		batch, err := batches[0].Fetch()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(*batch), 0)
+		for _, record := range *batch {
+			assertEqualE(t, record.Column(0).(*array.Int8).Value(0), int8(1))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(0).(*array.String).Value(0), "some string")
+			record.Release()
+		}
+	})
+}
+
+func TestStructuredTypeInArrowBatches(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+
+		dbt.forceNativeArrow()
+		var err error
+		var rows driver.Rows
+		err = dbt.conn.Raw(func(sc any) error {
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT 1, {'s': 'some string', 'i': 1, 'time': '11:22:33'::TIME, 'date': '2024-04-16'::DATE, 'ltz': '2024-04-16 11:22:33'::TIMESTAMPLTZ, 'tz': '2025-04-16 22:33:11 +0100'::TIMESTAMPTZ, 'ntz': '2026-04-16 15:22:31'::TIMESTAMPNTZ}::OBJECT(s VARCHAR, i INTEGER, time TIME, date DATE, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ)", nil)
+			return err
+		})
+		assertNilF(t, err)
+		defer rows.Close()
+		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(batches), 0)
+		batch, err := batches[0].Fetch()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(*batch), 0)
+		for _, record := range *batch {
+			assertEqualE(t, record.Column(0).(*array.Int8).Value(0), int8(1))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(0).(*array.String).Value(0), "some string")
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(1).(*array.Int64).Value(0), int64(1))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(2).(*array.Time64).Value(0).ToTime(arrow.Nanosecond), time.Date(1970, 1, 1, 11, 22, 33, 0, time.UTC))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(3).(*array.Date32).Value(0).ToTime(), time.Date(2024, 4, 16, 0, 0, 0, 0, time.UTC))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(4).(*array.Timestamp).Value(0).ToTime(arrow.Nanosecond), time.Date(2024, 4, 16, 11, 22, 33, 0, time.UTC))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(5).(*array.Timestamp).Value(0).ToTime(arrow.Nanosecond), time.Date(2025, 4, 16, 21, 33, 11, 0, time.UTC))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(6).(*array.Timestamp).Value(0).ToTime(arrow.Nanosecond), time.Date(2026, 4, 16, 15, 22, 31, 0, time.UTC))
+			record.Release()
+		}
+	})
+}
+
+func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf8Validation(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		dbt.forceNativeArrow()
+		var err error
+		var rows driver.Rows
+		err = dbt.conn.Raw(func(sc any) error {
+			ctx := WithArrowBatchesUtf8Validation(WithHigherPrecision(WithArrowBatchesTimestampOption(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), UseOriginalTimestamp)))
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT 1, {'i': 123, 'f': 12.34, 'n0': 321, 'n19': 1.5, 's': 'some string', 'bi': TO_BINARY('616263', 'HEX'), 'bool': true, 'time': '11:22:33', 'date': '2024-04-18', 'ntz': '2024-04-01 11:22:33', 'tz': '2024-04-02 11:22:33 +0100', 'ltz': '2024-04-03 11:22:33'}::OBJECT(i INTEGER, f DOUBLE, n0 NUMBER(38, 0), n19 NUMBER(38, 19), s VARCHAR, bi BINARY, bool BOOLEAN, time TIME, date DATE, ntz TIMESTAMP_NTZ, tz TIMESTAMP_TZ, ltz TIMESTAMP_LTZ)", nil)
+			return err
+		})
+		assertNilF(t, err)
+		defer rows.Close()
+		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(batches), 0)
+		batch, err := batches[0].Fetch()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(*batch), 0)
+		for _, record := range *batch {
+			assertEqualE(t, record.Column(0).(*array.Int8).Value(0), int8(1))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(0).(*array.Decimal128).Value(0).LowBits(), uint64(123))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(1).(*array.Float64).Value(0), 12.34)
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(2).(*array.Decimal128).Value(0).LowBits(), uint64(321))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(3).(*array.Decimal128).Value(0).LowBits(), uint64(15000000000000000000))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(4).(*array.String).Value(0), "some string")
+			assertDeepEqualE(t, record.Column(1).(*array.Struct).Field(5).(*array.Binary).Value(0), []byte{'a', 'b', 'c'})
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(6).(*array.Boolean).Value(0), true)
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(7).(*array.Time64).Value(0).ToTime(arrow.Nanosecond), time.Date(1970, 1, 1, 11, 22, 33, 0, time.UTC))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(8).(*array.Date32).Value(0).ToTime(), time.Date(2024, 4, 18, 0, 0, 0, 0, time.UTC))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(9).(*array.Struct).Field(0).(*array.Int64).Value(0), int64(1711970553))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(9).(*array.Struct).Field(1).(*array.Int32).Value(0), int32(0))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(10).(*array.Struct).Field(0).(*array.Int64).Value(0), int64(1712053353))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(10).(*array.Struct).Field(1).(*array.Int32).Value(0), int32(0))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(11).(*array.Struct).Field(0).(*array.Int64).Value(0), int64(1712143353))
+			assertEqualE(t, record.Column(1).(*array.Struct).Field(11).(*array.Struct).Field(1).(*array.Int32).Value(0), int32(0))
+			record.Release()
+		}
+	})
+}
+
+func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		dbt.forceNativeArrow()
+		var err error
+		var rows driver.Rows
+		err = dbt.conn.Raw(func(sc any) error {
+			ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT {'o': {'s': 'some string'}}::OBJECT(o OBJECT(s VARCHAR))", nil)
+			return err
+		})
+		assertNilF(t, err)
+		defer rows.Close()
+		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(batches), 0)
+		batch, err := batches[0].Fetch()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(*batch), 0)
+		for _, record := range *batch {
+			assertEqualE(t, record.Column(0).(*array.Struct).Field(0).(*array.Struct).Field(0).(*array.String).Value(0), "some string")
+			record.Release()
+		}
+	})
+}
+
+func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		dbt.forceNativeArrow()
+		var err error
+		var rows driver.Rows
+		err = dbt.conn.Raw(func(sc any) error {
+			ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT {'s': 'some string'}::OBJECT(s VARCHAR) UNION SELECT null", nil)
+			return err
+		})
+		assertNilF(t, err)
+		defer rows.Close()
+		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(batches), 0)
+		batch, err := batches[0].Fetch()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(*batch), 0)
+		for _, record := range *batch {
+			assertFalseF(t, record.Column(0).IsNull(0))
+			assertTrueE(t, record.Column(0).IsNull(1))
+			record.Release()
+		}
+	})
+}
+
+func TestStructuredArrayInArrowBatches(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+
+		dbt.forceNativeArrow()
+		var err error
+		var rows driver.Rows
+		err = dbt.conn.Raw(func(sc any) error {
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT [1, 2, 3]::ARRAY(INTEGER) UNION SELECT [4, 5, 6]::ARRAY(INTEGER)", nil)
+			return err
+		})
+		assertNilF(t, err)
+		defer rows.Close()
+		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(batches), 0)
+		batch, err := batches[0].Fetch()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(*batch), 0)
+		record := (*batch)[0]
+		defer record.Release()
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(0), int64(1))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(1), int64(2))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(2), int64(3))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(3), int64(4))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(4), int64(5))
+		assertEqualE(t, record.Column(0).(*array.List).ListValues().(*array.Int64).Value(5), int64(6))
+		assertEqualE(t, record.Column(0).(*array.List).Offsets()[0], int32(0))
+		assertEqualE(t, record.Column(0).(*array.List).Offsets()[1], int32(3))
+		assertEqualE(t, record.Column(0).(*array.List).Offsets()[2], int32(6))
+	})
+}
+
+func TestStructuredMapInArrowBatches(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypes()
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+
+		dbt.forceNativeArrow()
+		var err error
+		var rows driver.Rows
+		err = dbt.conn.Raw(func(sc any) error {
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT {'a': 'b', 'c': 'd'}::MAP(VARCHAR, VARCHAR)", nil)
+			return err
+		})
+		assertNilF(t, err)
+		defer rows.Close()
+		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(batches), 0)
+		batch, err := batches[0].Fetch()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(*batch), 0)
+		for _, record := range *batch {
+			assertEqualE(t, record.Column(0).(*array.Map).Keys().(*array.String).Value(0), "a")
+			assertEqualE(t, record.Column(0).(*array.Map).Keys().(*array.String).Value(1), "c")
+			assertEqualE(t, record.Column(0).(*array.Map).Items().(*array.String).Value(0), "b")
+			assertEqualE(t, record.Column(0).(*array.Map).Items().(*array.String).Value(1), "d")
+			record.Release()
+		}
 	})
 }
 

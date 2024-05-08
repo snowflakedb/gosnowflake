@@ -92,7 +92,7 @@ func authenticateBySAML(
 		return nil, err
 	}
 	if !respd.Success {
-		logger.Errorln("Authentication FAILED")
+		logger.WithContext(ctx).Errorln("Authentication FAILED")
 		sr.TokenAccessor.SetTokens("", "", -1)
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
@@ -215,7 +215,7 @@ func postAuthSAML(
 	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	fullURL := sr.getFullURL(authenticatorRequestPath, params)
 
-	logger.Infof("fullURL: %v", fullURL)
+	logger.WithContext(ctx).Infof("fullURL: %v", fullURL)
 	resp, err := sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, defaultTimeProvider, nil)
 	if err != nil {
 		return nil, err
@@ -269,7 +269,7 @@ func postAuthOKTA(
 	fullURL string,
 	timeout time.Duration) (
 	data *authOKTAResponse, err error) {
-	logger.Infof("fullURL: %v", fullURL)
+	logger.WithContext(ctx).Infof("fullURL: %v", fullURL)
 	targetURL, err := url.Parse(fullURL)
 	if err != nil {
 		return nil, err
@@ -290,7 +290,7 @@ func postAuthOKTA(
 	}
 	_, err = io.ReadAll(resp.Body)
 	if err != nil {
-		logger.Errorf("failed to extract HTTP response body. err: %v", err)
+		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return nil, err
 	}
 	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v", resp.StatusCode, fullURL)

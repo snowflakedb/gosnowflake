@@ -137,7 +137,7 @@ func (rows *snowflakeRows) Columns() []string {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return make([]string, 0)
 	}
-	logger.Debug("Rows.Columns")
+	logger.WithContext(rows.ctx).Debug("Rows.Columns")
 	ret := make([]string, len(rows.ChunkDownloader.getRowType()))
 	for i, n := 0, len(rows.ChunkDownloader.getRowType()); i < n; i++ {
 		ret[i] = rows.ChunkDownloader.getRowType()[i].Name
