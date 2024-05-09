@@ -70,7 +70,7 @@ const (
 	defaultOCSPCacheServerTimeout = 5 * time.Second
 
 	// defaultOCSPResponderTimeout is the total timeout for OCSP responder.
-	defaultOCSPResponderTimeout = 10 * time.Second
+	defaultOCSPResponderTimeout = 1 * time.Second
 )
 
 const (
