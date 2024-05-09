@@ -515,7 +515,7 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		}
 	}
 	ocspHost := subject.OCSPServer[0]
-	logger.Debugf("OCSP host retrieved from certificate: %v", ocspHost)
+	logger.WithContext(ctx).Debugf("OCSP host retrieved from certificate: %v", ocspHost)
 	u, err := url.Parse(ocspHost)
 	if err != nil {
 		return &ocspStatus{
@@ -545,8 +545,8 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		}
 	}
 
-	logger.Debugf("Fetching OCSP response from server: %v", u)
-	logger.Debugf("Host in headers: %v", hostname)
+	logger.WithContext(ctx).Debugf("Fetching OCSP response from server: %v", u)
+	logger.WithContext(ctx).Debugf("Host in headers: %v", hostname)
 
 	headers := make(map[string]string)
 	headers[httpHeaderContentType] = "application/ocsp-request"
