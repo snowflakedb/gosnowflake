@@ -428,7 +428,8 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			sc.cfg.Application,
 			sc.cfg.Account,
 			sc.cfg.User,
-			sc.cfg.Password)
+			sc.cfg.Password,
+			sc.cfg.DisableSamlURLCheck)
 		if err != nil {
 			return nil, err
 		}

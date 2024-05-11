@@ -59,6 +59,7 @@ func authenticateBySAML(
 	account string,
 	user string,
 	password string,
+	disableSamlURLCheck ConfigBool,
 ) (samlResponse []byte, err error) {
 	logger.WithContext(ctx).Info("step 1: query GS to obtain IDP token and SSO url")
 	headers := make(map[string]string)
@@ -152,20 +153,22 @@ func authenticateBySAML(
 	if err != nil {
 		return nil, err
 	}
-	logger.WithContext(ctx).Info("step 5: validate post_back_url matches Snowflake URL")
-	tgtURL, err := postBackURL(bd)
-	if err != nil {
-		return nil, err
-	}
+	if disableSamlURLCheck == ConfigBoolFalse {
+		logger.WithContext(ctx).Info("step 5: validate post_back_url matches Snowflake URL")
+		tgtURL, err := postBackURL(bd)
+		if err != nil {
+			return nil, err
+		}
 
-	fullURL := sr.getURL()
-	logger.WithContext(ctx).Infof("tgtURL: %v, origURL: %v", tgtURL, fullURL)
-	if !isPrefixEqual(tgtURL, fullURL) {
-		return nil, &SnowflakeError{
-			Number:      ErrCodeSSOURLNotMatch,
-			SQLState:    SQLStateConnectionRejected,
-			Message:     errMsgSSOURLNotMatch,
-			MessageArgs: []interface{}{tgtURL, fullURL},
+		fullURL := sr.getURL()
+		logger.WithContext(ctx).Infof("tgtURL: %v, origURL: %v", tgtURL, fullURL)
+		if !isPrefixEqual(tgtURL, fullURL) {
+			return nil, &SnowflakeError{
+				Number:      ErrCodeSSOURLNotMatch,
+				SQLState:    SQLStateConnectionRejected,
+				Message:     errMsgSSOURLNotMatch,
+				MessageArgs: []interface{}{tgtURL, fullURL},
+			}
 		}
 	}
 	return bd, nil
