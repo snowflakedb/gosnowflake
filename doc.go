@@ -130,6 +130,8 @@ The following connection parameters are supported:
   - clientConfigFile: specifies the location of the client configuration json file.
     In this file you can configure Easy Logging feature.
 
+  - disableSamlURLCheck: disables the SAML URL check. Default value is false.
+
 All other parameters are interpreted as session parameters (https://docs.snowflake.com/en/sql-reference/parameters.html).
 For example, the TIMESTAMP_OUTPUT_FORMAT session parameter can be set by adding:
 
