@@ -547,7 +547,7 @@ b)
 2. Use an instance as regular bind.
 3. If you need to bind nil value, use special syntax:
 
-	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeNullObject, reflect.TypeOf(simpleObject{})
+	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeNilObject, reflect.TypeOf(simpleObject{})
 
 Binding structured arrays are like any other parameter.
 The only difference is - if you want to insert empty array (not nil but empty), you have to use:

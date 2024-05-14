@@ -9,8 +9,8 @@ import (
 )
 
 func TestBindingVariant(t *testing.T) {
+	t.Skip("binding variant is currently not supported")
 	runDBTest(t, func(dbt *DBTest) {
-		skipStructuredTypesTestsOnGHActions(t)
 		dbt.mustExec("CREATE TABLE test_variant_binding (var VARIANT)")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_variant_binding")
@@ -49,17 +49,16 @@ func TestBindingVariant(t *testing.T) {
 }
 
 func TestBindingObjectWithoutSchema(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("CREATE TABLE test_object_binding (obj OBJECT)")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
 		dbt.enableStructuredTypesBinding()
-		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", nil)
-		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", sql.NullString{Valid: false})
-		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", "{'s': 'some string'}")
-		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", sql.NullString{Valid: true, String: "{'s': 'some string2'}"})
+		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeObject, nil)
+		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeObject, sql.NullString{Valid: false})
+		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeObject, "{'s': 'some string'}")
+		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeObject, sql.NullString{Valid: true, String: "{'s': 'some string2'}"})
 		rows := dbt.mustQuery("SELECT * FROM test_object_binding")
 		defer rows.Close()
 		var res sql.NullString
@@ -89,7 +88,6 @@ func TestBindingObjectWithoutSchema(t *testing.T) {
 }
 
 func TestBindingArrayWithoutSchema(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("CREATE TABLE test_array_binding (arr ARRAY)")
 		defer func() {
@@ -131,7 +129,6 @@ func TestBindingArrayWithoutSchema(t *testing.T) {
 func TestBindingObjectWithSchema(t *testing.T) {
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -190,7 +187,6 @@ func TestBindingObjectWithSchema(t *testing.T) {
 func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -289,7 +285,6 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 func TestBindingObjectWithSchemaSimpleWrite(t *testing.T) {
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -348,7 +343,6 @@ func TestBindingObjectWithSchemaSimpleWrite(t *testing.T) {
 func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.forceJSON()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER)))")
@@ -465,7 +459,6 @@ func (o *objectWithAllTypesWrapper) Write(sowc StructuredObjectWriterContext) er
 }
 
 func TestBindingObjectWithAllTypesNullable(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.forceJSON()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (o OBJECT(o OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER))))")
@@ -489,7 +482,6 @@ func TestBindingObjectWithAllTypesNullable(t *testing.T) {
 }
 
 func TestBindingObjectWithSchemaWithCustomNameAndIgnoredField(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(anotherName VARCHAR))")
 		defer func() {
@@ -514,14 +506,13 @@ func TestBindingObjectWithSchemaWithCustomNameAndIgnoredField(t *testing.T) {
 }
 
 func TestBindingNullStructuredObjects(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, i INTEGER))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
 		dbt.enableStructuredTypesBinding()
-		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeNullObject, reflect.TypeOf(simpleObject{}))
+		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeNilObject, reflect.TypeOf(simpleObject{}))
 
 		rows := dbt.mustQuery("SELECT * FROM test_object_binding")
 		defer rows.Close()
@@ -535,7 +526,6 @@ func TestBindingNullStructuredObjects(t *testing.T) {
 }
 
 func TestBindingArrayWithSchema(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		testcases := []struct {
@@ -621,12 +611,12 @@ func TestBindingArrayWithSchema(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				dbt.mustExecT(t, fmt.Sprintf("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(%s))", tc.arrayType))
 				defer func() {
-					dbt.mustExec("DROP TABLE IF EXISTS test_array_binding")
+					dbt.mustExecT(t, "DROP TABLE IF EXISTS test_array_binding")
 				}()
 
-				dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", tc.values...)
+				dbt.mustExecT(t, "INSERT INTO test_array_binding SELECT (?)", tc.values...)
 
-				rows := dbt.mustQuery("SELECT * FROM test_array_binding")
+				rows := dbt.mustQueryT(t, "SELECT * FROM test_array_binding")
 				defer rows.Close()
 
 				assertTrueE(t, rows.Next())
@@ -640,7 +630,6 @@ func TestBindingArrayWithSchema(t *testing.T) {
 }
 
 func TestBindingArrayOfObjects(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(OBJECT(s VARCHAR, i INTEGER)))")
@@ -663,7 +652,6 @@ func TestBindingArrayOfObjects(t *testing.T) {
 }
 
 func TestBindingEmptyArrayOfObjects(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(OBJECT(s VARCHAR, i INTEGER)))")
@@ -686,7 +674,6 @@ func TestBindingEmptyArrayOfObjects(t *testing.T) {
 }
 
 func TestBindingNilArrayOfObjects(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(OBJECT(s VARCHAR, i INTEGER)))")
@@ -695,7 +682,7 @@ func TestBindingNilArrayOfObjects(t *testing.T) {
 		}()
 
 		var arr []*simpleObject
-		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", arr)
+		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeNilArray, reflect.TypeOf(simpleObject{}))
 
 		rows := dbt.mustQuery("SELECT * FROM test_array_binding")
 		defer rows.Close()
