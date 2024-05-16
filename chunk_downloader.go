@@ -458,6 +458,13 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 			return nil
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
+		if scd.sc == nil {
+			logger.WithContext(ctx).Error("null pointer debug: null connection on chunk downloader")
+		} else {
+			if scd.sc.cfg == nil {
+				logger.WithContext(ctx).Error("null pointer debug: null config on chunk downloader's connection")
+			}
+		}
 		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec, scd.sc.cfg.Params)
 		if err != nil {
 			return err
