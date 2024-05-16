@@ -76,9 +76,12 @@ const (
 )
 
 var (
-	ocspCacheServerTimeout = defaultOCSPCacheServerTimeout
-	ocspResponderTimeout   = defaultOCSPResponderTimeout
-	ocspMaxRetryCount      = defaultOCSPMaxRetryCount
+	// OcspCacheServerTimeout is a timeout for OCSP cache server.
+	OcspCacheServerTimeout = defaultOCSPCacheServerTimeout
+	// OcspResponderTimeout is a timeout for OCSP responders.
+	OcspResponderTimeout = defaultOCSPResponderTimeout
+	// OcspMaxRetryCount is a number of retires to OCSP (cache server and responders).
+	OcspMaxRetryCount = defaultOCSPMaxRetryCount
 )
 
 const (
@@ -388,7 +391,7 @@ func checkOCSPCacheServer(
 	ocspS *ocspStatus) {
 	var respd map[string][]interface{}
 	headers := make(map[string]string)
-	res, err := newRetryHTTP(ctx, client, req, ocspServerHost, headers, totalTimeout, ocspMaxRetryCount, defaultTimeProvider, nil).execute()
+	res, err := newRetryHTTP(ctx, client, req, ocspServerHost, headers, totalTimeout, OcspMaxRetryCount, defaultTimeProvider, nil).execute()
 	if err != nil {
 		logger.WithContext(ctx).Errorf("failed to get OCSP cache from OCSP Cache Server. %v", err)
 		return nil, &ocspStatus{
@@ -451,7 +454,7 @@ func retryOCSP(
 	}
 	res, err := newRetryHTTP(
 		ctx, client, req, ocspHost, headers,
-		totalTimeout*time.Duration(multiplier), ocspMaxRetryCount, defaultTimeProvider, nil).doPost().setBody(reqBody).execute()
+		totalTimeout*time.Duration(multiplier), OcspMaxRetryCount, defaultTimeProvider, nil).doPost().setBody(reqBody).execute()
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedSubmit,
@@ -504,7 +507,7 @@ func fallbackRetryOCSPToGETRequest(
 		multiplier = 3 // up to 3 times for Fail Close mode
 	}
 	res, err := newRetryHTTP(ctx, client, req, ocspHost, headers,
-		totalTimeout*time.Duration(multiplier), ocspMaxRetryCount, defaultTimeProvider, nil).execute()
+		totalTimeout*time.Duration(multiplier), OcspMaxRetryCount, defaultTimeProvider, nil).execute()
 	if err != nil {
 		return ocspRes, ocspResBytes, &ocspStatus{
 			code: ocspFailedSubmit,
@@ -624,7 +627,7 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	headers[httpHeaderContentLength] = strconv.Itoa(len(ocspReq))
 	headers[httpHeaderHost] = hostname
 	timeoutStr := os.Getenv(ocspTestResponderTimeoutEnv)
-	timeout := ocspResponderTimeout
+	timeout := OcspResponderTimeout
 	if timeoutStr != "" {
 		var timeoutInMilliseconds int
 		timeoutInMilliseconds, err = strconv.Atoi(timeoutStr)
@@ -777,7 +780,7 @@ func downloadOCSPCacheServer() {
 	}
 	logger.Infof("downloading OCSP Cache from server %v", ocspCacheServerURL)
 	timeoutStr := os.Getenv(ocspTestResponseCacheServerTimeoutEnv)
-	timeout := ocspCacheServerTimeout
+	timeout := OcspCacheServerTimeout
 	if timeoutStr != "" {
 		var timeoutInMilliseconds int
 		timeoutInMilliseconds, err = strconv.Atoi(timeoutStr)
