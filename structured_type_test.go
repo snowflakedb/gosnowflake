@@ -1621,3 +1621,31 @@ func forAllStructureTypeFormats(dbt *DBTest, f func(t *testing.T, format string)
 		})
 	}
 }
+
+func TestNullObject(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+
+		var err error
+		var rows driver.Rows
+		err = dbt.conn.Raw(func(sc any) error {
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "select null::object", nil)
+			return err
+		})
+		assertNilF(t, err)
+		defer rows.Close()
+		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(batches), 0)
+		batch, err := batches[0].Fetch()
+		assertNilF(t, err)
+		assertNotEqualF(t, len(*batch), 0)
+		for _, record := range *batch {
+			assertEqualE(t, record.Column(0).(*array.String).Value(0), "")
+			record.Release()
+		}
+	})
+}
