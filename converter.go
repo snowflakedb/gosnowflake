@@ -2123,6 +2123,27 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			nullBitmap := memory.NewBufferBytes(structCol.NullBitmapBytes())
 			numberOfNulls := structCol.NullN()
 			return array.NewStructArrayWithNulls(internalCols, fieldNames, nullBitmap, numberOfNulls, 0)
+		} else if stringCol, ok := col.(*array.String); ok {
+			if arrowBatchesUtf8ValidationEnabled(ctx) && col.DataType().ID() == arrow.STRING {
+				tb := array.NewStringBuilder(pool)
+				defer tb.Release()
+
+				for i := 0; i < int(numRows); i++ {
+					if stringCol.IsValid(i) {
+						stringValue := stringCol.Value(i)
+						if !utf8.ValidString(stringValue) {
+							logger.WithContext(ctx).Error("Invalid UTF-8 characters detected while reading query response, column: ", fieldMetadata.Name)
+							stringValue = strings.ToValidUTF8(stringValue, "�")
+						}
+						tb.Append(stringValue)
+					} else {
+						tb.AppendNull()
+					}
+				}
+				newCol = tb.NewArray()
+			} else {
+				col.Retain()
+			}
 		}
 	case arrayType:
 		if listCol, ok := col.(*array.List); ok {
