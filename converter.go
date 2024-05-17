@@ -2144,6 +2144,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			} else {
 				col.Retain()
 			}
+		} else {
+			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake objectType", col)
 		}
 	case arrayType:
 		if listCol, ok := col.(*array.List); ok {
