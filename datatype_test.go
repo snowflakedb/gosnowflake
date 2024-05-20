@@ -8,20 +8,21 @@ import (
 	"testing"
 )
 
-type tcDataTypeMode struct {
-	tp    driver.Value
-	tmode snowflakeType
-	err   error
-}
-
 func TestDataTypeMode(t *testing.T) {
-	var testcases = []tcDataTypeMode{
+	var testcases = []struct {
+		tp    driver.Value
+		tmode snowflakeType
+		err   error
+	}{
 		{tp: DataTypeTimestampLtz, tmode: timestampLtzType, err: nil},
 		{tp: DataTypeTimestampNtz, tmode: timestampNtzType, err: nil},
 		{tp: DataTypeTimestampTz, tmode: timestampTzType, err: nil},
 		{tp: DataTypeDate, tmode: dateType, err: nil},
 		{tp: DataTypeTime, tmode: timeType, err: nil},
 		{tp: DataTypeBinary, tmode: binaryType, err: nil},
+		{tp: DataTypeObject, tmode: objectType, err: nil},
+		{tp: DataTypeArray, tmode: arrayType, err: nil},
+		{tp: DataTypeVariant, tmode: variantType, err: nil},
 		{tp: DataTypeFixed, tmode: fixedType,
 			err: fmt.Errorf(errMsgInvalidByteArray, DataTypeFixed)},
 		{tp: DataTypeReal, tmode: realType,
