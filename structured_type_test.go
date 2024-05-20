@@ -4,14 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"fmt"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 type objectWithAllTypes struct {
@@ -1625,60 +1627,131 @@ func forAllStructureTypeFormats(dbt *DBTest, f func(t *testing.T, format string)
 func TestNullObject(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
-		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
-		defer pool.AssertSize(t, 0)
-		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+		nullObjectQueries := []string{
+			"select null::object(v VARCHAR)",
+			"select null::object",
+		}
+		for i := 0; i < len(nullObjectQueries); i++ {
+			query := nullObjectQueries[i]
 
-		var err error
-		var rows driver.Rows
-		err = dbt.conn.Raw(func(sc any) error {
-			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "select null::object", nil)
-			return err
-		})
-		assertNilF(t, err)
-		defer rows.Close()
-		batches, err := rows.(SnowflakeRows).GetArrowBatches()
-		assertNilF(t, err)
-		assertNotEqualF(t, len(batches), 0)
-		batch, err := batches[0].Fetch()
-		assertNilF(t, err)
-		assertNotEqualF(t, len(*batch), 0)
-		for _, record := range *batch {
-			assertEqualE(t, record.Column(0).(*array.String).Value(0), "")
-			record.Release()
+			pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer pool.AssertSize(t, 0)
+			ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+
+			var err error
+			var rows driver.Rows
+			err = dbt.conn.Raw(func(sc any) error {
+				queryer, implementsQueryContext := sc.(driver.QueryerContext)
+				assertTrueF(t, implementsQueryContext, "snowflake conn does not implement QueryerContext but needs to")
+				rows, err = queryer.QueryContext(ctx, query, nil)
+				return err
+			})
+			assertNilF(t, err, fmt.Sprintf("test failed to run the following query: %s", query))
+			defer rows.Close()
+
+			sfRows, isSfRows := rows.(SnowflakeRows)
+			assertTrueF(t, isSfRows, "rows are not snowflakeRows")
+
+			batches, err := sfRows.GetArrowBatches()
+			assertNilF(t, err)
+			assertNotEqualF(t, len(batches), 0)
+			batch, err := batches[0].Fetch()
+			assertNilF(t, err)
+			assertNotEqualF(t, len(*batch), 0)
+			for _, record := range *batch {
+				// check number of cols/rows so we dont get index out of range
+				assertEqualF(t, record.NumRows(), int64(1), "wrong number of rows")
+				assertEqualF(t, record.NumRows(), int64(1), "wrong number of cols")
+
+				colIndex := 0
+				rowIndex := 0
+
+				srtCol, isStrCol := record.Column(colIndex).(*array.String)
+				assertTrueF(t, isStrCol, "column is not type string")
+
+				assertEqualE(t, srtCol.Value(rowIndex), "")
+				isNull := srtCol.IsNull(rowIndex)
+				assertTrueF(t, isNull)
+				record.Release()
+			}
 		}
 	})
 }
 
-// Want to make sure this still works if we dont set ENABLE_STRUCTURED_TYPES_IN_CLIENT_RESPONSE
-// AFAIK thats not fully rolledout yet, I cant set it on our server at the moment
-func TestStructuredTypeInArrowBatchesWithoutEnablingStructureTypes(t *testing.T) {
+func TestStructuredTypeInArrowBatchesWithSemistructuredObject(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
-		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
-		defer pool.AssertSize(t, 0)
-		ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+		objectQueries := []string{
+			"SELECT 1, {'s':'someString'}::OBJECT(s VARCHAR)", // returns string
+			"SELECT {'s':'someString'}::OBJECT",               // returns binary
+		}
+		withUtf8Validation := []bool{
+			true,
+			false,
+		}
+		for i := 0; i < len(objectQueries); i++ {
+			for j := 0; j < len(withUtf8Validation); j++ {
+				shouldUtf8Verify := withUtf8Validation[i]
+				query := objectQueries[i]
 
-		var err error
-		var rows driver.Rows
-		err = dbt.conn.Raw(func(sc any) error {
-			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT 1, {'s':'someString'}::OBJECT(s VARCHAR)", nil)
-			return err
-		})
-		assertNilF(t, err)
-		defer rows.Close()
-		batches, err := rows.(SnowflakeRows).GetArrowBatches()
-		assertNilF(t, err)
-		assertNotEqualF(t, len(batches), 0)
-		batch, err := batches[0].Fetch()
-		assertNilF(t, err)
-		assertNotEqualF(t, len(*batch), 0)
-		for _, record := range *batch {
-			assertEqualE(t, record.Column(0).(*array.Int8).Value(0), int8(1))
-			expected := `{"s":"someString"}`
-			actual := strings.ReplaceAll(strings.ReplaceAll(record.Column(1).(*array.String).Value(0), " ", ""), "\n", "")
-			assertEqualE(t, actual, expected)
-			record.Release()
+				pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+				defer pool.AssertSize(t, 0)
+				ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+				if shouldUtf8Verify {
+					ctx = WithArrowBatchesUtf8Validation(ctx)
+				}
+
+				var err error
+				var rows driver.Rows
+				err = dbt.conn.Raw(func(sc any) error {
+					queryer, implementsQueryContext := sc.(driver.QueryerContext)
+					assertTrueF(t, implementsQueryContext, "snowflake conn does not implement QueryerContext but needs to")
+					rows, err = queryer.QueryContext(ctx, query, nil)
+					return err
+				})
+				assertNilF(t, err)
+				defer rows.Close()
+
+				sfRows, isSfRows := rows.(SnowflakeRows)
+				assertTrueF(t, isSfRows, "rows are not snowflakeRows")
+
+				batches, err := sfRows.GetArrowBatches()
+				assertNilF(t, err)
+				assertNotEqualF(t, len(batches), 0)
+				batch, err := batches[0].Fetch()
+				assertNilF(t, err)
+				assertNotEqualF(t, len(*batch), 0)
+				for _, record := range *batch {
+					// if we are running the first query there should be two columns, otherwise one
+					cols := record.NumCols()
+					expectedColCount := int64(1)
+					if i == 0 {
+						expectedColCount = int64(2)
+					}
+					assertEqualF(t, cols, expectedColCount, fmt.Sprintf("unexpected number of columns returned for query number %d", i))
+
+					curColIndex := 0
+					rowIndex := 0
+
+					// if there are two columns check the first one is an int8
+					if cols == int64(2) {
+						int8Col, isInt8 := record.Column(curColIndex).(*array.Int8)
+						assertTrueF(t, isInt8, "wrong type for first column")
+
+						val := int8Col.Value(rowIndex)
+						assertEqualE(t, val, int8(1))
+						curColIndex++
+					}
+
+					strCol, isStr := record.Column(curColIndex).(*array.String)
+					assertTrueF(t, isStr, "wrong type for column")
+
+					expected := `{"s":"someString"}`
+					actual := strings.ReplaceAll(strings.ReplaceAll(strCol.Value(rowIndex), " ", ""), "\n", "")
+					assertEqualE(t, actual, expected)
+					record.Release()
+				}
+			}
 		}
 	})
 }

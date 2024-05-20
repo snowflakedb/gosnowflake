@@ -58,6 +58,13 @@ const (
 	UseOriginalTimestamp
 )
 
+type retainOriginalCol bool
+
+const (
+	shouldRetain retainOriginalCol = true
+	dontRetain   retainOriginalCol = false
+)
+
 type interfaceArrayBinding struct {
 	hasTimezone       bool
 	tzType            timezoneType
@@ -2084,25 +2091,15 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			newCol = tb.NewArray()
 		}
 	case textType:
-		if arrowBatchesUtf8ValidationEnabled(ctx) && col.DataType().ID() == arrow.STRING {
-			tb := array.NewStringBuilder(pool)
-			defer tb.Release()
-
-			for i := 0; i < int(numRows); i++ {
-				if col.(*array.String).IsValid(i) {
-					stringValue := col.(*array.String).Value(i)
-					if !utf8.ValidString(stringValue) {
-						logger.WithContext(ctx).Error("Invalid UTF-8 characters detected while reading query response, column: ", fieldMetadata.Name)
-						stringValue = strings.ToValidUTF8(stringValue, "�")
-					}
-					tb.Append(stringValue)
-				} else {
-					tb.AppendNull()
-				}
+		if stringCol, ok := col.(*array.String); ok {
+			newValidUtf8Array, shouldRetainOriginalCol := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
+			if shouldRetainOriginalCol == shouldRetain {
+				col.Retain()
+			} else {
+				newCol = *newValidUtf8Array
 			}
-			newCol = tb.NewArray()
 		} else {
-			col.Retain()
+			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake textType", col)
 		}
 	case objectType:
 		if structCol, ok := col.(*array.Struct); ok {
@@ -2124,25 +2121,11 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			numberOfNulls := structCol.NullN()
 			return array.NewStructArrayWithNulls(internalCols, fieldNames, nullBitmap, numberOfNulls, 0)
 		} else if stringCol, ok := col.(*array.String); ok {
-			if arrowBatchesUtf8ValidationEnabled(ctx) && col.DataType().ID() == arrow.STRING {
-				tb := array.NewStringBuilder(pool)
-				defer tb.Release()
-
-				for i := 0; i < int(numRows); i++ {
-					if stringCol.IsValid(i) {
-						stringValue := stringCol.Value(i)
-						if !utf8.ValidString(stringValue) {
-							logger.WithContext(ctx).Error("Invalid UTF-8 characters detected while reading query response, column: ", fieldMetadata.Name)
-							stringValue = strings.ToValidUTF8(stringValue, "�")
-						}
-						tb.Append(stringValue)
-					} else {
-						tb.AppendNull()
-					}
-				}
-				newCol = tb.NewArray()
-			} else {
+			newValidUtf8Array, shouldRetainOriginalCol := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
+			if shouldRetainOriginalCol == shouldRetain {
 				col.Retain()
+			} else {
+				newCol = *newValidUtf8Array
 			}
 		} else {
 			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake objectType", col)
@@ -2183,6 +2166,38 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 		col.Retain()
 	}
 	return newCol, nil
+}
+
+// returns a pointer to a new array which will be populated if we converted the array to valid utf8
+// or returns null, and an indicator that we should retain the original column
+func arrowStringRecordToColumn(
+	ctx context.Context,
+	stringCol *array.String,
+	mem memory.Allocator,
+	numRows int64,
+	fieldMetadata fieldMetadata,
+) (*arrow.Array, retainOriginalCol) {
+	if arrowBatchesUtf8ValidationEnabled(ctx) && stringCol.DataType().ID() == arrow.STRING {
+		tb := array.NewStringBuilder(mem)
+		defer tb.Release()
+
+		for i := 0; i < int(numRows); i++ {
+			if stringCol.IsValid(i) {
+				stringValue := stringCol.Value(i)
+				if !utf8.ValidString(stringValue) {
+					logger.WithContext(ctx).Error("Invalid UTF-8 characters detected while reading query response, column: ", fieldMetadata.Name)
+					stringValue = strings.ToValidUTF8(stringValue, "�")
+				}
+				tb.Append(stringValue)
+			} else {
+				tb.AppendNull()
+			}
+		}
+		arr := tb.NewArray()
+		return &arr, dontRetain
+	}
+	return nil, shouldRetain
+
 }
 
 func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, timestampOption snowflakeArrowBatchesTimestampOption, withHigherPrecision bool) (*arrow.Schema, error) {
