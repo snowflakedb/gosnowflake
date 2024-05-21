@@ -58,13 +58,6 @@ const (
 	UseOriginalTimestamp
 )
 
-type retainOriginalCol bool
-
-const (
-	shouldRetain retainOriginalCol = true
-	dontRetain   retainOriginalCol = false
-)
-
 type interfaceArrayBinding struct {
 	hasTimezone       bool
 	tzType            timezoneType
@@ -2092,10 +2085,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 		}
 	case textType:
 		if stringCol, ok := col.(*array.String); ok {
-			newValidUtf8Array, shouldRetainOriginalCol := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-			if shouldRetainOriginalCol == shouldRetain {
-				col.Retain()
-			} else {
+			newValidUtf8Array := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
+			if newValidUtf8Array != nil {
 				newCol = *newValidUtf8Array
 			}
 		} else {
@@ -2121,10 +2112,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			numberOfNulls := structCol.NullN()
 			return array.NewStructArrayWithNulls(internalCols, fieldNames, nullBitmap, numberOfNulls, 0)
 		} else if stringCol, ok := col.(*array.String); ok {
-			newValidUtf8Array, shouldRetainOriginalCol := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-			if shouldRetainOriginalCol == shouldRetain {
-				col.Retain()
-			} else {
+			newValidUtf8Array := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
+			if newValidUtf8Array != nil {
 				newCol = *newValidUtf8Array
 			}
 		} else {
@@ -2141,10 +2130,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			defer newData.Release()
 			return array.NewListData(newData), nil
 		} else if stringCol, ok := col.(*array.String); ok {
-			newValidUtf8Array, shouldRetainOriginalCol := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-			if shouldRetainOriginalCol == shouldRetain {
-				col.Retain()
-			} else {
+			newValidUtf8Array := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
+			if newValidUtf8Array != nil {
 				newCol = *newValidUtf8Array
 			}
 		} else {
@@ -2185,7 +2172,7 @@ func arrowStringRecordToColumn(
 	mem memory.Allocator,
 	numRows int64,
 	fieldMetadata fieldMetadata,
-) (*arrow.Array, retainOriginalCol) {
+) *arrow.Array {
 	if arrowBatchesUtf8ValidationEnabled(ctx) && stringCol.DataType().ID() == arrow.STRING {
 		tb := array.NewStringBuilder(mem)
 		defer tb.Release()
@@ -2203,10 +2190,10 @@ func arrowStringRecordToColumn(
 			}
 		}
 		arr := tb.NewArray()
-		return &arr, dontRetain
+		return &arr
 	}
-	return nil, shouldRetain
-
+	stringCol.Retain()
+	return nil
 }
 
 func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, timestampOption snowflakeArrowBatchesTimestampOption, withHigherPrecision bool) (*arrow.Schema, error) {
