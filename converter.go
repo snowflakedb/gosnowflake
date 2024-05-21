@@ -2023,6 +2023,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			builder.AppendValues(floatValues, nil)
 			newCol = builder.NewArray()
 			builder.Release()
+		} else {
+			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake mapType", col)
 		}
 	case timeType:
 		newCol, err = compute.CastArray(ctx, col, compute.SafeCastOptions(arrow.FixedWidthTypes.Time64ns))
@@ -2085,10 +2087,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 		}
 	case textType:
 		if stringCol, ok := col.(*array.String); ok {
-			newValidUtf8Array := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-			if newValidUtf8Array != nil {
-				newCol = newValidUtf8Array
-			}
+			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 		} else {
 			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake textType", col)
 		}
@@ -2112,10 +2111,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			numberOfNulls := structCol.NullN()
 			return array.NewStructArrayWithNulls(internalCols, fieldNames, nullBitmap, numberOfNulls, 0)
 		} else if stringCol, ok := col.(*array.String); ok {
-			newValidUtf8Array := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-			if newValidUtf8Array != nil {
-				newCol = newValidUtf8Array
-			}
+			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 		} else {
 			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake objectType", col)
 		}
@@ -2130,42 +2126,44 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			defer newData.Release()
 			return array.NewListData(newData), nil
 		} else if stringCol, ok := col.(*array.String); ok {
-			newValidUtf8Array := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-			if newValidUtf8Array != nil {
-				newCol = newValidUtf8Array
-			}
+			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 		} else {
 			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake objectType", col)
 		}
 	case mapType:
-		mapCol := col.(*array.Map)
-		keyCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).KeyField(), mapCol.Keys(), fieldMetadata.Fields[0], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
-		if err != nil {
-			return nil, err
-		}
-		defer keyCol.Release()
-		valueCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).ItemField(), mapCol.Items(), fieldMetadata.Fields[1], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
-		if err != nil {
-			return nil, err
-		}
-		defer valueCol.Release()
+		if mapCol, ok := col.(*array.Map); ok {
+			keyCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).KeyField(), mapCol.Keys(), fieldMetadata.Fields[0], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
+			if err != nil {
+				return nil, err
+			}
+			defer keyCol.Release()
+			valueCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).ItemField(), mapCol.Items(), fieldMetadata.Fields[1], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
+			if err != nil {
+				return nil, err
+			}
+			defer valueCol.Release()
 
-		structArr, err := array.NewStructArray([]arrow.Array{keyCol, valueCol}, []string{"k", "v"})
-		if err != nil {
-			return nil, err
+			structArr, err := array.NewStructArray([]arrow.Array{keyCol, valueCol}, []string{"k", "v"})
+			if err != nil {
+				return nil, err
+			}
+			defer structArr.Release()
+			newData := array.NewData(arrow.MapOf(keyCol.DataType(), valueCol.DataType()), mapCol.Len(), mapCol.Data().Buffers(), []arrow.ArrayData{structArr.Data()}, mapCol.NullN(), 0)
+			defer newData.Release()
+			return array.NewMapData(newData), nil
+		} else if stringCol, ok := col.(*array.String); ok {
+			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
+		} else {
+			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake mapType", col)
 		}
-		defer structArr.Release()
-		newData := array.NewData(arrow.MapOf(keyCol.DataType(), valueCol.DataType()), mapCol.Len(), mapCol.Data().Buffers(), []arrow.ArrayData{structArr.Data()}, mapCol.NullN(), 0)
-		defer newData.Release()
-		return array.NewMapData(newData), nil
 	default:
 		col.Retain()
 	}
 	return newCol, nil
 }
 
-// returns a pointer to a new array which will be populated if we converted the array to valid utf8
-// or returns null, and an indicator that we should retain the original column
+// returns n arrow array which will be new and populated if we converted the array to valid utf8
+// or if we didn't covnert it, it will return the original column.
 func arrowStringRecordToColumn(
 	ctx context.Context,
 	stringCol *array.String,
@@ -2192,8 +2190,9 @@ func arrowStringRecordToColumn(
 		arr := tb.NewArray()
 		return arr
 	}
-	stringCol.Retain()
-	return nil
+	var asGenericArray arrow.Array = stringCol
+	asGenericArray.Retain()
+	return asGenericArray
 }
 
 func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, timestampOption snowflakeArrowBatchesTimestampOption, withHigherPrecision bool) (*arrow.Schema, error) {
