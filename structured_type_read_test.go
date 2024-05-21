@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"github.com/apache/arrow/go/v15/arrow"
 	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/memory"
@@ -1774,4 +1775,3 @@ func TestSelectingSemistructuredObjectInArrowBatches(t *testing.T) {
 
 	})
 }
-
