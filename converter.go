@@ -2140,6 +2140,15 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			newData := array.NewData(arrow.ListOf(newCol.DataType()), listCol.Len(), listCol.Data().Buffers(), []arrow.ArrayData{newCol.Data()}, listCol.NullN(), 0)
 			defer newData.Release()
 			return array.NewListData(newData), nil
+		} else if stringCol, ok := col.(*array.String); ok {
+			newValidUtf8Array, shouldRetainOriginalCol := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
+			if shouldRetainOriginalCol == shouldRetain {
+				col.Retain()
+			} else {
+				newCol = *newValidUtf8Array
+			}
+		} else {
+			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake objectType", col)
 		}
 	case mapType:
 		mapCol := col.(*array.Map)
