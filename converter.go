@@ -2087,7 +2087,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 		if stringCol, ok := col.(*array.String); ok {
 			newValidUtf8Array := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 			if newValidUtf8Array != nil {
-				newCol = *newValidUtf8Array
+				newCol = newValidUtf8Array
 			}
 		} else {
 			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake textType", col)
@@ -2114,7 +2114,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 		} else if stringCol, ok := col.(*array.String); ok {
 			newValidUtf8Array := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 			if newValidUtf8Array != nil {
-				newCol = *newValidUtf8Array
+				newCol = newValidUtf8Array
 			}
 		} else {
 			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake objectType", col)
@@ -2132,7 +2132,7 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 		} else if stringCol, ok := col.(*array.String); ok {
 			newValidUtf8Array := arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 			if newValidUtf8Array != nil {
-				newCol = *newValidUtf8Array
+				newCol = newValidUtf8Array
 			}
 		} else {
 			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake objectType", col)
@@ -2172,7 +2172,7 @@ func arrowStringRecordToColumn(
 	mem memory.Allocator,
 	numRows int64,
 	fieldMetadata fieldMetadata,
-) *arrow.Array {
+) arrow.Array {
 	if arrowBatchesUtf8ValidationEnabled(ctx) && stringCol.DataType().ID() == arrow.STRING {
 		tb := array.NewStringBuilder(mem)
 		defer tb.Release()
@@ -2190,7 +2190,7 @@ func arrowStringRecordToColumn(
 			}
 		}
 		arr := tb.NewArray()
-		return &arr
+		return arr
 	}
 	stringCol.Retain()
 	return nil
