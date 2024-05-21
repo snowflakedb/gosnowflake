@@ -1625,23 +1625,14 @@ func forAllStructureTypeFormats(dbt *DBTest, f func(t *testing.T, format string)
 }
 
 func TestSelectingNullObjectsInArrowBatches(t *testing.T) {
-	testcases := []struct {
-		name  string
-		query string
-	}{
-		{
-			name:  "null object cast to varchar",
-			query: "select null::object(v VARCHAR)",
-		},
-		{
-			name:  "null object",
-			query: "select null::object",
-		},
+	testcases := []string{
+		"select null::object(v VARCHAR)",
+		"select null::object",
 	}
 	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
-			t.Run(tc.name, func(t *testing.T) {
+			t.Run(tc, func(t *testing.T) {
 				pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 				defer pool.AssertSize(t, 0)
 				ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
@@ -1651,10 +1642,10 @@ func TestSelectingNullObjectsInArrowBatches(t *testing.T) {
 				err = dbt.conn.Raw(func(sc any) error {
 					queryer, implementsQueryContext := sc.(driver.QueryerContext)
 					assertTrueF(t, implementsQueryContext, "snowflake conn does not implement QueryerContext but needs to")
-					rows, err = queryer.QueryContext(ctx, tc.query, nil)
+					rows, err = queryer.QueryContext(ctx, tc, nil)
 					return err
 				})
-				assertNilF(t, err, fmt.Sprintf("test failed to run the following query: %s", tc.query))
+				assertNilF(t, err, fmt.Sprintf("test failed to run the following query: %s", tc))
 				defer rows.Close()
 
 				sfRows, isSfRows := rows.(SnowflakeRows)
@@ -1669,7 +1660,7 @@ func TestSelectingNullObjectsInArrowBatches(t *testing.T) {
 				for _, record := range *batch {
 					// check number of cols/rows so we dont get index out of range
 					assertEqualF(t, record.NumRows(), int64(1), "wrong number of rows")
-					assertEqualF(t, record.NumRows(), int64(1), "wrong number of cols")
+					assertEqualF(t, record.NumCols(), int64(1), "wrong number of cols")
 
 					colIndex := 0
 					rowIndex := 0
@@ -1696,25 +1687,25 @@ func TestSelectingSemistructuredObjectInArrowBatches(t *testing.T) {
 		withUtf8Validation bool
 	}{
 		{
-			name:               "test structured type in arrow batch with utf8 validation, snowflakeType = objectType",
+			name:               "test semistructured object in arrow batch with utf8 validation, snowflakeType = objectType",
 			withUtf8Validation: true,
 			expected:           `{"s":"someString"}`,
 			query:              "SELECT {'s':'someString'}::OBJECT",
 		},
 		{
-			name:               "test structured type in arrow batch without utf8 validation, snowflakeType = objectType",
+			name:               "test semistructured object in arrow batch without utf8 validation, snowflakeType = objectType",
 			withUtf8Validation: false,
 			expected:           `{"s":"someString"}`,
 			query:              "SELECT {'s':'someString'}::OBJECT",
 		},
 		{
-			name:               "test structured type in arrow batch without utf8 validation, snowflakeType = arrayType",
+			name:               "test semistructured object in arrow batch without utf8 validation, snowflakeType = arrayType",
 			withUtf8Validation: false,
 			expected:           `[1,2,3]`,
 			query:              "SELECT [1, 2, 3]::ARRAY",
 		},
 		{
-			name:               "test structured type in arrow batch with utf8 validation, snowflakeType = arrayType",
+			name:               "test semistructured object in arrow batch with utf8 validation, snowflakeType = arrayType",
 			withUtf8Validation: true,
 			expected:           `[1,2,3]`,
 			query:              "SELECT [1, 2, 3]::ARRAY",
@@ -1767,8 +1758,7 @@ func TestSelectingSemistructuredObjectInArrowBatches(t *testing.T) {
 					assertTrueF(t, structOrString, "wrong type for column, expected struct or string")
 
 					if isString {
-						actual := strings.ReplaceAll(strings.ReplaceAll(stringCol.Value(rowIndex), " ", ""), "\n", "")
-						assertEqualE(t, actual, tc.expected)
+						assertEqualIgnoringWhitespaceE(t, stringCol.Value(rowIndex), tc.expected)
 					}
 
 					if isStruct {
