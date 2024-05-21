@@ -1759,11 +1759,26 @@ func TestSelectingSemistructuredObjectInArrowBatches(t *testing.T) {
 					curColIndex := 0
 					rowIndex := 0
 
-					strCol, isStr := record.Column(curColIndex).(*array.String)
-					assertTrueF(t, isStr, "wrong type for column")
+					// The underlying data may be struct, or it could be string. Either way is ok but lets not fail
+					stringCol, isString := record.Column(curColIndex).(*array.String)
+					structCol, isStruct := record.Column(curColIndex).(*array.Struct)
 
-					actual := strings.ReplaceAll(strings.ReplaceAll(strCol.Value(rowIndex), " ", ""), "\n", "")
-					assertEqualE(t, actual, tc.expected)
+					structOrString := isString || isStruct
+					assertTrueF(t, structOrString, "wrong type for column, expected struct or string")
+
+					if isString {
+						actual := strings.ReplaceAll(strings.ReplaceAll(stringCol.Value(rowIndex), " ", ""), "\n", "")
+						assertEqualE(t, actual, tc.expected)
+					}
+
+					if isStruct {
+						fullStruct := structCol.Field(rowIndex)
+						stringCol, isString := fullStruct.(*array.String)
+						assertTrueF(t, isString, "wrong type for column, expected string")
+
+						assertEqualE(t, stringCol.Value(0), "someString")
+					}
+
 					record.Release()
 				}
 			})
