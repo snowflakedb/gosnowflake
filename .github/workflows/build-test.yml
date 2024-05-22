@@ -13,12 +13,9 @@ on:
       - cron:  '7 3 * * *'
     workflow_dispatch:
         inputs:
-          logLevel:
-            default: warning
-            description: "Log level"
-            required: true
-          tags:
-            description: "Test scenario tags"
+          goTestParams:
+            default:
+            description: "Parameters passed to go test"
 
 concurrency:
   # older builds for the same pull request numer or branch should be cancelled
@@ -60,6 +57,7 @@ jobs:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GORACE: history_size=7
+                GO_TEST_PARAMS: ${{ inputs.goTestParams }}
               run: ./ci/test.sh
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v3
@@ -84,6 +82,7 @@ jobs:
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
+                GO_TEST_PARAMS: ${{ inputs.goTestParams }}
               run: ./ci/test.sh
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v3
@@ -112,6 +111,7 @@ jobs:
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
+                GO_TEST_PARAMS: ${{ inputs.goTestParams }}
               run: ci\\test.bat
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v3
