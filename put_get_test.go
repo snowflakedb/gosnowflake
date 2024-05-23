@@ -58,7 +58,6 @@ func TestPutError(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
 	fta := &snowflakeFileTransferAgent{
 		data: data,
 		options: &SnowflakeFileTransferOptions{
@@ -68,10 +67,10 @@ func TestPutError(t *testing.T) {
 			cfg: &Config{},
 		},
 	}
-	if err = fta.execute(ctx); err != nil {
+	if err = fta.execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fta.result(ctx); err != nil {
+	if _, err = fta.result(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -84,10 +83,10 @@ func TestPutError(t *testing.T) {
 			cfg: &Config{},
 		},
 	}
-	if err = fta.execute(ctx); err != nil {
+	if err = fta.execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fta.result(ctx); err == nil {
+	if _, err = fta.result(); err == nil {
 		t.Fatalf("should raise permission error")
 	}
 }

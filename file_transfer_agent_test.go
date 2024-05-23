@@ -37,7 +37,7 @@ func TestGetBucketAccelerateConfiguration(t *testing.T) {
 				SrcLocations: make([]string, 0),
 			},
 		}
-		if err := sfa.transferAccelerateConfig(context.Background()); err != nil {
+		if err := sfa.transferAccelerateConfig(); err != nil {
 			var ae smithy.APIError
 			if errors.As(err, &ae) {
 				if ae.ErrorCode() == "MethodNotAllowed" {
@@ -125,7 +125,7 @@ func TestUnitProcessFileCompressionType(t *testing.T) {
 		for _, test := range testcases {
 			t.Run(test.srcCompression, func(t *testing.T) {
 				sfa.srcCompression = test.srcCompression
-				err := sfa.processFileCompressionType(context.Background())
+				err := sfa.processFileCompressionType()
 				if err != nil {
 					t.Fatalf("failed to process file compression")
 				}
@@ -139,7 +139,7 @@ func TestUnitProcessFileCompressionType(t *testing.T) {
 			QueryID:  "01aa2e8b-0405-ab7c-0000-53b10632f626",
 		}
 		sfa.data = data
-		err := sfa.processFileCompressionType(context.Background())
+		err := sfa.processFileCompressionType()
 		if err == nil {
 			t.Fatal("should have failed")
 		}
@@ -164,7 +164,7 @@ func TestParseCommandWithInvalidStageLocation(t *testing.T) {
 			},
 		}
 
-		err := sfa.parseCommand(context.Background())
+		err := sfa.parseCommand()
 		if err == nil {
 			t.Fatal("should have raised an error")
 		}
@@ -202,7 +202,7 @@ func TestParseCommandEncryptionMaterialMismatchError(t *testing.T) {
 			},
 		}
 
-		err := sfa.parseCommand(context.Background())
+		err := sfa.parseCommand()
 		if err == nil {
 			t.Fatal("should have raised an error")
 		}
@@ -239,7 +239,7 @@ func TestParseCommandInvalidStorageClientException(t *testing.T) {
 			},
 		}
 
-		err = sfa.parseCommand(context.Background())
+		err = sfa.parseCommand()
 		if err == nil {
 			t.Fatal("should have raised an error")
 		}
@@ -262,7 +262,7 @@ func TestInitFileMetadataError(t *testing.T) {
 			},
 		}
 
-		err := sfa.initFileMetadata(context.Background())
+		err := sfa.initFileMetadata()
 		if err == nil {
 			t.Fatal("should have raised an error")
 		}
@@ -279,7 +279,7 @@ func TestInitFileMetadataError(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 		sfa.srcFiles = []string{tmpDir}
 
-		err = sfa.initFileMetadata(context.Background())
+		err = sfa.initFileMetadata()
 		if err == nil {
 			t.Fatal("should have raised an error")
 		}
@@ -496,7 +496,7 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 		parallel:          1,
 	}
 
-	err = sfa.uploadFilesParallel(context.Background(), []*fileMetadata{&uploadMeta})
+	err = sfa.uploadFilesParallel([]*fileMetadata{&uploadMeta})
 	if err == nil {
 		t.Fatal("should error when the filesystem is read only")
 	}
@@ -592,7 +592,7 @@ func TestCustomTmpDirPath(t *testing.T) {
 		},
 		stageLocationType: local,
 	}
-	_, err = sfa.uploadOneFile(context.Background(), uploadMeta)
+	_, err = sfa.uploadOneFile(uploadMeta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -653,7 +653,7 @@ func TestReadonlyTmpDirPathShouldFail(t *testing.T) {
 		},
 		stageLocationType: local,
 	}
-	_, err = sfa.uploadOneFile(context.Background(), uploadMeta)
+	_, err = sfa.uploadOneFile(uploadMeta)
 	if err == nil {
 		t.Fatalf("should not upload file as temporary directory is not readable")
 	}
@@ -734,7 +734,7 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 		uploadMeta.srcStream = getFileStream(ctx)
 	}
 
-	_, err = sfa.uploadOneFile(context.Background(), uploadMeta)
+	_, err = sfa.uploadOneFile(uploadMeta)
 	if err != nil {
 		t.Fatal(err)
 	}
