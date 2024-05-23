@@ -233,64 +233,95 @@ func TestUnitAuthenticateBySAML(t *testing.T) {
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	var err error
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
 	assertEqualE(t, err.Error(), "failed to get SAML response")
 
 	sr.FuncPostAuthSAML = postAuthSAMLAuthFail
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
 	assertEqualE(t, err.Error(), "strconv.Atoi: parsing \"\": invalid syntax")
 
 	sr.FuncPostAuthSAML = postAuthSAMLAuthFailWithCode
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
 	driverErr, ok := err.(*SnowflakeError)
 	assertTrueF(t, ok, "should be a SnowflakeError")
 	assertEqualE(t, driverErr.Number, ErrCodeIdpConnectionError)
 
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidURL
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
 	driverErr, ok = err.(*SnowflakeError)
 	assertTrueF(t, ok, "should be a SnowflakeError")
 	assertEqualE(t, driverErr.Number, ErrCodeIdpConnectionError)
 
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidTokenURL
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
 	assertEqualE(t, err.Error(), "failed to parse token URL. invalid!@url$%^")
 
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccessButInvalidSSOURL
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
 	assertEqualE(t, err.Error(), "failed to parse SSO URL. invalid!@url$%^")
 
 	sr.FuncPostAuthSAML = postAuthSAMLAuthSuccess
 	sr.FuncPostAuthOKTA = postAuthOKTAError
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthOKTA.")
 	assertEqualE(t, err.Error(), "failed to get SAML response")
 
 	sr.FuncPostAuthOKTA = postAuthOKTASuccess
 	sr.FuncGetSSO = getSSOError
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncGetSSO.")
 	assertEqualE(t, err.Error(), "failed to get SSO html")
 
 	sr.FuncGetSSO = getSSOSuccessButInvalidURL
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncGetSSO.")
 	assertHasPrefixE(t, err.Error(), "failed to find action field in HTML response")
 
 	sr.FuncGetSSO = getSSOSuccess
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNilF(t, err, "should have succeeded at FuncGetSSO.")
 
 	sr.FuncGetSSO = getSSOSuccessButWrongPrefixURL
-	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password)
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
 	assertNotNilF(t, err, "should have failed at FuncGetSSO.")
 	driverErr, ok = err.(*SnowflakeError)
+	assertTrueF(t, ok, "should be a SnowflakeError")
+	assertEqualE(t, driverErr.Number, ErrCodeSSOURLNotMatch)
+}
+
+func TestDisableSamlURLCheck(t *testing.T) {
+	authenticator := &url.URL{
+		Scheme: "https",
+		Host:   "abc.com",
+	}
+	application := "testapp"
+	account := "testaccount"
+	user := "u"
+	password := "p"
+	sr := &snowflakeRestful{
+		Protocol:         "https",
+		Host:             "abc.com",
+		Port:             443,
+		FuncPostAuthSAML: postAuthSAMLAuthSuccess,
+		FuncPostAuthOKTA: postAuthOKTASuccess,
+		FuncGetSSO:       getSSOSuccessButWrongPrefixURL,
+		TokenAccessor:    getSimpleTokenAccessor(),
+	}
+	var err error
+	// Test for disabled SAML URL check
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolTrue)
+	assertNilF(t, err, "SAML URL check should have disabled.")
+
+	// Test for enabled SAML URL check
+	_, err = authenticateBySAML(context.Background(), sr, authenticator, application, account, user, password, ConfigBoolFalse)
+	assertNotNilF(t, err, "should have failed at FuncGetSSO.")
+	driverErr, ok := err.(*SnowflakeError)
 	assertTrueF(t, ok, "should be a SnowflakeError")
 	assertEqualE(t, driverErr.Number, ErrCodeSSOURLNotMatch)
 }

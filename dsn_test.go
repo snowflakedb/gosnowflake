@@ -748,6 +748,40 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=EXTERNALBROWSER&disableSamlURLCheck=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypeExternalBrowser,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableSamlURLCheck:       ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=EXTERNALBROWSER&disableSamlURLCheck=false",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypeExternalBrowser,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableSamlURLCheck:       ConfigBoolFalse,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -909,6 +943,9 @@ func TestParseDSN(t *testing.T) {
 				}
 				if test.config.DisableConsoleLogin != cfg.DisableConsoleLogin {
 					t.Fatalf("%v: Failed to match DisableConsoleLogin. expected: %v, got: %v", i, test.config.DisableConsoleLogin, cfg.DisableConsoleLogin)
+				}
+				if test.config.DisableSamlURLCheck != cfg.DisableSamlURLCheck {
+					t.Fatalf("%v: Failed to match DisableSamlURLCheck. expected: %v, got: %v", i, test.config.DisableSamlURLCheck, cfg.DisableSamlURLCheck)
 				}
 				assertEqualF(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
 			case test.err != nil:
@@ -1378,6 +1415,26 @@ func TestDSN(t *testing.T) {
 				DisableConsoleLogin: ConfigBoolFalse,
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=externalbrowser&disableConsoleLogin=false&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                "u",
+				Password:            "p",
+				Account:             "a.b.c",
+				Authenticator:       AuthTypeExternalBrowser,
+				DisableSamlURLCheck: ConfigBoolTrue,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=externalbrowser&disableSamlURLCheck=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                "u",
+				Password:            "p",
+				Account:             "a.b.c",
+				Authenticator:       AuthTypeExternalBrowser,
+				DisableSamlURLCheck: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=externalbrowser&disableSamlURLCheck=false&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {

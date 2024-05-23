@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -33,6 +34,10 @@ func assertEqualE(t *testing.T, actual any, expected any, descriptions ...string
 
 func assertEqualF(t *testing.T, actual any, expected any, descriptions ...string) {
 	fatalOnNonEmpty(t, validateEqual(actual, expected, descriptions...))
+}
+
+func assertEqualIgnoringWhitespaceE(t *testing.T, actual string, expected string, descriptions ...string) {
+	errorOnNonEmpty(t, validateEqualIgnoringWhitespace(actual, expected, descriptions...))
 }
 
 func assertDeepEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
@@ -117,6 +122,22 @@ func validateNotNil(actual any, descriptions ...string) string {
 
 func validateEqual(actual any, expected any, descriptions ...string) string {
 	if expected == actual {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s", actual, expected, desc)
+}
+
+func removeWhitespaces(s string) string {
+	pattern, err := regexp.Compile(`\s+`)
+	if err != nil {
+		panic(err)
+	}
+	return pattern.ReplaceAllString(s, "")
+}
+
+func validateEqualIgnoringWhitespace(actual string, expected string, descriptions ...string) string {
+	if removeWhitespaces(expected) == removeWhitespaces(actual) {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
