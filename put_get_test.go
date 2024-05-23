@@ -59,6 +59,7 @@ func TestPutError(t *testing.T) {
 	}
 
 	fta := &snowflakeFileTransferAgent{
+		ctx:  context.Background(),
 		data: data,
 		options: &SnowflakeFileTransferOptions{
 			RaisePutGetError: false,
@@ -75,6 +76,7 @@ func TestPutError(t *testing.T) {
 	}
 
 	fta = &snowflakeFileTransferAgent{
+		ctx:  context.Background(),
 		data: data,
 		options: &SnowflakeFileTransferOptions{
 			RaisePutGetError: true,
