@@ -1678,7 +1678,7 @@ func TestSelectingNullObjectsInArrowBatches(t *testing.T) {
 	})
 }
 
-func TestSelectingSemistructuredObjectInArrowBatches(t *testing.T) {
+func TestSelectingSemistructuredTypesInArrowBatches(t *testing.T) {
 	testcases := []struct {
 		name               string
 		query              string
@@ -1751,22 +1751,9 @@ func TestSelectingSemistructuredObjectInArrowBatches(t *testing.T) {
 
 					// The underlying data may be struct, or it could be string. Either way is ok but lets not fail
 					stringCol, isString := record.Column(curColIndex).(*array.String)
-					structCol, isStruct := record.Column(curColIndex).(*array.Struct)
 
-					structOrString := isString || isStruct
-					assertTrueF(t, structOrString, "wrong type for column, expected struct or string")
-
-					if isString {
-						assertEqualIgnoringWhitespaceE(t, stringCol.Value(rowIndex), tc.expected)
-					}
-
-					if isStruct {
-						fullStruct := structCol.Field(rowIndex)
-						stringCol, isString := fullStruct.(*array.String)
-						assertTrueF(t, isString, "wrong type for column, expected string")
-
-						assertEqualE(t, stringCol.Value(0), "someString")
-					}
+					assertTrueF(t, isString, "wrong type for column, expected string")
+					assertEqualIgnoringWhitespaceE(t, stringCol.Value(rowIndex), tc.expected)
 
 					record.Release()
 				}
