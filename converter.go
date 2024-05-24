@@ -2023,8 +2023,6 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			builder.AppendValues(floatValues, nil)
 			newCol = builder.NewArray()
 			builder.Release()
-		} else {
-			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake mapType", col)
 		}
 	case timeType:
 		newCol, err = compute.CastArray(ctx, col, compute.SafeCastOptions(arrow.FixedWidthTypes.Time64ns))
@@ -2088,8 +2086,6 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 	case textType:
 		if stringCol, ok := col.(*array.String); ok {
 			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-		} else {
-			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake textType", col)
 		}
 	case objectType:
 		if structCol, ok := col.(*array.Struct); ok {
@@ -2112,8 +2108,6 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			return array.NewStructArrayWithNulls(internalCols, fieldNames, nullBitmap, numberOfNulls, 0)
 		} else if stringCol, ok := col.(*array.String); ok {
 			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-		} else {
-			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake objectType", col)
 		}
 	case arrayType:
 		if listCol, ok := col.(*array.List); ok {
@@ -2127,8 +2121,6 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			return array.NewListData(newData), nil
 		} else if stringCol, ok := col.(*array.String); ok {
 			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-		} else {
-			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake objectType", col)
 		}
 	case mapType:
 		if mapCol, ok := col.(*array.Map); ok {
@@ -2153,8 +2145,6 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			return array.NewMapData(newData), nil
 		} else if stringCol, ok := col.(*array.String); ok {
 			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
-		} else {
-			return nil, fmt.Errorf("unsupported arrow type %T when trying to convert a snowflake mapType", col)
 		}
 	default:
 		col.Retain()
@@ -2190,9 +2180,8 @@ func arrowStringRecordToColumn(
 		arr := tb.NewArray()
 		return arr
 	}
-	var asGenericArray arrow.Array = stringCol
-	asGenericArray.Retain()
-	return asGenericArray
+	stringCol.Retain()
+	return stringCol
 }
 
 func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, timestampOption snowflakeArrowBatchesTimestampOption, withHigherPrecision bool) (*arrow.Schema, error) {
