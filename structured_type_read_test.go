@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"github.com/apache/arrow/go/v15/arrow"
 	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/memory"
@@ -1620,4 +1621,144 @@ func forAllStructureTypeFormats(dbt *DBTest, f func(t *testing.T, format string)
 			f(t, tc.name)
 		})
 	}
+}
+
+func TestSelectingNullObjectsInArrowBatches(t *testing.T) {
+	testcases := []string{
+		"select null::object(v VARCHAR)",
+		"select null::object",
+	}
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		for _, tc := range testcases {
+			t.Run(tc, func(t *testing.T) {
+				pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+				defer pool.AssertSize(t, 0)
+				ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+
+				var err error
+				var rows driver.Rows
+				err = dbt.conn.Raw(func(sc any) error {
+					queryer, implementsQueryContext := sc.(driver.QueryerContext)
+					assertTrueF(t, implementsQueryContext, "snowflake conn does not implement QueryerContext but needs to")
+					rows, err = queryer.QueryContext(ctx, tc, nil)
+					return err
+				})
+				assertNilF(t, err, fmt.Sprintf("test failed to run the following query: %s", tc))
+				defer rows.Close()
+
+				sfRows, isSfRows := rows.(SnowflakeRows)
+				assertTrueF(t, isSfRows, "rows are not snowflakeRows")
+
+				batches, err := sfRows.GetArrowBatches()
+				assertNilF(t, err)
+				assertNotEqualF(t, len(batches), 0)
+				batch, err := batches[0].Fetch()
+				assertNilF(t, err)
+				assertNotEqualF(t, len(*batch), 0)
+				for _, record := range *batch {
+					// check number of cols/rows so we dont get index out of range
+					assertEqualF(t, record.NumRows(), int64(1), "wrong number of rows")
+					assertEqualF(t, record.NumCols(), int64(1), "wrong number of cols")
+
+					colIndex := 0
+					rowIndex := 0
+
+					srtCol, isStrCol := record.Column(colIndex).(*array.String)
+					assertTrueF(t, isStrCol, "column is not type string")
+
+					assertEqualE(t, srtCol.Value(rowIndex), "")
+					isNull := srtCol.IsNull(rowIndex)
+					assertTrueF(t, isNull)
+					record.Release()
+				}
+
+			})
+		}
+	})
+}
+
+func TestSelectingSemistructuredTypesInArrowBatches(t *testing.T) {
+	testcases := []struct {
+		name               string
+		query              string
+		expected           string
+		withUtf8Validation bool
+	}{
+		{
+			name:               "test semistructured object in arrow batch with utf8 validation, snowflakeType = objectType",
+			withUtf8Validation: true,
+			expected:           `{"s":"someString"}`,
+			query:              "SELECT {'s':'someString'}::OBJECT",
+		},
+		{
+			name:               "test semistructured object in arrow batch without utf8 validation, snowflakeType = objectType",
+			withUtf8Validation: false,
+			expected:           `{"s":"someString"}`,
+			query:              "SELECT {'s':'someString'}::OBJECT",
+		},
+		{
+			name:               "test semistructured object in arrow batch without utf8 validation, snowflakeType = arrayType",
+			withUtf8Validation: false,
+			expected:           `[1,2,3]`,
+			query:              "SELECT [1, 2, 3]::ARRAY",
+		},
+		{
+			name:               "test semistructured object in arrow batch with utf8 validation, snowflakeType = arrayType",
+			withUtf8Validation: true,
+			expected:           `[1,2,3]`,
+			query:              "SELECT [1, 2, 3]::ARRAY",
+		},
+	}
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+
+				pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+				defer pool.AssertSize(t, 0)
+				ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
+				if tc.withUtf8Validation {
+					ctx = WithArrowBatchesUtf8Validation(ctx)
+				}
+
+				var err error
+				var rows driver.Rows
+				err = dbt.conn.Raw(func(sc any) error {
+					queryer, implementsQueryContext := sc.(driver.QueryerContext)
+					assertTrueF(t, implementsQueryContext, "snowflake conn does not implement QueryerContext but needs to")
+					rows, err = queryer.QueryContext(ctx, tc.query, nil)
+					return err
+				})
+				assertNilF(t, err)
+				defer rows.Close()
+
+				sfRows, isSfRows := rows.(SnowflakeRows)
+				assertTrueF(t, isSfRows, "rows are not snowflakeRows")
+
+				batches, err := sfRows.GetArrowBatches()
+				assertNilF(t, err)
+				assertNotEqualF(t, len(batches), 0)
+				batch, err := batches[0].Fetch()
+				assertNilF(t, err)
+				assertNotEqualF(t, len(*batch), 0)
+				for _, record := range *batch {
+					assertEqualF(t, record.NumCols(), int64(1), "unexpected number of columns")
+					assertEqualF(t, record.NumRows(), int64(1), "unexpected number of rows")
+
+					curColIndex := 0
+					rowIndex := 0
+
+					// The underlying data may be struct, or it could be string. Either way is ok but lets not fail
+					stringCol, isString := record.Column(curColIndex).(*array.String)
+
+					assertTrueF(t, isString, "wrong type for column, expected string")
+					assertEqualIgnoringWhitespaceE(t, stringCol.Value(rowIndex), tc.expected)
+
+					record.Release()
+				}
+			})
+		}
+
+	})
 }

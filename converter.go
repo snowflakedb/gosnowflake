@@ -2084,25 +2084,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			newCol = tb.NewArray()
 		}
 	case textType:
-		if arrowBatchesUtf8ValidationEnabled(ctx) && col.DataType().ID() == arrow.STRING {
-			tb := array.NewStringBuilder(pool)
-			defer tb.Release()
-
-			for i := 0; i < int(numRows); i++ {
-				if col.(*array.String).IsValid(i) {
-					stringValue := col.(*array.String).Value(i)
-					if !utf8.ValidString(stringValue) {
-						logger.WithContext(ctx).Error("Invalid UTF-8 characters detected while reading query response, column: ", fieldMetadata.Name)
-						stringValue = strings.ToValidUTF8(stringValue, "�")
-					}
-					tb.Append(stringValue)
-				} else {
-					tb.AppendNull()
-				}
-			}
-			newCol = tb.NewArray()
-		} else {
-			col.Retain()
+		if stringCol, ok := col.(*array.String); ok {
+			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 		}
 	case objectType:
 		if structCol, ok := col.(*array.Struct); ok {
@@ -2123,6 +2106,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			nullBitmap := memory.NewBufferBytes(structCol.NullBitmapBytes())
 			numberOfNulls := structCol.NullN()
 			return array.NewStructArrayWithNulls(internalCols, fieldNames, nullBitmap, numberOfNulls, 0)
+		} else if stringCol, ok := col.(*array.String); ok {
+			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 		}
 	case arrayType:
 		if listCol, ok := col.(*array.List); ok {
@@ -2134,32 +2119,69 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			newData := array.NewData(arrow.ListOf(newCol.DataType()), listCol.Len(), listCol.Data().Buffers(), []arrow.ArrayData{newCol.Data()}, listCol.NullN(), 0)
 			defer newData.Release()
 			return array.NewListData(newData), nil
+		} else if stringCol, ok := col.(*array.String); ok {
+			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 		}
 	case mapType:
-		mapCol := col.(*array.Map)
-		keyCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).KeyField(), mapCol.Keys(), fieldMetadata.Fields[0], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
-		if err != nil {
-			return nil, err
-		}
-		defer keyCol.Release()
-		valueCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).ItemField(), mapCol.Items(), fieldMetadata.Fields[1], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
-		if err != nil {
-			return nil, err
-		}
-		defer valueCol.Release()
+		if mapCol, ok := col.(*array.Map); ok {
+			keyCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).KeyField(), mapCol.Keys(), fieldMetadata.Fields[0], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
+			if err != nil {
+				return nil, err
+			}
+			defer keyCol.Release()
+			valueCol, err := arrowToRecordSingleColumn(ctx, field.Type.(*arrow.MapType).ItemField(), mapCol.Items(), fieldMetadata.Fields[1], higherPrecisionEnabled, timestampOption, pool, loc, numRows)
+			if err != nil {
+				return nil, err
+			}
+			defer valueCol.Release()
 
-		structArr, err := array.NewStructArray([]arrow.Array{keyCol, valueCol}, []string{"k", "v"})
-		if err != nil {
-			return nil, err
+			structArr, err := array.NewStructArray([]arrow.Array{keyCol, valueCol}, []string{"k", "v"})
+			if err != nil {
+				return nil, err
+			}
+			defer structArr.Release()
+			newData := array.NewData(arrow.MapOf(keyCol.DataType(), valueCol.DataType()), mapCol.Len(), mapCol.Data().Buffers(), []arrow.ArrayData{structArr.Data()}, mapCol.NullN(), 0)
+			defer newData.Release()
+			return array.NewMapData(newData), nil
+		} else if stringCol, ok := col.(*array.String); ok {
+			newCol = arrowStringRecordToColumn(ctx, stringCol, pool, numRows, fieldMetadata)
 		}
-		defer structArr.Release()
-		newData := array.NewData(arrow.MapOf(keyCol.DataType(), valueCol.DataType()), mapCol.Len(), mapCol.Data().Buffers(), []arrow.ArrayData{structArr.Data()}, mapCol.NullN(), 0)
-		defer newData.Release()
-		return array.NewMapData(newData), nil
 	default:
 		col.Retain()
 	}
 	return newCol, nil
+}
+
+// returns n arrow array which will be new and populated if we converted the array to valid utf8
+// or if we didn't covnert it, it will return the original column.
+func arrowStringRecordToColumn(
+	ctx context.Context,
+	stringCol *array.String,
+	mem memory.Allocator,
+	numRows int64,
+	fieldMetadata fieldMetadata,
+) arrow.Array {
+	if arrowBatchesUtf8ValidationEnabled(ctx) && stringCol.DataType().ID() == arrow.STRING {
+		tb := array.NewStringBuilder(mem)
+		defer tb.Release()
+
+		for i := 0; i < int(numRows); i++ {
+			if stringCol.IsValid(i) {
+				stringValue := stringCol.Value(i)
+				if !utf8.ValidString(stringValue) {
+					logger.WithContext(ctx).Error("Invalid UTF-8 characters detected while reading query response, column: ", fieldMetadata.Name)
+					stringValue = strings.ToValidUTF8(stringValue, "�")
+				}
+				tb.Append(stringValue)
+			} else {
+				tb.AppendNull()
+			}
+		}
+		arr := tb.NewArray()
+		return arr
+	}
+	stringCol.Retain()
+	return stringCol
 }
 
 func recordToSchema(sc *arrow.Schema, rowType []execResponseRowType, loc *time.Location, timestampOption snowflakeArrowBatchesTimestampOption, withHigherPrecision bool) (*arrow.Schema, error) {
