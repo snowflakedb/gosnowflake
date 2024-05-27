@@ -480,7 +480,7 @@ func prepareJWTToken(config *Config) (string, error) {
 	}
 	hash := sha256.Sum256(pubBytes)
 
-	accountName := strings.ToUpper(config.Account)
+	accountName := getAccountForJWT(config.Account)
 	userName := strings.ToUpper(config.User)
 
 	issueAtTime := time.Now().UTC()
@@ -571,4 +571,12 @@ func fillCachedIDToken(sc *snowflakeConn) {
 
 func fillCachedMfaToken(sc *snowflakeConn) {
 	getCredential(sc, mfaToken)
+}
+
+func getAccountForJWT(accountName string) string {
+	posDot := strings.Index(accountName, ".")
+	if posDot > 0 {
+		return strings.ToUpper(accountName[:posDot])
+	}
+	return strings.ToUpper(accountName)
 }
