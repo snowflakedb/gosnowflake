@@ -926,7 +926,7 @@ func TestOktaRetryWithNewToken(t *testing.T) {
 	assertEqualF(t, authResponse.SessionInfo.DatabaseName, expectedDatabaseName)
 }
 
-func TestGetAccountForJWT(t *testing.T) {
+func TestExtractAccountName(t *testing.T) {
 	testcases := map[string]string{
 		"myaccount":                          "MYACCOUNT",
 		"myaccount.eu-central-1":             "MYACCOUNT",
@@ -941,9 +941,9 @@ func TestGetAccountForJWT(t *testing.T) {
 
 	for account, expected := range testcases {
 		t.Run(account, func(t *testing.T) {
-			accountPart := getAccountForJWT(account)
+			accountPart := extractAccountName(account)
 			if accountPart != expected {
-				t.Fatalf("getAccountForJWT returned unexpected response (%v), should be %v", accountPart, expected)
+				t.Fatalf("extractAccountName returned unexpected response (%v), should be %v", accountPart, expected)
 			}
 		})
 	}
