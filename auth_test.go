@@ -940,12 +940,11 @@ func TestGetAccountForJWT(t *testing.T) {
 	}
 
 	for account, expected := range testcases {
-		t.Run(fmt.Sprintf("%v", account),
-			func(t *testing.T) {
-				accountPart := getAccountForJWT(account)
-				if accountPart != expected {
-					t.Fatalf("getAccountForJWT returned unexpected response (%v), should be %v", accountPart, expected)
-				}
-			})
+		t.Run(account, func(t *testing.T) {
+			accountPart := getAccountForJWT(account)
+			if accountPart != expected {
+				t.Fatalf("getAccountForJWT returned unexpected response (%v), should be %v", accountPart, expected)
+			}
+		})
 	}
 }
