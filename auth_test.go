@@ -927,7 +927,7 @@ func TestOktaRetryWithNewToken(t *testing.T) {
 }
 
 func TestGetAccountForJWT(t *testing.T) {
-	accounts := map[string]string{
+	testcases := map[string]string{
 		"myaccount":                          "MYACCOUNT",
 		"myaccount.eu-central-1":             "MYACCOUNT",
 		"myaccount.eu-central-1.privatelink": "MYACCOUNT",
@@ -939,7 +939,13 @@ func TestGetAccountForJWT(t *testing.T) {
 		"myorg-my_account.privatelink":       "MYORG-MY_ACCOUNT",
 	}
 
-	for account, expected := range accounts {
-		assertEqualF(t, getAccountForJWT(account), expected)
+	for account, expected := range testcases {
+		t.Run(fmt.Sprintf("Validating account part for identifier %v", account),
+			func(t *testing.T) {
+				accountPart := getAccountForJWT(account)
+				if accountPart != expected {
+					t.Fatalf("getAccountForJWT returned unexpected response (%v), should be %v", accountPart, expected)
+				}
+			})
 	}
 }
