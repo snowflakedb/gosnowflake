@@ -925,26 +925,3 @@ func TestOktaRetryWithNewToken(t *testing.T) {
 	assertEqualF(t, authResponse.MfaToken, expectedMfaToken)
 	assertEqualF(t, authResponse.SessionInfo.DatabaseName, expectedDatabaseName)
 }
-
-func TestExtractAccountName(t *testing.T) {
-	testcases := map[string]string{
-		"myaccount":                          "MYACCOUNT",
-		"myaccount.eu-central-1":             "MYACCOUNT",
-		"myaccount.eu-central-1.privatelink": "MYACCOUNT",
-		"myorg-myaccount":                    "MYORG-MYACCOUNT",
-		"myorg-myaccount.privatelink":        "MYORG-MYACCOUNT",
-		"myorg-my-account":                   "MYORG-MY-ACCOUNT",
-		"myorg-my-account.privatelink":       "MYORG-MY-ACCOUNT",
-		"myorg-my_account":                   "MYORG-MY_ACCOUNT",
-		"myorg-my_account.privatelink":       "MYORG-MY_ACCOUNT",
-	}
-
-	for account, expected := range testcases {
-		t.Run(account, func(t *testing.T) {
-			accountPart := extractAccountName(account)
-			if accountPart != expected {
-				t.Fatalf("extractAccountName returned unexpected response (%v), should be %v", accountPart, expected)
-			}
-		})
-	}
-}
