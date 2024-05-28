@@ -940,7 +940,7 @@ func TestGetAccountForJWT(t *testing.T) {
 	}
 
 	for account, expected := range testcases {
-		t.Run(fmt.Sprintf("Validating account part for identifier %v", account),
+		t.Run(fmt.Sprintf("%v", account),
 			func(t *testing.T) {
 				accountPart := getAccountForJWT(account)
 				if accountPart != expected {
