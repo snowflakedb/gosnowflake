@@ -480,7 +480,7 @@ func prepareJWTToken(config *Config) (string, error) {
 	}
 	hash := sha256.Sum256(pubBytes)
 
-	accountName := strings.ToUpper(config.Account)
+	accountName := extractAccountName(config.Account)
 	userName := strings.ToUpper(config.User)
 
 	issueAtTime := time.Now().UTC()

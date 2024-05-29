@@ -907,3 +907,11 @@ func parsePrivateKeyFromFile(path string) (*rsa.PrivateKey, error) {
 	}
 	return pk, nil
 }
+
+func extractAccountName(rawAccount string) string {
+	posDot := strings.Index(rawAccount, ".")
+	if posDot > 0 {
+		return strings.ToUpper(rawAccount[:posDot])
+	}
+	return strings.ToUpper(rawAccount)
+}
