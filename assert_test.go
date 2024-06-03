@@ -72,6 +72,10 @@ func assertStringContainsF(t *testing.T, actual string, expectedToContain string
 	fatalOnNonEmpty(t, validateStringContains(actual, expectedToContain, descriptions...))
 }
 
+func assertEmptyStringE(t *testing.T, actual string, descriptions ...string) {
+	errorOnNonEmpty(t, validateEmptyString(actual, descriptions...))
+}
+
 func assertHasPrefixE(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
 	errorOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
 }
@@ -174,6 +178,14 @@ func validateStringContains(actual string, expectedToContain string, description
 	}
 	desc := joinDescriptions(descriptions...)
 	return fmt.Sprintf("expected \"%s\" to contain \"%s\" but did not. %s", actual, expectedToContain, desc)
+}
+
+func validateEmptyString(actual string, descriptions ...string) string {
+	if actual == "" {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected \"%s\" to be empty, but was not. %s", actual, desc)
 }
 
 func validateHasPrefix(actual string, expectedPrefix string, descriptions ...string) string {

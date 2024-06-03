@@ -30,6 +30,12 @@ type bindUploader struct {
 	arrayBindStage string
 }
 
+type bindingSchema struct {
+	Typ      string          `json:"type"`
+	Nullable bool            `json:"nullable"`
+	Fields   []fieldMetadata `json:"fields"`
+}
+
 func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, error) {
 	bindingRows, err := bu.buildRowsAsBytes(bindings)
 	if err != nil {
@@ -204,7 +210,7 @@ func (sc *snowflakeConn) processBindings(
 		req.BindStage = uploader.stagePath
 	} else {
 		var err error
-		req.Bindings, err = getBindValues(bindings)
+		req.Bindings, err = getBindValues(bindings, sc.cfg.Params)
 		if err != nil {
 			return err
 		}
@@ -213,7 +219,7 @@ func (sc *snowflakeConn) processBindings(
 	return nil
 }
 
-func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, error) {
+func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map[string]execBindParameter, error) {
 	tsmode := timestampNtzType
 	idx := 1
 	var err error
@@ -231,21 +237,27 @@ func getBindValues(bindings []driver.NamedValue) (map[string]execBindParameter, 
 			}
 		} else {
 			var val interface{}
+			var schema *bindingSchema
+			fmt := ""
 			if t == sliceType {
 				// retrieve array binding data
 				t, val = snowflakeArrayToString(&binding, false)
 			} else {
-				val, err = valueToString(binding.Value, tsmode)
+				val, fmt, schema, err = valueToString(binding.Value, tsmode, params)
 				if err != nil {
 					return nil, err
 				}
 			}
 			if t == nullType || t == unSupportedType {
 				t = textType // if null or not supported, pass to GS as text
+			} else if t == nullObjectType {
+				t = objectType
 			}
 			bindValues[bindingName(binding, idx)] = execBindParameter{
-				Type:  t.String(),
-				Value: val,
+				Type:   t.String(),
+				Value:  val,
+				Format: fmt,
+				Schema: schema,
 			}
 			idx++
 		}
@@ -321,4 +333,12 @@ func supportedNullBind(nv *driver.NamedValue) bool {
 		return true
 	}
 	return false
+}
+
+func supportedStructuredObjectWriterBind(nv *driver.NamedValue) bool {
+	if _, ok := nv.Value.(StructuredObjectWriter); ok {
+		return true
+	}
+	_, ok := nv.Value.(reflect.Type)
+	return ok
 }

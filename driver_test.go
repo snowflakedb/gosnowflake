@@ -340,6 +340,11 @@ func (dbt *DBTest) enableStructuredTypes() {
 	dbt.mustExec("alter session set IGNORE_CLIENT_VESRION_IN_STRUCTURED_TYPES_RESPONSE = true")
 }
 
+func (dbt *DBTest) enableStructuredTypesBinding() {
+	dbt.mustExec("ALTER SESSION SET ENABLE_OBJECT_TYPED_BINDS = true")
+	dbt.mustExec("ALTER SESSION SET ENABLE_STRUCTURED_TYPES_IN_BINDS = Enable")
+}
+
 type SCTest struct {
 	*testing.T
 	sc *snowflakeConn
