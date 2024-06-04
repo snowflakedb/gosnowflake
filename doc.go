@@ -579,7 +579,7 @@ You must use `WithArrowBatches` context, similar to the following:
 Limitations:
 
  1. For some queries Snowflake may decide to return data in JSON format (examples: `SHOW PARAMETERS` or `ls @stage`). You cannot use JSON with Arrow batches context.
- 2. Snowflake handles timestamps in a range which is higher than available space in Arrow timestamp type. Because of that special treatment should be used (see below).
+ 2. Snowflake handles timestamps in a range which is broader than available space in Arrow timestamp type. Because of that special treatment should be used (see below).
  3. When using numbers, Snowflake chooses the smallest type that covers all values in a batch. So even when your column is NUMBER(38, 0), if all values are 8bits, array.Int8 is used.
 
 How to handle timestamps in Arrow batches:
