@@ -36,6 +36,12 @@ type bindingSchema struct {
 	Fields   []fieldMetadata `json:"fields"`
 }
 
+type bindingValue struct {
+	value  *string
+	format string
+	schema *bindingSchema
+}
+
 func (bu *bindUploader) upload(bindings []driver.NamedValue) (*execResponse, error) {
 	bindingRows, err := bu.buildRowsAsBytes(bindings)
 	if err != nil {
@@ -237,13 +243,13 @@ func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map
 			}
 		} else {
 			var val interface{}
-			var schema *bindingSchema
-			fmt := ""
+			var bv bindingValue
 			if t == sliceType {
 				// retrieve array binding data
 				t, val = snowflakeArrayToString(&binding, false)
 			} else {
-				val, fmt, schema, err = valueToString(binding.Value, tsmode, params)
+				bv, err = valueToString(binding.Value, tsmode, params)
+				val = bv.value
 				if err != nil {
 					return nil, err
 				}
@@ -256,8 +262,8 @@ func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map
 			bindValues[bindingName(binding, idx)] = execBindParameter{
 				Type:   t.String(),
 				Value:  val,
-				Format: fmt,
-				Schema: schema,
+				Format: bv.format,
+				Schema: bv.schema,
 			}
 			idx++
 		}

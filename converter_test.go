@@ -209,7 +209,7 @@ func (o *testValueToStringStructuredObject) Write(sowc StructuredObjectWriterCon
 
 func TestValueToString(t *testing.T) {
 	v := cmplx.Sqrt(-5 + 12i) // should never happen as Go sql package must have already validated.
-	_, _, _, err := valueToString(v, nullType, nil)
+	_, err := valueToString(v, nullType, nil)
 	if err == nil {
 		t.Errorf("should raise error: %v", v)
 	}
@@ -226,46 +226,46 @@ func TestValueToString(t *testing.T) {
 	expectedFloat64 := "1.1"
 	expectedString := "teststring"
 
-	s, fmt, schema, err := valueToString(localTime, timestampLtzType, nil)
+	bv, err := valueToString(localTime, timestampLtzType, nil)
 	assertNilF(t, err)
-	assertEmptyStringE(t, fmt)
-	assertNilE(t, schema)
-	assertEqualE(t, *s, expectedUnixTime)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedUnixTime)
 
-	s, fmt, schema, err = valueToString(utcTime, timestampLtzType, nil)
+	bv, err = valueToString(utcTime, timestampLtzType, nil)
 	assertNilF(t, err)
-	assertEmptyStringE(t, fmt)
-	assertNilE(t, schema)
-	assertEqualE(t, *s, expectedUnixTime)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedUnixTime)
 
-	s, fmt, schema, err = valueToString(sql.NullBool{Bool: true, Valid: true}, timestampLtzType, nil)
+	bv, err = valueToString(sql.NullBool{Bool: true, Valid: true}, timestampLtzType, nil)
 	assertNilF(t, err)
-	assertEmptyStringE(t, fmt)
-	assertNilE(t, schema)
-	assertEqualE(t, *s, expectedBool)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedBool)
 
-	s, fmt, schema, err = valueToString(sql.NullInt64{Int64: 1, Valid: true}, timestampLtzType, nil)
+	bv, err = valueToString(sql.NullInt64{Int64: 1, Valid: true}, timestampLtzType, nil)
 	assertNilF(t, err)
-	assertEmptyStringE(t, fmt)
-	assertNilE(t, schema)
-	assertEqualE(t, *s, expectedInt64)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedInt64)
 
-	s, fmt, schema, err = valueToString(sql.NullFloat64{Float64: 1.1, Valid: true}, timestampLtzType, nil)
+	bv, err = valueToString(sql.NullFloat64{Float64: 1.1, Valid: true}, timestampLtzType, nil)
 	assertNilF(t, err)
-	assertEmptyStringE(t, fmt)
-	assertNilE(t, schema)
-	assertEqualE(t, *s, expectedFloat64)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedFloat64)
 
-	s, fmt, schema, err = valueToString(sql.NullString{String: "teststring", Valid: true}, timestampLtzType, nil)
+	bv, err = valueToString(sql.NullString{String: "teststring", Valid: true}, timestampLtzType, nil)
 	assertNilF(t, err)
-	assertEmptyStringE(t, fmt)
-	assertNilE(t, schema)
-	assertEqualE(t, *s, expectedString)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedString)
 
-	s, fmt, schema, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, timestampLtzType, params)
+	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, timestampLtzType, params)
 	assertNilF(t, err)
-	assertEqualE(t, fmt, "json")
-	assertDeepEqualE(t, *schema, bindingSchema{
+	assertEqualE(t, bv.format, "json")
+	assertDeepEqualE(t, *bv.schema, bindingSchema{
 		Typ:      "object",
 		Nullable: true,
 		Fields: []fieldMetadata{
@@ -290,7 +290,7 @@ func TestValueToString(t *testing.T) {
 			},
 		},
 	})
-	assertEqualIgnoringWhitespaceE(t, *s, `{"date": "2024-05-24", "i": 123, "s": "some string"}`)
+	assertEqualIgnoringWhitespaceE(t, *bv.value, `{"date": "2024-05-24", "i": 123, "s": "some string"}`)
 }
 
 func TestExtractTimestamp(t *testing.T) {
@@ -2388,11 +2388,11 @@ func TestTimeTypeValueToString(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.out, func(t *testing.T) {
-			output, fmt, schema, err := timeTypeValueToString(tc.in, tc.tsmode)
+			bv, err := timeTypeValueToString(tc.in, tc.tsmode)
 			assertNilF(t, err)
-			assertEmptyStringE(t, fmt)
-			assertNilE(t, schema)
-			assertEqualE(t, tc.out, *output)
+			assertEmptyStringE(t, bv.format)
+			assertNilE(t, bv.schema)
+			assertEqualE(t, tc.out, *bv.value)
 		})
 	}
 }

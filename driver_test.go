@@ -341,6 +341,7 @@ func (dbt *DBTest) enableStructuredTypes() {
 }
 
 func (dbt *DBTest) enableStructuredTypesBinding() {
+	dbt.enableStructuredTypes()
 	dbt.mustExec("ALTER SESSION SET ENABLE_OBJECT_TYPED_BINDS = true")
 	dbt.mustExec("ALTER SESSION SET ENABLE_STRUCTURED_TYPES_IN_BINDS = Enable")
 }

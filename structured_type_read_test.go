@@ -230,7 +230,7 @@ func TestObjectWithAllTypes(t *testing.T) {
 			assertTrueE(t, res.ltz.Equal(time.Date(2021, time.July, 21, 11, 22, 33, 0, warsawTz)))
 			assertTrueE(t, res.tz.Equal(time.Date(2022, time.August, 31, 13, 43, 22, 0, warsawTz)))
 			assertTrueE(t, res.ntz.Equal(time.Date(2023, time.May, 22, 1, 17, 19, 0, time.UTC)))
-			assertEqualE(t, res.so, simpleObject{s: "child", i: 9})
+			assertDeepEqualE(t, res.so, &simpleObject{s: "child", i: 9})
 			assertDeepEqualE(t, res.sArr, []string{"x", "y", "z"})
 			assertDeepEqualE(t, res.f64Arr, []float64{1.1, 2.2, 3.3})
 			assertDeepEqualE(t, res.someMap, map[string]bool{"x": true, "y": false})
