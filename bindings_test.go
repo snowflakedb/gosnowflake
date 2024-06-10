@@ -1174,15 +1174,13 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 func TestMaxLobSize(t *testing.T) {
 	skipMaxLobSizeTestOnGithubActions(t)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(enableFeatureMaxLOBSize)
 		defer dbt.mustExec(unsetLargeVarcharAndBinary)
 		t.Run("Max Lob Size disabled", func(t *testing.T) {
 			dbt.mustExec(disableLargeVarcharAndBinary)
 			_, err := dbt.query("select randstr(20000000, random())")
 			assertNotNilF(t, err)
-			if !strings.Contains(err.Error(), "Actual length 20000000 exceeds supported length") &&
-				!strings.Contains(err.Error(), "Invalid parameter value: 20000000") {
-				t.Fatalf("expected error on value length when large varchar disabled")
-			}
+			assertStringContainsF(t, err.Error(), "Actual length 20000000 exceeds supported length")
 		})
 
 		t.Run("Max Lob Size enabled", func(t *testing.T) {
