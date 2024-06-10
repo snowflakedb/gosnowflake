@@ -1179,7 +1179,10 @@ func TestMaxLobSize(t *testing.T) {
 			dbt.mustExec(disableLargeVarcharAndBinary)
 			_, err := dbt.query("select randstr(20000000, random())")
 			assertNotNilF(t, err)
-			assertStringContainsF(t, err.Error(), "Actual length 20000000 exceeds supported length")
+			if !strings.Contains(err.Error(), "Actual length 20000000 exceeds supported length") &&
+				!strings.Contains(err.Error(), "Invalid parameter value: 20000000") {
+				t.Fatalf("expected error on value length when large varchar disabled")
+			}
 		})
 
 		t.Run("Max Lob Size enabled", func(t *testing.T) {
