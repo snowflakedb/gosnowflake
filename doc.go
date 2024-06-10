@@ -453,14 +453,14 @@ Example table definition:
 
 To retrieve structured objects, follow these steps:
 
-1. Create a struct, example:
+1. Create a struct implementing sql.Scanner interface, example:
+
+a)
 
 	type simpleObject struct {
 		s string
 		i int32
 	}
-
-2. Implement sql.Scanner interface:
 
 	func (so *simpleObject) Scan(val any) error {
 		st := val.(StructuredObject)
@@ -474,7 +474,27 @@ To retrieve structured objects, follow these steps:
 		return nil
 	}
 
-3. Use it in regular scan:
+b)
+
+	type simpleObject struct {
+		S string `sf:"otherName"`
+		I int32 `sf:"i,ignore"`
+	}
+
+	func (so *simpleObject) Scan(val any) error {
+		st := val.(StructuredObject)
+		return st.ScanTo(so)
+	}
+
+Automatic scan goes through all fields in a struct and read object fields.
+Struct fields have to be public.
+Embedded structs have to be pointers.
+Matching name is built using struct field name with first letter lowercase.
+Additionally, `sf` tag can be added:
+- first value is always a name of a field in an SQL object
+- additionally `ignore` parameter can be passed to omit this field
+
+2. Use it in regular scan:
 
 	var res simpleObject
 	err := rows.Scan(&res)
