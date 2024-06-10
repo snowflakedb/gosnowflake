@@ -1172,7 +1172,7 @@ func TestMaxLobSizeSwitch(t *testing.T) {
 		dbt.exec(disableLargeVarcharAndBinary)
 		rows, err := dbt.query("select randstr(20000000, random())")
 		if err != nil {
-			dbt.Logf("Error from select randstr(20000000, random()): ", err.Error())
+			dbt.Logf("Error from select randstr(20000000, random()): %v", err.Error())
 		}
 		//assertStringContainsF(t, err.Error(), "Actual length 20000000 exceeds supported length")
 
