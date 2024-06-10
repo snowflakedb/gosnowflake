@@ -1177,14 +1177,14 @@ func TestMaxLobSizeSwitch(t *testing.T) {
 	skipMaxLobSizeTestOnGithubActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(disableLargeVarcharAndBinary)
+		defer dbt.mustExec(unsetLargeVarcharAndBinary)
 		if _, err := dbt.query("select randstr(20000000, random())"); err != nil {
 			assertStringContainsF(t, err.Error(), "Actual length 20000000 exceeds supported length")
 		}
 		dbt.mustExec(enableLargeVarcharAndBinary)
 		rows, err := dbt.query("select randstr(20000000, random())")
 		assertNilF(t, err)
-		defer rows.Close()
-		dbt.mustExec(unsetLargeVarcharAndBinary)
+		rows.Close()
 	})
 }
 
