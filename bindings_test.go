@@ -1118,6 +1118,12 @@ func TestVariousBindingModes(t *testing.T) {
 	})
 }
 
+func skipMaxLobSizeTestOnGithubActions(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("Max Lob Size parameters are not available on GH Actions")
+	}
+}
+
 func TestLOBRetrievalWithArrow(t *testing.T) {
 	testLOBRetrieval(t, true)
 }
@@ -1168,6 +1174,7 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 }
 
 func TestMaxLobSizeSwitch(t *testing.T) {
+	skipMaxLobSizeTestOnGithubActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(disableLargeVarcharAndBinary)
 		rows, err := dbt.query("select randstr(20000000, random())")

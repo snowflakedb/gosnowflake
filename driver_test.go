@@ -169,11 +169,12 @@ type DBTest struct {
 
 func (dbt *DBTest) connParams() map[string]*string {
 	var params map[string]*string
-	dbt.conn.Raw(func(driverConn any) error {
+	err := dbt.conn.Raw(func(driverConn any) error {
 		conn := driverConn.(*snowflakeConn)
 		params = conn.cfg.Params
 		return nil
 	})
+	assertNilF(dbt.T, err)
 	return params
 }
 
