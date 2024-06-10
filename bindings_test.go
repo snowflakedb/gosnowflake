@@ -1137,14 +1137,14 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 		parameters := dbt.connParams()
 		varcharBinaryMaxSizeRaw := parameters[maxVarcharAndBinarySizeParam]
 		if varcharBinaryMaxSizeRaw != nil && *varcharBinaryMaxSizeRaw != "" {
-			varcharBinaryMaxSize, err := strconv.Atoi(*varcharBinaryMaxSizeRaw)
-			if err == nil {
-				maxLOBSize = varcharBinaryMaxSize
+			varcharBinaryMaxSize, err := strconv.ParseFloat(*varcharBinaryMaxSizeRaw, 64)
+			if err != nil {
+				assertNilF(t, err, "error during varcharBinaryMaxSize conversion")
 			}
+			maxLOBSize = int(varcharBinaryMaxSize)
 		}
 
 		dbt.Logf("using %v as max LOB size", maxLOBSize)
-		dbt.exec(enableFeatureMaxLOBSize)
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
 		} else {
