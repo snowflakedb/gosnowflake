@@ -227,9 +227,9 @@ func TestBindingTimePtrInStruct(t *testing.T) {
 			id      *int
 			timeVal *time.Time
 		}
-		var expectedID = 1
-		var expectedTime = time.Now()
-		var testStruct = timePtrStruct{id: &expectedID, timeVal: &expectedTime}
+		expectedID := 1
+		expectedTime := time.Now()
+		testStruct := timePtrStruct{id: &expectedID, timeVal: &expectedTime}
 		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
 
 		runInsertQuery := false
@@ -274,9 +274,9 @@ func TestBindingTimeInStruct(t *testing.T) {
 			id      int
 			timeVal time.Time
 		}
-		var expectedID = 1
-		var expectedTime = time.Now()
-		var testStruct = timeStruct{id: expectedID, timeVal: expectedTime}
+		expectedID := 1
+		expectedTime := time.Now()
+		testStruct := timeStruct{id: expectedID, timeVal: expectedTime}
 		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
 
 		runInsertQuery := false
