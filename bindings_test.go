@@ -1173,7 +1173,7 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 	})
 }
 
-func TestMaxLobSizeSwitch(t *testing.T) {
+func TestMaxLobSize(t *testing.T) {
 	skipMaxLobSizeTestOnGithubActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(disableLargeVarcharAndBinary)
