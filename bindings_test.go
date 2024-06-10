@@ -1169,19 +1169,19 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 
 func TestMaxLobSizeSwitch(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.exec(enableFeatureMaxLOBSize)
-		dbt.exec(disableLargeVarcharAndBinary)
+		dbt.mustExec(enableFeatureMaxLOBSize)
+		dbt.mustExec(disableLargeVarcharAndBinary)
 		rows, err := dbt.query("select randstr(20000000, random())")
 		if err != nil {
 			dbt.Logf("Error from select randstr(20000000, random()): %v", err.Error())
 		}
 		//assertStringContainsF(t, err.Error(), "Actual length 20000000 exceeds supported length")
 
-		dbt.exec(enableLargeVarcharAndBinary)
+		dbt.mustExec(enableLargeVarcharAndBinary)
 		rows, err = dbt.query("select randstr(20000000, random())")
 		assertNilF(t, err)
 		defer rows.Close()
-		dbt.exec(unsetLargeVarcharAndBinary)
+		dbt.mustExec(unsetLargeVarcharAndBinary)
 	})
 }
 
