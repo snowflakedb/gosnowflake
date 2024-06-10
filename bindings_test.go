@@ -1138,9 +1138,7 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 		varcharBinaryMaxSizeRaw := parameters[maxVarcharAndBinarySizeParam]
 		if varcharBinaryMaxSizeRaw != nil && *varcharBinaryMaxSizeRaw != "" {
 			varcharBinaryMaxSize, err := strconv.ParseFloat(*varcharBinaryMaxSizeRaw, 64)
-			if err != nil {
-				assertNilF(t, err, "error during varcharBinaryMaxSize conversion")
-			}
+			assertNilF(t, err, "error during varcharBinaryMaxSize conversion")
 			maxLOBSize = int(varcharBinaryMaxSize)
 		}
 
@@ -1176,15 +1174,20 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 func TestMaxLobSize(t *testing.T) {
 	skipMaxLobSizeTestOnGithubActions(t)
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec(disableLargeVarcharAndBinary)
 		defer dbt.mustExec(unsetLargeVarcharAndBinary)
-		if _, err := dbt.query("select randstr(20000000, random())"); err != nil {
+		t.Run("Max Lob Size disabled", func(t *testing.T) {
+			dbt.mustExec(disableLargeVarcharAndBinary)
+			_, err := dbt.query("select randstr(20000000, random())")
+			assertNotNilF(t, err)
 			assertStringContainsF(t, err.Error(), "Actual length 20000000 exceeds supported length")
-		}
-		dbt.mustExec(enableLargeVarcharAndBinary)
-		rows, err := dbt.query("select randstr(20000000, random())")
-		assertNilF(t, err)
-		rows.Close()
+		})
+
+		t.Run("Max Lob Size enabled", func(t *testing.T) {
+			dbt.mustExec(enableLargeVarcharAndBinary)
+			rows, err := dbt.query("select randstr(20000000, random())")
+			assertNilF(t, err)
+			rows.Close()
+		})
 	})
 }
 
