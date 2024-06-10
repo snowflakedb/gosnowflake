@@ -1169,6 +1169,7 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 
 func TestMaxLobSizeSwitch(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.exec(enableFeatureMaxLOBSize)
 		dbt.exec(disableLargeVarcharAndBinary)
 		rows, err := dbt.query("select randstr(20000000, random())")
 		if err != nil {
