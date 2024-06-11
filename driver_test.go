@@ -167,6 +167,17 @@ type DBTest struct {
 	conn *sql.Conn
 }
 
+func (dbt *DBTest) connParams() map[string]*string {
+	var params map[string]*string
+	err := dbt.conn.Raw(func(driverConn any) error {
+		conn := driverConn.(*snowflakeConn)
+		params = conn.cfg.Params
+		return nil
+	})
+	assertNilF(dbt.T, err)
+	return params
+}
+
 func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
