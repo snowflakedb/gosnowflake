@@ -105,6 +105,10 @@ func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 	}
 	if supportedArrayBind(&driver.NamedValue{Value: v}) {
 		return sliceType
+	} else if _, ok := v.(StructuredObjectWriter); ok {
+		return objectType
+	} else if _, ok := v.(reflect.Type); ok && tsmode == nullObjectType {
+		return nullObjectType
 	}
 	return unSupportedType
 }
@@ -206,99 +210,129 @@ func snowflakeTypeToGoForMaps[K comparable](ctx context.Context, valueMetadata f
 
 // valueToString converts arbitrary golang type to a string. This is mainly used in binding data with placeholders
 // in queries.
-func valueToString(v driver.Value, tsmode snowflakeType) (*string, error) {
+func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
 	logger.Debugf("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	if v == nil {
-		return nil, nil
+		return bindingValue{nil, "", nil}, nil
 	}
 	v1 := reflect.ValueOf(v)
 	switch v1.Kind() {
 	case reflect.Bool:
 		s := strconv.FormatBool(v1.Bool())
-		return &s, nil
+		return bindingValue{&s, "", nil}, nil
 	case reflect.Int64:
 		s := strconv.FormatInt(v1.Int(), 10)
-		return &s, nil
+		return bindingValue{&s, "", nil}, nil
 	case reflect.Float64:
 		s := strconv.FormatFloat(v1.Float(), 'g', -1, 32)
-		return &s, nil
+		return bindingValue{&s, "", nil}, nil
 	case reflect.String:
 		s := v1.String()
-		return &s, nil
+		return bindingValue{&s, "", nil}, nil
 	case reflect.Slice, reflect.Map:
 		if v1.IsNil() {
-			return nil, nil
+			return bindingValue{nil, "", nil}, nil
 		}
 		if bd, ok := v.([]byte); ok {
 			if tsmode == binaryType {
 				s := hex.EncodeToString(bd)
-				return &s, nil
+				return bindingValue{&s, "", nil}, nil
 			}
 		}
 		// TODO: is this good enough?
 		s := v1.String()
-		return &s, nil
+		return bindingValue{&s, "", nil}, nil
 	case reflect.Struct:
 		switch typedVal := v.(type) {
 		case time.Time:
 			return timeTypeValueToString(typedVal, tsmode)
 		case sql.NullTime:
 			if !typedVal.Valid {
-				return nil, nil
+				return bindingValue{nil, "", nil}, nil
 			}
 			return timeTypeValueToString(typedVal.Time, tsmode)
 		case sql.NullBool:
 			if !typedVal.Valid {
-				return nil, nil
+				return bindingValue{nil, "", nil}, nil
 			}
 			s := strconv.FormatBool(typedVal.Bool)
-			return &s, nil
+			return bindingValue{&s, "", nil}, nil
 		case sql.NullInt64:
 			if !typedVal.Valid {
-				return nil, nil
+				return bindingValue{nil, "", nil}, nil
 			}
 			s := strconv.FormatInt(typedVal.Int64, 10)
-			return &s, nil
+			return bindingValue{&s, "", nil}, nil
 		case sql.NullFloat64:
 			if !typedVal.Valid {
-				return nil, nil
+				return bindingValue{nil, "", nil}, nil
 			}
 			s := strconv.FormatFloat(typedVal.Float64, 'g', -1, 32)
-			return &s, nil
+			return bindingValue{&s, "", nil}, nil
 		case sql.NullString:
 			if !typedVal.Valid {
-				return nil, nil
+				return bindingValue{nil, "", nil}, nil
 			}
-			return &typedVal.String, nil
+			return bindingValue{&typedVal.String, "", nil}, nil
 		}
 	}
-	return nil, fmt.Errorf("unsupported type: %v", v1.Kind())
+	if sow, ok := v.(StructuredObjectWriter); ok {
+		sowc := &structuredObjectWriterContext{}
+		sowc.init(params)
+		err := sow.Write(sowc)
+		if err != nil {
+			return bindingValue{nil, "", nil}, err
+		}
+		jsonBytes, err := json.Marshal(sowc.values)
+		if err != nil {
+			return bindingValue{nil, "", nil}, err
+		}
+		jsonString := string(jsonBytes)
+		schema := bindingSchema{
+			Typ:      "object",
+			Nullable: true,
+			Fields:   sowc.toFields(),
+		}
+		return bindingValue{&jsonString, "json", &schema}, nil
+	} else if typ, ok := v.(reflect.Type); ok {
+		sowc, err := buildSowcFromType(params, typ)
+		if err != nil {
+			return bindingValue{nil, "", nil}, err
+		}
+		schema := bindingSchema{
+			Typ:      "object",
+			Nullable: true,
+			Fields:   sowc.toFields(),
+		}
+		return bindingValue{nil, "json", &schema}, nil
+	}
+	return bindingValue{nil, "", nil}, fmt.Errorf("unsupported type: %v", v1.Kind())
 }
 
-func timeTypeValueToString(tm time.Time, tsmode snowflakeType) (*string, error) {
+func timeTypeValueToString(tm time.Time, tsmode snowflakeType) (bindingValue, error) {
 	switch tsmode {
 	case dateType:
 		_, offset := tm.Zone()
 		tm = tm.Add(time.Second * time.Duration(offset))
 		s := strconv.FormatInt(tm.Unix()*1000, 10)
-		return &s, nil
+		return bindingValue{&s, "", nil}, nil
 	case timeType:
 		s := fmt.Sprintf("%d",
 			(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
-		return &s, nil
+		return bindingValue{&s, "", nil}, nil
 	case timestampNtzType, timestampLtzType:
 		unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Unix()), 10)
 		m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
 		unixTime.Mul(unixTime, m)
 		tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Nanosecond()), 10)
 		s := unixTime.Add(unixTime, tmNanos).String()
-		return &s, nil
+		return bindingValue{&s, "", nil}, nil
 	case timestampTzType:
 		_, offset := tm.Zone()
 		s := fmt.Sprintf("%v %v", tm.UnixNano(), offset/60+1440)
-		return &s, nil
+		return bindingValue{&s, "", nil}, nil
 	}
-	return nil, fmt.Errorf("unsupported time type: %v", tsmode)
+	return bindingValue{nil, "", nil}, fmt.Errorf("unsupported time type: %v", tsmode)
 }
 
 // extractTimestamp extracts the internal timestamp data to epoch time in seconds and milliseconds
@@ -564,7 +598,7 @@ func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata field
 		})
 	case "date", "time", "timestamp_tz", "timestamp_ltz", "timestamp_ntz":
 		return buildMapValues[K, sql.NullTime, time.Time](mapValuesNullableEnabled, m, func(v any) (time.Time, error) {
-			sfFormat, err := dateTimeFormatByType(valueMetadata.Type, params)
+			sfFormat, err := dateTimeOutputFormatByType(valueMetadata.Type, params)
 			if err != nil {
 				return time.Time{}, err
 			}
@@ -577,7 +611,7 @@ func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata field
 			if v == nil {
 				return sql.NullTime{Valid: false}, nil
 			}
-			sfFormat, err := dateTimeFormatByType(valueMetadata.Type, params)
+			sfFormat, err := dateTimeOutputFormatByType(valueMetadata.Type, params)
 			if err != nil {
 				return sql.NullTime{}, err
 			}
@@ -682,7 +716,7 @@ func buildStructuredArray(ctx context.Context, fieldMetadata fieldMetadata, srcV
 		})
 	case "time", "date", "timestamp_ltz", "timestamp_ntz", "timestamp_tz":
 		return copyArrayAndConvert[time.Time](srcValue, func(input any) (time.Time, error) {
-			sfFormat, err := dateTimeFormatByType(fieldMetadata.Type, params)
+			sfFormat, err := dateTimeOutputFormatByType(fieldMetadata.Type, params)
 			if err != nil {
 				return time.Time{}, err
 			}
@@ -2266,7 +2300,6 @@ func recordToSchemaSingleField(fieldMetadata fieldMetadata, f arrow.Field, withH
 		if f.Type.ID() == arrow.STRUCT {
 			var internalFields []arrow.Field
 			for idx, internalField := range f.Type.(*arrow.StructType).Fields() {
-				println(fieldMetadata.String())
 				internalConverted, convertedDataType := recordToSchemaSingleField(fieldMetadata.Fields[idx], internalField, withHigherPrecision, timestampOption, loc)
 				converted = converted || internalConverted
 				if internalConverted {
