@@ -1172,9 +1172,19 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 }
 
 func TestMaxLobSize(t *testing.T) {
-	skipMaxLobSizeTestOnGithubActions(t)
-	skipOnJenkins(t, "Max Lob Size feature not enabled on Jenkins")
+	//skipMaxLobSizeTestOnGithubActions(t)
+	//skipOnJenkins(t, "Max Lob Size feature not enabled on Jenkins")
 	runDBTest(t, func(dbt *DBTest) {
+		var v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17 string
+		rows := dbt.mustQuery("SHOW PARAMETERS")
+		defer rows.Close()
+		for rows.Next() {
+			if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8, &v9, &v10, &v11, &v12, &v13, &v14, &v15, &v16, &v17); err != nil {
+				t.Fatal(err)
+			}
+			dbt.Log(v1, v2, v3)
+		}
+
 		dbt.mustExec(enableFeatureMaxLOBSize)
 		defer dbt.mustExec(unsetLargeVarcharAndBinary)
 		t.Run("Max Lob Size disabled", func(t *testing.T) {
