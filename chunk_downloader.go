@@ -457,6 +457,16 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 			scd.ArrowBatches[idx].rowCount = countArrowBatchRows(scd.ArrowBatches[idx].rec)
 			return nil
 		}
+		log := logger.WithContext(ctx)
+		if scd == nil {
+			log.Error("snowflake about to panic; sdc is nil")
+		} else {
+			if scd.sc == nil {
+				log.Error("snowflake about to panic; sc is nil")
+			} else if scd.sc.cfg == nil {
+				log.Error("snowflake about to panic; cfg is nil")
+			}
+		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
 		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec, scd.sc.cfg.Params)
 		if err != nil {
