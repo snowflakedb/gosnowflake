@@ -512,6 +512,43 @@ Retrieving structured maps is very similar to retrieving arrays:
 	var res map[string]*simpleObject
 	err := rows.Scan(ScanMapOfScanners(&res))
 
+To bind structured objects use:
+
+1. Create a type which implements a StructuredObjectWriter interface, example:
+
+a)
+
+	type simpleObject struct {
+		s string
+		i int32
+	}
+
+	func (so *simpleObject) Write(sowc StructuredObjectWriterContext) error {
+		if err := sowc.WriteString("s", so.s); err != nil {
+			return err
+		}
+		if err := sowc.WriteInt32("i", so.i); err != nil {
+			return err
+		}
+		return nil
+	}
+
+b)
+
+	type simpleObject struct {
+		S string `sf:"otherName"`
+		I int32 `sf:"i,ignore"`
+	}
+
+	func (so *simpleObject) Write(sowc StructuredObjectWriterContext) error {
+		return sowc.WriteAll(so)
+	}
+
+2. Use an instance as regular bind.
+3. If you need to bind nil value, use special syntax:
+
+	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeNullObject, reflect.TypeOf(simpleObject{})
+
 # Using higher precision numbers
 
 The following example shows how to retrieve very large values using the math/big
