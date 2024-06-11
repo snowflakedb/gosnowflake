@@ -1175,28 +1175,10 @@ func TestMaxLobSize(t *testing.T) {
 	//skipMaxLobSizeTestOnGithubActions(t)
 	//skipOnJenkins(t, "Max Lob Size feature not enabled on Jenkins")
 	runDBTest(t, func(dbt *DBTest) {
-		var v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17 string
-		rows4 := dbt.mustQuery("SHOW PARAMETERS")
-		defer rows4.Close()
-		for rows4.Next() {
-			if err := rows4.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8, &v9, &v10, &v11, &v12, &v13, &v14, &v15, &v16, &v17); err != nil {
-				t.Fatal(err)
-			}
-			dbt.Log("GENERAL PARAMETER: ", v1, v2, v3)
-		}
-
 		dbt.mustExec(enableFeatureMaxLOBSize)
 		defer dbt.mustExec(unsetLargeVarcharAndBinary)
 		t.Run("Max Lob Size disabled", func(t *testing.T) {
 			dbt.mustExec(disableLargeVarcharAndBinary)
-			rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT'")
-			defer rows.Close()
-			for rows.Next() {
-				if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8, &v9, &v10, &v11, &v12, &v13, &v14, &v15, &v16, &v17); err != nil {
-					t.Fatal(err)
-				}
-				dbt.Log("Max Lob Size disabled:", v1, v2, v3)
-			}
 			_, err := dbt.query("select randstr(20000000, random())")
 			assertNotNilF(t, err)
 			assertStringContainsF(t, err.Error(), "Actual length 20000000 exceeds supported length")
@@ -1204,17 +1186,9 @@ func TestMaxLobSize(t *testing.T) {
 
 		t.Run("Max Lob Size enabled", func(t *testing.T) {
 			dbt.mustExec(enableLargeVarcharAndBinary)
-			rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT'")
-			defer rows.Close()
-			for rows.Next() {
-				if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8, &v9, &v10, &v11, &v12, &v13, &v14, &v15, &v16, &v17); err != nil {
-					t.Fatal(err)
-				}
-				dbt.Log("Max Lob Size enabled:", v1, v2, v3)
-			}
-			rows2, err := dbt.query("select randstr(20000000, random())")
+			rows, err := dbt.query("select randstr(20000000, random())")
 			assertNilF(t, err)
-			rows2.Close()
+			rows.Close()
 		})
 	})
 }
