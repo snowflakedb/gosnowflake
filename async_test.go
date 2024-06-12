@@ -227,3 +227,75 @@ func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {
 		assertFalseF(t, rows.NextResultSet())
 	})
 }
+
+
+func TestResultReuseWithArrowBatching(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		query := "select 0"
+
+		ctx := context.Background()
+		arrowBatches, queryID := getArrowBatchesAndQueryId(t, ctx, query, dbt)
+		assertNotEqualF(t, len(queryID), 0, "should have a valid queryID")
+
+		stringValues := getValuesAsString(t, arrowBatches)
+		assertEqualF(t, len(stringValues), 1)
+		assertEqualF(t, stringValues[0], "0")
+	})
+}
+
+// This function will iterate over all of the arrow batches we got back and return it as a list of
+// strings. This should only be used to test basic functionality; it cant be used to ensure proper types
+func getValuesAsString(t *testing.T, batches []*ArrowBatch) []string {
+	strVals := []string{}
+
+	for i := range batches {
+		records, err := batches[i].Fetch()
+		assertNilF(t, err, fmt.Sprintf("error getting batch %d", i))
+		assertNotNilF(t, records, "records should not be nil")
+		for _, record := range *records {
+			for _, column := range record.Columns() {
+				// right here, column is equal to [0] so we panic when trying to pull len off it
+				for i := 0; i < column.Len(); i++ {
+					asStr := column.ValueStr(i)
+					strVals = append(strVals, asStr)
+				}
+			}
+		}
+	}
+
+	return strVals
+}
+
+// checks that we can get an arrow batch back with no errors, returns an arrowBatch object and a queryID which could be
+// used for reuse. To iterate over the arrowBatch, you can do arrowBatch[i].fetch for i in len(arrowBatch)
+func getArrowBatchesAndQueryId(t *testing.T, ctx context.Context, query string, dbt *DBTest) ([]*ArrowBatch, string) {
+	queryIDChan := make(chan string, 1)
+	ctx = WithQueryIDChan(ctx, queryIDChan)
+	ctx = WithArrowBatches(ctx)
+
+	var rows driver.Rows
+	var err error
+
+	// must use conn.Raw so we can get back driver rows (an interface)
+	// which can be cast to snowflakeRows which exposes GetArrowBatch
+	err = dbt.conn.Raw(func(x interface{}) error {
+		queryer, implementsQueryContext := x.(driver.QueryerContext)
+		assertTrueF(t, implementsQueryContext, "snowflake connection driver does not implement queryerContext")
+
+		rows, err = queryer.QueryContext(WithArrowBatches(ctx), query, nil)
+		return err
+	})
+
+	queryID := <-queryIDChan
+	assertNilF(t, err, "error running select query")
+
+	sfRows, isSfRows := rows.(SnowflakeRows)
+	assertTrueF(t, isSfRows, "rows should be snowflakeRows")
+
+	arrowBatches, err := sfRows.GetArrowBatches()
+	assertNilF(t, err, "error getting arrow batches")
+	assertNotEqualF(t, len(arrowBatches), 0, "should have at least one batch")
+
+	return arrowBatches, queryID
+}
+
