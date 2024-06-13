@@ -663,26 +663,24 @@ func TestRetainChunkWOHighPrecision(t *testing.T) {
 
 		arrowBatches, err := sfRows.GetArrowBatches()
 		assertNilF(t, err, "error getting arrow batches")
-		assertNotEqualF(t, len(arrowBatches), 0, "should have at least one batch")
+		assertEqualF(t, len(arrowBatches), 1, "should have one batch")
 
-		for i := range arrowBatches {
-			records, err := arrowBatches[i].Fetch()
-			assertNilF(t, err, fmt.Sprintf("error getting batch %d", i))
-			assertNotNilF(t, records, "records should not be nil")
+		records, err := arrowBatches[0].Fetch()
+		assertNilF(t, err, "error getting batch")
+		assertNotNilF(t, records, "records should not be nil")
 
-			recs := *records
-			numRecords := len(recs)
-			assertEqualF(t, numRecords, 1, "should have exactly one record")
+		recs := *records
+		numRecords := len(recs)
+		assertEqualF(t, numRecords, 1, "should have exactly one record")
 
-			record := recs[0]
-			assertEqualF(t, len(record.Columns()), 1, "should have exactly one column")
+		record := recs[0]
+		assertEqualF(t, len(record.Columns()), 1, "should have exactly one column")
 
-			column := record.Column(0)
-			rows := column.Len()
-			assertEqualF(t, rows, 1, "should have exactly one row")
+		column := record.Column(0)
+		row := column.Len()
+		assertEqualF(t, row, 1, "should have exactly one row")
 
-			asStr := column.ValueStr(0)
-			assertEqualF(t, asStr, "0", "value of cell should be 0")
-		}
+		asStr := column.ValueStr(0)
+		assertEqualF(t, asStr, "0", "value of cell should be 0")
 	})
 }
