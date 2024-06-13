@@ -41,7 +41,11 @@ func (hc *heartbeat) run() {
 
 func (hc *heartbeat) start() {
 	hc.shutdownChan = make(chan bool)
-	go hc.run()
+	go GoroutineWrapper(
+		func() {
+			hc.run()
+		},
+	)
 	logger.Info("heartbeat started")
 }
 
