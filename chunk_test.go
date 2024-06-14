@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/ipc"
 	"github.com/apache/arrow/go/v15/arrow/memory"
 )
@@ -639,29 +640,16 @@ func TestQueryArrowStreamDescribeOnly(t *testing.T) {
 
 func TestRetainChunkWOHighPrecision(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		query := "select 0"
-
-		ctx := WithArrowBatches(context.Background())
-
 		var rows driver.Rows
 		var err error
 
-		// must use conn.Raw so we can get back driver rows (an interface)
-		// which can be cast to snowflakeRows which exposes GetArrowBatch
-		err = dbt.conn.Raw(func(x interface{}) error {
-			queryer, implementsQueryContext := x.(driver.QueryerContext)
-			assertTrueF(t, implementsQueryContext, "snowflake connection driver does not implement queryerContext")
-
-			rows, err = queryer.QueryContext(WithArrowBatches(ctx), query, nil)
+		err = dbt.conn.Raw(func(connection interface{}) error {
+			rows, err = connection.(driver.QueryerContext).QueryContext(WithArrowBatches(context.Background()), "select 0", nil)
 			return err
 		})
+		assertNilF(t, err, "error running select 0 query")
 
-		assertNilF(t, err, "error running select query")
-
-		sfRows, isSfRows := rows.(SnowflakeRows)
-		assertTrueF(t, isSfRows, "rows should be snowflakeRows")
-
-		arrowBatches, err := sfRows.GetArrowBatches()
+		arrowBatches, err := rows.(SnowflakeRows).GetArrowBatches()
 		assertNilF(t, err, "error getting arrow batches")
 		assertEqualF(t, len(arrowBatches), 1, "should have one batch")
 
@@ -669,18 +657,17 @@ func TestRetainChunkWOHighPrecision(t *testing.T) {
 		assertNilF(t, err, "error getting batch")
 		assertNotNilF(t, records, "records should not be nil")
 
-		recs := *records
-		numRecords := len(recs)
+		numRecords := len(*records)
 		assertEqualF(t, numRecords, 1, "should have exactly one record")
 
-		record := recs[0]
+		record := (*records)[0]
 		assertEqualF(t, len(record.Columns()), 1, "should have exactly one column")
 
-		column := record.Column(0)
+		column := record.Column(0).(*array.Int8)
 		row := column.Len()
 		assertEqualF(t, row, 1, "should have exactly one row")
 
-		asStr := column.ValueStr(0)
-		assertEqualF(t, asStr, "0", "value of cell should be 0")
+		int8Val := column.Value(0)
+		assertEqualF(t, int8Val, int8(0), "value of cell should be 0")
 	})
 }
