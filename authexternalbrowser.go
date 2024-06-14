@@ -280,49 +280,44 @@ func doAuthenticateByExternalBrowser(
 		logger.WithContext(ctx).Errorf("unable to accept connection. err: %v", err)
 		log.Fatal(err)
 	}
-	go GoroutineWrapper(
-		ctx,
-		func() {
-			go func(c net.Conn) {
-				var buf bytes.Buffer
-				total := 0
-				encodedSamlResponse := ""
-				var errAccept error
-				for {
-					b := make([]byte, bufSize)
-					n, err := c.Read(b)
-					if err != nil {
-						if err != io.EOF {
-							logger.WithContext(ctx).Infof("error reading from socket. err: %v", err)
-							errAccept = &SnowflakeError{
-								Number:      ErrFailedToGetExternalBrowserResponse,
-								SQLState:    SQLStateConnectionRejected,
-								Message:     errMsgFailedToGetExternalBrowserResponse,
-								MessageArgs: []interface{}{err},
-							}
-						}
-						break
+	go func(c net.Conn) {
+		var buf bytes.Buffer
+		total := 0
+		encodedSamlResponse := ""
+		var errAccept error
+		for {
+			b := make([]byte, bufSize)
+			n, err := c.Read(b)
+			if err != nil {
+				if err != io.EOF {
+					logger.WithContext(ctx).Infof("error reading from socket. err: %v", err)
+					errAccept = &SnowflakeError{
+						Number:      ErrFailedToGetExternalBrowserResponse,
+						SQLState:    SQLStateConnectionRejected,
+						Message:     errMsgFailedToGetExternalBrowserResponse,
+						MessageArgs: []interface{}{err},
 					}
-					total += n
-					buf.Write(b)
-					if n < bufSize {
-						// We successfully read all data
-						s := string(buf.Bytes()[:total])
-						encodedSamlResponse, errAccept = getTokenFromResponse(s)
-						break
-					}
-					buf.Grow(bufSize)
 				}
-				if encodedSamlResponse != "" {
-					httpResponse := buildResponse(application)
-					c.Write(httpResponse.Bytes())
-				}
-				c.Close()
-				encodedSamlResponseChan <- encodedSamlResponse
-				errChan <- errAccept
-			}(conn)
-		},
-	)
+				break
+			}
+			total += n
+			buf.Write(b)
+			if n < bufSize {
+				// We successfully read all data
+				s := string(buf.Bytes()[:total])
+				encodedSamlResponse, errAccept = getTokenFromResponse(s)
+				break
+			}
+			buf.Grow(bufSize)
+		}
+		if encodedSamlResponse != "" {
+			httpResponse := buildResponse(application)
+			c.Write(httpResponse.Bytes())
+		}
+		c.Close()
+		encodedSamlResponseChan <- encodedSamlResponse
+		errChan <- errAccept
+	}(conn)
 
 	encodedSamlResponse = <-encodedSamlResponseChan
 	errFromGoroutine = <-errChan

@@ -3,45 +3,28 @@ package gosnowflake
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 )
 
 var (
-	goWrapperCalled chan struct{}
-	once            sync.Once
+	goWrapperCalled = false
 )
-
-// Initialize the goWrapperCalled channel which we will use for testing the goroutine wrap function
-func initGoWrapperCalledChannel() {
-	once.Do(func() {
-		goWrapperCalled = make(chan struct{})
-	})
-}
-
-// Check if the goWrapperCalled by making sure channel is clsoed
-func isGoWrapperChannelClosed() bool {
-	select {
-	case <-goWrapperCalled:
-		return true
-	default:
-		return false
-	}
-}
 
 // this is the go wrapper function we are going to pass into GoroutineWrapper.
 // we will know that this has been called if the channel is closed
 var closeGoWrapperCalledChannel = func(ctx context.Context, f func()) {
-	if !isGoWrapperChannelClosed() {
-		close(goWrapperCalled)
-	}
+	goWrapperCalled = true
 
 	f()
 }
 
 func TestGoWrapper(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		initGoWrapperCalledChannel()
+		t.Cleanup(
+			func() {
+				goWrapperCalled = false
+			},
+		)
 		GoroutineWrapper = closeGoWrapperCalledChannel
 
 		numrows := 100000
@@ -51,6 +34,6 @@ func TestGoWrapper(t *testing.T) {
 		dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		cancel()
 
-		assertTrueF(t, isGoWrapperChannelClosed(), "channel should be closed, indicating our wrapper worked")
+		assertTrueF(t, goWrapperCalled, "channel should be closed, indicating our wrapper worked")
 	})
 }
