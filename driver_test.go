@@ -229,6 +229,7 @@ func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...i
 		}
 		close(c)
 	}()
+
 	rs, err := dbt.conn.QueryContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("query", query, err)
