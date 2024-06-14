@@ -42,6 +42,7 @@ func (hc *heartbeat) run() {
 func (hc *heartbeat) start() {
 	hc.shutdownChan = make(chan bool)
 	go GoroutineWrapper(
+		context.Background(),
 		func() {
 			hc.run()
 		},

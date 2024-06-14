@@ -9,7 +9,7 @@ import (
 
 var (
 	goWrapperCalled chan struct{}
-	once       sync.Once
+	once            sync.Once
 )
 
 // Initialize the goWrapperCalled channel which we will use for testing the goroutine wrap function
@@ -31,11 +31,11 @@ func isGoWrapperChannelClosed() bool {
 
 // this is the go wrapper function we are going to pass into GoroutineWrapper.
 // we will know that this has been called if the channel is closed
-var closeGoWrapperCalledChannel = func(f func()) {
+var closeGoWrapperCalledChannel = func(ctx context.Context, f func()) {
 	if !isGoWrapperChannelClosed() {
 		close(goWrapperCalled)
 	}
-	
+
 	f()
 }
 

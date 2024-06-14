@@ -149,6 +149,7 @@ func (scd *snowflakeChunkDownloader) schedule() {
 	case nextIdx := <-scd.ChunksChan:
 		logger.WithContext(scd.ctx).Infof("schedule chunk: %v", nextIdx+1)
 		go GoroutineWrapper(
+			scd.ctx,
 			func() {
 				scd.FuncDownload(scd.ctx, scd, nextIdx)
 			},
@@ -167,6 +168,7 @@ func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 			errc.Error != context.DeadlineExceeded {
 			// add the index to the chunks channel so that the download will be retried.
 			go GoroutineWrapper(
+				scd.ctx,
 				func() {
 					scd.FuncDownload(scd.ctx, scd, errc.Index)
 				},
@@ -517,6 +519,7 @@ func (scd *streamChunkDownloader) nextResultSet() error {
 
 func (scd *streamChunkDownloader) start() error {
 	go GoroutineWrapper(
+		scd.ctx,
 		func() {
 			readErr := io.EOF
 

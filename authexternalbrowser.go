@@ -212,6 +212,7 @@ func authenticateByExternalBrowser(
 ) ([]byte, []byte, error) {
 	resultChan := make(chan authenticateByExternalBrowserResult, 1)
 	go GoroutineWrapper(
+		ctx,
 		func() {
 			resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, password, disableConsoleLogin)
 		},
@@ -280,6 +281,7 @@ func doAuthenticateByExternalBrowser(
 		log.Fatal(err)
 	}
 	go GoroutineWrapper(
+		ctx,
 		func() {
 			go func(c net.Conn) {
 				var buf bytes.Buffer

@@ -294,13 +294,11 @@ func TestUnitTokenAccessorRenewBlocked(t *testing.T) {
 	var renewalDone sync.WaitGroup
 	renewalStart.Add(1)
 	renewalDone.Add(1)
-	go GoroutineWrapper(
-		func() {
-			renewalStart.Done()
+	go func() {
+		renewalStart.Done()
 		sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken)
 		renewalDone.Done()
-		},
-	)
+	}()
 
 	// wait for renewal to start and get blocked on lock
 	renewalStart.Wait()
@@ -360,17 +358,15 @@ func TestUnitTokenAccessorRenewSessionContention(t *testing.T) {
 	for i := 0; i < numRoutines; i++ {
 		renewalsDone.Add(1)
 		renewalsStart.Add(1)
-		go GoroutineWrapper(
-			func() {
-				// wait for all goroutines to have been created before proceeding to race against each other
+		go func() {
+			// wait for all goroutines to have been created before proceeding to race against each other
 			renewalsStart.Wait()
 			err := sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken)
 			if err != nil {
 				renewalError = err
 			}
 			renewalsDone.Done()
-			},
-		)
+		}()
 	}
 
 	// unlock all of the waiting goroutines simultaneously

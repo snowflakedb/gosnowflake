@@ -38,7 +38,8 @@ func (sr *snowflakeRestful) processAsync(
 
 	// spawn goroutine to retrieve asynchronous results
 	go GoroutineWrapper(
-		func(){
+		ctx,
+		func() {
 			sr.getAsync(ctx, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows, cfg)
 		},
 	)
