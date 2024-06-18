@@ -26,12 +26,12 @@ type objectWithAllTypes struct {
 	nfraction float64
 	bo        bool
 	bi        []byte
-	date      time.Time
-	time      time.Time
-	ltz       time.Time
-	tz        time.Time
-	ntz       time.Time
-	so        simpleObject
+	date      time.Time `sf:"date,date"`
+	time      time.Time `sf:"time,time"`
+	ltz       time.Time `sf:"ltz,ltz"`
+	tz        time.Time `sf:"tz,tz"`
+	ntz       time.Time `sf:"ntz,ntz"`
+	so        *simpleObject
 	sArr      []string
 	f64Arr    []float64
 	someMap   map[string]bool
@@ -89,22 +89,80 @@ func (o *objectWithAllTypes) Scan(val any) error {
 	if err != nil {
 		return err
 	}
-	o.so = *so.(*simpleObject)
+	o.so = so.(*simpleObject)
 	sArr, err := st.GetRaw("sArr")
 	if err != nil {
 		return err
 	}
-	o.sArr = sArr.([]string)
+	if sArr != nil {
+		o.sArr = sArr.([]string)
+	}
 	f64Arr, err := st.GetRaw("f64Arr")
 	if err != nil {
 		return err
 	}
-	o.f64Arr = f64Arr.([]float64)
+	if f64Arr != nil {
+		o.f64Arr = f64Arr.([]float64)
+	}
 	someMap, err := st.GetRaw("someMap")
 	if err != nil {
 		return err
 	}
-	o.someMap = someMap.(map[string]bool)
+	if someMap != nil {
+		o.someMap = someMap.(map[string]bool)
+	}
+	return nil
+}
+
+func (o objectWithAllTypes) Write(sowc StructuredObjectWriterContext) error {
+	if err := sowc.WriteString("s", o.s); err != nil {
+		return err
+	}
+	if err := sowc.WriteByt("b", o.b); err != nil {
+		return err
+	}
+	if err := sowc.WriteInt16("i16", o.i16); err != nil {
+		return err
+	}
+	if err := sowc.WriteInt32("i32", o.i32); err != nil {
+		return err
+	}
+	if err := sowc.WriteInt64("i64", o.i64); err != nil {
+		return err
+	}
+	if err := sowc.WriteFloat32("f32", o.f32); err != nil {
+		return err
+	}
+	if err := sowc.WriteFloat64("f64", o.f64); err != nil {
+		return err
+	}
+	if err := sowc.WriteFloat64("nfraction", o.nfraction); err != nil {
+		return err
+	}
+	if err := sowc.WriteBool("bo", o.bo); err != nil {
+		return err
+	}
+	if err := sowc.WriteBytes("bi", o.bi); err != nil {
+		return err
+	}
+	if err := sowc.WriteTime("date", o.date, DataTypeDate); err != nil {
+		return err
+	}
+	if err := sowc.WriteTime("time", o.time, DataTypeTime); err != nil {
+		return err
+	}
+	if err := sowc.WriteTime("ltz", o.ltz, DataTypeTimestampLtz); err != nil {
+		return err
+	}
+	if err := sowc.WriteTime("ntz", o.ntz, DataTypeTimestampNtz); err != nil {
+		return err
+	}
+	if err := sowc.WriteTime("tz", o.tz, DataTypeTimestampTz); err != nil {
+		return err
+	}
+	if err := sowc.WriteStruct("so", o.so); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -120,6 +178,16 @@ func (so *simpleObject) Scan(val any) error {
 		return err
 	}
 	if so.i, err = st.GetInt32("i"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (so *simpleObject) Write(sowc StructuredObjectWriterContext) error {
+	if err := sowc.WriteString("s", so.s); err != nil {
+		return err
+	}
+	if err := sowc.WriteInt32("i", so.i); err != nil {
 		return err
 	}
 	return nil
@@ -162,10 +230,36 @@ func TestObjectWithAllTypes(t *testing.T) {
 			assertTrueE(t, res.ltz.Equal(time.Date(2021, time.July, 21, 11, 22, 33, 0, warsawTz)))
 			assertTrueE(t, res.tz.Equal(time.Date(2022, time.August, 31, 13, 43, 22, 0, warsawTz)))
 			assertTrueE(t, res.ntz.Equal(time.Date(2023, time.May, 22, 1, 17, 19, 0, time.UTC)))
-			assertEqualE(t, res.so, simpleObject{s: "child", i: 9})
+			assertDeepEqualE(t, res.so, &simpleObject{s: "child", i: 9})
 			assertDeepEqualE(t, res.sArr, []string{"x", "y", "z"})
 			assertDeepEqualE(t, res.f64Arr, []float64{1.1, 2.2, 3.3})
 			assertDeepEqualE(t, res.someMap, map[string]bool{"x": true, "y": false})
+		})
+	})
+}
+
+func TestNullObject(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			t.Run("null", func(t *testing.T) {
+				rows := dbt.mustQuery("SELECT null::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				defer rows.Close()
+				assertTrueF(t, rows.Next())
+				var res *objectWithAllTypes
+				err := rows.Scan(&res)
+				assertNilF(t, err)
+				assertNilE(t, res)
+			})
+			t.Run("not null", func(t *testing.T) {
+				rows := dbt.mustQuery("SELECT {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				defer rows.Close()
+				assertTrueF(t, rows.Next())
+				var res *objectWithAllTypes
+				err := rows.Scan(&res)
+				assertNilF(t, err)
+				assertEqualE(t, res.s, "some string")
+			})
 		})
 	})
 }
@@ -265,6 +359,52 @@ func (o *objectWithAllTypesNullable) Scan(val any) error {
 	return nil
 }
 
+func (o *objectWithAllTypesNullable) Write(sowc StructuredObjectWriterContext) error {
+	if err := sowc.WriteNullString("s", o.s); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullByte("b", o.b); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullInt16("i16", o.i16); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullInt32("i32", o.i32); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullInt64("i64", o.i64); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullFloat64("f64", o.f64); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullBool("bo", o.bo); err != nil {
+		return err
+	}
+	if err := sowc.WriteBytes("bi", o.bi); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullTime("date", o.date, DataTypeDate); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullTime("time", o.time, DataTypeTime); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullTime("ltz", o.ltz, DataTypeTimestampLtz); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullTime("ntz", o.ntz, DataTypeTimestampNtz); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullTime("tz", o.tz, DataTypeTimestampTz); err != nil {
+		return err
+	}
+	if err := sowc.WriteNullableStruct("so", o.so, reflect.TypeOf(simpleObject{})); err != nil {
+		return err
+	}
+	return nil
+}
+
 func TestObjectWithAllTypesNullable(t *testing.T) {
 	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
@@ -330,6 +470,230 @@ func TestObjectWithAllTypesNullable(t *testing.T) {
 				assertDeepEqualE(t, res.f64Arr, []float64{1.1, 2.2, 3.3})
 				assertDeepEqualE(t, res.someMap, map[string]bool{"x": true, "y": false})
 			})
+		})
+	})
+}
+
+type objectWithAllTypesSimpleScan struct {
+	S         string
+	B         byte
+	I16       int16
+	I32       int32
+	I64       int64
+	F32       float32
+	F64       float64
+	Nfraction float64
+	Bo        bool
+	Bi        []byte
+	Date      time.Time `sf:"date,date"`
+	Time      time.Time `sf:"time,time"`
+	Ltz       time.Time `sf:"ltz,ltz"`
+	Tz        time.Time `sf:"tz,tz"`
+	Ntz       time.Time `sf:"ntz,ntz"`
+	So        *simpleObject
+	SArr      []string
+	F64Arr    []float64
+	SomeMap   map[string]bool
+}
+
+func (so *objectWithAllTypesSimpleScan) Scan(val any) error {
+	st := val.(StructuredObject)
+	return st.ScanTo(so)
+}
+
+func (so *objectWithAllTypesSimpleScan) Write(sowc StructuredObjectWriterContext) error {
+	return sowc.WriteAll(so)
+}
+
+func TestObjectWithAllTypesSimpleScan(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	warsawTz, err := time.LoadLocation("Europe/Warsaw")
+	assertNilF(t, err)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			rows := dbt.mustQuery("SELECT 1, {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+			defer rows.Close()
+			rows.Next()
+			var ignore int
+			var res objectWithAllTypesSimpleScan
+			err := rows.Scan(&ignore, &res)
+			assertNilF(t, err)
+			assertEqualE(t, res.S, "some string")
+			assertEqualE(t, res.B, byte(1))
+			assertEqualE(t, res.I16, int16(2))
+			assertEqualE(t, res.I32, int32(3))
+			assertEqualE(t, res.I64, int64(9223372036854775807))
+			assertEqualE(t, res.F32, float32(1.1))
+			assertEqualE(t, res.F64, 2.2)
+			assertEqualE(t, res.Nfraction, 3.3)
+			assertEqualE(t, res.Bo, true)
+			assertBytesEqualE(t, res.Bi, []byte{'a', 'b', 'c'})
+			assertEqualE(t, res.Date, time.Date(2024, time.March, 21, 0, 0, 0, 0, time.UTC))
+			assertEqualE(t, res.Time.Hour(), 13)
+			assertEqualE(t, res.Time.Minute(), 3)
+			assertEqualE(t, res.Time.Second(), 2)
+			assertTrueE(t, res.Ltz.Equal(time.Date(2021, time.July, 21, 11, 22, 33, 0, warsawTz)))
+			assertTrueE(t, res.Tz.Equal(time.Date(2022, time.August, 31, 13, 43, 22, 0, warsawTz)))
+			assertTrueE(t, res.Ntz.Equal(time.Date(2023, time.May, 22, 1, 17, 19, 0, time.UTC)))
+			assertDeepEqualE(t, res.So, &simpleObject{s: "child", i: 9})
+			assertDeepEqualE(t, res.SArr, []string{"x", "y", "z"})
+			assertDeepEqualE(t, res.F64Arr, []float64{1.1, 2.2, 3.3})
+			assertDeepEqualE(t, res.SomeMap, map[string]bool{"x": true, "y": false})
+		})
+	})
+}
+
+func TestNullObjectSimpleScan(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			t.Run("null", func(t *testing.T) {
+				rows := dbt.mustQuery("SELECT null::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				defer rows.Close()
+				assertTrueF(t, rows.Next())
+				var res *objectWithAllTypesSimpleScan
+				err := rows.Scan(&res)
+				assertNilF(t, err)
+				assertNilE(t, res)
+			})
+			t.Run("not null", func(t *testing.T) {
+				rows := dbt.mustQuery("SELECT {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				defer rows.Close()
+				assertTrueF(t, rows.Next())
+				var res *objectWithAllTypesSimpleScan
+				err := rows.Scan(&res)
+				assertNilF(t, err)
+				assertEqualE(t, res.S, "some string")
+			})
+		})
+	})
+}
+
+type objectWithAllTypesNullableSimpleScan struct {
+	S       sql.NullString
+	B       sql.NullByte
+	I16     sql.NullInt16
+	I32     sql.NullInt32
+	I64     sql.NullInt64
+	F64     sql.NullFloat64
+	Bo      sql.NullBool
+	Bi      []byte
+	Date    sql.NullTime `sf:"date,date"`
+	Time    sql.NullTime `sf:"time,time"`
+	Ltz     sql.NullTime `sf:"ltz,ltz"`
+	Tz      sql.NullTime `sf:"tz,tz"`
+	Ntz     sql.NullTime `sf:"ntz,ntz"`
+	So      *simpleObject
+	SArr    []string
+	F64Arr  []float64
+	SomeMap map[string]bool
+}
+
+func (o *objectWithAllTypesNullableSimpleScan) Scan(val any) error {
+	st := val.(StructuredObject)
+	return st.ScanTo(o)
+}
+
+func (o *objectWithAllTypesNullableSimpleScan) Write(sowc StructuredObjectWriterContext) error {
+	return sowc.WriteAll(o)
+}
+
+func TestObjectWithAllTypesSimpleScanNullable(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	warsawTz, err := time.LoadLocation("Europe/Warsaw")
+	assertNilF(t, err)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			t.Run("null", func(t *testing.T) {
+				rows := dbt.mustQuery("select null, object_construct_keep_null('s', null, 'b', null, 'i16', null, 'i32', null, 'i64', null, 'f64', null, 'bo', null, 'bi', null, 'date', null, 'time', null, 'ltz', null, 'tz', null, 'ntz', null, 'so', null, 'sArr', null, 'f64Arr', null, 'someMap', null)::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				defer rows.Close()
+				rows.Next()
+				var ignore sql.NullInt32
+				var res objectWithAllTypesNullableSimpleScan
+				err := rows.Scan(&ignore, &res)
+				assertNilF(t, err)
+				assertEqualE(t, ignore, sql.NullInt32{Valid: false})
+				assertEqualE(t, res.S, sql.NullString{Valid: false})
+				assertEqualE(t, res.B, sql.NullByte{Valid: false})
+				assertEqualE(t, res.I16, sql.NullInt16{Valid: false})
+				assertEqualE(t, res.I32, sql.NullInt32{Valid: false})
+				assertEqualE(t, res.I64, sql.NullInt64{Valid: false})
+				assertEqualE(t, res.F64, sql.NullFloat64{Valid: false})
+				assertEqualE(t, res.Bo, sql.NullBool{Valid: false})
+				assertBytesEqualE(t, res.Bi, nil)
+				assertEqualE(t, res.Date, sql.NullTime{Valid: false})
+				assertEqualE(t, res.Time, sql.NullTime{Valid: false})
+				assertEqualE(t, res.Ltz, sql.NullTime{Valid: false})
+				assertEqualE(t, res.Tz, sql.NullTime{Valid: false})
+				assertEqualE(t, res.Ntz, sql.NullTime{Valid: false})
+				var so *simpleObject
+				assertDeepEqualE(t, res.So, so)
+			})
+			t.Run("not null", func(t *testing.T) {
+				rows := dbt.mustQuery("select 1, object_construct_keep_null('s', 'abc', 'b', 1, 'i16', 2, 'i32', 3, 'i64', 9223372036854775807, 'f64', 2.2, 'bo', true, 'bi', TO_BINARY('616263', 'HEX'), 'date', '2024-03-21'::DATE, 'time', '13:03:02'::TIME, 'ltz', '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz', '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz', '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so', {'s': 'child', 'i': 9}::OBJECT, 'sArr', ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr', ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap', {'x': true, 'y': false})::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				defer rows.Close()
+				rows.Next()
+				var ignore sql.NullInt32
+				var res objectWithAllTypesNullableSimpleScan
+				err := rows.Scan(&ignore, &res)
+				assertNilF(t, err)
+				assertEqualE(t, ignore, sql.NullInt32{Valid: true, Int32: 1})
+				assertEqualE(t, res.S, sql.NullString{Valid: true, String: "abc"})
+				assertEqualE(t, res.B, sql.NullByte{Valid: true, Byte: byte(1)})
+				assertEqualE(t, res.I16, sql.NullInt16{Valid: true, Int16: int16(2)})
+				assertEqualE(t, res.I32, sql.NullInt32{Valid: true, Int32: 3})
+				assertEqualE(t, res.I64, sql.NullInt64{Valid: true, Int64: 9223372036854775807})
+				assertEqualE(t, res.F64, sql.NullFloat64{Valid: true, Float64: 2.2})
+				assertEqualE(t, res.Bo, sql.NullBool{Valid: true, Bool: true})
+				assertBytesEqualE(t, res.Bi, []byte{'a', 'b', 'c'})
+				assertEqualE(t, res.Date, sql.NullTime{Valid: true, Time: time.Date(2024, time.March, 21, 0, 0, 0, 0, time.UTC)})
+				assertTrueE(t, res.Time.Valid)
+				assertEqualE(t, res.Time.Time.Hour(), 13)
+				assertEqualE(t, res.Time.Time.Minute(), 3)
+				assertEqualE(t, res.Time.Time.Second(), 2)
+				assertTrueE(t, res.Ltz.Valid)
+				assertTrueE(t, res.Ltz.Time.Equal(time.Date(2021, time.July, 21, 11, 22, 33, 0, warsawTz)))
+				assertTrueE(t, res.Tz.Valid)
+				assertTrueE(t, res.Tz.Time.Equal(time.Date(2022, time.August, 31, 13, 43, 22, 0, warsawTz)))
+				assertTrueE(t, res.Ntz.Valid)
+				assertTrueE(t, res.Ntz.Time.Equal(time.Date(2023, time.May, 22, 1, 17, 19, 0, time.UTC)))
+				assertDeepEqualE(t, res.So, &simpleObject{s: "child", i: 9})
+				assertDeepEqualE(t, res.SArr, []string{"x", "y", "z"})
+				assertDeepEqualE(t, res.F64Arr, []float64{1.1, 2.2, 3.3})
+				assertDeepEqualE(t, res.SomeMap, map[string]bool{"x": true, "y": false})
+			})
+		})
+	})
+}
+
+type objectWithCustomNameAndIgnoredField struct {
+	SomeString string `sf:"anotherName"`
+	IgnoreMe   string `sf:"ignoreMe,ignore"`
+}
+
+func (o *objectWithCustomNameAndIgnoredField) Scan(val any) error {
+	st := val.(StructuredObject)
+	return st.ScanTo(o)
+}
+
+func (o *objectWithCustomNameAndIgnoredField) Write(sowc StructuredObjectWriterContext) error {
+	return sowc.WriteAll(o)
+}
+
+func TestObjectWithCustomName(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			rows := dbt.mustQuery("SELECT {'anotherName': 'some string'}::OBJECT(anotherName VARCHAR)")
+			defer rows.Close()
+			rows.Next()
+			var res objectWithCustomNameAndIgnoredField
+			err := rows.Scan(&res)
+			assertNilF(t, err)
+			assertEqualE(t, res.SomeString, "some string")
+			assertEqualE(t, res.IgnoreMe, "")
 		})
 	})
 }

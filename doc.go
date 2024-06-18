@@ -420,7 +420,7 @@ data types. The columns are:
 
 Note: SQL NULL values are converted to Golang nil values, and vice-versa.
 
-## Semistructured and structured types
+# Semistructured and structured types
 
 Snowflake supports two flavours of "structured data" - semistructured and structured.
 Semistructured types are variants, objects and arrays without schema.
@@ -431,23 +431,19 @@ Example table definition:
 
 The data not have any corresponding schema, so values in table may be slightly different.
 
-### Semistructured types
-
 Semistuctured variants, objects and arrays are always represented as strings for scanning:
 
-		rows, err := db.Query("SELECT {'a': 'b'}::OBJECT")
-		// handle error
-		defer rows.Close()
-		rows.Next()
-		var v string
-		err := rows.Scan(&v)
+	rows, err := db.Query("SELECT {'a': 'b'}::OBJECT")
+	// handle error
+	defer rows.Close()
+	rows.Next()
+	var v string
+	err := rows.Scan(&v)
 
 When inserting, a marker indicating correct type must be used, for example:
 
 	db.Exec("CREATE TABLE test_object_binding (obj OBJECT)")
 	db.Exec("INSERT INTO test_object_binding SELECT (?)", DataTypeObject, "{'s': 'some string'}")
-
-### Structured types
 
 Structured types differentiate from semistructured types by having specific schema.
 In all rows of the table, values must conform to this schema.
@@ -455,16 +451,16 @@ Example table definition:
 
 	CREATE TABLE structured (o OBJECT(s VARCHAR, i INTEGER), a ARRAY(INTEGER), m MAP(VARCHAR, BOOLEAN))
 
-#### Retrieving structured objects
+To retrieve structured objects, follow these steps:
 
-1. Create a struct, example:
+1. Create a struct implementing sql.Scanner interface, example:
+
+a)
 
 	type simpleObject struct {
 		s string
 		i int32
 	}
-
-2. Implement sql.Scanner interface:
 
 	func (so *simpleObject) Scan(val any) error {
 		st := val.(StructuredObject)
@@ -478,14 +474,32 @@ Example table definition:
 		return nil
 	}
 
-3. Use it in regular scan:
+b)
+
+	type simpleObject struct {
+		S string `sf:"otherName"`
+		I int32 `sf:"i,ignore"`
+	}
+
+	func (so *simpleObject) Scan(val any) error {
+		st := val.(StructuredObject)
+		return st.ScanTo(so)
+	}
+
+Automatic scan goes through all fields in a struct and read object fields.
+Struct fields have to be public.
+Embedded structs have to be pointers.
+Matching name is built using struct field name with first letter lowercase.
+Additionally, `sf` tag can be added:
+- first value is always a name of a field in an SQL object
+- additionally `ignore` parameter can be passed to omit this field
+
+2. Use it in regular scan:
 
 	var res simpleObject
 	err := rows.Scan(&res)
 
 See StructuredObject for all available operations including null support, embedding nested structs, etc.
-
-#### Retrieving structured arrays
 
 Retrieving array of simple types works exactly the same like normal values - using Scan function.
 If you want to scan array of structs, you have to use a helper function ScanArrayOfScanners:
@@ -493,14 +507,49 @@ If you want to scan array of structs, you have to use a helper function ScanArra
 	var res []*simpleObject
 	err := rows.Scan(ScanArrayOfScanners(&res))
 
-#### Retrieving structured maps
-
-# It is very similar to retrieving arrays:
+Retrieving structured maps is very similar to retrieving arrays:
 
 	var res map[string]*simpleObject
 	err := rows.Scan(ScanMapOfScanners(&res))
 
-## Using higher precision numbers
+To bind structured objects use:
+
+1. Create a type which implements a StructuredObjectWriter interface, example:
+
+a)
+
+	type simpleObject struct {
+		s string
+		i int32
+	}
+
+	func (so *simpleObject) Write(sowc StructuredObjectWriterContext) error {
+		if err := sowc.WriteString("s", so.s); err != nil {
+			return err
+		}
+		if err := sowc.WriteInt32("i", so.i); err != nil {
+			return err
+		}
+		return nil
+	}
+
+b)
+
+	type simpleObject struct {
+		S string `sf:"otherName"`
+		I int32 `sf:"i,ignore"`
+	}
+
+	func (so *simpleObject) Write(sowc StructuredObjectWriterContext) error {
+		return sowc.WriteAll(so)
+	}
+
+2. Use an instance as regular bind.
+3. If you need to bind nil value, use special syntax:
+
+	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeNullObject, reflect.TypeOf(simpleObject{})
+
+# Using higher precision numbers
 
 The following example shows how to retrieve very large values using the math/big
 package. This example retrieves a large INTEGER value to an interface and then
@@ -567,7 +616,7 @@ of the returned value:
 	    }
 	}
 
-## Arrow batches
+# Arrow batches
 
 You can retrieve data in a columnar format similar to the format a server returns.
 You must use `WithArrowBatches` context, similar to the following:
@@ -586,10 +635,11 @@ You must use `WithArrowBatches` context, similar to the following:
 
 Limitations:
 
-1. For some queries Snowflake may decide to return data in JSON format (examples: `SHOW PARAMETERS` or `ls @stage`). You cannot use JSON with Arrow batches context.
-2. Snowflake handles timestamps in a range which is higher than available space in Arrow timestamp type. Because of that special treatment should be used (see below).
+ 1. For some queries Snowflake may decide to return data in JSON format (examples: `SHOW PARAMETERS` or `ls @stage`). You cannot use JSON with Arrow batches context.
+ 2. Snowflake handles timestamps in a range which is broader than available space in Arrow timestamp type. Because of that special treatment should be used (see below).
+ 3. When using numbers, Snowflake chooses the smallest type that covers all values in a batch. So even when your column is NUMBER(38, 0), if all values are 8bits, array.Int8 is used.
 
-### Handling timestamps in Arrow batches
+How to handle timestamps in Arrow batches:
 
 Snowflake returns timestamps natively (from backend to driver) in multiple formats.
 The Arrow timestamp is an 8-byte data type, which is insufficient to handle the larger date and time ranges used by Snowflake.
@@ -603,18 +653,20 @@ If you want to use timestamps in Arrow batches, you have two options:
  2. You can use native Snowflake values. In that case you will receive complex structs as described above. To transform Snowflake values into the Golang time.Time struct you can use `ArrowSnowflakeTimestampToTime`.
     To enable this feature, you must use `WithArrowBatchesTimestampOption` context with value set to`UseOriginalTimestamp`.
 
-### Invalid UTF-8 characters in Arrow batches
+How to handle invalid UTF-8 characters in Arrow batches:
+
 Snowflake previously allowed users to upload data with invalid UTF-8 characters. Consequently, Arrow records containing string columns in Snowflake could include these invalid UTF-8 characters.
 However, according to the Arrow specifications (https://arrow.apache.org/docs/cpp/api/datatype.html
 and https://github.com/apache/arrow/blob/a03d957b5b8d0425f9d5b6c98b6ee1efa56a1248/go/arrow/datatype.go#L73-L74),
 Arrow string columns should only contain UTF-8 characters.
 
-To address this issue and prevent potential downstream disruptions, the context `enableArrowBatchesUtf8Validation`, is introduced.
+To address this issue and prevent potential downstream disruptions, the context WithArrowBatchesUtf8Validation, is introduced.
 When enabled, this feature iterates through all values in string columns, identifying and replacing any invalid characters with `�`.
 This ensures that Arrow records conform to the UTF-8 standards, preventing validation failures in downstream services like the Rust Arrow library that impose strict validation checks.
 
-### WithHigherPrecision in Arrow batches
-To preserve BigDecimal values within Arrow batches, use `WithHigherPrecision`.
+How to handle higher precision in Arrow batches:
+
+To preserve BigDecimal values within Arrow batches, use WithHigherPrecision.
 This offers two main benefits: it helps avoid precision loss and defers the conversion to upstream services.
 Alternatively, without this setting, all non-zero scale numbers will be converted to float64, potentially resulting in loss of precision.
 Zero-scale numbers (DECIMAL256, DECIMAL128) will be converted to int64, which could lead to overflow.
@@ -1107,7 +1159,7 @@ See the following for information on the syntax and supported parameters:
   - PUT: https://docs.snowflake.com/en/sql-reference/sql/put.html
   - GET: https://docs.snowflake.com/en/sql-reference/sql/get.html
 
-## Using PUT
+Using PUT:
 
 The following example shows how to run a PUT command by passing a string to the
 db.Query() function:
@@ -1143,7 +1195,7 @@ To send information from a stream (rather than a file) use code similar to the c
 
 Note: PUT statements are not supported for multi-statement queries.
 
-## Using GET
+Using GET:
 
 The following example shows how to run a GET command by passing a string to the
 db.Query() function:
@@ -1155,7 +1207,7 @@ an absolute path rather than a relative path. For example:
 
 	db.Query("GET @~ file:///tmp/my_data_file auto_compress=false overwrite=false")
 
-## Specifying temporary directory for encryption and compression
+Specifying temporary directory for encryption and compression:
 
 Putting and getting requires compression and/or encryption, which is done in the OS temporary directory.
 If you cannot use default temporary directory for your OS or you want to specify it yourself, you can use "tmpDirPath" DSN parameter.
@@ -1164,7 +1216,7 @@ Example:
 
 	u:p@a.r.c.snowflakecomputing.com/db/s?account=a.r.c&tmpDirPath=%2Fother%2Ftmp
 
-## Using custom configuration for PUT/GET
+Using custom configuration for PUT/GET:
 
 If you want to override some default configuration options, you can use `WithFileTransferOptions` context.
 There are multiple config parameters including progress bars or compression.

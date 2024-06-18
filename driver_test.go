@@ -167,6 +167,17 @@ type DBTest struct {
 	conn *sql.Conn
 }
 
+func (dbt *DBTest) connParams() map[string]*string {
+	var params map[string]*string
+	err := dbt.conn.Raw(func(driverConn any) error {
+		conn := driverConn.(*snowflakeConn)
+		params = conn.cfg.Params
+		return nil
+	})
+	assertNilF(dbt.T, err)
+	return params
+}
+
 func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
@@ -338,6 +349,12 @@ func (dbt *DBTest) forceNativeArrow() { // structured types
 func (dbt *DBTest) enableStructuredTypes() {
 	dbt.mustExec("alter session set ENABLE_STRUCTURED_TYPES_IN_CLIENT_RESPONSE = true")
 	dbt.mustExec("alter session set IGNORE_CLIENT_VESRION_IN_STRUCTURED_TYPES_RESPONSE = true")
+}
+
+func (dbt *DBTest) enableStructuredTypesBinding() {
+	dbt.enableStructuredTypes()
+	dbt.mustExec("ALTER SESSION SET ENABLE_OBJECT_TYPED_BINDS = true")
+	dbt.mustExec("ALTER SESSION SET ENABLE_STRUCTURED_TYPES_IN_BINDS = Enable")
 }
 
 type SCTest struct {
