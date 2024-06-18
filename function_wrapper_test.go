@@ -20,11 +20,11 @@ var closeGoWrapperCalledChannel = func(ctx context.Context, f func()) {
 
 func TestGoWrapper(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		t.Cleanup(
-			func() {
-				goWrapperCalled = false
-			},
-		)
+		oldGoroutineWrapper := GoroutineWrapper
+		t.Cleanup(func() {
+			GoroutineWrapper = oldGoroutineWrapper
+		})
+
 		GoroutineWrapper = closeGoWrapperCalledChannel
 
 		numrows := 100000
