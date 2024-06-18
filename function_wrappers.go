@@ -12,4 +12,7 @@ type GoroutineWrapperFunc func(ctx context.Context, f func())
 var noopGoroutineWrapper = func(_ context.Context, f func()) {
 	f()
 }
+
+// GoroutineWrapper is used to hold the GoroutineWrapperFunc set by the client, or to
+// store the default goroutine wrapper which does nothing
 var GoroutineWrapper GoroutineWrapperFunc = noopGoroutineWrapper
