@@ -178,14 +178,14 @@ func getQueryResultWithRetriesForAsyncMode(
 			}
 			retryCountForSessionRenewal++
 
-			// if this is the first response, go back to retry the query
+			// If this is the first response, go back to retry the query
 			// since it failed due to session expiration
 			logger.WithContext(ctx).Infof("retry count for session renewal: %v", retryCountForSessionRenewal)
 			if retryCountForSessionRenewal < 2 {
 				retry++
 				continue
 			} else {
-				logger.WithContext(ctx).Errorf("failed to renew session token. err: %v", err)
+				logger.WithContext(ctx).Errorf("failed to get query result with the renewed session token. err: %v", err)
 				return respd, err
 			}
 		} else if respd.Code != queryInProgressAsyncCode {

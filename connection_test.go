@@ -113,7 +113,7 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 		er := &execResponse{
 			Data:    *dd,
 			Message: "",
-			Code:    sessionExpiredCode,
+			Code:    "0",
 			Success: true,
 		}
 		ba, err := json.Marshal(er)
@@ -128,6 +128,53 @@ func TestGetQueryResultUsesTokenFromTokenAccessor(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncGet:       funcGetMock,
 		TokenAccessor: ta,
+	}
+	sc := &snowflakeConn{
+		cfg:                 &Config{Params: map[string]*string{}},
+		rest:                sr,
+		currentTimeProvider: defaultTimeProvider,
+	}
+	if _, err := sc.getQueryResultResp(context.Background(), ""); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+func TestGetQueryResultTokenExpiry(t *testing.T) {
+	ta := getSimpleTokenAccessor()
+	token := "snowflake-test-token"
+	ta.SetTokens(token, "", 1)
+	funcGetMock := func(_ context.Context, _ *snowflakeRestful, _ *url.URL,
+		headers map[string]string, _ time.Duration) (*http.Response, error) {
+		dd := &execResponseData{}
+		er := &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    sessionExpiredCode,
+			Success: true,
+		}
+		ba, err := json.Marshal(er)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       &fakeResponseBody{body: ba},
+		}, nil
+	}
+
+	expectedToken := "new token"
+	expectedMaster := "new master"
+	expectedSession := int64(321)
+
+	renewSessionDummy := func(_ context.Context, sr *snowflakeRestful, _ time.Duration) error {
+		ta.SetTokens(expectedToken, expectedMaster, expectedSession)
+		return nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncGet:          funcGetMock,
+		FuncRenewSession: renewSessionDummy,
+		TokenAccessor:    ta,
 	}
 	sc := &snowflakeConn{
 		cfg:                 &Config{Params: map[string]*string{}},
