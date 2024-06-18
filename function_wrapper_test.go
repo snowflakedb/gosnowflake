@@ -2,7 +2,6 @@ package gosnowflake
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -27,12 +26,9 @@ func TestGoWrapper(t *testing.T) {
 
 		GoroutineWrapper = closeGoWrapperCalledChannel
 
-		numrows := 100000
-		withCancelCtx, cancel := context.WithCancel(context.Background())
-		// using async mode because I know that will trigger a goroutine to be fired off
-		ctx := WithAsyncMode(withCancelCtx)
-		dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
-		cancel()
+		ctx := WithAsyncMode(context.Background())
+		rows := dbt.mustQueryContext(ctx, "SELECT 1")
+		defer rows.Close()
 
 		assertTrueF(t, goWrapperCalled, "channel should be closed, indicating our wrapper worked")
 	})
