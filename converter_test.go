@@ -2396,3 +2396,24 @@ func TestTimeTypeValueToString(t *testing.T) {
 		})
 	}
 }
+
+func TestIsArrayOfStructs(t *testing.T) {
+	testcases := []struct {
+		value    any
+		expected bool
+	}{
+		{[]simpleObject{}, true},
+		{[]*simpleObject{}, true},
+		{[]int{1}, false},
+		{[]string{"abc"}, false},
+		{&[]bool{true}, false},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("%v", tc.value), func(t *testing.T) {
+			res := isArrayOfStructs(tc.value)
+			if res != tc.expected {
+				t.Errorf("expected %v to result in %v", tc.value, tc.expected)
+			}
+		})
+	}
+}

@@ -311,7 +311,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		}
 		resString := string(res)
 		return bindingValue{&resString, "json", nil}, nil
-	} else if reflect.TypeOf(v).Elem().Kind() == reflect.Struct || (reflect.TypeOf(v).Elem().Kind() == reflect.Pointer && reflect.TypeOf(v).Elem().Elem().Kind() == reflect.Struct) {
+	} else if isArrayOfStructs(v) {
 		stringEntries := make([]string, v1.Len())
 		entrySchema := &bindingSchema{}
 		for i := 0; i < v1.Len(); i++ {
@@ -380,6 +380,10 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 func isSliceOfSlices(v any) bool {
 	typ := reflect.TypeOf(v)
 	return typ.Kind() == reflect.Slice && typ.Elem().Kind() == reflect.Slice
+}
+
+func isArrayOfStructs(v any) bool {
+	return reflect.TypeOf(v).Elem().Kind() == reflect.Struct || (reflect.TypeOf(v).Elem().Kind() == reflect.Pointer && reflect.TypeOf(v).Elem().Elem().Kind() == reflect.Struct)
 }
 
 func structValueToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
