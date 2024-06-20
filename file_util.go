@@ -37,7 +37,6 @@ func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.
 }
 
 func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir string) (string, int64, error) {
-
 	basename := baseName(fileName)
 	gzipFileName := filepath.Join(tmpDir, basename+"_c.gz")
 

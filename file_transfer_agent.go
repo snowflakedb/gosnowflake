@@ -128,6 +128,7 @@ type snowflakeFileTransferAgent struct {
 }
 
 func (sfa *snowflakeFileTransferAgent) execute() error {
+	fmt.Println("DEBUG: file_transfer_agent.execute()")
 	select {
 	case <-sfa.ctx.Done():
 		return sfa.ctx.Err()
@@ -208,6 +209,7 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 }
 
 func (sfa *snowflakeFileTransferAgent) parseCommand() error {
+	fmt.Println("DEBUG: file_transfer_agent.parseCommand()")
 	var err error
 	if sfa.data.Command != "" {
 		sfa.commandType = commandType(sfa.data.Command)
@@ -344,6 +346,7 @@ func (sfa *snowflakeFileTransferAgent) expandFilenames(locations []string) ([]st
 }
 
 func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
+	fmt.Println("DEBUG: file_transfer_agent.initFileMetadata()")
 	sfa.fileMetadata = []*fileMetadata{}
 	if sfa.commandType == uploadCommand {
 		if len(sfa.srcFiles) == 0 {
@@ -436,6 +439,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 }
 
 func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
+	fmt.Println("DEBUG: file_transfer_agent.processFileCompressionType()")
 	var userSpecifiedSourceCompression *compressionType
 	var autoDetect bool
 	if sfa.srcCompression == "auto_detect" {
@@ -526,6 +530,7 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 }
 
 func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() error {
+	fmt.Println("DEBUG: file_transfer_agent.updateFileMetadataWithPresignedURL()")
 	// presigned URL only applies to GCS
 	if sfa.stageLocationType == gcsClient {
 		if sfa.commandType == uploadCommand {
@@ -592,6 +597,7 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 }
 
 func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
+	fmt.Println("DEBUG: file_transfer_agent.transferAccelerateConfig()")
 	if sfa.stageLocationType == s3Client {
 		s3Util := new(snowflakeS3Client)
 		s3Loc, err := s3Util.extractBucketNameAndPath(sfa.stageInfo.Location)
@@ -679,6 +685,7 @@ func (sfa *snowflakeFileTransferAgent) getLocalFilePathFromCommand(command strin
 func (sfa *snowflakeFileTransferAgent) upload(
 	largeFileMetadata []*fileMetadata,
 	smallFileMetadata []*fileMetadata) error {
+	fmt.Println("DEBUG: file_transfer_agent.upload()")
 	select {
 	case <-sfa.ctx.Done():
 		return sfa.ctx.Err()
@@ -818,6 +825,7 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 }
 
 func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMetadata) error {
+	fmt.Println("DEBUG: file_transfer_agent.uploadFilesSequential()")
 	select {
 	case <-sfa.ctx.Done():
 		return sfa.ctx.Err()
@@ -855,6 +863,7 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMe
 }
 
 func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileMetadata, error) {
+	fmt.Println("DEBUG: file_transfer_agent.uploadOneFile()")
 	select {
 	case <-sfa.ctx.Done():
 		return nil, sfa.ctx.Err()
@@ -995,6 +1004,7 @@ func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fil
 }
 
 func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudType) storageUtil {
+	fmt.Println("DEBUG: file_transfer_agent.getStorageClient()")
 	if stageLocationType == local {
 		return &localUtil{}
 	} else if stageLocationType == s3Client || stageLocationType == azureClient || stageLocationType == gcsClient {

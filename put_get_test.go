@@ -774,8 +774,8 @@ func TestPutCancel(t *testing.T) {
 			defer rows.Close()
 			c <- nil
 		}()
-		// cancel after 2 seconds
-		time.Sleep(2 * time.Second)
+		// cancel after 5 seconds
+		time.Sleep(5 * time.Second)
 		fmt.Println("Canceled")
 		cancel()
 		ret := <-c
