@@ -549,6 +549,11 @@ b)
 
 	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeNullObject, reflect.TypeOf(simpleObject{})
 
+Binding structured arrays are like any other parameter.
+The only difference is - if you want to insert empty array (not nil but empty), you have to use:
+
+	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeEmptyArray, reflect.TypeOf(simpleObject{}))
+
 # Using higher precision numbers
 
 The following example shows how to retrieve very large values using the math/big
