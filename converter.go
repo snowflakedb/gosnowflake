@@ -2216,6 +2216,8 @@ func arrowToRecordSingleColumn(ctx context.Context, field arrow.Field, col arrow
 			builder.AppendValues(floatValues, nil)
 			newCol = builder.NewArray()
 			builder.Release()
+		} else {
+			col.Retain()
 		}
 	case timeType:
 		newCol, err = compute.CastArray(ctx, col, compute.SafeCastOptions(arrow.FixedWidthTypes.Time64ns))
