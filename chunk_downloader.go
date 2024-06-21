@@ -148,7 +148,12 @@ func (scd *snowflakeChunkDownloader) schedule() {
 	select {
 	case nextIdx := <-scd.ChunksChan:
 		logger.WithContext(scd.ctx).Infof("schedule chunk: %v", nextIdx+1)
-		go scd.FuncDownload(scd.ctx, scd, nextIdx)
+		go GoroutineWrapper(
+			scd.ctx,
+			func() {
+				scd.FuncDownload(scd.ctx, scd, nextIdx)
+			},
+		)
 	default:
 		// no more download
 		logger.WithContext(scd.ctx).Info("no more download")
@@ -162,7 +167,12 @@ func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 			errc.Error != context.Canceled &&
 			errc.Error != context.DeadlineExceeded {
 			// add the index to the chunks channel so that the download will be retried.
-			go scd.FuncDownload(scd.ctx, scd, errc.Index)
+			go GoroutineWrapper(
+				scd.ctx,
+				func() {
+					scd.FuncDownload(scd.ctx, scd, errc.Index)
+				},
+			)
 			scd.ChunksErrorCounter++
 			logger.WithContext(scd.ctx).Warningf("chunk idx: %v, err: %v. retrying (%v/%v)...",
 				errc.Index, errc.Error, scd.ChunksErrorCounter, maxChunkDownloaderErrorCounter)
@@ -508,55 +518,58 @@ func (scd *streamChunkDownloader) nextResultSet() error {
 }
 
 func (scd *streamChunkDownloader) start() error {
-	go func() {
-		readErr := io.EOF
+	go GoroutineWrapper(
+		scd.ctx,
+		func() {
+			readErr := io.EOF
 
-		logger.WithContext(scd.ctx).Infof(
-			"start downloading. downloader id: %v, %v/%v rows, %v chunks",
-			scd.id, len(scd.RowSet.RowType), scd.Total, len(scd.ChunkMetas))
-		t := time.Now()
+			logger.WithContext(scd.ctx).Infof(
+				"start downloading. downloader id: %v, %v/%v rows, %v chunks",
+				scd.id, len(scd.RowSet.RowType), scd.Total, len(scd.ChunkMetas))
+			t := time.Now()
 
-		defer func() {
-			if readErr == io.EOF {
-				logger.WithContext(scd.ctx).Infof("downloading done. downloader id: %v", scd.id)
-			} else {
-				logger.WithContext(scd.ctx).Debugf("downloading error. downloader id: %v", scd.id)
-			}
-			scd.readErr = readErr
-			close(scd.rowStream)
-
-			if r := recover(); r != nil {
-				if err, ok := r.(error); ok {
-					readErr = err
+			defer func() {
+				if readErr == io.EOF {
+					logger.WithContext(scd.ctx).Infof("downloading done. downloader id: %v", scd.id)
 				} else {
-					readErr = fmt.Errorf("%v", r)
+					logger.WithContext(scd.ctx).Debugf("downloading error. downloader id: %v", scd.id)
 				}
-			}
-		}()
+				scd.readErr = readErr
+				close(scd.rowStream)
 
-		logger.WithContext(scd.ctx).Infof("sending initial set of rows in %vms", time.Since(t).Microseconds())
-		t = time.Now()
-		for _, row := range scd.RowSet.JSON {
-			scd.rowStream <- row
-		}
-		scd.RowSet.JSON = nil
+				if r := recover(); r != nil {
+					if err, ok := r.(error); ok {
+						readErr = err
+					} else {
+						readErr = fmt.Errorf("%v", r)
+					}
+				}
+			}()
 
-		// Download and parse one chunk at a time. The fetcher will send each
-		// parsed row to the row stream. When an error occurs, the fetcher will
-		// stop writing to the row stream so we can stop processing immediately
-		for i, chunk := range scd.ChunkMetas {
-			logger.WithContext(scd.ctx).Infof("starting chunk fetch %d (%d rows)", i, chunk.RowCount)
-			if err := scd.fetcher.fetch(chunk.URL, scd.rowStream); err != nil {
-				logger.WithContext(scd.ctx).Debugf(
-					"failed chunk fetch %d: %#v, downloader id: %v, %v/%v rows, %v chunks",
-					i, err, scd.id, len(scd.RowSet.RowType), scd.Total, len(scd.ChunkMetas))
-				readErr = fmt.Errorf("chunk fetch: %w", err)
-				break
-			}
-			logger.WithContext(scd.ctx).Infof("fetched chunk %d (%d rows) in %vms", i, chunk.RowCount, time.Since(t).Microseconds())
+			logger.WithContext(scd.ctx).Infof("sending initial set of rows in %vms", time.Since(t).Microseconds())
 			t = time.Now()
-		}
-	}()
+			for _, row := range scd.RowSet.JSON {
+				scd.rowStream <- row
+			}
+			scd.RowSet.JSON = nil
+
+			// Download and parse one chunk at a time. The fetcher will send each
+			// parsed row to the row stream. When an error occurs, the fetcher will
+			// stop writing to the row stream so we can stop processing immediately
+			for i, chunk := range scd.ChunkMetas {
+				logger.WithContext(scd.ctx).Infof("starting chunk fetch %d (%d rows)", i, chunk.RowCount)
+				if err := scd.fetcher.fetch(chunk.URL, scd.rowStream); err != nil {
+					logger.WithContext(scd.ctx).Debugf(
+						"failed chunk fetch %d: %#v, downloader id: %v, %v/%v rows, %v chunks",
+						i, err, scd.id, len(scd.RowSet.RowType), scd.Total, len(scd.ChunkMetas))
+					readErr = fmt.Errorf("chunk fetch: %w", err)
+					break
+				}
+				logger.WithContext(scd.ctx).Infof("fetched chunk %d (%d rows) in %vms", i, chunk.RowCount, time.Since(t).Microseconds())
+				t = time.Now()
+			}
+		},
+	)
 	return nil
 }
 
