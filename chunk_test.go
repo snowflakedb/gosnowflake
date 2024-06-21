@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/ipc"
 	"github.com/apache/arrow/go/v15/arrow/memory"
 )
@@ -634,5 +635,39 @@ func TestQueryArrowStreamDescribeOnly(t *testing.T) {
 		if len(rowtypes) != 2 {
 			t.Errorf("rowTypes length did not match expected, wanted 2, got %v", len(rowtypes))
 		}
+	})
+}
+
+func TestRetainChunkWOHighPrecision(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		var rows driver.Rows
+		var err error
+
+		err = dbt.conn.Raw(func(connection interface{}) error {
+			rows, err = connection.(driver.QueryerContext).QueryContext(WithArrowBatches(context.Background()), "select 0", nil)
+			return err
+		})
+		assertNilF(t, err, "error running select 0 query")
+
+		arrowBatches, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNilF(t, err, "error getting arrow batches")
+		assertEqualF(t, len(arrowBatches), 1, "should have one batch")
+
+		records, err := arrowBatches[0].Fetch()
+		assertNilF(t, err, "error getting batch")
+		assertNotNilF(t, records, "records should not be nil")
+
+		numRecords := len(*records)
+		assertEqualF(t, numRecords, 1, "should have exactly one record")
+
+		record := (*records)[0]
+		assertEqualF(t, len(record.Columns()), 1, "should have exactly one column")
+
+		column := record.Column(0).(*array.Int8)
+		row := column.Len()
+		assertEqualF(t, row, 1, "should have exactly one row")
+
+		int8Val := column.Value(0)
+		assertEqualF(t, int8Val, int8(0), "value of cell should be 0")
 	})
 }

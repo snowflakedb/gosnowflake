@@ -9,6 +9,7 @@ on:
     pull_request:
         branches:
             - master
+            - SNOW-*
     schedule:
       - cron:  '7 3 * * *'
     workflow_dispatch:

@@ -37,18 +37,25 @@ const (
 	insertSQLBulkArrayDateTimeTimestamp      = "insert into test_bulk_array_DateTimeTimestamp values(?, ?, ?, ?, ?)"
 	selectAllSQLBulkArrayDateTimeTimestamp   = "select * from test_bulk_array_DateTimeTimestamp ORDER BY 1"
 
-	enableFeatureMaxLOBSize = "ALTER SESSION SET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY='ENABLED'"
-	unsetFeatureMaxLOBSize  = "ALTER SESSION UNSET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY"
+	enableFeatureMaxLOBSize      = "ALTER SESSION SET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY='ENABLED'"
+	unsetFeatureMaxLOBSize       = "ALTER SESSION UNSET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY"
+	enableLargeVarcharAndBinary  = "ALTER SESSION SET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT=TRUE"
+	disableLargeVarcharAndBinary = "ALTER SESSION SET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT=FALSE"
+	unsetLargeVarcharAndBinary   = "ALTER SESSION UNSET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT"
 
-	// For max LOB size tests
-	// maxLOBSize = 128 * 1024 * 1024 // new max LOB size
-	maxLOBSize = 16 * 1024 * 1024 // current max LOB size
-	largeSize  = maxLOBSize / 2
-	mediumSize = largeSize / 2
+	maxVarcharAndBinarySizeParam = "varchar_and_binary_max_size_in_result"
+
 	originSize = 16 * 1024 * 1024
 	smallSize  = 16
 	// range to use for generating random numbers
 	lobRandomRange = 100000
+)
+
+var (
+	// maxLOBSize = 128 * 1024 * 1024 // new max LOB size
+	maxLOBSize = 16 * 1024 * 1024 // current max LOB size
+	largeSize  = maxLOBSize / 2
+	mediumSize = largeSize / 2
 )
 
 func TestBindingFloat64(t *testing.T) {
@@ -220,9 +227,9 @@ func TestBindingTimePtrInStruct(t *testing.T) {
 			id      *int
 			timeVal *time.Time
 		}
-		var expectedID int = 1
-		var expectedTime time.Time = time.Now()
-		var testStruct timePtrStruct = timePtrStruct{id: &expectedID, timeVal: &expectedTime}
+		expectedID := 1
+		expectedTime := time.Now()
+		testStruct := timePtrStruct{id: &expectedID, timeVal: &expectedTime}
 		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
 
 		runInsertQuery := false
@@ -267,9 +274,9 @@ func TestBindingTimeInStruct(t *testing.T) {
 			id      int
 			timeVal time.Time
 		}
-		var expectedID int = 1
-		var expectedTime time.Time = time.Now()
-		var testStruct timeStruct = timeStruct{id: expectedID, timeVal: expectedTime}
+		expectedID := 1
+		expectedTime := time.Now()
+		testStruct := timeStruct{id: expectedID, timeVal: expectedTime}
 		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
 
 		runInsertQuery := false
@@ -885,7 +892,7 @@ func TestBulkArrayMultiPartBindingInt(t *testing.T) {
 			cnt++
 		}
 		if cnt != endNum {
-			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
+			t.Fatalf("expected %v rows, got %v", numRows, cnt-startNum)
 		}
 		dbt.mustExec("DROP TABLE binding_test")
 	})
@@ -947,7 +954,7 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 			cnt++
 		}
 		if cnt != endNum {
-			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
+			t.Fatalf("expected %v rows, got %v", numRows, cnt-startNum)
 		}
 		dbt.mustExec("DROP TABLE binding_test")
 	})
@@ -1111,6 +1118,12 @@ func TestVariousBindingModes(t *testing.T) {
 	})
 }
 
+func skipMaxLobSizeTestOnGithubActions(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("Max Lob Size parameters are not available on GH Actions")
+	}
+}
+
 func TestLOBRetrievalWithArrow(t *testing.T) {
 	testLOBRetrieval(t, true)
 }
@@ -1120,18 +1133,25 @@ func TestLOBRetrievalWithJSON(t *testing.T) {
 }
 
 func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
-	// the LOB sizes to be tested
-	testSizes := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
-	var res string
-
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.exec(enableFeatureMaxLOBSize)
+		parameters := dbt.connParams()
+		varcharBinaryMaxSizeRaw := parameters[maxVarcharAndBinarySizeParam]
+		if varcharBinaryMaxSizeRaw != nil && *varcharBinaryMaxSizeRaw != "" {
+			varcharBinaryMaxSize, err := strconv.ParseFloat(*varcharBinaryMaxSizeRaw, 64)
+			assertNilF(t, err, "error during varcharBinaryMaxSize conversion")
+			maxLOBSize = int(varcharBinaryMaxSize)
+		}
+
+		dbt.Logf("using %v as max LOB size", maxLOBSize)
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
 		} else {
 			dbt.mustExec(forceJSON)
 		}
 
+		var res string
+		// the LOB sizes to be tested
+		testSizes := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
 		for _, testSize := range testSizes {
 			t.Run(fmt.Sprintf("testLOB_%v_useArrowFormat=%v", strconv.Itoa(testSize), strconv.FormatBool(useArrowFormat)), func(t *testing.T) {
 				rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
@@ -1148,6 +1168,27 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 			})
 		}
 		dbt.exec(unsetFeatureMaxLOBSize)
+	})
+}
+
+func TestMaxLobSize(t *testing.T) {
+	skipMaxLobSizeTestOnGithubActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(enableFeatureMaxLOBSize)
+		defer dbt.mustExec(unsetLargeVarcharAndBinary)
+		t.Run("Max Lob Size disabled", func(t *testing.T) {
+			dbt.mustExec(disableLargeVarcharAndBinary)
+			_, err := dbt.query("select randstr(20000000, random())")
+			assertNotNilF(t, err)
+			assertStringContainsF(t, err.Error(), "Actual length 20000000 exceeds supported length")
+		})
+
+		t.Run("Max Lob Size enabled", func(t *testing.T) {
+			dbt.mustExec(enableLargeVarcharAndBinary)
+			rows, err := dbt.query("select randstr(20000000, random())")
+			assertNilF(t, err)
+			rows.Close()
+		})
 	})
 }
 

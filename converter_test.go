@@ -102,6 +102,7 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: time.Now(), tmode: timestampTzType, out: timestampTzType},
 		{in: time.Now(), tmode: timestampLtzType, out: timestampLtzType},
 		{in: []byte{1, 2, 3}, tmode: binaryType, out: binaryType},
+		{in: []int{1}, tmode: nullType, out: arrayType},
 		{in: Array([]interface{}{int64(123)}), tmode: nullType, out: sliceType},
 		{in: Array([]interface{}{float64(234.56)}), tmode: nullType, out: sliceType},
 		{in: Array([]interface{}{true}), tmode: nullType, out: sliceType},
@@ -117,6 +118,7 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: Array([]interface{}{time.Now()}, TimestampTZType), tmode: timeType, out: sliceType},
 		{in: Array([]interface{}{time.Now()}, DateType), tmode: timestampNtzType, out: sliceType},
 		{in: Array([]interface{}{time.Now()}, TimeType), tmode: timestampTzType, out: sliceType},
+		{in: nil, tmode: nullType, out: nullType},
 		// negative
 		{in: 123, tmode: nullType, out: unSupportedType},
 		{in: int8(12), tmode: nullType, out: unSupportedType},
@@ -125,8 +127,6 @@ func TestGoTypeToSnowflake(t *testing.T) {
 		{in: uint8(12), tmode: nullType, out: unSupportedType},
 		{in: uint64(456), tmode: nullType, out: unSupportedType},
 		{in: []byte{100}, tmode: nullType, out: unSupportedType},
-		{in: []int{1}, tmode: nullType, out: unSupportedType},
-		{in: nil, tmode: nullType, out: unSupportedType},
 	}
 	for _, test := range testcases {
 		t.Run(fmt.Sprintf("%v_%v_%v", test.in, test.out, test.tmode), func(t *testing.T) {
@@ -188,12 +188,34 @@ func TestSnowflakeTypeToGo(t *testing.T) {
 	}
 }
 
+type testValueToStringStructuredObject struct {
+	s    string
+	i    int32
+	date time.Time
+}
+
+func (o *testValueToStringStructuredObject) Write(sowc StructuredObjectWriterContext) error {
+	if err := sowc.WriteString("s", o.s); err != nil {
+		return err
+	}
+	if err := sowc.WriteInt32("i", o.i); err != nil {
+		return err
+	}
+	if err := sowc.WriteTime("date", o.date, DataTypeDate); err != nil {
+		return err
+	}
+	return nil
+}
+
 func TestValueToString(t *testing.T) {
 	v := cmplx.Sqrt(-5 + 12i) // should never happen as Go sql package must have already validated.
-	_, err := valueToString(v, nullType)
+	_, err := valueToString(v, nullType, nil)
 	if err == nil {
 		t.Errorf("should raise error: %v", v)
 	}
+	params := make(map[string]*string)
+	dateFormat := "YYYY-MM-DD"
+	params["date_output_format"] = &dateFormat
 
 	// both localTime and utcTime should yield the same unix timestamp
 	localTime := time.Date(2019, 2, 6, 14, 17, 31, 123456789, time.FixedZone("-08:00", -8*3600))
@@ -204,53 +226,71 @@ func TestValueToString(t *testing.T) {
 	expectedFloat64 := "1.1"
 	expectedString := "teststring"
 
-	if s, err := valueToString(localTime, timestampLtzType); err != nil {
-		t.Error("unexpected error")
-	} else if s == nil {
-		t.Errorf("expected '%v', got %v", expectedUnixTime, s)
-	} else if *s != expectedUnixTime {
-		t.Errorf("expected '%v', got '%v'", expectedUnixTime, *s)
-	}
+	bv, err := valueToString(localTime, timestampLtzType, nil)
+	assertNilF(t, err)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedUnixTime)
 
-	if s, err := valueToString(utcTime, timestampLtzType); err != nil {
-		t.Error("unexpected error")
-	} else if s == nil {
-		t.Errorf("expected '%v', got %v", expectedUnixTime, s)
-	} else if *s != expectedUnixTime {
-		t.Errorf("expected '%v', got '%v'", expectedUnixTime, *s)
-	}
+	bv, err = valueToString(utcTime, timestampLtzType, nil)
+	assertNilF(t, err)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedUnixTime)
 
-	if s, err := valueToString(sql.NullBool{Bool: true, Valid: true}, timestampLtzType); err != nil {
-		t.Error("unexpected error")
-	} else if s == nil {
-		t.Errorf("expected '%v', got %v", expectedBool, s)
-	} else if *s != expectedBool {
-		t.Errorf("expected '%v', got '%v'", expectedBool, *s)
-	}
+	bv, err = valueToString(sql.NullBool{Bool: true, Valid: true}, timestampLtzType, nil)
+	assertNilF(t, err)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedBool)
 
-	if s, err := valueToString(sql.NullInt64{Int64: 1, Valid: true}, timestampLtzType); err != nil {
-		t.Error("unexpected error")
-	} else if s == nil {
-		t.Errorf("expected '%v', got %v", expectedInt64, s)
-	} else if *s != expectedInt64 {
-		t.Errorf("expected '%v', got '%v'", expectedInt64, *s)
-	}
+	bv, err = valueToString(sql.NullInt64{Int64: 1, Valid: true}, timestampLtzType, nil)
+	assertNilF(t, err)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedInt64)
 
-	if s, err := valueToString(sql.NullFloat64{Float64: 1.1, Valid: true}, timestampLtzType); err != nil {
-		t.Error("unexpected error")
-	} else if s == nil {
-		t.Errorf("expected '%v', got %v", expectedFloat64, s)
-	} else if *s != expectedFloat64 {
-		t.Errorf("expected '%v', got '%v'", expectedFloat64, *s)
-	}
+	bv, err = valueToString(sql.NullFloat64{Float64: 1.1, Valid: true}, timestampLtzType, nil)
+	assertNilF(t, err)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedFloat64)
 
-	if s, err := valueToString(sql.NullString{String: "teststring", Valid: true}, timestampLtzType); err != nil {
-		t.Error("unexpected error")
-	} else if s == nil {
-		t.Errorf("expected '%v', got %v", expectedString, s)
-	} else if *s != expectedString {
-		t.Errorf("expected '%v', got '%v'", expectedString, *s)
-	}
+	bv, err = valueToString(sql.NullString{String: "teststring", Valid: true}, timestampLtzType, nil)
+	assertNilF(t, err)
+	assertEmptyStringE(t, bv.format)
+	assertNilE(t, bv.schema)
+	assertEqualE(t, *bv.value, expectedString)
+
+	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, timestampLtzType, params)
+	assertNilF(t, err)
+	assertEqualE(t, bv.format, "json")
+	assertDeepEqualE(t, *bv.schema, bindingSchema{
+		Typ:      "object",
+		Nullable: true,
+		Fields: []fieldMetadata{
+			{
+				Name:     "s",
+				Type:     "text",
+				Nullable: true,
+				Length:   134217728,
+			},
+			{
+				Name:      "i",
+				Type:      "fixed",
+				Nullable:  true,
+				Precision: 38,
+				Scale:     0,
+			},
+			{
+				Name:     "date",
+				Type:     "date",
+				Nullable: true,
+				Scale:    9,
+			},
+		},
+	})
+	assertEqualIgnoringWhitespaceE(t, *bv.value, `{"date": "2024-05-24", "i": 123, "s": "some string"}`)
 }
 
 func TestExtractTimestamp(t *testing.T) {
@@ -2348,12 +2388,31 @@ func TestTimeTypeValueToString(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.out, func(t *testing.T) {
-			output, err := timeTypeValueToString(tc.in, tc.tsmode)
-			if err != nil {
-				t.Error(err)
-			}
-			if strings.Compare(tc.out, *output) != 0 {
-				t.Errorf("failed to convert time %v of type %v. expected: %v, received: %v", tc.in, tc.tsmode, tc.out, *output)
+			bv, err := timeTypeValueToString(tc.in, tc.tsmode)
+			assertNilF(t, err)
+			assertEmptyStringE(t, bv.format)
+			assertNilE(t, bv.schema)
+			assertEqualE(t, tc.out, *bv.value)
+		})
+	}
+}
+
+func TestIsArrayOfStructs(t *testing.T) {
+	testcases := []struct {
+		value    any
+		expected bool
+	}{
+		{[]simpleObject{}, true},
+		{[]*simpleObject{}, true},
+		{[]int{1}, false},
+		{[]string{"abc"}, false},
+		{&[]bool{true}, false},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("%v", tc.value), func(t *testing.T) {
+			res := isArrayOfStructs(tc.value)
+			if res != tc.expected {
+				t.Errorf("expected %v to result in %v", tc.value, tc.expected)
 			}
 		})
 	}
