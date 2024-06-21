@@ -211,9 +211,12 @@ func authenticateByExternalBrowser(
 	disableConsoleLogin ConfigBool,
 ) ([]byte, []byte, error) {
 	resultChan := make(chan authenticateByExternalBrowserResult, 1)
-	go func() {
-		resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, password, disableConsoleLogin)
-	}()
+	go GoroutineWrapper(
+		ctx,
+		func() {
+			resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, password, disableConsoleLogin)
+		},
+	)
 	select {
 	case <-time.After(externalBrowserTimeout):
 		return nil, nil, errors.New("authentication timed out")
