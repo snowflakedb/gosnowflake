@@ -77,6 +77,9 @@ func isInterfaceArrayBinding(t interface{}) bool {
 
 // goTypeToSnowflake translates Go data type to Snowflake data type.
 func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
+	if v == nil {
+		return nullType
+	}
 	switch t := v.(type) {
 	case int64, sql.NullInt64:
 		return fixedType
@@ -105,10 +108,18 @@ func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 	}
 	if supportedArrayBind(&driver.NamedValue{Value: v}) {
 		return sliceType
-	} else if _, ok := v.(StructuredObjectWriter); ok {
+	}
+	// structured objects
+	if _, ok := v.(StructuredObjectWriter); ok {
 		return objectType
 	} else if _, ok := v.(reflect.Type); ok && tsmode == nullObjectType {
 		return nullObjectType
+	}
+	// structured arrays
+	if reflect.TypeOf(v).Kind() == reflect.Slice || (reflect.TypeOf(v).Kind() == reflect.Pointer && reflect.ValueOf(v).Elem().Kind() == reflect.Slice) {
+		return arrayType
+	} else if tsmode == emptyArrayType {
+		return emptyArrayType
 	}
 	return unSupportedType
 }
@@ -215,7 +226,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	if v == nil {
 		return bindingValue{nil, "", nil}, nil
 	}
-	v1 := reflect.ValueOf(v)
+	v1 := reflect.Indirect(reflect.ValueOf(v))
 	switch v1.Kind() {
 	case reflect.Bool:
 		s := strconv.FormatBool(v1.Bool())
@@ -229,52 +240,184 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	case reflect.String:
 		s := v1.String()
 		return bindingValue{&s, "", nil}, nil
-	case reflect.Slice, reflect.Map:
+	case reflect.Slice, reflect.Array:
+		return arrayToString(v, tsmode, params)
+	case reflect.Map:
 		if v1.IsNil() {
 			return bindingValue{nil, "", nil}, nil
-		}
-		if bd, ok := v.([]byte); ok {
-			if tsmode == binaryType {
-				s := hex.EncodeToString(bd)
-				return bindingValue{&s, "", nil}, nil
-			}
 		}
 		// TODO: is this good enough?
 		s := v1.String()
 		return bindingValue{&s, "", nil}, nil
 	case reflect.Struct:
-		switch typedVal := v.(type) {
-		case time.Time:
-			return timeTypeValueToString(typedVal, tsmode)
-		case sql.NullTime:
-			if !typedVal.Valid {
-				return bindingValue{nil, "", nil}, nil
-			}
-			return timeTypeValueToString(typedVal.Time, tsmode)
-		case sql.NullBool:
-			if !typedVal.Valid {
-				return bindingValue{nil, "", nil}, nil
-			}
-			s := strconv.FormatBool(typedVal.Bool)
-			return bindingValue{&s, "", nil}, nil
-		case sql.NullInt64:
-			if !typedVal.Valid {
-				return bindingValue{nil, "", nil}, nil
-			}
-			s := strconv.FormatInt(typedVal.Int64, 10)
-			return bindingValue{&s, "", nil}, nil
-		case sql.NullFloat64:
-			if !typedVal.Valid {
-				return bindingValue{nil, "", nil}, nil
-			}
-			s := strconv.FormatFloat(typedVal.Float64, 'g', -1, 32)
-			return bindingValue{&s, "", nil}, nil
-		case sql.NullString:
-			if !typedVal.Valid {
-				return bindingValue{nil, "", nil}, nil
-			}
-			return bindingValue{&typedVal.String, "", nil}, nil
+		return structValueToString(v, tsmode, params)
+	}
+
+	return bindingValue{}, fmt.Errorf("unsupported type: %v", v1.Kind())
+}
+
+func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
+	v1 := reflect.Indirect(reflect.ValueOf(v))
+	if v1.IsNil() {
+		return bindingValue{nil, "", nil}, nil
+	}
+	if bd, ok := v.([][]byte); ok && tsmode == binaryType {
+		schema := bindingSchema{
+			Typ:      "array",
+			Nullable: true,
+			Fields: []fieldMetadata{
+				{
+					Type:     "binary",
+					Nullable: true,
+				},
+			},
 		}
+		if len(bd) == 0 {
+			res := "[]"
+			return bindingValue{value: &res, format: "json", schema: &schema}, nil
+		}
+		s := ""
+		for _, b := range bd {
+			s += "\"" + hex.EncodeToString(b) + "\","
+		}
+		s = "[" + s[:len(s)-1] + "]"
+		return bindingValue{&s, "json", &schema}, nil
+	} else if times, ok := v.([]time.Time); ok {
+		typ := driverTypeToSnowflake[tsmode]
+		sfFormat, err := dateTimeInputFormatByType(typ, params)
+		if err != nil {
+			return bindingValue{nil, "", nil}, err
+		}
+		goFormat, err := snowflakeFormatToGoFormat(sfFormat)
+		if err != nil {
+			return bindingValue{nil, "", nil}, err
+		}
+		arr := make([]string, len(times))
+		for idx, t := range times {
+			arr[idx] = t.Format(goFormat)
+		}
+		res, err := json.Marshal(v)
+		if err != nil {
+			return bindingValue{nil, "", &bindingSchema{
+				Typ:      "array",
+				Nullable: true,
+				Fields: []fieldMetadata{
+					{
+						Type:     typ,
+						Nullable: true,
+					},
+				},
+			}}, err
+		}
+		resString := string(res)
+		return bindingValue{&resString, "json", nil}, nil
+	} else if isArrayOfStructs(v) {
+		stringEntries := make([]string, v1.Len())
+		entrySchema := &bindingSchema{}
+		for i := 0; i < v1.Len(); i++ {
+			potentialSow := v1.Index(i)
+			if sow, ok := potentialSow.Interface().(StructuredObjectWriter); ok {
+				bv, err := structValueToString(sow, tsmode, params)
+				if err != nil {
+					return bindingValue{nil, "", nil}, err
+				}
+				stringEntries[i] = *bv.value
+				entrySchema = bv.schema
+			}
+		}
+		value := "[" + strings.Join(stringEntries, ",") + "]"
+		arraySchema := &bindingSchema{
+			Typ:      "array",
+			Nullable: true,
+			Fields: []fieldMetadata{
+				{
+					Type:     "OBJECT",
+					Nullable: true,
+					Fields:   entrySchema.Fields,
+				},
+			},
+		}
+		return bindingValue{&value, "json", arraySchema}, nil
+	} else if reflect.ValueOf(v).Len() == 0 {
+		value := "[]"
+		return bindingValue{&value, "json", nil}, nil
+	} else if barr, ok := v.([]byte); ok {
+		if tsmode == binaryType {
+			res := hex.EncodeToString(barr)
+			return bindingValue{&res, "", nil}, nil
+		}
+		schemaForBytes := bindingSchema{
+			Typ:      "array",
+			Nullable: true,
+			Fields: []fieldMetadata{
+				{
+					Type:     "TINYINT",
+					Nullable: true,
+				},
+			},
+		}
+		if len(barr) == 0 {
+			res := "[]"
+			return bindingValue{&res, "", &schemaForBytes}, nil
+		}
+		res := "["
+		for _, b := range barr {
+			res += fmt.Sprint(b) + ","
+		}
+		res = res[0:len(res)-1] + "]"
+		return bindingValue{&res, "", &schemaForBytes}, nil
+	} else if isSliceOfSlices(v) {
+		return bindingValue{}, errors.New("array of arrays is not supported")
+	}
+	res, err := json.Marshal(v)
+	if err != nil {
+		return bindingValue{nil, "", nil}, err
+	}
+	resString := string(res)
+	return bindingValue{&resString, "json", nil}, nil
+}
+
+func isSliceOfSlices(v any) bool {
+	typ := reflect.TypeOf(v)
+	return typ.Kind() == reflect.Slice && typ.Elem().Kind() == reflect.Slice
+}
+
+func isArrayOfStructs(v any) bool {
+	return reflect.TypeOf(v).Elem().Kind() == reflect.Struct || (reflect.TypeOf(v).Elem().Kind() == reflect.Pointer && reflect.TypeOf(v).Elem().Elem().Kind() == reflect.Struct)
+}
+
+func structValueToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
+	switch typedVal := v.(type) {
+	case time.Time:
+		return timeTypeValueToString(typedVal, tsmode)
+	case sql.NullTime:
+		if !typedVal.Valid {
+			return bindingValue{nil, "", nil}, nil
+		}
+		return timeTypeValueToString(typedVal.Time, tsmode)
+	case sql.NullBool:
+		if !typedVal.Valid {
+			return bindingValue{nil, "", nil}, nil
+		}
+		s := strconv.FormatBool(typedVal.Bool)
+		return bindingValue{&s, "", nil}, nil
+	case sql.NullInt64:
+		if !typedVal.Valid {
+			return bindingValue{nil, "", nil}, nil
+		}
+		s := strconv.FormatInt(typedVal.Int64, 10)
+		return bindingValue{&s, "", nil}, nil
+	case sql.NullFloat64:
+		if !typedVal.Valid {
+			return bindingValue{nil, "", nil}, nil
+		}
+		s := strconv.FormatFloat(typedVal.Float64, 'g', -1, 32)
+		return bindingValue{&s, "", nil}, nil
+	case sql.NullString:
+		if !typedVal.Valid {
+			return bindingValue{nil, "", nil}, nil
+		}
+		return bindingValue{&typedVal.String, "", nil}, nil
 	}
 	if sow, ok := v.(StructuredObjectWriter); ok {
 		sowc := &structuredObjectWriterContext{}
@@ -304,9 +447,25 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 			Nullable: true,
 			Fields:   sowc.toFields(),
 		}
-		return bindingValue{nil, "json", &schema}, nil
+		var val *string = nil
+		if tsmode == emptyArrayType {
+			emptyArray := "[]"
+			val = &emptyArray
+			schema = bindingSchema{
+				Typ:      "array",
+				Nullable: true,
+				Fields: []fieldMetadata{
+					{
+						Type:     schema.Typ,
+						Nullable: schema.Nullable,
+						Fields:   schema.Fields,
+					},
+				},
+			}
+		}
+		return bindingValue{val, "json", &schema}, nil
 	}
-	return bindingValue{nil, "", nil}, fmt.Errorf("unsupported type: %v", v1.Kind())
+	return bindingValue{nil, "", nil}, nil
 }
 
 func timeTypeValueToString(tm time.Time, tsmode snowflakeType) (bindingValue, error) {

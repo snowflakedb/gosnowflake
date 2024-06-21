@@ -72,7 +72,7 @@ func (ex *execResponseRowType) toFieldMetadata() fieldMetadata {
 }
 
 type fieldMetadata struct {
-	Name      string          `json:"name"`
+	Name      string          `json:"name,omitempty"`
 	Type      string          `json:"type"`
 	Nullable  bool            `json:"nullable"`
 	Length    int             `json:"length"`

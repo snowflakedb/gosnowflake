@@ -33,6 +33,7 @@ const (
 	changeType
 	unSupportedType
 	nullObjectType
+	emptyArrayType
 )
 
 var snowflakeToDriverType = map[string]snowflakeType{
@@ -109,6 +110,8 @@ var (
 	DataTypeBoolean = []byte{booleanType.Byte()}
 	// DataTypeNullObject represents a null structured object.
 	DataTypeNullObject = []byte{nullObjectType.Byte()}
+	// DataTypeEmptyArray represents an empty structured array.
+	DataTypeEmptyArray = []byte{emptyArrayType.Byte()}
 )
 
 // dataTypeMode returns the subsequent data type in a string representation.
@@ -135,6 +138,8 @@ func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
 			tsmode = variantType
 		case bytes.Equal(bd, DataTypeNullObject):
 			tsmode = nullObjectType
+		case bytes.Equal(bd, DataTypeEmptyArray):
+			tsmode = emptyArrayType
 		default:
 			return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
 		}
