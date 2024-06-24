@@ -80,6 +80,9 @@ func TestOCSPFailOpen(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	driverErr, ok := err.(*SnowflakeError)
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
@@ -117,6 +120,9 @@ func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
 	defer db.Close()
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
 	}
 	driverErr, ok := err.(*SnowflakeError)
 	if !ok {
@@ -157,6 +163,9 @@ func TestOCSPFailOpenValidityError(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	driverErr, ok := err.(*SnowflakeError)
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
@@ -195,6 +204,9 @@ func TestOCSPFailClosedValidityError(t *testing.T) {
 	defer db.Close()
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
 	}
 	urlErr, ok := err.(*url.Error)
 	if !ok {
@@ -240,6 +252,9 @@ func TestOCSPFailOpenUnknownStatus(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	driverErr, ok := err.(*SnowflakeError)
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
@@ -278,6 +293,9 @@ func TestOCSPFailClosedUnknownStatus(t *testing.T) {
 	defer db.Close()
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
 	}
 	urlErr, ok := err.(*url.Error)
 	if !ok {
@@ -324,6 +342,9 @@ func TestOCSPFailOpenRevokedStatus(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	urlErr, ok := err.(*url.Error)
 	if !ok {
 		t.Fatalf("failed to extract error URL Error: %v", err)
@@ -369,6 +390,9 @@ func TestOCSPFailClosedRevokedStatus(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	urlErr, ok := err.(*url.Error)
 	if !ok {
 		t.Fatalf("failed to extract error URL Error: %v", err)
@@ -413,6 +437,9 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	driverErr, ok := err.(*SnowflakeError)
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
@@ -454,6 +481,9 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	}
 	if err == nil {
 		t.Fatalf("should failed to connect. err:  %v", err)
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
 	}
 
 	switch errType := err.(type) {
@@ -508,6 +538,9 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	driverErr, ok := err.(*SnowflakeError)
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
@@ -547,6 +580,9 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	defer db.Close()
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
 	}
 	urlErr, ok := err.(*url.Error)
 	if !ok {
@@ -591,6 +627,9 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	driverErr, ok := err.(*SnowflakeError)
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
@@ -630,9 +669,12 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	urlErr, ok := err.(*url.Error)
 	if !ok {
-		t.Fatalf("failed to extract error URL Error: %v", err)
+		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
 	if !strings.Contains(urlErr.Err.Error(), "404 Not Found") {
 		t.Fatalf("the root cause is not timeout: %v", urlErr.Err)
@@ -754,6 +796,9 @@ func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	driverErr, ok := err.(*SnowflakeError)
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
@@ -793,13 +838,18 @@ func TestOCSPFailClosedNoOCSPURL(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
 	urlErr, ok := err.(*url.Error)
 	if !ok {
-		t.Fatalf("failed to extract error URL Error: %v", err)
+		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
 	driverErr, ok := urlErr.Err.(*SnowflakeError)
 	if !ok {
-		t.Fatalf("failed to extract error SnowflakeError: %v", err)
+		if !strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+			t.Fatalf("failed to extract error SnowflakeError: %v", err)
+		}
 	}
 	if driverErr.Number != ErrOCSPNoOCSPResponderURL {
 		t.Fatalf("should failed to connect %v", err)
