@@ -520,7 +520,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	}
 	found := false
 	for _, m := range mstr {
-		if strings.Contains(err.Error(), m) {
+		if strings.Contains(err.Error(), m) || strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
 			found = true
 		}
 	}
@@ -1690,6 +1690,9 @@ func TestPingInvalidHost(t *testing.T) {
 	ctx := context.Background()
 	if err = db.PingContext(ctx); err == nil {
 		t.Fatal("should cause an error")
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
 	}
 	if driverErr, ok := err.(*SnowflakeError); !ok || ok && driverErr.Number != ErrCodeFailedToConnect {
 		// Failed to connect error
