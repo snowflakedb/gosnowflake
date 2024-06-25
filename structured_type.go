@@ -538,6 +538,9 @@ func (sowc *structuredObjectWriterContext) toFields() []fieldMetadata {
 type ArrayOfScanners[T sql.Scanner] []T
 
 func (st *ArrayOfScanners[T]) Scan(val any) error {
+	if val == nil {
+		return nil
+	}
 	sts := val.([]*structuredType)
 	*st = make([]T, len(sts))
 	var t T

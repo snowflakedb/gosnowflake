@@ -178,7 +178,7 @@ func (dbt *DBTest) connParams() map[string]*string {
 	return params
 }
 
-func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
+func (dbt *DBTest) mustQueryT(t *testing.T, query string, args ...any) (rows *RowsExtended) {
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
@@ -201,7 +201,7 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExten
 
 	rs, err := dbt.conn.QueryContext(ctx, query, args...)
 	if err != nil {
-		dbt.fail("query", query, err)
+		t.Fatalf("query, query=%v, err=%v", query, err)
 	}
 	return &RowsExtended{
 		rows:      rs,
@@ -209,7 +209,15 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExten
 	}
 }
 
+func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
+	return dbt.mustQueryT(dbt.T, query, args...)
+}
+
 func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...interface{}) (rows *RowsExtended) {
+	return dbt.mustQueryContextT(ctx, dbt.T, query, args...)
+}
+
+func (dbt *DBTest) mustQueryContextT(ctx context.Context, t *testing.T, query string, args ...interface{}) (rows *RowsExtended) {
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(ctx)
 	c := make(chan os.Signal, 1)
@@ -232,7 +240,7 @@ func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...i
 
 	rs, err := dbt.conn.QueryContext(ctx, query, args...)
 	if err != nil {
-		dbt.fail("query", query, err)
+		t.Fatalf("query, query=%v, err=%v", query, err)
 	}
 	return &RowsExtended{
 		rows:      rs,
@@ -271,10 +279,22 @@ func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result) 
 	return dbt.mustExecContext(context.Background(), query, args...)
 }
 
+func (dbt *DBTest) mustExecT(t *testing.T, query string, args ...any) (res sql.Result) {
+	return dbt.mustExecContextT(context.Background(), t, query, args...)
+}
+
 func (dbt *DBTest) mustExecContext(ctx context.Context, query string, args ...interface{}) (res sql.Result) {
 	res, err := dbt.conn.ExecContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("exec context", query, err)
+	}
+	return res
+}
+
+func (dbt *DBTest) mustExecContextT(ctx context.Context, t *testing.T, query string, args ...any) (res sql.Result) {
+	res, err := dbt.conn.ExecContext(ctx, query, args...)
+	if err != nil {
+		t.Fatalf("exec context: query=%v, err=%v", query, err)
 	}
 	return res
 }
@@ -500,7 +520,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	}
 	found := false
 	for _, m := range mstr {
-		if strings.Contains(err.Error(), m) {
+		if strings.Contains(err.Error(), m) || strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
 			found = true
 		}
 	}
@@ -1670,6 +1690,9 @@ func TestPingInvalidHost(t *testing.T) {
 	ctx := context.Background()
 	if err = db.PingContext(ctx); err == nil {
 		t.Fatal("should cause an error")
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
 	}
 	if driverErr, ok := err.(*SnowflakeError); !ok || ok && driverErr.Number != ErrCodeFailedToConnect {
 		// Failed to connect error

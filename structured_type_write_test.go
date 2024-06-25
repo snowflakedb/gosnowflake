@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"database/sql"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -215,7 +216,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 				tz:   sql.NullTime{Time: time.Date(2027, time.May, 24, 11, 22, 33, 44, warsawTz), Valid: true},
 				so:   &simpleObject{s: "another string", i: 123},
 			}
-			dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", o)
+			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQuery("SELECT * FROM test_object_binding WHERE obj = ?", o)
 			defer rows.Close()
 
@@ -257,7 +258,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 				tz:   sql.NullTime{},
 				so:   nil,
 			}
-			dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", o)
+			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQuery("SELECT * FROM test_object_binding WHERE obj = ?", o)
 			defer rows.Close()
 
@@ -374,7 +375,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 				Tz:   sql.NullTime{Time: time.Date(2027, time.May, 24, 11, 22, 33, 44, warsawTz), Valid: true},
 				So:   &simpleObject{s: "another string", i: 123},
 			}
-			dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", o)
+			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQuery("SELECT * FROM test_object_binding WHERE obj = ?", o)
 			defer rows.Close()
 
@@ -416,7 +417,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 				Tz:   sql.NullTime{},
 				So:   nil,
 			}
-			dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", o)
+			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQuery("SELECT * FROM test_object_binding WHERE obj = ?", o)
 			defer rows.Close()
 
@@ -530,5 +531,179 @@ func TestBindingNullStructuredObjects(t *testing.T) {
 		err := rows.Scan(&res)
 		assertNilF(t, err)
 		assertNilE(t, res)
+	})
+}
+
+func TestBindingArrayWithSchema(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
+		testcases := []struct {
+			name      string
+			arrayType string
+			values    []any
+			expected  any
+		}{
+			{
+				name:      "byte - empty",
+				arrayType: "TINYINT",
+				values:    []any{[]byte{}},
+				expected:  []int64{},
+			},
+			{
+				name:      "byte - not empty",
+				arrayType: "TINYINT",
+				values:    []any{[]byte{1, 2, 3}},
+				expected:  []int64{1, 2, 3},
+			},
+			{
+				name:      "int16",
+				arrayType: "SMALLINT",
+				values:    []any{[]int16{1, 2, 3}},
+				expected:  []int64{1, 2, 3},
+			},
+			{
+				name:      "int16 - empty",
+				arrayType: "SMALLINT",
+				values:    []any{[]int16{}},
+				expected:  []int64{},
+			},
+			{
+				name:      "int32",
+				arrayType: "INTEGER",
+				values:    []any{[]int32{1, 2, 3}},
+				expected:  []int64{1, 2, 3},
+			},
+			{
+				name:      "int64",
+				arrayType: "BIGINT",
+				values:    []any{[]int64{1, 2, 3}},
+				expected:  []int64{1, 2, 3},
+			},
+			{
+				name:      "float32",
+				arrayType: "FLOAT",
+				values:    []any{[]float32{1.2, 3.4}},
+				expected:  []float64{1.2, 3.4},
+			},
+			{
+				name:      "float64",
+				arrayType: "FLOAT",
+				values:    []any{[]float64{1.2, 3.4}},
+				expected:  []float64{1.2, 3.4},
+			},
+			{
+				name:      "bool",
+				arrayType: "BOOLEAN",
+				values:    []any{[]bool{true, false}},
+				expected:  []bool{true, false},
+			},
+			{
+				name:      "binary",
+				arrayType: "BINARY",
+				values:    []any{DataTypeBinary, [][]byte{{'a', 'b'}, {'c', 'd'}}},
+				expected:  [][]byte{{'a', 'b'}, {'c', 'd'}},
+			},
+			{
+				name:      "binary - empty",
+				arrayType: "BINARY",
+				values:    []any{DataTypeBinary, [][]byte{}},
+				expected:  [][]byte{},
+			},
+			{
+				name:      "date",
+				arrayType: "DATE",
+				values:    []any{DataTypeDate, []time.Time{time.Date(2024, time.June, 4, 0, 0, 0, 0, time.UTC)}},
+				expected:  []time.Time{time.Date(2024, time.June, 4, 0, 0, 0, 0, time.UTC)},
+			},
+		}
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				dbt.mustExecT(t, fmt.Sprintf("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(%s))", tc.arrayType))
+				defer func() {
+					dbt.mustExec("DROP TABLE IF EXISTS test_array_binding")
+				}()
+
+				dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", tc.values...)
+
+				rows := dbt.mustQuery("SELECT * FROM test_array_binding")
+				defer rows.Close()
+
+				assertTrueE(t, rows.Next())
+				var res any
+				err := rows.Scan(&res)
+				assertNilF(t, err)
+				assertDeepEqualE(t, res, tc.expected)
+			})
+		}
+	})
+}
+
+func TestBindingArrayOfObjects(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
+		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(OBJECT(s VARCHAR, i INTEGER)))")
+		defer func() {
+			dbt.mustExec("DROP TABLE IF EXISTS test_array_binding")
+		}()
+
+		arr := []*simpleObject{{s: "some string", i: 123}}
+		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", arr)
+
+		rows := dbt.mustQuery("SELECT * FROM test_array_binding WHERE arr = ?", arr)
+		defer rows.Close()
+
+		assertTrueE(t, rows.Next())
+		var res []*simpleObject
+		err := rows.Scan(ScanArrayOfScanners(&res))
+		assertNilF(t, err)
+		assertDeepEqualE(t, res, arr)
+	})
+}
+
+func TestBindingEmptyArrayOfObjects(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
+		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(OBJECT(s VARCHAR, i INTEGER)))")
+		defer func() {
+			dbt.mustExec("DROP TABLE IF EXISTS test_array_binding")
+		}()
+
+		arr := []*simpleObject{}
+		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeEmptyArray, reflect.TypeOf(simpleObject{}))
+
+		rows := dbt.mustQuery("SELECT * FROM test_array_binding WHERE arr = ?", DataTypeEmptyArray, reflect.TypeOf(simpleObject{}))
+		defer rows.Close()
+
+		assertTrueF(t, rows.Next())
+		var res []*simpleObject
+		err := rows.Scan(ScanArrayOfScanners(&res))
+		assertNilF(t, err)
+		assertDeepEqualE(t, res, arr)
+	})
+}
+
+func TestBindingNilArrayOfObjects(t *testing.T) {
+	skipStructuredTypesTestsOnGHActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
+		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(OBJECT(s VARCHAR, i INTEGER)))")
+		defer func() {
+			dbt.mustExec("DROP TABLE IF EXISTS test_array_binding")
+		}()
+
+		var arr []*simpleObject
+		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", arr)
+
+		rows := dbt.mustQuery("SELECT * FROM test_array_binding")
+		defer rows.Close()
+
+		assertTrueF(t, rows.Next())
+		var res []*simpleObject
+		err := rows.Scan(ScanArrayOfScanners(&res))
+		assertNilF(t, err)
+		assertDeepEqualE(t, res, arr)
 	})
 }

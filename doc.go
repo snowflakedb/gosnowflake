@@ -96,7 +96,7 @@ The following connection parameters are supported:
 
   - authenticator: Specifies the authenticator to use for authenticating user credentials:
 
-  - To use the internal Snowflake authenticator, specify snowflake (Default).
+  - To use the internal Snowflake authenticator, specify snowflake (Default). If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
 
   - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
 
@@ -548,6 +548,11 @@ b)
 3. If you need to bind nil value, use special syntax:
 
 	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeNullObject, reflect.TypeOf(simpleObject{})
+
+Binding structured arrays are like any other parameter.
+The only difference is - if you want to insert empty array (not nil but empty), you have to use:
+
+	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeEmptyArray, reflect.TypeOf(simpleObject{}))
 
 # Using higher precision numbers
 
