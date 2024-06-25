@@ -96,7 +96,7 @@ The following connection parameters are supported:
 
   - authenticator: Specifies the authenticator to use for authenticating user credentials:
 
-  - To use the internal Snowflake authenticator, specify snowflake (Default).
+  - To use the internal Snowflake authenticator, specify snowflake (Default). If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
 
   - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
 
