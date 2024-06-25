@@ -145,9 +145,9 @@ func TestGetQueryResultTokenExpiry(t *testing.T) {
 	ta.SetTokens(token, "", 1)
 	funcGetMock := func(_ context.Context, _ *snowflakeRestful, _ *url.URL,
 		headers map[string]string, _ time.Duration) (*http.Response, error) {
-		dd := &execResponseData{}
+		respData := execResponseData{}
 		er := &execResponse{
-			Data:    *dd,
+			Data:    respData,
 			Message: "",
 			Code:    sessionExpiredCode,
 			Success: true,
@@ -181,9 +181,62 @@ func TestGetQueryResultTokenExpiry(t *testing.T) {
 		rest:                sr,
 		currentTimeProvider: defaultTimeProvider,
 	}
-	if _, err := sc.getQueryResultResp(context.Background(), ""); err != nil {
-		t.Fatalf("err: %v", err)
+	_, err := sc.getQueryResultResp(context.Background(), "")
+	assertNilF(t, err, fmt.Sprintf("err: %v", err))
+
+	updatedToken, updatedMaster, updatedSession := ta.GetTokens()
+	assertEqualF(t, updatedToken, expectedToken)
+	assertEqualF(t, updatedMaster, expectedMaster)
+	assertEqualF(t, updatedSession, expectedSession)
+}
+
+func TestGetQueryResultTokenNotSet(t *testing.T) {
+	ta := getSimpleTokenAccessor()
+	funcGetMock := func(_ context.Context, _ *snowflakeRestful, _ *url.URL,
+		headers map[string]string, _ time.Duration) (*http.Response, error) {
+		respData := execResponseData{}
+		er := &execResponse{
+			Data:    respData,
+			Message: "",
+			Code:    sessionExpiredCode,
+			Success: true,
+		}
+		ba, err := json.Marshal(er)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       &fakeResponseBody{body: ba},
+		}, nil
 	}
+
+	expectedToken := "new token"
+	expectedMaster := "new master"
+	expectedSession := int64(321)
+
+	renewSessionDummy := func(_ context.Context, sr *snowflakeRestful, _ time.Duration) error {
+		ta.SetTokens(expectedToken, expectedMaster, expectedSession)
+		return nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncGet:          funcGetMock,
+		FuncRenewSession: renewSessionDummy,
+		TokenAccessor:    ta,
+	}
+	sc := &snowflakeConn{
+		cfg:                 &Config{Params: map[string]*string{}},
+		rest:                sr,
+		currentTimeProvider: defaultTimeProvider,
+	}
+	_, err := sc.getQueryResultResp(context.Background(), "")
+	assertNilF(t, err, fmt.Sprintf("err: %v", err))
+
+	updatedToken, updatedMaster, updatedSession := ta.GetTokens()
+	assertEqualF(t, updatedToken, expectedToken)
+	assertEqualF(t, updatedMaster, expectedMaster)
+	assertEqualF(t, updatedSession, expectedSession)
 }
 
 func TestExecWithSpecificRequestID(t *testing.T) {

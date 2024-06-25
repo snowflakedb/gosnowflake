@@ -164,7 +164,7 @@ func getQueryResultWithRetriesForAsyncMode(
 		if respd.Code == sessionExpiredCode {
 			// Update the session token in the header and retry
 			token, _, _ := sr.TokenAccessor.GetTokens()
-			if headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, token) {
+			if token != "" && headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, token) {
 				headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 				logger.WithContext(ctx).Info("Session token has been updated.")
 				retry++
