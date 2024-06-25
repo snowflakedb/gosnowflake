@@ -812,6 +812,58 @@ func TestUsernamePasswordMfaCaching(t *testing.T) {
 	}
 }
 
+func TestUsernamePasswordMfaCachingWithPasscode(t *testing.T) {
+	t.Skip("manual test for MFA token caching")
+
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	// connect with MFA authentication
+	user := os.Getenv("SNOWFLAKE_TEST_MFA_USER")
+	password := os.Getenv("SNOWFLAKE_TEST_MFA_PASSWORD")
+	config.User = user
+	config.Password = password
+	config.Passcode = "" // fill with your passcode from DUO app
+	config.Authenticator = AuthTypeUsernamePasswordMFA
+	if runtime.GOOS == "linux" {
+		config.ClientRequestMfaToken = ConfigBoolTrue
+	}
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	for i := 0; i < 3; i++ {
+		// should only be prompted to authenticate first time around.
+		_, err := db.Query("select current_user()")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestUsernamePasswordMfaCachingWithPasscodeInPassword(t *testing.T) {
+	t.Skip("manual test for MFA token caching")
+
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	// connect with MFA authentication
+	user := os.Getenv("SNOWFLAKE_TEST_MFA_USER")
+	password := os.Getenv("SNOWFLAKE_TEST_MFA_PASSWORD")
+	config.User = user
+	config.Password = password + "" // fill with your passcode from DUO app
+	config.PasscodeInPassword = true
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	for i := 0; i < 3; i++ {
+		// should only be prompted to authenticate first time around.
+		_, err := db.Query("select current_user()")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // To run this test you need to set environment variables in parameters.json to a user with MFA authentication enabled
 // Set any other snowflake_test variables needed for database, schema, role for this user
 func TestDisableUsernamePasswordMfaCaching(t *testing.T) {

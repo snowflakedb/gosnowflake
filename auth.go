@@ -457,8 +457,14 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		logger.WithContext(sc.ctx).Info("Username and password MFA")
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Password = sc.cfg.Password
-		if sc.cfg.MfaToken != "" {
+		switch {
+		case sc.cfg.MfaToken != "":
 			requestMain.Token = sc.cfg.MfaToken
+		case sc.cfg.PasscodeInPassword:
+			requestMain.ExtAuthnDuoMethod = "passcode"
+		case sc.cfg.Passcode != "":
+			requestMain.Passcode = sc.cfg.Passcode
+			requestMain.ExtAuthnDuoMethod = "passcode"
 		}
 	}
 
