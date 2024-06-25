@@ -32,7 +32,7 @@ jobs:
         steps:
           - uses: actions/checkout@v1
           - name: Setup go
-            uses: actions/setup-go@v2
+            uses: actions/setup-go@v5
             with:
               go-version: 1.20
           - name: Format, Lint
@@ -49,7 +49,7 @@ jobs:
         steps:
             - uses: actions/checkout@v1
             - name: Setup go
-              uses: actions/setup-go@v2
+              uses: actions/setup-go@v5
               with:
                   go-version: ${{ matrix.go }}
             - name: Test
@@ -75,7 +75,7 @@ jobs:
         steps:
             - uses: actions/checkout@v1
             - name: Setup go
-              uses: actions/setup-go@v2
+              uses: actions/setup-go@v5
               with:
                   go-version: ${{ matrix.go }}
             - name: Test
@@ -100,7 +100,7 @@ jobs:
         steps:
             - uses: actions/checkout@v1
             - name: Setup go
-              uses: actions/setup-go@v2
+              uses: actions/setup-go@v5
               with:
                   go-version: ${{ matrix.go }}
             - uses: actions/setup-python@v1
