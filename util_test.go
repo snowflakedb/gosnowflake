@@ -390,3 +390,13 @@ func skipOnJenkins(t *testing.T, message string) {
 		t.Skip("Skipping test on Jenkins: " + message)
 	}
 }
+
+func randomString(n int) string {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = alpha[r.Intn(len(alpha))]
+	}
+	return string(b)
+}
