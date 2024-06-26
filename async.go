@@ -148,6 +148,7 @@ func getQueryResultWithRetriesForAsyncMode(
 	retry := 0
 	retryPattern := []int32{1, 1, 2, 3, 4, 8, 10}
 	retryPatternIndex := 0
+	retryCountForSessionRenewal := 0
 
 	for {
 		logger.WithContext(ctx).Debugf("Retry count for get query result request in async mode: %v", retry)
@@ -165,7 +166,34 @@ func getQueryResultWithRetriesForAsyncMode(
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return respd, err
 		}
-		if respd.Code != queryInProgressAsyncCode {
+		if respd.Code == sessionExpiredCode {
+			// Update the session token in the header and retry
+			token, _, _ := sr.TokenAccessor.GetTokens()
+			if token != "" && headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, token) {
+				headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
+				logger.WithContext(ctx).Info("Session token has been updated.")
+				retry++
+				continue
+			}
+
+			// Renew the session token
+			if err = sr.renewExpiredSessionToken(ctx, timeout, token); err != nil {
+				logger.WithContext(ctx).Errorf("failed to renew session token. err: %v", err)
+				return respd, err
+			}
+			retryCountForSessionRenewal++
+
+			// If this is the first response, go back to retry the query
+			// since it failed due to session expiration
+			logger.WithContext(ctx).Infof("retry count for session renewal: %v", retryCountForSessionRenewal)
+			if retryCountForSessionRenewal < 2 {
+				retry++
+				continue
+			} else {
+				logger.WithContext(ctx).Errorf("failed to get query result with the renewed session token. err: %v", err)
+				return respd, err
+			}
+		} else if respd.Code != queryInProgressAsyncCode {
 			// If the query takes longer than 45 seconds to complete the results are not returned.
 			// If the query is still in progress after 45 seconds, retry the request to the /results endpoint.
 			// For all other scenarios continue processing results response
