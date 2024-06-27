@@ -193,14 +193,7 @@ func (so *simpleObject) Write(sowc StructuredObjectWriterContext) error {
 	return nil
 }
 
-func skipStructuredTypesTestsOnGHActions(t *testing.T) {
-	if runningOnGithubAction() {
-		t.Skip("Structured types are not available on GH Actions")
-	}
-}
-
 func TestObjectWithAllTypes(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
@@ -239,7 +232,6 @@ func TestObjectWithAllTypes(t *testing.T) {
 }
 
 func TestNullObject(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			t.Run("null", func(t *testing.T) {
@@ -406,7 +398,6 @@ func (o *objectWithAllTypesNullable) Write(sowc StructuredObjectWriterContext) e
 }
 
 func TestObjectWithAllTypesNullable(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
@@ -506,7 +497,6 @@ func (so *objectWithAllTypesSimpleScan) Write(sowc StructuredObjectWriterContext
 }
 
 func TestObjectWithAllTypesSimpleScan(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
@@ -545,7 +535,6 @@ func TestObjectWithAllTypesSimpleScan(t *testing.T) {
 }
 
 func TestNullObjectSimpleScan(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			t.Run("null", func(t *testing.T) {
@@ -600,7 +589,6 @@ func (o *objectWithAllTypesNullableSimpleScan) Write(sowc StructuredObjectWriter
 }
 
 func TestObjectWithAllTypesSimpleScanNullable(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
@@ -683,7 +671,6 @@ func (o *objectWithCustomNameAndIgnoredField) Write(sowc StructuredObjectWriterC
 }
 
 func TestObjectWithCustomName(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQuery("SELECT {'anotherName': 'some string'}::OBJECT(anotherName VARCHAR)")
@@ -699,7 +686,6 @@ func TestObjectWithCustomName(t *testing.T) {
 }
 
 func TestObjectMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQuery("SELECT {'a': 'b'}::OBJECT(a VARCHAR) as structured_type")
@@ -715,7 +701,6 @@ func TestObjectMetadata(t *testing.T) {
 }
 
 func TestObjectWithoutSchema(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
@@ -733,7 +718,6 @@ func TestObjectWithoutSchema(t *testing.T) {
 }
 
 func TestObjectWithoutSchemaMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
@@ -752,7 +736,6 @@ func TestObjectWithoutSchemaMetadata(t *testing.T) {
 }
 
 func TestArrayAndMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
@@ -889,7 +872,6 @@ func TestArrayAndMetadata(t *testing.T) {
 }
 
 func TestArrayWithoutSchema(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQuery("SELECT ARRAY_CONSTRUCT(1, 2)")
@@ -904,7 +886,6 @@ func TestArrayWithoutSchema(t *testing.T) {
 }
 
 func TestEmptyArraysAndNullArrays(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQuery("SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(INTEGER) UNION SELECT NULL UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER)")
@@ -926,7 +907,6 @@ func TestEmptyArraysAndNullArrays(t *testing.T) {
 }
 
 func TestArrayWithoutSchemaMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
@@ -945,7 +925,6 @@ func TestArrayWithoutSchemaMetadata(t *testing.T) {
 }
 
 func TestArrayOfObjects(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQuery("SELECT ARRAY_CONSTRUCT({'s': 's1', 'i': 9}, {'s': 's2', 'i': 8})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) as structured_type UNION SELECT ARRAY_CONSTRUCT({'s': 's3', 'i': 7})::ARRAY(OBJECT(s VARCHAR, i INTEGER))")
@@ -1045,7 +1024,6 @@ func TestArrayOfArrays(t *testing.T) {
 			expected: [][]time.Time{{time.Date(2024, time.January, 5, 11, 22, 33, 0, warsawTz)}, {time.Date(2001, time.November, 12, 11, 22, 33, 0, warsawTz)}},
 		},
 	}
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
@@ -1078,7 +1056,6 @@ func TestArrayOfArrays(t *testing.T) {
 }
 
 func TestMapAndMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
@@ -1310,7 +1287,6 @@ func TestMapAndMetadata(t *testing.T) {
 }
 
 func TestMapOfObjects(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQuery("SELECT {'x': {'s': 'abc', 'i': 1}, 'y': {'s': 'def', 'i': 2}}::MAP(VARCHAR, OBJECT(s VARCHAR, i INTEGER))")
@@ -1325,7 +1301,6 @@ func TestMapOfObjects(t *testing.T) {
 }
 
 func TestMapOfArrays(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	testcases := []struct {
@@ -1433,7 +1408,6 @@ func TestMapOfArrays(t *testing.T) {
 }
 
 func TestNullAndEmptyMaps(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQuery("SELECT {'a': 1}::MAP(VARCHAR, INTEGER) UNION SELECT NULL UNION SELECT {}::MAP(VARCHAR, INTEGER) UNION SELECT {'d': 4}::MAP(VARCHAR, INTEGER)")
@@ -1454,7 +1428,6 @@ func TestNullAndEmptyMaps(t *testing.T) {
 }
 
 func TestMapWithNullValues(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	testcases := []struct {
@@ -1579,7 +1552,6 @@ func (hps *HigherPrecisionStruct) Scan(val any) error {
 }
 
 func TestWithHigherPrecision(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format != "NATIVE_ARROW" {
@@ -1715,7 +1687,6 @@ func TestWithHigherPrecision(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1746,7 +1717,6 @@ func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatches(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1783,7 +1753,6 @@ func TestStructuredTypeInArrowBatches(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf8Validation(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1827,7 +1796,6 @@ func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf
 }
 
 func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1856,7 +1824,6 @@ func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1886,7 +1853,6 @@ func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
 }
 
 func TestStructuredArrayInArrowBatches(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1923,7 +1889,6 @@ func TestStructuredArrayInArrowBatches(t *testing.T) {
 }
 
 func TestStructuredMapInArrowBatches(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1992,7 +1957,6 @@ func TestSelectingNullObjectsInArrowBatches(t *testing.T) {
 		"select null::object(v VARCHAR)",
 		"select null::object",
 	}
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
 			t.Run(tc, func(t *testing.T) {
@@ -2074,7 +2038,6 @@ func TestSelectingSemistructuredTypesInArrowBatches(t *testing.T) {
 			query:              "SELECT [1, 2, 3]::ARRAY",
 		},
 	}
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
 			t.Run(tc.name, func(t *testing.T) {

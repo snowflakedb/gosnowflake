@@ -32,7 +32,8 @@ const (
 	sliceType
 	changeType
 	unSupportedType
-	nullObjectType
+	nilObjectType
+	nilArrayType
 	emptyArrayType
 )
 
@@ -108,8 +109,10 @@ var (
 	DataTypeTime = []byte{timeType.Byte()}
 	// DataTypeBoolean is a BOOLEAN datatype.
 	DataTypeBoolean = []byte{booleanType.Byte()}
-	// DataTypeNullObject represents a null structured object.
-	DataTypeNullObject = []byte{nullObjectType.Byte()}
+	// DataTypeNilObject represents a nil structured object.
+	DataTypeNilObject = []byte{nilObjectType.Byte()}
+	// DataTypeNilArray represents a nil structured array.
+	DataTypeNilArray = []byte{nilArrayType.Byte()}
 	// DataTypeEmptyArray represents an empty structured array.
 	DataTypeEmptyArray = []byte{emptyArrayType.Byte()}
 )
@@ -136,8 +139,10 @@ func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
 			tsmode = arrayType
 		case bytes.Equal(bd, DataTypeVariant):
 			tsmode = variantType
-		case bytes.Equal(bd, DataTypeNullObject):
-			tsmode = nullObjectType
+		case bytes.Equal(bd, DataTypeNilObject):
+			tsmode = nilObjectType
+		case bytes.Equal(bd, DataTypeNilArray):
+			tsmode = nilArrayType
 		case bytes.Equal(bd, DataTypeEmptyArray):
 			tsmode = emptyArrayType
 		default:

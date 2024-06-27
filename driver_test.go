@@ -358,6 +358,8 @@ func (dbt *DBTest) forceJSON() {
 
 func (dbt *DBTest) forceArrow() {
 	dbt.mustExec(forceARROW)
+	dbt.mustExec("alter session set ENABLE_STRUCTURED_TYPES_NATIVE_ARROW_FORMAT = false")
+	dbt.mustExec("alter session set FORCE_ENABLE_STRUCTURED_TYPES_NATIVE_ARROW_FORMAT = false")
 }
 
 func (dbt *DBTest) forceNativeArrow() { // structured types
@@ -367,14 +369,26 @@ func (dbt *DBTest) forceNativeArrow() { // structured types
 }
 
 func (dbt *DBTest) enableStructuredTypes() {
-	dbt.mustExec("alter session set ENABLE_STRUCTURED_TYPES_IN_CLIENT_RESPONSE = true")
-	dbt.mustExec("alter session set IGNORE_CLIENT_VESRION_IN_STRUCTURED_TYPES_RESPONSE = true")
+	_, err := dbt.exec("alter session set ENABLE_STRUCTURED_TYPES_IN_CLIENT_RESPONSE = true")
+	if err != nil {
+		dbt.Log(err)
+	}
+	_, err = dbt.exec("alter session set IGNORE_CLIENT_VESRION_IN_STRUCTURED_TYPES_RESPONSE = true")
+	if err != nil {
+		dbt.Log(err)
+	}
 }
 
 func (dbt *DBTest) enableStructuredTypesBinding() {
 	dbt.enableStructuredTypes()
-	dbt.mustExec("ALTER SESSION SET ENABLE_OBJECT_TYPED_BINDS = true")
-	dbt.mustExec("ALTER SESSION SET ENABLE_STRUCTURED_TYPES_IN_BINDS = Enable")
+	_, err := dbt.exec("ALTER SESSION SET ENABLE_OBJECT_TYPED_BINDS = true")
+	if err != nil {
+		dbt.Log(err)
+	}
+	_, err = dbt.exec("ALTER SESSION SET ENABLE_STRUCTURED_TYPES_IN_BINDS = Enable")
+	if err != nil {
+		dbt.Log(err)
+	}
 }
 
 type SCTest struct {
