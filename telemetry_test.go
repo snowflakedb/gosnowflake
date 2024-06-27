@@ -53,6 +53,7 @@ func TestTelemetrySQLException(t *testing.T) {
 			flushSize: defaultFlushSize,
 		}
 		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
 			sc:          sct.sc,
 			commandType: uploadCommand,
 			srcFiles:    make([]string, 0),

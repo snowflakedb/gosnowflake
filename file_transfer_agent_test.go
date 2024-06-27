@@ -30,6 +30,7 @@ func TestGetBucketAccelerateConfiguration(t *testing.T) {
 	}
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
 			sc:          sct.sc,
 			commandType: uploadCommand,
 			srcFiles:    make([]string, 0),
@@ -81,6 +82,7 @@ func TestUnitDownloadWithInvalidLocalPath(t *testing.T) {
 func TestUnitGetLocalFilePathFromCommand(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
 			sc:          sct.sc,
 			commandType: uploadCommand,
 			srcFiles:    make([]string, 0),
@@ -110,6 +112,7 @@ func TestUnitGetLocalFilePathFromCommand(t *testing.T) {
 func TestUnitProcessFileCompressionType(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
 			sc:          sct.sc,
 			commandType: uploadCommand,
 			srcFiles:    make([]string, 0),
@@ -156,6 +159,7 @@ func TestUnitProcessFileCompressionType(t *testing.T) {
 func TestParseCommandWithInvalidStageLocation(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
 			sc:          sct.sc,
 			commandType: uploadCommand,
 			srcFiles:    make([]string, 0),
@@ -190,6 +194,7 @@ func TestParseCommandEncryptionMaterialMismatchError(t *testing.T) {
 		}
 
 		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
 			sc:          sct.sc,
 			commandType: uploadCommand,
 			srcFiles:    make([]string, 0),
@@ -226,6 +231,7 @@ func TestParseCommandInvalidStorageClientException(t *testing.T) {
 		}
 
 		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
 			sc:          sct.sc,
 			commandType: uploadCommand,
 			srcFiles:    make([]string, 0),
@@ -253,6 +259,7 @@ func TestParseCommandInvalidStorageClientException(t *testing.T) {
 func TestInitFileMetadataError(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
 			sc:          sct.sc,
 			commandType: uploadCommand,
 			srcFiles:    []string{"fileDoesNotExist.txt"},
@@ -352,6 +359,7 @@ func TestUpdateMetadataWithPresignedUrl(t *testing.T) {
 
 		sct.sc.rest.FuncPostQuery = presignedURLMock
 		sfa := &snowflakeFileTransferAgent{
+			ctx:               context.Background(),
 			sc:                sct.sc,
 			commandType:       uploadCommand,
 			command:           "put file:///tmp/test_data/data1.txt @~",
@@ -400,6 +408,7 @@ func TestUpdateMetadataWithPresignedUrlForDownload(t *testing.T) {
 		}
 
 		sfa := &snowflakeFileTransferAgent{
+			ctx:               context.Background(),
 			sc:                sct.sc,
 			commandType:       downloadCommand,
 			command:           "get @~/data1.txt.gz file:///tmp/testData",
@@ -421,6 +430,7 @@ func TestUpdateMetadataWithPresignedUrlForDownload(t *testing.T) {
 func TestUpdateMetadataWithPresignedUrlError(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sfa := &snowflakeFileTransferAgent{
+			ctx:               context.Background(),
 			sc:                sct.sc,
 			command:           "get @~/data1.txt.gz file:///tmp/testData",
 			stageLocationType: gcsClient,
@@ -486,6 +496,7 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 	}
 
 	sfa := &snowflakeFileTransferAgent{
+		ctx: context.Background(),
 		sc: &snowflakeConn{
 			cfg: &Config{},
 		},
@@ -585,6 +596,7 @@ func TestCustomTmpDirPath(t *testing.T) {
 	}
 
 	sfa := snowflakeFileTransferAgent{
+		ctx: context.Background(),
 		sc: &snowflakeConn{
 			cfg: &Config{
 				TmpDirPath: tmpDir,
@@ -646,6 +658,7 @@ func TestReadonlyTmpDirPathShouldFail(t *testing.T) {
 	}
 
 	sfa := snowflakeFileTransferAgent{
+		ctx: context.Background(),
 		sc: &snowflakeConn{
 			cfg: &Config{
 				TmpDirPath: tmpDir,
@@ -720,6 +733,7 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 	}
 
 	sfa := snowflakeFileTransferAgent{
+		ctx: context.Background(),
 		sc: &snowflakeConn{
 			cfg: &Config{
 				TmpDirPath: tmpDir,

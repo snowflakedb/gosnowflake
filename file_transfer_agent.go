@@ -103,6 +103,7 @@ type SnowflakeFileTransferOptions struct {
 }
 
 type snowflakeFileTransferAgent struct {
+	ctx                         context.Context
 	sc                          *snowflakeConn
 	data                        *execResponseData
 	command                     string
@@ -127,81 +128,88 @@ type snowflakeFileTransferAgent struct {
 }
 
 func (sfa *snowflakeFileTransferAgent) execute() error {
-	var err error
-	if err = sfa.parseCommand(); err != nil {
-		return err
-	}
-	if err = sfa.initFileMetadata(); err != nil {
-		return err
-	}
-
-	if sfa.commandType == uploadCommand {
-		if err = sfa.processFileCompressionType(); err != nil {
+	fmt.Println("DEBUG: file_transfer_agent.execute()")
+	select {
+	case <-sfa.ctx.Done():
+		return sfa.ctx.Err()
+	default:
+		var err error
+		if err = sfa.parseCommand(); err != nil {
 			return err
 		}
-	}
+		if err = sfa.initFileMetadata(); err != nil {
+			return err
+		}
 
-	if err = sfa.transferAccelerateConfig(); err != nil {
-		return err
-	}
-
-	if sfa.commandType == downloadCommand {
-		if _, err = os.Stat(sfa.localLocation); os.IsNotExist(err) {
-			if err = os.MkdirAll(sfa.localLocation, os.ModePerm); err != nil {
+		if sfa.commandType == uploadCommand {
+			if err = sfa.processFileCompressionType(); err != nil {
 				return err
 			}
 		}
-	}
 
-	if sfa.stageLocationType == local {
-		if _, err = os.Stat(sfa.stageInfo.Location); os.IsNotExist(err) {
-			if err = os.MkdirAll(sfa.stageInfo.Location, os.ModePerm); err != nil {
-				return err
+		if err = sfa.transferAccelerateConfig(); err != nil {
+			return err
+		}
+
+		if sfa.commandType == downloadCommand {
+			if _, err = os.Stat(sfa.localLocation); os.IsNotExist(err) {
+				if err = os.MkdirAll(sfa.localLocation, os.ModePerm); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	if err = sfa.updateFileMetadataWithPresignedURL(); err != nil {
-		return err
-	}
+		if sfa.stageLocationType == local {
+			if _, err = os.Stat(sfa.stageInfo.Location); os.IsNotExist(err) {
+				if err = os.MkdirAll(sfa.stageInfo.Location, os.ModePerm); err != nil {
+					return err
+				}
+			}
+		}
 
-	smallFileMetas := make([]*fileMetadata, 0)
-	largeFileMetas := make([]*fileMetadata, 0)
+		if err = sfa.updateFileMetadataWithPresignedURL(); err != nil {
+			return err
+		}
 
-	for _, meta := range sfa.fileMetadata {
-		meta.overwrite = sfa.overwrite
-		meta.sfa = sfa
-		meta.options = sfa.options
-		if sfa.stageLocationType != local {
-			sizeThreshold := sfa.options.MultiPartThreshold
-			meta.options.MultiPartThreshold = sizeThreshold
-			if meta.srcFileSize > sizeThreshold && sfa.commandType == uploadCommand {
-				meta.parallel = sfa.parallel
-				largeFileMetas = append(largeFileMetas, meta)
+		smallFileMetas := make([]*fileMetadata, 0)
+		largeFileMetas := make([]*fileMetadata, 0)
+
+		for _, meta := range sfa.fileMetadata {
+			meta.overwrite = sfa.overwrite
+			meta.sfa = sfa
+			meta.options = sfa.options
+			if sfa.stageLocationType != local {
+				sizeThreshold := sfa.options.MultiPartThreshold
+				meta.options.MultiPartThreshold = sizeThreshold
+				if meta.srcFileSize > sizeThreshold && sfa.commandType == uploadCommand {
+					meta.parallel = sfa.parallel
+					largeFileMetas = append(largeFileMetas, meta)
+				} else {
+					meta.parallel = 1
+					smallFileMetas = append(smallFileMetas, meta)
+				}
 			} else {
 				meta.parallel = 1
 				smallFileMetas = append(smallFileMetas, meta)
 			}
+		}
+
+		if sfa.commandType == uploadCommand {
+			if err = sfa.upload(largeFileMetas, smallFileMetas); err != nil {
+				return err
+			}
 		} else {
-			meta.parallel = 1
-			smallFileMetas = append(smallFileMetas, meta)
+			if err = sfa.download(smallFileMetas); err != nil {
+				return err
+			}
 		}
-	}
 
-	if sfa.commandType == uploadCommand {
-		if err = sfa.upload(largeFileMetas, smallFileMetas); err != nil {
-			return err
-		}
-	} else {
-		if err = sfa.download(smallFileMetas); err != nil {
-			return err
-		}
+		return nil
 	}
-
-	return nil
 }
 
 func (sfa *snowflakeFileTransferAgent) parseCommand() error {
+	fmt.Println("DEBUG: file_transfer_agent.parseCommand()")
 	var err error
 	if sfa.data.Command != "" {
 		sfa.commandType = commandType(sfa.data.Command)
@@ -338,6 +346,7 @@ func (sfa *snowflakeFileTransferAgent) expandFilenames(locations []string) ([]st
 }
 
 func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
+	fmt.Println("DEBUG: file_transfer_agent.initFileMetadata()")
 	sfa.fileMetadata = []*fileMetadata{}
 	if sfa.commandType == uploadCommand {
 		if len(sfa.srcFiles) == 0 {
@@ -430,6 +439,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 }
 
 func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
+	fmt.Println("DEBUG: file_transfer_agent.processFileCompressionType()")
 	var userSpecifiedSourceCompression *compressionType
 	var autoDetect bool
 	if sfa.srcCompression == "auto_detect" {
@@ -520,6 +530,7 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 }
 
 func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() error {
+	fmt.Println("DEBUG: file_transfer_agent.updateFileMetadataWithPresignedURL()")
 	// presigned URL only applies to GCS
 	if sfa.stageLocationType == gcsClient {
 		if sfa.commandType == uploadCommand {
@@ -586,6 +597,7 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 }
 
 func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
+	fmt.Println("DEBUG: file_transfer_agent.transferAccelerateConfig()")
 	if sfa.stageLocationType == s3Client {
 		s3Util := new(snowflakeS3Client)
 		s3Loc, err := s3Util.extractBucketNameAndPath(sfa.stageInfo.Location)
@@ -673,31 +685,37 @@ func (sfa *snowflakeFileTransferAgent) getLocalFilePathFromCommand(command strin
 func (sfa *snowflakeFileTransferAgent) upload(
 	largeFileMetadata []*fileMetadata,
 	smallFileMetadata []*fileMetadata) error {
-	client, err := sfa.getStorageClient(sfa.stageLocationType).
-		createClient(sfa.stageInfo, sfa.useAccelerateEndpoint)
-	if err != nil {
-		return err
-	}
-	for _, meta := range smallFileMetadata {
-		meta.client = client
-	}
-	for _, meta := range largeFileMetadata {
-		meta.client = client
-	}
+	fmt.Println("DEBUG: file_transfer_agent.upload()")
+	select {
+	case <-sfa.ctx.Done():
+		return sfa.ctx.Err()
+	default:
+		client, err := sfa.getStorageClient(sfa.stageLocationType).
+			createClient(sfa.stageInfo, sfa.useAccelerateEndpoint)
+		if err != nil {
+			return err
+		}
+		for _, meta := range smallFileMetadata {
+			meta.client = client
+		}
+		for _, meta := range largeFileMetadata {
+			meta.client = client
+		}
 
-	if len(smallFileMetadata) > 0 {
-		logger.WithContext(sfa.sc.ctx).Infof("uploading %v small files", len(smallFileMetadata))
-		if err = sfa.uploadFilesParallel(smallFileMetadata); err != nil {
-			return err
+		if len(smallFileMetadata) > 0 {
+			logger.WithContext(sfa.sc.ctx).Infof("uploading %v small files", len(smallFileMetadata))
+			if err = sfa.uploadFilesParallel(smallFileMetadata); err != nil {
+				return err
+			}
 		}
-	}
-	if len(largeFileMetadata) > 0 {
-		logger.WithContext(sfa.sc.ctx).Infof("uploading %v large files", len(largeFileMetadata))
-		if err = sfa.uploadFilesSequential(largeFileMetadata); err != nil {
-			return err
+		if len(largeFileMetadata) > 0 {
+			logger.WithContext(sfa.sc.ctx).Infof("uploading %v large files", len(largeFileMetadata))
+			if err = sfa.uploadFilesSequential(largeFileMetadata); err != nil {
+				return err
+			}
 		}
+		return nil
 	}
-	return nil
 }
 
 func (sfa *snowflakeFileTransferAgent) download(
@@ -807,76 +825,88 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 }
 
 func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMetadata) error {
-	idx := 0
-	fileMetaLen := len(fileMetas)
-	for idx < fileMetaLen {
-		res, err := sfa.uploadOneFile(fileMetas[idx])
-		if err != nil {
-			return err
-		}
-
-		if res.resStatus == renewToken {
-			client, err := sfa.renewExpiredClient()
+	fmt.Println("DEBUG: file_transfer_agent.uploadFilesSequential()")
+	select {
+	case <-sfa.ctx.Done():
+		return sfa.ctx.Err()
+	default:
+		idx := 0
+		fileMetaLen := len(fileMetas)
+		for idx < fileMetaLen {
+			res, err := sfa.uploadOneFile(fileMetas[idx])
 			if err != nil {
 				return err
 			}
-			for i := idx; i < fileMetaLen; i++ {
-				fileMetas[i].client = client
-			}
-			continue
-		} else if res.resStatus == renewPresignedURL {
-			sfa.updateFileMetadataWithPresignedURL()
-			continue
-		}
 
-		sfa.results = append(sfa.results, res)
-		idx++
-		if injectWaitPut > 0 {
-			time.Sleep(injectWaitPut)
+			if res.resStatus == renewToken {
+				client, err := sfa.renewExpiredClient()
+				if err != nil {
+					return err
+				}
+				for i := idx; i < fileMetaLen; i++ {
+					fileMetas[i].client = client
+				}
+				continue
+			} else if res.resStatus == renewPresignedURL {
+				sfa.updateFileMetadataWithPresignedURL()
+				continue
+			}
+
+			sfa.results = append(sfa.results, res)
+			idx++
+			if injectWaitPut > 0 {
+				time.Sleep(injectWaitPut)
+			}
 		}
+		return nil
 	}
-	return nil
 }
 
 func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileMetadata, error) {
-	meta.realSrcFileName = meta.srcFileName
-	tmpDir, err := os.MkdirTemp(sfa.sc.cfg.TmpDirPath, "")
-	if err != nil {
-		return nil, err
-	}
-	meta.tmpDir = tmpDir
-	defer os.RemoveAll(tmpDir) // cleanup
-
-	fileUtil := new(snowflakeFileUtil)
-	if meta.requireCompress {
-		if meta.srcStream != nil {
-			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(&meta.srcStream)
-		} else {
-			meta.realSrcFileName, _, err = fileUtil.compressFileWithGzip(meta.srcFileName, tmpDir)
-		}
+	fmt.Println("DEBUG: file_transfer_agent.uploadOneFile()")
+	select {
+	case <-sfa.ctx.Done():
+		return nil, sfa.ctx.Err()
+	default:
+		meta.realSrcFileName = meta.srcFileName
+		tmpDir, err := os.MkdirTemp(sfa.sc.cfg.TmpDirPath, "")
 		if err != nil {
 			return nil, err
 		}
-	}
+		meta.tmpDir = tmpDir
+		defer os.RemoveAll(tmpDir) // cleanup
 
-	if meta.srcStream != nil {
-		if meta.realSrcStream != nil {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
-		} else {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
+		fileUtil := new(snowflakeFileUtil)
+		if meta.requireCompress {
+			if meta.srcStream != nil {
+				meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(&meta.srcStream)
+			} else {
+				meta.realSrcFileName, _, err = fileUtil.compressFileWithGzip(meta.srcFileName, tmpDir)
+			}
+			if err != nil {
+				return nil, err
+			}
 		}
-	} else {
-		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)
-	}
-	if err != nil {
-		return meta, err
-	}
 
-	client := sfa.getStorageClient(sfa.stageLocationType)
-	if err = client.uploadOneFileWithRetry(meta); err != nil {
-		return meta, err
+		if meta.srcStream != nil {
+			if meta.realSrcStream != nil {
+				meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
+			} else {
+				meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
+			}
+		} else {
+			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)
+		}
+		if err != nil {
+			return meta, err
+		}
+
+		client := sfa.getStorageClient(sfa.stageLocationType)
+		if err = client.uploadOneFileWithRetry(meta); err != nil {
+			return meta, err
+		}
+		return meta, nil
 	}
-	return meta, nil
 }
 
 func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMetadata) error {
@@ -974,6 +1004,7 @@ func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fil
 }
 
 func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudType) storageUtil {
+	fmt.Println("DEBUG: file_transfer_agent.getStorageClient()")
 	if stageLocationType == local {
 		return &localUtil{}
 	} else if stageLocationType == s3Client || stageLocationType == azureClient || stageLocationType == gcsClient {
