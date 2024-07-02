@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var incorrectSecondsFractionRegex = regexp.MustCompile(`[^.,]FF`)
@@ -32,6 +33,18 @@ var formatReplacements = []formatReplacement{
 	{input: "SS", output: "05"},
 	{input: "TZH", output: "Z07"},
 	{input: "TZM", output: "00"},
+}
+
+func timeToString(t time.Time, dateTimeType string, params map[string]*string) (string, error) {
+	sfFormat, err := dateTimeInputFormatByType(dateTimeType, params)
+	if err != nil {
+		return "", err
+	}
+	goFormat, err := snowflakeFormatToGoFormat(sfFormat)
+	if err != nil {
+		return "", err
+	}
+	return t.Format(goFormat), nil
 }
 
 func snowflakeFormatToGoFormat(sfFormat string) (string, error) {

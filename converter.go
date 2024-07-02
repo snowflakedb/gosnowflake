@@ -121,10 +121,12 @@ func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 	// structured arrays
 	if reflect.TypeOf(v).Kind() == reflect.Slice || (reflect.TypeOf(v).Kind() == reflect.Pointer && reflect.ValueOf(v).Elem().Kind() == reflect.Slice) {
 		return arrayType
-	} else if tsmode == emptyArrayType {
-		return emptyArrayType
 	} else if tsmode == nilArrayType {
 		return nilArrayType
+	} else if tsmode == nilMapType {
+		return nilMapType
+	} else if reflect.TypeOf(v).Kind() == reflect.Map || (reflect.TypeOf(v).Kind() == reflect.Pointer && reflect.ValueOf(v).Elem().Kind() == reflect.Map) {
+		return mapType
 	}
 	return unSupportedType
 }
@@ -254,12 +256,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	case reflect.Slice, reflect.Array:
 		return arrayToString(v, tsmode, params)
 	case reflect.Map:
-		if v1.IsNil() {
-			return bindingValue{nil, "", nil}, nil
-		}
-		// TODO: is this good enough?
-		s := v1.String()
-		return bindingValue{&s, "", nil}, nil
+		return mapToString(v, tsmode, params)
 	case reflect.Struct:
 		return structValueToString(v, tsmode, params)
 	}
@@ -324,7 +321,10 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		return bindingValue{&resString, "json", nil}, nil
 	} else if isArrayOfStructs(v) {
 		stringEntries := make([]string, v1.Len())
-		entrySchema := &bindingSchema{}
+		sowcForSingleElement, err := buildSowcFromType(params, reflect.TypeOf(v).Elem())
+		if err != nil {
+			return bindingValue{}, err
+		}
 		for i := 0; i < v1.Len(); i++ {
 			potentialSow := v1.Index(i)
 			if sow, ok := potentialSow.Interface().(StructuredObjectWriter); ok {
@@ -333,7 +333,6 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 					return bindingValue{nil, "json", nil}, err
 				}
 				stringEntries[i] = *bv.value
-				entrySchema = bv.schema
 			}
 		}
 		value := "[" + strings.Join(stringEntries, ",") + "]"
@@ -344,7 +343,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 				{
 					Type:     "OBJECT",
 					Nullable: true,
-					Fields:   entrySchema.Fields,
+					Fields:   sowcForSingleElement.toFields(),
 				},
 			},
 		}
@@ -386,6 +385,345 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	}
 	resString := string(res)
 	return bindingValue{&resString, "json", nil}, nil
+}
+
+func mapToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
+	var err error
+	valOf := reflect.Indirect(reflect.ValueOf(v))
+	if valOf.IsNil() {
+		return bindingValue{nil, "", nil}, nil
+	}
+	typOf := reflect.TypeOf(v)
+	var jsonBytes []byte
+	if tsmode == binaryType {
+		m := make(map[string]*string, valOf.Len())
+		iter := valOf.MapRange()
+		for iter.Next() {
+			val := iter.Value().Interface().([]byte)
+			if val != nil {
+				s := hex.EncodeToString(val)
+				m[stringOrIntToString(iter.Key())] = &s
+			} else {
+				m[stringOrIntToString(iter.Key())] = nil
+			}
+		}
+		jsonBytes, err = json.Marshal(m)
+		if err != nil {
+			return bindingValue{}, err
+		}
+	} else if typOf.Elem().AssignableTo(reflect.TypeOf(time.Time{})) || typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullTime{})) {
+		m := make(map[string]*string, valOf.Len())
+		iter := valOf.MapRange()
+		for iter.Next() {
+			val, valid, err := toNullableTime(iter.Value().Interface())
+			if err != nil {
+				return bindingValue{}, err
+			}
+			if !valid {
+				m[stringOrIntToString(iter.Key())] = nil
+			} else {
+				typ := driverTypeToSnowflake[tsmode]
+				s, err := timeToString(val, typ, params)
+				if err != nil {
+					return bindingValue{}, err
+				}
+				m[stringOrIntToString(iter.Key())] = &s
+			}
+		}
+		jsonBytes, err = json.Marshal(m)
+		if err != nil {
+			return bindingValue{}, err
+		}
+	} else if typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullString{})) {
+		m := make(map[string]*string, valOf.Len())
+		iter := valOf.MapRange()
+		for iter.Next() {
+			val := iter.Value().Interface().(sql.NullString)
+			if val.Valid {
+				m[stringOrIntToString(iter.Key())] = &val.String
+			} else {
+				m[stringOrIntToString(iter.Key())] = nil
+			}
+		}
+		jsonBytes, err = json.Marshal(m)
+		if err != nil {
+			return bindingValue{}, err
+		}
+	} else if typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullByte{})) || typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullInt16{})) || typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullInt32{})) || typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullInt64{})) {
+		m := make(map[string]*int64, valOf.Len())
+		iter := valOf.MapRange()
+		for iter.Next() {
+			val, valid := toNullableInt64(iter.Value().Interface())
+			if valid {
+				m[stringOrIntToString(iter.Key())] = &val
+			} else {
+				m[stringOrIntToString(iter.Key())] = nil
+			}
+		}
+		jsonBytes, err = json.Marshal(m)
+		if err != nil {
+			return bindingValue{}, err
+		}
+	} else if typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullFloat64{})) {
+		m := make(map[string]*float64, valOf.Len())
+		iter := valOf.MapRange()
+		for iter.Next() {
+			val := iter.Value().Interface().(sql.NullFloat64)
+			if val.Valid {
+				m[stringOrIntToString(iter.Key())] = &val.Float64
+			} else {
+				m[stringOrIntToString(iter.Key())] = nil
+			}
+		}
+		jsonBytes, err = json.Marshal(m)
+		if err != nil {
+			return bindingValue{}, err
+		}
+	} else if typOf.Elem().AssignableTo(reflect.TypeOf(sql.NullBool{})) {
+		m := make(map[string]*bool, valOf.Len())
+		iter := valOf.MapRange()
+		for iter.Next() {
+			val := iter.Value().Interface().(sql.NullBool)
+			if val.Valid {
+				m[stringOrIntToString(iter.Key())] = &val.Bool
+			} else {
+				m[stringOrIntToString(iter.Key())] = nil
+			}
+		}
+		jsonBytes, err = json.Marshal(m)
+		if err != nil {
+			return bindingValue{}, err
+		}
+	} else if typOf.Elem().AssignableTo(structuredObjectWriterType) {
+		m := make(map[string]map[string]any, valOf.Len())
+		iter := valOf.MapRange()
+		var valueMetadata *fieldMetadata
+		for iter.Next() {
+			sowc := structuredObjectWriterContext{}
+			sowc.init(params)
+			if iter.Value().IsNil() {
+				m[stringOrIntToString(iter.Key())] = nil
+				continue
+			}
+			err = iter.Value().Interface().(StructuredObjectWriter).Write(&sowc)
+			if err != nil {
+				return bindingValue{}, nil
+			}
+			m[stringOrIntToString(iter.Key())] = sowc.values
+			if valueMetadata == nil {
+				valueMetadata = &fieldMetadata{
+					Type:     "OBJECT",
+					Nullable: true,
+					Fields:   sowc.toFields(),
+				}
+			}
+		}
+		if valueMetadata == nil {
+			sowcFromValueType, err := buildSowcFromType(params, typOf.Elem())
+			if err != nil {
+				return bindingValue{}, err
+			}
+			valueMetadata = &fieldMetadata{
+				Type:     "OBJECT",
+				Nullable: true,
+				Fields:   sowcFromValueType.toFields(),
+			}
+		}
+		jsonBytes, err = json.Marshal(m)
+		if err != nil {
+			return bindingValue{}, err
+		}
+		jsonString := string(jsonBytes)
+		keyMetadata, err := goTypeToFieldMetadata(typOf.Key(), textType, params)
+		if err != nil {
+			return bindingValue{}, err
+		}
+		schema := bindingSchema{
+			Typ:    "MAP",
+			Fields: []fieldMetadata{keyMetadata, *valueMetadata},
+		}
+		return bindingValue{&jsonString, "json", &schema}, nil
+	} else {
+		jsonBytes, err = json.Marshal(v)
+		if err != nil {
+			return bindingValue{}, err
+		}
+	}
+	jsonString := string(jsonBytes)
+	keyMetadata, err := goTypeToFieldMetadata(typOf.Key(), textType, params)
+	if err != nil {
+		return bindingValue{}, err
+	}
+	valueMetadata, err := goTypeToFieldMetadata(typOf.Elem(), tsmode, params)
+	if err != nil {
+		return bindingValue{}, err
+	}
+	schema := bindingSchema{
+		Typ:    "MAP",
+		Fields: []fieldMetadata{keyMetadata, valueMetadata},
+	}
+	return bindingValue{&jsonString, "json", &schema}, nil
+}
+
+func toNullableInt64(val any) (int64, bool) {
+	switch v := val.(type) {
+	case sql.NullByte:
+		return int64(v.Byte), v.Valid
+	case sql.NullInt16:
+		return int64(v.Int16), v.Valid
+	case sql.NullInt32:
+		return int64(v.Int32), v.Valid
+	case sql.NullInt64:
+		return v.Int64, v.Valid
+	}
+	// should never happen, the list above is exhaustive
+	panic("Only byte, int16, int32 or int64 are supported")
+}
+
+func toNullableTime(val any) (time.Time, bool, error) {
+	switch v := val.(type) {
+	case time.Time:
+		return v, true, nil
+	case sql.NullTime:
+		return v.Time, v.Valid, nil
+	}
+	return time.Now(), false, fmt.Errorf("cannot use %T as time", val)
+}
+
+func stringOrIntToString(v reflect.Value) string {
+	if v.CanInt() {
+		return strconv.Itoa(int(v.Int()))
+	}
+	return v.String()
+}
+
+func goTypeToFieldMetadata(typ reflect.Type, tsmode snowflakeType, params map[string]*string) (fieldMetadata, error) {
+	if tsmode == binaryType {
+		return fieldMetadata{
+			Type:     "BINARY",
+			Nullable: true,
+		}, nil
+	}
+	if typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	switch typ.Kind() {
+	case reflect.String:
+		return fieldMetadata{
+			Type:     "TEXT",
+			Nullable: true,
+		}, nil
+	case reflect.Bool:
+		return fieldMetadata{
+			Type:     "BOOLEAN",
+			Nullable: true,
+		}, nil
+	case reflect.Int, reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return fieldMetadata{
+			Type:      "FIXED",
+			Precision: 38,
+			Nullable:  true,
+		}, nil
+	case reflect.Float32, reflect.Float64:
+		return fieldMetadata{
+			Type:     "REAL",
+			Nullable: true,
+		}, nil
+	case reflect.Struct:
+		if typ.AssignableTo(reflect.TypeOf(sql.NullString{})) {
+			return fieldMetadata{
+				Type:     "TEXT",
+				Nullable: true,
+			}, nil
+		} else if typ.AssignableTo(reflect.TypeOf(sql.NullBool{})) {
+			return fieldMetadata{
+				Type:     "BOOLEAN",
+				Nullable: true,
+			}, nil
+		} else if typ.AssignableTo(reflect.TypeOf(sql.NullByte{})) || typ.AssignableTo(reflect.TypeOf(sql.NullInt16{})) || typ.AssignableTo(reflect.TypeOf(sql.NullInt32{})) || typ.AssignableTo(reflect.TypeOf(sql.NullInt64{})) {
+			return fieldMetadata{
+				Type:      "FIXED",
+				Precision: 38,
+				Nullable:  true,
+			}, nil
+		} else if typ.AssignableTo(reflect.TypeOf(sql.NullFloat64{})) {
+			return fieldMetadata{
+				Type:     "REAL",
+				Nullable: true,
+			}, nil
+		} else if tsmode == dateType {
+			return fieldMetadata{
+				Type:     "DATE",
+				Nullable: true,
+			}, nil
+		} else if tsmode == timeType {
+			return fieldMetadata{
+				Type:     "TIME",
+				Nullable: true,
+			}, nil
+		} else if tsmode == timestampTzType {
+			return fieldMetadata{
+				Type:     "TIMESTAMP_TZ",
+				Nullable: true,
+			}, nil
+		} else if tsmode == timestampNtzType {
+			return fieldMetadata{
+				Type:     "TIMESTAMP_NTZ",
+				Scale:    9,
+				Nullable: true,
+			}, nil
+		} else if tsmode == timestampLtzType {
+			return fieldMetadata{
+				Type:     "TIMESTAMP_LTZ",
+				Nullable: true,
+			}, nil
+		} else if typ.AssignableTo(structuredObjectWriterType) || tsmode == nilObjectType {
+			sowc, err := buildSowcFromType(params, typ)
+			if err != nil {
+				return fieldMetadata{}, err
+			}
+			return fieldMetadata{
+				Type:     "OBJECT",
+				Nullable: true,
+				Fields:   sowc.toFields(),
+			}, nil
+		} else if tsmode == nilArrayType || tsmode == nilMapType {
+			sowc, err := buildSowcFromType(params, typ)
+			if err != nil {
+				return fieldMetadata{}, err
+			}
+			return fieldMetadata{
+				Type:     "OBJECT",
+				Nullable: true,
+				Fields:   sowc.toFields(),
+			}, nil
+		}
+	case reflect.Slice:
+		metadata, err := goTypeToFieldMetadata(typ.Elem(), tsmode, params)
+		if err != nil {
+			return fieldMetadata{}, err
+		}
+		return fieldMetadata{
+			Type:     "ARRAY",
+			Nullable: true,
+			Fields:   []fieldMetadata{metadata},
+		}, nil
+	case reflect.Map:
+		keyMetadata, err := goTypeToFieldMetadata(typ.Key(), tsmode, params)
+		if err != nil {
+			return fieldMetadata{}, err
+		}
+		valueMetadata, err := goTypeToFieldMetadata(typ.Elem(), tsmode, params)
+		if err != nil {
+			return fieldMetadata{}, err
+		}
+		return fieldMetadata{
+			Type:     "MAP",
+			Nullable: true,
+			Fields:   []fieldMetadata{keyMetadata, valueMetadata},
+		}, nil
+	}
+	return fieldMetadata{}, fmt.Errorf("cannot build field metadata for %v (mode %v)", typ.Kind().String(), tsmode.String())
 }
 
 func isSliceOfSlices(v any) bool {
@@ -452,46 +790,45 @@ func structValueToString(v driver.Value, tsmode snowflakeType, params map[string
 			Fields:   sowc.toFields(),
 		}
 		return bindingValue{&jsonString, "json", &schema}, nil
-	} else if typ, ok := v.(reflect.Type); ok {
-		sowc, err := buildSowcFromType(params, typ)
+	} else if typ, ok := v.(reflect.Type); ok && tsmode == nilArrayType {
+		metadata, err := goTypeToFieldMetadata(typ, tsmode, params)
+		if err != nil {
+			return bindingValue{}, err
+		}
+		schema := bindingSchema{
+			Typ:      "ARRAY",
+			Nullable: true,
+			Fields: []fieldMetadata{
+				metadata,
+			},
+		}
+		return bindingValue{nil, "json", &schema}, nil
+	} else if types, ok := v.(NilMapTypes); ok && tsmode == nilMapType {
+		keyMetadata, err := goTypeToFieldMetadata(types.Key, tsmode, params)
+		if err != nil {
+			return bindingValue{}, err
+		}
+		valueMetadata, err := goTypeToFieldMetadata(types.Value, tsmode, params)
+		if err != nil {
+			return bindingValue{}, err
+		}
+		schema := bindingSchema{
+			Typ:      "map",
+			Nullable: true,
+			Fields:   []fieldMetadata{keyMetadata, valueMetadata},
+		}
+		return bindingValue{nil, "json", &schema}, nil
+	} else if typ, ok := v.(reflect.Type); ok && tsmode == nilObjectType {
+		metadata, err := goTypeToFieldMetadata(typ, tsmode, params)
 		if err != nil {
 			return bindingValue{}, err
 		}
 		schema := bindingSchema{
 			Typ:      "object",
 			Nullable: true,
-			Fields:   sowc.toFields(),
+			Fields:   metadata.Fields,
 		}
-		var val *string = nil
-		if tsmode == emptyArrayType {
-			emptyArray := "[]"
-			val = &emptyArray
-			schema = bindingSchema{
-				Typ:      "array",
-				Nullable: true,
-				Fields: []fieldMetadata{
-					{
-						Type:     schema.Typ,
-						Nullable: schema.Nullable,
-						Fields:   schema.Fields,
-					},
-				},
-			}
-		} else if tsmode == nilArrayType {
-			val = nil
-			schema = bindingSchema{
-				Typ:      "array",
-				Nullable: true,
-				Fields: []fieldMetadata{
-					{
-						Type:     schema.Typ,
-						Nullable: schema.Nullable,
-						Fields:   schema.Fields,
-					},
-				},
-			}
-		}
-		return bindingValue{val, "json", &schema}, nil
+		return bindingValue{nil, "json", &schema}, nil
 	}
 	return bindingValue{}, fmt.Errorf("unknown binding for type %T and mode %v", v, tsmode)
 }
@@ -694,7 +1031,11 @@ func jsonToMap(ctx context.Context, keyMetadata, valueMetadata fieldMetadata, sr
 		if valueMetadata.Type == "object" {
 			res := make(map[string]*structuredType)
 			for k, v := range m {
-				res[k] = buildStructuredTypeFromMap(v.(map[string]any), valueMetadata.Fields, params)
+				if v == nil || reflect.ValueOf(v).IsNil() {
+					res[k] = nil
+				} else {
+					res[k] = buildStructuredTypeFromMap(v.(map[string]any), valueMetadata.Fields, params)
+				}
 			}
 			return res, nil
 		}
@@ -838,11 +1179,15 @@ func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata field
 func buildArrayFromMap[K comparable, V any](ctx context.Context, valueMetadata fieldMetadata, m map[K]any, params map[string]*string) (snowflakeValue, error) {
 	res := make(map[K][]V)
 	for k, v := range m {
-		structuredArray, err := buildStructuredArray(ctx, valueMetadata, v.([]any), params)
-		if err != nil {
-			return nil, err
+		if v == nil {
+			res[k] = nil
+		} else {
+			structuredArray, err := buildStructuredArray(ctx, valueMetadata, v.([]any), params)
+			if err != nil {
+				return nil, err
+			}
+			res[k] = structuredArray.([]V)
 		}
-		res[k] = structuredArray.([]V)
 	}
 	return res, nil
 }
