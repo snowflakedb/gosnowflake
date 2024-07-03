@@ -27,6 +27,7 @@ import (
 )
 
 const format = "2006-01-02 15:04:05.999999999"
+const numberDefaultPrecision = 38
 
 type timezoneType int
 
@@ -621,7 +622,7 @@ func goTypeToFieldMetadata(typ reflect.Type, tsmode snowflakeType, params map[st
 	case reflect.Int, reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return fieldMetadata{
 			Type:      "FIXED",
-			Precision: 38,
+			Precision: numberDefaultPrecision,
 			Nullable:  true,
 		}, nil
 	case reflect.Float32, reflect.Float64:
@@ -643,7 +644,7 @@ func goTypeToFieldMetadata(typ reflect.Type, tsmode snowflakeType, params map[st
 		} else if typ.AssignableTo(reflect.TypeOf(sql.NullByte{})) || typ.AssignableTo(reflect.TypeOf(sql.NullInt16{})) || typ.AssignableTo(reflect.TypeOf(sql.NullInt32{})) || typ.AssignableTo(reflect.TypeOf(sql.NullInt64{})) {
 			return fieldMetadata{
 				Type:      "FIXED",
-				Precision: 38,
+				Precision: numberDefaultPrecision,
 				Nullable:  true,
 			}, nil
 		} else if typ.AssignableTo(reflect.TypeOf(sql.NullFloat64{})) {
@@ -669,7 +670,6 @@ func goTypeToFieldMetadata(typ reflect.Type, tsmode snowflakeType, params map[st
 		} else if tsmode == timestampNtzType {
 			return fieldMetadata{
 				Type:     "TIMESTAMP_NTZ",
-				Scale:    9,
 				Nullable: true,
 			}, nil
 		} else if tsmode == timestampLtzType {
@@ -1909,7 +1909,7 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 func buildListFromNativeArrowMap[K comparable, V any](ctx context.Context, rowIdx int, valueMetadata fieldMetadata, offsets []int32, keyFunc func(j int) (K, error), items arrow.Array, higherPrecision bool, loc *time.Location, params map[string]*string) (snowflakeValue, error) {
 	return mapStructuredMapNativeArrowRows(make(map[K][]V), offsets, rowIdx, keyFunc, func(j int) ([]V, error) {
 		if items.IsNull(j) {
-			return []V{}, nil
+			return nil, nil
 		}
 		list, err := buildListFromNativeArrow(ctx, j, valueMetadata.Fields[0], items, loc, higherPrecision, params)
 		return list.([]V), err
