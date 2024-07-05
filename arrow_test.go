@@ -405,17 +405,13 @@ func TestArrowTimePrecision(t *testing.T) {
 
 		nano := 999999990
 		expected := time.Time{}.Add(23*time.Hour + 59*time.Minute + 59*time.Second + 99*time.Millisecond)
-		if c8.Unix() != expected.Unix() || c8.Nanosecond() != nano {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c8)
-		}
-		if c7.Unix() != expected.Unix() || c7.Nanosecond() != nano-(nano%1e2) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c7)
-		}
-		if c6.Unix() != expected.Unix() || c6.Nanosecond() != nano-(nano%1e3) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c6)
-		}
-		if c5.Unix() != expected.Unix() || c5.Nanosecond() != nano-(nano%1e4) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c5)
+		scannedTimes := [4]time.Time{c8, c7, c6, c5}
+		timePrecision := 10
+		for i := 0; i < 4; i++ {
+			if scannedTimes[i].Unix() != expected.Unix() || scannedTimes[i].Nanosecond() != nano-(nano%timePrecision) {
+				t.Errorf("the value did not match. expected: %v, got: %v", expected, scannedTimes[i])
+			}
+			timePrecision *= 10
 		}
 
 		dbt.mustExec(`CREATE TABLE t_ntz (
@@ -448,31 +444,15 @@ func TestArrowTimePrecision(t *testing.T) {
 				t.Errorf("values were not scanned: %v", err)
 			}
 		}
-
 		expected = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
-		if c8.Unix() != expected.Unix() || c8.Nanosecond() != nano {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c8)
-		}
-		if c7.Unix() != expected.Unix() || c7.Nanosecond() != nano-(nano%1e2) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c7)
-		}
-		if c6.Unix() != expected.Unix() || c6.Nanosecond() != nano-(nano%1e3) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c6)
-		}
-		if c5.Unix() != expected.Unix() || c5.Nanosecond() != nano-(nano%1e4) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c5)
-		}
-		if c4.Unix() != expected.Unix() || c4.Nanosecond() != nano-(nano%1e5) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c4)
-		}
-		if c3.Unix() != expected.Unix() || c3.Nanosecond() != nano-(nano%1e6) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c3)
-		}
-		if c2.Unix() != expected.Unix() || c2.Nanosecond() != nano-(nano%1e7) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c2)
-		}
-		if c1.Unix() != expected.Unix() || c1.Nanosecond() != nano-(nano%1e8) {
-			t.Errorf("the value did not match. expected: %v, got: %v", expected, c1)
+		timePrecision = 10
+		scannedTimestamps := [8]time.Time{c8, c7, c6, c5, c4, c3, c2, c1}
+		for i := 0; i < 8; i++ {
+			if scannedTimestamps[i].Unix() != expected.Unix() ||
+				scannedTimestamps[i].Nanosecond() != nano-(nano%timePrecision) {
+				t.Errorf("the value did not match. expected: %v, got: %v", expected, scannedTimestamps[i])
+			}
+			timePrecision *= 10
 		}
 	})
 }
