@@ -645,6 +645,13 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 	testCases := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
 
 	runDBTest(t, func(dbt *DBTest) {
+		if maxLOBSize > originSize { // for increased max LOB size
+			_, err := dbt.exec("alter session set ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN = true")
+			if err != nil {
+				dbt.Errorf("Unable to set ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN parameter for increased max LOB size")
+			}
+			defer dbt.mustExec("alter session unset ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN")
+		}
 		for _, tc := range testCases {
 			// create the data file
 			tmpDir := t.TempDir()
@@ -659,7 +666,6 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			err := os.WriteFile(fname, b.Bytes(), readWriteFileMode)
 			assertNilF(t, err, "could not write to gzip file")
 
-			//dbt.mustExec("alter session set ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN = true") // when testing with increased max LOB size
 			dbt.mustExec(fmt.Sprintf("create or replace table %s (c1 varchar, c2 varchar(%v), c3 int)", tableName, tc))
 			defer dbt.mustExec("drop table " + tableName)
 			fileStream, err := os.Open(fname)
