@@ -642,7 +642,6 @@ func TestPutLargeFile(t *testing.T) {
 
 func TestPutGetMaxLOBSize(t *testing.T) {
 	// the LOB sizes to be tested
-	// set "alter session set ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN = true", when testing for increased max LOB size
 	testCases := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
 
 	runDBTest(t, func(dbt *DBTest) {
@@ -660,6 +659,7 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			err := os.WriteFile(fname, b.Bytes(), readWriteFileMode)
 			assertNilF(t, err, "could not write to gzip file")
 
+			//dbt.mustExec("alter session set ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN = true") // when testing with increased max LOB size
 			dbt.mustExec(fmt.Sprintf("create or replace table %s (c1 varchar, c2 varchar(%v), c3 int)", tableName, tc))
 			defer dbt.mustExec("drop table " + tableName)
 			fileStream, err := os.Open(fname)
