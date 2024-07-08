@@ -642,6 +642,7 @@ func TestPutLargeFile(t *testing.T) {
 
 func TestPutGetMaxLOBSize(t *testing.T) {
 	// the LOB sizes to be tested
+	// set "alter session set ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN = true", when testing for increased max LOB size
 	testCases := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
 
 	runDBTest(t, func(dbt *DBTest) {
