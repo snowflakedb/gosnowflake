@@ -163,6 +163,15 @@ func (o objectWithAllTypes) Write(sowc StructuredObjectWriterContext) error {
 	if err := sowc.WriteStruct("so", o.so); err != nil {
 		return err
 	}
+	if err := sowc.WriteRaw("sArr", o.sArr); err != nil {
+		return err
+	}
+	if err := sowc.WriteRaw("f64Arr", o.f64Arr); err != nil {
+		return err
+	}
+	if err := sowc.WriteRaw("someMap", o.someMap); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -392,6 +401,15 @@ func (o *objectWithAllTypesNullable) Write(sowc StructuredObjectWriterContext) e
 		return err
 	}
 	if err := sowc.WriteNullableStruct("so", o.so, reflect.TypeOf(simpleObject{})); err != nil {
+		return err
+	}
+	if err := sowc.WriteRaw("sArr", o.sArr); err != nil {
+		return err
+	}
+	if err := sowc.WriteRaw("f64Arr", o.f64Arr); err != nil {
+		return err
+	}
+	if err := sowc.WriteRaw("someMap", o.someMap); err != nil {
 		return err
 	}
 	return nil
