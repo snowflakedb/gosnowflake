@@ -363,6 +363,30 @@ func TestStringToValue(t *testing.T) {
 	} else if ts.UnixNano() != 1549491451123456789 {
 		t.Errorf("expected unix timestamp: 1549491451123456789, got %v", ts.UnixNano())
 	}
+
+	rowType = &execResponseRowType{Type: "array", Fields: []fieldMetadata{{Type: "array", Fields: []fieldMetadata{{Type: "fixed"}}}}}
+	src = "[[3]]"
+	if err = stringToValue(context.Background(), &dest, *rowType, &src, nil, nil); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if arr, ok := dest.([]any); !ok {
+		t.Errorf("expected type: '[][]int64', got '%v'", reflect.TypeOf(dest))
+	} else if arr1, ok := arr[0].([]int64); !ok {
+		t.Errorf("expected value 3, got '%v'", arr1[0])
+	}
+
+	rowType = &execResponseRowType{Type: "array", Fields: []fieldMetadata{{Type: "array", Fields: []fieldMetadata{{Type: "array", Fields: []fieldMetadata{{Type: "array", Fields: []fieldMetadata{{Type: "fixed"}}}}}}}}}
+	src = "[[[[3]]]]"
+	if err = stringToValue(context.Background(), &dest, *rowType, &src, nil, nil); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if arr, ok := dest.([]any); !ok {
+		t.Errorf("expected type: '[][][]int64', got '%v'", reflect.TypeOf(dest))
+	} else if arr1, ok := arr[0].([]any); !ok {
+		t.Errorf("todo")
+	} else if arr2, ok := arr1[0].([]any); !ok {
+		t.Errorf("todo")
+	} else if arr3, ok := arr2[0].([]int64); !ok {
+		t.Errorf("todo %v", arr3[0])
+	}
 }
 
 type tcArrayToString struct {
