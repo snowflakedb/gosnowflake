@@ -942,6 +942,16 @@ func buildStructuredArray(ctx context.Context, fieldMetadata fieldMetadata, srcV
 			return buildStructuredArrayRecursive[[]byte](ctx, fieldMetadata.Fields[0], srcValue, params)
 		case "date", "time", "timestamp_ltz", "timestamp_ntz", "timestamp_tz":
 			return buildStructuredArrayRecursive[time.Time](ctx, fieldMetadata.Fields[0], srcValue, params)
+		case "array":
+			arr := make([]any, len(srcValue))
+			for i, v := range srcValue {
+				structuredArray, err := buildStructuredArray(ctx, fieldMetadata.Fields[0], v.([]any), params)
+				if err != nil {
+					return nil, err
+				}
+				arr[i] = structuredArray
+			}
+			return arr, nil
 		}
 	}
 	return srcValue, nil

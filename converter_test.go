@@ -368,10 +368,10 @@ func TestStringToValue(t *testing.T) {
 	src = "[[3]]"
 	if err = stringToValue(context.Background(), &dest, *rowType, &src, nil, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
-	} else if arr, ok := dest.([]any); !ok {
+	} else if arr, ok := dest.([][]int64); !ok {
 		t.Errorf("expected type: '[][]int64', got '%v'", reflect.TypeOf(dest))
-	} else if arr1, ok := arr[0].([]int64); !ok {
-		t.Errorf("expected value 3, got '%v'", arr1[0])
+	} else if arr[0][0] != 3 {
+		t.Errorf("expected value: 3, got '%v'", arr[0][0])
 	}
 
 	rowType = &execResponseRowType{Type: "array", Fields: []fieldMetadata{{Type: "array", Fields: []fieldMetadata{{Type: "array", Fields: []fieldMetadata{{Type: "array", Fields: []fieldMetadata{{Type: "fixed"}}}}}}}}}
@@ -379,13 +379,13 @@ func TestStringToValue(t *testing.T) {
 	if err = stringToValue(context.Background(), &dest, *rowType, &src, nil, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	} else if arr, ok := dest.([]any); !ok {
-		t.Errorf("expected type: '[][][]int64', got '%v'", reflect.TypeOf(dest))
+		t.Errorf("expected type: '[]any', got '%v'", reflect.TypeOf(dest))
 	} else if arr1, ok := arr[0].([]any); !ok {
-		t.Errorf("todo")
-	} else if arr2, ok := arr1[0].([]any); !ok {
-		t.Errorf("todo")
-	} else if arr3, ok := arr2[0].([]int64); !ok {
-		t.Errorf("todo %v", arr3[0])
+		t.Errorf("expected type: '[]any', got '%v'", reflect.TypeOf(arr[0]))
+	} else if arr2, ok := arr1[0].([][]int64); !ok {
+		t.Errorf("expected type: '[][]int64', got '%v'", reflect.TypeOf(arr1[0]))
+	} else if arr2[0][0] != 3 {
+		t.Errorf("expected value: 3, got '%v'", arr2[0][0])
 	}
 }
 
