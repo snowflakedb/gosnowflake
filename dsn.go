@@ -511,7 +511,7 @@ func fillMissingConfigParameters(cfg *Config) error {
 	}
 
 	if (strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain)) ||
-		(strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain)) {
+		(strings.HasSuffix(cfg.Host, cnDomain) && len(cfg.Host) == len(cnDomain)) {
 		return &SnowflakeError{
 			Number:      ErrCodeFailedToParseHost,
 			Message:     errMsgFailedToParseHost,

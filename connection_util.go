@@ -288,14 +288,33 @@ func populateChunkDownloader(
 	}
 }
 
-func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
+func setupOCSPEnv(ctx context.Context, host string) error { //TODO: TEST THIS!
+	if strings.HasSuffix(host, defaultPrivateLinkSuffix) || strings.HasSuffix(host, cnPrivateLinkSuffix) {
+		if err := setupOCSPPrivatelink(ctx, host); err != nil {
+			return err
+		}
+	} else if strings.HasSuffix(host, cnDomain) {
+		ocspCacheServer := fmt.Sprintf("%v/%v", cnCacheServerURL, cacheFileBaseName)
+		logger.WithContext(ctx).Debugf("OCSP Cache Server for CN: %v\n", ocspCacheServer)
+		if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
+			return err
+		}
+	} else {
+		if _, set := os.LookupEnv(cacheServerURLEnv); set {
+			os.Unsetenv(cacheServerURLEnv)
+		}
+	}
+	return nil
+}
+
+func setupOCSPPrivatelink(ctx context.Context, host string) error {
 	ocspCacheServer := fmt.Sprintf("http://ocsp.%v/ocsp_response_cache.json", host)
-	logger.WithContext(sc.ctx).Debugf("OCSP Cache Server for Privatelink: %v\n", ocspCacheServer)
+	logger.WithContext(ctx).Debugf("OCSP Cache Server for Privatelink: %v\n", ocspCacheServer)
 	if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
 		return err
 	}
 	ocspRetryHostTemplate := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
-	logger.WithContext(sc.ctx).Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHostTemplate)
+	logger.WithContext(ctx).Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHostTemplate)
 	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHostTemplate); err != nil {
 		return err
 	}

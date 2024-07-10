@@ -14,10 +14,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -67,7 +65,8 @@ const (
 	executionTypeStatement string  = "statement"
 )
 
-const privateLinkSuffix = "privatelink.snowflakecomputing.com"
+const defaultPrivateLinkSuffix = "privatelink.snowflakecomputing.com"
+const cnPrivateLinkSuffix = "privatelink.snowflakecomputing.cn"
 
 type snowflakeConn struct {
 	ctx                 context.Context
@@ -777,14 +776,8 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		// use the custom transport
 		st = sc.cfg.Transporter
 	}
-	if strings.HasSuffix(sc.cfg.Host, privateLinkSuffix) {
-		if err := sc.setupOCSPPrivatelink(sc.cfg.Application, sc.cfg.Host); err != nil {
-			return nil, err
-		}
-	} else {
-		if _, set := os.LookupEnv(cacheServerURLEnv); set {
-			os.Unsetenv(cacheServerURLEnv)
-		}
+	if err = setupOCSPEnv(sc.ctx, sc.cfg.Host); err != nil {
+		return nil, err
 	}
 	var tokenAccessor TokenAccessor
 	if sc.cfg.TokenAccessor != nil {
