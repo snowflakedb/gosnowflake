@@ -94,6 +94,21 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "u:p@/db?account=ac&region=cn-region",
+			config: &Config{
+				Account: "ac", User: "u", Password: "p", Database: "db", Region: "cn-region",
+				Protocol: "https", Host: "ac.cn-region.snowflakecomputing.cn", Port: 443,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			dsn: "user:pass@account-hfdw89q748ew9gqf48w9qgf.global/db/s",
 			config: &Config{
 				Account: "account", User: "user", Password: "pass", Region: "global",
@@ -130,6 +145,21 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "account", User: "user", Password: "pass", Region: "",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "user:pass@account.cn-region",
+			config: &Config{
+				Account: "account", User: "user", Password: "pass", Region: "cn-region",
+				Protocol: "https", Host: "account.cn-region.snowflakecomputing.cn", Port: 443,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
@@ -255,6 +285,38 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "pa", Role: "r", Warehouse: "w",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflakecomputing.cn/db/pa?account=a",
+			config: &Config{
+				Account: "a", User: "u", Password: "p", Region: "",
+				Protocol: "https", Host: "a.snowflakecomputing.cn", Port: 443,
+				Database: "db", Schema: "pa",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.cn-region.snowflakecomputing.cn/db/pa?account=a&region=cn-region&protocol=https&role=r&timezone=UTC&warehouse=w",
+			config: &Config{
+				Account: "a", User: "u", Password: "p", Region: "cn-region",
+				Protocol: "https", Host: "a.cn-region.snowflakecomputing.cn", Port: 443,
 				Database: "db", Schema: "pa", Role: "r", Warehouse: "w",
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
@@ -1009,10 +1071,36 @@ func TestDSN(t *testing.T) {
 			cfg: &Config{
 				User:     "u",
 				Password: "p",
+				Account:  "account-name",
+				Region:   "cn-region",
+			},
+			dsn: "u:p@account-name.cn-region.snowflakecomputing.cn:443?ocspFailOpen=true&region=cn-region&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "account-name.cn-region",
+			},
+			dsn: "u:p@account-name.cn-region.snowflakecomputing.cn:443?ocspFailOpen=true&region=cn-region&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "account-name.cn-region",
+				Host:     "account-name.cn-region.snowflakecomputing.cn",
+			},
+			dsn: "u:p@account-name.cn-region.snowflakecomputing.cn:443?account=account-name&ocspFailOpen=true&region=cn-region&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
 				Account:  "a-aofnadsf.global",
 				Region:   "r",
 			},
-			err: errInvalidRegion(),
+			err: errRegionConflict(),
 		},
 		{
 			cfg: &Config{
@@ -1098,7 +1186,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.e",
 				Region:   "r",
 			},
-			err: errInvalidRegion(),
+			err: errRegionConflict(),
 		},
 		{
 			cfg: &Config{
@@ -1242,7 +1330,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.b.c",
 				Region:   "r",
 			},
-			err: errInvalidRegion(),
+			err: errRegionConflict(),
 		},
 		{
 			cfg: &Config{
