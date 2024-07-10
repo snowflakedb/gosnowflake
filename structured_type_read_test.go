@@ -1023,6 +1023,12 @@ func TestArrayOfArrays(t *testing.T) {
 			actual:   make([][]time.Time, 2),
 			expected: [][]time.Time{{time.Date(2024, time.January, 5, 11, 22, 33, 0, warsawTz)}, {time.Date(2001, time.November, 12, 11, 22, 33, 0, warsawTz)}},
 		},
+		{
+			name:     "3D_bool",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(true, false), ARRAY_CONSTRUCT(false)), ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(false, true), ARRAY_CONSTRUCT(true, true)))::ARRAY(ARRAY(ARRAY(BOOLEAN)))",
+			actual:   make([][][]bool, 2),
+			expected: []any{[][]bool{{true, false}, {false}}, [][]bool{{false, true}, {true, true}}},
+		},
 	}
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
