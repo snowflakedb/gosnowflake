@@ -1639,3 +1639,19 @@ func TestExtractAccountName(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeDSNParam(t *testing.T) {
+	testcases := map[string]string{
+		"query_tag":             "query_tag",
+		"%24my_custom_variable": "$my_custom_variable",
+	}
+
+	for param, expected := range testcases {
+		t.Run(param, func(t *testing.T) {
+			decodedParam := urlDecodeIfNeeded(param)
+			if decodedParam != expected {
+				t.Fatalf("urlDecodeIfNeeded returned unexpected response (%v), should be %v", decodedParam, expected)
+			}
+		})
+	}
+}

@@ -790,7 +790,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
 			}
-			cfg.Params[param[0]] = &value
+			// handle session variables $variable=value
+			cfg.Params[urlDecodeIfNeeded(param[0])] = &value
 		}
 	}
 	return
@@ -914,4 +915,12 @@ func extractAccountName(rawAccount string) string {
 		return strings.ToUpper(rawAccount[:posDot])
 	}
 	return strings.ToUpper(rawAccount)
+}
+
+func urlDecodeIfNeeded(param string) (decodedParam string) {
+	unescaped, err := url.QueryUnescape(param)
+	if err != nil {
+		return param
+	}
+	return unescaped
 }
