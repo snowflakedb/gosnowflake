@@ -89,7 +89,6 @@ const (
 	// cacheExpire specifies cache data expiration time in seconds.
 	cacheExpire           = float64(24 * 60 * 60)
 	defaultCacheServerURL = "http://ocsp.snowflakecomputing.com"
-	cnCacheServerURL      = "http://ocsp.snowflakecomputing.cn"
 	cacheServerEnabledEnv = "SF_OCSP_RESPONSE_CACHE_SERVER_ENABLED"
 	cacheServerURLEnv     = "SF_OCSP_RESPONSE_CACHE_SERVER_URL"
 	cacheDirEnv           = "SF_OCSP_RESPONSE_CACHE_DIR"

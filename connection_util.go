@@ -288,14 +288,14 @@ func populateChunkDownloader(
 	}
 }
 
-func setupOCSPEnv(ctx context.Context, host string) error { //TODO: TEST THIS!
-	if strings.HasSuffix(host, defaultPrivateLinkSuffix) || strings.HasSuffix(host, cnPrivateLinkSuffix) {
+func setupOCSPEnvVars(ctx context.Context, host string) error { //TODO: TEST THIS!
+	if isPrivateLink(host) {
 		if err := setupOCSPPrivatelink(ctx, host); err != nil {
 			return err
 		}
-	} else if strings.HasSuffix(host, cnDomain) {
-		ocspCacheServer := fmt.Sprintf("%v/%v", cnCacheServerURL, cacheFileBaseName)
-		logger.WithContext(ctx).Debugf("OCSP Cache Server for CN: %v\n", ocspCacheServer)
+	} else if !strings.HasSuffix(host, defaultDomain) {
+		ocspCacheServer := fmt.Sprintf("http://ocsp.%v/%v", host, cacheFileBaseName)
+		logger.WithContext(ctx).Debugf("OCSP Cache Server for %v: %v\n", host, ocspCacheServer)
 		if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
 			return err
 		}
@@ -308,7 +308,7 @@ func setupOCSPEnv(ctx context.Context, host string) error { //TODO: TEST THIS!
 }
 
 func setupOCSPPrivatelink(ctx context.Context, host string) error {
-	ocspCacheServer := fmt.Sprintf("http://ocsp.%v/ocsp_response_cache.json", host)
+	ocspCacheServer := fmt.Sprintf("http://ocsp.%v/%v", host, cacheFileBaseName)
 	logger.WithContext(ctx).Debugf("OCSP Cache Server for Privatelink: %v\n", ocspCacheServer)
 	if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
 		return err
@@ -319,6 +319,15 @@ func setupOCSPPrivatelink(ctx context.Context, host string) error {
 		return err
 	}
 	return nil
+}
+
+/**
+ * We can only tell if private link is enabled for certain hosts when the hostname contains the subdomain
+ * 'privatelink.snowflakecomputing.' but we don't have a good way of telling if a private link connection is
+ * expected for internal stages for example.
+ */
+func isPrivateLink(host string) bool {
+	return strings.Contains(strings.ToLower(host), "privatelink.snowflakecomputing.")
 }
 
 func isStatementContext(ctx context.Context) bool {

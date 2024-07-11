@@ -776,7 +776,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		// use the custom transport
 		st = sc.cfg.Transporter
 	}
-	if err = setupOCSPEnv(sc.ctx, sc.cfg.Host); err != nil {
+	if err = setupOCSPEnvVars(sc.ctx, sc.cfg.Host); err != nil {
 		return nil, err
 	}
 	var tokenAccessor TokenAccessor

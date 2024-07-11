@@ -27,7 +27,7 @@ const (
 	defaultExternalBrowserTimeout = 120 * time.Second // Timeout for external browser login
 	defaultMaxRetryCount          = 7                 // specifies maximum number of subsequent retries
 	defaultDomain                 = ".snowflakecomputing.com"
-	cnDomain                      = ".snowflakecomputing.cn"
+	topLevelDomainPrefix          = ".snowflakecomputing." // used to extract the domain from host
 )
 
 // ConfigBool is a type to represent true or false in the Config
@@ -375,7 +375,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 			return
 		}
 	}
-	if cfg.Account == "" && hostHasDomainSuffix(cfg.Host) {
+	if cfg.Account == "" && hostIncludesTopLevelDomain(cfg.Host) {
 		posDot := strings.Index(cfg.Host, ".")
 		if posDot > 0 {
 			cfg.Account = cfg.Host[:posDot]
@@ -454,11 +454,11 @@ func fillMissingConfigParameters(cfg *Config) error {
 	cfg.Region = strings.Trim(cfg.Region, " ")
 	if cfg.Region != "" {
 		// region is specified but not included in Host
-		domain, i := getDomainFromHost(cfg.Host)
+		domain, i := extractDomainFromHost(cfg.Host)
 		if i >= 1 {
 			hostPrefix := cfg.Host[0:i]
 			if !strings.HasSuffix(hostPrefix, cfg.Region) {
-				cfg.Host = hostPrefix + "." + cfg.Region + domain
+				cfg.Host = fmt.Sprintf("%v.%v%v", hostPrefix, cfg.Region, domain)
 			}
 		}
 	}
@@ -510,8 +510,8 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.IncludeRetryReason = ConfigBoolTrue
 	}
 
-	if (strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain)) ||
-		(strings.HasSuffix(cfg.Host, cnDomain) && len(cfg.Host) == len(cnDomain)) {
+	domain, _ := extractDomainFromHost(cfg.Host)
+	if len(cfg.Host) == len(domain) {
 		return &SnowflakeError{
 			Number:      ErrCodeFailedToParseHost,
 			Message:     errMsgFailedToParseHost,
@@ -521,29 +521,26 @@ func fillMissingConfigParameters(cfg *Config) error {
 	return nil
 }
 
-func getDomainFromHost(host string) (domain string, index int) {
-	i := strings.Index(host, defaultDomain)
+func extractDomainFromHost(host string) (domain string, index int) {
+	i := strings.Index(strings.ToLower(host), topLevelDomainPrefix)
 	if i >= 1 {
-		domain = defaultDomain
+		domain = host[i:]
+		return domain, i
 	} else {
-		i = strings.Index(host, cnDomain)
-		if i >= 1 {
-			domain = cnDomain
-		}
+		return "", i
 	}
-	return domain, i
 }
 
 func extractDomainFromRegion(region string) string {
 	if strings.HasPrefix(strings.ToLower(region), "cn-") {
-		return cnDomain
+		return ".snowflakecomputing.cn"
 	} else {
 		return defaultDomain
 	}
 }
 
 func extractRegionFromAccount(account string) (region string, posDot int) {
-	posDot = strings.Index(account, ".")
+	posDot = strings.Index(strings.ToLower(account), ".")
 	if posDot > 0 {
 		return account[posDot+1:], posDot
 	} else {
@@ -551,8 +548,8 @@ func extractRegionFromAccount(account string) (region string, posDot int) {
 	}
 }
 
-func hostHasDomainSuffix(host string) bool {
-	return strings.HasSuffix(host, defaultDomain) || strings.HasSuffix(host, cnDomain)
+func hostIncludesTopLevelDomain(host string) bool {
+	return strings.Contains(strings.ToLower(host), topLevelDomainPrefix)
 }
 
 func buildHostFromAccountAndRegion(account, region string) string {
@@ -574,7 +571,7 @@ func authRequiresPassword(cfg *Config) bool {
 
 // transformAccountToHost transforms account to host
 func transformAccountToHost(cfg *Config) (err error) {
-	if cfg.Port == 0 && cfg.Host != "" && !hostHasDomainSuffix(cfg.Host) {
+	if cfg.Port == 0 && cfg.Host != "" && !hostIncludesTopLevelDomain(cfg.Host) {
 		// account name is specified instead of host:port
 		cfg.Account = cfg.Host
 		region, posDot := extractRegionFromAccount(cfg.Account)
