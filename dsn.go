@@ -526,26 +526,23 @@ func extractDomainFromHost(host string) (domain string, index int) {
 	if i >= 1 {
 		domain = host[i:]
 		return domain, i
-	} else {
-		return "", i
 	}
+	return "", i
 }
 
 func extractDomainFromRegion(region string) string {
 	if strings.HasPrefix(strings.ToLower(region), "cn-") {
 		return ".snowflakecomputing.cn"
-	} else {
-		return defaultDomain
 	}
+	return defaultDomain
 }
 
 func extractRegionFromAccount(account string) (region string, posDot int) {
 	posDot = strings.Index(strings.ToLower(account), ".")
 	if posDot > 0 {
 		return account[posDot+1:], posDot
-	} else {
-		return "", posDot
 	}
+	return "", posDot
 }
 
 func hostIncludesTopLevelDomain(host string) bool {

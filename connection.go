@@ -65,9 +65,6 @@ const (
 	executionTypeStatement string  = "statement"
 )
 
-const defaultPrivateLinkSuffix = "privatelink.snowflakecomputing.com"
-const cnPrivateLinkSuffix = "privatelink.snowflakecomputing.cn"
-
 type snowflakeConn struct {
 	ctx                 context.Context
 	cfg                 *Config

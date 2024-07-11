@@ -509,11 +509,8 @@ func TestBuildPrivatelinkConn(t *testing.T) {
 		t.Error(err)
 	}
 	defer func() {
-		err := os.Unsetenv(cacheServerURLEnv)
-		err = os.Unsetenv(ocspRetryURLEnv)
-		if err != nil {
-			t.Log("error during env vars cleanup")
-		}
+		os.Unsetenv(cacheServerURLEnv)
+		os.Unsetenv(ocspRetryURLEnv)
 	}()
 
 	ocspURL := os.Getenv(cacheServerURLEnv)
@@ -526,38 +523,38 @@ func TestOcspEnvVarsSetup(t *testing.T) {
 	ctx := context.Background()
 	for _, tc := range []struct {
 		host                string
-		cacheUrl            string
-		privateLinkRetryUrl string
+		cacheURL            string
+		privateLinkRetryURL string
 	}{
 		{
 			host:                "testaccount.us-east-1.snowflakecomputing.com",
-			cacheUrl:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
-			privateLinkRetryUrl: "",
+			cacheURL:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
+			privateLinkRetryURL: "",
 		},
 		{
 			host:                "testaccount-no-privatelink.snowflakecomputing.com",
-			cacheUrl:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
-			privateLinkRetryUrl: "",
+			cacheURL:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
+			privateLinkRetryURL: "",
 		},
 		{
 			host:                "testaccount.us-east-1.privatelink.snowflakecomputing.com",
-			cacheUrl:            "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json",
-			privateLinkRetryUrl: "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v",
+			cacheURL:            "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json",
+			privateLinkRetryURL: "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v",
 		},
 		{
 			host:                "testaccount.cn-region.snowflakecomputing.cn",
-			cacheUrl:            "http://ocsp.testaccount.cn-region.snowflakecomputing.cn/ocsp_response_cache.json",
-			privateLinkRetryUrl: "", // not a privatelink env, no need to setup retry URL
+			cacheURL:            "http://ocsp.testaccount.cn-region.snowflakecomputing.cn/ocsp_response_cache.json",
+			privateLinkRetryURL: "", // not a privatelink env, no need to setup retry URL
 		},
 		{
 			host:                "testaccount.cn-region.privaTELINk.snowflakecomputing.cn",
-			cacheUrl:            "http://ocsp.testaccount.cn-region.privatelink.snowflakecomputing.cn/ocsp_response_cache.json",
-			privateLinkRetryUrl: "http://ocsp.testaccount.cn-region.privatelink.snowflakecomputing.cn/retry/%v/%v",
+			cacheURL:            "http://ocsp.testaccount.cn-region.privatelink.snowflakecomputing.cn/ocsp_response_cache.json",
+			privateLinkRetryURL: "http://ocsp.testaccount.cn-region.privatelink.snowflakecomputing.cn/retry/%v/%v",
 		},
 		{
 			host:                "testaccount.some-region.privatelink.snowflakecomputing.mil",
-			cacheUrl:            "http://ocsp.testaccount.some-region.privatelink.snowflakecomputing.mil/ocsp_response_cache.json",
-			privateLinkRetryUrl: "http://ocsp.testaccount.some-region.privatelink.snowflakecomputing.mil/retry/%v/%v",
+			cacheURL:            "http://ocsp.testaccount.some-region.privatelink.snowflakecomputing.mil/ocsp_response_cache.json",
+			privateLinkRetryURL: "http://ocsp.testaccount.some-region.privatelink.snowflakecomputing.mil/retry/%v/%v",
 		},
 	} {
 		t.Run(tc.host, func(t *testing.T) {
@@ -565,17 +562,14 @@ func TestOcspEnvVarsSetup(t *testing.T) {
 				t.Errorf("error during OCSP env vars setup; %v", err)
 			}
 			defer func() {
-				err := os.Unsetenv(cacheServerURLEnv)
-				err = os.Unsetenv(ocspRetryURLEnv)
-				if err != nil {
-					t.Log("error during env vars cleanup")
-				}
+				os.Unsetenv(cacheServerURLEnv)
+				os.Unsetenv(ocspRetryURLEnv)
 			}()
 
-			cacheUrlFromEnv := os.Getenv(cacheServerURLEnv)
-			assertEqualE(t, cacheUrlFromEnv, tc.cacheUrl)
+			cacheURLFromEnv := os.Getenv(cacheServerURLEnv)
+			assertEqualE(t, cacheURLFromEnv, tc.cacheURL)
 			retryURL := os.Getenv(ocspRetryURLEnv)
-			assertEqualE(t, retryURL, tc.privateLinkRetryUrl)
+			assertEqualE(t, retryURL, tc.privateLinkRetryURL)
 
 		})
 	}
