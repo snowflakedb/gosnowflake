@@ -27,6 +27,7 @@ const (
 	defaultExternalBrowserTimeout = 120 * time.Second // Timeout for external browser login
 	defaultMaxRetryCount          = 7                 // specifies maximum number of subsequent retries
 	defaultDomain                 = ".snowflakecomputing.com"
+	cnDomain                      = ".snowflakecomputing.cn"
 	topLevelDomainPrefix          = ".snowflakecomputing." // used to extract the domain from host
 )
 
@@ -533,7 +534,7 @@ func extractDomainFromHost(host string) (domain string, index int) {
 
 func getDomainBasedOnRegion(region string) string {
 	if strings.HasPrefix(strings.ToLower(region), "cn-") {
-		return ".snowflakecomputing.cn"
+		return cnDomain
 	}
 	return defaultDomain
 }

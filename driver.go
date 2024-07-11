@@ -42,8 +42,8 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		return nil, err
 	}
 
-	if strings.HasSuffix(strings.ToLower(config.Host), ".cn") {
-		logger.WithContext(ctx).Info("connecting to CN deployment")
+	if strings.HasSuffix(strings.ToLower(config.Host), cnDomain) {
+		logger.WithContext(ctx).Info("connecting to CN deployment...")
 	}
 	if err = authenticateWithConfig(sc); err != nil {
 		return nil, err
