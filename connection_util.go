@@ -288,7 +288,7 @@ func populateChunkDownloader(
 	}
 }
 
-func setupOCSPEnvVars(ctx context.Context, host string) error { //TODO: TEST THIS!
+func setupOCSPEnvVars(ctx context.Context, host string) error {
 	host = strings.ToLower(host)
 	if isPrivateLink(host) {
 		if err := setupOCSPPrivatelink(ctx, host); err != nil {

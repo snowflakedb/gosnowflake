@@ -464,13 +464,14 @@ func fillMissingConfigParameters(cfg *Config) error {
 	}
 	if cfg.Host == "" {
 		if cfg.Region != "" {
-			cfg.Host = cfg.Account + "." + cfg.Region + extractDomainFromRegion(cfg.Region)
+			cfg.Host = cfg.Account + "." + cfg.Region + getDomainBasedOnRegion(cfg.Region)
 		} else {
 			region, _ := extractRegionFromAccount(cfg.Account)
 			if region != "" {
-				cfg.Host = cfg.Account + extractDomainFromRegion(region)
+				cfg.Host = cfg.Account + getDomainBasedOnRegion(region)
+			} else {
+				cfg.Host = cfg.Account + defaultDomain
 			}
-			cfg.Host = cfg.Account + defaultDomain
 		}
 	}
 	if cfg.LoginTimeout == 0 {
@@ -522,7 +523,7 @@ func fillMissingConfigParameters(cfg *Config) error {
 }
 
 func extractDomainFromHost(host string) (domain string, index int) {
-	i := strings.Index(strings.ToLower(host), topLevelDomainPrefix)
+	i := strings.LastIndex(strings.ToLower(host), topLevelDomainPrefix)
 	if i >= 1 {
 		domain = host[i:]
 		return domain, i
@@ -530,7 +531,7 @@ func extractDomainFromHost(host string) (domain string, index int) {
 	return "", i
 }
 
-func extractDomainFromRegion(region string) string {
+func getDomainBasedOnRegion(region string) string {
 	if strings.HasPrefix(strings.ToLower(region), "cn-") {
 		return ".snowflakecomputing.cn"
 	}
@@ -550,7 +551,7 @@ func hostIncludesTopLevelDomain(host string) bool {
 }
 
 func buildHostFromAccountAndRegion(account, region string) string {
-	return account + "." + region + extractDomainFromRegion(region)
+	return account + "." + region + getDomainBasedOnRegion(region)
 }
 
 func authRequiresUser(cfg *Config) bool {
