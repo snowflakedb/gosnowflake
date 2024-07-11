@@ -510,7 +510,12 @@ func TestOcspEnvVarsSetup(t *testing.T) {
 	}{
 		{
 			host:                "testaccount.us-east-1.snowflakecomputing.com",
-			cacheUrl:            "", // default ocsp cache URL, no need to setup env vars
+			cacheUrl:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
+			privateLinkRetryUrl: "",
+		},
+		{
+			host:                "testaccount-no-privatelink.snowflakecomputing.com",
+			cacheUrl:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
 			privateLinkRetryUrl: "",
 		},
 		{

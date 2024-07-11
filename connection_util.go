@@ -327,7 +327,7 @@ func setupOCSPPrivatelink(ctx context.Context, host string) error {
  * expected for internal stages for example.
  */
 func isPrivateLink(host string) bool {
-	return strings.Contains(strings.ToLower(host), "privatelink.snowflakecomputing.")
+	return strings.Contains(strings.ToLower(host), ".privatelink.snowflakecomputing.")
 }
 
 func isStatementContext(ctx context.Context) bool {
