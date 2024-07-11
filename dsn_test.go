@@ -8,6 +8,7 @@ import (
 	cr "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"database/sql"
 	"encoding/pem"
 	"fmt"
 	"net/url"
@@ -1640,12 +1641,11 @@ func TestExtractAccountName(t *testing.T) {
 	}
 }
 
-func TestDecodeDSNParam(t *testing.T) {
+func TestUrlDecodeIfNeeded(t *testing.T) {
 	testcases := map[string]string{
 		"query_tag":             "query_tag",
 		"%24my_custom_variable": "$my_custom_variable",
 	}
-
 	for param, expected := range testcases {
 		t.Run(param, func(t *testing.T) {
 			decodedParam := urlDecodeIfNeeded(param)
@@ -1653,5 +1653,45 @@ func TestDecodeDSNParam(t *testing.T) {
 				t.Fatalf("urlDecodeIfNeeded returned unexpected response (%v), should be %v", decodedParam, expected)
 			}
 		})
+	}
+}
+
+func TestUrlDecodeIfNeededE2E(t *testing.T) {
+	customVarName := "CUSTOM_VARIABLE"
+	customVarValue := "test"
+	myQueryTag := "mytag"
+
+	cfg := &Config{
+		Account:  os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
+		User:     os.Getenv("SNOWFLAKE_TEST_USER"),
+		Password: os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
+		Params:   map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
+	}
+	mydsn, err := DSN(cfg)
+	if err != nil {
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to create DSN from Config: %v, err: %v", cfg, err)
+	}
+	db, err := sql.Open("snowflake", mydsn)
+	if err != nil {
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to connect. %v, err: %v", dsn, err)
+	}
+	defer db.Close()
+	query := "SHOW /* gosnowflake TestUrlDecodeIfNeededE2E */ VARIABLES;"
+	rows, err := db.Query(query)
+	if err != nil {
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query, error: %v", err)
+	}
+	defer rows.Close()
+	var v1, v2, v3, v4, v5, v6, v7 any
+	for rows.Next() {
+		err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
+		if err != nil {
+			t.Fatalf("TestUrlDecodeIfNeededE2E failed to get result. err: %v", err)
+		}
+		assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
+		assertDeepEqualE(t, v5, customVarValue, "TestUrlDecodeIfNeededE2E variable value retrieved from the test did not match")
+	}
+	if rows.Err() != nil {
+		t.Fatalf("TestUrlDecodeIfNeededE2E ERROR getting rows, error: %v\n", rows.Err())
 	}
 }
