@@ -477,7 +477,29 @@ func fetchResultByQueryID(
 	return nil
 }
 
-func TestPrivateLink(t *testing.T) {
+func TestIsPrivateLink(t *testing.T) {
+	for _, tc := range []struct {
+		host          string
+		isPrivatelink bool
+	}{
+		{"testaccount.us-east-1.snowflakecomputing.com", false},
+		{"testaccount-no-privatelink.snowflakecomputing.com", false},
+		{"testaccount.us-east-1.privatelink.snowflakecomputing.com", true},
+		{"testaccount.cn-region.snowflakecomputing.cn", false},
+		{"testaccount.cn-region.privaTELINk.snowflakecomputing.cn", true},
+		{"testaccount.some-region.privatelink.snowflakecomputing.mil", true},
+		{"testaccount.us-east-1.privatelink.snowflakecOMPUTING.com", true},
+		{"snowhouse.snowflakecomputing.xyz", false},
+		{"snowhouse.privatelink.snowflakecomputing.xyz", true},
+		{"snowhouse.PRIVATELINK.snowflakecomputing.xyz", true},
+	} {
+		t.Run(tc.host, func(t *testing.T) {
+			assertEqualE(t, isPrivateLink(tc.host), tc.isPrivatelink)
+		})
+	}
+}
+
+func TestBuildPrivatelinkConn(t *testing.T) {
 	if _, err := buildSnowflakeConn(context.Background(), Config{
 		Account:  "testaccount",
 		User:     "testuser",
@@ -503,7 +525,6 @@ func TestPrivateLink(t *testing.T) {
 func TestOcspEnvVarsSetup(t *testing.T) {
 	ctx := context.Background()
 	for _, tc := range []struct {
-		desc                string
 		host                string
 		cacheUrl            string
 		privateLinkRetryUrl string
@@ -529,7 +550,7 @@ func TestOcspEnvVarsSetup(t *testing.T) {
 			privateLinkRetryUrl: "", // not a privatelink env, no need to setup retry URL
 		},
 		{
-			host:                "testaccount.cn-region.privatelink.snowflakecomputing.cn",
+			host:                "testaccount.cn-region.privaTELINk.snowflakecomputing.cn",
 			cacheUrl:            "http://ocsp.testaccount.cn-region.privatelink.snowflakecomputing.cn/ocsp_response_cache.json",
 			privateLinkRetryUrl: "http://ocsp.testaccount.cn-region.privatelink.snowflakecomputing.cn/retry/%v/%v",
 		},
