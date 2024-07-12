@@ -1673,7 +1673,7 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	}
 	db, err := sql.Open("snowflake", mydsn)
 	if err != nil {
-		t.Fatalf("TestUrlDecodeIfNeededE2E failed to connect. %v, err: %v", dsn, err)
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to connect. %v, err: %v", mydsn, err)
 	}
 	defer db.Close()
 	query := "SHOW /* gosnowflake TestUrlDecodeIfNeededE2E */ VARIABLES;"
