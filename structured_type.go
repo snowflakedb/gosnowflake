@@ -1038,13 +1038,21 @@ func (st *structuredType) fieldMetadataByFieldName(fieldName string) (fieldMetad
 	return fieldMetadata{}, errors.New("no metadata for field " + fieldName)
 }
 
-func mapValuesNullableEnabled(ctx context.Context) bool {
-	v := ctx.Value(mapValuesNullable)
+func optionEnabled(ctx context.Context, option contextKey) bool {
+	v := ctx.Value(option)
 	if v == nil {
 		return false
 	}
 	d, ok := v.(bool)
 	return ok && d
+}
+
+func mapValuesNullableEnabled(ctx context.Context) bool {
+	return optionEnabled(ctx, mapValuesNullable)
+}
+
+func arrayValuesNullableEnabled(ctx context.Context) bool {
+	return optionEnabled(ctx, arrayValuesNullable)
 }
 
 func getSfFieldName(field reflect.StructField) string {

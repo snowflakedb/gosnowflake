@@ -1534,6 +1534,121 @@ func TestMapWithNullValues(t *testing.T) {
 	})
 }
 
+func TestArraysWithNullValues(t *testing.T) {
+	warsawTz, err := time.LoadLocation("Europe/Warsaw")
+	assertNilF(t, err)
+	testcases := []struct {
+		name     string
+		query    string
+		actual   any
+		expected any
+	}{
+		{
+			name:     "string",
+			query:    "SELECT ARRAY_CONSTRUCT('x', null, 'yz', null)::ARRAY(STRING)",
+			actual:   []sql.NullString{},
+			expected: []sql.NullString{{Valid: true, String: "x"}, {Valid: false}, {Valid: true, String: "yz"}, {Valid: false}},
+		},
+		{
+			name:     "bool",
+			query:    "SELECT ARRAY_CONSTRUCT(true, null, false)::ARRAY(BOOLEAN)",
+			actual:   []sql.NullBool{},
+			expected: []sql.NullBool{{Valid: true, Bool: true}, {Valid: false}, {Valid: true, Bool: false}},
+		},
+		{
+			name:     "fixed - scale == 0",
+			query:    "SELECT ARRAY_CONSTRUCT(null, 2, 3)::ARRAY(BIGINT)",
+			actual:   []sql.NullInt64{},
+			expected: []sql.NullInt64{{Valid: false}, {Valid: true, Int64: 2}, {Valid: true, Int64: 3}},
+		},
+		{
+			name:     "fixed - scale == 0",
+			query:    "SELECT ARRAY_CONSTRUCT(1.3, 2.0, null, null)::ARRAY(NUMBER(38, 19))",
+			actual:   []sql.NullFloat64{},
+			expected: []sql.NullFloat64{{Valid: true, Float64: 1.3}, {Valid: true, Float64: 2.0}, {Valid: false}, {Valid: false}},
+		},
+		{
+			name:     "real",
+			query:    "SELECT ARRAY_CONSTRUCT(1.9, 0.2, null)::ARRAY(DOUBLE)",
+			actual:   []sql.NullFloat64{},
+			expected: []sql.NullFloat64{{Valid: true, Float64: 1.9}, {Valid: true, Float64: 0.2}, {Valid: false}},
+		},
+		{
+			name:     "binary",
+			query:    "SELECT ARRAY_CONSTRUCT(null, TO_BINARY('616263'))::ARRAY(BINARY)",
+			actual:   []sql.Null[[]byte]{},
+			expected: []sql.Null[[]byte]{{Valid: false}, {Valid: true, V: []byte{'a', 'b', 'c'}}},
+		},
+		{
+			name:     "date",
+			query:    "SELECT ARRAY_CONSTRUCT('2024-04-05'::DATE, null)::ARRAY(DATE)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(2024, time.April, 5, 0, 0, 0, 0, time.UTC)}, {Valid: false}},
+		},
+		{
+			name:     "time",
+			query:    "SELECT ARRAY_CONSTRUCT('13:14:15'::TIME, null)::ARRAY(TIME)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(1, 0, 0, 13, 14, 15, 0, time.UTC)}, {Valid: false}},
+		},
+		{
+			name:     "timestamp_tz",
+			query:    "SELECT ARRAY_CONSTRUCT('2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, null)::ARRAY(TIMESTAMP_TZ)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(2022, 8, 31, 13, 43, 22, 0, warsawTz)}, {Valid: false}},
+		},
+		{
+			name:     "timestamp_ntz",
+			query:    "SELECT ARRAY_CONSTRUCT('2022-08-31 13:43:22'::TIMESTAMP_NTZ, null)::ARRAY(TIMESTAMP_NTZ)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(2022, 8, 31, 13, 43, 22, 0, time.UTC)}, {Valid: false}},
+		},
+		{
+			name:     "timestamp_ltz",
+			query:    "SELECT ARRAY_CONSTRUCT('2022-08-31 13:43:22'::TIMESTAMP_LTZ, null)::ARRAY(TIMESTAMP_LTZ)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(2022, 8, 31, 13, 43, 22, 0, warsawTz)}, {Valid: false}},
+		},
+		{
+			name:     "array",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(true, null), null, ARRAY_CONSTRUCT(null, false, true))::ARRAY(ARRAY(BOOLEAN))",
+			actual:   []sql.Null[[]sql.NullBool]{},
+			expected: []sql.Null[[]sql.NullBool]{{Valid: true, V: []sql.NullBool{{Valid: true, Bool: true}, {Valid: false}}}, {Valid: false}, {Valid: true, V: []sql.NullBool{{Valid: false}, {Valid: true, Bool: false}, {Valid: true, Bool: true}}}},
+		},
+	}
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		dbt.forceNativeArrow()
+		dbt.enableStructuredTypes()
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				rows := dbt.mustQueryContext(WithArrayValuesNullable(context.Background()), tc.query)
+				defer rows.Close()
+				rows.Next()
+				err := rows.Scan(&tc.actual)
+				assertNilF(t, err)
+				if tc.name == "time" {
+					for i, nt := range tc.actual.([]sql.NullTime) {
+						assertEqualE(t, nt.Valid, tc.expected.([]sql.NullTime)[i].Valid)
+						assertEqualE(t, nt.Time.Hour(), tc.expected.([]sql.NullTime)[i].Time.Hour())
+						assertEqualE(t, nt.Time.Minute(), tc.expected.([]sql.NullTime)[i].Time.Minute())
+						assertEqualE(t, nt.Time.Second(), tc.expected.([]sql.NullTime)[i].Time.Second())
+					}
+				} else if tc.name == "timestamp_tz" || tc.name == "timestamp_ltz" || tc.name == "timestamp_ntz" {
+					for i, nt := range tc.actual.([]sql.NullTime) {
+						assertEqualE(t, nt.Valid, tc.expected.([]sql.NullTime)[i].Valid)
+						assertTrueE(t, nt.Time.Equal(tc.expected.([]sql.NullTime)[i].Time))
+					}
+				} else {
+					assertDeepEqualE(t, tc.actual, tc.expected)
+				}
+				fmt.Printf("%v", reflect.TypeOf(tc.actual))
+			})
+		}
+	})
+
+}
+
 type HigherPrecisionStruct struct {
 	i *big.Int
 	f *big.Float

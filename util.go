@@ -34,6 +34,7 @@ const (
 	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
 	queryTag                         contextKey = "QUERY_TAG"
 	mapValuesNullable                contextKey = "MAP_VALUES_NULLABLE"
+	arrayValuesNullable              contextKey = "ARRAY_VALUES_NULLABLE"
 )
 
 const (
@@ -151,6 +152,10 @@ func WithQueryTag(ctx context.Context, tag string) context.Context {
 // Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
 func WithMapValuesNullable(ctx context.Context) context.Context {
 	return context.WithValue(ctx, mapValuesNullable, true)
+}
+
+func WithArrayValuesNullable(ctx context.Context) context.Context {
+	return context.WithValue(ctx, arrayValuesNullable, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
