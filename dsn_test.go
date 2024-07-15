@@ -1649,9 +1649,7 @@ func TestUrlDecodeIfNeeded(t *testing.T) {
 	for param, expected := range testcases {
 		t.Run(param, func(t *testing.T) {
 			decodedParam := urlDecodeIfNeeded(param)
-			if decodedParam != expected {
-				t.Fatalf("urlDecodeIfNeeded returned unexpected response (%v), should be %v", decodedParam, expected)
-			}
+			assertEqualE(t, decodedParam, expected)
 		})
 	}
 }
@@ -1668,30 +1666,20 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 		Params:   map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
 	}
 	mydsn, err := DSN(cfg)
-	if err != nil {
-		t.Fatalf("TestUrlDecodeIfNeededE2E failed to create DSN from Config: %v, err: %v", cfg, err)
-	}
+	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to create DSN from Config")
 	db, err := sql.Open("snowflake", mydsn)
-	if err != nil {
-		t.Fatalf("TestUrlDecodeIfNeededE2E failed to connect. %v, err: %v", mydsn, err)
-	}
+	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to connect.")
 	defer db.Close()
-	query := "SHOW /* gosnowflake TestUrlDecodeIfNeededE2E */ VARIABLES;"
+	query := "SHOW VARIABLES;"
 	rows, err := db.Query(query)
-	if err != nil {
-		t.Fatalf("TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query, error: %v", err)
-	}
+	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query.")
 	defer rows.Close()
 	var v1, v2, v3, v4, v5, v6, v7 any
 	for rows.Next() {
 		err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
-		if err != nil {
-			t.Fatalf("TestUrlDecodeIfNeededE2E failed to get result. err: %v", err)
-		}
+		assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to get result.")
 		assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
 		assertDeepEqualE(t, v5, customVarValue, "TestUrlDecodeIfNeededE2E variable value retrieved from the test did not match")
 	}
-	if rows.Err() != nil {
-		t.Fatalf("TestUrlDecodeIfNeededE2E ERROR getting rows, error: %v\n", rows.Err())
-	}
+	assertNilE(t, rows.Err(), "TestUrlDecodeIfNeededE2E ERROR getting rows.")
 }
