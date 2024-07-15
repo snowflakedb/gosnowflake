@@ -31,6 +31,8 @@ const numberDefaultPrecision = 38
 
 type timezoneType int
 
+var errNativeArrowWithoutProperContext = errors.New("structured types must be enabled to use with native arrow")
+
 const (
 	// TimestampNTZType denotes a NTZ timezoneType for array binds
 	TimestampNTZType timezoneType = iota
@@ -134,6 +136,7 @@ func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
 
 // snowflakeTypeToGo translates Snowflake data type to Go data type.
 func snowflakeTypeToGo(ctx context.Context, dbtype snowflakeType, scale int64, fields []fieldMetadata) reflect.Type {
+	structuredTypesEnabled := structuredTypesEnabled(ctx)
 	switch dbtype {
 	case fixedType:
 		if scale == 0 {
@@ -151,12 +154,12 @@ func snowflakeTypeToGo(ctx context.Context, dbtype snowflakeType, scale int64, f
 	case booleanType:
 		return reflect.TypeOf(true)
 	case objectType:
-		if len(fields) > 0 {
+		if len(fields) > 0 && structuredTypesEnabled {
 			return reflect.TypeOf(ObjectType{})
 		}
 		return reflect.TypeOf("")
 	case arrayType:
-		if len(fields) == 0 {
+		if len(fields) == 0 || !structuredTypesEnabled {
 			return reflect.TypeOf("")
 		}
 		if len(fields) != 1 {
@@ -188,6 +191,9 @@ func snowflakeTypeToGo(ctx context.Context, dbtype snowflakeType, scale int64, f
 		}
 		return nil
 	case mapType:
+		if !structuredTypesEnabled {
+			return reflect.TypeOf("")
+		}
 		switch getSnowflakeType(fields[0].Type) {
 		case textType:
 			return snowflakeTypeToGoForMaps[string](ctx, fields[1])
@@ -898,10 +904,11 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta execRe
 		*dest = nil
 		return nil
 	}
+	structuredTypesEnabled := structuredTypesEnabled(ctx)
 	logger.Debugf("snowflake data type: %v, raw value: %v", srcColumnMeta.Type, *srcValue)
 	switch srcColumnMeta.Type {
 	case "object":
-		if len(srcColumnMeta.Fields) == 0 {
+		if len(srcColumnMeta.Fields) == 0 || !structuredTypesEnabled {
 			// semistructured type without schema
 			*dest = *srcValue
 			return nil
@@ -991,7 +998,7 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta execRe
 		*dest = b
 		return nil
 	case "array":
-		if len(srcColumnMeta.Fields) == 0 {
+		if len(srcColumnMeta.Fields) == 0 || !structuredTypesEnabled {
 			*dest = *srcValue
 			return nil
 		}
@@ -1019,6 +1026,10 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta execRe
 }
 
 func jsonToMap(ctx context.Context, keyMetadata, valueMetadata fieldMetadata, srcValue string, params map[string]*string) (snowflakeValue, error) {
+	structuredTypesEnabled := structuredTypesEnabled(ctx)
+	if !structuredTypesEnabled {
+		return srcValue, nil
+	}
 	switch keyMetadata.Type {
 	case "text":
 		var m map[string]any
@@ -1459,6 +1470,7 @@ func arrowToValues(
 }
 
 func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta fieldMetadata, srcValue arrow.Array, loc *time.Location, higherPrecision bool, params map[string]*string, snowflakeType snowflakeType) (snowflakeValue, error) {
+	structuredTypesEnabled := structuredTypesEnabled(ctx)
 	switch snowflakeType {
 	case fixedType:
 		// Snowflake data types that are fixed-point numbers will fall into this category
@@ -1489,7 +1501,7 @@ func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta fieldMetadata, 
 		}
 		return nil, nil
 	case arrayType:
-		if len(srcColumnMeta.Fields) == 0 {
+		if len(srcColumnMeta.Fields) == 0 || !structuredTypesEnabled {
 			// semistructured type without schema
 			strings := srcValue.(*array.String)
 			if !srcValue.IsNull(rowIdx) {
@@ -1511,9 +1523,12 @@ func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta fieldMetadata, 
 			}
 			return nil, nil
 		}
+		if !structuredTypesEnabled {
+			return nil, errNativeArrowWithoutProperContext
+		}
 		return buildListFromNativeArrow(ctx, rowIdx, srcColumnMeta.Fields[0], srcValue, loc, higherPrecision, params)
 	case objectType:
-		if len(srcColumnMeta.Fields) == 0 {
+		if len(srcColumnMeta.Fields) == 0 || !structuredTypesEnabled {
 			// semistructured type without schema
 			strings := srcValue.(*array.String)
 			if !srcValue.IsNull(rowIdx) {
@@ -1536,6 +1551,9 @@ func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta fieldMetadata, 
 			return nil, nil
 		}
 		// structured objects as native arrow
+		if !structuredTypesEnabled {
+			return nil, errNativeArrowWithoutProperContext
+		}
 		if srcValue.IsNull(rowIdx) {
 			return nil, nil
 		}
@@ -1553,6 +1571,9 @@ func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta fieldMetadata, 
 			}
 		} else {
 			// structured map as native arrow
+			if !structuredTypesEnabled {
+				return nil, errNativeArrowWithoutProperContext
+			}
 			return buildMapFromNativeArrow(ctx, rowIdx, srcColumnMeta.Fields[0], srcColumnMeta.Fields[1], srcValue, loc, higherPrecision, params)
 		}
 	case binaryType:

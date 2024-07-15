@@ -33,6 +33,7 @@ const (
 	arrowAlloc                       contextKey = "ARROW_ALLOC"
 	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
 	queryTag                         contextKey = "QUERY_TAG"
+	enableStructuredTypes            contextKey = "ENABLE_STRUCTURED_TYPES"
 	mapValuesNullable                contextKey = "MAP_VALUES_NULLABLE"
 )
 
@@ -145,6 +146,13 @@ func WithArrowBatchesUtf8Validation(ctx context.Context) context.Context {
 // parameter on any queries that are run
 func WithQueryTag(ctx context.Context, tag string) context.Context {
 	return context.WithValue(ctx, queryTag, tag)
+}
+
+// WithStructuredTypesEnabled changes how structured types are returned.
+// Without this context structured types are returned as strings.
+// With this context enabled, structured types are returned as native Go types.
+func WithStructuredTypesEnabled(ctx context.Context) context.Context {
+	return context.WithValue(ctx, enableStructuredTypes, true)
 }
 
 // WithMapValuesNullable changes how map values are returned.

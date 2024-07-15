@@ -1150,6 +1150,15 @@ func (st *structuredType) fieldMetadataByFieldName(fieldName string) (fieldMetad
 	return fieldMetadata{}, errors.New("no metadata for field " + fieldName)
 }
 
+func structuredTypesEnabled(ctx context.Context) bool {
+	v := ctx.Value(enableStructuredTypes)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
+}
+
 func mapValuesNullableEnabled(ctx context.Context) bool {
 	v := ctx.Value(mapValuesNullable)
 	if v == nil {
