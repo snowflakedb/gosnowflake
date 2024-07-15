@@ -43,8 +43,11 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 	}
 
 	if strings.HasSuffix(strings.ToLower(config.Host), cnDomain) {
-		logger.WithContext(ctx).Info("connecting to CN deployment...")
+		logger.WithContext(ctx).Info("Connecting to CHINA Snowflake domain")
+	} else {
+		logger.WithContext(ctx).Info("Connecting to GLOBAL Snowflake domain")
 	}
+
 	if err = authenticateWithConfig(sc); err != nil {
 		return nil, err
 	}
