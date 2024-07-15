@@ -320,7 +320,7 @@ func errEmptyPassword() *SnowflakeError {
 }
 
 // Returned if a DSN's implicit region from account parameter and explicit region parameter conflict.
-func errInvalidRegion() *SnowflakeError {
+func errRegionConflict() *SnowflakeError {
 	return &SnowflakeError{
 		Number:  ErrCodeRegionOverlap,
 		Message: "two regions specified",
