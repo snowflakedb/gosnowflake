@@ -1675,6 +1675,7 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query.")
 	defer rows.Close()
 	var v1, v2, v3, v4, v5, v6, v7 any
+	assertTrueE(t, rows.Next(), "TestUrlDecodeIfNeededE2E query run but no rows were returned.")
 	for rows.Next() {
 		err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
 		assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to get result.")
