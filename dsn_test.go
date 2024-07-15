@@ -1854,11 +1854,9 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	defer rows.Close()
 	var v1, v2, v3, v4, v5, v6, v7 any
 	assertTrueE(t, rows.Next(), "TestUrlDecodeIfNeededE2E query run but no rows were returned.")
-	for rows.Next() {
-		err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
-		assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to get result.")
-		assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
-		assertDeepEqualE(t, v5, customVarValue, "TestUrlDecodeIfNeededE2E variable value retrieved from the test did not match")
-	}
+	err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
+	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to get result.")
+	assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
+	assertDeepEqualE(t, v5, customVarValue, "TestUrlDecodeIfNeededE2E variable value retrieved from the test did not match")
 	assertNilE(t, rows.Err(), "TestUrlDecodeIfNeededE2E ERROR getting rows.")
 }
