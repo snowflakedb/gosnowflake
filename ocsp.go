@@ -88,7 +88,7 @@ const (
 	cacheFileBaseName = "ocsp_response_cache.json"
 	// cacheExpire specifies cache data expiration time in seconds.
 	cacheExpire           = float64(24 * 60 * 60)
-	cacheServerURL        = "http://ocsp.snowflakecomputing.com"
+	defaultCacheServerURL = "http://ocsp.snowflakecomputing.com"
 	cacheServerEnabledEnv = "SF_OCSP_RESPONSE_CACHE_SERVER_ENABLED"
 	cacheServerURLEnv     = "SF_OCSP_RESPONSE_CACHE_SERVER_URL"
 	cacheDirEnv           = "SF_OCSP_RESPONSE_CACHE_DIR"
@@ -772,7 +772,7 @@ func downloadOCSPCacheServer() {
 	}
 	ocspCacheServerURL := os.Getenv(cacheServerURLEnv)
 	if ocspCacheServerURL == "" {
-		ocspCacheServerURL = fmt.Sprintf("%v/%v", cacheServerURL, cacheFileBaseName)
+		ocspCacheServerURL = fmt.Sprintf("%v/%v", defaultCacheServerURL, cacheFileBaseName)
 	}
 	u, err := url.Parse(ocspCacheServerURL)
 	if err != nil {
