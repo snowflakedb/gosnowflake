@@ -494,7 +494,8 @@ Additionally, `sf` tag can be added:
 - first value is always a name of a field in an SQL object
 - additionally `ignore` parameter can be passed to omit this field
 
-2. Use it in regular scan:
+2. Use WithStructuredTypesEnabled context while querying data.
+3. Use it in regular scan:
 
 	var res simpleObject
 	err := rows.Scan(&res)
