@@ -744,6 +744,7 @@ func TestBindingNilArrayOfObjects(t *testing.T) {
 }
 
 func TestBindingNilArrayOfInts(t *testing.T) {
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(INTEGER))")
@@ -754,7 +755,7 @@ func TestBindingNilArrayOfInts(t *testing.T) {
 		var arr *[]int64
 		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeNilArray, reflect.TypeOf(1))
 
-		rows := dbt.mustQuery("SELECT * FROM test_array_binding")
+		rows := dbt.mustQueryContext(ctx, "SELECT * FROM test_array_binding")
 		defer rows.Close()
 
 		assertTrueF(t, rows.Next())
