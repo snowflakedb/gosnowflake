@@ -1840,8 +1840,6 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	cfg := &Config{
 		Account:  os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
 		Host:     os.Getenv("SNOWFLAKE_TEST_HOST"),
-		Port:     os.Getenv("SNOWFLAKE_TEST_PORT"),
-		Protocol: os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
 		User:     os.Getenv("SNOWFLAKE_TEST_USER"),
 		Password: os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
 		Params:   map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
