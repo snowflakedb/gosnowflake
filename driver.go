@@ -8,6 +8,7 @@ import (
 	"database/sql/driver"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -39,6 +40,12 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.HasSuffix(strings.ToLower(config.Host), cnDomain) {
+		logger.WithContext(ctx).Info("Connecting to CHINA Snowflake domain")
+	} else {
+		logger.WithContext(ctx).Info("Connecting to GLOBAL Snowflake domain")
 	}
 
 	if err = authenticateWithConfig(sc); err != nil {

@@ -14,10 +14,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -66,8 +64,6 @@ const (
 	executionType          execKey = "executionType"
 	executionTypeStatement string  = "statement"
 )
-
-const privateLinkSuffix = "privatelink.snowflakecomputing.com"
 
 type snowflakeConn struct {
 	ctx                 context.Context
@@ -470,7 +466,7 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 // CheckNamedValue determines which types are handled by this driver aside from
 // the instances captured by driver.Value
 func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
-	if supportedNullBind(nv) || supportedArrayBind(nv) || supportedStructuredObjectWriterBind(nv) || supportedStructuredArrayBind(nv) {
+	if supportedNullBind(nv) || supportedArrayBind(nv) || supportedStructuredObjectWriterBind(nv) || supportedStructuredArrayBind(nv) || supportedStructuredMapBind(nv) {
 		return nil
 	}
 	return driver.ErrSkip
@@ -777,14 +773,8 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		// use the custom transport
 		st = sc.cfg.Transporter
 	}
-	if strings.HasSuffix(sc.cfg.Host, privateLinkSuffix) {
-		if err := sc.setupOCSPPrivatelink(sc.cfg.Application, sc.cfg.Host); err != nil {
-			return nil, err
-		}
-	} else {
-		if _, set := os.LookupEnv(cacheServerURLEnv); set {
-			os.Unsetenv(cacheServerURLEnv)
-		}
+	if err = setupOCSPEnvVars(sc.ctx, sc.cfg.Host); err != nil {
+		return nil, err
 	}
 	var tokenAccessor TokenAccessor
 	if sc.cfg.TokenAccessor != nil {

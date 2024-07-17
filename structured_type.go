@@ -75,7 +75,17 @@ type StructuredObjectWriterContext interface {
 	WriteNullTime(fieldName string, value sql.NullTime, tsmode []byte) error
 	WriteStruct(fieldName string, value StructuredObjectWriter) error
 	WriteNullableStruct(fieldName string, value StructuredObjectWriter, typ reflect.Type) error
+	// WriteRaw is used for inserting slices and maps only.
+	WriteRaw(fieldName string, value any, tsmode ...[]byte) error
+	// WriteNullRaw is used for inserting nil slices and maps only.
+	WriteNullRaw(fieldName string, typ reflect.Type, tsmode ...[]byte) error
 	WriteAll(sow StructuredObjectWriter) error
+}
+
+// NilMapTypes is used to define types when binding nil maps.
+type NilMapTypes struct {
+	Key   reflect.Type
+	Value reflect.Type
 }
 
 type structuredObjectWriterEntry struct {
@@ -294,6 +304,75 @@ func (sowc *structuredObjectWriterContext) WriteNullableStruct(structFieldName s
 	return sowc.WriteStruct(structFieldName, value)
 }
 
+func (sowc *structuredObjectWriterContext) WriteRaw(fieldName string, value any, dataTypeModes ...[]byte) error {
+	dataTypeModeSingle := DataTypeArray
+	if len(dataTypeModes) == 1 && dataTypeModes[0] != nil {
+		dataTypeModeSingle = dataTypeModes[0]
+	}
+	tsmode, err := dataTypeMode(dataTypeModeSingle)
+	if err != nil {
+		return err
+	}
+
+	switch reflect.ValueOf(value).Kind() {
+	case reflect.Slice:
+		metadata, err := goTypeToFieldMetadata(reflect.TypeOf(value).Elem(), tsmode, sowc.params)
+		if err != nil {
+			return err
+		}
+		return sowc.write(value, structuredObjectWriterEntry{
+			name:     fieldName,
+			typ:      "ARRAY",
+			nullable: true,
+			fields:   []fieldMetadata{metadata},
+		})
+	case reflect.Map:
+		keyMetadata, err := goTypeToFieldMetadata(reflect.TypeOf(value).Key(), tsmode, sowc.params)
+		if err != nil {
+			return err
+		}
+		valueMetadata, err := goTypeToFieldMetadata(reflect.TypeOf(value).Elem(), tsmode, sowc.params)
+		if err != nil {
+			return err
+		}
+		return sowc.write(value, structuredObjectWriterEntry{
+			name:     fieldName,
+			typ:      "MAP",
+			nullable: true,
+			fields:   []fieldMetadata{keyMetadata, valueMetadata},
+		})
+	}
+	return fmt.Errorf("unsupported raw type: %T", value)
+}
+
+func (sowc *structuredObjectWriterContext) WriteNullRaw(fieldName string, typ reflect.Type, dataTypeModes ...[]byte) error {
+	dataTypeModeSingle := DataTypeArray
+	if len(dataTypeModes) == 1 && dataTypeModes[0] != nil {
+		dataTypeModeSingle = dataTypeModes[0]
+	}
+	tsmode, err := dataTypeMode(dataTypeModeSingle)
+	if err != nil {
+		return err
+	}
+
+	if typ.Kind() == reflect.Slice || typ.Kind() == reflect.Map {
+		metadata, err := goTypeToFieldMetadata(typ, tsmode, sowc.params)
+		if err != nil {
+			return err
+		}
+		if err := sowc.write(nil, structuredObjectWriterEntry{
+			name:     fieldName,
+			typ:      metadata.Type,
+			nullable: true,
+			fields:   metadata.Fields,
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+	return fmt.Errorf("cannot use %v as nillable field", typ.Kind().String())
+}
+
 func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structuredObjectWriterContext, error) {
 	childSowc := &structuredObjectWriterContext{}
 	childSowc.init(params)
@@ -319,12 +398,9 @@ func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structured
 			if err := childSowc.writeBool(fieldName, nil); err != nil {
 				return nil, err
 			}
-		} else if field.Type.Kind() == reflect.Slice || field.Type.Kind() == reflect.Array {
-			if field.Type.Elem().Kind() == reflect.Uint8 {
-				if err := childSowc.WriteBytes(fieldName, nil); err != nil {
-					return nil, err
-				}
-				// TODO structured types - handle arrays
+		} else if (field.Type.Kind() == reflect.Slice || field.Type.Kind() == reflect.Array) && field.Type.Elem().Kind() == reflect.Uint8 {
+			if err := childSowc.WriteBytes(fieldName, nil); err != nil {
+				return nil, err
 			}
 		} else if field.Type.Kind() == reflect.Struct || field.Type.Kind() == reflect.Pointer {
 			t := field.Type
@@ -364,6 +440,9 @@ func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structured
 				if err != nil {
 					return nil, err
 				}
+				if timeSnowflakeType == nil {
+					return nil, fmt.Errorf("field %v does not have proper sf tag", fieldName)
+				}
 				if err := childSowc.WriteNullTime(fieldName, sql.NullTime{}, timeSnowflakeType); err != nil {
 					return nil, err
 				}
@@ -373,6 +452,14 @@ func buildSowcFromType(params map[string]*string, typ reflect.Type) (*structured
 				}
 			} else {
 				return nil, fmt.Errorf("field %s has unsupported type", field.Name)
+			}
+		} else if field.Type.Kind() == reflect.Slice || field.Type.Kind() == reflect.Map {
+			timeSnowflakeType, err := getTimeSnowflakeType(field)
+			if err != nil {
+				return nil, err
+			}
+			if err := childSowc.WriteNullRaw(fieldName, field.Type, timeSnowflakeType); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -449,17 +536,18 @@ func (sowc *structuredObjectWriterContext) WriteAll(sow StructuredObjectWriter) 
 			if err := sowc.WriteBool(fieldName, val.Field(i).Bool()); err != nil {
 				return err
 			}
-		} else if field.Type.Kind() == reflect.Array || field.Type.Kind() == reflect.Slice {
-			if field.Type.Elem().Kind() == reflect.Uint8 {
-				if err := sowc.WriteBytes(fieldName, val.Field(i).Bytes()); err != nil {
-					return err
-				}
+		} else if (field.Type.Kind() == reflect.Array || field.Type.Kind() == reflect.Slice) && field.Type.Elem().Kind() == reflect.Uint8 {
+			if err := sowc.WriteBytes(fieldName, val.Field(i).Bytes()); err != nil {
+				return err
 			}
 		} else if field.Type.Kind() == reflect.Struct || field.Type.Kind() == reflect.Pointer {
 			if v, ok := val.Field(i).Interface().(time.Time); ok {
 				timeSnowflakeType, err := getTimeSnowflakeType(typ.Field(i))
 				if err != nil {
 					return err
+				}
+				if timeSnowflakeType == nil {
+					return fmt.Errorf("field %v does not have a proper sf tag", fieldName)
 				}
 				if err := sowc.WriteTime(fieldName, v, timeSnowflakeType); err != nil {
 					return err
@@ -497,6 +585,9 @@ func (sowc *structuredObjectWriterContext) WriteAll(sow StructuredObjectWriter) 
 				if err != nil {
 					return err
 				}
+				if timeSnowflakeType == nil {
+					return fmt.Errorf("field %v does not have a proper sf tag", fieldName)
+				}
 				if err := sowc.WriteNullTime(fieldName, v, timeSnowflakeType); err != nil {
 					return err
 				}
@@ -511,16 +602,30 @@ func (sowc *structuredObjectWriterContext) WriteAll(sow StructuredObjectWriter) 
 					if err := v.Write(childSowc); err != nil {
 						return err
 					}
-					return sowc.write(childSowc.values, structuredObjectWriterEntry{
+					if err := sowc.write(childSowc.values, structuredObjectWriterEntry{
 						name:     fieldName,
 						typ:      "OBJECT",
 						nullable: true,
 						fields:   childSowc.toFields(),
-					})
+					}); err != nil {
+						return err
+					}
 				}
 			}
-			//} else {
-			//	return fmt.Errorf("field %s has unsupported type", field.Name) // TODO structured type uncomment when all types are ready
+		} else if field.Type.Kind() == reflect.Slice || field.Type.Kind() == reflect.Map {
+			var timeSfType []byte
+			var err error
+			if field.Type.Elem().AssignableTo(reflect.TypeOf(time.Time{})) || field.Type.Elem().AssignableTo(reflect.TypeOf(sql.NullTime{})) {
+				timeSfType, err = getTimeSnowflakeType(typ.Field(i))
+				if err != nil {
+					return err
+				}
+			}
+			if err := sowc.WriteRaw(fieldName, val.Field(i).Interface(), timeSfType); err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("field %s has unsupported type", field.Name)
 		}
 	}
 	return nil
@@ -566,13 +671,20 @@ func ScanArrayOfScanners[T sql.Scanner](value *[]T) *ArrayOfScanners[T] {
 type MapOfScanners[K comparable, V sql.Scanner] map[K]V
 
 func (st *MapOfScanners[K, V]) Scan(val any) error {
+	if val == nil {
+		return nil
+	}
 	sts := val.(map[K]*structuredType)
 	*st = make(map[K]V)
 	var someV V
-	for k := range sts {
-		(*st)[k] = reflect.New(reflect.TypeOf(someV).Elem()).Interface().(V)
-		if err := (*st)[k].Scan(sts[k]); err != nil {
-			return err
+	for k, v := range sts {
+		if v != nil && !reflect.ValueOf(v).IsNil() {
+			(*st)[k] = reflect.New(reflect.TypeOf(someV).Elem()).Interface().(V)
+			if err := (*st)[k].Scan(sts[k]); err != nil {
+				return err
+			}
+		} else {
+			(*st)[k] = reflect.Zero(reflect.TypeOf(someV)).Interface().(V)
 		}
 	}
 	return nil
@@ -1076,7 +1188,7 @@ func shouldIgnoreField(field reflect.StructField) bool {
 func getTimeSnowflakeType(field reflect.StructField) ([]byte, error) {
 	sfTag := strings.ToLower(field.Tag.Get("sf"))
 	if sfTag == "" {
-		return nil, fmt.Errorf("%s is of time type, but it does not have sf tag", field.Name)
+		return nil, nil
 	}
 	values := strings.Split(sfTag, ",")[1:]
 	if contains(values, "time") {
@@ -1090,5 +1202,5 @@ func getTimeSnowflakeType(field reflect.StructField) ([]byte, error) {
 	} else if contains(values, "tz") {
 		return DataTypeTimestampTz, nil
 	}
-	return nil, fmt.Errorf("%s is of time type, but does not contain snowflake time type, use date, time, ltz, ntz or tz", field.Name)
+	return nil, nil
 }
