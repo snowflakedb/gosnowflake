@@ -1668,15 +1668,14 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 						return sql.NullInt64{Valid: true, Int64: val}, nil
 
 					})
-				} else {
-					return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int64, error) {
-						v := arrowDecimal128ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale)
-						if v == nil {
-							return 0, errNullValueInArray()
-						}
-						return strconv.ParseInt(v.(string), 10, 64)
-					})
 				}
+				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int64, error) {
+					v := arrowDecimal128ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale)
+					if v == nil {
+						return 0, errNullValueInArray()
+					}
+					return strconv.ParseInt(v.(string), 10, 64)
+				})
 			} else {
 				if arrayValuesNullableEnabled(ctx) {
 					return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullFloat64, error) {
