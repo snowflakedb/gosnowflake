@@ -842,13 +842,13 @@ func overrideCacheDir() {
 
 // initOCSPCache initializes OCSP Response cache file.
 func initOCSPCache() {
+	ocspResponseCacheLock = &sync.RWMutex{}
+	ocspParsedRespCacheLock = &sync.Mutex{}
+	ocspResponseCache = make(map[certIDKey]*certCacheValue)
+	ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
 		return
 	}
-	ocspResponseCache = make(map[certIDKey]*certCacheValue)
-	ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
-	ocspResponseCacheLock = &sync.RWMutex{}
-	ocspParsedRespCacheLock = &sync.Mutex{}
 
 	logger.Infof("reading OCSP Response cache file. %v\n", cacheFileName)
 	f, err := os.OpenFile(cacheFileName, os.O_CREATE|os.O_RDONLY, readWriteFileMode)
