@@ -875,6 +875,9 @@ func buildMapValues[K comparable, Vnullable any, VnotNullable any](mapValuesNull
 	}
 	result := make(map[K]VnotNullable, len(m))
 	for k, v := range m {
+		if v == nil {
+			return nil, errNullValueInMap()
+		}
 		if result[k], err = buildNotNullable(v); err != nil {
 			return nil, err
 		}
@@ -1640,6 +1643,9 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 			})
 		}
 		return mapStructuredMapNativeArrowRows(make(map[K]string), offsets, rowIdx, keyFunc, func(j int) (string, error) {
+			if items.IsNull(j) {
+				return "", errNullValueInMap()
+			}
 			return items.(*array.String).Value(j), nil
 		})
 	case "boolean":
@@ -1652,6 +1658,9 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 			})
 		}
 		return mapStructuredMapNativeArrowRows(make(map[K]bool), offsets, rowIdx, keyFunc, func(j int) (bool, error) {
+			if items.IsNull(j) {
+				return false, errNullValueInMap()
+			}
 			return items.(*array.Boolean).Value(j), nil
 		})
 	case "fixed":
@@ -1684,6 +1693,9 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 				})
 			}
 			return mapStructuredMapNativeArrowRows(make(map[K]int64), offsets, rowIdx, keyFunc, func(j int) (int64, error) {
+				if items.IsNull(j) {
+					return 0, errNullValueInMap()
+				}
 				s, err := mapStructuredMapNativeArrowFixedValue[string](valueMetadata, j, items, higherPrecision, "")
 				if err != nil {
 					return 0, err
@@ -1705,6 +1717,9 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 				})
 			}
 			return mapStructuredMapNativeArrowRows(make(map[K]float64), offsets, rowIdx, keyFunc, func(j int) (float64, error) {
+				if items.IsNull(j) {
+					return 0, errNullValueInMap()
+				}
 				s, err := mapStructuredMapNativeArrowFixedValue[string](valueMetadata, j, items, higherPrecision, "")
 				if err != nil {
 					return 0, err
@@ -1723,6 +1738,9 @@ func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, 
 			})
 		}
 		return mapStructuredMapNativeArrowRows(make(map[K]float64), offsets, rowIdx, keyFunc, func(j int) (float64, error) {
+			if items.IsNull(j) {
+				return 0, errNullValueInMap()
+			}
 			return arrowRealToValue(items.(*array.Float64), j).(float64), nil
 		})
 	case "binary":
@@ -1806,6 +1824,9 @@ func buildTimeFromNativeArrowArray[K comparable](mapNullValuesEnabled bool, offs
 		})
 	}
 	return mapStructuredMapNativeArrowRows(make(map[K]time.Time), offsets, rowIdx, keyFunc, func(j int) (time.Time, error) {
+		if items.IsNull(j) {
+			return time.Time{}, errNullValueInMap()
+		}
 		return buildTime(j), nil
 	})
 }

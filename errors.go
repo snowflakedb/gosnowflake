@@ -222,6 +222,8 @@ const (
 	ErrTooHighTimestampPrecision = 268003
 	// ErrNullValueInArray is an error code for the case where there are null values in an array without arrayValuesNullable set to true
 	ErrNullValueInArray = 268004
+	// ErrNullValueInMap is an error code for the case where there are null values in a map without mapValuesNullable set to true
+	ErrNullValueInMap = 268005
 
 	/* OCSP */
 
@@ -296,6 +298,7 @@ const (
 	errMsgInvalidPadding                     = "invalid padding on input"
 	errMsgClientConfigFailed                 = "client configuration failed: %v"
 	errMsgNullValueInArray                   = "for handling null values in arrays use WithArrayValuesNullable(ctx)"
+	errMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"
 )
 
 // Returned if a DNS doesn't include account parameter.
@@ -352,5 +355,12 @@ func errNullValueInArray() *SnowflakeError {
 	return &SnowflakeError{
 		Number:  ErrNullValueInArray,
 		Message: errMsgNullValueInArray,
+	}
+}
+
+func errNullValueInMap() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrNullValueInMap,
+		Message: errMsgNullValueInMap,
 	}
 }
