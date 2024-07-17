@@ -162,6 +162,8 @@ func WithMapValuesNullable(ctx context.Context) context.Context {
 	return context.WithValue(ctx, mapValuesNullable, true)
 }
 
+// WithArrayValuesNullable changes how array values are returned.
+// Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
 func WithArrayValuesNullable(ctx context.Context) context.Context {
 	return context.WithValue(ctx, arrayValuesNullable, true)
 }

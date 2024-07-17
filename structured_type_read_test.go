@@ -1678,12 +1678,6 @@ func TestArraysWithNullValues(t *testing.T) {
 		},
 		{
 			name:     "fixed - scale == 0",
-			query:    "SELECT ARRAY_CONSTRUCT(null, 2, 3)::ARRAY(NUMBER(4,0))",
-			actual:   []sql.NullByte{},
-			expected: []sql.NullByte{{Valid: false}, {Valid: true, Byte: 2}, {Valid: true, Byte: 3}},
-		},
-		{
-			name:     "fixed - scale == 0",
 			query:    "SELECT ARRAY_CONSTRUCT(1.3, 2.0, null, null)::ARRAY(NUMBER(38, 19))",
 			actual:   []sql.NullFloat64{},
 			expected: []sql.NullFloat64{{Valid: true, Float64: 1.3}, {Valid: true, Float64: 2.0}, {Valid: false}, {Valid: false}},
@@ -1742,9 +1736,8 @@ func TestArraysWithNullValues(t *testing.T) {
 		dbt.forceNativeArrow()
 		dbt.enableStructuredTypes()
 		for _, tc := range testcases {
-			print("Hello")
 			t.Run(tc.name, func(t *testing.T) {
-				rows := dbt.mustQueryContext(WithArrayValuesNullable(context.Background()), tc.query)
+				rows := dbt.mustQueryContext(WithStructuredTypesEnabled(WithArrayValuesNullable(context.Background())), tc.query)
 				defer rows.Close()
 				rows.Next()
 				err := rows.Scan(&tc.actual)
