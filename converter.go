@@ -1301,6 +1301,9 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 				} else {
 					return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int64, error) {
 						v := arrowDecimal128ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale)
+						if v == nil {
+							return 0, errNullValueInArray()
+						}
 						return strconv.ParseInt(v.(string), 10, 64)
 					})
 				}
@@ -1320,6 +1323,9 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 				} else {
 					return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (float64, error) {
 						v := arrowDecimal128ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale)
+						if v == nil {
+							return 0, errNullValueInArray()
+						}
 						return strconv.ParseFloat(v.(string), 64)
 					})
 				}
@@ -1336,7 +1342,11 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 				})
 			} else {
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int64, error) {
-					return arrowInt64ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale).(int64), nil
+					resInt := arrowInt64ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale)
+					if resInt == nil {
+						return 0, errNullValueInArray()
+					}
+					return resInt.(int64), nil
 				})
 			}
 		case *array.Int32:
@@ -1351,7 +1361,11 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 				})
 			} else {
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int32, error) {
-					return arrowInt32ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale).(int32), nil
+					resInt := arrowInt32ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale)
+					if resInt == nil {
+						return 0, errNullValueInArray()
+					}
+					return resInt.(int32), nil
 				})
 			}
 		case *array.Int16:
@@ -1366,7 +1380,11 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 				})
 			} else {
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int16, error) {
-					return arrowInt16ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale).(int16), nil
+					resInt := arrowInt16ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale)
+					if resInt == nil {
+						return 0, errNullValueInArray()
+					}
+					return resInt.(int16), nil
 				})
 			}
 		case *array.Int8:
@@ -1381,7 +1399,11 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 				})
 			} else {
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (int8, error) {
-					return arrowInt8ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale).(int8), nil
+					resInt := arrowInt8ToValue(typedValues, j, higherPrecision, fieldMetadata.Scale)
+					if resInt == nil {
+						return 0, errNullValueInArray()
+					}
+					return resInt.(int8), nil
 				})
 			}
 		}
@@ -1397,7 +1419,12 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			})
 		} else {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (float64, error) {
-				return arrowRealToValue(values.(*array.Float64), j).(float64), nil
+				resFloat := arrowRealToValue(values.(*array.Float64), j)
+				if resFloat == nil {
+					return 0, errNullValueInArray()
+				} else {
+					return resFloat.(float64), nil
+				}
 			})
 		}
 	case textType:
@@ -1412,7 +1439,12 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			})
 		} else {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (string, error) {
-				return arrowStringToValue(values.(*array.String), j).(string), nil
+				resString := arrowStringToValue(values.(*array.String), j)
+				if resString == nil {
+					return "", errNullValueInArray()
+				} else {
+					return resString.(string), nil
+				}
 			})
 		}
 	case booleanType:
@@ -1427,7 +1459,12 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			})
 		} else {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (bool, error) {
-				return arrowBoolToValue(values.(*array.Boolean), j).(bool), nil
+				resBool := arrowBoolToValue(values.(*array.Boolean), j)
+				if resBool == nil {
+					return false, errNullValueInArray()
+				} else {
+					return resBool.(bool), nil
+				}
 			})
 		}
 	case binaryType:
@@ -1451,7 +1488,12 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			})
 		} else {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (time.Time, error) {
-				return arrowDateToValue(values.(*array.Date32), j).(time.Time), nil
+				v := arrowDateToValue(values.(*array.Date32), j)
+				if v == nil {
+					return time.Time{}, errNullValueInArray()
+				} else {
+					return v.(time.Time), nil
+				}
 			})
 		}
 	case timeType:
@@ -1466,7 +1508,12 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			})
 		} else {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (time.Time, error) {
-				return arrowTimeToValue(values, j, fieldMetadata.Scale).(time.Time), nil
+				v := arrowTimeToValue(values, j, fieldMetadata.Scale)
+				if v == nil {
+					return time.Time{}, errNullValueInArray()
+				} else {
+					return v.(time.Time), nil
+				}
 			})
 		}
 	case timestampNtzType, timestampLtzType, timestampTzType:
@@ -1484,7 +1531,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 				if ptr != nil {
 					return *ptr, nil
 				}
-				return time.Time{}, nil
+				return time.Time{}, errNullValueInArray()
 			})
 		}
 	case objectType:
