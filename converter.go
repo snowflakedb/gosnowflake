@@ -1079,13 +1079,13 @@ func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata field
 			return v.(string), nil
 		}, func(v any) (sql.NullString, error) {
 			return sql.NullString{Valid: v != nil, String: ifNotNullOrDefault(v, "")}, nil
-		})
+		}, false)
 	case "boolean":
 		return buildMapValues[K, sql.NullBool, bool](mapValuesNullableEnabled, m, func(v any) (bool, error) {
 			return v.(bool), nil
 		}, func(v any) (sql.NullBool, error) {
 			return sql.NullBool{Valid: v != nil, Bool: ifNotNullOrDefault(v, false)}, nil
-		})
+		}, false)
 	case "fixed":
 		if valueMetadata.Scale == 0 {
 			return buildMapValues[K, sql.NullInt64, int64](mapValuesNullableEnabled, m, func(v any) (int64, error) {
@@ -1099,7 +1099,7 @@ func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata field
 					return sql.NullInt64{Valid: true, Int64: i64}, nil
 				}
 				return sql.NullInt64{Valid: false}, nil
-			})
+			}, false)
 		}
 		return buildMapValues[K, sql.NullFloat64, float64](mapValuesNullableEnabled, m, func(v any) (float64, error) {
 			return strconv.ParseFloat(string(v.(json.Number)), 64)
@@ -1112,7 +1112,7 @@ func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata field
 				return sql.NullFloat64{Valid: true, Float64: f64}, nil
 			}
 			return sql.NullFloat64{Valid: false}, nil
-		})
+		}, false)
 	case "real":
 		return buildMapValues[K, sql.NullFloat64, float64](mapValuesNullableEnabled, m, func(v any) (float64, error) {
 			return strconv.ParseFloat(string(v.(json.Number)), 64)
@@ -1125,16 +1125,19 @@ func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata field
 				return sql.NullFloat64{Valid: true, Float64: f64}, nil
 			}
 			return sql.NullFloat64{Valid: false}, nil
-		})
+		}, false)
 	case "binary":
 		return buildMapValues[K, []byte, []byte](mapValuesNullableEnabled, m, func(v any) ([]byte, error) {
+			if v == nil {
+				return nil, nil
+			}
 			return hex.DecodeString(v.(string))
 		}, func(v any) ([]byte, error) {
 			if v == nil {
 				return nil, nil
 			}
 			return hex.DecodeString(v.(string))
-		})
+		}, true)
 	case "date", "time", "timestamp_tz", "timestamp_ltz", "timestamp_ntz":
 		return buildMapValues[K, sql.NullTime, time.Time](mapValuesNullableEnabled, m, func(v any) (time.Time, error) {
 			sfFormat, err := dateTimeOutputFormatByType(valueMetadata.Type, params)
@@ -1163,7 +1166,7 @@ func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata field
 				return sql.NullTime{}, err
 			}
 			return sql.NullTime{Valid: true, Time: time}, nil
-		})
+		}, false)
 	case "array":
 		arrayMetadata := valueMetadata.Fields[0]
 		switch arrayMetadata.Type {
@@ -1218,7 +1221,7 @@ func ifNotNullOrDefault[T any](t any, def T) T {
 	return t.(T)
 }
 
-func buildMapValues[K comparable, Vnullable any, VnotNullable any](mapValuesNullableEnabled bool, m map[K]any, buildNotNullable func(v any) (VnotNullable, error), buildNullable func(v any) (Vnullable, error)) (snowflakeValue, error) {
+func buildMapValues[K comparable, Vnullable any, VnotNullable any](mapValuesNullableEnabled bool, m map[K]any, buildNotNullable func(v any) (VnotNullable, error), buildNullable func(v any) (Vnullable, error), nullableByDefault bool) (snowflakeValue, error) {
 	var err error
 	if mapValuesNullableEnabled {
 		result := make(map[K]Vnullable, len(m))
@@ -1231,7 +1234,7 @@ func buildMapValues[K comparable, Vnullable any, VnotNullable any](mapValuesNull
 	}
 	result := make(map[K]VnotNullable, len(m))
 	for k, v := range m {
-		if v == nil {
+		if v == nil && !nullableByDefault {
 			return nil, errNullValueInMap()
 		}
 		if result[k], err = buildNotNullable(v); err != nil {
@@ -1663,7 +1666,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 						}
 						val, err := strconv.ParseInt(v.(string), 10, 64)
 						if err != nil {
-							return sql.NullInt64{Valid: false}, nil
+							return sql.NullInt64{Valid: false}, err
 						}
 						return sql.NullInt64{Valid: true, Int64: val}, nil
 
@@ -1685,7 +1688,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 						}
 						val, err := strconv.ParseFloat(v.(string), 64)
 						if err != nil {
-							return sql.NullFloat64{Valid: false}, nil
+							return sql.NullFloat64{Valid: false}, err
 						}
 						return sql.NullFloat64{Valid: true, Float64: val}, nil
 
