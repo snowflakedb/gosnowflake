@@ -1159,6 +1159,10 @@ func optionEnabled(ctx context.Context, option contextKey) bool {
 	return ok && d
 }
 
+func structuredTypesEnabled(ctx context.Context) bool {
+	return optionEnabled(ctx, enableStructuredTypes)
+}
+
 func mapValuesNullableEnabled(ctx context.Context) bool {
 	return optionEnabled(ctx, mapValuesNullable)
 }
