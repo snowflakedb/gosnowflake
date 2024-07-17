@@ -1563,6 +1563,12 @@ func TestArraysWithNullValues(t *testing.T) {
 		},
 		{
 			name:     "fixed - scale == 0",
+			query:    "SELECT ARRAY_CONSTRUCT(null, 2, 3)::ARRAY(NUMBER(4,0))",
+			actual:   []sql.NullByte{},
+			expected: []sql.NullByte{{Valid: false}, {Valid: true, Byte: 2}, {Valid: true, Byte: 3}},
+		},
+		{
+			name:     "fixed - scale == 0",
 			query:    "SELECT ARRAY_CONSTRUCT(1.3, 2.0, null, null)::ARRAY(NUMBER(38, 19))",
 			actual:   []sql.NullFloat64{},
 			expected: []sql.NullFloat64{{Valid: true, Float64: 1.3}, {Valid: true, Float64: 2.0}, {Valid: false}, {Valid: false}},
@@ -1576,8 +1582,8 @@ func TestArraysWithNullValues(t *testing.T) {
 		{
 			name:     "binary",
 			query:    "SELECT ARRAY_CONSTRUCT(null, TO_BINARY('616263'))::ARRAY(BINARY)",
-			actual:   []sql.Null[[]byte]{},
-			expected: []sql.Null[[]byte]{{Valid: false}, {Valid: true, V: []byte{'a', 'b', 'c'}}},
+			actual:   [][]byte{},
+			expected: [][]byte{nil, {'a', 'b', 'c'}},
 		},
 		{
 			name:     "date",
@@ -1612,8 +1618,8 @@ func TestArraysWithNullValues(t *testing.T) {
 		{
 			name:     "array",
 			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(true, null), null, ARRAY_CONSTRUCT(null, false, true))::ARRAY(ARRAY(BOOLEAN))",
-			actual:   []sql.Null[[]sql.NullBool]{},
-			expected: []sql.Null[[]sql.NullBool]{{Valid: true, V: []sql.NullBool{{Valid: true, Bool: true}, {Valid: false}}}, {Valid: false}, {Valid: true, V: []sql.NullBool{{Valid: false}, {Valid: true, Bool: false}, {Valid: true, Bool: true}}}},
+			actual:   [][]sql.NullBool{},
+			expected: [][]sql.NullBool{{{Valid: true, Bool: true}, {Valid: false}}, nil, {{Valid: false}, {Valid: true, Bool: false}, {Valid: true, Bool: true}}},
 		},
 	}
 	runDBTest(t, func(dbt *DBTest) {
@@ -1621,6 +1627,7 @@ func TestArraysWithNullValues(t *testing.T) {
 		dbt.forceNativeArrow()
 		dbt.enableStructuredTypes()
 		for _, tc := range testcases {
+			print("Hello")
 			t.Run(tc.name, func(t *testing.T) {
 				rows := dbt.mustQueryContext(WithArrayValuesNullable(context.Background()), tc.query)
 				defer rows.Close()
