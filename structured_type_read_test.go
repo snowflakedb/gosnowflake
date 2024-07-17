@@ -1764,6 +1764,40 @@ func TestArraysWithNullValues(t *testing.T) {
 
 }
 
+func TestArraysWithNullValuesHigherPrecision(t *testing.T) {
+	testcases := []struct {
+		name     string
+		query    string
+		actual   any
+		expected any
+	}{
+		{
+			name:   "fixed - scale == 0",
+			query:  "SELECT ARRAY_CONSTRUCT(null, 2)::ARRAY(BIGINT)",
+			actual: []*big.Int{},
+		},
+	}
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		dbt.forceNativeArrow()
+		dbt.enableStructuredTypes()
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				ctx := WithHigherPrecision(WithStructuredTypesEnabled(WithArrayValuesNullable(context.Background())))
+				rows := dbt.mustQueryContext(ctx, tc.query)
+				defer rows.Close()
+				rows.Next()
+				err := rows.Scan(&tc.actual)
+				assertNilF(t, err)
+				assertNilF(t, tc.actual.([]*big.Int)[0])
+				bigInt, _ := new(big.Int).SetString("2", 10)
+				assertEqualE(t, tc.actual.([]*big.Int)[1].Cmp(bigInt), 0)
+			})
+		}
+	})
+
+}
+
 type HigherPrecisionStruct struct {
 	i *big.Int
 	f *big.Float
