@@ -1836,8 +1836,8 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	customVarName := "CUSTOM_VARIABLE"
 	customVarValue := "test"
 	myQueryTag := "mytag"
-	testPort, defaultPort := strconv.Atoi(os.Getenv("SNOWFLAKE_TEST_PORT"))
-	if defaultPort != nil {
+	testPort, err := strconv.Atoi(os.Getenv("SNOWFLAKE_TEST_PORT"))
+	if err != nil {
 		testPort = 443
 	}
 
