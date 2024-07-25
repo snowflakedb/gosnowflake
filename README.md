@@ -159,6 +159,4 @@ Until we replace the offending dependency with one which doesn't have the bug, a
 * cleaning up the runaway processes periodically
 * setting envvar `DBUS_SESSION_BUS_ADDRESS=$XDG_RUNTIME_DIR/bus` (if that socket exists, or create it) or even `DBUS_SESSION_BUS_ADDRESS=/dev/null`
 
-The driver will try to detect automatically, whether your runtime is susceptible for this bug or not, and if so, log a message on `Warning` loglevel.
-
 Details in [issue 773](https://github.com/snowflakedb/gosnowflake/issues/773)
