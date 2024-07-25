@@ -213,13 +213,17 @@ const (
 
 	// ErrInvalidTimestampTz is an error code for the case where a returned TIMESTAMP_TZ internal value is invalid
 	ErrInvalidTimestampTz = 268000
-	// ErrInvalidOffsetStr is an error code for the case where a offset string is invalid. The input string must
+	// ErrInvalidOffsetStr is an error code for the case where an offset string is invalid. The input string must
 	// consist of sHHMI where one sign character '+'/'-' followed by zero filled hours and minutes
 	ErrInvalidOffsetStr = 268001
 	// ErrInvalidBinaryHexForm is an error code for the case where a binary data in hex form is invalid.
 	ErrInvalidBinaryHexForm = 268002
 	// ErrTooHighTimestampPrecision is an error code for the case where cannot convert Snowflake timestamp to arrow.Timestamp
 	ErrTooHighTimestampPrecision = 268003
+	// ErrNullValueInArray is an error code for the case where there are null values in an array without arrayValuesNullable set to true
+	ErrNullValueInArray = 268004
+	// ErrNullValueInMap is an error code for the case where there are null values in a map without mapValuesNullable set to true
+	ErrNullValueInMap = 268005
 
 	/* OCSP */
 
@@ -293,6 +297,8 @@ const (
 	errMsgQueryStatus                        = "server ErrorCode=%s, ErrorMessage=%s"
 	errMsgInvalidPadding                     = "invalid padding on input"
 	errMsgClientConfigFailed                 = "client configuration failed: %v"
+	errMsgNullValueInArray                   = "for handling null values in arrays use WithArrayValuesNullable(ctx)"
+	errMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"
 )
 
 // Returned if a DNS doesn't include account parameter.
@@ -342,5 +348,19 @@ func errUnknownError() *SnowflakeError {
 		SQLState: "-1",
 		Message:  "an unknown server side error occurred",
 		QueryID:  "-1",
+	}
+}
+
+func errNullValueInArray() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrNullValueInArray,
+		Message: errMsgNullValueInArray,
+	}
+}
+
+func errNullValueInMap() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrNullValueInMap,
+		Message: errMsgNullValueInMap,
 	}
 }

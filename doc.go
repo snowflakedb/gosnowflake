@@ -503,6 +503,15 @@ Additionally, `sf` tag can be added:
 See StructuredObject for all available operations including null support, embedding nested structs, etc.
 
 Retrieving array of simple types works exactly the same like normal values - using Scan function.
+
+You can use WithMapValuesNullable and WithArrayValuesNullable contexts to handle null values in, respectively, maps
+and arrays of simple types in the database. In that case, sql null types will be used:
+
+	ctx := WithArrayValuesNullable(WithStructuredTypesEnabled(context.Background))
+	...
+	var res []sql.NullBool
+	err := rows.Scan(&res)
+
 If you want to scan array of structs, you have to use a helper function ScanArrayOfScanners:
 
 	var res []*simpleObject

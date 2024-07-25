@@ -34,6 +34,7 @@ const (
 	queryTag                         contextKey = "QUERY_TAG"
 	enableStructuredTypes            contextKey = "ENABLE_STRUCTURED_TYPES"
 	mapValuesNullable                contextKey = "MAP_VALUES_NULLABLE"
+	arrayValuesNullable              contextKey = "ARRAY_VALUES_NULLABLE"
 )
 
 const (
@@ -158,6 +159,12 @@ func WithStructuredTypesEnabled(ctx context.Context) context.Context {
 // Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
 func WithMapValuesNullable(ctx context.Context) context.Context {
 	return context.WithValue(ctx, mapValuesNullable, true)
+}
+
+// WithArrayValuesNullable changes how array values are returned.
+// Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
+func WithArrayValuesNullable(ctx context.Context) context.Context {
+	return context.WithValue(ctx, arrayValuesNullable, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
