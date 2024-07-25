@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 )
@@ -75,14 +74,6 @@ func skipRegisteration() bool {
 var logger = CreateDefaultLogger()
 
 func init() {
-	if runtime.GOOS == "linux" {
-		// TODO: delete this once we replaced 99designs/keyring (SNOW-1017659) and/or keyring#103 is resolved
-		leak, logMsg := canDbusLeakProcesses()
-		if leak {
-			// 99designs/keyring#103 -> gosnowflake#773
-			logger.Warn(logMsg)
-		}
-	}
 	if !skipRegisteration() {
 		sql.Register("snowflake", &SnowflakeDriver{})
 	}
