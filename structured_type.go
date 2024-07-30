@@ -1160,11 +1160,21 @@ func optionEnabled(ctx context.Context, option contextKey) bool {
 }
 
 func structuredTypesEnabled(ctx context.Context) bool {
-	return optionEnabled(ctx, enableStructuredTypes)
+	v := ctx.Value(enableStructuredTypes)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
 }
 
 func mapValuesNullableEnabled(ctx context.Context) bool {
-	return optionEnabled(ctx, mapValuesNullable)
+	v := ctx.Value(mapValuesNullable)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
 }
 
 func arrayValuesNullableEnabled(ctx context.Context) bool {
