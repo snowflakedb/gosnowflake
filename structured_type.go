@@ -1150,8 +1150,8 @@ func (st *structuredType) fieldMetadataByFieldName(fieldName string) (fieldMetad
 	return fieldMetadata{}, errors.New("no metadata for field " + fieldName)
 }
 
-func optionEnabled(ctx *context.Context, option contextKey) bool {
-	v := (*ctx).Value(option)
+func structuredTypesEnabled(ctx context.Context) bool {
+	v := ctx.Value(enableStructuredTypes)
 	if v == nil {
 		return false
 	}
@@ -1159,16 +1159,22 @@ func optionEnabled(ctx *context.Context, option contextKey) bool {
 	return ok && d
 }
 
-func structuredTypesEnabled(ctx context.Context) bool {
-	return optionEnabled(&ctx, arrayValuesNullable)
-}
-
 func mapValuesNullableEnabled(ctx context.Context) bool {
-	return optionEnabled(&ctx, mapValuesNullable)
+	v := ctx.Value(mapValuesNullable)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
 }
 
 func arrayValuesNullableEnabled(ctx context.Context) bool {
-	return optionEnabled(&ctx, arrayValuesNullable)
+	v := ctx.Value(arrayValuesNullable)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
 }
 
 func getSfFieldName(field reflect.StructField) string {
