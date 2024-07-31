@@ -1757,7 +1757,6 @@ func TestArraysWithNullValues(t *testing.T) {
 				} else {
 					assertDeepEqualE(t, tc.actual, tc.expected)
 				}
-				fmt.Printf("%v", reflect.TypeOf(tc.actual))
 			})
 		}
 	})
