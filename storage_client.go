@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path"
@@ -218,17 +219,30 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 						return err
 					}
 				}
-				tmpDstFileName, err := decryptFile(header.encryptionMetadata,
-					meta.encryptionMaterial, fullDstFileName, 0, meta.tmpDir)
-				if err != nil {
-					return err
+				if meta.options.getFileToStream {
+					decyptedStream, err := decryptStream(header.encryptionMetadata,
+						meta.encryptionMaterial, meta.dstStream, 0)
+					if err != nil {
+						return err
+					}
+					io.Copy(*meta.sfa.streamBuffer, bytes.NewBuffer(decyptedStream))
+					meta.dstFileSize = int64(len(decyptedStream))
+				} else {
+					tmpDstFileName, err := decryptFile(header.encryptionMetadata,
+						meta.encryptionMaterial, fullDstFileName, 0, meta.tmpDir)
+					if err != nil {
+						return err
+					}
+					if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
+						return err
+					}
 				}
-				if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
-					return err
-				}
+
 			}
-			if fi, err := os.Stat(fullDstFileName); err == nil {
-				meta.dstFileSize = fi.Size()
+			if !meta.options.getFileToStream {
+				if fi, err := os.Stat(fullDstFileName); err == nil {
+					meta.dstFileSize = fi.Size()
+				}
 			}
 			return nil
 		}

@@ -190,46 +190,56 @@ func encryptFile(
 	return meta, tmpOutputFile.Name(), nil
 }
 
-func decryptFile(
+func decryptMetadata(
 	metadata *encryptMetadata,
 	sfe *snowflakeFileEncryption,
-	filename string,
-	chunkSize int,
-	tmpDir string) (
-	string, error) {
+	chunkSize int) (int, cipher.BlockMode, error) {
 	if chunkSize == 0 {
 		chunkSize = aes.BlockSize * 4 * 1024
 	}
 	decodedKey, err := base64.StdEncoding.DecodeString(sfe.QueryStageMasterKey)
 	if err != nil {
-		return "", err
+		return 0, nil, err
 	}
 	keyBytes, err := base64.StdEncoding.DecodeString(metadata.key) // encrypted file key
 	if err != nil {
-		return "", err
+		return 0, nil, err
 	}
 	ivBytes, err := base64.StdEncoding.DecodeString(metadata.iv)
 	if err != nil {
-		return "", err
+		return 0, nil, err
 	}
 
 	// decrypt file key
 	decryptedKey := make([]byte, len(keyBytes))
 	if err = decryptECB(decryptedKey, keyBytes, decodedKey); err != nil {
-		return "", err
+		return 0, nil, err
 	}
 	decryptedKey, err = paddingTrim(decryptedKey)
 	if err != nil {
-		return "", err
+		return 0, nil, err
 	}
 
 	// decrypt file
 	block, err := aes.NewCipher(decryptedKey)
 	if err != nil {
-		return "", err
+		return 0, nil, err
 	}
 	mode := cipher.NewCBCDecrypter(block, ivBytes)
 
+	return chunkSize, mode, err
+}
+
+func decryptFile(
+	metadata *encryptMetadata,
+	sfe *snowflakeFileEncryption,
+	filename string,
+	chunkSize int,
+	tmpDir string) (string, error) {
+	chunkSize, mode, err := decryptMetadata(metadata, sfe, chunkSize)
+	if err != nil {
+		return "", err
+	}
 	tmpOutputFile, err := os.CreateTemp(tmpDir, baseName(filename)+"#")
 	if err != nil {
 		return "", err
@@ -266,6 +276,46 @@ func decryptFile(
 	}
 	tmpOutputFile.Truncate(int64(totalFileSize))
 	return tmpOutputFile.Name(), nil
+}
+
+func decryptStream(
+	metadata *encryptMetadata,
+	sfe *snowflakeFileEncryption,
+	streamBuf []byte,
+	chunkSize int) ([]byte, error) {
+	chunkSize, mode, err := decryptMetadata(metadata, sfe, chunkSize)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalFileSize int
+	var prevChunk []byte
+	var decryptedStream bytes.Buffer
+	r := bytes.NewReader(streamBuf)
+	for {
+		chunk := make([]byte, chunkSize)
+		n, err := r.Read(chunk)
+		if n == 0 || err != nil {
+			break
+		} else if n%aes.BlockSize != 0 {
+			// add padding to the end of the chunk and update the length n
+			chunk = padBytesLength(chunk[:n], aes.BlockSize)
+			n = len(chunk)
+		}
+		totalFileSize += n
+		chunk = chunk[:n]
+		mode.CryptBlocks(chunk, chunk)
+		decryptedStream.Write(chunk)
+		prevChunk = chunk
+	}
+	if err != nil {
+		return nil, err
+	}
+	if prevChunk != nil {
+		totalFileSize -= paddingOffset(prevChunk)
+	}
+	decryptedStream.Truncate(totalFileSize)
+	return decryptedStream.Bytes(), err
 }
 
 type materialDescriptor struct {

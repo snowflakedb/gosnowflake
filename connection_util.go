@@ -105,6 +105,9 @@ func (sc *snowflakeConn) processFileTransfer(
 	if sfa.options.MultiPartThreshold == 0 {
 		sfa.options.MultiPartThreshold = dataSizeThreshold
 	}
+	if sfa.options.getFileToStream {
+		sfa.streamBuffer = getFileStreamBuffer(ctx)
+	}
 	if err := sfa.execute(); err != nil {
 		return nil, err
 	}
@@ -123,6 +126,15 @@ func getFileStream(ctx context.Context) *bytes.Buffer {
 	}
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r)
+	return buf
+}
+
+func getFileStreamBuffer(ctx context.Context) **bytes.Buffer {
+	s := ctx.Value(fileGetStream)
+	buf, ok := s.(**bytes.Buffer)
+	if !ok {
+		return nil
+	}
 	return buf
 }
 

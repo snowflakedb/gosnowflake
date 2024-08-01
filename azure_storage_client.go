@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -34,6 +35,7 @@ type azureAPI interface {
 	UploadStream(ctx context.Context, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error)
 	UploadFile(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error)
 	DownloadFile(ctx context.Context, file *os.File, o *blob.DownloadFileOptions) (int64, error)
+	DownloadStream(ctx context.Context, o *blob.DownloadStreamOptions) (azblob.DownloadStreamResponse, error)
 	GetProperties(ctx context.Context, o *blob.GetPropertiesOptions) (blob.GetPropertiesResponse, error)
 }
 
@@ -276,16 +278,33 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	if meta.mockAzureClient != nil {
 		blobClient = meta.mockAzureClient
 	}
-	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = blobClient.DownloadFile(
-		context.Background(), f, &azblob.DownloadFileOptions{
-			Concurrency: uint16(maxConcurrency)})
-	if err != nil {
-		return err
+	if meta.options.getFileToStream {
+		blobDownloadResponse, err := blobClient.DownloadStream(context.Background(), &azblob.DownloadStreamOptions{})
+		if err != nil {
+			return err
+		}
+		retryReader := blobDownloadResponse.NewRetryReader(context.TODO(), &azblob.RetryReaderOptions{})
+		defer retryReader.Close()
+		buf := bytes.NewBuffer(meta.dstStream)
+		_, err = buf.ReadFrom(retryReader)
+		if err != nil {
+			return err
+		}
+		if buf != nil {
+			meta.dstStream = buf.Bytes()
+		}
+	} else {
+		f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = blobClient.DownloadFile(
+			context.Background(), f, &azblob.DownloadFileOptions{
+				Concurrency: uint16(maxConcurrency)})
+		if err != nil {
+			return err
+		}
 	}
 	meta.resStatus = downloaded
 	return nil

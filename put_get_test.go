@@ -236,7 +236,7 @@ func TestPutLocalFile(t *testing.T) {
 	})
 }
 
-func TestPutWithAutoCompressFalse(t *testing.T) {
+func TestPutGetWithAutoCompressFalse(t *testing.T) {
 	if runningOnGithubAction() && !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
@@ -246,7 +246,8 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	f.WriteString("test1,test2\ntest3,test4")
+	originalContents := "test1,test2\ntest3,test4"
+	f.WriteString(originalContents)
 	f.Sync()
 	defer f.Close()
 
@@ -255,6 +256,8 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 			t.Skip("snowflake admin account not accessible")
 		}
 		dbt.mustExec("rm @~/test_put_uncompress_file")
+
+		// PUT test
 		sqlText := fmt.Sprintf("put file://%v @~/test_put_uncompress_file auto_compress=FALSE", testData)
 		sqlText = strings.ReplaceAll(sqlText, "\\", "\\\\")
 		dbt.mustExec(sqlText)
@@ -273,6 +276,47 @@ func TestPutWithAutoCompressFalse(t *testing.T) {
 		if strings.Contains(file, "data.txt.gz") {
 			t.Fatalf("should not contain file. got: %v", file)
 		}
+
+		// GET test
+		streamBuf := new(bytes.Buffer)
+		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{getFileToStream: true})
+		ctx = WithFileGetStream(ctx, &streamBuf)
+		sql := fmt.Sprintf("get @~/test_put_uncompress_file/data.txt 'file://%v'", tmpDir)
+		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		rows2 := dbt.mustQueryContext(ctx, sqlText)
+		defer rows2.Close()
+		for rows2.Next() {
+			if err = rows2.Scan(&file, &s1, &s2, &s3); err != nil {
+				t.Error(err)
+			}
+			if !strings.HasPrefix(file, "data.txt") {
+				t.Error("a file was not downloaded by GET")
+			}
+			if v, err := strconv.Atoi(s1); err != nil || v != 23 {
+				t.Error("did not return the right file size")
+			}
+			if s2 != "DOWNLOADED" {
+				t.Error("did not return DOWNLOADED status")
+			}
+			if s3 != "" {
+				t.Errorf("returned %v", s3)
+			}
+		}
+		var contents string
+		r := bytes.NewReader(streamBuf.Bytes())
+		for {
+			c := make([]byte, defaultChunkBufferSize)
+			if n, err := r.Read(c); err != nil {
+				if err == io.EOF {
+					contents = contents + string(c[:n])
+					break
+				}
+				t.Error(err)
+			} else {
+				contents = contents + string(c[:n])
+			}
+		}
+		assertEqualE(t, contents, originalContents)
 	})
 }
 
@@ -436,9 +480,14 @@ func testPutGet(t *testing.T, isStream bool) {
 		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
 			compression='gzip')`, tableName, tableName))
 
+		streamBuf := new(bytes.Buffer)
+		if isStream {
+			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{getFileToStream: true})
+			ctx = WithFileGetStream(ctx, &streamBuf)
+		}
 		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
-		rows2 := dbt.mustQuery(sqlText)
+		rows2 := dbt.mustQueryContext(ctx, sqlText)
 		defer rows2.Close()
 		for rows2.Next() {
 			if err = rows2.Scan(&s0, &s1, &s2, &s3); err != nil {
@@ -458,38 +507,51 @@ func testPutGet(t *testing.T, isStream bool) {
 			}
 		}
 
-		files, err := filepath.Glob(filepath.Join(tmpDir, "data_*"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		fileName := files[0]
-		f, err := os.Open(fileName)
-		if err != nil {
-			t.Error(err)
-		}
-		defer f.Close()
-		gz, err := gzip.NewReader(f)
-		if err != nil {
-			t.Error(err)
-		}
-		defer gz.Close()
 		var contents string
-		for {
-			c := make([]byte, defaultChunkBufferSize)
-			if n, err := gz.Read(c); err != nil {
-				if err == io.EOF {
+		if isStream {
+			gz, err := gzip.NewReader(streamBuf)
+			assertNilE(t, err)
+			defer gz.Close()
+			for {
+				c := make([]byte, defaultChunkBufferSize)
+				if n, err := gz.Read(c); err != nil {
+					if err == io.EOF {
+						contents = contents + string(c[:n])
+						break
+					}
+					t.Error(err)
+				} else {
 					contents = contents + string(c[:n])
-					break
 				}
-				t.Error(err)
-			} else {
-				contents = contents + string(c[:n])
+			}
+		} else {
+			files, err := filepath.Glob(filepath.Join(tmpDir, "data_*"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			fileName := files[0]
+			f, err := os.Open(fileName)
+			assertNilE(t, err)
+			defer f.Close()
+
+			gz, err := gzip.NewReader(f)
+			assertNilE(t, err)
+			defer gz.Close()
+
+			for {
+				c := make([]byte, defaultChunkBufferSize)
+				if n, err := gz.Read(c); err != nil {
+					if err == io.EOF {
+						contents = contents + string(c[:n])
+						break
+					}
+					t.Error(err)
+				} else {
+					contents = contents + string(c[:n])
+				}
 			}
 		}
-
-		if contents != originalContents {
-			t.Error("output is different from the original file")
-		}
+		assertEqualE(t, contents, originalContents, "output is different from the original contents")
 	})
 }
 func TestPutGetGcsDownscopedCredential(t *testing.T) {

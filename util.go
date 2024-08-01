@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"fmt"
@@ -25,6 +26,7 @@ const (
 	snowflakeRequestIDKey            contextKey = "SNOWFLAKE_REQUEST_ID"
 	fetchResultByID                  contextKey = "SF_FETCH_RESULT_BY_ID"
 	fileStreamFile                   contextKey = "STREAMING_PUT_FILE"
+	fileGetStream                    contextKey = "STREAMING_GET_FILE"
 	fileTransferOptions              contextKey = "FILE_TRANSFER_OPTIONS"
 	enableHigherPrecision            contextKey = "ENABLE_HIGHER_PRECISION"
 	enableArrowBatchesUtf8Validation contextKey = "ENABLE_ARROW_BATCHES_UTF8_VALIDATION"
@@ -80,6 +82,11 @@ func WithFetchResultByID(ctx context.Context, queryID string) context.Context {
 // WithFileStream returns a context that contains the address of the file stream to be PUT
 func WithFileStream(ctx context.Context, reader io.Reader) context.Context {
 	return context.WithValue(ctx, fileStreamFile, reader)
+}
+
+// WithFileGetStream returns a context that contains the buffer to be stored with the file stream
+func WithFileGetStream(ctx context.Context, streamBuffer **bytes.Buffer) context.Context {
+	return context.WithValue(ctx, fileGetStream, streamBuffer)
 }
 
 // WithFileTransferOptions returns a context that contains the address of file transfer options
