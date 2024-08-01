@@ -420,6 +420,44 @@ data types. The columns are:
 
 Note: SQL NULL values are converted to Golang nil values, and vice-versa.
 
+# Arrow batches
+
+When working with the arrow columnar format in go driver, ArrowBatch structs are used. These are structs
+corresponding 1:1 to data chunks received from the backend. They allow for access to specific arrow.Record structs.
+In normal circumstances arrow batches are transparent to the user and only act as collections of rows.
+
+An ArrowBatch can exist in a state were the underlying data has not yet been loaded. The data is downloaded and
+translated only as it is required. Translation options are retrieved from a context.Context interface, which is either
+passed from session or set by the user using WithContext(ctx) method.
+
+The motivation for exposing arrow batches to the user is to allow for simpler and more efficient access to
+columnar data, without the need for translating all the rows and iterating over them.
+
+The user can access ArrowBatch structs by using the GetArrowBatches() method:
+
+	batches, _ := rows.(sf.SnowflakeRows).GetArrowBatches()
+
+This returns []*ArrowBatch.
+
+ArrowBatch methods:
+
+GetRowCount():
+Returns the number of rows in the ArrowBatch. Note that this returns 0 if the data has not yet been loaded,
+irrespective of it’s actual size.
+
+WitchContext(ctx context.Context):
+Sets the context of the ArrowBatch to the one provided. Note that the context will not retroactively apply to data
+that has already been downloaded. For example:
+
+	records1, _ := batch.Fetch()
+	records2, _ := batch.WithContext(ctx).Fetch()
+
+will produce the same result in records1 and records2, irrespective of the newly provided ctx.
+
+Fetch():
+Returns the underlying records as *[]arrow.Record. When this function is called, the ArrowBatch checks whether
+the underlying data has already been loaded, and downloads it if not.
+
 # Semistructured and structured types
 
 Snowflake supports two flavours of "structured data" - semistructured and structured.
