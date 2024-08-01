@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bufio"
 	"compress/gzip"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"math/rand"
@@ -24,7 +25,7 @@ type encryptDecryptTestFile struct {
 	numberOfLines          int
 }
 
-func TestEncryptDecryptFile(t *testing.T) {
+func TestEncryptDecryptFileCBC(t *testing.T) {
 	encMat := snowflakeFileEncryption{
 		"ztke8tIdVt1zmlQIZm0BMA==",
 		"123873c7-3a66-40c4-ab89-e3722fbccce1",
@@ -43,12 +44,12 @@ func TestEncryptDecryptFile(t *testing.T) {
 		t.Error(err)
 	}
 
-	metadata, encryptedFile, err := encryptFile(&encMat, inputFile, 0, "")
+	metadata, encryptedFile, err := encryptFileCBC(&encMat, inputFile, 0, "")
 	if err != nil {
 		t.Error(err)
 	}
 	defer os.Remove(encryptedFile)
-	decryptedFile, err := decryptFile(metadata, &encMat, encryptedFile, 0, "")
+	decryptedFile, err := decryptFileCBC(metadata, &encMat, encryptedFile, 0, "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -101,7 +102,7 @@ func TestEncryptDecryptFilePadding(t *testing.T) {
 	}
 }
 
-func TestEncryptDecryptLargeFile(t *testing.T) {
+func TestEncryptDecryptLargeFileCBC(t *testing.T) {
 	encMat := snowflakeFileEncryption{
 		"ztke8tIdVt1zmlQIZm0BMA==",
 		"123873c7-3a66-40c4-ab89-e3722fbccce1",
@@ -125,12 +126,12 @@ func encryptDecryptFile(t *testing.T, encMat snowflakeFileEncryption, expected i
 	}
 	inputFile := files[0]
 
-	metadata, encryptedFile, err := encryptFile(&encMat, inputFile, 0, tmpDir)
+	metadata, encryptedFile, err := encryptFileCBC(&encMat, inputFile, 0, tmpDir)
 	if err != nil {
 		t.Error(err)
 	}
 	defer os.Remove(encryptedFile)
-	decryptedFile, err := decryptFile(metadata, &encMat, encryptedFile, 0, tmpDir)
+	decryptedFile, err := decryptFileCBC(metadata, &encMat, encryptedFile, 0, tmpDir)
 	if err != nil {
 		t.Error(err)
 	}
@@ -235,4 +236,41 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 		}
 	}
 	return tmpDir, nil
+}
+
+func TestEncryptDecryptGCM(t *testing.T) {
+	input := []byte("abc")
+	iv := []byte("abcdef1234567890")  // pragma: allowlist secret
+	key := []byte("1234567890abcdef") // pragma: allowlist secret
+	encrypted, err := encryptGCM(iv, input, key, nil)
+	assertNilF(t, err)
+	assertEqualE(t, base64.StdEncoding.EncodeToString(encrypted), "pgs/wjNH2TYekmN7mbhFjeHH0A==")
+
+	decrypted, err := decryptGCM(iv, encrypted, key, nil)
+	assertNilF(t, err)
+	assertDeepEqualE(t, decrypted, input)
+}
+
+func TestEncryptDecryptFileGCM(t *testing.T) {
+	tmpDir := os.TempDir()
+	tempFile, err := os.CreateTemp(tmpDir, "gcm")
+	assertNilF(t, err)
+	_, err = tempFile.Write([]byte("abc"))
+	assertNilF(t, err)
+
+	sfe := &snowflakeFileEncryption{
+		QueryStageMasterKey: "YWJjZGVmMTIzNDU2Nzg5MA==",
+		QueryID:             "unused",
+		SMKID:               123,
+	}
+	meta, encryptedFileName, err := encryptFileGCM(sfe, tempFile.Name(), tmpDir)
+	assertNilF(t, err)
+
+	decryptedFileName, err := decryptFileGCM(meta, sfe, encryptedFileName, tmpDir)
+	assertNilF(t, err)
+
+	fileContent, err := os.ReadFile(decryptedFileName)
+	assertNilF(t, err)
+
+	assertEqualE(t, string(fileContent), "abc")
 }
