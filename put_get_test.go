@@ -674,14 +674,14 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 	})
 }
 
-func TestPutLargeFile(t *testing.T) {
+func TestPutGetLargeFile(t *testing.T) {
 	sourceDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assertNilF(t, err)
 
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("rm @~/test_put_largefile")
+
+		// PUT test
 		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @%v", sourceDir, "~/test_put_largefile")
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
 		dbt.mustExec(sqlText)
@@ -690,15 +690,59 @@ func TestPutLargeFile(t *testing.T) {
 		defer rows.Close()
 		var file, s1, s2, s3 string
 		if rows.Next() {
-			if err := rows.Scan(&file, &s1, &s2, &s3); err != nil {
-				t.Fatal(err)
-			}
+			rows.Scan(&file, &s1, &s2, &s3)
+			assertNilF(t, err)
 		}
 
 		if !strings.Contains(file, "largefile.txt.gz") {
 			t.Fatalf("should contain file. got: %v", file)
 		}
 
+		// GET test with stream
+		streamBuf := new(bytes.Buffer)
+		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{getFileToStream: true})
+		ctx = WithFileGetStream(ctx, &streamBuf)
+		sql := fmt.Sprintf("get @%v 'file://%v'", "~/test_put_largefile/largefile.txt.gz", t.TempDir())
+		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		rows2 := dbt.mustQueryContext(ctx, sqlText)
+		defer rows2.Close()
+		for rows2.Next() {
+			err = rows2.Scan(&file, &s1, &s2, &s3)
+			assertNilE(t, err)
+			assertTrueE(t, strings.HasPrefix(file, "largefile.txt.gz"), "a file was not downloaded by GET")
+			v, err := strconv.Atoi(s1)
+			assertNilE(t, err)
+			assertEqualE(t, v, 424821, "did not return the right file size")
+			assertEqualE(t, s2, "DOWNLOADED", "did not return DOWNLOADED status")
+			assertEqualE(t, s3, "")
+		}
+
+		// convert the compressed stream to string
+		var contents string
+		gz, err := gzip.NewReader(streamBuf)
+		assertNilE(t, err)
+		defer gz.Close()
+		for {
+			c := make([]byte, defaultChunkBufferSize)
+			if n, err := gz.Read(c); err != nil {
+				if err == io.EOF {
+					contents = contents + string(c[:n])
+					break
+				}
+				t.Error(err)
+			} else {
+				contents = contents + string(c[:n])
+			}
+		}
+
+		// verify the downloaded stream with the original file
+		fname := filepath.Join(sourceDir, "/test_data/largefile.txt")
+		f, err := os.Open(fname)
+		assertNilE(t, err)
+		defer f.Close()
+		originalContents, err := io.ReadAll(f)
+		assertNilE(t, err)
+		assertEqualF(t, contents, string(originalContents), "data did not match content")
 	})
 }
 
