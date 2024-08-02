@@ -657,13 +657,13 @@ In order to access them you must use `WithArrowBatches` context, similar to the 
 
 This returns []*ArrowBatch.
 
-ArrowBatch methods:
+ArrowBatch functions:
 
 GetRowCount():
 Returns the number of rows in the ArrowBatch. Note that this returns 0 if the data has not yet been loaded,
 irrespective of it’s actual size.
 
-WitchContext(ctx context.Context):
+WithContext(ctx context.Context):
 Sets the context of the ArrowBatch to the one provided. Note that the context will not retroactively apply to data
 that has already been downloaded. For example:
 
