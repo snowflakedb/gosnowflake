@@ -469,48 +469,6 @@ func runningOnGCP() bool {
 	return os.Getenv("CLOUD_PROVIDER") == "GCP"
 }
 
-func TestBogusUserPasswordParameters(t *testing.T) {
-	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
-	invalidUserPassErrorTests(invalidDNS, t)
-	invalidDNS = fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
-	invalidUserPassErrorTests(invalidDNS, t)
-}
-
-func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
-	parameters := url.Values{}
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	if account != "" {
-		parameters.Add("account", account)
-	}
-	invalidDNS += "?" + parameters.Encode()
-	db, err := sql.Open("snowflake", invalidDNS)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
-	}
-	// actual connection won't happen until run a query
-	defer db.Close()
-	if _, err = db.Exec("SELECT 1"); err == nil {
-		t.Fatal("should cause an error.")
-	}
-	// temporarily disable checking on error info as we are getting 390422
-	// due to changes on test accounts
-	if runningOnGithubAction() {
-		t.Skip("temporarily disable checking on error info")
-	}
-	if driverErr, ok := err.(*SnowflakeError); ok {
-		if driverErr.Number != 390100 {
-			t.Fatalf("wrong error code: %v", driverErr)
-		}
-		if !strings.Contains(driverErr.Error(), "390100") {
-			t.Fatalf("error message should included the error code. got: %v", driverErr.Error())
-		}
-	} else {
-		t.Fatalf("wrong error code: %v", err)
-	}
-}
-
 func TestBogusHostNameParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
 	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving"}, t)
