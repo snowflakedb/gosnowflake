@@ -633,8 +633,15 @@ of the returned value:
 
 # Arrow batches
 
-You can retrieve data in a columnar format similar to the format a server returns.
-You must use `WithArrowBatches` context, similar to the following:
+You can retrieve data in a columnar format similar to the format a server returns, without transposing them to rows.
+When working with the arrow columnar format in go driver, ArrowBatch structs are used. These are structs
+mostly corresponding to data chunks received from the backend. They allow for access to specific arrow.Record structs.
+
+An ArrowBatch can exist in a state where the underlying data has not yet been loaded. The data is downloaded and
+translated only on demand. Translation options are retrieved from a context.Context interface, which is either
+passed from query context or set by the user using WithContext(ctx) method.
+
+In order to access them you must use `WithArrowBatches` context, similar to the following:
 
 	    var rows driver.Rows
 		err = conn.Raw(func(x interface{}) error {
@@ -647,6 +654,31 @@ You must use `WithArrowBatches` context, similar to the following:
 		batches, err := rows.(sf.SnowflakeRows).GetArrowBatches()
 
 		... // use Arrow records
+
+This returns []*ArrowBatch.
+
+ArrowBatch functions:
+
+GetRowCount():
+Returns the number of rows in the ArrowBatch. Note that this returns 0 if the data has not yet been loaded,
+irrespective of it’s actual size.
+
+WithContext(ctx context.Context):
+Sets the context of the ArrowBatch to the one provided. Note that the context will not retroactively apply to data
+that has already been downloaded. For example:
+
+	records1, _ := batch.Fetch()
+	records2, _ := batch.WithContext(ctx).Fetch()
+
+will produce the same result in records1 and records2, irrespective of the newly provided ctx. Context worth noting are:
+-WithArrowBatchesTimestampOption
+-WithHigherPrecision
+-WithArrowBatchesUtf8Validation
+described in more detail later.
+
+Fetch():
+Returns the underlying records as *[]arrow.Record. When this function is called, the ArrowBatch checks whether
+the underlying data has already been loaded, and downloads it if not.
 
 Limitations:
 
