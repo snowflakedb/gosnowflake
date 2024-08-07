@@ -190,7 +190,7 @@ func encryptFile(
 	return meta, tmpOutputFile.Name(), nil
 }
 
-func decryptMetadata(
+func decryptFileKey(
 	metadata *encryptMetadata,
 	sfe *snowflakeFileEncryption,
 	chunkSize int) (int, cipher.BlockMode, error) {
@@ -236,7 +236,7 @@ func decryptFile(
 	filename string,
 	chunkSize int,
 	tmpDir string) (string, error) {
-	chunkSize, mode, err := decryptMetadata(metadata, sfe, chunkSize)
+	chunkSize, mode, err := decryptFileKey(metadata, sfe, chunkSize)
 	if err != nil {
 		return "", err
 	}
@@ -281,9 +281,9 @@ func decryptFile(
 func decryptStream(
 	metadata *encryptMetadata,
 	sfe *snowflakeFileEncryption,
-	streamBuf []byte,
+	streamBuf *bytes.Buffer,
 	chunkSize int) ([]byte, error) {
-	chunkSize, mode, err := decryptMetadata(metadata, sfe, chunkSize)
+	chunkSize, mode, err := decryptFileKey(metadata, sfe, chunkSize)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func decryptStream(
 	var totalFileSize int
 	var prevChunk []byte
 	var decryptedStream bytes.Buffer
-	r := bytes.NewReader(streamBuf)
+	r := bytes.NewReader(streamBuf.Bytes())
 	for {
 		chunk := make([]byte, chunkSize)
 		n, err := r.Read(chunk)

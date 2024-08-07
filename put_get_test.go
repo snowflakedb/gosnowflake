@@ -237,9 +237,6 @@ func TestPutLocalFile(t *testing.T) {
 }
 
 func TestPutGetWithAutoCompressFalse(t *testing.T) {
-	if runningOnGithubAction() && !runningOnAWS() {
-		t.Skip("skipping non aws environment")
-	}
 	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(testData)
@@ -252,9 +249,6 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 	defer f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
-		if _, err = dbt.exec("use role sysadmin"); err != nil {
-			t.Skip("snowflake admin account not accessible")
-		}
 		dbt.mustExec("rm @~/test_put_uncompress_file")
 
 		// PUT test
@@ -266,19 +260,14 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 		defer rows.Close()
 		var file, s1, s2, s3 string
 		if rows.Next() {
-			if err := rows.Scan(&file, &s1, &s2, &s3); err != nil {
-				t.Fatal(err)
-			}
+			err = rows.Scan(&file, &s1, &s2, &s3)
+			assertNilE(t, err)
 		}
-		if !strings.Contains(file, "test_put_uncompress_file/data.txt") {
-			t.Fatalf("should contain file. got: %v", file)
-		}
-		if strings.Contains(file, "data.txt.gz") {
-			t.Fatalf("should not contain file. got: %v", file)
-		}
+		assertTrueF(t, strings.Contains(file, "test_put_uncompress_file/data.txt"), fmt.Sprintf("should contain file. got: %v", file))
+		assertFalseF(t, strings.Contains(file, "data.txt.gz"), fmt.Sprintf("should not contain file. got: %v", file))
 
 		// GET test
-		streamBuf := new(bytes.Buffer)
+		var streamBuf bytes.Buffer
 		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{getFileToStream: true})
 		ctx = WithFileGetStream(ctx, &streamBuf)
 		sql := fmt.Sprintf("get @~/test_put_uncompress_file/data.txt 'file://%v'", tmpDir)
@@ -286,21 +275,14 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
 		defer rows2.Close()
 		for rows2.Next() {
-			if err = rows2.Scan(&file, &s1, &s2, &s3); err != nil {
-				t.Error(err)
-			}
-			if !strings.HasPrefix(file, "data.txt") {
-				t.Error("a file was not downloaded by GET")
-			}
-			if v, err := strconv.Atoi(s1); err != nil || v != 23 {
-				t.Error("did not return the right file size")
-			}
-			if s2 != "DOWNLOADED" {
-				t.Error("did not return DOWNLOADED status")
-			}
-			if s3 != "" {
-				t.Errorf("returned %v", s3)
-			}
+			err = rows2.Scan(&file, &s1, &s2, &s3)
+			assertNilE(t, err)
+			assertTrueE(t, strings.HasPrefix(file, "data.txt"), "a file was not downloaded by GET")
+			v, err := strconv.Atoi(s1)
+			assertNilE(t, err)
+			assertEqualE(t, v, 23, "did not return the right file size")
+			assertEqualE(t, s2, "DOWNLOADED", "did not return DOWNLOADED status")
+			assertEqualE(t, s3, "")
 		}
 		var contents string
 		r := bytes.NewReader(streamBuf.Bytes())
@@ -480,7 +462,7 @@ func testPutGet(t *testing.T, isStream bool) {
 		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
 			compression='gzip')`, tableName, tableName))
 
-		streamBuf := new(bytes.Buffer)
+		var streamBuf bytes.Buffer
 		if isStream {
 			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{getFileToStream: true})
 			ctx = WithFileGetStream(ctx, &streamBuf)
@@ -509,7 +491,7 @@ func testPutGet(t *testing.T, isStream bool) {
 
 		var contents string
 		if isStream {
-			gz, err := gzip.NewReader(streamBuf)
+			gz, err := gzip.NewReader(&streamBuf)
 			assertNilE(t, err)
 			defer gz.Close()
 			for {
@@ -699,7 +681,7 @@ func TestPutGetLargeFile(t *testing.T) {
 		}
 
 		// GET test with stream
-		streamBuf := new(bytes.Buffer)
+		var streamBuf bytes.Buffer
 		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{getFileToStream: true})
 		ctx = WithFileGetStream(ctx, &streamBuf)
 		sql := fmt.Sprintf("get @%v 'file://%v'", "~/test_put_largefile/largefile.txt.gz", t.TempDir())
@@ -719,7 +701,7 @@ func TestPutGetLargeFile(t *testing.T) {
 
 		// convert the compressed stream to string
 		var contents string
-		gz, err := gzip.NewReader(streamBuf)
+		gz, err := gzip.NewReader(&streamBuf)
 		assertNilE(t, err)
 		defer gz.Close()
 		for {

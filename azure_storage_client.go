@@ -3,7 +3,6 @@
 package gosnowflake
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -283,15 +282,11 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 		if err != nil {
 			return err
 		}
-		retryReader := blobDownloadResponse.NewRetryReader(context.TODO(), &azblob.RetryReaderOptions{})
+		retryReader := blobDownloadResponse.NewRetryReader(context.Background(), &azblob.RetryReaderOptions{})
 		defer retryReader.Close()
-		buf := bytes.NewBuffer(meta.dstStream)
-		_, err = buf.ReadFrom(retryReader)
+		_, err = meta.dstStream.ReadFrom(retryReader)
 		if err != nil {
 			return err
-		}
-		if buf != nil {
-			meta.dstStream = buf.Bytes()
 		}
 	} else {
 		f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)

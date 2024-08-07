@@ -1224,14 +1224,14 @@ an absolute path rather than a relative path. For example:
 
 To download a file into an in-memory stream (rather than a file) use code similar to the code below.
 
-	streamBuf := new(bytes.Buffer)
+	var streamBuf bytes.Buffer
 	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{getFileToStream: true})
 	ctx = WithFileGetStream(ctx, &streamBuf)
 
 	sql := "get @~/data1.txt.gz file:///tmp/testData"
 	dbt.mustExecContext(ctx, sql)
-	// streamBuf is now filled with the stream. Use bytes.NewReader(streamBuf) to read uncompressed stream or
-	// use gzip.NewReader(streamBuf) for to read compressed stream.
+	// streamBuf is now filled with the stream. Use bytes.NewReader(streamBuf.Bytes()) to read uncompressed stream or
+	// use gzip.NewReader(&streamBuf) for to read compressed stream.
 
 Note: GET statements are not supported for multi-statement queries.
 

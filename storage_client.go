@@ -5,7 +5,6 @@ package gosnowflake
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"path"
@@ -225,7 +224,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 					if err != nil {
 						return err
 					}
-					io.Copy(*meta.sfa.streamBuffer, bytes.NewBuffer(decyptedStream))
+					meta.sfa.streamBuffer.Write(decyptedStream)
 					meta.dstFileSize = int64(len(decyptedStream))
 				} else {
 					tmpDstFileName, err := decryptFile(header.encryptionMetadata,

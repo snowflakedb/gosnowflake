@@ -3,7 +3,6 @@
 package gosnowflake
 
 import (
-	"bytes"
 	"context"
 	"database/sql/driver"
 	"fmt"
@@ -84,9 +83,9 @@ func WithFileStream(ctx context.Context, reader io.Reader) context.Context {
 	return context.WithValue(ctx, fileStreamFile, reader)
 }
 
-// WithFileGetStream returns a context that contains the buffer to be stored with the file stream
-func WithFileGetStream(ctx context.Context, streamBuffer **bytes.Buffer) context.Context {
-	return context.WithValue(ctx, fileGetStream, streamBuffer)
+// WithFileGetStream returns a context that contains the address of the file stream to be GET
+func WithFileGetStream(ctx context.Context, writer io.Writer) context.Context {
+	return context.WithValue(ctx, fileGetStream, writer)
 }
 
 // WithFileTransferOptions returns a context that contains the address of file transfer options

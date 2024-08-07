@@ -249,14 +249,12 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 	}
 
 	if meta.options.getFileToStream {
-		buf := manager.NewWriteAtBuffer(meta.dstStream)
+		buf := manager.NewWriteAtBuffer([]byte{})
 		_, err = downloader.Download(context.Background(), buf, &s3.GetObjectInput{
 			Bucket: s3Obj.Bucket,
 			Key:    s3Obj.Key,
 		})
-		if buf != nil {
-			meta.dstStream = buf.Bytes()
-		}
+		meta.dstStream = bytes.NewBuffer(buf.Bytes())
 	} else {
 		_, err = downloader.Download(context.Background(), f, &s3.GetObjectInput{
 			Bucket: s3Obj.Bucket,

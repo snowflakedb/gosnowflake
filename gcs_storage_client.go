@@ -3,7 +3,6 @@
 package gosnowflake
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -324,12 +323,8 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 	}
 
 	if meta.options.getFileToStream {
-		buf := bytes.NewBuffer(meta.dstStream)
-		if _, err := io.Copy(buf, resp.Body); err != nil {
+		if _, err := io.Copy(meta.dstStream, resp.Body); err != nil {
 			return err
-		}
-		if buf != nil {
-			meta.dstStream = buf.Bytes()
 		}
 	} else {
 		f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
