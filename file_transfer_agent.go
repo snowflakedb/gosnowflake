@@ -127,7 +127,7 @@ type snowflakeFileTransferAgent struct {
 	useAccelerateEndpoint       bool
 	presignedURLs               []string
 	options                     *SnowflakeFileTransferOptions
-	streamBuffer                io.Writer
+	streamBuffer                *bytes.Buffer
 }
 
 func (sfa *snowflakeFileTransferAgent) execute() error {

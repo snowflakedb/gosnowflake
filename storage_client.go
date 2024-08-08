@@ -219,13 +219,13 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 					}
 				}
 				if meta.options.getFileToStream {
-					decyptedStream, err := decryptStream(header.encryptionMetadata,
-						meta.encryptionMaterial, meta.dstStream, 0)
+					totalFileSize, err := decryptStream(header.encryptionMetadata,
+						meta.encryptionMaterial, 0, meta.dstStream, meta.sfa.streamBuffer)
 					if err != nil {
 						return err
 					}
-					meta.sfa.streamBuffer.Write(decyptedStream)
-					meta.dstFileSize = int64(len(decyptedStream))
+					meta.sfa.streamBuffer.Truncate(totalFileSize)
+					meta.dstFileSize = int64(totalFileSize)
 				} else {
 					tmpDstFileName, err := decryptFile(header.encryptionMetadata,
 						meta.encryptionMaterial, fullDstFileName, 0, meta.tmpDir)
