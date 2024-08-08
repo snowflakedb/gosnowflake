@@ -252,7 +252,7 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 		dbt.mustExec("rm @~/test_put_uncompress_file")
 
 		// PUT test
-		sqlText := fmt.Sprintf("put file://%v @~/test_put_uncompress_file auto_compress=FALSE", testData)
+		sqlText := fmt.Sprintf("put 'file://%v' @~/test_put_uncompress_file auto_compress=FALSE", testData)
 		sqlText = strings.ReplaceAll(sqlText, "\\", "\\\\")
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/test_put_uncompress_file")
