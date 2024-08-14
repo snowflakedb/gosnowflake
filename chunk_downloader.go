@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -103,12 +104,13 @@ func (scd *snowflakeChunkDownloader) start() error {
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
 
 	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
+		if scd.sc == nil || scd.sc.cfg == nil {
+			return errors.New("failed to retrieve connection")
+		}
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
 		var err error
 		var loc *time.Location
-		if scd.sc != nil && scd.sc.cfg != nil {
-			loc = getCurrentLocation(scd.sc.cfg.Params)
-		}
+		loc = getCurrentLocation(scd.sc.cfg.Params)
 		firstArrowChunk, err := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 		if err != nil {
 			return err
