@@ -109,8 +109,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 			return err
 		}
 		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
-		var loc *time.Location
-		loc = getCurrentLocation(params)
+		loc := getCurrentLocation(params)
 		firstArrowChunk, err := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 		if err != nil {
 			return err
