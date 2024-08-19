@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"sync"
@@ -773,8 +774,12 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		// use the custom transport
 		st = sc.cfg.Transporter
 	}
-	if err = setupOCSPEnvVars(sc.ctx, sc.cfg.Host); err != nil {
-		return nil, err
+
+	// only set OCSP envs if not already set
+	if _, set := os.LookupEnv(cacheServerURLEnv); !set {
+		if err = setupOCSPEnvVars(sc.ctx, sc.cfg.Host); err != nil {
+			return nil, err
+		}
 	}
 	var tokenAccessor TokenAccessor
 	if sc.cfg.TokenAccessor != nil {
