@@ -325,6 +325,12 @@ func populateChunkDownloader(
 
 func setupOCSPEnvVars(ctx context.Context, host string) error {
 	host = strings.ToLower(host)
+
+	// only set OCSP envs if not already set
+	if val, set := os.LookupEnv(cacheServerURLEnv); set {
+		logger.WithContext(ctx).Debugf("OCSP Cache Server already set by user for %v: %v\n", host, val)
+		return nil
+	}
 	if isPrivateLink(host) {
 		if err := setupOCSPPrivatelink(ctx, host); err != nil {
 			return err
