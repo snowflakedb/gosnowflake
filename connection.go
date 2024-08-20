@@ -65,6 +65,9 @@ const (
 	executionTypeStatement string  = "statement"
 )
 
+// snowflakeConn manages its own context.
+// External cancellation should not be supported because the connection
+// may be reused after the original query/request has completed.
 type snowflakeConn struct {
 	ctx                 context.Context
 	cfg                 *Config
@@ -746,10 +749,12 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 	return
 }
 
+// buildSnowflakeConn creates a new snowflakeConn.
+// The provided context is used only for establishing the initial connection.
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
 		SequenceCounter:     0,
-		ctx:                 ctx,
+		ctx:                 context.Background(),
 		cfg:                 &config,
 		queryContextCache:   (&queryContextCache{}).init(),
 		currentTimeProvider: defaultTimeProvider,
@@ -773,7 +778,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		// use the custom transport
 		st = sc.cfg.Transporter
 	}
-	if err = setupOCSPEnvVars(sc.ctx, sc.cfg.Host); err != nil {
+	if err = setupOCSPEnvVars(ctx, sc.cfg.Host); err != nil {
 		return nil, err
 	}
 	var tokenAccessor TokenAccessor
