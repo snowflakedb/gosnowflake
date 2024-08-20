@@ -273,7 +273,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 
 func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
 	v1 := reflect.Indirect(reflect.ValueOf(v))
-	if v1.IsNil() {
+	if v1.Kind() == reflect.Slice && v1.IsNil() {
 		return bindingValue{nil, "json", nil}, nil
 	}
 	if bd, ok := v.([][]byte); ok && tsmode == binaryType {
