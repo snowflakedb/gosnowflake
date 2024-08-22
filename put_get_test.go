@@ -753,7 +753,7 @@ func TestPutCancel(t *testing.T) {
 	assertNilF(t, err)
 	err = f.Truncate(3e8)
 	assertNilF(t, err)
-	defer f.Close()
+	f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
