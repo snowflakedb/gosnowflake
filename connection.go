@@ -256,6 +256,7 @@ func (sc *snowflakeConn) BeginTx(
 
 func (sc *snowflakeConn) cleanup() {
 	// must flush log buffer while the process is running.
+	logger.WithContext(sc.ctx).Debugln("Snowflake connection closing.")
 	if sc.rest != nil && sc.rest.Client != nil {
 		sc.rest.Client.CloseIdleConnections()
 	}
@@ -671,7 +672,7 @@ type snowflakeArrowStreamChunkDownloader struct {
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
-	if scd.sc != nil {
+	if scd.sc != nil && scd.sc.cfg != nil {
 		return getCurrentLocation(scd.sc.cfg.Params)
 	}
 	return nil
