@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 const createStageStmt = "CREATE OR REPLACE STAGE %v URL = '%v' CREDENTIALS = (%v)"
@@ -745,21 +746,21 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 }
 
 func TestPutCancel(t *testing.T) {
-	// create a 5GB file for upload
+	// create a 300MB file for upload
 	tmpDir := t.TempDir()
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(testData)
 	assertNilF(t, err)
-	err = f.Truncate(5e9)
+	err = f.Truncate(3e8)
 	assertNilF(t, err)
-	f.Close()
+	defer f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
-			// attempt to upload a large file, but it should be canceled in 2 seconds
-			rows, err := dbt.conn.QueryContext(
+			// attempt to upload a large file, but it should be canceled in 3 seconds
+			_, err := dbt.conn.ExecContext(
 				ctx,
 				fmt.Sprintf("put 'file://%v' @~/test_put_cancel overwrite=true",
 					strings.ReplaceAll(testData, "\\", "/")))
@@ -767,7 +768,6 @@ func TestPutCancel(t *testing.T) {
 				c <- err
 				return
 			}
-			defer rows.Close()
 			c <- nil
 		}()
 		// cancel after 3 seconds
@@ -775,9 +775,8 @@ func TestPutCancel(t *testing.T) {
 		fmt.Println("Canceled")
 		cancel()
 		ret := <-c
-		if ret.Error() != "context canceled" {
-			t.Fatalf("failed to cancel. err: %v", ret)
-		}
+		assertNotNilF(t, ret)
+		assertStringContainsF(t, ret.Error(), "context canceled", "failed to cancel.")
 		close(c)
 	})
 }

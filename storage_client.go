@@ -134,7 +134,6 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 }
 
 func (rsu *remoteStorageUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
-	fmt.Println("DEBUG: storage_client.uploadOneFileWithRetry()")
 	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType)
 	retryOuter := true
 	for i := 0; i < 10; i++ {

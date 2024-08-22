@@ -7,7 +7,6 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -25,7 +24,6 @@ const (
 )
 
 func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.Buffer) (*bytes.Buffer, int, error) {
-	fmt.Println("DEBUG: file_util.compressFileWithGzipFromStream()")
 	r := getReaderFromBuffer(srcStream)
 	buf, err := io.ReadAll(r)
 	if err != nil {
@@ -39,7 +37,6 @@ func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.
 }
 
 func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir string) (string, int64, error) {
-	fmt.Println("DEBUG: file_util.compressFileWithGzip()")
 	basename := baseName(fileName)
 	gzipFileName := filepath.Join(tmpDir, basename+"_c.gz")
 
@@ -64,7 +61,6 @@ func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir stri
 }
 
 func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64, error) {
-	fmt.Println("DEBUG: file_util.getDigestAndSizeForStream()")
 	m := sha256.New()
 	r := getReaderFromBuffer(stream)
 	chunk := make([]byte, fileChunkSize)
@@ -82,7 +78,6 @@ func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) 
 }
 
 func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (string, int64, error) {
-	fmt.Println("DEBUG: file_util.getDigestAndSizeForFile()")
 	f, err := os.Open(fileName)
 	if err != nil {
 		return "", 0, err
