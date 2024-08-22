@@ -15,20 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 const createStageStmt = "CREATE OR REPLACE STAGE %v URL = '%v' CREDENTIALS = (%v)"
-
-func randomString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = alpha[rand.Intn(len(alpha))]
-	}
-	return string(b)
-}
 
 func TestPutError(t *testing.T) {
 	if isWindows {
@@ -658,6 +647,13 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 	testCases := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
 
 	runDBTest(t, func(dbt *DBTest) {
+		if maxLOBSize > originSize { // for increased max LOB size
+			_, err := dbt.exec("alter session set ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN = true")
+			if err != nil {
+				dbt.Errorf("Unable to set ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN parameter for increased max LOB size")
+			}
+			defer dbt.mustExec("alter session unset ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN")
+		}
 		for _, tc := range testCases {
 			// create the data file
 			tmpDir := t.TempDir()

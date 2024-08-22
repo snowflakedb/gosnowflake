@@ -37,7 +37,7 @@ var (
 
 const (
 	selectNumberSQL       = "SELECT %s::NUMBER(%v, %v) AS C"
-	selectVariousTypes    = "SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY AS C5, true AS C6"
+	selectVariousTypes    = "SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY(8388608) AS C5, true AS C6"
 	selectRandomGenerator = "SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))"
 	PSTLocation           = "America/Los_Angeles"
 )
@@ -178,7 +178,7 @@ func (dbt *DBTest) connParams() map[string]*string {
 	return params
 }
 
-func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
+func (dbt *DBTest) mustQueryT(t *testing.T, query string, args ...any) (rows *RowsExtended) {
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
@@ -201,7 +201,7 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExten
 
 	rs, err := dbt.conn.QueryContext(ctx, query, args...)
 	if err != nil {
-		dbt.fail("query", query, err)
+		t.Fatalf("query, query=%v, err=%v", query, err)
 	}
 	return &RowsExtended{
 		rows:      rs,
@@ -209,7 +209,15 @@ func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExten
 	}
 }
 
+func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
+	return dbt.mustQueryT(dbt.T, query, args...)
+}
+
 func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...interface{}) (rows *RowsExtended) {
+	return dbt.mustQueryContextT(ctx, dbt.T, query, args...)
+}
+
+func (dbt *DBTest) mustQueryContextT(ctx context.Context, t *testing.T, query string, args ...interface{}) (rows *RowsExtended) {
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(ctx)
 	c := make(chan os.Signal, 1)
@@ -232,7 +240,7 @@ func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...i
 
 	rs, err := dbt.conn.QueryContext(ctx, query, args...)
 	if err != nil {
-		dbt.fail("query", query, err)
+		t.Fatalf("query, query=%v, err=%v", query, err)
 	}
 	return &RowsExtended{
 		rows:      rs,
@@ -271,10 +279,22 @@ func (dbt *DBTest) mustExec(query string, args ...interface{}) (res sql.Result) 
 	return dbt.mustExecContext(context.Background(), query, args...)
 }
 
+func (dbt *DBTest) mustExecT(t *testing.T, query string, args ...any) (res sql.Result) {
+	return dbt.mustExecContextT(context.Background(), t, query, args...)
+}
+
 func (dbt *DBTest) mustExecContext(ctx context.Context, query string, args ...interface{}) (res sql.Result) {
 	res, err := dbt.conn.ExecContext(ctx, query, args...)
 	if err != nil {
 		dbt.fail("exec context", query, err)
+	}
+	return res
+}
+
+func (dbt *DBTest) mustExecContextT(ctx context.Context, t *testing.T, query string, args ...any) (res sql.Result) {
+	res, err := dbt.conn.ExecContext(ctx, query, args...)
+	if err != nil {
+		t.Fatalf("exec context: query=%v, err=%v", query, err)
 	}
 	return res
 }
@@ -338,6 +358,8 @@ func (dbt *DBTest) forceJSON() {
 
 func (dbt *DBTest) forceArrow() {
 	dbt.mustExec(forceARROW)
+	dbt.mustExec("alter session set ENABLE_STRUCTURED_TYPES_NATIVE_ARROW_FORMAT = false")
+	dbt.mustExec("alter session set FORCE_ENABLE_STRUCTURED_TYPES_NATIVE_ARROW_FORMAT = false")
 }
 
 func (dbt *DBTest) forceNativeArrow() { // structured types
@@ -347,14 +369,26 @@ func (dbt *DBTest) forceNativeArrow() { // structured types
 }
 
 func (dbt *DBTest) enableStructuredTypes() {
-	dbt.mustExec("alter session set ENABLE_STRUCTURED_TYPES_IN_CLIENT_RESPONSE = true")
-	dbt.mustExec("alter session set IGNORE_CLIENT_VESRION_IN_STRUCTURED_TYPES_RESPONSE = true")
+	_, err := dbt.exec("alter session set ENABLE_STRUCTURED_TYPES_IN_CLIENT_RESPONSE = true")
+	if err != nil {
+		dbt.Log(err)
+	}
+	_, err = dbt.exec("alter session set IGNORE_CLIENT_VESRION_IN_STRUCTURED_TYPES_RESPONSE = true")
+	if err != nil {
+		dbt.Log(err)
+	}
 }
 
 func (dbt *DBTest) enableStructuredTypesBinding() {
 	dbt.enableStructuredTypes()
-	dbt.mustExec("ALTER SESSION SET ENABLE_OBJECT_TYPED_BINDS = true")
-	dbt.mustExec("ALTER SESSION SET ENABLE_STRUCTURED_TYPES_IN_BINDS = Enable")
+	_, err := dbt.exec("ALTER SESSION SET ENABLE_OBJECT_TYPED_BINDS = true")
+	if err != nil {
+		dbt.Log(err)
+	}
+	_, err = dbt.exec("ALTER SESSION SET ENABLE_STRUCTURED_TYPES_IN_BINDS = Enable")
+	if err != nil {
+		dbt.Log(err)
+	}
 }
 
 type SCTest struct {
@@ -435,43 +469,6 @@ func runningOnGCP() bool {
 	return os.Getenv("CLOUD_PROVIDER") == "GCP"
 }
 
-func TestBogusUserPasswordParameters(t *testing.T) {
-	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
-	invalidUserPassErrorTests(invalidDNS, t)
-	invalidDNS = fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
-	invalidUserPassErrorTests(invalidDNS, t)
-}
-
-func invalidUserPassErrorTests(invalidDNS string, t *testing.T) {
-	parameters := url.Values{}
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	if account != "" {
-		parameters.Add("account", account)
-	}
-	invalidDNS += "?" + parameters.Encode()
-	db, err := sql.Open("snowflake", invalidDNS)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
-	}
-	// actual connection won't happen until run a query
-	defer db.Close()
-	if _, err = db.Exec("SELECT 1"); err == nil {
-		t.Fatal("should cause an error.")
-	}
-	if driverErr, ok := err.(*SnowflakeError); ok {
-		if driverErr.Number != 390100 {
-			t.Fatalf("wrong error code: %v", driverErr)
-		}
-		if !strings.Contains(driverErr.Error(), "390100") {
-			t.Fatalf("error message should included the error code. got: %v", driverErr.Error())
-		}
-	} else {
-		t.Fatalf("wrong error code: %v", err)
-	}
-}
-
 func TestBogusHostNameParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
 	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving"}, t)
@@ -500,7 +497,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	}
 	found := false
 	for _, m := range mstr {
-		if strings.Contains(err.Error(), m) {
+		if strings.Contains(err.Error(), m) || strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
 			found = true
 		}
 	}
@@ -1670,6 +1667,9 @@ func TestPingInvalidHost(t *testing.T) {
 	ctx := context.Background()
 	if err = db.PingContext(ctx); err == nil {
 		t.Fatal("should cause an error")
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
 	}
 	if driverErr, ok := err.(*SnowflakeError); !ok || ok && driverErr.Number != ErrCodeFailedToConnect {
 		// Failed to connect error

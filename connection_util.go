@@ -289,18 +289,47 @@ func populateChunkDownloader(
 	}
 }
 
-func (sc *snowflakeConn) setupOCSPPrivatelink(app string, host string) error {
-	ocspCacheServer := fmt.Sprintf("http://ocsp.%v/ocsp_response_cache.json", host)
-	logger.WithContext(sc.ctx).Debugf("OCSP Cache Server for Privatelink: %v\n", ocspCacheServer)
+func setupOCSPEnvVars(ctx context.Context, host string) error {
+	host = strings.ToLower(host)
+	if isPrivateLink(host) {
+		if err := setupOCSPPrivatelink(ctx, host); err != nil {
+			return err
+		}
+	} else if !strings.HasSuffix(host, defaultDomain) {
+		ocspCacheServer := fmt.Sprintf("http://ocsp.%v/%v", host, cacheFileBaseName)
+		logger.WithContext(ctx).Debugf("OCSP Cache Server for %v: %v\n", host, ocspCacheServer)
+		if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
+			return err
+		}
+	} else {
+		if _, set := os.LookupEnv(cacheServerURLEnv); set {
+			os.Unsetenv(cacheServerURLEnv)
+		}
+	}
+	return nil
+}
+
+func setupOCSPPrivatelink(ctx context.Context, host string) error {
+	ocspCacheServer := fmt.Sprintf("http://ocsp.%v/%v", host, cacheFileBaseName)
+	logger.WithContext(ctx).Debugf("OCSP Cache Server for Privatelink: %v\n", ocspCacheServer)
 	if err := os.Setenv(cacheServerURLEnv, ocspCacheServer); err != nil {
 		return err
 	}
 	ocspRetryHostTemplate := fmt.Sprintf("http://ocsp.%v/retry/", host) + "%v/%v"
-	logger.WithContext(sc.ctx).Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHostTemplate)
+	logger.WithContext(ctx).Debugf("OCSP Retry URL for Privatelink: %v\n", ocspRetryHostTemplate)
 	if err := os.Setenv(ocspRetryURLEnv, ocspRetryHostTemplate); err != nil {
 		return err
 	}
 	return nil
+}
+
+/**
+ * We can only tell if private link is enabled for certain hosts when the hostname contains the subdomain
+ * 'privatelink.snowflakecomputing.' but we don't have a good way of telling if a private link connection is
+ * expected for internal stages for example.
+ */
+func isPrivateLink(host string) bool {
+	return strings.Contains(strings.ToLower(host), ".privatelink.snowflakecomputing.")
 }
 
 func isStatementContext(ctx context.Context) bool {

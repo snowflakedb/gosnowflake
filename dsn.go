@@ -27,6 +27,8 @@ const (
 	defaultExternalBrowserTimeout = 120 * time.Second // Timeout for external browser login
 	defaultMaxRetryCount          = 7                 // specifies maximum number of subsequent retries
 	defaultDomain                 = ".snowflakecomputing.com"
+	cnDomain                      = ".snowflakecomputing.cn"
+	topLevelDomainPrefix          = ".snowflakecomputing." // used to extract the domain from host
 )
 
 // ConfigBool is a type to represent true or false in the Config
@@ -135,26 +137,26 @@ func (c *Config) ocspMode() string {
 
 // DSN constructs a DSN for Snowflake db.
 func DSN(cfg *Config) (dsn string, err error) {
+	if cfg.Region == "us-west-2" {
+		cfg.Region = ""
+	}
+	// in case account includes region
+	region, posDot := extractRegionFromAccount(cfg.Account)
+	if region != "" {
+		if cfg.Region != "" {
+			return "", errRegionConflict()
+		}
+		cfg.Region = region
+		cfg.Account = cfg.Account[:posDot]
+	}
 	hasHost := true
 	if cfg.Host == "" {
 		hasHost = false
-		if cfg.Region == "us-west-2" {
-			cfg.Region = ""
-		}
 		if cfg.Region == "" {
 			cfg.Host = cfg.Account + defaultDomain
 		} else {
-			cfg.Host = cfg.Account + "." + cfg.Region + defaultDomain
+			cfg.Host = buildHostFromAccountAndRegion(cfg.Account, cfg.Region)
 		}
-	}
-	// in case account includes region
-	posDot := strings.Index(cfg.Account, ".")
-	if posDot > 0 {
-		if cfg.Region != "" {
-			return "", errInvalidRegion()
-		}
-		cfg.Region = cfg.Account[posDot+1:]
-		cfg.Account = cfg.Account[:posDot]
 	}
 	err = fillMissingConfigParameters(cfg)
 	if err != nil {
@@ -374,7 +376,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 			return
 		}
 	}
-	if cfg.Account == "" && strings.HasSuffix(cfg.Host, defaultDomain) {
+	if cfg.Account == "" && hostIncludesTopLevelDomain(cfg.Host) {
 		posDot := strings.Index(cfg.Host, ".")
 		if posDot > 0 {
 			cfg.Account = cfg.Host[:posDot]
@@ -428,7 +430,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 func fillMissingConfigParameters(cfg *Config) error {
 	posDash := strings.LastIndex(cfg.Account, "-")
 	if posDash > 0 {
-		if strings.Contains(cfg.Host, ".global.") {
+		if strings.Contains(strings.ToLower(cfg.Host), ".global.") {
 			cfg.Account = cfg.Account[:posDash]
 		}
 	}
@@ -453,19 +455,24 @@ func fillMissingConfigParameters(cfg *Config) error {
 	cfg.Region = strings.Trim(cfg.Region, " ")
 	if cfg.Region != "" {
 		// region is specified but not included in Host
-		i := strings.Index(cfg.Host, defaultDomain)
+		domain, i := extractDomainFromHost(cfg.Host)
 		if i >= 1 {
 			hostPrefix := cfg.Host[0:i]
 			if !strings.HasSuffix(hostPrefix, cfg.Region) {
-				cfg.Host = hostPrefix + "." + cfg.Region + defaultDomain
+				cfg.Host = fmt.Sprintf("%v.%v%v", hostPrefix, cfg.Region, domain)
 			}
 		}
 	}
 	if cfg.Host == "" {
 		if cfg.Region != "" {
-			cfg.Host = cfg.Account + "." + cfg.Region + defaultDomain
+			cfg.Host = cfg.Account + "." + cfg.Region + getDomainBasedOnRegion(cfg.Region)
 		} else {
-			cfg.Host = cfg.Account + defaultDomain
+			region, _ := extractRegionFromAccount(cfg.Account)
+			if region != "" {
+				cfg.Host = cfg.Account + getDomainBasedOnRegion(region)
+			} else {
+				cfg.Host = cfg.Account + defaultDomain
+			}
 		}
 	}
 	if cfg.LoginTimeout == 0 {
@@ -505,7 +512,8 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.IncludeRetryReason = ConfigBoolTrue
 	}
 
-	if strings.HasSuffix(cfg.Host, defaultDomain) && len(cfg.Host) == len(defaultDomain) {
+	domain, _ := extractDomainFromHost(cfg.Host)
+	if len(cfg.Host) == len(domain) {
 		return &SnowflakeError{
 			Number:      ErrCodeFailedToParseHost,
 			Message:     errMsgFailedToParseHost,
@@ -513,6 +521,38 @@ func fillMissingConfigParameters(cfg *Config) error {
 		}
 	}
 	return nil
+}
+
+func extractDomainFromHost(host string) (domain string, index int) {
+	i := strings.LastIndex(strings.ToLower(host), topLevelDomainPrefix)
+	if i >= 1 {
+		domain = host[i:]
+		return domain, i
+	}
+	return "", i
+}
+
+func getDomainBasedOnRegion(region string) string {
+	if strings.HasPrefix(strings.ToLower(region), "cn-") {
+		return cnDomain
+	}
+	return defaultDomain
+}
+
+func extractRegionFromAccount(account string) (region string, posDot int) {
+	posDot = strings.Index(strings.ToLower(account), ".")
+	if posDot > 0 {
+		return account[posDot+1:], posDot
+	}
+	return "", posDot
+}
+
+func hostIncludesTopLevelDomain(host string) bool {
+	return strings.Contains(strings.ToLower(host), topLevelDomainPrefix)
+}
+
+func buildHostFromAccountAndRegion(account, region string) string {
+	return account + "." + region + getDomainBasedOnRegion(region)
 }
 
 func authRequiresUser(cfg *Config) bool {
@@ -528,18 +568,20 @@ func authRequiresPassword(cfg *Config) bool {
 		cfg.Authenticator != AuthTypeJwt
 }
 
-// transformAccountToHost transforms host to account name
+// transformAccountToHost transforms account to host
 func transformAccountToHost(cfg *Config) (err error) {
-	if cfg.Port == 0 && !strings.HasSuffix(cfg.Host, defaultDomain) && cfg.Host != "" {
+	if cfg.Port == 0 && cfg.Host != "" && !hostIncludesTopLevelDomain(cfg.Host) {
 		// account name is specified instead of host:port
 		cfg.Account = cfg.Host
-		cfg.Host = cfg.Account + defaultDomain
-		cfg.Port = 443
-		posDot := strings.Index(cfg.Account, ".")
-		if posDot > 0 {
-			cfg.Region = cfg.Account[posDot+1:]
+		region, posDot := extractRegionFromAccount(cfg.Account)
+		if region != "" {
+			cfg.Region = region
 			cfg.Account = cfg.Account[:posDot]
+			cfg.Host = buildHostFromAccountAndRegion(cfg.Account, cfg.Region)
+		} else {
+			cfg.Host = cfg.Account + defaultDomain
 		}
+		cfg.Port = 443
 	}
 	return nil
 }
@@ -790,7 +832,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
 			}
-			cfg.Params[param[0]] = &value
+			// handle session variables $variable=value
+			cfg.Params[urlDecodeIfNeeded(param[0])] = &value
 		}
 	}
 	return
@@ -914,4 +957,12 @@ func extractAccountName(rawAccount string) string {
 		return strings.ToUpper(rawAccount[:posDot])
 	}
 	return strings.ToUpper(rawAccount)
+}
+
+func urlDecodeIfNeeded(param string) (decodedParam string) {
+	unescaped, err := url.QueryUnescape(param)
+	if err != nil {
+		return param
+	}
+	return unescaped
 }

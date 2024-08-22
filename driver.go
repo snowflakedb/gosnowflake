@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"os"
-	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -41,6 +41,12 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		return nil, err
 	}
 
+	if strings.HasSuffix(strings.ToLower(config.Host), cnDomain) {
+		logger.WithContext(ctx).Info("Connecting to CHINA Snowflake domain")
+	} else {
+		logger.WithContext(ctx).Info("Connecting to GLOBAL Snowflake domain")
+	}
+
 	if err = authenticateWithConfig(sc); err != nil {
 		return nil, err
 	}
@@ -68,14 +74,6 @@ func skipRegisteration() bool {
 var logger = CreateDefaultLogger()
 
 func init() {
-	if runtime.GOOS == "linux" {
-		// TODO: delete this once we replaced 99designs/keyring (SNOW-1017659) and/or keyring#103 is resolved
-		leak, logMsg := canDbusLeakProcesses()
-		if leak {
-			// 99designs/keyring#103 -> gosnowflake#773
-			logger.Warn(logMsg)
-		}
-	}
 	if !skipRegisteration() {
 		sql.Register("snowflake", &SnowflakeDriver{})
 	}

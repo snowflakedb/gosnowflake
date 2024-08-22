@@ -32,7 +32,9 @@ const (
 	sliceType
 	changeType
 	unSupportedType
-	nullObjectType
+	nilObjectType
+	nilArrayType
+	nilMapType
 )
 
 var snowflakeToDriverType = map[string]snowflakeType{
@@ -107,8 +109,12 @@ var (
 	DataTypeTime = []byte{timeType.Byte()}
 	// DataTypeBoolean is a BOOLEAN datatype.
 	DataTypeBoolean = []byte{booleanType.Byte()}
-	// DataTypeNullObject represents a null structured object.
-	DataTypeNullObject = []byte{nullObjectType.Byte()}
+	// DataTypeNilObject represents a nil structured object.
+	DataTypeNilObject = []byte{nilObjectType.Byte()}
+	// DataTypeNilArray represents a nil structured array.
+	DataTypeNilArray = []byte{nilArrayType.Byte()}
+	// DataTypeNilMap represents a nil structured map.
+	DataTypeNilMap = []byte{nilMapType.Byte()}
 )
 
 // dataTypeMode returns the subsequent data type in a string representation.
@@ -133,8 +139,12 @@ func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
 			tsmode = arrayType
 		case bytes.Equal(bd, DataTypeVariant):
 			tsmode = variantType
-		case bytes.Equal(bd, DataTypeNullObject):
-			tsmode = nullObjectType
+		case bytes.Equal(bd, DataTypeNilObject):
+			tsmode = nilObjectType
+		case bytes.Equal(bd, DataTypeNilArray):
+			tsmode = nilArrayType
+		case bytes.Equal(bd, DataTypeNilMap):
+			tsmode = nilMapType
 		default:
 			return nullType, fmt.Errorf(errMsgInvalidByteArray, v)
 		}

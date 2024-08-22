@@ -9,7 +9,6 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +32,9 @@ const (
 	arrowAlloc                       contextKey = "ARROW_ALLOC"
 	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
 	queryTag                         contextKey = "QUERY_TAG"
+	enableStructuredTypes            contextKey = "ENABLE_STRUCTURED_TYPES"
 	mapValuesNullable                contextKey = "MAP_VALUES_NULLABLE"
+	arrayValuesNullable              contextKey = "ARRAY_VALUES_NULLABLE"
 )
 
 const (
@@ -147,10 +148,23 @@ func WithQueryTag(ctx context.Context, tag string) context.Context {
 	return context.WithValue(ctx, queryTag, tag)
 }
 
+// WithStructuredTypesEnabled changes how structured types are returned.
+// Without this context structured types are returned as strings.
+// With this context enabled, structured types are returned as native Go types.
+func WithStructuredTypesEnabled(ctx context.Context) context.Context {
+	return context.WithValue(ctx, enableStructuredTypes, true)
+}
+
 // WithMapValuesNullable changes how map values are returned.
 // Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
 func WithMapValuesNullable(ctx context.Context) context.Context {
 	return context.WithValue(ctx, mapValuesNullable, true)
+}
+
+// WithArrayValuesNullable changes how array values are returned.
+// Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
+func WithArrayValuesNullable(ctx context.Context) context.Context {
+	return context.WithValue(ctx, arrayValuesNullable, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
@@ -310,31 +324,4 @@ func contains[T comparable](s []T, e T) bool {
 
 func chooseRandomFromRange(min float64, max float64) float64 {
 	return rand.Float64()*(max-min) + min
-}
-
-func isDbusDaemonRunning() bool {
-	// TODO: delete this once we replaced 99designs/keyring (SNOW-1017659) and/or keyring#103 is resolved
-	cmd := exec.Command("pidof", "dbus-daemon")
-	_, err := cmd.Output()
-
-	// false: process not running, pidof not available (sysvinit-tools, busybox, etc missing)
-	return err == nil
-}
-
-func canDbusLeakProcesses() (bool, string) {
-	// TODO: delete this once we replaced 99designs/keyring (SNOW-1017659) and/or keyring#103 is resolved
-	leak := false
-	message := ""
-
-	valDbus, haveDbus := os.LookupEnv("DBUS_SESSION_BUS_ADDRESS")
-	if !haveDbus || strings.Contains(valDbus, "unix:abstract") {
-		// if DBUS_SESSION_BUS_ADDRESS is not set or set to an abstract socket, it's not necessarily a problem, only if dbus-daemon is running
-		if isDbusDaemonRunning() {
-			// we're probably susceptible to https://github.com/99designs/keyring/issues/103 here
-			leak = true
-			message += "DBUS_SESSION_BUS_ADDRESS envvar looks to be not set, this can lead to runaway dbus-daemon processes. " +
-				"To avoid this, set envvar DBUS_SESSION_BUS_ADDRESS=$XDG_RUNTIME_DIR/bus (if it exists) or DBUS_SESSION_BUS_ADDRESS=/dev/null."
-		}
-	}
-	return leak, message
 }

@@ -256,8 +256,10 @@ func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map
 			}
 			if t == nullType || t == unSupportedType {
 				t = textType // if null or not supported, pass to GS as text
-			} else if t == nullObjectType {
+			} else if t == nilObjectType || t == mapType || t == nilMapType {
 				t = objectType
+			} else if t == nilArrayType {
+				t = arrayType
 			}
 			bindValues[bindingName(binding, idx)] = execBindParameter{
 				Type:   t.String(),
@@ -347,4 +349,14 @@ func supportedStructuredObjectWriterBind(nv *driver.NamedValue) bool {
 	}
 	_, ok := nv.Value.(reflect.Type)
 	return ok
+}
+
+func supportedStructuredArrayBind(nv *driver.NamedValue) bool {
+	typ := reflect.TypeOf(nv.Value)
+	return typ != nil && (typ.Kind() == reflect.Array || typ.Kind() == reflect.Slice)
+}
+
+func supportedStructuredMapBind(nv *driver.NamedValue) bool {
+	typ := reflect.TypeOf(nv.Value)
+	return typ != nil && (typ.Kind() == reflect.Map || typ == reflect.TypeOf(NilMapTypes{}))
 }

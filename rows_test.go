@@ -110,6 +110,7 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 		},
 	}
 	rows.sc = sc
+	rows.ctx = context.Background()
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:                 sc,
 		ctx:                context.Background(),
@@ -185,6 +186,7 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 		},
 	}
 	rows.sc = sc
+	rows.ctx = context.Background()
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:            sc,
 		ctx:           context.Background(),
@@ -269,6 +271,7 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 		},
 	}
 	rows.sc = sc
+	rows.ctx = context.Background()
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:            sc,
 		ctx:           context.Background(),
@@ -352,6 +355,7 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 		},
 	}
 	rows.sc = sc
+	rows.ctx = context.Background()
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
 		sc:            sc,
 		ctx:           context.Background(),

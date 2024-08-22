@@ -163,6 +163,15 @@ func (o objectWithAllTypes) Write(sowc StructuredObjectWriterContext) error {
 	if err := sowc.WriteStruct("so", o.so); err != nil {
 		return err
 	}
+	if err := sowc.WriteRaw("sArr", o.sArr); err != nil {
+		return err
+	}
+	if err := sowc.WriteRaw("f64Arr", o.f64Arr); err != nil {
+		return err
+	}
+	if err := sowc.WriteRaw("someMap", o.someMap); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -193,20 +202,29 @@ func (so *simpleObject) Write(sowc StructuredObjectWriterContext) error {
 	return nil
 }
 
-func skipStructuredTypesTestsOnGHActions(t *testing.T) {
-	if runningOnGithubAction() {
-		t.Skip("Structured types are not available on GH Actions")
-	}
+func TestObjectWithAllTypesAsString(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			skipForStringingNativeArrow(t, format)
+			rows := dbt.mustQuery("SELECT {'s': 'some string', 'i32': 3}::OBJECT(s VARCHAR, i32 INTEGER)")
+			defer rows.Close()
+			assertTrueF(t, rows.Next())
+			var res string
+			err := rows.Scan(&res)
+			assertNilF(t, err)
+			assertEqualIgnoringWhitespaceE(t, res, `{"s": "some string", "i32": 3}`)
+		})
+	})
 }
 
-func TestObjectWithAllTypes(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+func TestObjectWithAllTypesAsObject(t *testing.T) {
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQuery("SELECT 1, {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT 1, {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 			defer rows.Close()
 			rows.Next()
 			var ignore int
@@ -239,11 +257,11 @@ func TestObjectWithAllTypes(t *testing.T) {
 }
 
 func TestNullObject(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			t.Run("null", func(t *testing.T) {
-				rows := dbt.mustQuery("SELECT null::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				rows := dbt.mustQueryContextT(ctx, t, "SELECT null::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 				defer rows.Close()
 				assertTrueF(t, rows.Next())
 				var res *objectWithAllTypes
@@ -252,7 +270,7 @@ func TestNullObject(t *testing.T) {
 				assertNilE(t, res)
 			})
 			t.Run("not null", func(t *testing.T) {
-				rows := dbt.mustQuery("SELECT {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				rows := dbt.mustQueryContextT(ctx, t, "SELECT {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 				defer rows.Close()
 				assertTrueF(t, rows.Next())
 				var res *objectWithAllTypes
@@ -402,18 +420,27 @@ func (o *objectWithAllTypesNullable) Write(sowc StructuredObjectWriterContext) e
 	if err := sowc.WriteNullableStruct("so", o.so, reflect.TypeOf(simpleObject{})); err != nil {
 		return err
 	}
+	if err := sowc.WriteRaw("sArr", o.sArr); err != nil {
+		return err
+	}
+	if err := sowc.WriteRaw("f64Arr", o.f64Arr); err != nil {
+		return err
+	}
+	if err := sowc.WriteRaw("someMap", o.someMap); err != nil {
+		return err
+	}
 	return nil
 }
 
 func TestObjectWithAllTypesNullable(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			t.Run("null", func(t *testing.T) {
-				rows := dbt.mustQuery("select null, object_construct_keep_null('s', null, 'b', null, 'i16', null, 'i32', null, 'i64', null, 'f64', null, 'bo', null, 'bi', null, 'date', null, 'time', null, 'ltz', null, 'tz', null, 'ntz', null, 'so', null, 'sArr', null, 'f64Arr', null, 'someMap', null)::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				rows := dbt.mustQueryContextT(ctx, t, "select null, object_construct_keep_null('s', null, 'b', null, 'i16', null, 'i32', null, 'i64', null, 'f64', null, 'bo', null, 'bi', null, 'date', null, 'time', null, 'ltz', null, 'tz', null, 'ntz', null, 'so', null, 'sArr', null, 'f64Arr', null, 'someMap', null)::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 				defer rows.Close()
 				rows.Next()
 				var ignore sql.NullInt32
@@ -438,7 +465,7 @@ func TestObjectWithAllTypesNullable(t *testing.T) {
 				assertDeepEqualE(t, res.so, so)
 			})
 			t.Run("not null", func(t *testing.T) {
-				rows := dbt.mustQuery("select 1, object_construct_keep_null('s', 'abc', 'b', 1, 'i16', 2, 'i32', 3, 'i64', 9223372036854775807, 'f64', 2.2, 'bo', true, 'bi', TO_BINARY('616263', 'HEX'), 'date', '2024-03-21'::DATE, 'time', '13:03:02'::TIME, 'ltz', '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz', '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz', '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so', {'s': 'child', 'i': 9}::OBJECT, 'sArr', ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr', ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap', {'x': true, 'y': false})::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				rows := dbt.mustQueryContextT(ctx, t, "select 1, object_construct_keep_null('s', 'abc', 'b', 1, 'i16', 2, 'i32', 3, 'i64', 9223372036854775807, 'f64', 2.2, 'bo', true, 'bi', TO_BINARY('616263', 'HEX'), 'date', '2024-03-21'::DATE, 'time', '13:03:02'::TIME, 'ltz', '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz', '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz', '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so', {'s': 'child', 'i': 9}::OBJECT, 'sArr', ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr', ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap', {'x': true, 'y': false})::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 				defer rows.Close()
 				rows.Next()
 				var ignore sql.NullInt32
@@ -506,13 +533,13 @@ func (so *objectWithAllTypesSimpleScan) Write(sowc StructuredObjectWriterContext
 }
 
 func TestObjectWithAllTypesSimpleScan(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQuery("SELECT 1, {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT 1, {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 			defer rows.Close()
 			rows.Next()
 			var ignore int
@@ -545,11 +572,11 @@ func TestObjectWithAllTypesSimpleScan(t *testing.T) {
 }
 
 func TestNullObjectSimpleScan(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			t.Run("null", func(t *testing.T) {
-				rows := dbt.mustQuery("SELECT null::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				rows := dbt.mustQueryContextT(ctx, t, "SELECT null::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 				defer rows.Close()
 				assertTrueF(t, rows.Next())
 				var res *objectWithAllTypesSimpleScan
@@ -558,7 +585,7 @@ func TestNullObjectSimpleScan(t *testing.T) {
 				assertNilE(t, res)
 			})
 			t.Run("not null", func(t *testing.T) {
-				rows := dbt.mustQuery("SELECT {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				rows := dbt.mustQueryContextT(ctx, t, "SELECT {'s': 'some string', 'b': 1, 'i16': 2, 'i32': 3, 'i64': 9223372036854775807, 'f32': '1.1', 'f64': 2.2, 'nfraction': 3.3, 'bo': true, 'bi': TO_BINARY('616263', 'HEX'), 'date': '2024-03-21'::DATE, 'time': '13:03:02'::TIME, 'ltz': '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz': '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz': '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so': {'s': 'child', 'i': 9}, 'sArr': ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr': ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap': {'x': true, 'y': false}}::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 				defer rows.Close()
 				assertTrueF(t, rows.Next())
 				var res *objectWithAllTypesSimpleScan
@@ -600,14 +627,14 @@ func (o *objectWithAllTypesNullableSimpleScan) Write(sowc StructuredObjectWriter
 }
 
 func TestObjectWithAllTypesSimpleScanNullable(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			t.Run("null", func(t *testing.T) {
-				rows := dbt.mustQuery("select null, object_construct_keep_null('s', null, 'b', null, 'i16', null, 'i32', null, 'i64', null, 'f64', null, 'bo', null, 'bi', null, 'date', null, 'time', null, 'ltz', null, 'tz', null, 'ntz', null, 'so', null, 'sArr', null, 'f64Arr', null, 'someMap', null)::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				rows := dbt.mustQueryContextT(ctx, t, "select null, object_construct_keep_null('s', null, 'b', null, 'i16', null, 'i32', null, 'i64', null, 'f64', null, 'bo', null, 'bi', null, 'date', null, 'time', null, 'ltz', null, 'tz', null, 'ntz', null, 'so', null, 'sArr', null, 'f64Arr', null, 'someMap', null)::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 				defer rows.Close()
 				rows.Next()
 				var ignore sql.NullInt32
@@ -632,7 +659,7 @@ func TestObjectWithAllTypesSimpleScanNullable(t *testing.T) {
 				assertDeepEqualE(t, res.So, so)
 			})
 			t.Run("not null", func(t *testing.T) {
-				rows := dbt.mustQuery("select 1, object_construct_keep_null('s', 'abc', 'b', 1, 'i16', 2, 'i32', 3, 'i64', 9223372036854775807, 'f64', 2.2, 'bo', true, 'bi', TO_BINARY('616263', 'HEX'), 'date', '2024-03-21'::DATE, 'time', '13:03:02'::TIME, 'ltz', '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz', '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz', '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so', {'s': 'child', 'i': 9}::OBJECT, 'sArr', ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr', ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap', {'x': true, 'y': false})::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
+				rows := dbt.mustQueryContextT(ctx, t, "select 1, object_construct_keep_null('s', 'abc', 'b', 1, 'i16', 2, 'i32', 3, 'i64', 9223372036854775807, 'f64', 2.2, 'bo', true, 'bi', TO_BINARY('616263', 'HEX'), 'date', '2024-03-21'::DATE, 'time', '13:03:02'::TIME, 'ltz', '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz', '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz', '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so', {'s': 'child', 'i': 9}::OBJECT, 'sArr', ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr', ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap', {'x': true, 'y': false})::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))")
 				defer rows.Close()
 				rows.Next()
 				var ignore sql.NullInt32
@@ -683,10 +710,10 @@ func (o *objectWithCustomNameAndIgnoredField) Write(sowc StructuredObjectWriterC
 }
 
 func TestObjectWithCustomName(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQuery("SELECT {'anotherName': 'some string'}::OBJECT(anotherName VARCHAR)")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'anotherName': 'some string'}::OBJECT(anotherName VARCHAR)")
 			defer rows.Close()
 			rows.Next()
 			var res objectWithCustomNameAndIgnoredField
@@ -698,11 +725,11 @@ func TestObjectWithCustomName(t *testing.T) {
 	})
 }
 
-func TestObjectMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+func TestObjectMetadataAsObject(t *testing.T) {
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQuery("SELECT {'a': 'b'}::OBJECT(a VARCHAR) as structured_type")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'a': 'b'}::OBJECT(a VARCHAR) as structured_type")
 			defer rows.Close()
 			columnTypes, err := rows.ColumnTypes()
 			assertNilF(t, err)
@@ -714,14 +741,29 @@ func TestObjectMetadata(t *testing.T) {
 	})
 }
 
+func TestObjectMetadataAsString(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			skipForStringingNativeArrow(t, format)
+			rows := dbt.mustQueryT(t, "SELECT {'a': 'b'}::OBJECT(a VARCHAR) as structured_type")
+			defer rows.Close()
+			columnTypes, err := rows.ColumnTypes()
+			assertNilF(t, err)
+			assertEqualE(t, len(columnTypes), 1)
+			assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(""))
+			assertEqualE(t, columnTypes[0].DatabaseTypeName(), "OBJECT")
+			assertEqualE(t, columnTypes[0].Name(), "STRUCTURED_TYPE")
+		})
+	})
+}
+
 func TestObjectWithoutSchema(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
 				t.Skip("Native arrow is not supported in objects without schema")
 			}
-			rows := dbt.mustQuery("SELECT {'a': 'b'}::OBJECT")
+			rows := dbt.mustQuery("SELECT {'a': 'b'}::OBJECT AS STRUCTURED_TYPE")
 			defer rows.Close()
 			rows.Next()
 			var v string
@@ -733,7 +775,6 @@ func TestObjectWithoutSchema(t *testing.T) {
 }
 
 func TestObjectWithoutSchemaMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
@@ -751,8 +792,30 @@ func TestObjectWithoutSchemaMetadata(t *testing.T) {
 	})
 }
 
-func TestArrayAndMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+func TestArrayAndMetadataAsString(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			skipForStringingNativeArrow(t, format)
+			rows := dbt.mustQueryT(t, "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) AS STRUCTURED_TYPE")
+			defer rows.Close()
+			assertTrueF(t, rows.Next())
+			var res string
+			err := rows.Scan(&res)
+			assertNilF(t, err)
+			assertEqualIgnoringWhitespaceE(t, "[1, 2]", res)
+
+			columnTypes, err := rows.ColumnTypes()
+			assertNilF(t, err)
+			assertEqualE(t, len(columnTypes), 1)
+			assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(""))
+			assertEqualE(t, columnTypes[0].DatabaseTypeName(), "ARRAY")
+			assertEqualE(t, columnTypes[0].Name(), "STRUCTURED_TYPE")
+		})
+	})
+}
+
+func TestArrayAndMetadataAsArray(t *testing.T) {
+	ctx := WithStructuredTypesEnabled(context.Background())
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
@@ -844,7 +907,7 @@ func TestArrayAndMetadata(t *testing.T) {
 			}
 			for _, tc := range testcases {
 				t.Run(tc.name, func(t *testing.T) {
-					rows := dbt.mustQuery(tc.query)
+					rows := dbt.mustQueryContextT(ctx, t, tc.query)
 					defer rows.Close()
 					rows.Next()
 					err := rows.Scan(&tc.actual)
@@ -889,25 +952,27 @@ func TestArrayAndMetadata(t *testing.T) {
 }
 
 func TestArrayWithoutSchema(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			if format == "NATIVE_ARROW" {
+				t.Skip("Native arrow is not supported in arrays without schema")
+			}
 			rows := dbt.mustQuery("SELECT ARRAY_CONSTRUCT(1, 2)")
 			defer rows.Close()
 			rows.Next()
 			var v string
 			err := rows.Scan(&v)
 			assertNilF(t, err)
-			assertStringContainsE(t, v, "1,\n  2")
+			assertEqualIgnoringWhitespaceE(t, v, "[1, 2]")
 		})
 	})
 }
 
 func TestEmptyArraysAndNullArrays(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQuery("SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(INTEGER) UNION SELECT NULL UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER)")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(INTEGER) UNION SELECT NULL UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER)")
 			defer rows.Close()
 			checkRow := func(rows *RowsExtended, expected *[]int64) {
 				var res *[]int64
@@ -926,7 +991,6 @@ func TestEmptyArraysAndNullArrays(t *testing.T) {
 }
 
 func TestArrayWithoutSchemaMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
@@ -945,10 +1009,10 @@ func TestArrayWithoutSchemaMetadata(t *testing.T) {
 }
 
 func TestArrayOfObjects(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQuery("SELECT ARRAY_CONSTRUCT({'s': 's1', 'i': 9}, {'s': 's2', 'i': 8})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) as structured_type UNION SELECT ARRAY_CONSTRUCT({'s': 's3', 'i': 7})::ARRAY(OBJECT(s VARCHAR, i INTEGER))")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT({'s': 's1', 'i': 9}, {'s': 's2', 'i': 8})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) as structured_type UNION SELECT ARRAY_CONSTRUCT({'s': 's3', 'i': 7})::ARRAY(OBJECT(s VARCHAR, i INTEGER))")
 			defer rows.Close()
 			rows.Next()
 			var res []*simpleObject
@@ -970,6 +1034,7 @@ func TestArrayOfObjects(t *testing.T) {
 }
 
 func TestArrayOfArrays(t *testing.T) {
+	ctx := WithStructuredTypesEnabled(context.Background())
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	testcases := []struct {
@@ -1045,13 +1110,12 @@ func TestArrayOfArrays(t *testing.T) {
 			expected: [][]time.Time{{time.Date(2024, time.January, 5, 11, 22, 33, 0, warsawTz)}, {time.Date(2001, time.November, 12, 11, 22, 33, 0, warsawTz)}},
 		},
 	}
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			for _, tc := range testcases {
 				t.Run(tc.name, func(t *testing.T) {
-					rows := dbt.mustQuery(tc.query)
+					rows := dbt.mustQueryContextT(ctx, t, tc.query)
 					defer rows.Close()
 					rows.Next()
 					err := rows.Scan(&tc.actual)
@@ -1077,8 +1141,32 @@ func TestArrayOfArrays(t *testing.T) {
 	})
 }
 
-func TestMapAndMetadata(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+func TestMapAndMetadataAsString(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
+			if format == "NATIVE_ARROW" {
+				t.Skip("Native arrow is not supported in maps without schema")
+			}
+			rows := dbt.mustQuery("SELECT {'a': 'b', 'c': 'd'}::MAP(VARCHAR, VARCHAR) AS STRUCTURED_TYPE")
+			defer rows.Close()
+			assertTrueF(t, rows.Next())
+			var v string
+			err := rows.Scan(&v)
+			assertNilF(t, err)
+			assertEqualIgnoringWhitespaceE(t, v, `{"a": "b", "c": "d"}`)
+
+			columnTypes, err := rows.ColumnTypes()
+			assertNilF(t, err)
+			assertEqualE(t, len(columnTypes), 1)
+			assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(""))
+			assertEqualE(t, columnTypes[0].DatabaseTypeName(), "MAP")
+			assertEqualE(t, columnTypes[0].Name(), "STRUCTURED_TYPE")
+		})
+	})
+}
+
+func TestMapAndMetadataAsMap(t *testing.T) {
+	ctx := WithStructuredTypesEnabled(context.Background())
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
@@ -1262,7 +1350,7 @@ func TestMapAndMetadata(t *testing.T) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			for _, tc := range testcases {
 				t.Run(tc.name, func(t *testing.T) {
-					rows := dbt.mustQuery(tc.query)
+					rows := dbt.mustQueryContextT(ctx, t, tc.query)
 					defer rows.Close()
 
 					checkRow := func(expected any) {
@@ -1310,10 +1398,10 @@ func TestMapAndMetadata(t *testing.T) {
 }
 
 func TestMapOfObjects(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQuery("SELECT {'x': {'s': 'abc', 'i': 1}, 'y': {'s': 'def', 'i': 2}}::MAP(VARCHAR, OBJECT(s VARCHAR, i INTEGER))")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'x': {'s': 'abc', 'i': 1}, 'y': {'s': 'def', 'i': 2}}::MAP(VARCHAR, OBJECT(s VARCHAR, i INTEGER))")
 			defer rows.Close()
 			var res map[string]*simpleObject
 			rows.Next()
@@ -1325,7 +1413,7 @@ func TestMapOfObjects(t *testing.T) {
 }
 
 func TestMapOfArrays(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	testcases := []struct {
@@ -1406,7 +1494,7 @@ func TestMapOfArrays(t *testing.T) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			for _, tc := range testcases {
 				t.Run(tc.name, func(t *testing.T) {
-					rows := dbt.mustQuery(tc.query)
+					rows := dbt.mustQueryContextT(ctx, t, tc.query)
 					defer rows.Close()
 					rows.Next()
 					err := rows.Scan(&tc.actual)
@@ -1433,10 +1521,10 @@ func TestMapOfArrays(t *testing.T) {
 }
 
 func TestNullAndEmptyMaps(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQuery("SELECT {'a': 1}::MAP(VARCHAR, INTEGER) UNION SELECT NULL UNION SELECT {}::MAP(VARCHAR, INTEGER) UNION SELECT {'d': 4}::MAP(VARCHAR, INTEGER)")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'a': 1}::MAP(VARCHAR, INTEGER) UNION SELECT NULL UNION SELECT {}::MAP(VARCHAR, INTEGER) UNION SELECT {'d': 4}::MAP(VARCHAR, INTEGER)")
 			defer rows.Close()
 			checkRow := func(rows *RowsExtended, expected *map[string]int64) {
 				rows.Next()
@@ -1454,7 +1542,7 @@ func TestNullAndEmptyMaps(t *testing.T) {
 }
 
 func TestMapWithNullValues(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithStructuredTypesEnabled(context.Background())
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	testcases := []struct {
@@ -1535,7 +1623,7 @@ func TestMapWithNullValues(t *testing.T) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			for _, tc := range testcases {
 				t.Run(tc.name, func(t *testing.T) {
-					rows := dbt.mustQueryContext(WithMapValuesNullable(context.Background()), tc.query)
+					rows := dbt.mustQueryContextT(WithMapValuesNullable(ctx), t, tc.query)
 					defer rows.Close()
 					rows.Next()
 					err := rows.Scan(&tc.actual)
@@ -1561,6 +1649,154 @@ func TestMapWithNullValues(t *testing.T) {
 	})
 }
 
+func TestArraysWithNullValues(t *testing.T) {
+	warsawTz, err := time.LoadLocation("Europe/Warsaw")
+	assertNilF(t, err)
+	testcases := []struct {
+		name     string
+		query    string
+		actual   any
+		expected any
+	}{
+		{
+			name:     "string",
+			query:    "SELECT ARRAY_CONSTRUCT('x', null, 'yz', null)::ARRAY(STRING)",
+			actual:   []sql.NullString{},
+			expected: []sql.NullString{{Valid: true, String: "x"}, {Valid: false}, {Valid: true, String: "yz"}, {Valid: false}},
+		},
+		{
+			name:     "bool",
+			query:    "SELECT ARRAY_CONSTRUCT(true, null, false)::ARRAY(BOOLEAN)",
+			actual:   []sql.NullBool{},
+			expected: []sql.NullBool{{Valid: true, Bool: true}, {Valid: false}, {Valid: true, Bool: false}},
+		},
+		{
+			name:     "fixed - scale == 0",
+			query:    "SELECT ARRAY_CONSTRUCT(null, 2, 3)::ARRAY(BIGINT)",
+			actual:   []sql.NullInt64{},
+			expected: []sql.NullInt64{{Valid: false}, {Valid: true, Int64: 2}, {Valid: true, Int64: 3}},
+		},
+		{
+			name:     "fixed - scale == 0",
+			query:    "SELECT ARRAY_CONSTRUCT(1.3, 2.0, null, null)::ARRAY(NUMBER(38, 19))",
+			actual:   []sql.NullFloat64{},
+			expected: []sql.NullFloat64{{Valid: true, Float64: 1.3}, {Valid: true, Float64: 2.0}, {Valid: false}, {Valid: false}},
+		},
+		{
+			name:     "real",
+			query:    "SELECT ARRAY_CONSTRUCT(1.9, 0.2, null)::ARRAY(DOUBLE)",
+			actual:   []sql.NullFloat64{},
+			expected: []sql.NullFloat64{{Valid: true, Float64: 1.9}, {Valid: true, Float64: 0.2}, {Valid: false}},
+		},
+		{
+			name:     "binary",
+			query:    "SELECT ARRAY_CONSTRUCT(null, TO_BINARY('616263'))::ARRAY(BINARY)",
+			actual:   [][]byte{},
+			expected: [][]byte{nil, {'a', 'b', 'c'}},
+		},
+		{
+			name:     "date",
+			query:    "SELECT ARRAY_CONSTRUCT('2024-04-05'::DATE, null)::ARRAY(DATE)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(2024, time.April, 5, 0, 0, 0, 0, time.UTC)}, {Valid: false}},
+		},
+		{
+			name:     "time",
+			query:    "SELECT ARRAY_CONSTRUCT('13:14:15'::TIME, null)::ARRAY(TIME)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(1, 0, 0, 13, 14, 15, 0, time.UTC)}, {Valid: false}},
+		},
+		{
+			name:     "timestamp_tz",
+			query:    "SELECT ARRAY_CONSTRUCT('2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, null)::ARRAY(TIMESTAMP_TZ)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(2022, 8, 31, 13, 43, 22, 0, warsawTz)}, {Valid: false}},
+		},
+		{
+			name:     "timestamp_ntz",
+			query:    "SELECT ARRAY_CONSTRUCT('2022-08-31 13:43:22'::TIMESTAMP_NTZ, null)::ARRAY(TIMESTAMP_NTZ)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(2022, 8, 31, 13, 43, 22, 0, time.UTC)}, {Valid: false}},
+		},
+		{
+			name:     "timestamp_ltz",
+			query:    "SELECT ARRAY_CONSTRUCT('2022-08-31 13:43:22'::TIMESTAMP_LTZ, null)::ARRAY(TIMESTAMP_LTZ)",
+			actual:   []sql.NullTime{},
+			expected: []sql.NullTime{{Valid: true, Time: time.Date(2022, 8, 31, 13, 43, 22, 0, warsawTz)}, {Valid: false}},
+		},
+		{
+			name:     "array",
+			query:    "SELECT ARRAY_CONSTRUCT(ARRAY_CONSTRUCT(true, null), null, ARRAY_CONSTRUCT(null, false, true))::ARRAY(ARRAY(BOOLEAN))",
+			actual:   [][]sql.NullBool{},
+			expected: [][]sql.NullBool{{{Valid: true, Bool: true}, {Valid: false}}, nil, {{Valid: false}, {Valid: true, Bool: false}, {Valid: true, Bool: true}}},
+		},
+	}
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		dbt.forceNativeArrow()
+		dbt.enableStructuredTypes()
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				rows := dbt.mustQueryContext(WithStructuredTypesEnabled(WithArrayValuesNullable(context.Background())), tc.query)
+				defer rows.Close()
+				rows.Next()
+				err := rows.Scan(&tc.actual)
+				assertNilF(t, err)
+				if tc.name == "time" {
+					for i, nt := range tc.actual.([]sql.NullTime) {
+						assertEqualE(t, nt.Valid, tc.expected.([]sql.NullTime)[i].Valid)
+						assertEqualE(t, nt.Time.Hour(), tc.expected.([]sql.NullTime)[i].Time.Hour())
+						assertEqualE(t, nt.Time.Minute(), tc.expected.([]sql.NullTime)[i].Time.Minute())
+						assertEqualE(t, nt.Time.Second(), tc.expected.([]sql.NullTime)[i].Time.Second())
+					}
+				} else if tc.name == "timestamp_tz" || tc.name == "timestamp_ltz" || tc.name == "timestamp_ntz" {
+					for i, nt := range tc.actual.([]sql.NullTime) {
+						assertEqualE(t, nt.Valid, tc.expected.([]sql.NullTime)[i].Valid)
+						assertTrueE(t, nt.Time.Equal(tc.expected.([]sql.NullTime)[i].Time))
+					}
+				} else {
+					assertDeepEqualE(t, tc.actual, tc.expected)
+				}
+			})
+		}
+	})
+
+}
+
+func TestArraysWithNullValuesHigherPrecision(t *testing.T) {
+	testcases := []struct {
+		name     string
+		query    string
+		actual   any
+		expected any
+	}{
+		{
+			name:   "fixed - scale == 0",
+			query:  "SELECT ARRAY_CONSTRUCT(null, 2)::ARRAY(BIGINT)",
+			actual: []*big.Int{},
+		},
+	}
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
+		dbt.forceNativeArrow()
+		dbt.enableStructuredTypes()
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				ctx := WithHigherPrecision(WithStructuredTypesEnabled(WithArrayValuesNullable(context.Background())))
+				rows := dbt.mustQueryContext(ctx, tc.query)
+				defer rows.Close()
+				rows.Next()
+				err := rows.Scan(&tc.actual)
+				assertNilF(t, err)
+				assertNilF(t, tc.actual.([]*big.Int)[0])
+				bigInt, _ := new(big.Int).SetString("2", 10)
+				assertEqualE(t, tc.actual.([]*big.Int)[1].Cmp(bigInt), 0)
+			})
+		}
+	})
+
+}
+
 type HigherPrecisionStruct struct {
 	i *big.Int
 	f *big.Float
@@ -1579,13 +1815,12 @@ func (hps *HigherPrecisionStruct) Scan(val any) error {
 }
 
 func TestWithHigherPrecision(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
+	ctx := WithHigherPrecision(WithStructuredTypesEnabled(context.Background()))
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format != "NATIVE_ARROW" {
 				t.Skip("JSON structured type does not support higher precision")
 			}
-			ctx := WithHigherPrecision(context.Background())
 			t.Run("object", func(t *testing.T) {
 				rows := dbt.mustQueryContext(ctx, "SELECT {'i': 10000000000000000000000000000000000000::DECIMAL(38, 0), 'f': 1.2345678901234567890123456789012345678::DECIMAL(38, 37)}::OBJECT(i DECIMAL(38, 0), f DECIMAL(38, 37)) as structured_type")
 				defer rows.Close()
@@ -1715,7 +1950,6 @@ func TestWithHigherPrecision(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1746,7 +1980,6 @@ func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatches(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1783,7 +2016,6 @@ func TestStructuredTypeInArrowBatches(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf8Validation(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1827,7 +2059,6 @@ func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf
 }
 
 func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1856,7 +2087,6 @@ func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1886,7 +2116,6 @@ func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
 }
 
 func TestStructuredArrayInArrowBatches(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1923,7 +2152,6 @@ func TestStructuredArrayInArrowBatches(t *testing.T) {
 }
 
 func TestStructuredMapInArrowBatches(t *testing.T) {
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -1992,7 +2220,6 @@ func TestSelectingNullObjectsInArrowBatches(t *testing.T) {
 		"select null::object(v VARCHAR)",
 		"select null::object",
 	}
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
 			t.Run(tc, func(t *testing.T) {
@@ -2074,7 +2301,6 @@ func TestSelectingSemistructuredTypesInArrowBatches(t *testing.T) {
 			query:              "SELECT [1, 2, 3]::ARRAY",
 		},
 	}
-	skipStructuredTypesTestsOnGHActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -2125,4 +2351,10 @@ func TestSelectingSemistructuredTypesInArrowBatches(t *testing.T) {
 		}
 
 	})
+}
+
+func skipForStringingNativeArrow(t *testing.T, format string) {
+	if format == "NATIVE_ARROW" {
+		t.Skip("returning native arrow structured types as string is currently not supported")
+	}
 }

@@ -88,7 +88,7 @@ const (
 	cacheFileBaseName = "ocsp_response_cache.json"
 	// cacheExpire specifies cache data expiration time in seconds.
 	cacheExpire           = float64(24 * 60 * 60)
-	cacheServerURL        = "http://ocsp.snowflakecomputing.com"
+	defaultCacheServerURL = "http://ocsp.snowflakecomputing.com"
 	cacheServerEnabledEnv = "SF_OCSP_RESPONSE_CACHE_SERVER_ENABLED"
 	cacheServerURLEnv     = "SF_OCSP_RESPONSE_CACHE_SERVER_URL"
 	cacheDirEnv           = "SF_OCSP_RESPONSE_CACHE_DIR"
@@ -772,7 +772,7 @@ func downloadOCSPCacheServer() {
 	}
 	ocspCacheServerURL := os.Getenv(cacheServerURLEnv)
 	if ocspCacheServerURL == "" {
-		ocspCacheServerURL = fmt.Sprintf("%v/%v", cacheServerURL, cacheFileBaseName)
+		ocspCacheServerURL = fmt.Sprintf("%v/%v", defaultCacheServerURL, cacheFileBaseName)
 	}
 	u, err := url.Parse(ocspCacheServerURL)
 	if err != nil {
@@ -842,13 +842,13 @@ func overrideCacheDir() {
 
 // initOCSPCache initializes OCSP Response cache file.
 func initOCSPCache() {
+	ocspResponseCacheLock = &sync.RWMutex{}
+	ocspParsedRespCacheLock = &sync.Mutex{}
+	ocspResponseCache = make(map[certIDKey]*certCacheValue)
+	ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
 		return
 	}
-	ocspResponseCache = make(map[certIDKey]*certCacheValue)
-	ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
-	ocspResponseCacheLock = &sync.RWMutex{}
-	ocspParsedRespCacheLock = &sync.Mutex{}
 
 	logger.Infof("reading OCSP Response cache file. %v\n", cacheFileName)
 	f, err := os.OpenFile(cacheFileName, os.O_CREATE|os.O_RDONLY, readWriteFileMode)

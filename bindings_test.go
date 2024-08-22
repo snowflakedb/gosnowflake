@@ -821,7 +821,6 @@ func TestBulkArrayBindingTimeWithPrecision(t *testing.T) {
 
 func TestBulkArrayMultiPartBinding(t *testing.T) {
 	rowCount := 1000000 // large enough to be partitioned into multiple files
-	rand.Seed(time.Now().UnixNano())
 	randomIter := rand.Intn(3) + 2
 	randomStrings := make([]string, rowCount)
 	str := randomString(30)

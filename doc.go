@@ -96,7 +96,7 @@ The following connection parameters are supported:
 
   - authenticator: Specifies the authenticator to use for authenticating user credentials:
 
-  - To use the internal Snowflake authenticator, specify snowflake (Default).
+  - To use the internal Snowflake authenticator, specify snowflake (Default). If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
 
   - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
 
@@ -494,7 +494,8 @@ Additionally, `sf` tag can be added:
 - first value is always a name of a field in an SQL object
 - additionally `ignore` parameter can be passed to omit this field
 
-2. Use it in regular scan:
+2. Use WithStructuredTypesEnabled context while querying data.
+3. Use it in regular scan:
 
 	var res simpleObject
 	err := rows.Scan(&res)
@@ -502,6 +503,15 @@ Additionally, `sf` tag can be added:
 See StructuredObject for all available operations including null support, embedding nested structs, etc.
 
 Retrieving array of simple types works exactly the same like normal values - using Scan function.
+
+You can use WithMapValuesNullable and WithArrayValuesNullable contexts to handle null values in, respectively, maps
+and arrays of simple types in the database. In that case, sql null types will be used:
+
+	ctx := WithArrayValuesNullable(WithStructuredTypesEnabled(context.Background))
+	...
+	var res []sql.NullBool
+	err := rows.Scan(&res)
+
 If you want to scan array of structs, you have to use a helper function ScanArrayOfScanners:
 
 	var res []*simpleObject
@@ -547,7 +557,12 @@ b)
 2. Use an instance as regular bind.
 3. If you need to bind nil value, use special syntax:
 
-	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeNullObject, reflect.TypeOf(simpleObject{})
+	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeNilObject, reflect.TypeOf(simpleObject{})
+
+Binding structured arrays are like any other parameter.
+The only difference is - if you want to insert empty array (not nil but empty), you have to use:
+
+	db.Exec('INSERT INTO some_table VALUES ?', sf.DataTypeEmptyArray, reflect.TypeOf(simpleObject{}))
 
 # Using higher precision numbers
 
@@ -618,8 +633,15 @@ of the returned value:
 
 # Arrow batches
 
-You can retrieve data in a columnar format similar to the format a server returns.
-You must use `WithArrowBatches` context, similar to the following:
+You can retrieve data in a columnar format similar to the format a server returns, without transposing them to rows.
+When working with the arrow columnar format in go driver, ArrowBatch structs are used. These are structs
+mostly corresponding to data chunks received from the backend. They allow for access to specific arrow.Record structs.
+
+An ArrowBatch can exist in a state where the underlying data has not yet been loaded. The data is downloaded and
+translated only on demand. Translation options are retrieved from a context.Context interface, which is either
+passed from query context or set by the user using WithContext(ctx) method.
+
+In order to access them you must use `WithArrowBatches` context, similar to the following:
 
 	    var rows driver.Rows
 		err = conn.Raw(func(x interface{}) error {
@@ -632,6 +654,31 @@ You must use `WithArrowBatches` context, similar to the following:
 		batches, err := rows.(sf.SnowflakeRows).GetArrowBatches()
 
 		... // use Arrow records
+
+This returns []*ArrowBatch.
+
+ArrowBatch functions:
+
+GetRowCount():
+Returns the number of rows in the ArrowBatch. Note that this returns 0 if the data has not yet been loaded,
+irrespective of it’s actual size.
+
+WithContext(ctx context.Context):
+Sets the context of the ArrowBatch to the one provided. Note that the context will not retroactively apply to data
+that has already been downloaded. For example:
+
+	records1, _ := batch.Fetch()
+	records2, _ := batch.WithContext(ctx).Fetch()
+
+will produce the same result in records1 and records2, irrespective of the newly provided ctx. Context worth noting are:
+-WithArrowBatchesTimestampOption
+-WithHigherPrecision
+-WithArrowBatchesUtf8Validation
+described in more detail later.
+
+Fetch():
+Returns the underlying records as *[]arrow.Record. When this function is called, the ArrowBatch checks whether
+the underlying data has already been loaded, and downloads it if not.
 
 Limitations:
 

@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -103,18 +104,18 @@ func (scd *snowflakeChunkDownloader) start() error {
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
 
 	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
-		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
-		var err error
-		var loc *time.Location
-		if scd.sc != nil && scd.sc.cfg != nil {
-			loc = getCurrentLocation(scd.sc.cfg.Params)
+		params, err := scd.getConfigParams()
+		if err != nil {
+			return err
 		}
+		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
+		loc := getCurrentLocation(params)
 		firstArrowChunk, err := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 		if err != nil {
 			return err
 		}
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
-		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.ctx, scd.RowSet.RowType, higherPrecision, scd.sc.cfg.Params)
+		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.ctx, scd.RowSet.RowType, higherPrecision, params)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
@@ -148,7 +149,12 @@ func (scd *snowflakeChunkDownloader) schedule() {
 	select {
 	case nextIdx := <-scd.ChunksChan:
 		logger.WithContext(scd.ctx).Infof("schedule chunk: %v", nextIdx+1)
-		go scd.FuncDownload(scd.ctx, scd, nextIdx)
+		go GoroutineWrapper(
+			scd.ctx,
+			func() {
+				scd.FuncDownload(scd.ctx, scd, nextIdx)
+			},
+		)
 	default:
 		// no more download
 		logger.WithContext(scd.ctx).Info("no more download")
@@ -162,7 +168,12 @@ func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 			errc.Error != context.Canceled &&
 			errc.Error != context.DeadlineExceeded {
 			// add the index to the chunks channel so that the download will be retried.
-			go scd.FuncDownload(scd.ctx, scd, errc.Index)
+			go GoroutineWrapper(
+				scd.ctx,
+				func() {
+					scd.FuncDownload(scd.ctx, scd, errc.Index)
+				},
+			)
 			scd.ChunksErrorCounter++
 			logger.WithContext(scd.ctx).Warningf("chunk idx: %v, err: %v. retrying (%v/%v)...",
 				errc.Index, errc.Error, scd.ChunksErrorCounter, maxChunkDownloaderErrorCounter)
@@ -255,6 +266,13 @@ func (scd *snowflakeChunkDownloader) getArrowBatches() []*ArrowBatch {
 	return append([]*ArrowBatch{scd.FirstBatch}, scd.ArrowBatches...)
 }
 
+func (scd *snowflakeChunkDownloader) getConfigParams() (map[string]*string, error) {
+	if scd.sc == nil || scd.sc.cfg == nil {
+		return map[string]*string{}, errors.New("failed to retrieve connection")
+	}
+	return scd.sc.cfg.Params, nil
+}
+
 func getChunk(
 	ctx context.Context,
 	sc *snowflakeConn,
@@ -272,9 +290,11 @@ func getChunk(
 
 func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 	var loc *time.Location
-	if scd.sc != nil && scd.sc.cfg != nil {
-		loc = getCurrentLocation(scd.sc.cfg.Params)
+	params, err := scd.getConfigParams()
+	if err != nil {
+		return err
 	}
+	loc = getCurrentLocation(params)
 	if scd.RowSet.RowSetBase64 != "" {
 		var err error
 		firstArrowChunk, err := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
@@ -440,9 +460,11 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 			return err
 		}
 		var loc *time.Location
-		if scd.sc != nil && scd.sc.cfg != nil {
-			loc = getCurrentLocation(scd.sc.cfg.Params)
+		params, err := scd.getConfigParams()
+		if err != nil {
+			return err
 		}
+		loc = getCurrentLocation(params)
 		arc := arrowResultChunk{
 			ipcReader,
 			0,
@@ -458,7 +480,7 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 			return nil
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
-		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec, scd.sc.cfg.Params)
+		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec, params)
 		if err != nil {
 			return err
 		}
@@ -508,55 +530,58 @@ func (scd *streamChunkDownloader) nextResultSet() error {
 }
 
 func (scd *streamChunkDownloader) start() error {
-	go func() {
-		readErr := io.EOF
+	go GoroutineWrapper(
+		scd.ctx,
+		func() {
+			readErr := io.EOF
 
-		logger.WithContext(scd.ctx).Infof(
-			"start downloading. downloader id: %v, %v/%v rows, %v chunks",
-			scd.id, len(scd.RowSet.RowType), scd.Total, len(scd.ChunkMetas))
-		t := time.Now()
+			logger.WithContext(scd.ctx).Infof(
+				"start downloading. downloader id: %v, %v/%v rows, %v chunks",
+				scd.id, len(scd.RowSet.RowType), scd.Total, len(scd.ChunkMetas))
+			t := time.Now()
 
-		defer func() {
-			if readErr == io.EOF {
-				logger.WithContext(scd.ctx).Infof("downloading done. downloader id: %v", scd.id)
-			} else {
-				logger.WithContext(scd.ctx).Debugf("downloading error. downloader id: %v", scd.id)
-			}
-			scd.readErr = readErr
-			close(scd.rowStream)
-
-			if r := recover(); r != nil {
-				if err, ok := r.(error); ok {
-					readErr = err
+			defer func() {
+				if readErr == io.EOF {
+					logger.WithContext(scd.ctx).Infof("downloading done. downloader id: %v", scd.id)
 				} else {
-					readErr = fmt.Errorf("%v", r)
+					logger.WithContext(scd.ctx).Debugf("downloading error. downloader id: %v", scd.id)
 				}
-			}
-		}()
+				scd.readErr = readErr
+				close(scd.rowStream)
 
-		logger.WithContext(scd.ctx).Infof("sending initial set of rows in %vms", time.Since(t).Microseconds())
-		t = time.Now()
-		for _, row := range scd.RowSet.JSON {
-			scd.rowStream <- row
-		}
-		scd.RowSet.JSON = nil
+				if r := recover(); r != nil {
+					if err, ok := r.(error); ok {
+						readErr = err
+					} else {
+						readErr = fmt.Errorf("%v", r)
+					}
+				}
+			}()
 
-		// Download and parse one chunk at a time. The fetcher will send each
-		// parsed row to the row stream. When an error occurs, the fetcher will
-		// stop writing to the row stream so we can stop processing immediately
-		for i, chunk := range scd.ChunkMetas {
-			logger.WithContext(scd.ctx).Infof("starting chunk fetch %d (%d rows)", i, chunk.RowCount)
-			if err := scd.fetcher.fetch(chunk.URL, scd.rowStream); err != nil {
-				logger.WithContext(scd.ctx).Debugf(
-					"failed chunk fetch %d: %#v, downloader id: %v, %v/%v rows, %v chunks",
-					i, err, scd.id, len(scd.RowSet.RowType), scd.Total, len(scd.ChunkMetas))
-				readErr = fmt.Errorf("chunk fetch: %w", err)
-				break
-			}
-			logger.WithContext(scd.ctx).Infof("fetched chunk %d (%d rows) in %vms", i, chunk.RowCount, time.Since(t).Microseconds())
+			logger.WithContext(scd.ctx).Infof("sending initial set of rows in %vms", time.Since(t).Microseconds())
 			t = time.Now()
-		}
-	}()
+			for _, row := range scd.RowSet.JSON {
+				scd.rowStream <- row
+			}
+			scd.RowSet.JSON = nil
+
+			// Download and parse one chunk at a time. The fetcher will send each
+			// parsed row to the row stream. When an error occurs, the fetcher will
+			// stop writing to the row stream so we can stop processing immediately
+			for i, chunk := range scd.ChunkMetas {
+				logger.WithContext(scd.ctx).Infof("starting chunk fetch %d (%d rows)", i, chunk.RowCount)
+				if err := scd.fetcher.fetch(chunk.URL, scd.rowStream); err != nil {
+					logger.WithContext(scd.ctx).Debugf(
+						"failed chunk fetch %d: %#v, downloader id: %v, %v/%v rows, %v chunks",
+						i, err, scd.id, len(scd.RowSet.RowType), scd.Total, len(scd.ChunkMetas))
+					readErr = fmt.Errorf("chunk fetch: %w", err)
+					break
+				}
+				logger.WithContext(scd.ctx).Infof("fetched chunk %d (%d rows) in %vms", i, chunk.RowCount, time.Since(t).Microseconds())
+				t = time.Now()
+			}
+		},
+	)
 	return nil
 }
 
