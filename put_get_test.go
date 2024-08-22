@@ -751,9 +751,9 @@ func TestPutCancel(t *testing.T) {
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(testData)
 	assertNilF(t, err)
+	defer f.Close()
 	err = f.Truncate(3e8)
 	assertNilF(t, err)
-	f.Close()
 
 	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
