@@ -269,6 +269,19 @@ func TestValueToString(t *testing.T) {
 	assertNilE(t, bv.schema)
 	assertEqualE(t, *bv.value, expectedString)
 
+	t.Run("arrays", func(t *testing.T) {
+		bv, err := valueToString([2]int{1, 2}, objectType, nil)
+		assertNilF(t, err)
+		assertEqualE(t, bv.format, "json")
+		assertEqualE(t, *bv.value, "[1,2]")
+	})
+	t.Run("slices", func(t *testing.T) {
+		bv, err := valueToString([]int{1, 2}, objectType, nil)
+		assertNilF(t, err)
+		assertEqualE(t, bv.format, "json")
+		assertEqualE(t, *bv.value, "[1,2]")
+	})
+
 	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, timestampLtzType, params)
 	assertNilF(t, err)
 	assertEqualE(t, bv.format, "json")
