@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -746,13 +747,9 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 }
 
 func TestPutCancel(t *testing.T) {
-	// create a 300MB file for upload
-	tmpDir := t.TempDir()
-	testData := filepath.Join(tmpDir, "data.txt")
-	f, err := os.Create(testData)
+	sourceDir, err := os.Getwd()
 	assertNilF(t, err)
-	err = f.Truncate(300 * 1024 * 1024)
-	assertNilF(t, err)
+	testData := path.Join(sourceDir, "/test_data/largefile.txt")
 
 	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
