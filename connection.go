@@ -169,10 +169,21 @@ func (sc *snowflakeConn) exec(
 	}
 
 	// handle PUT/GET commands
+	fileTransferChan := make(chan error, 1)
 	if isFileTransfer(query) {
-		data, err = sc.processFileTransfer(ctx, data, query, isInternal)
-		if err != nil {
-			return nil, err
+		go func() {
+			data, err = sc.processFileTransfer(ctx, data, query, isInternal)
+			fileTransferChan <- err
+		}()
+
+		select {
+		case <-ctx.Done():
+			logger.WithContext(ctx).Info("File transfer has been cancelled")
+			return nil, ctx.Err()
+		case err := <-fileTransferChan:
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

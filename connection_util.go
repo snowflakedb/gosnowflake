@@ -89,6 +89,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	isInternal bool) (
 	*execResponse, error) {
 	sfa := snowflakeFileTransferAgent{
+		ctx:          ctx,
 		sc:           sc,
 		data:         &data.Data,
 		command:      query,

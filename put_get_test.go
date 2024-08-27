@@ -11,10 +11,12 @@ import (
 	"math/rand"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 const createStageStmt = "CREATE OR REPLACE STAGE %v URL = '%v' CREDENTIALS = (%v)"
@@ -48,6 +50,7 @@ func TestPutError(t *testing.T) {
 	}
 
 	fta := &snowflakeFileTransferAgent{
+		ctx:  context.Background(),
 		data: data,
 		options: &SnowflakeFileTransferOptions{
 			RaisePutGetError: false,
@@ -64,6 +67,7 @@ func TestPutError(t *testing.T) {
 	}
 
 	fta = &snowflakeFileTransferAgent{
+		ctx:  context.Background(),
 		data: data,
 		options: &SnowflakeFileTransferOptions{
 			RaisePutGetError: true,
@@ -827,5 +831,36 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			}
 			assertEqualE(t, contents, originalContents, "output is different from the original file")
 		}
+	})
+}
+
+func TestPutCancel(t *testing.T) {
+	sourceDir, err := os.Getwd()
+	assertNilF(t, err)
+	testData := path.Join(sourceDir, "/test_data/largefile.txt")
+
+	runDBTest(t, func(dbt *DBTest) {
+		c := make(chan error)
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			// attempt to upload a large file, but it should be canceled in 3 seconds
+			_, err := dbt.conn.ExecContext(
+				ctx,
+				fmt.Sprintf("put 'file://%v' @~/test_put_cancel overwrite=true",
+					strings.ReplaceAll(testData, "\\", "/")))
+			if err != nil {
+				c <- err
+				return
+			}
+			c <- nil
+		}()
+		// cancel after 3 seconds
+		time.Sleep(3 * time.Second)
+		fmt.Println("Canceled")
+		cancel()
+		ret := <-c
+		assertNotNilF(t, ret)
+		assertStringContainsF(t, ret.Error(), "context canceled", "failed to cancel.")
+		close(c)
 	})
 }
