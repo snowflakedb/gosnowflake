@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -88,11 +89,12 @@ func (sc *snowflakeConn) processFileTransfer(
 	isInternal bool) (
 	*execResponse, error) {
 	sfa := snowflakeFileTransferAgent{
-		ctx:     ctx,
-		sc:      sc,
-		data:    &data.Data,
-		command: query,
-		options: new(SnowflakeFileTransferOptions),
+		ctx:          ctx,
+		sc:           sc,
+		data:         &data.Data,
+		command:      query,
+		options:      new(SnowflakeFileTransferOptions),
+		streamBuffer: new(bytes.Buffer),
 	}
 	if fs := getFileStream(ctx); fs != nil {
 		sfa.sourceStream = fs
@@ -112,6 +114,11 @@ func (sc *snowflakeConn) processFileTransfer(
 	data, err := sfa.result()
 	if err != nil {
 		return nil, err
+	}
+	if sfa.options.getFileToStream {
+		if err := writeFileStream(ctx, sfa.streamBuffer); err != nil {
+			return nil, err
+		}
 	}
 	return data, nil
 }
@@ -137,6 +144,19 @@ func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
 		return nil
 	}
 	return o
+}
+
+func writeFileStream(ctx context.Context, streamBuf *bytes.Buffer) error {
+	s := ctx.Value(fileGetStream)
+	w, ok := s.(io.Writer)
+	if !ok {
+		return errors.New("expected an io.Writer")
+	}
+	_, err := streamBuf.WriteTo(w)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParameter) {
