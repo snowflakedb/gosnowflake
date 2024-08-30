@@ -65,6 +65,9 @@ const (
 	executionTypeStatement string  = "statement"
 )
 
+// snowflakeConn manages its own context.
+// External cancellation should not be supported because the connection
+// may be reused after the original query/request has completed.
 type snowflakeConn struct {
 	ctx                 context.Context
 	cfg                 *Config
@@ -166,10 +169,21 @@ func (sc *snowflakeConn) exec(
 	}
 
 	// handle PUT/GET commands
+	fileTransferChan := make(chan error, 1)
 	if isFileTransfer(query) {
-		data, err = sc.processFileTransfer(ctx, data, query, isInternal)
-		if err != nil {
-			return nil, err
+		go func() {
+			data, err = sc.processFileTransfer(ctx, data, query, isInternal)
+			fileTransferChan <- err
+		}()
+
+		select {
+		case <-ctx.Done():
+			logger.WithContext(ctx).Info("File transfer has been cancelled")
+			return nil, ctx.Err()
+		case err := <-fileTransferChan:
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -253,6 +267,7 @@ func (sc *snowflakeConn) BeginTx(
 
 func (sc *snowflakeConn) cleanup() {
 	// must flush log buffer while the process is running.
+	logger.WithContext(sc.ctx).Debugln("Snowflake connection closing.")
 	if sc.rest != nil && sc.rest.Client != nil {
 		sc.rest.Client.CloseIdleConnections()
 	}
@@ -668,7 +683,7 @@ type snowflakeArrowStreamChunkDownloader struct {
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
-	if scd.sc != nil {
+	if scd.sc != nil && scd.sc.cfg != nil {
 		return getCurrentLocation(scd.sc.cfg.Params)
 	}
 	return nil
@@ -746,10 +761,12 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 	return
 }
 
+// buildSnowflakeConn creates a new snowflakeConn.
+// The provided context is used only for establishing the initial connection.
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
 		SequenceCounter:     0,
-		ctx:                 ctx,
+		ctx:                 context.Background(),
 		cfg:                 &config,
 		queryContextCache:   (&queryContextCache{}).init(),
 		currentTimeProvider: defaultTimeProvider,
@@ -773,7 +790,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		// use the custom transport
 		st = sc.cfg.Transporter
 	}
-	if err = setupOCSPEnvVars(sc.ctx, sc.cfg.Host); err != nil {
+	if err = setupOCSPEnvVars(ctx, sc.cfg.Host); err != nil {
 		return nil, err
 	}
 	var tokenAccessor TokenAccessor

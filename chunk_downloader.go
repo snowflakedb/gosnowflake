@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -103,18 +104,18 @@ func (scd *snowflakeChunkDownloader) start() error {
 	populateJSONRowSet(scd.CurrentChunk, scd.RowSet.JSON)
 
 	if scd.getQueryResultFormat() == arrowFormat && scd.RowSet.RowSetBase64 != "" {
-		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
-		var err error
-		var loc *time.Location
-		if scd.sc != nil && scd.sc.cfg != nil {
-			loc = getCurrentLocation(scd.sc.cfg.Params)
+		params, err := scd.getConfigParams()
+		if err != nil {
+			return err
 		}
+		// if the rowsetbase64 retrieved from the server is empty, move on to downloading chunks
+		loc := getCurrentLocation(params)
 		firstArrowChunk, err := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
 		if err != nil {
 			return err
 		}
 		higherPrecision := higherPrecisionEnabled(scd.ctx)
-		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.ctx, scd.RowSet.RowType, higherPrecision, scd.sc.cfg.Params)
+		scd.CurrentChunk, err = firstArrowChunk.decodeArrowChunk(scd.ctx, scd.RowSet.RowType, higherPrecision, params)
 		scd.CurrentChunkSize = firstArrowChunk.rowCount
 		if err != nil {
 			return err
@@ -265,6 +266,13 @@ func (scd *snowflakeChunkDownloader) getArrowBatches() []*ArrowBatch {
 	return append([]*ArrowBatch{scd.FirstBatch}, scd.ArrowBatches...)
 }
 
+func (scd *snowflakeChunkDownloader) getConfigParams() (map[string]*string, error) {
+	if scd.sc == nil || scd.sc.cfg == nil {
+		return map[string]*string{}, errors.New("failed to retrieve connection")
+	}
+	return scd.sc.cfg.Params, nil
+}
+
 func getChunk(
 	ctx context.Context,
 	sc *snowflakeConn,
@@ -282,9 +290,11 @@ func getChunk(
 
 func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 	var loc *time.Location
-	if scd.sc != nil && scd.sc.cfg != nil {
-		loc = getCurrentLocation(scd.sc.cfg.Params)
+	params, err := scd.getConfigParams()
+	if err != nil {
+		return err
 	}
+	loc = getCurrentLocation(params)
 	if scd.RowSet.RowSetBase64 != "" {
 		var err error
 		firstArrowChunk, err := buildFirstArrowChunk(scd.RowSet.RowSetBase64, loc, scd.pool)
@@ -450,9 +460,11 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 			return err
 		}
 		var loc *time.Location
-		if scd.sc != nil && scd.sc.cfg != nil {
-			loc = getCurrentLocation(scd.sc.cfg.Params)
+		params, err := scd.getConfigParams()
+		if err != nil {
+			return err
 		}
+		loc = getCurrentLocation(params)
 		arc := arrowResultChunk{
 			ipcReader,
 			0,
@@ -468,7 +480,7 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 			return nil
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
-		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec, scd.sc.cfg.Params)
+		respd, err = arc.decodeArrowChunk(ctx, scd.RowSet.RowType, highPrec, params)
 		if err != nil {
 			return err
 		}

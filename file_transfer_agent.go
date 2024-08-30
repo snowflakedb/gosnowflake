@@ -91,6 +91,9 @@ type SnowflakeFileTransferOptions struct {
 	/* streaming PUT */
 	compressSourceFromStream bool
 
+	/* streaming GET */
+	getFileToStream bool
+
 	/* PUT */
 	putCallback             *snowflakeProgressPercentage
 	putAzureCallback        *snowflakeProgressPercentage
@@ -103,6 +106,7 @@ type SnowflakeFileTransferOptions struct {
 }
 
 type snowflakeFileTransferAgent struct {
+	ctx                         context.Context
 	sc                          *snowflakeConn
 	data                        *execResponseData
 	command                     string
@@ -124,6 +128,7 @@ type snowflakeFileTransferAgent struct {
 	useAccelerateEndpoint       bool
 	presignedURLs               []string
 	options                     *SnowflakeFileTransferOptions
+	streamBuffer                *bytes.Buffer
 }
 
 func (sfa *snowflakeFileTransferAgent) execute() error {
@@ -411,6 +416,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 					name:              baseName(fileName),
 					srcFileName:       fileName,
 					dstFileName:       dstFileName,
+					dstStream:         new(bytes.Buffer),
 					stageLocationType: sfa.stageLocationType,
 					stageInfo:         sfa.stageInfo,
 					localLocation:     sfa.localLocation,

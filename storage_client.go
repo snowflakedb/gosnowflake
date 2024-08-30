@@ -218,17 +218,30 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 						return err
 					}
 				}
-				tmpDstFileName, err := decryptFile(header.encryptionMetadata,
-					meta.encryptionMaterial, fullDstFileName, 0, meta.tmpDir)
-				if err != nil {
-					return err
+				if meta.options.getFileToStream {
+					totalFileSize, err := decryptStream(header.encryptionMetadata,
+						meta.encryptionMaterial, 0, meta.dstStream, meta.sfa.streamBuffer)
+					if err != nil {
+						return err
+					}
+					meta.sfa.streamBuffer.Truncate(totalFileSize)
+					meta.dstFileSize = int64(totalFileSize)
+				} else {
+					tmpDstFileName, err := decryptFile(header.encryptionMetadata,
+						meta.encryptionMaterial, fullDstFileName, 0, meta.tmpDir)
+					if err != nil {
+						return err
+					}
+					if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
+						return err
+					}
 				}
-				if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
-					return err
-				}
+
 			}
-			if fi, err := os.Stat(fullDstFileName); err == nil {
-				meta.dstFileSize = fi.Size()
+			if !meta.options.getFileToStream {
+				if fi, err := os.Stat(fullDstFileName); err == nil {
+					meta.dstFileSize = fi.Size()
+				}
 			}
 			return nil
 		}
