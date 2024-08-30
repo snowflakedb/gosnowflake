@@ -195,6 +195,10 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			}
 		case "authenticator":
 			v, ok = value.(string)
+			if !ok {
+				//errorinterface
+				return err
+			}
 			err = determineAuthenticatorType(cfg, v)
 			if err != nil {
 				//errorinterface
