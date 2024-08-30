@@ -127,6 +127,10 @@ const (
 	ErrCodeFailedToParseAuthenticator = 260011
 	// ErrCodeClientConfigFailed is an error code for the case where clientConfigFile is invalid or applying client configuration fails
 	ErrCodeClientConfigFailed = 260012
+	// ErrCodeTomlFileParsing is an error code for the case when parsing the toml file is failed because of invalid value.
+	ErrCodeTomlFileParsingFailed = 260013
+	// ErrCodeTomlFileParsing is an error code for the case when parsing the toml file is failed because of invalid value.
+	ErrCodeFailedToFindDSNInToml = 260013
 
 	/* network */
 
@@ -299,6 +303,8 @@ const (
 	errMsgClientConfigFailed                 = "client configuration failed: %v"
 	errMsgNullValueInArray                   = "for handling null values in arrays use WithArrayValuesNullable(ctx)"
 	errMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"
+	errMsgFailedToParseTomlFile              = "failed to parse toml file. the params occurred error: %v"
+	errMsgFailedToFindDSNInTomlFile          = "failed to find DSN in toml file."
 )
 
 // Returned if a DNS doesn't include account parameter.
