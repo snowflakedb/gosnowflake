@@ -14,6 +14,9 @@ import (
 	toml "github.com/BurntSushi/toml"
 )
 
+// LoadConnectionConfig returns connection configs loaded from the toml file.
+// By default, SNOWFLAKE_HOME(toml file path) is os.home/snowflake
+// and SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN) is 'default'
 func LoadConnectionConfig() (*Config, error) {
 	cfg := &Config{
 		Params:        make(map[string]*string),
@@ -378,9 +381,8 @@ func parseInt(i interface{}) (int, error) {
 	if v, ok = i.(string); !ok {
 		if num, ok = i.(int); !ok {
 			return 0, parseErr
-		} else {
-			return num, nil
 		}
+		return num, nil
 	} else {
 		num, err = strconv.Atoi(v)
 		if err != nil {
@@ -402,9 +404,8 @@ func parseBool(i interface{}) (bool, error) {
 	if v, ok = i.(string); !ok {
 		if vv, ok = i.(bool); !ok {
 			return false, parseErr
-		} else {
-			return vv, nil
 		}
+		return vv, nil
 	} else {
 		vv, err = strconv.ParseBool(v)
 		if err != nil {
@@ -428,10 +429,9 @@ func parseDuration(i interface{}) (time.Duration, error) {
 	if v, ok = i.(string); !ok {
 		if num, err = parseInt(i); err != nil {
 			return time.Duration(0), parseErr
-		} else {
-			t = int64(num)
-			return time.Duration(t * int64(time.Second)), nil
 		}
+		t = int64(num)
+		return time.Duration(t * int64(time.Second)), nil
 	} else {
 		t, err = strconv.ParseInt(v, 10, 64)
 		if err != nil {
@@ -481,9 +481,8 @@ func getTomlFilePath(filePath string) (string, error) {
 func getConnectionDSN(dsn string) string {
 	if len(dsn) != 0 {
 		return dsn
-	} else {
-		return "default"
 	}
+	return "default"
 }
 
 func validateFilePermission(filePath string) error {

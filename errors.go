@@ -127,9 +127,9 @@ const (
 	ErrCodeFailedToParseAuthenticator = 260011
 	// ErrCodeClientConfigFailed is an error code for the case where clientConfigFile is invalid or applying client configuration fails
 	ErrCodeClientConfigFailed = 260012
-	// ErrCodeTomlFileParsing is an error code for the case when parsing the toml file is failed because of invalid value.
+	// ErrCodeTomlFileParsingFailed is an error code for the case where parsing the toml file is failed because of invalid value.
 	ErrCodeTomlFileParsingFailed = 260013
-	// ErrCodeTomlFileParsing is an error code for the case when parsing the toml file is failed because of invalid value.
+	// ErrCodeFailedToFindDSNInToml is an error code for the case where the DSN does not exist in the toml file.
 	ErrCodeFailedToFindDSNInToml = 260013
 
 	/* network */
