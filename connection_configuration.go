@@ -383,13 +383,12 @@ func parseInt(i interface{}) (int, error) {
 			return 0, parseErr
 		}
 		return num, nil
-	} else {
-		num, err = strconv.Atoi(v)
-		if err != nil {
-			return 0, parseErr
-		}
-		return num, nil
 	}
+	num, err = strconv.Atoi(v)
+	if err != nil {
+		return 0, parseErr
+	}
+	return num, nil
 }
 
 func parseBool(i interface{}) (bool, error) {
@@ -406,13 +405,12 @@ func parseBool(i interface{}) (bool, error) {
 			return false, parseErr
 		}
 		return vv, nil
-	} else {
-		vv, err = strconv.ParseBool(v)
-		if err != nil {
-			return false, parseErr
-		}
-		return vv, nil
 	}
+	vv, err = strconv.ParseBool(v)
+	if err != nil {
+		return false, parseErr
+	}
+	return vv, nil
 }
 
 func parseDuration(i interface{}) (time.Duration, error) {
@@ -432,13 +430,12 @@ func parseDuration(i interface{}) (time.Duration, error) {
 		}
 		t = int64(num)
 		return time.Duration(t * int64(time.Second)), nil
-	} else {
-		t, err = strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return time.Duration(0), parseErr
-		}
-		return time.Duration(t * int64(time.Second)), nil
 	}
+	t, err = strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		return time.Duration(0), parseErr
+	}
+	return time.Duration(t * int64(time.Second)), nil
 }
 
 func readToken(tokenPath string) (string, error) {
