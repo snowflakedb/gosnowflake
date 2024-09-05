@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"io/fs"
 	"os"
+	path "path/filepath"
 	"testing"
 	"time"
 )
@@ -261,4 +262,26 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestGetTomlFilePath(t *testing.T) {
+	dir, err := getTomlFilePath("")
+	if err != nil {
+		t.Fatal("should not have failed")
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal("The connection cannot find the user home directory")
+	}
+
+	assertEqualF(t, dir, path.Join(homeDir, "snowflake"))
+
+	var location string = "../user//somelocation///b"
+	dir, err = getTomlFilePath(location)
+	if err != nil {
+		t.Fatal("should not have failed")
+	}
+	result, err := path.Abs(location)
+	assertEqualF(t, dir, result)
+
 }

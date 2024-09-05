@@ -445,6 +445,9 @@ func getTomlFilePath(filePath string) (string, error) {
 	var dir string
 	if len(filePath) != 0 {
 		dir = filePath
+		if path.IsAbs(dir) {
+			return dir, nil
+		}
 	} else {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
