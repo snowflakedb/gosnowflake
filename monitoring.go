@@ -214,15 +214,10 @@ func (sc *snowflakeConn) getQueryResultResp(
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	}
 	url := sc.rest.getFullURL(resultPath, &param)
-	res, err := sc.rest.FuncGet(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
+
+	respd, err := getQueryResultWithRetriesForAsyncMode(ctx, sc.rest, url, headers, sc.rest.RequestTimeout)
 	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-		return nil, err
-	}
-	defer res.Body.Close()
-	var respd *execResponse
-	if err = json.NewDecoder(res.Body).Decode(&respd); err != nil {
-		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+		logger.WithContext(ctx).Errorf("error: %v", err)
 		return nil, err
 	}
 	return respd, nil
@@ -238,6 +233,7 @@ func (sc *snowflakeConn) rowsForRunningQuery(
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		return err
 	}
+
 	if !resp.Success {
 		code, err := strconv.Atoi(resp.Code)
 		if err != nil {
@@ -262,6 +258,7 @@ func (sc *snowflakeConn) buildRowsForRunningQuery(
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.queryID = qid
+	rows.ctx = ctx
 	if err := sc.rowsForRunningQuery(ctx, qid, rows); err != nil {
 		return nil, err
 	}

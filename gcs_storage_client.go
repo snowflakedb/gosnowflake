@@ -322,13 +322,24 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		return meta.lastError
 	}
 
-	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if _, err = io.Copy(f, resp.Body); err != nil {
-		return err
+	if meta.options.getFileToStream {
+		if _, err := io.Copy(meta.dstStream, resp.Body); err != nil {
+			return err
+		}
+	} else {
+		f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if _, err = io.Copy(f, resp.Body); err != nil {
+			return err
+		}
+		fi, err := os.Stat(fullDstFileName)
+		if err != nil {
+			return err
+		}
+		meta.srcFileSize = fi.Size()
 	}
 
 	var encryptMeta encryptMetadata
@@ -348,12 +359,6 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 			}
 		}
 	}
-
-	fi, err := os.Stat(fullDstFileName)
-	if err != nil {
-		return err
-	}
-	meta.srcFileSize = fi.Size()
 	meta.resStatus = downloaded
 	meta.gcsFileHeaderDigest = resp.Header.Get(gcsMetadataSfcDigest)
 	meta.gcsFileHeaderContentLength = resp.ContentLength

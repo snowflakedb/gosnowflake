@@ -11,27 +11,47 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"database/sql/driver"
 )
 
-// A test just to show Snowflake version
-func TestCheckVersion(t *testing.T) {
-	conn := openConn(t)
-	defer conn.Close()
+func TestArrowBatchHighPrecision(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		ctx := WithArrowBatches(context.Background())
+		query := "select '0.1':: DECIMAL(38, 19) as c"
 
-	rows, err := conn.QueryContext(context.Background(), "SELECT current_version()")
-	if err != nil {
-		t.Error(err)
-	}
-	defer rows.Close()
+		var rows driver.Rows
+		var err error
 
-	if !rows.Next() {
-		t.Fatalf("failed to find any row")
-	}
-	var s string
-	if err = rows.Scan(&s); err != nil {
-		t.Fatal(err)
-	}
-	println(s)
+		// must use conn.Raw so we can get back driver rows (an interface)
+		// which can be cast to snowflakeRows which exposes GetArrowBatch
+		err = dbt.conn.Raw(func(x interface{}) error {
+			queryer, implementsQueryContext := x.(driver.QueryerContext)
+			assertTrueF(t, implementsQueryContext, "snowflake connection driver does not implement queryerContext")
+
+			rows, err = queryer.QueryContext(WithArrowBatches(ctx), query, nil)
+			return err
+		})
+
+		assertNilF(t, err, "error running select query")
+
+		sfRows, isSfRows := rows.(SnowflakeRows)
+		assertTrueF(t, isSfRows, "rows should be snowflakeRows")
+
+		arrowBatches, err := sfRows.GetArrowBatches()
+		assertNilF(t, err, "error getting arrow batches")
+		assertNotEqualF(t, len(arrowBatches), 0, "should have at least one batch")
+
+		c, err := arrowBatches[0].Fetch()
+		assertNilF(t, err, "error fetching first batch")
+
+		chunk := *c
+		assertNotEqualF(t, len(chunk), 0, "should have at least one chunk")
+
+		strVal := chunk[0].Column(0).ValueStr(0)
+		expected := "0.1"
+		assertEqualF(t, strVal, expected, fmt.Sprintf("should have returned 0.1, but got: %s", strVal))
+	})
 }
 
 func TestArrowBigInt(t *testing.T) {

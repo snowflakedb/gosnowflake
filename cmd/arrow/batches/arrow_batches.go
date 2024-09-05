@@ -6,9 +6,9 @@ import (
 	"database/sql/driver"
 	"flag"
 	"fmt"
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"log"
 	"sync"
 	"time"
@@ -51,9 +51,9 @@ func main() {
 	}
 
 	ctx :=
-		sf.WithOriginalTimestamp(
+		sf.WithArrowBatchesTimestampOption(
 			sf.WithArrowAllocator(
-				sf.WithArrowBatches(context.Background()), memory.DefaultAllocator))
+				sf.WithArrowBatches(context.Background()), memory.DefaultAllocator), sf.UseOriginalTimestamp)
 
 	query := "SELECT SEQ4(), 'example ' || (SEQ4() * 2), " +
 		" TO_TIMESTAMP_NTZ('9999-01-01 13:13:13.' || LPAD(SEQ4(),9,'0'))  ltz " +

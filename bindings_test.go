@@ -7,10 +7,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"math/big"
 	"math/rand"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -34,6 +36,26 @@ const (
 	deleteTableSQLBulkArrayDateTimeTimestamp = "drop table if exists test_bulk_array_DateTimeTimestamp"
 	insertSQLBulkArrayDateTimeTimestamp      = "insert into test_bulk_array_DateTimeTimestamp values(?, ?, ?, ?, ?)"
 	selectAllSQLBulkArrayDateTimeTimestamp   = "select * from test_bulk_array_DateTimeTimestamp ORDER BY 1"
+
+	enableFeatureMaxLOBSize      = "ALTER SESSION SET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY='ENABLED'"
+	unsetFeatureMaxLOBSize       = "ALTER SESSION UNSET FEATURE_INCREASED_MAX_LOB_SIZE_IN_MEMORY"
+	enableLargeVarcharAndBinary  = "ALTER SESSION SET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT=TRUE"
+	disableLargeVarcharAndBinary = "ALTER SESSION SET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT=FALSE"
+	unsetLargeVarcharAndBinary   = "ALTER SESSION UNSET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT"
+
+	maxVarcharAndBinarySizeParam = "varchar_and_binary_max_size_in_result"
+
+	originSize = 16 * 1024 * 1024
+	smallSize  = 16
+	// range to use for generating random numbers
+	lobRandomRange = 100000
+)
+
+var (
+	// maxLOBSize = 128 * 1024 * 1024 // new max LOB size
+	maxLOBSize = 16 * 1024 * 1024 // current max LOB size
+	largeSize  = maxLOBSize / 2
+	mediumSize = largeSize / 2
 )
 
 func TestBindingFloat64(t *testing.T) {
@@ -205,9 +227,9 @@ func TestBindingTimePtrInStruct(t *testing.T) {
 			id      *int
 			timeVal *time.Time
 		}
-		var expectedID int = 1
-		var expectedTime time.Time = time.Now()
-		var testStruct timePtrStruct = timePtrStruct{id: &expectedID, timeVal: &expectedTime}
+		expectedID := 1
+		expectedTime := time.Now()
+		testStruct := timePtrStruct{id: &expectedID, timeVal: &expectedTime}
 		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
 
 		runInsertQuery := false
@@ -252,9 +274,9 @@ func TestBindingTimeInStruct(t *testing.T) {
 			id      int
 			timeVal time.Time
 		}
-		var expectedID int = 1
-		var expectedTime time.Time = time.Now()
-		var testStruct timeStruct = timeStruct{id: expectedID, timeVal: expectedTime}
+		expectedID := 1
+		expectedTime := time.Now()
+		testStruct := timeStruct{id: expectedID, timeVal: expectedTime}
 		dbt.mustExec("CREATE OR REPLACE TABLE timeStructTest (id int, tz timestamp_tz)")
 
 		runInsertQuery := false
@@ -706,30 +728,89 @@ func testBindingArray(t *testing.T, bulk bool) {
 
 func TestBulkArrayBinding(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string)", dbname))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", dbname))
+		now := time.Now()
+		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
+		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
+		someBinary := []byte{0x01, 0x02, 0x03}
 		numRows := 100000
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
+		ltzArr := make([]time.Time, numRows)
+		tzArr := make([]time.Time, numRows)
+		ntzArr := make([]time.Time, numRows)
+		dateArr := make([]time.Time, numRows)
+		timeArr := make([]time.Time, numRows)
+		binArr := make([][]byte, numRows)
 		for i := 0; i < numRows; i++ {
 			intArr[i] = i
 			strArr[i] = "test" + strconv.Itoa(i)
+			ltzArr[i] = now
+			tzArr[i] = now.Add(time.Hour).UTC()
+			ntzArr[i] = now.Add(2 * time.Hour)
+			dateArr[i] = someDate
+			timeArr[i] = someTime
+			binArr[i] = someBinary
 		}
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?)", dbname), Array(&intArr), Array(&strArr))
-		rows := dbt.mustQuery("select * from " + dbname)
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", dbname), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
+		rows := dbt.mustQuery("select * from " + dbname + " order by c1")
 		defer rows.Close()
 		cnt := 0
 		var i int
 		var s string
+		var ltz, tz, ntz, date, tt time.Time
+		var b []byte
 		for rows.Next() {
-			if err := rows.Scan(&i, &s); err != nil {
+			if err := rows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b); err != nil {
 				t.Fatal(err)
 			}
-			if i != cnt {
-				t.Errorf("expected: %v, got: %v", cnt, i)
+			assertEqualE(t, i, cnt)
+			assertEqualE(t, "test"+strconv.Itoa(cnt), s)
+			assertEqualE(t, ltz.UTC(), now.UTC())
+			assertEqualE(t, tz.UTC(), now.Add(time.Hour).UTC())
+			assertEqualE(t, ntz.UTC(), now.Add(2*time.Hour).UTC())
+			assertEqualE(t, date, someDate)
+			assertEqualE(t, tt, someTime)
+			assertBytesEqualE(t, b, someBinary)
+			cnt++
+		}
+		if cnt != numRows {
+			t.Fatalf("expected %v rows, got %v", numRows, cnt)
+		}
+	})
+}
+
+func TestBulkArrayBindingTimeWithPrecision(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (s time(0), ms time(3), us time(6), ns time(9))", dbname))
+		someTimeWithSeconds := time.Date(1, time.January, 1, 1, 1, 1, 0, time.UTC)
+		someTimeWithMilliseconds := time.Date(1, time.January, 1, 2, 2, 2, 123000000, time.UTC)
+		someTimeWithMicroseconds := time.Date(1, time.January, 1, 3, 3, 3, 123456000, time.UTC)
+		someTimeWithNanoseconds := time.Date(1, time.January, 1, 4, 4, 4, 123456789, time.UTC)
+		numRows := 100000
+		secondsArr := make([]time.Time, numRows)
+		millisecondsArr := make([]time.Time, numRows)
+		microsecondsArr := make([]time.Time, numRows)
+		nanosecondsArr := make([]time.Time, numRows)
+		for i := 0; i < numRows; i++ {
+			secondsArr[i] = someTimeWithSeconds
+			millisecondsArr[i] = someTimeWithMilliseconds
+			microsecondsArr[i] = someTimeWithMicroseconds
+			nanosecondsArr[i] = someTimeWithNanoseconds
+		}
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?)", dbname), Array(&secondsArr, TimeType), Array(&millisecondsArr, TimeType), Array(&microsecondsArr, TimeType), Array(&nanosecondsArr, TimeType))
+		rows := dbt.mustQuery("select * from " + dbname)
+		defer rows.Close()
+		cnt := 0
+		var s, ms, us, ns time.Time
+		for rows.Next() {
+			if err := rows.Scan(&s, &ms, &us, &ns); err != nil {
+				t.Fatal(err)
 			}
-			if exp := "test" + strconv.Itoa(cnt); s != exp {
-				t.Errorf("expected: %v, got: %v", exp, s)
-			}
+			assertEqualE(t, s, someTimeWithSeconds)
+			assertEqualE(t, ms, someTimeWithMilliseconds)
+			assertEqualE(t, us, someTimeWithMicroseconds)
+			assertEqualE(t, ns, someTimeWithNanoseconds)
 			cnt++
 		}
 		if cnt != numRows {
@@ -740,7 +821,6 @@ func TestBulkArrayBinding(t *testing.T) {
 
 func TestBulkArrayMultiPartBinding(t *testing.T) {
 	rowCount := 1000000 // large enough to be partitioned into multiple files
-	rand.Seed(time.Now().UnixNano())
 	randomIter := rand.Intn(3) + 2
 	randomStrings := make([]string, rowCount)
 	str := randomString(30)
@@ -811,7 +891,7 @@ func TestBulkArrayMultiPartBindingInt(t *testing.T) {
 			cnt++
 		}
 		if cnt != endNum {
-			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
+			t.Fatalf("expected %v rows, got %v", numRows, cnt-startNum)
 		}
 		dbt.mustExec("DROP TABLE binding_test")
 	})
@@ -873,7 +953,7 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 			cnt++
 		}
 		if cnt != endNum {
-			t.Fatalf("expected %v rows, got %v", numRows, (cnt - startNum))
+			t.Fatalf("expected %v rows, got %v", numRows, cnt-startNum)
 		}
 		dbt.mustExec("DROP TABLE binding_test")
 	})
@@ -911,6 +991,10 @@ func TestFunctionParameters(t *testing.T) {
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
+		_, err := dbt.exec("ALTER SESSION SET BIND_NULL_VALUE_USE_NULL_DATATYPE=false")
+		if err != nil {
+			log.Println(err)
+		}
 		for _, tc := range testcases {
 			t.Run(tc.testDesc, func(t *testing.T) {
 				query := fmt.Sprintf(`
@@ -975,6 +1059,11 @@ func TestVariousBindingModes(t *testing.T) {
 		{"timestamp_ntzAndTypedNullTime", "timestamp_ntz", TypedNullTime{sql.NullTime{}, TimestampNTZType}, true},
 		{"timestamp_ltzAndTypedNullTime", "timestamp_ltz", TypedNullTime{sql.NullTime{}, TimestampLTZType}, true},
 		{"timestamp_tzAndTypedNullTime", "timestamp_tz", TypedNullTime{sql.NullTime{}, TimestampTZType}, true},
+		{"LOBSmallSize", fmt.Sprintf("varchar(%v)", smallSize), randomString(smallSize), false},
+		{"LOBOriginSize", fmt.Sprintf("varchar(%v)", originSize), randomString(originSize), false},
+		{"LOBMediumSize", fmt.Sprintf("varchar(%v)", mediumSize), randomString(mediumSize), false},
+		{"LOBLargeSize", fmt.Sprintf("varchar(%v)", largeSize), randomString(largeSize), false},
+		{"LOBMaxSize", fmt.Sprintf("varchar(%v)", maxLOBSize), randomString(maxLOBSize), false},
 	}
 
 	bindingModes := []struct {
@@ -998,6 +1087,10 @@ func TestVariousBindingModes(t *testing.T) {
 
 	runDBTest(t, func(dbt *DBTest) {
 		for _, tc := range testcases {
+			// TODO SNOW-1264687
+			if strings.Contains(tc.testDesc, "LOB") {
+				skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
+			}
 			for _, bindingMode := range bindingModes {
 				t.Run(tc.testDesc+" "+bindingMode.param, func(t *testing.T) {
 					query := fmt.Sprintf(`CREATE OR REPLACE TABLE BINDING_MODES(param1 %v)`, tc.paramType)
@@ -1021,5 +1114,198 @@ func TestVariousBindingModes(t *testing.T) {
 				})
 			}
 		}
+	})
+}
+
+func skipMaxLobSizeTestOnGithubActions(t *testing.T) {
+	if runningOnGithubAction() {
+		t.Skip("Max Lob Size parameters are not available on GH Actions")
+	}
+}
+
+func TestLOBRetrievalWithArrow(t *testing.T) {
+	testLOBRetrieval(t, true)
+}
+
+func TestLOBRetrievalWithJSON(t *testing.T) {
+	testLOBRetrieval(t, false)
+}
+
+func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
+	runDBTest(t, func(dbt *DBTest) {
+		parameters := dbt.connParams()
+		varcharBinaryMaxSizeRaw := parameters[maxVarcharAndBinarySizeParam]
+		if varcharBinaryMaxSizeRaw != nil && *varcharBinaryMaxSizeRaw != "" {
+			varcharBinaryMaxSize, err := strconv.ParseFloat(*varcharBinaryMaxSizeRaw, 64)
+			assertNilF(t, err, "error during varcharBinaryMaxSize conversion")
+			maxLOBSize = int(varcharBinaryMaxSize)
+		}
+
+		dbt.Logf("using %v as max LOB size", maxLOBSize)
+		if useArrowFormat {
+			dbt.mustExec(forceARROW)
+		} else {
+			dbt.mustExec(forceJSON)
+		}
+
+		var res string
+		// the LOB sizes to be tested
+		testSizes := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
+		for _, testSize := range testSizes {
+			t.Run(fmt.Sprintf("testLOB_%v_useArrowFormat=%v", strconv.Itoa(testSize), strconv.FormatBool(useArrowFormat)), func(t *testing.T) {
+				rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
+				assertNilF(t, err)
+				defer rows.Close()
+				assertTrueF(t, rows.Next(), fmt.Sprintf("no rows returned for the LOB size %v", testSize))
+
+				// retrieve the result
+				err = rows.Scan(&res)
+				assertNilF(t, err)
+
+				// verify the length of the result
+				assertEqualF(t, len(res), testSize)
+			})
+		}
+		dbt.exec(unsetFeatureMaxLOBSize)
+	})
+}
+
+func TestMaxLobSize(t *testing.T) {
+	skipMaxLobSizeTestOnGithubActions(t)
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(enableFeatureMaxLOBSize)
+		defer dbt.mustExec(unsetLargeVarcharAndBinary)
+		t.Run("Max Lob Size disabled", func(t *testing.T) {
+			dbt.mustExec(disableLargeVarcharAndBinary)
+			_, err := dbt.query("select randstr(20000000, random())")
+			assertNotNilF(t, err)
+			assertStringContainsF(t, err.Error(), "Actual length 20000000 exceeds supported length")
+		})
+
+		t.Run("Max Lob Size enabled", func(t *testing.T) {
+			dbt.mustExec(enableLargeVarcharAndBinary)
+			rows, err := dbt.query("select randstr(20000000, random())")
+			assertNilF(t, err)
+			rows.Close()
+		})
+	})
+}
+
+func TestInsertLobDataWithLiteralArrow(t *testing.T) {
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
+	testInsertLOBData(t, true, true)
+}
+
+func TestInsertLobDataWithLiteralJSON(t *testing.T) {
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
+	testInsertLOBData(t, false, true)
+}
+
+func TestInsertLobDataWithBindingsArrow(t *testing.T) {
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
+	testInsertLOBData(t, true, false)
+}
+
+func TestInsertLobDataWithBindingsJSON(t *testing.T) {
+	// TODO SNOW-1264687
+	skipOnJenkins(t, "skipped until SNOW-1264687 is fixed")
+	testInsertLOBData(t, false, false)
+}
+
+func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
+	expectedNumCols := 3
+	columnMeta := []struct {
+		columnName string
+		columnType reflect.Type
+	}{
+		{"C1", reflect.TypeOf("")},
+		{"C2", reflect.TypeOf("")},
+		{"C3", reflect.TypeOf(int64(0))},
+	}
+	testCases := []struct {
+		testDesc string
+		c1Size   int
+		c2Size   int
+		c3Size   int
+	}{
+		{"testLOBInsertSmallSize", smallSize, smallSize, lobRandomRange},
+		{"testLOBInsertOriginSize", originSize, originSize, lobRandomRange},
+		{"testLOBInsertMediumSize", mediumSize, originSize, lobRandomRange},
+		{"testLOBInsertLargeSize", largeSize, originSize, lobRandomRange},
+		{"testLOBInsertMaxSize", maxLOBSize, originSize, lobRandomRange},
+	}
+
+	runDBTest(t, func(dbt *DBTest) {
+		var c1 string
+		var c2 string
+		var c3 int
+
+		dbt.exec(enableFeatureMaxLOBSize)
+		if useArrowFormat {
+			dbt.mustExec(forceARROW)
+		} else {
+			dbt.mustExec(forceJSON)
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.testDesc, func(t *testing.T) {
+				// initialize test data
+				c1Data := randomString(tc.c1Size)
+				c2Data := randomString(tc.c2Size)
+				c3Data := rand.Intn(tc.c3Size)
+
+				dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE lob_test_table (c1 varchar(%v), c2 varchar(%v), c3 int)", tc.c1Size, tc.c2Size))
+				if isLiteral {
+					dbt.mustExec(fmt.Sprintf("INSERT INTO lob_test_table VALUES ('%s', '%s', %v)", c1Data, c2Data, c3Data))
+				} else {
+					dbt.mustExec("INSERT INTO lob_test_table VALUES (?, ?, ?)", c1Data, c2Data, c3Data)
+				}
+				rows, err := dbt.query("SELECT * FROM lob_test_table")
+				assertNilF(t, err)
+				defer rows.Close()
+				assertTrueF(t, rows.Next(), fmt.Sprintf("%s: no rows returned", tc.testDesc))
+
+				err = rows.Scan(&c1, &c2, &c3)
+				assertNilF(t, err)
+
+				// check the number of columns
+				columnTypes, err := rows.ColumnTypes()
+				assertNilF(t, err)
+				assertEqualF(t, len(columnTypes), expectedNumCols)
+
+				// verify the column metadata: name, type and length
+				for colIdx := 0; colIdx < expectedNumCols; colIdx++ {
+					colName := columnTypes[colIdx].Name()
+					assertEqualF(t, colName, columnMeta[colIdx].columnName)
+
+					colType := columnTypes[colIdx].ScanType()
+					assertEqualF(t, colType, columnMeta[colIdx].columnType)
+
+					colLength, ok := columnTypes[colIdx].Length()
+
+					switch colIdx {
+					case 0:
+						assertTrueF(t, ok)
+						assertEqualF(t, colLength, int64(tc.c1Size))
+						// verify the data
+						assertEqualF(t, c1, c1Data)
+					case 1:
+						assertTrueF(t, ok)
+						assertEqualF(t, colLength, int64(tc.c2Size))
+						// verify the data
+						assertEqualF(t, c2, c2Data)
+					case 2:
+						assertFalseF(t, ok)
+						// verify the data
+						assertEqualF(t, c3, c3Data)
+					}
+				}
+			})
+			dbt.mustExec("DROP TABLE IF EXISTS lob_test_table")
+		}
+		dbt.exec(unsetFeatureMaxLOBSize)
 	})
 }

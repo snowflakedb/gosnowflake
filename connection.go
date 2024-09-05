@@ -14,15 +14,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
 )
 
 const (
@@ -67,8 +65,9 @@ const (
 	executionTypeStatement string  = "statement"
 )
 
-const privateLinkSuffix = "privatelink.snowflakecomputing.com"
-
+// snowflakeConn manages its own context.
+// External cancellation should not be supported because the connection
+// may be reused after the original query/request has completed.
 type snowflakeConn struct {
 	ctx                 context.Context
 	cfg                 *Config
@@ -98,7 +97,7 @@ func (sc *snowflakeConn) exec(
 
 	queryContext, err := buildQueryContext(sc.queryContextCache)
 	if err != nil {
-		logger.Errorf("error while building query context: %v", err)
+		logger.WithContext(ctx).Errorf("error while building query context: %v", err)
 	}
 	req := execRequest{
 		SQLText:      query,
@@ -163,17 +162,28 @@ func (sc *snowflakeConn) exec(
 	if !sc.cfg.DisableQueryContextCache && data.Data.QueryContext != nil {
 		queryContext, err := extractQueryContext(data)
 		if err != nil {
-			logger.Errorf("error while decoding query context: ", err)
+			logger.WithContext(ctx).Errorf("error while decoding query context: %v", err)
 		} else {
 			sc.queryContextCache.add(sc, queryContext.Entries...)
 		}
 	}
 
 	// handle PUT/GET commands
+	fileTransferChan := make(chan error, 1)
 	if isFileTransfer(query) {
-		data, err = sc.processFileTransfer(ctx, data, query, isInternal)
-		if err != nil {
-			return nil, err
+		go func() {
+			data, err = sc.processFileTransfer(ctx, data, query, isInternal)
+			fileTransferChan <- err
+		}()
+
+		select {
+		case <-ctx.Done():
+			logger.WithContext(ctx).Info("File transfer has been cancelled")
+			return nil, ctx.Err()
+		case err := <-fileTransferChan:
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -257,6 +267,7 @@ func (sc *snowflakeConn) BeginTx(
 
 func (sc *snowflakeConn) cleanup() {
 	// must flush log buffer while the process is running.
+	logger.WithContext(sc.ctx).Debugln("Snowflake connection closing.")
 	if sc.rest != nil && sc.rest.Client != nil {
 		sc.rest.Client.CloseIdleConnections()
 	}
@@ -272,7 +283,7 @@ func (sc *snowflakeConn) Close() (err error) {
 
 	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
 		if err = sc.rest.FuncCloseSession(sc.ctx, sc.rest, sc.rest.RequestTimeout); err != nil {
-			logger.Error(err)
+			logger.WithContext(sc.ctx).Error(err)
 		}
 	}
 	return nil
@@ -350,7 +361,7 @@ func (sc *snowflakeConn) ExecContext(
 		}
 		return driver.ResultNoRows, nil
 	}
-	logger.Debug("DDL")
+	logger.WithContext(ctx).Debug("DDL")
 	if isStatementContext(ctx) {
 		return &snowflakeResultNoRows{queryID: data.Data.QueryID}, nil
 	}
@@ -420,6 +431,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	rows := new(snowflakeRows)
 	rows.sc = sc
 	rows.queryID = data.Data.QueryID
+	rows.ctx = ctx
 
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
@@ -469,7 +481,7 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 // CheckNamedValue determines which types are handled by this driver aside from
 // the instances captured by driver.Value
 func (sc *snowflakeConn) CheckNamedValue(nv *driver.NamedValue) error {
-	if supportedNullBind(nv) || supportedArrayBind(nv) {
+	if supportedNullBind(nv) || supportedArrayBind(nv) || supportedStructuredObjectWriterBind(nv) || supportedStructuredArrayBind(nv) || supportedStructuredMapBind(nv) {
 		return nil
 	}
 	return driver.ErrSkip
@@ -570,7 +582,7 @@ func (w *wrapReader) Close() error {
 func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) error {
 	headers := make(map[string]string)
 	if len(asb.scd.ChunkHeader) > 0 {
-		logger.Debug("chunk header is provided")
+		logger.WithContext(ctx).Debug("chunk header is provided")
 		for k, v := range asb.scd.ChunkHeader {
 			logger.Debugf("adding header: %v, value: %v", k, v)
 
@@ -585,7 +597,7 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 	if err != nil {
 		return err
 	}
-	logger.Debugf("response returned chunk: %v for URL: %v", asb.idx+1, asb.scd.ChunkMetas[asb.idx].URL)
+	logger.WithContext(ctx).Debugf("response returned chunk: %v for URL: %v", asb.idx+1, asb.scd.ChunkMetas[asb.idx].URL)
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		b, err := io.ReadAll(resp.Body)
@@ -593,8 +605,8 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 			return err
 		}
 
-		logger.Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, asb.scd.ChunkMetas[asb.idx].URL, b)
-		logger.Infof("Header: %v", resp.Header)
+		logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, asb.scd.ChunkMetas[asb.idx].URL, b)
+		logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 		return &SnowflakeError{
 			Number:      ErrFailedToGetChunk,
 			SQLState:    SQLStateConnectionFailure,
@@ -671,7 +683,7 @@ type snowflakeArrowStreamChunkDownloader struct {
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
-	if scd.sc != nil {
+	if scd.sc != nil && scd.sc.cfg != nil {
 		return getCurrentLocation(scd.sc.cfg.Params)
 	}
 	return nil
@@ -749,19 +761,20 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 	return
 }
 
+// buildSnowflakeConn creates a new snowflakeConn.
+// The provided context is used only for establishing the initial connection.
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
 		SequenceCounter:     0,
-		ctx:                 ctx,
+		ctx:                 context.Background(),
 		cfg:                 &config,
 		queryContextCache:   (&queryContextCache{}).init(),
 		currentTimeProvider: defaultTimeProvider,
 	}
-	// Easy logging is temporarily disabled
-	//err := initEasyLogging(config.ClientConfigFile)
-	//if err != nil {
-	//	return nil, err
-	//}
+	err := initEasyLogging(config.ClientConfigFile)
+	if err != nil {
+		return nil, err
+	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {
 		if sc.cfg.InsecureMode {
@@ -777,14 +790,8 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		// use the custom transport
 		st = sc.cfg.Transporter
 	}
-	if strings.HasSuffix(sc.cfg.Host, privateLinkSuffix) {
-		if err := sc.setupOCSPPrivatelink(sc.cfg.Application, sc.cfg.Host); err != nil {
-			return nil, err
-		}
-	} else {
-		if _, set := os.LookupEnv(cacheServerURLEnv); set {
-			os.Unsetenv(cacheServerURLEnv)
-		}
+	if err = setupOCSPEnvVars(ctx, sc.cfg.Host); err != nil {
+		return nil, err
 	}
 	var tokenAccessor TokenAccessor
 	if sc.cfg.TokenAccessor != nil {

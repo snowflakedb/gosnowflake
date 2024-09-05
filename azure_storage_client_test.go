@@ -109,10 +109,11 @@ func TestUnitDetectAzureTokenExpireError(t *testing.T) {
 }
 
 type azureObjectAPIMock struct {
-	UploadStreamFunc  func(ctx context.Context, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error)
-	UploadFileFunc    func(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error)
-	DownloadFileFunc  func(ctx context.Context, file *os.File, o *blob.DownloadFileOptions) (int64, error)
-	GetPropertiesFunc func(ctx context.Context, o *blob.GetPropertiesOptions) (blob.GetPropertiesResponse, error)
+	UploadStreamFunc   func(ctx context.Context, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error)
+	UploadFileFunc     func(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error)
+	DownloadFileFunc   func(ctx context.Context, file *os.File, o *blob.DownloadFileOptions) (int64, error)
+	DownloadStreamFunc func(ctx context.Context, o *blob.DownloadStreamOptions) (azblob.DownloadStreamResponse, error)
+	GetPropertiesFunc  func(ctx context.Context, o *blob.GetPropertiesOptions) (blob.GetPropertiesResponse, error)
 }
 
 func (c *azureObjectAPIMock) UploadStream(ctx context.Context, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error) {
@@ -129,6 +130,10 @@ func (c *azureObjectAPIMock) GetProperties(ctx context.Context, o *blob.GetPrope
 
 func (c *azureObjectAPIMock) DownloadFile(ctx context.Context, file *os.File, o *blob.DownloadFileOptions) (int64, error) {
 	return c.DownloadFileFunc(ctx, file, o)
+}
+
+func (c *azureObjectAPIMock) DownloadStream(ctx context.Context, o *blob.DownloadStreamOptions) (azblob.DownloadStreamResponse, error) {
+	return c.DownloadStreamFunc(ctx, o)
 }
 
 func TestUploadFileWithAzureUploadFailedError(t *testing.T) {

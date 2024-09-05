@@ -384,3 +384,19 @@ func performContainsTestcase[S comparable](tc tcContains[S], t *testing.T) {
 		t.Errorf("contains failed; arr: %v, e: %v, should be %v but was %v", tc.arr, tc.e, tc.expected, result)
 	}
 }
+
+func skipOnJenkins(t *testing.T, message string) {
+	if os.Getenv("JENKINS_HOME") != "" {
+		t.Skip("Skipping test on Jenkins: " + message)
+	}
+}
+
+func randomString(n int) string {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = alpha[r.Intn(len(alpha))]
+	}
+	return string(b)
+}

@@ -8,6 +8,7 @@ import (
 	cr "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"database/sql"
 	"encoding/pem"
 	"fmt"
 	"net/url"
@@ -94,6 +95,21 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "u:p@/db?account=ac&region=cn-region",
+			config: &Config{
+				Account: "ac", User: "u", Password: "p", Database: "db", Region: "cn-region",
+				Protocol: "https", Host: "ac.cn-region.snowflakecomputing.cn", Port: 443,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			dsn: "user:pass@account-hfdw89q748ew9gqf48w9qgf.global/db/s",
 			config: &Config{
 				Account: "account", User: "user", Password: "pass", Region: "global",
@@ -130,6 +146,21 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "account", User: "user", Password: "pass", Region: "",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "user:pass@account.cn-region",
+			config: &Config{
+				Account: "account", User: "user", Password: "pass", Region: "cn-region",
+				Protocol: "https", Host: "account.cn-region.snowflakecomputing.cn", Port: 443,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
@@ -255,6 +286,102 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
 				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "pa", Role: "r", Warehouse: "w",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflakecomputing.mil/db/pa?account=a",
+			config: &Config{
+				Account: "a", User: "u", Password: "p", Region: "",
+				Protocol: "https", Host: "a.snowflakecomputing.mil", Port: 443,
+				Database: "db", Schema: "pa",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.eu-faraway.snowflakecomputing.mil/db/pa?account=a&region=eu-faraway",
+			config: &Config{
+				Account: "a", User: "u", Password: "p", Region: "eu-faraway",
+				Protocol: "https", Host: "a.eu-faraway.snowflakecomputing.mil", Port: 443,
+				Database: "db", Schema: "pa",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflakecomputing.gov.pl/db/pa?account=a",
+			config: &Config{
+				Account: "a", User: "u", Password: "p", Region: "",
+				Protocol: "https", Host: "a.snowflakecomputing.gov.pl", Port: 443,
+				Database: "db", Schema: "pa",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflakecomputing.cn/db/pa?account=a",
+			config: &Config{
+				Account: "a", User: "u", Password: "p", Region: "",
+				Protocol: "https", Host: "a.snowflakecomputing.cn", Port: 443,
+				Database: "db", Schema: "pa",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.cn-region.snowflakecomputing.mil/db/pa?account=a&region=cn-region",
+			config: &Config{
+				Account: "a", User: "u", Password: "p", Region: "cn-region",
+				Protocol: "https", Host: "a.cn-region.snowflakecomputing.mil", Port: 443,
+				Database: "db", Schema: "pa",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.cn-region.snowflakecomputing.cn/db/pa?account=a&region=cn-region&protocol=https&role=r&timezone=UTC&warehouse=w",
+			config: &Config{
+				Account: "a", User: "u", Password: "p", Region: "cn-region",
+				Protocol: "https", Host: "a.cn-region.snowflakecomputing.cn", Port: 443,
 				Database: "db", Schema: "pa", Role: "r", Warehouse: "w",
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
@@ -714,6 +841,74 @@ func TestParseDSN(t *testing.T) {
 			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=http%3A%2F%2Fsc.okta.com&ocspFailOpen=true&validateDefaultParameters=true",
 			err: errFailedToParseAuthenticator(),
 		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=EXTERNALBROWSER&disableConsoleLogin=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypeExternalBrowser,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableConsoleLogin:       ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=EXTERNALBROWSER&disableConsoleLogin=false",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypeExternalBrowser,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableConsoleLogin:       ConfigBoolFalse,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=EXTERNALBROWSER&disableSamlURLCheck=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypeExternalBrowser,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableSamlURLCheck:       ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=EXTERNALBROWSER&disableSamlURLCheck=false",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypeExternalBrowser,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableSamlURLCheck:       ConfigBoolFalse,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -873,6 +1068,12 @@ func TestParseDSN(t *testing.T) {
 				if test.config.IncludeRetryReason != cfg.IncludeRetryReason {
 					t.Fatalf("%v: Failed to match IncludeRetryReason. expected: %v, got: %v", i, test.config.IncludeRetryReason, cfg.IncludeRetryReason)
 				}
+				if test.config.DisableConsoleLogin != cfg.DisableConsoleLogin {
+					t.Fatalf("%v: Failed to match DisableConsoleLogin. expected: %v, got: %v", i, test.config.DisableConsoleLogin, cfg.DisableConsoleLogin)
+				}
+				if test.config.DisableSamlURLCheck != cfg.DisableSamlURLCheck {
+					t.Fatalf("%v: Failed to match DisableSamlURLCheck. expected: %v, got: %v", i, test.config.DisableSamlURLCheck, cfg.DisableSamlURLCheck)
+				}
 				assertEqualF(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
 			case test.err != nil:
 				driverErrE, okE := test.err.(*SnowflakeError)
@@ -935,10 +1136,54 @@ func TestDSN(t *testing.T) {
 			cfg: &Config{
 				User:     "u",
 				Password: "p",
+				Account:  "account-name",
+				Region:   "cn-region",
+			},
+			dsn: "u:p@account-name.cn-region.snowflakecomputing.cn:443?ocspFailOpen=true&region=cn-region&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "account-name.cn-region",
+			},
+			dsn: "u:p@account-name.cn-region.snowflakecomputing.cn:443?ocspFailOpen=true&region=cn-region&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "account-name.cn-region",
+				Host:     "account-name.cn-region.snowflakecomputing.cn",
+			},
+			dsn: "u:p@account-name.cn-region.snowflakecomputing.cn:443?account=account-name&ocspFailOpen=true&region=cn-region&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "account-name",
+				Host:     "account-name.snowflakecomputing.mil",
+			},
+			dsn: "u:p@account-name.snowflakecomputing.mil:443?account=account-name&ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
+				Account:  "account-name",
+				Host:     "account-name.snowflakecomputing.gov.pl",
+			},
+			dsn: "u:p@account-name.snowflakecomputing.gov.pl:443?account=account-name&ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
 				Account:  "a-aofnadsf.global",
 				Region:   "r",
 			},
-			err: errInvalidRegion(),
+			err: errRegionConflict(),
 		},
 		{
 			cfg: &Config{
@@ -1024,7 +1269,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.e",
 				Region:   "r",
 			},
-			err: errInvalidRegion(),
+			err: errRegionConflict(),
 		},
 		{
 			cfg: &Config{
@@ -1156,6 +1401,14 @@ func TestDSN(t *testing.T) {
 			cfg: &Config{
 				User:     "u",
 				Password: "p",
+				Account:  "account.snowflakecomputing.com",
+			},
+			dsn: "u:p@account.snowflakecomputing.com.snowflakecomputing.com:443?ocspFailOpen=true&region=snowflakecomputing.com&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:     "u",
+				Password: "p",
 				Account:  "a.b.c",
 				Region:   "us-west-2",
 			},
@@ -1168,7 +1421,7 @@ func TestDSN(t *testing.T) {
 				Account:  "a.b.c",
 				Region:   "r",
 			},
-			err: errInvalidRegion(),
+			err: errRegionConflict(),
 		},
 		{
 			cfg: &Config{
@@ -1321,6 +1574,46 @@ func TestDSN(t *testing.T) {
 				ClientConfigFile:   "c:\\Users\\user\\config.json",
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?clientConfigFile=c%3A%5CUsers%5Cuser%5Cconfig.json&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                "u",
+				Password:            "p",
+				Account:             "a.b.c",
+				Authenticator:       AuthTypeExternalBrowser,
+				DisableConsoleLogin: ConfigBoolTrue,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=externalbrowser&disableConsoleLogin=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                "u",
+				Password:            "p",
+				Account:             "a.b.c",
+				Authenticator:       AuthTypeExternalBrowser,
+				DisableConsoleLogin: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=externalbrowser&disableConsoleLogin=false&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                "u",
+				Password:            "p",
+				Account:             "a.b.c",
+				Authenticator:       AuthTypeExternalBrowser,
+				DisableSamlURLCheck: ConfigBoolTrue,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=externalbrowser&disableSamlURLCheck=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                "u",
+				Password:            "p",
+				Account:             "a.b.c",
+				Authenticator:       AuthTypeExternalBrowser,
+				DisableSamlURLCheck: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?authenticator=externalbrowser&disableSamlURLCheck=false&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {
@@ -1501,4 +1794,76 @@ func TestConfigValidateTmpDirPath(t *testing.T) {
 	if err := cfg.Validate(); err == nil {
 		t.Fatalf("Should fail on not existing TmpDirPath")
 	}
+}
+
+func TestExtractAccountName(t *testing.T) {
+	testcases := map[string]string{
+		"myaccount":                          "MYACCOUNT",
+		"myaccount.eu-central-1":             "MYACCOUNT",
+		"myaccount.eu-central-1.privatelink": "MYACCOUNT",
+		"myorg-myaccount":                    "MYORG-MYACCOUNT",
+		"myorg-myaccount.privatelink":        "MYORG-MYACCOUNT",
+		"myorg-my-account":                   "MYORG-MY-ACCOUNT",
+		"myorg-my-account.privatelink":       "MYORG-MY-ACCOUNT",
+		"myorg-my_account":                   "MYORG-MY_ACCOUNT",
+		"myorg-my_account.privatelink":       "MYORG-MY_ACCOUNT",
+	}
+
+	for account, expected := range testcases {
+		t.Run(account, func(t *testing.T) {
+			accountPart := extractAccountName(account)
+			if accountPart != expected {
+				t.Fatalf("extractAccountName returned unexpected response (%v), should be %v", accountPart, expected)
+			}
+		})
+	}
+}
+
+func TestUrlDecodeIfNeeded(t *testing.T) {
+	testcases := map[string]string{
+		"query_tag":             "query_tag",
+		"%24my_custom_variable": "$my_custom_variable",
+	}
+	for param, expected := range testcases {
+		t.Run(param, func(t *testing.T) {
+			decodedParam := urlDecodeIfNeeded(param)
+			assertEqualE(t, decodedParam, expected)
+		})
+	}
+}
+
+func TestUrlDecodeIfNeededE2E(t *testing.T) {
+	customVarName := "CUSTOM_VARIABLE"
+	customVarValue := "test"
+	myQueryTag := "mytag"
+	testPort, err := strconv.Atoi(os.Getenv("SNOWFLAKE_TEST_PORT"))
+	if err != nil {
+		testPort = 443
+	}
+
+	cfg := &Config{
+		Account:  os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
+		Host:     os.Getenv("SNOWFLAKE_TEST_HOST"),
+		Port:     testPort,
+		Protocol: os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
+		User:     os.Getenv("SNOWFLAKE_TEST_USER"),
+		Password: os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
+		Params:   map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
+	}
+	mydsn, err := DSN(cfg)
+	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to create DSN from Config")
+	db, err := sql.Open("snowflake", mydsn)
+	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to connect.")
+	defer db.Close()
+	query := "SHOW VARIABLES;"
+	rows, err := db.Query(query)
+	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query.")
+	defer rows.Close()
+	var v1, v2, v3, v4, v5, v6, v7 any
+	assertTrueE(t, rows.Next(), "TestUrlDecodeIfNeededE2E query run but no rows were returned.")
+	err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
+	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to get result.")
+	assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
+	assertDeepEqualE(t, v5, customVarValue, "TestUrlDecodeIfNeededE2E variable value retrieved from the test did not match")
+	assertNilE(t, rows.Err(), "TestUrlDecodeIfNeededE2E ERROR getting rows.")
 }

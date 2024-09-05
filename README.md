@@ -1,3 +1,7 @@
+## Support
+
+For official support and urgent, production-impacting issues, please [contact Snowflake Support](https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge).
+
 # Go Snowflake Driver
 
 <a href="https://codecov.io/github/snowflakedb/gosnowflake?branch=master">
@@ -21,7 +25,7 @@ The following software packages are required to use the Go Snowflake Driver.
 
 ## Go
 
-The latest driver requires the [Go language](https://golang.org/) 1.19 or higher. The supported operating systems are Linux, Mac OS, and Windows, but you may run the driver on other platforms if the Go language works correctly on those platforms.
+The latest driver requires the [Go language](https://golang.org/) 1.20 or higher. The supported operating systems are Linux, Mac OS, and Windows, but you may run the driver on other platforms if the Go language works correctly on those platforms.
 
 
 # Installation
@@ -45,7 +49,7 @@ For detailed documentation and basic usage examples, please see the documentatio
 
 # Sample Programs
 
-Snowflake provides a set of sample programs to test with. Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/go`` and make certain to 
+Snowflake provides a set of sample programs to test with. Set the environment variable ``$GOPATH`` to the top directory of your workspace, e.g., ``~/go`` and make certain to
 include ``$GOPATH/bin`` in the environment variable ``$PATH``. Run the ``make`` command to build all sample programs.
 
 ```
@@ -91,9 +95,44 @@ Install [jq](https://stedolan.github.io/jq) so that the parameters can get parse
 make test
 ```
 
+## customizing Logging Tags
+
+If you would like to ensure that certain tags are always present in the logs, `RegisterClientLogContextHook` can be used in your init function. See example below.
+```
+import "github.com/snowflakedb/gosnowflake"
+
+func init() {
+    // each time the logger is used, the logs will contain a REQUEST_ID field with requestID the value extracted 
+    // from the context
+	gosnowflake.RegisterClientLogContextHook("REQUEST_ID", func(ctx context.Context) interface{} {
+		return requestIdFromContext(ctx)
+	})
+}
+```
+
+## Setting Log Level
+If you want to change the log level, `SetLogLevel` can be used in your init function like this:
+```
+import "github.com/snowflakedb/gosnowflake"
+
+func init() {
+    // The following line changes the log level to debug
+	_ = gosnowflake.GetLogger().SetLogLevel("debug")
+}
+```
+The following is a list of options you can pass in to set the level from least to most verbose: 
+- `"OFF"`
+- `"error"`
+- `"warn"`
+- `"print"`
+- `"trace"`
+- `"debug"`
+- `"info"`
+
+
 ## Capturing Code Coverage
 
-Configure your testing environment as described above and run ``make cov``. The coverage percentage will be printed on the console when the testing completes. 
+Configure your testing environment as described above and run ``make cov``. The coverage percentage will be printed on the console when the testing completes.
 
 ```
 make cov
@@ -111,8 +150,13 @@ go tool cover -html=coverage.txt
 
 You may use your preferred editor to edit the driver code. Make certain to run ``make fmt lint`` before submitting any pull request to Snowflake. This command formats your source code according to the standard Go style and detects any coding style issues.
 
-## Support
+## Runaway `dbus-daemon` processes on certain OS
+This only affects certain Linux distributions, one of them is confirmed to be RHEL. Due to a bug in one of the dependencies (`keyring`),
+on the affected OS, each invocation of a program depending on gosnowflake (or any other program depending on the same `keyring`),
+will generate a new instance of `dbus-daemon` fork which can, due to not being cleaned up, eventually fill the fd limits.
 
-For official support, contact Snowflake support at:
-[https://support.snowflake.net/](https://support.snowflake.net/).
+Until we replace the offending dependency with one which doesn't have the bug, a workaround needs to be applied, which can be:
+* cleaning up the runaway processes periodically
+* setting envvar `DBUS_SESSION_BUS_ADDRESS=$XDG_RUNTIME_DIR/bus` (if that socket exists, or create it) or even `DBUS_SESSION_BUS_ADDRESS=/dev/null`
 
+Details in [issue 773](https://github.com/snowflakedb/gosnowflake/issues/773)

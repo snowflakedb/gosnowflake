@@ -91,6 +91,9 @@ type SnowflakeFileTransferOptions struct {
 	/* streaming PUT */
 	compressSourceFromStream bool
 
+	/* streaming GET */
+	getFileToStream bool
+
 	/* PUT */
 	putCallback             *snowflakeProgressPercentage
 	putAzureCallback        *snowflakeProgressPercentage
@@ -103,6 +106,7 @@ type SnowflakeFileTransferOptions struct {
 }
 
 type snowflakeFileTransferAgent struct {
+	ctx                         context.Context
 	sc                          *snowflakeConn
 	data                        *execResponseData
 	command                     string
@@ -124,6 +128,7 @@ type snowflakeFileTransferAgent struct {
 	useAccelerateEndpoint       bool
 	presignedURLs               []string
 	options                     *SnowflakeFileTransferOptions
+	streamBuffer                *bytes.Buffer
 }
 
 func (sfa *snowflakeFileTransferAgent) execute() error {
@@ -411,6 +416,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 					name:              baseName(fileName),
 					srcFileName:       fileName,
 					dstFileName:       dstFileName,
+					dstStream:         new(bytes.Buffer),
 					stageLocationType: sfa.stageLocationType,
 					stageInfo:         sfa.stageInfo,
 					localLocation:     sfa.localLocation,
@@ -616,6 +622,11 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
 					return nil
 				} else if ae.ErrorCode() == "MethodNotAllowed" {
 					return nil
+				} else if strings.EqualFold(ae.ErrorCode(), "UnsupportedArgument") {
+					// In AWS China and US Gov partitions, Transfer Acceleration is not supported
+					// https://docs.amazonaws.cn/en_us/aws/latest/userguide/s3.html#feature-diff
+					// https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/govcloud-s3.html
+					return nil
 				}
 			}
 			return err
@@ -681,13 +692,13 @@ func (sfa *snowflakeFileTransferAgent) upload(
 	}
 
 	if len(smallFileMetadata) > 0 {
-		logger.Infof("uploading %v small files", len(smallFileMetadata))
+		logger.WithContext(sfa.sc.ctx).Infof("uploading %v small files", len(smallFileMetadata))
 		if err = sfa.uploadFilesParallel(smallFileMetadata); err != nil {
 			return err
 		}
 	}
 	if len(largeFileMetadata) > 0 {
-		logger.Infof("uploading %v large files", len(largeFileMetadata))
+		logger.WithContext(sfa.sc.ctx).Infof("uploading %v large files", len(largeFileMetadata))
 		if err = sfa.uploadFilesSequential(largeFileMetadata); err != nil {
 			return err
 		}

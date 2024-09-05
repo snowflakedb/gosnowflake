@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/form3tech-oss/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestUnitPostAuth(t *testing.T) {
@@ -104,8 +104,11 @@ func postAuthSuccess(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *
 
 func postAuthCheckSAMLResponse(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
 	var ar authRequest
-	jsonBody, _ := bodyCreator()
-	if err := json.Unmarshal(jsonBody, &ar); err != nil {
+	jsonBody, err := bodyCreator()
+	if err != nil {
+		return nil, err
+	}
+	if err = json.Unmarshal(jsonBody, &ar); err != nil {
 		return nil, err
 	}
 	if ar.Data.RawSAMLResponse == "" {
@@ -368,6 +371,51 @@ func postAuthCheckExternalBrowserFailed(_ context.Context, _ *snowflakeRestful, 
 	}, nil
 }
 
+func postAuthOktaWithNewToken(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
+	var ar authRequest
+
+	cfg := &Config{
+		Authenticator: AuthTypeOkta,
+	}
+
+	// Retry 3 times and success
+	client := &fakeHTTPClient{
+		cnt:        3,
+		success:    true,
+		statusCode: 429,
+	}
+
+	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_guid=testguid")
+	if err != nil {
+		return &authResponse{}, err
+	}
+
+	body := func() ([]byte, error) {
+		jsonBody, _ := bodyCreator()
+		if err := json.Unmarshal(jsonBody, &ar); err != nil {
+			return nil, err
+		}
+		return jsonBody, err
+	}
+
+	_, err = newRetryHTTP(context.Background(), client, emptyRequest, urlPtr, make(map[string]string), 60*time.Second, 3, defaultTimeProvider, cfg).doPost().setBodyCreator(body).execute()
+	if err != nil {
+		return &authResponse{}, err
+	}
+
+	return &authResponse{
+		Success: true,
+		Data: authResponseMain{
+			Token:       "t",
+			MasterToken: "m",
+			MfaToken:    "mockedMfaToken",
+			SessionInfo: authResponseSessionInfo{
+				DatabaseName: "dbn",
+			},
+		},
+	}, nil
+}
+
 func getDefaultSnowflakeConn() *snowflakeConn {
 	sc := &snowflakeConn{
 		rest: &snowflakeRestful{
@@ -524,20 +572,24 @@ func TestUnitAuthenticate(t *testing.T) {
 func TestUnitAuthenticateSaml(t *testing.T) {
 	var err error
 	sr := &snowflakeRestful{
-		FuncPostAuth:  postAuthCheckSAMLResponse,
-		TokenAccessor: getSimpleTokenAccessor(),
+		Protocol:         "https",
+		Host:             "abc.com",
+		Port:             443,
+		FuncPostAuthSAML: postAuthSAMLAuthSuccess,
+		FuncPostAuthOKTA: postAuthOKTASuccess,
+		FuncGetSSO:       getSSOSuccess,
+		FuncPostAuth:     postAuthCheckSAMLResponse,
+		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeOkta
 	sc.cfg.OktaURL = &url.URL{
 		Scheme: "https",
-		Host:   "blah.okta.com",
+		Host:   "abc.com",
 	}
 	sc.rest = sr
-	_, err = authenticate(context.Background(), sc, []byte("HTML data in bytes from"), []byte{})
-	if err != nil {
-		t.Fatalf("failed to run. err: %v", err)
-	}
+	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
+	assertNilF(t, err, "failed to run.")
 }
 
 // Unit test for OAuth.
@@ -665,7 +717,7 @@ func TestUnitAuthenticateWithConfigOkta(t *testing.T) {
 		FuncPostAuthSAML: postAuthSAMLAuthSuccess,
 		FuncPostAuthOKTA: postAuthOKTASuccess,
 		FuncGetSSO:       getSSOSuccess,
-		FuncPostAuth:     postAuthSuccess,
+		FuncPostAuth:     postAuthCheckSAMLResponse,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
@@ -681,6 +733,22 @@ func TestUnitAuthenticateWithConfigOkta(t *testing.T) {
 	assertNilE(t, err, "expected to have no error.")
 
 	sr.FuncPostAuthSAML = postAuthSAMLError
+	err = authenticateWithConfig(sc)
+	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
+	assertEqualE(t, err.Error(), "failed to get SAML response")
+}
+
+func TestUnitAuthenticateWithConfigExternalBrowser(t *testing.T) {
+	var err error
+	sr := &snowflakeRestful{
+		FuncPostAuthSAML: postAuthSAMLError,
+		TokenAccessor:    getSimpleTokenAccessor(),
+	}
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = AuthTypeExternalBrowser
+	sc.cfg.ExternalBrowserTimeout = defaultExternalBrowserTimeout
+	sc.rest = sr
+	sc.ctx = context.Background()
 	err = authenticateWithConfig(sc)
 	assertNotNilF(t, err, "should have failed at FuncPostAuthSAML.")
 	assertEqualE(t, err.Error(), "failed to get SAML response")
@@ -733,6 +801,58 @@ func TestUsernamePasswordMfaCaching(t *testing.T) {
 	if runtime.GOOS == "linux" {
 		config.ClientRequestMfaToken = ConfigBoolTrue
 	}
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	for i := 0; i < 3; i++ {
+		// should only be prompted to authenticate first time around.
+		_, err := db.Query("select current_user()")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestUsernamePasswordMfaCachingWithPasscode(t *testing.T) {
+	t.Skip("manual test for MFA token caching")
+
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	// connect with MFA authentication
+	user := os.Getenv("SNOWFLAKE_TEST_MFA_USER")
+	password := os.Getenv("SNOWFLAKE_TEST_MFA_PASSWORD")
+	config.User = user
+	config.Password = password
+	config.Passcode = "" // fill with your passcode from DUO app
+	config.Authenticator = AuthTypeUsernamePasswordMFA
+	if runtime.GOOS == "linux" {
+		config.ClientRequestMfaToken = ConfigBoolTrue
+	}
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	for i := 0; i < 3; i++ {
+		// should only be prompted to authenticate first time around.
+		_, err := db.Query("select current_user()")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestUsernamePasswordMfaCachingWithPasscodeInPassword(t *testing.T) {
+	t.Skip("manual test for MFA token caching")
+
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	// connect with MFA authentication
+	user := os.Getenv("SNOWFLAKE_TEST_MFA_USER")
+	password := os.Getenv("SNOWFLAKE_TEST_MFA_PASSWORD")
+	config.User = user
+	config.Password = password + "" // fill with your passcode from DUO app
+	config.PasscodeInPassword = true
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
 	for i := 0; i < 3; i++ {
@@ -823,4 +943,37 @@ func TestDisableExternalBrowserCaching(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func TestOktaRetryWithNewToken(t *testing.T) {
+	expectedMasterToken := "m"
+	expectedToken := "t"
+	expectedMfaToken := "mockedMfaToken"
+	expectedDatabaseName := "dbn"
+
+	sr := &snowflakeRestful{
+		Protocol:         "https",
+		Host:             "abc.com",
+		Port:             443,
+		FuncPostAuthSAML: postAuthSAMLAuthSuccess,
+		FuncPostAuthOKTA: postAuthOKTASuccess,
+		FuncGetSSO:       getSSOSuccess,
+		FuncPostAuth:     postAuthOktaWithNewToken,
+		TokenAccessor:    getSimpleTokenAccessor(),
+	}
+	sc := getDefaultSnowflakeConn()
+	sc.cfg.Authenticator = AuthTypeOkta
+	sc.cfg.OktaURL = &url.URL{
+		Scheme: "https",
+		Host:   "abc.com",
+	}
+	sc.rest = sr
+	sc.ctx = context.Background()
+
+	authResponse, err := authenticate(context.Background(), sc, []byte{0x12, 0x34}, []byte{0x56, 0x78})
+	assertNilF(t, err, "should not have failed to run authenticate()")
+	assertEqualF(t, authResponse.MasterToken, expectedMasterToken)
+	assertEqualF(t, authResponse.Token, expectedToken)
+	assertEqualF(t, authResponse.MfaToken, expectedMfaToken)
+	assertEqualF(t, authResponse.SessionInfo.DatabaseName, expectedDatabaseName)
 }

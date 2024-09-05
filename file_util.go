@@ -137,6 +137,9 @@ type fileMetadata struct {
 	srcStream     *bytes.Buffer
 	realSrcStream *bytes.Buffer
 
+	/* streaming GET */
+	dstStream *bytes.Buffer
+
 	/* GCS */
 	presignedURL                *url.URL
 	gcsFileHeaderDigest         string

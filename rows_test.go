@@ -104,9 +104,15 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 	}
 	cm := []execResponseChunk{}
 	rows := new(snowflakeRows)
-	rows.sc = nil
+	sc := &snowflakeConn{
+		cfg: &Config{
+			Params: make(map[string]*string),
+		},
+	}
+	rows.sc = sc
+	rows.ctx = context.Background()
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
-		sc:                 nil,
+		sc:                 sc,
 		ctx:                context.Background(),
 		Total:              int64(len(cc)),
 		ChunkMetas:         cm,
@@ -117,7 +123,8 @@ func TestRowsWithoutChunkDownloader(t *testing.T) {
 		RowSet:             rowSetType{RowType: rt, JSON: cc},
 		QueryResultFormat:  "json",
 	}
-	rows.ChunkDownloader.start()
+	err := rows.ChunkDownloader.start()
+	assertNilF(t, err)
 	dest := make([]driver.Value, 2)
 	for i = 0; i < len(cc); i++ {
 		if err := rows.Next(dest); err != nil {
@@ -173,9 +180,15 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 		cm = append(cm, execResponseChunk{URL: fmt.Sprintf("dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	rows := new(snowflakeRows)
-	rows.sc = nil
+	sc := &snowflakeConn{
+		cfg: &Config{
+			Params: make(map[string]*string),
+		},
+	}
+	rows.sc = sc
+	rows.ctx = context.Background()
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
-		sc:            nil,
+		sc:            sc,
 		ctx:           context.Background(),
 		Total:         int64(len(cc) + numChunks*rowsInChunk),
 		ChunkMetas:    cm,
@@ -252,9 +265,15 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 		cm = append(cm, execResponseChunk{URL: fmt.Sprintf("dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	rows := new(snowflakeRows)
-	rows.sc = nil
+	sc := &snowflakeConn{
+		cfg: &Config{
+			Params: make(map[string]*string),
+		},
+	}
+	rows.sc = sc
+	rows.ctx = context.Background()
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
-		sc:            nil,
+		sc:            sc,
 		ctx:           context.Background(),
 		Total:         int64(len(cc) + numChunks*rowsInChunk),
 		ChunkMetas:    cm,
@@ -330,9 +349,15 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 		cm = append(cm, execResponseChunk{URL: fmt.Sprintf("dummyURL%v", i+1), RowCount: rowsInChunk})
 	}
 	rows := new(snowflakeRows)
-	rows.sc = nil
+	sc := &snowflakeConn{
+		cfg: &Config{
+			Params: make(map[string]*string),
+		},
+	}
+	rows.sc = sc
+	rows.ctx = context.Background()
 	rows.ChunkDownloader = &snowflakeChunkDownloader{
-		sc:            nil,
+		sc:            sc,
 		ctx:           context.Background(),
 		Total:         int64(len(cc) + numChunks*rowsInChunk),
 		ChunkMetas:    cm,

@@ -4,12 +4,13 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/ipc"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 type arrowResultChunk struct {
@@ -19,7 +20,7 @@ type arrowResultChunk struct {
 	allocator memory.Allocator
 }
 
-func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, highPrec bool) ([]chunkRowType, error) {
+func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []execResponseRowType, highPrec bool, params map[string]*string) ([]chunkRowType, error) {
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
 
@@ -36,7 +37,7 @@ func (arc *arrowResultChunk) decodeArrowChunk(rowType []execResponseRowType, hig
 
 		for colIdx, col := range columns {
 			values := make([]snowflakeValue, numRows)
-			if err := arrowToValue(values, rowType[colIdx], col, arc.loc, highPrec); err != nil {
+			if err := arrowToValues(ctx, values, rowType[colIdx], col, arc.loc, highPrec, params); err != nil {
 				return nil, err
 			}
 
