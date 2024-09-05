@@ -175,3 +175,90 @@ func TestParseDuration(t *testing.T) {
 		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeTomlFileParsingFailed, driverErr.Number)
 	}
 }
+
+type paramList struct {
+	testParams []string
+	values     []interface{}
+}
+
+func TestParseToml(t *testing.T) {
+	testCases := []paramList{
+		{
+			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
+				"schema", "role", "region", "protocol", "passcode", "application", "token",
+				"tracing", "tmpDirPath", "clientConfigFile"},
+			values: []interface{}{"value"},
+		},
+		{
+			testParams: []string{"port", "maxRetryCount", "clientTimeout", "jwtClientTimeout", "loginTimeout",
+				"requestTimeout", "jwtTimeout", "externalBrowserTimeout"},
+			values: []interface{}{"300", 500},
+		},
+		{
+			testParams: []string{"ocspFailOpen", "insecureMode", "PasscodeInPassword", "validateDEFAULTParameters", "clientRequestMFAtoken",
+				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck"},
+			values: []interface{}{true, "true", false, "false"},
+		},
+	}
+
+	for _, testCase := range testCases {
+		for _, param := range testCase.testParams {
+			for _, value := range testCase.values {
+				t.Run(param, func(t *testing.T) {
+					cfg := &Config{}
+					var connectionMap = make(map[string]interface{})
+					connectionMap[param] = value
+					err := parseToml(cfg, connectionMap)
+					if err != nil {
+						t.Fatal("should not have failed")
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestParseTomlWithWrongValue(t *testing.T) {
+	testCases := []paramList{
+		{
+			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
+				"schema", "role", "region", "protocol", "passcode", "application", "token", "privateKey",
+				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams"},
+			values: []interface{}{1},
+		},
+		{
+			testParams: []string{"port", "maxRetryCount", "clientTimeout", "jwtClientTimeout", "loginTimeout",
+				"requestTimeout", "jwtTimeout", "externalBrowserTimeout"},
+			values: []interface{}{"wrong_value", false},
+		},
+		{
+			testParams: []string{"ocspFailOpen", "insecureMode", "PasscodeInPassword", "validateDEFAULTParameters", "clientRequestMFAtoken",
+				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck"},
+			values: []interface{}{"wrong_value", 1},
+		},
+	}
+
+	for _, testCase := range testCases {
+		for _, param := range testCase.testParams {
+			for _, value := range testCase.values {
+				t.Run(param, func(t *testing.T) {
+					cfg := &Config{}
+					var connectionMap = make(map[string]interface{})
+					connectionMap[param] = value
+					err := parseToml(cfg, connectionMap)
+					if err == nil {
+						t.Fatal("should have failed")
+					}
+					driverErr, ok := err.(*SnowflakeError)
+					if !ok {
+						t.Fatalf("should be snowflake error. err: %v", err)
+					}
+					if driverErr.Number != ErrCodeTomlFileParsingFailed {
+						t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeTomlFileParsingFailed, driverErr.Number)
+					}
+				})
+
+			}
+		}
+	}
+}

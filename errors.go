@@ -303,7 +303,7 @@ const (
 	errMsgClientConfigFailed                 = "client configuration failed: %v"
 	errMsgNullValueInArray                   = "for handling null values in arrays use WithArrayValuesNullable(ctx)"
 	errMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"
-	errMsgFailedToParseTomlFile              = "failed to parse toml file. the params occurred error: %v"
+	errMsgFailedToParseTomlFile              = "failed to parse toml file. the params %v occurred error with value %v"
 	errMsgFailedToFindDSNInTomlFile          = "failed to find DSN in toml file."
 )
 

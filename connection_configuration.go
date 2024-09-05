@@ -4,12 +4,12 @@ package gosnowflake
 
 import (
 	"encoding/base64"
+	"errors"
 	"os"
+	path "path/filepath"
 	"strconv"
 	"strings"
 	"time"
-
-	path "path/filepath"
 
 	toml "github.com/BurntSushi/toml"
 )
@@ -46,7 +46,6 @@ func LoadConnectionConfig() (*Config, error) {
 		}
 		return nil, err
 	}
-
 	connectionConfig, ok := connectionName.(map[string]interface{})
 	if !ok {
 		return nil, err
@@ -56,167 +55,159 @@ func LoadConnectionConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return cfg, err
 }
 
 func parseToml(cfg *Config, connection map[string]interface{}) error {
 	var ok, vv bool
-	var err error = &SnowflakeError{
-		Number:      ErrCodeTomlFileParsingFailed,
-		Message:     errMsgFailedToParseTomlFile,
-		MessageArgs: []interface{}{cfg.Host},
+	var err, parsingErr error
+	err = &SnowflakeError{
+		Number:  ErrCodeTomlFileParsingFailed,
+		Message: errMsgFailedToParseTomlFile,
 	}
 	var v, tokenPath string
 	for key, value := range connection {
 		switch strings.ToLower(key) {
 		case "user", "username":
-			cfg.User, ok = value.(string)
-			if !ok {
-				// //errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.User = value.(string)
 		case "password":
-			cfg.Password, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Password = value.(string)
 		case "host":
-			cfg.Host, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Host = value.(string)
 		case "account":
-			cfg.Account, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Account = value.(string)
 		case "warehouse":
-			cfg.Warehouse, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Warehouse = value.(string)
 		case "database":
-			cfg.Database, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Database = value.(string)
 		case "schema":
-			cfg.Schema, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Schema = value.(string)
 		case "role":
-			cfg.Role, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Role = value.(string)
 		case "region":
-			cfg.Region, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Region = value.(string)
 		case "protocol":
-			cfg.Protocol, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Protocol = value.(string)
 		case "passcode":
-			cfg.Passcode, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Passcode = value.(string)
 		case "port":
-			cfg.Port, err = parseInt(value)
-			if err != nil {
-				//errorinterface
+
+			if cfg.Port, parsingErr = parseInt(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "passcodeInPassword":
-			cfg.PasscodeInPassword, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+		case "passcodeinpassword":
+
+			if cfg.PasscodeInPassword, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "clientTimeout":
-			cfg.ClientTimeout, err = parseDuration(value)
-			if err != nil {
-				//errorinterface
+		case "clienttimeout":
+			if cfg.ClientTimeout, parsingErr = parseDuration(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "jwtClientTimeout":
-			cfg.JWTClientTimeout, err = parseDuration(value)
-			if err != nil {
-				//errorinterface
+		case "jwtclienttimeout":
+			if cfg.JWTClientTimeout, parsingErr = parseDuration(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "loginTimeout":
-			cfg.LoginTimeout, err = parseDuration(value)
-			if err != nil {
-				//errorinterface
+		case "logintimeout":
+
+			if cfg.LoginTimeout, parsingErr = parseDuration(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "requestTimeout":
-			cfg.RequestTimeout, err = parseDuration(value)
-			if err != nil {
-				//errorinterface
+		case "requesttimeout":
+			if cfg.RequestTimeout, parsingErr = parseDuration(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "jwtTimeout":
-			cfg.JWTExpireTimeout, err = parseDuration(value)
-			if err != nil {
-				//errorinterface
+		case "jwttimeout":
+			if cfg.JWTExpireTimeout, parsingErr = parseDuration(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "externalBrowserTimeout":
-			cfg.ExternalBrowserTimeout, err = parseDuration(value)
-			if err != nil {
-				//errorinterface
+		case "externalbrowsertimeout":
+			if cfg.ExternalBrowserTimeout, parsingErr = parseDuration(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "maxRetryCount":
-			cfg.MaxRetryCount, err = parseInt(value)
-			if err != nil {
-				//errorinterface
+		case "maxretrycount":
+
+			if cfg.MaxRetryCount, parsingErr = parseInt(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "application":
-			cfg.Application, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			cfg.Application = value.(string)
 		case "authenticator":
-			v, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			v = value.(string)
 			err = determineAuthenticatorType(cfg, v)
 			if err != nil {
-				//errorinterface
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "insecureMode":
-			cfg.InsecureMode, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+		case "insecuremode":
+			if cfg.InsecureMode, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "ocspFailOpen":
-			vv, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+		case "ocspfailopen":
+			if vv, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
 			if vv {
@@ -226,17 +217,17 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			}
 
 		case "token":
-			cfg.Token, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "privateKey":
-			v, ok = value.(string)
-			if !ok {
-				//errorinterface
+			cfg.Token = value.(string)
+		case "privatekey":
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			v = value.(string)
 			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(v)
 			if decodeErr != nil {
@@ -248,13 +239,12 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			}
 			cfg.PrivateKey, err = parsePKCS8PrivateKey(block)
 			if err != nil {
-				//errorinterface
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "validateDefaultParameters":
-			vv, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+		case "validatedefaultparameters":
+			if vv, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
 			if vv {
@@ -262,10 +252,9 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			} else {
 				cfg.ValidateDefaultParameters = ConfigBoolFalse
 			}
-		case "clientRequestMfaToken":
-			vv, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+		case "clientrequestmfatoken":
+			if vv, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
 			if vv {
@@ -273,10 +262,9 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			} else {
 				cfg.ClientRequestMfaToken = ConfigBoolFalse
 			}
-		case "clientStoreTemporaryCredential":
-			vv, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+		case "clientstoretemporarycredential":
+			if vv, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
 			if vv {
@@ -285,28 +273,26 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				cfg.ClientStoreTemporaryCredential = ConfigBoolFalse
 			}
 		case "tracing":
-			cfg.Tracing, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "tmpDirPath":
-			cfg.TmpDirPath, ok = value.(string)
-			if !ok {
-				//errorinterface
+			cfg.Tracing = value.(string)
+		case "tmpdirpath":
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "disableQueryContextCache":
-			vv, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+			cfg.TmpDirPath = value.(string)
+		case "disablequerycontextcache":
+			if vv, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
 			cfg.DisableQueryContextCache = vv
-		case "includeRetryReason":
-			vv, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+		case "includeretryreason":
+			if vv, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
 			if vv {
@@ -314,16 +300,15 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			} else {
 				cfg.IncludeRetryReason = ConfigBoolFalse
 			}
-		case "clientConfigFile":
-			cfg.ClientConfigFile, ok = value.(string)
-			if !ok {
-				//errorinterface
+		case "clientconfigfile":
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
-		case "disableConsoleLogin":
-			vv, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+			cfg.ClientConfigFile = value.(string)
+		case "disableconsolelogin":
+			if vv, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
 			if vv {
@@ -331,10 +316,9 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			} else {
 				cfg.DisableConsoleLogin = ConfigBoolFalse
 			}
-		case "disableSamlURLCheck":
-			vv, err = parseBool(value)
-			if err != nil {
-				//errorinterface
+		case "disablesamlurlcheck":
+			if vv, parsingErr = parseBool(value); parsingErr != nil {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
 			if vv {
@@ -343,18 +327,18 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				cfg.DisableSamlURLCheck = ConfigBoolFalse
 			}
 		case "token_file_path":
-			tokenPath, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			tokenPath = value.(string)
 		default:
 			var param string
-			param, ok = value.(string)
-			if !ok {
-				//errorinterface
+			if _, ok = value.(string); !ok {
+				err.(*SnowflakeError).MessageArgs = []interface{}{key, value}
 				return err
 			}
+			param = value.(string)
 			cfg.Params[urlDecodeIfNeeded(key)] = &param
 		}
 	}
@@ -371,22 +355,19 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 func parseInt(i interface{}) (int, error) {
 	var v string
 	var ok bool
-	var num int
-	var err, parseErr error
-	parseErr = &SnowflakeError{
-		Number:      ErrCodeTomlFileParsingFailed,
-		Message:     errMsgFailedToParseTomlFile,
-		MessageArgs: []interface{}{i},
-	}
-	if v, ok = i.(string); !ok {
-		if num, ok = i.(int); !ok {
-			return 0, parseErr
+	var num int = 0
+	var err error = errors.New("parse Error")
+	if _, ok = i.(string); !ok {
+		if _, ok = i.(int); !ok {
+			return num, err
 		}
+		num = i.(int)
 		return num, nil
 	}
-	num, err = strconv.Atoi(v)
-	if err != nil {
-		return 0, parseErr
+	v = i.(string)
+
+	if num, err = strconv.Atoi(v); err != nil {
+		return num, err
 	}
 	return num, nil
 }
@@ -400,12 +381,14 @@ func parseBool(i interface{}) (bool, error) {
 		Message:     errMsgFailedToParseTomlFile,
 		MessageArgs: []interface{}{i},
 	}
-	if v, ok = i.(string); !ok {
-		if vv, ok = i.(bool); !ok {
+	if _, ok = i.(string); !ok {
+		if _, ok = i.(bool); !ok {
 			return false, parseErr
 		}
+		vv = i.(bool)
 		return vv, nil
 	}
+	v = i.(string)
 	vv, err = strconv.ParseBool(v)
 	if err != nil {
 		return false, parseErr
@@ -424,13 +407,14 @@ func parseDuration(i interface{}) (time.Duration, error) {
 		Message:     errMsgFailedToParseTomlFile,
 		MessageArgs: []interface{}{i},
 	}
-	if v, ok = i.(string); !ok {
+	if _, ok = i.(string); !ok {
 		if num, err = parseInt(i); err != nil {
 			return time.Duration(0), parseErr
 		}
 		t = int64(num)
 		return time.Duration(t * int64(time.Second)), nil
 	}
+	v = i.(string)
 	t, err = strconv.ParseInt(v, 10, 64)
 	if err != nil {
 		return time.Duration(0), parseErr
