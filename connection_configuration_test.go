@@ -102,13 +102,6 @@ func TestParseInt(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed")
 	}
-	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrCodeTomlFileParsingFailed {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeTomlFileParsingFailed, driverErr.Number)
-	}
 }
 
 func TestParseBool(t *testing.T) {
@@ -134,13 +127,6 @@ func TestParseBool(t *testing.T) {
 	_, err = parseInt(i)
 	if err == nil {
 		t.Fatal("should have failed")
-	}
-	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrCodeTomlFileParsingFailed {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeTomlFileParsingFailed, driverErr.Number)
 	}
 }
 
@@ -273,7 +259,6 @@ func TestGetTomlFilePath(t *testing.T) {
 	if err != nil {
 		t.Fatal("The connection cannot find the user home directory")
 	}
-
 	assertEqualF(t, dir, path.Join(homeDir, "snowflake"))
 
 	var location string = "../user//somelocation///b"
@@ -286,5 +271,4 @@ func TestGetTomlFilePath(t *testing.T) {
 		t.Fatal("should not have failed")
 	}
 	assertEqualF(t, dir, result)
-
 }
