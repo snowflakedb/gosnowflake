@@ -282,6 +282,9 @@ func TestGetTomlFilePath(t *testing.T) {
 		t.Fatal("should not have failed")
 	}
 	result, err := path.Abs(location)
+	if err != nil {
+		t.Fatal("should not have failed")
+	}
 	assertEqualF(t, dir, result)
 
 }
