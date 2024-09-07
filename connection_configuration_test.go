@@ -13,7 +13,7 @@ func TestLoadConnectionConfig_Default(t *testing.T) {
 
 	cfg, err := LoadConnectionConfig()
 
-	assertNilF(t, err, "The error should not occured")
+	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Account, "snowdriverswarsaw.us-west-2.aws")
 	assertEqualF(t, cfg.User, "test_user")
 	assertEqualF(t, cfg.Password, "test_pass")
@@ -29,7 +29,7 @@ func TestLoadConnectionConfig_OAuth(t *testing.T) {
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth")
 	cfg, err := LoadConnectionConfig()
 
-	assertNilF(t, err, "The error should not occurred")
+	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Account, "snowdriverswarsaw.us-west-2.aws")
 	assertEqualF(t, cfg.User, "test_user")
 	assertEqualF(t, cfg.Password, "test_pass")
@@ -47,7 +47,7 @@ func TestLoadConnectionConfigWitNonExisitngDSN(t *testing.T) {
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "unavailableDSN")
 
 	_, err := LoadConnectionConfig()
-	assertNotNilF(t, err, "The error should be occurred")
+	assertNotNilF(t, err, "The error should occur")
 
 	driverErr, ok := err.(*SnowflakeError)
 	assertTrueF(t, ok, "This should be a Snowflake Error")
@@ -59,7 +59,7 @@ func TestLoadConnectionConfigWithTokenFileNotExist(t *testing.T) {
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth-file")
 
 	_, err := LoadConnectionConfig()
-	assertNotNilF(t, err, "The error should be occurred")
+	assertNotNilF(t, err, "The error should occur")
 
 	_, ok := err.(*(fs.PathError))
 	assertTrueF(t, ok, "This error should be a path error")
