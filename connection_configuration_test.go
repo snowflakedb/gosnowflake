@@ -13,10 +13,7 @@ func TestLoadConnectionConfig_Default(t *testing.T) {
 
 	cfg, err := LoadConnectionConfig()
 
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
+	assertNilF(t, err, "The error should not occured")
 	assertEqualF(t, cfg.Account, "snowdriverswarsaw.us-west-2.aws")
 	assertEqualF(t, cfg.User, "test_user")
 	assertEqualF(t, cfg.Password, "test_pass")
@@ -32,10 +29,7 @@ func TestLoadConnectionConfig_OAuth(t *testing.T) {
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth")
 	cfg, err := LoadConnectionConfig()
 
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
+	assertNilF(t, err, "The error should not occurred")
 	assertEqualF(t, cfg.Account, "snowdriverswarsaw.us-west-2.aws")
 	assertEqualF(t, cfg.User, "test_user")
 	assertEqualF(t, cfg.Password, "test_pass")
@@ -53,17 +47,11 @@ func TestLoadConnectionConfigWitNonExisitngDSN(t *testing.T) {
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "unavailableDSN")
 
 	_, err := LoadConnectionConfig()
+	assertNotNilF(t, err, "The error should be occurred")
 
-	if err == nil {
-		t.Fatal("should have failed")
-	}
 	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrCodeFailedToFindDSNInToml {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeFailedToFindDSNInToml, driverErr.Number)
-	}
+	assertTrueF(t, ok, "This should be a Snowflake Error")
+	assertEqualF(t, driverErr.Number, ErrCodeFailedToFindDSNInToml)
 }
 
 func TestLoadConnectionConfigWithTokenFileNotExist(t *testing.T) {
@@ -71,11 +59,10 @@ func TestLoadConnectionConfigWithTokenFileNotExist(t *testing.T) {
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth-file")
 
 	_, err := LoadConnectionConfig()
+	assertNotNilF(t, err, "The error should be occurred")
 
 	_, ok := err.(*(fs.PathError))
-	if !ok {
-		t.Fatalf("should be io/fs error. err: %v", err)
-	}
+	assertTrueF(t, ok, "This error should be a path error")
 }
 
 func TestParseInt(t *testing.T) {
@@ -85,23 +72,17 @@ func TestParseInt(t *testing.T) {
 
 	i = 20
 	num, err = parseInt(i)
-	if err != nil {
-		t.Fatalf("should be parsed: %v", err)
-	}
+	assertNilF(t, err, "This value should be parsed")
 	assertEqualF(t, num, 20)
 
 	i = "40"
 	num, err = parseInt(i)
-	if err != nil {
-		t.Fatalf("should be parsed: %v", err)
-	}
+	assertNilF(t, err, "This value should be parsed")
 	assertEqualF(t, num, 40)
 
 	i = "wrong_num"
 	_, err = parseInt(i)
-	if err == nil {
-		t.Fatal("should have failed")
-	}
+	assertNotNilF(t, err, "should have failed")
 }
 
 func TestParseBool(t *testing.T) {
@@ -111,23 +92,17 @@ func TestParseBool(t *testing.T) {
 
 	i = true
 	b, err = parseBool(i)
-	if err != nil {
-		t.Fatalf("should be parsed: %v", err)
-	}
+	assertNilF(t, err, "This value should be parsed")
 	assertEqualF(t, b, true)
 
 	i = "false"
 	b, err = parseBool(i)
-	if err != nil {
-		t.Fatalf("should be parsed: %v", err)
-	}
+	assertNilF(t, err, "This value should be parsed")
 	assertEqualF(t, b, false)
 
 	i = "wrong_bool"
 	_, err = parseInt(i)
-	if err == nil {
-		t.Fatal("should have failed")
-	}
+	assertNotNilF(t, err, "should have failed")
 }
 
 func TestParseDuration(t *testing.T) {
@@ -137,30 +112,17 @@ func TestParseDuration(t *testing.T) {
 
 	i = 300
 	dur, err = parseDuration(i)
-	if err != nil {
-		t.Fatalf("should be parsed: %v", err)
-	}
+	assertNilF(t, err, "This value should be parsed")
 	assertEqualF(t, dur, time.Duration(5*int64(time.Minute)))
 
 	i = "30"
 	dur, err = parseDuration(i)
-	if err != nil {
-		t.Fatalf("should be parsed: %v", err)
-	}
+	assertNilF(t, err, "This value should be parsed")
 	assertEqualF(t, dur, time.Duration(int64(time.Minute)/2))
 
 	i = false
 	_, err = parseDuration(i)
-	if err == nil {
-		t.Fatal("should have failed")
-	}
-	driverErr, ok := err.(*SnowflakeError)
-	if !ok {
-		t.Fatalf("should be snowflake error. err: %v", err)
-	}
-	if driverErr.Number != ErrCodeTomlFileParsingFailed {
-		t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeTomlFileParsingFailed, driverErr.Number)
-	}
+	assertNotNilF(t, err, "should have failed")
 }
 
 type paramList struct {
@@ -196,9 +158,7 @@ func TestParseToml(t *testing.T) {
 					var connectionMap = make(map[string]interface{})
 					connectionMap[param] = value
 					err := parseToml(cfg, connectionMap)
-					if err != nil {
-						t.Fatal("should not have failed")
-					}
+					assertNilF(t, err, "The value should be parsed")
 				})
 			}
 		}
@@ -233,16 +193,10 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 					var connectionMap = make(map[string]interface{})
 					connectionMap[param] = value
 					err := parseToml(cfg, connectionMap)
-					if err == nil {
-						t.Fatal("should have failed")
-					}
+					assertNotNilF(t, err, "should have failed")
 					driverErr, ok := err.(*SnowflakeError)
-					if !ok {
-						t.Fatalf("should be snowflake error. err: %v", err)
-					}
-					if driverErr.Number != ErrCodeTomlFileParsingFailed {
-						t.Fatalf("unexpected error code. expected: %v, got: %v", ErrCodeTomlFileParsingFailed, driverErr.Number)
-					}
+					assertTrueF(t, ok, "This should be a Snowflake Error")
+					assertEqualF(t, driverErr.Number, ErrCodeTomlFileParsingFailed)
 				})
 
 			}
@@ -252,23 +206,15 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 
 func TestGetTomlFilePath(t *testing.T) {
 	dir, err := getTomlFilePath("")
-	if err != nil {
-		t.Fatal("should not have failed")
-	}
+	assertNilF(t, err, "should not have failed")
 	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal("The connection cannot find the user home directory")
-	}
+	assertNilF(t, err, "The connection cannot find the user home directory")
 	assertEqualF(t, dir, path.Join(homeDir, "snowflake"))
 
 	var location string = "../user//somelocation///b"
 	dir, err = getTomlFilePath(location)
-	if err != nil {
-		t.Fatal("should not have failed")
-	}
+	assertNilF(t, err, "should not have failed")
 	result, err := path.Abs(location)
-	if err != nil {
-		t.Fatal("should not have failed")
-	}
+	assertNilF(t, err, "should not have failed")
 	assertEqualF(t, dir, result)
 }
