@@ -479,7 +479,7 @@ func validateFilePermission(filePath string) error {
 		return err
 	}
 	permission := fileInfo.Mode().Perm()
-	if permission != 0o600 {
+	if permission != 0600 {
 		return err
 	}
 	return nil

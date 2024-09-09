@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -15,6 +16,9 @@ func main() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
+
+	os.Setenv("SNOWFLAKE_HOME", "<The directory path where the toml file exists>")
+	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "<DSN Name>")
 
 	cfg, err := sf.LoadConnectionConfig()
 	if err != nil {
