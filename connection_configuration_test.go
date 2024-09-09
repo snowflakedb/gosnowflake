@@ -9,7 +9,7 @@ import (
 )
 
 func TestLoadConnectionConfig_Default(t *testing.T) {
-	os.Setenv("SNOWFLAKE_HOME", "./")
+	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 
 	cfg, err := LoadConnectionConfig()
 
@@ -25,7 +25,7 @@ func TestLoadConnectionConfig_Default(t *testing.T) {
 }
 
 func TestLoadConnectionConfig_OAuth(t *testing.T) {
-	os.Setenv("SNOWFLAKE_HOME", "./")
+	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth")
 	cfg, err := LoadConnectionConfig()
 
@@ -43,7 +43,7 @@ func TestLoadConnectionConfig_OAuth(t *testing.T) {
 }
 
 func TestLoadConnectionConfigWitNonExisitngDSN(t *testing.T) {
-	os.Setenv("SNOWFLAKE_HOME", "./")
+	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "unavailableDSN")
 
 	_, err := LoadConnectionConfig()
@@ -55,7 +55,7 @@ func TestLoadConnectionConfigWitNonExisitngDSN(t *testing.T) {
 }
 
 func TestLoadConnectionConfigWithTokenFileNotExist(t *testing.T) {
-	os.Setenv("SNOWFLAKE_HOME", "./")
+	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth-file")
 
 	_, err := LoadConnectionConfig()
