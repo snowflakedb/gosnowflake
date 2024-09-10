@@ -464,7 +464,7 @@ func validateFilePermission(filePath string) error {
 	}
 	permission := fileInfo.Mode().Perm()
 	if permission != 0600 {
-		return err
+		return errors.New("Your access to the file was denied. Please check the permission of your toml file")
 	}
 	return nil
 }
