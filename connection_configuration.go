@@ -5,7 +5,6 @@ package gosnowflake
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"os"
 	path "path/filepath"
 	"strconv"
@@ -468,8 +467,7 @@ func validateFilePermission(filePath string) error {
 	if err != nil {
 		return err
 	}
-	permission := fmt.Sprintf("%04o", fileInfo.Mode().Perm())
-	if permission != "0600" {
+	if permission := fileInfo.Mode().Perm(); permission != os.FileMode(0600) {
 		return errors.New("your access to the file was denied")
 	}
 	return nil
