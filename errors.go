@@ -130,7 +130,7 @@ const (
 	// ErrCodeTomlFileParsingFailed is an error code for the case where parsing the toml file is failed because of invalid value.
 	ErrCodeTomlFileParsingFailed = 260013
 	// ErrCodeFailedToFindDSNInToml is an error code for the case where the DSN does not exist in the toml file.
-	ErrCodeFailedToFindDSNInToml = 260013
+	ErrCodeFailedToFindDSNInToml = 260014
 
 	/* network */
 

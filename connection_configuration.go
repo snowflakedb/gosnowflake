@@ -32,7 +32,7 @@ func LoadConnectionConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	var tomlInfo = make(map[string]interface{})
+	tomlInfo := make(map[string]interface{})
 
 	_, err = toml.DecodeFile(tomlFilePath, &tomlInfo)
 	if err != nil {
@@ -59,9 +59,9 @@ func LoadConnectionConfig() (*Config, error) {
 }
 
 func parseToml(cfg *Config, connection map[string]interface{}) error {
+	var v, tokenPath string
 	var parsingErr error
 	var vv bool
-	var tokenPath string
 	err := &SnowflakeError{
 		Number:  ErrCodeTomlFileParsingFailed,
 		Message: errMsgFailedToParseTomlFile,
@@ -69,71 +69,71 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 	for key, value := range connection {
 		switch strings.ToLower(key) {
 		case "user", "username":
-			if _, ok := value.(string); !ok {
+			cfg.User, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.User = value.(string)
 		case "password":
-			if _, ok := value.(string); !ok {
+			cfg.Password, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Password = value.(string)
 		case "host":
-			if _, ok := value.(string); !ok {
+			cfg.Host, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Host = value.(string)
 		case "account":
-			if _, ok := value.(string); !ok {
+			cfg.Account, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Account = value.(string)
 		case "warehouse":
-			if _, ok := value.(string); !ok {
+			cfg.Warehouse, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Warehouse = value.(string)
 		case "database":
-			if _, ok := value.(string); !ok {
+			cfg.Database, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Database = value.(string)
 		case "schema":
-			if _, ok := value.(string); !ok {
+			cfg.Schema, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Schema = value.(string)
 		case "role":
-			if _, ok := value.(string); !ok {
+			cfg.Role, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Role = value.(string)
 		case "region":
-			if _, ok := value.(string); !ok {
+			cfg.Region, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Region = value.(string)
 		case "protocol":
-			if _, ok := value.(string); !ok {
+			cfg.Protocol, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Protocol = value.(string)
 		case "passcode":
-			if _, ok := value.(string); !ok {
+			cfg.Passcode, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Passcode = value.(string)
 		case "port":
 			if cfg.Port, parsingErr = parseInt(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
@@ -180,17 +180,17 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				return err
 			}
 		case "application":
-			if _, ok := value.(string); !ok {
+			cfg.Application, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Application = value.(string)
 		case "authenticator":
-			if _, ok := value.(string); !ok {
+			v, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			v := value.(string)
 			parsingErr = determineAuthenticatorType(cfg, v)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
@@ -213,17 +213,17 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			}
 
 		case "token":
-			if _, ok := value.(string); !ok {
+			cfg.Token, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Token = value.(string)
 		case "privatekey":
-			if _, ok := value.(string); !ok {
+			v, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			v := value.(string)
 			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(v)
 			if decodeErr != nil {
@@ -269,17 +269,17 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				cfg.ClientStoreTemporaryCredential = ConfigBoolFalse
 			}
 		case "tracing":
-			if _, ok := value.(string); !ok {
+			cfg.Tracing, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.Tracing = value.(string)
 		case "tmpdirpath":
-			if _, ok := value.(string); !ok {
+			cfg.TmpDirPath, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.TmpDirPath = value.(string)
 		case "disablequerycontextcache":
 			if vv, parsingErr = parseBool(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
@@ -297,11 +297,11 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				cfg.IncludeRetryReason = ConfigBoolFalse
 			}
 		case "clientconfigfile":
-			if _, ok := value.(string); !ok {
+			cfg.ClientConfigFile, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.ClientConfigFile = value.(string)
 		case "disableconsolelogin":
 			if vv, parsingErr = parseBool(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
@@ -323,17 +323,18 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				cfg.DisableSamlURLCheck = ConfigBoolFalse
 			}
 		case "token_file_path":
-			if _, ok := value.(string); !ok {
+			tokenPath, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			tokenPath = value.(string)
 		default:
-			if _, ok := value.(string); !ok {
+			var param string
+			param, parsingErr = populateSessionParams(value)
+			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			param := value.(string)
 			cfg.Params[urlDecodeIfNeeded(key)] = &param
 		}
 	}
@@ -365,36 +366,36 @@ func parseInt(i interface{}) (int, error) {
 }
 
 func parseBool(i interface{}) (bool, error) {
-	if _, ok := i.(string); !ok {
+	if v, ok := i.(string); !ok {
 		if _, ok := i.(bool); !ok {
 			return false, errors.New("parse Error")
 		}
 		vv := i.(bool)
 		return vv, nil
+	} else {
+		vv, err := strconv.ParseBool(v)
+		if err != nil {
+			return false, errors.New("parse Error")
+		}
+		return vv, nil
 	}
-	v := i.(string)
-	vv, err := strconv.ParseBool(v)
-	if err != nil {
-		return false, errors.New("parse Error")
-	}
-	return vv, nil
 }
 
 func parseDuration(i interface{}) (time.Duration, error) {
-	if _, ok := i.(string); !ok {
+	if v, ok := i.(string); !ok {
 		num, err := parseInt(i)
 		if err != nil {
 			return time.Duration(0), err
 		}
 		t := int64(num)
 		return time.Duration(t * int64(time.Second)), nil
+	} else {
+		t, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return time.Duration(0), err
+		}
+		return time.Duration(t * int64(time.Second)), nil
 	}
-	v := i.(string)
-	t, err := strconv.ParseInt(v, 10, 64)
-	if err != nil {
-		return time.Duration(0), err
-	}
-	return time.Duration(t * int64(time.Second)), nil
 }
 
 func readToken(tokenPath string) (string, error) {
@@ -418,6 +419,14 @@ func readToken(tokenPath string) (string, error) {
 		return "", err
 	}
 	return string(token), nil
+}
+
+func populateSessionParams(i interface{}) (string, error) {
+	if v, ok := i.(string); !ok {
+		return "", errors.New("Error")
+	} else {
+		return v, nil
+	}
 }
 
 func getTomlFilePath(filePath string) (string, error) {
