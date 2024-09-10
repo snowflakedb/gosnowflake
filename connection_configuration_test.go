@@ -176,7 +176,7 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
 				"schema", "role", "region", "protocol", "passcode", "application", "token", "privateKey",
 				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams"},
-			values: []interface{}{1},
+			values: []interface{}{1, false},
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "clientTimeout", "jwtClientTimeout", "loginTimeout",

@@ -367,36 +367,38 @@ func parseInt(i interface{}) (int, error) {
 }
 
 func parseBool(i interface{}) (bool, error) {
-	if v, ok := i.(string); !ok {
+	v, ok := i.(string)
+	if !ok {
 		if _, ok := i.(bool); !ok {
 			return false, errors.New("parse Error")
 		}
 		vv := i.(bool)
 		return vv, nil
-	} else {
-		vv, err := strconv.ParseBool(v)
-		if err != nil {
-			return false, errors.New("parse Error")
-		}
-		return vv, nil
 	}
+	vv, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, errors.New("parse Error")
+	}
+	return vv, nil
+
 }
 
 func parseDuration(i interface{}) (time.Duration, error) {
-	if v, ok := i.(string); !ok {
+	v, ok := i.(string)
+	if !ok {
 		num, err := parseInt(i)
 		if err != nil {
 			return time.Duration(0), err
 		}
 		t := int64(num)
 		return time.Duration(t * int64(time.Second)), nil
-	} else {
-		t, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return time.Duration(0), err
-		}
-		return time.Duration(t * int64(time.Second)), nil
 	}
+	t, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		return time.Duration(0), err
+	}
+	return time.Duration(t * int64(time.Second)), nil
+
 }
 
 func readToken(tokenPath string) (string, error) {
@@ -423,11 +425,11 @@ func readToken(tokenPath string) (string, error) {
 }
 
 func parseString(i interface{}) (string, error) {
-	if v, ok := i.(string); !ok {
+	v, ok := i.(string)
+	if !ok {
 		return "", errors.New("Error")
-	} else {
-		return v, nil
 	}
+	return v, nil
 }
 
 func getTomlFilePath(filePath string) (string, error) {
@@ -468,7 +470,7 @@ func validateFilePermission(filePath string) error {
 	}
 	permission := fmt.Sprintf("%04o", fileInfo.Mode().Perm())
 	if permission != "0600" {
-		return errors.New("Your access to the file was denied. Please check the permission of your toml file")
+		return errors.New("your access to the file was denied")
 	}
 	return nil
 }
