@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
 	path "path/filepath"
 	"strconv"
@@ -69,67 +70,67 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 	for key, value := range connection {
 		switch strings.ToLower(key) {
 		case "user", "username":
-			cfg.User, parsingErr = populateSessionParams(value)
+			cfg.User, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "password":
-			cfg.Password, parsingErr = populateSessionParams(value)
+			cfg.Password, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "host":
-			cfg.Host, parsingErr = populateSessionParams(value)
+			cfg.Host, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "account":
-			cfg.Account, parsingErr = populateSessionParams(value)
+			cfg.Account, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "warehouse":
-			cfg.Warehouse, parsingErr = populateSessionParams(value)
+			cfg.Warehouse, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "database":
-			cfg.Database, parsingErr = populateSessionParams(value)
+			cfg.Database, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "schema":
-			cfg.Schema, parsingErr = populateSessionParams(value)
+			cfg.Schema, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "role":
-			cfg.Role, parsingErr = populateSessionParams(value)
+			cfg.Role, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "region":
-			cfg.Region, parsingErr = populateSessionParams(value)
+			cfg.Region, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "protocol":
-			cfg.Protocol, parsingErr = populateSessionParams(value)
+			cfg.Protocol, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "passcode":
-			cfg.Passcode, parsingErr = populateSessionParams(value)
+			cfg.Passcode, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
@@ -180,13 +181,13 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				return err
 			}
 		case "application":
-			cfg.Application, parsingErr = populateSessionParams(value)
+			cfg.Application, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "authenticator":
-			v, parsingErr = populateSessionParams(value)
+			v, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
@@ -213,13 +214,13 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			}
 
 		case "token":
-			cfg.Token, parsingErr = populateSessionParams(value)
+			cfg.Token, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "privatekey":
-			v, parsingErr = populateSessionParams(value)
+			v, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
@@ -269,13 +270,13 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				cfg.ClientStoreTemporaryCredential = ConfigBoolFalse
 			}
 		case "tracing":
-			cfg.Tracing, parsingErr = populateSessionParams(value)
+			cfg.Tracing, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "tmpdirpath":
-			cfg.TmpDirPath, parsingErr = populateSessionParams(value)
+			cfg.TmpDirPath, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
@@ -297,7 +298,7 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				cfg.IncludeRetryReason = ConfigBoolFalse
 			}
 		case "clientconfigfile":
-			cfg.ClientConfigFile, parsingErr = populateSessionParams(value)
+			cfg.ClientConfigFile, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
@@ -323,14 +324,14 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				cfg.DisableSamlURLCheck = ConfigBoolFalse
 			}
 		case "token_file_path":
-			tokenPath, parsingErr = populateSessionParams(value)
+			tokenPath, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		default:
 			var param string
-			param, parsingErr = populateSessionParams(value)
+			param, parsingErr = parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
@@ -421,7 +422,7 @@ func readToken(tokenPath string) (string, error) {
 	return string(token), nil
 }
 
-func populateSessionParams(i interface{}) (string, error) {
+func parseString(i interface{}) (string, error) {
 	if v, ok := i.(string); !ok {
 		return "", errors.New("Error")
 	} else {
@@ -458,12 +459,15 @@ func getConnectionDSN(dsn string) string {
 }
 
 func validateFilePermission(filePath string) error {
+	if isWindows {
+		return nil
+	}
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return err
 	}
-	permission := fileInfo.Mode().Perm()
-	if permission != 0600 {
+	permission := fmt.Sprintf("%04o", fileInfo.Mode().Perm())
+	if permission != "0600" {
 		return errors.New("Your access to the file was denied. Please check the permission of your toml file")
 	}
 	return nil

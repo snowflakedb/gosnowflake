@@ -9,6 +9,9 @@ import (
 )
 
 func TestLoadConnectionConfig_Default(t *testing.T) {
+	err := os.Chmod("./test_data/connections.toml", 0600)
+	assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
 	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 
 	cfg, err := LoadConnectionConfig()
@@ -25,6 +28,9 @@ func TestLoadConnectionConfig_Default(t *testing.T) {
 }
 
 func TestLoadConnectionConfig_OAuth(t *testing.T) {
+	err := os.Chmod("./test_data/connections.toml", 0600)
+	assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
 	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth")
 	cfg, err := LoadConnectionConfig()
@@ -43,10 +49,13 @@ func TestLoadConnectionConfig_OAuth(t *testing.T) {
 }
 
 func TestLoadConnectionConfigWitNonExisitngDSN(t *testing.T) {
+	err := os.Chmod("./test_data/connections.toml", 0600)
+	assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
 	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "unavailableDSN")
 
-	_, err := LoadConnectionConfig()
+	_, err = LoadConnectionConfig()
 	assertNotNilF(t, err, "The error should occur")
 
 	driverErr, ok := err.(*SnowflakeError)
@@ -55,10 +64,13 @@ func TestLoadConnectionConfigWitNonExisitngDSN(t *testing.T) {
 }
 
 func TestLoadConnectionConfigWithTokenFileNotExist(t *testing.T) {
+	err := os.Chmod("./test_data/connections.toml", 0600)
+	assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
 	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth-file")
 
-	_, err := LoadConnectionConfig()
+	_, err = LoadConnectionConfig()
 	assertNotNilF(t, err, "The error should occur")
 
 	_, ok := err.(*(fs.PathError))
