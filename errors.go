@@ -192,6 +192,7 @@ const (
 	// ErrInvalidPadding is an error code denoting the invalid padding of decryption key
 	ErrInvalidPadding = 264012
 
+	//a
 	/* binding */
 
 	// ErrBindSerialization is an error code for a failed serialization of bind variables
