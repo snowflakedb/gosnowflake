@@ -379,7 +379,6 @@ func parseBool(i interface{}) (bool, error) {
 		return false, errors.New("parse Error")
 	}
 	return vv, nil
-
 }
 
 func parseDuration(i interface{}) (time.Duration, error) {
@@ -397,14 +396,12 @@ func parseDuration(i interface{}) (time.Duration, error) {
 		return time.Duration(0), err
 	}
 	return time.Duration(t * int64(time.Second)), nil
-
 }
 
 func readToken(tokenPath string) (string, error) {
 	if tokenPath == "" {
 		tokenPath = "./snowflake/session/token"
 	}
-
 	if !path.IsAbs(tokenPath) {
 		snowflakeConfigDir, err := getTomlFilePath(os.Getenv("SNOWFLAKE_HOME"))
 		if err != nil {
