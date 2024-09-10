@@ -67,11 +67,8 @@ func TestLoadConnectionConfigWithTokenFileNotExist(t *testing.T) {
 
 func TestParseInt(t *testing.T) {
 	var i interface{}
-	var num int
-	var err error
-
 	i = 20
-	num, err = parseInt(i)
+	num, err := parseInt(i)
 	assertNilF(t, err, "This value should be parsed")
 	assertEqualF(t, num, 20)
 
@@ -87,11 +84,9 @@ func TestParseInt(t *testing.T) {
 
 func TestParseBool(t *testing.T) {
 	var i interface{}
-	var b bool
-	var err error
 
 	i = true
-	b, err = parseBool(i)
+	b, err := parseBool(i)
 	assertNilF(t, err, "This value should be parsed")
 	assertEqualF(t, b, true)
 
@@ -107,11 +102,9 @@ func TestParseBool(t *testing.T) {
 
 func TestParseDuration(t *testing.T) {
 	var i interface{}
-	var dur time.Duration
-	var err error
 
 	i = 300
-	dur, err = parseDuration(i)
+	dur, err := parseDuration(i)
 	assertNilF(t, err, "This value should be parsed")
 	assertEqualF(t, dur, time.Duration(5*int64(time.Minute)))
 
@@ -155,7 +148,7 @@ func TestParseToml(t *testing.T) {
 			for _, value := range testCase.values {
 				t.Run(param, func(t *testing.T) {
 					cfg := &Config{}
-					var connectionMap = make(map[string]interface{})
+					connectionMap := make(map[string]interface{})
 					connectionMap[param] = value
 					err := parseToml(cfg, connectionMap)
 					assertNilF(t, err, "The value should be parsed")
@@ -190,7 +183,7 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 			for _, value := range testCase.values {
 				t.Run(param, func(t *testing.T) {
 					cfg := &Config{}
-					var connectionMap = make(map[string]interface{})
+					connectionMap := make(map[string]interface{})
 					connectionMap[param] = value
 					err := parseToml(cfg, connectionMap)
 					assertNotNilF(t, err, "should have failed")
@@ -211,7 +204,7 @@ func TestGetTomlFilePath(t *testing.T) {
 	assertNilF(t, err, "The connection cannot find the user home directory")
 	assertEqualF(t, dir, path.Join(homeDir, "snowflake"))
 
-	var location string = "../user//somelocation///b"
+	location := "../user//somelocation///b"
 	dir, err = getTomlFilePath(location)
 	assertNilF(t, err, "should not have failed")
 	result, err := path.Abs(location)
