@@ -33,7 +33,6 @@ func LoadConnectionConfig() (*Config, error) {
 		return nil, err
 	}
 	tomlInfo := make(map[string]interface{})
-
 	_, err = toml.DecodeFile(tomlFilePath, &tomlInfo)
 	if err != nil {
 		return nil, err
@@ -50,7 +49,6 @@ func LoadConnectionConfig() (*Config, error) {
 	if !ok {
 		return nil, err
 	}
-
 	err = parseToml(cfg, connectionConfig)
 	if err != nil {
 		return nil, err
@@ -224,7 +222,6 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(v)
 			if decodeErr != nil {
 				err = &SnowflakeError{
@@ -329,8 +326,7 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				return err
 			}
 		default:
-			var param string
-			param, parsingErr = parseString(value)
+			param, parsingErr := parseString(value)
 			if parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
@@ -423,26 +419,24 @@ func readToken(tokenPath string) (string, error) {
 func parseString(i interface{}) (string, error) {
 	v, ok := i.(string)
 	if !ok {
-		return "", errors.New("Error")
+		return "", errors.New("failed to convert the value to string")
 	}
 	return v, nil
 }
 
 func getTomlFilePath(filePath string) (string, error) {
-	var dir string
 	if len(filePath) != 0 {
-		dir = filePath
-		if path.IsAbs(dir) {
-			return dir, nil
+		if path.IsAbs(filePath) {
+			return filePath, nil
 		}
 	} else {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
 			return "", err
 		}
-		dir = path.Join(homeDir, "snowflake")
+		filePath = path.Join(homeDir, "snowflake")
 	}
-	absDir, err := path.Abs(dir)
+	absDir, err := path.Abs(filePath)
 	if err != nil {
 		return "", err
 	}

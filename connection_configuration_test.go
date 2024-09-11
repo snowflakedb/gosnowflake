@@ -79,6 +79,7 @@ func TestLoadConnectionConfigWithTokenFileNotExist(t *testing.T) {
 
 func TestParseInt(t *testing.T) {
 	var i interface{}
+
 	i = 20
 	num, err := parseInt(i)
 	assertNilF(t, err, "This value should be parsed")
