@@ -347,7 +347,7 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 func parseInt(i interface{}) (int, error) {
 	if _, ok := i.(string); !ok {
 		if _, ok := i.(int); !ok {
-			return 0, errors.New("parse Error")
+			return 0, errors.New("Failed to parse the value to integer")
 		}
 		num := i.(int)
 		return num, nil
@@ -365,14 +365,14 @@ func parseBool(i interface{}) (bool, error) {
 	v, ok := i.(string)
 	if !ok {
 		if _, ok := i.(bool); !ok {
-			return false, errors.New("parse Error")
+			return false, errors.New("Failed to parse the value to boolean")
 		}
 		vv := i.(bool)
 		return vv, nil
 	}
 	vv, err := strconv.ParseBool(v)
 	if err != nil {
-		return false, errors.New("parse Error")
+		return false, errors.New("Failed to parse the value to boolean")
 	}
 	return vv, nil
 }
