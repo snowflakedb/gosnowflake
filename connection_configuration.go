@@ -223,11 +223,10 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			}
 			block, decodeErr := base64.URLEncoding.DecodeString(v)
 			if decodeErr != nil {
-				err = &SnowflakeError{
+				return &SnowflakeError{
 					Number:  ErrCodePrivateKeyParseError,
 					Message: "Base64 decode failed",
 				}
-				return err
 			}
 			cfg.PrivateKey, parsingErr = parsePKCS8PrivateKey(block)
 			if parsingErr != nil {
