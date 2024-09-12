@@ -36,4 +36,7 @@ token_file_path = '/Users/test/.snowflake/token'
 
 [read-token]
 authenticator = 'oauth'
-token_file_path = './token_file/token'
+token_file_path = './snowflake/session/token'
+
+[no-token-path]
+authenticator = 'oauth'

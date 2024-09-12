@@ -9,6 +9,11 @@ import (
 )
 
 func TestLoadConnectionConfig_Default(t *testing.T) {
+	if !isWindows {
+		_, err := LoadConnectionConfig()
+		assertNotNilF(t, err, "The error should occur because you cannot change the file permission")
+	}
+
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
@@ -51,19 +56,27 @@ func TestReadTokenValueWithTokenFilePath(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
-	err = os.Chmod("./test_data/token_file/token", 0600)
+	err = os.Chmod("./test_data/snowflake/session/token", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
 	os.Setenv("SNOWFLAKE_HOME", "./test_data")
-	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "read-token")
+	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "no-token-path")
 
 	cfg, err := LoadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
 	assertEqualF(t, cfg.Token, "mock_token123456")
+
+	os.Setenv("SNOWFLAKE_HOME", "./test_data")
+	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "read-token")
+
+	cfg, err = LoadConnectionConfig()
+	assertNilF(t, err, "The error should not occur")
+	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
+	assertEqualF(t, cfg.Token, "mock_token123456")
 }
 
-func TestLoadConnectionConfigWitNonExisitngDSN(t *testing.T) {
+func TestLoadConnectionConfigWitNonExistingDSN(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
@@ -160,6 +173,10 @@ func TestParseToml(t *testing.T) {
 			values: []interface{}{"value"},
 		},
 		{
+			testParams: []string{"privatekey"},
+			values:     []interface{}{generatePKCS8StringSupress(testPrivKey)},
+		},
+		{
 			testParams: []string{"port", "maxRetryCount", "clientTimeout", "jwtClientTimeout", "loginTimeout",
 				"requestTimeout", "jwtTimeout", "externalBrowserTimeout"},
 			values: []interface{}{"300", 500},
@@ -191,12 +208,12 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 		{
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
 				"schema", "role", "region", "protocol", "passcode", "application", "token", "privateKey",
-				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams"},
+				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path"},
 			values: []interface{}{1, false},
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "clientTimeout", "jwtClientTimeout", "loginTimeout",
-				"requestTimeout", "jwtTimeout", "externalBrowserTimeout"},
+				"requestTimeout", "jwtTimeout", "externalBrowserTimeout", "authenticator"},
 			values: []interface{}{"wrong_value", false},
 		},
 		{
