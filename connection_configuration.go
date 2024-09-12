@@ -39,11 +39,10 @@ func LoadConnectionConfig() (*Config, error) {
 	}
 	connectionName, exist := tomlInfo[dsn]
 	if !exist {
-		err = &SnowflakeError{
+		return nil, &SnowflakeError{
 			Number:  ErrCodeFailedToFindDSNInToml,
 			Message: errMsgFailedToFindDSNInTomlFile,
 		}
-		return nil, err
 	}
 	connectionConfig, ok := connectionName.(map[string]interface{})
 	if !ok {

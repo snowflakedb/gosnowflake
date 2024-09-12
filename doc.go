@@ -169,7 +169,7 @@ Note: GOSNOWFLAKE_SKIP_REGISTERATION should not be used if sql.Open() is used as
 to connect to the server, as sql.Open will require registration so it can map the driver name
 to the driver type, which in this case is "snowflake" and SnowflakeDriver{}.
 
-After Version 1.11.1 and later, you can load the connnection configuration with .toml file format.
+After Version 1.11.2 and later, you can load the connnection configuration with .toml file format.
 With two environment variables SNOWFLAKE_HOME(connections.toml file directory) SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN name),
 the driver will search the config file and load the connection. You can find how to use this connection way at ./cmd/tomlfileconnection
 or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/connecting/specify-credentials

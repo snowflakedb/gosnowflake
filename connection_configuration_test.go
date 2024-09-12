@@ -15,7 +15,6 @@ func TestLoadConnectionConfig_Default(t *testing.T) {
 	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 
 	cfg, err := LoadConnectionConfig()
-
 	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Account, "snowdriverswarsaw.us-west-2.aws")
 	assertEqualF(t, cfg.User, "test_user")
@@ -33,8 +32,8 @@ func TestLoadConnectionConfig_OAuth(t *testing.T) {
 
 	os.Setenv("SNOWFLAKE_HOME", "./test_data")
 	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth")
-	cfg, err := LoadConnectionConfig()
 
+	cfg, err := LoadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Account, "snowdriverswarsaw.us-west-2.aws")
 	assertEqualF(t, cfg.User, "test_user")
@@ -46,6 +45,22 @@ func TestLoadConnectionConfig_OAuth(t *testing.T) {
 	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
 	assertEqualF(t, cfg.Token, "token_value")
 	assertEqualF(t, cfg.Port, 443)
+}
+
+func TestReadTokenValueWithTokenFilePath(t *testing.T) {
+	err := os.Chmod("./test_data/connections.toml", 0600)
+	assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+	err = os.Chmod("./test_data/token_file/token", 0600)
+	assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+	os.Setenv("SNOWFLAKE_HOME", "./test_data")
+	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "read-token")
+
+	cfg, err := LoadConnectionConfig()
+	assertNilF(t, err, "The error should not occur")
+	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
+	assertEqualF(t, cfg.Token, "mock_token123456")
 }
 
 func TestLoadConnectionConfigWitNonExisitngDSN(t *testing.T) {
