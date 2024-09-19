@@ -283,7 +283,7 @@ func TestValueToString(t *testing.T) {
 	})
 
 	t.Run("UUID - should return string", func(t *testing.T) {
-		u := uuid.New()
+		u := NewUUID()
 		bv, err := valueToString(u, textType, nil)
 		assertNilF(t, err)
 		assertEmptyStringE(t, bv.format)
