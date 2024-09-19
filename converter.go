@@ -276,7 +276,6 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	if v1.Kind() == reflect.Slice && v1.IsNil() {
 		return bindingValue{nil, "json", nil}, nil
 	}
-
 	if bd, ok := v.([][]byte); ok && tsmode == binaryType {
 		schema := bindingSchema{
 			Typ:      "array",
@@ -359,12 +358,6 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	} else if reflect.ValueOf(v).Len() == 0 {
 		value := "[]"
 		return bindingValue{&value, "json", nil}, nil
-		// } else if u, ok := v.(UUID); ok {
-		// 	value := u.String()
-		// 	return bindingValue{&value, "", nil}, nil
-		// } else if u, ok := v.([16]byte); ok {
-		// 	value := UUID(u).String()
-		// 	return bindingValue{&value, "", nil}, nil
 	} else if v1.Kind() == reflect.Array && v1.Type().Elem().Kind() == reflect.Uint8 && v1.Len() == 16 { // special case for all UUID
 		// Convert the value to [16]byte
 		var bytes UUID
