@@ -21,7 +21,6 @@ import (
 	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/decimal128"
 	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/google/uuid"
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {
@@ -284,7 +283,7 @@ func TestValueToString(t *testing.T) {
 	})
 
 	t.Run("UUID - should return string", func(t *testing.T) {
-		u := uuid.New()
+		u := NewUUID()
 		bv, err := valueToString(u, textType, nil)
 		assertNilF(t, err)
 		assertEmptyStringE(t, bv.format)
