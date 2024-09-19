@@ -282,6 +282,14 @@ func TestValueToString(t *testing.T) {
 		assertEqualE(t, *bv.value, "[1,2]")
 	})
 
+	t.Run("UUID - should return string", func(t *testing.T) {
+		u := uuid.New()
+		bv, err := valueToString(u, textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
+	})
+
 	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, timestampLtzType, params)
 	assertNilF(t, err)
 	assertEqualE(t, bv.format, "json")
@@ -2175,7 +2183,7 @@ func TestSmallTimestampBinding(t *testing.T) {
 
 		rows := sct.mustQueryContext(ctx, "SELECT ?", parameters)
 		defer func() {
-		    assertNilF(t, rows.Close())
+			assertNilF(t, rows.Close())
 		}()
 
 		scanValues := make([]driver.Value, 1)
@@ -2213,7 +2221,7 @@ func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
 						rows := sct.mustQueryContext(ctx, query, nil)
 						defer func() {
-						    assertNilF(t, rows.Close())
+							assertNilF(t, rows.Close())
 						}()
 
 						if rows.Next() {
@@ -2295,7 +2303,7 @@ func TestTimestampConversionWithArrowBatchesMicrosecondPassesForDistantDates(t *
 							t.Fatalf("failed to query: %v", err)
 						}
 						defer func() {
-						    assertNilF(t, rows.Close())
+							assertNilF(t, rows.Close())
 						}()
 
 						// getting result batches
@@ -2356,7 +2364,7 @@ func TestTimestampConversionWithArrowBatchesAndWithOriginalTimestamp(t *testing.
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
 						rows := sct.mustQueryContext(ctx, query, []driver.NamedValue{})
 						defer func() {
-						    assertNilF(t, rows.Close())
+							assertNilF(t, rows.Close())
 						}()
 
 						// getting result batches
