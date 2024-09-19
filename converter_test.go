@@ -21,6 +21,7 @@ import (
 	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/decimal128"
 	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/google/uuid"
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {
@@ -280,6 +281,14 @@ func TestValueToString(t *testing.T) {
 		assertNilF(t, err)
 		assertEqualE(t, bv.format, "json")
 		assertEqualE(t, *bv.value, "[1,2]")
+	})
+
+	t.Run("UUID - should return string", func(t *testing.T) {
+		u := uuid.New()
+		bv, err := valueToString(u, textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
 	})
 
 	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, timestampLtzType, params)
