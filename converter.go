@@ -386,17 +386,11 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	} else if isSliceOfSlices(v) {
 		return bindingValue{}, errors.New("array of arrays is not supported")
 	} else if valuer, ok := v1.Interface().(driver.Valuer); ok { // check for driver.Valuer satisfaction and honor that first
-		value, err := valuer.Value()
-
-		if err != nil || value == nil {
-			return bindingValue{}, err
+		if value, err := valuer.Value(); err == nil && value != nil {
+			if v, ok := value.(string); ok {
+				return bindingValue{&v, "", nil}, nil
+			}
 		}
-
-		if v, ok := value.(string); ok {
-			return bindingValue{&v, "", nil}, nil
-		}
-
-		return bindingValue{}, nil
 	} else if stringer, ok := v1.Interface().(fmt.Stringer); ok { // alternate approach; check for stringer method. Guarantees it's String() and returns string
 		value := stringer.String()
 		return bindingValue{&value, "", nil}, nil
