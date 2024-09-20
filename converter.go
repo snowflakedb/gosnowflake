@@ -248,10 +248,8 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 
 	if valuer, ok := v.(driver.Valuer); ok { // check for driver.Valuer satisfaction and honor that first
 		if value, err := valuer.Value(); err == nil && value != nil {
-			// if the output value is a valid string, return that
-			if strVal, ok := value.(string); ok {
-				return bindingValue{&strVal, "", nil}, nil
-			}
+			strVal := fmt.Sprint(value)
+			return bindingValue{&strVal, "", nil}, nil
 		}
 	}
 
