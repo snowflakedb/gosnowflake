@@ -397,15 +397,8 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		}
 
 		return bindingValue{}, nil
-	} else if hasStringMethod(v1) { // alternate approach; check for stringer method. Guarantees it's String() and returns string
-		method := v1.MethodByName("String")
-		result := method.Call(nil) // Call with no arguments
-
-		// we already validated the output in the if statement above
-		if len(result) == 0 {
-			return bindingValue{}, nil
-		}
-		value := result[0].String()
+	} else if stringer, ok := v1.Interface().(fmt.Stringer); ok { // alternate approach; check for stringer method. Guarantees it's String() and returns string
+		value := stringer.String()
 		return bindingValue{&value, "", nil}, nil
 	}
 	res, err := json.Marshal(v)
@@ -761,27 +754,6 @@ func isSliceOfSlices(v any) bool {
 
 func isArrayOfStructs(v any) bool {
 	return reflect.TypeOf(v).Elem().Kind() == reflect.Struct || (reflect.TypeOf(v).Elem().Kind() == reflect.Pointer && reflect.TypeOf(v).Elem().Elem().Kind() == reflect.Struct)
-}
-
-// hasStringMethod checks if the given reflect.Value has a "String" method that takes no arguments and returns a string
-func hasStringMethod(v reflect.Value) bool {
-	method := v.MethodByName("String")
-	if !method.IsValid() {
-		return false
-	}
-
-	methodType := method.Type()
-	// Check if the method takes no arguments and returns one value
-	if methodType.NumIn() != 0 || methodType.NumOut() != 1 {
-		return false
-	}
-
-	// Check if the return value is of type string
-	if methodType.Out(0).Kind() != reflect.String {
-		return false
-	}
-
-	return true
 }
 
 func structValueToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
