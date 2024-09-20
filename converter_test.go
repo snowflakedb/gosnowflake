@@ -214,10 +214,14 @@ func (o *testValueToStringStructuredObject) Write(sowc StructuredObjectWriterCon
 	return nil
 }
 
-type testSqlUuid = UUID
+type testSqlUuid UUID
 
 func (uuid testSqlUuid) Value() (driver.Value, error) {
 	return uuid.String(), nil
+}
+
+func (u testSqlUuid) String() string {
+	return fmt.Sprintf("%x-%x-%x-%x-%x", u[0:4], u[4:6], u[6:8], u[8:10], u[10:])
 }
 
 func TestValueToString(t *testing.T) {
