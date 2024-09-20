@@ -358,22 +358,6 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	} else if reflect.ValueOf(v).Len() == 0 {
 		value := "[]"
 		return bindingValue{&value, "json", nil}, nil
-	} else if hasStringMethod(v1) { // alternate approach; check for stringer method
-		method := v1.MethodByName("String")
-		result := method.Call(nil) // Call with no arguments
-		if len(result) == 1 && result[0].Kind() == reflect.String {
-			value := result[0].String()
-			return bindingValue{&value, "", nil}, nil
-		}
-	} else if v1.Type().Elem().Kind() == reflect.Uint8 && v1.Len() == 16 { // special case for all UUID; which do we like better?
-		// Convert the value to [16]byte
-		var bytes UUID
-		for idx := 0; idx < 16; idx++ {
-			bytes[idx] = uint8(v1.Index(idx).Uint())
-		}
-
-		value := bytes.String()
-		return bindingValue{&value, "", nil}, nil
 	} else if barr, ok := v.([]byte); ok {
 		if tsmode == binaryType {
 			res := hex.EncodeToString(barr)
@@ -401,6 +385,28 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		return bindingValue{&res, "json", &schemaForBytes}, nil
 	} else if isSliceOfSlices(v) {
 		return bindingValue{}, errors.New("array of arrays is not supported")
+	} else if valuer, ok := v1.Interface().(driver.Valuer); ok { // alternate approach; check for db valuer satisfaction
+		value, err := valuer.Value()
+
+		if err != nil || value == nil {
+			return bindingValue{}, err
+		}
+
+		if v, ok := value.(string); ok {
+			return bindingValue{&v, "", nil}, nil
+		}
+
+		return bindingValue{}, nil
+	} else if hasStringMethod(v1) { // alternate approach; check for stringer method. Guarantees it's String() and returns string
+		method := v1.MethodByName("String")
+		result := method.Call(nil) // Call with no arguments
+
+		// we already validated the output in the if statement above
+		if len(result) == 0 {
+			return bindingValue{}, nil
+		}
+		value := result[0].String()
+		return bindingValue{&value, "", nil}, nil
 	}
 	res, err := json.Marshal(v)
 	if err != nil {
@@ -757,9 +763,25 @@ func isArrayOfStructs(v any) bool {
 	return reflect.TypeOf(v).Elem().Kind() == reflect.Struct || (reflect.TypeOf(v).Elem().Kind() == reflect.Pointer && reflect.TypeOf(v).Elem().Elem().Kind() == reflect.Struct)
 }
 
+// hasStringMethod checks if the given reflect.Value has a "String" method that takes no arguments and returns a string
 func hasStringMethod(v reflect.Value) bool {
 	method := v.MethodByName("String")
-	return method.IsValid()
+	if !method.IsValid() {
+		return false
+	}
+
+	methodType := method.Type()
+	// Check if the method takes no arguments and returns one value
+	if methodType.NumIn() != 0 || methodType.NumOut() != 1 {
+		return false
+	}
+
+	// Check if the return value is of type string
+	if methodType.Out(0).Kind() != reflect.String {
+		return false
+	}
+
+	return true
 }
 
 func structValueToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
