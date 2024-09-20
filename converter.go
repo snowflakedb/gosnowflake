@@ -385,7 +385,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		return bindingValue{&res, "json", &schemaForBytes}, nil
 	} else if isSliceOfSlices(v) {
 		return bindingValue{}, errors.New("array of arrays is not supported")
-	} else if valuer, ok := v1.Interface().(driver.Valuer); ok { // alternate approach; check for db valuer satisfaction
+	} else if valuer, ok := v1.Interface().(driver.Valuer); ok { // check for driver.Valuer satisfaction and honor that first
 		value, err := valuer.Value()
 
 		if err != nil || value == nil {
