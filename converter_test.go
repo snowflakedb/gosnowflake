@@ -214,9 +214,9 @@ func (o *testValueToStringStructuredObject) Write(sowc StructuredObjectWriterCon
 	return nil
 }
 
-type testSQLUUID = UUID
+type testSqlUuid = UUID
 
-func (uuid testSQLUUID) Value() (driver.Value, error) {
+func (uuid testSqlUuid) Value() (driver.Value, error) {
 	return uuid.String(), nil
 }
 
@@ -297,7 +297,7 @@ func TestValueToString(t *testing.T) {
 	})
 
 	t.Run("database/sql/driver - Valuer interface", func(t *testing.T) {
-		u := testSQLUUID(NewUUID())
+		u := testSqlUuid(NewUUID())
 		bv, err := valueToString(u, textType, nil)
 		assertNilF(t, err)
 		assertEmptyStringE(t, bv.format)
