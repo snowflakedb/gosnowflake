@@ -358,7 +358,14 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	} else if reflect.ValueOf(v).Len() == 0 {
 		value := "[]"
 		return bindingValue{&value, "json", nil}, nil
-	} else if v1.Kind() == reflect.Array && v1.Type().Elem().Kind() == reflect.Uint8 && v1.Len() == 16 { // special case for all UUID
+	} else if hasStringMethod(v1) { // alternate approach; check for stringer method
+		method := v1.MethodByName("String")
+		result := method.Call(nil) // Call with no arguments
+		if len(result) == 1 && result[0].Kind() == reflect.String {
+			value := result[0].String()
+			return bindingValue{&value, "", nil}, nil
+		}
+	} else if v1.Type().Elem().Kind() == reflect.Uint8 && v1.Len() == 16 { // special case for all UUID; which do we like better?
 		// Convert the value to [16]byte
 		var bytes UUID
 		for idx := 0; idx < 16; idx++ {
@@ -748,6 +755,11 @@ func isSliceOfSlices(v any) bool {
 
 func isArrayOfStructs(v any) bool {
 	return reflect.TypeOf(v).Elem().Kind() == reflect.Struct || (reflect.TypeOf(v).Elem().Kind() == reflect.Pointer && reflect.TypeOf(v).Elem().Elem().Kind() == reflect.Struct)
+}
+
+func hasStringMethod(v reflect.Value) bool {
+	method := v.MethodByName("String")
+	return method.IsValid()
 }
 
 func structValueToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
