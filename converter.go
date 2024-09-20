@@ -392,7 +392,8 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		}
 		res = res[0:len(res)-1] + "]"
 		return bindingValue{&res, "json", &schemaForBytes}, nil
-	} else if stringer, ok := v1.Interface().(fmt.Stringer); ok { // alternate approach; check for stringer method. Guarantees it's String() and returns string
+	} else if stringer, ok := v1.Interface().(fmt.Stringer); ok && v1.Type().Elem().Kind() == reflect.Uint8 && v1.Len() == 16 {
+		// special case for UUIDs (snowflake type and other implementers) check for stringer method and it's a len 16 byte array. Guarantees it's String() and returns string
 		value := stringer.String()
 		return bindingValue{&value, "", nil}, nil
 	} else if isSliceOfSlices(v) {
