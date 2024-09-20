@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"io"
 	"math"
 	"net/url"
@@ -628,6 +629,10 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
 					// https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/govcloud-s3.html
 					return nil
 				}
+			}
+			var mae *retry.MaxAttemptsError
+			if errors.As(err, &mae) {
+				return nil
 			}
 			return err
 		}
