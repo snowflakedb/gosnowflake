@@ -244,6 +244,15 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		return bindingValue{nil, "", nil}, nil
 	}
 	v1 := reflect.Indirect(reflect.ValueOf(v))
+
+	if valuer, ok := v.(driver.Valuer); ok { // check for driver.Valuer satisfaction and honor that first
+		if value, err := valuer.Value(); err == nil && value != nil {
+			if strVal, ok := value.(string); ok {
+				return bindingValue{&strVal, "", nil}, nil
+			}
+		}
+	}
+
 	switch v1.Kind() {
 	case reflect.Bool:
 		s := strconv.FormatBool(v1.Bool())
@@ -383,17 +392,11 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		}
 		res = res[0:len(res)-1] + "]"
 		return bindingValue{&res, "json", &schemaForBytes}, nil
-	} else if isSliceOfSlices(v) {
-		return bindingValue{}, errors.New("array of arrays is not supported")
-	} else if valuer, ok := v1.Interface().(driver.Valuer); ok { // check for driver.Valuer satisfaction and honor that first
-		if value, err := valuer.Value(); err == nil && value != nil {
-			if v, ok := value.(string); ok {
-				return bindingValue{&v, "", nil}, nil
-			}
-		}
 	} else if stringer, ok := v1.Interface().(fmt.Stringer); ok { // alternate approach; check for stringer method. Guarantees it's String() and returns string
 		value := stringer.String()
 		return bindingValue{&value, "", nil}, nil
+	} else if isSliceOfSlices(v) {
+		return bindingValue{}, errors.New("array of arrays is not supported")
 	}
 	res, err := json.Marshal(v)
 	if err != nil {
