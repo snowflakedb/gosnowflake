@@ -13,6 +13,7 @@ wss-unified-agent.jar
 whitesource/
 *.swp
 cp.out
+__debug_bin*
 
 # exclude vendor
 vendor

@@ -28,6 +28,7 @@ import (
 
 const format = "2006-01-02 15:04:05.999999999"
 const numberDefaultPrecision = 38
+const jsonFormatStr = "json"
 
 type timezoneType int
 
@@ -239,7 +240,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	logger.Debugf("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
 	if v == nil {
 		if tsmode == objectType || tsmode == arrayType || tsmode == sliceType {
-			return bindingValue{nil, "json", nil}, nil
+			return bindingValue{nil, jsonFormatStr, nil}, nil
 		}
 		return bindingValue{nil, "", nil}, nil
 	}
@@ -247,6 +248,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 
 	if valuer, ok := v.(driver.Valuer); ok { // check for driver.Valuer satisfaction and honor that first
 		if value, err := valuer.Value(); err == nil && value != nil {
+			// if the output value is a valid string, return that
 			if strVal, ok := value.(string); ok {
 				return bindingValue{&strVal, "", nil}, nil
 			}
@@ -266,7 +268,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	case reflect.String:
 		s := v1.String()
 		if tsmode == objectType || tsmode == arrayType || tsmode == sliceType {
-			return bindingValue{&s, "json", nil}, nil
+			return bindingValue{&s, jsonFormatStr, nil}, nil
 		}
 		return bindingValue{&s, "", nil}, nil
 	case reflect.Slice, reflect.Array:
@@ -283,7 +285,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
 	v1 := reflect.Indirect(reflect.ValueOf(v))
 	if v1.Kind() == reflect.Slice && v1.IsNil() {
-		return bindingValue{nil, "json", nil}, nil
+		return bindingValue{nil, jsonFormatStr, nil}, nil
 	}
 	if bd, ok := v.([][]byte); ok && tsmode == binaryType {
 		schema := bindingSchema{
@@ -298,14 +300,14 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		}
 		if len(bd) == 0 {
 			res := "[]"
-			return bindingValue{value: &res, format: "json", schema: &schema}, nil
+			return bindingValue{value: &res, format: jsonFormatStr, schema: &schema}, nil
 		}
 		s := ""
 		for _, b := range bd {
 			s += "\"" + hex.EncodeToString(b) + "\","
 		}
 		s = "[" + s[:len(s)-1] + "]"
-		return bindingValue{&s, "json", &schema}, nil
+		return bindingValue{&s, jsonFormatStr, &schema}, nil
 	} else if times, ok := v.([]time.Time); ok {
 		typ := driverTypeToSnowflake[tsmode]
 		sfFormat, err := dateTimeInputFormatByType(typ, params)
@@ -322,7 +324,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		}
 		res, err := json.Marshal(v)
 		if err != nil {
-			return bindingValue{nil, "json", &bindingSchema{
+			return bindingValue{nil, jsonFormatStr, &bindingSchema{
 				Typ:      "array",
 				Nullable: true,
 				Fields: []fieldMetadata{
@@ -334,7 +336,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 			}}, err
 		}
 		resString := string(res)
-		return bindingValue{&resString, "json", nil}, nil
+		return bindingValue{&resString, jsonFormatStr, nil}, nil
 	} else if isArrayOfStructs(v) {
 		stringEntries := make([]string, v1.Len())
 		sowcForSingleElement, err := buildSowcFromType(params, reflect.TypeOf(v).Elem())
@@ -346,7 +348,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 			if sow, ok := potentialSow.Interface().(StructuredObjectWriter); ok {
 				bv, err := structValueToString(sow, tsmode, params)
 				if err != nil {
-					return bindingValue{nil, "json", nil}, err
+					return bindingValue{nil, jsonFormatStr, nil}, err
 				}
 				stringEntries[i] = *bv.value
 			}
@@ -363,14 +365,14 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 				},
 			},
 		}
-		return bindingValue{&value, "json", arraySchema}, nil
+		return bindingValue{&value, jsonFormatStr, arraySchema}, nil
 	} else if reflect.ValueOf(v).Len() == 0 {
 		value := "[]"
-		return bindingValue{&value, "json", nil}, nil
+		return bindingValue{&value, jsonFormatStr, nil}, nil
 	} else if barr, ok := v.([]byte); ok {
 		if tsmode == binaryType {
 			res := hex.EncodeToString(barr)
-			return bindingValue{&res, "json", nil}, nil
+			return bindingValue{&res, jsonFormatStr, nil}, nil
 		}
 		schemaForBytes := bindingSchema{
 			Typ:      "array",
@@ -384,14 +386,14 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		}
 		if len(barr) == 0 {
 			res := "[]"
-			return bindingValue{&res, "json", &schemaForBytes}, nil
+			return bindingValue{&res, jsonFormatStr, &schemaForBytes}, nil
 		}
 		res := "["
 		for _, b := range barr {
 			res += fmt.Sprint(b) + ","
 		}
 		res = res[0:len(res)-1] + "]"
-		return bindingValue{&res, "json", &schemaForBytes}, nil
+		return bindingValue{&res, jsonFormatStr, &schemaForBytes}, nil
 	} else if stringer, ok := v1.Interface().(fmt.Stringer); ok && v1.Kind() == reflect.Array && v1.Type().Elem().Kind() == reflect.Uint8 && v1.Len() == 16 {
 		// special case for UUIDs (snowflake type and other implementers) check for stringer method and it's a len 16 byte array. Guarantees it's String() and returns string
 		value := stringer.String()
@@ -401,10 +403,10 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	}
 	res, err := json.Marshal(v)
 	if err != nil {
-		return bindingValue{nil, "json", nil}, err
+		return bindingValue{nil, jsonFormatStr, nil}, err
 	}
 	resString := string(res)
-	return bindingValue{&resString, "json", nil}, nil
+	return bindingValue{&resString, jsonFormatStr, nil}, nil
 }
 
 func mapToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
@@ -562,7 +564,7 @@ func mapToString(v driver.Value, tsmode snowflakeType, params map[string]*string
 			Typ:    "MAP",
 			Fields: []fieldMetadata{keyMetadata, *valueMetadata},
 		}
-		return bindingValue{&jsonString, "json", &schema}, nil
+		return bindingValue{&jsonString, jsonFormatStr, &schema}, nil
 	} else {
 		jsonBytes, err = json.Marshal(v)
 		if err != nil {
@@ -582,7 +584,7 @@ func mapToString(v driver.Value, tsmode snowflakeType, params map[string]*string
 		Typ:    "MAP",
 		Fields: []fieldMetadata{keyMetadata, valueMetadata},
 	}
-	return bindingValue{&jsonString, "json", &schema}, nil
+	return bindingValue{&jsonString, jsonFormatStr, &schema}, nil
 }
 
 func toNullableInt64(val any) (int64, bool) {
@@ -784,7 +786,7 @@ func structValueToString(v driver.Value, tsmode snowflakeType, params map[string
 	case sql.NullString:
 		fmt := ""
 		if tsmode == objectType || tsmode == arrayType || tsmode == sliceType {
-			fmt = "json"
+			fmt = jsonFormatStr
 		}
 		if !typedVal.Valid {
 			return bindingValue{nil, fmt, nil}, nil
@@ -808,7 +810,7 @@ func structValueToString(v driver.Value, tsmode snowflakeType, params map[string
 			Nullable: true,
 			Fields:   sowc.toFields(),
 		}
-		return bindingValue{&jsonString, "json", &schema}, nil
+		return bindingValue{&jsonString, jsonFormatStr, &schema}, nil
 	} else if typ, ok := v.(reflect.Type); ok && tsmode == nilArrayType {
 		metadata, err := goTypeToFieldMetadata(typ, tsmode, params)
 		if err != nil {
@@ -821,7 +823,7 @@ func structValueToString(v driver.Value, tsmode snowflakeType, params map[string
 				metadata,
 			},
 		}
-		return bindingValue{nil, "json", &schema}, nil
+		return bindingValue{nil, jsonFormatStr, &schema}, nil
 	} else if types, ok := v.(NilMapTypes); ok && tsmode == nilMapType {
 		keyMetadata, err := goTypeToFieldMetadata(types.Key, tsmode, params)
 		if err != nil {
@@ -836,7 +838,7 @@ func structValueToString(v driver.Value, tsmode snowflakeType, params map[string
 			Nullable: true,
 			Fields:   []fieldMetadata{keyMetadata, valueMetadata},
 		}
-		return bindingValue{nil, "json", &schema}, nil
+		return bindingValue{nil, jsonFormatStr, &schema}, nil
 	} else if typ, ok := v.(reflect.Type); ok && tsmode == nilObjectType {
 		metadata, err := goTypeToFieldMetadata(typ, tsmode, params)
 		if err != nil {
@@ -847,7 +849,7 @@ func structValueToString(v driver.Value, tsmode snowflakeType, params map[string
 			Nullable: true,
 			Fields:   metadata.Fields,
 		}
-		return bindingValue{nil, "json", &schema}, nil
+		return bindingValue{nil, jsonFormatStr, &schema}, nil
 	}
 	return bindingValue{}, fmt.Errorf("unknown binding for type %T and mode %v", v, tsmode)
 }
