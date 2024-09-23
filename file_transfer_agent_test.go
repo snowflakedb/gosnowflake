@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"io"
 	"net/url"
 	"os"
@@ -46,6 +47,52 @@ func TestGetBucketAccelerateConfiguration(t *testing.T) {
 				}
 			}
 		}
+	})
+}
+
+type s3ClientCreatorMock struct {
+	clientErr error
+}
+
+func (mock *s3ClientCreatorMock) extractBucketNameAndPath(location string) (*s3Location, error) {
+	return &s3Location{bucketName: "test", s3Path: "test"}, nil
+}
+
+func (mock *s3ClientCreatorMock) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
+	return &s3BucketAccelerateConfigGetterMock{err: mock.clientErr}, nil
+}
+
+type s3BucketAccelerateConfigGetterMock struct {
+	err error
+}
+
+func (mock *s3BucketAccelerateConfigGetterMock) GetBucketAccelerateConfiguration(ctx context.Context, params *s3.GetBucketAccelerateConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketAccelerateConfigurationOutput, error) {
+	return nil, mock.err
+}
+
+func TestGetBucketAccelerateConfigurationTooManyRetries(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		buf := &bytes.Buffer{}
+		logger.SetOutput(buf)
+		err := logger.SetLogLevel("warn")
+		if err != nil {
+			return
+		}
+		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
+			sc:          sct.sc,
+			commandType: uploadCommand,
+			srcFiles:    make([]string, 0),
+			data: &execResponseData{
+				SrcLocations: make([]string, 0),
+			},
+			stageInfo: &execResponseStageInfo{
+				Location: "test",
+			},
+		}
+		err = sfa.transferAccelerateConfigWithUtil(&s3ClientCreatorMock{clientErr: errors.New("testing")})
+		assertNilE(t, err)
+		assertStringContainsE(t, buf.String(), "msg=\"An error occurred when getting accelerate config: testing\"")
 	})
 }
 
