@@ -279,6 +279,14 @@ func TestValueToString(t *testing.T) {
 	assertNilE(t, bv.schema)
 	assertEqualE(t, *bv.value, expectedString)
 
+	t.Run("SQL Time", func(t *testing.T) {
+		bv, err := valueToString(sql.NullTime{Time: localTime, Valid: true}, timestampLtzType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertNilE(t, bv.schema)
+		assertEqualE(t, *bv.value, expectedUnixTime)
+	})
+
 	t.Run("arrays", func(t *testing.T) {
 		bv, err := valueToString([2]int{1, 2}, objectType, nil)
 		assertNilF(t, err)
