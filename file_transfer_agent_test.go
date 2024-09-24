@@ -51,15 +51,16 @@ func TestGetBucketAccelerateConfiguration(t *testing.T) {
 }
 
 type s3ClientCreatorMock struct {
-	clientErr error
+	extract func(string) (*s3Location, error)
+	create  func(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error)
 }
 
 func (mock *s3ClientCreatorMock) extractBucketNameAndPath(location string) (*s3Location, error) {
-	return &s3Location{bucketName: "test", s3Path: "test"}, nil
+	return mock.extract(location)
 }
 
 func (mock *s3ClientCreatorMock) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
-	return &s3BucketAccelerateConfigGetterMock{err: mock.clientErr}, nil
+	return mock.create(info, useAccelerateEndpoint)
 }
 
 type s3BucketAccelerateConfigGetterMock struct {
@@ -90,9 +91,91 @@ func TestGetBucketAccelerateConfigurationTooManyRetries(t *testing.T) {
 				Location: "test",
 			},
 		}
-		err = sfa.transferAccelerateConfigWithUtil(&s3ClientCreatorMock{clientErr: errors.New("testing")})
+		err = sfa.transferAccelerateConfigWithUtil(&s3ClientCreatorMock{
+			extract: func(s string) (*s3Location, error) {
+				return &s3Location{bucketName: "test", s3Path: "test"}, nil
+			},
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
+				return &s3BucketAccelerateConfigGetterMock{err: errors.New("testing")}, nil
+			},
+		})
 		assertNilE(t, err)
 		assertStringContainsE(t, buf.String(), "msg=\"An error occurred when getting accelerate config: testing\"")
+	})
+}
+
+func TestGetBucketAccelerateConfigurationFailedExtractBucketNameAndPath(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
+			sc:          sct.sc,
+			commandType: uploadCommand,
+			srcFiles:    make([]string, 0),
+			data: &execResponseData{
+				SrcLocations: make([]string, 0),
+			},
+			stageInfo: &execResponseStageInfo{
+				Location: "test",
+			},
+		}
+		err := sfa.transferAccelerateConfigWithUtil(&s3ClientCreatorMock{
+			extract: func(s string) (*s3Location, error) {
+				return nil, errors.New("failed extraction")
+			},
+		})
+		assertNotNilE(t, err)
+	})
+}
+
+func TestGetBucketAccelerateConfigurationFailedCreateClient(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
+			sc:          sct.sc,
+			commandType: uploadCommand,
+			srcFiles:    make([]string, 0),
+			data: &execResponseData{
+				SrcLocations: make([]string, 0),
+			},
+			stageInfo: &execResponseStageInfo{
+				Location: "test",
+			},
+		}
+		err := sfa.transferAccelerateConfigWithUtil(&s3ClientCreatorMock{
+			extract: func(s string) (*s3Location, error) {
+				return &s3Location{bucketName: "test", s3Path: "test"}, nil
+			},
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
+				return nil, errors.New("failed creation")
+			},
+		})
+		assertNotNilE(t, err)
+	})
+}
+
+func TestGetBucketAccelerateConfigurationInvalidClient(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sfa := &snowflakeFileTransferAgent{
+			ctx:         context.Background(),
+			sc:          sct.sc,
+			commandType: uploadCommand,
+			srcFiles:    make([]string, 0),
+			data: &execResponseData{
+				SrcLocations: make([]string, 0),
+			},
+			stageInfo: &execResponseStageInfo{
+				Location: "test",
+			},
+		}
+		err := sfa.transferAccelerateConfigWithUtil(&s3ClientCreatorMock{
+			extract: func(s string) (*s3Location, error) {
+				return &s3Location{bucketName: "test", s3Path: "test"}, nil
+			},
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
+				return 1, nil
+			},
+		})
+		assertNotNilE(t, err)
 	})
 }
 
