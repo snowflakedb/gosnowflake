@@ -248,7 +248,7 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 		downloader = meta.mockDownloader
 	}
 
-	if meta.options.getFileToStream {
+	if meta.options.GetFileToStream {
 		buf := manager.NewWriteAtBuffer([]byte{})
 		_, err = downloader.Download(context.Background(), buf, &s3.GetObjectInput{
 			Bucket: s3Obj.Bucket,

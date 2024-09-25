@@ -272,7 +272,7 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 
 		// GET test
 		var streamBuf bytes.Buffer
-		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{getFileToStream: true})
+		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{GetFileToStream: true})
 		ctx = WithFileGetStream(ctx, &streamBuf)
 		sql := fmt.Sprintf("get @~/test_put_uncompress_file/data.txt 'file://%v'", tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
@@ -468,7 +468,7 @@ func testPutGet(t *testing.T, isStream bool) {
 
 		var streamBuf bytes.Buffer
 		if isStream {
-			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{getFileToStream: true})
+			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
 			ctx = WithFileGetStream(ctx, &streamBuf)
 		}
 		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
@@ -686,7 +686,7 @@ func TestPutGetLargeFile(t *testing.T) {
 
 		// GET test with stream
 		var streamBuf bytes.Buffer
-		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{getFileToStream: true})
+		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{GetFileToStream: true})
 		ctx = WithFileGetStream(ctx, &streamBuf)
 		sql := fmt.Sprintf("get @%v 'file://%v'", "~/test_put_largefile/largefile.txt.gz", t.TempDir())
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
