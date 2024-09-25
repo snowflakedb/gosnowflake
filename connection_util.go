@@ -115,7 +115,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	if err != nil {
 		return nil, err
 	}
-	if sfa.options.getFileToStream {
+	if sfa.options.GetFileToStream {
 		if err := writeFileStream(ctx, sfa.streamBuffer); err != nil {
 			return nil, err
 		}

@@ -1262,7 +1262,7 @@ an absolute path rather than a relative path. For example:
 To download a file into an in-memory stream (rather than a file) use code similar to the code below.
 
 	var streamBuf bytes.Buffer
-	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{getFileToStream: true})
+	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{GetFileToStream: true})
 	ctx = WithFileGetStream(ctx, &streamBuf)
 
 	sql := "get @~/data1.txt.gz file:///tmp/testData"
