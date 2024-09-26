@@ -37,14 +37,14 @@ func LoadConnectionConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	connectionName, exist := tomlInfo[dsn]
+	dsnMap, exist := tomlInfo[dsn]
 	if !exist {
 		return nil, &SnowflakeError{
 			Number:  ErrCodeFailedToFindDSNInToml,
 			Message: errMsgFailedToFindDSNInTomlFile,
 		}
 	}
-	connectionConfig, ok := connectionName.(map[string]interface{})
+	connectionConfig, ok := dsnMap.(map[string]interface{})
 	if !ok {
 		return nil, err
 	}
@@ -66,68 +66,57 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 	for key, value := range connection {
 		switch strings.ToLower(key) {
 		case "user", "username":
-			cfg.User, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.User, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "password":
-			cfg.Password, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Password, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "host":
-			cfg.Host, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Host, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "account":
-			cfg.Account, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Account, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "warehouse":
-			cfg.Warehouse, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Warehouse, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "database":
-			cfg.Database, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Database, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "schema":
-			cfg.Schema, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Schema, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "role":
-			cfg.Role, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Role, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "region":
-			cfg.Region, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Region, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "protocol":
-			cfg.Protocol, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Protocol, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
 		case "passcode":
-			cfg.Passcode, parsingErr = parseString(value)
-			if parsingErr != nil {
+			if cfg.Passcode, parsingErr = parseString(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
@@ -276,11 +265,10 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 				return err
 			}
 		case "disablequerycontextcache":
-			if vv, parsingErr = parseBool(value); parsingErr != nil {
+			if cfg.DisableQueryContextCache, parsingErr = parseBool(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
 				return err
 			}
-			cfg.DisableQueryContextCache = vv
 		case "includeretryreason":
 			if vv, parsingErr = parseBool(value); parsingErr != nil {
 				err.MessageArgs = []interface{}{key, value}
@@ -343,14 +331,14 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 }
 
 func parseInt(i interface{}) (int, error) {
-	if _, ok := i.(string); !ok {
-		if _, ok := i.(int); !ok {
+	v, ok := i.(string)
+	if !ok {
+		num, ok := i.(int)
+		if !ok {
 			return 0, errors.New("failed to parse the value to integer")
 		}
-		num := i.(int)
 		return num, nil
 	}
-	v := i.(string)
 	num, err := strconv.Atoi(v)
 
 	if err != nil {
@@ -362,10 +350,10 @@ func parseInt(i interface{}) (int, error) {
 func parseBool(i interface{}) (bool, error) {
 	v, ok := i.(string)
 	if !ok {
-		if _, ok := i.(bool); !ok {
+		vv, ok := i.(bool)
+		if !ok {
 			return false, errors.New("failed to parse the value to boolean")
 		}
-		vv := i.(bool)
 		return vv, nil
 	}
 	vv, err := strconv.ParseBool(v)

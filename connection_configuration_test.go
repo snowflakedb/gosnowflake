@@ -24,13 +24,13 @@ func TestLoadConnectionConfig_Default(t *testing.T) {
 	cfg, err := LoadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Account, "snowdriverswarsaw.us-west-2.aws")
-	assertEqualF(t, cfg.User, "test_user")
-	assertEqualF(t, cfg.Password, "test_pass")
-	assertEqualF(t, cfg.Warehouse, "testw")
-	assertEqualF(t, cfg.Database, "test_db")
-	assertEqualF(t, cfg.Schema, "test_go")
+	assertEqualF(t, cfg.User, "test_default_user")
+	assertEqualF(t, cfg.Password, "test_default_pass")
+	assertEqualF(t, cfg.Warehouse, "testw_default")
+	assertEqualF(t, cfg.Database, "test_default_db")
+	assertEqualF(t, cfg.Schema, "test_default_go")
 	assertEqualF(t, cfg.Protocol, "https")
-	assertEqualF(t, cfg.Port, 443)
+	assertEqualF(t, cfg.Port, 300)
 }
 
 func TestLoadConnectionConfig_OAuth(t *testing.T) {
@@ -43,11 +43,11 @@ func TestLoadConnectionConfig_OAuth(t *testing.T) {
 	cfg, err := LoadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Account, "snowdriverswarsaw.us-west-2.aws")
-	assertEqualF(t, cfg.User, "test_user")
-	assertEqualF(t, cfg.Password, "test_pass")
-	assertEqualF(t, cfg.Warehouse, "testw")
-	assertEqualF(t, cfg.Database, "test_db")
-	assertEqualF(t, cfg.Schema, "test_go")
+	assertEqualF(t, cfg.User, "test_oauth_user")
+	assertEqualF(t, cfg.Password, "test_oauth_pass")
+	assertEqualF(t, cfg.Warehouse, "testw_oauth")
+	assertEqualF(t, cfg.Database, "test_oauth_db")
+	assertEqualF(t, cfg.Schema, "test_oauth_go")
 	assertEqualF(t, cfg.Protocol, "https")
 	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
 	assertEqualF(t, cfg.Token, "token_value")
@@ -149,7 +149,7 @@ func TestParseDuration(t *testing.T) {
 	i = 300
 	dur, err := parseDuration(i)
 	assertNilF(t, err, "This value should be parsed")
-	assertEqualF(t, dur, time.Duration(5*int64(time.Minute)))
+	assertEqualF(t, dur, time.Duration(300*int64(time.Second)))
 
 	i = "30"
 	dur, err = parseDuration(i)
@@ -255,6 +255,17 @@ func TestGetTomlFilePath(t *testing.T) {
 	dir, err = getTomlFilePath(location)
 	assertNilF(t, err, "should not have failed")
 	result, err := path.Abs(location)
+	assertNilF(t, err, "should not have failed")
+	assertEqualF(t, dir, result)
+
+	result = "/user/somelocation/b"
+	if isWindows {
+		result = "c:\\user\\somelocation\\b"
+	}
+	location = "/user//somelocation///b"
+	dir, err = getTomlFilePath(location)
+	assertNilF(t, err, "should not have failed")
+	// result, err = path.Abs(location)
 	assertNilF(t, err, "should not have failed")
 	assertEqualF(t, dir, result)
 }
