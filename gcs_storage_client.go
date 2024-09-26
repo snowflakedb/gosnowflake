@@ -322,7 +322,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		return meta.lastError
 	}
 
-	if meta.options.getFileToStream {
+	if meta.options.GetFileToStream {
 		if _, err := io.Copy(meta.dstStream, resp.Body); err != nil {
 			return err
 		}

@@ -218,7 +218,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 						return err
 					}
 				}
-				if meta.options.getFileToStream {
+				if meta.options.GetFileToStream {
 					totalFileSize, err := decryptStream(header.encryptionMetadata,
 						meta.encryptionMaterial, 0, meta.dstStream, meta.sfa.streamBuffer)
 					if err != nil {
@@ -238,7 +238,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 				}
 
 			}
-			if !meta.options.getFileToStream {
+			if !meta.options.GetFileToStream {
 				if fi, err := os.Stat(fullDstFileName); err == nil {
 					meta.dstFileSize = fi.Size()
 				}
