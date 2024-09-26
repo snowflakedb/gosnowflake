@@ -258,14 +258,14 @@ func TestGetTomlFilePath(t *testing.T) {
 	assertNilF(t, err, "should not have failed")
 	assertEqualF(t, dir, result)
 
-	result = "/user/somelocation/b"
-	if isWindows {
-		result = "c:\\user\\somelocation\\b"
+	//Absolute path for windows can be varied depend on which disk the driver is located.
+	// As a result, this test is available on non-Window machines.
+	if !isWindows {
+		result = "/user/somelocation/b"
+		location = "/user//somelocation///b"
+		dir, err = getTomlFilePath(location)
+		assertNilF(t, err, "should not have failed")
+		assertEqualF(t, dir, result)
 	}
-	location = "/user//somelocation///b"
-	dir, err = getTomlFilePath(location)
-	assertNilF(t, err, "should not have failed")
-	// result, err = path.Abs(location)
-	assertNilF(t, err, "should not have failed")
-	assertEqualF(t, dir, result)
+
 }
