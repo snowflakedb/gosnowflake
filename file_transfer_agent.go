@@ -90,7 +90,7 @@ type SnowflakeFileTransferOptions struct {
 	compressSourceFromStream bool
 
 	/* streaming GET */
-	getFileToStream bool
+	GetFileToStream bool
 
 	/* PUT */
 	putCallback             *snowflakeProgressPercentage
