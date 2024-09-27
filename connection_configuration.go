@@ -15,20 +15,20 @@ import (
 )
 
 const (
-	snowflake_connectionName = "SNOWFLAKE_DEFAULT_CONNECTION_NAME"
-	snowflake_home           = "SNOWFLAKE_HOME"
+	snowflakeConnectionName = "SNOWFLAKE_DEFAULT_CONNECTION_NAME"
+	snowflakeHome           = "SNOWFLAKE_HOME"
 )
 
 // LoadConnectionConfig returns connection configs loaded from the toml file.
-// By default, SNOWFLAKE_HOME(toml file path) is os.snowflake_home/.snowflake
+// By default, SNOWFLAKE_HOME(toml file path) is os.snowflakeHome/.snowflake
 // and SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN) is 'default'
 func LoadConnectionConfig() (*Config, error) {
 	cfg := &Config{
 		Params:        make(map[string]*string),
 		Authenticator: AuthTypeSnowflake, // Default to snowflake
 	}
-	dsn := getConnectionDSN(os.Getenv(snowflake_connectionName))
-	snowflakeConfigDir, err := getTomlFilePath(os.Getenv(snowflake_home))
+	dsn := getConnectionDSN(os.Getenv(snowflakeConnectionName))
+	snowflakeConfigDir, err := getTomlFilePath(os.Getenv(snowflakeHome))
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func readToken(tokenPath string) (string, error) {
 		tokenPath = "./snowflake/session/token"
 	}
 	if !path.IsAbs(tokenPath) {
-		snowflakeConfigDir, err := getTomlFilePath(os.Getenv(snowflake_home))
+		snowflakeConfigDir, err := getTomlFilePath(os.Getenv(snowflakeHome))
 		if err != nil {
 			return "", err
 		}
