@@ -19,7 +19,7 @@ func TestLoadConnectionConfig_Default(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
-	os.Setenv("SNOWFLAKE_HOME", "./test_data")
+	os.Setenv(snowflake_home, "./test_data")
 
 	cfg, err := LoadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
@@ -37,8 +37,8 @@ func TestLoadConnectionConfig_OAuth(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
-	os.Setenv("SNOWFLAKE_HOME", "./test_data")
-	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth")
+	os.Setenv(snowflake_home, "./test_data")
+	os.Setenv(snowflake_connectionName, "aws-oauth")
 
 	cfg, err := LoadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
@@ -61,16 +61,16 @@ func TestReadTokenValueWithTokenFilePath(t *testing.T) {
 	err = os.Chmod("./test_data/snowflake/session/token", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
-	os.Setenv("SNOWFLAKE_HOME", "./test_data")
-	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "no-token-path")
+	os.Setenv(snowflake_home, "./test_data")
+	os.Setenv(snowflake_connectionName, "no-token-path")
 
 	cfg, err := LoadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
 	assertEqualF(t, cfg.Token, "mock_token123456")
 
-	os.Setenv("SNOWFLAKE_HOME", "./test_data")
-	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "read-token")
+	os.Setenv(snowflake_home, "./test_data")
+	os.Setenv(snowflake_connectionName, "read-token")
 
 	cfg, err = LoadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
@@ -82,8 +82,8 @@ func TestLoadConnectionConfigWitNonExistingDSN(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
-	os.Setenv("SNOWFLAKE_HOME", "./test_data")
-	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "unavailableDSN")
+	os.Setenv(snowflake_home, "./test_data")
+	os.Setenv(snowflake_connectionName, "unavailableDSN")
 
 	_, err = LoadConnectionConfig()
 	assertNotNilF(t, err, "The error should occur")
@@ -97,8 +97,8 @@ func TestLoadConnectionConfigWithTokenFileNotExist(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
-	os.Setenv("SNOWFLAKE_HOME", "./test_data")
-	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "aws-oauth-file")
+	os.Setenv(snowflake_home, "./test_data")
+	os.Setenv(snowflake_connectionName, "aws-oauth-file")
 
 	_, err = LoadConnectionConfig()
 	assertNotNilF(t, err, "The error should occur")
@@ -248,8 +248,8 @@ func TestGetTomlFilePath(t *testing.T) {
 	dir, err := getTomlFilePath("")
 	assertNilF(t, err, "should not have failed")
 	homeDir, err := os.UserHomeDir()
-	assertNilF(t, err, "The connection cannot find the user home directory")
-	assertEqualF(t, dir, path.Join(homeDir, "snowflake"))
+	assertNilF(t, err, "The connection cannot find the user snowflake_home directory")
+	assertEqualF(t, dir, path.Join(homeDir, ".snowflake"))
 
 	location := "../user//somelocation///b"
 	dir, err = getTomlFilePath(location)

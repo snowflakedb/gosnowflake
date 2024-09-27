@@ -15,20 +15,20 @@ import (
 )
 
 const (
-	connectionName = "SNOWFLAKE_DEFAULT_CONNECTION_NAME"
-	home           = "SNOWFLAKE_HOME"
+	snowflake_connectionName = "SNOWFLAKE_DEFAULT_CONNECTION_NAME"
+	snowflake_home           = "SNOWFLAKE_HOME"
 )
 
 // LoadConnectionConfig returns connection configs loaded from the toml file.
-// By default, SNOWFLAKE_HOME(toml file path) is os.home/snowflake
+// By default, SNOWFLAKE_HOME(toml file path) is os.snowflake_home/.snowflake
 // and SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN) is 'default'
 func LoadConnectionConfig() (*Config, error) {
 	cfg := &Config{
 		Params:        make(map[string]*string),
 		Authenticator: AuthTypeSnowflake, // Default to snowflake
 	}
-	dsn := getConnectionDSN(os.Getenv(connectionName))
-	snowflakeConfigDir, err := getTomlFilePath(os.Getenv(home))
+	dsn := getConnectionDSN(os.Getenv(snowflake_connectionName))
+	snowflakeConfigDir, err := getTomlFilePath(os.Getenv(snowflake_home))
 	if err != nil {
 		return nil, err
 	}
@@ -213,12 +213,7 @@ func parseInt(i interface{}) (int, error) {
 		}
 		return num, nil
 	}
-	num, err := strconv.Atoi(v)
-
-	if err != nil {
-		return num, err
-	}
-	return num, nil
+	return strconv.Atoi(v)
 }
 
 func parseBool(i interface{}) (bool, error) {
@@ -230,11 +225,7 @@ func parseBool(i interface{}) (bool, error) {
 		}
 		return vv, nil
 	}
-	vv, err := strconv.ParseBool(v)
-	if err != nil {
-		return false, errors.New("failed to parse the value to boolean")
-	}
-	return vv, nil
+	return strconv.ParseBool(v)
 }
 
 func parseConfigBool(i interface{}) (ConfigBool, error) {
@@ -266,7 +257,7 @@ func readToken(tokenPath string) (string, error) {
 		tokenPath = "./snowflake/session/token"
 	}
 	if !path.IsAbs(tokenPath) {
-		snowflakeConfigDir, err := getTomlFilePath(os.Getenv(home))
+		snowflakeConfigDir, err := getTomlFilePath(os.Getenv(snowflake_home))
 		if err != nil {
 			return "", err
 		}
@@ -297,7 +288,7 @@ func getTomlFilePath(filePath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		filePath = path.Join(homeDir, "snowflake")
+		filePath = path.Join(homeDir, ".snowflake")
 	}
 	absDir, err := path.Abs(filePath)
 	if err != nil {
@@ -322,7 +313,7 @@ func validateFilePermission(filePath string) error {
 		return err
 	}
 	if permission := fileInfo.Mode().Perm(); permission != os.FileMode(0600) {
-		return errors.New("your access to the file was denied")
+		return errors.New("file permissions different than read/write for user")
 	}
 	return nil
 }
