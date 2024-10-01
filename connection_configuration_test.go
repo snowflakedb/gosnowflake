@@ -62,17 +62,9 @@ func TestReadTokenValueWithTokenFilePath(t *testing.T) {
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
 	os.Setenv(snowflakeHome, "./test_data")
-	os.Setenv(snowflakeConnectionName, "no-token-path")
-
-	cfg, err := LoadConnectionConfig()
-	assertNilF(t, err, "The error should not occur")
-	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
-	assertEqualF(t, cfg.Token, "mock_token123456")
-
-	os.Setenv(snowflakeHome, "./test_data")
 	os.Setenv(snowflakeConnectionName, "read-token")
 
-	cfg, err = LoadConnectionConfig()
+	cfg, err := LoadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
 	assertEqualF(t, cfg.Token, "mock_token123456")

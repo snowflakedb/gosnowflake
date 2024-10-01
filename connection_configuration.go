@@ -17,6 +17,7 @@ import (
 const (
 	snowflakeConnectionName = "SNOWFLAKE_DEFAULT_CONNECTION_NAME"
 	snowflakeHome           = "SNOWFLAKE_HOME"
+	defaultTokenPath        = "/snowflake/session/token"
 )
 
 // LoadConnectionConfig returns connection configs loaded from the toml file.
@@ -254,14 +255,14 @@ func parseDuration(i interface{}) (time.Duration, error) {
 
 func readToken(tokenPath string) (string, error) {
 	if tokenPath == "" {
-		tokenPath = "./snowflake/session/token"
+		tokenPath = defaultTokenPath
 	}
 	if !path.IsAbs(tokenPath) {
-		snowflakeConfigDir, err := getTomlFilePath(os.Getenv(snowflakeHome))
+		var err error
+		tokenPath, err = path.Abs(tokenPath)
 		if err != nil {
 			return "", err
 		}
-		tokenPath = path.Join(snowflakeConfigDir, tokenPath)
 	}
 	err := validateFilePermission(tokenPath)
 	if err != nil {
