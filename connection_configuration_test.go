@@ -14,22 +14,22 @@ func TestTokenFilePermission(t *testing.T) {
 	if !isWindows {
 		os.Setenv(snowflakeHome, "./test_data")
 		_, err := LoadConnectionConfig()
-		assertNotNilF(t, err, "The error should occur because you the permission is not 0600")
+		assertNotNilF(t, err, "The error should occur because the permission is not 0600")
 
 		_, err = readToken("./test_data/snowflake/session")
-		assertNotNilF(t, err, "The error should occur because you the permission is not 0600")
+		assertNotNilF(t, err, "The error should occur because the permission is not 0600")
 
 		err = os.Chmod("./test_data/connections.toml", 0666)
-		assertNotNilF(t, err, "The error occurred because you cannot change the file permission")
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
 		err = os.Chmod("./test_data/snowflake/session/token", 0666)
-		assertNotNilF(t, err, "TThe error occurred because you cannot change the file permission")
+		assertNilF(t, err, "TThe error occurred because you cannot change the file permission")
 
 		_, err = LoadConnectionConfig()
-		assertNotNilF(t, err, "The error should occur because you the permission is not 0600")
+		assertNotNilF(t, err, "The error should occur because the permission is not 0600")
 
 		_, err = readToken("./test_data/snowflake/session")
-		assertNotNilF(t, err, "The error should occur because you the permission is not 0600")
+		assertNotNilF(t, err, "The error should occur because the permission is not 0600")
 
 		err = os.Chmod("./test_data/connections.toml", 0600)
 		assertNilF(t, err, "The error occurred because you cannot change the file permission")
@@ -38,10 +38,10 @@ func TestTokenFilePermission(t *testing.T) {
 		assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
 		_, err = LoadConnectionConfig()
-		assertNilF(t, err, "The error should occur because you the permission is not 0600")
+		assertNilF(t, err, "The error occurred because the permission is not 0600")
 
 		_, err = readToken("./test_data/snowflake/session")
-		assertNilF(t, err, "The error should occur because you the permission is not 0600")
+		assertNilF(t, err, "The error occurred because the permission is not 0600")
 	}
 }
 
