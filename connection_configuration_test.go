@@ -10,12 +10,41 @@ import (
 	"time"
 )
 
-func TestLoadConnectionConfig_Default(t *testing.T) {
+func TestTokenFilePermission(t *testing.T) {
 	if !isWindows {
 		_, err := LoadConnectionConfig()
 		assertNotNilF(t, err, "The error should occur because you cannot change the file permission")
-	}
 
+		_, err = readToken("./test_data/snowflake/session")
+		assertNotNilF(t, err, "The error should occur because you cannot change the file permission")
+
+		err = os.Chmod("./test_data/connections.toml", 0666)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+		err = os.Chmod("./test_data/snowflake/session/token", 0666)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+		_, err = LoadConnectionConfig()
+		assertNotNilF(t, err, "The error should occur because you cannot change the file permission")
+
+		_, err = readToken("./test_data/snowflake/session")
+		assertNotNilF(t, err, "The error should occur because you cannot change the file permission")
+
+		err = os.Chmod("./test_data/connections.toml", 0600)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+		err = os.Chmod("./test_data/snowflake/session/token", 0600)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+		_, err = LoadConnectionConfig()
+		assertNilF(t, err, "The error should occur because you cannot change the file permission")
+
+		_, err = readToken("./test_data/snowflake/session")
+		assertNilF(t, err, "The error should occur because you cannot change the file permission")
+	}
+}
+
+func TestLoadConnectionConfig_Default(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
