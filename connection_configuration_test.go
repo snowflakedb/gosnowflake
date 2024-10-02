@@ -12,6 +12,7 @@ import (
 
 func TestTokenFilePermission(t *testing.T) {
 	if !isWindows {
+		os.Setenv(snowflakeHome, "./test_data")
 		_, err := LoadConnectionConfig()
 		assertNotNilF(t, err, "The error should occur because you the permission is not 0600")
 
