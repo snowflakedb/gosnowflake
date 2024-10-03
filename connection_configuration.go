@@ -58,6 +58,10 @@ func loadConnectionConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = fillMissingConfigParameters(cfg)
+	if err != nil {
+		return nil, err
+	}
 	return cfg, err
 }
 
@@ -73,11 +77,6 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			return err
 		}
 		cfg.Token = v
-	}
-
-	err := fillMissingConfigParameters(cfg)
-	if err != nil {
-		return err
 	}
 	return nil
 }
@@ -319,7 +318,7 @@ func validateFilePermission(filePath string) error {
 		return err
 	}
 	if permission := fileInfo.Mode().Perm(); permission != os.FileMode(0600) {
-		return err := &SnowflakeError{
+		return &SnowflakeError{
 			Number:      ErrCodeInvalidFilePermission,
 			Message:     errMsgInvalidPermissionToTomlFile,
 			MessageArgs: []interface{}{permission},
