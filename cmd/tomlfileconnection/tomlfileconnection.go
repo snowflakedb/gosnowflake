@@ -7,9 +7,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	_ "github.com/snowflakedb/gosnowflake"
 )
 
 func main() {
@@ -17,21 +16,12 @@ func main() {
 		flag.Parse()
 	}
 
-	os.Setenv("SNOWFLAKE_HOME", "<The directory path where the toml file exists>")
-	os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "<DSN Name>")
+	// os.Setenv("SNOWFLAKE_HOME", "<The directory path where the toml file exists>")
+	// os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "<DSN Name>")
 
-	cfg, err := sf.LoadConnectionConfig()
+	db, err := sql.Open("snowflake", "autoConfig")
 	if err != nil {
-		log.Fatalf("failed to create Config, err: %v", err)
-	}
-	dsn, err := sf.DSN(cfg)
-	if err != nil {
-		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
-	}
-
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
+		log.Fatalf("failed to connect. %v,", err)
 	}
 	defer db.Close()
 	query := "SELECT 1"

@@ -40,7 +40,7 @@ func TestTokenFilePermission(t *testing.T) {
 		_, err = LoadConnectionConfig()
 		assertNilF(t, err, "The error occurred because the permission is not 0600")
 
-		_, err = readToken("./test_data/snowflake/session")
+		_, err = readToken("./test_data/snowflake/session/token")
 		assertNilF(t, err, "The error occurred because the permission is not 0600")
 	}
 }
