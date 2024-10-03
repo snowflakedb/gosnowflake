@@ -131,6 +131,8 @@ const (
 	ErrCodeTomlFileParsingFailed = 260013
 	// ErrCodeFailedToFindDSNInToml is an error code for the case where the DSN does not exist in the toml file.
 	ErrCodeFailedToFindDSNInToml = 260014
+	// ErrCodeInvalidFilePermission is an error code for the case where the user does not have 0600 permission to the toml file .
+	ErrCodeInvalidFilePermission = 260015
 
 	/* network */
 
@@ -305,6 +307,7 @@ const (
 	errMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"
 	errMsgFailedToParseTomlFile              = "failed to parse toml file. the params %v occurred error with value %v"
 	errMsgFailedToFindDSNInTomlFile          = "failed to find DSN in toml file."
+	errMsgInvalidPermissionToTomlFile        = "file permissions different than read/write for user. Your Permission: %v"
 )
 
 // Returned if a DNS doesn't include account parameter.

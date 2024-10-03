@@ -23,7 +23,7 @@ const (
 // LoadConnectionConfig returns connection configs loaded from the toml file.
 // By default, SNOWFLAKE_HOME(toml file path) is os.snowflakeHome/.snowflake
 // and SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN) is 'default'
-func LoadConnectionConfig() (*Config, error) {
+func loadConnectionConfig() (*Config, error) {
 	cfg := &Config{
 		Params:        make(map[string]*string),
 		Authenticator: AuthTypeSnowflake, // Default to snowflake
@@ -73,6 +73,11 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 			return err
 		}
 		cfg.Token = v
+	}
+
+	err := fillMissingConfigParameters(cfg)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -314,7 +319,11 @@ func validateFilePermission(filePath string) error {
 		return err
 	}
 	if permission := fileInfo.Mode().Perm(); permission != os.FileMode(0600) {
-		return errors.New("file permissions different than read/write for user")
+		return err := &SnowflakeError{
+			Number:      ErrCodeInvalidFilePermission,
+			Message:     errMsgInvalidPermissionToTomlFile,
+			MessageArgs: []interface{}{permission},
+		}
 	}
 	return nil
 }

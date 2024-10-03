@@ -23,7 +23,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	logger.Info("Open")
 	ctx := context.Background()
 	if dsn == "autoConfig" {
-		cfg, err = LoadConnectionConfig()
+		cfg, err = loadConnectionConfig()
 	} else {
 		cfg, err = ParseDSN(dsn)
 	}
