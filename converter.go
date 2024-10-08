@@ -283,14 +283,13 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 }
 
 // check for stringer method and it's a len 16 byte array. Guarantees it's String() and returns string
-func isUUIDImplementer(v interface{}) bool {
-	rv := reflect.ValueOf(v)
-	rt := rv.Type()
+func isUUIDImplementer(v reflect.Value) bool {
+	rt := v.Type()
 
 	// Check if the type is an array of 16 bytes
-	if rt.Kind() == reflect.Array && rt.Elem().Kind() == reflect.Uint8 && rt.Len() == 16 {
+	if v.Kind() == reflect.Array && rt.Elem().Kind() == reflect.Uint8 && rt.Len() == 16 {
 		// Check if the type implements fmt.Stringer
-		_, ok := v.(fmt.Stringer)
+		_, ok := v.Interface().(fmt.Stringer)
 		return ok
 	}
 	return false
@@ -408,7 +407,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		}
 		res = res[0:len(res)-1] + "]"
 		return bindingValue{&res, jsonFormatStr, &schemaForBytes}, nil
-	} else if isUUIDImplementer(v) { // special case for UUIDs (snowflake type and other implementers)
+	} else if isUUIDImplementer(v1) { // special case for UUIDs (snowflake type and other implementers)
 		stringer := v.(fmt.Stringer)
 		value := stringer.String()
 		return bindingValue{&value, "", nil}, nil
