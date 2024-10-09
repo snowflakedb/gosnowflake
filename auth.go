@@ -93,7 +93,7 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 			}
 		}
 
-		if oktaURL.Scheme != "https" || !strings.HasSuffix(oktaURL.Host, "okta.com") {
+		if oktaURL.Scheme != "https" {
 			return &SnowflakeError{
 				Number:      ErrCodeFailedToParseAuthenticator,
 				Message:     errMsgFailedToParseAuthenticator,
