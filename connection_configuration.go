@@ -65,8 +65,8 @@ func loadConnectionConfig() (*Config, error) {
 	return cfg, err
 }
 
-func parseToml(cfg *Config, connection map[string]interface{}) error {
-	for key, value := range connection {
+func parseToml(cfg *Config, connectionMap map[string]interface{}) error {
+	for key, value := range connectionMap {
 		if err := handleSingleParam(cfg, key, value); err != nil {
 			return err
 		}
@@ -82,71 +82,71 @@ func parseToml(cfg *Config, connection map[string]interface{}) error {
 }
 
 func handleSingleParam(cfg *Config, key string, value interface{}) error {
-	var parsingErr error
+	var err error
 	var v, tokenPath string
 	switch strings.ToLower(key) {
 	case "user", "username":
-		cfg.User, parsingErr = parseString(value)
+		cfg.User, err = parseString(value)
 	case "password":
-		cfg.Password, parsingErr = parseString(value)
+		cfg.Password, err = parseString(value)
 	case "host":
-		cfg.Host, parsingErr = parseString(value)
+		cfg.Host, err = parseString(value)
 	case "account":
-		cfg.Account, parsingErr = parseString(value)
+		cfg.Account, err = parseString(value)
 	case "warehouse":
-		cfg.Warehouse, parsingErr = parseString(value)
+		cfg.Warehouse, err = parseString(value)
 	case "database":
-		cfg.Database, parsingErr = parseString(value)
+		cfg.Database, err = parseString(value)
 	case "schema":
-		cfg.Schema, parsingErr = parseString(value)
+		cfg.Schema, err = parseString(value)
 	case "role":
-		cfg.Role, parsingErr = parseString(value)
+		cfg.Role, err = parseString(value)
 	case "region":
-		cfg.Region, parsingErr = parseString(value)
+		cfg.Region, err = parseString(value)
 	case "protocol":
-		cfg.Protocol, parsingErr = parseString(value)
+		cfg.Protocol, err = parseString(value)
 	case "passcode":
-		cfg.Passcode, parsingErr = parseString(value)
+		cfg.Passcode, err = parseString(value)
 	case "port":
-		cfg.Port, parsingErr = parseInt(value)
+		cfg.Port, err = parseInt(value)
 	case "passcodeinpassword":
-		cfg.PasscodeInPassword, parsingErr = parseBool(value)
+		cfg.PasscodeInPassword, err = parseBool(value)
 	case "clienttimeout":
-		cfg.ClientTimeout, parsingErr = parseDuration(value)
+		cfg.ClientTimeout, err = parseDuration(value)
 	case "jwtclienttimeout":
-		cfg.JWTClientTimeout, parsingErr = parseDuration(value)
+		cfg.JWTClientTimeout, err = parseDuration(value)
 	case "logintimeout":
-		cfg.LoginTimeout, parsingErr = parseDuration(value)
+		cfg.LoginTimeout, err = parseDuration(value)
 	case "requesttimeout":
-		cfg.RequestTimeout, parsingErr = parseDuration(value)
+		cfg.RequestTimeout, err = parseDuration(value)
 	case "jwttimeout":
-		cfg.JWTExpireTimeout, parsingErr = parseDuration(value)
+		cfg.JWTExpireTimeout, err = parseDuration(value)
 	case "externalbrowsertimeout":
-		cfg.ExternalBrowserTimeout, parsingErr = parseDuration(value)
+		cfg.ExternalBrowserTimeout, err = parseDuration(value)
 	case "maxretrycount":
-		cfg.MaxRetryCount, parsingErr = parseInt(value)
+		cfg.MaxRetryCount, err = parseInt(value)
 	case "application":
-		cfg.Application, parsingErr = parseString(value)
+		cfg.Application, err = parseString(value)
 	case "authenticator":
-		v, parsingErr = parseString(value)
-		if err := checkParsingError(parsingErr, key, value); err != nil {
+		v, err = parseString(value)
+		if err = checkParsingError(err, key, value); err != nil {
 			return err
 		}
-		parsingErr = determineAuthenticatorType(cfg, v)
+		err = determineAuthenticatorType(cfg, v)
 	case "insecuremode":
-		cfg.InsecureMode, parsingErr = parseBool(value)
+		cfg.InsecureMode, err = parseBool(value)
 	case "ocspfailopen":
 		var vv ConfigBool
-		vv, parsingErr = parseConfigBool(value)
-		if err := checkParsingError(parsingErr, key, value); err != nil {
+		vv, err = parseConfigBool(value)
+		if err := checkParsingError(err, key, value); err != nil {
 			return err
 		}
 		cfg.OCSPFailOpen = OCSPFailOpenMode(vv)
 	case "token":
-		cfg.Token, parsingErr = parseString(value)
+		cfg.Token, err = parseString(value)
 	case "privatekey":
-		v, parsingErr = parseString(value)
-		if err := checkParsingError(parsingErr, key, value); err != nil {
+		v, err = parseString(value)
+		if err = checkParsingError(err, key, value); err != nil {
 			return err
 		}
 		block, decodeErr := base64.URLEncoding.DecodeString(v)
@@ -156,30 +156,30 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 				Message: "Base64 decode failed",
 			}
 		}
-		cfg.PrivateKey, parsingErr = parsePKCS8PrivateKey(block)
+		cfg.PrivateKey, err = parsePKCS8PrivateKey(block)
 	case "validatedefaultparameters":
-		cfg.ValidateDefaultParameters, parsingErr = parseConfigBool(value)
+		cfg.ValidateDefaultParameters, err = parseConfigBool(value)
 	case "clientrequestmfatoken":
-		cfg.ClientRequestMfaToken, parsingErr = parseConfigBool(value)
+		cfg.ClientRequestMfaToken, err = parseConfigBool(value)
 	case "clientstoretemporarycredential":
-		cfg.ClientStoreTemporaryCredential, parsingErr = parseConfigBool(value)
+		cfg.ClientStoreTemporaryCredential, err = parseConfigBool(value)
 	case "tracing":
-		cfg.Tracing, parsingErr = parseString(value)
+		cfg.Tracing, err = parseString(value)
 	case "tmpdirpath":
-		cfg.TmpDirPath, parsingErr = parseString(value)
+		cfg.TmpDirPath, err = parseString(value)
 	case "disablequerycontextcache":
-		cfg.DisableQueryContextCache, parsingErr = parseBool(value)
+		cfg.DisableQueryContextCache, err = parseBool(value)
 	case "includeretryreason":
-		cfg.IncludeRetryReason, parsingErr = parseConfigBool(value)
+		cfg.IncludeRetryReason, err = parseConfigBool(value)
 	case "clientconfigfile":
-		cfg.ClientConfigFile, parsingErr = parseString(value)
+		cfg.ClientConfigFile, err = parseString(value)
 	case "disableconsolelogin":
-		cfg.DisableConsoleLogin, parsingErr = parseConfigBool(value)
+		cfg.DisableConsoleLogin, err = parseConfigBool(value)
 	case "disablesamlurlcheck":
-		cfg.DisableSamlURLCheck, parsingErr = parseConfigBool(value)
+		cfg.DisableSamlURLCheck, err = parseConfigBool(value)
 	case "token_file_path":
-		tokenPath, parsingErr = parseString(value)
-		if err := checkParsingError(parsingErr, key, value); err != nil {
+		tokenPath, err = parseString(value)
+		if err = checkParsingError(err, key, value); err != nil {
 			return err
 		}
 		v, err := readToken(tokenPath)
@@ -188,18 +188,18 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		}
 		cfg.Token = v
 	default:
-		param, parsingErr := parseString(value)
-		if err := checkParsingError(parsingErr, key, value); err != nil {
+		param, err := parseString(value)
+		if err = checkParsingError(err, key, value); err != nil {
 			return err
 		}
 		cfg.Params[urlDecodeIfNeeded(key)] = &param
 	}
-	return checkParsingError(parsingErr, key, value)
+	return checkParsingError(err, key, value)
 }
 
-func checkParsingError(parsingErr error, key string, value interface{}) error {
-	if parsingErr != nil {
-		err := &SnowflakeError{
+func checkParsingError(err error, key string, value interface{}) error {
+	if err != nil {
+		err = &SnowflakeError{
 			Number:      ErrCodeTomlFileParsingFailed,
 			Message:     errMsgFailedToParseTomlFile,
 			MessageArgs: []interface{}{key, value},

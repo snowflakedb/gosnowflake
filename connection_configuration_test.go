@@ -301,5 +301,4 @@ func TestGetTomlFilePath(t *testing.T) {
 		assertNilF(t, err, "should not have failed")
 		assertEqualF(t, dir, result)
 	}
-
 }
