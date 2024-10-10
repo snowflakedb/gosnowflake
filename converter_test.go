@@ -316,6 +316,17 @@ func TestValueToString(t *testing.T) {
 		assertEqualE(t, *bv.value, u.String())
 	})
 
+	t.Run("google.UUID", func(t *testing.T) {
+		u := googleUUID.New()
+
+		assertEqualE(t, u.String(), ParseUUID(u.String()).String())
+
+		bv, err := valueToString(UUID(u), textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
+	})
+
 	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, timestampLtzType, params)
 	assertNilF(t, err)
 	assertEqualE(t, bv.format, jsonFormatStr)
