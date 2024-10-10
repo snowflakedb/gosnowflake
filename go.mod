@@ -15,6 +15,7 @@ require (
 	github.com/aws/smithy-go v1.20.2
 	github.com/gabriel-vasile/mimetype v1.4.2
 	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/uuid v1.6.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/crypto v0.22.0
