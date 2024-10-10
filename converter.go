@@ -14,6 +14,7 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -282,15 +283,29 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	return bindingValue{}, fmt.Errorf("unsupported type: %v", v1.Kind())
 }
 
-// check for stringer method and it's a len 16 byte array. Guarantees it's String() and returns string
+// isUUIDImplementer checks if a value is a UUID that satisfies RFC 4122
 func isUUIDImplementer(v reflect.Value) bool {
 	rt := v.Type()
 
 	// Check if the type is an array of 16 bytes
 	if v.Kind() == reflect.Array && rt.Elem().Kind() == reflect.Uint8 && rt.Len() == 16 {
 		// Check if the type implements fmt.Stringer
-		_, ok := v.Interface().(fmt.Stringer)
-		return ok
+		vInt := v.Interface()
+		if stringer, ok := vInt.(fmt.Stringer); ok {
+			uuidStr := stringer.String()
+
+			rfc4122Regex := `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`
+			matched, err := regexp.MatchString(rfc4122Regex, uuidStr)
+			if err != nil {
+				return false
+			}
+
+			if matched {
+				// parse the UUID and ensure it is the same as the original string
+				u := ParseUUID(uuidStr)
+				return u.String() == uuidStr
+			}
+		}
 	}
 	return false
 }

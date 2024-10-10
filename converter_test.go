@@ -21,6 +21,7 @@ import (
 	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/decimal128"
 	"github.com/apache/arrow/go/v15/arrow/memory"
+	googleUUID "github.com/google/uuid"
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {
@@ -311,6 +312,17 @@ func TestValueToString(t *testing.T) {
 	t.Run("database/sql/driver - Valuer interface", func(t *testing.T) {
 		u := testSqlUuid(NewUUID())
 		bv, err := valueToString(u, textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
+	})
+
+	t.Run("google.UUID", func(t *testing.T) {
+		u := googleUUID.New()
+
+		assertEqualE(t, u.String(), ParseUUID(u.String()).String())
+
+		bv, err := valueToString(UUID(u), textType, nil)
 		assertNilF(t, err)
 		assertEmptyStringE(t, bv.format)
 		assertEqualE(t, *bv.value, u.String())
