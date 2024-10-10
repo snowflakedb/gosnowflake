@@ -21,6 +21,7 @@ import (
 	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/decimal128"
 	"github.com/apache/arrow/go/v15/arrow/memory"
+	googleUUID "github.com/google/uuid"
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {
@@ -214,6 +215,16 @@ func (o *testValueToStringStructuredObject) Write(sowc StructuredObjectWriterCon
 	return nil
 }
 
+type testSqlUuid UUID
+
+func (uuid testSqlUuid) Value() (driver.Value, error) {
+	return uuid.String(), nil
+}
+
+func (u testSqlUuid) String() string {
+	return fmt.Sprintf("%x-%x-%x-%x-%x", u[0:4], u[4:6], u[6:8], u[8:10], u[10:])
+}
+
 func TestValueToString(t *testing.T) {
 	v := cmplx.Sqrt(-5 + 12i) // should never happen as Go sql package must have already validated.
 	_, err := valueToString(v, nullType, nil)
@@ -269,22 +280,57 @@ func TestValueToString(t *testing.T) {
 	assertNilE(t, bv.schema)
 	assertEqualE(t, *bv.value, expectedString)
 
+	t.Run("SQL Time", func(t *testing.T) {
+		bv, err := valueToString(sql.NullTime{Time: localTime, Valid: true}, timestampLtzType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertNilE(t, bv.schema)
+		assertEqualE(t, *bv.value, expectedUnixTime)
+	})
+
 	t.Run("arrays", func(t *testing.T) {
 		bv, err := valueToString([2]int{1, 2}, objectType, nil)
 		assertNilF(t, err)
-		assertEqualE(t, bv.format, "json")
+		assertEqualE(t, bv.format, jsonFormatStr)
 		assertEqualE(t, *bv.value, "[1,2]")
 	})
 	t.Run("slices", func(t *testing.T) {
 		bv, err := valueToString([]int{1, 2}, objectType, nil)
 		assertNilF(t, err)
-		assertEqualE(t, bv.format, "json")
+		assertEqualE(t, bv.format, jsonFormatStr)
 		assertEqualE(t, *bv.value, "[1,2]")
+	})
+
+	t.Run("UUID - should return string", func(t *testing.T) {
+		u := NewUUID()
+		bv, err := valueToString(u, textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
+	})
+
+	t.Run("database/sql/driver - Valuer interface", func(t *testing.T) {
+		u := testSqlUuid(NewUUID())
+		bv, err := valueToString(u, textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
+	})
+
+	t.Run("google.UUID", func(t *testing.T) {
+		u := googleUUID.New()
+
+		assertEqualE(t, u.String(), ParseUUID(u.String()).String())
+
+		bv, err := valueToString(UUID(u), textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
 	})
 
 	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, timestampLtzType, params)
 	assertNilF(t, err)
-	assertEqualE(t, bv.format, "json")
+	assertEqualE(t, bv.format, jsonFormatStr)
 	assertDeepEqualE(t, *bv.schema, bindingSchema{
 		Typ:      "object",
 		Nullable: true,
