@@ -471,13 +471,15 @@ func runningOnGCP() bool {
 }
 
 func TestBogusUserPasswordParameters(t *testing.T) {
-	// Different error message is returned depending on whether the user is known or not.
-	var invalidDNS string
-	if runningOnGithubAction() {
-		invalidDNS = fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
-		invalidUserPassErrorTests(invalidDNS, 390422, t)
+	if !runningOnGithubAction() {
+		t.Skip("error message could be different when run locally")
 	}
-	invalidDNS = fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
+	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
+	invalidUserPassErrorTests(invalidDNS, 390422, t)
+}
+
+func TestKnownUserInvalidPasswordParameters(t *testing.T) {
+	invalidDNS := fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
 	invalidUserPassErrorTests(invalidDNS, 390100, t)
 }
 
