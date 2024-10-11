@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -467,6 +468,49 @@ func runningOnAWS() bool {
 
 func runningOnGCP() bool {
 	return os.Getenv("CLOUD_PROVIDER") == "GCP"
+}
+
+func TestBogusUserPasswordParameters(t *testing.T) {
+	if !runningOnGithubAction() {
+		t.Skip("error message could be different when run locally")
+	}
+	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
+	invalidUserPassErrorTests(invalidDNS, 390422, t)
+}
+
+func TestKnownUserInvalidPasswordParameters(t *testing.T) {
+	invalidDNS := fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
+	invalidUserPassErrorTests(invalidDNS, 390100, t)
+}
+
+func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T) {
+	parameters := url.Values{}
+	if protocol != "" {
+		parameters.Add("protocol", protocol)
+	}
+	if account != "" {
+		parameters.Add("account", account)
+	}
+	invalidDNS += "?" + parameters.Encode()
+	db, err := sql.Open("snowflake", invalidDNS)
+	if err != nil {
+		t.Fatalf("error creating a connection object: %s", err.Error())
+	}
+	// actual connection won't happen until run a query
+	defer db.Close()
+	if _, err = db.Exec("SELECT 1"); err == nil {
+		t.Fatal("should cause an error.")
+	}
+	if driverErr, ok := err.(*SnowflakeError); ok {
+		if driverErr.Number != expectedErr {
+			t.Fatalf("wrong error code: %v", driverErr)
+		}
+		if !strings.Contains(driverErr.Error(), strconv.Itoa(expectedErr)) {
+			t.Fatalf("error message should included the error code. got: %v", driverErr.Error())
+		}
+	} else {
+		t.Fatalf("wrong error code: %v", err)
+	}
 }
 
 func TestBogusHostNameParameters(t *testing.T) {
