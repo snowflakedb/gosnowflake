@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -133,7 +134,7 @@ func main() {
 	fmt.Printf("File successfully downloaded from internal stage area to %v\n", tmpDir)
 
 	//Reading from downloaded file
-	file, err := os.Open(fmt.Sprintf("%v/data_to_upload.csv.gz", tmpDir))
+	file, err := os.Open(fmt.Sprintf("%v.gz", filepath.Join(tmpDir, filepath.Base(tmpFilePath))))
 	if err != nil {
 		log.Fatalf("error while opening downloaded file; err: %v", err)
 	}
