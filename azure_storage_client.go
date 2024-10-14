@@ -73,7 +73,7 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 		return nil, err
 	}
 	path := azureLoc.path + strings.TrimLeft(filename, "/")
-	containerClient, err := container.NewClientWithNoCredential(client.URL(), &container.ClientOptions{})
+	containerClient, err := createContainerClient(client.URL())
 	if err != nil {
 		return nil, &SnowflakeError{
 			Message: "failed to create container client",
@@ -185,7 +185,8 @@ func (util *snowflakeAzureClient) uploadFile(
 			Message: "failed to cast to azure client",
 		}
 	}
-	containerClient, err := container.NewClientWithNoCredential(client.URL(), &container.ClientOptions{})
+	containerClient, err := createContainerClient(client.URL())
+
 	if err != nil {
 		return &SnowflakeError{
 			Message: "failed to create container client",
@@ -265,7 +266,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 			Message: "failed to cast to azure client",
 		}
 	}
-	containerClient, err := container.NewClientWithNoCredential(client.URL(), &container.ClientOptions{})
+	containerClient, err := createContainerClient(client.URL())
 	if err != nil {
 		return &SnowflakeError{
 			Message: "failed to create container client",
@@ -334,4 +335,12 @@ func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Respons
 	errStr := string(azureErr)
 	return strings.Contains(errStr, "Signature not valid in the specified time frame") ||
 		strings.Contains(errStr, "Server failed to authenticate the request")
+}
+
+func createContainerClient(clientUrl string) (*container.Client, error) {
+	return container.NewClientWithNoCredential(clientUrl, &container.ClientOptions{ClientOptions: azcore.ClientOptions{
+		Transport: &http.Client{
+			Transport: SnowflakeTransport,
+		},
+	}})
 }
