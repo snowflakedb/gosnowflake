@@ -337,8 +337,8 @@ func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Respons
 		strings.Contains(errStr, "Server failed to authenticate the request")
 }
 
-func createContainerClient(clientUrl string) (*container.Client, error) {
-	return container.NewClientWithNoCredential(clientUrl, &container.ClientOptions{ClientOptions: azcore.ClientOptions{
+func createContainerClient(clientURL string) (*container.Client, error) {
+	return container.NewClientWithNoCredential(clientURL, &container.ClientOptions{ClientOptions: azcore.ClientOptions{
 		Transport: &http.Client{
 			Transport: SnowflakeTransport,
 		},
