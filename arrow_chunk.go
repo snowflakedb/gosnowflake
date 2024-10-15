@@ -29,6 +29,7 @@ func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []exe
 
 		start := len(chunkRows)
 		numRows := int(record.NumRows())
+		logger.Debugf("rows in current record: %v", numRows)
 		columns := record.Columns()
 		chunkRows = append(chunkRows, make([]chunkRowType, numRows)...)
 		for i := start; i < start+numRows; i++ {
