@@ -569,7 +569,7 @@ func fullOCSPURL(url *url.URL) string {
 
 // getRevocationStatus checks the certificate revocation status for subject using issuer certificate.
 func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate) *ocspStatus {
-	logger.WithContext(ctx).Infof("Subject: %v, Issuer: %v", subject.Subject, issuer.Subject)
+	logger.WithContext(ctx).Tracef("Subject: %v, Issuer: %v", subject.Subject, issuer.Subject)
 
 	status, ocspReq, encodedCertID := validateWithCache(subject, issuer)
 	if isValidOCSPStatus(status.code) {
@@ -955,7 +955,7 @@ func extractOCSPCacheResponseValue(certIDKey *certIDKey, certCacheValue *certCac
 		status = validateOCSP(ocspResponse)
 		ocspParsedRespCache[cacheKey] = status
 	}
-	logger.Debugf("OCSP status found in cache: %v; certIdKey: %v", status, certIDKey)
+	logger.Tracef("OCSP status found in cache: %v; certIdKey: %v", status, certIDKey)
 	return status
 }
 
