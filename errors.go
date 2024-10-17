@@ -127,6 +127,12 @@ const (
 	ErrCodeFailedToParseAuthenticator = 260011
 	// ErrCodeClientConfigFailed is an error code for the case where clientConfigFile is invalid or applying client configuration fails
 	ErrCodeClientConfigFailed = 260012
+	// ErrCodeTomlFileParsingFailed is an error code for the case where parsing the toml file is failed because of invalid value.
+	ErrCodeTomlFileParsingFailed = 260013
+	// ErrCodeFailedToFindDSNInToml is an error code for the case where the DSN does not exist in the toml file.
+	ErrCodeFailedToFindDSNInToml = 260014
+	// ErrCodeInvalidFilePermission is an error code for the case where the user does not have 0600 permission to the toml file .
+	ErrCodeInvalidFilePermission = 260015
 
 	/* network */
 
@@ -299,6 +305,9 @@ const (
 	errMsgClientConfigFailed                 = "client configuration failed: %v"
 	errMsgNullValueInArray                   = "for handling null values in arrays use WithArrayValuesNullable(ctx)"
 	errMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"
+	errMsgFailedToParseTomlFile              = "failed to parse toml file. the params %v occurred error with value %v"
+	errMsgFailedToFindDSNInTomlFile          = "failed to find DSN in toml file."
+	errMsgInvalidPermissionToTomlFile        = "file permissions different than read/write for user. Your Permission: %v"
 )
 
 // Returned if a DNS doesn't include account parameter.
