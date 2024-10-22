@@ -202,6 +202,36 @@ func TestUnitPostQueryHelperError(t *testing.T) {
 	}
 }
 
+func TestUnitPostQueryHelperOnRenewSessionKeepsRequestIdButGeneratesNewRequestGuid(t *testing.T) {
+	postCount := 0
+	requestID := NewUUID()
+
+	sr := &snowflakeRestful{
+		FuncPost: func(ctx context.Context, restful *snowflakeRestful, url *url.URL, headers map[string]string, bytes []byte, duration time.Duration, provider currentTimeProvider, config *Config) (*http.Response, error) {
+			assertEqualF(t, len((url.Query())[requestIDKey]), 1)
+			assertEqualF(t, len((url.Query())[requestGUIDKey]), 1)
+			return &http.Response{
+				StatusCode: 200,
+				Body:       &fakeResponseBody{body: []byte(`{"data":null,"code":"390112","message":"token expired for testing","success":false,"headers":null}`)},
+			}, nil
+		},
+		FuncPostQuery: func(ctx context.Context, restful *snowflakeRestful, values *url.Values, headers map[string]string, bytes []byte, timeout time.Duration, uuid UUID, config *Config) (*execResponse, error) {
+			assertEqualF(t, requestID.String(), uuid.String())
+			assertEqualF(t, len((*values)[requestIDKey]), 1)
+			assertEqualF(t, len((*values)[requestGUIDKey]), 1)
+			if postCount == 0 {
+				postCount++
+				return postRestfulQueryHelper(ctx, restful, values, headers, bytes, timeout, uuid, config)
+			}
+			return nil, nil
+		},
+		FuncRenewSession: renewSessionTest,
+		TokenAccessor:    getSimpleTokenAccessor(),
+	}
+	_, err := postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), make([]byte, 0), time.Second, requestID, nil)
+	assertNilE(t, err)
+}
+
 func renewSessionTest(_ context.Context, _ *snowflakeRestful, _ time.Duration) error {
 	return nil
 }
