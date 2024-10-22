@@ -57,7 +57,7 @@ func TestTokenFilePermission(t *testing.T) {
 	}
 }
 
-func TestloadConnectionConfig_Default(t *testing.T) {
+func TestLoadConnectionConfigForStandardAuth(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
@@ -75,7 +75,7 @@ func TestloadConnectionConfig_Default(t *testing.T) {
 	assertEqualF(t, cfg.Port, 300)
 }
 
-func TestloadConnectionConfig_OAuth(t *testing.T) {
+func TestLoadConnectionConfigForOAuth(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
