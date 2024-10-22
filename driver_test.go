@@ -1487,7 +1487,7 @@ func TestCancelQuery(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		_, err := dbt.conn.QueryContext(ctx, "SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 100))")
+		_, err := dbt.conn.QueryContext(ctx, "CALL SYSTEM$WAIT(10, 'SECONDS')")
 		if err == nil {
 			dbt.Fatal("No timeout error returned")
 		}
