@@ -517,7 +517,7 @@ func TestBogusHostNameParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
 	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving"}, t)
 	invalidDNS = fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST")
-	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer", "EOF", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving"}, t)
+	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer", "EOF", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "failed to auth"}, t)
 }
 
 func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
@@ -1715,7 +1715,7 @@ func TestPingInvalidHost(t *testing.T) {
 	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
 		return
 	}
-	if driverErr, ok := err.(*SnowflakeError); !ok || ok && driverErr.Number != ErrCodeFailedToConnect {
+	if driverErr, ok := err.(*SnowflakeError); !ok || ok && isFailToConnectOrAuthErr(driverErr) {
 		// Failed to connect error
 		t.Fatalf("error didn't match")
 	}

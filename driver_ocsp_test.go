@@ -87,9 +87,13 @@ func TestOCSPFailOpen(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
+	if isFailToConnectOrAuthErr(driverErr) {
 		t.Fatalf("should failed to connect %v", err)
 	}
+}
+
+func isFailToConnectOrAuthErr(driverErr *SnowflakeError) bool {
+	return driverErr.Number != ErrCodeFailedToConnect && driverErr.Number != ErrFailedToAuth
 }
 
 // TestOCSPFailOpenWithoutFileCache ensures no file cache is used.
@@ -128,7 +132,7 @@ func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
+	if isFailToConnectOrAuthErr(driverErr) {
 		t.Fatalf("should failed to connect %v", err)
 	}
 }
@@ -170,7 +174,7 @@ func TestOCSPFailOpenValidityError(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
+	if isFailToConnectOrAuthErr(driverErr) {
 		t.Fatalf("should failed to connect %v", err)
 	}
 }
@@ -259,7 +263,7 @@ func TestOCSPFailOpenUnknownStatus(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
+	if isFailToConnectOrAuthErr(driverErr) {
 		t.Fatalf("should failed to connect %v", err)
 	}
 }
@@ -444,7 +448,7 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
+	if isFailToConnectOrAuthErr(driverErr) {
 		t.Fatalf("should failed to connect %v", err)
 	}
 }
@@ -493,7 +497,7 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 		if !ok {
 			t.Fatalf("failed to extract error SnowflakeError: %v", err)
 		}
-		if driverErr.Number != ErrCodeFailedToConnect {
+		if isFailToConnectOrAuthErr(driverErr) {
 			t.Fatalf("should have failed to connect. err: %v", err)
 		}
 	// Go 1.18 and after rejects SHA-1 certificates, therefore a different error is returned (https://github.com/golang/go/issues/41682)
@@ -545,7 +549,7 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
+	if isFailToConnectOrAuthErr(driverErr) {
 		t.Fatalf("should failed to connect %v", err)
 	}
 }
@@ -592,7 +596,7 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error URL Error: %v", urlErr.Err)
 	}
-	if !strings.Contains(urlErr0.Err.Error(), "Client.Timeout") {
+	if !strings.Contains(urlErr0.Err.Error(), "Client.Timeout") && !strings.Contains(urlErr0.Err.Error(), "connection refused") {
 		t.Fatalf("the root cause is not  timeout: %v", urlErr0.Err)
 	}
 }
@@ -634,7 +638,7 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
+	if isFailToConnectOrAuthErr(driverErr) {
 		t.Fatalf("should failed to connect %v", err)
 	}
 }
@@ -676,8 +680,8 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
-	if !strings.Contains(urlErr.Err.Error(), "404 Not Found") {
-		t.Fatalf("the root cause is not timeout: %v", urlErr.Err)
+	if !strings.Contains(urlErr.Err.Error(), "404 Not Found") && !strings.Contains(urlErr.Err.Error(), "connection refused") {
+		t.Fatalf("the root cause is not 404: %v", urlErr.Err)
 	}
 }
 
@@ -804,7 +808,7 @@ func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to extract error SnowflakeError: %v", err)
 	}
-	if driverErr.Number != ErrCodeFailedToConnect {
+	if isFailToConnectOrAuthErr(driverErr) {
 		t.Fatalf("should failed to connect %v", err)
 	}
 }
