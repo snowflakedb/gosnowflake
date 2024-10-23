@@ -42,7 +42,7 @@ func TestConnector(t *testing.T) {
 	if connection != &conn {
 		t.Fatalf("Connection mismatch %s", connection)
 	}
-	fillMissingConfigParameters(config)
+	assertNilF(t, fillMissingConfigParameters(config))
 	if reflect.DeepEqual(config, mock.config) {
 		t.Fatalf("Config should be equal, expected %v, actual %v", config, mock.config)
 	}

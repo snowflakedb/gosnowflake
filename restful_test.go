@@ -258,7 +258,7 @@ func TestUnitTokenAccessorDoesNotRenewStaleToken(t *testing.T) {
 	}
 
 	// try to intentionally renew with stale token
-	sr.renewExpiredSessionToken(context.Background(), time.Hour, "stale-token")
+	assertNilE(t, sr.renewExpiredSessionToken(context.Background(), time.Hour, "stale-token"))
 
 	if renewSessionCalled {
 		t.Fatal("FuncRenewSession should not have been called")
@@ -266,7 +266,7 @@ func TestUnitTokenAccessorDoesNotRenewStaleToken(t *testing.T) {
 
 	// set the current token to empty, should still call renew even if stale token is passed in
 	accessor.SetTokens("", "master", 123)
-	sr.renewExpiredSessionToken(context.Background(), time.Hour, "stale-token")
+	assertNilE(t, sr.renewExpiredSessionToken(context.Background(), time.Hour, "stale-token"))
 
 	if !renewSessionCalled {
 		t.Fatal("FuncRenewSession should have been called because current token is empty")
@@ -317,7 +317,7 @@ func TestUnitTokenAccessorRenewBlocked(t *testing.T) {
 	}
 
 	// intentionally lock the accessor first
-	accessor.Lock()
+	assertNilE(t, accessor.Lock())
 
 	// try to intentionally renew with stale token
 	var renewalStart sync.WaitGroup
@@ -326,7 +326,7 @@ func TestUnitTokenAccessorRenewBlocked(t *testing.T) {
 	renewalDone.Add(1)
 	go func() {
 		renewalStart.Done()
-		sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken)
+		assertNilE(t, sr.renewExpiredSessionToken(context.Background(), time.Hour, oldToken))
 		renewalDone.Done()
 	}()
 
@@ -351,7 +351,7 @@ func TestUnitTokenAccessorRenewBlocked(t *testing.T) {
 	}
 
 	// wait for accessor defer unlock
-	accessor.Lock()
+	assertNilE(t, accessor.Lock())
 	if accessor.lockCallCount != 3 {
 		t.Fatalf("Expected Lock() to be called thrice, but got %v", accessor.lockCallCount)
 	}

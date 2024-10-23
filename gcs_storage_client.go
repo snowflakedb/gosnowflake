@@ -79,17 +79,17 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
-			meta.lastError = fmt.Errorf(resp.Status)
+			meta.lastError = fmt.Errorf("%v", resp.Status)
 			meta.resStatus = errStatus
 			if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
-				meta.lastError = fmt.Errorf(resp.Status)
+				meta.lastError = fmt.Errorf("%v", resp.Status)
 				meta.resStatus = needRetry
 				return nil, meta.lastError
 			}
 			if resp.StatusCode == 404 {
 				meta.resStatus = notFoundFile
 			} else if util.isTokenExpired(resp) {
-				meta.lastError = fmt.Errorf(resp.Status)
+				meta.lastError = fmt.Errorf("%v", resp.Status)
 				meta.resStatus = renewToken
 			}
 			return nil, meta.lastError
@@ -225,17 +225,13 @@ func (util *snowflakeGcsClient) uploadFile(
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
+		meta.lastError = fmt.Errorf("%v", resp.Status)
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
-			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = needRetry
 		} else if accessToken == "" && resp.StatusCode == 400 && meta.lastError == nil {
-			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = renewPresignedURL
 		} else if accessToken != "" && util.isTokenExpired(resp) {
-			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = renewToken
-		} else {
-			meta.lastError = fmt.Errorf(resp.Status)
 		}
 		return meta.lastError
 	}
@@ -303,21 +299,15 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
+		meta.lastError = fmt.Errorf("%v", resp.Status)
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
-			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = needRetry
 		} else if resp.StatusCode == 404 {
-			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = notFoundFile
 		} else if accessToken == "" && resp.StatusCode == 400 && meta.lastError == nil {
-			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = renewPresignedURL
 		} else if accessToken != "" && util.isTokenExpired(resp) {
-			meta.lastError = fmt.Errorf(resp.Status)
 			meta.resStatus = renewToken
-		} else {
-			meta.lastError = fmt.Errorf(resp.Status)
-
 		}
 		return meta.lastError
 	}

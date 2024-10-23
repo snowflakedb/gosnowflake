@@ -197,7 +197,7 @@ func TestRowsWithChunkDownloader(t *testing.T) {
 		FuncDownload:  downloadChunkTest,
 		RowSet:        rowSetType{RowType: rt, JSON: cc},
 	}
-	rows.ChunkDownloader.start()
+	assertNilF(t, rows.ChunkDownloader.start())
 	cnt := 0
 	dest := make([]driver.Value, 2)
 	var err error
@@ -282,7 +282,7 @@ func TestRowsWithChunkDownloaderError(t *testing.T) {
 		FuncDownload:  downloadChunkTestError,
 		RowSet:        rowSetType{RowType: rt, JSON: cc},
 	}
-	rows.ChunkDownloader.start()
+	assertNilF(t, rows.ChunkDownloader.start())
 	cnt := 0
 	dest := make([]driver.Value, 2)
 	var err error
@@ -366,7 +366,7 @@ func TestRowsWithChunkDownloaderErrorFail(t *testing.T) {
 		FuncDownload:  downloadChunkTestErrorFail,
 		RowSet:        rowSetType{RowType: rt, JSON: cc},
 	}
-	rows.ChunkDownloader.start()
+	assertNilF(t, rows.ChunkDownloader.start())
 	cnt := 0
 	dest := make([]driver.Value, 2)
 	var err error
@@ -480,7 +480,7 @@ func TestWithArrowBatchesNotImplementedForResult(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 
 		sct.mustExec("create or replace table testArrowBatches (a int, b int)", nil)
-		defer sct.sc.Exec("drop table if exists testArrowBatches", nil)
+		defer sct.mustExec("drop table if exists testArrowBatches", nil)
 
 		result := sct.mustExecContext(ctx, "insert into testArrowBatches values (1, 2), (3, 4), (5, 6)", []driver.NamedValue{})
 
@@ -505,23 +505,23 @@ func TestLocationChangesAfterAlterSession(t *testing.T) {
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		dbt.mustExec("INSERT INTO location_timestamp_ltz VALUES('2023-08-09 10:00:00')")
 		rows1 := dbt.mustQuery("SELECT * FROM location_timestamp_ltz")
-		defer rows1.Close()
+		defer assertNilF(t, rows1.Close())
 		if !rows1.Next() {
 			t.Fatalf("cannot read a record")
 		}
 		var t1 time.Time
-		rows1.Scan(&t1)
+		assertNilF(t, rows1.Scan(&t1))
 		if t1.Location().String() != "Europe/Warsaw" {
 			t.Fatalf("should return time in Warsaw timezone")
 		}
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Pacific/Honolulu'")
 		rows2 := dbt.mustQuery("SELECT * FROM location_timestamp_ltz")
-		defer rows2.Close()
+		defer assertNilF(t, rows2.Close())
 		if !rows2.Next() {
 			t.Fatalf("cannot read a record")
 		}
 		var t2 time.Time
-		rows2.Scan(&t2)
+		assertNilF(t, rows2.Scan(&t2))
 		if t2.Location().String() != "Pacific/Honolulu" {
 			t.Fatalf("should return time in Honolulu timezone")
 		}

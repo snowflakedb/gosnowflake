@@ -347,9 +347,9 @@ func TestHybridTablesE2E(t *testing.T) {
 	testDb2 := fmt.Sprintf("hybrid_db_test_%v_2", runID)
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		dbQuery := sct.mustQuery("SELECT CURRENT_DATABASE()", nil)
-		defer dbQuery.Close()
+		defer assertNilF(t, dbQuery.Close())
 		currentDb := make([]driver.Value, 1)
-		dbQuery.Next(currentDb)
+		assertNilF(t, dbQuery.Next(currentDb))
 		defer func() {
 			sct.mustExec(fmt.Sprintf("USE DATABASE %v", currentDb[0]), nil)
 			sct.mustExec(fmt.Sprintf("DROP DATABASE IF EXISTS %v", testDb1), nil)
@@ -362,21 +362,21 @@ func TestHybridTablesE2E(t *testing.T) {
 
 			sct.mustExec("INSERT INTO test_hybrid_table VALUES (1, 'a')", nil)
 			rows := sct.mustQuery("SELECT * FROM test_hybrid_table", nil)
-			defer rows.Close()
+			defer assertNilF(t, rows.Close())
 			row := make([]driver.Value, 2)
-			rows.Next(row)
+			assertNilF(t, rows.Next(row))
 			if row[0] != "1" || row[1] != "a" {
 				t.Errorf("expected 1, got %v and expected a, got %v", row[0], row[1])
 			}
 
 			sct.mustExec("INSERT INTO test_hybrid_table VALUES (2, 'b')", nil)
 			rows2 := sct.mustQuery("SELECT * FROM test_hybrid_table", nil)
-			defer rows2.Close()
-			rows2.Next(row)
+			defer assertNilF(t, rows2.Close())
+			assertNilF(t, rows2.Next(row))
 			if row[0] != "1" || row[1] != "a" {
 				t.Errorf("expected 1, got %v and expected a, got %v", row[0], row[1])
 			}
-			rows2.Next(row)
+			assertNilF(t, rows2.Next(row))
 			if row[0] != "2" || row[1] != "b" {
 				t.Errorf("expected 2, got %v and expected b, got %v", row[0], row[1])
 			}
@@ -390,9 +390,9 @@ func TestHybridTablesE2E(t *testing.T) {
 			sct.mustExec("INSERT INTO test_hybrid_table_2 VALUES (3, 'c')", nil)
 
 			rows := sct.mustQuery("SELECT * FROM test_hybrid_table_2", nil)
-			defer rows.Close()
+			defer assertNilF(t, rows.Close())
 			row := make([]driver.Value, 2)
-			rows.Next(row)
+			assertNilF(t, rows.Next(row))
 			if row[0] != "3" || row[1] != "c" {
 				t.Errorf("expected 3, got %v and expected c, got %v", row[0], row[1])
 			}
@@ -406,7 +406,7 @@ func TestHybridTablesE2E(t *testing.T) {
 			sct.mustExec("INSERT INTO test_hybrid_table VALUES (4, 'd')", nil)
 
 			rows := sct.mustQuery("SELECT * FROM test_hybrid_table", nil)
-			defer rows.Close()
+			defer assertNilF(t, rows.Close())
 			if len(sct.sc.queryContextCache.entries) != 3 {
 				t.Errorf("expected three entries in query context cache, got: %v", sct.sc.queryContextCache.entries)
 			}
@@ -550,13 +550,13 @@ func TestConnIsCleanAfterClose(t *testing.T) {
 	var dbName string
 	rows1 := dbt.mustQuery("SELECT CURRENT_DATABASE()")
 	rows1.Next()
-	rows1.Scan(&dbName)
+	assertNilF(t, rows1.Scan(&dbName))
 
 	newDbName := fmt.Sprintf("test_database_%v", runID)
 	dbt.mustExec("CREATE DATABASE " + newDbName)
 
-	rows1.Close()
-	conn.Close()
+	assertNilF(t, rows1.Close())
+	assertNilF(t, conn.Close())
 
 	conn2, err := db.Conn(ctx)
 	if err != nil {
@@ -567,9 +567,9 @@ func TestConnIsCleanAfterClose(t *testing.T) {
 
 	var dbName2 string
 	rows2 := dbt2.mustQuery("SELECT CURRENT_DATABASE()")
-	defer rows2.Close()
+	defer assertNilF(t, rows2.Close())
 	rows2.Next()
-	rows2.Scan(&dbName2)
+	assertNilF(t, rows2.Scan(&dbName2))
 
 	if !strings.EqualFold(dbName, dbName2) {
 		t.Errorf("fresh connection from pool should have original database")

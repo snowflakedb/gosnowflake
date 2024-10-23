@@ -124,13 +124,13 @@ func TestJWTTokenTimeout(t *testing.T) {
 	dsn = appendPrivateKeyString(&dsn, testPrivKey)
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer db.Close()
 	ctx := context.Background()
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer conn.Close()
 

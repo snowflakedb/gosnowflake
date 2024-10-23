@@ -39,7 +39,9 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		return nil, err
 	}
 	if config.Tracing != "" {
-		logger.SetLogLevel(config.Tracing)
+		if err := logger.SetLogLevel(config.Tracing); err != nil {
+			return nil, err
+		}
 	}
 	logger.WithContext(ctx).Info("OpenWithConfig")
 	sc, err := buildSnowflakeConn(ctx, config)
@@ -83,9 +85,9 @@ func init() {
 	if !skipRegisteration() {
 		sql.Register("snowflake", &SnowflakeDriver{})
 	}
-	logger.SetLogLevel("error")
+	_ = logger.SetLogLevel("error")
 	if runningOnGithubAction() {
-		logger.SetLogLevel("fatal")
+		_ = logger.SetLogLevel("fatal")
 	}
 	paramsMutex = &sync.Mutex{}
 }

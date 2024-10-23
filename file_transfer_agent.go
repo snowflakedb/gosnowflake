@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -469,7 +470,9 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 					if err != nil {
 						return err
 					}
-					io.ReadAll(r) // flush out tee buffer
+					if _, err = io.ReadAll(r); err != nil { // flush out tee buffer
+						return err
+					}
 				} else {
 					mtype, err = mimetype.DetectFile(fileName)
 					if err != nil {
@@ -797,7 +800,9 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 
 			for _, result := range retryMeta {
 				if result.resStatus == renewPresignedURL {
-					sfa.updateFileMetadataWithPresignedURL()
+					if err = sfa.updateFileMetadataWithPresignedURL(); err != nil {
+						return err
+					}
 					break
 				}
 			}
@@ -972,7 +977,7 @@ func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fil
 		if !meta.resStatus.isSet() {
 			meta.resStatus = errStatus
 		}
-		meta.errorDetails = fmt.Errorf(err.Error() + ", file=" + meta.dstFileName)
+		meta.errorDetails = errors.New(err.Error() + ", file=" + meta.dstFileName)
 		return meta, err
 	}
 	return meta, nil

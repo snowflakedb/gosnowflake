@@ -185,14 +185,15 @@ func TestUnitDownloadWithInvalidLocalPath(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer assertNilF(t, os.RemoveAll(tmpDir))
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(testData)
 	if err != nil {
 		t.Error(err)
 	}
-	f.WriteString("test1,test2\ntest3,test4\n")
-	f.Close()
+	_, err = f.WriteString("test1,test2\ntest3,test4\n")
+	assertNilF(t, err)
+	assertNilF(t, f.Close())
 
 	runDBTest(t, func(dbt *DBTest) {
 		if _, err = dbt.exec("use role sysadmin"); err != nil {
@@ -742,7 +743,8 @@ func createWriteonlyFile(dir, filename string) error {
 func TestUnitUpdateProgress(t *testing.T) {
 	var b bytes.Buffer
 	buf := io.Writer(&b)
-	buf.Write([]byte("testing"))
+	_, err := buf.Write([]byte("testing"))
+	assertNilF(t, err)
 
 	spp := &snowflakeProgressPercentage{
 		filename:        "test.txt",
@@ -772,14 +774,15 @@ func TestCustomTmpDirPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer assertNilF(t, os.RemoveAll(tmpDir))
 	uploadFile := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(uploadFile)
 	if err != nil {
 		t.Error(err)
 	}
-	f.WriteString("test1,test2\ntest3,test4\n")
-	f.Close()
+	_, err = f.WriteString("test1,test2\ntest3,test4\n")
+	assertNilF(t, err)
+	assertNilF(t, f.Close())
 
 	uploadMeta := &fileMetadata{
 		name:              "data.txt.gz",
@@ -846,21 +849,22 @@ func TestReadonlyTmpDirPathShouldFail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer assertNilF(t, os.RemoveAll(tmpDir))
 
 	uploadFile := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(uploadFile)
 	if err != nil {
 		t.Error(err)
 	}
-	f.WriteString("test1,test2\ntest3,test4\n")
-	f.Close()
+	_, err = f.WriteString("test1,test2\ntest3,test4\n")
+	assertNilF(t, err)
+	assertNilF(t, f.Close())
 
 	err = os.Chmod(tmpDir, 0400)
 	if err != nil {
 		t.Fatalf("cannot mark directory as readonly: %v", err)
 	}
-	defer os.Chmod(tmpDir, 0600)
+	defer assertNilF(t, os.Chmod(tmpDir, 0600))
 
 	uploadMeta := &fileMetadata{
 		name:              "data.txt.gz",
@@ -908,14 +912,15 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 	if err != nil {
 		t.Fatalf("cannot create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer assertNilF(t, os.RemoveAll(tmpDir))
 	uploadFile := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(uploadFile)
 	if err != nil {
 		t.Error(err)
 	}
-	f.WriteString("test1,test2\ntest3,test4\n")
-	f.Close()
+	_, err = f.WriteString("test1,test2\ntest3,test4\n")
+	assertNilF(t, err)
+	assertNilF(t, f.Close())
 
 	uploadMeta := &fileMetadata{
 		name:              "data.txt.gz",
@@ -968,7 +973,9 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 	if isStream {
 		fileStream, _ := os.Open(uploadFile)
 		ctx := WithFileStream(context.Background(), fileStream)
-		uploadMeta.srcStream = getFileStream(ctx)
+		if uploadMeta.srcStream, err = getFileStream(ctx); err != nil {
+			assertNilF(t, err)
+		}
 	}
 
 	_, err = sfa.uploadOneFile(uploadMeta)
@@ -983,7 +990,7 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove("download.txt")
+	defer assertNilF(t, os.Remove("download.txt"))
 	if downloadMeta.resStatus != downloaded {
 		t.Fatalf("failed to download file")
 	}

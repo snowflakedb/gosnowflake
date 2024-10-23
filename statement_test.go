@@ -264,7 +264,7 @@ func TestAsyncFailQueryId(t *testing.T) {
 				t.Error("should be in progress")
 			}
 			// Wait for the query to complete
-			rows.Next(nil)
+			assertNilF(t, rows.Next(nil))
 			if rows.(SnowflakeRows).GetStatus() != QueryFailed {
 				t.Error("should have failed")
 			}
@@ -428,7 +428,7 @@ func TestCallStatement(t *testing.T) {
 		expected := "1 \"[2,3]\" [2,3]"
 		var out string
 
-		dbt.exec("ALTER SESSION SET USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS = true")
+		dbt.mustExec("ALTER SESSION SET USE_STATEMENT_TYPE_CALL_FOR_STORED_PROC_CALLS = true")
 
 		dbt.mustExec("create or replace procedure " +
 			"TEST_SP_CALL_STMT_ENABLED(in1 float, in2 variant) " +

@@ -69,9 +69,9 @@ func TestBindingFloat64(t *testing.T) {
 				dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE test (id int, value %v)", v))
 				dbt.mustExec("INSERT INTO test VALUES (1, ?)", expected)
 				rows = dbt.mustQuery("SELECT value FROM test WHERE id = ?", 1)
-				defer rows.Close()
+				defer assertNilF(t, rows.Close())
 				if rows.Next() {
-					rows.Scan(&out)
+					assertNilF(t, rows.Scan(&out))
 					if expected != out {
 						dbt.Errorf("%s: %g != %g", v, expected, out)
 					}
@@ -144,7 +144,7 @@ func TestBindingDateTimeTimestamp(t *testing.T) {
 			dbt.Errorf("failed to get columns. got: %v", cols)
 		}
 		if rows.Next() {
-			rows.Scan(&ntz, &vltz, &dt, &tm)
+			assertNilF(t, rows.Scan(&ntz, &vltz, &dt, &tm))
 			if expected.UnixNano() != ntz.UnixNano() {
 				dbt.Errorf("returned TIMESTAMP_NTZ value didn't match. expected: %v:%v, got: %v:%v",
 					expected.UnixNano(), expected, ntz.UnixNano(), ntz)
@@ -200,15 +200,15 @@ func TestBindingTimestampTZ(t *testing.T) {
 		if err != nil {
 			dbt.Fatal(err.Error())
 		}
-		defer stmt.Close()
+		defer assertNilF(t, stmt.Close())
 		if _, err = stmt.Exec(DataTypeTimestampTz, expected); err != nil {
 			dbt.Fatal(err)
 		}
 		rows := dbt.mustQuery("SELECT tz FROM tztest WHERE id=?", 1)
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 		var v time.Time
 		if rows.Next() {
-			rows.Scan(&v)
+			assertNilF(t, rows.Scan(&v))
 			if expected.UnixNano() != v.UnixNano() {
 				dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
 					expected.UnixNano(), expected, v.UnixNano(), v)
@@ -251,10 +251,10 @@ func TestBindingTimePtrInStruct(t *testing.T) {
 			}
 
 			rows := dbt.mustQuery("SELECT tz FROM timeStructTest WHERE id=?", &expectedID)
-			defer rows.Close()
+			defer assertNilF(t, rows.Close())
 			var v time.Time
 			if rows.Next() {
-				rows.Scan(&v)
+				assertNilF(t, rows.Scan(&v))
 				if expectedTime.UnixNano() != v.UnixNano() {
 					dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
 						expectedTime.UnixNano(), expectedTime, v.UnixNano(), v)
@@ -298,10 +298,10 @@ func TestBindingTimeInStruct(t *testing.T) {
 			}
 
 			rows := dbt.mustQuery("SELECT tz FROM timeStructTest WHERE id=?", &expectedID)
-			defer rows.Close()
+			defer assertNilF(t, rows.Close())
 			var v time.Time
 			if rows.Next() {
-				rows.Scan(&v)
+				assertNilF(t, rows.Scan(&v))
 				if expectedTime.UnixNano() != v.UnixNano() {
 					dbt.Errorf("returned value didn't match. expected: %v:%v, got: %v:%v",
 						expectedTime.UnixNano(), expectedTime, v.UnixNano(), v)
@@ -318,7 +318,7 @@ func TestBindingInterface(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(
 			WithHigherPrecision(context.Background()), selectVariousTypes)
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
@@ -344,7 +344,7 @@ func TestBindingInterface(t *testing.T) {
 func TestBindingInterfaceString(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQuery(selectVariousTypes)
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
@@ -381,7 +381,7 @@ func TestBulkArrayBindingInterfaceNil(t *testing.T) {
 			Array(&nilArray, TimestampTZType), Array(&nilArray, DateType),
 			Array(&nilArray, TimeType))
 		rows := dbt.mustQuery(selectAllSQL)
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 
 		var v0 sql.NullInt32
 		var v1 sql.NullFloat64
@@ -464,7 +464,7 @@ func TestBulkArrayBindingInterface(t *testing.T) {
 		dbt.mustExec(insertSQLBulkArray, Array(&intArray), Array(&fltArray),
 			Array(&boolArray), Array(&strArray), Array(&byteArray), Array(&int64Array))
 		rows := dbt.mustQuery(selectAllSQLBulkArray)
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 
 		var v0 sql.NullInt32
 		var v1 sql.NullFloat64
@@ -567,7 +567,7 @@ func TestBulkArrayBindingInterfaceDateTimeTimestamp(t *testing.T) {
 			Array(&tmArray, TimeType))
 
 		rows := dbt.mustQuery(selectAllSQLBulkArrayDateTimeTimestamp)
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 
 		var v0, v1, v2, v3, v4 sql.NullTime
 
@@ -674,7 +674,7 @@ func testBindingArray(t *testing.T, bulk bool) {
 			Array(&tzArray, TimestampTZType), Array(&dtArray, DateType),
 			Array(&tmArray, TimeType))
 		rows := dbt.mustQuery(selectAllSQL)
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 
 		var v0 int
 		var v1 float64
@@ -754,7 +754,7 @@ func TestBulkArrayBinding(t *testing.T) {
 		}
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", dbname), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
 		rows := dbt.mustQuery("select * from " + dbname + " order by c1")
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 		cnt := 0
 		var i int
 		var s string
@@ -800,7 +800,7 @@ func TestBulkArrayBindingTimeWithPrecision(t *testing.T) {
 		}
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?)", dbname), Array(&secondsArr, TimeType), Array(&millisecondsArr, TimeType), Array(&microsecondsArr, TimeType), Array(&nanosecondsArr, TimeType))
 		rows := dbt.mustQuery("select * from " + dbname)
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 		cnt := 0
 		var s, ms, us, ns time.Time
 		for rows.Next() {
@@ -839,7 +839,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 				fmt.Sprintf("INSERT INTO %s VALUES (?)", tempTableName),
 				Array(&randomStrings))
 			rows := dbt.mustQuery("select count(*) from " + tempTableName)
-			defer rows.Close()
+			defer assertNilF(t, rows.Close())
 			if rows.Next() {
 				var count int
 				if err := rows.Scan(&count); err != nil {
@@ -849,7 +849,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 		}
 
 		rows := dbt.mustQuery("select count(*) from " + tempTableName)
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 		if rows.Next() {
 			var count int
 			if err := rows.Scan(&count); err != nil {
@@ -878,7 +878,7 @@ func TestBulkArrayMultiPartBindingInt(t *testing.T) {
 		}
 
 		rows := dbt.mustQuery("select * from binding_test order by c1")
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 		cnt := startNum
 		var i int
 		for rows.Next() {
@@ -926,7 +926,7 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 		}
 
 		rows := dbt.mustQuery("select * from binding_test order by c1,c2")
-		defer rows.Close()
+		defer assertNilF(t, rows.Close())
 		cnt := startNum
 		var i sql.NullInt32
 		var s sql.NullString
@@ -1007,7 +1007,7 @@ func TestFunctionParameters(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer rows.Close()
+				defer assertNilF(t, rows.Close())
 				if rows.Err() != nil {
 					t.Fatal(err)
 				}
@@ -1107,7 +1107,7 @@ func TestVariousBindingModes(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					defer rows.Close()
+					defer assertNilF(t, rows.Close())
 					if !rows.Next() {
 						t.Fatal("Expected to return a row")
 					}
@@ -1155,7 +1155,7 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 			t.Run(fmt.Sprintf("testLOB_%v_useArrowFormat=%v", strconv.Itoa(testSize), strconv.FormatBool(useArrowFormat)), func(t *testing.T) {
 				rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
 				assertNilF(t, err)
-				defer rows.Close()
+				defer assertNilF(t, rows.Close())
 				assertTrueF(t, rows.Next(), fmt.Sprintf("no rows returned for the LOB size %v", testSize))
 
 				// retrieve the result
@@ -1166,7 +1166,7 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 				assertEqualF(t, len(res), testSize)
 			})
 		}
-		dbt.exec(unsetFeatureMaxLOBSize)
+		dbt.mustExec(unsetFeatureMaxLOBSize)
 	})
 }
 
@@ -1186,7 +1186,7 @@ func TestMaxLobSize(t *testing.T) {
 			dbt.mustExec(enableLargeVarcharAndBinary)
 			rows, err := dbt.query("select randstr(20000000, random())")
 			assertNilF(t, err)
-			rows.Close()
+			defer assertNilF(t, rows.Close())
 		})
 	})
 }
@@ -1243,7 +1243,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		var c2 string
 		var c3 int
 
-		dbt.exec(enableFeatureMaxLOBSize)
+		dbt.mustExec(enableFeatureMaxLOBSize)
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
 		} else {
@@ -1265,7 +1265,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 				}
 				rows, err := dbt.query("SELECT * FROM lob_test_table")
 				assertNilF(t, err)
-				defer rows.Close()
+				defer assertNilF(t, rows.Close())
 				assertTrueF(t, rows.Next(), fmt.Sprintf("%s: no rows returned", tc.testDesc))
 
 				err = rows.Scan(&c1, &c2, &c3)
@@ -1306,6 +1306,6 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 			})
 			dbt.mustExec("DROP TABLE IF EXISTS lob_test_table")
 		}
-		dbt.exec(unsetFeatureMaxLOBSize)
+		dbt.mustExec(unsetFeatureMaxLOBSize)
 	})
 }

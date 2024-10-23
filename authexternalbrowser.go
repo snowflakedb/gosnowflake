@@ -36,7 +36,7 @@ const (
 
 // Builds a response to show to the user after successfully
 // getting a response from Snowflake.
-func buildResponse(application string) bytes.Buffer {
+func buildResponse(application string) (bytes.Buffer, error) {
 	body := fmt.Sprintf(successHTML, application)
 	t := &http.Response{
 		Status:        "200 OK",
@@ -50,8 +50,8 @@ func buildResponse(application string) bytes.Buffer {
 		Header:        make(http.Header),
 	}
 	var b bytes.Buffer
-	t.Write(&b)
-	return b
+	err := t.Write(&b)
+	return b, err
 }
 
 // This opens a socket that listens on all available unicast
@@ -135,7 +135,6 @@ func getIdpURLProofKey(
 		sr.TokenAccessor.SetTokens("", "", -1)
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
-			code = -1
 			return "", "", err
 		}
 		return "", "", &SnowflakeError{
@@ -305,16 +304,25 @@ func doAuthenticateByExternalBrowser(
 			if n < bufSize {
 				// We successfully read all data
 				s := string(buf.Bytes()[:total])
-				encodedSamlResponse, errAccept = getTokenFromResponse(s)
+				encodedSamlResponse, err = getTokenFromResponse(s)
+				if err != nil {
+					errChan <- err
+				}
 				break
 			}
 			buf.Grow(bufSize)
 		}
 		if encodedSamlResponse != "" {
-			httpResponse := buildResponse(application)
-			c.Write(httpResponse.Bytes())
+			httpResponse, err := buildResponse(application)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			_, err = c.Write(httpResponse.Bytes())
+			errChan <- err
+			return
 		}
-		c.Close()
+		err = c.Close()
 		encodedSamlResponseChan <- encodedSamlResponse
 		errChan <- errAccept
 	}(conn)

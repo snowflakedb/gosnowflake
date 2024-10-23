@@ -37,7 +37,7 @@ func main() {
 	}
 	defer db.Close()
 
-	sf.GetLogger().SetLogLevel("debug")
+	_ = sf.GetLogger().SetLogLevel("debug")
 
 	query := "SELECT 1 FROM TABLE(GENERATOR(ROWCOUNT=>10000000))"
 	rows, err := db.Query(query) // no cancel is allowed
@@ -60,7 +60,7 @@ func main() {
 		return
 	}
 
-	sf.GetLogger().SetLogLevel("error")
+	_ = sf.GetLogger().SetLogLevel("error")
 }
 
 func printExampleDescription() {

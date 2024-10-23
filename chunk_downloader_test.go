@@ -99,9 +99,9 @@ func TestWithArrowBatchesWhenQueryReturnsSomeRowsInGivenFormatUsingNativeGoSQLIn
 					return err
 				})
 				assertNilF(t, err)
-				defer rows.Close()
+				defer assertNilF(t, rows.Close())
 				values := make([]driver.Value, 1)
-				rows.Next(values)
+				assertNilF(t, rows.Next(values))
 				assertEqualE(t, values[0], nil)
 			})
 		})
@@ -128,7 +128,7 @@ func TestWithArrowBatchesWhenQueryReturnsSomeRowsInGivenFormat(t *testing.T) {
 					dbt.mustExec(forceJSON)
 				}
 				rows := dbt.mustQueryContext(WithArrowBatches(context.Background()), "SELECT 1")
-				defer rows.Close()
+				defer assertNilF(t, rows.Close())
 				assertFalseF(t, rows.Next())
 			})
 		})

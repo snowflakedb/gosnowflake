@@ -291,8 +291,9 @@ func TestServiceName(t *testing.T) {
 
 	expectServiceName := serviceNameStub
 	for i := 0; i < 5; i++ {
-		sc.exec(context.Background(), "", false, /* noResult */
+		_, err := sc.exec(context.Background(), "", false, /* noResult */
 			false /* isInternal */, false /* describeOnly */, nil)
+		assertNilF(t, err)
 		if actualServiceName, ok := sc.cfg.Params[serviceName]; ok {
 			if *actualServiceName != expectServiceName {
 				t.Errorf("service name mis-match. expected %v, actual %v",
@@ -354,21 +355,21 @@ func TestClientSessionPersist(t *testing.T) {
 }
 
 func TestFetchResultByQueryID(t *testing.T) {
-	fetchResultByQueryID(t, nil, nil)
+	assertNilE(t, fetchResultByQueryID(t, nil, nil))
 }
 
 func TestFetchRunningQueryByID(t *testing.T) {
-	fetchResultByQueryID(t, returnQueryIsRunningStatus, nil)
+	assertNilE(t, fetchResultByQueryID(t, returnQueryIsRunningStatus, nil))
 }
 
 func TestFetchErrorQueryByID(t *testing.T) {
-	fetchResultByQueryID(t, returnQueryIsErrStatus, &SnowflakeError{
-		Number: ErrQueryReportedError})
+	assertNilE(t, fetchResultByQueryID(t, returnQueryIsErrStatus, &SnowflakeError{
+		Number: ErrQueryReportedError}))
 }
 
 func TestFetchMalformedJsonQueryByID(t *testing.T) {
 	expectedErr := errors.New("invalid character '}' after object key")
-	fetchResultByQueryID(t, returnQueryMalformedJSON, expectedErr)
+	assertNilE(t, fetchResultByQueryID(t, returnQueryMalformedJSON, expectedErr))
 }
 
 func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,

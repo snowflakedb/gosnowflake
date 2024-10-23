@@ -51,7 +51,8 @@ func TestGetTokenFromResponse(t *testing.T) {
 }
 
 func TestBuildResponse(t *testing.T) {
-	resp := buildResponse("Go")
+	resp, err := buildResponse("Go")
+	assertNilF(t, err)
 	bytes := resp.Bytes()
 	respStr := string(bytes[:])
 	if !strings.Contains(respStr, "Your identity was confirmed and propagated to Snowflake Go.\nYou can close this window now and go back where you started from.") {

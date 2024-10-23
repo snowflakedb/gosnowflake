@@ -16,7 +16,7 @@ func TestTransactionOptions(t *testing.T) {
 	var err error
 
 	conn := openConn(t)
-	defer conn.Close()
+	defer assertNilF(t, conn.Close())
 
 	tx, err = conn.BeginTx(context.Background(), &sql.TxOptions{})
 	if err != nil {
@@ -45,7 +45,7 @@ func TestTransactionContext(t *testing.T) {
 	var err error
 
 	conn := openConn(t)
-	defer conn.Close()
+	defer assertNilF(t, conn.Close())
 
 	ctx := context.Background()
 
@@ -60,7 +60,7 @@ func TestTransactionContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer assertNilF(t, tx.Rollback())
 
 	_, err = tx.ExecContext(ctx, "SELECT SYSTEM$WAIT(10, 'SECONDS')")
 	if err != nil {
