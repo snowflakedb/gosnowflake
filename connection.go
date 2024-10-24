@@ -187,7 +187,7 @@ func (sc *snowflakeConn) exec(
 		}
 	}
 
-	logger.WithContext(ctx).Info("Exec/Query SUCCESS")
+	logger.WithContext(ctx).Infof("Exec/Query SUCCESS with total=%v, returned=%v", data.Data.Total, data.Data.Returned)
 	if data.Data.FinalDatabaseName != "" {
 		sc.cfg.Database = data.Data.FinalDatabaseName
 	}
@@ -698,9 +698,9 @@ func (scd *snowflakeArrowStreamChunkDownloader) JSONData() [][]*string {
 
 // the server might have had an empty first batch, check if we can decode
 // that first batch, if not we skip it.
-func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() []byte {
+func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() ([]byte, error) {
 	if scd.RowSet.RowSetBase64 == "" {
-		return nil
+		return nil, nil
 	}
 
 	// first batch
@@ -708,17 +708,19 @@ func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() []byte {
 	if err != nil {
 		// match logic in buildFirstArrowChunk
 		// assume there's no first chunk if we can't decode the base64 string
-		return nil
+		logger.Warnf("skipping first batch as it is not a valid base64 response. %v", err)
+		return nil, err
 	}
 
 	// verify it's a valid ipc stream, otherwise skip it
 	rr, err := ipc.NewReader(bytes.NewReader(rowSetBytes))
 	if err != nil {
-		return nil
+		logger.Warnf("skipping first batch as it is not a valid IPC stream. %v", err)
+		return nil, err
 	}
 	rr.Release()
 
-	return rowSetBytes
+	return rowSetBytes, nil
 }
 
 func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamBatch, err error) {
@@ -727,7 +729,10 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 
 	out = make([]ArrowStreamBatch, chunkMetaLen, chunkMetaLen+1)
 	toFill := out
-	rowSetBytes := scd.maybeFirstBatch()
+	rowSetBytes, err := scd.maybeFirstBatch()
+	if err != nil {
+		return nil, err
+	}
 	// if there was no first batch in the response from the server,
 	// skip it and move on. toFill == out
 	// otherwise expand out by one to account for the first batch
@@ -751,12 +756,14 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 			Loc:     loc,
 			scd:     scd,
 		}
+		logger.Debugf("batch %v, numrows: %v", i, toFill[i].numrows)
 		totalCounted += int64(scd.ChunkMetas[i].RowCount)
 	}
 
 	if len(rowSetBytes) > 0 {
 		// if we had a first batch, fill in the numrows
 		out[0].numrows = scd.Total - totalCounted
+		logger.Debugf("first batch, numrows: %v", out[0].numrows)
 	}
 	return
 }
