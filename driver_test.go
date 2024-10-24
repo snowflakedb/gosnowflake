@@ -515,9 +515,9 @@ func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T)
 
 func TestBogusHostNameParameters(t *testing.T) {
 	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
-	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving"}, t)
+	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "connection broken"}, t)
 	invalidDNS = fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST")
-	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer", "EOF", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "failed to auth"}, t)
+	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer", "EOF", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "failed to auth", "connection broken"}, t)
 }
 
 func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
@@ -1487,7 +1487,7 @@ func TestCancelQuery(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		_, err := dbt.conn.QueryContext(ctx, "SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 100))")
+		_, err := dbt.conn.QueryContext(ctx, "CALL SYSTEM$WAIT(10, 'SECONDS')")
 		if err == nil {
 			dbt.Fatal("No timeout error returned")
 		}
