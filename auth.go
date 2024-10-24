@@ -223,8 +223,8 @@ func postAuth(
 	bodyCreator bodyCreatorType,
 	timeout time.Duration) (
 	data *authResponse, err error) {
-	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
-	params.Add(requestGUIDKey, NewUUID().String())
+	params.Set(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
+	params.Set(requestGUIDKey, NewUUID().String())
 
 	fullURL := sr.getFullURL(loginRequestPath, params)
 	logger.WithContext(ctx).Infof("full URL: %v", fullURL)

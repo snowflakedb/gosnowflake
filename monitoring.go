@@ -132,7 +132,7 @@ func (sc *snowflakeConn) checkQueryStatus(
 	*retStatus, error) {
 	headers := make(map[string]string)
 	param := make(url.Values)
-	param.Add(requestGUIDKey, NewUUID().String())
+	param.Set(requestGUIDKey, NewUUID().String())
 	if tok, _, _ := sc.rest.TokenAccessor.GetTokens(); tok != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, tok)
 	}
@@ -206,9 +206,9 @@ func (sc *snowflakeConn) getQueryResultResp(
 	}
 	paramsMutex.Unlock()
 	param := make(url.Values)
-	param.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
-	param.Add("clientStartTime", strconv.FormatInt(sc.currentTimeProvider.currentTime(), 10))
-	param.Add(requestGUIDKey, NewUUID().String())
+	param.Set(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
+	param.Set("clientStartTime", strconv.FormatInt(sc.currentTimeProvider.currentTime(), 10))
+	param.Set(requestGUIDKey, NewUUID().String())
 	token, _, _ := sc.rest.TokenAccessor.GetTokens()
 	if token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
