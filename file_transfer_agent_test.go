@@ -646,7 +646,50 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 	}
 }
 
-func TestUnitUpdateProgess(t *testing.T) {
+func TestUploadWhenErrorWithResultIsReturned(t *testing.T) {
+	var err error
+
+	info := execResponseStageInfo{
+		Location:     "/not/existing",
+		LocationType: "local",
+	}
+	dir, err := os.Getwd()
+	assertNilF(t, err)
+
+	uploadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "GCS",
+		noSleepingTime:    true,
+		client:            local,
+		sha256Digest:      "123456789abcdef",
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		srcFileName:       path.Join(dir, "/test_data/orders_100.csv"),
+		overwrite:         true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+	}
+
+	sfa := &snowflakeFileTransferAgent{
+		ctx: context.Background(),
+		sc: &snowflakeConn{
+			cfg: &Config{},
+		},
+		commandType:       uploadCommand,
+		command:           fmt.Sprintf("put file://%v/test_data/data1.txt @~", dir),
+		stageLocationType: local,
+		fileMetadata:      []*fileMetadata{&uploadMeta},
+		parallel:          1,
+	}
+
+	err = sfa.uploadFilesParallel([]*fileMetadata{&uploadMeta})
+	if err == nil {
+		t.Fatal("should propagate error")
+	}
+}
+
+func TestUnitUpdateProgress(t *testing.T) {
 	var b bytes.Buffer
 	buf := io.Writer(&b)
 	buf.Write([]byte("testing"))

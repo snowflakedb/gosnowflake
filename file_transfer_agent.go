@@ -746,12 +746,10 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 			// append errors with no result associated to separate array
 			var errorMessages []string
 			for i, result := range results {
-				if result == nil {
-					if errors[i] == nil {
-						errorMessages = append(errorMessages, "unknown error")
-					} else {
-						errorMessages = append(errorMessages, errors[i].Error())
-					}
+				if result == nil && errors[i] == nil {
+					errorMessages = append(errorMessages, "unknown error")
+				} else if errors[i] != nil {
+					errorMessages = append(errorMessages, errors[i].Error())
 				}
 			}
 			if errorMessages != nil {
