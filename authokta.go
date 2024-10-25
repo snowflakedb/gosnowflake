@@ -215,7 +215,7 @@ func postAuthSAML(
 	data *authResponse, err error) {
 
 	params := &url.Values{}
-	params.Add(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
+	params.Set(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	fullURL := sr.getFullURL(authenticatorRequestPath, params)
 
 	logger.WithContext(ctx).Infof("fullURL: %v", fullURL)
