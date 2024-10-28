@@ -161,7 +161,7 @@ func writeFileStream(ctx context.Context, streamBuf *bytes.Buffer) error {
 
 func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParameter) {
 	// other session parameters (not all)
-	logger.WithContext(sc.ctx).Infof("params: %#v", parameters)
+	logger.WithContext(sc.ctx).Tracef("params: %#v", parameters)
 	for _, param := range parameters {
 		v := ""
 		switch param.Value.(type) {
