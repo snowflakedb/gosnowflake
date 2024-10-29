@@ -304,25 +304,23 @@ func doAuthenticateByExternalBrowser(
 			if n < bufSize {
 				// We successfully read all data
 				s := string(buf.Bytes()[:total])
-				encodedSamlResponse, err = getTokenFromResponse(s)
-				if err != nil {
-					errChan <- err
-				}
+				encodedSamlResponse, errAccept = getTokenFromResponse(s)
 				break
 			}
 			buf.Grow(bufSize)
 		}
 		if encodedSamlResponse != "" {
 			httpResponse, err := buildResponse(application)
-			if err != nil {
-				errChan <- err
-				return
+			if err != nil && errAccept == nil {
+				errAccept = err
 			}
-			_, err = c.Write(httpResponse.Bytes())
-			errChan <- err
-			return
+			if _, err = c.Write(httpResponse.Bytes()); err != nil {
+				errAccept = err
+			}
 		}
-		err = c.Close()
+		if err := c.Close(); err != nil {
+			logger.Warnf("error while closing browser connection. %v", err)
+		}
 		encodedSamlResponseChan <- encodedSamlResponse
 		errChan <- errAccept
 	}(conn)

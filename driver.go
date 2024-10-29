@@ -75,14 +75,14 @@ func runningOnGithubAction() bool {
 // to the driver type, which in this case is "snowflake" and SnowflakeDriver{}. If you wish to call
 // into multiple versions of the driver from one client, this is needed because calling register
 // twice with the same name on init will cause the driver to panic.
-func skipRegisteration() bool {
+func skipRegistration() bool {
 	return os.Getenv("GOSNOWFLAKE_SKIP_REGISTERATION") != ""
 }
 
 var logger = CreateDefaultLogger()
 
 func init() {
-	if !skipRegisteration() {
+	if !skipRegistration() {
 		sql.Register("snowflake", &SnowflakeDriver{})
 	}
 	_ = logger.SetLogLevel("error")

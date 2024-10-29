@@ -629,7 +629,9 @@ func TestCRUD(t *testing.T) {
 
 		// Read
 		rows = dbt.mustQuery("SELECT value FROM test")
-		defer assertNilF(t, rows.Close())
+		defer func(rows *RowsExtended) {
+			assertNilF(t, rows.Close())
+		}(rows)
 		if rows.Next() {
 			assertNilF(t, rows.Scan(&out))
 			if !out {
@@ -654,7 +656,9 @@ func TestCRUD(t *testing.T) {
 
 		// Check Update
 		rows = dbt.mustQuery("SELECT value FROM test")
-		defer assertNilF(t, rows.Close())
+		defer func(rows *RowsExtended) {
+			assertNilF(t, rows.Close())
+		}(rows)
 		if rows.Next() {
 			assertNilF(t, rows.Scan(&out))
 			if out {
@@ -709,7 +713,9 @@ func testInt(t *testing.T, json bool) {
 				dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
 				dbt.mustExec("INSERT INTO test VALUES (?)", in)
 				rows = dbt.mustQuery("SELECT value FROM test")
-				defer assertNilF(t, rows.Close())
+				defer func() {
+					assertNilF(t, rows.Close())
+				}()
 				if rows.Next() {
 					assertNilF(t, rows.Scan(&out))
 					if in != out {
@@ -743,7 +749,9 @@ func testFloat32(t *testing.T, json bool) {
 				dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
 				dbt.mustExec("INSERT INTO test VALUES (?)", in)
 				rows = dbt.mustQuery("SELECT value FROM test")
-				defer assertNilF(t, rows.Close())
+				defer func() {
+					assertNilF(t, rows.Close())
+				}()
 				if rows.Next() {
 					err := rows.Scan(&out)
 					if err != nil {
@@ -779,7 +787,9 @@ func testFloat64(t *testing.T, json bool) {
 				dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
 				dbt.mustExec("INSERT INTO test VALUES (42.23)")
 				rows = dbt.mustQuery("SELECT value FROM test")
-				defer assertNilF(t, rows.Close())
+				defer func() {
+					assertNilF(t, rows.Close())
+				}()
 				if rows.Next() {
 					assertNilF(t, rows.Scan(&out))
 					if expected != out {
@@ -814,7 +824,9 @@ func testString(t *testing.T, json bool) {
 				dbt.mustExec("INSERT INTO test VALUES (?)", in)
 
 				rows = dbt.mustQuery("SELECT value FROM test")
-				defer assertNilF(t, rows.Close())
+				defer func() {
+					assertNilF(t, rows.Close())
+				}()
 				if rows.Next() {
 					assertNilF(t, rows.Scan(&out))
 					if in != out {
@@ -1282,11 +1294,13 @@ func testNULL(t *testing.T, json bool) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test (dummmy1 int, value int, dummy2 int)")
 		dbt.mustExec("INSERT INTO test VALUES (?, ?, ?)", 1, nil, 2)
 
-		var out interface{}
+		var dummy1, out, dummy2 interface{}
 		rows := dbt.mustQuery("SELECT * FROM test")
-		defer assertNilF(t, rows.Close())
+		defer func() {
+			assertNilF(t, rows.Close())
+		}()
 		if rows.Next() {
-			assertNilF(t, rows.Scan(&out))
+			assertNilF(t, rows.Scan(&dummy1, &out, &dummy2))
 			if out != nil {
 				dbt.Errorf("%v != nil", out)
 			}

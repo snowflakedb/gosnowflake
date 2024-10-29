@@ -185,7 +185,9 @@ func TestUnitDownloadWithInvalidLocalPath(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer assertNilF(t, os.RemoveAll(tmpDir))
+	defer func() {
+		assertNilF(t, os.RemoveAll(tmpDir))
+	}()
 	testData := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(testData)
 	if err != nil {
@@ -652,7 +654,7 @@ func TestUploadWhenErrorWithResultIsReturned(t *testing.T) {
 	if isWindows {
 		t.Skip("permission model is different")
 	}
-	
+
 	for _, tc := range []struct {
 		shouldRaiseError bool
 		resultCondition  func(t *testing.T, err error)
@@ -774,7 +776,9 @@ func TestCustomTmpDirPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot create temp directory: %v", err)
 	}
-	defer assertNilF(t, os.RemoveAll(tmpDir))
+	defer func() {
+		assertNilF(t, os.RemoveAll(tmpDir))
+	}()
 	uploadFile := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(uploadFile)
 	if err != nil {
@@ -849,7 +853,9 @@ func TestReadonlyTmpDirPathShouldFail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot create temp directory: %v", err)
 	}
-	defer assertNilF(t, os.RemoveAll(tmpDir))
+	defer func() {
+		assertNilF(t, os.RemoveAll(tmpDir))
+	}()
 
 	uploadFile := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(uploadFile)
@@ -860,11 +866,13 @@ func TestReadonlyTmpDirPathShouldFail(t *testing.T) {
 	assertNilF(t, err)
 	assertNilF(t, f.Close())
 
-	err = os.Chmod(tmpDir, 0400)
+	err = os.Chmod(tmpDir, 0500)
 	if err != nil {
 		t.Fatalf("cannot mark directory as readonly: %v", err)
 	}
-	defer assertNilF(t, os.Chmod(tmpDir, 0600))
+	defer func() {
+		assertNilF(t, os.Chmod(tmpDir, 0700))
+	}()
 
 	uploadMeta := &fileMetadata{
 		name:              "data.txt.gz",
@@ -912,7 +920,7 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 	if err != nil {
 		t.Fatalf("cannot create temp directory: %v", err)
 	}
-	defer assertNilF(t, os.RemoveAll(tmpDir))
+	defer os.RemoveAll(tmpDir)
 	uploadFile := filepath.Join(tmpDir, "data.txt")
 	f, err := os.Create(uploadFile)
 	if err != nil {
@@ -990,7 +998,9 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer assertNilF(t, os.Remove("download.txt"))
+	defer func() {
+		assertNilF(t, os.Remove("download.txt"))
+	}()
 	if downloadMeta.resStatus != downloaded {
 		t.Fatalf("failed to download file")
 	}

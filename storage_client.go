@@ -145,7 +145,8 @@ func (rsu *remoteStorageUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 		if meta.resStatus == uploaded || meta.resStatus == skipped {
 			for j := 0; j < 10; j++ {
 				status := meta.resStatus
-				utilClass.getFileHeader(meta, meta.dstFileName)
+				_, err := utilClass.getFileHeader(meta, meta.dstFileName)
+				logger.Infof("error while getting file %v header. %v", meta.dstFileSize, err)
 				// check file header status and verify upload/skip
 				if meta.resStatus == notFoundFile {
 					time.Sleep(time.Second) // wait 1 second

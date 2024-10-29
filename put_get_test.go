@@ -32,11 +32,15 @@ func TestPutError(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer assertNilF(t, f.Close())
+	defer func() {
+	    assertNilF(t, f.Close())
+	}()
 	_, err = f.WriteString("test1")
 	assertNilF(t, err)
 	assertNilF(t, os.Chmod(file1, 0000))
-	defer assertNilF(t, os.Chmod(file1, 0644))
+	defer func() {
+	    assertNilF(t, os.Chmod(file1, 0644))
+	}()
 
 	data := &execResponseData{
 		Command:           string(uploadCommand),
@@ -212,7 +216,9 @@ func TestPutLocalFile(t *testing.T) {
 
 		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 string
 		rows := dbt.mustQuery("copy into gotest_putget_t1")
-		defer assertNilF(t, rows.Close())
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 		for rows.Next() {
 			assertNilF(t, rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9))
 			if s1 != "LOADED" {
@@ -221,7 +227,9 @@ func TestPutLocalFile(t *testing.T) {
 		}
 
 		rows2 := dbt.mustQuery("select count(*) from gotest_putget_t1")
-		defer assertNilF(t, rows2.Close())
+		defer func() {
+		    assertNilF(t, rows2.Close())
+		}()
 		var i int
 		if rows2.Next() {
 			assertNilF(t, rows2.Scan(&i))
@@ -231,7 +239,9 @@ func TestPutLocalFile(t *testing.T) {
 		}
 
 		rows3 := dbt.mustQuery(`select STATUS from information_schema .load_history where table_name='gotest_putget_t1'`)
-		defer assertNilF(t, rows3.Close())
+		defer func() {
+		    assertNilF(t, rows3.Close())
+		}()
 		if rows3.Next() {
 			assertNilF(t, rows3.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9))
 			if s1 != "LOADED" {
@@ -252,7 +262,9 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 	_, err = f.WriteString(originalContents)
 	assertNilF(t, err)
 	assertNilF(t, f.Sync())
-	defer assertNilF(t, f.Close())
+	defer func() {
+	    assertNilF(t, f.Close())
+	}()
 
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("rm @~/test_put_uncompress_file")
@@ -263,7 +275,9 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/test_put_uncompress_file")
 		rows := dbt.mustQuery("ls @~/test_put_uncompress_file")
-		defer assertNilF(t, rows.Close())
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 		var file, s1, s2, s3 string
 		if rows.Next() {
 			err = rows.Scan(&file, &s1, &s2, &s3)
@@ -279,7 +293,9 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 		sql := fmt.Sprintf("get @~/test_put_uncompress_file/data.txt 'file://%v'", tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
-		defer assertNilF(t, rows2.Close())
+		defer func() {
+		    assertNilF(t, rows2.Close())
+		}()
 		for rows2.Next() {
 			err = rows2.Scan(&file, &s1, &s2, &s3)
 			assertNilE(t, err)
@@ -435,7 +451,9 @@ func testPutGet(t *testing.T, isStream bool) {
 		if err != nil {
 			t.Error(err)
 		}
-		defer assertNilF(t, fileStream.Close())
+		defer func() {
+		    assertNilF(t, fileStream.Close())
+		}()
 
 		var sqlText string
 		var rows *RowsExtended
@@ -450,7 +468,9 @@ func testPutGet(t *testing.T, isStream bool) {
 				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
 			rows = dbt.mustQuery(sqlText)
 		}
-		defer assertNilF(t, rows.Close())
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
 		assertTrueF(t, rows.Next(), "expected new rows")
@@ -478,7 +498,9 @@ func testPutGet(t *testing.T, isStream bool) {
 		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
-		defer assertNilF(t, rows2.Close())
+		defer func() {
+		    assertNilF(t, rows2.Close())
+		}()
 		for rows2.Next() {
 			if err = rows2.Scan(&s0, &s1, &s2, &s3); err != nil {
 				t.Error(err)
@@ -501,7 +523,9 @@ func testPutGet(t *testing.T, isStream bool) {
 		if isStream {
 			gz, err := gzip.NewReader(&streamBuf)
 			assertNilE(t, err)
-			defer assertNilF(t, gz.Close())
+			defer func() {
+			    assertNilF(t, gz.Close())
+			}()
 			for {
 				c := make([]byte, defaultChunkBufferSize)
 				if n, err := gz.Read(c); err != nil {
@@ -522,11 +546,15 @@ func testPutGet(t *testing.T, isStream bool) {
 			fileName := files[0]
 			f, err := os.Open(fileName)
 			assertNilE(t, err)
-			defer assertNilF(t, f.Close())
+			defer func() {
+			    assertNilF(t, f.Close())
+			}()
 
 			gz, err := gzip.NewReader(f)
 			assertNilE(t, err)
-			defer assertNilF(t, gz.Close())
+			defer func() {
+			    assertNilF(t, gz.Close())
+			}()
 
 			for {
 				c := make([]byte, defaultChunkBufferSize)
@@ -553,7 +581,9 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer assertNilF(t, os.RemoveAll(tmpDir))
+	defer func() {
+	    assertNilF(t, os.RemoveAll(tmpDir))
+	}()
 	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
 	tableName := randomString(5)
@@ -588,7 +618,9 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		sqlText = fmt.Sprintf(
 			sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
 		rows = dbt.mustQuery(sqlText)
-		defer assertNilF(t, rows.Close())
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
 		if rows.Next() {
@@ -612,7 +644,9 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQuery(sqlText)
-		defer assertNilF(t, rows2.Close())
+		defer func() {
+		    assertNilF(t, rows2.Close())
+		}()
 		for rows2.Next() {
 			if err = rows2.Scan(&s0, &s1, &s2, &s3); err != nil {
 				t.Error(err)
@@ -678,7 +712,9 @@ func TestPutGetLargeFile(t *testing.T) {
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/test_put_largefile")
 		rows := dbt.mustQuery("ls @~/test_put_largefile")
-		defer assertNilF(t, rows.Close())
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 		var file, s1, s2, s3 string
 		if rows.Next() {
 			err = rows.Scan(&file, &s1, &s2, &s3)
@@ -696,7 +732,9 @@ func TestPutGetLargeFile(t *testing.T) {
 		sql := fmt.Sprintf("get @%v 'file://%v'", "~/test_put_largefile/largefile.txt.gz", t.TempDir())
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
-		defer assertNilF(t, rows2.Close())
+		defer func() {
+		    assertNilF(t, rows2.Close())
+		}()
 		for rows2.Next() {
 			err = rows2.Scan(&file, &s1, &s2, &s3)
 			assertNilE(t, err)
@@ -712,7 +750,9 @@ func TestPutGetLargeFile(t *testing.T) {
 		var contents string
 		gz, err := gzip.NewReader(&streamBuf)
 		assertNilE(t, err)
-		defer assertNilF(t, gz.Close())
+		defer func() {
+		    assertNilF(t, gz.Close())
+		}()
 		for {
 			c := make([]byte, defaultChunkBufferSize)
 			if n, err := gz.Read(c); err != nil {
@@ -768,7 +808,9 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			defer dbt.mustExec("drop table " + tableName)
 			fileStream, err := os.Open(fname)
 			assertNilF(t, err)
-			defer assertNilF(t, fileStream.Close())
+			defer func() {
+			    assertNilF(t, fileStream.Close())
+			}()
 
 			// test PUT command
 			var sqlText string
@@ -777,7 +819,9 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			sqlText = fmt.Sprintf(
 				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
 			rows = dbt.mustQuery(sqlText)
-			defer assertNilF(t, rows.Close())
+			defer func() {
+			    assertNilF(t, rows.Close())
+			}()
 
 			var s0, s1, s2, s3, s4, s5, s6, s7 string
 			assertTrueF(t, rows.Next(), "expected new rows")
@@ -800,7 +844,9 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
 			sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 			rows2 := dbt.mustQuery(sqlText)
-			defer assertNilF(t, rows2.Close())
+			defer func() {
+			    assertNilF(t, rows2.Close())
+			}()
 			for rows2.Next() {
 				err = rows2.Scan(&s0, &s1, &s2, &s3)
 				assertNilE(t, err)
@@ -817,11 +863,15 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			f, err := os.Open(fileName)
 			assertNilE(t, err)
 
-			defer assertNilF(t, f.Close())
+			defer func() {
+			    assertNilF(t, f.Close())
+			}()
 			gz, err := gzip.NewReader(f)
 			assertNilE(t, err)
 
-			defer assertNilF(t, gz.Close())
+			defer func() {
+			    assertNilF(t, gz.Close())
+			}()
 			var contents string
 			for {
 				c := make([]byte, defaultChunkBufferSize)

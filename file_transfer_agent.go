@@ -35,7 +35,6 @@ type (
 const (
 	fileProtocol              = "file://"
 	dataSizeThreshold int64   = 64 * 1024 * 1024
-	injectWaitPut             = 0
 	isWindows                 = runtime.GOOS == "windows"
 	mb                float64 = 1024.0 * 1024.0
 )
@@ -835,15 +834,14 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMe
 			}
 			continue
 		} else if res.resStatus == renewPresignedURL {
-			sfa.updateFileMetadataWithPresignedURL()
+			if err = sfa.updateFileMetadataWithPresignedURL(); err != nil {
+				return err
+			}
 			continue
 		}
 
 		sfa.results = append(sfa.results, res)
 		idx++
-		if injectWaitPut > 0 {
-			time.Sleep(injectWaitPut)
-		}
 	}
 	return nil
 }
@@ -950,7 +948,9 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 
 			for _, result := range retryMeta {
 				if result.resStatus == renewPresignedURL {
-					sfa.updateFileMetadataWithPresignedURL()
+					if err = sfa.updateFileMetadataWithPresignedURL(); err != nil {
+						return err
+					}
 					break
 				}
 			}
@@ -1208,7 +1208,10 @@ func (spp *snowflakeProgressPercentage) updateProgress(filename string, startTim
 	if status != "" {
 		block := int(math.Round(float64(barLength) * progress))
 		text := fmt.Sprintf("\r%v(%.2fMB): [%v] %.2f%% %v ", filename, totalSize, strings.Repeat("#", block)+strings.Repeat("-", barLength-block), progress*100, status)
-		(*outputStream).Write([]byte(text))
+		_, err := (*outputStream).Write([]byte(text))
+		if err != nil {
+			logger.Warn("cannot write status of progress. %v", err)
+		}
 	}
 	return progress == 1.0
 }

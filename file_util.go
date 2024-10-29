@@ -40,9 +40,9 @@ func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.
 	return &c, c.Len(), nil
 }
 
-func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir string) (string, int64, error) {
+func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir string) (gzipFileName string, size int64, err error) {
 	basename := baseName(fileName)
-	gzipFileName := filepath.Join(tmpDir, basename+"_c.gz")
+	gzipFileName = filepath.Join(tmpDir, basename+"_c.gz")
 
 	fr, err := os.Open(fileName)
 	if err != nil {
@@ -92,7 +92,7 @@ func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) 
 	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*stream).Len()), nil
 }
 
-func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (string, int64, error) {
+func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (digest string, size int64, err error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		return "", 0, err

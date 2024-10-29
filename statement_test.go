@@ -264,7 +264,7 @@ func TestAsyncFailQueryId(t *testing.T) {
 				t.Error("should be in progress")
 			}
 			// Wait for the query to complete
-			assertNilF(t, rows.Next(nil))
+			assertNotNilE(t, rows.Next(nil))
 			if rows.(SnowflakeRows).GetStatus() != QueryFailed {
 				t.Error("should have failed")
 			}

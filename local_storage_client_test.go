@@ -17,7 +17,7 @@ func TestLocalUpload(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer assertNilF(t, os.RemoveAll(tmpDir))
+	defer os.RemoveAll(tmpDir)
 	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
 
@@ -111,7 +111,9 @@ func TestDownloadLocalFile(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer assertNilF(t, os.RemoveAll(tmpDir))
+	defer func() {
+		assertNilF(t, os.RemoveAll(tmpDir))
+	}()
 	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
 

@@ -154,7 +154,7 @@ func encryptFileCBC(
 	filename string,
 	chunkSize int,
 	tmpDir string) (
-	*encryptMetadata, string, error) {
+	meta *encryptMetadata, fileName string, err error) {
 	if chunkSize == 0 {
 		chunkSize = aes.BlockSize * 4 * 1024
 	}
@@ -177,7 +177,7 @@ func encryptFileCBC(
 		}
 	}()
 
-	meta, err := encryptStreamCBC(sfe, infile, tmpOutputFile, chunkSize)
+	meta, err = encryptStreamCBC(sfe, infile, tmpOutputFile, chunkSize)
 	if err != nil {
 		return nil, "", err
 	}
@@ -228,7 +228,7 @@ func decryptFileCBC(
 	sfe *snowflakeFileEncryption,
 	filename string,
 	chunkSize int,
-	tmpDir string) (string, error) {
+	tmpDir string) (outputFileName string, err error) {
 	tmpOutputFile, err := os.CreateTemp(tmpDir, baseName(filename)+"#")
 	if err != nil {
 		return "", err
@@ -330,7 +330,7 @@ func encryptFileGCM(
 	sfe *snowflakeFileEncryption,
 	filename string,
 	tmpDir string) (
-	*gcmEncryptMetadata, string, error) {
+	meta *gcmEncryptMetadata, outputFileName string, err error) {
 	tmpOutputFile, err := os.CreateTemp(tmpDir, baseName(filename)+"#")
 	if err != nil {
 		return nil, "", err
@@ -386,7 +386,7 @@ func encryptFileGCM(
 	if err != nil {
 		return nil, "", err
 	}
-	meta := &gcmEncryptMetadata{
+	meta = &gcmEncryptMetadata{
 		key:     base64.StdEncoding.EncodeToString(encryptedFileKey),
 		keyIv:   base64.StdEncoding.EncodeToString(keyIv),
 		dataIv:  base64.StdEncoding.EncodeToString(dataIv),
