@@ -278,7 +278,7 @@ func (sc *snowflakeConn) cleanup() {
 func (sc *snowflakeConn) Close() (err error) {
 	logger.WithContext(sc.ctx).Infoln("Close")
 	if err := sc.telemetry.sendBatch(); err != nil {
-		logger.WithContext(sc.ctx).Errorf("error while sending telemetry. %v", err)
+		logger.WithContext(sc.ctx).Warnf("error while sending telemetry. %v", err)
 	}
 	sc.stopHeartBeat()
 	defer sc.cleanup()

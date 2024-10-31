@@ -163,7 +163,7 @@ func encryptFileCBC(
 		return nil, "", err
 	}
 	defer func() {
-		if tmpErr := tmpOutputFile.Close(); tmpErr != nil {
+		if tmpErr := tmpOutputFile.Close(); tmpErr != nil && err == nil {
 			err = tmpErr
 		}
 	}()
@@ -172,7 +172,7 @@ func encryptFileCBC(
 		return nil, "", err
 	}
 	defer func() {
-		if tmpErr := infile.Close(); tmpErr != nil {
+		if tmpErr := infile.Close(); tmpErr != nil && err == nil {
 			err = tmpErr
 		}
 	}()
@@ -234,7 +234,7 @@ func decryptFileCBC(
 		return "", err
 	}
 	defer func() {
-		if tmpErr := tmpOutputFile.Close(); tmpErr != nil {
+		if tmpErr := tmpOutputFile.Close(); tmpErr != nil && err == nil {
 			err = tmpErr
 		}
 	}()
@@ -243,7 +243,7 @@ func decryptFileCBC(
 		return "", err
 	}
 	defer func() {
-		if tmpErr := infile.Close(); tmpErr != nil {
+		if tmpErr := infile.Close(); tmpErr != nil && err == nil {
 			err = tmpErr
 		}
 	}()
@@ -255,6 +255,7 @@ func decryptFileCBC(
 	return tmpOutputFile.Name(), err
 }
 
+// Returns decrypted file size and any error that happened during decryption.
 func decryptStreamCBC(
 	metadata *encryptMetadata,
 	sfe *snowflakeFileEncryption,
@@ -336,7 +337,7 @@ func encryptFileGCM(
 		return nil, "", err
 	}
 	defer func() {
-		if tmpErr := tmpOutputFile.Close(); tmpErr != nil {
+		if tmpErr := tmpOutputFile.Close(); tmpErr != nil && err == nil {
 			err = tmpErr
 		}
 	}()
@@ -345,7 +346,7 @@ func encryptFileGCM(
 		return nil, "", err
 	}
 	defer func() {
-		if tmpErr := infile.Close(); tmpErr != nil {
+		if tmpErr := infile.Close(); tmpErr != nil && err == nil {
 			err = tmpErr
 		}
 	}()
