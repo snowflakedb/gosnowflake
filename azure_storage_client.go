@@ -105,17 +105,17 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 	}
 
 	meta.resStatus = uploaded
-	metadata := resp.Metadata
+	metadata := withLowerKeys(resp.Metadata)
 	var encData encryptionData
 
-	_, ok = metadata["Encryptiondata"]
+	_, ok = metadata["encryptiondata"]
 	if ok {
-		if err = json.Unmarshal([]byte(*metadata["Encryptiondata"]), &encData); err != nil {
+		if err = json.Unmarshal([]byte(*metadata["encryptiondata"]), &encData); err != nil {
 			return nil, err
 		}
 	}
 
-	matdesc, ok := metadata["Matdesc"]
+	matdesc, ok := metadata["matdesc"]
 	if !ok {
 		// matdesc is not in response, use empty string
 		matdesc = new(string)
@@ -126,7 +126,7 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 		*matdesc,
 	}
 
-	digest, ok := metadata["Sfcdigest"]
+	digest, ok := metadata["sfcdigest"]
 	if !ok {
 		// sfcdigest is not in response, use empty string
 		digest = new(string)
