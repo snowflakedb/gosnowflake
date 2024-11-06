@@ -15,6 +15,8 @@ import (
 	"strconv"
 )
 
+const gcmIvLengthInBytes = 12
+
 var (
 	defaultKeyAad  = make([]byte, 0)
 	defaultDataAad = make([]byte, 0)
@@ -305,7 +307,7 @@ func initGcm(encryptionKey []byte) (cipher.AEAD, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cipher.NewGCMWithNonceSize(block, 16)
+	return cipher.NewGCM(block)
 }
 
 func encryptFileGCM(
@@ -334,13 +336,13 @@ func encryptFileGCM(
 	}
 	keySize := len(kek)
 	fileKey := getSecureRandom(keySize)
-	keyIv := getSecureRandom(keySize)
+	keyIv := getSecureRandom(gcmIvLengthInBytes)
 	encryptedFileKey, err := encryptGCM(keyIv, fileKey, kek, defaultKeyAad)
 	if err != nil {
 		return nil, "", err
 	}
 
-	dataIv := getSecureRandom(keySize)
+	dataIv := getSecureRandom(gcmIvLengthInBytes)
 	encryptedData, err := encryptGCM(dataIv, plaintext, fileKey, defaultDataAad)
 	if err != nil {
 		return nil, "", err

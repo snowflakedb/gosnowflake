@@ -240,11 +240,11 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 
 func TestEncryptDecryptGCM(t *testing.T) {
 	input := []byte("abc")
-	iv := []byte("abcdef1234567890")  // pragma: allowlist secret
+	iv := []byte("ab1234567890")      // pragma: allowlist secret
 	key := []byte("1234567890abcdef") // pragma: allowlist secret
 	encrypted, err := encryptGCM(iv, input, key, nil)
 	assertNilF(t, err)
-	assertEqualE(t, base64.StdEncoding.EncodeToString(encrypted), "pgs/wjNH2TYekmN7mbhFjeHH0A==")
+	assertEqualE(t, base64.StdEncoding.EncodeToString(encrypted), "iG+lT4o27hkzj3kblYRzQikLVQ==")
 
 	decrypted, err := decryptGCM(iv, encrypted, key, nil)
 	assertNilF(t, err)
