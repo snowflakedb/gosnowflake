@@ -400,3 +400,12 @@ func randomString(n int) string {
 	}
 	return string(b)
 }
+
+func TestWithLowerKeys(t *testing.T) {
+	m := make(map[string]string)
+	m["abc"] = "def"
+	m["GHI"] = "KLM"
+	lowerM := withLowerKeys(m)
+	assertEqualE(t, lowerM["abc"], "def")
+	assertEqualE(t, lowerM["ghi"], "KLM")
+}
