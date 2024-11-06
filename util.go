@@ -331,3 +331,11 @@ func contains[T comparable](s []T, e T) bool {
 func chooseRandomFromRange(min float64, max float64) float64 {
 	return rand.Float64()*(max-min) + min
 }
+
+func withLowerKeys[T any](in map[string]T) map[string]T {
+	out := make(map[string]T)
+	for k, v := range in {
+		out[strings.ToLower(k)] = v
+	}
+	return out
+}
