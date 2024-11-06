@@ -314,7 +314,7 @@ func doAuthenticateByExternalBrowser(
 			if err != nil && errAccept == nil {
 				errAccept = err
 			}
-			if _, err = c.Write(httpResponse.Bytes()); err != nil {
+			if _, err = c.Write(httpResponse.Bytes()); err != nil && errAccept == nil {
 				errAccept = err
 			}
 		}

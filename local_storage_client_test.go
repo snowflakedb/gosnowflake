@@ -76,9 +76,8 @@ func TestLocalUpload(t *testing.T) {
 	}
 	fileStream, _ := os.Open(fname)
 	ctx := WithFileStream(context.Background(), fileStream)
-	if uploadMeta.srcStream, err = getFileStream(ctx); err != nil {
-		assertNilF(t, err)
-	}
+	uploadMeta.srcStream, err = getFileStream(ctx)
+	assertNilF(t, err)
 
 	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
 	if err != nil {
