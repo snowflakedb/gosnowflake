@@ -146,7 +146,7 @@ func TestLogSetLevel(t *testing.T) {
 	logger := GetLogger()
 	buf := &bytes.Buffer{}
 	logger.SetOutput(buf)
-	logger.SetLogLevel("trace")
+	_ = logger.SetLogLevel("trace")
 
 	logger.Trace("should print at trace level")
 	logger.Debug("should print at debug level")

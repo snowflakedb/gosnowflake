@@ -34,15 +34,6 @@ func (i *initTrials) increaseReconfigureCounter() {
 	i.configureCounter++
 }
 
-func (i *initTrials) reset() {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-
-	i.everTriedToInitialize = false
-	i.clientConfigFileInput = ""
-	i.configureCounter = 0
-}
-
 func initEasyLogging(clientConfigFileInput string) error {
 	easyLoggingInitTrials.mu.Lock()
 	defer easyLoggingInitTrials.mu.Unlock()

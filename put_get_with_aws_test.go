@@ -70,11 +70,13 @@ func TestLoadS3(t *testing.T) {
 			AWS_SECRET_KEY='%v') file_format=(skip_header=1 null_if=('')
 			field_optionally_enclosed_by='\"')`,
 			data.awsAccessKeyID, data.awsSecretAccessKey))
-		defer rows.Close()
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 string
 		cnt := 0
 		for rows.Next() {
-			rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9)
+			assertNilF(t, rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9))
 			cnt++
 		}
 		if cnt != 1 {
@@ -97,8 +99,9 @@ func TestPutWithInvalidToken(t *testing.T) {
 
 		var b bytes.Buffer
 		gzw := gzip.NewWriter(&b)
-		gzw.Write([]byte(originalContents))
-		gzw.Close()
+		_, err := gzw.Write([]byte(originalContents))
+		assertNilF(t, err)
+		assertNilF(t, gzw.Close())
 		if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 			t.Fatal("could not write to gzip file")
 		}
@@ -139,7 +142,9 @@ func TestPutWithInvalidToken(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		defer f.Close()
+		defer func() {
+		    assertNilF(t, f.Close())
+		}()
 		uploader := manager.NewUploader(client)
 		if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
 			Bucket: &s3Loc.bucketName,
@@ -191,8 +196,9 @@ func TestPretendToPutButList(t *testing.T) {
 
 	var b bytes.Buffer
 	gzw := gzip.NewWriter(&b)
-	gzw.Write([]byte(originalContents))
-	gzw.Close()
+	_, err := gzw.Write([]byte(originalContents))
+	assertNilF(t, err)
+	assertNilF(t, gzw.Close())
 	if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
@@ -201,7 +207,7 @@ func TestPretendToPutButList(t *testing.T) {
 		tableName := randomString(5)
 		sct.mustExec("create or replace table "+tableName+
 			" (a int, b string)", nil)
-		defer sct.sc.Exec("drop table "+tableName, nil)
+		defer sct.mustExec("drop table "+tableName, nil)
 
 		jsonBody, err := json.Marshal(execRequest{
 			SQLText: fmt.Sprintf("put 'file://%v' @%%%v", fname, tableName),
@@ -244,8 +250,9 @@ func TestPutGetAWSStage(t *testing.T) {
 
 	var b bytes.Buffer
 	gzw := gzip.NewWriter(&b)
-	gzw.Write([]byte(originalContents))
-	gzw.Close()
+	_, err := gzw.Write([]byte(originalContents))
+	assertNilF(t, err)
+	assertNilF(t, gzw.Close())
 	if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
@@ -267,7 +274,9 @@ func TestPutGetAWSStage(t *testing.T) {
 		sql := "put 'file://%v' @~/%v auto_compress=false"
 		sqlText := fmt.Sprintf(sql, strings.ReplaceAll(fname, "\\", "\\\\"), stageName)
 		rows := dbt.mustQuery(sqlText)
-		defer rows.Close()
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
 		if rows.Next() {
@@ -282,7 +291,9 @@ func TestPutGetAWSStage(t *testing.T) {
 		sql = fmt.Sprintf("get @~/%v 'file://%v'", stageName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows = dbt.mustQuery(sqlText)
-		defer rows.Close()
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 		for rows.Next() {
 			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 				t.Error(err)
@@ -311,7 +322,9 @@ func TestPutGetAWSStage(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		defer f.Close()
+		defer func() {
+		    assertNilF(t, f.Close())
+		}()
 		gz, err := gzip.NewReader(f)
 		if err != nil {
 			t.Error(err)

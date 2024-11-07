@@ -36,10 +36,15 @@ func createTmpFile(content string) string {
 
 func decompressAndRead(file *os.File) (string, error) {
 	gzipReader, err := gzip.NewReader(file)
-	defer gzipReader.Close()
 	if err != nil {
 		return "", err
 	}
+	defer func(gzipReader *gzip.Reader) {
+		err := gzipReader.Close()
+		if err != nil {
+			log.Fatalf("cannot close file. %v", err)
+		}
+	}(gzipReader)
 	var b bytes.Buffer
 	_, err = b.ReadFrom(gzipReader)
 	if err != nil {
@@ -84,6 +89,9 @@ func main() {
 	}
 
 	db, err := sql.Open("snowflake", dsn)
+	if err != nil {
+		log.Fatalf("cannot connect to snowflake. %v", err)
+	}
 	defer db.Close()
 
 	//Creating table to which the data from CSV file will be copied
@@ -91,11 +99,21 @@ func main() {
 	if err != nil {
 		log.Fatalf("error while creating table; err: %v", err)
 	}
-	defer db.Exec("DROP TABLE IF EXISTS GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
+	defer func() {
+		_, err := db.Exec("DROP TABLE IF EXISTS GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;")
+		if err != nil {
+			log.Fatalf("cannot drop table. %v", err)
+		}
+	}()
 
 	//Uploading data_to_upload.csv to internal stage for table GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE
 	tmpFilePath := createTmpFile(customFormatCsvDataToUpload)
-	defer os.Remove(tmpFilePath)
+	defer func(name string) {
+		err := os.Remove(name)
+		if err != nil {
+			log.Fatalf("cannot remove temp file. %v", err)
+		}
+	}(tmpFilePath)
 	_, err = db.Exec(fmt.Sprintf("PUT file://%v @%%GOSNOWFLAKE_FILES_TRANSFER_EXAMPLE;", tmpFilePath))
 	if err != nil {
 		log.Fatalf("error while uploading file; err: %v", err)

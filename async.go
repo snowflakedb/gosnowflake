@@ -40,7 +40,10 @@ func (sr *snowflakeRestful) processAsync(
 	go GoroutineWrapper(
 		ctx,
 		func() {
-			sr.getAsync(ctx, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows, cfg)
+			err := sr.getAsync(ctx, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows, cfg)
+			if err != nil {
+				logger.Errorf("error while calling getAsync. %v", err)
+			}
 		},
 	)
 	return respd, nil

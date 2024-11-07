@@ -99,7 +99,12 @@ func fetchResultByIDAsync(db *sql.DB, query string) *sql.Rows {
 
 	// Run a long running query asynchronously and without retrieving the result
 	log.Printf("Executing query: %v\n", query)
-	go db.ExecContext(ctx, query)
+	go func() {
+		_, err := db.ExecContext(ctx, query)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	// Get the query ID without waiting for the query to finish
 	queryID := <-queryIDChan

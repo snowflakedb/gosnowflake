@@ -69,7 +69,8 @@ func (c *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	}()
 	if req != nil {
 		buf := new(bytes.Buffer)
-		buf.ReadFrom(req.Body)
+		_, err := buf.ReadFrom(req.Body)
+		assertNilF(c.t, err)
 		c.reqBody = buf.Bytes()
 	}
 

@@ -97,7 +97,6 @@ func authenticateBySAML(
 		sr.TokenAccessor.SetTokens("", "", -1)
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
-			code = -1
 			return nil, err
 		}
 		return nil, &SnowflakeError{

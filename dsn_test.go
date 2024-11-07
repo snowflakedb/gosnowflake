@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -1669,7 +1670,7 @@ func TestParsePrivateKeyFromFileMissingFile(t *testing.T) {
 }
 
 func TestParsePrivateKeyFromFileIncorrectData(t *testing.T) {
-	pemFile := createTmpFile("exampleKey.pem", []byte("gibberish"))
+	pemFile := createTmpFile(t, "exampleKey.pem", []byte("gibberish"))
 	_, err := parsePrivateKeyFromFile(pemFile)
 
 	if err == nil {
@@ -1695,7 +1696,7 @@ func TestParsePrivateKeyFromFileNotRSAPrivateKey(t *testing.T) {
 	pemData := pem.EncodeToMemory(pemBlock)
 
 	// Write the PEM data to a temporary file
-	pemFile := createTmpFile("ecdsaKey.pem", pemData)
+	pemFile := createTmpFile(t, "ecdsaKey.pem", pemData)
 
 	// Attempt to parse the private key
 	_, err = parsePrivateKeyFromFile(pemFile)
@@ -1713,7 +1714,7 @@ func TestParsePrivateKeyFromFile(t *testing.T) {
 			Bytes: pemKey,
 		},
 	)
-	keyFile := createTmpFile("exampleKey.pem", pemData)
+	keyFile := createTmpFile(t, "exampleKey.pem", pemData)
 	defer os.Remove(keyFile)
 
 	parsedKey, err := parsePrivateKeyFromFile(keyFile)
@@ -1725,9 +1726,10 @@ func TestParsePrivateKeyFromFile(t *testing.T) {
 	}
 }
 
-func createTmpFile(fileName string, content []byte) string {
+func createTmpFile(t *testing.T, fileName string, content []byte) string {
 	tempFile, _ := os.CreateTemp("", fileName)
-	tempFile.Write(content)
+	_, err := tempFile.Write(content)
+	assertNilF(t, err)
 	absolutePath := tempFile.Name()
 	return absolutePath
 }
@@ -1803,7 +1805,7 @@ func checkConfig(cfg Config, envMap map[string]configParamToValue) error {
 	}
 
 	if errArray != nil {
-		return fmt.Errorf(strings.Join(errArray, "\n"))
+		return errors.New(strings.Join(errArray, "\n"))
 	}
 
 	return nil

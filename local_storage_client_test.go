@@ -23,8 +23,9 @@ func TestLocalUpload(t *testing.T) {
 
 	var b bytes.Buffer
 	gzw := gzip.NewWriter(&b)
-	gzw.Write([]byte(originalContents))
-	gzw.Close()
+	_, err = gzw.Write([]byte(originalContents))
+	assertNilF(t, err)
+	assertNilF(t, gzw.Close())
 	if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}
@@ -75,7 +76,8 @@ func TestLocalUpload(t *testing.T) {
 	}
 	fileStream, _ := os.Open(fname)
 	ctx := WithFileStream(context.Background(), fileStream)
-	uploadMeta.srcStream = getFileStream(ctx)
+	uploadMeta.srcStream, err = getFileStream(ctx)
+	assertNilF(t, err)
 
 	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
 	if err != nil {
@@ -108,14 +110,17 @@ func TestDownloadLocalFile(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		assertNilF(t, os.RemoveAll(tmpDir))
+	}()
 	fname := filepath.Join(tmpDir, "test_put_get.txt.gz")
 	originalContents := "123,test1\n456,test2\n"
 
 	var b bytes.Buffer
 	gzw := gzip.NewWriter(&b)
-	gzw.Write([]byte(originalContents))
-	gzw.Close()
+	_, err = gzw.Write([]byte(originalContents))
+	assertNilF(t, err)
+	assertNilF(t, gzw.Close())
 	if err := os.WriteFile(fname, b.Bytes(), readWriteFileMode); err != nil {
 		t.Fatal("could not write to gzip file")
 	}

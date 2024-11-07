@@ -82,10 +82,12 @@ func putGetUserStage(t *testing.T, numberOfFiles int, numberOfLines int, isStrea
 		dbt.mustExec(fmt.Sprintf("copy into %v from @%v", dbname, stageName))
 
 		rows := dbt.mustQuery("select count(*) from " + dbname)
-		defer rows.Close()
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 		var cnt string
 		if rows.Next() {
-			rows.Scan(&cnt)
+			assertNilF(t, rows.Scan(&cnt))
 		}
 		count, err := strconv.Atoi(cnt)
 		if err != nil {
@@ -130,7 +132,9 @@ func TestPutLoadFromUserStage(t *testing.T) {
 		rows := dbt.mustQuery(fmt.Sprintf(`copy into gotest_putget_t2 from @%v
 			file_format = (field_delimiter = '|' error_on_column_count_mismatch
 			=false) purge=true`, data.stage))
-		defer rows.Close()
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 		var s0, s1, s2, s3, s4, s5 string
 		var s6, s7, s8, s9 interface{}
 		orders100 := fmt.Sprintf("s3://%v/%v/orders_100.csv.gz",
@@ -138,7 +142,7 @@ func TestPutLoadFromUserStage(t *testing.T) {
 		orders101 := fmt.Sprintf("s3://%v/%v/orders_101.csv.gz",
 			data.userBucket, data.stage)
 		for rows.Next() {
-			rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9)
+			assertNilF(t, rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9))
 			if s0 != orders100 && s0 != orders101 {
 				t.Fatalf("copy did not load orders files. got: %v", s0)
 			}

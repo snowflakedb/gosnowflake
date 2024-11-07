@@ -166,10 +166,12 @@ func generateKLinesOfNByteRows(numLines int, numBytes int, tmpDir string) (strin
 	for j := 0; j < numLines; j++ {
 		str := randomString(numBytes - 1) // \n is the last character
 		rec := fmt.Sprintf("%v\n", str)
-		f.Write([]byte(rec))
+		if _, err = f.Write([]byte(rec)); err != nil {
+			return "", err
+		}
 	}
-	f.Close()
-	return tmpDir, nil
+	err = f.Close()
+	return tmpDir, err
 }
 
 func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string, error) {
@@ -198,9 +200,13 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 			pct := rand.Float64() * 1000
 			ratio := fmt.Sprintf("%.2f", rand.Float64()*1000)
 			rec := fmt.Sprintf("%v,%v,%v,%v,%v,%v,%v,%v\n", num, dt, ts, tsltz, tsntz, tstz, pct, ratio)
-			f.Write([]byte(rec))
+			if _, err = f.Write([]byte(rec)); err != nil {
+				return "", err
+			}
 		}
-		f.Close()
+		if err = f.Close(); err != nil {
+			return "", err
+		}
 		if compress {
 			if !isWindows {
 				gzipCmd := exec.Command("gzip", filepath.Join(tmpDir, "file"+strconv.FormatInt(int64(i), 10)))
@@ -212,10 +218,18 @@ func generateKLinesOfNFiles(k int, n int, compress bool, tmpDir string) (string,
 				if err != nil {
 					return "", err
 				}
-				gzipCmd.Start()
-				io.ReadAll(gzipOut)
-				io.ReadAll(gzipErr)
-				gzipCmd.Wait()
+				if err = gzipCmd.Start(); err != nil {
+					return "", err
+				}
+				if _, err = io.ReadAll(gzipOut); err != nil {
+					return "", err
+				}
+				if _, err = io.ReadAll(gzipErr); err != nil {
+					return "", err
+				}
+				if err = gzipCmd.Wait(); err != nil {
+					return "", err
+				}
 			} else {
 				fOut, err := os.Create(fname + ".gz")
 				if err != nil {

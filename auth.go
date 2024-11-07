@@ -371,7 +371,6 @@ func authenticate(
 		}
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
-			code = -1
 			return nil, err
 		}
 		return nil, (&SnowflakeError{

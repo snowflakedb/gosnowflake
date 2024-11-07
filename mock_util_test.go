@@ -21,15 +21,15 @@ func resetHTTPMocks(t *testing.T) {
 func getMocksInvocations(t *testing.T) int {
 	resp, err := http.Get("http://localhost:12345/invocations")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	ret, err := strconv.Atoi(string(bytes))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	return ret
 }

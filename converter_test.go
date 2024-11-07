@@ -2174,7 +2174,9 @@ func TestSmallTimestampBinding(t *testing.T) {
 		}
 
 		rows := sct.mustQueryContext(ctx, "SELECT ?", parameters)
-		defer rows.Close()
+		defer func() {
+		    assertNilF(t, rows.Close())
+		}()
 
 		scanValues := make([]driver.Value, 1)
 		for {
@@ -2210,11 +2212,13 @@ func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 					t.Run(tp+"("+strconv.Itoa(scale)+")_"+tsStr, func(t *testing.T) {
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
 						rows := sct.mustQueryContext(ctx, query, nil)
-						defer rows.Close()
+						defer func() {
+						    assertNilF(t, rows.Close())
+						}()
 
 						if rows.Next() {
 							var act time.Time
-							rows.Scan(&act)
+							assertNilF(t, rows.Scan(&act))
 							exp := ts.Truncate(time.Duration(math.Pow10(9 - scale)))
 							if !exp.Equal(act) {
 								t.Fatalf("unexpected result. expected: %v, got: %v", exp, act)
@@ -2290,7 +2294,9 @@ func TestTimestampConversionWithArrowBatchesMicrosecondPassesForDistantDates(t *
 						if err != nil {
 							t.Fatalf("failed to query: %v", err)
 						}
-						defer rows.Close()
+						defer func() {
+						    assertNilF(t, rows.Close())
+						}()
 
 						// getting result batches
 						batches, err := rows.(*snowflakeRows).GetArrowBatches()
@@ -2349,7 +2355,9 @@ func TestTimestampConversionWithArrowBatchesAndWithOriginalTimestamp(t *testing.
 
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
 						rows := sct.mustQueryContext(ctx, query, []driver.NamedValue{})
-						defer rows.Close()
+						defer func() {
+						    assertNilF(t, rows.Close())
+						}()
 
 						// getting result batches
 						batches, err := rows.(*snowflakeRows).GetArrowBatches()

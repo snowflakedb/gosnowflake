@@ -233,3 +233,12 @@ func openWithClientConfigFile(t *testing.T, clientConfigFile string) error {
 	_, err := driver.OpenWithConfig(context.Background(), *config)
 	return err
 }
+
+func (i *initTrials) reset() {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	i.everTriedToInitialize = false
+	i.clientConfigFileInput = ""
+	i.configureCounter = 0
+}
