@@ -198,6 +198,8 @@ Users can use SetLogger in driver.go to set a customized logger for gosnowflake 
 In order to enable debug logging for the driver, user could use SetLogLevel("debug") in SFLogger interface
 as shown in demo code at cmd/logger.go. To redirect the logs SFlogger.SetOutput method could do the work.
 
+# If you want to define S3 client logging, override S3LoggingMode variable using configuration: https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws#ClientLogMode
+
 # Query tag
 
 A custom query tag can be set in the context. Each query run with this context
