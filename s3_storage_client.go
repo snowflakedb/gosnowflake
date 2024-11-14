@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/smithy-go/logging"
 	"io"
 	"net/http"
 	"os"
@@ -38,11 +39,19 @@ type s3Location struct {
 	s3Path     string
 }
 
+// S3LoggingMode allows to configure which logs should be included.
+// By default no logs are included.
+// See https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws#ClientLogMode for allowed values.
+var S3LoggingMode aws.ClientLogMode
+
 func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
 	stageCredentials := info.Creds
-	var resolver s3.EndpointResolver
+	s3Logger := logging.LoggerFunc(s3LoggingFunc)
+
+	var endpoint *string
 	if info.EndPoint != "" {
-		resolver = s3.EndpointResolverFromURL("https://" + info.EndPoint) // FIPS endpoint
+		tmp := "https://" + info.EndPoint
+		endpoint = &tmp
 	}
 
 	return s3.New(s3.Options{
@@ -51,12 +60,23 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 			stageCredentials.AwsKeyID,
 			stageCredentials.AwsSecretKey,
 			stageCredentials.AwsToken)),
-		EndpointResolver: resolver,
-		UseAccelerate:    useAccelerateEndpoint,
+		BaseEndpoint:  endpoint,
+		UseAccelerate: useAccelerateEndpoint,
 		HTTPClient: &http.Client{
 			Transport: SnowflakeTransport,
 		},
+		ClientLogMode: S3LoggingMode,
+		Logger:        s3Logger,
 	}), nil
+}
+
+func s3LoggingFunc(classification logging.Classification, format string, v ...interface{}) {
+	switch classification {
+	case logging.Debug:
+		logger.WithField("logger", "S3").Debugf(format, v...)
+	case logging.Warn:
+		logger.WithField("logger", "S3").Warnf(format, v...)
+	}
 }
 
 type s3HeaderAPI interface {
