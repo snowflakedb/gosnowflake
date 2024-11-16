@@ -7,6 +7,7 @@ import (
 	"crypto/rsa"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -49,9 +50,14 @@ const (
 // Optionally you may specify SNOWFLAKE_TEST_PROTOCOL, SNOWFLAKE_TEST_HOST
 // and SNOWFLAKE_TEST_PORT to specify the endpoint.
 func init() {
+	params := parseParameters("parameters.json", "testconnection")
+
 	// get environment variables
 	env := func(key, defaultValue string) string {
 		if value := os.Getenv(key); value != "" {
+			return value
+		}
+		if value, ok := params[key].(string); ok && value != "" {
 			return value
 		}
 		return defaultValue
@@ -76,6 +82,29 @@ func init() {
 	setupPrivateKey()
 
 	createDSN("UTC")
+}
+
+// parseParameters parses a parameters file returning the obj named objname as a map.
+func parseParameters(nm string, objname string) map[string]any {
+	m := make(map[string]any)
+	b, err := os.ReadFile(nm)
+	if err != nil {
+		fmt.Printf("ignoring parameters file %s: err=%v\n", nm, err)
+		return m
+	}
+	err = json.Unmarshal(b, &m)
+	if err != nil {
+		fmt.Printf("invalid json in parameters file %s: err=%v\n", nm, err)
+	}
+	v, ok := m[objname]
+	if !ok {
+		return m
+	}
+	p, ok := v.(map[string]any)
+	if ok {
+		return p
+	}
+	return m
 }
 
 func createDSN(timezone string) {
