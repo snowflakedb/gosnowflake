@@ -92,12 +92,15 @@ func (sc *snowflakeConn) processFileTransfer(
 	query string,
 	isInternal bool) (
 	*execResponse, error) {
+	options := &SnowflakeFileTransferOptions{
+		RaisePutGetError: true,
+	}
 	sfa := snowflakeFileTransferAgent{
 		ctx:          ctx,
 		sc:           sc,
 		data:         &data.Data,
 		command:      query,
-		options:      new(SnowflakeFileTransferOptions),
+		options:      options,
 		streamBuffer: new(bytes.Buffer),
 	}
 	fs, err := getFileStream(ctx)
