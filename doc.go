@@ -724,6 +724,9 @@ To preserve BigDecimal values within Arrow batches, use WithHigherPrecision.
 This offers two main benefits: it helps avoid precision loss and defers the conversion to upstream services.
 Alternatively, without this setting, all non-zero scale numbers will be converted to float64, potentially resulting in loss of precision.
 Zero-scale numbers (DECIMAL256, DECIMAL128) will be converted to int64, which could lead to overflow.
+WHen using NUMBERs with non zero scale, the value is returned as an integer type and a scale is provided in record metadata.
+Example. When we have a 123.45 value that comes from NUMBER(9, 4), it will be represented as 1234500 with scale equal to 4. It is a client responsibility to interpret it correctly.
+Also - see limitations section above.
 
 # Binding Parameters
 
