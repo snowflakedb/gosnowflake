@@ -977,3 +977,30 @@ func TestOktaRetryWithNewToken(t *testing.T) {
 	assertEqualF(t, authResponse.MfaToken, expectedMfaToken)
 	assertEqualF(t, authResponse.SessionInfo.DatabaseName, expectedDatabaseName)
 }
+
+func TestContextPropagatedToAuthWhenUsingOpen(t *testing.T) {
+	t.Skip("dsnConnector loses context when opening using sql.Open")
+	db, err := sql.Open("snowflake", dsn)
+	assertNilF(t, err)
+	defer db.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	_, err = db.QueryContext(ctx, "SELECT 1")
+	assertNotNilF(t, err)
+	assertStringContainsE(t, err.Error(), "context deadline exceeded")
+	cancel()
+}
+
+func TestContextPropagatedToAuthWhenUsingOpenDB(t *testing.T) {
+	cfg, err := ParseDSN(dsn)
+	assertNilF(t, err)
+	connector := NewConnector(&SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	_, err = db.QueryContext(ctx, "SELECT 1")
+	assertNotNilF(t, err)
+	assertStringContainsE(t, err.Error(), "context deadline exceeded")
+	cancel()
+}
