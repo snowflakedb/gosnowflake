@@ -5,14 +5,15 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/memory"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 type objectWithAllTypes struct {
@@ -35,6 +36,7 @@ type objectWithAllTypes struct {
 	sArr      []string
 	f64Arr    []float64
 	someMap   map[string]bool
+	uuid      UUID
 }
 
 func (o *objectWithAllTypes) Scan(val any) error {
@@ -111,6 +113,13 @@ func (o *objectWithAllTypes) Scan(val any) error {
 	if someMap != nil {
 		o.someMap = someMap.(map[string]bool)
 	}
+	uuidBytes, err := st.GetBytes("uuid")
+	if err != nil {
+		return err
+	}
+
+	o.uuid = UUID(uuidBytes)
+
 	return nil
 }
 
@@ -170,6 +179,9 @@ func (o objectWithAllTypes) Write(sowc StructuredObjectWriterContext) error {
 		return err
 	}
 	if err := sowc.WriteRaw("someMap", o.someMap); err != nil {
+		return err
+	}
+	if err := sowc.WriteBytes("uuid", o.uuid[:]); err != nil {
 		return err
 	}
 	return nil
