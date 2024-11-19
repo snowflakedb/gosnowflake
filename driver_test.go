@@ -18,6 +18,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	googleUUID "github.com/google/uuid"
 )
 
 var (
@@ -874,10 +876,10 @@ func testUuid(t *testing.T, json bool) {
 
 		types := []string{"CHAR(255)", "VARCHAR(255)", "TEXT", "STRING"}
 
-		in := make([]UUID, len(types))
+		in := make([]googleUUID.UUID, len(types))
 
 		for i := range types {
-			in[i] = NewUUID()
+			in[i] = googleUUID.New()
 		}
 
 		for i, v := range types {
@@ -890,7 +892,7 @@ func testUuid(t *testing.T, json bool) {
 					assertNilF(t, rows.Close())
 				}()
 				if rows.Next() {
-					var out UUID
+					var out googleUUID.UUID
 					assertNilF(t, rows.Scan(&out))
 					if in[i] != out {
 						dbt.Errorf("%s: %s != %s", v, in, out)
