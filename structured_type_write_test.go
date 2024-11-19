@@ -132,7 +132,7 @@ func TestBindingObjectWithSchema(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN)))")
+		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN)), uuid VARCHAR)")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
@@ -159,6 +159,7 @@ func TestBindingObjectWithSchema(t *testing.T) {
 			sArr:      []string{"a", "b"},
 			f64Arr:    []float64{1.1, 2.2},
 			someMap:   map[string]bool{"a": true, "b": false},
+			uuid:      NewUUID(),
 		}
 		dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 		rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -189,6 +190,7 @@ func TestBindingObjectWithSchema(t *testing.T) {
 		assertDeepEqualE(t, res.sArr, o.sArr)
 		assertDeepEqualE(t, res.f64Arr, o.f64Arr)
 		assertDeepEqualE(t, res.someMap, o.someMap)
+		assertEqualE(t, res.uuid, o.uuid)
 	})
 }
 
@@ -197,7 +199,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 	assertNilF(t, err)
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN)))")
+		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN)), uuid VARCHAR)")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
@@ -223,6 +225,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 				sArr:    []string{"a", "b"},
 				f64Arr:  []float64{1.1, 2.2},
 				someMap: map[string]bool{"a": true, "b": false},
+				uuid:    NewUUID(),
 			}
 			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -251,6 +254,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 			assertDeepEqualE(t, res.sArr, o.sArr)
 			assertDeepEqualE(t, res.f64Arr, o.f64Arr)
 			assertDeepEqualE(t, res.someMap, o.someMap)
+			assertEqualE(t, res.uuid, o.uuid)
 		})
 		t.Run("null", func(t *testing.T) {
 			o := &objectWithAllTypesNullable{
@@ -271,6 +275,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 				sArr:    nil,
 				f64Arr:  nil,
 				someMap: nil,
+				uuid:    UUID{},
 			}
 			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -299,6 +304,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 			assertDeepEqualE(t, res.sArr, o.sArr)
 			assertDeepEqualE(t, res.f64Arr, o.f64Arr)
 			assertDeepEqualE(t, res.someMap, o.someMap)
+			assertEqualE(t, res.uuid, o.uuid)
 		})
 	})
 }
@@ -308,7 +314,7 @@ func TestBindingObjectWithSchemaSimpleWrite(t *testing.T) {
 	assertNilF(t, err)
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN)))")
+		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
@@ -335,6 +341,7 @@ func TestBindingObjectWithSchemaSimpleWrite(t *testing.T) {
 			SArr:      []string{"a", "b"},
 			F64Arr:    []float64{1.1, 2.2},
 			SomeMap:   map[string]bool{"a": true, "b": false},
+			UUID:      NewUUID(),
 		}
 		dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 		rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -365,6 +372,7 @@ func TestBindingObjectWithSchemaSimpleWrite(t *testing.T) {
 		assertDeepEqualE(t, res.SArr, o.SArr)
 		assertDeepEqualE(t, res.F64Arr, o.F64Arr)
 		assertDeepEqualE(t, res.SomeMap, o.SomeMap)
+		assertEqualE(t, res.UUID, o.UUID)
 	})
 }
 
@@ -374,7 +382,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.forceJSON()
-		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN)))")
+		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
@@ -400,6 +408,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 				SArr:    []string{"a", "b"},
 				F64Arr:  []float64{1.1, 2.2},
 				SomeMap: map[string]bool{"a": true, "b": false},
+				UUID:    NewUUID(),
 			}
 			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -428,6 +437,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 			assertDeepEqualE(t, res.SArr, o.SArr)
 			assertDeepEqualE(t, res.F64Arr, o.F64Arr)
 			assertDeepEqualE(t, res.SomeMap, o.SomeMap)
+			assertEqualE(t, res.UUID, o.UUID)
 		})
 		t.Run("null", func(t *testing.T) {
 			o := &objectWithAllTypesNullableSimpleScan{
@@ -448,6 +458,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 				SArr:    nil,
 				F64Arr:  nil,
 				SomeMap: nil,
+				UUID:    UUID{},
 			}
 			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -476,6 +487,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 			assertDeepEqualE(t, res.SArr, o.SArr)
 			assertDeepEqualE(t, res.F64Arr, o.F64Arr)
 			assertDeepEqualE(t, res.SomeMap, o.SomeMap)
+			assertEqualE(t, res.UUID, o.UUID)
 		})
 	})
 }
@@ -503,7 +515,7 @@ func TestBindingObjectWithAllTypesNullable(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.forceJSON()
-		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (o OBJECT(o OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN))))")
+		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (o OBJECT(o OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR)))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
