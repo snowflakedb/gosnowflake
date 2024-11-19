@@ -959,6 +959,48 @@ func testString(t *testing.T, json bool) {
 	})
 }
 
+func TestUUID(t *testing.T) {
+	testUuid(t, false)
+}
+
+func testUuid(t *testing.T, json bool) {
+	runDBTest(t, func(dbt *DBTest) {
+		if json {
+			dbt.mustExec(forceJSON)
+		}
+
+		types := []string{"CHAR(255)", "VARCHAR(255)", "TEXT", "STRING"}
+
+		in := make([]UUID, len(types))
+
+		for i := range types {
+			in[i] = NewUUID()
+		}
+
+		for i, v := range types {
+			t.Run(v, func(t *testing.T) {
+				dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
+				dbt.mustExec("INSERT INTO test VALUES (?)", in[i])
+
+				rows := dbt.mustQuery("SELECT value FROM test")
+				defer func() {
+					assertNilF(t, rows.Close())
+				}()
+				if rows.Next() {
+					var out UUID
+					assertNilF(t, rows.Scan(&out))
+					if in[i] != out {
+						dbt.Errorf("%s: %s != %s", v, in, out)
+					}
+				} else {
+					dbt.Errorf("%s: no data", v)
+				}
+			})
+		}
+		dbt.mustExec("DROP TABLE IF EXISTS test")
+	})
+}
+
 type tcDateTimeTimestamp struct {
 	dbtype  string
 	tlayout string
