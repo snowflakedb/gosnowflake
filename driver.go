@@ -33,6 +33,15 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 	return d.OpenWithConfig(ctx, *cfg)
 }
 
+// OpenConnector creates a new connector with parsed DSN.
+func (d SnowflakeDriver) OpenConnector(dsn string) (driver.Connector, error) {
+	cfg, err := ParseDSN(dsn)
+	if err != nil {
+		return Connector{}, err
+	}
+	return NewConnector(d, *cfg), nil
+}
+
 // OpenWithConfig creates a new connection with the given Config.
 func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
 	if err := config.Validate(); err != nil {

@@ -979,7 +979,6 @@ func TestOktaRetryWithNewToken(t *testing.T) {
 }
 
 func TestContextPropagatedToAuthWhenUsingOpen(t *testing.T) {
-	t.Skip("dsnConnector loses context when opening using sql.Open")
 	db, err := sql.Open("snowflake", dsn)
 	assertNilF(t, err)
 	defer db.Close()
