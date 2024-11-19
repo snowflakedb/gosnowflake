@@ -284,7 +284,8 @@ func (sc *snowflakeConn) Close() (err error) {
 	defer sc.cleanup()
 
 	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
-		if err = sc.rest.FuncCloseSession(sc.ctx, sc.rest, sc.rest.RequestTimeout); err != nil {
+		// we have to replace context with background, otherwise we can use a one that is cancelled or timed out
+		if err = sc.rest.FuncCloseSession(context.Background(), sc.rest, sc.rest.RequestTimeout); err != nil {
 			logger.WithContext(sc.ctx).Error(err)
 		}
 	}
@@ -775,7 +776,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
 	sc := &snowflakeConn{
 		SequenceCounter:     0,
-		ctx:                 context.Background(),
+		ctx:                 ctx,
 		cfg:                 &config,
 		queryContextCache:   (&queryContextCache{}).init(),
 		currentTimeProvider: defaultTimeProvider,
