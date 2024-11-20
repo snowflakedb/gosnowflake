@@ -34,6 +34,7 @@ var (
 	protocol         string
 	customPrivateKey bool            // Whether user has specified the private key path
 	testPrivKey      *rsa.PrivateKey // Valid private key used for all test cases
+	debugMode        bool
 )
 
 const (
@@ -76,6 +77,8 @@ func init() {
 	setupPrivateKey()
 
 	createDSN("UTC")
+
+	debugMode, _ = strconv.ParseBool(os.Getenv("SNOWFLAKE_TEST_DEBUG"))
 }
 
 func createDSN(timezone string) {
@@ -270,7 +273,7 @@ func (dbt *DBTest) prepare(query string) (*sql.Stmt, error) {
 }
 
 func (dbt *DBTest) fail(method, query string, err error) {
-	if len(query) > 300 {
+	if !debugMode && len(query) > 300 {
 		query = "[query too large to print]"
 	}
 	dbt.Fatalf("error on %s [%s]: %s", method, query, err.Error())
@@ -398,7 +401,7 @@ type SCTest struct {
 }
 
 func (sct *SCTest) fail(method, query string, err error) {
-	if len(query) > 300 {
+	if !debugMode && len(query) > 300 {
 		query = "[query too large to print]"
 	}
 	sct.Fatalf("error on %s [%s]: %s", method, query, err.Error())
