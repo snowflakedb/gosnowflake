@@ -15,7 +15,6 @@ require (
 	github.com/aws/smithy-go v1.20.2
 	github.com/gabriel-vasile/mimetype v1.4.2
 	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/google/uuid v1.6.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/crypto v0.17.0
@@ -39,6 +38,7 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect

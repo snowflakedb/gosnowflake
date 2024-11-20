@@ -21,7 +21,6 @@ import (
 	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/decimal128"
 	"github.com/apache/arrow/go/v15/arrow/memory"
-	googleUUID "github.com/google/uuid"
 )
 
 func stringIntToDecimal(src string) (decimal128.Num, bool) {
@@ -317,12 +316,11 @@ func TestValueToString(t *testing.T) {
 		assertEqualE(t, *bv.value, u.String())
 	})
 
-	t.Run("google.UUID", func(t *testing.T) {
-		u := googleUUID.New()
+	t.Run("testUUID", func(t *testing.T) {
+		u := newTestUUID()
+		assertEqualE(t, u.String(), parseTestUUID(u.String()).String())
 
-		assertEqualE(t, u.String(), ParseUUID(u.String()).String())
-
-		bv, err := valueToString(UUID(u), textType, nil)
+		bv, err := valueToString(u, textType, nil)
 		assertNilF(t, err)
 		assertEmptyStringE(t, bv.format)
 		assertEqualE(t, *bv.value, u.String())
@@ -2221,7 +2219,7 @@ func TestSmallTimestampBinding(t *testing.T) {
 
 		rows := sct.mustQueryContext(ctx, "SELECT ?", parameters)
 		defer func() {
-		    assertNilF(t, rows.Close())
+			assertNilF(t, rows.Close())
 		}()
 
 		scanValues := make([]driver.Value, 1)
@@ -2259,7 +2257,7 @@ func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
 						rows := sct.mustQueryContext(ctx, query, nil)
 						defer func() {
-						    assertNilF(t, rows.Close())
+							assertNilF(t, rows.Close())
 						}()
 
 						if rows.Next() {
@@ -2341,7 +2339,7 @@ func TestTimestampConversionWithArrowBatchesMicrosecondPassesForDistantDates(t *
 							t.Fatalf("failed to query: %v", err)
 						}
 						defer func() {
-						    assertNilF(t, rows.Close())
+							assertNilF(t, rows.Close())
 						}()
 
 						// getting result batches
@@ -2402,7 +2400,7 @@ func TestTimestampConversionWithArrowBatchesAndWithOriginalTimestamp(t *testing.
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
 						rows := sct.mustQueryContext(ctx, query, []driver.NamedValue{})
 						defer func() {
-						    assertNilF(t, rows.Close())
+							assertNilF(t, rows.Close())
 						}()
 
 						// getting result batches
