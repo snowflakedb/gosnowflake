@@ -159,7 +159,7 @@ func TestBindingObjectWithSchema(t *testing.T) {
 			sArr:      []string{"a", "b"},
 			f64Arr:    []float64{1.1, 2.2},
 			someMap:   map[string]bool{"a": true, "b": false},
-			uuid:      NewUUID(),
+			uuid:      newTestUUID(),
 		}
 		dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 		rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -225,7 +225,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 				sArr:    []string{"a", "b"},
 				f64Arr:  []float64{1.1, 2.2},
 				someMap: map[string]bool{"a": true, "b": false},
-				uuid:    NewUUID(),
+				uuid:    newTestUUID(),
 			}
 			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -275,7 +275,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 				sArr:    nil,
 				f64Arr:  nil,
 				someMap: nil,
-				uuid:    UUID{},
+				uuid:    testUUID{},
 			}
 			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -341,7 +341,7 @@ func TestBindingObjectWithSchemaSimpleWrite(t *testing.T) {
 			SArr:      []string{"a", "b"},
 			F64Arr:    []float64{1.1, 2.2},
 			SomeMap:   map[string]bool{"a": true, "b": false},
-			UUID:      NewUUID(),
+			UUID:      newTestUUID(),
 		}
 		dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 		rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -408,7 +408,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 				SArr:    []string{"a", "b"},
 				F64Arr:  []float64{1.1, 2.2},
 				SomeMap: map[string]bool{"a": true, "b": false},
-				UUID:    NewUUID(),
+				UUID:    newTestUUID(),
 			}
 			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
@@ -458,7 +458,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 				SArr:    nil,
 				F64Arr:  nil,
 				SomeMap: nil,
-				UUID:    UUID{},
+				UUID:    testUUID{},
 			}
 			dbt.mustExecT(t, "INSERT INTO test_object_binding SELECT (?)", o)
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT * FROM test_object_binding WHERE obj = ?", o)
