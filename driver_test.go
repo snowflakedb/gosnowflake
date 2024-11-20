@@ -270,9 +270,9 @@ func (dbt *DBTest) prepare(query string) (*sql.Stmt, error) {
 }
 
 func (dbt *DBTest) fail(method, query string, err error) {
-	// if len(query) > 300 {
-	// 	query = "[query too large to print]"
-	// }
+	if len(query) > 300 {
+		query = "[query too large to print]"
+	}
 	dbt.Fatalf("error on %s [%s]: %s", method, query, err.Error())
 }
 
