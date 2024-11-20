@@ -1,22 +1,22 @@
 name: Build and Test
 
 on:
-  push:
-    branches:
-      - master
-    tags:
-      - v*
-  pull_request:
-    branches:
-      - master
-      - SNOW-*
-  schedule:
-    - cron: "7 3 * * *"
-  workflow_dispatch:
-    inputs:
-      goTestParams:
-        default:
-        description: "Parameters passed to go test"
+    push:
+        branches:
+            - master
+        tags:
+            - v*
+    pull_request:
+        branches:
+            - master
+            - SNOW-*
+    schedule:
+      - cron:  '7 3 * * *'
+    workflow_dispatch:
+        inputs:
+          goTestParams:
+            default:
+            description: "Parameters passed to go test"
 
 concurrency:
   # older builds for the same pull request numer or branch should be cancelled
@@ -24,101 +24,101 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    name: Check linter
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: "./go.mod"
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.60
-      - name: Format, Lint
-        shell: bash
-        run: ./ci/build.sh
-  build-test-linux:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        cloud: ["AWS", "AZURE", "GCP"]
-        go: ["1.21", "1.22", "1.23"]
-    name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go }}
-      - name: Test
-        shell: bash
-        env:
-          PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-          CLOUD_PROVIDER: ${{ matrix.cloud }}
-          GORACE: history_size=7
-          GO_TEST_PARAMS: ${{ inputs.goTestParams }}
-        run: ./ci/test.sh
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-  build-test-mac:
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        cloud: ["AWS", "AZURE", "GCP"]
-        go: ["1.21", "1.22", "1.23"]
-    name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go }}
-      - name: Test
-        shell: bash
-        env:
-          PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-          CLOUD_PROVIDER: ${{ matrix.cloud }}
-          GO_TEST_PARAMS: ${{ inputs.goTestParams }}
-        run: ./ci/test.sh
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
-  build-test-windows:
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        cloud: ["AWS", "AZURE", "GCP"]
-        go: ["1.21", "1.22", "1.23"]
-    name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go }}
-      - uses: actions/setup-python@v1
-        with:
-          python-version: "3.x"
-          architecture: "x64"
-      - name: Test
-        shell: cmd
-        env:
-          PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-          CLOUD_PROVIDER: ${{ matrix.cloud }}
-          GO_TEST_PARAMS: ${{ inputs.goTestParams }}
-        run: ci\\test.bat
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    lint:
+        runs-on: ubuntu-latest
+        strategy:
+          fail-fast: false
+        name: Check linter
+        steps:
+          - uses: actions/checkout@v4
+          - name: Setup go
+            uses: actions/setup-go@v5
+            with:
+              go-version-file: "./go.mod"
+          - name: golangci-lint
+            uses: golangci/golangci-lint-action@v6
+            with:
+              version: v1.60
+          - name: Format, Lint
+            shell: bash
+            run: ./ci/build.sh
+    build-test-linux:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                cloud: [ 'AWS', 'AZURE', 'GCP' ]
+                go: [ '1.21', '1.22', '1.23' ]
+        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
+        steps:
+            - uses: actions/checkout@v4
+            - name: Setup go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: ${{ matrix.go }}
+            - name: Test
+              shell: bash
+              env:
+                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                CLOUD_PROVIDER: ${{ matrix.cloud }}
+                GORACE: history_size=7
+                GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+              run: ./ci/test.sh
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    build-test-mac:
+        runs-on: macos-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                cloud: [ 'AWS', 'AZURE', 'GCP' ]
+                go: [ '1.21', '1.22', '1.23' ]
+        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
+        steps:
+            - uses: actions/checkout@v4
+            - name: Setup go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: ${{ matrix.go }}
+            - name: Test
+              shell: bash
+              env:
+                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                CLOUD_PROVIDER: ${{ matrix.cloud }}
+                GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+              run: ./ci/test.sh
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    build-test-windows:
+        runs-on: windows-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                cloud: [ 'AWS', 'AZURE', 'GCP' ]
+                go: [ '1.21', '1.22', '1.23' ]
+        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
+        steps:
+            - uses: actions/checkout@v4
+            - name: Setup go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: ${{ matrix.go }}
+            - uses: actions/setup-python@v1
+              with:
+                python-version: '3.x'
+                architecture: 'x64'
+            - name: Test
+              shell: cmd
+              env:
+                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                CLOUD_PROVIDER: ${{ matrix.cloud }}
+                GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+              run: ci\\test.bat
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
