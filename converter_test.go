@@ -316,12 +316,11 @@ func TestValueToString(t *testing.T) {
 		assertEqualE(t, *bv.value, u.String())
 	})
 
-	t.Run("google.UUID", func(t *testing.T) {
-		u := googleUUID.New()
+	t.Run("testUUID", func(t *testing.T) {
+		u := newTestUUID()
+		assertEqualE(t, u.String(), parseTestUUID(u.String()).String())
 
-		assertEqualE(t, u.String(), ParseUUID(u.String()).String())
-
-		bv, err := valueToString(UUID(u), textType, nil)
+		bv, err := valueToString(u, textType, nil)
 		assertNilF(t, err)
 		assertEmptyStringE(t, bv.format)
 		assertEqualE(t, *bv.value, u.String())

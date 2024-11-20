@@ -18,8 +18,6 @@ import (
 	"syscall"
 	"testing"
 	"time"
-
-	googleUUID "github.com/google/uuid"
 )
 
 var (
@@ -272,9 +270,9 @@ func (dbt *DBTest) prepare(query string) (*sql.Stmt, error) {
 }
 
 func (dbt *DBTest) fail(method, query string, err error) {
-	if len(query) > 300 {
-		query = "[query too large to print]"
-	}
+	// if len(query) > 300 {
+	// 	query = "[query too large to print]"
+	// }
 	dbt.Fatalf("error on %s [%s]: %s", method, query, err.Error())
 }
 
@@ -876,10 +874,10 @@ func testUuid(t *testing.T, json bool) {
 
 		types := []string{"CHAR(255)", "VARCHAR(255)", "TEXT", "STRING"}
 
-		in := make([]googleUUID.UUID, len(types))
+		in := make([]testUUID, len(types))
 
 		for i := range types {
-			in[i] = googleUUID.New()
+			in[i] = newTestUUID()
 		}
 
 		for i, v := range types {
@@ -892,7 +890,7 @@ func testUuid(t *testing.T, json bool) {
 					assertNilF(t, rows.Close())
 				}()
 				if rows.Next() {
-					var out googleUUID.UUID
+					var out testUUID
 					assertNilF(t, rows.Scan(&out))
 					if in[i] != out {
 						dbt.Errorf("%s: %s != %s", v, in, out)
