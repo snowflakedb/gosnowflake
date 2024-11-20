@@ -214,16 +214,6 @@ func (o *testValueToStringStructuredObject) Write(sowc StructuredObjectWriterCon
 	return nil
 }
 
-type testSqlUuid UUID
-
-func (uuid testSqlUuid) Value() (driver.Value, error) {
-	return uuid.String(), nil
-}
-
-func (u testSqlUuid) String() string {
-	return fmt.Sprintf("%x-%x-%x-%x-%x", u[0:4], u[4:6], u[6:8], u[8:10], u[10:])
-}
-
 func TestValueToString(t *testing.T) {
 	v := cmplx.Sqrt(-5 + 12i) // should never happen as Go sql package must have already validated.
 	_, err := valueToString(v, nullType, nil)
@@ -309,7 +299,7 @@ func TestValueToString(t *testing.T) {
 	})
 
 	t.Run("database/sql/driver - Valuer interface", func(t *testing.T) {
-		u := testSqlUuid(NewUUID())
+		u := newTestUUID()
 		bv, err := valueToString(u, textType, nil)
 		assertNilF(t, err)
 		assertEmptyStringE(t, bv.format)
