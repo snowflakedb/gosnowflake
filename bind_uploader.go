@@ -111,9 +111,9 @@ func (bu *bindUploader) createStageIfNeeded() error {
 		return err
 	}
 	if !data.Success {
-		code, atoiErr := strconv.Atoi(data.Code)
-		if atoiErr != nil {
-			return atoiErr
+		code, err := strconv.Atoi(data.Code)
+		if err != nil {
+			return err
 		}
 		return (&SnowflakeError{
 			Number:   code,
