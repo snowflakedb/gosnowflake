@@ -72,6 +72,10 @@ func assertStringContainsF(t *testing.T, actual string, expectedToContain string
 	fatalOnNonEmpty(t, validateStringContains(actual, expectedToContain, descriptions...))
 }
 
+func assertStringDoesNotContainE(t *testing.T, actual string, expectedNotToContain string, descriptions ...string) {
+	errorOnNonEmpty(t, validateStringDoesNotContain(actual, expectedNotToContain, descriptions...))
+}
+
 func assertEmptyStringE(t *testing.T, actual string, descriptions ...string) {
 	errorOnNonEmpty(t, validateEmptyString(actual, descriptions...))
 }
@@ -178,6 +182,14 @@ func validateStringContains(actual string, expectedToContain string, description
 	}
 	desc := joinDescriptions(descriptions...)
 	return fmt.Sprintf("expected \"%s\" to contain \"%s\" but did not. %s", actual, expectedToContain, desc)
+}
+
+func validateStringDoesNotContain(actual string, expectedToNotContain string, descriptions ...string) string {
+	if !strings.Contains(actual, expectedToNotContain) {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected \"%s\" not to contain \"%s\" but it did. %s", actual, expectedToNotContain, desc)
 }
 
 func validateEmptyString(actual string, descriptions ...string) string {

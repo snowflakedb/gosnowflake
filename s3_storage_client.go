@@ -100,6 +100,8 @@ func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string
 	}
 	out, err := s3Cli.HeadObject(context.Background(), headObjInput)
 	if err != nil {
+		print("err in S3 getFileHeader: ")
+		println(err.Error())
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
 			if ae.ErrorCode() == notFound {
@@ -217,6 +219,8 @@ func (util *snowflakeS3Client) uploadFile(
 	}
 
 	if err != nil {
+		print("err in S3 uploadFile: ")
+		println(err.Error())
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
 			if ae.ErrorCode() == expiredToken {

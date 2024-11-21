@@ -92,6 +92,8 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 	if err != nil {
 		var se *azcore.ResponseError
 		if errors.As(err, &se) {
+			print("azure getFileHeader: ")
+			println(se.StatusCode, se.ErrorCode)
 			if se.ErrorCode == string(bloberror.BlobNotFound) {
 				meta.resStatus = notFoundFile
 				return nil, fmt.Errorf("could not find file")
@@ -100,6 +102,7 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 				return nil, fmt.Errorf("received 403, attempting to renew")
 			}
 		}
+		println("unknown azure error")
 		meta.resStatus = errStatus
 		return nil, err
 	}
@@ -233,6 +236,8 @@ func (util *snowflakeAzureClient) uploadFile(
 	if err != nil {
 		var se *azcore.ResponseError
 		if errors.As(err, &se) {
+			print("azure upload file: ")
+			println(se.StatusCode, se.ErrorCode)
 			if se.StatusCode == 403 && util.detectAzureTokenExpireError(se.RawResponse) {
 				meta.resStatus = renewToken
 			} else {
@@ -241,6 +246,7 @@ func (util *snowflakeAzureClient) uploadFile(
 			}
 			return err
 		}
+		println("Unknown azure error")
 		meta.resStatus = errStatus
 		return err
 	}

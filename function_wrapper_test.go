@@ -39,8 +39,12 @@ func TestGoWrapper(t *testing.T) {
 		GoroutineWrapper = closeGoWrapperCalledChannel
 
 		ctx := WithAsyncMode(context.Background())
+		println("Staring SELECT 1 query")
 		rows := dbt.mustQueryContext(ctx, "SELECT 1")
+		assertTrueE(t, rows.Next())
 		defer rows.Close()
+		var i int
+		assertNilF(t, rows.Scan(&i))
 
 		assertTrueF(t, getGoWrapperCalled(), "channel should be closed, indicating our wrapper worked")
 	})

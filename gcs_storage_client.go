@@ -78,6 +78,8 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		if err != nil {
 			return nil, err
 		}
+		print("GCS getFileHeader: ")
+		println(resp.StatusCode)
 		if resp.StatusCode != http.StatusOK {
 			meta.lastError = fmt.Errorf("%v", resp.Status)
 			meta.resStatus = errStatus
@@ -224,6 +226,9 @@ func (util *snowflakeGcsClient) uploadFile(
 	if err != nil {
 		return err
 	}
+	print("GCS uploadFile: ")
+	println(err.Error())
+	println(resp.StatusCode)
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
 			meta.lastError = fmt.Errorf("%v", resp.Status)
