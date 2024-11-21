@@ -118,11 +118,8 @@ func (bu *bindUploader) createStageIfNeeded() error {
 		return (&SnowflakeError{
 			Number:   code,
 			SQLState: data.Data.SQLState,
-			// This err will always be nil because we are returning after the exec if err is not nil
-			// Also, the error presented by the AtoI conversion is short-circuited. Did we intend to use err here?
-			// Or should we use a field in data (like Message) instead?
-			Message: fmt.Sprint(err), // makes it pointer safe
-			QueryID: data.Data.QueryID,
+			Message:  data.Message,
+			QueryID:  data.Data.QueryID,
 		}).exceptionTelemetry(bu.sc)
 	}
 	bu.arrayBindStage = bindStageName
