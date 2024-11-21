@@ -926,7 +926,13 @@ func (uuid testUUID) Value() (driver.Value, error) {
 }
 
 func TestUUID(t *testing.T) {
-	testUuid(t, false)
+	t.Run("Basic Type", func(t *testing.T) {
+		testUuid(t, false)
+	})
+
+	t.Run("JSON", func(t *testing.T) {
+		testUuid(t, true)
+	})
 }
 
 func testUuid(t *testing.T, json bool) {
