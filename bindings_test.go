@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"math/rand"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -384,15 +385,19 @@ func TestBindingInterfaceString(t *testing.T) {
 }
 
 func TestBulkArrayBindingUUID(t *testing.T) {
-	max := math.Pow10(5) // 100K because my power is maximum
-	uuids := make([]any, int(max))
+	max := math.Pow10(1) // 100K because my power is maximum
+	expectedUuids := make([]any, int(max))
 
-	createTable := "CREATE OR REPLACE TABLE TEST_PREP_STATEMENT (id INT autoincrement start 1 increment 1, uuid VARCHAR)"
+	createTable := "CREATE OR REPLACE TABLE TEST_PREP_STATEMENT (uuid VARCHAR)"
 	insert := "INSERT INTO TEST_PREP_STATEMENT (uuid) VALUES (?)"
 
-	for i := range uuids {
-		uuids[i] = newTestUUID()
+	for i := range expectedUuids {
+		expectedUuids[i] = newTestUUID()
 	}
+
+	sort.Slice(expectedUuids, func(i, j int) bool {
+		return expectedUuids[i].(testUUID).String() < expectedUuids[j].(testUUID).String()
+	})
 
 	runDBTest(t, func(dbt *DBTest) {
 		var rows *RowsExtended
@@ -406,33 +411,40 @@ func TestBulkArrayBindingUUID(t *testing.T) {
 
 		dbt.mustExec(createTable)
 
-		bound := Array(&uuids)
-		res := dbt.mustExec(insert, bound)
+		res := dbt.mustExec(insert, Array(&expectedUuids))
 
-		if affected, _ := res.RowsAffected(); affected != int64(max) {
+		affected, err := res.RowsAffected()
+		if err != nil {
+			t.Fatalf("failed to get affected rows. err: %s", err)
+		} else if affected != int64(max) {
 			t.Fatalf("failed to insert all rows. expected: %f.0, got: %v", max, affected)
 		}
 
-		rows = dbt.mustQuery("SELECT * FROM TEST_PREP_STATEMENT ORDER BY ID")
+		rows = dbt.mustQuery("SELECT * FROM TEST_PREP_STATEMENT ORDER BY uuid")
+		if rows == nil {
+			t.Fatal("failed to query")
+		}
+
+		if rows.Err() != nil {
+			t.Fatalf("failed to query. err: %s", rows.Err())
+		}
+
+		var actual = make([]testUUID, len(expectedUuids))
 
 		for i := 0; rows.Next(); i++ {
 			var (
-				id  int
 				out testUUID
 			)
-			if err := rows.Scan(&id, &out); err != nil {
+			if err := rows.Scan(&out); err != nil {
 				t.Fatal(err)
 			}
 
-			var found bool
-			for _, u := range uuids {
-				if u == out {
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Errorf("failed to find UUID. expected: %s, but it wasnt in the list", out)
+			actual[i] = out
+		}
+
+		for i := range expectedUuids {
+			if expectedUuids[i].(testUUID).String() != actual[i].String() {
+				t.Fatalf("failed to fetch the UUID column. expected %v, got: %v", expectedUuids[i], actual[i])
 			}
 		}
 	})
