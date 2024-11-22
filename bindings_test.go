@@ -443,9 +443,7 @@ func TestBulkArrayBindingUUID(t *testing.T) {
 		}
 
 		for i := range expectedUuids {
-			if expectedUuids[i] != actual[i] {
-				t.Fatalf("failed to fetch the UUID column. expected %v, got: %v", expectedUuids[i], actual[i])
-			}
+			assertEqualE(t, actual[i], expectedUuids[i])
 		}
 	})
 
