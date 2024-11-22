@@ -12,7 +12,7 @@ import (
 	"math/big"
 	"math/rand"
 	"reflect"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -395,8 +395,8 @@ func TestBulkArrayBindingUUID(t *testing.T) {
 		expectedUuids[i] = newTestUUID()
 	}
 
-	sort.Slice(expectedUuids, func(i, j int) bool {
-		return expectedUuids[i].(testUUID).String() < expectedUuids[j].(testUUID).String()
+	slices.SortStableFunc(expectedUuids, func(i, j any) int {
+		return strings.Compare(i.(testUUID).String(), j.(testUUID).String())
 	})
 
 	runDBTest(t, func(dbt *DBTest) {
