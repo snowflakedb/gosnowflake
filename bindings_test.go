@@ -385,7 +385,7 @@ func TestBindingInterfaceString(t *testing.T) {
 }
 
 func TestBulkArrayBindingUUID(t *testing.T) {
-	max := math.Pow10(1) // 100K because my power is maximum
+	max := math.Pow10(5) // 100K because my power is maximum
 	expectedUuids := make([]any, int(max))
 
 	createTable := "CREATE OR REPLACE TABLE TEST_PREP_STATEMENT (uuid VARCHAR)"
