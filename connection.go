@@ -787,7 +787,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {
-		if sc.cfg.InsecureMode {
+		if sc.cfg.DisableOCSPChecks || sc.cfg.InsecureMode {
 			// no revocation check with OCSP. Think twice when you want to enable this option.
 			st = snowflakeInsecureTransport
 		} else {

@@ -1793,7 +1793,7 @@ func TestOpenWithTransport(t *testing.T) {
 
 	// Test that transport override also works in insecure mode
 	countingTransport.requests = 0
-	config.InsecureMode = true
+	config.DisableOCSPChecks = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
 	if err != nil {
 		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)

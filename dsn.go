@@ -79,8 +79,10 @@ type Config struct {
 	ExternalBrowserTimeout time.Duration // Timeout for external browser login
 	MaxRetryCount          int           // Specifies how many times non-periodic HTTP request can be retried
 
-	Application  string           // application name.
-	InsecureMode bool             // driver doesn't check certificate revocation status
+	Application       string // application name.
+	DisableOCSPChecks bool   // driver doesn't check certificate revocation status
+	// Deprecated: InsecureMode use DisableOCSPChecks instead
+	InsecureMode bool
 	OCSPFailOpen OCSPFailOpenMode // OCSP Fail Open
 
 	Token            string        // Token to use for OAuth other forms of token based auth
@@ -126,7 +128,7 @@ func (c *Config) Validate() error {
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
 func (c *Config) ocspMode() string {
-	if c.InsecureMode {
+	if c.DisableOCSPChecks || c.InsecureMode {
 		return ocspModeInsecure
 	} else if c.OCSPFailOpen == ocspFailOpenNotSet || c.OCSPFailOpen == OCSPFailOpenTrue {
 		// by default or set to true
@@ -240,6 +242,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.InsecureMode {
 		params.Add("insecureMode", strconv.FormatBool(cfg.InsecureMode))
+	}
+	if cfg.DisableOCSPChecks {
+		params.Add("disableOCSPChecks", strconv.FormatBool(cfg.DisableOCSPChecks))
 	}
 	if cfg.Tracing != "" {
 		params.Add("tracing", cfg.Tracing)
@@ -637,7 +642,14 @@ func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
 // parseDSNParams parses the DSN "query string". Values must be url.QueryEscape'ed
 func parseDSNParams(cfg *Config, params string) (err error) {
 	logger.Infof("Query String: %v\n", params)
-	for _, v := range strings.Split(params, "&") {
+	paramsSlice := strings.Split(params, "&")
+	insecureModeIdx := getFirstIndexOfWithPrefix(paramsSlice, "insecureMode")
+	disableOCSPChecksIdx := getFirstIndexOfWithPrefix(paramsSlice, "disableOCSPChecks")
+	if insecureModeIdx > -1 && disableOCSPChecksIdx > -1 {
+		logger.Warn("duplicated insecureMode and disableOCSPChecks. disableOCSPChecks takes precedence")
+		paramsSlice = append(paramsSlice[:insecureModeIdx-1], paramsSlice[insecureModeIdx+1:]...)
+	}
+	for _, v := range paramsSlice {
 		param := strings.SplitN(v, "=", 2)
 		if len(param) != 2 {
 			continue
@@ -715,12 +727,20 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return err
 			}
 		case "insecureMode":
+			logInsecureModeDeprecationInfo()
 			var vv bool
 			vv, err = strconv.ParseBool(value)
 			if err != nil {
 				return
 			}
 			cfg.InsecureMode = vv
+		case "disableOCSPChecks":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.DisableOCSPChecks = vv
 		case "ocspFailOpen":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
@@ -837,6 +857,10 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		}
 	}
 	return
+}
+
+func logInsecureModeDeprecationInfo() {
+	logger.Warn("insecureMode is deprecated. Use disableOCSPChecks instead.")
 }
 
 func parseTimeout(value string) (time.Duration, error) {

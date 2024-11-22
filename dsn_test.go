@@ -541,6 +541,58 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "u:p@a?database=d&schema=s&role=r&application=aa&authenticator=snowflake&disableOCSPChecks=true&passcode=pp&passcodeInPassword=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "d", Schema: "s", Role: "r", Authenticator: AuthTypeSnowflake, Application: "aa",
+				DisableOCSPChecks: true, Passcode: "pp", PasscodeInPassword: true,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeInsecure,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a?database=d&schema=s&role=r&application=aa&authenticator=snowflake&disableOCSPChecks=true&passcode=pp&passcodeInPassword=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "d", Schema: "s", Role: "r", Authenticator: AuthTypeSnowflake, Application: "aa",
+				InsecureMode: false, DisableOCSPChecks: true, Passcode: "pp", PasscodeInPassword: true,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeInsecure,
+			err:      nil,
+		},
+		// disableOCSPChecks should take precedence over insecureMode
+		{
+			dsn: "u:p@a?database=d&schema=s&role=r&application=aa&authenticator=snowflake&disableOCSPChecks=false&insecureMode=true&passcode=pp&passcodeInPassword=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Protocol: "https", Host: "a.snowflakecomputing.com", Port: 443,
+				Database: "d", Schema: "s", Role: "r", Authenticator: AuthTypeSnowflake, Application: "aa",
+				DisableOCSPChecks: false, Passcode: "pp", PasscodeInPassword: true,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			// schema should be ignored as no value is specified.
 			dsn: "u:p@a?database=d&schema",
 			config: &Config{
@@ -1411,6 +1463,35 @@ func TestDSN(t *testing.T) {
 				InsecureMode: true,
 			},
 			dsn: "u:p@a.snowflakecomputing.com:443?insecureMode=true&ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:              "u",
+				Password:          "p",
+				Account:           "a",
+				DisableOCSPChecks: true,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?disableOCSPChecks=true&ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:              "u",
+				Password:          "p",
+				Account:           "a",
+				InsecureMode:      true,
+				DisableOCSPChecks: false,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?insecureMode=true&ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:              "u",
+				Password:          "p",
+				Account:           "a",
+				InsecureMode:      false,
+				DisableOCSPChecks: true,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?disableOCSPChecks=true&ocspFailOpen=true&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{

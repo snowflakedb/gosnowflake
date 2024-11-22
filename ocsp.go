@@ -723,11 +723,7 @@ func canEarlyExitForOCSP(results []*ocspStatus, chainSize int) *ocspStatus {
 		}
 	}
 	if len(msg) > 0 {
-		logger.Warnf(
-			"WARNING!!! Using fail-open to connect. Driver is connecting to an "+
-				"HTTPS endpoint without OCSP based Certificate Revocation checking "+
-				"as it could not obtain a valid OCSP Response to use from the CA OCSP "+
-				"responder. Detail: %v", msg[1:])
+		logger.Debugf("OCSP responder didn't respond correctly. Assuming certificate is not revoked. Detail: %v", msg[1:])
 	}
 	return nil
 }

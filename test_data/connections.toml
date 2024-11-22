@@ -20,6 +20,7 @@ port = '443'
 authenticator = 'oauth'
 testNot = 'problematicParameter'
 token = 'token_value'
+disableOCSPChecks = true
 
 [aws-oauth-file]
 account = 'snowdriverswarsaw.us-west-2.aws'
@@ -44,3 +45,4 @@ schema = 'test_default_go'
 protocol = 'https'
 authenticator = 'oauth'
 token_file_path = './test_data/snowflake/session/token'
+insecureMode = true
