@@ -423,7 +423,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		res = res[0:len(res)-1] + "]"
 		return bindingValue{&res, jsonFormatStr, &schemaForBytes}, nil
 	} else if isUUIDImplementer(v1) { // special case for UUIDs (snowflake type and other implementers)
-		stringer := v.(fmt.Stringer)
+		stringer := v.(fmt.Stringer) // we don't need to validate if it's a fmt.Stringer because we already checked if it's a UUID type with a stringer
 		value := stringer.String()
 		return bindingValue{&value, "", nil}, nil
 	} else if isSliceOfSlices(v) {
@@ -2696,44 +2696,38 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 	for i := 0; i < interfaceSlice.Len(); i++ {
 		val := interfaceSlice.Index(i)
 		if val.CanInterface() {
-			switch val.Interface().(type) {
+			v := val.Interface()
+
+			switch x := v.(type) {
 			case int:
 				t = fixedType
-				x := val.Interface().(int)
 				v := strconv.Itoa(x)
 				arr = append(arr, &v)
 			case int32:
 				t = fixedType
-				x := val.Interface().(int32)
 				v := strconv.Itoa(int(x))
 				arr = append(arr, &v)
 			case int64:
 				t = fixedType
-				x := val.Interface().(int64)
 				v := strconv.FormatInt(x, 10)
 				arr = append(arr, &v)
 			case float32:
 				t = realType
-				x := val.Interface().(float32)
 				v := fmt.Sprintf("%g", x)
 				arr = append(arr, &v)
 			case float64:
 				t = realType
-				x := val.Interface().(float64)
 				v := fmt.Sprintf("%g", x)
 				arr = append(arr, &v)
 			case bool:
 				t = booleanType
-				x := val.Interface().(bool)
 				v := strconv.FormatBool(x)
 				arr = append(arr, &v)
 			case string:
 				t = textType
-				x := val.Interface().(string)
 				arr = append(arr, &x)
 			case []byte:
 				t = binaryType
-				x := val.Interface().([]byte)
 				v := hex.EncodeToString(x)
 				arr = append(arr, &v)
 			case time.Time:
@@ -2741,7 +2735,6 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 					return unSupportedType, nil
 				}
 
-				x := val.Interface().(time.Time)
 				switch tzType[0] {
 				case TimestampNTZType:
 					t = timestampNtzType
@@ -2781,8 +2774,26 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 				default:
 					return unSupportedType, nil
 				}
+			case driver.Valuer: // honor each driver's Valuer interface
+				if value, err := x.Value(); err == nil && value != nil {
+					// if the output value is a valid string, return that
+					if strVal, ok := value.(string); ok {
+						t = textType
+						arr = append(arr, &strVal)
+					}
+				} else if v != nil {
+					return unSupportedType, nil
+				} else {
+					arr = append(arr, nil)
+				}
 			default:
 				if val.Interface() != nil {
+					if isUUIDImplementer(val) {
+						t = textType
+						x := v.(fmt.Stringer).String()
+						arr = append(arr, &x)
+						continue
+					}
 					return unSupportedType, nil
 				}
 
