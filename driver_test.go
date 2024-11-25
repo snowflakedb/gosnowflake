@@ -1791,9 +1791,25 @@ func TestOpenWithTransport(t *testing.T) {
 		t.Fatal("transport did not receive any requests")
 	}
 
-	// Test that transport override also works in insecure mode
+	// Test that transport override also works in OCSP checks disabled.
 	countingTransport.requests = 0
 	config.DisableOCSPChecks = true
+	db, err = driver.OpenWithConfig(context.Background(), *config)
+	if err != nil {
+		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
+	}
+	conn = db.(*snowflakeConn)
+	if conn.rest.Client.Transport != transport {
+		t.Fatal("transport doesn't match")
+	}
+	db.Close()
+	if countingTransport.requests == 0 {
+		t.Fatal("transport did not receive any requests")
+	}
+
+	// Test that transport override also works in insecure mode
+	countingTransport.requests = 0
+	config.InsecureMode = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
 	if err != nil {
 		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)

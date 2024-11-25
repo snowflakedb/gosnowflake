@@ -410,13 +410,13 @@ func TestWithLowerKeys(t *testing.T) {
 	assertEqualE(t, lowerM["ghi"], "KLM")
 }
 
-func TestGetFirstIndexOfWithPrefix(t *testing.T) {
+func TestFindByPrefix(t *testing.T) {
 	nonEmpty := []string{"aaa", "bbb", "ccc"}
-	assertEqualE(t, getFirstIndexOfWithPrefix(nonEmpty, "a"), 0)
-	assertEqualE(t, getFirstIndexOfWithPrefix(nonEmpty, "aa"), 0)
-	assertEqualE(t, getFirstIndexOfWithPrefix(nonEmpty, "aaa"), 0)
-	assertEqualE(t, getFirstIndexOfWithPrefix(nonEmpty, "bb"), 1)
-	assertEqualE(t, getFirstIndexOfWithPrefix(nonEmpty, "ccc"), 2)
-	assertEqualE(t, getFirstIndexOfWithPrefix(nonEmpty, "dd"), -1)
-	assertEqualE(t, getFirstIndexOfWithPrefix([]string{}, "dd"), -1)
+	assertEqualE(t, findByPrefix(nonEmpty, "a"), 0)
+	assertEqualE(t, findByPrefix(nonEmpty, "aa"), 0)
+	assertEqualE(t, findByPrefix(nonEmpty, "aaa"), 0)
+	assertEqualE(t, findByPrefix(nonEmpty, "bb"), 1)
+	assertEqualE(t, findByPrefix(nonEmpty, "ccc"), 2)
+	assertEqualE(t, findByPrefix(nonEmpty, "dd"), -1)
+	assertEqualE(t, findByPrefix([]string{}, "dd"), -1)
 }

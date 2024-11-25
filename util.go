@@ -340,7 +340,7 @@ func withLowerKeys[T any](in map[string]T) map[string]T {
 	return out
 }
 
-func getFirstIndexOfWithPrefix(in []string, prefix string) int {
+func findByPrefix(in []string, prefix string) int {
 	for i, v := range in {
 		if strings.HasPrefix(v, prefix) {
 			return i

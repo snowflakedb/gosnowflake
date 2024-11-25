@@ -110,6 +110,8 @@ The following connection parameters are supported:
     Certificate Status Protocol (OCSP) certificate revocation check.
     IMPORTANT: Change the default value for testing or emergency situations only.
 
+  - insecureMode: deprecated. Use disableOCSPChecks instead.
+
   - token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
 
   - client_session_keep_alive: Set to true have a heartbeat in the background every hour to keep the connection alive

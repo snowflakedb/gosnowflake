@@ -82,7 +82,7 @@ type Config struct {
 	Application       string // application name.
 	DisableOCSPChecks bool   // driver doesn't check certificate revocation status
 	// Deprecated: InsecureMode use DisableOCSPChecks instead
-	InsecureMode bool
+	InsecureMode bool             // driver doesn't check certificate revocation status
 	OCSPFailOpen OCSPFailOpenMode // OCSP Fail Open
 
 	Token            string        // Token to use for OAuth other forms of token based auth
@@ -643,8 +643,8 @@ func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
 func parseDSNParams(cfg *Config, params string) (err error) {
 	logger.Infof("Query String: %v\n", params)
 	paramsSlice := strings.Split(params, "&")
-	insecureModeIdx := getFirstIndexOfWithPrefix(paramsSlice, "insecureMode")
-	disableOCSPChecksIdx := getFirstIndexOfWithPrefix(paramsSlice, "disableOCSPChecks")
+	insecureModeIdx := findByPrefix(paramsSlice, "insecureMode")
+	disableOCSPChecksIdx := findByPrefix(paramsSlice, "disableOCSPChecks")
 	if insecureModeIdx > -1 && disableOCSPChecksIdx > -1 {
 		logger.Warn("duplicated insecureMode and disableOCSPChecks. disableOCSPChecks takes precedence")
 		paramsSlice = append(paramsSlice[:insecureModeIdx-1], paramsSlice[insecureModeIdx+1:]...)
