@@ -706,7 +706,7 @@ func TestPutGetLargeFile(t *testing.T) {
 		dbt.mustExec("rm @~/" + dir)
 
 		// PUT test
-		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @%v", sourceDir, "~/"+dir)
+		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @~/%v", sourceDir, dir)
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/" + dir)
