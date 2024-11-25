@@ -30,7 +30,7 @@ jobs:
           fail-fast: false
         name: Check linter
         steps:
-          - uses: actions/checkout@v1
+          - uses: actions/checkout@v4
           - name: Setup go
             uses: actions/setup-go@v5
             with:
@@ -51,7 +51,7 @@ jobs:
                 go: [ '1.21', '1.22', '1.23' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
-            - uses: actions/checkout@v1
+            - uses: actions/checkout@v4
             - name: Setup go
               uses: actions/setup-go@v5
               with:
@@ -77,7 +77,7 @@ jobs:
                 go: [ '1.21', '1.22', '1.23' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
-            - uses: actions/checkout@v1
+            - uses: actions/checkout@v4
             - name: Setup go
               uses: actions/setup-go@v5
               with:
@@ -102,12 +102,12 @@ jobs:
                 go: [ '1.21', '1.22', '1.23' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
-            - uses: actions/checkout@v1
+            - uses: actions/checkout@v4
             - name: Setup go
               uses: actions/setup-go@v5
               with:
                   go-version: ${{ matrix.go }}
-            - uses: actions/setup-python@v1
+            - uses: actions/setup-python@v5
               with:
                 python-version: '3.x'
                 architecture: 'x64'
