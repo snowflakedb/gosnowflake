@@ -65,7 +65,7 @@ jobs:
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
               run: ./ci/test.sh
             - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v3
+              uses: codecov/codecov-action@v5
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
     build-test-mac:
@@ -90,7 +90,7 @@ jobs:
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
               run: ./ci/test.sh
             - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v3
+              uses: codecov/codecov-action@v5
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
     build-test-windows:
@@ -119,6 +119,6 @@ jobs:
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
               run: ci\\test.bat
             - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v3
+              uses: codecov/codecov-action@v5
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
