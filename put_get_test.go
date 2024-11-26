@@ -267,14 +267,15 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 	}()
 
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec("rm @~/test_put_uncompress_file")
+		stageDir := "test_put_uncompress_file_" + randomString(10)
+		dbt.mustExec("rm @~/" + stageDir)
 
 		// PUT test
-		sqlText := fmt.Sprintf("put 'file://%v' @~/test_put_uncompress_file auto_compress=FALSE", testData)
+		sqlText := fmt.Sprintf("put 'file://%v' @~/%v auto_compress=FALSE", testData, stageDir)
 		sqlText = strings.ReplaceAll(sqlText, "\\", "\\\\")
 		dbt.mustExec(sqlText)
-		defer dbt.mustExec("rm @~/test_put_uncompress_file")
-		rows := dbt.mustQuery("ls @~/test_put_uncompress_file")
+		defer dbt.mustExec("rm @~/" + stageDir)
+		rows := dbt.mustQuery("ls @~/" + stageDir)
 		defer func() {
 			assertNilF(t, rows.Close())
 		}()
@@ -283,14 +284,14 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 			err = rows.Scan(&file, &s1, &s2, &s3)
 			assertNilE(t, err)
 		}
-		assertStringContainsE(t, file, "test_put_uncompress_file/data.txt")
-		assertStringDoesNotContainE(t, file, "data.txt.gz")
+		assertTrueF(t, strings.Contains(file, stageDir+"/data.txt"), fmt.Sprintf("should contain file. got: %v", file))
+		assertFalseF(t, strings.Contains(file, "data.txt.gz"), fmt.Sprintf("should not contain file. got: %v", file))
 
 		// GET test
 		var streamBuf bytes.Buffer
 		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{GetFileToStream: true})
 		ctx = WithFileGetStream(ctx, &streamBuf)
-		sql := fmt.Sprintf("get @~/test_put_uncompress_file/data.txt 'file://%v'", tmpDir)
+		sql := fmt.Sprintf("get @~/%v/data.txt 'file://%v'", stageDir, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
 		defer func() {
@@ -335,17 +336,19 @@ func TestPutOverwrite(t *testing.T) {
 	assertNilF(t, err)
 	assertNilF(t, f.Close())
 
+	stageName := "test_put_overwrite_stage_" + randomString(10)
+
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec("rm @~/test_put_overwrite")
+		dbt.mustExec("CREATE OR REPLACE STAGE " + stageName)
+		defer dbt.mustExec("DROP STAGE " + stageName)
 
 		f, _ = os.Open(testData)
 		rows := dbt.mustQueryContext(
 			WithFileStream(context.Background(), f),
-			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite",
+			fmt.Sprintf("put 'file://%v' @"+stageName+"/test_put_overwrite",
 				strings.ReplaceAll(testData, "\\", "/")))
 		defer rows.Close()
 		f.Close()
-		defer dbt.mustExec("rm @~/test_put_overwrite")
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
 		if rows.Next() {
 			if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
@@ -356,7 +359,7 @@ func TestPutOverwrite(t *testing.T) {
 			t.Fatalf("expected UPLOADED, got %v", s6)
 		}
 
-		rows = dbt.mustQuery("ls @~/test_put_overwrite")
+		rows = dbt.mustQuery("ls @" + stageName + "/test_put_overwrite")
 		defer rows.Close()
 		assertTrueF(t, rows.Next(), "expected new rows")
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
@@ -367,7 +370,7 @@ func TestPutOverwrite(t *testing.T) {
 		f, _ = os.Open(testData)
 		rows = dbt.mustQueryContext(
 			WithFileStream(context.Background(), f),
-			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite",
+			fmt.Sprintf("put 'file://%v' @"+stageName+"/test_put_overwrite",
 				strings.ReplaceAll(testData, "\\", "/")))
 		defer rows.Close()
 		f.Close()
@@ -379,7 +382,7 @@ func TestPutOverwrite(t *testing.T) {
 			t.Fatalf("expected SKIPPED, got %v", s6)
 		}
 
-		rows = dbt.mustQuery("ls @~/test_put_overwrite")
+		rows = dbt.mustQuery("ls @" + stageName + "/test_put_overwrite")
 		defer rows.Close()
 		assertTrueF(t, rows.Next(), "expected new rows")
 
@@ -393,7 +396,7 @@ func TestPutOverwrite(t *testing.T) {
 		f, _ = os.Open(testData)
 		rows = dbt.mustQueryContext(
 			WithFileStream(context.Background(), f),
-			fmt.Sprintf("put 'file://%v' @~/test_put_overwrite overwrite=true",
+			fmt.Sprintf("put 'file://%v' @"+stageName+"/test_put_overwrite overwrite=true",
 				strings.ReplaceAll(testData, "\\", "/")))
 		defer rows.Close()
 		f.Close()
@@ -405,18 +408,14 @@ func TestPutOverwrite(t *testing.T) {
 			t.Fatalf("expected UPLOADED, got %v", s6)
 		}
 
-		rows = dbt.mustQuery("ls @~/test_put_overwrite")
+		rows = dbt.mustQuery("ls @" + stageName + "/test_put_overwrite")
 		defer rows.Close()
 		assertTrueF(t, rows.Next(), "expected new rows")
 		if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
 			t.Fatal(err)
 		}
-		if s0 != fmt.Sprintf("test_put_overwrite/%v.gz", baseName(testData)) {
-			t.Fatalf("expected test_put_overwrite/%v.gz, got %v", baseName(testData), s0)
-		}
-		if s2 == md5Column {
-			t.Fatalf("file should have been overwritten.")
-		}
+		assertEqualE(t, s0, stageName+"/test_put_overwrite/"+baseName(testData)+".gz")
+		assertNotEqualE(t, s2, md5Column)
 	})
 }
 
@@ -704,14 +703,15 @@ func TestPutGetLargeFile(t *testing.T) {
 	assertNilF(t, err)
 
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec("rm @~/test_put_largefile")
+		stageDir := "test_put_largefile_" + randomString(10)
+		dbt.mustExec("rm @~/" + stageDir)
 
 		// PUT test
-		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @%v", sourceDir, "~/test_put_largefile")
+		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @~/%v", sourceDir, stageDir)
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
 		dbt.mustExec(sqlText)
-		defer dbt.mustExec("rm @~/test_put_largefile")
-		rows := dbt.mustQuery("ls @~/test_put_largefile")
+		defer dbt.mustExec("rm @~/" + stageDir)
+		rows := dbt.mustQuery("ls @~/" + stageDir)
 		defer func() {
 			assertNilF(t, rows.Close())
 		}()
@@ -728,7 +728,7 @@ func TestPutGetLargeFile(t *testing.T) {
 		var streamBuf bytes.Buffer
 		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{GetFileToStream: true})
 		ctx = WithFileGetStream(ctx, &streamBuf)
-		sql := fmt.Sprintf("get @%v 'file://%v'", "~/test_put_largefile/largefile.txt.gz", t.TempDir())
+		sql := fmt.Sprintf("get @~/%v/largefile.txt.gz 'file://%v'", stageDir, t.TempDir())
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
 		defer func() {
@@ -894,6 +894,8 @@ func TestPutCancel(t *testing.T) {
 	assertNilF(t, err)
 	testData := path.Join(sourceDir, "/test_data/largefile.txt")
 
+	stageDir := "test_put_cancel_" + randomString(10)
+
 	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
@@ -901,8 +903,8 @@ func TestPutCancel(t *testing.T) {
 			// attempt to upload a large file, but it should be canceled in 3 seconds
 			_, err := dbt.conn.ExecContext(
 				ctx,
-				fmt.Sprintf("put 'file://%v' @~/test_put_cancel overwrite=true",
-					strings.ReplaceAll(testData, "\\", "/")))
+				fmt.Sprintf("put 'file://%v' @~/%v overwrite=true",
+					strings.ReplaceAll(testData, "\\", "/"), stageDir))
 			if err != nil {
 				c <- err
 				return

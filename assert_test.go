@@ -48,6 +48,10 @@ func assertNotEqualF(t *testing.T, actual any, expected any, descriptions ...str
 	fatalOnNonEmpty(t, validateNotEqual(actual, expected, descriptions...))
 }
 
+func assertNotEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
+	errorOnNonEmpty(t, validateNotEqual(actual, expected, descriptions...))
+}
+
 func assertBytesEqualE(t *testing.T, actual []byte, expected []byte, descriptions ...string) {
 	errorOnNonEmpty(t, validateBytesEqual(actual, expected, descriptions...))
 }
