@@ -94,6 +94,7 @@ func TestLoadConnectionConfigForOAuth(t *testing.T) {
 	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
 	assertEqualF(t, cfg.Token, "token_value")
 	assertEqualF(t, cfg.Port, 443)
+	assertEqualE(t, cfg.DisableOCSPChecks, true)
 }
 
 func TestReadTokenValueWithTokenFilePath(t *testing.T) {
@@ -110,6 +111,7 @@ func TestReadTokenValueWithTokenFilePath(t *testing.T) {
 	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
 	assertEqualF(t, cfg.Token, "mock_token123456")
+	assertEqualE(t, cfg.InsecureMode, true)
 }
 
 func TestLoadConnectionConfigWitNonExistingDSN(t *testing.T) {
