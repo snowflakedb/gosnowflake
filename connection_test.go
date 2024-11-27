@@ -501,6 +501,9 @@ func TestIsPrivateLink(t *testing.T) {
 }
 
 func TestBuildPrivatelinkConn(t *testing.T) {
+	os.Unsetenv(cacheServerURLEnv)
+	os.Unsetenv(ocspRetryURLEnv)
+
 	if _, err := buildSnowflakeConn(context.Background(), Config{
 		Account:  "testaccount",
 		User:     "testuser",
