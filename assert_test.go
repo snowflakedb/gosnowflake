@@ -68,6 +68,10 @@ func assertFalseF(t *testing.T, actual bool, descriptions ...string) {
 	fatalOnNonEmpty(t, validateEqual(actual, false, descriptions...))
 }
 
+func assertFalseE(t *testing.T, actual bool, descriptions ...string) {
+	errorOnNonEmpty(t, validateEqual(actual, false, descriptions...))
+}
+
 func assertStringContainsE(t *testing.T, actual string, expectedToContain string, descriptions ...string) {
 	errorOnNonEmpty(t, validateStringContains(actual, expectedToContain, descriptions...))
 }
