@@ -40,7 +40,11 @@ type objectWithAllTypes struct {
 }
 
 func (o *objectWithAllTypes) Scan(val any) error {
-	st := val.(StructuredObject)
+	st, ok := val.(StructuredObject)
+	if !ok {
+		return fmt.Errorf("expected StructuredObject, got %T", val)
+	}
+
 	var err error
 	if o.s, err = st.GetString("s"); err != nil {
 		return err
@@ -193,7 +197,11 @@ type simpleObject struct {
 }
 
 func (so *simpleObject) Scan(val any) error {
-	st := val.(StructuredObject)
+	st, ok := val.(StructuredObject)
+	if !ok {
+		return fmt.Errorf("expected StructuredObject, got %T", val)
+	}
+
 	var err error
 	if so.s, err = st.GetString("s"); err != nil {
 		return err
@@ -319,7 +327,11 @@ type objectWithAllTypesNullable struct {
 }
 
 func (o *objectWithAllTypesNullable) Scan(val any) error {
-	st := val.(StructuredObject)
+	st, ok := val.(StructuredObject)
+	if !ok {
+		return fmt.Errorf("expected StructuredObject, got %T", val)
+	}
+
 	var err error
 	if o.s, err = st.GetNullString("s"); err != nil {
 		return err
@@ -492,7 +504,7 @@ func TestObjectWithAllTypesNullable(t *testing.T) {
 			})
 			t.Run("not null", func(t *testing.T) {
 				uid := newTestUUID()
-				rows := dbt.mustQueryContextT(ctx, t, fmt.Sprintf("select 1, object_construct_keep_null('s', 'abc', 'b', 1, 'i16', 2, 'i32', 3, 'i64', 9223372036854775807, 'f64', 2.2, 'bo', true, 'bi', TO_BINARY('616263', 'HEX'), 'date', '2024-03-21'::DATE, 'time', '13:03:02'::TIME, 'ltz', '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz', '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz', '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so', {'s': 'child', 'i': 9}::OBJECT, 'sArr', ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr', ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap', {'x': true, 'y': false}, 'uuid': '%s')::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR)", uid))
+				rows := dbt.mustQueryContextT(ctx, t, fmt.Sprintf("select 1, object_construct_keep_null('s', 'abc', 'b', 1, 'i16', 2, 'i32', 3, 'i64', 9223372036854775807, 'f64', 2.2, 'bo', true, 'bi', TO_BINARY('616263', 'HEX'), 'date', '2024-03-21'::DATE, 'time', '13:03:02'::TIME, 'ltz', '2021-07-21 11:22:33'::TIMESTAMP_LTZ, 'tz', '2022-08-31 13:43:22 +0200'::TIMESTAMP_TZ, 'ntz', '2023-05-22 01:17:19'::TIMESTAMP_NTZ, 'so', {'s': 'child', 'i': 9}::OBJECT, 'sArr', ARRAY_CONSTRUCT('x', 'y', 'z'), 'f64Arr', ARRAY_CONSTRUCT(1.1, 2.2, 3.3), 'someMap', {'x': true, 'y': false}, 'uuid', '%s')::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR)", uid))
 				defer rows.Close()
 				rows.Next()
 				var ignore sql.NullInt32
@@ -553,7 +565,11 @@ type objectWithAllTypesSimpleScan struct {
 }
 
 func (so *objectWithAllTypesSimpleScan) Scan(val any) error {
-	st := val.(StructuredObject)
+	st, ok := val.(StructuredObject)
+	if !ok {
+		return fmt.Errorf("expected StructuredObject, got %T", val)
+	}
+
 	return st.ScanTo(so)
 }
 
@@ -651,7 +667,11 @@ type objectWithAllTypesNullableSimpleScan struct {
 }
 
 func (o *objectWithAllTypesNullableSimpleScan) Scan(val any) error {
-	st := val.(StructuredObject)
+	st, ok := val.(StructuredObject)
+	if !ok {
+		return fmt.Errorf("expected StructuredObject, got %T", val)
+	}
+
 	return st.ScanTo(o)
 }
 
@@ -737,7 +757,11 @@ type objectWithCustomNameAndIgnoredField struct {
 }
 
 func (o *objectWithCustomNameAndIgnoredField) Scan(val any) error {
-	st := val.(StructuredObject)
+	st, ok := val.(StructuredObject)
+	if !ok {
+		return fmt.Errorf("expected StructuredObject, got %T", val)
+	}
+
 	return st.ScanTo(o)
 }
 
@@ -1839,7 +1863,11 @@ type HigherPrecisionStruct struct {
 }
 
 func (hps *HigherPrecisionStruct) Scan(val any) error {
-	st := val.(StructuredObject)
+	st, ok := val.(StructuredObject)
+	if !ok {
+		return fmt.Errorf("expected StructuredObject, got %T", val)
+	}
+
 	var err error
 	if hps.i, err = st.GetBigInt("i"); err != nil {
 		return err
