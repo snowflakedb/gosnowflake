@@ -406,7 +406,10 @@ func TestBulkArrayBindingUUID(t *testing.T) {
 				assertNilF(t, rows.Close())
 			}
 
-			dbt.exec(deleteTableSQL)
+			_, err := dbt.exec(deleteTableSQL)
+			if err != nil {
+				t.Logf("failed to drop table. err: %s", err)
+			}
 		})
 
 		dbt.mustExec(createTable)
