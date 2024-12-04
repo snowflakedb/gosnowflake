@@ -251,6 +251,9 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		if value, err := valuer.Value(); err == nil && value != nil {
 			// if the output value is a valid string, return that
 			if strVal, ok := value.(string); ok {
+				if tsmode == objectType || tsmode == arrayType || tsmode == sliceType {
+					return bindingValue{&strVal, jsonFormatStr, nil}, nil
+				}
 				return bindingValue{&strVal, "", nil}, nil
 			}
 		}

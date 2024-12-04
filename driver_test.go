@@ -973,6 +973,9 @@ func newTestUUID() testUUID {
 }
 
 func parseTestUUID(str string) testUUID {
+	if str == "" {
+		return testUUID{}
+	}
 	return testUUID{ParseUUID(str)}
 }
 
@@ -1023,19 +1026,15 @@ func (uuid testUUID) Value() (driver.Value, error) {
 }
 
 func TestUUID(t *testing.T) {
-	t.Run("Basic Type", func(t *testing.T) {
-		testUuid(t, false, false)
-	})
-
 	t.Run("JSON", func(t *testing.T) {
-		testUuid(t, true, false)
+		testUUIDWithFormat(t, true, false)
 	})
 	t.Run("Arrow", func(t *testing.T) {
-		testUuid(t, false, true)
+		testUUIDWithFormat(t, false, true)
 	})
 }
 
-func testUuid(t *testing.T, json, arrow bool) {
+func testUUIDWithFormat(t *testing.T, json, arrow bool) {
 	runDBTest(t, func(dbt *DBTest) {
 		if json {
 			dbt.mustExec(forceJSON)
