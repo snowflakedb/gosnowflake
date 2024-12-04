@@ -22,7 +22,10 @@ func TestExternalBrowserSuccessful(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		connectToSnowflake(cfg, "SELECT 1", true)
+		_, err := connectToSnowflake(cfg, "SELECT 1", true)
+		if err != nil {
+			t.Errorf("Connection failed: err %v", err)
+		}
 	}()
 	wg.Wait()
 }
@@ -115,7 +118,10 @@ func TestClientStoreCredentials(t *testing.T) {
 		}()
 		go func() {
 			defer wg.Done()
-			connectToSnowflake(cfg, "SELECT 1", true)
+			_, err := connectToSnowflake(cfg, "SELECT 1", true)
+			if err != nil {
+				t.Errorf("Connection failed: err %v", err)
+			}
 		}()
 		wg.Wait()
 	})

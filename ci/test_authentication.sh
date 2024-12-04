@@ -10,5 +10,5 @@ docker run \
   -v $(cd $THIS_DIR/.. && pwd):/mnt/host \
   -v $WORKSPACE:/mnt/workspace \
   --rm \
-  temp_newer_golang \
+  nexus.int.snowflakecomputing.com:8086/docker/snowdrivers-test-external-browser-golang:2 \
   "/mnt/host/ci/container/test_authentication.sh"
