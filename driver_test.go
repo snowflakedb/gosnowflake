@@ -369,29 +369,6 @@ func (dbt *DBTest) forceNativeArrow() { // structured types
 	dbt.mustExec("alter session set FORCE_ENABLE_STRUCTURED_TYPES_NATIVE_ARROW_FORMAT = true")
 }
 
-func (dbt *DBTest) enableStructuredTypes() {
-	_, err := dbt.exec("alter session set ENABLE_STRUCTURED_TYPES_IN_CLIENT_RESPONSE = true")
-	if err != nil {
-		dbt.Log(err)
-	}
-	_, err = dbt.exec("alter session set IGNORE_CLIENT_VESRION_IN_STRUCTURED_TYPES_RESPONSE = true")
-	if err != nil {
-		dbt.Log(err)
-	}
-}
-
-func (dbt *DBTest) enableStructuredTypesBinding() {
-	dbt.enableStructuredTypes()
-	_, err := dbt.exec("ALTER SESSION SET ENABLE_OBJECT_TYPED_BINDS = true")
-	if err != nil {
-		dbt.Log(err)
-	}
-	_, err = dbt.exec("ALTER SESSION SET ENABLE_STRUCTURED_TYPES_IN_BINDS = Enable")
-	if err != nil {
-		dbt.Log(err)
-	}
-}
-
 type SCTest struct {
 	*testing.T
 	sc *snowflakeConn
