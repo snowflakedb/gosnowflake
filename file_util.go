@@ -5,6 +5,7 @@ package gosnowflake
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"io"
@@ -23,16 +24,28 @@ const (
 	readWriteFileMode os.FileMode = 0666
 )
 
-func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.Buffer) (*bytes.Buffer, int, error) {
-	r := getReaderFromBuffer(srcStream)
-	buf, err := io.ReadAll(r)
-	if err != nil {
-		return nil, -1, err
-	}
+func (util *snowflakeFileUtil) compressFileWithGzipFromStream(ctx context.Context) (*bytes.Buffer, int, error) {
 	var c bytes.Buffer
 	w := gzip.NewWriter(&c)
-	if _, err := w.Write(buf); err != nil { // write buf to gzip writer
-		return nil, -1, err
+	buf := make([]byte, fileChunkSize)
+	r := getReaderFromContext(ctx)
+	if r == nil {
+		return nil, -1, nil
+	}
+
+	// read the whole file in chunks
+	for {
+		n, err := r.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, -1, err
+		}
+		// write buf to gzip writer
+		if _, err = w.Write(buf[:n]); err != nil {
+			return nil, -1, err
+		}
 	}
 	if err := w.Close(); err != nil {
 		return nil, -1, err
@@ -75,11 +88,22 @@ func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir stri
 	return gzipFileName, stat.Size(), err
 }
 
-func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64, error) {
-	m := sha256.New()
-	r := getReaderFromBuffer(stream)
-	chunk := make([]byte, fileChunkSize)
+func (util *snowflakeFileUtil) getDigestAndSizeForStream(realSrcStream **bytes.Buffer, srcStream **bytes.Buffer, ctx context.Context) (string, int64, error) {
+	var r io.Reader
+	var stream **bytes.Buffer
+	if realSrcStream != nil {
+		r = getReaderFromBuffer(srcStream)
+		stream = realSrcStream
+	} else {
+		r = getReaderFromContext(ctx)
+		stream = srcStream
+	}
+	if r == nil {
+		return "", 0, nil
+	}
 
+	m := sha256.New()
+	chunk := make([]byte, fileChunkSize)
 	for {
 		n, err := r.Read(chunk)
 		if err == io.EOF {

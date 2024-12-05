@@ -463,20 +463,9 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 			if currentFileCompressionType == nil {
 				var mtype *mimetype.MIME
 				var err error
-				if meta.srcStream != nil {
-					r := getReaderFromBuffer(&meta.srcStream)
-					mtype, err = mimetype.DetectReader(r)
-					if err != nil {
-						return err
-					}
-					if _, err = io.ReadAll(r); err != nil { // flush out tee buffer
-						return err
-					}
-				} else {
-					mtype, err = mimetype.DetectFile(fileName)
-					if err != nil {
-						return err
-					}
+				mtype, err = mimetype.DetectFile(fileName)
+				if err != nil {
+					return err
 				}
 				currentFileCompressionType = lookupByExtension(mtype.Extension())
 			}
@@ -858,7 +847,7 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	fileUtil := new(snowflakeFileUtil)
 	if meta.requireCompress {
 		if meta.srcStream != nil {
-			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(&meta.srcStream)
+			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(sfa.ctx)
 		} else {
 			meta.realSrcFileName, _, err = fileUtil.compressFileWithGzip(meta.srcFileName, tmpDir)
 		}
@@ -868,11 +857,7 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	}
 
 	if meta.srcStream != nil {
-		if meta.realSrcStream != nil {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
-		} else {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
-		}
+		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream, &meta.srcStream, sfa.ctx)
 	} else {
 		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)
 	}
