@@ -119,7 +119,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	if sfa.options.MultiPartThreshold == 0 {
 		sfa.options.MultiPartThreshold = dataSizeThreshold
 	}
-	if err := sfa.execute(); err != nil {
+	if err = sfa.execute(); err != nil {
 		return nil, err
 	}
 	data, err = sfa.result()
@@ -134,18 +134,32 @@ func (sc *snowflakeConn) processFileTransfer(
 	return data, nil
 }
 
-func getFileStream(ctx context.Context) (*bytes.Buffer, error) {
+func getReaderFromContext(ctx context.Context) io.Reader {
 	s := ctx.Value(fileStreamFile)
-	if s == nil {
-		return nil, nil
-	}
 	r, ok := s.(io.Reader)
 	if !ok {
-		return nil, errors.New("incorrect io.Reader")
+		return nil
 	}
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(r)
-	return buf, err
+	return r
+}
+
+func getFileStream(ctx context.Context) (*bytes.Buffer, error) {
+	r := getReaderFromContext(ctx)
+	if r == nil {
+		return nil, nil
+	}
+
+	// read a small amount of data to check if file stream will be used
+	buf := make([]byte, defaultStringBufferSize)
+	for {
+		_, err := r.Read(buf)
+		if err != nil {
+			return nil, err
+		} else {
+			break
+		}
+	}
+	return bytes.NewBuffer(buf), nil
 }
 
 func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
