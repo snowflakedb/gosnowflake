@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"math/rand"
@@ -214,14 +215,14 @@ func TestPutLocalFile(t *testing.T) {
 		dbt.mustExec(execQuery)
 		dbt.mustQueryAssertCount("ls @%gotest_putget_t1", 2)
 
-		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 string
+		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 sql.NullString
 		rows := dbt.mustQuery("copy into gotest_putget_t1")
 		defer func() {
 			assertNilF(t, rows.Close())
 		}()
 		for rows.Next() {
 			assertNilF(t, rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9))
-			if s1 != "LOADED" {
+			if !s1.Valid || s1.String != "LOADED" {
 				t.Fatal("not loaded")
 			}
 		}
@@ -244,7 +245,7 @@ func TestPutLocalFile(t *testing.T) {
 		}()
 		if rows3.Next() {
 			assertNilF(t, rows3.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9))
-			if s1 != "LOADED" {
+			if !s1.Valid || s1.String != "LOADED" {
 				t.Fatal("not loaded")
 			}
 		}
