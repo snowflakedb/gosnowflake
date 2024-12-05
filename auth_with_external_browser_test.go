@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"context"
 	"database/sql"
-	"flag"
 	"fmt"
 	"log"
 	"os/exec"
@@ -13,12 +12,12 @@ import (
 )
 
 func TestExternalBrowserSuccessful(t *testing.T) {
-	cfg := setupTest(t)
+	cfg := setupExternalBrowserTest(t)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(mode.Success, cfg.User, cfg.Password)
+		provideCredentials(externalBrowserType.Success, cfg.User, cfg.Password)
 	}()
 	go func() {
 		defer wg.Done()
@@ -31,13 +30,13 @@ func TestExternalBrowserSuccessful(t *testing.T) {
 }
 
 func TestExternalBrowserFailed(t *testing.T) {
-	cfg := setupTest(t)
+	cfg := setupExternalBrowserTest(t)
 	cfg.ExternalBrowserTimeout = time.Duration(10000) * time.Millisecond
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(mode.Fail, "FakeAccount", "NotARealPassword")
+		provideCredentials(externalBrowserType.Fail, "FakeAccount", "NotARealPassword")
 	}()
 	go func() {
 		defer wg.Done()
@@ -51,13 +50,13 @@ func TestExternalBrowserFailed(t *testing.T) {
 }
 
 func TestExternalBrowserTimeout(t *testing.T) {
-	cfg := setupTest(t)
+	cfg := setupExternalBrowserTest(t)
 	cfg.ExternalBrowserTimeout = time.Duration(1000) * time.Millisecond
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(mode.Timeout, cfg.User, cfg.Password)
+		provideCredentials(externalBrowserType.Timeout, cfg.User, cfg.Password)
 	}()
 	go func() {
 		defer wg.Done()
@@ -71,7 +70,7 @@ func TestExternalBrowserTimeout(t *testing.T) {
 }
 
 func TestExternalBrowserMismatchUser(t *testing.T) {
-	cfg := setupTest(t)
+	cfg := setupExternalBrowserTest(t)
 	correctUsername := cfg.User
 	cfg.User = "fakeAccount"
 	var wg sync.WaitGroup
@@ -79,7 +78,7 @@ func TestExternalBrowserMismatchUser(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(mode.Success, correctUsername, cfg.Password)
+		provideCredentials(externalBrowserType.Success, correctUsername, cfg.Password)
 	}()
 	go func() {
 		defer wg.Done()
@@ -94,20 +93,8 @@ func TestExternalBrowserMismatchUser(t *testing.T) {
 	wg.Wait()
 }
 
-func setupTest(t *testing.T) *Config {
-	if runningOnGithubAction() {
-		t.Skip("Running only on Jenkins due to required connection to external browser")
-	}
-	cleanupBrowserProcesses()
-	cfg, err := getConfig()
-	if err != nil {
-		t.Fatalf("failed to get config: %v", err)
-	}
-	return cfg
-}
-
 func TestClientStoreCredentials(t *testing.T) {
-	cfg := setupTest(t)
+	cfg := setupExternalBrowserTest(t)
 	cfg.ClientStoreTemporaryCredential = 1
 	cfg.ExternalBrowserTimeout = time.Duration(10000) * time.Millisecond
 
@@ -117,11 +104,12 @@ func TestClientStoreCredentials(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			provideCredentials(mode.Success, cfg.User, cfg.Password)
+			provideCredentials(externalBrowserType.Success, cfg.User, cfg.Password)
 		}()
 		go func() {
 			defer wg.Done()
-			_, err := connectToSnowflake(cfg, "SELECT 1", true)
+			conn, err := connectToSnowflake(cfg, "SELECT 1", true)
+			defer conn.Close()
 			if err != nil {
 				t.Errorf("Connection failed: err %v", err)
 			}
@@ -131,7 +119,8 @@ func TestClientStoreCredentials(t *testing.T) {
 
 	t.Run("Verify validation of ID token if option enabled", func(t *testing.T) {
 		cleanupBrowserProcesses()
-		conn, _ := getConnection(openDb(cfg))
+		cfg.ClientStoreTemporaryCredential = 1
+		conn, _ := createConnection(getDbHandler(cfg))
 		_, err := conn.QueryContext(context.Background(), "SELECT 1")
 		if err != nil {
 			log.Fatalf("failed to run a query. err: %v", err)
@@ -142,7 +131,7 @@ func TestClientStoreCredentials(t *testing.T) {
 		cleanupBrowserProcesses()
 		cfg.ClientStoreTemporaryCredential = 0
 		tOut := "authentication timed out"
-		_, err := getConnection(openDb(cfg))
+		_, err := createConnection(getDbHandler(cfg))
 		if err.Error() != tOut {
 			t.Errorf("Expected %v, but got %v", tOut, err)
 		}
@@ -155,7 +144,7 @@ type Mode struct {
 	Timeout string
 }
 
-var mode = Mode{
+var externalBrowserType = Mode{
 	Success: "success",
 	Fail:    "fail",
 	Timeout: "timeout",
@@ -177,72 +166,12 @@ func provideCredentials(mode string, user string, password string) {
 	}
 }
 
-func getConfigFromEnv() (*Config, error) {
-	return GetConfigFromEnv([]*ConfigParam{
-		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
-		{Name: "User", EnvName: "SNOWFLAKE_AUTH_TEST_OKTA_USER", FailOnMissing: true},
-		{Name: "Password", EnvName: "SNOWFLAKE_AUTH_TEST_OKTA_PASS", FailOnMissing: true},
-		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
-		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
-		{Name: "Protocol", EnvName: "SNOWFLAKE_AUTH_TEST_PROTOCOL", FailOnMissing: false},
-	})
-}
-
-func getConfig() (*Config, error) {
-	cfg, err := getConfigFromEnv()
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.Authenticator = AuthTypeExternalBrowser
-	cfg.DisableQueryContextCache = true
-
-	return cfg, nil
-}
-
-func parseFlags() {
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-}
-
-func executeQuery(query string, dsn string) (rows *sql.Rows, err error) {
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	rows, err = db.Query(query)
-	return rows, err
-}
-
-func openDb(cfg *Config) *sql.DB {
-	dsn, err := DSN(cfg)
-	if err != nil {
-		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
-	}
-
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		log.Fatalf("failed to open database. %v, err: %v", dsn, err)
-	}
-	return db
-}
-
-func getConnection(db *sql.DB) (*sql.Conn, error) {
-	conn, err := db.Conn(context.Background())
-	return conn, err
-}
-
-func connectToSnowflake(config *Config, query string, exceptionHandler bool) (rows *sql.Rows, err error) {
+func connectToSnowflake(cfg *Config, query string, exceptionHandler bool) (rows *sql.Rows, err error) {
 	parseFlags()
-	cfg := config
 	dsn, err := DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
-	fmt.Printf("Waiting for opening browser to authenticate...")
 	rows, err = executeQuery(query, dsn)
 	if exceptionHandler && err != nil {
 		log.Fatalf("failed to run a query. %v, err: %v", rows, err)
@@ -260,4 +189,17 @@ func connectToSnowflake(config *Config, query string, exceptionHandler bool) (ro
 		}
 	}
 	return rows, err
+}
+
+func setupExternalBrowserTest(t *testing.T) *Config {
+	skipOnJenkins(t, "Running only on Docker container")
+	if runningOnGithubAction() {
+		t.Skip("Running only on Docker container")
+	}
+	cleanupBrowserProcesses()
+	cfg, err := getConfig(AuthTypeExternalBrowser)
+	if err != nil {
+		t.Fatalf("failed to get config: %v", err)
+	}
+	return cfg
 }
