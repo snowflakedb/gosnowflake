@@ -88,7 +88,7 @@ func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir stri
 	return gzipFileName, stat.Size(), err
 }
 
-func (util *snowflakeFileUtil) getDigestAndSizeForStream(realSrcStream **bytes.Buffer, srcStream **bytes.Buffer, ctx context.Context) (string, int64, error) {
+func (util *snowflakeFileUtil) getDigestAndSizeForStream(ctx context.Context, realSrcStream **bytes.Buffer, srcStream **bytes.Buffer) (string, int64, error) {
 	var r io.Reader
 	var stream **bytes.Buffer
 	if realSrcStream != nil {
