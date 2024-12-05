@@ -151,13 +151,9 @@ func getFileStream(ctx context.Context) (*bytes.Buffer, error) {
 
 	// read a small amount of data to check if file stream will be used
 	buf := make([]byte, defaultStringBufferSize)
-	for {
-		_, err := r.Read(buf)
-		if err != nil {
-			return nil, err
-		} else {
-			break
-		}
+	_, err := r.Read(buf)
+	if err != nil {
+		return nil, err
 	}
 	return bytes.NewBuffer(buf), nil
 }
