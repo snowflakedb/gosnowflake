@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -71,9 +72,9 @@ func TestLoadS3(t *testing.T) {
 			field_optionally_enclosed_by='\"')`,
 			data.awsAccessKeyID, data.awsSecretAccessKey))
 		defer func() {
-		    assertNilF(t, rows.Close())
+			assertNilF(t, rows.Close())
 		}()
-		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 string
+		var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 sql.NullString
 		cnt := 0
 		for rows.Next() {
 			assertNilF(t, rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s8, &s9))
@@ -82,7 +83,7 @@ func TestLoadS3(t *testing.T) {
 		if cnt != 1 {
 			t.Fatal("copy into tweets did not set row count to 1")
 		}
-		if s0 != "s3://sfc-eng-data/twitter/O1k/tweets/1.csv.gz" {
+		if !s0.Valid || s0.String != "s3://sfc-eng-data/twitter/O1k/tweets/1.csv.gz" {
 			t.Fatalf("got %v as file", s0)
 		}
 	})
@@ -143,7 +144,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 			t.Error(err)
 		}
 		defer func() {
-		    assertNilF(t, f.Close())
+			assertNilF(t, f.Close())
 		}()
 		uploader := manager.NewUploader(client)
 		if _, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
@@ -238,7 +239,7 @@ func TestPretendToPutButList(t *testing.T) {
 }
 
 func TestPutGetAWSStage(t *testing.T) {
-	if runningOnGithubAction() && !runningOnAWS() {
+	if runningOnGithubAction() || !runningOnAWS() {
 		t.Skip("skipping non aws environment")
 	}
 
@@ -275,7 +276,7 @@ func TestPutGetAWSStage(t *testing.T) {
 		sqlText := fmt.Sprintf(sql, strings.ReplaceAll(fname, "\\", "\\\\"), stageName)
 		rows := dbt.mustQuery(sqlText)
 		defer func() {
-		    assertNilF(t, rows.Close())
+			assertNilF(t, rows.Close())
 		}()
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
@@ -292,7 +293,7 @@ func TestPutGetAWSStage(t *testing.T) {
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows = dbt.mustQuery(sqlText)
 		defer func() {
-		    assertNilF(t, rows.Close())
+			assertNilF(t, rows.Close())
 		}()
 		for rows.Next() {
 			if err = rows.Scan(&s0, &s1, &s2, &s3); err != nil {
@@ -323,7 +324,7 @@ func TestPutGetAWSStage(t *testing.T) {
 			t.Error(err)
 		}
 		defer func() {
-		    assertNilF(t, f.Close())
+			assertNilF(t, f.Close())
 		}()
 		gz, err := gzip.NewReader(f)
 		if err != nil {
