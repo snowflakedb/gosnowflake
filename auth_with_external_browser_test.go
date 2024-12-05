@@ -95,6 +95,9 @@ func TestExternalBrowserMismatchUser(t *testing.T) {
 }
 
 func setupTest(t *testing.T) *Config {
+	if runningOnGithubAction() {
+		t.Skip("Running only on Jenkins due to required connection to external browser")
+	}
 	cleanupBrowserProcesses()
 	cfg, err := getConfig()
 	if err != nil {
