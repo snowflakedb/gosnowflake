@@ -9,10 +9,10 @@ import (
 func TestOktaSuccessful(t *testing.T) {
 	cfg := setupOktaTest(t)
 	conn, err := connectToSnowflake(cfg, "SELECT 1", true)
-	defer conn.Close()
 	if err != nil {
 		t.Fatalf("failed to connect. err: %v", err)
 	}
+	defer conn.Close()
 }
 
 func TestOktaWrongCredentials(t *testing.T) {
@@ -76,9 +76,14 @@ func setupOktaTest(t *testing.T) *Config {
 	}
 
 	cfg, err := getConfig(AuthTypeOkta)
-	cfg.OktaURL, err = url.Parse(url_env)
 	if err != nil {
 		t.Fatalf("failed to get config: %v", err)
 	}
+
+	cfg.OktaURL, err = url.Parse(url_env)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
 	return cfg
 }

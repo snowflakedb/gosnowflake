@@ -7,3 +7,5 @@ eval $(jq -r '.authtestparams | to_entries | map("export \(.key)=\(.value|tostri
 
 go test -run TestExternalBrowser*
 go test -run TestClientStoreCredentials
+go test -run TestOkta*
+go test -run TestOauth*

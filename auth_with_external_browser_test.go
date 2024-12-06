@@ -109,10 +109,10 @@ func TestClientStoreCredentials(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			conn, err := connectToSnowflake(cfg, "SELECT 1", true)
-			defer conn.Close()
 			if err != nil {
 				t.Errorf("Connection failed: err %v", err)
 			}
+			defer conn.Close()
 		}()
 		wg.Wait()
 	})
