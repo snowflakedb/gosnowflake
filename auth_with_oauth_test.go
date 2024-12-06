@@ -11,7 +11,7 @@ import (
 
 func TestOauthSuccessful(t *testing.T) {
 	cfg := setupOauthTest(t)
-	token, err := getToken(cfg)
+	token, _ := getToken(cfg)
 	cfg.Token = token
 	conn, err := connectToSnowflake(cfg, "SELECT 1", true)
 	if err != nil {
@@ -33,13 +33,13 @@ func TestOauthInvalidToken(t *testing.T) {
 
 func TestOauthMismatchedUser(t *testing.T) {
 	cfg := setupOauthTest(t)
-	token, err := getToken(cfg)
+	token, _ := getToken(cfg)
 	cfg.Token = token
 	cfg.User = "fakeaccount"
 	expErr := "390309 (08004): The user you were trying to authenticate " +
 		"as differs from the user tied to the access token."
 
-	_, err = connectToSnowflake(cfg, "SELECT 1", false)
+	_, err := connectToSnowflake(cfg, "SELECT 1", false)
 	if err.Error() != expErr {
 		t.Fatalf("Expected %v, but got %v", expErr, err)
 	}
@@ -66,7 +66,7 @@ func getToken(cfg *Config) (string, error) {
 
 	inputData := formData(cfg)
 
-	req, err := http.NewRequest("POST", authURL, strings.NewReader(inputData.Encode()))
+	req, _ := http.NewRequest("POST", authURL, strings.NewReader(inputData.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
 	req.SetBasicAuth(oauthClientID, oauthClientSecret)
 	resp, err := client.Do(req)
