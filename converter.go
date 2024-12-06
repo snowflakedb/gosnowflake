@@ -80,9 +80,13 @@ func isInterfaceArrayBinding(t interface{}) bool {
 	}
 }
 
+func isJsonFormatType(tsmode snowflakeType) bool {
+	return tsmode == objectType || tsmode == arrayType || tsmode == sliceType
+}
+
 // goTypeToSnowflake translates Go data type to Snowflake data type.
 func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
-	if tsmode == objectType || tsmode == arrayType || tsmode == sliceType {
+	if isJsonFormatType(tsmode) {
 		return tsmode
 	}
 	if v == nil {
@@ -239,8 +243,9 @@ func snowflakeTypeToGoForMaps[K comparable](ctx context.Context, valueMetadata f
 // in queries.
 func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
 	logger.Debugf("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
+	isJsonFormat := isJsonFormatType(tsmode)
 	if v == nil {
-		if tsmode == objectType || tsmode == arrayType || tsmode == sliceType {
+		if isJsonFormat {
 			return bindingValue{nil, jsonFormatStr, nil}, nil
 		}
 		return bindingValue{nil, "", nil}, nil
@@ -251,7 +256,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		if value, err := valuer.Value(); err == nil && value != nil {
 			// if the output value is a valid string, return that
 			if strVal, ok := value.(string); ok {
-				if tsmode == objectType || tsmode == arrayType || tsmode == sliceType {
+				if isJsonFormat {
 					return bindingValue{&strVal, jsonFormatStr, nil}, nil
 				}
 				return bindingValue{&strVal, "", nil}, nil
@@ -271,7 +276,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		return bindingValue{&s, "", nil}, nil
 	case reflect.String:
 		s := v1.String()
-		if tsmode == objectType || tsmode == arrayType || tsmode == sliceType {
+		if isJsonFormat {
 			return bindingValue{&s, jsonFormatStr, nil}, nil
 		}
 		return bindingValue{&s, "", nil}, nil
@@ -816,7 +821,7 @@ func structValueToString(v driver.Value, tsmode snowflakeType, params map[string
 		return bindingValue{&s, "", nil}, nil
 	case sql.NullString:
 		fmt := ""
-		if tsmode == objectType || tsmode == arrayType || tsmode == sliceType {
+		if isJsonFormatType(tsmode) {
 			fmt = jsonFormatStr
 		}
 		if !typedVal.Valid {
