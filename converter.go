@@ -80,13 +80,13 @@ func isInterfaceArrayBinding(t interface{}) bool {
 	}
 }
 
-func isJsonFormatType(tsmode snowflakeType) bool {
+func isJSONFormatType(tsmode snowflakeType) bool {
 	return tsmode == objectType || tsmode == arrayType || tsmode == sliceType
 }
 
 // goTypeToSnowflake translates Go data type to Snowflake data type.
 func goTypeToSnowflake(v driver.Value, tsmode snowflakeType) snowflakeType {
-	if isJsonFormatType(tsmode) {
+	if isJSONFormatType(tsmode) {
 		return tsmode
 	}
 	if v == nil {
@@ -243,9 +243,9 @@ func snowflakeTypeToGoForMaps[K comparable](ctx context.Context, valueMetadata f
 // in queries.
 func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*string) (bindingValue, error) {
 	logger.Debugf("TYPE: %v, %v", reflect.TypeOf(v), reflect.ValueOf(v))
-	isJsonFormat := isJsonFormatType(tsmode)
+	isJSONFormat := isJSONFormatType(tsmode)
 	if v == nil {
-		if isJsonFormat {
+		if isJSONFormat {
 			return bindingValue{nil, jsonFormatStr, nil}, nil
 		}
 		return bindingValue{nil, "", nil}, nil
@@ -256,7 +256,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		if value, err := valuer.Value(); err == nil && value != nil {
 			// if the output value is a valid string, return that
 			if strVal, ok := value.(string); ok {
-				if isJsonFormat {
+				if isJSONFormat {
 					return bindingValue{&strVal, jsonFormatStr, nil}, nil
 				}
 				return bindingValue{&strVal, "", nil}, nil
@@ -276,7 +276,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		return bindingValue{&s, "", nil}, nil
 	case reflect.String:
 		s := v1.String()
-		if isJsonFormat {
+		if isJSONFormat {
 			return bindingValue{&s, jsonFormatStr, nil}, nil
 		}
 		return bindingValue{&s, "", nil}, nil
@@ -821,7 +821,7 @@ func structValueToString(v driver.Value, tsmode snowflakeType, params map[string
 		return bindingValue{&s, "", nil}, nil
 	case sql.NullString:
 		fmt := ""
-		if isJsonFormatType(tsmode) {
+		if isJSONFormatType(tsmode) {
 			fmt = jsonFormatStr
 		}
 		if !typedVal.Valid {
