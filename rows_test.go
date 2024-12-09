@@ -506,7 +506,7 @@ func TestLocationChangesAfterAlterSession(t *testing.T) {
 		dbt.mustExec("INSERT INTO location_timestamp_ltz VALUES('2023-08-09 10:00:00')")
 		rows1 := dbt.mustQuery("SELECT * FROM location_timestamp_ltz")
 		defer func() {
-		    assertNilF(t, rows1.Close())
+			assertNilF(t, rows1.Close())
 		}()
 		if !rows1.Next() {
 			t.Fatalf("cannot read a record")
@@ -519,7 +519,7 @@ func TestLocationChangesAfterAlterSession(t *testing.T) {
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Pacific/Honolulu'")
 		rows2 := dbt.mustQuery("SELECT * FROM location_timestamp_ltz")
 		defer func() {
-		    assertNilF(t, rows2.Close())
+			assertNilF(t, rows2.Close())
 		}()
 		if !rows2.Next() {
 			t.Fatalf("cannot read a record")

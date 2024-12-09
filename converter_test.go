@@ -269,22 +269,56 @@ func TestValueToString(t *testing.T) {
 	assertNilE(t, bv.schema)
 	assertEqualE(t, *bv.value, expectedString)
 
+	t.Run("SQL Time", func(t *testing.T) {
+		bv, err := valueToString(sql.NullTime{Time: localTime, Valid: true}, timestampLtzType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertNilE(t, bv.schema)
+		assertEqualE(t, *bv.value, expectedUnixTime)
+	})
+
 	t.Run("arrays", func(t *testing.T) {
 		bv, err := valueToString([2]int{1, 2}, objectType, nil)
 		assertNilF(t, err)
-		assertEqualE(t, bv.format, "json")
+		assertEqualE(t, bv.format, jsonFormatStr)
 		assertEqualE(t, *bv.value, "[1,2]")
 	})
 	t.Run("slices", func(t *testing.T) {
 		bv, err := valueToString([]int{1, 2}, objectType, nil)
 		assertNilF(t, err)
-		assertEqualE(t, bv.format, "json")
+		assertEqualE(t, bv.format, jsonFormatStr)
 		assertEqualE(t, *bv.value, "[1,2]")
+	})
+
+	t.Run("UUID - should return string", func(t *testing.T) {
+		u := NewUUID()
+		bv, err := valueToString(u, textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
+	})
+
+	t.Run("database/sql/driver - Valuer interface", func(t *testing.T) {
+		u := newTestUUID()
+		bv, err := valueToString(u, textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
+	})
+
+	t.Run("testUUID", func(t *testing.T) {
+		u := newTestUUID()
+		assertEqualE(t, u.String(), parseTestUUID(u.String()).String())
+
+		bv, err := valueToString(u, textType, nil)
+		assertNilF(t, err)
+		assertEmptyStringE(t, bv.format)
+		assertEqualE(t, *bv.value, u.String())
 	})
 
 	bv, err = valueToString(&testValueToStringStructuredObject{s: "some string", i: 123, date: time.Date(2024, time.May, 24, 0, 0, 0, 0, time.UTC)}, timestampLtzType, params)
 	assertNilF(t, err)
-	assertEqualE(t, bv.format, "json")
+	assertEqualE(t, bv.format, jsonFormatStr)
 	assertDeepEqualE(t, *bv.schema, bindingSchema{
 		Typ:      "object",
 		Nullable: true,
@@ -2175,7 +2209,7 @@ func TestSmallTimestampBinding(t *testing.T) {
 
 		rows := sct.mustQueryContext(ctx, "SELECT ?", parameters)
 		defer func() {
-		    assertNilF(t, rows.Close())
+			assertNilF(t, rows.Close())
 		}()
 
 		scanValues := make([]driver.Value, 1)
@@ -2213,7 +2247,7 @@ func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
 						rows := sct.mustQueryContext(ctx, query, nil)
 						defer func() {
-						    assertNilF(t, rows.Close())
+							assertNilF(t, rows.Close())
 						}()
 
 						if rows.Next() {
@@ -2295,7 +2329,7 @@ func TestTimestampConversionWithArrowBatchesMicrosecondPassesForDistantDates(t *
 							t.Fatalf("failed to query: %v", err)
 						}
 						defer func() {
-						    assertNilF(t, rows.Close())
+							assertNilF(t, rows.Close())
 						}()
 
 						// getting result batches
@@ -2356,7 +2390,7 @@ func TestTimestampConversionWithArrowBatchesAndWithOriginalTimestamp(t *testing.
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
 						rows := sct.mustQueryContext(ctx, query, []driver.NamedValue{})
 						defer func() {
-						    assertNilF(t, rows.Close())
+							assertNilF(t, rows.Close())
 						}()
 
 						// getting result batches
