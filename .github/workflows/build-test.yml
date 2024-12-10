@@ -1,22 +1,22 @@
 name: Build and Test
 
 on:
-    push:
-        braches:
-            - master
-        tags:
-            - v*
-    pull_request:
-        branches:
-            - master
-            - SNOW-*
-    schedule:
-      - cron:  '7 3 * * *'
-    workflow_dispatch:
-        inputs:
-          goTestParams:
-            default:
-            description: "Parameters passed to go test"
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - master
+      - SNOW-*
+  schedule:
+    - cron: '7 3 * * *'
+  workflow_dispatch:
+    inputs:
+      goTestParams:
+        default:
+        description: 'Parameters passed to go test'
 
 concurrency:
   # older builds for the same pull request numer or branch should be cancelled
@@ -34,7 +34,7 @@ jobs:
           - name: Setup go
             uses: actions/setup-go@v5
             with:
-              go-version: '1.21'
+              go-version-file: './go.mod'
           - name: golangci-lint
             uses: golangci/golangci-lint-action@v6
             with:

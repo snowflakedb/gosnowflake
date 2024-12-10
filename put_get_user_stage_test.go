@@ -83,7 +83,7 @@ func putGetUserStage(t *testing.T, numberOfFiles int, numberOfLines int, isStrea
 
 		rows := dbt.mustQuery("select count(*) from " + dbname)
 		defer func() {
-		    assertNilF(t, rows.Close())
+			assertNilF(t, rows.Close())
 		}()
 		var cnt string
 		if rows.Next() {
@@ -133,7 +133,7 @@ func TestPutLoadFromUserStage(t *testing.T) {
 			file_format = (field_delimiter = '|' error_on_column_count_mismatch
 			=false) purge=true`, data.stage))
 		defer func() {
-		    assertNilF(t, rows.Close())
+			assertNilF(t, rows.Close())
 		}()
 		var s0, s1, s2, s3, s4, s5 string
 		var s6, s7, s8, s9 interface{}

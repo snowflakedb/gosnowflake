@@ -348,7 +348,7 @@ func TestHybridTablesE2E(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		dbQuery := sct.mustQuery("SELECT CURRENT_DATABASE()", nil)
 		defer func() {
-		    assertNilF(t, dbQuery.Close())
+			assertNilF(t, dbQuery.Close())
 		}()
 		currentDb := make([]driver.Value, 1)
 		assertNilF(t, dbQuery.Next(currentDb))
@@ -365,7 +365,7 @@ func TestHybridTablesE2E(t *testing.T) {
 			sct.mustExec("INSERT INTO test_hybrid_table VALUES (1, 'a')", nil)
 			rows := sct.mustQuery("SELECT * FROM test_hybrid_table", nil)
 			defer func() {
-			    assertNilF(t, rows.Close())
+				assertNilF(t, rows.Close())
 			}()
 			row := make([]driver.Value, 2)
 			assertNilF(t, rows.Next(row))
@@ -376,7 +376,7 @@ func TestHybridTablesE2E(t *testing.T) {
 			sct.mustExec("INSERT INTO test_hybrid_table VALUES (2, 'b')", nil)
 			rows2 := sct.mustQuery("SELECT * FROM test_hybrid_table", nil)
 			defer func() {
-			    assertNilF(t, rows2.Close())
+				assertNilF(t, rows2.Close())
 			}()
 			assertNilF(t, rows2.Next(row))
 			if row[0] != "1" || row[1] != "a" {
@@ -397,7 +397,7 @@ func TestHybridTablesE2E(t *testing.T) {
 
 			rows := sct.mustQuery("SELECT * FROM test_hybrid_table_2", nil)
 			defer func() {
-			    assertNilF(t, rows.Close())
+				assertNilF(t, rows.Close())
 			}()
 			row := make([]driver.Value, 2)
 			assertNilF(t, rows.Next(row))
@@ -415,7 +415,7 @@ func TestHybridTablesE2E(t *testing.T) {
 
 			rows := sct.mustQuery("SELECT * FROM test_hybrid_table", nil)
 			defer func() {
-			    assertNilF(t, rows.Close())
+				assertNilF(t, rows.Close())
 			}()
 			if len(sct.sc.queryContextCache.entries) != 3 {
 				t.Errorf("expected three entries in query context cache, got: %v", sct.sc.queryContextCache.entries)
@@ -578,7 +578,7 @@ func TestConnIsCleanAfterClose(t *testing.T) {
 	var dbName2 string
 	rows2 := dbt2.mustQuery("SELECT CURRENT_DATABASE()")
 	defer func() {
-	    assertNilF(t, rows2.Close())
+		assertNilF(t, rows2.Close())
 	}()
 	rows2.Next()
 	assertNilF(t, rows2.Scan(&dbName2))
