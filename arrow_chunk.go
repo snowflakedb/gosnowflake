@@ -21,6 +21,7 @@ type arrowResultChunk struct {
 }
 
 func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []execResponseRowType, highPrec bool, params map[string]*string) ([]chunkRowType, error) {
+	defer arc.reader.Release()
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
 

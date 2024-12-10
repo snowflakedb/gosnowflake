@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"math/big"
 	"reflect"
 	"strings"
@@ -575,5 +576,28 @@ func TestArrowVariousTypes(t *testing.T) {
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[5])
 		}*/
+	})
+}
+
+func TestArrowMemoryCleanedUp(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	runDBTest(t, func(dbt *DBTest) {
+		ctx := WithArrowAllocator(
+			context.Background(),
+			mem,
+		)
+
+		rows := dbt.mustQueryContext(ctx, "select 1 UNION select 2")
+		defer rows.Close()
+		var v int
+		assertTrueF(t, rows.Next())
+		assertNilF(t, rows.Scan(&v))
+		assertEqualE(t, v, 1)
+		assertTrueF(t, rows.Next())
+		assertNilF(t, rows.Scan(&v))
+		assertEqualE(t, v, 2)
+		assertFalseE(t, rows.Next())
 	})
 }
