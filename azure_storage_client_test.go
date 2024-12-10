@@ -177,6 +177,11 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 				return azblob.UploadFileResponse{}, errors.New("unexpected error uploading file")
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -228,6 +233,11 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 		mockAzureClient: &azureObjectAPIMock{
 			UploadStreamFunc: func(ctx context.Context, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error) {
 				return azblob.UploadStreamResponse{}, errors.New("unexpected error uploading file")
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}
@@ -289,6 +299,11 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 					StatusCode:  403,
 					RawResponse: &http.Response{StatusCode: http.StatusForbidden, Body: &fakeResponseBody{body: ba}},
 				}
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}
@@ -362,6 +377,11 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 				}
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -418,6 +438,11 @@ func TestDownloadOneFileToAzureFailed(t *testing.T) {
 				return blob.GetPropertiesResponse{}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
 	if err == nil {
@@ -444,9 +469,14 @@ func TestGetFileHeaderErrorStatus(t *testing.T) {
 				return blob.GetPropertiesResponse{}, errors.New("failed to retrieve headers")
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
-	if header, err := new(snowflakeAzureClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeAzureClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != errStatus {
@@ -477,9 +507,14 @@ func TestGetFileHeaderErrorStatus(t *testing.T) {
 				}
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
-	if header, err := new(snowflakeAzureClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeAzureClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != notFoundFile {
@@ -505,7 +540,7 @@ func TestGetFileHeaderErrorStatus(t *testing.T) {
 		},
 	}
 
-	if header, err := new(snowflakeAzureClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeAzureClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != renewToken {
@@ -540,6 +575,11 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -571,6 +611,11 @@ func TestAzureGetHeaderClientCastFail(t *testing.T) {
 		mockAzureClient: &azureObjectAPIMock{
 			GetPropertiesFunc: func(ctx context.Context, o *blob.GetPropertiesOptions) (blob.GetPropertiesResponse, error) {
 				return blob.GetPropertiesResponse{}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}

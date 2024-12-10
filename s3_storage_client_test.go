@@ -93,7 +93,11 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 				Message: "mock err, connection aborted",
 			}
 		}),
-	}
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		}}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
 	fi, err := os.Stat(uploadMeta.srcFileName)
@@ -165,6 +169,11 @@ func TestUploadOneFileToS3ConnReset(t *testing.T) {
 				Message: "mock err, connection aborted",
 			}
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -220,6 +229,11 @@ func TestUploadFileWithS3UploadFailedError(t *testing.T) {
 					"operation: The provided token has expired.",
 			}
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -257,8 +271,13 @@ func TestGetHeadExpiryError(t *testing.T) {
 				Code: expiredToken,
 			}
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != renewToken {
@@ -276,8 +295,13 @@ func TestGetHeaderUnexpectedError(t *testing.T) {
 				Code: "-1",
 			}
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != errStatus {
@@ -292,9 +316,14 @@ func TestGetHeaderNonApiError(t *testing.T) {
 		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
 			return nil, errors.New("something went wrong here")
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
-	header, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
+	header, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
 	assertNilE(t, header, fmt.Sprintf("expected header to be nil, actual: %v", header))
 	assertNotNilE(t, err, "expected err to not be nil")
 	assertEqualE(t, meta.resStatus, errStatus, fmt.Sprintf("expected %v result status for non-APIerror, got: %v", errStatus, meta.resStatus))
@@ -309,9 +338,14 @@ func TestGetHeaderNotFoundError(t *testing.T) {
 				Code: notFound,
 			}
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
-	_, err := new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
+	_, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
 	if err != nil && err.Error() != "could not find file" {
 		t.Error(err)
 	}
@@ -369,6 +403,11 @@ func TestDownloadFileWithS3TokenExpired(t *testing.T) {
 		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
 			return &s3.HeadObjectOutput{}, nil
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
 	if err == nil {
@@ -417,6 +456,11 @@ func TestDownloadFileWithS3ConnReset(t *testing.T) {
 		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
 			return &s3.HeadObjectOutput{}, nil
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
 	if err == nil {
@@ -465,6 +509,11 @@ func TestDownloadOneFileToS3WSAEConnAborted(t *testing.T) {
 		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
 			return &s3.HeadObjectOutput{}, nil
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
 	if err == nil {
@@ -511,6 +560,11 @@ func TestDownloadOneFileToS3Failed(t *testing.T) {
 		mockHeader: mockHeaderAPI(func(ctx context.Context, params *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
 			return &s3.HeadObjectOutput{}, nil
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
 	if err == nil {
@@ -550,6 +604,11 @@ func TestUploadFileToS3ClientCastFail(t *testing.T) {
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -583,6 +642,11 @@ func TestGetHeaderClientCastFail(t *testing.T) {
 				Code: notFound,
 			}
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	_, err = new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
@@ -630,6 +694,11 @@ func TestS3UploadRetryWithHeaderNotFound(t *testing.T) {
 				Code: notFound,
 			}
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -639,7 +708,7 @@ func TestS3UploadRetryWithHeaderNotFound(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFileWithRetry(&uploadMeta)
+	err = (&remoteStorageUtil{cfg: &Config{}}).uploadOneFileWithRetry(&uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -679,6 +748,11 @@ func TestS3UploadStreamFailed(t *testing.T) {
 		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
 			return nil, errors.New("unexpected error uploading file")
 		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
