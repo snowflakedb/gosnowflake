@@ -7,11 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/smithy-go/logging"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/aws/smithy-go/logging"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -48,10 +49,9 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 	stageCredentials := info.Creds
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
 
-	var endpoint *string
-	if info.EndPoint != "" {
-		tmp := "https://" + info.EndPoint
-		endpoint = &tmp
+	endpoint := getS3CustomEndpoint(info)
+	if endpoint == "" {
+		return nil, fmt.Errorf("error when retrieving endpoint")
 	}
 
 	return s3.New(s3.Options{
@@ -60,7 +60,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 			stageCredentials.AwsKeyID,
 			stageCredentials.AwsSecretKey,
 			stageCredentials.AwsToken)),
-		BaseEndpoint:  endpoint,
+		BaseEndpoint:  &endpoint,
 		UseAccelerate: useAccelerateEndpoint,
 		HTTPClient: &http.Client{
 			Transport: SnowflakeTransport,
@@ -68,6 +68,21 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 		ClientLogMode: S3LoggingMode,
 		Logger:        s3Logger,
 	}), nil
+}
+
+func getS3CustomEndpoint(info *execResponseStageInfo) string {
+	if info.EndPoint != "" {
+		return fmt.Sprintf("https://%s", info.EndPoint)
+	}
+	isRegionalURLEnabled := info.UseRegionalURL || info.UseS3RegionalURL
+	if info.Region != "" && isRegionalURLEnabled {
+		domainSuffixForRegionalURL := "amazonaws.com"
+		if strings.HasPrefix(strings.ToLower(info.Region), "cn-") {
+			domainSuffixForRegionalURL = "amazonaws.com.cn"
+		}
+		return fmt.Sprintf("https://s3.%s.%s", info.Region, domainSuffixForRegionalURL)
+	}
+	return ""
 }
 
 func s3LoggingFunc(classification logging.Classification, format string, v ...interface{}) {
