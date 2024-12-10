@@ -30,12 +30,12 @@ func TestOktaWrongCredentials(t *testing.T) {
 
 func TestOktaWrongAuthenticator(t *testing.T) {
 	cfg := setupOktaTest(t)
-	invalid_address, err := url.Parse("https://fake-account-0000.okta.com")
+	invalidAddress, err := url.Parse("https://fake-account-0000.okta.com")
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
 
-	cfg.OktaURL = invalid_address
+	cfg.OktaURL = invalidAddress
 	errMsg := "390139 (08004): The specified authenticator is not accepted by your Snowflake account configuration.  " +
 		"Please contact your local system administrator to get the correct URL to use."
 
@@ -48,12 +48,12 @@ func TestOktaWrongAuthenticator(t *testing.T) {
 
 func TestOktaWrongURL(t *testing.T) {
 	cfg := setupOktaTest(t)
-	invalid_address, err := url.Parse("https://fake-account-0000.okta.com")
+	invalidAddress, err := url.Parse("https://fake-account-0000.okta.com")
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
 
-	cfg.OktaURL = invalid_address
+	cfg.OktaURL = invalidAddress
 	errMsg := "390139 (08004): The specified authenticator is not accepted by your Snowflake account configuration.  " +
 		"Please contact your local system administrator to get the correct URL to use."
 
@@ -70,7 +70,7 @@ func setupOktaTest(t *testing.T) *Config {
 	}
 	skipOnJenkins(t, "Running only on Docker container")
 
-	url_env, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OKTA_AUTH", true)
+	urlEnv, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OKTA_AUTH", true)
 	if err != nil {
 		return nil
 	}
@@ -80,7 +80,7 @@ func setupOktaTest(t *testing.T) *Config {
 		t.Fatalf("failed to get config: %v", err)
 	}
 
-	cfg.OktaURL, err = url.Parse(url_env)
+	cfg.OktaURL, err = url.Parse(urlEnv)
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
