@@ -414,24 +414,24 @@ func newGcsClient(info *execResponseStageInfo) (gcsAPI, error) {
 
 	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
 	endpoint := getGcsCustomEndpoint(info)
-
-	_, err := storage.NewClient(context.Background(), option.WithHTTPClient(httpClient), option.WithEndpoint(endpoint))
+	_, err := storage.NewClient(context.Background(), option.WithHTTPClient(httpClient))
+	if endpoint != "" {
+		_, err = storage.NewClient(context.Background(), option.WithHTTPClient(httpClient), option.WithEndpoint(endpoint))
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	return httpClient, nil
 }
 
 func getGcsCustomEndpoint(info *execResponseStageInfo) string {
 	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
-	var endpoint string
 	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
 	if info.EndPoint != "" {
-		endpoint = fmt.Sprintf("https://%s", info.EndPoint)
-	} else {
-		if info.Region != "" && isRegionalURLEnabled {
-			endpoint = fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(info.Region))
-		}
+		return fmt.Sprintf("https://%s", info.EndPoint)
+	} else if info.Region != "" && isRegionalURLEnabled {
+		return fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(info.Region))
 	}
-	return endpoint
+	return ""
 }
