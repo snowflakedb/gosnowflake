@@ -95,6 +95,9 @@ func (sc *snowflakeConn) processFileTransfer(
 	options := &SnowflakeFileTransferOptions{
 		RaisePutGetError: true,
 	}
+	var err error
+	var fs *bytes.Buffer
+
 	sfa := snowflakeFileTransferAgent{
 		ctx:          ctx,
 		sc:           sc,
@@ -103,7 +106,17 @@ func (sc *snowflakeConn) processFileTransfer(
 		options:      options,
 		streamBuffer: new(bytes.Buffer),
 	}
-	fs, err := getFileStream(ctx)
+	if op := getFileTransferOptions(ctx); op != nil {
+		sfa.options = op
+	}
+	if sfa.options.MultiPartThreshold == 0 {
+		sfa.options.MultiPartThreshold = dataSizeThreshold
+	}
+	if sfa.options.arrayBindFromStream {
+		fs = getFileStreamAll(ctx)
+	} else {
+		fs, err = getFileStream(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -112,12 +125,6 @@ func (sc *snowflakeConn) processFileTransfer(
 		if isInternal {
 			sfa.data.AutoCompress = false
 		}
-	}
-	if op := getFileTransferOptions(ctx); op != nil {
-		sfa.options = op
-	}
-	if sfa.options.MultiPartThreshold == 0 {
-		sfa.options.MultiPartThreshold = dataSizeThreshold
 	}
 	if err = sfa.execute(); err != nil {
 		return nil, err
@@ -141,6 +148,13 @@ func getReaderFromContext(ctx context.Context) io.Reader {
 		return nil
 	}
 	return r
+}
+
+func getFileStreamAll(ctx context.Context) *bytes.Buffer {
+	r := getReaderFromContext(ctx)
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r)
+	return buf
 }
 
 func getFileStream(ctx context.Context) (*bytes.Buffer, error) {

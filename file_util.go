@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net/url"
 	"os"
@@ -24,26 +25,33 @@ const (
 	readWriteFileMode os.FileMode = 0666
 )
 
-func (util *snowflakeFileUtil) compressFileWithGzipFromStream(ctx context.Context) (*bytes.Buffer, int, error) {
+func (util *snowflakeFileUtil) compressFileWithGzipFromStream(ctx context.Context, srcStream **bytes.Buffer) (*bytes.Buffer, int, error) {
 	var c bytes.Buffer
 	w := gzip.NewWriter(&c)
-	buf := make([]byte, fileChunkSize)
 	r := getReaderFromContext(ctx)
 	if r == nil {
-		return nil, -1, nil
+		return nil, -1, errors.New("failed to get the reader from context")
 	}
 
-	// read the whole file in chunks
+	// compress the first chunk of data which was read before
+	var streamBuf bytes.Buffer
+	io.Copy(&streamBuf, *srcStream)
+	if _, err := w.Write(streamBuf.Bytes()); err != nil {
+		return nil, -1, err
+	}
+
+	// continue reading the rest of the data in chunks
+	chunk := make([]byte, fileChunkSize)
 	for {
-		n, err := r.Read(buf)
+		n, err := r.Read(chunk)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return nil, -1, err
 		}
-		// write buf to gzip writer
-		if _, err = w.Write(buf[:n]); err != nil {
+		// write chunk to gzip writer
+		if _, err = w.Write(chunk[:n]); err != nil {
 			return nil, -1, err
 		}
 	}
@@ -88,21 +96,10 @@ func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir stri
 	return gzipFileName, stat.Size(), err
 }
 
-func (util *snowflakeFileUtil) getDigestAndSizeForStream(ctx context.Context, realSrcStream **bytes.Buffer, srcStream **bytes.Buffer) (string, int64, error) {
-	var r io.Reader
-	var stream **bytes.Buffer
-	if realSrcStream != nil {
-		r = getReaderFromBuffer(srcStream)
-		stream = realSrcStream
-	} else {
-		r = getReaderFromContext(ctx)
-		stream = srcStream
-	}
-	if r == nil {
-		return "", 0, nil
-	}
+func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64, error) {
 
 	m := sha256.New()
+	r := getReaderFromBuffer(stream)
 	chunk := make([]byte, fileChunkSize)
 	for {
 		n, err := r.Read(chunk)
