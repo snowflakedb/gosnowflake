@@ -1031,3 +1031,84 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 		t.Error("should have raised an error")
 	}
 }
+
+func TestGetGcsCustomEndpoint(t *testing.T) {
+	testcases := []struct {
+		desc string
+		in   execResponseStageInfo
+		out  string
+	}{
+		{
+			desc: "when the useRegionalURL is only enabled",
+			in: execResponseStageInfo{
+				UseRegionalURL: true,
+				EndPoint:       "",
+				Region:         "mockLocation",
+			},
+			out: "https://storage.mocklocation.rep.googleapis.com",
+		},
+		{
+			desc: "when the region is me-central2",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "me-central2",
+			},
+			out: "https://storage.me-central2.rep.googleapis.com",
+		},
+		{
+			desc: "when the region is me-central2 (mixed case)",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "ME-cEntRal2",
+			},
+			out: "https://storage.me-central2.rep.googleapis.com",
+		},
+		{
+			desc: "when the region is me-central2 (uppercase)",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "ME-CENTRAL2",
+			},
+			out: "https://storage.me-central2.rep.googleapis.com",
+		},
+		{
+			desc: "when the endPoint is specified",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
+				Region:         "ME-cEntRal1",
+			},
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
+		},
+		{
+			desc: "when both the endPoint and the useRegionalUrl are specified",
+			in: execResponseStageInfo{
+				UseRegionalURL: true,
+				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
+				Region:         "ME-cEntRal1",
+			},
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
+		},
+		{
+			desc: "when both the endPoint is specified and the region is me-central2",
+			in: execResponseStageInfo{
+				UseRegionalURL: true,
+				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
+				Region:         "ME-CENTRAL2",
+			},
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.desc, func(t *testing.T) {
+			endpoint := getGcsCustomEndpoint(&test.in)
+			if endpoint != test.out {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
+			}
+		})
+	}
+}
