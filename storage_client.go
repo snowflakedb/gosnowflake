@@ -19,7 +19,7 @@ const (
 
 // implemented by localUtil and remoteStorageUtil
 type storageUtil interface {
-	createClient(*execResponseStageInfo, bool) (cloudClient, error)
+	createClient(*execResponseStageInfo, bool, *Config) (cloudClient, error)
 	uploadOneFileWithRetry(*fileMetadata) error
 	downloadOneFile(*fileMetadata) error
 }
@@ -35,22 +35,29 @@ type cloudUtil interface {
 type cloudClient interface{}
 
 type remoteStorageUtil struct {
+	cfg *Config
 }
 
-func (rsu *remoteStorageUtil) getNativeCloudType(cli string) cloudUtil {
+func (rsu *remoteStorageUtil) getNativeCloudType(cli string, cfg *Config) cloudUtil {
 	if cloudType(cli) == s3Client {
-		return &snowflakeS3Client{}
+		return &snowflakeS3Client{
+			cfg,
+		}
 	} else if cloudType(cli) == azureClient {
-		return &snowflakeAzureClient{}
+		return &snowflakeAzureClient{
+			cfg,
+		}
 	} else if cloudType(cli) == gcsClient {
-		return &snowflakeGcsClient{}
+		return &snowflakeGcsClient{
+			cfg,
+		}
 	}
 	return nil
 }
 
 // call cloud utils' native create client methods
-func (rsu *remoteStorageUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
-	utilClass := rsu.getNativeCloudType(info.LocationType)
+func (rsu *remoteStorageUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
+	utilClass := rsu.getNativeCloudType(info.LocationType, cfg)
 	return utilClass.createClient(info, useAccelerateEndpoint)
 }
 
@@ -81,7 +88,7 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 		dataFile = meta.realSrcFileName
 	}
 
-	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType)
+	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType, meta.sfa.sc.cfg)
 	maxConcurrency := int(meta.parallel)
 	var lastErr error
 	maxRetry := defaultMaxRetry
@@ -134,7 +141,7 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 }
 
 func (rsu *remoteStorageUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
-	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType)
+	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType, rsu.cfg)
 	retryOuter := true
 	for i := 0; i < 10; i++ {
 		// retry
@@ -196,7 +203,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 		}
 	}
 
-	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType)
+	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType, meta.sfa.sc.cfg)
 	header, err := utilClass.getFileHeader(meta, meta.srcFileName)
 	if err != nil {
 		return err

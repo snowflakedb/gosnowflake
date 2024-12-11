@@ -618,14 +618,25 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 			Message:  errMsgFailedToConvertToS3Client,
 		}).exceptionTelemetry(sfa.sc)
 	}
-	ret, err := client.GetBucketAccelerateConfiguration(context.Background(), &s3.GetBucketAccelerateConfigurationInput{
-		Bucket: &s3Loc.bucketName,
+	ret, err := withCloudStorageTimeout(sfa.sc.cfg, func(ctx context.Context) (*s3.GetBucketAccelerateConfigurationOutput, error) {
+		return client.GetBucketAccelerateConfiguration(ctx, &s3.GetBucketAccelerateConfigurationInput{
+			Bucket: &s3Loc.bucketName,
+		})
 	})
 	sfa.useAccelerateEndpoint = ret != nil && ret.Status == "Enabled"
 	if err != nil {
 		logger.WithContext(sfa.sc.ctx).Warnln("An error occurred when getting accelerate config:", err)
 	}
 	return nil
+}
+
+func withCloudStorageTimeout[T any](cfg *Config, f func(ctx context.Context) (T, error)) (T, error) {
+	if cfg.CloudStorageTimeout > 0 {
+		ctx, cancelFunc := context.WithTimeout(context.Background(), cfg.CloudStorageTimeout)
+		defer cancelFunc()
+		return f(ctx)
+	}
+	return f(context.Background())
 }
 
 func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
@@ -681,7 +692,7 @@ func (sfa *snowflakeFileTransferAgent) upload(
 	largeFileMetadata []*fileMetadata,
 	smallFileMetadata []*fileMetadata) error {
 	client, err := sfa.getStorageClient(sfa.stageLocationType).
-		createClient(sfa.stageInfo, sfa.useAccelerateEndpoint)
+		createClient(sfa.stageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg)
 	if err != nil {
 		return err
 	}
@@ -710,7 +721,7 @@ func (sfa *snowflakeFileTransferAgent) upload(
 func (sfa *snowflakeFileTransferAgent) download(
 	fileMetadata []*fileMetadata) error {
 	client, err := sfa.getStorageClient(sfa.stageLocationType).
-		createClient(sfa.stageInfo, sfa.useAccelerateEndpoint)
+		createClient(sfa.stageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg)
 	if err != nil {
 		return err
 	}
@@ -987,7 +998,9 @@ func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudT
 	if stageLocationType == local {
 		return &localUtil{}
 	} else if stageLocationType == s3Client || stageLocationType == azureClient || stageLocationType == gcsClient {
-		return &remoteStorageUtil{}
+		return &remoteStorageUtil{
+			cfg: sfa.sc.cfg,
+		}
 	}
 	return nil
 }
@@ -1004,7 +1017,7 @@ func (sfa *snowflakeFileTransferAgent) renewExpiredClient() (cloudClient, error)
 		return nil, err
 	}
 	storageClient := sfa.getStorageClient(sfa.stageLocationType)
-	return storageClient.createClient(&data.Data.StageInfo, sfa.useAccelerateEndpoint)
+	return storageClient.createClient(&data.Data.StageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg)
 }
 
 func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
