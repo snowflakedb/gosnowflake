@@ -113,7 +113,7 @@ func (sc *snowflakeConn) processFileTransfer(
 		sfa.options.MultiPartThreshold = dataSizeThreshold
 	}
 	if sfa.options.arrayBindFromStream {
-		fs = getFileStreamAll(ctx)
+		fs, err = getFileStreamAll(ctx)
 	} else {
 		fs, err = getFileStream(ctx)
 	}
@@ -150,11 +150,11 @@ func getReaderFromContext(ctx context.Context) io.Reader {
 	return r
 }
 
-func getFileStreamAll(ctx context.Context) *bytes.Buffer {
+func getFileStreamAll(ctx context.Context) (*bytes.Buffer, error) {
 	r := getReaderFromContext(ctx)
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(r)
-	return buf
+	_, err := buf.ReadFrom(r)
+	return buf, err
 }
 
 func getFileStream(ctx context.Context) (*bytes.Buffer, error) {

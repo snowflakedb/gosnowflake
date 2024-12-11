@@ -471,7 +471,9 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 					if err != nil {
 						return err
 					}
-					io.ReadAll(r) // flush out tee buffer
+					if _, err = io.ReadAll(r); err != nil { // flush out tee buffer
+						return err
+					}
 				} else {
 					mtype, err = mimetype.DetectFile(fileName)
 				}
@@ -880,7 +882,7 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 
 	if meta.srcStream != nil {
 		if meta.realSrcStream != nil {
-			// the whole file has been read in compressFileWithGzipFromStream
+			// the file has been fully read in compressFileWithGzipFromStream
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
 		} else {
 			r := getReaderFromContext(sfa.ctx)
@@ -889,7 +891,9 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 			}
 
 			var fullSrcStream bytes.Buffer
-			io.Copy(&fullSrcStream, meta.srcStream)
+			if _, err = io.Copy(&fullSrcStream, meta.srcStream); err != nil {
+				return nil, err
+			}
 
 			// continue reading the rest of the data in chunks
 			chunk := make([]byte, fileChunkSize)
@@ -902,7 +906,9 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 				}
 				fullSrcStream.Write(chunk[:n])
 			}
-			io.Copy(meta.srcStream, &fullSrcStream)
+			if _, err = io.Copy(meta.srcStream, &fullSrcStream); err != nil {
+				return nil, err
+			}
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
 		}
 	} else {

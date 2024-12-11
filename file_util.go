@@ -35,7 +35,9 @@ func (util *snowflakeFileUtil) compressFileWithGzipFromStream(ctx context.Contex
 
 	// compress the first chunk of data which was read before
 	var streamBuf bytes.Buffer
-	io.Copy(&streamBuf, *srcStream)
+	if _, err := io.Copy(&streamBuf, *srcStream); err != nil {
+		return nil, -1, err
+	}
 	if _, err := w.Write(streamBuf.Bytes()); err != nil {
 		return nil, -1, err
 	}
