@@ -96,7 +96,8 @@ func (bu *bindUploader) uploadStreamInternal(
 	// prepare context for PUT command
 	ctx := WithFileStream(bu.ctx, inputStream)
 	ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{
-		compressSourceFromStream: compressData})
+		compressSourceFromStream: compressData,
+		arrayBindFromStream:      true})
 	return bu.sc.exec(ctx, putCommand, false, true, false, []driver.NamedValue{})
 }
 
