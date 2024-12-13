@@ -75,7 +75,7 @@ func setupOktaTest(t *testing.T) *Config {
 		return nil
 	}
 
-	cfg, err := getConfig(AuthTypeOkta)
+	cfg, err := getAuthTestsConfig(AuthTypeOkta)
 	if err != nil {
 		t.Fatalf("failed to get config: %v", err)
 	}

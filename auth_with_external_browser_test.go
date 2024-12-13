@@ -31,7 +31,7 @@ func TestExternalBrowserSuccessful(t *testing.T) {
 
 func TestExternalBrowserFailed(t *testing.T) {
 	cfg := setupExternalBrowserTest(t)
-	cfg.ExternalBrowserTimeout = time.Duration(10000) * time.Millisecond
+	cfg.ExternalBrowserTimeout = time.Duration(10) * time.Second
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -51,7 +51,7 @@ func TestExternalBrowserFailed(t *testing.T) {
 
 func TestExternalBrowserTimeout(t *testing.T) {
 	cfg := setupExternalBrowserTest(t)
-	cfg.ExternalBrowserTimeout = time.Duration(1000) * time.Millisecond
+	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -71,14 +71,13 @@ func TestExternalBrowserTimeout(t *testing.T) {
 
 func TestExternalBrowserMismatchUser(t *testing.T) {
 	cfg := setupExternalBrowserTest(t)
-	correctUsername := cfg.User
-	cfg.User = "fakeAccount"
+	wrongUsername := "fakeAccount"
 	var wg sync.WaitGroup
 
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(externalBrowserType.Success, correctUsername, cfg.Password)
+		provideCredentials(externalBrowserType.Success, wrongUsername, cfg.Password)
 	}()
 	go func() {
 		defer wg.Done()
@@ -96,7 +95,7 @@ func TestExternalBrowserMismatchUser(t *testing.T) {
 func TestClientStoreCredentials(t *testing.T) {
 	cfg := setupExternalBrowserTest(t)
 	cfg.ClientStoreTemporaryCredential = 1
-	cfg.ExternalBrowserTimeout = time.Duration(10000) * time.Millisecond
+	cfg.ExternalBrowserTimeout = time.Duration(10) * time.Second
 
 	t.Run("Obtains the ID token from the server and saves it on the local storage", func(t *testing.T) {
 		cleanupBrowserProcesses()
@@ -138,13 +137,13 @@ func TestClientStoreCredentials(t *testing.T) {
 	})
 }
 
-type Mode struct {
+type ExternalBrowserProcess struct {
 	Success string
 	Fail    string
 	Timeout string
 }
 
-var externalBrowserType = Mode{
+var externalBrowserType = ExternalBrowserProcess{
 	Success: "success",
 	Fail:    "fail",
 	Timeout: "timeout",
@@ -158,33 +157,37 @@ func cleanupBrowserProcesses() {
 	}
 }
 
-func provideCredentials(mode string, user string, password string) {
+func provideCredentials(ExternalBrowserProcess string, user string, password string) {
 	const provideBrowserCredentialsPath = "/externalbrowser/provideBrowserCredentials.js"
-	_, err := exec.Command("node", provideBrowserCredentialsPath, mode, user, password).Output()
+	_, err := exec.Command("node", provideBrowserCredentialsPath, ExternalBrowserProcess, user, password).Output()
 	if err != nil {
 		log.Fatalf("failed to execute command: %v", err)
 	}
 }
 
-func connectToSnowflake(cfg *Config, query string, exceptionHandler bool) (rows *sql.Rows, err error) {
+func connectToSnowflake(cfg *Config, query string, isCatchException bool) (rows *sql.Rows, err error) {
 	parseFlags()
 	dsn, err := DSN(cfg)
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
 	rows, err = executeQuery(query, dsn)
-	if exceptionHandler && err != nil {
+	if isCatchException && err != nil {
 		log.Fatalf("failed to run a query. %v, err: %v", rows, err)
 	} else if err != nil {
 		return rows, err
 	}
 	defer rows.Close()
 	var v int
+	if !rows.Next() {
+		fmt.Printf("There were no results for query: %v \n", query)
+		return rows, err
+	}
 	for rows.Next() {
 		err := rows.Scan(&v)
-		if exceptionHandler && err != nil {
+		if isCatchException && err != nil {
 			log.Fatalf("failed to get result. err: %v", err)
-		} else if exceptionHandler {
+		} else if isCatchException {
 			fmt.Printf("Congrats! You have successfully run '%v' with Snowflake DB! \n", query)
 		}
 	}
@@ -197,7 +200,7 @@ func setupExternalBrowserTest(t *testing.T) *Config {
 		t.Skip("Running only on Docker container")
 	}
 	cleanupBrowserProcesses()
-	cfg, err := getConfig(AuthTypeExternalBrowser)
+	cfg, err := getAuthTestsConfig(AuthTypeExternalBrowser)
 	if err != nil {
 		t.Fatalf("failed to get config: %v", err)
 	}

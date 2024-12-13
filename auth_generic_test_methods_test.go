@@ -19,7 +19,7 @@ func getConfigFromEnv() (*Config, error) {
 	})
 }
 
-func getConfig(authMethod AuthType) (*Config, error) {
+func getAuthTestsConfig(authMethod AuthType) (*Config, error) {
 	cfg, err := getConfigFromEnv()
 	if err != nil {
 		return nil, err

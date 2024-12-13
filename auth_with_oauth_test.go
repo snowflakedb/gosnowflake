@@ -51,7 +51,7 @@ func setupOauthTest(t *testing.T) *Config {
 	}
 	skipOnJenkins(t, "Running only on Docker container")
 
-	cfg, err := getConfig(AuthTypeOAuth)
+	cfg, err := getAuthTestsConfig(AuthTypeOAuth)
 	if err != nil {
 		t.Fatalf("failed to get config: %v", err)
 	}
@@ -82,7 +82,7 @@ func getToken(cfg *Config) (string, error) {
 
 	var response Response
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to decode response: %v", err)
 	}
 
 	return response.Token, err
