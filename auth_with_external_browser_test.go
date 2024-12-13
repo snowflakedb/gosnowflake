@@ -71,13 +71,14 @@ func TestExternalBrowserTimeout(t *testing.T) {
 
 func TestExternalBrowserMismatchUser(t *testing.T) {
 	cfg := setupExternalBrowserTest(t)
-	wrongUsername := "fakeAccount"
+	correctUsername := cfg.User
+	cfg.User = "fakeAccount"
 	var wg sync.WaitGroup
 
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(externalBrowserType.Success, wrongUsername, cfg.Password)
+		provideCredentials(externalBrowserType.Success, correctUsername, cfg.Password)
 	}()
 	go func() {
 		defer wg.Done()
