@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -530,6 +531,44 @@ func TestWithArrowBatchesAsync(t *testing.T) {
 		if cnt.metaVal != numrows {
 			t.Errorf("number of rows from arrow batch metadata didn't match. expected: %v, got: %v", numrows, cnt.metaVal)
 		}
+	})
+}
+
+func TestWithArrowBatchesButReturningJSON(t *testing.T) {
+	testWithArrowBatchesButReturningJSON(t, false)
+}
+
+func TestWithArrowBatchesButReturningJSONAsync(t *testing.T) {
+	testWithArrowBatchesButReturningJSON(t, true)
+}
+
+func testWithArrowBatchesButReturningJSON(t *testing.T, async bool) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		requestID := NewUUID()
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx := WithArrowAllocator(context.Background(), pool)
+		ctx = WithArrowBatches(ctx)
+		ctx = WithRequestID(ctx, requestID)
+		if async {
+			ctx = WithAsyncMode(ctx)
+		}
+
+		sct.mustExec(forceJSON, nil)
+		rows := sct.mustQueryContext(ctx, "SELECT 'hello'", nil)
+		defer rows.Close()
+		_, err := rows.(SnowflakeRows).GetArrowBatches()
+		assertNotNilF(t, err)
+		var se *SnowflakeError
+		errors.As(err, &se)
+		assertEqualE(t, se.Message, errJSONResponseInArrowBatchesMode)
+
+		ctx = WithRequestID(context.Background(), requestID)
+		rows2 := sct.mustQueryContext(ctx, "SELECT 'hello'", nil)
+		defer rows2.Close()
+		scanValues := make([]driver.Value, 1)
+		assertNilF(t, rows2.Next(scanValues))
+		assertEqualE(t, scanValues[0], "hello")
 	})
 }
 
