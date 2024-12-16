@@ -139,11 +139,17 @@ func (c *Config) ocspMode() string {
 
 // DSN constructs a DSN for Snowflake db.
 func DSN(cfg *Config) (dsn string, err error) {
-	if cfg.Region == "us-west-2" {
+	if strings.ToLower(cfg.Region) == "us-west-2" {
 		cfg.Region = ""
+		logger.Info("Ignoring Region configuration in DSN as us-west-2 is the default one.")
 	}
 	// in case account includes region
 	region, posDot := extractRegionFromAccount(cfg.Account)
+	if strings.ToLower(region) == "us-west-2" {
+		region = ""
+		cfg.Account = cfg.Account[:posDot]
+		logger.Info("Ignoring default region .us-west-2 in DSN from Account configuration.")
+	}
 	if region != "" {
 		if cfg.Region != "" {
 			return "", errRegionConflict()
@@ -579,6 +585,11 @@ func transformAccountToHost(cfg *Config) (err error) {
 		// account name is specified instead of host:port
 		cfg.Account = cfg.Host
 		region, posDot := extractRegionFromAccount(cfg.Account)
+		if strings.ToLower(region) == "us-west-2" {
+			region = ""
+			cfg.Account = cfg.Account[:posDot]
+			logger.Info("Ignoring default region .us-west-2 from Account configuration.")
+		}
 		if region != "" {
 			cfg.Region = region
 			cfg.Account = cfg.Account[:posDot]
