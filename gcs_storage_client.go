@@ -3,14 +3,17 @@
 package gosnowflake
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -394,6 +397,20 @@ func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
 
 func newGcsClient() gcsAPI {
 	return &http.Client{
-		Transport: SnowflakeTransport,
+		Transport: gcsTransport,
 	}
+}
+
+var gcsTransport = &http.Transport{
+	TLSClientConfig: &tls.Config{
+		RootCAs:               certPool,
+		VerifyPeerCertificate: verifyPeerCertificateSerial,
+	},
+	MaxIdleConns:    10,
+	IdleConnTimeout: 30 * time.Minute,
+	Proxy:           http.ProxyFromEnvironment,
+	DialContext: (&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext,
 }
