@@ -308,6 +308,7 @@ const (
 	errMsgFailedToParseTomlFile              = "failed to parse toml file. the params %v occurred error with value %v"
 	errMsgFailedToFindDSNInTomlFile          = "failed to find DSN in toml file."
 	errMsgInvalidPermissionToTomlFile        = "file permissions different than read/write for user. Your Permission: %v"
+	errJSONResponseInArrowBatchesMode        = "arrow batches enabled, but the response is not Arrow based"
 )
 
 // Returned if a DNS doesn't include account parameter.
