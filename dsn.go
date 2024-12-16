@@ -141,7 +141,6 @@ func (c *Config) ocspMode() string {
 func DSN(cfg *Config) (dsn string, err error) {
 	if strings.ToLower(cfg.Region) == "us-west-2" {
 		cfg.Region = ""
-		logger.Info("Ignoring Region configuration in DSN as us-west-2 is the default one.")
 	}
 	// in case account includes region
 	region, posDot := extractRegionFromAccount(cfg.Account)

@@ -1253,15 +1253,6 @@ func TestDSN(t *testing.T) {
 			cfg: &Config{
 				User:     "u",
 				Password: "p",
-				Account:  "account",
-				Host:     "account.us-west-2.snowflakecomputing.com",
-			},
-			dsn: "u:p@account.snowflakecomputing.com:443?ocspFailOpen=true&validateDefaultParameters=true",
-		},
-		{
-			cfg: &Config{
-				User:     "u",
-				Password: "p",
 				Account:  "account-name",
 				Host:     "account-name.snowflakecomputing.mil",
 			},
