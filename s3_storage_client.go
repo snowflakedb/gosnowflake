@@ -199,7 +199,7 @@ func (util *snowflakeS3Client) uploadFile(
 			if meta.realSrcStream != nil {
 				uploadStream = meta.realSrcStream
 			}
-			return uploader.Upload(context.Background(), &s3.PutObjectInput{
+			return uploader.Upload(ctx, &s3.PutObjectInput{
 				Bucket:   &s3loc.bucketName,
 				Key:      &s3path,
 				Body:     bytes.NewBuffer(uploadStream.Bytes()),
@@ -211,13 +211,13 @@ func (util *snowflakeS3Client) uploadFile(
 		if err != nil {
 			return nil, err
 		}
-		return uploader.Upload(context.Background(), &s3.PutObjectInput{
+		return uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket:   &s3loc.bucketName,
 			Key:      &s3path,
 			Body:     file,
 			Metadata: s3Meta,
 		})
-		
+
 	})
 
 	if err != nil {
