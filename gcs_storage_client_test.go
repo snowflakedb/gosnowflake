@@ -163,6 +163,11 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 				return nil, errors.New("unexpected error uploading file")
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -220,6 +225,11 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 					Status:     "403 Forbidden",
 					StatusCode: 403,
 				}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}
@@ -282,6 +292,11 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -335,6 +350,11 @@ func TestDownloadOneFileFromGcsFailed(t *testing.T) {
 				return nil, errors.New("unexpected error downloading file")
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 		resStatus: downloaded, // bypass file header request
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
@@ -377,6 +397,11 @@ func TestDownloadOneFileFromGcsFailedWithRetry(t *testing.T) {
 					Status:     "403 Forbidden",
 					StatusCode: 403,
 				}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 		resStatus: downloaded, // bypass file header request
@@ -431,6 +456,11 @@ func TestDownloadOneFileFromGcsFailedWithTokenExpired(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 		resStatus: downloaded, // bypass file header request
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
@@ -483,6 +513,11 @@ func TestDownloadOneFileFromGcsFailedWithFileNotFound(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 		resStatus: downloaded, // bypass file header request
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
@@ -515,8 +550,13 @@ func TestGetHeaderTokenExpiredError(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != renewToken {
@@ -544,8 +584,13 @@ func TestGetHeaderFileNotFound(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != notFoundFile {
@@ -571,7 +616,7 @@ func TestGetHeaderPresignedUrlReturns404(t *testing.T) {
 		stageInfo:    &info,
 		presignedURL: presignedURL,
 	}
-	header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt")
+	header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
 	if header != nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
@@ -600,8 +645,13 @@ func TestGetHeaderReturnsError(t *testing.T) {
 				return nil, errors.New("unexpected exception getting file header")
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 }
@@ -625,8 +675,13 @@ func TestGetHeaderBadRequest(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 
@@ -655,8 +710,13 @@ func TestGetHeaderRetryableError(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != needRetry {
@@ -695,6 +755,11 @@ func TestUploadStreamFailed(t *testing.T) {
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return nil, errors.New("unexpected error uploading file")
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}
@@ -744,6 +809,11 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -791,8 +861,13 @@ func TestGetFileHeaderEncryptionData(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt")
+	header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -837,8 +912,13 @@ func TestGetFileHeaderEncryptionDataInterfaceConversionError(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	_, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt")
+	_, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -886,6 +966,11 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
 				}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}
@@ -939,6 +1024,11 @@ func TestDownloadFileFromGcsError(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 		resStatus: downloaded, // bypass file header request
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
@@ -981,6 +1071,11 @@ func TestDownloadFileWithBadRequest(t *testing.T) {
 					Status:     "400 Bad Request",
 					StatusCode: 400,
 				}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 		resStatus: downloaded, // bypass file header request

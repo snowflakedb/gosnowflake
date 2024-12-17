@@ -119,6 +119,7 @@ func (sr *snowflakeRestful) getAsync(
 				rows.errChannel <- err
 				return err
 			}
+			rows.format = respd.Data.QueryResultFormat
 			rows.errChannel <- nil // mark query status complete
 		}
 	} else {
