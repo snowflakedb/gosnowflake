@@ -793,3 +793,55 @@ func TestConvertContentLength(t *testing.T) {
 		})
 	}
 }
+
+func TestGetS3Endpoint(t *testing.T) {
+	testcases := []struct {
+		desc string
+		in   execResponseStageInfo
+		out  string
+	}{
+		{
+			desc: "when useS3RegionalURL is only enabled",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: true,
+				EndPoint:         "",
+			},
+			out: "",
+		},
+		{
+			desc: "when useS3RegionalURL and is enabled and domain starts with cn",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: true,
+				EndPoint:         "",
+				Region:           "cn-mockLocation",
+			},
+			out: "https://s3.cn-mockLocation.amazonaws.com.cn",
+		},
+		{
+			desc: "when endPoint is enabled",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: false,
+				EndPoint:         "s3.endpoint",
+				Region:           "cn-mockLocation",
+			},
+			out: "https://s3.endpoint",
+		},
+		{
+			desc: "when both endPoint and useS3PReiongalUrl is valid",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: true,
+				EndPoint:         "s3.endpoint",
+			},
+			out: "https://s3.endpoint",
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.desc, func(t *testing.T) {
+			endpoint := getS3CustomEndpoint(&test.in)
+			if endpoint != test.out {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
+			}
+		})
+	}
+}
