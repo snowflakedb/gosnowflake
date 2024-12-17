@@ -46,6 +46,7 @@ type snowflakeRows struct {
 	errChannel          chan error
 	location            *time.Location
 	ctx                 context.Context
+	format              string
 }
 
 func (rows *snowflakeRows) getLocation() *time.Location {
@@ -166,6 +167,13 @@ func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
 	// Otherwise, a panic error "invalid memory address or nil pointer dereference" will be thrown.
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return nil, err
+	}
+
+	if rows.format != "arrow" {
+		return nil, (&SnowflakeError{
+			QueryID: rows.queryID,
+			Message: errJSONResponseInArrowBatchesMode,
+		}).exceptionTelemetry(rows.sc)
 	}
 
 	return rows.ChunkDownloader.getArrowBatches(), nil
