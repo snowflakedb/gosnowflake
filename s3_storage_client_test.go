@@ -839,7 +839,7 @@ func TestGetS3Endpoint(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.desc, func(t *testing.T) {
 			endpoint := getS3CustomEndpoint(&test.in)
-			if endpoint != test.out {
+			if *endpoint != test.out {
 				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
 			}
 		})

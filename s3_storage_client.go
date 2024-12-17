@@ -49,10 +49,12 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 	stageCredentials := info.Creds
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
 
-	endpoint := getS3CustomEndpoint(info)
-	if endpoint == "" {
-		return nil, fmt.Errorf("error when retrieving endpoint")
-	}
+	// var endPoint *string
+	// if info.EndPoint != "" {
+	// 	tmp := "https://" + info.EndPoint
+	// 	endPoint = &tmp
+	// }
+	endPoint := getS3CustomEndpoint(info)
 
 	return s3.New(s3.Options{
 		Region: info.Region,
@@ -60,7 +62,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 			stageCredentials.AwsKeyID,
 			stageCredentials.AwsSecretKey,
 			stageCredentials.AwsToken)),
-		BaseEndpoint:  &endpoint,
+		BaseEndpoint:  endPoint,
 		UseAccelerate: useAccelerateEndpoint,
 		HTTPClient: &http.Client{
 			Transport: SnowflakeTransport,
@@ -70,9 +72,10 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 	}), nil
 }
 
-func getS3CustomEndpoint(info *execResponseStageInfo) string {
+func getS3CustomEndpoint(info *execResponseStageInfo) *string {
+	var endPoint *string
 	if info.EndPoint != "" {
-		return fmt.Sprintf("https://%s", info.EndPoint)
+		*endPoint = fmt.Sprintf("https://%s", info.EndPoint)
 	}
 	isRegionalURLEnabled := info.UseRegionalURL || info.UseS3RegionalURL
 	if info.Region != "" && isRegionalURLEnabled {
@@ -80,9 +83,9 @@ func getS3CustomEndpoint(info *execResponseStageInfo) string {
 		if strings.HasPrefix(strings.ToLower(info.Region), "cn-") {
 			domainSuffixForRegionalURL = "amazonaws.com.cn"
 		}
-		return fmt.Sprintf("https://s3.%s.%s", info.Region, domainSuffixForRegionalURL)
+		*endPoint = fmt.Sprintf("https://s3.%s.%s", info.Region, domainSuffixForRegionalURL)
 	}
-	return ""
+	return endPoint
 }
 
 func s3LoggingFunc(classification logging.Classification, format string, v ...interface{}) {
