@@ -3,11 +3,10 @@ package gosnowflake
 import (
 	"context"
 	"database/sql"
-	"flag"
 	"log"
 )
 
-func getConfigFromEnv() (*Config, error) {
+func getAuthTestConfigFromEnv() (*Config, error) {
 	return GetConfigFromEnv([]*ConfigParam{
 		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
 		{Name: "User", EnvName: "SNOWFLAKE_AUTH_TEST_OKTA_USER", FailOnMissing: true},
@@ -20,7 +19,7 @@ func getConfigFromEnv() (*Config, error) {
 }
 
 func getAuthTestsConfig(authMethod AuthType) (*Config, error) {
-	cfg, err := getConfigFromEnv()
+	cfg, err := getAuthTestConfigFromEnv()
 	if err != nil {
 		return nil, err
 	}
@@ -29,12 +28,6 @@ func getAuthTestsConfig(authMethod AuthType) (*Config, error) {
 	cfg.DisableQueryContextCache = true
 
 	return cfg, nil
-}
-
-func parseFlags() {
-	if !flag.Parsed() {
-		flag.Parse()
-	}
 }
 
 func executeQuery(query string, dsn string) (rows *sql.Rows, err error) {

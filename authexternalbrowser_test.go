@@ -122,7 +122,7 @@ func TestAuthenticationTimeout(t *testing.T) {
 	account := "testaccount"
 	user := "u"
 	password := "p"
-	timeout := 1 * time.Second
+	timeout := 0 * time.Second
 	errMsg := "authentication timed out"
 	sr := &snowflakeRestful{
 		Protocol:         "https",

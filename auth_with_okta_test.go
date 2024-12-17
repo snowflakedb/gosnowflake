@@ -8,11 +8,8 @@ import (
 
 func TestOktaSuccessful(t *testing.T) {
 	cfg := setupOktaTest(t)
-	conn, err := connectToSnowflake(cfg, "SELECT 1", true)
-	if err != nil {
-		t.Fatalf("failed to connect. err: %v", err)
-	}
-	defer conn.Close()
+	err := connectToSnowflake(cfg, "SELECT 1", true)
+	assertNilF(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
 func TestOktaWrongCredentials(t *testing.T) {
@@ -21,11 +18,9 @@ func TestOktaWrongCredentials(t *testing.T) {
 	errMsg := fmt.Sprintf("261006 (08004): failed to auth via OKTA for unknown reason. HTTP: 401, "+
 		"URL: %vapi/v1/authn", cfg.OktaURL)
 
-	_, err := connectToSnowflake(cfg, "SELECT 1", false)
-	if err.Error() != errMsg {
-		t.Fatalf("failed, expected: %v, but got: %v", errMsg, err.Error())
-	}
+	err := connectToSnowflake(cfg, "SELECT 1", false)
 
+	assertTrueF(t, err.Error() == errMsg, fmt.Sprintf("Expected %v, but got %v", errMsg, err.Error()))
 }
 
 func TestOktaWrongAuthenticator(t *testing.T) {
@@ -39,11 +34,8 @@ func TestOktaWrongAuthenticator(t *testing.T) {
 	errMsg := "390139 (08004): The specified authenticator is not accepted by your Snowflake account configuration.  " +
 		"Please contact your local system administrator to get the correct URL to use."
 
-	_, err = connectToSnowflake(cfg, "SELECT 1", false)
-	if err.Error() != errMsg {
-		t.Fatalf("failed, expected: %v, but got: %v", errMsg, err.Error())
-	}
-
+	err = connectToSnowflake(cfg, "SELECT 1", false)
+	assertTrueF(t, err.Error() == errMsg, fmt.Sprintf("Expected %v, but got %v", errMsg, err.Error()))
 }
 
 func TestOktaWrongURL(t *testing.T) {
@@ -57,33 +49,21 @@ func TestOktaWrongURL(t *testing.T) {
 	errMsg := "390139 (08004): The specified authenticator is not accepted by your Snowflake account configuration.  " +
 		"Please contact your local system administrator to get the correct URL to use."
 
-	_, err = connectToSnowflake(cfg, "SELECT 1", false)
-	if err.Error() != errMsg {
-		t.Fatalf("failed, expected: %v, but got: %v", errMsg, err.Error())
-	}
-
+	err = connectToSnowflake(cfg, "SELECT 1", false)
+	assertTrueF(t, err.Error() == errMsg, fmt.Sprintf("Expected %v, but got %v", errMsg, err.Error()))
 }
 
 func setupOktaTest(t *testing.T) *Config {
-	if runningOnGithubAction() {
-		t.Skip("Running only on Docker container")
-	}
-	skipOnJenkins(t, "Running only on Docker container")
+	runOnlyOnDockerContainer(t, "Running only on Docker container")
 
 	urlEnv, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OKTA_AUTH", true)
-	if err != nil {
-		return nil
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to get env: %v", err))
 
 	cfg, err := getAuthTestsConfig(AuthTypeOkta)
-	if err != nil {
-		t.Fatalf("failed to get config: %v", err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 
 	cfg.OktaURL, err = url.Parse(urlEnv)
-	if err != nil {
-		t.Fatalf("failed to parse: %v", err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to parse: %v", err))
 
 	return cfg
 }
