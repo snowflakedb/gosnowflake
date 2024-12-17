@@ -26,7 +26,7 @@ func TestKeypairInvalidKey(t *testing.T) {
 	if err != nil {
 		errParts = strings.Split(err.Error(), " [")[0]
 	}
-	assertTrueF(t, err != nil, fmt.Sprintf("Expected error, but got nil"))
+	assertTrueF(t, err != nil, "Expected error, but got nil")
 	assertTrueF(t, errParts == errMsg, fmt.Sprintf("Expected %v, but got %v", errMsg, errParts))
 }
 
@@ -41,6 +41,7 @@ func setupKeyPairTest(t *testing.T) *Config {
 
 func loadRsaPrivateKeyForKeyPair(t *testing.T, envName string) *rsa.PrivateKey {
 	filePath, err := GetFromEnv(envName, true)
+	assertNilF(t, err, fmt.Sprintf("failed to get env: %v", err))
 
 	bytes, err := os.ReadFile(filePath)
 	assertNilF(t, err, fmt.Sprintf("failed to read file: %v", err))
