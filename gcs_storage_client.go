@@ -419,10 +419,8 @@ func getGcsCustomEndpoint(info *execResponseStageInfo) string {
 	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
 	if info.EndPoint != "" {
 		endpoint = fmt.Sprintf("https://%s", info.EndPoint)
-	} else {
-		if info.Region != "" && isRegionalURLEnabled {
-			endpoint = fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(info.Region))
-		}
+	} else if info.Region != "" && isRegionalURLEnabled {
+		endpoint = fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(info.Region))
 	}
 	return endpoint
 }
