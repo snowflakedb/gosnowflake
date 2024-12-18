@@ -73,7 +73,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 }
 
 func getS3CustomEndpoint(info *execResponseStageInfo) *string {
-	var endPoint *string
+	var endPoint *string = new(string)
 	if info.EndPoint != "" {
 		*endPoint = fmt.Sprintf("https://%s", info.EndPoint)
 	}
