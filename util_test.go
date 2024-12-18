@@ -392,7 +392,7 @@ func skipOnJenkins(t *testing.T, message string) {
 }
 
 func runOnlyOnDockerContainer(t *testing.T, message string) {
-	if os.Getenv("DOCKER_CONTAINER_SETUP") == "" {
+	if os.Getenv("AUTHENTICATION_TESTS_ENV") == "" {
 		t.Skip("Running only on Docker container: " + message)
 	}
 }

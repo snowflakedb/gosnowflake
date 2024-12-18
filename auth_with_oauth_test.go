@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,44 +12,57 @@ import (
 
 func TestOauthSuccessful(t *testing.T) {
 	cfg := setupOauthTest(t)
-	token, _ := getToken(t, cfg)
+	token, _ := getOauthTestToken(t, cfg)
 	cfg.Token = token
-	err := connectToSnowflake(cfg, "SELECT 1", true)
-	assertNilF(t, err, fmt.Sprintf("failed to connect. err: %v", err))
+	err := connectToSnowflake(t, cfg)
+	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
 func TestOauthInvalidToken(t *testing.T) {
 	cfg := setupOauthTest(t)
-	expErr := "390303 (08004): Invalid OAuth access token. "
 	cfg.Token = "invalid_token"
-	err := connectToSnowflake(cfg, "SELECT 1", false)
-	assertTrueF(t, err.Error() == expErr, fmt.Sprintf("Expected %v, but got %v", expErr, err))
+
+	err := connectToSnowflake(t, cfg)
+
+	var snowflakeErr *SnowflakeError
+	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertEqualE(t, snowflakeErr.Number, 390303, fmt.Sprintf("Expected 390303, but got %v", snowflakeErr.Number))
 }
 
 func TestOauthMismatchedUser(t *testing.T) {
 	cfg := setupOauthTest(t)
-	token, _ := getToken(t, cfg)
+	token, _ := getOauthTestToken(t, cfg)
 	cfg.Token = token
 	cfg.User = "fakeaccount"
-	expErr := "390309 (08004): The user you were trying to authenticate " +
-		"as differs from the user tied to the access token."
-	err := connectToSnowflake(cfg, "SELECT 1", false)
-	assertTrueF(t, err.Error() == expErr, fmt.Sprintf("Expected %v, but got %v", expErr, err))
+
+	err := connectToSnowflake(t, cfg)
+
+	var snowflakeErr *SnowflakeError
+	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertEqualE(t, snowflakeErr.Number, 390309, fmt.Sprintf("Expected 390309, but got %v", snowflakeErr.Number))
 }
 
 func setupOauthTest(t *testing.T) *Config {
 	runOnlyOnDockerContainer(t, "Running only on Docker container")
 
-	cfg, err := getAuthTestsConfig(AuthTypeOAuth)
+	cfg, err := getAuthTestsConfig(t, AuthTypeOAuth)
 	assertNilF(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 
 	return cfg
 }
 
-func getToken(t *testing.T, cfg *Config) (string, error) {
+func getOauthTestToken(t *testing.T, cfg *Config) (string, error) {
 
 	client := &http.Client{}
-	authURL, oauthClientID, oauthClientSecret := getCredentials()
+
+	authURL, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_URL", true)
+	assertNotEqualF(t, authURL, nil, "SNOWFLAKE_AUTH_TEST_OAUTH_URL is not set")
+
+	oauthClientID, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_ID", true)
+	assertNotEqualF(t, authURL, nil, "SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_ID is not set")
+
+	oauthClientSecret, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_SECRET", true)
+	assertNotEqualF(t, authURL, nil, "SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_SECRET is not set")
 
 	inputData := formData(cfg)
 
@@ -82,14 +96,6 @@ func formData(cfg *Config) url.Values {
 
 	return data
 
-}
-
-func getCredentials() (string, string, string) {
-	authURL, _ := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_URL", true)
-	oauthClientID, _ := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_ID", true)
-	oauthClientSecret, _ := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_SECRET", true)
-
-	return authURL, oauthClientID, oauthClientSecret
 }
 
 type Response struct {

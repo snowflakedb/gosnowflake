@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"testing"
@@ -8,34 +9,31 @@ import (
 
 func TestOktaSuccessful(t *testing.T) {
 	cfg := setupOktaTest(t)
-	err := connectToSnowflake(cfg, "SELECT 1", true)
-	assertNilF(t, err, fmt.Sprintf("failed to connect. err: %v", err))
+	err := connectToSnowflake(t, cfg)
+	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
 func TestOktaWrongCredentials(t *testing.T) {
 	cfg := setupOktaTest(t)
 	cfg.Password = "fakePassword"
-	errMsg := fmt.Sprintf("261006 (08004): failed to auth via OKTA for unknown reason. HTTP: 401, "+
-		"URL: %vapi/v1/authn", cfg.OktaURL)
+	err := connectToSnowflake(t, cfg)
 
-	err := connectToSnowflake(cfg, "SELECT 1", false)
-
-	assertTrueF(t, err.Error() == errMsg, fmt.Sprintf("Expected %v, but got %v", errMsg, err.Error()))
+	var snowflakeErr *SnowflakeError
+	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertEqualE(t, snowflakeErr.Number, 261006, fmt.Sprintf("Expected 261006, but got %v", snowflakeErr.Number))
 }
 
 func TestOktaWrongAuthenticator(t *testing.T) {
 	cfg := setupOktaTest(t)
 	invalidAddress, err := url.Parse("https://fake-account-0000.okta.com")
-	if err != nil {
-		t.Fatalf("failed to parse: %v", err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to parse: %v", err))
 
 	cfg.OktaURL = invalidAddress
-	errMsg := "390139 (08004): The specified authenticator is not accepted by your Snowflake account configuration.  " +
-		"Please contact your local system administrator to get the correct URL to use."
+	err = connectToSnowflake(t, cfg)
 
-	err = connectToSnowflake(cfg, "SELECT 1", false)
-	assertTrueF(t, err.Error() == errMsg, fmt.Sprintf("Expected %v, but got %v", errMsg, err.Error()))
+	var snowflakeErr *SnowflakeError
+	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertEqualE(t, snowflakeErr.Number, 390139, fmt.Sprintf("Expected 390139, but got %v", snowflakeErr.Number))
 }
 
 func TestOktaWrongURL(t *testing.T) {
@@ -46,11 +44,12 @@ func TestOktaWrongURL(t *testing.T) {
 	}
 
 	cfg.OktaURL = invalidAddress
-	errMsg := "390139 (08004): The specified authenticator is not accepted by your Snowflake account configuration.  " +
-		"Please contact your local system administrator to get the correct URL to use."
 
-	err = connectToSnowflake(cfg, "SELECT 1", false)
-	assertTrueF(t, err.Error() == errMsg, fmt.Sprintf("Expected %v, but got %v", errMsg, err.Error()))
+	err = connectToSnowflake(t, cfg)
+	var snowflakeErr *SnowflakeError
+	assertTrueF(t, errors.As(err, &snowflakeErr))
+
+	assertEqualE(t, snowflakeErr.Number, 390139, fmt.Sprintf("Expected 390139, but got %v", snowflakeErr.Number))
 }
 
 func setupOktaTest(t *testing.T) *Config {
@@ -59,7 +58,7 @@ func setupOktaTest(t *testing.T) *Config {
 	urlEnv, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OKTA_AUTH", true)
 	assertNilF(t, err, fmt.Sprintf("failed to get env: %v", err))
 
-	cfg, err := getAuthTestsConfig(AuthTypeOkta)
+	cfg, err := getAuthTestsConfig(t, AuthTypeOkta)
 	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 
 	cfg.OktaURL, err = url.Parse(urlEnv)

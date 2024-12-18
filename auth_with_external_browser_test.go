@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -17,12 +18,12 @@ func TestExternalBrowserSuccessful(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(externalBrowserType.Success, cfg.User, cfg.Password)
+		provideCredentials(t, externalBrowserType.Success, cfg.User, cfg.Password)
 	}()
 	go func() {
 		defer wg.Done()
-		err := connectToSnowflake(cfg, "SELECT 1", true)
-		assertNilF(t, err, fmt.Sprintf("Connection failed due to %v", err))
+		err := connectToSnowflake(t, cfg)
+		assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
 	}()
 	wg.Wait()
 }
@@ -34,13 +35,13 @@ func TestExternalBrowserFailed(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(externalBrowserType.Fail, "FakeAccount", "NotARealPassword")
+		provideCredentials(t, externalBrowserType.Fail, "FakeAccount", "NotARealPassword")
 	}()
 	go func() {
 		defer wg.Done()
 		tOut := "authentication timed out"
-		err := connectToSnowflake(cfg, "SELECT 1", false)
-		assertTrueF(t, err.Error() == tOut, fmt.Sprintf("Expected %v, but got %v", tOut, err))
+		err := connectToSnowflake(t, cfg)
+		assertEqualE(t, err.Error(), tOut, fmt.Sprintf("Expected %v, but got %v", tOut, err))
 	}()
 	wg.Wait()
 }
@@ -52,13 +53,13 @@ func TestExternalBrowserTimeout(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(externalBrowserType.Timeout, cfg.User, cfg.Password)
+		provideCredentials(t, externalBrowserType.Timeout, cfg.User, cfg.Password)
 	}()
 	go func() {
 		defer wg.Done()
 		tOut := "authentication timed out"
-		err := connectToSnowflake(cfg, "SELECT 1", false)
-		assertTrueF(t, err.Error() == tOut, fmt.Sprintf("Expected %v, but got %v", tOut, err))
+		err := connectToSnowflake(t, cfg)
+		assertEqualE(t, err.Error(), tOut, fmt.Sprintf("Expected %v, but got %v", tOut, err))
 	}()
 	wg.Wait()
 }
@@ -72,14 +73,14 @@ func TestExternalBrowserMismatchUser(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideCredentials(externalBrowserType.Success, correctUsername, cfg.Password)
+		provideCredentials(t, externalBrowserType.Success, correctUsername, cfg.Password)
 	}()
 	go func() {
 		defer wg.Done()
-		expectedErrorMsg := "390191 (08004): The user you were trying to authenticate " +
-			"as differs from the user currently logged in at the IDP."
-		err := connectToSnowflake(cfg, "SELECT 1", false)
-		assertTrueF(t, err.Error() == expectedErrorMsg, fmt.Sprintf("Expected %v, but got %v", expectedErrorMsg, err))
+		err := connectToSnowflake(t, cfg)
+		var snowflakeErr *SnowflakeError
+		assertTrueF(t, errors.As(err, &snowflakeErr))
+		assertEqualE(t, snowflakeErr.Number, 390191, fmt.Sprintf("Expected 390191, but got %v", snowflakeErr.Number))
 	}()
 	wg.Wait()
 }
@@ -90,100 +91,88 @@ func TestClientStoreCredentials(t *testing.T) {
 	cfg.ExternalBrowserTimeout = time.Duration(10) * time.Second
 
 	t.Run("Obtains the ID token from the server and saves it on the local storage", func(t *testing.T) {
-		cleanupBrowserProcesses()
+		cleanupBrowserProcesses(t)
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			provideCredentials(externalBrowserType.Success, cfg.User, cfg.Password)
+			provideCredentials(t, externalBrowserType.Success, cfg.User, cfg.Password)
 		}()
 		go func() {
 			defer wg.Done()
-			err := connectToSnowflake(cfg, "SELECT 1", true)
-			assertNilF(t, err, fmt.Sprintf("Connection failed: err %v", err))
+			err := connectToSnowflake(t, cfg)
+			assertNilE(t, err, fmt.Sprintf("Connection failed: err %v", err))
 		}()
 		wg.Wait()
 	})
 
 	t.Run("Verify validation of ID token if option enabled", func(t *testing.T) {
-		cleanupBrowserProcesses()
+		cleanupBrowserProcesses(t)
 		cfg.ClientStoreTemporaryCredential = 1
-		conn, _ := createConnection(getDbHandler(cfg))
+		db := getDbHandlerFromConfig(t, cfg)
+		conn, _ := db.Conn(context.Background())
 		_, err := conn.QueryContext(context.Background(), "SELECT 1")
-		assertNilF(t, err, fmt.Sprintf("Failed to run a query. err: %v", err))
+		assertNilE(t, err, fmt.Sprintf("Failed to run a query. err: %v", err))
 	})
 
 	t.Run("Verify validation of IDToken if option disabled", func(t *testing.T) {
-		cleanupBrowserProcesses()
+		cleanupBrowserProcesses(t)
 		cfg.ClientStoreTemporaryCredential = 0
 		tOut := "authentication timed out"
-		_, err := createConnection(getDbHandler(cfg))
-		assertTrueF(t, err.Error() == tOut, fmt.Sprintf("Expected %v, but got %v", tOut, err))
+		db := getDbHandlerFromConfig(t, cfg)
+		_, err := db.Conn(context.Background())
+		assertEqualE(t, err.Error(), tOut, fmt.Sprintf("Expected %v, but got %v", tOut, err))
 	})
 }
 
-type ExternalBrowserProcess struct {
+type ExternalBrowserProcessResult struct {
 	Success string
 	Fail    string
 	Timeout string
 }
 
-var externalBrowserType = ExternalBrowserProcess{
+var externalBrowserType = ExternalBrowserProcessResult{
 	Success: "success",
 	Fail:    "fail",
 	Timeout: "timeout",
 }
 
-func cleanupBrowserProcesses() {
+func cleanupBrowserProcesses(t *testing.T) {
 	const cleanBrowserProcessesPath = "/externalbrowser/cleanBrowserProcesses.js"
 	_, err := exec.Command("node", cleanBrowserProcessesPath).Output()
-	if err != nil {
-		log.Fatalf("failed to execute command: %v", err)
-	}
+	assertNilE(t, err, fmt.Sprintf("failed to execute command: %v", err))
 }
 
-func provideCredentials(ExternalBrowserProcess string, user string, password string) {
+func provideCredentials(t *testing.T, ExternalBrowserProcess string, user string, password string) {
 	const provideBrowserCredentialsPath = "/externalbrowser/provideBrowserCredentials.js"
 	_, err := exec.Command("node", provideBrowserCredentialsPath, ExternalBrowserProcess, user, password).Output()
-	if err != nil {
-		log.Fatalf("failed to execute command: %v", err)
-	}
+	assertNilE(t, err, fmt.Sprintf("failed to execute command: %v", err))
 }
 
-func connectToSnowflake(cfg *Config, query string, isCatchException bool) (err error) {
+func connectToSnowflake(t *testing.T, cfg *Config) (err error) {
 	dsn, err := DSN(cfg)
+	assertNilE(t, err, "failed to create DSN from Config")
+
+	db, err := sql.Open("snowflake", dsn)
+	assertNilE(t, err, "failed to open Snowflake DB connection")
+	defer db.Close()
+
+	rows, err := db.Query("SELECT 1")
 	if err != nil {
-		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
-	}
-	rows, err := executeQuery(query, dsn)
-	if isCatchException && err != nil {
-		log.Fatalf("failed to run a query. %v, err: %v", query, err)
-	} else if err != nil {
+		log.Printf("failed to run a query. 'SELECT 1', err: %v", err)
 		return err
 	}
+
 	defer rows.Close()
-	var v int
-	var hasAnyRows bool
-	for rows.Next() {
-		hasAnyRows = true
-		err := rows.Scan(&v)
-		if isCatchException && err != nil {
-			log.Fatalf("failed to get result. err: %v", err)
-		}
-	}
-	if !hasAnyRows {
-		return errors.New("There were no results for query: ")
-	}
-	fmt.Printf("Congrats! You have successfully run '%v' with Snowflake DB! \n", query)
+	assertTrueE(t, rows.Next(), "failed to get result", "There were no results for query: ")
+
 	return err
 }
 
 func setupExternalBrowserTest(t *testing.T) *Config {
 	runOnlyOnDockerContainer(t, "Running only on Docker container")
-	cleanupBrowserProcesses()
-	cfg, err := getAuthTestsConfig(AuthTypeExternalBrowser)
-	if err != nil {
-		t.Fatalf("failed to get config: %v", err)
-	}
+	cleanupBrowserProcesses(t)
+	cfg, err := getAuthTestsConfig(t, AuthTypeExternalBrowser)
+	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 	return cfg
 }

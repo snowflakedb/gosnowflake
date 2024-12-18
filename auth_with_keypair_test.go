@@ -2,10 +2,10 @@ package gosnowflake
 
 import (
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -13,28 +13,24 @@ func TestKeypairSuccessful(t *testing.T) {
 	cfg := setupKeyPairTest(t)
 	cfg.PrivateKey = loadRsaPrivateKeyForKeyPair(t, "SNOWFLAKE_AUTH_TEST_PRIVATE_KEY_PATH")
 
-	err := connectToSnowflake(cfg, "SELECT 1", true)
-	assertNilF(t, err, fmt.Sprintf("failed to connect. err: %v", err))
+	err := connectToSnowflake(t, cfg)
+	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
 func TestKeypairInvalidKey(t *testing.T) {
 	cfg := setupKeyPairTest(t)
 	cfg.PrivateKey = loadRsaPrivateKeyForKeyPair(t, "SNOWFLAKE_AUTH_TEST_INVALID_PRIVATE_KEY_PATH")
-	var errParts string
-	errMsg := "390144 (08004): JWT token is invalid."
-	err := connectToSnowflake(cfg, "SELECT 1", false)
-	if err != nil {
-		errParts = strings.Split(err.Error(), " [")[0]
-	}
-	assertTrueF(t, err != nil, "Expected error, but got nil")
-	assertTrueF(t, errParts == errMsg, fmt.Sprintf("Expected %v, but got %v", errMsg, errParts))
+	err := connectToSnowflake(t, cfg)
+	var snowflakeErr *SnowflakeError
+	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertEqualE(t, snowflakeErr.Number, 390144, fmt.Sprintf("Expected 390144, but got %v", snowflakeErr.Number))
 }
 
 func setupKeyPairTest(t *testing.T) *Config {
 	runOnlyOnDockerContainer(t, "Running only on Docker container")
 
-	cfg, err := getAuthTestsConfig(AuthTypeJwt)
-	assertTrueF(t, err == nil, fmt.Sprintf("failed to get config: %v", err))
+	cfg, err := getAuthTestsConfig(t, AuthTypeJwt)
+	assertEqualE(t, err, nil, fmt.Sprintf("failed to get config: %v", err))
 
 	return cfg
 }

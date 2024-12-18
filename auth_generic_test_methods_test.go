@@ -1,9 +1,8 @@
 package gosnowflake
 
 import (
-	"context"
-	"database/sql"
-	"log"
+	"fmt"
+	"testing"
 )
 
 func getAuthTestConfigFromEnv() (*Config, error) {
@@ -18,43 +17,11 @@ func getAuthTestConfigFromEnv() (*Config, error) {
 	})
 }
 
-func getAuthTestsConfig(authMethod AuthType) (*Config, error) {
+func getAuthTestsConfig(t *testing.T, authMethod AuthType) (*Config, error) {
 	cfg, err := getAuthTestConfigFromEnv()
-	if err != nil {
-		return nil, err
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 
 	cfg.Authenticator = authMethod
-	cfg.DisableQueryContextCache = true
 
 	return cfg, nil
-}
-
-func executeQuery(query string, dsn string) (rows *sql.Rows, err error) {
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
-	}
-	defer db.Close()
-
-	rows, err = db.Query(query)
-	return rows, err
-}
-
-func getDbHandler(cfg *Config) *sql.DB {
-	dsn, err := DSN(cfg)
-	if err != nil {
-		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
-	}
-
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		log.Fatalf("failed to open database. %v, err: %v", dsn, err)
-	}
-	return db
-}
-
-func createConnection(db *sql.DB) (*sql.Conn, error) {
-	conn, err := db.Conn(context.Background())
-	return conn, err
 }

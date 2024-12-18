@@ -123,7 +123,6 @@ func TestAuthenticationTimeout(t *testing.T) {
 	user := "u"
 	password := "p"
 	timeout := 0 * time.Second
-	errMsg := "authentication timed out"
 	sr := &snowflakeRestful{
 		Protocol:         "https",
 		Host:             "abc.com",
@@ -132,9 +131,7 @@ func TestAuthenticationTimeout(t *testing.T) {
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)
-	if err.Error() != errMsg {
-		t.Fatal("Expected", errMsg, "but got:", err.Error())
-	}
+	assertEqualE(t, err.Error(), "authentication timed out", err.Error())
 }
 
 func Test_createLocalTCPListener(t *testing.T) {
