@@ -48,12 +48,6 @@ var S3LoggingMode aws.ClientLogMode
 func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
 	stageCredentials := info.Creds
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
-
-	// var endPoint *string
-	// if info.EndPoint != "" {
-	// 	tmp := "https://" + info.EndPoint
-	// 	endPoint = &tmp
-	// }
 	endPoint := getS3CustomEndpoint(info)
 
 	return s3.New(s3.Options{
