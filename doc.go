@@ -1305,13 +1305,11 @@ There are multiple config parameters including progress bars or compression.
 
 # Surfacing errors originating from PUT and GET commands
 
-Prior to gosnowflake v1.12.1, the potential underlying errors encountered executing calls associated with the PUT or GET commands were not propagated to the caller.
+Current behaviour is to propagate the potential underlying errors encountered during executing calls associated with the PUT or GET commands to the caller, for increased awareness and easier handling or troubleshooting them.
 
-From v1.12.1 and above, the behaviour is to *do* propagate these errors for increased awareness and easier handling or troubleshooting them.
+The behaviour is governed by the `RaisePutGetError` flag on `SnowflakeFileTransferOptions` (default: `true`)
 
-The behaviour is governed by the `RaisePutGetError` flag on `SnowflakeFileTransferOptions` where the new default is `true`.
-
-If you wish to return to the old behaviour and ignore those errors instead, you can set `RaisePutGetError: false`. Example snippet:
+If you wish to ignore those errors instead, you can set `RaisePutGetError: false`. Example snippet:
 
 	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{RaisePutGetError: false})
 	db.ExecContext(ctx, "PUT ...")
