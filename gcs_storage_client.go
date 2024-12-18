@@ -12,6 +12,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"cloud.google.com/go/storage"
+	"google.golang.org/api/option"
 )
 
 const (
@@ -20,6 +23,7 @@ const (
 	gcsMetadataMatdescKey         = gcsMetadataPrefix + "matdesc"
 	gcsMetadataEncryptionDataProp = gcsMetadataPrefix + "encryptiondata"
 	gcsFileHeaderDigest           = "gcs-file-header-digest"
+	gcsRegionMeCentral2           = "me-central2"
 )
 
 type snowflakeGcsClient struct {
@@ -79,6 +83,7 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 			}
 			return client.Do(req)
 		})
+
 		if err != nil {
 			return nil, err
 		}
@@ -402,8 +407,31 @@ func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
 	return resp.StatusCode == 401
 }
 
-func newGcsClient() gcsAPI {
-	return &http.Client{
+func newGcsClient(info *execResponseStageInfo) (gcsAPI, error) {
+	httpClient := &http.Client{
 		Transport: SnowflakeTransport,
 	}
+
+	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
+	endpoint := getGcsCustomEndpoint(info)
+	_, err := storage.NewClient(context.Background(), option.WithHTTPClient(httpClient))
+	if endpoint != "" {
+		_, err = storage.NewClient(context.Background(), option.WithHTTPClient(httpClient), option.WithEndpoint(endpoint))
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return httpClient, nil
+}
+
+func getGcsCustomEndpoint(info *execResponseStageInfo) string {
+	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
+	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
+	if info.EndPoint != "" {
+		return fmt.Sprintf("https://%s", info.EndPoint)
+	} else if info.Region != "" && isRegionalURLEnabled {
+		return fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(info.Region))
+	}
+	return ""
 }

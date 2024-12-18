@@ -108,6 +108,8 @@ type execResponseStageInfo struct {
 	Creds                 execResponseCredentials `json:"creds,omitempty"`
 	PresignedURL          string                  `json:"presignedUrl,omitempty"`
 	EndPoint              string                  `json:"endPoint,omitempty"`
+	UseS3RegionalURL      bool                    `json:"useS3RegionalUrl,omitempty"`
+	UseRegionalURL        bool                    `json:"useRegionalUrl,omitempty"`
 }
 
 // make all data field optional
