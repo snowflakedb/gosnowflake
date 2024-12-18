@@ -12,9 +12,10 @@ import (
 
 func TestOauthSuccessful(t *testing.T) {
 	cfg := setupOauthTest(t)
-	token, _ := getOauthTestToken(t, cfg)
+	token, err := getOauthTestToken(t, cfg)
+	assertNilE(t, err, fmt.Sprintf("failed to get token. err: %v", err))
 	cfg.Token = token
-	err := connectToSnowflake(t, cfg)
+	err = connectToSnowflake(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
@@ -31,11 +32,12 @@ func TestOauthInvalidToken(t *testing.T) {
 
 func TestOauthMismatchedUser(t *testing.T) {
 	cfg := setupOauthTest(t)
-	token, _ := getOauthTestToken(t, cfg)
+	token, err := getOauthTestToken(t, cfg)
+	assertNilE(t, err, fmt.Sprintf("failed to get token. err: %v", err))
 	cfg.Token = token
 	cfg.User = "fakeaccount"
 
-	err := connectToSnowflake(t, cfg)
+	err = connectToSnowflake(t, cfg)
 
 	var snowflakeErr *SnowflakeError
 	assertTrueF(t, errors.As(err, &snowflakeErr))
@@ -66,7 +68,8 @@ func getOauthTestToken(t *testing.T, cfg *Config) (string, error) {
 
 	inputData := formData(cfg)
 
-	req, _ := http.NewRequest("POST", authURL, strings.NewReader(inputData.Encode()))
+	req, err := http.NewRequest("POST", authURL, strings.NewReader(inputData.Encode()))
+	assertNilF(t, err, fmt.Sprintf("Request failed %v", err))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
 	req.SetBasicAuth(oauthClientID, oauthClientSecret)
 	resp, err := client.Do(req)

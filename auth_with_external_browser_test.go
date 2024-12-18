@@ -110,8 +110,9 @@ func TestClientStoreCredentials(t *testing.T) {
 		cleanupBrowserProcesses(t)
 		cfg.ClientStoreTemporaryCredential = 1
 		db := getDbHandlerFromConfig(t, cfg)
-		conn, _ := db.Conn(context.Background())
-		_, err := conn.QueryContext(context.Background(), "SELECT 1")
+		conn, err := db.Conn(context.Background())
+		assertNilE(t, err, fmt.Sprintf("Failed to connect to Snowflake. err: %v", err))
+		_, err = conn.QueryContext(context.Background(), "SELECT 1")
 		assertNilE(t, err, fmt.Sprintf("Failed to run a query. err: %v", err))
 	})
 
@@ -164,6 +165,7 @@ func connectToSnowflake(t *testing.T, cfg *Config) (err error) {
 	}
 
 	defer rows.Close()
+
 	assertTrueE(t, rows.Next(), "failed to get result", "There were no results for query: ")
 
 	return err
