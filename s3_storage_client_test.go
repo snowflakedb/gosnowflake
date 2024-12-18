@@ -801,14 +801,6 @@ func TestGetS3Endpoint(t *testing.T) {
 		out  string
 	}{
 		{
-			desc: "when useS3RegionalURL is only enabled",
-			in: execResponseStageInfo{
-				UseS3RegionalURL: true,
-				EndPoint:         "",
-			},
-			out: "",
-		},
-		{
 			desc: "when useS3RegionalURL and is enabled and domain starts with cn",
 			in: execResponseStageInfo{
 				UseS3RegionalURL: true,
