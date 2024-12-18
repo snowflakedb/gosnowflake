@@ -34,6 +34,7 @@ var (
 	protocol         string
 	customPrivateKey bool            // Whether user has specified the private key path
 	testPrivKey      *rsa.PrivateKey // Valid private key used for all test cases
+	debugMode        bool
 )
 
 const (
@@ -76,6 +77,8 @@ func init() {
 	setupPrivateKey()
 
 	createDSN("UTC")
+
+	debugMode, _ = strconv.ParseBool(os.Getenv("SNOWFLAKE_TEST_DEBUG"))
 }
 
 func createDSN(timezone string) {
@@ -270,7 +273,7 @@ func (dbt *DBTest) prepare(query string) (*sql.Stmt, error) {
 }
 
 func (dbt *DBTest) fail(method, query string, err error) {
-	if len(query) > 300 {
+	if !debugMode && len(query) > 300 {
 		query = "[query too large to print]"
 	}
 	dbt.Fatalf("error on %s [%s]: %s", method, query, err.Error())
@@ -398,7 +401,7 @@ type SCTest struct {
 }
 
 func (sct *SCTest) fail(method, query string, err error) {
-	if len(query) > 300 {
+	if !debugMode && len(query) > 300 {
 		query = "[query too large to print]"
 	}
 	sct.Fatalf("error on %s [%s]: %s", method, query, err.Error())
@@ -603,6 +606,103 @@ func TestEmptyQueryWithRequestID(t *testing.T) {
 			dbt.Errorf("should not have failed with valid request id. err: %v", err)
 		}
 	})
+}
+
+func TestRequestIDFromTwoDifferentSessions(t *testing.T) {
+	db, err := sql.Open("snowflake", dsn)
+	assertNilF(t, err)
+	db.SetMaxOpenConns(10)
+
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn.Close()
+	_, err = conn.ExecContext(context.Background(), forceJSON)
+	assertNilF(t, err)
+
+	conn2, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn2.Close()
+	_, err = conn2.ExecContext(context.Background(), forceJSON)
+	assertNilF(t, err)
+
+	// creating table
+	reqIDForCreate := NewUUID()
+	_, err = conn.ExecContext(WithRequestID(context.Background(), reqIDForCreate), "CREATE TABLE req_id_testing (id INTEGER)")
+	assertNilF(t, err)
+	defer func() {
+		_, err = db.Exec("DROP TABLE IF EXISTS req_id_testing")
+		assertNilE(t, err)
+	}()
+	_, err = conn.ExecContext(WithRequestID(context.Background(), reqIDForCreate), "CREATE TABLE req_id_testing (id INTEGER)")
+	assertNilF(t, err)
+	defer func() {
+		_, err = db.Exec("DROP TABLE IF EXISTS req_id_testing")
+		assertNilE(t, err)
+	}()
+
+	// should fail as API v1 does not allow reusing requestID across sessions for DML statements
+	_, err = conn2.ExecContext(WithRequestID(context.Background(), reqIDForCreate), "CREATE TABLE req_id_testing (id INTEGER)")
+	assertNotNilE(t, err)
+	assertStringContainsE(t, err.Error(), "already exists")
+
+	// inserting a record
+	reqIDForInsert := NewUUID()
+	execResult, err := conn.ExecContext(WithRequestID(context.Background(), reqIDForInsert), "INSERT INTO req_id_testing VALUES (1)")
+	assertNilF(t, err)
+	rowsInserted, err := execResult.RowsAffected()
+	assertNilF(t, err)
+	assertEqualE(t, rowsInserted, int64(1))
+
+	_, err = conn2.ExecContext(WithRequestID(context.Background(), reqIDForInsert), "INSERT INTO req_id_testing VALUES (1)")
+	assertNilF(t, err)
+	rowsInserted2, err := execResult.RowsAffected()
+	assertNilF(t, err)
+	assertEqualE(t, rowsInserted2, int64(1))
+
+	// selecting data
+	reqIDForSelect := NewUUID()
+	rows, err := conn.QueryContext(WithRequestID(context.Background(), reqIDForSelect), "SELECT * FROM req_id_testing")
+	assertNilF(t, err)
+	defer rows.Close()
+	var i int
+	assertTrueE(t, rows.Next())
+	assertNilF(t, rows.Scan(&i))
+	assertEqualE(t, i, 1)
+	i = 0
+	assertTrueE(t, rows.Next())
+	assertNilF(t, rows.Scan(&i))
+	assertEqualE(t, i, 1)
+	assertFalseE(t, rows.Next())
+
+	rows2, err := conn.QueryContext(WithRequestID(context.Background(), reqIDForSelect), "SELECT * FROM req_id_testing")
+	assertNilF(t, err)
+	defer rows2.Close()
+	assertTrueE(t, rows2.Next())
+	assertNilF(t, rows2.Scan(&i))
+	assertEqualE(t, i, 1)
+	i = 0
+	assertTrueE(t, rows2.Next())
+	assertNilF(t, rows2.Scan(&i))
+	assertEqualE(t, i, 1)
+	assertFalseE(t, rows2.Next())
+
+	// insert another data
+	_, err = conn.ExecContext(context.Background(), "INSERT INTO req_id_testing VALUES (1)")
+	assertNilF(t, err)
+
+	// selecting using old request id
+	rows3, err := conn.QueryContext(WithRequestID(context.Background(), reqIDForSelect), "SELECT * FROM req_id_testing")
+	assertNilF(t, err)
+	defer rows3.Close()
+	assertTrueE(t, rows3.Next())
+	assertNilF(t, rows3.Scan(&i))
+	assertEqualE(t, i, 1)
+	i = 0
+	assertTrueE(t, rows3.Next())
+	assertNilF(t, rows3.Scan(&i))
+	assertEqualE(t, i, 1)
+	i = 0
+	assertFalseF(t, rows3.Next())
 }
 
 func TestCRUD(t *testing.T) {
@@ -869,6 +969,118 @@ func testString(t *testing.T, json bool) {
 		} else if out != in {
 			dbt.Errorf("BLOB: %s != %s", in, out)
 		}
+	})
+}
+
+/** TESTING TYPES **/
+// testUUID is a wrapper around UUID for unit testing purposes and should not be used in production
+type testUUID struct {
+	UUID
+}
+
+func newTestUUID() testUUID {
+	return testUUID{NewUUID()}
+}
+
+func parseTestUUID(str string) testUUID {
+	if str == "" {
+		return testUUID{}
+	}
+	return testUUID{ParseUUID(str)}
+}
+
+// Scan implements sql.Scanner so UUIDs can be read from databases transparently.
+// Currently, database types that map to string and []byte are supported. Please
+// consult database-specific driver documentation for matching types.
+func (uuid *testUUID) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case nil:
+		return nil
+
+	case string:
+		// if an empty UUID comes from a table, we return a null UUID
+		if src == "" {
+			return nil
+		}
+
+		// see Parse for required string format
+		u := ParseUUID(src)
+
+		*uuid = testUUID{u}
+
+	case []byte:
+		// if an empty UUID comes from a table, we return a null UUID
+		if len(src) == 0 {
+			return nil
+		}
+
+		// assumes a simple slice of bytes if 16 bytes
+		// otherwise attempts to parse
+		if len(src) != 16 {
+			return uuid.Scan(string(src))
+		}
+		copy((uuid.UUID)[:], src)
+
+	default:
+		return fmt.Errorf("Scan: unable to scan type %T into UUID", src)
+	}
+
+	return nil
+}
+
+// Value implements sql.Valuer so that UUIDs can be written to databases
+// transparently. Currently, UUIDs map to strings. Please consult
+// database-specific driver documentation for matching types.
+func (uuid testUUID) Value() (driver.Value, error) {
+	return uuid.String(), nil
+}
+
+func TestUUID(t *testing.T) {
+	t.Run("JSON", func(t *testing.T) {
+		testUUIDWithFormat(t, true, false)
+	})
+	t.Run("Arrow", func(t *testing.T) {
+		testUUIDWithFormat(t, false, true)
+	})
+}
+
+func testUUIDWithFormat(t *testing.T, json, arrow bool) {
+	runDBTest(t, func(dbt *DBTest) {
+		if json {
+			dbt.mustExec(forceJSON)
+		} else if arrow {
+			dbt.mustExec(forceARROW)
+		}
+
+		types := []string{"CHAR(255)", "VARCHAR(255)", "TEXT", "STRING"}
+
+		in := make([]testUUID, len(types))
+
+		for i := range types {
+			in[i] = newTestUUID()
+		}
+
+		for i, v := range types {
+			t.Run(v, func(t *testing.T) {
+				dbt.mustExec("CREATE OR REPLACE TABLE test (value " + v + ")")
+				dbt.mustExec("INSERT INTO test VALUES (?)", in[i])
+
+				rows := dbt.mustQuery("SELECT value FROM test")
+				defer func() {
+					assertNilF(t, rows.Close())
+				}()
+				if rows.Next() {
+					var out testUUID
+					assertNilF(t, rows.Scan(&out))
+					if in[i] != out {
+						dbt.Errorf("%s: %s != %s", v, in, out)
+					}
+				} else {
+					dbt.Errorf("%s: no data", v)
+				}
+			})
+		}
+		dbt.mustExec("DROP TABLE IF EXISTS test")
 	})
 }
 
@@ -1587,6 +1799,11 @@ func TestTimezoneSessionParameter(t *testing.T) {
 }
 
 func TestLargeSetResultCancel(t *testing.T) {
+	level := logger.GetLogLevel()
+	_ = logger.SetLogLevel("debug")
+	defer func() {
+		_ = logger.SetLogLevel(level)
+	}()
 	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
