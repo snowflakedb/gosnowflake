@@ -55,9 +55,14 @@ func getOauthTestToken(t *testing.T, cfg *Config) (string, error) {
 
 	client := &http.Client{}
 
-	authURL, _ := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_URL", true)
-	oauthClientID, _ := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_ID", true)
-	oauthClientSecret, _ := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_SECRET", true)
+	authURL, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_URL", true)
+	assertEqualF(t, err, nil, "SNOWFLAKE_AUTH_TEST_OAUTH_URL is not set")
+
+	oauthClientID, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_ID", true)
+	assertEqualF(t, err, nil, "SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_ID is not set")
+
+	oauthClientSecret, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_SECRET", true)
+	assertEqualF(t, err, nil, "SNOWFLAKE_AUTH_TEST_OAUTH_CLIENT_SECRET is not set")
 
 	inputData := formData(cfg)
 
