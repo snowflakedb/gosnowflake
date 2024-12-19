@@ -391,6 +391,12 @@ func skipOnJenkins(t *testing.T, message string) {
 	}
 }
 
+func runOnlyOnDockerContainer(t *testing.T, message string) {
+	if os.Getenv("AUTHENTICATION_TESTS_ENV") == "" {
+		t.Skip("Running only on Docker container: " + message)
+	}
+}
+
 func randomString(n int) string {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
