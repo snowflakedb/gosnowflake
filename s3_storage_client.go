@@ -68,12 +68,11 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 
 func getS3CustomEndpoint(info *execResponseStageInfo) *string {
 	var endPoint *string
+	isRegionalURLEnabled := info.UseRegionalURL || info.UseS3RegionalURL
 	if info.EndPoint != "" {
 		tmp := fmt.Sprintf("https://%s", info.EndPoint)
 		endPoint = &tmp
-	}
-	isRegionalURLEnabled := info.UseRegionalURL || info.UseS3RegionalURL
-	if info.Region != "" && isRegionalURLEnabled {
+	} else if info.Region != "" && isRegionalURLEnabled {
 		domainSuffixForRegionalURL := "amazonaws.com"
 		if strings.HasPrefix(strings.ToLower(info.Region), "cn-") {
 			domainSuffixForRegionalURL = "amazonaws.com.cn"

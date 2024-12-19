@@ -393,9 +393,6 @@ func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo
 	gcsLoc := util.extractBucketNameAndPath(stageInfo.Location)
 	fullFilePath := gcsLoc.path + filename
 	endPoint := getGcsCustomEndpoint(stageInfo)
-	if endPoint == "" {
-		endPoint = "https://storage.googleapis.com"
-	}
 	URL, err := url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
 	if err != nil {
 		return nil, err
@@ -415,7 +412,7 @@ func newGcsClient() gcsAPI {
 
 func getGcsCustomEndpoint(info *execResponseStageInfo) string {
 	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
-	var endpoint string
+	endpoint := "https://storage.googleapis.com"
 	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
 	if info.EndPoint != "" {
 		endpoint = fmt.Sprintf("https://%s", info.EndPoint)

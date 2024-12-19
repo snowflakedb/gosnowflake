@@ -1136,6 +1136,15 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 		out  string
 	}{
 		{
+			desc: "when both the endPoint is not specified and UseRegionalURL is false",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "WEST-1",
+			},
+			out: "https://storage.googleapis.com",
+		},
+		{
 			desc: "when the useRegionalURL is only enabled",
 			in: execResponseStageInfo{
 				UseRegionalURL: true,
