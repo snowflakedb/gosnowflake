@@ -1136,7 +1136,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 		out  string
 	}{
 		{
-			desc: "when both the endPoint is not specified and UseRegionalURL is false",
+			desc: "when the endPoint is not specified and UseRegionalURL is false",
 			in: execResponseStageInfo{
 				UseRegionalURL: false,
 				EndPoint:       "",

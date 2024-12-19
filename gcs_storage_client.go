@@ -411,8 +411,9 @@ func newGcsClient() gcsAPI {
 }
 
 func getGcsCustomEndpoint(info *execResponseStageInfo) string {
-	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
 	endpoint := "https://storage.googleapis.com"
+
+	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
 	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
 	if info.EndPoint != "" {
 		endpoint = fmt.Sprintf("https://%s", info.EndPoint)
