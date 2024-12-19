@@ -9,14 +9,14 @@ import (
 
 func TestOktaSuccessful(t *testing.T) {
 	cfg := setupOktaTest(t)
-	err := connectToSnowflake(t, cfg)
+	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
 func TestOktaWrongCredentials(t *testing.T) {
 	cfg := setupOktaTest(t)
 	cfg.Password = "fakePassword"
-	err := connectToSnowflake(t, cfg)
+	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 
 	var snowflakeErr *SnowflakeError
 	assertTrueF(t, errors.As(err, &snowflakeErr))
@@ -29,7 +29,7 @@ func TestOktaWrongAuthenticator(t *testing.T) {
 	assertNilF(t, err, fmt.Sprintf("failed to parse: %v", err))
 
 	cfg.OktaURL = invalidAddress
-	err = connectToSnowflake(t, cfg)
+	err = verifyConnectionToSnowflakeAuthTests(t, cfg)
 
 	var snowflakeErr *SnowflakeError
 	assertTrueF(t, errors.As(err, &snowflakeErr))
@@ -45,7 +45,7 @@ func TestOktaWrongURL(t *testing.T) {
 
 	cfg.OktaURL = invalidAddress
 
-	err = connectToSnowflake(t, cfg)
+	err = verifyConnectionToSnowflakeAuthTests(t, cfg)
 	var snowflakeErr *SnowflakeError
 	assertTrueF(t, errors.As(err, &snowflakeErr))
 

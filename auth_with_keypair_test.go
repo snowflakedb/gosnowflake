@@ -13,14 +13,14 @@ func TestKeypairSuccessful(t *testing.T) {
 	cfg := setupKeyPairTest(t)
 	cfg.PrivateKey = loadRsaPrivateKeyForKeyPair(t, "SNOWFLAKE_AUTH_TEST_PRIVATE_KEY_PATH")
 
-	err := connectToSnowflake(t, cfg)
+	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
 func TestKeypairInvalidKey(t *testing.T) {
 	cfg := setupKeyPairTest(t)
 	cfg.PrivateKey = loadRsaPrivateKeyForKeyPair(t, "SNOWFLAKE_AUTH_TEST_INVALID_PRIVATE_KEY_PATH")
-	err := connectToSnowflake(t, cfg)
+	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	var snowflakeErr *SnowflakeError
 	assertTrueF(t, errors.As(err, &snowflakeErr))
 	assertEqualE(t, snowflakeErr.Number, 390144, fmt.Sprintf("Expected 390144, but got %v", snowflakeErr.Number))

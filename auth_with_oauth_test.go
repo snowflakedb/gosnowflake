@@ -15,7 +15,7 @@ func TestOauthSuccessful(t *testing.T) {
 	token, err := getOauthTestToken(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("failed to get token. err: %v", err))
 	cfg.Token = token
-	err = connectToSnowflake(t, cfg)
+	err = verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
@@ -23,7 +23,7 @@ func TestOauthInvalidToken(t *testing.T) {
 	cfg := setupOauthTest(t)
 	cfg.Token = "invalid_token"
 
-	err := connectToSnowflake(t, cfg)
+	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 
 	var snowflakeErr *SnowflakeError
 	assertTrueF(t, errors.As(err, &snowflakeErr))
@@ -37,7 +37,7 @@ func TestOauthMismatchedUser(t *testing.T) {
 	cfg.Token = token
 	cfg.User = "fakeaccount"
 
-	err = connectToSnowflake(t, cfg)
+	err = verifyConnectionToSnowflakeAuthTests(t, cfg)
 
 	var snowflakeErr *SnowflakeError
 	assertTrueF(t, errors.As(err, &snowflakeErr))
@@ -82,7 +82,7 @@ func getOauthTestToken(t *testing.T, cfg *Config) (string, error) {
 
 	defer resp.Body.Close()
 
-	var response Response
+	var response OAuthTokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return "", fmt.Errorf("failed to decode response: %v", err)
 	}
@@ -101,7 +101,7 @@ func formData(cfg *Config) url.Values {
 
 }
 
-type Response struct {
+type OAuthTokenResponse struct {
 	Type       string `json:"token_type"`
 	Expiration int    `json:"expires_in"`
 	Token      string `json:"access_token"`
