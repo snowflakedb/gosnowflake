@@ -793,3 +793,102 @@ func TestConvertContentLength(t *testing.T) {
 		})
 	}
 }
+
+func TestGetS3Endpoint(t *testing.T) {
+	testcases := []struct {
+		desc string
+		in   execResponseStageInfo
+		out  string
+	}{
+
+		{
+			desc: "when UseRegionalURL is valid and the region does not start with cn-",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: false,
+				UseRegionalURL:   true,
+				EndPoint:         "",
+				Region:           "WEST-1",
+			},
+			out: "https://s3.WEST-1.amazonaws.com",
+		},
+		{
+			desc: "when UseS3RegionalURL is valid and the region does not start with cn-",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: true,
+				UseRegionalURL:   false,
+				EndPoint:         "",
+				Region:           "WEST-1",
+			},
+			out: "https://s3.WEST-1.amazonaws.com",
+		},
+		{
+			desc: "when endPoint is enabled and the region does not start with cn-",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: false,
+				UseRegionalURL:   false,
+				EndPoint:         "s3.endpoint",
+				Region:           "mockLocation",
+			},
+			out: "https://s3.endpoint",
+		},
+		{
+			desc: "when endPoint is enabled and the region starts with cn-",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: false,
+				UseRegionalURL:   false,
+				EndPoint:         "s3.endpoint",
+				Region:           "cn-mockLocation",
+			},
+			out: "https://s3.endpoint",
+		},
+		{
+			desc: "when useS3RegionalURL is valid and domain starts with cn",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: true,
+				UseRegionalURL:   false,
+				EndPoint:         "",
+				Region:           "cn-mockLocation",
+			},
+			out: "https://s3.cn-mockLocation.amazonaws.com.cn",
+		},
+		{
+			desc: "when useRegionalURL is valid and domain starts with cn",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: true,
+				UseRegionalURL:   false,
+				EndPoint:         "",
+				Region:           "cn-mockLocation",
+			},
+			out: "https://s3.cn-mockLocation.amazonaws.com.cn",
+		},
+		{
+			desc: "when useRegionalURL is valid and domain starts with cn",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: true,
+				UseRegionalURL:   false,
+				EndPoint:         "",
+				Region:           "cn-mockLocation",
+			},
+			out: "https://s3.cn-mockLocation.amazonaws.com.cn",
+		},
+		{
+			desc: "when endPoint is specified, both UseRegionalURL and useS3PRegionalUrl are valid, and the region starts with cn",
+			in: execResponseStageInfo{
+				UseS3RegionalURL: true,
+				UseRegionalURL:   true,
+				EndPoint:         "s3.endpoint",
+				Region:           "cn-mockLocation",
+			},
+			out: "https://s3.endpoint",
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.desc, func(t *testing.T) {
+			endpoint := getS3CustomEndpoint(&test.in)
+			if *endpoint != test.out {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, *endpoint)
+			}
+		})
+	}
+}
