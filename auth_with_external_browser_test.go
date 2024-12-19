@@ -109,11 +109,11 @@ func TestClientStoreCredentials(t *testing.T) {
 		cfg.ClientStoreTemporaryCredential = 1
 		db := getDbHandlerFromConfig(t, cfg)
 		conn, err := db.Conn(context.Background())
-		defer conn.Close()
 		assertNilE(t, err, fmt.Sprintf("Failed to connect to Snowflake. err: %v", err))
+		defer conn.Close()
 		rows, err := conn.QueryContext(context.Background(), "SELECT 1")
-		rows.Close()
 		assertNilE(t, err, fmt.Sprintf("Failed to run a query. err: %v", err))
+		rows.Close()
 	})
 
 	t.Run("Verify validation of IDToken if option disabled", func(t *testing.T) {
