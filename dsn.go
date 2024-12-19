@@ -25,6 +25,7 @@ const (
 	defaultRequestTimeout         = 0 * time.Second   // Timeout for retry for request EXCLUDING clientTimeout
 	defaultJWTTimeout             = 60 * time.Second
 	defaultExternalBrowserTimeout = 120 * time.Second // Timeout for external browser login
+	defaultCloudStorageTimeout    = -1                // Timeout for calling cloud storage.
 	defaultMaxRetryCount          = 7                 // specifies maximum number of subsequent retries
 	defaultDomain                 = ".snowflakecomputing.com"
 	cnDomain                      = ".snowflakecomputing.cn"
@@ -77,6 +78,7 @@ type Config struct {
 	ClientTimeout          time.Duration // Timeout for network round trip + read out http response
 	JWTClientTimeout       time.Duration // Timeout for network round trip + read out http response used when JWT token auth is taking place
 	ExternalBrowserTimeout time.Duration // Timeout for external browser login
+	CloudStorageTimeout    time.Duration // Timeout for a single call to a cloud storage provider
 	MaxRetryCount          int           // Specifies how many times non-periodic HTTP request can be retried
 
 	Application       string // application name.
@@ -139,11 +141,16 @@ func (c *Config) ocspMode() string {
 
 // DSN constructs a DSN for Snowflake db.
 func DSN(cfg *Config) (dsn string, err error) {
-	if cfg.Region == "us-west-2" {
+	if strings.ToLower(cfg.Region) == "us-west-2" {
 		cfg.Region = ""
 	}
 	// in case account includes region
 	region, posDot := extractRegionFromAccount(cfg.Account)
+	if strings.ToLower(region) == "us-west-2" {
+		region = ""
+		cfg.Account = cfg.Account[:posDot]
+		logger.Info("Ignoring default region .us-west-2 in DSN from Account configuration.")
+	}
 	if region != "" {
 		if cfg.Region != "" {
 			return "", errRegionConflict()
@@ -214,6 +221,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.ExternalBrowserTimeout != defaultExternalBrowserTimeout {
 		params.Add("externalBrowserTimeout", strconv.FormatInt(int64(cfg.ExternalBrowserTimeout/time.Second), 10))
+	}
+	if cfg.CloudStorageTimeout != defaultCloudStorageTimeout {
+		params.Add("cloudStorageTimeout", strconv.FormatInt(int64(cfg.CloudStorageTimeout/time.Second), 10))
 	}
 	if cfg.MaxRetryCount != defaultMaxRetryCount {
 		params.Add("maxRetryCount", strconv.Itoa(cfg.MaxRetryCount))
@@ -498,6 +508,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if cfg.ExternalBrowserTimeout == 0 {
 		cfg.ExternalBrowserTimeout = defaultExternalBrowserTimeout
 	}
+	if cfg.CloudStorageTimeout == 0 {
+		cfg.CloudStorageTimeout = defaultCloudStorageTimeout
+	}
 	if cfg.MaxRetryCount == 0 {
 		cfg.MaxRetryCount = defaultMaxRetryCount
 	}
@@ -579,6 +592,11 @@ func transformAccountToHost(cfg *Config) (err error) {
 		// account name is specified instead of host:port
 		cfg.Account = cfg.Host
 		region, posDot := extractRegionFromAccount(cfg.Account)
+		if strings.ToLower(region) == "us-west-2" {
+			region = ""
+			cfg.Account = cfg.Account[:posDot]
+			logger.Info("Ignoring default region .us-west-2 from Account configuration.")
+		}
 		if region != "" {
 			cfg.Region = region
 			cfg.Account = cfg.Account[:posDot]
@@ -711,6 +729,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "externalBrowserTimeout":
 			cfg.ExternalBrowserTimeout, err = parseTimeout(value)
+			if err != nil {
+				return err
+			}
+		case "cloudStorageTimeout":
+			cfg.CloudStorageTimeout, err = parseTimeout(value)
 			if err != nil {
 				return err
 			}

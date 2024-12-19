@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +23,7 @@ const (
 )
 
 type snowflakeGcsClient struct {
+	cfg *Config
 }
 
 type gcsLocation struct {
@@ -62,19 +64,21 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 			"Authorization": "Bearer " + accessToken,
 		}
 
-		req, err := http.NewRequest("HEAD", URL.String(), nil)
-		if err != nil {
-			return nil, err
-		}
-		for k, v := range gcsHeaders {
-			req.Header.Add(k, v)
-		}
-		client := newGcsClient()
-		// for testing only
-		if meta.mockGcsClient != nil {
-			client = meta.mockGcsClient
-		}
-		resp, err := client.Do(req)
+		resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
+			req, err := http.NewRequestWithContext(ctx, "HEAD", URL.String(), nil)
+			if err != nil {
+				return nil, err
+			}
+			for k, v := range gcsHeaders {
+				req.Header.Add(k, v)
+			}
+			client := newGcsClient()
+			// for testing only
+			if meta.mockGcsClient != nil {
+				client = meta.mockGcsClient
+			}
+			return client.Do(req)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -208,19 +212,22 @@ func (util *snowflakeGcsClient) uploadFile(
 		}
 	}
 
-	req, err := http.NewRequest("PUT", uploadURL.String(), uploadSrc)
-	if err != nil {
-		return err
-	}
-	for k, v := range gcsHeaders {
-		req.Header.Add(k, v)
-	}
-	client := newGcsClient()
-	// for testing only
-	if meta.mockGcsClient != nil {
-		client = meta.mockGcsClient
-	}
-	resp, err := client.Do(req)
+	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
+		req, err := http.NewRequestWithContext(ctx, "PUT", uploadURL.String(), uploadSrc)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range gcsHeaders {
+			req.Header.Add(k, v)
+		}
+		client := newGcsClient()
+		// for testing only
+		if meta.mockGcsClient != nil {
+			client = meta.mockGcsClient
+		}
+		return client.Do(req)
+	})
+
 	if err != nil {
 		return err
 	}
@@ -286,19 +293,22 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		}
 	}
 
-	req, err := http.NewRequest("GET", downloadURL.String(), nil)
-	if err != nil {
-		return err
-	}
-	for k, v := range gcsHeaders {
-		req.Header.Add(k, v)
-	}
-	client := newGcsClient()
-	// for testing only
-	if meta.mockGcsClient != nil {
-		client = meta.mockGcsClient
-	}
-	resp, err := client.Do(req)
+	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
+		req, err := http.NewRequestWithContext(ctx, "GET", downloadURL.String(), nil)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range gcsHeaders {
+			req.Header.Add(k, v)
+		}
+		client := newGcsClient()
+		// for testing only
+		if meta.mockGcsClient != nil {
+			client = meta.mockGcsClient
+		}
+		return client.Do(req)
+	})
+
 	if err != nil {
 		return err
 	}
