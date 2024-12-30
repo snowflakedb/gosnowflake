@@ -152,6 +152,7 @@ Session-level parameters can also be set by using the SQL command "ALTER SESSION
 Alternatively, use OpenWithConfig() function to create a database handle with the specified Config.
 
 # Connection Config
+
 You can also connect to your warehouse using the connection config. The dbSql library states that when you want to take advantage of driver-specific connection features that aren’t
 available in a connection string. Each driver supports its own set of connection properties, often providing ways to customize the connection request specific to the DBMS
 For example:
