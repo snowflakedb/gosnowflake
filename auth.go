@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -479,6 +480,9 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 
 // Generate a JWT token in string given the configuration
 func prepareJWTToken(config *Config) (string, error) {
+	if config.PrivateKey == nil {
+		return "", errors.New("trying to use keypair authentication, but PrivateKey was not provided in the driver config")
+	}
 	pubBytes, err := x509.MarshalPKIXPublicKey(config.PrivateKey.Public())
 	if err != nil {
 		return "", err
