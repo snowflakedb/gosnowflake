@@ -23,6 +23,7 @@ import (
 )
 
 type snowflakeAzureClient struct {
+	cfg *Config
 }
 
 type azureLocation struct {
@@ -85,9 +86,11 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 	if meta.mockAzureClient != nil {
 		blobClient = meta.mockAzureClient
 	}
-	resp, err := blobClient.GetProperties(context.Background(), &blob.GetPropertiesOptions{
-		AccessConditions: &blob.AccessConditions{},
-		CPKInfo:          &blob.CPKInfo{},
+	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (blob.GetPropertiesResponse, error) {
+		return blobClient.GetProperties(ctx, &blob.GetPropertiesOptions{
+			AccessConditions: &blob.AccessConditions{},
+			CPKInfo:          &blob.CPKInfo{},
+		})
 	})
 	if err != nil {
 		var se *azcore.ResponseError
@@ -203,9 +206,11 @@ func (util *snowflakeAzureClient) uploadFile(
 		if meta.realSrcStream != nil {
 			uploadSrc = meta.realSrcStream
 		}
-		_, err = blobClient.UploadStream(context.Background(), uploadSrc, &azblob.UploadStreamOptions{
-			BlockSize: int64(uploadSrc.Len()),
-			Metadata:  azureMeta,
+		_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (azblob.UploadStreamResponse, error) {
+			return blobClient.UploadStream(ctx, uploadSrc, &azblob.UploadStreamOptions{
+				BlockSize: int64(uploadSrc.Len()),
+				Metadata:  azureMeta,
+			})
 		})
 	} else {
 		var f *os.File
@@ -228,7 +233,9 @@ func (util *snowflakeAzureClient) uploadFile(
 		if meta.options.putAzureCallback != nil {
 			blobOptions.Progress = meta.options.putAzureCallback.call
 		}
-		_, err = blobClient.UploadFile(context.Background(), f, blobOptions)
+		_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (azblob.UploadFileResponse, error) {
+			return blobClient.UploadFile(ctx, f, blobOptions)
+		})
 	}
 	if err != nil {
 		var se *azcore.ResponseError
@@ -279,7 +286,9 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 		blobClient = meta.mockAzureClient
 	}
 	if meta.options.GetFileToStream {
-		blobDownloadResponse, err := blobClient.DownloadStream(context.Background(), &azblob.DownloadStreamOptions{})
+		blobDownloadResponse, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (azblob.DownloadStreamResponse, error) {
+			return blobClient.DownloadStream(ctx, &azblob.DownloadStreamOptions{})
+		})
 		if err != nil {
 			return err
 		}
@@ -295,9 +304,11 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 			return err
 		}
 		defer f.Close()
-		_, err = blobClient.DownloadFile(
-			context.Background(), f, &azblob.DownloadFileOptions{
-				Concurrency: uint16(maxConcurrency)})
+		_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
+			return blobClient.DownloadFile(
+				ctx, f, &azblob.DownloadFileOptions{
+					Concurrency: uint16(maxConcurrency)})
+		})
 		if err != nil {
 			return err
 		}

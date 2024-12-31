@@ -119,7 +119,7 @@ func (bu *bindUploader) createStageIfNeeded() error {
 		return (&SnowflakeError{
 			Number:   code,
 			SQLState: data.Data.SQLState,
-			Message:  err.Error(),
+			Message:  data.Message,
 			QueryID:  data.Data.QueryID,
 		}).exceptionTelemetry(bu.sc)
 	}

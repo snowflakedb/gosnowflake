@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/smithy-go/logging"
 	"io"
 	"net/http"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/logging"
 )
 
 const (
@@ -32,6 +32,7 @@ const (
 )
 
 type snowflakeS3Client struct {
+	cfg *Config
 }
 
 type s3Location struct {
@@ -47,12 +48,7 @@ var S3LoggingMode aws.ClientLogMode
 func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
 	stageCredentials := info.Creds
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
-
-	var endpoint *string
-	if info.EndPoint != "" {
-		tmp := "https://" + info.EndPoint
-		endpoint = &tmp
-	}
+	endPoint := getS3CustomEndpoint(info)
 
 	return s3.New(s3.Options{
 		Region: info.Region,
@@ -60,7 +56,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 			stageCredentials.AwsKeyID,
 			stageCredentials.AwsSecretKey,
 			stageCredentials.AwsToken)),
-		BaseEndpoint:  endpoint,
+		BaseEndpoint:  endPoint,
 		UseAccelerate: useAccelerateEndpoint,
 		HTTPClient: &http.Client{
 			Transport: SnowflakeTransport,
@@ -68,6 +64,23 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 		ClientLogMode: S3LoggingMode,
 		Logger:        s3Logger,
 	}), nil
+}
+
+func getS3CustomEndpoint(info *execResponseStageInfo) *string {
+	var endPoint *string
+	isRegionalURLEnabled := info.UseRegionalURL || info.UseS3RegionalURL
+	if info.EndPoint != "" {
+		tmp := fmt.Sprintf("https://%s", info.EndPoint)
+		endPoint = &tmp
+	} else if info.Region != "" && isRegionalURLEnabled {
+		domainSuffixForRegionalURL := "amazonaws.com"
+		if strings.HasPrefix(strings.ToLower(info.Region), "cn-") {
+			domainSuffixForRegionalURL = "amazonaws.com.cn"
+		}
+		tmp := fmt.Sprintf("https://s3.%s.%s", info.Region, domainSuffixForRegionalURL)
+		endPoint = &tmp
+	}
+	return endPoint
 }
 
 func s3LoggingFunc(classification logging.Classification, format string, v ...interface{}) {
@@ -98,7 +111,9 @@ func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string
 	if meta.mockHeader != nil {
 		s3Cli = meta.mockHeader
 	}
-	out, err := s3Cli.HeadObject(context.Background(), headObjInput)
+	out, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*s3.HeadObjectOutput, error) {
+		return s3Cli.HeadObject(ctx, headObjInput)
+	})
 	if err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
@@ -191,30 +206,32 @@ func (util *snowflakeS3Client) uploadFile(
 		uploader = meta.mockUploader
 	}
 
-	if meta.srcStream != nil {
-		uploadStream := meta.srcStream
-		if meta.realSrcStream != nil {
-			uploadStream = meta.realSrcStream
+	_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
+		if meta.srcStream != nil {
+			uploadStream := meta.srcStream
+			if meta.realSrcStream != nil {
+				uploadStream = meta.realSrcStream
+			}
+			return uploader.Upload(ctx, &s3.PutObjectInput{
+				Bucket:   &s3loc.bucketName,
+				Key:      &s3path,
+				Body:     bytes.NewBuffer(uploadStream.Bytes()),
+				Metadata: s3Meta,
+			})
 		}
-		_, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
-			Bucket:   &s3loc.bucketName,
-			Key:      &s3path,
-			Body:     bytes.NewBuffer(uploadStream.Bytes()),
-			Metadata: s3Meta,
-		})
-	} else {
 		var file *os.File
 		file, err = os.Open(dataFile)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		_, err = uploader.Upload(context.Background(), &s3.PutObjectInput{
+		return uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket:   &s3loc.bucketName,
 			Key:      &s3path,
 			Body:     file,
 			Metadata: s3Meta,
 		})
-	}
+
+	})
 
 	if err != nil {
 		var ae smithy.APIError
@@ -268,19 +285,22 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 		downloader = meta.mockDownloader
 	}
 
-	if meta.options.GetFileToStream {
-		buf := manager.NewWriteAtBuffer([]byte{})
-		_, err = downloader.Download(context.Background(), buf, &s3.GetObjectInput{
-			Bucket: s3Obj.Bucket,
-			Key:    s3Obj.Key,
-		})
-		meta.dstStream = bytes.NewBuffer(buf.Bytes())
-	} else {
-		_, err = downloader.Download(context.Background(), f, &s3.GetObjectInput{
-			Bucket: s3Obj.Bucket,
-			Key:    s3Obj.Key,
-		})
-	}
+	_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
+		if meta.options.GetFileToStream {
+			buf := manager.NewWriteAtBuffer([]byte{})
+			_, err = downloader.Download(ctx, buf, &s3.GetObjectInput{
+				Bucket: s3Obj.Bucket,
+				Key:    s3Obj.Key,
+			})
+			meta.dstStream = bytes.NewBuffer(buf.Bytes())
+		} else {
+			_, err = downloader.Download(ctx, f, &s3.GetObjectInput{
+				Bucket: s3Obj.Bucket,
+				Key:    s3Obj.Key,
+			})
+		}
+		return nil, err
+	})
 
 	if err != nil {
 		var ae smithy.APIError

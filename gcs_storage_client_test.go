@@ -105,7 +105,9 @@ func TestGenerateFileURL(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(test.location, func(t *testing.T) {
-			gcsURL, err := gcsUtil.generateFileURL(test.location, test.fname)
+			stageInfo := &execResponseStageInfo{}
+			stageInfo.Location = test.location
+			gcsURL, err := gcsUtil.generateFileURL(stageInfo, test.fname)
 			if err != nil {
 				t.Error(err)
 			}
@@ -161,6 +163,11 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return nil, errors.New("unexpected error uploading file")
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}
@@ -220,6 +227,11 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 					Status:     "403 Forbidden",
 					StatusCode: 403,
 				}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}
@@ -282,6 +294,11 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -335,6 +352,11 @@ func TestDownloadOneFileFromGcsFailed(t *testing.T) {
 				return nil, errors.New("unexpected error downloading file")
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 		resStatus: downloaded, // bypass file header request
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
@@ -377,6 +399,11 @@ func TestDownloadOneFileFromGcsFailedWithRetry(t *testing.T) {
 					Status:     "403 Forbidden",
 					StatusCode: 403,
 				}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 		resStatus: downloaded, // bypass file header request
@@ -431,6 +458,11 @@ func TestDownloadOneFileFromGcsFailedWithTokenExpired(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 		resStatus: downloaded, // bypass file header request
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
@@ -483,6 +515,11 @@ func TestDownloadOneFileFromGcsFailedWithFileNotFound(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 		resStatus: downloaded, // bypass file header request
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
@@ -515,8 +552,13 @@ func TestGetHeaderTokenExpiredError(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != renewToken {
@@ -544,8 +586,13 @@ func TestGetHeaderFileNotFound(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != notFoundFile {
@@ -571,7 +618,7 @@ func TestGetHeaderPresignedUrlReturns404(t *testing.T) {
 		stageInfo:    &info,
 		presignedURL: presignedURL,
 	}
-	header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt")
+	header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
 	if header != nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
@@ -600,8 +647,13 @@ func TestGetHeaderReturnsError(t *testing.T) {
 				return nil, errors.New("unexpected exception getting file header")
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 }
@@ -625,8 +677,13 @@ func TestGetHeaderBadRequest(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 
@@ -655,8 +712,13 @@ func TestGetHeaderRetryableError(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	if header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != needRetry {
@@ -695,6 +757,11 @@ func TestUploadStreamFailed(t *testing.T) {
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return nil, errors.New("unexpected error uploading file")
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}
@@ -744,6 +811,11 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
 
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -791,8 +863,13 @@ func TestGetFileHeaderEncryptionData(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	header, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt")
+	header, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -837,8 +914,13 @@ func TestGetFileHeaderEncryptionDataInterfaceConversionError(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 	}
-	_, err := new(snowflakeGcsClient).getFileHeader(&meta, "file.txt")
+	_, err := (&snowflakeGcsClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -886,6 +968,11 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
 				}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 	}
@@ -939,6 +1026,11 @@ func TestDownloadFileFromGcsError(t *testing.T) {
 				}, nil
 			},
 		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
 		resStatus: downloaded, // bypass file header request
 	}
 	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
@@ -981,6 +1073,11 @@ func TestDownloadFileWithBadRequest(t *testing.T) {
 					Status:     "400 Bad Request",
 					StatusCode: 400,
 				}, nil
+			},
+		},
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
 			},
 		},
 		resStatus: downloaded, // bypass file header request
@@ -1029,5 +1126,95 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1)
 	if err == nil {
 		t.Error("should have raised an error")
+	}
+}
+
+func TestGetGcsCustomEndpoint(t *testing.T) {
+	testcases := []struct {
+		desc string
+		in   execResponseStageInfo
+		out  string
+	}{
+		{
+			desc: "when the endPoint is not specified and UseRegionalURL is false",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "WEST-1",
+			},
+			out: "https://storage.googleapis.com",
+		},
+		{
+			desc: "when the useRegionalURL is only enabled",
+			in: execResponseStageInfo{
+				UseRegionalURL: true,
+				EndPoint:       "",
+				Region:         "mockLocation",
+			},
+			out: "https://storage.mocklocation.rep.googleapis.com",
+		},
+		{
+			desc: "when the region is me-central2",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "me-central2",
+			},
+			out: "https://storage.me-central2.rep.googleapis.com",
+		},
+		{
+			desc: "when the region is me-central2 (mixed case)",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "ME-cEntRal2",
+			},
+			out: "https://storage.me-central2.rep.googleapis.com",
+		},
+		{
+			desc: "when the region is me-central2 (uppercase)",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "ME-CENTRAL2",
+			},
+			out: "https://storage.me-central2.rep.googleapis.com",
+		},
+		{
+			desc: "when the endPoint is specified",
+			in: execResponseStageInfo{
+				UseRegionalURL: false,
+				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
+				Region:         "ME-cEntRal1",
+			},
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
+		},
+		{
+			desc: "when both the endPoint and the useRegionalUrl are specified",
+			in: execResponseStageInfo{
+				UseRegionalURL: true,
+				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
+				Region:         "ME-cEntRal1",
+			},
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
+		},
+		{
+			desc: "when both the endPoint is specified and the region is me-central2",
+			in: execResponseStageInfo{
+				UseRegionalURL: true,
+				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
+				Region:         "ME-CENTRAL2",
+			},
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.desc, func(t *testing.T) {
+			endpoint := getGcsCustomEndpoint(&test.in)
+			if endpoint != test.out {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
+			}
+		})
 	}
 }
