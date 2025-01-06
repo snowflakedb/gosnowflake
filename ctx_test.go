@@ -38,15 +38,13 @@ func TestCtxVal(t *testing.T) {
 	}
 }
 
-func TestLogEntryCtx(t *testing.T) {
+func TestLogCtx(t *testing.T) {
 	var log = logger
 	var ctx1 = context.WithValue(context.Background(), SFSessionIDKey, "sessID1")
 	var ctx2 = context.WithValue(context.Background(), SFSessionUserKey, "admin")
 
-	fs1 := context2Fields(ctx1)
-	fs2 := context2Fields(ctx2)
-	l1 := log.WithFields(*fs1)
-	l2 := log.WithFields(*fs2)
-	l1.Info("Hello 1")
-	l2.Warning("Hello 2")
+	l := log.WithContext(ctx1, ctx2)
+	l.Info("Hello 1")
+	l.Warn("Hello 2")
+	// what purpose does this test serve? ... nothing is being validated except that it compiles and runs.
 }

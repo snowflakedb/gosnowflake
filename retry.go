@@ -329,10 +329,10 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			return res, err
 		}
 		if err != nil {
-			logger.WithContext(r.ctx).Warningf(
+			logger.WithContext(r.ctx).Warn(
 				"failed http connection. err: %v. retrying...\n", err)
 		} else {
-			logger.WithContext(r.ctx).Warningf(
+			logger.WithContext(r.ctx).Warn(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
 			res.Body.Close()
 		}

@@ -149,7 +149,6 @@ func TestLogToConfiguredFile(t *testing.T) {
 
 	logger.Error("Error message")
 	logger.Warn("Warning message")
-	logger.Warning("Warning message")
 	logger.Info("Info message")
 	logger.Trace("Trace message")
 
