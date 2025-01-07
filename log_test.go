@@ -32,9 +32,6 @@ func TestIsLevelEnabled(t *testing.T) {
 func TestLogFunction(t *testing.T) {
 	logger := createTestLogger()
 	buf := &bytes.Buffer{}
-	//var formatter = rlog.TextFormatter{CallerPrettyfier: SFCallerPrettyfier}
-	//logger.SetFormatter(&formatter)
-	//logger.SetReportCaller(true)
 	logger.SetOutput(buf)
 	err := logger.SetLogLevel("trace")
 	if err != nil {

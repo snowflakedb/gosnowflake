@@ -82,7 +82,7 @@ func SFCallerPrettyfier(frame *runtime.Frame) (string, string) {
 	return path.Base(frame.Function), fmt.Sprintf("%s:%d", path.Base(frame.File), frame.Line)
 }
 
-var _ SFLogger = &defaultLogger{}
+var _ SFLogger = &defaultLogger{} // ensure defaultLogger isa SFLogger.
 
 type defaultLogger struct {
 	inner   *rlog.Logger
@@ -164,9 +164,7 @@ func CreateDefaultLogger() SFLogger {
 	return &ret
 }
 
-var _ SFLogger = &defaultLogger{}
-
-var _ LogEntry = &entryBridge{}
+var _ LogEntry = &entryBridge{} // ensure entryBridge isa LogEntry.
 
 type entryBridge struct {
 	*rlog.Entry
