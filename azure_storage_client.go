@@ -45,6 +45,7 @@ func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bo
 	if err != nil {
 		return nil, err
 	}
+	transport := getTransport(util.cfg)
 	client, err := azblob.NewClientWithNoCredential(u.String(), &azblob.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Retry: policy.RetryOptions{
@@ -52,7 +53,7 @@ func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bo
 				RetryDelay: 2 * time.Second,
 			},
 			Transport: &http.Client{
-				Transport: SnowflakeTransport,
+				Transport: transport,
 			},
 		},
 	})
@@ -74,7 +75,7 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 		return nil, err
 	}
 	path := azureLoc.path + strings.TrimLeft(filename, "/")
-	containerClient, err := createContainerClient(client.URL())
+	containerClient, err := createContainerClient(client.URL(), util.cfg)
 	if err != nil {
 		return nil, &SnowflakeError{
 			Message: "failed to create container client",
@@ -188,7 +189,7 @@ func (util *snowflakeAzureClient) uploadFile(
 			Message: "failed to cast to azure client",
 		}
 	}
-	containerClient, err := createContainerClient(client.URL())
+	containerClient, err := createContainerClient(client.URL(), util.cfg)
 
 	if err != nil {
 		return &SnowflakeError{
@@ -273,7 +274,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 			Message: "failed to cast to azure client",
 		}
 	}
-	containerClient, err := createContainerClient(client.URL())
+	containerClient, err := createContainerClient(client.URL(), util.cfg)
 	if err != nil {
 		return &SnowflakeError{
 			Message: "failed to create container client",
@@ -348,10 +349,11 @@ func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Respons
 		strings.Contains(errStr, "Server failed to authenticate the request")
 }
 
-func createContainerClient(clientURL string) (*container.Client, error) {
+func createContainerClient(clientURL string, cfg *Config) (*container.Client, error) {
+	transport := getTransport(cfg)
 	return container.NewClientWithNoCredential(clientURL, &container.ClientOptions{ClientOptions: azcore.ClientOptions{
 		Transport: &http.Client{
-			Transport: SnowflakeTransport,
+			Transport: transport,
 		},
 	}})
 }
