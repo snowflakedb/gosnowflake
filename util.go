@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -347,4 +348,18 @@ func findByPrefix(in []string, prefix string) int {
 		}
 	}
 	return -1
+}
+
+func getTransport(cfg *Config) *http.Transport {
+	if cfg == nil {
+		logger.Debug("getTransport: got nil Config, will perform OCSP validation for cloud storage")
+		return SnowflakeTransport
+	} else {
+		if cfg.DisableOCSPChecks || cfg.InsecureMode {
+			logger.Debug("getTransport: skipping OCSP validation for cloud storage")
+			return snowflakeInsecureTransport
+		}
+		logger.Debug("getTransport: will perform OCSP validation for cloud storage")
+		return SnowflakeTransport
+	}
 }

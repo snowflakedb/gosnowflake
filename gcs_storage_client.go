@@ -32,7 +32,10 @@ type gcsLocation struct {
 	path       string
 }
 
-func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
+func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool, cfg *Config) (cloudClient, error) {
+	// we don't seem to actually return the client from createClient here, but to implement
+	// the interface, need to have the same spec as in snowflakeS3Client and snowflakeAzureClient
+	_ = cfg
 	if info.Creds.GcsAccessToken != "" {
 		logger.Debug("Using GCS downscoped token")
 		return info.Creds.GcsAccessToken, nil
@@ -73,7 +76,7 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 			for k, v := range gcsHeaders {
 				req.Header.Add(k, v)
 			}
-			client := newGcsClient()
+			client := newGcsClient(util.cfg)
 			// for testing only
 			if meta.mockGcsClient != nil {
 				client = meta.mockGcsClient
@@ -221,7 +224,7 @@ func (util *snowflakeGcsClient) uploadFile(
 		for k, v := range gcsHeaders {
 			req.Header.Add(k, v)
 		}
-		client := newGcsClient()
+		client := newGcsClient(util.cfg)
 		// for testing only
 		if meta.mockGcsClient != nil {
 			client = meta.mockGcsClient
@@ -302,7 +305,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		for k, v := range gcsHeaders {
 			req.Header.Add(k, v)
 		}
-		client := newGcsClient()
+		client := newGcsClient(util.cfg)
 		// for testing only
 		if meta.mockGcsClient != nil {
 			client = meta.mockGcsClient
@@ -404,9 +407,10 @@ func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
 	return resp.StatusCode == 401
 }
 
-func newGcsClient() gcsAPI {
+func newGcsClient(cfg *Config) gcsAPI {
+	transport := getTransport(cfg)
 	return &http.Client{
-		Transport: SnowflakeTransport,
+		Transport: transport,
 	}
 }
 
