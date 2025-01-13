@@ -10,6 +10,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"time"
 
 	rlog "github.com/sirupsen/logrus"
 )
@@ -39,8 +40,8 @@ func RegisterLogContextHook(contextKey string, ctxExtractor ClientLogContextHook
 // logger.WithContext is used
 var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
 
-// fields
-type fields map[string]interface{}
+// Fields
+type Fields map[string]any
 
 type LogEntry interface {
 	Tracef(format string, args ...interface{})
@@ -48,30 +49,43 @@ type LogEntry interface {
 	Infof(format string, args ...interface{})
 	Printf(format string, args ...interface{})
 	Warnf(format string, args ...interface{})
+	Warningf(format string, args ...interface{})
 	Errorf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
+	Panicf(format string, args ...interface{})
 
 	Trace(args ...interface{})
 	Debug(args ...interface{})
 	Info(args ...interface{})
 	Print(args ...interface{})
 	Warn(args ...interface{})
+	Warning(args ...interface{})
 	Error(args ...interface{})
+	Fatal(args ...interface{})
+	Panic(args ...interface{})
 
 	Traceln(args ...interface{})
 	Debugln(args ...interface{})
 	Infoln(args ...interface{})
 	Println(args ...interface{})
 	Warnln(args ...interface{})
+	Warningln(args ...interface{})
 	Errorln(args ...interface{})
+	Fatalln(args ...interface{})
+	Panicln(args ...interface{})
 }
 
 // SFLogger Snowflake logger interface to expose FieldLogger defined in logrus
 type SFLogger interface {
 	LogEntry
-	WithContext(ctx ...context.Context) LogEntry
+	WithField(key string, value interface{}) LogEntry
+	WithFields(fields Fields) LogEntry
+	WithError(err error) LogEntry
+	WithTime(t time.Time) LogEntry
 
 	SetLogLevel(level string) error
 	GetLogLevel() string
+	WithContext(ctx ...context.Context) LogEntry
 	SetOutput(output io.Writer)
 	CloseFileOnLoggerReplace(file *os.File) error
 	Replace(newLogger *SFLogger)
@@ -148,9 +162,11 @@ func closeLogFile(file *os.File) {
 
 // WithContext return Entry to include fields in context
 func (log *defaultLogger) WithContext(ctxs ...context.Context) LogEntry {
+	if !log.enabled {
+		return log
+	}
 	fields := context2Fields(ctxs...)
-	m := map[string]any(*fields)
-	return &entryBridge{log.inner.WithFields(m)}
+	return log.WithFields(*fields)
 }
 
 // CreateDefaultLogger return a new instance of SFLogger with default config
@@ -168,6 +184,27 @@ var _ LogEntry = &entryBridge{} // ensure entryBridge isa LogEntry.
 
 type entryBridge struct {
 	*rlog.Entry
+}
+
+// WithTime overrides the time of the log entry.
+func (log *defaultLogger) WithTime(t time.Time) LogEntry {
+	return &entryBridge{log.inner.WithTime(t)}
+}
+
+// WithError overrides the error of the log entry.
+func (log *defaultLogger) WithError(err error) LogEntry {
+	return &entryBridge{log.inner.WithError(err)}
+}
+
+// WithFields add a map of fields to the log entry.
+func (log *defaultLogger) WithFields(fields Fields) LogEntry {
+	m := map[string]any(fields)
+	return &entryBridge{log.inner.WithFields(m)}
+}
+
+// WithField adds a single key/value pair to the log entry.
+func (log *defaultLogger) WithField(key string, value interface{}) LogEntry {
+	return &entryBridge{log.inner.WithField(key, value)}
 }
 
 func (log *defaultLogger) Tracef(format string, args ...interface{}) {
@@ -200,9 +237,27 @@ func (log *defaultLogger) Warnf(format string, args ...interface{}) {
 	}
 }
 
+func (log *defaultLogger) Warningf(format string, args ...interface{}) {
+	if log.enabled {
+		log.inner.Warningf(format, args...)
+	}
+}
+
 func (log *defaultLogger) Errorf(format string, args ...interface{}) {
 	if log.enabled {
 		log.inner.Errorf(format, args...)
+	}
+}
+
+func (log *defaultLogger) Fatalf(format string, args ...interface{}) {
+	if log.enabled {
+		log.inner.Fatalf(format, args...)
+	}
+}
+
+func (log *defaultLogger) Panicf(format string, args ...interface{}) {
+	if log.enabled {
+		log.inner.Panicf(format, args...)
 	}
 }
 
@@ -236,9 +291,27 @@ func (log *defaultLogger) Warn(args ...interface{}) {
 	}
 }
 
+func (log *defaultLogger) Warning(args ...interface{}) {
+	if log.enabled {
+		log.inner.Warning(args...)
+	}
+}
+
 func (log *defaultLogger) Error(args ...interface{}) {
 	if log.enabled {
 		log.inner.Error(args...)
+	}
+}
+
+func (log *defaultLogger) Fatal(args ...interface{}) {
+	if log.enabled {
+		log.inner.Fatal(args...)
+	}
+}
+
+func (log *defaultLogger) Panic(args ...interface{}) {
+	if log.enabled {
+		log.inner.Panic(args...)
 	}
 }
 
@@ -272,9 +345,27 @@ func (log *defaultLogger) Warnln(args ...interface{}) {
 	}
 }
 
+func (log *defaultLogger) Warningln(args ...interface{}) {
+	if log.enabled {
+		log.inner.Warningln(args...)
+	}
+}
+
 func (log *defaultLogger) Errorln(args ...interface{}) {
 	if log.enabled {
 		log.inner.Errorln(args...)
+	}
+}
+
+func (log *defaultLogger) Fatalln(args ...interface{}) {
+	if log.enabled {
+		log.inner.Fatalln(args...)
+	}
+}
+
+func (log *defaultLogger) Panicln(args ...interface{}) {
+	if log.enabled {
+		log.inner.Panicln(args...)
 	}
 }
 
@@ -293,8 +384,8 @@ func GetLogger() SFLogger {
 	return logger
 }
 
-func context2Fields(ctxs ...context.Context) *fields {
-	var fields = fields{}
+func context2Fields(ctxs ...context.Context) *Fields {
+	var fields = Fields{}
 	if len(ctxs) <= 0 {
 		return &fields
 	}

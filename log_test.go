@@ -87,6 +87,10 @@ func TestDefaultLogLevel(t *testing.T) {
 	logger.Warnf("warn%v", "f")
 	logger.Warnln("warnln")
 
+	logger.Warning("warning")
+	logger.Warningf("warning%v", "f")
+	logger.Warningln("warningln")
+
 	logger.Error("error")
 	logger.Errorf("error%v", "f")
 	logger.Errorln("errorln")
@@ -128,6 +132,9 @@ func TestOffLogLevel(t *testing.T) {
 	logger.Warn("warn")
 	logger.Warnf("warn%v", "f")
 	logger.Warnln("warnln")
+	logger.Warning("warning")
+	logger.Warningf("warning%v", "f")
+	logger.Warningln("warningln")
 	logger.Error("error")
 	logger.Errorf("error%v", "f")
 	logger.Errorln("errorln")
@@ -149,6 +156,86 @@ func TestLogSetLevel(t *testing.T) {
 
 	if !strings.Contains(strbuf, "trace level") &&
 		!strings.Contains(strbuf, "debug level") {
+		t.Fatalf("unexpected output in log: %v", strbuf)
+	}
+}
+
+func TestLogWithError(t *testing.T) {
+	logger := CreateDefaultLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+
+	err := errors.New("error")
+	logger.WithError(err).Info("hello world")
+
+	var strbuf = buf.String()
+	if !strings.Contains(strbuf, "error=error") {
+		t.Fatalf("unexpected output in log: %v", strbuf)
+	}
+}
+
+func TestLogWithField(t *testing.T) {
+	logger := CreateDefaultLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+
+	logger.WithField("field", "test").Info("hello")
+	var strbuf = buf.String()
+	if !strings.Contains(strbuf, "field=test") {
+		t.Fatalf("unexpected string in output: %v", strbuf)
+	}
+}
+
+func TestLogLevelFunctions(t *testing.T) {
+	logger := createTestLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+
+	logger.TraceFn(func() []interface{} {
+		return []interface{}{
+			"trace function",
+		}
+	})
+
+	logger.DebugFn(func() []interface{} {
+		return []interface{}{
+			"debug function",
+		}
+	})
+
+	logger.InfoFn(func() []interface{} {
+		return []interface{}{
+			"info function",
+		}
+	})
+
+	logger.PrintFn(func() []interface{} {
+		return []interface{}{
+			"print function",
+		}
+	})
+
+	logger.WarningFn(func() []interface{} {
+		return []interface{}{
+			"warning function",
+		}
+	})
+
+	logger.ErrorFn(func() []interface{} {
+		return []interface{}{
+			"error function",
+		}
+	})
+
+	// check that info, print, warning and error were outputted to the log.
+	var strbuf = buf.String()
+
+	if strings.Contains(strbuf, "debug") &&
+		strings.Contains(strbuf, "trace") &&
+		!strings.Contains(strbuf, "info") &&
+		!strings.Contains(strbuf, "print") &&
+		!strings.Contains(strbuf, "warning") &&
+		!strings.Contains(strbuf, "error") {
 		t.Fatalf("unexpected output in log: %v", strbuf)
 	}
 }
