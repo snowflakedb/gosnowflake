@@ -49,7 +49,6 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 	stageCredentials := info.Creds
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
 	endPoint := getS3CustomEndpoint(info)
-	transport := getTransport(util.cfg)
 
 	return s3.New(s3.Options{
 		Region: info.Region,
@@ -60,7 +59,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 		BaseEndpoint:  endPoint,
 		UseAccelerate: useAccelerateEndpoint,
 		HTTPClient: &http.Client{
-			Transport: transport,
+			Transport: getTransport(util.cfg),
 		},
 		ClientLogMode: S3LoggingMode,
 		Logger:        s3Logger,
@@ -69,25 +68,9 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 
 // to be used with S3 transferAccelerateConfigWithUtil
 func (util *snowflakeS3Client) createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
-	stageCredentials := info.Creds
-	s3Logger := logging.LoggerFunc(s3LoggingFunc)
-	endPoint := getS3CustomEndpoint(info)
-	transport := getTransport(cfg)
-
-	return s3.New(s3.Options{
-		Region: info.Region,
-		Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(
-			stageCredentials.AwsKeyID,
-			stageCredentials.AwsSecretKey,
-			stageCredentials.AwsToken)),
-		BaseEndpoint:  endPoint,
-		UseAccelerate: useAccelerateEndpoint,
-		HTTPClient: &http.Client{
-			Transport: transport,
-		},
-		ClientLogMode: S3LoggingMode,
-		Logger:        s3Logger,
-	}), nil
+	// copy snowflakeFileTransferAgent's config onto the cloud client so we could decide which Transport to use
+	util.cfg = cfg
+	return util.createClient(info, useAccelerateEndpoint)
 }
 
 func getS3CustomEndpoint(info *execResponseStageInfo) *string {

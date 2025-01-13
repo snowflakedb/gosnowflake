@@ -405,9 +405,8 @@ func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
 }
 
 func newGcsClient(cfg *Config) gcsAPI {
-	transport := getTransport(cfg)
 	return &http.Client{
-		Transport: transport,
+		Transport: getTransport(cfg),
 	}
 }
 
