@@ -142,7 +142,7 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -203,7 +203,7 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -271,7 +271,7 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -333,7 +333,7 @@ func TestDownloadOneFileFromGcsFailed(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -380,7 +380,7 @@ func TestDownloadOneFileFromGcsFailedWithRetry(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -438,7 +438,7 @@ func TestDownloadOneFileFromGcsFailedWithTokenExpired(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -496,7 +496,7 @@ func TestDownloadOneFileFromGcsFailedWithFileNotFound(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -743,7 +743,7 @@ func TestUploadStreamFailed(t *testing.T) {
 	src := []byte{65, 66, 67}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -794,7 +794,7 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -952,7 +952,7 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1011,7 +1011,7 @@ func TestDownloadFileFromGcsError(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1061,7 +1061,7 @@ func TestDownloadFileWithBadRequest(t *testing.T) {
 	}
 
 	sgc := new(snowflakeGcsClient)
-	gcsCli, err := sgc.createClient(&info, false, sgc.cfg)
+	gcsCli, err := sgc.createClient(&info, false)
 	if err != nil {
 		t.Error(err)
 	}

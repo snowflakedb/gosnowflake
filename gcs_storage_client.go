@@ -32,10 +32,7 @@ type gcsLocation struct {
 	path       string
 }
 
-func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool, cfg *Config) (cloudClient, error) {
-	// we don't seem to actually return the client from createClient here, but to implement
-	// the interface, need to have the same spec as in snowflakeS3Client and snowflakeAzureClient
-	_ = cfg
+func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
 	if info.Creds.GcsAccessToken != "" {
 		logger.Debug("Using GCS downscoped token")
 		return info.Creds.GcsAccessToken, nil

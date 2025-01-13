@@ -26,7 +26,7 @@ type storageUtil interface {
 
 // implemented by snowflakeS3Util, snowflakeAzureUtil and snowflakeGcsUtil
 type cloudUtil interface {
-	createClient(*execResponseStageInfo, bool, *Config) (cloudClient, error)
+	createClient(*execResponseStageInfo, bool) (cloudClient, error)
 	getFileHeader(*fileMetadata, string) (*fileHeader, error)
 	uploadFile(string, *fileMetadata, *encryptMetadata, int, int64) error
 	nativeDownloadFile(*fileMetadata, string, int64) error
@@ -58,7 +58,7 @@ func (rsu *remoteStorageUtil) getNativeCloudType(cli string, cfg *Config) cloudU
 // call cloud utils' native create client methods
 func (rsu *remoteStorageUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
 	utilClass := rsu.getNativeCloudType(info.LocationType, cfg)
-	return utilClass.createClient(info, useAccelerateEndpoint, cfg)
+	return utilClass.createClient(info, useAccelerateEndpoint)
 }
 
 func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {

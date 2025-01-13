@@ -39,13 +39,13 @@ type azureAPI interface {
 	GetProperties(ctx context.Context, o *blob.GetPropertiesOptions) (blob.GetPropertiesResponse, error)
 }
 
-func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool, cfg *Config) (cloudClient, error) {
+func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
 	sasToken := info.Creds.AzureSasToken
 	u, err := url.Parse(fmt.Sprintf("https://%s.%s/%s%s", info.StorageAccount, info.EndPoint, info.Path, sasToken))
 	if err != nil {
 		return nil, err
 	}
-	transport := getTransport(cfg)
+	transport := getTransport(util.cfg)
 	client, err := azblob.NewClientWithNoCredential(u.String(), &azblob.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Retry: policy.RetryOptions{

@@ -60,7 +60,7 @@ func (mock *s3ClientCreatorMock) extractBucketNameAndPath(location string) (*s3L
 	return mock.extract(location)
 }
 
-func (mock *s3ClientCreatorMock) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
+func (mock *s3ClientCreatorMock) createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
 	return mock.create(info, useAccelerateEndpoint, cfg)
 }
 
@@ -472,7 +472,7 @@ func TestUpdateMetadataWithPresignedUrl(t *testing.T) {
 			}, nil
 		}
 
-		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, sct.sc.cfg)
+		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
 		if err != nil {
 			t.Error(err)
 		}
@@ -525,7 +525,7 @@ func TestUpdateMetadataWithPresignedUrlForDownload(t *testing.T) {
 
 		testURL := "https://storage.google.com/gcs-blob/storage/users/456?Signature=testsignature123"
 
-		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, sct.sc.cfg)
+		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
 		if err != nil {
 			t.Error(err)
 		}
