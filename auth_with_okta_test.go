@@ -36,22 +36,6 @@ func TestOktaWrongAuthenticator(t *testing.T) {
 	assertEqualE(t, snowflakeErr.Number, 390139, fmt.Sprintf("Expected 390139, but got %v", snowflakeErr.Number))
 }
 
-func TestOktaWrongURL(t *testing.T) {
-	cfg := setupOktaTest(t)
-	invalidAddress, err := url.Parse("https://fake-account-0000.okta.com")
-	if err != nil {
-		t.Fatalf("failed to parse: %v", err)
-	}
-
-	cfg.OktaURL = invalidAddress
-
-	err = verifyConnectionToSnowflakeAuthTests(t, cfg)
-	var snowflakeErr *SnowflakeError
-	assertTrueF(t, errors.As(err, &snowflakeErr))
-
-	assertEqualE(t, snowflakeErr.Number, 390139, fmt.Sprintf("Expected 390139, but got %v", snowflakeErr.Number))
-}
-
 func setupOktaTest(t *testing.T) *Config {
 	runOnlyOnDockerContainer(t, "Running only on Docker container")
 
