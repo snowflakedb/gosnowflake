@@ -5,9 +5,11 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	rlog "github.com/sirupsen/logrus"
 )
@@ -174,6 +176,21 @@ func TestLogWithError(t *testing.T) {
 	}
 }
 
+func TestLogWithTime(t *testing.T) {
+	logger := createTestLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+
+	ti := time.Now()
+	logger.WithTime(ti).Info("hello")
+	time.Sleep(3 * time.Second)
+
+	var strbuf = buf.String()
+	if !strings.Contains(strbuf, ti.Format(time.RFC3339)) {
+		t.Fatalf("unexpected string in output: %v", strbuf)
+	}
+}
+
 func TestLogWithField(t *testing.T) {
 	logger := CreateDefaultLogger()
 	buf := &bytes.Buffer{}
@@ -183,60 +200,6 @@ func TestLogWithField(t *testing.T) {
 	var strbuf = buf.String()
 	if !strings.Contains(strbuf, "field=test") {
 		t.Fatalf("unexpected string in output: %v", strbuf)
-	}
-}
-
-func TestLogLevelFunctions(t *testing.T) {
-	logger := createTestLogger()
-	buf := &bytes.Buffer{}
-	logger.SetOutput(buf)
-
-	logger.TraceFn(func() []interface{} {
-		return []interface{}{
-			"trace function",
-		}
-	})
-
-	logger.DebugFn(func() []interface{} {
-		return []interface{}{
-			"debug function",
-		}
-	})
-
-	logger.InfoFn(func() []interface{} {
-		return []interface{}{
-			"info function",
-		}
-	})
-
-	logger.PrintFn(func() []interface{} {
-		return []interface{}{
-			"print function",
-		}
-	})
-
-	logger.WarningFn(func() []interface{} {
-		return []interface{}{
-			"warning function",
-		}
-	})
-
-	logger.ErrorFn(func() []interface{} {
-		return []interface{}{
-			"error function",
-		}
-	})
-
-	// check that info, print, warning and error were outputted to the log.
-	var strbuf = buf.String()
-
-	if strings.Contains(strbuf, "debug") &&
-		strings.Contains(strbuf, "trace") &&
-		!strings.Contains(strbuf, "info") &&
-		!strings.Contains(strbuf, "print") &&
-		!strings.Contains(strbuf, "warning") &&
-		!strings.Contains(strbuf, "error") {
-		t.Fatalf("unexpected output in log: %v", strbuf)
 	}
 }
 

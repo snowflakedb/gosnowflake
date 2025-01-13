@@ -162,9 +162,6 @@ func closeLogFile(file *os.File) {
 
 // WithContext return Entry to include fields in context
 func (log *defaultLogger) WithContext(ctxs ...context.Context) LogEntry {
-	if !log.enabled {
-		return log
-	}
 	fields := context2Fields(ctxs...)
 	return log.WithFields(*fields)
 }
@@ -180,10 +177,25 @@ func CreateDefaultLogger() SFLogger {
 	return &ret
 }
 
-var _ LogEntry = &entryBridge{} // ensure entryBridge isa LogEntry.
+// WithField allocates a new entry and adds a field to it.
+// Debug, Print, Info, Warn, Error, Fatal or Panic must be then applied to
+// this new returned entry.
+// If you want multiple fields, use `WithFields`.
+func (log *defaultLogger) WithField(key string, value interface{}) LogEntry {
+	return &entryBridge{log.inner.WithField(key, value)}
+}
 
-type entryBridge struct {
-	*rlog.Entry
+// Adds a struct of fields to the log entry. All it does is call `WithField` for
+// each `Field`.
+func (log *defaultLogger) WithFields(fields Fields) LogEntry {
+	m := map[string]any(fields)
+	return &entryBridge{log.inner.WithFields(m)}
+}
+
+// Add an error as single field to the log entry.  All it does is call
+// `WithError` for the given `error`.
+func (log *defaultLogger) WithError(err error) LogEntry {
+	return &entryBridge{log.inner.WithError(err)}
 }
 
 // WithTime overrides the time of the log entry.
@@ -191,20 +203,10 @@ func (log *defaultLogger) WithTime(t time.Time) LogEntry {
 	return &entryBridge{log.inner.WithTime(t)}
 }
 
-// WithError overrides the error of the log entry.
-func (log *defaultLogger) WithError(err error) LogEntry {
-	return &entryBridge{log.inner.WithError(err)}
-}
+var _ LogEntry = &entryBridge{} // ensure entryBridge isa LogEntry.
 
-// WithFields add a map of fields to the log entry.
-func (log *defaultLogger) WithFields(fields Fields) LogEntry {
-	m := map[string]any(fields)
-	return &entryBridge{log.inner.WithFields(m)}
-}
-
-// WithField adds a single key/value pair to the log entry.
-func (log *defaultLogger) WithField(key string, value interface{}) LogEntry {
-	return &entryBridge{log.inner.WithField(key, value)}
+type entryBridge struct {
+	*rlog.Entry
 }
 
 func (log *defaultLogger) Tracef(format string, args ...interface{}) {
