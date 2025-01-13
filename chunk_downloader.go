@@ -175,11 +175,11 @@ func (scd *snowflakeChunkDownloader) checkErrorRetry() (err error) {
 				},
 			)
 			scd.ChunksErrorCounter++
-			logger.WithContext(scd.ctx).Warn("chunk idx: %v, err: %v. retrying (%v/%v)...",
+			logger.WithContext(scd.ctx).Warningf("chunk idx: %v, err: %v. retrying (%v/%v)...",
 				errc.Index, errc.Error, scd.ChunksErrorCounter, maxChunkDownloaderErrorCounter)
 		} else {
 			scd.ChunksFinalErrors = append(scd.ChunksFinalErrors, errc)
-			logger.WithContext(scd.ctx).Warn("chunk idx: %v, err: %v. no further retry", errc.Index, errc.Error)
+			logger.WithContext(scd.ctx).Warningf("chunk idx: %v, err: %v. no further retry", errc.Index, errc.Error)
 			return errc.Error
 		}
 	default:
