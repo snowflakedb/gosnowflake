@@ -84,12 +84,11 @@ func getS3CustomEndpoint(info *execResponseStageInfo) *string {
 }
 
 func s3LoggingFunc(classification logging.Classification, format string, v ...interface{}) {
-	v = append(v, "logger=S3")
 	switch classification {
 	case logging.Debug:
-		logger.Debugf(format, v...)
+		logger.WithField("logger", "S3").Debugf(format, v...)
 	case logging.Warn:
-		logger.Warnf(format, v...)
+		logger.WithField("logger", "S3").Warnf(format, v...)
 	}
 }
 
