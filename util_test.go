@@ -422,14 +422,12 @@ func TestFindByPrefix(t *testing.T) {
 	assertEqualE(t, findByPrefix([]string{}, "dd"), -1)
 }
 
-type tcConfigWithTransport struct {
-	name      string
-	cfg       *Config
-	transport *http.Transport
-}
-
 func TestGetTransport(t *testing.T) {
-	testcases := []tcConfigWithTransport{
+	testcases := []struct {
+		name      string
+		cfg       *Config
+		transport *http.Transport
+	}{
 		{
 			name:      "DisableOCSPChecks and InsecureMode false",
 			cfg:       &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
