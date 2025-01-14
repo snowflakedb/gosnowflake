@@ -829,8 +829,8 @@ func TestBeginCreatesTransaction(t *testing.T) {
 
 type EmptyTransporter struct{}
 
-func (t EmptyTransporter) RoundTrip(req *http.Request) (*http.Response, error) {
-	return snowflakeInsecureTransport.RoundTrip(req)
+func (t EmptyTransporter) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, nil
 }
 
 func TestGetTransport(t *testing.T) {
