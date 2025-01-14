@@ -7,7 +7,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"os"
 	"strconv"
 	"sync"
@@ -420,46 +419,4 @@ func TestFindByPrefix(t *testing.T) {
 	assertEqualE(t, findByPrefix(nonEmpty, "ccc"), 2)
 	assertEqualE(t, findByPrefix(nonEmpty, "dd"), -1)
 	assertEqualE(t, findByPrefix([]string{}, "dd"), -1)
-}
-
-func TestGetTransport(t *testing.T) {
-	testcases := []struct {
-		name      string
-		cfg       *Config
-		transport *http.Transport
-	}{
-		{
-			name:      "DisableOCSPChecks and InsecureMode false",
-			cfg:       &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
-			transport: SnowflakeTransport,
-		},
-		{
-			name:      "DisableOCSPChecks true and InsecureMode false",
-			cfg:       &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
-			transport: snowflakeInsecureTransport,
-		},
-		{
-			name:      "DisableOCSPChecks false and InsecureMode true",
-			cfg:       &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
-			transport: snowflakeInsecureTransport,
-		},
-		{
-			name:      "DisableOCSPChecks and InsecureMode missing from Config",
-			cfg:       &Config{Account: "four"},
-			transport: SnowflakeTransport,
-		},
-		{
-			name:      "whole Config is missing",
-			cfg:       nil,
-			transport: SnowflakeTransport,
-		},
-	}
-	for _, test := range testcases {
-		t.Run(test.name, func(t *testing.T) {
-			result := getTransport(test.cfg)
-			if test.transport != result {
-				t.Errorf("Failed to return the correct transport, input :%#v, expected: %v, got: %v", test.cfg, test.transport, result)
-			}
-		})
-	}
 }

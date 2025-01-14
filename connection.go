@@ -856,3 +856,21 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 
 	return sc, nil
 }
+
+func getTransport(cfg *Config) http.RoundTripper {
+	if cfg == nil {
+		logger.Debug("getTransport: got nil Config, will perform OCSP validation for cloud storage")
+		return SnowflakeTransport
+	}
+	// if user configured a custom Transporter, prioritize that
+	if cfg.Transporter != nil {
+		logger.Debug("getTransport: using Transporter configured by the user")
+		return cfg.Transporter
+	}
+	if cfg.DisableOCSPChecks || cfg.InsecureMode {
+		logger.Debug("getTransport: skipping OCSP validation for cloud storage")
+		return snowflakeInsecureTransport
+	}
+	logger.Debug("getTransport: will perform OCSP validation for cloud storage")
+	return SnowflakeTransport
+}
