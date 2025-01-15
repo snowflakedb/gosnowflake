@@ -152,6 +152,7 @@ Session-level parameters can also be set by using the SQL command "ALTER SESSION
 Alternatively, use OpenWithConfig() function to create a database handle with the specified Config.
 
 # Connection Config
+
 You can also connect to your warehouse using the connection config. The dbSql library states that when you want to take advantage of driver-specific connection features that aren’t
 available in a connection string. Each driver supports its own set of connection properties, often providing ways to customize the connection request specific to the DBMS
 For example:
@@ -167,12 +168,12 @@ you are looking to connect. Since the driver name is not needed, you can optiona
 on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTERATION` in your environment. This is useful you wish to
 register multiple verions of the driver.
 
-Note: GOSNOWFLAKE_SKIP_REGISTERATION should not be used if sql.Open() is used as the method
+Note: `GOSNOWFLAKE_SKIP_REGISTERATION` should not be used if sql.Open() is used as the method
 to connect to the server, as sql.Open will require registration so it can map the driver name
 to the driver type, which in this case is "snowflake" and SnowflakeDriver{}.
 
 You can load the connnection configuration with .toml file format.
-With two environment variables SNOWFLAKE_HOME(connections.toml file directory) SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN name),
+With two environment variables, `SNOWFLAKE_HOME` (`connections.toml` file directory) and `SNOWFLAKE_DEFAULT_CONNECTION_NAME` (DSN name),
 the driver will search the config file and load the connection. You can find how to use this connection way at ./cmd/tomlfileconnection
 or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/connecting/specify-credentials
 
