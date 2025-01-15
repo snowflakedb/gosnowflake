@@ -79,9 +79,8 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 				client = meta.mockGcsClient
 			}
 			resp, err := client.Do(req)
-			println(err)
-			if err == io.EOF {
-				println("retrying because of EOF")
+			if err != nil && strings.HasSuffix(err.Error(), "EOF") {
+				logger.Debug("Retrying HEAD request because of EOF")
 				resp, err = client.Do(req)
 			}
 			return resp, err
