@@ -20,6 +20,7 @@ const (
 	gcsMetadataMatdescKey         = gcsMetadataPrefix + "matdesc"
 	gcsMetadataEncryptionDataProp = gcsMetadataPrefix + "encryptiondata"
 	gcsFileHeaderDigest           = "gcs-file-header-digest"
+	gcsRegionMeCentral2           = "me-central2"
 )
 
 type snowflakeGcsClient struct {
@@ -52,7 +53,7 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 	if meta.presignedURL != nil {
 		meta.resStatus = notFoundFile
 	} else {
-		URL, err := util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(filename, "/"))
+		URL, err := util.generateFileURL(meta.stageInfo, strings.TrimLeft(filename, "/"))
 		if err != nil {
 			return nil, err
 		}
@@ -77,7 +78,12 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 			if meta.mockGcsClient != nil {
 				client = meta.mockGcsClient
 			}
-			return client.Do(req)
+			resp, err := client.Do(req)
+			if err != nil && strings.HasSuffix(err.Error(), "EOF") {
+				logger.Debug("Retrying HEAD request because of EOF")
+				resp, err = client.Do(req)
+			}
+			return resp, err
 		})
 		if err != nil {
 			return nil, err
@@ -147,7 +153,7 @@ func (util *snowflakeGcsClient) uploadFile(
 	var err error
 
 	if uploadURL == nil {
-		uploadURL, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.dstFileName, "/"))
+		uploadURL, err = util.generateFileURL(meta.stageInfo, strings.TrimLeft(meta.dstFileName, "/"))
 		if err != nil {
 			return err
 		}
@@ -279,7 +285,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 	gcsHeaders := make(map[string]string)
 
 	if downloadURL == nil || downloadURL.String() == "" {
-		downloadURL, err = util.generateFileURL(meta.stageInfo.Location, strings.TrimLeft(meta.srcFileName, "/"))
+		downloadURL, err = util.generateFileURL(meta.stageInfo, strings.TrimLeft(meta.srcFileName, "/"))
 		if err != nil {
 			return err
 		}
@@ -388,10 +394,11 @@ func (util *snowflakeGcsClient) extractBucketNameAndPath(location string) *gcsLo
 	return &gcsLocation{containerName, path}
 }
 
-func (util *snowflakeGcsClient) generateFileURL(stageLocation string, filename string) (*url.URL, error) {
-	gcsLoc := util.extractBucketNameAndPath(stageLocation)
+func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo, filename string) (*url.URL, error) {
+	gcsLoc := util.extractBucketNameAndPath(stageInfo.Location)
 	fullFilePath := gcsLoc.path + filename
-	URL, err := url.Parse("https://storage.googleapis.com/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
+	endPoint := getGcsCustomEndpoint(stageInfo)
+	URL, err := url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
 	if err != nil {
 		return nil, err
 	}
@@ -406,4 +413,17 @@ func newGcsClient() gcsAPI {
 	return &http.Client{
 		Transport: SnowflakeTransport,
 	}
+}
+
+func getGcsCustomEndpoint(info *execResponseStageInfo) string {
+	endpoint := "https://storage.googleapis.com"
+
+	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
+	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
+	if info.EndPoint != "" {
+		endpoint = fmt.Sprintf("https://%s", info.EndPoint)
+	} else if info.Region != "" && isRegionalURLEnabled {
+		endpoint = fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(info.Region))
+	}
+	return endpoint
 }
