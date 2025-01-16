@@ -13,12 +13,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.15
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.53.1
 	github.com/aws/smithy-go v1.20.2
-	github.com/gabriel-vasile/mimetype v1.4.2
+	github.com/gabriel-vasile/mimetype v1.4.7
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/crypto v0.22.0
-	golang.org/x/sys v0.19.0
+	golang.org/x/crypto v0.31.0
+	golang.org/x/sys v0.28.0
 )
 
 require (
@@ -48,11 +48,11 @@ require (
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225 // indirect
 	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/term v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
-	golang.org/x/tools v0.20.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
