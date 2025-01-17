@@ -34,6 +34,9 @@ func TestIsLevelEnabled(t *testing.T) {
 func TestLogFunction(t *testing.T) {
 	logger := createTestLogger()
 	buf := &bytes.Buffer{}
+	var formatter = rlog.TextFormatter{CallerPrettyfier: SFCallerPrettyfier}
+	logger.SetFormatter(&formatter)
+	logger.SetReportCaller(true)
 	logger.SetOutput(buf)
 	err := logger.SetLogLevel("trace")
 	if err != nil {
@@ -287,5 +290,21 @@ func TestLogMaskSecrets(t *testing.T) {
 	var strbuf = buf.String()
 	if !strings.Contains(strbuf, expected) {
 		t.Fatalf("expected that password would be masked. WithContext was used, but got: %v", strbuf)
+	}
+}
+
+func TestLogEntryConversion(t *testing.T) {
+	log := createTestLogger()
+	e := log.WithField("k", 1)
+	l, ok := e.(ConvertibleEntry)
+	if !ok {
+		t.Fatalf("expected a ConvertibleEntry")
+	}
+	v, ok := l.ToEntry().Data["k"]
+	if !ok {
+		t.Fatalf("should be able to access the underlying rlog.Entry")
+	}
+	if v.(int) != 1 {
+		t.Fatalf("expected value to be 1")
 	}
 }

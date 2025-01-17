@@ -46,8 +46,8 @@ func TestLogCtx(t *testing.T) {
 	var ctx2 = context.WithValue(context.Background(), SFSessionUserKey, "admin")
 
 	var b bytes.Buffer
-	logger.SetOutput(&b)
-	err := logger.SetLogLevel("trace")
+	log.SetOutput(&b)
+	err := log.SetLogLevel("trace")
 	if err != nil {
 		t.Error("could not set log level")
 	}

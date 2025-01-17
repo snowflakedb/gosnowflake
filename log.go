@@ -43,6 +43,13 @@ var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
 // Fields
 type Fields map[string]any
 
+// ConvertibleEntry returns the underlying logrus Entry struct.
+type ConvertibleEntry interface {
+	ToEntry() *rlog.Entry
+}
+
+// LogEntry allows for logging using a snapshot of field values, similar to logrus.Entry.
+// No references to logrus or other implementat specific logging should be placed into this interface.
 type LogEntry interface {
 	Tracef(format string, args ...interface{})
 	Debugf(format string, args ...interface{})
@@ -75,7 +82,8 @@ type LogEntry interface {
 	Panicln(args ...interface{})
 }
 
-// SFLogger Snowflake logger interface to expose FieldLogger defined in logrus
+// SFLogger Snowflake logger interface which abstracts away the underlying logging mechanism.
+// No references to logrus or other implementat specific logging should be placed into this interface.
 type SFLogger interface {
 	LogEntry
 	WithField(key string, value interface{}) LogEntry
@@ -204,9 +212,14 @@ func (log *defaultLogger) WithTime(t time.Time) LogEntry {
 }
 
 var _ LogEntry = &entryBridge{} // ensure entryBridge isa LogEntry.
+var _ ConvertibleEntry = &entryBridge{}
 
 type entryBridge struct {
 	*rlog.Entry
+}
+
+func (entry *entryBridge) ToEntry() *rlog.Entry {
+	return entry.Entry
 }
 
 func (log *defaultLogger) Tracef(format string, args ...interface{}) {
@@ -371,9 +384,42 @@ func (log *defaultLogger) Panicln(args ...interface{}) {
 	}
 }
 
+func (log *defaultLogger) Exit(code int) {
+	log.inner.Exit(code)
+}
+
+// SetLevel sets the logger level.
+func (log *defaultLogger) SetLevel(level rlog.Level) {
+	log.inner.SetLevel(level)
+}
+
+// GetLevel returns the logger level.
+func (log *defaultLogger) GetLevel() rlog.Level {
+	return log.inner.GetLevel()
+}
+
+// AddHook adds a hook to the logger hooks.
+func (log *defaultLogger) AddHook(hook rlog.Hook) {
+	log.inner.AddHook(hook)
+}
+
+// IsLevelEnabled checks if the log level of the logger is greater than the level param
+func (log *defaultLogger) IsLevelEnabled(level rlog.Level) bool {
+	return log.inner.IsLevelEnabled(level)
+}
+
+// SetFormatter sets the logger formatter.
+func (log *defaultLogger) SetFormatter(formatter rlog.Formatter) {
+	log.inner.SetFormatter(formatter)
+}
+
 // SetOutput sets the logger output.
 func (log *defaultLogger) SetOutput(output io.Writer) {
 	log.inner.SetOutput(output)
+}
+
+func (log *defaultLogger) SetReportCaller(reportCaller bool) {
+	log.inner.SetReportCaller(reportCaller)
 }
 
 // SetLogger set a new logger of SFLogger interface for gosnowflake
