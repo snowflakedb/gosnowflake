@@ -211,6 +211,10 @@ func (log *defaultLogger) WithTime(t time.Time) LogEntry {
 	return &entryBridge{log.inner.WithTime(t)}
 }
 
+func (log *defaultLogger) Logf(level rlog.Level, format string, args ...interface{}) {
+	log.inner.Logf(level, format, args...)
+}
+
 var _ LogEntry = &entryBridge{} // ensure entryBridge isa LogEntry.
 var _ ConvertibleEntry = &entryBridge{}
 
@@ -274,6 +278,14 @@ func (log *defaultLogger) Panicf(format string, args ...interface{}) {
 	if log.enabled {
 		log.inner.Panicf(format, args...)
 	}
+}
+
+func (log *defaultLogger) Log(level rlog.Level, args ...interface{}) {
+	log.inner.Log(level, args...)
+}
+
+func (log *defaultLogger) LogFn(level rlog.Level, fn rlog.LogFunction) {
+	log.inner.LogFn(level, fn)
 }
 
 func (log *defaultLogger) Trace(args ...interface{}) {

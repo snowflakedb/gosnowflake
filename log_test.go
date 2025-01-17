@@ -49,9 +49,9 @@ func TestLogFunction(t *testing.T) {
 	logger.SetOutput(buf)
 	logger.SetLevel(rlog.TraceLevel)
 
-	logger.Trace("hello world")
-	logger.Tracef("log %v", "format")
-	logger.Traceln("log line")
+	logger.Log(rlog.TraceLevel, "hello world")
+	logger.Logf(rlog.TraceLevel, "log %v", "format")
+	logger.Logln(rlog.TraceLevel, "log line")
 
 	var strbuf = buf.String()
 	if !strings.Contains(strbuf, "hello world") &&
