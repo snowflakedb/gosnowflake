@@ -211,6 +211,60 @@ func TestLogWithField(t *testing.T) {
 	}
 }
 
+func TestLogLevelFunctions(t *testing.T) {
+	logger := createTestLogger()
+	buf := &bytes.Buffer{}
+	logger.SetOutput(buf)
+
+	logger.TraceFn(func() []interface{} {
+		return []interface{}{
+			"trace function",
+		}
+	})
+
+	logger.DebugFn(func() []interface{} {
+		return []interface{}{
+			"debug function",
+		}
+	})
+
+	logger.InfoFn(func() []interface{} {
+		return []interface{}{
+			"info function",
+		}
+	})
+
+	logger.PrintFn(func() []interface{} {
+		return []interface{}{
+			"print function",
+		}
+	})
+
+	logger.WarningFn(func() []interface{} {
+		return []interface{}{
+			"warning function",
+		}
+	})
+
+	logger.ErrorFn(func() []interface{} {
+		return []interface{}{
+			"error function",
+		}
+	})
+
+	// check that info, print, warning and error were outputted to the log.
+	var strbuf = buf.String()
+
+	if strings.Contains(strbuf, "debug") &&
+		strings.Contains(strbuf, "trace") &&
+		!strings.Contains(strbuf, "info") &&
+		!strings.Contains(strbuf, "print") &&
+		!strings.Contains(strbuf, "warning") &&
+		!strings.Contains(strbuf, "error") {
+		t.Fatalf("unexpected output in log: %v", strbuf)
+	}
+}
+
 type testRequestIDCtxKey struct{}
 
 func TestLogKeysDefault(t *testing.T) {

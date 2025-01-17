@@ -283,6 +283,10 @@ func (log *defaultLogger) Log(level rlog.Level, args ...interface{}) {
 	log.inner.Log(level, args...)
 }
 
+func (log *defaultLogger) LogFn(level rlog.Level, fn rlog.LogFunction) {
+	log.inner.LogFn(level, fn)
+}
+
 func (log *defaultLogger) Trace(args ...interface{}) {
 	if log.enabled {
 		log.inner.Trace(args...)
@@ -334,6 +338,60 @@ func (log *defaultLogger) Fatal(args ...interface{}) {
 func (log *defaultLogger) Panic(args ...interface{}) {
 	if log.enabled {
 		log.inner.Panic(args...)
+	}
+}
+
+func (log *defaultLogger) TraceFn(fn rlog.LogFunction) {
+	if log.enabled {
+		log.inner.TraceFn(fn)
+	}
+}
+
+func (log *defaultLogger) DebugFn(fn rlog.LogFunction) {
+	if log.enabled {
+		log.inner.DebugFn(fn)
+	}
+}
+
+func (log *defaultLogger) InfoFn(fn rlog.LogFunction) {
+	if log.enabled {
+		log.inner.InfoFn(fn)
+	}
+}
+
+func (log *defaultLogger) PrintFn(fn rlog.LogFunction) {
+	if log.enabled {
+		log.inner.PrintFn(fn)
+	}
+}
+
+func (log *defaultLogger) WarnFn(fn rlog.LogFunction) {
+	if log.enabled {
+		log.inner.PrintFn(fn)
+	}
+}
+
+func (log *defaultLogger) WarningFn(fn rlog.LogFunction) {
+	if log.enabled {
+		log.inner.WarningFn(fn)
+	}
+}
+
+func (log *defaultLogger) ErrorFn(fn rlog.LogFunction) {
+	if log.enabled {
+		log.inner.ErrorFn(fn)
+	}
+}
+
+func (log *defaultLogger) FatalFn(fn rlog.LogFunction) {
+	if log.enabled {
+		log.inner.FatalFn(fn)
+	}
+}
+
+func (log *defaultLogger) PanicFn(fn rlog.LogFunction) {
+	if log.enabled {
+		log.inner.PanicFn(fn)
 	}
 }
 
