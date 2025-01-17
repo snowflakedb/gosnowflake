@@ -3,8 +3,10 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -43,8 +45,23 @@ func TestLogCtx(t *testing.T) {
 	var ctx1 = context.WithValue(context.Background(), SFSessionIDKey, "sessID1")
 	var ctx2 = context.WithValue(context.Background(), SFSessionUserKey, "admin")
 
+	var b bytes.Buffer
+	logger.SetOutput(&b)
+	err := logger.SetLogLevel("trace")
+	if err != nil {
+		t.Error("could not set log level")
+	}
 	l := log.WithContext(ctx1, ctx2)
 	l.Info("Hello 1")
 	l.Warn("Hello 2")
-	// what purpose does this test serve? ... nothing is being validated except that it compiles and runs.
+	s := b.String()
+	if len(s) <= 0 {
+		t.Error("nothing written")
+	}
+	if !strings.Contains(s, "LOG_SESSION_ID=sessID1") {
+		t.Error("context ctx1 keys/values not logged")
+	}
+	if !strings.Contains(s, "LOG_USER=admin") {
+		t.Error("context ctx2 keys/values not logged")
+	}
 }
