@@ -284,8 +284,8 @@ func (log *defaultLogger) Log(level rlog.Level, args ...interface{}) {
 	log.inner.Log(level, args...)
 }
 
-func (log *defaultLogger) LogFn(level rlog.Level, fn rlog.LogFunction) {
-	log.inner.LogFn(level, fn)
+func (log *defaultLogger) Logln(level rlog.Level, args ...interface{}) {
+	log.inner.Logln(level, args...)
 }
 
 func (log *defaultLogger) Trace(args ...interface{}) {
