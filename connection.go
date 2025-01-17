@@ -790,7 +790,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	if sc.cfg.Transporter == nil {
 		if sc.cfg.DisableOCSPChecks || sc.cfg.InsecureMode {
 			// no revocation check with OCSP. Think twice when you want to enable this option.
-			st = snowflakeInsecureTransport
+			st = snowflakeNoOcspTransport
 		} else {
 			// set OCSP fail open mode
 			ocspResponseCacheLock.Lock()
@@ -869,7 +869,7 @@ func getTransport(cfg *Config) http.RoundTripper {
 	}
 	if cfg.DisableOCSPChecks || cfg.InsecureMode {
 		logger.Debug("getTransport: skipping OCSP validation for cloud storage")
-		return snowflakeInsecureTransport
+		return snowflakeNoOcspTransport
 	}
 	logger.Debug("getTransport: will perform OCSP validation for cloud storage")
 	return SnowflakeTransport

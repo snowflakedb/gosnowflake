@@ -847,12 +847,12 @@ func TestGetTransport(t *testing.T) {
 		{
 			name:      "DisableOCSPChecks true and InsecureMode false",
 			cfg:       &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
-			transport: snowflakeInsecureTransport,
+			transport: snowflakeNoOcspTransport,
 		},
 		{
 			name:      "DisableOCSPChecks false and InsecureMode true",
 			cfg:       &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
-			transport: snowflakeInsecureTransport,
+			transport: snowflakeNoOcspTransport,
 		},
 		{
 			name:      "DisableOCSPChecks and InsecureMode missing from Config",
