@@ -89,7 +89,6 @@ type SFLogger interface {
 	WithField(key string, value interface{}) LogEntry
 	WithFields(fields Fields) LogEntry
 	WithError(err error) LogEntry
-	WithTime(t time.Time) LogEntry
 
 	SetLogLevel(level string) error
 	GetLogLevel() string

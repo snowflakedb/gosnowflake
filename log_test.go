@@ -29,8 +29,7 @@ func TestIsLevelEnabled(t *testing.T) {
 }
 
 func TestLogLevelEnabled(t *testing.T) {
-	var log SFLogger
-	log = createTestLogger()
+	log := CreateDefaultLogger() // via the SFLogger interface.
 	err := log.SetLogLevel("info")
 	if err != nil {
 		t.Fatalf("log level could not be set %v", err)
@@ -300,7 +299,7 @@ func TestLogMaskSecrets(t *testing.T) {
 }
 
 func TestLogEntryConversion(t *testing.T) {
-	log := createTestLogger()
+	log := CreateDefaultLogger()
 	e := log.WithField("k", 1)
 	l, ok := e.(ConvertibleEntry)
 	if !ok {
