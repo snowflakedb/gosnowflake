@@ -34,7 +34,7 @@ func TestOCSP(t *testing.T) {
 	}
 
 	transports := []*http.Transport{
-		snowflakeInsecureTransport,
+		snowflakeNoOcspTransport,
 		SnowflakeTransport,
 	}
 

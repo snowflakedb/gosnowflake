@@ -73,7 +73,7 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 			for k, v := range gcsHeaders {
 				req.Header.Add(k, v)
 			}
-			client := newGcsClient()
+			client := newGcsClient(util.cfg)
 			// for testing only
 			if meta.mockGcsClient != nil {
 				client = meta.mockGcsClient
@@ -226,7 +226,7 @@ func (util *snowflakeGcsClient) uploadFile(
 		for k, v := range gcsHeaders {
 			req.Header.Add(k, v)
 		}
-		client := newGcsClient()
+		client := newGcsClient(util.cfg)
 		// for testing only
 		if meta.mockGcsClient != nil {
 			client = meta.mockGcsClient
@@ -307,7 +307,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		for k, v := range gcsHeaders {
 			req.Header.Add(k, v)
 		}
-		client := newGcsClient()
+		client := newGcsClient(util.cfg)
 		// for testing only
 		if meta.mockGcsClient != nil {
 			client = meta.mockGcsClient
@@ -409,9 +409,9 @@ func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
 	return resp.StatusCode == 401
 }
 
-func newGcsClient() gcsAPI {
+func newGcsClient(cfg *Config) gcsAPI {
 	return &http.Client{
-		Transport: SnowflakeTransport,
+		Transport: getTransport(cfg),
 	}
 }
 

@@ -1993,7 +1993,7 @@ type CountingTransport struct {
 
 func (t *CountingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	t.requests++
-	return snowflakeInsecureTransport.RoundTrip(r)
+	return snowflakeNoOcspTransport.RoundTrip(r)
 }
 
 func TestOpenWithTransport(t *testing.T) {
