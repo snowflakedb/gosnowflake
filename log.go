@@ -284,10 +284,6 @@ func (log *defaultLogger) Log(level rlog.Level, args ...interface{}) {
 	log.inner.Log(level, args...)
 }
 
-func (log *defaultLogger) Logln(level rlog.Level, args ...interface{}) {
-	log.inner.Logln(level, args...)
-}
-
 func (log *defaultLogger) Trace(args ...interface{}) {
 	if log.enabled {
 		log.inner.Trace(args...)
@@ -340,6 +336,10 @@ func (log *defaultLogger) Panic(args ...interface{}) {
 	if log.enabled {
 		log.inner.Panic(args...)
 	}
+}
+
+func (log *defaultLogger) Logln(level rlog.Level, args ...interface{}) {
+	log.inner.Logln(level, args...)
 }
 
 func (log *defaultLogger) Traceln(args ...interface{}) {
