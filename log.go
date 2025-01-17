@@ -131,7 +131,7 @@ func (log *defaultLogger) SetLogLevel(level string) error {
 		if err != nil {
 			return err
 		}
-		log.inner.Level = actualLevel
+		log.inner.SetLevel(actualLevel)
 	}
 	return nil
 }
@@ -141,7 +141,7 @@ func (log *defaultLogger) GetLogLevel() string {
 	if !log.enabled {
 		return "OFF"
 	}
-	return log.inner.Level.String()
+	return log.inner.GetLevel().String()
 }
 
 // CloseFileOnLoggerReplace set a file to be closed when releasing resources occupied by the logger

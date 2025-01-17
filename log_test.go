@@ -22,12 +22,21 @@ func createTestLogger() *defaultLogger {
 
 func TestIsLevelEnabled(t *testing.T) {
 	logger := createTestLogger()
-	err := logger.SetLogLevel("trace")
+	logger.SetLevel(rlog.TraceLevel)
+	if !logger.IsLevelEnabled(rlog.TraceLevel) {
+		t.Fatalf("log level should be trace but is %v", logger.GetLevel())
+	}
+}
+
+func TestLogLevelEnabled(t *testing.T) {
+	var log SFLogger
+	log = createTestLogger()
+	err := log.SetLogLevel("info")
 	if err != nil {
 		t.Fatalf("log level could not be set %v", err)
 	}
-	if logger.GetLogLevel() != "trace" {
-		t.Fatalf("log level should be trace but is %v", logger.GetLogLevel())
+	if log.GetLogLevel() != "info" {
+		t.Fatalf("log level should be trace but is %v", log.GetLogLevel())
 	}
 }
 
@@ -38,10 +47,7 @@ func TestLogFunction(t *testing.T) {
 	logger.SetFormatter(&formatter)
 	logger.SetReportCaller(true)
 	logger.SetOutput(buf)
-	err := logger.SetLogLevel("trace")
-	if err != nil {
-		t.Fatalf("log level could not be set %v", err)
-	}
+	logger.SetLevel(rlog.TraceLevel)
 
 	logger.Trace("hello world")
 	logger.Tracef("log %v", "format")

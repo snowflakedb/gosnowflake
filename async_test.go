@@ -163,7 +163,6 @@ func retrieveRows(rows *sql.Rows, ch chan string) {
 }
 
 func TestLongRunningAsyncQuery(t *testing.T) {
-	t.Skip()
 	conn := openConn(t)
 	defer conn.Close()
 
@@ -199,7 +198,6 @@ func TestLongRunningAsyncQuery(t *testing.T) {
 }
 
 func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {
-	t.Skip()
 	runDBTest(t, func(dbt *DBTest) {
 		queryIDChan := make(chan string, 1)
 		ctx := WithAsyncMode(context.Background())
