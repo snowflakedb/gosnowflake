@@ -637,7 +637,7 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	}
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: snowflakeInsecureTransport,
+		Transport: snowflakeNoOcspTransport,
 	}
 	ocspRes, ocspResBytes, ocspS := retryOCSP(
 		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
@@ -786,7 +786,7 @@ func downloadOCSPCacheServer() {
 	}
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: snowflakeInsecureTransport,
+		Transport: snowflakeNoOcspTransport,
 	}
 	ret, ocspStatus := checkOCSPCacheServer(context.Background(), ocspClient, http.NewRequest, u, timeout)
 	if ocspStatus.code != ocspSuccess {
@@ -1075,8 +1075,8 @@ func init() {
 	initOCSPCache()
 }
 
-// snowflakeInsecureTransport is the transport object that doesn't do certificate revocation check.
-var snowflakeInsecureTransport = &http.Transport{
+// snowflakeNoOcspTransport is the transport object that doesn't do certificate revocation check with OCSP.
+var snowflakeNoOcspTransport = &http.Transport{
 	MaxIdleConns:    10,
 	IdleConnTimeout: 30 * time.Minute,
 	Proxy:           http.ProxyFromEnvironment,

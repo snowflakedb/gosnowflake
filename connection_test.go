@@ -826,3 +826,56 @@ func TestBeginCreatesTransaction(t *testing.T) {
 		}
 	})
 }
+
+type EmptyTransporter struct{}
+
+func (t EmptyTransporter) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, nil
+}
+
+func TestGetTransport(t *testing.T) {
+	testcases := []struct {
+		name      string
+		cfg       *Config
+		transport http.RoundTripper
+	}{
+		{
+			name:      "DisableOCSPChecks and InsecureMode false",
+			cfg:       &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
+			transport: SnowflakeTransport,
+		},
+		{
+			name:      "DisableOCSPChecks true and InsecureMode false",
+			cfg:       &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
+			transport: snowflakeNoOcspTransport,
+		},
+		{
+			name:      "DisableOCSPChecks false and InsecureMode true",
+			cfg:       &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
+			transport: snowflakeNoOcspTransport,
+		},
+		{
+			name:      "DisableOCSPChecks and InsecureMode missing from Config",
+			cfg:       &Config{Account: "four"},
+			transport: SnowflakeTransport,
+		},
+		{
+			name:      "whole Config is missing",
+			cfg:       nil,
+			transport: SnowflakeTransport,
+		},
+		{
+			name:      "Using custom Transporter",
+			cfg:       &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
+			transport: EmptyTransporter{},
+		},
+	}
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			result := getTransport(test.cfg)
+			if test.transport != result {
+				t.Errorf("Failed to return the correct transport, input :%#v, expected: %v, got: %v", test.cfg, test.transport, result)
+			}
+		})
+	}
+}

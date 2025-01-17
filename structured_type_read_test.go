@@ -893,7 +893,7 @@ func TestArrayAndMetadataAsArray(t *testing.T) {
 				},
 				{
 					name:      "double",
-					query:     "SELECT ARRAY_CONSTRUCT(1.1, 2.2)::ARRAY(DOUBLE) as structured_type UNION SELECT ARRAY_CONSTRUCT(3.3)::ARRAY(DOUBLE)",
+					query:     "SELECT ARRAY_CONSTRUCT(1.1, 2.2)::ARRAY(DOUBLE) as structured_type UNION SELECT ARRAY_CONSTRUCT(3.3)::ARRAY(DOUBLE) ORDER BY 1",
 					expected1: []float64{1.1, 2.2},
 					expected2: []float64{3.3},
 					actual:    []float64{},
@@ -1028,7 +1028,7 @@ func TestEmptyArraysAndNullArrays(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(INTEGER) UNION SELECT NULL UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER)")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(INTEGER) UNION SELECT NULL UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER) ORDER BY 1")
 			defer rows.Close()
 			checkRow := func(rows *RowsExtended, expected *[]int64) {
 				var res *[]int64
@@ -1038,10 +1038,10 @@ func TestEmptyArraysAndNullArrays(t *testing.T) {
 				assertDeepEqualE(t, res, expected)
 			}
 
-			checkRow(rows, &[]int64{1, 2})
 			checkRow(rows, &[]int64{})
-			checkRow(rows, nil)
+			checkRow(rows, &[]int64{1, 2})
 			checkRow(rows, &[]int64{4, 5, 6})
+			checkRow(rows, nil)
 		})
 	})
 }
@@ -1236,168 +1236,168 @@ func TestMapAndMetadataAsMap(t *testing.T) {
 		}{
 			{
 				name:      "string string",
-				query:     "SELECT {'a': 'x', 'b': 'y'}::MAP(VARCHAR, VARCHAR) as structured_type UNION SELECT {'c': 'z'}::MAP(VARCHAR, VARCHAR)",
+				query:     "SELECT {'a': 'x', 'b': 'y'}::MAP(VARCHAR, VARCHAR) as structured_type UNION SELECT {'c': 'z'}::MAP(VARCHAR, VARCHAR) ORDER BY 1 DESC",
 				expected1: map[string]string{"a": "x", "b": "y"},
 				expected2: map[string]string{"c": "z"},
 				actual:    make(map[string]string),
 			},
 			{
 				name:      "integer string",
-				query:     "SELECT {'1': 'x', '2': 'y'}::MAP(INTEGER, VARCHAR) as structured_type UNION SELECT {'3': 'z'}::MAP(INTEGER, VARCHAR)",
+				query:     "SELECT {'1': 'x', '2': 'y'}::MAP(INTEGER, VARCHAR) as structured_type UNION SELECT {'3': 'z'}::MAP(INTEGER, VARCHAR) ORDER BY 1 DESC",
 				expected1: map[int64]string{int64(1): "x", int64(2): "y"},
 				expected2: map[int64]string{int64(3): "z"},
 				actual:    make(map[int64]string),
 			},
 			{
 				name:      "string bool",
-				query:     "SELECT {'a': true, 'b': false}::MAP(VARCHAR, BOOLEAN) as structured_type UNION SELECT {'c': true}::MAP(VARCHAR, BOOLEAN)",
+				query:     "SELECT {'a': true, 'b': false}::MAP(VARCHAR, BOOLEAN) as structured_type UNION SELECT {'c': true}::MAP(VARCHAR, BOOLEAN) ORDER BY 1 DESC",
 				expected1: map[string]bool{"a": true, "b": false},
 				expected2: map[string]bool{"c": true},
 				actual:    make(map[string]bool),
 			},
 			{
 				name:      "integer bool",
-				query:     "SELECT {'1': true, '2': false}::MAP(INTEGER, BOOLEAN) as structured_type UNION SELECT {'3': true}::MAP(INTEGER, BOOLEAN)",
+				query:     "SELECT {'1': true, '2': false}::MAP(INTEGER, BOOLEAN) as structured_type UNION SELECT {'3': true}::MAP(INTEGER, BOOLEAN) ORDER BY 1 DESC",
 				expected1: map[int64]bool{int64(1): true, int64(2): false},
 				expected2: map[int64]bool{int64(3): true},
 				actual:    make(map[int64]bool),
 			},
 			{
 				name:      "string integer",
-				query:     "SELECT {'a': 11, 'b': 22}::MAP(VARCHAR, INTEGER) as structured_type UNION SELECT {'c': 33}::MAP(VARCHAR, INTEGER)",
+				query:     "SELECT {'a': 11, 'b': 22}::MAP(VARCHAR, INTEGER) as structured_type UNION SELECT {'c': 33}::MAP(VARCHAR, INTEGER) ORDER BY 1 DESC",
 				expected1: map[string]int64{"a": 11, "b": 22},
 				expected2: map[string]int64{"c": 33},
 				actual:    make(map[string]int64),
 			},
 			{
 				name:      "integer integer",
-				query:     "SELECT {'1': 11, '2': 22}::MAP(INTEGER, INTEGER) as structured_type UNION SELECT {'3': 33}::MAP(INTEGER, INTEGER)",
+				query:     "SELECT {'1': 11, '2': 22}::MAP(INTEGER, INTEGER) as structured_type UNION SELECT {'3': 33}::MAP(INTEGER, INTEGER) ORDER BY 1 DESC",
 				expected1: map[int64]int64{int64(1): int64(11), int64(2): int64(22)},
 				expected2: map[int64]int64{int64(3): int64(33)},
 				actual:    make(map[int64]int64),
 			},
 			{
 				name:      "string double",
-				query:     "SELECT {'a': 11.1, 'b': 22.2}::MAP(VARCHAR, DOUBLE) as structured_type UNION SELECT {'c': 33.3}::MAP(VARCHAR, DOUBLE)",
+				query:     "SELECT {'a': 11.1, 'b': 22.2}::MAP(VARCHAR, DOUBLE) as structured_type UNION SELECT {'c': 33.3}::MAP(VARCHAR, DOUBLE) ORDER BY 1 DESC",
 				expected1: map[string]float64{"a": 11.1, "b": 22.2},
 				expected2: map[string]float64{"c": 33.3},
 				actual:    make(map[string]float64),
 			},
 			{
 				name:      "integer double",
-				query:     "SELECT {'1': 11.1, '2': 22.2}::MAP(INTEGER, DOUBLE) as structured_type UNION SELECT {'3': 33.3}::MAP(INTEGER, DOUBLE)",
+				query:     "SELECT {'1': 11.1, '2': 22.2}::MAP(INTEGER, DOUBLE) as structured_type UNION SELECT {'3': 33.3}::MAP(INTEGER, DOUBLE) ORDER BY 1 DESC",
 				expected1: map[int64]float64{int64(1): 11.1, int64(2): 22.2},
 				expected2: map[int64]float64{int64(3): 33.3},
 				actual:    make(map[int64]float64),
 			},
 			{
 				name:      "string number integer",
-				query:     "SELECT {'a': 11, 'b': 22}::MAP(VARCHAR, NUMBER(38, 0)) as structured_type UNION SELECT {'c': 33}::MAP(VARCHAR, NUMBER(38, 0))",
+				query:     "SELECT {'a': 11, 'b': 22}::MAP(VARCHAR, NUMBER(38, 0)) as structured_type UNION SELECT {'c': 33}::MAP(VARCHAR, NUMBER(38, 0)) ORDER BY 1 DESC",
 				expected1: map[string]int64{"a": 11, "b": 22},
 				expected2: map[string]int64{"c": 33},
 				actual:    make(map[string]int64),
 			},
 			{
 				name:      "integer number integer",
-				query:     "SELECT {'1': 11, '2': 22}::MAP(INTEGER, NUMBER(38, 0)) as structured_type UNION SELECT {'3': 33}::MAP(INTEGER, NUMBER(38, 0))",
+				query:     "SELECT {'1': 11, '2': 22}::MAP(INTEGER, NUMBER(38, 0)) as structured_type UNION SELECT {'3': 33}::MAP(INTEGER, NUMBER(38, 0)) ORDER BY 1 DESC",
 				expected1: map[int64]int64{int64(1): int64(11), int64(2): int64(22)},
 				expected2: map[int64]int64{int64(3): int64(33)},
 				actual:    make(map[int64]int64),
 			},
 			{
 				name:      "string number fraction",
-				query:     "SELECT {'a': 11.1, 'b': 22.2}::MAP(VARCHAR, NUMBER(38, 19)) as structured_type UNION SELECT {'c': 33.3}::MAP(VARCHAR, NUMBER(38, 19))",
+				query:     "SELECT {'a': 11.1, 'b': 22.2}::MAP(VARCHAR, NUMBER(38, 19)) as structured_type UNION SELECT {'c': 33.3}::MAP(VARCHAR, NUMBER(38, 19)) ORDER BY 1 DESC",
 				expected1: map[string]float64{"a": 11.1, "b": 22.2},
 				expected2: map[string]float64{"c": 33.3},
 				actual:    make(map[string]float64),
 			},
 			{
 				name:      "integer number fraction",
-				query:     "SELECT {'1': 11.1, '2': 22.2}::MAP(INTEGER, NUMBER(38, 19)) as structured_type UNION SELECT {'3': 33.3}::MAP(INTEGER, NUMBER(38, 19))",
+				query:     "SELECT {'1': 11.1, '2': 22.2}::MAP(INTEGER, NUMBER(38, 19)) as structured_type UNION SELECT {'3': 33.3}::MAP(INTEGER, NUMBER(38, 19)) ORDER BY 1 DESC",
 				expected1: map[int64]float64{int64(1): 11.1, int64(2): 22.2},
 				expected2: map[int64]float64{int64(3): 33.3},
 				actual:    make(map[int64]float64),
 			},
 			{
 				name:      "string binary",
-				query:     "SELECT {'a': TO_BINARY('616263', 'HEX'), 'b': TO_BINARY('646566', 'HEX')}::MAP(VARCHAR, BINARY) as structured_type UNION SELECT {'c': TO_BINARY('676869', 'HEX')}::MAP(VARCHAR, BINARY)",
+				query:     "SELECT {'a': TO_BINARY('616263', 'HEX'), 'b': TO_BINARY('646566', 'HEX')}::MAP(VARCHAR, BINARY) as structured_type UNION SELECT {'c': TO_BINARY('676869', 'HEX')}::MAP(VARCHAR, BINARY) ORDER BY 1 DESC",
 				expected1: map[string][]byte{"a": {'a', 'b', 'c'}, "b": {'d', 'e', 'f'}},
 				expected2: map[string][]byte{"c": {'g', 'h', 'i'}},
 				actual:    make(map[string][]byte),
 			},
 			{
 				name:      "integer binary",
-				query:     "SELECT {'1': TO_BINARY('616263', 'HEX'), '2': TO_BINARY('646566', 'HEX')}::MAP(INTEGER, BINARY) as structured_type UNION SELECT {'3': TO_BINARY('676869', 'HEX')}::MAP(INTEGER, BINARY)",
+				query:     "SELECT {'1': TO_BINARY('616263', 'HEX'), '2': TO_BINARY('646566', 'HEX')}::MAP(INTEGER, BINARY) as structured_type UNION SELECT {'3': TO_BINARY('676869', 'HEX')}::MAP(INTEGER, BINARY) ORDER BY 1 DESC",
 				expected1: map[int64][]byte{1: {'a', 'b', 'c'}, 2: {'d', 'e', 'f'}},
 				expected2: map[int64][]byte{3: {'g', 'h', 'i'}},
 				actual:    make(map[int64][]byte),
 			},
 			{
 				name:      "string date",
-				query:     "SELECT {'a': '2024-04-02'::DATE, 'b': '2024-04-03'::DATE}::MAP(VARCHAR, DATE) as structured_type UNION SELECT {'c': '2024-04-04'::DATE}::MAP(VARCHAR, DATE)",
+				query:     "SELECT {'a': '2024-04-02'::DATE, 'b': '2024-04-03'::DATE}::MAP(VARCHAR, DATE) as structured_type UNION SELECT {'c': '2024-04-04'::DATE}::MAP(VARCHAR, DATE) ORDER BY 1 DESC",
 				expected1: map[string]time.Time{"a": time.Date(2024, time.April, 2, 0, 0, 0, 0, time.UTC), "b": time.Date(2024, time.April, 3, 0, 0, 0, 0, time.UTC)},
 				expected2: map[string]time.Time{"c": time.Date(2024, time.April, 4, 0, 0, 0, 0, time.UTC)},
 				actual:    make(map[string]time.Time),
 			},
 			{
 				name:      "integer date",
-				query:     "SELECT {'1': '2024-04-02'::DATE, '2': '2024-04-03'::DATE}::MAP(INTEGER, DATE) as structured_type UNION SELECT {'3': '2024-04-04'::DATE}::MAP(INTEGER, DATE)",
+				query:     "SELECT {'1': '2024-04-02'::DATE, '2': '2024-04-03'::DATE}::MAP(INTEGER, DATE) as structured_type UNION SELECT {'3': '2024-04-04'::DATE}::MAP(INTEGER, DATE) ORDER BY 1 DESC",
 				expected1: map[int64]time.Time{1: time.Date(2024, time.April, 2, 0, 0, 0, 0, time.UTC), 2: time.Date(2024, time.April, 3, 0, 0, 0, 0, time.UTC)},
 				expected2: map[int64]time.Time{3: time.Date(2024, time.April, 4, 0, 0, 0, 0, time.UTC)},
 				actual:    make(map[int64]time.Time),
 			},
 			{
 				name:      "string time",
-				query:     "SELECT {'a': '13:03:02'::TIME, 'b': '13:03:03'::TIME}::MAP(VARCHAR, TIME) as structured_type UNION SELECT {'c': '13:03:04'::TIME}::MAP(VARCHAR, TIME)",
+				query:     "SELECT {'a': '13:03:02'::TIME, 'b': '13:03:03'::TIME}::MAP(VARCHAR, TIME) as structured_type UNION SELECT {'c': '13:03:04'::TIME}::MAP(VARCHAR, TIME) ORDER BY 1 DESC",
 				expected1: map[string]time.Time{"a": time.Date(0, 0, 0, 13, 3, 2, 0, time.UTC), "b": time.Date(0, 0, 0, 13, 3, 3, 0, time.UTC)},
 				expected2: map[string]time.Time{"c": time.Date(0, 0, 0, 13, 3, 4, 0, time.UTC)},
 				actual:    make(map[string]time.Time),
 			},
 			{
 				name:      "integer time",
-				query:     "SELECT {'1': '13:03:02'::TIME, '2': '13:03:03'::TIME}::MAP(VARCHAR, TIME) as structured_type UNION SELECT {'3': '13:03:04'::TIME}::MAP(VARCHAR, TIME)",
+				query:     "SELECT {'1': '13:03:02'::TIME, '2': '13:03:03'::TIME}::MAP(VARCHAR, TIME) as structured_type UNION SELECT {'3': '13:03:04'::TIME}::MAP(VARCHAR, TIME) ORDER BY 1 DESC",
 				expected1: map[string]time.Time{"1": time.Date(0, 0, 0, 13, 3, 2, 0, time.UTC), "2": time.Date(0, 0, 0, 13, 3, 3, 0, time.UTC)},
 				expected2: map[string]time.Time{"3": time.Date(0, 0, 0, 13, 3, 4, 0, time.UTC)},
 				actual:    make(map[int64]time.Time),
 			},
 			{
 				name:      "string timestamp_ntz",
-				query:     "SELECT {'a': '2024-01-05 11:22:33'::TIMESTAMP_NTZ, 'b': '2024-01-06 11:22:33'::TIMESTAMP_NTZ}::MAP(VARCHAR, TIMESTAMP_NTZ) as structured_type UNION SELECT {'c': '2024-01-07 11:22:33'::TIMESTAMP_NTZ}::MAP(VARCHAR, TIMESTAMP_NTZ)",
+				query:     "SELECT {'a': '2024-01-05 11:22:33'::TIMESTAMP_NTZ, 'b': '2024-01-06 11:22:33'::TIMESTAMP_NTZ}::MAP(VARCHAR, TIMESTAMP_NTZ) as structured_type UNION SELECT {'c': '2024-01-07 11:22:33'::TIMESTAMP_NTZ}::MAP(VARCHAR, TIMESTAMP_NTZ) ORDER BY 1 DESC",
 				expected1: map[string]time.Time{"a": time.Date(2024, time.January, 5, 11, 22, 33, 0, time.UTC), "b": time.Date(2024, time.January, 6, 11, 22, 33, 0, time.UTC)},
 				expected2: map[string]time.Time{"c": time.Date(2024, time.January, 7, 11, 22, 33, 0, time.UTC)},
 				actual:    make(map[string]time.Time),
 			},
 			{
 				name:      "integer timestamp_ntz",
-				query:     "SELECT {'1': '2024-01-05 11:22:33'::TIMESTAMP_NTZ, '2': '2024-01-06 11:22:33'::TIMESTAMP_NTZ}::MAP(INTEGER, TIMESTAMP_NTZ) as structured_type UNION SELECT {'3': '2024-01-07 11:22:33'::TIMESTAMP_NTZ}::MAP(INTEGER, TIMESTAMP_NTZ)",
+				query:     "SELECT {'1': '2024-01-05 11:22:33'::TIMESTAMP_NTZ, '2': '2024-01-06 11:22:33'::TIMESTAMP_NTZ}::MAP(INTEGER, TIMESTAMP_NTZ) as structured_type UNION SELECT {'3': '2024-01-07 11:22:33'::TIMESTAMP_NTZ}::MAP(INTEGER, TIMESTAMP_NTZ) ORDER BY 1 DESC",
 				expected1: map[int64]time.Time{1: time.Date(2024, time.January, 5, 11, 22, 33, 0, time.UTC), 2: time.Date(2024, time.January, 6, 11, 22, 33, 0, time.UTC)},
 				expected2: map[int64]time.Time{3: time.Date(2024, time.January, 7, 11, 22, 33, 0, time.UTC)},
 				actual:    make(map[int64]time.Time),
 			},
 			{
 				name:      "string timestamp_tz",
-				query:     "SELECT {'a': '2024-01-05 11:22:33 +0100'::TIMESTAMP_TZ, 'b': '2024-01-06 11:22:33 +0100'::TIMESTAMP_TZ}::MAP(VARCHAR, TIMESTAMP_TZ) as structured_type UNION SELECT {'c': '2024-01-07 11:22:33 +0100'::TIMESTAMP_TZ}::MAP(VARCHAR, TIMESTAMP_TZ)",
+				query:     "SELECT {'a': '2024-01-05 11:22:33 +0100'::TIMESTAMP_TZ, 'b': '2024-01-06 11:22:33 +0100'::TIMESTAMP_TZ}::MAP(VARCHAR, TIMESTAMP_TZ) as structured_type UNION SELECT {'c': '2024-01-07 11:22:33 +0100'::TIMESTAMP_TZ}::MAP(VARCHAR, TIMESTAMP_TZ) ORDER BY 1 DESC",
 				expected1: map[string]time.Time{"a": time.Date(2024, time.January, 5, 11, 22, 33, 0, warsawTz), "b": time.Date(2024, time.January, 6, 11, 22, 33, 0, warsawTz)},
 				expected2: map[string]time.Time{"c": time.Date(2024, time.January, 7, 11, 22, 33, 0, warsawTz)},
 				actual:    make(map[string]time.Time),
 			},
 			{
 				name:      "integer timestamp_tz",
-				query:     "SELECT {'1': '2024-01-05 11:22:33 +0100'::TIMESTAMP_TZ, '2': '2024-01-06 11:22:33 +0100'::TIMESTAMP_TZ}::MAP(INTEGER, TIMESTAMP_TZ) as structured_type UNION SELECT {'3': '2024-01-07 11:22:33 +0100'::TIMESTAMP_TZ}::MAP(INTEGER, TIMESTAMP_TZ)",
+				query:     "SELECT {'1': '2024-01-05 11:22:33 +0100'::TIMESTAMP_TZ, '2': '2024-01-06 11:22:33 +0100'::TIMESTAMP_TZ}::MAP(INTEGER, TIMESTAMP_TZ) as structured_type UNION SELECT {'3': '2024-01-07 11:22:33 +0100'::TIMESTAMP_TZ}::MAP(INTEGER, TIMESTAMP_TZ) ORDER BY 1 DESC",
 				expected1: map[int64]time.Time{1: time.Date(2024, time.January, 5, 11, 22, 33, 0, time.UTC), 2: time.Date(2024, time.January, 6, 11, 22, 33, 0, time.UTC)},
 				expected2: map[int64]time.Time{3: time.Date(2024, time.January, 7, 11, 22, 33, 0, time.UTC)},
 				actual:    make(map[int64]time.Time),
 			},
 			{
 				name:      "string timestamp_ltz",
-				query:     "SELECT {'a': '2024-01-05 11:22:33'::TIMESTAMP_LTZ, 'b': '2024-01-06 11:22:33'::TIMESTAMP_LTZ}::MAP(VARCHAR, TIMESTAMP_LTZ) as structured_type UNION SELECT {'c': '2024-01-07 11:22:33'::TIMESTAMP_LTZ}::MAP(VARCHAR, TIMESTAMP_LTZ)",
+				query:     "SELECT {'a': '2024-01-05 11:22:33'::TIMESTAMP_LTZ, 'b': '2024-01-06 11:22:33'::TIMESTAMP_LTZ}::MAP(VARCHAR, TIMESTAMP_LTZ) as structured_type UNION SELECT {'c': '2024-01-07 11:22:33'::TIMESTAMP_LTZ}::MAP(VARCHAR, TIMESTAMP_LTZ) ORDER BY 1 DESC",
 				expected1: map[string]time.Time{"a": time.Date(2024, time.January, 5, 11, 22, 33, 0, warsawTz), "b": time.Date(2024, time.January, 6, 11, 22, 33, 0, warsawTz)},
 				expected2: map[string]time.Time{"c": time.Date(2024, time.January, 7, 11, 22, 33, 0, warsawTz)},
 				actual:    make(map[string]time.Time),
 			},
 			{
 				name:      "integer timestamp_ltz",
-				query:     "SELECT {'1': '2024-01-05 11:22:33'::TIMESTAMP_LTZ, '2': '2024-01-06 11:22:33'::TIMESTAMP_LTZ}::MAP(INTEGER, TIMESTAMP_LTZ) as structured_type UNION SELECT {'3': '2024-01-07 11:22:33'::TIMESTAMP_LTZ}::MAP(INTEGER, TIMESTAMP_LTZ)",
+				query:     "SELECT {'1': '2024-01-05 11:22:33'::TIMESTAMP_LTZ, '2': '2024-01-06 11:22:33'::TIMESTAMP_LTZ}::MAP(INTEGER, TIMESTAMP_LTZ) as structured_type UNION SELECT {'3': '2024-01-07 11:22:33'::TIMESTAMP_LTZ}::MAP(INTEGER, TIMESTAMP_LTZ) ORDER BY 1 DESC",
 				expected1: map[int64]time.Time{1: time.Date(2024, time.January, 5, 11, 22, 33, 0, time.UTC), 2: time.Date(2024, time.January, 6, 11, 22, 33, 0, time.UTC)},
 				expected2: map[int64]time.Time{3: time.Date(2024, time.January, 7, 11, 22, 33, 0, time.UTC)},
 				actual:    make(map[int64]time.Time),
@@ -1580,7 +1580,7 @@ func TestNullAndEmptyMaps(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'a': 1}::MAP(VARCHAR, INTEGER) UNION SELECT NULL UNION SELECT {}::MAP(VARCHAR, INTEGER) UNION SELECT {'d': 4}::MAP(VARCHAR, INTEGER)")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'a': 1}::MAP(VARCHAR, INTEGER) UNION SELECT NULL UNION SELECT {}::MAP(VARCHAR, INTEGER) UNION SELECT {'d': 4}::MAP(VARCHAR, INTEGER) ORDER BY 1")
 			defer rows.Close()
 			checkRow := func(rows *RowsExtended, expected *map[string]int64) {
 				rows.Next()
@@ -1589,10 +1589,10 @@ func TestNullAndEmptyMaps(t *testing.T) {
 				assertNilF(t, err)
 				assertDeepEqualE(t, res, expected)
 			}
-			checkRow(rows, &map[string]int64{"a": 1})
-			checkRow(rows, nil)
 			checkRow(rows, &map[string]int64{})
 			checkRow(rows, &map[string]int64{"d": 4})
+			checkRow(rows, &map[string]int64{"a": 1})
+			checkRow(rows, nil)
 		})
 	})
 }
