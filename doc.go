@@ -702,7 +702,7 @@ the underlying data has already been loaded, and downloads it if not.
 
 Limitations:
 
- 1. For some queries Snowflake may decide to return data in JSON format (examples: `SHOW PARAMETERS` or `ls @stage`). You cannot use JSON with Arrow batches context.
+ 1. For some queries Snowflake may decide to return data in JSON format (examples: `SHOW PARAMETERS` or `ls @stage`). You cannot use JSON with Arrow batches context. See alternative below.
  2. Snowflake handles timestamps in a range which is broader than available space in Arrow timestamp type. Because of that special treatment should be used (see below).
  3. When using numbers, Snowflake chooses the smallest type that covers all values in a batch. So even when your column is NUMBER(38, 0), if all values are 8bits, array.Int8 is used.
 
@@ -740,6 +740,17 @@ Zero-scale numbers (DECIMAL256, DECIMAL128) will be converted to int64, which co
 WHen using NUMBERs with non zero scale, the value is returned as an integer type and a scale is provided in record metadata.
 Example. When we have a 123.45 value that comes from NUMBER(9, 4), it will be represented as 1234500 with scale equal to 4. It is a client responsibility to interpret it correctly.
 Also - see limitations section above.
+
+How to handle JSON responses in Arrow batches:
+
+Due to technical limitations Snowflake backend may return Arrow even if client expects JSON.
+In that case Arrow batches are not available and the error with code ErrNonArrowResponseInArrowBatches is returned.
+The response is parsed to regular rows.
+You can read rows in a way described in transform_batches_to_rows.go example.
+This has a very strong limitation though - this is a very low level API (Go driver API), so there are no conversions ready.
+All values are returned as strings.
+Alternative approach is to rerun a query, but without enabling Arrow batches and use a general Go SQL API instead of driver API.
+It can be optimized by using `WithRequestID`, so backend returns results from cache.
 
 # Binding Parameters
 
