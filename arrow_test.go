@@ -6,12 +6,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/apache/arrow/go/v16/arrow/memory"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/apache/arrow-go/v18/arrow/memory"
 
 	"database/sql/driver"
 )
