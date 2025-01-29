@@ -163,6 +163,8 @@ const (
 
 	// ErrFailedToGetChunk is an error code for the case where it failed to get chunk of result set
 	ErrFailedToGetChunk = 262000
+	// ErrNonArrowResponseInArrowBatches is an error code for case where ArrowBatches mode is enabled, but response is not Arrow-based
+	ErrNonArrowResponseInArrowBatches = 262001
 
 	/* transaction*/
 
@@ -308,7 +310,7 @@ const (
 	errMsgFailedToParseTomlFile              = "failed to parse toml file. the params %v occurred error with value %v"
 	errMsgFailedToFindDSNInTomlFile          = "failed to find DSN in toml file."
 	errMsgInvalidPermissionToTomlFile        = "file permissions different than read/write for user. Your Permission: %v"
-	errJSONResponseInArrowBatchesMode        = "arrow batches enabled, but the response is not Arrow based"
+	errMsgNonArrowResponseInArrowBatches     = "arrow batches enabled, but the response is not Arrow based"
 )
 
 // Returned if a DNS doesn't include account parameter.
@@ -372,5 +374,13 @@ func errNullValueInMap() *SnowflakeError {
 	return &SnowflakeError{
 		Number:  ErrNullValueInMap,
 		Message: errMsgNullValueInMap,
+	}
+}
+
+func errNonArrowResponseForArrowBatches(queryID string) *SnowflakeError {
+	return &SnowflakeError{
+		QueryID: queryID,
+		Number:  ErrNonArrowResponseInArrowBatches,
+		Message: errMsgNonArrowResponseInArrowBatches,
 	}
 }

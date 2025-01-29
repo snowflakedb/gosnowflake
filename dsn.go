@@ -974,6 +974,7 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 		Region:      region,
 		Passcode:    passcode,
 		Application: application,
+		Params:      map[string]*string{},
 	}
 	return cfg, nil
 }
