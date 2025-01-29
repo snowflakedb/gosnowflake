@@ -743,7 +743,7 @@ Also - see limitations section above.
 
 How to handle JSON responses in Arrow batches:
 
-Due to technical limitations Snowflake backend may return Arrow even if client expects JSON.
+Due to technical limitations Snowflake backend may return JSON even if client expects Arrow.
 In that case Arrow batches are not available and the error with code ErrNonArrowResponseInArrowBatches is returned.
 The response is parsed to regular rows.
 You can read rows in a way described in transform_batches_to_rows.go example.
