@@ -38,9 +38,7 @@ require (
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/dvsekhvalnov/jose2go v1.6.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
-	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/google/flatbuffers v24.3.25+incompatible // indirect
-	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
