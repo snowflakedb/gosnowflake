@@ -2,6 +2,8 @@ module github.com/snowflakedb/gosnowflake
 
 go 1.21
 
+replace github.com/99designs/keyring => github.com/Jeffail/keyring v1.2.3
+
 require (
 	github.com/99designs/keyring v1.2.2
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.4.0
