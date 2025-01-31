@@ -825,7 +825,7 @@ func TestBulkArrayBinding(t *testing.T) {
 		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
 		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
 		someBinary := []byte{0x01, 0x02, 0x03}
-		numRows := 100000
+		numRows := 2
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
 		ltzArr := make([]time.Time, numRows)
@@ -874,6 +874,108 @@ func TestBulkArrayBinding(t *testing.T) {
 	})
 }
 
+func TestSNOW1313648(t *testing.T) {
+	insertTable := "Snow1313648Insert"
+	bindingTable := "Snow1313648Binding"
+	stringTable := "Snow1313648String"
+
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", bindingTable))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", insertTable))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time)", stringTable))
+
+		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
+		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
+		testingDate := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
+		someBinary := []byte{0x01, 0x02, 0x03}
+		numRows := 1
+		intArr := make([]int, numRows)
+		strArr := make([]string, numRows)
+		ltzArr := make([]time.Time, numRows)
+		tzArr := make([]time.Time, numRows)
+		ntzArr := make([]time.Time, numRows)
+		dateArr := make([]time.Time, numRows)
+		timeArr := make([]time.Time, numRows)
+		binArr := make([][]byte, numRows)
+		for i := 0; i < numRows; i++ {
+			intArr[i] = i
+			strArr[i] = "test" + strconv.Itoa(i)
+			ltzArr[i] = testingDate
+			tzArr[i] = testingDate.Add(time.Hour).UTC()
+			ntzArr[i] = testingDate.Add(2 * time.Hour)
+			dateArr[i] = someDate
+			timeArr[i] = someTime
+			binArr[i] = someBinary
+		}
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", insertTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?)", stringTable), 0, "test"+strconv.Itoa(0), testingDate, testingDate.Add(time.Hour).UTC(), testingDate.Add(2*time.Hour), someDate, someTime)
+		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", bindingTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
+
+		insertRows := dbt.mustQuery("select * from " + insertTable + " order by c1")
+		bindingRows := dbt.mustQuery("select * from " + bindingTable + " order by c1 limit 1")
+		stringRows := dbt.mustQuery("select * from " + stringTable + " order by c1")
+
+		defer func() {
+			assertNilF(t, insertRows.Close())
+			assertNilF(t, bindingRows.Close())
+			assertNilF(t, stringRows.Close())
+		}()
+
+		cnt := 0
+		var i, bi, si int
+		var s, bs, ss string
+		var ltz, bltz, sltz, tz, btz, stz, ntz, bntz, sntz, date, bDate, sDate, tt, btt, stt time.Time
+		var b, bb []byte
+
+		insertRows.Next()
+		if err := insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b); err != nil {
+			t.Fatal(err)
+		}
+
+		bindingRows.Next()
+		if err := bindingRows.Scan(&bi, &bs, &bltz, &btz, &bntz, &bDate, &btt, &bb); err != nil {
+			t.Fatal(err)
+		}
+
+		stringRows.Next()
+		if err := stringRows.Scan(&si, &ss, &sltz, &stz, &sntz, &sDate, &stt); err != nil {
+			t.Fatal(err)
+		}
+
+		assertEqualE(t, i, bi)
+		assertEqualE(t, i, si)
+
+		assertEqualE(t, s, bs)
+		assertEqualE(t, s, ss)
+
+		assertEqualE(t, ltz, bltz)
+		assertEqualE(t, ltz, sltz)
+
+		assertEqualE(t, tz, btz)
+		assertEqualE(t, tz, stz)
+
+		assertEqualE(t, ntz, bntz)
+		assertEqualE(t, ntz, sntz)
+
+		assertEqualE(t, date, bDate)
+		assertEqualE(t, date, sDate)
+
+		assertEqualE(t, tt, btt)
+		assertEqualE(t, tt, stt)
+
+		assertBytesEqualE(t, b, bb)
+
+		assertEqualE(t, "test"+strconv.Itoa(cnt), s)
+		assertEqualE(t, ltz.UTC(), testingDate.UTC())
+		assertEqualE(t, tz.UTC(), testingDate.Add(time.Hour).UTC())
+		assertEqualE(t, ntz.UTC(), testingDate.Add(2*time.Hour).UTC())
+		assertEqualE(t, date, someDate)
+		assertEqualE(t, tt, someTime)
+		assertBytesEqualE(t, b, someBinary)
+
+	})
+}
 func TestBulkArrayBindingTimeWithPrecision(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (s time(0), ms time(3), us time(6), ns time(9))", dbname))

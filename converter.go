@@ -2566,7 +2566,7 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 // snowflakeArrayToString converts the array binding to snowflake's native
 // string type. The string value differs whether it's directly bound or
 // uploaded via stream.
-func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, []*string) {
+func snowflakeArrayToString(nv *driver.NamedValue, stream bool, params map[string]*string) (snowflakeType, []*string) {
 	var t snowflakeType
 	var arr []*string
 	switch reflect.TypeOf(nv.Value) {
@@ -2630,28 +2630,40 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		t = timestampNtzType
 		a := nv.Value.(*timestampNtzArray)
 		for _, x := range *a {
-			v := strconv.FormatInt(x.UnixNano(), 10)
-			arr = append(arr, &v)
+			var v string
+			if stream {
+				v = x.Format(format)
+				arr = append(arr, &v)
+			} else {
+				d, _ := valueToString(x, t, params)
+				arr = append(arr, d.value)
+			}
 		}
 	case reflect.TypeOf(&timestampLtzArray{}):
 		t = timestampLtzType
 		a := nv.Value.(*timestampLtzArray)
 		for _, x := range *a {
-			v := strconv.FormatInt(x.UnixNano(), 10)
-			arr = append(arr, &v)
+			if stream {
+				v := x.Format(format)
+				arr = append(arr, &v)
+			} else {
+				t = timestampNtzType
+				d, _ := valueToString(x, t, params)
+				arr = append(arr, d.value)
+			}
 		}
 	case reflect.TypeOf(&timestampTzArray{}):
 		t = timestampTzType
 		a := nv.Value.(*timestampTzArray)
 		for _, x := range *a {
-			var v string
 			if stream {
-				v = x.Format(format)
+				v := x.Format(format)
+				arr = append(arr, &v)
 			} else {
-				_, offset := x.Zone()
-				v = fmt.Sprintf("%v %v", x.UnixNano(), offset/60+1440)
+				t = timestampNtzType
+				d, _ := valueToString(x, t, params)
+				arr = append(arr, d.value)
 			}
-			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&dateArray{}):
 		t = dateType
