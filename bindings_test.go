@@ -875,14 +875,14 @@ func TestBulkArrayBinding(t *testing.T) {
 }
 
 func TestSNOW1313648(t *testing.T) {
-	insertTable := "Snow1313648Insert"
-	bindingTable := "Snow1313648Binding"
-	stringTable := "Snow1313648String"
+	arrayInsertTable := "Snow1313648Insert"
+	stageBindingTable := "Snow1313648stageBinding"
+	regularInsertTable := "Snow1313648String"
 
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", bindingTable))
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", insertTable))
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time)", stringTable))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time)", regularInsertTable))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", arrayInsertTable))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", stageBindingTable))
 
 		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
 		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
@@ -907,14 +907,14 @@ func TestSNOW1313648(t *testing.T) {
 			timeArr[i] = someTime
 			binArr[i] = someBinary
 		}
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", insertTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?)", stringTable), 0, "test"+strconv.Itoa(0), testingDate, testingDate.Add(time.Hour).UTC(), testingDate.Add(2*time.Hour), someDate, someTime)
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?)", regularInsertTable), 0, "test"+strconv.Itoa(0), testingDate, testingDate.Add(time.Hour).UTC(), testingDate.Add(2*time.Hour), someDate, someTime)
 		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", bindingTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
 
-		insertRows := dbt.mustQuery("select * from " + insertTable + " order by c1")
-		bindingRows := dbt.mustQuery("select * from " + bindingTable + " order by c1 limit 1")
-		stringRows := dbt.mustQuery("select * from " + stringTable + " order by c1")
+		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")
+		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1")
+		stringRows := dbt.mustQuery("select * from " + regularInsertTable + " order by c1")
 
 		defer func() {
 			assertNilF(t, insertRows.Close())
