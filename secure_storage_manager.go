@@ -91,10 +91,10 @@ func (ssm *fileBasedSecureStorageManager) setCredential(sc *snowflakeConn, credT
 	if token == "" {
 		logger.Debug("no token provided")
 	} else {
-		target := buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
+		credentialsKey := buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
 		ssm.credCacheLock.Lock()
 		defer ssm.credCacheLock.Unlock()
-		ssm.localCredCache[target] = token
+		ssm.localCredCache[credentialsKey] = token
 
 		j, err := json.Marshal(ssm.localCredCache)
 		if err != nil {
@@ -136,11 +136,11 @@ func (ssm *fileBasedSecureStorageManager) setCredential(sc *snowflakeConn, credT
 }
 
 func (ssm *fileBasedSecureStorageManager) getCredential(sc *snowflakeConn, credType string) {
-	target := buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
+	credentialsKey := buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
 	ssm.credCacheLock.Lock()
 	defer ssm.credCacheLock.Unlock()
 	localCredCache := ssm.readTemporaryCacheFile()
-	cred := localCredCache[target]
+	cred := localCredCache[credentialsKey]
 	if cred != "" {
 		logger.Debug("Successfully read token. Returning as string")
 	} else {
@@ -174,8 +174,8 @@ func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile() map[string]st
 func (ssm *fileBasedSecureStorageManager) deleteCredential(sc *snowflakeConn, credType string) {
 	ssm.credCacheLock.Lock()
 	defer ssm.credCacheLock.Unlock()
-	target := buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
-	delete(ssm.localCredCache, target)
+	credentialsKey := buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
+	delete(ssm.localCredCache, credentialsKey)
 	j, err := json.Marshal(ssm.localCredCache)
 	if err != nil {
 		logger.Warnf("failed to convert credential to JSON.")
@@ -228,24 +228,24 @@ func (ssm *keyringSecureStorageManager) setCredential(sc *snowflakeConn, credTyp
 	if token == "" {
 		logger.Debug("no token provided")
 	} else {
-		var target string
+		var credentialsKey string
 		if runtime.GOOS == "windows" {
-			target = driverName + ":" + credType
+			credentialsKey = driverName + ":" + credType
 			ring, _ := keyring.Open(keyring.Config{
 				WinCredPrefix: strings.ToUpper(sc.cfg.Host),
 				ServiceName:   strings.ToUpper(sc.cfg.User),
 			})
 			item := keyring.Item{
-				Key:  target,
+				Key:  credentialsKey,
 				Data: []byte(token),
 			}
 			if err := ring.Set(item); err != nil {
 				logger.Debugf("Failed to write to Windows credential manager. Err: %v", err)
 			}
 		} else if runtime.GOOS == "darwin" {
-			target = buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
+			credentialsKey = buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
 			ring, _ := keyring.Open(keyring.Config{
-				ServiceName: target,
+				ServiceName: credentialsKey,
 			})
 			account := strings.ToUpper(sc.cfg.User)
 			item := keyring.Item{
@@ -260,23 +260,23 @@ func (ssm *keyringSecureStorageManager) setCredential(sc *snowflakeConn, credTyp
 }
 
 func (ssm *keyringSecureStorageManager) getCredential(sc *snowflakeConn, credType string) {
-	var target string
+	var credentialsKey string
 	cred := ""
 	if runtime.GOOS == "windows" {
-		target = driverName + ":" + credType
+		credentialsKey = driverName + ":" + credType
 		ring, _ := keyring.Open(keyring.Config{
 			WinCredPrefix: strings.ToUpper(sc.cfg.Host),
 			ServiceName:   strings.ToUpper(sc.cfg.User),
 		})
-		i, err := ring.Get(target)
+		i, err := ring.Get(credentialsKey)
 		if err != nil {
-			logger.Debugf("Failed to read target or could not find it in Windows Credential Manager. Error: %v", err)
+			logger.Debugf("Failed to read credentialsKey or could not find it in Windows Credential Manager. Error: %v", err)
 		}
 		cred = string(i.Data)
 	} else if runtime.GOOS == "darwin" {
-		target = buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
+		credentialsKey = buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
 		ring, _ := keyring.Open(keyring.Config{
-			ServiceName: target,
+			ServiceName: credentialsKey,
 		})
 		account := strings.ToUpper(sc.cfg.User)
 		i, err := ring.Get(account)
@@ -301,25 +301,25 @@ func (ssm *keyringSecureStorageManager) getCredential(sc *snowflakeConn, credTyp
 }
 
 func (ssm *keyringSecureStorageManager) deleteCredential(sc *snowflakeConn, credType string) {
-	target := driverName + ":" + credType
+	credentialsKey := driverName + ":" + credType
 	if runtime.GOOS == "windows" {
 		ring, _ := keyring.Open(keyring.Config{
 			WinCredPrefix: strings.ToUpper(sc.cfg.Host),
 			ServiceName:   strings.ToUpper(sc.cfg.User),
 		})
-		err := ring.Remove(target)
+		err := ring.Remove(credentialsKey)
 		if err != nil {
-			logger.Debugf("Failed to delete target in Windows Credential Manager. Error: %v", err)
+			logger.Debugf("Failed to delete credentialsKey in Windows Credential Manager. Error: %v", err)
 		}
 	} else if runtime.GOOS == "darwin" {
-		target = buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
+		credentialsKey = buildCredentialsKey(sc.cfg.Host, sc.cfg.User, credType)
 		ring, _ := keyring.Open(keyring.Config{
-			ServiceName: target,
+			ServiceName: credentialsKey,
 		})
 		account := strings.ToUpper(sc.cfg.User)
 		err := ring.Remove(account)
 		if err != nil {
-			logger.Debugf("Failed to delete target in keychain. Error: %v", err)
+			logger.Debugf("Failed to delete credentialsKey in keychain. Error: %v", err)
 		}
 	}
 }
@@ -328,8 +328,7 @@ func buildCredentialsKey(host, user, credType string) string {
 	host = strings.ToUpper(host)
 	user = strings.ToUpper(user)
 	credType = strings.ToUpper(credType)
-	target := host + ":" + user + ":" + driverName + ":" + credType
-	return target
+	return host + ":" + user + ":" + driverName + ":" + credType
 }
 
 type noopSecureStorageManager struct {
