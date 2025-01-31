@@ -365,10 +365,10 @@ func authenticate(
 		logger.WithContext(ctx).Errorln("Authentication FAILED")
 		sc.rest.TokenAccessor.SetTokens("", "", -1)
 		if sessionParameters[clientRequestMfaToken] == true {
-			deleteCredential(sc, mfaToken)
+			credentialsStorage.deleteCredential(sc, mfaToken)
 		}
 		if sessionParameters[clientStoreTemporaryCredential] == true {
-			deleteCredential(sc, idToken)
+			credentialsStorage.deleteCredential(sc, idToken)
 		}
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
@@ -384,11 +384,11 @@ func authenticate(
 	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
 	if sessionParameters[clientRequestMfaToken] == true {
 		token := respd.Data.MfaToken
-		setCredential(sc, mfaToken, token)
+		credentialsStorage.setCredential(sc, mfaToken, token)
 	}
 	if sessionParameters[clientStoreTemporaryCredential] == true {
 		token := respd.Data.IDToken
-		setCredential(sc, idToken, token)
+		credentialsStorage.setCredential(sc, idToken, token)
 	}
 	return &respd.Data, nil
 }
@@ -575,9 +575,9 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 }
 
 func fillCachedIDToken(sc *snowflakeConn) {
-	getCredential(sc, idToken)
+	credentialsStorage.getCredential(sc, idToken)
 }
 
 func fillCachedMfaToken(sc *snowflakeConn) {
-	getCredential(sc, mfaToken)
+	credentialsStorage.getCredential(sc, mfaToken)
 }
