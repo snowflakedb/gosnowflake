@@ -460,6 +460,11 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if authRequiresPassword(cfg) && strings.TrimSpace(cfg.Password) == "" {
 		return errEmptyPassword()
 	}
+
+	if authRequiresEitherPasswordOrToken(cfg) && strings.TrimSpace(cfg.Password) == "" && strings.TrimSpace(cfg.Token) == "" {
+		return errEmptyPasswordAndToken()
+	}
+
 	if strings.Trim(cfg.Protocol, " ") == "" {
 		cfg.Protocol = "https"
 	}
@@ -576,14 +581,20 @@ func buildHostFromAccountAndRegion(account, region string) string {
 func authRequiresUser(cfg *Config) bool {
 	return cfg.Authenticator != AuthTypeOAuth &&
 		cfg.Authenticator != AuthTypeTokenAccessor &&
-		cfg.Authenticator != AuthTypeExternalBrowser
+		cfg.Authenticator != AuthTypeExternalBrowser &&
+		cfg.Authenticator != AuthTypePat
 }
 
 func authRequiresPassword(cfg *Config) bool {
 	return cfg.Authenticator != AuthTypeOAuth &&
 		cfg.Authenticator != AuthTypeTokenAccessor &&
 		cfg.Authenticator != AuthTypeExternalBrowser &&
-		cfg.Authenticator != AuthTypeJwt
+		cfg.Authenticator != AuthTypeJwt &&
+		cfg.Authenticator != AuthTypePat
+}
+
+func authRequiresEitherPasswordOrToken(cfg *Config) bool {
+	return cfg.Authenticator == AuthTypePat
 }
 
 // transformAccountToHost transforms account to host
@@ -905,7 +916,7 @@ type ConfigParam struct {
 
 // GetConfigFromEnv is used to parse the environment variable values to specific fields of the Config
 func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
-	var account, user, password, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
+	var account, user, password, token, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
 	var privateKey *rsa.PrivateKey
 	var err error
 	if len(properties) == 0 || properties == nil {
@@ -923,6 +934,8 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 			user = value
 		case "Password":
 			password = value
+		case "Token":
+			token = value
 		case "Role":
 			role = value
 		case "Host":
@@ -963,6 +976,7 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 		Account:     account,
 		User:        user,
 		Password:    password,
+		Token:       token,
 		Role:        role,
 		Host:        host,
 		Port:        port,

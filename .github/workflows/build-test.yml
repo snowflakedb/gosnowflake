@@ -26,8 +26,6 @@ concurrency:
 jobs:
     lint:
         runs-on: ubuntu-latest
-        strategy:
-          fail-fast: false
         name: Check linter
         steps:
           - uses: actions/checkout@v4
