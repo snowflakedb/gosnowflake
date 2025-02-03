@@ -874,6 +874,43 @@ func TestBulkArrayBinding(t *testing.T) {
 	})
 }
 
+func TestSNOW1313648epoch(t *testing.T) {
+	regularInsertTable := "JOHNTESTDB.TESTSCHEMA.GoTimeStamp"
+
+	someTime := time.Date(1950, time.January, 3, 0, 0, 0, 0, time.UTC)
+
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz)", regularInsertTable))
+
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?)", regularInsertTable), 0, Array(someTime), Array(someTime), Array(someTime))
+
+		stringRows := dbt.mustQuery("select * from " + regularInsertTable + " order by c1")
+
+		defer func() {
+			assertNilF(t, stringRows.Close())
+		}()
+
+		var si int
+		var sltz, stz, sntz time.Time
+
+		stringRows.Next()
+		if err := stringRows.Scan(&si, &sltz, &stz, &sntz); err != nil {
+			t.Fatal(err)
+		}
+
+		if sltz.UnixNano() != someTime.UnixNano() {
+			t.Fatalf("failed to fetch. expected %v, got: %v", someTime, sltz)
+		}
+		if someTime.UnixNano() != sntz.UnixNano() {
+			t.Fatalf("failed to fetch. expected %v, got: %v", someTime, sntz)
+		}
+		if someTime.UnixNano() != stz.UnixNano() {
+			t.Fatalf("failed to fetch. expected %v, got: %v", someTime, stz)
+		}
+
+	})
+}
+
 func TestSNOW1313648(t *testing.T) {
 	arrayInsertTable := "Snow1313648Insert"
 	stageBindingTable := "Snow1313648stageBinding"
@@ -909,7 +946,27 @@ func TestSNOW1313648(t *testing.T) {
 		}
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?)", regularInsertTable), 0, "test"+strconv.Itoa(0), testingDate, testingDate.Add(time.Hour).UTC(), testingDate.Add(2*time.Hour), someDate, someTime)
-		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
+		// dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
+		numRows = 9000
+		intArr = make([]int, numRows)
+		strArr = make([]string, numRows)
+		ltzArr = make([]time.Time, numRows)
+		tzArr = make([]time.Time, numRows)
+		ntzArr = make([]time.Time, numRows)
+		dateArr = make([]time.Time, numRows)
+		timeArr = make([]time.Time, numRows)
+		binArr = make([][]byte, numRows)
+		for i := 0; i < numRows; i++ {
+			intArr[i] = i
+			strArr[i] = "test" + strconv.Itoa(i)
+			ltzArr[i] = testingDate
+			tzArr[i] = testingDate.Add(time.Hour).UTC()
+			ntzArr[i] = testingDate.Add(2 * time.Hour)
+			dateArr[i] = someDate
+			timeArr[i] = someTime
+			binArr[i] = someBinary
+		}
+
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
 
 		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")
@@ -953,10 +1010,10 @@ func TestSNOW1313648(t *testing.T) {
 		assertEqualE(t, ltz, sltz)
 
 		assertEqualE(t, tz, btz)
-		assertEqualE(t, tz, stz)
+		assertEqualE(t, btz, stz)
 
 		assertEqualE(t, ntz, bntz)
-		assertEqualE(t, ntz, sntz)
+		assertEqualE(t, bntz, sntz)
 
 		assertEqualE(t, date, bDate)
 		assertEqualE(t, date, sDate)
@@ -976,6 +1033,7 @@ func TestSNOW1313648(t *testing.T) {
 
 	})
 }
+
 func TestBulkArrayBindingTimeWithPrecision(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (s time(0), ms time(3), us time(6), ns time(9))", dbname))

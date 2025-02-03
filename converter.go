@@ -2647,7 +2647,6 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool, params map[strin
 				v := x.Format(format)
 				arr = append(arr, &v)
 			} else {
-				t = timestampNtzType
 				d, _ := valueToString(x, t, params)
 				arr = append(arr, d.value)
 			}
@@ -2660,7 +2659,6 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool, params map[strin
 				v := x.Format(format)
 				arr = append(arr, &v)
 			} else {
-				t = timestampNtzType
 				d, _ := valueToString(x, t, params)
 				arr = append(arr, d.value)
 			}
