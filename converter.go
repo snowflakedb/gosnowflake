@@ -2630,14 +2630,25 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		t = timestampNtzType
 		a := nv.Value.(*timestampNtzArray)
 		for _, x := range *a {
-			v := strconv.FormatInt(x.UnixNano(), 10)
+			var v string
+			if stream {
+				v = x.Format(format)
+			} else {
+				v = strconv.FormatInt(x.UnixNano(), 10)
+			}
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&timestampLtzArray{}):
 		t = timestampLtzType
 		a := nv.Value.(*timestampLtzArray)
+
 		for _, x := range *a {
-			v := strconv.FormatInt(x.UnixNano(), 10)
+			var v string
+			if stream {
+				v = x.Format(format)
+			} else {
+				v = strconv.FormatInt(x.UnixNano(), 10)
+			}
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&timestampTzArray{}):

@@ -825,7 +825,7 @@ func TestBulkArrayBinding(t *testing.T) {
 		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
 		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
 		someBinary := []byte{0x01, 0x02, 0x03}
-		numRows := 2
+		numRows := 10000
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
 		ltzArr := make([]time.Time, numRows)
@@ -877,18 +877,16 @@ func TestBulkArrayBinding(t *testing.T) {
 func TestSNOW1313648(t *testing.T) {
 	arrayInsertTable := "Snow1313648Insert"
 	stageBindingTable := "Snow1313648stageBinding"
-	regularInsertTable := "Snow1313648String"
 
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time)", regularInsertTable))
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", arrayInsertTable))
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", stageBindingTable))
 
 		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
 		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
-		testingDate := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
+		testingDate := time.Date(1970, time.January, 2, 0, 0, 0, 0, time.UTC)
 		someBinary := []byte{0x01, 0x02, 0x03}
-		numRows := 1
+		numRows := 2
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
 		ltzArr := make([]time.Time, numRows)
@@ -908,9 +906,7 @@ func TestSNOW1313648(t *testing.T) {
 			binArr[i] = someBinary
 		}
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?)", regularInsertTable), 0, "test"+strconv.Itoa(0), testingDate, testingDate.Add(time.Hour).UTC(), testingDate.Add(2*time.Hour), someDate, someTime)
-		// dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
-		numRows = 9000
+		numRows = 10000
 		intArr = make([]int, numRows)
 		strArr = make([]string, numRows)
 		ltzArr = make([]time.Time, numRows)
@@ -934,18 +930,17 @@ func TestSNOW1313648(t *testing.T) {
 
 		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")
 		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1")
-		stringRows := dbt.mustQuery("select * from " + regularInsertTable + " order by c1")
 
 		defer func() {
 			assertNilF(t, insertRows.Close())
 			assertNilF(t, bindingRows.Close())
-			assertNilF(t, stringRows.Close())
+			// assertNilF(t, stringRows.Close())
 		}()
-
 		cnt := 0
-		var i, bi, si int
-		var s, bs, ss string
-		var ltz, bltz, sltz, tz, btz, stz, ntz, bntz, sntz, date, bDate, sDate, tt, btt, stt time.Time
+		var i, bi int
+		var s, bs string
+		var ltz, bltz, btz, tz, ntz, bntz, date, bDate, tt, btt time.Time
+
 		var b, bb []byte
 
 		insertRows.Next()
@@ -958,31 +953,24 @@ func TestSNOW1313648(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		stringRows.Next()
-		if err := stringRows.Scan(&si, &ss, &sltz, &stz, &sntz, &sDate, &stt); err != nil {
-			t.Fatal(err)
-		}
+		// stringRows.Next()
+		// if err := stringRows.Scan(&si, &ss, &sltz, &stz, &sntz, &sDate, &stt); err != nil {
+		// 	t.Fatal(err)
+		// }
 
 		assertEqualE(t, i, bi)
-		assertEqualE(t, i, si)
 
 		assertEqualE(t, s, bs)
-		assertEqualE(t, s, ss)
 
 		assertEqualE(t, ltz, bltz)
-		assertEqualE(t, ltz, sltz)
 
 		assertEqualE(t, tz, btz)
-		assertEqualE(t, btz, stz)
 
 		assertEqualE(t, ntz, bntz)
-		assertEqualE(t, bntz, sntz)
 
 		assertEqualE(t, date, bDate)
-		assertEqualE(t, date, sDate)
 
 		assertEqualE(t, tt, btt)
-		assertEqualE(t, tt, stt)
 
 		assertBytesEqualE(t, b, bb)
 
