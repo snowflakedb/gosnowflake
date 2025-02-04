@@ -884,9 +884,9 @@ func TestSNOW1313648(t *testing.T) {
 
 		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
 		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
-		testingDate := time.Date(1970, time.January, 2, 0, 0, 0, 0, time.UTC)
+		testingDate := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 		someBinary := []byte{0x01, 0x02, 0x03}
-		numRows := 2
+		numRows := 5
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
 		ltzArr := make([]time.Time, numRows)
@@ -906,35 +906,15 @@ func TestSNOW1313648(t *testing.T) {
 			binArr[i] = someBinary
 		}
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
-		numRows = 10000
-		intArr = make([]int, numRows)
-		strArr = make([]string, numRows)
-		ltzArr = make([]time.Time, numRows)
-		tzArr = make([]time.Time, numRows)
-		ntzArr = make([]time.Time, numRows)
-		dateArr = make([]time.Time, numRows)
-		timeArr = make([]time.Time, numRows)
-		binArr = make([][]byte, numRows)
-		for i := 0; i < numRows; i++ {
-			intArr[i] = i
-			strArr[i] = "test" + strconv.Itoa(i)
-			ltzArr[i] = testingDate
-			tzArr[i] = testingDate.Add(time.Hour).UTC()
-			ntzArr[i] = testingDate.Add(2 * time.Hour)
-			dateArr[i] = someDate
-			timeArr[i] = someTime
-			binArr[i] = someBinary
-		}
-
+		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
 
 		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")
-		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1")
+		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1 limit 2")
 
 		defer func() {
 			assertNilF(t, insertRows.Close())
 			assertNilF(t, bindingRows.Close())
-			// assertNilF(t, stringRows.Close())
 		}()
 		cnt := 0
 		var i, bi int
@@ -943,45 +923,40 @@ func TestSNOW1313648(t *testing.T) {
 
 		var b, bb []byte
 
-		insertRows.Next()
-		if err := insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b); err != nil {
-			t.Fatal(err)
+		for insertRows.Next() && bindingRows.Next() {
+			if err := insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := bindingRows.Scan(&bi, &bs, &bltz, &btz, &bntz, &bDate, &btt, &bb); err != nil {
+				t.Fatal(err)
+			}
+
+			assertEqualE(t, i, bi)
+
+			assertEqualE(t, s, bs)
+
+			assertEqualE(t, ltz, bltz)
+
+			assertEqualE(t, tz, btz)
+
+			assertEqualE(t, ntz, bntz)
+
+			assertEqualE(t, date, bDate)
+
+			assertEqualE(t, tt, btt)
+
+			assertBytesEqualE(t, b, bb)
+
+			assertEqualE(t, "test"+strconv.Itoa(cnt), s)
+			assertEqualE(t, ltz.UTC(), testingDate.UTC())
+			assertEqualE(t, tz.UTC(), testingDate.Add(time.Hour).UTC())
+			assertEqualE(t, ntz.UTC(), testingDate.Add(2*time.Hour).UTC())
+			assertEqualE(t, date, someDate)
+			assertEqualE(t, tt, someTime)
+			assertBytesEqualE(t, b, someBinary)
+			cnt++
 		}
-
-		bindingRows.Next()
-		if err := bindingRows.Scan(&bi, &bs, &bltz, &btz, &bntz, &bDate, &btt, &bb); err != nil {
-			t.Fatal(err)
-		}
-
-		// stringRows.Next()
-		// if err := stringRows.Scan(&si, &ss, &sltz, &stz, &sntz, &sDate, &stt); err != nil {
-		// 	t.Fatal(err)
-		// }
-
-		assertEqualE(t, i, bi)
-
-		assertEqualE(t, s, bs)
-
-		assertEqualE(t, ltz, bltz)
-
-		assertEqualE(t, tz, btz)
-
-		assertEqualE(t, ntz, bntz)
-
-		assertEqualE(t, date, bDate)
-
-		assertEqualE(t, tt, btt)
-
-		assertBytesEqualE(t, b, bb)
-
-		assertEqualE(t, "test"+strconv.Itoa(cnt), s)
-		assertEqualE(t, ltz.UTC(), testingDate.UTC())
-		assertEqualE(t, tz.UTC(), testingDate.Add(time.Hour).UTC())
-		assertEqualE(t, ntz.UTC(), testingDate.Add(2*time.Hour).UTC())
-		assertEqualE(t, date, someDate)
-		assertEqualE(t, tt, someTime)
-		assertBytesEqualE(t, b, someBinary)
-
 	})
 }
 

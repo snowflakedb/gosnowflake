@@ -2634,7 +2634,11 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 			if stream {
 				v = x.Format(format)
 			} else {
-				v = strconv.FormatInt(x.UnixNano(), 10)
+				unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
+				m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
+				unixTime.Mul(unixTime, m)
+				tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Nanosecond()), 10)
+				v = unixTime.Add(unixTime, tmNanos).String()
 			}
 			arr = append(arr, &v)
 		}
@@ -2647,7 +2651,11 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 			if stream {
 				v = x.Format(format)
 			} else {
-				v = strconv.FormatInt(x.UnixNano(), 10)
+				unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
+				m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
+				unixTime.Mul(unixTime, m)
+				tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Nanosecond()), 10)
+				v = unixTime.Add(unixTime, tmNanos).String()
 			}
 			arr = append(arr, &v)
 		}
@@ -2660,7 +2668,11 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 				v = x.Format(format)
 			} else {
 				_, offset := x.Zone()
-				v = fmt.Sprintf("%v %v", x.UnixNano(), offset/60+1440)
+				unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
+				m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
+				unixTime.Mul(unixTime, m)
+				tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Nanosecond()), 10)
+				v = fmt.Sprintf("%v %v", unixTime.Add(unixTime, tmNanos), offset/60+1440)
 			}
 			arr = append(arr, &v)
 		}
