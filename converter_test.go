@@ -437,7 +437,7 @@ func TestArrayToString(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(strings.Join(test.out, "_"), func(t *testing.T) {
-			s, a := snowflakeArrayToString(&test.in, false, nil)
+			s, a := snowflakeArrayToString(&test.in, false)
 			if s != test.typ {
 				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.typ, s)
 			}

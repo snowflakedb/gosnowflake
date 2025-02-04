@@ -136,7 +136,7 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 		}).exceptionTelemetry(bu.sc)
 	}
 
-	_, column := snowflakeArrayToString(&columns[0], true, nil)
+	_, column := snowflakeArrayToString(&columns[0], true)
 	numRows := len(column)
 	csvRows := make([][]byte, 0)
 	rows := make([][]interface{}, 0)
@@ -152,7 +152,7 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 		}
 	}
 	for colIdx := 1; colIdx < numColumns; colIdx++ {
-		_, column = snowflakeArrayToString(&columns[colIdx], true, nil)
+		_, column = snowflakeArrayToString(&columns[colIdx], true)
 		iNumRows := len(column)
 		if iNumRows != numRows {
 			return nil, (&SnowflakeError{
@@ -246,7 +246,7 @@ func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map
 			var bv bindingValue
 			if t == sliceType {
 				// retrieve array binding data
-				t, val = snowflakeArrayToString(&binding, false, params)
+				t, val = snowflakeArrayToString(&binding, false)
 			} else {
 				bv, err = valueToString(binding.Value, tsmode, params)
 				val = bv.value
@@ -284,7 +284,7 @@ func arrayBindValueCount(bindValues []driver.NamedValue) int {
 	if !isArrayBind(bindValues) {
 		return 0
 	}
-	_, arr := snowflakeArrayToString(&bindValues[0], false, nil)
+	_, arr := snowflakeArrayToString(&bindValues[0], false)
 	return len(bindValues) * len(arr)
 }
 

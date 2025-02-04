@@ -874,43 +874,6 @@ func TestBulkArrayBinding(t *testing.T) {
 	})
 }
 
-func TestSNOW1313648epoch(t *testing.T) {
-	regularInsertTable := "JOHNTESTDB.TESTSCHEMA.GoTimeStamp"
-
-	someTime := time.Date(1950, time.January, 3, 0, 0, 0, 0, time.UTC)
-
-	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz)", regularInsertTable))
-
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?)", regularInsertTable), 0, Array(someTime), Array(someTime), Array(someTime))
-
-		stringRows := dbt.mustQuery("select * from " + regularInsertTable + " order by c1")
-
-		defer func() {
-			assertNilF(t, stringRows.Close())
-		}()
-
-		var si int
-		var sltz, stz, sntz time.Time
-
-		stringRows.Next()
-		if err := stringRows.Scan(&si, &sltz, &stz, &sntz); err != nil {
-			t.Fatal(err)
-		}
-
-		if sltz.UnixNano() != someTime.UnixNano() {
-			t.Fatalf("failed to fetch. expected %v, got: %v", someTime, sltz)
-		}
-		if someTime.UnixNano() != sntz.UnixNano() {
-			t.Fatalf("failed to fetch. expected %v, got: %v", someTime, sntz)
-		}
-		if someTime.UnixNano() != stz.UnixNano() {
-			t.Fatalf("failed to fetch. expected %v, got: %v", someTime, stz)
-		}
-
-	})
-}
-
 func TestSNOW1313648(t *testing.T) {
 	arrayInsertTable := "Snow1313648Insert"
 	stageBindingTable := "Snow1313648stageBinding"
