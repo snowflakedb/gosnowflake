@@ -6,57 +6,22 @@ import (
 	"testing"
 )
 
-type tcTargets struct {
-	host     string
-	user     string
-	credType string
-	out      string
-}
-
-type tcCredentials struct {
-	credType string
-	token    string
-}
-
 func TestSetAndGetCredentialMfa(t *testing.T) {
-	skipOnMac(t, "keyring asks for password")
-	fakeMfaToken := "fakeMfaToken"
-	expectedMfaToken := "fakeMfaToken"
-	sc := getDefaultSnowflakeConn()
-	sc.cfg.Host = "testhost"
-	credentialsStorage.setCredential(sc, mfaToken, fakeMfaToken)
-	credentialsStorage.getCredential(sc, mfaToken)
+	for _, tokenSpec := range []*secureTokenSpec{
+		newMfaTokenSpec("testhost", "testuser"),
+		newIDTokenSpec("testhost", "testuser"),
+	} {
+		t.Run(string(tokenSpec.tokenType), func(t *testing.T) {
+			skipOnMac(t, "keyring asks for password")
+			fakeMfaToken := "test token"
+			tokenSpec := newMfaTokenSpec("testHost", "testUser")
+			credentialsStorage.setCredential(tokenSpec, fakeMfaToken)
+			assertEqualE(t, credentialsStorage.getCredential(tokenSpec), fakeMfaToken)
 
-	if sc.cfg.MfaToken != expectedMfaToken {
-		t.Fatalf("Expected mfa token %v but got %v", expectedMfaToken, sc.cfg.MfaToken)
-	}
-
-	// delete credential and check it no longer exists
-	credentialsStorage.deleteCredential(sc, mfaToken)
-	credentialsStorage.getCredential(sc, mfaToken)
-	if sc.cfg.MfaToken != "" {
-		t.Fatalf("Expected mfa token to be empty but got %v", sc.cfg.MfaToken)
-	}
-}
-
-func TestSetAndGetCredentialIdToken(t *testing.T) {
-	skipOnMac(t, "keyring asks for password")
-	fakeIDToken := "fakeIDToken"
-	expectedIDToken := "fakeIDToken"
-	sc := getDefaultSnowflakeConn()
-	sc.cfg.Host = "testhost"
-	credentialsStorage.setCredential(sc, idToken, fakeIDToken)
-	credentialsStorage.getCredential(sc, idToken)
-
-	if sc.cfg.IDToken != expectedIDToken {
-		t.Fatalf("Expected id token %v but got %v", expectedIDToken, sc.cfg.IDToken)
-	}
-
-	// delete credential and check it no longer exists
-	credentialsStorage.deleteCredential(sc, idToken)
-	credentialsStorage.getCredential(sc, idToken)
-	if sc.cfg.IDToken != "" {
-		t.Fatalf("Expected id token to be empty but got %v", sc.cfg.IDToken)
+			// delete credential and check it no longer exists
+			credentialsStorage.deleteCredential(tokenSpec)
+			assertEqualE(t, credentialsStorage.getCredential(tokenSpec), "")
+		})
 	}
 }
 
@@ -65,38 +30,34 @@ func TestStoreTemporaryCredental(t *testing.T) {
 		t.Skip("cannot write to github file system")
 	}
 
-	testcases := []tcCredentials{
-		{mfaToken, "598ghFnjfh8BBgmf45mmhgkfRR45mgkt5"},
-		{idToken, "090Arftf54Jk3gh57ggrVvf09lJa3DD"},
+	testcases := []struct {
+		tokenSpec *secureTokenSpec
+		value     string
+	}{
+		{newMfaTokenSpec("testhost", "testuser"), "598ghFnjfh8BBgmf45mmhgkfRR45mgkt5"},
+		{newIDTokenSpec("testhost", "testuser"), "090Arftf54Jk3gh57ggrVvf09lJa3DD"},
 	}
 
-	ssm := newFileBasedSecureStorageManager()
-	_, ok := ssm.(*fileBasedSecureStorageManager)
-	assertTrueF(t, ok)
+	ssm, err := newFileBasedSecureStorageManager()
+	assertNilF(t, err)
 
-	sc := getDefaultSnowflakeConn()
 	for _, test := range testcases {
-		t.Run(test.token, func(t *testing.T) {
-			ssm.setCredential(sc, test.credType, test.token)
-			ssm.getCredential(sc, test.credType)
-			if test.credType == mfaToken {
-				assertEqualE(t, sc.cfg.MfaToken, test.token)
-			} else {
-				assertEqualE(t, sc.cfg.IDToken, test.token)
-			}
-			ssm.deleteCredential(sc, test.credType)
-			ssm.getCredential(sc, test.credType)
-			if test.credType == mfaToken {
-				assertEqualE(t, sc.cfg.MfaToken, "")
-			} else {
-				assertEqualE(t, sc.cfg.IDToken, "")
-			}
+		t.Run(test.value, func(t *testing.T) {
+			ssm.setCredential(test.tokenSpec, test.value)
+			assertEqualE(t, ssm.getCredential(test.tokenSpec), test.value)
+			ssm.deleteCredential(test.tokenSpec)
+			assertEqualE(t, ssm.getCredential(test.tokenSpec), "")
 		})
 	}
 }
 
 func TestBuildCredentialsKey(t *testing.T) {
-	testcases := []tcTargets{
+	testcases := []struct {
+		host     string
+		user     string
+		credType tokenType
+		out      string
+	}{
 		{"testaccount.snowflakecomputing.com", "testuser", "mfaToken", "TESTACCOUNT.SNOWFLAKECOMPUTING.COM:TESTUSER:SNOWFLAKE-GO-DRIVER:MFATOKEN"},
 		{"testaccount.snowflakecomputing.com", "testuser", "IdToken", "TESTACCOUNT.SNOWFLAKECOMPUTING.COM:TESTUSER:SNOWFLAKE-GO-DRIVER:IDTOKEN"},
 	}
