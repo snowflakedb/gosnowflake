@@ -101,15 +101,15 @@ func populateErrorFields(code int, data *execResponse) *SnowflakeError {
 const (
 	/* connection */
 
-	// ErrCodeEmptyAccountCode is an error code for the case where a DNS doesn't include account parameter
+	// ErrCodeEmptyAccountCode is an error code for the case where a DSN doesn't include account parameter
 	ErrCodeEmptyAccountCode = 260000
-	// ErrCodeEmptyUsernameCode is an error code for the case where a DNS doesn't include user parameter
+	// ErrCodeEmptyUsernameCode is an error code for the case where a DSN doesn't include user parameter
 	ErrCodeEmptyUsernameCode = 260001
-	// ErrCodeEmptyPasswordCode is an error code for the case where a DNS doesn't include password parameter
+	// ErrCodeEmptyPasswordCode is an error code for the case where a DSN doesn't include password parameter
 	ErrCodeEmptyPasswordCode = 260002
-	// ErrCodeFailedToParseHost is an error code for the case where a DNS includes an invalid host name
+	// ErrCodeFailedToParseHost is an error code for the case where a DSN includes an invalid host name
 	ErrCodeFailedToParseHost = 260003
-	// ErrCodeFailedToParsePort is an error code for the case where a DNS includes an invalid port number
+	// ErrCodeFailedToParsePort is an error code for the case where a DSN includes an invalid port number
 	ErrCodeFailedToParsePort = 260004
 	// ErrCodeIdpConnectionError is an error code for the case where a IDP connection failed
 	ErrCodeIdpConnectionError = 260005
@@ -133,6 +133,8 @@ const (
 	ErrCodeFailedToFindDSNInToml = 260014
 	// ErrCodeInvalidFilePermission is an error code for the case where the user does not have 0600 permission to the toml file .
 	ErrCodeInvalidFilePermission = 260015
+	// ErrCodeEmptyPasswordAndToken is an error code for the case where a DSN do includes neither password nor token
+	ErrCodeEmptyPasswordAndToken = 260016
 
 	/* network */
 
@@ -334,6 +336,13 @@ func errEmptyPassword() *SnowflakeError {
 	return &SnowflakeError{
 		Number:  ErrCodeEmptyPasswordCode,
 		Message: "password is empty",
+	}
+}
+
+func errEmptyPasswordAndToken() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeEmptyPasswordAndToken,
+		Message: "both password and token are empty",
 	}
 }
 

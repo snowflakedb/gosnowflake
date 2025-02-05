@@ -26,8 +26,6 @@ concurrency:
 jobs:
     lint:
         runs-on: ubuntu-latest
-        strategy:
-          fail-fast: false
         name: Check linter
         steps:
           - uses: actions/checkout@v4
@@ -52,6 +50,10 @@ jobs:
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v4
+            - uses: actions/setup-java@v4 # for wiremock
+              with:
+                java-version: 11
+                distribution: 'temurin'
             - name: Setup go
               uses: actions/setup-go@v5
               with:
@@ -78,6 +80,10 @@ jobs:
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v4
+            - uses: actions/setup-java@v4 # for wiremock
+              with:
+                java-version: 11
+                distribution: 'temurin'
             - name: Setup go
               uses: actions/setup-go@v5
               with:
@@ -103,6 +109,10 @@ jobs:
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v4
+            - uses: actions/setup-java@v4 # for wiremock
+              with:
+                java-version: 11
+                distribution: 'temurin'
             - name: Setup go
               uses: actions/setup-go@v5
               with:
