@@ -933,19 +933,12 @@ func TestSNOW1313648(t *testing.T) {
 			}
 
 			assertEqualE(t, i, bi)
-
 			assertEqualE(t, s, bs)
-
 			assertEqualE(t, ltz, bltz)
-
 			assertEqualE(t, tz, btz)
-
 			assertEqualE(t, ntz, bntz)
-
 			assertEqualE(t, date, bDate)
-
 			assertEqualE(t, tt, btt)
-
 			assertBytesEqualE(t, b, bb)
 
 			assertEqualE(t, "test"+strconv.Itoa(cnt), s)

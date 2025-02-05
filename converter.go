@@ -901,16 +901,8 @@ func timeTypeValueToString(tm time.Time, tsmode snowflakeType) (bindingValue, er
 		s := fmt.Sprintf("%d",
 			(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
 		return bindingValue{&s, "", nil}, nil
-	case timestampNtzType, timestampLtzType:
-		unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Unix()), 10)
-		m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
-		unixTime.Mul(unixTime, m)
-		tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", tm.Nanosecond()), 10)
-		s := unixTime.Add(unixTime, tmNanos).String()
-		return bindingValue{&s, "", nil}, nil
-	case timestampTzType:
-		_, offset := tm.Zone()
-		s := fmt.Sprintf("%v %v", tm.UnixNano(), offset/60+1440)
+	case timestampNtzType, timestampLtzType, timestampTzType:
+		s := convertTimeToTimeStamp(tm, tsmode)
 		return bindingValue{&s, "", nil}, nil
 	}
 	return bindingValue{nil, "", nil}, fmt.Errorf("unsupported time type: %v", tsmode)
@@ -2634,11 +2626,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 			if stream {
 				v = x.Format(format)
 			} else {
-				unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
-				m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
-				unixTime.Mul(unixTime, m)
-				tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Nanosecond()), 10)
-				v = unixTime.Add(unixTime, tmNanos).String()
+				v = convertTimeToTimeStamp(x, t)
 			}
 			arr = append(arr, &v)
 		}
@@ -2651,11 +2639,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 			if stream {
 				v = x.Format(format)
 			} else {
-				unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
-				m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
-				unixTime.Mul(unixTime, m)
-				tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Nanosecond()), 10)
-				v = unixTime.Add(unixTime, tmNanos).String()
+				v = convertTimeToTimeStamp(x, t)
 			}
 			arr = append(arr, &v)
 		}
@@ -2667,12 +2651,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 			if stream {
 				v = x.Format(format)
 			} else {
-				_, offset := x.Zone()
-				unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
-				m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
-				unixTime.Mul(unixTime, m)
-				tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Nanosecond()), 10)
-				v = fmt.Sprintf("%v %v", unixTime.Add(unixTime, tmNanos), offset/60+1440)
+				v = convertTimeToTimeStamp(x, t)
 			}
 			arr = append(arr, &v)
 		}
@@ -2768,12 +2747,22 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 
 				switch tzType[0] {
 				case TimestampNTZType:
-					t = timestampNtzType
-					v := strconv.FormatInt(x.UnixNano(), 10)
+					t = timestampTzType
+					var v string
+					if stream {
+						v = x.Format(format)
+					} else {
+						v = convertTimeToTimeStamp(x, t)
+					}
 					arr = append(arr, &v)
 				case TimestampLTZType:
-					t = timestampLtzType
-					v := strconv.FormatInt(x.UnixNano(), 10)
+					t = timestampTzType
+					var v string
+					if stream {
+						v = x.Format(format)
+					} else {
+						v = convertTimeToTimeStamp(x, t)
+					}
 					arr = append(arr, &v)
 				case TimestampTZType:
 					t = timestampTzType
@@ -2781,8 +2770,7 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 					if stream {
 						v = x.Format(format)
 					} else {
-						_, offset := x.Zone()
-						v = fmt.Sprintf("%v %v", x.UnixNano(), offset/60+1440)
+						v = convertTimeToTimeStamp(x, t)
 					}
 					arr = append(arr, &v)
 				case DateType:
@@ -3240,6 +3228,18 @@ func convertTzTypeToSnowflakeType(tzType timezoneType) snowflakeType {
 		return timeType
 	}
 	return unSupportedType
+}
+
+func convertTimeToTimeStamp(x time.Time, t snowflakeType) string {
+	unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
+	m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
+	unixTime.Mul(unixTime, m)
+	tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Nanosecond()), 10)
+	if t == timestampTzType {
+		_, offset := x.Zone()
+		return fmt.Sprintf("%v %v", unixTime.Add(unixTime, tmNanos), offset/60+1440)
+	}
+	return unixTime.Add(unixTime, tmNanos).String()
 }
 
 func decoderWithNumbersAsStrings(srcValue *string) *json.Decoder {
