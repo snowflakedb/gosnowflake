@@ -886,7 +886,7 @@ func TestSNOW1313648(t *testing.T) {
 
 		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
 		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
-		testingDate := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC).Add()
+		testingDate := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 		someBinary := []byte{0x01, 0x02, 0x03}
 
 		numRows := 5
