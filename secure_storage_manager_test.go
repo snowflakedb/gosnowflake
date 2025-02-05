@@ -7,11 +7,11 @@ import (
 )
 
 func TestSetAndGetCredentialMfa(t *testing.T) {
-	for _, tokenSpec := range []secureTokenSpec{
+	for _, tokenSpec := range []*secureTokenSpec{
 		newMfaTokenSpec("testhost", "testuser"),
 		newIDTokenSpec("testhost", "testuser"),
 	} {
-		t.Run(string(tokenSpec.getTokenType()), func(t *testing.T) {
+		t.Run(string(tokenSpec.tokenType), func(t *testing.T) {
 			skipOnMac(t, "keyring asks for password")
 			fakeMfaToken := "test token"
 			tokenSpec := newMfaTokenSpec("testHost", "testUser")
@@ -31,7 +31,7 @@ func TestStoreTemporaryCredental(t *testing.T) {
 	}
 
 	testcases := []struct {
-		tokenSpec secureTokenSpec
+		tokenSpec *secureTokenSpec
 		value     string
 	}{
 		{newMfaTokenSpec("testhost", "testuser"), "598ghFnjfh8BBgmf45mmhgkfRR45mgkt5"},

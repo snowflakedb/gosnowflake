@@ -28,70 +28,35 @@ const (
 	credCacheFileName = "temporary_credential.json"
 )
 
-type secureTokenSpec interface {
-	getHost() string
-	getUser() string
-	buildKey() string
-	getTokenType() tokenType
-}
-
-type baseTokenSpec struct {
+type secureTokenSpec struct {
 	host, user string
 	tokenType  tokenType
 }
 
-func (t *baseTokenSpec) getHost() string {
-	return t.host
+func (t *secureTokenSpec) buildKey() string {
+	return buildCredentialsKey(t.host, t.user, t.tokenType)
 }
 
-func (t *baseTokenSpec) getUser() string {
-	return t.user
-}
-
-func (t *baseTokenSpec) getTokenType() tokenType {
-	return t.tokenType
-}
-
-type mfaTokenSpec struct {
-	baseTokenSpec
-}
-
-func newMfaTokenSpec(host, user string) *mfaTokenSpec {
-	return &mfaTokenSpec{
-		baseTokenSpec{
-			host,
-			user,
-			mfaToken,
-		},
+func newMfaTokenSpec(host, user string) *secureTokenSpec {
+	return &secureTokenSpec{
+		host,
+		user,
+		mfaToken,
 	}
 }
 
-func (t *mfaTokenSpec) buildKey() string {
-	return buildCredentialsKey(t.host, t.user, mfaToken)
-}
-
-type idTokenSpec struct {
-	baseTokenSpec
-}
-
-func newIDTokenSpec(host, user string) *idTokenSpec {
-	return &idTokenSpec{
-		baseTokenSpec{
-			host,
-			user,
-			idToken,
-		},
+func newIDTokenSpec(host, user string) *secureTokenSpec {
+	return &secureTokenSpec{
+		host,
+		user,
+		idToken,
 	}
-}
-
-func (t *idTokenSpec) buildKey() string {
-	return buildCredentialsKey(t.host, t.user, idToken)
 }
 
 type secureStorageManager interface {
-	setCredential(tokenSpec secureTokenSpec, value string)
-	getCredential(tokenSpec secureTokenSpec) string
-	deleteCredential(tokenSpec secureTokenSpec)
+	setCredential(tokenSpec *secureTokenSpec, value string)
+	getCredential(tokenSpec *secureTokenSpec) string
+	deleteCredential(tokenSpec *secureTokenSpec)
 }
 
 var credentialsStorage = newSecureStorageManager()
@@ -158,7 +123,7 @@ func (ssm *fileBasedSecureStorageManager) buildCredCacheDirPath() string {
 	return credCacheDir
 }
 
-func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec secureTokenSpec, value string) {
+func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSpec, value string) {
 	if value == "" {
 		logger.Debug("no token provided")
 	} else {
@@ -206,7 +171,7 @@ func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec secureTokenSpe
 	}
 }
 
-func (ssm *fileBasedSecureStorageManager) getCredential(tokenSpec secureTokenSpec) string {
+func (ssm *fileBasedSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
 	credentialsKey := tokenSpec.buildKey()
 	ssm.credCacheLock.Lock()
 	defer ssm.credCacheLock.Unlock()
@@ -235,7 +200,7 @@ func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile() map[string]st
 	return ssm.localCredCache
 }
 
-func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec secureTokenSpec) {
+func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
 	ssm.credCacheLock.Lock()
 	defer ssm.credCacheLock.Unlock()
 	credentialsKey := tokenSpec.buildKey()
@@ -288,15 +253,15 @@ func newKeyringBasedSecureStorageManager() *keyringSecureStorageManager {
 	return &keyringSecureStorageManager{}
 }
 
-func (ssm *keyringSecureStorageManager) setCredential(tokenSpec secureTokenSpec, value string) {
+func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec, value string) {
 	if value == "" {
 		logger.Debug("no token provided")
 	} else {
 		credentialsKey := tokenSpec.buildKey()
 		if runtime.GOOS == "windows" {
 			ring, _ := keyring.Open(keyring.Config{
-				WinCredPrefix: strings.ToUpper(tokenSpec.getHost()),
-				ServiceName:   strings.ToUpper(tokenSpec.getUser()),
+				WinCredPrefix: strings.ToUpper(tokenSpec.host),
+				ServiceName:   strings.ToUpper(tokenSpec.user),
 			})
 			item := keyring.Item{
 				Key:  credentialsKey,
@@ -309,7 +274,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec secureTokenSpec,
 			ring, _ := keyring.Open(keyring.Config{
 				ServiceName: credentialsKey,
 			})
-			account := strings.ToUpper(tokenSpec.getUser())
+			account := strings.ToUpper(tokenSpec.user)
 			item := keyring.Item{
 				Key:  account,
 				Data: []byte(value),
@@ -321,13 +286,13 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec secureTokenSpec,
 	}
 }
 
-func (ssm *keyringSecureStorageManager) getCredential(tokenSpec secureTokenSpec) string {
+func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
 	cred := ""
 	credentialsKey := tokenSpec.buildKey()
 	if runtime.GOOS == "windows" {
 		ring, _ := keyring.Open(keyring.Config{
-			WinCredPrefix: strings.ToUpper(tokenSpec.getHost()),
-			ServiceName:   strings.ToUpper(tokenSpec.getUser()),
+			WinCredPrefix: strings.ToUpper(tokenSpec.host),
+			ServiceName:   strings.ToUpper(tokenSpec.user),
 		})
 		i, err := ring.Get(credentialsKey)
 		if err != nil {
@@ -338,7 +303,7 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec secureTokenSpec)
 		ring, _ := keyring.Open(keyring.Config{
 			ServiceName: credentialsKey,
 		})
-		account := strings.ToUpper(tokenSpec.getUser())
+		account := strings.ToUpper(tokenSpec.user)
 		i, err := ring.Get(account)
 		if err != nil {
 			logger.Debugf("Failed to find the item in keychain or item does not exist. Error: %v", err)
@@ -353,12 +318,12 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec secureTokenSpec)
 	return cred
 }
 
-func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec secureTokenSpec) {
+func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
 	credentialsKey := tokenSpec.buildKey()
 	if runtime.GOOS == "windows" {
 		ring, _ := keyring.Open(keyring.Config{
-			WinCredPrefix: strings.ToUpper(tokenSpec.getHost()),
-			ServiceName:   strings.ToUpper(tokenSpec.getUser()),
+			WinCredPrefix: strings.ToUpper(tokenSpec.host),
+			ServiceName:   strings.ToUpper(tokenSpec.user),
 		})
 		err := ring.Remove(string(credentialsKey))
 		if err != nil {
@@ -368,7 +333,7 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec secureTokenSp
 		ring, _ := keyring.Open(keyring.Config{
 			ServiceName: credentialsKey,
 		})
-		account := strings.ToUpper(tokenSpec.getUser())
+		account := strings.ToUpper(tokenSpec.user)
 		err := ring.Remove(account)
 		if err != nil {
 			logger.Debugf("Failed to delete credentialsKey in keychain. Error: %v", err)
@@ -390,12 +355,12 @@ func newNoopSecureStorageManager() *noopSecureStorageManager {
 	return &noopSecureStorageManager{}
 }
 
-func (ssm *noopSecureStorageManager) setCredential(_ secureTokenSpec, _ string) {
+func (ssm *noopSecureStorageManager) setCredential(_ *secureTokenSpec, _ string) {
 }
 
-func (ssm *noopSecureStorageManager) getCredential(_ secureTokenSpec) string {
+func (ssm *noopSecureStorageManager) getCredential(_ *secureTokenSpec) string {
 	return ""
 }
 
-func (ssm *noopSecureStorageManager) deleteCredential(_ secureTokenSpec) { //TODO implement me
+func (ssm *noopSecureStorageManager) deleteCredential(_ *secureTokenSpec) { //TODO implement me
 }
