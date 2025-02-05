@@ -2747,21 +2747,21 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 
 				switch tzType[0] {
 				case TimestampNTZType:
-					t = timestampTzType
+					t = timestampNtzType
 					var v string
 					if stream {
 						v = x.Format(format)
 					} else {
-						v = convertTimeToTimeStamp(x, t)
+						v = convertTimeToTimeStamp(x, timestampNtzType)
 					}
 					arr = append(arr, &v)
 				case TimestampLTZType:
-					t = timestampTzType
+					t = timestampLtzType
 					var v string
 					if stream {
 						v = x.Format(format)
 					} else {
-						v = convertTimeToTimeStamp(x, t)
+						v = convertTimeToTimeStamp(x, timestampLtzType)
 					}
 					arr = append(arr, &v)
 				case TimestampTZType:
