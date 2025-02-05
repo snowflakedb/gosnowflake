@@ -825,7 +825,7 @@ func TestBulkArrayBinding(t *testing.T) {
 		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
 		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
 		someBinary := []byte{0x01, 0x02, 0x03}
-		numRows := 10000
+		numRows := 100000
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
 		ltzArr := make([]time.Time, numRows)
@@ -877,16 +877,41 @@ func TestBulkArrayBinding(t *testing.T) {
 func TestSNOW1313648(t *testing.T) {
 	arrayInsertTable := "Snow1313648Insert"
 	stageBindingTable := "Snow1313648stageBinding"
+	interfaceArrayTable := "Snow1313648stageInterface"
 
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", arrayInsertTable))
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", stageBindingTable))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", interfaceArrayTable))
 
 		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
 		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
-		testingDate := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
+		testingDate := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC).Add()
 		someBinary := []byte{0x01, 0x02, 0x03}
+
 		numRows := 5
+		intArrInterface := make([]any, numRows)
+		strArrInterface := make([]any, numRows)
+		ltzArrInterface := make([]any, numRows)
+		tzArrInterface := make([]any, numRows)
+		ntzArrInterface := make([]any, numRows)
+		dateArrInterface := make([]any, numRows)
+		timeArrInterface := make([]any, numRows)
+		binArrInterface := make([]any, numRows)
+		for i := 0; i < numRows; i++ {
+			intArrInterface[i] = i
+			strArrInterface[i] = "test" + strconv.Itoa(i)
+			ltzArrInterface[i] = testingDate
+			tzArrInterface[i] = testingDate.Add(time.Hour).UTC()
+			ntzArrInterface[i] = testingDate.Add(2 * time.Hour)
+			dateArrInterface[i] = someDate
+			timeArrInterface[i] = someTime
+			binArrInterface[i] = someBinary
+		}
+
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArrInterface), Array(&strArrInterface), Array(&ltzArrInterface, TimestampLTZType), Array(&tzArrInterface, TimestampTZType), Array(&ntzArrInterface, TimestampNTZType), Array(&dateArrInterface, DateType), Array(&timeArrInterface, TimeType), Array(&binArrInterface))
+
+		numRows = 5
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
 		ltzArr := make([]time.Time, numRows)
@@ -910,20 +935,23 @@ func TestSNOW1313648(t *testing.T) {
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
 
 		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")
-		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1 limit 2")
+		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1")
+		interfaceRows := dbt.mustQuery("select * from " + interfaceArrayTable + " order by c1")
 
 		defer func() {
 			assertNilF(t, insertRows.Close())
 			assertNilF(t, bindingRows.Close())
+			assertNilF(t, interfaceRows.Close())
+
 		}()
 		cnt := 0
-		var i, bi int
-		var s, bs string
-		var ltz, bltz, btz, tz, ntz, bntz, date, bDate, tt, btt time.Time
+		var i, bi, ii int
+		var s, bs, is string
+		var ltz, bltz, iltz, itz, btz, tz, intz, ntz, bntz, iDate, date, bDate, itt, tt, btt time.Time
 
-		var b, bb []byte
+		var b, ib, bb []byte
 
-		for insertRows.Next() && bindingRows.Next() {
+		for insertRows.Next() && bindingRows.Next() && interfaceRows.Next() {
 			if err := insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b); err != nil {
 				t.Fatal(err)
 			}
@@ -932,14 +960,33 @@ func TestSNOW1313648(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			if err := interfaceRows.Scan(&ii, &is, &iltz, &itz, &intz, &iDate, &itt, &ib); err != nil {
+				t.Fatal(err)
+			}
+
 			assertEqualE(t, i, bi)
+			assertEqualE(t, ii, bi)
+
 			assertEqualE(t, s, bs)
+			assertEqualE(t, is, bs)
+
 			assertEqualE(t, ltz, bltz)
+			assertEqualE(t, ltz, iltz)
+
 			assertEqualE(t, tz, btz)
+			assertEqualE(t, tz, itz)
+
 			assertEqualE(t, ntz, bntz)
+			assertEqualE(t, ntz, intz)
+
 			assertEqualE(t, date, bDate)
+			assertEqualE(t, date, iDate)
+
 			assertEqualE(t, tt, btt)
+			assertEqualE(t, tt, itt)
+
 			assertBytesEqualE(t, b, bb)
+			assertBytesEqualE(t, b, ib)
 
 			assertEqualE(t, "test"+strconv.Itoa(cnt), s)
 			assertEqualE(t, ltz.UTC(), testingDate.UTC())

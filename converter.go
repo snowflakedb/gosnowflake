@@ -2622,12 +2622,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		t = timestampNtzType
 		a := nv.Value.(*timestampNtzArray)
 		for _, x := range *a {
-			var v string
-			if stream {
-				v = x.Format(format)
-			} else {
-				v = convertTimeToTimeStamp(x, t)
-			}
+			v := getTimestampBindValue(x, stream, t)
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&timestampLtzArray{}):
@@ -2635,24 +2630,14 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		a := nv.Value.(*timestampLtzArray)
 
 		for _, x := range *a {
-			var v string
-			if stream {
-				v = x.Format(format)
-			} else {
-				v = convertTimeToTimeStamp(x, t)
-			}
+			v := getTimestampBindValue(x, stream, t)
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&timestampTzArray{}):
 		t = timestampTzType
 		a := nv.Value.(*timestampTzArray)
 		for _, x := range *a {
-			var v string
-			if stream {
-				v = x.Format(format)
-			} else {
-				v = convertTimeToTimeStamp(x, t)
-			}
+			v := getTimestampBindValue(x, stream, t)
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&dateArray{}):
@@ -2748,30 +2733,15 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 				switch tzType[0] {
 				case TimestampNTZType:
 					t = timestampNtzType
-					var v string
-					if stream {
-						v = x.Format(format)
-					} else {
-						v = convertTimeToTimeStamp(x, timestampNtzType)
-					}
+					v := getTimestampBindValue(x, stream, t)
 					arr = append(arr, &v)
 				case TimestampLTZType:
 					t = timestampLtzType
-					var v string
-					if stream {
-						v = x.Format(format)
-					} else {
-						v = convertTimeToTimeStamp(x, timestampLtzType)
-					}
+					v := getTimestampBindValue(x, stream, t)
 					arr = append(arr, &v)
 				case TimestampTZType:
 					t = timestampTzType
-					var v string
-					if stream {
-						v = x.Format(format)
-					} else {
-						v = convertTimeToTimeStamp(x, t)
-					}
+					v := getTimestampBindValue(x, stream, t)
 					arr = append(arr, &v)
 				case DateType:
 					t = dateType
@@ -3228,6 +3198,13 @@ func convertTzTypeToSnowflakeType(tzType timezoneType) snowflakeType {
 		return timeType
 	}
 	return unSupportedType
+}
+
+func getTimestampBindValue(x time.Time, stream bool, t snowflakeType) string {
+	if stream {
+		return x.Format(format)
+	}
+	return convertTimeToTimeStamp(x, t)
 }
 
 func convertTimeToTimeStamp(x time.Time, t snowflakeType) string {
