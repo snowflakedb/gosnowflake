@@ -927,7 +927,7 @@ func TestBindingsWithSameValue(t *testing.T) {
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", interfaceArrayTable), Array(&intAnyArr), Array(&strAnyArr), Array(&timeAnyArr, TimestampLTZType), Array(&timeAnyArr, TimestampTZType), Array(&timeAnyArr, TimestampNTZType), Array(&timeAnyArr, DateType), Array(&timeAnyArr, TimeType), Array(&boolArr), Array(&doubleArr))
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&timeArr, TimestampLTZType), Array(&timeArr, TimestampTZType), Array(&timeArr, TimestampNTZType), Array(&timeArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
 		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&timeAnyArr, TimestampLTZType), Array(&timeAnyArr, TimestampTZType), Array(&timeAnyArr, TimestampNTZType), Array(&timeAnyArr, DateType), Array(&timeAnyArr, TimeType), Array(&boolArr), Array(&doubleArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&timeArr, TimestampLTZType), Array(&timeArr, TimestampTZType), Array(&timeArr, TimestampNTZType), Array(&timeArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
 
 		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")
 		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1")
@@ -938,7 +938,6 @@ func TestBindingsWithSameValue(t *testing.T) {
 			assertNilF(t, bindingRows.Close())
 			assertNilF(t, interfaceRows.Close())
 		}()
-		cnt := 0
 		var i, bi, ii int
 		var s, bs, is string
 		var ltz, bltz, iltz, itz, btz, tz, intz, ntz, bntz, iDate, date, bDate, itt, tt, btt time.Time
@@ -946,15 +945,16 @@ func TestBindingsWithSameValue(t *testing.T) {
 		var d, bd, id float64
 
 		for k := 0; k < numRows; k++ {
-			insertRows.Next() && bindingRows.Next() && interfaceRows.Next()
+			insertRows.Next()
 			if err := insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b, &d); err != nil {
 				t.Fatal(err)
 			}
-
+			bindingRows.Next()
 			if err := bindingRows.Scan(&bi, &bs, &bltz, &btz, &bntz, &bDate, &btt, &bb, &bd); err != nil {
 				t.Fatal(err)
 			}
 
+			interfaceRows.Next()
 			if err := interfaceRows.Scan(&ii, &is, &iltz, &itz, &intz, &iDate, &itt, &ib, &id); err != nil {
 				t.Fatal(err)
 			}
