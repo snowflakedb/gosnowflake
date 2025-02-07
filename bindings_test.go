@@ -896,21 +896,21 @@ func TestBindingsWithSameValue(t *testing.T) {
 		strArr := make([]string, numRows)
 		timeArr := make([]time.Time, numRows)
 		boolArr := make([]bool, numRows)
-		doubleArr := make([]bool, numRows)
+		doubleArr := make([]float64, numRows)
 
 		intAnyArr := make([]any, numRows)
 		strAnyArr := make([]any, numRows)
 		timeAnyArr := make([]any, numRows)
 		boolAnyArr := make([]bool, numRows)
-		doubleAnyArr := make([]float32, numRows)
-
+		doubleAnyArr := make([]float64, numRows)
 
 		for i := 0; i < numRows; i++ {
 			intArr[i] = i
 			intAnyArr[i] = i
 
 			double := rand.Float64()
-			doubleArr[i] =
+			doubleArr[i] = double
+			doubleAnyArr[i] = double
 
 			strArr[i] = "test" + strconv.Itoa(i)
 			strAnyArr[i] = "test" + strconv.Itoa(i)
@@ -925,9 +925,9 @@ func TestBindingsWithSameValue(t *testing.T) {
 		}
 
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", interfaceArrayTable), Array(&intAnyArr), Array(&strAnyArr), Array(&timeAnyArr, TimestampLTZType), Array(&timeAnyArr, TimestampTZType), Array(&timeAnyArr, TimestampNTZType), Array(&timeAnyArr, DateType), Array(&timeAnyArr, TimeType), Array(&boolArr), Array(&doubleArr))
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&timeArr, TimestampLTZType), Array(&timeArr, TimestampTZType), Array(&timeArr, TimestampNTZType), Array(&timeArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
 		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&timeAnyArr, TimestampLTZType), Array(&timeAnyArr, TimestampTZType), Array(&timeAnyArr, TimestampNTZType), Array(&timeAnyArr, DateType), Array(&timeAnyArr, TimeType), Array(&boolArr), Array(&doubleArr))
 
 		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")
 		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1")
@@ -945,9 +945,8 @@ func TestBindingsWithSameValue(t *testing.T) {
 		var b, bb, ib bool
 		var d, bd, id float64
 
-
 		for k := 0; k < numRows; k++ {
-			insertRows.Next() && bindingRows.Next() && interfaceRows.Next() 
+			insertRows.Next() && bindingRows.Next() && interfaceRows.Next()
 			if err := insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b, &d); err != nil {
 				t.Fatal(err)
 			}
