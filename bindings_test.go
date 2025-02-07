@@ -874,65 +874,60 @@ func TestBulkArrayBinding(t *testing.T) {
 	})
 }
 
-func TestSNOW1313648(t *testing.T) {
-	arrayInsertTable := "Snow1313648Insert"
-	stageBindingTable := "Snow1313648stageBinding"
-	interfaceArrayTable := "Snow1313648stageInterface"
+func TestBindingsWithSameValue(t *testing.T) {
+	arrayInsertTable := "test_array_binding_insert"
+	stageBindingTable := "test_stage_binding_insert"
+	interfaceArrayTable := "test_interface_binding_insert"
 
 	runDBTest(t, func(dbt *DBTest) {
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", arrayInsertTable))
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", stageBindingTable))
-		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c8 binary)", interfaceArrayTable))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c9 boolean, c10 double)", arrayInsertTable))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c9 boolean, c10 double)", stageBindingTable))
+		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c9 boolean, c10 double)", interfaceArrayTable))
 
-		someTime := time.Date(1, time.January, 1, 12, 34, 56, 123456789, time.UTC)
-		someDate := time.Date(2024, time.March, 18, 0, 0, 0, 0, time.UTC)
-		testingDate := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
-		someBinary := []byte{0x01, 0x02, 0x03}
+		defer func() {
+			dbt.mustExec("drop table if exists %v", arrayInsertTable)
+			dbt.mustExec("drop table if exists %v", stageBindingTable)
+			dbt.mustExec("drop table if exists %v", interfaceArrayTable)
+		}()
 
-		numRows := 5
-		intArrInterface := make([]any, numRows)
-		strArrInterface := make([]any, numRows)
-		ltzArrInterface := make([]any, numRows)
-		tzArrInterface := make([]any, numRows)
-		ntzArrInterface := make([]any, numRows)
-		dateArrInterface := make([]any, numRows)
-		timeArrInterface := make([]any, numRows)
-		binArrInterface := make([]any, numRows)
-		for i := 0; i < numRows; i++ {
-			intArrInterface[i] = i
-			strArrInterface[i] = "test" + strconv.Itoa(i)
-			ltzArrInterface[i] = testingDate
-			tzArrInterface[i] = testingDate.Add(time.Hour).UTC()
-			ntzArrInterface[i] = testingDate.Add(2 * time.Hour)
-			dateArrInterface[i] = someDate
-			timeArrInterface[i] = someTime
-			binArrInterface[i] = someBinary
-		}
+		numRows := 1000
 
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArrInterface), Array(&strArrInterface), Array(&ltzArrInterface, TimestampLTZType), Array(&tzArrInterface, TimestampTZType), Array(&ntzArrInterface, TimestampNTZType), Array(&dateArrInterface, DateType), Array(&timeArrInterface, TimeType), Array(&binArrInterface))
-
-		numRows = 5
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
-		ltzArr := make([]time.Time, numRows)
-		tzArr := make([]time.Time, numRows)
-		ntzArr := make([]time.Time, numRows)
-		dateArr := make([]time.Time, numRows)
 		timeArr := make([]time.Time, numRows)
-		binArr := make([][]byte, numRows)
+		boolArr := make([]bool, numRows)
+		doubleArr := make([]bool, numRows)
+
+		intAnyArr := make([]any, numRows)
+		strAnyArr := make([]any, numRows)
+		timeAnyArr := make([]any, numRows)
+		boolAnyArr := make([]bool, numRows)
+		doubleAnyArr := make([]float32, numRows)
+
+
 		for i := 0; i < numRows; i++ {
 			intArr[i] = i
+			intAnyArr[i] = i
+
+			double := rand.Float64()
+			doubleArr[i] =
+
 			strArr[i] = "test" + strconv.Itoa(i)
-			ltzArr[i] = testingDate
-			tzArr[i] = testingDate.Add(time.Hour).UTC()
-			ntzArr[i] = testingDate.Add(2 * time.Hour)
-			dateArr[i] = someDate
-			timeArr[i] = someTime
-			binArr[i] = someBinary
+			strAnyArr[i] = "test" + strconv.Itoa(i)
+
+			b := getRandomBool()
+			boolArr[i] = b
+			boolAnyArr[i] = b
+
+			date := getRandomDate()
+			timeArr[i] = date
+			timeAnyArr[i] = date
 		}
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
+
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", interfaceArrayTable), Array(&intAnyArr), Array(&strAnyArr), Array(&timeAnyArr, TimestampLTZType), Array(&timeAnyArr, TimestampTZType), Array(&timeAnyArr, TimestampNTZType), Array(&timeAnyArr, DateType), Array(&timeAnyArr, TimeType), Array(&boolArr), Array(&doubleArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
 		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
 
 		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")
 		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1")
@@ -942,25 +937,26 @@ func TestSNOW1313648(t *testing.T) {
 			assertNilF(t, insertRows.Close())
 			assertNilF(t, bindingRows.Close())
 			assertNilF(t, interfaceRows.Close())
-
 		}()
 		cnt := 0
 		var i, bi, ii int
 		var s, bs, is string
 		var ltz, bltz, iltz, itz, btz, tz, intz, ntz, bntz, iDate, date, bDate, itt, tt, btt time.Time
+		var b, bb, ib bool
+		var d, bd, id float64
 
-		var b, ib, bb []byte
 
-		for insertRows.Next() && bindingRows.Next() && interfaceRows.Next() {
-			if err := insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b); err != nil {
+		for k := 0; k < numRows; k++ {
+			insertRows.Next() && bindingRows.Next() && interfaceRows.Next() 
+			if err := insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b, &d); err != nil {
 				t.Fatal(err)
 			}
 
-			if err := bindingRows.Scan(&bi, &bs, &bltz, &btz, &bntz, &bDate, &btt, &bb); err != nil {
+			if err := bindingRows.Scan(&bi, &bs, &bltz, &btz, &bntz, &bDate, &btt, &bb, &bd); err != nil {
 				t.Fatal(err)
 			}
 
-			if err := interfaceRows.Scan(&ii, &is, &iltz, &itz, &intz, &iDate, &itt, &ib); err != nil {
+			if err := interfaceRows.Scan(&ii, &is, &iltz, &itz, &intz, &iDate, &itt, &ib, &id); err != nil {
 				t.Fatal(err)
 			}
 
@@ -985,17 +981,20 @@ func TestSNOW1313648(t *testing.T) {
 			assertEqualE(t, tt, btt)
 			assertEqualE(t, tt, itt)
 
-			assertBytesEqualE(t, b, bb)
-			assertBytesEqualE(t, b, ib)
+			assertEqualE(t, b, bb)
+			assertEqualE(t, b, ib)
 
-			assertEqualE(t, "test"+strconv.Itoa(cnt), s)
-			assertEqualE(t, ltz.UTC(), testingDate.UTC())
-			assertEqualE(t, tz.UTC(), testingDate.Add(time.Hour).UTC())
-			assertEqualE(t, ntz.UTC(), testingDate.Add(2*time.Hour).UTC())
-			assertEqualE(t, date, someDate)
-			assertEqualE(t, tt, someTime)
-			assertBytesEqualE(t, b, someBinary)
-			cnt++
+			assertEqualE(t, d, id)
+			assertEqualE(t, d, id)
+
+			assertEqualE(t, "test"+strconv.Itoa(k), s)
+			assertEqualE(t, ltz.UTC(), timeArr[k].UTC())
+			assertEqualE(t, tz.UTC(), timeArr[k].UTC())
+			assertEqualE(t, ntz.UTC(), timeArr[k].UTC())
+			assertEqualE(t, date, timeArr[k].UTC())
+			assertEqualE(t, tt, timeArr[k].UTC())
+			assertEqualE(t, b, boolArr[k])
+			assertEqualE(t, d, doubleArr[k])
 		}
 	})
 }
@@ -1548,4 +1547,16 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		}
 		dbt.mustExec(unsetFeatureMaxLOBSize)
 	})
+}
+
+func getRandomDate() time.Time {
+	start := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(1400, time.January, 1, 0, 0, 0, 0, time.UTC)
+	delta := end.Unix() - start.Unix()
+	sec := rand.Int63n(delta)
+	return start.Add(time.Duration(sec) * time.Second)
+}
+
+func getRandomBool() bool {
+	return rand.Int63n(time.Now().Unix())%2 == 0
 }
