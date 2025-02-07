@@ -109,18 +109,68 @@ func (ssm *fileBasedSecureStorageManager) createCacheDir(credCacheDir string) er
 	return err
 }
 
+func lookupCacheDir(envVar string, pathSegments ...string) (string, error) {
+	envVal := os.Getenv(envVar)
+	if envVal == "" {
+		return "", fmt.Errorf("environment variable %s not set", envVar)
+	}
+
+	fileInfo, err := os.Stat(envVal)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat %s=%s, due to %w", envVar, envVal, err)
+	}
+
+	if !fileInfo.IsDir() {
+		return "", fmt.Errorf("environment variable %s=%s is not a directory", envVar, envVal)
+	}
+
+	cacheDir := envVal
+
+	if len(pathSegments) > 0 {
+		for _, pathSegment := range pathSegments {
+			err := os.Mkdir(pathSegment, os.ModePerm)
+			if err != nil {
+				return "", fmt.Errorf("failed to create cache directory. %v, err: %w", pathSegment, err)
+			}
+			cacheDir = filepath.Join(cacheDir, pathSegment)
+		}
+		fileInfo, err = os.Stat(cacheDir)
+		if err != nil {
+			return "", fmt.Errorf("failed to stat %s=%s, due to %w", envVar, cacheDir, err)
+		}
+	}
+
+	if fileInfo.Mode()&os.ModePerm != 0o700 {
+		err := os.Chmod(cacheDir, 0o700)
+		if err != nil {
+			return "", fmt.Errorf("failed to chmod cache directory. %v, err: %w", cacheDir, err)
+		}
+	}
+
+	return cacheDir, nil
+}
+
 func (ssm *fileBasedSecureStorageManager) buildCredCacheDirPath() string {
-	credCacheDir := os.Getenv(credCacheDirEnv)
-	if credCacheDir != "" {
-		return credCacheDir
+	type cacheDirConf struct {
+		envVar       string
+		pathSegments []string
 	}
-	home := os.Getenv("HOME")
-	if home == "" {
-		logger.Info("HOME is blank")
-		return ""
+	confs := []cacheDirConf{
+		{envVar: credCacheDirEnv, pathSegments: []string{}},
+		{envVar: "XDG_CACHE_DIR", pathSegments: []string{"snowflake"}},
+		{envVar: "HOME", pathSegments: []string{".cache", "snowflake"}},
 	}
-	credCacheDir = filepath.Join(home, ".cache", "snowflake")
-	return credCacheDir
+	for _, conf := range confs {
+		path, err := lookupCacheDir(conf.envVar, conf.pathSegments...)
+		if err != nil {
+			logger.Debugf("Skipping %s in cache directory lookup due to %w", conf.envVar, err)
+		} else {
+			logger.Infof("Using %s as cache directory", path)
+			return path
+		}
+	}
+
+	return ""
 }
 
 func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSpec, value string) {
@@ -345,7 +395,7 @@ func buildCredentialsKey(host, user string, credType tokenType) string {
 	host = strings.ToUpper(host)
 	user = strings.ToUpper(user)
 	credTypeStr := strings.ToUpper(string(credType))
-	return host + ":" + user + ":" + driverName + ":" + credTypeStr
+	return host + ":" + user + ":" + credTypeStr
 }
 
 type noopSecureStorageManager struct {
