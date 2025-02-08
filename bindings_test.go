@@ -885,9 +885,9 @@ func TestBindingsWithSameValue(t *testing.T) {
 		dbt.mustExec(fmt.Sprintf("create or replace table %v (c1 integer, c2 string, c3 timestamp_ltz, c4 timestamp_tz, c5 timestamp_ntz, c6 date, c7 time, c9 boolean, c10 double)", interfaceArrayTable))
 
 		defer func() {
-			dbt.mustExec("drop table if exists %v", arrayInsertTable)
-			dbt.mustExec("drop table if exists %v", stageBindingTable)
-			dbt.mustExec("drop table if exists %v", interfaceArrayTable)
+			dbt.mustExec(fmt.Sprintf("drop table if exists %v", arrayInsertTable))
+			dbt.mustExec(fmt.Sprintf("drop table if exists %v", stageBindingTable))
+			dbt.mustExec(fmt.Sprintf("drop table if exists %v", interfaceArrayTable))
 		}()
 
 		numRows := 1000
@@ -1551,8 +1551,8 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 func getRandomDate() time.Time {
 	start := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(1400, time.January, 1, 0, 0, 0, 0, time.UTC)
-	delta := end.Unix() - start.Unix()
-	sec := rand.Int63n(delta)
+	gap := end.Unix() - start.Unix()
+	sec := rand.Int63n(gap)
 	return start.Add(time.Duration(sec) * time.Second)
 }
 
