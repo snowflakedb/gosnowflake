@@ -1549,11 +1549,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 }
 
 func getRandomDate() time.Time {
-	start := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(1400, time.January, 1, 0, 0, 0, 0, time.UTC)
-	gap := end.Unix() - start.Unix()
-	sec := rand.Int63n(gap)
-	return start.Add(time.Duration(sec) * time.Second)
+	return time.Date(rand.Intn(1700)+1, time.January, rand.Intn(40), rand.Intn(40), rand.Intn(40), rand.Intn(40), rand.Intn(40), time.UTC)
 }
 
 func getRandomBool() bool {
