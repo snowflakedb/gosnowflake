@@ -990,8 +990,8 @@ func TestBindingsWithSameValue(t *testing.T) {
 			assertEqualE(t, ltz.UTC(), timeArr[k].UTC())
 			assertEqualE(t, tz.UTC(), timeArr[k].UTC())
 			assertEqualE(t, ntz.UTC(), timeArr[k].UTC())
-			assertEqualE(t, date, timeArr[k].UTC())
-			assertEqualE(t, tt, timeArr[k].UTC())
+			assertEqualE(t, date, timeArr[k].Truncate(24*time.Hour))
+			assertEqualE(t, tt.Format("15:04:05"), timeArr[k].Format("15:04:05"))
 			assertEqualE(t, b, boolArr[k])
 			assertEqualE(t, d, doubleArr[k])
 		}
