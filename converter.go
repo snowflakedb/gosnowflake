@@ -902,7 +902,10 @@ func timeTypeValueToString(tm time.Time, tsmode snowflakeType) (bindingValue, er
 			(tm.Hour()*3600+tm.Minute()*60+tm.Second())*1e9+tm.Nanosecond())
 		return bindingValue{&s, "", nil}, nil
 	case timestampNtzType, timestampLtzType, timestampTzType:
-		s := convertTimeToTimeStamp(tm, tsmode)
+		s, err := convertTimeToTimeStamp(tm, tsmode)
+		if err != nil {
+			return bindingValue{nil, "", nil}, err
+		}
 		return bindingValue{&s, "", nil}, nil
 	}
 	return bindingValue{nil, "", nil}, fmt.Errorf("unsupported time type: %v", tsmode)
@@ -2558,7 +2561,7 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 // snowflakeArrayToString converts the array binding to snowflake's native
 // string type. The string value differs whether it's directly bound or
 // uploaded via stream.
-func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, []*string) {
+func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, []*string, error) {
 	var t snowflakeType
 	var arr []*string
 	switch reflect.TypeOf(nv.Value) {
@@ -2622,7 +2625,10 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		t = timestampNtzType
 		a := nv.Value.(*timestampNtzArray)
 		for _, x := range *a {
-			v := getTimestampBindValue(x, stream, t)
+			v, err := getTimestampBindValue(x, stream, t)
+			if err != nil {
+				return unSupportedType, nil, err
+			}
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&timestampLtzArray{}):
@@ -2630,14 +2636,20 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		a := nv.Value.(*timestampLtzArray)
 
 		for _, x := range *a {
-			v := getTimestampBindValue(x, stream, t)
+			v, err := getTimestampBindValue(x, stream, t)
+			if err != nil {
+				return unSupportedType, nil, err
+			}
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&timestampTzArray{}):
 		t = timestampTzType
 		a := nv.Value.(*timestampTzArray)
 		for _, x := range *a {
-			v := getTimestampBindValue(x, stream, t)
+			v, err := getTimestampBindValue(x, stream, t)
+			if err != nil {
+				return unSupportedType, nil, err
+			}
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&dateArray{}):
@@ -2684,12 +2696,12 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 				}
 			}
 		}
-		return unSupportedType, nil
+		return unSupportedType, nil, nil
 	}
-	return t, arr
+	return t, arr, nil
 }
 
-func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ...timezoneType) (snowflakeType, []*string) {
+func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ...timezoneType) (snowflakeType, []*string, error) {
 	var t snowflakeType
 	var arr []*string
 
@@ -2732,21 +2744,30 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 				arr = append(arr, &v)
 			case time.Time:
 				if len(tzType) < 1 {
-					return unSupportedType, nil
+					return unSupportedType, nil, nil
 				}
 
 				switch tzType[0] {
 				case TimestampNTZType:
 					t = timestampNtzType
-					v := getTimestampBindValue(x, stream, t)
+					v, err := getTimestampBindValue(x, stream, t)
+					if err != nil {
+						return unSupportedType, nil, err
+					}
 					arr = append(arr, &v)
 				case TimestampLTZType:
 					t = timestampLtzType
-					v := getTimestampBindValue(x, stream, t)
+					v, err := getTimestampBindValue(x, stream, t)
+					if err != nil {
+						return unSupportedType, nil, err
+					}
 					arr = append(arr, &v)
 				case TimestampTZType:
 					t = timestampTzType
-					v := getTimestampBindValue(x, stream, t)
+					v, err := getTimestampBindValue(x, stream, t)
+					if err != nil {
+						return unSupportedType, nil, err
+					}
 					arr = append(arr, &v)
 				case DateType:
 					t = dateType
@@ -2766,7 +2787,7 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 					}
 					arr = append(arr, &v)
 				default:
-					return unSupportedType, nil
+					return unSupportedType, nil, nil
 				}
 			case driver.Valuer: // honor each driver's Valuer interface
 				if value, err := x.Value(); err == nil && value != nil {
@@ -2776,7 +2797,7 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 						arr = append(arr, &strVal)
 					}
 				} else if v != nil {
-					return unSupportedType, nil
+					return unSupportedType, nil, nil
 				} else {
 					arr = append(arr, nil)
 				}
@@ -2788,14 +2809,14 @@ func interfaceSliceToString(interfaceSlice reflect.Value, stream bool, tzType ..
 						arr = append(arr, &x)
 						continue
 					}
-					return unSupportedType, nil
+					return unSupportedType, nil, nil
 				}
 
 				arr = append(arr, nil)
 			}
 		}
 	}
-	return t, arr
+	return t, arr, nil
 }
 
 func higherPrecisionEnabled(ctx context.Context) bool {
@@ -3205,23 +3226,27 @@ func convertTzTypeToSnowflakeType(tzType timezoneType) snowflakeType {
 	return unSupportedType
 }
 
-func getTimestampBindValue(x time.Time, stream bool, t snowflakeType) string {
+func getTimestampBindValue(x time.Time, stream bool, t snowflakeType) (string, error) {
 	if stream {
-		return x.Format(format)
+		return x.Format(format), nil
 	}
 	return convertTimeToTimeStamp(x, t)
 }
 
-func convertTimeToTimeStamp(x time.Time, t snowflakeType) string {
+func convertTimeToTimeStamp(x time.Time, t snowflakeType) (string, error) {
 	unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
-	m, _ := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
+	m, ok := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
+	if !ok {
+		return "", errors.New(fmt.Sprintf("Fail to convert the TimeValue to Timestamp, %s", x.String()))
+	}
+
 	unixTime.Mul(unixTime, m)
 	tmNanos, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Nanosecond()), 10)
 	if t == timestampTzType {
 		_, offset := x.Zone()
-		return fmt.Sprintf("%v %v", unixTime.Add(unixTime, tmNanos), offset/60+1440)
+		return fmt.Sprintf("%v %v", unixTime.Add(unixTime, tmNanos), offset/60+1440), nil
 	}
-	return unixTime.Add(unixTime, tmNanos).String()
+	return unixTime.Add(unixTime, tmNanos).String(), nil
 }
 
 func decoderWithNumbersAsStrings(srcValue *string) *json.Decoder {

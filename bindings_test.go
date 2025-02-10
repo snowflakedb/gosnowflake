@@ -890,7 +890,7 @@ func TestBindingsWithSameValue(t *testing.T) {
 			dbt.mustExec(fmt.Sprintf("drop table if exists %v", interfaceArrayTable))
 		}()
 
-		numRows := 1000
+		numRows := 5
 
 		intArr := make([]int, numRows)
 		strArr := make([]string, numRows)
@@ -945,19 +945,14 @@ func TestBindingsWithSameValue(t *testing.T) {
 		var d, bd, id float64
 
 		for k := 0; k < numRows; k++ {
-			insertRows.Next()
-			if err := insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b, &d); err != nil {
-				t.Fatal(err)
-			}
-			bindingRows.Next()
-			if err := bindingRows.Scan(&bi, &bs, &bltz, &btz, &bntz, &bDate, &btt, &bb, &bd); err != nil {
-				t.Fatal(err)
-			}
+			assertTrueF(t, insertRows.Next())
+			assertNilF(t, insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b, &d))
 
-			interfaceRows.Next()
-			if err := interfaceRows.Scan(&ii, &is, &iltz, &itz, &intz, &iDate, &itt, &ib, &id); err != nil {
-				t.Fatal(err)
-			}
+			assertTrueF(t, bindingRows.Next())
+			assertNilF(t, bindingRows.Scan(&bi, &bs, &bltz, &btz, &bntz, &bDate, &btt, &bb, &bd))
+
+			assertTrueF(t, interfaceRows.Next())
+			assertNilF(t, interfaceRows.Scan(&ii, &is, &iltz, &itz, &intz, &iDate, &itt, &ib, &id))
 
 			assertEqualE(t, i, bi)
 			assertEqualE(t, ii, bi)

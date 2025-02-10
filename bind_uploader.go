@@ -136,7 +136,10 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 		}).exceptionTelemetry(bu.sc)
 	}
 
-	_, column := snowflakeArrayToString(&columns[0], true)
+	_, column, err := snowflakeArrayToString(&columns[0], true)
+	if err != nil {
+		return nil, err
+	}
 	numRows := len(column)
 	csvRows := make([][]byte, 0)
 	rows := make([][]interface{}, 0)
@@ -152,7 +155,10 @@ func (bu *bindUploader) buildRowsAsBytes(columns []driver.NamedValue) ([][]byte,
 		}
 	}
 	for colIdx := 1; colIdx < numColumns; colIdx++ {
-		_, column = snowflakeArrayToString(&columns[colIdx], true)
+		_, column, err = snowflakeArrayToString(&columns[colIdx], true)
+		if err != nil {
+			return nil, err
+		}
 		iNumRows := len(column)
 		if iNumRows != numRows {
 			return nil, (&SnowflakeError{
@@ -201,7 +207,10 @@ func (sc *snowflakeConn) processBindings(
 	requestID UUID,
 	req *execRequest) error {
 	arrayBindThreshold := sc.getArrayBindStageThreshold()
-	numBinds := arrayBindValueCount(bindings)
+	numBinds, err := arrayBindValueCount(bindings)
+	if err != nil {
+		return err
+	}
 	if 0 < arrayBindThreshold && arrayBindThreshold <= numBinds && !describeOnly && isArrayBind(bindings) {
 		uploader := bindUploader{
 			sc:        sc,
@@ -215,7 +224,6 @@ func (sc *snowflakeConn) processBindings(
 		req.Bindings = nil
 		req.BindStage = uploader.stagePath
 	} else {
-		var err error
 		req.Bindings, err = getBindValues(bindings, sc.cfg.Params)
 		if err != nil {
 			return err
@@ -246,7 +254,10 @@ func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map
 			var bv bindingValue
 			if t == sliceType {
 				// retrieve array binding data
-				t, val = snowflakeArrayToString(&binding, false)
+				t, val, err = snowflakeArrayToString(&binding, false)
+				if err != nil {
+					return nil, err
+				}
 			} else {
 				bv, err = valueToString(binding.Value, tsmode, params)
 				val = bv.value
@@ -280,12 +291,16 @@ func bindingName(nv driver.NamedValue, idx int) string {
 	return strconv.Itoa(idx)
 }
 
-func arrayBindValueCount(bindValues []driver.NamedValue) int {
+func arrayBindValueCount(bindValues []driver.NamedValue) (int, error) {
 	if !isArrayBind(bindValues) {
-		return 0
+		return 0, nil
 	}
-	_, arr := snowflakeArrayToString(&bindValues[0], false)
-	return len(bindValues) * len(arr)
+	_, arr, err := snowflakeArrayToString(&bindValues[0], false)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(bindValues) * len(arr), nil
 }
 
 func isArrayBind(bindings []driver.NamedValue) bool {
