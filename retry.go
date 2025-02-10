@@ -353,9 +353,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 					return nil, err
 				}
 				if res != nil {
-					return nil, fmt.Errorf("timeout after %s and %v retries. HTTP Status: %v. Hanging?", r.timeout, retryCounter, res.StatusCode)
+					return nil, fmt.Errorf("timeout after %s and %v attempts. HTTP Status: %v. Hanging?", r.timeout, retryCounter, res.StatusCode)
 				}
-				return nil, fmt.Errorf("timeout after %s and %v retries. Hanging?", r.timeout, retryCounter)
+				return nil, fmt.Errorf("timeout after %s and %v attempts. Hanging?", r.timeout, retryCounter)
 			}
 		}
 		if requestGUIDReplacer == nil {
