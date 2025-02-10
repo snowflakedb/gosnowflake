@@ -927,6 +927,23 @@ func TestBindingsWithSameValue(t *testing.T) {
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?, ?)", interfaceArrayTable), Array(&intAnyArr), Array(&strAnyArr), Array(&timeAnyArr, TimestampLTZType), Array(&timeAnyArr, TimestampTZType), Array(&timeAnyArr, TimestampNTZType), Array(&timeAnyArr, DateType), Array(&timeAnyArr, TimeType), Array(&boolArr), Array(&doubleArr))
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&timeArr, TimestampLTZType), Array(&timeArr, TimestampTZType), Array(&timeArr, TimestampNTZType), Array(&timeArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
 		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
+
+		intArr = make([]int, numRows*80)
+		strArr = make([]string, numRows*80)
+		timeArr = make([]time.Time, numRows*80)
+		boolArr = make([]bool, numRows*80)
+		doubleArr = make([]float64, numRows*80)
+
+		for k := 0; k < 80; k++ {
+			for i := 0; i < numRows; i++ {
+				intArr[(k*numRows)+i] = (k * numRows) + i
+				doubleArr[(k*numRows)+i] = doubleAnyArr[i]
+				strArr[i] = "test" + strconv.Itoa(i)
+				boolArr[i] = boolAnyArr[i]
+				timeArr[i] = timeAnyArr[i].(time.Time)
+			}
+		}
+
 		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&timeArr, TimestampLTZType), Array(&timeArr, TimestampTZType), Array(&timeArr, TimestampNTZType), Array(&timeArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
 
 		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")

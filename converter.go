@@ -2644,9 +2644,14 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		t = dateType
 		a := nv.Value.(*dateArray)
 		for _, x := range *a {
-			_, offset := x.Zone()
-			x = x.Add(time.Second * time.Duration(offset))
-			v := fmt.Sprintf("%d", x.Unix()*1000)
+			var v string
+			if stream {
+				v = x.Format("2006-01-02")
+			} else {
+				_, offset := x.Zone()
+				x = x.Add(time.Second * time.Duration(offset))
+				v = fmt.Sprintf("%d", x.Unix()*1000)
+			}
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&timeArray{}):
