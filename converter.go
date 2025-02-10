@@ -3237,7 +3237,7 @@ func convertTimeToTimeStamp(x time.Time, t snowflakeType) (string, error) {
 	unixTime, _ := new(big.Int).SetString(fmt.Sprintf("%d", x.Unix()), 10)
 	m, ok := new(big.Int).SetString(strconv.FormatInt(1e9, 10), 10)
 	if !ok {
-		return "", errors.New(fmt.Sprintf("Fail to convert the TimeValue to Timestamp, %s", x.String()))
+		return "", errors.New("failed to parse big int from string: invalid format or unsupported characters")
 	}
 
 	unixTime.Mul(unixTime, m)

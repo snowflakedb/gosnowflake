@@ -954,6 +954,8 @@ func TestBindingsWithSameValue(t *testing.T) {
 			assertTrueF(t, interfaceRows.Next())
 			assertNilF(t, interfaceRows.Scan(&ii, &is, &iltz, &itz, &intz, &iDate, &itt, &ib, &id))
 
+			assertEqualE(t, k, i)
+
 			assertEqualE(t, i, bi)
 			assertEqualE(t, ii, bi)
 
