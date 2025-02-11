@@ -4,12 +4,15 @@ package gosnowflake
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/99designs/keyring"
+	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 type tokenType string
@@ -190,13 +193,56 @@ func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSp
 	return
 }
 
+func (ssm *fileBasedSecureStorageManager) lockPath() string {
+	return filepath.Join(ssm.credDirPath, credCacheFileName+".lck")
+}
+
 func (ssm *fileBasedSecureStorageManager) lockFile() error {
-	// TODO Implement locks
+	const NUM_RETRIES = 10
+	const RETRY_INTERVAL = 100 * time.Millisecond
+	lockPath := ssm.lockPath()
+	locked := false
+	for i := 0; i < NUM_RETRIES; i++ {
+		err := os.Mkdir(lockPath, 0o700)
+		if err != nil {
+			if errors.Is(err, os.ErrExist) {
+				time.Sleep(RETRY_INTERVAL)
+				continue
+			}
+			return fmt.Errorf("failed to create cache lock: %v, err: %v", lockPath, err)
+		}
+		locked = true
+	}
+
+	if !locked {
+		logger.Warnf("failed to lock cache lock. lockPath: %v.", lockPath)
+		var stat unix.Stat_t
+		err := unix.Stat(lockPath, &stat)
+		if err != nil {
+			return fmt.Errorf("failed to stat %v and determine if lock is stale. err: %v", lockPath, err)
+		}
+
+		if stat.Ctim.Nano()+time.Second.Nanoseconds() < time.Now().UnixNano() {
+			err := os.Remove(lockPath)
+			if err != nil {
+				return fmt.Errorf("failed to remove %v while trying to remove stale lock. err: %v", lockPath, err)
+			}
+			err = os.Mkdir(lockPath, 0o700)
+			if err != nil {
+				return fmt.Errorf("failed to recreate cache lock after removing stale lock. %v, err: %v", lockPath, err)
+			}
+		}
+		return fmt.Errorf("failed to lock cache lock %v", lockPath)
+	}
 	return nil
 }
 
 func (ssm *fileBasedSecureStorageManager) unlockFile() {
-	// TODO Implement locks
+	lockPath := ssm.lockPath()
+	err := os.Remove(lockPath)
+	if err != nil {
+		logger.Warnf("Failed to unlock cache lock: %v. %v", lockPath, err)
+	}
 }
 
 func (ssm *fileBasedSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
@@ -432,5 +478,5 @@ func (ssm *noopSecureStorageManager) getCredential(_ *secureTokenSpec) string {
 	return ""
 }
 
-func (ssm *noopSecureStorageManager) deleteCredential(_ *secureTokenSpec) { //TODO implement me
+func (ssm *noopSecureStorageManager) deleteCredential(_ *secureTokenSpec) {
 }
