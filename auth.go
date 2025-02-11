@@ -26,8 +26,6 @@ const (
 )
 
 const (
-	idToken                        = "ID_TOKEN"
-	mfaToken                       = "MFATOKEN"
 	clientStoreTemporaryCredential = "CLIENT_STORE_TEMPORARY_CREDENTIAL"
 	clientRequestMfaToken          = "CLIENT_REQUEST_MFA_TOKEN"
 	idTokenAuthenticator           = "ID_TOKEN"
@@ -365,10 +363,10 @@ func authenticate(
 		logger.WithContext(ctx).Errorln("Authentication FAILED")
 		sc.rest.TokenAccessor.SetTokens("", "", -1)
 		if sessionParameters[clientRequestMfaToken] == true {
-			deleteCredential(sc, mfaToken)
+			credentialsStorage.deleteCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
 		if sessionParameters[clientStoreTemporaryCredential] == true {
-			deleteCredential(sc, idToken)
+			credentialsStorage.deleteCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
@@ -384,11 +382,11 @@ func authenticate(
 	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
 	if sessionParameters[clientRequestMfaToken] == true {
 		token := respd.Data.MfaToken
-		setCredential(sc, mfaToken, token)
+		credentialsStorage.setCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User), token)
 	}
 	if sessionParameters[clientStoreTemporaryCredential] == true {
 		token := respd.Data.IDToken
-		setCredential(sc, idToken, token)
+		credentialsStorage.setCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User), token)
 	}
 	return &respd.Data, nil
 }
@@ -523,7 +521,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 			sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		}
 		if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
-			fillCachedIDToken(sc)
+			sc.cfg.IDToken = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
 		// Disable console login by default
 		if sc.cfg.DisableConsoleLogin == configBoolNotSet {
@@ -536,7 +534,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 			sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 		}
 		if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
-			fillCachedMfaToken(sc)
+			sc.cfg.MfaToken = credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
 	}
 
@@ -572,12 +570,4 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	sc.populateSessionParameters(authData.Parameters)
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
 	return nil
-}
-
-func fillCachedIDToken(sc *snowflakeConn) {
-	getCredential(sc, idToken)
-}
-
-func fillCachedMfaToken(sc *snowflakeConn) {
-	getCredential(sc, mfaToken)
 }

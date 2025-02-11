@@ -93,7 +93,7 @@ func (scd *snowflakeChunkDownloader) nextResultSet() error {
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
-	if usesArrowBatches(scd.ctx) {
+	if usesArrowBatches(scd.ctx) && scd.getQueryResultFormat() == arrowFormat {
 		return scd.startArrowBatches()
 	}
 	scd.CurrentChunkSize = len(scd.RowSet.JSON) // cache the size

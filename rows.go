@@ -46,7 +46,7 @@ type snowflakeRows struct {
 	errChannel          chan error
 	location            *time.Location
 	ctx                 context.Context
-	format              string
+	format              resultFormat
 }
 
 func (rows *snowflakeRows) getLocation() *time.Location {
@@ -169,11 +169,8 @@ func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
 		return nil, err
 	}
 
-	if rows.format != "arrow" {
-		return nil, (&SnowflakeError{
-			QueryID: rows.queryID,
-			Message: errJSONResponseInArrowBatchesMode,
-		}).exceptionTelemetry(rows.sc)
+	if rows.format != arrowFormat {
+		return nil, errNonArrowResponseForArrowBatches(rows.queryID).exceptionTelemetry(rows.sc)
 	}
 
 	return rows.ChunkDownloader.getArrowBatches(), nil

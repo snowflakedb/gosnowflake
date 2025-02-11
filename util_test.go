@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -394,6 +395,12 @@ func skipOnJenkins(t *testing.T, message string) {
 func runOnlyOnDockerContainer(t *testing.T, message string) {
 	if os.Getenv("AUTHENTICATION_TESTS_ENV") == "" {
 		t.Skip("Running only on Docker container: " + message)
+	}
+}
+
+func skipOnMac(t *testing.T, reason string) {
+	if runtime.GOOS == "darwin" && runningOnGithubAction() {
+		t.Skip("skipped on Mac: " + reason)
 	}
 }
 

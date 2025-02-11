@@ -560,15 +560,13 @@ func testWithArrowBatchesButReturningJSON(t *testing.T, async bool) {
 		_, err := rows.(SnowflakeRows).GetArrowBatches()
 		assertNotNilF(t, err)
 		var se *SnowflakeError
-		errors.As(err, &se)
-		assertEqualE(t, se.Message, errJSONResponseInArrowBatchesMode)
+		assertTrueE(t, errors.As(err, &se))
+		assertEqualE(t, se.Message, errMsgNonArrowResponseInArrowBatches)
+		assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
 
-		ctx = WithRequestID(context.Background(), requestID)
-		rows2 := sct.mustQueryContext(ctx, "SELECT 'hello'", nil)
-		defer rows2.Close()
-		scanValues := make([]driver.Value, 1)
-		assertNilF(t, rows2.Next(scanValues))
-		assertEqualE(t, scanValues[0], "hello")
+		v := make([]driver.Value, 1)
+		assertNilE(t, rows.Next(v))
+		assertEqualE(t, v[0], "hello")
 	})
 }
 
