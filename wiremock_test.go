@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -12,15 +13,33 @@ import (
 var wiremock *wiremockClient = newWiremock()
 
 type wiremockClient struct {
-	host   string
-	port   int
-	client http.Client
+	protocol string
+	host     string
+	port     int
+	client   http.Client
 }
 
 func newWiremock() *wiremockClient {
+	wmHost := os.Getenv("WIREMOCK_HOST")
+	if wmHost == "" {
+		wmHost = "127.0.0.1"
+	}
+	wmPortStr := os.Getenv("WIREMOCK_PORT")
+	if wmPortStr == "" {
+		wmPortStr = "14355"
+	}
+	wmPort, err := strconv.Atoi(wmPortStr)
+	if err != nil {
+		panic(fmt.Sprintf("WIREMOCK_PORT is not a number: %v", wmPortStr))
+	}
+	wmProtocol := os.Getenv("WIREMOCK_PROTOCOL")
+	if wmProtocol == "" {
+		wmProtocol = "http"
+	}
 	return &wiremockClient{
-		host: "127.0.0.1",
-		port: 14355,
+		protocol: wmProtocol,
+		host:     wmHost,
+		port:     wmPort,
 	}
 }
 
@@ -73,7 +92,7 @@ func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wire
 }
 
 func (wm *wiremockClient) mappingsURL() string {
-	return fmt.Sprintf("http://%v:%v/__admin/mappings", wm.host, wm.port)
+	return fmt.Sprintf("%v://%v:%v/__admin/mappings", wm.protocol, wm.host, wm.port)
 }
 
 // just to satisfy not used private variables and functions
