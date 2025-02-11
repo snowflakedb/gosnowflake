@@ -1,0 +1,22 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "Successful telemetry flow",
+      "request": {
+        "urlPathPattern": "/telemetry/send",
+        "method": "POST"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "data": {
+            "code": null,
+            "data": "Log Received",
+            "message": null,
+            "success": true
+          }
+        }
+      }
+    }
+  ]
+}
