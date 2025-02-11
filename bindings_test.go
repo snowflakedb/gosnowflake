@@ -944,6 +944,7 @@ func TestBindingsWithSameValue(t *testing.T) {
 		var b, bb, ib bool
 		var d, bd, id float64
 
+		timeFormat := "15:04:05"
 		for k := 0; k < numRows; k++ {
 			assertTrueF(t, insertRows.Next())
 			assertNilF(t, insertRows.Scan(&i, &s, &ltz, &tz, &ntz, &date, &tt, &b, &d))
@@ -955,42 +956,44 @@ func TestBindingsWithSameValue(t *testing.T) {
 			assertNilF(t, interfaceRows.Scan(&ii, &is, &iltz, &itz, &intz, &iDate, &itt, &ib, &id))
 
 			assertEqualE(t, k, i)
-
-			assertEqualE(t, i, bi)
-			assertEqualE(t, ii, bi)
-
-			assertEqualE(t, s, bs)
-			assertEqualE(t, is, bs)
-
-			assertEqualE(t, ltz, bltz)
-			assertEqualE(t, ltz, iltz)
-
-			assertEqualE(t, tz, btz)
-			assertEqualE(t, tz, itz)
-
-			assertEqualE(t, ntz, bntz)
-			assertEqualE(t, ntz, intz)
-
-			assertEqualE(t, date, bDate)
-			assertEqualE(t, date, iDate)
-
-			assertEqualE(t, tt, btt)
-			assertEqualE(t, tt, itt)
-
-			assertEqualE(t, b, bb)
-			assertEqualE(t, b, ib)
-
-			assertEqualE(t, d, id)
-			assertEqualE(t, d, id)
+			assertEqualE(t, k, bi)
+			assertEqualE(t, k, ii)
 
 			assertEqualE(t, "test"+strconv.Itoa(k), s)
-			assertEqualE(t, ltz.UTC(), timeArr[k].UTC())
-			assertEqualE(t, tz.UTC(), timeArr[k].UTC())
-			assertEqualE(t, ntz.UTC(), timeArr[k].UTC())
-			assertEqualE(t, date, timeArr[k].Truncate(24*time.Hour))
-			assertEqualE(t, tt.Format("15:04:05"), timeArr[k].Format("15:04:05"))
+			assertEqualE(t, "test"+strconv.Itoa(k), bs)
+			assertEqualE(t, "test"+strconv.Itoa(k), is)
+
+			utcTime := timeArr[k].UTC()
+			assertEqualE(t, ltz.UTC(), utcTime)
+			assertEqualE(t, bltz.UTC(), utcTime)
+			assertEqualE(t, iltz.UTC(), utcTime)
+
+			assertEqualE(t, tz.UTC(), utcTime)
+			assertEqualE(t, btz.UTC(), utcTime)
+			assertEqualE(t, itz.UTC(), utcTime)
+
+			assertEqualE(t, ntz.UTC(), utcTime)
+			assertEqualE(t, bntz.UTC(), utcTime)
+			assertEqualE(t, intz.UTC(), utcTime)
+
+			testingDate := timeArr[k].Truncate(24 * time.Hour)
+			assertEqualE(t, date, testingDate)
+			assertEqualE(t, bDate, testingDate)
+			assertEqualE(t, iDate, testingDate)
+
+			testingTime := timeArr[k].Format(timeFormat)
+			assertEqualE(t, tt.Format(timeFormat), testingTime)
+			assertEqualE(t, btt.Format(timeFormat), testingTime)
+			assertEqualE(t, itt.Format(timeFormat), testingTime)
+
 			assertEqualE(t, b, boolArr[k])
+			assertEqualE(t, bb, boolArr[k])
+			assertEqualE(t, ib, boolArr[k])
+
 			assertEqualE(t, d, doubleArr[k])
+			assertEqualE(t, bd, doubleArr[k])
+			assertEqualE(t, id, doubleArr[k])
+
 		}
 	})
 }
