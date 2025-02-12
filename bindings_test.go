@@ -1549,7 +1549,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 }
 
 func getRandomDate() time.Time {
-	return time.Date(rand.Intn(1700)+1, time.January, rand.Intn(40), rand.Intn(40), rand.Intn(40), rand.Intn(40), rand.Intn(40), time.UTC)
+	return time.Date(rand.Intn(1582)+1, time.January, rand.Intn(40), rand.Intn(40), rand.Intn(40), rand.Intn(40), rand.Intn(40), time.UTC)
 }
 
 func getRandomBool() bool {
