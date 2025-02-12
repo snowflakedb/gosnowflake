@@ -23,7 +23,6 @@ const (
 )
 
 const (
-	driverName        = "SNOWFLAKE-GO-DRIVER"
 	credCacheDirEnv   = "SF_TEMPORARY_CREDENTIAL_CACHE_DIR"
 	credCacheFileName = "temporary_credential.json"
 )
@@ -167,6 +166,23 @@ func buildCredCacheDirPath() string {
 	return ""
 }
 
+func (ssm *fileBasedSecureStorageManager) getTokens(data map[string]any) map[string]interface{} {
+	val, ok := data["tokens"]
+	emptyMap := map[string]interface{}{}
+	if !ok {
+		data["tokens"] = emptyMap
+		return emptyMap
+	}
+
+	tokens, ok := val.(map[string]interface{})
+	if !ok {
+		data["tokens"] = emptyMap
+		return emptyMap
+	}
+
+	return tokens
+}
+
 func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSpec, value string) {
 	credentialsKey := tokenSpec.buildKey()
 	err := ssm.lockFile()
@@ -176,13 +192,8 @@ func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSp
 	}
 	defer ssm.unlockFile()
 
-	credCache, err := ssm.readTemporaryCacheFile()
-	if err != nil {
-		logger.Warnf("Set credential failed. Unable to read cache. %v", err)
-		return
-	}
-
-	credCache["tokens"][credentialsKey] = value
+	credCache := ssm.readTemporaryCacheFile()
+	ssm.getTokens(credCache)[credentialsKey] = value
 
 	err = ssm.writeTemporaryCacheFile(credCache)
 	if err != nil {
@@ -212,6 +223,7 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 			return fmt.Errorf("failed to create cache lock: %v, err: %v", lockPath, err)
 		}
 		locked = true
+		break
 	}
 
 	if !locked {
@@ -232,7 +244,6 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 				return fmt.Errorf("failed to recreate cache lock after removing stale lock. %v, err: %v", lockPath, err)
 			}
 		}
-		return fmt.Errorf("failed to lock cache lock %v", lockPath)
 	}
 	return nil
 }
@@ -247,29 +258,25 @@ func (ssm *fileBasedSecureStorageManager) unlockFile() {
 
 func (ssm *fileBasedSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
 	credentialsKey := tokenSpec.buildKey()
-	credCache := map[string]map[string]string{}
-
 	err := ssm.lockFile()
 	if err != nil {
 		logger.Warn("Failed to lock credential cache file.")
 		return ""
 	}
 
-	credCache, err = ssm.readTemporaryCacheFile()
+	credCache := ssm.readTemporaryCacheFile()
 	ssm.unlockFile()
-	if err != nil {
-		logger.Warnf("Failed to read temporary cache file. %v.\n", err)
+	cred, ok := ssm.getTokens(credCache)[credentialsKey]
+	if !ok {
 		return ""
 	}
 
-	cred := credCache["tokens"][credentialsKey]
-	if cred != "" {
-		logger.Debug("Successfully read token. Returning as string")
-	} else {
-		logger.Debug("Returned credential is empty")
+	credStr, ok := cred.(string)
+	if !ok {
+		return ""
 	}
 
-	return cred
+	return credStr
 }
 
 func (ssm *fileBasedSecureStorageManager) credFilePath() string {
@@ -303,24 +310,26 @@ func (ssm *fileBasedSecureStorageManager) ensurePermissions() error {
 	return nil
 }
 
-func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile() (map[string]map[string]string, error) {
+func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile() map[string]any {
 	err := ssm.ensurePermissions()
 	if err != nil {
-		return nil, err
+		logger.Warnf("Failed to ensure permission for temporary cache file. %v.\n", err)
+		return map[string]any{}
 	}
 
 	jsonData, err := os.ReadFile(ssm.credFilePath())
 	if err != nil {
-		return nil, fmt.Errorf("failed to read credential cache file: %w", err)
+		logger.Warnf("Failed to read credential cache file. %v.\n", err)
+		return map[string]any{}
 	}
 
-	credentialsMap := map[string]map[string]string{}
+	credentialsMap := map[string]any{}
 	err = json.Unmarshal([]byte(jsonData), &credentialsMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal credential cache file: %w", err)
+		logger.Warnf("Failed to unmarshal credential cache file. %v.\n", err)
 	}
 
-	return credentialsMap, nil
+	return credentialsMap
 }
 
 func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
@@ -332,13 +341,8 @@ func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec *secureToke
 	}
 	defer ssm.unlockFile()
 
-	credCache, err := ssm.readTemporaryCacheFile()
-	if err != nil {
-		logger.Warnf("Set credential failed. Unable to read cache. %v", err)
-		return
-	}
-
-	delete(credCache["tokens"], credentialsKey)
+	credCache := ssm.readTemporaryCacheFile()
+	delete(ssm.getTokens(credCache), credentialsKey)
 
 	err = ssm.writeTemporaryCacheFile(credCache)
 	if err != nil {
@@ -349,7 +353,7 @@ func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec *secureToke
 	return
 }
 
-func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[string]map[string]string) error {
+func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[string]any) error {
 	bytes, err := json.Marshal(cache)
 	if err != nil {
 		return fmt.Errorf("failed to marshal credential cache map. %w", err)
@@ -458,9 +462,7 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 }
 
 func buildCredentialsKey(host, user string, credType tokenType) string {
-	host = strings.ToUpper(host)
-	user = strings.ToUpper(user)
-	credTypeStr := strings.ToUpper(string(credType))
+	credTypeStr := string(credType)
 	return host + ":" + user + ":" + credTypeStr
 }
 
