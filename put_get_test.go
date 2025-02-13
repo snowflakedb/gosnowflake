@@ -805,7 +805,7 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			err = os.WriteFile(fname, b.Bytes(), readWriteFileMode)
 			assertNilF(t, err, "could not write to gzip file")
 
-			dbt.mustExec(fmt.Sprintf("create or replace table %s (c1 varchar, c2 varchar(%v), c3 int)", tableName, tc))
+			dbt.mustExec(fmt.Sprintf("create or replace table %s (c1 varchar(%v), c2 varchar(%v), c3 int)", tableName, tc, tc))
 			defer dbt.mustExec("drop table " + tableName)
 			fileStream, err := os.Open(fname)
 			assertNilF(t, err)
