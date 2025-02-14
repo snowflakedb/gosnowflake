@@ -54,6 +54,13 @@ type Config struct {
 	Role      string // Role
 	Region    string // Region
 
+	OauthClientID         string // Client id for OAuth2 external IdP
+	OauthClientSecret     string // Client secret for OAuth2 external IdP
+	OauthAuthorizationURL string // Authorization URL of Auth2 external IdP
+	OauthTokenRequestURL  string // Token request URL of Auth2 external IdP
+	OauthRedirectURI      string // Redirect URI registered in IdP. The default is http://127.0.0.1:<random port>/
+	OauthScope            string // Comma separated list of scopes. If empty it is derived from role.
+
 	// ValidateDefaultParameters disable the validation checks for Database, Schema, Warehouse and Role
 	// at the time a connection is established
 	ValidateDefaultParameters ConfigBool
@@ -190,6 +197,24 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Region != "" {
 		params.Add("region", cfg.Region)
+	}
+	if cfg.OauthClientID != "" {
+		params.Add("oauthClientId", cfg.OauthClientID)
+	}
+	if cfg.OauthClientSecret != "" {
+		params.Add("oauthClientSecret", cfg.OauthClientSecret)
+	}
+	if cfg.OauthAuthorizationURL != "" {
+		params.Add("oauthAuthorizationUrl", cfg.OauthAuthorizationURL)
+	}
+	if cfg.OauthTokenRequestURL != "" {
+		params.Add("oauthTokenRequestUrl", cfg.OauthTokenRequestURL)
+	}
+	if cfg.OauthRedirectURI != "" {
+		params.Add("oauthRedirectUri", cfg.OauthRedirectURI)
+	}
+	if cfg.OauthScope != "" {
+		params.Add("oauthScope", cfg.OauthScope)
 	}
 	if cfg.Authenticator != AuthTypeSnowflake {
 		if cfg.Authenticator == AuthTypeOkta {
@@ -706,6 +731,18 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Protocol = value
 		case "passcode":
 			cfg.Passcode = value
+		case "oauthClientId":
+			cfg.OauthClientID = value
+		case "oauthClientSecret":
+			cfg.OauthClientSecret = value
+		case "oauthAuthorizationUrl":
+			cfg.OauthAuthorizationURL = value
+		case "oauthTokenRequestUrl":
+			cfg.OauthTokenRequestURL = value
+		case "oauthRedirectUri":
+			cfg.OauthRedirectURI = value
+		case "oauthScope":
+			cfg.OauthScope = value
 		case "passcodeInPassword":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
