@@ -59,7 +59,7 @@ type Config struct {
 	OauthAuthorizationURL string // Authorization URL of Auth2 external IdP
 	OauthTokenRequestURL  string // Token request URL of Auth2 external IdP
 	OauthRedirectURI      string // Redirect URI registered in IdP. The default is http://127.0.0.1:<random port>/
-	OauthScopes           string // Comma separated list of scopes. If empty it is derived from role.
+	OauthScope            string // Comma separated list of scopes. If empty it is derived from role.
 
 	// ValidateDefaultParameters disable the validation checks for Database, Schema, Warehouse and Role
 	// at the time a connection is established
@@ -213,8 +213,8 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.OauthRedirectURI != "" {
 		params.Add("oauthRedirectUri", cfg.OauthRedirectURI)
 	}
-	if cfg.OauthScopes != "" {
-		params.Add("oauthScopes", cfg.OauthScopes)
+	if cfg.OauthScope != "" {
+		params.Add("oauthScope", cfg.OauthScope)
 	}
 	if cfg.Authenticator != AuthTypeSnowflake {
 		if cfg.Authenticator == AuthTypeOkta {
@@ -730,8 +730,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.OauthTokenRequestURL = value
 		case "oauthRedirectUri":
 			cfg.OauthRedirectURI = value
-		case "oauthScopes":
-			cfg.OauthScopes = value
+		case "oauthScope":
+			cfg.OauthScope = value
 		case "passcodeInPassword":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
