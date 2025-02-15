@@ -433,3 +433,10 @@ func TestFindByPrefix(t *testing.T) {
 	assertEqualE(t, findByPrefix(nonEmpty, "dd"), -1)
 	assertEqualE(t, findByPrefix([]string{}, "dd"), -1)
 }
+
+func TestInternal(t *testing.T) {
+	ctx := context.Background()
+	assertFalseE(t, isInternal(ctx))
+	ctx = WithInternal(ctx)
+	assertTrueE(t, isInternal(ctx))
+}

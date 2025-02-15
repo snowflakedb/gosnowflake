@@ -40,6 +40,7 @@ const (
 
 const (
 	describeOnly        contextKey = "DESCRIBE_ONLY"
+	internalQuery       contextKey = "INTERNAL_QUERY"
 	cancelRetry         contextKey = "CANCEL_RETRY"
 	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
 )
@@ -171,6 +172,11 @@ func WithMapValuesNullable(ctx context.Context) context.Context {
 // Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
 func WithArrayValuesNullable(ctx context.Context) context.Context {
 	return context.WithValue(ctx, arrayValuesNullable, true)
+}
+
+// WithInternal sets the internal query flag.
+func WithInternal(ctx context.Context) context.Context {
+	return context.WithValue(ctx, internalQuery, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one
