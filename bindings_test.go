@@ -54,8 +54,8 @@ const (
 )
 
 var (
-	// maxLOBSize = 128 * 1024 * 1024 // new max LOB size
-	maxLOBSize = 16 * 1024 * 1024 // current max LOB size
+	maxLOBSize = 128 * 1024 * 1024 // new max LOB size
+	// maxLOBSize = 16 * 1024 * 1024 // current max LOB size
 	largeSize  = maxLOBSize / 2
 	mediumSize = largeSize / 2
 )
@@ -1405,7 +1405,7 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 }
 
 func TestMaxLobSize(t *testing.T) {
-	skipMaxLobSizeTestOnGithubActions(t)
+	// skipMaxLobSizeTestOnGithubActions(t)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(enableFeatureMaxLOBSize)
 		defer dbt.mustExec(unsetLargeVarcharAndBinary)
