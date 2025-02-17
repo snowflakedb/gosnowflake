@@ -2111,3 +2111,14 @@ func TestTimePrecision(t *testing.T) {
 		}
 	})
 }
+
+func runSmokeQuery(t *testing.T, db *sql.DB) {
+	rows, err := db.Query("SELECT 1")
+	assertNilF(t, err)
+	defer rows.Close()
+	assertTrueF(t, rows.Next())
+	var v int
+	err = rows.Scan(&v)
+	assertNilF(t, err)
+	assertEqualE(t, v, 1)
+}
