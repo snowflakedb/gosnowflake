@@ -58,6 +58,10 @@ type wiremockMapping struct {
 	params   map[string]string
 }
 
+func newWiremockMapping(filePath string) wiremockMapping {
+	return wiremockMapping{filePath: filePath}
+}
+
 func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMapping) {
 	for _, mapping := range wm.enrichWithTelemetry(mappings) {
 		f, err := os.Open("test_data/wiremock/mappings/" + mapping.filePath)
@@ -92,7 +96,11 @@ func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wire
 }
 
 func (wm *wiremockClient) mappingsURL() string {
-	return fmt.Sprintf("%v://%v:%v/__admin/mappings", wm.protocol, wm.host, wm.port)
+	return fmt.Sprintf("%v/__admin/mappings", wm.baseUrl())
+}
+
+func (wm *wiremockClient) baseUrl() string {
+	return fmt.Sprintf("%v://%v:%v", wm.protocol, wm.host, wm.port)
 }
 
 // just to satisfy not used private variables and functions
