@@ -945,7 +945,7 @@ type ConfigParam struct {
 // GetConfigFromEnv is used to parse the environment variable values to specific fields of the Config
 func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 	var account, user, password, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
-	var oauthClientId, oauthClientSecret, oauthAuthorizationUrl, oauthTokenRequestUrl, oauthRedirectUri string
+	var oauthClientID, oauthClientSecret, oauthAuthorizationURL, oauthTokenRequestURL, oauthRedirectURI string
 	var privateKey *rsa.PrivateKey
 	var err error
 	if len(properties) == 0 || properties == nil {
@@ -989,15 +989,15 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 				return nil, err
 			}
 		case "OAuthClientId":
-			oauthClientId = value
+			oauthClientID = value
 		case "OAuthClientSecret":
 			oauthClientSecret = value
 		case "OAuthAuthorizationURL":
-			oauthAuthorizationUrl = value
+			oauthAuthorizationURL = value
 		case "OAuthTokenRequestURL":
-			oauthTokenRequestUrl = value
+			oauthTokenRequestURL = value
 		case "OAuthRedirectURI":
-			oauthRedirectUri = value
+			oauthRedirectURI = value
 		default:
 			return nil, errors.New("unknown property: " + prop.Name)
 		}
@@ -1026,11 +1026,11 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 		Region:                region,
 		Passcode:              passcode,
 		Application:           application,
-		OauthClientID:         oauthClientId,
+		OauthClientID:         oauthClientID,
 		OauthClientSecret:     oauthClientSecret,
-		OauthAuthorizationURL: oauthAuthorizationUrl,
-		OauthTokenRequestURL:  oauthTokenRequestUrl,
-		OauthRedirectURI:      oauthRedirectUri,
+		OauthAuthorizationURL: oauthAuthorizationURL,
+		OauthTokenRequestURL:  oauthTokenRequestURL,
+		OauthRedirectURI:      oauthRedirectURI,
 		Params:                map[string]*string{},
 	}
 	return cfg, nil
