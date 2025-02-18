@@ -2480,3 +2480,18 @@ func TestIsArrayOfStructs(t *testing.T) {
 		})
 	}
 }
+
+func TestSqlNull(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		rows := dbt.mustQuery("SELECT 1, NULL UNION SELECT 2, 'test' ORDER BY 1")
+		defer rows.Close()
+		var rowID int
+		var nullStr sql.Null[string]
+		assertTrueF(t, rows.Next())
+		assertNilF(t, rows.Scan(&rowID, &nullStr))
+		assertEqualE(t, nullStr, sql.Null[string]{Valid: false})
+		assertTrueF(t, rows.Next())
+		assertNilF(t, rows.Scan(&rowID, &nullStr))
+		assertEqualE(t, nullStr, sql.Null[string]{Valid: true, V: "test"})
+	})
+}
