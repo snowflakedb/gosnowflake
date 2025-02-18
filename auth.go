@@ -481,6 +481,7 @@ func prepareJWTToken(config *Config) (string, error) {
 	if config.PrivateKey == nil {
 		return "", errors.New("trying to use keypair authentication, but PrivateKey was not provided in the driver config")
 	}
+	logger.Debug("preparing JWT for keypair authentication")
 	pubBytes, err := x509.MarshalPKIXPublicKey(config.PrivateKey.Public())
 	if err != nil {
 		return "", err
@@ -505,6 +506,7 @@ func prepareJWTToken(config *Config) (string, error) {
 		return "", err
 	}
 
+	logger.Debugf("successfully generated JWT. token: %v", tokenString)
 	return tokenString, err
 }
 
