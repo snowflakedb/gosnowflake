@@ -16,8 +16,8 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		Role:                  "ANALYST",
 		OauthClientID:         "testClientId",
 		OauthClientSecret:     "testClientSecret",
-		OauthAuthorizationURL: wiremock.baseUrl() + "/oauth/authorize",
-		OauthTokenRequestURL:  wiremock.baseUrl() + "/oauth/token",
+		OauthAuthorizationURL: wiremock.baseURL() + "/oauth/authorize",
+		OauthTokenRequestURL:  wiremock.baseURL() + "/oauth/token",
 		OauthRedirectURI:      "http://localhost:1234/snowflake/oauth-redirect",
 	})
 	assertNilF(t, err)
@@ -95,12 +95,12 @@ type nonInteractiveAuthorizationCodeProvider struct {
 	mu              sync.Mutex
 }
 
-func (provider *nonInteractiveAuthorizationCodeProvider) run(authorizationUrl string) error {
+func (provider *nonInteractiveAuthorizationCodeProvider) run(authorizationURL string) error {
 	if provider.triggerError != "" {
 		return errors.New(provider.triggerError)
 	}
 	go func() {
-		resp, err := http.Get(authorizationUrl)
+		resp, err := http.Get(authorizationURL)
 		assertNilF(provider.t, err)
 		assertEqualE(provider.t, resp.StatusCode, http.StatusOK)
 		respBody, err := io.ReadAll(resp.Body)
