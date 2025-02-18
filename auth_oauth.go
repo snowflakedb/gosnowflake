@@ -48,9 +48,9 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 		}
 	}
 
-	redirectUriTemplate := ""
+	redirectURITemplate := ""
 	if cfg.OauthRedirectURI == "" {
-		redirectUriTemplate = "http://localhost:%v/"
+		redirectURITemplate = "http://127.0.0.1:%v/"
 	}
 
 	client := &http.Client{
@@ -60,7 +60,7 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 		ctx:                 context.WithValue(ctx, oauth2.HTTPClient, client),
 		cfg:                 cfg,
 		port:                port,
-		redirectURITemplate: redirectUriTemplate,
+		redirectURITemplate: redirectURITemplate,
 		authorizationCodeProviderFactory: func() authorizationCodeProvider {
 			return &browserBasedAuthorizationCodeProvider{}
 		},
@@ -101,8 +101,8 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 	oauth2cfg := oauthClient.buildOauthConfig(callbackPort)
 	codeVerifier := authCodeProvider.createCodeVerifier()
 	state := authCodeProvider.createState()
-	authorizationUrl := oauth2cfg.AuthCodeURL(state, oauth2.S256ChallengeOption(codeVerifier))
-	if err = authCodeProvider.run(authorizationUrl); err != nil {
+	authorizationURL := oauth2cfg.AuthCodeURL(state, oauth2.S256ChallengeOption(codeVerifier))
+	if err = authCodeProvider.run(authorizationURL); err != nil {
 		responseBodyChan <- err.Error()
 		closeListenerChan <- true
 		return "", err
@@ -231,7 +231,7 @@ func handleOAuthSocket(tcpListener *net.TCPListener, successChan chan []byte, er
 }
 
 type authorizationCodeProvider interface {
-	run(authorizationUrl string) error
+	run(authorizationURL string) error
 	createState() string
 	createCodeVerifier() string
 }
@@ -239,8 +239,8 @@ type authorizationCodeProvider interface {
 type browserBasedAuthorizationCodeProvider struct {
 }
 
-func (provider *browserBasedAuthorizationCodeProvider) run(authorizationUrl string) error {
-	return openBrowser(authorizationUrl)
+func (provider *browserBasedAuthorizationCodeProvider) run(authorizationURL string) error {
+	return openBrowser(authorizationURL)
 }
 
 func (provider *browserBasedAuthorizationCodeProvider) createState() string {
