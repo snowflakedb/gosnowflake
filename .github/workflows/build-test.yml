@@ -48,7 +48,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.21', '1.22', '1.23' ]
+                go: [ '1.22', '1.23', '1.24' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.21', '1.22', '1.23' ]
+                go: [ '1.22', '1.23', '1.24' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v4
@@ -109,7 +109,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.21', '1.22', '1.23' ]
+                go: [ '1.22', '1.23', '1.24' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v4
