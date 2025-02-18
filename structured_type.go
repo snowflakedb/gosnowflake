@@ -20,7 +20,7 @@ import (
 type ObjectType struct {
 }
 
-var structuredObjectWriterType = reflect.TypeOf((*StructuredObjectWriter)(nil)).Elem()
+var structuredObjectWriterType = reflect.TypeFor[StructuredObjectWriter]()
 
 // StructuredObject is a representation of structured object for reading.
 type StructuredObject interface {
