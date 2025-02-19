@@ -450,7 +450,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.Token = jwtTokenString
 	case AuthTypePat:
 		if !experimentalAuthEnabled() {
-			return nil, errors.New("PAT is not ready to use")
+			return nil, errors.New("programmatic access tokens are not ready to use")
 		}
 		logger.WithContext(sc.ctx).Info("Programmatic access token")
 		requestMain.Authenticator = AuthTypePat.String()
