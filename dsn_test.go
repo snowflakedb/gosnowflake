@@ -31,6 +31,7 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
+	enableExperimentalAuth(t)
 	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
 	privKeyPKCS1 := generatePKCS1String(testPrivKey)
 	testcases := []tcParseDSN{
@@ -282,7 +283,7 @@ func TestParseDSN(t *testing.T) {
 			err:      errEmptyUsername(),
 		},
 		{
-			dsn: "user:p@host:123/db/schema?protocol=http",
+			dsn: "user:pass@host:123/db/schema?protocol=http",
 			config: &Config{
 				Account: "ac", User: "user", Password: "pass",
 				Protocol: "http", Host: "host", Port: 123,
@@ -297,6 +298,23 @@ func TestParseDSN(t *testing.T) {
 			},
 			ocspMode: ocspModeFailOpen,
 			err:      errEmptyAccount(),
+		},
+		{
+			dsn: "user:@host:123/db/schema?protocol=http&authenticator=programmatic_access_token&account=ac",
+			config: &Config{
+				Account: "ac", User: "user", Password: "pass",
+				Protocol: "http", Host: "host", Port: 123,
+				Database: "db", Schema: "schema",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      errEmptyPasswordAndToken(),
 		},
 		{
 			dsn: "u:p@a.snowflakecomputing.com/db/pa?account=a&protocol=https&role=r&timezone=UTC&warehouse=w",
@@ -1041,6 +1059,25 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=PROGRAMMATIC_ACCESS_TOKEN&disableSamlURLCheck=false&token=t",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypePat,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableSamlURLCheck:       ConfigBoolFalse,
+				Token:                     "t",
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -1213,7 +1250,8 @@ func TestParseDSN(t *testing.T) {
 				if test.config.DisableSamlURLCheck != cfg.DisableSamlURLCheck {
 					t.Fatalf("%v: Failed to match DisableSamlURLCheck. expected: %v, got: %v", i, test.config.DisableSamlURLCheck, cfg.DisableSamlURLCheck)
 				}
-				assertEqualF(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
+				assertEqualE(t, cfg.Token, test.config.Token, "token")
+				assertEqualE(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
 			case test.err != nil:
 				driverErrE, okE := test.err.(*SnowflakeError)
 				driverErrG, okG := err.(*SnowflakeError)
@@ -1244,6 +1282,7 @@ type tcDSN struct {
 }
 
 func TestDSN(t *testing.T) {
+	enableExperimentalAuth(t)
 	tmfmt := "MM-DD-YYYY"
 	testcases := []tcDSN{
 		{
@@ -1464,6 +1503,17 @@ func TestDSN(t *testing.T) {
 				ClientStoreTemporaryCredential: ConfigBoolFalse,
 			},
 			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=externalbrowser&clientStoreTemporaryCredential=false&ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                           "u",
+				Password:                       "p",
+				Account:                        "a",
+				Token:                          "t",
+				Authenticator:                  AuthTypePat,
+				ClientStoreTemporaryCredential: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=programmatic_access_token&clientStoreTemporaryCredential=false&ocspFailOpen=true&token=t&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
