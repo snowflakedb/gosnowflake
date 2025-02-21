@@ -22,22 +22,19 @@ import (
 )
 
 const (
-	successHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+	samlSuccessHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
 <title>SAML Response for Snowflake</title></head>
 <body>
 Your identity was confirmed and propagated to Snowflake %v.
 You can close this window now and go back where you started from.
 </body></html>`
-)
 
-const (
 	bufSize = 8192
 )
 
 // Builds a response to show to the user after successfully
 // getting a response from Snowflake.
-func buildResponse(application string) (bytes.Buffer, error) {
-	body := fmt.Sprintf(successHTML, application)
+func buildResponse(body string) (bytes.Buffer, error) {
 	t := &http.Response{
 		Status:        "200 OK",
 		StatusCode:    200,
@@ -57,8 +54,8 @@ func buildResponse(application string) (bytes.Buffer, error) {
 // This opens a socket that listens on all available unicast
 // and any anycast IP addresses locally. By specifying "0", we are
 // able to bind to a free port.
-func createLocalTCPListener() (*net.TCPListener, error) {
-	l, err := net.Listen("tcp", "localhost:0")
+func createLocalTCPListener(port int) (*net.TCPListener, error) {
+	l, err := net.Listen("tcp", fmt.Sprintf("localhost:%v", port))
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +240,7 @@ func doAuthenticateByExternalBrowser(
 	password string,
 	disableConsoleLogin ConfigBool,
 ) authenticateByExternalBrowserResult {
-	l, err := createLocalTCPListener()
+	l, err := createLocalTCPListener(0)
 	if err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
@@ -310,7 +307,8 @@ func doAuthenticateByExternalBrowser(
 			buf.Grow(bufSize)
 		}
 		if encodedSamlResponse != "" {
-			httpResponse, err := buildResponse(application)
+			body := fmt.Sprintf(samlSuccessHTML, application)
+			httpResponse, err := buildResponse(body)
 			if err != nil && errAccept == nil {
 				errAccept = err
 			}
