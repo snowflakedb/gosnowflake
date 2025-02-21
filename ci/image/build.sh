@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env bash -e
 #
 # Build Docker images
 #
@@ -9,7 +9,7 @@ source $THIS_DIR/../_init.sh
 for name in "${!TEST_IMAGE_NAMES[@]}"; do
     docker build \
         --platform linux/amd64 \
-        --file $THIS_DIR/Dockerfile.$name-test \
+        --file $THIS_DIR/Dockerfile \
         --label snowflake \
         --label $DRIVER_NAME \
         --tag ${TEST_IMAGE_NAMES[$name]} .

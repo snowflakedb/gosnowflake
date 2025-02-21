@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env -e
 
 export PLATFORM=$(echo $(uname) | tr '[:upper:]' '[:lower:]')
 # Use the internal Docker Registry
@@ -10,6 +10,6 @@ export DRIVER_NAME=go
 
 TEST_IMAGE_VERSION=1
 declare -A TEST_IMAGE_NAMES=(
-    [$DRIVER_NAME-centos7-go1.21]=$DOCKER_REGISTRY_NAME/client-$DRIVER_NAME-centos7-go1.21-test:$TEST_IMAGE_VERSION
+    [$DRIVER_NAME-chainguard-go1_24]=$DOCKER_REGISTRY_NAME/client-$DRIVER_NAME-chainguard-go1.24-test:$TEST_IMAGE_VERSION
 )
 export TEST_IMAGE_NAMES
