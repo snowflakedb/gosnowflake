@@ -481,9 +481,11 @@ func fillMissingConfigParameters(cfg *Config) error {
 	if authRequiresUser(cfg) && strings.TrimSpace(cfg.User) == "" {
 		return errEmptyUsername()
 	}
-
 	if authRequiresPassword(cfg) && strings.TrimSpace(cfg.Password) == "" {
 		return errEmptyPassword()
+	}
+	if authRequiresClientIDAndSecret(cfg) && (strings.TrimSpace(cfg.OauthClientID) == "" || strings.TrimSpace(cfg.OauthClientSecret) == "") {
+		return errEmptyOAuthParameters()
 	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
 		cfg.Protocol = "https"
@@ -611,6 +613,10 @@ func authRequiresPassword(cfg *Config) bool {
 		cfg.Authenticator != AuthTypeExternalBrowser &&
 		cfg.Authenticator != AuthTypeJwt &&
 		cfg.Authenticator != AuthTypeOAuthAuthorizationCode
+}
+
+func authRequiresClientIDAndSecret(cfg *Config) bool {
+	return cfg.Authenticator == AuthTypeOAuthAuthorizationCode
 }
 
 // transformAccountToHost transforms account to host
@@ -945,7 +951,7 @@ type ConfigParam struct {
 // GetConfigFromEnv is used to parse the environment variable values to specific fields of the Config
 func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 	var account, user, password, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
-	var oauthClientID, oauthClientSecret, oauthAuthorizationURL, oauthTokenRequestURL, oauthRedirectURI string
+	var oauthClientID, oauthClientSecret, oauthAuthorizationURL, oauthTokenRequestURL, oauthRedirectURI, oauthScope string
 	var privateKey *rsa.PrivateKey
 	var err error
 	if len(properties) == 0 || properties == nil {
@@ -998,6 +1004,8 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 			oauthTokenRequestURL = value
 		case "OAuthRedirectURI":
 			oauthRedirectURI = value
+		case "OAuthScope":
+			oauthScope = value
 		default:
 			return nil, errors.New("unknown property: " + prop.Name)
 		}
@@ -1031,6 +1039,7 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 		OauthAuthorizationURL: oauthAuthorizationURL,
 		OauthTokenRequestURL:  oauthTokenRequestURL,
 		OauthRedirectURI:      oauthRedirectURI,
+		OauthScope:            oauthScope,
 		Params:                map[string]*string{},
 	}
 	return cfg, nil

@@ -70,8 +70,6 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, error) {
 	authCodeProvider := oauthClient.authorizationCodeProviderFactory()
 
-	// TODO timeouts
-	// TODO retries
 	successChan := make(chan []byte)
 	errChan := make(chan error)
 	responseBodyChan := make(chan string, 2)
@@ -87,6 +85,7 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 
 	logger.Debug("setting up TCP listener for authorization code redirect")
 	tcpListener, callbackPort, err := oauthClient.setupListener()
+	logger.Debugf("opening socket on port %v", callbackPort)
 	if err != nil {
 		return "", err
 	}
