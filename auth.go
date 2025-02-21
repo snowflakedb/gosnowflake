@@ -481,6 +481,7 @@ func prepareJWTToken(config *Config) (string, error) {
 	if config.PrivateKey == nil {
 		return "", errors.New("trying to use keypair authentication, but PrivateKey was not provided in the driver config")
 	}
+	logger.Debug("preparing JWT for keypair authentication")
 	pubBytes, err := x509.MarshalPKIXPublicKey(config.PrivateKey.Public())
 	if err != nil {
 		return "", err
@@ -491,13 +492,14 @@ func prepareJWTToken(config *Config) (string, error) {
 	userName := strings.ToUpper(config.User)
 
 	issueAtTime := time.Now().UTC()
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+	jwtClaims := jwt.MapClaims{
 		"iss": fmt.Sprintf("%s.%s.%s", accountName, userName, "SHA256:"+base64.StdEncoding.EncodeToString(hash[:])),
 		"sub": fmt.Sprintf("%s.%s", accountName, userName),
 		"iat": issueAtTime.Unix(),
 		"nbf": time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
 		"exp": issueAtTime.Add(config.JWTExpireTimeout).Unix(),
-	})
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwtClaims)
 
 	tokenString, err := token.SignedString(config.PrivateKey)
 
@@ -505,6 +507,7 @@ func prepareJWTToken(config *Config) (string, error) {
 		return "", err
 	}
 
+	logger.Debugf("successfully generated JWT with following claims: %v", jwtClaims)
 	return tokenString, err
 }
 
