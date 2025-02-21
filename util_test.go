@@ -404,6 +404,12 @@ func skipOnMac(t *testing.T, reason string) {
 	}
 }
 
+func skipOnNonLinux(t *testing.T, reason string) {
+	if runtime.GOOS != "linux" {
+		t.Skip("skipped on non-linux OS: " + reason)
+	}
+}
+
 func randomString(n int) string {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
