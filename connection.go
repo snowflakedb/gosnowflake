@@ -435,7 +435,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	rows.sc = sc
 	rows.queryID = data.Data.QueryID
 	rows.ctx = ctx
-	rows.format = data.Data.QueryResultFormat
+	rows.format = resultFormat(data.Data.QueryResultFormat)
 
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
@@ -790,7 +790,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	if sc.cfg.Transporter == nil {
 		if sc.cfg.DisableOCSPChecks || sc.cfg.InsecureMode {
 			// no revocation check with OCSP. Think twice when you want to enable this option.
-			st = snowflakeInsecureTransport
+			st = snowflakeNoOcspTransport
 		} else {
 			// set OCSP fail open mode
 			ocspResponseCacheLock.Lock()
@@ -855,4 +855,22 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 
 	return sc, nil
+}
+
+func getTransport(cfg *Config) http.RoundTripper {
+	if cfg == nil {
+		logger.Debug("getTransport: got nil Config, will perform OCSP validation for cloud storage")
+		return SnowflakeTransport
+	}
+	// if user configured a custom Transporter, prioritize that
+	if cfg.Transporter != nil {
+		logger.Debug("getTransport: using Transporter configured by the user")
+		return cfg.Transporter
+	}
+	if cfg.DisableOCSPChecks || cfg.InsecureMode {
+		logger.Debug("getTransport: skipping OCSP validation for cloud storage")
+		return snowflakeNoOcspTransport
+	}
+	logger.Debug("getTransport: will perform OCSP validation for cloud storage")
+	return SnowflakeTransport
 }

@@ -465,6 +465,16 @@ func runSnowflakeConnTest(t *testing.T, test func(sct *SCTest)) {
 	test(sct)
 }
 
+func getDbHandlerFromConfig(t *testing.T, cfg *Config) *sql.DB {
+	dsn, err := DSN(cfg)
+	assertNilF(t, err, "failed to create DSN from Config")
+
+	db, err := sql.Open("snowflake", dsn)
+	assertNilF(t, err, "failed to open database")
+
+	return db
+}
+
 func runningOnAWS() bool {
 	return os.Getenv("CLOUD_PROVIDER") == "AWS"
 }
@@ -1983,7 +1993,7 @@ type CountingTransport struct {
 
 func (t *CountingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	t.requests++
-	return snowflakeInsecureTransport.RoundTrip(r)
+	return snowflakeNoOcspTransport.RoundTrip(r)
 }
 
 func TestOpenWithTransport(t *testing.T) {

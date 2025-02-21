@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -388,6 +389,18 @@ func performContainsTestcase[S comparable](tc tcContains[S], t *testing.T) {
 func skipOnJenkins(t *testing.T, message string) {
 	if os.Getenv("JENKINS_HOME") != "" {
 		t.Skip("Skipping test on Jenkins: " + message)
+	}
+}
+
+func runOnlyOnDockerContainer(t *testing.T, message string) {
+	if os.Getenv("AUTHENTICATION_TESTS_ENV") == "" {
+		t.Skip("Running only on Docker container: " + message)
+	}
+}
+
+func skipOnMac(t *testing.T, reason string) {
+	if runtime.GOOS == "darwin" && runningOnGithubAction() {
+		t.Skip("skipped on Mac: " + reason)
 	}
 }
 

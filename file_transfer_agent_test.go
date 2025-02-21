@@ -54,15 +54,15 @@ func TestGetBucketAccelerateConfiguration(t *testing.T) {
 
 type s3ClientCreatorMock struct {
 	extract func(string) (*s3Location, error)
-	create  func(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error)
+	create  func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error)
 }
 
 func (mock *s3ClientCreatorMock) extractBucketNameAndPath(location string) (*s3Location, error) {
 	return mock.extract(location)
 }
 
-func (mock *s3ClientCreatorMock) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
-	return mock.create(info, useAccelerateEndpoint)
+func (mock *s3ClientCreatorMock) createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
+	return mock.create(info, useAccelerateEndpoint, cfg)
 }
 
 type s3BucketAccelerateConfigGetterMock struct {
@@ -97,7 +97,7 @@ func TestGetBucketAccelerateConfigurationTooManyRetries(t *testing.T) {
 			extract: func(s string) (*s3Location, error) {
 				return &s3Location{bucketName: "test", s3Path: "test"}, nil
 			},
-			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
 				return &s3BucketAccelerateConfigGetterMock{err: errors.New("testing")}, nil
 			},
 		})
@@ -147,7 +147,7 @@ func TestGetBucketAccelerateConfigurationFailedCreateClient(t *testing.T) {
 			extract: func(s string) (*s3Location, error) {
 				return &s3Location{bucketName: "test", s3Path: "test"}, nil
 			},
-			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
 				return nil, errors.New("failed creation")
 			},
 		})
@@ -173,7 +173,7 @@ func TestGetBucketAccelerateConfigurationInvalidClient(t *testing.T) {
 			extract: func(s string) (*s3Location, error) {
 				return &s3Location{bucketName: "test", s3Path: "test"}, nil
 			},
-			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
 				return 1, nil
 			},
 		})

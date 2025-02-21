@@ -152,6 +152,7 @@ Session-level parameters can also be set by using the SQL command "ALTER SESSION
 Alternatively, use OpenWithConfig() function to create a database handle with the specified Config.
 
 # Connection Config
+
 You can also connect to your warehouse using the connection config. The dbSql library states that when you want to take advantage of driver-specific connection features that aren’t
 available in a connection string. Each driver supports its own set of connection properties, often providing ways to customize the connection request specific to the DBMS
 For example:
@@ -167,12 +168,12 @@ you are looking to connect. Since the driver name is not needed, you can optiona
 on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTERATION` in your environment. This is useful you wish to
 register multiple verions of the driver.
 
-Note: GOSNOWFLAKE_SKIP_REGISTERATION should not be used if sql.Open() is used as the method
+Note: `GOSNOWFLAKE_SKIP_REGISTERATION` should not be used if sql.Open() is used as the method
 to connect to the server, as sql.Open will require registration so it can map the driver name
 to the driver type, which in this case is "snowflake" and SnowflakeDriver{}.
 
 You can load the connnection configuration with .toml file format.
-With two environment variables SNOWFLAKE_HOME(connections.toml file directory) SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN name),
+With two environment variables, `SNOWFLAKE_HOME` (`connections.toml` file directory) and `SNOWFLAKE_DEFAULT_CONNECTION_NAME` (DSN name),
 the driver will search the config file and load the connection. You can find how to use this connection way at ./cmd/tomlfileconnection
 or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/connecting/specify-credentials
 
@@ -701,7 +702,7 @@ the underlying data has already been loaded, and downloads it if not.
 
 Limitations:
 
- 1. For some queries Snowflake may decide to return data in JSON format (examples: `SHOW PARAMETERS` or `ls @stage`). You cannot use JSON with Arrow batches context.
+ 1. For some queries Snowflake may decide to return data in JSON format (examples: `SHOW PARAMETERS` or `ls @stage`). You cannot use JSON with Arrow batches context. See alternative below.
  2. Snowflake handles timestamps in a range which is broader than available space in Arrow timestamp type. Because of that special treatment should be used (see below).
  3. When using numbers, Snowflake chooses the smallest type that covers all values in a batch. So even when your column is NUMBER(38, 0), if all values are 8bits, array.Int8 is used.
 
@@ -739,6 +740,17 @@ Zero-scale numbers (DECIMAL256, DECIMAL128) will be converted to int64, which co
 WHen using NUMBERs with non zero scale, the value is returned as an integer type and a scale is provided in record metadata.
 Example. When we have a 123.45 value that comes from NUMBER(9, 4), it will be represented as 1234500 with scale equal to 4. It is a client responsibility to interpret it correctly.
 Also - see limitations section above.
+
+How to handle JSON responses in Arrow batches:
+
+Due to technical limitations Snowflake backend may return JSON even if client expects Arrow.
+In that case Arrow batches are not available and the error with code ErrNonArrowResponseInArrowBatches is returned.
+The response is parsed to regular rows.
+You can read rows in a way described in transform_batches_to_rows.go example.
+This has a very strong limitation though - this is a very low level API (Go driver API), so there are no conversions ready.
+All values are returned as strings.
+Alternative approach is to rerun a query, but without enabling Arrow batches and use a general Go SQL API instead of driver API.
+It can be optimized by using `WithRequestID`, so backend returns results from cache.
 
 # Binding Parameters
 
@@ -1302,5 +1314,16 @@ Using custom configuration for PUT/GET:
 
 If you want to override some default configuration options, you can use `WithFileTransferOptions` context.
 There are multiple config parameters including progress bars or compression.
+
+# Surfacing errors originating from PUT and GET commands
+
+Default behaviour is to propagate the potential underlying errors encountered during executing calls associated with the PUT or GET commands to the caller, for increased awareness and easier handling or troubleshooting them.
+
+The behaviour is governed by the `RaisePutGetError` flag on `SnowflakeFileTransferOptions` (default: `true`)
+
+If you wish to ignore those errors instead, you can set `RaisePutGetError: false`. Example snippet:
+
+	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{RaisePutGetError: false})
+	db.ExecContext(ctx, "PUT ...")
 */
 package gosnowflake
