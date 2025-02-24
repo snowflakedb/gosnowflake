@@ -103,7 +103,6 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 	codeVerifier := authCodeProvider.createCodeVerifier()
 	state := authCodeProvider.createState()
 	authorizationURL := oauth2cfg.AuthCodeURL(state, oauth2.S256ChallengeOption(codeVerifier))
-	logger.Debugf("generated authorization URL: %v", authorizationURL)
 	if err = authCodeProvider.run(authorizationURL); err != nil {
 		responseBodyChan <- err.Error()
 		closeListenerChan <- true
