@@ -51,10 +51,6 @@ const (
 	AuthTypeUsernamePasswordMFA
 	// AuthTypePat is to use programmatic access token
 	AuthTypePat
-	// AuthTypeOAuthAuthorizationCode is to use browser-based OAuth2 flow
-	AuthTypeOAuthAuthorizationCode
-	// AuthTypeOAuthClientCredentials is to use non-interactive OAuth2 flow
-	AuthTypeOAuthClientCredentials
 )
 
 func (authType AuthType) isOauth() bool {
@@ -91,18 +87,6 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 	} else if upperCaseValue == AuthTypePat.String() && experimentalAuthEnabled() {
 		cfg.Authenticator = AuthTypePat
 		return nil
-	} else if upperCaseValue == AuthTypeOAuthAuthorizationCode.String() {
-		if experimentalAuthEnabled() {
-			cfg.Authenticator = AuthTypeOAuthAuthorizationCode
-			return nil
-		}
-		return errors.New("OAuth2 authorization code is not yet enabled")
-	} else if upperCaseValue == AuthTypeOAuthClientCredentials.String() {
-		if experimentalAuthEnabled() {
-			cfg.Authenticator = AuthTypeOAuthClientCredentials
-			return nil
-		}
-		return errors.New("OAuth2 client credentials is not yet enabled")
 	} else {
 		// possibly Okta case
 		oktaURLString, err := url.QueryUnescape(lowerCaseValue)
@@ -154,10 +138,6 @@ func (authType AuthType) String() string {
 		return "USERNAME_PASSWORD_MFA"
 	case AuthTypePat:
 		return "PROGRAMMATIC_ACCESS_TOKEN"
-	case AuthTypeOAuthAuthorizationCode:
-		return "OAUTH_AUTHORIZATION_CODE"
-	case AuthTypeOAuthClientCredentials:
-		return "OAUTH_CLIENT_CREDENTIALS"
 	default:
 		return "UNKNOWN"
 	}
@@ -202,7 +182,6 @@ type authRequestData struct {
 	BrowserModeRedirectPort string                       `json:"BROWSER_MODE_REDIRECT_PORT,omitempty"`
 	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
 	Token                   string                       `json:"TOKEN,omitempty"`
-	OauthType               string                       `json:"OAUTH_TYPE,omitempty"`
 }
 type authRequest struct {
 	Data authRequestData `json:"data"`
@@ -493,7 +472,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			requestMain.Token = sc.cfg.Password
 		}
 	case AuthTypeSnowflake:
-		logger.WithContext(sc.ctx).Debug("Username and password")
+		logger.WithContext(sc.ctx).Info("Username and password")
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Password = sc.cfg.Password
 		switch {
@@ -504,7 +483,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		}
 	case AuthTypeUsernamePasswordMFA:
-		logger.WithContext(sc.ctx).Debug("Username and password MFA")
+		logger.WithContext(sc.ctx).Info("Username and password MFA")
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Password = sc.cfg.Password
 		switch {
@@ -516,38 +495,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			requestMain.Passcode = sc.cfg.Passcode
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		}
-	case AuthTypeOAuthAuthorizationCode:
-		logger.WithContext(sc.ctx).Debug("OAuth authorization code")
-		if !experimentalAuthEnabled() {
-			return nil, errors.New("OAuth2 is not yet enabled")
-		}
-		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
-		if err != nil {
-			return nil, err
-		}
-		token, err := oauthClient.authenticateByOAuthAuthorizationCode()
-		if err != nil {
-			return nil, err
-		}
-		requestMain.LoginName = sc.cfg.User
-		requestMain.Token = token
-		requestMain.OauthType = "OAUTH_AUTHORIZATION_CODE"
-	case AuthTypeOAuthClientCredentials:
-		logger.WithContext(sc.ctx).Debug("OAuth client credentials")
-		if !experimentalAuthEnabled() {
-			return nil, errors.New("OAuth2 is not yet enabled")
-		}
-		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
-		if err != nil {
-			return nil, err
-		}
-		token, err := oauthClient.authenticateByOAuthClientCredentials()
-		if err != nil {
-			return nil, err
-		}
-		requestMain.LoginName = sc.cfg.User
-		requestMain.Token = token
-		requestMain.OauthType = "OAUTH_CLIENT_CREDENTIALS"
 	}
 
 	authRequest := authRequest{
@@ -682,6 +629,6 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 }
 
 func experimentalAuthEnabled() bool {
-	val, ok := os.LookupEnv("SF_ENABLE_EXPERIMENTAL_AUTHENTICATION")
+	val, ok := os.LookupEnv("ENABLE_EXPERIMENTAL_AUTHENTICATION")
 	return ok && strings.EqualFold(val, "true")
 }
