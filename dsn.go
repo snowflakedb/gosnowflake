@@ -604,7 +604,8 @@ func authRequiresUser(cfg *Config) bool {
 	return cfg.Authenticator != AuthTypeOAuth &&
 		cfg.Authenticator != AuthTypeTokenAccessor &&
 		cfg.Authenticator != AuthTypeExternalBrowser &&
-		cfg.Authenticator != AuthTypeOAuthAuthorizationCode
+		cfg.Authenticator != AuthTypeOAuthAuthorizationCode &&
+		cfg.Authenticator != AuthTypeOAuthClientCredentials
 }
 
 func authRequiresPassword(cfg *Config) bool {
@@ -612,7 +613,8 @@ func authRequiresPassword(cfg *Config) bool {
 		cfg.Authenticator != AuthTypeTokenAccessor &&
 		cfg.Authenticator != AuthTypeExternalBrowser &&
 		cfg.Authenticator != AuthTypeJwt &&
-		cfg.Authenticator != AuthTypeOAuthAuthorizationCode
+		cfg.Authenticator != AuthTypeOAuthAuthorizationCode &&
+		cfg.Authenticator != AuthTypeOAuthClientCredentials
 }
 
 func authRequiresClientIDAndSecret(cfg *Config) bool {
