@@ -66,6 +66,7 @@ jobs:
                 GORACE: history_size=7
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
+                SF_ENABLE_EXPERIMENTAL_AUTHENTICATION: true
               run: ./ci/test.sh
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v5
@@ -96,6 +97,7 @@ jobs:
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
+                SF_ENABLE_EXPERIMENTAL_AUTHENTICATION: true
               run: ./ci/test.sh
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v5
@@ -130,6 +132,7 @@ jobs:
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
+                SF_ENABLE_EXPERIMENTAL_AUTHENTICATION: true
               run: ci\\test.bat
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v5

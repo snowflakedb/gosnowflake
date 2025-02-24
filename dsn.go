@@ -490,6 +490,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 		return errEmptyPasswordAndToken()
 	}
 
+	if authRequiresClientIDAndSecret(cfg) && (strings.TrimSpace(cfg.OauthClientID) == "" || strings.TrimSpace(cfg.OauthClientSecret) == "") {
+		return errEmptyOAuthParameters()
+	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
 		cfg.Protocol = "https"
 	}
@@ -607,7 +610,8 @@ func authRequiresUser(cfg *Config) bool {
 	return cfg.Authenticator != AuthTypeOAuth &&
 		cfg.Authenticator != AuthTypeTokenAccessor &&
 		cfg.Authenticator != AuthTypeExternalBrowser &&
-		cfg.Authenticator != AuthTypePat
+		cfg.Authenticator != AuthTypePat &&
+		cfg.Authenticator != AuthTypeOAuthAuthorizationCode
 }
 
 func authRequiresPassword(cfg *Config) bool {
@@ -620,6 +624,10 @@ func authRequiresPassword(cfg *Config) bool {
 
 func authRequiresEitherPasswordOrToken(cfg *Config) bool {
 	return cfg.Authenticator == AuthTypePat
+}
+
+func authRequiresClientIDAndSecret(cfg *Config) bool {
+	return cfg.Authenticator == AuthTypeOAuthAuthorizationCode
 }
 
 // transformAccountToHost transforms account to host
@@ -954,6 +962,7 @@ type ConfigParam struct {
 // GetConfigFromEnv is used to parse the environment variable values to specific fields of the Config
 func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 	var account, user, password, token, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
+	var oauthClientID, oauthClientSecret, oauthAuthorizationURL, oauthTokenRequestURL, oauthRedirectURI, oauthScope string
 	var privateKey *rsa.PrivateKey
 	var err error
 	if len(properties) == 0 || properties == nil {
@@ -998,6 +1007,20 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 			if err != nil {
 				return nil, err
 			}
+		case "OAuthClientId":
+			oauthClientID = value
+		case "OAuthClientSecret":
+			oauthClientSecret = value
+		case "OAuthAuthorizationURL":
+			oauthAuthorizationURL = value
+		case "OAuthTokenRequestURL":
+			oauthTokenRequestURL = value
+		case "OAuthRedirectURI":
+			oauthRedirectURI = value
+		case "OAuthScope":
+			oauthScope = value
+		default:
+			return nil, errors.New("unknown property: " + prop.Name)
 		}
 	}
 
@@ -1010,22 +1033,28 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 	}
 
 	cfg := &Config{
-		Account:     account,
-		User:        user,
-		Password:    password,
-		Token:       token,
-		Role:        role,
-		Host:        host,
-		Port:        port,
-		Protocol:    protocol,
-		Warehouse:   warehouse,
-		Database:    database,
-		Schema:      schema,
-		PrivateKey:  privateKey,
-		Region:      region,
-		Passcode:    passcode,
-		Application: application,
-		Params:      map[string]*string{},
+		Account:               account,
+		User:                  user,
+		Password:              password,
+		Token: token,
+		Role:                  role,
+		Host:                  host,
+		Port:                  port,
+		Protocol:              protocol,
+		Warehouse:             warehouse,
+		Database:              database,
+		Schema:                schema,
+		PrivateKey:            privateKey,
+		Region:                region,
+		Passcode:              passcode,
+		Application:           application,
+		OauthClientID:         oauthClientID,
+		OauthClientSecret:     oauthClientSecret,
+		OauthAuthorizationURL: oauthAuthorizationURL,
+		OauthTokenRequestURL:  oauthTokenRequestURL,
+		OauthRedirectURI:      oauthRedirectURI,
+		OauthScope:            oauthScope,
+		Params:                map[string]*string{},
 	}
 	return cfg, nil
 }
