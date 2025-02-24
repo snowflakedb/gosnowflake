@@ -128,3 +128,29 @@ func (provider *nonInteractiveAuthorizationCodeProvider) assertResponseBodyConta
 	defer provider.mu.Unlock()
 	assertStringContainsE(provider.t, provider.responseBody, str)
 }
+
+func TestUnitOAuthClientCredentials(t *testing.T) {
+	client, err := newOauthClient(context.Background(), &Config{
+		Role:                 "ANALYST",
+		OauthClientID:        "testClientId",
+		OauthClientSecret:    "testClientSecret",
+		OauthTokenRequestURL: wiremock.baseURL() + "/oauth/token",
+	})
+	assertNilF(t, err)
+
+	t.Run("success", func(t *testing.T) {
+		wiremock.registerMappings(t, newWiremockMapping("oauth2/client_credentials/successful_flow.json"))
+		token, err := client.authenticateByOAuthClientCredentials()
+		assertNilF(t, err)
+		assertEqualE(t, token, "access-token-123")
+	})
+
+	t.Run("invalid_client", func(t *testing.T) {
+		wiremock.registerMappings(t, newWiremockMapping("oauth2/client_credentials/invalid_client.json"))
+		_, err = client.authenticateByOAuthClientCredentials()
+		assertNotNilF(t, err)
+		oauth2Err := err.(*oauth2.RetrieveError)
+		assertEqualE(t, oauth2Err.ErrorCode, "invalid_client")
+		assertEqualE(t, oauth2Err.ErrorDescription, "The client secret supplied for a confidential client is invalid.")
+	})
+}
