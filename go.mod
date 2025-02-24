@@ -1,13 +1,13 @@
 module github.com/snowflakedb/gosnowflake
 
-go 1.22
+go 1.22.7
 
 require (
 	github.com/99designs/keyring v1.2.2
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.0.0
 	github.com/BurntSushi/toml v1.4.0
-	github.com/apache/arrow-go/v18 v18.1.0
+	github.com/apache/arrow-go/v18 v18.0.0
 	github.com/aws/aws-sdk-go-v2 v1.26.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.11
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.15
