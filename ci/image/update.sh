@@ -6,7 +6,7 @@ set -o pipefail
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $THIS_DIR/../_init.sh
 
-source $THIS_DIR/../scripts/login_internal_docker.sh
+#source $THIS_DIR/../scripts/login_internal_docker.sh
 
 for image in $(docker images --format "{{.ID}},{{.Repository}}:{{.Tag}}" | grep "nexus.int.snowflakecomputing.com" | grep "client-$DRIVER_NAME"); do
     target_id=$(echo $image | awk -F, '{print $1}')
