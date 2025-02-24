@@ -131,8 +131,10 @@ const (
 	ErrCodeTomlFileParsingFailed = 260013
 	// ErrCodeFailedToFindDSNInToml is an error code for the case where the DSN does not exist in the toml file.
 	ErrCodeFailedToFindDSNInToml = 260014
-	// ErrCodeInvalidFilePermission is an error code for the case where the user does not have 0600 permission to the toml file .
+	// ErrCodeInvalidFilePermission is an error code for the case where the user does not have 0600 permission to the toml file.
 	ErrCodeInvalidFilePermission = 260015
+	// ErrCodeEmptyOAuthParameters is an error code for the case where the client ID or client secret are not provided for OAuth flows.
+	ErrCodeEmptyOAuthParameters = 260016
 
 	/* network */
 
@@ -334,6 +336,14 @@ func errEmptyPassword() *SnowflakeError {
 	return &SnowflakeError{
 		Number:  ErrCodeEmptyPasswordCode,
 		Message: "password is empty",
+	}
+}
+
+// Returned if OAuth is used to authenticate but it is missing required fields.
+func errEmptyOAuthParameters() *SnowflakeError {
+	return &SnowflakeError{
+		Number:  ErrCodeEmptyOAuthParameters,
+		Message: "client ID or client secret are empty",
 	}
 }
 

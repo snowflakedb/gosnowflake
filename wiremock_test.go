@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-var wiremock *wiremockClient = newWiremock()
+var wiremock = newWiremock()
 
 type wiremockClient struct {
 	protocol string
@@ -43,22 +43,17 @@ func newWiremock() *wiremockClient {
 	}
 }
 
-func (wm *wiremockClient) connectionConfig() *Config {
-	return &Config{
-		User:     "testUser",
-		Host:     wm.host,
-		Port:     wm.port,
-		Account:  "testAccount",
-		Protocol: "http",
-	}
-}
-
 type wiremockMapping struct {
 	filePath string
 	params   map[string]string
 }
 
+func newWiremockMapping(filePath string) wiremockMapping {
+	return wiremockMapping{filePath: filePath}
+}
+
 func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMapping) {
+	skipOnJenkins(t, "wiremock does not work on Jenkins")
 	for _, mapping := range wm.enrichWithTelemetry(mappings) {
 		f, err := os.Open("test_data/wiremock/mappings/" + mapping.filePath)
 		assertNilF(t, err)
@@ -92,14 +87,9 @@ func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wire
 }
 
 func (wm *wiremockClient) mappingsURL() string {
-	return fmt.Sprintf("%v://%v:%v/__admin/mappings", wm.protocol, wm.host, wm.port)
+	return fmt.Sprintf("%v/__admin/mappings", wm.baseURL())
 }
 
-// just to satisfy not used private variables and functions
-// to be removed with first real PR that uses wiremock
-func TestWiremock(t *testing.T) {
-	skipOnJenkins(t, "wiremock is not enabled on Jenkins")
-	wiremock.registerMappings(t,
-		wiremockMapping{filePath: "select1.json"})
-	wiremock.connectionConfig()
+func (wm *wiremockClient) baseURL() string {
+	return fmt.Sprintf("%v://%v:%v", wm.protocol, wm.host, wm.port)
 }
