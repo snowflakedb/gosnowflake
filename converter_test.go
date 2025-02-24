@@ -437,7 +437,8 @@ func TestArrayToString(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(strings.Join(test.out, "_"), func(t *testing.T) {
-			s, a := snowflakeArrayToString(&test.in, false)
+			s, a, err := snowflakeArrayToString(&test.in, false)
+			assertNilF(t, err)
 			if s != test.typ {
 				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.typ, s)
 			}
@@ -2478,4 +2479,19 @@ func TestIsArrayOfStructs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSqlNull(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		rows := dbt.mustQuery("SELECT 1, NULL UNION SELECT 2, 'test' ORDER BY 1")
+		defer rows.Close()
+		var rowID int
+		var nullStr sql.Null[string]
+		assertTrueF(t, rows.Next())
+		assertNilF(t, rows.Scan(&rowID, &nullStr))
+		assertEqualE(t, nullStr, sql.Null[string]{Valid: false})
+		assertTrueF(t, rows.Next())
+		assertNilF(t, rows.Scan(&rowID, &nullStr))
+		assertEqualE(t, nullStr, sql.Null[string]{Valid: true, V: "test"})
+	})
 }
