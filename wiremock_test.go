@@ -94,12 +94,3 @@ func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wire
 func (wm *wiremockClient) mappingsURL() string {
 	return fmt.Sprintf("%v://%v:%v/__admin/mappings", wm.protocol, wm.host, wm.port)
 }
-
-// just to satisfy not used private variables and functions
-// to be removed with first real PR that uses wiremock
-func TestWiremock(t *testing.T) {
-	skipOnJenkins(t, "wiremock is not enabled on Jenkins")
-	wiremock.registerMappings(t,
-		wiremockMapping{filePath: "select1.json"})
-	wiremock.connectionConfig()
-}

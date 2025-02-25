@@ -47,6 +47,9 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
+	if config.Params == nil {
+		config.Params = make(map[string]*string)
+	}
 	if config.Tracing != "" {
 		if err := logger.SetLogLevel(config.Tracing); err != nil {
 			return nil, err
