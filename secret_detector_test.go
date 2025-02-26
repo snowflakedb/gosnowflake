@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	longToken = "_Y1ZNETTn5/qfUWj3Jedby7gipDzQs=UKyJH9DS=nFzzWnfZKGV+C7GopWC" +
-		"GD4LjOLLFZKOE26LXHDt3pTi4iI1qwKuSpf/FmClCMBSissVsU3Ei590FP0lPQQhcSG" +
-		"cDu69ZL_1X6e9h5z62t/iY7ZkII28n2qU=nrBJUgPRCIbtJQkVJXIuOHjX4G5yUEKjZ" +
-		"BAx4w6=_lqtt67bIA=o7D=oUSjfywsRFoloNIkBPXCwFTv+1RVUHgVA2g8A9Lw5XdJY" +
+	longToken = "_Y1ZNETTn5/qfUWj3Jedby7gipDzQs=UKyJH9DS=nFzzWnfZKGV+C7GopWC" + // pragma: allowlist secret
+		"GD4LjOLLFZKOE26LXHDt3pTi4iI1qwKuSpf/FmClCMBSissVsU3Ei590FP0lPQQhcSG" + // pragma: allowlist secret
+		"cDu69ZL_1X6e9h5z62t/iY7ZkII28n2qU=nrBJUgPRCIbtJQkVJXIuOHjX4G5yUEKjZ" + // pragma: allowlist secret
+		"BAx4w6=_lqtt67bIA=o7D=oUSjfywsRFoloNIkBPXCwFTv+1RVUHgVA2g8A9Lw5XdJY" + // pragma: allowlist secret
 		"uI8vhg=f0bKSq7AhQ2Bh"
 	randomPassword = `Fh[+2J~AcqeqW%?`
 )
@@ -28,6 +28,12 @@ func TestMaskToken(t *testing.T) {
 	}
 	if text := maskSecrets("masterToken : " + longToken); strings.Compare(text, "masterToken : ****") != 0 {
 		t.Errorf("mask unsuccessful. expected: masterToken : ****, got: %v", text)
+	}
+	if text := maskSecrets("programmaticAccessToken : " + longToken); strings.Compare(text, "programmaticAccessToken : ****") != 0 {
+		t.Errorf("mask unsuccessful. expected: programmaticAccessToken : ****, got: %v", text)
+	}
+	if text := maskSecrets("programmatic_access_token : " + longToken); strings.Compare(text, "programmatic_access_token : ****") != 0 {
+		t.Errorf("mask unsuccessful. expected: programmatic_access_token : ****, got: %v", text)
 	}
 
 	falsePositiveToken := "2020-04-30 23:06:04,069 - MainThread auth.py:397" +

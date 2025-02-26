@@ -1003,3 +1003,60 @@ func TestContextPropagatedToAuthWhenUsingOpenDB(t *testing.T) {
 	assertStringContainsE(t, err.Error(), "context deadline exceeded")
 	cancel()
 }
+
+func TestPatSuccessfulFlow(t *testing.T) {
+	cfg := wiremock.connectionConfig()
+	cfg.Authenticator = AuthTypePat
+	cfg.Token = "some PAT"
+	testPatSuccessfulFlow(t, cfg)
+}
+
+func testPatSuccessfulFlow(t *testing.T, cfg *Config) {
+	skipOnJenkins(t, "wiremock is not enabled")
+	enableExperimentalAuth(t)
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/pat/successful_flow.json"},
+		wiremockMapping{filePath: "select1.json", params: map[string]string{
+			"%AUTHORIZATION_HEADER%": "Snowflake Token=\\\"session token\\\""},
+		},
+	)
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	rows, err := db.Query("SELECT 1")
+	assertNilF(t, err)
+	var v int
+	assertTrueE(t, rows.Next())
+	assertNilF(t, rows.Scan(&v))
+	assertEqualE(t, v, 1)
+}
+
+func enableExperimentalAuth(t *testing.T) {
+	err := os.Setenv("ENABLE_EXPERIMENTAL_AUTHENTICATION", "true")
+	assertNilF(t, err)
+}
+
+func TestPatSuccessfulFlowWithPatAsPasswordWithPatAuthenticator(t *testing.T) {
+	cfg := wiremock.connectionConfig()
+	cfg.Authenticator = AuthTypePat
+	cfg.Password = "some PAT"
+	testPatSuccessfulFlow(t, cfg)
+}
+
+func TestPatInvalidToken(t *testing.T) {
+	skipOnJenkins(t, "wiremock is not enabled")
+	enableExperimentalAuth(t)
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/pat/invalid_token.json"},
+	)
+	cfg := wiremock.connectionConfig()
+	cfg.Authenticator = AuthTypePat
+	cfg.Token = "some PAT"
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	_, err := db.Query("SELECT 1")
+	assertNotNilF(t, err)
+	var se *SnowflakeError
+	assertTrueF(t, errors.As(err, &se))
+	assertEqualE(t, se.Number, 394400)
+	assertEqualE(t, se.Message, "Programmatic access token is invalid.")
+}

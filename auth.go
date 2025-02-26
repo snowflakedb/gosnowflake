@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -49,6 +50,8 @@ const (
 	AuthTypeTokenAccessor
 	// AuthTypeUsernamePasswordMFA is to use username and password with mfa
 	AuthTypeUsernamePasswordMFA
+	// AuthTypePat is to use programmatic access token
+	AuthTypePat
 )
 
 func determineAuthenticatorType(cfg *Config, value string) error {
@@ -71,6 +74,9 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 		return nil
 	} else if upperCaseValue == AuthTypeTokenAccessor.String() {
 		cfg.Authenticator = AuthTypeTokenAccessor
+		return nil
+	} else if upperCaseValue == AuthTypePat.String() && experimentalAuthEnabled() {
+		cfg.Authenticator = AuthTypePat
 		return nil
 	} else {
 		// possibly Okta case
@@ -121,6 +127,8 @@ func (authType AuthType) String() string {
 		return "TOKENACCESSOR"
 	case AuthTypeUsernamePasswordMFA:
 		return "USERNAME_PASSWORD_MFA"
+	case AuthTypePat:
+		return "PROGRAMMATIC_ACCESS_TOKEN"
 	default:
 		return "UNKNOWN"
 	}
@@ -440,6 +448,17 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			return nil, err
 		}
 		requestMain.Token = jwtTokenString
+	case AuthTypePat:
+		if !experimentalAuthEnabled() {
+			return nil, errors.New("programmatic access tokens are not ready to use")
+		}
+		logger.WithContext(sc.ctx).Info("Programmatic access token")
+		requestMain.Authenticator = AuthTypePat.String()
+		requestMain.LoginName = sc.cfg.User
+		requestMain.Token = sc.cfg.Token
+		if sc.cfg.Password != "" && sc.cfg.Token == "" {
+			requestMain.Token = sc.cfg.Password
+		}
 	case AuthTypeSnowflake:
 		logger.WithContext(sc.ctx).Info("Username and password")
 		requestMain.LoginName = sc.cfg.User
@@ -481,6 +500,7 @@ func prepareJWTToken(config *Config) (string, error) {
 	if config.PrivateKey == nil {
 		return "", errors.New("trying to use keypair authentication, but PrivateKey was not provided in the driver config")
 	}
+	logger.Debug("preparing JWT for keypair authentication")
 	pubBytes, err := x509.MarshalPKIXPublicKey(config.PrivateKey.Public())
 	if err != nil {
 		return "", err
@@ -491,13 +511,14 @@ func prepareJWTToken(config *Config) (string, error) {
 	userName := strings.ToUpper(config.User)
 
 	issueAtTime := time.Now().UTC()
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+	jwtClaims := jwt.MapClaims{
 		"iss": fmt.Sprintf("%s.%s.%s", accountName, userName, "SHA256:"+base64.StdEncoding.EncodeToString(hash[:])),
 		"sub": fmt.Sprintf("%s.%s", accountName, userName),
 		"iat": issueAtTime.Unix(),
 		"nbf": time.Date(2015, 10, 10, 12, 0, 0, 0, time.UTC).Unix(),
 		"exp": issueAtTime.Add(config.JWTExpireTimeout).Unix(),
-	})
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwtClaims)
 
 	tokenString, err := token.SignedString(config.PrivateKey)
 
@@ -505,6 +526,7 @@ func prepareJWTToken(config *Config) (string, error) {
 		return "", err
 	}
 
+	logger.Debugf("successfully generated JWT with following claims: %v", jwtClaims)
 	return tokenString, err
 }
 
@@ -570,4 +592,9 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	sc.populateSessionParameters(authData.Parameters)
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
 	return nil
+}
+
+func experimentalAuthEnabled() bool {
+	val, ok := os.LookupEnv("ENABLE_EXPERIMENTAL_AUTHENTICATION")
+	return ok && strings.EqualFold(val, "true")
 }

@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"cmp"
 	"context"
 	"crypto/rsa"
 	"database/sql"
@@ -52,10 +53,7 @@ const (
 func init() {
 	// get environment variables
 	env := func(key, defaultValue string) string {
-		if value := os.Getenv(key); value != "" {
-			return value
-		}
-		return defaultValue
+		return cmp.Or(os.Getenv(key), defaultValue)
 	}
 	username = env("SNOWFLAKE_TEST_USER", "testuser")
 	pass = env("SNOWFLAKE_TEST_PASSWORD", "testpassword")
@@ -107,10 +105,7 @@ func createDSN(timezone string) {
 // setup creates a test schema so that all tests can run in the same schema
 func setup() (string, error) {
 	env := func(key, defaultValue string) string {
-		if value := os.Getenv(key); value != "" {
-			return value
-		}
-		return defaultValue
+		return cmp.Or(os.Getenv(key), defaultValue)
 	}
 
 	orgSchemaname := schemaname
