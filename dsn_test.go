@@ -520,6 +520,22 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "snowflake.local:9876?account=a&protocol=http&authenticator=OAUTH_CLIENT_CREDENTIALS",
+			config: &Config{
+				Account: "a", Authenticator: AuthTypeOAuthClientCredentials,
+				Protocol: "http", Host: "snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			dsn: "u:@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT",
 			config: &Config{
 				Account: "a", User: "u", Authenticator: AuthTypeJwt,
@@ -1620,6 +1636,16 @@ func TestDSN(t *testing.T) {
 				ClientStoreTemporaryCredential: ConfigBoolFalse,
 			},
 			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=oauth_authorization_code&clientStoreTemporaryCredential=false&oauthClientId=testClientId&oauthClientSecret=testClientSecret&ocspFailOpen=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                           "u",
+				Password:                       "p",
+				Account:                        "a",
+				Authenticator:                  AuthTypeOAuthClientCredentials,
+				ClientStoreTemporaryCredential: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=oauth_client_credentials&clientStoreTemporaryCredential=false&ocspFailOpen=true&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
