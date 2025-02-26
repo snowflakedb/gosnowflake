@@ -1,6 +1,6 @@
 module github.com/snowflakedb/gosnowflake
 
-go 1.22.7
+go 1.22.0
 
 require (
 	github.com/99designs/keyring v1.2.2
