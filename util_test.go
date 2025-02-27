@@ -404,9 +404,9 @@ func skipOnMac(t *testing.T, reason string) {
 	}
 }
 
-func skipOnNonLinux(t *testing.T, reason string) {
-	if runtime.GOOS != "linux" {
-		t.Skip("skipped on non-linux OS: " + reason)
+func skipOnWindows(t *testing.T, reason string) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipped on Windows: " + reason)
 	}
 }
 
@@ -438,4 +438,23 @@ func TestFindByPrefix(t *testing.T) {
 	assertEqualE(t, findByPrefix(nonEmpty, "ccc"), 2)
 	assertEqualE(t, findByPrefix(nonEmpty, "dd"), -1)
 	assertEqualE(t, findByPrefix([]string{}, "dd"), -1)
+}
+
+type envOverride struct {
+	envName  string
+	oldValue string
+}
+
+func (e *envOverride) rollback() {
+	if e.oldValue != "" {
+		os.Setenv(e.envName, e.oldValue)
+	} else {
+		os.Unsetenv(e.envName)
+	}
+}
+
+func overrideEnv(env string, value string) envOverride {
+	oldValue := os.Getenv(env)
+	os.Setenv(env, value)
+	return envOverride{env, oldValue}
 }
