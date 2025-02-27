@@ -4,44 +4,95 @@ package gosnowflake
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
-type EnvOverride struct {
-	env      string
-	oldValue string
-}
+func TestBuildCredCacheDirPath(t *testing.T) {
+	skipOnWindows(t, "permission model is different")
+	testRoot1, err := os.MkdirTemp("", "")
+	assertNilF(t, err)
+	defer os.RemoveAll(testRoot1)
+	testRoot2, err := os.MkdirTemp("", "")
+	assertNilF(t, err)
+	defer os.RemoveAll(testRoot2)
 
-func (e *EnvOverride) rollback() {
-	if e.oldValue != "" {
-		os.Setenv(e.env, e.oldValue)
-	} else {
-		os.Unsetenv(e.env)
-	}
-}
+	assertNilF(t, os.Setenv("CACHE_DIR_TEST_NOT_EXISTING", "/tmp/not_existing_dir"))
+	assertNilF(t, os.Setenv("CACHE_DIR_TEST_1", testRoot1))
+	assertNilF(t, os.Setenv("CACHE_DIR_TEST_2", testRoot2))
 
-func override_env(env string, value string) EnvOverride {
-	oldValue := os.Getenv(env)
-	os.Setenv(env, value)
-	return EnvOverride{env, oldValue}
+	t.Run("cannot find any dir", func(t *testing.T) {
+		_, err := buildCredCacheDirPath([]cacheDirConf{
+			{envVar: "CACHE_DIR_TEST_NOT_EXISTING"},
+		})
+		assertEqualE(t, err.Error(), "no credentials cache directory found")
+		_, err = os.Stat("/tmp/not_existing_dir")
+		assertStringContainsE(t, err.Error(), "no such file or directory")
+	})
+
+	t.Run("should use first dir that exists", func(t *testing.T) {
+		path, err := buildCredCacheDirPath([]cacheDirConf{
+			{envVar: "CACHE_DIR_TEST_NOT_EXISTING"},
+			{envVar: "CACHE_DIR_TEST_1"},
+		})
+		assertNilF(t, err)
+		assertEqualE(t, path, testRoot1)
+		stat, err := os.Stat(testRoot1)
+		assertNilF(t, err)
+		assertEqualE(t, stat.Mode().String(), "drwx------")
+	})
+
+	t.Run("should use first dir that exists and append segments", func(t *testing.T) {
+		path, err := buildCredCacheDirPath([]cacheDirConf{
+			{envVar: "CACHE_DIR_TEST_NOT_EXISTING"},
+			{envVar: "CACHE_DIR_TEST_2", pathSegments: []string{"sub1", "sub2"}},
+		})
+		assertNilF(t, err)
+		assertEqualE(t, path, filepath.Join(testRoot2, "sub1", "sub2"))
+		stat, err := os.Stat(testRoot2)
+		assertNilF(t, err)
+		assertEqualE(t, stat.Mode().String(), "drwx------")
+	})
 }
 
 func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
-	//skipOnNonLinux(t, "Not supported on non-linux")
-	os.Mkdir("./testdata", 0777)
-	credCacheDirEnvOverride := override_env(credCacheDirEnv, "./testdata")
+	skipOnWindows(t, "file system permission is different")
+	credCacheDir, err := os.MkdirTemp("", "")
+	assertNilF(t, err)
+	assertNilF(t, os.MkdirAll(credCacheDir, 0777))
+	credCacheDirEnvOverride := overrideEnv(credCacheDirEnv, credCacheDir)
 	defer credCacheDirEnvOverride.rollback()
-	fbss, err := newFileBasedSecureStorageManager()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ssm, err := newFileBasedSecureStorageManager()
+	assertNilF(t, err)
 
-	tokenSpec := newMfaTokenSpec("host.xd", "johndoe")
-	cred := "token123"
-	fbss.setCredential(tokenSpec, cred)
-	assertEqualE(t, fbss.getCredential(tokenSpec), cred)
-	fbss.deleteCredential(tokenSpec)
-	assertEqualE(t, fbss.getCredential(tokenSpec), "")
+	t.Run("success", func(t *testing.T) {
+		tokenSpec := newMfaTokenSpec("host.com", "johndoe")
+		cred := "token123"
+		ssm.setCredential(tokenSpec, cred)
+		assertEqualE(t, ssm.getCredential(tokenSpec), cred)
+		ssm.deleteCredential(tokenSpec)
+		assertEqualE(t, ssm.getCredential(tokenSpec), "")
+	})
+
+	t.Run("unlock stale cache", func(t *testing.T) {
+		startTime := time.Now()
+		assertNilF(t, os.Mkdir(ssm.lockPath(), 0o700))
+		ssm.getCredential(newMfaTokenSpec("ignored", "ignored"))
+		assertTrueE(t, time.Since(startTime).Milliseconds() > 1000)
+	})
+
+	t.Run("should not modify keys other than tokens", func(t *testing.T) {
+		content := []byte(`{
+			"otherKey": "otherValue"
+		}`)
+		err = os.WriteFile(ssm.credFilePath(), content, 0o600)
+		assertNilF(t, err)
+		ssm.setCredential(newMfaTokenSpec("somehost.com", "someUser"), "someToken")
+		result, err := os.ReadFile(ssm.credFilePath())
+		assertNilF(t, err)
+		assertStringContainsE(t, string(result), `"otherKey":"otherValue"`)
+	})
 }
 
 func TestSetAndGetCredentialMfa(t *testing.T) {
@@ -96,8 +147,8 @@ func TestBuildCredentialsKey(t *testing.T) {
 		credType tokenType
 		out      string
 	}{
-		{"testaccount.snowflakecomputing.com", "testuser", "mfaToken", "TESTACCOUNT.SNOWFLAKECOMPUTING.COM:TESTUSER:SNOWFLAKE-GO-DRIVER:MFATOKEN"},
-		{"testaccount.snowflakecomputing.com", "testuser", "IdToken", "TESTACCOUNT.SNOWFLAKECOMPUTING.COM:TESTUSER:SNOWFLAKE-GO-DRIVER:IDTOKEN"},
+		{"testaccount.snowflakecomputing.com", "testuser", "mfaToken", "c4e781475e7a5e74aca87cd462afafa8cc48ebff6f6ccb5054b894dae5eb6345"}, // pragma: allowlist secret
+		{"testaccount.snowflakecomputing.com", "testuser", "IdToken", "5014e26489992b6ea56b50e936ba85764dc51338f60441bdd4a69eac7e15bada"},  // pragma: allowlist secret
 	}
 	for _, test := range testcases {
 		target := buildCredentialsKey(test.host, test.user, test.credType)
