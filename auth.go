@@ -52,6 +52,8 @@ const (
 	AuthTypePat
 	// AuthTypeOAuthAuthorizationCode is to use browser-based OAuth2 flow
 	AuthTypeOAuthAuthorizationCode
+	// AuthTypeOAuthClientCredentials is to use non-interactive OAuth2 flow
+	AuthTypeOAuthClientCredentials
 )
 
 func determineAuthenticatorType(cfg *Config, value string) error {
@@ -84,6 +86,12 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 			return nil
 		}
 		return errors.New("OAuth2 authorization code is not yet enabled")
+	} else if upperCaseValue == AuthTypeOAuthClientCredentials.String() {
+		if experimentalAuthEnabled() {
+			cfg.Authenticator = AuthTypeOAuthClientCredentials
+			return nil
+		}
+		return errors.New("OAuth2 client credentials is not yet enabled")
 	} else {
 		// possibly Okta case
 		oktaURLString, err := url.QueryUnescape(lowerCaseValue)
@@ -137,6 +145,8 @@ func (authType AuthType) String() string {
 		return "PROGRAMMATIC_ACCESS_TOKEN"
 	case AuthTypeOAuthAuthorizationCode:
 		return "OAUTH_AUTHORIZATION_CODE"
+	case AuthTypeOAuthClientCredentials:
+		return "OAUTH_CLIENT_CREDENTIALS"
 	default:
 		return "UNKNOWN"
 	}
@@ -501,6 +511,21 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			return nil, err
 		}
 		token, err := oauthClient.authenticateByOAuthAuthorizationCode()
+		if err != nil {
+			return nil, err
+		}
+		requestMain.LoginName = sc.cfg.User
+		requestMain.Token = token
+	case AuthTypeOAuthClientCredentials:
+		logger.WithContext(sc.ctx).Debug("OAuth client credentials")
+		if !experimentalAuthEnabled() {
+			return nil, errors.New("OAuth2 is not yet enabled")
+		}
+		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
+		if err != nil {
+			return nil, err
+		}
+		token, err := oauthClient.authenticateByOAuthClientCredentials()
 		if err != nil {
 			return nil, err
 		}
