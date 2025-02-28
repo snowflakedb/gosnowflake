@@ -1,0 +1,42 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/oauth/token",
+        "method": "POST",
+        "headers": {
+          "Content-Type": {
+            "contains": "application/x-www-form-urlencoded"
+          }
+        },
+        "formParameters": {
+          "grant_type": {
+            "equalTo": "client_credentials"
+          },
+          "client_id": {
+            "equalTo": "testClientId"
+          },
+          "client_secret": {
+            "equalTo": "testClientSecret"
+          },
+          "scope": {
+            "equalTo": "session:role:ANALYST"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "access_token": "access-token-123",
+          "refresh_token": "123",
+          "token_type": "Bearer",
+          "username": "user",
+          "scope": "refresh_token session:role:ANALYST",
+          "expires_in": 600,
+          "refresh_token_expires_in": 86399,
+          "idpInitiated": false
+        }
+      }
+    }
+  ]
+}
