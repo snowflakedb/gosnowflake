@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 	"io"
 	"net"
 	"net/http"
@@ -99,7 +100,7 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 
 	go handleOAuthSocket(tcpListener, successChan, errChan, responseBodyChan, closeListenerChan)
 
-	oauth2cfg := oauthClient.buildOauthConfig(callbackPort)
+	oauth2cfg := oauthClient.buildAuthorizationCodeConfig(callbackPort)
 	codeVerifier := authCodeProvider.createCodeVerifier()
 	state := authCodeProvider.createState()
 	authorizationURL := oauth2cfg.AuthCodeURL(state, oauth2.S256ChallengeOption(codeVerifier))
@@ -161,7 +162,7 @@ func (oauthClient *oauthClient) exchangeAccessToken(codeReq *http.Request, state
 	return token.AccessToken, nil
 }
 
-func (oauthClient *oauthClient) buildOauthConfig(callbackPort int) *oauth2.Config {
+func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     oauthClient.cfg.OauthClientID,
 		ClientSecret: oauthClient.cfg.OauthClientSecret,
@@ -250,4 +251,22 @@ func (provider *browserBasedAuthorizationCodeProvider) createState() string {
 
 func (provider *browserBasedAuthorizationCodeProvider) createCodeVerifier() string {
 	return oauth2.GenerateVerifier()
+}
+
+func (oauthClient *oauthClient) authenticateByOAuthClientCredentials() (string, error) {
+	oauth2Cfg := oauthClient.buildClientCredentialsConfig()
+	token, err := oauth2Cfg.Token(oauthClient.ctx)
+	if err != nil {
+		return "", err
+	}
+	return token.AccessToken, nil
+}
+
+func (oauthClient *oauthClient) buildClientCredentialsConfig() *clientcredentials.Config {
+	return &clientcredentials.Config{
+		ClientID:     oauthClient.cfg.OauthClientID,
+		ClientSecret: oauthClient.cfg.OauthClientSecret,
+		TokenURL:     oauthClient.cfg.OauthTokenRequestURL,
+		Scopes:       oauthClient.buildScopes(),
+	}
 }
