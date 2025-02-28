@@ -40,7 +40,7 @@ func TestBuildCredCacheDirPath(t *testing.T) {
 		assertEqualE(t, path, testRoot1)
 		stat, err := os.Stat(testRoot1)
 		assertNilF(t, err)
-		assertEqualE(t, stat.Mode().String(), "drwx------")
+		assertEqualE(t, stat.Mode(), 0700|os.ModeDir)
 	})
 
 	t.Run("should use first dir that exists and append segments", func(t *testing.T) {
@@ -52,7 +52,7 @@ func TestBuildCredCacheDirPath(t *testing.T) {
 		assertEqualE(t, path, filepath.Join(testRoot2, "sub1", "sub2"))
 		stat, err := os.Stat(testRoot2)
 		assertNilF(t, err)
-		assertEqualE(t, stat.Mode().String(), "drwx------")
+		assertEqualE(t, stat.Mode(), 0700|os.ModeDir)
 	})
 }
 
@@ -60,19 +60,57 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 	skipOnWindows(t, "file system permission is different")
 	credCacheDir, err := os.MkdirTemp("", "")
 	assertNilF(t, err)
-	assertNilF(t, os.MkdirAll(credCacheDir, 0777))
+	assertNilF(t, os.MkdirAll(credCacheDir, os.ModePerm))
 	credCacheDirEnvOverride := overrideEnv(credCacheDirEnv, credCacheDir)
 	defer credCacheDirEnvOverride.rollback()
 	ssm, err := newFileBasedSecureStorageManager()
 	assertNilF(t, err)
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("store single token", func(t *testing.T) {
 		tokenSpec := newMfaTokenSpec("host.com", "johndoe")
 		cred := "token123"
 		ssm.setCredential(tokenSpec, cred)
 		assertEqualE(t, ssm.getCredential(tokenSpec), cred)
 		ssm.deleteCredential(tokenSpec)
 		assertEqualE(t, ssm.getCredential(tokenSpec), "")
+	})
+
+	t.Run("store tokens of different types, hosts and users", func(t *testing.T) {
+		mfaTokenSpec := newMfaTokenSpec("host.com", "johndoe")
+		mfaCred := "token12"
+		idTokenSpec := newIDTokenSpec("host.com", "johndoe")
+		idCred := "token34"
+		idTokenSpec2 := newIDTokenSpec("host.org", "johndoe")
+		idCred2 := "token56"
+		idTokenSpec3 := newIDTokenSpec("host.com", "someoneelse")
+		idCred3 := "token78"
+		ssm.setCredential(mfaTokenSpec, mfaCred)
+		ssm.setCredential(idTokenSpec, idCred)
+		ssm.setCredential(idTokenSpec2, idCred2)
+		ssm.setCredential(idTokenSpec3, idCred3)
+		assertEqualE(t, ssm.getCredential(mfaTokenSpec), mfaCred)
+		assertEqualE(t, ssm.getCredential(idTokenSpec), idCred)
+		assertEqualE(t, ssm.getCredential(idTokenSpec2), idCred2)
+		assertEqualE(t, ssm.getCredential(idTokenSpec3), idCred3)
+		ssm.deleteCredential(mfaTokenSpec)
+		assertEqualE(t, ssm.getCredential(mfaTokenSpec), "")
+		assertEqualE(t, ssm.getCredential(idTokenSpec), idCred)
+		assertEqualE(t, ssm.getCredential(idTokenSpec2), idCred2)
+		assertEqualE(t, ssm.getCredential(idTokenSpec3), idCred3)
+	})
+
+	t.Run("override single token", func(t *testing.T) {
+		mfaTokenSpec := newMfaTokenSpec("host.com", "johndoe")
+		mfaCred := "token123"
+		idTokenSpec := newIDTokenSpec("host.com", "johndoe")
+		idCred := "token456"
+		ssm.setCredential(mfaTokenSpec, mfaCred)
+		ssm.setCredential(idTokenSpec, idCred)
+		assertEqualE(t, ssm.getCredential(mfaTokenSpec), mfaCred)
+		mfaCredOverride := "token789"
+		ssm.setCredential(mfaTokenSpec, mfaCredOverride)
+		assertEqualE(t, ssm.getCredential(mfaTokenSpec), mfaCredOverride)
+		ssm.setCredential(idTokenSpec, idCred)
 	})
 
 	t.Run("unlock stale cache", func(t *testing.T) {

@@ -345,7 +345,7 @@ func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[stri
 		return err
 	}
 	if err == nil {
-		if stat.Mode().String() != "-rw-------" {
+		if stat.Mode() != 0600 {
 			if err = os.Chmod(ssm.credFilePath(), 0600); err != nil {
 				return fmt.Errorf("cannot chmod file %v to 600. %v", ssm.credFilePath(), err)
 			}
