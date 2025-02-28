@@ -1093,7 +1093,6 @@ func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 	})
 	assertNilF(t, err)
 	cfg.Authenticator = AuthTypeOAuthClientCredentials
-	cfg.OauthClientSecret = "bla"
 	connector := NewConnector(&SnowflakeDriver{}, *cfg)
 	db := sql.OpenDB(connector)
 	defer db.Close()
