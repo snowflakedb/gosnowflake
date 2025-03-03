@@ -152,6 +152,34 @@ func TestSetAndGetCredentialMfa(t *testing.T) {
 	}
 }
 
+func TestSkipStoringCredentialIfUserIsEmpty(t *testing.T) {
+	tokenSpecs := []*secureTokenSpec{
+		newMfaTokenSpec("mfaHost.com", ""),
+		newIDTokenSpec("idHost.com", ""),
+	}
+
+	for _, tokenSpec := range tokenSpecs {
+		t.Run(tokenSpec.host, func(t *testing.T) {
+			credentialsStorage.setCredential(tokenSpec, "non-empty-value")
+			assertEqualE(t, credentialsStorage.getCredential(tokenSpec), "")
+		})
+	}
+}
+
+func TestSkipStoringCredentialIfHostIsEmpty(t *testing.T) {
+	tokenSpecs := []*secureTokenSpec{
+		newMfaTokenSpec("", "mfaUser"),
+		newIDTokenSpec("", "idUser"),
+	}
+
+	for _, tokenSpec := range tokenSpecs {
+		t.Run(tokenSpec.user, func(t *testing.T) {
+			credentialsStorage.setCredential(tokenSpec, "non-empty-value")
+			assertEqualE(t, credentialsStorage.getCredential(tokenSpec), "")
+		})
+	}
+}
+
 func TestStoreTemporaryCredental(t *testing.T) {
 	if runningOnGithubAction() {
 		t.Skip("cannot write to github file system")
@@ -189,7 +217,8 @@ func TestBuildCredentialsKey(t *testing.T) {
 		{"testaccount.snowflakecomputing.com", "testuser", "IdToken", "5014e26489992b6ea56b50e936ba85764dc51338f60441bdd4a69eac7e15bada"},  // pragma: allowlist secret
 	}
 	for _, test := range testcases {
-		target := buildCredentialsKey(test.host, test.user, test.credType)
+		target, err := buildCredentialsKey(test.host, test.user, test.credType)
+		assertNilF(t, err)
 		if target != test.out {
 			t.Fatalf("failed to convert target. expected: %v, but got: %v", test.out, target)
 		}
