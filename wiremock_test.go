@@ -1,6 +1,9 @@
 package gosnowflake
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,13 +13,15 @@ import (
 	"testing"
 )
 
-var wiremock *wiremockClient = newWiremock()
+var wiremock = newWiremock()
+var wiremockHTTPS = newWiremockHTTPS()
 
 type wiremockClient struct {
-	protocol string
-	host     string
-	port     int
-	client   http.Client
+	protocol  string
+	host      string
+	port      int
+	adminPort int
+	client    http.Client
 }
 
 func newWiremock() *wiremockClient {
@@ -37,19 +42,54 @@ func newWiremock() *wiremockClient {
 		wmProtocol = "http"
 	}
 	return &wiremockClient{
-		protocol: wmProtocol,
-		host:     wmHost,
-		port:     wmPort,
+		protocol:  wmProtocol,
+		host:      wmHost,
+		port:      wmPort,
+		adminPort: wmPort,
+	}
+}
+
+func newWiremockHTTPS() *wiremockClient {
+	wmHost := os.Getenv("WIREMOCK_HOST_HTTPS")
+	if wmHost == "" {
+		wmHost = "127.0.0.1"
+	}
+	wmPortStr := os.Getenv("WIREMOCK_PORT_HTTPS")
+	if wmPortStr == "" {
+		wmPortStr = "13567"
+	}
+	wmPort, err := strconv.Atoi(wmPortStr)
+	if err != nil {
+		panic(fmt.Sprintf("WIREMOCK_PORT is not a number: %v", wmPortStr))
+	}
+	wmAdminPortStr := os.Getenv("WIREMOCK_PORT")
+	if wmAdminPortStr == "" {
+		wmAdminPortStr = "14355"
+	}
+	wmAdminPort, err := strconv.Atoi(wmAdminPortStr)
+	if err != nil {
+		panic(fmt.Sprintf("WIREMOCK_PORT is not a number: %v", wmPortStr))
+	}
+	wmProtocol := os.Getenv("WIREMOCK_PROTOCOL")
+	if wmProtocol == "" {
+		wmProtocol = "https"
+	}
+	return &wiremockClient{
+		protocol:  wmProtocol,
+		host:      wmHost,
+		port:      wmPort,
+		adminPort: wmAdminPort,
 	}
 }
 
 func (wm *wiremockClient) connectionConfig() *Config {
 	return &Config{
 		User:     "testUser",
+		Password: "testPassword",
 		Host:     wm.host,
 		Port:     wm.port,
 		Account:  "testAccount",
-		Protocol: "http",
+		Protocol: wm.protocol,
 	}
 }
 
@@ -92,5 +132,35 @@ func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wire
 }
 
 func (wm *wiremockClient) mappingsURL() string {
-	return fmt.Sprintf("%v://%v:%v/__admin/mappings", wm.protocol, wm.host, wm.port)
+	return fmt.Sprintf("http://%v:%v/__admin/mappings", wm.host, wm.adminPort)
+}
+
+func TestQueryViaHttps(t *testing.T) {
+	wiremockHTTPS.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "select1.json", params: map[string]string{
+			"%AUTHORIZATION_HEADER%": "session token",
+		}},
+	)
+	cfg := wiremockHTTPS.connectionConfig()
+	testCertPool := x509.NewCertPool()
+	caBytes, err := os.ReadFile("ci/scripts/ca.der")
+	assertNilF(t, err)
+	certificate, err := x509.ParseCertificate(caBytes)
+	assertNilF(t, err)
+	testCertPool.AddCert(certificate)
+	cfg.Transporter = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs: testCertPool,
+		},
+	}
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	rows, err := db.Query("SELECT 1")
+	assertNilF(t, err)
+	defer rows.Close()
+	var v int
+	assertTrueF(t, rows.Next())
+	assertNilF(t, rows.Scan(&v))
+	assertEqualE(t, v, 1)
 }

@@ -7,7 +7,7 @@
         "method": "POST",
         "headers": {
           "Authorization": {
-            "equalTo": "%AUTHORIZATION_HEADER%"
+            "equalTo": "Snowflake Token=\"session token\""
           }
         }
       },

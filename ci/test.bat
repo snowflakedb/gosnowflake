@@ -5,7 +5,7 @@ setlocal EnableDelayedExpansion
 start /b python ci\scripts\hang_webserver.py 12345
 
 curl -O https://repo1.maven.org/maven2/org/wiremock/wiremock-standalone/3.11.0/wiremock-standalone-3.11.0.jar
-START /B java -jar wiremock-standalone-3.11.0.jar --port %WIREMOCK_PORT%
+START /B java -jar wiremock-standalone-3.11.0.jar --verbose --port %WIREMOCK_PORT% -https-port %WIREMOCK_HTTPS_PORT% --https-keystore ci/scripts/wiremock.p12 --keystore-type PKCS12 --keystore-password password
 
 if "%CLOUD_PROVIDER%"=="AWS" set PARAMETER_FILENAME=parameters_aws_golang.json.gpg
 if "%CLOUD_PROVIDER%"=="AZURE" set PARAMETER_FILENAME=parameters_azure_golang.json.gpg

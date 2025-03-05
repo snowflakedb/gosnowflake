@@ -1016,9 +1016,7 @@ func testPatSuccessfulFlow(t *testing.T, cfg *Config) {
 	enableExperimentalAuth(t)
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/pat/successful_flow.json"},
-		wiremockMapping{filePath: "select1.json", params: map[string]string{
-			"%AUTHORIZATION_HEADER%": "Snowflake Token=\\\"session token\\\""},
-		},
+		wiremockMapping{filePath: "select1.json"},
 	)
 	connector := NewConnector(SnowflakeDriver{}, *cfg)
 	db := sql.OpenDB(connector)
