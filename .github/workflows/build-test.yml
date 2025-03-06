@@ -138,3 +138,29 @@ jobs:
               uses: codecov/codecov-action@v5
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    ecc:
+      runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+      name: Ecliptic curves check
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 17
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: ${{ matrix.go }}
+        - name: Test
+          shell: bash
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            CLOUD_PROVIDER: ${{ matrix.cloud }}
+            GORACE: history_size=7
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }} -run TestQueryViaHttps
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+            WIREMOCK_ENABLE_ECDSA: true
+          run: ./ci/test.sh
