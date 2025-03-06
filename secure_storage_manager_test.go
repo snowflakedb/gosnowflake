@@ -139,7 +139,9 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 		assertEqualE(t, ssm.getCredential(tokenSpec), "initialValue")
 		err = os.Chmod(ssm.credFilePath(), 0644)
 		assertNilF(t, err)
-		defer os.Chmod(ssm.credFilePath(), 0600)
+		defer func() {
+			assertNilE(t, os.Chmod(ssm.credFilePath(), 0600))
+		}()
 		ssm.setCredential(tokenSpec, "newValue")
 		assertEqualE(t, ssm.getCredential(tokenSpec), "")
 		fileContent, err := os.ReadFile(ssm.credFilePath())
