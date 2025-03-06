@@ -3,16 +3,20 @@
 package gosnowflake
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/99designs/keyring"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/99designs/keyring"
 )
 
 type tokenType string
@@ -23,17 +27,27 @@ const (
 )
 
 const (
-	driverName        = "SNOWFLAKE-GO-DRIVER"
 	credCacheDirEnv   = "SF_TEMPORARY_CREDENTIAL_CACHE_DIR"
-	credCacheFileName = "temporary_credential.json"
+	credCacheFileName = "credential_cache_v1.json"
 )
+
+type cacheDirConf struct {
+	envVar       string
+	pathSegments []string
+}
+
+var defaultLinuxCacheDirConf = []cacheDirConf{
+	{envVar: credCacheDirEnv, pathSegments: []string{}},
+	{envVar: "XDG_CACHE_DIR", pathSegments: []string{"snowflake"}},
+	{envVar: "HOME", pathSegments: []string{".cache", "snowflake"}},
+}
 
 type secureTokenSpec struct {
 	host, user string
 	tokenType  tokenType
 }
 
-func (t *secureTokenSpec) buildKey() string {
+func (t *secureTokenSpec) buildKey() (string, error) {
 	return buildCredentialsKey(t.host, t.user, t.tokenType)
 }
 
@@ -69,181 +83,324 @@ func newSecureStorageManager() secureStorageManager {
 			logger.Debugf("failed to create credentials cache dir. %v", err)
 			return newNoopSecureStorageManager()
 		}
-		return ssm
+		return &threadSafeSecureStorageManager{&sync.Mutex{}, ssm}
 	case "darwin", "windows":
-		return newKeyringBasedSecureStorageManager()
+		return &threadSafeSecureStorageManager{&sync.Mutex{}, newKeyringBasedSecureStorageManager()}
 	default:
+		logger.Infof("OS %v does not support credentials cache", runtime.GOOS)
 		return newNoopSecureStorageManager()
 	}
 }
 
 type fileBasedSecureStorageManager struct {
-	credCacheFilePath string
-	localCredCache    map[string]string
-	credCacheLock     sync.RWMutex
+	credDirPath string
 }
 
 func newFileBasedSecureStorageManager() (*fileBasedSecureStorageManager, error) {
-	ssm := &fileBasedSecureStorageManager{
-		localCredCache: map[string]string{},
-		credCacheLock:  sync.RWMutex{},
-	}
-	credCacheDir := ssm.buildCredCacheDirPath()
-	if err := ssm.createCacheDir(credCacheDir); err != nil {
+	credDirPath, err := buildCredCacheDirPath(defaultLinuxCacheDirConf)
+	if err != nil {
 		return nil, err
 	}
-	credCacheFilePath := filepath.Join(credCacheDir, credCacheFileName)
-	logger.Infof("Credentials cache path: %v", credCacheFilePath)
-	ssm.credCacheFilePath = credCacheFilePath
+	ssm := &fileBasedSecureStorageManager{
+		credDirPath: credDirPath,
+	}
 	return ssm, nil
 }
 
-func (ssm *fileBasedSecureStorageManager) createCacheDir(credCacheDir string) error {
-	_, err := os.Stat(credCacheDir)
-	if os.IsNotExist(err) {
-		if err = os.MkdirAll(credCacheDir, os.ModePerm); err != nil {
-			return fmt.Errorf("failed to create cache directory. %v, err: %v", credCacheDir, err)
-		}
-		return nil
+func lookupCacheDir(envVar string, pathSegments ...string) (string, error) {
+	envVal := os.Getenv(envVar)
+	if envVal == "" {
+		return "", fmt.Errorf("environment variable %s not set", envVar)
 	}
-	return err
+
+	fileInfo, err := os.Stat(envVal)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat %s=%s, due to %v", envVar, envVal, err)
+	}
+
+	if !fileInfo.IsDir() {
+		return "", fmt.Errorf("environment variable %s=%s is not a directory", envVar, envVal)
+	}
+
+	cacheDir := filepath.Join(envVal, filepath.Join(pathSegments...))
+
+	if err = os.MkdirAll(cacheDir, os.FileMode(0o755)); err != nil {
+		return "", err
+	}
+
+	if err = os.Chmod(cacheDir, os.FileMode(0700)); err != nil {
+		return "", err
+	}
+
+	fileInfo, err = os.Stat(cacheDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat %s=%s, due to %w", envVar, cacheDir, err)
+	}
+
+	if fileInfo.Mode().Perm()|os.ModeDir != 0o700|os.ModeDir {
+		return "", fmt.Errorf("incorrect permission to %v", cacheDir)
+	}
+
+	return cacheDir, nil
 }
 
-func (ssm *fileBasedSecureStorageManager) buildCredCacheDirPath() string {
-	credCacheDir := os.Getenv(credCacheDirEnv)
-	if credCacheDir != "" {
-		return credCacheDir
+func buildCredCacheDirPath(confs []cacheDirConf) (string, error) {
+	for _, conf := range confs {
+		path, err := lookupCacheDir(conf.envVar, conf.pathSegments...)
+		if err != nil {
+			logger.Debugf("Skipping %s in cache directory lookup due to %v", conf.envVar, err)
+		} else {
+			logger.Infof("Using %s as cache directory", path)
+			return path, nil
+		}
 	}
-	home := os.Getenv("HOME")
-	if home == "" {
-		logger.Info("HOME is blank")
-		return ""
+
+	return "", errors.New("no credentials cache directory found")
+}
+
+func (ssm *fileBasedSecureStorageManager) getTokens(data map[string]any) map[string]interface{} {
+	val, ok := data["tokens"]
+	emptyMap := map[string]interface{}{}
+	if !ok {
+		data["tokens"] = emptyMap
+		return emptyMap
 	}
-	credCacheDir = filepath.Join(home, ".cache", "snowflake")
-	return credCacheDir
+
+	tokens, ok := val.(map[string]interface{})
+	if !ok {
+		data["tokens"] = emptyMap
+		return emptyMap
+	}
+
+	return tokens
 }
 
 func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSpec, value string) {
-	if value == "" {
-		logger.Debug("no token provided")
-	} else {
-		credentialsKey := tokenSpec.buildKey()
-		ssm.credCacheLock.Lock()
-		defer ssm.credCacheLock.Unlock()
-		ssm.localCredCache[credentialsKey] = value
+	credentialsKey, err := tokenSpec.buildKey()
+	if err != nil {
+		logger.Warn(err)
+		return
+	}
+	err = ssm.lockFile()
+	if err != nil {
+		logger.Warnf("Set credential failed. Unable to lock cache. %v", err)
+		return
+	}
+	defer ssm.unlockFile()
 
-		j, err := json.Marshal(ssm.localCredCache)
+	credCache := ssm.readTemporaryCacheFile()
+	ssm.getTokens(credCache)[credentialsKey] = value
+
+	err = ssm.writeTemporaryCacheFile(credCache)
+	if err != nil {
+		logger.Warnf("Set credential failed. Unable to write cache. %v", err)
+	}
+}
+
+func (ssm *fileBasedSecureStorageManager) lockPath() string {
+	return filepath.Join(ssm.credDirPath, credCacheFileName+".lck")
+}
+
+func (ssm *fileBasedSecureStorageManager) lockFile() error {
+	const numRetries = 10
+	const retryInterval = 100 * time.Millisecond
+	lockPath := ssm.lockPath()
+	locked := false
+	for i := 0; i < numRetries; i++ {
+		err := os.Mkdir(lockPath, 0o700)
 		if err != nil {
-			logger.Warnf("failed to convert credential to JSON.")
-			return
+			if errors.Is(err, os.ErrExist) {
+				time.Sleep(retryInterval)
+				continue
+			}
+			return fmt.Errorf("failed to create cache lock: %v, err: %v", lockPath, err)
+		}
+		locked = true
+		break
+	}
+
+	if !locked {
+		logger.Warnf("failed to lock cache lock. lockPath: %v.", lockPath)
+		fileInfo, err := os.Stat(lockPath)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to stat %v and determine if lock is stale. err: %v", lockPath, err)
 		}
 
-		logger.Debugf("writing credential cache file. %v\n", ssm.credCacheFilePath)
-		credCacheLockFileName := ssm.credCacheFilePath + ".lck"
-		logger.Debugf("Creating lock file. %v", credCacheLockFileName)
-		err = os.Mkdir(credCacheLockFileName, 0600)
-
-		switch {
-		case os.IsExist(err):
-			statinfo, err := os.Stat(credCacheLockFileName)
+		if fileInfo.ModTime().Add(time.Second).UnixNano() < time.Now().UnixNano() {
+			logger.Debugf("removing credentials cache lock file, stale for %v", time.Now().UnixNano()-fileInfo.ModTime().UnixNano())
+			err := os.Remove(lockPath)
 			if err != nil {
-				logger.Debugf("failed to write credential cache file. file: %v, err: %v. ignored.\n", ssm.credCacheFilePath, err)
-				return
+				return fmt.Errorf("failed to remove %v while trying to remove stale lock. err: %v", lockPath, err)
 			}
-			if time.Since(statinfo.ModTime()) < 15*time.Minute {
-				logger.Debugf("other process locks the cache file. %v. ignored.\n", ssm.credCacheFilePath)
-				return
-			}
-			if err = os.Remove(credCacheLockFileName); err != nil {
-				logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", credCacheLockFileName, err)
-				return
-			}
-			if err = os.Mkdir(credCacheLockFileName, 0600); err != nil {
-				logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", credCacheLockFileName, err)
-				return
+			err = os.Mkdir(lockPath, 0o700)
+			if err != nil {
+				return fmt.Errorf("failed to recreate cache lock after removing stale lock. %v, err: %v", lockPath, err)
 			}
 		}
-		defer os.RemoveAll(credCacheLockFileName)
+	}
+	return nil
+}
 
-		if err = os.WriteFile(ssm.credCacheFilePath, j, 0644); err != nil {
-			logger.Debugf("Failed to write the cache file. File: %v err: %v.", ssm.credCacheFilePath, err)
-		}
+func (ssm *fileBasedSecureStorageManager) unlockFile() {
+	lockPath := ssm.lockPath()
+	err := os.Remove(lockPath)
+	if err != nil {
+		logger.Warnf("Failed to unlock cache lock: %v. %v", lockPath, err)
 	}
 }
 
 func (ssm *fileBasedSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
-	credentialsKey := tokenSpec.buildKey()
-	ssm.credCacheLock.Lock()
-	defer ssm.credCacheLock.Unlock()
-	localCredCache := ssm.readTemporaryCacheFile()
-	cred := localCredCache[credentialsKey]
-	if cred != "" {
-		logger.Debug("Successfully read token. Returning as string")
-	} else {
-		logger.Debug("Returned credential is empty")
+	credentialsKey, err := tokenSpec.buildKey()
+	if err != nil {
+		logger.Warn(err)
+		return ""
 	}
-	return cred
+	err = ssm.lockFile()
+	if err != nil {
+		logger.Warn("Failed to lock credential cache file.")
+		return ""
+	}
+
+	credCache := ssm.readTemporaryCacheFile()
+	ssm.unlockFile()
+	cred, ok := ssm.getTokens(credCache)[credentialsKey]
+	if !ok {
+		return ""
+	}
+
+	credStr, ok := cred.(string)
+	if !ok {
+		return ""
+	}
+
+	return credStr
 }
 
-func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile() map[string]string {
-	jsonData, err := os.ReadFile(ssm.credCacheFilePath)
+func (ssm *fileBasedSecureStorageManager) credFilePath() string {
+	return filepath.Join(ssm.credDirPath, credCacheFileName)
+}
+
+func (ssm *fileBasedSecureStorageManager) ensurePermissions() error {
+	dirInfo, err := os.Stat(ssm.credDirPath)
 	if err != nil {
-		logger.Debugf("Failed to read credential file: %v", err)
-		return nil
-	}
-	err = json.Unmarshal([]byte(jsonData), &ssm.localCredCache)
-	if err != nil {
-		logger.Debugf("failed to read JSON. Err: %v", err)
-		return nil
+		return err
 	}
 
-	return ssm.localCredCache
+	if dirInfo.Mode().Perm() != 0o700&os.ModePerm {
+		return fmt.Errorf("incorrect permissions(%o, expected 700) for %s", dirInfo.Mode().Perm(), ssm.credDirPath)
+	}
+
+	fileInfo, err := os.Stat(ssm.credFilePath())
+	if err != nil {
+		return err
+	}
+
+	if fileInfo.Mode().Perm() != 0o600&os.ModePerm {
+		return fmt.Errorf("Incorrect permissions(%v, expected 600) for credential file.", fileInfo.Mode().Perm())
+
+	}
+
+	return nil
+}
+
+func (ssm *fileBasedSecureStorageManager) ensureOwner(filePath string) error {
+	currentUser, err := user.Current()
+	if err != nil {
+		return err
+	}
+	dirOwnerUid, err := provideFileOwner(filePath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if strconv.Itoa(int(dirOwnerUid)) != currentUser.Uid {
+		return errors.New("incorrect owner of " + ssm.credDirPath)
+	}
+	return nil
+}
+
+func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile() map[string]any {
+	if err := ssm.ensurePermissions(); err != nil {
+		logger.Warnf("Failed to ensure permission for temporary cache file. %v.\n", err)
+		return map[string]any{}
+	}
+	if err := ssm.ensureOwner(ssm.credDirPath); err != nil {
+		logger.Warn("Failed to ensure owner for %v. %v", ssm.credDirPath, err)
+		return map[string]any{}
+	}
+	if err := ssm.ensureOwner(ssm.credFilePath()); err != nil {
+		logger.Warn("Failed to ensure owner for %v. %v", ssm.credFilePath(), err)
+		return map[string]any{}
+	}
+
+	jsonData, err := os.ReadFile(ssm.credFilePath())
+	if err != nil {
+		logger.Warnf("Failed to read credential cache file. %v.\n", err)
+		return map[string]any{}
+	}
+
+	credentialsMap := map[string]any{}
+	err = json.Unmarshal(jsonData, &credentialsMap)
+	if err != nil {
+		logger.Warnf("Failed to unmarshal credential cache file. %v.\n", err)
+	}
+
+	return credentialsMap
 }
 
 func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
-	ssm.credCacheLock.Lock()
-	defer ssm.credCacheLock.Unlock()
-	credentialsKey := tokenSpec.buildKey()
-	delete(ssm.localCredCache, credentialsKey)
-	j, err := json.Marshal(ssm.localCredCache)
+	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
-		logger.Warnf("failed to convert credential to JSON.")
+		logger.Warn(err)
 		return
 	}
-	ssm.writeTemporaryCacheFile(j)
+	err = ssm.lockFile()
+	if err != nil {
+		logger.Warnf("Set credential failed. Unable to lock cache. %v", err)
+		return
+	}
+	defer ssm.unlockFile()
+
+	credCache := ssm.readTemporaryCacheFile()
+	delete(ssm.getTokens(credCache), credentialsKey)
+
+	err = ssm.writeTemporaryCacheFile(credCache)
+	if err != nil {
+		logger.Warnf("Set credential failed. Unable to write cache. %v", err)
+	}
 }
 
-func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(input []byte) {
-	logger.Debugf("writing credential cache file. %v\n", ssm.credCacheFilePath)
-	credCacheLockFileName := ssm.credCacheFilePath + ".lck"
-	err := os.Mkdir(credCacheLockFileName, 0600)
-	logger.Debugf("Creating lock file. %v", credCacheLockFileName)
+func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[string]any) error {
+	if err := ssm.ensureOwner(ssm.credDirPath); err != nil {
+		return err
+	}
+	if err := ssm.ensureOwner(ssm.credFilePath()); err != nil {
+		logger.Warn("Failed to ensure owner for %v. %v", ssm.credFilePath(), err)
+		return err
+	}
 
-	switch {
-	case os.IsExist(err):
-		statinfo, err := os.Stat(credCacheLockFileName)
-		if err != nil {
-			logger.Debugf("failed to write credential cache file. file: %v, err: %v. ignored.\n", ssm.credCacheFilePath, err)
-			return
-		}
-		if time.Since(statinfo.ModTime()) < 15*time.Minute {
-			logger.Debugf("other process locks the cache file. %v. ignored.\n", ssm.credCacheFilePath)
-			return
-		}
-		if err = os.Remove(credCacheLockFileName); err != nil {
-			logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", credCacheLockFileName, err)
-			return
-		}
-		if err = os.Mkdir(credCacheLockFileName, 0600); err != nil {
-			logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", credCacheLockFileName, err)
-			return
+	bytes, err := json.Marshal(cache)
+	if err != nil {
+		return fmt.Errorf("failed to marshal credential cache map. %w", err)
+	}
+
+	stat, err := os.Stat(ssm.credFilePath())
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if err == nil {
+		if stat.Mode().Perm() != 0o600&os.ModePerm {
+			return fmt.Errorf("incorrect %v permission, expected 0600, got %v", ssm.credFilePath(), stat.Mode().Perm())
 		}
 	}
-	defer os.RemoveAll(credCacheLockFileName)
 
-	if err = os.WriteFile(ssm.credCacheFilePath, input, 0644); err != nil {
-		logger.Debugf("Failed to write the cache file. File: %v err: %v.", ssm.credCacheFilePath, err)
+	err = os.WriteFile(ssm.credFilePath(), bytes, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write the credential cache file: %w", err)
 	}
+	return nil
 }
 
 type keyringSecureStorageManager struct {
@@ -257,7 +414,11 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 	if value == "" {
 		logger.Debug("no token provided")
 	} else {
-		credentialsKey := tokenSpec.buildKey()
+		credentialsKey, err := tokenSpec.buildKey()
+		if err != nil {
+			logger.Warn(err)
+			return
+		}
 		if runtime.GOOS == "windows" {
 			ring, _ := keyring.Open(keyring.Config{
 				WinCredPrefix: strings.ToUpper(tokenSpec.host),
@@ -288,7 +449,11 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 
 func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
 	cred := ""
-	credentialsKey := tokenSpec.buildKey()
+	credentialsKey, err := tokenSpec.buildKey()
+	if err != nil {
+		logger.Warn(err)
+		return ""
+	}
 	if runtime.GOOS == "windows" {
 		ring, _ := keyring.Open(keyring.Config{
 			WinCredPrefix: strings.ToUpper(tokenSpec.host),
@@ -319,7 +484,11 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 }
 
 func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
-	credentialsKey := tokenSpec.buildKey()
+	credentialsKey, err := tokenSpec.buildKey()
+	if err != nil {
+		logger.Warn(err)
+		return
+	}
 	if runtime.GOOS == "windows" {
 		ring, _ := keyring.Open(keyring.Config{
 			WinCredPrefix: strings.ToUpper(tokenSpec.host),
@@ -341,11 +510,17 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 	}
 }
 
-func buildCredentialsKey(host, user string, credType tokenType) string {
-	host = strings.ToUpper(host)
-	user = strings.ToUpper(user)
-	credTypeStr := strings.ToUpper(string(credType))
-	return host + ":" + user + ":" + driverName + ":" + credTypeStr
+func buildCredentialsKey(host, user string, credType tokenType) (string, error) {
+	if host == "" {
+		return "", errors.New("host is not provided to store in token cache, skipping")
+	}
+	if user == "" {
+		return "", errors.New("user is not provided to store in token cache, skipping")
+	}
+	plainCredKey := host + ":" + user + ":" + string(credType)
+	checksum := sha256.New()
+	checksum.Write([]byte(plainCredKey))
+	return hex.EncodeToString(checksum.Sum(nil)), nil
 }
 
 type noopSecureStorageManager struct {
@@ -362,5 +537,28 @@ func (ssm *noopSecureStorageManager) getCredential(_ *secureTokenSpec) string {
 	return ""
 }
 
-func (ssm *noopSecureStorageManager) deleteCredential(_ *secureTokenSpec) { //TODO implement me
+func (ssm *noopSecureStorageManager) deleteCredential(_ *secureTokenSpec) {
+}
+
+type threadSafeSecureStorageManager struct {
+	mu       *sync.Mutex
+	delegate secureStorageManager
+}
+
+func (ssm *threadSafeSecureStorageManager) setCredential(tokenSpec *secureTokenSpec, value string) {
+	ssm.mu.Lock()
+	defer ssm.mu.Unlock()
+	ssm.delegate.setCredential(tokenSpec, value)
+}
+
+func (ssm *threadSafeSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
+	ssm.mu.Lock()
+	defer ssm.mu.Unlock()
+	return ssm.delegate.getCredential(tokenSpec)
+}
+
+func (ssm *threadSafeSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
+	ssm.mu.Lock()
+	defer ssm.mu.Unlock()
+	ssm.delegate.deleteCredential(tokenSpec)
 }
