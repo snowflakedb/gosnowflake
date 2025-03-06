@@ -1012,7 +1012,6 @@ func TestPatSuccessfulFlow(t *testing.T) {
 }
 
 func testPatSuccessfulFlow(t *testing.T, cfg *Config) {
-	skipOnJenkins(t, "wiremock is not enabled")
 	enableExperimentalAuth(t)
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/pat/successful_flow.json"},
@@ -1041,7 +1040,6 @@ func TestPatSuccessfulFlowWithPatAsPasswordWithPatAuthenticator(t *testing.T) {
 }
 
 func TestPatInvalidToken(t *testing.T) {
-	skipOnJenkins(t, "wiremock is not enabled")
 	enableExperimentalAuth(t)
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/pat/invalid_token.json"},

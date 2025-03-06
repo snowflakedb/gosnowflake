@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -83,7 +84,7 @@ func newWiremockHTTPS() *wiremockClient {
 }
 
 func (wm *wiremockClient) connectionConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		User:     "testUser",
 		Password: "testPassword",
 		Host:     wm.host,
@@ -91,6 +92,24 @@ func (wm *wiremockClient) connectionConfig() *Config {
 		Account:  "testAccount",
 		Protocol: wm.protocol,
 	}
+	if wm.protocol == "https" {
+		testCertPool := x509.NewCertPool()
+		caBytes, err := os.ReadFile("ci/scripts/ca.der")
+		if err != nil {
+			log.Fatalf("cannot read CA cert file. %v", err)
+		}
+		certificate, err := x509.ParseCertificate(caBytes)
+		if err != nil {
+			log.Fatalf("cannot parse certifacte. %v", err)
+		}
+		testCertPool.AddCert(certificate)
+		cfg.Transporter = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: testCertPool,
+			},
+		}
+	}
+	return cfg
 }
 
 type wiremockMapping struct {
@@ -99,6 +118,8 @@ type wiremockMapping struct {
 }
 
 func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMapping) {
+	skipOnJenkins(t, "wiremock is not enabled on Jenkins")
+
 	for _, mapping := range wm.enrichWithTelemetry(mappings) {
 		f, err := os.Open("test_data/wiremock/mappings/" + mapping.filePath)
 		assertNilF(t, err)
