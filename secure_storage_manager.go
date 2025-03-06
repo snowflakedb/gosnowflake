@@ -296,7 +296,7 @@ func (ssm *fileBasedSecureStorageManager) ensurePermissions() error {
 	}
 
 	if fileInfo.Mode().Perm() != 0o600&os.ModePerm {
-		return fmt.Errorf("Incorrect permissions(%v, expected 600) for credential file.", fileInfo.Mode().Perm())
+		return fmt.Errorf("incorrect permissions(%v, expected 600) for credential file", fileInfo.Mode().Perm())
 
 	}
 
@@ -308,14 +308,14 @@ func (ssm *fileBasedSecureStorageManager) ensureOwner(filePath string) error {
 	if err != nil {
 		return err
 	}
-	dirOwnerUid, err := provideFileOwner(filePath)
+	dirOwnerUID, err := provideFileOwner(filePath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
-	if strconv.Itoa(int(dirOwnerUid)) != currentUser.Uid {
+	if strconv.Itoa(int(dirOwnerUID)) != currentUser.Uid {
 		return errors.New("incorrect owner of " + ssm.credDirPath)
 	}
 	return nil
