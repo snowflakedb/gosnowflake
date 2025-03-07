@@ -7,8 +7,7 @@ set -o pipefail
 
 CI_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-curl -O https://repo1.maven.org/maven2/org/wiremock/wiremock-standalone/3.11.0/wiremock-standalone-3.11.0.jar
-java -jar wiremock-standalone-3.11.0.jar --port $WIREMOCK_PORT &
+$CI_DIR/scripts/run_wiremock.sh &
 
 if [[ -n "$JENKINS_HOME" ]]; then
   ROOT_DIR="$(cd "${CI_DIR}/.." && pwd)"
