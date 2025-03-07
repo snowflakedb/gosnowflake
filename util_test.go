@@ -404,6 +404,12 @@ func skipOnMac(t *testing.T, reason string) {
 	}
 }
 
+func skipOnWindows(t *testing.T, reason string) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipped on Windows: " + reason)
+	}
+}
+
 func randomString(n int) string {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	alpha := []rune("abcdefghijklmnopqrstuvwxyz")
@@ -439,4 +445,23 @@ func TestInternal(t *testing.T) {
 	assertFalseE(t, isInternal(ctx))
 	ctx = WithInternal(ctx)
 	assertTrueE(t, isInternal(ctx))
+}
+
+type envOverride struct {
+	envName  string
+	oldValue string
+}
+
+func (e *envOverride) rollback() {
+	if e.oldValue != "" {
+		os.Setenv(e.envName, e.oldValue)
+	} else {
+		os.Unsetenv(e.envName)
+	}
+}
+
+func overrideEnv(env string, value string) envOverride {
+	oldValue := os.Getenv(env)
+	os.Setenv(env, value)
+	return envOverride{env, oldValue}
 }
