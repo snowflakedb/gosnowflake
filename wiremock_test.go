@@ -172,7 +172,8 @@ func TestQueryViaHttps(t *testing.T) {
 	testCertPool.AddCert(certificate)
 	cfg.Transporter = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			RootCAs: testCertPool,
+			RootCAs:               testCertPool,
+			VerifyPeerCertificate: verifyPeerCertificateSerial,
 		},
 	}
 	connector := NewConnector(SnowflakeDriver{}, *cfg)
