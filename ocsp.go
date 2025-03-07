@@ -670,6 +670,8 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 	for i := 0; i < len(verifiedChains); i++ {
 		// Certificate signed by Root CA. This should be one before the last in the Certificate Chain
 		numberOfNoneRootCerts := len(verifiedChains[i]) - 1
+		logger.Tracef("checking cert, %v, %v, isCa: %v, rawIssuer: %v, rawSubject: %v", i, numberOfNoneRootCerts, verifiedChains[i][numberOfNoneRootCerts].IsCA, string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), string(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
+		logger.Tracef("checking cert, base64, rawIssuer: %v, rawSubject: %v", base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
 		if !verifiedChains[i][numberOfNoneRootCerts].IsCA || string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) != string(verifiedChains[i][numberOfNoneRootCerts].RawSubject) {
 			// Check if the last Non Root Cert is also a CA or is self signed.
 			// if the last certificate is not, add it to the list
