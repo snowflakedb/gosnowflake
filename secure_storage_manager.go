@@ -160,16 +160,13 @@ func buildCredCacheDirPath(confs []cacheDirConf) (string, error) {
 
 func (ssm *fileBasedSecureStorageManager) getTokens(data map[string]any) map[string]interface{} {
 	val, ok := data["tokens"]
-	emptyMap := map[string]interface{}{}
 	if !ok {
-		data["tokens"] = emptyMap
-		return emptyMap
+		return map[string]interface{}{}
 	}
 
 	tokens, ok := val.(map[string]interface{})
 	if !ok {
-		data["tokens"] = emptyMap
-		return emptyMap
+		return map[string]interface{}{}
 	}
 
 	return tokens
@@ -189,8 +186,9 @@ func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSp
 	defer ssm.unlockFile()
 
 	credCache := ssm.readTemporaryCacheFile()
-	ssm.getTokens(credCache)[credentialsKey] = value
-
+	tokens := ssm.getTokens(credCache)
+	tokens[credentialsKey] = value
+	credCache["tokens"] = tokens
 	err = ssm.writeTemporaryCacheFile(credCache)
 	if err != nil {
 		logger.Warnf("Set credential failed. Unable to write cache. %v", err)
@@ -297,7 +295,6 @@ func (ssm *fileBasedSecureStorageManager) ensurePermissions() error {
 
 	if fileInfo.Mode().Perm() != 0o600&os.ModePerm {
 		return fmt.Errorf("incorrect permissions(%v, expected 600) for credential file", fileInfo.Mode().Perm())
-
 	}
 
 	return nil
