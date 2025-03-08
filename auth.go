@@ -360,7 +360,7 @@ func authenticate(
 		params.Add("roleName", sc.cfg.Role)
 	}
 
-	logger.WithContext(ctx).WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
+	logger.WithContext(ctx, sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
 		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
 
 	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, bodyCreator, sc.rest.LoginTimeout)
