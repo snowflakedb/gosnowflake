@@ -19,9 +19,12 @@ func TestBuildCredCacheDirPath(t *testing.T) {
 	assertNilF(t, err)
 	defer os.RemoveAll(testRoot2)
 
-	assertNilF(t, os.Setenv("CACHE_DIR_TEST_NOT_EXISTING", "/tmp/not_existing_dir"))
-	assertNilF(t, os.Setenv("CACHE_DIR_TEST_1", testRoot1))
-	assertNilF(t, os.Setenv("CACHE_DIR_TEST_2", testRoot2))
+	env1 := overrideEnv("CACHE_DIR_TEST_NOT_EXISTING", "/tmp/not_existing_dir")
+	defer env1.rollback()
+	env2 := overrideEnv("CACHE_DIR_TEST_1", testRoot1)
+	defer env2.rollback()
+	env3 := overrideEnv("CACHE_DIR_TEST_2", testRoot2)
+	defer env3.rollback()
 
 	t.Run("cannot find any dir", func(t *testing.T) {
 		_, err := buildCredCacheDirPath([]cacheDirConf{
@@ -115,10 +118,27 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 	})
 
 	t.Run("unlock stale cache", func(t *testing.T) {
+		tokenSpec := newMfaTokenSpec("stale", "cache")
+		assertNilF(t, os.Mkdir(ssm.lockPath(), 0o700))
+		time.Sleep(1000 * time.Millisecond)
+		ssm.setCredential(tokenSpec, "unlocked")
+		assertEqualE(t, ssm.getCredential(tokenSpec), "unlocked")
+	})
+
+	t.Run("wait for other process to unlock cache", func(t *testing.T) {
+		tokenSpec := newMfaTokenSpec("stale", "cache")
 		startTime := time.Now()
 		assertNilF(t, os.Mkdir(ssm.lockPath(), 0o700))
-		ssm.getCredential(newMfaTokenSpec("ignored", "ignored"))
-		assertTrueE(t, time.Since(startTime).Milliseconds() > 1000)
+		time.Sleep(500 * time.Millisecond)
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			assertNilF(t, os.Remove(ssm.lockPath()))
+		}()
+		ssm.setCredential(tokenSpec, "unlocked")
+		totalDurationMillis := time.Now().Sub(startTime).Milliseconds()
+		assertEqualE(t, ssm.getCredential(tokenSpec), "unlocked")
+		println(totalDurationMillis)
+		assertTrueE(t, totalDurationMillis > 1000 && totalDurationMillis < 1200)
 	})
 
 	t.Run("should not modify keys other than tokens", func(t *testing.T) {
