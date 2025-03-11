@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -169,10 +170,18 @@ func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *
 		RedirectURL:  oauthClient.buildRedirectURI(callbackPort),
 		Scopes:       oauthClient.buildScopes(),
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  oauthClient.cfg.OauthAuthorizationURL,
-			TokenURL: oauthClient.cfg.OauthTokenRequestURL,
+			AuthURL:  cmp.Or(oauthClient.cfg.OauthAuthorizationURL, oauthClient.defaultAuthorizationURL()),
+			TokenURL: cmp.Or(oauthClient.cfg.OauthTokenRequestURL, oauthClient.defaultTokenURL()),
 		},
 	}
+}
+
+func (oauthClient *oauthClient) defaultAuthorizationURL() string {
+	return fmt.Sprintf("%v://%v:%v/oauth/authorize", oauthClient.cfg.Protocol, oauthClient.cfg.Host, oauthClient.cfg.Port)
+}
+
+func (oauthClient *oauthClient) defaultTokenURL() string {
+	return fmt.Sprintf("%v://%v:%v/oauth/token-request", oauthClient.cfg.Protocol, oauthClient.cfg.Host, oauthClient.cfg.Port)
 }
 
 func (oauthClient *oauthClient) buildRedirectURI(port int) string {
@@ -254,7 +263,10 @@ func (provider *browserBasedAuthorizationCodeProvider) createCodeVerifier() stri
 }
 
 func (oauthClient *oauthClient) authenticateByOAuthClientCredentials() (string, error) {
-	oauth2Cfg := oauthClient.buildClientCredentialsConfig()
+	oauth2Cfg, err := oauthClient.buildClientCredentialsConfig()
+	if err != nil {
+		return "", err
+	}
 	token, err := oauth2Cfg.Token(oauthClient.ctx)
 	if err != nil {
 		return "", err
@@ -262,11 +274,14 @@ func (oauthClient *oauthClient) authenticateByOAuthClientCredentials() (string, 
 	return token.AccessToken, nil
 }
 
-func (oauthClient *oauthClient) buildClientCredentialsConfig() *clientcredentials.Config {
+func (oauthClient *oauthClient) buildClientCredentialsConfig() (*clientcredentials.Config, error) {
+	if oauthClient.cfg.OauthTokenRequestURL == "" {
+		return nil, errors.New("client credentials flow requires tokenRequestURL")
+	}
 	return &clientcredentials.Config{
 		ClientID:     oauthClient.cfg.OauthClientID,
 		ClientSecret: oauthClient.cfg.OauthClientSecret,
 		TokenURL:     oauthClient.cfg.OauthTokenRequestURL,
 		Scopes:       oauthClient.buildScopes(),
-	}
+	}, nil
 }

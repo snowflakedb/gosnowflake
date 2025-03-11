@@ -1057,21 +1057,25 @@ func TestPatInvalidToken(t *testing.T) {
 
 func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 	t.Skip("manual test")
-	cfg, err := GetConfigFromEnv([]*ConfigParam{
-		{"OAuthClientId", "SNOWFLAKE_TEST_OAUTH_CLIENT_ID", true},
-		{"OAuthClientSecret", "SNOWFLAKE_TEST_OAUTH_CLIENT_SECRET", true},
-		{"OAuthAuthorizationURL", "SNOWFLAKE_TEST_OAUTH_AUTHORIZATION_URL", true},
-		{"OAuthTokenRequestURL", "SNOWFLAKE_TEST_OAUTH_TOKEN_REQUEST_URL", true},
-		{"OAuthRedirectURI", "SNOWFLAKE_TEST_OAUTH_REDIRECT_URI", true},
-		{"Role", "SNOWFLAKE_TEST_OAUTH_ROLE", true},
-		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
-	})
-	assertNilF(t, err)
-	cfg.Authenticator = AuthTypeOAuthAuthorizationCode
-	connector := NewConnector(&SnowflakeDriver{}, *cfg)
-	db := sql.OpenDB(connector)
-	defer db.Close()
-	runSmokeQuery(t, db)
+	for _, provider := range []string{"OKTA", "SNOWFLAKE"} {
+		t.Run(provider, func(t *testing.T) {
+			cfg, err := GetConfigFromEnv([]*ConfigParam{
+				{"OAuthClientId", "SNOWFLAKE_TEST_OAUTH_" + provider + "_CLIENT_ID", true},
+				{"OAuthClientSecret", "SNOWFLAKE_TEST_OAUTH_" + provider + "_CLIENT_SECRET", true},
+				{"OAuthAuthorizationURL", "SNOWFLAKE_TEST_OAUTH_" + provider + "_AUTHORIZATION_URL", false},
+				{"OAuthTokenRequestURL", "SNOWFLAKE_TEST_OAUTH_" + provider + "_TOKEN_REQUEST_URL", false},
+				{"OAuthRedirectURI", "SNOWFLAKE_TEST_OAUTH_" + provider + "_REDIRECT_URI", false},
+				{"Role", "SNOWFLAKE_TEST_OAUTH_" + provider + "_ROLE", true},
+				{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
+			})
+			assertNilF(t, err)
+			cfg.Authenticator = AuthTypeOAuthAuthorizationCode
+			connector := NewConnector(&SnowflakeDriver{}, *cfg)
+			db := sql.OpenDB(connector)
+			defer db.Close()
+			runSmokeQuery(t, db)
+		})
+	}
 }
 
 func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
