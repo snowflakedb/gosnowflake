@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow-go/v18/arrow/ipc"
 )
 
 const (
@@ -258,8 +258,9 @@ func (sc *snowflakeConn) BeginTx(
 		return nil, driver.ErrBadConn
 	}
 	isDesc := isDescribeOnly(ctx)
+	isInternal := isInternal(ctx)
 	if _, err := sc.exec(ctx, "BEGIN", false, /* noResult */
-		false /* isInternal */, isDesc, nil); err != nil {
+		isInternal, isDesc, nil); err != nil {
 		return nil, err
 	}
 	return &snowflakeTx{sc, ctx}, nil
@@ -318,9 +319,9 @@ func (sc *snowflakeConn) ExecContext(
 	}
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
-	// TODO handle isInternal
+	isInternal := isInternal(ctx)
 	ctx = setResultType(ctx, execResultType)
-	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
+	data, err := sc.exec(ctx, query, noResult, isInternal, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Infof("error: %v", err)
 		if data != nil {
@@ -407,8 +408,8 @@ func (sc *snowflakeConn) queryContextInternal(
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	ctx = setResultType(ctx, queryResultType)
-	// TODO: handle isInternal
-	data, err := sc.exec(ctx, query, noResult, false /* isInternal */, isDesc, args)
+	isInternal := isInternal(ctx)
+	data, err := sc.exec(ctx, query, noResult, isInternal, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
@@ -475,9 +476,9 @@ func (sc *snowflakeConn) Ping(ctx context.Context) error {
 	}
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
-	// TODO: handle isInternal
+	isInternal := isInternal(ctx)
 	ctx = setResultType(ctx, execResultType)
-	_, err := sc.exec(ctx, "SELECT 1", noResult, false, /* isInternal */
+	_, err := sc.exec(ctx, "SELECT 1", noResult, isInternal,
 		isDesc, []driver.NamedValue{})
 	return err
 }
@@ -518,7 +519,8 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 	ctx = WithArrowBatches(context.WithValue(ctx, asyncMode, false))
 	ctx = setResultType(ctx, queryResultType)
 	isDesc := isDescribeOnly(ctx)
-	data, err := sc.exec(ctx, query, false, false /* isinternal */, isDesc, bindings)
+	isInternal := isInternal(ctx)
+	data, err := sc.exec(ctx, query, false, isInternal, isDesc, bindings)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {

@@ -44,8 +44,8 @@ const (
 	downloadCommand commandType = "DOWNLOAD"
 	unknownCommand  commandType = "UNKNOWN"
 
-	putRegexp string = `(?i)^(?:/\*.*\*/\s*)*put\s+`
-	getRegexp string = `(?i)^(?:/\*.*\*/\s*)*get\s+`
+	putRegexp string = `(?i)^(?:/\*.*\*/\s*)*\s*put\s+`
+	getRegexp string = `(?i)^(?:/\*.*\*/\s*)*\s*get\s+`
 )
 
 const (

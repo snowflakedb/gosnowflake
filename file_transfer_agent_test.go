@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -1003,5 +1004,61 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 	}()
 	if downloadMeta.resStatus != downloaded {
 		t.Fatalf("failed to download file")
+	}
+}
+
+func TestPutGetRegexShouldIgnoreWhitespaceAtTheBeginning(t *testing.T) {
+	for _, test := range []struct {
+		regex string
+		query string
+	}{
+		{
+			regex: putRegexp,
+			query: "PUT abc",
+		},
+		{
+			regex: putRegexp,
+			query: "   PUT abc",
+		},
+		{
+			regex: putRegexp,
+			query: "\tPUT abc",
+		},
+		{
+			regex: putRegexp,
+			query: "\nPUT abc",
+		},
+		{
+			regex: putRegexp,
+			query: "\r\nPUT abc",
+		},
+		{
+			regex: getRegexp,
+			query: "GET abc",
+		},
+		{
+			regex: getRegexp,
+			query: "   GET abc",
+		},
+		{
+			regex: getRegexp,
+			query: "\tGET abc",
+		},
+		{
+			regex: getRegexp,
+			query: "\nGET abc",
+		},
+		{
+			regex: getRegexp,
+			query: "\r\nGET abc",
+		},
+	} {
+		{
+			t.Run(test.regex+" "+test.query, func(t *testing.T) {
+				regex := regexp.MustCompile(test.regex)
+				assertTrueE(t, regex.Match([]byte(test.query)))
+				assertFalseE(t, regex.Match([]byte("prefix "+test.query)))
+			})
+		}
 	}
 }

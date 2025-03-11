@@ -64,6 +64,11 @@ func postAuthExternalBrowserError(_ context.Context, _ *snowflakeRestful, _ map[
 	return &authResponse{}, errors.New("failed to get SAML response")
 }
 
+func postAuthExternalBrowserErrorDelayed(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
+	time.Sleep(2 * time.Second)
+	return &authResponse{}, errors.New("failed to get SAML response")
+}
+
 func postAuthExternalBrowserFail(_ context.Context, _ *snowflakeRestful, _ map[string]string, _ []byte, _ time.Duration) (*authResponse, error) {
 	return &authResponse{
 		Success: false,
@@ -122,12 +127,12 @@ func TestAuthenticationTimeout(t *testing.T) {
 	account := "testaccount"
 	user := "u"
 	password := "p"
-	timeout := 0 * time.Second
+	timeout := 1 * time.Second
 	sr := &snowflakeRestful{
 		Protocol:         "https",
 		Host:             "abc.com",
 		Port:             443,
-		FuncPostAuthSAML: postAuthExternalBrowserError,
+		FuncPostAuthSAML: postAuthExternalBrowserErrorDelayed,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)

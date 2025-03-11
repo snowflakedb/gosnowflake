@@ -245,6 +245,15 @@ func isDescribeOnly(ctx context.Context) bool {
 	return ok && d
 }
 
+func isInternal(ctx context.Context) bool {
+	v := ctx.Value(internalQuery)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
+}
+
 func setResultType(ctx context.Context, resType resultType) context.Context {
 	return context.WithValue(ctx, snowflakeResultType, resType)
 }

@@ -1012,13 +1012,10 @@ func TestPatSuccessfulFlow(t *testing.T) {
 }
 
 func testPatSuccessfulFlow(t *testing.T, cfg *Config) {
-	skipOnJenkins(t, "wiremock is not enabled")
 	enableExperimentalAuth(t)
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/pat/successful_flow.json"},
-		wiremockMapping{filePath: "select1.json", params: map[string]string{
-			"%AUTHORIZATION_HEADER%": "Snowflake Token=\\\"session token\\\""},
-		},
+		wiremockMapping{filePath: "select1.json"},
 	)
 	connector := NewConnector(SnowflakeDriver{}, *cfg)
 	db := sql.OpenDB(connector)
@@ -1043,7 +1040,6 @@ func TestPatSuccessfulFlowWithPatAsPasswordWithPatAuthenticator(t *testing.T) {
 }
 
 func TestPatInvalidToken(t *testing.T) {
-	skipOnJenkins(t, "wiremock is not enabled")
 	enableExperimentalAuth(t)
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/pat/invalid_token.json"},
