@@ -135,9 +135,8 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 			assertNilF(t, os.Remove(ssm.lockPath()))
 		}()
 		ssm.setCredential(tokenSpec, "unlocked")
-		totalDurationMillis := time.Now().Sub(startTime).Milliseconds()
+		totalDurationMillis := time.Since(startTime).Milliseconds()
 		assertEqualE(t, ssm.getCredential(tokenSpec), "unlocked")
-		println(totalDurationMillis)
 		assertTrueE(t, totalDurationMillis > 1000 && totalDurationMillis < 1200)
 	})
 
