@@ -415,10 +415,6 @@ func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[stri
 	if err := ssm.ensureOwnerForDir(ssm.credDirPath); err != nil {
 		return err
 	}
-	if err := ssm.ensureOwnerForDir(ssm.credFilePath()); err != nil {
-		logger.Warn("Failed to ensure owner for %v. %v", ssm.credFilePath(), err)
-		return err
-	}
 
 	bytes, err := json.Marshal(cache)
 	if err != nil {
