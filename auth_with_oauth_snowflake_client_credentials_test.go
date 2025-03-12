@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func setupOauthSnowflakeClientCredentialsTest(t *testing.T) *Config {
+func setupSoteriaOauthSnowflakeClientCredentialsTest(t *testing.T) *Config {
 	runOnlyOnDockerContainer(t, "Running only on Docker container")
 
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuthClientCredentials)

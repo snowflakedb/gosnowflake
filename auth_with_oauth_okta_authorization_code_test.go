@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-func TestOauthOktaAuthorizationCodeSuccessful(t *testing.T) {
-	cfg := setupOauthOktaAuthorizationCodeTest(t)
+func TestSoteriaOauthOktaAuthorizationCodeSuccessful(t *testing.T) {
+	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -24,18 +24,19 @@ func TestOauthOktaAuthorizationCodeSuccessful(t *testing.T) {
 	wg.Wait()
 }
 
-func TestOauthOktaAuthorizationCodeMismatchedUsername(t *testing.T) {
-	cfg := setupOauthOktaAuthorizationCodeTest(t)
-	cfg.User = "fakeUser@snowflake.com"
+func TestSoteriaOauthOktaAuthorizationCodeMismatchedUsername(t *testing.T) {
+	user := setupSoteriaOauthOktaAuthorizationCodeTest(t).User
+	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		provideExternalBrowserCredentials(t, externalBrowserType.OauthOktaSuccess, cfg.User, cfg.Password)
+		provideExternalBrowserCredentials(t, externalBrowserType.OauthOktaSuccess, user, cfg.Password)
 	}()
 	go func() {
 		defer wg.Done()
+		cfg.User = "fakeUser@snowflake.com"
 		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 		var snowflakeErr *SnowflakeError
 		assertTrueF(t, errors.As(err, &snowflakeErr))
@@ -44,17 +45,17 @@ func TestOauthOktaAuthorizationCodeMismatchedUsername(t *testing.T) {
 	wg.Wait()
 }
 
-func TestOauthOktaAuthorizationCodeOktaTimeout(t *testing.T) {
-	cfg := setupOauthOktaAuthorizationCodeTest(t)
+func TestSoteriaOauthOktaAuthorizationCodeOktaTimeout(t *testing.T) {
+	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
 	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
 	cfg.LoginTimeout = time.Duration(1) * time.Second
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
 }
 
-func TestOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
-	cfg := setupOauthOktaAuthorizationCodeTest(t)
-	// cfg.TURN_ON_CACHE = true
+func TestSoteriaOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
+	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
+	//cfg.TURN_ON_CACHE = true
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -68,28 +69,25 @@ func TestOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
 	}()
 	wg.Wait()
 
+	cleanupBrowserProcesses(t)
+
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
 }
 
-func setupOauthOktaAuthorizationCodeTest(t *testing.T) *Config {
+func setupSoteriaOauthOktaAuthorizationCodeTest(t *testing.T) *Config {
 	runOnlyOnDockerContainer(t, "Running only on Docker container")
-
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuthAuthorizationCode)
-	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 
-	cfg.Host, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_HOST", true)
-	cfg.Account, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_ACCOUNT", true)
+	cleanupBrowserProcesses(t)
+
 	cfg.OauthClientID, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_ID", true)
 	cfg.OauthClientSecret, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_SECRET", true)
 	cfg.OauthRedirectURI, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_REDIRECT_URI", true)
 	cfg.OauthAuthorizationURL, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_AUTH_URL", true)
 	cfg.OauthTokenRequestURL, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_TOKEN", true)
-	cfg.User, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_BROWSER_USER", true)
-	cfg.Password, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_OKTA_PASS", true)
-	cfg.Role, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_ROLE", true)
-	cfg.Warehouse, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_WAREHOUSE", true)
-	assertNilF(t, err, fmt.Sprintf("failed to parse: %v", err))
+
+	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 
 	return cfg
 

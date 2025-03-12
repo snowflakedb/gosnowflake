@@ -149,7 +149,11 @@ func cleanupBrowserProcesses(t *testing.T) {
 
 func provideExternalBrowserCredentials(t *testing.T, ExternalBrowserProcess string, user string, password string) {
 	const provideBrowserCredentialsPath = "/externalbrowser/provideBrowserCredentials.js"
-	_, err := exec.Command("node", provideBrowserCredentialsPath, ExternalBrowserProcess, user, password).Output()
+	output, err := exec.Command("node", provideBrowserCredentialsPath, ExternalBrowserProcess, user, password).CombinedOutput()
+	log.Printf("Output: %s\n", output)
+	if err != nil {
+		log.Fatalf("failed to execute command: %v", err)
+	}
 	assertNilE(t, err, fmt.Sprintf("failed to execute command: %v", err))
 }
 
