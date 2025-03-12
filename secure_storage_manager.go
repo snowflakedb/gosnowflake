@@ -93,7 +93,7 @@ func newFileBasedSecureStorageManager() (*fileBasedSecureStorageManager, error) 
 		return nil, err
 	}
 	credCacheFilePath := filepath.Join(credCacheDir, credCacheFileName)
-	logger.Infof("Credentials cache path: %v", credCacheFilePath)
+	logger.Debugf("Credentials cache path: %v", credCacheFilePath)
 	ssm.credCacheFilePath = credCacheFilePath
 	return ssm, nil
 }
@@ -116,7 +116,7 @@ func (ssm *fileBasedSecureStorageManager) buildCredCacheDirPath() string {
 	}
 	home := os.Getenv("HOME")
 	if home == "" {
-		logger.Info("HOME is blank")
+		logger.Debug("HOME is blank")
 		return ""
 	}
 	credCacheDir = filepath.Join(home, ".cache", "snowflake")
