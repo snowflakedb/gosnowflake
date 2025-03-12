@@ -93,7 +93,6 @@ func newFileBasedSecureStorageManager() (*fileBasedSecureStorageManager, error) 
 		return nil, err
 	}
 	credCacheFilePath := filepath.Join(credCacheDir, credCacheFileName)
-	logger.Infof("Credentials cache path: %v", credCacheFilePath)
 	ssm.credCacheFilePath = credCacheFilePath
 	return ssm, nil
 }
