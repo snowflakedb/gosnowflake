@@ -377,7 +377,7 @@ func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile(cacheFile *os.F
 	credentialsMap := map[string]any{}
 	err = json.Unmarshal(jsonData, &credentialsMap)
 	if err != nil {
-		return map[string]any{}, fmt.Errorf("Failed to unmarshal credential cache file. %v.\n", err)
+		return map[string]any{}, fmt.Errorf("failed to unmarshal credential cache file. %v", err)
 	}
 
 	return credentialsMap, nil
@@ -428,7 +428,6 @@ func (ssm *fileBasedSecureStorageManager) writeTemporaryCacheFile(cache map[stri
 	if err != nil {
 		return fmt.Errorf("failed to write the credential cache file: %w", err)
 	}
-	cacheFile.Seek(0, 0)
 	return nil
 }
 
