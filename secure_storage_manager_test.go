@@ -119,7 +119,7 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 
 	t.Run("unlock stale cache", func(t *testing.T) {
 		tokenSpec := newMfaTokenSpec("stale", "cache")
-		assertNilF(t, os.Mkdir(ssm.lockPath(), 0o700))
+		assertNilF(t, os.Mkdir(ssm.lockPath(), 0700))
 		time.Sleep(1000 * time.Millisecond)
 		ssm.setCredential(tokenSpec, "unlocked")
 		assertEqualE(t, ssm.getCredential(tokenSpec), "unlocked")
@@ -128,7 +128,7 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 	t.Run("wait for other process to unlock cache", func(t *testing.T) {
 		tokenSpec := newMfaTokenSpec("stale", "cache")
 		startTime := time.Now()
-		assertNilF(t, os.Mkdir(ssm.lockPath(), 0o700))
+		assertNilF(t, os.Mkdir(ssm.lockPath(), 0700))
 		time.Sleep(500 * time.Millisecond)
 		go func() {
 			time.Sleep(500 * time.Millisecond)
@@ -144,7 +144,7 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 		content := []byte(`{
 			"otherKey": "otherValue"
 		}`)
-		err = os.WriteFile(ssm.credFilePath(), content, 0o600)
+		err = os.WriteFile(ssm.credFilePath(), content, 0600)
 		assertNilF(t, err)
 		ssm.setCredential(newMfaTokenSpec("somehost.com", "someUser"), "someToken")
 		result, err := os.ReadFile(ssm.credFilePath())
