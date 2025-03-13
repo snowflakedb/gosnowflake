@@ -69,7 +69,7 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 	defer credCacheDirEnvOverride.rollback()
 	ssm, err := newFileBasedSecureStorageManager()
 	assertNilF(t, err)
-
+	
 	t.Run("store single token", func(t *testing.T) {
 		tokenSpec := newMfaTokenSpec("host.com", "johndoe")
 		cred := "token123"
@@ -160,6 +160,28 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 		assertNilF(t, err)
 		defer func() {
 			assertNilE(t, os.Chmod(ssm.credFilePath(), 0600))
+		}()
+		ssm.setCredential(tokenSpec, "newValue")
+		assertEqualE(t, ssm.getCredential(tokenSpec), "")
+		fileContent, err := os.ReadFile(ssm.credFilePath())
+		assertNilF(t, err)
+		var m map[string]any
+		err = json.Unmarshal(fileContent, &m)
+		assertNilF(t, err)
+		cacheKey, err := tokenSpec.buildKey()
+		assertNilF(t, err)
+		tokens := m["tokens"].(map[string]any)
+		assertEqualE(t, tokens[cacheKey], "initialValue")
+	})
+
+	t.Run("should not modify file if its dir has wrong permission", func(t *testing.T) {
+		tokenSpec := newMfaTokenSpec("somehost.com", "someUser")
+		ssm.setCredential(tokenSpec, "initialValue")
+		assertEqualE(t, ssm.getCredential(tokenSpec), "initialValue")
+		err = os.Chmod(ssm.credDirPath, 0777)
+		assertNilF(t, err)
+		defer func() {
+			assertNilE(t, os.Chmod(ssm.credDirPath, 0700))
 		}()
 		ssm.setCredential(tokenSpec, "newValue")
 		assertEqualE(t, ssm.getCredential(tokenSpec), "")

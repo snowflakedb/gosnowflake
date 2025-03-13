@@ -8,14 +8,6 @@ import (
 	"syscall"
 )
 
-func providePathOwner(filepath string) (uint32, error) {
-	info, err := os.Stat(filepath)
-	if err != nil {
-		return 0, err
-	}
-	return provideOwnerFromStat(info, filepath)
-}
-
 func provideFileOwner(file *os.File) (uint32, error) {
 	info, err := file.Stat()
 	if err != nil {
