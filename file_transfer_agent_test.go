@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"io"
 	"net/url"
 	"os"
@@ -18,6 +17,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/aws/smithy-go"
 )
@@ -981,8 +982,8 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 
 	if isStream {
 		fileStream, _ := os.Open(uploadFile)
-		ctx := WithFileStream(context.Background(), fileStream)
-		uploadMeta.srcStream, err = getFileStream(ctx)
+		sfa.ctx = WithFileStream(context.Background(), fileStream)
+		uploadMeta.srcStream, err = getFileStream(sfa.ctx)
 		assertNilF(t, err)
 	}
 

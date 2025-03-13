@@ -88,6 +88,7 @@ type SnowflakeFileTransferOptions struct {
 
 	/* streaming PUT */
 	compressSourceFromStream bool
+	arrayBindFromStream      bool
 
 	/* streaming GET */
 	GetFileToStream bool
@@ -463,7 +464,8 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 			if currentFileCompressionType == nil {
 				var mtype *mimetype.MIME
 				var err error
-				if meta.srcStream != nil {
+				_, err = os.Stat(fileName)
+				if os.IsNotExist(err) {
 					r := getReaderFromBuffer(&meta.srcStream)
 					mtype, err = mimetype.DetectReader(r)
 					if err != nil {
@@ -474,9 +476,9 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 					}
 				} else {
 					mtype, err = mimetype.DetectFile(fileName)
-					if err != nil {
-						return err
-					}
+				}
+				if err != nil {
+					return err
 				}
 				currentFileCompressionType = lookupByExtension(mtype.Extension())
 			}
@@ -869,7 +871,7 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	fileUtil := new(snowflakeFileUtil)
 	if meta.requireCompress {
 		if meta.srcStream != nil {
-			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(&meta.srcStream)
+			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(sfa.ctx, &meta.srcStream)
 		} else {
 			meta.realSrcFileName, _, err = fileUtil.compressFileWithGzip(meta.srcFileName, tmpDir)
 		}
@@ -880,8 +882,33 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 
 	if meta.srcStream != nil {
 		if meta.realSrcStream != nil {
+			// the file has been fully read in compressFileWithGzipFromStream
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
 		} else {
+			r := getReaderFromContext(sfa.ctx)
+			if r == nil {
+				return nil, errors.New("failed to get the reader from context")
+			}
+
+			var fullSrcStream bytes.Buffer
+			if _, err = io.Copy(&fullSrcStream, meta.srcStream); err != nil {
+				return nil, err
+			}
+
+			// continue reading the rest of the data in chunks
+			chunk := make([]byte, fileChunkSize)
+			for {
+				n, err := r.Read(chunk)
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					return nil, err
+				}
+				fullSrcStream.Write(chunk[:n])
+			}
+			if _, err = io.Copy(meta.srcStream, &fullSrcStream); err != nil {
+				return nil, err
+			}
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
 		}
 	} else {
