@@ -69,7 +69,7 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 	defer credCacheDirEnvOverride.rollback()
 	ssm, err := newFileBasedSecureStorageManager()
 	assertNilF(t, err)
-	
+
 	t.Run("store single token", func(t *testing.T) {
 		tokenSpec := newMfaTokenSpec("host.com", "johndoe")
 		cred := "token123"
