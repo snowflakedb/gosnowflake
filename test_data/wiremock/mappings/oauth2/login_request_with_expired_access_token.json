@@ -1,0 +1,38 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/session/v1/login-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson": {
+              "data": {
+                "TOKEN": "expired-token"
+              }
+            },
+            "ignoreExtraElements": true
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "code": "390303",
+          "data": {
+            "authnMethod": "OAUTH",
+            "nextAction": "RETRY_LOGIN",
+            "requestId": "89c7289e-b984-4038-565b-dda3d96dcef3",
+            "signInOptions": {}
+          },
+          "headers": null,
+          "message": "Invalid OAuth access token. ",
+          "success": false
+        }
+      }
+    }
+  ]
+}

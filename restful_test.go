@@ -76,7 +76,7 @@ func postTestQueryNotExecuting(_ context.Context, _ *snowflakeRestful, _ *url.UR
 	er := &execResponse{
 		Data:    *dd,
 		Message: "",
-		Code:    queryNotExecuting,
+		Code:    queryNotExecutingCode,
 		Success: false,
 	}
 	ba, err := json.Marshal(er)
@@ -167,7 +167,7 @@ func cancelTestRetry(ctx context.Context, sr *snowflakeRestful, requestID UUID, 
 		if err != nil {
 			return err
 		}
-		if !respd.Success && respd.Code == queryNotExecuting && ctxRetry != 0 {
+		if !respd.Success && respd.Code == queryNotExecutingCode && ctxRetry != 0 {
 			return sr.FuncCancelQuery(context.WithValue(ctx, cancelRetry, ctxRetry-1), sr, requestID, timeout)
 		}
 		if ctxRetry == 0 {

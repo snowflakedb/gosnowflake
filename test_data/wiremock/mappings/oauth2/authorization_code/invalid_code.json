@@ -43,17 +43,14 @@
         "headers": {
           "Content-Type": {
             "contains": "application/x-www-form-urlencoded"
+          },
+          "Authorization": {
+            "equalTo": "Basic dGVzdENsaWVudElkOnRlc3RDbGllbnRTZWNyZXQ="
           }
         },
         "formParameters": {
           "grant_type": {
             "equalTo": "authorization_code"
-          },
-          "client_id": {
-            "equalTo": "testClientId"
-          },
-          "client_secret": {
-            "equalTo": "testClientSecret"
           },
           "code_verifier": {
             "matches": "[a-zA-Z0-9\\-_]+"

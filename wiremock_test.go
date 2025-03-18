@@ -85,12 +85,16 @@ func newWiremockHTTPS() *wiremockClient {
 
 func (wm *wiremockClient) connectionConfig() *Config {
 	cfg := &Config{
-		Account:  "testAccount",
-		User:     "testUser",
-		Password: "testPassword",
-		Host:     wm.host,
-		Port:     wm.port,
-		Protocol: wm.protocol,
+		Account:               "testAccount",
+		User:                  "testUser",
+		Password:              "testPassword",
+		Host:                  wm.host,
+		Port:                  wm.port,
+		Protocol:              wm.protocol,
+		OauthClientID:         "testClientId",
+		OauthClientSecret:     "testClientSecret",
+		OauthAuthorizationURL: wm.baseURL() + "/oauth/authorize",
+		OauthTokenRequestURL:  wm.baseURL() + "/oauth/token",
 	}
 	if wm.protocol == "https" {
 		testCertPool := x509.NewCertPool()
