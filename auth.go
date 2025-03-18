@@ -381,7 +381,7 @@ func authenticate(
 		params.Add("roleName", sc.cfg.Role)
 	}
 
-	logger.WithContext(ctx).WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
+	logger.WithContext(ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
 		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
 
 	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, bodyCreator, sc.rest.LoginTimeout)
@@ -396,6 +396,9 @@ func authenticate(
 		}
 		if sessionParameters[clientStoreTemporaryCredential] == true {
 			credentialsStorage.deleteCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
+		}
+		if respd.Code == invalidOAuthAccessTokenCode || respd.Code == expiredOAuthAccessTokenCode {
+			return nil, invalidOrExpiredOAuthAccessToken{}
 		}
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
@@ -591,11 +594,11 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	var err error
 	//var consentCacheIdToken = true
 
-	if sc.cfg.Authenticator == AuthTypeExternalBrowser {
+	if sc.cfg.Authenticator == AuthTypeExternalBrowser || sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode || sc.cfg.Authenticator == AuthTypeOAuthClientCredentials {
 		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientStoreTemporaryCredential == configBoolNotSet {
 			sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		}
-		if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+		if sc.cfg.Authenticator == AuthTypeExternalBrowser && sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
 			sc.cfg.IDToken = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
 		// Disable console login by default
@@ -639,8 +642,14 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		samlResponse,
 		proofKey)
 	if err != nil {
-		sc.cleanup()
-		return err
+		if errors.Is(err, invalidOrExpiredOAuthAccessToken{}) {
+			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+			authData, err = authenticate(sc.ctx, sc, nil, nil)
+		}
+		if err != nil {
+			sc.cleanup()
+			return err
+		}
 	}
 	sc.populateSessionParameters(authData.Parameters)
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)

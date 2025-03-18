@@ -34,7 +34,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.5 // indirect
-	github.com/danieljoos/wincred v1.1.2 // indirect
+	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/dvsekhvalnov/jose2go v1.6.0 // indirect
 	github.com/goccy/go-json v0.10.4 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
