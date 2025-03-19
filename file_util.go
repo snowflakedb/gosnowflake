@@ -115,6 +115,27 @@ func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) 
 	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*stream).Len()), nil
 }
 
+func (util *snowflakeFileUtil) getDigestAndSizeForStreamFromContext(ctx context.Context, meta *fileMetadata) (string, int64, error) {
+	r := getReaderFromContext(ctx)
+	if r == nil {
+		return "", 0, errors.New("failed to get the reader from context")
+	}
+	m := sha256.New()
+	m.Write(meta.srcStream.Bytes())
+	chunk := make([]byte, fileChunkSize)
+	for {
+		n, err := r.Read(chunk)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return "", 0, err
+		}
+		meta.srcStream.Write(chunk[:n])
+		m.Write(chunk[:n])
+	}
+	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64(meta.srcStream.Len()), nil
+}
+
 func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (digest string, size int64, err error) {
 	f, err := os.Open(fileName)
 	if err != nil {

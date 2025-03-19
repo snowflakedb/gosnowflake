@@ -882,34 +882,11 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 
 	if meta.srcStream != nil {
 		if meta.realSrcStream != nil {
-			// the file has been fully read in compressFileWithGzipFromStream
+			// the stream has been fully read
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
 		} else {
-			r := getReaderFromContext(sfa.ctx)
-			if r == nil {
-				return nil, errors.New("failed to get the reader from context")
-			}
-
-			var fullSrcStream bytes.Buffer
-			if _, err = io.Copy(&fullSrcStream, meta.srcStream); err != nil {
-				return nil, err
-			}
-
-			// continue reading the rest of the data in chunks
-			chunk := make([]byte, fileChunkSize)
-			for {
-				n, err := r.Read(chunk)
-				if err == io.EOF {
-					break
-				} else if err != nil {
-					return nil, err
-				}
-				fullSrcStream.Write(chunk[:n])
-			}
-			if _, err = io.Copy(meta.srcStream, &fullSrcStream); err != nil {
-				return nil, err
-			}
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
+			// the stream was partially read, continue reading the rest of the data
+			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStreamFromContext(sfa.ctx, meta)
 		}
 	} else {
 		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)

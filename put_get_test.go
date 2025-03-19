@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -14,6 +15,7 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -700,18 +702,29 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 }
 
 func TestPutGetLargeFileNonStream(t *testing.T) {
-	testPutGetLargeFile(t, false)
+	testPutGetLargeFile(t, false, true)
+}
+
+func TestPutGetLargeFileAutoCompressFalse(t *testing.T) {
+	testPutGetLargeFile(t, false, false)
 }
 
 func TestPutGetLargeFileStream(t *testing.T) {
-	testPutGetLargeFile(t, true)
+	testPutGetLargeFile(t, true, true)
 }
 
-func testPutGetLargeFile(t *testing.T, isStream bool) {
+func TestPutGetLargeFileStreamAutoCompressFalse(t *testing.T) {
+	testPutGetLargeFile(t, true, false)
+}
+
+func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 	sourceDir, err := os.Getwd()
 	assertNilF(t, err)
 	fname := filepath.Join(sourceDir, "/test_data/largefile.txt")
-	fnamegz := "largefile.txt.gz"
+	fnameGet := "largefile.txt.gz"
+	if !autoCompress {
+		fnameGet = "largefile.txt"
+	}
 
 	runDBTest(t, func(dbt *DBTest) {
 		stageDir := "test_put_largefile_" + randomString(10)
@@ -728,9 +741,27 @@ func testPutGetLargeFile(t *testing.T, isStream bool) {
 		}
 
 		// PUT test
-		putQuery := fmt.Sprintf("put file://%v @~/%v", fname, stageDir)
+		// Record initial memory stats
+		var memStats runtime.MemStats
+		runtime.ReadMemStats(&memStats)
+		initialMemAlloc := memStats.Alloc
+
+		putQuery := fmt.Sprintf("put file://%v @~/%v auto_compress=true overwrite=true", fname, stageDir)
+		if !autoCompress {
+			putQuery = fmt.Sprintf("put file://%v @~/%v auto_compress=false overwrite=true", fname, stageDir)
+		}
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
 		_ = dbt.mustExecContext(ctx, sqlText)
+
+		// Record memory stats after allocation
+		runtime.ReadMemStats(&memStats)
+		finalMemAlloc := memStats.Alloc
+		bytesUsed := finalMemAlloc - initialMemAlloc
+
+		// Print the difference in memory usage
+		fmt.Printf("Initial Memory Alloc for PUT: %d bytes\n", initialMemAlloc)
+		fmt.Printf("Final Memory Alloc for PUT: %d bytes\n", finalMemAlloc)
+		fmt.Printf("Memory Used for PUT: %d bytes\n", bytesUsed)
 
 		defer dbt.mustExec("rm @~/" + stageDir)
 		rows := dbt.mustQuery("ls @~/" + stageDir)
@@ -743,7 +774,7 @@ func testPutGetLargeFile(t *testing.T, isStream bool) {
 			assertNilF(t, err)
 		}
 
-		if !strings.Contains(file, fnamegz) {
+		if !strings.Contains(file, fnameGet) {
 			t.Fatalf("should contain file. got: %v", file)
 		}
 
@@ -756,7 +787,7 @@ func testPutGetLargeFile(t *testing.T, isStream bool) {
 		}
 
 		tmpDir := t.TempDir()
-		sql := fmt.Sprintf("get @~/%v/%v 'file://%v'", stageDir, fnamegz, tmpDir)
+		sql := fmt.Sprintf("get @~/%v/%v 'file://%v'", stageDir, fnameGet, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
 		defer func() {
@@ -765,38 +796,51 @@ func testPutGetLargeFile(t *testing.T, isStream bool) {
 		for rows2.Next() {
 			err = rows2.Scan(&file, &s1, &s2, &s3)
 			assertNilE(t, err)
-			assertTrueE(t, strings.HasPrefix(file, fnamegz), "a file was not downloaded by GET")
+			assertTrueE(t, strings.HasPrefix(file, fnameGet), "a file was not downloaded by GET")
 			v, err := strconv.Atoi(s1)
 			assertNilE(t, err)
-			assertEqualE(t, v, 424821, "did not return the right file size")
+			if autoCompress {
+				assertEqualE(t, v, 424821, "did not return the right file size")
+			} else {
+				assertEqualE(t, v, 70248250, "did not return the right file size")
+			}
 			assertEqualE(t, s2, "DOWNLOADED", "did not return DOWNLOADED status")
 			assertEqualE(t, s3, "")
 		}
 
-		// convert the compressed contents to string
-		var gz *gzip.Reader
-		if isStream {
-			gz, err = gzip.NewReader(&streamBuf)
-			assertNilE(t, err)
-		} else {
-			downloadedFile := filepath.Join(tmpDir, fnamegz)
-			f, err := os.Open(downloadedFile)
-			assertNilE(t, err)
-			defer func() {
-				assertNilF(t, f.Close())
-			}()
-
-			gz, err = gzip.NewReader(f)
-			assertNilE(t, err)
-		}
-		defer func() {
-			assertNilF(t, gz.Close())
-		}()
-
 		var contents string
+		var r io.Reader
+		if autoCompress {
+			// convert the compressed contents to string
+			if isStream {
+				r, err = gzip.NewReader(&streamBuf)
+				assertNilE(t, err)
+			} else {
+				downloadedFile := filepath.Join(tmpDir, fnameGet)
+				f, err := os.Open(downloadedFile)
+				assertNilE(t, err)
+				defer func() {
+					assertNilF(t, f.Close())
+				}()
+				r, err = gzip.NewReader(f)
+				assertNilE(t, err)
+			}
+		} else {
+			if isStream {
+				r = bytes.NewReader(streamBuf.Bytes())
+			} else {
+				downloadedFile := filepath.Join(tmpDir, fnameGet)
+				f, err := os.Open(downloadedFile)
+				assertNilE(t, err)
+				defer func() {
+					assertNilF(t, f.Close())
+				}()
+				r = bufio.NewReader(f)
+			}
+		}
 		for {
 			c := make([]byte, defaultChunkBufferSize)
-			if n, err := gz.Read(c); err != nil {
+			if n, err := r.Read(c); err != nil {
 				if err == io.EOF {
 					contents = contents + string(c[:n])
 					break
