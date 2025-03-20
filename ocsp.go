@@ -177,6 +177,13 @@ var hashOIDs = map[crypto.Hash]asn1.ObjectIdentifier{
 	crypto.SHA512: asn1.ObjectIdentifier([]int{2, 16, 840, 1, 101, 3, 4, 2, 3}),
 }
 
+var ocspServerExtractor = func(c *x509.Certificate) string {
+	if len(c.OCSPServer) == 0 || isTestNoOCSPURL() {
+		return ""
+	}
+	return c.OCSPServer[0]
+}
+
 // copied from crypto/ocsp
 func getOIDFromHashAlgorithm(target crypto.Hash) asn1.ObjectIdentifier {
 	for hash, oid := range hashOIDs {
@@ -478,9 +485,19 @@ func retryOCSP(
 	}
 	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
 	if err != nil {
-		logger.WithContext(ctx).Warnf("error when parsing ocsp response: %v", err)
-		logger.WithContext(ctx).Warnf("performing GET fallback request to OCSP")
-		return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
+		_, ok1 := err.(asn1.StructuralError)
+		_, ok2 := err.(asn1.SyntaxError)
+		if ok1 || ok2 {
+			logger.WithContext(ctx).Warnf("error when parsing ocsp response: %v", err)
+			logger.WithContext(ctx).Warnf("performing GET fallback request to OCSP")
+			return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
+		} else {
+			logger.Warnf("Unknown response status from OCSP responder: %v", err)
+			return nil, nil, &ocspStatus{
+				code: ocspStatusUnknown,
+				err:  err,
+			}
+		}
 	}
 
 	logger.WithContext(ctx).Debugf("OCSP Status from server: %v", printStatus(ocspRes))
@@ -580,7 +597,8 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	}
 	logger.WithContext(ctx).Infof("cache missed")
 	logger.WithContext(ctx).Infof("OCSP Server: %v", subject.OCSPServer)
-	if len(subject.OCSPServer) == 0 || isTestNoOCSPURL() {
+	ocspHost := ocspServerExtractor(subject)
+	if ocspHost == "" {
 		return &ocspStatus{
 			code: ocspNoServer,
 			err: &SnowflakeError{
@@ -590,7 +608,6 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 			},
 		}
 	}
-	ocspHost := subject.OCSPServer[0]
 	u, err := url.Parse(ocspHost)
 	if err != nil {
 		return &ocspStatus{
@@ -1078,7 +1095,7 @@ func init() {
 }
 
 // snowflakeNoOcspTransport is the transport object that doesn't do certificate revocation check with OCSP.
-var snowflakeNoOcspTransport = &http.Transport{
+var snowflakeNoOcspTransport http.RoundTripper = &http.Transport{
 	MaxIdleConns:    10,
 	IdleConnTimeout: 30 * time.Minute,
 	Proxy:           http.ProxyFromEnvironment,
