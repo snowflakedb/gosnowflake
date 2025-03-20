@@ -946,31 +946,3 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 		assertEqualE(t, countingRoundTripper.getReqCount[wiremock.baseURL()], 0)
 	})
 }
-
-type countingRoundTripper struct {
-	delegate     http.RoundTripper
-	postReqCount map[string]int
-	getReqCount  map[string]int
-}
-
-func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
-	return &countingRoundTripper{
-		delegate:     delegate,
-		postReqCount: make(map[string]int),
-		getReqCount:  make(map[string]int),
-	}
-}
-
-func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Method == "GET" {
-		crt.getReqCount[req.URL.String()]++
-	} else if req.Method == "POST" {
-		crt.postReqCount[req.URL.String()]++
-	}
-	return crt.delegate.RoundTrip(req)
-}
-
-func (crt *countingRoundTripper) reset() {
-	crt.getReqCount = make(map[string]int)
-	crt.postReqCount = make(map[string]int)
-}

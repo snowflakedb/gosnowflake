@@ -2126,29 +2126,39 @@ func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {
 }
 
 type countingRoundTripper struct {
-	delegate http.RoundTripper
-	reqCount map[string]int
+	delegate     http.RoundTripper
+	getReqCount  map[string]int
+	postReqCount map[string]int
 }
 
 func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
 	return &countingRoundTripper{
-		delegate: delegate,
-		reqCount: make(map[string]int),
+		delegate:     delegate,
+		getReqCount:  make(map[string]int),
+		postReqCount: make(map[string]int),
 	}
 }
 
 func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	crt.reqCount[req.URL.String()]++
+	if req.Method == http.MethodGet {
+		crt.getReqCount[req.URL.String()]++
+	} else if req.Method == http.MethodPost {
+		crt.postReqCount[req.URL.String()]++
+	}
 	return crt.delegate.RoundTrip(req)
 }
 
 func (crt *countingRoundTripper) reset() {
-	crt.reqCount = make(map[string]int)
+	crt.getReqCount = make(map[string]int)
+	crt.postReqCount = make(map[string]int)
 }
 
 func (crt *countingRoundTripper) totalRequests() int {
 	total := 0
-	for _, reqs := range crt.reqCount {
+	for _, reqs := range crt.getReqCount {
+		total += reqs
+	}
+	for _, reqs := range crt.postReqCount {
 		total += reqs
 	}
 	return total

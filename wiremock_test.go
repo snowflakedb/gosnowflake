@@ -160,15 +160,11 @@ func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wire
 }
 
 func (wm *wiremockClient) mappingsURL() string {
-	return fmt.Sprintf("%v/__admin/mappings", wm.baseURL())
+	return fmt.Sprintf("http://%v:%v/__admin/mappings", wm.host, wm.adminPort)
 }
 
 func (wm *wiremockClient) baseURL() string {
-	return fmt.Sprintf("http://%v:%v", wm.host, wm.adminPort)
-}
-
-func (wm *wiremockClient) baseURL() string {
-	return fmt.Sprintf("http://%v:%v", wm.host, wm.port)
+	return fmt.Sprintf("%v://%v:%v", wm.protocol, wm.host, wm.port)
 }
 
 func TestQueryViaHttps(t *testing.T) {

@@ -28,7 +28,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		OauthRedirectURI:               "http://localhost:1234/snowflake/oauth-redirect",
 		Transporter:                    roundTripper,
 		ClientStoreTemporaryCredential: ConfigBoolTrue,
-		ExternalBrowserTimeout: defaultExternalBrowserTimeout,
+		ExternalBrowserTimeout:         defaultExternalBrowserTimeout,
 	}
 	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg)
 	assertNilF(t, err)
@@ -76,7 +76,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 			assertNilF(t, err)
 		}
 		assertEqualE(t, authCodeProvider.responseBody, "")
-		assertEqualE(t, roundTripper.reqCount[cfg.OauthTokenRequestURL], 0)
+		assertEqualE(t, roundTripper.postReqCount[cfg.OauthTokenRequestURL], 0)
 	})
 
 	t.Run("InvalidState", func(t *testing.T) {
@@ -151,10 +151,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 func TestUnitOAuthClientCredentials(t *testing.T) {
 	skipOnMac(t, "keychain requires password")
 	cacheTokenSpec := newOAuthAccessTokenSpec(wiremock.connectionConfig().OauthTokenRequestURL, wiremock.connectionConfig().User)
-	crt := &countingRoundTripper{
-		delegate: SnowflakeTransport,
-		reqCount: make(map[string]int),
-	}
+	crt := newCountingRoundTripper(SnowflakeTransport)
 	httpClient := http.Client{
 		Transport: crt,
 	}
@@ -194,7 +191,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 		assertNilF(t, err)
 		assertEqualE(t, token, "access-token-123")
 
-		assertEqualE(t, crt.reqCount[cfgFactory().OauthTokenRequestURL], 1)
+		assertEqualE(t, crt.postReqCount[cfgFactory().OauthTokenRequestURL], 1)
 	})
 
 	t.Run("consecutive calls should take token from cache", func(t *testing.T) {
@@ -207,7 +204,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 			assertNilF(t, err)
 			assertEqualE(t, token, "access-token-123")
 		}
-		assertEqualE(t, crt.reqCount[cfgFactory().OauthTokenRequestURL], 0)
+		assertEqualE(t, crt.postReqCount[cfgFactory().OauthTokenRequestURL], 0)
 	})
 
 	t.Run("disabling cache", func(t *testing.T) {
@@ -227,7 +224,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 		assertNilF(t, err)
 		assertEqualE(t, token, "access-token-123")
 
-		assertEqualE(t, crt.reqCount[cfg.OauthTokenRequestURL], 2)
+		assertEqualE(t, crt.postReqCount[cfg.OauthTokenRequestURL], 2)
 	})
 
 	t.Run("invalid_client", func(t *testing.T) {
@@ -259,7 +256,6 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 	roundTripper := newCountingRoundTripper(snowflakeNoOcspTransport)
 
 	t.Run("successful flow", func(t *testing.T) {
-		t.Skip()
 		wiremock.registerMappings(t,
 			newWiremockMapping("oauth2/authorization_code/successful_flow.json"),
 			newWiremockMapping("oauth2/login_request.json"),
@@ -297,11 +293,10 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		defer conn2.Close()
 		runSmokeQueryWithConn(t, conn1)
 		runSmokeQueryWithConn(t, conn2)
-		assertEqualE(t, roundTripper.reqCount[cfg.OauthTokenRequestURL], 1)
+		assertEqualE(t, roundTripper.postReqCount[cfg.OauthTokenRequestURL], 1)
 	})
 
 	t.Run("should update cache with new token when the old one expired", func(t *testing.T) {
-		t.Skip()
 		roundTripper.reset()
 		wiremock.registerMappings(t,
 			newWiremockMapping("oauth2/login_request_with_expired_access_token.json"),
@@ -318,7 +313,7 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
 		db := sql.OpenDB(connector)
 		runSmokeQuery(t, db)
-		assertEqualE(t, roundTripper.reqCount[cfg.OauthTokenRequestURL], 1)
+		assertEqualE(t, roundTripper.postReqCount[cfg.OauthTokenRequestURL], 1)
 		assertEqualE(t, credentialsStorage.getCredential(oauthAccessTokenSpec), "access-token-123")
 	})
 }
@@ -340,15 +335,19 @@ func TestClientCredentialsFlow(t *testing.T) {
 	}
 	roundTripper := newCountingRoundTripper(snowflakeNoOcspTransport)
 
+	cfg := wiremock.connectionConfig()
+	cfg.Role = "ANALYST"
+	cfg.Authenticator = AuthTypeOAuthClientCredentials
+	cfg.Transporter = roundTripper
+
+	oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
+
 	t.Run("successful flow", func(t *testing.T) {
+		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
 		wiremock.registerMappings(t,
 			newWiremockMapping("oauth2/client_credentials/successful_flow.json"),
 			newWiremockMapping("oauth2/login_request.json"),
 			newWiremockMapping("select1.json"))
-		cfg := wiremock.connectionConfig()
-		cfg.Role = "ANALYST"
-		cfg.Authenticator = AuthTypeOAuthClientCredentials
-		cfg.Transporter = roundTripper
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
 		db := sql.OpenDB(connector)
 		runSmokeQuery(t, db)
@@ -360,11 +359,6 @@ func TestClientCredentialsFlow(t *testing.T) {
 			newWiremockMapping("oauth2/client_credentials/successful_flow.json"),
 			newWiremockMapping("oauth2/login_request.json"),
 			newWiremockMapping("select1.json"))
-		cfg := wiremock.connectionConfig()
-		cfg.Role = "ANALYST"
-		cfg.Authenticator = AuthTypeOAuthClientCredentials
-		cfg.Transporter = roundTripper
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
 		db := sql.OpenDB(connector)
@@ -376,7 +370,7 @@ func TestClientCredentialsFlow(t *testing.T) {
 		defer conn2.Close()
 		runSmokeQueryWithConn(t, conn1)
 		runSmokeQueryWithConn(t, conn2)
-		assertEqualE(t, roundTripper.reqCount[cfg.OauthTokenRequestURL], 1)
+		assertEqualE(t, roundTripper.postReqCount[cfg.OauthTokenRequestURL], 1)
 	})
 
 	t.Run("should update cache with new token when the old one expired", func(t *testing.T) {
@@ -386,16 +380,12 @@ func TestClientCredentialsFlow(t *testing.T) {
 			newWiremockMapping("oauth2/client_credentials/successful_flow.json"),
 			newWiremockMapping("oauth2/login_request.json"),
 			newWiremockMapping("select1.json"))
-		cfg := wiremock.connectionConfig()
-		cfg.Role = "ANALYST"
-		cfg.Authenticator = AuthTypeOAuthClientCredentials
-		cfg.Transporter = roundTripper
-		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
+
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "expired-token")
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
 		db := sql.OpenDB(connector)
 		runSmokeQuery(t, db)
-		assertEqualE(t, roundTripper.reqCount[cfg.OauthTokenRequestURL], 1)
+		assertEqualE(t, roundTripper.postReqCount[cfg.OauthTokenRequestURL], 1)
 		assertEqualE(t, credentialsStorage.getCredential(oauthAccessTokenSpec), "access-token-123")
 	})
 }

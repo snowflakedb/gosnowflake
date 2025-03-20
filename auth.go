@@ -397,9 +397,6 @@ func authenticate(
 		if sessionParameters[clientStoreTemporaryCredential] == true {
 			credentialsStorage.deleteCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
-		if respd.Code == invalidOAuthAccessTokenCode || respd.Code == expiredOAuthAccessTokenCode {
-			return nil, invalidOrExpiredOAuthAccessToken{}
-		}
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
 			return nil, err
@@ -642,7 +639,8 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		samlResponse,
 		proofKey)
 	if err != nil {
-		if errors.Is(err, invalidOrExpiredOAuthAccessToken{}) {
+		var se *SnowflakeError
+		if errors.As(err, &se) && (strconv.Itoa(se.Number) == invalidOAuthAccessTokenCode || strconv.Itoa(se.Number) == expiredOAuthAccessTokenCode) {
 			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
 			authData, err = authenticate(sc.ctx, sc, nil, nil)
 		}
