@@ -13,12 +13,13 @@ import (
 
 func TestUnitOAuthAuthorizationCode(t *testing.T) {
 	client, err := newOauthClient(context.Background(), &Config{
-		Role:                  "ANALYST",
-		OauthClientID:         "testClientId",
-		OauthClientSecret:     "testClientSecret",
-		OauthAuthorizationURL: wiremock.baseURL() + "/oauth/authorize",
-		OauthTokenRequestURL:  wiremock.baseURL() + "/oauth/token",
-		OauthRedirectURI:      "http://localhost:1234/snowflake/oauth-redirect",
+		Role:                   "ANALYST",
+		OauthClientID:          "testClientId",
+		OauthClientSecret:      "testClientSecret",
+		OauthAuthorizationURL:  wiremock.baseURL() + "/oauth/authorize",
+		OauthTokenRequestURL:   wiremock.baseURL() + "/oauth/token",
+		OauthRedirectURI:       "http://localhost:1234/snowflake/oauth-redirect",
+		ExternalBrowserTimeout: defaultExternalBrowserTimeout,
 	})
 	assertNilF(t, err)
 
@@ -85,6 +86,20 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		authCodeProvider.assertResponseBodyContains("invalid_grant")
 	})
+
+	t.Run("timeout", func(t *testing.T) {
+		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/successful_flow.json"))
+		client.cfg.ExternalBrowserTimeout = 2 * time.Second
+		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{
+			sleepTime: 3 * time.Second,
+		}
+		client.authorizationCodeProviderFactory = func() authorizationCodeProvider {
+			return authCodeProvider
+		}
+		_, err = client.authenticateByOAuthAuthorizationCode()
+		assertNotNilE(t, err)
+		assertStringContainsE(t, err.Error(), "timed out")
+	})
 }
 
 type nonInteractiveAuthorizationCodeProvider struct {
@@ -93,9 +108,14 @@ type nonInteractiveAuthorizationCodeProvider struct {
 	triggerError    string
 	responseBody    string
 	mu              sync.Mutex
+	sleepTime       time.Duration
 }
 
 func (provider *nonInteractiveAuthorizationCodeProvider) run(authorizationURL string) error {
+	if provider.sleepTime != 0 {
+		time.Sleep(provider.sleepTime)
+		return errors.New("ignore me")
+	}
 	if provider.triggerError != "" {
 		return errors.New(provider.triggerError)
 	}

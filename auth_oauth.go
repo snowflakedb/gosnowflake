@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -69,8 +70,26 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 	}, nil
 }
 
+type oauthBrowserResult struct {
+	accessToken string
+	err         error
+}
+
 func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, error) {
-	authCodeProvider := oauthClient.authorizationCodeProviderFactory()
+	resultChan := make(chan oauthBrowserResult, 1)
+	go GoroutineWrapper(oauthClient.ctx, func() {
+		resultChan <- oauthClient.doAuthenticateByOAuthAuthorizationCode()
+	})
+	select {
+	case <-time.After(oauthClient.cfg.ExternalBrowserTimeout):
+		return "", errors.New("authentication via browser timed out")
+	case result := <-resultChan:
+		return result.accessToken, result.err
+	}
+}
+
+func (oauth *oauthClient) doAuthenticateByOAuthAuthorizationCode() oauthBrowserResult {
+	authCodeProvider := oauth.authorizationCodeProviderFactory()
 
 	successChan := make(chan []byte)
 	errChan := make(chan error)
@@ -86,10 +105,10 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 	}()
 
 	logger.Debug("setting up TCP listener for authorization code redirect")
-	tcpListener, callbackPort, err := oauthClient.setupListener()
+	tcpListener, callbackPort, err := oauth.setupListener()
 	logger.Debugf("opening socket on port %v", callbackPort)
 	if err != nil {
-		return "", err
+		return oauthBrowserResult{"", err}
 	}
 	defer func(tcpListener *net.TCPListener) {
 		<-closeListenerChan
@@ -101,30 +120,31 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 
 	go handleOAuthSocket(tcpListener, successChan, errChan, responseBodyChan, closeListenerChan)
 
-	oauth2cfg := oauthClient.buildAuthorizationCodeConfig(callbackPort)
+	oauth2cfg := oauth.buildAuthorizationCodeConfig(callbackPort)
 	codeVerifier := authCodeProvider.createCodeVerifier()
 	state := authCodeProvider.createState()
 	authorizationURL := oauth2cfg.AuthCodeURL(state, oauth2.S256ChallengeOption(codeVerifier))
 	if err = authCodeProvider.run(authorizationURL); err != nil {
 		responseBodyChan <- err.Error()
 		closeListenerChan <- true
-		return "", err
+		return oauthBrowserResult{"", err}
 	}
 
 	err = <-errChan
 	if err != nil {
 		responseBodyChan <- err.Error()
-		return "", err
+		return oauthBrowserResult{"", err}
 	}
 	codeReqBytes := <-successChan
 
 	codeReq, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(codeReqBytes)))
 	if err != nil {
 		responseBodyChan <- err.Error()
-		return "", err
+		return oauthBrowserResult{"", err}
 	}
 
-	return oauthClient.exchangeAccessToken(codeReq, state, oauth2cfg, codeVerifier, responseBodyChan)
+	accessToken, err := oauth.exchangeAccessToken(codeReq, state, oauth2cfg, codeVerifier, responseBodyChan)
+	return oauthBrowserResult{accessToken, err}
 }
 
 func (oauthClient *oauthClient) setupListener() (*net.TCPListener, int, error) {
