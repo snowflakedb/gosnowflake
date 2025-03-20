@@ -33,7 +33,7 @@ func TestOCSP(t *testing.T) {
 		"https://sfcdev2.blob.core.windows.net/",
 	}
 
-	transports := []*http.Transport{
+	transports := []http.RoundTripper{
 		snowflakeNoOcspTransport,
 		SnowflakeTransport,
 	}

@@ -478,9 +478,18 @@ func retryOCSP(
 	}
 	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
 	if err != nil {
-		logger.WithContext(ctx).Warnf("error when parsing ocsp response: %v", err)
-		logger.WithContext(ctx).Warnf("performing GET fallback request to OCSP")
-		return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
+		_, ok1 := err.(asn1.StructuralError)
+		_, ok2 := err.(asn1.SyntaxError)
+		if ok1 || ok2 {
+			logger.WithContext(ctx).Warnf("error when parsing ocsp response: %v", err)
+			logger.WithContext(ctx).Warnf("performing GET fallback request to OCSP")
+			return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
+		}
+		logger.Warnf("Unknown response status from OCSP responder: %v", err)
+		return nil, nil, &ocspStatus{
+			code: ocspStatusUnknown,
+			err:  err,
+		}
 	}
 
 	logger.WithContext(ctx).Debugf("OCSP Status from server: %v", printStatus(ocspRes))
@@ -580,7 +589,8 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	}
 	logger.WithContext(ctx).Infof("cache missed")
 	logger.WithContext(ctx).Infof("OCSP Server: %v", subject.OCSPServer)
-	if len(subject.OCSPServer) == 0 || isTestNoOCSPURL() {
+	testResponderURL := os.Getenv(ocspTestResponderURLEnv)
+	if (len(subject.OCSPServer) == 0 || isTestNoOCSPURL()) && testResponderURL == "" {
 		return &ocspStatus{
 			code: ocspNoServer,
 			err: &SnowflakeError{
@@ -590,7 +600,10 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 			},
 		}
 	}
-	ocspHost := subject.OCSPServer[0]
+	ocspHost := testResponderURL
+	if ocspHost == "" && len(subject.OCSPServer) > 0 {
+		ocspHost = subject.OCSPServer[0]
+	}
 	u, err := url.Parse(ocspHost)
 	if err != nil {
 		return &ocspStatus{
@@ -598,7 +611,6 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 			err:  fmt.Errorf("failed to parse OCSP server host. %v", ocspHost),
 		}
 	}
-	hostnameStr := os.Getenv(ocspTestResponderURLEnv)
 	var hostname string
 	if retryURL := os.Getenv(ocspRetryURLEnv); retryURL != "" {
 		hostname = fmt.Sprintf(retryURL, fullOCSPURL(u), base64.StdEncoding.EncodeToString(ocspReq))
@@ -609,13 +621,6 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		}
 	} else {
 		hostname = fullOCSPURL(u)
-	}
-	if hostnameStr != "" {
-		u0, err := url.Parse(hostnameStr)
-		if err == nil {
-			hostname = u0.Hostname()
-			u = u0
-		}
 	}
 
 	logger.WithContext(ctx).Debugf("Fetching OCSP response from server: %v", u)
@@ -1078,7 +1083,7 @@ func init() {
 }
 
 // snowflakeNoOcspTransport is the transport object that doesn't do certificate revocation check with OCSP.
-var snowflakeNoOcspTransport = &http.Transport{
+var snowflakeNoOcspTransport http.RoundTripper = &http.Transport{
 	MaxIdleConns:    10,
 	IdleConnTimeout: 30 * time.Minute,
 	Proxy:           http.ProxyFromEnvironment,

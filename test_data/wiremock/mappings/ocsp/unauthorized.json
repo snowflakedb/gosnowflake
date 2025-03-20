@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/",
+        "method": "POST"
+      },
+      "response": {
+        "status": 200,
+        "base64Body": "MAMKAQY="
+      }
+    }
+  ]
+}

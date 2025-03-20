@@ -3,8 +3,10 @@
 package gosnowflake
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -51,6 +53,7 @@ func cleanup() {
 	unsetenv(ocspTestNoOCSPURLEnv)
 	unsetenv(ocspRetryURLEnv)
 	unsetenv(cacheDirEnv)
+	ocspFailOpen = OCSPFailOpenTrue
 }
 
 // TestOCSPFailOpen just confirms OCSPFailOpenTrue works.
@@ -859,4 +862,115 @@ func TestOCSPFailClosedNoOCSPURL(t *testing.T) {
 	if driverErr.Number != ErrOCSPNoOCSPResponderURL {
 		t.Fatalf("should failed to connect %v", err)
 	}
+}
+
+func TestOCSPUnexpectedResponses(t *testing.T) {
+	cleanup()
+	defer cleanup()
+
+	cfg := wiremockHTTPS.connectionConfig()
+	testCertPool := x509.NewCertPool()
+	caBytes, err := os.ReadFile("ci/scripts/ca.der")
+	assertNilF(t, err)
+	certificate, err := x509.ParseCertificate(caBytes)
+	assertNilF(t, err)
+	testCertPool.AddCert(certificate)
+	customCertPoolTransporter := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:               testCertPool,
+			VerifyPeerCertificate: verifyPeerCertificateSerial,
+		},
+		DisableKeepAlives: true,
+	}
+
+	countingRoundTripper := newCountingRoundTripper(customCertPoolTransporter)
+	originalNoOcspTransport := snowflakeNoOcspTransport
+	defer func() {
+		snowflakeNoOcspTransport = originalNoOcspTransport
+	}()
+	snowflakeNoOcspTransport = countingRoundTripper
+	cfg.Transporter = countingRoundTripper
+
+	runSampleQuery := func(cfg *Config) {
+		connector := NewConnector(SnowflakeDriver{}, *cfg)
+		db := sql.OpenDB(connector)
+		rows, err := db.Query("SELECT 1")
+		if err != nil {
+			println(err.Error())
+		}
+		assertNilF(t, err)
+		defer rows.Close()
+		var v int
+		next := rows.Next()
+		assertTrueF(t, next)
+		err = rows.Scan(&v)
+		if err != nil {
+			println(err)
+		}
+		assertNilF(t, err)
+		assertEqualE(t, v, 1)
+	}
+
+	t.Run("should retry when OCSP is not reachable", func(t *testing.T) {
+		countingRoundTripper.reset()
+		assertNilF(t, os.Setenv(ocspTestResponderURLEnv, "http://localhost:56734")) // not existing port
+		wiremock.registerMappings(t, wiremockMapping{filePath: "select1.json"},
+			wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		)
+		runSampleQuery(cfg)
+		assertTrueE(t, countingRoundTripper.postReqCount["http://localhost:56734"] > 1)
+		assertEqualE(t, countingRoundTripper.getReqCount["http://localhost:56734"], 0)
+	})
+
+	t.Run("should fallback to GET when POST returns malformed response", func(t *testing.T) {
+		countingRoundTripper.reset()
+		assertNilF(t, os.Setenv(ocspTestResponderURLEnv, wiremock.baseURL()))
+		wiremock.registerMappings(t, wiremockMapping{filePath: "ocsp/malformed.json"},
+			wiremockMapping{filePath: "select1.json"},
+			wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		)
+		runSampleQuery(cfg)
+		assertEqualE(t, countingRoundTripper.postReqCount[wiremock.baseURL()], 3)
+		assertEqualE(t, countingRoundTripper.getReqCount[wiremock.baseURL()], 3)
+	})
+
+	t.Run("should not fallback to GET when for POST unauthorized is returned", func(t *testing.T) {
+		countingRoundTripper.reset()
+		assertNilF(t, os.Setenv(ocspTestResponderURLEnv, wiremock.baseURL()))
+		wiremock.registerMappings(t, wiremockMapping{filePath: "ocsp/unauthorized.json"},
+			wiremockMapping{filePath: "select1.json"},
+			wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		)
+		runSampleQuery(cfg)
+		assertEqualE(t, countingRoundTripper.postReqCount[wiremock.baseURL()], 3)
+		assertEqualE(t, countingRoundTripper.getReqCount[wiremock.baseURL()], 0)
+	})
+}
+
+type countingRoundTripper struct {
+	delegate     http.RoundTripper
+	postReqCount map[string]int
+	getReqCount  map[string]int
+}
+
+func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
+	return &countingRoundTripper{
+		delegate:     delegate,
+		postReqCount: make(map[string]int),
+		getReqCount:  make(map[string]int),
+	}
+}
+
+func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Method == "GET" {
+		crt.getReqCount[req.URL.String()]++
+	} else if req.Method == "POST" {
+		crt.postReqCount[req.URL.String()]++
+	}
+	return crt.delegate.RoundTrip(req)
+}
+
+func (crt *countingRoundTripper) reset() {
+	crt.getReqCount = make(map[string]int)
+	crt.postReqCount = make(map[string]int)
 }
