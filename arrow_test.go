@@ -590,7 +590,7 @@ func TestArrowMemoryCleanedUp(t *testing.T) {
 			mem,
 		)
 
-		rows := dbt.mustQueryContext(ctx, "select 1 UNION select 2")
+		rows := dbt.mustQueryContext(ctx, "select 1 UNION select 2 ORDER BY 1")
 		defer rows.Close()
 		var v int
 		assertTrueF(t, rows.Next())
