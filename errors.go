@@ -108,13 +108,6 @@ const (
 	expiredOAuthAccessTokenCode = "390318"
 )
 
-type invalidOrExpiredOAuthAccessToken struct {
-}
-
-func (i invalidOrExpiredOAuthAccessToken) Error() string {
-	return "invalid or expired oauth access token"
-}
-
 // Driver return errors
 const (
 	/* connection */
