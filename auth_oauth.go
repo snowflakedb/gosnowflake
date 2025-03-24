@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -69,7 +70,25 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 	}, nil
 }
 
+type oauthBrowserResult struct {
+	accessToken string
+	err         error
+}
+
 func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, error) {
+	resultChan := make(chan oauthBrowserResult, 1)
+	go GoroutineWrapper(oauthClient.ctx, func() {
+		resultChan <- oauthClient.doAuthenticateByOAuthAuthorizationCode()
+	})
+	select {
+	case <-time.After(oauthClient.cfg.ExternalBrowserTimeout):
+		return "", errors.New("authentication via browser timed out")
+	case result := <-resultChan:
+		return result.accessToken, result.err
+	}
+}
+
+func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode() oauthBrowserResult {
 	authCodeProvider := oauthClient.authorizationCodeProviderFactory()
 
 	successChan := make(chan []byte)
@@ -89,7 +108,7 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 	tcpListener, callbackPort, err := oauthClient.setupListener()
 	logger.Debugf("opening socket on port %v", callbackPort)
 	if err != nil {
-		return "", err
+		return oauthBrowserResult{"", err}
 	}
 	defer func(tcpListener *net.TCPListener) {
 		<-closeListenerChan
@@ -108,23 +127,24 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 	if err = authCodeProvider.run(authorizationURL); err != nil {
 		responseBodyChan <- err.Error()
 		closeListenerChan <- true
-		return "", err
+		return oauthBrowserResult{"", err}
 	}
 
 	err = <-errChan
 	if err != nil {
 		responseBodyChan <- err.Error()
-		return "", err
+		return oauthBrowserResult{"", err}
 	}
 	codeReqBytes := <-successChan
 
 	codeReq, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(codeReqBytes)))
 	if err != nil {
 		responseBodyChan <- err.Error()
-		return "", err
+		return oauthBrowserResult{"", err}
 	}
 
-	return oauthClient.exchangeAccessToken(codeReq, state, oauth2cfg, codeVerifier, responseBodyChan)
+	accessToken, err := oauthClient.exchangeAccessToken(codeReq, state, oauth2cfg, codeVerifier, responseBodyChan)
+	return oauthBrowserResult{accessToken, err}
 }
 
 func (oauthClient *oauthClient) setupListener() (*net.TCPListener, int, error) {
