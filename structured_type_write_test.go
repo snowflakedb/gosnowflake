@@ -99,6 +99,7 @@ func TestBindingArrayWithoutSchema(t *testing.T) {
 		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeArray, sql.NullString{Valid: false})
 		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeArray, "[1, 2, 3]")
 		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeArray, sql.NullString{Valid: true, String: "[1, 2, 3]"})
+		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeArray, []int{1, 2, 3})
 		rows := dbt.mustQuery("SELECT * FROM test_array_binding")
 		defer rows.Close()
 		var res sql.NullString
