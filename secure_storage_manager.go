@@ -197,7 +197,7 @@ func (ssm *fileBasedSecureStorageManager) withCacheFile(action func(*os.File)) {
 		if err := file.Close(); err != nil {
 			logger.Warnf("cannot release file descriptor for %v. %v", cacheDir, err)
 		}
-	}(cacheFile)
+	}(cacheDir)
 
 	if err := ssm.ensurePermissionsAndOwner(cacheFile, 0600); err != nil {
 		logger.Warnf("failed to ensure permission for temporary cache file. %v", err)
@@ -324,7 +324,7 @@ func (ssm *fileBasedSecureStorageManager) ensurePermissionsAndOwner(f *os.File, 
 		return err
 	}
 
-	if fileInfo.Mode() != expectedMode {
+	if fileInfo.Mode().Perm() != expectedMode&os.ModePerm {
 		return fmt.Errorf("incorrect permissions(%v, expected %v) for credential file", fileInfo.Mode(), expectedMode)
 	}
 
