@@ -5,8 +5,10 @@ package gosnowflake
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net/url"
 	"os"
@@ -23,16 +25,37 @@ const (
 	readWriteFileMode os.FileMode = 0666
 )
 
-func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.Buffer) (*bytes.Buffer, int, error) {
-	r := getReaderFromBuffer(srcStream)
-	buf, err := io.ReadAll(r)
-	if err != nil {
-		return nil, -1, err
-	}
+func (util *snowflakeFileUtil) compressFileWithGzipFromStream(ctx context.Context, srcStream **bytes.Buffer) (*bytes.Buffer, int, error) {
 	var c bytes.Buffer
 	w := gzip.NewWriter(&c)
-	if _, err := w.Write(buf); err != nil { // write buf to gzip writer
+	r := getReaderFromContext(ctx)
+	if r == nil {
+		return nil, -1, errors.New("failed to get the reader from context")
+	}
+
+	// compress the first chunk of data which was read before
+	var streamBuf bytes.Buffer
+	if _, err := io.Copy(&streamBuf, *srcStream); err != nil {
 		return nil, -1, err
+	}
+	if _, err := w.Write(streamBuf.Bytes()); err != nil {
+		return nil, -1, err
+	}
+
+	// continue reading the rest of the data in chunks
+	chunk := make([]byte, fileChunkSize)
+	for {
+		n, err := r.Read(chunk)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, -1, err
+		}
+		// write chunk to gzip writer
+		if _, err = w.Write(chunk[:n]); err != nil {
+			return nil, -1, err
+		}
 	}
 	if err := w.Close(); err != nil {
 		return nil, -1, err
@@ -76,10 +99,10 @@ func (util *snowflakeFileUtil) compressFileWithGzip(fileName string, tmpDir stri
 }
 
 func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) (string, int64, error) {
+
 	m := sha256.New()
 	r := getReaderFromBuffer(stream)
 	chunk := make([]byte, fileChunkSize)
-
 	for {
 		n, err := r.Read(chunk)
 		if err == io.EOF {
@@ -90,6 +113,27 @@ func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) 
 		m.Write(chunk[:n])
 	}
 	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*stream).Len()), nil
+}
+
+func (util *snowflakeFileUtil) getDigestAndSizeForStreamFromContext(ctx context.Context, meta *fileMetadata) (string, int64, error) {
+	r := getReaderFromContext(ctx)
+	if r == nil {
+		return "", 0, errors.New("failed to get the reader from context")
+	}
+	m := sha256.New()
+	m.Write(meta.srcStream.Bytes())
+	chunk := make([]byte, fileChunkSize)
+	for {
+		n, err := r.Read(chunk)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return "", 0, err
+		}
+		meta.srcStream.Write(chunk[:n])
+		m.Write(chunk[:n])
+	}
+	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64(meta.srcStream.Len()), nil
 }
 
 func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (digest string, size int64, err error) {

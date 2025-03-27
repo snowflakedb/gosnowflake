@@ -88,6 +88,7 @@ type SnowflakeFileTransferOptions struct {
 
 	/* streaming PUT */
 	compressSourceFromStream bool
+	arrayBindFromStream      bool
 
 	/* streaming GET */
 	GetFileToStream bool
@@ -463,7 +464,8 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 			if currentFileCompressionType == nil {
 				var mtype *mimetype.MIME
 				var err error
-				if meta.srcStream != nil {
+				_, err = os.Stat(fileName)
+				if os.IsNotExist(err) {
 					r := getReaderFromBuffer(&meta.srcStream)
 					mtype, err = mimetype.DetectReader(r)
 					if err != nil {
@@ -474,9 +476,9 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 					}
 				} else {
 					mtype, err = mimetype.DetectFile(fileName)
-					if err != nil {
-						return err
-					}
+				}
+				if err != nil {
+					return err
 				}
 				currentFileCompressionType = lookupByExtension(mtype.Extension())
 			}
@@ -869,7 +871,7 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	fileUtil := new(snowflakeFileUtil)
 	if meta.requireCompress {
 		if meta.srcStream != nil {
-			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(&meta.srcStream)
+			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(sfa.ctx, &meta.srcStream)
 		} else {
 			meta.realSrcFileName, _, err = fileUtil.compressFileWithGzip(meta.srcFileName, tmpDir)
 		}
@@ -880,9 +882,11 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 
 	if meta.srcStream != nil {
 		if meta.realSrcStream != nil {
+			// the stream has been fully read
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
 		} else {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
+			// the stream was partially read, continue reading the rest of the data
+			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStreamFromContext(sfa.ctx, meta)
 		}
 	} else {
 		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)
