@@ -1070,12 +1070,10 @@ func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 	t.Skip("manual test")
 	cfg, err := GetConfigFromEnv([]*ConfigParam{
-		{"OAuthClientId", "SNOWFLAKE_TEST_OAUTH_CLIENT_ID", true},
-		{"OAuthClientSecret", "SNOWFLAKE_TEST_OAUTH_CLIENT_SECRET", true},
-		{"OAuthAuthorizationURL", "SNOWFLAKE_TEST_OAUTH_AUTHORIZATION_URL", true},
-		{"OAuthTokenRequestURL", "SNOWFLAKE_TEST_OAUTH_TOKEN_REQUEST_URL", true},
-		{"OAuthRedirectURI", "SNOWFLAKE_TEST_OAUTH_REDIRECT_URI", true},
-		{"Role", "SNOWFLAKE_TEST_OAUTH_ROLE", true},
+		{"OAuthClientId", "SNOWFLAKE_TEST_OAUTH_OKTA_CLIENT_ID", true},
+		{"OAuthClientSecret", "SNOWFLAKE_TEST_OAUTH_OKTA_CLIENT_SECRET", true},
+		{"OAuthTokenRequestURL", "SNOWFLAKE_TEST_OAUTH_OKTA_TOKEN_REQUEST_URL", true},
+		{"Role", "SNOWFLAKE_TEST_OAUTH_OKTA_ROLE", true},
 		{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
 	})
 	assertNilF(t, err)
