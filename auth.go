@@ -193,6 +193,7 @@ type authRequestData struct {
 	BrowserModeRedirectPort string                       `json:"BROWSER_MODE_REDIRECT_PORT,omitempty"`
 	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
 	Token                   string                       `json:"TOKEN,omitempty"`
+	OauthType               string                       `json:"OAUTH_TYPE,omitempty"`
 }
 type authRequest struct {
 	Data authRequestData `json:"data"`
@@ -518,6 +519,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = token
+		requestMain.OauthType = "OAUTH_AUTHORIZATION_CODE"
 	case AuthTypeOAuthClientCredentials:
 		logger.WithContext(sc.ctx).Debug("OAuth client credentials")
 		if !experimentalAuthEnabled() {
@@ -533,6 +535,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = token
+		requestMain.OauthType = "OAUTH_CLIENT_CREDENTIALS"
 	}
 
 	authRequest := authRequest{
