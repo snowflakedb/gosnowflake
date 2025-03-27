@@ -1,0 +1,13 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/"
+      },
+      "response": {
+        "status": 200,
+        "base64Body": "AQID"
+      }
+    }
+  ]
+}
