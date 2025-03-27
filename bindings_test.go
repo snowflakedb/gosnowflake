@@ -1260,6 +1260,29 @@ func TestFunctionParameters(t *testing.T) {
 	})
 }
 
+func TestSpreadOperator(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("CREATE TABLE spread_operator_test (id INTEGER)")
+		defer dbt.mustExec("DROP TABLE IF EXISTS spread_operator_test")
+		dbt.mustExec("INSERT INTO spread_operator_test VALUES (?)", 1)
+		dbt.mustExec("INSERT INTO spread_operator_test VALUES (?)", 2)
+		rows := dbt.mustQuery("SELECT * FROM spread_operator_test WHERE id IN (**?)", []int{1, 2, 3})
+		defer rows.Close()
+		cnt := 0
+		for rows.Next() {
+			cnt++
+		}
+		assertEqualE(t, cnt, 2)
+		rows2 := dbt.mustQuery("SELECT * FROM spread_operator_test WHERE id IN (**?)", []int{1, 4, 5})
+		defer rows2.Close()
+		cnt = 0
+		for rows2.Next() {
+			cnt++
+		}
+		assertEqualE(t, cnt, 1)
+	})
+}
+
 func TestVariousBindingModes(t *testing.T) {
 	testcases := []struct {
 		testDesc  string
