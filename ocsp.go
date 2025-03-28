@@ -73,6 +73,9 @@ const (
 	defaultOCSPResponderTimeout = 10 * time.Second
 	// defaultOCSPMaxRetryCount specifies maximum numbere of subsequent retries to OCSP (cache and server)
 	defaultOCSPMaxRetryCount = 2
+
+	// defaultOCSPResponseCacheClearingInterval is the default value for clearing OCSP response cache
+	defaultOCSPResponseCacheClearingInterval = 15 * time.Minute
 )
 
 var (
@@ -87,12 +90,13 @@ var (
 const (
 	cacheFileBaseName = "ocsp_response_cache.json"
 	// cacheExpire specifies cache data expiration time in seconds.
-	cacheExpire           = float64(24 * 60 * 60)
-	defaultCacheServerURL = "http://ocsp.snowflakecomputing.com"
-	cacheServerEnabledEnv = "SF_OCSP_RESPONSE_CACHE_SERVER_ENABLED"
-	cacheServerURLEnv     = "SF_OCSP_RESPONSE_CACHE_SERVER_URL"
-	cacheDirEnv           = "SF_OCSP_RESPONSE_CACHE_DIR"
-	ocspRetryURLEnv       = "SF_OCSP_RESPONSE_RETRY_URL"
+	cacheExpire                                   = float64(24 * 60 * 60)
+	defaultCacheServerURL                         = "http://ocsp.snowflakecomputing.com"
+	cacheServerEnabledEnv                         = "SF_OCSP_RESPONSE_CACHE_SERVER_ENABLED"
+	cacheServerURLEnv                             = "SF_OCSP_RESPONSE_CACHE_SERVER_URL"
+	cacheDirEnv                                   = "SF_OCSP_RESPONSE_CACHE_DIR"
+	ocspRetryURLEnv                               = "SF_OCSP_RESPONSE_RETRY_URL"
+	ocspResponseCacheClearingIntervalInSecondsEnv = "SF_OCSP_RESPONSE_CACHE_CLEARING_INTERVAL_IN_SECONDS"
 )
 
 const (
@@ -108,6 +112,8 @@ const (
 	tolerableValidityRatio = 100               // buffer for certificate revocation update time
 	maxClockSkew           = 900 * time.Second // buffer for clock skew
 )
+
+var stopOCSPCacheClearing = make(chan struct{})
 
 type ocspStatusCode int
 
@@ -1076,10 +1082,56 @@ func createOCSPCacheDir() {
 	logger.Infof("reset OCSP cache file. %v", cacheFileName)
 }
 
+func initOCSPCacheClearer() {
+	interval := defaultOCSPResponseCacheClearingInterval
+	if intervalFromEnv := os.Getenv(ocspResponseCacheClearingIntervalInSecondsEnv); intervalFromEnv != "" {
+		intervalAsSeconds, err := strconv.Atoi(intervalFromEnv)
+		if err != nil {
+			logger.Warnf("unparsable %v value: %v", ocspResponseCacheClearingIntervalInSecondsEnv, intervalFromEnv)
+		} else {
+			interval = time.Duration(intervalAsSeconds) * time.Second
+		}
+	}
+	logger.Debugf("initializing OCSP cache clearer to %v", interval)
+	go GoroutineWrapper(context.Background(), func() {
+		ticker := time.NewTicker(interval)
+		for {
+			select {
+			case <-ticker.C:
+				clearOCSPCaches()
+			case <-stopOCSPCacheClearing:
+				logger.Debug("stopped clearing OCSP cache")
+				ticker.Stop()
+				return
+			}
+		}
+	})
+}
+
+func stopOCSPCacheClearer() {
+	stopOCSPCacheClearing <- struct{}{}
+}
+
+func clearOCSPCaches() {
+	logger.Debugf("clearing OCSP caches")
+	func() {
+		ocspResponseCacheLock.Lock()
+		defer ocspResponseCacheLock.Unlock()
+		ocspResponseCache = make(map[certIDKey]*certCacheValue)
+	}()
+
+	func() {
+		ocspParsedRespCacheLock.Lock()
+		defer ocspParsedRespCacheLock.Unlock()
+		ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
+	}()
+}
+
 func init() {
 	readCACerts()
 	createOCSPCacheDir()
 	initOCSPCache()
+	initOCSPCacheClearer()
 }
 
 // snowflakeNoOcspTransport is the transport object that doesn't do certificate revocation check with OCSP.
