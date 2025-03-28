@@ -229,6 +229,40 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	}
 }
 
+func TestOcspCacheClearer(t *testing.T) {
+	origValue := os.Getenv(ocspResponseCacheClearingIntervalInSecondsEnv)
+	defer func() {
+		stopOCSPCacheClearer()
+		os.Setenv(ocspResponseCacheClearingIntervalInSecondsEnv, origValue)
+		initOCSPCache()
+		initOCSPCacheClearer()
+	}()
+	func() {
+		ocspResponseCacheLock.Lock()
+		defer ocspResponseCacheLock.Unlock()
+		ocspResponseCache[certIDKey{}] = nil
+	}()
+	func() {
+		ocspParsedRespCacheLock.Lock()
+		defer ocspParsedRespCacheLock.Unlock()
+		ocspParsedRespCache[parsedOcspRespKey{}] = nil
+	}()
+	stopOCSPCacheClearer()
+	os.Setenv(ocspResponseCacheClearingIntervalInSecondsEnv, "1")
+	initOCSPCacheClearer()
+	time.Sleep(2 * time.Second)
+	func() {
+		ocspResponseCacheLock.Lock()
+		defer ocspResponseCacheLock.Unlock()
+		assertEqualE(t, len(ocspResponseCache), 0)
+	}()
+	func() {
+		ocspParsedRespCacheLock.Lock()
+		defer ocspParsedRespCacheLock.Unlock()
+		assertEqualE(t, len(ocspParsedRespCache), 0)
+	}()
+}
+
 func TestUnitValidateOCSP(t *testing.T) {
 	ocspRes := &ocsp.Response{}
 	ost := validateOCSP(ocspRes)
