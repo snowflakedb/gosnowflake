@@ -160,10 +160,6 @@ func (wm *wiremockClient) mappingsURL() string {
 }
 
 func (wm *wiremockClient) baseURL() string {
-	return fmt.Sprintf("http://%v:%v", wm.host, wm.adminPort)
-}
-
-func (wm *wiremockClient) baseURL() string {
 	return fmt.Sprintf("http://%v:%v", wm.host, wm.port)
 }
 
