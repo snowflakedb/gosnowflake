@@ -1,9 +1,6 @@
 {
   "mappings": [
     {
-      "scenarioName": "Successful PAT authentication flow",
-      "requiredScenarioState": "Started",
-      "newScenarioState": "Authenticated",
       "request": {
         "urlPathPattern": "/session/v1/login-request.*",
         "method": "POST",

@@ -73,6 +73,9 @@ const (
 	defaultOCSPResponderTimeout = 10 * time.Second
 	// defaultOCSPMaxRetryCount specifies maximum numbere of subsequent retries to OCSP (cache and server)
 	defaultOCSPMaxRetryCount = 2
+
+	// defaultOCSPResponseCacheClearingInterval is the default value for clearing OCSP response cache
+	defaultOCSPResponseCacheClearingInterval = 15 * time.Minute
 )
 
 var (
@@ -87,12 +90,13 @@ var (
 const (
 	cacheFileBaseName = "ocsp_response_cache.json"
 	// cacheExpire specifies cache data expiration time in seconds.
-	cacheExpire           = float64(24 * 60 * 60)
-	defaultCacheServerURL = "http://ocsp.snowflakecomputing.com"
-	cacheServerEnabledEnv = "SF_OCSP_RESPONSE_CACHE_SERVER_ENABLED"
-	cacheServerURLEnv     = "SF_OCSP_RESPONSE_CACHE_SERVER_URL"
-	cacheDirEnv           = "SF_OCSP_RESPONSE_CACHE_DIR"
-	ocspRetryURLEnv       = "SF_OCSP_RESPONSE_RETRY_URL"
+	cacheExpire                                   = float64(24 * 60 * 60)
+	defaultCacheServerURL                         = "http://ocsp.snowflakecomputing.com"
+	cacheServerEnabledEnv                         = "SF_OCSP_RESPONSE_CACHE_SERVER_ENABLED"
+	cacheServerURLEnv                             = "SF_OCSP_RESPONSE_CACHE_SERVER_URL"
+	cacheDirEnv                                   = "SF_OCSP_RESPONSE_CACHE_DIR"
+	ocspRetryURLEnv                               = "SF_OCSP_RESPONSE_RETRY_URL"
+	ocspResponseCacheClearingIntervalInSecondsEnv = "SF_OCSP_RESPONSE_CACHE_CLEARING_INTERVAL_IN_SECONDS"
 )
 
 const (
@@ -108,6 +112,8 @@ const (
 	tolerableValidityRatio = 100               // buffer for certificate revocation update time
 	maxClockSkew           = 900 * time.Second // buffer for clock skew
 )
+
+var stopOCSPCacheClearing = make(chan struct{})
 
 type ocspStatusCode int
 
@@ -478,9 +484,18 @@ func retryOCSP(
 	}
 	ocspRes, err = ocsp.ParseResponse(ocspResBytes, issuer)
 	if err != nil {
-		logger.WithContext(ctx).Warnf("error when parsing ocsp response: %v", err)
-		logger.WithContext(ctx).Warnf("performing GET fallback request to OCSP")
-		return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
+		_, ok1 := err.(asn1.StructuralError)
+		_, ok2 := err.(asn1.SyntaxError)
+		if ok1 || ok2 {
+			logger.WithContext(ctx).Warnf("error when parsing ocsp response: %v", err)
+			logger.WithContext(ctx).Warnf("performing GET fallback request to OCSP")
+			return fallbackRetryOCSPToGETRequest(ctx, client, req, ocspHost, headers, issuer, totalTimeout)
+		}
+		logger.Warnf("Unknown response status from OCSP responder: %v", err)
+		return nil, nil, &ocspStatus{
+			code: ocspStatusUnknown,
+			err:  err,
+		}
 	}
 
 	logger.WithContext(ctx).Debugf("OCSP Status from server: %v", printStatus(ocspRes))
@@ -580,7 +595,8 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	}
 	logger.WithContext(ctx).Infof("cache missed")
 	logger.WithContext(ctx).Infof("OCSP Server: %v", subject.OCSPServer)
-	if len(subject.OCSPServer) == 0 || isTestNoOCSPURL() {
+	testResponderURL := os.Getenv(ocspTestResponderURLEnv)
+	if (len(subject.OCSPServer) == 0 || isTestNoOCSPURL()) && testResponderURL == "" {
 		return &ocspStatus{
 			code: ocspNoServer,
 			err: &SnowflakeError{
@@ -590,7 +606,10 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 			},
 		}
 	}
-	ocspHost := subject.OCSPServer[0]
+	ocspHost := testResponderURL
+	if ocspHost == "" && len(subject.OCSPServer) > 0 {
+		ocspHost = subject.OCSPServer[0]
+	}
 	u, err := url.Parse(ocspHost)
 	if err != nil {
 		return &ocspStatus{
@@ -598,7 +617,6 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 			err:  fmt.Errorf("failed to parse OCSP server host. %v", ocspHost),
 		}
 	}
-	hostnameStr := os.Getenv(ocspTestResponderURLEnv)
 	var hostname string
 	if retryURL := os.Getenv(ocspRetryURLEnv); retryURL != "" {
 		hostname = fmt.Sprintf(retryURL, fullOCSPURL(u), base64.StdEncoding.EncodeToString(ocspReq))
@@ -609,13 +627,6 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 		}
 	} else {
 		hostname = fullOCSPURL(u)
-	}
-	if hostnameStr != "" {
-		u0, err := url.Parse(hostnameStr)
-		if err == nil {
-			hostname = u0.Hostname()
-			u = u0
-		}
 	}
 
 	logger.WithContext(ctx).Debugf("Fetching OCSP response from server: %v", u)
@@ -1071,14 +1082,60 @@ func createOCSPCacheDir() {
 	logger.Infof("reset OCSP cache file. %v", cacheFileName)
 }
 
+func initOCSPCacheClearer() {
+	interval := defaultOCSPResponseCacheClearingInterval
+	if intervalFromEnv := os.Getenv(ocspResponseCacheClearingIntervalInSecondsEnv); intervalFromEnv != "" {
+		intervalAsSeconds, err := strconv.Atoi(intervalFromEnv)
+		if err != nil {
+			logger.Warnf("unparsable %v value: %v", ocspResponseCacheClearingIntervalInSecondsEnv, intervalFromEnv)
+		} else {
+			interval = time.Duration(intervalAsSeconds) * time.Second
+		}
+	}
+	logger.Debugf("initializing OCSP cache clearer to %v", interval)
+	go GoroutineWrapper(context.Background(), func() {
+		ticker := time.NewTicker(interval)
+		for {
+			select {
+			case <-ticker.C:
+				clearOCSPCaches()
+			case <-stopOCSPCacheClearing:
+				logger.Debug("stopped clearing OCSP cache")
+				ticker.Stop()
+				return
+			}
+		}
+	})
+}
+
+func stopOCSPCacheClearer() {
+	stopOCSPCacheClearing <- struct{}{}
+}
+
+func clearOCSPCaches() {
+	logger.Debugf("clearing OCSP caches")
+	func() {
+		ocspResponseCacheLock.Lock()
+		defer ocspResponseCacheLock.Unlock()
+		ocspResponseCache = make(map[certIDKey]*certCacheValue)
+	}()
+
+	func() {
+		ocspParsedRespCacheLock.Lock()
+		defer ocspParsedRespCacheLock.Unlock()
+		ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
+	}()
+}
+
 func init() {
 	readCACerts()
 	createOCSPCacheDir()
 	initOCSPCache()
+	initOCSPCacheClearer()
 }
 
 // snowflakeNoOcspTransport is the transport object that doesn't do certificate revocation check with OCSP.
-var snowflakeNoOcspTransport = &http.Transport{
+var snowflakeNoOcspTransport http.RoundTripper = &http.Transport{
 	MaxIdleConns:    10,
 	IdleConnTimeout: 30 * time.Minute,
 	Proxy:           http.ProxyFromEnvironment,
