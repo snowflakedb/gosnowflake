@@ -55,8 +55,10 @@ func buildResponse(body string) (bytes.Buffer, error) {
 // and any anycast IP addresses locally. By specifying "0", we are
 // able to bind to a free port.
 func createLocalTCPListener(port int) (*net.TCPListener, error) {
+	logger.Debugf("creating local TCP listener on port %v", port)
 	l, err := net.Listen("tcp", fmt.Sprintf("localhost:%v", port))
 	if err != nil {
+		logger.Warnf("error while setting up listener: %v", err)
 		return nil, err
 	}
 

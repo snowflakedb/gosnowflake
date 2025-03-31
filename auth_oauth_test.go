@@ -145,6 +145,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		_, err = client.authenticateByOAuthAuthorizationCode()
 		assertNotNilE(t, err)
 		assertStringContainsE(t, err.Error(), "timed out")
+		time.Sleep(2 * time.Second) // awaiting timeout
 	})
 }
 

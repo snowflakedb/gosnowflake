@@ -43,6 +43,7 @@ type oauthClient struct {
 func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 	port := 0
 	if cfg.OauthRedirectURI != "" {
+		logger.Debugf("Using oauthRedirectUri from config: %v", cfg.OauthRedirectURI)
 		uri, err := url.Parse(cfg.OauthRedirectURI)
 		if err != nil {
 			return nil, err
@@ -59,6 +60,7 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 	if cfg.OauthRedirectURI == "" {
 		redirectURITemplate = "http://127.0.0.1:%v/"
 	}
+	logger.Debugf("Redirect URI template: %v, port: %v", redirectURITemplate, port)
 
 	client := &http.Client{
 		Transport: getTransport(cfg),
@@ -117,10 +119,10 @@ func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode() oauthBr
 
 	logger.Debug("setting up TCP listener for authorization code redirect")
 	tcpListener, callbackPort, err := oauthClient.setupListener()
-	logger.Debugf("opening socket on port %v", callbackPort)
 	if err != nil {
 		return oauthBrowserResult{"", err}
 	}
+	logger.Debugf("opening socket on port %v", callbackPort)
 	defer func(tcpListener *net.TCPListener) {
 		<-closeListenerChan
 		logger.Debug("closing tcp listener")
@@ -169,6 +171,7 @@ func (oauthClient *oauthClient) setupListener() (*net.TCPListener, int, error) {
 		return nil, 0, err
 	}
 	callbackPort := tcpListener.Addr().(*net.TCPAddr).Port
+	logger.Debugf("oauthClient.port: %v, callbackPort: %v", oauthClient.port, callbackPort)
 	return tcpListener, callbackPort, nil
 }
 
