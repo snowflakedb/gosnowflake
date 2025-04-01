@@ -340,7 +340,7 @@ func (ssm *fileBasedSecureStorageManager) ensurePermissionsAndOwner(f *os.File, 
 		return nil
 	}
 	if strconv.Itoa(int(ownerUID)) != currentUser.Uid {
-		return errors.New("incorrect owner of " + ssm.credDirPath)
+		return errors.New("incorrect owner of " + f.Name())
 	}
 	return nil
 }
