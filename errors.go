@@ -96,6 +96,17 @@ func populateErrorFields(code int, data *execResponse) *SnowflakeError {
 	return err
 }
 
+// Snowflake Server Error code
+const (
+	queryNotExecutingCode       = "000605"
+	queryInProgressCode         = "333333"
+	queryInProgressAsyncCode    = "333334"
+	sessionExpiredCode          = "390112"
+	invalidOAuthAccessTokenCode = "390303"
+	expiredOAuthAccessTokenCode = "390318"
+)
+
+// Driver return errors
 const (
 	/* connection */
 
