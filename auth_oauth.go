@@ -26,6 +26,10 @@ OAuth authentication completed successfully.
 </body></html>`
 )
 
+var defaultAuthorizationCodeProviderFactory = func() authorizationCodeProvider {
+	return &browserBasedAuthorizationCodeProvider{}
+}
+
 type oauthClient struct {
 	ctx context.Context
 	cfg *Config
@@ -39,6 +43,7 @@ type oauthClient struct {
 func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 	port := 0
 	if cfg.OauthRedirectURI != "" {
+		logger.Debugf("Using oauthRedirectUri from config: %v", cfg.OauthRedirectURI)
 		uri, err := url.Parse(cfg.OauthRedirectURI)
 		if err != nil {
 			return nil, err
@@ -55,18 +60,17 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 	if cfg.OauthRedirectURI == "" {
 		redirectURITemplate = "http://127.0.0.1:%v/"
 	}
+	logger.Debugf("Redirect URI template: %v, port: %v", redirectURITemplate, port)
 
 	client := &http.Client{
 		Transport: getTransport(cfg),
 	}
 	return &oauthClient{
-		ctx:                 context.WithValue(ctx, oauth2.HTTPClient, client),
-		cfg:                 cfg,
-		port:                port,
-		redirectURITemplate: redirectURITemplate,
-		authorizationCodeProviderFactory: func() authorizationCodeProvider {
-			return &browserBasedAuthorizationCodeProvider{}
-		},
+		ctx:                              context.WithValue(ctx, oauth2.HTTPClient, client),
+		cfg:                              cfg,
+		port:                             port,
+		redirectURITemplate:              redirectURITemplate,
+		authorizationCodeProviderFactory: defaultAuthorizationCodeProviderFactory,
 	}, nil
 }
 
@@ -76,6 +80,15 @@ type oauthBrowserResult struct {
 }
 
 func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, error) {
+	accessTokenSpec := newOAuthAccessTokenSpec(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.User)
+	if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+		if accessToken := credentialsStorage.getCredential(accessTokenSpec); accessToken != "" {
+			logger.Debugf("Access token retrieved from cache")
+			return accessToken, nil
+		}
+	}
+	logger.Debugf("Access token not present in cache, running full auth code flow")
+
 	resultChan := make(chan oauthBrowserResult, 1)
 	go GoroutineWrapper(oauthClient.ctx, func() {
 		resultChan <- oauthClient.doAuthenticateByOAuthAuthorizationCode()
@@ -106,10 +119,10 @@ func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode() oauthBr
 
 	logger.Debug("setting up TCP listener for authorization code redirect")
 	tcpListener, callbackPort, err := oauthClient.setupListener()
-	logger.Debugf("opening socket on port %v", callbackPort)
 	if err != nil {
 		return oauthBrowserResult{"", err}
 	}
+	logger.Debugf("opening socket on port %v", callbackPort)
 	defer func(tcpListener *net.TCPListener) {
 		<-closeListenerChan
 		logger.Debug("closing tcp listener")
@@ -144,6 +157,11 @@ func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode() oauthBr
 	}
 
 	accessToken, err := oauthClient.exchangeAccessToken(codeReq, state, oauth2cfg, codeVerifier, responseBodyChan)
+	if err == nil {
+		logger.Debug("saving oauth access token in cache")
+		accessTokenSpec := newOAuthAccessTokenSpec(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.User)
+		credentialsStorage.setCredential(accessTokenSpec, accessToken)
+	}
 	return oauthBrowserResult{accessToken, err}
 }
 
@@ -153,6 +171,7 @@ func (oauthClient *oauthClient) setupListener() (*net.TCPListener, int, error) {
 		return nil, 0, err
 	}
 	callbackPort := tcpListener.Addr().(*net.TCPAddr).Port
+	logger.Debugf("oauthClient.port: %v, callbackPort: %v", oauthClient.port, callbackPort)
 	return tcpListener, callbackPort, nil
 }
 
@@ -190,8 +209,9 @@ func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *
 		RedirectURL:  oauthClient.buildRedirectURI(callbackPort),
 		Scopes:       oauthClient.buildScopes(),
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  cmp.Or(oauthClient.cfg.OauthAuthorizationURL, oauthClient.defaultAuthorizationURL()),
-			TokenURL: cmp.Or(oauthClient.cfg.OauthTokenRequestURL, oauthClient.defaultTokenURL()),
+			AuthURL:   cmp.Or(oauthClient.cfg.OauthAuthorizationURL, oauthClient.defaultAuthorizationURL()),
+			TokenURL:  cmp.Or(oauthClient.cfg.OauthTokenRequestURL, oauthClient.defaultTokenURL()),
+			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
 }
@@ -283,6 +303,12 @@ func (provider *browserBasedAuthorizationCodeProvider) createCodeVerifier() stri
 }
 
 func (oauthClient *oauthClient) authenticateByOAuthClientCredentials() (string, error) {
+	accessTokenSpec := newOAuthAccessTokenSpec(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.User)
+	if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+		if accessToken := credentialsStorage.getCredential(accessTokenSpec); accessToken != "" {
+			return accessToken, nil
+		}
+	}
 	oauth2Cfg, err := oauthClient.buildClientCredentialsConfig()
 	if err != nil {
 		return "", err
@@ -290,6 +316,9 @@ func (oauthClient *oauthClient) authenticateByOAuthClientCredentials() (string, 
 	token, err := oauth2Cfg.Token(oauthClient.ctx)
 	if err != nil {
 		return "", err
+	}
+	if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+		credentialsStorage.setCredential(accessTokenSpec, token.AccessToken)
 	}
 	return token.AccessToken, nil
 }
