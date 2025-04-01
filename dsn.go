@@ -1037,7 +1037,7 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 		Account:               account,
 		User:                  user,
 		Password:              password,
-		Token: token,
+		Token:                 token,
 		Role:                  role,
 		Host:                  host,
 		Port:                  port,
