@@ -145,7 +145,7 @@ jobs:
       runs-on: ubuntu-latest
       strategy:
         fail-fast: false
-      name: Ecliptic curves check
+      name: Elliptic curves check
       steps:
         - uses: actions/checkout@v4
         - uses: actions/setup-java@v4 # for wiremock
