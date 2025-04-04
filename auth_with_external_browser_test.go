@@ -138,9 +138,11 @@ var externalBrowserType = ExternalBrowserProcessResult{
 }
 
 func cleanupBrowserProcesses(t *testing.T) {
-	const cleanBrowserProcessesPath = "/externalbrowser/cleanBrowserProcesses.js"
-	_, err := exec.Command("node", cleanBrowserProcessesPath).Output()
-	assertNilE(t, err, fmt.Sprintf("failed to execute command: %v", err))
+	if isTestRunningInDockerContainer() {
+		const cleanBrowserProcessesPath = "/externalbrowser/cleanBrowserProcesses.js"
+		_, err := exec.Command("node", cleanBrowserProcessesPath).Output()
+		assertNilE(t, err, fmt.Sprintf("failed to execute command: %v", err))
+	}
 }
 
 func provideExternalBrowserCredentials(t *testing.T, ExternalBrowserProcess string, user string, password string) {
