@@ -1,5 +1,3 @@
-// Copyright (c) 2022 Snowflake Computing Inc. All rights reserved.
-
 package gosnowflake
 
 import (
@@ -340,7 +338,7 @@ func (ssm *fileBasedSecureStorageManager) ensurePermissionsAndOwner(f *os.File, 
 		return nil
 	}
 	if strconv.Itoa(int(ownerUID)) != currentUser.Uid {
-		return errors.New("incorrect owner of " + ssm.credDirPath)
+		return errors.New("incorrect owner of " + f.Name())
 	}
 	return nil
 }

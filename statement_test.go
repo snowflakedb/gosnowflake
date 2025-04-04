@@ -1,4 +1,3 @@
-// Copyright (c) 2020-2023 Snowflake Computing Inc. All rights reserved.
 //lint:file-ignore SA1019 Ignore deprecated methods. We should leave them as-is to keep backward compatibility.
 
 package gosnowflake
