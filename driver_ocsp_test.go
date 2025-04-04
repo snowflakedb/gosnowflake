@@ -724,7 +724,7 @@ func TestExpiredCertificate(t *testing.T) {
 		// Go 1.20 throws tls CertificateVerification error
 		errString := urlErr.Err.Error()
 		// badssl sometimes times out
-		if !strings.Contains(errString, "certificate has expired or is not yet valid") && !strings.Contains(errString, "timeout") {
+		if !strings.Contains(errString, "certificate has expired or is not yet valid") && !strings.Contains(errString, "timeout") && !strings.Contains(errString, "connection attempt failed") {
 			t.Fatalf("failed to extract error Certificate error: %v", err)
 		}
 	}
