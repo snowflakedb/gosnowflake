@@ -144,9 +144,11 @@ func cleanupBrowserProcesses(t *testing.T) {
 }
 
 func provideExternalBrowserCredentials(t *testing.T, ExternalBrowserProcess string, user string, password string) {
-	const provideBrowserCredentialsPath = "/externalbrowser/provideBrowserCredentials.js"
-	_, err := exec.Command("node", provideBrowserCredentialsPath, ExternalBrowserProcess, user, password).Output()
-	assertNilE(t, err, fmt.Sprintf("failed to execute command: %v", err))
+	if isTestRunningInDockerContainer() {
+		const provideBrowserCredentialsPath = "/externalbrowser/provideBrowserCredentials.js"
+		_, err := exec.Command("node", provideBrowserCredentialsPath, ExternalBrowserProcess, user, password).Output()
+		assertNilE(t, err, fmt.Sprintf("failed to execute command: %v", err))
+	}
 }
 
 func verifyConnectionToSnowflakeAuthTests(t *testing.T, cfg *Config) (err error) {
@@ -170,7 +172,7 @@ func verifyConnectionToSnowflakeAuthTests(t *testing.T, cfg *Config) (err error)
 }
 
 func setupExternalBrowserTest(t *testing.T) *Config {
-	runOnlyOnDockerContainer(t, "Running only on Docker container")
+	skipAuthTests(t, "Skipping External Browser tests")
 	cleanupBrowserProcesses(t)
 	cfg, err := getAuthTestsConfig(t, AuthTypeExternalBrowser)
 	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
