@@ -8,7 +8,7 @@
             "equalTo": "code"
           },
           "scope": {
-            "equalTo": "session:role:ANALYST"
+            "equalTo": "session:role:ANALYST offline_access"
           },
           "code_challenge_method": {
             "equalTo": "S256"
@@ -66,6 +66,7 @@
         "status": 200,
         "jsonBody": {
           "access_token": "access-token-123",
+          "refresh_token": "refresh-token-123",
           "token_type": "Bearer",
           "username": "test-user",
           "scope": "refresh_token session:role:ANALYST",

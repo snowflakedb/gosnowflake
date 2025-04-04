@@ -146,6 +146,8 @@ const (
 	ErrCodeEmptyPasswordAndToken = 260016
 	// ErrCodeEmptyOAuthParameters is an error code for the case where the client ID or client secret are not provided for OAuth flows.
 	ErrCodeEmptyOAuthParameters = 260017
+	// ErrMissingAccessATokenButRefreshTokenPresent is an error code for the case when access token is not found in cache, but the refresh token is present.
+	ErrMissingAccessATokenButRefreshTokenPresent = 260018
 
 	/* network */
 

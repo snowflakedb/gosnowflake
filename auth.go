@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -55,6 +56,16 @@ const (
 	// AuthTypeOAuthClientCredentials is to use non-interactive OAuth2 flow
 	AuthTypeOAuthClientCredentials
 )
+
+func (authType AuthType) isOauth() bool {
+	return authType == AuthTypeOAuthAuthorizationCode || authType == AuthTypeOAuthClientCredentials
+}
+
+var refreshOAuthTokenCodes = []string{
+	strconv.Itoa(ErrMissingAccessATokenButRefreshTokenPresent),
+	invalidOAuthAccessTokenCode,
+	expiredOAuthAccessTokenCode,
+}
 
 func determineAuthenticatorType(cfg *Config, value string) error {
 	upperCaseValue := strings.ToUpper(value)
@@ -392,8 +403,11 @@ func authenticate(
 		if sessionParameters[clientRequestMfaToken] == true {
 			credentialsStorage.deleteCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
-		if sessionParameters[clientStoreTemporaryCredential] == true {
+		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator == AuthTypeExternalBrowser {
 			credentialsStorage.deleteCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
+		}
+		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator.isOauth() {
+			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
 		}
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
@@ -638,8 +652,23 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		proofKey)
 	if err != nil {
 		var se *SnowflakeError
-		if errors.As(err, &se) && (strconv.Itoa(se.Number) == invalidOAuthAccessTokenCode || strconv.Itoa(se.Number) == expiredOAuthAccessTokenCode) {
+		if errors.As(err, &se) && slices.Contains(refreshOAuthTokenCodes, strconv.Itoa(se.Number)) {
 			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+
+			if sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode {
+				var oauthClient *oauthClient
+				if oauthClient, err = newOauthClient(sc.ctx, sc.cfg); err != nil {
+					logger.Warnf("failed to create oauth client. %v", err)
+				} else {
+					if err = oauthClient.refreshToken(); err != nil {
+						logger.Warnf("cannot refresh token. %v", err)
+						credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+					}
+				}
+			}
+
+			// if refreshing succeeds for authorization code, we will take a token from cache
+			// if it fails, we will just run the full flow
 			authData, err = authenticate(sc.ctx, sc, nil, nil)
 		}
 		if err != nil {
