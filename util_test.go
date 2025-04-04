@@ -390,9 +390,9 @@ func skipOnJenkins(t *testing.T, message string) {
 	}
 }
 
-func runOnlyOnDockerContainer(t *testing.T, message string) {
-	if os.Getenv("AUTHENTICATION_TESTS_ENV") == "" {
-		t.Skip("Running only on Docker container: " + message)
+func skipAuthTests(t *testing.T, message string) {
+	if os.Getenv("RUN_AUTH_TESTS") != "true" {
+		t.Skip("Setup 'RUN_AUTH_TESTS' flag to perform this test" + message)
 	}
 }
 
