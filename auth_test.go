@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -1054,15 +1055,32 @@ func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 				{"OAuthAuthorizationURL", "SNOWFLAKE_TEST_OAUTH_" + provider + "_AUTHORIZATION_URL", false},
 				{"OAuthTokenRequestURL", "SNOWFLAKE_TEST_OAUTH_" + provider + "_TOKEN_REQUEST_URL", false},
 				{"OAuthRedirectURI", "SNOWFLAKE_TEST_OAUTH_" + provider + "_REDIRECT_URI", false},
+				{"OAuthScope", "SNOWFLAKE_TEST_OAUTH_" + provider + "_SCOPE", false},
+				{"User", "SNOWFLAKE_TEST_OAUTH_" + provider + "_USER", true},
 				{"Role", "SNOWFLAKE_TEST_OAUTH_" + provider + "_ROLE", true},
 				{"Account", "SNOWFLAKE_TEST_ACCOUNT", true},
 			})
 			assertNilF(t, err)
 			cfg.Authenticator = AuthTypeOAuthAuthorizationCode
+			tokenRequestURL := cmp.Or(cfg.OauthTokenRequestURL, fmt.Sprintf("https://%v.snowflakecomputing.com:443/oauth/token-request", cfg.Account))
+			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(tokenRequestURL, cfg.User))
+			credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(tokenRequestURL, cfg.User))
 			connector := NewConnector(&SnowflakeDriver{}, *cfg)
 			db := sql.OpenDB(connector)
 			defer db.Close()
-			runSmokeQuery(t, db)
+			conn1, err := db.Conn(context.Background())
+			assertNilF(t, err)
+			defer conn1.Close()
+			runSmokeQueryWithConn(t, conn1)
+			conn2, err := db.Conn(context.Background())
+			assertNilF(t, err)
+			defer conn2.Close()
+			runSmokeQueryWithConn(t, conn2)
+			credentialsStorage.setCredential(newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User), "expired-token")
+			conn3, err := db.Conn(context.Background())
+			assertNilF(t, err)
+			defer conn3.Close()
+			runSmokeQueryWithConn(t, conn3)
 		})
 	}
 }

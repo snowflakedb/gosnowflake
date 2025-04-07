@@ -21,9 +21,10 @@ import (
 type tokenType string
 
 const (
-	idToken          tokenType = "ID_TOKEN"
-	mfaToken         tokenType = "MFA_TOKEN"
-	oauthAccessToken tokenType = "OAUTH_ACCESS_TOKEN"
+	idToken           tokenType = "ID_TOKEN"
+	mfaToken          tokenType = "MFA_TOKEN"
+	oauthAccessToken  tokenType = "OAUTH_ACCESS_TOKEN"
+	oauthRefreshToken tokenType = "OAUTH_REFRESH_TOKEN"
 )
 
 const (
@@ -72,6 +73,14 @@ func newOAuthAccessTokenSpec(host, user string) *secureTokenSpec {
 		host,
 		user,
 		oauthAccessToken,
+	}
+}
+
+func newOAuthRefreshTokenSpec(host, user string) *secureTokenSpec {
+	return &secureTokenSpec{
+		host,
+		user,
+		oauthRefreshToken,
 	}
 }
 
