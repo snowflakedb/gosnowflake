@@ -28,8 +28,5 @@ func getAuthTestsConfig(t *testing.T, authMethod AuthType) (*Config, error) {
 }
 
 func isTestRunningInDockerContainer() bool {
-	if os.Getenv("AUTHENTICATION_TESTS_ENV") == "docker" {
-		return true
-	}
-	return false
+	return os.Getenv("AUTHENTICATION_TESTS_ENV") == "docker"
 }
