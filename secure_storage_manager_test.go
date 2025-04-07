@@ -251,8 +251,10 @@ func TestStoreTemporaryCredential(t *testing.T) {
 		tokenSpec *secureTokenSpec
 		value     string
 	}{
-		{newMfaTokenSpec("testhost", "testuser"), "598ghFnjfh8BBgmf45mmhgkfRR45mgkt5"},
-		{newIDTokenSpec("testhost", "testuser"), "090Arftf54Jk3gh57ggrVvf09lJa3DD"},
+		{newMfaTokenSpec("testhost", "testuser"), "mfa token"},
+		{newIDTokenSpec("testhost", "testuser"), "id token"},
+		{newOAuthAccessTokenSpec("testhost", "testuser"), "access token"},
+		{newOAuthRefreshTokenSpec("testhost", "testuser"), "refresh token"},
 	}
 
 	ssm, err := newFileBasedSecureStorageManager()
