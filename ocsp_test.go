@@ -40,7 +40,9 @@ func TestOCSP(t *testing.T) {
 		for _, tgt := range targetURL {
 			_ = os.Setenv(cacheServerEnabledEnv, enabled)
 			_ = os.Remove(cacheFileName) // clear cache file
-			ocspResponseCache = make(map[certIDKey]*certCacheValue)
+			syncUpdateOcspResponseCache(func() {
+				ocspResponseCache = make(map[certIDKey]*certCacheValue)
+			})
 			for _, tr := range transports {
 				t.Run(fmt.Sprintf("%v_%v", tgt, enabled), func(t *testing.T) {
 					c := &http.Client{
@@ -186,7 +188,9 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	}
 	b64Key := base64.StdEncoding.EncodeToString([]byte("DUMMY_VALUE"))
 	currentTime := float64(time.Now().UTC().Unix())
-	ocspResponseCache[dummyKey0] = &certCacheValue{currentTime, b64Key}
+	syncUpdateOcspResponseCache(func() {
+		ocspResponseCache[dummyKey0] = &certCacheValue{currentTime, b64Key}
+	})
 	subject := &x509.Certificate{}
 	issuer := &x509.Certificate{}
 	ost := checkOCSPResponseCache(&dummyKey, subject, issuer)
@@ -194,13 +198,17 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspMissedCache, ost.code)
 	}
 	// old timestamp
-	ocspResponseCache[dummyKey] = &certCacheValue{float64(1395054952), b64Key}
+	syncUpdateOcspResponseCache(func() {
+		ocspResponseCache[dummyKey] = &certCacheValue{float64(1395054952), b64Key}
+	})
 	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspCacheExpired {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspCacheExpired, ost.code)
 	}
 	// future timestamp
-	ocspResponseCache[dummyKey] = &certCacheValue{float64(1805054952), b64Key}
+	syncUpdateOcspResponseCache(func() {
+		ocspResponseCache[dummyKey] = &certCacheValue{float64(1805054952), b64Key}
+	})
 	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
@@ -214,13 +222,17 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 		"koRzw/UU7zKsqiTB0ZN/rgJp+MocTdqQSGKvbZyR8d4u8eNQqi1x4Pk3yO/pftANFaJKGB+JPgKS3PQAqJaXcipNcEfqtl7y4PO6kqA" + // pragma: allowlist secret
 		"Jb4xI/OTXIrRA5TsT4cCioE"
 	// issuer is not a true issuer certificate
-	ocspResponseCache[dummyKey] = &certCacheValue{float64(currentTime - 1000), actualOcspResponse}
+	syncUpdateOcspResponseCache(func() {
+		ocspResponseCache[dummyKey] = &certCacheValue{float64(currentTime - 1000), actualOcspResponse}
+	})
 	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedParseResponse, ost.code)
 	}
 	// invalid validity
-	ocspResponseCache[dummyKey] = &certCacheValue{float64(currentTime - 1000), actualOcspResponse}
+	syncUpdateOcspResponseCache(func() {
+		ocspResponseCache[dummyKey] = &certCacheValue{float64(currentTime - 1000), actualOcspResponse}
+	})
 	ost = checkOCSPResponseCache(&dummyKey, subject, nil)
 	if ost.code != ocspInvalidValidity {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspInvalidValidity, ost.code)
@@ -235,11 +247,9 @@ func TestOcspCacheClearer(t *testing.T) {
 		initOCSPCache()
 		initOCSPCacheClearer()
 	}()
-	func() {
-		ocspResponseCacheLock.Lock()
-		defer ocspResponseCacheLock.Unlock()
+	syncUpdateOcspResponseCache(func() {
 		ocspResponseCache[certIDKey{}] = nil
-	}()
+	})
 	func() {
 		ocspParsedRespCacheLock.Lock()
 		defer ocspParsedRespCacheLock.Unlock()
@@ -249,11 +259,9 @@ func TestOcspCacheClearer(t *testing.T) {
 	os.Setenv(ocspResponseCacheClearingIntervalInSecondsEnv, "1")
 	initOCSPCacheClearer()
 	time.Sleep(2 * time.Second)
-	func() {
-		ocspResponseCacheLock.Lock()
-		defer ocspResponseCacheLock.Unlock()
+	syncUpdateOcspResponseCache(func() {
 		assertEqualE(t, len(ocspResponseCache), 0)
-	}()
+	})
 	func() {
 		ocspParsedRespCacheLock.Lock()
 		defer ocspParsedRespCacheLock.Unlock()
@@ -597,4 +605,10 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 	} else if err != nil {
 		t.Error(err)
 	}
+}
+
+func syncUpdateOcspResponseCache(f func()) {
+	ocspResponseCacheLock.Lock()
+	defer ocspResponseCacheLock.Unlock()
+	f()
 }
