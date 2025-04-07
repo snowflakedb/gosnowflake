@@ -1,0 +1,41 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/oauth/token",
+        "method": "POST",
+        "headers": {
+          "Content-Type": {
+            "contains": "application/x-www-form-urlencoded"
+          },
+          "Authorization": {
+            "equalTo": "Basic dGVzdENsaWVudElkOnRlc3RDbGllbnRTZWNyZXQ="
+          }
+        },
+        "formParameters": {
+          "scope": {
+            "equalTo": "session:role:ANALYST offline_access"
+          },
+          "grant_type": {
+            "equalTo": "refresh_token"
+          },
+          "refresh_token": {
+            "equalTo": "refresh-token-123"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "access_token": "access-token-123",
+          "token_type": "Bearer",
+          "username": "test-user",
+          "scope": "session:role:ANALYST offline_access",
+          "expires_in": 600,
+          "refresh_token_expires_in": 86399,
+          "idpInitiated": false
+        }
+      }
+    }
+  ]
+}
