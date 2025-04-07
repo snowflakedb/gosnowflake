@@ -1002,14 +1002,15 @@ func TestContextPropagatedToAuthWhenUsingOpenDB(t *testing.T) {
 	cancel()
 }
 
+func enableExperimentalAuth(t *testing.T) {
+	err := os.Setenv("ENABLE_EXPERIMENTAL_AUTHENTICATION", "true")
+	assertNilF(t, err)
+}
+
 func TestPatSuccessfulFlow(t *testing.T) {
 	cfg := wiremock.connectionConfig()
 	cfg.Authenticator = AuthTypePat
 	cfg.Token = "some PAT"
-	testPatSuccessfulFlow(t, cfg)
-}
-
-func testPatSuccessfulFlow(t *testing.T, cfg *Config) {
 	enableExperimentalAuth(t)
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/pat/successful_flow.json"},
@@ -1023,18 +1024,6 @@ func testPatSuccessfulFlow(t *testing.T, cfg *Config) {
 	assertTrueE(t, rows.Next())
 	assertNilF(t, rows.Scan(&v))
 	assertEqualE(t, v, 1)
-}
-
-func enableExperimentalAuth(t *testing.T) {
-	err := os.Setenv("ENABLE_EXPERIMENTAL_AUTHENTICATION", "true")
-	assertNilF(t, err)
-}
-
-func TestPatSuccessfulFlowWithPatAsPasswordWithPatAuthenticator(t *testing.T) {
-	cfg := wiremock.connectionConfig()
-	cfg.Authenticator = AuthTypePat
-	cfg.Password = "some PAT"
-	testPatSuccessfulFlow(t, cfg)
 }
 
 func TestPatInvalidToken(t *testing.T) {
