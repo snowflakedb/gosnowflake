@@ -45,7 +45,7 @@ func TestOauthMismatchedUser(t *testing.T) {
 }
 
 func setupOauthTest(t *testing.T) *Config {
-	runOnlyOnDockerContainer(t, "Running only on Docker container")
+	skipAuthTests(t, "Skipping OAuth tests")
 
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuth)
 	assertNilF(t, err, fmt.Sprintf("failed to connect. err: %v", err))
