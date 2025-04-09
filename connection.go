@@ -123,7 +123,7 @@ func (sc *snowflakeConn) exec(
 	}
 	logger.WithContext(ctx).Infof("bindings: %v", req.Bindings)
 
-	// populate headers
+	// populate headers here
 	headers := getHeaders()
 	if isFileTransfer(query) {
 		headers[httpHeaderAccept] = headerContentTypeApplicationJSON
