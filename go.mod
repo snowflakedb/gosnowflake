@@ -17,9 +17,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/sirupsen/logrus v1.9.3
-
 	go.opentelemetry.io/otel v1.35.0
-	
 	golang.org/x/crypto v0.32.0
 	golang.org/x/sys v0.29.0
 )
