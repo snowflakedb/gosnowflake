@@ -12,10 +12,10 @@ import (
 	rlog "github.com/sirupsen/logrus"
 )
 
-func createTestLogger() defaultLogger {
+func createTestLogger() *defaultLogger {
 	var rLogger = rlog.New()
 	var ret = defaultLogger{inner: rLogger}
-	return ret
+	return &ret
 }
 
 func TestIsLevelEnabled(t *testing.T) {
@@ -59,7 +59,6 @@ func TestDefaultLogLevel(t *testing.T) {
 	logger := CreateDefaultLogger()
 	buf := &bytes.Buffer{}
 	logger.SetOutput(buf)
-	SetLogger(&logger)
 
 	// default logger level is info
 	logger.Info("info")
@@ -112,7 +111,6 @@ func TestOffLogLevel(t *testing.T) {
 	logger.SetOutput(buf)
 	err := logger.SetLogLevel("OFF")
 	assertNilF(t, err)
-	SetLogger(&logger)
 
 	logger.Info("info")
 	logger.Infof("info%v", "f")
