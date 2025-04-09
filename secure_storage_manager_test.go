@@ -242,7 +242,7 @@ func TestSkipStoringCredentialIfHostIsEmpty(t *testing.T) {
 	}
 }
 
-func TestStoreTemporaryCredental(t *testing.T) {
+func TestStoreTemporaryCredential(t *testing.T) {
 	if runningOnGithubAction() {
 		t.Skip("cannot write to github file system")
 	}
