@@ -980,8 +980,8 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 
 	if isStream {
 		fileStream, _ := os.Open(uploadFile)
-		ctx := WithFileStream(context.Background(), fileStream)
-		uploadMeta.srcStream, err = getFileStream(ctx)
+		sfa.ctx = WithFileStream(context.Background(), fileStream)
+		uploadMeta.srcStream, err = getFileStream(sfa.ctx)
 		assertNilF(t, err)
 	}
 

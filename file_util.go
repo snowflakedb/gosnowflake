@@ -3,8 +3,10 @@ package gosnowflake
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net/url"
 	"os"
@@ -21,16 +23,27 @@ const (
 	readWriteFileMode os.FileMode = 0666
 )
 
-func (util *snowflakeFileUtil) compressFileWithGzipFromStream(srcStream **bytes.Buffer) (*bytes.Buffer, int, error) {
-	r := getReaderFromBuffer(srcStream)
-	buf, err := io.ReadAll(r)
-	if err != nil {
-		return nil, -1, err
+func (util *snowflakeFileUtil) compressFileWithGzipFromStream(ctx context.Context) (*bytes.Buffer, int, error) {
+	r := getReaderFromContext(ctx)
+	if r == nil {
+		return nil, -1, errors.New("failed to get the reader from context")
 	}
+
 	var c bytes.Buffer
 	w := gzip.NewWriter(&c)
-	if _, err := w.Write(buf); err != nil { // write buf to gzip writer
-		return nil, -1, err
+	chunk := make([]byte, fileChunkSize)
+	for {
+		n, err := r.Read(chunk)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, -1, err
+		}
+		// write chunk to gzip writer
+		if _, err = w.Write(chunk[:n]); err != nil {
+			return nil, -1, err
+		}
 	}
 	if err := w.Close(); err != nil {
 		return nil, -1, err
@@ -77,7 +90,6 @@ func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) 
 	m := sha256.New()
 	r := getReaderFromBuffer(stream)
 	chunk := make([]byte, fileChunkSize)
-
 	for {
 		n, err := r.Read(chunk)
 		if err == io.EOF {
@@ -88,6 +100,26 @@ func (util *snowflakeFileUtil) getDigestAndSizeForStream(stream **bytes.Buffer) 
 		m.Write(chunk[:n])
 	}
 	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*stream).Len()), nil
+}
+
+func (util *snowflakeFileUtil) getDigestAndSizeForStreamFromContext(ctx context.Context, srcStream **bytes.Buffer) (string, int64, error) {
+	r := getReaderFromContext(ctx)
+	if r == nil {
+		return "", 0, errors.New("failed to get the reader from context")
+	}
+	m := sha256.New()
+	chunk := make([]byte, fileChunkSize)
+	for {
+		n, err := r.Read(chunk)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return "", 0, err
+		}
+		(*srcStream).Write(chunk[:n])
+		m.Write(chunk[:n])
+	}
+	return base64.StdEncoding.EncodeToString(m.Sum(nil)), int64((*srcStream).Len()), nil
 }
 
 func (util *snowflakeFileUtil) getDigestAndSizeForFile(fileName string) (digest string, size int64, err error) {
