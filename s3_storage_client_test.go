@@ -906,9 +906,7 @@ func TestNoEncryptWhenRetryStream(t *testing.T) {
 	initialParallel := int64(100)
 	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
 
-	if err != nil {
-		t.Error(err)
-	}
+	assertNilF(t, err, "error creating s3 client: %v")
 
 	uploadMeta := fileMetadata{
 		name:              "data1.txt.gz",
@@ -942,28 +940,16 @@ func TestNoEncryptWhenRetryStream(t *testing.T) {
 	var apiErr *smithy.GenericAPIError
 	ok := errors.As(err, &apiErr)
 
-	if !ok {
-		t.Error("should have raised generic api error")
-	}
-
-	if !uploadMeta.dataEncrypted {
-		t.Error("stream should be encrypted")
-	}
+	assertTrueF(t, ok, "should have raised generic api error")
+	assertTrueF(t, uploadMeta.dataEncrypted, "stream should be encrypted")
 
 	encStr := uploadMeta.realSrcStream
 
-	if initStr == encStr {
-		t.Error("initial stream should be different than encrypted stream")
-	}
+	assertNotEqualF(t, encStr, initStr, "initial stream should be different than encrypted stream")
 
 	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
 	ok = errors.As(err, &apiErr)
 
-	if !ok {
-		t.Error("should have raised generic api error")
-	}
-
-	if encStr != uploadMeta.realSrcStream {
-		t.Error("encrypted stream should not have changed")
-	}
+	assertTrueF(t, ok, "should have raised generic api error")
+	assertEqualF(t, uploadMeta.realSrcStream, encStr, "stream should not have changed")
 }
