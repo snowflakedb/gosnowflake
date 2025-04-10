@@ -885,8 +885,10 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 			// the stream has been fully read
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
 		} else {
-			// reset srcStream and read the stream from beginning
-			meta.srcStream.Reset()
+			if !sfa.options.arrayBindFromStream {
+				// reset srcStream and read the stream from beginning
+				meta.srcStream.Reset()
+			}
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStreamFromContext(sfa.ctx, &meta.srcStream)
 		}
 	} else {
