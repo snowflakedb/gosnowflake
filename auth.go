@@ -454,9 +454,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.Authenticator = AuthTypePat.String()
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = sc.cfg.Token
-		if sc.cfg.Password != "" && sc.cfg.Token == "" {
-			requestMain.Token = sc.cfg.Password
-		}
 	case AuthTypeSnowflake:
 		logger.WithContext(sc.ctx).Info("Username and password")
 		requestMain.LoginName = sc.cfg.User
