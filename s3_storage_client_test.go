@@ -890,3 +890,80 @@ func TestGetS3Endpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestNoEncryptWhenRetryStream(t *testing.T) {
+	info := execResponseStageInfo{
+		Location:     "sfc-teststage/rwyitestacco/users/1234/",
+		LocationType: "S3",
+	}
+	encMat := snowflakeFileEncryption{
+		QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==",
+		QueryID:             "01abc874-0406-1bf0-0000-53b10668e056",
+		SMKID:               92019681909886,
+	}
+	srcBytes := []byte{63, 64, 65}
+	initStr := bytes.NewBuffer(srcBytes)
+	initialParallel := int64(100)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	uploadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "S3",
+		noSleepingTime:    true,
+		parallel:          initialParallel,
+		client:            s3Cli,
+		sha256Digest:      "123456789abcdef",
+		stageInfo:         &info,
+		dstFileName:       "data1.txt.gz",
+		srcStream:         initStr,
+		overwrite:         true,
+		options: &SnowflakeFileTransferOptions{
+			MultiPartThreshold: dataSizeThreshold,
+		},
+		encryptionMaterial: &encMat,
+		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
+			return nil, &smithy.GenericAPIError{
+				Code:    strconv.Itoa(-1),
+				Message: "mock err, connection aborted",
+			}
+		}),
+		sfa: &snowflakeFileTransferAgent{
+			sc: &snowflakeConn{
+				cfg: &Config{},
+			},
+		},
+	}
+
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	var apiErr *smithy.GenericAPIError
+	ok := errors.As(err, &apiErr)
+
+	if !ok {
+		t.Error("should have raised generic api error")
+	}
+
+	if !uploadMeta.dataEncrypted {
+		t.Error("stream should be encrypted")
+	}
+
+	encStr := uploadMeta.realSrcStream
+
+	if initStr == encStr {
+		t.Error("initial stream should be different than encrypted stream")
+	}
+
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	ok = errors.As(err, &apiErr)
+
+	if !ok {
+		t.Error("should have raised generic api error")
+	}
+
+	if encStr != uploadMeta.realSrcStream {
+		t.Error("encrypted stream should not have changed")
+	}
+}
