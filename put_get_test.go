@@ -703,7 +703,7 @@ func TestPutGetLargeFileNonStream(t *testing.T) {
 	testPutGetLargeFile(t, false, true)
 }
 
-func TestPutGetLargeFileAutoCompressFalse(t *testing.T) {
+func TestPutGetLargeFileNonStreamAutoCompressFalse(t *testing.T) {
 	testPutGetLargeFile(t, false, false)
 }
 
@@ -739,41 +739,36 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 		}
 
 		// PUT test
-		// Record initial memory stats
-		var memStats runtime.MemStats
-		runtime.ReadMemStats(&memStats)
-		initialMemAlloc := memStats.Alloc
-
 		putQuery := fmt.Sprintf("put file://%v @~/%v auto_compress=true overwrite=true", fname, stageDir)
 		if !autoCompress {
 			putQuery = fmt.Sprintf("put file://%v @~/%v auto_compress=false overwrite=true", fname, stageDir)
 		}
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
+
+		// Record initial memory stats before PUT
+		var startMemStats, endMemStats runtime.MemStats
+		runtime.ReadMemStats(&startMemStats)
+
+		// Execute PUT command
 		_ = dbt.mustExecContext(ctx, sqlText)
 
-		// Record memory stats after allocation
-		runtime.ReadMemStats(&memStats)
-		finalMemAlloc := memStats.Alloc
-		bytesUsed := finalMemAlloc - initialMemAlloc
-
-		// Print the difference in memory usage
-		fmt.Printf("Initial Memory Alloc for PUT: %d bytes\n", initialMemAlloc)
-		fmt.Printf("Final Memory Alloc for PUT: %d bytes\n", finalMemAlloc)
-		fmt.Printf("Memory Used for PUT: %d bytes\n", bytesUsed)
+		// Record memory stats after PUT
+		runtime.ReadMemStats(&endMemStats)
+		fmt.Printf("Memory used for PUT command: %d MB\n", (endMemStats.Alloc-startMemStats.Alloc)/1024/1024)
 
 		defer dbt.mustExec("rm @~/" + stageDir)
 		rows := dbt.mustQuery("ls @~/" + stageDir)
 		defer func() {
 			assertNilF(t, rows.Close())
 		}()
-		var file, s1, s2, s3 string
+		var file, s1, s2, s3 sql.NullString
 		if rows.Next() {
 			err = rows.Scan(&file, &s1, &s2, &s3)
 			assertNilF(t, err)
 		}
 
-		if !strings.Contains(file, fnameGet) {
-			t.Fatalf("should contain file. got: %v", file)
+		if !strings.Contains(file.String, fnameGet) {
+			t.Fatalf("should contain file. got: %v", file.String)
 		}
 
 		// GET test
@@ -794,16 +789,16 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 		for rows2.Next() {
 			err = rows2.Scan(&file, &s1, &s2, &s3)
 			assertNilE(t, err)
-			assertTrueE(t, strings.HasPrefix(file, fnameGet), "a file was not downloaded by GET")
-			v, err := strconv.Atoi(s1)
+			assertTrueE(t, strings.HasPrefix(file.String, fnameGet), "a file was not downloaded by GET")
+			v, err := strconv.Atoi(s1.String)
 			assertNilE(t, err)
 			if autoCompress {
 				assertEqualE(t, v, 424821, "did not return the right file size")
 			} else {
 				assertEqualE(t, v, 70248250, "did not return the right file size")
 			}
-			assertEqualE(t, s2, "DOWNLOADED", "did not return DOWNLOADED status")
-			assertEqualE(t, s3, "")
+			assertEqualE(t, s2.String, "DOWNLOADED", "did not return DOWNLOADED status")
+			assertEqualE(t, s3.String, "")
 		}
 
 		var contents string

@@ -869,7 +869,9 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	fileUtil := new(snowflakeFileUtil)
 	if meta.requireCompress {
 		if meta.srcStream != nil {
-			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(sfa.ctx, &meta.srcStream)
+			// reset srcStream and read the stream from beginning
+			meta.srcStream.Reset()
+			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(sfa.ctx)
 		} else {
 			meta.realSrcFileName, _, err = fileUtil.compressFileWithGzip(meta.srcFileName, tmpDir)
 		}
@@ -883,8 +885,9 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 			// the stream has been fully read
 			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
 		} else {
-			// the stream was partially read, continue reading the rest of the data
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStreamFromContext(sfa.ctx, meta)
+			// reset srcStream and read the stream from beginning
+			meta.srcStream.Reset()
+			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStreamFromContext(sfa.ctx, &meta.srcStream)
 		}
 	} else {
 		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)

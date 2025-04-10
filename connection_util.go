@@ -167,6 +167,19 @@ func getFileStream(ctx context.Context) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// reset the position of reader
+	seeker, ok := r.(io.Seeker)
+	if !ok {
+		return nil, errors.New("failed to reset the position of the reader")
+	}
+	if seeker != nil {
+		_, err = seeker.Seek(0, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return bytes.NewBuffer(buf[:n]), nil
 }
 
