@@ -63,26 +63,28 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 	var encryptMeta *encryptMetadata
 	var dataFile string
 	var err error
-	if meta.encryptionMaterial != nil && !meta.dataEncrypted {
+	if meta.encryptionMaterial != nil {
 		if meta.srcStream != nil {
-			var encryptedStream bytes.Buffer
-			srcStream := meta.srcStream
-			if meta.realSrcStream != nil {
-				srcStream = meta.realSrcStream
+			if !meta.dataEncrypted {
+				var encryptedStream bytes.Buffer
+				srcStream := meta.srcStream
+				if meta.realSrcStream != nil {
+					srcStream = meta.realSrcStream
+				}
+				encryptMeta, err = encryptStreamCBC(meta.encryptionMaterial, srcStream, &encryptedStream, 0)
+				if err != nil {
+					return err
+				}
+				meta.realSrcStream = &encryptedStream
+				dataFile = meta.realSrcFileName
+				meta.dataEncrypted = true
 			}
-			encryptMeta, err = encryptStreamCBC(meta.encryptionMaterial, srcStream, &encryptedStream, 0)
-			if err != nil {
-				return err
-			}
-			meta.realSrcStream = &encryptedStream
-			dataFile = meta.realSrcFileName
 		} else {
 			encryptMeta, dataFile, err = encryptFileCBC(meta.encryptionMaterial, meta.realSrcFileName, 0, meta.tmpDir)
 			if err != nil {
 				return err
 			}
 		}
-		meta.dataEncrypted = true
 	} else {
 		dataFile = meta.realSrcFileName
 	}
