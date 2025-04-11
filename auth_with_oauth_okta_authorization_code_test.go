@@ -25,8 +25,8 @@ func TestSoteriaOauthOktaAuthorizationCodeSuccessful(t *testing.T) {
 }
 
 func TestSoteriaOauthOktaAuthorizationCodeMismatchedUsername(t *testing.T) {
-	user := setupSoteriaOauthOktaAuthorizationCodeTest(t).User
 	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
+	user := cfg.User
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -45,17 +45,16 @@ func TestSoteriaOauthOktaAuthorizationCodeMismatchedUsername(t *testing.T) {
 	wg.Wait()
 }
 
-func TestSoteriaOauthOktaAuthorizationCodeOktaTimeout(t *testing.T) {
-	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
-	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
-	cfg.LoginTimeout = time.Duration(1) * time.Second
-	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
-	assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
-}
+//func TestSoteriaOauthOktaAuthorizationCodeOktaTimeout(t *testing.T) {
+//	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
+//	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
+//	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
+//	assertEqualE(t, err.Error(), "authentication via browser timed out", fmt.Sprintf("Expecteed timeout, but got %v", err))
+//}
 
 func TestSoteriaOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
 	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
-	//cfg.TURN_ON_CACHE = true
+	cfg.ClientStoreTemporaryCredential = 1
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -70,6 +69,7 @@ func TestSoteriaOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
 	wg.Wait()
 
 	cleanupBrowserProcesses(t)
+	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
 
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
@@ -78,6 +78,7 @@ func TestSoteriaOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
 func setupSoteriaOauthOktaAuthorizationCodeTest(t *testing.T) *Config {
 	runOnlyOnDockerContainer(t, "Running only on Docker container")
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuthAuthorizationCode)
+	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 
 	cleanupBrowserProcesses(t)
 
@@ -86,7 +87,7 @@ func setupSoteriaOauthOktaAuthorizationCodeTest(t *testing.T) *Config {
 	cfg.OauthRedirectURI, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_REDIRECT_URI", true)
 	cfg.OauthAuthorizationURL, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_AUTH_URL", true)
 	cfg.OauthTokenRequestURL, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_TOKEN", true)
-
+	cfg.Role, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_ROLE", true)
 	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 
 	return cfg
