@@ -10,7 +10,7 @@ import (
 func TestSoteriaOauthOktaClientCredentialsSuccessful(t *testing.T) {
 	cfg := setupSoteriaOauthOktaClientCredentialsTest(t)
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
-	assertNilF(t, err, fmt.Sprintf("failed to connect. err: %v", err))
+	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
 func TestSoteriaOauthOktaClientCredentialsMismatchedUsername(t *testing.T) {
