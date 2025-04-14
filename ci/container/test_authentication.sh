@@ -27,4 +27,4 @@ go test -run TestKeypair*
 go test -run TestSoteriaOauthOktaClientCredentials*
 go test -run TestSoteriaOauthSnowflakeAuthorizationCode*
 go test -run TestSoteriaOauthOktaAuthorizationCode*
-
+go test -run TestRealPat*
