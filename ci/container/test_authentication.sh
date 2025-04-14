@@ -14,6 +14,10 @@ export SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true
 export RUN_AUTH_TESTS=true
 export AUTHENTICATION_TESTS_ENV="docker"
 
+export SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true
+export RUN_AUTH_TESTS=true
+export AUTHENTICATION_TESTS_ENV="docker"
+
 go test -run TestExternalBrowser*
 go test -run TestClientStoreCredentials
 go test -run TestOkta*
