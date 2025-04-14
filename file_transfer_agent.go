@@ -890,6 +890,9 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	}
 
 	encryptMeta, err := encryptDataIfRequired(meta, sfa.stageLocationType)
+	if err != nil {
+		return meta, err
+	}
 
 	client := sfa.getStorageClient(sfa.stageLocationType)
 	if err = client.uploadOneFileWithRetry(meta, encryptMeta); err != nil {
