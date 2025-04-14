@@ -13,9 +13,18 @@ export SF_ENABLE_EXPERIMENTAL_AUTHENTICATION="true"
 
 export AUTHENTICATION_TESTS_ENV="docker"
 
+export SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true
+export RUN_AUTH_TESTS=true
+export AUTHENTICATION_TESTS_ENV="docker"
+
 go test -run TestExternalBrowser*
 go test -run TestClientStoreCredentials
 go test -run TestOkta*
 go test -run TestOauth*
 go test -run TestKeypair*
 go test -run TestEndToEndPat*
+
+go test -run TestSoteriaOauthOktaClientCredentials*
+go test -run TestSoteriaOauthSnowflakeAuthorizationCode*
+go test -run TestSoteriaOauthOktaAuthorizationCode*
+
