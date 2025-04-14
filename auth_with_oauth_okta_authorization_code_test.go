@@ -69,7 +69,7 @@ func TestSoteriaOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
 }
 
 func setupSoteriaOauthOktaAuthorizationCodeTest(t *testing.T) *Config {
-	runOnlyOnDockerContainer(t, "Running only on Docker container")
+	skipAuthTests(t, "Skipping Okta Authorization Code tests")
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuthAuthorizationCode)
 	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 

@@ -9,6 +9,8 @@ export SNOWFLAKE_AUTH_TEST_PRIVATE_KEY_PATH=./.github/workflows/rsa_keys/rsa_key
 export SNOWFLAKE_AUTH_TEST_INVALID_PRIVATE_KEY_PATH=./.github/workflows/rsa_keys/rsa_key_invalid.p8
 
 export SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true
+export RUN_AUTH_TESTS=true
+export AUTHENTICATION_TESTS_ENV="docker"
 
 go test -run TestExternalBrowser*
 go test -run TestClientStoreCredentials

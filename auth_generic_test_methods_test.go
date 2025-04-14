@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"fmt"
+	"os"
 	"testing"
 )
 
@@ -25,4 +26,8 @@ func getAuthTestsConfig(t *testing.T, authMethod AuthType) (*Config, error) {
 	cfg.Authenticator = authMethod
 
 	return cfg, nil
+}
+
+func isTestRunningInDockerContainer() bool {
+	return os.Getenv("AUTHENTICATION_TESTS_ENV") == "docker"
 }

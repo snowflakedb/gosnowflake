@@ -32,7 +32,7 @@ func TestSoteriaOauthOktaClientsCredentialsUnauthorized(t *testing.T) {
 }
 
 func setupSoteriaOauthOktaClientCredentialsTest(t *testing.T) *Config {
-	runOnlyOnDockerContainer(t, "Running only on Docker container")
+	skipAuthTests(t, "Skipping Okta Client Credentials tests")
 
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuthClientCredentials)
 	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
