@@ -27,8 +27,7 @@ func TestKeypairInvalidKey(t *testing.T) {
 }
 
 func setupKeyPairTest(t *testing.T) *Config {
-	runOnlyOnDockerContainer(t, "Running only on Docker container")
-
+	skipAuthTests(t, "Skipping KeyPair tests")
 	cfg, err := getAuthTestsConfig(t, AuthTypeJwt)
 	assertEqualE(t, err, nil, fmt.Sprintf("failed to get config: %v", err))
 
