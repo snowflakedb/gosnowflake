@@ -38,11 +38,19 @@ func setupSoteriaOauthOktaClientCredentialsTest(t *testing.T) *Config {
 	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))
 
 	cfg.OauthClientID, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_ID", true)
-	cfg.OauthClientSecret, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_SECRET", true)
-	cfg.OauthTokenRequestURL, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_TOKEN", true)
-	cfg.User, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_ID", true)
-	cfg.Role, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_ROLE", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
 
-	assertNilF(t, err, fmt.Sprintf("failed to parse: %v", err))
+	cfg.OauthClientSecret, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_SECRET", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
+	cfg.OauthTokenRequestURL, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_TOKEN", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
+	cfg.User, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_ID", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
+	cfg.Role, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_ROLE", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
 	return cfg
 }

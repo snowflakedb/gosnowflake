@@ -100,6 +100,7 @@ func TestSoteriaOauthSnowflakeAuthorizationCodeWithoutTokenCache(t *testing.T) {
 	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
 
 	err = verifyConnectionToSnowflakeAuthTests(t, cfg)
+	assertNotNilF(t, err, "Expected an error but got nil")
 	assertEqualE(t, err.Error(), "authentication via browser timed out", fmt.Sprintf("Expecteed timeout, but got %v", err))
 }
 
@@ -112,10 +113,20 @@ func setupSoteriaOauthSnowflakeAuthorizationCodeTest(t *testing.T) *Config {
 	cleanupBrowserProcesses(t)
 
 	cfg.OauthClientID, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_INTERNAL_OAUTH_SNOWFLAKE_CLIENT_ID", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
 	cfg.OauthClientSecret, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_INTERNAL_OAUTH_SNOWFLAKE_CLIENT_SECRET", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
 	cfg.OauthRedirectURI, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_INTERNAL_OAUTH_SNOWFLAKE_REDIRECT_URI", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
 	cfg.User, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_ID", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
 	cfg.Role, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_ROLE", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
 	cfg.ClientStoreTemporaryCredential = 2
 	return cfg
 }
