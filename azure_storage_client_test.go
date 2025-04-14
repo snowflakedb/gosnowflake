@@ -189,7 +189,7 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -242,7 +242,7 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -313,7 +313,7 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +389,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Fatal("should have raised an error")
 	}
@@ -587,7 +587,7 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Fatal("should have failed")
 	}

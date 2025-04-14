@@ -177,7 +177,7 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -241,7 +241,7 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -306,7 +306,7 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err != nil {
 		t.Error(err)
 	}
@@ -766,7 +766,7 @@ func TestUploadStreamFailed(t *testing.T) {
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -823,7 +823,7 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err != nil {
 		t.Error(err)
 	}
@@ -982,7 +982,7 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Error("should have raised an error")
 	}

@@ -104,7 +104,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -118,7 +118,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 
 	initialParallel = 4
 	uploadMeta.parallel = initialParallel
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -181,7 +181,7 @@ func TestUploadOneFileToS3ConnReset(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -241,7 +241,7 @@ func TestUploadFileWithS3UploadFailedError(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err != nil {
 		t.Error(err)
 	}
@@ -616,7 +616,7 @@ func TestUploadFileToS3ClientCastFail(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -706,7 +706,7 @@ func TestS3UploadRetryWithHeaderNotFound(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = (&remoteStorageUtil{cfg: &Config{}}).uploadOneFileWithRetry(&uploadMeta)
+	err = (&remoteStorageUtil{cfg: &Config{}}).uploadOneFileWithRetry(&uploadMeta, getEncryptionMetadata())
 	if err != nil {
 		t.Error(err)
 	}
@@ -755,7 +755,7 @@ func TestS3UploadStreamFailed(t *testing.T) {
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -889,132 +889,4 @@ func TestGetS3Endpoint(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestNoEncryptWhenRetryStream(t *testing.T) {
-	info := execResponseStageInfo{
-		Location:     "sfc-teststage/rwyitestacco/users/1234/",
-		LocationType: "S3",
-	}
-	encMat := snowflakeFileEncryption{
-		QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==",
-		QueryID:             "01abc874-0406-1bf0-0000-53b10668e056",
-		SMKID:               92019681909886,
-	}
-	srcBytes := []byte{63, 64, 65}
-	initStr := bytes.NewBuffer(srcBytes)
-	initialParallel := int64(100)
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
-
-	assertNilF(t, err, "error creating s3 client: %v")
-
-	uploadMeta := fileMetadata{
-		name:              "data1.txt.gz",
-		stageLocationType: "S3",
-		noSleepingTime:    true,
-		parallel:          initialParallel,
-		client:            s3Cli,
-		sha256Digest:      "123456789abcdef",
-		stageInfo:         &info,
-		dstFileName:       "data1.txt.gz",
-		srcStream:         initStr,
-		overwrite:         true,
-		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
-		},
-		encryptionMaterial: &encMat,
-		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
-			return nil, &smithy.GenericAPIError{
-				Code:    strconv.Itoa(-1),
-				Message: "mock err, connection aborted",
-			}
-		}),
-		sfa: &snowflakeFileTransferAgent{
-			sc: &snowflakeConn{
-				cfg: &Config{},
-			},
-		},
-	}
-
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
-	var apiErr *smithy.GenericAPIError
-	ok := errors.As(err, &apiErr)
-
-	assertTrueF(t, ok, "should have raised generic api error")
-	assertTrueF(t, uploadMeta.dataEncrypted, "stream should be encrypted")
-
-	encStr := uploadMeta.realSrcStream
-
-	assertNotEqualF(t, encStr, initStr, "initial stream should be different than encrypted stream")
-
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
-	ok = errors.As(err, &apiErr)
-
-	assertTrueF(t, ok, "should have raised generic api error")
-	assertEqualF(t, uploadMeta.realSrcStream, encStr, "stream should not have changed")
-}
-
-func TestNoEncryptWhenRetryFile(t *testing.T) {
-	info := execResponseStageInfo{
-		Location:     "sfc-teststage/rwyitestacco/users/1234/",
-		LocationType: "S3",
-	}
-	encMat := snowflakeFileEncryption{
-		QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==",
-		QueryID:             "01abc874-0406-1bf0-0000-53b10668e056",
-		SMKID:               92019681909886,
-	}
-	dir, err := os.Getwd()
-	srcF := path.Join(dir, "/test_data/put_get_1.txt")
-	assertNilF(t, err, "error getting current directory")
-	initialParallel := int64(100)
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
-
-	assertNilF(t, err, "error creating s3 client: %v")
-
-	uploadMeta := fileMetadata{
-		name:              "data1.txt.gz",
-		stageLocationType: "S3",
-		noSleepingTime:    true,
-		parallel:          initialParallel,
-		client:            s3Cli,
-		sha256Digest:      "123456789abcdef",
-		stageInfo:         &info,
-		dstFileName:       "data1.txt.gz",
-		srcFileName:       srcF,
-		realSrcFileName:   srcF,
-		overwrite:         true,
-		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
-		},
-		encryptionMaterial: &encMat,
-		mockUploader: mockUploadObjectAPI(func(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
-			return nil, &smithy.GenericAPIError{
-				Code:    strconv.Itoa(-1),
-				Message: "mock err, connection aborted",
-			}
-		}),
-		sfa: &snowflakeFileTransferAgent{
-			sc: &snowflakeConn{
-				cfg: &Config{},
-			},
-		},
-	}
-
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
-	var apiErr *smithy.GenericAPIError
-	ok := errors.As(err, &apiErr)
-
-	assertTrueF(t, ok, "should have raised generic api error")
-	assertTrueF(t, uploadMeta.dataEncrypted, "file should be encrypted")
-
-	encFile := uploadMeta.realSrcFileName
-
-	assertNotEqualF(t, encFile, srcF, "initial file name should be different than encrypted file name")
-
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
-	ok = errors.As(err, &apiErr)
-
-	assertTrueF(t, ok, "should have raised generic api error")
-	assertEqualF(t, uploadMeta.realSrcFileName, encFile, "file should not have changed")
 }

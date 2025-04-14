@@ -156,8 +156,6 @@ type fileMetadata struct {
 	srcStream     *bytes.Buffer
 	realSrcStream *bytes.Buffer
 
-	dataEncrypted bool
-
 	/* streaming GET */
 	dstStream *bytes.Buffer
 

@@ -889,8 +889,10 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 		return meta, err
 	}
 
+	encryptMeta, err := encryptDataIfRequired(meta, sfa.stageLocationType)
+
 	client := sfa.getStorageClient(sfa.stageLocationType)
-	if err = client.uploadOneFileWithRetry(meta); err != nil {
+	if err = client.uploadOneFileWithRetry(meta, encryptMeta); err != nil {
 		return meta, err
 	}
 	return meta, nil
@@ -1225,4 +1227,33 @@ func (spp *snowflakeProgressPercentage) updateProgress(filename string, startTim
 		}
 	}
 	return progress == 1.0
+}
+
+func encryptDataIfRequired(meta *fileMetadata, ct cloudType) (*encryptMetadata, error) {
+	var encryptMeta *encryptMetadata
+
+	if ct != local && meta.encryptionMaterial != nil {
+		var err error
+		if meta.srcStream != nil {
+			var encryptedStream bytes.Buffer
+			srcStream := meta.srcStream
+			if meta.realSrcStream != nil {
+				srcStream = meta.realSrcStream
+			}
+			encryptMeta, err = encryptStreamCBC(meta.encryptionMaterial, srcStream, &encryptedStream, 0)
+			if err != nil {
+				return nil, err
+			}
+			meta.realSrcStream = &encryptedStream
+		} else {
+			var dataFile string
+			encryptMeta, dataFile, err = encryptFileCBC(meta.encryptionMaterial, meta.realSrcFileName, 0, meta.tmpDir)
+			if err != nil {
+				return nil, err
+			}
+			meta.realSrcFileName = dataFile
+		}
+	}
+
+	return encryptMeta, nil
 }
