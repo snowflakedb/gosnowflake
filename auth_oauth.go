@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+	"html"
 	"io"
 	"net"
 	"net/http"
@@ -190,7 +191,7 @@ func (oauthClient *oauthClient) exchangeAccessToken(codeReq *http.Request, state
 	if errorMsg != "" {
 		errorDesc := queryParams.Get("error_description")
 		errMsg := fmt.Sprintf("error while getting authentication from oauth: %v. Details: %v", errorMsg, errorDesc)
-		responseBodyChan <- errMsg
+		responseBodyChan <- html.EscapeString(errMsg)
 		return nil, errors.New(errMsg)
 	}
 
