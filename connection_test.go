@@ -15,6 +15,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/sdk/trace"
 )
 
 const (
@@ -269,6 +272,56 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 		false /* describeOnly */, nil); err != nil {
 		t.Fatalf("err: %v", err)
 	}
+}
+
+func TestExecContextPropagationIntegrationTest(t *testing.T) {
+	tp := trace.NewTracerProvider()
+	otel.SetTracerProvider(tp)
+
+	tracer := otel.Tracer("TestExecContextPropagationTracer")
+
+	ctx, span := tracer.Start(context.Background(), "my-test-span")
+	defer span.End()
+
+	traceId := span.SpanContext().TraceID().String()
+	spanId := span.SpanContext().SpanID().String()
+
+	// expected header values
+	expectedTraceparent := fmt.Sprintf("00-%s-%s-01", traceId, spanId)
+
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
+		_ *url.Values, headers map[string]string, _ []byte, _ time.Duration,
+		_ UUID, _ *Config) (*execResponse, error) {
+
+		// ensure the traceID and spanID from the ctx passed in has been injected into the headers
+		// in W3 Trace Context format
+		if headers["traceparent"] != expectedTraceparent {
+			t.Fatalf("traceparent doesn't match. expected: %v, got: %v", expectedTraceparent, headers["traceparent"])
+		}
+
+		dd := &execResponseData{}
+		return &execResponse{
+			Data:    *dd,
+			Message: "",
+			Code:    "0",
+			Success: true,
+		}, nil
+	}
+
+	sr := &snowflakeRestful{
+		FuncPostQuery: postQueryMock,
+	}
+
+	sc := &snowflakeConn{
+		cfg:               &Config{Params: map[string]*string{}},
+		rest:              sr,
+		queryContextCache: (&queryContextCache{}).init(),
+	}
+	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
+		false /* describeOnly */, nil); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
 }
 
 // TestServiceName tests two things:
