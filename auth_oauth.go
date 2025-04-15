@@ -162,11 +162,12 @@ func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode() oauthBr
 		responseBodyChan <- err.Error()
 		return oauthBrowserResult{"", err}
 	}
-
+	logger.Debugf("Received authorization code from %v", oauthClient.authorizationURL())
 	tokenResponse, err := oauthClient.exchangeAccessToken(codeReq, state, oauth2cfg, codeVerifier, responseBodyChan)
 	if err != nil {
 		return oauthBrowserResult{"", err}
 	}
+	logger.Debugf("Received token from %v", oauthClient.tokenURL())
 	if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
 		logger.Debug("saving oauth access token in cache")
 		credentialsStorage.setCredential(oauthClient.accessTokenSpec(), tokenResponse.AccessToken)
