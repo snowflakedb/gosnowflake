@@ -17,7 +17,7 @@ const (
 // implemented by localUtil and remoteStorageUtil
 type storageUtil interface {
 	createClient(*execResponseStageInfo, bool, *Config) (cloudClient, error)
-	uploadOneFileWithRetry(*fileMetadata, *encryptMetadata) error
+	uploadOneFileWithRetry(*fileMetadata) error
 	downloadOneFile(*fileMetadata) error
 }
 
@@ -25,7 +25,7 @@ type storageUtil interface {
 type cloudUtil interface {
 	createClient(*execResponseStageInfo, bool) (cloudClient, error)
 	getFileHeader(*fileMetadata, string) (*fileHeader, error)
-	uploadFile(string, *fileMetadata, *encryptMetadata, int, int64) error
+	uploadFile(string, *fileMetadata, int, int64) error
 	nativeDownloadFile(*fileMetadata, string, int64) error
 }
 
@@ -58,7 +58,7 @@ func (rsu *remoteStorageUtil) createClient(info *execResponseStageInfo, useAccel
 	return utilClass.createClient(info, useAccelerateEndpoint)
 }
 
-func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata, encryptMeta *encryptMetadata) error {
+func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType, meta.sfa.sc.cfg)
 	maxConcurrency := int(meta.parallel)
 	var lastErr error
@@ -67,7 +67,7 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata, encryptMeta *enc
 		if !meta.overwrite {
 			header, err := utilClass.getFileHeader(meta, meta.dstFileName)
 			if meta.resStatus == notFoundFile {
-				err := utilClass.uploadFile(meta.realSrcFileName, meta, encryptMeta, maxConcurrency, meta.options.MultiPartThreshold)
+				err := utilClass.uploadFile(meta.realSrcFileName, meta, maxConcurrency, meta.options.MultiPartThreshold)
 				if err != nil {
 					logger.Warnf("Error uploading %v. err: %v", meta.realSrcFileName, err)
 				}
@@ -81,7 +81,7 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata, encryptMeta *enc
 			}
 		}
 		if meta.overwrite || meta.resStatus == notFoundFile {
-			err := utilClass.uploadFile(meta.realSrcFileName, meta, encryptMeta, maxConcurrency, meta.options.MultiPartThreshold)
+			err := utilClass.uploadFile(meta.realSrcFileName, meta, maxConcurrency, meta.options.MultiPartThreshold)
 			if err != nil {
 				logger.Debugf("Error uploading %v. err: %v", meta.realSrcFileName, err)
 			}
@@ -111,12 +111,12 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata, encryptMeta *enc
 	return fmt.Errorf("unkown error uploading %v", meta.realSrcFileName)
 }
 
-func (rsu *remoteStorageUtil) uploadOneFileWithRetry(meta *fileMetadata, encryptMeta *encryptMetadata) error {
+func (rsu *remoteStorageUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType, rsu.cfg)
 	retryOuter := true
 	for i := 0; i < 10; i++ {
 		// retry
-		if err := rsu.uploadOneFile(meta, encryptMeta); err != nil {
+		if err := rsu.uploadOneFile(meta); err != nil {
 			return err
 		}
 		retryInner := true

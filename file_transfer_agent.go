@@ -865,37 +865,23 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	defer os.RemoveAll(tmpDir) // cleanup
 
 	fileUtil := new(snowflakeFileUtil)
-	if meta.requireCompress {
-		if meta.srcStream != nil {
-			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(&meta.srcStream)
-		} else {
-			meta.realSrcFileName, _, err = fileUtil.compressFileWithGzip(meta.srcFileName, tmpDir)
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if meta.srcStream != nil {
-		if meta.realSrcStream != nil {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
-		} else {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
-		}
-	} else {
-		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)
-	}
+	err = compressDataIfRequired(meta, fileUtil, tmpDir)
 	if err != nil {
 		return meta, err
 	}
 
-	encryptMeta, err := encryptDataIfRequired(meta, sfa.stageLocationType)
+	err = updateUploadSize(meta, fileUtil)
+	if err != nil {
+		return meta, err
+	}
+
+	err = encryptDataIfRequired(meta, sfa.stageLocationType)
 	if err != nil {
 		return meta, err
 	}
 
 	client := sfa.getStorageClient(sfa.stageLocationType)
-	if err = client.uploadOneFileWithRetry(meta, encryptMeta); err != nil {
+	if err = client.uploadOneFileWithRetry(meta); err != nil {
 		return meta, err
 	}
 	return meta, nil
@@ -1232,9 +1218,33 @@ func (spp *snowflakeProgressPercentage) updateProgress(filename string, startTim
 	return progress == 1.0
 }
 
-func encryptDataIfRequired(meta *fileMetadata, ct cloudType) (*encryptMetadata, error) {
-	var encryptMeta *encryptMetadata
+func compressDataIfRequired(meta *fileMetadata, fileUtil *snowflakeFileUtil, tmpDir string) error {
+	var err error
+	if meta.requireCompress {
+		if meta.srcStream != nil {
+			meta.realSrcStream, _, err = fileUtil.compressFileWithGzipFromStream(&meta.srcStream)
+		} else {
+			meta.realSrcFileName, _, err = fileUtil.compressFileWithGzip(meta.srcFileName, tmpDir)
+		}
+	}
+	return err
+}
 
+func updateUploadSize(meta *fileMetadata, fileUtil *snowflakeFileUtil) error {
+	var err error
+	if meta.srcStream != nil {
+		if meta.realSrcStream != nil {
+			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
+		} else {
+			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
+		}
+	} else {
+		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)
+	}
+	return err
+}
+
+func encryptDataIfRequired(meta *fileMetadata, ct cloudType) error {
 	if ct != local && meta.encryptionMaterial != nil {
 		var err error
 		if meta.srcStream != nil {
@@ -1243,20 +1253,20 @@ func encryptDataIfRequired(meta *fileMetadata, ct cloudType) (*encryptMetadata, 
 			if meta.realSrcStream != nil {
 				srcStream = meta.realSrcStream
 			}
-			encryptMeta, err = encryptStreamCBC(meta.encryptionMaterial, srcStream, &encryptedStream, 0)
+			meta.encryptMeta, err = encryptStreamCBC(meta.encryptionMaterial, srcStream, &encryptedStream, 0)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			meta.realSrcStream = &encryptedStream
 		} else {
 			var dataFile string
-			encryptMeta, dataFile, err = encryptFileCBC(meta.encryptionMaterial, meta.realSrcFileName, 0, meta.tmpDir)
+			meta.encryptMeta, dataFile, err = encryptFileCBC(meta.encryptionMaterial, meta.realSrcFileName, 0, meta.tmpDir)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			meta.realSrcFileName = dataFile
 		}
 	}
 
-	return encryptMeta, nil
+	return nil
 }

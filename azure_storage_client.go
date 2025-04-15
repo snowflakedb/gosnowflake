@@ -143,25 +143,24 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 func (util *snowflakeAzureClient) uploadFile(
 	dataFile string,
 	meta *fileMetadata,
-	encryptMeta *encryptMetadata,
 	maxConcurrency int,
 	multiPartThreshold int64) error {
 	azureMeta := map[string]*string{
 		"sfcdigest": &meta.sha256Digest,
 	}
-	if encryptMeta != nil {
+	if meta.encryptMeta != nil {
 		ed := &encryptionData{
 			EncryptionMode: "FullBlob",
 			WrappedContentKey: contentKey{
 				"symmKey1",
-				encryptMeta.key,
+				meta.encryptMeta.key,
 				"AES_CBC_256",
 			},
 			EncryptionAgent: encryptionAgent{
 				"1.0",
 				"AES_CBC_128",
 			},
-			ContentEncryptionIV: encryptMeta.iv,
+			ContentEncryptionIV: meta.encryptMeta.iv,
 			KeyWrappingMetadata: keyMetadata{
 				"Java 5.3.0",
 			},
@@ -172,7 +171,7 @@ func (util *snowflakeAzureClient) uploadFile(
 		}
 		encryptionMetadata := string(metadata)
 		azureMeta["encryptiondata"] = &encryptionMetadata
-		azureMeta["matdesc"] = &encryptMeta.matdesc
+		azureMeta["matdesc"] = &meta.encryptMeta.matdesc
 	}
 
 	azureLoc, err := util.extractContainerNameAndPath(meta.stageInfo.Location)

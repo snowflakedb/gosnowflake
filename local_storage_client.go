@@ -17,7 +17,7 @@ func (util *localUtil) createClient(_ *execResponseStageInfo, _ bool, _ *Config)
 	return nil, nil
 }
 
-func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata, _ *encryptMetadata) error {
+func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 	var frd *bufio.Reader
 	if meta.srcStream != nil {
 		b := meta.srcStream

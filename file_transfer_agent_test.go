@@ -1110,13 +1110,13 @@ func TestEncryptStream(t *testing.T) {
 			}
 
 			t.Run(string(tc.ct)+" "+strconv.FormatBool(tc.encrypt), func(t *testing.T) {
-				encryptMeta, err := encryptDataIfRequired(&uploadMeta, tc.ct)
+				err := encryptDataIfRequired(&uploadMeta, tc.ct)
 				assertNilF(t, err)
 				if tc.encrypt {
-					assertNotNilF(t, encryptMeta, "encryption metadata should be present")
+					assertNotNilF(t, uploadMeta.encryptMeta, "encryption metadata should be present")
 					assertNotEqualF(t, uploadMeta.realSrcStream, initStr, "stream should be encrypted")
 				} else {
-					assertNilF(t, encryptMeta, "encryption metadata should be empty")
+					assertNilF(t, uploadMeta.encryptMeta, "encryption metadata should be empty")
 					assertEqualF(t, uploadMeta.realSrcStream, initStr, "stream should not be encrypted")
 				}
 			})
@@ -1174,13 +1174,13 @@ func TestEncryptFile(t *testing.T) {
 			}
 
 			t.Run(string(tc.ct)+" "+strconv.FormatBool(tc.encrypt), func(t *testing.T) {
-				encryptMeta, err := encryptDataIfRequired(&uploadMeta, tc.ct)
+				err := encryptDataIfRequired(&uploadMeta, tc.ct)
 				assertNilF(t, err)
 				if tc.encrypt {
-					assertNotNilF(t, encryptMeta, "encryption metadata should be present")
+					assertNotNilF(t, uploadMeta.encryptMeta, "encryption metadata should be present")
 					assertNotEqualF(t, uploadMeta.realSrcFileName, srcF, "file should be encrypted")
 				} else {
-					assertNilF(t, encryptMeta, "encryption metadata should be empty")
+					assertNilF(t, uploadMeta.encryptMeta, "encryption metadata should be empty")
 					assertEqualF(t, uploadMeta.realSrcFileName, srcF, "file should not be encrypted")
 				}
 			})

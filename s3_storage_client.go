@@ -176,17 +176,16 @@ type s3UploadAPI interface {
 func (util *snowflakeS3Client) uploadFile(
 	dataFile string,
 	meta *fileMetadata,
-	encryptMeta *encryptMetadata,
 	maxConcurrency int,
 	multiPartThreshold int64) error {
 	s3Meta := map[string]string{
 		httpHeaderContentType: httpHeaderValueOctetStream,
 		sfcDigest:             meta.sha256Digest,
 	}
-	if encryptMeta != nil {
-		s3Meta[amzIv] = encryptMeta.iv
-		s3Meta[amzKey] = encryptMeta.key
-		s3Meta[amzMatdesc] = encryptMeta.matdesc
+	if meta.encryptMeta != nil {
+		s3Meta[amzIv] = meta.encryptMeta.iv
+		s3Meta[amzKey] = meta.encryptMeta.key
+		s3Meta[amzMatdesc] = meta.encryptMeta.matdesc
 	}
 
 	s3loc, err := util.extractBucketNameAndPath(meta.stageInfo.Location)

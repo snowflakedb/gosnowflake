@@ -56,7 +56,7 @@ func TestLocalUpload(t *testing.T) {
 		},
 	}
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta, nil)
+	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -65,7 +65,7 @@ func TestLocalUpload(t *testing.T) {
 	}
 
 	uploadMeta.overwrite = false
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta, nil)
+	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -77,7 +77,7 @@ func TestLocalUpload(t *testing.T) {
 	uploadMeta.srcStream, err = getFileStream(ctx)
 	assertNilF(t, err)
 
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta, nil)
+	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -85,7 +85,7 @@ func TestLocalUpload(t *testing.T) {
 		t.Fatalf("overwrite is false. should have skipped")
 	}
 	uploadMeta.overwrite = true
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta, nil)
+	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -94,7 +94,7 @@ func TestLocalUpload(t *testing.T) {
 	}
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta, nil)
+	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}

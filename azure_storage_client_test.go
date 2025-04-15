@@ -165,6 +165,7 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
 		encryptionMaterial: &encMat,
+		encryptMeta:        getEncryptionMetadata(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -189,7 +190,7 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -223,6 +224,7 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 		dstFileName:        "data1.txt.gz",
 		srcStream:          bytes.NewBuffer(src),
 		encryptionMaterial: &encMat,
+		encryptMeta:        getEncryptionMetadata(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -242,7 +244,7 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -285,6 +287,7 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
+		encryptMeta:        getEncryptionMetadata(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -313,7 +316,7 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -361,6 +364,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
+		encryptMeta:        getEncryptionMetadata(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -389,7 +393,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
 	if err == nil {
 		t.Fatal("should have raised an error")
 	}
@@ -569,6 +573,7 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
+		encryptMeta:       getEncryptionMetadata(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -587,7 +592,7 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta, getEncryptionMetadata())
+	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
