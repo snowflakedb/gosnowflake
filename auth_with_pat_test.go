@@ -17,22 +17,22 @@ type PatToken struct {
 func TestRealPatSuccessful(t *testing.T) {
 	cfg := setupRealPatTest(t)
 	patToken := createRealPatToken(t)
+	defer removeRealPatToken(t, patToken.Name)
 	cfg.Token = patToken.Value
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
-	defer removeRealPatToken(t, patToken.Name)
 }
 
 func TestRealPatMismatchedUser(t *testing.T) {
 	cfg := setupRealPatTest(t)
 	patToken := createRealPatToken(t)
+	defer removeRealPatToken(t, patToken.Name)
 	cfg.Token = patToken.Value
 	cfg.User = "invalidUser"
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	var snowflakeErr *SnowflakeError
 	assertTrueF(t, errors.As(err, &snowflakeErr))
 	assertEqualE(t, snowflakeErr.Number, 394400, fmt.Sprintf("Expected 394400, but got %v", snowflakeErr.Number))
-	defer removeRealPatToken(t, patToken.Name)
 }
 
 func TestRealPatInvalidToken(t *testing.T) {
