@@ -18,4 +18,4 @@ go test -run TestClientStoreCredentials
 go test -run TestOkta*
 go test -run TestOauth*
 go test -run TestKeypair*
-go test -run TestRealPat*
+go test -run TestEndToEndPat*

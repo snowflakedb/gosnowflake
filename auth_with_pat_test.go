@@ -14,19 +14,19 @@ type PatToken struct {
 	Value string
 }
 
-func TestRealPatSuccessful(t *testing.T) {
-	cfg := setupRealPatTest(t)
-	patToken := createRealPatToken(t)
-	defer removeRealPatToken(t, patToken.Name)
+func TestEndToEndPatSuccessful(t *testing.T) {
+	cfg := setupEndToEndPatTest(t)
+	patToken := createEndToEndPatToken(t)
+	defer removeEndToEndPatToken(t, patToken.Name)
 	cfg.Token = patToken.Value
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
-func TestRealPatMismatchedUser(t *testing.T) {
-	cfg := setupRealPatTest(t)
-	patToken := createRealPatToken(t)
-	defer removeRealPatToken(t, patToken.Name)
+func TestEndToEndPatMismatchedUser(t *testing.T) {
+	cfg := setupEndToEndPatTest(t)
+	patToken := createEndToEndPatToken(t)
+	defer removeEndToEndPatToken(t, patToken.Name)
 	cfg.Token = patToken.Value
 	cfg.User = "invalidUser"
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
@@ -35,8 +35,8 @@ func TestRealPatMismatchedUser(t *testing.T) {
 	assertEqualE(t, snowflakeErr.Number, 394400, fmt.Sprintf("Expected 394400, but got %v", snowflakeErr.Number))
 }
 
-func TestRealPatInvalidToken(t *testing.T) {
-	cfg := setupRealPatTest(t)
+func TestEndToEndPatInvalidToken(t *testing.T) {
+	cfg := setupEndToEndPatTest(t)
 	cfg.Token = "invalidToken"
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	var snowflakeErr *SnowflakeError
@@ -44,7 +44,7 @@ func TestRealPatInvalidToken(t *testing.T) {
 	assertEqualE(t, snowflakeErr.Number, 394400, fmt.Sprintf("Expected 394400, but got %v", snowflakeErr.Number))
 }
 
-func setupRealPatTest(t *testing.T) *Config {
+func setupEndToEndPatTest(t *testing.T) *Config {
 	skipAuthTests(t, "Skipping PAT tests")
 	cfg, err := getAuthTestsConfig(t, AuthTypePat)
 	assertNilF(t, err, fmt.Sprintf("failed to parse: %v", err))
@@ -53,18 +53,18 @@ func setupRealPatTest(t *testing.T) *Config {
 
 }
 
-func getRealPatSetupCommandVariables() (*Config, error) {
+func getEndToEndPatSetupCommandVariables() (*Config, error) {
 	return GetConfigFromEnv([]*ConfigParam{
 		{Name: "User", EnvName: "SNOWFLAKE_AUTH_TEST_SNOWFLAKE_USER", FailOnMissing: true},
 		{Name: "Role", EnvName: "SNOWFLAKE_AUTH_TEST_INTERNAL_OAUTH_SNOWFLAKE_ROLE", FailOnMissing: true},
 	})
 }
 
-func createRealPatToken(t *testing.T) *PatToken {
+func createEndToEndPatToken(t *testing.T) *PatToken {
 	cfg := setupOktaTest(t)
 	patTokenName := fmt.Sprintf("PAT_GOLANG_%s", time.Now().Format("20060102150405"))
 
-	patCommandVariables, err := getRealPatSetupCommandVariables()
+	patCommandVariables, err := getEndToEndPatSetupCommandVariables()
 	assertNilE(t, err, "failed to get PAT command variables")
 
 	query := fmt.Sprintf(
@@ -81,10 +81,10 @@ func createRealPatToken(t *testing.T) *PatToken {
 
 }
 
-func removeRealPatToken(t *testing.T, patTokenName string) {
+func removeEndToEndPatToken(t *testing.T, patTokenName string) {
 	cfg := setupOktaTest(t)
 	cfg.Role = "analyst"
-	patCommandVariables, err := getRealPatSetupCommandVariables()
+	patCommandVariables, err := getEndToEndPatSetupCommandVariables()
 	assertNilE(t, err, "failed to get PAT command variables")
 
 	query := fmt.Sprintf(
