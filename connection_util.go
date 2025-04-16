@@ -93,6 +93,9 @@ func (sc *snowflakeConn) processFileTransfer(
 	options := &SnowflakeFileTransferOptions{
 		RaisePutGetError: true,
 	}
+	var err error
+	var fs *bytes.Buffer
+
 	sfa := snowflakeFileTransferAgent{
 		ctx:          ctx,
 		sc:           sc,
@@ -101,7 +104,17 @@ func (sc *snowflakeConn) processFileTransfer(
 		options:      options,
 		streamBuffer: new(bytes.Buffer),
 	}
-	fs, err := getFileStream(ctx)
+	if op := getFileTransferOptions(ctx); op != nil {
+		sfa.options = op
+	}
+	if sfa.options.MultiPartThreshold == 0 {
+		sfa.options.MultiPartThreshold = dataSizeThreshold
+	}
+	if sfa.options.arrayBindFromStream {
+		fs, err = getFileStreamAll(ctx)
+	} else {
+		fs, err = getFileStream(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -111,13 +124,7 @@ func (sc *snowflakeConn) processFileTransfer(
 			sfa.data.AutoCompress = false
 		}
 	}
-	if op := getFileTransferOptions(ctx); op != nil {
-		sfa.options = op
-	}
-	if sfa.options.MultiPartThreshold == 0 {
-		sfa.options.MultiPartThreshold = dataSizeThreshold
-	}
-	if err := sfa.execute(); err != nil {
+	if err = sfa.execute(); err != nil {
 		return nil, err
 	}
 	data, err = sfa.result()
@@ -132,18 +139,48 @@ func (sc *snowflakeConn) processFileTransfer(
 	return data, nil
 }
 
-func getFileStream(ctx context.Context) (*bytes.Buffer, error) {
+func getReaderFromContext(ctx context.Context) io.Reader {
 	s := ctx.Value(fileStreamFile)
-	if s == nil {
-		return nil, nil
-	}
 	r, ok := s.(io.Reader)
 	if !ok {
-		return nil, errors.New("incorrect io.Reader")
+		return nil
 	}
+	return r
+}
+
+func getFileStreamAll(ctx context.Context) (*bytes.Buffer, error) {
+	r := getReaderFromContext(ctx)
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r)
 	return buf, err
+}
+
+func getFileStream(ctx context.Context) (*bytes.Buffer, error) {
+	r := getReaderFromContext(ctx)
+	if r == nil {
+		return nil, nil
+	}
+
+	// read a small amount of data to check if file stream will be used
+	buf := make([]byte, fileChunkSize)
+	n, err := r.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	// reset the position of reader
+	seeker, ok := r.(io.Seeker)
+	if !ok {
+		return nil, errors.New("failed to reset the position of the reader")
+	}
+	if seeker != nil {
+		_, err = seeker.Seek(0, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return bytes.NewBuffer(buf[:n]), nil
 }
 
 func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
