@@ -219,7 +219,7 @@ func TestParseToml(t *testing.T) {
 		},
 		{
 			testParams: []string{"ocspFailOpen", "insecureMode", "PasscodeInPassword", "validateDEFAULTParameters", "clientRequestMFAtoken",
-				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck"},
+				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck", "gcsUseVirtualEndPoint"},
 			values: []interface{}{true, "true", false, "false"},
 		},
 	}
@@ -254,7 +254,7 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 		},
 		{
 			testParams: []string{"ocspFailOpen", "insecureMode", "PasscodeInPassword", "validateDEFAULTParameters", "clientRequestMFAtoken",
-				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck"},
+				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck", "gcsUseVirtualEndPoint"},
 			values: []interface{}{"wrong_value", 1},
 		},
 	}

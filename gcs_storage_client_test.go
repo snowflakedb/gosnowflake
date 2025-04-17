@@ -1131,7 +1131,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 	testcases := []struct {
 		desc               string
 		in                 execResponseStageInfo
-		useVirtualEndPoint ConfigBool
+		useVirtualEndPoint bool
 		out                string
 	}{
 		{
@@ -1141,7 +1141,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "WEST-1",
 			},
-			useVirtualEndPoint: ConfigBoolFalse,
+			useVirtualEndPoint: false,
 			out:                "https://storage.googleapis.com",
 		},
 		{
@@ -1151,7 +1151,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "mockLocation",
 			},
-			useVirtualEndPoint: ConfigBoolFalse,
+			useVirtualEndPoint: false,
 			out:                "https://storage.mocklocation.rep.googleapis.com",
 		},
 		{
@@ -1161,7 +1161,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "me-central2",
 			},
-			useVirtualEndPoint: ConfigBoolFalse,
+			useVirtualEndPoint: false,
 			out:                "https://storage.me-central2.rep.googleapis.com",
 		},
 		{
@@ -1171,7 +1171,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "ME-cEntRal2",
 			},
-			useVirtualEndPoint: ConfigBoolFalse,
+			useVirtualEndPoint: false,
 			out:                "https://storage.me-central2.rep.googleapis.com",
 		},
 		{
@@ -1181,7 +1181,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "ME-CENTRAL2",
 			},
-			useVirtualEndPoint: ConfigBoolFalse,
+			useVirtualEndPoint: false,
 			out:                "https://storage.me-central2.rep.googleapis.com",
 		},
 		{
@@ -1191,7 +1191,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-cEntRal1",
 			},
-			useVirtualEndPoint: ConfigBoolFalse,
+			useVirtualEndPoint: false,
 			out:                "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 		{
@@ -1201,7 +1201,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-cEntRal1",
 			},
-			useVirtualEndPoint: ConfigBoolFalse,
+			useVirtualEndPoint: false,
 			out:                "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 		{
@@ -1211,7 +1211,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-CENTRAL2",
 			},
-			useVirtualEndPoint: ConfigBoolFalse,
+			useVirtualEndPoint: false,
 			out:                "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 		{
@@ -1222,7 +1222,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "WEST-1",
 			},
-			useVirtualEndPoint: ConfigBoolTrue,
+			useVirtualEndPoint: true,
 			out:                "https://my-travel-maps.storage.googleapis.com",
 		},
 		{
@@ -1233,7 +1233,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "ME-CENTRAL2",
 			},
-			useVirtualEndPoint: ConfigBoolTrue,
+			useVirtualEndPoint: true,
 			out:                "https://my-travel-maps.storage.googleapis.com",
 		},
 		{
@@ -1244,7 +1244,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-CENTRAL2",
 			},
-			useVirtualEndPoint: ConfigBoolTrue,
+			useVirtualEndPoint: true,
 			out:                "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 	}
