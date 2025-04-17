@@ -97,8 +97,18 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 	logger.Debugf("Access token not present in cache, running full auth code flow")
 
 	resultChan := make(chan oauthBrowserResult, 1)
+	tcpListener, callbackPort, err := oauthClient.setupListener()
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		logger.Debug("Closing tcp listener")
+		if err := tcpListener.Close(); err != nil {
+			logger.Warnf("error while closing TCP listener. %v", err)
+		}
+	}()
 	go GoroutineWrapper(oauthClient.ctx, func() {
-		resultChan <- oauthClient.doAuthenticateByOAuthAuthorizationCode()
+		resultChan <- oauthClient.doAuthenticateByOAuthAuthorizationCode(tcpListener, callbackPort)
 	})
 	select {
 	case <-time.After(oauthClient.cfg.ExternalBrowserTimeout):
@@ -108,7 +118,7 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 	}
 }
 
-func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode() oauthBrowserResult {
+func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode(tcpListener *net.TCPListener, callbackPort int) oauthBrowserResult {
 	authCodeProvider := oauthClient.authorizationCodeProviderFactory()
 
 	successChan := make(chan []byte)
@@ -124,18 +134,9 @@ func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode() oauthBr
 		close(closeListenerChan)
 	}()
 
-	logger.Debug("setting up TCP listener for authorization code redirect")
-	tcpListener, callbackPort, err := oauthClient.setupListener()
-	if err != nil {
-		return oauthBrowserResult{"", err}
-	}
 	logger.Debugf("opening socket on port %v", callbackPort)
 	defer func(tcpListener *net.TCPListener) {
 		<-closeListenerChan
-		logger.Debug("closing tcp listener")
-		if err := tcpListener.Close(); err != nil {
-			logger.Warnf("error while closing TCP listener. %v", err)
-		}
 	}(tcpListener)
 
 	go handleOAuthSocket(tcpListener, successChan, errChan, responseBodyChan, closeListenerChan)
@@ -144,13 +145,13 @@ func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode() oauthBr
 	codeVerifier := authCodeProvider.createCodeVerifier()
 	state := authCodeProvider.createState()
 	authorizationURL := oauth2cfg.AuthCodeURL(state, oauth2.S256ChallengeOption(codeVerifier))
-	if err = authCodeProvider.run(authorizationURL); err != nil {
+	if err := authCodeProvider.run(authorizationURL); err != nil {
 		responseBodyChan <- err.Error()
 		closeListenerChan <- true
 		return oauthBrowserResult{"", err}
 	}
 
-	err = <-errChan
+	err := <-errChan
 	if err != nil {
 		responseBodyChan <- err.Error()
 		return oauthBrowserResult{"", err}
