@@ -1270,7 +1270,56 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.desc, func(t *testing.T) {
-			endpoint := getGcsCustomEndpoint(&test.in, test.useVirtualEndPoint)
+			endpoint := (&snowflakeGcsClient{cfg: &Config{GcsUseVirtualEndPoint: ConfigBoolFalse}}).getGcsCustomEndpoint(&test.in)
+			if endpoint != test.out {
+				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
+			}
+		})
+	}
+}
+
+func TestGetGcsCustomVirtualEndpoint(t *testing.T) {
+	testcases := []struct {
+		desc               string
+		in                 execResponseStageInfo
+		useVirtualEndPoint bool
+		out                string
+	}{
+		{
+			desc: "when only the useVirtualEndPoint is enabled",
+			in: execResponseStageInfo{
+				Location:       "my-travel-maps",
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "WEST-1",
+			},
+			out: "https://my-travel-maps.storage.googleapis.com",
+		},
+		{
+			desc: "when both the useRegionalURL and useVirtualEndPoint are enabled",
+			in: execResponseStageInfo{
+				Location:       "my-travel-maps",
+				UseRegionalURL: true,
+				EndPoint:       "",
+				Region:         "ME-CENTRAL2",
+			},
+			out: "https://my-travel-maps.storage.googleapis.com",
+		},
+		{
+			desc: "when all the options are enabled",
+			in: execResponseStageInfo{
+				Location:       "my-travel-maps",
+				UseRegionalURL: true,
+				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
+				Region:         "ME-CENTRAL2",
+			},
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.desc, func(t *testing.T) {
+			endpoint := (&snowflakeGcsClient{cfg: &Config{GcsUseVirtualEndPoint: ConfigBoolTrue}}).getGcsCustomEndpoint(&test.in)
 			if endpoint != test.out {
 				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
 			}
