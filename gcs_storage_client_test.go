@@ -93,8 +93,7 @@ func TestIsTokenExpiredWith404(t *testing.T) {
 }
 
 func TestGenerateFileURL(t *testing.T) {
-	gcsUtil := new(snowflakeGcsClient)
-	gcsUtil.cfg = &Config{GcsUseVirtualEndPoint: ConfigBoolFalse}
+	gcsUtil := (&snowflakeGcsClient{cfg: &Config{GcsUseVirtualEndPoint: ConfigBoolFalse}})
 	testcases := []tcFileURL{
 		{"sfc-eng-regression/test_sub_dir/", "file1", "sfc-eng-regression", "test_sub_dir/file1"},
 		{"sfc-eng-regression/dir/test_stg/test_sub_dir/", "file2", "sfc-eng-regression", "dir/test_stg/test_sub_dir/file2"},
@@ -1123,7 +1122,7 @@ func Test_snowflakeGcsClient_uploadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := new(snowflakeGcsClient).uploadFile("somedata", &meta, nil, 1, 1)
+	err := (&snowflakeGcsClient{cfg: &Config{}}).uploadFile("somedata", &meta, nil, 1, 1)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -1141,7 +1140,7 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1)
+	err := (&snowflakeGcsClient{cfg: &Config{GcsUseVirtualEndPoint: ConfigBoolFalse}}).nativeDownloadFile(&meta, "dummy data", 1)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
