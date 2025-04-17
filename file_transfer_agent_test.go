@@ -1062,38 +1062,110 @@ func TestPutGetRegexShouldIgnoreWhitespaceAtTheBeginning(t *testing.T) {
 }
 
 func TestEncryptStream(t *testing.T) {
+	srcBytes := []byte{63, 64, 65}
+	initStr := bytes.NewBuffer(srcBytes)
+
 	for _, tc := range []struct {
-		ct      cloudType
-		encrypt bool
+		ct            cloudType
+		encrypt       bool
+		realSrcStream bool
+		encryptMat    bool
 	}{
 		{
-			ct:      s3Client,
-			encrypt: true,
+			ct:            s3Client,
+			encrypt:       true,
+			realSrcStream: true,
+			encryptMat:    true,
 		},
 		{
-			ct:      azureClient,
-			encrypt: true,
+			ct:            s3Client,
+			encrypt:       true,
+			realSrcStream: false,
+			encryptMat:    true,
 		},
 		{
-			ct:      gcsClient,
-			encrypt: true,
+			ct:            s3Client,
+			encrypt:       false,
+			realSrcStream: false,
+			encryptMat:    false,
 		},
 		{
-			ct:      local,
-			encrypt: false,
+			ct:            azureClient,
+			encrypt:       true,
+			realSrcStream: true,
+			encryptMat:    true,
+		},
+		{
+			ct:            azureClient,
+			encrypt:       true,
+			realSrcStream: false,
+			encryptMat:    true,
+		},
+		{
+			ct:            azureClient,
+			encrypt:       false,
+			realSrcStream: false,
+			encryptMat:    false,
+		},
+		{
+			ct:            gcsClient,
+			encrypt:       true,
+			realSrcStream: true,
+			encryptMat:    true,
+		},
+		{
+			ct:            gcsClient,
+			encrypt:       true,
+			realSrcStream: false,
+			encryptMat:    true,
+		},
+		{
+			ct:            gcsClient,
+			encrypt:       false,
+			realSrcStream: false,
+			encryptMat:    false,
+		},
+		{
+			ct:            local,
+			encrypt:       false,
+			realSrcStream: true,
+			encryptMat:    true,
+		},
+		{
+			ct:            local,
+			encrypt:       false,
+			realSrcStream: true,
+			encryptMat:    false,
+		},
+		{
+			ct:            local,
+			encrypt:       false,
+			realSrcStream: false,
+			encryptMat:    true,
+		},
+		{
+			ct:            local,
+			encrypt:       false,
+			realSrcStream: false,
+			encryptMat:    false,
 		},
 	} {
 		{
-			srcBytes := []byte{63, 64, 65}
-			initStr := bytes.NewBuffer(srcBytes)
-			encMat := snowflakeFileEncryption{
-				QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==",
-				QueryID:             "01abc874-0406-1bf0-0000-53b10668e056",
-				SMKID:               92019681909886,
+			var encMat *snowflakeFileEncryption = nil
+			if tc.encryptMat {
+				encMat = &snowflakeFileEncryption{
+					QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==",
+					QueryID:             "01abc874-0406-1bf0-0000-53b10668e056",
+					SMKID:               92019681909886,
+				}
+			}
+			var realSrcStr *bytes.Buffer = nil
+			if tc.realSrcStream {
+				realSrcStr = initStr
 			}
 			uploadMeta := fileMetadata{
 				name:               "data1.txt.gz",
-				stageLocationType:  "S3",
+				stageLocationType:  tc.ct,
 				noSleepingTime:     true,
 				parallel:           int64(100),
 				client:             nil,
@@ -1101,23 +1173,27 @@ func TestEncryptStream(t *testing.T) {
 				stageInfo:          nil,
 				dstFileName:        "data1.txt.gz",
 				srcStream:          initStr,
-				realSrcStream:      initStr,
+				realSrcStream:      realSrcStr,
 				overwrite:          true,
 				options:            nil,
-				encryptionMaterial: &encMat,
+				encryptionMaterial: encMat,
 				mockUploader:       nil,
 				sfa:                nil,
 			}
 
-			t.Run(string(tc.ct)+" "+strconv.FormatBool(tc.encrypt), func(t *testing.T) {
+			t.Run(string(tc.ct)+" encrypt "+strconv.FormatBool(tc.encrypt)+" realSrcStream "+strconv.FormatBool(tc.realSrcStream)+" encryptMat "+strconv.FormatBool(tc.encryptMat), func(t *testing.T) {
 				err := encryptDataIfRequired(&uploadMeta, tc.ct)
 				assertNilF(t, err)
 				if tc.encrypt {
 					assertNotNilF(t, uploadMeta.encryptMeta, "encryption metadata should be present")
-					assertNotEqualF(t, uploadMeta.realSrcStream, initStr, "stream should be encrypted")
+					if tc.realSrcStream {
+						assertNotEqualF(t, uploadMeta.realSrcStream, realSrcStr, "stream should be encrypted")
+					} else {
+						assertNotEqualF(t, uploadMeta.realSrcStream, initStr, "stream should not be encrypted")
+					}
 				} else {
 					assertNilF(t, uploadMeta.encryptMeta, "encryption metadata should be empty")
-					assertEqualF(t, uploadMeta.realSrcStream, initStr, "stream should not be encrypted")
+					assertEqualF(t, uploadMeta.realSrcStream, realSrcStr, "stream should not be encrypted")
 				}
 			})
 		}
@@ -1126,64 +1202,97 @@ func TestEncryptStream(t *testing.T) {
 
 func TestEncryptFile(t *testing.T) {
 	for _, tc := range []struct {
-		ct      cloudType
-		encrypt bool
+		ct         cloudType
+		encrypt    bool
+		encryptMat bool
 	}{
 		{
-			ct:      s3Client,
-			encrypt: true,
+			ct:         s3Client,
+			encrypt:    true,
+			encryptMat: true,
 		},
 		{
-			ct:      azureClient,
-			encrypt: true,
+			ct:         s3Client,
+			encrypt:    false,
+			encryptMat: false,
 		},
 		{
-			ct:      gcsClient,
-			encrypt: true,
+			ct:         azureClient,
+			encrypt:    true,
+			encryptMat: true,
 		},
 		{
-			ct:      local,
-			encrypt: false,
+			ct:         azureClient,
+			encrypt:    false,
+			encryptMat: false,
+		},
+		{
+			ct:         gcsClient,
+			encrypt:    true,
+			encryptMat: true,
+		},
+		{
+			ct:         gcsClient,
+			encrypt:    false,
+			encryptMat: false,
+		},
+		{
+			ct:         local,
+			encrypt:    false,
+			encryptMat: true,
+		},
+		{
+			ct:         local,
+			encrypt:    false,
+			encryptMat: false,
 		},
 	} {
-		{
-			dir, err := os.Getwd()
-			srcF := path.Join(dir, "/test_data/put_get_1.txt")
-			assertNilF(t, err, "error getting current directory")
-			encMat := snowflakeFileEncryption{
+		dir, err := os.Getwd()
+		srcF := path.Join(dir, "/test_data/put_get_1.txt")
+		assertNilF(t, err, "error getting current directory")
+
+		var encMat *snowflakeFileEncryption = nil
+		if tc.encryptMat {
+			encMat = &snowflakeFileEncryption{
 				QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==",
 				QueryID:             "01abc874-0406-1bf0-0000-53b10668e056",
 				SMKID:               92019681909886,
 			}
-			uploadMeta := fileMetadata{
-				name:               "data1.txt.gz",
-				stageLocationType:  "S3",
-				noSleepingTime:     true,
-				parallel:           int64(100),
-				client:             nil,
-				sha256Digest:       "123456789abcdef",
-				stageInfo:          nil,
-				dstFileName:        "data1.txt.gz",
-				srcFileName:        srcF,
-				realSrcFileName:    srcF,
-				overwrite:          true,
-				options:            nil,
-				encryptionMaterial: &encMat,
-				mockUploader:       nil,
-				sfa:                nil,
-			}
-
-			t.Run(string(tc.ct)+" "+strconv.FormatBool(tc.encrypt), func(t *testing.T) {
-				err := encryptDataIfRequired(&uploadMeta, tc.ct)
-				assertNilF(t, err)
-				if tc.encrypt {
-					assertNotNilF(t, uploadMeta.encryptMeta, "encryption metadata should be present")
-					assertNotEqualF(t, uploadMeta.realSrcFileName, srcF, "file should be encrypted")
-				} else {
-					assertNilF(t, uploadMeta.encryptMeta, "encryption metadata should be empty")
-					assertEqualF(t, uploadMeta.realSrcFileName, srcF, "file should not be encrypted")
-				}
-			})
 		}
+
+		uploadMeta := fileMetadata{
+			name:               "data1.txt.gz",
+			stageLocationType:  tc.ct,
+			noSleepingTime:     true,
+			parallel:           int64(100),
+			client:             nil,
+			sha256Digest:       "123456789abcdef",
+			stageInfo:          nil,
+			dstFileName:        "data1.txt.gz",
+			srcFileName:        srcF,
+			realSrcFileName:    srcF,
+			overwrite:          true,
+			options:            nil,
+			encryptionMaterial: encMat,
+			mockUploader:       nil,
+			sfa:                nil,
+		}
+
+		t.Run(string(tc.ct)+" encrypt "+strconv.FormatBool(tc.encrypt)+" encryptMat "+strconv.FormatBool(tc.encryptMat), func(t *testing.T) {
+			err := encryptDataIfRequired(&uploadMeta, tc.ct)
+			assertNilF(t, err)
+			if tc.encrypt {
+				assertNotNilF(t, uploadMeta.encryptMeta, "encryption metadata should be present")
+				assertNotEqualF(t, uploadMeta.realSrcFileName, srcF, "file should be encrypted")
+				srcBytes, err := os.ReadFile(srcF)
+				assertNilF(t, err)
+				encBytes, err := os.ReadFile(uploadMeta.realSrcFileName)
+				assertNilF(t, err)
+				assertFalseF(t, bytes.Equal(srcBytes, encBytes), "file contents should differ")
+			} else {
+				assertNilF(t, uploadMeta.encryptMeta, "encryption metadata should be empty")
+				assertEqualF(t, uploadMeta.realSrcFileName, srcF, "file should not be encrypted")
+			}
+		})
 	}
 }

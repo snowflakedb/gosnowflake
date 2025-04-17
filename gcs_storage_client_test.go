@@ -153,7 +153,7 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:        getEncryptionMetadata(),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -214,7 +214,7 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:        getEncryptionMetadata(),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,
@@ -282,7 +282,7 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -751,7 +751,7 @@ func TestUploadStreamFailed(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcStream:         bytes.NewBuffer(src),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -801,7 +801,7 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		lastError:         nil,
 		options: &SnowflakeFileTransferOptions{
@@ -959,7 +959,7 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:        getEncryptionMetadata(),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,

@@ -81,7 +81,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -158,7 +158,7 @@ func TestUploadOneFileToS3ConnReset(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -218,7 +218,7 @@ func TestUploadFileWithS3UploadFailedError(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -601,7 +601,7 @@ func TestUploadFileToS3ClientCastFail(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -682,7 +682,7 @@ func TestS3UploadRetryWithHeaderNotFound(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -744,7 +744,7 @@ func TestS3UploadStreamFailed(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcStream:         bytes.NewBuffer(src),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,

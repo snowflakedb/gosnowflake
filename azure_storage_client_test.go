@@ -165,7 +165,7 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
 		encryptionMaterial: &encMat,
-		encryptMeta:        getEncryptionMetadata(),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -224,7 +224,7 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 		dstFileName:        "data1.txt.gz",
 		srcStream:          bytes.NewBuffer(src),
 		encryptionMaterial: &encMat,
-		encryptMeta:        getEncryptionMetadata(),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -287,7 +287,7 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:        getEncryptionMetadata(),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -364,7 +364,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:        getEncryptionMetadata(),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -573,7 +573,7 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       getEncryptionMetadata(),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,

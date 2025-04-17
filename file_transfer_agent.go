@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
@@ -1233,11 +1234,8 @@ func compressDataIfRequired(meta *fileMetadata, fileUtil *snowflakeFileUtil, tmp
 func updateUploadSize(meta *fileMetadata, fileUtil *snowflakeFileUtil) error {
 	var err error
 	if meta.srcStream != nil {
-		if meta.realSrcStream != nil {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
-		} else {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
-		}
+		stream := cmp.Or(meta.realSrcStream, meta.srcStream)
+		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&stream)
 	} else {
 		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)
 	}
@@ -1249,10 +1247,7 @@ func encryptDataIfRequired(meta *fileMetadata, ct cloudType) error {
 		var err error
 		if meta.srcStream != nil {
 			var encryptedStream bytes.Buffer
-			srcStream := meta.srcStream
-			if meta.realSrcStream != nil {
-				srcStream = meta.realSrcStream
-			}
+			srcStream := cmp.Or(meta.realSrcStream, meta.srcStream)
 			meta.encryptMeta, err = encryptStreamCBC(meta.encryptionMaterial, srcStream, &encryptedStream, 0)
 			if err != nil {
 				return err

@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -212,10 +213,7 @@ func (util *snowflakeS3Client) uploadFile(
 
 	_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
 		if meta.srcStream != nil {
-			uploadStream := meta.srcStream
-			if meta.realSrcStream != nil {
-				uploadStream = meta.realSrcStream
-			}
+			uploadStream := cmp.Or(meta.realSrcStream, meta.srcStream)
 			return uploader.Upload(ctx, &s3.PutObjectInput{
 				Bucket:   &s3loc.bucketName,
 				Key:      &s3path,

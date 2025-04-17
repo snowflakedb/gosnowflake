@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -199,10 +200,7 @@ func (util *snowflakeAzureClient) uploadFile(
 		blobClient = meta.mockAzureClient
 	}
 	if meta.srcStream != nil {
-		uploadSrc := meta.srcStream
-		if meta.realSrcStream != nil {
-			uploadSrc = meta.realSrcStream
-		}
+		uploadSrc := cmp.Or(meta.realSrcStream, meta.srcStream)
 		_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (azblob.UploadStreamResponse, error) {
 			return blobClient.UploadStream(ctx, uploadSrc, &azblob.UploadStreamOptions{
 				BlockSize: int64(uploadSrc.Len()),
