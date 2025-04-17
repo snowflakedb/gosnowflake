@@ -134,6 +134,8 @@ The following connection parameters are supported:
 
   - disableSamlURLCheck: disables the SAML URL check. Default value is false.
 
+  - gcsUseVirtualEndPoint: When true, the virtual endpoint url is used, see: https://cloud.google.com/storage/docs/request-endpoints#xml-api.
+
 All other parameters are interpreted as session parameters (https://docs.snowflake.com/en/sql-reference/parameters.html).
 For example, the TIMESTAMP_OUTPUT_FORMAT session parameter can be set by adding:
 

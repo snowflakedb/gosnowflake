@@ -113,6 +113,8 @@ type Config struct {
 	DisableConsoleLogin ConfigBool // Indicates whether console login should be disabled
 
 	DisableSamlURLCheck ConfigBool // Indicates whether the SAML URL check should be disabled
+
+	GcsUseVirtualEndPoint ConfigBool // When true, the virtual endpoint url is used, see: https://cloud.google.com/storage/docs/request-endpoints#xml-api
 }
 
 // Validate enables testing if config is correct.
@@ -286,6 +288,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.DisableSamlURLCheck != configBoolNotSet {
 		params.Add("disableSamlURLCheck", strconv.FormatBool(cfg.DisableSamlURLCheck != ConfigBoolFalse))
+	}
+	if cfg.GcsUseVirtualEndPoint != configBoolNotSet {
+		params.Add("gcsUseVirtualEndPoint", strconv.FormatBool(cfg.GcsUseVirtualEndPoint != ConfigBoolFalse))
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -879,6 +884,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				cfg.DisableSamlURLCheck = ConfigBoolTrue
 			} else {
 				cfg.DisableSamlURLCheck = ConfigBoolFalse
+			}
+		case "gcsUseVirtualEndPoint":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.GcsUseVirtualEndPoint = ConfigBoolTrue
+			} else {
+				cfg.GcsUseVirtualEndPoint = ConfigBoolFalse
 			}
 		default:
 			if cfg.Params == nil {
