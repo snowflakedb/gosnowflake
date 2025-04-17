@@ -49,6 +49,14 @@ func TestSoteriaOauthSnowflakeAuthorizationCodeMismatchedUsername(t *testing.T) 
 	wg.Wait()
 }
 
+func TestSoteriaOauthSnowflakeAuthorizationCodeTimeout(t *testing.T) {
+	cfg := setupSoteriaOauthSnowflakeAuthorizationCodeTest(t)
+	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
+	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
+	assertNotNilF(t, err, "should failed due to timeout")
+	assertEqualE(t, err.Error(), "authentication via browser timed out", fmt.Sprintf("Expecteed timeout, but got %v", err))
+}
+
 func TestSoteriaOauthSnowflakeAuthorizationCodeUsingTokenCache(t *testing.T) {
 	cfg := setupSoteriaOauthSnowflakeAuthorizationCodeTest(t)
 	browserCfg, err := getSoteriaOauthSnowflakeAuthorizationCodeTestCredentials()
