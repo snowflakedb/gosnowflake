@@ -94,6 +94,7 @@ func TestIsTokenExpiredWith404(t *testing.T) {
 
 func TestGenerateFileURL(t *testing.T) {
 	gcsUtil := new(snowflakeGcsClient)
+	gcsUtil.cfg = &Config{GcsUseVirtualEndPoint: ConfigBoolFalse}
 	testcases := []tcFileURL{
 		{"sfc-eng-regression/test_sub_dir/", "file1", "sfc-eng-regression", "test_sub_dir/file1"},
 		{"sfc-eng-regression/dir/test_stg/test_sub_dir/", "file2", "sfc-eng-regression", "dir/test_stg/test_sub_dir/file2"},
@@ -110,6 +111,25 @@ func TestGenerateFileURL(t *testing.T) {
 				t.Error(err)
 			}
 			expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.QueryEscape(test.filepath))
+			if err != nil {
+				t.Error(err)
+			}
+			if gcsURL.String() != expectedURL.String() {
+				t.Fatalf("failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
+			}
+		})
+	}
+	gcsUtil.cfg.GcsUseVirtualEndPoint = ConfigBoolTrue
+
+	for _, test := range testcases {
+		t.Run(test.location, func(t *testing.T) {
+			stageInfo := &execResponseStageInfo{}
+			stageInfo.Location = test.location
+			gcsURL, err := gcsUtil.generateFileURL(stageInfo, test.fname)
+			if err != nil {
+				t.Error(err)
+			}
+			expectedURL, err := url.Parse("https://" + test.location + ".storage.googleapis.com" + "/" + url.QueryEscape(test.filepath))
 			if err != nil {
 				t.Error(err)
 			}
