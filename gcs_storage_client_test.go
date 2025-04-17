@@ -1129,9 +1129,10 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 
 func TestGetGcsCustomEndpoint(t *testing.T) {
 	testcases := []struct {
-		desc string
-		in   execResponseStageInfo
-		out  string
+		desc               string
+		in                 execResponseStageInfo
+		useVirtualEndPoint ConfigBool
+		out                string
 	}{
 		{
 			desc: "when the endPoint is not specified and UseRegionalURL is false",
@@ -1140,7 +1141,8 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "WEST-1",
 			},
-			out: "https://storage.googleapis.com",
+			useVirtualEndPoint: ConfigBoolFalse,
+			out:                "https://storage.googleapis.com",
 		},
 		{
 			desc: "when the useRegionalURL is only enabled",
@@ -1149,7 +1151,8 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "mockLocation",
 			},
-			out: "https://storage.mocklocation.rep.googleapis.com",
+			useVirtualEndPoint: ConfigBoolFalse,
+			out:                "https://storage.mocklocation.rep.googleapis.com",
 		},
 		{
 			desc: "when the region is me-central2",
@@ -1158,7 +1161,8 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "me-central2",
 			},
-			out: "https://storage.me-central2.rep.googleapis.com",
+			useVirtualEndPoint: ConfigBoolFalse,
+			out:                "https://storage.me-central2.rep.googleapis.com",
 		},
 		{
 			desc: "when the region is me-central2 (mixed case)",
@@ -1167,7 +1171,8 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "ME-cEntRal2",
 			},
-			out: "https://storage.me-central2.rep.googleapis.com",
+			useVirtualEndPoint: ConfigBoolFalse,
+			out:                "https://storage.me-central2.rep.googleapis.com",
 		},
 		{
 			desc: "when the region is me-central2 (uppercase)",
@@ -1176,7 +1181,8 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "",
 				Region:         "ME-CENTRAL2",
 			},
-			out: "https://storage.me-central2.rep.googleapis.com",
+			useVirtualEndPoint: ConfigBoolFalse,
+			out:                "https://storage.me-central2.rep.googleapis.com",
 		},
 		{
 			desc: "when the endPoint is specified",
@@ -1185,7 +1191,8 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-cEntRal1",
 			},
-			out: "https://storage.specialEndPoint.rep.googleapis.com",
+			useVirtualEndPoint: ConfigBoolFalse,
+			out:                "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 		{
 			desc: "when both the endPoint and the useRegionalUrl are specified",
@@ -1194,7 +1201,8 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-cEntRal1",
 			},
-			out: "https://storage.specialEndPoint.rep.googleapis.com",
+			useVirtualEndPoint: ConfigBoolFalse,
+			out:                "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 		{
 			desc: "when both the endPoint is specified and the region is me-central2",
@@ -1203,13 +1211,47 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-CENTRAL2",
 			},
-			out: "https://storage.specialEndPoint.rep.googleapis.com",
+			useVirtualEndPoint: ConfigBoolFalse,
+			out:                "https://storage.specialEndPoint.rep.googleapis.com",
+		},
+		{
+			desc: "when only the useVirtualEndPoint is enabled",
+			in: execResponseStageInfo{
+				Location:       "my-travel-maps",
+				UseRegionalURL: false,
+				EndPoint:       "",
+				Region:         "WEST-1",
+			},
+			useVirtualEndPoint: ConfigBoolTrue,
+			out:                "https://my-travel-maps.storage.googleapis.com",
+		},
+		{
+			desc: "when both the useRegionalURL and useVirtualEndPoint are enabled",
+			in: execResponseStageInfo{
+				Location:       "my-travel-maps",
+				UseRegionalURL: true,
+				EndPoint:       "",
+				Region:         "ME-CENTRAL2",
+			},
+			useVirtualEndPoint: ConfigBoolTrue,
+			out:                "https://my-travel-maps.storage.googleapis.com",
+		},
+		{
+			desc: "when all the options are enabled",
+			in: execResponseStageInfo{
+				Location:       "my-travel-maps",
+				UseRegionalURL: true,
+				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
+				Region:         "ME-CENTRAL2",
+			},
+			useVirtualEndPoint: ConfigBoolTrue,
+			out:                "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.desc, func(t *testing.T) {
-			endpoint := getGcsCustomEndpoint(&test.in)
+			endpoint := getGcsCustomEndpoint(&test.in, test.useVirtualEndPoint)
 			if endpoint != test.out {
 				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
 			}
