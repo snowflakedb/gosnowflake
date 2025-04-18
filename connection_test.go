@@ -275,6 +275,8 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 }
 
 func TestExecContextPropagationIntegrationTest(t *testing.T) {
+	originalTracerProvider := otel.GetTracerProvider()
+
 	tp := trace.NewTracerProvider()
 	otel.SetTracerProvider(tp)
 
@@ -295,9 +297,7 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 
 		// ensure the traceID and spanID from the ctx passed in has been injected into the headers
 		// in W3 Trace Context format
-		if headers["traceparent"] != expectedTraceparent {
-			t.Fatalf("traceparent doesn't match. expected: %v, got: %v", expectedTraceparent, headers["traceparent"])
-		}
+		assertEqualE(t, headers["traceparent"], expectedTraceparent)
 
 		dd := &execResponseData{}
 		return &execResponse{
@@ -317,11 +317,14 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 		rest:              sr,
 		queryContextCache: (&queryContextCache{}).init(),
 	}
-	if _, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
-		false /* describeOnly */, nil); err != nil {
-		t.Fatalf("err: %v", err)
-	}
 
+	_, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
+		false /* describeOnly */, nil)
+	assertNilF(t, err)
+
+	t.Cleanup(func() {
+		otel.SetTracerProvider(originalTracerProvider)
+	})
 }
 
 // TestServiceName tests two things:
