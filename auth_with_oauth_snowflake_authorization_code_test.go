@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-func TestSoteriaOauthSnowflakeAuthorizationCodeSuccessful(t *testing.T) {
-	cfg := setupSoteriaOauthSnowflakeAuthorizationCodeTest(t)
-	browserCfg, err := getSoteriaOauthSnowflakeAuthorizationCodeTestCredentials()
+func TestOauthSnowflakeAuthorizationCodeSuccessful(t *testing.T) {
+	cfg := setupOauthSnowflakeAuthorizationCodeTest(t)
+	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
 	assertNilF(t, err, fmt.Sprintf("failed to get browser config: %v", err))
 
 	var wg sync.WaitGroup
@@ -27,9 +27,9 @@ func TestSoteriaOauthSnowflakeAuthorizationCodeSuccessful(t *testing.T) {
 	wg.Wait()
 }
 
-func TestSoteriaOauthSnowflakeAuthorizationCodeMismatchedUsername(t *testing.T) {
-	cfg := setupSoteriaOauthSnowflakeAuthorizationCodeTest(t)
-	browserCfg, err := getSoteriaOauthSnowflakeAuthorizationCodeTestCredentials()
+func TestOauthSnowflakeAuthorizationCodeMismatchedUsername(t *testing.T) {
+	cfg := setupOauthSnowflakeAuthorizationCodeTest(t)
+	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
 	assertNilF(t, err, fmt.Sprintf("failed to get browser config: %v", err))
 
 	var wg sync.WaitGroup
@@ -49,17 +49,17 @@ func TestSoteriaOauthSnowflakeAuthorizationCodeMismatchedUsername(t *testing.T) 
 	wg.Wait()
 }
 
-func TestSoteriaOauthSnowflakeAuthorizationCodeTimeout(t *testing.T) {
-	cfg := setupSoteriaOauthSnowflakeAuthorizationCodeTest(t)
+func TestOauthSnowflakeAuthorizationCodeTimeout(t *testing.T) {
+	cfg := setupOauthSnowflakeAuthorizationCodeTest(t)
 	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNotNilF(t, err, "should failed due to timeout")
 	assertEqualE(t, err.Error(), "authentication via browser timed out", fmt.Sprintf("Expecteed timeout, but got %v", err))
 }
 
-func TestSoteriaOauthSnowflakeAuthorizationCodeUsingTokenCache(t *testing.T) {
-	cfg := setupSoteriaOauthSnowflakeAuthorizationCodeTest(t)
-	browserCfg, err := getSoteriaOauthSnowflakeAuthorizationCodeTestCredentials()
+func TestOauthSnowflakeAuthorizationCodeUsingTokenCache(t *testing.T) {
+	cfg := setupOauthSnowflakeAuthorizationCodeTest(t)
+	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
 	assertNilF(t, err, fmt.Sprintf("failed to get browser config: %v", err))
 
 	cfg.ClientStoreTemporaryCredential = 1
@@ -83,9 +83,9 @@ func TestSoteriaOauthSnowflakeAuthorizationCodeUsingTokenCache(t *testing.T) {
 	assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
 }
 
-func TestSoteriaOauthSnowflakeAuthorizationCodeWithoutTokenCache(t *testing.T) {
-	cfg := setupSoteriaOauthSnowflakeAuthorizationCodeTest(t)
-	browserCfg, err := getSoteriaOauthSnowflakeAuthorizationCodeTestCredentials()
+func TestOauthSnowflakeAuthorizationCodeWithoutTokenCache(t *testing.T) {
+	cfg := setupOauthSnowflakeAuthorizationCodeTest(t)
+	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
 	assertNilF(t, err, fmt.Sprintf("failed to get browser config: %v", err))
 	cfg.ClientStoreTemporaryCredential = 2
 
@@ -112,7 +112,7 @@ func TestSoteriaOauthSnowflakeAuthorizationCodeWithoutTokenCache(t *testing.T) {
 	assertEqualE(t, err.Error(), "authentication via browser timed out", fmt.Sprintf("Expecteed timeout, but got %v", err))
 }
 
-func setupSoteriaOauthSnowflakeAuthorizationCodeTest(t *testing.T) *Config {
+func setupOauthSnowflakeAuthorizationCodeTest(t *testing.T) *Config {
 	skipAuthTests(t, "Skipping Snowflake Authorization Code tests")
 
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuthAuthorizationCode)
@@ -139,7 +139,7 @@ func setupSoteriaOauthSnowflakeAuthorizationCodeTest(t *testing.T) *Config {
 	return cfg
 }
 
-func getSoteriaOauthSnowflakeAuthorizationCodeTestCredentials() (*Config, error) {
+func getOauthSnowflakeAuthorizationCodeTestCredentials() (*Config, error) {
 	return GetConfigFromEnv([]*ConfigParam{
 		{Name: "User", EnvName: "SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_ID", FailOnMissing: true},
 		{Name: "Password", EnvName: "SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_USER_PASSWORD", FailOnMissing: true},

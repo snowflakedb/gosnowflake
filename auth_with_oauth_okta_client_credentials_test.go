@@ -7,14 +7,14 @@ import (
 	"testing"
 )
 
-func TestSoteriaOauthOktaClientCredentialsSuccessful(t *testing.T) {
-	cfg := setupSoteriaOauthOktaClientCredentialsTest(t)
+func TestOauthOktaClientCredentialsSuccessful(t *testing.T) {
+	cfg := setupOauthOktaClientCredentialsTest(t)
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNilE(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 }
 
-func TestSoteriaOauthOktaClientCredentialsMismatchedUsername(t *testing.T) {
-	cfg := setupSoteriaOauthOktaClientCredentialsTest(t)
+func TestOauthOktaClientCredentialsMismatchedUsername(t *testing.T) {
+	cfg := setupOauthOktaClientCredentialsTest(t)
 	cfg.User = "invalidUser"
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 
@@ -23,15 +23,15 @@ func TestSoteriaOauthOktaClientCredentialsMismatchedUsername(t *testing.T) {
 	assertEqualE(t, snowflakeErr.Number, 390309, fmt.Sprintf("Expected 390309, but got %v", snowflakeErr.Number))
 }
 
-func TestSoteriaOauthOktaClientCredentialsUnauthorized(t *testing.T) {
-	cfg := setupSoteriaOauthOktaClientCredentialsTest(t)
+func TestOauthOktaClientCredentialsUnauthorized(t *testing.T) {
+	cfg := setupOauthOktaClientCredentialsTest(t)
 	cfg.OauthClientID = "invalidClientID"
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNotNilF(t, err, "Expected an error but got nil")
 	assertTrueF(t, strings.Contains(err.Error(), "invalid_client"), fmt.Sprintf("Expected error to contain 'invalid_client', but got: %v", err.Error()))
 }
 
-func setupSoteriaOauthOktaClientCredentialsTest(t *testing.T) *Config {
+func setupOauthOktaClientCredentialsTest(t *testing.T) *Config {
 	skipAuthTests(t, "Skipping Okta Client Credentials tests")
 
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuthClientCredentials)

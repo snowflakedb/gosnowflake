@@ -57,7 +57,7 @@ const (
 	AuthTypeOAuthClientCredentials
 )
 
-func (authType AuthType) isOauth() bool {
+func (authType AuthType) isOauthNativeFlow() bool {
 	return authType == AuthTypeOAuthAuthorizationCode || authType == AuthTypeOAuthClientCredentials
 }
 
@@ -92,17 +92,11 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 		cfg.Authenticator = AuthTypePat
 		return nil
 	} else if upperCaseValue == AuthTypeOAuthAuthorizationCode.String() {
-		if experimentalAuthEnabled() {
-			cfg.Authenticator = AuthTypeOAuthAuthorizationCode
-			return nil
-		}
-		return errors.New("OAuth2 authorization code is not yet enabled")
+		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
+		return nil
 	} else if upperCaseValue == AuthTypeOAuthClientCredentials.String() {
-		if experimentalAuthEnabled() {
-			cfg.Authenticator = AuthTypeOAuthClientCredentials
-			return nil
-		}
-		return errors.New("OAuth2 client credentials is not yet enabled")
+		cfg.Authenticator = AuthTypeOAuthClientCredentials
+		return nil
 	} else {
 		// possibly Okta case
 		oktaURLString, err := url.QueryUnescape(lowerCaseValue)
@@ -406,7 +400,7 @@ func authenticate(
 		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator == AuthTypeExternalBrowser {
 			credentialsStorage.deleteCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
-		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator.isOauth() {
+		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator.isOauthNativeFlow() {
 			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
 		}
 		code, err := strconv.Atoi(respd.Code)
@@ -515,9 +509,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 	case AuthTypeOAuthAuthorizationCode:
 		logger.WithContext(sc.ctx).Debug("OAuth authorization code")
-		if !experimentalAuthEnabled() {
-			return nil, errors.New("OAuth2 is not yet enabled")
-		}
 		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
 		if err != nil {
 			return nil, err
@@ -531,9 +522,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.OauthType = "OAUTH_AUTHORIZATION_CODE"
 	case AuthTypeOAuthClientCredentials:
 		logger.WithContext(sc.ctx).Debug("OAuth client credentials")
-		if !experimentalAuthEnabled() {
-			return nil, errors.New("OAuth2 is not yet enabled")
-		}
 		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
 		if err != nil {
 			return nil, err

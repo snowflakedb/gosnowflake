@@ -29,7 +29,6 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
-	enableExperimentalAuth(t)
 	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
 	privKeyPKCS1 := generatePKCS1String(testPrivKey)
 	testcases := []tcParseDSN{
@@ -1366,7 +1365,6 @@ type tcDSN struct {
 }
 
 func TestDSN(t *testing.T) {
-	enableExperimentalAuth(t)
 	tmfmt := "MM-DD-YYYY"
 	testcases := []tcDSN{
 		{

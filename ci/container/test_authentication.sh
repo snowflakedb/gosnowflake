@@ -23,8 +23,3 @@ go test -run TestOkta*
 go test -run TestOauth*
 go test -run TestKeypair*
 go test -run TestEndToEndPat*
-
-go test -run TestSoteriaOauthOktaClientCredentials*
-go test -run TestSoteriaOauthSnowflakeAuthorizationCode*
-go test -run TestSoteriaOauthOktaAuthorizationCode*
-

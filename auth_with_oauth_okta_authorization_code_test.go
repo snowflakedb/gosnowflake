@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-func TestSoteriaOauthOktaAuthorizationCodeSuccessful(t *testing.T) {
-	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
+func TestOauthOktaAuthorizationCodeSuccessful(t *testing.T) {
+	cfg := setupOauthOktaAuthorizationCodeTest(t)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -24,8 +24,8 @@ func TestSoteriaOauthOktaAuthorizationCodeSuccessful(t *testing.T) {
 	wg.Wait()
 }
 
-func TestSoteriaOauthOktaAuthorizationCodeMismatchedUsername(t *testing.T) {
-	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
+func TestOauthOktaAuthorizationCodeMismatchedUsername(t *testing.T) {
+	cfg := setupOauthOktaAuthorizationCodeTest(t)
 	user := cfg.User
 
 	var wg sync.WaitGroup
@@ -45,16 +45,16 @@ func TestSoteriaOauthOktaAuthorizationCodeMismatchedUsername(t *testing.T) {
 	wg.Wait()
 }
 
-func TestSoteriaOauthOktaAuthorizationCodeOktaTimeout(t *testing.T) {
-	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
+func TestOauthOktaAuthorizationCodeOktaTimeout(t *testing.T) {
+	cfg := setupOauthOktaAuthorizationCodeTest(t)
 	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	assertNotNilF(t, err, "should failed due to timeout")
 	assertEqualE(t, err.Error(), "authentication via browser timed out", fmt.Sprintf("Expecteed timeout, but got %v", err))
 }
 
-func TestSoteriaOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
-	cfg := setupSoteriaOauthOktaAuthorizationCodeTest(t)
+func TestOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
+	cfg := setupOauthOktaAuthorizationCodeTest(t)
 	cfg.ClientStoreTemporaryCredential = 1
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -76,7 +76,7 @@ func TestSoteriaOauthOktaAuthorizationCodeUsingTokenCache(t *testing.T) {
 	assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
 }
 
-func setupSoteriaOauthOktaAuthorizationCodeTest(t *testing.T) *Config {
+func setupOauthOktaAuthorizationCodeTest(t *testing.T) *Config {
 	skipAuthTests(t, "Skipping Okta Authorization Code tests")
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuthAuthorizationCode)
 	assertNilF(t, err, fmt.Sprintf("failed to get config: %v", err))

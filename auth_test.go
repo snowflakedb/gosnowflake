@@ -1003,16 +1003,10 @@ func TestContextPropagatedToAuthWhenUsingOpenDB(t *testing.T) {
 	cancel()
 }
 
-func enableExperimentalAuth(t *testing.T) {
-	err := os.Setenv("ENABLE_EXPERIMENTAL_AUTHENTICATION", "true")
-	assertNilF(t, err)
-}
-
 func TestPatSuccessfulFlow(t *testing.T) {
 	cfg := wiremock.connectionConfig()
 	cfg.Authenticator = AuthTypePat
 	cfg.Token = "some PAT"
-	enableExperimentalAuth(t)
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/pat/successful_flow.json"},
 		wiremockMapping{filePath: "select1.json"},
@@ -1028,7 +1022,6 @@ func TestPatSuccessfulFlow(t *testing.T) {
 }
 
 func TestPatInvalidToken(t *testing.T) {
-	enableExperimentalAuth(t)
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/pat/invalid_token.json"},
 	)
