@@ -129,6 +129,7 @@ type fileMetadata struct {
 	resStatus          resultStatus
 	stageInfo          *execResponseStageInfo
 	encryptionMaterial *snowflakeFileEncryption
+	encryptMeta        *encryptMetadata
 
 	srcFileName        string
 	realSrcFileName    string
