@@ -61,7 +61,7 @@ func (authType AuthType) isOauthNativeFlow() bool {
 	return authType == AuthTypeOAuthAuthorizationCode || authType == AuthTypeOAuthClientCredentials
 }
 
-var refreshOAuthTokenCodes = []string{
+var refreshOAuthTokenErrorCodes = []string{
 	strconv.Itoa(ErrMissingAccessATokenButRefreshTokenPresent),
 	invalidOAuthAccessTokenCode,
 	expiredOAuthAccessTokenCode,
@@ -637,7 +637,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		proofKey)
 	if err != nil {
 		var se *SnowflakeError
-		if errors.As(err, &se) && slices.Contains(refreshOAuthTokenCodes, strconv.Itoa(se.Number)) {
+		if errors.As(err, &se) && slices.Contains(refreshOAuthTokenErrorCodes, strconv.Itoa(se.Number)) {
 			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
 
 			if sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode {
