@@ -52,6 +52,13 @@ type Config struct {
 	Role      string // Role
 	Region    string // Region
 
+	OauthClientID         string // Client id for OAuth2 external IdP
+	OauthClientSecret     string // Client secret for OAuth2 external IdP
+	OauthAuthorizationURL string // Authorization URL of Auth2 external IdP
+	OauthTokenRequestURL  string // Token request URL of Auth2 external IdP
+	OauthRedirectURI      string // Redirect URI registered in IdP. The default is http://127.0.0.1:<random port>/
+	OauthScope            string // Comma separated list of scopes. If empty it is derived from role.
+
 	// ValidateDefaultParameters disable the validation checks for Database, Schema, Warehouse and Role
 	// at the time a connection is established
 	ValidateDefaultParameters ConfigBool
@@ -188,6 +195,24 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Region != "" {
 		params.Add("region", cfg.Region)
+	}
+	if cfg.OauthClientID != "" {
+		params.Add("oauthClientId", cfg.OauthClientID)
+	}
+	if cfg.OauthClientSecret != "" {
+		params.Add("oauthClientSecret", cfg.OauthClientSecret)
+	}
+	if cfg.OauthAuthorizationURL != "" {
+		params.Add("oauthAuthorizationUrl", cfg.OauthAuthorizationURL)
+	}
+	if cfg.OauthTokenRequestURL != "" {
+		params.Add("oauthTokenRequestUrl", cfg.OauthTokenRequestURL)
+	}
+	if cfg.OauthRedirectURI != "" {
+		params.Add("oauthRedirectUri", cfg.OauthRedirectURI)
+	}
+	if cfg.OauthScope != "" {
+		params.Add("oauthScope", cfg.OauthScope)
 	}
 	if cfg.Authenticator != AuthTypeSnowflake {
 		if cfg.Authenticator == AuthTypeOkta {
@@ -463,6 +488,9 @@ func fillMissingConfigParameters(cfg *Config) error {
 		return errEmptyPasswordAndToken()
 	}
 
+	if authRequiresClientIDAndSecret(cfg) && (strings.TrimSpace(cfg.OauthClientID) == "" || strings.TrimSpace(cfg.OauthClientSecret) == "") {
+		return errEmptyOAuthParameters()
+	}
 	if strings.Trim(cfg.Protocol, " ") == "" {
 		cfg.Protocol = "https"
 	}
@@ -580,7 +608,9 @@ func authRequiresUser(cfg *Config) bool {
 	return cfg.Authenticator != AuthTypeOAuth &&
 		cfg.Authenticator != AuthTypeTokenAccessor &&
 		cfg.Authenticator != AuthTypeExternalBrowser &&
-		cfg.Authenticator != AuthTypePat
+		cfg.Authenticator != AuthTypePat &&
+		cfg.Authenticator != AuthTypeOAuthAuthorizationCode &&
+		cfg.Authenticator != AuthTypeOAuthClientCredentials
 }
 
 func authRequiresPassword(cfg *Config) bool {
@@ -588,11 +618,17 @@ func authRequiresPassword(cfg *Config) bool {
 		cfg.Authenticator != AuthTypeTokenAccessor &&
 		cfg.Authenticator != AuthTypeExternalBrowser &&
 		cfg.Authenticator != AuthTypeJwt &&
-		cfg.Authenticator != AuthTypePat
+		cfg.Authenticator != AuthTypePat &&
+		cfg.Authenticator != AuthTypeOAuthAuthorizationCode &&
+		cfg.Authenticator != AuthTypeOAuthClientCredentials
 }
 
 func authRequiresEitherPasswordOrToken(cfg *Config) bool {
 	return cfg.Authenticator == AuthTypePat
+}
+
+func authRequiresClientIDAndSecret(cfg *Config) bool {
+	return cfg.Authenticator == AuthTypeOAuthAuthorizationCode
 }
 
 // transformAccountToHost transforms account to host
@@ -704,6 +740,18 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Protocol = value
 		case "passcode":
 			cfg.Passcode = value
+		case "oauthClientId":
+			cfg.OauthClientID = value
+		case "oauthClientSecret":
+			cfg.OauthClientSecret = value
+		case "oauthAuthorizationUrl":
+			cfg.OauthAuthorizationURL = value
+		case "oauthTokenRequestUrl":
+			cfg.OauthTokenRequestURL = value
+		case "oauthRedirectUri":
+			cfg.OauthRedirectURI = value
+		case "oauthScope":
+			cfg.OauthScope = value
 		case "passcodeInPassword":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
@@ -915,6 +963,7 @@ type ConfigParam struct {
 // GetConfigFromEnv is used to parse the environment variable values to specific fields of the Config
 func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 	var account, user, password, token, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
+	var oauthClientID, oauthClientSecret, oauthAuthorizationURL, oauthTokenRequestURL, oauthRedirectURI, oauthScope string
 	var privateKey *rsa.PrivateKey
 	var err error
 	if len(properties) == 0 || properties == nil {
@@ -959,6 +1008,20 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 			if err != nil {
 				return nil, err
 			}
+		case "OAuthClientId":
+			oauthClientID = value
+		case "OAuthClientSecret":
+			oauthClientSecret = value
+		case "OAuthAuthorizationURL":
+			oauthAuthorizationURL = value
+		case "OAuthTokenRequestURL":
+			oauthTokenRequestURL = value
+		case "OAuthRedirectURI":
+			oauthRedirectURI = value
+		case "OAuthScope":
+			oauthScope = value
+		default:
+			return nil, errors.New("unknown property: " + prop.Name)
 		}
 	}
 
@@ -971,22 +1034,28 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 	}
 
 	cfg := &Config{
-		Account:     account,
-		User:        user,
-		Password:    password,
-		Token:       token,
-		Role:        role,
-		Host:        host,
-		Port:        port,
-		Protocol:    protocol,
-		Warehouse:   warehouse,
-		Database:    database,
-		Schema:      schema,
-		PrivateKey:  privateKey,
-		Region:      region,
-		Passcode:    passcode,
-		Application: application,
-		Params:      map[string]*string{},
+		Account:               account,
+		User:                  user,
+		Password:              password,
+		Token:                 token,
+		Role:                  role,
+		Host:                  host,
+		Port:                  port,
+		Protocol:              protocol,
+		Warehouse:             warehouse,
+		Database:              database,
+		Schema:                schema,
+		PrivateKey:            privateKey,
+		Region:                region,
+		Passcode:              passcode,
+		Application:           application,
+		OauthClientID:         oauthClientID,
+		OauthClientSecret:     oauthClientSecret,
+		OauthAuthorizationURL: oauthAuthorizationURL,
+		OauthTokenRequestURL:  oauthTokenRequestURL,
+		OauthRedirectURI:      oauthRedirectURI,
+		OauthScope:            oauthScope,
+		Params:                map[string]*string{},
 	}
 	return cfg, nil
 }

@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -49,7 +50,7 @@ func TestGetTokenFromResponse(t *testing.T) {
 }
 
 func TestBuildResponse(t *testing.T) {
-	resp, err := buildResponse("Go")
+	resp, err := buildResponse(fmt.Sprintf(samlSuccessHTML, "Go"))
 	assertNilF(t, err)
 	bytes := resp.Bytes()
 	respStr := string(bytes[:])
@@ -138,7 +139,7 @@ func TestAuthenticationTimeout(t *testing.T) {
 }
 
 func Test_createLocalTCPListener(t *testing.T) {
-	listener, err := createLocalTCPListener()
+	listener, err := createLocalTCPListener(0)
 	if err != nil {
 		t.Fatalf("createLocalTCPListener() failed: %v", err)
 	}

@@ -46,7 +46,6 @@ func TestOauthMismatchedUser(t *testing.T) {
 
 func setupOauthTest(t *testing.T) *Config {
 	skipAuthTests(t, "Skipping OAuth tests")
-
 	cfg, err := getAuthTestsConfig(t, AuthTypeOAuth)
 	assertNilF(t, err, fmt.Sprintf("failed to connect. err: %v", err))
 

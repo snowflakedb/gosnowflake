@@ -27,6 +27,12 @@ func TestMaskToken(t *testing.T) {
 	if text := maskSecrets("masterToken : " + longToken); strings.Compare(text, "masterToken : ****") != 0 {
 		t.Errorf("mask unsuccessful. expected: masterToken : ****, got: %v", text)
 	}
+	if text := maskSecrets("accessToken : " + longToken); strings.Compare(text, "accessToken : ****") != 0 {
+		t.Errorf("mask unsuccessful. expected: accessToken : ****, got: %v", text)
+	}
+	if text := maskSecrets("refreshToken : " + longToken); strings.Compare(text, "refreshToken : ****") != 0 {
+		t.Errorf("mask unsuccessful. expected: refreshToken : ****, got: %v", text)
+	}
 	if text := maskSecrets("programmaticAccessToken : " + longToken); strings.Compare(text, "programmaticAccessToken : ****") != 0 {
 		t.Errorf("mask unsuccessful. expected: programmaticAccessToken : ****, got: %v", text)
 	}
@@ -71,4 +77,10 @@ func TestTokenPassword(t *testing.T) {
 	if strings.Compare(text, expected) != 0 {
 		t.Errorf("mask unsuccessful. expected: %v, got: %v", expected, text)
 	}
+}
+
+func TestClientSecret(t *testing.T) {
+	text := maskSecrets("clientSecret abc oauthClientSECRET=def")
+	expected := "clientSecret **** oauthClientSECRET=****"
+	assertEqualE(t, text, expected)
 }

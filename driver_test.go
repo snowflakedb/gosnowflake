@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -474,6 +475,10 @@ func runningOnAWS() bool {
 
 func runningOnGCP() bool {
 	return os.Getenv("CLOUD_PROVIDER") == "GCP"
+}
+
+func runningOnLinux() bool {
+	return runtime.GOOS == "linux"
 }
 
 func TestBogusUserPasswordParameters(t *testing.T) {
@@ -1980,22 +1985,13 @@ func TestOpenWithInvalidConfig(t *testing.T) {
 	}
 }
 
-type CountingTransport struct {
-	requests int
-}
-
-func (t *CountingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	t.requests++
-	return snowflakeNoOcspTransport.RoundTrip(r)
-}
-
 func TestOpenWithTransport(t *testing.T) {
 	config, err := ParseDSN(dsn)
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
-	countingTransport := CountingTransport{}
-	var transport http.RoundTripper = &countingTransport
+	countingTransport := newCountingRoundTripper(snowflakeNoOcspTransport)
+	var transport http.RoundTripper = countingTransport
 	config.Transporter = transport
 	driver := SnowflakeDriver{}
 	db, err := driver.OpenWithConfig(context.Background(), *config)
@@ -2007,12 +2003,12 @@ func TestOpenWithTransport(t *testing.T) {
 		t.Fatal("transport doesn't match")
 	}
 	db.Close()
-	if countingTransport.requests == 0 {
+	if countingTransport.totalRequests() == 0 {
 		t.Fatal("transport did not receive any requests")
 	}
 
 	// Test that transport override also works in OCSP checks disabled.
-	countingTransport.requests = 0
+	countingTransport.reset()
 	config.DisableOCSPChecks = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
 	if err != nil {
@@ -2023,12 +2019,12 @@ func TestOpenWithTransport(t *testing.T) {
 		t.Fatal("transport doesn't match")
 	}
 	db.Close()
-	if countingTransport.requests == 0 {
+	if countingTransport.totalRequests() == 0 {
 		t.Fatal("transport did not receive any requests")
 	}
 
 	// Test that transport override also works in insecure mode
-	countingTransport.requests = 0
+	countingTransport.reset()
 	config.InsecureMode = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
 	if err != nil {
@@ -2039,7 +2035,7 @@ func TestOpenWithTransport(t *testing.T) {
 		t.Fatal("transport doesn't match")
 	}
 	db.Close()
-	if countingTransport.requests == 0 {
+	if countingTransport.totalRequests() == 0 {
 		t.Fatal("transport did not receive any requests")
 	}
 }
@@ -2103,4 +2099,65 @@ func TestTimePrecision(t *testing.T) {
 			t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
 		}
 	})
+}
+
+func runSmokeQuery(t *testing.T, db *sql.DB) {
+	rows, err := db.Query("SELECT 1")
+	assertNilF(t, err)
+	defer rows.Close()
+	assertTrueF(t, rows.Next())
+	var v int
+	err = rows.Scan(&v)
+	assertNilF(t, err)
+	assertEqualE(t, v, 1)
+}
+
+func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {
+	rows, err := conn.QueryContext(context.Background(), "SELECT 1")
+	assertNilF(t, err)
+	defer rows.Close()
+	assertTrueF(t, rows.Next())
+	var v int
+	err = rows.Scan(&v)
+	assertNilF(t, err)
+	assertEqualE(t, v, 1)
+}
+
+type countingRoundTripper struct {
+	delegate     http.RoundTripper
+	getReqCount  map[string]int
+	postReqCount map[string]int
+}
+
+func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
+	return &countingRoundTripper{
+		delegate:     delegate,
+		getReqCount:  make(map[string]int),
+		postReqCount: make(map[string]int),
+	}
+}
+
+func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Method == http.MethodGet {
+		crt.getReqCount[req.URL.String()]++
+	} else if req.Method == http.MethodPost {
+		crt.postReqCount[req.URL.String()]++
+	}
+	return crt.delegate.RoundTrip(req)
+}
+
+func (crt *countingRoundTripper) reset() {
+	crt.getReqCount = make(map[string]int)
+	crt.postReqCount = make(map[string]int)
+}
+
+func (crt *countingRoundTripper) totalRequests() int {
+	total := 0
+	for _, reqs := range crt.getReqCount {
+		total += reqs
+	}
+	for _, reqs := range crt.postReqCount {
+		total += reqs
+	}
+	return total
 }

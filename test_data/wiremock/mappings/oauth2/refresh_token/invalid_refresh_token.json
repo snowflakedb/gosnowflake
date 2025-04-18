@@ -1,0 +1,36 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/oauth/token",
+        "method": "POST",
+        "headers": {
+          "Content-Type": {
+            "contains": "application/x-www-form-urlencoded"
+          },
+          "Authorization": {
+            "equalTo": "Basic dGVzdENsaWVudElkOnRlc3RDbGllbnRTZWNyZXQ="
+          }
+        },
+        "formParameters": {
+          "scope": {
+            "equalTo": "session:role:ANALYST offline_access"
+          },
+          "grant_type": {
+            "equalTo": "refresh_token"
+          },
+          "refresh_token": {
+            "equalTo": "expired-refresh-token"
+          }
+        }
+      },
+      "response": {
+        "status": 400,
+        "jsonBody": {
+          "error" : "invalid_grant",
+          "error_description" : "The authorization code is invalid or has expired."
+        }
+      }
+    }
+  ]
+}
