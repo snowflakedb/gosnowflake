@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -176,17 +177,16 @@ type s3UploadAPI interface {
 func (util *snowflakeS3Client) uploadFile(
 	dataFile string,
 	meta *fileMetadata,
-	encryptMeta *encryptMetadata,
 	maxConcurrency int,
 	multiPartThreshold int64) error {
 	s3Meta := map[string]string{
 		httpHeaderContentType: httpHeaderValueOctetStream,
 		sfcDigest:             meta.sha256Digest,
 	}
-	if encryptMeta != nil {
-		s3Meta[amzIv] = encryptMeta.iv
-		s3Meta[amzKey] = encryptMeta.key
-		s3Meta[amzMatdesc] = encryptMeta.matdesc
+	if meta.encryptMeta != nil {
+		s3Meta[amzIv] = meta.encryptMeta.iv
+		s3Meta[amzKey] = meta.encryptMeta.key
+		s3Meta[amzMatdesc] = meta.encryptMeta.matdesc
 	}
 
 	s3loc, err := util.extractBucketNameAndPath(meta.stageInfo.Location)
@@ -213,10 +213,7 @@ func (util *snowflakeS3Client) uploadFile(
 
 	_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
 		if meta.srcStream != nil {
-			uploadStream := meta.srcStream
-			if meta.realSrcStream != nil {
-				uploadStream = meta.realSrcStream
-			}
+			uploadStream := cmp.Or(meta.realSrcStream, meta.srcStream)
 			return uploader.Upload(ctx, &s3.PutObjectInput{
 				Bucket:   &s3loc.bucketName,
 				Key:      &s3path,

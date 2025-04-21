@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -143,25 +144,24 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 func (util *snowflakeAzureClient) uploadFile(
 	dataFile string,
 	meta *fileMetadata,
-	encryptMeta *encryptMetadata,
 	maxConcurrency int,
 	multiPartThreshold int64) error {
 	azureMeta := map[string]*string{
 		"sfcdigest": &meta.sha256Digest,
 	}
-	if encryptMeta != nil {
+	if meta.encryptMeta != nil {
 		ed := &encryptionData{
 			EncryptionMode: "FullBlob",
 			WrappedContentKey: contentKey{
 				"symmKey1",
-				encryptMeta.key,
+				meta.encryptMeta.key,
 				"AES_CBC_256",
 			},
 			EncryptionAgent: encryptionAgent{
 				"1.0",
 				"AES_CBC_128",
 			},
-			ContentEncryptionIV: encryptMeta.iv,
+			ContentEncryptionIV: meta.encryptMeta.iv,
 			KeyWrappingMetadata: keyMetadata{
 				"Java 5.3.0",
 			},
@@ -172,7 +172,7 @@ func (util *snowflakeAzureClient) uploadFile(
 		}
 		encryptionMetadata := string(metadata)
 		azureMeta["encryptiondata"] = &encryptionMetadata
-		azureMeta["matdesc"] = &encryptMeta.matdesc
+		azureMeta["matdesc"] = &meta.encryptMeta.matdesc
 	}
 
 	azureLoc, err := util.extractContainerNameAndPath(meta.stageInfo.Location)
@@ -200,10 +200,7 @@ func (util *snowflakeAzureClient) uploadFile(
 		blobClient = meta.mockAzureClient
 	}
 	if meta.srcStream != nil {
-		uploadSrc := meta.srcStream
-		if meta.realSrcStream != nil {
-			uploadSrc = meta.realSrcStream
-		}
+		uploadSrc := cmp.Or(meta.realSrcStream, meta.srcStream)
 		_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (azblob.UploadStreamResponse, error) {
 			return blobClient.UploadStream(ctx, uploadSrc, &azblob.UploadStreamOptions{
 				BlockSize: int64(uploadSrc.Len()),
