@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"bufio"
+	"cmp"
 	"fmt"
 	"io"
 	"os"
@@ -20,10 +21,7 @@ func (util *localUtil) createClient(_ *execResponseStageInfo, _ bool, _ *Config)
 func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 	var frd *bufio.Reader
 	if meta.srcStream != nil {
-		b := meta.srcStream
-		if meta.realSrcStream != nil {
-			b = meta.realSrcStream
-		}
+		b := cmp.Or(meta.realSrcStream, meta.srcStream)
 		frd = bufio.NewReader(b)
 	} else {
 		f, err := os.Open(meta.realSrcFileName)

@@ -33,9 +33,9 @@ func deleteOCSPCacheFile() {
 
 // deleteOCSPCacheAll deletes all entries in the OCSP response cache on memory
 func deleteOCSPCacheAll() {
-	ocspResponseCacheLock.Lock()
-	defer ocspResponseCacheLock.Unlock()
-	ocspResponseCache = make(map[certIDKey]*certCacheValue)
+	syncUpdateOcspResponseCache(func() {
+		ocspResponseCache = make(map[certIDKey]*certCacheValue)
+	})
 }
 
 func cleanup() {

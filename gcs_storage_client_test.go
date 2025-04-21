@@ -153,6 +153,7 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -213,6 +214,7 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,
@@ -280,6 +282,7 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -748,6 +751,7 @@ func TestUploadStreamFailed(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcStream:         bytes.NewBuffer(src),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -797,6 +801,7 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
+		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		lastError:         nil,
 		options: &SnowflakeFileTransferOptions{
@@ -954,6 +959,7 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
+		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,
@@ -1103,7 +1109,7 @@ func Test_snowflakeGcsClient_uploadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := new(snowflakeGcsClient).uploadFile("somedata", &meta, nil, 1, 1)
+	err := new(snowflakeGcsClient).uploadFile("somedata", &meta, 1, 1)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
