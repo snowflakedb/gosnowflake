@@ -282,7 +282,7 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 
 	tracer := otel.Tracer("TestExecContextPropagationTracer")
 
-	ctx, span := tracer.Start(context.Background(), "my-test-span")
+	ctx, span := tracer.Start(context.Background(), "test-span")
 	defer span.End()
 
 	traceID := span.SpanContext().TraceID().String()
@@ -318,9 +318,15 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 		queryContextCache: (&queryContextCache{}).init(),
 	}
 
-	_, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
+	// Tests synchronous query
+	_, err1 := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil)
-	assertNilF(t, err)
+	assertNilF(t, err1)
+
+	// Tests asynchronous query
+	_, err2 := sc.exec(WithAsyncMode(ctx), "", false /* noResult */, false, /* isInternal */
+		false /* describeOnly */, nil)
+	assertNilF(t, err2)
 
 	t.Cleanup(func() {
 		otel.SetTracerProvider(originalTracerProvider)
