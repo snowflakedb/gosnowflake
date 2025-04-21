@@ -395,11 +395,10 @@ func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo
 	gcsLoc := util.extractBucketNameAndPath(stageInfo.Location)
 	fullFilePath := gcsLoc.path + filename
 	endPoint := util.getGcsCustomEndpoint(stageInfo)
-	if stageInfo.UseVirtualUrl {
+	if stageInfo.UseVirtualURL {
 		return url.Parse(endPoint + "/" + url.QueryEscape(fullFilePath))
-	} else {
-		return url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
 	}
+	return url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
 }
 
 func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
@@ -419,7 +418,7 @@ func (util *snowflakeGcsClient) getGcsCustomEndpoint(info *execResponseStageInfo
 	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
 	if info.EndPoint != "" {
 		endpoint = fmt.Sprintf("https://%s", info.EndPoint)
-	} else if info.UseVirtualUrl {
+	} else if info.UseVirtualURL {
 		bucketName := util.extractBucketNameAndPath(info.Location).bucketName
 		endpoint = fmt.Sprintf("https://%s.storage.googleapis.com", bucketName)
 	} else if info.Region != "" && isRegionalURLEnabled {
