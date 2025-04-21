@@ -143,6 +143,7 @@ type gcsAPI interface {
 func (util *snowflakeGcsClient) uploadFile(
 	dataFile string,
 	meta *fileMetadata,
+	encryptMeta *encryptMetadata,
 	maxConcurrency int,
 	multiPartThreshold int64) error {
 	uploadURL := meta.presignedURL
@@ -177,19 +178,19 @@ func (util *snowflakeGcsClient) uploadFile(
 		gcsHeaders["Authorization"] = "Bearer " + accessToken
 	}
 
-	if meta.encryptMeta != nil {
+	if encryptMeta != nil {
 		encryptData := encryptionData{
 			"FullBlob",
 			contentKey{
 				"symmKey1",
-				meta.encryptMeta.key,
+				encryptMeta.key,
 				"AES_CBC_256",
 			},
 			encryptionAgent{
 				"1.0",
 				"AES_CBC_256",
 			},
-			meta.encryptMeta.iv,
+			encryptMeta.iv,
 			keyMetadata{
 				"Java 5.3.0",
 			},
@@ -199,7 +200,7 @@ func (util *snowflakeGcsClient) uploadFile(
 			return err
 		}
 		gcsHeaders[gcsMetadataEncryptionDataProp] = string(b)
-		gcsHeaders[gcsMetadataMatdescKey] = meta.encryptMeta.matdesc
+		gcsHeaders[gcsMetadataMatdescKey] = encryptMeta.matdesc
 	}
 
 	var uploadSrc io.Reader
@@ -264,10 +265,10 @@ func (util *snowflakeGcsClient) uploadFile(
 
 	meta.gcsFileHeaderDigest = gcsHeaders[gcsFileHeaderDigest]
 	meta.gcsFileHeaderContentLength = meta.uploadSize
-	if err = json.Unmarshal([]byte(gcsHeaders[gcsMetadataEncryptionDataProp]), &meta.encryptMeta); err != nil {
+	if err = json.Unmarshal([]byte(gcsHeaders[gcsMetadataEncryptionDataProp]), &encryptMeta); err != nil {
 		return err
 	}
-	meta.gcsFileHeaderEncryptionMeta = meta.encryptMeta
+	meta.gcsFileHeaderEncryptionMeta = encryptMeta
 	return nil
 }
 
@@ -392,20 +393,14 @@ func (util *snowflakeGcsClient) extractBucketNameAndPath(location string) *gcsLo
 }
 
 func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo, filename string) (*url.URL, error) {
-	var URL *url.URL
-	var err error
 	gcsLoc := util.extractBucketNameAndPath(stageInfo.Location)
 	fullFilePath := gcsLoc.path + filename
 	endPoint := util.getGcsCustomEndpoint(stageInfo)
-	if util.cfg.GcsUseVirtualEndPoint == ConfigBoolTrue {
-		URL, err = url.Parse(endPoint + "/" + url.QueryEscape(fullFilePath))
+	if stageInfo.UseVirtualUrl {
+		return url.Parse(endPoint + "/" + url.QueryEscape(fullFilePath))
 	} else {
-		URL, err = url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
+		return url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
 	}
-	if err != nil {
-		return nil, err
-	}
-	return URL, nil
 }
 
 func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
@@ -413,7 +408,9 @@ func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
 }
 
 func newGcsClient(cfg *Config) gcsAPI {
-	return &http.Client{}
+	return &http.Client{
+		Transport: getTransport(cfg),
+	}
 }
 
 func (util *snowflakeGcsClient) getGcsCustomEndpoint(info *execResponseStageInfo) string {
@@ -423,7 +420,7 @@ func (util *snowflakeGcsClient) getGcsCustomEndpoint(info *execResponseStageInfo
 	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
 	if info.EndPoint != "" {
 		endpoint = fmt.Sprintf("https://%s", info.EndPoint)
-	} else if util.cfg.GcsUseVirtualEndPoint == ConfigBoolTrue {
+	} else if info.UseVirtualUrl {
 		bucketName := util.extractBucketNameAndPath(info.Location).bucketName
 		endpoint = fmt.Sprintf("https://%s.storage.googleapis.com", bucketName)
 	} else if info.Region != "" && isRegionalURLEnabled {

@@ -1076,23 +1076,6 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
-		{
-			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&gcsUseVirtualEndPoint=false",
-			config: &Config{
-				Account: "a", User: "u", Password: "p",
-				Protocol: "http", Host: "a.snowflake.local", Port: 9876,
-				OCSPFailOpen:              OCSPFailOpenTrue,
-				ValidateDefaultParameters: ConfigBoolTrue,
-				ClientTimeout:             defaultClientTimeout,
-				JWTClientTimeout:          defaultJWTClientTimeout,
-				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
-				CloudStorageTimeout:       defaultCloudStorageTimeout,
-				IncludeRetryReason:        ConfigBoolTrue,
-				GcsUseVirtualEndPoint:     ConfigBoolFalse,
-			},
-			ocspMode: ocspModeFailOpen,
-			err:      nil,
-		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {

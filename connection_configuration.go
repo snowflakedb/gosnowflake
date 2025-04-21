@@ -188,8 +188,6 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 			return err
 		}
 		cfg.Token = v
-	case "gcsusevirtualendpoint":
-		cfg.GcsUseVirtualEndPoint, err = parseConfigBool(value)
 	default:
 		param, err := parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {

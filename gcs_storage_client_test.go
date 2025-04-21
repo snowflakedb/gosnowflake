@@ -93,7 +93,7 @@ func TestIsTokenExpiredWith404(t *testing.T) {
 }
 
 func TestGenerateFileURL(t *testing.T) {
-	gcsUtil := (&snowflakeGcsClient{cfg: &Config{GcsUseVirtualEndPoint: ConfigBoolFalse}})
+	gcsUtil := new(snowflakeGcsClient)
 	testcases := []tcFileURL{
 		{"sfc-eng-regression/test_sub_dir/", "file1", "sfc-eng-regression", "test_sub_dir/file1"},
 		{"sfc-eng-regression/dir/test_stg/test_sub_dir/", "file2", "sfc-eng-regression", "dir/test_stg/test_sub_dir/file2"},
@@ -110,25 +110,6 @@ func TestGenerateFileURL(t *testing.T) {
 				t.Error(err)
 			}
 			expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.QueryEscape(test.filepath))
-			if err != nil {
-				t.Error(err)
-			}
-			if gcsURL.String() != expectedURL.String() {
-				t.Fatalf("failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
-			}
-		})
-	}
-	gcsUtil.cfg.GcsUseVirtualEndPoint = ConfigBoolTrue
-
-	for _, test := range testcases {
-		t.Run(test.location, func(t *testing.T) {
-			stageInfo := &execResponseStageInfo{}
-			stageInfo.Location = test.location
-			gcsURL, err := gcsUtil.generateFileURL(stageInfo, test.fname)
-			if err != nil {
-				t.Error(err)
-			}
-			expectedURL, err := url.Parse("https://" + test.location + ".storage.googleapis.com" + "/" + url.QueryEscape(test.filepath))
 			if err != nil {
 				t.Error(err)
 			}
@@ -172,7 +153,6 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
@@ -233,7 +213,6 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,
@@ -301,7 +280,6 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -770,7 +748,6 @@ func TestUploadStreamFailed(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcStream:         bytes.NewBuffer(src),
-		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
@@ -820,7 +797,6 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 		stageInfo:         &info,
 		dstFileName:       "data1.txt.gz",
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		lastError:         nil,
 		options: &SnowflakeFileTransferOptions{
@@ -978,7 +954,6 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 		stageInfo:          &info,
 		dstFileName:        "data1.txt.gz",
 		srcFileName:        path.Join(dir, "/test_data/put_get_1.txt"),
-		encryptMeta:        testEncryptionMeta(),
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,
@@ -1128,8 +1103,7 @@ func Test_snowflakeGcsClient_uploadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := (&snowflakeGcsClient{cfg: &Config{}}).uploadFile("somedata", &meta, 1, 1)
-
+	err := new(snowflakeGcsClient).uploadFile("somedata", &meta, nil, 1, 1)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -1147,7 +1121,7 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := (&snowflakeGcsClient{cfg: &Config{GcsUseVirtualEndPoint: ConfigBoolFalse}}).nativeDownloadFile(&meta, "dummy data", 1)
+	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -1155,10 +1129,9 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 
 func TestGetGcsCustomEndpoint(t *testing.T) {
 	testcases := []struct {
-		desc               string
-		in                 execResponseStageInfo
-		useVirtualEndPoint bool
-		out                string
+		desc string
+		in   execResponseStageInfo
+		out  string
 	}{
 		{
 			desc: "when the endPoint is not specified and UseRegionalURL is false",
@@ -1166,9 +1139,9 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseRegionalURL: false,
 				EndPoint:       "",
 				Region:         "WEST-1",
+				UseVirtualUrl:  false,
 			},
-			useVirtualEndPoint: false,
-			out:                "https://storage.googleapis.com",
+			out: "https://storage.googleapis.com",
 		},
 		{
 			desc: "when the useRegionalURL is only enabled",
@@ -1176,9 +1149,9 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseRegionalURL: true,
 				EndPoint:       "",
 				Region:         "mockLocation",
+				UseVirtualUrl:  false,
 			},
-			useVirtualEndPoint: false,
-			out:                "https://storage.mocklocation.rep.googleapis.com",
+			out: "https://storage.mocklocation.rep.googleapis.com",
 		},
 		{
 			desc: "when the region is me-central2",
@@ -1186,9 +1159,9 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseRegionalURL: false,
 				EndPoint:       "",
 				Region:         "me-central2",
+				UseVirtualUrl:  false,
 			},
-			useVirtualEndPoint: false,
-			out:                "https://storage.me-central2.rep.googleapis.com",
+			out: "https://storage.me-central2.rep.googleapis.com",
 		},
 		{
 			desc: "when the region is me-central2 (mixed case)",
@@ -1196,9 +1169,9 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseRegionalURL: false,
 				EndPoint:       "",
 				Region:         "ME-cEntRal2",
+				UseVirtualUrl:  false,
 			},
-			useVirtualEndPoint: false,
-			out:                "https://storage.me-central2.rep.googleapis.com",
+			out: "https://storage.me-central2.rep.googleapis.com",
 		},
 		{
 			desc: "when the region is me-central2 (uppercase)",
@@ -1206,9 +1179,9 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseRegionalURL: false,
 				EndPoint:       "",
 				Region:         "ME-CENTRAL2",
+				UseVirtualUrl:  false,
 			},
-			useVirtualEndPoint: false,
-			out:                "https://storage.me-central2.rep.googleapis.com",
+			out: "https://storage.me-central2.rep.googleapis.com",
 		},
 		{
 			desc: "when the endPoint is specified",
@@ -1216,9 +1189,9 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseRegionalURL: false,
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-cEntRal1",
+				UseVirtualUrl:  false,
 			},
-			useVirtualEndPoint: false,
-			out:                "https://storage.specialEndPoint.rep.googleapis.com",
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 		{
 			desc: "when both the endPoint and the useRegionalUrl are specified",
@@ -1226,9 +1199,9 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseRegionalURL: true,
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-cEntRal1",
+				UseVirtualUrl:  false,
 			},
-			useVirtualEndPoint: false,
-			out:                "https://storage.specialEndPoint.rep.googleapis.com",
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 		{
 			desc: "when both the endPoint is specified and the region is me-central2",
@@ -1236,79 +1209,29 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseRegionalURL: true,
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-CENTRAL2",
+				UseVirtualUrl:  false,
 			},
-			useVirtualEndPoint: false,
-			out:                "https://storage.specialEndPoint.rep.googleapis.com",
+			out: "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 		{
-			desc: "when only the useVirtualEndPoint is enabled",
+			desc: "when only the useVirtualUrl is enabled",
 			in: execResponseStageInfo{
 				Location:       "my-travel-maps",
 				UseRegionalURL: false,
 				EndPoint:       "",
 				Region:         "WEST-1",
-			},
-			useVirtualEndPoint: true,
-			out:                "https://my-travel-maps.storage.googleapis.com",
-		},
-		{
-			desc: "when both the useRegionalURL and useVirtualEndPoint are enabled",
-			in: execResponseStageInfo{
-				Location:       "my-travel-maps",
-				UseRegionalURL: true,
-				EndPoint:       "",
-				Region:         "ME-CENTRAL2",
-			},
-			useVirtualEndPoint: true,
-			out:                "https://my-travel-maps.storage.googleapis.com",
-		},
-		{
-			desc: "when all the options are enabled",
-			in: execResponseStageInfo{
-				Location:       "my-travel-maps",
-				UseRegionalURL: true,
-				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
-				Region:         "ME-CENTRAL2",
-			},
-			useVirtualEndPoint: true,
-			out:                "https://storage.specialEndPoint.rep.googleapis.com",
-		},
-	}
-
-	for _, test := range testcases {
-		t.Run(test.desc, func(t *testing.T) {
-			endpoint := (&snowflakeGcsClient{cfg: &Config{GcsUseVirtualEndPoint: ConfigBoolFalse}}).getGcsCustomEndpoint(&test.in)
-			if endpoint != test.out {
-				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
-			}
-		})
-	}
-}
-
-func TestGetGcsCustomVirtualEndpoint(t *testing.T) {
-	testcases := []struct {
-		desc               string
-		in                 execResponseStageInfo
-		useVirtualEndPoint bool
-		out                string
-	}{
-		{
-			desc: "when only the useVirtualEndPoint is enabled",
-			in: execResponseStageInfo{
-				Location:       "my-travel-maps",
-				UseRegionalURL: false,
-				EndPoint:       "",
-				Region:         "WEST-1",
+				UseVirtualUrl:  true,
 			},
 			out: "https://my-travel-maps.storage.googleapis.com",
 		},
 		{
-			desc: "when both the useRegionalURL and useVirtualEndPoint are enabled",
+			desc: "when both the useRegionalURL and useVirtualUrl are enabled",
 			in: execResponseStageInfo{
 				Location:       "my-travel-maps",
 				UseRegionalURL: true,
 				EndPoint:       "",
 				Region:         "ME-CENTRAL2",
+				UseVirtualUrl:  true,
 			},
 			out: "https://my-travel-maps.storage.googleapis.com",
 		},
@@ -1319,6 +1242,7 @@ func TestGetGcsCustomVirtualEndpoint(t *testing.T) {
 				UseRegionalURL: true,
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-CENTRAL2",
+				UseVirtualUrl:  true,
 			},
 			out: "https://storage.specialEndPoint.rep.googleapis.com",
 		},
@@ -1326,7 +1250,7 @@ func TestGetGcsCustomVirtualEndpoint(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.desc, func(t *testing.T) {
-			endpoint := (&snowflakeGcsClient{cfg: &Config{GcsUseVirtualEndPoint: ConfigBoolTrue}}).getGcsCustomEndpoint(&test.in)
+			endpoint := new(snowflakeGcsClient).getGcsCustomEndpoint(&test.in)
 			if endpoint != test.out {
 				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
 			}
