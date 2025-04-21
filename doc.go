@@ -315,6 +315,18 @@ query/command by Ctrl+C, add a os.Interrupt trap in context to execute methods t
 
 See cmd/selectmany.go for the full example.
 
+# OpenTelemetry headers
+
+A context containing OpenTelemetry headers for distributed tracing can be created.
+Each query run with this context will include the Trace ID and Span ID as metadata.
+If you are instrumenting your program with OpenTelemetry and exporting telemetry data
+to Snowflake, then queries run with this context will be properly nested under the
+appropriate parent span. This can be viewed in the Traces and Logs tab in Snowsight.
+For example:
+
+	ctx, parent_span := tracer.Start(context.Background(), "parent_span")
+	rows, err := db.QueryContext(ctx, query)
+
 # Supported Data Types
 
 The Go Snowflake Driver now supports the Arrow data format for data transfers
