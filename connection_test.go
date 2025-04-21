@@ -285,11 +285,11 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 	ctx, span := tracer.Start(context.Background(), "my-test-span")
 	defer span.End()
 
-	traceId := span.SpanContext().TraceID().String()
-	spanId := span.SpanContext().SpanID().String()
+	traceID := span.SpanContext().TraceID().String()
+	spanID := span.SpanContext().SpanID().String()
 
 	// expected header values
-	expectedTraceparent := fmt.Sprintf("00-%s-%s-01", traceId, spanId)
+	expectedTraceparent := fmt.Sprintf("00-%s-%s-01", traceID, spanID)
 
 	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
 		_ *url.Values, headers map[string]string, _ []byte, _ time.Duration,
