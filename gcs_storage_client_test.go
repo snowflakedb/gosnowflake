@@ -1103,7 +1103,7 @@ func Test_snowflakeGcsClient_uploadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := new(snowflakeGcsClient).uploadFile("somedata", &meta, nil, 1, 1)
+	err := new(snowflakeGcsClient).uploadFile("somedata", &meta, 1, 1)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
