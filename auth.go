@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"runtime"
 	"slices"
 	"strconv"
@@ -88,7 +87,7 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 	} else if upperCaseValue == AuthTypeTokenAccessor.String() {
 		cfg.Authenticator = AuthTypeTokenAccessor
 		return nil
-	} else if upperCaseValue == AuthTypePat.String() && experimentalAuthEnabled() {
+	} else if upperCaseValue == AuthTypePat.String() {
 		cfg.Authenticator = AuthTypePat
 		return nil
 	} else if upperCaseValue == AuthTypeOAuthAuthorizationCode.String() {
@@ -476,9 +475,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 		requestMain.Token = jwtTokenString
 	case AuthTypePat:
-		if !experimentalAuthEnabled() {
-			return nil, errors.New("programmatic access tokens are not ready to use")
-		}
 		logger.WithContext(sc.ctx).Info("Programmatic access token")
 		requestMain.Authenticator = AuthTypePat.String()
 		requestMain.LoginName = sc.cfg.User
@@ -664,9 +660,4 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	sc.populateSessionParameters(authData.Parameters)
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
 	return nil
-}
-
-func experimentalAuthEnabled() bool {
-	val, ok := os.LookupEnv("SF_ENABLE_EXPERIMENTAL_AUTHENTICATION")
-	return ok && strings.EqualFold(val, "true")
 }
