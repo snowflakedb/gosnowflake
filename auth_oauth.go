@@ -79,8 +79,9 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 }
 
 type oauthBrowserResult struct {
-	accessToken string
-	err         error
+	accessToken  string
+	refreshToken string
+	err          error
 }
 
 func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, error) {
@@ -114,6 +115,11 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 	case <-time.After(oauthClient.cfg.ExternalBrowserTimeout):
 		return "", errors.New("authentication via browser timed out")
 	case result := <-resultChan:
+		if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+			logger.Debug("saving oauth access token in cache")
+			credentialsStorage.setCredential(oauthClient.accessTokenSpec(), result.accessToken)
+			credentialsStorage.setCredential(oauthClient.refreshTokenSpec(), result.refreshToken)
+		}
 		return result.accessToken, result.err
 	}
 }
@@ -148,33 +154,28 @@ func (oauthClient *oauthClient) doAuthenticateByOAuthAuthorizationCode(tcpListen
 	if err := authCodeProvider.run(authorizationURL); err != nil {
 		responseBodyChan <- err.Error()
 		closeListenerChan <- true
-		return oauthBrowserResult{"", err}
+		return oauthBrowserResult{"", "", err}
 	}
 
 	err := <-errChan
 	if err != nil {
 		responseBodyChan <- err.Error()
-		return oauthBrowserResult{"", err}
+		return oauthBrowserResult{"", "", err}
 	}
 	codeReqBytes := <-successChan
 
 	codeReq, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(codeReqBytes)))
 	if err != nil {
 		responseBodyChan <- err.Error()
-		return oauthBrowserResult{"", err}
+		return oauthBrowserResult{"", "", err}
 	}
 	logger.Debugf("Received authorization code from %v", oauthClient.authorizationURL())
 	tokenResponse, err := oauthClient.exchangeAccessToken(codeReq, state, oauth2cfg, codeVerifier, responseBodyChan)
 	if err != nil {
-		return oauthBrowserResult{"", err}
+		return oauthBrowserResult{"", "", err}
 	}
 	logger.Debugf("Received token from %v", oauthClient.tokenURL())
-	if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
-		logger.Debug("saving oauth access token in cache")
-		credentialsStorage.setCredential(oauthClient.accessTokenSpec(), tokenResponse.AccessToken)
-		credentialsStorage.setCredential(oauthClient.refreshTokenSpec(), tokenResponse.RefreshToken)
-	}
-	return oauthBrowserResult{tokenResponse.AccessToken, err}
+	return oauthBrowserResult{tokenResponse.AccessToken, tokenResponse.RefreshToken, err}
 }
 
 func (oauthClient *oauthClient) setupListener() (*net.TCPListener, int, error) {
