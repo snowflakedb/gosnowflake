@@ -54,6 +54,18 @@ func buildResponse(body string) (bytes.Buffer, error) {
 // able to bind to a free port.
 func createLocalTCPListener(port int) (*net.TCPListener, error) {
 	logger.Debugf("creating local TCP listener on port %v", port)
+	allAddressesListener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%v", port))
+	if err != nil {
+		logger.Warnf("error while setting up 0.0.0.0 listener: %v", err)
+		return nil, err
+	}
+	defer func() {
+		logger.Debug("Closing 0.0.0.0 tcp listener")
+		if err := allAddressesListener.Close(); err != nil {
+			logger.Debug("error while closing TCP listener. %v", err)
+		}
+	}()
+
 	l, err := net.Listen("tcp", fmt.Sprintf("localhost:%v", port))
 	if err != nil {
 		logger.Warnf("error while setting up listener: %v", err)
@@ -72,12 +84,12 @@ func createLocalTCPListener(port int) (*net.TCPListener, error) {
 // This can / will fail if running inside a shell with no display, ie
 // ssh'ing into a box attempting to authenticate via external browser.
 func openBrowser(browserURL string) error {
-	_, err := url.ParseRequestURI(browserURL)
+	parsedURL, err := url.ParseRequestURI(browserURL)
 	if err != nil {
 		logger.Errorf("error parsing url %v, err: %v", browserURL, err)
 		return err
 	}
-	if !strings.HasPrefix(browserURL, "http://") && !strings.HasPrefix(browserURL, "https://") {
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 		return fmt.Errorf("invalid browser URL: %v", browserURL)
 	}
 	err = browser.OpenURL(browserURL)
