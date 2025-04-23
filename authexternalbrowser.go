@@ -59,12 +59,10 @@ func createLocalTCPListener(port int) (*net.TCPListener, error) {
 		logger.Warnf("error while setting up 0.0.0.0 listener: %v", err)
 		return nil, err
 	}
-	defer func() {
-		logger.Debug("Closing 0.0.0.0 tcp listener")
-		if err := allAddressesListener.Close(); err != nil {
-			logger.Debug("error while closing TCP listener. %v", err)
-		}
-	}()
+	logger.Debug("Closing 0.0.0.0 tcp listener")
+	if err := allAddressesListener.Close(); err != nil {
+		logger.Debug("error while closing TCP listener. %v", err)
+	}
 
 	l, err := net.Listen("tcp", fmt.Sprintf("localhost:%v", port))
 	if err != nil {
