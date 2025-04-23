@@ -71,10 +71,18 @@ func createLocalTCPListener(port int) (*net.TCPListener, error) {
 // Opens a browser window (or new tab) with the configured login Url.
 // This can / will fail if running inside a shell with no display, ie
 // ssh'ing into a box attempting to authenticate via external browser.
-func openBrowser(loginURL string) error {
-	err := browser.OpenURL(loginURL)
+func openBrowser(browserUrl string) error {
+	_, err := url.ParseRequestURI(browserUrl)
 	if err != nil {
-		logger.Infof("failed to open a browser. err: %v", err)
+		logger.Errorf("error parsing url %v, err: %v", browserUrl, err)
+		return err
+	}
+	if !strings.HasPrefix(browserUrl, "http://") && !strings.HasPrefix(browserUrl, "https://") {
+		return fmt.Errorf("invalid browser URL: %v", browserUrl)
+	}
+	err = browser.OpenURL(browserUrl)
+	if err != nil {
+		logger.Errorf("failed to open a browser. err: %v", err)
 		return err
 	}
 	return nil
