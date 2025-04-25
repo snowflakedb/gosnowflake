@@ -178,6 +178,19 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		cfg.DisableConsoleLogin, err = parseConfigBool(value)
 	case "disablesamlurlcheck":
 		cfg.DisableSamlURLCheck, err = parseConfigBool(value)
+	case "oauth_authorization_url":
+		cfg.OauthAuthorizationURL, err = parseString(value)
+	case "oauth_client_id":
+		cfg.OauthClientID, err = parseString(value)
+	case "oauth_client_secret":
+		cfg.OauthClientSecret, err = parseString(value)
+	case "oauth_token_request_url":
+		cfg.OauthTokenRequestURL, err = parseString(value)
+	case "oauth_redirect_uri":
+		cfg.OauthRedirectURI, err = parseString(value)
+	case "oauth_scope":
+		cfg.OauthScope, err = parseString(value)
+
 	case "token_file_path":
 		tokenPath, err = parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {

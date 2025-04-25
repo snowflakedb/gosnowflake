@@ -20,22 +20,19 @@ import (
 )
 
 const (
-	successHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+	samlSuccessHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
 <title>SAML Response for Snowflake</title></head>
 <body>
 Your identity was confirmed and propagated to Snowflake %v.
 You can close this window now and go back where you started from.
 </body></html>`
-)
 
-const (
 	bufSize = 8192
 )
 
 // Builds a response to show to the user after successfully
 // getting a response from Snowflake.
-func buildResponse(application string) (bytes.Buffer, error) {
-	body := fmt.Sprintf(successHTML, application)
+func buildResponse(body string) (bytes.Buffer, error) {
 	t := &http.Response{
 		Status:        "200 OK",
 		StatusCode:    200,
@@ -55,9 +52,21 @@ func buildResponse(application string) (bytes.Buffer, error) {
 // This opens a socket that listens on all available unicast
 // and any anycast IP addresses locally. By specifying "0", we are
 // able to bind to a free port.
-func createLocalTCPListener() (*net.TCPListener, error) {
-	l, err := net.Listen("tcp", "localhost:0")
+func createLocalTCPListener(port int) (*net.TCPListener, error) {
+	logger.Debugf("creating local TCP listener on port %v", port)
+	allAddressesListener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%v", port))
 	if err != nil {
+		logger.Warnf("error while setting up 0.0.0.0 listener: %v", err)
+		return nil, err
+	}
+	logger.Debug("Closing 0.0.0.0 tcp listener")
+	if err := allAddressesListener.Close(); err != nil {
+		logger.Debug("error while closing TCP listener. %v", err)
+	}
+
+	l, err := net.Listen("tcp", fmt.Sprintf("localhost:%v", port))
+	if err != nil {
+		logger.Warnf("error while setting up listener: %v", err)
 		return nil, err
 	}
 
@@ -72,10 +81,18 @@ func createLocalTCPListener() (*net.TCPListener, error) {
 // Opens a browser window (or new tab) with the configured login Url.
 // This can / will fail if running inside a shell with no display, ie
 // ssh'ing into a box attempting to authenticate via external browser.
-func openBrowser(loginURL string) error {
-	err := browser.OpenURL(loginURL)
+func openBrowser(browserURL string) error {
+	parsedURL, err := url.ParseRequestURI(browserURL)
 	if err != nil {
-		logger.Infof("failed to open a browser. err: %v", err)
+		logger.Errorf("error parsing url %v, err: %v", browserURL, err)
+		return err
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("invalid browser URL: %v", browserURL)
+	}
+	err = browser.OpenURL(browserURL)
+	if err != nil {
+		logger.Errorf("failed to open a browser. err: %v", err)
 		return err
 	}
 	return nil
@@ -241,7 +258,7 @@ func doAuthenticateByExternalBrowser(
 	password string,
 	disableConsoleLogin ConfigBool,
 ) authenticateByExternalBrowserResult {
-	l, err := createLocalTCPListener()
+	l, err := createLocalTCPListener(0)
 	if err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
@@ -308,7 +325,8 @@ func doAuthenticateByExternalBrowser(
 			buf.Grow(bufSize)
 		}
 		if encodedSamlResponse != "" {
-			httpResponse, err := buildResponse(application)
+			body := fmt.Sprintf(samlSuccessHTML, application)
+			httpResponse, err := buildResponse(body)
 			if err != nil && errAccept == nil {
 				errAccept = err
 			}

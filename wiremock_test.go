@@ -85,12 +85,16 @@ func newWiremockHTTPS() *wiremockClient {
 
 func (wm *wiremockClient) connectionConfig() *Config {
 	cfg := &Config{
-		User:     "testUser",
-		Password: "testPassword",
-		Host:     wm.host,
-		Port:     wm.port,
-		Account:  "testAccount",
-		Protocol: wm.protocol,
+		Account:               "testAccount",
+		User:                  "testUser",
+		Password:              "testPassword",
+		Host:                  wm.host,
+		Port:                  wm.port,
+		Protocol:              wm.protocol,
+		OauthClientID:         "testClientId",
+		OauthClientSecret:     "testClientSecret",
+		OauthAuthorizationURL: wm.baseURL() + "/oauth/authorize",
+		OauthTokenRequestURL:  wm.baseURL() + "/oauth/token",
 	}
 	if wm.protocol == "https" {
 		testCertPool := x509.NewCertPool()
@@ -117,9 +121,12 @@ type wiremockMapping struct {
 	params   map[string]string
 }
 
-func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMapping) {
-	skipOnJenkins(t, "wiremock is not enabled on Jenkins")
+func newWiremockMapping(filePath string) wiremockMapping {
+	return wiremockMapping{filePath: filePath}
+}
 
+func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMapping) {
+	skipOnJenkins(t, "wiremock does not work on Jenkins")
 	for _, mapping := range wm.enrichWithTelemetry(mappings) {
 		f, err := os.Open("test_data/wiremock/mappings/" + mapping.filePath)
 		assertNilF(t, err)
@@ -135,7 +142,7 @@ func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMap
 		if resp.StatusCode != http.StatusOK {
 			respBody, err := io.ReadAll(resp.Body)
 			assertNilF(t, err)
-			t.Fatalf("cannot create mapping.\n%v", string(respBody))
+			t.Fatalf("cannot create mapping. status=%v body=\n%v", resp.StatusCode, string(respBody))
 		}
 	}
 	t.Cleanup(func() {
@@ -157,7 +164,7 @@ func (wm *wiremockClient) mappingsURL() string {
 }
 
 func (wm *wiremockClient) baseURL() string {
-	return fmt.Sprintf("http://%v:%v", wm.host, wm.port)
+	return fmt.Sprintf("%v://%v:%v", wm.protocol, wm.host, wm.port)
 }
 
 func TestQueryViaHttps(t *testing.T) {

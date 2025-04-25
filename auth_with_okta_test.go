@@ -38,7 +38,6 @@ func TestOktaWrongAuthenticator(t *testing.T) {
 
 func setupOktaTest(t *testing.T) *Config {
 	skipAuthTests(t, "Skipping Okta tests")
-
 	urlEnv, err := GetFromEnv("SNOWFLAKE_AUTH_TEST_OKTA_AUTH", true)
 	assertNilF(t, err, fmt.Sprintf("failed to get env: %v", err))
 

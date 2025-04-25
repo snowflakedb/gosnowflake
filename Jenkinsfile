@@ -53,6 +53,7 @@ pipeline {
     // remove SCM URL + .git at the end
 
     BASELINE_BRANCH = "${env.CHANGE_TARGET}"
+
   }
   stages {
     stage('Checkout') {
