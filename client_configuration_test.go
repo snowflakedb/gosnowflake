@@ -298,6 +298,21 @@ func TestUnknownValues(t *testing.T) {
 	}
 }
 
+func TestConfigFileOpenSymlinkFail(t *testing.T) {
+	skipOnWindows(t, "file permission is different")
+	dir := t.TempDir()
+	configFilePath := createFile(t, defaultConfigName, "random content", dir)
+	symlinkFile := path.Join(dir, "test_symlink")
+	expectedErrMsg := "too many levels of symbolic links"
+
+	err := os.Symlink(configFilePath, symlinkFile)
+	assertNilF(t, err, "failed to create symlink")
+
+	_, err = getFileContents(symlinkFile, os.FileMode(1<<4|1<<1))
+	assertNotNilF(t, err, "should have blocked opening symlink")
+	assertTrueF(t, strings.Contains(err.Error(), expectedErrMsg))
+}
+
 func createFile(t *testing.T, fileName string, fileContents string, directory string) string {
 	fullFileName := path.Join(directory, fileName)
 	err := os.WriteFile(fullFileName, []byte(fileContents), 0644)
