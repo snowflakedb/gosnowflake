@@ -106,16 +106,10 @@ func TestGenerateFileURL(t *testing.T) {
 			stageInfo := &execResponseStageInfo{}
 			stageInfo.Location = test.location
 			gcsURL, err := gcsUtil.generateFileURL(stageInfo, test.fname)
-			if err != nil {
-				t.Error(err)
-			}
+			assertNilF(t, err, "error should be nil")
 			expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.QueryEscape(test.filepath))
-			if err != nil {
-				t.Error(err)
-			}
-			if gcsURL.String() != expectedURL.String() {
-				t.Fatalf("failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
-			}
+			assertNilF(t, err, "error should be nil")
+			assertEqualE(t, gcsURL.String(), expectedURL.String(), "failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
 		})
 	}
 
@@ -125,16 +119,10 @@ func TestGenerateFileURL(t *testing.T) {
 			stageInfo.Location = test.location
 			stageInfo.UseVirtualURL = true
 			gcsURL, err := gcsUtil.generateFileURL(stageInfo, test.fname)
-			if err != nil {
-				t.Error(err)
-			}
+			assertNilF(t, err, "error should be nil")
 			expectedURL, err := url.Parse("https://sfc-eng-regression.storage.googleapis.com/" + url.QueryEscape(test.filepath))
-			if err != nil {
-				t.Error(err)
-			}
-			if gcsURL.String() != expectedURL.String() {
-				t.Fatalf("failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
-			}
+			assertNilF(t, err, "error should be nil")
+			assertEqualE(t, gcsURL.String(), expectedURL.String(), "failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
 		})
 	}
 }
