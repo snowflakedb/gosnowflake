@@ -1,0 +1,33 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/session/v1/login-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson": {
+              "data": {
+                "TOKEN": "access-token-123"
+              }
+            },
+            "ignoreExtraElements": true
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "code": null,
+          "data": {
+            "token": "session token"
+          },
+          "success": true
+        }
+      }
+    }
+  ]
+}

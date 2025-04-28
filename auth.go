@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -50,7 +51,21 @@ const (
 	AuthTypeUsernamePasswordMFA
 	// AuthTypePat is to use programmatic access token
 	AuthTypePat
+	// AuthTypeOAuthAuthorizationCode is to use browser-based OAuth2 flow
+	AuthTypeOAuthAuthorizationCode
+	// AuthTypeOAuthClientCredentials is to use non-interactive OAuth2 flow
+	AuthTypeOAuthClientCredentials
 )
+
+func (authType AuthType) isOauthNativeFlow() bool {
+	return authType == AuthTypeOAuthAuthorizationCode || authType == AuthTypeOAuthClientCredentials
+}
+
+var refreshOAuthTokenErrorCodes = []string{
+	strconv.Itoa(ErrMissingAccessATokenButRefreshTokenPresent),
+	invalidOAuthAccessTokenCode,
+	expiredOAuthAccessTokenCode,
+}
 
 func determineAuthenticatorType(cfg *Config, value string) error {
 	upperCaseValue := strings.ToUpper(value)
@@ -75,6 +90,12 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 		return nil
 	} else if upperCaseValue == AuthTypePat.String() && experimentalAuthEnabled() {
 		cfg.Authenticator = AuthTypePat
+		return nil
+	} else if upperCaseValue == AuthTypeOAuthAuthorizationCode.String() && experimentalAuthEnabled() {
+		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
+		return nil
+	} else if upperCaseValue == AuthTypeOAuthClientCredentials.String() && experimentalAuthEnabled() {
+		cfg.Authenticator = AuthTypeOAuthClientCredentials
 		return nil
 	} else {
 		// possibly Okta case
@@ -127,6 +148,10 @@ func (authType AuthType) String() string {
 		return "USERNAME_PASSWORD_MFA"
 	case AuthTypePat:
 		return "PROGRAMMATIC_ACCESS_TOKEN"
+	case AuthTypeOAuthAuthorizationCode:
+		return "OAUTH_AUTHORIZATION_CODE"
+	case AuthTypeOAuthClientCredentials:
+		return "OAUTH_CLIENT_CREDENTIALS"
 	default:
 		return "UNKNOWN"
 	}
@@ -171,6 +196,7 @@ type authRequestData struct {
 	BrowserModeRedirectPort string                       `json:"BROWSER_MODE_REDIRECT_PORT,omitempty"`
 	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
 	Token                   string                       `json:"TOKEN,omitempty"`
+	OauthType               string                       `json:"OAUTH_TYPE,omitempty"`
 }
 type authRequest struct {
 	Data authRequestData `json:"data"`
@@ -358,7 +384,7 @@ func authenticate(
 		params.Add("roleName", sc.cfg.Role)
 	}
 
-	logger.WithContext(ctx).WithContext(sc.ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
+	logger.WithContext(ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
 		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
 
 	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, bodyCreator, sc.rest.LoginTimeout)
@@ -371,8 +397,11 @@ func authenticate(
 		if sessionParameters[clientRequestMfaToken] == true {
 			credentialsStorage.deleteCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
-		if sessionParameters[clientStoreTemporaryCredential] == true {
+		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator == AuthTypeExternalBrowser {
 			credentialsStorage.deleteCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
+		}
+		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator.isOauthNativeFlow() {
+			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
 		}
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
@@ -455,7 +484,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = sc.cfg.Token
 	case AuthTypeSnowflake:
-		logger.WithContext(sc.ctx).Info("Username and password")
+		logger.WithContext(sc.ctx).Debug("Username and password")
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Password = sc.cfg.Password
 		switch {
@@ -466,7 +495,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		}
 	case AuthTypeUsernamePasswordMFA:
-		logger.WithContext(sc.ctx).Info("Username and password MFA")
+		logger.WithContext(sc.ctx).Debug("Username and password MFA")
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Password = sc.cfg.Password
 		switch {
@@ -478,6 +507,38 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			requestMain.Passcode = sc.cfg.Passcode
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		}
+	case AuthTypeOAuthAuthorizationCode:
+		if !experimentalAuthEnabled() {
+			return nil, errors.New("OAuth2 is not ready to use")
+		}
+		logger.WithContext(sc.ctx).Debug("OAuth authorization code")
+		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
+		if err != nil {
+			return nil, err
+		}
+		token, err := oauthClient.authenticateByOAuthAuthorizationCode()
+		if err != nil {
+			return nil, err
+		}
+		requestMain.LoginName = sc.cfg.User
+		requestMain.Token = token
+		requestMain.OauthType = "OAUTH_AUTHORIZATION_CODE"
+	case AuthTypeOAuthClientCredentials:
+		if !experimentalAuthEnabled() {
+			return nil, errors.New("OAuth2 is not ready to use")
+		}
+		logger.WithContext(sc.ctx).Debug("OAuth client credentials")
+		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
+		if err != nil {
+			return nil, err
+		}
+		token, err := oauthClient.authenticateByOAuthClientCredentials()
+		if err != nil {
+			return nil, err
+		}
+		requestMain.LoginName = sc.cfg.User
+		requestMain.Token = token
+		requestMain.OauthType = "OAUTH_CLIENT_CREDENTIALS"
 	}
 
 	authRequest := authRequest{
@@ -533,11 +594,11 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	var err error
 	//var consentCacheIdToken = true
 
-	if sc.cfg.Authenticator == AuthTypeExternalBrowser {
+	if sc.cfg.Authenticator == AuthTypeExternalBrowser || sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode || sc.cfg.Authenticator == AuthTypeOAuthClientCredentials {
 		if (runtime.GOOS == "windows" || runtime.GOOS == "darwin") && sc.cfg.ClientStoreTemporaryCredential == configBoolNotSet {
 			sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		}
-		if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+		if sc.cfg.Authenticator == AuthTypeExternalBrowser && sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
 			sc.cfg.IDToken = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
 		// Disable console login by default
@@ -581,8 +642,30 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		samlResponse,
 		proofKey)
 	if err != nil {
-		sc.cleanup()
-		return err
+		var se *SnowflakeError
+		if errors.As(err, &se) && slices.Contains(refreshOAuthTokenErrorCodes, strconv.Itoa(se.Number)) {
+			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+
+			if sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode {
+				var oauthClient *oauthClient
+				if oauthClient, err = newOauthClient(sc.ctx, sc.cfg); err != nil {
+					logger.Warnf("failed to create oauth client. %v", err)
+				} else {
+					if err = oauthClient.refreshToken(); err != nil {
+						logger.Warnf("cannot refresh token. %v", err)
+						credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+					}
+				}
+			}
+
+			// if refreshing succeeds for authorization code, we will take a token from cache
+			// if it fails, we will just run the full flow
+			authData, err = authenticate(sc.ctx, sc, nil, nil)
+		}
+		if err != nil {
+			sc.cleanup()
+			return err
+		}
 	}
 	sc.populateSessionParameters(authData.Parameters)
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
@@ -590,6 +673,6 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 }
 
 func experimentalAuthEnabled() bool {
-	val, ok := os.LookupEnv("ENABLE_EXPERIMENTAL_AUTHENTICATION")
+	val, ok := os.LookupEnv("SF_ENABLE_EXPERIMENTAL_AUTHENTICATION")
 	return ok && strings.EqualFold(val, "true")
 }

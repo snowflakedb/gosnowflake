@@ -176,7 +176,6 @@
             "finalDatabaseName": null,
             "finalSchemaName": null,
             "finalWarehouseName": "TEST_XSMALL",
-            "finalRoleName": "ACCOUNTADMIN",
             "numberOfBinds": 0,
             "arrayBindSupported": false,
             "statementTypeId": 4096,

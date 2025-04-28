@@ -1,0 +1,22 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/oauth/token",
+        "method": "POST",
+        "headers": {
+          "Content-Type": {
+            "contains": "application/x-www-form-urlencoded"
+          }
+        }
+      },
+      "response": {
+        "status": 401,
+        "jsonBody": {
+          "error": "invalid_client",
+          "error_description": "The client secret supplied for a confidential client is invalid."
+        }
+      }
+    }
+  ]
+}

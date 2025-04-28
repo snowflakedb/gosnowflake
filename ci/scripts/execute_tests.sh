@@ -10,7 +10,7 @@ eval $(jq -r '.testconnection | to_entries | map("export \(.key)=\(.value|tostri
 if [[ -n "$GITHUB_WORKFLOW" ]]; then
 	export SNOWFLAKE_TEST_PRIVATE_KEY=$TOPDIR/rsa-2048-private-key.p8
 fi
-env | grep SNOWFLAKE | grep -v PASS | sort
+env | grep SNOWFLAKE | grep -v PASS | grep -v SECRET | sort
 cd $TOPDIR
 if [[ -n "$JENKINS_HOME" ]]; then
   export WORKSPACE=${WORKSPACE:-/mnt/workspace}
