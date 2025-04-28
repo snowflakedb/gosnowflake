@@ -18,6 +18,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel/propagation"
+
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 )
 
@@ -128,6 +130,11 @@ func (sc *snowflakeConn) exec(
 	if isFileTransfer(query) {
 		headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 	}
+
+	// propagate traceID and spanID via traceparent header. this is a no-op if invalid IDs
+	propagator := propagation.TraceContext{}
+	propagator.Inject(ctx, propagation.MapCarrier(headers))
+
 	paramsMutex.Lock()
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers[httpHeaderServiceName] = *serviceName
