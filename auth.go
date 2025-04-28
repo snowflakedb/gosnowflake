@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"runtime"
 	"slices"
 	"strconv"
@@ -87,13 +88,13 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 	} else if upperCaseValue == AuthTypeTokenAccessor.String() {
 		cfg.Authenticator = AuthTypeTokenAccessor
 		return nil
-	} else if upperCaseValue == AuthTypePat.String() {
+	} else if upperCaseValue == AuthTypePat.String() && experimentalAuthEnabled() {
 		cfg.Authenticator = AuthTypePat
 		return nil
-	} else if upperCaseValue == AuthTypeOAuthAuthorizationCode.String() {
+	} else if upperCaseValue == AuthTypeOAuthAuthorizationCode.String() && experimentalAuthEnabled() {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		return nil
-	} else if upperCaseValue == AuthTypeOAuthClientCredentials.String() {
+	} else if upperCaseValue == AuthTypeOAuthClientCredentials.String() && experimentalAuthEnabled() {
 		cfg.Authenticator = AuthTypeOAuthClientCredentials
 		return nil
 	} else {
@@ -475,6 +476,9 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 		requestMain.Token = jwtTokenString
 	case AuthTypePat:
+		if !experimentalAuthEnabled() {
+			return nil, errors.New("programmatic access tokens are not ready to use")
+		}
 		logger.WithContext(sc.ctx).Info("Programmatic access token")
 		requestMain.Authenticator = AuthTypePat.String()
 		requestMain.LoginName = sc.cfg.User
@@ -504,6 +508,9 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			requestMain.ExtAuthnDuoMethod = "passcode"
 		}
 	case AuthTypeOAuthAuthorizationCode:
+		if !experimentalAuthEnabled() {
+			return nil, errors.New("OAuth2 is not ready to use")
+		}
 		logger.WithContext(sc.ctx).Debug("OAuth authorization code")
 		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
 		if err != nil {
@@ -517,6 +524,9 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.Token = token
 		requestMain.OauthType = "OAUTH_AUTHORIZATION_CODE"
 	case AuthTypeOAuthClientCredentials:
+		if !experimentalAuthEnabled() {
+			return nil, errors.New("OAuth2 is not ready to use")
+		}
 		logger.WithContext(sc.ctx).Debug("OAuth client credentials")
 		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
 		if err != nil {
@@ -660,4 +670,9 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	sc.populateSessionParameters(authData.Parameters)
 	sc.ctx = context.WithValue(sc.ctx, SFSessionIDKey, authData.SessionID)
 	return nil
+}
+
+func experimentalAuthEnabled() bool {
+	val, ok := os.LookupEnv("SF_ENABLE_EXPERIMENTAL_AUTHENTICATION")
+	return ok && strings.EqualFold(val, "true")
 }
