@@ -54,6 +54,7 @@ pipeline {
 
     BASELINE_BRANCH = "${env.CHANGE_TARGET}"
 
+    SF_ENABLE_EXPERIMENTAL_AUTHENTICATION = true
   }
   stages {
     stage('Checkout') {
