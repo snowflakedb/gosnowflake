@@ -146,6 +146,8 @@ func TestSnowflakeTypeToGo(t *testing.T) {
 	}{
 		{in: fixedType, scale: 0, out: reflect.TypeOf(int64(0)), ctx: context.Background()},
 		{in: fixedType, scale: 2, out: reflect.TypeOf(float64(0)), ctx: context.Background()},
+		{in: fixedType, scale: 0, out: reflect.TypeOf(&big.Int{}), ctx: WithHigherPrecision(context.Background())},
+		{in: fixedType, scale: 2, out: reflect.TypeOf(&big.Float{}), ctx: WithHigherPrecision(context.Background())},
 		{in: realType, scale: 0, out: reflect.TypeOf(float64(0)), ctx: context.Background()},
 		{in: textType, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
 		{in: dateType, scale: 0, out: reflect.TypeOf(time.Now()), ctx: context.Background()},
