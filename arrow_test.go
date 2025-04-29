@@ -508,10 +508,10 @@ func TestArrowVariousTypes(t *testing.T) {
 		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C3" || ct[3].Name() != "C4" || ct[4].Name() != "C5" || ct[5].Name() != "C6" {
 			dbt.Errorf("failed to get column names: %#v", ct)
 		}
-		if ct[0].ScanType() != reflect.TypeOf(float64(0)) {
+		if ct[0].ScanType() != reflect.TypeOf(&big.Float{}) {
 			dbt.Errorf("failed to get scan type. expected: %v, got: %v", reflect.TypeOf(float64(0)), ct[0].ScanType())
 		}
-		if ct[1].ScanType() != reflect.TypeOf(int64(0)) {
+		if ct[1].ScanType() != reflect.TypeOf(&big.Int{}) {
 			dbt.Errorf("failed to get scan type. expected: %v, got: %v", reflect.TypeOf(int64(0)), ct[1].ScanType())
 		}
 		var pr, sc int64

@@ -143,6 +143,12 @@ func snowflakeTypeToGo(ctx context.Context, dbtype snowflakeType, scale int64, f
 	structuredTypesEnabled := structuredTypesEnabled(ctx)
 	switch dbtype {
 	case fixedType:
+		if higherPrecisionEnabled(ctx) {
+			if scale == 0 {
+				return reflect.TypeOf(&big.Int{})
+			}
+			return reflect.TypeOf(&big.Float{})
+		}
 		if scale == 0 {
 			return reflect.TypeOf(int64(0))
 		}
