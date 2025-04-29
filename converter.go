@@ -362,7 +362,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		for idx, t := range times {
 			arr[idx] = t.Format(goFormat)
 		}
-		res, err := json.Marshal(v)
+		res, err := json.Marshal(arr)
 		if err != nil {
 			return bindingValue{nil, jsonFormatStr, &bindingSchema{
 				Typ:      "array",
