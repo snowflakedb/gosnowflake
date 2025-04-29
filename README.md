@@ -1,5 +1,5 @@
-## Support
-
+##  Support
+ 
 For official support and urgent, production-impacting issues, please [contact Snowflake Support](https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge).
 
 # Go Snowflake Driver
