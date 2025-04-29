@@ -143,6 +143,12 @@ func snowflakeTypeToGo(ctx context.Context, dbtype snowflakeType, scale int64, f
 	structuredTypesEnabled := structuredTypesEnabled(ctx)
 	switch dbtype {
 	case fixedType:
+		if higherPrecisionEnabled(ctx) {
+			if scale == 0 {
+				return reflect.TypeOf(&big.Int{})
+			}
+			return reflect.TypeOf(&big.Float{})
+		}
 		if scale == 0 {
 			return reflect.TypeOf(int64(0))
 		}
@@ -356,7 +362,7 @@ func arrayToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		for idx, t := range times {
 			arr[idx] = t.Format(goFormat)
 		}
-		res, err := json.Marshal(v)
+		res, err := json.Marshal(arr)
 		if err != nil {
 			return bindingValue{nil, jsonFormatStr, &bindingSchema{
 				Typ:      "array",
