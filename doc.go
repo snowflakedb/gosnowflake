@@ -334,6 +334,7 @@ parent span. This can be viewed in the Traces and Logs tab in Snowsight.
 For example:
 
 	ctx, parent_span := tracer.Start(context.Background(), "parent_span")
+	defer parent_span.End()
 	rows, err := db.QueryContext(ctx, query)
 
 # Supported Data Types

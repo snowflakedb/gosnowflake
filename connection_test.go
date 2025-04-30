@@ -276,12 +276,12 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 
 func TestExecContextPropagationIntegrationTest(t *testing.T) {
 	originalTracerProvider := otel.GetTracerProvider()
-	t.Cleanup(func() {
-		otel.SetTracerProvider(originalTracerProvider)
-	})
 
 	tp := trace.NewTracerProvider()
 	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		otel.SetTracerProvider(originalTracerProvider)
+	})
 
 	tracer := otel.Tracer("TestExecContextPropagationTracer")
 
@@ -321,9 +321,9 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 		queryContextCache: (&queryContextCache{}).init(),
 	}
 
-	_, err1 := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
+	_, err := sc.exec(ctx, "", false /* noResult */, false, /* isInternal */
 		false /* describeOnly */, nil)
-	assertNilF(t, err1)
+	assertNilF(t, err)
 }
 
 // TestServiceName tests two things:
