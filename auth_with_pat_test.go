@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 	"time"
 )
@@ -62,8 +63,7 @@ func getEndToEndPatSetupCommandVariables() (*Config, error) {
 
 func createEndToEndPatToken(t *testing.T) *PatToken {
 	cfg := setupOktaTest(t)
-	patTokenName := fmt.Sprintf("PAT_GOLANG_%s", time.Now().Format("20060102150405"))
-
+	patTokenName := fmt.Sprintf("PAT_GOLANG_%s", strings.ReplaceAll(time.Now().Format("20060102150405.000"), ".", ""))
 	patCommandVariables, err := getEndToEndPatSetupCommandVariables()
 	assertNilE(t, err, "failed to get PAT command variables")
 
