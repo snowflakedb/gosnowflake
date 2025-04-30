@@ -394,12 +394,11 @@ func (util *snowflakeGcsClient) extractBucketNameAndPath(location string) *gcsLo
 func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo, filename string) (*url.URL, error) {
 	gcsLoc := util.extractBucketNameAndPath(stageInfo.Location)
 	fullFilePath := gcsLoc.path + filename
-	endPoint := getGcsCustomEndpoint(stageInfo)
-	URL, err := url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
-	if err != nil {
-		return nil, err
+	endPoint := util.getGcsCustomEndpoint(stageInfo)
+	if stageInfo.UseVirtualURL {
+		return url.Parse(endPoint + "/" + url.QueryEscape(fullFilePath))
 	}
-	return URL, nil
+	return url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
 }
 
 func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
@@ -412,13 +411,16 @@ func newGcsClient(cfg *Config) gcsAPI {
 	}
 }
 
-func getGcsCustomEndpoint(info *execResponseStageInfo) string {
+func (util *snowflakeGcsClient) getGcsCustomEndpoint(info *execResponseStageInfo) string {
 	endpoint := "https://storage.googleapis.com"
 
 	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
 	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
 	if info.EndPoint != "" {
 		endpoint = fmt.Sprintf("https://%s", info.EndPoint)
+	} else if info.UseVirtualURL {
+		bucketName := util.extractBucketNameAndPath(info.Location).bucketName
+		endpoint = fmt.Sprintf("https://%s.storage.googleapis.com", bucketName)
 	} else if info.Region != "" && isRegionalURLEnabled {
 		endpoint = fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(info.Region))
 	}
