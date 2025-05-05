@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/99designs/keyring"
 	"io"
 	"os"
 	"os/user"
@@ -16,13 +15,17 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/99designs/keyring"
 )
 
 type tokenType string
 
 const (
-	idToken  tokenType = "ID_TOKEN"
-	mfaToken tokenType = "MFATOKEN"
+	idToken           tokenType = "ID_TOKEN"
+	mfaToken          tokenType = "MFA_TOKEN"
+	oauthAccessToken  tokenType = "OAUTH_ACCESS_TOKEN"
+	oauthRefreshToken tokenType = "OAUTH_REFRESH_TOKEN"
 )
 
 const (
@@ -63,6 +66,22 @@ func newIDTokenSpec(host, user string) *secureTokenSpec {
 		host,
 		user,
 		idToken,
+	}
+}
+
+func newOAuthAccessTokenSpec(host, user string) *secureTokenSpec {
+	return &secureTokenSpec{
+		host,
+		user,
+		oauthAccessToken,
+	}
+}
+
+func newOAuthRefreshTokenSpec(host, user string) *secureTokenSpec {
+	return &secureTokenSpec{
+		host,
+		user,
+		oauthRefreshToken,
 	}
 }
 
@@ -197,11 +216,19 @@ func (ssm *fileBasedSecureStorageManager) withCacheFile(action func(*os.File)) {
 		}
 	}(cacheDir)
 
-	if err := ssm.ensurePermissionsAndOwner(cacheFile, 0600); err != nil {
+	if err := ensureFileOwner(cacheFile); err != nil {
+		logger.Warnf("failed to ensure owner for temporary cache file. %v", err)
+		return
+	}
+	if err := ensureFilePermissions(cacheFile, 0600); err != nil {
 		logger.Warnf("failed to ensure permission for temporary cache file. %v", err)
 		return
 	}
-	if err := ssm.ensurePermissionsAndOwner(cacheDir, 0700|os.ModeDir); err != nil {
+	if err := ensureFileOwner(cacheDir); err != nil {
+		logger.Warnf("failed to ensure owner for temporary cache dir. %v", err)
+		return
+	}
+	if err := ensureFilePermissions(cacheDir, 0700|os.ModeDir); err != nil {
 		logger.Warnf("failed to ensure permission for temporary cache dir. %v", err)
 		return
 	}
@@ -339,16 +366,7 @@ func (ssm *fileBasedSecureStorageManager) credFilePath() string {
 	return filepath.Join(ssm.credDirPath, credCacheFileName)
 }
 
-func (ssm *fileBasedSecureStorageManager) ensurePermissionsAndOwner(f *os.File, expectedMode os.FileMode) error {
-	fileInfo, err := f.Stat()
-	if err != nil {
-		return err
-	}
-
-	if fileInfo.Mode().Perm() != expectedMode&os.ModePerm {
-		return fmt.Errorf("incorrect permissions(%v, expected %v) for credential file", fileInfo.Mode(), expectedMode)
-	}
-
+func ensureFileOwner(f *os.File) error {
 	ownerUID, err := provideFileOwner(f)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -362,6 +380,17 @@ func (ssm *fileBasedSecureStorageManager) ensurePermissionsAndOwner(f *os.File, 
 	}
 	if strconv.Itoa(int(ownerUID)) != currentUser.Uid {
 		return errors.New("incorrect owner of " + f.Name())
+	}
+	return nil
+}
+
+func ensureFilePermissions(f *os.File, expectedMode os.FileMode) error {
+	fileInfo, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if fileInfo.Mode().Perm() != expectedMode&os.ModePerm {
+		return fmt.Errorf("incorrect permissions(%v, expected %v) for credential file", fileInfo.Mode(), expectedMode)
 	}
 	return nil
 }

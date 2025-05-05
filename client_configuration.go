@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -115,11 +114,9 @@ func parseClientConfiguration(filePath string) (*ClientConfig, error) {
 	if filePath == "" {
 		return nil, nil
 	}
-	fileContents, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, parsingClientConfigError(err)
-	}
-	err = validateCfgPerm(filePath)
+	// Check if group (5th LSB) or others (2nd LSB) have a write permission to the file
+	expectedPerm := os.FileMode(1<<4 | 1<<1)
+	fileContents, err := getFileContents(filePath, expectedPerm)
 	if err != nil {
 		return nil, parsingClientConfigError(err)
 	}
@@ -181,22 +178,6 @@ func validateLogLevel(clientConfig ClientConfig) error {
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func validateCfgPerm(filePath string) error {
-	if runtime.GOOS == "windows" {
-		return nil
-	}
-	stat, err := os.Stat(filePath)
-	if err != nil {
-		return err
-	}
-	perm := stat.Mode()
-	// Check if group (5th LSB) or others (2nd LSB) have a write permission to the file
-	if perm&(1<<4) != 0 || perm&(1<<1) != 0 {
-		return fmt.Errorf("configuration file: %s can be modified by group or others", filePath)
 	}
 	return nil
 }

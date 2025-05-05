@@ -4,10 +4,11 @@ package gosnowflake
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"os"
 	"path"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestConfigPermissions(t *testing.T) {
@@ -19,9 +20,6 @@ func TestConfigPermissions(t *testing.T) {
 		{filePerm: 0600, isValid: true},
 		{filePerm: 0500, isValid: true},
 		{filePerm: 0400, isValid: true},
-		{filePerm: 0300, isValid: true},
-		{filePerm: 0200, isValid: true},
-		{filePerm: 0100, isValid: true},
 		{filePerm: 0707, isValid: false},
 		{filePerm: 0706, isValid: false},
 		{filePerm: 0705, isValid: true},
@@ -47,7 +45,11 @@ func TestConfigPermissions(t *testing.T) {
 			err := os.WriteFile(tempFile, nil, os.FileMode(tc.filePerm))
 			assertNilE(t, err)
 			defer os.Remove(tempFile)
-			err = validateCfgPerm(tempFile)
+			f, err := os.Open(tempFile)
+			assertNilE(t, err)
+			defer f.Close()
+			expectedPerm := os.FileMode(1<<4 | 1<<1)
+			err = validateFilePermissionBits(f, expectedPerm)
 			if err != nil && tc.isValid {
 				t.Error(err)
 			}

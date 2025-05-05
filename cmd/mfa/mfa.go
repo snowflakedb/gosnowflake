@@ -28,13 +28,13 @@ func main() {
 	cfg.Authenticator = sf.AuthTypeUsernamePasswordMFA
 	dsn, err := sf.DSN(cfg)
 	if err != nil {
-		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
+		log.Fatalf("failed to create DSN from Config. err: %v", err)
 	}
 
 	// The external browser flow should start with the call to Open
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
-		log.Fatalf("failed to connect. %v, err: %v", dsn, err)
+		log.Fatalf("failed to connect. err: %v", err)
 	}
 	defer db.Close()
 	query := "SELECT 1"

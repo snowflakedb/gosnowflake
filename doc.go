@@ -98,11 +98,18 @@ The following connection parameters are supported:
 
   - To use the internal Snowflake authenticator, specify snowflake (Default). If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
 
+  - To use programmatic access tokens, specify programmatic_access_token.
+
   - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
 
   - To authenticate using your IDP via a browser, specify externalbrowser.
 
-  - To authenticate via OAuth, specify oauth and provide an OAuth Access Token (see the token parameter below).
+  - To authenticate via OAuth with token, specify oauth and provide an OAuth Access Token (see the token parameter below).
+
+  - To authenticate via full OAuth flow, specify oauth_authorization_code or oauth_client_credentials and fill relevant parameters (oauthClientId, oauthClientSecret, oauthAuthorizationUrl, oauthTokenRequestUrl, oauthRedirectUri, oauthScope).
+    Specify URLs if you want to use external OAuth2 IdP, otherwise Snowflake will be used as a default IdP.
+    If oauthScope is not configured, the role is used (giving session:role:<roleName> scope).
+    For more information, please reach to official Snowflake documentation.
 
   - application: Identifies your application to Snowflake Support.
 
