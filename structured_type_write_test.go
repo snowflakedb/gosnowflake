@@ -12,11 +12,11 @@ import (
 func TestBindingVariant(t *testing.T) {
 	t.Skip("binding variant is currently not supported")
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE TABLE test_variant_binding (var VARIANT)")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_variant_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("INSERT INTO test_variant_binding SELECT (?)", DataTypeVariant, nil)
 		dbt.mustExec("INSERT INTO test_variant_binding SELECT (?)", DataTypeVariant, sql.NullString{Valid: false})
 		dbt.mustExec("INSERT INTO test_variant_binding SELECT (?)", DataTypeVariant, "{'s': 'some string'}")
@@ -51,11 +51,11 @@ func TestBindingVariant(t *testing.T) {
 
 func TestBindingObjectWithoutSchema(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE TABLE test_object_binding (obj OBJECT)")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeObject, nil)
 		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeObject, sql.NullString{Valid: false})
 		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeObject, "{'s': 'some string'}")
@@ -90,11 +90,11 @@ func TestBindingObjectWithoutSchema(t *testing.T) {
 
 func TestBindingArrayWithoutSchema(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE TABLE test_array_binding (arr ARRAY)")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_array_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeArray, nil)
 		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeArray, sql.NullString{Valid: false})
 		dbt.mustExec("INSERT INTO test_array_binding SELECT (?)", DataTypeArray, "[1, 2, 3]")
@@ -133,11 +133,11 @@ func TestBindingObjectWithSchema(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	assertNilF(t, err)
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		dbt.mustExec("ALTER SESSION SET TIMESTAMP_OUTPUT_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF9 TZHTZM'")
 		o := objectWithAllTypes{
@@ -200,11 +200,11 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 	assertNilF(t, err)
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		dbt.mustExec("ALTER SESSION SET TIMESTAMP_OUTPUT_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF9 TZHTZM'")
 		t.Run("not null", func(t *testing.T) {
@@ -313,11 +313,11 @@ func TestBindingObjectWithSchemaSimpleWrite(t *testing.T) {
 	assertNilF(t, err)
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN)))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		dbt.mustExec("ALTER SESSION SET TIMESTAMP_OUTPUT_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF9 TZHTZM'")
 		o := &objectWithAllTypesSimpleScan{
@@ -378,12 +378,12 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 	assertNilF(t, err)
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.forceJSON()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN)))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		dbt.mustExec("ALTER SESSION SET TIMESTAMP_OUTPUT_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF9 TZHTZM'")
 		t.Run("not null", func(t *testing.T) {
@@ -507,12 +507,12 @@ func (o *objectWithAllTypesWrapper) Write(sowc StructuredObjectWriterContext) er
 func TestBindingObjectWithAllTypesNullable(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.forceJSON()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (o OBJECT(o OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR)))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("ALTER SESSION SET TIMEZONE = 'Europe/Warsaw'")
 		dbt.mustExec("ALTER SESSION SET TIMESTAMP_OUTPUT_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF9 TZHTZM'")
 		o := &objectWithAllTypesWrapper{}
@@ -531,11 +531,11 @@ func TestBindingObjectWithAllTypesNullable(t *testing.T) {
 func TestBindingObjectWithSchemaWithCustomNameAndIgnoredField(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(anotherName VARCHAR))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		o := &objectWithCustomNameAndIgnoredField{
 			SomeString: "some string",
 			IgnoreMe:   "ignore me",
@@ -556,11 +556,11 @@ func TestBindingObjectWithSchemaWithCustomNameAndIgnoredField(t *testing.T) {
 func TestBindingNullStructuredObjects(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
+		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, i INTEGER))")
 		defer func() {
 			dbt.mustExec("DROP TABLE IF EXISTS test_object_binding")
 		}()
-		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("INSERT INTO test_object_binding SELECT (?)", DataTypeNilObject, reflect.TypeOf(simpleObject{}))
 
 		rows := dbt.mustQueryContext(ctx, "SELECT * FROM test_object_binding")

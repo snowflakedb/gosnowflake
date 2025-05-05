@@ -267,7 +267,7 @@ func (dbt *DBTest) prepare(query string) (*sql.Stmt, error) {
 }
 
 func (dbt *DBTest) fail(method, query string, err error) {
-	if !debugMode && len(query) > 300 {
+	if !debugMode && len(query) > 1000 {
 		query = "[query too large to print]"
 	}
 	dbt.Fatalf("error on %s [%s]: %s", method, query, err.Error())
@@ -372,6 +372,10 @@ func (dbt *DBTest) enableStructuredTypes() {
 		dbt.Log(err)
 	}
 	_, err = dbt.exec("alter session set IGNORE_CLIENT_VESRION_IN_STRUCTURED_TYPES_RESPONSE = true")
+	if err != nil {
+		dbt.Log(err)
+	}
+	_, err = dbt.exec("alter session set ENABLE_STRUCTURED_TYPES_IN_FDN_TABLES = true")
 	if err != nil {
 		dbt.Log(err)
 	}
