@@ -26,7 +26,6 @@ const (
 <body>
 OAuth authentication completed successfully.
 </body></html>`
-	snowflakeDomain                   = "snowflakecomputing.com"
 	localApplicationClientCredentials = "LOCAL_APPLICATION"
 )
 
@@ -243,8 +242,8 @@ func clientCredentialsNotSupplied(oauthClient *oauthClient) bool {
 }
 
 func isSnowflakeAsIdP(oauthClient *oauthClient) bool {
-	return (oauthClient.cfg.OauthAuthorizationURL == "" || strings.Contains(oauthClient.cfg.OauthAuthorizationURL, snowflakeDomain)) &&
-		(oauthClient.cfg.OauthTokenRequestURL == "" || strings.Contains(oauthClient.cfg.OauthTokenRequestURL, snowflakeDomain))
+	return (oauthClient.cfg.OauthAuthorizationURL == "" || strings.Contains(oauthClient.cfg.OauthAuthorizationURL, defaultDomain)) &&
+		(oauthClient.cfg.OauthTokenRequestURL == "" || strings.Contains(oauthClient.cfg.OauthTokenRequestURL, defaultDomain))
 }
 
 func (oauthClient *oauthClient) authorizationURL() string {
