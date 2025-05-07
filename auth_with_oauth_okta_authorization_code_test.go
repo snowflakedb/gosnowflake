@@ -9,6 +9,11 @@ import (
 )
 
 func TestOauthOktaAuthorizationCodeSuccessful(t *testing.T) {
+	logLevel := GetLogger().GetLogLevel()
+	_ = GetLogger().SetLogLevel("debug")
+	defer func() {
+		_ = GetLogger().SetLogLevel(logLevel)
+	}()
 	cfg := setupOauthOktaAuthorizationCodeTest(t)
 	var wg sync.WaitGroup
 	wg.Add(2)
