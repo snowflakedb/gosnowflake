@@ -218,7 +218,7 @@ func (oauthClient *oauthClient) exchangeAccessToken(codeReq *http.Request, state
 
 func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *oauth2.Config {
 	clientID, clientSecret := oauthClient.cfg.OauthClientID, oauthClient.cfg.OauthClientSecret
-	if eligibleForDefaultClientCredentials(oauthClient) {
+	if oauthClient.eligibleForDefaultClientCredentials() {
 		clientID, clientSecret = localApplicationClientCredentials, localApplicationClientCredentials
 	}
 	return &oauth2.Config{
