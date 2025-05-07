@@ -233,15 +233,11 @@ func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *
 		},
 	}
 }
-func eligibleForDefaultClientCredentials(oauthClient *oauthClient) bool {
-	return clientCredentialsNotSupplied(oauthClient) && isSnowflakeAsIDP(oauthClient)
+func (oauthClient *oauthClient) eligibleForDefaultClientCredentials() bool {
+	return oauthClient.cfg.OauthClientID == "" && oauthClient.cfg.OauthClientSecret == "" && oauthClient.isSnowflakeAsIDP()
 }
 
-func clientCredentialsNotSupplied(oauthClient *oauthClient) bool {
-	return oauthClient.cfg.OauthClientID == "" && oauthClient.cfg.OauthClientSecret == ""
-}
-
-func isSnowflakeAsIDP(oauthClient *oauthClient) bool {
+func (oauthClient *oauthClient) isSnowflakeAsIDP() bool {
 	return (oauthClient.cfg.OauthAuthorizationURL == "" || strings.Contains(oauthClient.cfg.OauthAuthorizationURL, defaultDomain)) &&
 		(oauthClient.cfg.OauthTokenRequestURL == "" || strings.Contains(oauthClient.cfg.OauthTokenRequestURL, defaultDomain))
 }
