@@ -26,6 +26,8 @@ const (
 <body>
 OAuth authentication completed successfully.
 </body></html>`
+	snowflakeDomain                   = "snowflakecomputing.com"
+	localApplicationClientCredentials = "LOCAL_APPLICATION"
 )
 
 var defaultAuthorizationCodeProviderFactory = func() authorizationCodeProvider {
@@ -216,9 +218,13 @@ func (oauthClient *oauthClient) exchangeAccessToken(codeReq *http.Request, state
 }
 
 func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *oauth2.Config {
+	clientId, clientSecret := oauthClient.cfg.OauthClientID, oauthClient.cfg.OauthClientSecret
+	if eligibleForDefaultClientCredentials(oauthClient) {
+		clientId, clientSecret = localApplicationClientCredentials, localApplicationClientCredentials
+	}
 	return &oauth2.Config{
-		ClientID:     oauthClient.cfg.OauthClientID,
-		ClientSecret: oauthClient.cfg.OauthClientSecret,
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
 		RedirectURL:  oauthClient.buildRedirectURI(callbackPort),
 		Scopes:       oauthClient.buildScopes(),
 		Endpoint: oauth2.Endpoint{
@@ -227,6 +233,18 @@ func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *
 			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
+}
+func eligibleForDefaultClientCredentials(oauthClient *oauthClient) bool {
+	return clientCredentialsNotSupplied(oauthClient) && isSnowflakeAsIdP(oauthClient)
+}
+
+func clientCredentialsNotSupplied(oauthClient *oauthClient) bool {
+	return oauthClient.cfg.OauthClientID == "" && oauthClient.cfg.OauthClientSecret == ""
+}
+
+func isSnowflakeAsIdP(oauthClient *oauthClient) bool {
+	return (oauthClient.cfg.OauthAuthorizationURL == "" || strings.Contains(oauthClient.cfg.OauthAuthorizationURL, snowflakeDomain)) &&
+		(oauthClient.cfg.OauthTokenRequestURL == "" || strings.Contains(oauthClient.cfg.OauthTokenRequestURL, snowflakeDomain))
 }
 
 func (oauthClient *oauthClient) authorizationURL() string {

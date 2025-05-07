@@ -562,6 +562,84 @@ func TestClientCredentialsFlow(t *testing.T) {
 	})
 }
 
+func TestEligibleForDefaultClientCredentials(t *testing.T) {
+	tests := []struct {
+		name        string
+		oauthClient *oauthClient
+		expected    bool
+	}{
+		{
+			name: "Client credentials not supplied and Snowflake as IdP",
+			oauthClient: &oauthClient{
+				cfg: &Config{
+					OauthClientID:         "",
+					OauthClientSecret:     "",
+					OauthAuthorizationURL: "https://example.snowflakecomputing.com/oauth/authorize",
+					OauthTokenRequestURL:  "https://example.snowflakecomputing.com/oauth/token",
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Client credentials not supplied and empty URLs (defaults to Snowflake)",
+			oauthClient: &oauthClient{
+				cfg: &Config{
+					OauthClientID:         "",
+					OauthClientSecret:     "",
+					OauthAuthorizationURL: "",
+					OauthTokenRequestURL:  "",
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Client credentials supplied",
+			oauthClient: &oauthClient{
+				cfg: &Config{
+					OauthClientID:         "testClientID",
+					OauthClientSecret:     "testClientSecret",
+					OauthAuthorizationURL: "https://example.snowflakecomputing.com/oauth/authorize",
+					OauthTokenRequestURL:  "https://example.snowflakecomputing.com/oauth/token",
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Only client ID supplied",
+			oauthClient: &oauthClient{
+				cfg: &Config{
+					OauthClientID:         "testClientID",
+					OauthClientSecret:     "",
+					OauthAuthorizationURL: "https://example.snowflakecomputing.com/oauth/authorize",
+					OauthTokenRequestURL:  "https://example.snowflakecomputing.com/oauth/token",
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Non-Snowflake IdP",
+			oauthClient: &oauthClient{
+				cfg: &Config{
+					OauthClientID:         "",
+					OauthClientSecret:     "",
+					OauthAuthorizationURL: "https://example.com/oauth/authorize",
+					OauthTokenRequestURL:  "https://example.com/oauth/token",
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := eligibleForDefaultClientCredentials(test.oauthClient)
+			if result != test.expected {
+				t.Errorf("expected %v, got %v", test.expected, result)
+			}
+		})
+	}
+}
+
 type nonInteractiveAuthorizationCodeProvider struct {
 	t               *testing.T
 	tamperWithState bool
