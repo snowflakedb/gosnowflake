@@ -395,7 +395,7 @@ func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo
 	gcsLoc := util.extractBucketNameAndPath(stageInfo.Location)
 	fullFilePath := gcsLoc.path + filename
 	endPoint := util.getGcsCustomEndpoint(stageInfo)
-	if stageInfo.UseVirtualURL {
+	if stageInfo.EndPoint == "" && stageInfo.UseVirtualURL {
 		return url.Parse(endPoint + "/" + url.QueryEscape(fullFilePath))
 	}
 	return url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))

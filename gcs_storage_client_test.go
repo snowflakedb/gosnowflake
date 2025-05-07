@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -101,6 +102,18 @@ func TestGenerateFileURL(t *testing.T) {
 		{"sfc-eng-regression//", "file4", "sfc-eng-regression", "/file4"},
 		{"sfc-eng-regression///", "file5", "sfc-eng-regression", "//file5"},
 	}
+	for _, test := range testcases {
+		t.Run(test.location, func(t *testing.T) {
+			stageInfo := &execResponseStageInfo{}
+			stageInfo.Location = test.location
+			gcsURL, err := gcsUtil.generateFileURL(stageInfo, test.fname)
+			assertNilF(t, err, "error should be nil")
+			expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.QueryEscape(test.filepath))
+			assertNilF(t, err, "error should be nil")
+			assertEqualE(t, gcsURL.String(), expectedURL.String(), "failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
+		})
+	}
+
 	for _, test := range testcases {
 		t.Run(test.location, func(t *testing.T) {
 			stageInfo := &execResponseStageInfo{}
@@ -1136,131 +1149,157 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 
 func TestGetGcsCustomEndpoint(t *testing.T) {
 	testcases := []struct {
-		desc string
-		in   execResponseStageInfo
-		out  string
+		desc             string
+		in               execResponseStageInfo
+		expectedEndPoint string
+		expectedFileUrl  string
 	}{
 		{
 			desc: "when the endPoint is not specified and UseRegionalURL is false",
 			in: execResponseStageInfo{
 				UseRegionalURL: false,
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				EndPoint:       "",
 				Region:         "WEST-1",
 				UseVirtualURL:  false,
 			},
-			out: "https://storage.googleapis.com",
+			expectedEndPoint: "https://storage.googleapis.com",
+			expectedFileUrl:  "https://storage.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the useRegionalURL is only enabled",
 			in: execResponseStageInfo{
 				UseRegionalURL: true,
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				EndPoint:       "",
 				Region:         "mockLocation",
 				UseVirtualURL:  false,
 			},
-			out: "https://storage.mocklocation.rep.googleapis.com",
+			expectedEndPoint: "https://storage.mocklocation.rep.googleapis.com",
+			expectedFileUrl:  "https://storage.mocklocation.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the region is me-central2",
 			in: execResponseStageInfo{
 				UseRegionalURL: false,
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				EndPoint:       "",
 				Region:         "me-central2",
 				UseVirtualURL:  false,
 			},
-			out: "https://storage.me-central2.rep.googleapis.com",
+			expectedEndPoint: "https://storage.me-central2.rep.googleapis.com",
+			expectedFileUrl:  "https://storage.me-central2.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the region is me-central2 (mixed case)",
 			in: execResponseStageInfo{
 				UseRegionalURL: false,
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				EndPoint:       "",
 				Region:         "ME-cEntRal2",
 				UseVirtualURL:  false,
 			},
-			out: "https://storage.me-central2.rep.googleapis.com",
+			expectedEndPoint: "https://storage.me-central2.rep.googleapis.com",
+			expectedFileUrl:  "https://storage.me-central2.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the region is me-central2 (uppercase)",
 			in: execResponseStageInfo{
 				UseRegionalURL: false,
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				EndPoint:       "",
 				Region:         "ME-CENTRAL2",
 				UseVirtualURL:  false,
 			},
-			out: "https://storage.me-central2.rep.googleapis.com",
+			expectedEndPoint: "https://storage.me-central2.rep.googleapis.com",
+			expectedFileUrl:  "https://storage.me-central2.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the endPoint is specified",
 			in: execResponseStageInfo{
 				UseRegionalURL: false,
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-cEntRal1",
 				UseVirtualURL:  false,
 			},
-			out: "https://storage.specialEndPoint.rep.googleapis.com",
+			expectedEndPoint: "https://storage.specialEndPoint.rep.googleapis.com",
+			expectedFileUrl:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when both the endPoint and the useRegionalUrl are specified",
 			in: execResponseStageInfo{
 				UseRegionalURL: true,
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-cEntRal1",
 				UseVirtualURL:  false,
 			},
-			out: "https://storage.specialEndPoint.rep.googleapis.com",
+			expectedEndPoint: "https://storage.specialEndPoint.rep.googleapis.com",
+			expectedFileUrl:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when both the endPoint is specified and the region is me-central2",
 			in: execResponseStageInfo{
 				UseRegionalURL: true,
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-CENTRAL2",
 				UseVirtualURL:  false,
 			},
-			out: "https://storage.specialEndPoint.rep.googleapis.com",
+			expectedEndPoint: "https://storage.specialEndPoint.rep.googleapis.com",
+			expectedFileUrl:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when only the useVirtualUrl is enabled",
 			in: execResponseStageInfo{
-				Location:       "my-travel-maps",
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				UseRegionalURL: false,
 				EndPoint:       "",
 				Region:         "WEST-1",
 				UseVirtualURL:  true,
 			},
-			out: "https://my-travel-maps.storage.googleapis.com",
+			expectedEndPoint: "https://my-travel-maps.storage.googleapis.com",
+			expectedFileUrl:  "https://my-travel-maps.storage.googleapis.com",
 		},
 		{
 			desc: "when both the useRegionalURL and useVirtualUrl are enabled",
 			in: execResponseStageInfo{
-				Location:       "my-travel-maps",
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				UseRegionalURL: true,
 				EndPoint:       "",
 				Region:         "ME-CENTRAL2",
 				UseVirtualURL:  true,
 			},
-			out: "https://my-travel-maps.storage.googleapis.com",
+			expectedEndPoint: "https://my-travel-maps.storage.googleapis.com",
+			expectedFileUrl:  "https://my-travel-maps.storage.googleapis.com",
 		},
 		{
 			desc: "when all the options are enabled",
 			in: execResponseStageInfo{
-				Location:       "my-travel-maps",
+				Location:       "my-travel-maps/mock_directory/mock_path/",
 				UseRegionalURL: true,
 				EndPoint:       "storage.specialEndPoint.rep.googleapis.com",
 				Region:         "ME-CENTRAL2",
 				UseVirtualURL:  true,
 			},
-			out: "https://storage.specialEndPoint.rep.googleapis.com",
+			expectedEndPoint: "https://storage.specialEndPoint.rep.googleapis.com",
+			expectedFileUrl:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
 		},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.desc, func(t *testing.T) {
-			endpoint := new(snowflakeGcsClient).getGcsCustomEndpoint(&test.in)
-			if endpoint != test.out {
-				t.Errorf("failed. in: %v, expected: %v, got: %v", test.in, test.out, endpoint)
-			}
+			gcs := new(snowflakeGcsClient)
+			endpoint := gcs.getGcsCustomEndpoint(&test.in)
+			fileUrl, err := gcs.generateFileURL(&test.in, "mock_file")
+			assertNilF(t, err, "Should not fail")
+
+			expectedURL, err := url.Parse(test.expectedFileUrl + "/" + url.QueryEscape("mock_directory/mock_path/mock_file"))
+			assertNilF(t, err, "Should not fail")
+
+			assertEqualF(t, endpoint, test.expectedEndPoint, "failed. in: %v, expected: %v, got: %v", fmt.Sprintf("%v", test.in), test.expectedEndPoint, endpoint)
+			assertEqualF(t, fileUrl.String(), expectedURL.String(), "failed. in: %v, expected: %v, got: %v", fmt.Sprintf("%v", test.in), expectedURL.String(), fileUrl.String())
 		})
 	}
 }
