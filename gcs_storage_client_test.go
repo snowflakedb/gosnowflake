@@ -1152,7 +1152,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 		desc             string
 		in               execResponseStageInfo
 		expectedEndPoint string
-		expectedFileUrl  string
+		expectedFileURL  string
 	}{
 		{
 			desc: "when the endPoint is not specified and UseRegionalURL is false",
@@ -1164,7 +1164,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  false,
 			},
 			expectedEndPoint: "https://storage.googleapis.com",
-			expectedFileUrl:  "https://storage.googleapis.com/my-travel-maps",
+			expectedFileURL:  "https://storage.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the useRegionalURL is only enabled",
@@ -1176,7 +1176,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  false,
 			},
 			expectedEndPoint: "https://storage.mocklocation.rep.googleapis.com",
-			expectedFileUrl:  "https://storage.mocklocation.rep.googleapis.com/my-travel-maps",
+			expectedFileURL:  "https://storage.mocklocation.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the region is me-central2",
@@ -1188,7 +1188,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  false,
 			},
 			expectedEndPoint: "https://storage.me-central2.rep.googleapis.com",
-			expectedFileUrl:  "https://storage.me-central2.rep.googleapis.com/my-travel-maps",
+			expectedFileURL:  "https://storage.me-central2.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the region is me-central2 (mixed case)",
@@ -1200,7 +1200,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  false,
 			},
 			expectedEndPoint: "https://storage.me-central2.rep.googleapis.com",
-			expectedFileUrl:  "https://storage.me-central2.rep.googleapis.com/my-travel-maps",
+			expectedFileURL:  "https://storage.me-central2.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the region is me-central2 (uppercase)",
@@ -1212,7 +1212,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  false,
 			},
 			expectedEndPoint: "https://storage.me-central2.rep.googleapis.com",
-			expectedFileUrl:  "https://storage.me-central2.rep.googleapis.com/my-travel-maps",
+			expectedFileURL:  "https://storage.me-central2.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when the endPoint is specified",
@@ -1224,7 +1224,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  false,
 			},
 			expectedEndPoint: "https://storage.specialEndPoint.rep.googleapis.com",
-			expectedFileUrl:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
+			expectedFileURL:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when both the endPoint and the useRegionalUrl are specified",
@@ -1236,7 +1236,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  false,
 			},
 			expectedEndPoint: "https://storage.specialEndPoint.rep.googleapis.com",
-			expectedFileUrl:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
+			expectedFileURL:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when both the endPoint is specified and the region is me-central2",
@@ -1248,7 +1248,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  false,
 			},
 			expectedEndPoint: "https://storage.specialEndPoint.rep.googleapis.com",
-			expectedFileUrl:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
+			expectedFileURL:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
 		},
 		{
 			desc: "when only the useVirtualUrl is enabled",
@@ -1260,7 +1260,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  true,
 			},
 			expectedEndPoint: "https://my-travel-maps.storage.googleapis.com",
-			expectedFileUrl:  "https://my-travel-maps.storage.googleapis.com",
+			expectedFileURL:  "https://my-travel-maps.storage.googleapis.com",
 		},
 		{
 			desc: "when both the useRegionalURL and useVirtualUrl are enabled",
@@ -1272,7 +1272,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  true,
 			},
 			expectedEndPoint: "https://my-travel-maps.storage.googleapis.com",
-			expectedFileUrl:  "https://my-travel-maps.storage.googleapis.com",
+			expectedFileURL:  "https://my-travel-maps.storage.googleapis.com",
 		},
 		{
 			desc: "when all the options are enabled",
@@ -1284,7 +1284,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				UseVirtualURL:  true,
 			},
 			expectedEndPoint: "https://storage.specialEndPoint.rep.googleapis.com",
-			expectedFileUrl:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
+			expectedFileURL:  "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
 		},
 	}
 
@@ -1292,14 +1292,14 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			gcs := new(snowflakeGcsClient)
 			endpoint := gcs.getGcsCustomEndpoint(&test.in)
-			fileUrl, err := gcs.generateFileURL(&test.in, "mock_file")
+			fileURL, err := gcs.generateFileURL(&test.in, "mock_file")
 			assertNilF(t, err, "Should not fail")
 
-			expectedURL, err := url.Parse(test.expectedFileUrl + "/" + url.QueryEscape("mock_directory/mock_path/mock_file"))
+			expectedURL, err := url.Parse(test.expectedFileURL + "/" + url.QueryEscape("mock_directory/mock_path/mock_file"))
 			assertNilF(t, err, "Should not fail")
 
 			assertEqualF(t, endpoint, test.expectedEndPoint, "failed. in: %v, expected: %v, got: %v", fmt.Sprintf("%v", test.in), test.expectedEndPoint, endpoint)
-			assertEqualF(t, fileUrl.String(), expectedURL.String(), "failed. in: %v, expected: %v, got: %v", fmt.Sprintf("%v", test.in), expectedURL.String(), fileUrl.String())
+			assertEqualF(t, fileURL.String(), expectedURL.String(), "failed. in: %v, expected: %v, got: %v", fmt.Sprintf("%v", test.in), expectedURL.String(), fileURL.String())
 		})
 	}
 }
