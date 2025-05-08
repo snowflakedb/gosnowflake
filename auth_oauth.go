@@ -238,8 +238,8 @@ func (oauthClient *oauthClient) eligibleForDefaultClientCredentials() bool {
 }
 
 func (oauthClient *oauthClient) isSnowflakeAsIDP() bool {
-	return (oauthClient.cfg.OauthAuthorizationURL == "" || strings.Contains(oauthClient.cfg.OauthAuthorizationURL, defaultDomain)) &&
-		(oauthClient.cfg.OauthTokenRequestURL == "" || strings.Contains(oauthClient.cfg.OauthTokenRequestURL, defaultDomain))
+	return (oauthClient.cfg.OauthAuthorizationURL == "" || strings.Contains(oauthClient.cfg.OauthAuthorizationURL, oauthClient.cfg.Host)) &&
+		(oauthClient.cfg.OauthTokenRequestURL == "" || strings.Contains(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.Host))
 }
 
 func (oauthClient *oauthClient) authorizationURL() string {

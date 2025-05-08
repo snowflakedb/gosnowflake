@@ -572,6 +572,7 @@ func TestEligibleForDefaultClientCredentials(t *testing.T) {
 			name: "Client credentials not supplied and Snowflake as IdP",
 			oauthClient: &oauthClient{
 				cfg: &Config{
+					Host:                  "example.snowflakecomputing.com",
 					OauthClientID:         "",
 					OauthClientSecret:     "",
 					OauthAuthorizationURL: "https://example.snowflakecomputing.com/oauth/authorize",
@@ -584,6 +585,7 @@ func TestEligibleForDefaultClientCredentials(t *testing.T) {
 			name: "Client credentials not supplied and empty URLs (defaults to Snowflake)",
 			oauthClient: &oauthClient{
 				cfg: &Config{
+					Host:                  "example.snowflakecomputing.com",
 					OauthClientID:         "",
 					OauthClientSecret:     "",
 					OauthAuthorizationURL: "",
@@ -596,6 +598,7 @@ func TestEligibleForDefaultClientCredentials(t *testing.T) {
 			name: "Client credentials supplied",
 			oauthClient: &oauthClient{
 				cfg: &Config{
+					Host:                  "example.snowflakecomputing.com",
 					OauthClientID:         "testClientID",
 					OauthClientSecret:     "testClientSecret",
 					OauthAuthorizationURL: "https://example.snowflakecomputing.com/oauth/authorize",
@@ -608,6 +611,7 @@ func TestEligibleForDefaultClientCredentials(t *testing.T) {
 			name: "Only client ID supplied",
 			oauthClient: &oauthClient{
 				cfg: &Config{
+					Host:                  "example.snowflakecomputing.com",
 					OauthClientID:         "testClientID",
 					OauthClientSecret:     "",
 					OauthAuthorizationURL: "https://example.snowflakecomputing.com/oauth/authorize",
@@ -620,6 +624,7 @@ func TestEligibleForDefaultClientCredentials(t *testing.T) {
 			name: "Non-Snowflake IdP",
 			oauthClient: &oauthClient{
 				cfg: &Config{
+					Host:                  "example.snowflakecomputing.com",
 					OauthClientID:         "",
 					OauthClientSecret:     "",
 					OauthAuthorizationURL: "https://example.com/oauth/authorize",
@@ -632,7 +637,7 @@ func TestEligibleForDefaultClientCredentials(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := eligibleForDefaultClientCredentials(test.oauthClient)
+			result := test.oauthClient.eligibleForDefaultClientCredentials()
 			if result != test.expected {
 				t.Errorf("expected %v, got %v", test.expected, result)
 			}
