@@ -274,7 +274,6 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 	}
 
 	if err == nil { // file exists
-		// TODO
 		fileInfo, err := lockFile.Stat()
 		if err != nil {
 			return fmt.Errorf("failed to stat %v and determine if lock is stale. err: %v", lockPath, err)
