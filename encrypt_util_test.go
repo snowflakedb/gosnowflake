@@ -27,7 +27,7 @@ func TestEncryptDecryptFileCBC(t *testing.T) {
 	encMat := snowflakeFileEncryption{
 		"ztke8tIdVt1zmlQIZm0BMA==",
 		"123873c7-3a66-40c4-ab89-e3722fbccce1",
-		3112,
+		9223372036854775807,
 	}
 	data := "test data"
 	inputFile := "test_encrypt_decrypt_file"
@@ -47,6 +47,7 @@ func TestEncryptDecryptFileCBC(t *testing.T) {
 		t.Error(err)
 	}
 	defer os.Remove(encryptedFile)
+	assertStringContainsE(t, metadata.matdesc, "9223372036854775807")
 	decryptedFile, err := decryptFileCBC(metadata, &encMat, encryptedFile, 0, "")
 	if err != nil {
 		t.Error(err)
@@ -273,10 +274,11 @@ func TestEncryptDecryptFileGCM(t *testing.T) {
 	sfe := &snowflakeFileEncryption{
 		QueryStageMasterKey: "YWJjZGVmMTIzNDU2Nzg5MA==",
 		QueryID:             "unused",
-		SMKID:               123,
+		SMKID:               9223372036854775807,
 	}
 	meta, encryptedFileName, err := encryptFileGCM(sfe, tempFile.Name(), tmpDir)
 	assertNilF(t, err)
+	assertStringContainsE(t, meta.matdesc, "9223372036854775807")
 
 	decryptedFileName, err := decryptFileGCM(meta, sfe, encryptedFileName, tmpDir)
 	assertNilF(t, err)
