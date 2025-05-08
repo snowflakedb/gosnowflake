@@ -394,10 +394,20 @@ func (util *snowflakeGcsClient) extractBucketNameAndPath(location string) *gcsLo
 func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo, filename string) (*url.URL, error) {
 	gcsLoc := util.extractBucketNameAndPath(stageInfo.Location)
 	fullFilePath := gcsLoc.path + filename
-	endPoint := util.getGcsCustomEndpoint(stageInfo)
-	if stageInfo.UseVirtualURL {
+	endPoint := "https://storage.googleapis.com"
+
+	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
+	isRegionalURLEnabled := (strings.ToLower(stageInfo.Region) == gcsRegionMeCentral2) || stageInfo.UseRegionalURL
+	if stageInfo.EndPoint != "" {
+		endPoint = fmt.Sprintf("https://%s", stageInfo.EndPoint)
+	} else if stageInfo.UseVirtualURL {
+		bucketName := util.extractBucketNameAndPath(stageInfo.Location).bucketName
+		endPoint = fmt.Sprintf("https://%s.storage.googleapis.com", bucketName)
 		return url.Parse(endPoint + "/" + url.QueryEscape(fullFilePath))
+	} else if stageInfo.Region != "" && isRegionalURLEnabled {
+		endPoint = fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(stageInfo.Region))
 	}
+
 	return url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
 }
 
@@ -409,20 +419,4 @@ func newGcsClient(cfg *Config) gcsAPI {
 	return &http.Client{
 		Transport: getTransport(cfg),
 	}
-}
-
-func (util *snowflakeGcsClient) getGcsCustomEndpoint(info *execResponseStageInfo) string {
-	endpoint := "https://storage.googleapis.com"
-
-	// TODO: SNOW-1789759 hardcoded region will be replaced in the future
-	isRegionalURLEnabled := (strings.ToLower(info.Region) == gcsRegionMeCentral2) || info.UseRegionalURL
-	if info.EndPoint != "" {
-		endpoint = fmt.Sprintf("https://%s", info.EndPoint)
-	} else if info.UseVirtualURL {
-		bucketName := util.extractBucketNameAndPath(info.Location).bucketName
-		endpoint = fmt.Sprintf("https://%s.storage.googleapis.com", bucketName)
-	} else if info.Region != "" && isRegionalURLEnabled {
-		endpoint = fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(info.Region))
-	}
-	return endpoint
 }
