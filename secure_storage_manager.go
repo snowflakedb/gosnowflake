@@ -272,6 +272,12 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to open %v. err: %v", lockPath, err)
 	}
+	defer func() {
+		err = lockFile.Close()
+		if err != nil {
+			logger.Debugf("error while closing lock file. %v", err)
+		}
+	}()
 
 	if err == nil { // file exists
 		fileInfo, err := lockFile.Stat()
