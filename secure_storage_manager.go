@@ -287,16 +287,13 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 		if err != nil {
 			return err
 		}
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
 		if strconv.Itoa(int(ownerUID)) != currentUser.Uid {
 			return errors.New("incorrect owner of " + lockFile.Name())
 		}
 
 		// removing stale lock
 		now := time.Now()
-		if !errors.Is(err, os.ErrNotExist) && fileInfo.ModTime().Add(time.Second).UnixNano() < now.UnixNano() {
+		if fileInfo.ModTime().Add(time.Second).UnixNano() < now.UnixNano() {
 			logger.Debugf("removing credentials cache lock file, stale for %vms", (now.UnixNano()-fileInfo.ModTime().UnixNano())/1000/1000)
 			err = os.Remove(lockPath)
 			if err != nil {
