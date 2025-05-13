@@ -268,18 +268,43 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 	const retryInterval = 100 * time.Millisecond
 	lockPath := ssm.lockPath()
 
-	fileInfo, err := os.Stat(lockPath)
+	lockFile, err := os.Open(lockPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to stat %v and determine if lock is stale. err: %v", lockPath, err)
+		return fmt.Errorf("failed to open %v. err: %v", lockPath, err)
 	}
-
-	// removing stale lock
-	now := time.Now()
-	if !errors.Is(err, os.ErrNotExist) && fileInfo.ModTime().Add(time.Second).UnixNano() < now.UnixNano() {
-		logger.Debugf("removing credentials cache lock file, stale for %vms", (now.UnixNano()-fileInfo.ModTime().UnixNano())/1000/1000)
-		err = os.Remove(lockPath)
+	defer func() {
+		err = lockFile.Close()
 		if err != nil {
-			return fmt.Errorf("failed to remove %v while trying to remove stale lock. err: %v", lockPath, err)
+			logger.Debugf("error while closing lock file. %v", err)
+		}
+	}()
+
+	if err == nil { // file exists
+		fileInfo, err := lockFile.Stat()
+		if err != nil {
+			return fmt.Errorf("failed to stat %v and determine if lock is stale. err: %v", lockPath, err)
+		}
+
+		ownerUID, err := provideFileOwner(lockFile)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		currentUser, err := user.Current()
+		if err != nil {
+			return err
+		}
+		if strconv.Itoa(int(ownerUID)) != currentUser.Uid {
+			return errors.New("incorrect owner of " + lockFile.Name())
+		}
+
+		// removing stale lock
+		now := time.Now()
+		if fileInfo.ModTime().Add(time.Second).UnixNano() < now.UnixNano() {
+			logger.Debugf("removing credentials cache lock file, stale for %vms", (now.UnixNano()-fileInfo.ModTime().UnixNano())/1000/1000)
+			err = os.Remove(lockPath)
+			if err != nil {
+				return fmt.Errorf("failed to remove %v while trying to remove stale lock. err: %v", lockPath, err)
+			}
 		}
 	}
 
