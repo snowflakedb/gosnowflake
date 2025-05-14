@@ -95,7 +95,7 @@ func encryptStreamCBC(
 	}
 
 	matDesc := materialDescriptor{
-		strconv.Itoa(int(sfe.SMKID)),
+		fmt.Sprintf("%v", sfe.SMKID),
 		sfe.QueryID,
 		strconv.Itoa(keySize * 8),
 	}
@@ -378,7 +378,7 @@ func encryptFileGCM(
 	}
 
 	matDesc := materialDescriptor{
-		strconv.Itoa(int(sfe.SMKID)),
+		fmt.Sprintf("%v", sfe.SMKID),
 		sfe.QueryID,
 		strconv.Itoa(keySize * 8),
 	}

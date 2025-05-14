@@ -26,6 +26,7 @@ const (
 <body>
 OAuth authentication completed successfully.
 </body></html>`
+	localApplicationClientCredentials = "LOCAL_APPLICATION"
 )
 
 var defaultAuthorizationCodeProviderFactory = func() authorizationCodeProvider {
@@ -216,9 +217,13 @@ func (oauthClient *oauthClient) exchangeAccessToken(codeReq *http.Request, state
 }
 
 func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *oauth2.Config {
+	clientID, clientSecret := oauthClient.cfg.OauthClientID, oauthClient.cfg.OauthClientSecret
+	if oauthClient.eligibleForDefaultClientCredentials() {
+		clientID, clientSecret = localApplicationClientCredentials, localApplicationClientCredentials
+	}
 	return &oauth2.Config{
-		ClientID:     oauthClient.cfg.OauthClientID,
-		ClientSecret: oauthClient.cfg.OauthClientSecret,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
 		RedirectURL:  oauthClient.buildRedirectURI(callbackPort),
 		Scopes:       oauthClient.buildScopes(),
 		Endpoint: oauth2.Endpoint{
@@ -227,6 +232,14 @@ func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *
 			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
+}
+func (oauthClient *oauthClient) eligibleForDefaultClientCredentials() bool {
+	return oauthClient.cfg.OauthClientID == "" && oauthClient.cfg.OauthClientSecret == "" && oauthClient.isSnowflakeAsIDP()
+}
+
+func (oauthClient *oauthClient) isSnowflakeAsIDP() bool {
+	return (oauthClient.cfg.OauthAuthorizationURL == "" || strings.Contains(oauthClient.cfg.OauthAuthorizationURL, oauthClient.cfg.Host)) &&
+		(oauthClient.cfg.OauthTokenRequestURL == "" || strings.Contains(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.Host))
 }
 
 func (oauthClient *oauthClient) authorizationURL() string {
