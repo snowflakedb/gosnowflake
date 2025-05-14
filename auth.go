@@ -54,6 +54,8 @@ const (
 	AuthTypeOAuthAuthorizationCode
 	// AuthTypeOAuthClientCredentials is to use non-interactive OAuth2 flow
 	AuthTypeOAuthClientCredentials
+	// AuthTypeWorkloadIdentityFederation is to use CSP identity for authentication
+	AuthTypeWorkloadIdentityFederation
 )
 
 func (authType AuthType) isOauthNativeFlow() bool {
@@ -95,6 +97,9 @@ func determineAuthenticatorType(cfg *Config, value string) error {
 		return nil
 	} else if upperCaseValue == AuthTypeOAuthClientCredentials.String() {
 		cfg.Authenticator = AuthTypeOAuthClientCredentials
+		return nil
+	} else if upperCaseValue == AuthTypeWorkloadIdentityFederation.String() {
+		cfg.Authenticator = AuthTypeWorkloadIdentityFederation
 		return nil
 	} else {
 		// possibly Okta case
@@ -151,6 +156,8 @@ func (authType AuthType) String() string {
 		return "OAUTH_AUTHORIZATION_CODE"
 	case AuthTypeOAuthClientCredentials:
 		return "OAUTH_CLIENT_CREDENTIALS"
+	case AuthTypeWorkloadIdentityFederation:
+		return "WORKLOAD_IDENTITY_FEDERATION"
 	default:
 		return "UNKNOWN"
 	}
@@ -196,6 +203,7 @@ type authRequestData struct {
 	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
 	Token                   string                       `json:"TOKEN,omitempty"`
 	OauthType               string                       `json:"OAUTH_TYPE,omitempty"`
+	Provider                string                       `json:"PROVIDER,omitempty"`
 }
 type authRequest struct {
 	Data authRequestData `json:"data"`
@@ -529,6 +537,15 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = token
 		requestMain.OauthType = "OAUTH_CLIENT_CREDENTIALS"
+	case AuthTypeWorkloadIdentityFederation:
+		logger.WithContext(sc.ctx).Debug("Workload Identity Federation")
+		wifAttestationProvider := createWifAttestationProvider(sc.ctx)
+		wifAttestation, err := wifAttestationProvider.getAttestation(sc.cfg.WorkloadIdentityProvider)
+		if err != nil {
+			return nil, err
+		}
+		requestMain.Token = wifAttestation.Credential
+		requestMain.Provider = wifAttestation.ProviderType
 	}
 
 	authRequest := authRequest{
