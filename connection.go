@@ -278,7 +278,6 @@ func (sc *snowflakeConn) cleanup() {
 		sc.rest.Client.CloseIdleConnections()
 	}
 	sc.rest = nil
-	sc.cfg = nil
 }
 
 func (sc *snowflakeConn) Close() (err error) {
