@@ -277,7 +277,6 @@ func (sc *snowflakeConn) cleanup() {
 	if sc.rest != nil && sc.rest.Client != nil {
 		sc.rest.Client.CloseIdleConnections()
 	}
-
 	sc.rest = nil
 }
 
