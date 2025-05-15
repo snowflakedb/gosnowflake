@@ -132,10 +132,10 @@ func TestEncryptStreamCBCReadError(t *testing.T) {
 
 	n, err := encryptStreamCBC(&sfe, r, nil, 0)
 	assertTrueF(t, errors.Is(err, wantErr), fmt.Sprintf("expected error: %v, got: %v", wantErr, err))
-	assertEqualE(t, n, 0, "expected 0 bytes written")
+	assertNilE(t, n, "expected no metadata on error")
 }
 
-func TestDecryptStreamCBDReadError(t *testing.T) {
+func TestDecryptStreamCBCReadError(t *testing.T) {
 	tmpDir := t.TempDir()
 	tempFile, err := os.CreateTemp(tmpDir, "gcm")
 	assertNilF(t, err)
