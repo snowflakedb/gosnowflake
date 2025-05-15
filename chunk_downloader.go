@@ -444,11 +444,9 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 		if !CustomJSONDecoderEnabled {
 			dec := json.NewDecoder(st)
 			for {
-				err := dec.Decode(&decRespd)
-				if err == io.EOF {
+				if err := dec.Decode(&decRespd); err == io.EOF {
 					break
-				}
-				if err != nil {
+				} else if err != nil {
 					return fmt.Errorf("decoding json: %w", err)
 				}
 			}
@@ -728,7 +726,7 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 
 		for dec.More() {
 			var row []*string
-			if err = dec.Decode(&row); err != nil {
+			if err := dec.Decode(&row); err != nil {
 				return fmt.Errorf("decoding row: %w", err)
 			}
 			rows <- row
