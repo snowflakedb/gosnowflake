@@ -631,8 +631,8 @@ func useStreamDownloader(ctx context.Context) bool {
 	if val == nil {
 		return false
 	}
-	s, _ := val.(bool)
-	return s
+	s, ok := val.(bool)
+	return s && ok
 }
 
 type streamChunkFetcher interface {
@@ -718,14 +718,11 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 	openToken := json.Delim('[')
 	closeToken := json.Delim(']')
 	for {
-		t, err := dec.Token()
-		if err == io.EOF {
+		if t, err := dec.Token(); err == io.EOF {
 			break
-		}
-		if err != nil {
+		} else if err != nil {
 			return fmt.Errorf("delim open: %w", err)
-		}
-		if t != openToken {
+		} else if t != openToken {
 			return fmt.Errorf("delim open: got %T", t)
 		}
 
@@ -737,11 +734,9 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 			rows <- row
 		}
 
-		t, err = dec.Token()
-		if err != nil {
+		if t, err := dec.Token(); err != nil {
 			return fmt.Errorf("delim close: %w", err)
-		}
-		if t != closeToken {
+		} else if t != closeToken {
 			return fmt.Errorf("delim close: got %T", t)
 		}
 	}
@@ -803,8 +798,8 @@ func usesArrowBatches(ctx context.Context) bool {
 	if val == nil {
 		return false
 	}
-	a, _ := val.(bool)
-	return a
+	a, ok := val.(bool)
+	return a && ok
 }
 
 func countArrowBatchRows(recs *[]arrow.Record) (cnt int) {
