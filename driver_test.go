@@ -243,6 +243,7 @@ func (dbt *DBTest) mustQueryContextT(ctx context.Context, t *testing.T, query st
 	return &RowsExtended{
 		rows:      rs,
 		closeChan: &c0,
+		t: t,
 	}
 }
 
