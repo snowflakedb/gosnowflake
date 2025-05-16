@@ -15,6 +15,7 @@ import (
 type RowsExtended struct {
 	rows      *sql.Rows
 	closeChan *chan bool
+	t *testing.T
 }
 
 func (rs *RowsExtended) Close() error {
@@ -39,12 +40,21 @@ func (rs *RowsExtended) Next() bool {
 	return rs.rows.Next()
 }
 
+func (rs *RowsExtended) mustNext() {
+	assertTrueF(rs.t, rs.rows.Next())
+}
+
 func (rs *RowsExtended) NextResultSet() bool {
 	return rs.rows.NextResultSet()
 }
 
 func (rs *RowsExtended) Scan(dest ...interface{}) error {
 	return rs.rows.Scan(dest...)
+}
+
+func (rs *RowsExtended) mustScan(dest ...interface{}) {
+	err := rs.rows.Scan(dest...)
+	assertNilF(rs.t, err)
 }
 
 // test variables
