@@ -285,6 +285,7 @@ func (sc *snowflakeConn) Close() (err error) {
 		logger.WithContext(sc.ctx).Warnf("error while sending telemetry. %v", err)
 	}
 	sc.stopHeartBeat()
+	sc.rest.HeartBeat = nil
 	defer sc.cleanup()
 
 	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
