@@ -68,6 +68,11 @@ jobs:
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
               run: ./ci/test.sh
+            - name: Upload test results to Codecov
+              if: ${{!cancelled()}}
+              uses: codecov/test-results-action@v1
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v5
               with:
@@ -99,6 +104,11 @@ jobs:
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
               run: ./ci/test.sh
+            - name: Upload test results to Codecov
+              if: ${{!cancelled()}}
+              uses: codecov/test-results-action@v1
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v5
               with:
@@ -134,6 +144,11 @@ jobs:
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
               run: ci\\test.bat
+            - name: Upload test results to Codecov
+              if: ${{!cancelled()}}
+              uses: codecov/test-results-action@v1
+              with:
+                token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v5
               with:
