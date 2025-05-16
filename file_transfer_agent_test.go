@@ -590,14 +590,10 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 		t.Skip("permission model is different")
 	}
 
-	var err error
 	roPath := t.TempDir()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// Set the temp directory to read only
-	err = os.Chmod(roPath, 0444)
+	err := os.Chmod(roPath, 0444)
 	if err != nil {
 		t.Fatal(err)
 	}
