@@ -277,8 +277,6 @@ func (sc *snowflakeConn) cleanup() {
 	if sc.rest != nil && sc.rest.Client != nil {
 		sc.rest.Client.CloseIdleConnections()
 	}
-	sc.rest = nil
-	sc.cfg = nil
 }
 
 func (sc *snowflakeConn) Close() (err error) {
@@ -287,6 +285,7 @@ func (sc *snowflakeConn) Close() (err error) {
 		logger.WithContext(sc.ctx).Warnf("error while sending telemetry. %v", err)
 	}
 	sc.stopHeartBeat()
+	sc.rest.HeartBeat = nil
 	defer sc.cleanup()
 
 	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
