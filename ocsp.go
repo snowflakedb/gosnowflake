@@ -31,6 +31,12 @@ import (
 )
 
 var (
+	ocspModuleInitialized = false
+	ocspModuleMu          sync.Mutex
+	ocspCacheClearer      = &ocspCacheClearerType{}
+)
+
+var (
 	// caRoot includes the CA certificates.
 	caRoot map[string]*x509.Certificate
 	// certPOol includes the CA certificates.
@@ -111,7 +117,7 @@ const (
 	maxClockSkew           = 900 * time.Second // buffer for clock skew
 )
 
-var stopOCSPCacheClearing = make(chan struct{})
+var stopOCSPCacheClearing = make(chan struct{}, 2)
 
 type ocspStatusCode int
 
@@ -169,8 +175,8 @@ type parsedOcspRespKey struct {
 var (
 	ocspResponseCache       map[certIDKey]*certCacheValue
 	ocspParsedRespCache     map[parsedOcspRespKey]*ocspStatus
-	ocspResponseCacheLock   *sync.RWMutex
-	ocspParsedRespCacheLock *sync.Mutex
+	ocspResponseCacheLock   = &sync.RWMutex{}
+	ocspParsedRespCacheLock = &sync.Mutex{}
 )
 
 // copied from crypto/ocsp
@@ -835,6 +841,13 @@ func getAllRevocationStatus(ctx context.Context, verifiedChains []*x509.Certific
 
 // verifyPeerCertificateSerial verifies the certificate revocation status in serial.
 func verifyPeerCertificateSerial(_ [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
+	func() {
+		ocspModuleMu.Lock()
+		defer ocspModuleMu.Unlock()
+		if !ocspModuleInitialized {
+			initOcspModule()
+		}
+	}()
 	overrideCacheDir()
 	return verifyPeerCertificate(context.Background(), verifiedChains)
 }
@@ -849,10 +862,16 @@ func overrideCacheDir() {
 
 // initOCSPCache initializes OCSP Response cache file.
 func initOCSPCache() {
-	ocspResponseCacheLock = &sync.RWMutex{}
-	ocspParsedRespCacheLock = &sync.Mutex{}
-	ocspResponseCache = make(map[certIDKey]*certCacheValue)
-	ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
+	func() {
+		ocspResponseCacheLock.Lock()
+		defer ocspResponseCacheLock.Unlock()
+		ocspResponseCache = make(map[certIDKey]*certCacheValue)
+	}()
+	func() {
+		ocspParsedRespCacheLock.Lock()
+		defer ocspParsedRespCacheLock.Unlock()
+		ocspParsedRespCache = make(map[parsedOcspRespKey]*ocspStatus)
+	}()
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
 		return
 	}
@@ -1080,34 +1099,14 @@ func createOCSPCacheDir() {
 	logger.Infof("reset OCSP cache file. %v", cacheFileName)
 }
 
-func initOCSPCacheClearer() {
-	interval := defaultOCSPResponseCacheClearingInterval
-	if intervalFromEnv := os.Getenv(ocspResponseCacheClearingIntervalInSecondsEnv); intervalFromEnv != "" {
-		intervalAsSeconds, err := strconv.Atoi(intervalFromEnv)
-		if err != nil {
-			logger.Warnf("unparsable %v value: %v", ocspResponseCacheClearingIntervalInSecondsEnv, intervalFromEnv)
-		} else {
-			interval = time.Duration(intervalAsSeconds) * time.Second
-		}
-	}
-	logger.Debugf("initializing OCSP cache clearer to %v", interval)
-	go GoroutineWrapper(context.Background(), func() {
-		ticker := time.NewTicker(interval)
-		for {
-			select {
-			case <-ticker.C:
-				clearOCSPCaches()
-			case <-stopOCSPCacheClearing:
-				logger.Debug("stopped clearing OCSP cache")
-				ticker.Stop()
-				return
-			}
-		}
-	})
+// StartOCSPCacheClearer starts the job that clears OCSP caches
+func StartOCSPCacheClearer() {
+	ocspCacheClearer.start()
 }
 
-func stopOCSPCacheClearer() {
-	stopOCSPCacheClearing <- struct{}{}
+// StopOCSPCacheClearer stops the job that clears OCSP caches.
+func StopOCSPCacheClearer() {
+	ocspCacheClearer.stop()
 }
 
 func clearOCSPCaches() {
@@ -1125,11 +1124,62 @@ func clearOCSPCaches() {
 	}()
 }
 
-func init() {
+func initOcspModule() {
 	readCACerts()
 	createOCSPCacheDir()
 	initOCSPCache()
-	initOCSPCacheClearer()
+	ocspModuleInitialized = true
+}
+
+type ocspCacheClearerType struct {
+	running bool
+	mu      sync.Mutex
+}
+
+func (occ *ocspCacheClearerType) start() {
+	occ.mu.Lock()
+	defer occ.mu.Unlock()
+	if occ.running {
+		return
+	}
+	interval := defaultOCSPResponseCacheClearingInterval
+	if intervalFromEnv := os.Getenv(ocspResponseCacheClearingIntervalInSecondsEnv); intervalFromEnv != "" {
+		intervalAsSeconds, err := strconv.Atoi(intervalFromEnv)
+		if err != nil {
+			logger.Warnf("unparsable %v value: %v", ocspResponseCacheClearingIntervalInSecondsEnv, intervalFromEnv)
+		} else {
+			interval = time.Duration(intervalAsSeconds) * time.Second
+		}
+	}
+	logger.Debugf("initializing OCSP cache clearer to %v", interval)
+	go GoroutineWrapper(context.Background(), func() {
+		ticker := time.NewTicker(interval)
+		for {
+			select {
+			case <-ticker.C:
+				clearOCSPCaches()
+			case <-stopOCSPCacheClearing:
+				occ.mu.Lock()
+				defer occ.mu.Unlock()
+				logger.Debug("stopped clearing OCSP cache")
+				ticker.Stop()
+				stopOCSPCacheClearing <- struct{}{}
+				occ.running = false
+				return
+			}
+		}
+	})
+	occ.running = true
+}
+
+func (occ *ocspCacheClearerType) stop() {
+	occ.mu.Lock()
+	running := occ.running
+	occ.mu.Unlock()
+	if running {
+		stopOCSPCacheClearing <- struct{}{}
+		<-stopOCSPCacheClearing
+	}
 }
 
 // snowflakeNoOcspTransport is the transport object that doesn't do certificate revocation check with OCSP.
