@@ -401,11 +401,13 @@ func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo
 	if stageInfo.EndPoint != "" {
 		endPoint = fmt.Sprintf("https://%s", stageInfo.EndPoint)
 	} else if stageInfo.UseVirtualURL {
-		bucketName := util.extractBucketNameAndPath(stageInfo.Location).bucketName
-		endPoint = fmt.Sprintf("https://%s.storage.googleapis.com", bucketName)
-		return url.Parse(endPoint + "/" + url.QueryEscape(fullFilePath))
+		endPoint = fmt.Sprintf("https://%s.storage.googleapis.com", gcsLoc.bucketName)
 	} else if stageInfo.Region != "" && isRegionalURLEnabled {
 		endPoint = fmt.Sprintf("https://storage.%s.rep.googleapis.com", strings.ToLower(stageInfo.Region))
+	}
+
+	if stageInfo.UseVirtualURL {
+		return url.Parse(endPoint + "/" + url.QueryEscape(fullFilePath))
 	}
 
 	return url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))

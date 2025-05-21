@@ -58,5 +58,5 @@ func TestHeartbeatStartAndStop(t *testing.T) {
 
 	err = db.Close()
 	assertNilF(t, err, "should not cause error in Close")
-	assertNilF(t, conn.rest, "heartbeat should be nil")
+	assertNilF(t, conn.rest.HeartBeat, "heartbeat should be nil")
 }
