@@ -844,6 +844,10 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 
 		case "token":
 			cfg.Token = value
+		case "workloadIdentityProvider":
+			cfg.WorkloadIdentityProvider = value
+		case "workloadIdentityEntraResource":
+			cfg.WorkloadIdentityEntraResource = value
 		case "privateKey":
 			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(value)

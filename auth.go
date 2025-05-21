@@ -157,7 +157,7 @@ func (authType AuthType) String() string {
 	case AuthTypeOAuthClientCredentials:
 		return "OAUTH_CLIENT_CREDENTIALS"
 	case AuthTypeWorkloadIdentityFederation:
-		return "WORKLOAD_IDENTITY_FEDERATION"
+		return "WORKLOAD_IDENTITY"
 	default:
 		return "UNKNOWN"
 	}
@@ -544,6 +544,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		if err != nil {
 			return nil, err
 		}
+		requestMain.Authenticator = AuthTypeWorkloadIdentityFederation.String()
 		requestMain.Token = wifAttestation.Credential
 		requestMain.Provider = wifAttestation.ProviderType
 	}
