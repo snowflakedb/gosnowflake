@@ -4,7 +4,6 @@ package gosnowflake
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
@@ -113,7 +112,7 @@ type snowflakeFileTransferAgent struct {
 	encryptionMaterial          []*snowflakeFileEncryption
 	stageInfo                   *execResponseStageInfo
 	results                     []*fileMetadata
-	sourceStream                *bytes.Buffer
+	sourceStream                io.Reader
 	srcLocations                []string
 	autoCompress                bool
 	srcCompression              string
@@ -133,6 +132,7 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 	if err = sfa.parseCommand(); err != nil {
 		return err
 	}
+
 	if err = sfa.initFileMetadata(); err != nil {
 		return err
 	}
@@ -354,12 +354,21 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 		}
 		if sfa.sourceStream != nil {
 			fileName := sfa.srcFiles[0]
-			srcFileSize := int64(sfa.sourceStream.Len())
+			fileInfo, err := os.Stat(fileName)
+			if err != nil {
+				return (&SnowflakeError{
+					Number:      ErrFileNotExists,
+					SQLState:    sfa.data.SQLState,
+					QueryID:     sfa.data.QueryID,
+					Message:     errMsgFileNotExists,
+					MessageArgs: []interface{}{fileName},
+				}).exceptionTelemetry(sfa.sc)
+			}
 			sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
 				name:              baseName(fileName),
 				srcFileName:       fileName,
-				srcStream:         sfa.sourceStream,
-				srcFileSize:       srcFileSize,
+				fileStream:        sfa.sourceStream,
+				srcFileSize:       fileInfo.Size(),
 				stageLocationType: sfa.stageLocationType,
 				stageInfo:         sfa.stageInfo,
 			})
@@ -395,7 +404,6 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				}
 			}
 		}
-
 		if len(sfa.encryptionMaterial) > 0 {
 			for _, meta := range sfa.fileMetadata {
 				meta.encryptionMaterial = sfa.encryptionMaterial[0]
@@ -866,9 +874,13 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	defer os.RemoveAll(tmpDir) // cleanup
 
 	fileUtil := new(snowflakeFileUtil)
-	err = compressDataIfRequired(meta, fileUtil, tmpDir)
-	if err != nil {
-		return meta, err
+
+	if meta.requireCompress {
+		result, _, err := fileUtil.compressFileWithGzip(meta.srcFileName, meta.tmpDir)
+		if err != nil {
+			return meta, err
+		}
+		meta.realSrcFileName = result
 	}
 
 	err = updateUploadSize(meta, fileUtil)
@@ -1233,12 +1245,8 @@ func compressDataIfRequired(meta *fileMetadata, fileUtil *snowflakeFileUtil, tmp
 
 func updateUploadSize(meta *fileMetadata, fileUtil *snowflakeFileUtil) error {
 	var err error
-	if meta.srcStream != nil {
-		if meta.realSrcStream != nil {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
-		} else {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
-		}
+	if meta.fileStream != nil {
+		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(meta.fileStream)
 	} else {
 		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)
 	}
@@ -1248,22 +1256,12 @@ func updateUploadSize(meta *fileMetadata, fileUtil *snowflakeFileUtil) error {
 func encryptDataIfRequired(meta *fileMetadata, ct cloudType) error {
 	if ct != local && meta.encryptionMaterial != nil {
 		var err error
-		if meta.srcStream != nil {
-			var encryptedStream bytes.Buffer
-			srcStream := cmp.Or(meta.realSrcStream, meta.srcStream)
-			meta.encryptMeta, err = encryptStreamCBC(meta.encryptionMaterial, srcStream, &encryptedStream, 0)
-			if err != nil {
-				return err
-			}
-			meta.realSrcStream = &encryptedStream
-		} else {
-			var dataFile string
-			meta.encryptMeta, dataFile, err = encryptFileCBC(meta.encryptionMaterial, meta.realSrcFileName, 0, meta.tmpDir)
-			if err != nil {
-				return err
-			}
-			meta.realSrcFileName = dataFile
+		var dataFile string
+		meta.encryptMeta, dataFile, err = encryptFileCBC(meta.encryptionMaterial, meta.realSrcFileName, 0, meta.tmpDir)
+		if err != nil {
+			return err
 		}
+		meta.realSrcFileName = dataFile
 	}
 
 	return nil

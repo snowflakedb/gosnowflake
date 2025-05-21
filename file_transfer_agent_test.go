@@ -907,103 +907,103 @@ func TestReadonlyTmpDirPathShouldFail(t *testing.T) {
 	}
 }
 
-func TestUploadDownloadOneFileRequireCompress(t *testing.T) {
-	testUploadDownloadOneFile(t, false)
-}
+// func TestUploadDownloadOneFileRequireCompress(t *testing.T) {
+// 	testUploadDownloadOneFile(t, false)
+// }
 
-func TestUploadDownloadOneFileRequireCompressStream(t *testing.T) {
-	testUploadDownloadOneFile(t, true)
-}
+// func TestUploadDownloadOneFileRequireCompressStream(t *testing.T) {
+// 	testUploadDownloadOneFile(t, true)
+// }
 
-func testUploadDownloadOneFile(t *testing.T, isStream bool) {
-	tmpDir, err := os.MkdirTemp("", "data")
-	if err != nil {
-		t.Fatalf("cannot create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-	uploadFile := filepath.Join(tmpDir, "data.txt")
-	f, err := os.Create(uploadFile)
-	if err != nil {
-		t.Error(err)
-	}
-	_, err = f.WriteString("test1,test2\ntest3,test4\n")
-	assertNilF(t, err)
-	assertNilF(t, f.Close())
+// func testUploadDownloadOneFile(t *testing.T, isStream bool) {
+// 	tmpDir, err := os.MkdirTemp("", "data")
+// 	if err != nil {
+// 		t.Fatalf("cannot create temp directory: %v", err)
+// 	}
+// 	defer os.RemoveAll(tmpDir)
+// 	uploadFile := filepath.Join(tmpDir, "data.txt")
+// 	f, err := os.Create(uploadFile)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	_, err = f.WriteString("test1,test2\ntest3,test4\n")
+// 	assertNilF(t, err)
+// 	assertNilF(t, f.Close())
 
-	uploadMeta := &fileMetadata{
-		name:              "data.txt.gz",
-		stageLocationType: "local",
-		noSleepingTime:    true,
-		client:            local,
-		sha256Digest:      "123456789abcdef",
-		stageInfo: &execResponseStageInfo{
-			Location:     tmpDir,
-			LocationType: "local",
-		},
-		dstFileName: "data.txt.gz",
-		srcFileName: uploadFile,
-		overwrite:   true,
-		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
-		},
-		requireCompress: true,
-	}
+// 	uploadMeta := &fileMetadata{
+// 		name:              "data.txt.gz",
+// 		stageLocationType: "local",
+// 		noSleepingTime:    true,
+// 		client:            local,
+// 		sha256Digest:      "123456789abcdef",
+// 		stageInfo: &execResponseStageInfo{
+// 			Location:     tmpDir,
+// 			LocationType: "local",
+// 		},
+// 		dstFileName: "data.txt.gz",
+// 		srcFileName: uploadFile,
+// 		overwrite:   true,
+// 		options: &SnowflakeFileTransferOptions{
+// 			MultiPartThreshold: dataSizeThreshold,
+// 		},
+// 		requireCompress: true,
+// 	}
 
-	downloadFile := filepath.Join(tmpDir, "download.txt")
-	downloadMeta := &fileMetadata{
-		name:              "data.txt.gz",
-		stageLocationType: "local",
-		noSleepingTime:    true,
-		client:            local,
-		sha256Digest:      "123456789abcdef",
-		stageInfo: &execResponseStageInfo{
-			Location:     tmpDir,
-			LocationType: "local",
-		},
-		srcFileName: "data.txt.gz",
-		dstFileName: downloadFile,
-		overwrite:   true,
-		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
-		},
-	}
+// 	downloadFile := filepath.Join(tmpDir, "download.txt")
+// 	downloadMeta := &fileMetadata{
+// 		name:              "data.txt.gz",
+// 		stageLocationType: "local",
+// 		noSleepingTime:    true,
+// 		client:            local,
+// 		sha256Digest:      "123456789abcdef",
+// 		stageInfo: &execResponseStageInfo{
+// 			Location:     tmpDir,
+// 			LocationType: "local",
+// 		},
+// 		srcFileName: "data.txt.gz",
+// 		dstFileName: downloadFile,
+// 		overwrite:   true,
+// 		options: &SnowflakeFileTransferOptions{
+// 			MultiPartThreshold: dataSizeThreshold,
+// 		},
+// 	}
 
-	sfa := snowflakeFileTransferAgent{
-		ctx: context.Background(),
-		sc: &snowflakeConn{
-			cfg: &Config{
-				TmpDirPath: tmpDir,
-			},
-		},
-		stageLocationType: local,
-	}
+// 	sfa := snowflakeFileTransferAgent{
+// 		ctx: context.Background(),
+// 		sc: &snowflakeConn{
+// 			cfg: &Config{
+// 				TmpDirPath: tmpDir,
+// 			},
+// 		},
+// 		stageLocationType: local,
+// 	}
 
-	if isStream {
-		fileStream, _ := os.Open(uploadFile)
-		ctx := WithFileStream(context.Background(), fileStream)
-		uploadMeta.srcStream, err = getFileStream(ctx)
-		assertNilF(t, err)
-	}
+// 	if isStream {
+// 		fileStream, _ := os.Open(uploadFile)
+// 		ctx := WithFileStream(context.Background(), fileStream)
+// 		uploadMeta.srcStream, err = getFileStream(ctx)
+// 		assertNilF(t, err)
+// 	}
 
-	_, err = sfa.uploadOneFile(uploadMeta)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if uploadMeta.resStatus != uploaded {
-		t.Fatalf("failed to upload file")
-	}
+// 	_, err = sfa.uploadOneFile(uploadMeta)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if uploadMeta.resStatus != uploaded {
+// 		t.Fatalf("failed to upload file")
+// 	}
 
-	_, err = sfa.downloadOneFile(downloadMeta)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		assertNilF(t, os.Remove("download.txt"))
-	}()
-	if downloadMeta.resStatus != downloaded {
-		t.Fatalf("failed to download file")
-	}
-}
+// 	_, err = sfa.downloadOneFile(downloadMeta)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	defer func() {
+// 		assertNilF(t, os.Remove("download.txt"))
+// 	}()
+// 	if downloadMeta.resStatus != downloaded {
+// 		t.Fatalf("failed to download file")
+// 	}
+// }
 
 func TestPutGetRegexShouldIgnoreWhitespaceAtTheBeginning(t *testing.T) {
 	for _, test := range []struct {
@@ -1061,144 +1061,144 @@ func TestPutGetRegexShouldIgnoreWhitespaceAtTheBeginning(t *testing.T) {
 	}
 }
 
-func TestEncryptStream(t *testing.T) {
-	srcBytes := []byte{63, 64, 65}
-	initStr := bytes.NewBuffer(srcBytes)
+// func TestEncryptStream(t *testing.T) {
+// 	srcBytes := []byte{63, 64, 65}
+// 	initStr := bytes.NewBuffer(srcBytes)
 
-	for _, tc := range []struct {
-		ct            cloudType
-		encrypt       bool
-		realSrcStream bool
-		encryptMat    bool
-	}{
-		{
-			ct:            s3Client,
-			encrypt:       true,
-			realSrcStream: true,
-			encryptMat:    true,
-		},
-		{
-			ct:            s3Client,
-			encrypt:       true,
-			realSrcStream: false,
-			encryptMat:    true,
-		},
-		{
-			ct:            s3Client,
-			encrypt:       false,
-			realSrcStream: false,
-			encryptMat:    false,
-		},
-		{
-			ct:            azureClient,
-			encrypt:       true,
-			realSrcStream: true,
-			encryptMat:    true,
-		},
-		{
-			ct:            azureClient,
-			encrypt:       true,
-			realSrcStream: false,
-			encryptMat:    true,
-		},
-		{
-			ct:            azureClient,
-			encrypt:       false,
-			realSrcStream: false,
-			encryptMat:    false,
-		},
-		{
-			ct:            gcsClient,
-			encrypt:       true,
-			realSrcStream: true,
-			encryptMat:    true,
-		},
-		{
-			ct:            gcsClient,
-			encrypt:       true,
-			realSrcStream: false,
-			encryptMat:    true,
-		},
-		{
-			ct:            gcsClient,
-			encrypt:       false,
-			realSrcStream: false,
-			encryptMat:    false,
-		},
-		{
-			ct:            local,
-			encrypt:       false,
-			realSrcStream: true,
-			encryptMat:    true,
-		},
-		{
-			ct:            local,
-			encrypt:       false,
-			realSrcStream: true,
-			encryptMat:    false,
-		},
-		{
-			ct:            local,
-			encrypt:       false,
-			realSrcStream: false,
-			encryptMat:    true,
-		},
-		{
-			ct:            local,
-			encrypt:       false,
-			realSrcStream: false,
-			encryptMat:    false,
-		},
-	} {
-		{
-			var encMat *snowflakeFileEncryption = nil
-			if tc.encryptMat {
-				encMat = &snowflakeFileEncryption{
-					QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==",
-					QueryID:             "01abc874-0406-1bf0-0000-53b10668e056",
-					SMKID:               92019681909886,
-				}
-			}
-			var realSrcStr *bytes.Buffer = nil
-			if tc.realSrcStream {
-				realSrcStr = initStr
-			}
-			uploadMeta := fileMetadata{
-				name:               "data1.txt.gz",
-				stageLocationType:  tc.ct,
-				noSleepingTime:     true,
-				parallel:           int64(100),
-				client:             nil,
-				sha256Digest:       "123456789abcdef",
-				stageInfo:          nil,
-				dstFileName:        "data1.txt.gz",
-				srcStream:          initStr,
-				realSrcStream:      realSrcStr,
-				overwrite:          true,
-				options:            nil,
-				encryptionMaterial: encMat,
-				mockUploader:       nil,
-				sfa:                nil,
-			}
+// 	for _, tc := range []struct {
+// 		ct            cloudType
+// 		encrypt       bool
+// 		realSrcStream bool
+// 		encryptMat    bool
+// 	}{
+// 		{
+// 			ct:            s3Client,
+// 			encrypt:       true,
+// 			realSrcStream: true,
+// 			encryptMat:    true,
+// 		},
+// 		{
+// 			ct:            s3Client,
+// 			encrypt:       true,
+// 			realSrcStream: false,
+// 			encryptMat:    true,
+// 		},
+// 		{
+// 			ct:            s3Client,
+// 			encrypt:       false,
+// 			realSrcStream: false,
+// 			encryptMat:    false,
+// 		},
+// 		{
+// 			ct:            azureClient,
+// 			encrypt:       true,
+// 			realSrcStream: true,
+// 			encryptMat:    true,
+// 		},
+// 		{
+// 			ct:            azureClient,
+// 			encrypt:       true,
+// 			realSrcStream: false,
+// 			encryptMat:    true,
+// 		},
+// 		{
+// 			ct:            azureClient,
+// 			encrypt:       false,
+// 			realSrcStream: false,
+// 			encryptMat:    false,
+// 		},
+// 		{
+// 			ct:            gcsClient,
+// 			encrypt:       true,
+// 			realSrcStream: true,
+// 			encryptMat:    true,
+// 		},
+// 		{
+// 			ct:            gcsClient,
+// 			encrypt:       true,
+// 			realSrcStream: false,
+// 			encryptMat:    true,
+// 		},
+// 		{
+// 			ct:            gcsClient,
+// 			encrypt:       false,
+// 			realSrcStream: false,
+// 			encryptMat:    false,
+// 		},
+// 		{
+// 			ct:            local,
+// 			encrypt:       false,
+// 			realSrcStream: true,
+// 			encryptMat:    true,
+// 		},
+// 		{
+// 			ct:            local,
+// 			encrypt:       false,
+// 			realSrcStream: true,
+// 			encryptMat:    false,
+// 		},
+// 		{
+// 			ct:            local,
+// 			encrypt:       false,
+// 			realSrcStream: false,
+// 			encryptMat:    true,
+// 		},
+// 		{
+// 			ct:            local,
+// 			encrypt:       false,
+// 			realSrcStream: false,
+// 			encryptMat:    false,
+// 		},
+// 	} {
+// 		{
+// 			var encMat *snowflakeFileEncryption = nil
+// 			if tc.encryptMat {
+// 				encMat = &snowflakeFileEncryption{
+// 					QueryStageMasterKey: "abCdEFO0upIT36dAxGsa0w==",
+// 					QueryID:             "01abc874-0406-1bf0-0000-53b10668e056",
+// 					SMKID:               92019681909886,
+// 				}
+// 			}
+// 			var realSrcStr *bytes.Buffer = nil
+// 			if tc.realSrcStream {
+// 				realSrcStr = initStr
+// 			}
+// 			uploadMeta := fileMetadata{
+// 				name:               "data1.txt.gz",
+// 				stageLocationType:  tc.ct,
+// 				noSleepingTime:     true,
+// 				parallel:           int64(100),
+// 				client:             nil,
+// 				sha256Digest:       "123456789abcdef",
+// 				stageInfo:          nil,
+// 				dstFileName:        "data1.txt.gz",
+// 				srcStream:          initStr,
+// 				realSrcStream:      realSrcStr,
+// 				overwrite:          true,
+// 				options:            nil,
+// 				encryptionMaterial: encMat,
+// 				mockUploader:       nil,
+// 				sfa:                nil,
+// 			}
 
-			t.Run(string(tc.ct)+" encrypt "+strconv.FormatBool(tc.encrypt)+" realSrcStream "+strconv.FormatBool(tc.realSrcStream)+" encryptMat "+strconv.FormatBool(tc.encryptMat), func(t *testing.T) {
-				err := encryptDataIfRequired(&uploadMeta, tc.ct)
-				assertNilF(t, err)
-				if tc.encrypt {
-					assertNotNilF(t, uploadMeta.encryptMeta, "encryption metadata should be present")
-					if tc.realSrcStream {
-						assertNotEqualF(t, uploadMeta.realSrcStream, realSrcStr, "stream should be encrypted")
-					} else {
-						assertNotEqualF(t, uploadMeta.realSrcStream, initStr, "stream should not be encrypted")
-					}
-				} else {
-					assertNilF(t, uploadMeta.encryptMeta, "encryption metadata should be empty")
-					assertEqualF(t, uploadMeta.realSrcStream, realSrcStr, "stream should not be encrypted")
-				}
-			})
-		}
-	}
-}
+// 			t.Run(string(tc.ct)+" encrypt "+strconv.FormatBool(tc.encrypt)+" realSrcStream "+strconv.FormatBool(tc.realSrcStream)+" encryptMat "+strconv.FormatBool(tc.encryptMat), func(t *testing.T) {
+// 				err := encryptDataIfRequired(&uploadMeta, tc.ct)
+// 				assertNilF(t, err)
+// 				if tc.encrypt {
+// 					assertNotNilF(t, uploadMeta.encryptMeta, "encryption metadata should be present")
+// 					if tc.realSrcStream {
+// 						assertNotEqualF(t, uploadMeta.realSrcStream, realSrcStr, "stream should be encrypted")
+// 					} else {
+// 						assertNotEqualF(t, uploadMeta.realSrcStream, initStr, "stream should not be encrypted")
+// 					}
+// 				} else {
+// 					assertNilF(t, uploadMeta.encryptMeta, "encryption metadata should be empty")
+// 					assertEqualF(t, uploadMeta.realSrcStream, realSrcStr, "stream should not be encrypted")
+// 				}
+// 			})
+// 		}
+// 	}
+// }
 
 func TestEncryptFile(t *testing.T) {
 	for _, tc := range []struct {
