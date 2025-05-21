@@ -242,10 +242,10 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 func TestOcspCacheClearer(t *testing.T) {
 	origValue := os.Getenv(ocspResponseCacheClearingIntervalInSecondsEnv)
 	defer func() {
-		stopOCSPCacheClearer()
+		StopOCSPCacheClearer()
 		os.Setenv(ocspResponseCacheClearingIntervalInSecondsEnv, origValue)
 		initOCSPCache()
-		initOCSPCacheClearer()
+		StartOCSPCacheClearer()
 	}()
 	syncUpdateOcspResponseCache(func() {
 		ocspResponseCache[certIDKey{}] = nil
@@ -255,9 +255,9 @@ func TestOcspCacheClearer(t *testing.T) {
 		defer ocspParsedRespCacheLock.Unlock()
 		ocspParsedRespCache[parsedOcspRespKey{}] = nil
 	}()
-	stopOCSPCacheClearer()
+	StopOCSPCacheClearer()
 	os.Setenv(ocspResponseCacheClearingIntervalInSecondsEnv, "1")
-	initOCSPCacheClearer()
+	StartOCSPCacheClearer()
 	time.Sleep(2 * time.Second)
 	syncUpdateOcspResponseCache(func() {
 		assertEqualE(t, len(ocspResponseCache), 0)
