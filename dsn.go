@@ -120,6 +120,9 @@ type Config struct {
 	DisableConsoleLogin ConfigBool // Indicates whether console login should be disabled
 
 	DisableSamlURLCheck ConfigBool // Indicates whether the SAML URL check should be disabled
+
+	WorkloadIdentityProvider      string // The workload identity provider to use for WIF authentication
+	WorkloadIdentityEntraResource string // The resource to use for WIF authentication on Azure environment
 }
 
 // Validate enables testing if config is correct.
@@ -213,6 +216,12 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.OauthScope != "" {
 		params.Add("oauthScope", cfg.OauthScope)
+	}
+	if cfg.WorkloadIdentityProvider != "" {
+		params.Add("workloadIdentityProvider", cfg.WorkloadIdentityProvider)
+	}
+	if cfg.WorkloadIdentityEntraResource != "" {
+		params.Add("workloadIdentityEntraResource", cfg.WorkloadIdentityEntraResource)
 	}
 	if cfg.Authenticator != AuthTypeSnowflake {
 		if cfg.Authenticator == AuthTypeOkta {
@@ -835,6 +844,10 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 
 		case "token":
 			cfg.Token = value
+		case "workloadIdentityProvider":
+			cfg.WorkloadIdentityProvider = value
+		case "workloadIdentityEntraResource":
+			cfg.WorkloadIdentityEntraResource = value
 		case "privateKey":
 			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(value)
