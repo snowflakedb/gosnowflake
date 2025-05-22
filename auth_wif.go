@@ -83,18 +83,18 @@ func (p *wifAttestationProvider) attestationCreator(identityProvider string) (wi
 }
 
 func (p *wifAttestationProvider) createAutodetectAttestation() (*WifAttestation, error) {
-	//if attestation := p.getAttestationForAutodetect(p.oidcCreator, OIDC); attestation != nil {
-	//	return attestation, nil
-	//}
+	if attestation := p.getAttestationForAutodetect(p.oidcCreator, OIDC); attestation != nil {
+		return attestation, nil
+	}
 	if attestation := p.getAttestationForAutodetect(p.awsCreator, AWS); attestation != nil {
 		return attestation, nil
 	}
-	//if attestation := p.getAttestationForAutodetect(p.gcpCreator, GCP); attestation != nil {
-	//	return attestation, nil
-	//}
-	//if attestation := p.getAttestationForAutodetect(p.azureCreator, AZURE); attestation != nil {
-	//	return attestation, nil
-	//}
+	if attestation := p.getAttestationForAutodetect(p.gcpCreator, GCP); attestation != nil {
+		return attestation, nil
+	}
+	if attestation := p.getAttestationForAutodetect(p.azureCreator, AZURE); attestation != nil {
+		return attestation, nil
+	}
 	return nil, errors.New("unable to autodetect Workload Identity. None of the supported Workload Identity environments has been identified")
 }
 
