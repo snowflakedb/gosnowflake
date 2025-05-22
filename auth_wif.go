@@ -18,22 +18,22 @@ import (
 )
 
 const (
-	AWS   wifProviderType = "AWS"
-	GCP   wifProviderType = "GCP"
-	AZURE wifProviderType = "AZURE"
-	OIDC  wifProviderType = "OIDC"
+	aws_  wifProviderType = "AWS"
+	gcp   wifProviderType = "GCP"
+	azure wifProviderType = "AZURE"
+	oidc  wifProviderType = "OIDC"
 )
 
 type wifProviderType string
 
-type WifAttestation struct {
+type wifAttestation struct {
 	ProviderType string            `json:"providerType"`
 	Credential   string            `json:"credential"`
 	Metadata     map[string]string `json:"metadata"`
 }
 
 type wifAttestationCreator interface {
-	CreateAttestation(ctx context.Context) (*WifAttestation, error)
+	createAttestation(ctx context.Context) (*wifAttestation, error)
 }
 
 type wifAttestationProvider struct {
@@ -47,14 +47,14 @@ type wifAttestationProvider struct {
 func createWifAttestationProvider(ctx context.Context) *wifAttestationProvider {
 	return &wifAttestationProvider{
 		context:      ctx,
-		awsCreator:   &AwsIdentityAttestationCreator{attestationService: createDefaultAwsAttestationService(ctx)},
+		awsCreator:   &awsIdentityAttestationCreator{attestationService: createDefaultAwsAttestationService(ctx)},
 		gcpCreator:   nil,
 		azureCreator: nil,
 		oidcCreator:  nil,
 	}
 }
 
-func (p *wifAttestationProvider) getAttestation(identityProvider string) (*WifAttestation, error) {
+func (p *wifAttestationProvider) getAttestation(identityProvider string) (*wifAttestation, error) {
 	if strings.TrimSpace(identityProvider) == "" {
 		logger.Info("Workload Identity Provider has not been specified. Using autodetect...")
 		return p.createAutodetectAttestation()
@@ -64,35 +64,35 @@ func (p *wifAttestationProvider) getAttestation(identityProvider string) (*WifAt
 		logger.Errorf("error while creating specified Workload Identity provider %v", err)
 		return nil, err
 	}
-	return creator.CreateAttestation(p.context)
+	return creator.createAttestation(p.context)
 }
 
 func (p *wifAttestationProvider) attestationCreator(identityProvider string) (wifAttestationCreator, error) {
 	switch strings.ToUpper(identityProvider) {
-	case string(AWS):
+	case string(aws_):
 		return p.awsCreator, nil
-	case string(GCP):
+	case string(gcp):
 		return p.gcpCreator, nil
-	case string(AZURE):
+	case string(azure):
 		return p.azureCreator, nil
-	case string(OIDC):
+	case string(oidc):
 		return p.oidcCreator, nil
 	default:
 		return nil, errors.New("unknown Workload Identity provider specified: " + identityProvider)
 	}
 }
 
-func (p *wifAttestationProvider) createAutodetectAttestation() (*WifAttestation, error) {
-	if attestation := p.getAttestationForAutodetect(p.oidcCreator, OIDC); attestation != nil {
+func (p *wifAttestationProvider) createAutodetectAttestation() (*wifAttestation, error) {
+	if attestation := p.getAttestationForAutodetect(p.oidcCreator, oidc); attestation != nil {
 		return attestation, nil
 	}
-	if attestation := p.getAttestationForAutodetect(p.awsCreator, AWS); attestation != nil {
+	if attestation := p.getAttestationForAutodetect(p.awsCreator, aws_); attestation != nil {
 		return attestation, nil
 	}
-	if attestation := p.getAttestationForAutodetect(p.gcpCreator, GCP); attestation != nil {
+	if attestation := p.getAttestationForAutodetect(p.gcpCreator, gcp); attestation != nil {
 		return attestation, nil
 	}
-	if attestation := p.getAttestationForAutodetect(p.azureCreator, AZURE); attestation != nil {
+	if attestation := p.getAttestationForAutodetect(p.azureCreator, azure); attestation != nil {
 		return attestation, nil
 	}
 	return nil, errors.New("unable to autodetect Workload Identity. None of the supported Workload Identity environments has been identified")
@@ -101,8 +101,8 @@ func (p *wifAttestationProvider) createAutodetectAttestation() (*WifAttestation,
 func (p *wifAttestationProvider) getAttestationForAutodetect(
 	creator wifAttestationCreator,
 	providerType wifProviderType,
-) *WifAttestation {
-	attestation, err := creator.CreateAttestation(p.context)
+) *wifAttestation {
+	attestation, err := creator.createAttestation(p.context)
 	if err != nil {
 		logger.Errorf("Unable to create identity attestation for %s, error: %v", providerType, err)
 		return nil
@@ -110,11 +110,11 @@ func (p *wifAttestationProvider) getAttestationForAutodetect(
 	return attestation
 }
 
-type AwsIdentityAttestationCreator struct {
-	attestationService AwsAttestationService
+type awsIdentityAttestationCreator struct {
+	attestationService awsAttestationService
 }
 
-type AwsAttestationService interface {
+type awsAttestationService interface {
 	GetAWSCredentials() aws.Credentials
 	GetAWSRegion() string
 	GetArn() string
@@ -160,7 +160,7 @@ func (m *defaultAwsAttestationService) GetArn() string {
 	return aws.ToString(output.Arn)
 }
 
-func (creator *AwsIdentityAttestationCreator) CreateAttestation(ctx context.Context) (*WifAttestation, error) {
+func (creator *awsIdentityAttestationCreator) createAttestation(ctx context.Context) (*wifAttestation, error) {
 	logger.Debug("Creating AWS identity attestation...")
 
 	if creator.attestationService == nil {
@@ -202,14 +202,14 @@ func (creator *AwsIdentityAttestationCreator) CreateAttestation(ctx context.Cont
 		return nil, err
 	}
 
-	return &WifAttestation{
+	return &wifAttestation{
 		ProviderType: "AWS",
 		Credential:   credential,
 		Metadata:     map[string]string{"arn": arn},
 	}, nil
 }
 
-func (creator *AwsIdentityAttestationCreator) createStsRequest(hostname string) (*http.Request, error) {
+func (creator *awsIdentityAttestationCreator) createStsRequest(hostname string) (*http.Request, error) {
 	url := fmt.Sprintf("https://%s/?Action=GetCallerIdentity&Version=2011-06-15", hostname)
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
@@ -221,7 +221,7 @@ func (creator *AwsIdentityAttestationCreator) createStsRequest(hostname string) 
 	return req, nil
 }
 
-func (creator *AwsIdentityAttestationCreator) signRequestWithSigV4(ctx context.Context, req *http.Request, creds aws.Credentials, region string) error {
+func (creator *awsIdentityAttestationCreator) signRequestWithSigV4(ctx context.Context, req *http.Request, creds aws.Credentials, region string) error {
 	signer := v4.NewSigner()
 	// as per docs of SignHTTP, the payload hash must be present even if the payload is empty
 	payloadHash := hex.EncodeToString(sha256.New().Sum(nil))
@@ -229,7 +229,7 @@ func (creator *AwsIdentityAttestationCreator) signRequestWithSigV4(ctx context.C
 	return err
 }
 
-func (creator *AwsIdentityAttestationCreator) createBase64EncodedRequestCredential(req *http.Request) (string, error) {
+func (creator *awsIdentityAttestationCreator) createBase64EncodedRequestCredential(req *http.Request) (string, error) {
 	headers := make(map[string]string)
 	for key, values := range req.Header {
 		headers[key] = values[0]

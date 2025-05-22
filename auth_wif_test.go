@@ -13,11 +13,11 @@ var azureErrorCreator = &mockWifAttestationCreator{attestation: nil, err: errors
 var oidcErrorCreator = &mockWifAttestationCreator{attestation: nil, err: errors.New("OIDC error")}
 
 type mockWifAttestationCreator struct {
-	attestation *WifAttestation
+	attestation *wifAttestation
 	err         error
 }
 
-func (m *mockWifAttestationCreator) CreateAttestation(ctx context.Context) (*WifAttestation, error) {
+func (m *mockWifAttestationCreator) createAttestation(ctx context.Context) (*wifAttestation, error) {
 	return m.attestation, m.err
 }
 
@@ -69,7 +69,7 @@ func TestCreateAutodetectAttestation(t *testing.T) {
 		{
 			name: "OIDC",
 			oidcCreator: &mockWifAttestationCreator{
-				attestation: &WifAttestation{ProviderType: "OIDC", Credential: "oidc-credential"},
+				attestation: &wifAttestation{ProviderType: "OIDC", Credential: "oidc-credential"},
 				err:         nil,
 			},
 			awsCreator:       awsErrorCreator,
@@ -82,7 +82,7 @@ func TestCreateAutodetectAttestation(t *testing.T) {
 			name:        "AWS",
 			oidcCreator: oidcErrorCreator,
 			awsCreator: &mockWifAttestationCreator{
-				attestation: &WifAttestation{ProviderType: "AWS", Credential: "aws-credential"},
+				attestation: &wifAttestation{ProviderType: "AWS", Credential: "aws-credential"},
 				err:         nil,
 			},
 			gcpCreator:       gcpErrorCreator,
@@ -95,7 +95,7 @@ func TestCreateAutodetectAttestation(t *testing.T) {
 			oidcCreator: oidcErrorCreator,
 			awsCreator:  awsErrorCreator,
 			gcpCreator: &mockWifAttestationCreator{
-				attestation: &WifAttestation{ProviderType: "GCP", Credential: "gcp-credential"},
+				attestation: &wifAttestation{ProviderType: "GCP", Credential: "gcp-credential"},
 				err:         nil,
 			},
 			azureCreator:     azureErrorCreator,
@@ -108,7 +108,7 @@ func TestCreateAutodetectAttestation(t *testing.T) {
 			awsCreator:  awsErrorCreator,
 			gcpCreator:  gcpErrorCreator,
 			azureCreator: &mockWifAttestationCreator{
-				attestation: &WifAttestation{ProviderType: "AZURE", Credential: "azure-credential"},
+				attestation: &wifAttestation{ProviderType: "AZURE", Credential: "azure-credential"},
 				err:         nil,
 			},
 			expectedProvider: "AZURE",
@@ -152,7 +152,7 @@ func TestCreateAutodetectAttestation(t *testing.T) {
 func TestAwsIdentityAttestationCreator_CreateAttestation(t *testing.T) {
 	tests := []struct {
 		name                string
-		attestationSvc      AwsAttestationService
+		attestationSvc      awsAttestationService
 		attestationReturned bool
 		expectedProvider    string
 		expectedMetadata    map[string]string
@@ -199,12 +199,12 @@ func TestAwsIdentityAttestationCreator_CreateAttestation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			creator := &AwsIdentityAttestationCreator{
+			creator := &awsIdentityAttestationCreator{
 				attestationService: test.attestationSvc,
 			}
 
 			ctx := context.Background()
-			attestation, _ := creator.CreateAttestation(ctx)
+			attestation, _ := creator.createAttestation(ctx)
 
 			if test.attestationReturned {
 				assertNotNilE(t, attestation)
