@@ -1272,7 +1272,7 @@ func TestGetGcsCustomEndpoint(t *testing.T) {
 				Region:         "ME-CENTRAL2",
 				UseVirtualURL:  true,
 			},
-			expectedFileURL: "https://storage.specialEndPoint.rep.googleapis.com/my-travel-maps",
+			expectedFileURL: "https://storage.specialEndPoint.rep.googleapis.com",
 		},
 	}
 
