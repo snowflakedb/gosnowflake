@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	aws_  wifProviderType = "AWS"
-	gcp   wifProviderType = "GCP"
-	azure wifProviderType = "AZURE"
-	oidc  wifProviderType = "OIDC"
+	awsWif   wifProviderType = "AWS"
+	gcpWif   wifProviderType = "GCP"
+	azureWif wifProviderType = "AZURE"
+	oidcWif  wifProviderType = "OIDC"
 )
 
 type wifProviderType string
@@ -69,13 +69,13 @@ func (p *wifAttestationProvider) getAttestation(identityProvider string) (*wifAt
 
 func (p *wifAttestationProvider) attestationCreator(identityProvider string) (wifAttestationCreator, error) {
 	switch strings.ToUpper(identityProvider) {
-	case string(aws_):
+	case string(awsWif):
 		return p.awsCreator, nil
-	case string(gcp):
+	case string(gcpWif):
 		return p.gcpCreator, nil
-	case string(azure):
+	case string(azureWif):
 		return p.azureCreator, nil
-	case string(oidc):
+	case string(oidcWif):
 		return p.oidcCreator, nil
 	default:
 		return nil, errors.New("unknown Workload Identity provider specified: " + identityProvider)
@@ -83,16 +83,16 @@ func (p *wifAttestationProvider) attestationCreator(identityProvider string) (wi
 }
 
 func (p *wifAttestationProvider) createAutodetectAttestation() (*wifAttestation, error) {
-	if attestation := p.getAttestationForAutodetect(p.oidcCreator, oidc); attestation != nil {
+	if attestation := p.getAttestationForAutodetect(p.oidcCreator, oidcWif); attestation != nil {
 		return attestation, nil
 	}
-	if attestation := p.getAttestationForAutodetect(p.awsCreator, aws_); attestation != nil {
+	if attestation := p.getAttestationForAutodetect(p.awsCreator, awsWif); attestation != nil {
 		return attestation, nil
 	}
-	if attestation := p.getAttestationForAutodetect(p.gcpCreator, gcp); attestation != nil {
+	if attestation := p.getAttestationForAutodetect(p.gcpCreator, gcpWif); attestation != nil {
 		return attestation, nil
 	}
-	if attestation := p.getAttestationForAutodetect(p.azureCreator, azure); attestation != nil {
+	if attestation := p.getAttestationForAutodetect(p.azureCreator, azureWif); attestation != nil {
 		return attestation, nil
 	}
 	return nil, errors.New("unable to autodetect Workload Identity. None of the supported Workload Identity environments has been identified")
