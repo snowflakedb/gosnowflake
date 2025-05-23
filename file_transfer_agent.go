@@ -4,6 +4,7 @@ package gosnowflake
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"database/sql/driver"
 	"encoding/json"
@@ -355,23 +356,38 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 		if sfa.sourceStream != nil {
 			fileName := sfa.srcFiles[0]
 			fileInfo, err := os.Stat(fileName)
+			//This means the file is not a local file, but a stream. Ex) Bulk Insert.
 			if err != nil {
-				return (&SnowflakeError{
-					Number:      ErrFileNotExists,
-					SQLState:    sfa.data.SQLState,
-					QueryID:     sfa.data.QueryID,
-					Message:     errMsgFileNotExists,
-					MessageArgs: []interface{}{fileName},
-				}).exceptionTelemetry(sfa.sc)
+				buf := new(bytes.Buffer)
+				_, err := buf.ReadFrom(sfa.sourceStream)
+				if err != nil {
+					return (&SnowflakeError{
+						Number:      ErrFileNotExists,
+						SQLState:    sfa.data.SQLState,
+						QueryID:     sfa.data.QueryID,
+						Message:     errMsgFailToReadDataFromBuffer,
+						MessageArgs: []interface{}{fileName},
+					}).exceptionTelemetry(sfa.sc)
+				}
+				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
+					name:              baseName(fileName),
+					srcFileName:       fileName,
+					srcStream:         buf,
+					fileStream:        sfa.sourceStream,
+					srcFileSize:       int64(buf.Len()),
+					stageLocationType: sfa.stageLocationType,
+					stageInfo:         sfa.stageInfo,
+				})
+			} else {
+				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
+					name:              baseName(fileName),
+					srcFileName:       fileName,
+					fileStream:        sfa.sourceStream,
+					srcFileSize:       fileInfo.Size(),
+					stageLocationType: sfa.stageLocationType,
+					stageInfo:         sfa.stageInfo,
+				})
 			}
-			sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
-				name:              baseName(fileName),
-				srcFileName:       fileName,
-				fileStream:        sfa.sourceStream,
-				srcFileSize:       fileInfo.Size(),
-				stageLocationType: sfa.stageLocationType,
-				stageInfo:         sfa.stageInfo,
-			})
 		} else {
 			for i, fileName := range sfa.srcFiles {
 				fi, err := os.Stat(fileName)
@@ -875,12 +891,9 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 
 	fileUtil := new(snowflakeFileUtil)
 
-	if meta.requireCompress {
-		result, _, err := fileUtil.compressFileWithGzip(meta.srcFileName, meta.tmpDir)
-		if err != nil {
-			return meta, err
-		}
-		meta.realSrcFileName = result
+	err = compressDataIfRequired(meta, fileUtil, tmpDir)
+	if err != nil {
+		return meta, err
 	}
 
 	err = updateUploadSize(meta, fileUtil)
@@ -1256,13 +1269,22 @@ func updateUploadSize(meta *fileMetadata, fileUtil *snowflakeFileUtil) error {
 func encryptDataIfRequired(meta *fileMetadata, ct cloudType) error {
 	if ct != local && meta.encryptionMaterial != nil {
 		var err error
-		var dataFile string
-		meta.encryptMeta, dataFile, err = encryptFileCBC(meta.encryptionMaterial, meta.realSrcFileName, 0, meta.tmpDir)
-		if err != nil {
-			return err
+		if meta.srcStream != nil {
+			var encryptedStream bytes.Buffer
+			srcStream := cmp.Or(meta.realSrcStream, meta.srcStream)
+			meta.encryptMeta, err = encryptStreamCBC(meta.encryptionMaterial, srcStream, &encryptedStream, 0)
+			if err != nil {
+				return err
+			}
+			meta.realSrcStream = &encryptedStream
+		} else {
+			var dataFile string
+			meta.encryptMeta, dataFile, err = encryptFileCBC(meta.encryptionMaterial, meta.realSrcFileName, 0, meta.tmpDir)
+			if err != nil {
+				return err
+			}
+			meta.realSrcFileName = dataFile
 		}
-		meta.realSrcFileName = dataFile
 	}
-
 	return nil
 }
