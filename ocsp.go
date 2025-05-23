@@ -687,21 +687,24 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 		numberOfNoneRootCerts := len(verifiedChains[i]) - 1
 		logger.Tracef("checking cert, %v, %v, isCa: %v, rawIssuer: %v, rawSubject: %v", i, numberOfNoneRootCerts, verifiedChains[i][numberOfNoneRootCerts].IsCA, string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), string(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
 		logger.Tracef("checking cert, base64, rawIssuer: %v, rawSubject: %v", base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
+		isCA := verifiedChains[i][numberOfNoneRootCerts].IsCA
+		isIssuer := string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) == string(verifiedChains[i][numberOfNoneRootCerts].RawSubject)
 		rca := caRoot[string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer)]
-		verifiedChains[i] = append(verifiedChains[i], rca)
 
-		if !verifiedChains[i][numberOfNoneRootCerts].IsCA || string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) != string(verifiedChains[i][numberOfNoneRootCerts].RawSubject) {
+		if !isCA || !isIssuer {
 			// Check if the last Non Root Cert is also a CA or is self signed.
 			// if the last certificate is not, add it to the list
 			if rca == nil {
 				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
 			}
+			verifiedChains[i] = append(verifiedChains[i], rca)
 			numberOfNoneRootCerts++
-		} else {
+		} else if isCA && isIssuer {
 			if rca != nil {
 				logger.Debugf(
 					"A trusted root certificate found: %v, stopping chain traversal here",
 					verifiedChains[i][numberOfNoneRootCerts].Issuer)
+
 				results := getAllRevocationStatus(ctx, verifiedChains[i])
 				if r := canEarlyExitForOCSP(results, numberOfNoneRootCerts); r != nil {
 					return r.err
