@@ -504,8 +504,7 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	// Go 1.18 and after rejects SHA-1 certificates, therefore a different error is returned (https://github.com/golang/go/issues/41682)
 	case *url.Error:
 		expectedErrMsg := "bad OCSP signature"
-		errorMessage := err.Error()
-		if !strings.Contains(errorMessage, expectedErrMsg) {
+		if !strings.Contains(err.Error(), expectedErrMsg) {
 			t.Fatalf("should have failed with bad OCSP signature. err:  %v", err)
 		}
 	default:
