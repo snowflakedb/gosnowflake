@@ -313,6 +313,7 @@ const (
 	errMsgCommandNotRecognized               = "%v command not recognized"
 	errMsgLocalPathNotDirectory              = "the local path is not a directory: %v"
 	errMsgFileNotExists                      = "file does not exist: %v"
+	errMsgFailToReadDataFromBuffer           = "failed to read data from buffer. err: %v"
 	errMsgInvalidStageFs                     = "destination location type is not valid: %v"
 	errMsgInternalNotMatchEncryptMaterial    = "number of downloading files doesn't match the encryption materials. files=%v, encmat=%v"
 	errMsgFailedToConvertToS3Client          = "failed to convert interface to s3 client"
