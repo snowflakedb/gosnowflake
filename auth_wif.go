@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/golang-jwt/jwt/v5"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -313,7 +314,7 @@ func fetchTokenFromMetadataService(req *http.Request, cfg *Config) string {
 		return ""
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Debugf("Failed to read response body: %v", err)
 		return ""
