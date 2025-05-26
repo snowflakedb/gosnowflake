@@ -17,7 +17,7 @@ type mockWifAttestationCreator struct {
 	err         error
 }
 
-func (m *mockWifAttestationCreator) createAttestation(ctx context.Context) (*wifAttestation, error) {
+func (m *mockWifAttestationCreator) createAttestation() (*wifAttestation, error) {
 	return m.attestation, m.err
 }
 
@@ -149,7 +149,7 @@ func TestCreateAutodetectAttestation(t *testing.T) {
 	}
 }
 
-func TestAwsIdentityAttestationCreator_CreateAttestation(t *testing.T) {
+func TestAwsIdentityAttestationCreator(t *testing.T) {
 	tests := []struct {
 		name                string
 		attestationSvc      awsAttestationService
@@ -202,9 +202,7 @@ func TestAwsIdentityAttestationCreator_CreateAttestation(t *testing.T) {
 			creator := &awsIdentityAttestationCreator{
 				attestationService: test.attestationSvc,
 			}
-
-			ctx := context.Background()
-			attestation, _ := creator.createAttestation(ctx)
+			attestation, _ := creator.createAttestation()
 
 			if test.attestationReturned {
 				assertNotNilE(t, attestation)
@@ -240,4 +238,157 @@ func (m *mockAwsAttestationService) GetAWSRegion() string {
 
 func (m *mockAwsAttestationService) GetArn() string {
 	return m.arn
+}
+
+func TestGcpIdentityAttestationCreator(t *testing.T) {
+	tests := []struct {
+		name                string
+		wiremockMappingPath string
+		expectedSub         string
+		expectedError       error
+	}{
+		{
+			name:                "Successful flow",
+			wiremockMappingPath: "wif/gcp/successful_flow.json",
+			expectedSub:         "some-subject",
+		},
+		{
+			name:                "No GCP credential - http error",
+			wiremockMappingPath: "wif/gcp/http_error.json",
+			expectedError:       nil,
+		},
+		{
+			name:                "invalid issuer claim",
+			wiremockMappingPath: "wif/gcp/invalid_issuer_claim.json",
+			expectedError:       errors.New("unexpected token issuer: https://not.google.com, should be https://accounts.google.com"),
+		},
+		{
+			name:                "missing issuer claim",
+			wiremockMappingPath: "wif/gcp/missing_issuer_claim.json",
+			expectedError:       errors.New("could not extract claims from token: missing issuer claim in JWT token"),
+		},
+		{
+			name:                "unparsable token",
+			wiremockMappingPath: "wif/gcp/unparsable_token.json",
+			expectedError:       errors.New("could not extract claims from token: unable to extract JWT claims from token: token is malformed: token contains an invalid number of segments"),
+		},
+	}
+
+	creator := &gcpIdentityAttestationCreator{
+		cfg:                    &Config{},
+		metadataServiceBaseUrl: wiremock.baseURL(),
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			wiremock.registerMappings(t, wiremockMapping{filePath: test.wiremockMappingPath})
+			attestation, err := creator.createAttestation()
+
+			if test.expectedError != nil {
+				assertNotNilE(t, err)
+				assertEqualE(t, test.expectedError.Error(), err.Error())
+				assertNilF(t, attestation)
+			} else if test.expectedSub == "" && test.expectedError == nil {
+				assertNilE(t, err)
+				assertNilF(t, attestation)
+			} else {
+				assertNilE(t, err)
+				assertNotNilE(t, attestation)
+				assertEqualE(t, string(gcpWif), attestation.ProviderType)
+				assertEqualE(t, test.expectedSub, attestation.Metadata["sub"])
+			}
+		})
+	}
+}
+
+func TestOidcIdentityAttestationCreator(t *testing.T) {
+	const (
+		/*
+		 * {
+		 *   "sub": "some-subject",
+		 *   "iat": 1743761213,
+		 *   "exp": 1743764813,
+		 *   "aud": "www.example.com"
+		 * }
+		 */
+		MISSING_ISSUER_CLAIM_TOKEN = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJzdWIiOiJzb21lLXN1YmplY3QiLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.H6sN6kjA82EuijFcv-yCJTqau5qvVTCsk0ZQ4gvFQMkB7c71XPs4lkwTa7ZlNNlx9e6TpN1CVGnpCIRDDAZaDw"
+		/*
+		 * {
+		 *   "iss": "https://accounts.google.com",
+		 *   "iat": 1743761213,
+		 *   "exp": 1743764813,
+		 *   "aud": "www.example.com"
+		 * }
+		 */
+		MISSING_SUB_CLAIM_TOKEN = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.w0njdpfWFETVK8Ktq9GdvuKRQJjvhOplcSyvQ_zHHwBUSMapqO1bjEWBx5VhGkdECZIGS1VY7db_IOqT45yOMA"
+		/*
+		 * {
+		 *     "iss": "https://oidc.eks.us-east-2.amazonaws.com/id/3B869BC5D12CEB5515358621D8085D58",
+		 *     "iat": 1743692017,
+		 *     "exp": 1775228014,
+		 *     "aud": "www.example.com",
+		 *     "sub": "system:serviceaccount:poc-namespace:oidc-sa"
+		 * }
+		 */
+		VALID_TOKEN      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL29pZGMuZWtzLnVzLWVhc3QtMi5hbWF6b25hd3MuY29tL2lkLzNCODY5QkM1RDEyQ0VCNTUxNTM1ODYyMUQ4MDg1RDU4IiwiaWF0IjoxNzQ0Mjg3ODc4LCJleHAiOjE3NzU4MjM4NzgsImF1ZCI6Ind3dy5leGFtcGxlLmNvbSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpwb2MtbmFtZXNwYWNlOm9pZGMtc2EifQ.a8H6KRIF1XmM8lkqL6kR8ccInr7wAzQrbKd3ZHFgiEg"
+		UNPARSABLE_TOKEN = "unparsable_token"
+		EMPTY_TOKEN      = ""
+	)
+
+	type testCase struct {
+		name          string
+		token         string
+		expectedError error
+		expectedSub   string
+	}
+
+	tests := []testCase{
+		{
+			name:          "no token input",
+			token:         EMPTY_TOKEN,
+			expectedError: nil,
+		},
+		{
+			name:          "valid token returns proper attestation",
+			token:         VALID_TOKEN,
+			expectedError: nil,
+			expectedSub:   "system:serviceaccount:poc-namespace:oidc-sa",
+		},
+		{
+			name:          "missing issuer returns error",
+			token:         MISSING_ISSUER_CLAIM_TOKEN,
+			expectedError: errors.New("missing issuer claim in JWT token"),
+		},
+		{
+			name:          "missing sub returns error",
+			token:         MISSING_SUB_CLAIM_TOKEN,
+			expectedError: errors.New("missing sub claim in JWT token"),
+		},
+		{
+			name:          "unparsable token returns error",
+			token:         UNPARSABLE_TOKEN,
+			expectedError: errors.New("unable to extract JWT claims from token: token is malformed: token contains an invalid number of segments"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			creator := &oidcIdentityAttestationCreator{token: test.token}
+			attestation, err := creator.createAttestation()
+
+			if test.expectedError != nil {
+				assertNotNilE(t, err)
+				assertNilF(t, attestation)
+				assertEqualE(t, test.expectedError.Error(), err.Error())
+			} else if test.expectedSub == "" && test.expectedError == nil {
+				assertNilE(t, err)
+				assertNilF(t, attestation)
+			} else {
+				assertNilE(t, err)
+				assertNotNilE(t, attestation)
+				assertEqualE(t, string(oidcWif), attestation.ProviderType)
+				assertEqualE(t, test.expectedSub, attestation.Metadata["sub"])
+			}
+		})
+	}
 }
