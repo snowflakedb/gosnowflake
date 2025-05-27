@@ -341,8 +341,11 @@ func TestBindingInterface(t *testing.T) {
 		if s1, ok := v1.(*big.Float); !ok || s1.Cmp(big.NewFloat(1.0)) != 0 {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v1)
 		}
-		if s2, ok := v2a.(*big.Int); !ok || big.NewInt(22).Cmp(s2) != 0 {
+		if s2, ok := v2.(int64); !ok || s2 != 2 {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
+		}
+		if s2a, ok := v2a.(*big.Int); !ok || big.NewInt(22).Cmp(s2a) != 0 {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2a)
 		}
 		if s3, ok := v3.(string); !ok || s3 != "t3" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
@@ -373,8 +376,11 @@ func TestBindingInterfaceString(t *testing.T) {
 		} else if d != 1.00 {
 			dbt.Errorf("failed to fetch. expected: 1.00, value: %v", v1)
 		}
-		if s, ok := v2a.(string); !ok || s != "22" {
+		if s, ok := v2.(string); !ok || s != "2" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
+		}
+		if s, ok := v2a.(string); !ok || s != "22" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2a)
 		}
 		if s, ok := v3.(string); !ok || s != "t3" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)

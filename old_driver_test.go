@@ -89,9 +89,12 @@ func TestJSONVariousTypes(t *testing.T) {
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[1])
 		}
+		if v2a != 22 {
+			dbt.Errorf("failed to scan. %#v", v2a)
+		}
 		pr, sc = dbt.mustDecimalSize(ct[2])
 		if pr != 38 || sc != 0 {
-			dbt.Errorf("failed to get precision and scale. %#v", ct[1])
+			dbt.Errorf("failed to get precision and scale. %#v", ct[2])
 		}
 		if v3 != "t3" {
 			dbt.Errorf("failed to scan. %#v", v3)
@@ -122,7 +125,7 @@ func TestJSONVariousTypes(t *testing.T) {
 		if cLen != 8388608 {
 			dbt.Errorf("failed to get length. %#v", ct[5])
 		}
-		canNull = dbt.mustNullable(ct[4])
+		canNull = dbt.mustNullable(ct[5])
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[5])
 		}

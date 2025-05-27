@@ -541,15 +541,22 @@ func TestArrowVariousTypes(t *testing.T) {
 		if canNull := dbt.mustNullable(ct[1]); canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[1])
 		}
+		if v2a != 22 {
+			dbt.Errorf("failed to scan. %#v", v2a)
+		}
+		dbt.mustFailLength(ct[2])
+		if canNull := dbt.mustNullable(ct[2]); canNull {
+			dbt.Errorf("failed to get nullable. %#v", ct[2])
+		}
 		if v3 != "t3" {
 			dbt.Errorf("failed to scan. %#v", v3)
 		}
 		dbt.mustFailDecimalSize(ct[3])
 		if cLen = dbt.mustLength(ct[3]); cLen != 2 {
-			dbt.Errorf("failed to get length. %#v", ct[2])
+			dbt.Errorf("failed to get length. %#v", ct[3])
 		}
 		if canNull := dbt.mustNullable(ct[3]); canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[2])
+			dbt.Errorf("failed to get nullable. %#v", ct[3])
 		}
 		if v4 != 4.2 {
 			dbt.Errorf("failed to scan. %#v", v4)
@@ -557,7 +564,7 @@ func TestArrowVariousTypes(t *testing.T) {
 		dbt.mustFailDecimalSize(ct[4])
 		dbt.mustFailLength(ct[4])
 		if canNull := dbt.mustNullable(ct[4]); canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[3])
+			dbt.Errorf("failed to get nullable. %#v", ct[4])
 		}
 		if !bytes.Equal(v5, []byte{0xab, 0xcd}) {
 			dbt.Errorf("failed to scan. %#v", v5)
