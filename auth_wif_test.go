@@ -311,7 +311,7 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 		 *   "aud": "www.example.com"
 		 * }
 		 */
-		MISSING_ISSUER_CLAIM_TOKEN = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJzdWIiOiJzb21lLXN1YmplY3QiLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.H6sN6kjA82EuijFcv-yCJTqau5qvVTCsk0ZQ4gvFQMkB7c71XPs4lkwTa7ZlNNlx9e6TpN1CVGnpCIRDDAZaDw"
+		missingIssuerClaimToken = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJzdWIiOiJzb21lLXN1YmplY3QiLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.H6sN6kjA82EuijFcv-yCJTqau5qvVTCsk0ZQ4gvFQMkB7c71XPs4lkwTa7ZlNNlx9e6TpN1CVGnpCIRDDAZaDw"
 		/*
 		 * {
 		 *   "iss": "https://accounts.google.com",
@@ -320,7 +320,7 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 		 *   "aud": "www.example.com"
 		 * }
 		 */
-		MISSING_SUB_CLAIM_TOKEN = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.w0njdpfWFETVK8Ktq9GdvuKRQJjvhOplcSyvQ_zHHwBUSMapqO1bjEWBx5VhGkdECZIGS1VY7db_IOqT45yOMA"
+		missingSubClaimToken = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.w0njdpfWFETVK8Ktq9GdvuKRQJjvhOplcSyvQ_zHHwBUSMapqO1bjEWBx5VhGkdECZIGS1VY7db_IOqT45yOMA"
 		/*
 		 * {
 		 *     "iss": "https://oidc.eks.us-east-2.amazonaws.com/id/3B869BC5D12CEB5515358621D8085D58",
@@ -330,9 +330,9 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 		 *     "sub": "system:serviceaccount:poc-namespace:oidc-sa"
 		 * }
 		 */
-		VALID_TOKEN      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL29pZGMuZWtzLnVzLWVhc3QtMi5hbWF6b25hd3MuY29tL2lkLzNCODY5QkM1RDEyQ0VCNTUxNTM1ODYyMUQ4MDg1RDU4IiwiaWF0IjoxNzQ0Mjg3ODc4LCJleHAiOjE3NzU4MjM4NzgsImF1ZCI6Ind3dy5leGFtcGxlLmNvbSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpwb2MtbmFtZXNwYWNlOm9pZGMtc2EifQ.a8H6KRIF1XmM8lkqL6kR8ccInr7wAzQrbKd3ZHFgiEg"
-		UNPARSABLE_TOKEN = "unparsable_token"
-		EMPTY_TOKEN      = ""
+		validToken      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL29pZGMuZWtzLnVzLWVhc3QtMi5hbWF6b25hd3MuY29tL2lkLzNCODY5QkM1RDEyQ0VCNTUxNTM1ODYyMUQ4MDg1RDU4IiwiaWF0IjoxNzQ0Mjg3ODc4LCJleHAiOjE3NzU4MjM4NzgsImF1ZCI6Ind3dy5leGFtcGxlLmNvbSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpwb2MtbmFtZXNwYWNlOm9pZGMtc2EifQ.a8H6KRIF1XmM8lkqL6kR8ccInr7wAzQrbKd3ZHFgiEg"
+		unparsableToken = "unparsable_token"
+		emptyToken      = ""
 	)
 
 	type testCase struct {
@@ -345,28 +345,28 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 	tests := []testCase{
 		{
 			name:          "no token input",
-			token:         EMPTY_TOKEN,
+			token:         emptyToken,
 			expectedError: nil,
 		},
 		{
 			name:          "valid token returns proper attestation",
-			token:         VALID_TOKEN,
+			token:         validToken,
 			expectedError: nil,
 			expectedSub:   "system:serviceaccount:poc-namespace:oidc-sa",
 		},
 		{
 			name:          "missing issuer returns error",
-			token:         MISSING_ISSUER_CLAIM_TOKEN,
+			token:         missingIssuerClaimToken,
 			expectedError: errors.New("missing issuer claim in JWT token"),
 		},
 		{
 			name:          "missing sub returns error",
-			token:         MISSING_SUB_CLAIM_TOKEN,
+			token:         missingSubClaimToken,
 			expectedError: errors.New("missing sub claim in JWT token"),
 		},
 		{
 			name:          "unparsable token returns error",
-			token:         UNPARSABLE_TOKEN,
+			token:         unparsableToken,
 			expectedError: errors.New("unable to extract JWT claims from token: token is malformed: token contains an invalid number of segments"),
 		},
 	}
