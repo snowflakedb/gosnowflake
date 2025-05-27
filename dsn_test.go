@@ -98,6 +98,23 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "u:p@/db?account=ac&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2F.default&workloadIdentityProvider=azure",
+			config: &Config{
+				Account: "ac", User: "u", Password: "p", Database: "db",
+				Protocol: "https", Host: "ac.snowflakecomputing.com", Port: 443,
+				WorkloadIdentityProvider: "azure", WorkloadIdentityEntraResource: "https://example.com/.default",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			dsn: "u:p@/db?account=ac&region=cn-region",
 			config: &Config{
 				Account: "ac", User: "u", Password: "p", Database: "db", Region: "cn-region",

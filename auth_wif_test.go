@@ -152,14 +152,14 @@ func TestCreateAutodetectAttestation(t *testing.T) {
 func TestAwsIdentityAttestationCreator(t *testing.T) {
 	tests := []struct {
 		name                string
-		attestationSvc      awsAttestationService
+		attestationSvc      awsAttestationMetadataProvider
 		attestationReturned bool
 		expectedProvider    string
 		expectedMetadata    map[string]string
 	}{
 		{
 			name: "No AWS credentials",
-			attestationSvc: &mockAwsAttestationService{
+			attestationSvc: &mockAwsAttestationMetadataProvider{
 				creds:  aws.Credentials{},
 				region: "us-west-2",
 				arn:    "arn:aws:iam::123456789012:role/test-role",
@@ -168,7 +168,7 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 		},
 		{
 			name: "No AWS region",
-			attestationSvc: &mockAwsAttestationService{
+			attestationSvc: &mockAwsAttestationMetadataProvider{
 				creds:  mockCreds,
 				region: "",
 				arn:    "arn:aws:iam::123456789012:role/test-role",
@@ -177,7 +177,7 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 		},
 		{
 			name: "No AWS ARN",
-			attestationSvc: &mockAwsAttestationService{
+			attestationSvc: &mockAwsAttestationMetadataProvider{
 				creds:  mockCreds,
 				region: "us-west-2",
 				arn:    "",
@@ -186,7 +186,7 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 		},
 		{
 			name: "Successful attestation",
-			attestationSvc: &mockAwsAttestationService{
+			attestationSvc: &mockAwsAttestationMetadataProvider{
 				creds:  mockCreds,
 				region: "us-west-2",
 				arn:    "arn:aws:iam::123456789012:role/test-role",
@@ -216,7 +216,7 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 	}
 }
 
-type mockAwsAttestationService struct {
+type mockAwsAttestationMetadataProvider struct {
 	creds  aws.Credentials
 	region string
 	arn    string
@@ -228,15 +228,15 @@ var mockCreds = aws.Credentials{
 	SessionToken:    "mockSessionToken",
 }
 
-func (m *mockAwsAttestationService) GetAWSCredentials() aws.Credentials {
+func (m *mockAwsAttestationMetadataProvider) awsCredentials() aws.Credentials {
 	return m.creds
 }
 
-func (m *mockAwsAttestationService) GetAWSRegion() string {
+func (m *mockAwsAttestationMetadataProvider) awsRegion() string {
 	return m.region
 }
 
-func (m *mockAwsAttestationService) GetArn() string {
+func (m *mockAwsAttestationMetadataProvider) awsArn() string {
 	return m.arn
 }
 

@@ -57,7 +57,7 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config) *wifAttestat
 	return &wifAttestationProvider{
 		context:      ctx,
 		cfg:          cfg,
-		awsCreator:   &awsIdentityAttestationCreator{attestationService: createDefaultAwsAttestationService(ctx), ctx: ctx},
+		awsCreator:   &awsIdentityAttestationCreator{attestationService: createDefaultAwsAttestationMetadataProvider(ctx), ctx: ctx},
 		gcpCreator:   &gcpIdentityAttestationCreator{cfg: cfg, metadataServiceBaseUrl: defaultMetadataServiceBase},
 		azureCreator: nil,
 		oidcCreator:  &oidcIdentityAttestationCreator{token: cfg.Token},
@@ -121,7 +121,7 @@ func (p *wifAttestationProvider) getAttestationForAutodetect(
 }
 
 type awsIdentityAttestationCreator struct {
-	attestationService awsAttestationService
+	attestationService awsAttestationMetadataProvider
 	ctx                context.Context
 }
 
@@ -134,30 +134,30 @@ type oidcIdentityAttestationCreator struct {
 	token string
 }
 
-type awsAttestationService interface {
-	GetAWSCredentials() aws.Credentials
-	GetAWSRegion() string
-	GetArn() string
+type awsAttestationMetadataProvider interface {
+	awsCredentials() aws.Credentials
+	awsRegion() string
+	awsArn() string
 }
 
-type defaultAwsAttestationService struct {
+type defaultAwsAttestationMetadataProvider struct {
 	ctx    context.Context
 	awsCfg aws.Config
 }
 
-func createDefaultAwsAttestationService(ctx context.Context) *defaultAwsAttestationService {
+func createDefaultAwsAttestationMetadataProvider(ctx context.Context) *defaultAwsAttestationMetadataProvider {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		logger.Debugf("Unable to load AWS config: %v", err)
 		return nil
 	}
-	return &defaultAwsAttestationService{
+	return &defaultAwsAttestationMetadataProvider{
 		awsCfg: cfg,
 		ctx:    ctx,
 	}
 }
 
-func (s *defaultAwsAttestationService) GetAWSCredentials() aws.Credentials {
+func (s *defaultAwsAttestationMetadataProvider) awsCredentials() aws.Credentials {
 	creds, err := s.awsCfg.Credentials.Retrieve(s.ctx)
 	if err != nil {
 		logger.Debugf("Unable to retrieve AWS credentials provider: %v", err)
@@ -166,11 +166,11 @@ func (s *defaultAwsAttestationService) GetAWSCredentials() aws.Credentials {
 	return creds
 }
 
-func (s *defaultAwsAttestationService) GetAWSRegion() string {
+func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 	return s.awsCfg.Region
 }
 
-func (s *defaultAwsAttestationService) GetArn() string {
+func (s *defaultAwsAttestationMetadataProvider) awsArn() string {
 	client := sts.NewFromConfig(s.awsCfg)
 	output, err := client.GetCallerIdentity(s.ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
@@ -188,19 +188,19 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 		return nil, nil
 	}
 
-	creds := c.attestationService.GetAWSCredentials()
+	creds := c.attestationService.awsCredentials()
 	if creds.AccessKeyID == "" || creds.SecretAccessKey == "" {
 		logger.Debug("No AWS credentials were found.")
 		return nil, nil
 	}
 
-	region := c.attestationService.GetAWSRegion()
+	region := c.attestationService.awsRegion()
 	if region == "" {
 		logger.Debug("No AWS region was found.")
 		return nil, nil
 	}
 
-	arn := c.attestationService.GetArn()
+	arn := c.attestationService.awsArn()
 	if arn == "" {
 		logger.Debug("No Caller Identity was found.")
 		return nil, nil
@@ -245,8 +245,7 @@ func (c *awsIdentityAttestationCreator) signRequestWithSigV4(ctx context.Context
 	signer := v4.NewSigner()
 	// as per docs of SignHTTP, the payload hash must be present even if the payload is empty
 	payloadHash := hex.EncodeToString(sha256.New().Sum(nil))
-	err := signer.SignHTTP(ctx, creds, req, payloadHash, "sts", region, time.Now())
-	return err
+	return signer.SignHTTP(ctx, creds, req, payloadHash, "sts", region, time.Now())
 }
 
 func (c *awsIdentityAttestationCreator) createBase64EncodedRequestCredential(req *http.Request) (string, error) {
