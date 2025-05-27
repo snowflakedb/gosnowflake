@@ -25,11 +25,11 @@ const (
 	azureWif wifProviderType = "AZURE"
 	oidcWif  wifProviderType = "OIDC"
 
-	metadataFlavorHeaderName   = "Metadata-Flavor"
-	metadataFlavor             = "Google"
-	expectedGcpTokenIssuer     = "https://accounts.google.com"
-	defaultMetadataServiceBase = "http://169.254.169.254"
-	snowflakeAudience          = "snowflakecomputing.com"
+	gcpMetadataFlavorHeaderName = "Metadata-Flavor"
+	gcpMetadataFlavor           = "Google"
+	expectedGcpTokenIssuer      = "https://accounts.google.com"
+	defaultMetadataServiceBase  = "http://169.254.169.254"
+	snowflakeAudience           = "snowflakecomputing.com"
 )
 
 type wifProviderType string
@@ -300,7 +300,7 @@ func (c *gcpIdentityAttestationCreator) createTokenRequest() (*http.Request, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 	}
-	req.Header.Set(metadataFlavorHeaderName, metadataFlavor)
+	req.Header.Set(gcpMetadataFlavorHeaderName, gcpMetadataFlavor)
 	return req, nil
 }
 
@@ -333,7 +333,7 @@ func extractSubIssWithoutVerifyingSignature(token string) (subject string, issue
 	if !ok {
 		return "", "", errors.New("missing sub claim in JWT token")
 	}
-	return issuerClaim.(string), subjectClaim.(string), nil
+	return subjectClaim.(string), issuerClaim.(string), nil
 }
 
 // extractClaimsMap parses a JWT token and returns its claims as a map.
