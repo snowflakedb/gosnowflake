@@ -334,8 +334,8 @@ func TestBindingInterface(t *testing.T) {
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
-		var v1, v2, v3, v4, v5, v6 any
-		if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
+		var v1, v2, v2a, v3, v4, v5, v6 any
+		if err := rows.Scan(&v1, &v2, &v2a, &v3, &v4, &v5, &v6); err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
 		if s1, ok := v1.(*big.Float); !ok || s1.Cmp(big.NewFloat(1.0)) != 0 {
@@ -343,6 +343,9 @@ func TestBindingInterface(t *testing.T) {
 		}
 		if s2, ok := v2.(int64); !ok || s2 != 2 {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
+		}
+		if s2a, ok := v2a.(*big.Int); !ok || big.NewInt(22).Cmp(s2a) != 0 {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2a)
 		}
 		if s3, ok := v3.(string); !ok || s3 != "t3" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
@@ -362,8 +365,8 @@ func TestBindingInterfaceString(t *testing.T) {
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
-		var v1, v2, v3, v4, v5, v6 any
-		if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
+		var v1, v2, v2a, v3, v4, v5, v6 any
+		if err := rows.Scan(&v1, &v2, &v2a, &v3, &v4, &v5, &v6); err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
 		if s, ok := v1.(string); !ok {
@@ -375,6 +378,9 @@ func TestBindingInterfaceString(t *testing.T) {
 		}
 		if s, ok := v2.(string); !ok || s != "2" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2)
+		}
+		if s, ok := v2a.(string); !ok || s != "22" {
+			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v2a)
 		}
 		if s, ok := v3.(string); !ok || s != "t3" {
 			dbt.Fatalf("failed to fetch. ok: %v, value: %v", ok, v3)
@@ -1457,7 +1463,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 	}{
 		{"C1", reflect.TypeOf("")},
 		{"C2", reflect.TypeOf("")},
-		{"C3", reflect.TypeOf(int64(0))},
+		{"C3", reflect.TypeOf("")},
 	}
 	testCases := []struct {
 		testDesc string

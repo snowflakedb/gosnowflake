@@ -40,19 +40,19 @@ func TestJSONVariousTypes(t *testing.T) {
 			dbt.Errorf("column types: %v", ct)
 		}
 		var v1 float32
-		var v2 int
+		var v2, v2a int
 		var v3 string
 		var v4 float64
 		var v5 []byte
 		var v6 bool
-		err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
+		err = rows.Scan(&v1, &v2, &v2a, &v3, &v4, &v5, &v6)
 		if err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
 		if v1 != 1.0 {
 			dbt.Errorf("failed to scan. %#v", v1)
 		}
-		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C3" || ct[3].Name() != "C4" || ct[4].Name() != "C5" || ct[5].Name() != "C6" {
+		if ct[0].Name() != "C1" || ct[1].Name() != "C2" || ct[2].Name() != "C2A" || ct[3].Name() != "C3" || ct[4].Name() != "C4" || ct[5].Name() != "C5" || ct[6].Name() != "C6" {
 			dbt.Errorf("failed to get column names: %#v", ct)
 		}
 		if ct[0].ScanType() != reflect.TypeOf(float64(0)) {
@@ -61,6 +61,7 @@ func TestJSONVariousTypes(t *testing.T) {
 		if ct[1].ScanType() != reflect.TypeOf(int64(0)) {
 			dbt.Errorf("failed to get scan type. expected: %v, got: %v", reflect.TypeOf(int64(0)), ct[1].ScanType())
 		}
+		assertEqualE(t, ct[2].ScanType(), reflect.TypeOf(""))
 		var pr, sc int64
 		var cLen int64
 		var canNull bool
@@ -80,7 +81,7 @@ func TestJSONVariousTypes(t *testing.T) {
 			dbt.Errorf("failed to scan. %#v", v2)
 		}
 		pr, sc = dbt.mustDecimalSize(ct[1])
-		if pr != 38 || sc != 0 {
+		if pr != 18 || sc != 0 {
 			dbt.Errorf("failed to get precision and scale. %#v", ct[1])
 		}
 		dbt.mustFailLength(ct[1])
@@ -88,49 +89,51 @@ func TestJSONVariousTypes(t *testing.T) {
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[1])
 		}
+		if v2a != 22 {
+			dbt.Errorf("failed to scan. %#v", v2a)
+		}
+		pr, sc = dbt.mustDecimalSize(ct[2])
+		if pr != 38 || sc != 0 {
+			dbt.Errorf("failed to get precision and scale. %#v", ct[2])
+		}
 		if v3 != "t3" {
 			dbt.Errorf("failed to scan. %#v", v3)
 		}
-		dbt.mustFailDecimalSize(ct[2])
-		cLen = dbt.mustLength(ct[2])
-		if cLen != 2 {
-			dbt.Errorf("failed to get length. %#v", ct[2])
-		}
-		canNull = dbt.mustNullable(ct[2])
-		if canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[2])
-		}
-		if v4 != 4.2 {
-			dbt.Errorf("failed to scan. %#v", v4)
-		}
 		dbt.mustFailDecimalSize(ct[3])
-		dbt.mustFailLength(ct[3])
+		cLen = dbt.mustLength(ct[3])
+		if cLen != 2 {
+			dbt.Errorf("failed to get length. %#v", ct[3])
+		}
 		canNull = dbt.mustNullable(ct[3])
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[3])
 		}
-		if !bytes.Equal(v5, []byte{0xab, 0xcd}) {
-			dbt.Errorf("failed to scan. %#v", v5)
+		if v4 != 4.2 {
+			dbt.Errorf("failed to scan. %#v", v4)
 		}
 		dbt.mustFailDecimalSize(ct[4])
-		cLen = dbt.mustLength(ct[4]) // BINARY
-		if cLen != 8388608 {
-			dbt.Errorf("failed to get length. %#v", ct[4])
-		}
+		dbt.mustFailLength(ct[4])
 		canNull = dbt.mustNullable(ct[4])
 		if canNull {
 			dbt.Errorf("failed to get nullable. %#v", ct[4])
 		}
+		if !bytes.Equal(v5, []byte{0xab, 0xcd}) {
+			dbt.Errorf("failed to scan. %#v", v5)
+		}
+		dbt.mustFailDecimalSize(ct[5])
+		cLen = dbt.mustLength(ct[5]) // BINARY
+		if cLen != 8388608 {
+			dbt.Errorf("failed to get length. %#v", ct[5])
+		}
+		canNull = dbt.mustNullable(ct[5])
+		if canNull {
+			dbt.Errorf("failed to get nullable. %#v", ct[5])
+		}
 		if !v6 {
 			dbt.Errorf("failed to scan. %#v", v6)
 		}
-		dbt.mustFailDecimalSize(ct[5])
-		dbt.mustFailLength(ct[5])
-		/*canNull = dbt.mustNullable(ct[5])
-		if canNull {
-			dbt.Errorf("failed to get nullable. %#v", ct[5])
-		}*/
-
+		dbt.mustFailDecimalSize(ct[6])
+		dbt.mustFailLength(ct[6])
 	})
 }
 
@@ -184,8 +187,8 @@ func TestBindingJSONInterface(t *testing.T) {
 		if !rows.Next() {
 			dbt.Error("failed to query")
 		}
-		var v1, v2, v3, v4, v5, v6 interface{}
-		if err := rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6); err != nil {
+		var v1, v2, v2a, v3, v4, v5, v6 interface{}
+		if err := rows.Scan(&v1, &v2, &v2a, &v3, &v4, &v5, &v6); err != nil {
 			dbt.Errorf("failed to scan: %#v", err)
 		}
 		if s, ok := v1.(string); !ok || s != "1.00" {
