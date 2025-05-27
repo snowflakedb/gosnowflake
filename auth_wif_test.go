@@ -276,7 +276,7 @@ func TestGcpIdentityAttestationCreator(t *testing.T) {
 
 	creator := &gcpIdentityAttestationCreator{
 		cfg:                    &Config{},
-		metadataServiceBaseUrl: wiremock.baseURL(),
+		metadataServiceBaseURL: wiremock.baseURL(),
 	}
 
 	for _, test := range tests {

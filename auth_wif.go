@@ -58,7 +58,7 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config) *wifAttestat
 		context:      ctx,
 		cfg:          cfg,
 		awsCreator:   &awsIdentityAttestationCreator{attestationService: createDefaultAwsAttestationMetadataProvider(ctx), ctx: ctx},
-		gcpCreator:   &gcpIdentityAttestationCreator{cfg: cfg, metadataServiceBaseUrl: defaultMetadataServiceBase},
+		gcpCreator:   &gcpIdentityAttestationCreator{cfg: cfg, metadataServiceBaseURL: defaultMetadataServiceBase},
 		azureCreator: nil,
 		oidcCreator:  &oidcIdentityAttestationCreator{token: cfg.Token},
 	}
@@ -127,7 +127,7 @@ type awsIdentityAttestationCreator struct {
 
 type gcpIdentityAttestationCreator struct {
 	cfg                    *Config
-	metadataServiceBaseUrl string
+	metadataServiceBaseURL string
 }
 
 type oidcIdentityAttestationCreator struct {
@@ -295,7 +295,7 @@ func (c *gcpIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 
 func (c *gcpIdentityAttestationCreator) createTokenRequest() (*http.Request, error) {
 	uri := fmt.Sprintf("%s/computeMetadata/v1/instance/service-accounts/default/identity?audience=%s",
-		c.metadataServiceBaseUrl, snowflakeAudience)
+		c.metadataServiceBaseURL, snowflakeAudience)
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
