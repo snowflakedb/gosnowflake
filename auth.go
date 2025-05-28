@@ -543,10 +543,13 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			return nil, errors.New("workload identity authentication is not ready to use")
 		}
 		logger.WithContext(sc.ctx).Debug("Workload Identity Federation")
-		wifAttestationProvider := createWifAttestationProvider(sc.ctx)
+		wifAttestationProvider := createWifAttestationProvider(sc.ctx, sc.cfg)
 		wifAttestation, err := wifAttestationProvider.getAttestation(sc.cfg.WorkloadIdentityProvider)
 		if err != nil {
 			return nil, err
+		}
+		if wifAttestation == nil {
+			return nil, errors.New("workload identity federation attestation is not available, please check your configuration")
 		}
 		requestMain.Authenticator = AuthTypeWorkloadIdentityFederation.String()
 		requestMain.Token = wifAttestation.Credential
