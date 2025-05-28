@@ -132,7 +132,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	return data, nil
 }
 
-func getFileStream(ctx context.Context) (*bytes.Buffer, error) {
+func getFileStream(ctx context.Context) (io.Reader, error) {
 	s := ctx.Value(fileStreamFile)
 	if s == nil {
 		return nil, nil
@@ -141,9 +141,7 @@ func getFileStream(ctx context.Context) (*bytes.Buffer, error) {
 	if !ok {
 		return nil, errors.New("incorrect io.Reader")
 	}
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(r)
-	return buf, err
+	return r, nil
 }
 
 func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
