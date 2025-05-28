@@ -148,7 +148,7 @@ func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return nil
 	}
-	return snowflakeTypeToGo(rows.ctx, getSnowflakeType(rows.ChunkDownloader.getRowType()[index].Type), rows.ChunkDownloader.getRowType()[index].Scale, rows.ChunkDownloader.getRowType()[index].Fields)
+	return snowflakeTypeToGo(rows.ctx, getSnowflakeType(rows.ChunkDownloader.getRowType()[index].Type), rows.ChunkDownloader.getRowType()[index].Precision, rows.ChunkDownloader.getRowType()[index].Scale, rows.ChunkDownloader.getRowType()[index].Fields)
 }
 
 func (rows *snowflakeRows) GetQueryID() string {

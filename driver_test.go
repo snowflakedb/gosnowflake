@@ -39,7 +39,7 @@ var (
 
 const (
 	selectNumberSQL       = "SELECT %s::NUMBER(%v, %v) AS C"
-	selectVariousTypes    = "SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(38,0) AS C2, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY(8388608) AS C5, true AS C6"
+	selectVariousTypes    = "SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(18,0) AS C2, 22::NUMBER(38, 0) AS C2A, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY(8388608) AS C5, true AS C6"
 	selectRandomGenerator = "SELECT SEQ8(), RANDSTR(1000, RANDOM()) FROM TABLE(GENERATOR(ROWCOUNT=>%v))"
 	PSTLocation           = "America/Los_Angeles"
 )
@@ -243,6 +243,7 @@ func (dbt *DBTest) mustQueryContextT(ctx context.Context, t *testing.T, query st
 	return &RowsExtended{
 		rows:      rs,
 		closeChan: &c0,
+		t:         t,
 	}
 }
 
