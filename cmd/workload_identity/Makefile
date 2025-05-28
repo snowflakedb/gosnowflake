@@ -1,5 +1,5 @@
 include ../../gosnowflake.mak
-CMD_TARGET=pat
+CMD_TARGET=workload_identity
 
 ## Install
 install: cinstall
