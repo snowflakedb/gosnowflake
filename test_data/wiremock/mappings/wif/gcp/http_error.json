@@ -1,0 +1,23 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPattern": "/computeMetadata/v1/instance/service-accounts/default/identity.*",
+        "queryParameters": {
+          "audience": {
+            "equalTo": "snowflakecomputing.com"
+          }
+        },
+        "method": "GET",
+        "headers": {
+          "Metadata-Flavor": {
+            "equalTo": "Google"
+          }
+        }
+      },
+      "response": {
+        "status": 400
+      }
+    }
+  ]
+}

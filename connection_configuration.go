@@ -190,9 +190,9 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		cfg.OauthRedirectURI, err = parseString(value)
 	case "oauth_scope":
 		cfg.OauthScope, err = parseString(value)
-	case "workloadIdentityProvider":
+	case "workload_identity_provider":
 		cfg.WorkloadIdentityProvider, err = parseString(value)
-	case "workloadIdentityEntraResource":
+	case "workload_identity_entra_resource":
 		cfg.WorkloadIdentityEntraResource, err = parseString(value)
 
 	case "token_file_path":
