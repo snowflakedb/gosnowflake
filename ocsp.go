@@ -688,10 +688,10 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 		logger.Tracef("checking cert, %v, %v, isCa: %v, rawIssuer: %v, rawSubject: %v", i, numberOfNoneRootCerts, verifiedChains[i][numberOfNoneRootCerts].IsCA, string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), string(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
 		logger.Tracef("checking cert, base64, rawIssuer: %v, rawSubject: %v", base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
 		isCA := verifiedChains[i][numberOfNoneRootCerts].IsCA
-		isIssuer := string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) == string(verifiedChains[i][numberOfNoneRootCerts].RawSubject)
+		isSelfSigned := string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) == string(verifiedChains[i][numberOfNoneRootCerts].RawSubject)
 		rca := caRoot[string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer)]
 
-		if !isCA || !isIssuer {
+		if !isCA || !isSelfSigned {
 			// Check if the last Non Root Cert is also a CA or is self signed.
 			// if the last certificate is not, add it to the list
 			if rca == nil {
@@ -699,7 +699,7 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 			}
 			verifiedChains[i] = append(verifiedChains[i], rca)
 			numberOfNoneRootCerts++
-		} else if isCA && isIssuer {
+		} else if isCA && isSelfSigned {
 			if rca != nil {
 				logger.Debugf(
 					"A trusted root certificate found: %v, stopping chain traversal here",
