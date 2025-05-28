@@ -138,15 +138,22 @@ func TestGoTypeToSnowflake(t *testing.T) {
 
 func TestSnowflakeTypeToGo(t *testing.T) {
 	testcases := []struct {
-		in     snowflakeType
-		scale  int64
-		fields []fieldMetadata
-		out    reflect.Type
-		ctx    context.Context
+		in        snowflakeType
+		precision int64
+		scale     int64
+		fields    []fieldMetadata
+		out       reflect.Type
+		ctx       context.Context
 	}{
-		{in: fixedType, scale: 0, out: reflect.TypeOf(int64(0)), ctx: context.Background()},
+		{in: fixedType, precision: 1, scale: 0, out: reflect.TypeOf(int64(0)), ctx: context.Background()},
+		{in: fixedType, precision: 18, scale: 0, out: reflect.TypeOf(int64(0)), ctx: context.Background()},
+		{in: fixedType, precision: 19, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
+		{in: fixedType, precision: 38, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
 		{in: fixedType, scale: 2, out: reflect.TypeOf(float64(0)), ctx: context.Background()},
-		{in: fixedType, scale: 0, out: reflect.TypeOf(&big.Int{}), ctx: WithHigherPrecision(context.Background())},
+		{in: fixedType, precision: 1, scale: 0, out: reflect.TypeOf(int64(0)), ctx: WithHigherPrecision(context.Background())},
+		{in: fixedType, precision: 18, scale: 0, out: reflect.TypeOf(int64(0)), ctx: WithHigherPrecision(context.Background())},
+		{in: fixedType, precision: 19, scale: 0, out: reflect.TypeOf(&big.Int{}), ctx: WithHigherPrecision(context.Background())},
+		{in: fixedType, precision: 38, scale: 0, out: reflect.TypeOf(&big.Int{}), ctx: WithHigherPrecision(context.Background())},
 		{in: fixedType, scale: 2, out: reflect.TypeOf(&big.Float{}), ctx: WithHigherPrecision(context.Background())},
 		{in: realType, scale: 0, out: reflect.TypeOf(float64(0)), ctx: context.Background()},
 		{in: textType, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
@@ -186,7 +193,7 @@ func TestSnowflakeTypeToGo(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(fmt.Sprintf("%v_%v", test.in, test.out), func(t *testing.T) {
-			a := snowflakeTypeToGo(test.ctx, test.in, test.scale, test.fields)
+			a := snowflakeTypeToGo(test.ctx, test.in, test.precision, test.scale, test.fields)
 			if a != test.out {
 				t.Errorf("failed. in: %v, scale: %v, expected: %v, got: %v",
 					test.in, test.scale, test.out, a)
@@ -2494,4 +2501,140 @@ func TestSqlNull(t *testing.T) {
 		assertNilF(t, rows.Scan(&rowID, &nullStr))
 		assertEqualE(t, nullStr, sql.Null[string]{Valid: true, V: "test"})
 	})
+}
+
+func TestNumbersScanType(t *testing.T) {
+	for _, forceFormat := range []string{forceJSON, forceARROW} {
+		t.Run(forceFormat, func(t *testing.T) {
+			runDBTest(t, func(dbt *DBTest) {
+				dbt.mustExecT(t, forceFormat)
+
+				t.Run("scale == 0", func(t *testing.T) {
+					t.Run("without higher precision", func(t *testing.T) {
+						rows := dbt.mustQueryContext(context.Background(), "SELECT 1, 300::NUMBER(15, 0), 600::NUMBER(18, 0), 700::NUMBER(19, 0), 900::NUMBER(38, 0), 123456789012345678901234567890")
+						defer rows.Close()
+						rows.mustNext()
+						var i1, i2, i3 int64
+						var i4, i5, i6 string
+						rows.mustScan(&i1, &i2, &i3, &i4, &i5, &i6)
+						assertEqualE(t, i1, int64(1))
+						assertEqualE(t, i2, int64(300))
+						assertEqualE(t, i3, int64(600))
+						assertEqualE(t, i4, "700")
+						assertEqualE(t, i5, "900")
+						assertEqualE(t, i6, "123456789012345678901234567890") // pragma: allowlist secret
+
+						types, err := rows.ColumnTypes()
+						assertNilF(t, err)
+						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(int64(1)))
+						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(int64(1)))
+						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(int64(1)))
+						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(""))
+						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(""))
+						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(""))
+					})
+
+					t.Run("without higher precision - regardless of scan type, int parsing should still work", func(t *testing.T) {
+						rows := dbt.mustQueryContext(context.Background(), "SELECT 1, 300::NUMBER(15, 0), 600::NUMBER(18, 0), 700::NUMBER(19, 0), 900::NUMBER(38, 0), 123456789012345678901234567890")
+						defer rows.Close()
+						rows.mustNext()
+						var i1, i2, i3, i4, i5 int64
+						var i6 string
+						rows.mustScan(&i1, &i2, &i3, &i4, &i5, &i6)
+						assertEqualE(t, i1, int64(1))
+						assertEqualE(t, i2, int64(300))
+						assertEqualE(t, i3, int64(600))
+						assertEqualE(t, i4, int64(700))
+						assertEqualE(t, i5, int64(900))
+						assertEqualE(t, i6, "123456789012345678901234567890") // pragma: allowlist secret
+
+						types, err := rows.ColumnTypes()
+						assertNilF(t, err)
+						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(int64(1)))
+						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(int64(1)))
+						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(int64(1)))
+						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(""))
+						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(""))
+						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(""))
+					})
+
+					t.Run("with higher precision", func(t *testing.T) {
+						rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()), "SELECT 1::NUMBER(1, 0), 300::NUMBER(15, 0), 600::NUMBER(19, 0), 700::NUMBER(20, 0), 900::NUMBER(38, 0), 123456789012345678901234567890")
+						defer rows.Close()
+						rows.mustNext()
+						var i1, i2 int64
+						var i3, i4, i5, i6 *big.Int
+						rows.mustScan(&i1, &i2, &i3, &i4, &i5, &i6)
+						assertEqualE(t, i1, int64(1))
+						assertEqualE(t, i2, int64(300))
+						assertEqualE(t, i3.Cmp(big.NewInt(600)), 0)
+						assertEqualE(t, i4.Cmp(big.NewInt(700)), 0)
+						assertEqualE(t, i5.Cmp(big.NewInt(900)), 0)
+						bigInt123456789012345678901234567890 := &big.Int{}
+						bigInt123456789012345678901234567890.SetString("123456789012345678901234567890", 10) // pragma: allowlist secret
+						assertEqualE(t, i6.Cmp(bigInt123456789012345678901234567890), 0)
+
+						types, err := rows.ColumnTypes()
+						assertNilF(t, err)
+						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(int64(1)))
+						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(int64(1)))
+						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(&big.Int{}))
+						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(&big.Int{}))
+						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(&big.Int{}))
+						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(&big.Int{}))
+					})
+				})
+
+				t.Run("scale != 0", func(t *testing.T) {
+					t.Run("without higher precision", func(t *testing.T) {
+						rows := dbt.mustQueryContext(context.Background(), "SELECT 1.5, 300.5::NUMBER(15, 1), 600.5::NUMBER(18, 1), 700.5::NUMBER(19, 1), 900.5::NUMBER(38, 1), 123456789012345678901234567890.5")
+						defer rows.Close()
+						rows.mustNext()
+						var i1, i2, i3, i4, i5, i6 float64
+						rows.mustScan(&i1, &i2, &i3, &i4, &i5, &i6)
+						assertEqualE(t, i1, 1.5)
+						assertEqualE(t, i2, 300.5)
+						assertEqualE(t, i3, 600.5)
+						assertEqualE(t, i4, 700.5)
+						assertEqualE(t, i5, 900.5)
+						assertEqualE(t, i6, 123456789012345678901234567890.5)
+
+						types, err := rows.ColumnTypes()
+						assertNilF(t, err)
+						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(1.5))
+						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(1.5))
+						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(1.5))
+						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(1.5))
+						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(1.5))
+						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(1.5))
+					})
+
+					t.Run("with higher precision", func(t *testing.T) {
+						rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()), "SELECT 1.5, 300.5::NUMBER(15, 1), 600.5::NUMBER(18, 1), 700.5::NUMBER(19, 1), 900.5::NUMBER(38, 1), 123456789012345678901234567890.5")
+						defer rows.Close()
+						rows.mustNext()
+						var i1, i2, i3, i4, i5, i6 *big.Float
+						rows.mustScan(&i1, &i2, &i3, &i4, &i5, &i6)
+						assertEqualE(t, i1.Cmp(big.NewFloat(1.5)), 0)
+						assertEqualE(t, i2.Cmp(big.NewFloat(300.5)), 0)
+						assertEqualE(t, i3.Cmp(big.NewFloat(600.5)), 0)
+						assertEqualE(t, i4.Cmp(big.NewFloat(700.5)), 0)
+						assertEqualE(t, i5.Cmp(big.NewFloat(900.5)), 0)
+						bigInt123456789012345678901234567890, _, err := big.ParseFloat("123456789012345678901234567890.5", 10, big.MaxPrec, big.AwayFromZero)
+						assertNilF(t, err)
+						assertEqualE(t, i6.Cmp(bigInt123456789012345678901234567890), 0)
+
+						types, err := rows.ColumnTypes()
+						assertNilF(t, err)
+						assertEqualE(t, types[0].ScanType(), reflect.TypeOf(&big.Float{}))
+						assertEqualE(t, types[1].ScanType(), reflect.TypeOf(&big.Float{}))
+						assertEqualE(t, types[2].ScanType(), reflect.TypeOf(&big.Float{}))
+						assertEqualE(t, types[3].ScanType(), reflect.TypeOf(&big.Float{}))
+						assertEqualE(t, types[4].ScanType(), reflect.TypeOf(&big.Float{}))
+						assertEqualE(t, types[5].ScanType(), reflect.TypeOf(&big.Float{}))
+					})
+				})
+			})
+		})
+	}
 }
