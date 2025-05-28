@@ -333,7 +333,15 @@ func extractSubIssWithoutVerifyingSignature(token string) (subject string, issue
 	if !ok {
 		return "", "", errors.New("missing sub claim in JWT token")
 	}
-	return subjectClaim.(string), issuerClaim.(string), nil
+	subject, ok = subjectClaim.(string)
+	if !ok {
+		return "", "", errors.New("sub claim is not a string in JWT token")
+	}
+	issuer, ok = issuerClaim.(string)
+	if !ok {
+		return "", "", errors.New("iss claim is not a string in JWT token")
+	}
+	return
 }
 
 // extractClaimsMap parses a JWT token and returns its claims as a map.
