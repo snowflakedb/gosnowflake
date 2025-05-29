@@ -689,27 +689,24 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 		logger.Tracef("checking cert, base64, rawIssuer: %v, rawSubject: %v", base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
 		isCA := verifiedChains[i][numberOfNoneRootCerts].IsCA
 		isSelfSigned := string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) == string(verifiedChains[i][numberOfNoneRootCerts].RawSubject)
-		rca := caRoot[string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer)]
 
 		if !isCA || !isSelfSigned {
-			// Check if the last Non Root Cert is also a CA or is self signed.
-			// if the last certificate is not, add it to the list
-			if rca == nil {
-				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
-			}
-			verifiedChains[i] = append(verifiedChains[i], rca)
-			numberOfNoneRootCerts++
-		} else if isCA && isSelfSigned {
-			if rca != nil {
-				logger.Debugf(
-					"A trusted root certificate found: %v, stopping chain traversal here",
-					verifiedChains[i][numberOfNoneRootCerts].Issuer)
+			// The last cert is not the Root CA certificate. Search for the Root CA certificate in the chain.
+			logger.Debugf("Certificate chain is not signed by Root CA. Searching for Root CA in the chain: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
+			// Search for the Root CA certificate in the chain.
+			for j := 0; j < numberOfNoneRootCerts; j++ {
+				cert := verifiedChains[i][j]
+				isRootCA := cert.IsCA && string(cert.RawIssuer) == string(cert.RawSubject)
 
-				results := getAllRevocationStatus(ctx, verifiedChains[i])
-				if r := canEarlyExitForOCSP(results, numberOfNoneRootCerts); r != nil {
-					return r.err
+				if isRootCA && j < numberOfNoneRootCerts {
+					logger.Debugf(
+						"A trusted root certificate found: %v, stopping chain traversal here",
+						verifiedChains[i][numberOfNoneRootCerts].Issuer)
+					// Remove the Root CA certificate from the chain and append it to the end of the chain.
+					verifiedChains[i] = append(verifiedChains[i][:j], verifiedChains[i][j+1:]...)
+					verifiedChains[i] = append(verifiedChains[i], cert)
+					break
 				}
-				break
 			}
 		}
 		results := getAllRevocationStatus(ctx, verifiedChains[i])
