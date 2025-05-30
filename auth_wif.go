@@ -392,7 +392,7 @@ func (c *oidcIdentityAttestationCreator) createAttestation() (*wifAttestation, e
 type azureAttestationMetadataProvider interface {
 	identityEndpoint() string
 	identityHeader() string
-	clientId() string
+	clientID() string
 }
 
 type defaultAzureAttestationMetadataProvider struct{}
@@ -405,7 +405,7 @@ func (p *defaultAzureAttestationMetadataProvider) identityHeader() string {
 	return os.Getenv("IDENTITY_HEADER")
 }
 
-func (p *defaultAzureAttestationMetadataProvider) clientId() string {
+func (p *defaultAzureAttestationMetadataProvider) clientID() string {
 	return os.Getenv("MANAGED_IDENTITY_CLIENT_ID")
 }
 
@@ -443,7 +443,7 @@ func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, 
 		request, err = a.azureFunctionsIdentityRequest(
 			identityEndpoint,
 			identityHeader,
-			a.azureAttestationMetadataProvider.clientId(),
+			a.azureAttestationMetadataProvider.clientID(),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Azure Functions identity request: %v", err)
@@ -517,10 +517,10 @@ func extractTokenFromJSON(tokenJSON string) (string, error) {
 	return response.AccessToken, nil
 }
 
-func (a *azureIdentityAttestationCreator) azureFunctionsIdentityRequest(identityEndpoint, identityHeader, managedIdentityClientId string) (*http.Request, error) {
+func (a *azureIdentityAttestationCreator) azureFunctionsIdentityRequest(identityEndpoint, identityHeader, managedIdentityClientID string) (*http.Request, error) {
 	queryParams := fmt.Sprintf("api-version=2019-08-01&resource=%s", a.workloadIdentityEntraResource)
-	if managedIdentityClientId != "" {
-		queryParams += fmt.Sprintf("&client_id=%s", managedIdentityClientId)
+	if managedIdentityClientID != "" {
+		queryParams += fmt.Sprintf("&client_id=%s", managedIdentityClientID)
 	}
 
 	url := fmt.Sprintf("%s?%s", identityEndpoint, queryParams)

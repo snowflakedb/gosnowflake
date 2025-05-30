@@ -452,7 +452,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			metadataProvider: &mockAzureAttestationMetadataProvider{
 				identityEndpointValue: wiremock.baseURL() + "/metadata/identity/endpoint/from/env",
 				identityHeaderValue:   "some-identity-header-from-env",
-				clientIdValue:         "",
+				clientIDValue:         "",
 			},
 			expectedIss: "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
 		},
@@ -495,7 +495,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			metadataProvider: &mockAzureAttestationMetadataProvider{
 				identityEndpointValue: wiremock.baseURL() + "/metadata/identity/endpoint/from/env",
 				identityHeaderValue:   "",
-				clientIdValue:         "managed-client-id-from-env",
+				clientIDValue:         "managed-client-id-from-env",
 			},
 		},
 		{
@@ -540,7 +540,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 type mockAzureAttestationMetadataProvider struct {
 	identityEndpointValue string
 	identityHeaderValue   string
-	clientIdValue         string
+	clientIDValue         string
 }
 
 func (m *mockAzureAttestationMetadataProvider) identityEndpoint() string {
@@ -551,15 +551,15 @@ func (m *mockAzureAttestationMetadataProvider) identityHeader() string {
 	return m.identityHeaderValue
 }
 
-func (m *mockAzureAttestationMetadataProvider) clientId() string {
-	return m.clientIdValue
+func (m *mockAzureAttestationMetadataProvider) clientID() string {
+	return m.clientIDValue
 }
 
 func azureFunctionsMetadataProvider() *mockAzureAttestationMetadataProvider {
 	return &mockAzureAttestationMetadataProvider{
 		identityEndpointValue: wiremock.baseURL() + "/metadata/identity/endpoint/from/env",
 		identityHeaderValue:   "some-identity-header-from-env",
-		clientIdValue:         "managed-client-id-from-env",
+		clientIDValue:         "managed-client-id-from-env",
 	}
 }
 
@@ -567,6 +567,6 @@ func azureVMMetadataProvider() *mockAzureAttestationMetadataProvider {
 	return &mockAzureAttestationMetadataProvider{
 		identityEndpointValue: "",
 		identityHeaderValue:   "",
-		clientIdValue:         "",
+		clientIDValue:         "",
 	}
 }
