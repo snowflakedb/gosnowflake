@@ -1,0 +1,29 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPattern": "/metadata/identity/oauth2/token.*",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "2018-02-01"
+          },
+          "resource": {
+            "equalTo": "api://fd3f753b-eed3-462c-b6a7-a4b5bb650aad"
+          }
+        },
+        "method": "GET",
+        "headers": {
+          "Metadata": {
+            "equalTo": "True"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "access_token": "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6Ijk0ZGI4N2NiMjdmNjdjZDA1Zjk5OTlkZjMwNjg1NmQ4In0.eyJhdWQiOiJhcGkxIiwiaXNzIjoiaHR0cHM6Ly9ub3QuYXp1cmUuc3RzLmlzc3Vlci5jb20iLCJzdWIiOiI3NzIxM0UzMC1FOENCLTQ1OTUtQjFCNi01RjA1MEU4MzA4RkQiLCJleHAiOjE3NDQ3MTYwNTEsImlhdCI6MTc0NDcxMjQ1MSwianRpIjoiODcxMzM3NzAwOTQxNmZiYWE0MzQyYWQyMzFkZTAwMGQifQ.oB0Nq-qhcYlYBtWg_bhqIW0eym4uCyUohDrd7FlDMIgFtMdMzNMAVzm6kP_nKB3pWlEDtSOgbp8dEeECwUlNDA"
+        }
+      }
+    }
+  ]
+}
