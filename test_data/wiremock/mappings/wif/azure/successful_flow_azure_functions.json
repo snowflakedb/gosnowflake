@@ -1,0 +1,32 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPattern": "/metadata/identity/endpoint/from/env.*",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "2019-08-01"
+          },
+          "resource": {
+            "equalTo": "api://fd3f753b-eed3-462c-b6a7-a4b5bb650aad"
+          },
+          "client_id": {
+            "equalTo": "managed-client-id-from-env"
+          }
+        },
+        "method": "GET",
+        "headers": {
+          "X-IDENTITY-HEADER": {
+            "equalTo": "some-identity-header-from-env"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "access_token": "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6Ijk0ZGI4N2NiMjdmNjdjZDA1Zjk5OTlkZjMwNjg1NmQ4In0.eyJhdWQiOiJhcGkxIiwiaXNzIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvZmExNWQ2OTItZTljNy00NDYwLWE3NDMtMjlmMjk1MjIyMjkvIiwic3ViIjoiNzcyMTNFMzAtRThDQi00NTk1LUIxQjYtNUYwNTBFODMwOEZEIiwiZXhwIjoxNzQ0NzE2MDUxLCJpYXQiOjE3NDQ3MTI0NTEsImp0aSI6Ijg3MTMzNzcwMDk0MTZmYmFhNDM0MmFkMjMxZGUwMDBkIn0.C5jTYoybRs5YF5GvPgoDq4WK5U9-gDzh_N3IPaqEBI0IifdYSWpKQ72v3UISnVpp7Fc46C-ZC8kijUGe3IU9zA"
+        }
+      }
+    }
+  ]
+}

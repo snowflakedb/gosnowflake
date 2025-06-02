@@ -15,6 +15,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -55,12 +56,21 @@ type wifAttestationProvider struct {
 
 func createWifAttestationProvider(ctx context.Context, cfg *Config) *wifAttestationProvider {
 	return &wifAttestationProvider{
-		context:      ctx,
-		cfg:          cfg,
-		awsCreator:   &awsIdentityAttestationCreator{attestationService: createDefaultAwsAttestationMetadataProvider(ctx), ctx: ctx},
-		gcpCreator:   &gcpIdentityAttestationCreator{cfg: cfg, metadataServiceBaseURL: defaultMetadataServiceBase},
-		azureCreator: nil,
-		oidcCreator:  &oidcIdentityAttestationCreator{token: cfg.Token},
+		context: ctx,
+		cfg:     cfg,
+		awsCreator: &awsIdentityAttestationCreator{
+			attestationService: createDefaultAwsAttestationMetadataProvider(ctx),
+			ctx:                ctx},
+		gcpCreator: &gcpIdentityAttestationCreator{
+			cfg:                    cfg,
+			metadataServiceBaseURL: defaultMetadataServiceBase},
+		azureCreator: &azureIdentityAttestationCreator{
+			azureAttestationMetadataProvider: &defaultAzureAttestationMetadataProvider{},
+			cfg:                              cfg,
+			workloadIdentityEntraResource:    determineEntraResource(cfg),
+			azureMetadataServiceBaseURL:      defaultMetadataServiceBase,
+		},
+		oidcCreator: &oidcIdentityAttestationCreator{token: cfg.Token},
 	}
 }
 
@@ -281,10 +291,12 @@ func (c *gcpIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 	}
 	sub, iss, err := extractSubIssWithoutVerifyingSignature(token)
 	if err != nil {
-		return nil, fmt.Errorf("could not extract claims from token: %v", err.Error())
+		logger.Errorf("could not extract claims from token: %v", err.Error())
+		return nil, nil
 	}
 	if iss != expectedGcpTokenIssuer {
-		return nil, fmt.Errorf("unexpected token issuer: %s, should be %s", iss, expectedGcpTokenIssuer)
+		logger.Errorf("unexpected token issuer: %s, should be %s", iss, expectedGcpTokenIssuer)
+		return nil, nil
 	}
 	return &wifAttestation{
 		ProviderType: string(gcpWif),
@@ -374,4 +386,163 @@ func (c *oidcIdentityAttestationCreator) createAttestation() (*wifAttestation, e
 		Credential:   c.token,
 		Metadata:     map[string]string{"sub": sub},
 	}, nil
+}
+
+// azureAttestationMetadataProvider defines the interface for Azure attestation services
+type azureAttestationMetadataProvider interface {
+	identityEndpoint() string
+	identityHeader() string
+	clientID() string
+}
+
+type defaultAzureAttestationMetadataProvider struct{}
+
+func (p *defaultAzureAttestationMetadataProvider) identityEndpoint() string {
+	return os.Getenv("IDENTITY_ENDPOINT")
+}
+
+func (p *defaultAzureAttestationMetadataProvider) identityHeader() string {
+	return os.Getenv("IDENTITY_HEADER")
+}
+
+func (p *defaultAzureAttestationMetadataProvider) clientID() string {
+	return os.Getenv("MANAGED_IDENTITY_CLIENT_ID")
+}
+
+type azureIdentityAttestationCreator struct {
+	azureAttestationMetadataProvider azureAttestationMetadataProvider
+	cfg                              *Config
+	workloadIdentityEntraResource    string
+	azureMetadataServiceBaseURL      string
+}
+
+var allowedAzureTokenIssuerPrefixes = []string{
+	"https://sts.windows.net/",
+	"https://login.microsoftonline.com/",
+}
+
+// createAttestation creates an attestation using Azure identity
+func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
+	logger.Debug("Creating Azure identity attestation...")
+
+	identityEndpoint := a.azureAttestationMetadataProvider.identityEndpoint()
+	var request *http.Request
+	var err error
+
+	if identityEndpoint == "" {
+		request, err = a.azureVMIdentityRequest()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Azure VM identity request: %v", err)
+		}
+	} else {
+		identityHeader := a.azureAttestationMetadataProvider.identityHeader()
+		if identityHeader == "" {
+			logger.Warn("Managed identity is not enabled on this Azure function.")
+			return nil, nil
+		}
+		request, err = a.azureFunctionsIdentityRequest(
+			identityEndpoint,
+			identityHeader,
+			a.azureAttestationMetadataProvider.clientID(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Azure Functions identity request: %v", err)
+		}
+	}
+
+	tokenJSON := fetchTokenFromMetadataService(request, a.cfg)
+	if tokenJSON == "" {
+		logger.Debug("Could not fetch Azure token.")
+		return nil, nil
+	}
+
+	token, err := extractTokenFromJSON(tokenJSON)
+	if err != nil {
+		logger.Errorf("Failed to extract token from JSON: %v", err)
+		return nil, nil
+	}
+	if token == "" {
+		logger.Error("No access token found in Azure response.")
+		return nil, nil
+	}
+
+	sub, iss, err := extractSubIssWithoutVerifyingSignature(token)
+	if err != nil {
+		logger.Errorf("Failed to extract sub and iss claims from token: %v", err)
+		return nil, nil
+	}
+	if sub == "" || iss == "" {
+		logger.Error("Missing sub or iss claim in JWT token")
+		return nil, nil
+	}
+
+	hasAllowedPrefix := false
+	for _, prefix := range allowedAzureTokenIssuerPrefixes {
+		if strings.HasPrefix(iss, prefix) {
+			hasAllowedPrefix = true
+			break
+		}
+	}
+
+	if !hasAllowedPrefix {
+		logger.Errorf("Unexpected Azure token issuer: %s", iss)
+		return nil, nil
+	}
+
+	return &wifAttestation{
+		ProviderType: string(azureWif),
+		Credential:   token,
+		Metadata:     map[string]string{"sub": sub, "iss": iss},
+	}, nil
+}
+
+func determineEntraResource(config *Config) string {
+	if config != nil && config.WorkloadIdentityEntraResource != "" {
+		return config.WorkloadIdentityEntraResource
+	}
+	// default resource if none specified
+	return "api://fd3f753b-eed3-462c-b6a7-a4b5bb650aad"
+}
+
+func extractTokenFromJSON(tokenJSON string) (string, error) {
+	var response struct {
+		AccessToken string `json:"access_token"`
+	}
+
+	err := json.Unmarshal([]byte(tokenJSON), &response)
+	if err != nil {
+		return "", err
+	}
+
+	return response.AccessToken, nil
+}
+
+func (a *azureIdentityAttestationCreator) azureFunctionsIdentityRequest(identityEndpoint, identityHeader, managedIdentityClientID string) (*http.Request, error) {
+	queryParams := fmt.Sprintf("api-version=2019-08-01&resource=%s", a.workloadIdentityEntraResource)
+	if managedIdentityClientID != "" {
+		queryParams += fmt.Sprintf("&client_id=%s", managedIdentityClientID)
+	}
+
+	url := fmt.Sprintf("%s?%s", identityEndpoint, queryParams)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("X-IDENTITY-HEADER", identityHeader)
+
+	return req, nil
+}
+
+func (a *azureIdentityAttestationCreator) azureVMIdentityRequest() (*http.Request, error) {
+	urlWithoutQuery := a.azureMetadataServiceBaseURL + "/metadata/identity/oauth2/token?"
+	queryParams := fmt.Sprintf("api-version=2018-02-01&resource=%s", a.workloadIdentityEntraResource)
+
+	url := urlWithoutQuery + queryParams
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Metadata", "True")
+
+	return req, nil
 }
