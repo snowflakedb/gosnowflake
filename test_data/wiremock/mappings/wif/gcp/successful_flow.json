@@ -1,0 +1,24 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPattern": "/computeMetadata/v1/instance/service-accounts/default/identity.*",
+        "queryParameters": {
+          "audience": {
+            "equalTo": "snowflakecomputing.com"
+          }
+        },
+        "method": "GET",
+        "headers": {
+          "Metadata-Flavor": {
+            "equalTo": "Google"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJpYXQiOjE3NDM2OTIwMTcsImV4cCI6MTc3NTIyODAxNCwiYXVkIjoid3d3LmV4YW1wbGUuY29tIiwic3ViIjoic29tZS1zdWJqZWN0In0.k7018udXQjw-sgVY8sTLTnNrnJoGwVpjE6HozZN-h0w"
+      }
+    }
+  ]
+}
