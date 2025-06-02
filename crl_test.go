@@ -17,6 +17,8 @@ import (
 
 const testCrlServerPort = 56894
 
+var serialNumber = int64(0) // to be incremented
+
 func TestLeafCertNotRevoked(t *testing.T) {
 	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
@@ -41,7 +43,7 @@ func TestLeafCertRevoked(t *testing.T) {
 	cv := newCrlValidator(http.Client{})
 	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 	assertNotNilF(t, err)
-	assertStringContainsE(t, err.Error(), "localhost has been revoked")
+	assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate for CN=localhost,OU=Drivers,O=Snowflake,L=Warsaw has been revoked")
 }
 
 func TestLeafNotRevokedAndRootDoesNotProvideCrl(t *testing.T) {
@@ -69,7 +71,7 @@ func TestIntermediateCertRevoked(t *testing.T) {
 
 	cv := newCrlValidator(http.Client{})
 	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
-	assertStringContainsE(t, err.Error(), "intermediate CA has been revoked")
+	assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate for CN=intermediate CA,OU=Drivers,O=Snowflake,L=Warsaw has been revoked")
 }
 
 func TestCrlSignatureInvalid(t *testing.T) {
@@ -173,7 +175,26 @@ func TestVerifyAgainstIdpExtensionWithDistributionPointMismatch(t *testing.T) {
 	cv := newCrlValidator(http.Client{})
 	err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 	assertNotNilF(t, err)
-	assertEqualE(t, err.Error(), fmt.Sprintf("distribution point http://localhost:%v/rootCrl does not match CRL IDP extension http://localhost:%v/otherCrl", testCrlServerPort, testCrlServerPort))
+	assertEqualE(t, err.Error(), fmt.Sprintf("no valid certificate chain found after CRL validation. errors: distribution point http://localhost:%v/rootCrl not found in CRL IDP extension", testCrlServerPort))
+}
+
+func TestAnyValidChainCausesSuccess(t *testing.T) {
+	caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+	_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
+	_, validLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
+
+	// CRL revokes only the first leaf
+	crl := createCrl(t, caCert, caKey, revokedLeaf)
+	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+	defer closeServer(t, server)
+
+	cv := newCrlValidator(http.Client{})
+	// First chain: revoked, second chain: valid
+	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{
+		{revokedLeaf, caCert},
+		{validLeaf, caCert},
+	})
+	assertNilE(t, err)
 }
 
 func createCa(t *testing.T, issuerCert *x509.Certificate, issuerPrivateKey *rsa.PrivateKey, cn string, crlEndpoint string) (*rsa.PrivateKey, *x509.Certificate) {
@@ -195,8 +216,9 @@ func createCa(t *testing.T, issuerCert *x509.Certificate, issuerPrivateKey *rsa.
 }
 
 func createLeafCert(t *testing.T, issuerCert *x509.Certificate, issuerPrivateKey *rsa.PrivateKey, crlEndpoint string) (*rsa.PrivateKey, *x509.Certificate) {
+	serialNumber++
 	certTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(2),
+		SerialNumber: big.NewInt(serialNumber),
 		Subject: pkix.Name{
 			Organization:       []string{"Snowflake"},
 			OrganizationalUnit: []string{"Drivers"},
