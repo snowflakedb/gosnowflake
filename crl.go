@@ -85,7 +85,7 @@ func (cv *crlValidator) verifyCertificate(cert *x509.Certificate, issuerCert *x5
 			logger.Debugf("failed to verify CRL issuer, got: %v, expected: %v", crl.Issuer, cert.Issuer)
 			return fmt.Errorf("failed to verify CRL issuer")
 		}
-		if err = cv.verifyAgainstIdpExtension(crl, cert, distributionPoint); err != nil {
+		if err = cv.verifyAgainstIdpExtension(crl, distributionPoint); err != nil {
 			return err
 		}
 		for _, rce := range crl.RevokedCertificateEntries {
@@ -113,7 +113,7 @@ func (cv *crlValidator) downloadCrl(url string) ([]byte, error) {
 	return crlBytes, err
 }
 
-func (cv *crlValidator) verifyAgainstIdpExtension(crl *x509.RevocationList, cert *x509.Certificate, distributionPoint string) error {
+func (cv *crlValidator) verifyAgainstIdpExtension(crl *x509.RevocationList, distributionPoint string) error {
 	for _, ext := range append(crl.Extensions, crl.ExtraExtensions...) {
 		if ext.Id.Equal(idpOID) {
 			var idp issuingDistributionPoint
