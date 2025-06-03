@@ -691,17 +691,25 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 		isSelfSigned := string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) == string(verifiedChains[i][numberOfNoneRootCerts].RawSubject)
 
 		if !isCA || !isSelfSigned {
-			// The last cert is not the Root CA certificate. Search for the Root CA certificate in the chain.
-			logger.Debugf("Certificate chain is not signed by Root CA. Searching for Root CA in the chain: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
-			// Search for the Root CA certificate in the chain.
-			for j := 0; j < numberOfNoneRootCerts; j++ {
-				cert := verifiedChains[i][j]
-				if caRoot[string(cert.RawSubject)] != nil && j < numberOfNoneRootCerts {
-					logger.Debugf(
-						"A trusted root certificate found: %v, stopping chain traversal here",
-						verifiedChains[i][j].Issuer)
-					break
+			// Check if the last Non Root Cert is also a CA or is self signed.
+			// if the last certificate is not, add it to the list
+			rca := caRoot[string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer)]
+			if rca == nil {
+				logger.Debugf("Certificate chain is not signed by Root CA. Searching for Root CA in the chain: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
+				// The last cert is not the Root CA certificate. Search for the Root CA certificate in the chain.
+				for j := 0; j < numberOfNoneRootCerts; j++ {
+					cert := verifiedChains[i][j]
+					if caRoot[string(cert.RawIssuer)] != nil {
+						logger.Debugf(
+							"A trusted root certificate found: %v, stopping chain traversal here",
+							verifiedChains[i][j].Issuer)
+						break
+					} else if j == numberOfNoneRootCerts-1 {
+						// If we reach here, it means that the last certificate is not a CA
+						return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
+					}
 				}
+
 			}
 		}
 		results := getAllRevocationStatus(ctx, verifiedChains[i])
