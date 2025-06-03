@@ -20,182 +20,245 @@ const testCrlServerPort = 56894
 
 var serialNumber = int64(0) // to be incremented
 
-func TestLeafCertNotRevoked(t *testing.T) {
-	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-	crl := createCrl(t, caCert, caPrivateKey)
+func TestCrlModes(t *testing.T) {
+	for _, failClosed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("failClosed=%v", failClosed), func(t *testing.T) {
+			t.Run("LeafCertNotRevoked", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+				crl := createCrl(t, caCert, caPrivateKey)
 
-	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-	defer closeServer(t, server)
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
 
-	cv := newCrlValidator(http.Client{})
-	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-	assertNilE(t, err)
-}
+				cv := newCrlValidator(failClosed, http.Client{})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNilE(t, err)
+			})
 
-func TestLeafCertRevoked(t *testing.T) {
-	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-	crl := createCrl(t, caCert, caPrivateKey, leafCert)
+			t.Run("LeafCertRevoked", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+				crl := createCrl(t, caCert, caPrivateKey, leafCert)
 
-	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-	defer closeServer(t, server)
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
 
-	cv := newCrlValidator(http.Client{})
-	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-	assertNotNilF(t, err)
-	assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate for CN=localhost,OU=Drivers,O=Snowflake,L=Warsaw has been revoked")
-}
+				cv := newCrlValidator(failClosed, http.Client{})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNotNilF(t, err)
+				assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate for CN=localhost,OU=Drivers,O=Snowflake,L=Warsaw has been revoked")
+			})
 
-func TestLeafNotRevokedAndRootDoesNotProvideCrl(t *testing.T) {
-	rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
-	intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "")
-	_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "/intermediateCrl")
-	intermediateCrl := createCrl(t, intermediateCaCert, intermediateCaKey)
+			t.Run("TestLeafNotRevokedAndRootDoesNotProvideCrl", func(t *testing.T) {
+				rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
+				intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "")
+				_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "/intermediateCrl")
+				intermediateCrl := createCrl(t, intermediateCaCert, intermediateCaKey)
 
-	server := createCrlServer(t, newCrlEndpointDef("/intermediateCrl", intermediateCrl))
-	defer closeServer(t, server)
+				server := createCrlServer(t, newCrlEndpointDef("/intermediateCrl", intermediateCrl))
+				defer closeServer(t, server)
 
-	cv := newCrlValidator(http.Client{})
-	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
-	assertNilE(t, err)
-}
+				cv := newCrlValidator(failClosed, http.Client{})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
+				if failClosed {
+					assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate CN=intermediate CA,OU=Drivers,O=Snowflake,L=Warsaw has no CRL distribution points")
+				} else {
+					assertNilE(t, err)
+				}
+			})
 
-func TestIntermediateCertRevoked(t *testing.T) {
-	rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
-	intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "/rootCrl")
-	_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "")
-	rootCrl := createCrl(t, rootCaCert, rootCaPrivateKey, intermediateCaCert)
+			t.Run("LeafRevokedAndRootDoesNotProvideCrl", func(t *testing.T) {
+				rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
+				intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "/rootCrl")
+				_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "")
+				rootCrl := createCrl(t, rootCaCert, rootCaPrivateKey, intermediateCaCert)
 
-	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", rootCrl))
-	defer closeServer(t, server)
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", rootCrl))
+				defer closeServer(t, server)
 
-	cv := newCrlValidator(http.Client{})
-	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
-	assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate for CN=intermediate CA,OU=Drivers,O=Snowflake,L=Warsaw has been revoked")
-}
+				cv := newCrlValidator(failClosed, http.Client{})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
+				if failClosed {
+					assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate CN=localhost,OU=Drivers,O=Snowflake,L=Warsaw has no CRL distribution points")
+				} else {
+					assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate for CN=intermediate CA,OU=Drivers,O=Snowflake,L=Warsaw has been revoked")
+				}
+			})
 
-func TestCrlSignatureInvalid(t *testing.T) {
-	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-	otherCaPrivateKey, _ := createCa(t, nil, nil, "other CA", "")
-	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-	crl := createCrl(t, caCert, otherCaPrivateKey) // signed with wrong key
+			t.Run("CrlSignatureInvalid", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				otherCaPrivateKey, _ := createCa(t, nil, nil, "other CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+				crl := createCrl(t, caCert, otherCaPrivateKey) // signed with wrong key
 
-	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-	defer closeServer(t, server)
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
 
-	cv := newCrlValidator(http.Client{})
-	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-	assertStringContainsE(t, err.Error(), "signature verification error")
-}
+				cv := newCrlValidator(failClosed, http.Client{})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if failClosed {
+					assertStringContainsE(t, err.Error(), "signature verification error")
+				} else {
+					assertNilE(t, err)
+				}
+			})
 
-func TestCrlIssuerMismatch(t *testing.T) {
-	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-	otherKey, otherCert := createCa(t, nil, nil, "other CA", "")
-	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-	crl := createCrl(t, otherCert, otherKey) // issued by other CA
+			t.Run("CrlIssuerMismatch", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				otherKey, otherCert := createCa(t, nil, nil, "other CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+				crl := createCrl(t, otherCert, otherKey) // issued by other CA
 
-	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-	defer closeServer(t, server)
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
 
-	cv := newCrlValidator(http.Client{})
-	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-	assertStringContainsE(t, err.Error(), "signature verification error for CRL")
-}
+				cv := newCrlValidator(failClosed, http.Client{})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if failClosed {
+					assertStringContainsE(t, err.Error(), "signature verification error for CRL")
+				} else {
+					assertNilE(t, err)
+				}
+			})
 
-func TestCertWithNoCrlDistributionPoints(t *testing.T) {
-	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "")
+			t.Run("CertWithNoCrlDistributionPoints", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "")
 
-	cv := newCrlValidator(http.Client{})
-	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-	assertNilE(t, err)
-}
+				cv := newCrlValidator(failClosed, http.Client{})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if failClosed {
+					assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate CN=localhost,OU=Drivers,O=Snowflake,L=Warsaw has no CRL distribution points")
+				} else {
+					assertNilE(t, err)
+				}
+			})
 
-func TestCrlDownloadFails(t *testing.T) {
-	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+			t.Run("DownloadCrlFailsOnUnparsableCrl", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 
-	server := createCrlServer(t)
-	defer closeServer(t, server)
+				server := createCrlServer(t)
+				defer closeServer(t, server)
 
-	cv := newCrlValidator(http.Client{})
-	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-	assertNotNilF(t, err)
-}
+				cv := newCrlValidator(failClosed, http.Client{
+					Transport: &malformedCrlRoundTripper{},
+				})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if failClosed {
+					assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: x509: malformed crl")
+				} else {
+					assertNilE(t, err)
+				}
+			})
 
-func TestVerifyAgainstIdpExtensionWithDistributionPointMatch(t *testing.T) {
-	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+			t.Run("DownloadCrlFailsOn404", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 
-	idpValue, err := asn1.Marshal(issuingDistributionPoint{
-		DistributionPoint: distributionPointName{
-			FullName: []asn1.RawValue{
-				{Bytes: []byte(fmt.Sprintf("http://localhost:%v/rootCrl", testCrlServerPort))},
-			},
-		},
-	})
-	assertNilF(t, err)
-	idpExtension := &pkix.Extension{
-		Id:    idpOID,
-		Value: idpValue,
+				server := createCrlServer(t)
+				defer closeServer(t, server)
+
+				cv := newCrlValidator(failClosed, http.Client{})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if failClosed {
+					assertEqualE(t, err.Error(), fmt.Sprintf("no valid certificate chain found after CRL validation. errors: failed to download CRL from http://localhost:%v/rootCrl: failed to download CRL from http://localhost:%v/rootCrl, status code: 404", testCrlServerPort, testCrlServerPort))
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("VerifyAgainstIdpExtensionWithDistributionPointMatch", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+
+				idpValue, err := asn1.Marshal(issuingDistributionPoint{
+					DistributionPoint: distributionPointName{
+						FullName: []asn1.RawValue{
+							{Bytes: []byte(fmt.Sprintf("http://localhost:%v/rootCrl", testCrlServerPort))},
+						},
+					},
+				})
+				assertNilF(t, err)
+				idpExtension := &pkix.Extension{
+					Id:    idpOID,
+					Value: idpValue,
+				}
+
+				crl := createCrl(t, caCert, caPrivateKey, idpExtension)
+
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newCrlValidator(failClosed, http.Client{})
+				err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNilE(t, err)
+			})
+
+			t.Run("TestVerifyAgainstIdpExtensionWithDistributionPointMismatch", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+
+				idpValue, err := asn1.Marshal(issuingDistributionPoint{
+					DistributionPoint: distributionPointName{
+						FullName: []asn1.RawValue{
+							{Bytes: []byte(fmt.Sprintf("http://localhost:%v/otherCrl", testCrlServerPort))},
+						},
+					},
+				})
+				assertNilF(t, err)
+				idpExtension := &pkix.Extension{
+					Id:    idpOID,
+					Value: idpValue,
+				}
+
+				crl := createCrl(t, caCert, caPrivateKey, idpExtension)
+
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newCrlValidator(failClosed, http.Client{})
+				err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if failClosed {
+					assertNotNilF(t, err)
+					assertEqualE(t, err.Error(), fmt.Sprintf("no valid certificate chain found after CRL validation. errors: distribution point http://localhost:%v/rootCrl not found in CRL IDP extension", testCrlServerPort))
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("AnyValidChainCausesSuccess", func(t *testing.T) {
+				caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
+				_, validLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
+
+				// CRL revokes only the first leaf
+				crl := createCrl(t, caCert, caKey, revokedLeaf)
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newCrlValidator(failClosed, http.Client{})
+				// First chain: revoked, second chain: valid
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{
+					{revokedLeaf, caCert},
+					{validLeaf, caCert},
+				})
+				assertNilE(t, err)
+			})
+		})
 	}
-
-	crl := createCrl(t, caCert, caPrivateKey, idpExtension)
-
-	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-	defer closeServer(t, server)
-
-	cv := newCrlValidator(http.Client{})
-	err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-	assertNilE(t, err)
 }
 
-func TestVerifyAgainstIdpExtensionWithDistributionPointMismatch(t *testing.T) {
-	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+type malformedCrlRoundTripper struct {
+}
 
-	idpValue, err := asn1.Marshal(issuingDistributionPoint{
-		DistributionPoint: distributionPointName{
-			FullName: []asn1.RawValue{
-				{Bytes: []byte(fmt.Sprintf("http://localhost:%v/otherCrl", testCrlServerPort))},
-			},
-		},
-	})
-	assertNilF(t, err)
-	idpExtension := &pkix.Extension{
-		Id:    idpOID,
-		Value: idpValue,
+func (m *malformedCrlRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	response := http.Response{
+		StatusCode: http.StatusOK,
 	}
-
-	crl := createCrl(t, caCert, caPrivateKey, idpExtension)
-
-	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-	defer closeServer(t, server)
-
-	cv := newCrlValidator(http.Client{})
-	err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-	assertNotNilF(t, err)
-	assertEqualE(t, err.Error(), fmt.Sprintf("no valid certificate chain found after CRL validation. errors: distribution point http://localhost:%v/rootCrl not found in CRL IDP extension", testCrlServerPort))
-}
-
-func TestAnyValidChainCausesSuccess(t *testing.T) {
-	caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-	_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
-	_, validLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
-
-	// CRL revokes only the first leaf
-	crl := createCrl(t, caCert, caKey, revokedLeaf)
-	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-	defer closeServer(t, server)
-
-	cv := newCrlValidator(http.Client{})
-	// First chain: revoked, second chain: valid
-	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{
-		{revokedLeaf, caCert},
-		{validLeaf, caCert},
-	})
-	assertNilE(t, err)
+	response.Body = http.NoBody
+	return &response, nil
 }
 
 func TestRealCrlWithIdpExtension(t *testing.T) {
@@ -203,7 +266,7 @@ func TestRealCrlWithIdpExtension(t *testing.T) {
 	assertNilF(t, err)
 	crl, err := x509.ParseRevocationList(crlBytes)
 	assertNilF(t, err)
-	cv := newCrlValidator(http.Client{})
+	cv := newCrlValidator(true, http.Client{})
 	err = cv.verifyAgainstIdpExtension(crl, "http://c.pki.goog/we2/yK5nPhtHKQs.crl")
 	assertNilE(t, err)
 	err = cv.verifyAgainstIdpExtension(crl, "http://c.pki.goog/we2/other.crl")
