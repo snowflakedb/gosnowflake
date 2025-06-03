@@ -12,10 +12,11 @@ if [[ -n "$GITHUB_WORKFLOW" ]]; then
 fi
 env | grep SNOWFLAKE | grep -v PASS | grep -v SECRET | sort
 cd $TOPDIR
-go install github.com/jstemmer/go-junit-report/v2@latest
+go install github.com/jstemmer/go-junit-report@latest
+
 if [[ -n "$JENKINS_HOME" ]]; then
   export WORKSPACE=${WORKSPACE:-/mnt/workspace}
   go test $GO_TEST_PARAMS -timeout 90m -race -v . | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
 else
-  go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v . | go-junit-report -iocopy -out junit.xml
+  go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v -json . | go-junit-report > junit.xml
 fi
