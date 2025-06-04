@@ -701,7 +701,9 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 					if caRoot[string(cert.RawIssuer)] != nil {
 						logger.Debugf(
 							"A trusted root certificate found: %v, stopping chain traversal here",
-							verifiedChains[i][j].Issuer)
+							cert.Issuer)
+						verifiedChains[i] = append(verifiedChains[i][:j], verifiedChains[i][j+1:]...)
+						verifiedChains[i] = append(verifiedChains[i], cert)
 						break
 					} else if j == numberOfNoneRootCerts-1 {
 						return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
