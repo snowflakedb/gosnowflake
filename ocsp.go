@@ -696,7 +696,6 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 			rca := caRoot[string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer)]
 			if rca == nil {
 				logger.Debugf("Certificate chain is not signed by Root CA. Searching for Root CA in the chain: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
-				// The last cert is not the Root CA certificate. Search for the Root CA certificate in the chain.
 				for j := 0; j < numberOfNoneRootCerts; j++ {
 					cert := verifiedChains[i][j]
 					if caRoot[string(cert.RawIssuer)] != nil {
@@ -705,7 +704,6 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 							verifiedChains[i][j].Issuer)
 						break
 					} else if j == numberOfNoneRootCerts-1 {
-						// If we reach here, it means that the last certificate is not a CA
 						return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
 					}
 				}
