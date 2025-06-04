@@ -107,21 +107,21 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		cfg.Passcode, err = parseString(value)
 	case "port":
 		cfg.Port, err = parseInt(value)
-	case "passcodeinpassword":
+	case "passcodeinpassword", "passcode_in_password":
 		cfg.PasscodeInPassword, err = parseBool(value)
-	case "clienttimeout":
+	case "clienttimeout", "client_timeout":
 		cfg.ClientTimeout, err = parseDuration(value)
-	case "jwtclienttimeout":
+	case "jwtclienttimeout", "jwt_client_timeout":
 		cfg.JWTClientTimeout, err = parseDuration(value)
-	case "logintimeout":
+	case "logintimeout", "login_timeout":
 		cfg.LoginTimeout, err = parseDuration(value)
-	case "requesttimeout":
+	case "requesttimeout", "request_timeout":
 		cfg.RequestTimeout, err = parseDuration(value)
-	case "jwttimeout":
+	case "jwttimeout", "jwt_timeout":
 		cfg.JWTExpireTimeout, err = parseDuration(value)
-	case "externalbrowsertimeout":
+	case "externalbrowsertimeout", "external_browser_timeout":
 		cfg.ExternalBrowserTimeout, err = parseDuration(value)
-	case "maxretrycount":
+	case "maxretrycount", "max_retry_count":
 		cfg.MaxRetryCount, err = parseInt(value)
 	case "application":
 		cfg.Application, err = parseString(value)
@@ -131,12 +131,12 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 			return err
 		}
 		err = determineAuthenticatorType(cfg, v)
-	case "disableocspchecks":
+	case "disableocspchecks", "disable_ocsp_checks":
 		cfg.DisableOCSPChecks, err = parseBool(value)
-	case "insecuremode":
+	case "insecuremode", "insecure_mode":
 		logInsecureModeDeprecationInfo()
 		cfg.InsecureMode, err = parseBool(value)
-	case "ocspfailopen":
+	case "ocspfailopen", "ocsp_fail_open":
 		var vv ConfigBool
 		vv, err = parseConfigBool(value)
 		if err := checkParsingError(err, key, value); err != nil {
@@ -145,7 +145,7 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		cfg.OCSPFailOpen = OCSPFailOpenMode(vv)
 	case "token":
 		cfg.Token, err = parseString(value)
-	case "privatekey":
+	case "privatekey", "private_key":
 		v, err = parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {
 			return err
@@ -158,25 +158,25 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 			}
 		}
 		cfg.PrivateKey, err = parsePKCS8PrivateKey(block)
-	case "validatedefaultparameters":
+	case "validatedefaultparameters", "validate_default_parameters":
 		cfg.ValidateDefaultParameters, err = parseConfigBool(value)
-	case "clientrequestmfatoken":
+	case "clientrequestmfatoken", "client_request_mfa_token":
 		cfg.ClientRequestMfaToken, err = parseConfigBool(value)
-	case "clientstoretemporarycredential":
+	case "clientstoretemporarycredential", "client_store_temporary_credential":
 		cfg.ClientStoreTemporaryCredential, err = parseConfigBool(value)
 	case "tracing":
 		cfg.Tracing, err = parseString(value)
-	case "tmpdirpath":
+	case "tmpdirpath", "tmp_dir_path":
 		cfg.TmpDirPath, err = parseString(value)
-	case "disablequerycontextcache":
+	case "disablequerycontextcache", "disable_query_context_cache":
 		cfg.DisableQueryContextCache, err = parseBool(value)
-	case "includeretryreason":
+	case "includeretryreason", "include_retry_reason":
 		cfg.IncludeRetryReason, err = parseConfigBool(value)
-	case "clientconfigfile":
+	case "clientconfigfile", "client_config_file":
 		cfg.ClientConfigFile, err = parseString(value)
-	case "disableconsolelogin":
+	case "disableconsolelogin", "disable_console_login":
 		cfg.DisableConsoleLogin, err = parseConfigBool(value)
-	case "disablesamlurlcheck":
+	case "disablesamlurlcheck", "disable_saml_url_check":
 		cfg.DisableSamlURLCheck, err = parseConfigBool(value)
 	case "oauth_authorization_url":
 		cfg.OauthAuthorizationURL, err = parseString(value)
