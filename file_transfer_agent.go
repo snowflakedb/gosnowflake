@@ -353,10 +353,14 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				MessageArgs: []interface{}{fileName},
 			}).exceptionTelemetry(sfa.sc)
 		}
+
+		// Handles bulk inserts by checking if sourceStream exists.
+		// - If the file exists locally (PUT command), it saves the stream without loading it into memory.
+		// - If not, treats it as an INSERT converted to PUT for bulk upload.
 		if sfa.sourceStream != nil {
+			//Bulk insert case
 			fileName := sfa.srcFiles[0]
 			fileInfo, err := os.Stat(fileName)
-			//This means the file is not a local file, but a stream. Ex) Bulk Insert.
 			if err != nil {
 				buf := new(bytes.Buffer)
 				_, err := buf.ReadFrom(sfa.sourceStream)
@@ -379,6 +383,7 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 					stageInfo:         sfa.stageInfo,
 				})
 			} else {
+				//PUT command with existing file
 				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
 					name:              baseName(fileName),
 					srcFileName:       fileName,
