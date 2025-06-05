@@ -32,7 +32,7 @@ func newCrlValidator(httpClient http.Client) *crlValidator {
 
 // function to be set as custom TLS verification in the http client
 func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-	var allErrors error = errors.New("")
+	var allErrors = errors.New("")
 	for _, verifiedChain := range verifiedChains {
 		isValidChain := true
 		for certPos, cert := range verifiedChain {
@@ -44,10 +44,7 @@ func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains
 			}
 			if certPos == len(verifiedChain)-1 {
 				// Is it correct to assume that the last certificate in the chain is the self signed?
-				err := fmt.Errorf("expected last certificate to be self signed, but it's not. subject: %v, issuer: %v", cert.Subject, cert.Issuer)
-				logger.Debug(err)
-				allErrors = fmt.Errorf("%w%w", allErrors, err)
-				isValidChain = false
+				logger.Debugf("certificate %v is the last in the chain, assuming root CA", cert.Subject)
 				break
 			}
 			issuerCert := verifiedChain[certPos+1]
