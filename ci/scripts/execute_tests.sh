@@ -21,3 +21,4 @@ if [[ -n "$JENKINS_HOME" ]]; then
 else
   gotestsum --junitfile testreport.junit.xml -- \
   go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v .
+fi
