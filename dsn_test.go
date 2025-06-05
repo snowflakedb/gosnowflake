@@ -98,6 +98,23 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "u:p@/db?account=ac&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2F.default&workloadIdentityProvider=azure",
+			config: &Config{
+				Account: "ac", User: "u", Password: "p", Database: "db",
+				Protocol: "https", Host: "ac.snowflakecomputing.com", Port: 443,
+				WorkloadIdentityProvider: "azure", WorkloadIdentityEntraResource: "https://example.com/.default",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			dsn: "u:p@/db?account=ac&region=cn-region",
 			config: &Config{
 				Account: "ac", User: "u", Password: "p", Database: "db", Region: "cn-region",
@@ -1589,6 +1606,19 @@ func TestDSN(t *testing.T) {
 				Application:        "special go",
 			},
 			dsn: "u:p@a.b.snowflakecomputing.com:443?application=special+go&database=db&loginTimeout=10&ocspFailOpen=true&passcode=db&passcodeInPassword=true&region=b&requestTimeout=300&role=ro&schema=sc&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				Account:                       "ac",
+				User:                          "u",
+				Password:                      "p",
+				Database:                      "db",
+				Authenticator:                 AuthTypeWorkloadIdentityFederation,
+				Host:                          "ac.snowflakecomputing.com",
+				WorkloadIdentityProvider:      "azure",
+				WorkloadIdentityEntraResource: "https://example.com/default",
+			},
+			dsn: "u:p@ac.snowflakecomputing.com:443?account=ac&authenticator=workload_identity&database=db&ocspFailOpen=true&validateDefaultParameters=true&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2Fdefault&workloadIdentityProvider=azure",
 		},
 		{
 			cfg: &Config{

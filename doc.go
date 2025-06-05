@@ -115,6 +115,7 @@ The following connection parameters are supported:
 
   - disableOCSPChecks: false by default. Set to true to bypass the Online
     Certificate Status Protocol (OCSP) certificate revocation check.
+    OCSP module caches responses internally. If your application is long running, you can enable cache clearing by calling StartOCSPCacheClearer and disable by calling StopOCSPCacheClearer.
     IMPORTANT: Change the default value for testing or emergency situations only.
 
   - insecureMode: deprecated. Use disableOCSPChecks instead.
