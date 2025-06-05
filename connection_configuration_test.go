@@ -95,6 +95,18 @@ func TestLoadConnectionConfigForOAuth(t *testing.T) {
 	assertEqualE(t, cfg.DisableOCSPChecks, true)
 }
 
+func TestLoadConnectionConfigForSnakeCaseConfiguration(t *testing.T) {
+	err := os.Chmod("./test_data/connections.toml", 0600)
+	assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+	os.Setenv(snowflakeHome, "./test_data")
+	os.Setenv(snowflakeConnectionName, "snake-case")
+
+	cfg, err := loadConnectionConfig()
+	assertNilF(t, err, "The error should not occur")
+	assertEqualE(t, cfg.OCSPFailOpen, OCSPFailOpenTrue)
+}
+
 func TestReadTokenValueWithTokenFilePath(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
