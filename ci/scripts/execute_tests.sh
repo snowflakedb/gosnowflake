@@ -13,12 +13,10 @@ fi
 env | grep SNOWFLAKE | grep -v PASS | grep -v SECRET | sort
 cd $TOPDIR
 go install github.com/jstemmer/go-junit-report/v2@latest
-go install gotest.tools/gotestsum@latest
 
 if [[ -n "$JENKINS_HOME" ]]; then
   export WORKSPACE=${WORKSPACE:-/mnt/workspace}
   go test $GO_TEST_PARAMS -timeout 90m -race -v . | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
 else
-  gotestsum --junitfile testreport.junit.xml -- \
-  go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v .
+  go test $GO_TEST_PARAMS -timeout 90m -race -v . | go-junit-report > test-report.junit.xml
 fi
