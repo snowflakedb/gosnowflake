@@ -26,19 +26,37 @@ type issuingDistributionPoint struct {
 
 type crlValidator struct {
 	failClosed      bool
-	httpClient      http.Client
+	httpClient      *http.Client
 	enableDiskCache bool
 	cacheDir        string
 	diskCacheTTL    time.Duration
+	inMemoryCachingEnabled  bool
+	revocationStatusesCache map[revocationStatusCacheKey]revocationStatusCacheValue
+	inMemoryCacheTTL        time.Duration
+	// TODO clear cache after some time
 }
 
-func newCrlValidator(failClosed bool, httpClient http.Client, cacheDir string) *crlValidator {
+type revocationStatusCacheKey struct {
+	issuerName       string
+	skidBase64       string
+	serialNumberBase string
+}
+
+type revocationStatusCacheValue struct {
+	revoked   bool
+	checkedAt *time.Time
+}
+
+func newCrlValidator(failClosed bool, httpClient *http.Client, cacheDir string) *crlValidator {
 	return &crlValidator{
 		failClosed:      failClosed,
 		httpClient:      httpClient,
 		enableDiskCache: true,
 		cacheDir:        cacheDir,
 		diskCacheTTL:    4 * time.Hour,
+		inMemoryCachingEnabled:  true,
+		revocationStatusesCache: make(map[revocationStatusCacheKey]revocationStatusCacheValue),
+		inMemoryCacheTTL:        4 * time.Hour,
 	}
 }
 
@@ -71,6 +89,24 @@ func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains
 }
 
 func (cv *crlValidator) verifyCertificate(cert *x509.Certificate, issuerCert *x509.Certificate) error {
+	cacheKey := revocationStatusCacheKey{
+		issuerName:       cert.Issuer.String(),
+		skidBase64:       base64.StdEncoding.EncodeToString(cert.SubjectKeyId),
+		serialNumberBase: base64.StdEncoding.EncodeToString(cert.SerialNumber.Bytes()),
+	}
+	if cv.inMemoryCachingEnabled {
+		if cachedStatus, found := cv.revocationStatusesCache[cacheKey]; found {
+			if cachedStatus.checkedAt.Add(cv.inMemoryCacheTTL).Before(time.Now()) {
+				delete(cv.revocationStatusesCache, cacheKey)
+			} else {
+				if cachedStatus.revoked {
+					return fmt.Errorf("certificate for %v has been revoked based on in memory cache (checked at %v)", cert.Subject, cachedStatus.checkedAt)
+				}
+				logger.Debugf("certificate for %v is not revoked based on in memory cache (checked at %v)", cert.Subject, cachedStatus.checkedAt)
+				return nil
+			}
+		}
+	}
 	if len(cert.CRLDistributionPoints) == 0 {
 		if cv.failClosed {
 			return fmt.Errorf("certificate %v has no CRL distribution points", cert.Subject)
@@ -90,9 +126,23 @@ func (cv *crlValidator) verifyCertificate(cert *x509.Certificate, issuerCert *x5
 		}
 		for _, rce := range crl.RevokedCertificateEntries {
 			if cert.SerialNumber.Cmp(rce.SerialNumber) == 0 {
+				if cv.inMemoryCachingEnabled {
+					now := time.Now()
+					cv.revocationStatusesCache[cacheKey] = revocationStatusCacheValue{
+						revoked:   true,
+						checkedAt: &now,
+					}
+				}
 				logger.Warnf("certificate for %v (serial number %v) has been revoked at %v, reason: %v", cert.Subject, rce.SerialNumber, rce.RevocationTime, rce.ReasonCode)
 				return fmt.Errorf("certificate for %v has been revoked", cert.Subject)
 			}
+		}
+	}
+	if cv.inMemoryCachingEnabled {
+		now := time.Now()
+		cv.revocationStatusesCache[cacheKey] = revocationStatusCacheValue{
+			revoked:   false,
+			checkedAt: &now,
 		}
 	}
 	return nil

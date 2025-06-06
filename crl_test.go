@@ -443,12 +443,83 @@ func TestRealCrlWithIdpExtension(t *testing.T) {
 	assertNilF(t, err)
 	crl, err := x509.ParseRevocationList(crlBytes)
 	assertNilF(t, err)
-	cv := newCrlValidator(true, http.Client{}, os.TempDir())
+	cv := newCrlValidator(true, &http.Client{}, os.TempDir())
 	err = cv.verifyAgainstIdpExtension(crl, "http://c.pki.goog/we2/yK5nPhtHKQs.crl")
 	assertNilE(t, err)
 	err = cv.verifyAgainstIdpExtension(crl, "http://c.pki.goog/we2/other.crl")
 	assertNotNilF(t, err)
 	assertStringContainsE(t, err.Error(), "distribution point http://c.pki.goog/we2/other.crl not found in CRL IDP extension")
+}
+
+func TestInMemoryCache(t *testing.T) {
+	countingRoundTripper := newCountingRoundTripper(http.DefaultTransport)
+	httpClient := &http.Client{
+		Transport: countingRoundTripper,
+	}
+
+	t.Run("Revoked", func(t *testing.T) {
+		caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+		_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+		crl := createCrl(t, caCert, caPrivateKey, leafCert)
+		server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+		defer closeServer(t, server)
+
+		cv := newCrlValidator(true, httpClient, os.TempDir())
+
+		// First call, should fetch and cache revocation
+		err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+		assertNotNilF(t, err)
+		assertEqualE(t, err.Error(), "no valid certificate chain found after CRL validation. errors: certificate for CN=localhost,OU=Drivers,O=Snowflake,L=Warsaw has been revoked")
+
+		// Second call, should hit cache and return revoked error (with cache message)
+		err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+		assertNotNilF(t, err)
+		assertStringContainsE(t, err.Error(), "has been revoked based on in memory cache")
+		assertEqualE(t, countingRoundTripper.totalRequests(), 1)
+	})
+
+	t.Run("Not revoked", func(t *testing.T) {
+		countingRoundTripper.reset()
+		caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+		_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+		crl := createCrl(t, caCert, caPrivateKey)
+		server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+		defer closeServer(t, server)
+
+		cv := newCrlValidator(true, httpClient, os.TempDir())
+
+		// First call, should fetch and cache not revoked
+		err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+		assertNilE(t, err)
+
+		// Second call, should hit cache and return nil
+		err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+		assertNilE(t, err)
+		assertEqualE(t, countingRoundTripper.totalRequests(), 1)
+	})
+
+	t.Run("Expired entry", func(t *testing.T) {
+		countingRoundTripper.reset()
+		caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+		_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+		crl := createCrl(t, caCert, caPrivateKey)
+		server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+		defer closeServer(t, server)
+
+		cv := newCrlValidator(true, httpClient, os.TempDir())
+
+		cv.inMemoryCacheTTL = time.Nanosecond // force cache to expire immediately
+
+		// First call, should fetch and cache not revoked
+		err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+		assertNilE(t, err)
+
+		time.Sleep(2 * time.Nanosecond)
+
+		err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+		assertNilF(t, err)
+		assertEqualE(t, countingRoundTripper.totalRequests(), 2)
+	})
 }
 
 func createCa(t *testing.T, issuerCert *x509.Certificate, issuerPrivateKey *rsa.PrivateKey, cn string, crlEndpoint string) (*rsa.PrivateKey, *x509.Certificate) {
@@ -575,5 +646,5 @@ func closeServer(t *testing.T, server *http.Server) {
 
 func newTestCrlValidator(t *testing.T, failClosed bool) *crlValidator {
 	dir := t.TempDir()
-	return newCrlValidator(failClosed, http.Client{}, dir)
+	return newCrlValidator(failClosed, &http.Client{}, dir)
 }
