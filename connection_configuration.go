@@ -83,8 +83,10 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 	var err error
 	var v, tokenPath string
 
+	// We normalize the key to handle both snake_case and camelCase.
 	normalizedKey := strings.ReplaceAll(strings.ToLower(key), "_", "")
 
+	// the cases in switch statement should be in lower case and no _
 	switch normalizedKey {
 	case "user", "username":
 		cfg.User, err = parseString(value)
