@@ -113,7 +113,7 @@ type snowflakeFileTransferAgent struct {
 	encryptionMaterial          []*snowflakeFileEncryption
 	stageInfo                   *execResponseStageInfo
 	results                     []*fileMetadata
-	sourceStream                *bytes.Buffer
+	sourceStream                io.Reader
 	srcLocations                []string
 	autoCompress                bool
 	srcCompression              string
@@ -133,6 +133,7 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 	if err = sfa.parseCommand(); err != nil {
 		return err
 	}
+
 	if err = sfa.initFileMetadata(); err != nil {
 		return err
 	}
@@ -352,17 +353,46 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				MessageArgs: []interface{}{fileName},
 			}).exceptionTelemetry(sfa.sc)
 		}
+
+		// Handles bulk inserts by checking if sourceStream exists.
+		// - If the file exists locally (PUT command), it saves the stream without loading it into memory.
+		// - If not, treats it as an INSERT converted to PUT for bulk upload.
 		if sfa.sourceStream != nil {
+			//Bulk insert case
 			fileName := sfa.srcFiles[0]
-			srcFileSize := int64(sfa.sourceStream.Len())
-			sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
-				name:              baseName(fileName),
-				srcFileName:       fileName,
-				srcStream:         sfa.sourceStream,
-				srcFileSize:       srcFileSize,
-				stageLocationType: sfa.stageLocationType,
-				stageInfo:         sfa.stageInfo,
-			})
+			fileInfo, err := os.Stat(fileName)
+			if err != nil {
+				buf := new(bytes.Buffer)
+				_, err := buf.ReadFrom(sfa.sourceStream)
+				if err != nil {
+					return (&SnowflakeError{
+						Number:      ErrFileNotExists,
+						SQLState:    sfa.data.SQLState,
+						QueryID:     sfa.data.QueryID,
+						Message:     errMsgFailToReadDataFromBuffer,
+						MessageArgs: []interface{}{fileName},
+					}).exceptionTelemetry(sfa.sc)
+				}
+				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
+					name:              baseName(fileName),
+					srcFileName:       fileName,
+					srcStream:         buf,
+					fileStream:        sfa.sourceStream,
+					srcFileSize:       int64(buf.Len()),
+					stageLocationType: sfa.stageLocationType,
+					stageInfo:         sfa.stageInfo,
+				})
+			} else {
+				//PUT command with existing file
+				sfa.fileMetadata = append(sfa.fileMetadata, &fileMetadata{
+					name:              baseName(fileName),
+					srcFileName:       fileName,
+					fileStream:        sfa.sourceStream,
+					srcFileSize:       fileInfo.Size(),
+					stageLocationType: sfa.stageLocationType,
+					stageInfo:         sfa.stageInfo,
+				})
+			}
 		} else {
 			for i, fileName := range sfa.srcFiles {
 				fi, err := os.Stat(fileName)
@@ -395,7 +425,6 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				}
 			}
 		}
-
 		if len(sfa.encryptionMaterial) > 0 {
 			for _, meta := range sfa.fileMetadata {
 				meta.encryptionMaterial = sfa.encryptionMaterial[0]
@@ -866,6 +895,7 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	defer os.RemoveAll(tmpDir) // cleanup
 
 	fileUtil := new(snowflakeFileUtil)
+
 	err = compressDataIfRequired(meta, fileUtil, tmpDir)
 	if err != nil {
 		return meta, err
@@ -1233,12 +1263,8 @@ func compressDataIfRequired(meta *fileMetadata, fileUtil *snowflakeFileUtil, tmp
 
 func updateUploadSize(meta *fileMetadata, fileUtil *snowflakeFileUtil) error {
 	var err error
-	if meta.srcStream != nil {
-		if meta.realSrcStream != nil {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.realSrcStream)
-		} else {
-			meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(&meta.srcStream)
-		}
+	if meta.fileStream != nil {
+		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForStream(meta.fileStream)
 	} else {
 		meta.sha256Digest, meta.uploadSize, err = fileUtil.getDigestAndSizeForFile(meta.realSrcFileName)
 	}
@@ -1265,6 +1291,5 @@ func encryptDataIfRequired(meta *fileMetadata, ct cloudType) error {
 			meta.realSrcFileName = dataFile
 		}
 	}
-
 	return nil
 }
