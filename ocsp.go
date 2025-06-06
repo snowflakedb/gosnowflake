@@ -687,16 +687,23 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 		numberOfNoneRootCerts := len(verifiedChains[i]) - 1
 		logger.Tracef("checking cert, %v, %v, isCa: %v, rawIssuer: %v, rawSubject: %v", i, numberOfNoneRootCerts, verifiedChains[i][numberOfNoneRootCerts].IsCA, string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), string(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
 		logger.Tracef("checking cert, base64, rawIssuer: %v, rawSubject: %v", base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
-		if !verifiedChains[i][numberOfNoneRootCerts].IsCA || string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) != string(verifiedChains[i][numberOfNoneRootCerts].RawSubject) {
-			// Check if the last Non Root Cert is also a CA or is self signed.
-			// if the last certificate is not, add it to the list
-			rca := caRoot[string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer)]
-			if rca == nil {
+		isCA := verifiedChains[i][numberOfNoneRootCerts].IsCA
+		isSelfSigned := (verifiedChains[i][numberOfNoneRootCerts]).Issuer.String() == (verifiedChains[i][numberOfNoneRootCerts]).Subject.String()
+
+		for j := 0; j < len(verifiedChains[i]); j++ {
+			cert := verifiedChains[i][j]
+			if caRoot[cert.Issuer.String()] != nil {
+				logger.Debugf(
+					"A trusted root certificate found: %v, stopping chain traversal here",
+					cert.Issuer)
+				verifiedChains[i] = append(verifiedChains[i][:j], verifiedChains[i][j+1:]...)
+				verifiedChains[i] = append(verifiedChains[i], cert)
+				break
+			} else if j == numberOfNoneRootCerts && !(isCA && isSelfSigned) {
 				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
 			}
-			verifiedChains[i] = append(verifiedChains[i], rca)
-			numberOfNoneRootCerts++
 		}
+
 		results := getAllRevocationStatus(ctx, verifiedChains[i])
 		if r := canEarlyExitForOCSP(results, numberOfNoneRootCerts); r != nil {
 			return r.err
