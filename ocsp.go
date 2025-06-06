@@ -690,21 +690,20 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 		isCA := verifiedChains[i][numberOfNoneRootCerts].IsCA
 		isSelfSigned := (verifiedChains[i][numberOfNoneRootCerts]).Issuer.String() == (verifiedChains[i][numberOfNoneRootCerts]).Subject.String()
 
-		if !(isCA && isSelfSigned) {
-			for j := 0; j < numberOfNoneRootCerts; j++ {
-				cert := verifiedChains[i][j]
-				if caRoot[cert.Issuer.String()] != nil {
-					logger.Debugf(
-						"A trusted root certificate found: %v, stopping chain traversal here",
-						cert.Issuer)
-					verifiedChains[i] = append(verifiedChains[i][:j], verifiedChains[i][j+1:]...)
-					verifiedChains[i] = append(verifiedChains[i], cert)
-					break
-				} else if j == numberOfNoneRootCerts-1 {
-					return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
-				}
+		for j := 0; j < len(verifiedChains[i]); j++ {
+			cert := verifiedChains[i][j]
+			if caRoot[cert.Issuer.String()] != nil {
+				logger.Debugf(
+					"A trusted root certificate found: %v, stopping chain traversal here",
+					cert.Issuer)
+				verifiedChains[i] = append(verifiedChains[i][:j], verifiedChains[i][j+1:]...)
+				verifiedChains[i] = append(verifiedChains[i], cert)
+				break
+			} else if j == numberOfNoneRootCerts && !(isCA && isSelfSigned) {
+				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
 			}
 		}
+
 		results := getAllRevocationStatus(ctx, verifiedChains[i])
 		if r := canEarlyExitForOCSP(results, numberOfNoneRootCerts); r != nil {
 			return r.err
