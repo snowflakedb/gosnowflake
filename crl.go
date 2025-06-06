@@ -81,10 +81,11 @@ func (cv *crlValidator) verifyCertificate(cert *x509.Certificate, issuerCert *x5
 	for _, distributionPoint := range cert.CRLDistributionPoints {
 		crl, err := cv.getCrlForDistributionPoint(cert, issuerCert, distributionPoint)
 		if err != nil {
+			err = fmt.Errorf("failed to get CRL for %v: %w", distributionPoint, err)
 			if cv.failClosed {
-				return fmt.Errorf("failed to get CRL for %v: %w", distributionPoint, err)
+				return err
 			}
-			logger.Warnf("failed to get CRL for %v: %v", distributionPoint, err)
+			logger.Warn(err)
 			continue
 		}
 		for _, rce := range crl.RevokedCertificateEntries {
@@ -229,12 +230,13 @@ func (cv *crlValidator) saveCrlToDisk(distributionPoint string, crl *x509.Revoca
 func (cv *crlValidator) getCrlFromDisk(distributionPoint string) ([]byte, *time.Time, error) {
 	file, err := os.OpenFile(filepath.Join(cv.cacheDir, cv.cacheFileName(distributionPoint)), os.O_RDONLY, 0644)
 	if errors.Is(err, os.ErrNotExist) {
-		logger.Debugf("CRL cache file %v does not exist, will download it", distributionPoint)
-		return nil, nil, nil // CRL not found in cache, will download it
+		logger.Debugf("CRL cache file %v does not exist", distributionPoint)
+		return nil, nil, nil
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open CRL cache file %v: %w", distributionPoint, err)
 	}
+	defer file.Close()
 	crlBytes, err := io.ReadAll(file)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read CRL cache file %v: %w", distributionPoint, err)
