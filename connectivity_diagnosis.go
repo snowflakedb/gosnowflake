@@ -14,15 +14,15 @@ import (
 	"time"
 )
 
+// AllowlistEntry is a structure of allowlist entries
 type AllowlistEntry struct {
-	// structure of allowlist entries
 	Host string `json:"host"`
 	Port int    `json:"port"`
 	Type string `json:"type"`
 }
 
+// Allowlist is a list of allowlist entries; the allowlist itself
 type Allowlist struct {
-	// all the allowlist entries
 	Entries []AllowlistEntry
 }
 
