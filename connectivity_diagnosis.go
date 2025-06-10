@@ -15,12 +15,14 @@ import (
 )
 
 type AllowlistEntry struct {
+	// structure of allowlist entries
 	Host string `json:"host"`
 	Port int    `json:"port"`
 	Type string `json:"type"`
 }
 
 type Allowlist struct {
+	// all the allowlist entries
 	Entries []AllowlistEntry
 }
 
@@ -184,8 +186,8 @@ func fetchCRL(uri string) error {
 func doHTTP(request *http.Request) error {
 	if request.URL.Host == "ocsp.snowflakecomputing.com" {
 		fullOCSPCacheURI := request.URL.String() + "/ocsp_response_cache.json"
-		newUrl, _ := url.Parse(fullOCSPCacheURI)
-		request.URL = newUrl
+		newURL, _ := url.Parse(fullOCSPCacheURI)
+		request.URL = newURL
 	}
 	logger.Infof("[doHTTP] testing HTTP connection to %s\n", request.URL.String())
 	//resp, err := http.DefaultClient.Do(request)
