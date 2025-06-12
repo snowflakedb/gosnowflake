@@ -53,8 +53,9 @@ func (st *snowflakeTelemetry) addLog(data *telemetryData) error {
 	}
 	st.mutex.Lock()
 	st.logs = append(st.logs, data)
+	shouldFlush := len(st.logs) >= st.flushSize
 	st.mutex.Unlock()
-	if len(st.logs) >= st.flushSize {
+	if shouldFlush {
 		if err := st.sendBatch(); err != nil {
 			return err
 		}
