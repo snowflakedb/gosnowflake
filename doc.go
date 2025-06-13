@@ -1348,5 +1348,36 @@ If you wish to ignore those errors instead, you can set `RaisePutGetError: false
 
 	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{RaisePutGetError: false})
 	db.ExecContext(ctx, "PUT ...")
+
+# Connectivity diagnostics
+
+==> Relevant configuration
+
+- `ConnectionDiagnosticsEnabled` (default: false) - main flag to enable the diagnostics
+
+- `ConnectionDiagnosticsAllowlistFile` - specify `/path/to/allowlist.json` to use a specific allowlist file which the driver should parse. If not specified, tne driver tries to open `allowlist.json` from the current directory.
+The `ConnectionDiagnosticsAllowlistFile` is only taken into consideration when `ConnectionDiagnosticsEnabled=true`
+
+- `ConnectionDiagnosticsDownloadCRL` (default: false) - when enabled, the driver will try to attempt to download the CRL(s) it encounters during parsing the remote certificate chain; to verify connectivity to CRL endpoints as well.
+The `ConnectionDiagnosticsDownloadCRL` is only taken into consideration when `ConnectionDiagnosticsEnabled=true`
+
+==> Flow of operation when `ConnectionDiagnosticsEnabled=true`
+
+1. upon initial startup, driver opens and reads the `allowlist.json` to determine which hosts it needs to connect to, and then for each entry in the allowlist
+
+2. perform a DNS resolution test to see if the hostname is resolvable
+
+3. driver logs an Error, when encountering a _public_ IP address for a host which looks to be a _private_ link hostname
+
+4. checks if proxy is used in the connection
+
+5. sets up a connection; for which we use the same transport which is driven by the driver's config (custom transport, or when OCSP disabled then OCSP-less transport, or by default, the OCSP-enabled transport)
+
+6. for HTTP endpoints, issues a HTTP GET request and see if it connects
+
+7. for HTTPS endpoints, the same , plus
+  - verifies if HTTPS connectivity is set up correctly
+  - parses the certificate chain and logs information on each certificate (on DEBUG loglevel, dump the whole cert)
+  - if configured, also tries to connect to the CRL endpoints
 */
 package gosnowflake

@@ -123,6 +123,10 @@ type Config struct {
 
 	WorkloadIdentityProvider      string // The workload identity provider to use for WIF authentication
 	WorkloadIdentityEntraResource string // The resource to use for WIF authentication on Azure environment
+
+	ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
+	ConnectionDiagnosticsAllowlistFile string // File path to the allowlist file for connection diagnostics. If not specified, the allowlist.json file in the current directory will be used.
+	ConnectionDiagnosticsDownloadCRL   bool   // Indicates whether the CRLs should be attempted to be downloaded for the certificates encountered in connection diagnostics. False by default.
 }
 
 // Validate enables testing if config is correct.
@@ -320,6 +324,15 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.DisableSamlURLCheck != configBoolNotSet {
 		params.Add("disableSamlURLCheck", strconv.FormatBool(cfg.DisableSamlURLCheck != ConfigBoolFalse))
+	}
+	if cfg.ConnectionDiagnosticsEnabled {
+		params.Add("connectionDiagnosticsEnabled", strconv.FormatBool(cfg.ConnectionDiagnosticsEnabled))
+	}
+	if cfg.ConnectionDiagnosticsAllowlistFile != "" {
+		params.Add("connectionDiagnosticsAllowlistFile", cfg.ConnectionDiagnosticsAllowlistFile)
+	}
+	if cfg.ConnectionDiagnosticsDownloadCRL {
+		params.Add("connectionDiagnosticsDownloadCRL", strconv.FormatBool(cfg.ConnectionDiagnosticsDownloadCRL))
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -943,6 +956,22 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			} else {
 				cfg.DisableSamlURLCheck = ConfigBoolFalse
 			}
+		case "connectionDiagnosticsEnabled":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.ConnectionDiagnosticsEnabled = vv
+		case "connectionDiagnosticsAllowlistFile":
+			cfg.ConnectionDiagnosticsAllowlistFile = value
+		case "connectionDiagnosticsDownloadCRL":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.ConnectionDiagnosticsDownloadCRL = vv
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
