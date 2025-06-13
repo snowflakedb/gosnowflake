@@ -82,7 +82,12 @@ func parseToml(cfg *Config, connectionMap map[string]interface{}) error {
 func handleSingleParam(cfg *Config, key string, value interface{}) error {
 	var err error
 	var v, tokenPath string
-	switch strings.ToLower(key) {
+
+	// We normalize the key to handle both snake_case and camelCase.
+	normalizedKey := strings.ReplaceAll(strings.ToLower(key), "_", "")
+
+	// the cases in switch statement should be in lower case and no _
+	switch normalizedKey {
 	case "user", "username":
 		cfg.User, err = parseString(value)
 	case "password":
@@ -178,24 +183,24 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		cfg.DisableConsoleLogin, err = parseConfigBool(value)
 	case "disablesamlurlcheck":
 		cfg.DisableSamlURLCheck, err = parseConfigBool(value)
-	case "oauth_authorization_url":
+	case "oauthauthorizationurl":
 		cfg.OauthAuthorizationURL, err = parseString(value)
-	case "oauth_client_id":
+	case "oauthclientid":
 		cfg.OauthClientID, err = parseString(value)
-	case "oauth_client_secret":
+	case "oauthclientsecret":
 		cfg.OauthClientSecret, err = parseString(value)
-	case "oauth_token_request_url":
+	case "oauthtokenrequesturl":
 		cfg.OauthTokenRequestURL, err = parseString(value)
-	case "oauth_redirect_uri":
+	case "oauthredirecturi":
 		cfg.OauthRedirectURI, err = parseString(value)
-	case "oauth_scope":
+	case "oauthscope":
 		cfg.OauthScope, err = parseString(value)
-	case "workload_identity_provider":
+	case "workloadidentityprovider":
 		cfg.WorkloadIdentityProvider, err = parseString(value)
-	case "workload_identity_entra_resource":
+	case "workloadidentityentraresource":
 		cfg.WorkloadIdentityEntraResource, err = parseString(value)
 
-	case "token_file_path":
+	case "tokenfilepath":
 		tokenPath, err = parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {
 			return err
