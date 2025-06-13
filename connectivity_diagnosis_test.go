@@ -141,6 +141,15 @@ type tcResolveHostname struct {
 	hostname string
 }
 
+type tcPerformConnectivityCheck struct {
+	name         string
+	entryType    string
+	host         string
+	port         int
+	downloadCRLs bool
+	expectedLog  string
+}
+
 func TestAllowlistEntry(t *testing.T) {
 	testcases := []tcAllowlistEntry{
 		{"myaccount.snowflakecomputing.com", 443, "SNOWFLAKE_DEPLOYMENT"},
@@ -738,6 +747,65 @@ func TestResolveHostname(t *testing.T) {
 	}
 }
 
+func TestPerformConnectivityCheck(t *testing.T) {
+	// save the original global diagnostic client and transport as we'll modify them during test
+	originalClient := client
+	originalTransport := diagnosticTransport
+	defer func() {
+		client = originalClient
+		diagnosticTransport = originalTransport
+	}()
+
+	// setup diagnostic client for tests
+	config := &Config{
+		ClientTimeout: 30 * time.Second,
+	}
+	client = createDiagnosticClient(config)
+	diagnosticTransport = client.Transport.(*http.Transport)
+
+	testcases := []tcPerformConnectivityCheck{
+		{
+			name:         "HTTP check for port 80",
+			entryType:    "OCSP_CACHE",
+			host:         "ocsp.snowflakecomputing.com",
+			port:         80,
+			downloadCRLs: false,
+			expectedLog:  "[performConnectivityCheck] HTTP check",
+		},
+		{
+			name:         "HTTPS check for port 443",
+			entryType:    "DUMMY_SNOWFLAKE_DEPLOYMENT",
+			host:         "www.snowflake.com",
+			port:         443,
+			downloadCRLs: false,
+			expectedLog:  "[performConnectivityCheck] HTTPS check",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// setup test logger then restore original after test
+			buffer, cleanup := setupTestLogger()
+			defer cleanup()
+
+			err := performConnectivityCheck(tc.entryType, tc.host, tc.port, tc.downloadCRLs)
+
+			logOutput := buffer.String()
+
+			// verify expected log message appears
+			assertStringContainsE(t, logOutput, tc.expectedLog, fmt.Sprintf("should contain '%s' log message", tc.expectedLog))
+			assertStringContainsE(t, logOutput, tc.entryType, "should contain entry type in log")
+			assertStringContainsE(t, logOutput, tc.host, "should contain host in log")
+
+			// if error occurred, verify error log format
+			if err != nil {
+				assertStringContainsE(t, logOutput, "[performConnectivityCheck] error performing", "should contain error log message")
+			}
+		})
+	}
+
+}
+
 func TestPerformDiagnosis(t *testing.T) {
 	// save the original global diagnostic client and transport as we'll modify them during test
 	originalClient := client
@@ -783,12 +851,12 @@ func TestPerformDiagnosis(t *testing.T) {
 		assertStringContainsE(t, logOutput, "[resolveHostname] resolved hostname", "should contain hostname resolution results")
 
 		// HTTP check
-		assertStringContainsE(t, logOutput, "[performDiagnosis] HTTP check for OCSP_CACHE ocsp.snowflakecomputing.com", "should contain HTTP check message")
+		assertStringContainsE(t, logOutput, "[performConnectivityCheck] HTTP check for OCSP_CACHE ocsp.snowflakecomputing.com", "should contain HTTP check message")
 		assertStringContainsE(t, logOutput, "[createRequest] creating GET request to http://ocsp.snowflakecomputing.com", "should contain request creation log")
 		assertStringContainsE(t, logOutput, "[doHTTP] testing HTTP connection to", "should contain HTTP connection test log")
 
 		// HTTPS check
-		assertStringContainsE(t, logOutput, "[performDiagnosis] HTTPS check - testing HTTPS connection to DUMMY_SNOWFLAKE_DEPLOYMENT www.snowflake.com", "should contain HTTPS check message")
+		assertStringContainsE(t, logOutput, "[performConnectivityCheck] HTTPS check for DUMMY_SNOWFLAKE_DEPLOYMENT www.snowflake.com", "should contain HTTPS check message")
 		assertStringContainsE(t, logOutput, "[createRequest] creating GET request to https://www.snowflake.com", "should contain HTTPS request creation log")
 		assertStringContainsE(t, logOutput, "[doHTTPSGetCerts] connecting to https://www.snowflake.com", "should contain HTTPS connection log")
 
@@ -843,7 +911,7 @@ func TestPerformDiagnosis(t *testing.T) {
 		assertStringContainsE(t, logOutput, "[resolveHostname] resolved hostname", "should contain hostname resolution results")
 
 		// HTTPS check
-		assertStringContainsE(t, logOutput, "[performDiagnosis] HTTPS check - testing HTTPS connection to DUMMY_SNOWFLAKE_DEPLOYMENT www.snowflake.com", "should contain HTTPS check message")
+		assertStringContainsE(t, logOutput, "[performConnectivityCheck] HTTPS check for DUMMY_SNOWFLAKE_DEPLOYMENT www.snowflake.com", "should contain HTTPS check message")
 		assertStringContainsE(t, logOutput, "[doHTTPSGetCerts] connecting to https://www.snowflake.com", "should contain HTTPS connection log")
 		assertStringContainsE(t, logOutput, "[doHTTPSGetCerts] Retrieved", "should contain certificate retrieval log")
 		assertStringContainsE(t, logOutput, "certificate(s)", "should contain certificate count information")

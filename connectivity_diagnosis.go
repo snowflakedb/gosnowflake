@@ -140,7 +140,7 @@ func resolveHostname(hostname string) {
 	for _, ip := range ips {
 		logger.Infof("[resolveHostname] resolved hostname %s to %s\n", hostname, ip.String())
 		if isPrivateLinkHost(hostname) && !isPrivateIP(ip) {
-			logger.Errorf("[resolveHostname] this hostname should resolve to a private IP, but %s is public IP. Please, check your DNS configuration.\n", ip.String())
+			logger.Errorf("[resolveHostname] this hostname %s should resolve to a private IP, but %s is public IP. Please, check your DNS configuration.\n", hostname, ip.String())
 		}
 	}
 }
@@ -190,7 +190,6 @@ func doHTTP(request *http.Request) error {
 		request.URL = newURL
 	}
 	logger.Infof("[doHTTP] testing HTTP connection to %s\n", request.URL.String())
-	//resp, err := http.DefaultClient.Do(request)
 	resp, err := client.Do(request)
 	if err != nil {
 		return fmt.Errorf("HTTP GET to %s endpoint failed: %w", request.URL.String(), err)
@@ -290,6 +289,42 @@ func checkProxy(req *http.Request) {
 	}
 }
 
+func performConnectivityCheck(entryType, host string, port int, downloadCRLs bool) (err error) {
+	var protocol string
+	var req *http.Request
+
+	if port == 80 {
+		protocol = "http"
+	} else if port == 443 {
+		protocol = "https"
+	} else {
+		// we should never arrive here
+		return fmt.Errorf("[performConnectivityCheck] unsupported port: %d", port)
+	}
+
+	logger.Infof("[performConnectivityCheck] %s check for %s %s\n", strings.ToUpper(protocol), entryType, host)
+	req, err = createRequest(fmt.Sprintf("%s://%s", protocol, host))
+	if err != nil {
+		logger.Errorf("[performConnectivityCheck] error creating request: %v\n", err)
+		return err
+	}
+
+	checkProxy(req)
+
+	if port == 80 {
+		err = doHTTP(req)
+	} else if port == 443 {
+		err = doHTTPSGetCerts(req, downloadCRLs)
+	}
+
+	if err != nil {
+		logger.Errorf("[performConnectivityCheck] error performing %s check: %v\n", strings.ToUpper(protocol), err)
+		return err
+	}
+
+	return nil
+}
+
 func performDiagnosis(cfg *Config) {
 	allowlistFile := cfg.ConnectionDiagnosticsAllowlistFile
 	downloadCRLs := cfg.ConnectionDiagnosticsDownloadCRL
@@ -320,28 +355,10 @@ func performDiagnosis(cfg *Config) {
 		entryType := entry.Type
 		logger.Infof("[performDiagnosis] DNS check - resolving %s hostname %s\n", entryType, host)
 		resolveHostname(host)
-		if port == 80 {
-			logger.Infof("[performDiagnosis] HTTP check for %s %s\n", entryType, host)
-			req, err := createRequest(fmt.Sprintf("http://%s", host))
+
+		if port == 80 || port == 443 {
+			err := performConnectivityCheck(entryType, host, port, downloadCRLs)
 			if err != nil {
-				logger.Errorf("[performDiagnosis] error creating request: %v\n", err)
-			}
-			checkProxy(req)
-			err = doHTTP(req)
-			if err != nil {
-				logger.Errorf("[performDiagnosis] error performing HTTP check: %v\n", err)
-				continue
-			}
-		} else if port == 443 {
-			logger.Infof("[performDiagnosis] HTTPS check - testing HTTPS connection to %s %s\n", entryType, host)
-			req, err := createRequest(fmt.Sprintf("https://%s", host))
-			if err != nil {
-				logger.Errorf("[performDiagnosis] error creating request: %v\n", err)
-			}
-			checkProxy(req)
-			err = doHTTPSGetCerts(req, downloadCRLs)
-			if err != nil {
-				logger.Errorf("[performDiagnosis] error performing HTTPS check: %v\n", err)
 				continue
 			}
 		}
