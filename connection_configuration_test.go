@@ -95,6 +95,18 @@ func TestLoadConnectionConfigForOAuth(t *testing.T) {
 	assertEqualE(t, cfg.DisableOCSPChecks, true)
 }
 
+func TestLoadConnectionConfigForSnakeCaseConfiguration(t *testing.T) {
+	err := os.Chmod("./test_data/connections.toml", 0600)
+	assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+	os.Setenv(snowflakeHome, "./test_data")
+	os.Setenv(snowflakeConnectionName, "snake-case")
+
+	cfg, err := loadConnectionConfig()
+	assertNilF(t, err, "The error should not occur")
+	assertEqualE(t, cfg.OCSPFailOpen, OCSPFailOpenTrue)
+}
+
 func TestReadTokenValueWithTokenFilePath(t *testing.T) {
 	err := os.Chmod("./test_data/connections.toml", 0600)
 	assertNilF(t, err, "The error occurred because you cannot change the file permission")
@@ -205,23 +217,24 @@ func TestParseToml(t *testing.T) {
 		{
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
 				"schema", "role", "region", "protocol", "passcode", "application", "token",
-				"tracing", "tmpDirPath", "clientConfigFile", "oauth_authorization_url", "oauth_client_id",
+				"tracing", "tmpDirPath", "tmp_dir_path", "clientConfigFile", "client_config_file", "oauth_authorization_url", "oauth_client_id",
 				"oauth_client_secret", "oauth_token_request_url", "oauth_redirect_uri", "oauth_scope",
 				"workload_identity_provider", "workload_identity_entra_resource"},
 			values: []interface{}{"value"},
 		},
 		{
-			testParams: []string{"privatekey"},
+			testParams: []string{"privatekey", "private_key"},
 			values:     []interface{}{generatePKCS8StringSupress(testPrivKey)},
 		},
 		{
-			testParams: []string{"port", "maxRetryCount", "clientTimeout", "jwtClientTimeout", "loginTimeout",
-				"requestTimeout", "jwtTimeout", "externalBrowserTimeout"},
+			testParams: []string{"port", "maxRetryCount", "max_retry_count", "clientTimeout", "client_timeout", "jwtClientTimeout", "jwt_client_timeout", "loginTimeout",
+				"login_timeout", "requestTimeout", "request_timeout", "jwtTimeout", "jwt_timeout", "externalBrowserTimeout", "external_browser_timeout"},
 			values: []interface{}{"300", 500},
 		},
 		{
-			testParams: []string{"ocspFailOpen", "insecureMode", "PasscodeInPassword", "validateDEFAULTParameters", "clientRequestMFAtoken",
-				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck"},
+			testParams: []string{"ocspFailOpen", "ocsp_fail_open", "insecureMode", "insecure_mode", "PasscodeInPassword", "passcode_in_password", "validateDEFAULTParameters", "validate_default_parameters",
+				"clientRequestMFAtoken", "client_request_mfa_token", "clientStoreTemporaryCredential", "client_store_temporary_credential", "disableQueryContextCache", "disable_query_context_cache", "disable_ocsp_checks",
+				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check"},
 			values: []interface{}{true, "true", false, "false"},
 		},
 	}
