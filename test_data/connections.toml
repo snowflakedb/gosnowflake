@@ -46,3 +46,14 @@ protocol = 'https'
 authenticator = 'oauth'
 token_file_path = './test_data/snowflake/session/token'
 insecureMode = true
+
+[snake-case]
+account = 'snowdriverswarsaw.us-west-2.aws'
+user = 'test_default_user'
+password = 'test_default_pass'
+warehouse = 'testw_default'
+database = 'test_default_db'
+schema = 'test_default_go'
+protocol = 'https'
+port = '300'
+ocsp_fail_open=true
