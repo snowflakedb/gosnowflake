@@ -52,6 +52,26 @@ func TestTokenFilePermission(t *testing.T) {
 
 		_, err = readToken("./test_data/snowflake/session/token")
 		assertNilF(t, err, "The error occurred because the permission is not 0600")
+
+		func(t *testing.T) {
+			os.Setenv("GOSNOWFLAKE_SKIP_CONFIGURATION_FILE_PERMISSION_VALIDATION", "true")
+			defer func() {
+				os.Setenv("GOSNOWFLAKE_SKIP_CONFIGURATION_FILE_PERMISSION_VALIDATION", "")
+			}()
+
+			err = os.Chmod("./test_data/connections.toml", 0644)
+			assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+			err = os.Chmod("./test_data/snowflake/session/token", 0644)
+			assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+			_, err = loadConnectionConfig()
+			assertNilF(t, err, "The error occurred because the permission check is not skipped")
+
+			_, err = readToken("./test_data/snowflake/session/token")
+			assertNilF(t, err, "The error occurred because the permission check is not skipped")
+		}(t)
+
 	}
 }
 

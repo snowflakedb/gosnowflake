@@ -332,7 +332,17 @@ func getConnectionDSN(dsn string) string {
 	return "default"
 }
 
+// In certain environments, the configuration file and the token file are injected and the permissions
+// are neither set to 0600 nor can be changed. In such cases, we need a way to skip the file permission validation.
+func skipFilePermissionValidation() bool {
+	return os.Getenv("GOSNOWFLAKE_SKIP_CONFIGURATION_FILE_PERMISSION_VALIDATION") != ""
+}
+
 func validateFilePermission(filePath string) error {
+	if skipFilePermissionValidation() {
+		return nil
+	}
+
 	if isWindows {
 		return nil
 	}
