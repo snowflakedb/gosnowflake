@@ -343,7 +343,7 @@ func validateFilePermission(filePath string) error {
 
 	permission := fileInfo.Mode().Perm()
 
-	if !shouldSkipWarningForReadPermissions() && (permission&os.FileMode(0040) != 0 || permission&os.FileMode(0004) != 0) {
+	if !shouldSkipWarningForReadPermissions() && permission&os.FileMode(0044) != 0 {
 		logger.Warnf("file '%v' is readable by someone other than the owner. Your Permission: %v", filePath, permission)
 	}
 
@@ -355,7 +355,7 @@ func validateFilePermission(filePath string) error {
 		}
 	}
 
-	if permission&os.FileMode(0020) != 0 || permission&os.FileMode(0002) != 0 {
+	if permission&os.FileMode(0022) != 0 {
 		return &SnowflakeError{
 			Number:      ErrCodeInvalidFilePermission,
 			Message:     errMsgInvalidWritablePermissionToFile,
