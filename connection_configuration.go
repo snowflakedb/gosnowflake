@@ -340,16 +340,36 @@ func validateFilePermission(filePath string) error {
 	if err != nil {
 		return err
 	}
-	if permission := fileInfo.Mode().Perm(); permission != os.FileMode(0600) {
+
+	permission := fileInfo.Mode().Perm()
+
+	if !shouldSkipWarningForReadPermissions() && (permission&os.FileMode(0040) != 0 || permission&os.FileMode(0004) != 0) {
+		logger.Warnf("file '%v' is readable by someone other than the owner. Your Permission: %v", filePath, permission)
+	}
+
+	if permission&os.FileMode(0111) != 0 {
 		return &SnowflakeError{
 			Number:      ErrCodeInvalidFilePermission,
-			Message:     errMsgInvalidPermissionToTomlFile,
-			MessageArgs: []interface{}{permission},
+			Message:     errMsgInvalidExecutablePermissionToFile,
+			MessageArgs: []interface{}{filePath, permission},
 		}
 	}
+
+	if permission&os.FileMode(0020) != 0 || permission&os.FileMode(0002) != 0 {
+		return &SnowflakeError{
+			Number:      ErrCodeInvalidFilePermission,
+			Message:     errMsgInvalidWritablePermissionToFile,
+			MessageArgs: []interface{}{filePath, permission},
+		}
+	}
+
 	return nil
 }
 
 func shouldReadTokenFromFile(cfg *Config) bool {
 	return cfg != nil && cfg.Authenticator == AuthTypeOAuth && len(cfg.Token) == 0
+}
+
+func shouldSkipWarningForReadPermissions() bool {
+	return os.Getenv("GOSNOWFLAKE_SKIP_FILE_READ_PERMISSION_WARNING") != ""
 }

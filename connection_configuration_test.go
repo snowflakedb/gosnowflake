@@ -1,6 +1,8 @@
 package gosnowflake
 
 import (
+	"bytes"
+	"fmt"
 	"io/fs"
 	"os"
 	path "path/filepath"
@@ -9,50 +11,122 @@ import (
 )
 
 func TestTokenFilePermission(t *testing.T) {
-	if !isWindows {
-		os.Setenv(snowflakeHome, "./test_data")
+	if isWindows {
+		return
+	}
+	os.Setenv(snowflakeHome, "./test_data")
+
+	connectionsStat, err := os.Stat("./test_data/connections.toml")
+	assertNilF(t, err, "The error should not occur")
+
+	tokenStat, err := os.Stat("./test_data/snowflake/session/token")
+	assertNilF(t, err, "The error should not occur")
+
+	defer func() {
+		err = os.Chmod("./test_data/connections.toml", connectionsStat.Mode())
+		assertNilF(t, err, "The error should not occur")
+
+		err = os.Chmod("./test_data/snowflake/session/token", tokenStat.Mode())
+		assertNilF(t, err, "The error should not occur")
+	}()
+
+	t.Run("test warning logger for readable outside owner", func(t *testing.T) {
+		var originalLogger = logger
+		logger = CreateDefaultLogger()
+		buf := &bytes.Buffer{}
+		logger.SetOutput(buf)
+
+		defer func() {
+			logger = originalLogger
+		}()
+
+		err = os.Chmod("./test_data/connections.toml", 0644)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+		_, err = loadConnectionConfig()
+		assertNilF(t, err, "The error should not occur")
+
+		connectionsAbsolutePath, err2 := path.Abs("./test_data/connections.toml")
+		assertNilF(t, err2, "The error should not occur")
+
+		expectedWarn := fmt.Sprintf("level=warning msg=\"file '%v' is readable by someone other than the owner. Your Permission: -rw-r--r--\"", connectionsAbsolutePath)
+		assertStringContainsF(t, buf.String(), expectedWarn)
+	})
+
+	t.Run("test warning skipped logger for readable outside owner", func(t *testing.T) {
+		os.Setenv("GOSNOWFLAKE_SKIP_FILE_READ_PERMISSION_WARNING", "true")
+		var originalLogger = logger
+		logger = CreateDefaultLogger()
+		buf := &bytes.Buffer{}
+		logger.SetOutput(buf)
+
+		defer func() {
+			logger = originalLogger
+			os.Unsetenv("GOSNOWFLAKE_SKIP_FILE_READ_PERMISSION_WARNING")
+		}()
+
+		err = os.Chmod("./test_data/connections.toml", 0644)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+
+		_, err = loadConnectionConfig()
+		assertNilF(t, err, "The error should not occur")
+
+		assertEmptyStringE(t, buf.String())
+	})
+
+	t.Run("test writable connection file other than owner", func(t *testing.T) {
+		err = os.Chmod("./test_data/connections.toml", 0666)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
 		_, err := loadConnectionConfig()
-		assertNotNilF(t, err, "The error should occur because the permission is not 0600")
+		assertNotNilF(t, err, "The error should occur because the file is writable by anyone but the owner")
 		driverErr, ok := err.(*SnowflakeError)
 		assertTrueF(t, ok, "This should be a Snowflake Error")
 		assertEqualF(t, driverErr.Number, ErrCodeInvalidFilePermission)
+	})
 
-		_, err = readToken("./test_data/snowflake/session")
-		assertNotNilF(t, err, "The error should occur because the permission is not 0600")
-		driverErr, ok = err.(*SnowflakeError)
-		assertTrueF(t, ok, "This should be a Snowflake Error")
-		assertEqualF(t, driverErr.Number, ErrCodeInvalidFilePermission)
-
-		err = os.Chmod("./test_data/connections.toml", 0666)
-		assertNilF(t, err, "The error occurred because you cannot change the file permission")
-
+	t.Run("test writable token file other than owner", func(t *testing.T) {
 		err = os.Chmod("./test_data/snowflake/session/token", 0666)
-		assertNilF(t, err, "TThe error occurred because you cannot change the file permission")
-
-		_, err = loadConnectionConfig()
-		assertNotNilF(t, err, "The error should occur because the permission is not 0600")
-		driverErr, ok = err.(*SnowflakeError)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+		_, err := readToken("./test_data/snowflake/session/token")
+		assertNotNilF(t, err, "The error should occur because the file is writable by anyone but the owner")
+		driverErr, ok := err.(*SnowflakeError)
 		assertTrueF(t, ok, "This should be a Snowflake Error")
 		assertEqualF(t, driverErr.Number, ErrCodeInvalidFilePermission)
+	})
 
-		_, err = readToken("./test_data/snowflake/session")
-		assertNotNilF(t, err, "The error should occur because the permission is not 0600")
-		driverErr, ok = err.(*SnowflakeError)
+	t.Run("test executable connection file", func(t *testing.T) {
+		err = os.Chmod("./test_data/connections.toml", 0100)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+		_, err := loadConnectionConfig()
+		assertNotNilF(t, err, "The error should occur because the file is executable")
+		driverErr, ok := err.(*SnowflakeError)
 		assertTrueF(t, ok, "This should be a Snowflake Error")
 		assertEqualF(t, driverErr.Number, ErrCodeInvalidFilePermission)
+	})
 
+	t.Run("test executable token file", func(t *testing.T) {
+		err = os.Chmod("./test_data/snowflake/session/token", 0010)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+		_, err := readToken("./test_data/snowflake/session/token")
+		assertNotNilF(t, err, "The error should occur because the file is executable")
+		driverErr, ok := err.(*SnowflakeError)
+		assertTrueF(t, ok, "This should be a Snowflake Error")
+		assertEqualF(t, driverErr.Number, ErrCodeInvalidFilePermission)
+	})
+
+	t.Run("test valid file permission for connection config and token file", func(t *testing.T) {
 		err = os.Chmod("./test_data/connections.toml", 0600)
 		assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
 		err = os.Chmod("./test_data/snowflake/session/token", 0600)
 		assertNilF(t, err, "The error occurred because you cannot change the file permission")
 
-		_, err = loadConnectionConfig()
+		_, err := loadConnectionConfig()
 		assertNilF(t, err, "The error occurred because the permission is not 0600")
 
 		_, err = readToken("./test_data/snowflake/session/token")
 		assertNilF(t, err, "The error occurred because the permission is not 0600")
-	}
+	})
 }
 
 func TestLoadConnectionConfigForStandardAuth(t *testing.T) {
