@@ -16,6 +16,10 @@ const (
 	snowflakeConnectionName = "SNOWFLAKE_DEFAULT_CONNECTION_NAME"
 	snowflakeHome           = "SNOWFLAKE_HOME"
 	defaultTokenPath        = "/snowflake/session/token"
+
+	othersCanReadFilePermission  = os.FileMode(0044)
+	othersCanWriteFilePermission = os.FileMode(0022)
+	executableFilePermission     = os.FileMode(0111)
 )
 
 // LoadConnectionConfig returns connection configs loaded from the toml file.
@@ -336,6 +340,7 @@ func validateFilePermission(filePath string) error {
 	if isWindows {
 		return nil
 	}
+
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return err
@@ -343,11 +348,11 @@ func validateFilePermission(filePath string) error {
 
 	permission := fileInfo.Mode().Perm()
 
-	if !shouldSkipWarningForReadPermissions() && permission&os.FileMode(0044) != 0 {
+	if !shouldSkipWarningForReadPermissions() && permission&othersCanReadFilePermission != 0 {
 		logger.Warnf("file '%v' is readable by someone other than the owner. Your Permission: %v", filePath, permission)
 	}
 
-	if permission&os.FileMode(0111) != 0 {
+	if permission&executableFilePermission != 0 {
 		return &SnowflakeError{
 			Number:      ErrCodeInvalidFilePermission,
 			Message:     errMsgInvalidExecutablePermissionToFile,
@@ -355,7 +360,7 @@ func validateFilePermission(filePath string) error {
 		}
 	}
 
-	if permission&os.FileMode(0022) != 0 {
+	if permission&othersCanWriteFilePermission != 0 {
 		return &SnowflakeError{
 			Number:      ErrCodeInvalidFilePermission,
 			Message:     errMsgInvalidWritablePermissionToFile,
