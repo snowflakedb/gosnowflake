@@ -4,16 +4,21 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -604,6 +609,129 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 		t.Error(err)
 	} else if err != nil {
 		t.Error(err)
+	}
+}
+
+// generate a root -> intermediate -> leaf chain
+func generateChain() (leaf, inter, root *x509.Certificate, leafDER, interDER, rootDER []byte, leafKey *rsa.PrivateKey) {
+	rootKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	rootTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Root"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour * 24),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+	}
+	rootDER, _ = x509.CreateCertificate(rand.Reader, rootTemplate, rootTemplate, &rootKey.PublicKey, rootKey)
+	root, _ = x509.ParseCertificate(rootDER)
+
+	interKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	interTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(2),
+		Subject:               pkix.Name{CommonName: "Intermediate"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour * 24),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+	}
+	interDER, _ = x509.CreateCertificate(rand.Reader, interTemplate, root, &interKey.PublicKey, rootKey)
+	inter, _ = x509.ParseCertificate(interDER)
+
+	leafKey, _ = rsa.GenerateKey(rand.Reader, 2048)
+	leafTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(3),
+		Subject:               pkix.Name{CommonName: "Leaf"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour * 24),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		BasicConstraintsValid: true,
+	}
+	leafDER, _ = x509.CreateCertificate(rand.Reader, leafTemplate, inter, &leafKey.PublicKey, interKey)
+	leaf, _ = x509.ParseCertificate(leafDER)
+
+	return leaf, inter, root, leafDER, interDER, rootDER, leafKey
+}
+
+func TestVerifyPeerCertificateChainOrdering(t *testing.T) {
+	_, _, root, leafDER, interDER, rootDER, leafKey := generateChain()
+
+	// Server deliberately sends bad order: [Leaf, Root, Intermediate]
+	serverCert := tls.Certificate{
+		Certificate: [][]byte{leafDER, rootDER, interDER},
+		PrivateKey:  leafKey,
+	}
+
+	// Setup TLS server
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+	})
+	if err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer ln.Close()
+
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				buf := make([]byte, 1)
+				c.SetReadDeadline(time.Now().Add(5 * time.Second))
+				c.Read(buf)
+			}(conn)
+		}
+	}()
+
+	roots := x509.NewCertPool()
+	roots.AddCert(root)
+
+	called := false
+
+	conf := &tls.Config{
+		InsecureSkipVerify: false,
+		RootCAs:            roots,
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			called = true
+
+			first, _ := x509.ParseCertificate(rawCerts[0])
+			second, _ := x509.ParseCertificate(rawCerts[1])
+			third, _ := x509.ParseCertificate(rawCerts[2])
+
+			assertEqualF(t, 3, len(rawCerts), "expected chain length 3, %s", strconv.Itoa(len(rawCerts)))
+			assertEqualF(t, "Leaf", first.Subject.CommonName, "verifiedChains order unexpected: got [%s]", first.Subject.CommonName)
+			assertEqualF(t, "Root", second.Subject.CommonName, "verifiedChains order unexpected: got [%s]", second.Subject.CommonName)
+			assertEqualF(t, "Intermediate", third.Subject.CommonName, "verifiedChains order unexpected: got [%s]", third.Subject.CommonName)
+
+			// verifiedChains should be sorted correctly by x509.Verify
+			assertEqualF(t, 1, len(verifiedChains), "expected chain length %s", strconv.Itoa(len(verifiedChains)))
+
+			chain := verifiedChains[0]
+
+			assertEqualF(t, 3, len(chain), "expected chain length 3, %s", strconv.Itoa(len(chain)))
+			assertEqualF(t, "Leaf", chain[0].Subject.CommonName, "verifiedChains order unexpected: got [%s]", chain[0].Subject.CommonName)
+			assertEqualF(t, "Intermediate", chain[1].Subject.CommonName, "verifiedChains order unexpected: got [%s]", chain[1].Subject.CommonName)
+			assertEqualF(t, "Root", chain[2].Subject.CommonName, "verifiedChains order unexpected: got [%s]", chain[2].Subject.CommonName)
+
+			return nil
+		},
+	}
+
+	// Client dials server
+	conn, err := tls.Dial("tcp", ln.Addr().String(), conf)
+	if err != nil {
+		t.Fatalf("tls.Dial failed: %v", err)
+	}
+	conn.Close()
+
+	if !called {
+		t.Fatalf("VerifyPeerCertificate callback was not called")
 	}
 }
 
