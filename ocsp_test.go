@@ -669,9 +669,7 @@ func TestVerifyPeerCertificateChainOrdering(t *testing.T) {
 	ln, err := tls.Listen("tcp", "127.0.0.1:0", &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
 	})
-	if err != nil {
-		t.Fatalf("failed to start server: %v", err)
-	}
+	assertNilF(t, err, "failed to start server")
 	defer ln.Close()
 
 	go func() {
@@ -680,12 +678,13 @@ func TestVerifyPeerCertificateChainOrdering(t *testing.T) {
 			if err != nil {
 				return
 			}
-			go func(c net.Conn) {
-				defer c.Close()
-				buf := make([]byte, 1)
-				c.SetReadDeadline(time.Now().Add(5 * time.Second))
-				c.Read(buf)
-			}(conn)
+
+			tlsConn := conn.(*tls.Conn)
+			defer tlsConn.Close()
+			assertNilF(t, tlsConn.Handshake(), "failed to set deadline on TLS connection")
+
+			time.Sleep(2 * time.Second)
+			tlsConn.Close()
 		}
 	}()
 
@@ -725,14 +724,10 @@ func TestVerifyPeerCertificateChainOrdering(t *testing.T) {
 
 	// Client dials server
 	conn, err := tls.Dial("tcp", ln.Addr().String(), conf)
-	if err != nil {
-		t.Fatalf("tls.Dial failed: %v", err)
-	}
-	conn.Close()
+	defer conn.Close()
 
-	if !called {
-		t.Fatalf("VerifyPeerCertificate callback was not called")
-	}
+	assertNilF(t, err, "failed to dial server")
+	assertTrueF(t, called, "VerifyPeerCertificate callback was not called")
 }
 
 func syncUpdateOcspResponseCache(f func()) {
