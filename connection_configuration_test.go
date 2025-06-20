@@ -49,12 +49,14 @@ func TestTokenFilePermission(t *testing.T) {
 		connectionsAbsolutePath, err2 := path.Abs("./test_data/connections.toml")
 		assertNilF(t, err2, "The error should not occur")
 
-		expectedWarn := fmt.Sprintf("level=warning msg=\"file '%v' is readable by someone other than the owner. Your Permission: -rw-r--r--\"", connectionsAbsolutePath)
+		expectedWarn := fmt.Sprintf("level=warning msg=\"file '%v' is readable by someone other than the owner. "+
+			"Your Permission: -rw-r--r--. If you want to disable this warning, either remove read permissions from group "+
+			"and others or set the environment variable GOSNOWFLAKE_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE to true\"", connectionsAbsolutePath)
 		assertStringContainsF(t, buf.String(), expectedWarn)
 	})
 
 	t.Run("test warning skipped logger for readable outside owner", func(t *testing.T) {
-		os.Setenv("GOSNOWFLAKE_SKIP_FILE_READ_PERMISSION_WARNING", "true")
+		os.Setenv(skipWarningForReadPermissionsEnv, "true")
 		var originalLogger = logger
 		logger = CreateDefaultLogger()
 		buf := &bytes.Buffer{}
@@ -62,7 +64,7 @@ func TestTokenFilePermission(t *testing.T) {
 
 		defer func() {
 			logger = originalLogger
-			os.Unsetenv("GOSNOWFLAKE_SKIP_FILE_READ_PERMISSION_WARNING")
+			os.Unsetenv(skipWarningForReadPermissionsEnv)
 		}()
 
 		err = os.Chmod("./test_data/connections.toml", 0644)

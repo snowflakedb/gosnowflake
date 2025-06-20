@@ -20,6 +20,8 @@ const (
 	othersCanReadFilePermission  = os.FileMode(0044)
 	othersCanWriteFilePermission = os.FileMode(0022)
 	executableFilePermission     = os.FileMode(0111)
+
+	skipWarningForReadPermissionsEnv = "GOSNOWFLAKE_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE"
 )
 
 // LoadConnectionConfig returns connection configs loaded from the toml file.
@@ -349,7 +351,9 @@ func validateFilePermission(filePath string) error {
 	permission := fileInfo.Mode().Perm()
 
 	if !shouldSkipWarningForReadPermissions() && permission&othersCanReadFilePermission != 0 {
-		logger.Warnf("file '%v' is readable by someone other than the owner. Your Permission: %v", filePath, permission)
+		logger.Warnf("file '%v' is readable by someone other than the owner. Your Permission: %v. If you want "+
+			"to disable this warning, either remove read permissions from group and others or set the environment "+
+			"variable %v to true", filePath, permission, skipWarningForReadPermissionsEnv)
 	}
 
 	if permission&executableFilePermission != 0 {
@@ -376,5 +380,5 @@ func shouldReadTokenFromFile(cfg *Config) bool {
 }
 
 func shouldSkipWarningForReadPermissions() bool {
-	return os.Getenv("GOSNOWFLAKE_SKIP_FILE_READ_PERMISSION_WARNING") != ""
+	return os.Getenv(skipWarningForReadPermissionsEnv) != ""
 }
