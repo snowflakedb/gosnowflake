@@ -51,7 +51,7 @@ func TestTokenFilePermission(t *testing.T) {
 
 		expectedWarn := fmt.Sprintf("level=warning msg=\"file '%v' is readable by someone other than the owner. "+
 			"Your Permission: -rw-r--r--. If you want to disable this warning, either remove read permissions from group "+
-			"and others or set the environment variable GOSNOWFLAKE_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE to true\"", connectionsAbsolutePath)
+			"and others or set the environment variable SNOWFLAKE_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE to true\"", connectionsAbsolutePath)
 		assertStringContainsF(t, buf.String(), expectedWarn)
 	})
 
