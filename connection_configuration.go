@@ -21,7 +21,7 @@ const (
 	othersCanWriteFilePermission = os.FileMode(0022)
 	executableFilePermission     = os.FileMode(0111)
 
-	skipWarningForReadPermissionsEnv = "SNOWFLAKE_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE"
+	skipWarningForReadPermissionsEnv = "SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE"
 )
 
 // LoadConnectionConfig returns connection configs loaded from the toml file.
