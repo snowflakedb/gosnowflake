@@ -325,7 +325,8 @@ const (
 	errMsgNullValueInMap                     = "for handling null values in maps use WithMapValuesNullable(ctx)"
 	errMsgFailedToParseTomlFile              = "failed to parse toml file. the params %v occurred error with value %v"
 	errMsgFailedToFindDSNInTomlFile          = "failed to find DSN in toml file."
-	errMsgInvalidPermissionToTomlFile        = "file permissions different than read/write for user. Your Permission: %v"
+	errMsgInvalidWritablePermissionToFile    = "file '%v' is writable by group or others — this poses a security risk because it allows unauthorized users to modify sensitive settings. Your Permission: %v"
+	errMsgInvalidExecutablePermissionToFile  = "file '%v' is executable — this poses a security risk because the file could be misused as a script or executed unintentionally. Your Permission: %v"
 	errMsgNonArrowResponseInArrowBatches     = "arrow batches enabled, but the response is not Arrow based"
 )
 
