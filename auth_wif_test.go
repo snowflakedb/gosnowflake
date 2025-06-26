@@ -228,7 +228,6 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 type mockAwsAttestationMetadataProvider struct {
 	creds  aws.Credentials
 	region string
-	arn    string
 }
 
 var mockCreds = aws.Credentials{
