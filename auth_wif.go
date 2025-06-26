@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"net/http"
@@ -176,16 +175,6 @@ func (s *defaultAwsAttestationMetadataProvider) awsCredentials() aws.Credentials
 
 func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 	return s.awsCfg.Region
-}
-
-func (s *defaultAwsAttestationMetadataProvider) awsArn() string {
-	client := sts.NewFromConfig(s.awsCfg)
-	output, err := client.GetCallerIdentity(s.ctx, &sts.GetCallerIdentityInput{})
-	if err != nil {
-		logger.Debugf("Unable to get caller identity: %v", err)
-		return ""
-	}
-	return aws.ToString(output.Arn)
 }
 
 func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
