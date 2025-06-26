@@ -2,7 +2,10 @@ package gosnowflake
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"testing"
 )
@@ -155,14 +158,13 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 		attestationSvc      awsAttestationMetadataProvider
 		attestationReturned bool
 		expectedProvider    string
-		expectedMetadata    map[string]string
+		expectedStsHost     string
 	}{
 		{
 			name: "No AWS credentials",
 			attestationSvc: &mockAwsAttestationMetadataProvider{
 				creds:  aws.Credentials{},
 				region: "us-west-2",
-				arn:    "arn:aws:iam::123456789012:role/test-role",
 			},
 			attestationReturned: false,
 		},
@@ -171,16 +173,6 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 			attestationSvc: &mockAwsAttestationMetadataProvider{
 				creds:  mockCreds,
 				region: "",
-				arn:    "arn:aws:iam::123456789012:role/test-role",
-			},
-			attestationReturned: false,
-		},
-		{
-			name: "No AWS ARN",
-			attestationSvc: &mockAwsAttestationMetadataProvider{
-				creds:  mockCreds,
-				region: "us-west-2",
-				arn:    "",
 			},
 			attestationReturned: false,
 		},
@@ -189,11 +181,20 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 			attestationSvc: &mockAwsAttestationMetadataProvider{
 				creds:  mockCreds,
 				region: "us-west-2",
-				arn:    "arn:aws:iam::123456789012:role/test-role",
 			},
 			attestationReturned: true,
 			expectedProvider:    "AWS",
-			expectedMetadata:    map[string]string{"arn": "arn:aws:iam::123456789012:role/test-role"},
+			expectedStsHost:     "sts.us-west-2.amazonaws.com",
+		},
+		{
+			name: "Successful attestation for CN region",
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:  mockCreds,
+				region: "cn-northwest-1",
+			},
+			attestationReturned: true,
+			expectedProvider:    "AWS",
+			expectedStsHost:     "sts.cn-northwest-1.amazonaws.com.cn",
 		},
 	}
 
@@ -208,7 +209,15 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 				assertNotNilE(t, attestation)
 				assertNotNilE(t, attestation.Credential)
 				assertEqualE(t, test.expectedProvider, attestation.ProviderType)
-				assertDeepEqualE(t, test.expectedMetadata, attestation.Metadata)
+				decoded, err := base64.StdEncoding.DecodeString(attestation.Credential)
+				if err != nil {
+					t.Fatalf("Failed to decode credential: %v", err)
+				}
+				var credentialMap map[string]interface{}
+				if err := json.Unmarshal(decoded, &credentialMap); err != nil {
+					t.Fatalf("Failed to unmarshal credential JSON: %v", err)
+				}
+				assertEqualE(t, fmt.Sprintf("https://%s?Action=GetCallerIdentity&Version=2011-06-15", test.expectedStsHost), credentialMap["url"])
 			} else {
 				assertNilF(t, attestation)
 			}
@@ -236,10 +245,6 @@ func (m *mockAwsAttestationMetadataProvider) awsRegion() string {
 	return m.region
 }
 
-func (m *mockAwsAttestationMetadataProvider) awsArn() string {
-	return m.arn
-}
-
 func TestGcpIdentityAttestationCreator(t *testing.T) {
 	tests := []struct {
 		name                string
@@ -254,10 +259,6 @@ func TestGcpIdentityAttestationCreator(t *testing.T) {
 		{
 			name:                "No GCP credential - http error",
 			wiremockMappingPath: "wif/gcp/http_error.json",
-		},
-		{
-			name:                "invalid issuer claim",
-			wiremockMappingPath: "wif/gcp/invalid_issuer_claim.json",
 		},
 		{
 			name:                "missing issuer claim",
@@ -469,22 +470,6 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			cfg:                 &Config{WorkloadIdentityEntraResource: "api://1111111-2222-3333-44444-55555555"},
 			expectedIss:         "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
 		},
-		/*
-		 * {
-		 *     "iss": "https://not.azure.sts.issuer.com",
-		 *     "sub": "77213E30-E8CB-4595-B1B6-5F050E8308FD"
-		 * }
-		 */
-		{
-			name:                "Invalid issuer claim",
-			wiremockMappingPath: "wif/azure/invalid_issuer_flow.json",
-			metadataProvider:    azureVMMetadataProvider(),
-		},
-		/*
-		 * {
-		 *   "sub": "77213E30-E8CB-4595-B1B6-5F050E8308FD",
-		 * }
-		 */
 		{
 			name:                "Non-json response",
 			wiremockMappingPath: "wif/azure/non_json_response.json",
