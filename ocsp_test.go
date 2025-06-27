@@ -560,7 +560,7 @@ func TestInitOCSPCacheFileCreation(t *testing.T) {
 	var src *os.File
 	if _, err = os.Stat(srcFileName); errors.Is(err, os.ErrNotExist) {
 		// file does not exist
-		if err = os.MkdirAll(dirName+"/.cache/snowflake/", os.ModePerm); err != nil {
+		if err = os.MkdirAll(dirName+"/.cache/snowflake/", 0700); err != nil {
 			t.Error(err)
 		}
 		if _, err = os.Create(srcFileName); err != nil {

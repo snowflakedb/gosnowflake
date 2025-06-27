@@ -1091,7 +1091,7 @@ func createOCSPCacheDir() {
 	}
 
 	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
-		if err = os.MkdirAll(cacheDir, os.ModePerm); err != nil {
+		if err = os.MkdirAll(cacheDir, 0700); err != nil {
 			logger.Debugf("failed to create cache directory. %v, err: %v. ignored\n", cacheDir, err)
 		}
 	}
