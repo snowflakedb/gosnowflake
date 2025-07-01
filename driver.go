@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -54,6 +55,12 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		}
 	}
 	logger.WithContext(ctx).Info("OpenWithConfig")
+	if config.ConnectionDiagnosticsEnabled {
+		logger.WithContext(ctx).Infof("Connection diagnostics enabled. Allowlist file from config: %s, will check CRLs in certificates: %s",
+			config.ConnectionDiagnosticsAllowlistFile, strconv.FormatBool(config.ConnectionDiagnosticsDownloadCRL))
+		performDiagnosis(&config)
+		logger.WithContext(ctx).Info("Connection diagnostics finished.")
+	}
 	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {
 		return nil, err
