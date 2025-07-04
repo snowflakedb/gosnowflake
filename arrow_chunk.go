@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 )
@@ -49,23 +48,6 @@ func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []exe
 	}
 
 	return chunkRows, arc.reader.Err()
-}
-
-func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]arrow.Record, error) {
-	var records []arrow.Record
-	defer arc.reader.Release()
-
-	for arc.reader.Next() {
-		rawRecord := arc.reader.Record()
-
-		record, err := arrowToRecord(scd.ctx, rawRecord, arc.allocator, scd.RowSet.RowType, arc.loc)
-		if err != nil {
-			return nil, err
-		}
-		records = append(records, record)
-	}
-
-	return &records, arc.reader.Err()
 }
 
 // Build arrow chunk based on RowSet of base64
