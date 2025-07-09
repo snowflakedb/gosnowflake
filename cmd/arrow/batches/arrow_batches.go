@@ -129,6 +129,7 @@ func convertFromColumnsToRows(records *[]arrow.Record, sampleRecordsPerBatch [][
 				string:   record.Column(1).(*array.String).Value(rowID),
 				ts:       batch.ArrowSnowflakeTimestampToTime(record, 2, rowID),
 			}
+			record.Release()
 			sampleRecordsPerBatch[batchID][totalRowID] = sampleRecord
 			totalRowID++
 		}
