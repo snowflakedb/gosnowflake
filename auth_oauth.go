@@ -207,7 +207,11 @@ func (oauthClient *oauthClient) exchangeAccessToken(codeReq *http.Request, state
 	}
 
 	code := queryParams.Get("code")
-	token, err := oauth2cfg.Exchange(oauthClient.ctx, code, oauth2.VerifierOption(codeVerifier))
+	opts := []oauth2.AuthCodeOption{oauth2.VerifierOption(codeVerifier)}
+	if oauthClient.cfg.EnableSingleUseRefreshTokens == true {
+		opts = append(opts, oauth2.SetAuthURLParam("enable_single_use_refresh_tokens", "true"))
+	}
+	token, err := oauth2cfg.Exchange(oauthClient.ctx, code, opts...)
 	if err != nil {
 		responseBodyChan <- err.Error()
 		return nil, err
