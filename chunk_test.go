@@ -395,7 +395,7 @@ func TestWithStreamDownloader(t *testing.T) {
 }
 
 func TestWithArrowBatches(t *testing.T) {
-	logger.SetLevel("debug")
+	logger.SetLevel(logger.DebugLevel)
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		ctx := WithArrowBatches(sct.sc.ctx)
 		numrows := 3000 // approximately 6 ArrowBatch objects
