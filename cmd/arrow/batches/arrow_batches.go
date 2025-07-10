@@ -54,7 +54,7 @@ func main() {
 	ctx :=
 		sf.WithArrowBatchesTimestampOption(
 			sf.WithArrowAllocator(
-				sf.WithArrowBatches(context.Background()), memory.DefaultAllocator), sf.UseOriginalTimestamp)
+				sf.WithArrowBatches(context.Background()), memory.NewCheckedAllocator(memory.DefaultAllocator)), sf.UseOriginalTimestamp)
 
 	query := "SELECT SEQ4(), 'example ' || (SEQ4() * 2), " +
 		" TO_TIMESTAMP_NTZ('9999-01-01 13:13:13.' || LPAD(SEQ4(),9,'0'))  ltz " +
@@ -129,9 +129,9 @@ func convertFromColumnsToRows(records *[]arrow.Record, sampleRecordsPerBatch [][
 				string:   record.Column(1).(*array.String).Value(rowID),
 				ts:       batch.ArrowSnowflakeTimestampToTime(record, 2, rowID),
 			}
-			record.Release()
 			sampleRecordsPerBatch[batchID][totalRowID] = sampleRecord
 			totalRowID++
 		}
+		record.Release()
 	}
 }
