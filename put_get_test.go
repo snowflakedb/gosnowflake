@@ -12,7 +12,6 @@ import (
 	"math/rand"
 	"os"
 	"os/user"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -1042,7 +1041,6 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 			assertEqualE(t, s3.String, "")
 		}
 
-		var contents string
 		var r io.Reader
 		if autoCompress {
 			// convert the compressed contents to string
