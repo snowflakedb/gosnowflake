@@ -370,28 +370,31 @@ func (cv *crlValidator) updateCache(crlURL string, crl *x509.RevocationList, dow
 		return
 	}
 	crlFilePath := cv.crlURLToPath(crlURL)
-	err := os.WriteFile(crlFilePath, crl.Raw, 0600)
-	if err != nil {
+	if err := os.MkdirAll(filepath.Dir(crlFilePath), 0755); err != nil {
+		logger.Warnf("failed to create directory for CRL file %v: %v", crlFilePath, err)
+		return
+	}
+	if err := os.WriteFile(crlFilePath, crl.Raw, 0600); err != nil {
 		logger.Warnf("failed to write CRL to disk for %v (%v): %v", crlURL, crlFilePath, err)
 	}
 }
 
-func (cv *crlValidator) downloadCrl(url string) (*x509.RevocationList, *time.Time, error) {
-	logger.Debugf("downloading CRL from %v", url)
+func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.Time, error) {
+	logger.Debugf("downloading CRL from %v", crlURL)
 	now := time.Now()
-	resp, err := cv.httpClient.Get(url)
+	resp, err := cv.httpClient.Get(crlURL)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		return nil, nil, fmt.Errorf("failed to download CRL from %v, status code: %v", url, resp.StatusCode)
+		return nil, nil, fmt.Errorf("failed to download CRL from %v, status code: %v", crlURL, resp.StatusCode)
 	}
 	crlBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, err
 	}
-	logger.Debugf("downloaded %v bytes for CRL %v", len(crlBytes), url)
+	logger.Debugf("downloaded %v bytes for CRL %v", len(crlBytes), crlURL)
 	crl, err := x509.ParseRevocationList(crlBytes)
 	if err != nil {
 		return nil, nil, err
