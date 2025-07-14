@@ -33,7 +33,7 @@ type crlValidator struct {
 	inMemoryCacheMutex             sync.Mutex
 	onDiskCacheDisabled            bool
 	onDiskCacheDir                 string
-	crlURLMus                      map[string]*sync.Mutex
+	crlURLMutexes                  map[string]*sync.Mutex
 	httpClient                     *http.Client
 }
 
@@ -56,7 +56,7 @@ func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, serialCert
 		inMemoryCache:                  inMemoryCache,
 		onDiskCacheDisabled:            onDiskCacheDisabled,
 		onDiskCacheDir:                 onDiskCacheDir,
-		crlURLMus:                      make(map[string]*sync.Mutex),
+		crlURLMutexes:                  make(map[string]*sync.Mutex),
 		httpClient:                     httpClient,
 	}
 }
@@ -232,10 +232,10 @@ func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlURL 
 	now := time.Now()
 
 	cv.inMemoryCacheMutex.Lock()
-	mu, ok := cv.crlURLMus[crlURL]
+	mu, ok := cv.crlURLMutexes[crlURL]
 	if !ok {
 		mu = &sync.Mutex{}
-		cv.crlURLMus[crlURL] = mu
+		cv.crlURLMutexes[crlURL] = mu
 	}
 	cv.inMemoryCacheMutex.Unlock()
 	mu.Lock()

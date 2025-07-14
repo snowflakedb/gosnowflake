@@ -62,6 +62,16 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, serial
 	return newCrlValidator(checkMode, serialCertificateValidation, allowCertificatesWithoutCrlURL, cacheValidityTime, inMemoryCacheDisabled, onDiskCacheDisabled, cacheDir, httpClient)
 }
 
+func TestCrlCheckModeDisabled_NoHttpCall(t *testing.T) {
+	caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+	_, leafCert := createLeafCert(t, caCert, caKey, "/rootCrl")
+	crt := &countingRoundTripper{}
+	cv := newTestCrlValidator(t, CertRevocationCheckDisabled, false, &http.Client{Transport: crt})
+	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+	assertNilE(t, err)
+	assertEqualE(t, crt.totalRequests(), 0, "no HTTP request should be made when check mode is disabled")
+}
+
 func TestCrlModes(t *testing.T) {
 	for _, checkMode := range []CertRevocationCheckMode{CertRevocationCheckEnabled, CertRevocationCheckAdvisory} {
 		for _, serialCertificateValidation := range []bool{true, false} {
@@ -567,7 +577,7 @@ func TestIsShortLivedCertificate(t *testing.T) {
 			name: "Issued after March 15, 2024, validity less than 7 days (short-lived)",
 			cert: &x509.Certificate{
 				NotBefore: time.Date(2024, time.March, 16, 0, 0, 0, 0, time.UTC),
-				NotAfter:  time.Date(2024, time.March, 24, 0, 0, 0, 0, time.UTC),
+				NotAfter:  time.Date(2024, time.March, 22, 0, 0, 0, 0, time.UTC),
 			},
 			expected: true,
 		},
