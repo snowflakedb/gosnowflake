@@ -51,10 +51,11 @@ func main() {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
 
+	pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	ctx :=
 		sf.WithArrowBatchesTimestampOption(
 			sf.WithArrowAllocator(
-				sf.WithArrowBatches(context.Background()), memory.DefaultAllocator), sf.UseOriginalTimestamp)
+				sf.WithArrowBatches(context.Background()), pool), sf.UseOriginalTimestamp)
 
 	query := "SELECT SEQ4(), 'example ' || (SEQ4() * 2), " +
 		" TO_TIMESTAMP_NTZ('9999-01-01 13:13:13.' || LPAD(SEQ4(),9,'0'))  ltz " +
@@ -116,6 +117,12 @@ func main() {
 	for batchID, batch := range batches {
 		fmt.Printf("BatchId: %v, number of records: %v\n", batchID, batch.GetRowCount())
 	}
+
+	if pool.CurrentAlloc() != 0 {
+		fmt.Printf("Memory leak detected: %d bytes still allocated\n", pool.CurrentAlloc())
+	} else {
+		fmt.Println("No memory leaks detected.")
+	}
 }
 
 func convertFromColumnsToRows(records *[]arrow.Record, sampleRecordsPerBatch [][]sampleRecord, batchID int,
@@ -132,5 +139,6 @@ func convertFromColumnsToRows(records *[]arrow.Record, sampleRecordsPerBatch [][
 			sampleRecordsPerBatch[batchID][totalRowID] = sampleRecord
 			totalRowID++
 		}
+		record.Release()
 	}
 }
