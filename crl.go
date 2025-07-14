@@ -90,17 +90,17 @@ func (m CertRevocationCheckMode) String() string {
 type crlValidationResult int
 
 const (
-	CRL_REVOKED crlValidationResult = iota
-	CRL_UNREVOKED
-	CRL_ERROR
+	crlRevoked crlValidationResult = iota
+	crlUnrevoked
+	crlError
 )
 
 type certValidationResult int
 
 const (
-	CERT_REVOKED certValidationResult = iota
-	CERT_UNREVOKED
-	CERT_ERROR
+	certRevoked certValidationResult = iota
+	certUnrevoked
+	certError
 )
 
 // TODO in following commits:
@@ -115,7 +115,7 @@ func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains
 	crlValidationResults := cv.validateChains(verifiedChains)
 
 	for _, result := range crlValidationResults {
-		if result == CRL_UNREVOKED {
+		if result == crlUnrevoked {
 			logger.Debug("found certificate chain with no revoked certificates")
 			return nil
 		}
@@ -123,7 +123,7 @@ func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains
 
 	allRevoked := true
 	for _, result := range crlValidationResults {
-		if result != CRL_REVOKED {
+		if result != crlRevoked {
 			allRevoked = false
 			break
 		}
@@ -143,7 +143,7 @@ func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains
 func (cv *crlValidator) validateChains(chains [][]*x509.Certificate) []crlValidationResult {
 	crlValidationResults := make([]crlValidationResult, len(chains))
 	for i, chain := range chains {
-		crlValidationResults[i] = CRL_UNREVOKED
+		crlValidationResults[i] = crlUnrevoked
 		chainStr := ""
 		for _, cert := range chain {
 			chainStr += fmt.Sprintf("%v -> ", cert.Subject)
@@ -166,23 +166,23 @@ func (cv *crlValidator) validateChains(chains [][]*x509.Certificate) []crlValida
 					continue
 				}
 				logger.Warnf("certificate %v has no CRL distribution points, skipping CRL validation, but marking as error", cert.Subject)
-				crlValidationResults[i] = CRL_ERROR
+				crlValidationResults[i] = crlError
 				continue
 			}
 
 			certStatus := cv.validateCertificate(cert, chain[j+1])
-			if certStatus == CERT_REVOKED {
-				crlValidationResults[i] = CRL_REVOKED
+			if certStatus == certRevoked {
+				crlValidationResults[i] = crlRevoked
 				break
 			}
 
-			if certStatus == CERT_ERROR {
-				crlValidationResults[i] = CRL_ERROR
+			if certStatus == certError {
+				crlValidationResults[i] = crlError
 				break
 			}
 		}
 
-		if crlValidationResults[i] == CRL_UNREVOKED {
+		if crlValidationResults[i] == crlUnrevoked {
 			logger.Debugf("certificate chain %d is unrevoked, skipping remaining chains", i)
 			break
 		}
@@ -201,11 +201,11 @@ func (cv *crlValidator) validateCertificate(cert *x509.Certificate, parent *x509
 func (cv *crlValidator) validateCertificateSerial(cert *x509.Certificate, parent *x509.Certificate) certValidationResult {
 	for _, crlURL := range cert.CRLDistributionPoints {
 		result := cv.validateCrlAgainstCrlURL(cert, crlURL, parent)
-		if result == CERT_REVOKED || result == CERT_ERROR {
+		if result == certRevoked || result == certError {
 			return result
 		}
 	}
-	return CERT_UNREVOKED
+	return certUnrevoked
 }
 
 func (cv *crlValidator) validateCertificateInParallel(cert *x509.Certificate, parent *x509.Certificate) certValidationResult {
@@ -221,130 +221,130 @@ func (cv *crlValidator) validateCertificateInParallel(cert *x509.Certificate, pa
 	}
 	wg.Wait()
 	for _, result := range results {
-		if result == CERT_REVOKED || result == CERT_ERROR {
+		if result == certRevoked || result == certError {
 			return result
 		}
 	}
-	return CERT_UNREVOKED
+	return certUnrevoked
 }
 
-func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlUrl string, parent *x509.Certificate) certValidationResult {
+func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlURL string, parent *x509.Certificate) certValidationResult {
 	now := time.Now()
 
 	cv.inMemoryCacheMutex.Lock()
-	mu, ok := cv.crlURLMus[crlUrl]
+	mu, ok := cv.crlURLMus[crlURL]
 	if !ok {
 		mu = &sync.Mutex{}
-		cv.crlURLMus[crlUrl] = mu
+		cv.crlURLMus[crlURL] = mu
 	}
 	cv.inMemoryCacheMutex.Unlock()
 	mu.Lock()
 	defer mu.Unlock()
 
-	crl, downloadTime := cv.getFromCache(crlUrl)
+	crl, downloadTime := cv.getFromCache(crlURL)
 	needsFreshCrl := crl == nil || crl.NextUpdate.Before(now) || downloadTime.Add(cv.cacheValidityTime).Before(now)
 	shouldUpdateCrl := false
 
 	if needsFreshCrl {
-		newCrl, newDownloadTime, err := cv.downloadCrl(crlUrl)
+		newCrl, newDownloadTime, err := cv.downloadCrl(crlURL)
 		if err != nil {
-			logger.Warnf("failed to download CRL from %v: %v", crlUrl, err)
+			logger.Warnf("failed to download CRL from %v: %v", crlURL, err)
 		}
 		shouldUpdateCrl = newCrl != nil && (crl == nil || newCrl.ThisUpdate.After(crl.ThisUpdate))
 		if shouldUpdateCrl {
-			logger.Debugf("Updating CRL for %v", crlUrl)
+			logger.Debugf("Updating CRL for %v", crlURL)
 			crl = newCrl
 			downloadTime = newDownloadTime
 		} else {
 			if crl != nil && crl.NextUpdate.Before(now) {
-				logger.Debugf("CRL for %v is up-to-date, using cached version", crlUrl)
+				logger.Debugf("CRL for %v is up-to-date, using cached version", crlURL)
 			} else {
-				logger.Warnf("CRL for %v is not available or outdated", crlUrl)
-				return CERT_ERROR
+				logger.Warnf("CRL for %v is not available or outdated", crlURL)
+				return certError
 			}
 		}
 	}
 
 	logger.Debugf("CRL has %v entries, next update at %v", len(crl.RevokedCertificateEntries), crl.NextUpdate)
-	if err := cv.validateCrl(crl, parent, crlUrl); err != nil {
-		return CERT_ERROR
+	if err := cv.validateCrl(crl, parent, crlURL); err != nil {
+		return certError
 	}
 
 	if shouldUpdateCrl {
-		logger.Debugf("CRL for %v is valid, updating cache", crlUrl)
-		cv.updateCache(crlUrl, crl, downloadTime)
+		logger.Debugf("CRL for %v is valid, updating cache", crlURL)
+		cv.updateCache(crlURL, crl, downloadTime)
 	}
 
 	for _, rce := range crl.RevokedCertificateEntries {
 		if cert.SerialNumber.Cmp(rce.SerialNumber) == 0 {
 			logger.Warnf("certificate for %v (serial number %v) has been revoked at %v, reason: %v", cert.Subject, rce.SerialNumber, rce.RevocationTime, rce.ReasonCode)
-			return CERT_REVOKED
+			return certRevoked
 		}
 	}
 
-	return CERT_UNREVOKED
+	return certUnrevoked
 }
 
-func (cv *crlValidator) validateCrl(crl *x509.RevocationList, parent *x509.Certificate, crlUrl string) error {
+func (cv *crlValidator) validateCrl(crl *x509.RevocationList, parent *x509.Certificate, crlURL string) error {
 	if crl.Issuer.String() != parent.Subject.String() {
-		err := fmt.Errorf("CRL issuer %v does not match parent certificate subject %v for %v", crl.Issuer, parent.Subject, crlUrl)
+		err := fmt.Errorf("CRL issuer %v does not match parent certificate subject %v for %v", crl.Issuer, parent.Subject, crlURL)
 		logger.Warn(err)
 		return err
 	}
 	if err := crl.CheckSignatureFrom(parent); err != nil {
-		logger.Warnf("CRL signature verification failed for %v: %v", crlUrl, err)
+		logger.Warnf("CRL signature verification failed for %v: %v", crlURL, err)
 		return err
 	}
-	if err := cv.verifyAgainstIdpExtension(crl, crlUrl); err != nil {
-		logger.Warnf("CRL IDP extension verification failed for %v: %v", crlUrl, err)
+	if err := cv.verifyAgainstIdpExtension(crl, crlURL); err != nil {
+		logger.Warnf("CRL IDP extension verification failed for %v: %v", crlURL, err)
 		return err
 	}
 	return nil
 }
 
-func (cv *crlValidator) getFromCache(crlUrl string) (*x509.RevocationList, *time.Time) {
+func (cv *crlValidator) getFromCache(crlURL string) (*x509.RevocationList, *time.Time) {
 	if cv.inMemoryCacheDisabled {
 		logger.Debugf("in-memory cache is disabled")
 	} else {
 		cv.inMemoryCacheMutex.Lock()
-		cacheValue, exists := cv.inMemoryCache[crlUrl]
+		cacheValue, exists := cv.inMemoryCache[crlURL]
 		cv.inMemoryCacheMutex.Unlock()
 		if exists {
-			logger.Debugf("found CRL in cache for %v", crlUrl)
+			logger.Debugf("found CRL in cache for %v", crlURL)
 			return cacheValue.crl, cacheValue.downloadTime
 		}
 	}
 	if cv.onDiskCacheDisabled {
-		logger.Debugf("CRL cache is disabled, not checking disk for %v", crlUrl)
+		logger.Debugf("CRL cache is disabled, not checking disk for %v", crlURL)
 		return nil, nil
 	}
-	crlFilePath := cv.crlURLToPath(crlUrl)
+	crlFilePath := cv.crlURLToPath(crlURL)
 	fileHandle, err := os.Open(crlFilePath)
 	if err != nil {
-		logger.Debugf("cannot open CRL from disk for %v (%v): %v", crlUrl, crlFilePath, err)
+		logger.Debugf("cannot open CRL from disk for %v (%v): %v", crlURL, crlFilePath, err)
 		return nil, nil
 	}
 	defer fileHandle.Close()
 	stat, err := fileHandle.Stat()
 	if err != nil {
-		logger.Debugf("cannot stat CRL file for %v (%v): %v", crlUrl, crlFilePath, err)
+		logger.Debugf("cannot stat CRL file for %v (%v): %v", crlURL, crlFilePath, err)
 		return nil, nil
 	}
 	crlBytes, err := io.ReadAll(fileHandle)
 	if err != nil {
-		logger.Debugf("cannot read CRL from disk for %v (%v): %v", crlUrl, crlFilePath, err)
+		logger.Debugf("cannot read CRL from disk for %v (%v): %v", crlURL, crlFilePath, err)
 		return nil, nil
 	}
 	crl, err := x509.ParseRevocationList(crlBytes)
 	if err != nil {
-		logger.Warnf("cannot parse CRL from disk for %v (%v): %v", crlUrl, crlFilePath, err)
+		logger.Warnf("cannot parse CRL from disk for %v (%v): %v", crlURL, crlFilePath, err)
 		return nil, nil
 	}
 	modTime := stat.ModTime()
 
 	// promote CRL to in-memory cache
 	cv.inMemoryCacheMutex.Lock()
-	cv.inMemoryCache[crlUrl] = &crlInMemoryCacheValueType{
+	cv.inMemoryCache[crlURL] = &crlInMemoryCacheValueType{
 		crl:          crl,
 		downloadTime: &modTime,
 	}
@@ -352,25 +352,25 @@ func (cv *crlValidator) getFromCache(crlUrl string) (*x509.RevocationList, *time
 	return crl, &modTime
 }
 
-func (cv *crlValidator) updateCache(crlUrl string, crl *x509.RevocationList, downloadTime *time.Time) {
+func (cv *crlValidator) updateCache(crlURL string, crl *x509.RevocationList, downloadTime *time.Time) {
 	if cv.inMemoryCacheDisabled {
 		logger.Debugf("in-memory cache is disabled, not updating")
 	} else {
 		cv.inMemoryCacheMutex.Lock()
-		cv.inMemoryCache[crlUrl] = &crlInMemoryCacheValueType{
+		cv.inMemoryCache[crlURL] = &crlInMemoryCacheValueType{
 			crl:          crl,
 			downloadTime: downloadTime,
 		}
 		cv.inMemoryCacheMutex.Unlock()
 	}
 	if cv.onDiskCacheDisabled {
-		logger.Debugf("CRL cache is disabled, not writing to disk for %v", crlUrl)
+		logger.Debugf("CRL cache is disabled, not writing to disk for %v", crlURL)
 		return
 	}
-	crlFilePath := cv.crlURLToPath(crlUrl)
+	crlFilePath := cv.crlURLToPath(crlURL)
 	err := os.WriteFile(crlFilePath, crl.Raw, 0600)
 	if err != nil {
-		logger.Warnf("failed to write CRL to disk for %v (%v): %v", crlUrl, crlFilePath, err)
+		logger.Warnf("failed to write CRL to disk for %v (%v): %v", crlURL, crlFilePath, err)
 	}
 }
 
