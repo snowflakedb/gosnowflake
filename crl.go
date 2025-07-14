@@ -212,10 +212,10 @@ func (cv *crlValidator) validateCertificateInParallel(cert *x509.Certificate, pa
 	wg := sync.WaitGroup{}
 	wg.Add(len(cert.CRLDistributionPoints))
 	results := make([]certValidationResult, len(cert.CRLDistributionPoints))
-	for i, crlUrl := range cert.CRLDistributionPoints {
+	for i, crlURL := range cert.CRLDistributionPoints {
 		go func() {
 			defer wg.Done()
-			result := cv.validateCrlAgainstCrlURL(cert, crlUrl, parent)
+			result := cv.validateCrlAgainstCrlURL(cert, crlURL, parent)
 			results[i] = result
 		}()
 	}
