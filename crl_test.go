@@ -596,7 +596,7 @@ func TestIsShortLivedCertificate(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "Issued after March 15, 2026, validity exactly 7 days (not short-lived)",
+			name: "Issued after March 15, 2026, validity exactly 7 days (short-lived)",
 			cert: &x509.Certificate{
 				NotBefore: time.Date(2026, time.March, 16, 0, 0, 0, 0, time.UTC),
 				NotAfter:  time.Date(2026, time.March, 23, 0, 0, 0, 0, time.UTC),

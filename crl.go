@@ -213,11 +213,11 @@ func (cv *crlValidator) validateCertificateInParallel(cert *x509.Certificate, pa
 	wg.Add(len(cert.CRLDistributionPoints))
 	results := make([]certValidationResult, len(cert.CRLDistributionPoints))
 	for i, crlURL := range cert.CRLDistributionPoints {
-		go func() {
+		go func(i int, crlURL string) {
 			defer wg.Done()
 			result := cv.validateCrlAgainstCrlURL(cert, crlURL, parent)
 			results[i] = result
-		}()
+		}(i, crlURL)
 	}
 	wg.Wait()
 	for _, result := range results {
@@ -342,13 +342,15 @@ func (cv *crlValidator) getFromCache(crlURL string) (*x509.RevocationList, *time
 	}
 	modTime := stat.ModTime()
 
-	// promote CRL to in-memory cache
-	cv.inMemoryCacheMutex.Lock()
-	cv.inMemoryCache[crlURL] = &crlInMemoryCacheValueType{
-		crl:          crl,
-		downloadTime: &modTime,
+	if !cv.inMemoryCacheDisabled {
+		// promote CRL to in-memory cache
+		cv.inMemoryCacheMutex.Lock()
+		cv.inMemoryCache[crlURL] = &crlInMemoryCacheValueType{
+			crl:          crl,
+			downloadTime: &modTime,
+		}
+		cv.inMemoryCacheMutex.Unlock()
 	}
-	cv.inMemoryCacheMutex.Unlock()
 	return crl, &modTime
 }
 

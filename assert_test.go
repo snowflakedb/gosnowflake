@@ -253,7 +253,7 @@ func isNil(value any) bool {
 		return true
 	}
 	val := reflect.ValueOf(value)
-	return slices.Contains([]reflect.Kind{reflect.Pointer, reflect.Slice, reflect.Map}, val.Kind()) && val.IsNil()
+	return slices.Contains([]reflect.Kind{reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface}, val.Kind()) && val.IsNil()
 }
 
 func thrownFrom() string {
