@@ -52,12 +52,13 @@ type Config struct {
 	Role      string // Role
 	Region    string // Region
 
-	OauthClientID         string // Client id for OAuth2 external IdP
-	OauthClientSecret     string // Client secret for OAuth2 external IdP
-	OauthAuthorizationURL string // Authorization URL of Auth2 external IdP
-	OauthTokenRequestURL  string // Token request URL of Auth2 external IdP
-	OauthRedirectURI      string // Redirect URI registered in IdP. The default is http://127.0.0.1:<random port>/
-	OauthScope            string // Comma separated list of scopes. If empty it is derived from role.
+	OauthClientID                string // Client id for OAuth2 external IdP
+	OauthClientSecret            string // Client secret for OAuth2 external IdP
+	OauthAuthorizationURL        string // Authorization URL of Auth2 external IdP
+	OauthTokenRequestURL         string // Token request URL of Auth2 external IdP
+	OauthRedirectURI             string // Redirect URI registered in IdP. The default is http://127.0.0.1:<random port>/
+	OauthScope                   string // Comma separated list of scopes. If empty it is derived from role.
+	EnableSingleUseRefreshTokens bool   // Enables single use refresh tokens for Snowflake IdP
 
 	// ValidateDefaultParameters disable the validation checks for Database, Schema, Warehouse and Role
 	// at the time a connection is established
@@ -216,6 +217,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.OauthScope != "" {
 		params.Add("oauthScope", cfg.OauthScope)
+	}
+	if cfg.EnableSingleUseRefreshTokens {
+		params.Add("enableSingleUseRefreshTokens", strconv.FormatBool(cfg.EnableSingleUseRefreshTokens))
 	}
 	if cfg.WorkloadIdentityProvider != "" {
 		params.Add("workloadIdentityProvider", cfg.WorkloadIdentityProvider)
@@ -763,6 +767,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.OauthRedirectURI = value
 		case "oauthScope":
 			cfg.OauthScope = value
+		case "enableSingleUseRefreshTokens":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.EnableSingleUseRefreshTokens = vv
 		case "passcodeInPassword":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
