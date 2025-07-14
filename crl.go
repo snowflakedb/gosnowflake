@@ -26,14 +26,14 @@ type issuingDistributionPoint struct {
 type crlValidator struct {
 	certRevocationCheckMode        CertRevocationCheckMode
 	serialCertificateValidation    bool
-	allowCertificatesWithoutCrlUrl bool
+	allowCertificatesWithoutCrlURL bool
 	cacheValidityTime              time.Duration
 	inMemoryCacheDisabled          bool
 	inMemoryCache                  map[string]*crlInMemoryCacheValueType
 	inMemoryCacheMutex             sync.Mutex
 	onDiskCacheDisabled            bool
 	onDiskCacheDir                 string
-	crlUrlMus                      map[string]*sync.Mutex
+	crlURLMus                      map[string]*sync.Mutex
 	httpClient                     *http.Client
 }
 
@@ -42,7 +42,7 @@ type crlInMemoryCacheValueType struct {
 	downloadTime *time.Time
 }
 
-func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, serialCertificateValidation, allowCertificatesWithoutCrlUrl bool, cacheValidityTime time.Duration, inMemoryCacheDisabled, onDiskCacheDisabled bool, onDiskCacheDir string, httpClient *http.Client) *crlValidator {
+func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, serialCertificateValidation, allowCertificatesWithoutCrlURL bool, cacheValidityTime time.Duration, inMemoryCacheDisabled, onDiskCacheDisabled bool, onDiskCacheDir string, httpClient *http.Client) *crlValidator {
 	var inMemoryCache map[string]*crlInMemoryCacheValueType
 	if !inMemoryCacheDisabled {
 		inMemoryCache = make(map[string]*crlInMemoryCacheValueType)
@@ -50,32 +50,37 @@ func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, serialCert
 	return &crlValidator{
 		certRevocationCheckMode:        certRevocationCheckMode,
 		serialCertificateValidation:    serialCertificateValidation,
-		allowCertificatesWithoutCrlUrl: allowCertificatesWithoutCrlUrl,
+		allowCertificatesWithoutCrlURL: allowCertificatesWithoutCrlURL,
 		cacheValidityTime:              cacheValidityTime,
 		inMemoryCacheDisabled:          inMemoryCacheDisabled,
 		inMemoryCache:                  inMemoryCache,
 		onDiskCacheDisabled:            onDiskCacheDisabled,
 		onDiskCacheDir:                 onDiskCacheDir,
-		crlUrlMus:                      make(map[string]*sync.Mutex),
+		crlURLMus:                      make(map[string]*sync.Mutex),
 		httpClient:                     httpClient,
 	}
 }
 
+// CertRevocationCheckMode defines the modes for certificate revocation checks.
 type CertRevocationCheckMode int
 
 const (
-	CERT_REVOCATION_CHECK_DISABLED CertRevocationCheckMode = iota
-	CERT_REVOCATION_CHECK_ADVISORY
-	CERT_REVOCATION_CHECK_ENABLED
+	// CertRevocationCheckDisabled means that certificate revocation checks are disabled.
+	CertRevocationCheckDisabled CertRevocationCheckMode = iota
+	// CertRevocationCheckAdvisory means that certificate revocation checks are advisory, and the driver will not fail if the checks end with error (cannot verify revocation status).
+	// Driver will fail only if a certicate is revoked.
+	CertRevocationCheckAdvisory
+	// CertRevocationCheckEnabled means that every certificate revocation check must pass, otherwise the driver will fail.
+	CertRevocationCheckEnabled
 )
 
 func (m CertRevocationCheckMode) String() string {
 	switch m {
-	case CERT_REVOCATION_CHECK_DISABLED:
+	case CertRevocationCheckDisabled:
 		return "CERT_REVOCATION_CHECK_DISABLED"
-	case CERT_REVOCATION_CHECK_ADVISORY:
+	case CertRevocationCheckAdvisory:
 		return "CERT_REVOCATION_CHECK_ADVISORY"
-	case CERT_REVOCATION_CHECK_ENABLED:
+	case CertRevocationCheckEnabled:
 		return "CERT_REVOCATION_CHECK_ENABLED"
 	default:
 		return fmt.Sprintf("unknown CertRevocationCheckMode: %d", m)
@@ -103,7 +108,7 @@ const (
 // - telemetry
 // - initialize into the main flow
 func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-	if cv.certRevocationCheckMode == CERT_REVOCATION_CHECK_DISABLED {
+	if cv.certRevocationCheckMode == CertRevocationCheckDisabled {
 		logger.Debug("certificate revocation check is disabled, skipping CRL validation")
 		return nil
 	}
@@ -128,7 +133,7 @@ func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains
 	}
 
 	logger.Warn("some certificate chains didn't pass or driver wasn't able to peform the checks")
-	if cv.certRevocationCheckMode == CERT_REVOCATION_CHECK_ADVISORY {
+	if cv.certRevocationCheckMode == CertRevocationCheckAdvisory {
 		logger.Warn("certificate revocation check is set to CERT_REVOCATION_CHECK_ADVISORY, so assuming that certificates are not revoked")
 		return nil
 	}
@@ -156,7 +161,7 @@ func (cv *crlValidator) validateChains(chains [][]*x509.Certificate) []crlValida
 			}
 
 			if len(cert.CRLDistributionPoints) == 0 {
-				if cv.allowCertificatesWithoutCrlUrl {
+				if cv.allowCertificatesWithoutCrlURL {
 					logger.Debugf("certificate %v has no CRL distribution points, skipping CRL validation", cert.Subject)
 					continue
 				}
@@ -194,8 +199,8 @@ func (cv *crlValidator) validateCertificate(cert *x509.Certificate, parent *x509
 }
 
 func (cv *crlValidator) validateCertificateSerial(cert *x509.Certificate, parent *x509.Certificate) certValidationResult {
-	for _, crlUrl := range cert.CRLDistributionPoints {
-		result := cv.validateCrlAgainstCrlUrl(cert, crlUrl, parent)
+	for _, crlURL := range cert.CRLDistributionPoints {
+		result := cv.validateCrlAgainstCrlURL(cert, crlURL, parent)
 		if result == CERT_REVOKED || result == CERT_ERROR {
 			return result
 		}
@@ -210,7 +215,7 @@ func (cv *crlValidator) validateCertificateInParallel(cert *x509.Certificate, pa
 	for i, crlUrl := range cert.CRLDistributionPoints {
 		go func() {
 			defer wg.Done()
-			result := cv.validateCrlAgainstCrlUrl(cert, crlUrl, parent)
+			result := cv.validateCrlAgainstCrlURL(cert, crlUrl, parent)
 			results[i] = result
 		}()
 	}
@@ -223,14 +228,14 @@ func (cv *crlValidator) validateCertificateInParallel(cert *x509.Certificate, pa
 	return CERT_UNREVOKED
 }
 
-func (cv *crlValidator) validateCrlAgainstCrlUrl(cert *x509.Certificate, crlUrl string, parent *x509.Certificate) certValidationResult {
+func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlUrl string, parent *x509.Certificate) certValidationResult {
 	now := time.Now()
 
 	cv.inMemoryCacheMutex.Lock()
-	mu, ok := cv.crlUrlMus[crlUrl]
+	mu, ok := cv.crlURLMus[crlUrl]
 	if !ok {
 		mu = &sync.Mutex{}
-		cv.crlUrlMus[crlUrl] = mu
+		cv.crlURLMus[crlUrl] = mu
 	}
 	cv.inMemoryCacheMutex.Unlock()
 	mu.Lock()
@@ -313,7 +318,7 @@ func (cv *crlValidator) getFromCache(crlUrl string) (*x509.RevocationList, *time
 		logger.Debugf("CRL cache is disabled, not checking disk for %v", crlUrl)
 		return nil, nil
 	}
-	crlFilePath := cv.crlUrlToPath(crlUrl)
+	crlFilePath := cv.crlURLToPath(crlUrl)
 	fileHandle, err := os.Open(crlFilePath)
 	if err != nil {
 		logger.Debugf("cannot open CRL from disk for %v (%v): %v", crlUrl, crlFilePath, err)
@@ -362,7 +367,7 @@ func (cv *crlValidator) updateCache(crlUrl string, crl *x509.RevocationList, dow
 		logger.Debugf("CRL cache is disabled, not writing to disk for %v", crlUrl)
 		return
 	}
-	crlFilePath := cv.crlUrlToPath(crlUrl)
+	crlFilePath := cv.crlURLToPath(crlUrl)
 	err := os.WriteFile(crlFilePath, crl.Raw, 0600)
 	if err != nil {
 		logger.Warnf("failed to write CRL to disk for %v (%v): %v", crlUrl, crlFilePath, err)
@@ -392,9 +397,9 @@ func (cv *crlValidator) downloadCrl(url string) (*x509.RevocationList, *time.Tim
 	return crl, &now, err
 }
 
-func (cv *crlValidator) crlUrlToPath(crlUrl string) string {
+func (cv *crlValidator) crlURLToPath(crlURL string) string {
 	// Convert CRL URL to a file path, e.g., by replacing slashes with underscores
-	return filepath.Join(cv.onDiskCacheDir, url.QueryEscape(crlUrl))
+	return filepath.Join(cv.onDiskCacheDir, url.QueryEscape(crlURL))
 }
 
 func (cv *crlValidator) verifyAgainstIdpExtension(crl *x509.RevocationList, distributionPoint string) error {

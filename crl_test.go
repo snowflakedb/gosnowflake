@@ -24,7 +24,7 @@ var serialNumber = int64(0) // to be incremented
 
 type cacheValidityTimeType time.Duration
 
-type allowCertificatesWithoutCrlUrlType bool
+type allowCertificatesWithoutCrlURLType bool
 
 type inMemoryCacheDisabledType bool
 type onDiskCacheDisabledType bool
@@ -39,7 +39,7 @@ type nextUpdateType time.Time
 func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, serialCertificateValidation bool, args ...any) *crlValidator {
 	httpClient := &http.Client{}
 	cacheValidityTime := 5 * time.Minute
-	allowCertificatesWithoutCrlUrl := false
+	allowCertificatesWithoutCrlURL := false
 	inMemoryCacheDisabled := false
 	onDiskCacheDisabled := false
 	for _, arg := range args {
@@ -48,8 +48,8 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, serial
 			httpClient = v
 		case cacheValidityTimeType:
 			cacheValidityTime = time.Duration(v)
-		case allowCertificatesWithoutCrlUrlType:
-			allowCertificatesWithoutCrlUrl = bool(v)
+		case allowCertificatesWithoutCrlURLType:
+			allowCertificatesWithoutCrlURL = bool(v)
 		case inMemoryCacheDisabledType:
 			inMemoryCacheDisabled = bool(v)
 		case onDiskCacheDisabledType:
@@ -59,18 +59,18 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, serial
 		}
 	}
 	cacheDir := t.TempDir()
-	return newCrlValidator(checkMode, serialCertificateValidation, allowCertificatesWithoutCrlUrl, cacheValidityTime, inMemoryCacheDisabled, onDiskCacheDisabled, cacheDir, httpClient)
+	return newCrlValidator(checkMode, serialCertificateValidation, allowCertificatesWithoutCrlURL, cacheValidityTime, inMemoryCacheDisabled, onDiskCacheDisabled, cacheDir, httpClient)
 }
 
 func TestCrlModes(t *testing.T) {
-	for _, checkMode := range []CertRevocationCheckMode{CERT_REVOCATION_CHECK_ENABLED, CERT_REVOCATION_CHECK_ADVISORY} {
+	for _, checkMode := range []CertRevocationCheckMode{CertRevocationCheckEnabled, CertRevocationCheckAdvisory} {
 		for _, serialCertificateValidation := range []bool{true, false} {
 			t.Run(fmt.Sprintf("checkMode=%v, serialCertificateValidation=%v", checkMode, serialCertificateValidation), func(t *testing.T) {
 				t.Run("ShortLivedCertDoesNotNeedCRL", func(t *testing.T) {
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "", notAfterType(time.Now().Add(4*24*time.Hour)))
 
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, allowCertificatesWithoutCrlUrlType(false))
+					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, allowCertificatesWithoutCrlURLType(false))
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
 				})
@@ -113,7 +113,7 @@ func TestCrlModes(t *testing.T) {
 
 					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
-					if checkMode == CERT_REVOCATION_CHECK_ENABLED {
+					if checkMode == CertRevocationCheckEnabled {
 						assertEqualE(t, err.Error(), "certificate revocation check failed")
 					} else {
 						assertNilE(t, err)
@@ -131,7 +131,7 @@ func TestCrlModes(t *testing.T) {
 
 					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
-					if checkMode == CERT_REVOCATION_CHECK_ENABLED {
+					if checkMode == CertRevocationCheckEnabled {
 						assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
 					} else {
 						assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
@@ -149,7 +149,7 @@ func TestCrlModes(t *testing.T) {
 
 					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CERT_REVOCATION_CHECK_ENABLED {
+					if checkMode == CertRevocationCheckEnabled {
 						assertStringContainsE(t, err.Error(), "certificate revocation check failed")
 					} else {
 						assertNilE(t, err)
@@ -167,7 +167,7 @@ func TestCrlModes(t *testing.T) {
 
 					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CERT_REVOCATION_CHECK_ENABLED {
+					if checkMode == CertRevocationCheckEnabled {
 						assertStringContainsE(t, err.Error(), "certificate revocation check failed")
 					} else {
 						assertNilE(t, err)
@@ -180,7 +180,7 @@ func TestCrlModes(t *testing.T) {
 
 					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CERT_REVOCATION_CHECK_ENABLED {
+					if checkMode == CertRevocationCheckEnabled {
 						assertEqualE(t, err.Error(), "certificate revocation check failed")
 					} else {
 						assertNilE(t, err)
@@ -191,7 +191,7 @@ func TestCrlModes(t *testing.T) {
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "")
 
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, allowCertificatesWithoutCrlUrlType(true))
+					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, allowCertificatesWithoutCrlURLType(true))
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
 				})
@@ -207,7 +207,7 @@ func TestCrlModes(t *testing.T) {
 						Transport: &malformedCrlRoundTripper{},
 					})
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CERT_REVOCATION_CHECK_ENABLED {
+					if checkMode == CertRevocationCheckEnabled {
 						assertEqualE(t, err.Error(), "certificate revocation check failed")
 					} else {
 						assertNilE(t, err)
@@ -223,7 +223,7 @@ func TestCrlModes(t *testing.T) {
 
 					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CERT_REVOCATION_CHECK_ENABLED {
+					if checkMode == CertRevocationCheckEnabled {
 						assertEqualE(t, err.Error(), "certificate revocation check failed")
 					} else {
 						assertNilE(t, err)
@@ -281,7 +281,7 @@ func TestCrlModes(t *testing.T) {
 
 					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
 					err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CERT_REVOCATION_CHECK_ENABLED {
+					if checkMode == CertRevocationCheckEnabled {
 						assertNotNilF(t, err)
 						assertEqualE(t, err.Error(), "certificate revocation check failed")
 					} else {
@@ -322,14 +322,14 @@ func TestCrlModes(t *testing.T) {
 							Transport: crt,
 						})
 						downloadTime := time.Now().Add(-1 * time.Minute)
-						cv.inMemoryCache[fullCrlUrl("/rootCrl")] = &crlInMemoryCacheValueType{
+						cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
 							crl:          crl,
 							downloadTime: &downloadTime,
 						}
 						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 						assertNilE(t, err)
 						assertEqualE(t, crt.totalRequests(), 0)
-						_, err = os.Open(cv.crlUrlToPath("/rootCrl"))
+						_, err = os.Open(cv.crlURLToPath("/rootCrl"))
 						assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory")
 					})
 
@@ -346,14 +346,14 @@ func TestCrlModes(t *testing.T) {
 							Transport: crt,
 						})
 
-						assertNilF(t, os.WriteFile(cv.crlUrlToPath(fullCrlUrl("/rootCrl")), crl.Raw, 0600)) // simulate a cached CRL
-						statBefore, err := os.Stat(cv.crlUrlToPath(fullCrlUrl("/rootCrl")))
+						assertNilF(t, os.WriteFile(cv.crlURLToPath(fullCrlURL("/rootCrl")), crl.Raw, 0600)) // simulate a cached CRL
+						statBefore, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilF(t, err)
 
 						err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 						assertNilE(t, err)
 						assertEqualE(t, crt.totalRequests(), 0)
-						statAfter, err := os.Stat(cv.crlUrlToPath(fullCrlUrl("/rootCrl")))
+						statAfter, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilF(t, err)
 						assertEqualE(t, statBefore.ModTime().Equal(statAfter.ModTime()), true, "CRL file should not be modified in the cache directory")
 					})
@@ -373,7 +373,7 @@ func TestCrlModes(t *testing.T) {
 						})
 
 						previousDownloadTime := time.Now().Add(-1 * time.Minute)
-						cv.inMemoryCache[fullCrlUrl("/rootCrl")] = &crlInMemoryCacheValueType{
+						cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
 							crl:          oldCrl,
 							downloadTime: &previousDownloadTime,
 						}
@@ -382,10 +382,10 @@ func TestCrlModes(t *testing.T) {
 						assertNilE(t, err)
 
 						assertEqualE(t, crt.totalRequests(), 1)
-						_, err = os.Open(cv.crlUrlToPath(fullCrlUrl("/rootCrl")))
+						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilE(t, err, "CRL file should be created in the cache directory")
-						assertTrueE(t, cv.inMemoryCache[fullCrlUrl("/rootCrl")].downloadTime.After(previousDownloadTime))
-						assertTrueE(t, cv.inMemoryCache[fullCrlUrl("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
+						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
+						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
 					})
 
 					t.Run("should redownload when evicted in cache", func(t *testing.T) {
@@ -403,7 +403,7 @@ func TestCrlModes(t *testing.T) {
 						})
 
 						previousDownloadTime := time.Now().Add(-1 * time.Hour)
-						cv.inMemoryCache[fullCrlUrl("/rootCrl")] = &crlInMemoryCacheValueType{
+						cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
 							crl:          oldCrl,
 							downloadTime: &previousDownloadTime,
 						}
@@ -412,10 +412,10 @@ func TestCrlModes(t *testing.T) {
 						assertNilE(t, err)
 
 						assertEqualE(t, crt.totalRequests(), 1)
-						_, err = os.Open(cv.crlUrlToPath(fullCrlUrl("/rootCrl")))
+						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilE(t, err, "CRL file should be created in the cache directory")
-						assertTrueE(t, cv.inMemoryCache[fullCrlUrl("/rootCrl")].downloadTime.After(previousDownloadTime))
-						assertTrueE(t, cv.inMemoryCache[fullCrlUrl("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
+						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
+						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
 					})
 
 					t.Run("should not save to on-disk cache when disabled", func(t *testing.T) {
@@ -429,9 +429,9 @@ func TestCrlModes(t *testing.T) {
 						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, onDiskCacheDisabledType(true))
 						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 						assertNilE(t, err)
-						_, err = os.Open(cv.crlUrlToPath(fullCrlUrl("/rootCrl")))
+						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory when on-disk cache is disabled")
-						assertNotNilE(t, cv.inMemoryCache[fullCrlUrl("/rootCrl")]) // in-memory cache should still be used
+						assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
 					})
 
 					t.Run("should not read from on-disk cache when disabled", func(t *testing.T) {
@@ -447,14 +447,14 @@ func TestCrlModes(t *testing.T) {
 						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, onDiskCacheDisabledType(true), &http.Client{
 							Transport: crt,
 						})
-						assertNilF(t, os.WriteFile(cv.crlUrlToPath(fullCrlUrl("/rootCrl")), oldCrl.Raw, 0600)) // simulate a cached CRL
-						statBefore, err := os.Stat(cv.crlUrlToPath(fullCrlUrl("/rootCrl")))
+						assertNilF(t, os.WriteFile(cv.crlURLToPath(fullCrlURL("/rootCrl")), oldCrl.Raw, 0600)) // simulate a cached CRL
+						statBefore, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilF(t, err)
 						err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 						assertNilE(t, err)
 						assertEqualE(t, crt.totalRequests(), 1, "CRL should be downloaded from the server")
-						assertNotNilE(t, cv.inMemoryCache[fullCrlUrl("/rootCrl")]) // in-memory cache should still be used
-						statAfter, err := os.Stat(cv.crlUrlToPath(fullCrlUrl("/rootCrl")))
+						assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
+						statAfter, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilF(t, err)
 						assertTrueE(t, statBefore.ModTime().Equal(statAfter.ModTime()), "CRL file should be modified in the cache directory")
 					})
@@ -471,7 +471,7 @@ func TestCrlModes(t *testing.T) {
 						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 						assertNilE(t, err)
 						assertNilE(t, cv.inMemoryCache, "in-memory cache should not be used when disabled")
-						_, err = os.Open(cv.crlUrlToPath(fullCrlUrl("/rootCrl")))
+						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilE(t, err) // on-disk cache should still be used
 					})
 
@@ -486,8 +486,8 @@ func TestCrlModes(t *testing.T) {
 						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, inMemoryCacheDisabledType(true), onDiskCacheDisabledType(true))
 						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 						assertNilE(t, err)
-						assertNilE(t, cv.inMemoryCache[fullCrlUrl("/rootCrl")], "in-memory cache should not be used when disabled")
-						_, err = os.Open(cv.crlUrlToPath(fullCrlUrl("/rootCrl")))
+						assertNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should not be used when disabled")
+						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory when on-disk cache is disabled")
 					})
 				})
@@ -501,7 +501,7 @@ func TestRealCrlWithIdpExtension(t *testing.T) {
 	assertNilF(t, err)
 	crl, err := x509.ParseRevocationList(crlBytes)
 	assertNilF(t, err)
-	cv := newTestCrlValidator(t, CERT_REVOCATION_CHECK_ENABLED, false)
+	cv := newTestCrlValidator(t, CertRevocationCheckEnabled, false)
 	err = cv.verifyAgainstIdpExtension(crl, "http://c.pki.goog/we2/yK5nPhtHKQs.crl")
 	assertNilE(t, err)
 	err = cv.verifyAgainstIdpExtension(crl, "http://c.pki.goog/we2/other.crl")
@@ -521,7 +521,7 @@ func TestParallelRequestToTheSameCrl(t *testing.T) {
 
 			brt := newBlockingRoundTripper(snowflakeNoOcspTransport, 100*time.Millisecond)
 			crt := newCountingRoundTripper(brt)
-			cv := newTestCrlValidator(t, CERT_REVOCATION_CHECK_ENABLED, serialCertificateValidation, &http.Client{
+			cv := newTestCrlValidator(t, CertRevocationCheckEnabled, serialCertificateValidation, &http.Client{
 				Transport: crt,
 			})
 
@@ -756,7 +756,7 @@ func createCrlServer(t *testing.T, endpointDefs ...*crlEndpointDef) *http.Server
 	return server
 }
 
-func fullCrlUrl(endpoint string) string {
+func fullCrlURL(endpoint string) string {
 	return fmt.Sprintf("http://localhost:%v%v", testCrlServerPort, endpoint)
 }
 
