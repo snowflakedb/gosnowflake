@@ -72,6 +72,9 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 
 	sc.startHeartBeat()
 	sc.internal = &httpClient{sr: sc.rest}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	return sc, nil
 }
 

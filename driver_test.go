@@ -1978,6 +1978,32 @@ func TestOpenWithConfig(t *testing.T) {
 	db.Close()
 }
 
+func TestOpenWithConfigCancel(t *testing.T) {
+	wiremock = newWiremock()
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "telemetry.json"},
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+	)
+	driver := SnowflakeDriver{}
+	config := wiremock.connectionConfig()
+	blockingRoundTripper := newBlockingRoundTripper(snowflakeNoOcspTransport, nil)
+	countingRoundTripper := newCountingRoundTripper(blockingRoundTripper)
+	config.Transporter = countingRoundTripper
+
+	paths := []string{"/session/v1/login-request", "/telemetry/send"}
+	for _, path := range paths {
+		t.Run("canceled during request:"+path, func(t *testing.T) {
+			blockingRoundTripper.reset()
+			blockingRoundTripper.setPathBlockTime(path, 50*time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+			defer cancel()
+			_, err := driver.OpenWithConfig(ctx, *config)
+			assertEqualE(t, err, context.DeadlineExceeded)
+			assertEqualE(t, countingRoundTripper.totalRequestsByPath(path), 1)
+		})
+	}
+}
+
 func TestOpenWithInvalidConfig(t *testing.T) {
 	config, err := ParseDSN("u:p@h?tmpDirPath=%2Fnon-existing")
 	if err != nil {
@@ -2126,43 +2152,4 @@ func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {
 	err = rows.Scan(&v)
 	assertNilF(t, err)
 	assertEqualE(t, v, 1)
-}
-
-type countingRoundTripper struct {
-	delegate     http.RoundTripper
-	getReqCount  map[string]int
-	postReqCount map[string]int
-}
-
-func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
-	return &countingRoundTripper{
-		delegate:     delegate,
-		getReqCount:  make(map[string]int),
-		postReqCount: make(map[string]int),
-	}
-}
-
-func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Method == http.MethodGet {
-		crt.getReqCount[req.URL.String()]++
-	} else if req.Method == http.MethodPost {
-		crt.postReqCount[req.URL.String()]++
-	}
-	return crt.delegate.RoundTrip(req)
-}
-
-func (crt *countingRoundTripper) reset() {
-	crt.getReqCount = make(map[string]int)
-	crt.postReqCount = make(map[string]int)
-}
-
-func (crt *countingRoundTripper) totalRequests() int {
-	total := 0
-	for _, reqs := range crt.getReqCount {
-		total += reqs
-	}
-	for _, reqs := range crt.postReqCount {
-		total += reqs
-	}
-	return total
 }
