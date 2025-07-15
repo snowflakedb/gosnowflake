@@ -392,8 +392,9 @@ func TestCrlModes(t *testing.T) {
 						assertNilE(t, err)
 
 						assertEqualE(t, crt.totalRequests(), 1)
-						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+						fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilE(t, err, "CRL file should be created in the cache directory")
+						defer fd.Close()
 						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
 						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
 					})
