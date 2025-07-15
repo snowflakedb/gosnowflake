@@ -324,7 +324,11 @@ func (cv *crlValidator) getFromCache(crlURL string) (*x509.RevocationList, *time
 		logger.Debugf("cannot open CRL from disk for %v (%v): %v", crlURL, crlFilePath, err)
 		return nil, nil
 	}
-	defer fileHandle.Close()
+	defer func() {
+		if err := fileHandle.Close(); err != nil {
+			logger.Warnf("failed to close CRL file handle for %v (%v): %v", crlURL, crlFilePath, err)
+		}
+	}()
 	stat, err := fileHandle.Stat()
 	if err != nil {
 		logger.Debugf("cannot stat CRL file for %v (%v): %v", crlURL, crlFilePath, err)
