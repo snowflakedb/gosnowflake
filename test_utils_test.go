@@ -1,0 +1,93 @@
+package gosnowflake
+
+import (
+	"net/http"
+	"strings"
+	"time"
+)
+
+type countingRoundTripper struct {
+	delegate     http.RoundTripper
+	getReqCount  map[string]int
+	postReqCount map[string]int
+}
+
+func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
+	return &countingRoundTripper{
+		delegate:     delegate,
+		getReqCount:  make(map[string]int),
+		postReqCount: make(map[string]int),
+	}
+}
+
+func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Method == http.MethodGet {
+		crt.getReqCount[req.URL.String()]++
+	} else if req.Method == http.MethodPost {
+		crt.postReqCount[req.URL.String()]++
+	}
+
+	return crt.delegate.RoundTrip(req)
+}
+
+func (crt *countingRoundTripper) reset() {
+	crt.getReqCount = make(map[string]int)
+	crt.postReqCount = make(map[string]int)
+}
+
+func (crt *countingRoundTripper) totalRequestsByPath(urlPath string) int {
+	total := 0
+	for url, reqs := range crt.getReqCount {
+		if strings.Contains(url, urlPath) {
+			total += reqs
+		}
+	}
+	for url, reqs := range crt.postReqCount {
+		if strings.Contains(url, urlPath) {
+			total += reqs
+		}
+	}
+	return total
+}
+
+func (crt *countingRoundTripper) totalRequests() int {
+	total := 0
+	for _, reqs := range crt.getReqCount {
+		total += reqs
+	}
+	for _, reqs := range crt.postReqCount {
+		total += reqs
+	}
+	return total
+}
+
+type blockingRoundTripper struct {
+	delegate      http.RoundTripper
+	blockTime     *time.Duration
+	pathBlockTime map[string]time.Duration
+}
+
+func newBlockingRoundTripper(delegate http.RoundTripper, blockTime *time.Duration) *blockingRoundTripper {
+	return &blockingRoundTripper{
+		delegate:      delegate,
+		blockTime:     blockTime,
+		pathBlockTime: make(map[string]time.Duration),
+	}
+}
+
+func (brt *blockingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if blockTime, exists := brt.pathBlockTime[req.URL.Path]; exists {
+		time.Sleep(blockTime)
+	} else if brt.blockTime != nil {
+		time.Sleep(*brt.blockTime)
+	}
+	return brt.delegate.RoundTrip(req)
+}
+
+func (brt *blockingRoundTripper) setPathBlockTime(path string, blockTime time.Duration) {
+	brt.pathBlockTime[path] = blockTime
+}
+
+func (brt *blockingRoundTripper) reset() {
+	brt.pathBlockTime = make(map[string]time.Duration)
+}
