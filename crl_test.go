@@ -422,8 +422,9 @@ func TestCrlModes(t *testing.T) {
 						assertNilE(t, err)
 
 						assertEqualE(t, crt.totalRequests(), 1)
-						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+						fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilE(t, err, "CRL file should be created in the cache directory")
+						defer fd.Close()
 						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
 						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
 					})
@@ -481,8 +482,9 @@ func TestCrlModes(t *testing.T) {
 						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 						assertNilE(t, err)
 						assertNilE(t, cv.inMemoryCache, "in-memory cache should not be used when disabled")
-						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+						fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 						assertNilE(t, err) // on-disk cache should still be used
+						defer fd.Close()
 					})
 
 					t.Run("should not use in-memory cache when disabled", func(t *testing.T) {
