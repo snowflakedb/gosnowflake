@@ -638,11 +638,13 @@ type streamChunkFetcher interface {
 }
 
 type httpStreamChunkFetcher struct {
-	ctx      context.Context
-	client   *http.Client
-	clientIP net.IP
-	headers  map[string]string
-	qrmk     string
+	ctx           context.Context
+	client        *http.Client
+	clientIP      net.IP
+	headers       map[string]string
+	maxRetryCount int
+	qrmk          string
+	timeout       time.Duration
 }
 
 func newStreamChunkDownloader(
@@ -677,7 +679,7 @@ func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error 
 	if err != nil {
 		return fmt.Errorf("parsing URL: %w", err)
 	}
-	res, err := newRetryHTTP(context.Background(), f.client, http.NewRequest, fullURL, f.headers, 0, 0, defaultTimeProvider, nil).execute()
+	res, err := newRetryHTTP(f.ctx, f.client, http.NewRequest, fullURL, f.headers, f.timeout, f.maxRetryCount, defaultTimeProvider, nil).execute()
 	if err != nil {
 		return fmt.Errorf("executing HTTP request: %w", err)
 	}
