@@ -114,20 +114,17 @@ func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains
 	}
 	crlValidationResults := cv.validateChains(verifiedChains)
 
+	allRevoked := true
 	for _, result := range crlValidationResults {
 		if result == crlUnrevoked {
 			logger.Debug("found certificate chain with no revoked certificates")
 			return nil
 		}
-	}
-
-	allRevoked := true
-	for _, result := range crlValidationResults {
 		if result != crlRevoked {
 			allRevoked = false
-			break
 		}
 	}
+
 	if allRevoked {
 		return fmt.Errorf("every verified certificate chain contained revoked certificates")
 	}
@@ -350,7 +347,9 @@ func (cv *crlValidator) getFromCache(crlURL string) (*x509.RevocationList, *time
 		// promote CRL to in-memory cache
 		cv.inMemoryCacheMutex.Lock()
 		cv.inMemoryCache[crlURL] = &crlInMemoryCacheValueType{
-			crl:          crl,
+			crl: crl,
+			// modTime is not the exact time the CRL was downloaded, but rather the last modification time of the file
+			// still, it is good enough for our purposes
 			downloadTime: &modTime,
 		}
 		cv.inMemoryCacheMutex.Unlock()
@@ -429,6 +428,17 @@ func (cv *crlValidator) verifyAgainstIdpExtension(crl *x509.RevocationList, dist
 		}
 	}
 	return nil
+}
+
+func (cv *crlValidator) getOrCreateMutex(crlURL string) *sync.Mutex {
+	cv.inMemoryCacheMutex.Lock()
+	mu, ok := cv.crlURLMutexes[crlURL]
+	if !ok {
+		mu = &sync.Mutex{}
+		cv.crlURLMutexes[crlURL] = mu
+	}
+	cv.inMemoryCacheMutex.Unlock()
+	return mu
 }
 
 func isShortLivedCertificate(cert *x509.Certificate) bool {

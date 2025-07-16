@@ -305,7 +305,7 @@ func TestCrlModes(t *testing.T) {
 					_, validLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
 
 					// CRL revokes only the first leaf
-					crl := createCrl(t, caCert, caKey, revokedLeaf)
+					crl := createCrl(t, caCert, caKey, revokedCert(revokedLeaf))
 					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
 					defer closeServer(t, server)
 
@@ -316,6 +316,30 @@ func TestCrlModes(t *testing.T) {
 						{validLeaf, caCert},
 					})
 					assertNilE(t, err)
+				})
+
+				t.Run("OneChainIsRevokedAndOtherIsError", func(t *testing.T) {
+					caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+					_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
+					_, errorLeaf := createLeafCert(t, caCert, caKey, "/missingCrl")
+
+					// CRL revokes only the first leaf
+					crl := createCrl(t, caCert, caKey, revokedCert(revokedLeaf))
+					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+					defer closeServer(t, server)
+
+					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
+					// First chain: revoked, second chain: valid
+					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{
+						{revokedLeaf, caCert},
+						{errorLeaf, caCert},
+					})
+					if checkMode == CertRevocationCheckEnabled {
+						assertNotNilF(t, err)
+						assertEqualE(t, err.Error(), "certificate revocation check failed")
+					} else {
+						assertNilE(t, err)
+					}
 				})
 
 				t.Run("CacheTests", func(t *testing.T) {
@@ -721,6 +745,8 @@ func createCrl(t *testing.T, issuerCert *x509.Certificate, issuerPrivateKey *rsa
 			thisUpdate = time.Time(v)
 		case nextUpdateType:
 			nextUpdate = time.Time(v)
+		default:
+			t.Fatalf("unexpected argument type: %T", arg)
 		}
 	}
 	crlTemplate := &x509.RevocationList{
