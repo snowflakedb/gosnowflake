@@ -295,11 +295,13 @@ func populateChunkDownloader(
 	if useStreamDownloader(ctx) && resultFormat(data.QueryResultFormat) == jsonFormat {
 		// stream chunk downloading only works for row based data formats, i.e. json
 		fetcher := &httpStreamChunkFetcher{
-			ctx:      ctx,
-			client:   sc.rest.Client,
-			clientIP: sc.cfg.ClientIP,
-			headers:  data.ChunkHeaders,
-			qrmk:     data.Qrmk,
+			ctx:           ctx,
+			client:        sc.rest.Client,
+			clientIP:      sc.cfg.ClientIP,
+			headers:       data.ChunkHeaders,
+			maxRetryCount: sc.rest.MaxRetryCount,
+			qrmk:          data.Qrmk,
+			timeout:       sc.rest.RequestTimeout,
 		}
 		return newStreamChunkDownloader(ctx, fetcher, data.Total, data.RowType,
 			data.RowSet, data.Chunks)
