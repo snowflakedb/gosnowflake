@@ -228,13 +228,7 @@ func (cv *crlValidator) validateCertificateInParallel(cert *x509.Certificate, pa
 func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlURL string, parent *x509.Certificate) certValidationResult {
 	now := time.Now()
 
-	cv.inMemoryCacheMutex.Lock()
-	mu, ok := cv.crlURLMutexes[crlURL]
-	if !ok {
-		mu = &sync.Mutex{}
-		cv.crlURLMutexes[crlURL] = mu
-	}
-	cv.inMemoryCacheMutex.Unlock()
+	mu := cv.getOrCreateMutex(crlURL)
 	mu.Lock()
 	defer mu.Unlock()
 
