@@ -36,7 +36,7 @@ type revokedCert *x509.Certificate
 type thisUpdateType time.Time
 type nextUpdateType time.Time
 
-func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, serialCertificateValidation bool, args ...any) *crlValidator {
+func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, args ...any) *crlValidator {
 	httpClient := &http.Client{}
 	cacheValidityTime := 5 * time.Minute
 	allowCertificatesWithoutCrlURL := false
@@ -59,14 +59,14 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, serial
 		}
 	}
 	cacheDir := t.TempDir()
-	return newCrlValidator(checkMode, serialCertificateValidation, allowCertificatesWithoutCrlURL, cacheValidityTime, inMemoryCacheDisabled, onDiskCacheDisabled, cacheDir, httpClient)
+	return newCrlValidator(checkMode, allowCertificatesWithoutCrlURL, cacheValidityTime, inMemoryCacheDisabled, onDiskCacheDisabled, cacheDir, httpClient)
 }
 
 func TestCrlCheckModeDisabled_NoHttpCall(t *testing.T) {
 	caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
 	_, leafCert := createLeafCert(t, caCert, caKey, "/rootCrl")
 	crt := &countingRoundTripper{}
-	cv := newTestCrlValidator(t, CertRevocationCheckDisabled, false, &http.Client{Transport: crt})
+	cv := newTestCrlValidator(t, CertRevocationCheckDisabled, &http.Client{Transport: crt})
 	err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 	assertNilE(t, err)
 	assertEqualE(t, crt.totalRequests(), 0, "no HTTP request should be made when check mode is disabled")
@@ -74,18 +74,386 @@ func TestCrlCheckModeDisabled_NoHttpCall(t *testing.T) {
 
 func TestCrlModes(t *testing.T) {
 	for _, checkMode := range []CertRevocationCheckMode{CertRevocationCheckEnabled, CertRevocationCheckAdvisory} {
-		for _, serialCertificateValidation := range []bool{true, false} {
-			t.Run(fmt.Sprintf("checkMode=%v, serialCertificateValidation=%v", checkMode, serialCertificateValidation), func(t *testing.T) {
-				t.Run("ShortLivedCertDoesNotNeedCRL", func(t *testing.T) {
-					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "", notAfterType(time.Now().Add(4*24*time.Hour)))
+		t.Run(fmt.Sprintf("checkMode=%v", checkMode), func(t *testing.T) {
+			t.Run("ShortLivedCertDoesNotNeedCRL", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "", notAfterType(time.Now().Add(4*24*time.Hour)))
 
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, allowCertificatesWithoutCrlURLType(false))
+				cv := newTestCrlValidator(t, checkMode, allowCertificatesWithoutCrlURLType(false))
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNilE(t, err)
+			})
+
+			t.Run("LeafCertNotRevoked", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+				crl := createCrl(t, caCert, caPrivateKey)
+
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNilE(t, err)
+			})
+
+			t.Run("LeafCertRevoked", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+				crl := createCrl(t, caCert, caPrivateKey, revokedCert(leafCert))
+
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNotNilF(t, err)
+				assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
+			})
+
+			t.Run("TestLeafNotRevokedAndRootDoesNotProvideCrl", func(t *testing.T) {
+				rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
+				intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "")
+				_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "/intermediateCrl")
+				intermediateCrl := createCrl(t, intermediateCaCert, intermediateCaKey)
+
+				server := createCrlServer(t, newCrlEndpointDef("/intermediateCrl", intermediateCrl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertEqualE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("IntermediateRevokedAndIntermediateDoesNotProvideCrl", func(t *testing.T) {
+				rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
+				intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "/rootCrl")
+				_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "")
+				rootCrl := createCrl(t, rootCaCert, rootCaPrivateKey, revokedCert(intermediateCaCert))
+
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", rootCrl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
+				} else {
+					assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
+				}
+			})
+
+			t.Run("CrlSignatureInvalid", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				otherCaPrivateKey, _ := createCa(t, nil, nil, "other CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+				crl := createCrl(t, caCert, otherCaPrivateKey) // signed with wrong key
+
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertStringContainsE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("CrlIssuerMismatch", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				otherKey, otherCert := createCa(t, nil, nil, "other CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+				crl := createCrl(t, otherCert, otherKey) // issued by other CA
+
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertStringContainsE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("CertWithNoCrlDistributionPoints", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "")
+
+				cv := newTestCrlValidator(t, checkMode)
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertEqualE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("CertWithNoCrlDistributionPointsAllowed", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "")
+
+				cv := newTestCrlValidator(t, checkMode, allowCertificatesWithoutCrlURLType(true))
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNilE(t, err)
+			})
+
+			t.Run("DownloadCrlFailsOnUnparsableCrl", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+
+				server := createCrlServer(t)
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode, &http.Client{
+					Transport: &malformedCrlRoundTripper{},
+				})
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertEqualE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("DownloadCrlFailsOn404", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+
+				server := createCrlServer(t)
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertEqualE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("VerifyAgainstIdpExtensionWithDistributionPointMatch", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+
+				idpValue, err := asn1.Marshal(issuingDistributionPoint{
+					DistributionPoint: distributionPointName{
+						FullName: []asn1.RawValue{
+							{Bytes: []byte(fmt.Sprintf("http://localhost:%v/rootCrl", testCrlServerPort))},
+						},
+					},
+				})
+				assertNilF(t, err)
+				idpExtension := &pkix.Extension{
+					Id:    idpOID,
+					Value: idpValue,
+				}
+
+				crl := createCrl(t, caCert, caPrivateKey, idpExtension)
+
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNilE(t, err)
+			})
+
+			t.Run("TestVerifyAgainstIdpExtensionWithDistributionPointMismatch", func(t *testing.T) {
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+
+				idpValue, err := asn1.Marshal(issuingDistributionPoint{
+					DistributionPoint: distributionPointName{
+						FullName: []asn1.RawValue{
+							{Bytes: []byte(fmt.Sprintf("http://localhost:%v/otherCrl", testCrlServerPort))},
+						},
+					},
+				})
+				assertNilF(t, err)
+				idpExtension := &pkix.Extension{
+					Id:    idpOID,
+					Value: idpValue,
+				}
+
+				crl := createCrl(t, caCert, caPrivateKey, idpExtension)
+
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertNotNilF(t, err)
+					assertEqualE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("AnyValidChainCausesSuccess", func(t *testing.T) {
+				caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
+				_, validLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
+
+				// CRL revokes only the first leaf
+				crl := createCrl(t, caCert, caKey, revokedCert(revokedLeaf))
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				// First chain: revoked, second chain: valid
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{
+					{revokedLeaf, caCert},
+					{validLeaf, caCert},
+				})
+				assertNilE(t, err)
+			})
+
+			t.Run("OneChainIsRevokedAndOtherIsError", func(t *testing.T) {
+				caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+				_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
+				_, errorLeaf := createLeafCert(t, caCert, caKey, "/missingCrl")
+
+				// CRL revokes only the first leaf
+				crl := createCrl(t, caCert, caKey, revokedCert(revokedLeaf))
+				server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+				defer closeServer(t, server)
+
+				cv := newTestCrlValidator(t, checkMode)
+				// First chain: revoked, second chain: valid
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{
+					{revokedLeaf, caCert},
+					{errorLeaf, caCert},
+				})
+				if checkMode == CertRevocationCheckEnabled {
+					assertNotNilF(t, err)
+					assertEqualE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("CacheTests", func(t *testing.T) {
+				t.Run("should use in-memory cache", func(t *testing.T) {
+					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+					crl := createCrl(t, caCert, caPrivateKey)
+
+					server := createCrlServer(t)
+					defer closeServer(t, server)
+
+					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(10*time.Minute), &http.Client{
+						Transport: crt,
+					})
+					downloadTime := time.Now().Add(-1 * time.Minute)
+					cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
+						crl:          crl,
+						downloadTime: &downloadTime,
+					}
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
+					assertEqualE(t, crt.totalRequests(), 0)
+					_, err = os.Open(cv.crlURLToPath("/rootCrl"))
+					assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory")
 				})
 
-				t.Run("LeafCertNotRevoked", func(t *testing.T) {
+				t.Run("should promote on-disk cache to memory and not modify on-disk entry", func(t *testing.T) {
+					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+					crl := createCrl(t, caCert, caPrivateKey)
+
+					server := createCrlServer(t)
+					defer closeServer(t, server)
+
+					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(10*time.Minute), &http.Client{
+						Transport: crt,
+					})
+
+					assertNilF(t, os.WriteFile(cv.crlURLToPath(fullCrlURL("/rootCrl")), crl.Raw, 0600)) // simulate a cached CRL
+					statBefore, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertNilF(t, err)
+
+					err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+					assertNilE(t, err)
+					assertEqualE(t, crt.totalRequests(), 0)
+					statAfter, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertNilF(t, err)
+					assertEqualE(t, statBefore.ModTime().Equal(statAfter.ModTime()), true, "CRL file should not be modified in the cache directory")
+				})
+
+				t.Run("should redownload when nextUpdate is reached", func(t *testing.T) {
+					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+					oldCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now().Add(-2*time.Minute)), nextUpdateType(time.Now().Add(-1*time.Minute)))
+					newCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now()), nextUpdateType(time.Now().Add(time.Hour)))
+
+					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", newCrl))
+					defer closeServer(t, server)
+
+					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(10*time.Minute), &http.Client{
+						Transport: crt,
+					})
+
+					previousDownloadTime := time.Now().Add(-1 * time.Minute)
+					cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
+						crl:          oldCrl,
+						downloadTime: &previousDownloadTime,
+					}
+
+					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+					assertNilE(t, err)
+
+					assertEqualE(t, crt.totalRequests(), 1)
+					fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertNilE(t, err, "CRL file should be created in the cache directory")
+					defer fd.Close()
+					assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
+					assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
+				})
+
+				t.Run("should redownload when evicted in cache", func(t *testing.T) {
+					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+					oldCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now().Add(-2*time.Hour)), nextUpdateType(time.Now().Add(time.Hour)))
+					newCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now()), nextUpdateType(time.Now().Add(4*time.Hour)))
+
+					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", newCrl))
+					defer closeServer(t, server)
+
+					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(10*time.Minute), &http.Client{
+						Transport: crt,
+					})
+
+					previousDownloadTime := time.Now().Add(-1 * time.Hour)
+					cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
+						crl:          oldCrl,
+						downloadTime: &previousDownloadTime,
+					}
+
+					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+					assertNilE(t, err)
+
+					assertEqualE(t, crt.totalRequests(), 1)
+					fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertNilE(t, err, "CRL file should be created in the cache directory")
+					defer fd.Close()
+					assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
+					assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
+				})
+
+				t.Run("should not save to on-disk cache when disabled", func(t *testing.T) {
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 					crl := createCrl(t, caCert, caPrivateKey)
@@ -93,443 +461,73 @@ func TestCrlModes(t *testing.T) {
 					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
 					defer closeServer(t, server)
 
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
+					cv := newTestCrlValidator(t, checkMode, onDiskCacheDisabledType(true))
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
+					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory when on-disk cache is disabled")
+					assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
 				})
 
-				t.Run("LeafCertRevoked", func(t *testing.T) {
+				t.Run("should not read from on-disk cache when disabled", func(t *testing.T) {
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-					crl := createCrl(t, caCert, caPrivateKey, revokedCert(leafCert))
+					oldCrl := createCrl(t, caCert, caPrivateKey, nextUpdateType(time.Now()))
+					newCrl := createCrl(t, caCert, caPrivateKey)
 
-					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", newCrl))
 					defer closeServer(t, server)
 
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					assertNotNilF(t, err)
-					assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
-				})
-
-				t.Run("TestLeafNotRevokedAndRootDoesNotProvideCrl", func(t *testing.T) {
-					rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
-					intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "")
-					_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "/intermediateCrl")
-					intermediateCrl := createCrl(t, intermediateCaCert, intermediateCaKey)
-
-					server := createCrlServer(t, newCrlEndpointDef("/intermediateCrl", intermediateCrl))
-					defer closeServer(t, server)
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
-					if checkMode == CertRevocationCheckEnabled {
-						assertEqualE(t, err.Error(), "certificate revocation check failed")
-					} else {
-						assertNilE(t, err)
-					}
-				})
-
-				t.Run("IntermediateRevokedAndIntermediateDoesNotProvideCrl", func(t *testing.T) {
-					rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
-					intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "/rootCrl")
-					_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "")
-					rootCrl := createCrl(t, rootCaCert, rootCaPrivateKey, revokedCert(intermediateCaCert))
-
-					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", rootCrl))
-					defer closeServer(t, server)
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
-					if checkMode == CertRevocationCheckEnabled {
-						assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
-					} else {
-						assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
-					}
-				})
-
-				t.Run("CrlSignatureInvalid", func(t *testing.T) {
-					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-					otherCaPrivateKey, _ := createCa(t, nil, nil, "other CA", "")
-					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-					crl := createCrl(t, caCert, otherCaPrivateKey) // signed with wrong key
-
-					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-					defer closeServer(t, server)
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CertRevocationCheckEnabled {
-						assertStringContainsE(t, err.Error(), "certificate revocation check failed")
-					} else {
-						assertNilE(t, err)
-					}
-				})
-
-				t.Run("CrlIssuerMismatch", func(t *testing.T) {
-					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-					otherKey, otherCert := createCa(t, nil, nil, "other CA", "")
-					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-					crl := createCrl(t, otherCert, otherKey) // issued by other CA
-
-					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-					defer closeServer(t, server)
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CertRevocationCheckEnabled {
-						assertStringContainsE(t, err.Error(), "certificate revocation check failed")
-					} else {
-						assertNilE(t, err)
-					}
-				})
-
-				t.Run("CertWithNoCrlDistributionPoints", func(t *testing.T) {
-					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "")
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CertRevocationCheckEnabled {
-						assertEqualE(t, err.Error(), "certificate revocation check failed")
-					} else {
-						assertNilE(t, err)
-					}
-				})
-
-				t.Run("CertWithNoCrlDistributionPointsAllowed", func(t *testing.T) {
-					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "")
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, allowCertificatesWithoutCrlURLType(true))
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					assertNilE(t, err)
-				})
-
-				t.Run("DownloadCrlFailsOnUnparsableCrl", func(t *testing.T) {
-					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-
-					server := createCrlServer(t)
-					defer closeServer(t, server)
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, &http.Client{
-						Transport: &malformedCrlRoundTripper{},
+					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					cv := newTestCrlValidator(t, checkMode, onDiskCacheDisabledType(true), &http.Client{
+						Transport: crt,
 					})
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CertRevocationCheckEnabled {
-						assertEqualE(t, err.Error(), "certificate revocation check failed")
-					} else {
-						assertNilE(t, err)
-					}
-				})
-
-				t.Run("DownloadCrlFailsOn404", func(t *testing.T) {
-					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-
-					server := createCrlServer(t)
-					defer closeServer(t, server)
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CertRevocationCheckEnabled {
-						assertEqualE(t, err.Error(), "certificate revocation check failed")
-					} else {
-						assertNilE(t, err)
-					}
-				})
-
-				t.Run("VerifyAgainstIdpExtensionWithDistributionPointMatch", func(t *testing.T) {
-					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-
-					idpValue, err := asn1.Marshal(issuingDistributionPoint{
-						DistributionPoint: distributionPointName{
-							FullName: []asn1.RawValue{
-								{Bytes: []byte(fmt.Sprintf("http://localhost:%v/rootCrl", testCrlServerPort))},
-							},
-						},
-					})
+					assertNilF(t, os.WriteFile(cv.crlURLToPath(fullCrlURL("/rootCrl")), oldCrl.Raw, 0600)) // simulate a cached CRL
+					statBefore, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertNilF(t, err)
-					idpExtension := &pkix.Extension{
-						Id:    idpOID,
-						Value: idpValue,
-					}
-
-					crl := createCrl(t, caCert, caPrivateKey, idpExtension)
-
-					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-					defer closeServer(t, server)
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
 					err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
-				})
-
-				t.Run("TestVerifyAgainstIdpExtensionWithDistributionPointMismatch", func(t *testing.T) {
-					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-
-					idpValue, err := asn1.Marshal(issuingDistributionPoint{
-						DistributionPoint: distributionPointName{
-							FullName: []asn1.RawValue{
-								{Bytes: []byte(fmt.Sprintf("http://localhost:%v/otherCrl", testCrlServerPort))},
-							},
-						},
-					})
+					assertEqualE(t, crt.totalRequests(), 1, "CRL should be downloaded from the server")
+					assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
+					statAfter, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertNilF(t, err)
-					idpExtension := &pkix.Extension{
-						Id:    idpOID,
-						Value: idpValue,
-					}
-
-					crl := createCrl(t, caCert, caPrivateKey, idpExtension)
-
-					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-					defer closeServer(t, server)
-
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					if checkMode == CertRevocationCheckEnabled {
-						assertNotNilF(t, err)
-						assertEqualE(t, err.Error(), "certificate revocation check failed")
-					} else {
-						assertNilE(t, err)
-					}
+					assertTrueE(t, statBefore.ModTime().Equal(statAfter.ModTime()), "CRL file should be modified in the cache directory")
 				})
 
-				t.Run("AnyValidChainCausesSuccess", func(t *testing.T) {
-					caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-					_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
-					_, validLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
+				t.Run("should not use in-memory cache when disabled", func(t *testing.T) {
+					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+					crl := createCrl(t, caCert, caPrivateKey)
 
-					// CRL revokes only the first leaf
-					crl := createCrl(t, caCert, caKey, revokedCert(revokedLeaf))
 					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
 					defer closeServer(t, server)
 
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					// First chain: revoked, second chain: valid
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{
-						{revokedLeaf, caCert},
-						{validLeaf, caCert},
-					})
+					cv := newTestCrlValidator(t, checkMode, inMemoryCacheDisabledType(true))
+					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
+					assertNilE(t, cv.inMemoryCache, "in-memory cache should not be used when disabled")
+					fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertNilE(t, err) // on-disk cache should still be used
+					defer fd.Close()
 				})
 
-				t.Run("OneChainIsRevokedAndOtherIsError", func(t *testing.T) {
-					caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-					_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
-					_, errorLeaf := createLeafCert(t, caCert, caKey, "/missingCrl")
+				t.Run("should not use in-memory cache when disabled", func(t *testing.T) {
+					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+					crl := createCrl(t, caCert, caPrivateKey)
 
-					// CRL revokes only the first leaf
-					crl := createCrl(t, caCert, caKey, revokedCert(revokedLeaf))
 					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
 					defer closeServer(t, server)
 
-					cv := newTestCrlValidator(t, checkMode, serialCertificateValidation)
-					// First chain: revoked, second chain: valid
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{
-						{revokedLeaf, caCert},
-						{errorLeaf, caCert},
-					})
-					if checkMode == CertRevocationCheckEnabled {
-						assertNotNilF(t, err)
-						assertEqualE(t, err.Error(), "certificate revocation check failed")
-					} else {
-						assertNilE(t, err)
-					}
-				})
-
-				t.Run("CacheTests", func(t *testing.T) {
-					t.Run("should use in-memory cache", func(t *testing.T) {
-						caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-						_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-						crl := createCrl(t, caCert, caPrivateKey)
-
-						server := createCrlServer(t)
-						defer closeServer(t, server)
-
-						crt := newCountingRoundTripper(snowflakeNoOcspTransport)
-						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, cacheValidityTimeType(10*time.Minute), &http.Client{
-							Transport: crt,
-						})
-						downloadTime := time.Now().Add(-1 * time.Minute)
-						cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
-							crl:          crl,
-							downloadTime: &downloadTime,
-						}
-						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-						assertNilE(t, err)
-						assertEqualE(t, crt.totalRequests(), 0)
-						_, err = os.Open(cv.crlURLToPath("/rootCrl"))
-						assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory")
-					})
-
-					t.Run("should promote on-disk cache to memory and not modify on-disk entry", func(t *testing.T) {
-						caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-						_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-						crl := createCrl(t, caCert, caPrivateKey)
-
-						server := createCrlServer(t)
-						defer closeServer(t, server)
-
-						crt := newCountingRoundTripper(snowflakeNoOcspTransport)
-						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, cacheValidityTimeType(10*time.Minute), &http.Client{
-							Transport: crt,
-						})
-
-						assertNilF(t, os.WriteFile(cv.crlURLToPath(fullCrlURL("/rootCrl")), crl.Raw, 0600)) // simulate a cached CRL
-						statBefore, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-						assertNilF(t, err)
-
-						err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-						assertNilE(t, err)
-						assertEqualE(t, crt.totalRequests(), 0)
-						statAfter, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-						assertNilF(t, err)
-						assertEqualE(t, statBefore.ModTime().Equal(statAfter.ModTime()), true, "CRL file should not be modified in the cache directory")
-					})
-
-					t.Run("should redownload when nextUpdate is reached", func(t *testing.T) {
-						caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-						_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-						oldCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now().Add(-2*time.Minute)), nextUpdateType(time.Now().Add(-1*time.Minute)))
-						newCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now()), nextUpdateType(time.Now().Add(time.Hour)))
-
-						server := createCrlServer(t, newCrlEndpointDef("/rootCrl", newCrl))
-						defer closeServer(t, server)
-
-						crt := newCountingRoundTripper(snowflakeNoOcspTransport)
-						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, cacheValidityTimeType(10*time.Minute), &http.Client{
-							Transport: crt,
-						})
-
-						previousDownloadTime := time.Now().Add(-1 * time.Minute)
-						cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
-							crl:          oldCrl,
-							downloadTime: &previousDownloadTime,
-						}
-
-						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-						assertNilE(t, err)
-
-						assertEqualE(t, crt.totalRequests(), 1)
-						fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-						assertNilE(t, err, "CRL file should be created in the cache directory")
-						defer fd.Close()
-						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
-						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
-					})
-
-					t.Run("should redownload when evicted in cache", func(t *testing.T) {
-						caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-						_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-						oldCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now().Add(-2*time.Hour)), nextUpdateType(time.Now().Add(time.Hour)))
-						newCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now()), nextUpdateType(time.Now().Add(4*time.Hour)))
-
-						server := createCrlServer(t, newCrlEndpointDef("/rootCrl", newCrl))
-						defer closeServer(t, server)
-
-						crt := newCountingRoundTripper(snowflakeNoOcspTransport)
-						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, cacheValidityTimeType(10*time.Minute), &http.Client{
-							Transport: crt,
-						})
-
-						previousDownloadTime := time.Now().Add(-1 * time.Hour)
-						cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
-							crl:          oldCrl,
-							downloadTime: &previousDownloadTime,
-						}
-
-						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-						assertNilE(t, err)
-
-						assertEqualE(t, crt.totalRequests(), 1)
-						fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-						assertNilE(t, err, "CRL file should be created in the cache directory")
-						defer fd.Close()
-						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
-						assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
-					})
-
-					t.Run("should not save to on-disk cache when disabled", func(t *testing.T) {
-						caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-						_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-						crl := createCrl(t, caCert, caPrivateKey)
-
-						server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-						defer closeServer(t, server)
-
-						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, onDiskCacheDisabledType(true))
-						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-						assertNilE(t, err)
-						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-						assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory when on-disk cache is disabled")
-						assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
-					})
-
-					t.Run("should not read from on-disk cache when disabled", func(t *testing.T) {
-						caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-						_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-						oldCrl := createCrl(t, caCert, caPrivateKey, nextUpdateType(time.Now()))
-						newCrl := createCrl(t, caCert, caPrivateKey)
-
-						server := createCrlServer(t, newCrlEndpointDef("/rootCrl", newCrl))
-						defer closeServer(t, server)
-
-						crt := newCountingRoundTripper(snowflakeNoOcspTransport)
-						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, onDiskCacheDisabledType(true), &http.Client{
-							Transport: crt,
-						})
-						assertNilF(t, os.WriteFile(cv.crlURLToPath(fullCrlURL("/rootCrl")), oldCrl.Raw, 0600)) // simulate a cached CRL
-						statBefore, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-						assertNilF(t, err)
-						err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-						assertNilE(t, err)
-						assertEqualE(t, crt.totalRequests(), 1, "CRL should be downloaded from the server")
-						assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
-						statAfter, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-						assertNilF(t, err)
-						assertTrueE(t, statBefore.ModTime().Equal(statAfter.ModTime()), "CRL file should be modified in the cache directory")
-					})
-
-					t.Run("should not use in-memory cache when disabled", func(t *testing.T) {
-						caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-						_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-						crl := createCrl(t, caCert, caPrivateKey)
-
-						server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-						defer closeServer(t, server)
-
-						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, inMemoryCacheDisabledType(true))
-						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-						assertNilE(t, err)
-						assertNilE(t, cv.inMemoryCache, "in-memory cache should not be used when disabled")
-						fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-						assertNilE(t, err) // on-disk cache should still be used
-						defer fd.Close()
-					})
-
-					t.Run("should not use in-memory cache when disabled", func(t *testing.T) {
-						caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
-						_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-						crl := createCrl(t, caCert, caPrivateKey)
-
-						server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-						defer closeServer(t, server)
-
-						cv := newTestCrlValidator(t, checkMode, serialCertificateValidation, inMemoryCacheDisabledType(true), onDiskCacheDisabledType(true))
-						err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-						assertNilE(t, err)
-						assertNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should not be used when disabled")
-						_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-						assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory when on-disk cache is disabled")
-					})
+					cv := newTestCrlValidator(t, checkMode, inMemoryCacheDisabledType(true), onDiskCacheDisabledType(true))
+					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+					assertNilE(t, err)
+					assertNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should not be used when disabled")
+					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory when on-disk cache is disabled")
 				})
 			})
-		}
+		})
 	}
 }
 
@@ -538,7 +536,7 @@ func TestRealCrlWithIdpExtension(t *testing.T) {
 	assertNilF(t, err)
 	crl, err := x509.ParseRevocationList(crlBytes)
 	assertNilF(t, err)
-	cv := newTestCrlValidator(t, CertRevocationCheckEnabled, false)
+	cv := newTestCrlValidator(t, CertRevocationCheckEnabled)
 	err = cv.verifyAgainstIdpExtension(crl, "http://c.pki.goog/we2/yK5nPhtHKQs.crl")
 	assertNilE(t, err)
 	err = cv.verifyAgainstIdpExtension(crl, "http://c.pki.goog/we2/other.crl")
@@ -547,35 +545,31 @@ func TestRealCrlWithIdpExtension(t *testing.T) {
 }
 
 func TestParallelRequestToTheSameCrl(t *testing.T) {
-	for _, serialCertificateValidation := range []bool{true, false} {
-		t.Run(fmt.Sprintf("serialCertificateValidation=%v", serialCertificateValidation), func(t *testing.T) {
-			caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
-			_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-			crl := createCrl(t, caCert, caPrivateKey)
+	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
+	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+	crl := createCrl(t, caCert, caPrivateKey)
 
-			server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
-			defer closeServer(t, server)
+	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+	defer closeServer(t, server)
 
-			brt := newBlockingRoundTripper(snowflakeNoOcspTransport, 100*time.Millisecond)
-			crt := newCountingRoundTripper(brt)
-			cv := newTestCrlValidator(t, CertRevocationCheckEnabled, serialCertificateValidation, &http.Client{
-				Transport: crt,
-			})
+	brt := newBlockingRoundTripper(snowflakeNoOcspTransport, 100*time.Millisecond)
+	crt := newCountingRoundTripper(brt)
+	cv := newTestCrlValidator(t, CertRevocationCheckEnabled, &http.Client{
+		Transport: crt,
+	})
 
-			var wg sync.WaitGroup
-			for i := 0; i < 10; i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-					assertNilE(t, err)
-				}()
-			}
-			wg.Wait()
-
-			assertEqualE(t, crt.totalRequests(), 1)
-		})
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+			assertNilE(t, err)
+		}()
 	}
+	wg.Wait()
+
+	assertEqualE(t, crt.totalRequests(), 1)
 }
 
 func TestIsShortLivedCertificate(t *testing.T) {

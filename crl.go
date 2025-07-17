@@ -25,7 +25,6 @@ type issuingDistributionPoint struct {
 
 type crlValidator struct {
 	certRevocationCheckMode        CertRevocationCheckMode
-	serialCertificateValidation    bool
 	allowCertificatesWithoutCrlURL bool
 	cacheValidityTime              time.Duration
 	inMemoryCacheDisabled          bool
@@ -42,14 +41,13 @@ type crlInMemoryCacheValueType struct {
 	downloadTime *time.Time
 }
 
-func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, serialCertificateValidation, allowCertificatesWithoutCrlURL bool, cacheValidityTime time.Duration, inMemoryCacheDisabled, onDiskCacheDisabled bool, onDiskCacheDir string, httpClient *http.Client) *crlValidator {
+func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, cacheValidityTime time.Duration, inMemoryCacheDisabled, onDiskCacheDisabled bool, onDiskCacheDir string, httpClient *http.Client) *crlValidator {
 	var inMemoryCache map[string]*crlInMemoryCacheValueType
 	if !inMemoryCacheDisabled {
 		inMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 	}
 	return &crlValidator{
 		certRevocationCheckMode:        certRevocationCheckMode,
-		serialCertificateValidation:    serialCertificateValidation,
 		allowCertificatesWithoutCrlURL: allowCertificatesWithoutCrlURL,
 		cacheValidityTime:              cacheValidityTime,
 		inMemoryCacheDisabled:          inMemoryCacheDisabled,
@@ -184,40 +182,13 @@ func (cv *crlValidator) validateChains(chains [][]*x509.Certificate) []crlValida
 			break
 		}
 	}
+
 	return crlValidationResults
 }
 
 func (cv *crlValidator) validateCertificate(cert *x509.Certificate, parent *x509.Certificate) certValidationResult {
-	if cv.serialCertificateValidation {
-		return cv.validateCertificateSerial(cert, parent)
-	}
-
-	return cv.validateCertificateInParallel(cert, parent)
-}
-
-func (cv *crlValidator) validateCertificateSerial(cert *x509.Certificate, parent *x509.Certificate) certValidationResult {
 	for _, crlURL := range cert.CRLDistributionPoints {
 		result := cv.validateCrlAgainstCrlURL(cert, crlURL, parent)
-		if result == certRevoked || result == certError {
-			return result
-		}
-	}
-	return certUnrevoked
-}
-
-func (cv *crlValidator) validateCertificateInParallel(cert *x509.Certificate, parent *x509.Certificate) certValidationResult {
-	wg := sync.WaitGroup{}
-	wg.Add(len(cert.CRLDistributionPoints))
-	results := make([]certValidationResult, len(cert.CRLDistributionPoints))
-	for i, crlURL := range cert.CRLDistributionPoints {
-		go func(i int, crlURL string) {
-			defer wg.Done()
-			result := cv.validateCrlAgainstCrlURL(cert, crlURL, parent)
-			results[i] = result
-		}(i, crlURL)
-	}
-	wg.Wait()
-	for _, result := range results {
 		if result == certRevoked || result == certError {
 			return result
 		}
