@@ -70,11 +70,16 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 
 	t.Run("store single token", func(t *testing.T) {
 		tokenSpec := newMfaTokenSpec("host.com", "johndoe")
-		cred := "token123"
-		ssm.setCredential(tokenSpec, cred)
-		assertEqualE(t, ssm.getCredential(tokenSpec), cred)
-		ssm.deleteCredential(tokenSpec)
-		assertEqualE(t, ssm.getCredential(tokenSpec), "")
+		err := ssm.setCredential(tokenSpec, "token123")
+		assertNilF(t, err)
+		cred, err := ssm.getCredential(tokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, "token123")
+		err = ssm.deleteCredential(tokenSpec)
+		assertNilF(t, err)
+		cred, err = ssm.getCredential(tokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, "")
 	})
 
 	t.Run("store tokens of different types, hosts and users", func(t *testing.T) {
@@ -86,19 +91,40 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 		idCred2 := "token56"
 		idTokenSpec3 := newIDTokenSpec("host.com", "someoneelse")
 		idCred3 := "token78"
-		ssm.setCredential(mfaTokenSpec, mfaCred)
-		ssm.setCredential(idTokenSpec, idCred)
-		ssm.setCredential(idTokenSpec2, idCred2)
-		ssm.setCredential(idTokenSpec3, idCred3)
-		assertEqualE(t, ssm.getCredential(mfaTokenSpec), mfaCred)
-		assertEqualE(t, ssm.getCredential(idTokenSpec), idCred)
-		assertEqualE(t, ssm.getCredential(idTokenSpec2), idCred2)
-		assertEqualE(t, ssm.getCredential(idTokenSpec3), idCred3)
-		ssm.deleteCredential(mfaTokenSpec)
-		assertEqualE(t, ssm.getCredential(mfaTokenSpec), "")
-		assertEqualE(t, ssm.getCredential(idTokenSpec), idCred)
-		assertEqualE(t, ssm.getCredential(idTokenSpec2), idCred2)
-		assertEqualE(t, ssm.getCredential(idTokenSpec3), idCred3)
+		err := ssm.setCredential(mfaTokenSpec, mfaCred)
+		assertNilF(t, err)
+		err = ssm.setCredential(idTokenSpec, idCred)
+		assertNilF(t, err)
+		err = ssm.setCredential(idTokenSpec2, idCred2)
+		assertNilF(t, err)
+		err = ssm.setCredential(idTokenSpec3, idCred3)
+		assertNilF(t, err)
+		cred, err := ssm.getCredential(mfaTokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, mfaCred)
+		cred, err = ssm.getCredential(idTokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, idCred)
+		cred, err = ssm.getCredential(idTokenSpec2)
+		assertNilF(t, err)
+		assertEqualE(t, cred, idCred2)
+		cred, err = ssm.getCredential(idTokenSpec3)
+		assertNilF(t, err)
+		assertEqualE(t, cred, idCred3)
+		err = ssm.deleteCredential(mfaTokenSpec)
+		assertNilF(t, err)
+		cred, err = ssm.getCredential(mfaTokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, "")
+		cred, err = ssm.getCredential(idTokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, idCred)
+		cred, err = ssm.getCredential(idTokenSpec2)
+		assertNilF(t, err)
+		assertEqualE(t, cred, idCred2)
+		cred, err = ssm.getCredential(idTokenSpec3)
+		assertNilF(t, err)
+		assertEqualE(t, cred, idCred3)
 	})
 
 	t.Run("override single token", func(t *testing.T) {
@@ -106,21 +132,32 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 		mfaCred := "token123"
 		idTokenSpec := newIDTokenSpec("host.com", "johndoe")
 		idCred := "token456"
-		ssm.setCredential(mfaTokenSpec, mfaCred)
-		ssm.setCredential(idTokenSpec, idCred)
-		assertEqualE(t, ssm.getCredential(mfaTokenSpec), mfaCred)
+		err := ssm.setCredential(mfaTokenSpec, mfaCred)
+		assertNilF(t, err)
+		err = ssm.setCredential(idTokenSpec, idCred)
+		assertNilF(t, err)
+		cred, err := ssm.getCredential(mfaTokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, mfaCred)
 		mfaCredOverride := "token789"
-		ssm.setCredential(mfaTokenSpec, mfaCredOverride)
-		assertEqualE(t, ssm.getCredential(mfaTokenSpec), mfaCredOverride)
-		ssm.setCredential(idTokenSpec, idCred)
+		err = ssm.setCredential(mfaTokenSpec, mfaCredOverride)
+		assertNilF(t, err)
+		cred, err = ssm.getCredential(mfaTokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, mfaCredOverride)
+		err = ssm.setCredential(idTokenSpec, idCred)
+		assertNilF(t, err)
 	})
 
 	t.Run("unlock stale cache", func(t *testing.T) {
 		tokenSpec := newMfaTokenSpec("stale", "cache")
 		assertNilF(t, os.Mkdir(ssm.lockPath(), 0700))
 		time.Sleep(1000 * time.Millisecond)
-		ssm.setCredential(tokenSpec, "unlocked")
-		assertEqualE(t, ssm.getCredential(tokenSpec), "unlocked")
+		err := ssm.setCredential(tokenSpec, "unlocked")
+		assertNilF(t, err)
+		cred, err := ssm.getCredential(tokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, "unlocked")
 	})
 
 	t.Run("wait for other process to unlock cache", func(t *testing.T) {
@@ -132,9 +169,12 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 			time.Sleep(500 * time.Millisecond)
 			assertNilF(t, os.Remove(ssm.lockPath()))
 		}()
-		ssm.setCredential(tokenSpec, "unlocked")
+		err := ssm.setCredential(tokenSpec, "unlocked")
+		assertNilF(t, err)
 		totalDurationMillis := time.Since(startTime).Milliseconds()
-		assertEqualE(t, ssm.getCredential(tokenSpec), "unlocked")
+		cred, err := ssm.getCredential(tokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, "unlocked")
 		assertTrueE(t, totalDurationMillis > 1000 && totalDurationMillis < 1200)
 	})
 
@@ -142,9 +182,10 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 		content := []byte(`{
 			"otherKey": "otherValue"
 		}`)
-		err = os.WriteFile(ssm.credFilePath(), content, 0600)
+		err := os.WriteFile(ssm.credFilePath(), content, 0600)
 		assertNilF(t, err)
-		ssm.setCredential(newMfaTokenSpec("somehost.com", "someUser"), "someToken")
+		err = ssm.setCredential(newMfaTokenSpec("somehost.com", "someUser"), "someToken")
+		assertNilF(t, err)
 		result, err := os.ReadFile(ssm.credFilePath())
 		assertNilF(t, err)
 		assertStringContainsE(t, string(result), `"otherKey":"otherValue"`)
@@ -152,15 +193,21 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 
 	t.Run("should not modify file if it has wrong permission", func(t *testing.T) {
 		tokenSpec := newMfaTokenSpec("somehost.com", "someUser")
-		ssm.setCredential(tokenSpec, "initialValue")
-		assertEqualE(t, ssm.getCredential(tokenSpec), "initialValue")
+		err = ssm.setCredential(tokenSpec, "initialValue")
+		assertNilF(t, err)
+		cred, err := ssm.getCredential(tokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, "initialValue")
 		err = os.Chmod(ssm.credFilePath(), 0644)
 		assertNilF(t, err)
 		defer func() {
 			assertNilE(t, os.Chmod(ssm.credFilePath(), 0600))
 		}()
-		ssm.setCredential(tokenSpec, "newValue")
-		assertEqualE(t, ssm.getCredential(tokenSpec), "")
+		err = ssm.setCredential(tokenSpec, "newValue")
+		assertNilF(t, err)
+		cred, err = ssm.getCredential(tokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, "")
 		fileContent, err := os.ReadFile(ssm.credFilePath())
 		assertNilF(t, err)
 		var m map[string]any
@@ -174,15 +221,21 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 
 	t.Run("should not modify file if its dir has wrong permission", func(t *testing.T) {
 		tokenSpec := newMfaTokenSpec("somehost.com", "someUser")
-		ssm.setCredential(tokenSpec, "initialValue")
-		assertEqualE(t, ssm.getCredential(tokenSpec), "initialValue")
+		err = ssm.setCredential(tokenSpec, "initialValue")
+		assertNilF(t, err)
+		cred, err := ssm.getCredential(tokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, "initialValue")
 		err = os.Chmod(ssm.credDirPath, 0777)
 		assertNilF(t, err)
 		defer func() {
 			assertNilE(t, os.Chmod(ssm.credDirPath, 0700))
 		}()
-		ssm.setCredential(tokenSpec, "newValue")
-		assertEqualE(t, ssm.getCredential(tokenSpec), "")
+		err = ssm.setCredential(tokenSpec, "newValue")
+		assertNilF(t, err)
+		cred, err = ssm.getCredential(tokenSpec)
+		assertNilF(t, err)
+		assertEqualE(t, cred, "")
 		fileContent, err := os.ReadFile(ssm.credFilePath())
 		assertNilF(t, err)
 		var m map[string]any
@@ -204,12 +257,18 @@ func TestSetAndGetCredential(t *testing.T) {
 			skipOnMac(t, "keyring asks for password")
 			fakeMfaToken := "test token"
 			tokenSpec := newMfaTokenSpec("testHost", "testUser")
-			credentialsStorage.setCredential(tokenSpec, fakeMfaToken)
-			assertEqualE(t, credentialsStorage.getCredential(tokenSpec), fakeMfaToken)
+			err := credentialsStorage.setCredential(tokenSpec, fakeMfaToken)
+			assertNilF(t, err)
+			cred, err := credentialsStorage.getCredential(tokenSpec)
+			assertNilF(t, err)
+			assertEqualE(t, cred, fakeMfaToken)
 
 			// delete credential and check it no longer exists
-			credentialsStorage.deleteCredential(tokenSpec)
-			assertEqualE(t, credentialsStorage.getCredential(tokenSpec), "")
+			err = credentialsStorage.deleteCredential(tokenSpec)
+			assertNilF(t, err)
+			cred, err = credentialsStorage.getCredential(tokenSpec)
+			assertNilF(t, err)
+			assertEqualE(t, cred, "")
 		})
 	}
 }
@@ -222,8 +281,11 @@ func TestSkipStoringCredentialIfUserIsEmpty(t *testing.T) {
 
 	for _, tokenSpec := range tokenSpecs {
 		t.Run(tokenSpec.host, func(t *testing.T) {
-			credentialsStorage.setCredential(tokenSpec, "non-empty-value")
-			assertEqualE(t, credentialsStorage.getCredential(tokenSpec), "")
+			err := credentialsStorage.setCredential(tokenSpec, "non-empty-value")
+			assertNilF(t, err)
+			cred, err := credentialsStorage.getCredential(tokenSpec)
+			assertNilF(t, err)
+			assertEqualE(t, cred, "")
 		})
 	}
 }
@@ -236,8 +298,11 @@ func TestSkipStoringCredentialIfHostIsEmpty(t *testing.T) {
 
 	for _, tokenSpec := range tokenSpecs {
 		t.Run(tokenSpec.user, func(t *testing.T) {
-			credentialsStorage.setCredential(tokenSpec, "non-empty-value")
-			assertEqualE(t, credentialsStorage.getCredential(tokenSpec), "")
+			err := credentialsStorage.setCredential(tokenSpec, "non-empty-value")
+			assertNilF(t, err)
+			cred, err := credentialsStorage.getCredential(tokenSpec)
+			assertNilF(t, err)
+			assertEqualE(t, cred, "")
 		})
 	}
 }
@@ -262,10 +327,16 @@ func TestStoreTemporaryCredential(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.value, func(t *testing.T) {
-			ssm.setCredential(test.tokenSpec, test.value)
-			assertEqualE(t, ssm.getCredential(test.tokenSpec), test.value)
-			ssm.deleteCredential(test.tokenSpec)
-			assertEqualE(t, ssm.getCredential(test.tokenSpec), "")
+			err := ssm.setCredential(test.tokenSpec, test.value)
+			assertNilF(t, err)
+			cred, err := ssm.getCredential(test.tokenSpec)
+			assertNilF(t, err)
+			assertEqualE(t, cred, test.value)
+			err = ssm.deleteCredential(test.tokenSpec)
+			assertNilF(t, err)
+			cred, err = ssm.getCredential(test.tokenSpec)
+			assertNilF(t, err)
+			assertEqualE(t, cred, "")
 		})
 	}
 }

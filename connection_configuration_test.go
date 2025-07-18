@@ -60,7 +60,7 @@ func TestTokenFilePermission(t *testing.T) {
 		defer func() {
 			os.Unsetenv(skipWarningForReadPermissionsEnv)
 		}()
-		
+
 		var originalLogger = logger
 		logger = CreateDefaultLogger()
 		buf := &bytes.Buffer{}
