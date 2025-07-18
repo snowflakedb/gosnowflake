@@ -403,13 +403,22 @@ func authenticate(
 		logger.WithContext(ctx).Errorln("Authentication FAILED")
 		sc.rest.TokenAccessor.SetTokens("", "", -1)
 		if sessionParameters[clientRequestMfaToken] == true {
-			credentialsStorage.deleteCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
+			err := credentialsStorage.deleteCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
+			if err != nil {
+				logger.WithContext(sc.ctx).Warn(err)
+			}
 		}
 		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator == AuthTypeExternalBrowser {
-			credentialsStorage.deleteCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
+			err := credentialsStorage.deleteCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
+			if err != nil {
+				logger.WithContext(sc.ctx).Warn(err)
+			}
 		}
 		if sessionParameters[clientStoreTemporaryCredential] == true && sc.cfg.Authenticator.isOauthNativeFlow() {
-			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+			err := credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+			if err != nil {
+				logger.WithContext(sc.ctx).Warn(err)
+			}
 		}
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {
@@ -425,11 +434,17 @@ func authenticate(
 	sc.rest.TokenAccessor.SetTokens(respd.Data.Token, respd.Data.MasterToken, respd.Data.SessionID)
 	if sessionParameters[clientRequestMfaToken] == true {
 		token := respd.Data.MfaToken
-		credentialsStorage.setCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User), token)
+		err := credentialsStorage.setCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User), token)
+		if err != nil {
+			logger.WithContext(sc.ctx).Warn(err)
+		}
 	}
 	if sessionParameters[clientStoreTemporaryCredential] == true {
 		token := respd.Data.IDToken
-		credentialsStorage.setCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User), token)
+		err := credentialsStorage.setCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User), token)
+		if err != nil {
+			logger.WithContext(sc.ctx).Warn(err)
+		}
 	}
 	return &respd.Data, nil
 }
@@ -619,7 +634,10 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 			sc.cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
 		}
 		if sc.cfg.Authenticator == AuthTypeExternalBrowser && sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
-			sc.cfg.IDToken = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
+			sc.cfg.IDToken, err = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
+			if err != nil {
+				logger.WithContext(sc.ctx).Warn(err)
+			}
 		}
 		// Disable console login by default
 		if sc.cfg.DisableConsoleLogin == configBoolNotSet {
@@ -632,7 +650,10 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 			sc.cfg.ClientRequestMfaToken = ConfigBoolTrue
 		}
 		if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
-			sc.cfg.MfaToken = credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
+			sc.cfg.MfaToken, err = credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
+			if err != nil {
+				logger.WithContext(sc.ctx).Warn(err)
+			}
 		}
 	}
 
@@ -664,7 +685,10 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 	if err != nil {
 		var se *SnowflakeError
 		if errors.As(err, &se) && slices.Contains(refreshOAuthTokenErrorCodes, strconv.Itoa(se.Number)) {
-			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+			err := credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+			if err != nil {
+				logger.Warn(err)
+			}
 
 			if sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode {
 				var oauthClient *oauthClient
@@ -673,7 +697,10 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 				} else {
 					if err = oauthClient.refreshToken(); err != nil {
 						logger.Warnf("cannot refresh token. %v", err)
-						credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+						err := credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(sc.cfg.OauthTokenRequestURL, sc.cfg.User))
+						if err != nil {
+							logger.Warn(err)
+						}
 					}
 				}
 			}

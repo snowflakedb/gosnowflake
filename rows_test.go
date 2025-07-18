@@ -15,7 +15,7 @@ import (
 type RowsExtended struct {
 	rows      *sql.Rows
 	closeChan *chan bool
-	t *testing.T
+	t         *testing.T
 }
 
 func (rs *RowsExtended) Close() error {
