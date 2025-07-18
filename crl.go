@@ -218,7 +218,7 @@ func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlURL 
 			crl = newCrl
 			downloadTime = newDownloadTime
 		} else {
-			if crl != nil && crl.NextUpdate.Before(now) {
+			if crl != nil && crl.NextUpdate.After(now) {
 				logger.Debugf("CRL for %v is up-to-date, using cached version", crlURL)
 			} else {
 				logger.Warnf("CRL for %v is not available or outdated", crlURL)
