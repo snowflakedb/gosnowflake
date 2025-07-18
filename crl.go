@@ -173,7 +173,7 @@ func (cv *crlValidator) validateChains(chains [][]*x509.Certificate) []crlValida
 
 			if certStatus == certError {
 				crlValidationResults[i] = crlError
-				break
+				continue
 			}
 		}
 
