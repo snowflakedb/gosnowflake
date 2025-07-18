@@ -214,7 +214,7 @@ func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlURL 
 		}
 		shouldUpdateCrl = newCrl != nil && (crl == nil || newCrl.ThisUpdate.After(crl.ThisUpdate))
 		if shouldUpdateCrl {
-			logger.Debugf("Updating CRL for %v", crlURL)
+			logger.Debugf("Found updated CRL for %v", crlURL)
 			crl = newCrl
 			downloadTime = newDownloadTime
 		} else {
