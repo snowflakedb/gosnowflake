@@ -597,6 +597,14 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 			Message:  errMsgNilArrowStreamBatch,
 		}
 	}
+	if asb.scd.ChunkMetas == nil || asb.idx >= len(asb.scd.ChunkMetas) {
+		return &SnowflakeError{
+			Number:      ErrFailedToGetChunk,
+			SQLState:    SQLStateConnectionFailure,
+			Message:     errMsgFailedToGetChunk,
+			MessageArgs: []interface{}{asb.idx},
+		}
+	}
 	headers := make(map[string]string)
 	if len(asb.scd.ChunkHeader) > 0 {
 		logger.WithContext(ctx).Debug("chunk header is provided")
