@@ -590,6 +590,13 @@ func (w *wrapReader) Close() error {
 }
 
 func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) error {
+	if asb == nil || asb.scd == nil {
+		return &SnowflakeError{
+			Number:   ErrNilArrowStreamBatch,
+			SQLState: SQLStateConnectionFailure,
+			Message:  errMsgNilArrowStreamBatch,
+		}
+	}
 	headers := make(map[string]string)
 	if len(asb.scd.ChunkHeader) > 0 {
 		logger.WithContext(ctx).Debug("chunk header is provided")
