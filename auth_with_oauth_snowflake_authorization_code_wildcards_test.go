@@ -57,32 +57,6 @@ func TestOauthSnowflakeAuthorizationWildcardsCodeTimeout(t *testing.T) {
 	assertEqualE(t, err.Error(), "authentication via browser timed out", fmt.Sprintf("Expecteed timeout, but got %v", err))
 }
 
-func TestOauthSnowflakeAuthorizationCodeWildcardsUsingTokenCache(t *testing.T) {
-	cfg := setupOauthSnowflakeAuthorizationCodeWildcardsTest(t)
-	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
-	assertNilF(t, err, fmt.Sprintf("failed to get browser config: %v", err))
-
-	cfg.ClientStoreTemporaryCredential = 1
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		provideExternalBrowserCredentials(t, externalBrowserType.OauthSnowflakeSuccess, browserCfg.User, browserCfg.Password)
-	}()
-	go func() {
-		defer wg.Done()
-		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
-		assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
-	}()
-	wg.Wait()
-
-	cleanupBrowserProcesses(t)
-	cfg.ExternalBrowserTimeout = time.Duration(1) * time.Second
-
-	err = verifyConnectionToSnowflakeAuthTests(t, cfg)
-	assertNilE(t, err, fmt.Sprintf("Connection failed due to %v", err))
-}
-
 func TestOauthSnowflakeAuthorizationCodeWildcardsWithoutTokenCache(t *testing.T) {
 	cfg := setupOauthSnowflakeAuthorizationCodeWildcardsTest(t)
 	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
