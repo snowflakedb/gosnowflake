@@ -534,11 +534,11 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 			return "", fmt.Errorf("Failed to find the item in keychain or item does not exist. Error: %v", err)
 		}
 		cred = string(i.Data)
-		if cred == "" {
-			logger.Debug("Returned credential is empty")
-		} else {
-			logger.Debug("Successfully read token. Returning as string")
-		}
+	}
+	if cred == "" {
+		logger.Debug("Returned credential is empty")
+	} else {
+		logger.Debug("Successfully read token. Returning as string")
 	}
 	return cred, nil
 }
