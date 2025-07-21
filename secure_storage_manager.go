@@ -474,8 +474,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 			ServiceName:   strings.ToUpper(tokenSpec.user),
 		})
 		if err != nil {
-			// don't leak any info in the error message
-			return fmt.Errorf("Failed to open Windows credential manager.")
+			return fmt.Errorf("failed to open Windows credential manager: %w", err)
 		}
 		item := keyring.Item{
 			Key:  credentialsKey,
@@ -489,8 +488,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 			ServiceName: credentialsKey,
 		})
 		if err != nil {
-			// don't leak any info in the error message
-			return fmt.Errorf("Failed to open macOS keychain.")
+			return fmt.Errorf("failed to open macOS keychain: %w", err)
 		}
 		account := strings.ToUpper(tokenSpec.user)
 		item := keyring.Item{
@@ -516,8 +514,7 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 			ServiceName:   strings.ToUpper(tokenSpec.user),
 		})
 		if err != nil {
-			// don't leak any info in the error message
-			return "", fmt.Errorf("Failed to open Windows credential manager.")
+			return "", fmt.Errorf("failed to open Windows credential manager: %w", err)
 		}
 		i, err := ring.Get(credentialsKey)
 		if err != nil {
@@ -529,8 +526,7 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 			ServiceName: credentialsKey,
 		})
 		if err != nil {
-			// don't leak any info in the error message
-			return "", fmt.Errorf("Failed to open macOS keychain.")
+			return "", fmt.Errorf("failed to open macOS keychain: %w", err)
 		}
 		account := strings.ToUpper(tokenSpec.user)
 		i, err := ring.Get(account)
@@ -558,8 +554,7 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 			ServiceName:   strings.ToUpper(tokenSpec.user),
 		})
 		if err != nil {
-			// don't leak any info in the error message
-			return fmt.Errorf("Failed to open Windows credential manager.")
+			return fmt.Errorf("failed to open Windows credential manager: %w", err)
 		}
 		err = ring.Remove(string(credentialsKey))
 		if err != nil {
@@ -570,8 +565,7 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 			ServiceName: credentialsKey,
 		})
 		if err != nil {
-			// don't leak any info in the error message
-			return fmt.Errorf("Failed to open macOS keychain.")
+			return fmt.Errorf("failed to open macOS keychain: %w", err)
 		}
 		account := strings.ToUpper(tokenSpec.user)
 		err = ring.Remove(account)
