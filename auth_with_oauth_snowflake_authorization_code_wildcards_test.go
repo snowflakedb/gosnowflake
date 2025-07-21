@@ -10,7 +10,7 @@ import (
 
 func TestOauthSnowflakeAuthorizationCodeWildcardsSuccessful(t *testing.T) {
 	cfg := setupOauthSnowflakeAuthorizationCodeWildcardsTest(t)
-	browserCfg, err := getOauthSnowflakeAuthorizationCodeWildcardsTestCredentials()
+	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
 	assertNilF(t, err, fmt.Sprintf("failed to get browser config: %v", err))
 
 	var wg sync.WaitGroup
@@ -29,7 +29,7 @@ func TestOauthSnowflakeAuthorizationCodeWildcardsSuccessful(t *testing.T) {
 
 func TestOauthSnowflakeAuthorizationCodeWildcardsMismatchedUsername(t *testing.T) {
 	cfg := setupOauthSnowflakeAuthorizationCodeWildcardsTest(t)
-	browserCfg, err := getOauthSnowflakeAuthorizationCodeWildcardsTestCredentials()
+	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
 	assertNilF(t, err, fmt.Sprintf("failed to get browser config: %v", err))
 
 	var wg sync.WaitGroup
@@ -59,7 +59,7 @@ func TestOauthSnowflakeAuthorizationWildcardsCodeTimeout(t *testing.T) {
 
 func TestOauthSnowflakeAuthorizationCodeWildcardsUsingTokenCache(t *testing.T) {
 	cfg := setupOauthSnowflakeAuthorizationCodeWildcardsTest(t)
-	browserCfg, err := getOauthSnowflakeAuthorizationCodeWildcardsTestCredentials()
+	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
 	assertNilF(t, err, fmt.Sprintf("failed to get browser config: %v", err))
 
 	cfg.ClientStoreTemporaryCredential = 1
@@ -85,7 +85,7 @@ func TestOauthSnowflakeAuthorizationCodeWildcardsUsingTokenCache(t *testing.T) {
 
 func TestOauthSnowflakeAuthorizationCodeWildcardsWithoutTokenCache(t *testing.T) {
 	cfg := setupOauthSnowflakeAuthorizationCodeWildcardsTest(t)
-	browserCfg, err := getOauthSnowflakeAuthorizationCodeWildcardsTestCredentials()
+	browserCfg, err := getOauthSnowflakeAuthorizationCodeTestCredentials()
 	assertNilF(t, err, fmt.Sprintf("failed to get browser config: %v", err))
 	cfg.ClientStoreTemporaryCredential = 2
 
@@ -126,22 +126,12 @@ func setupOauthSnowflakeAuthorizationCodeWildcardsTest(t *testing.T) *Config {
 	cfg.OauthClientSecret, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_INTERNAL_OAUTH_SNOWFLAKE_WILDCARDS_CLIENT_SECRET", true)
 	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
 
-	cfg.OauthRedirectURI, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_INTERNAL_OAUTH_SNOWFLAKE_REDIRECT_URI", true)
-	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
-
 	cfg.User, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_ID", true)
 	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
 
-	cfg.Role, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_ROLE", true)
+	cfg.Role, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_INTERNAL_OAUTH_SNOWFLAKE_ROLE", true)
 	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
 
 	cfg.ClientStoreTemporaryCredential = 2
 	return cfg
-}
-
-func getOauthSnowflakeAuthorizationCodeWildcardsTestCredentials() (*Config, error) {
-	return GetConfigFromEnv([]*ConfigParam{
-		{Name: "User", EnvName: "SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_CLIENT_ID", FailOnMissing: true},
-		{Name: "Password", EnvName: "SNOWFLAKE_AUTH_TEST_EXTERNAL_OAUTH_OKTA_USER_PASSWORD", FailOnMissing: true},
-	})
 }
