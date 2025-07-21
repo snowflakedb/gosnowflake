@@ -98,7 +98,7 @@ func newSecureStorageManager() secureStorageManager {
 	case "linux":
 		ssm, err := newFileBasedSecureStorageManager()
 		if err != nil {
-			logger.Debugf("failed to create credentials cache dir. %v", err)
+			logger.Warnf("failed to create credentials cache dir. %v", err)
 			return newNoopSecureStorageManager()
 		}
 		return &threadSafeSecureStorageManager{&sync.Mutex{}, ssm}
@@ -159,7 +159,7 @@ func buildCredCacheDirPath(confs []cacheDirConf) (string, error) {
 	for _, conf := range confs {
 		path, err := lookupCacheDir(conf.envVar, conf.pathSegments...)
 		if err != nil {
-			logger.Debugf("Skipping %s in cache directory lookup due to %v", conf.envVar, err)
+			logger.Errorf("Skipping %s in cache directory lookup due to %v", conf.envVar, err)
 		} else {
 			logger.Debugf("Using %s as cache directory", path)
 			return path, nil
@@ -201,13 +201,13 @@ func (ssm *fileBasedSecureStorageManager) withCacheFile(action func(*os.File) er
 	}
 	defer func(file *os.File) {
 		if err := file.Close(); err != nil {
-			logger.Warnf("cannot release file descriptor for %v. %v", ssm.credFilePath(), err)
+			logger.Warnf("cannot release file descriptor for %v. %v", credPath, err)
 		}
 	}(cacheFile)
 
 	cacheDir, err := os.Open(ssm.credDirPath)
 	if err != nil {
-		logger.Warnf("cannot access %v. %v", ssm.credDirPath, err)
+		return fmt.Errorf("cannot access %v. %v", ssm.credDirPath, err)
 	}
 	defer func(file *os.File) {
 		if err := file.Close(); err != nil {
@@ -269,7 +269,7 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 	defer func() {
 		err = lockFile.Close()
 		if err != nil {
-			logger.Debugf("error while closing lock file. %v", err)
+			logger.Warnf("error while closing lock file. %v", err)
 		}
 	}()
 
@@ -294,7 +294,7 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 		// removing stale lock
 		now := time.Now()
 		if fileInfo.ModTime().Add(time.Second).UnixNano() < now.UnixNano() {
-			logger.Debugf("removing credentials cache lock file, stale for %vms", (now.UnixNano()-fileInfo.ModTime().UnixNano())/1000/1000)
+			logger.Warnf("removing credentials cache lock file, stale for %vms", (now.UnixNano()-fileInfo.ModTime().UnixNano())/1000/1000)
 			err = os.Remove(lockPath)
 			if err != nil {
 				return fmt.Errorf("failed to remove %v while trying to remove stale lock. err: %v", lockPath, err)
@@ -394,8 +394,8 @@ func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile(cacheFile *os.F
 
 	jsonData, err := io.ReadAll(cacheFile)
 	if err != nil {
-		logger.Warnf("Failed to read credential cache file. %v.\n", err)
-		return map[string]any{}, nil
+		err = fmt.Errorf("Failed to read credential cache file. %v.\n", err)
+		return map[string]any{}, err
 	}
 	if _, err = cacheFile.Seek(0, 0); err != nil {
 		return map[string]any{}, fmt.Errorf("cannot seek to the beginning of a cache file. %v", err)
@@ -482,7 +482,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 			Data: []byte(value),
 		}
 		if err := ring.Set(item); err != nil {
-			logger.Debugf("Failed to write to Windows credential manager. Err: %v", err)
+			return fmt.Errorf("Failed to write to Windows credential manager. Err: %v", err)
 		}
 	} else if runtime.GOOS == "darwin" {
 		ring, err := keyring.Open(keyring.Config{
