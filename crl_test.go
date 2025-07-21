@@ -542,14 +542,18 @@ func TestCrlModes(t *testing.T) {
 
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
+					cv.inMemoryCacheMutex.Lock()
 					assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should be populated")
+					cv.inMemoryCacheMutex.Unlock()
 					fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertNilE(t, err, "CRL file should be created in the cache directory")
 					fd.Close()
 
 					time.Sleep(500 * time.Millisecond) // wait for cleanup to happen
 
+					cv.inMemoryCacheMutex.Lock()
 					assertNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should be cleaned up")
+					cv.inMemoryCacheMutex.Unlock()
 					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertErrIsE(t, err, os.ErrNotExist, "CRL file should be removed from the cache directory")
 				})
