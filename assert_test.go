@@ -2,10 +2,12 @@ package gosnowflake
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -24,6 +26,14 @@ func assertNotNilE(t *testing.T, actual any, descriptions ...string) {
 
 func assertNotNilF(t *testing.T, actual any, descriptions ...string) {
 	fatalOnNonEmpty(t, validateNotNil(actual, descriptions...))
+}
+
+func assertErrIsF(t *testing.T, actual, expected error, descriptions ...string) {
+	fatalOnNonEmpty(t, validateErrIs(actual, expected, descriptions...))
+}
+
+func assertErrIsE(t *testing.T, actual, expected error, descriptions ...string) {
+	errorOnNonEmpty(t, validateErrIs(actual, expected, descriptions...))
 }
 
 func assertEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
@@ -128,6 +138,14 @@ func validateNotNil(actual any, descriptions ...string) string {
 	}
 	desc := joinDescriptions(descriptions...)
 	return fmt.Sprintf("expected to be not nil but was not. %s", desc)
+}
+
+func validateErrIs(actual, expected error, descriptions ...string) string {
+	if errors.Is(actual, expected) {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected %v to be %v. %s", actual, expected, desc)
 }
 
 func validateEqual(actual any, expected any, descriptions ...string) string {
@@ -235,7 +253,7 @@ func isNil(value any) bool {
 		return true
 	}
 	val := reflect.ValueOf(value)
-	return val.Kind() == reflect.Pointer && val.IsNil()
+	return slices.Contains([]reflect.Kind{reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface}, val.Kind()) && val.IsNil()
 }
 
 func thrownFrom() string {
