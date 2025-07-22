@@ -526,6 +526,37 @@ func TestCrlModes(t *testing.T) {
 					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory when on-disk cache is disabled")
 				})
+
+				t.Run("should clean up cache", func(t *testing.T) {
+					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
+					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
+					crl := createCrl(t, caCert, caPrivateKey, nextUpdateType(time.Now().Add(10*time.Millisecond)))
+
+					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
+					defer closeServer(t, server)
+
+					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(100*time.Millisecond))
+					cv.onDiskCacheRemovalDelay = 200 * time.Millisecond
+					cv.startPeriodicCacheCleanup(10 * time.Millisecond)
+					defer cv.stopPeriodicCacheCleanup()
+
+					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+					assertNilE(t, err)
+					cv.inMemoryCacheMutex.Lock()
+					assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should be populated")
+					cv.inMemoryCacheMutex.Unlock()
+					fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertNilE(t, err, "CRL file should be created in the cache directory")
+					fd.Close()
+
+					time.Sleep(500 * time.Millisecond) // wait for cleanup to happen
+
+					cv.inMemoryCacheMutex.Lock()
+					assertNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should be cleaned up")
+					cv.inMemoryCacheMutex.Unlock()
+					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertErrIsE(t, err, os.ErrNotExist, "CRL file should be removed from the cache directory")
+				})
 			})
 		})
 	}
