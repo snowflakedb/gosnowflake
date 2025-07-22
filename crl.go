@@ -32,8 +32,11 @@ type crlValidator struct {
 	inMemoryCacheMutex             sync.Mutex
 	onDiskCacheDisabled            bool
 	onDiskCacheDir                 string
+	onDiskCacheRemovalDelay        time.Duration
 	crlURLMutexes                  map[string]*sync.Mutex
 	httpClient                     *http.Client
+	cleanupStopChan                chan struct{}
+	cleanupDoneChan                chan struct{}
 }
 
 type crlInMemoryCacheValueType struct {
@@ -54,8 +57,11 @@ func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCerti
 		inMemoryCache:                  inMemoryCache,
 		onDiskCacheDisabled:            onDiskCacheDisabled,
 		onDiskCacheDir:                 onDiskCacheDir,
+		onDiskCacheRemovalDelay:        7 * 24 * time.Hour, // 7 days
 		crlURLMutexes:                  make(map[string]*sync.Mutex),
 		httpClient:                     httpClient,
+		cleanupStopChan:                make(chan struct{}),
+		cleanupDoneChan:                make(chan struct{}),
 	}
 }
 
@@ -420,4 +426,85 @@ func isShortLivedCertificate(cert *x509.Certificate) bool {
 	maximumValidityPeriod += time.Minute // Fix inclusion start and end time
 	certValidityPeriod := cert.NotAfter.Sub(cert.NotBefore)
 	return maximumValidityPeriod > certValidityPeriod
+}
+
+func (cv *crlValidator) startPeriodicCacheCleanup(tickRate time.Duration) {
+	logger.Debugf("starting periodic CRL cache cleanup with tick rate %v", tickRate)
+	cv.cleanupStopChan = make(chan struct{})
+	cv.cleanupDoneChan = make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(tickRate)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				cv.cleanupInMemoryCache()
+				cv.cleanupOnDiskCache()
+			case <-cv.cleanupStopChan:
+				close(cv.cleanupDoneChan)
+				return
+			}
+		}
+	}()
+}
+
+func (cv *crlValidator) stopPeriodicCacheCleanup() {
+	logger.Debug("stopping periodic CRL cache cleanup")
+	if cv.cleanupStopChan != nil {
+		close(cv.cleanupStopChan)
+		<-cv.cleanupDoneChan
+	}
+}
+
+func (cv *crlValidator) cleanupInMemoryCache() {
+	if cv.inMemoryCacheDisabled {
+		return
+	}
+	now := time.Now()
+	logger.Debugf("cleaning up in-memory CRL cache at %v", now)
+	cv.inMemoryCacheMutex.Lock()
+	for k, v := range cv.inMemoryCache {
+		expired := v.crl.NextUpdate.Before(now)
+		evicted := v.downloadTime.Add(cv.cacheValidityTime).Before(now)
+		logger.Debugf("testing CRL for %v (nextUpdate=%v, downloadTime=%v) from in-memory cache (expired: %v, evicted: %v)", k, v.crl.NextUpdate, v.downloadTime, expired, evicted)
+		if expired || evicted {
+			delete(cv.inMemoryCache, k)
+		}
+	}
+	cv.inMemoryCacheMutex.Unlock()
+}
+
+func (cv *crlValidator) cleanupOnDiskCache() {
+	if cv.onDiskCacheDisabled {
+		return
+	}
+	now := time.Now()
+	logger.Debugf("cleaning up on-disk CRL cache at %v", now)
+	entries, err := os.ReadDir(cv.onDiskCacheDir)
+	if err != nil {
+		logger.Warnf("failed to read CRL cache dir: %v", err)
+		return
+	}
+	for _, entry := range entries {
+		if !entry.Type().IsRegular() {
+			continue
+		}
+		path := filepath.Join(cv.onDiskCacheDir, entry.Name())
+		crlBytes, err := os.ReadFile(path)
+		if err != nil {
+			logger.Warnf("failed to read CRL file %v: %v", path, err)
+			continue
+		}
+		crl, err := x509.ParseRevocationList(crlBytes)
+		if err != nil {
+			logger.Warnf("failed to parse CRL file %v: %v", path, err)
+			continue
+		}
+		if crl.NextUpdate.Add(cv.onDiskCacheRemovalDelay).Before(now) {
+			logger.Debugf("CRL file %v is expired, removing", path)
+			if err := os.Remove(path); err != nil {
+				logger.Warnf("failed to remove expired CRL file %v: %v", path, err)
+			}
+		}
+	}
 }
