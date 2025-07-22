@@ -479,6 +479,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID UUID, time
 			}
 			// After exhausting retries, we can safely treat queryNotExecutingCode as success
 			// since it indicates the query has already completed and there's nothing left to cancel
+			logger.WithContext(ctx).Info("query has already completed, no cancellation needed")
 			return nil
 		} else if respd.Success {
 			return nil

@@ -63,11 +63,11 @@ func (crt *countingRoundTripper) totalRequests() int {
 
 type blockingRoundTripper struct {
 	delegate      http.RoundTripper
-	blockTime     *time.Duration
+	blockTime     time.Duration
 	pathBlockTime map[string]time.Duration
 }
 
-func newBlockingRoundTripper(delegate http.RoundTripper, blockTime *time.Duration) *blockingRoundTripper {
+func newBlockingRoundTripper(delegate http.RoundTripper, blockTime time.Duration) *blockingRoundTripper {
 	return &blockingRoundTripper{
 		delegate:      delegate,
 		blockTime:     blockTime,
@@ -78,8 +78,8 @@ func newBlockingRoundTripper(delegate http.RoundTripper, blockTime *time.Duratio
 func (brt *blockingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if blockTime, exists := brt.pathBlockTime[req.URL.Path]; exists {
 		time.Sleep(blockTime)
-	} else if brt.blockTime != nil {
-		time.Sleep(*brt.blockTime)
+	} else if brt.blockTime != 0 {
+		time.Sleep(brt.blockTime)
 	}
 	return brt.delegate.RoundTrip(req)
 }

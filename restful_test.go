@@ -613,27 +613,25 @@ func TestPostRestfulQueryContextErrors(t *testing.T) {
 	}
 
 	t.Run("postRestfulQuery error does not trigger cancel", func(t *testing.T) {
-		sr := newRestfulWithError(fmt.Errorf("query error"))
+		expectedErr := fmt.Errorf("query error")
+		sr := newRestfulWithError(expectedErr)
 		_, err := runPostRestfulQuery(sr)
-		assertFalseF(t, cancelCalled)
-		assertNotNilF(t, err)
-		assertEqualF(t, "query error", err.Error())
+		assertFalseE(t, cancelCalled)
+		assertErrIsE(t, expectedErr, err)
 	})
 
 	t.Run("context.Canceled triggers cancel", func(t *testing.T) {
 		sr := newRestfulWithError(context.Canceled)
 		_, err := runPostRestfulQuery(sr)
-		assertTrueF(t, cancelCalled)
-		assertNotNilF(t, err)
-		assertEqualF(t, context.Canceled.Error(), err.Error())
+		assertTrueE(t, cancelCalled)
+		assertErrIsE(t, context.Canceled, err)
 	})
 
 	t.Run("context.DeadlineExceeded triggers cancel", func(t *testing.T) {
 		sr := newRestfulWithError(context.DeadlineExceeded)
 		_, err := runPostRestfulQuery(sr)
-		assertTrueF(t, cancelCalled)
-		assertNotNilF(t, err)
-		assertEqualF(t, context.DeadlineExceeded.Error(), err.Error())
+		assertTrueE(t, cancelCalled)
+		assertErrIsE(t, context.DeadlineExceeded, err)
 	})
 
 	t.Run("cancel failure returns wrapped error", func(t *testing.T) {
@@ -643,8 +641,7 @@ func TestPostRestfulQueryContextErrors(t *testing.T) {
 			return fmt.Errorf("fatal failure")
 		}
 		_, err := runPostRestfulQuery(sr)
-		assertTrueF(t, cancelCalled)
-		assertNotNilF(t, err)
-		assertEqualF(t, "failed to cancel query. cancelErr: fatal failure, queryErr: context canceled", err.Error())
+		assertTrueE(t, cancelCalled)
+		assertEqualE(t, "failed to cancel query. cancelErr: fatal failure, queryErr: context canceled", err.Error())
 	})
 }

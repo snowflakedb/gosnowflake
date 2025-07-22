@@ -1979,29 +1979,37 @@ func TestOpenWithConfig(t *testing.T) {
 }
 
 func TestOpenWithConfigCancel(t *testing.T) {
-	wiremock = newWiremock()
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "telemetry.json"},
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
 	)
 	driver := SnowflakeDriver{}
 	config := wiremock.connectionConfig()
-	blockingRoundTripper := newBlockingRoundTripper(snowflakeNoOcspTransport, nil)
+	blockingRoundTripper := newBlockingRoundTripper(snowflakeNoOcspTransport, 0)
 	countingRoundTripper := newCountingRoundTripper(blockingRoundTripper)
 	config.Transporter = countingRoundTripper
 
-	paths := []string{"/session/v1/login-request", "/telemetry/send"}
-	for _, path := range paths {
-		t.Run("canceled during request:"+path, func(t *testing.T) {
-			blockingRoundTripper.reset()
-			blockingRoundTripper.setPathBlockTime(path, 50*time.Millisecond)
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
-			defer cancel()
-			_, err := driver.OpenWithConfig(ctx, *config)
-			assertEqualE(t, err, context.DeadlineExceeded)
-			assertEqualE(t, countingRoundTripper.totalRequestsByPath(path), 1)
-		})
-	}
+	t.Run("canceled during request:login-request", func(t *testing.T) {
+		blockingRoundTripper.setPathBlockTime("/session/v1/login-request", 50*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		defer cancel()
+		_, err := driver.OpenWithConfig(ctx, *config)
+		assertErrIsE(t, context.DeadlineExceeded, err)
+		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
+		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/telemetry/send"), 0)
+	})
+
+	t.Run("canceled during request:telemetry/send", func(t *testing.T) {
+		blockingRoundTripper.reset()
+		countingRoundTripper.reset()
+		blockingRoundTripper.setPathBlockTime("/telemetry/send", 50*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		defer cancel()
+		_, err := driver.OpenWithConfig(ctx, *config)
+		assertErrIsE(t, context.DeadlineExceeded, err)
+		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
+		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/telemetry/send"), 1)
+	})
 }
 
 func TestOpenWithInvalidConfig(t *testing.T) {
