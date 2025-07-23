@@ -583,8 +583,9 @@ func TestCrlModes(t *testing.T) {
 					assertNilE(t, err, "CRL file should still be present in the cache directory")
 					fd.Close()
 
-					time.Sleep(2000 * time.Millisecond) // wait for removal delay to pass
+					time.Sleep(3000 * time.Millisecond) // wait for removal delay to pass
 					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertErrIsE(t, err, os.ErrNotExist, "CRL file should be removed from the cache directory after removal delay")
 				})
 			})
 		})
