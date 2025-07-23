@@ -575,7 +575,7 @@ func mapToString(v driver.Value, tsmode snowflakeType, params map[string]*string
 			}
 			err = iter.Value().Interface().(StructuredObjectWriter).Write(&sowc)
 			if err != nil {
-				return bindingValue{}, nil
+				return bindingValue{}, err
 			}
 			m[stringOrIntToString(iter.Key())] = sowc.values
 			if valueMetadata == nil {

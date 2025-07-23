@@ -2166,3 +2166,20 @@ func (crt *countingRoundTripper) totalRequests() int {
 	}
 	return total
 }
+
+type blockingRoundTripper struct {
+	delegate  http.RoundTripper
+	blockTime time.Duration
+}
+
+func newBlockingRoundTripper(delegate http.RoundTripper, blockTime time.Duration) *blockingRoundTripper {
+	return &blockingRoundTripper{
+		delegate:  delegate,
+		blockTime: blockTime,
+	}
+}
+
+func (brt *blockingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	time.Sleep(brt.blockTime)
+	return brt.delegate.RoundTrip(req)
+}

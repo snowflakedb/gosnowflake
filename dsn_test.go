@@ -263,6 +263,24 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "user:pass@account?oauthRedirectUri=http:%2F%2Flocalhost:8001%2Fsome-path&oauthClientId=testClientId&oauthClientSecret=testClientSecret&oauthAuthorizationUrl=http:%2F%2Fsomehost.com&oauthTokenRequestUrl=https:%2F%2Fsomehost2.com%2Fsomepath&oauthScope=test+scope&enableSingleUseRefreshTokens=true",
+			config: &Config{
+				Account: "account", User: "user", Password: "pass",
+				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
+				OauthClientID: "testClientId", OauthClientSecret: "testClientSecret", OauthAuthorizationURL: "http://somehost.com", OauthTokenRequestURL: "https://somehost2.com/somepath", OauthRedirectURI: "http://localhost:8001/some-path", OauthScope: "test scope",
+				EnableSingleUseRefreshTokens: true,
+				OCSPFailOpen:                 OCSPFailOpenTrue,
+				ValidateDefaultParameters:    ConfigBoolTrue,
+				ClientTimeout:                defaultClientTimeout,
+				JWTClientTimeout:             defaultJWTClientTimeout,
+				ExternalBrowserTimeout:       defaultExternalBrowserTimeout,
+				CloudStorageTimeout:          defaultCloudStorageTimeout,
+				IncludeRetryReason:           ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			dsn: "user:pass@host:123/db/schema?account=ac&protocol=http",
 			config: &Config{
 				Account: "ac", User: "user", Password: "pass",
@@ -1350,6 +1368,9 @@ func TestParseDSN(t *testing.T) {
 				if test.config.OauthScope != cfg.OauthScope {
 					t.Fatalf("%v: Failed to match OauthScope. expected: %v, got: %v", i, test.config.OauthScope, cfg.OauthScope)
 				}
+				if test.config.EnableSingleUseRefreshTokens != cfg.EnableSingleUseRefreshTokens {
+					t.Fatalf("%v: Failed to match EnableSingleUseRefreshTokens. expected: %v, got: %v", i, test.config.OauthScope, cfg.OauthScope)
+				}
 				assertEqualE(t, cfg.Token, test.config.Token, "token")
 				assertEqualE(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
 			case test.err != nil:
@@ -1518,6 +1539,22 @@ func TestDSN(t *testing.T) {
 				OauthScope:            "test scope",
 			},
 			dsn: "u:p@a.r.snowflakecomputing.com:443?oauthAuthorizationUrl=http%3A%2F%2Fsomehost.com&oauthClientId=testClientId&oauthClientSecret=testClientSecret&oauthRedirectUri=http%3A%2F%2Flocalhost%3A8001%2Fsome-path&oauthScope=test+scope&oauthTokenRequestUrl=https%3A%2F%2Fsomehost2.com%2Fsomepath&ocspFailOpen=true&region=r&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                         "u",
+				Password:                     "p",
+				Account:                      "a",
+				Region:                       "r",
+				OauthClientID:                "testClientId",
+				OauthClientSecret:            "testClientSecret",
+				OauthAuthorizationURL:        "http://somehost.com",
+				OauthTokenRequestURL:         "https://somehost2.com/somepath",
+				OauthRedirectURI:             "http://localhost:8001/some-path",
+				OauthScope:                   "test scope",
+				EnableSingleUseRefreshTokens: true,
+			},
+			dsn: "u:p@a.r.snowflakecomputing.com:443?enableSingleUseRefreshTokens=true&oauthAuthorizationUrl=http%3A%2F%2Fsomehost.com&oauthClientId=testClientId&oauthClientSecret=testClientSecret&oauthRedirectUri=http%3A%2F%2Flocalhost%3A8001%2Fsome-path&oauthScope=test+scope&oauthTokenRequestUrl=https%3A%2F%2Fsomehost2.com%2Fsomepath&ocspFailOpen=true&region=r&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{

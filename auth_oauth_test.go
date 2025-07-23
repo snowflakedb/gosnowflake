@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"golang.org/x/oauth2"
 	"io"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/oauth2"
 )
 
 func TestUnitOAuthAuthorizationCode(t *testing.T) {
@@ -274,6 +275,26 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
+		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
+		credentialsStorage.deleteCredential(oauthRefreshTokenSpec)
+		connector := NewConnector(SnowflakeDriver{}, *cfg)
+		db := sql.OpenDB(connector)
+		runSmokeQuery(t, db)
+	})
+
+	t.Run("successful flow with single-use refresh token enabled", func(t *testing.T) {
+		wiremock.registerMappings(t,
+			newWiremockMapping("oauth2/authorization_code/successful_flow_with_single_use_refresh_token.json"),
+			newWiremockMapping("oauth2/login_request.json"),
+			newWiremockMapping("select1.json"))
+		cfg := wiremock.connectionConfig()
+		cfg.Role = "ANALYST"
+		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
+		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
+		cfg.Transporter = roundTripper
+		cfg.EnableSingleUseRefreshTokens = true
 		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		credentialsStorage.deleteCredential(oauthAccessTokenSpec)

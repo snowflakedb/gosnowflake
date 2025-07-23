@@ -16,6 +16,12 @@ const (
 	snowflakeConnectionName = "SNOWFLAKE_DEFAULT_CONNECTION_NAME"
 	snowflakeHome           = "SNOWFLAKE_HOME"
 	defaultTokenPath        = "/snowflake/session/token"
+
+	othersCanReadFilePermission  = os.FileMode(0044)
+	othersCanWriteFilePermission = os.FileMode(0022)
+	executableFilePermission     = os.FileMode(0111)
+
+	skipWarningForReadPermissionsEnv = "SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE"
 )
 
 // LoadConnectionConfig returns connection configs loaded from the toml file.
@@ -343,20 +349,43 @@ func validateFilePermission(filePath string) error {
 	if isWindows {
 		return nil
 	}
+
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return err
 	}
-	if permission := fileInfo.Mode().Perm(); permission != os.FileMode(0600) {
+
+	permission := fileInfo.Mode().Perm()
+
+	if !shouldSkipWarningForReadPermissions() && permission&othersCanReadFilePermission != 0 {
+		logger.Warnf("file '%v' is readable by someone other than the owner. Your Permission: %v. If you want "+
+			"to disable this warning, either remove read permissions from group and others or set the environment "+
+			"variable %v to true", filePath, permission, skipWarningForReadPermissionsEnv)
+	}
+
+	if permission&executableFilePermission != 0 {
 		return &SnowflakeError{
 			Number:      ErrCodeInvalidFilePermission,
-			Message:     errMsgInvalidPermissionToTomlFile,
-			MessageArgs: []interface{}{permission},
+			Message:     errMsgInvalidExecutablePermissionToFile,
+			MessageArgs: []interface{}{filePath, permission},
 		}
 	}
+
+	if permission&othersCanWriteFilePermission != 0 {
+		return &SnowflakeError{
+			Number:      ErrCodeInvalidFilePermission,
+			Message:     errMsgInvalidWritablePermissionToFile,
+			MessageArgs: []interface{}{filePath, permission},
+		}
+	}
+
 	return nil
 }
 
 func shouldReadTokenFromFile(cfg *Config) bool {
 	return cfg != nil && cfg.Authenticator == AuthTypeOAuth && len(cfg.Token) == 0
+}
+
+func shouldSkipWarningForReadPermissions() bool {
+	return os.Getenv(skipWarningForReadPermissionsEnv) != ""
 }
