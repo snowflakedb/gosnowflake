@@ -635,13 +635,16 @@ func TestPostRestfulQueryContextErrors(t *testing.T) {
 	})
 
 	t.Run("cancel failure returns wrapped error", func(t *testing.T) {
+		fatalCancelErr := fmt.Errorf("fatal failure")
 		sr := newRestfulWithError(context.Canceled)
 		sr.FuncCancelQuery = func(context.Context, *snowflakeRestful, UUID, time.Duration) error {
 			cancelCalled = true
-			return fmt.Errorf("fatal failure")
+			return fatalCancelErr
 		}
 		_, err := runPostRestfulQuery(sr)
 		assertTrueE(t, cancelCalled)
+		assertTrueE(t, errors.Is(err, context.Canceled))
+		assertTrueE(t, errors.Is(err, fatalCancelErr))
 		assertEqualE(t, "failed to cancel query. cancelErr: fatal failure, queryErr: context canceled", err.Error())
 	})
 }
