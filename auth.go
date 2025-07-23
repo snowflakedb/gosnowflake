@@ -180,11 +180,12 @@ var userAgent = fmt.Sprintf("%v/%v (%v-%v) %v/%v",
 	runtime.Version())
 
 type authRequestClientEnvironment struct {
-	Application string `json:"APPLICATION"`
-	Os          string `json:"OS"`
-	OsVersion   string `json:"OS_VERSION"`
-	OCSPMode    string `json:"OCSP_MODE"`
-	GoVersion   string `json:"GO_VERSION"`
+	Application     string `json:"APPLICATION"`
+	ApplicationPath string `json:"APPLICATION_PATH"`
+	Os              string `json:"OS"`
+	OsVersion       string `json:"OS_VERSION"`
+	OCSPMode        string `json:"OCSP_MODE"`
+	GoVersion       string `json:"GO_VERSION"`
 }
 
 type authRequestData struct {
@@ -351,12 +352,18 @@ func authenticate(
 	}
 
 	headers := getHeaders()
+	// Get the current application path
+	applicationPath, err := os.Executable()
+	if err != nil {
+		applicationPath = "unknown"
+	}
 	clientEnvironment := authRequestClientEnvironment{
-		Application: sc.cfg.Application,
-		Os:          operatingSystem,
-		OsVersion:   platform,
-		OCSPMode:    sc.cfg.ocspMode(),
-		GoVersion:   runtime.Version(),
+		Application:     sc.cfg.Application,
+		ApplicationPath: applicationPath,
+		Os:              operatingSystem,
+		OsVersion:       platform,
+		OCSPMode:        sc.cfg.ocspMode(),
+		GoVersion:       runtime.Version(),
 	}
 
 	sessionParameters := make(map[string]interface{})
