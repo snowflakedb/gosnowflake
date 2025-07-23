@@ -499,7 +499,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 			return fmt.Errorf("Failed to write to keychain. Err: %v", err)
 		}
 	}
-	return nil
+	return fmt.Errorf("keyring credential storage manager is not implemented on %s", runtime.GOOS)
 }
 
 func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) (string, error) {
