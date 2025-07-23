@@ -132,7 +132,7 @@ type Config struct {
 	CrlOnDiskCacheDisabled            bool                    // Should the on-disk cache be disabled
 	CrlOnDiskCacheDir                 string                  // On-disk cache directory
 	CrlOnDiskCacheRemovalDelay        time.Duration           // How long should we keep CRL on disk before removing it (for debuggability purpose only, for validity time use CrlCacheValidityTime)
-	CrlHttpClientTimeout              time.Duration           // Timeout for HTTP client used to download CRL
+	CrlHTTPClientTimeout              time.Duration           // Timeout for HTTP client used to download CRL
 	CrlCacheCleanerTick               time.Duration           // How often should we check for CRL cache removal
 }
 
@@ -304,8 +304,8 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.CrlOnDiskCacheRemovalDelay != 0 {
 		params.Add("crlOnDiskCacheRemovalDelay", strconv.FormatInt(int64(cfg.CrlOnDiskCacheRemovalDelay/time.Second), 10))
 	}
-	if cfg.CrlHttpClientTimeout != 0 {
-		params.Add("crlHttpClientTimeout", strconv.FormatInt(int64(cfg.CrlHttpClientTimeout/time.Second), 10))
+	if cfg.CrlHTTPClientTimeout != 0 {
+		params.Add("crlHttpClientTimeout", strconv.FormatInt(int64(cfg.CrlHTTPClientTimeout/time.Second), 10))
 	}
 	if cfg.CrlCacheCleanerTick != 0 {
 		params.Add("crlCacheCleanerTick", strconv.FormatInt(int64(cfg.CrlCacheCleanerTick/time.Second), 10))
@@ -1050,7 +1050,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			if err != nil {
 				return
 			}
-			cfg.CrlHttpClientTimeout = time.Duration(vv * int64(time.Second))
+			cfg.CrlHTTPClientTimeout = time.Duration(vv * int64(time.Second))
 		case "crlCacheCleanerTick":
 			var vv int64
 			vv, err = strconv.ParseInt(value, 10, 64)

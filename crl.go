@@ -136,7 +136,7 @@ const (
 )
 
 const (
-	defaultCrlHttpClientTimeout = 10 * time.Second
+	defaultCrlHTTPClientTimeout = 10 * time.Second
 	defaultCrlCacheValidityTime = 24 * time.Hour
 	defaultCrlCacheCleanerTick  = time.Hour
 )
@@ -144,7 +144,7 @@ const (
 func createCrlTransport(cfg *Config) (*http.Transport, *crlValidator, error) {
 	allowCertificatesWithoutCrlURL := cfg.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
 	client := &http.Client{
-		Timeout: cmp.Or(cfg.CrlHttpClientTimeout, defaultCrlHttpClientTimeout),
+		Timeout: cmp.Or(cfg.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
 	}
 	crlValidator, err := newCrlValidator(cfg.CertRevocationCheckMode, allowCertificatesWithoutCrlURL, cfg.CrlCacheValidityTime, cfg.CrlInMemoryCacheDisabled, cfg.CrlOnDiskCacheDisabled, cfg.CrlOnDiskCacheDir, cfg.CrlOnDiskCacheRemovalDelay, client)
 	if err != nil {
@@ -571,7 +571,7 @@ func defaultCrlOnDiskCacheDir() (string, error) {
 	case "darwin":
 		home := os.Getenv("HOME")
 		if home == "" {
-			return "", errors.New("HOME is blank.")
+			return "", errors.New("HOME is blank")
 		}
 		return filepath.Join(home, "Library", "Caches", "Snowflake", "crls"), nil
 	default:

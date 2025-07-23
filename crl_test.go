@@ -553,10 +553,12 @@ func TestCrlModes(t *testing.T) {
 				})
 
 				t.Run("should clean up cache", func(t *testing.T) {
+					logger.SetLogLevel("debug")
+					defer logger.SetLogLevel("fatal")
 					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-					crl := createCrl(t, caCert, caPrivateKey, nextUpdateType(time.Now().Add(2000*time.Millisecond)))
+					crl := createCrl(t, caCert, caPrivateKey, nextUpdateType(time.Now().Add(3000*time.Millisecond)))
 
 					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
 					defer closeServer(t, server)
@@ -574,7 +576,7 @@ func TestCrlModes(t *testing.T) {
 					assertNilE(t, err, "CRL file should be created in the cache directory")
 					fd.Close()
 
-					time.Sleep(1000 * time.Millisecond) // wait for cleanup to happen
+					time.Sleep(2000 * time.Millisecond) // wait for cleanup to happen
 
 					crlInMemoryCacheMutex.Lock()
 					assertNilE(t, crlInMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should be cleaned up")
@@ -583,7 +585,7 @@ func TestCrlModes(t *testing.T) {
 					assertNilE(t, err, "CRL file should still be present in the cache directory")
 					fd.Close()
 
-					time.Sleep(3000 * time.Millisecond) // wait for removal delay to pass
+					time.Sleep(4000 * time.Millisecond) // wait for removal delay to pass
 					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertErrIsE(t, err, os.ErrNotExist, "CRL file should be removed from the cache directory after removal delay")
 				})
@@ -881,7 +883,10 @@ func TestCrlE2E(t *testing.T) {
 		rows, err := db.Query("SELECT 1")
 		assertNilF(t, err)
 		defer rows.Close()
+		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
+		crlInMemoryCacheMutex.Unlock()
+		logger.Debugf("CRL in memory cache entries after connecting to Snowflake: %v", memoryEntriesAfterSnowflakeConnection)
 		assertTrueE(t, memoryEntriesAfterSnowflakeConnection > 0)
 
 		// additional entries for connecting to cloud providers and checking their certs
@@ -889,10 +894,16 @@ func TestCrlE2E(t *testing.T) {
 		assertNilF(t, err)
 		_, err = db.Exec(fmt.Sprintf("PUT file://%v @~/%v", filepath.Join(cwd, "test_data", "put_get_1.txt"), "put_get_1.txt"))
 		assertNilF(t, err)
-		assertTrueE(t, len(crlInMemoryCache) > memoryEntriesAfterSnowflakeConnection)
+		crlInMemoryCacheMutex.Lock()
+		memoryEntriesAfterCSPConnection := len(crlInMemoryCache)
+		crlInMemoryCacheMutex.Unlock()
+		logger.Debugf("CRL in memory cache entries after connecting to cloud providers: %v", memoryEntriesAfterCSPConnection)
+		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
 
 		time.Sleep(10 * time.Second) // wait for the cache cleaner to run
+		crlInMemoryCacheMutex.Lock()
 		assertEqualE(t, len(crlInMemoryCache), 0)
+		crlInMemoryCacheMutex.Unlock()
 	})
 
 	t.Run("OCSP and CRL cannot be enabled at the same time", func(t *testing.T) {

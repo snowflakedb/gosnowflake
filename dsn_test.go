@@ -1198,7 +1198,7 @@ func TestParseDSN(t *testing.T) {
 				CrlOnDiskCacheDisabled:            true,
 				CrlOnDiskCacheDir:                 "/tmp/crl",
 				CrlOnDiskCacheRemovalDelay:        30 * time.Second,
-				CrlHttpClientTimeout:              10 * time.Second,
+				CrlHTTPClientTimeout:              10 * time.Second,
 				CrlCacheCleanerTick:               7 * time.Second,
 			},
 			ocspMode: ocspModeFailOpen,
@@ -1405,7 +1405,7 @@ func TestParseDSN(t *testing.T) {
 				assertEqualE(t, cfg.CrlOnDiskCacheDisabled, test.config.CrlOnDiskCacheDisabled, "crl on disk cache disabled")
 				assertEqualE(t, cfg.CrlOnDiskCacheDir, test.config.CrlOnDiskCacheDir, "crl on disk cache dir")
 				assertEqualE(t, cfg.CrlOnDiskCacheRemovalDelay, test.config.CrlOnDiskCacheRemovalDelay, "crl on disk cache removal delay")
-				assertEqualE(t, cfg.CrlHttpClientTimeout, test.config.CrlHttpClientTimeout, "crl http client timeout")
+				assertEqualE(t, cfg.CrlHTTPClientTimeout, test.config.CrlHTTPClientTimeout, "crl http client timeout")
 				assertEqualE(t, cfg.CrlCacheCleanerTick, test.config.CrlCacheCleanerTick, "crl cache cleaner tick")
 			case test.err != nil:
 				driverErrE, okE := test.err.(*SnowflakeError)
@@ -2091,7 +2091,7 @@ func TestDSN(t *testing.T) {
 				CrlOnDiskCacheDisabled:            true,
 				CrlOnDiskCacheDir:                 "/tmp/crl",
 				CrlOnDiskCacheRemovalDelay:        5 * time.Minute,
-				CrlHttpClientTimeout:              5 * time.Second,
+				CrlHTTPClientTimeout:              5 * time.Second,
 				CrlCacheCleanerTick:               7 * time.Second,
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&crlCacheCleanerTick=7&crlCacheValidityTime=600&crlHttpClientTimeout=5&crlInMemoryCacheDisabled=true&crlOnDiskCacheDir=%2Ftmp%2Fcrl&crlOnDiskCacheDisabled=true&crlOnDiskCacheRemovalDelay=300&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
