@@ -643,8 +643,8 @@ func TestPostRestfulQueryContextErrors(t *testing.T) {
 		}
 		_, err := runPostRestfulQuery(sr)
 		assertTrueE(t, cancelCalled)
-		assertTrueE(t, errors.Is(err, context.Canceled))
-		assertTrueE(t, errors.Is(err, fatalCancelErr))
+		assertErrIsE(t, err, context.Canceled)
+		assertErrIsE(t, err, fatalCancelErr)
 		assertEqualE(t, "failed to cancel query. cancelErr: fatal failure, queryErr: context canceled", err.Error())
 	})
 }
