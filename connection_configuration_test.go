@@ -60,7 +60,7 @@ func TestTokenFilePermission(t *testing.T) {
 		defer func() {
 			os.Unsetenv(skipWarningForReadPermissionsEnv)
 		}()
-		
+
 		var originalLogger = logger
 		logger = CreateDefaultLogger()
 		buf := &bytes.Buffer{}
@@ -317,8 +317,12 @@ func TestParseToml(t *testing.T) {
 			values: []interface{}{true, "true", false, "false"},
 		},
 		{
-			testParams: []string{"connectionDiagnosticsEnabled", "connectionDiagnosticsAllowlistFile", "connectionDiagnosticsDownloadCRL"},
-			values:     []interface{}{true, "myallowlist.json", false},
+			testParams: []string{"connectionDiagnosticsEnabled", "connection_diagnostics_enabled", "connectionDiagnosticsDownloadCRL", "connection_diagnostics_download_crl"},
+			values:     []interface{}{true, false},
+		},
+		{
+			testParams: []string{"connectionDiagnosticsAllowlistFile", "connection_diagnostics_allowlist_file"},
+			values:     []interface{}{"myallowlist.json"},
 		},
 	}
 
