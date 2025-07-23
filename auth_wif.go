@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"net/http"
@@ -28,7 +27,6 @@ const (
 
 	gcpMetadataFlavorHeaderName = "Metadata-Flavor"
 	gcpMetadataFlavor           = "Google"
-	expectedGcpTokenIssuer      = "https://accounts.google.com"
 	defaultMetadataServiceBase  = "http://169.254.169.254"
 	snowflakeAudience           = "snowflakecomputing.com"
 )
@@ -147,7 +145,6 @@ type oidcIdentityAttestationCreator struct {
 type awsAttestationMetadataProvider interface {
 	awsCredentials() aws.Credentials
 	awsRegion() string
-	awsArn() string
 }
 
 type defaultAwsAttestationMetadataProvider struct {
@@ -180,16 +177,6 @@ func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 	return s.awsCfg.Region
 }
 
-func (s *defaultAwsAttestationMetadataProvider) awsArn() string {
-	client := sts.NewFromConfig(s.awsCfg)
-	output, err := client.GetCallerIdentity(s.ctx, &sts.GetCallerIdentityInput{})
-	if err != nil {
-		logger.Debugf("Unable to get caller identity: %v", err)
-		return ""
-	}
-	return aws.ToString(output.Arn)
-}
-
 func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debug("Creating AWS identity attestation...")
 
@@ -210,13 +197,7 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 		return nil, nil
 	}
 
-	arn := c.attestationService.awsArn()
-	if arn == "" {
-		logger.Debug("No Caller Identity was found.")
-		return nil, nil
-	}
-
-	stsHostname := fmt.Sprintf("sts.%s.amazonaws.com", region)
+	stsHostname := stsHostname(region)
 	req, err := c.createStsRequest(stsHostname)
 	if err != nil {
 		return nil, err
@@ -235,12 +216,22 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 	return &wifAttestation{
 		ProviderType: string(awsWif),
 		Credential:   credential,
-		Metadata:     map[string]string{"arn": arn},
+		Metadata:     map[string]string{},
 	}, nil
 }
 
+func stsHostname(region string) string {
+	var domain string
+	if strings.HasPrefix(region, "cn-") {
+		domain = "amazonaws.com.cn"
+	} else {
+		domain = "amazonaws.com"
+	}
+	return fmt.Sprintf("sts.%s.%s", region, domain)
+}
+
 func (c *awsIdentityAttestationCreator) createStsRequest(hostname string) (*http.Request, error) {
-	url := fmt.Sprintf("https://%s/?Action=GetCallerIdentity&Version=2011-06-15", hostname)
+	url := fmt.Sprintf("https://%s?Action=GetCallerIdentity&Version=2011-06-15", hostname)
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		return nil, err
@@ -289,13 +280,9 @@ func (c *gcpIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 		logger.Debugf("no GCP token was found.")
 		return nil, nil
 	}
-	sub, iss, err := extractSubIssWithoutVerifyingSignature(token)
+	sub, _, err := extractSubIssWithoutVerifyingSignature(token)
 	if err != nil {
 		logger.Errorf("could not extract claims from token: %v", err.Error())
-		return nil, nil
-	}
-	if iss != expectedGcpTokenIssuer {
-		logger.Errorf("unexpected token issuer: %s, should be %s", iss, expectedGcpTokenIssuer)
 		return nil, nil
 	}
 	return &wifAttestation{
@@ -416,11 +403,6 @@ type azureIdentityAttestationCreator struct {
 	azureMetadataServiceBaseURL      string
 }
 
-var allowedAzureTokenIssuerPrefixes = []string{
-	"https://sts.windows.net/",
-	"https://login.microsoftonline.com/",
-}
-
 // createAttestation creates an attestation using Azure identity
 func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debug("Creating Azure identity attestation...")
@@ -473,19 +455,6 @@ func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, 
 	}
 	if sub == "" || iss == "" {
 		logger.Error("Missing sub or iss claim in JWT token")
-		return nil, nil
-	}
-
-	hasAllowedPrefix := false
-	for _, prefix := range allowedAzureTokenIssuerPrefixes {
-		if strings.HasPrefix(iss, prefix) {
-			hasAllowedPrefix = true
-			break
-		}
-	}
-
-	if !hasAllowedPrefix {
-		logger.Errorf("Unexpected Azure token issuer: %s", iss)
 		return nil, nil
 	}
 
