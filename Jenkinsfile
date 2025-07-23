@@ -43,7 +43,7 @@ timestamps {
 
 
 pipeline {
-  agent { label 'regular-memory-node' }
+  agent { label 'high-memory-node-snowos' }
   options { timestamps() }
   environment {
     COMMIT_SHA_LONG = sh(returnStdout: true, script: "echo \$(git rev-parse " + "HEAD)").trim()
