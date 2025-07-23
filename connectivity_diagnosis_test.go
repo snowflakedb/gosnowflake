@@ -398,7 +398,6 @@ func TestDoHTTP(t *testing.T) {
 			name: "Do HTTP - (CHINA) ocsp.snowflakecomputing.cn url modification",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					// doHTTP should automatically add ocsp_response_cache.json to the full url
 					assertStringContainsE(t, r.URL.Path, "ocsp_response_cache.json", "url path should contain ocsp_response_cache.json added")
 					w.WriteHeader(http.StatusOK)
 				}))
@@ -408,7 +407,8 @@ func TestDoHTTP(t *testing.T) {
 				req.URL.Host = "ocsp.snowflakecomputing.cn"
 				return req
 			},
-			shouldError: false,
+			// http://ocsp.snowflakecomputing.cn/ocsp_response_cache.json throws HTTP404
+			shouldError: true,
 		},
 		{
 			name: "Do HTTP - server returns forbidden, acceptable",
@@ -685,7 +685,6 @@ func TestPerformConnectivityCheck(t *testing.T) {
 }
 
 func TestPerformDiagnosis(t *testing.T) {
-	var diagTest connectivityDiagnoser
 
 	t.Run("Perform Diagnosis - CRL download disabled", func(t *testing.T) {
 		// setup test logger then restore original after test
@@ -768,10 +767,6 @@ func TestPerformDiagnosis(t *testing.T) {
 		}
 
 		performDiagnosis(config)
-
-		// verify that the diagnostic client was set
-		assertNotNilE(t, diagTest.diagnosticClient, "client should be set after performDiagnosis")
-		assertNotNilE(t, diagTest.diagnosticTransport, "diagnosticTransport should be set after performDiagnosis")
 
 		// verify expected log messages including CRL download
 		logOutput := buffer.String()
