@@ -483,7 +483,9 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 		if err := ring.Set(item); err != nil {
 			return fmt.Errorf("Failed to write to Windows credential manager. Err: %v", err)
 		}
-	} else if runtime.GOOS == "darwin" {
+		return nil
+	}
+	if runtime.GOOS == "darwin" {
 		ring, err := keyring.Open(keyring.Config{
 			ServiceName: credentialsKey,
 		})
@@ -498,8 +500,9 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 		if err := ring.Set(item); err != nil {
 			return fmt.Errorf("Failed to write to keychain. Err: %v", err)
 		}
+		return nil
 	}
-	return nil
+	return fmt.Errorf("keyring credential storage manager is not implemented on %s", runtime.GOOS)
 }
 
 func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) (string, error) {
