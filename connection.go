@@ -880,11 +880,11 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 }
 
 func getTransport(cfg *Config) (http.RoundTripper, error) {
-	// TODO do we need this?
-	//if cfg == nil {
-	//	logger.Debug("getTransport: got nil Config, will perform OCSP validation for cloud storage")
-	//	return SnowflakeTransport
-	//}
+	if cfg == nil {
+		// should never happen in production, only in tests
+		logger.Warn("getTransport: got nil Config, using default one")
+		return snowflakeNoRevocationCheckTransport, nil
+	}
 	// if user configured a custom Transporter, prioritize that
 	if cfg.Transporter != nil {
 		logger.Debug("getTransport: using Transporter configured by the user")

@@ -2094,7 +2094,7 @@ func TestDSN(t *testing.T) {
 				CrlHttpClientTimeout:              5 * time.Second,
 				CrlCacheCleanerTick:               7 * time.Second,
 			},
-			dsn: "u:p@a.b.c.snowflakecomputing.com:443?certRevocationCheckMode=ENABLED&crlCacheCleanerTick=7&crlCacheValidityTime=600&crlHttpClientTimeout=5&crlInMemoryCacheDisabled=true&crlInMemoryCacheDisabled=true&crlOnDiskCacheDir=%2Ftmp%2Fcrl&crlOnDiskCacheRemovalDelay=300&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&crlCacheCleanerTick=7&crlCacheValidityTime=600&crlHttpClientTimeout=5&crlInMemoryCacheDisabled=true&crlOnDiskCacheDir=%2Ftmp%2Fcrl&crlOnDiskCacheDisabled=true&crlOnDiskCacheRemovalDelay=300&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 	}
 	for _, test := range testcases {

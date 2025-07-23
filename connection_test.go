@@ -917,11 +917,11 @@ func TestGetTransport(t *testing.T) {
 			cfg:       &Config{Account: "four"},
 			transport: SnowflakeTransport,
 		},
-		//{
-		//	name:      "whole Config is missing",
-		//	cfg:       nil,
-		//	transport: SnowflakeTransport,
-		//},
+		{
+			name:      "whole Config is missing",
+			cfg:       nil,
+			transport: snowflakeNoRevocationCheckTransport,
+		},
 		{
 			name:      "Using CRLs",
 			cfg:       crlCfg,

@@ -286,6 +286,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
 		params.Add("certRevocationCheckMode", cfg.CertRevocationCheckMode.String())
 	}
+	if cfg.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue {
+		params.Add("crlAllowCertificatesWithoutCrlURL", "true")
+	}
 	if cfg.CrlCacheValidityTime != 0 {
 		params.Add("crlCacheValidityTime", strconv.FormatInt(int64(cfg.CrlCacheValidityTime/time.Second), 10))
 	}
@@ -293,7 +296,7 @@ func DSN(cfg *Config) (dsn string, err error) {
 		params.Add("crlInMemoryCacheDisabled", "true")
 	}
 	if cfg.CrlOnDiskCacheDisabled {
-		params.Add("crlInMemoryCacheDisabled", "true")
+		params.Add("crlOnDiskCacheDisabled", "true")
 	}
 	if cfg.CrlOnDiskCacheDir != "" {
 		params.Add("crlOnDiskCacheDir", cfg.CrlOnDiskCacheDir)
