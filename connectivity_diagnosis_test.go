@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -42,37 +41,29 @@ func TestSetupTestLogger(t *testing.T) {
 	// and restore it after test
 	defer func() { logger = originalLogger }()
 
-	t.Run("Setup Test Logger - buffer capture and cleanup", func(t *testing.T) {
-		buffer, cleanup := setupTestLogger()
+	buffer, cleanup := setupTestLogger()
 
-		assertNotNilE(t, buffer, "buffer should not be nil")
-		assertNotNilE(t, cleanup, "cleanup function should not be nil")
+	assertNotNilE(t, buffer, "buffer should not be nil")
+	assertNotNilE(t, cleanup, "cleanup function should not be nil")
 
-		// the test message should be in the buffer
-		testMessage := "test log message for setupTestLogger"
-		logger.Info(testMessage)
-		logOutput := buffer.String()
-		assertStringContainsE(t, logOutput, testMessage, "buffer should capture log output")
+	// the test message should be in the buffer
+	testMessage := "test log message for setupTestLogger"
+	logger.Info(testMessage)
+	logOutput := buffer.String()
+	assertStringContainsE(t, logOutput, testMessage, "buffer should capture log output")
 
-		// now cleanup
-		cleanup()
-		assertEqualE(t, logger, originalLogger, "cleanup should restore original logger")
+	// now cleanup
+	cleanup()
+	assertEqualE(t, logger, originalLogger, "cleanup should restore original logger")
 
-		// clear the buffer, log a new message into it
-		// logs should not go to the test logger anymore
-		buffer.Reset()
-		logger.Info("this should not appear in test buffer")
-		assertEqualE(t, buffer.String(), "", "buffer should be empty after cleanup")
-	})
+	// clear the buffer, log a new message into it
+	// logs should not go to the test logger anymore
+	buffer.Reset()
+	logger.Info("this should not appear in test buffer")
+	assertEqualE(t, buffer.String(), "", "buffer should be empty after cleanup")
 }
 
 // test case types
-type tcAllowlistEntry struct {
-	host      string
-	port      int
-	entryType string
-}
-
 type tcDiagnosticClient struct {
 	name            string
 	config          *Config
@@ -80,26 +71,10 @@ type tcDiagnosticClient struct {
 }
 
 type tcOpenAllowlistJSON struct {
-	name        string
-	setup       func() (string, func())
-	shouldError bool
-}
-
-type tcParseAllowlistJSON struct {
 	name           string
-	content        string
+	setup          func() (string, func())
 	shouldError    bool
 	expectedLength int
-}
-
-type tcPrivateLinkHost struct {
-	hostname      string
-	isPrivateLink bool
-}
-
-type tcPrivateIP struct {
-	ip          string
-	isPrivateIP bool
 }
 
 type tcAcceptableStatusCode struct {
@@ -150,28 +125,8 @@ type tcPerformConnectivityCheck struct {
 	expectedLog  string
 }
 
-func TestAllowlistEntry(t *testing.T) {
-	testcases := []tcAllowlistEntry{
-		{"myaccount.snowflakecomputing.com", 443, "SNOWFLAKE_DEPLOYMENT"},
-		{"ocsp.snowflakecomputing.com", 80, "OCSP_CACHE"},
-	}
-
-	for _, tc := range testcases {
-		t.Run(fmt.Sprintf("%s_%d_%s", tc.host, tc.port, tc.entryType), func(t *testing.T) {
-			entry := AllowlistEntry{
-				Host: tc.host,
-				Port: tc.port,
-				Type: tc.entryType,
-			}
-
-			assertEqualE(t, entry.Host, tc.host, "host did not match")
-			assertEqualE(t, entry.Port, tc.port, "port did not match")
-			assertEqualE(t, entry.Type, tc.entryType, "type did not match")
-		})
-	}
-}
-
 func TestCreateDiagnosticClient(t *testing.T) {
+	var diagTest connectivityDiagnoser
 	testcases := []tcDiagnosticClient{
 		{
 			name: "Diagnostic Client with default timeout",
@@ -191,7 +146,7 @@ func TestCreateDiagnosticClient(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			client := createDiagnosticClient(tc.config)
+			client := diagTest.createDiagnosticClient(tc.config)
 
 			assertNotNilE(t, client, "client should not be nil")
 			assertEqualE(t, client.Timeout, tc.expectedTimeout, "timeout did not match")
@@ -201,61 +156,61 @@ func TestCreateDiagnosticClient(t *testing.T) {
 }
 
 func TestCreateDiagnosticDialContext(t *testing.T) {
-	t.Run("Diagnostic DialContext creation", func(t *testing.T) {
-		dialContext := createDiagnosticDialContext()
+	var diagTest connectivityDiagnoser
+	dialContext := diagTest.createDiagnosticDialContext()
 
-		assertNotNilE(t, dialContext, "dialContext should not be nil")
+	assertNotNilE(t, dialContext, "dialContext should not be nil")
 
-		// new simple server to test basic connectivity
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		}))
-		defer server.Close()
+	// new simple server to test basic connectivity
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
 
-		u, _ := url.Parse(server.URL)
+	u, _ := url.Parse(server.URL)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-		conn, err := dialContext(ctx, "tcp", u.Host)
-		assertNilE(t, err, "error should be nil")
-		defer conn.Close()
-
-	})
+	_, err := dialContext(ctx, "tcp", u.Host)
+	assertNilE(t, err, "error should be nil")
 }
 
 func TestCreateDiagnosticTransport(t *testing.T) {
-	t.Run("Diagnostic Transport creation", func(t *testing.T) {
-		config := &Config{}
-		transport := createDiagnosticTransport(config)
+	var diagTest connectivityDiagnoser
+	config := &Config{}
+	transport := diagTest.createDiagnosticTransport(config)
 
-		assertNotNilE(t, transport, "transport should not be nil")
-		assertNotNilE(t, transport.DialContext, "dialContext should not be nil")
+	assertNotNilE(t, transport, "transport should not be nil")
+	assertNotNilE(t, transport.DialContext, "dialContext should not be nil")
 
-		// by default we should use the SnowflakeTransport
-		assertEqualE(t, transport.TLSClientConfig, SnowflakeTransport.TLSClientConfig, "TLSClientConfig did not match with SnowflakeTransport default")
-		assertEqualE(t, transport.MaxIdleConns, SnowflakeTransport.MaxIdleConns, "MaxIdleConns did not match with SnowflakeTransport default")
-		assertEqualE(t, transport.IdleConnTimeout, SnowflakeTransport.IdleConnTimeout, "IdleConnTimeout did not match with SnowflakeTransport default")
-		if (transport.Proxy == nil) != (SnowflakeTransport.Proxy == nil) {
-			t.Errorf("Proxy function presence should match SnowflakeTransport default")
-		}
-	})
+	// by default we should use the SnowflakeTransport
+	assertEqualE(t, transport.TLSClientConfig, SnowflakeTransport.TLSClientConfig, "TLSClientConfig did not match with SnowflakeTransport default")
+	assertEqualE(t, transport.MaxIdleConns, SnowflakeTransport.MaxIdleConns, "MaxIdleConns did not match with SnowflakeTransport default")
+	assertEqualE(t, transport.IdleConnTimeout, SnowflakeTransport.IdleConnTimeout, "IdleConnTimeout did not match with SnowflakeTransport default")
+	if (transport.Proxy == nil) != (SnowflakeTransport.Proxy == nil) {
+		t.Errorf("Proxy function presence should match SnowflakeTransport default")
+	}
 }
 
 func TestOpenAndReadAllowlistJSON(t *testing.T) {
+	var diagTest connectivityDiagnoser
 	testcases := []tcOpenAllowlistJSON{
 		{
-			name: "Open and Read Allowlist - valid file path",
+			name: "Open and Read Allowlist - valid file path, 2 entries",
 			// create a temp allowlist file and then delete it
 			setup: func() (filePath string, cleanup func()) {
-				content := `[{"host":"myaccount.snowflakecomputing.com","port":443,"type":"SNOWFLAKE_DEPLOYMENT"}]`
-				tmpFile, _ := os.CreateTemp("", "allowlist_*.json")
-				_, _ = tmpFile.WriteString(content)
+				content := `[{"host":"myaccount.snowflakecomputing.com","port":443,"type":"SNOWFLAKE_DEPLOYMENT"},{"host":"ocsp.snowflakecomputing.com","port":80,"type":"OCSP_CACHE"}]`
+				tmpFile, err := os.CreateTemp("", "allowlist_*.json")
+				assertNilF(t, err, "Error during creating temp allowlist file.")
+				_, err = tmpFile.WriteString(content)
+				assertNilF(t, err, "Error during writing temp allowlist file.")
 				tmpFile.Close()
 
 				return tmpFile.Name(), func() { os.Remove(tmpFile.Name()) }
 			},
-			shouldError: false,
+			shouldError:    false,
+			expectedLength: 2,
 		},
 		{
 			name: "Open and Read Allowlist - empty file path",
@@ -265,14 +220,16 @@ func TestOpenAndReadAllowlistJSON(t *testing.T) {
 
 				return "", func() { os.Remove("allowlist.json") }
 			},
-			shouldError: false,
+			shouldError:    false,
+			expectedLength: 1,
 		},
 		{
 			name: "Open and Read Allowlist - non existent file",
 			setup: func() (filePath string, cleanup func()) {
 				return "/non/existent/file.json", func() {}
 			},
-			shouldError: true,
+			shouldError:    true,
+			expectedLength: 0,
 		},
 	}
 
@@ -281,99 +238,21 @@ func TestOpenAndReadAllowlistJSON(t *testing.T) {
 			filePath, cleanup := tc.setup()
 			defer cleanup()
 
-			content, err := openAndReadAllowlistJSON(filePath)
+			allowlist, err := diagTest.openAndReadAllowlistJSON(filePath)
 
 			if tc.shouldError {
 				assertNotNilE(t, err, "error should not be nil")
 			} else {
 				assertNilE(t, err, "error should be nil")
-				assertNotNilE(t, content, "file content should not be nil")
+				assertNotNilE(t, allowlist, "file content should not be nil")
+				assertEqualE(t, len(allowlist.Entries), tc.expectedLength, "allowlist length did not match")
 			}
-		})
-	}
-}
-
-func TestParseAllowlistJSON(t *testing.T) {
-	testcases := []tcParseAllowlistJSON{
-		{
-			name:           "Parse Allowlist - valid JSON",
-			content:        `[{"host":"myaccount.snowflakecomputing.com","port":443,"type":"SNOWFLAKE_DEPLOYMENT"}]`,
-			shouldError:    false,
-			expectedLength: 1,
-		},
-		{
-			name:           "Parse Allowlist - multiple entries",
-			content:        `[{"host":"myaccount.snowflakecomputing.com","port":443,"type":"SNOWFLAKE_DEPLOYMENT"},{"host":"ocsp.snowflakecomputing.com","port":80,"type":"OCSP_CACHE"}]`,
-			shouldError:    false,
-			expectedLength: 2,
-		},
-		{
-			name:           "Parse Allowlist - invalid JSON",
-			content:        `{a fully invalid json}`,
-			shouldError:    true,
-			expectedLength: 0,
-		},
-		{
-			name:           "Parse Allowlist - empty array",
-			content:        `[]`,
-			shouldError:    false,
-			expectedLength: 0,
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			allowlist, err := parseAllowlistJSON([]byte(tc.content))
-
-			if tc.shouldError {
-				assertNotNilE(t, err, "error should not be nil")
-			} else {
-				assertNilE(t, err, "error should be nil")
-			}
-
-			assertEqualE(t, len(allowlist.Entries), tc.expectedLength, "allowlist length did not match")
-		})
-	}
-}
-
-func TestIsPrivateLinkHost(t *testing.T) {
-	testcases := []tcPrivateLinkHost{
-		{"myaccount.eu-west-1.privatelink.snowflakecomputing.com", true},
-		{"myorg-myaccount.privatelink.snowflakecomputing.com", true},
-		{"myaccount.snowflakecomputing.com", false},
-		{"myorg-myaccount.snowflakecomputing.com", false},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.hostname, func(t *testing.T) {
-			result := isPrivateLinkHost(tc.hostname)
-			assertEqualE(t, result, tc.isPrivateLink, "could not determine if host is private link")
-		})
-	}
-}
-
-func TestIsPrivateIP(t *testing.T) {
-	testcases := []tcPrivateIP{
-		{"192.168.1.1", true},
-		{"10.20.30.40", true},
-		{"172.16.1.1", true},
-		{"8.8.8.8", false},
-		{"172.32.1.1", false},
-		{"100.22.16.135", false},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.ip, func(t *testing.T) {
-			ip := net.ParseIP(tc.ip)
-			assertNotNilE(t, ip, fmt.Sprintf("failed to parse IP: %s", tc.ip))
-
-			result := isPrivateIP(ip)
-			assertEqualE(t, result, tc.isPrivateIP, "could not determine if IP is private")
 		})
 	}
 }
 
 func TestIsAcceptableStatusCode(t *testing.T) {
+	var diagTest connectivityDiagnoser
 	acceptableCodes := []int{http.StatusOK, http.StatusForbidden}
 
 	testcases := []tcAcceptableStatusCode{
@@ -386,13 +265,14 @@ func TestIsAcceptableStatusCode(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("Is Acceptable Status Code - status %d", tc.statusCode), func(t *testing.T) {
-			result := isAcceptableStatusCode(tc.statusCode, acceptableCodes)
+			result := diagTest.isAcceptableStatusCode(tc.statusCode, acceptableCodes)
 			assertEqualE(t, result, tc.isAcceptable, "http status code acceptance is wrong")
 		})
 	}
 }
 
 func TestFetchCRL(t *testing.T) {
+	var diagTest connectivityDiagnoser
 	testcases := []tcFetchCRL{
 		{
 			name: "Fetch CRL - successful fetch",
@@ -431,7 +311,7 @@ func TestFetchCRL(t *testing.T) {
 			server := tc.setupServer()
 			defer server.Close()
 
-			err := fetchCRL(server.URL)
+			err := diagTest.fetchCRL(server.URL)
 
 			if tc.shouldError {
 				assertNotNilE(t, err, "error should not be nil")
@@ -446,6 +326,7 @@ func TestFetchCRL(t *testing.T) {
 }
 
 func TestCreateRequest(t *testing.T) {
+	var diagTest connectivityDiagnoser
 	testcases := []tcCreateRequest{
 		{
 			name:        "Create Request - valid http url",
@@ -466,7 +347,7 @@ func TestCreateRequest(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			req, err := createRequest(tc.uri)
+			req, err := diagTest.createRequest(tc.uri)
 
 			if tc.shouldError {
 				assertNotNilE(t, err, "error should not be nil")
@@ -481,12 +362,7 @@ func TestCreateRequest(t *testing.T) {
 }
 
 func TestDoHTTP(t *testing.T) {
-	// 'client' is the global diagnostic client, lets preserve the original value
-	// because it will be modified during test
-	originalClient := client
-	// after the test, restore the original value
-	defer func() { client = originalClient }()
-
+	var diagTest connectivityDiagnoser
 	testcases := []tcDoHTTP{
 		// simple disposable server to test basic connectivity
 		{
@@ -514,6 +390,22 @@ func TestDoHTTP(t *testing.T) {
 			setupRequest: func(serverURL string) *http.Request {
 				req, _ := http.NewRequest("GET", serverURL, nil)
 				req.URL.Host = "ocsp.snowflakecomputing.com"
+				return req
+			},
+			shouldError: false,
+		},
+		{
+			name: "Do HTTP - (CHINA) ocsp.snowflakecomputing.cn url modification",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					// doHTTP should automatically add ocsp_response_cache.json to the full url
+					assertStringContainsE(t, r.URL.Path, "ocsp_response_cache.json", "url path should contain ocsp_response_cache.json added")
+					w.WriteHeader(http.StatusOK)
+				}))
+			},
+			setupRequest: func(serverURL string) *http.Request {
+				req, _ := http.NewRequest("GET", serverURL, nil)
+				req.URL.Host = "ocsp.snowflakecomputing.cn"
 				return req
 			},
 			shouldError: false,
@@ -552,11 +444,11 @@ func TestDoHTTP(t *testing.T) {
 			server := tc.setupServer()
 			defer server.Close()
 
-			// modify the global diagnostic client to use a shorter timeout
-			client = &http.Client{Timeout: 10 * time.Second}
+			// modify the diagnostic client to use a shorter timeout
+			diagTest.diagnosticClient = &http.Client{Timeout: 10 * time.Second}
 
 			req := tc.setupRequest(server.URL)
-			err := doHTTP(req)
+			err := diagTest.doHTTP(req)
 
 			if tc.shouldError {
 				assertNotNilE(t, err, "error should not be nil")
@@ -571,12 +463,7 @@ func TestDoHTTP(t *testing.T) {
 }
 
 func TestDoHTTPSGetCerts(t *testing.T) {
-	// 'client' is the global diagnostic client, lets preserve the original value
-	// because it will be modified during test
-	originalClient := client
-	// after the test, restore the original value
-	defer func() { client = originalClient }()
-
+	var diagTest connectivityDiagnoser
 	testcases := []tcDoHTTPSGetCerts{
 		// simple disposable server with TLS to test basic connectivity
 		{
@@ -617,9 +504,9 @@ func TestDoHTTPSGetCerts(t *testing.T) {
 			server := tc.setupServer()
 			defer server.Close()
 
-			// modify the global diagnostic client to use a shorter timeout
+			// modify the diagnostic client to use a shorter timeout
 			// and to ignore the server's certificate
-			client = &http.Client{
+			diagTest.diagnosticClient = &http.Client{
 				Timeout: 10 * time.Second,
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -627,7 +514,7 @@ func TestDoHTTPSGetCerts(t *testing.T) {
 			}
 
 			req, _ := http.NewRequest("GET", server.URL, nil)
-			err := doHTTPSGetCerts(req, tc.downloadCRLs)
+			err := diagTest.doHTTPSGetCerts(req, tc.downloadCRLs)
 
 			if tc.shouldError {
 				assertNotNilE(t, err, "error should not be nil")
@@ -642,11 +529,7 @@ func TestDoHTTPSGetCerts(t *testing.T) {
 }
 
 func TestCheckProxy(t *testing.T) {
-	// save the original transport because we gonna modify it during the test
-	originalTransport := diagnosticTransport
-	defer func() {
-		diagnosticTransport = originalTransport
-	}()
+	var diagTest connectivityDiagnoser
 
 	t.Run("Check Proxy - with proxy configured", func(t *testing.T) {
 		// setup test logger then restore original after test
@@ -655,7 +538,7 @@ func TestCheckProxy(t *testing.T) {
 
 		// set up transport with proxy
 		proxyURL, _ := url.Parse("http://my.pro.xy:8080")
-		diagnosticTransport = &http.Transport{
+		diagTest.diagnosticTransport = &http.Transport{
 			Proxy: func(req *http.Request) (*url.URL, error) {
 				return proxyURL, nil
 			},
@@ -663,7 +546,7 @@ func TestCheckProxy(t *testing.T) {
 
 		// this should generate a log output which indicates we use a proxy
 		req, _ := http.NewRequest("GET", "https://myaccount.snowflakecomputing.com", nil)
-		checkProxy(req)
+		diagTest.checkProxy(req)
 
 		logOutput := buffer.String()
 		assertStringContainsE(t, logOutput, "[checkProxy] PROXY detected in the connection:", "log should contain proxy detection message")
@@ -676,12 +559,12 @@ func TestCheckProxy(t *testing.T) {
 		defer cleanup()
 
 		// set up transport without proxy
-		diagnosticTransport = &http.Transport{
+		diagTest.diagnosticTransport = &http.Transport{
 			Proxy: nil,
 		}
 
 		req, _ := http.NewRequest("GET", "https://myaccount.snowflakecomputing.com", nil)
-		checkProxy(req)
+		diagTest.checkProxy(req)
 
 		// verify log output does NOT contain proxy detection
 		logOutput := buffer.String()
@@ -696,14 +579,14 @@ func TestCheckProxy(t *testing.T) {
 		defer cleanup()
 
 		// deliberately return an error from the proxy function
-		diagnosticTransport = &http.Transport{
+		diagTest.diagnosticTransport = &http.Transport{
 			Proxy: func(req *http.Request) (*url.URL, error) {
 				return nil, fmt.Errorf("proxy configuration error")
 			},
 		}
 
 		req, _ := http.NewRequest("GET", "https://myaccount.snowflakecomputing.com", nil)
-		checkProxy(req)
+		diagTest.checkProxy(req)
 
 		// verify log output contains error message
 		logOutput := buffer.String()
@@ -713,6 +596,7 @@ func TestCheckProxy(t *testing.T) {
 }
 
 func TestResolveHostname(t *testing.T) {
+	var diagTest connectivityDiagnoser
 	testcases := []tcResolveHostname{
 		{
 			name:     "Resolve Hostname - valid hostname myaccount.snowflakecomputing.com",
@@ -730,7 +614,7 @@ func TestResolveHostname(t *testing.T) {
 			buffer, cleanup := setupTestLogger()
 			defer cleanup()
 
-			resolveHostname(tc.hostname)
+			diagTest.resolveHostname(tc.hostname)
 
 			logOutput := buffer.String()
 
@@ -748,20 +632,14 @@ func TestResolveHostname(t *testing.T) {
 }
 
 func TestPerformConnectivityCheck(t *testing.T) {
-	// save the original global diagnostic client and transport as we'll modify them during test
-	originalClient := client
-	originalTransport := diagnosticTransport
-	defer func() {
-		client = originalClient
-		diagnosticTransport = originalTransport
-	}()
+	var diagTest connectivityDiagnoser
 
 	// setup diagnostic client for tests
 	config := &Config{
 		ClientTimeout: 30 * time.Second,
 	}
-	client = createDiagnosticClient(config)
-	diagnosticTransport = client.Transport.(*http.Transport)
+	diagTest.diagnosticClient = diagTest.createDiagnosticClient(config)
+	diagTest.diagnosticTransport = diagTest.diagnosticClient.Transport.(*http.Transport)
 
 	testcases := []tcPerformConnectivityCheck{
 		{
@@ -788,7 +666,7 @@ func TestPerformConnectivityCheck(t *testing.T) {
 			buffer, cleanup := setupTestLogger()
 			defer cleanup()
 
-			err := performConnectivityCheck(tc.entryType, tc.host, tc.port, tc.downloadCRLs)
+			err := diagTest.performConnectivityCheck(tc.entryType, tc.host, tc.port, tc.downloadCRLs)
 
 			logOutput := buffer.String()
 
@@ -807,13 +685,7 @@ func TestPerformConnectivityCheck(t *testing.T) {
 }
 
 func TestPerformDiagnosis(t *testing.T) {
-	// save the original global diagnostic client and transport as we'll modify them during test
-	originalClient := client
-	originalTransport := diagnosticTransport
-	defer func() {
-		client = originalClient
-		diagnosticTransport = originalTransport
-	}()
+	var diagTest connectivityDiagnoser
 
 	t.Run("Perform Diagnosis - CRL download disabled", func(t *testing.T) {
 		// setup test logger then restore original after test
@@ -885,7 +757,8 @@ func TestPerformDiagnosis(t *testing.T) {
 		assertNilE(t, err, "failed to create temp allowlist file")
 		defer os.Remove(tmpFile.Name())
 
-		_, _ = tmpFile.WriteString(allowlistContent)
+		_, err = tmpFile.WriteString(allowlistContent)
+		assertNilF(t, err, "Failed to write temp allowlist.json.")
 		tmpFile.Close()
 
 		config := &Config{
@@ -896,9 +769,9 @@ func TestPerformDiagnosis(t *testing.T) {
 
 		performDiagnosis(config)
 
-		// verify that the global client was set
-		assertNotNilE(t, client, "client should be set after performDiagnosis")
-		assertNotNilE(t, diagnosticTransport, "diagnosticTransport should be set after performDiagnosis")
+		// verify that the diagnostic client was set
+		assertNotNilE(t, diagTest.diagnosticClient, "client should be set after performDiagnosis")
+		assertNotNilE(t, diagTest.diagnosticTransport, "diagnosticTransport should be set after performDiagnosis")
 
 		// verify expected log messages including CRL download
 		logOutput := buffer.String()

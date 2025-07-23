@@ -1784,6 +1784,16 @@ func TestDSN(t *testing.T) {
 		},
 		{
 			cfg: &Config{
+				User:                         "u",
+				Password:                     "p",
+				Account:                      "a",
+				DisableOCSPChecks:            true,
+				ConnectionDiagnosticsEnabled: true,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?disableOCSPChecks=true&connectionDiagnosticsEnabled=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
 				User:     "u",
 				Password: "p",
 				Account:  "a.b.c",

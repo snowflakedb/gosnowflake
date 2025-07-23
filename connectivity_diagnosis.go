@@ -14,34 +14,32 @@ import (
 	"time"
 )
 
-// AllowlistEntry is a structure of allowlist entries
-type AllowlistEntry struct {
+type connectivityDiagnoser struct {
+	diagnosticClient    *http.Client
+	diagnosticTransport *http.Transport
+}
+
+type allowlistEntry struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
 	Type string `json:"type"`
 }
 
-// Allowlist is a list of allowlist entries; the allowlist itself
-type Allowlist struct {
-	Entries []AllowlistEntry
+type allowlist struct {
+	Entries []allowlistEntry
 }
 
-var (
-	diagnosticTransport *http.Transport
-	client              *http.Client
-	// acceptable HTTP status codes for connectivity diagnosis
-	// for the sake of connectivity, e.g. 403 is perfectly fine
-	acceptableStatusCodes = []int{http.StatusOK, http.StatusForbidden}
-)
+// acceptable HTTP status codes for connectivity diagnosis
+// for the sake of connectivity, e.g. 403 is perfectly fine
+var acceptableStatusCodes = []int{http.StatusOK, http.StatusForbidden}
 
 // create a diagnostic client with the appropriate transport for the given config
-// by default SnowflakeTransport, if OCSP is disabled then snowflakeNoOcspTransport, if custom then that one
-func createDiagnosticClient(cfg *Config) *http.Client {
-	transport := createDiagnosticTransport(cfg)
+func (cd *connectivityDiagnoser) createDiagnosticClient(cfg *Config) *http.Client {
+	transport := cd.createDiagnosticTransport(cfg)
 
 	clientTimeout := cfg.ClientTimeout
 	if clientTimeout == 0 {
-		clientTimeout = defaultClientTimeout // 900 seconds
+		clientTimeout = defaultClientTimeout
 	}
 
 	return &http.Client{
@@ -52,7 +50,7 @@ func createDiagnosticClient(cfg *Config) *http.Client {
 
 // necessary to be able to log the IP address of the remote host to which we actually connected
 // might be even different from the result of DNS resolution
-func createDiagnosticDialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
+func (cd *connectivityDiagnoser) createDiagnosticDialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -85,9 +83,7 @@ func createDiagnosticDialContext() func(ctx context.Context, network, addr strin
 }
 
 // enhance the transport with IP logging
-func createDiagnosticTransport(cfg *Config) *http.Transport {
-	// get transport based on OCSP / custom transport configuration
-	// default; SnowflakeTransport with OCSP validation
+func (cd *connectivityDiagnoser) createDiagnosticTransport(cfg *Config) *http.Transport {
 	baseTransport := getTransport(cfg)
 
 	var httpTransport *http.Transport
@@ -104,25 +100,22 @@ func createDiagnosticTransport(cfg *Config) *http.Transport {
 		MaxIdleConns:    httpTransport.MaxIdleConns,
 		IdleConnTimeout: httpTransport.IdleConnTimeout,
 		Proxy:           httpTransport.Proxy,
-		DialContext:     createDiagnosticDialContext(),
+		DialContext:     cd.createDiagnosticDialContext(),
 	}
 }
 
-func openAndReadAllowlistJSON(filePath string) (fileContent []byte, err error) {
+func (cd *connectivityDiagnoser) openAndReadAllowlistJSON(filePath string) (allowlist allowlist, err error) {
 	if filePath == "" {
 		logger.Info("[openAndReadAllowlistJSON] allowlist.json location not specified, trying to load from current directory.")
 		filePath = "allowlist.json"
 	}
 	logger.Infof("[openAndReadAllowlistJSON] reading allowlist from %s.\n", filePath)
-	fileContent, err = os.ReadFile(filePath)
+	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return allowlist, err
 	}
-	return fileContent, nil
-}
 
-func parseAllowlistJSON(fileContent []byte) (allowlist Allowlist, err error) {
-	logger.Debug("[parseAllowlistJSON] parsing allowlist.json")
+	logger.Debug("[openAndReadAllowlistJSON] parsing allowlist.json")
 	err = json.Unmarshal(fileContent, &allowlist.Entries)
 	if err != nil {
 		return allowlist, err
@@ -131,7 +124,7 @@ func parseAllowlistJSON(fileContent []byte) (allowlist Allowlist, err error) {
 }
 
 // look up the host, using the local resolver
-func resolveHostname(hostname string) {
+func (cd *connectivityDiagnoser) resolveHostname(hostname string) {
 	ips, err := net.LookupIP(hostname)
 	if err != nil {
 		logger.Errorf("[resolveHostname] error resolving hostname %s: %s\n", hostname, err)
@@ -139,21 +132,13 @@ func resolveHostname(hostname string) {
 	}
 	for _, ip := range ips {
 		logger.Infof("[resolveHostname] resolved hostname %s to %s\n", hostname, ip.String())
-		if isPrivateLinkHost(hostname) && !isPrivateIP(ip) {
+		if isPrivateLink(hostname) && !ip.IsPrivate() {
 			logger.Errorf("[resolveHostname] this hostname %s should resolve to a private IP, but %s is public IP. Please, check your DNS configuration.\n", hostname, ip.String())
 		}
 	}
 }
 
-func isPrivateLinkHost(hostname string) bool {
-	return strings.HasSuffix(hostname, ".privatelink.snowflakecomputing.com")
-}
-
-func isPrivateIP(ip net.IP) bool {
-	return ip.IsPrivate()
-}
-
-func isAcceptableStatusCode(statusCode int, acceptableCodes []int) bool {
+func (cd *connectivityDiagnoser) isAcceptableStatusCode(statusCode int, acceptableCodes []int) bool {
 	for _, code := range acceptableCodes {
 		if statusCode == code {
 			return true
@@ -162,13 +147,20 @@ func isAcceptableStatusCode(statusCode int, acceptableCodes []int) bool {
 	return false
 }
 
-func fetchCRL(uri string) error {
+func (cd *connectivityDiagnoser) fetchCRL(uri string) error {
 	logger.Infof("[fetchCRL] fetching  %s\n", uri)
 	resp, err := http.Get(uri)
 	if err != nil {
 		return fmt.Errorf("[fetchCRL] HTTP GET to %s endpoint failed: %w", uri, err)
 	}
-	defer resp.Body.Close()
+	// if closing response body is unsuccessful for some reason
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Errorf("[fetchCRL] Failed to close response body: %v", err)
+			return
+		}
+	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("[fetchCRL] HTTP response status from endpoint: %s", resp.Status)
@@ -178,52 +170,61 @@ func fetchCRL(uri string) error {
 	if err != nil {
 		return fmt.Errorf("[fetchCRL] failed to read response body: %w", err)
 	}
-	// TODO: do we want to persist CRL to disk ? (then cleanup, deal with read-only fs, etc)
 	logger.Infof("[fetchCRL] %s retrieved successfully (%d bytes), not persisting to disk.\n", uri, len(body))
 	return nil
 }
 
-func doHTTP(request *http.Request) error {
-	if request.URL.Host == "ocsp.snowflakecomputing.com" {
+func (cd *connectivityDiagnoser) doHTTP(request *http.Request) error {
+	if strings.HasPrefix(request.URL.Host, "ocsp.snowflakecomputing.") {
 		fullOCSPCacheURI := request.URL.String() + "/ocsp_response_cache.json"
 		newURL, _ := url.Parse(fullOCSPCacheURI)
 		request.URL = newURL
 	}
 	logger.Infof("[doHTTP] testing HTTP connection to %s\n", request.URL.String())
-	resp, err := client.Do(request)
+	resp, err := cd.diagnosticClient.Do(request)
 	if err != nil {
 		return fmt.Errorf("HTTP GET to %s endpoint failed: %w", request.URL.String(), err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Errorf("[doHTTP] Failed to close response body: %v", err)
+			return
+		}
+	}(resp.Body)
 
-	if !isAcceptableStatusCode(resp.StatusCode, acceptableStatusCodes) {
+	if !cd.isAcceptableStatusCode(resp.StatusCode, acceptableStatusCodes) {
 		return fmt.Errorf("HTTP response status from %s endpoint: %s", request.URL.String(), resp.Status)
 	}
 	logger.Infof("[doHTTP] Successfully connected to %s, HTTP response status: %s", request.URL.String(), resp.Status)
 	return nil
 }
 
-func doHTTPSGetCerts(request *http.Request, downloadCRLs bool) error {
+func (cd *connectivityDiagnoser) doHTTPSGetCerts(request *http.Request, downloadCRLs bool) error {
 	logger.Infof("[doHTTPSGetCerts] connecting to %s\n", request.URL.String())
-	resp, err := client.Do(request)
+	resp, err := cd.diagnosticClient.Do(request)
 	if err != nil {
 		return fmt.Errorf("failed to connect: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Errorf("[doHTTPSGetCerts] Failed to close response body: %v", err)
+			return
+		}
+	}(resp.Body)
 
-	if !isAcceptableStatusCode(resp.StatusCode, acceptableStatusCodes) {
+	if !cd.isAcceptableStatusCode(resp.StatusCode, acceptableStatusCodes) {
 		return fmt.Errorf("HTTP response status from %s endpoint: %s", request.URL.String(), resp.Status)
 	}
 	logger.Infof("[doHTTPSGetCerts] Successfully connected to %s, HTTP response status: %s", request.URL.String(), resp.Status)
 
-	// get TLS connection state
 	logger.Debug("[doHTTPSGetCerts] getting TLS connection state")
 	tlsState := resp.TLS
 	if tlsState == nil {
 		return fmt.Errorf("no TLS connection state available")
 	}
 
-	// get cert chain
 	logger.Debug("[doHTTPSGetCerts] getting certificate chain")
 	certs := tlsState.PeerCertificates
 	logger.Infof("[doHTTPSGetCerts] Retrieved %d certificate(s).\n", len(certs))
@@ -243,13 +244,13 @@ func doHTTPSGetCerts(request *http.Request, downloadCRLs bool) error {
 				logger.Infof("[doHTTPSGetCerts]    - %s\n", dp)
 				// only try to download the actual CRL if configured to do so
 				if downloadCRLs {
-					if err := fetchCRL(dp); err != nil {
+					if err := cd.fetchCRL(dp); err != nil {
 						logger.Errorf("[doHTTPSGetCerts]      Failed to fetch CRL: %v\n", err)
 					}
 				}
 			}
 		} else {
-			logger.Infof("[doHTTPSGetCerts]   CRL Distribution Points not available")
+			logger.Infof("[doHTTPSGetCerts]   CRL Distribution Points not included in the certificate.")
 		}
 
 		// dump the full PEM data too on DEBUG loglevel
@@ -262,7 +263,7 @@ func doHTTPSGetCerts(request *http.Request, downloadCRLs bool) error {
 	return nil
 }
 
-func createRequest(uri string) (*http.Request, error) {
+func (cd *connectivityDiagnoser) createRequest(uri string) (*http.Request, error) {
 	logger.Infof("[createRequest] creating GET request to %s\n", uri)
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
@@ -271,25 +272,25 @@ func createRequest(uri string) (*http.Request, error) {
 	return req, nil
 }
 
-func checkProxy(req *http.Request) {
-	if diagnosticTransport == nil {
+func (cd *connectivityDiagnoser) checkProxy(req *http.Request) {
+	if cd.diagnosticTransport == nil {
 		logger.Errorf("[checkProxy] diagnosticTransport is nil")
 		return
 	}
-	if diagnosticTransport.Proxy == nil {
+	if cd.diagnosticTransport.Proxy == nil {
 		// no proxy configured, nothing to log
 		return
 	}
-	p, err := diagnosticTransport.Proxy(req)
-	if p != nil {
-		logger.Infof("[checkProxy] PROXY detected in the connection: %v\n", p)
-	}
+	p, err := cd.diagnosticTransport.Proxy(req)
 	if err != nil {
 		logger.Errorf("[checkProxy] problem determining PROXY: %v\n", err)
 	}
+	if p != nil {
+		logger.Infof("[checkProxy] PROXY detected in the connection: %v\n", p)
+	}
 }
 
-func performConnectivityCheck(entryType, host string, port int, downloadCRLs bool) (err error) {
+func (cd *connectivityDiagnoser) performConnectivityCheck(entryType, host string, port int, downloadCRLs bool) (err error) {
 	var protocol string
 	var req *http.Request
 
@@ -303,18 +304,18 @@ func performConnectivityCheck(entryType, host string, port int, downloadCRLs boo
 	}
 
 	logger.Infof("[performConnectivityCheck] %s check for %s %s\n", strings.ToUpper(protocol), entryType, host)
-	req, err = createRequest(fmt.Sprintf("%s://%s", protocol, host))
+	req, err = cd.createRequest(fmt.Sprintf("%s://%s", protocol, host))
 	if err != nil {
 		logger.Errorf("[performConnectivityCheck] error creating request: %v\n", err)
 		return err
 	}
 
-	checkProxy(req)
+	cd.checkProxy(req)
 
-	if port == 80 {
-		err = doHTTP(req)
-	} else if port == 443 {
-		err = doHTTPSGetCerts(req, downloadCRLs)
+	if protocol == "http" {
+		err = cd.doHTTP(req)
+	} else if protocol == "https" {
+		err = cd.doHTTPSGetCerts(req, downloadCRLs)
 	}
 
 	if err != nil {
@@ -334,30 +335,26 @@ func performDiagnosis(cfg *Config) {
 		logger.Info("[performDiagnosis] CRLs will be attempted to be downloaded during https tests.")
 	}
 
-	// diagnostic client - its transport is based on the Config
-	// default: SnowflakeTransport with OCSP
-	client = createDiagnosticClient(cfg)
-	diagnosticTransport = client.Transport.(*http.Transport)
+	var diag connectivityDiagnoser
+	// diagnostic client - its transport is based on the Config. default: SnowflakeTransport with OCSP
+	diag.diagnosticClient = diag.createDiagnosticClient(cfg)
+	diag.diagnosticTransport = diag.diagnosticClient.Transport.(*http.Transport)
 
-	allowlistContent, err := openAndReadAllowlistJSON(allowlistFile)
+	allowlist, err := diag.openAndReadAllowlistJSON(allowlistFile)
 	if err != nil {
-		logger.Errorf("[performDiagnosis] error opening allowlist file: %v\n", err)
+		logger.Errorf("[performDiagnosis] error opening and parsing allowlist file: %v\n", err)
 		return
 	}
-	allowlist, err := parseAllowlistJSON(allowlistContent)
-	if err != nil {
-		logger.Errorf("[performDiagnosis] error parsing allowlist: %v\n", err)
-		return
-	}
+
 	for _, entry := range allowlist.Entries {
 		host := entry.Host
 		port := entry.Port
 		entryType := entry.Type
 		logger.Infof("[performDiagnosis] DNS check - resolving %s hostname %s\n", entryType, host)
-		resolveHostname(host)
+		diag.resolveHostname(host)
 
 		if port == 80 || port == 443 {
-			err := performConnectivityCheck(entryType, host, port, downloadCRLs)
+			err := diag.performConnectivityCheck(entryType, host, port, downloadCRLs)
 			if err != nil {
 				continue
 			}
