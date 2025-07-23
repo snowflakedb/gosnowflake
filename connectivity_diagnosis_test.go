@@ -169,7 +169,7 @@ func TestCreateDiagnosticDialContext(t *testing.T) {
 
 	u, _ := url.Parse(server.URL)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
 	_, err := dialContext(ctx, "tcp", u.Host)
