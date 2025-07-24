@@ -553,8 +553,6 @@ func TestCrlModes(t *testing.T) {
 				})
 
 				t.Run("should clean up cache", func(t *testing.T) {
-					logger.SetLogLevel("debug")
-					defer logger.SetLogLevel("fatal")
 					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
@@ -864,7 +862,6 @@ func closeServer(t *testing.T, server *http.Server) {
 
 func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
-		logger.SetLogLevel("debug")
 		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
 		cfg := &Config{
 			User:                    username,
@@ -873,8 +870,8 @@ func TestCrlE2E(t *testing.T) {
 			Database:                dbname,
 			Schema:                  schemaname,
 			CertRevocationCheckMode: CertRevocationCheckEnabled,
-			CrlCacheValidityTime:    time.Second,
-			CrlCacheCleanerTick:     10 * time.Second,
+			CrlCacheValidityTime:    10 * time.Second,
+			CrlCacheCleanerTick:     1 * time.Second,
 			CrlOnDiskCacheDir:       t.TempDir(),
 			DisableOCSPChecks:       true,
 		}
@@ -886,7 +883,6 @@ func TestCrlE2E(t *testing.T) {
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
 		crlInMemoryCacheMutex.Unlock()
-		logger.Debugf("CRL in memory cache entries after connecting to Snowflake: %v", memoryEntriesAfterSnowflakeConnection)
 		assertTrueE(t, memoryEntriesAfterSnowflakeConnection > 0)
 
 		// additional entries for connecting to cloud providers and checking their certs
@@ -897,10 +893,9 @@ func TestCrlE2E(t *testing.T) {
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterCSPConnection := len(crlInMemoryCache)
 		crlInMemoryCacheMutex.Unlock()
-		logger.Debugf("CRL in memory cache entries after connecting to cloud providers: %v", memoryEntriesAfterCSPConnection)
 		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
 
-		time.Sleep(10 * time.Second) // wait for the cache cleaner to run
+		time.Sleep(12 * time.Second) // wait for the cache cleaner to run
 		crlInMemoryCacheMutex.Lock()
 		assertEqualE(t, len(crlInMemoryCache), 0)
 		crlInMemoryCacheMutex.Unlock()
