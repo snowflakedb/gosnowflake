@@ -60,6 +60,8 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 			config.ConnectionDiagnosticsAllowlistFile, strconv.FormatBool(config.ConnectionDiagnosticsDownloadCRL))
 		performDiagnosis(&config)
 		logger.WithContext(ctx).Info("Connection diagnostics finished.")
+		logger.WithContext(ctx).Warn("A connection to Snowflake was not created because the driver is running in diagnostics mode. If this is unintended then disable diagnostics check by removing the ConnectionDiagnosticsEnabled connection parameter")
+		os.Exit(0)
 	}
 	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {

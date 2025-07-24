@@ -30,8 +30,9 @@ type allowlist struct {
 }
 
 // acceptable HTTP status codes for connectivity diagnosis
-// for the sake of connectivity, e.g. 403 is perfectly fine
-var acceptableStatusCodes = []int{http.StatusOK, http.StatusForbidden}
+// for the sake of connectivity, e.g. HTTP403 from AWS S3 is perfectly fine
+// GCS says HTTP400 upon connecting with plain GET due to MissingSecurityHeader, its okay from connection standpoint
+var connDiagAcceptableStatusCodes = []int{http.StatusOK, http.StatusForbidden, http.StatusBadRequest}
 
 // create a diagnostic client with the appropriate transport for the given config
 func (cd *connectivityDiagnoser) createDiagnosticClient(cfg *Config) *http.Client {
@@ -117,10 +118,7 @@ func (cd *connectivityDiagnoser) openAndReadAllowlistJSON(filePath string) (allo
 
 	logger.Debug("[openAndReadAllowlistJSON] parsing allowlist.json")
 	err = json.Unmarshal(fileContent, &allowlist.Entries)
-	if err != nil {
-		return allowlist, err
-	}
-	return allowlist, nil
+	return allowlist, err
 }
 
 // look up the host, using the local resolver
@@ -177,7 +175,10 @@ func (cd *connectivityDiagnoser) fetchCRL(uri string) error {
 func (cd *connectivityDiagnoser) doHTTP(request *http.Request) error {
 	if strings.HasPrefix(request.URL.Host, "ocsp.snowflakecomputing.") {
 		fullOCSPCacheURI := request.URL.String() + "/ocsp_response_cache.json"
-		newURL, _ := url.Parse(fullOCSPCacheURI)
+		newURL, err := url.Parse(fullOCSPCacheURI)
+		if err != nil {
+			return fmt.Errorf("failed to parse the full OCSP cache URL: %w", err)
+		}
 		request.URL = newURL
 	}
 	logger.Infof("[doHTTP] testing HTTP connection to %s\n", request.URL.String())
@@ -193,7 +194,7 @@ func (cd *connectivityDiagnoser) doHTTP(request *http.Request) error {
 		}
 	}(resp.Body)
 
-	if !cd.isAcceptableStatusCode(resp.StatusCode, acceptableStatusCodes) {
+	if !cd.isAcceptableStatusCode(resp.StatusCode, connDiagAcceptableStatusCodes) {
 		return fmt.Errorf("HTTP response status from %s endpoint: %s", request.URL.String(), resp.Status)
 	}
 	logger.Infof("[doHTTP] Successfully connected to %s, HTTP response status: %s", request.URL.String(), resp.Status)
@@ -214,7 +215,7 @@ func (cd *connectivityDiagnoser) doHTTPSGetCerts(request *http.Request, download
 		}
 	}(resp.Body)
 
-	if !cd.isAcceptableStatusCode(resp.StatusCode, acceptableStatusCodes) {
+	if !cd.isAcceptableStatusCode(resp.StatusCode, connDiagAcceptableStatusCodes) {
 		return fmt.Errorf("HTTP response status from %s endpoint: %s", request.URL.String(), resp.Status)
 	}
 	logger.Infof("[doHTTPSGetCerts] Successfully connected to %s, HTTP response status: %s", request.URL.String(), resp.Status)
