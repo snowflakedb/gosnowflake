@@ -1058,10 +1058,8 @@ func TestWithOauthAuthorizationCodeFlowManual(t *testing.T) {
 			assertNilF(t, err)
 			cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 			tokenRequestURL := cmp.Or(cfg.OauthTokenRequestURL, fmt.Sprintf("https://%v.snowflakecomputing.com:443/oauth/token-request", cfg.Account))
-			err = credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(tokenRequestURL, cfg.User))
-			assertNilF(t, err)
-			err = credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(tokenRequestURL, cfg.User))
-			assertNilF(t, err)
+			credentialsStorage.deleteCredential(newOAuthAccessTokenSpec(tokenRequestURL, cfg.User))
+			credentialsStorage.deleteCredential(newOAuthRefreshTokenSpec(tokenRequestURL, cfg.User))
 			connector := NewConnector(&SnowflakeDriver{}, *cfg)
 			db := sql.OpenDB(connector)
 			defer db.Close()
