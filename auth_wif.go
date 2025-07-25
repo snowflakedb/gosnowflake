@@ -8,15 +8,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -153,7 +154,7 @@ type defaultAwsAttestationMetadataProvider struct {
 }
 
 func createDefaultAwsAttestationMetadataProvider(ctx context.Context) *defaultAwsAttestationMetadataProvider {
-	cfg, err := config.LoadDefaultConfig(ctx)
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithEC2IMDSRegion())
 	if err != nil {
 		logger.Debugf("Unable to load AWS config: %v", err)
 		return nil
