@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -914,5 +915,57 @@ func TestCrlE2E(t *testing.T) {
 		_, err := buildSnowflakeConn(context.Background(), *cfg)
 		assertEqualE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
 		assertEqualE(t, len(crlInMemoryCache), 0)
+	})
+
+	t.Run("simple CRL perf test", func(t *testing.T) {
+		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
+		cfg := &Config{
+			User:                    username,
+			Password:                pass,
+			Account:                 account,
+			Database:                dbname,
+			Schema:                  schemaname,
+			CertRevocationCheckMode: CertRevocationCheckEnabled,
+			CrlOnDiskCacheDir:       t.TempDir(),
+			DisableOCSPChecks:       true,
+		}
+		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
+		defer db.Close()
+		db.SetMaxOpenConns(20)
+
+		var memBefore runtime.MemStats
+		runtime.ReadMemStats(&memBefore)
+
+		startTime := time.Now()
+		var wg sync.WaitGroup
+		for i := 0; i < 40; i++ {
+			wg.Add(1)
+			go func(wg *sync.WaitGroup, i int) {
+				defer wg.Done()
+				for j := 0; j < 5; j++ {
+					beforeSelect1 := time.Now()
+					rows, err := db.Query("SELECT 1")
+					fmt.Printf("thread %-2d, query %d: SELECT 1 took %v\n", i, j, time.Since(beforeSelect1).String())
+					assertNilF(t, err)
+					rows.Close()
+					println("CRLs in cache after SELECT:", len(crlInMemoryCache))
+					beforePut := time.Now()
+					cwd, err := os.Getwd()
+					assertNilF(t, err)
+					_, err = db.Exec(fmt.Sprintf("PUT file://%v @~/%v", filepath.Join(cwd, "test_data", "put_get_1.txt"), "put_get_1.txt"))
+					assertNilF(t, err)
+					fmt.Printf("thread %-2d, query %d: PUT took %v\n", i, j, time.Since(beforePut).String())
+					println("CRLs in cache after PUT:", len(crlInMemoryCache))
+				}
+			}(&wg, i)
+		}
+		wg.Wait()
+		println("Total time taken:", time.Since(startTime).String())
+
+		var memAfter runtime.MemStats
+		runtime.ReadMemStats(&memAfter)
+
+		fmt.Printf("Memory alloc: %v MB, total alloc: %v MB, total sys: %v MB\n", memAfter.Alloc/1024/1024, memAfter.TotalAlloc/1024/1024, memAfter.Sys/1024/1024)
+		fmt.Printf("Increase from test alloc: %v MB, total alloc: %v MB, total sys: %v MB\n", (memAfter.Alloc-memBefore.Alloc)/1024/1024, (memAfter.TotalAlloc-memBefore.TotalAlloc)/1024/1024, (memAfter.Sys-memBefore.Sys)/1024/1024)
 	})
 }

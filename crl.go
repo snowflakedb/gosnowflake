@@ -248,6 +248,7 @@ func (cv *crlValidator) validateChains(chains [][]*x509.Certificate) []crlValida
 
 func (cv *crlValidator) validateCertificate(cert *x509.Certificate, parent *x509.Certificate) certValidationResult {
 	for _, crlURL := range cert.CRLDistributionPoints {
+		logger.Debugf("validating certificate %v against CRL URL %v", cert.Subject, crlURL)
 		result := cv.validateCrlAgainstCrlURL(cert, crlURL, parent)
 		if result == certRevoked || result == certError {
 			return result
