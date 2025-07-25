@@ -18,6 +18,7 @@ timestamps {
       string(name: 'parent_job', value: env.JOB_NAME),
       string(name: 'parent_build_number', value: env.BUILD_NUMBER)
     ]
+    
     parallel(
       'Test': {
         stage('Test') {
@@ -47,6 +48,7 @@ pipeline {
   options { timestamps() }
   environment {
     COMMIT_SHA_LONG = sh(returnStdout: true, script: "echo \$(git rev-parse " + "HEAD)").trim()
+    SNOWFLAKE_TEST_DEBUG = 'true'
 
     // environment variables for semgrep_agent (for findings / analytics page)
     // remove .git at the end
