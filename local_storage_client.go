@@ -14,7 +14,7 @@ import (
 type localUtil struct {
 }
 
-func (util *localUtil) createClient(_ *execResponseStageInfo, _ bool, _ *Config) (cloudClient, error) {
+func (util *localUtil) createClient(_ *execResponseStageInfo, _ bool, _ *Config, _ *snowflakeTelemetry) (cloudClient, error) {
 	return nil, nil
 }
 

@@ -44,6 +44,7 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, args .
 	inMemoryCacheDisabled := false
 	onDiskCacheDisabled := false
 	onDiskCacheRemovalDelay := 10 * time.Millisecond
+	var telemetry *snowflakeTelemetry
 	for _, arg := range args {
 		switch v := arg.(type) {
 		case *http.Client:
@@ -58,12 +59,14 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, args .
 			onDiskCacheDisabled = bool(v)
 		case onDiskCacheRemovalDelayType:
 			onDiskCacheRemovalDelay = time.Duration(v)
+		case *snowflakeTelemetry:
+			telemetry = v
 		default:
 			t.Fatalf("unexpected argument type %T", v)
 		}
 	}
 	cacheDir := t.TempDir()
-	cv, err := newCrlValidator(checkMode, allowCertificatesWithoutCrlURL, cacheValidityTime, inMemoryCacheDisabled, onDiskCacheDisabled, cacheDir, onDiskCacheRemovalDelay, httpClient)
+	cv, err := newCrlValidator(checkMode, allowCertificatesWithoutCrlURL, cacheValidityTime, inMemoryCacheDisabled, onDiskCacheDisabled, cacheDir, onDiskCacheRemovalDelay, httpClient, telemetry)
 	assertNilF(t, err)
 	return cv
 }
@@ -864,16 +867,17 @@ func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
 		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
 		cfg := &Config{
-			User:                    username,
-			Password:                pass,
-			Account:                 account,
-			Database:                dbname,
-			Schema:                  schemaname,
-			CertRevocationCheckMode: CertRevocationCheckEnabled,
-			CrlCacheValidityTime:    10 * time.Second,
-			CrlCacheCleanerTick:     1 * time.Second,
-			CrlOnDiskCacheDir:       t.TempDir(),
-			DisableOCSPChecks:       true,
+			User:                              username,
+			Password:                          pass,
+			Account:                           account,
+			Database:                          dbname,
+			Schema:                            schemaname,
+			CertRevocationCheckMode:           CertRevocationCheckEnabled,
+			CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
+			CrlCacheValidityTime:              10 * time.Second,
+			CrlCacheCleanerTick:               1 * time.Second,
+			CrlOnDiskCacheDir:                 t.TempDir(),
+			DisableOCSPChecks:                 true,
 		}
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
