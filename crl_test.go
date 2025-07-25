@@ -895,7 +895,7 @@ func TestCrlE2E(t *testing.T) {
 		crlInMemoryCacheMutex.Unlock()
 		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
 
-		time.Sleep(12 * time.Second) // wait for the cache cleaner to run
+		time.Sleep(15 * time.Second) // wait for the cache cleaner to run
 		crlInMemoryCacheMutex.Lock()
 		assertEqualE(t, len(crlInMemoryCache), 0)
 		crlInMemoryCacheMutex.Unlock()
