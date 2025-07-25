@@ -67,7 +67,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -144,7 +144,7 @@ func TestUploadOneFileToS3ConnReset(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -204,7 +204,7 @@ func TestUploadFileWithS3UploadFailedError(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -376,7 +376,7 @@ func TestDownloadFileWithS3TokenExpired(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -430,7 +430,7 @@ func TestDownloadFileWithS3ConnReset(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -483,7 +483,7 @@ func TestDownloadOneFileToS3WSAEConnAborted(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -537,7 +537,7 @@ func TestDownloadOneFileToS3Failed(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -588,7 +588,7 @@ func TestUploadFileToS3ClientCastFail(t *testing.T) {
 		t.Error(err)
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -631,7 +631,7 @@ func TestGetHeaderClientCastFail(t *testing.T) {
 		Location:     "sfc-customer-stage/rwyi-testacco/users/9220/",
 		LocationType: "S3",
 	}
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -668,7 +668,7 @@ func TestS3UploadRetryWithHeaderNotFound(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -729,7 +729,7 @@ func TestS3UploadStreamFailed(t *testing.T) {
 	initialParallel := int64(100)
 	src := []byte{65, 66, 67}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}

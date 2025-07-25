@@ -31,7 +31,8 @@ const (
 )
 
 type snowflakeS3Client struct {
-	cfg *Config
+	cfg       *Config
+	telemetry *snowflakeTelemetry
 }
 
 type s3Location struct {
@@ -44,12 +45,12 @@ type s3Location struct {
 // See https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws#ClientLogMode for allowed values.
 var S3LoggingMode aws.ClientLogMode
 
-func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool) (cloudClient, error) {
+func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, telemetry *snowflakeTelemetry) (cloudClient, error) {
 	stageCredentials := info.Creds
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
 	endPoint := getS3CustomEndpoint(info)
 
-	transport, err := getTransport(util.cfg)
+	transport, err := getTransport(util.cfg, telemetry)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 func (util *snowflakeS3Client) createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
 	// copy snowflakeFileTransferAgent's config onto the cloud client so we could decide which Transport to use
 	util.cfg = cfg
-	return util.createClient(info, useAccelerateEndpoint)
+	return util.createClient(info, useAccelerateEndpoint, util.telemetry)
 }
 
 func getS3CustomEndpoint(info *execResponseStageInfo) *string {

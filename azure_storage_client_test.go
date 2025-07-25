@@ -150,7 +150,7 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 		SMKID:               92019681909886,
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -209,7 +209,7 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 		SMKID:               92019681909886,
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -273,7 +273,7 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 		panic(err)
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -350,7 +350,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 		panic(err)
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -414,7 +414,7 @@ func TestDownloadOneFileToAzureFailed(t *testing.T) {
 		t.Error(err)
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -458,7 +458,7 @@ func TestGetFileHeaderErrorStatus(t *testing.T) {
 		LocationType: "AZURE",
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -560,7 +560,7 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -603,7 +603,7 @@ func TestAzureGetHeaderClientCastFail(t *testing.T) {
 		Location:     "azblob/rwyi-testacco/users/9220/",
 		LocationType: "AZURE",
 	}
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}

@@ -16,14 +16,14 @@ const (
 
 // implemented by localUtil and remoteStorageUtil
 type storageUtil interface {
-	createClient(*execResponseStageInfo, bool, *Config) (cloudClient, error)
+	createClient(*execResponseStageInfo, bool, *Config, *snowflakeTelemetry) (cloudClient, error)
 	uploadOneFileWithRetry(*fileMetadata) error
 	downloadOneFile(*fileMetadata) error
 }
 
 // implemented by snowflakeS3Util, snowflakeAzureUtil and snowflakeGcsUtil
 type cloudUtil interface {
-	createClient(*execResponseStageInfo, bool) (cloudClient, error)
+	createClient(*execResponseStageInfo, bool, *snowflakeTelemetry) (cloudClient, error)
 	getFileHeader(*fileMetadata, string) (*fileHeader, error)
 	uploadFile(string, *fileMetadata, int, int64) error
 	nativeDownloadFile(*fileMetadata, string, int64) error
@@ -32,30 +32,34 @@ type cloudUtil interface {
 type cloudClient interface{}
 
 type remoteStorageUtil struct {
-	cfg *Config
+	cfg       *Config
+	telemetry *snowflakeTelemetry
 }
 
 func (rsu *remoteStorageUtil) getNativeCloudType(cli string, cfg *Config) cloudUtil {
 	if cloudType(cli) == s3Client {
 		return &snowflakeS3Client{
 			cfg,
+			rsu.telemetry,
 		}
 	} else if cloudType(cli) == azureClient {
 		return &snowflakeAzureClient{
 			cfg,
+			rsu.telemetry,
 		}
 	} else if cloudType(cli) == gcsClient {
 		return &snowflakeGcsClient{
 			cfg,
+			rsu.telemetry,
 		}
 	}
 	return nil
 }
 
 // call cloud utils' native create client methods
-func (rsu *remoteStorageUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
+func (rsu *remoteStorageUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, telemetry *snowflakeTelemetry) (cloudClient, error) {
 	utilClass := rsu.getNativeCloudType(info.LocationType, cfg)
-	return utilClass.createClient(info, useAccelerateEndpoint)
+	return utilClass.createClient(info, useAccelerateEndpoint, telemetry)
 }
 
 func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {

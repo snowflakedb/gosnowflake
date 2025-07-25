@@ -37,7 +37,7 @@ func TestLocalUpload(t *testing.T) {
 		LocationType: "LOCAL_FS",
 	}
 	localUtil := new(localUtil)
-	localCli, err := localUtil.createClient(&info, false, nil)
+	localCli, err := localUtil.createClient(&info, false, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,7 +132,7 @@ func TestDownloadLocalFile(t *testing.T) {
 		LocationType: "LOCAL_FS",
 	}
 	localUtil := new(localUtil)
-	localCli, err := localUtil.createClient(&info, false, nil)
+	localCli, err := localUtil.createClient(&info, false, nil, nil)
 	if err != nil {
 		t.Error(err)
 	}

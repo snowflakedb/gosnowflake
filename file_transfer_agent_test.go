@@ -472,7 +472,7 @@ func TestUpdateMetadataWithPresignedUrl(t *testing.T) {
 			}, nil
 		}
 
-		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 		if err != nil {
 			t.Error(err)
 		}
@@ -525,7 +525,7 @@ func TestUpdateMetadataWithPresignedUrlForDownload(t *testing.T) {
 
 		testURL := "https://storage.google.com/gcs-blob/storage/users/456?Signature=testsignature123"
 
-		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 		if err != nil {
 			t.Error(err)
 		}

@@ -31,7 +31,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		ClientStoreTemporaryCredential: ConfigBoolTrue,
 		ExternalBrowserTimeout:         defaultExternalBrowserTimeout,
 	}
-	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg)
+	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg, &snowflakeConn{})
 	assertNilF(t, err)
 	accessTokenSpec := newOAuthAccessTokenSpec(wiremock.connectionConfig().OauthTokenRequestURL, wiremock.connectionConfig().User)
 	refreshTokenSpec := newOAuthRefreshTokenSpec(wiremock.connectionConfig().OauthTokenRequestURL, wiremock.connectionConfig().User)
@@ -71,7 +71,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/successful_flow.json"))
 		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{}
 		for i := 0; i < 3; i++ {
-			client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg)
+			client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg, &snowflakeConn{})
 			assertNilF(t, err)
 			client.authorizationCodeProviderFactory = func() authorizationCodeProvider {
 				return authCodeProvider
@@ -176,7 +176,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 			ClientStoreTemporaryCredential: ConfigBoolTrue,
 		}
 	}
-	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfgFactory())
+	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfgFactory(), &snowflakeConn{})
 	assertNilF(t, err)
 
 	t.Run("success", func(t *testing.T) {
@@ -195,7 +195,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 		assertNilF(t, err)
 		assertEqualE(t, token, "access-token-123")
 
-		client, err := newOauthClient(context.Background(), cfgFactory())
+		client, err := newOauthClient(context.Background(), cfgFactory(), &snowflakeConn{})
 		assertNilF(t, err)
 		token, err = client.authenticateByOAuthClientCredentials()
 		assertNilF(t, err)
@@ -208,7 +208,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 		crt.reset()
 		credentialsStorage.setCredential(cacheTokenSpec, "access-token-123")
 		for i := 0; i < 3; i++ {
-			client, err := newOauthClient(context.Background(), cfgFactory())
+			client, err := newOauthClient(context.Background(), cfgFactory(), &snowflakeConn{})
 			assertNilF(t, err)
 			token, err := client.authenticateByOAuthClientCredentials()
 			assertNilF(t, err)
@@ -222,13 +222,13 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 		cfg.ClientStoreTemporaryCredential = ConfigBoolFalse
 		credentialsStorage.deleteCredential(cacheTokenSpec)
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/client_credentials/successful_flow.json"))
-		client, err := newOauthClient(context.Background(), cfg)
+		client, err := newOauthClient(context.Background(), cfg, &snowflakeConn{})
 		assertNilF(t, err)
 		token, err := client.authenticateByOAuthClientCredentials()
 		assertNilF(t, err)
 		assertEqualE(t, token, "access-token-123")
 
-		client, err = newOauthClient(context.Background(), cfg)
+		client, err = newOauthClient(context.Background(), cfg, &snowflakeConn{})
 		assertNilF(t, err)
 		token, err = client.authenticateByOAuthClientCredentials()
 		assertNilF(t, err)
