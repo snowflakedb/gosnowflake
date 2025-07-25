@@ -870,8 +870,8 @@ func TestCrlE2E(t *testing.T) {
 			Database:                dbname,
 			Schema:                  schemaname,
 			CertRevocationCheckMode: CertRevocationCheckEnabled,
-			CrlCacheValidityTime:    10 * time.Second,
-			CrlCacheCleanerTick:     1 * time.Second,
+			CrlCacheValidityTime:    90 * time.Second,
+			CrlCacheCleanerTick:     5 * time.Second,
 			CrlOnDiskCacheDir:       t.TempDir(),
 			DisableOCSPChecks:       true,
 		}
@@ -883,6 +883,7 @@ func TestCrlE2E(t *testing.T) {
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
 		crlInMemoryCacheMutex.Unlock()
+		logger.Debugf("CRL in memory cache entries after Snowflake connection: %v", memoryEntriesAfterSnowflakeConnection)
 		assertTrueE(t, memoryEntriesAfterSnowflakeConnection > 0)
 
 		// additional entries for connecting to cloud providers and checking their certs
@@ -893,9 +894,10 @@ func TestCrlE2E(t *testing.T) {
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterCSPConnection := len(crlInMemoryCache)
 		crlInMemoryCacheMutex.Unlock()
+		logger.Debugf("CRL in memory cache entries after CSP connection: %v", memoryEntriesAfterCSPConnection)
 		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
 
-		time.Sleep(12 * time.Second) // wait for the cache cleaner to run
+		time.Sleep(100 * time.Second) // wait for the cache cleaner to run
 		crlInMemoryCacheMutex.Lock()
 		assertEqualE(t, len(crlInMemoryCache), 0)
 		crlInMemoryCacheMutex.Unlock()

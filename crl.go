@@ -424,9 +424,11 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 	}
 	logger.Debugf("downloaded %v bytes for CRL %v", len(crlBytes), crlURL)
 	crl, err := x509.ParseRevocationList(crlBytes)
+	logger.Debugf("parsed CRL from %v, error: %v", crlURL, err)
 	if err != nil {
 		return nil, nil, err
 	}
+	logger.Debugf("parsed CRL from %v, next update at %v", crlURL, crl.NextUpdate)
 	return crl, &now, err
 }
 
