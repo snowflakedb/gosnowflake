@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -253,7 +254,7 @@ func TestOpenAndReadAllowlistJSON(t *testing.T) {
 
 func TestIsAcceptableStatusCode(t *testing.T) {
 	var diagTest connectivityDiagnoser
-	acceptableCodes := []int{http.StatusOK, http.StatusForbidden}
+	acceptableCodes := []int{http.StatusOK, http.StatusForbidden, http.StatusBadRequest}
 
 	testcases := []tcAcceptableStatusCode{
 		{http.StatusOK, true},
@@ -273,13 +274,26 @@ func TestIsAcceptableStatusCode(t *testing.T) {
 
 func TestFetchCRL(t *testing.T) {
 	var diagTest connectivityDiagnoser
+	crlPEM := `-----BEGIN X509 CRL-----
+MIIBuDCBoQIBATANBgkqhkiG9w0BAQsFADBeMQswCQYDVQQGEwJVUzELMAkGA1UE
+CAwCQ0ExDTALBgNVBAcMBFRlc3QxEDAOBgNVBAoMB0V4YW1wbGUxDzANBgNVBAsM
+BlRlc3RDQTEQMA4GA1UEAwwHVGVzdCBDQRcNMjUwNzI1MTYyMTQzWhcNMzMxMDEx
+MTYyMTQzWqAPMA0wCwYDVR0UBAQCAhAAMA0GCSqGSIb3DQEBCwUAA4IBAQCakfe4
+yaYe6jhSVZc177/y7a+qV6Vs8Ly+CwQiYCM/LieEI7coUpcMtF43ShfzG5FawrMI
+xa3L2ew5EHDPelrMAdc56GzGCZFlOp16++3HS8qUpodctMdWWcR9Jn0OAfR1I3cY
+KtLfQbYqwr+Ti6LT0SDp8kXhltH8ZfUcDWH779WF1IQatu5J+GoyHnfFCsP9gI3H
+Aacyfk7Pp7MyAUChvbM6miyUbWm5NLW9nZgmMxqi9VpMnGZSCwqpS9J01k8YAbwS
+S3HAS4o7ePBmhiERTPjqmwqEUdrKzEYMtdCFHHfnnDSZxdAmb+Ep6WjRgU1AHxak
+6aJpJF0+Ic2kaXXI
+-----END X509 CRL-----`
+	block, _ := pem.Decode([]byte(crlPEM))
 	testcases := []tcFetchCRL{
 		{
 			name: "Fetch CRL - successful fetch",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
-					_, _ = w.Write([]byte("Im the CRL data"))
+					_, _ = w.Write(block.Bytes)
 				}))
 			},
 			shouldError: false,
@@ -771,7 +785,7 @@ func TestPerformDiagnosis(t *testing.T) {
 		// verify expected log messages including CRL download
 		logOutput := buffer.String()
 		assertStringContainsE(t, logOutput, "[performDiagnosis] starting connectivity diagnosis", "should contain diagnosis start message")
-		assertStringContainsE(t, logOutput, "[performDiagnosis] CRLs will be attempted to be downloaded during https tests", "should contain CRL download enabled message")
+		assertStringContainsE(t, logOutput, "[performDiagnosis] CRLs will be attempted to be downloaded and parsed during https tests", "should contain CRL download enabled message")
 
 		// DNS resolution
 		assertStringContainsE(t, logOutput, "[performDiagnosis] DNS check - resolving OCSP_CACHE hostname ocsp.snowflakecomputing.com", "should contain DNS check for OCSP cache")

@@ -1361,7 +1361,8 @@ If you wish to ignore those errors instead, you can set `RaisePutGetError: false
 The `ConnectionDiagnosticsAllowlistFile` is only taken into consideration when `ConnectionDiagnosticsEnabled=true`
 
 - `ConnectionDiagnosticsDownloadCRL` (default: false) - when enabled, the driver will try to attempt to download the CRL(s) it encounters during parsing the remote certificate chain; to verify connectivity to CRL endpoints as well.
-The `ConnectionDiagnosticsDownloadCRL` is only taken into consideration when `ConnectionDiagnosticsEnabled=true`
+This will also be enabled if `ConnectionDiagnosticsDownloadCRL` is not explicitly enabled, but global 'check certificates with CRL' configuration _is_ enabled in the driver.
+Both of the above config items are only taken into consideration when `ConnectionDiagnosticsEnabled=true`
 
 ==> Flow of operation when `ConnectionDiagnosticsEnabled=true`
 
