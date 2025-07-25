@@ -862,6 +862,8 @@ func closeServer(t *testing.T, server *http.Server) {
 
 func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
+		logger.SetLogLevel("debug")
+		defer logger.SetLogLevel("error")
 		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
 		cfg := &Config{
 			User:                    username,
@@ -895,7 +897,7 @@ func TestCrlE2E(t *testing.T) {
 		crlInMemoryCacheMutex.Unlock()
 		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
 
-		time.Sleep(12 * time.Second) // wait for the cache cleaner to run
+		time.Sleep(15 * time.Second) // wait for the cache cleaner to run
 		crlInMemoryCacheMutex.Lock()
 		assertEqualE(t, len(crlInMemoryCache), 0)
 		crlInMemoryCacheMutex.Unlock()
