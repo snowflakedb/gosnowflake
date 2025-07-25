@@ -260,7 +260,7 @@ func TestIsAcceptableStatusCode(t *testing.T) {
 		{http.StatusForbidden, true},
 		{http.StatusInternalServerError, false},
 		{http.StatusUnauthorized, false},
-		{http.StatusBadRequest, false},
+		{http.StatusBadRequest, true},
 	}
 
 	for _, tc := range testcases {

@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -33,6 +35,8 @@ type allowlist struct {
 // for the sake of connectivity, e.g. HTTP403 from AWS S3 is perfectly fine
 // GCS says HTTP400 upon connecting with plain GET due to MissingSecurityHeader, its okay from connection standpoint
 var connDiagAcceptableStatusCodes = []int{http.StatusOK, http.StatusForbidden, http.StatusBadRequest}
+
+var connDiagTestedCrls = make(map[string]string)
 
 // create a diagnostic client with the appropriate transport for the given config
 func (cd *connectivityDiagnoser) createDiagnosticClient(cfg *Config) *http.Client {
@@ -110,7 +114,7 @@ func (cd *connectivityDiagnoser) openAndReadAllowlistJSON(filePath string) (allo
 		logger.Info("[openAndReadAllowlistJSON] allowlist.json location not specified, trying to load from current directory.")
 		filePath = "allowlist.json"
 	}
-	logger.Infof("[openAndReadAllowlistJSON] reading allowlist from %s.\n", filePath)
+	logger.Infof("[openAndReadAllowlistJSON] reading allowlist from %s.", filePath)
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
 		return allowlist, err
@@ -125,13 +129,13 @@ func (cd *connectivityDiagnoser) openAndReadAllowlistJSON(filePath string) (allo
 func (cd *connectivityDiagnoser) resolveHostname(hostname string) {
 	ips, err := net.LookupIP(hostname)
 	if err != nil {
-		logger.Errorf("[resolveHostname] error resolving hostname %s: %s\n", hostname, err)
+		logger.Errorf("[resolveHostname] error resolving hostname %s: %s", hostname, err)
 		return
 	}
 	for _, ip := range ips {
-		logger.Infof("[resolveHostname] resolved hostname %s to %s\n", hostname, ip.String())
+		logger.Infof("[resolveHostname] resolved hostname %s to %s", hostname, ip.String())
 		if isPrivateLink(hostname) && !ip.IsPrivate() {
-			logger.Errorf("[resolveHostname] this hostname %s should resolve to a private IP, but %s is public IP. Please, check your DNS configuration.\n", hostname, ip.String())
+			logger.Errorf("[resolveHostname] this hostname %s should resolve to a private IP, but %s is public IP. Please, check your DNS configuration.", hostname, ip.String())
 		}
 	}
 }
@@ -146,29 +150,44 @@ func (cd *connectivityDiagnoser) isAcceptableStatusCode(statusCode int, acceptab
 }
 
 func (cd *connectivityDiagnoser) fetchCRL(uri string) error {
-	logger.Infof("[fetchCRL] fetching  %s\n", uri)
-	resp, err := http.Get(uri)
-	if err != nil {
-		return fmt.Errorf("[fetchCRL] HTTP GET to %s endpoint failed: %w", uri, err)
-	}
-	// if closing response body is unsuccessful for some reason
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
+	if _, ok := connDiagTestedCrls[uri]; ok {
+		logger.Infof("[fetchCRL] CRL for %s already fetched and parsed.", uri)
+		return nil
+	} else {
+		logger.Infof("[fetchCRL] fetching  %s", uri)
+		resp, err := http.Get(uri)
 		if err != nil {
-			logger.Errorf("[fetchCRL] Failed to close response body: %v", err)
-			return
+			return fmt.Errorf("[fetchCRL] HTTP GET to %s endpoint failed: %w", uri, err)
 		}
-	}(resp.Body)
+		// if closing response body is unsuccessful for some reason
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+				logger.Errorf("[fetchCRL] Failed to close response body: %v", err)
+				return
+			}
+		}(resp.Body)
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("[fetchCRL] HTTP response status from endpoint: %s", resp.Status)
-	}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("[fetchCRL] HTTP response status from endpoint: %s", resp.Status)
+		}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("[fetchCRL] failed to read response body: %w", err)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("[fetchCRL] failed to read response body: %w", err)
+		}
+		logger.Infof("[fetchCRL] %s retrieved successfully (%d bytes)", uri, len(body))
+		logger.Infof("[fetchCRL] Parsing CRL fetched from %s", uri)
+		crl, err := x509.ParseRevocationList(body)
+		if err != nil {
+			return fmt.Errorf("[fetchCRL] Failed to parse CRL: %v", err)
+		}
+		logger.Infof("    CRL Issuer: %s", crl.Issuer)
+		logger.Infof("    This Update: %s", crl.ThisUpdate)
+		logger.Infof("    Next Update: %s", crl.NextUpdate)
+		logger.Infof("    Revoked Certificates#: %s", strconv.Itoa(len(crl.RevokedCertificateEntries)))
 	}
-	logger.Infof("[fetchCRL] %s retrieved successfully (%d bytes), not persisting to disk.\n", uri, len(body))
+	connDiagTestedCrls[uri] = ""
 	return nil
 }
 
@@ -181,7 +200,7 @@ func (cd *connectivityDiagnoser) doHTTP(request *http.Request) error {
 		}
 		request.URL = newURL
 	}
-	logger.Infof("[doHTTP] testing HTTP connection to %s\n", request.URL.String())
+	logger.Infof("[doHTTP] testing HTTP connection to %s", request.URL.String())
 	resp, err := cd.diagnosticClient.Do(request)
 	if err != nil {
 		return fmt.Errorf("HTTP GET to %s endpoint failed: %w", request.URL.String(), err)
@@ -202,7 +221,7 @@ func (cd *connectivityDiagnoser) doHTTP(request *http.Request) error {
 }
 
 func (cd *connectivityDiagnoser) doHTTPSGetCerts(request *http.Request, downloadCRLs bool) error {
-	logger.Infof("[doHTTPSGetCerts] connecting to %s\n", request.URL.String())
+	logger.Infof("[doHTTPSGetCerts] connecting to %s", request.URL.String())
 	resp, err := cd.diagnosticClient.Do(request)
 	if err != nil {
 		return fmt.Errorf("failed to connect: %v", err)
@@ -228,25 +247,25 @@ func (cd *connectivityDiagnoser) doHTTPSGetCerts(request *http.Request, download
 
 	logger.Debug("[doHTTPSGetCerts] getting certificate chain")
 	certs := tlsState.PeerCertificates
-	logger.Infof("[doHTTPSGetCerts] Retrieved %d certificate(s).\n", len(certs))
+	logger.Infof("[doHTTPSGetCerts] Retrieved %d certificate(s).", len(certs))
 
 	// log individual cert details
 	for i, cert := range certs {
-		logger.Infof("[doHTTPSGetCerts] Certificate %d, serial number: %x\n", i+1, cert.SerialNumber)
-		logger.Infof("[doHTTPSGetCerts]   Subject: %s\n", cert.Subject)
-		logger.Infof("[doHTTPSGetCerts]   Issuer:  %s\n", cert.Issuer)
-		logger.Infof("[doHTTPSGetCerts]   Valid:   %s to %s\n", cert.NotBefore, cert.NotAfter)
-		logger.Infof("[doHTTPSGetCerts]   For further details, check https://crt.sh/?serial=%x (non-Snowflake site)\n", cert.SerialNumber)
+		logger.Infof("[doHTTPSGetCerts] Certificate %d, serial number: %x", i+1, cert.SerialNumber)
+		logger.Infof("[doHTTPSGetCerts]   Subject: %s", cert.Subject)
+		logger.Infof("[doHTTPSGetCerts]   Issuer:  %s", cert.Issuer)
+		logger.Infof("[doHTTPSGetCerts]   Valid:   %s to %s", cert.NotBefore, cert.NotAfter)
+		logger.Infof("[doHTTPSGetCerts]   For further details, check https://crt.sh/?serial=%x (non-Snowflake site)", cert.SerialNumber)
 
 		// if cert has CRL endpoint, log them too
 		if len(cert.CRLDistributionPoints) > 0 {
 			logger.Infof("[doHTTPSGetCerts]   CRL Distribution Points:")
 			for _, dp := range cert.CRLDistributionPoints {
-				logger.Infof("[doHTTPSGetCerts]    - %s\n", dp)
+				logger.Infof("[doHTTPSGetCerts]    - %s", dp)
 				// only try to download the actual CRL if configured to do so
 				if downloadCRLs {
 					if err := cd.fetchCRL(dp); err != nil {
-						logger.Errorf("[doHTTPSGetCerts]      Failed to fetch CRL: %v\n", err)
+						logger.Errorf("[doHTTPSGetCerts]      Failed to fetch or parse CRL: %v", err)
 					}
 				}
 			}
@@ -259,13 +278,14 @@ func (cd *connectivityDiagnoser) doHTTPSGetCerts(request *http.Request, download
 			Type:  "CERTIFICATE",
 			Bytes: cert.Raw,
 		})
-		logger.Debugf("[doHTTPSGetCerts]   certificate PEM:\n%s\n", string(pemData))
+		logger.Debug("[doHTTPSGetCerts]   certificate PEM:")
+		logger.Debug(string(pemData))
 	}
 	return nil
 }
 
 func (cd *connectivityDiagnoser) createRequest(uri string) (*http.Request, error) {
-	logger.Infof("[createRequest] creating GET request to %s\n", uri)
+	logger.Infof("[createRequest] creating GET request to %s", uri)
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return nil, err
@@ -284,10 +304,10 @@ func (cd *connectivityDiagnoser) checkProxy(req *http.Request) {
 	}
 	p, err := cd.diagnosticTransport.Proxy(req)
 	if err != nil {
-		logger.Errorf("[checkProxy] problem determining PROXY: %v\n", err)
+		logger.Errorf("[checkProxy] problem determining PROXY: %v", err)
 	}
 	if p != nil {
-		logger.Infof("[checkProxy] PROXY detected in the connection: %v\n", p)
+		logger.Infof("[checkProxy] PROXY detected in the connection: %v", p)
 	}
 }
 
@@ -304,10 +324,10 @@ func (cd *connectivityDiagnoser) performConnectivityCheck(entryType, host string
 		return fmt.Errorf("[performConnectivityCheck] unsupported port: %d", port)
 	}
 
-	logger.Infof("[performConnectivityCheck] %s check for %s %s\n", strings.ToUpper(protocol), entryType, host)
+	logger.Infof("[performConnectivityCheck] %s check for %s %s", strings.ToUpper(protocol), entryType, host)
 	req, err = cd.createRequest(fmt.Sprintf("%s://%s", protocol, host))
 	if err != nil {
-		logger.Errorf("[performConnectivityCheck] error creating request: %v\n", err)
+		logger.Errorf("[performConnectivityCheck] error creating request: %v", err)
 		return err
 	}
 
@@ -320,7 +340,7 @@ func (cd *connectivityDiagnoser) performConnectivityCheck(entryType, host string
 	}
 
 	if err != nil {
-		logger.Errorf("[performConnectivityCheck] error performing %s check: %v\n", strings.ToUpper(protocol), err)
+		logger.Errorf("[performConnectivityCheck] error performing %s check: %v", strings.ToUpper(protocol), err)
 		return err
 	}
 
@@ -329,11 +349,11 @@ func (cd *connectivityDiagnoser) performConnectivityCheck(entryType, host string
 
 func performDiagnosis(cfg *Config) {
 	allowlistFile := cfg.ConnectionDiagnosticsAllowlistFile
+	// TODO: when Piotr's PR is merged and crl check mode is exposed to config
 	downloadCRLs := cfg.ConnectionDiagnosticsDownloadCRL
-
 	logger.Info("[performDiagnosis] starting connectivity diagnosis based on allowlist file.")
 	if downloadCRLs {
-		logger.Info("[performDiagnosis] CRLs will be attempted to be downloaded during https tests.")
+		logger.Info("[performDiagnosis] CRLs will be attempted to be downloaded and parsed during https tests.")
 	}
 
 	var diag connectivityDiagnoser
@@ -343,7 +363,7 @@ func performDiagnosis(cfg *Config) {
 
 	allowlist, err := diag.openAndReadAllowlistJSON(allowlistFile)
 	if err != nil {
-		logger.Errorf("[performDiagnosis] error opening and parsing allowlist file: %v\n", err)
+		logger.Errorf("[performDiagnosis] error opening and parsing allowlist file: %v", err)
 		return
 	}
 
@@ -351,7 +371,7 @@ func performDiagnosis(cfg *Config) {
 		host := entry.Host
 		port := entry.Port
 		entryType := entry.Type
-		logger.Infof("[performDiagnosis] DNS check - resolving %s hostname %s\n", entryType, host)
+		logger.Infof("[performDiagnosis] DNS check - resolving %s hostname %s", entryType, host)
 		diag.resolveHostname(host)
 
 		if port == 80 || port == 443 {
