@@ -552,7 +552,7 @@ func TestCheckProxy(t *testing.T) {
 
 		// set up transport with proxy
 		proxyURL, _ := url.Parse("http://my.pro.xy:8080")
-		diagTest.diagnosticTransport = &http.Transport{
+		diagTest.diagnosticClient.Transport = &http.Transport{
 			Proxy: func(req *http.Request) (*url.URL, error) {
 				return proxyURL, nil
 			},
@@ -573,7 +573,7 @@ func TestCheckProxy(t *testing.T) {
 		defer cleanup()
 
 		// set up transport without proxy
-		diagTest.diagnosticTransport = &http.Transport{
+		diagTest.diagnosticClient.Transport = &http.Transport{
 			Proxy: nil,
 		}
 
@@ -593,7 +593,7 @@ func TestCheckProxy(t *testing.T) {
 		defer cleanup()
 
 		// deliberately return an error from the proxy function
-		diagTest.diagnosticTransport = &http.Transport{
+		diagTest.diagnosticClient.Transport = &http.Transport{
 			Proxy: func(req *http.Request) (*url.URL, error) {
 				return nil, fmt.Errorf("proxy configuration error")
 			},
@@ -653,7 +653,6 @@ func TestPerformConnectivityCheck(t *testing.T) {
 		ClientTimeout: 30 * time.Second,
 	}
 	diagTest.diagnosticClient = diagTest.createDiagnosticClient(config)
-	diagTest.diagnosticTransport = diagTest.diagnosticClient.Transport.(*http.Transport)
 
 	testcases := []tcPerformConnectivityCheck{
 		{

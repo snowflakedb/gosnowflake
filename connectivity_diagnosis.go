@@ -17,8 +17,7 @@ import (
 )
 
 type connectivityDiagnoser struct {
-	diagnosticClient    *http.Client
-	diagnosticTransport *http.Transport
+	diagnosticClient *http.Client
 }
 
 type allowlistEntry struct {
@@ -294,15 +293,16 @@ func (cd *connectivityDiagnoser) createRequest(uri string) (*http.Request, error
 }
 
 func (cd *connectivityDiagnoser) checkProxy(req *http.Request) {
-	if cd.diagnosticTransport == nil {
+	diagnosticTransport := cd.diagnosticClient.Transport.(*http.Transport)
+	if diagnosticTransport == nil {
 		logger.Errorf("[checkProxy] diagnosticTransport is nil")
 		return
 	}
-	if cd.diagnosticTransport.Proxy == nil {
+	if diagnosticTransport.Proxy == nil {
 		// no proxy configured, nothing to log
 		return
 	}
-	p, err := cd.diagnosticTransport.Proxy(req)
+	p, err := diagnosticTransport.Proxy(req)
 	if err != nil {
 		logger.Errorf("[checkProxy] problem determining PROXY: %v", err)
 	}
@@ -359,7 +359,6 @@ func performDiagnosis(cfg *Config) {
 	var diag connectivityDiagnoser
 	// diagnostic client - its transport is based on the Config. default: SnowflakeTransport with OCSP
 	diag.diagnosticClient = diag.createDiagnosticClient(cfg)
-	diag.diagnosticTransport = diag.diagnosticClient.Transport.(*http.Transport)
 
 	allowlist, err := diag.openAndReadAllowlistJSON(allowlistFile)
 	if err != nil {
