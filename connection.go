@@ -9,6 +9,7 @@ import (
 	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -77,6 +78,7 @@ type snowflakeConn struct {
 	internal            InternalClient
 	queryContextCache   *queryContextCache
 	currentTimeProvider currentTimeProvider
+	cv                  *crlValidator
 }
 
 var (
@@ -286,6 +288,9 @@ func (sc *snowflakeConn) Close() (err error) {
 	}
 	sc.stopHeartBeat()
 	sc.rest.HeartBeat = nil
+	if sc.cv != nil {
+		sc.cv.stopPeriodicCacheCleanup()
+	}
 	defer sc.cleanup()
 
 	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
@@ -794,9 +799,20 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {
-		if sc.cfg.DisableOCSPChecks || sc.cfg.InsecureMode {
-			// no revocation check with OCSP. Think twice when you want to enable this option.
-			st = snowflakeNoOcspTransport
+		if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode && sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+			return nil, errors.New("both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+		}
+		if sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+			var cv *crlValidator
+			st, cv, err = createCrlTransport(sc.cfg)
+			if err != nil {
+				return nil, err
+			}
+			sc.cv = cv
+			cv.startPeriodicCacheCleanup(sc.cfg.CrlCacheCleanerTick)
+		} else if sc.cfg.DisableOCSPChecks || sc.cfg.InsecureMode {
+			// no revocation check with OCSP or CRL
+			st = snowflakeNoRevocationCheckTransport
 		} else {
 			// set OCSP fail open mode
 			ocspResponseCacheLock.Lock()
@@ -863,20 +879,28 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	return sc, nil
 }
 
-func getTransport(cfg *Config) http.RoundTripper {
+func getTransport(cfg *Config) (http.RoundTripper, error) {
 	if cfg == nil {
-		logger.Debug("getTransport: got nil Config, will perform OCSP validation for cloud storage")
-		return SnowflakeTransport
+		// should never happen in production, only in tests
+		logger.Warn("getTransport: got nil Config, using default one")
+		return snowflakeNoRevocationCheckTransport, nil
 	}
 	// if user configured a custom Transporter, prioritize that
 	if cfg.Transporter != nil {
 		logger.Debug("getTransport: using Transporter configured by the user")
-		return cfg.Transporter
+		return cfg.Transporter, nil
+	}
+	if cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+		transport, _, err := createCrlTransport(cfg)
+		if err != nil {
+			return nil, err
+		}
+		return transport, nil
 	}
 	if cfg.DisableOCSPChecks || cfg.InsecureMode {
 		logger.Debug("getTransport: skipping OCSP validation for cloud storage")
-		return snowflakeNoOcspTransport
+		return snowflakeNoRevocationCheckTransport, nil
 	}
 	logger.Debug("getTransport: will perform OCSP validation for cloud storage")
-	return SnowflakeTransport
+	return SnowflakeTransport, nil
 }

@@ -67,8 +67,12 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 	}
 	logger.Debugf("Redirect URI template: %v, port: %v", redirectURITemplate, port)
 
+	transport, err := getTransport(cfg)
+	if err != nil {
+		return nil, err
+	}
 	client := &http.Client{
-		Transport: getTransport(cfg),
+		Transport: transport,
 	}
 	return &oauthClient{
 		ctx:                              context.WithValue(ctx, oauth2.HTTPClient, client),

@@ -1,14 +1,20 @@
 package gosnowflake
 
 import (
+	"cmp"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/asn1"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,12 +34,9 @@ type crlValidator struct {
 	allowCertificatesWithoutCrlURL bool
 	cacheValidityTime              time.Duration
 	inMemoryCacheDisabled          bool
-	inMemoryCache                  map[string]*crlInMemoryCacheValueType
-	inMemoryCacheMutex             sync.Mutex
 	onDiskCacheDisabled            bool
 	onDiskCacheDir                 string
 	onDiskCacheRemovalDelay        time.Duration
-	crlURLMutexes                  map[string]*sync.Mutex
 	httpClient                     *http.Client
 	cleanupStopChan                chan struct{}
 	cleanupDoneChan                chan struct{}
@@ -44,25 +47,38 @@ type crlInMemoryCacheValueType struct {
 	downloadTime *time.Time
 }
 
-func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, cacheValidityTime time.Duration, inMemoryCacheDisabled, onDiskCacheDisabled bool, onDiskCacheDir string, httpClient *http.Client) *crlValidator {
-	var inMemoryCache map[string]*crlInMemoryCacheValueType
-	if !inMemoryCacheDisabled {
-		inMemoryCache = make(map[string]*crlInMemoryCacheValueType)
+var (
+	crlInMemoryCache      = make(map[string]*crlInMemoryCacheValueType)
+	crlInMemoryCacheMutex = &sync.Mutex{}
+	crlURLMutexes         = make(map[string]*sync.Mutex)
+)
+
+func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, cacheValidityTime time.Duration, inMemoryCacheDisabled, onDiskCacheDisabled bool, onDiskCacheDir string, onDiskCacheRemovalDelay time.Duration, httpClient *http.Client) (*crlValidator, error) {
+	var err error
+	cacheValidityTime = cmp.Or(cacheValidityTime, 24*time.Hour)
+	onDiskCacheRemovalDelay = cmp.Or(onDiskCacheRemovalDelay, 7*24*time.Hour)
+	if onDiskCacheDir == "" {
+		onDiskCacheDir, err = defaultCrlOnDiskCacheDir()
+		if err != nil {
+			return nil, err
+		}
 	}
-	return &crlValidator{
+	cv := &crlValidator{
 		certRevocationCheckMode:        certRevocationCheckMode,
 		allowCertificatesWithoutCrlURL: allowCertificatesWithoutCrlURL,
-		cacheValidityTime:              cacheValidityTime,
+		cacheValidityTime:              cmp.Or(cacheValidityTime, defaultCrlCacheValidityTime),
 		inMemoryCacheDisabled:          inMemoryCacheDisabled,
-		inMemoryCache:                  inMemoryCache,
 		onDiskCacheDisabled:            onDiskCacheDisabled,
 		onDiskCacheDir:                 onDiskCacheDir,
-		onDiskCacheRemovalDelay:        7 * 24 * time.Hour, // 7 days
-		crlURLMutexes:                  make(map[string]*sync.Mutex),
+		onDiskCacheRemovalDelay:        onDiskCacheRemovalDelay,
 		httpClient:                     httpClient,
 		cleanupStopChan:                make(chan struct{}),
 		cleanupDoneChan:                make(chan struct{}),
 	}
+	if err = os.MkdirAll(cv.onDiskCacheDir, 0755); err != nil {
+		return nil, err
+	}
+	return cv, nil
 }
 
 // CertRevocationCheckMode defines the modes for certificate revocation checks.
@@ -81,14 +97,26 @@ const (
 func (m CertRevocationCheckMode) String() string {
 	switch m {
 	case CertRevocationCheckDisabled:
-		return "CERT_REVOCATION_CHECK_DISABLED"
+		return "DISABLED"
 	case CertRevocationCheckAdvisory:
-		return "CERT_REVOCATION_CHECK_ADVISORY"
+		return "ADVISORY"
 	case CertRevocationCheckEnabled:
-		return "CERT_REVOCATION_CHECK_ENABLED"
+		return "ENABLED"
 	default:
 		return fmt.Sprintf("unknown CertRevocationCheckMode: %d", m)
 	}
+}
+
+func parseCertRevocationCheckMode(s string) (CertRevocationCheckMode, error) {
+	switch strings.ToLower(s) {
+	case "disabled":
+		return CertRevocationCheckDisabled, nil
+	case "advisory":
+		return CertRevocationCheckAdvisory, nil
+	case "enabled":
+		return CertRevocationCheckEnabled, nil
+	}
+	return 0, fmt.Errorf("unknown CertRevocationCheckMode: %s", s)
 }
 
 type crlValidationResult int
@@ -107,10 +135,36 @@ const (
 	certError
 )
 
+const (
+	defaultCrlHTTPClientTimeout = 10 * time.Second
+	defaultCrlCacheValidityTime = 24 * time.Hour
+	defaultCrlCacheCleanerTick  = time.Hour
+)
+
+func createCrlTransport(cfg *Config) (*http.Transport, *crlValidator, error) {
+	allowCertificatesWithoutCrlURL := cfg.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
+	client := &http.Client{
+		Timeout: cmp.Or(cfg.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
+	}
+	crlValidator, err := newCrlValidator(cfg.CertRevocationCheckMode, allowCertificatesWithoutCrlURL, cfg.CrlCacheValidityTime, cfg.CrlInMemoryCacheDisabled, cfg.CrlOnDiskCacheDisabled, cfg.CrlOnDiskCacheDir, cfg.CrlOnDiskCacheRemovalDelay, client)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			VerifyPeerCertificate: crlValidator.verifyPeerCertificates,
+		},
+		MaxIdleConns:    5,
+		IdleConnTimeout: 5 * time.Minute,
+		Proxy:           http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout: 5 * time.Second,
+		}).DialContext,
+	}, crlValidator, nil
+}
+
 // TODO in following commits:
-// - clean up in memory cache and on-disk cache
 // - telemetry
-// - initialize into the main flow
 func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 	if cv.certRevocationCheckMode == CertRevocationCheckDisabled {
 		logger.Debug("certificate revocation check is disabled, skipping CRL validation")
@@ -274,9 +328,9 @@ func (cv *crlValidator) getFromCache(crlURL string) (*x509.RevocationList, *time
 	if cv.inMemoryCacheDisabled {
 		logger.Debugf("in-memory cache is disabled")
 	} else {
-		cv.inMemoryCacheMutex.Lock()
-		cacheValue, exists := cv.inMemoryCache[crlURL]
-		cv.inMemoryCacheMutex.Unlock()
+		crlInMemoryCacheMutex.Lock()
+		cacheValue, exists := crlInMemoryCache[crlURL]
+		crlInMemoryCacheMutex.Unlock()
 		if exists {
 			logger.Debugf("found CRL in cache for %v", crlURL)
 			return cacheValue.crl, cacheValue.downloadTime
@@ -316,14 +370,14 @@ func (cv *crlValidator) getFromCache(crlURL string) (*x509.RevocationList, *time
 
 	if !cv.inMemoryCacheDisabled {
 		// promote CRL to in-memory cache
-		cv.inMemoryCacheMutex.Lock()
-		cv.inMemoryCache[crlURL] = &crlInMemoryCacheValueType{
+		crlInMemoryCacheMutex.Lock()
+		crlInMemoryCache[crlURL] = &crlInMemoryCacheValueType{
 			crl: crl,
 			// modTime is not the exact time the CRL was downloaded, but rather the last modification time of the file
 			// still, it is good enough for our purposes
 			downloadTime: &modTime,
 		}
-		cv.inMemoryCacheMutex.Unlock()
+		crlInMemoryCacheMutex.Unlock()
 	}
 	return crl, &modTime
 }
@@ -332,12 +386,12 @@ func (cv *crlValidator) updateCache(crlURL string, crl *x509.RevocationList, dow
 	if cv.inMemoryCacheDisabled {
 		logger.Debugf("in-memory cache is disabled, not updating")
 	} else {
-		cv.inMemoryCacheMutex.Lock()
-		cv.inMemoryCache[crlURL] = &crlInMemoryCacheValueType{
+		crlInMemoryCacheMutex.Lock()
+		crlInMemoryCache[crlURL] = &crlInMemoryCacheValueType{
 			crl:          crl,
 			downloadTime: downloadTime,
 		}
-		cv.inMemoryCacheMutex.Unlock()
+		crlInMemoryCacheMutex.Unlock()
 	}
 	if cv.onDiskCacheDisabled {
 		logger.Debugf("CRL cache is disabled, not writing to disk for %v", crlURL)
@@ -370,9 +424,11 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 	}
 	logger.Debugf("downloaded %v bytes for CRL %v", len(crlBytes), crlURL)
 	crl, err := x509.ParseRevocationList(crlBytes)
+	logger.Debugf("parsed CRL from %v, error: %v", crlURL, err)
 	if err != nil {
 		return nil, nil, err
 	}
+	logger.Debugf("parsed CRL from %v, next update at %v", crlURL, crl.NextUpdate)
 	return crl, &now, err
 }
 
@@ -402,13 +458,13 @@ func (cv *crlValidator) verifyAgainstIdpExtension(crl *x509.RevocationList, dist
 }
 
 func (cv *crlValidator) getOrCreateMutex(crlURL string) *sync.Mutex {
-	cv.inMemoryCacheMutex.Lock()
-	mu, ok := cv.crlURLMutexes[crlURL]
+	crlInMemoryCacheMutex.Lock()
+	mu, ok := crlURLMutexes[crlURL]
 	if !ok {
 		mu = &sync.Mutex{}
-		cv.crlURLMutexes[crlURL] = mu
+		crlURLMutexes[crlURL] = mu
 	}
-	cv.inMemoryCacheMutex.Unlock()
+	crlInMemoryCacheMutex.Unlock()
 	return mu
 }
 
@@ -429,6 +485,7 @@ func isShortLivedCertificate(cert *x509.Certificate) bool {
 }
 
 func (cv *crlValidator) startPeriodicCacheCleanup(tickRate time.Duration) {
+	tickRate = cmp.Or(tickRate, defaultCrlCacheCleanerTick)
 	logger.Debugf("starting periodic CRL cache cleanup with tick rate %v", tickRate)
 	cv.cleanupStopChan = make(chan struct{})
 	cv.cleanupDoneChan = make(chan struct{})
@@ -462,16 +519,16 @@ func (cv *crlValidator) cleanupInMemoryCache() {
 	}
 	now := time.Now()
 	logger.Debugf("cleaning up in-memory CRL cache at %v", now)
-	cv.inMemoryCacheMutex.Lock()
-	for k, v := range cv.inMemoryCache {
+	crlInMemoryCacheMutex.Lock()
+	for k, v := range crlInMemoryCache {
 		expired := v.crl.NextUpdate.Before(now)
 		evicted := v.downloadTime.Add(cv.cacheValidityTime).Before(now)
 		logger.Debugf("testing CRL for %v (nextUpdate=%v, downloadTime=%v) from in-memory cache (expired: %v, evicted: %v)", k, v.crl.NextUpdate, v.downloadTime, expired, evicted)
 		if expired || evicted {
-			delete(cv.inMemoryCache, k)
+			delete(crlInMemoryCache, k)
 		}
 	}
-	cv.inMemoryCacheMutex.Unlock()
+	crlInMemoryCacheMutex.Unlock()
 }
 
 func (cv *crlValidator) cleanupOnDiskCache() {
@@ -506,5 +563,24 @@ func (cv *crlValidator) cleanupOnDiskCache() {
 				logger.Warnf("failed to remove expired CRL file %v: %v", path, err)
 			}
 		}
+	}
+}
+
+func defaultCrlOnDiskCacheDir() (string, error) {
+	switch runtime.GOOS {
+	case "windows":
+		return filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local", "Snowflake", "Caches", "crls"), nil
+	case "darwin":
+		home := os.Getenv("HOME")
+		if home == "" {
+			return "", errors.New("HOME is blank")
+		}
+		return filepath.Join(home, "Library", "Caches", "Snowflake", "crls"), nil
+	default:
+		home := os.Getenv("HOME")
+		if home == "" {
+			logger.Info("HOME is blank")
+		}
+		return filepath.Join(home, ".cache", "snowflake", "crls"), nil
 	}
 }

@@ -124,6 +124,16 @@ type Config struct {
 
 	WorkloadIdentityProvider      string // The workload identity provider to use for WIF authentication
 	WorkloadIdentityEntraResource string // The resource to use for WIF authentication on Azure environment
+
+	CertRevocationCheckMode           CertRevocationCheckMode // revocation check mode for CRLs
+	CrlAllowCertificatesWithoutCrlURL ConfigBool              // Allow certificates (not short-lived) without CRL DP included to be treated as correct ones
+	CrlCacheValidityTime              time.Duration           // How old CRL should we treat as still valid
+	CrlInMemoryCacheDisabled          bool                    // Should the in-memory cache be disabled
+	CrlOnDiskCacheDisabled            bool                    // Should the on-disk cache be disabled
+	CrlOnDiskCacheDir                 string                  // On-disk cache directory
+	CrlOnDiskCacheRemovalDelay        time.Duration           // How long should we keep CRL on disk before removing it (for debuggability purpose only, for validity time use CrlCacheValidityTime)
+	CrlHTTPClientTimeout              time.Duration           // Timeout for HTTP client used to download CRL
+	CrlCacheCleanerTick               time.Duration           // How often should we check for CRL cache removal
 }
 
 // Validate enables testing if config is correct.
@@ -272,6 +282,33 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Token != "" {
 		params.Add("token", cfg.Token)
+	}
+	if cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+		params.Add("certRevocationCheckMode", cfg.CertRevocationCheckMode.String())
+	}
+	if cfg.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue {
+		params.Add("crlAllowCertificatesWithoutCrlURL", "true")
+	}
+	if cfg.CrlCacheValidityTime != 0 {
+		params.Add("crlCacheValidityTime", strconv.FormatInt(int64(cfg.CrlCacheValidityTime/time.Second), 10))
+	}
+	if cfg.CrlInMemoryCacheDisabled {
+		params.Add("crlInMemoryCacheDisabled", "true")
+	}
+	if cfg.CrlOnDiskCacheDisabled {
+		params.Add("crlOnDiskCacheDisabled", "true")
+	}
+	if cfg.CrlOnDiskCacheDir != "" {
+		params.Add("crlOnDiskCacheDir", cfg.CrlOnDiskCacheDir)
+	}
+	if cfg.CrlOnDiskCacheRemovalDelay != 0 {
+		params.Add("crlOnDiskCacheRemovalDelay", strconv.FormatInt(int64(cfg.CrlOnDiskCacheRemovalDelay/time.Second), 10))
+	}
+	if cfg.CrlHTTPClientTimeout != 0 {
+		params.Add("crlHttpClientTimeout", strconv.FormatInt(int64(cfg.CrlHTTPClientTimeout/time.Second), 10))
+	}
+	if cfg.CrlCacheCleanerTick != 0 {
+		params.Add("crlCacheCleanerTick", strconv.FormatInt(int64(cfg.CrlCacheCleanerTick/time.Second), 10))
 	}
 	if cfg.Params != nil {
 		for k, v := range cfg.Params {
@@ -954,6 +991,73 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			} else {
 				cfg.DisableSamlURLCheck = ConfigBoolFalse
 			}
+		case "certRevocationCheckMode":
+			var certRevocationCheckMode CertRevocationCheckMode
+			certRevocationCheckMode, err = parseCertRevocationCheckMode(value)
+			if err != nil {
+				return
+			}
+			cfg.CertRevocationCheckMode = certRevocationCheckMode
+		case "crlAllowCertificatesWithoutCrlURL":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if vv {
+				cfg.CrlAllowCertificatesWithoutCrlURL = ConfigBoolTrue
+			} else {
+				cfg.CrlAllowCertificatesWithoutCrlURL = ConfigBoolFalse
+			}
+		case "crlCacheValidityTime":
+			var vv int64
+			vv, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return
+			}
+			cfg.CrlCacheValidityTime = time.Duration(vv * int64(time.Second))
+		case "crlInMemoryCacheDisabled":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.CrlInMemoryCacheDisabled = true
+			} else {
+				cfg.CrlInMemoryCacheDisabled = false
+			}
+		case "crlOnDiskCacheDisabled":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.CrlOnDiskCacheDisabled = true
+			} else {
+				cfg.CrlOnDiskCacheDisabled = false
+			}
+		case "crlOnDiskCacheDir":
+			cfg.CrlOnDiskCacheDir = value
+		case "crlOnDiskCacheRemovalDelay":
+			var vv int64
+			vv, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return
+			}
+			cfg.CrlOnDiskCacheRemovalDelay = time.Duration(vv * int64(time.Second))
+		case "crlHttpClientTimeout":
+			var vv int64
+			vv, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return
+			}
+			cfg.CrlHTTPClientTimeout = time.Duration(vv * int64(time.Second))
+		case "crlCacheCleanerTick":
+			var vv int64
+			vv, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return
+			}
+			cfg.CrlCacheCleanerTick = time.Duration(vv * int64(time.Second))
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
