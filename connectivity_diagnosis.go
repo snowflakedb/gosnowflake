@@ -152,45 +152,45 @@ func (cd *connectivityDiagnoser) fetchCRL(uri string) error {
 	if _, ok := connDiagTestedCrls[uri]; ok {
 		logger.Infof("[fetchCRL] CRL for %s already fetched and parsed.", uri)
 		return nil
-	} else {
-		logger.Infof("[fetchCRL] fetching  %s", uri)
-		req, err := cd.createRequest(uri)
-		if err != nil {
-			logger.Errorf("[fetchCRL] error creating request: %v", err)
-			return err
-		}
-		resp, err := cd.diagnosticClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("[fetchCRL] HTTP GET to %s endpoint failed: %w", uri, err)
-		}
-		// if closing response body is unsuccessful for some reason
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				logger.Errorf("[fetchCRL] Failed to close response body: %v", err)
-				return
-			}
-		}(resp.Body)
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("[fetchCRL] HTTP response status from endpoint: %s", resp.Status)
-		}
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("[fetchCRL] failed to read response body: %w", err)
-		}
-		logger.Infof("[fetchCRL] %s retrieved successfully (%d bytes)", uri, len(body))
-		logger.Infof("[fetchCRL] Parsing CRL fetched from %s", uri)
-		crl, err := x509.ParseRevocationList(body)
-		if err != nil {
-			return fmt.Errorf("[fetchCRL] Failed to parse CRL: %v", err)
-		}
-		logger.Infof("    CRL Issuer: %s", crl.Issuer)
-		logger.Infof("    This Update: %s", crl.ThisUpdate)
-		logger.Infof("    Next Update: %s", crl.NextUpdate)
-		logger.Infof("    Revoked Certificates#: %s", strconv.Itoa(len(crl.RevokedCertificateEntries)))
 	}
+	logger.Infof("[fetchCRL] fetching  %s", uri)
+	req, err := cd.createRequest(uri)
+	if err != nil {
+		logger.Errorf("[fetchCRL] error creating request: %v", err)
+		return err
+	}
+	resp, err := cd.diagnosticClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("[fetchCRL] HTTP GET to %s endpoint failed: %w", uri, err)
+	}
+	// if closing response body is unsuccessful for some reason
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Errorf("[fetchCRL] Failed to close response body: %v", err)
+			return
+		}
+	}(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("[fetchCRL] HTTP response status from endpoint: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("[fetchCRL] failed to read response body: %w", err)
+	}
+	logger.Infof("[fetchCRL] %s retrieved successfully (%d bytes)", uri, len(body))
+	logger.Infof("[fetchCRL] Parsing CRL fetched from %s", uri)
+	crl, err := x509.ParseRevocationList(body)
+	if err != nil {
+		return fmt.Errorf("[fetchCRL] Failed to parse CRL: %v", err)
+	}
+	logger.Infof("    CRL Issuer: %s", crl.Issuer)
+	logger.Infof("    This Update: %s", crl.ThisUpdate)
+	logger.Infof("    Next Update: %s", crl.NextUpdate)
+	logger.Infof("    Revoked Certificates#: %s", strconv.Itoa(len(crl.RevokedCertificateEntries)))
+
 	connDiagTestedCrls[uri] = ""
 	return nil
 }
