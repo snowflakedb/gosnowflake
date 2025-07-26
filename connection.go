@@ -874,9 +874,9 @@ func getTransport(cfg *Config) http.RoundTripper {
 		return cfg.Transporter
 	}
 	if cfg.DisableOCSPChecks || cfg.InsecureMode {
-		logger.Debug("getTransport: skipping OCSP validation for cloud storage")
+		logger.Debug("getTransport: skipping OCSP validation")
 		return snowflakeNoOcspTransport
 	}
-	logger.Debug("getTransport: will perform OCSP validation for cloud storage")
+	logger.Debug("getTransport: will perform OCSP validation")
 	return SnowflakeTransport
 }

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -54,6 +55,17 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 		}
 	}
 	logger.WithContext(ctx).Info("OpenWithConfig")
+
+	if config.ConnectionDiagnosticsEnabled {
+		// TODO: when Piotr's PR is merged and crl check mode is exposed to config
+		connDiagDownloadCrl := config.ConnectionDiagnosticsDownloadCRL
+		logger.WithContext(ctx).Infof("Connection diagnostics enabled. Allowlist file specified in config: %s, will download CRLs in certificates: %s",
+			config.ConnectionDiagnosticsAllowlistFile, strconv.FormatBool(connDiagDownloadCrl))
+		performDiagnosis(&config)
+		logger.WithContext(ctx).Info("Connection diagnostics finished.")
+		logger.WithContext(ctx).Warn("A connection to Snowflake was not created because the driver is running in diagnostics mode. If this is unintended then disable diagnostics check by removing the ConnectionDiagnosticsEnabled connection parameter")
+		os.Exit(0)
+	}
 	sc, err := buildSnowflakeConn(ctx, config)
 	if err != nil {
 		return nil, err
