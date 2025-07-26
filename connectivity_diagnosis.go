@@ -35,6 +35,7 @@ type allowlist struct {
 // GCS says HTTP400 upon connecting with plain GET due to MissingSecurityHeader, its okay from connection standpoint
 var connDiagAcceptableStatusCodes = []int{http.StatusOK, http.StatusForbidden, http.StatusBadRequest}
 
+// map of already-fetched CRLs to not test them more than once as they can be quite large
 var connDiagTestedCrls = make(map[string]string)
 
 // create a diagnostic client with the appropriate transport for the given config

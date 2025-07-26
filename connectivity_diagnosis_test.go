@@ -274,6 +274,10 @@ func TestIsAcceptableStatusCode(t *testing.T) {
 
 func TestFetchCRL(t *testing.T) {
 	var diagTest connectivityDiagnoser
+	config := &Config{
+		ClientTimeout: 30 * time.Second,
+	}
+	diagTest.diagnosticClient = diagTest.createDiagnosticClient(config)
 	crlPEM := `-----BEGIN X509 CRL-----
 MIIBuDCBoQIBATANBgkqhkiG9w0BAQsFADBeMQswCQYDVQQGEwJVUzELMAkGA1UE
 CAwCQ0ExDTALBgNVBAcMBFRlc3QxEDAOBgNVBAoMB0V4YW1wbGUxDzANBgNVBAsM
