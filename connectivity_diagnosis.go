@@ -154,7 +154,12 @@ func (cd *connectivityDiagnoser) fetchCRL(uri string) error {
 		return nil
 	} else {
 		logger.Infof("[fetchCRL] fetching  %s", uri)
-		resp, err := http.Get(uri)
+		req, err := cd.createRequest(uri)
+		if err != nil {
+			logger.Errorf("[fetchCRL] error creating request: %v", err)
+			return err
+		}
+		resp, err := cd.diagnosticClient.Do(req)
 		if err != nil {
 			return fmt.Errorf("[fetchCRL] HTTP GET to %s endpoint failed: %w", uri, err)
 		}

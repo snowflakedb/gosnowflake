@@ -544,6 +544,10 @@ func TestDoHTTPSGetCerts(t *testing.T) {
 
 func TestCheckProxy(t *testing.T) {
 	var diagTest connectivityDiagnoser
+	config := &Config{
+		ClientTimeout: 30 * time.Second,
+	}
+	diagTest.diagnosticClient = diagTest.createDiagnosticClient(config)
 
 	t.Run("Check Proxy - with proxy configured", func(t *testing.T) {
 		// setup test logger then restore original after test
