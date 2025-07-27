@@ -7,12 +7,14 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"database/sql"
 	"encoding/asn1"
 	"encoding/base64"
 	"fmt"
 	"math/big"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -23,11 +25,10 @@ const testCrlServerPort = 56894
 var serialNumber = int64(0) // to be incremented
 
 type cacheValidityTimeType time.Duration
-
 type allowCertificatesWithoutCrlURLType bool
-
 type inMemoryCacheDisabledType bool
 type onDiskCacheDisabledType bool
+type onDiskCacheRemovalDelayType time.Duration
 
 type notAfterType time.Time
 
@@ -42,6 +43,7 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, args .
 	allowCertificatesWithoutCrlURL := false
 	inMemoryCacheDisabled := false
 	onDiskCacheDisabled := false
+	onDiskCacheRemovalDelay := 10 * time.Millisecond
 	for _, arg := range args {
 		switch v := arg.(type) {
 		case *http.Client:
@@ -54,15 +56,19 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, args .
 			inMemoryCacheDisabled = bool(v)
 		case onDiskCacheDisabledType:
 			onDiskCacheDisabled = bool(v)
+		case onDiskCacheRemovalDelayType:
+			onDiskCacheRemovalDelay = time.Duration(v)
 		default:
 			t.Fatalf("unexpected argument type %T", v)
 		}
 	}
 	cacheDir := t.TempDir()
-	return newCrlValidator(checkMode, allowCertificatesWithoutCrlURL, cacheValidityTime, inMemoryCacheDisabled, onDiskCacheDisabled, cacheDir, httpClient)
+	cv, err := newCrlValidator(checkMode, allowCertificatesWithoutCrlURL, cacheValidityTime, inMemoryCacheDisabled, onDiskCacheDisabled, cacheDir, onDiskCacheRemovalDelay, httpClient)
+	assertNilF(t, err)
+	return cv
 }
 
-func TestCrlCheckModeDisabled_NoHttpCall(t *testing.T) {
+func TestCrlCheckModeDisabledNoHttpCall(t *testing.T) {
 	caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
 	_, leafCert := createLeafCert(t, caCert, caKey, "/rootCrl")
 	crt := &countingRoundTripper{}
@@ -76,6 +82,7 @@ func TestCrlModes(t *testing.T) {
 	for _, checkMode := range []CertRevocationCheckMode{CertRevocationCheckEnabled, CertRevocationCheckAdvisory} {
 		t.Run(fmt.Sprintf("checkMode=%v", checkMode), func(t *testing.T) {
 			t.Run("ShortLivedCertDoesNotNeedCRL", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "", notAfterType(time.Now().Add(4*24*time.Hour)))
 
@@ -85,6 +92,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("LeafCertNotRevoked", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 				crl := createCrl(t, caCert, caPrivateKey)
@@ -98,6 +106,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("LeafCertRevoked", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 				crl := createCrl(t, caCert, caPrivateKey, revokedCert(leafCert))
@@ -112,6 +121,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("TestLeafNotRevokedAndRootDoesNotProvideCrl", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
 				intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "")
 				_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "/intermediateCrl")
@@ -129,7 +139,8 @@ func TestCrlModes(t *testing.T) {
 				}
 			})
 
-			t.Run("IntermediateRevokedAndIntermediateDoesNotProvideCrl", func(t *testing.T) {
+			t.Run("IntermediateRevokedAndLeafDoesNotProvideCrl", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				rootCaPrivateKey, rootCaCert := createCa(t, nil, nil, "root CA", "")
 				intermediateCaKey, intermediateCaCert := createCa(t, rootCaCert, rootCaPrivateKey, "intermediate CA", "/rootCrl")
 				_, leafCert := createLeafCert(t, intermediateCaCert, intermediateCaKey, "")
@@ -140,14 +151,11 @@ func TestCrlModes(t *testing.T) {
 
 				cv := newTestCrlValidator(t, checkMode)
 				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, intermediateCaCert, rootCaCert}})
-				if checkMode == CertRevocationCheckEnabled {
-					assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
-				} else {
-					assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
-				}
+				assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
 			})
 
 			t.Run("CrlSignatureInvalid", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
 				otherCaPrivateKey, _ := createCa(t, nil, nil, "other CA", "")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
@@ -166,6 +174,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("CrlIssuerMismatch", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
 				otherKey, otherCert := createCa(t, nil, nil, "other CA", "")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
@@ -184,6 +193,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("CertWithNoCrlDistributionPoints", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "")
 
@@ -197,6 +207,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("CertWithNoCrlDistributionPointsAllowed", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "")
 
@@ -206,6 +217,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("DownloadCrlFailsOnUnparsableCrl", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 
@@ -224,6 +236,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("DownloadCrlFailsOn404", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 
@@ -240,6 +253,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("VerifyAgainstIdpExtensionWithDistributionPointMatch", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 
@@ -267,6 +281,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("TestVerifyAgainstIdpExtensionWithDistributionPointMismatch", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
 				_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 
@@ -299,6 +314,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("AnyValidChainCausesSuccess", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
 				_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
 				_, validLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
@@ -318,6 +334,7 @@ func TestCrlModes(t *testing.T) {
 			})
 
 			t.Run("OneChainIsRevokedAndOtherIsError", func(t *testing.T) {
+				crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 				caKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
 				_, revokedLeaf := createLeafCert(t, caCert, caKey, "/rootCrl")
 				_, errorLeaf := createLeafCert(t, caCert, caKey, "/missingCrl")
@@ -343,6 +360,7 @@ func TestCrlModes(t *testing.T) {
 
 			t.Run("CacheTests", func(t *testing.T) {
 				t.Run("should use in-memory cache", func(t *testing.T) {
+					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 					crl := createCrl(t, caCert, caPrivateKey)
@@ -350,12 +368,12 @@ func TestCrlModes(t *testing.T) {
 					server := createCrlServer(t)
 					defer closeServer(t, server)
 
-					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(10*time.Minute), &http.Client{
 						Transport: crt,
 					})
 					downloadTime := time.Now().Add(-1 * time.Minute)
-					cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
+					crlInMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
 						crl:          crl,
 						downloadTime: &downloadTime,
 					}
@@ -367,6 +385,7 @@ func TestCrlModes(t *testing.T) {
 				})
 
 				t.Run("should promote on-disk cache to memory and not modify on-disk entry", func(t *testing.T) {
+					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 					crl := createCrl(t, caCert, caPrivateKey)
@@ -374,7 +393,7 @@ func TestCrlModes(t *testing.T) {
 					server := createCrlServer(t)
 					defer closeServer(t, server)
 
-					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(10*time.Minute), &http.Client{
 						Transport: crt,
 					})
@@ -392,6 +411,7 @@ func TestCrlModes(t *testing.T) {
 				})
 
 				t.Run("should redownload when nextUpdate is reached", func(t *testing.T) {
+					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 					oldCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now().Add(-2*time.Minute)), nextUpdateType(time.Now().Add(-1*time.Minute)))
@@ -400,13 +420,13 @@ func TestCrlModes(t *testing.T) {
 					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", newCrl))
 					defer closeServer(t, server)
 
-					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(10*time.Minute), &http.Client{
 						Transport: crt,
 					})
 
 					previousDownloadTime := time.Now().Add(-1 * time.Minute)
-					cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
+					crlInMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
 						crl:          oldCrl,
 						downloadTime: &previousDownloadTime,
 					}
@@ -418,11 +438,12 @@ func TestCrlModes(t *testing.T) {
 					fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertNilE(t, err, "CRL file should be created in the cache directory")
 					defer fd.Close()
-					assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
-					assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
+					assertTrueE(t, crlInMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
+					assertTrueE(t, crlInMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
 				})
 
 				t.Run("should redownload when evicted in cache", func(t *testing.T) {
+					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 					oldCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now().Add(-2*time.Hour)), nextUpdateType(time.Now().Add(time.Hour)))
@@ -431,13 +452,13 @@ func TestCrlModes(t *testing.T) {
 					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", newCrl))
 					defer closeServer(t, server)
 
-					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(10*time.Minute), &http.Client{
 						Transport: crt,
 					})
 
 					previousDownloadTime := time.Now().Add(-1 * time.Hour)
-					cv.inMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
+					crlInMemoryCache[fullCrlURL("/rootCrl")] = &crlInMemoryCacheValueType{
 						crl:          oldCrl,
 						downloadTime: &previousDownloadTime,
 					}
@@ -449,11 +470,12 @@ func TestCrlModes(t *testing.T) {
 					fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertNilE(t, err, "CRL file should be created in the cache directory")
 					defer fd.Close()
-					assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
-					assertTrueE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
+					assertTrueE(t, crlInMemoryCache[fullCrlURL("/rootCrl")].downloadTime.After(previousDownloadTime))
+					assertTrueE(t, crlInMemoryCache[fullCrlURL("/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
 				})
 
 				t.Run("should not save to on-disk cache when disabled", func(t *testing.T) {
+					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 					crl := createCrl(t, caCert, caPrivateKey)
@@ -466,10 +488,11 @@ func TestCrlModes(t *testing.T) {
 					assertNilE(t, err)
 					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory when on-disk cache is disabled")
-					assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
+					assertNotNilE(t, crlInMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
 				})
 
 				t.Run("should not read from on-disk cache when disabled", func(t *testing.T) {
+					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 					oldCrl := createCrl(t, caCert, caPrivateKey, nextUpdateType(time.Now()))
@@ -478,7 +501,7 @@ func TestCrlModes(t *testing.T) {
 					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", newCrl))
 					defer closeServer(t, server)
 
-					crt := newCountingRoundTripper(snowflakeNoOcspTransport)
+					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 					cv := newTestCrlValidator(t, checkMode, onDiskCacheDisabledType(true), &http.Client{
 						Transport: crt,
 					})
@@ -488,13 +511,14 @@ func TestCrlModes(t *testing.T) {
 					err = cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
 					assertEqualE(t, crt.totalRequests(), 1, "CRL should be downloaded from the server")
-					assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
+					assertNotNilE(t, crlInMemoryCache[fullCrlURL("/rootCrl")]) // in-memory cache should still be used
 					statAfter, err := os.Stat(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertNilF(t, err)
 					assertTrueE(t, statBefore.ModTime().Equal(statAfter.ModTime()), "CRL file should be modified in the cache directory")
 				})
 
 				t.Run("should not use in-memory cache when disabled", func(t *testing.T) {
+					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 					crl := createCrl(t, caCert, caPrivateKey)
@@ -505,13 +529,14 @@ func TestCrlModes(t *testing.T) {
 					cv := newTestCrlValidator(t, checkMode, inMemoryCacheDisabledType(true))
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
-					assertNilE(t, cv.inMemoryCache, "in-memory cache should not be used when disabled")
+					assertEqualE(t, len(crlInMemoryCache), 0, "in-memory cache should not be used when disabled")
 					fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertNilE(t, err) // on-disk cache should still be used
 					defer fd.Close()
 				})
 
 				t.Run("should not use in-memory cache when disabled", func(t *testing.T) {
+					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 					crl := createCrl(t, caCert, caPrivateKey)
@@ -522,40 +547,45 @@ func TestCrlModes(t *testing.T) {
 					cv := newTestCrlValidator(t, checkMode, inMemoryCacheDisabledType(true), onDiskCacheDisabledType(true))
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
-					assertNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should not be used when disabled")
+					assertNilE(t, crlInMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should not be used when disabled")
 					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertErrIsE(t, err, os.ErrNotExist, "CRL file should not be created in the cache directory when on-disk cache is disabled")
 				})
 
 				t.Run("should clean up cache", func(t *testing.T) {
+					crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 					caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "")
 					_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
-					crl := createCrl(t, caCert, caPrivateKey, nextUpdateType(time.Now().Add(10*time.Millisecond)))
+					crl := createCrl(t, caCert, caPrivateKey, nextUpdateType(time.Now().Add(3000*time.Millisecond)))
 
 					server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
 					defer closeServer(t, server)
 
-					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(100*time.Millisecond))
-					cv.onDiskCacheRemovalDelay = 200 * time.Millisecond
-					cv.startPeriodicCacheCleanup(10 * time.Millisecond)
+					cv := newTestCrlValidator(t, checkMode, cacheValidityTimeType(1000*time.Millisecond), onDiskCacheRemovalDelayType(2000*time.Millisecond))
+					cv.startPeriodicCacheCleanup(500 * time.Millisecond)
 					defer cv.stopPeriodicCacheCleanup()
 
 					err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
 					assertNilE(t, err)
-					cv.inMemoryCacheMutex.Lock()
-					assertNotNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should be populated")
-					cv.inMemoryCacheMutex.Unlock()
+					crlInMemoryCacheMutex.Lock()
+					assertNotNilE(t, crlInMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should be populated")
+					crlInMemoryCacheMutex.Unlock()
 					fd, err := os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
 					assertNilE(t, err, "CRL file should be created in the cache directory")
 					fd.Close()
 
-					time.Sleep(500 * time.Millisecond) // wait for cleanup to happen
+					time.Sleep(2000 * time.Millisecond) // wait for cleanup to happen
 
-					cv.inMemoryCacheMutex.Lock()
-					assertNilE(t, cv.inMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should be cleaned up")
-					cv.inMemoryCacheMutex.Unlock()
+					crlInMemoryCacheMutex.Lock()
+					assertNilE(t, crlInMemoryCache[fullCrlURL("/rootCrl")], "in-memory cache should be cleaned up")
+					crlInMemoryCacheMutex.Unlock()
+					fd, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
+					assertNilE(t, err, "CRL file should still be present in the cache directory")
+					fd.Close()
+
+					time.Sleep(4000 * time.Millisecond) // wait for removal delay to pass
 					_, err = os.Open(cv.crlURLToPath(fullCrlURL("/rootCrl")))
-					assertErrIsE(t, err, os.ErrNotExist, "CRL file should be removed from the cache directory")
+					assertErrIsE(t, err, os.ErrNotExist, "CRL file should be removed from the cache directory after removal delay")
 				})
 			})
 		})
@@ -576,6 +606,7 @@ func TestRealCrlWithIdpExtension(t *testing.T) {
 }
 
 func TestParallelRequestToTheSameCrl(t *testing.T) {
+	crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType)
 	caPrivateKey, caCert := createCa(t, nil, nil, "root CA", "/rootCrl")
 	_, leafCert := createLeafCert(t, caCert, caPrivateKey, "/rootCrl")
 	crl := createCrl(t, caCert, caPrivateKey)
@@ -583,7 +614,7 @@ func TestParallelRequestToTheSameCrl(t *testing.T) {
 	server := createCrlServer(t, newCrlEndpointDef("/rootCrl", crl))
 	defer closeServer(t, server)
 
-	brt := newBlockingRoundTripper(snowflakeNoOcspTransport, 100*time.Millisecond)
+	brt := newBlockingRoundTripper(snowflakeNoRevocationCheckTransport, 100*time.Millisecond)
 	crt := newCountingRoundTripper(brt)
 	cv := newTestCrlValidator(t, CertRevocationCheckEnabled, &http.Client{
 		Transport: crt,
@@ -827,4 +858,63 @@ func fullCrlURL(endpoint string) string {
 func closeServer(t *testing.T, server *http.Server) {
 	err := server.Shutdown(context.Background())
 	assertNilF(t, err)
+}
+
+func TestCrlE2E(t *testing.T) {
+	t.Run("Successful flow", func(t *testing.T) {
+		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
+		cfg := &Config{
+			User:                    username,
+			Password:                pass,
+			Account:                 account,
+			Database:                dbname,
+			Schema:                  schemaname,
+			CertRevocationCheckMode: CertRevocationCheckEnabled,
+			CrlCacheValidityTime:    90 * time.Second,
+			CrlCacheCleanerTick:     5 * time.Second,
+			CrlOnDiskCacheDir:       t.TempDir(),
+			DisableOCSPChecks:       true,
+		}
+		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
+		defer db.Close()
+		rows, err := db.Query("SELECT 1")
+		assertNilF(t, err)
+		defer rows.Close()
+		crlInMemoryCacheMutex.Lock()
+		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
+		crlInMemoryCacheMutex.Unlock()
+		logger.Debugf("CRL in memory cache entries after Snowflake connection: %v", memoryEntriesAfterSnowflakeConnection)
+		assertTrueE(t, memoryEntriesAfterSnowflakeConnection > 0)
+
+		// additional entries for connecting to cloud providers and checking their certs
+		cwd, err := os.Getwd()
+		assertNilF(t, err)
+		_, err = db.Exec(fmt.Sprintf("PUT file://%v @~/%v", filepath.Join(cwd, "test_data", "put_get_1.txt"), "put_get_1.txt"))
+		assertNilF(t, err)
+		crlInMemoryCacheMutex.Lock()
+		memoryEntriesAfterCSPConnection := len(crlInMemoryCache)
+		crlInMemoryCacheMutex.Unlock()
+		logger.Debugf("CRL in memory cache entries after CSP connection: %v", memoryEntriesAfterCSPConnection)
+		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
+
+		time.Sleep(100 * time.Second) // wait for the cache cleaner to run
+		crlInMemoryCacheMutex.Lock()
+		assertEqualE(t, len(crlInMemoryCache), 0)
+		crlInMemoryCacheMutex.Unlock()
+	})
+
+	t.Run("OCSP and CRL cannot be enabled at the same time", func(t *testing.T) {
+		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
+		cfg := &Config{
+			User:                    username,
+			Password:                pass,
+			Account:                 account,
+			Database:                dbname,
+			Schema:                  schemaname,
+			CertRevocationCheckMode: CertRevocationCheckEnabled,
+		}
+		_, err := buildSnowflakeConn(context.Background(), *cfg)
+		assertEqualE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+		assertEqualE(t, len(crlInMemoryCache), 0)
+	})
 }
