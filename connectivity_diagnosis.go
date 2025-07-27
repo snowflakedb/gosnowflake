@@ -89,7 +89,10 @@ func (cd *connectivityDiagnoser) createDiagnosticDialContext() func(ctx context.
 
 // enhance the transport with IP logging
 func (cd *connectivityDiagnoser) createDiagnosticTransport(cfg *Config) *http.Transport {
-	baseTransport := getTransport(cfg)
+	baseTransport, err := getTransport(cfg)
+	if err != nil {
+		logger.Fatalf("[createDiagnosticTransport] failed to get the transport from the config: %v", err)
+	}
 
 	var httpTransport *http.Transport
 	if t, ok := baseTransport.(*http.Transport); ok {
@@ -353,17 +356,16 @@ func (cd *connectivityDiagnoser) performConnectivityCheck(entryType, host string
 	return nil
 }
 
-func performDiagnosis(cfg *Config) {
+func performDiagnosis(cfg *Config, downloadCRLs bool) {
 	allowlistFile := cfg.ConnectionDiagnosticsAllowlistFile
-	// TODO: when Piotr's PR is merged and crl check mode is exposed to config
-	downloadCRLs := cfg.ConnectionDiagnosticsDownloadCRL
+
 	logger.Info("[performDiagnosis] starting connectivity diagnosis based on allowlist file.")
 	if downloadCRLs {
 		logger.Info("[performDiagnosis] CRLs will be attempted to be downloaded and parsed during https tests.")
 	}
 
 	var diag connectivityDiagnoser
-	// diagnostic client - its transport is based on the Config. default: SnowflakeTransport with OCSP
+	// diagnostic client - its transport is based on the Config. default: SnowflakeTransport
 	diag.diagnosticClient = diag.createDiagnosticClient(cfg)
 
 	allowlist, err := diag.openAndReadAllowlistJSON(allowlistFile)

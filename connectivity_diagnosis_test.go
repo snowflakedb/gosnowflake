@@ -729,9 +729,10 @@ func TestPerformDiagnosis(t *testing.T) {
 			ConnectionDiagnosticsDownloadCRL:   false,
 			ClientTimeout:                      30 * time.Second,
 		}
+		downloadCRLs := config.ConnectionDiagnosticsDownloadCRL
 
 		// perform the diagnosis
-		performDiagnosis(config)
+		performDiagnosis(config, downloadCRLs)
 
 		// verify expected log messages from performDiagnosis and underlying functions
 		logOutput := buffer.String()
@@ -783,11 +784,13 @@ func TestPerformDiagnosis(t *testing.T) {
 
 		config := &Config{
 			ConnectionDiagnosticsAllowlistFile: tmpFile.Name(),
-			ConnectionDiagnosticsDownloadCRL:   true,
+			ConnectionDiagnosticsDownloadCRL:   false,
+			CertRevocationCheckMode:            CertRevocationCheckAdvisory,
 			ClientTimeout:                      30 * time.Second,
 		}
-
-		performDiagnosis(config)
+		downloadCRLs := config.CertRevocationCheckMode.String() == "ADVISORY"
+		// even though ConnectionDiagnosticsDownloadCRL is false, driver should downlowd CRLs due to ADVISORY CRL mode
+		performDiagnosis(config, downloadCRLs)
 
 		// verify expected log messages including CRL download
 		logOutput := buffer.String()
