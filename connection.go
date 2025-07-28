@@ -409,7 +409,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	query string,
 	args []driver.NamedValue) (
 	driver.Rows, error) {
-	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
+
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
@@ -419,6 +419,7 @@ func (sc *snowflakeConn) queryContextInternal(
 	ctx = setResultType(ctx, queryResultType)
 	isInternal := isInternal(ctx)
 	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
+	logger.WithContext(ctx).Infof("[sessionID: %d] Query: %#v, %v", sessionID, query, args)
 	data, err := sc.exec(ctx, query, noResult, isInternal, isDesc, args)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("queryContextInternal: [sessionID: %d] error: %v", sessionID, err)
