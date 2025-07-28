@@ -1109,6 +1109,7 @@ func TestWorkloadIdentityOnRemoteVM(t *testing.T) {
 		_ = logger.SetLogLevel(level)
 	}()
 	config := &Config{}
+	config.DisableOCSPChecks = true
 	config.Account = os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
 	config.Host = os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
 	config.WorkloadIdentityProvider = os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
