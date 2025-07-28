@@ -160,11 +160,11 @@ type defaultAwsAttestationMetadataProvider struct {
 	awsCfg aws.Config
 }
 
-func createDefaultAwsAttestationMetadataProvider(ctx context.Context) *defaultAwsAttestationMetadataProvider {
+func createDefaultAwsAttestationMetadataProvider(ctx context.Context) awsAttestationMetadataProvider {
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithEC2IMDSRegion())
 	if err != nil {
 		logger.Debugf("Unable to load AWS config: %v", err)
-		return (*defaultAwsAttestationMetadataProvider)(nil)
+		return nil
 	}
 	logger.Debugf("AWS config loaded: %+v", cfg)
 	return &defaultAwsAttestationMetadataProvider{
