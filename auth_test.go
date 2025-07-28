@@ -1100,18 +1100,15 @@ func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 // * Set PARAMETERS_SECRET env variable to decode ssh private keys
 // * Run ci/test_wif.sh
 func TestWorkloadIdentityOnRemoteVM(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Fatal("Failed to parse dsn")
+	if os.Getenv("SKIP_SETUP") == "" {
+		t.Skip("Skipping test - meant to be run on remote VM only")
 	}
-	fmt.Printf("DSN: %s\n", dsn)
-	fmt.Printf("Config: %+v\n", config)
-
+	config := &Config{}
 	config.Account = os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
 	config.Host = os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
 	config.WorkloadIdentityProvider = os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
 	config.Authenticator = AuthTypeWorkloadIdentityFederation
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
-	db.Query("select 1")
+	runSmokeQuery(t, db)
 }
