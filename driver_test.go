@@ -438,8 +438,9 @@ func (sct *SCTest) mustExecContext(ctx context.Context, query string, args []dri
 }
 
 func runDBTest(t *testing.T, test func(dbt *DBTest)) {
-	conn := openConn(t)
+	db, conn := openConn(t)
 	defer conn.Close()
+	defer db.Close()
 	dbt := &DBTest{t, conn}
 
 	test(dbt)
@@ -1737,22 +1738,23 @@ func TestCancelQuery(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	db := openConn(t)
-	if err := db.PingContext(context.Background()); err != nil {
-		t.Fatalf("failed to ping. err: %v", err)
-	}
-	if err := db.PingContext(context.Background()); err != nil {
-		t.Fatalf("failed to ping with context. err: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("failed to close db. err: %v", err)
-	}
-	if err := db.PingContext(context.Background()); err == nil {
-		t.Fatal("should have failed to ping")
-	}
-	if err := db.PingContext(context.Background()); err == nil {
-		t.Fatal("should have failed to ping with context")
-	}
+	runDBTest(t, func(dbt *DBTest) {
+		if err := dbt.conn.PingContext(context.Background()); err != nil {
+			t.Fatalf("failed to ping. err: %v", err)
+		}
+		if err := dbt.conn.PingContext(context.Background()); err != nil {
+			t.Fatalf("failed to ping with context. err: %v", err)
+		}
+		if err := dbt.conn.Close(); err != nil {
+			t.Fatalf("failed to close db. err: %v", err)
+		}
+		if err := dbt.conn.PingContext(context.Background()); err == nil {
+			t.Fatal("should have failed to ping")
+		}
+		if err := dbt.conn.PingContext(context.Background()); err == nil {
+			t.Fatal("should have failed to ping with context")
+		}
+	})
 }
 
 func TestDoubleDollar(t *testing.T) {
@@ -1779,25 +1781,21 @@ $$
 
 func TestTimezoneSessionParameter(t *testing.T) {
 	createDSN(PSTLocation)
-	conn := openConn(t)
-	defer conn.Close()
+	runDBTest(t, func(dbt *DBTest) {
+		rows := dbt.mustQueryT(t, "SHOW PARAMETERS LIKE 'TIMEZONE'")
+		defer rows.Close()
+		if !rows.Next() {
+			t.Fatal("failed to get timezone.")
+		}
 
-	rows, err := conn.QueryContext(context.Background(), "SHOW PARAMETERS LIKE 'TIMEZONE'")
-	if err != nil {
-		t.Errorf("failed to run show parameters. err: %v", err)
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		t.Fatal("failed to get timezone.")
-	}
-
-	p, err := ScanSnowflakeParameter(rows)
-	if err != nil {
-		t.Errorf("failed to run get timezone value. err: %v", err)
-	}
-	if p.Value != PSTLocation {
-		t.Errorf("failed to get an expected timezone. got: %v", p.Value)
-	}
+		p, err := ScanSnowflakeParameter(rows.rows)
+		if err != nil {
+			t.Errorf("failed to run get timezone value. err: %v", err)
+		}
+		if p.Value != PSTLocation {
+			t.Errorf("failed to get an expected timezone. got: %v", p.Value)
+		}
+	})
 	createDSN("UTC")
 }
 

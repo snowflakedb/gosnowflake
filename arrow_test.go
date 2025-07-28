@@ -55,85 +55,81 @@ func TestArrowBatchHighPrecision(t *testing.T) {
 }
 
 func TestArrowBigInt(t *testing.T) {
-	conn := openConn(t)
-	defer conn.Close()
-	dbt := &DBTest{t, conn}
-
-	testcases := []struct {
-		num  string
-		prec int
-		sc   int
-	}{
-		{"10000000000000000000000000000000000000", 38, 0},
-		{"-10000000000000000000000000000000000000", 38, 0},
-		{"12345678901234567890123456789012345678", 38, 0}, // #pragma: allowlist secret
-		{"-12345678901234567890123456789012345678", 38, 0},
-		{"99999999999999999999999999999999999999", 38, 0},
-		{"-99999999999999999999999999999999999999", 38, 0},
-	}
-
-	for _, tc := range testcases {
-		rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()),
-			fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-		if !rows.Next() {
-			dbt.Error("failed to query")
-		}
-		defer rows.Close()
-		var v *big.Int
-		if err := rows.Scan(&v); err != nil {
-			dbt.Errorf("failed to scan. %#v", err)
+	runDBTest(t, func(dbt *DBTest) {
+		testcases := []struct {
+			num  string
+			prec int
+			sc   int
+		}{
+			{"10000000000000000000000000000000000000", 38, 0},
+			{"-10000000000000000000000000000000000000", 38, 0},
+			{"12345678901234567890123456789012345678", 38, 0}, // #pragma: allowlist secret
+			{"-12345678901234567890123456789012345678", 38, 0},
+			{"99999999999999999999999999999999999999", 38, 0},
+			{"-99999999999999999999999999999999999999", 38, 0},
 		}
 
-		b, ok := new(big.Int).SetString(tc.num, 10)
-		if !ok {
-			dbt.Errorf("failed to convert %v big.Int.", tc.num)
+		for _, tc := range testcases {
+			rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()),
+				fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if !rows.Next() {
+				dbt.Error("failed to query")
+			}
+			defer rows.Close()
+			var v *big.Int
+			if err := rows.Scan(&v); err != nil {
+				dbt.Errorf("failed to scan. %#v", err)
+			}
+
+			b, ok := new(big.Int).SetString(tc.num, 10)
+			if !ok {
+				dbt.Errorf("failed to convert %v big.Int.", tc.num)
+			}
+			if v.Cmp(b) != 0 {
+				dbt.Errorf("big.Int value mismatch: expected %v, got %v", b, v)
+			}
 		}
-		if v.Cmp(b) != 0 {
-			dbt.Errorf("big.Int value mismatch: expected %v, got %v", b, v)
-		}
-	}
+	})
 }
 
 func TestArrowBigFloat(t *testing.T) {
-	conn := openConn(t)
-	defer conn.Close()
-	dbt := &DBTest{t, conn}
-
-	testcases := []struct {
-		num  string
-		prec int
-		sc   int
-	}{
-		{"1.23", 30, 2},
-		{"1.0000000000000000000000000000000000000", 38, 37},
-		{"-1.0000000000000000000000000000000000000", 38, 37},
-		{"1.2345678901234567890123456789012345678", 38, 37},
-		{"-1.2345678901234567890123456789012345678", 38, 37},
-		{"9.9999999999999999999999999999999999999", 38, 37},
-		{"-9.9999999999999999999999999999999999999", 38, 37},
-	}
-
-	for _, tc := range testcases {
-		rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()),
-			fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
-		if !rows.Next() {
-			dbt.Error("failed to query")
-		}
-		defer rows.Close()
-		var v *big.Float
-		if err := rows.Scan(&v); err != nil {
-			dbt.Errorf("failed to scan. %#v", err)
+	runDBTest(t, func(dbt *DBTest) {
+		testcases := []struct {
+			num  string
+			prec int
+			sc   int
+		}{
+			{"1.23", 30, 2},
+			{"1.0000000000000000000000000000000000000", 38, 37},
+			{"-1.0000000000000000000000000000000000000", 38, 37},
+			{"1.2345678901234567890123456789012345678", 38, 37},
+			{"-1.2345678901234567890123456789012345678", 38, 37},
+			{"9.9999999999999999999999999999999999999", 38, 37},
+			{"-9.9999999999999999999999999999999999999", 38, 37},
 		}
 
-		prec := v.Prec()
-		b, ok := new(big.Float).SetPrec(prec).SetString(tc.num)
-		if !ok {
-			dbt.Errorf("failed to convert %v to big.Float.", tc.num)
+		for _, tc := range testcases {
+			rows := dbt.mustQueryContext(WithHigherPrecision(context.Background()),
+				fmt.Sprintf(selectNumberSQL, tc.num, tc.prec, tc.sc))
+			if !rows.Next() {
+				dbt.Error("failed to query")
+			}
+			defer rows.Close()
+			var v *big.Float
+			if err := rows.Scan(&v); err != nil {
+				dbt.Errorf("failed to scan. %#v", err)
+			}
+
+			prec := v.Prec()
+			b, ok := new(big.Float).SetPrec(prec).SetString(tc.num)
+			if !ok {
+				dbt.Errorf("failed to convert %v to big.Float.", tc.num)
+			}
+			if v.Cmp(b) != 0 {
+				dbt.Errorf("big.Float value mismatch: expected %v, got %v", b, v)
+			}
 		}
-		if v.Cmp(b) != 0 {
-			dbt.Errorf("big.Float value mismatch: expected %v, got %v", b, v)
-		}
-	}
+	})
 }
 
 func TestArrowIntPrecision(t *testing.T) {
