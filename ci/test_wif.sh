@@ -51,29 +51,26 @@ EOF
   fi
 }
 
-get_branch() {
-  echo "DEBUG: Current directory: $(pwd)"
-  echo "DEBUG: Git status:"
-  git status
-  echo "DEBUG: Git remote -v:"
-  git remote -v
-  echo "DEBUG: Git log -1:"
-  git log -1
-  echo "DEBUG: Git branch:"
-  git branch
-
+get_branch_debug() {
+  echo "DEBUG: Getting branch name..."
   local branch
-  echo "DEBUG: Getting branch with git rev-parse..."
   branch=$(git rev-parse --abbrev-ref HEAD)
-  echo "DEBUG: Initial branch value: $branch"
-
+  echo "DEBUG: git rev-parse returned: $branch"
   if [[ "$branch" == "HEAD" ]]; then
-    echo "DEBUG: Branch is HEAD, trying name-rev..."
+    echo "DEBUG: Branch is HEAD, trying git name-rev..."
     branch=$(git name-rev --name-only HEAD | sed 's#^remotes/origin/##;s#^origin/##')
-    echo "DEBUG: After name-rev branch value: $branch"
+    echo "DEBUG: git name-rev returned: $branch"
   fi
+  echo "DEBUG: Final branch name: $branch"
+  echo "${branch}"
+}
 
-  echo "DEBUG: Final branch value: ${branch}"
+get_branch() {
+  local branch
+  branch=$(git rev-parse --abbrev-ref HEAD)
+  if [[ "$branch" == "HEAD" ]]; then
+    branch=$(git name-rev --name-only HEAD | sed 's#^remotes/origin/##;s#^origin/##')
+  fi
   echo "${branch}"
 }
 
@@ -85,6 +82,8 @@ setup_parameters() {
   gpg --quiet --batch --yes --decrypt --passphrase="$PARAMETERS_SECRET" --output "$PARAMETERS_FILE_PATH" "${PARAMETERS_FILE_PATH}.gpg"
   eval $(jq -r '.wif | to_entries | map("export \(.key)=\(.value|tostring)")|.[]' $PARAMETERS_FILE_PATH)
 }
+
+get_branch_debug
 
 BRANCH=$(get_branch)
 export BRANCH
