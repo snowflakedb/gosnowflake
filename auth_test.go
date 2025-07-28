@@ -1094,3 +1094,11 @@ func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 	defer db.Close()
 	runSmokeQuery(t, db)
 }
+
+// Running this test locally:
+// * Push branch to repository
+// * Set environment variables PARAMETERS_SECRET and BRANCH
+// * Run ci/test_wif.sh
+func TestWorkloadIdentityOnRemoteVM(t *testing.T) {
+	assertEqualE(t, 1, 1)
+}
