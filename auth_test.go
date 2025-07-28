@@ -1118,6 +1118,7 @@ func TestWorkloadIdentityOnRemoteVM(t *testing.T) {
 		return config
 	}
 	runWIFTest := func(t *testing.T, config *Config) {
+		logger.Debugf("Running WIF test with config: %+v", config)
 		connector := NewConnector(SnowflakeDriver{}, *config)
 		db := sql.OpenDB(connector)
 		defer db.Close()
