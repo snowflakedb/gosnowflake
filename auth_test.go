@@ -1100,11 +1100,11 @@ func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 // * Set PARAMETERS_SECRET env variable to decode ssh private keys
 // * Run ci/test_wif.sh
 func TestWorkloadIdentityOnRemoteVM(t *testing.T) {
-	if os.Getenv("SKIP_SETUP") == "" {
-		t.Skip("Skipping test - meant to be run on remote VM only")
-	}
+	// if os.Getenv("SKIP_SETUP") == "" {
+	// 	t.Skip("Skipping test - meant to be run on remote VM only")
+	// }
 	level := logger.GetLogLevel()
-	_ = logger.SetLogLevel("debug")
+	_ = logger.SetLogLevel("trace")
 	defer func() {
 		_ = logger.SetLogLevel(level)
 	}()
@@ -1113,8 +1113,6 @@ func TestWorkloadIdentityOnRemoteVM(t *testing.T) {
 	config.Host = os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
 	config.WorkloadIdentityProvider = os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
 	config.Authenticator = AuthTypeWorkloadIdentityFederation
-	fmt.Printf("Config: %+v\n", config)
-
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
 	defer db.Close()
