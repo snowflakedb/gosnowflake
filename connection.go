@@ -418,9 +418,10 @@ func (sc *snowflakeConn) queryContextInternal(
 	isDesc := isDescribeOnly(ctx)
 	ctx = setResultType(ctx, queryResultType)
 	isInternal := isInternal(ctx)
+	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
 	data, err := sc.exec(ctx, query, noResult, isInternal, isDesc, args)
 	if err != nil {
-		logger.WithContext(ctx).Errorf("error: %v", err)
+		logger.WithContext(ctx).Errorf("queryContextInternal: [sessionID: %d] error: %v", sessionID, err)
 		if data != nil {
 			code, e := strconv.Atoi(data.Code)
 			if e != nil {
