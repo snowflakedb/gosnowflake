@@ -1103,12 +1103,20 @@ func TestWorkloadIdentityOnRemoteVM(t *testing.T) {
 	if os.Getenv("SKIP_SETUP") == "" {
 		t.Skip("Skipping test - meant to be run on remote VM only")
 	}
+	level := logger.GetLogLevel()
+	_ = logger.SetLogLevel("debug")
+	defer func() {
+		_ = logger.SetLogLevel(level)
+	}()
 	config := &Config{}
 	config.Account = os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
 	config.Host = os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
 	config.WorkloadIdentityProvider = os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
 	config.Authenticator = AuthTypeWorkloadIdentityFederation
+	fmt.Printf("Config: %+v\n", config)
+
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
+	defer db.Close()
 	runSmokeQuery(t, db)
 }
