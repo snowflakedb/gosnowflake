@@ -195,6 +195,8 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 		return nil, nil
 	}
 
+	logger.Debugf("what the fuck: %+v", c.attestationService)
+
 	creds := c.attestationService.awsCredentials()
 	if creds.AccessKeyID == "" || creds.SecretAccessKey == "" {
 		logger.Debug("No AWS credentials were found.")
