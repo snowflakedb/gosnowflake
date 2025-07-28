@@ -317,7 +317,7 @@ func TestParseToml(t *testing.T) {
 			values: []interface{}{true, "true", false, "false"},
 		},
 		{
-			testParams: []string{"connectionDiagnosticsEnabled", "connection_diagnostics_enabled", "connectionDiagnosticsDownloadCRL", "connection_diagnostics_download_crl"},
+			testParams: []string{"connectionDiagnosticsEnabled", "connection_diagnostics_enabled"},
 			values:     []interface{}{true, false},
 		},
 		{

@@ -1360,10 +1360,6 @@ If you wish to ignore those errors instead, you can set `RaisePutGetError: false
 - `ConnectionDiagnosticsAllowlistFile` - specify `/path/to/allowlist.json` to use a specific allowlist file which the driver should parse. If not specified, tne driver tries to open `allowlist.json` from the current directory.
 The `ConnectionDiagnosticsAllowlistFile` is only taken into consideration when `ConnectionDiagnosticsEnabled=true`
 
-- `ConnectionDiagnosticsDownloadCRL` (default: false) - when enabled, the driver will try to attempt to download the CRL(s) it encounters during parsing the remote certificate chain; to verify connectivity to CRL endpoints as well.
-This will also be enabled if `ConnectionDiagnosticsDownloadCRL` is not explicitly enabled, but global 'check certificates with CRL' configuration _is_ enabled in the driver.
-Both of the above config items are only taken into consideration when `ConnectionDiagnosticsEnabled=true`
-
 ==> Flow of operation when `ConnectionDiagnosticsEnabled=true`
 
 1. upon initial startup, driver opens and reads the `allowlist.json` to determine which hosts it needs to connect to, and then for each entry in the allowlist
@@ -1381,6 +1377,8 @@ Both of the above config items are only taken into consideration when `Connectio
 7. for HTTPS endpoints, the same , plus
   - verifies if HTTPS connectivity is set up correctly
   - parses the certificate chain and logs information on each certificate (on DEBUG loglevel, dump the whole cert)
-  - if configured, also tries to connect to the CRL endpoints
+  - if (implicitly) configured from `CertRevocationCheckMode` being `advisory` or `enabled`, also tries to connect to the CRL endpoints
+
+8. the driver exists after performing diagnostics. If you want to use the driver 'normally' after performing connection diagnostics, set `ConnectionDiagnosticsEnabled=false` or remove it from the config
 */
 package gosnowflake

@@ -57,7 +57,7 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 	logger.WithContext(ctx).Info("OpenWithConfig")
 
 	if config.ConnectionDiagnosticsEnabled {
-		connDiagDownloadCrl := (config.ConnectionDiagnosticsDownloadCRL) || (config.CertRevocationCheckMode.String() == "ADVISORY") || (config.CertRevocationCheckMode.String() == "ENABLED")
+		connDiagDownloadCrl := (config.CertRevocationCheckMode.String() == "ADVISORY") || (config.CertRevocationCheckMode.String() == "ENABLED")
 		logger.WithContext(ctx).Infof("Connection diagnostics enabled. Allowlist file specified in config: %s, will download CRLs in certificates: %s",
 			config.ConnectionDiagnosticsAllowlistFile, strconv.FormatBool(connDiagDownloadCrl))
 		performDiagnosis(&config, connDiagDownloadCrl)

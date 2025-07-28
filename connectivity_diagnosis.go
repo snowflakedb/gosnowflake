@@ -32,7 +32,7 @@ type allowlist struct {
 
 // acceptable HTTP status codes for connectivity diagnosis
 // for the sake of connectivity, e.g. HTTP403 from AWS S3 is perfectly fine
-// GCS says HTTP400 upon connecting with plain GET due to MissingSecurityHeader, its okay from connection standpoint
+// GCS bucket and Azure blob responds HTTP400 upon connecting with plain GET, its okay from connection standpoint
 var connDiagAcceptableStatusCodes = []int{http.StatusOK, http.StatusForbidden, http.StatusBadRequest}
 
 // map of already-fetched CRLs to not test them more than once as they can be quite large

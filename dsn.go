@@ -135,9 +135,8 @@ type Config struct {
 	CrlHTTPClientTimeout              time.Duration           // Timeout for HTTP client used to download CRL
 	CrlCacheCleanerTick               time.Duration           // How often should we check for CRL cache removal
 
-  ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
+	ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
 	ConnectionDiagnosticsAllowlistFile string // File path to the allowlist file for connection diagnostics. If not specified, the allowlist.json file in the current directory will be used.
-	ConnectionDiagnosticsDownloadCRL   bool   // Indicates whether the CRLs should be attempted to be downloaded for the certificates encountered in connection diagnostics. False by default.
 }
 
 // Validate enables testing if config is correct.
@@ -371,9 +370,6 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.ConnectionDiagnosticsAllowlistFile != "" {
 		params.Add("connectionDiagnosticsAllowlistFile", cfg.ConnectionDiagnosticsAllowlistFile)
-	}
-	if cfg.ConnectionDiagnosticsDownloadCRL {
-		params.Add("connectionDiagnosticsDownloadCRL", strconv.FormatBool(cfg.ConnectionDiagnosticsDownloadCRL))
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -1071,7 +1067,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.CrlCacheCleanerTick = time.Duration(vv * int64(time.Second))
-    case "connectionDiagnosticsEnabled":
+		case "connectionDiagnosticsEnabled":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
 			if err != nil {
@@ -1080,13 +1076,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.ConnectionDiagnosticsEnabled = vv
 		case "connectionDiagnosticsAllowlistFile":
 			cfg.ConnectionDiagnosticsAllowlistFile = value
-		case "connectionDiagnosticsDownloadCRL":
-			var vv bool
-			vv, err = strconv.ParseBool(value)
-			if err != nil {
-				return
-			}
-			cfg.ConnectionDiagnosticsDownloadCRL = vv
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
