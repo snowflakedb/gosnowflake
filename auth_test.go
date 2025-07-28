@@ -1105,7 +1105,7 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 	account := os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
 	host := os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
 	provider := os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
-	if account == "" || host == "" {
+	if account == "" || host == "" || provider == "" {
 		t.Skip("Test can run only on cloud VM with env variables set")
 	}
 	testCases := []struct {
@@ -1121,7 +1121,6 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 			name: "explicit provider",
 			setupCfg: func(config *Config) {
 				config.WorkloadIdentityProvider = provider
-				assertNotNilE(t, config.WorkloadIdentityProvider)
 			},
 		},
 		{
