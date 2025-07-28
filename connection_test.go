@@ -937,6 +937,7 @@ func TestGetTransport(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := getTransport(test.cfg, nil)
 			assertNilE(t, err)
+			assertNilE(t, err)
 			if test.name == "Using CRLs" {
 				// we can't use default comparison for transport here, because this type is not comparable
 				// it works for other cases, because they use the same pointer

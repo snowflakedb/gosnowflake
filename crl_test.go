@@ -44,7 +44,7 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, args .
 	inMemoryCacheDisabled := false
 	onDiskCacheDisabled := false
 	onDiskCacheRemovalDelay := 10 * time.Millisecond
-	var telemetry *snowflakeTelemetry
+	telemetry := &snowflakeTelemetry{}
 	for _, arg := range args {
 		switch v := arg.(type) {
 		case *http.Client:

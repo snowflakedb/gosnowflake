@@ -439,9 +439,11 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 	logger.Debugf("downloaded %v bytes for CRL %v", len(crlBytes), crlURL)
 	timeBeforeParsing := time.Now()
 	crl, err := x509.ParseRevocationList(crlBytes)
+	logger.Debugf("parsed CRL from %v, error: %v", crlURL, err)
 	if err != nil {
 		return nil, nil, err
 	}
+	logger.Debugf("parsed CRL from %v, next update at %v", crlURL, crl.NextUpdate)
 	telemetryEvent.Message["crl_parse_time_ms"] = fmt.Sprintf("%d", time.Since(timeBeforeParsing).Milliseconds())
 	telemetryEvent.Message["crl_revoked_certificates"] = fmt.Sprintf("%d", len(crl.RevokedCertificateEntries))
 	return crl, &now, err
