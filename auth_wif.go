@@ -164,7 +164,7 @@ func createDefaultAwsAttestationMetadataProvider(ctx context.Context) *defaultAw
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithEC2IMDSRegion())
 	if err != nil {
 		logger.Debugf("Unable to load AWS config: %v", err)
-		return nil
+		return (*defaultAwsAttestationMetadataProvider)(nil)
 	}
 	logger.Debugf("AWS config loaded: %+v", cfg)
 	return &defaultAwsAttestationMetadataProvider{
