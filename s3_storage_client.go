@@ -71,10 +71,11 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 }
 
 // to be used with S3 transferAccelerateConfigWithUtil
-func (util *snowflakeS3Client) createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
+func (util *snowflakeS3Client) createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, telemetry *snowflakeTelemetry) (cloudClient, error) {
 	// copy snowflakeFileTransferAgent's config onto the cloud client so we could decide which Transport to use
 	util.cfg = cfg
-	return util.createClient(info, useAccelerateEndpoint, util.telemetry)
+	util.telemetry = telemetry
+	return util.createClient(info, useAccelerateEndpoint, telemetry)
 }
 
 func getS3CustomEndpoint(info *execResponseStageInfo) *string {

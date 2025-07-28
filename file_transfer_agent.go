@@ -625,7 +625,7 @@ type s3BucketAccelerateConfigGetter interface {
 
 type s3ClientCreator interface {
 	extractBucketNameAndPath(location string) (*s3Location, error)
-	createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error)
+	createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, telemetry *snowflakeTelemetry) (cloudClient, error)
 }
 
 func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s3ClientCreator) error {
@@ -633,7 +633,7 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 	if err != nil {
 		return err
 	}
-	s3Cli, err := s3Util.createClientWithConfig(sfa.stageInfo, false, sfa.sc.cfg)
+	s3Cli, err := s3Util.createClientWithConfig(sfa.stageInfo, false, sfa.sc.cfg, sfa.sc.telemetry)
 	if err != nil {
 		return err
 	}

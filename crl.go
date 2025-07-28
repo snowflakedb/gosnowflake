@@ -411,6 +411,7 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 	telemetryEvent := &telemetryData{
 		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
 		Message: map[string]string{
+			"type":    "client_crl_stats",
 			"crl_url": crlURL,
 		},
 	}
