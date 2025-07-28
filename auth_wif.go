@@ -188,7 +188,8 @@ func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 
 func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debug("Creating AWS identity attestation...")
-	logger.Debugf("AWS attestation creator: %+v", c.attestationService)
+	logger.Debugf("AWS attestation creator: %v", c.attestationService == nil)
+	logger.Debugf("AWS attestation creator: %v", c.attestationService)
 
 	if c.attestationService == nil {
 		logger.Debug("AWS attestation service could not be created.")
