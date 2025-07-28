@@ -12,7 +12,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -1097,25 +1099,61 @@ func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 
 // Running this test locally:
 // * Push branch to repository
-// * Set PARAMETERS_SECRET env variable to decode ssh private keys
+// * Set PARAMETERS_SECRET
 // * Run ci/test_wif.sh
 func TestWorkloadIdentityOnRemoteVM(t *testing.T) {
-	// if os.Getenv("SKIP_SETUP") == "" {
-	// 	t.Skip("Skipping test - meant to be run on remote VM only")
-	// }
+	if os.Getenv("SKIP_SETUP") == "" {
+		t.Skip("Skipping test - meant to be run on remote VM only")
+	}
 	level := logger.GetLogLevel()
 	_ = logger.SetLogLevel("trace")
 	defer func() {
 		_ = logger.SetLogLevel(level)
 	}()
-	config := &Config{}
-	config.DisableOCSPChecks = true
-	config.Account = os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
-	config.Host = os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
-	config.WorkloadIdentityProvider = os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
-	config.Authenticator = AuthTypeWorkloadIdentityFederation
-	connector := NewConnector(SnowflakeDriver{}, *config)
-	db := sql.OpenDB(connector)
-	defer db.Close()
-	runSmokeQuery(t, db)
+	getWIFConfig := func() *Config {
+		config := &Config{}
+		config.Account = os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
+		config.Host = os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
+		config.Authenticator = AuthTypeWorkloadIdentityFederation
+		return config
+	}
+	runWIFTest := func(t *testing.T, config *Config) {
+		connector := NewConnector(SnowflakeDriver{}, *config)
+		db := sql.OpenDB(connector)
+		defer db.Close()
+		runSmokeQuery(t, db)
+	}
+
+	t.Run("autodetected provider", func(t *testing.T) {
+		config := getWIFConfig()
+		runWIFTest(t, config)
+	})
+
+	t.Run("explicit provider", func(t *testing.T) {
+		config := getWIFConfig()
+		config.WorkloadIdentityProvider = os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
+		assertNotNilE(t, config.WorkloadIdentityProvider)
+		runWIFTest(t, config)
+	})
+
+	t.Run("OIDC", func(t *testing.T) {
+		if os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER") != "GCP" {
+			t.Skip("Skipping OIDC test - works only on GCP")
+		}
+		config := getWIFConfig()
+		config.WorkloadIdentityProvider = "OIDC"
+		config.Token = func() string {
+			cmd := exec.Command("bash", "-c", `curl -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity?audience=snowflakecomputing.com"`)
+			output, err := cmd.Output()
+			if err != nil {
+				t.Fatalf("error executing GCP metadata request: %v", err)
+			}
+			token := strings.TrimSpace(string(output))
+			if token == "" {
+				t.Fatal("failed to retrieve GCP access token: empty response")
+			}
+			return token
+		}()
+		runWIFTest(t, config)
+	})
 }
