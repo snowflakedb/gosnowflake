@@ -1102,8 +1102,11 @@ func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 // * Set PARAMETERS_SECRET
 // * Run ci/test_wif.sh
 func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
-	if os.Getenv("SKIP_SETUP") == "" {
-		t.Skip("Skipping test - meant to be run on cloud VM only")
+	account := os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
+	host := os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
+	provider := os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
+	if account == "" || host == "" {
+		t.Skip("Test can run only on cloud VM with env variables set")
 	}
 	testCases := []struct {
 		name     string
@@ -1117,15 +1120,15 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 		{
 			name: "explicit provider",
 			setupCfg: func(config *Config) {
-				config.WorkloadIdentityProvider = os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
+				config.WorkloadIdentityProvider = provider
 				assertNotNilE(t, config.WorkloadIdentityProvider)
 			},
 		},
 		{
 			name: "OIDC",
 			skip: func() (bool, string) {
-				if os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER") != "GCP" {
-					return true, "Skipping OIDC test - works only on GCP"
+				if provider != "GCP" {
+					return true, "OIDC test works only on GCP"
 				}
 				return false, ""
 			},
@@ -1154,8 +1157,8 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 				}
 			}
 			config := &Config{
-				Account:       os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT"),
-				Host:          os.Getenv("SNOWFLAKE_TEST_WIF_HOST"),
+				Account:       account,
+				Host:          host,
 				Authenticator: AuthTypeWorkloadIdentityFederation,
 			}
 			tc.setupCfg(config)
