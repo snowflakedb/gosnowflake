@@ -102,13 +102,6 @@ func (p *wifAttestationProvider) attestationCreator(identityProvider string) (wi
 }
 
 func (p *wifAttestationProvider) createAutodetectAttestation() (*wifAttestation, error) {
-	logger.Debugf("Autodetecting Workload Identity provider...")
-	logger.Debugf("Context: %+v", p.context)
-	logger.Debugf("Config: %+v", p.cfg)
-	logger.Debugf("AWS Creator: %+v", p.awsCreator)
-	logger.Debugf("GCP Creator: %+v", p.gcpCreator)
-	logger.Debugf("Azure Creator: %+v", p.azureCreator)
-	logger.Debugf("OIDC Creator: %+v", p.oidcCreator)
 	if attestation := p.getAttestationForAutodetect(p.oidcCreator, oidcWif); attestation != nil {
 		return attestation, nil
 	}
@@ -166,7 +159,6 @@ func createDefaultAwsAttestationMetadataProvider(ctx context.Context) awsAttesta
 		logger.Debugf("Unable to load AWS config: %v", err)
 		return nil
 	}
-	logger.Debugf("AWS config loaded: %+v", cfg)
 	return &defaultAwsAttestationMetadataProvider{
 		awsCfg: cfg,
 		ctx:    ctx,
@@ -188,15 +180,11 @@ func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 
 func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debug("Creating AWS identity attestation...")
-	logger.Debugf("AWS attestation creator: %v", c.attestationService == nil)
-	logger.Debugf("AWS attestation creator: %v", c.attestationService)
 
 	if c.attestationService == nil {
 		logger.Debug("AWS attestation service could not be created.")
 		return nil, nil
 	}
-
-	logger.Debugf("what the fuck: %+v", c.attestationService)
 
 	creds := c.attestationService.awsCredentials()
 	if creds.AccessKeyID == "" || creds.SecretAccessKey == "" {
