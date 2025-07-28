@@ -159,6 +159,7 @@ func createDefaultAwsAttestationMetadataProvider(ctx context.Context) *defaultAw
 		logger.Debugf("Unable to load AWS config: %v", err)
 		return nil
 	}
+	logger.Debugf("AWS config loaded: %+v", cfg)
 	return &defaultAwsAttestationMetadataProvider{
 		awsCfg: cfg,
 		ctx:    ctx,
