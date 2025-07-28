@@ -58,6 +58,7 @@ get_branch_debug() {
   echo "DEBUG: git rev-parse returned: $branch"
   echo "git name-rev --name-only HEAD"
   git name-rev --name-only HEAD
+  echo "DEBUG: GIT_BRANCH env var: $GIT_BRANCH"
   if [[ "$branch" == "HEAD" ]]; then
     echo "DEBUG: Branch is HEAD, trying git name-rev..."
     branch=$(git name-rev --name-only HEAD | sed 's#^remotes/origin/##;s#^origin/##')
