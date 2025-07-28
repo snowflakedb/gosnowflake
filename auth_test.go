@@ -1097,8 +1097,21 @@ func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 
 // Running this test locally:
 // * Push branch to repository
-// * Set environment variables PARAMETERS_SECRET and BRANCH
+// * Set PARAMETERS_SECRET env variable to decode ssh private keys
 // * Run ci/test_wif.sh
 func TestWorkloadIdentityOnRemoteVM(t *testing.T) {
-	assertEqualE(t, 1, 1)
+	config, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+	fmt.Printf("DSN: %s\n", dsn)
+	fmt.Printf("Config: %+v\n", config)
+
+	config.Account = os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
+	config.Host = os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
+	config.WorkloadIdentityProvider = os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
+	config.Authenticator = AuthTypeWorkloadIdentityFederation
+	connector := NewConnector(SnowflakeDriver{}, *config)
+	db := sql.OpenDB(connector)
+	db.Query("select 1")
 }

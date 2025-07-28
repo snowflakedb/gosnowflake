@@ -13,6 +13,7 @@ run_tests_and_set_result() {
   local snowflake_host="$3"
   local rsa_key_path="$4"
 
+  # TODO: replace docker image and remove apt-get
   ssh -i "$rsa_key_path" -o IdentitiesOnly=yes -p 443 "$host" env BRANCH="$BRANCH" SNOWFLAKE_TEST_WIF_HOST="$snowflake_host" SNOWFLAKE_TEST_WIF_PROVIDER="$provider" SNOWFLAKE_TEST_WIF_ACCOUNT="$SNOWFLAKE_TEST_WIF_ACCOUNT" bash << EOF
       set -e
       set -o pipefail
@@ -22,17 +23,17 @@ run_tests_and_set_result() {
         -e SNOWFLAKE_TEST_WIF_PROVIDER \
         -e SNOWFLAKE_TEST_WIF_HOST \
         -e SNOWFLAKE_TEST_WIF_ACCOUNT \
-        golang:1.21 \
+        golang:1.22 \
           bash -c "
             apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
             echo 'Running tests on branch: \$BRANCH'
             if [[ \"\$BRANCH\" =~ ^PR-[0-9]+\$ ]]; then
-              curl -L https://github.com/snowflakedb/gosnowflake/archive/refs/pull/\$(echo \$BRANCH | cut -d- -f2)/head.tar.gz | tar -xz
-              mv gosnowflake-* gosnowflake
+              curl -L https://github.com/snowflakedb/gosnowflake/archive/refs/pull/\$(echo \$BRANCH | cut -d- -f2)/head.tar.gz | tar -xz --transform 's/^[^\/]*/gosnowflake/'
             else
-              curl -L https://github.com/snowflakedb/gosnowflake/archive/refs/heads/\$BRANCH.tar.gz | tar -xz
-              mv gosnowflake-\$BRANCH gosnowflake
+              echo https://github.com/snowflakedb/gosnowflake/archive/refs/heads/\$BRANCH.tar.gz
+              curl -L https://github.com/snowflakedb/gosnowflake/archive/refs/heads/\$BRANCH.tar.gz | tar -xz --transform 's/^[^\/]*/gosnowflake/'
             fi
+            ls -l
             cd gosnowflake
             SKIP_SETUP=true go test -v -run TestWorkloadIdentityOnRemoteVM
           "
@@ -53,7 +54,7 @@ get_branch() {
   if [[ "$branch" == "HEAD" ]]; then
     branch=$(git name-rev --name-only HEAD | sed 's#^remotes/origin/##;s#^origin/##')
   fi
-  echo "$branch"
+  echo "${branch}"
 }
 
 setup_parameters() {
