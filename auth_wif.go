@@ -102,6 +102,13 @@ func (p *wifAttestationProvider) attestationCreator(identityProvider string) (wi
 }
 
 func (p *wifAttestationProvider) createAutodetectAttestation() (*wifAttestation, error) {
+	logger.Debugf("Autodetecting Workload Identity provider...")
+	logger.Debugf("Context: %+v", p.context)
+	logger.Debugf("Config: %+v", p.cfg)
+	logger.Debugf("AWS Creator: %+v", p.awsCreator)
+	logger.Debugf("GCP Creator: %+v", p.gcpCreator)
+	logger.Debugf("Azure Creator: %+v", p.azureCreator)
+	logger.Debugf("OIDC Creator: %+v", p.oidcCreator)
 	if attestation := p.getAttestationForAutodetect(p.oidcCreator, oidcWif); attestation != nil {
 		return attestation, nil
 	}
