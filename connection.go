@@ -324,10 +324,12 @@ func (sc *snowflakeConn) ExecContext(
 	query string,
 	args []driver.NamedValue) (
 	driver.Result, error) {
-	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
+	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
+	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	isInternal := isInternal(ctx)

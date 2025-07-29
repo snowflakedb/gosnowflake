@@ -30,7 +30,7 @@ func (hc *heartbeat) run() {
 		case <-hbTicker.C:
 			err := hc.heartbeatMain()
 			if err != nil {
-				logger.WithContext(ctx).Error("failed to heartbeat")
+				logger.WithContext(ctx).Errorf("failed to heartbeat: %v", err)
 			}
 		case <-hc.shutdownChan:
 			logger.WithContext(ctx).Info("stopping heartbeat")
@@ -94,8 +94,8 @@ func (hc *heartbeat) heartbeatMain() error {
 		logger.WithContext(ctx).Errorf("failed to extract HTTP response body. err: %v", err)
 		return err
 	}
-	logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
-	logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+	logger.WithContext(ctx).Debugf("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, b)
+	logger.WithContext(ctx).Debugf("Header: %v", resp.Header)
 	return &SnowflakeError{
 		Number:   ErrFailedToHeartbeat,
 		SQLState: SQLStateConnectionFailure,

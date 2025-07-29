@@ -88,6 +88,8 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 
 	sr := &snowflakeRestful{
 		FuncPostQuery: postQueryMock,
+		// in non-test scenario we use buildSnowflakeConn which takes care of always having TokenAccessor
+		TokenAccessor: getSimpleTokenAccessor(),
 	}
 
 	sc := &snowflakeConn{
