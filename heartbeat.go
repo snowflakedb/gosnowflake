@@ -56,7 +56,7 @@ func (hc *heartbeat) heartbeatMain() error {
 	headers := getHeaders()
 	token, _, sessionID := hc.restful.TokenAccessor.GetTokens()
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
-	logger.Infof("[sessionID: %d] Heartbeating!", sessionID)
+	logger.Infof("[sessionID: %v] Heartbeating!", sessionID)
 
 	fullURL := hc.restful.getFullURL(heartBeatPath, params)
 	timeout := hc.restful.RequestTimeout
@@ -74,7 +74,7 @@ func (hc *heartbeat) heartbeatMain() error {
 			return err
 		}
 		if respd.Code == sessionExpiredCode {
-			logger.Infof("[sessionID: %d] heartbeatMain: Snowflake returned error 390112 (session expired), trying to renew expired token.", sessionID)
+			logger.Infof("[sessionID: %v] heartbeatMain: Snowflake returned error 390112 (session expired), trying to renew expired token.", sessionID)
 			err = hc.restful.renewExpiredSessionToken(context.Background(), timeout, token)
 			if err != nil {
 				return err

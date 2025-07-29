@@ -364,13 +364,12 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 }
 
 func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time.Duration) error {
-	logger.WithContext(ctx).Info("start renew session")
 	params := &url.Values{}
 	params.Set(requestIDKey, getOrGenerateRequestIDFromContext(ctx).String())
 	params.Set(requestGUIDKey, NewUUID().String())
 	fullURL := sr.getFullURL(tokenRequestPath, params)
 
-	token, masterToken, _ := sr.TokenAccessor.GetTokens()
+	token, masterToken, sessionID := sr.TokenAccessor.GetTokens()
 	headers := getHeaders()
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, masterToken)
 
@@ -378,6 +377,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	body["oldSessionToken"] = token
 	body["requestType"] = "RENEW"
 
+	logger.WithContext(ctx).Infof("[sessionID: %v] start renew session", sessionID)
 	var reqBody []byte
 	reqBody, err := json.Marshal(body)
 	if err != nil {
