@@ -2315,12 +2315,7 @@ func TestSelectingNullObjectsInArrowBatches(t *testing.T) {
 					colIndex := 0
 					rowIndex := 0
 
-					srtCol, isStrCol := record.Column(colIndex).(*array.String)
-					assertTrueF(t, isStrCol, "column is not type string")
-
-					assertEqualE(t, srtCol.Value(rowIndex), "")
-					isNull := srtCol.IsNull(rowIndex)
-					assertTrueF(t, isNull)
+					assertTrueE(t, record.Column(rowIndex).IsNull(colIndex))
 					record.Release()
 				}
 

@@ -44,6 +44,10 @@ func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bo
 	if err != nil {
 		return nil, err
 	}
+	transport, err := getTransport(util.cfg)
+	if err != nil {
+		return nil, err
+	}
 	client, err := azblob.NewClientWithNoCredential(u.String(), &azblob.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Retry: policy.RetryOptions{
@@ -51,7 +55,7 @@ func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bo
 				RetryDelay: 2 * time.Second,
 			},
 			Transport: &http.Client{
-				Transport: getTransport(util.cfg),
+				Transport: transport,
 			},
 		},
 	})
@@ -344,9 +348,13 @@ func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Respons
 }
 
 func createContainerClient(clientURL string, cfg *Config) (*container.Client, error) {
+	transport, err := getTransport(cfg)
+	if err != nil {
+		return nil, err
+	}
 	return container.NewClientWithNoCredential(clientURL, &container.ClientOptions{ClientOptions: azcore.ClientOptions{
 		Transport: &http.Client{
-			Transport: getTransport(cfg),
+			Transport: transport,
 		},
 	}})
 }
