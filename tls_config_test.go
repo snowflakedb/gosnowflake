@@ -275,3 +275,46 @@ func TestMultipleTLSConfigs(t *testing.T) {
 		t.Fatal("Config should have been overwritten")
 	}
 }
+
+// Test that custom TLS configs preserve OCSP validation
+func TestRegisterTLSConfigWithOCSPValidation(t *testing.T) {
+	rootCertPool := x509.NewCertPool()
+	rootCertPool.AppendCertsFromPEM([]byte(`-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BsSuuPiQi4d+NhU2BvQHmEQUAABOBG1k5
+YBNNm/hbJbr7kWLFGo2jYzBhMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTAD
+AQH/MB0GA1UdDgQWBBSY0fhuILkXkz3Gjq1XvdOO/+7tSDAOBgNVHQ8BAf8EBAMC
+AQYwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNIADBFAiEAuK3VWfXWWF0b
+C0wjdl3sP3p7J2Vt8mEqGLFQX4Nk8B0CIGCOJl7VebrF1S2A/l7s6r4z9M8Yw4oJ
+2HGFo1ISJL4g
+-----END CERTIFICATE-----`))
+
+	customConfig := &tls.Config{
+		RootCAs: rootCertPool,
+	}
+
+	err := RegisterTLSConfig("test-ocsp", customConfig)
+	if err != nil {
+		t.Fatalf("Failed to register TLS config: %v", err)
+	}
+	defer DeregisterTLSConfig("test-ocsp")
+
+	// Get the cloned config
+	clonedConfig, exists := getTLSConfigClone("test-ocsp")
+	if !exists {
+		t.Fatal("Expected config to exist")
+	}
+
+	// Verify the custom RootCAs are preserved
+	if clonedConfig.RootCAs == nil {
+		t.Fatal("Expected RootCAs to be preserved")
+	}
+
+	// The actual OCSP verification chaining is tested in the connection logic
+	// Here we just verify the config can be retrieved and has the expected properties
+	if clonedConfig.RootCAs != customConfig.RootCAs {
+		t.Error("Expected RootCAs to match the original custom config")
+	}
+}

@@ -20,6 +20,16 @@ func init() {
 // RegisterTLSConfig registers a custom tls.Config to be used with sql.Open.
 // Use the key as a value in the DSN where tls=value.
 //
+// The custom TLS config allows you to specify custom root CAs, client certificates,
+// and other TLS settings while maintaining Snowflake's certificate revocation
+// checking (OCSP/CRL) unless explicitly disabled.
+//
+// Certificate Revocation Checking:
+//   - OCSP validation is preserved unless DisableOCSPChecks=true or InsecureMode=true
+//   - CRL validation is preserved if CertRevocationCheckMode is enabled
+//   - If you provide a custom VerifyPeerCertificate callback, it will be chained
+//     with Snowflake's revocation checking (your callback runs first)
+//
 // Note: The provided tls.Config is exclusively owned by the driver after
 // registering it.
 //
@@ -36,6 +46,7 @@ func init() {
 //
 //	gosnowflake.RegisterTLSConfig("custom", &tls.Config{
 //	    RootCAs: rootCertPool,
+//	    // OCSP/CRL validation will be automatically added by the driver
 //	})
 //
 //	db, err := sql.Open("snowflake", "user:pass@account/db?tls=custom")

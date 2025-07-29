@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/x509"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/base64"
@@ -804,17 +805,84 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		if sc.cfg.TLSConfig != "" {
 			if customTLSConfig, ok := getTLSConfigClone(sc.cfg.TLSConfig); ok {
 				// Create a custom transport with the registered TLS config
-				// Skip OCSP validation when using custom TLS configs since
-				// custom CAs may not have OCSP responders
-				st = &http.Transport{
-					TLSClientConfig: customTLSConfig,
-					MaxIdleConns:    10,
-					IdleConnTimeout: 30 * time.Minute,
-					Proxy:           http.ProxyFromEnvironment,
-					DialContext: (&net.Dialer{
-						Timeout:   30 * time.Second,
-						KeepAlive: 30 * time.Second,
-					}).DialContext,
+				// Preserve certificate revocation checking (OCSP/CRL) even with custom trust stores
+
+				// Handle CRL validation if enabled
+				if sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+					if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode {
+						return nil, errors.New("both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+					}
+					// Create CRL validator for custom TLS config
+					crlTransport, cv, err := createCrlTransport(sc.cfg)
+					if err != nil {
+						return nil, err
+					}
+					sc.cv = cv
+					cv.startPeriodicCacheCleanup(sc.cfg.CrlCacheCleanerTick)
+
+					// Replace the CRL transport's TLS config with our custom one
+					// but preserve the CRL verification callback
+					crlVerify := crlTransport.TLSClientConfig.VerifyPeerCertificate
+					if customTLSConfig.VerifyPeerCertificate == nil {
+						customTLSConfig.VerifyPeerCertificate = crlVerify
+					} else {
+						// Chain the existing verification with CRL
+						originalVerify := customTLSConfig.VerifyPeerCertificate
+						customTLSConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+							// Run the user's custom verification first
+							if err := originalVerify(rawCerts, verifiedChains); err != nil {
+								return err
+							}
+							// Then run CRL verification
+							return crlVerify(rawCerts, verifiedChains)
+						}
+					}
+					// Use the CRL transport settings but with our custom TLS config
+					st = &http.Transport{
+						TLSClientConfig: customTLSConfig,
+						MaxIdleConns:    crlTransport.MaxIdleConns,
+						IdleConnTimeout: crlTransport.IdleConnTimeout,
+						Proxy:           crlTransport.Proxy,
+						DialContext:     crlTransport.DialContext,
+					}
+				} else if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode {
+					// Handle OCSP validation with custom TLS config
+					if customTLSConfig.VerifyPeerCertificate == nil {
+						customTLSConfig.VerifyPeerCertificate = verifyPeerCertificateSerial
+					} else {
+						// Chain the existing verification with OCSP
+						originalVerify := customTLSConfig.VerifyPeerCertificate
+						customTLSConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+							// Run the user's custom verification first
+							if err := originalVerify(rawCerts, verifiedChains); err != nil {
+								return err
+							}
+							// Then run OCSP verification
+							return verifyPeerCertificateSerial(rawCerts, verifiedChains)
+						}
+					}
+					st = &http.Transport{
+						TLSClientConfig: customTLSConfig,
+						MaxIdleConns:    10,
+						IdleConnTimeout: 30 * time.Minute,
+						Proxy:           http.ProxyFromEnvironment,
+						DialContext: (&net.Dialer{
+							Timeout:   30 * time.Second,
+							KeepAlive: 30 * time.Second,
+						}).DialContext,
+					}
+				} else {
+					// No revocation checking - just use the custom TLS config
+					st = &http.Transport{
+						TLSClientConfig: customTLSConfig,
+						MaxIdleConns:    10,
+						IdleConnTimeout: 30 * time.Minute,
+						Proxy:           http.ProxyFromEnvironment,
+						DialContext: (&net.Dialer{
+							Timeout:   30 * time.Second,
+							KeepAlive: 30 * time.Second,
+						}).DialContext,
+					}
 				}
 			} else {
 				return nil, errors.New("TLS config not found: " + sc.cfg.TLSConfig)
