@@ -1181,19 +1181,14 @@ func (occ *ocspCacheClearerType) stop() {
 }
 
 // snowflakeNoRevocationCheckTransport is the transport object that doesn't do certificate revocation check with OCSP.
-// Created using the new TransportFactory for consistency.
 var snowflakeNoRevocationCheckTransport http.RoundTripper
 
 // SnowflakeTransport includes the certificate revocation check with OCSP in sequential. By default, the driver uses
-// this transport object. Created using the new TransportFactory for consistency.
+// this transport object.
 var SnowflakeTransport *http.Transport
 
-// Initialize global transports using the new TransportFactory
 func init() {
-	// Create a dummy config for the factory (these are global transports, so no specific config needed)
-	dummyConfig := &Config{}
-	factory := NewTransportFactory(dummyConfig)
-
+	factory := NewTransportFactory(&Config{})
 	snowflakeNoRevocationCheckTransport = factory.CreateNoRevocationTransport()
 	SnowflakeTransport = factory.CreateOCSPTransport()
 }

@@ -797,7 +797,6 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
-	// Create transport using the new TransportFactory
 	transportFactory := NewTransportFactory(sc.cfg)
 	st, cv, err := transportFactory.createTransport()
 	if err != nil {

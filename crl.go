@@ -139,8 +139,6 @@ const (
 	defaultCrlCacheCleanerTick  = time.Hour
 )
 
-// createCrlTransport function has been moved to transport.go as part of TransportFactory.CreateCRLTransport()
-
 // TODO in following commits:
 // - telemetry
 func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
