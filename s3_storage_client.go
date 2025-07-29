@@ -49,6 +49,10 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
 	endPoint := getS3CustomEndpoint(info)
 
+	transport, err := getTransport(util.cfg)
+	if err != nil {
+		return nil, err
+	}
 	return s3.New(s3.Options{
 		Region: info.Region,
 		Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(
@@ -58,7 +62,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 		BaseEndpoint:  endPoint,
 		UseAccelerate: useAccelerateEndpoint,
 		HTTPClient: &http.Client{
-			Transport: getTransport(util.cfg),
+			Transport: transport,
 		},
 		ClientLogMode: S3LoggingMode,
 		Logger:        s3Logger,

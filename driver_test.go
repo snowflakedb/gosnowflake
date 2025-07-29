@@ -2029,7 +2029,7 @@ func TestOpenWithTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
-	countingTransport := newCountingRoundTripper(snowflakeNoOcspTransport)
+	countingTransport := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 	var transport http.RoundTripper = countingTransport
 	config.Transporter = transport
 	driver := SnowflakeDriver{}
