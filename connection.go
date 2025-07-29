@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
 	"database/sql/driver"
@@ -785,6 +786,135 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 	return
 }
 
+// validateRevocationConfig checks for conflicting revocation settings
+func validateRevocationConfig(cfg *Config) error {
+	if !cfg.DisableOCSPChecks && !cfg.InsecureMode && cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+		return errors.New("both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+	}
+	return nil
+}
+
+// chainVerificationCallbacks chains a user's custom verification with the provided verification function
+func chainVerificationCallbacks(customTLSConfig *tls.Config, verificationFunc func([][]byte, [][]*x509.Certificate) error) {
+	if customTLSConfig.VerifyPeerCertificate == nil {
+		customTLSConfig.VerifyPeerCertificate = verificationFunc
+		return
+	}
+
+	// Chain the existing verification with the new one
+	originalVerify := customTLSConfig.VerifyPeerCertificate
+	customTLSConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		// Run the user's custom verification first
+		if err := originalVerify(rawCerts, verifiedChains); err != nil {
+			return err
+		}
+		// Then run the provided verification
+		return verificationFunc(rawCerts, verifiedChains)
+	}
+}
+
+// createStandardTransport creates a standard HTTP transport with the given TLS config
+func createStandardTransport(tlsConfig *tls.Config) *http.Transport {
+	return &http.Transport{
+		TLSClientConfig: tlsConfig,
+		MaxIdleConns:    10,
+		IdleConnTimeout: 30 * time.Minute,
+		Proxy:           http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+	}
+}
+
+// setupCustomTLSTransportWithCRL creates a transport with custom TLS config and CRL validation
+func (sc *snowflakeConn) setupCustomTLSTransportWithCRL(customTLSConfig *tls.Config) (http.RoundTripper, error) {
+	// Create CRL validator for custom TLS config
+	crlTransport, cv, err := createCrlTransport(sc.cfg)
+	if err != nil {
+		return nil, err
+	}
+	sc.cv = cv
+	cv.startPeriodicCacheCleanup(sc.cfg.CrlCacheCleanerTick)
+
+	// Chain CRL verification with custom TLS config
+	crlVerify := crlTransport.TLSClientConfig.VerifyPeerCertificate
+	chainVerificationCallbacks(customTLSConfig, crlVerify)
+
+	// Use the CRL transport settings but with our custom TLS config
+	return &http.Transport{
+		TLSClientConfig: customTLSConfig,
+		MaxIdleConns:    crlTransport.MaxIdleConns,
+		IdleConnTimeout: crlTransport.IdleConnTimeout,
+		Proxy:           crlTransport.Proxy,
+		DialContext:     crlTransport.DialContext,
+	}, nil
+}
+
+// setupCustomTLSTransportWithOCSP creates a transport with custom TLS config and OCSP validation
+func setupCustomTLSTransportWithOCSP(customTLSConfig *tls.Config) http.RoundTripper {
+	// Chain OCSP verification with custom TLS config
+	chainVerificationCallbacks(customTLSConfig, verifyPeerCertificateSerial)
+	return createStandardTransport(customTLSConfig)
+}
+
+// setupCustomTLSTransport handles the custom TLS configuration path
+func (sc *snowflakeConn) setupCustomTLSTransport() (http.RoundTripper, error) {
+	customTLSConfig, ok := getTLSConfigClone(sc.cfg.TLSConfig)
+	if !ok {
+		return nil, errors.New("TLS config not found: " + sc.cfg.TLSConfig)
+	}
+
+	// Check for revocation configuration conflicts
+	if err := validateRevocationConfig(sc.cfg); err != nil {
+		return nil, err
+	}
+
+	// Handle CRL validation path
+	if sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+		return sc.setupCustomTLSTransportWithCRL(customTLSConfig)
+	}
+
+	// Handle OCSP validation path
+	if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode {
+		return setupCustomTLSTransportWithOCSP(customTLSConfig), nil
+	}
+
+	// No revocation checking - just use the custom TLS config
+	return createStandardTransport(customTLSConfig), nil
+}
+
+// setupStandardTransport handles the standard (non-custom TLS) transport paths
+func (sc *snowflakeConn) setupStandardTransport() (http.RoundTripper, error) {
+	// Check for revocation configuration conflicts
+	if err := validateRevocationConfig(sc.cfg); err != nil {
+		return nil, err
+	}
+
+	// Handle CRL validation path
+	if sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+		var cv *crlValidator
+		st, cv, err := createCrlTransport(sc.cfg)
+		if err != nil {
+			return nil, err
+		}
+		sc.cv = cv
+		cv.startPeriodicCacheCleanup(sc.cfg.CrlCacheCleanerTick)
+		return st, nil
+	}
+
+	// Handle no revocation checking path
+	if sc.cfg.DisableOCSPChecks || sc.cfg.InsecureMode {
+		return snowflakeNoRevocationCheckTransport, nil
+	}
+
+	// Default OCSP path - set OCSP fail open mode
+	ocspResponseCacheLock.Lock()
+	atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(sc.cfg.OCSPFailOpen))
+	ocspResponseCacheLock.Unlock()
+	return SnowflakeTransport, nil
+}
+
 // buildSnowflakeConn creates a new snowflakeConn.
 // The provided context is used only for establishing the initial connection.
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
@@ -800,116 +930,26 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 	var st http.RoundTripper = SnowflakeTransport
-	if sc.cfg.Transporter == nil {
-		// Check for registered TLS config first
-		if sc.cfg.TLSConfig != "" {
-			if customTLSConfig, ok := getTLSConfigClone(sc.cfg.TLSConfig); ok {
-				// Create a custom transport with the registered TLS config
-				// Preserve certificate revocation checking (OCSP/CRL) even with custom trust stores
 
-				// Handle CRL validation if enabled
-				if sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
-					if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode {
-						return nil, errors.New("both OCSP and CRL cannot be enabled at the same time, please disable one of them")
-					}
-					// Create CRL validator for custom TLS config
-					crlTransport, cv, err := createCrlTransport(sc.cfg)
-					if err != nil {
-						return nil, err
-					}
-					sc.cv = cv
-					cv.startPeriodicCacheCleanup(sc.cfg.CrlCacheCleanerTick)
-
-					// Replace the CRL transport's TLS config with our custom one
-					// but preserve the CRL verification callback
-					crlVerify := crlTransport.TLSClientConfig.VerifyPeerCertificate
-					if customTLSConfig.VerifyPeerCertificate == nil {
-						customTLSConfig.VerifyPeerCertificate = crlVerify
-					} else {
-						// Chain the existing verification with CRL
-						originalVerify := customTLSConfig.VerifyPeerCertificate
-						customTLSConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-							// Run the user's custom verification first
-							if err := originalVerify(rawCerts, verifiedChains); err != nil {
-								return err
-							}
-							// Then run CRL verification
-							return crlVerify(rawCerts, verifiedChains)
-						}
-					}
-					// Use the CRL transport settings but with our custom TLS config
-					st = &http.Transport{
-						TLSClientConfig: customTLSConfig,
-						MaxIdleConns:    crlTransport.MaxIdleConns,
-						IdleConnTimeout: crlTransport.IdleConnTimeout,
-						Proxy:           crlTransport.Proxy,
-						DialContext:     crlTransport.DialContext,
-					}
-				} else if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode {
-					// Handle OCSP validation with custom TLS config
-					if customTLSConfig.VerifyPeerCertificate == nil {
-						customTLSConfig.VerifyPeerCertificate = verifyPeerCertificateSerial
-					} else {
-						// Chain the existing verification with OCSP
-						originalVerify := customTLSConfig.VerifyPeerCertificate
-						customTLSConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-							// Run the user's custom verification first
-							if err := originalVerify(rawCerts, verifiedChains); err != nil {
-								return err
-							}
-							// Then run OCSP verification
-							return verifyPeerCertificateSerial(rawCerts, verifiedChains)
-						}
-					}
-					st = &http.Transport{
-						TLSClientConfig: customTLSConfig,
-						MaxIdleConns:    10,
-						IdleConnTimeout: 30 * time.Minute,
-						Proxy:           http.ProxyFromEnvironment,
-						DialContext: (&net.Dialer{
-							Timeout:   30 * time.Second,
-							KeepAlive: 30 * time.Second,
-						}).DialContext,
-					}
-				} else {
-					// No revocation checking - just use the custom TLS config
-					st = &http.Transport{
-						TLSClientConfig: customTLSConfig,
-						MaxIdleConns:    10,
-						IdleConnTimeout: 30 * time.Minute,
-						Proxy:           http.ProxyFromEnvironment,
-						DialContext: (&net.Dialer{
-							Timeout:   30 * time.Second,
-							KeepAlive: 30 * time.Second,
-						}).DialContext,
-					}
-				}
-			} else {
-				return nil, errors.New("TLS config not found: " + sc.cfg.TLSConfig)
-			}
-		} else if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode && sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
-			return nil, errors.New("both OCSP and CRL cannot be enabled at the same time, please disable one of them")
-		} else if sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
-			var cv *crlValidator
-			st, cv, err = createCrlTransport(sc.cfg)
-			if err != nil {
-				return nil, err
-			}
-			sc.cv = cv
-			cv.startPeriodicCacheCleanup(sc.cfg.CrlCacheCleanerTick)
-		} else if sc.cfg.DisableOCSPChecks || sc.cfg.InsecureMode {
-			// no revocation check with OCSP or CRL
-			st = snowflakeNoRevocationCheckTransport
-		} else {
-			// set OCSP fail open mode
-			ocspResponseCacheLock.Lock()
-			atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(sc.cfg.OCSPFailOpen))
-			ocspResponseCacheLock.Unlock()
+	// Early return: Use custom transporter if provided
+	if sc.cfg.Transporter != nil {
+		st = sc.cfg.Transporter
+	} else if sc.cfg.TLSConfig != "" {
+		// Handle custom TLS configuration path
+		var err error
+		st, err = sc.setupCustomTLSTransport()
+		if err != nil {
+			return nil, err
 		}
 	} else {
-		// use the custom transport
-		st = sc.cfg.Transporter
+		// Handle standard transport configuration
+		var err error
+		st, err = sc.setupStandardTransport()
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	if err = setupOCSPEnvVars(ctx, sc.cfg.Host); err != nil {
 		return nil, err
 	}
