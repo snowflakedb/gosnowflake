@@ -117,9 +117,12 @@ func (tf *TransportFactory) createCRLTransportInternal() (*http.Transport, *crlV
 }
 
 // CreateCustomTLSTransport creates a transport with custom TLS configuration
-func (tf *TransportFactory) CreateCustomTLSTransport(customTLSConfig *tls.Config) http.RoundTripper {
-	transport, _, _ := tf.createCustomTLSTransportInternal(customTLSConfig)
-	return transport
+func (tf *TransportFactory) CreateCustomTLSTransport(customTLSConfig *tls.Config) (http.RoundTripper, error) {
+	transport, _, err := tf.createCustomTLSTransportInternal(customTLSConfig)
+	if err != nil {
+		return nil, err
+	}
+	return transport, nil
 }
 
 // createCustomTLSTransportInternal creates a transport with custom TLS configuration and returns the validator
@@ -168,9 +171,12 @@ func (tf *TransportFactory) createCustomTLSWithOCSP(customTLSConfig *tls.Config)
 }
 
 // CreateStandardTransport creates a transport without custom TLS configuration
-func (tf *TransportFactory) CreateStandardTransport() http.RoundTripper {
-	transport, _, _ := tf.createStandardTransportInternal()
-	return transport
+func (tf *TransportFactory) CreateStandardTransport() (http.RoundTripper, error) {
+	transport, _, err := tf.createStandardTransportInternal()
+	if err != nil {
+		return nil, err
+	}
+	return transport, nil
 }
 
 // createStandardTransportInternal creates a transport without custom TLS configuration and returns the validator
