@@ -119,6 +119,7 @@ func TestTLSConfigConcurrency(t *testing.T) {
 			}
 		}(i)
 	}
+	wg.Wait()
 
 	// Concurrently read configs
 	for i := 0; i < numGoroutines; i++ {
