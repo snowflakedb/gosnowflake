@@ -13,10 +13,8 @@ run_tests_and_set_result() {
   local snowflake_host="$3"
   local rsa_key_path="$4"
 
-  # TODO: replace
-  # * docker image
-  # * remove apt-get
-  # * remove SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true
+  # TODO: remove SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true
+  # NOTE: /home/user is the only dir we can write to (SNOW-2231498 to improve WORKDIR)
   ssh -i "$rsa_key_path" -o IdentitiesOnly=yes -p 443 "$host" env BRANCH="$BRANCH" SNOWFLAKE_TEST_WIF_HOST="$snowflake_host" SNOWFLAKE_TEST_WIF_PROVIDER="$provider" SNOWFLAKE_TEST_WIF_ACCOUNT="$SNOWFLAKE_TEST_WIF_ACCOUNT" bash << EOF
       set -e
       set -o pipefail
@@ -27,16 +25,16 @@ run_tests_and_set_result() {
         -e SNOWFLAKE_TEST_WIF_HOST \
         -e SNOWFLAKE_TEST_WIF_ACCOUNT \
         -e SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true \
-        golang:1.22 \
+        snowflakedb/client-go-chainguard-go1.24-test:1 \
           bash -c "
-            apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+            cd /home/user
             echo 'Running tests on branch: \$BRANCH, provider: \$SNOWFLAKE_TEST_WIF_PROVIDER'
             if [[ \"\$BRANCH\" =~ ^PR-[0-9]+\$ ]]; then
-              curl -L https://github.com/snowflakedb/gosnowflake/archive/refs/pull/\$(echo \$BRANCH | cut -d- -f2)/head.tar.gz | tar -xz --transform 's/^[^\/]*/gosnowflake/'
+              wget -O - https://github.com/snowflakedb/gosnowflake/archive/refs/pull/\$(echo \$BRANCH | cut -d- -f2)/head.tar.gz | tar -xz
             else
-              echo https://github.com/snowflakedb/gosnowflake/archive/refs/heads/\$BRANCH.tar.gz
-              curl -L https://github.com/snowflakedb/gosnowflake/archive/refs/heads/\$BRANCH.tar.gz | tar -xz --transform 's/^[^\/]*/gosnowflake/'
+              wget -O - https://github.com/snowflakedb/gosnowflake/archive/refs/heads/$BRANCH.tar.gz | tar -xz
             fi
+            mv gosnowflake-* gosnowflake
             cd gosnowflake
             SKIP_SETUP=true go test -v -run TestWorkloadIdentityAuthOnCloudVM
           "
