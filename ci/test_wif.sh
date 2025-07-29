@@ -51,23 +51,6 @@ EOF
   fi
 }
 
-get_branch_debug() {
-  echo "DEBUG: Getting branch name..."
-  local branch
-  branch=$(git rev-parse --abbrev-ref HEAD)
-  echo "DEBUG: git rev-parse returned: $branch"
-  echo "git name-rev --name-only HEAD"
-  git name-rev --name-only HEAD
-  echo "DEBUG: GIT_BRANCH env var: $GIT_BRANCH"
-  if [[ "$branch" == "HEAD" ]]; then
-    echo "DEBUG: Branch is HEAD, trying git name-rev..."
-    branch=$(git name-rev --name-only HEAD | sed 's#^remotes/origin/##;s#^origin/##')
-    echo "DEBUG: git name-rev returned: $branch"
-  fi
-  echo "DEBUG: Final branch name: $branch"
-  echo "${branch}"
-}
-
 get_branch() {
   local branch
   branch=$(git rev-parse --abbrev-ref HEAD)
@@ -85,8 +68,6 @@ setup_parameters() {
   gpg --quiet --batch --yes --decrypt --passphrase="$PARAMETERS_SECRET" --output "$PARAMETERS_FILE_PATH" "${PARAMETERS_FILE_PATH}.gpg"
   eval $(jq -r '.wif | to_entries | map("export \(.key)=\(.value|tostring)")|.[]' $PARAMETERS_FILE_PATH)
 }
-
-get_branch_debug
 
 BRANCH=$(get_branch)
 export BRANCH
