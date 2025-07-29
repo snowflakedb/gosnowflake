@@ -1203,6 +1203,42 @@ func TestParseDSN(t *testing.T) {
 			},
 			ocspMode: ocspModeFailOpen,
 		},
+		// TLS config test cases
+		{
+			dsn: "user:pass@account/db?tls=custom",
+			config: &Config{
+				Account: "account", User: "user", Password: "pass", Database: "db",
+				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
+				TLSConfig:                 "custom",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "user:pass@account/db?tls=custom-ca&warehouse=wh&role=admin",
+			config: &Config{
+				Account: "account", User: "user", Password: "pass", Database: "db",
+				Warehouse: "wh", Role: "admin",
+				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
+				TLSConfig:                 "custom-ca",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {

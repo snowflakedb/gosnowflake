@@ -101,6 +101,8 @@ type Config struct {
 
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 
+	TLSConfig string // TLS configuration name registered with RegisterTLSConfig
+
 	DisableTelemetry bool // indicates whether to disable telemetry
 
 	Tracing string // sets logging level
@@ -894,6 +896,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 
 		case "token":
 			cfg.Token = value
+		case "tls":
+			cfg.TLSConfig = value
 		case "workloadIdentityProvider":
 			cfg.WorkloadIdentityProvider = value
 		case "workloadIdentityEntraResource":

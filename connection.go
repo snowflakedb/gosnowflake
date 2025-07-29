@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -799,10 +800,28 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {
-		if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode && sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+		// Check for registered TLS config first
+		if sc.cfg.TLSConfig != "" {
+			if customTLSConfig, ok := getTLSConfigClone(sc.cfg.TLSConfig); ok {
+				// Create a custom transport with the registered TLS config
+				// Skip OCSP validation when using custom TLS configs since
+				// custom CAs may not have OCSP responders
+				st = &http.Transport{
+					TLSClientConfig: customTLSConfig,
+					MaxIdleConns:    10,
+					IdleConnTimeout: 30 * time.Minute,
+					Proxy:           http.ProxyFromEnvironment,
+					DialContext: (&net.Dialer{
+						Timeout:   30 * time.Second,
+						KeepAlive: 30 * time.Second,
+					}).DialContext,
+				}
+			} else {
+				return nil, errors.New("TLS config not found: " + sc.cfg.TLSConfig)
+			}
+		} else if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode && sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
 			return nil, errors.New("both OCSP and CRL cannot be enabled at the same time, please disable one of them")
-		}
-		if sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+		} else if sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
 			var cv *crlValidator
 			st, cv, err = createCrlTransport(sc.cfg)
 			if err != nil {
