@@ -62,6 +62,12 @@ pipeline {
       }
     }
   }
+
+  post {
+    always {
+        cleanWs()
+    }
+  }
 }
 
 def wgetUpdateGithub(String state, String folder, String targetUrl, String seconds) {
