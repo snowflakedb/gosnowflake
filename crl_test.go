@@ -79,6 +79,11 @@ func TestCrlCheckModeDisabledNoHttpCall(t *testing.T) {
 }
 
 func TestCrlModes(t *testing.T) {
+	// temporary, to help debugging flaky tests
+	_ = logger.SetLogLevel("debug")
+	defer func() {
+		_ = logger.SetLogLevel("error")
+	}()
 	for _, checkMode := range []CertRevocationCheckMode{CertRevocationCheckEnabled, CertRevocationCheckAdvisory} {
 		t.Run(fmt.Sprintf("checkMode=%v", checkMode), func(t *testing.T) {
 			t.Run("ShortLivedCertDoesNotNeedCRL", func(t *testing.T) {
