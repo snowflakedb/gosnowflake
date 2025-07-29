@@ -304,7 +304,12 @@ func (c *gcpIdentityAttestationCreator) createTokenRequest() (*http.Request, err
 }
 
 func fetchTokenFromMetadataService(req *http.Request, cfg *Config) string {
-	client := &http.Client{Transport: getTransport(cfg)}
+	transport, err := getTransport(cfg)
+	if err != nil {
+		logger.Debugf("Failed to create HTTP transport: %v", err)
+		return ""
+	}
+	client := &http.Client{Transport: transport}
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Debugf("Metadata server request was not successful: %v", err)
