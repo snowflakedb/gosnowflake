@@ -73,15 +73,15 @@ func (hc *heartbeat) heartbeatMain() error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		logger.WithContext(ctx).Infof("heartbeatMain: resp: %v", resp)
+		logger.WithContext(ctx).Debugf("heartbeatMain: resp: %v", resp)
 		var respd execResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
 		if err != nil {
-			logger.WithContext(ctx).Infof("failed to decode JSON. err: %v", err)
+			logger.WithContext(ctx).Errorf("failed to decode heartbeat response JSON. err: %v", err)
 			return err
 		}
 		if respd.Code == sessionExpiredCode {
-			logger.WithContext(ctx).Info("Snowflake returned error 390112 (session expired), trying to renew expired token.")
+			logger.WithContext(ctx).Info("Snowflake returned 'session expired', trying to renew expired token.")
 			err = hc.restful.renewExpiredSessionToken(context.Background(), timeout, token)
 			if err != nil {
 				return err
