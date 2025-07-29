@@ -377,7 +377,8 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	body["oldSessionToken"] = token
 	body["requestType"] = "RENEW"
 
-	logger.WithContext(ctx).Infof("[sessionID: %v] start renew session", sessionID)
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
+	logger.WithContext(ctx).Info("start renew session")
 	var reqBody []byte
 	reqBody, err := json.Marshal(body)
 	if err != nil {

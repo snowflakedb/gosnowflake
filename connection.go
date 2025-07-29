@@ -97,6 +97,8 @@ func (sc *snowflakeConn) exec(
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
 
+	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
 	queryContext, err := buildQueryContext(sc.queryContextCache)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error while building query context: %v", err)
@@ -409,20 +411,19 @@ func (sc *snowflakeConn) queryContextInternal(
 	query string,
 	args []driver.NamedValue) (
 	driver.Rows, error) {
-
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
 
+	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
+	ctx = context.WithValue(setResultType(ctx, queryResultType), SFSessionIDKey, sessionID)
+	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
-	ctx = setResultType(ctx, queryResultType)
 	isInternal := isInternal(ctx)
-	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
-	logger.WithContext(ctx).Infof("[sessionID: %v] Query: %#v, %v", sessionID, query, args)
 	data, err := sc.exec(ctx, query, noResult, isInternal, isDesc, args)
 	if err != nil {
-		logger.WithContext(ctx).Errorf("queryContextInternal: [sessionID: %v] error: %v", sessionID, err)
+		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
 			code, e := strconv.Atoi(data.Code)
 			if e != nil {
