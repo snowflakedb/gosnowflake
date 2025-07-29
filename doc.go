@@ -128,6 +128,32 @@ The following connection parameters are supported:
 
   - ocspFailOpen: true by default. Set to false to make OCSP check fail closed mode.
 
+  - certRevocationCheckMode (enabled, advisory, disabled): Specifies the certificate revocation check mode.
+    When enabled, the driver performs a certificate revocation check using CRL.
+    When advisory, the driver performs a certificate revocation check using CRL, but fails the connection only if the certificate is revoked.
+    If the status cannot be determined, the connection is established.
+    When disabled, the driver does not perform a certificate revocation check.
+    Keep in mind that the certificate revocation check with CRLs is a heavy task, both for memory and CPU.
+    The default is disabled.
+
+  - crlAllowCertificatesWithoutCrlURL: if a certificate does not have a CRL URL, the driver will
+    allow the connection to be established.
+    The default is false.
+
+  - crlCacheValidityTime: specifies the validity time of the CRL cache in seconds.
+
+  - crlInMemoryCacheDisabled: set to disable in-memory caching of CRLs.
+
+  - crlOnDiskCacheDisabled: set to disable on-disk caching of CRLs (on-disk cache may help with cold starts).
+
+  - crlOnDiskCacheDir: set to customize the directory for on-disk caching of CRLs.
+
+  - crlOnDiskCacheRemovalDelay: set the delay (in seconds) for removing the on-disk cache (for debuggability).
+
+  - crlHTTPClientTimeout: customize the HTTP client timeout for downloading CRLs.
+
+  - crlCacheCleanerTick: set the interval (in seconds) for the CRL cache cleaner to run.
+
   - validateDefaultParameters: true by default. Set to false to disable checks on existence and privileges check for
     Database, Schema, Warehouse and Role when setting up the connection
 

@@ -205,7 +205,6 @@ type authRequestData struct {
 	BrowserModeRedirectPort string                       `json:"BROWSER_MODE_REDIRECT_PORT,omitempty"`
 	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
 	Token                   string                       `json:"TOKEN,omitempty"`
-	OauthType               string                       `json:"OAUTH_TYPE,omitempty"`
 	Provider                string                       `json:"PROVIDER,omitempty"`
 }
 type authRequest struct {
@@ -541,7 +540,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = token
-		requestMain.OauthType = "OAUTH_AUTHORIZATION_CODE"
 	case AuthTypeOAuthClientCredentials:
 		logger.WithContext(sc.ctx).Debug("OAuth client credentials")
 		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
@@ -554,7 +552,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = token
-		requestMain.OauthType = "OAUTH_CLIENT_CREDENTIALS"
 	case AuthTypeWorkloadIdentityFederation:
 		if !experimentalAuthEnabled() {
 			return nil, errors.New("workload identity authentication is not ready to use")
