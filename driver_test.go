@@ -1985,7 +1985,7 @@ func TestOpenWithConfigCancel(t *testing.T) {
 	)
 	driver := SnowflakeDriver{}
 	config := wiremock.connectionConfig()
-	blockingRoundTripper := newBlockingRoundTripper(snowflakeNoOcspTransport, 0)
+	blockingRoundTripper := newBlockingRoundTripper(snowflakeNoRevocationCheckTransport, 0)
 	countingRoundTripper := newCountingRoundTripper(blockingRoundTripper)
 	config.Transporter = countingRoundTripper
 
