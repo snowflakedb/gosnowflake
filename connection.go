@@ -782,8 +782,6 @@ func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamB
 	return
 }
 
-// These functions have been moved to transport.go as part of the TransportFactory
-
 // buildSnowflakeConn creates a new snowflakeConn.
 // The provided context is used only for establishing the initial connection.
 func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, error) {
@@ -801,7 +799,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 
 	// Create transport using the new TransportFactory
 	transportFactory := NewTransportFactory(sc.cfg)
-	st, cv, err := transportFactory.CreateTransport()
+	st, cv, err := transportFactory.createTransport()
 	if err != nil {
 		return nil, err
 	}

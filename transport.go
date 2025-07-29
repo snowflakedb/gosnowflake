@@ -82,7 +82,13 @@ func (tf *TransportFactory) CreateNoRevocationTransport() *http.Transport {
 }
 
 // CreateCRLTransport creates a transport with CRL validation
-func (tf *TransportFactory) CreateCRLTransport() (*http.Transport, *crlValidator, error) {
+func (tf *TransportFactory) CreateCRLTransport() (*http.Transport, error) {
+	transport, _, err := tf.createCRLTransportInternal()
+	return transport, err
+}
+
+// createCRLTransportInternal creates a transport with CRL validation and returns the validator
+func (tf *TransportFactory) createCRLTransportInternal() (*http.Transport, *crlValidator, error) {
 	allowCertificatesWithoutCrlURL := tf.config.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
 	client := &http.Client{
 		Timeout: getConfigDuration(tf.config.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
@@ -111,7 +117,13 @@ func (tf *TransportFactory) CreateCRLTransport() (*http.Transport, *crlValidator
 }
 
 // CreateCustomTLSTransport creates a transport with custom TLS configuration
-func (tf *TransportFactory) CreateCustomTLSTransport(customTLSConfig *tls.Config) (http.RoundTripper, *crlValidator, error) {
+func (tf *TransportFactory) CreateCustomTLSTransport(customTLSConfig *tls.Config) http.RoundTripper {
+	transport, _, _ := tf.createCustomTLSTransportInternal(customTLSConfig)
+	return transport
+}
+
+// createCustomTLSTransportInternal creates a transport with custom TLS configuration and returns the validator
+func (tf *TransportFactory) createCustomTLSTransportInternal(customTLSConfig *tls.Config) (http.RoundTripper, *crlValidator, error) {
 	// Validate configuration
 	if err := tf.validateRevocationConfig(); err != nil {
 		return nil, nil, err
@@ -134,7 +146,7 @@ func (tf *TransportFactory) CreateCustomTLSTransport(customTLSConfig *tls.Config
 // createCustomTLSWithCRL creates a transport combining custom TLS config with CRL validation
 func (tf *TransportFactory) createCustomTLSWithCRL(customTLSConfig *tls.Config) (http.RoundTripper, *crlValidator, error) {
 	// Create CRL validator
-	_, cv, err := tf.CreateCRLTransport()
+	_, cv, err := tf.createCRLTransportInternal()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -156,7 +168,13 @@ func (tf *TransportFactory) createCustomTLSWithOCSP(customTLSConfig *tls.Config)
 }
 
 // CreateStandardTransport creates a transport without custom TLS configuration
-func (tf *TransportFactory) CreateStandardTransport() (http.RoundTripper, *crlValidator, error) {
+func (tf *TransportFactory) CreateStandardTransport() http.RoundTripper {
+	transport, _, _ := tf.createStandardTransportInternal()
+	return transport
+}
+
+// createStandardTransportInternal creates a transport without custom TLS configuration and returns the validator
+func (tf *TransportFactory) createStandardTransportInternal() (http.RoundTripper, *crlValidator, error) {
 	// Validate configuration
 	if err := tf.validateRevocationConfig(); err != nil {
 		return nil, nil, err
@@ -164,7 +182,7 @@ func (tf *TransportFactory) CreateStandardTransport() (http.RoundTripper, *crlVa
 
 	// Handle CRL validation path
 	if tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
-		return tf.CreateCRLTransport()
+		return tf.createCRLTransportInternal()
 	}
 
 	// Handle no revocation checking path
@@ -179,9 +197,8 @@ func (tf *TransportFactory) CreateStandardTransport() (http.RoundTripper, *crlVa
 	return tf.CreateOCSPTransport(), nil, nil
 }
 
-// CreateTransport is the main entry point for creating transports
-// This replaces the transport selection logic in buildSnowflakeConn
-func (tf *TransportFactory) CreateTransport() (http.RoundTripper, *crlValidator, error) {
+// createTransport is the main entry point for creating transports (internal use)
+func (tf *TransportFactory) createTransport() (http.RoundTripper, *crlValidator, error) {
 	// Early return: Use custom transporter if provided
 	if tf.config.Transporter != nil {
 		return tf.config.Transporter, nil, nil
@@ -193,11 +210,11 @@ func (tf *TransportFactory) CreateTransport() (http.RoundTripper, *crlValidator,
 		if !ok {
 			return nil, nil, errors.New("TLS config not found: " + tf.config.TLSConfig)
 		}
-		return tf.CreateCustomTLSTransport(customTLSConfig)
+		return tf.createCustomTLSTransportInternal(customTLSConfig)
 	}
 
 	// Handle standard transport configuration
-	return tf.CreateStandardTransport()
+	return tf.createStandardTransportInternal()
 }
 
 // CreateFileTransferTransport creates a transport for file transfer operations
@@ -216,7 +233,7 @@ func (tf *TransportFactory) CreateFileTransferTransport() (http.RoundTripper, er
 	}
 
 	if tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
-		transport, _, err := tf.CreateCRLTransport()
+		transport, err := tf.CreateCRLTransport()
 		if err != nil {
 			return nil, err
 		}

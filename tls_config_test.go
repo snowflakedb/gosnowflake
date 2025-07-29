@@ -216,9 +216,9 @@ C0wjdl3sP3p7J2Vt8mEqGLFQX4Nk8B0CIGCOJl7VebrF1S2A/l7s6r4z9M8Yw4oJ
 		t.Fatal("RootCAs was not preserved in cloned config")
 	}
 
-	// The clone should have the same number of certificates
-	if len(clone.RootCAs.Subjects()) != len(testConfig.RootCAs.Subjects()) {
-		t.Fatal("RootCAs certificate count differs between original and clone")
+	// The clone should have the same certificates as the original
+	if !clone.RootCAs.Equal(testConfig.RootCAs) {
+		t.Fatal("RootCAs differs between original and clone")
 	}
 }
 
