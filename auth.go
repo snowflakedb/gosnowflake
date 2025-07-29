@@ -186,6 +186,7 @@ type authRequestClientEnvironment struct {
 	OsVersion       string `json:"OS_VERSION"`
 	OCSPMode        string `json:"OCSP_MODE"`
 	GoVersion       string `json:"GO_VERSION"`
+	OauthType       string `json:"OAUTH_TYPE,omitempty"`
 }
 
 type authRequestData struct {
@@ -357,6 +358,14 @@ func authenticate(
 	if err != nil {
 		applicationPath = "unknown"
 	}
+
+	oauthType := ""
+	if sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode {
+		oauthType = "OAUTH_AUTHORIZATION_CODE"
+	} else if sc.cfg.Authenticator == AuthTypeOAuthClientCredentials {
+		oauthType = "OAUTH_CLIENT_CREDENTIALS"
+	}
+
 	clientEnvironment := authRequestClientEnvironment{
 		Application:     sc.cfg.Application,
 		ApplicationPath: applicationPath,
@@ -364,6 +373,7 @@ func authenticate(
 		OsVersion:       platform,
 		OCSPMode:        sc.cfg.ocspMode(),
 		GoVersion:       runtime.Version(),
+		OauthType:       oauthType,
 	}
 
 	sessionParameters := make(map[string]interface{})
