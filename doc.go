@@ -1357,7 +1357,7 @@ If you wish to ignore those errors instead, you can set `RaisePutGetError: false
 
 - `ConnectionDiagnosticsEnabled` (default: false) - main flag to enable the diagnostics
 
-- `ConnectionDiagnosticsAllowlistFile` - specify `/path/to/allowlist.json` to use a specific allowlist file which the driver should parse. If not specified, tne driver tries to open `allowlist.json` from the current directory.
+- `ConnectionDiagnosticsAllowlistFile` - specify `/path/to/allowlist.json` to use a specific allowlist file which the driver should parse. If not specified, the driver tries to open `allowlist.json` from the current directory.
 The `ConnectionDiagnosticsAllowlistFile` is only taken into consideration when `ConnectionDiagnosticsEnabled=true`
 
 ==> Flow of operation when `ConnectionDiagnosticsEnabled=true`
