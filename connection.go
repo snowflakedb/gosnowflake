@@ -96,7 +96,6 @@ func (sc *snowflakeConn) exec(
 	*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
-
 	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
 	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
 	queryContext, err := buildQueryContext(sc.queryContextCache)
