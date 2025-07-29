@@ -1379,6 +1379,6 @@ The `ConnectionDiagnosticsAllowlistFile` is only taken into consideration when `
   - parses the certificate chain and logs information on each certificate (on DEBUG loglevel, dump the whole cert)
   - if (implicitly) configured from `CertRevocationCheckMode` being `advisory` or `enabled`, also tries to connect to the CRL endpoints
 
-8. the driver exists after performing diagnostics. If you want to use the driver 'normally' after performing connection diagnostics, set `ConnectionDiagnosticsEnabled=false` or remove it from the config
+8. the driver exits after performing diagnostics. If you want to use the driver 'normally' after performing connection diagnostics, set `ConnectionDiagnosticsEnabled=false` or remove it from the config
 */
 package gosnowflake
