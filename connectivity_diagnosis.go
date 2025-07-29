@@ -157,7 +157,7 @@ func (cd *connectivityDiagnoser) fetchCRL(uri string) error {
 		logger.Infof("[fetchCRL] CRL for %s already fetched and parsed.", uri)
 		return nil
 	}
-	logger.Infof("[fetchCRL] fetching  %s", uri)
+	logger.Infof("[fetchCRL] fetching %s", uri)
 	req, err := cd.createRequest(uri)
 	if err != nil {
 		logger.Errorf("[fetchCRL] error creating request: %v", err)
