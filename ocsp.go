@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"crypto"
-	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -15,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -1183,30 +1181,21 @@ func (occ *ocspCacheClearerType) stop() {
 }
 
 // snowflakeNoRevocationCheckTransport is the transport object that doesn't do certificate revocation check with OCSP.
-var snowflakeNoRevocationCheckTransport http.RoundTripper = &http.Transport{
-	MaxIdleConns:    10,
-	IdleConnTimeout: 30 * time.Minute,
-	Proxy:           http.ProxyFromEnvironment,
-	DialContext: (&net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}).DialContext,
-}
+// Created using the new TransportFactory for consistency.
+var snowflakeNoRevocationCheckTransport http.RoundTripper
 
 // SnowflakeTransport includes the certificate revocation check with OCSP in sequential. By default, the driver uses
-// this transport object.
-var SnowflakeTransport = &http.Transport{
-	TLSClientConfig: &tls.Config{
-		RootCAs:               certPool,
-		VerifyPeerCertificate: verifyPeerCertificateSerial,
-	},
-	MaxIdleConns:    10,
-	IdleConnTimeout: 30 * time.Minute,
-	Proxy:           http.ProxyFromEnvironment,
-	DialContext: (&net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}).DialContext,
+// this transport object. Created using the new TransportFactory for consistency.
+var SnowflakeTransport *http.Transport
+
+// Initialize global transports using the new TransportFactory
+func init() {
+	// Create a dummy config for the factory (these are global transports, so no specific config needed)
+	dummyConfig := &Config{}
+	factory := NewTransportFactory(dummyConfig)
+
+	snowflakeNoRevocationCheckTransport = factory.CreateNoRevocationTransport()
+	SnowflakeTransport = factory.CreateOCSPTransport()
 }
 
 // SnowflakeTransportTest includes the certificate revocation check in parallel

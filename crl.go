@@ -2,13 +2,11 @@ package gosnowflake
 
 import (
 	"cmp"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -141,27 +139,7 @@ const (
 	defaultCrlCacheCleanerTick  = time.Hour
 )
 
-func createCrlTransport(cfg *Config) (*http.Transport, *crlValidator, error) {
-	allowCertificatesWithoutCrlURL := cfg.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
-	client := &http.Client{
-		Timeout: cmp.Or(cfg.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
-	}
-	crlValidator, err := newCrlValidator(cfg.CertRevocationCheckMode, allowCertificatesWithoutCrlURL, cfg.CrlCacheValidityTime, cfg.CrlInMemoryCacheDisabled, cfg.CrlOnDiskCacheDisabled, cfg.CrlOnDiskCacheDir, cfg.CrlOnDiskCacheRemovalDelay, client)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &http.Transport{
-		TLSClientConfig: &tls.Config{
-			VerifyPeerCertificate: crlValidator.verifyPeerCertificates,
-		},
-		MaxIdleConns:    5,
-		IdleConnTimeout: 5 * time.Minute,
-		Proxy:           http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout: 5 * time.Second,
-		}).DialContext,
-	}, crlValidator, nil
-}
+// createCrlTransport function has been moved to transport.go as part of TransportFactory.CreateCRLTransport()
 
 // TODO in following commits:
 // - telemetry
