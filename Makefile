@@ -30,7 +30,9 @@ lint: clint
 ## Format source codes
 fmt: cfmt
 	@for c in $$(ls cmd); do \
-		(cd cmd/$$c;  make fmt); \
+		if [ -f cmd/$$c/Makefile ]; then \
+			(cd cmd/$$c; make fmt); \
+		fi; \
 	done
 
 ## Install sample programs
