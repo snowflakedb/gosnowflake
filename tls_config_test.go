@@ -21,23 +21,15 @@ func TestRegisterTLSConfig(t *testing.T) {
 
 	// Test successful registration
 	err := RegisterTLSConfig("test", &testConfig)
-	if err != nil {
-		t.Fatalf("RegisterTLSConfig failed: %v", err)
-	}
+	assertNilE(t, err, "RegisterTLSConfig failed")
 
 	// Verify config was registered
 	retrieved, exists := getTLSConfig("test")
-	if !exists {
-		t.Fatal("TLS config was not registered")
-	}
+	assertTrueE(t, exists, "TLS config was not registered")
 
 	// Verify the retrieved config matches the original
-	if retrieved.InsecureSkipVerify != testConfig.InsecureSkipVerify {
-		t.Fatal("Retrieved config has different InsecureSkipVerify value")
-	}
-	if retrieved.ServerName != testConfig.ServerName {
-		t.Fatal("Retrieved config has different ServerName value")
-	}
+	assertEqualE(t, retrieved.InsecureSkipVerify, testConfig.InsecureSkipVerify, "InsecureSkipVerify mismatch")
+	assertEqualE(t, retrieved.ServerName, testConfig.ServerName, "ServerName mismatch")
 }
 
 func TestDeregisterTLSConfig(t *testing.T) {
@@ -55,34 +47,24 @@ func TestDeregisterTLSConfig(t *testing.T) {
 
 	// Register a config
 	err := RegisterTLSConfig("test", &testConfig)
-	if err != nil {
-		t.Fatalf("RegisterTLSConfig failed: %v", err)
-	}
+	assertNilE(t, err, "RegisterTLSConfig failed")
 
 	// Verify it exists
 	_, exists := getTLSConfig("test")
-	if !exists {
-		t.Fatal("TLS config should exist after registration")
-	}
+	assertTrueE(t, exists, "TLS config should exist after registration")
 
 	// Deregister it
 	err = DeregisterTLSConfig("test")
-	if err != nil {
-		t.Fatalf("DeregisterTLSConfig failed: %v", err)
-	}
+	assertNilE(t, err, "DeregisterTLSConfig failed")
 
 	// Verify it's gone
 	_, exists = getTLSConfig("test")
-	if exists {
-		t.Fatal("TLS config should not exist after deregistration")
-	}
+	assertFalseE(t, exists, "TLS config should not exist after deregistration")
 }
 
 func TestGetTLSConfigNonExistent(t *testing.T) {
 	_, exists := getTLSConfig("nonexistent")
-	if exists {
-		t.Fatal("getTLSConfig should return false for non-existent config")
-	}
+	assertFalseE(t, exists, "getTLSConfig should return false for non-existent config")
 }
 
 func TestRegisterTLSConfigWithCustomRootCAs(t *testing.T) {
@@ -102,20 +84,14 @@ func TestRegisterTLSConfigWithCustomRootCAs(t *testing.T) {
 	}
 
 	err := RegisterTLSConfig("custom-ca", &testConfig)
-	if err != nil {
-		t.Fatalf("RegisterTLSConfig failed: %v", err)
-	}
+	assertNilE(t, err, "RegisterTLSConfig failed")
 
 	// Retrieve and verify
 	retrieved, exists := getTLSConfig("custom-ca")
-	if !exists {
-		t.Fatal("TLS config should exist")
-	}
+	assertTrueE(t, exists, "TLS config should exist")
 
 	// The retrieved should have the same certificates as the original
-	if !retrieved.RootCAs.Equal(testConfig.RootCAs) {
-		t.Fatal("RootCAs differs between original and retrieved")
-	}
+	assertTrueE(t, retrieved.RootCAs.Equal(testConfig.RootCAs), "RootCAs should match")
 }
 
 func TestMultipleTLSConfigs(t *testing.T) {
@@ -134,34 +110,22 @@ func TestMultipleTLSConfigs(t *testing.T) {
 	// Register multiple configs
 	for name, config := range configs {
 		err := RegisterTLSConfig(name, config)
-		if err != nil {
-			t.Fatalf("RegisterTLSConfig failed for %s: %v", name, err)
-		}
+		assertNilE(t, err, "RegisterTLSConfig failed for "+name)
 	}
 
 	// Verify all can be retrieved
 	for name, original := range configs {
 		retrieved, exists := getTLSConfig(name)
-		if !exists {
-			t.Fatalf("Config %s should exist", name)
-		}
-		if retrieved.InsecureSkipVerify != original.InsecureSkipVerify {
-			t.Fatalf("Config %s has wrong InsecureSkipVerify", name)
-		}
-		if retrieved.ServerName != original.ServerName {
-			t.Fatalf("Config %s has wrong ServerName", name)
-		}
+		assertTrueE(t, exists, "Config "+name+" should exist")
+		assertEqualE(t, retrieved.InsecureSkipVerify, original.InsecureSkipVerify, name+" InsecureSkipVerify mismatch")
+		assertEqualE(t, retrieved.ServerName, original.ServerName, name+" ServerName mismatch")
 	}
 
 	// Test overwriting
 	newConfig := tls.Config{InsecureSkipVerify: false, ServerName: "new.example.com"}
 	err := RegisterTLSConfig("insecure", &newConfig)
-	if err != nil {
-		t.Fatalf("RegisterTLSConfig should allow overwriting: %v", err)
-	}
+	assertNilE(t, err, "RegisterTLSConfig should allow overwriting")
 
 	retrieved, _ := getTLSConfig("insecure")
-	if retrieved.ServerName != "new.example.com" {
-		t.Fatal("Config should have been overwritten")
-	}
+	assertEqualE(t, retrieved.ServerName, "new.example.com", "Config should have been overwritten")
 }
