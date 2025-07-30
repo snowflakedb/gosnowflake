@@ -30,7 +30,7 @@ type constTypeProvider struct {
 type tcSafeGetTokens struct {
 	name              string
 	sr                *snowflakeRestful
-	expectedSessionId int64
+	expectedSessionID int64
 }
 
 func (ctp *constTypeProvider) currentTime() int64 {
@@ -104,23 +104,23 @@ func TestSafeGetTokens(t *testing.T) {
 				FuncPostQuery: postQueryTest,
 				TokenAccessor: getSimpleTokenAccessor(),
 			},
-			expectedSessionId: -1,
+			expectedSessionID: -1,
 		},
 		{
 			name: "without token accessor",
 			sr: &snowflakeRestful{
 				FuncPostQuery: postQueryTest,
 			},
-			expectedSessionId: 0,
+			expectedSessionID: 0,
 		},
 	}
 
 	for _, test := range testcases {
 		t.Run(fmt.Sprintf("%v", test.name), func(t *testing.T) {
-			_, _, sessionId := safeGetTokens(test.sr)
-			assertEqualE(t, sessionId, test.expectedSessionId, "expected sessionId to be %v, was %v",
-				fmt.Sprintf("%d", test.expectedSessionId),
-				fmt.Sprintf("%d", sessionId))
+			_, _, sessionID := safeGetTokens(test.sr)
+			assertEqualE(t, sessionID, test.expectedSessionID, "expected sessionId to be %v, was %v",
+				fmt.Sprintf("%d", test.expectedSessionID),
+				fmt.Sprintf("%d", sessionID))
 		})
 	}
 }
