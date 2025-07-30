@@ -10,7 +10,6 @@ var (
 	tlsConfigRegistry = make(map[string]*tls.Config)
 )
 
-// TODO(snoonan): Logging
 // RegisterTLSConfig registers a custom tls.Config to be used with sql.Open.
 // Use the key as a value in the DSN where tls=value.
 //
@@ -23,6 +22,8 @@ var (
 //   - CRL validation is preserved if CertRevocationCheckMode is enabled
 //   - If you provide a custom VerifyPeerCertificate callback, it will be chained
 //     with Snowflake's revocation checking (your callback runs first)
+//
+// TODO(snoonan): Logging
 func RegisterTLSConfig(key string, config *tls.Config) error {
 	tlsConfigLock.Lock()
 	tlsConfigRegistry[key] = config.Clone()
