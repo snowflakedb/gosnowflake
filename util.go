@@ -290,6 +290,13 @@ func (sta *simpleTokenAccessor) SetTokens(token string, masterToken string, sess
 	sta.sessionID = sessionID
 }
 
+func safeGetTokens(sr *snowflakeRestful) (token string, masterToken string, sessionID int64) {
+	if sr == nil || sr.TokenAccessor == nil {
+		return "", "", 0
+	}
+	return sr.TokenAccessor.GetTokens()
+}
+
 func escapeForCSV(value string) string {
 	if value == "" {
 		return "\"\""

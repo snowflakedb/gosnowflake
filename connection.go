@@ -96,7 +96,7 @@ func (sc *snowflakeConn) exec(
 	*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
-	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
+	_, _, sessionID := safeGetTokens(sc.rest)
 	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
 	queryContext, err := buildQueryContext(sc.queryContextCache)
 	if err != nil {
@@ -326,7 +326,7 @@ func (sc *snowflakeConn) ExecContext(
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
-	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
+	_, _, sessionID := safeGetTokens(sc.rest)
 	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
 	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
 	noResult := isAsyncMode(ctx)
@@ -416,7 +416,7 @@ func (sc *snowflakeConn) queryContextInternal(
 		return nil, driver.ErrBadConn
 	}
 
-	_, _, sessionID := sc.rest.TokenAccessor.GetTokens()
+	_, _, sessionID := safeGetTokens(sc.rest)
 	ctx = context.WithValue(setResultType(ctx, queryResultType), SFSessionIDKey, sessionID)
 	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
 	noResult := isAsyncMode(ctx)

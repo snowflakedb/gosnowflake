@@ -21,7 +21,7 @@ type heartbeat struct {
 }
 
 func (hc *heartbeat) run() {
-	_, _, sessionID := hc.restful.TokenAccessor.GetTokens()
+	_, _, sessionID := safeGetTokens(hc.restful)
 	ctx := context.WithValue(context.Background(), SFSessionIDKey, sessionID)
 	hbTicker := time.NewTicker(heartBeatInterval)
 	defer hbTicker.Stop()
@@ -40,7 +40,7 @@ func (hc *heartbeat) run() {
 }
 
 func (hc *heartbeat) start() {
-	_, _, sessionID := hc.restful.TokenAccessor.GetTokens()
+	_, _, sessionID := safeGetTokens(hc.restful)
 	ctx := context.WithValue(context.Background(), SFSessionIDKey, sessionID)
 	hc.shutdownChan = make(chan bool)
 	go hc.run()
@@ -48,7 +48,7 @@ func (hc *heartbeat) start() {
 }
 
 func (hc *heartbeat) stop() {
-	_, _, sessionID := hc.restful.TokenAccessor.GetTokens()
+	_, _, sessionID := safeGetTokens(hc.restful)
 	ctx := context.WithValue(context.Background(), SFSessionIDKey, sessionID)
 	hc.shutdownChan <- true
 	close(hc.shutdownChan)
@@ -60,7 +60,7 @@ func (hc *heartbeat) heartbeatMain() error {
 	params.Set(requestIDKey, NewUUID().String())
 	params.Set(requestGUIDKey, NewUUID().String())
 	headers := getHeaders()
-	token, _, sessionID := hc.restful.TokenAccessor.GetTokens()
+	token, _, sessionID := safeGetTokens(hc.restful)
 	ctx := context.WithValue(context.Background(), SFSessionIDKey, sessionID)
 	logger.WithContext(ctx).Info("Heartbeating!")
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)

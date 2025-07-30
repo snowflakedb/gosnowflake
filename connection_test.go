@@ -88,8 +88,6 @@ func TestExecWithEmptyRequestID(t *testing.T) {
 
 	sr := &snowflakeRestful{
 		FuncPostQuery: postQueryMock,
-		// in non-test scenario we use buildSnowflakeConn which takes care of always having TokenAccessor
-		TokenAccessor: getSimpleTokenAccessor(),
 	}
 
 	sc := &snowflakeConn{
@@ -263,7 +261,6 @@ func TestExecWithSpecificRequestID(t *testing.T) {
 
 	sr := &snowflakeRestful{
 		FuncPostQuery: postQueryMock,
-		TokenAccessor: getSimpleTokenAccessor(),
 	}
 
 	sc := &snowflakeConn{
@@ -316,7 +313,6 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 
 	sr := &snowflakeRestful{
 		FuncPostQuery: postQueryMock,
-		TokenAccessor: getSimpleTokenAccessor(),
 	}
 
 	sc := &snowflakeConn{
@@ -338,7 +334,6 @@ func TestExecContextPropagationIntegrationTest(t *testing.T) {
 func TestServiceName(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPostQuery: postQueryMock,
-		TokenAccessor: getSimpleTokenAccessor(),
 	}
 
 	sc := &snowflakeConn{
@@ -692,7 +687,6 @@ func TestExecWithServerSideError(t *testing.T) {
 
 	sr := &snowflakeRestful{
 		FuncPostQuery: postQueryMock,
-		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	sc := &snowflakeConn{
 		cfg:       &Config{Params: map[string]*string{}},
