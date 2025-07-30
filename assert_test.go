@@ -325,18 +325,3 @@ func assertTLSConfigsEqual(t *testing.T, expected, actual *tls.Config, msg strin
 	actualHasVerifier := actual.VerifyPeerCertificate != nil
 	assertEqualF(t, expectedHasVerifier, actualHasVerifier, "%s VerifyPeerCertificate presence", msg)
 }
-
-// assertTransportHasVerifier checks if transport has a TLS verifier function
-func assertTransportHasVerifier(t *testing.T, rt http.RoundTripper, shouldHave bool, msg string) {
-	transport := castToTransport(rt)
-	assertNotNilF(t, transport, "%s - expected http.Transport", msg)
-
-	if shouldHave {
-		assertNotNilF(t, transport.TLSClientConfig, "%s - expected TLSClientConfig", msg)
-		assertNotNilF(t, transport.TLSClientConfig.VerifyPeerCertificate, "%s - expected VerifyPeerCertificate", msg)
-	} else {
-		if transport.TLSClientConfig != nil {
-			assertNilF(t, transport.TLSClientConfig.VerifyPeerCertificate, "%s - expected no VerifyPeerCertificate", msg)
-		}
-	}
-}
