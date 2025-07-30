@@ -132,7 +132,12 @@ func TestRegisteredTLSConfigUsage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to register TLS config: %v", err)
 	}
-	defer DeregisterTLSConfig("test-direct")
+	defer func() {
+		err := DeregisterTLSConfig("test-direct")
+		if err != nil {
+			t.Fatalf("Failed to deregister test TLS config: %v", err)
+		}
+	}()
 
 	// Parse DSN that references the registered config
 	dsn := "user:pass@account/db?tls=test-direct&ocspFailOpen=false&disableOCSPChecks=true"

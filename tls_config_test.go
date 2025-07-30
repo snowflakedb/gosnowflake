@@ -66,7 +66,10 @@ func TestDeregisterTLSConfig(t *testing.T) {
 	}
 
 	// Deregister it
-	DeregisterTLSConfig("test")
+	err = DeregisterTLSConfig("test")
+	if err != nil {
+		t.Fatalf("DeregisterTLSConfig failed: %v", err)
+	}
 
 	// Verify it's gone
 	_, exists = getTLSConfig("test")
