@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	cr "crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
 	"encoding/pem"
@@ -2384,4 +2385,62 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
 	assertDeepEqualE(t, v5, customVarValue, "TestUrlDecodeIfNeededE2E variable value retrieved from the test did not match")
 	assertNilE(t, rows.Err(), "TestUrlDecodeIfNeededE2E ERROR getting rows.")
+}
+func TestDSNParsingWithTLSConfig(t *testing.T) {
+	// Clean up any existing registry
+	tlsConfigLock.Lock()
+	tlsConfigRegistry = make(map[string]*tls.Config)
+	tlsConfigLock.Unlock()
+
+	// Register test TLS config
+	testTLSConfig := tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         "custom.test.com",
+	}
+	err := RegisterTLSConfig("custom", &testTLSConfig)
+	if err != nil {
+		t.Fatalf("Failed to register test TLS config: %v", err)
+	}
+	defer DeregisterTLSConfig("custom")
+
+	testCases := []struct {
+		name     string
+		dsn      string
+		expected string
+	}{
+		{
+			name:     "Basic TLS config parameter",
+			dsn:      "user:pass@account/db?tls=custom",
+			expected: "custom",
+		},
+		{
+			name:     "TLS config with other parameters",
+			dsn:      "user:pass@account/db?tls=custom&warehouse=wh&role=admin",
+			expected: "custom",
+		},
+		{
+			name:     "No TLS config parameter",
+			dsn:      "user:pass@account/db?warehouse=wh",
+			expected: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := ParseDSN(tc.dsn)
+			if err != nil {
+				t.Fatalf("ParseDSN failed: %v", err)
+			}
+			// For DSN parsing, the TLS config should be resolved and set directly
+			if tc.expected == "" {
+				if cfg.TLSConfig != nil {
+					t.Fatalf("Expected nil TLSConfig for empty DSN, got non-nil")
+				}
+			} else {
+				if cfg.TLSConfig == nil {
+					t.Fatalf("Expected non-nil TLSConfig for DSN with tls=%s, got nil", tc.expected)
+				}
+			}
+		})
+	}
 }

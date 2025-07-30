@@ -899,7 +899,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Token = value
 		case "tls":
 			// Look up registered TLS config and set it directly
-			if tlsConfig, ok := getTLSConfigClone(value); ok {
+			if tlsConfig, ok := getTLSConfig(value); ok {
 				cfg.TLSConfig = tlsConfig
 			} else {
 				return fmt.Errorf("TLS config not found: %s", value)
