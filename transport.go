@@ -116,7 +116,15 @@ func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 // TODO(snoonan): Better interface for crlValidator return
 // createTransport is the main entry point for creating transports
 func (tf *transportFactory) createTransport() (http.RoundTripper, *crlValidator, error) {
+	if tf.config == nil {
+		// should never happen in production, only in tests
+		logger.Warn("createTransport: got nil Config, using default one")
+		return tf.createNoRevocationTransport(), nil, nil
+	}
+
+	// if user configured a custom Transporter, prioritize that
 	if tf.config.Transporter != nil {
+		logger.Debug("createTransport: using Transporter configured by the user")
 		return tf.config.Transporter, nil, nil
 	}
 
@@ -127,6 +135,7 @@ func (tf *transportFactory) createTransport() (http.RoundTripper, *crlValidator,
 
 	// Handle CRL validation path
 	if tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
+		logger.Debug("createTransport: will perform CRL validation")
 		crlValidator, err := tf.createCRLValidator()
 		if err != nil {
 			return nil, nil, err
@@ -147,9 +156,11 @@ func (tf *transportFactory) createTransport() (http.RoundTripper, *crlValidator,
 
 	// Handle no revocation checking path
 	if tf.config.DisableOCSPChecks || tf.config.InsecureMode {
+		logger.Debug("createTransport: skipping OCSP validation")
 		return tf.createNoRevocationTransport(), nil, nil
 	}
 
+	logger.Debug("createTransport: will perform OCSP validation")
 	return tf.createOCSPTransport(), nil, nil
 }
 
