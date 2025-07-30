@@ -72,6 +72,10 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 
 	sc.startHeartBeat()
 	sc.internal = &httpClient{sr: sc.rest}
+	// Check context before returning since connectionTelemetry doesn't handle cancellation
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	return sc, nil
 }
 
