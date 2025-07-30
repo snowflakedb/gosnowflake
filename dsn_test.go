@@ -2102,6 +2102,15 @@ func TestDSN(t *testing.T) {
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&crlCacheCleanerTick=7&crlCacheValidityTime=600&crlHttpClientTimeout=5&crlInMemoryCacheDisabled=true&crlOnDiskCacheDir=%2Ftmp%2Fcrl&crlOnDiskCacheDisabled=true&crlOnDiskCacheRemovalDelay=300&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
+		{
+			cfg: &Config{
+				User:          "u",
+				Password:      "p",
+				Account:       "a.b.c",
+				TLSConfigName: "custom",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tlsConfigName=custom&validateDefaultParameters=true",
+		},
 	}
 	for _, test := range testcases {
 		t.Run(test.dsn, func(t *testing.T) {
@@ -2384,12 +2393,12 @@ func TestDSNParsingWithTLSConfig(t *testing.T) {
 	}{
 		{
 			name:     "Basic TLS config parameter",
-			dsn:      "user:pass@account/db?tls=custom",
+			dsn:      "user:pass@account/db?tlsConfigName=custom",
 			expected: "custom",
 		},
 		{
 			name:     "TLS config with other parameters",
-			dsn:      "user:pass@account/db?tls=custom&warehouse=wh&role=admin",
+			dsn:      "user:pass@account/db?tlsConfigName=custom&warehouse=wh&role=admin",
 			expected: "custom",
 		},
 		{
@@ -2406,14 +2415,8 @@ func TestDSNParsingWithTLSConfig(t *testing.T) {
 				t.Fatalf("ParseDSN failed: %v", err)
 			}
 			// For DSN parsing, the TLS config should be resolved and set directly
-			if tc.expected == "" {
-				if cfg.TLSConfig != nil {
-					t.Fatalf("Expected nil TLSConfig for empty DSN, got non-nil")
-				}
-			} else {
-				if cfg.TLSConfig == nil {
-					t.Fatalf("Expected non-nil TLSConfig for DSN with tls=%s, got nil", tc.expected)
-				}
+			if cfg.TLSConfigName != tc.expected {
+				t.Fatalf("Expected TLSConfigName=%s, got %s", tc.expected, cfg.TLSConfigName)
 			}
 		})
 	}
