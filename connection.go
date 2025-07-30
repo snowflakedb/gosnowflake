@@ -891,6 +891,7 @@ func getTransport(cfg *Config) (http.RoundTripper, error) {
 		return cfg.Transporter, nil
 	}
 	if cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
+		logger.Debug("getTransport: will perform CRL validation")
 		transport, _, err := createCrlTransport(cfg)
 		if err != nil {
 			return nil, err
@@ -898,9 +899,9 @@ func getTransport(cfg *Config) (http.RoundTripper, error) {
 		return transport, nil
 	}
 	if cfg.DisableOCSPChecks || cfg.InsecureMode {
-		logger.Debug("getTransport: skipping OCSP validation for cloud storage")
+		logger.Debug("getTransport: skipping OCSP validation")
 		return snowflakeNoRevocationCheckTransport, nil
 	}
-	logger.Debug("getTransport: will perform OCSP validation for cloud storage")
+	logger.Debug("getTransport: will perform OCSP validation")
 	return SnowflakeTransport, nil
 }
