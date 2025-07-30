@@ -7,9 +7,6 @@ set -o pipefail
 CI_SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 TOPDIR=$(cd $CI_SCRIPTS_DIR/../.. && pwd)
 eval $(jq -r '.testconnection | to_entries | map("export \(.key)=\(.value|tostring)")|.[]' $TOPDIR/parameters.json)
-if [[ -n "$GITHUB_WORKFLOW" ]]; then
-	export SNOWFLAKE_TEST_PRIVATE_KEY_RSA_2048=$TOPDIR/rsa-2048-private-key.p8
-fi
 env | grep SNOWFLAKE | grep -v PASS | grep -v SECRET | sort
 cd $TOPDIR
 go install github.com/jstemmer/go-junit-report/v2@latest
