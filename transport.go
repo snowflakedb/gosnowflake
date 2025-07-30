@@ -19,8 +19,8 @@ type TransportConfig struct {
 }
 
 // DefaultTransportConfig returns the standard transport configuration
-func DefaultTransportConfig() TransportConfig {
-	return TransportConfig{
+func DefaultTransportConfig() *TransportConfig {
+	return &TransportConfig{
 		MaxIdleConns:    10,
 		IdleConnTimeout: 30 * time.Minute,
 		DialTimeout:     30 * time.Second,
@@ -30,8 +30,8 @@ func DefaultTransportConfig() TransportConfig {
 
 // CRLTransportConfig returns the transport configuration for CRL validation
 // Uses more conservative timeouts for CRL operations
-func CRLTransportConfig() TransportConfig {
-	return TransportConfig{
+func CRLTransportConfig() *TransportConfig {
+	return &TransportConfig{
 		MaxIdleConns:    5,
 		IdleConnTimeout: 5 * time.Minute,
 		DialTimeout:     5 * time.Second,
@@ -45,18 +45,16 @@ type TransportFactory struct {
 }
 
 // NewTransportFactory creates a new transport factory
-func NewTransportFactory(config *Config) *TransportFactory {
+func newTransportFactory(config *Config) *TransportFactory {
 	return &TransportFactory{config: config}
 }
 
 // createBaseTransport creates a base HTTP transport with the given configuration
-func (tf *TransportFactory) createBaseTransport(transportConfig TransportConfig, tlsConfig *tls.Config) *http.Transport {
+func (tf *TransportFactory) createBaseTransport(transportConfig *TransportConfig, tlsConfig *tls.Config) *http.Transport {
 	dialer := &net.Dialer{
 		Timeout: transportConfig.DialTimeout,
 	}
-	if transportConfig.KeepAlive > 0 {
-		dialer.KeepAlive = transportConfig.KeepAlive
-	}
+	dialer.KeepAlive = transportConfig.KeepAlive
 
 	return &http.Transport{
 		TLSClientConfig: tlsConfig,
@@ -221,38 +219,6 @@ func (tf *TransportFactory) createTransport() (http.RoundTripper, *crlValidator,
 
 	// Handle standard transport configuration
 	return tf.createStandardTransportInternal()
-}
-
-// CreateFileTransferTransport creates a transport for file transfer operations
-// This replaces the getTransport function
-func (tf *TransportFactory) CreateFileTransferTransport() (http.RoundTripper, error) {
-	if tf.config == nil {
-		// should never happen in production, only in tests
-		logger.Warn("CreateFileTransferTransport: got nil Config, using default one")
-		return tf.CreateNoRevocationTransport(), nil
-	}
-
-	// if user configured a custom Transporter, prioritize that
-	if tf.config.Transporter != nil {
-		logger.Debug("CreateFileTransferTransport: using Transporter configured by the user")
-		return tf.config.Transporter, nil
-	}
-
-	if tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
-		transport, err := tf.CreateCRLTransport()
-		if err != nil {
-			return nil, err
-		}
-		return transport, nil
-	}
-
-	if tf.config.DisableOCSPChecks || tf.config.InsecureMode {
-		logger.Debug("CreateFileTransferTransport: skipping OCSP validation for cloud storage")
-		return tf.CreateNoRevocationTransport(), nil
-	}
-
-	logger.Debug("CreateFileTransferTransport: will perform OCSP validation for cloud storage")
-	return tf.CreateOCSPTransport(), nil
 }
 
 // validateRevocationConfig checks for conflicting revocation settings

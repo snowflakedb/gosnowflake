@@ -890,7 +890,7 @@ func TestGetTransport(t *testing.T) {
 	crlCfg := &Config{
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
 	}
-	transportFactory := NewTransportFactory(crlCfg)
+	transportFactory := newTransportFactory(crlCfg)
 	crlTransport, err := transportFactory.CreateCRLTransport()
 	assertNilF(t, err)
 	testcases := []struct {

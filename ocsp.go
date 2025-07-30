@@ -1188,7 +1188,7 @@ var snowflakeNoRevocationCheckTransport http.RoundTripper
 var SnowflakeTransport *http.Transport
 
 func init() {
-	factory := NewTransportFactory(&Config{})
+	factory := newTransportFactory(&Config{})
 	snowflakeNoRevocationCheckTransport = factory.CreateNoRevocationTransport()
 	SnowflakeTransport = factory.CreateOCSPTransport()
 }

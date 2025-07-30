@@ -797,7 +797,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
-	transportFactory := NewTransportFactory(sc.cfg)
+	transportFactory := newTransportFactory(sc.cfg)
 	st, cv, err := transportFactory.createTransport()
 	if err != nil {
 		return nil, err
@@ -866,6 +866,6 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 }
 
 func getTransport(cfg *Config) (http.RoundTripper, error) {
-	transportFactory := NewTransportFactory(cfg)
-	return transportFactory.CreateFileTransferTransport()
+	transportFactory := newTransportFactory(cfg)
+	return transportFactory.CreateStandardTransport()
 }

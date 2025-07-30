@@ -13,7 +13,7 @@ func TestTransportFactoryErrorHandling(t *testing.T) {
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
 	}
 
-	factory := NewTransportFactory(conflictingConfig)
+	factory := newTransportFactory(conflictingConfig)
 	customTLS := &tls.Config{InsecureSkipVerify: true}
 
 	transport, err := factory.CreateCustomTLSTransport(customTLS)
@@ -37,7 +37,7 @@ func TestCreateStandardTransportErrorHandling(t *testing.T) {
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
 	}
 
-	factory := NewTransportFactory(conflictingConfig)
+	factory := newTransportFactory(conflictingConfig)
 
 	transport, err := factory.CreateStandardTransport()
 	if err == nil {
@@ -56,7 +56,7 @@ func TestCreateCustomTLSTransportSuccess(t *testing.T) {
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
 	}
 
-	factory := NewTransportFactory(validConfig)
+	factory := newTransportFactory(validConfig)
 	customTLS := &tls.Config{InsecureSkipVerify: true}
 
 	transport, err := factory.CreateCustomTLSTransport(customTLS)
@@ -76,7 +76,7 @@ func TestCreateStandardTransportSuccess(t *testing.T) {
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
 	}
 
-	factory := NewTransportFactory(validConfig)
+	factory := newTransportFactory(validConfig)
 
 	transport, err := factory.CreateStandardTransport()
 	if err != nil {
