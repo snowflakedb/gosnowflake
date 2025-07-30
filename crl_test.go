@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"database/sql"
@@ -743,6 +744,7 @@ func createCa(t *testing.T, issuerCert *x509.Certificate, issuerPrivateKey *rsa.
 		IsCA:                  true,
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true,
+		SignatureAlgorithm:    x509.SHA256WithRSA,
 	}
 	return createCert(t, caTemplate, issuerCert, issuerPrivateKey, crlEndpoint)
 }
@@ -764,9 +766,10 @@ func createLeafCert(t *testing.T, issuerCert *x509.Certificate, issuerPrivateKey
 			Locality:           []string{"Warsaw"},
 			CommonName:         "localhost",
 		},
-		NotBefore: time.Now(),
-		NotAfter:  notAfter,
-		IsCA:      false,
+		NotBefore:          time.Now(),
+		NotAfter:           notAfter,
+		IsCA:               false,
+		SignatureAlgorithm: x509.SHA256WithRSA,
 	}
 	return createCert(t, certTemplate, issuerCert, issuerPrivateKey, crlEndpoint)
 }
@@ -779,6 +782,7 @@ func createCert(t *testing.T, template, issuerCert *x509.Certificate, issuerPriv
 	}
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	assertNilF(t, err)
+	template.SubjectKeyId = calculateKeyID(t, &privateKey.PublicKey)
 	signerPrivateKey := cmp.Or(issuerPrivateKey, privateKey)
 	issuerCertOrSelfSigned := cmp.Or(issuerCert, template)
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, issuerCertOrSelfSigned, &privateKey.PublicKey, signerPrivateKey)
@@ -786,6 +790,13 @@ func createCert(t *testing.T, template, issuerCert *x509.Certificate, issuerPriv
 	cert, err := x509.ParseCertificate(certBytes)
 	assertNilF(t, err)
 	return privateKey, cert
+}
+
+func calculateKeyID(t *testing.T, pubKey any) []byte {
+	pubBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+	assertNilF(t, err)
+	hash := sha256.Sum256(pubBytes)
+	return hash[:]
 }
 
 func createCrl(t *testing.T, issuerCert *x509.Certificate, issuerPrivateKey *rsa.PrivateKey, args ...any) *x509.RevocationList {
