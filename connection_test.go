@@ -888,46 +888,64 @@ func (t EmptyTransporter) RoundTrip(*http.Request) (*http.Response, error) {
 
 func TestGetTransport(t *testing.T) {
 	testcases := []struct {
-		name      string
-		cfg       *Config
-		transport http.RoundTripper
+		name           string
+		cfg            *Config
+		transportCheck func(transport http.RoundTripper) bool
 	}{
 		{
-			name:      "DisableOCSPChecks and InsecureMode false",
-			cfg:       &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
-			transport: SnowflakeTransport,
+			name: "DisableOCSPChecks and InsecureMode false",
+			cfg:  &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
+			transportCheck: func(transport http.RoundTripper) bool {
+				// We should have a verifier function
+				return transport.(*http.Transport).TLSClientConfig.VerifyPeerCertificate != nil
+			},
 		},
 		{
-			name:      "DisableOCSPChecks true and InsecureMode false",
-			cfg:       &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
-			transport: snowflakeNoRevocationCheckTransport,
+			name: "DisableOCSPChecks true and InsecureMode false",
+			cfg:  &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
+			transportCheck: func(transport http.RoundTripper) bool {
+				// We should not have a TLSClientConfig
+				return transport.(*http.Transport).TLSClientConfig == nil
+			},
 		},
 		{
-			name:      "DisableOCSPChecks false and InsecureMode true",
-			cfg:       &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
-			transport: snowflakeNoRevocationCheckTransport,
+			name: "DisableOCSPChecks false and InsecureMode true",
+			cfg:  &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
+			transportCheck: func(transport http.RoundTripper) bool {
+				// We should not have a TLSClientConfig
+				return transport.(*http.Transport).TLSClientConfig == nil
+			},
 		},
 		{
-			name:      "DisableOCSPChecks and InsecureMode missing from Config",
-			cfg:       &Config{Account: "four"},
-			transport: SnowflakeTransport,
+			name: "DisableOCSPChecks and InsecureMode missing from Config",
+			cfg:  &Config{Account: "four"},
+			transportCheck: func(transport http.RoundTripper) bool {
+				// We should have a verifier function
+				return transport.(*http.Transport).TLSClientConfig.VerifyPeerCertificate != nil
+			},
 		},
 		{
-			name:      "whole Config is missing",
-			cfg:       nil,
-			transport: snowflakeNoRevocationCheckTransport,
+			name: "whole Config is missing",
+			cfg:  nil,
+			transportCheck: func(transport http.RoundTripper) bool {
+				// We should not have a TLSClientConfig
+				return transport.(*http.Transport).TLSClientConfig == nil
+			},
 		},
 		{
-			name:      "Using custom Transporter",
-			cfg:       &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
-			transport: EmptyTransporter{},
+			name: "Using custom Transporter",
+			cfg:  &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
+			transportCheck: func(transport http.RoundTripper) bool {
+				// We should have a custom Transporter
+				return transport == EmptyTransporter{}
+			},
 		},
 	}
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := getTransport(test.cfg)
 			assertNilE(t, err)
-			assertEqualE(t, result, test.transport)
+			assertTrueE(t, test.transportCheck(result))
 		})
 	}
 }
