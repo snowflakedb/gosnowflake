@@ -186,12 +186,7 @@ func TestCreateDiagnosticTransport(t *testing.T) {
 	assertNotNilE(t, transport.DialContext, "dialContext should not be nil")
 
 	// by default we should use the SnowflakeTransport
-	assertDeepEqualE(t, transport.TLSClientConfig.Certificates, SnowflakeTransport.TLSClientConfig.Certificates, "Certificates did not match with SnowflakeTransport default")
-	assertEqualE(t, transport.MaxIdleConns, SnowflakeTransport.MaxIdleConns, "MaxIdleConns did not match with SnowflakeTransport default")
-	assertEqualE(t, transport.IdleConnTimeout, SnowflakeTransport.IdleConnTimeout, "IdleConnTimeout did not match with SnowflakeTransport default")
-	if (transport.Proxy == nil) != (SnowflakeTransport.Proxy == nil) {
-		t.Errorf("Proxy function presence should match SnowflakeTransport default")
-	}
+	assertTransportsEqual(t, SnowflakeTransport, transport, "diagnostic transport vs SnowflakeTransport")
 }
 
 func TestOpenAndReadAllowlistJSON(t *testing.T) {

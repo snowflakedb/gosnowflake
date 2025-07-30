@@ -905,7 +905,8 @@ func TestGetTransport(t *testing.T) {
 			cfg:  &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
 			transportCheck: func(transport http.RoundTripper) bool {
 				// We should not have a TLSClientConfig
-				return transport.(*http.Transport).TLSClientConfig == nil
+				t := castToTransport(transport)
+				return t != nil && t.TLSClientConfig == nil
 			},
 		},
 		{
@@ -913,7 +914,8 @@ func TestGetTransport(t *testing.T) {
 			cfg:  &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
 			transportCheck: func(transport http.RoundTripper) bool {
 				// We should not have a TLSClientConfig
-				return transport.(*http.Transport).TLSClientConfig == nil
+				t := castToTransport(transport)
+				return t != nil && t.TLSClientConfig == nil
 			},
 		},
 		{
@@ -921,7 +923,8 @@ func TestGetTransport(t *testing.T) {
 			cfg:  &Config{Account: "four"},
 			transportCheck: func(transport http.RoundTripper) bool {
 				// We should have a verifier function
-				return transport.(*http.Transport).TLSClientConfig.VerifyPeerCertificate != nil
+				t := castToTransport(transport)
+				return t != nil && t.TLSClientConfig != nil && t.TLSClientConfig.VerifyPeerCertificate != nil
 			},
 		},
 		{
@@ -929,7 +932,8 @@ func TestGetTransport(t *testing.T) {
 			cfg:  nil,
 			transportCheck: func(transport http.RoundTripper) bool {
 				// We should not have a TLSClientConfig
-				return transport.(*http.Transport).TLSClientConfig == nil
+				t := castToTransport(transport)
+				return t != nil && t.TLSClientConfig == nil
 			},
 		},
 		{
@@ -958,6 +962,8 @@ func TestGetCRLTransport(t *testing.T) {
 		transportFactory := newTransportFactory(crlCfg)
 		crlTransport, _, err := transportFactory.createTransport()
 		assertNilF(t, err)
-		assertEqualE(t, crlTransport.(*http.Transport).MaxIdleConns, 5)
+		transport := castToTransport(crlTransport)
+		assertNotNilF(t, transport, "Expected http.Transport")
+		assertEqualE(t, transport.MaxIdleConns, 5)
 	})
 }
