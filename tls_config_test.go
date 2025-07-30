@@ -137,6 +137,22 @@ func TestTLSConfigConcurrency(t *testing.T) {
 }
 
 func TestDSNParsingWithTLSConfig(t *testing.T) {
+	// Clean up any existing registry
+	tlsConfigLock.Lock()
+	tlsConfigRegistry = make(map[string]*tls.Config)
+	tlsConfigLock.Unlock()
+
+	// Register test TLS config
+	testTLSConfig := &tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         "custom.test.com",
+	}
+	err := RegisterTLSConfig("custom", testTLSConfig)
+	if err != nil {
+		t.Fatalf("Failed to register test TLS config: %v", err)
+	}
+	defer DeregisterTLSConfig("custom")
+
 	testCases := []struct {
 		name     string
 		dsn      string
@@ -165,8 +181,15 @@ func TestDSNParsingWithTLSConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ParseDSN failed: %v", err)
 			}
-			if cfg.TLSConfig != tc.expected {
-				t.Fatalf("Expected TLSConfig %q, got %q", tc.expected, cfg.TLSConfig)
+			// For DSN parsing, the TLS config should be resolved and set directly
+			if tc.expected == "" {
+				if cfg.TLSConfig != nil {
+					t.Fatalf("Expected nil TLSConfig for empty DSN, got non-nil")
+				}
+			} else {
+				if cfg.TLSConfig == nil {
+					t.Fatalf("Expected non-nil TLSConfig for DSN with tls=%s, got nil", tc.expected)
+				}
 			}
 		})
 	}

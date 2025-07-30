@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -101,7 +102,7 @@ type Config struct {
 
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 
-	TLSConfig string // TLS configuration name registered with RegisterTLSConfig
+	TLSConfig *tls.Config // Custom TLS configuration
 
 	DisableTelemetry bool // indicates whether to disable telemetry
 
@@ -897,7 +898,12 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		case "token":
 			cfg.Token = value
 		case "tls":
-			cfg.TLSConfig = value
+			// Look up registered TLS config and set it directly
+			if tlsConfig, ok := getTLSConfigClone(value); ok {
+				cfg.TLSConfig = tlsConfig
+			} else {
+				return fmt.Errorf("TLS config not found: %s", value)
+			}
 		case "workloadIdentityProvider":
 			cfg.WorkloadIdentityProvider = value
 		case "workloadIdentityEntraResource":

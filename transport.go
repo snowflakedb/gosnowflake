@@ -209,11 +209,9 @@ func (tf *TransportFactory) createTransport() (http.RoundTripper, *crlValidator,
 	}
 
 	// Handle custom TLS configuration path
-	if tf.config.TLSConfig != "" {
-		customTLSConfig, ok := getTLSConfigClone(tf.config.TLSConfig)
-		if !ok {
-			return nil, nil, errors.New("TLS config not found: " + tf.config.TLSConfig)
-		}
+	if tf.config.TLSConfig != nil {
+		// Use direct TLS config - clone it for safety
+		customTLSConfig := tf.config.TLSConfig.Clone()
 		return tf.createCustomTLSTransportInternal(customTLSConfig)
 	}
 

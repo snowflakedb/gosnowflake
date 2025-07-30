@@ -1209,7 +1209,7 @@ func TestParseDSN(t *testing.T) {
 			config: &Config{
 				Account: "account", User: "user", Password: "pass", Database: "db",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
-				TLSConfig:                 "custom",
+				TLSConfig:                 nil, // Will be set by DSN parsing if TLS config is registered
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
@@ -1227,7 +1227,7 @@ func TestParseDSN(t *testing.T) {
 				Account: "account", User: "user", Password: "pass", Database: "db",
 				Warehouse: "wh", Role: "admin",
 				Protocol: "https", Host: "account.snowflakecomputing.com", Port: 443,
-				TLSConfig:                 "custom-ca",
+				TLSConfig:                 nil, // Will be set by DSN parsing if TLS config is registered
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
