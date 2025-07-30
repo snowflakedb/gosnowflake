@@ -29,8 +29,9 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
-	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
-	privKeyPKCS1 := generatePKCS1String(testPrivKey)
+	privKey, _ := rsa.GenerateKey(cr.Reader, 2048)
+	privKeyPKCS8 := generatePKCS8StringSupress(privKey)
+	privKeyPKCS1 := generatePKCS1String(privKey)
 	testcases := []tcParseDSN{
 		{
 			dsn: "user:pass@ac-1-laksdnflaf.global/db/schema",

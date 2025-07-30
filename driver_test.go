@@ -1865,7 +1865,7 @@ func TestValidateDatabaseParameter(t *testing.T) {
 		},
 	}
 	for idx, tc := range testcases {
-		t.Run(dsn, func(t *testing.T) {
+		t.Run(maskSecrets(dsn), func(t *testing.T) {
 			newDSN := tc.dsn
 			parameters := url.Values{}
 			if protocol != "" {
