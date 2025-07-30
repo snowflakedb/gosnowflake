@@ -1189,8 +1189,8 @@ var SnowflakeTransport *http.Transport
 
 func init() {
 	factory := newTransportFactory(&Config{})
-	snowflakeNoRevocationCheckTransport = factory.CreateNoRevocationTransport()
-	SnowflakeTransport = factory.CreateOCSPTransport()
+	snowflakeNoRevocationCheckTransport = factory.createNoRevocationTransport()
+	SnowflakeTransport = factory.createOCSPTransport()
 }
 
 // SnowflakeTransportTest includes the certificate revocation check in parallel

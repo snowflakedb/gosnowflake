@@ -887,12 +887,6 @@ func (t EmptyTransporter) RoundTrip(*http.Request) (*http.Response, error) {
 }
 
 func TestGetTransport(t *testing.T) {
-	crlCfg := &Config{
-		CertRevocationCheckMode: CertRevocationCheckEnabled,
-	}
-	transportFactory := newTransportFactory(crlCfg)
-	crlTransport, err := transportFactory.CreateCRLTransport()
-	assertNilF(t, err)
 	testcases := []struct {
 		name      string
 		cfg       *Config
@@ -924,11 +918,6 @@ func TestGetTransport(t *testing.T) {
 			transport: snowflakeNoRevocationCheckTransport,
 		},
 		{
-			name:      "Using CRLs",
-			cfg:       crlCfg,
-			transport: crlTransport,
-		},
-		{
 			name:      "Using custom Transporter",
 			cfg:       &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
 			transport: EmptyTransporter{},
@@ -938,14 +927,19 @@ func TestGetTransport(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := getTransport(test.cfg)
 			assertNilE(t, err)
-			if test.name == "Using CRLs" {
-				// we can't use default comparison for transport here, because this type is not comparable
-				// it works for other cases, because they use the same pointer
-				// for this case, we assume that only CRL transport uses such a small number of idle conns
-				assertEqualE(t, result.(*http.Transport).MaxIdleConns, 5)
-			} else {
-				assertEqualE(t, result, test.transport)
-			}
+			assertEqualE(t, result, test.transport)
 		})
 	}
+}
+func TestGetCRLTransport(t *testing.T) {
+	t.Run("Using CRLs", func(t *testing.T) {
+		crlCfg := &Config{
+			CertRevocationCheckMode: CertRevocationCheckEnabled,
+			DisableOCSPChecks:       true,
+		}
+		transportFactory := newTransportFactory(crlCfg)
+		crlTransport, _, err := transportFactory.createTransport()
+		assertNilF(t, err)
+		assertEqualE(t, crlTransport.(*http.Transport).MaxIdleConns, 5)
+	})
 }

@@ -10,17 +10,17 @@ import (
 	"time"
 )
 
-// TransportConfig holds the configuration for creating HTTP transports
-type TransportConfig struct {
+// transportConfig holds the configuration for creating HTTP transports
+type transportConfig struct {
 	MaxIdleConns    int
 	IdleConnTimeout time.Duration
 	DialTimeout     time.Duration
 	KeepAlive       time.Duration
 }
 
-// DefaultTransportConfig returns the standard transport configuration
-func DefaultTransportConfig() *TransportConfig {
-	return &TransportConfig{
+// defaultTransportConfig returns the standard transport configuration
+func defaultTransportConfig() *transportConfig {
+	return &transportConfig{
 		MaxIdleConns:    10,
 		IdleConnTimeout: 30 * time.Minute,
 		DialTimeout:     30 * time.Second,
@@ -28,10 +28,10 @@ func DefaultTransportConfig() *TransportConfig {
 	}
 }
 
-// CRLTransportConfig returns the transport configuration for CRL validation
+// crlTransportConfig returns the transport configuration for CRL validation
 // Uses more conservative timeouts for CRL operations
-func CRLTransportConfig() *TransportConfig {
-	return &TransportConfig{
+func crlTransportConfig() *transportConfig {
+	return &transportConfig{
 		MaxIdleConns:    5,
 		IdleConnTimeout: 5 * time.Minute,
 		DialTimeout:     5 * time.Second,
@@ -40,21 +40,21 @@ func CRLTransportConfig() *TransportConfig {
 }
 
 // TransportFactory handles creation of HTTP transports with different validation modes
-type TransportFactory struct {
+type transportFactory struct {
 	config *Config
 }
 
 // NewTransportFactory creates a new transport factory
-func newTransportFactory(config *Config) *TransportFactory {
-	return &TransportFactory{config: config}
+func newTransportFactory(config *Config) *transportFactory {
+	return &transportFactory{config: config}
 }
 
 // createBaseTransport creates a base HTTP transport with the given configuration
-func (tf *TransportFactory) createBaseTransport(transportConfig *TransportConfig, tlsConfig *tls.Config) *http.Transport {
+func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig, tlsConfig *tls.Config) *http.Transport {
 	dialer := &net.Dialer{
-		Timeout: transportConfig.DialTimeout,
+		Timeout:   transportConfig.DialTimeout,
+		KeepAlive: transportConfig.KeepAlive,
 	}
-	dialer.KeepAlive = transportConfig.KeepAlive
 
 	return &http.Transport{
 		TLSClientConfig: tlsConfig,
@@ -65,28 +65,22 @@ func (tf *TransportFactory) createBaseTransport(transportConfig *TransportConfig
 	}
 }
 
-// CreateOCSPTransport creates a transport with OCSP validation
-func (tf *TransportFactory) CreateOCSPTransport() *http.Transport {
+// createOCSPTransport creates a transport with OCSP validation
+func (tf *transportFactory) createOCSPTransport() *http.Transport {
 	tlsConfig := &tls.Config{
 		RootCAs:               certPool,
 		VerifyPeerCertificate: verifyPeerCertificateSerial,
 	}
-	return tf.createBaseTransport(DefaultTransportConfig(), tlsConfig)
+	return tf.createBaseTransport(defaultTransportConfig(), tlsConfig)
 }
 
-// CreateNoRevocationTransport creates a transport without certificate revocation checking
-func (tf *TransportFactory) CreateNoRevocationTransport() *http.Transport {
-	return tf.createBaseTransport(DefaultTransportConfig(), nil)
+// createNoRevocationTransport creates a transport without certificate revocation checking
+func (tf *transportFactory) createNoRevocationTransport() *http.Transport {
+	return tf.createBaseTransport(defaultTransportConfig(), nil)
 }
 
-// CreateCRLTransport creates a transport with CRL validation
-func (tf *TransportFactory) CreateCRLTransport() (*http.Transport, error) {
-	transport, _, err := tf.createCRLTransportInternal()
-	return transport, err
-}
-
-// createCRLTransportInternal creates a transport with CRL validation and returns the validator
-func (tf *TransportFactory) createCRLTransportInternal() (*http.Transport, *crlValidator, error) {
+// createCRLTransport creates a transport with CRL validation
+func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 	allowCertificatesWithoutCrlURL := tf.config.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
 	client := &http.Client{
 		Timeout: getConfigDuration(tf.config.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
@@ -103,124 +97,81 @@ func (tf *TransportFactory) createCRLTransportInternal() (*http.Transport, *crlV
 		client,
 	)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	tlsConfig := &tls.Config{
-		VerifyPeerCertificate: crlValidator.verifyPeerCertificates,
-	}
-
-	transport := tf.createBaseTransport(CRLTransportConfig(), tlsConfig)
-	return transport, crlValidator, nil
-}
-
-// CreateCustomTLSTransport creates a transport with custom TLS configuration
-func (tf *TransportFactory) CreateCustomTLSTransport(customTLSConfig *tls.Config) (http.RoundTripper, error) {
-	transport, _, err := tf.createCustomTLSTransportInternal(customTLSConfig)
-	if err != nil {
 		return nil, err
 	}
-	return transport, nil
+
+	return crlValidator, nil
 }
 
-// createCustomTLSTransportInternal creates a transport with custom TLS configuration and returns the validator
-func (tf *TransportFactory) createCustomTLSTransportInternal(customTLSConfig *tls.Config) (http.RoundTripper, *crlValidator, error) {
-	// Validate configuration
-	if err := tf.validateRevocationConfig(); err != nil {
-		return nil, nil, err
-	}
-
+// createCustomTLSTransport creates a transport with custom TLS configuration and returns the validator
+func (tf *transportFactory) createCustomTLSTransport(customTLSConfig *tls.Config) (http.RoundTripper, *crlValidator, error) {
 	// Handle CRL validation path
 	if tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
-		return tf.createCustomTLSWithCRL(customTLSConfig)
+		cv, err := tf.createCRLValidator()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Chain CRL verification with custom TLS config
+		crlVerify := cv.verifyPeerCertificates
+		customTLSConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(customTLSConfig.VerifyPeerCertificate, crlVerify)
+
+		// Create transport with custom TLS config and CRL transport settings
+		transport := tf.createBaseTransport(defaultTransportConfig(), customTLSConfig)
+		return transport, cv, nil
 	}
 
 	// Handle OCSP validation path
 	if !tf.config.DisableOCSPChecks && !tf.config.InsecureMode {
-		return tf.createCustomTLSWithOCSP(customTLSConfig), nil, nil
+		customTLSConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(customTLSConfig.VerifyPeerCertificate, verifyPeerCertificateSerial)
 	}
 
-	// No revocation checking - just use the custom TLS config
-	return tf.createBaseTransport(DefaultTransportConfig(), customTLSConfig), nil, nil
+	return tf.createBaseTransport(defaultTransportConfig(), customTLSConfig), nil, nil
 }
 
-// createCustomTLSWithCRL creates a transport combining custom TLS config with CRL validation
-func (tf *TransportFactory) createCustomTLSWithCRL(customTLSConfig *tls.Config) (http.RoundTripper, *crlValidator, error) {
-	// Create CRL validator
-	_, cv, err := tf.createCRLTransportInternal()
-	if err != nil {
-		return nil, nil, err
+// createTransport is the main entry point for creating transports
+func (tf *transportFactory) createTransport() (http.RoundTripper, *crlValidator, error) {
+	if tf.config.Transporter != nil {
+		return tf.config.Transporter, nil, nil
 	}
 
-	// Chain CRL verification with custom TLS config
-	crlVerify := cv.verifyPeerCertificates
-	tf.chainVerificationCallbacks(customTLSConfig, crlVerify)
-
-	// Create transport with custom TLS config and CRL transport settings
-	transport := tf.createBaseTransport(CRLTransportConfig(), customTLSConfig)
-	return transport, cv, nil
-}
-
-// createCustomTLSWithOCSP creates a transport combining custom TLS config with OCSP validation
-func (tf *TransportFactory) createCustomTLSWithOCSP(customTLSConfig *tls.Config) http.RoundTripper {
-	// Chain OCSP verification with custom TLS config
-	tf.chainVerificationCallbacks(customTLSConfig, verifyPeerCertificateSerial)
-	return tf.createBaseTransport(DefaultTransportConfig(), customTLSConfig)
-}
-
-// CreateStandardTransport creates a transport without custom TLS configuration
-func (tf *TransportFactory) CreateStandardTransport() (http.RoundTripper, error) {
-	transport, _, err := tf.createStandardTransportInternal()
-	if err != nil {
-		return nil, err
-	}
-	return transport, nil
-}
-
-// createStandardTransportInternal creates a transport without custom TLS configuration and returns the validator
-func (tf *TransportFactory) createStandardTransportInternal() (http.RoundTripper, *crlValidator, error) {
 	// Validate configuration
 	if err := tf.validateRevocationConfig(); err != nil {
 		return nil, nil, err
 	}
 
+	// Handle custom TLS configuration path
+	if tf.config.TLSConfig != nil {
+		customTLSConfig := tf.config.TLSConfig
+		return tf.createCustomTLSTransport(customTLSConfig)
+	}
+
 	// Handle CRL validation path
 	if tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
-		return tf.createCRLTransportInternal()
+		crlValidator, err := tf.createCRLValidator()
+		if err != nil {
+			return nil, nil, err
+		}
+		tlsConfig := &tls.Config{
+			VerifyPeerCertificate: crlValidator.verifyPeerCertificates,
+		}
+		return tf.createBaseTransport(crlTransportConfig(), tlsConfig), crlValidator, nil
 	}
 
 	// Handle no revocation checking path
 	if tf.config.DisableOCSPChecks || tf.config.InsecureMode {
-		return tf.CreateNoRevocationTransport(), nil, nil
+		return tf.createNoRevocationTransport(), nil, nil
 	}
 
 	// Default OCSP path - set OCSP fail open mode
 	ocspResponseCacheLock.Lock()
 	atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(tf.config.OCSPFailOpen))
 	ocspResponseCacheLock.Unlock()
-	return tf.CreateOCSPTransport(), nil, nil
-}
-
-// createTransport is the main entry point for creating transports (internal use)
-func (tf *TransportFactory) createTransport() (http.RoundTripper, *crlValidator, error) {
-	// Early return: Use custom transporter if provided
-	if tf.config.Transporter != nil {
-		return tf.config.Transporter, nil, nil
-	}
-
-	// Handle custom TLS configuration path
-	if tf.config.TLSConfig != nil {
-		// Use direct TLS config - clone it for safety
-		customTLSConfig := tf.config.TLSConfig.Clone()
-		return tf.createCustomTLSTransportInternal(customTLSConfig)
-	}
-
-	// Handle standard transport configuration
-	return tf.createStandardTransportInternal()
+	return tf.createOCSPTransport(), nil, nil
 }
 
 // validateRevocationConfig checks for conflicting revocation settings
-func (tf *TransportFactory) validateRevocationConfig() error {
+func (tf *transportFactory) validateRevocationConfig() error {
 	if !tf.config.DisableOCSPChecks && !tf.config.InsecureMode && tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
 		return errors.New("both OCSP and CRL cannot be enabled at the same time, please disable one of them")
 	}
@@ -228,22 +179,21 @@ func (tf *TransportFactory) validateRevocationConfig() error {
 }
 
 // chainVerificationCallbacks chains a user's custom verification with the provided verification function
-func (tf *TransportFactory) chainVerificationCallbacks(customTLSConfig *tls.Config, verificationFunc func([][]byte, [][]*x509.Certificate) error) {
-	if customTLSConfig.VerifyPeerCertificate == nil {
-		customTLSConfig.VerifyPeerCertificate = verificationFunc
-		return
+func (tf *transportFactory) chainVerificationCallbacks(orignalVerificationFunc func([][]byte, [][]*x509.Certificate) error, verificationFunc func([][]byte, [][]*x509.Certificate) error) func([][]byte, [][]*x509.Certificate) error {
+	if orignalVerificationFunc == nil {
+		return verificationFunc
 	}
 
 	// Chain the existing verification with the new one
-	originalVerify := customTLSConfig.VerifyPeerCertificate
-	customTLSConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	newVerify := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		// Run the user's custom verification first
-		if err := originalVerify(rawCerts, verifiedChains); err != nil {
+		if err := orignalVerificationFunc(rawCerts, verifiedChains); err != nil {
 			return err
 		}
 		// Then run the provided verification
 		return verificationFunc(rawCerts, verifiedChains)
 	}
+	return newVerify
 }
 
 // getConfigDuration returns the config duration if non-zero, otherwise returns the default

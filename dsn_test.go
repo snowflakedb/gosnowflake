@@ -2370,7 +2370,12 @@ func TestDSNParsingWithTLSConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to register test TLS config: %v", err)
 	}
-	defer DeregisterTLSConfig("custom")
+	defer func() {
+		err := DeregisterTLSConfig("custom")
+		if err != nil {
+			t.Fatalf("Failed to deregister test TLS config: %v", err)
+		}
+	}()
 
 	testCases := []struct {
 		name     string

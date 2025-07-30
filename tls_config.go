@@ -10,6 +10,7 @@ var (
 	tlsConfigRegistry = make(map[string]*tls.Config)
 )
 
+// TODO(snoonan): Logging
 // RegisterTLSConfig registers a custom tls.Config to be used with sql.Open.
 // Use the key as a value in the DSN where tls=value.
 //

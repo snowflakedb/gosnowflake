@@ -11,12 +11,12 @@ func TestTransportFactoryErrorHandling(t *testing.T) {
 		DisableOCSPChecks:       false,
 		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
+		TLSConfig:               &tls.Config{InsecureSkipVerify: true},
 	}
 
 	factory := newTransportFactory(conflictingConfig)
-	customTLS := &tls.Config{InsecureSkipVerify: true}
 
-	transport, err := factory.CreateCustomTLSTransport(customTLS)
+	transport, _, err := factory.createTransport()
 	if err == nil {
 		t.Fatal("Expected error for conflicting OCSP and CRL configuration")
 	}
@@ -39,7 +39,7 @@ func TestCreateStandardTransportErrorHandling(t *testing.T) {
 
 	factory := newTransportFactory(conflictingConfig)
 
-	transport, err := factory.CreateStandardTransport()
+	transport, _, err := factory.createTransport()
 	if err == nil {
 		t.Fatal("Expected error for conflicting OCSP and CRL configuration")
 	}
@@ -54,12 +54,12 @@ func TestCreateCustomTLSTransportSuccess(t *testing.T) {
 		DisableOCSPChecks:       true,
 		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
+		TLSConfig:               &tls.Config{InsecureSkipVerify: true},
 	}
 
 	factory := newTransportFactory(validConfig)
-	customTLS := &tls.Config{InsecureSkipVerify: true}
 
-	transport, err := factory.CreateCustomTLSTransport(customTLS)
+	transport, _, err := factory.createTransport()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestCreateStandardTransportSuccess(t *testing.T) {
 
 	factory := newTransportFactory(validConfig)
 
-	transport, err := factory.CreateStandardTransport()
+	transport, _, err := factory.createTransport()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
