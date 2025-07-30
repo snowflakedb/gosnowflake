@@ -6,6 +6,8 @@ import (
 	"crypto/rsa"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/base64"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"net/http"
@@ -79,7 +81,16 @@ func init() {
 }
 
 func createDSN(timezone string) {
-	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
+	// Check if we should use JWT authentication
+	authenticator := os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR")
+
+	if authenticator == "JWT" {
+		// For JWT authentication, don't include password in the DSN
+		dsn = fmt.Sprintf("%s@%s/%s/%s", username, host, dbname, schemaname)
+	} else {
+		// For standard password authentication
+		dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
+	}
 
 	parameters := url.Values{}
 	parameters.Add("timezone", timezone)
@@ -94,6 +105,23 @@ func createDSN(timezone string) {
 	}
 	if rolename != "" {
 		parameters.Add("role", rolename)
+	}
+
+	// Add authenticator and private key for JWT authentication
+	if authenticator == "JWT" {
+		parameters.Add("authenticator", "JWT")
+		privateKeyPath := os.Getenv("SNOWFLAKE_TEST_PRIVATE_KEY")
+		if privateKeyPath != "" {
+			// Read and encode the private key file
+			privateKeyBytes, err := os.ReadFile(privateKeyPath)
+			if err == nil {
+				block, _ := pem.Decode(privateKeyBytes)
+				if block != nil && block.Type == "PRIVATE KEY" {
+					encodedKey := base64.URLEncoding.EncodeToString(block.Bytes)
+					parameters.Add("privateKey", encodedKey)
+				}
+			}
+		}
 	}
 
 	if len(parameters) > 0 {
