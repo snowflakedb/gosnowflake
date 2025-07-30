@@ -2416,6 +2416,11 @@ func TestDSNParsingWithTLSConfig(t *testing.T) {
 			dsn:      "user:pass@account/db?warehouse=wh",
 			expected: "",
 		},
+		{
+			name:     "Nonexistent TLS config",
+			dsn:      "user:pass@account/db?tls=nonexistent",
+			expected: "",
+		},
 	}
 
 	for _, tc := range testCases {

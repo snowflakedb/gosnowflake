@@ -149,14 +149,3 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 	assertNotNilF(t, transport, "Expected non-nil transport")
 	assertNilF(t, crlValidator, "Expected nil CRL validator for this configuration")
 }
-
-func TestTLSConfigNotFound(t *testing.T) {
-	// Test error handling when registered TLS config doesn't exist in DSN parsing
-	dsn := "user:pass@account/db?tls=nonexistent"
-
-	_, err := ParseDSN(dsn)
-	assertNotNilF(t, err, "Expected error for nonexistent TLS config in DSN")
-
-	expectedError := "TLS config not found: nonexistent"
-	assertEqualF(t, err.Error(), expectedError, "Expected specific error message")
-}
