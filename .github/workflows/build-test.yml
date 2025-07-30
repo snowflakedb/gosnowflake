@@ -215,6 +215,43 @@ jobs:
               uses: codecov/codecov-action@v5
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    fipsOnly:
+      runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+      name: FIPS only mode
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 17
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: ${{ matrix.go }}
+        - name: Test
+          shell: bash
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+            CLOUD_PROVIDER: ${{ matrix.cloud }}
+            GORACE: history_size=7
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+            TEST_GODEBUG: fips140=only
+            SEQUENTIAL_TESTS: ${{ inputs.sequentialTests }}
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+          run: ./ci/test.sh
+        - name: Upload test results to Codecov
+          if: ${{!cancelled()}}
+          uses: codecov/test-results-action@v1
+          with:
+            token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+        - name: Upload coverage to Codecov
+          uses: codecov/codecov-action@v5
+          with:
+            token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
     build-test-linux-minicore-disabled:
       runs-on: ubuntu-latest
       name: Ubuntu - minicore disabled

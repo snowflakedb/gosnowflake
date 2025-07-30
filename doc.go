@@ -1514,6 +1514,11 @@ There are two ways to disable minicore:
 When minicore is disabled (either at runtime or compile time), the driver continues to work
 normally but without the additional functionality provided by the native library.
 
+# FIPS forcing
+
+If you force FIPS mode using fips140 GODEBUG option, driver will switch OCSP requests from SHA-1 to SHA-256.
+Be aware, that Snowflake cache server doesn't support OCSP requests signed with SHA-256, so driver may work slower, and, in case of OCSP cache server unavailability, OCSP requests will fail, and if OCSP is enabled, then connection attempts will fail as well.
+
 # Connectivity diagnostics
 
 ==> Relevant configuration

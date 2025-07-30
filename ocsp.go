@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto"
+	"crypto/fips140"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -764,7 +765,12 @@ func (ov *ocspValidator) validateWithCacheForAllCertificates(verifiedChains []*x
 }
 
 func (ov *ocspValidator) validateWithCache(subject, issuer *x509.Certificate) (*ocspStatus, []byte, *certIDKey) {
-	ocspReq, err := ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{})
+	reqOpts := &ocsp.RequestOptions{}
+	if fips140.Enabled() {
+		logger.Debug("FIPS 140 mode is enabled. Using SHA256 for OCSP request.")
+		reqOpts.Hash = crypto.SHA256
+	}
+	ocspReq, err := ocsp.CreateRequest(subject, issuer, reqOpts)
 	if err != nil {
 		logger.Errorf("failed to create OCSP request from the certificates.\n")
 		return &ocspStatus{
