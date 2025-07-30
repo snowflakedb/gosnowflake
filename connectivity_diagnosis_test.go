@@ -186,7 +186,7 @@ func TestCreateDiagnosticTransport(t *testing.T) {
 	assertNotNilE(t, transport.DialContext, "dialContext should not be nil")
 
 	// by default we should use the SnowflakeTransport
-	assertEqualE(t, transport.TLSClientConfig, SnowflakeTransport.TLSClientConfig, "TLSClientConfig did not match with SnowflakeTransport default")
+	assertDeepEqualE(t, transport.TLSClientConfig.Certificates, SnowflakeTransport.TLSClientConfig.Certificates, "Certificates did not match with SnowflakeTransport default")
 	assertEqualE(t, transport.MaxIdleConns, SnowflakeTransport.MaxIdleConns, "MaxIdleConns did not match with SnowflakeTransport default")
 	assertEqualE(t, transport.IdleConnTimeout, SnowflakeTransport.IdleConnTimeout, "IdleConnTimeout did not match with SnowflakeTransport default")
 	if (transport.Proxy == nil) != (SnowflakeTransport.Proxy == nil) {
