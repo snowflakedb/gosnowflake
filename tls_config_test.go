@@ -92,11 +92,6 @@ func TestRegisterTLSConfigWithCustomRootCAs(t *testing.T) {
 
 	// Create a test cert pool
 	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM([]byte(`-----BEGIN CERTIFICATE-----
-MIIBkTCB+wIJAKHHH1pVqGqNMA0GCSqGSIb3DQEBCwUAMBQxEjAQBgNVBAMMCWxv
-Y2FsaG9zdDAeFw0yMzAxMDEwMDAwMDBaFw0yNDAxMDEwMDAwMDBaMBQxEjAQBgNV
-BAMMCWxvY2FsaG9zdDBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQC1/2...
------END CERTIFICATE-----`))
 
 	testConfig := tls.Config{
 		RootCAs:            certPool,
