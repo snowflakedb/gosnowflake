@@ -17,16 +17,10 @@ func TestTransportFactoryErrorHandling(t *testing.T) {
 	factory := newTransportFactory(conflictingConfig)
 
 	transport, _, err := factory.createTransport()
-	if err == nil {
-		t.Fatal("Expected error for conflicting OCSP and CRL configuration")
-	}
-	if transport != nil {
-		t.Fatal("Expected nil transport when error occurs")
-	}
+	assertNotNilF(t, err, "Expected error for conflicting OCSP and CRL configuration")
+	assertNilF(t, transport, "Expected nil transport when error occurs")
 	expectedError := "both OCSP and CRL cannot be enabled at the same time, please disable one of them"
-	if err.Error() != expectedError {
-		t.Fatalf("Expected error message: %s, got: %s", expectedError, err.Error())
-	}
+	assertEqualF(t, err.Error(), expectedError, "Expected specific error message")
 }
 
 func TestCreateStandardTransportErrorHandling(t *testing.T) {
@@ -40,12 +34,8 @@ func TestCreateStandardTransportErrorHandling(t *testing.T) {
 	factory := newTransportFactory(conflictingConfig)
 
 	transport, _, err := factory.createTransport()
-	if err == nil {
-		t.Fatal("Expected error for conflicting OCSP and CRL configuration")
-	}
-	if transport != nil {
-		t.Fatal("Expected nil transport when error occurs")
-	}
+	assertNotNilF(t, err, "Expected error for conflicting OCSP and CRL configuration")
+	assertNilF(t, transport, "Expected nil transport when error occurs")
 }
 
 func TestCreateCustomTLSTransportSuccess(t *testing.T) {
@@ -60,12 +50,8 @@ func TestCreateCustomTLSTransportSuccess(t *testing.T) {
 	factory := newTransportFactory(validConfig)
 
 	transport, _, err := factory.createTransport()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if transport == nil {
-		t.Fatal("Expected non-nil transport for valid configuration")
-	}
+	assertNilF(t, err, "Unexpected error")
+	assertNotNilF(t, transport, "Expected non-nil transport for valid configuration")
 }
 
 func TestCreateStandardTransportSuccess(t *testing.T) {
@@ -79,12 +65,8 @@ func TestCreateStandardTransportSuccess(t *testing.T) {
 	factory := newTransportFactory(validConfig)
 
 	transport, _, err := factory.createTransport()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if transport == nil {
-		t.Fatal("Expected non-nil transport for valid configuration")
-	}
+	assertNilF(t, err, "Unexpected error")
+	assertNotNilF(t, transport, "Expected non-nil transport for valid configuration")
 }
 
 func TestDirectTLSConfigUsage(t *testing.T) {
@@ -104,15 +86,9 @@ func TestDirectTLSConfigUsage(t *testing.T) {
 	factory := newTransportFactory(config)
 	transport, crlValidator, err := factory.createTransport()
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if transport == nil {
-		t.Fatal("Expected non-nil transport")
-	}
-	if crlValidator != nil {
-		t.Fatal("Expected nil CRL validator for this configuration")
-	}
+	assertNilF(t, err, "Unexpected error")
+	assertNotNilF(t, transport, "Expected non-nil transport")
+	assertNilF(t, crlValidator, "Expected nil CRL validator for this configuration")
 }
 
 func TestRegisteredTLSConfigUsage(t *testing.T) {
@@ -129,37 +105,25 @@ func TestRegisteredTLSConfigUsage(t *testing.T) {
 		ServerName:         "registered.example.com",
 	}
 	err := RegisterTLSConfig("test-direct", customTLS)
-	if err != nil {
-		t.Fatalf("Failed to register TLS config: %v", err)
-	}
+	assertNilF(t, err, "Failed to register TLS config")
 	defer func() {
 		err := DeregisterTLSConfig("test-direct")
-		if err != nil {
-			t.Fatalf("Failed to deregister test TLS config: %v", err)
-		}
+		assertNilF(t, err, "Failed to deregister test TLS config")
 	}()
 
 	// Parse DSN that references the registered config
 	dsn := "user:pass@account/db?tls=test-direct&ocspFailOpen=false&disableOCSPChecks=true"
 	config, err2 := ParseDSN(dsn)
-	if err2 != nil {
-		t.Fatalf("Failed to parse DSN: %v", err2)
-	}
+	assertNilF(t, err2, "Failed to parse DSN")
 
 	config.CertRevocationCheckMode = CertRevocationCheckDisabled
 
 	factory := newTransportFactory(config)
 	transport, crlValidator, err := factory.createTransport()
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if transport == nil {
-		t.Fatal("Expected non-nil transport")
-	}
-	if crlValidator != nil {
-		t.Fatal("Expected nil CRL validator for this configuration")
-	}
+	assertNilF(t, err, "Unexpected error")
+	assertNotNilF(t, transport, "Expected non-nil transport")
+	assertNilF(t, crlValidator, "Expected nil CRL validator for this configuration")
 }
 
 func TestDirectTLSConfigOnly(t *testing.T) {
@@ -181,15 +145,9 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 	factory := newTransportFactory(config)
 	transport, crlValidator, err := factory.createTransport()
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if transport == nil {
-		t.Fatal("Expected non-nil transport")
-	}
-	if crlValidator != nil {
-		t.Fatal("Expected nil CRL validator for this configuration")
-	}
+	assertNilF(t, err, "Unexpected error")
+	assertNotNilF(t, transport, "Expected non-nil transport")
+	assertNilF(t, crlValidator, "Expected nil CRL validator for this configuration")
 }
 
 func TestTLSConfigNotFound(t *testing.T) {
@@ -197,12 +155,8 @@ func TestTLSConfigNotFound(t *testing.T) {
 	dsn := "user:pass@account/db?tls=nonexistent"
 
 	_, err := ParseDSN(dsn)
-	if err == nil {
-		t.Fatal("Expected error for nonexistent TLS config in DSN")
-	}
+	assertNotNilF(t, err, "Expected error for nonexistent TLS config in DSN")
 
 	expectedError := "TLS config not found: nonexistent"
-	if err.Error() != expectedError {
-		t.Fatalf("Expected error message: %s, got: %s", expectedError, err.Error())
-	}
+	assertEqualF(t, err.Error(), expectedError, "Expected specific error message")
 }
