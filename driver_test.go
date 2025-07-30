@@ -88,7 +88,7 @@ func createDSN(timezone string) {
 	// Check if we should use JWT authentication
 	authenticator := os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR")
 
-	if authenticator == "JWT" {
+	if authenticator == "SNOWFLAKE_JWT" {
 		// For JWT authentication, don't include password in the DSN
 		dsn = fmt.Sprintf("%s@%s/%s/%s", username, host, dbname, schemaname)
 	} else {
@@ -112,8 +112,8 @@ func createDSN(timezone string) {
 	}
 
 	// Add authenticator and private key for JWT authentication
-	if authenticator == "JWT" {
-		parameters.Add("authenticator", "JWT")
+	if authenticator == "SNOWFLAKE_JWT" {
+		parameters.Add("authenticator", "SNOWFLAKE_JWT")
 		privateKeyPath := os.Getenv("SNOWFLAKE_TEST_PRIVATE_KEY")
 		if privateKeyPath != "" {
 			// Read and encode the private key file
