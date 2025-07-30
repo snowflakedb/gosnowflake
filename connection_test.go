@@ -897,7 +897,8 @@ func TestGetTransport(t *testing.T) {
 			cfg:  &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
 			transportCheck: func(transport http.RoundTripper) bool {
 				// We should have a verifier function
-				return transport.(*http.Transport).TLSClientConfig.VerifyPeerCertificate != nil
+				t := castToTransport(transport)
+				return t != nil && t.TLSClientConfig != nil && t.TLSClientConfig.VerifyPeerCertificate != nil
 			},
 		},
 		{
