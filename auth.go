@@ -186,6 +186,7 @@ type authRequestClientEnvironment struct {
 	OsVersion       string `json:"OS_VERSION"`
 	OCSPMode        string `json:"OCSP_MODE"`
 	GoVersion       string `json:"GO_VERSION"`
+	OauthType       string `json:"OAUTH_TYPE,omitempty"`
 }
 
 type authRequestData struct {
@@ -204,7 +205,6 @@ type authRequestData struct {
 	BrowserModeRedirectPort string                       `json:"BROWSER_MODE_REDIRECT_PORT,omitempty"`
 	ProofKey                string                       `json:"PROOF_KEY,omitempty"`
 	Token                   string                       `json:"TOKEN,omitempty"`
-	OauthType               string                       `json:"OAUTH_TYPE,omitempty"`
 	Provider                string                       `json:"PROVIDER,omitempty"`
 }
 type authRequest struct {
@@ -357,6 +357,14 @@ func authenticate(
 	if err != nil {
 		applicationPath = "unknown"
 	}
+
+	oauthType := ""
+	if sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode {
+		oauthType = "OAUTH_AUTHORIZATION_CODE"
+	} else if sc.cfg.Authenticator == AuthTypeOAuthClientCredentials {
+		oauthType = "OAUTH_CLIENT_CREDENTIALS"
+	}
+
 	clientEnvironment := authRequestClientEnvironment{
 		Application:     sc.cfg.Application,
 		ApplicationPath: applicationPath,
@@ -364,6 +372,7 @@ func authenticate(
 		OsVersion:       platform,
 		OCSPMode:        sc.cfg.ocspMode(),
 		GoVersion:       runtime.Version(),
+		OauthType:       oauthType,
 	}
 
 	sessionParameters := make(map[string]interface{})
@@ -531,7 +540,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = token
-		requestMain.OauthType = "OAUTH_AUTHORIZATION_CODE"
 	case AuthTypeOAuthClientCredentials:
 		logger.WithContext(sc.ctx).Debug("OAuth client credentials")
 		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
@@ -544,7 +552,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = token
-		requestMain.OauthType = "OAUTH_CLIENT_CREDENTIALS"
 	case AuthTypeWorkloadIdentityFederation:
 		if !experimentalAuthEnabled() {
 			return nil, errors.New("workload identity authentication is not ready to use")
