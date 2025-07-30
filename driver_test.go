@@ -1978,6 +1978,40 @@ func TestOpenWithConfig(t *testing.T) {
 	db.Close()
 }
 
+func TestOpenWithConfigCancel(t *testing.T) {
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "telemetry.json"},
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+	)
+	driver := SnowflakeDriver{}
+	config := wiremock.connectionConfig()
+	blockingRoundTripper := newBlockingRoundTripper(snowflakeNoRevocationCheckTransport, 0)
+	countingRoundTripper := newCountingRoundTripper(blockingRoundTripper)
+	config.Transporter = countingRoundTripper
+
+	t.Run("canceled during request:login-request", func(t *testing.T) {
+		blockingRoundTripper.setPathBlockTime("/session/v1/login-request", 50*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		defer cancel()
+		_, err := driver.OpenWithConfig(ctx, *config)
+		assertErrIsE(t, context.DeadlineExceeded, err)
+		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
+		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/telemetry/send"), 0)
+	})
+
+	t.Run("canceled during request:telemetry/send", func(t *testing.T) {
+		blockingRoundTripper.reset()
+		countingRoundTripper.reset()
+		blockingRoundTripper.setPathBlockTime("/telemetry/send", 50*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		defer cancel()
+		_, err := driver.OpenWithConfig(ctx, *config)
+		assertErrIsE(t, context.DeadlineExceeded, err)
+		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
+		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/telemetry/send"), 1)
+	})
+}
+
 func TestOpenWithInvalidConfig(t *testing.T) {
 	config, err := ParseDSN("u:p@h?tmpDirPath=%2Fnon-existing")
 	if err != nil {
@@ -1995,7 +2029,7 @@ func TestOpenWithTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
-	countingTransport := newCountingRoundTripper(snowflakeNoOcspTransport)
+	countingTransport := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 	var transport http.RoundTripper = countingTransport
 	config.Transporter = transport
 	driver := SnowflakeDriver{}
@@ -2126,60 +2160,4 @@ func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {
 	err = rows.Scan(&v)
 	assertNilF(t, err)
 	assertEqualE(t, v, 1)
-}
-
-type countingRoundTripper struct {
-	delegate     http.RoundTripper
-	getReqCount  map[string]int
-	postReqCount map[string]int
-}
-
-func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
-	return &countingRoundTripper{
-		delegate:     delegate,
-		getReqCount:  make(map[string]int),
-		postReqCount: make(map[string]int),
-	}
-}
-
-func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Method == http.MethodGet {
-		crt.getReqCount[req.URL.String()]++
-	} else if req.Method == http.MethodPost {
-		crt.postReqCount[req.URL.String()]++
-	}
-	return crt.delegate.RoundTrip(req)
-}
-
-func (crt *countingRoundTripper) reset() {
-	crt.getReqCount = make(map[string]int)
-	crt.postReqCount = make(map[string]int)
-}
-
-func (crt *countingRoundTripper) totalRequests() int {
-	total := 0
-	for _, reqs := range crt.getReqCount {
-		total += reqs
-	}
-	for _, reqs := range crt.postReqCount {
-		total += reqs
-	}
-	return total
-}
-
-type blockingRoundTripper struct {
-	delegate  http.RoundTripper
-	blockTime time.Duration
-}
-
-func newBlockingRoundTripper(delegate http.RoundTripper, blockTime time.Duration) *blockingRoundTripper {
-	return &blockingRoundTripper{
-		delegate:  delegate,
-		blockTime: blockTime,
-	}
-}
-
-func (brt *blockingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	time.Sleep(brt.blockTime)
-	return brt.delegate.RoundTrip(req)
 }

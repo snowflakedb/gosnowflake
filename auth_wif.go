@@ -8,15 +8,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -152,8 +153,8 @@ type defaultAwsAttestationMetadataProvider struct {
 	awsCfg aws.Config
 }
 
-func createDefaultAwsAttestationMetadataProvider(ctx context.Context) *defaultAwsAttestationMetadataProvider {
-	cfg, err := config.LoadDefaultConfig(ctx)
+func createDefaultAwsAttestationMetadataProvider(ctx context.Context) awsAttestationMetadataProvider {
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithEC2IMDSRegion())
 	if err != nil {
 		logger.Debugf("Unable to load AWS config: %v", err)
 		return nil
@@ -304,7 +305,12 @@ func (c *gcpIdentityAttestationCreator) createTokenRequest() (*http.Request, err
 }
 
 func fetchTokenFromMetadataService(req *http.Request, cfg *Config) string {
-	client := &http.Client{Transport: getTransport(cfg)}
+	transport, err := getTransport(cfg)
+	if err != nil {
+		logger.Debugf("Failed to create HTTP transport: %v", err)
+		return ""
+	}
+	client := &http.Client{Transport: transport}
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Debugf("Metadata server request was not successful: %v", err)
