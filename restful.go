@@ -408,6 +408,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 			}
 		}
 		sr.TokenAccessor.SetTokens(respd.Data.SessionToken, respd.Data.MasterToken, respd.Data.SessionID)
+		logger.WithContext(ctx).Info("successfully renewed session")
 		return nil
 	}
 	b, err := io.ReadAll(resp.Body)

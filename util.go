@@ -292,6 +292,7 @@ func (sta *simpleTokenAccessor) SetTokens(token string, masterToken string, sess
 
 func safeGetTokens(sr *snowflakeRestful) (token string, masterToken string, sessionID int64) {
 	if sr == nil || sr.TokenAccessor == nil {
+		logger.Error("safeGetTokens: could not get tokens as TokenAccessor was nil")
 		return "", "", 0
 	}
 	return sr.TokenAccessor.GetTokens()
