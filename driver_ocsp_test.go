@@ -907,11 +907,11 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 	}
 
 	countingRoundTripper := newCountingRoundTripper(customCertPoolTransporter)
-	originalNoOcspTransport := snowflakeNoOcspTransport
+	originalNoOcspTransport := snowflakeNoRevocationCheckTransport
 	defer func() {
-		snowflakeNoOcspTransport = originalNoOcspTransport
+		snowflakeNoRevocationCheckTransport = originalNoOcspTransport
 	}()
-	snowflakeNoOcspTransport = countingRoundTripper
+	snowflakeNoRevocationCheckTransport = countingRoundTripper
 	cfg.Transporter = countingRoundTripper
 
 	runSampleQuery := func(cfg *Config) {

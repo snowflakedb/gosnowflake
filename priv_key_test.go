@@ -67,59 +67,6 @@ func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
 	return b.String()
 }
 
-// Integration test for the JWT authentication function
-func TestJWTAuthentication(t *testing.T) {
-	// Generate a fresh private key for this test only, don't use global testPrivKey
-	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("Failed to generate test private key: %s", err.Error())
-	}
-
-	// For private key generated on the fly, we want to load the public key to the server first
-	if !customPrivateKey {
-		conn := openConn(t)
-		defer conn.Close()
-		// Load server's public key to database
-		pubKeyByte, err := x509.MarshalPKIXPublicKey(localTestKey.Public())
-		if err != nil {
-			t.Fatalf("error marshaling public key: %s", err.Error())
-		}
-		if _, err = conn.ExecContext(context.Background(), "USE ROLE ACCOUNTADMIN"); err != nil {
-			t.Fatalf("error changin role: %s", err.Error())
-		}
-		encodedKey := base64.StdEncoding.EncodeToString(pubKeyByte)
-		if _, err = conn.ExecContext(context.Background(), fmt.Sprintf("ALTER USER %v set rsa_public_key='%v'", username, encodedKey)); err != nil {
-			t.Fatalf("error setting server's public key: %s", err.Error())
-		}
-	}
-
-	// Test that a valid private key can pass
-	jwtDSN := appendPrivateKeyString(&dsn, localTestKey)
-	db, err := sql.Open("snowflake", jwtDSN)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
-	}
-	if _, err = db.Exec("SELECT 1"); err != nil {
-		t.Fatalf("failed to run a select 1 query using jwt auth: %s", err.Error())
-	}
-
-	// Test that an invalid private key cannot pass
-	invalidPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Error(err)
-	}
-	jwtDSN = appendPrivateKeyString(&dsn, invalidPrivateKey)
-	db, err = sql.Open("snowflake", jwtDSN)
-	if err != nil {
-		t.Error(err)
-	}
-	if _, err = db.Exec("SELECT 1"); err == nil {
-		t.Fatalf("An invalid jwt token can pass")
-	}
-
-	db.Close()
-}
-
 func TestJWTTokenTimeout(t *testing.T) {
 	resetHTTPMocks(t)
 

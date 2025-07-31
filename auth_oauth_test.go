@@ -15,7 +15,7 @@ import (
 
 func TestUnitOAuthAuthorizationCode(t *testing.T) {
 	skipOnMac(t, "keychain requires password")
-	roundTripper := newCountingRoundTripper(snowflakeNoOcspTransport)
+	roundTripper := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 	httpClient := &http.Client{
 		Transport: roundTripper,
 	}
@@ -263,7 +263,7 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 			mu: sync.Mutex{},
 		}
 	}
-	roundTripper := newCountingRoundTripper(snowflakeNoOcspTransport)
+	roundTripper := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 
 	t.Run("successful flow", func(t *testing.T) {
 		wiremock.registerMappings(t,
@@ -490,7 +490,7 @@ func TestClientCredentialsFlow(t *testing.T) {
 			mu: sync.Mutex{},
 		}
 	}
-	roundTripper := newCountingRoundTripper(snowflakeNoOcspTransport)
+	roundTripper := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
 
 	cfg := wiremock.connectionConfig()
 	cfg.Role = "ANALYST"

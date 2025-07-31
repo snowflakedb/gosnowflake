@@ -324,6 +324,14 @@ func TestParseToml(t *testing.T) {
 				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check"},
 			values: []interface{}{true, "true", false, "false"},
 		},
+		{
+			testParams: []string{"connectionDiagnosticsEnabled", "connection_diagnostics_enabled"},
+			values:     []interface{}{true, false},
+		},
+		{
+			testParams: []string{"connectionDiagnosticsAllowlistFile", "connection_diagnostics_allowlist_file"},
+			values:     []interface{}{"myallowlist.json"},
+		},
 	}
 
 	for _, testCase := range testCases {

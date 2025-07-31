@@ -12,7 +12,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -1099,4 +1101,76 @@ func TestWithOAuthClientCredentialsFlowManual(t *testing.T) {
 	db := sql.OpenDB(connector)
 	defer db.Close()
 	runSmokeQuery(t, db)
+}
+
+// Running this test locally:
+// * Push branch to repository
+// * Set PARAMETERS_SECRET
+// * Run ci/test_wif.sh
+func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
+	account := os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
+	host := os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
+	provider := os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
+	if account == "" || host == "" || provider == "" {
+		t.Skip("Test can run only on cloud VM with env variables set")
+	}
+	testCases := []struct {
+		name     string
+		skip     func() (bool, string)
+		setupCfg func(*Config)
+	}{
+		{
+			name:     "autodetected provider",
+			setupCfg: func(config *Config) {},
+		},
+		{
+			name: "explicit provider",
+			setupCfg: func(config *Config) {
+				config.WorkloadIdentityProvider = provider
+			},
+		},
+		{
+			name: "OIDC",
+			skip: func() (bool, string) {
+				if provider != "GCP" {
+					return true, "OIDC test works only on GCP"
+				}
+				return false, ""
+			},
+			setupCfg: func(config *Config) {
+				config.WorkloadIdentityProvider = "OIDC"
+				config.Token = func() string {
+					cmd := exec.Command("wget", "-O", "-", "--header=Metadata-Flavor: Google", "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity?audience=snowflakecomputing.com")
+					output, err := cmd.Output()
+					if err != nil {
+						t.Fatalf("error executing GCP metadata request: %v", err)
+					}
+					token := strings.TrimSpace(string(output))
+					if token == "" {
+						t.Fatal("failed to retrieve GCP access token: empty response")
+					}
+					return token
+				}()
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip != nil {
+				if skip, msg := tc.skip(); skip {
+					t.Skip(msg)
+				}
+			}
+			config := &Config{
+				Account:       account,
+				Host:          host,
+				Authenticator: AuthTypeWorkloadIdentityFederation,
+			}
+			tc.setupCfg(config)
+			connector := NewConnector(SnowflakeDriver{}, *config)
+			db := sql.OpenDB(connector)
+			defer db.Close()
+			runSmokeQuery(t, db)
+		})
+	}
 }
