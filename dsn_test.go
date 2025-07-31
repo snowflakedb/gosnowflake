@@ -2145,7 +2145,7 @@ func TestDSN(t *testing.T) {
 			dsn, err := DSN(test.cfg)
 			if test.err == nil && err == nil {
 				if dsn != test.dsn {
-					t.Errorf("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
+					assertEqualF("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
 				}
 				_, err := ParseDSN(dsn)
 				assertNilF(t, err, "failed to parse DSN. dsn:", dsn)
