@@ -2329,9 +2329,9 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 		t.Skip("Skipping URL decode test when JWT is configured globally")
 	}
 
-	customVarName := "CUSTOM_VAR_" + generateAlphaNumericString(5)
-	customVarValue := "CUSTOM_VALUE_" + generateAlphaNumericString(10)
-	myQueryTag := "QUERY_TAG_" + generateAlphaNumericString(10)
+	customVarName := "CUSTOM_VARIABLE"
+	customVarValue := "test"
+	myQueryTag := "mytag"
 	cfg := Config{
 		Account:       os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
 		Database:      os.Getenv("SNOWFLAKE_TEST_DATABASE"),
@@ -2345,7 +2345,7 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 		PrivateKey:    nil,               // Ensure no private key
 		Params:        map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
 	}
-	mydsn, err := DSN(cfg)
+	mydsn, err := DSN(&cfg)
 	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to create DSN from Config")
 	db, err := sql.Open("snowflake", mydsn)
 	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to connect.")
