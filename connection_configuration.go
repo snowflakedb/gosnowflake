@@ -216,6 +216,11 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 			return err
 		}
 		cfg.Token = v
+
+	case "connectiondiagnosticsenabled":
+		cfg.ConnectionDiagnosticsEnabled, err = parseBool(value)
+	case "connectiondiagnosticsallowlistfile":
+		cfg.ConnectionDiagnosticsAllowlistFile, err = parseString(value)
 	default:
 		param, err := parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {
