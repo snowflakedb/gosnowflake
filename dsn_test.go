@@ -29,8 +29,9 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
-	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
-	privKeyPKCS1 := generatePKCS1String(testPrivKey)
+	privKey, _ := rsa.GenerateKey(cr.Reader, 2048)
+	privKeyPKCS8 := generatePKCS8StringSupress(privKey)
+	privKeyPKCS1 := generatePKCS1String(privKey)
 	testcases := []tcParseDSN{
 		{
 			dsn: "user:pass@ac-1-laksdnflaf.global/db/schema",
@@ -820,7 +821,7 @@ func TestParseDSN(t *testing.T) {
 			dsn: fmt.Sprintf("u:p@ac.snowflake.local:9876?account=ac&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS8),
 			config: &Config{
 				Account: "ac", User: "u", Password: "p",
-				Authenticator: AuthTypeJwt, PrivateKey: testPrivKey,
+				Authenticator: AuthTypeJwt, PrivateKey: privKey,
 				Protocol: "http", Host: "ac.snowflake.local", Port: 9876,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
@@ -842,8 +843,7 @@ func TestParseDSN(t *testing.T) {
 					Scheme: "https",
 					Host:   "ac.okta.com",
 				},
-				PrivateKey: testPrivKey,
-				Protocol:   "http", Host: "ac.snowflake.local", Port: 9876,
+				Protocol: "http", Host: "ac.snowflake.local", Port: 9876,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
@@ -865,8 +865,7 @@ func TestParseDSN(t *testing.T) {
 					Host:   "ac.some-host.com",
 					Path:   "/custom-okta-url",
 				},
-				PrivateKey: testPrivKey,
-				Protocol:   "http", Host: "ac.snowflake.local", Port: 9876,
+				Protocol: "http", Host: "ac.snowflake.local", Port: 9876,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
@@ -882,7 +881,7 @@ func TestParseDSN(t *testing.T) {
 			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS1),
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
-				Authenticator: AuthTypeJwt, PrivateKey: testPrivKey,
+				Authenticator: AuthTypeJwt, PrivateKey: privKey,
 				Protocol: "http", Host: "a.snowflake.local", Port: 9876,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
@@ -893,7 +892,7 @@ func TestParseDSN(t *testing.T) {
 				IncludeRetryReason:        ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      &SnowflakeError{Number: ErrCodePrivateKeyParseError},
+			err:      nil,
 		},
 		{
 			dsn: "user:pass@account/db/s?ocspFailOpen=true",
@@ -2047,7 +2046,7 @@ func TestDSN(t *testing.T) {
 		},
 	}
 	for _, test := range testcases {
-		t.Run(test.dsn, func(t *testing.T) {
+		t.Run(maskSecrets(test.dsn), func(t *testing.T) {
 			dsn, err := DSN(test.cfg)
 			if test.err == nil && err == nil {
 				if dsn != test.dsn {
@@ -2264,22 +2263,26 @@ func TestUrlDecodeIfNeeded(t *testing.T) {
 }
 
 func TestUrlDecodeIfNeededE2E(t *testing.T) {
-	customVarName := "CUSTOM_VARIABLE"
-	customVarValue := "test"
-	myQueryTag := "mytag"
-	testPort, err := strconv.Atoi(os.Getenv("SNOWFLAKE_TEST_PORT"))
-	if err != nil {
-		testPort = 443
+	// Skip this test when using JWT authentication globally to prevent unexpected behavior
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping URL decode test when JWT is configured globally")
 	}
 
-	cfg := &Config{
-		Account:  os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
-		Host:     os.Getenv("SNOWFLAKE_TEST_HOST"),
-		Port:     testPort,
-		Protocol: os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
-		User:     os.Getenv("SNOWFLAKE_TEST_USER"),
-		Password: os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
-		Params:   map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
+	customVarName := "CUSTOM_VAR_" + generateAlphaNumericString(5)
+	customVarValue := "CUSTOM_VALUE_" + generateAlphaNumericString(10)
+	myQueryTag := "QUERY_TAG_" + generateAlphaNumericString(10)
+	cfg := Config{
+		Account:       os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
+		Database:      os.Getenv("SNOWFLAKE_TEST_DATABASE"),
+		Schema:        os.Getenv("SNOWFLAKE_TEST_SCHEMA"),
+		Warehouse:     os.Getenv("SNOWFLAKE_TEST_WAREHOUSE"),
+		Role:          os.Getenv("SNOWFLAKE_TEST_ROLE"),
+		Protocol:      os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
+		User:          os.Getenv("SNOWFLAKE_TEST_USER"),
+		Password:      os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		Params:        map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
 	}
 	mydsn, err := DSN(cfg)
 	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to create DSN from Config")

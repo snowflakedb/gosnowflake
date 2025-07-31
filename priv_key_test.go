@@ -69,12 +69,18 @@ func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
 
 // Integration test for the JWT authentication function
 func TestJWTAuthentication(t *testing.T) {
+	// Generate a fresh private key for this test only, don't use global testPrivKey
+	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate test private key: %s", err.Error())
+	}
+
 	// For private key generated on the fly, we want to load the public key to the server first
 	if !customPrivateKey {
 		conn := openConn(t)
 		defer conn.Close()
 		// Load server's public key to database
-		pubKeyByte, err := x509.MarshalPKIXPublicKey(testPrivKey.Public())
+		pubKeyByte, err := x509.MarshalPKIXPublicKey(localTestKey.Public())
 		if err != nil {
 			t.Fatalf("error marshaling public key: %s", err.Error())
 		}
@@ -88,15 +94,14 @@ func TestJWTAuthentication(t *testing.T) {
 	}
 
 	// Test that a valid private key can pass
-	jwtDSN := appendPrivateKeyString(&dsn, testPrivKey)
+	jwtDSN := appendPrivateKeyString(&dsn, localTestKey)
 	db, err := sql.Open("snowflake", jwtDSN)
 	if err != nil {
 		t.Fatalf("error creating a connection object: %s", err.Error())
 	}
 	if _, err = db.Exec("SELECT 1"); err != nil {
-		t.Fatalf("error executing: %s", err.Error())
+		t.Fatalf("failed to run a select 1 query using jwt auth: %s", err.Error())
 	}
-	db.Close()
 
 	// Test that an invalid private key cannot pass
 	invalidPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -119,7 +124,11 @@ func TestJWTTokenTimeout(t *testing.T) {
 	resetHTTPMocks(t)
 
 	dsn := "user:pass@localhost:12345/db/schema?account=jwtAuthTokenTimeout&protocol=http&jwtClientTimeout=1"
-	dsn = appendPrivateKeyString(&dsn, testPrivKey)
+	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal("Failed to generate test private key:", err.Error())
+	}
+	dsn = appendPrivateKeyString(&dsn, localTestKey)
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
 		t.Fatal(err.Error())
