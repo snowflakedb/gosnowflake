@@ -637,6 +637,12 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 func TestUnitAuthenticateJWT(t *testing.T) {
 	var err error
 
+	// Generate a fresh private key for this unit test only
+	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate test private key: %s", err.Error())
+	}
+
 	sr := &snowflakeRestful{
 		FuncPostAuth:  postAuthCheckJWTToken,
 		TokenAccessor: getSimpleTokenAccessor(),
@@ -644,7 +650,7 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeJwt
 	sc.cfg.JWTExpireTimeout = defaultJWTTimeout
-	sc.cfg.PrivateKey = testPrivKey
+	sc.cfg.PrivateKey = localTestKey
 	sc.rest = sr
 
 	// A valid JWT token should pass
