@@ -726,10 +726,12 @@ func TestPerformDiagnosis(t *testing.T) {
 
 		// perform the diagnosis without downloading CRL
 		performDiagnosis(config, false)
+		t.Logf("after performDiagnosis")
 
 		// verify expected log messages from performDiagnosis and underlying functions
 		logOutput := buffer.String()
 		assertStringContainsE(t, logOutput, "[performDiagnosis] starting connectivity diagnosis", "should contain diagnosis start message")
+		t.Logf("logOutput: %s", logOutput)
 
 		// DNS resolution
 		assertStringContainsE(t, logOutput, "[performDiagnosis] DNS check - resolving OCSP_CACHE hostname ocsp.snowflakecomputing.com", "should contain DNS check for OCSP cache")
@@ -779,15 +781,18 @@ func TestPerformDiagnosis(t *testing.T) {
 			ConnectionDiagnosticsAllowlistFile: tmpFile.Name(),
 			CertRevocationCheckMode:            CertRevocationCheckAdvisory,
 			ClientTimeout:                      30 * time.Second,
+			DisableOCSPChecks:                  true,
 		}
 		downloadCRLs := config.CertRevocationCheckMode.String() == "ADVISORY"
 		// driver should download CRLs due to ADVISORY CRL mode
+		// Note that there's a log.Fatalf in performDiagnosis that may cause the test to fail.
 		performDiagnosis(config, downloadCRLs)
 
 		// verify expected log messages including CRL download
 		logOutput := buffer.String()
 		assertStringContainsE(t, logOutput, "[performDiagnosis] starting connectivity diagnosis", "should contain diagnosis start message")
 		assertStringContainsE(t, logOutput, "[performDiagnosis] CRLs will be attempted to be downloaded and parsed during https tests", "should contain CRL download enabled message")
+		t.Logf("logOutput: %s", logOutput)
 
 		// DNS resolution
 		assertStringContainsE(t, logOutput, "[performDiagnosis] DNS check - resolving OCSP_CACHE hostname ocsp.snowflakecomputing.com", "should contain DNS check for OCSP cache")
