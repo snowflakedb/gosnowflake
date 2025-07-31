@@ -1205,7 +1205,7 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 		},
 		{
-			dsn: "user:pass@account/db?tls=custom",
+			dsn: "user:pass@account/db?tlsConfigName=custom",
 			// TODO(snoonan): add TLS errors to errors.go
 			err: fmt.Errorf("TLS config not found: custom"),
 		},
@@ -2124,6 +2124,12 @@ func TestDSN(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(test.dsn, func(t *testing.T) {
+			if test.cfg.TLSConfigName != "" && test.err == nil {
+				RegisterTLSConfig(test.cfg.TLSConfigName, &tls.Config{})
+				defer func() {
+					_ = DeregisterTLSConfig(test.cfg.TLSConfigName)
+				}()
+			}
 			dsn, err := DSN(test.cfg)
 			if test.err == nil && err == nil {
 				if dsn != test.dsn {
@@ -2400,39 +2406,49 @@ func TestDSNParsingWithTLSConfig(t *testing.T) {
 		name     string
 		dsn      string
 		expected string
+		err      bool
 	}{
 		{
 			name:     "Basic TLS config parameter",
 			dsn:      "user:pass@account/db?tlsConfigName=custom",
 			expected: "custom",
+			err:      false,
 		},
 		{
 			name:     "TLS config with other parameters",
 			dsn:      "user:pass@account/db?tlsConfigName=custom&warehouse=wh&role=admin",
 			expected: "custom",
+			err:      false,
 		},
 		{
-			name:     "No TLS config parameter",
-			dsn:      "user:pass@account/db?warehouse=wh",
-			expected: "",
+			name: "No TLS config parameter",
+			dsn:  "user:pass@account/db?warehouse=wh",
+			err:  false,
 		},
 		{
-			name:     "Nonexistent TLS config",
-			dsn:      "user:pass@account/db?tls=nonexistent",
-			expected: "",
+			name: "Nonexistent TLS config",
+			dsn:  "user:pass@account/db?tlsConfigName=nonexistent",
+			err:  true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, err := ParseDSN(tc.dsn)
-			if err != nil {
-				t.Fatalf("ParseDSN failed: %v", err)
+			if tc.err {
+				if err == nil {
+					t.Fatalf("ParseDSN should have failed but did not")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("ParseDSN failed: %v", err)
+				}
+				// For DSN parsing, the TLS config should be resolved and set directly
+				if cfg.TLSConfigName != tc.expected {
+					t.Fatalf("Expected TLSConfigName=%s, got %s", tc.expected, cfg.TLSConfigName)
+				}
 			}
-			// For DSN parsing, the TLS config should be resolved and set directly
-			if cfg.TLSConfigName != tc.expected {
-				t.Fatalf("Expected TLSConfigName=%s, got %s", tc.expected, cfg.TLSConfigName)
-			}
+
 		})
 	}
 }
