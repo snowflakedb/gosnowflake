@@ -890,7 +890,7 @@ func TestGetTransport(t *testing.T) {
 	crlCfg := &Config{
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
 	}
-	crlTransport, _, err := createCrlTransport(crlCfg)
+	crlTransport, _, err := createCrlTransport(crlCfg, nil)
 	assertNilF(t, err)
 	testcases := []struct {
 		name      string
@@ -935,7 +935,8 @@ func TestGetTransport(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := getTransport(test.cfg)
+			result, err := getTransport(test.cfg, nil)
+			assertNilE(t, err)
 			assertNilE(t, err)
 			if test.name == "Using CRLs" {
 				// we can't use default comparison for transport here, because this type is not comparable

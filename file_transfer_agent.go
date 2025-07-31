@@ -625,7 +625,7 @@ type s3BucketAccelerateConfigGetter interface {
 
 type s3ClientCreator interface {
 	extractBucketNameAndPath(location string) (*s3Location, error)
-	createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error)
+	createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, telemetry *snowflakeTelemetry) (cloudClient, error)
 }
 
 func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s3ClientCreator) error {
@@ -633,7 +633,7 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 	if err != nil {
 		return err
 	}
-	s3Cli, err := s3Util.createClientWithConfig(sfa.stageInfo, false, sfa.sc.cfg)
+	s3Cli, err := s3Util.createClientWithConfig(sfa.stageInfo, false, sfa.sc.cfg, sfa.sc.telemetry)
 	if err != nil {
 		return err
 	}
@@ -720,7 +720,7 @@ func (sfa *snowflakeFileTransferAgent) upload(
 	largeFileMetadata []*fileMetadata,
 	smallFileMetadata []*fileMetadata) error {
 	client, err := sfa.getStorageClient(sfa.stageLocationType).
-		createClient(sfa.stageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg)
+		createClient(sfa.stageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg, sfa.sc.telemetry)
 	if err != nil {
 		return err
 	}
@@ -749,7 +749,7 @@ func (sfa *snowflakeFileTransferAgent) upload(
 func (sfa *snowflakeFileTransferAgent) download(
 	fileMetadata []*fileMetadata) error {
 	client, err := sfa.getStorageClient(sfa.stageLocationType).
-		createClient(sfa.stageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg)
+		createClient(sfa.stageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg, nil)
 	if err != nil {
 		return err
 	}
@@ -1019,7 +1019,8 @@ func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudT
 		return &localUtil{}
 	} else if stageLocationType == s3Client || stageLocationType == azureClient || stageLocationType == gcsClient {
 		return &remoteStorageUtil{
-			cfg: sfa.sc.cfg,
+			cfg:       sfa.sc.cfg,
+			telemetry: sfa.sc.telemetry,
 		}
 	}
 	return nil
@@ -1037,7 +1038,7 @@ func (sfa *snowflakeFileTransferAgent) renewExpiredClient() (cloudClient, error)
 		return nil, err
 	}
 	storageClient := sfa.getStorageClient(sfa.stageLocationType)
-	return storageClient.createClient(&data.Data.StageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg)
+	return storageClient.createClient(&data.Data.StageInfo, sfa.useAccelerateEndpoint, sfa.sc.cfg, nil)
 }
 
 func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {

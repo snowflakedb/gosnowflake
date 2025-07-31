@@ -40,6 +40,7 @@ type crlValidator struct {
 	httpClient                     *http.Client
 	cleanupStopChan                chan struct{}
 	cleanupDoneChan                chan struct{}
+	telemetry                      *snowflakeTelemetry
 }
 
 type crlInMemoryCacheValueType struct {
@@ -53,7 +54,7 @@ var (
 	crlURLMutexes         = make(map[string]*sync.Mutex)
 )
 
-func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, cacheValidityTime time.Duration, inMemoryCacheDisabled, onDiskCacheDisabled bool, onDiskCacheDir string, onDiskCacheRemovalDelay time.Duration, httpClient *http.Client) (*crlValidator, error) {
+func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, cacheValidityTime time.Duration, inMemoryCacheDisabled, onDiskCacheDisabled bool, onDiskCacheDir string, onDiskCacheRemovalDelay time.Duration, httpClient *http.Client, telemetry *snowflakeTelemetry) (*crlValidator, error) {
 	var err error
 	cacheValidityTime = cmp.Or(cacheValidityTime, 24*time.Hour)
 	onDiskCacheRemovalDelay = cmp.Or(onDiskCacheRemovalDelay, 7*24*time.Hour)
@@ -74,6 +75,7 @@ func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCerti
 		httpClient:                     httpClient,
 		cleanupStopChan:                make(chan struct{}),
 		cleanupDoneChan:                make(chan struct{}),
+		telemetry:                      telemetry,
 	}
 	if err = os.MkdirAll(cv.onDiskCacheDir, 0755); err != nil {
 		return nil, err
@@ -141,12 +143,12 @@ const (
 	defaultCrlCacheCleanerTick  = time.Hour
 )
 
-func createCrlTransport(cfg *Config) (*http.Transport, *crlValidator, error) {
+func createCrlTransport(cfg *Config, telemetry *snowflakeTelemetry) (*http.Transport, *crlValidator, error) {
 	allowCertificatesWithoutCrlURL := cfg.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
 	client := &http.Client{
 		Timeout: cmp.Or(cfg.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
 	}
-	crlValidator, err := newCrlValidator(cfg.CertRevocationCheckMode, allowCertificatesWithoutCrlURL, cfg.CrlCacheValidityTime, cfg.CrlInMemoryCacheDisabled, cfg.CrlOnDiskCacheDisabled, cfg.CrlOnDiskCacheDir, cfg.CrlOnDiskCacheRemovalDelay, client)
+	crlValidator, err := newCrlValidator(cfg.CertRevocationCheckMode, allowCertificatesWithoutCrlURL, cfg.CrlCacheValidityTime, cfg.CrlInMemoryCacheDisabled, cfg.CrlOnDiskCacheDisabled, cfg.CrlOnDiskCacheDir, cfg.CrlOnDiskCacheRemovalDelay, client, telemetry)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -163,8 +165,6 @@ func createCrlTransport(cfg *Config) (*http.Transport, *crlValidator, error) {
 	}, crlValidator, nil
 }
 
-// TODO in following commits:
-// - telemetry
 func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 	if cv.certRevocationCheckMode == CertRevocationCheckDisabled {
 		logger.Debug("certificate revocation check is disabled, skipping CRL validation")
@@ -408,6 +408,18 @@ func (cv *crlValidator) updateCache(crlURL string, crl *x509.RevocationList, dow
 }
 
 func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.Time, error) {
+	telemetryEvent := &telemetryData{
+		Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
+		Message: map[string]string{
+			"type":    "client_crl_stats",
+			"crl_url": crlURL,
+		},
+	}
+	defer func() {
+		if err := cv.telemetry.addLog(telemetryEvent); err != nil {
+			logger.Warnf("failed to add telemetry log for CRL download: %v", err)
+		}
+	}()
 	logger.Debugf("downloading CRL from %v", crlURL)
 	now := time.Now()
 	resp, err := cv.httpClient.Get(crlURL)
@@ -422,13 +434,19 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 	if err != nil {
 		return nil, nil, err
 	}
+	telemetryEvent.Message["crl_bytes"] = fmt.Sprintf("%d", len(crlBytes))
+	downloadTime := time.Since(now)
+	telemetryEvent.Message["crl_download_time_ms"] = fmt.Sprintf("%d", downloadTime.Milliseconds())
 	logger.Debugf("downloaded %v bytes for CRL %v", len(crlBytes), crlURL)
+	timeBeforeParsing := time.Now()
 	crl, err := x509.ParseRevocationList(crlBytes)
 	logger.Debugf("parsed CRL from %v, error: %v", crlURL, err)
 	if err != nil {
 		return nil, nil, err
 	}
 	logger.Debugf("parsed CRL from %v, next update at %v", crlURL, crl.NextUpdate)
+	telemetryEvent.Message["crl_parse_time_ms"] = fmt.Sprintf("%d", time.Since(timeBeforeParsing).Milliseconds())
+	telemetryEvent.Message["crl_revoked_certificates"] = fmt.Sprintf("%d", len(crl.RevokedCertificateEntries))
 	return crl, &now, err
 }
 
