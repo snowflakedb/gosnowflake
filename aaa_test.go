@@ -15,5 +15,8 @@ func TestShowServerVersion(t *testing.T) {
 		rows.Next()
 		assertNilF(t, rows.Scan(&version))
 		println(version)
+
+		dbt.mustExec("ALTER SESSION SET FEATURE_DECFLOAT = enabled")
+		dbt.mustExec("CREATE TABLE test_decfloat (d DECFLOAT)")
 	})
 }
