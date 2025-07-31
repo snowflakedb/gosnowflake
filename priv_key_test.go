@@ -15,8 +15,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
-	"time"
-)
+	"time")
 
 // helper function to generate PKCS8 encoded base64 string of a private key
 func generatePKCS8StringSupress(key *rsa.PrivateKey) string {
@@ -61,13 +60,17 @@ func setupPrivateKey() {
 
 func TestJWTTokenTimeout(t *testing.T) {
 	brt := newBlockingRoundTripper(http.DefaultTransport, 2000*time.Millisecond)
+	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal("Failed to generate test private key:", err.Error())
+	}
 	cfg := &Config{
 		User:             "user",
 		Host:             "localhost",
 		Port:             wiremock.port,
 		Account:          "jwtAuthTokenTimeout",
 		JWTClientTimeout: 10 * time.Millisecond,
-		PrivateKey:       testPrivKey,
+		PrivateKey:       localTestKey,
 		Authenticator:    AuthTypeJwt,
 		MaxRetryCount:    1,
 		Transporter:      brt,

@@ -3,6 +3,8 @@ package gosnowflake
 import (
 	"bytes"
 	"database/sql"
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	"io/fs"
 	"os"
@@ -296,6 +298,12 @@ type paramList struct {
 }
 
 func TestParseToml(t *testing.T) {
+	// Generate a fresh private key for this unit test only
+	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate test private key: %s", err.Error())
+	}
+
 	testCases := []paramList{
 		{
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
@@ -307,7 +315,7 @@ func TestParseToml(t *testing.T) {
 		},
 		{
 			testParams: []string{"privatekey", "private_key"},
-			values:     []interface{}{generatePKCS8StringSupress(testPrivKey)},
+			values:     []interface{}{generatePKCS8StringSupress(localTestKey)},
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "max_retry_count", "clientTimeout", "client_timeout", "jwtClientTimeout", "jwt_client_timeout", "loginTimeout",

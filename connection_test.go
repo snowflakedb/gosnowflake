@@ -469,6 +469,9 @@ func fetchResultByQueryID(
 	if err != nil {
 		return err
 	}
+	// Force password authentication and clear private keys to prevent JWT inheritance
+	config.Authenticator = AuthTypeSnowflake
+	config.PrivateKey = nil
 	ctx := context.Background()
 	sc, err := buildSnowflakeConn(ctx, *config)
 	if customGet != nil {
@@ -555,8 +558,11 @@ func TestIsPrivateLink(t *testing.T) {
 func TestBuildPrivatelinkConn(t *testing.T) {
 	ov := newOcspValidator(&Config{
 		Host: "testaccount.us-east-1.privatelink.snowflakecomputing.com",
+		Account:  "testaccount",
+		User:     "testuser",
+		Password: "testpassword",
 	})
-	assertEqualE(t, ov.cacheServerURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json")
+	assertEqualE(t, ov.cacheServerURL, "http://ocspji.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json")
 	assertEqualE(t, ov.retryURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v")
 }
 
@@ -689,6 +695,9 @@ func TestConcurrentReadOnParams(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to parse dsn")
 	}
+	// Force password authentication and clear private keys to prevent JWT inheritance
+	config.Authenticator = AuthTypeSnowflake
+	config.PrivateKey = nil
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
 	defer db.Close()

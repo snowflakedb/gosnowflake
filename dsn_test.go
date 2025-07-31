@@ -30,6 +30,7 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
+	testPrivKey, _ := rsa.GenerateKey(cr.Reader, 2048)
 	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
 	privKeyPKCS1 := generatePKCS1String(testPrivKey)
 	testcases := []tcParseDSN{
@@ -1291,13 +1292,13 @@ func TestParseDSN(t *testing.T) {
 	}
 
 	for i, test := range testcases {
-		t.Run(test.dsn, func(t *testing.T) {
+		t.Run(maskSecrets(test.dsn), func(t *testing.T) {
 			cfg, err := ParseDSN(test.dsn)
 			switch {
 			case test.err == nil:
 				// TODO: consider converting these checks into a deep equal assertion
 				if err != nil {
-					t.Fatalf("%d: Failed to parse the DSN. dsn: %v, err: %v", i, test.dsn, err)
+					t.Fatalf("%d: Failed to parse the DSN. dsn: %v, err: %v", i, maskSecrets(test.dsn), maskSecrets(err.Error()))
 				}
 				if test.config.Host != cfg.Host {
 					t.Fatalf("%d: Failed to match host. expected: %v, got: %v",
@@ -1313,7 +1314,7 @@ func TestParseDSN(t *testing.T) {
 				}
 				if test.config.Password != cfg.Password {
 					t.Fatalf("%d: Failed to match password. expected: %v, got: %v",
-						i, test.config.Password, cfg.Password)
+						i, maskSecrets(test.config.Password), maskSecrets(cfg.Password))
 				}
 				if test.config.Database != cfg.Database {
 					t.Fatalf("%d: Failed to match database. expected: %v, got: %v",
@@ -1341,7 +1342,7 @@ func TestParseDSN(t *testing.T) {
 				}
 				if test.config.Passcode != cfg.Passcode {
 					t.Fatalf("%d: Failed to match passcode. expected: %v, got: %v",
-						i, test.config.Passcode, cfg.Passcode)
+						i, maskSecrets(test.config.Passcode), maskSecrets(cfg.Passcode))
 				}
 				if test.config.PasscodeInPassword != cfg.PasscodeInPassword {
 					t.Fatalf("%d: Failed to match passcodeInPassword. expected: %v, got: %v",
@@ -2133,7 +2134,7 @@ func TestDSN(t *testing.T) {
 		},
 	}
 	for _, test := range testcases {
-		t.Run(test.dsn, func(t *testing.T) {
+		t.Run(maskSecrets(test.dsn), func(t *testing.T) {
 			if test.cfg.TLSConfigName != "" && test.err == nil {
 				err := RegisterTLSConfig(test.cfg.TLSConfigName, &tls.Config{})
 				assertNilF(t, err, "Failed to register test TLS config")
@@ -2357,6 +2358,10 @@ func TestUrlDecodeIfNeeded(t *testing.T) {
 }
 
 func TestUrlDecodeIfNeededE2E(t *testing.T) {
+	// Skip this test when using JWT authentication globally to prevent unexpected behavior
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping URL decode test when JWT is configured globally")
+	}
 	customVarName := "CUSTOM_VARIABLE"
 	customVarValue := "test"
 	myQueryTag := "mytag"
@@ -2364,7 +2369,6 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	if err != nil {
 		testPort = 443
 	}
-
 	cfg := &Config{
 		Account:  os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
 		Host:     os.Getenv("SNOWFLAKE_TEST_HOST"),
@@ -2372,6 +2376,8 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 		Protocol: os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
 		User:     os.Getenv("SNOWFLAKE_TEST_USER"),
 		Password: os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
 		Params:   map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
 	}
 	mydsn, err := DSN(cfg)

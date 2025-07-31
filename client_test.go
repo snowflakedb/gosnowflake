@@ -30,6 +30,8 @@ func TestInternalClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
+	config.Authenticator = AuthTypeSnowflake
+	config.PrivateKey = nil
 	transport := DummyTransport{}
 	config.Transporter = &transport
 	driver := SnowflakeDriver{}

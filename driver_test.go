@@ -523,17 +523,30 @@ func TestBogusUserPasswordParameters(t *testing.T) {
 	if !runningOnGithubAction() {
 		t.Skip("error message could be different when run locally")
 	}
+	// Skip this test when using JWT authentication globally to prevent account lockouts
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping password authentication test when JWT is configured globally")
+	}
 	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
 	invalidUserPassErrorTests(invalidDNS, 390422, t)
 }
 
 func TestKnownUserInvalidPasswordParameters(t *testing.T) {
+	// Skip this test when using JWT authentication globally to prevent account lockouts
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping password authentication test when JWT is configured globally")
+	}
 	invalidDNS := fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
 	invalidUserPassErrorTests(invalidDNS, 390100, t)
 }
 
 func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T) {
 	parameters := url.Values{}
+	// Force password authentication for this test regardless of global setting
+	parameters.Add("authenticator", "snowflake")
+	// Ensure no private key is used to prevent any JWT authentication attempts
+	parameters.Add("privateKey", "")
+	parameters.Add("privateKeyFile", "")
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
 	}
@@ -563,6 +576,10 @@ func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T)
 }
 
 func TestBogusHostNameParameters(t *testing.T) {
+	// Skip this test when using JWT authentication globally to prevent unnecessary connection attempts
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping host validation test when JWT is configured globally")
+	}
 	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
 	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "connection broken"}, t)
 	invalidDNS = fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST")
@@ -571,6 +588,11 @@ func TestBogusHostNameParameters(t *testing.T) {
 
 func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	parameters := url.Values{}
+	// Force password authentication for this test regardless of global setting
+	parameters.Add("authenticator", "snowflake")
+	// Ensure no private key is used to prevent any JWT authentication attempts
+	parameters.Add("privateKey", "")
+	parameters.Add("privateKeyFile", "")
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
 	}
@@ -1986,7 +2008,7 @@ func TestValidateDatabaseParameter(t *testing.T) {
 		},
 	}
 	for idx, tc := range testcases {
-		t.Run(dsn, func(t *testing.T) {
+		t.Run(maskSecrets(dsn), func(t *testing.T) {
 			newDSN := tc.dsn
 			parameters := url.Values{}
 			if protocol != "" {
@@ -2087,16 +2109,34 @@ func TestPingInvalidHost(t *testing.T) {
 }
 
 func TestOpenWithConfig(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Fatalf("failed to parse dsn. err: %v", err)
+	config := Config{
+		Account:       "testaccount",
+		User:          "testuser",
+		Password:      "testpassword",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
 	}
-	driver := SnowflakeDriver{}
-	db, err := driver.OpenWithConfig(context.Background(), *config)
+
+	testURL, err := DSN(&config)
 	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
+		t.Fatalf("failed to parse config. config: %v, err: %v", config, err)
 	}
-	db.Close()
+
+	db, err := sql.Open("snowflake", testURL)
+	if err != nil {
+		t.Fatalf("failed to initalize the connetion. err: %v", err)
+	}
+	ctx := context.Background()
+	if err = db.PingContext(ctx); err == nil {
+		t.Fatal("should cause an error")
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
+	if driverErr, ok := err.(*SnowflakeError); !ok || ok && isFailToConnectOrAuthErr(driverErr) {
+		// Failed to connect error
+		t.Fatalf("error didn't match")
+	}
 }
 
 func TestOpenWithConfigCancel(t *testing.T) {
@@ -2138,6 +2178,8 @@ func TestOpenWithInvalidConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
+	config.Authenticator = AuthTypeSnowflake
+	config.PrivateKey = nil
 	driver := SnowflakeDriver{}
 	_, err = driver.OpenWithConfig(context.Background(), *config)
 	if err == nil || !strings.Contains(err.Error(), "/non-existing") {

@@ -32,6 +32,8 @@ func TestConnector(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to parse dsn")
 	}
+	config.Authenticator = AuthTypeSnowflake
+	config.PrivateKey = nil
 	connector := NewConnector(&mock, *config)
 	connection, err := connector.Connect(context.Background())
 	if err != nil {
@@ -82,7 +84,11 @@ func TestConnectorCancelContext(t *testing.T) {
 	logger.SetOutput(&buf)
 
 	// pass in our context which should only be used for establishing the initial connection; not persisted.
-	sfConn, err := buildSnowflakeConn(ctx, Config{Params: make(map[string]*string)})
+	sfConn, err := buildSnowflakeConn(ctx, Config{
+		Params:        make(map[string]*string),
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+	})
 	assertNilF(t, err)
 
 	// patch close handler
