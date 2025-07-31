@@ -883,7 +883,7 @@ func TestCrlE2E(t *testing.T) {
 			Schema:                            schemaname,
 			CertRevocationCheckMode:           CertRevocationCheckEnabled,
 			CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
-			CrlCacheValidityTime:              20 * time.Second,
+			CrlCacheValidityTime:              60 * time.Second,
 			CrlCacheCleanerTick:               5 * time.Second,
 			CrlOnDiskCacheDir:                 t.TempDir(),
 			DisableOCSPChecks:                 true,
@@ -910,7 +910,7 @@ func TestCrlE2E(t *testing.T) {
 		logger.Debugf("memory entries after CSP connection: %v", memoryEntriesAfterCSPConnection)
 		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
 
-		time.Sleep(25 * time.Second) // wait for the cache cleaner to run
+		time.Sleep(66 * time.Second) // wait for the cache cleaner to run
 		crlInMemoryCacheMutex.Lock()
 		assertEqualE(t, len(crlInMemoryCache), 0)
 		crlInMemoryCacheMutex.Unlock()

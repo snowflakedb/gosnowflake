@@ -328,18 +328,17 @@ func TestMultiStatementCountZero(t *testing.T) {
 }
 
 func TestMultiStatementCountMismatch(t *testing.T) {
-	conn := openConn(t)
-	defer conn.Close()
+	runDBTest(t, func(dbt *DBTest) {
+		multiStmtQuery := "select 123;\n" +
+			"select 456;\n" +
+			"select 789;\n" +
+			"select '000';"
 
-	multiStmtQuery := "select 123;\n" +
-		"select 456;\n" +
-		"select 789;\n" +
-		"select '000';"
-
-	ctx, _ := WithMultiStatement(context.Background(), 3)
-	if _, err := conn.QueryContext(ctx, multiStmtQuery); err == nil {
-		t.Fatal("should have failed to query multiple statements")
-	}
+		ctx, _ := WithMultiStatement(context.Background(), 3)
+		if _, err := dbt.conn.QueryContext(ctx, multiStmtQuery); err == nil {
+			t.Fatal("should have failed to query multiple statements")
+		}
+	})
 }
 
 func TestMultiStatementVaryingColumnCount(t *testing.T) {
