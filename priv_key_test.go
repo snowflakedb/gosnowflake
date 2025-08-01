@@ -71,7 +71,11 @@ func TestJWTTokenTimeout(t *testing.T) {
 	resetHTTPMocks(t)
 
 	dsn := "user:pass@localhost:12345/db/schema?account=jwtAuthTokenTimeout&protocol=http&jwtClientTimeout=1"
-	dsn = appendPrivateKeyString(&dsn, testPrivKey)
+	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal("Failed to generate test private key:", err.Error())
+	}
+	dsn = appendPrivateKeyString(&dsn, localTestKey)
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
 		t.Fatal(err.Error())
