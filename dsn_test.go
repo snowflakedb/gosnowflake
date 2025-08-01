@@ -1268,7 +1268,7 @@ func TestParseDSN(t *testing.T) {
 	}
 
 	for i, test := range testcases {
-		t.Run(test.dsn, func(t *testing.T) {
+		t.Run(maskSecrets(test.dsn), func(t *testing.T) {
 			cfg, err := ParseDSN(test.dsn)
 			switch {
 			case test.err == nil:
