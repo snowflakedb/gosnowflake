@@ -53,15 +53,15 @@ func TestGetBucketAccelerateConfiguration(t *testing.T) {
 
 type s3ClientCreatorMock struct {
 	extract func(string) (*s3Location, error)
-	create  func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error)
+	create  func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, telemetry *snowflakeTelemetry) (cloudClient, error)
 }
 
 func (mock *s3ClientCreatorMock) extractBucketNameAndPath(location string) (*s3Location, error) {
 	return mock.extract(location)
 }
 
-func (mock *s3ClientCreatorMock) createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
-	return mock.create(info, useAccelerateEndpoint, cfg)
+func (mock *s3ClientCreatorMock) createClientWithConfig(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, telemetry *snowflakeTelemetry) (cloudClient, error) {
+	return mock.create(info, useAccelerateEndpoint, cfg, telemetry)
 }
 
 type s3BucketAccelerateConfigGetterMock struct {
@@ -96,7 +96,7 @@ func TestGetBucketAccelerateConfigurationTooManyRetries(t *testing.T) {
 			extract: func(s string) (*s3Location, error) {
 				return &s3Location{bucketName: "test", s3Path: "test"}, nil
 			},
-			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, _ *snowflakeTelemetry) (cloudClient, error) {
 				return &s3BucketAccelerateConfigGetterMock{err: errors.New("testing")}, nil
 			},
 		})
@@ -146,7 +146,7 @@ func TestGetBucketAccelerateConfigurationFailedCreateClient(t *testing.T) {
 			extract: func(s string) (*s3Location, error) {
 				return &s3Location{bucketName: "test", s3Path: "test"}, nil
 			},
-			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, _ *snowflakeTelemetry) (cloudClient, error) {
 				return nil, errors.New("failed creation")
 			},
 		})
@@ -172,7 +172,7 @@ func TestGetBucketAccelerateConfigurationInvalidClient(t *testing.T) {
 			extract: func(s string) (*s3Location, error) {
 				return &s3Location{bucketName: "test", s3Path: "test"}, nil
 			},
-			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
+			create: func(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, _ *snowflakeTelemetry) (cloudClient, error) {
 				return 1, nil
 			},
 		})
@@ -472,7 +472,7 @@ func TestUpdateMetadataWithPresignedUrl(t *testing.T) {
 			}, nil
 		}
 
-		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 		if err != nil {
 			t.Error(err)
 		}
@@ -525,7 +525,7 @@ func TestUpdateMetadataWithPresignedUrlForDownload(t *testing.T) {
 
 		testURL := "https://storage.google.com/gcs-blob/storage/users/456?Signature=testsignature123"
 
-		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+		gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 		if err != nil {
 			t.Error(err)
 		}

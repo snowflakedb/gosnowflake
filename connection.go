@@ -96,7 +96,8 @@ func (sc *snowflakeConn) exec(
 	*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
-
+	_, _, sessionID := safeGetTokens(sc.rest)
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
 	queryContext, err := buildQueryContext(sc.queryContextCache)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error while building query context: %v", err)
@@ -322,10 +323,12 @@ func (sc *snowflakeConn) ExecContext(
 	query string,
 	args []driver.NamedValue) (
 	driver.Result, error) {
-	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
+	_, _, sessionID := safeGetTokens(sc.rest)
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
+	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	isInternal := isInternal(ctx)
@@ -409,14 +412,15 @@ func (sc *snowflakeConn) queryContextInternal(
 	query string,
 	args []driver.NamedValue) (
 	driver.Rows, error) {
-	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
 
+	_, _, sessionID := safeGetTokens(sc.rest)
+	ctx = context.WithValue(setResultType(ctx, queryResultType), SFSessionIDKey, sessionID)
+	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
-	ctx = setResultType(ctx, queryResultType)
 	isInternal := isInternal(ctx)
 	data, err := sc.exec(ctx, query, noResult, isInternal, isDesc, args)
 	if err != nil {
@@ -797,6 +801,17 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	if err != nil {
 		return nil, err
 	}
+
+	telemetry := &snowflakeTelemetry{}
+	if config.DisableTelemetry {
+		telemetry.enabled = false
+	} else {
+		telemetry.flushSize = defaultFlushSize
+		telemetry.sr = sc.rest
+		telemetry.mutex = &sync.Mutex{}
+		telemetry.enabled = true
+	}
+
 	var st http.RoundTripper = SnowflakeTransport
 	if sc.cfg.Transporter == nil {
 		if !sc.cfg.DisableOCSPChecks && !sc.cfg.InsecureMode && sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
@@ -804,7 +819,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		}
 		if sc.cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
 			var cv *crlValidator
-			st, cv, err = createCrlTransport(sc.cfg)
+			st, cv, err = createCrlTransport(sc.cfg, telemetry)
 			if err != nil {
 				return nil, err
 			}
@@ -865,21 +880,13 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		FuncGetSSO:          getSSO,
 	}
 
-	if sc.cfg.DisableTelemetry {
-		sc.telemetry = &snowflakeTelemetry{enabled: false}
-	} else {
-		sc.telemetry = &snowflakeTelemetry{
-			flushSize: defaultFlushSize,
-			sr:        sc.rest,
-			mutex:     &sync.Mutex{},
-			enabled:   true,
-		}
-	}
+	telemetry.sr = sc.rest
+	sc.telemetry = telemetry
 
 	return sc, nil
 }
 
-func getTransport(cfg *Config) (http.RoundTripper, error) {
+func getTransport(cfg *Config, telemetry *snowflakeTelemetry) (http.RoundTripper, error) {
 	if cfg == nil {
 		// should never happen in production, only in tests
 		logger.Warn("getTransport: got nil Config, using default one")
@@ -892,7 +899,7 @@ func getTransport(cfg *Config) (http.RoundTripper, error) {
 	}
 	if cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
 		logger.Debug("getTransport: will perform CRL validation")
-		transport, _, err := createCrlTransport(cfg)
+		transport, _, err := createCrlTransport(cfg, telemetry)
 		if err != nil {
 			return nil, err
 		}

@@ -53,7 +53,7 @@ type wifAttestationProvider struct {
 	oidcCreator  wifAttestationCreator
 }
 
-func createWifAttestationProvider(ctx context.Context, cfg *Config) *wifAttestationProvider {
+func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *snowflakeTelemetry) *wifAttestationProvider {
 	return &wifAttestationProvider{
 		context: ctx,
 		cfg:     cfg,
@@ -62,10 +62,13 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config) *wifAttestat
 			ctx:                ctx},
 		gcpCreator: &gcpIdentityAttestationCreator{
 			cfg:                    cfg,
-			metadataServiceBaseURL: defaultMetadataServiceBase},
+			telemetry:              telemetry,
+			metadataServiceBaseURL: defaultMetadataServiceBase,
+		},
 		azureCreator: &azureIdentityAttestationCreator{
 			azureAttestationMetadataProvider: &defaultAzureAttestationMetadataProvider{},
 			cfg:                              cfg,
+			telemetry:                        telemetry,
 			workloadIdentityEntraResource:    determineEntraResource(cfg),
 			azureMetadataServiceBaseURL:      defaultMetadataServiceBase,
 		},
@@ -136,6 +139,7 @@ type awsIdentityAttestationCreator struct {
 
 type gcpIdentityAttestationCreator struct {
 	cfg                    *Config
+	telemetry              *snowflakeTelemetry
 	metadataServiceBaseURL string
 }
 
@@ -276,7 +280,7 @@ func (c *gcpIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCP token request: %v", err)
 	}
-	token := fetchTokenFromMetadataService(req, c.cfg)
+	token := fetchTokenFromMetadataService(req, c.cfg, c.telemetry)
 	if token == "" {
 		logger.Debugf("no GCP token was found.")
 		return nil, nil
@@ -304,8 +308,8 @@ func (c *gcpIdentityAttestationCreator) createTokenRequest() (*http.Request, err
 	return req, nil
 }
 
-func fetchTokenFromMetadataService(req *http.Request, cfg *Config) string {
-	transport, err := getTransport(cfg)
+func fetchTokenFromMetadataService(req *http.Request, cfg *Config, telemetry *snowflakeTelemetry) string {
+	transport, err := getTransport(cfg, telemetry)
 	if err != nil {
 		logger.Debugf("Failed to create HTTP transport: %v", err)
 		return ""
@@ -405,6 +409,7 @@ func (p *defaultAzureAttestationMetadataProvider) clientID() string {
 type azureIdentityAttestationCreator struct {
 	azureAttestationMetadataProvider azureAttestationMetadataProvider
 	cfg                              *Config
+	telemetry                        *snowflakeTelemetry
 	workloadIdentityEntraResource    string
 	azureMetadataServiceBaseURL      string
 }
@@ -438,7 +443,7 @@ func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, 
 		}
 	}
 
-	tokenJSON := fetchTokenFromMetadataService(request, a.cfg)
+	tokenJSON := fetchTokenFromMetadataService(request, a.cfg, a.telemetry)
 	if tokenJSON == "" {
 		logger.Debug("Could not fetch Azure token.")
 		return nil, nil

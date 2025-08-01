@@ -180,12 +180,13 @@ var userAgent = fmt.Sprintf("%v/%v (%v-%v) %v/%v",
 	runtime.Version())
 
 type authRequestClientEnvironment struct {
-	Application     string `json:"APPLICATION"`
-	ApplicationPath string `json:"APPLICATION_PATH"`
-	Os              string `json:"OS"`
-	OsVersion       string `json:"OS_VERSION"`
-	OCSPMode        string `json:"OCSP_MODE"`
-	GoVersion       string `json:"GO_VERSION"`
+	Application             string `json:"APPLICATION"`
+	ApplicationPath         string `json:"APPLICATION_PATH"`
+	Os                      string `json:"OS"`
+	OsVersion               string `json:"OS_VERSION"`
+	OCSPMode                string `json:"OCSP_MODE"`
+	GoVersion               string `json:"GO_VERSION"`
+	CertRevocationCheckMode string `json:"CERT_REVOCATION_CHECK_MODE,omitempty"`
 }
 
 type authRequestData struct {
@@ -358,12 +359,13 @@ func authenticate(
 		applicationPath = "unknown"
 	}
 	clientEnvironment := authRequestClientEnvironment{
-		Application:     sc.cfg.Application,
-		ApplicationPath: applicationPath,
-		Os:              operatingSystem,
-		OsVersion:       platform,
-		OCSPMode:        sc.cfg.ocspMode(),
-		GoVersion:       runtime.Version(),
+		Application:             sc.cfg.Application,
+		ApplicationPath:         applicationPath,
+		Os:                      operatingSystem,
+		OsVersion:               platform,
+		OCSPMode:                sc.cfg.ocspMode(),
+		GoVersion:               runtime.Version(),
+		CertRevocationCheckMode: sc.cfg.CertRevocationCheckMode.String(),
 	}
 
 	sessionParameters := make(map[string]interface{})
@@ -521,7 +523,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		}
 	case AuthTypeOAuthAuthorizationCode:
 		logger.WithContext(sc.ctx).Debug("OAuth authorization code")
-		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
+		oauthClient, err := newOauthClient(sc.ctx, sc.cfg, sc)
 		if err != nil {
 			return nil, err
 		}
@@ -534,7 +536,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.OauthType = "OAUTH_AUTHORIZATION_CODE"
 	case AuthTypeOAuthClientCredentials:
 		logger.WithContext(sc.ctx).Debug("OAuth client credentials")
-		oauthClient, err := newOauthClient(sc.ctx, sc.cfg)
+		oauthClient, err := newOauthClient(sc.ctx, sc.cfg, sc)
 		if err != nil {
 			return nil, err
 		}
@@ -550,7 +552,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 			return nil, errors.New("workload identity authentication is not ready to use")
 		}
 		logger.WithContext(sc.ctx).Debug("Workload Identity Federation")
-		wifAttestationProvider := createWifAttestationProvider(sc.ctx, sc.cfg)
+		wifAttestationProvider := createWifAttestationProvider(sc.ctx, sc.cfg, sc.telemetry)
 		wifAttestation, err := wifAttestationProvider.getAttestation(sc.cfg.WorkloadIdentityProvider)
 		if err != nil {
 			return nil, err
@@ -675,7 +677,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 
 			if sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode {
 				var oauthClient *oauthClient
-				if oauthClient, err = newOauthClient(sc.ctx, sc.cfg); err != nil {
+				if oauthClient, err = newOauthClient(sc.ctx, sc.cfg, sc); err != nil {
 					logger.Warnf("failed to create oauth client. %v", err)
 				} else {
 					if err = oauthClient.refreshToken(); err != nil {
