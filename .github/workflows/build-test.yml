@@ -156,6 +156,32 @@ jobs:
               uses: codecov/codecov-action@v5
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    fipsOnly:
+      runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+      name: FIPS-only mode check
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 17
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: 1.24
+        - name: Test
+          shell: bash
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            CLOUD_PROVIDER: ${{ matrix.cloud }}
+            GORACE: history_size=7
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+            GODEBUG: fips140=only
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+          run: ./ci/test.sh
     ecc:
       runs-on: ubuntu-latest
       strategy:
