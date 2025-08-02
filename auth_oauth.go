@@ -93,11 +93,19 @@ type oauthBrowserResult struct {
 func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, error) {
 	accessTokenSpec := oauthClient.accessTokenSpec()
 	if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
-		if accessToken := credentialsStorage.getCredential(accessTokenSpec); accessToken != "" {
+		accessToken, err := credentialsStorage.getCredential(accessTokenSpec)
+		if err != nil {
+			logger.Warn(err)
+		}
+		if accessToken != "" {
 			logger.Debugf("Access token retrieved from cache")
 			return accessToken, nil
 		}
-		if refreshToken := credentialsStorage.getCredential(oauthClient.refreshTokenSpec()); refreshToken != "" {
+		refreshToken, err := credentialsStorage.getCredential(oauthClient.refreshTokenSpec())
+		if err != nil {
+			logger.Warn(err)
+		}
+		if refreshToken != "" {
 			return "", &SnowflakeError{Number: ErrMissingAccessATokenButRefreshTokenPresent}
 		}
 	}
@@ -123,8 +131,13 @@ func (oauthClient *oauthClient) authenticateByOAuthAuthorizationCode() (string, 
 	case result := <-resultChan:
 		if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
 			logger.Debug("saving oauth access token in cache")
-			credentialsStorage.setCredential(oauthClient.accessTokenSpec(), result.accessToken)
-			credentialsStorage.setCredential(oauthClient.refreshTokenSpec(), result.refreshToken)
+			err := credentialsStorage.setCredential(oauthClient.accessTokenSpec(), result.accessToken)
+			if err == nil {
+				err = credentialsStorage.setCredential(oauthClient.refreshTokenSpec(), result.refreshToken)
+			}
+			if err != nil {
+				logger.Warn(err)
+			}
 		}
 		return result.accessToken, result.err
 	}
@@ -348,7 +361,11 @@ func (provider *browserBasedAuthorizationCodeProvider) createCodeVerifier() stri
 func (oauthClient *oauthClient) authenticateByOAuthClientCredentials() (string, error) {
 	accessTokenSpec := oauthClient.accessTokenSpec()
 	if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
-		if accessToken := credentialsStorage.getCredential(accessTokenSpec); accessToken != "" {
+		accessToken, err := credentialsStorage.getCredential(accessTokenSpec)
+		if err != nil {
+			logger.Warn(err)
+		}
+		if accessToken != "" {
 			return accessToken, nil
 		}
 	}
@@ -361,7 +378,10 @@ func (oauthClient *oauthClient) authenticateByOAuthClientCredentials() (string, 
 		return "", err
 	}
 	if oauthClient.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
-		credentialsStorage.setCredential(accessTokenSpec, token.AccessToken)
+		err := credentialsStorage.setCredential(accessTokenSpec, token.AccessToken)
+		if err != nil {
+			logger.Warn(err)
+		}
 	}
 	return token.AccessToken, nil
 }
@@ -384,7 +404,10 @@ func (oauthClient *oauthClient) refreshToken() error {
 		return nil
 	}
 	refreshTokenSpec := newOAuthRefreshTokenSpec(oauthClient.cfg.OauthTokenRequestURL, oauthClient.cfg.User)
-	refreshToken := credentialsStorage.getCredential(refreshTokenSpec)
+	refreshToken, err := credentialsStorage.getCredential(refreshTokenSpec)
+	if err != nil {
+		logger.Warn(err)
+	}
 	if refreshToken == "" {
 		logger.Debug("no refresh token in cache, full flow must be run")
 		return nil
@@ -409,7 +432,10 @@ func (oauthClient *oauthClient) refreshToken() error {
 		if err != nil {
 			return err
 		}
-		credentialsStorage.deleteCredential(refreshTokenSpec)
+		err = credentialsStorage.deleteCredential(refreshTokenSpec)
+		if err != nil {
+			logger.Warn(err)
+		}
 		return errors.New(string(respBody))
 	}
 	var tokenResponse tokenExchangeResponseBody
@@ -417,9 +443,15 @@ func (oauthClient *oauthClient) refreshToken() error {
 		return err
 	}
 	accessTokenSpec := oauthClient.accessTokenSpec()
-	credentialsStorage.setCredential(accessTokenSpec, tokenResponse.AccessToken)
+	err = credentialsStorage.setCredential(accessTokenSpec, tokenResponse.AccessToken)
+	if err != nil {
+		logger.Warn(err)
+	}
 	if tokenResponse.RefreshToken != "" {
-		credentialsStorage.setCredential(refreshTokenSpec, tokenResponse.RefreshToken)
+		err = credentialsStorage.setCredential(refreshTokenSpec, tokenResponse.RefreshToken)
+		if err != nil {
+			logger.Warn(err)
+		}
 	}
 	return nil
 }
