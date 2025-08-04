@@ -15,11 +15,6 @@ func main() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
-	var mylog = sf.GetLogger()
-	err := mylog.SetLogLevel("debug")
-	if err != nil {
-		log.Fatalf("failed to set log level. %v", err)
-	}
 
 	cfg, err := sf.GetConfigFromEnv([]*sf.ConfigParam{
 		{Name: "Account", EnvName: "SNOWFLAKE_TEST_ACCOUNT", FailOnMissing: true},
@@ -36,7 +31,6 @@ func main() {
 	if identityProvider == "" {
 		log.Fatalf("SNOWFLAKE_TEST_WORKLOAD_IDENTITY_PROVIDER environment variable is not set.")
 	}
-	mylog.Debugf("Using Workload Identity Provider: %v", identityProvider)
 	cfg.WorkloadIdentityProvider = identityProvider
 
 	connector := sf.NewConnector(sf.SnowflakeDriver{}, *cfg)

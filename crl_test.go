@@ -870,10 +870,6 @@ func closeServer(t *testing.T, server *http.Server) {
 
 func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
-		_ = logger.SetLogLevel("debug")
-		defer func() {
-			_ = logger.SetLogLevel("error")
-		}()
 		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
 		cfg := &Config{
 			User:                              username,
