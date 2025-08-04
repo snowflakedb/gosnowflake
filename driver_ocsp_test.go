@@ -68,7 +68,7 @@ func TestOCSPFailOpen(t *testing.T) {
 	var testURL string
 	testURL, err = DSN(config)
 	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
+		t.Fatalf("failed to build URL from Config: %v", maskSecret(config))
 	}
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
@@ -247,8 +247,10 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 
 	config := &Config{
 		Account:       "fakeaccount8",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		Authenticator: AuthTypeSnowflake,    // Force password authentication
+		PrivateKey:    nil,                  // Ensure no private key
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
