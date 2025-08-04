@@ -1273,127 +1273,127 @@ func TestParseDSN(t *testing.T) {
 			switch {
 			case test.err == nil:
 				if err != nil {
-					t.Fatalf("%d: Failed to parse the DSN. dsn: %v, err: %v", i, test.dsn, err)
+					t.Fatalf("%d: Failed to parse the DSN.")
 				}
 				if test.config.Host != cfg.Host {
-					t.Fatalf("%d: Failed to match host. expected: %v, got: %v",
-						i, test.config.Host, cfg.Host)
+					t.Fatalf("%d: Failed to match host ",
+						i)
 				}
 				if test.config.Account != cfg.Account {
-					t.Fatalf("%d: Failed to match account. expected: %v, got: %v",
-						i, test.config.Account, cfg.Account)
+					t.Fatalf("%d: Failed to match account. ",
+						i)
 				}
 				if test.config.User != cfg.User {
-					t.Fatalf("%d: Failed to match user. expected: %v, got: %v",
-						i, test.config.User, cfg.User)
+					t.Fatalf("%d: Failed to match user",
+						i)
 				}
 				if test.config.Password != cfg.Password {
-					t.Fatalf("%d: Failed to match password. expected: %v, got: %v",
-						i, test.config.Password, cfg.Password)
+					t.Fatalf("%d: Failed to match password.",
+						i)
 				}
 				if test.config.Database != cfg.Database {
-					t.Fatalf("%d: Failed to match database. expected: %v, got: %v",
-						i, test.config.Database, cfg.Database)
+					t.Fatalf("%d: Failed to match database.",
+						i)
 				}
 				if test.config.Schema != cfg.Schema {
-					t.Fatalf("%d: Failed to match schema. expected: %v, got: %v",
-						i, test.config.Schema, cfg.Schema)
+					t.Fatalf("%d: Failed to match schema.",
+						i)
 				}
 				if test.config.Warehouse != cfg.Warehouse {
-					t.Fatalf("%d: Failed to match warehouse. expected: %v, got: %v",
-						i, test.config.Warehouse, cfg.Warehouse)
+					t.Fatalf("%d: Failed to match warehouse.",
+						i)
 				}
 				if test.config.Role != cfg.Role {
-					t.Fatalf("%d: Failed to match role. expected: %v, got: %v",
-						i, test.config.Role, cfg.Role)
+					t.Fatalf("%d: Failed to match role.",
+						i)
 				}
 				if test.config.Region != cfg.Region {
-					t.Fatalf("%d: Failed to match region. expected: %v, got: %v",
-						i, test.config.Region, cfg.Region)
+					t.Fatalf("%d: Failed to match region.",
+						i)
 				}
 				if test.config.Protocol != cfg.Protocol {
-					t.Fatalf("%d: Failed to match protocol. expected: %v, got: %v",
-						i, test.config.Protocol, cfg.Protocol)
+					t.Fatalf("%d: Failed to match protocol.",
+						i)
 				}
 				if test.config.Passcode != cfg.Passcode {
-					t.Fatalf("%d: Failed to match passcode. expected: %v, got: %v",
-						i, test.config.Passcode, cfg.Passcode)
+					t.Fatalf("%d: Failed to match passcode.",
+						i)
 				}
 				if test.config.PasscodeInPassword != cfg.PasscodeInPassword {
-					t.Fatalf("%d: Failed to match passcodeInPassword. expected: %v, got: %v",
-						i, test.config.PasscodeInPassword, cfg.PasscodeInPassword)
+					t.Fatalf("%d: Failed to match passcodeInPassword.",
+						i)
 				}
 				if test.config.Authenticator != cfg.Authenticator {
-					t.Fatalf("%d: Failed to match Authenticator. expected: %v, got: %v",
-						i, test.config.Authenticator.String(), cfg.Authenticator.String())
+					t.Fatalf("%d: Failed to match Authenticator.",
+						i)
 				}
 				if test.config.Authenticator == AuthTypeOkta && *test.config.OktaURL != *cfg.OktaURL {
-					t.Fatalf("%d: Failed to match okta URL. expected: %v, got: %v",
-						i, test.config.OktaURL, cfg.OktaURL)
+					t.Fatalf("%d: Failed to match okta URL.",
+						i)
 				}
 				if test.config.OCSPFailOpen != cfg.OCSPFailOpen {
-					t.Fatalf("%d: Failed to match OCSPFailOpen. expected: %v, got: %v",
-						i, test.config.OCSPFailOpen, cfg.OCSPFailOpen)
+					t.Fatalf("%d: Failed to match OCSPFailOpen.",
+						i)
 				}
 				if test.ocspMode != cfg.ocspMode() {
-					t.Fatalf("%d: Failed to match OCSPMode. expected: %v, got: %v",
-						i, test.ocspMode, cfg.ocspMode())
+					t.Fatalf("%d: Failed to match OCSPMode.",
+						i)
 				}
 				if test.config.ValidateDefaultParameters != cfg.ValidateDefaultParameters {
-					t.Fatalf("%d: Failed to match ValidateDefaultParameters. expected: %v, got: %v",
-						i, test.config.ValidateDefaultParameters, cfg.ValidateDefaultParameters)
+					t.Fatalf("%d: Failed to match ValidateDefaultParameters.",
+						i)
 				}
 				if test.config.ClientTimeout != cfg.ClientTimeout {
-					t.Fatalf("%d: Failed to match ClientTimeout. expected: %v, got: %v",
-						i, test.config.ClientTimeout, cfg.ClientTimeout)
+					t.Fatalf("%d: Failed to match ClientTimeout.",
+						i)
 				}
 				if test.config.JWTClientTimeout != cfg.JWTClientTimeout {
-					t.Fatalf("%d: Failed to match JWTClientTimeout. expected: %v, got: %v",
-						i, test.config.JWTClientTimeout, cfg.JWTClientTimeout)
+					t.Fatalf("%d: Failed to match JWTClientTimeout.",
+						i)
 				}
 				if test.config.ExternalBrowserTimeout != cfg.ExternalBrowserTimeout {
-					t.Fatalf("%d: Failed to match ExternalBrowserTimeout. expected: %v, got: %v",
-						i, test.config.ExternalBrowserTimeout, cfg.ExternalBrowserTimeout)
+					t.Fatalf("%d: Failed to match ExternalBrowserTimeout.",
+						i)
 				}
 				if test.config.CloudStorageTimeout != cfg.CloudStorageTimeout {
-					t.Fatalf("%d: Failed to match CloudStorageTimeout. expected: %v, got: %v",
-						i, test.config.CloudStorageTimeout, cfg.CloudStorageTimeout)
+					t.Fatalf("%d: Failed to match CloudStorageTimeout.",
+						i)
 				}
 				if test.config.TmpDirPath != cfg.TmpDirPath {
-					t.Fatalf("%v: Failed to match TmpDirPatch. expected: %v, got: %v", i, test.config.TmpDirPath, cfg.TmpDirPath)
+					t.Fatalf("%v: Failed to match TmpDirPatch.", i)
 				}
 				if test.config.DisableQueryContextCache != cfg.DisableQueryContextCache {
-					t.Fatalf("%v: Failed to match DisableQueryContextCache. expected: %v, got: %v", i, test.config.DisableQueryContextCache, cfg.DisableQueryContextCache)
+					t.Fatalf("%v: Failed to match DisableQueryContextCache.", i)
 				}
 				if test.config.IncludeRetryReason != cfg.IncludeRetryReason {
-					t.Fatalf("%v: Failed to match IncludeRetryReason. expected: %v, got: %v", i, test.config.IncludeRetryReason, cfg.IncludeRetryReason)
+					t.Fatalf("%v: Failed to match IncludeRetryReason.", i)
 				}
 				if test.config.DisableConsoleLogin != cfg.DisableConsoleLogin {
-					t.Fatalf("%v: Failed to match DisableConsoleLogin. expected: %v, got: %v", i, test.config.DisableConsoleLogin, cfg.DisableConsoleLogin)
+					t.Fatalf("%v: Failed to match DisableConsoleLogin.", i)
 				}
 				if test.config.DisableSamlURLCheck != cfg.DisableSamlURLCheck {
-					t.Fatalf("%v: Failed to match DisableSamlURLCheck. expected: %v, got: %v", i, test.config.DisableSamlURLCheck, cfg.DisableSamlURLCheck)
+					t.Fatalf("%v: Failed to match DisableSamlURLCheck.", i)
 				}
 				if test.config.OauthClientID != cfg.OauthClientID {
-					t.Fatalf("%v: Failed to match OauthClientId. expected: %v, got: %v", i, test.config.OauthClientID, cfg.OauthClientID)
+					t.Fatalf("%v: Failed to match OauthClientId", i)
 				}
 				if test.config.OauthClientSecret != cfg.OauthClientSecret {
-					t.Fatalf("%v: Failed to match OauthClientSecret. expected: %v, got: %v", i, test.config.OauthClientSecret, cfg.OauthClientSecret)
+					t.Fatalf("%v: Failed to match OauthClientSecret.", i)
 				}
 				if test.config.OauthAuthorizationURL != cfg.OauthAuthorizationURL {
-					t.Fatalf("%v: Failed to match OauthAuthorizationUrl. expected: %v, got: %v", i, test.config.OauthAuthorizationURL, cfg.OauthAuthorizationURL)
+					t.Fatalf("%v: Failed to match OauthAuthorizationUrl.", i)
 				}
 				if test.config.OauthTokenRequestURL != cfg.OauthTokenRequestURL {
-					t.Fatalf("%v: Failed to match OauthTokenRequestURL. expected: %v, got: %v", i, test.config.OauthTokenRequestURL, cfg.OauthTokenRequestURL)
+					t.Fatalf("%v: Failed to match OauthTokenRequestURL.", i)
 				}
 				if test.config.OauthRedirectURI != cfg.OauthRedirectURI {
-					t.Fatalf("%v: Failed to match OauthRedirectURI. expected: %v, got: %v", i, test.config.OauthRedirectURI, cfg.OauthRedirectURI)
+					t.Fatalf("%v: Failed to match OauthRedirectURI.", i)
 				}
 				if test.config.OauthScope != cfg.OauthScope {
-					t.Fatalf("%v: Failed to match OauthScope. expected: %v, got: %v", i, test.config.OauthScope, cfg.OauthScope)
+					t.Fatalf("%v: Failed to match OauthScope.", i)
 				}
 				if test.config.EnableSingleUseRefreshTokens != cfg.EnableSingleUseRefreshTokens {
-					t.Fatalf("%v: Failed to match EnableSingleUseRefreshTokens. expected: %v, got: %v", i, test.config.OauthScope, cfg.OauthScope)
+					t.Fatalf("%v: Failed to match EnableSingleUseRefreshTokens.")
 				}
 				assertEqualE(t, cfg.Token, test.config.Token, "token")
 				assertEqualE(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
@@ -2111,18 +2111,18 @@ func TestDSN(t *testing.T) {
 			dsn, err := DSN(test.cfg)
 			if test.err == nil && err == nil {
 				if dsn != test.dsn {
-					t.Errorf("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
+					t.Errorf("failed to get DSN.")
 				}
 				_, err := ParseDSN(dsn)
 				if err != nil {
-					t.Errorf("failed to parse DSN. dsn: %v, err: %v", dsn, err)
+					t.Errorf("failed to parse DSN. ")
 				}
 			}
 			if test.err != nil && err == nil {
-				t.Errorf("expected error. dsn: %v, err: %v", test.dsn, test.err)
+				t.Errorf("expected error. got nil")
 			}
 			if err != nil && test.err == nil {
-				t.Errorf("failed to match. err: %v", err)
+				t.Errorf("failed to match")
 			}
 		})
 	}

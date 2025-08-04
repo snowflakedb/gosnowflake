@@ -8,9 +8,11 @@ const (
 	sasTokenPattern        = `(?i)(sig|signature|AWSAccessKeyId|password|passcode)=(?P<secret>[a-z0-9%/+]{16,})`
 	privateKeyPattern      = `(?im)-----BEGIN PRIVATE KEY-----\\n([a-z0-9/+=\\n]{32,})\\n-----END PRIVATE KEY-----` // pragma: allowlist secret
 	privateKeyDataPattern  = `(?i)"privateKeyData": "([a-z0-9/+=\\n]{10,})"`
+	privateKeyParamPattern = `(?i)privateKey=([A-Za-z0-9/+=%-]{50,})` // pragma: allowlist secret
 	connectionTokenPattern = `(?i)(token|assertion content)([\'\"\s:=]+)([a-z0-9=/_\-\+]{8,})`
 	passwordPattern        = `(?i)(password|pwd)([\'\"\s:=]+)([a-z0-9!\"#\$%&\\\'\(\)\*\+\,-\./:;<=>\?\@\[\]\^_\{\|\}~]{8,})`
 	clientSecretPattern    = `(?i)(clientSecret)([\'\"\s:= ]+)([a-z0-9!\"#\$%&\\\'\(\)\*\+\,-\./:;<=>\?\@\[\]\^_\{\|\}~]+)`
+	jwtTokenPattern        = `(?i)(jwt|bearer)[\s:=]*([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)` // pragma: allowlist secret
 )
 
 var (
@@ -19,9 +21,11 @@ var (
 	sasTokenRegexp        = regexp.MustCompile(sasTokenPattern)
 	privateKeyRegexp      = regexp.MustCompile(privateKeyPattern)
 	privateKeyDataRegexp  = regexp.MustCompile(privateKeyDataPattern)
+	privateKeyParamRegexp = regexp.MustCompile(privateKeyParamPattern)
 	connectionTokenRegexp = regexp.MustCompile(connectionTokenPattern)
 	passwordRegexp        = regexp.MustCompile(passwordPattern)
 	clientSecretRegexp    = regexp.MustCompile(clientSecretPattern)
+	jwtTokenRegexp        = regexp.MustCompile(jwtTokenPattern)
 )
 
 func maskConnectionToken(text string) string {
@@ -56,14 +60,24 @@ func maskClientSecret(text string) string {
 	return clientSecretRegexp.ReplaceAllString(text, "$1${2}****")
 }
 
+func maskPrivateKeyParam(text string) string {
+	return privateKeyParamRegexp.ReplaceAllString(text, "privateKey=****")
+}
+
+func maskJwtToken(text string) string {
+	return jwtTokenRegexp.ReplaceAllString(text, "$1 ****")
+}
+
 func maskSecrets(text string) string {
 	return maskConnectionToken(
 		maskPassword(
 			maskPrivateKeyData(
-				maskPrivateKey(
-					maskAwsToken(
-						maskSasToken(
-							maskAwsKey(
-								maskClientSecret(
-									text))))))))
+				maskPrivateKeyParam(
+					maskPrivateKey(
+						maskAwsToken(
+							maskSasToken(
+								maskAwsKey(
+									maskClientSecret(
+										maskJwtToken(
+											text))))))))))
 }
