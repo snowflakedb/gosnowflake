@@ -1273,18 +1273,19 @@ func TestParseDSN(t *testing.T) {
 			switch {
 			case test.err == nil:
 				if err != nil {
-					t.Fatalf("%d: Failed to parse the DSN.")
+					t.Fatalf("%d: Failed to parse the DSN.",
+						i)
 				}
 				if test.config.Host != cfg.Host {
-					t.Fatalf("%d: Failed to match host ",
+					t.Fatalf("%d: Failed to match host.",
 						i)
 				}
 				if test.config.Account != cfg.Account {
-					t.Fatalf("%d: Failed to match account. ",
+					t.Fatalf("%d: Failed to match account.",
 						i)
 				}
 				if test.config.User != cfg.User {
-					t.Fatalf("%d: Failed to match user",
+					t.Fatalf("%d: Failed to match user.",
 						i)
 				}
 				if test.config.Password != cfg.Password {
@@ -1375,7 +1376,7 @@ func TestParseDSN(t *testing.T) {
 					t.Fatalf("%v: Failed to match DisableSamlURLCheck.", i)
 				}
 				if test.config.OauthClientID != cfg.OauthClientID {
-					t.Fatalf("%v: Failed to match OauthClientId", i)
+					t.Fatalf("%v: Failed to match OauthClientId.", i)
 				}
 				if test.config.OauthClientSecret != cfg.OauthClientSecret {
 					t.Fatalf("%v: Failed to match OauthClientSecret.", i)
@@ -1393,7 +1394,7 @@ func TestParseDSN(t *testing.T) {
 					t.Fatalf("%v: Failed to match OauthScope.", i)
 				}
 				if test.config.EnableSingleUseRefreshTokens != cfg.EnableSingleUseRefreshTokens {
-					t.Fatalf("%v: Failed to match EnableSingleUseRefreshTokens.")
+					t.Fatalf("%v: Failed to match EnableSingleUseRefreshTokens.", i)
 				}
 				assertEqualE(t, cfg.Token, test.config.Token, "token")
 				assertEqualE(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
