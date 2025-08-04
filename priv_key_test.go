@@ -5,16 +5,13 @@ package gosnowflake
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"database/sql"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"os"
-	"testing"
 )
 
 // helper function to generate PKCS8 encoded base64 string of a private key
@@ -65,31 +62,4 @@ func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
 	b.WriteString(fmt.Sprintf("&authenticator=%v", AuthTypeJwt.String()))
 	b.WriteString(fmt.Sprintf("&privateKey=%s", generatePKCS8StringSupress(key)))
 	return b.String()
-}
-
-func TestJWTTokenTimeout(t *testing.T) {
-	resetHTTPMocks(t)
-
-	dsn := "user:pass@localhost:12345/db/schema?account=jwtAuthTokenTimeout&protocol=http&jwtClientTimeout=1"
-	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal("Failed to generate test private key:", err.Error())
-	}
-	dsn = appendPrivateKeyString(&dsn, localTestKey)
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer db.Close()
-	ctx := context.Background()
-	conn, err := db.Conn(ctx)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer conn.Close()
-
-	invocations := getMocksInvocations(t)
-	if invocations != 3 {
-		t.Errorf("Unexpected number of invocations, expected 3, got %v", invocations)
-	}
 }

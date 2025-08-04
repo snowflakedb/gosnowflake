@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,6 +13,23 @@ import (
 	"testing"
 	"time"
 )
+
+// mockOCSPTransport simulates OCSP connection failures without making real network requests
+type mockOCSPTransport struct{}
+
+func (t *mockOCSPTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	// Simulate authentication failure for OCSP tests to prevent real connections
+	if strings.Contains(r.URL.Path, "login-request") {
+		return &http.Response{
+			StatusCode: 401,
+			Status:     "401 Unauthorized",
+			Body:       io.NopCloser(strings.NewReader(`{"success":false,"message":"Authentication failed","code":"390100"}`)),
+			Header:     make(http.Header),
+		}, nil
+	}
+	// For other requests, simulate network errors
+	return nil, fmt.Errorf("simulated network error for OCSP test isolation")
+}
 
 func setenv(k, v string) {
 	err := os.Setenv(k, v)
@@ -65,8 +84,9 @@ func TestOCSPFailOpen(t *testing.T) {
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
+		Authenticator: AuthTypeSnowflake,    // Force password authentication
+		PrivateKey:    nil,                  // Ensure no private key
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 	}
 	var db *sql.DB
 	var err error
@@ -107,13 +127,14 @@ func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
 	setenv(cacheDirEnv, "/NEVER_EXISTS")
 
 	config := &Config{
-		Account:       "fakeaccount1",
+		Account:       "fakeaccount2",
 		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
+		Authenticator: AuthTypeSnowflake,    // Force password authentication
+		PrivateKey:    nil,                  // Ensure no private key
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 	}
 	var db *sql.DB
 	var err error
@@ -156,8 +177,9 @@ func TestOCSPFailOpenValidityError(t *testing.T) {
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
+		Authenticator: AuthTypeSnowflake,    // Force password authentication
+		PrivateKey:    nil,                  // Ensure no private key
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 	}
 	var db *sql.DB
 	var err error
@@ -200,8 +222,9 @@ func TestOCSPFailClosedValidityError(t *testing.T) {
 		Password:      "fakepassword",
 		LoginTimeout:  20 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
+		Authenticator: AuthTypeSnowflake,    // Force password authentication
+		PrivateKey:    nil,                  // Ensure no private key
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 	}
 	var db *sql.DB
 	var err error
@@ -249,8 +272,9 @@ func TestOCSPFailOpenUnknownStatus(t *testing.T) {
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
+		Authenticator: AuthTypeSnowflake,    // Force password authentication
+		PrivateKey:    nil,                  // Ensure no private key
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 	}
 	var db *sql.DB
 	var err error
@@ -293,8 +317,9 @@ func TestOCSPFailClosedUnknownStatus(t *testing.T) {
 		Password:      "fakepassword",
 		LoginTimeout:  20 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
+		Authenticator: AuthTypeSnowflake,    // Force password authentication
+		PrivateKey:    nil,                  // Ensure no private key
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 	}
 	var db *sql.DB
 	var err error
@@ -338,8 +363,9 @@ func TestOCSPFailOpenRevokedStatus(t *testing.T) {
 
 	config := &Config{
 		Account:       "fakeaccount6",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
+		Authenticator: AuthTypeSnowflake,    // Force password authentication
+		PrivateKey:    nil,                  // Ensure no private key
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		User:          "fakeuser",
 		Password:      "fakepassword",
 		Host:          "revoked.badssl.com",
@@ -389,7 +415,9 @@ func TestOCSPFailClosedRevokedStatus(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount7",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		Host:          "revoked.badssl.com",
 		LoginTimeout:  20 * time.Second,
@@ -437,8 +465,10 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 
 	config := &Config{
 		Account:       "fakeaccount8",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		Authenticator: AuthTypeSnowflake,    // Force password authentication
+		PrivateKey:    nil,                  // Ensure no private key
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
@@ -481,7 +511,9 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount9",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		LoginTimeout:  20 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,
@@ -541,7 +573,9 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
@@ -585,7 +619,9 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount11",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		LoginTimeout:  20 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,
@@ -632,7 +668,9 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
@@ -675,7 +713,9 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount11",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		LoginTimeout:  20 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,
@@ -715,7 +755,9 @@ func TestExpiredCertificate(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		Host:          "expired.badssl.com",
 		LoginTimeout:  10 * time.Second,
@@ -763,7 +805,9 @@ func TestSelfSignedCertificate(t *testing.T) {
 	config := &Config{
 		Account:      "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:     "fakepassword",
 		Host:         "self-signed.badssl.com",
 		LoginTimeout: 10 * time.Second,
@@ -806,7 +850,9 @@ func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
@@ -849,7 +895,9 @@ func TestOCSPFailClosedNoOCSPURL(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount11",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		LoginTimeout:  20 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,

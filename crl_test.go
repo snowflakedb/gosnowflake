@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -869,25 +870,47 @@ func closeServer(t *testing.T, server *http.Server) {
 }
 
 func TestCrlE2E(t *testing.T) {
+	// Skip E2E tests when SKIP_SETUP is set or when using fake credentials
+	if value := os.Getenv("SKIP_SETUP"); value != "" {
+		t.Skip("Skipping E2E test when SKIP_SETUP is set")
+	}
+
+	// Parse the global DSN to check if we have real credentials
+	cfg, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse dsn")
+	}
+
+	// Skip if using fake/test credentials (indicating this is a unit test environment)
+	if strings.Contains(cfg.Host, "testaccount") {
+		t.Skip("Skipping E2E test with fake credentials - requires real Snowflake connection")
+	}
+
 	t.Run("Successful flow", func(t *testing.T) {
 		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
-		cfg := &Config{
-			User:                              username,
-			Password:                          pass,
-			Account:                           account,
-			Database:                          dbname,
-			Schema:                            schemaname,
-			CertRevocationCheckMode:           CertRevocationCheckEnabled,
-			CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
-			CrlCacheValidityTime:              60 * time.Second,
-			CrlCacheCleanerTick:               5 * time.Second,
-			CrlOnDiskCacheDir:                 t.TempDir(),
-			DisableOCSPChecks:                 true,
+
+		// Parse the global DSN to inherit authentication method (JWT vs password)
+		cfg, err := ParseDSN(dsn)
+		if err != nil {
+			t.Fatal("Failed to parse dsn")
 		}
+
+		// Override CRL-specific settings while keeping authentication intact
+		cfg.CertRevocationCheckMode = CertRevocationCheckEnabled
+		cfg.CrlAllowCertificatesWithoutCrlURL = ConfigBoolTrue
+		cfg.CrlCacheValidityTime = 60 * time.Second
+		cfg.CrlCacheCleanerTick = 5 * time.Second
+		cfg.CrlOnDiskCacheDir = t.TempDir()
+		cfg.DisableOCSPChecks = true
+
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
-		assertNilF(t, err)
+		if err != nil {
+			// Mask any sensitive information in error messages before failing
+			maskedErr := maskSecrets(err.Error())
+			t.Fatalf("CRL E2E test failed: %s", maskedErr)
+		}
 		defer rows.Close()
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
@@ -914,16 +937,27 @@ func TestCrlE2E(t *testing.T) {
 
 	t.Run("OCSP and CRL cannot be enabled at the same time", func(t *testing.T) {
 		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
-		cfg := &Config{
-			User:                    username,
-			Password:                pass,
-			Account:                 account,
-			Database:                dbname,
-			Schema:                  schemaname,
-			CertRevocationCheckMode: CertRevocationCheckEnabled,
+
+		// Parse the global DSN to inherit authentication method (JWT vs password)
+		cfg, err := ParseDSN(dsn)
+		if err != nil {
+			t.Fatal("Failed to parse dsn")
 		}
-		_, err := buildSnowflakeConn(context.Background(), *cfg)
-		assertEqualE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+
+		// Override CRL settings while keeping authentication intact
+		cfg.CertRevocationCheckMode = CertRevocationCheckEnabled
+		// Note: DisableOCSPChecks is NOT set to true, so both OCSP and CRL are enabled
+
+		_, err = buildSnowflakeConn(context.Background(), *cfg)
+		if err != nil {
+			// Mask any sensitive information in error messages
+			maskedErr := maskSecrets(err.Error())
+			if maskedErr != "both OCSP and CRL cannot be enabled at the same time, please disable one of them" {
+				t.Fatalf("Expected specific error message, got: %s", maskedErr)
+			}
+		} else {
+			t.Fatal("Expected error but connection succeeded")
+		}
 		assertEqualE(t, len(crlInMemoryCache), 0)
 	})
 }
