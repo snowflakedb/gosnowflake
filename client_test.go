@@ -26,7 +26,8 @@ func (t *DummyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func TestInternalClient(t *testing.T) {
-	config, err := ParseDSN(dsn)
+	fakeDSN := "testuser:testpass@testaccount.snowflakecomputing.com:443/testdb/testschema?warehouse=testwh&role=testrole"
+	config, err := ParseDSN(fakeDSN)
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}

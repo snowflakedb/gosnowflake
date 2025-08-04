@@ -1945,11 +1945,6 @@ func TestTimezoneSessionParameter(t *testing.T) {
 }
 
 func TestLargeSetResultCancel(t *testing.T) {
-	level := logger.GetLogLevel()
-	_ = logger.SetLogLevel("debug")
-	defer func() {
-		_ = logger.SetLogLevel(level)
-	}()
 	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
