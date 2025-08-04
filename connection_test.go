@@ -465,7 +465,9 @@ func fetchResultByQueryID(
 	t *testing.T,
 	customGet funcGetType,
 	expectedFetchErr error) error {
-	config, err := ParseDSN(dsn)
+	// Use fake DSN for mocked tests - should not make real connections
+	fakeDSN := "testuser:testpass@testaccount.snowflakecomputing.com:443/testdb/testschema?warehouse=testwh&role=testrole"
+	config, err := ParseDSN(fakeDSN)
 	if err != nil {
 		return err
 	}
@@ -695,9 +697,6 @@ func TestConcurrentReadOnParams(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to parse dsn")
 	}
-	// Force password authentication and clear private keys to prevent JWT inheritance
-	config.Authenticator = AuthTypeSnowflake
-	config.PrivateKey = nil
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
 	defer db.Close()
