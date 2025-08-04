@@ -643,8 +643,44 @@ func TestUnitAuthenticateJWT(t *testing.T) {
 		t.Fatalf("Failed to generate test private key: %s", err.Error())
 	}
 
+	// Create custom JWT verification function that uses the local key
+	postAuthCheckLocalJWTToken := func(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
+		var ar authRequest
+		jsonBody, _ := bodyCreator()
+		if err := json.Unmarshal(jsonBody, &ar); err != nil {
+			return nil, err
+		}
+		if ar.Data.Authenticator != AuthTypeJwt.String() {
+			return nil, errors.New("Authenticator is not JWT")
+		}
+
+		tokenString := ar.Data.Token
+
+		// Validate token using the local test key's public key
+		_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			}
+			return localTestKey.Public(), nil // Use local key for verification
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return &authResponse{
+			Success: true,
+			Data: authResponseMain{
+				Token:       "t",
+				MasterToken: "m",
+				SessionInfo: authResponseSessionInfo{
+					DatabaseName: "dbn",
+				},
+			},
+		}, nil
+	}
+
 	sr := &snowflakeRestful{
-		FuncPostAuth:  postAuthCheckJWTToken,
+		FuncPostAuth:  postAuthCheckLocalJWTToken, // Use local verification function
 		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
