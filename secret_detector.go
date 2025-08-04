@@ -8,7 +8,7 @@ const (
 	sasTokenPattern        = `(?i)(sig|signature|AWSAccessKeyId|password|passcode)=(?P<secret>[a-z0-9%/+]{16,})`
 	privateKeyPattern      = `(?im)-----BEGIN PRIVATE KEY-----\\n([a-z0-9/+=\\n]{32,})\\n-----END PRIVATE KEY-----` // pragma: allowlist secret
 	privateKeyDataPattern  = `(?i)"privateKeyData": "([a-z0-9/+=\\n]{10,})"`
-	privateKeyParamPattern = `(?i)privateKey=([A-Za-z0-9/+=%-]{50,})` // pragma: allowlist secret
+	privateKeyParamPattern = `(?i)privateKey=([A-Za-z0-9/+=_%-]+)(&|$|\s)`
 	connectionTokenPattern = `(?i)(token|assertion content)([\'\"\s:=]+)([a-z0-9=/_\-\+]{8,})`
 	passwordPattern        = `(?i)(password|pwd)([\'\"\s:=]+)([a-z0-9!\"#\$%&\\\'\(\)\*\+\,-\./:;<=>\?\@\[\]\^_\{\|\}~]{8,})`
 	clientSecretPattern    = `(?i)(clientSecret)([\'\"\s:= ]+)([a-z0-9!\"#\$%&\\\'\(\)\*\+\,-\./:;<=>\?\@\[\]\^_\{\|\}~]+)`
@@ -47,7 +47,6 @@ func maskAwsToken(text string) string {
 func maskSasToken(text string) string {
 	return sasTokenRegexp.ReplaceAllString(text, "${1}****$2")
 }
-
 func maskPrivateKey(text string) string {
 	return privateKeyRegexp.ReplaceAllString(text, "-----BEGIN PRIVATE KEY-----\\\\\\\\nXXXX\\\\\\\\n-----END PRIVATE KEY-----") // pragma: allowlist secret
 }
@@ -61,7 +60,7 @@ func maskClientSecret(text string) string {
 }
 
 func maskPrivateKeyParam(text string) string {
-	return privateKeyParamRegexp.ReplaceAllString(text, "privateKey=****")
+	return privateKeyParamRegexp.ReplaceAllString(text, "privateKey=****$2")
 }
 
 func maskJwtToken(text string) string {
