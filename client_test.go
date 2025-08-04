@@ -2,8 +2,10 @@ package gosnowflake
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -13,15 +15,29 @@ type DummyTransport struct {
 }
 
 func (t *DummyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	if r.URL.Path == "" {
+	// Return successful response with mock body for different request types
+	var responseBody io.ReadCloser
+	if strings.Contains(r.URL.Path, "login-request") {
+		// Mock successful login response with correct types (don't count auth requests)
+		responseBody = io.NopCloser(strings.NewReader(`{"success":true,"data":{"token":"mock-token","sessionId":12345}}`))
+	} else if strings.Contains(r.URL.Path, "telemetry") {
+		// Mock telemetry response (don't count telemetry requests)
+		responseBody = io.NopCloser(strings.NewReader(`{"success":true}`))
+	} else {
+		// Count only explicit API calls, not authentication or telemetry
 		if r.Method == "GET" {
 			t.getRequests++
 		} else if r.Method == "POST" {
 			t.postRequests++
 		}
-		return &http.Response{StatusCode: 200}, nil
+		responseBody = io.NopCloser(strings.NewReader(`{"success":true}`))
 	}
-	return snowflakeNoRevocationCheckTransport.RoundTrip(r)
+
+	return &http.Response{
+		StatusCode: 200,
+		Body:       responseBody,
+		Header:     make(http.Header),
+	}, nil
 }
 
 func TestInternalClient(t *testing.T) {

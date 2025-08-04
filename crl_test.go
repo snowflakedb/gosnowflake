@@ -1019,7 +1019,11 @@ func TestCrlE2E(t *testing.T) {
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
-		assertNilF(t, err)
+		if err != nil {
+			// Mask any sensitive information in error messages before failing
+			maskedErr := maskSecrets(err.Error())
+			t.Fatalf("CRL E2E test failed: %s", maskedErr)
+		}
 		defer rows.Close()
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
@@ -1055,7 +1059,7 @@ func TestCrlE2E(t *testing.T) {
 			CertRevocationCheckMode: CertRevocationCheckEnabled,
 		}
 		_, err := buildSnowflakeConn(context.Background(), *cfg)
-		assertEqualE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+		assertEqualE(t, maskSecrets(err.Error()), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
 		assertEqualE(t, len(crlInMemoryCache), 0)
 	})
 }
