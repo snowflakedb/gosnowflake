@@ -96,7 +96,7 @@ func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 		Timeout: getConfigDuration(tf.config.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
 	}
 
-	crlValidator, err := newCrlValidator(
+	return newCrlValidator(
 		tf.config.CertRevocationCheckMode,
 		allowCertificatesWithoutCrlURL,
 		tf.config.CrlCacheValidityTime,
@@ -106,11 +106,6 @@ func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 		tf.config.CrlOnDiskCacheRemovalDelay,
 		client,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return crlValidator, nil
 }
 
 // TODO(snoonan): Better interface for crlValidator return
