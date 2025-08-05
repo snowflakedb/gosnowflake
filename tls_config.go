@@ -14,7 +14,7 @@ var (
 // Use the key as a value in the DSN where tls=value.
 func RegisterTLSConfig(key string, config *tls.Config) error {
 	tlsConfigLock.Lock()
-	logger.Debugf("Registering TLS config for key: %s", key)
+	logger.Infof("Registering TLS config for key: %s", key)
 	tlsConfigRegistry[key] = config.Clone()
 	tlsConfigLock.Unlock()
 	return nil
@@ -23,7 +23,7 @@ func RegisterTLSConfig(key string, config *tls.Config) error {
 // DeregisterTLSConfig removes the tls.Config associated with key.
 func DeregisterTLSConfig(key string) error {
 	tlsConfigLock.Lock()
-	logger.Debugf("Registering TLS config for key: %s", key)
+	logger.Infof("Deregistering TLS config for key: %s", key)
 	delete(tlsConfigRegistry, key)
 	tlsConfigLock.Unlock()
 	return nil

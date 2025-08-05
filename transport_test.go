@@ -40,27 +40,6 @@ func assertTransportsEqual(t *testing.T, expected, actual *http.Transport, msg s
 	assertEqualF(t, expected.ForceAttemptHTTP2, actual.ForceAttemptHTTP2, "%s ForceAttemptHTTP2", msg)
 }
 
-// assertTLSConfigsEqual compares two TLS configurations, excluding function fields
-// like VerifyPeerCertificate which may point to different but equivalent functions
-func assertTLSConfigsEqual(t *testing.T, expected, actual *tls.Config, msg string) {
-	if expected == nil && actual == nil {
-		return
-	}
-	assertNotNilF(t, expected, "Expected TLS config should not be nil in %s", msg)
-	assertNotNilF(t, actual, "Actual TLS config should not be nil in %s", msg)
-
-	// Compare non-function fields
-	assertEqualF(t, expected.InsecureSkipVerify, actual.InsecureSkipVerify, "%s InsecureSkipVerify", msg)
-	assertEqualF(t, expected.ServerName, actual.ServerName, "%s ServerName", msg)
-	assertEqualF(t, expected.MinVersion, actual.MinVersion, "%s MinVersion", msg)
-	assertEqualF(t, expected.MaxVersion, actual.MaxVersion, "%s MaxVersion", msg)
-
-	// For VerifyPeerCertificate, just check presence/absence since function pointers can't be compared
-	expectedHasVerifier := expected.VerifyPeerCertificate != nil
-	actualHasVerifier := actual.VerifyPeerCertificate != nil
-	assertEqualF(t, expectedHasVerifier, actualHasVerifier, "%s VerifyPeerCertificate presence", msg)
-}
-
 func TestTransportFactoryErrorHandling(t *testing.T) {
 	// Test CreateCustomTLSTransport with conflicting OCSP and CRL settings
 	conflictingConfig := &Config{
