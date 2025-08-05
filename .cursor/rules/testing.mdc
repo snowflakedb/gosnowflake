@@ -81,7 +81,7 @@ Always examine `assertion_helpers.go` for the latest set of helpers. Consider th
 - `assertErrIsF/E(t, actual, expected, description)` - Assert error matches expected error
 
 #### When to Use F vs E:
-- Use `F` suffix (Fatal) for critical failures that should stop the test immediately
+- Use `F` suffix (Fatal) for critical failures that should stop the test immediately as well as for preconditions
 - Use `E` suffix (Error) for non-critical failures that allow the test to continue
 
 ## Code Review Guidelines:
