@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"cmp"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -93,7 +94,7 @@ func (tf *transportFactory) createNoRevocationTransport() *http.Transport {
 func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 	allowCertificatesWithoutCrlURL := tf.config.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
 	client := &http.Client{
-		Timeout: getConfigDuration(tf.config.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
+		Timeout: cmp.Or(tf.config.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
 	}
 
 	return newCrlValidator(
@@ -183,12 +184,4 @@ func (tf *transportFactory) chainVerificationCallbacks(orignalVerificationFunc f
 		return verificationFunc(rawCerts, verifiedChains)
 	}
 	return newVerify
-}
-
-// getConfigDuration returns the config duration if non-zero, otherwise returns the default
-func getConfigDuration(configValue, defaultValue time.Duration) time.Duration {
-	if configValue != 0 {
-		return configValue
-	}
-	return defaultValue
 }
