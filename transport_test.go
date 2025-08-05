@@ -2,8 +2,64 @@ package gosnowflake
 
 import (
 	"crypto/tls"
+	"net/http"
 	"testing"
 )
+
+// castToTransport safely casts http.RoundTripper to *http.Transport
+// Returns nil if the cast fails
+func castToTransport(rt http.RoundTripper) *http.Transport {
+	if transport, ok := rt.(*http.Transport); ok {
+		return transport
+	}
+	return nil
+}
+
+// assertTransportsEqual compares two transports, excluding function fields and other non-comparable fields
+// that may vary between instances but represent equivalent configurations
+func assertTransportsEqual(t *testing.T, expected, actual *http.Transport, msg string) {
+	if expected == nil && actual == nil {
+		return
+	}
+	assertNotNilF(t, expected, "Expected transport should not be nil in %s", msg)
+	assertNotNilF(t, actual, "Actual transport should not be nil in %s", msg)
+
+	// Compare TLS configurations
+	assertTLSConfigsEqual(t, expected.TLSClientConfig, actual.TLSClientConfig, msg+" TLS config")
+
+	// Compare other relevant transport fields (excluding function fields)
+	assertEqualF(t, expected.MaxIdleConns, actual.MaxIdleConns, "%s MaxIdleConns", msg)
+	assertEqualF(t, expected.MaxIdleConnsPerHost, actual.MaxIdleConnsPerHost, "%s MaxIdleConnsPerHost", msg)
+	assertEqualF(t, expected.MaxConnsPerHost, actual.MaxConnsPerHost, "%s MaxConnsPerHost", msg)
+	assertEqualF(t, expected.IdleConnTimeout, actual.IdleConnTimeout, "%s IdleConnTimeout", msg)
+	assertEqualF(t, expected.ResponseHeaderTimeout, actual.ResponseHeaderTimeout, "%s ResponseHeaderTimeout", msg)
+	assertEqualF(t, expected.ExpectContinueTimeout, actual.ExpectContinueTimeout, "%s ExpectContinueTimeout", msg)
+	assertEqualF(t, expected.TLSHandshakeTimeout, actual.TLSHandshakeTimeout, "%s TLSHandshakeTimeout", msg)
+	assertEqualF(t, expected.DisableKeepAlives, actual.DisableKeepAlives, "%s DisableKeepAlives", msg)
+	assertEqualF(t, expected.DisableCompression, actual.DisableCompression, "%s DisableCompression", msg)
+	assertEqualF(t, expected.ForceAttemptHTTP2, actual.ForceAttemptHTTP2, "%s ForceAttemptHTTP2", msg)
+}
+
+// assertTLSConfigsEqual compares two TLS configurations, excluding function fields
+// like VerifyPeerCertificate which may point to different but equivalent functions
+func assertTLSConfigsEqual(t *testing.T, expected, actual *tls.Config, msg string) {
+	if expected == nil && actual == nil {
+		return
+	}
+	assertNotNilF(t, expected, "Expected TLS config should not be nil in %s", msg)
+	assertNotNilF(t, actual, "Actual TLS config should not be nil in %s", msg)
+
+	// Compare non-function fields
+	assertEqualF(t, expected.InsecureSkipVerify, actual.InsecureSkipVerify, "%s InsecureSkipVerify", msg)
+	assertEqualF(t, expected.ServerName, actual.ServerName, "%s ServerName", msg)
+	assertEqualF(t, expected.MinVersion, actual.MinVersion, "%s MinVersion", msg)
+	assertEqualF(t, expected.MaxVersion, actual.MaxVersion, "%s MaxVersion", msg)
+
+	// For VerifyPeerCertificate, just check presence/absence since function pointers can't be compared
+	expectedHasVerifier := expected.VerifyPeerCertificate != nil
+	actualHasVerifier := actual.VerifyPeerCertificate != nil
+	assertEqualF(t, expectedHasVerifier, actualHasVerifier, "%s VerifyPeerCertificate presence", msg)
+}
 
 func TestTransportFactoryErrorHandling(t *testing.T) {
 	// Test CreateCustomTLSTransport with conflicting OCSP and CRL settings
