@@ -790,7 +790,6 @@ func TestPerformDiagnosis(t *testing.T) {
 		logOutput := buffer.String()
 		assertStringContainsE(t, logOutput, "[performDiagnosis] starting connectivity diagnosis", "should contain diagnosis start message")
 		assertStringContainsE(t, logOutput, "[performDiagnosis] CRLs will be attempted to be downloaded and parsed during https tests", "should contain CRL download enabled message")
-		t.Logf("logOutput: %s", logOutput)
 
 		// DNS resolution
 		assertStringContainsE(t, logOutput, "[performDiagnosis] DNS check - resolving OCSP_CACHE hostname ocsp.snowflakecomputing.com", "should contain DNS check for OCSP cache")
