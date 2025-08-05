@@ -726,12 +726,10 @@ func TestPerformDiagnosis(t *testing.T) {
 
 		// perform the diagnosis without downloading CRL
 		performDiagnosis(config, false)
-		t.Logf("after performDiagnosis")
 
 		// verify expected log messages from performDiagnosis and underlying functions
 		logOutput := buffer.String()
 		assertStringContainsE(t, logOutput, "[performDiagnosis] starting connectivity diagnosis", "should contain diagnosis start message")
-		t.Logf("logOutput: %s", logOutput)
 
 		// DNS resolution
 		assertStringContainsE(t, logOutput, "[performDiagnosis] DNS check - resolving OCSP_CACHE hostname ocsp.snowflakecomputing.com", "should contain DNS check for OCSP cache")
