@@ -886,63 +886,76 @@ func (t EmptyTransporter) RoundTrip(*http.Request) (*http.Response, error) {
 	return nil, nil
 }
 
+// castToTransport safely casts http.RoundTripper to *http.Transport
+// Returns nil if the cast fails
+func castToTransport(rt http.RoundTripper) *http.Transport {
+	if transport, ok := rt.(*http.Transport); ok {
+		return transport
+	}
+	return nil
+}
+
 func TestGetTransport(t *testing.T) {
 	testcases := []struct {
-		name           string
-		cfg            *Config
-		transportCheck func(transport http.RoundTripper) bool
+		name              string
+		cfg               *Config
+		transportCheck    func(t *testing.T, transport *http.Transport)
+		roundTripperCheck func(t *testing.T, roundTripper http.RoundTripper)
 	}{
 		{
 			name: "DisableOCSPChecks and InsecureMode false",
 			cfg:  &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
-			transportCheck: func(transport http.RoundTripper) bool {
+			transportCheck: func(t *testing.T, transport *http.Transport) {
 				// We should have a verifier function
-				t := castToTransport(transport)
-				return t != nil && t.TLSClientConfig != nil && t.TLSClientConfig.VerifyPeerCertificate != nil
+				assertNotNilF(t, transport)
+				assertNotNilF(t, transport.TLSClientConfig)
+				assertNotNilF(t, transport.TLSClientConfig.VerifyPeerCertificate)
 			},
 		},
 		{
 			name: "DisableOCSPChecks true and InsecureMode false",
 			cfg:  &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
-			transportCheck: func(transport http.RoundTripper) bool {
+			transportCheck: func(t *testing.T, transport *http.Transport) {
 				// We should not have a TLSClientConfig
-				t := castToTransport(transport)
-				return t != nil && t.TLSClientConfig == nil
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
 			},
 		},
 		{
 			name: "DisableOCSPChecks false and InsecureMode true",
 			cfg:  &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
-			transportCheck: func(transport http.RoundTripper) bool {
+			transportCheck: func(t *testing.T, transport *http.Transport) {
 				// We should not have a TLSClientConfig
-				t := castToTransport(transport)
-				return t != nil && t.TLSClientConfig == nil
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
 			},
 		},
 		{
 			name: "DisableOCSPChecks and InsecureMode missing from Config",
 			cfg:  &Config{Account: "four"},
-			transportCheck: func(transport http.RoundTripper) bool {
+			transportCheck: func(t *testing.T, transport *http.Transport) {
 				// We should have a verifier function
-				t := castToTransport(transport)
-				return t != nil && t.TLSClientConfig != nil && t.TLSClientConfig.VerifyPeerCertificate != nil
+				assertNotNilF(t, transport)
+				assertNotNilF(t, transport.TLSClientConfig)
+				assertNotNilF(t, transport.TLSClientConfig.VerifyPeerCertificate)
 			},
 		},
 		{
 			name: "whole Config is missing",
 			cfg:  nil,
-			transportCheck: func(transport http.RoundTripper) bool {
+			transportCheck: func(t *testing.T, transport *http.Transport) {
 				// We should not have a TLSClientConfig
-				t := castToTransport(transport)
-				return t != nil && t.TLSClientConfig == nil
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
 			},
 		},
 		{
 			name: "Using custom Transporter",
 			cfg:  &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
-			transportCheck: func(transport http.RoundTripper) bool {
+			roundTripperCheck: func(t *testing.T, roundTripper http.RoundTripper) {
 				// We should have a custom Transporter
-				return transport == EmptyTransporter{}
+				assertNotNilF(t, roundTripper)
+				assertTrueE(t, roundTripper == EmptyTransporter{})
 			},
 		},
 	}
@@ -950,7 +963,12 @@ func TestGetTransport(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			result, err := getTransport(test.cfg, nil)
 			assertNilE(t, err)
-			assertTrueE(t, test.transportCheck(result))
+			if test.transportCheck != nil {
+				test.transportCheck(t, castToTransport(result))
+			}
+			if test.roundTripperCheck != nil {
+				test.roundTripperCheck(t, result)
+			}
 		})
 	}
 }

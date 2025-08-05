@@ -6,15 +6,6 @@ import (
 	"testing"
 )
 
-// castToTransport safely casts http.RoundTripper to *http.Transport
-// Returns nil if the cast fails
-func castToTransport(rt http.RoundTripper) *http.Transport {
-	if transport, ok := rt.(*http.Transport); ok {
-		return transport
-	}
-	return nil
-}
-
 // assertTransportsEqual compares two transports, excluding function fields and other non-comparable fields
 // that may vary between instances but represent equivalent configurations
 func assertTransportsEqual(t *testing.T, expected, actual *http.Transport, msg string) {
