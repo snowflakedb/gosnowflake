@@ -70,7 +70,7 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 // createOCSPTransport creates a transport with OCSP validation
 func (tf *transportFactory) createOCSPTransport() *http.Transport {
 	// Chain OCSP verification with custom TLS config
-	tlsConfig := tf.config.TLSConfig
+	tlsConfig := tf.config.tlsConfig
 	if tlsConfig != nil {
 		tlsConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(tlsConfig.VerifyPeerCertificate, verifyPeerCertificateSerial)
 	} else {
@@ -139,7 +139,7 @@ func (tf *transportFactory) createTransport() (http.RoundTripper, *crlValidator,
 			return nil, nil, err
 		}
 		// Chain CRL verification with custom TLS config
-		tlsConfig := tf.config.TLSConfig
+		tlsConfig := tf.config.tlsConfig
 		if tlsConfig != nil {
 			crlVerify := crlValidator.verifyPeerCertificates
 			tlsConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(tlsConfig.VerifyPeerCertificate, crlVerify)

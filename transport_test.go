@@ -46,7 +46,7 @@ func TestTransportFactoryErrorHandling(t *testing.T) {
 		DisableOCSPChecks:       false,
 		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
-		TLSConfig:               &tls.Config{InsecureSkipVerify: true},
+		tlsConfig:               &tls.Config{InsecureSkipVerify: true},
 	}
 
 	factory := newTransportFactory(conflictingConfig, nil)
@@ -79,7 +79,7 @@ func TestCreateCustomTLSTransportSuccess(t *testing.T) {
 		DisableOCSPChecks:       true,
 		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
-		TLSConfig:               &tls.Config{InsecureSkipVerify: true},
+		tlsConfig:               &tls.Config{InsecureSkipVerify: true},
 	}
 
 	factory := newTransportFactory(validConfig, nil)
@@ -112,10 +112,10 @@ func TestDirectTLSConfigUsage(t *testing.T) {
 	}
 
 	config := &Config{
-		TLSConfig:               customTLS, // Direct TLS config
 		DisableOCSPChecks:       true,
 		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
+		tlsConfig:               customTLS, // Direct TLS config
 	}
 
 	factory := newTransportFactory(config, nil)
@@ -171,10 +171,10 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 	}
 
 	config := &Config{
-		TLSConfig:               directTLS, // Direct config
 		DisableOCSPChecks:       true,
 		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
+		tlsConfig:               directTLS, // Direct config
 	}
 
 	factory := newTransportFactory(config, nil)

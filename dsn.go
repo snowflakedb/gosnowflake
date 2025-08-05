@@ -102,7 +102,7 @@ type Config struct {
 
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 
-	TLSConfig     *tls.Config // Custom TLS configuration
+	tlsConfig     *tls.Config // Custom TLS configuration
 	TLSConfigName string      // Name of the TLS config to use
 
 	DisableTelemetry bool // indicates whether to disable telemetry
@@ -913,7 +913,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		case "tlsConfigName":
 			// Look up registered TLS config and set it directly
 			if tlsConfig, ok := getTLSConfig(value); ok {
-				cfg.TLSConfig = tlsConfig
+				cfg.tlsConfig = tlsConfig
 				cfg.TLSConfigName = value
 			} else {
 				return fmt.Errorf("TLS config not found: %s", value)
