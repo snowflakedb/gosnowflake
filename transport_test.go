@@ -49,7 +49,7 @@ func TestTransportFactoryErrorHandling(t *testing.T) {
 		TLSConfig:               &tls.Config{InsecureSkipVerify: true},
 	}
 
-	factory := newTransportFactory(conflictingConfig)
+	factory := newTransportFactory(conflictingConfig, nil)
 
 	transport, _, err := factory.createTransport()
 	assertNotNilF(t, err, "Expected error for conflicting OCSP and CRL configuration")
@@ -66,7 +66,7 @@ func TestCreateStandardTransportErrorHandling(t *testing.T) {
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
 	}
 
-	factory := newTransportFactory(conflictingConfig)
+	factory := newTransportFactory(conflictingConfig, nil)
 
 	transport, _, err := factory.createTransport()
 	assertNotNilF(t, err, "Expected error for conflicting OCSP and CRL configuration")
@@ -82,7 +82,7 @@ func TestCreateCustomTLSTransportSuccess(t *testing.T) {
 		TLSConfig:               &tls.Config{InsecureSkipVerify: true},
 	}
 
-	factory := newTransportFactory(validConfig)
+	factory := newTransportFactory(validConfig, nil)
 
 	transport, _, err := factory.createTransport()
 	assertNilF(t, err, "Unexpected error")
@@ -97,7 +97,7 @@ func TestCreateStandardTransportSuccess(t *testing.T) {
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
 	}
 
-	factory := newTransportFactory(validConfig)
+	factory := newTransportFactory(validConfig, nil)
 
 	transport, _, err := factory.createTransport()
 	assertNilF(t, err, "Unexpected error")
@@ -118,7 +118,7 @@ func TestDirectTLSConfigUsage(t *testing.T) {
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
 	}
 
-	factory := newTransportFactory(config)
+	factory := newTransportFactory(config, nil)
 	transport, crlValidator, err := factory.createTransport()
 
 	assertNilF(t, err, "Unexpected error")
@@ -153,7 +153,7 @@ func TestRegisteredTLSConfigUsage(t *testing.T) {
 
 	config.CertRevocationCheckMode = CertRevocationCheckDisabled
 
-	factory := newTransportFactory(config)
+	factory := newTransportFactory(config, nil)
 	transport, crlValidator, err := factory.createTransport()
 
 	assertNilF(t, err, "Unexpected error")
@@ -177,7 +177,7 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
 	}
 
-	factory := newTransportFactory(config)
+	factory := newTransportFactory(config, nil)
 	transport, crlValidator, err := factory.createTransport()
 
 	assertNilF(t, err, "Unexpected error")
