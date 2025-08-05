@@ -91,7 +91,7 @@ func (tf *transportFactory) createNoRevocationTransport() *http.Transport {
 	return tf.createBaseTransport(defaultTransportConfig(), nil)
 }
 
-// createCRLTransport creates a transport with CRL validation
+// createCRLValidator creates a CRL validator
 func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 	allowCertificatesWithoutCrlURL := tf.config.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
 	client := &http.Client{

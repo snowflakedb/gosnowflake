@@ -2125,7 +2125,8 @@ func TestDSN(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.dsn, func(t *testing.T) {
 			if test.cfg.TLSConfigName != "" && test.err == nil {
-				RegisterTLSConfig(test.cfg.TLSConfigName, &tls.Config{})
+				err := RegisterTLSConfig(test.cfg.TLSConfigName, &tls.Config{})
+				assertNilF(t, err, "Failed to register test TLS config")
 				defer func() {
 					_ = DeregisterTLSConfig(test.cfg.TLSConfigName)
 				}()
