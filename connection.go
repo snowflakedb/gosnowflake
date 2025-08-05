@@ -95,7 +95,8 @@ func (sc *snowflakeConn) exec(
 	*execResponse, error) {
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
-
+	_, _, sessionID := safeGetTokens(sc.rest)
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
 	queryContext, err := buildQueryContext(sc.queryContextCache)
 	if err != nil {
 		logger.WithContext(ctx).Errorf("error while building query context: %v", err)
@@ -321,10 +322,12 @@ func (sc *snowflakeConn) ExecContext(
 	query string,
 	args []driver.NamedValue) (
 	driver.Result, error) {
-	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
+	_, _, sessionID := safeGetTokens(sc.rest)
+	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
+	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	isInternal := isInternal(ctx)
@@ -408,14 +411,15 @@ func (sc *snowflakeConn) queryContextInternal(
 	query string,
 	args []driver.NamedValue) (
 	driver.Rows, error) {
-	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
 
+	_, _, sessionID := safeGetTokens(sc.rest)
+	ctx = context.WithValue(setResultType(ctx, queryResultType), SFSessionIDKey, sessionID)
+	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
-	ctx = setResultType(ctx, queryResultType)
 	isInternal := isInternal(ctx)
 	data, err := sc.exec(ctx, query, noResult, isInternal, isDesc, args)
 	if err != nil {
@@ -797,7 +801,17 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
-	transportFactory := newTransportFactory(sc.cfg)
+	telemetry := &snowflakeTelemetry{}
+	if config.DisableTelemetry {
+		telemetry.enabled = false
+	} else {
+		telemetry.flushSize = defaultFlushSize
+		telemetry.sr = sc.rest
+		telemetry.mutex = &sync.Mutex{}
+		telemetry.enabled = true
+	}
+
+	transportFactory := newTransportFactory(&config, telemetry)
 	st, cv, err := transportFactory.createTransport()
 	if err != nil {
 		return nil, err
@@ -851,22 +865,14 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		FuncGetSSO:          getSSO,
 	}
 
-	if sc.cfg.DisableTelemetry {
-		sc.telemetry = &snowflakeTelemetry{enabled: false}
-	} else {
-		sc.telemetry = &snowflakeTelemetry{
-			flushSize: defaultFlushSize,
-			sr:        sc.rest,
-			mutex:     &sync.Mutex{},
-			enabled:   true,
-		}
-	}
+	telemetry.sr = sc.rest
+	sc.telemetry = telemetry
 
 	return sc, nil
 }
 
-func getTransport(cfg *Config) (http.RoundTripper, error) {
-	transportFactory := newTransportFactory(cfg)
+func getTransport(cfg *Config, telemetry *snowflakeTelemetry) (http.RoundTripper, error) {
+	transportFactory := newTransportFactory(cfg, telemetry)
 	st, _, err := transportFactory.createTransport()
 	if err != nil {
 		return nil, err

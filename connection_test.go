@@ -948,7 +948,7 @@ func TestGetTransport(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := getTransport(test.cfg)
+			result, err := getTransport(test.cfg, nil)
 			assertNilE(t, err)
 			assertTrueE(t, test.transportCheck(result))
 		})
@@ -960,7 +960,7 @@ func TestGetCRLTransport(t *testing.T) {
 			CertRevocationCheckMode: CertRevocationCheckEnabled,
 			DisableOCSPChecks:       true,
 		}
-		transportFactory := newTransportFactory(crlCfg)
+		transportFactory := newTransportFactory(crlCfg, nil)
 		crlTransport, _, err := transportFactory.createTransport()
 		assertNilF(t, err)
 		transport := castToTransport(crlTransport)

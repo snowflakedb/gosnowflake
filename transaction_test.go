@@ -13,30 +13,27 @@ func TestTransactionOptions(t *testing.T) {
 	var tx *sql.Tx
 	var err error
 
-	conn := openConn(t)
-	defer func() {
-		assertNilF(t, conn.Close())
-	}()
-
-	tx, err = conn.BeginTx(context.Background(), &sql.TxOptions{})
-	if err != nil {
-		t.Fatal("failed to start transaction.")
-	}
-	if err = tx.Rollback(); err != nil {
-		t.Fatal("failed to rollback")
-	}
-	if _, err = conn.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true}); err == nil {
-		t.Fatal("should have failed.")
-	}
-	if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoReadOnlyTransaction {
-		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoReadOnlyTransaction)
-	}
-	if _, err = conn.BeginTx(context.Background(), &sql.TxOptions{Isolation: 100}); err == nil {
-		t.Fatal("should have failed.")
-	}
-	if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
-		t.Fatalf("should have returned Snowflake Error: %v", errMsgNoDefaultTransactionIsolationLevel)
-	}
+	runDBTest(t, func(dbt *DBTest) {
+		tx, err = dbt.conn.BeginTx(context.Background(), &sql.TxOptions{})
+		if err != nil {
+			t.Fatal("failed to start transaction.")
+		}
+		if err = tx.Rollback(); err != nil {
+			t.Fatal("failed to rollback")
+		}
+		if _, err = dbt.conn.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true}); err == nil {
+			t.Fatal("should have failed.")
+		}
+		if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoReadOnlyTransaction {
+			t.Fatalf("should have returned Snowflake Error: %v", errMsgNoReadOnlyTransaction)
+		}
+		if _, err = dbt.conn.BeginTx(context.Background(), &sql.TxOptions{Isolation: 100}); err == nil {
+			t.Fatal("should have failed.")
+		}
+		if driverErr, ok := err.(*SnowflakeError); !ok || driverErr.Number != ErrNoDefaultTransactionIsolationLevel {
+			t.Fatalf("should have returned Snowflake Error: %v", errMsgNoDefaultTransactionIsolationLevel)
+		}
+	})
 }
 
 // SNOW-823072: Test that transaction uses the context object supplied by BeginTx(), not from the parent connection
@@ -44,34 +41,31 @@ func TestTransactionContext(t *testing.T) {
 	var tx *sql.Tx
 	var err error
 
-	conn := openConn(t)
-	defer func() {
-		assertNilF(t, conn.Close())
-	}()
-
 	ctx := context.Background()
 
-	pingWithRetry := withRetry(PingFunc, 5, 3*time.Second)
+	runDBTest(t, func(dbt *DBTest) {
+		pingWithRetry := withRetry(PingFunc, 5, 3*time.Second)
 
-	err = pingWithRetry(context.Background(), conn)
-	if err != nil {
-		t.Fatal(err)
-	}
+		err = pingWithRetry(context.Background(), dbt.conn)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	tx, err = conn.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+		tx, err = dbt.conn.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	_, err = tx.ExecContext(ctx, "SELECT SYSTEM$WAIT(10, 'SECONDS')")
-	if err != nil {
-		t.Fatal(err)
-	}
+		_, err = tx.ExecContext(ctx, "SELECT SYSTEM$WAIT(10, 'SECONDS')")
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	err = tx.Commit()
-	if err != nil {
-		t.Fatal(err)
-	}
+		err = tx.Commit()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func PingFunc(ctx context.Context, conn *sql.Conn) error {

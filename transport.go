@@ -42,12 +42,13 @@ func crlTransportConfig() *transportConfig {
 
 // TransportFactory handles creation of HTTP transports with different validation modes
 type transportFactory struct {
-	config *Config
+	config    *Config
+	telemetry *snowflakeTelemetry
 }
 
 // NewTransportFactory creates a new transport factory
-func newTransportFactory(config *Config) *transportFactory {
-	return &transportFactory{config: config}
+func newTransportFactory(config *Config, telemetry *snowflakeTelemetry) *transportFactory {
+	return &transportFactory{config: config, telemetry: telemetry}
 }
 
 // createBaseTransport creates a base HTTP transport with the given configuration
@@ -106,6 +107,7 @@ func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 		tf.config.CrlOnDiskCacheDir,
 		tf.config.CrlOnDiskCacheRemovalDelay,
 		client,
+		tf.telemetry,
 	)
 }
 
