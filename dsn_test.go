@@ -2136,15 +2136,13 @@ func TestDSN(t *testing.T) {
 					t.Errorf("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
 				}
 				_, err := ParseDSN(dsn)
-				if err != nil {
-					t.Errorf("failed to parse DSN. dsn: %v, err: %v", dsn, err)
-				}
+				assertNilF(t, err, "failed to parse DSN. dsn:", dsn)
 			}
-			if test.err != nil && err == nil {
-				t.Errorf("expected error. dsn: %v, err: %v", test.dsn, test.err)
+			if test.err != nil {
+				assertNotNilF(t, err, fmt.Sprintf("expected error. dsn: %v, expected err: %v", test.dsn, test.err))
 			}
-			if err != nil && test.err == nil {
-				t.Errorf("failed to match. err: %v", err)
+			if test.err == nil {
+				assertNilF(t, err, "failed to match")
 			}
 		})
 	}
