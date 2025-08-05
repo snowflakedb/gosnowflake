@@ -580,6 +580,7 @@ func TestBogusHostNameParameters(t *testing.T) {
 	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
 		t.Skip("Skipping host validation test when JWT is configured globally")
 	}
+
 	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
 	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "connection broken"}, t)
 	invalidDNS = fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST")
@@ -590,9 +591,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	parameters := url.Values{}
 	// Force password authentication for this test regardless of global setting
 	parameters.Add("authenticator", "snowflake")
-	// Ensure no private key is used to prevent any JWT authentication attempts
 	parameters.Add("privateKey", "")
-	parameters.Add("privateKeyFile", "")
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
 	}
@@ -603,7 +602,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	invalidDNS += "?" + parameters.Encode()
 	db, err := sql.Open("snowflake", invalidDNS)
 	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
+		t.Fatalf("error creating a connection object: %s", maskSecrets(err.Error()))
 	}
 	// actual connection won't happen until run a query
 	defer db.Close()
@@ -2318,4 +2317,8 @@ func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {
 	err = rows.Scan(&v)
 	assertNilF(t, err)
 	assertEqualE(t, v, 1)
+}
+
+func isFailToConnectOrAuthErr(driverErr *SnowflakeError) bool {
+	return driverErr.Number != ErrCodeFailedToConnect && driverErr.Number != ErrFailedToAuth
 }
