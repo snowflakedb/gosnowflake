@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Cursor Rules for Go Test Files
 
 This file automatically applies when working on `*_test.go` files.
@@ -5,8 +9,8 @@ This file automatically applies when working on `*_test.go` files.
 ## Testing Standards
 
 ### Assertion Helper Usage
-- **ALWAYS** use assertion helpers from `assert_test.go` instead of direct `t.Fatal`, `t.Fatalf`, `t.Error`, or `t.Errorf` calls
-- **NEVER** write manual if-then-fatal patterns in test functions
+- **ALWAYS** Attempt to use assertion helpers from `assert_test.go` instead of direct `t.Fatal`, `t.Fatalf`, `t.Error`, or `t.Errorf` calls. Where it makes sense, add new assertion helpers.
+- **NEVER** write manual if-then-fatal patterns in test functions when a suitable assertion helper exists.
 
 #### Common Assertion Patterns:
 
@@ -66,6 +70,7 @@ assertTrueF(t, condition, "Condition should be true")
 ```
 
 #### Helper Function Reference:
+Always examine `assertion_helpers.go` for the latest set of helpers. Consider these existing examples below.
 - `assertNilF/E(t, value, description)` - Assert value is nil
 - `assertNotNilF/E(t, value, description)` - Assert value is not nil  
 - `assertEqualF/E(t, actual, expected, description)` - Assert equality
@@ -83,4 +88,4 @@ assertTrueF(t, condition, "Condition should be true")
 - Flag any direct use of `t.Fatal*` or `t.Error*` in new code
 - Ensure all test functions use appropriate assertion helpers
 - Verify that error messages are descriptive and helpful for debugging
-- Check that tests are comprehensive and cover edge cases
+- Check that tests are comprehensive and cover edge cases# Cursor Rules for Go Test Files
