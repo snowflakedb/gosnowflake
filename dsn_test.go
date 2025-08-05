@@ -2287,12 +2287,21 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	db, err := sql.Open("snowflake", mydsn)
 	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to connect.")
 	defer db.Close()
+
 	query := "SHOW VARIABLES;"
 	rows, err := db.Query(query)
-	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query.")
+	if err != nil {
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query: %v", maskSecrets(err.Error()))
+	}
+	if rows == nil {
+		t.Fatalf("TestUrlDecodeIfNeededE2E got nil rows from query")
+	}
 	defer rows.Close()
+
 	var v1, v2, v3, v4, v5, v6, v7 any
-	assertTrueE(t, rows.Next(), "TestUrlDecodeIfNeededE2E query run but no rows were returned.")
+	if !rows.Next() {
+		t.Fatalf("TestUrlDecodeIfNeededE2E query run but no rows were returned")
+	}
 	err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
 	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to get result.")
 	assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
