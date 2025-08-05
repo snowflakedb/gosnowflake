@@ -2430,17 +2430,11 @@ func TestDSNParsingWithTLSConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, err := ParseDSN(tc.dsn)
 			if tc.err {
-				if err == nil {
-					t.Fatalf("ParseDSN should have failed but did not")
-				}
+				assertNotNilF(t, err, "ParseDSN should have failed but did not")
 			} else {
-				if err != nil {
-					t.Fatalf("ParseDSN failed: %v", err)
-				}
+				assertNilF(t, err, "ParseDSN failed")
 				// For DSN parsing, the TLS config should be resolved and set directly
-				if cfg.TLSConfigName != tc.expected {
-					t.Fatalf("Expected TLSConfigName=%s, got %s", tc.expected, cfg.TLSConfigName)
-				}
+				assertEqualF(t, cfg.TLSConfigName, tc.expected, "TLSConfigName mismatch")
 			}
 
 		})
