@@ -289,9 +289,6 @@ func (sc *snowflakeConn) Close() (err error) {
 	}
 	sc.stopHeartBeat()
 	sc.rest.HeartBeat = nil
-	if sc.cv != nil {
-		sc.cv.stopPeriodicCacheCleanup()
-	}
 	defer sc.cleanup()
 
 	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
@@ -824,7 +821,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 				return nil, err
 			}
 			sc.cv = cv
-			cv.startPeriodicCacheCleanup(sc.cfg.CrlCacheCleanerTick)
+			crlCacheCleaner.startPeriodicCacheCleanup()
 		} else if sc.cfg.DisableOCSPChecks || sc.cfg.InsecureMode {
 			// no revocation check with OCSP or CRL
 			st = snowflakeNoRevocationCheckTransport
