@@ -1202,8 +1202,10 @@ func TestParseDSN(t *testing.T) {
 		},
 		{
 			dsn: "user:pass@account/db?tlsConfigName=custom",
-			// TODO(snoonan): add TLS errors to errors.go
-			err: fmt.Errorf("TLS config not found: custom"),
+			err: &SnowflakeError{
+				Number:  ErrCodeMissingTLSConfig,
+				Message: fmt.Sprintf(errMsgMissingTLSConfig, "custom"),
+			},
 		},
 	}
 

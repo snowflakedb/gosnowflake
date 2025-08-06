@@ -900,7 +900,10 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				cfg.tlsConfig = tlsConfig
 				cfg.TLSConfigName = value
 			} else {
-				return fmt.Errorf("TLS config not found: %s", value)
+				return &SnowflakeError{
+					Number:  ErrCodeMissingTLSConfig,
+					Message: fmt.Sprintf(errMsgMissingTLSConfig, value),
+				}
 			}
 		case "workloadIdentityProvider":
 			cfg.WorkloadIdentityProvider = value
