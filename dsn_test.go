@@ -1180,7 +1180,7 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
-			dsn: "u:p@a.snowflake.local:9876?account=a&certRevocationCheckMode=enabled&crlAllowCertificatesWithoutCrlURL=true&crlCacheValidityTime=60&crlInMemoryCacheDisabled=true&crlOnDiskCacheDisabled=true&crlOnDiskCacheDir=%2Ftmp%2Fcrl&crlOnDiskCacheRemovalDelay=30&crlHttpClientTimeout=10&crlCacheCleanerTick=7",
+			dsn: "u:p@a.snowflake.local:9876?account=a&certRevocationCheckMode=enabled&crlAllowCertificatesWithoutCrlURL=true&crlInMemoryCacheDisabled=true&crlOnDiskCacheDisabled=true&crlHttpClientTimeout=10",
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
 				Host: "a.snowflake.local", Port: 9876,
@@ -1194,13 +1194,9 @@ func TestParseDSN(t *testing.T) {
 				IncludeRetryReason:                ConfigBoolTrue,
 				CertRevocationCheckMode:           CertRevocationCheckEnabled,
 				CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
-				CrlCacheValidityTime:              60 * time.Second,
 				CrlInMemoryCacheDisabled:          true,
 				CrlOnDiskCacheDisabled:            true,
-				CrlOnDiskCacheDir:                 "/tmp/crl",
-				CrlOnDiskCacheRemovalDelay:        30 * time.Second,
 				CrlHTTPClientTimeout:              10 * time.Second,
-				CrlCacheCleanerTick:               7 * time.Second,
 			},
 			ocspMode: ocspModeFailOpen,
 		},
@@ -1406,13 +1402,9 @@ func TestParseDSN(t *testing.T) {
 				assertEqualE(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
 				assertEqualE(t, cfg.CertRevocationCheckMode, test.config.CertRevocationCheckMode, "cert revocation check mode")
 				assertEqualE(t, cfg.CrlAllowCertificatesWithoutCrlURL, test.config.CrlAllowCertificatesWithoutCrlURL, "crl allow certificates without crl url")
-				assertEqualE(t, cfg.CrlCacheValidityTime, test.config.CrlCacheValidityTime, "crl cache validity time")
 				assertEqualE(t, cfg.CrlInMemoryCacheDisabled, test.config.CrlInMemoryCacheDisabled, "crl in memory cache disabled")
 				assertEqualE(t, cfg.CrlOnDiskCacheDisabled, test.config.CrlOnDiskCacheDisabled, "crl on disk cache disabled")
-				assertEqualE(t, cfg.CrlOnDiskCacheDir, test.config.CrlOnDiskCacheDir, "crl on disk cache dir")
-				assertEqualE(t, cfg.CrlOnDiskCacheRemovalDelay, test.config.CrlOnDiskCacheRemovalDelay, "crl on disk cache removal delay")
 				assertEqualE(t, cfg.CrlHTTPClientTimeout, test.config.CrlHTTPClientTimeout, "crl http client timeout")
-				assertEqualE(t, cfg.CrlCacheCleanerTick, test.config.CrlCacheCleanerTick, "crl cache cleaner tick")
 			case test.err != nil:
 				driverErrE, okE := test.err.(*SnowflakeError)
 				driverErrG, okG := err.(*SnowflakeError)
@@ -2102,15 +2094,11 @@ func TestDSN(t *testing.T) {
 				Account:                           "a.b.c",
 				CertRevocationCheckMode:           CertRevocationCheckEnabled,
 				CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
-				CrlCacheValidityTime:              10 * time.Minute,
 				CrlInMemoryCacheDisabled:          true,
 				CrlOnDiskCacheDisabled:            true,
-				CrlOnDiskCacheDir:                 "/tmp/crl",
-				CrlOnDiskCacheRemovalDelay:        5 * time.Minute,
 				CrlHTTPClientTimeout:              5 * time.Second,
-				CrlCacheCleanerTick:               7 * time.Second,
 			},
-			dsn: "u:p@a.b.c.snowflakecomputing.com:443?certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&crlCacheCleanerTick=7&crlCacheValidityTime=600&crlHttpClientTimeout=5&crlInMemoryCacheDisabled=true&crlOnDiskCacheDir=%2Ftmp%2Fcrl&crlOnDiskCacheDisabled=true&crlOnDiskCacheRemovalDelay=300&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&crlHttpClientTimeout=5&crlInMemoryCacheDisabled=true&crlOnDiskCacheDisabled=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{

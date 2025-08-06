@@ -288,9 +288,6 @@ func (sc *snowflakeConn) Close() (err error) {
 	}
 	sc.stopHeartBeat()
 	sc.rest.HeartBeat = nil
-	if sc.cv != nil {
-		sc.cv.stopPeriodicCacheCleanup()
-	}
 	defer sc.cleanup()
 
 	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
@@ -820,7 +817,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	// Set the CRL validator if one was created
 	if cv != nil {
 		sc.cv = cv
-		cv.startPeriodicCacheCleanup(sc.cfg.CrlCacheCleanerTick)
+		crlCacheCleaner.startPeriodicCacheCleanup()
 	}
 
 	if err = setupOCSPEnvVars(ctx, sc.cfg.Host); err != nil {

@@ -97,15 +97,11 @@ func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 	client := &http.Client{
 		Timeout: cmp.Or(tf.config.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
 	}
-
 	return newCrlValidator(
 		tf.config.CertRevocationCheckMode,
 		allowCertificatesWithoutCrlURL,
-		tf.config.CrlCacheValidityTime,
 		tf.config.CrlInMemoryCacheDisabled,
 		tf.config.CrlOnDiskCacheDisabled,
-		tf.config.CrlOnDiskCacheDir,
-		tf.config.CrlOnDiskCacheRemovalDelay,
 		client,
 		tf.telemetry,
 	)
