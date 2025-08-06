@@ -1972,29 +1972,49 @@ func TestLargeSetResultCancel(t *testing.T) {
 }
 
 func TestValidateDatabaseParameter(t *testing.T) {
-	baseDSN := fmt.Sprintf("%s:%s@%s", username, pass, host)
+	// Parse the global DSN to get base configuration
+	cfg, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse global dsn")
+	}
+
+	// Force JWT authentication with the test private key
+	cfg.Authenticator = AuthTypeJwt
+	cfg.PrivateKey = testPrivKey
+	cfg.Password = "" // Clear password to ensure JWT is used
+
 	testcases := []struct {
-		dsn       string
-		params    map[string]string
-		errorCode int
+		description string
+		dbname      string
+		schemaname  string
+		params      map[string]string
+		errorCode   int
 	}{
 		{
-			dsn:       baseDSN + fmt.Sprintf("/%s/%s", "NOT_EXISTS", "NOT_EXISTS"),
-			errorCode: ErrObjectNotExistOrAuthorized,
+			description: "invalid_database_and_schema",
+			dbname:      "NOT_EXISTS",
+			schemaname:  "NOT_EXISTS",
+			errorCode:   ErrObjectNotExistOrAuthorized,
 		},
 		{
-			dsn:       baseDSN + fmt.Sprintf("/%s/%s", dbname, "NOT_EXISTS"),
-			errorCode: ErrObjectNotExistOrAuthorized,
+			description: "invalid_schema",
+			dbname:      cfg.Database,
+			schemaname:  "NOT_EXISTS",
+			errorCode:   ErrObjectNotExistOrAuthorized,
 		},
 		{
-			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			description: "invalid_warehouse",
+			dbname:      cfg.Database,
+			schemaname:  cfg.Schema,
 			params: map[string]string{
 				"warehouse": "NOT_EXIST",
 			},
 			errorCode: ErrObjectNotExistOrAuthorized,
 		},
 		{
-			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			description: "invalid_role",
+			dbname:      cfg.Database,
+			schemaname:  cfg.Schema,
 			params: map[string]string{
 				"role": "NOT_EXIST",
 			},
@@ -2002,31 +2022,32 @@ func TestValidateDatabaseParameter(t *testing.T) {
 		},
 	}
 	for idx, tc := range testcases {
-		t.Run(maskSecrets(dsn), func(t *testing.T) {
-			newDSN := tc.dsn
-			parameters := url.Values{}
-			if protocol != "" {
-				parameters.Add("protocol", protocol)
-			}
-			if account != "" {
-				parameters.Add("account", account)
-			}
+		t.Run(tc.description, func(t *testing.T) {
+			// Create a new config based on the global config with JWT auth
+			testCfg := *cfg // Copy the config with JWT authentication
+			testCfg.Database = tc.dbname
+			testCfg.Schema = tc.schemaname
+
+			// Override with test-specific parameters
 			for k, v := range tc.params {
-				parameters.Add(k, v)
+				switch k {
+				case "warehouse":
+					testCfg.Warehouse = v
+				case "role":
+					testCfg.Role = v
+				}
 			}
-			newDSN += "?" + parameters.Encode()
-			db, err := sql.Open("snowflake", newDSN)
-			// actual connection won't happen until run a query
-			if err != nil {
-				t.Fatalf("error creating a connection object: %s", err.Error())
-			}
+
+			db := sql.OpenDB(NewConnector(SnowflakeDriver{}, testCfg))
 			defer db.Close()
+
 			if _, err = db.Exec("SELECT 1"); err == nil {
 				t.Fatal("should cause an error.")
 			}
 			if driverErr, ok := err.(*SnowflakeError); ok {
-				if driverErr.Number != tc.errorCode { // not exist error
-					t.Errorf("got unexpected error: %v in %v", err, idx)
+				if driverErr.Number != tc.errorCode {
+					maskedErr := maskSecrets(err.Error())
+					t.Errorf("got unexpected error: %s in test case %d", maskedErr, idx)
 				}
 			}
 		})
@@ -2034,21 +2055,26 @@ func TestValidateDatabaseParameter(t *testing.T) {
 }
 
 func TestSpecifyWarehouseDatabase(t *testing.T) {
-	dsn := fmt.Sprintf("%s:%s@%s/%s", username, pass, host, dbname)
-	parameters := url.Values{}
-	parameters.Add("account", account)
-	parameters.Add("warehouse", warehouse)
-	// parameters.Add("role", "nopublic") TODO: create nopublic role for test
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	db, err := sql.Open("snowflake", dsn+"?"+parameters.Encode())
+	// Parse the global DSN to get base configuration
+	cfg, err := ParseDSN(dsn)
 	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
+		t.Fatal("Failed to parse global dsn")
 	}
+
+	// Force JWT authentication with the test private key
+	cfg.Authenticator = AuthTypeJwt
+	cfg.PrivateKey = testPrivKey
+	cfg.Password = "" // Clear password to ensure JWT is used
+
+	// Override with test-specific settings
+	cfg.Warehouse = warehouse
+
+	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 	defer db.Close()
+
 	if _, err = db.Exec("SELECT 1"); err != nil {
-		t.Fatalf("failed to execute a select 1: %v", err)
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("failed to execute a select 1: %s", maskedErr)
 	}
 }
 
