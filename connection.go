@@ -77,7 +77,6 @@ type snowflakeConn struct {
 	internal            InternalClient
 	queryContextCache   *queryContextCache
 	currentTimeProvider currentTimeProvider
-	cv                  *crlValidator
 }
 
 var (
@@ -809,15 +808,9 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 
 	transportFactory := newTransportFactory(&config, telemetry)
-	st, cv, err := transportFactory.createTransport()
+	st, err := transportFactory.createTransport()
 	if err != nil {
 		return nil, err
-	}
-
-	// Set the CRL validator if one was created
-	if cv != nil {
-		sc.cv = cv
-		crlCacheCleaner.startPeriodicCacheCleanup()
 	}
 
 	if err = setupOCSPEnvVars(ctx, sc.cfg.Host); err != nil {
@@ -870,7 +863,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 
 func getTransport(cfg *Config, telemetry *snowflakeTelemetry) (http.RoundTripper, error) {
 	transportFactory := newTransportFactory(cfg, telemetry)
-	st, _, err := transportFactory.createTransport()
+	st, err := transportFactory.createTransport()
 	if err != nil {
 		return nil, err
 	}

@@ -107,24 +107,23 @@ func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 	)
 }
 
-// TODO(snoonan): Better interface for crlValidator return
 // createTransport is the main entry point for creating transports
-func (tf *transportFactory) createTransport() (http.RoundTripper, *crlValidator, error) {
+func (tf *transportFactory) createTransport() (http.RoundTripper, error) {
 	if tf.config == nil {
 		// should never happen in production, only in tests
 		logger.Warn("createTransport: got nil Config, using default one")
-		return tf.createNoRevocationTransport(), nil, nil
+		return tf.createNoRevocationTransport(), nil
 	}
 
 	// if user configured a custom Transporter, prioritize that
 	if tf.config.Transporter != nil {
 		logger.Debug("createTransport: using Transporter configured by the user")
-		return tf.config.Transporter, nil, nil
+		return tf.config.Transporter, nil
 	}
 
 	// Validate configuration
 	if err := tf.validateRevocationConfig(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Handle CRL validation path
@@ -132,8 +131,9 @@ func (tf *transportFactory) createTransport() (http.RoundTripper, *crlValidator,
 		logger.Debug("createTransport: will perform CRL validation")
 		crlValidator, err := tf.createCRLValidator()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
+		crlCacheCleaner.startPeriodicCacheCleanup()
 		// Chain CRL verification with custom TLS config
 		tlsConfig := tf.config.tlsConfig
 		if tlsConfig != nil {
@@ -145,17 +145,17 @@ func (tf *transportFactory) createTransport() (http.RoundTripper, *crlValidator,
 			}
 		}
 
-		return tf.createBaseTransport(crlTransportConfig(), tlsConfig), crlValidator, nil
+		return tf.createBaseTransport(crlTransportConfig(), tlsConfig), nil
 	}
 
 	// Handle no revocation checking path
 	if tf.config.DisableOCSPChecks || tf.config.InsecureMode {
 		logger.Debug("createTransport: skipping OCSP validation")
-		return tf.createNoRevocationTransport(), nil, nil
+		return tf.createNoRevocationTransport(), nil
 	}
 
 	logger.Debug("createTransport: will perform OCSP validation")
-	return tf.createOCSPTransport(), nil, nil
+	return tf.createOCSPTransport(), nil
 }
 
 // validateRevocationConfig checks for conflicting revocation settings

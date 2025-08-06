@@ -979,9 +979,9 @@ func TestGetCRLTransport(t *testing.T) {
 			DisableOCSPChecks:       true,
 		}
 		transportFactory := newTransportFactory(crlCfg, nil)
-		crlTransport, _, err := transportFactory.createTransport()
+		crlRoundTripper, err := transportFactory.createTransport()
 		assertNilF(t, err)
-		transport := castToTransport(crlTransport)
+		transport := castToTransport(crlRoundTripper)
 		assertNotNilF(t, transport, "Expected http.Transport")
 		assertEqualE(t, transport.MaxIdleConns, 5)
 	})
