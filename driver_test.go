@@ -2263,31 +2263,17 @@ func TestOpenWithTransport(t *testing.T) {
 }
 
 func createDSNWithClientSessionKeepAlive() {
-	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
-
-	parameters := url.Values{}
-	parameters.Add("client_session_keep_alive", "true")
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	if account != "" {
-		parameters.Add("account", account)
-	}
-	if warehouse != "" {
-		parameters.Add("warehouse", warehouse)
-	}
-	if rolename != "" {
-		parameters.Add("role", rolename)
-	}
-	if len(parameters) > 0 {
-		dsn += "?" + parameters.Encode()
-	}
+	// Just append the client_session_keep_alive parameter to the existing DSN
+	// The global dsn should already be properly configured with authentication
+	dsn += "&client_session_keep_alive=true"
 }
 
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
 	createDSNWithClientSessionKeepAlive()
+	defer createDSN("UTC") // Restore DSN even if test panics
+
 	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
 		defer rows.Close()
@@ -2297,10 +2283,10 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 
 		p, err := ScanSnowflakeParameter(rows.rows)
 		if err != nil {
-			t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
+			t.Errorf("failed to run get client_session_keep_alive value. err: %v", maskSecrets(err.Error()))
 		}
 		if p.Value != "true" {
-			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
+			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", maskSecrets(p.Value))
 		}
 
 		rows2 := dbt.mustQuery("select count(*) from table(generator(timelimit=>30))")
@@ -2315,7 +2301,8 @@ func TestTimePrecision(t *testing.T) {
 		defer rows.Close()
 		cols, err := rows.ColumnTypes()
 		if err != nil {
-			t.Error(err)
+			t.Errorf("failed to get column types: %v", maskSecrets(err.Error()))
+			return
 		}
 		if pres, _, ok := cols[0].DecimalSize(); pres != 5 || !ok {
 			t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
