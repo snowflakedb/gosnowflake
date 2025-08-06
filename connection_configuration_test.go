@@ -60,7 +60,7 @@ func TestTokenFilePermission(t *testing.T) {
 		defer func() {
 			os.Unsetenv(skipWarningForReadPermissionsEnv)
 		}()
-		
+
 		var originalLogger = logger
 		logger = CreateDefaultLogger()
 		buf := &bytes.Buffer{}
@@ -315,6 +315,14 @@ func TestParseToml(t *testing.T) {
 				"clientRequestMFAtoken", "client_request_mfa_token", "clientStoreTemporaryCredential", "client_store_temporary_credential", "disableQueryContextCache", "disable_query_context_cache", "disable_ocsp_checks",
 				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check"},
 			values: []interface{}{true, "true", false, "false"},
+		},
+		{
+			testParams: []string{"connectionDiagnosticsEnabled", "connection_diagnostics_enabled"},
+			values:     []interface{}{true, false},
+		},
+		{
+			testParams: []string{"connectionDiagnosticsAllowlistFile", "connection_diagnostics_allowlist_file"},
+			values:     []interface{}{"myallowlist.json"},
 		},
 	}
 
