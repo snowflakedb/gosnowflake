@@ -77,59 +77,18 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *s
 }
 
 func (p *wifAttestationProvider) getAttestation(identityProvider string) (*wifAttestation, error) {
-	if strings.TrimSpace(identityProvider) == "" {
-		logger.Info("Workload Identity Provider has not been specified. Using autodetect...")
-		return p.createAutodetectAttestation()
-	}
-	creator, err := p.attestationCreator(identityProvider)
-	if err != nil {
-		logger.Errorf("error while creating specified Workload Identity provider %v", err)
-		return nil, err
-	}
-	return creator.createAttestation()
-}
-
-func (p *wifAttestationProvider) attestationCreator(identityProvider string) (wifAttestationCreator, error) {
 	switch strings.ToUpper(identityProvider) {
 	case string(awsWif):
-		return p.awsCreator, nil
+		return p.awsCreator.createAttestation()
 	case string(gcpWif):
-		return p.gcpCreator, nil
+		return p.gcpCreator.createAttestation()
 	case string(azureWif):
-		return p.azureCreator, nil
+		return p.azureCreator.createAttestation()
 	case string(oidcWif):
-		return p.oidcCreator, nil
+		return p.oidcCreator.createAttestation()
 	default:
 		return nil, errors.New("unknown Workload Identity provider specified: " + identityProvider)
 	}
-}
-
-func (p *wifAttestationProvider) createAutodetectAttestation() (*wifAttestation, error) {
-	if attestation := p.getAttestationForAutodetect(p.oidcCreator, oidcWif); attestation != nil {
-		return attestation, nil
-	}
-	if attestation := p.getAttestationForAutodetect(p.awsCreator, awsWif); attestation != nil {
-		return attestation, nil
-	}
-	if attestation := p.getAttestationForAutodetect(p.gcpCreator, gcpWif); attestation != nil {
-		return attestation, nil
-	}
-	if attestation := p.getAttestationForAutodetect(p.azureCreator, azureWif); attestation != nil {
-		return attestation, nil
-	}
-	return nil, errors.New("unable to autodetect Workload Identity. None of the supported Workload Identity environments has been identified")
-}
-
-func (p *wifAttestationProvider) getAttestationForAutodetect(
-	creator wifAttestationCreator,
-	providerType wifProviderType,
-) *wifAttestation {
-	attestation, err := creator.createAttestation()
-	if err != nil {
-		logger.Errorf("Unable to create identity attestation for %s, error: %v", providerType, err)
-		return nil
-	}
-	return attestation
 }
 
 type awsIdentityAttestationCreator struct {

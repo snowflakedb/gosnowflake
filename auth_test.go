@@ -1110,26 +1110,19 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 	}
 	testCases := []struct {
 		name     string
-		skip     func() (bool, string)
+		skip     func() bool
 		setupCfg func(*Config)
 	}{
 		{
-			name:     "autodetected provider",
-			setupCfg: func(config *Config) {},
-		},
-		{
-			name: "explicit provider",
+			name: "provider=" + provider,
 			setupCfg: func(config *Config) {
 				config.WorkloadIdentityProvider = provider
 			},
 		},
 		{
-			name: "OIDC",
-			skip: func() (bool, string) {
-				if provider != "GCP" {
-					return true, "OIDC test works only on GCP"
-				}
-				return false, ""
+			name: "provider=OIDC",
+			skip: func() bool {
+				return provider != "GCP"
 			},
 			setupCfg: func(config *Config) {
 				config.WorkloadIdentityProvider = "OIDC"
@@ -1149,12 +1142,10 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
+		if tc.skip != nil && tc.skip() {
+			continue
+		}
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.skip != nil {
-				if skip, msg := tc.skip(); skip {
-					t.Skip(msg)
-				}
-			}
 			config := &Config{
 				Account:       account,
 				Host:          host,
