@@ -6,147 +6,139 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"testing"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
-var awsErrorCreator = &mockWifAttestationCreator{attestation: nil, err: errors.New("AWS error")}
-var gcpErrorCreator = &mockWifAttestationCreator{attestation: nil, err: errors.New("GCP error")}
-var azureErrorCreator = &mockWifAttestationCreator{attestation: nil, err: errors.New("AZURE error")}
-var oidcErrorCreator = &mockWifAttestationCreator{attestation: nil, err: errors.New("OIDC error")}
-
 type mockWifAttestationCreator struct {
-	attestation *wifAttestation
-	err         error
+	providerType wifProviderType
+	returnError  error
 }
 
 func (m *mockWifAttestationCreator) createAttestation() (*wifAttestation, error) {
-	return m.attestation, m.err
+	if m.returnError != nil {
+		return nil, m.returnError
+	}
+	return &wifAttestation{
+		ProviderType: string(m.providerType),
+	}, nil
 }
 
-func TestAttestationCreator(t *testing.T) {
+func TestGetAttestation(t *testing.T) {
+	awsError := errors.New("aws attestation error")
+	gcpError := errors.New("gcp attestation error")
+	azureError := errors.New("azure attestation error")
+	oidcError := errors.New("oidc attestation error")
+
 	provider := &wifAttestationProvider{
 		context:      context.Background(),
-		awsCreator:   &mockWifAttestationCreator{},
-		gcpCreator:   &mockWifAttestationCreator{},
-		azureCreator: &mockWifAttestationCreator{},
-		oidcCreator:  &mockWifAttestationCreator{},
+		awsCreator:   &mockWifAttestationCreator{providerType: awsWif},
+		gcpCreator:   &mockWifAttestationCreator{providerType: gcpWif},
+		azureCreator: &mockWifAttestationCreator{providerType: azureWif},
+		oidcCreator:  &mockWifAttestationCreator{providerType: oidcWif},
 	}
 
-	tests := []struct {
-		identityProvider string
-		expectedCreator  wifAttestationCreator
-		expectedError    error
-	}{
-		{"AWS", provider.awsCreator, nil},
-		{"GCP", provider.gcpCreator, nil},
-		{"AZURE", provider.azureCreator, nil},
-		{"OIDC", provider.oidcCreator, nil},
-		{"UNKNOWN", nil, errors.New("unknown Workload Identity provider specified: UNKNOWN")},
-		{"", nil, errors.New("unknown Workload Identity provider specified: ")},
+	providerWithErrors := &wifAttestationProvider{
+		context:      context.Background(),
+		awsCreator:   &mockWifAttestationCreator{providerType: awsWif, returnError: awsError},
+		gcpCreator:   &mockWifAttestationCreator{providerType: gcpWif, returnError: gcpError},
+		azureCreator: &mockWifAttestationCreator{providerType: azureWif, returnError: azureError},
+		oidcCreator:  &mockWifAttestationCreator{providerType: oidcWif, returnError: oidcError},
 	}
 
-	for _, test := range tests {
-		t.Run(test.identityProvider, func(t *testing.T) {
-			creator, err := provider.attestationCreator(test.identityProvider)
-			if creator != test.expectedCreator {
-				t.Errorf("expected creator %v, got %v", test.expectedCreator, creator)
-			}
-			if (err != nil && test.expectedError == nil) || (err == nil && test.expectedError != nil) || (err != nil && test.expectedError != nil && err.Error() != test.expectedError.Error()) {
-				t.Errorf("expected error %v, got %v", test.expectedError, err)
-			}
-		})
-	}
-}
-
-func TestCreateAutodetectAttestation(t *testing.T) {
 	tests := []struct {
 		name             string
-		oidcCreator      *mockWifAttestationCreator
-		awsCreator       *mockWifAttestationCreator
-		gcpCreator       *mockWifAttestationCreator
-		azureCreator     *mockWifAttestationCreator
-		expectedProvider string
-		expectedError    string
+		provider         *wifAttestationProvider
+		identityProvider string
+		expectedResult   *wifAttestation
+		expectedError    error
 	}{
 		{
-			name: "OIDC",
-			oidcCreator: &mockWifAttestationCreator{
-				attestation: &wifAttestation{ProviderType: "OIDC", Credential: "oidc-credential"},
-				err:         nil,
-			},
-			awsCreator:       awsErrorCreator,
-			gcpCreator:       gcpErrorCreator,
-			azureCreator:     azureErrorCreator,
-			expectedProvider: "OIDC",
-			expectedError:    "",
+			name:             "AWS success",
+			provider:         provider,
+			identityProvider: "AWS",
+			expectedResult:   &wifAttestation{ProviderType: string(awsWif)},
+			expectedError:    nil,
 		},
 		{
-			name:        "AWS",
-			oidcCreator: oidcErrorCreator,
-			awsCreator: &mockWifAttestationCreator{
-				attestation: &wifAttestation{ProviderType: "AWS", Credential: "aws-credential"},
-				err:         nil,
-			},
-			gcpCreator:       gcpErrorCreator,
-			azureCreator:     azureErrorCreator,
-			expectedProvider: "AWS",
-			expectedError:    "",
+			name:             "AWS error",
+			provider:         providerWithErrors,
+			identityProvider: "AWS",
+			expectedResult:   nil,
+			expectedError:    awsError,
 		},
 		{
-			name:        "GCP",
-			oidcCreator: oidcErrorCreator,
-			awsCreator:  awsErrorCreator,
-			gcpCreator: &mockWifAttestationCreator{
-				attestation: &wifAttestation{ProviderType: "GCP", Credential: "gcp-credential"},
-				err:         nil,
-			},
-			azureCreator:     azureErrorCreator,
-			expectedProvider: "GCP",
-			expectedError:    "",
+			name:             "GCP success",
+			provider:         provider,
+			identityProvider: "GCP",
+			expectedResult:   &wifAttestation{ProviderType: string(gcpWif)},
+			expectedError:    nil,
 		},
 		{
-			name:        "Azure",
-			oidcCreator: oidcErrorCreator,
-			awsCreator:  awsErrorCreator,
-			gcpCreator:  gcpErrorCreator,
-			azureCreator: &mockWifAttestationCreator{
-				attestation: &wifAttestation{ProviderType: "AZURE", Credential: "azure-credential"},
-				err:         nil,
-			},
-			expectedProvider: "AZURE",
-			expectedError:    "",
+			name:             "GCP error",
+			provider:         providerWithErrors,
+			identityProvider: "GCP",
+			expectedResult:   nil,
+			expectedError:    gcpError,
 		},
 		{
-			name:             "None",
-			oidcCreator:      oidcErrorCreator,
-			awsCreator:       awsErrorCreator,
-			gcpCreator:       gcpErrorCreator,
-			azureCreator:     azureErrorCreator,
-			expectedProvider: "",
-			expectedError:    "unable to autodetect Workload Identity. None of the supported Workload Identity environments has been identified",
+			name:             "AZURE success",
+			provider:         provider,
+			identityProvider: "AZURE",
+			expectedResult:   &wifAttestation{ProviderType: string(azureWif)},
+			expectedError:    nil,
+		},
+		{
+			name:             "AZURE error",
+			provider:         providerWithErrors,
+			identityProvider: "AZURE",
+			expectedResult:   nil,
+			expectedError:    azureError,
+		},
+		{
+			name:             "OIDC success",
+			provider:         provider,
+			identityProvider: "OIDC",
+			expectedResult:   &wifAttestation{ProviderType: string(oidcWif)},
+			expectedError:    nil,
+		},
+		{
+			name:             "OIDC error",
+			provider:         providerWithErrors,
+			identityProvider: "OIDC",
+			expectedResult:   nil,
+			expectedError:    oidcError,
+		},
+		{
+			name:             "Unknown provider",
+			provider:         provider,
+			identityProvider: "UNKNOWN",
+			expectedResult:   nil,
+			expectedError:    errors.New("unknown Workload Identity provider specified: UNKNOWN"),
+		},
+		{
+			name:             "Empty provider",
+			provider:         provider,
+			identityProvider: "",
+			expectedResult:   nil,
+			expectedError:    errors.New("unknown Workload Identity provider specified: "),
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			provider := &wifAttestationProvider{
-				oidcCreator:  test.oidcCreator,
-				awsCreator:   test.awsCreator,
-				gcpCreator:   test.gcpCreator,
-				azureCreator: test.azureCreator,
-			}
-
-			attestation, err := provider.createAutodetectAttestation()
-
-			if test.expectedError == "" {
-				assertNilE(t, err)
-				assertNotNilE(t, attestation)
-				assertEqualE(t, test.expectedProvider, attestation.ProviderType)
-			} else {
-				assertNotNilE(t, err)
+			attestation, err := test.provider.getAttestation(test.identityProvider)
+			if test.expectedError != nil {
 				assertNilE(t, attestation)
-				assertEqualE(t, test.expectedError, err.Error())
+				assertNotNilF(t, err)
+				assertEqualE(t, test.expectedError.Error(), err.Error())
+			} else if test.expectedResult != nil {
+				assertNilE(t, err)
+				assertNotNilF(t, attestation)
+				assertEqualE(t, test.expectedResult.ProviderType, attestation.ProviderType)
+			} else {
+				t.Fatal("test case must specify either expectedError or expectedResult")
 			}
 		})
 	}
