@@ -2278,7 +2278,9 @@ func checkConfig(cfg Config, envMap map[string]configParamToValue) error {
 	typeOfCfg := value.Type()
 	cfgValues := make(map[string]interface{}, value.NumField())
 	for i := 0; i < value.NumField(); i++ {
-		cfgValues[typeOfCfg.Field(i).Name] = value.Field(i).Interface()
+		if value.Field(i).CanInterface() {
+			cfgValues[typeOfCfg.Field(i).Name] = value.Field(i).Interface()
+		}
 	}
 
 	var errArray []string
