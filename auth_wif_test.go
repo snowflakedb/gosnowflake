@@ -146,19 +146,24 @@ func TestGetAttestation(t *testing.T) {
 
 func TestAwsIdentityAttestationCreator(t *testing.T) {
 	tests := []struct {
-		name                string
-		attestationSvc      awsAttestationMetadataProvider
-		attestationReturned bool
-		expectedProvider    string
-		expectedStsHost     string
+		name             string
+		attestationSvc   awsAttestationMetadataProvider
+		expectedError    error
+		expectedProvider string
+		expectedStsHost  string
 	}{
+		{
+			name:           "No attestation service",
+			attestationSvc: nil,
+			expectedError:  fmt.Errorf("AWS attestation service could not be created"),
+		},
 		{
 			name: "No AWS credentials",
 			attestationSvc: &mockAwsAttestationMetadataProvider{
 				creds:  aws.Credentials{},
 				region: "us-west-2",
 			},
-			attestationReturned: false,
+			expectedError: fmt.Errorf("no AWS credentials were found"),
 		},
 		{
 			name: "No AWS region",
@@ -166,7 +171,7 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 				creds:  mockCreds,
 				region: "",
 			},
-			attestationReturned: false,
+			expectedError: fmt.Errorf("no AWS region was found"),
 		},
 		{
 			name: "Successful attestation",
@@ -174,9 +179,8 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 				creds:  mockCreds,
 				region: "us-west-2",
 			},
-			attestationReturned: true,
-			expectedProvider:    "AWS",
-			expectedStsHost:     "sts.us-west-2.amazonaws.com",
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.us-west-2.amazonaws.com",
 		},
 		{
 			name: "Successful attestation for CN region",
@@ -184,9 +188,8 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 				creds:  mockCreds,
 				region: "cn-northwest-1",
 			},
-			attestationReturned: true,
-			expectedProvider:    "AWS",
-			expectedStsHost:     "sts.cn-northwest-1.amazonaws.com.cn",
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.cn-northwest-1.amazonaws.com.cn",
 		},
 	}
 
@@ -195,9 +198,14 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 			creator := &awsIdentityAttestationCreator{
 				attestationService: test.attestationSvc,
 			}
-			attestation, _ := creator.createAttestation()
+			attestation, err := creator.createAttestation()
 
-			if test.attestationReturned {
+			if test.expectedError != nil {
+				assertNilF(t, attestation)
+				assertNotNilE(t, err)
+				assertEqualE(t, test.expectedError.Error(), err.Error())
+			} else {
+				assertNilE(t, err)
 				assertNotNilE(t, attestation)
 				assertNotNilE(t, attestation.Credential)
 				assertEqualE(t, test.expectedProvider, attestation.ProviderType)
@@ -210,8 +218,6 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 					t.Fatalf("Failed to unmarshal credential JSON: %v", err)
 				}
 				assertEqualE(t, fmt.Sprintf("https://%s?Action=GetCallerIdentity&Version=2011-06-15", test.expectedStsHost), credentialMap["url"])
-			} else {
-				assertNilF(t, attestation)
 			}
 		})
 	}
@@ -240,24 +246,38 @@ func TestGcpIdentityAttestationCreator(t *testing.T) {
 	tests := []struct {
 		name                string
 		wiremockMappingPath string
+		expectedError       error
 		expectedSub         string
 	}{
 		{
 			name:                "Successful flow",
 			wiremockMappingPath: "wif/gcp/successful_flow.json",
+			expectedError:       nil,
 			expectedSub:         "some-subject",
 		},
 		{
 			name:                "No GCP credential - http error",
 			wiremockMappingPath: "wif/gcp/http_error.json",
+			expectedError:       fmt.Errorf("no GCP token was found"),
+			expectedSub:         "",
 		},
 		{
 			name:                "missing issuer claim",
 			wiremockMappingPath: "wif/gcp/missing_issuer_claim.json",
+			expectedError:       fmt.Errorf("could not extract claims from token: missing issuer claim in JWT token"),
+			expectedSub:         "",
+		},
+		{
+			name:                "missing sub claim",
+			wiremockMappingPath: "wif/gcp/missing_sub_claim.json",
+			expectedError:       fmt.Errorf("could not extract claims from token: missing sub claim in JWT token"),
+			expectedSub:         "",
 		},
 		{
 			name:                "unparsable token",
 			wiremockMappingPath: "wif/gcp/unparsable_token.json",
+			expectedError:       fmt.Errorf("could not extract claims from token: unable to extract JWT claims from token: token is malformed: token contains an invalid number of segments"),
+			expectedSub:         "",
 		},
 	}
 
@@ -271,14 +291,15 @@ func TestGcpIdentityAttestationCreator(t *testing.T) {
 			wiremock.registerMappings(t, wiremockMapping{filePath: test.wiremockMappingPath})
 			attestation, err := creator.createAttestation()
 
-			if test.expectedSub != "" {
+			if test.expectedError != nil {
+				assertNilF(t, attestation)
+				assertNotNilE(t, err)
+				assertEqualE(t, test.expectedError.Error(), err.Error())
+			} else {
 				assertNilE(t, err)
 				assertNotNilE(t, attestation)
 				assertEqualE(t, string(gcpWif), attestation.ProviderType)
 				assertEqualE(t, test.expectedSub, attestation.Metadata["sub"])
-			} else {
-				assertNilE(t, err)
-				assertNilF(t, attestation)
 			}
 		})
 	}
@@ -329,7 +350,7 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 		{
 			name:          "no token input",
 			token:         emptyToken,
-			expectedError: nil,
+			expectedError: fmt.Errorf("no OIDC token was specified"),
 		},
 		{
 			name:          "valid token returns proper attestation",
@@ -363,9 +384,6 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 				assertNotNilE(t, err)
 				assertNilF(t, attestation)
 				assertEqualE(t, test.expectedError.Error(), err.Error())
-			} else if test.expectedSub == "" && test.expectedError == nil {
-				assertNilE(t, err)
-				assertNilF(t, attestation)
 			} else {
 				assertNilE(t, err)
 				assertNotNilE(t, attestation)
@@ -383,6 +401,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 		metadataProvider    *mockAzureAttestationMetadataProvider
 		cfg                 *Config
 		expectedIss         string
+		expectedError       error
 	}{
 		/*
 		 * {
@@ -395,6 +414,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			wiremockMappingPath: "wif/azure/successful_flow_basic.json",
 			metadataProvider:    azureVMMetadataProvider(),
 			expectedIss:         "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
+			expectedError:       nil,
 		},
 		/*
 		 * {
@@ -407,6 +427,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			wiremockMappingPath: "wif/azure/successful_flow_v2_issuer.json",
 			metadataProvider:    azureVMMetadataProvider(),
 			expectedIss:         "https://login.microsoftonline.com/fa15d692-e9c7-4460-a743-29f29522229/",
+			expectedError:       nil,
 		},
 		/*
 		 * {
@@ -419,6 +440,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			wiremockMappingPath: "wif/azure/successful_flow_azure_functions.json",
 			metadataProvider:    azureFunctionsMetadataProvider(),
 			expectedIss:         "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
+			expectedError:       nil,
 		},
 		/*
 		 * {
@@ -431,6 +453,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			wiremockMappingPath: "wif/azure/successful_flow_azure_functions_v2_issuer.json",
 			metadataProvider:    azureFunctionsMetadataProvider(),
 			expectedIss:         "https://login.microsoftonline.com/fa15d692-e9c7-4460-a743-29f29522229/",
+			expectedError:       nil,
 		},
 		/*
 		 * {
@@ -446,7 +469,8 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 				identityHeaderValue:   "some-identity-header-from-env",
 				clientIDValue:         "",
 			},
-			expectedIss: "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
+			expectedIss:   "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
+			expectedError: nil,
 		},
 		/*
 		 * {
@@ -460,11 +484,13 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			metadataProvider:    azureFunctionsMetadataProvider(),
 			cfg:                 &Config{WorkloadIdentityEntraResource: "api://1111111-2222-3333-44444-55555555"},
 			expectedIss:         "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
+			expectedError:       nil,
 		},
 		{
 			name:                "Non-json response",
 			wiremockMappingPath: "wif/azure/non_json_response.json",
 			metadataProvider:    azureVMMetadataProvider(),
+			expectedError:       fmt.Errorf("failed to extract token from JSON: invalid character '<' looking for beginning of value"),
 		},
 		{
 			name: "Identity endpoint but no identity header",
@@ -473,16 +499,31 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 				identityHeaderValue:   "",
 				clientIDValue:         "managed-client-id-from-env",
 			},
+			expectedError: fmt.Errorf("managed identity is not enabled on this Azure function"),
 		},
 		{
-			name:                "unparsable token",
+			name:                "Unparsable token",
 			wiremockMappingPath: "wif/azure/unparsable_token.json",
 			metadataProvider:    azureVMMetadataProvider(),
+			expectedError:       fmt.Errorf("failed to extract sub and iss claims from token: unable to extract JWT claims from token: token is malformed: token contains an invalid number of segments"),
 		},
 		{
 			name:                "HTTP error",
 			metadataProvider:    azureVMMetadataProvider(),
 			wiremockMappingPath: "wif/azure/http_error.json",
+			expectedError:       fmt.Errorf("could not fetch Azure token"),
+		},
+		{
+			name:                "Missing sub or iss claim",
+			wiremockMappingPath: "wif/azure/missing_issuer_claim.json",
+			metadataProvider:    azureVMMetadataProvider(),
+			expectedError:       fmt.Errorf("failed to extract sub and iss claims from token: missing issuer claim in JWT token"),
+		},
+		{
+			name:                "Missing sub claim",
+			wiremockMappingPath: "wif/azure/missing_sub_claim.json",
+			metadataProvider:    azureVMMetadataProvider(),
+			expectedError:       fmt.Errorf("failed to extract sub and iss claims from token: missing sub claim in JWT token"),
 		},
 	}
 
@@ -499,15 +540,16 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			}
 			attestation, err := creator.createAttestation()
 
-			if test.expectedIss != "" {
+			if test.expectedError != nil {
+				assertNilF(t, attestation)
+				assertNotNilE(t, err)
+				assertEqualE(t, test.expectedError.Error(), err.Error())
+			} else {
 				assertNilE(t, err)
 				assertNotNilE(t, attestation)
 				assertEqualE(t, string(azureWif), attestation.ProviderType)
 				assertEqualE(t, test.expectedIss, attestation.Metadata["iss"])
 				assertEqualE(t, "77213E30-E8CB-4595-B1B6-5F050E8308FD", attestation.Metadata["sub"])
-			} else {
-				assertNilE(t, err)
-				assertNilF(t, attestation)
 			}
 		})
 	}

@@ -59,7 +59,8 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *s
 		cfg:     cfg,
 		awsCreator: &awsIdentityAttestationCreator{
 			attestationService: createDefaultAwsAttestationMetadataProvider(ctx),
-			ctx:                ctx},
+			ctx:                ctx,
+		},
 		gcpCreator: &gcpIdentityAttestationCreator{
 			cfg:                    cfg,
 			telemetry:              telemetry,
@@ -145,20 +146,17 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 	logger.Debug("Creating AWS identity attestation...")
 
 	if c.attestationService == nil {
-		logger.Debug("AWS attestation service could not be created.")
-		return nil, nil
+		return nil, fmt.Errorf("AWS attestation service could not be created")
 	}
 
 	creds := c.attestationService.awsCredentials()
 	if creds.AccessKeyID == "" || creds.SecretAccessKey == "" {
-		logger.Debug("No AWS credentials were found.")
-		return nil, nil
+		return nil, fmt.Errorf("no AWS credentials were found")
 	}
 
 	region := c.attestationService.awsRegion()
 	if region == "" {
-		logger.Debug("No AWS region was found.")
-		return nil, nil
+		return nil, fmt.Errorf("no AWS region was found")
 	}
 
 	stsHostname := stsHostname(region)
@@ -241,13 +239,11 @@ func (c *gcpIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 	}
 	token := fetchTokenFromMetadataService(req, c.cfg, c.telemetry)
 	if token == "" {
-		logger.Debugf("no GCP token was found.")
-		return nil, nil
+		return nil, fmt.Errorf("no GCP token was found")
 	}
 	sub, _, err := extractSubIssWithoutVerifyingSignature(token)
 	if err != nil {
-		logger.Errorf("could not extract claims from token: %v", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("could not extract claims from token: %v", err)
 	}
 	return &wifAttestation{
 		ProviderType: string(gcpWif),
@@ -327,8 +323,7 @@ func extractClaimsMap(token string) (map[string]interface{}, error) {
 func (c *oidcIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debugf("Creating OIDC identity attestation...")
 	if c.token == "" {
-		logger.Debugf("No OIDC token was specified")
-		return nil, nil
+		return nil, fmt.Errorf("no OIDC token was specified")
 	}
 	sub, iss, err := extractSubIssWithoutVerifyingSignature(c.token)
 	if err != nil {
@@ -389,8 +384,7 @@ func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, 
 	} else {
 		identityHeader := a.azureAttestationMetadataProvider.identityHeader()
 		if identityHeader == "" {
-			logger.Warn("Managed identity is not enabled on this Azure function.")
-			return nil, nil
+			return nil, fmt.Errorf("managed identity is not enabled on this Azure function")
 		}
 		request, err = a.azureFunctionsIdentityRequest(
 			identityEndpoint,
@@ -404,28 +398,23 @@ func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, 
 
 	tokenJSON := fetchTokenFromMetadataService(request, a.cfg, a.telemetry)
 	if tokenJSON == "" {
-		logger.Debug("Could not fetch Azure token.")
-		return nil, nil
+		return nil, fmt.Errorf("could not fetch Azure token")
 	}
 
 	token, err := extractTokenFromJSON(tokenJSON)
 	if err != nil {
-		logger.Errorf("Failed to extract token from JSON: %v", err)
-		return nil, nil
+		return nil, fmt.Errorf("failed to extract token from JSON: %v", err)
 	}
 	if token == "" {
-		logger.Error("No access token found in Azure response.")
-		return nil, nil
+		return nil, fmt.Errorf("no access token found in Azure response")
 	}
 
 	sub, iss, err := extractSubIssWithoutVerifyingSignature(token)
 	if err != nil {
-		logger.Errorf("Failed to extract sub and iss claims from token: %v", err)
-		return nil, nil
+		return nil, fmt.Errorf("failed to extract sub and iss claims from token: %v", err)
 	}
 	if sub == "" || iss == "" {
-		logger.Error("Missing sub or iss claim in JWT token")
-		return nil, nil
+		return nil, fmt.Errorf("missing sub or iss claim in JWT token")
 	}
 
 	return &wifAttestation{
