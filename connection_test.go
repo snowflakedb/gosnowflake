@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -808,27 +809,27 @@ func TestConcurrentReadOnParams(t *testing.T) {
 			for c := 0; c < 10; c++ {
 				stmt, err := db.PrepareContext(context.Background(), "SELECT table_schema FROM information_schema.columns WHERE table_schema = ? LIMIT 1")
 				if err != nil || stmt == nil {
-					failureCount++
+					atomic.AddInt32(&failureCount, 1)
 					continue // Skip this iteration if PrepareContext fails
 				}
 				rows, err := stmt.Query("INFORMATION_SCHEMA")
 				if err != nil {
 					stmt.Close()
-					failureCount++
+					atomic.AddInt32(&failureCount, 1)
 					continue
 				}
 				if rows == nil {
 					stmt.Close()
-					failureCount++
+					atomic.AddInt32(&failureCount, 1)
 					continue
 				}
 				rows.Next()
 				var tableName string
 				err = rows.Scan(&tableName)
 				if err != nil {
-					failureCount++
+					atomic.AddInt32(&failureCount, 1)
 				} else {
-					successCount++
+					atomic.AddInt32(&successCount, 1)
 				}
 				_ = rows.Close()
 				_ = stmt.Close()
