@@ -902,7 +902,7 @@ func TestCrlE2E(t *testing.T) {
 
 		// Use the global DSN with real JWT/private key configuration
 		createDSN("UTC")
-		crlDSN := dsn + "&certRevocationCheckMode=FAIL_HARD&crlAllowCertificatesWithoutCrlURL=true&disableOCSPChecks=true"
+		crlDSN := dsn + "&certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&disableOCSPChecks=true"
 
 		db, err := sql.Open("snowflake", crlDSN)
 		if err != nil {
@@ -925,9 +925,9 @@ func TestCrlE2E(t *testing.T) {
 
 		// additional entries for connecting to cloud providers and checking their certs
 		cwd, err := os.Getwd()
-		assertNilF(t, maskSecrets(err.Error()), "Failed to get current working directory")
+		assertNilF(t, err, "Failed to get current working directory")
 		_, err = db.Exec(fmt.Sprintf("PUT file://%v @~/%v", filepath.Join(cwd, "test_data", "put_get_1.txt"), "put_get_1.txt"))
-		assertNilF(t, maskSecrets(err.Error()), "Failed to execute PUT file")
+		assertNilF(t, err, "Failed to execute PUT file")
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterCSPConnection := len(crlInMemoryCache)
 		crlInMemoryCacheMutex.Unlock()
@@ -943,8 +943,9 @@ func TestCrlE2E(t *testing.T) {
 	t.Run("OCSP and CRL cannot be enabled at the same time", func(t *testing.T) {
 		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
 
+		// Use the global DSN with real JWT/private key configuration
 		createDSN("UTC")
-		crlDSN := dsn + "&certRevocationCheckMode=FAIL_HARD"
+		crlDSN := dsn + "&certRevocationCheckMode=ENABLED"
 
 		cfg, err := ParseDSN(crlDSN)
 		if err != nil {

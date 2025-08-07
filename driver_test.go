@@ -2089,7 +2089,8 @@ func TestOpenWithConfigCancel(t *testing.T) {
 		blockingRoundTripper.reset()
 		countingRoundTripper.reset()
 		blockingRoundTripper.setPathBlockTime("/telemetry/send", 50*time.Millisecond)
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		// Give sufficient time for login to complete and telemetry to start
+		ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
 		defer cancel()
 		_, err := driver.OpenWithConfig(ctx, *config)
 		assertErrIsE(t, context.DeadlineExceeded, err)
