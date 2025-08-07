@@ -4,7 +4,6 @@ package gosnowflake
 // name or signature but with default or empty content in the priv_key_test.go(See addParseDSNTest)
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -53,13 +52,4 @@ func setupPrivateKey() {
 		privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
 		testPrivKey = privKey.(*rsa.PrivateKey)
 	}
-}
-
-// Helper function to add encoded private key to dsn
-func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
-	var b bytes.Buffer
-	b.WriteString(*dsn)
-	b.WriteString(fmt.Sprintf("&authenticator=%v", AuthTypeJwt.String()))
-	b.WriteString(fmt.Sprintf("&privateKey=%s", generatePKCS8StringSupress(key)))
-	return b.String()
 }

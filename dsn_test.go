@@ -892,7 +892,7 @@ func TestParseDSN(t *testing.T) {
 				IncludeRetryReason:        ConfigBoolTrue,
 			},
 			ocspMode: ocspModeFailOpen,
-			err:      nil,
+			err:      &SnowflakeError{Number: ErrCodePrivateKeyParseError},
 		},
 		{
 			dsn: "user:pass@account/db/s?ocspFailOpen=true",
