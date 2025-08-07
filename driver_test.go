@@ -2088,14 +2088,18 @@ func TestOpenWithConfigCancel(t *testing.T) {
 	t.Run("canceled during request:telemetry/send", func(t *testing.T) {
 		blockingRoundTripper.reset()
 		countingRoundTripper.reset()
-		blockingRoundTripper.setPathBlockTime("/telemetry/send", 50*time.Millisecond)
-		// Give sufficient time for login to complete and telemetry to start
-		ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+		blockingRoundTripper.setPathBlockTime("/telemetry/send", 200*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		_, err := driver.OpenWithConfig(ctx, *config)
 		assertErrIsE(t, context.DeadlineExceeded, err)
 		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
-		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/telemetry/send"), 1)
+
+		time.Sleep(150 * time.Millisecond)
+		telemetryCount := countingRoundTripper.totalRequestsByPath("/telemetry/send")
+		if telemetryCount != 1 {
+			t.Errorf("Expected telemetry/send count to be 1, but got %d. This test verifies that telemetry uses context.Background() and completes despite main context timeout.", telemetryCount)
+		}
 	})
 }
 
