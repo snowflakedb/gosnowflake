@@ -115,14 +115,14 @@ func TestGetAttestation(t *testing.T) {
 			provider:         provider,
 			identityProvider: "UNKNOWN",
 			expectedResult:   nil,
-			expectedError:    errors.New("unknown Workload Identity provider specified: UNKNOWN"),
+			expectedError:    errors.New("unknown WorkloadIdentityProvider specified: UNKNOWN. Valid values are: AWS, GCP, AZURE, OIDC"),
 		},
 		{
 			name:             "Empty provider",
 			provider:         provider,
 			identityProvider: "",
 			expectedResult:   nil,
-			expectedError:    errors.New("unknown Workload Identity provider specified: "),
+			expectedError:    errors.New("unknown WorkloadIdentityProvider specified: . Valid values are: AWS, GCP, AZURE, OIDC"),
 		},
 	}
 
