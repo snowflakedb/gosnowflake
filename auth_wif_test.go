@@ -490,7 +490,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 			name:                "Non-json response",
 			wiremockMappingPath: "wif/azure/non_json_response.json",
 			metadataProvider:    azureVMMetadataProvider(),
-			expectedError:       fmt.Errorf("failed to extract token from JSON: invalid character '<' looking for beginning of value"),
+			expectedError:       fmt.Errorf("failed to extract token from JSON: invalid character 'o' in literal null (expecting 'u')"),
 		},
 		{
 			name: "Identity endpoint but no identity header",
