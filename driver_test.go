@@ -9,10 +9,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -916,6 +919,92 @@ func testFloat64(t *testing.T, json bool) {
 			})
 		}
 		dbt.mustExec("DROP TABLE IF EXISTS test")
+	})
+}
+
+func TestDecfloat(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExecT(t, "ALTER SESSION SET FEATURE_DECFLOAT = enabled")
+		dbt.mustExecT(t, "ALTER SESSION SET DECFLOAT_RESULT_COLUMN_TYPE = 2")
+		for _, format := range []string{"JSON", "ARROW"} {
+			if format == "JSON" {
+				dbt.mustExecT(t, forceJSON)
+			} else {
+				dbt.mustExecT(t, forceARROW)
+			}
+			for _, higherPrecision := range []bool{false, true} {
+				for _, decfloatEnabled := range []bool{true, false} {
+					t.Run(fmt.Sprintf("format=%v,higherPrecision=%v,decfloatEnabled=%v", format, higherPrecision, decfloatEnabled), func(t *testing.T) {
+						for _, tc := range []struct {
+							in     string
+							hp     float64
+							hpOut  string
+							strOut string
+						}{
+							{in: "-123.45", hp: -123.45, hpOut: "-123.45", strOut: "-123.45"},
+							{in: "1.2345e+2", hp: 123.45, hpOut: "123.45", strOut: "123.45"},
+							{in: "1e100", hp: math.Pow10(100), hpOut: "1e+100", strOut: "1.0000000000000000159028911097599180468e100"},
+							{in: "-9.87654321E-250", hp: -9.876654321 * math.Pow10(-250), hpOut: "-9.87654321e-250", strOut: "-9.8765432099999998623226732747455716901e-250"},
+						} {
+							t.Run(tc.in, func(t *testing.T) {
+								ctx := context.Background()
+								if higherPrecision {
+									ctx = WithHigherPrecision(ctx)
+								}
+								if decfloatEnabled {
+									ctx = WithDecfloatEnabled(ctx)
+								}
+								rows := dbt.mustQueryContextT(ctx, t, fmt.Sprintf("SELECT %v::DECFLOAT UNION SELECT NULL ORDER BY 1", tc.in))
+								defer rows.Close()
+								rows.mustNext()
+								if !decfloatEnabled {
+									var s string
+									rows.mustScan(&s)
+									// JSON uses scientific notation for DECFLOAT which is not as precise
+									// as Arrow representation.
+									if format == "JSON" {
+										assertEqualE(t, s, tc.strOut)
+									} else {
+										assertEqualE(t, s, tc.hpOut)
+									}
+									columnTypes, err := rows.ColumnTypes()
+									assertNilF(t, err)
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(""))
+								} else if higherPrecision {
+									var bf *big.Float
+									rows.mustScan(&bf)
+									assertEqualE(t, bf.String(), tc.hpOut)
+									columnTypes, err := rows.ColumnTypes()
+									assertNilF(t, err)
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(&big.Float{}))
+								} else {
+									var f float64
+									rows.mustScan(&f)
+									assertEqualEpsilonE(t, f, tc.hp, 0.000000000000001)
+									columnTypes, err := rows.ColumnTypes()
+									assertNilF(t, err)
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(0.0))
+								}
+								rows.mustNext()
+								if !decfloatEnabled {
+									var s sql.NullString
+									rows.mustScan(&s)
+									assertFalseE(t, s.Valid)
+								} else if higherPrecision {
+									var bf *big.Float
+									rows.mustScan(&bf)
+									assertNilE(t, bf)
+								} else {
+									var f sql.NullFloat64
+									rows.mustScan(&f)
+									assertFalseE(t, f.Valid)
+								}
+							})
+						}
+					})
+				}
+			}
+		}
 	})
 }
 
