@@ -205,45 +205,6 @@ func postAuthCheckPasscodeInPassword(_ context.Context, _ *snowflakeRestful, _ *
 	}, nil
 }
 
-// JWT token validate callback function to check the JWT token
-// It uses the public key paired with the testPrivKey
-func postAuthCheckJWTToken(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
-	var ar authRequest
-	jsonBody, _ := bodyCreator()
-	if err := json.Unmarshal(jsonBody, &ar); err != nil {
-		return nil, err
-	}
-	if ar.Data.Authenticator != AuthTypeJwt.String() {
-		return nil, errors.New("Authenticator is not JWT")
-	}
-
-	tokenString := ar.Data.Token
-
-	// Validate token
-	_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
-
-		return testPrivKey.Public(), nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &authResponse{
-		Success: true,
-		Data: authResponseMain{
-			Token:       "t",
-			MasterToken: "m",
-			SessionInfo: authResponseSessionInfo{
-				DatabaseName: "dbn",
-			},
-		},
-	}, nil
-}
-
 func postAuthCheckUsernamePasswordMfa(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
 	var ar authRequest
 	jsonBody, _ := bodyCreator()
