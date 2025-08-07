@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto"
+	"crypto/fips140"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -759,7 +760,11 @@ func validateWithCacheForAllCertificates(verifiedChains []*x509.Certificate) boo
 }
 
 func validateWithCache(subject, issuer *x509.Certificate) (*ocspStatus, []byte, *certIDKey) {
-	ocspReq, err := ocsp.CreateRequest(subject, issuer, &ocsp.RequestOptions{})
+	reqOpts := &ocsp.RequestOptions{}
+	if fips140.Enabled() {
+		reqOpts.Hash = crypto.SHA256
+	}
+	ocspReq, err := ocsp.CreateRequest(subject, issuer, reqOpts)
 	if err != nil {
 		logger.Errorf("failed to create OCSP request from the certificates.\n")
 		return &ocspStatus{
