@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"database/sql"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -60,6 +61,11 @@ type mockOCSPTransport struct {
 
 func (t *mockOCSPTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	// Mock that respects FailOpen/FailClosed configuration - NO real network calls, NO real private keys
+
+	// Expired certificates always fail regardless of OCSP FailOpen mode
+	if strings.Contains(r.URL.Host, "expired.badssl.com") {
+		return nil, fmt.Errorf("x509: certificate has expired or is not yet valid")
+	}
 
 	// Check if this request indicates an OCSP issue scenario
 	hasOCSPIssue := strings.EqualFold(os.Getenv("SF_OCSP_TEST_INJECT_VALIDITY_ERROR"), "true") ||
