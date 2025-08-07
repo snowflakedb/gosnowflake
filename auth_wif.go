@@ -58,8 +58,8 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *s
 		context: ctx,
 		cfg:     cfg,
 		awsCreator: &awsIdentityAttestationCreator{
-			attestationService: createDefaultAwsAttestationMetadataProvider(ctx),
-			ctx:                ctx,
+			attestationServiceFactory: createDefaultAwsAttestationMetadataProvider,
+			ctx:                       ctx,
 		},
 		gcpCreator: &gcpIdentityAttestationCreator{
 			cfg:                    cfg,
@@ -88,13 +88,15 @@ func (p *wifAttestationProvider) getAttestation(identityProvider string) (*wifAt
 	case string(oidcWif):
 		return p.oidcCreator.createAttestation()
 	default:
-		return nil, errors.New("unknown Workload Identity provider specified: " + identityProvider)
+		return nil, fmt.Errorf("unknown WorkloadIdentityProvider specified: %s. Valid values are: %s, %s, %s, %s", identityProvider, awsWif, gcpWif, azureWif, oidcWif)
 	}
 }
 
+type awsAttestastationMetadataProviderFactory func(ctx context.Context) awsAttestationMetadataProvider
+
 type awsIdentityAttestationCreator struct {
-	attestationService awsAttestationMetadataProvider
-	ctx                context.Context
+	attestationServiceFactory awsAttestastationMetadataProviderFactory
+	ctx                       context.Context
 }
 
 type gcpIdentityAttestationCreator struct {
@@ -145,16 +147,17 @@ func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debug("Creating AWS identity attestation...")
 
-	if c.attestationService == nil {
+	attestationService := c.attestationServiceFactory(c.ctx)
+	if attestationService == nil {
 		return nil, fmt.Errorf("AWS attestation service could not be created")
 	}
 
-	creds := c.attestationService.awsCredentials()
+	creds := attestationService.awsCredentials()
 	if creds.AccessKeyID == "" || creds.SecretAccessKey == "" {
 		return nil, fmt.Errorf("no AWS credentials were found")
 	}
 
-	region := c.attestationService.awsRegion()
+	region := attestationService.awsRegion()
 	if region == "" {
 		return nil, fmt.Errorf("no AWS region was found")
 	}

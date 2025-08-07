@@ -196,7 +196,10 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			creator := &awsIdentityAttestationCreator{
-				attestationService: test.attestationSvc,
+				attestationServiceFactory: func(ctx context.Context) awsAttestationMetadataProvider {
+					return test.attestationSvc
+				},
+				ctx: context.Background(),
 			}
 			attestation, err := creator.createAttestation()
 
