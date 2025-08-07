@@ -2,7 +2,7 @@ import groovy.json.JsonOutput
 
 
 timestamps {
-  node('regular-memory-node') {
+  node('high-memory-node') {
     stage('checkout') {
       scmInfo = checkout scm
       println("${scmInfo}")
@@ -55,7 +55,7 @@ timestamps {
 
 
 pipeline {
-  agent { label 'regular-memory-node' }
+  agent { label 'high-memory-node' }
   options { timestamps() }
   environment {
     COMMIT_SHA_LONG = sh(returnStdout: true, script: "echo \$(git rev-parse " + "HEAD)").trim()
