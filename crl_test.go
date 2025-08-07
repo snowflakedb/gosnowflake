@@ -895,20 +895,20 @@ func TestCrlE2E(t *testing.T) {
 			crlCacheCleanerTickRate = previousCrlCacheCleanerTickRate
 			crlCacheCleaner.cacheValidityTime = previousCacheValidityTime
 			crlCacheCleaner.stopPeriodicCacheCleanup()
+			createDSN("UTC")
 		}()
 		crlCacheCleanerTickRate = 5 * time.Second
 		crlCacheCleaner.cacheValidityTime = 60 * time.Second
-		cfg := &Config{
-			User:                              username,
-			Password:                          pass,
-			Account:                           account,
-			Database:                          dbname,
-			Schema:                            schemaname,
-			CertRevocationCheckMode:           CertRevocationCheckEnabled,
-			CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
-			DisableOCSPChecks:                 true,
+
+		// Use the global DSN with real JWT/private key configuration
+		createDSN("UTC")
+		crlDSN := dsn + "&certRevocationCheckMode=FAIL_HARD&crlAllowCertificatesWithoutCrlURL=true&disableOCSPChecks=true"
+
+		db, err := sql.Open("snowflake", crlDSN)
+		if err != nil {
+			maskedErr := maskSecrets(err.Error())
+			t.Fatalf("CRL E2E test failed to open connection: %s", maskedErr)
 		}
-		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
 		if err != nil {
@@ -925,9 +925,9 @@ func TestCrlE2E(t *testing.T) {
 
 		// additional entries for connecting to cloud providers and checking their certs
 		cwd, err := os.Getwd()
-		assertNilF(t, err)
+		assertNilF(t, maskSecrets(err.Error()), "Failed to get current working directory")
 		_, err = db.Exec(fmt.Sprintf("PUT file://%v @~/%v", filepath.Join(cwd, "test_data", "put_get_1.txt"), "put_get_1.txt"))
-		assertNilF(t, err)
+		assertNilF(t, maskSecrets(err.Error()), "Failed to execute PUT file")
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterCSPConnection := len(crlInMemoryCache)
 		crlInMemoryCacheMutex.Unlock()
@@ -942,15 +942,16 @@ func TestCrlE2E(t *testing.T) {
 
 	t.Run("OCSP and CRL cannot be enabled at the same time", func(t *testing.T) {
 		crlInMemoryCache = make(map[string]*crlInMemoryCacheValueType) // cleanup to ensure our test will fill it
-		cfg := &Config{
-			User:                    username,
-			Password:                pass,
-			Account:                 account,
-			Database:                dbname,
-			Schema:                  schemaname,
-			CertRevocationCheckMode: CertRevocationCheckEnabled,
+
+		createDSN("UTC")
+		crlDSN := dsn + "&certRevocationCheckMode=FAIL_HARD"
+
+		cfg, err := ParseDSN(crlDSN)
+		if err != nil {
+			maskedErr := maskSecrets(err.Error())
+			t.Fatalf("Failed to parse DSN: %s", maskedErr)
 		}
-		_, err := buildSnowflakeConn(context.Background(), *cfg)
+		_, err = buildSnowflakeConn(context.Background(), *cfg)
 		assertEqualE(t, maskSecrets(err.Error()), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
 		assertEqualE(t, len(crlInMemoryCache), 0)
 	})
