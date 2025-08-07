@@ -961,7 +961,7 @@ func TestGetTransport(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := getTransport(test.cfg, nil)
+			result, err := newTransportFactory(test.cfg, nil).createTransport()
 			assertNilE(t, err)
 			if test.transportCheck != nil {
 				test.transportCheck(t, castToTransport(result))

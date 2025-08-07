@@ -860,12 +860,3 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 
 	return sc, nil
 }
-
-func getTransport(cfg *Config, telemetry *snowflakeTelemetry) (http.RoundTripper, error) {
-	transportFactory := newTransportFactory(cfg, telemetry)
-	st, err := transportFactory.createTransport()
-	if err != nil {
-		return nil, err
-	}
-	return st, nil
-}
