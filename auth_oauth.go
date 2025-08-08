@@ -45,7 +45,7 @@ type oauthClient struct {
 	authorizationCodeProviderFactory func() authorizationCodeProvider
 }
 
-func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
+func newOauthClient(ctx context.Context, cfg *Config, sc *snowflakeConn) (*oauthClient, error) {
 	port := 0
 	if cfg.OauthRedirectURI != "" {
 		logger.Debugf("Using oauthRedirectUri from config: %v", cfg.OauthRedirectURI)
@@ -63,11 +63,11 @@ func newOauthClient(ctx context.Context, cfg *Config) (*oauthClient, error) {
 
 	redirectURITemplate := ""
 	if cfg.OauthRedirectURI == "" {
-		redirectURITemplate = "http://127.0.0.1:%v/"
+		redirectURITemplate = "http://127.0.0.1:%v"
 	}
 	logger.Debugf("Redirect URI template: %v, port: %v", redirectURITemplate, port)
 
-	transport, err := getTransport(cfg)
+	transport, err := getTransport(cfg, sc.telemetry)
 	if err != nil {
 		return nil, err
 	}
