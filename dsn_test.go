@@ -29,8 +29,9 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
-	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
-	privKeyPKCS1 := generatePKCS1String(testPrivKey)
+	privKey, _ := rsa.GenerateKey(cr.Reader, 2048)
+	privKeyPKCS8 := generatePKCS8StringSupress(privKey)
+	privKeyPKCS1 := generatePKCS1String(privKey)
 	testcases := []tcParseDSN{
 		{
 			dsn: "user:pass@ac-1-laksdnflaf.global/db/schema",
@@ -820,7 +821,7 @@ func TestParseDSN(t *testing.T) {
 			dsn: fmt.Sprintf("u:p@ac.snowflake.local:9876?account=ac&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS8),
 			config: &Config{
 				Account: "ac", User: "u", Password: "p",
-				Authenticator: AuthTypeJwt, PrivateKey: testPrivKey,
+				Authenticator: AuthTypeJwt, PrivateKey: privKey,
 				Protocol: "http", Host: "ac.snowflake.local", Port: 9876,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
@@ -842,8 +843,7 @@ func TestParseDSN(t *testing.T) {
 					Scheme: "https",
 					Host:   "ac.okta.com",
 				},
-				PrivateKey: testPrivKey,
-				Protocol:   "http", Host: "ac.snowflake.local", Port: 9876,
+				Protocol: "http", Host: "ac.snowflake.local", Port: 9876,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
@@ -865,8 +865,7 @@ func TestParseDSN(t *testing.T) {
 					Host:   "ac.some-host.com",
 					Path:   "/custom-okta-url",
 				},
-				PrivateKey: testPrivKey,
-				Protocol:   "http", Host: "ac.snowflake.local", Port: 9876,
+				Protocol: "http", Host: "ac.snowflake.local", Port: 9876,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
@@ -882,7 +881,7 @@ func TestParseDSN(t *testing.T) {
 			dsn: fmt.Sprintf("u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=SNOWFLAKE_JWT&privateKey=%v", privKeyPKCS1),
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
-				Authenticator: AuthTypeJwt, PrivateKey: testPrivKey,
+				Authenticator: AuthTypeJwt, PrivateKey: privKey,
 				Protocol: "http", Host: "a.snowflake.local", Port: 9876,
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
@@ -1265,132 +1264,133 @@ func TestParseDSN(t *testing.T) {
 	}
 
 	for i, test := range testcases {
-		t.Run(test.dsn, func(t *testing.T) {
+		t.Run(maskSecrets(test.dsn), func(t *testing.T) {
 			cfg, err := ParseDSN(test.dsn)
 			switch {
 			case test.err == nil:
 				if err != nil {
-					t.Fatalf("%d: Failed to parse the DSN. dsn: %v, err: %v", i, test.dsn, err)
+					t.Fatalf("%d: Failed to parse the DSN.",
+						i)
 				}
 				if test.config.Host != cfg.Host {
-					t.Fatalf("%d: Failed to match host. expected: %v, got: %v",
-						i, test.config.Host, cfg.Host)
+					t.Fatalf("%d: Failed to match host.",
+						i)
 				}
 				if test.config.Account != cfg.Account {
-					t.Fatalf("%d: Failed to match account. expected: %v, got: %v",
-						i, test.config.Account, cfg.Account)
+					t.Fatalf("%d: Failed to match account.",
+						i)
 				}
 				if test.config.User != cfg.User {
-					t.Fatalf("%d: Failed to match user. expected: %v, got: %v",
-						i, test.config.User, cfg.User)
+					t.Fatalf("%d: Failed to match user.",
+						i)
 				}
 				if test.config.Password != cfg.Password {
-					t.Fatalf("%d: Failed to match password. expected: %v, got: %v",
-						i, test.config.Password, cfg.Password)
+					t.Fatalf("%d: Failed to match password.",
+						i)
 				}
 				if test.config.Database != cfg.Database {
-					t.Fatalf("%d: Failed to match database. expected: %v, got: %v",
-						i, test.config.Database, cfg.Database)
+					t.Fatalf("%d: Failed to match database.",
+						i)
 				}
 				if test.config.Schema != cfg.Schema {
-					t.Fatalf("%d: Failed to match schema. expected: %v, got: %v",
-						i, test.config.Schema, cfg.Schema)
+					t.Fatalf("%d: Failed to match schema.",
+						i)
 				}
 				if test.config.Warehouse != cfg.Warehouse {
-					t.Fatalf("%d: Failed to match warehouse. expected: %v, got: %v",
-						i, test.config.Warehouse, cfg.Warehouse)
+					t.Fatalf("%d: Failed to match warehouse.",
+						i)
 				}
 				if test.config.Role != cfg.Role {
-					t.Fatalf("%d: Failed to match role. expected: %v, got: %v",
-						i, test.config.Role, cfg.Role)
+					t.Fatalf("%d: Failed to match role.",
+						i)
 				}
 				if test.config.Region != cfg.Region {
-					t.Fatalf("%d: Failed to match region. expected: %v, got: %v",
-						i, test.config.Region, cfg.Region)
+					t.Fatalf("%d: Failed to match region.",
+						i)
 				}
 				if test.config.Protocol != cfg.Protocol {
-					t.Fatalf("%d: Failed to match protocol. expected: %v, got: %v",
-						i, test.config.Protocol, cfg.Protocol)
+					t.Fatalf("%d: Failed to match protocol.",
+						i)
 				}
 				if test.config.Passcode != cfg.Passcode {
-					t.Fatalf("%d: Failed to match passcode. expected: %v, got: %v",
-						i, test.config.Passcode, cfg.Passcode)
+					t.Fatalf("%d: Failed to match passcode.",
+						i)
 				}
 				if test.config.PasscodeInPassword != cfg.PasscodeInPassword {
-					t.Fatalf("%d: Failed to match passcodeInPassword. expected: %v, got: %v",
-						i, test.config.PasscodeInPassword, cfg.PasscodeInPassword)
+					t.Fatalf("%d: Failed to match passcodeInPassword.",
+						i)
 				}
 				if test.config.Authenticator != cfg.Authenticator {
-					t.Fatalf("%d: Failed to match Authenticator. expected: %v, got: %v",
-						i, test.config.Authenticator.String(), cfg.Authenticator.String())
+					t.Fatalf("%d: Failed to match Authenticator.",
+						i)
 				}
 				if test.config.Authenticator == AuthTypeOkta && *test.config.OktaURL != *cfg.OktaURL {
-					t.Fatalf("%d: Failed to match okta URL. expected: %v, got: %v",
-						i, test.config.OktaURL, cfg.OktaURL)
+					t.Fatalf("%d: Failed to match okta URL.",
+						i)
 				}
 				if test.config.OCSPFailOpen != cfg.OCSPFailOpen {
-					t.Fatalf("%d: Failed to match OCSPFailOpen. expected: %v, got: %v",
-						i, test.config.OCSPFailOpen, cfg.OCSPFailOpen)
+					t.Fatalf("%d: Failed to match OCSPFailOpen.",
+						i)
 				}
 				if test.ocspMode != cfg.ocspMode() {
-					t.Fatalf("%d: Failed to match OCSPMode. expected: %v, got: %v",
-						i, test.ocspMode, cfg.ocspMode())
+					t.Fatalf("%d: Failed to match OCSPMode.",
+						i)
 				}
 				if test.config.ValidateDefaultParameters != cfg.ValidateDefaultParameters {
-					t.Fatalf("%d: Failed to match ValidateDefaultParameters. expected: %v, got: %v",
-						i, test.config.ValidateDefaultParameters, cfg.ValidateDefaultParameters)
+					t.Fatalf("%d: Failed to match ValidateDefaultParameters.",
+						i)
 				}
 				if test.config.ClientTimeout != cfg.ClientTimeout {
-					t.Fatalf("%d: Failed to match ClientTimeout. expected: %v, got: %v",
-						i, test.config.ClientTimeout, cfg.ClientTimeout)
+					t.Fatalf("%d: Failed to match ClientTimeout.",
+						i)
 				}
 				if test.config.JWTClientTimeout != cfg.JWTClientTimeout {
-					t.Fatalf("%d: Failed to match JWTClientTimeout. expected: %v, got: %v",
-						i, test.config.JWTClientTimeout, cfg.JWTClientTimeout)
+					t.Fatalf("%d: Failed to match JWTClientTimeout.",
+						i)
 				}
 				if test.config.ExternalBrowserTimeout != cfg.ExternalBrowserTimeout {
-					t.Fatalf("%d: Failed to match ExternalBrowserTimeout. expected: %v, got: %v",
-						i, test.config.ExternalBrowserTimeout, cfg.ExternalBrowserTimeout)
+					t.Fatalf("%d: Failed to match ExternalBrowserTimeout.",
+						i)
 				}
 				if test.config.CloudStorageTimeout != cfg.CloudStorageTimeout {
-					t.Fatalf("%d: Failed to match CloudStorageTimeout. expected: %v, got: %v",
-						i, test.config.CloudStorageTimeout, cfg.CloudStorageTimeout)
+					t.Fatalf("%d: Failed to match CloudStorageTimeout.",
+						i)
 				}
 				if test.config.TmpDirPath != cfg.TmpDirPath {
-					t.Fatalf("%v: Failed to match TmpDirPatch. expected: %v, got: %v", i, test.config.TmpDirPath, cfg.TmpDirPath)
+					t.Fatalf("%v: Failed to match TmpDirPatch.", i)
 				}
 				if test.config.DisableQueryContextCache != cfg.DisableQueryContextCache {
-					t.Fatalf("%v: Failed to match DisableQueryContextCache. expected: %v, got: %v", i, test.config.DisableQueryContextCache, cfg.DisableQueryContextCache)
+					t.Fatalf("%v: Failed to match DisableQueryContextCache.", i)
 				}
 				if test.config.IncludeRetryReason != cfg.IncludeRetryReason {
-					t.Fatalf("%v: Failed to match IncludeRetryReason. expected: %v, got: %v", i, test.config.IncludeRetryReason, cfg.IncludeRetryReason)
+					t.Fatalf("%v: Failed to match IncludeRetryReason.", i)
 				}
 				if test.config.DisableConsoleLogin != cfg.DisableConsoleLogin {
-					t.Fatalf("%v: Failed to match DisableConsoleLogin. expected: %v, got: %v", i, test.config.DisableConsoleLogin, cfg.DisableConsoleLogin)
+					t.Fatalf("%v: Failed to match DisableConsoleLogin.", i)
 				}
 				if test.config.DisableSamlURLCheck != cfg.DisableSamlURLCheck {
-					t.Fatalf("%v: Failed to match DisableSamlURLCheck. expected: %v, got: %v", i, test.config.DisableSamlURLCheck, cfg.DisableSamlURLCheck)
+					t.Fatalf("%v: Failed to match DisableSamlURLCheck.", i)
 				}
 				if test.config.OauthClientID != cfg.OauthClientID {
-					t.Fatalf("%v: Failed to match OauthClientId. expected: %v, got: %v", i, test.config.OauthClientID, cfg.OauthClientID)
+					t.Fatalf("%v: Failed to match OauthClientId.", i)
 				}
 				if test.config.OauthClientSecret != cfg.OauthClientSecret {
-					t.Fatalf("%v: Failed to match OauthClientSecret. expected: %v, got: %v", i, test.config.OauthClientSecret, cfg.OauthClientSecret)
+					t.Fatalf("%v: Failed to match OauthClientSecret.", i)
 				}
 				if test.config.OauthAuthorizationURL != cfg.OauthAuthorizationURL {
-					t.Fatalf("%v: Failed to match OauthAuthorizationUrl. expected: %v, got: %v", i, test.config.OauthAuthorizationURL, cfg.OauthAuthorizationURL)
+					t.Fatalf("%v: Failed to match OauthAuthorizationUrl.", i)
 				}
 				if test.config.OauthTokenRequestURL != cfg.OauthTokenRequestURL {
-					t.Fatalf("%v: Failed to match OauthTokenRequestURL. expected: %v, got: %v", i, test.config.OauthTokenRequestURL, cfg.OauthTokenRequestURL)
+					t.Fatalf("%v: Failed to match OauthTokenRequestURL.", i)
 				}
 				if test.config.OauthRedirectURI != cfg.OauthRedirectURI {
-					t.Fatalf("%v: Failed to match OauthRedirectURI. expected: %v, got: %v", i, test.config.OauthRedirectURI, cfg.OauthRedirectURI)
+					t.Fatalf("%v: Failed to match OauthRedirectURI.", i)
 				}
 				if test.config.OauthScope != cfg.OauthScope {
-					t.Fatalf("%v: Failed to match OauthScope. expected: %v, got: %v", i, test.config.OauthScope, cfg.OauthScope)
+					t.Fatalf("%v: Failed to match OauthScope.", i)
 				}
 				if test.config.EnableSingleUseRefreshTokens != cfg.EnableSingleUseRefreshTokens {
-					t.Fatalf("%v: Failed to match EnableSingleUseRefreshTokens. expected: %v, got: %v", i, test.config.OauthScope, cfg.OauthScope)
+					t.Fatalf("%v: Failed to match EnableSingleUseRefreshTokens.", i)
 				}
 				assertEqualE(t, cfg.Token, test.config.Token, "token")
 				assertEqualE(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
@@ -2096,22 +2096,22 @@ func TestDSN(t *testing.T) {
 		},
 	}
 	for _, test := range testcases {
-		t.Run(test.dsn, func(t *testing.T) {
+		t.Run(maskSecrets(test.dsn), func(t *testing.T) {
 			dsn, err := DSN(test.cfg)
 			if test.err == nil && err == nil {
 				if dsn != test.dsn {
-					t.Errorf("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
+					t.Errorf("failed to get DSN.")
 				}
 				_, err := ParseDSN(dsn)
 				if err != nil {
-					t.Errorf("failed to parse DSN. dsn: %v, err: %v", dsn, err)
+					t.Errorf("failed to parse DSN. ")
 				}
 			}
 			if test.err != nil && err == nil {
-				t.Errorf("expected error. dsn: %v, err: %v", test.dsn, test.err)
+				t.Errorf("expected error. got nil")
 			}
 			if err != nil && test.err == nil {
-				t.Errorf("failed to match. err: %v", err)
+				t.Errorf("failed to match")
 			}
 		})
 	}
@@ -2313,37 +2313,76 @@ func TestUrlDecodeIfNeeded(t *testing.T) {
 }
 
 func TestUrlDecodeIfNeededE2E(t *testing.T) {
+
+	// Skip this test when using JWT authentication globally to prevent unexpected behavior
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping URL decode test when JWT is configured globally")
+	}
+
 	customVarName := "CUSTOM_VARIABLE"
 	customVarValue := "test"
 	myQueryTag := "mytag"
-	testPort, err := strconv.Atoi(os.Getenv("SNOWFLAKE_TEST_PORT"))
-	if err != nil {
-		testPort = 443
-	}
 
-	cfg := &Config{
-		Account:  os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
-		Host:     os.Getenv("SNOWFLAKE_TEST_HOST"),
-		Port:     testPort,
-		Protocol: os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
-		User:     os.Getenv("SNOWFLAKE_TEST_USER"),
-		Password: os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
-		Params:   map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
-	}
-	mydsn, err := DSN(cfg)
-	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to create DSN from Config")
+	// Use createDSN but append the custom parameters like the original test did
+	createDSN("UTC")
+
+	// Add the custom session variables to the DSN (same as original test Params)
+	params := url.Values{}
+	params.Add("$"+customVarName, customVarValue)
+	params.Add("query_tag", myQueryTag)
+
+	mydsn := dsn + "&" + params.Encode()
+
 	db, err := sql.Open("snowflake", mydsn)
-	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to connect.")
+	if err != nil {
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to connect: %s", maskedErr)
+	}
 	defer db.Close()
 	query := "SHOW VARIABLES;"
 	rows, err := db.Query(query)
-	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query.")
+	if err != nil {
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query: %s", maskedErr)
+	}
 	defer rows.Close()
-	var v1, v2, v3, v4, v5, v6, v7 any
+
+	// Get column count to handle variable number of columns safely
+	columns, err := rows.Columns()
+	if err != nil {
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to get column information: %s", maskedErr)
+	}
+	colCount := len(columns)
+
+	// Create scan variables based on actual column count
+	scanVars := make([]interface{}, colCount)
+	for i := range scanVars {
+		var v interface{}
+		scanVars[i] = &v
+	}
+
 	assertTrueE(t, rows.Next(), "TestUrlDecodeIfNeededE2E query run but no rows were returned.")
-	err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
-	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to get result.")
+	err = rows.Scan(scanVars...)
+	if err != nil {
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to get result: %s", maskedErr)
+	}
+
+	// Original test expected key in position 3 (0-indexed) and value in position 4
+	if colCount <= 4 {
+		t.Errorf("TestUrlDecodeIfNeededE2E: SHOW VARIABLES returned only %d columns, need at least 5 for key/value positions", colCount)
+		return
+	}
+
+	// Extract key and value from expected positions (same as original test logic)
+	v4 := *scanVars[3].(*interface{}) // key position
+	v5 := *scanVars[4].(*interface{}) // value position
+
 	assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
 	assertDeepEqualE(t, v5, customVarValue, "TestUrlDecodeIfNeededE2E variable value retrieved from the test did not match")
-	assertNilE(t, rows.Err(), "TestUrlDecodeIfNeededE2E ERROR getting rows.")
+	if rows.Err() != nil {
+		maskedErr := maskSecrets(rows.Err().Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E ERROR getting rows: %s", maskedErr)
+	}
 }

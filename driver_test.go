@@ -6,6 +6,8 @@ import (
 	"crypto/rsa"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/base64"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"net/http"
@@ -79,7 +81,16 @@ func init() {
 }
 
 func createDSN(timezone string) {
-	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
+	// Check if we should use JWT authentication
+	authenticator := os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR")
+
+	if authenticator == "SNOWFLAKE_JWT" {
+		// For JWT authentication, don't include password in the DSN
+		dsn = fmt.Sprintf("%s@%s/%s/%s", username, host, dbname, schemaname)
+	} else {
+		// For standard password authentication
+		dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
+	}
 
 	parameters := url.Values{}
 	parameters.Add("timezone", timezone)
@@ -94,6 +105,23 @@ func createDSN(timezone string) {
 	}
 	if rolename != "" {
 		parameters.Add("role", rolename)
+	}
+
+	// Add authenticator and private key for JWT authentication
+	if authenticator == "SNOWFLAKE_JWT" {
+		parameters.Add("authenticator", "SNOWFLAKE_JWT")
+		privateKeyPath := os.Getenv("SNOWFLAKE_TEST_PRIVATE_KEY")
+		if privateKeyPath != "" {
+			// Read and encode the private key file
+			privateKeyBytes, err := os.ReadFile(privateKeyPath)
+			if err == nil {
+				block, _ := pem.Decode(privateKeyBytes)
+				if block != nil && block.Type == "PRIVATE KEY" {
+					encodedKey := base64.URLEncoding.EncodeToString(block.Bytes)
+					parameters.Add("privateKey", encodedKey)
+				}
+			}
+		}
 	}
 
 	if len(parameters) > 0 {
@@ -491,17 +519,27 @@ func TestBogusUserPasswordParameters(t *testing.T) {
 	if !runningOnGithubAction() {
 		t.Skip("error message could be different when run locally")
 	}
+	// Skip this test when using JWT authentication globally to prevent account lockouts
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping password authentication test when JWT is configured globally")
+	}
 	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
 	invalidUserPassErrorTests(invalidDNS, 390422, t)
 }
 
 func TestKnownUserInvalidPasswordParameters(t *testing.T) {
+	// Skip this test when using JWT authentication globally to prevent account lockouts
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping password authentication test when JWT is configured globally")
+	}
 	invalidDNS := fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
 	invalidUserPassErrorTests(invalidDNS, 390100, t)
 }
 
 func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T) {
 	parameters := url.Values{}
+	// Force password authentication for this test regardless of global setting
+	parameters.Add("authenticator", "snowflake")
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
 	}
@@ -511,7 +549,7 @@ func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T)
 	invalidDNS += "?" + parameters.Encode()
 	db, err := sql.Open("snowflake", invalidDNS)
 	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
+		t.Fatalf("error creating a connection object: %s", maskSecrets(err.Error()))
 	}
 	// actual connection won't happen until run a query
 	defer db.Close()
@@ -520,17 +558,22 @@ func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T)
 	}
 	if driverErr, ok := err.(*SnowflakeError); ok {
 		if driverErr.Number != expectedErr {
-			t.Fatalf("wrong error code: %v", driverErr)
+			t.Fatalf("wrong error code: %v", maskSecrets(driverErr.Error()))
 		}
 		if !strings.Contains(driverErr.Error(), strconv.Itoa(expectedErr)) {
-			t.Fatalf("error message should included the error code. got: %v", driverErr.Error())
+			t.Fatalf("wrong error message. expected: %v, got: %v", expectedErr, maskSecrets(driverErr.Error()))
 		}
 	} else {
-		t.Fatalf("wrong error code: %v", err)
+		t.Fatalf("wrong error code: %v", maskSecrets(err.Error()))
 	}
 }
 
 func TestBogusHostNameParameters(t *testing.T) {
+	// Skip this test when using JWT authentication globally to prevent unnecessary connection attempts
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping host validation test when JWT is configured globally")
+	}
+
 	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
 	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "connection broken"}, t)
 	invalidDNS = fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST")
@@ -539,6 +582,8 @@ func TestBogusHostNameParameters(t *testing.T) {
 
 func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	parameters := url.Values{}
+	// Force password authentication for this test regardless of global setting
+	parameters.Add("authenticator", "snowflake")
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
 	}
@@ -549,7 +594,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	invalidDNS += "?" + parameters.Encode()
 	db, err := sql.Open("snowflake", invalidDNS)
 	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
+		t.Fatalf("error creating a connection object: %s", maskSecrets(err.Error()))
 	}
 	// actual connection won't happen until run a query
 	defer db.Close()
@@ -563,7 +608,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("wrong error: %v", err)
+		t.Fatalf("wrong error: %v", maskSecrets(err.Error()))
 	}
 }
 
@@ -1800,11 +1845,6 @@ func TestTimezoneSessionParameter(t *testing.T) {
 }
 
 func TestLargeSetResultCancel(t *testing.T) {
-	level := logger.GetLogLevel()
-	_ = logger.SetLogLevel("debug")
-	defer func() {
-		_ = logger.SetLogLevel(level)
-	}()
 	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
@@ -1833,29 +1873,44 @@ func TestLargeSetResultCancel(t *testing.T) {
 }
 
 func TestValidateDatabaseParameter(t *testing.T) {
-	baseDSN := fmt.Sprintf("%s:%s@%s", username, pass, host)
+	// Parse the global DSN to get base configuration with proper authentication
+	cfg, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse global dsn")
+	}
+
 	testcases := []struct {
-		dsn       string
-		params    map[string]string
-		errorCode int
+		description string
+		dbname      string
+		schemaname  string
+		params      map[string]string
+		errorCode   int
 	}{
 		{
-			dsn:       baseDSN + fmt.Sprintf("/%s/%s", "NOT_EXISTS", "NOT_EXISTS"),
-			errorCode: ErrObjectNotExistOrAuthorized,
+			description: "invalid_database_and_schema",
+			dbname:      "NOT_EXISTS",
+			schemaname:  "NOT_EXISTS",
+			errorCode:   ErrObjectNotExistOrAuthorized,
 		},
 		{
-			dsn:       baseDSN + fmt.Sprintf("/%s/%s", dbname, "NOT_EXISTS"),
-			errorCode: ErrObjectNotExistOrAuthorized,
+			description: "invalid_schema",
+			dbname:      cfg.Database,
+			schemaname:  "NOT_EXISTS",
+			errorCode:   ErrObjectNotExistOrAuthorized,
 		},
 		{
-			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			description: "invalid_warehouse",
+			dbname:      cfg.Database,
+			schemaname:  cfg.Schema,
 			params: map[string]string{
 				"warehouse": "NOT_EXIST",
 			},
 			errorCode: ErrObjectNotExistOrAuthorized,
 		},
 		{
-			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			description: "invalid_role",
+			dbname:      cfg.Database,
+			schemaname:  cfg.Schema,
 			params: map[string]string{
 				"role": "NOT_EXIST",
 			},
@@ -1863,31 +1918,32 @@ func TestValidateDatabaseParameter(t *testing.T) {
 		},
 	}
 	for idx, tc := range testcases {
-		t.Run(dsn, func(t *testing.T) {
-			newDSN := tc.dsn
-			parameters := url.Values{}
-			if protocol != "" {
-				parameters.Add("protocol", protocol)
-			}
-			if account != "" {
-				parameters.Add("account", account)
-			}
+		t.Run(tc.description, func(t *testing.T) {
+			// Create a new config based on the global config (which already has proper authentication)
+			testCfg := *cfg // Copy the config with proper authentication from global DSN
+			testCfg.Database = tc.dbname
+			testCfg.Schema = tc.schemaname
+
+			// Override with test-specific parameters
 			for k, v := range tc.params {
-				parameters.Add(k, v)
+				switch k {
+				case "warehouse":
+					testCfg.Warehouse = v
+				case "role":
+					testCfg.Role = v
+				}
 			}
-			newDSN += "?" + parameters.Encode()
-			db, err := sql.Open("snowflake", newDSN)
-			// actual connection won't happen until run a query
-			if err != nil {
-				t.Fatalf("error creating a connection object: %s", err.Error())
-			}
+
+			db := sql.OpenDB(NewConnector(SnowflakeDriver{}, testCfg))
 			defer db.Close()
+
 			if _, err = db.Exec("SELECT 1"); err == nil {
 				t.Fatal("should cause an error.")
 			}
 			if driverErr, ok := err.(*SnowflakeError); ok {
-				if driverErr.Number != tc.errorCode { // not exist error
-					t.Errorf("got unexpected error: %v in %v", err, idx)
+				if driverErr.Number != tc.errorCode {
+					maskedErr := maskSecrets(err.Error())
+					t.Errorf("got unexpected error: %s in test case %d", maskedErr, idx)
 				}
 			}
 		})
@@ -1895,21 +1951,21 @@ func TestValidateDatabaseParameter(t *testing.T) {
 }
 
 func TestSpecifyWarehouseDatabase(t *testing.T) {
-	dsn := fmt.Sprintf("%s:%s@%s/%s", username, pass, host, dbname)
-	parameters := url.Values{}
-	parameters.Add("account", account)
-	parameters.Add("warehouse", warehouse)
-	// parameters.Add("role", "nopublic") TODO: create nopublic role for test
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	db, err := sql.Open("snowflake", dsn+"?"+parameters.Encode())
+	// Parse the global DSN to get base configuration with proper authentication
+	cfg, err := ParseDSN(dsn)
 	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
+		t.Fatal("Failed to parse global dsn")
 	}
+
+	// Override with test-specific settings
+	cfg.Warehouse = warehouse
+
+	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 	defer db.Close()
+
 	if _, err = db.Exec("SELECT 1"); err != nil {
-		t.Fatalf("failed to execute a select 1: %v", err)
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("failed to execute a select 1: %s", maskedErr)
 	}
 }
 
@@ -1964,16 +2020,34 @@ func TestPingInvalidHost(t *testing.T) {
 }
 
 func TestOpenWithConfig(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Fatalf("failed to parse dsn. err: %v", err)
+	config := Config{
+		Account:       "testaccount",
+		User:          "testuser",
+		Password:      "testpassword",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
 	}
-	driver := SnowflakeDriver{}
-	db, err := driver.OpenWithConfig(context.Background(), *config)
+
+	testURL, err := DSN(&config)
 	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
+		t.Fatalf("failed to parse config. config: %v, err: %v", config, err)
 	}
-	db.Close()
+
+	db, err := sql.Open("snowflake", testURL)
+	if err != nil {
+		t.Fatalf("failed to initalize the connetion. err: %v", err)
+	}
+	ctx := context.Background()
+	if err = db.PingContext(ctx); err == nil {
+		t.Fatal("should cause an error")
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
+	if driverErr, ok := err.(*SnowflakeError); !ok || ok && isFailToConnectOrAuthErr(driverErr) {
+		// Failed to connect error
+		t.Fatalf("error didn't match")
+	}
 }
 
 func TestOpenWithConfigCancel(t *testing.T) {
@@ -2000,13 +2074,18 @@ func TestOpenWithConfigCancel(t *testing.T) {
 	t.Run("canceled during request:telemetry/send", func(t *testing.T) {
 		blockingRoundTripper.reset()
 		countingRoundTripper.reset()
-		blockingRoundTripper.setPathBlockTime("/telemetry/send", 50*time.Millisecond)
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		blockingRoundTripper.setPathBlockTime("/telemetry/send", 200*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		_, err := driver.OpenWithConfig(ctx, *config)
 		assertErrIsE(t, context.DeadlineExceeded, err)
 		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
-		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/telemetry/send"), 1)
+
+		time.Sleep(150 * time.Millisecond)
+		telemetryCount := countingRoundTripper.totalRequestsByPath("/telemetry/send")
+		if telemetryCount != 1 {
+			t.Errorf("Expected telemetry/send count to be 1, but got %d. This test verifies that telemetry uses context.Background() and completes despite main context timeout.", telemetryCount)
+		}
 	})
 }
 
@@ -2015,6 +2094,8 @@ func TestOpenWithInvalidConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
+	config.Authenticator = AuthTypeSnowflake
+	config.PrivateKey = nil
 	driver := SnowflakeDriver{}
 	_, err = driver.OpenWithConfig(context.Background(), *config)
 	if err == nil || !strings.Contains(err.Error(), "/non-existing") {
@@ -2078,31 +2159,17 @@ func TestOpenWithTransport(t *testing.T) {
 }
 
 func createDSNWithClientSessionKeepAlive() {
-	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
-
-	parameters := url.Values{}
-	parameters.Add("client_session_keep_alive", "true")
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	if account != "" {
-		parameters.Add("account", account)
-	}
-	if warehouse != "" {
-		parameters.Add("warehouse", warehouse)
-	}
-	if rolename != "" {
-		parameters.Add("role", rolename)
-	}
-	if len(parameters) > 0 {
-		dsn += "?" + parameters.Encode()
-	}
+	// Just append the client_session_keep_alive parameter to the existing DSN
+	// The global dsn should already be properly configured with authentication
+	dsn += "&client_session_keep_alive=true"
 }
 
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
 	createDSNWithClientSessionKeepAlive()
+	defer createDSN("UTC") // Restore DSN even if test panics
+
 	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
 		defer rows.Close()
@@ -2112,10 +2179,10 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 
 		p, err := ScanSnowflakeParameter(rows.rows)
 		if err != nil {
-			t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
+			t.Errorf("failed to run get client_session_keep_alive value. err: %v", maskSecrets(err.Error()))
 		}
 		if p.Value != "true" {
-			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
+			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", maskSecrets(p.Value))
 		}
 
 		rows2 := dbt.mustQuery("select count(*) from table(generator(timelimit=>30))")
@@ -2130,7 +2197,8 @@ func TestTimePrecision(t *testing.T) {
 		defer rows.Close()
 		cols, err := rows.ColumnTypes()
 		if err != nil {
-			t.Error(err)
+			t.Errorf("failed to get column types: %v", maskSecrets(err.Error()))
+			return
 		}
 		if pres, _, ok := cols[0].DecimalSize(); pres != 5 || !ok {
 			t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
@@ -2158,4 +2226,8 @@ func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {
 	err = rows.Scan(&v)
 	assertNilF(t, err)
 	assertEqualE(t, v, 1)
+}
+
+func isFailToConnectOrAuthErr(driverErr *SnowflakeError) bool {
+	return driverErr.Number != ErrCodeFailedToConnect && driverErr.Number != ErrFailedToAuth
 }

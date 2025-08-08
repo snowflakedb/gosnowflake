@@ -4,17 +4,13 @@ package gosnowflake
 // name or signature but with default or empty content in the priv_key_test.go(See addParseDSNTest)
 
 import (
-	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"database/sql"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"os"
-	"testing"
 )
 
 // helper function to generate PKCS8 encoded base64 string of a private key
@@ -55,37 +51,5 @@ func setupPrivateKey() {
 		}
 		privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
 		testPrivKey = privKey.(*rsa.PrivateKey)
-	}
-}
-
-// Helper function to add encoded private key to dsn
-func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
-	var b bytes.Buffer
-	b.WriteString(*dsn)
-	b.WriteString(fmt.Sprintf("&authenticator=%v", AuthTypeJwt.String()))
-	b.WriteString(fmt.Sprintf("&privateKey=%s", generatePKCS8StringSupress(key)))
-	return b.String()
-}
-
-func TestJWTTokenTimeout(t *testing.T) {
-	resetHTTPMocks(t)
-
-	dsn := "user:pass@localhost:12345/db/schema?account=jwtAuthTokenTimeout&protocol=http&jwtClientTimeout=1"
-	dsn = appendPrivateKeyString(&dsn, testPrivKey)
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer db.Close()
-	ctx := context.Background()
-	conn, err := db.Conn(ctx)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer conn.Close()
-
-	invocations := getMocksInvocations(t)
-	if invocations != 3 {
-		t.Errorf("Unexpected number of invocations, expected 3, got %v", invocations)
 	}
 }

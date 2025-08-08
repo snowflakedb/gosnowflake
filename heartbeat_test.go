@@ -43,12 +43,12 @@ func TestHeartbeatStartAndStop(t *testing.T) {
 	createDSNWithClientSessionKeepAlive()
 	config, err := ParseDSN(dsn)
 	if err != nil {
-		t.Fatalf("failed to parse dsn. err: %v", err)
+		t.Fatalf("failed to parse dsn. err: %v", maskSecrets(err.Error()))
 	}
 	driver := SnowflakeDriver{}
 	db, err := driver.OpenWithConfig(context.Background(), *config)
 	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
+		t.Fatalf("failed to open with config. err: %v", maskSecrets(err.Error()))
 	}
 
 	conn, ok := db.(*snowflakeConn)
