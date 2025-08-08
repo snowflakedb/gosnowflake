@@ -1,14 +1,11 @@
 package gosnowflake
 
 import (
-	"cmp"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -171,28 +168,6 @@ const (
 	defaultCrlCacheValidityTime       = 24 * time.Hour
 	defaultCrlOnDiskCacheRemovalDelay = 7 * time.Hour
 )
-
-func createCrlTransport(cfg *Config, telemetry *snowflakeTelemetry) (*http.Transport, *crlValidator, error) {
-	allowCertificatesWithoutCrlURL := cfg.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
-	client := &http.Client{
-		Timeout: cmp.Or(cfg.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
-	}
-	crlValidator, err := newCrlValidator(cfg.CertRevocationCheckMode, allowCertificatesWithoutCrlURL, cfg.CrlInMemoryCacheDisabled, cfg.CrlOnDiskCacheDisabled, client, telemetry)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &http.Transport{
-		TLSClientConfig: &tls.Config{
-			VerifyPeerCertificate: crlValidator.verifyPeerCertificates,
-		},
-		MaxIdleConns:    5,
-		IdleConnTimeout: 5 * time.Minute,
-		Proxy:           http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout: 5 * time.Second,
-		}).DialContext,
-	}, crlValidator, nil
-}
 
 func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 	if cv.certRevocationCheckMode == CertRevocationCheckDisabled {
