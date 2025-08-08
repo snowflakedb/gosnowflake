@@ -106,6 +106,9 @@ func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
 }
 
+// WithDecfloatEnabled returns a context that enables native support for DECFLOAT.
+// Without this context, DECFLOAT columns are returned as strings.
+// With this context enabled, DECFLOAT columns are returned as *big.Float or float64 (depending on HigherPrecision setting).
 func WithDecfloatEnabled(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableDecfloat, true)
 }
