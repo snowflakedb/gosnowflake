@@ -13,6 +13,7 @@ type snowflakeType int
 const (
 	fixedType snowflakeType = iota
 	realType
+	decfloatType
 	textType
 	dateType
 	variantType
@@ -38,6 +39,7 @@ const (
 var snowflakeToDriverType = map[string]snowflakeType{
 	"FIXED":         fixedType,
 	"REAL":          realType,
+	"DECFLOAT":      decfloatType,
 	"TEXT":          textType,
 	"DATE":          dateType,
 	"VARIANT":       variantType,
