@@ -723,6 +723,13 @@ of the returned value:
 	    }
 	}
 
+# Using decfloats
+
+By default, DECFLOAT values are returned as string values.
+If you want to retrieve them as numbers, you have to use the WithDecfloatEnabled context.
+If higher precision is enabled, the driver will return them as *big.Float values.
+Otherwise, they will be returned as float64 values.
+
 # Arrow batches
 
 You can retrieve data in a columnar format similar to the format a server returns, without transposing them to rows.
