@@ -87,6 +87,8 @@ var (
 	DataTypeFixed = []byte{fixedType.Byte()}
 	// DataTypeReal is a REAL datatype.
 	DataTypeReal = []byte{realType.Byte()}
+	// DataTypeDecfloat is a DECFLOAT datatype.
+	DataTypeDecfloat = []byte{decfloatType.Byte()}
 	// DataTypeText is a TEXT datatype.
 	DataTypeText = []byte{textType.Byte()}
 	// DataTypeDate is a Date datatype.
@@ -121,6 +123,8 @@ var (
 func dataTypeMode(v driver.Value) (tsmode snowflakeType, err error) {
 	if bd, ok := v.([]byte); ok {
 		switch {
+		case bytes.Equal(bd, DataTypeDecfloat):
+			tsmode = decfloatType
 		case bytes.Equal(bd, DataTypeDate):
 			tsmode = dateType
 		case bytes.Equal(bd, DataTypeTime):
