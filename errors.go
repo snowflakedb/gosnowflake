@@ -182,6 +182,8 @@ const (
 	ErrFailedToGetChunk = 262000
 	// ErrNonArrowResponseInArrowBatches is an error code for case where ArrowBatches mode is enabled, but response is not Arrow-based
 	ErrNonArrowResponseInArrowBatches = 262001
+	// ErrNilArrowStreamBatch is an error code for when ArrowStreamBatch or its scd field is nil
+	ErrNilArrowStreamBatch = 262002
 
 	/* transaction*/
 
@@ -291,6 +293,7 @@ const (
 	errMsgIdpConnectionError                 = "failed to verify URLs. authenticator: %v, token URL:%v, SSO URL:%v"
 	errMsgSSOURLNotMatch                     = "SSO URL didn't match. expected: %v, got: %v"
 	errMsgFailedToGetChunk                   = "failed to get a chunk of result sets. idx: %v"
+	errMsgNilArrowStreamBatch                = "ArrowStreamBatch or scd is nil"
 	errMsgFailedToPostQuery                  = "failed to POST. HTTP: %v, URL: %v"
 	errMsgFailedToRenew                      = "failed to renew session. HTTP: %v, URL: %v"
 	errMsgFailedToCancelQuery                = "failed to cancel query. HTTP: %v, URL: %v"
