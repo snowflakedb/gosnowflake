@@ -11,7 +11,7 @@ var (
 )
 
 // RegisterTLSConfig registers a custom tls.Config to be used with sql.Open.
-// Use the key as a value in the DSN where tls=value.
+// Use the key as a value in the DSN where tlsConfigName=value.
 func RegisterTLSConfig(key string, config *tls.Config) error {
 	tlsConfigLock.Lock()
 	logger.Infof("Registering TLS config for key: %s", key)
