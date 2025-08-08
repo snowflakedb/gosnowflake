@@ -2313,6 +2313,7 @@ func TestUrlDecodeIfNeeded(t *testing.T) {
 }
 
 func TestUrlDecodeIfNeededE2E(t *testing.T) {
+
 	// Skip this test when using JWT authentication globally to prevent unexpected behavior
 	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
 		t.Skip("Skipping URL decode test when JWT is configured globally")
@@ -2321,33 +2322,67 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	customVarName := "CUSTOM_VARIABLE"
 	customVarValue := "test"
 	myQueryTag := "mytag"
-	cfg := Config{
-		Account:       os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
-		Database:      os.Getenv("SNOWFLAKE_TEST_DATABASE"),
-		Schema:        os.Getenv("SNOWFLAKE_TEST_SCHEMA"),
-		Warehouse:     os.Getenv("SNOWFLAKE_TEST_WAREHOUSE"),
-		Role:          os.Getenv("SNOWFLAKE_TEST_ROLE"),
-		Protocol:      os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
-		User:          os.Getenv("SNOWFLAKE_TEST_USER"),
-		Password:      os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
-		Params:        map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
-	}
-	mydsn, err := DSN(&cfg)
-	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to create DSN from Config")
+
+	// Use createDSN but append the custom parameters like the original test did
+	createDSN("UTC")
+
+	// Add the custom session variables to the DSN (same as original test Params)
+	params := url.Values{}
+	params.Add("$"+customVarName, customVarValue)
+	params.Add("query_tag", myQueryTag)
+
+	mydsn := dsn + "&" + params.Encode()
+
 	db, err := sql.Open("snowflake", mydsn)
-	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to connect.")
+	if err != nil {
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to connect: %s", maskedErr)
+	}
 	defer db.Close()
 	query := "SHOW VARIABLES;"
 	rows, err := db.Query(query)
-	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query.")
+	if err != nil {
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to run SHOW VARIABLES query: %s", maskedErr)
+	}
 	defer rows.Close()
-	var v1, v2, v3, v4, v5, v6, v7 any
+
+	// Get column count to handle variable number of columns safely
+	columns, err := rows.Columns()
+	if err != nil {
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to get column information: %s", maskedErr)
+	}
+	colCount := len(columns)
+
+	// Create scan variables based on actual column count
+	scanVars := make([]interface{}, colCount)
+	for i := range scanVars {
+		var v interface{}
+		scanVars[i] = &v
+	}
+
 	assertTrueE(t, rows.Next(), "TestUrlDecodeIfNeededE2E query run but no rows were returned.")
-	err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
-	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to get result.")
+	err = rows.Scan(scanVars...)
+	if err != nil {
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E failed to get result: %s", maskedErr)
+	}
+
+	// Original test expected key in position 3 (0-indexed) and value in position 4
+	if colCount <= 4 {
+		t.Errorf("TestUrlDecodeIfNeededE2E: SHOW VARIABLES returned only %d columns, need at least 5 for key/value positions", colCount)
+		return
+	}
+
+	// Extract key and value from expected positions (same as original test logic)
+	v4 := *scanVars[3].(*interface{}) // key position
+	v5 := *scanVars[4].(*interface{}) // value position
+
 	assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
 	assertDeepEqualE(t, v5, customVarValue, "TestUrlDecodeIfNeededE2E variable value retrieved from the test did not match")
-	assertNilE(t, rows.Err(), "TestUrlDecodeIfNeededE2E ERROR getting rows.")
+	if rows.Err() != nil {
+		maskedErr := maskSecrets(rows.Err().Error())
+		t.Fatalf("TestUrlDecodeIfNeededE2E ERROR getting rows: %s", maskedErr)
+	}
 }

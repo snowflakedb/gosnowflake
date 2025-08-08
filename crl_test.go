@@ -888,6 +888,8 @@ func closeServer(t *testing.T, server *http.Server) {
 func TestCrlE2E(t *testing.T) {
 	crlCacheCleaner.stopPeriodicCacheCleanup()
 	t.Run("Successful flow", func(t *testing.T) {
+		skipOnJenkins(t, "CRL E2E test requires real Snowflake certificates with CRL distribution points")
+
 		cleanupCrlCache(t)
 		previousCrlCacheCleanerTickRate := crlCacheCleanerTickRate
 		previousCacheValidityTime := crlCacheCleaner.cacheValidityTime
@@ -895,7 +897,7 @@ func TestCrlE2E(t *testing.T) {
 			crlCacheCleanerTickRate = previousCrlCacheCleanerTickRate
 			crlCacheCleaner.cacheValidityTime = previousCacheValidityTime
 			crlCacheCleaner.stopPeriodicCacheCleanup()
-			createDSN("UTC")
+			createDSN("UTC") // Restore global DSN after test
 		}()
 		crlCacheCleanerTickRate = 5 * time.Second
 		crlCacheCleaner.cacheValidityTime = 60 * time.Second

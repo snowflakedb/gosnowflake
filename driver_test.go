@@ -540,9 +540,6 @@ func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T)
 	parameters := url.Values{}
 	// Force password authentication for this test regardless of global setting
 	parameters.Add("authenticator", "snowflake")
-	// Ensure no private key is used to prevent any JWT authentication attempts
-	parameters.Add("privateKey", "")
-	parameters.Add("privateKeyFile", "")
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
 	}
@@ -552,7 +549,7 @@ func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T)
 	invalidDNS += "?" + parameters.Encode()
 	db, err := sql.Open("snowflake", invalidDNS)
 	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
+		t.Fatalf("error creating a connection object: %s", maskSecrets(err.Error()))
 	}
 	// actual connection won't happen until run a query
 	defer db.Close()
@@ -561,13 +558,13 @@ func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T)
 	}
 	if driverErr, ok := err.(*SnowflakeError); ok {
 		if driverErr.Number != expectedErr {
-			t.Fatalf("wrong error code: %v", driverErr)
+			t.Fatalf("wrong error code: %v", maskSecrets(driverErr.Error()))
 		}
 		if !strings.Contains(driverErr.Error(), strconv.Itoa(expectedErr)) {
-			t.Fatalf("error message should included the error code. got: %v", driverErr.Error())
+			t.Fatalf("wrong error message. expected: %v, got: %v", expectedErr, maskSecrets(driverErr.Error()))
 		}
 	} else {
-		t.Fatalf("wrong error code: %v", err)
+		t.Fatalf("wrong error code: %v", maskSecrets(err.Error()))
 	}
 }
 
@@ -587,7 +584,6 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	parameters := url.Values{}
 	// Force password authentication for this test regardless of global setting
 	parameters.Add("authenticator", "snowflake")
-	parameters.Add("privateKey", "")
 	if protocol != "" {
 		parameters.Add("protocol", protocol)
 	}
@@ -612,7 +608,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("wrong error: %v", err)
+		t.Fatalf("wrong error: %v", maskSecrets(err.Error()))
 	}
 }
 
@@ -1877,16 +1873,11 @@ func TestLargeSetResultCancel(t *testing.T) {
 }
 
 func TestValidateDatabaseParameter(t *testing.T) {
-	// Parse the global DSN to get base configuration
+	// Parse the global DSN to get base configuration with proper authentication
 	cfg, err := ParseDSN(dsn)
 	if err != nil {
 		t.Fatal("Failed to parse global dsn")
 	}
-
-	// Force JWT authentication with the test private key
-	cfg.Authenticator = AuthTypeJwt
-	cfg.PrivateKey = testPrivKey
-	cfg.Password = "" // Clear password to ensure JWT is used
 
 	testcases := []struct {
 		description string
@@ -1928,8 +1919,8 @@ func TestValidateDatabaseParameter(t *testing.T) {
 	}
 	for idx, tc := range testcases {
 		t.Run(tc.description, func(t *testing.T) {
-			// Create a new config based on the global config with JWT auth
-			testCfg := *cfg // Copy the config with JWT authentication
+			// Create a new config based on the global config (which already has proper authentication)
+			testCfg := *cfg // Copy the config with proper authentication from global DSN
 			testCfg.Database = tc.dbname
 			testCfg.Schema = tc.schemaname
 
@@ -1960,16 +1951,11 @@ func TestValidateDatabaseParameter(t *testing.T) {
 }
 
 func TestSpecifyWarehouseDatabase(t *testing.T) {
-	// Parse the global DSN to get base configuration
+	// Parse the global DSN to get base configuration with proper authentication
 	cfg, err := ParseDSN(dsn)
 	if err != nil {
 		t.Fatal("Failed to parse global dsn")
 	}
-
-	// Force JWT authentication with the test private key
-	cfg.Authenticator = AuthTypeJwt
-	cfg.PrivateKey = testPrivKey
-	cfg.Password = "" // Clear password to ensure JWT is used
 
 	// Override with test-specific settings
 	cfg.Warehouse = warehouse
