@@ -63,7 +63,7 @@ func newOauthClient(ctx context.Context, cfg *Config, sc *snowflakeConn) (*oauth
 
 	redirectURITemplate := ""
 	if cfg.OauthRedirectURI == "" {
-		redirectURITemplate = "http://127.0.0.1:%v/"
+		redirectURITemplate = "http://127.0.0.1:%v"
 	}
 	logger.Debugf("Redirect URI template: %v, port: %v", redirectURITemplate, port)
 
