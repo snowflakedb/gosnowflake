@@ -56,7 +56,7 @@ type Config struct {
 	OauthClientSecret            string // Client secret for OAuth2 external IdP
 	OauthAuthorizationURL        string // Authorization URL of Auth2 external IdP
 	OauthTokenRequestURL         string // Token request URL of Auth2 external IdP
-	OauthRedirectURI             string // Redirect URI registered in IdP. The default is http://127.0.0.1:<random port>/
+	OauthRedirectURI             string // Redirect URI registered in IdP. The default is http://127.0.0.1:<random port>
 	OauthScope                   string // Comma separated list of scopes. If empty it is derived from role.
 	EnableSingleUseRefreshTokens bool   // Enables single use refresh tokens for Snowflake IdP
 
