@@ -1004,6 +1004,68 @@ func TestDecfloat(t *testing.T) {
 				}
 			}
 		}
+
+		t.Run("Binding simple value", func(t *testing.T) {
+			t.Run("As string", func(t *testing.T) {
+				rows := dbt.mustQueryContextT(WithDecfloatEnabled(context.Background()), t, "SELECT ?::DECFLOAT", DataTypeDecfloat, "123.45")
+				defer rows.Close()
+				rows.mustNext()
+				var f float64
+				rows.mustScan(&f)
+				assertEqualE(t, f, 123.45)
+			})
+			t.Run("As float", func(t *testing.T) {
+				rows := dbt.mustQueryContextT(WithDecfloatEnabled(context.Background()), t, "SELECT ?::DECFLOAT", DataTypeDecfloat, 123.45)
+				defer rows.Close()
+				rows.mustNext()
+				var f float64
+				rows.mustScan(&f)
+				assertEqualE(t, f, 123.45)
+			})
+			t.Run("As *big.Float", func(t *testing.T) {
+				rows := dbt.mustQueryContextT(WithDecfloatEnabled(context.Background()), t, "SELECT ?::DECFLOAT", DataTypeDecfloat, new(big.Float).SetFloat64(123.45))
+				defer rows.Close()
+				rows.mustNext()
+				var f float64
+				rows.mustScan(&f)
+				assertEqualE(t, f, 123.45)
+			})
+		})
+
+		t.Run("Binding array", func(t *testing.T) {
+			dbt.mustExec(forceJSON)
+			arrays := []any{
+				Array([]string{"123.45", "234.5"}, DataTypeDecfloat),
+				Array([]float64{123.45, 234.5}, DataTypeDecfloat),
+				Array([]*big.Float{
+					new(big.Float).SetFloat64(123.45),
+					new(big.Float).SetFloat64(234.5),
+				}, DataTypeDecfloat),
+			}
+			for _, bulk := range []bool{false, true} {
+				for idx, arr := range arrays {
+					t.Run(fmt.Sprintf("bulk=%v, idx=%v", bulk, idx), func(t *testing.T) {
+						if bulk {
+							dbt.mustExecT(t, "ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
+						} else {
+							dbt.mustExecT(t, "ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 100")
+						}
+						dbt.mustExec("CREATE OR REPLACE TABLE test_decfloat (value DECFLOAT)")
+						defer dbt.mustExec("DROP TABLE IF EXISTS test_decfloat")
+						_ = dbt.mustExecT(t, "INSERT INTO test_decfloat VALUES (?)", arr)
+						rows := dbt.mustQueryT(t, "SELECT value FROM test_decfloat ORDER BY 1")
+						defer rows.Close()
+						rows.mustNext()
+						var s float64
+						rows.mustScan(&s)
+						assertEqualEpsilonE(t, s, 123.45, 0.0001)
+						rows.mustNext()
+						rows.mustScan(&s)
+						assertEqualEpsilonE(t, s, 234.5, 0.0001)
+					})
+				}
+			}
+		})
 	})
 }
 

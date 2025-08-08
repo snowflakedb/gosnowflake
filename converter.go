@@ -282,6 +282,11 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 		}
 	}
 
+	if tsmode == decfloatType && v1.Type() == reflect.TypeOf(big.Float{}) {
+		s := v.(*big.Float).String()
+		return bindingValue{&s, "", nil}, nil
+	}
+
 	switch v1.Kind() {
 	case reflect.Bool:
 		s := strconv.FormatBool(v1.Bool())
@@ -2561,6 +2566,7 @@ type (
 	int64Array        []int64
 	float64Array      []float64
 	float32Array      []float32
+	decfloatArray     []*big.Float
 	boolArray         []bool
 	stringArray       []string
 	byteArray         [][]byte
@@ -2573,7 +2579,8 @@ type (
 
 // Array takes in a column of a row to be inserted via array binding, bulk or
 // otherwise, and converts it into a native snowflake type for binding
-func Array(a interface{}, typ ...timezoneType) interface{} {
+func Array(a interface{}, typ ...any) interface{} {
+
 	switch t := a.(type) {
 	case []int:
 		return (*intArray)(&t)
@@ -2585,6 +2592,14 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 		return (*float64Array)(&t)
 	case []float32:
 		return (*float32Array)(&t)
+	case []*big.Float:
+		if len(typ) == 1 {
+			if b, ok := typ[0].([]byte); ok && bytes.Equal(b, DataTypeDecfloat) {
+				return (*decfloatArray)(&t)
+			}
+		}
+		logger.Warnf("Unsupported *big.Float array bind. Set the type to []byte{DataTypeDecfloat} to use decfloatArray")
+		return a
 	case []bool:
 		return (*boolArray)(&t)
 	case []string:
@@ -2619,6 +2634,14 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 		return (*float64Array)(t)
 	case *[]float32:
 		return (*float32Array)(t)
+	case *[]*big.Float:
+		if len(typ) == 1 {
+			if b, ok := typ[0].([]byte); ok && bytes.Equal(b, DataTypeDecfloat) {
+				return (*decfloatArray)(t)
+			}
+		}
+		logger.Warnf("Unsupported *big.Float array bind. Set the type to []byte{DataTypeDecfloat} to use decfloatArray")
+		return a
 	case *[]bool:
 		return (*boolArray)(t)
 	case *[]string:
@@ -2653,7 +2676,7 @@ func Array(a interface{}, typ ...timezoneType) interface{} {
 		}
 		return interfaceArrayBinding{
 			hasTimezone:       true,
-			tzType:            typ[0],
+			tzType:            typ[0].(timezoneType),
 			timezoneTypeArray: a,
 		}
 	default:
@@ -2701,6 +2724,13 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		a := nv.Value.(*float32Array)
 		for _, x := range *a {
 			v := fmt.Sprintf("%g", x)
+			arr = append(arr, &v)
+		}
+	case reflect.TypeOf(&decfloatArray{}):
+		t = textType
+		a := nv.Value.(*decfloatArray)
+		for _, x := range *a {
+			v := x.String()
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&boolArray{}):
