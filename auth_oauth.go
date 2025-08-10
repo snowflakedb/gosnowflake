@@ -67,7 +67,7 @@ func newOauthClient(ctx context.Context, cfg *Config, sc *snowflakeConn) (*oauth
 	}
 	logger.Debugf("Redirect URI template: %v, port: %v", redirectURITemplate, port)
 
-	transport, err := getTransport(cfg, sc.telemetry)
+	transport, err := newTransportFactory(cfg, sc.telemetry).createTransport()
 	if err != nil {
 		return nil, err
 	}
