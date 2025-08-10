@@ -22,7 +22,8 @@ const (
 )
 
 type snowflakeGcsClient struct {
-	cfg *Config
+	cfg       *Config
+	telemetry *snowflakeTelemetry
 }
 
 type gcsLocation struct {
@@ -30,7 +31,7 @@ type gcsLocation struct {
 	path       string
 }
 
-func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
+func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool, telemetry *snowflakeTelemetry) (cloudClient, error) {
 	if info.Creds.GcsAccessToken != "" {
 		logger.Debug("Using GCS downscoped token")
 		return info.Creds.GcsAccessToken, nil
@@ -71,7 +72,7 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 			for k, v := range gcsHeaders {
 				req.Header.Add(k, v)
 			}
-			client, err := newGcsClient(util.cfg)
+			client, err := newGcsClient(util.cfg, util.telemetry)
 			if err != nil {
 				return nil, err
 			}
@@ -226,7 +227,7 @@ func (util *snowflakeGcsClient) uploadFile(
 		for k, v := range gcsHeaders {
 			req.Header.Add(k, v)
 		}
-		client, err := newGcsClient(util.cfg)
+		client, err := newGcsClient(util.cfg, util.telemetry)
 		if err != nil {
 			return nil, err
 		}
@@ -310,7 +311,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		for k, v := range gcsHeaders {
 			req.Header.Add(k, v)
 		}
-		client, err := newGcsClient(util.cfg)
+		client, err := newGcsClient(util.cfg, util.telemetry)
 		if err != nil {
 			return nil, err
 		}
@@ -426,8 +427,8 @@ func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
 	return resp.StatusCode == 401
 }
 
-func newGcsClient(cfg *Config) (gcsAPI, error) {
-	transport, err := getTransport(cfg)
+func newGcsClient(cfg *Config, telemetry *snowflakeTelemetry) (gcsAPI, error) {
+	transport, err := newTransportFactory(cfg, telemetry).createTransport()
 	if err != nil {
 		return nil, err
 	}

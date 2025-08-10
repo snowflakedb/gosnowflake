@@ -161,38 +161,34 @@ func retrieveRows(rows *sql.Rows, ch chan string) {
 }
 
 func TestLongRunningAsyncQuery(t *testing.T) {
-	conn := openConn(t)
-	defer conn.Close()
+	runDBTest(t, func(dbt *DBTest) {
+		ctx, _ := WithMultiStatement(context.Background(), 0)
+		query := "CALL SYSTEM$WAIT(50, 'SECONDS');use snowflake_sample_data"
 
-	ctx, _ := WithMultiStatement(context.Background(), 0)
-	query := "CALL SYSTEM$WAIT(50, 'SECONDS');use snowflake_sample_data"
-
-	rows, err := conn.QueryContext(WithAsyncMode(ctx), query)
-	if err != nil {
-		t.Fatalf("failed to run a query. %v, err: %v", query, err)
-	}
-	defer rows.Close()
-	var v string
-	i := 0
-	for {
-		for rows.Next() {
-			err := rows.Scan(&v)
-			if err != nil {
-				t.Fatalf("failed to get result. err: %v", err)
+		rows := dbt.mustQueryContext(WithAsyncMode(ctx), query)
+		defer rows.Close()
+		var v string
+		i := 0
+		for {
+			for rows.Next() {
+				err := rows.Scan(&v)
+				if err != nil {
+					t.Fatalf("failed to get result. err: %v", err)
+				}
+				if v == "" {
+					t.Fatal("should have returned a result")
+				}
+				results := []string{"waited 50 seconds", "Statement executed successfully."}
+				if v != results[i] {
+					t.Fatalf("unexpected result returned. expected: %v, but got: %v", results[i], v)
+				}
+				i++
 			}
-			if v == "" {
-				t.Fatal("should have returned a result")
+			if !rows.NextResultSet() {
+				break
 			}
-			results := []string{"waited 50 seconds", "Statement executed successfully."}
-			if v != results[i] {
-				t.Fatalf("unexpected result returned. expected: %v, but got: %v", results[i], v)
-			}
-			i++
 		}
-		if !rows.NextResultSet() {
-			break
-		}
-	}
+	})
 }
 
 func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {

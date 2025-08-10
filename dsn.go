@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -56,7 +57,7 @@ type Config struct {
 	OauthClientSecret            string // Client secret for OAuth2 external IdP
 	OauthAuthorizationURL        string // Authorization URL of Auth2 external IdP
 	OauthTokenRequestURL         string // Token request URL of Auth2 external IdP
-	OauthRedirectURI             string // Redirect URI registered in IdP. The default is http://127.0.0.1:<random port>/
+	OauthRedirectURI             string // Redirect URI registered in IdP. The default is http://127.0.0.1:<random port>
 	OauthScope                   string // Comma separated list of scopes. If empty it is derived from role.
 	EnableSingleUseRefreshTokens bool   // Enables single use refresh tokens for Snowflake IdP
 
@@ -101,6 +102,9 @@ type Config struct {
 
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
 
+	tlsConfig     *tls.Config // Custom TLS configuration
+	TLSConfigName string      // Name of the TLS config to use
+
 	DisableTelemetry bool // indicates whether to disable telemetry
 
 	Tracing string // sets logging level
@@ -127,13 +131,12 @@ type Config struct {
 
 	CertRevocationCheckMode           CertRevocationCheckMode // revocation check mode for CRLs
 	CrlAllowCertificatesWithoutCrlURL ConfigBool              // Allow certificates (not short-lived) without CRL DP included to be treated as correct ones
-	CrlCacheValidityTime              time.Duration           // How old CRL should we treat as still valid
 	CrlInMemoryCacheDisabled          bool                    // Should the in-memory cache be disabled
 	CrlOnDiskCacheDisabled            bool                    // Should the on-disk cache be disabled
-	CrlOnDiskCacheDir                 string                  // On-disk cache directory
-	CrlOnDiskCacheRemovalDelay        time.Duration           // How long should we keep CRL on disk before removing it (for debuggability purpose only, for validity time use CrlCacheValidityTime)
 	CrlHTTPClientTimeout              time.Duration           // Timeout for HTTP client used to download CRL
-	CrlCacheCleanerTick               time.Duration           // How often should we check for CRL cache removal
+
+	ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
+	ConnectionDiagnosticsAllowlistFile string // File path to the allowlist file for connection diagnostics. If not specified, the allowlist.json file in the current directory will be used.
 }
 
 // Validate enables testing if config is correct.
@@ -289,26 +292,14 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue {
 		params.Add("crlAllowCertificatesWithoutCrlURL", "true")
 	}
-	if cfg.CrlCacheValidityTime != 0 {
-		params.Add("crlCacheValidityTime", strconv.FormatInt(int64(cfg.CrlCacheValidityTime/time.Second), 10))
-	}
 	if cfg.CrlInMemoryCacheDisabled {
 		params.Add("crlInMemoryCacheDisabled", "true")
 	}
 	if cfg.CrlOnDiskCacheDisabled {
 		params.Add("crlOnDiskCacheDisabled", "true")
 	}
-	if cfg.CrlOnDiskCacheDir != "" {
-		params.Add("crlOnDiskCacheDir", cfg.CrlOnDiskCacheDir)
-	}
-	if cfg.CrlOnDiskCacheRemovalDelay != 0 {
-		params.Add("crlOnDiskCacheRemovalDelay", strconv.FormatInt(int64(cfg.CrlOnDiskCacheRemovalDelay/time.Second), 10))
-	}
 	if cfg.CrlHTTPClientTimeout != 0 {
 		params.Add("crlHttpClientTimeout", strconv.FormatInt(int64(cfg.CrlHTTPClientTimeout/time.Second), 10))
-	}
-	if cfg.CrlCacheCleanerTick != 0 {
-		params.Add("crlCacheCleanerTick", strconv.FormatInt(int64(cfg.CrlCacheCleanerTick/time.Second), 10))
 	}
 	if cfg.Params != nil {
 		for k, v := range cfg.Params {
@@ -361,6 +352,15 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.DisableSamlURLCheck != configBoolNotSet {
 		params.Add("disableSamlURLCheck", strconv.FormatBool(cfg.DisableSamlURLCheck != ConfigBoolFalse))
+	}
+	if cfg.ConnectionDiagnosticsEnabled {
+		params.Add("connectionDiagnosticsEnabled", strconv.FormatBool(cfg.ConnectionDiagnosticsEnabled))
+	}
+	if cfg.ConnectionDiagnosticsAllowlistFile != "" {
+		params.Add("connectionDiagnosticsAllowlistFile", cfg.ConnectionDiagnosticsAllowlistFile)
+	}
+	if cfg.TLSConfigName != "" {
+		params.Add("tlsConfigName", cfg.TLSConfigName)
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -894,6 +894,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 
 		case "token":
 			cfg.Token = value
+		case "tlsConfigName":
+			// Look up registered TLS config and set it directly
+			if tlsConfig, ok := getTLSConfig(value); ok {
+				cfg.tlsConfig = tlsConfig
+				cfg.TLSConfigName = value
+			} else {
+				return &SnowflakeError{
+					Number:  ErrCodeMissingTLSConfig,
+					Message: fmt.Sprintf(errMsgMissingTLSConfig, value),
+				}
+			}
 		case "workloadIdentityProvider":
 			cfg.WorkloadIdentityProvider = value
 		case "workloadIdentityEntraResource":
@@ -1006,13 +1017,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			} else {
 				cfg.CrlAllowCertificatesWithoutCrlURL = ConfigBoolFalse
 			}
-		case "crlCacheValidityTime":
-			var vv int64
-			vv, err = strconv.ParseInt(value, 10, 64)
-			if err != nil {
-				return
-			}
-			cfg.CrlCacheValidityTime = time.Duration(vv * int64(time.Second))
 		case "crlInMemoryCacheDisabled":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
@@ -1035,15 +1039,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			} else {
 				cfg.CrlOnDiskCacheDisabled = false
 			}
-		case "crlOnDiskCacheDir":
-			cfg.CrlOnDiskCacheDir = value
-		case "crlOnDiskCacheRemovalDelay":
-			var vv int64
-			vv, err = strconv.ParseInt(value, 10, 64)
-			if err != nil {
-				return
-			}
-			cfg.CrlOnDiskCacheRemovalDelay = time.Duration(vv * int64(time.Second))
 		case "crlHttpClientTimeout":
 			var vv int64
 			vv, err = strconv.ParseInt(value, 10, 64)
@@ -1051,13 +1046,15 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.CrlHTTPClientTimeout = time.Duration(vv * int64(time.Second))
-		case "crlCacheCleanerTick":
-			var vv int64
-			vv, err = strconv.ParseInt(value, 10, 64)
+		case "connectionDiagnosticsEnabled":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
 			if err != nil {
 				return
 			}
-			cfg.CrlCacheCleanerTick = time.Duration(vv * int64(time.Second))
+			cfg.ConnectionDiagnosticsEnabled = vv
+		case "connectionDiagnosticsAllowlistFile":
+			cfg.ConnectionDiagnosticsAllowlistFile = value
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

@@ -22,7 +22,8 @@ import (
 )
 
 type snowflakeAzureClient struct {
-	cfg *Config
+	cfg       *Config
+	telemetry *snowflakeTelemetry
 }
 
 type azureLocation struct {
@@ -38,13 +39,13 @@ type azureAPI interface {
 	GetProperties(ctx context.Context, o *blob.GetPropertiesOptions) (blob.GetPropertiesResponse, error)
 }
 
-func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool) (cloudClient, error) {
+func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool, telemetry *snowflakeTelemetry) (cloudClient, error) {
 	sasToken := info.Creds.AzureSasToken
 	u, err := url.Parse(fmt.Sprintf("https://%s.%s/%s%s", info.StorageAccount, info.EndPoint, info.Path, sasToken))
 	if err != nil {
 		return nil, err
 	}
-	transport, err := getTransport(util.cfg)
+	transport, err := newTransportFactory(util.cfg, telemetry).createTransport()
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,7 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 		return nil, err
 	}
 	path := azureLoc.path + strings.TrimLeft(filename, "/")
-	containerClient, err := createContainerClient(client.URL(), util.cfg)
+	containerClient, err := createContainerClient(client.URL(), util.cfg, util.telemetry)
 	if err != nil {
 		return nil, &SnowflakeError{
 			Message: "failed to create container client",
@@ -190,7 +191,7 @@ func (util *snowflakeAzureClient) uploadFile(
 			Message: "failed to cast to azure client",
 		}
 	}
-	containerClient, err := createContainerClient(client.URL(), util.cfg)
+	containerClient, err := createContainerClient(client.URL(), util.cfg, util.telemetry)
 
 	if err != nil {
 		return &SnowflakeError{
@@ -272,7 +273,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 			Message: "failed to cast to azure client",
 		}
 	}
-	containerClient, err := createContainerClient(client.URL(), util.cfg)
+	containerClient, err := createContainerClient(client.URL(), util.cfg, util.telemetry)
 	if err != nil {
 		return &SnowflakeError{
 			Message: "failed to create container client",
@@ -347,8 +348,8 @@ func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Respons
 		strings.Contains(errStr, "Server failed to authenticate the request")
 }
 
-func createContainerClient(clientURL string, cfg *Config) (*container.Client, error) {
-	transport, err := getTransport(cfg)
+func createContainerClient(clientURL string, cfg *Config, telemetry *snowflakeTelemetry) (*container.Client, error) {
+	transport, err := newTransportFactory(cfg, telemetry).createTransport()
 	if err != nil {
 		return nil, err
 	}
