@@ -67,7 +67,6 @@ jobs:
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
-                SF_ENABLE_EXPERIMENTAL_AUTHENTICATION: true
               run: ./ci/test.sh
             - name: Upload test results to Codecov
               if: ${{!cancelled()}}
@@ -104,7 +103,6 @@ jobs:
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
-                SF_ENABLE_EXPERIMENTAL_AUTHENTICATION: true
               run: ./ci/test.sh
             - name: Upload test results to Codecov
               if: ${{!cancelled()}}
@@ -145,7 +143,6 @@ jobs:
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
-                SF_ENABLE_EXPERIMENTAL_AUTHENTICATION: true
               run: ci\\test.bat
             - name: Upload test results to Codecov
               if: ${{!cancelled()}}
