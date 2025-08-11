@@ -344,29 +344,47 @@ func TestRetryQueryFailWithTimeout(t *testing.T) {
 }
 
 func TestRetryQueryFailWithMaxRetryCount(t *testing.T) {
-	maxRetryCount := 3
-	logger.Info("Retry 3 times until retry reaches MaxRetryCount and Fail")
-	client := &fakeHTTPClient{
-		statusCode: http.StatusTooManyRequests,
-		success:    false,
+	tcs := []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{
+			name:    "with timeout",
+			timeout: 15 * time.Hour,
+		},
+		{
+			name:    "without timeout",
+			timeout: 0,
+		},
 	}
-	urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
-	assertNilF(t, err, "failed to parse the test URL")
-	_, err = newRetryHTTP(context.Background(),
-		client,
-		emptyRequest, urlPtr, make(map[string]string), 15*time.Hour, maxRetryCount, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
-	assertNotNilF(t, err, "should fail to run retry")
-	var values url.Values
-	values, err = url.ParseQuery(urlPtr.RawQuery)
-	if err != nil {
-		t.Fatalf("failed to parse the URL: %v", err)
-	}
-	retryCount, err := strconv.Atoi(values.Get(retryCountKey))
-	if err != nil {
-		t.Fatalf("failed to get retry counter: %v", err)
-	}
-	if retryCount < 3 {
-		t.Fatalf("not enough retries: %v; expected %v", retryCount, maxRetryCount)
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			maxRetryCount := 3
+			logger.Info("Retry 3 times until retry reaches MaxRetryCount and Fail")
+			client := &fakeHTTPClient{
+				statusCode: http.StatusTooManyRequests,
+				success:    false,
+			}
+			urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
+			assertNilF(t, err, "failed to parse the test URL")
+			_, err = newRetryHTTP(context.Background(),
+				client,
+				emptyRequest, urlPtr, make(map[string]string), tc.timeout, maxRetryCount, defaultTimeProvider, nil).doPost().setBody([]byte{0}).execute()
+			assertNotNilF(t, err, "should fail to run retry")
+			var values url.Values
+			values, err = url.ParseQuery(urlPtr.RawQuery)
+			if err != nil {
+				t.Fatalf("failed to parse the URL: %v", err)
+			}
+			retryCount, err := strconv.Atoi(values.Get(retryCountKey))
+			if err != nil {
+				t.Fatalf("failed to get retry counter: %v", err)
+			}
+			if retryCount < 3 {
+				t.Fatalf("not enough retries: %v; expected %v", retryCount, maxRetryCount)
+			}
+		})
 	}
 }
 

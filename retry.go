@@ -341,20 +341,17 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		} else {
 			sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(sleepTime)
 		}
-
-		if totalTimeout > 0 {
-			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
-			// if any timeout is set
+		if totalTimeout > 0 { // if any timeout is set
 			totalTimeout -= sleepTime
-			if totalTimeout <= 0 || retryCounter > r.maxRetryCount {
-				if err != nil {
-					return nil, err
-				}
-				if res != nil {
-					return nil, fmt.Errorf("timeout after %s and %v attempts. HTTP Status: %v. Hanging?", r.timeout, retryCounter, res.StatusCode)
-				}
-				return nil, fmt.Errorf("timeout after %s and %v attempts. Hanging?", r.timeout, retryCounter)
+		}
+		if (r.timeout > 0 && totalTimeout <= 0) || retryCounter > r.maxRetryCount {
+			if err != nil {
+				return nil, err
 			}
+			if res != nil {
+				return nil, fmt.Errorf("timeout after %s and %v attempts. HTTP Status: %v. Hanging?", r.timeout, retryCounter, res.StatusCode)
+			}
+			return nil, fmt.Errorf("timeout after %s and %v attempts. Hanging?", r.timeout, retryCounter)
 		}
 		if requestGUIDReplacer == nil {
 			requestGUIDReplacer = newRequestGUIDReplace(r.fullURL)
