@@ -1114,17 +1114,13 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 		setupCfg func(*Config)
 	}{
 		{
-			name:     "autodetected provider",
-			setupCfg: func(config *Config) {},
-		},
-		{
-			name: "explicit provider",
+			name: "provider=" + provider,
 			setupCfg: func(config *Config) {
 				config.WorkloadIdentityProvider = provider
 			},
 		},
 		{
-			name: "OIDC",
+			name: "provider=OIDC",
 			skip: func() (bool, string) {
 				if provider != "GCP" {
 					return true, "OIDC test works only on GCP"
