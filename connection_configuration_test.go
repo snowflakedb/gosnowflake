@@ -298,7 +298,7 @@ func TestParseToml(t *testing.T) {
 				"schema", "role", "region", "protocol", "passcode", "application", "token",
 				"tracing", "tmpDirPath", "tmp_dir_path", "clientConfigFile", "client_config_file", "oauth_authorization_url", "oauth_client_id",
 				"oauth_client_secret", "oauth_token_request_url", "oauth_redirect_uri", "oauth_scope",
-				"workload_identity_provider", "workload_identity_entra_resource"},
+				"workload_identity_provider", "workload_identity_entra_resource", "proxyHost", "noProxy", "proxyUser", "proxyPassword",},
 			values: []interface{}{"value"},
 		},
 		{
@@ -307,13 +307,13 @@ func TestParseToml(t *testing.T) {
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "max_retry_count", "clientTimeout", "client_timeout", "jwtClientTimeout", "jwt_client_timeout", "loginTimeout",
-				"login_timeout", "requestTimeout", "request_timeout", "jwtTimeout", "jwt_timeout", "externalBrowserTimeout", "external_browser_timeout"},
+				"login_timeout", "requestTimeout", "request_timeout", "jwtTimeout", "jwt_timeout", "externalBrowserTimeout", "external_browser_timeout", "proxyPort"},
 			values: []interface{}{"300", 500},
 		},
 		{
 			testParams: []string{"ocspFailOpen", "ocsp_fail_open", "insecureMode", "insecure_mode", "PasscodeInPassword", "passcode_in_password", "validateDEFAULTParameters", "validate_default_parameters",
 				"clientRequestMFAtoken", "client_request_mfa_token", "clientStoreTemporaryCredential", "client_store_temporary_credential", "disableQueryContextCache", "disable_query_context_cache", "disable_ocsp_checks",
-				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check"},
+				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check", "useConnectionConfigProxyForHttp","disableEnvProxy"},
 			values: []interface{}{true, "true", false, "false"},
 		},
 		{
@@ -346,12 +346,12 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 		{
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
 				"schema", "role", "region", "protocol", "passcode", "application", "token", "privateKey",
-				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path"},
+				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path", "proxyhost", "noproxy", "proxyUser", "proxyPassword"},
 			values: []interface{}{1, false},
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "clientTimeout", "jwtClientTimeout", "loginTimeout",
-				"requestTimeout", "jwtTimeout", "externalBrowserTimeout", "authenticator"},
+				"requestTimeout", "jwtTimeout", "externalBrowserTimeout", "authenticator", "disableenvproxy", "useconnectionconfigproxyforhttp"},
 			values: []interface{}{"wrong_value", false},
 		},
 		{

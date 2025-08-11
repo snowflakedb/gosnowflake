@@ -144,7 +144,7 @@ type Config struct {
 	ProxyPassword string // Proxy password
 	ProxyProtocol string // Proxy protocol (http or https)
 	NoProxy	  string // No proxy for this host list
-	UseConnectionConfigProxyForHttp ConfigBool // Use the proxy settings defined in the connection config for OCSP requests
+	UseConnectionConfigProxyForHTTP ConfigBool // Use the proxy settings defined in the connection config for OCSP requests
 	DisableEnvProxy ConfigBool // Disable the use of environment variables for proxy settings
 }
 
@@ -371,8 +371,8 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.TLSConfigName != "" {
 		params.Add("tlsConfigName", cfg.TLSConfigName)
 	}
-	if cfg.UseConnectionConfigProxyForHttp != configBoolNotSet {
-		params.Add("useConnectionConfigProxyForHttp", strconv.FormatBool(cfg.UseConnectionConfigProxyForHttp != ConfigBoolFalse))
+	if cfg.UseConnectionConfigProxyForHTTP != configBoolNotSet {
+		params.Add("useConnectionConfigProxyForHTTP", strconv.FormatBool(cfg.UseConnectionConfigProxyForHTTP != ConfigBoolFalse))
 	}
 	if cfg.DisableEnvProxy != configBoolNotSet {
 		params.Add("disableEnvProxy", strconv.FormatBool(cfg.DisableEnvProxy != ConfigBoolFalse))
@@ -652,8 +652,8 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.DisableEnvProxy = ConfigBoolFalse // Default to false if not specified
 	}
 
-	if cfg.UseConnectionConfigProxyForHttp == configBoolNotSet {
-		cfg.UseConnectionConfigProxyForHttp = ConfigBoolFalse // Default to false if not
+	if cfg.UseConnectionConfigProxyForHTTP == configBoolNotSet {
+		cfg.UseConnectionConfigProxyForHTTP = ConfigBoolFalse // Default to false if not
 	}
 
 	domain, _ := extractDomainFromHost(cfg.Host)
@@ -1101,19 +1101,19 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		case "connectionDiagnosticsAllowlistFile":
 			cfg.ConnectionDiagnosticsAllowlistFile = value
 		case "proxyHost":
-		cfg.ProxyHost, err = parseString(value)
-	case "proxyPort":
-		cfg.ProxyPort, err = parseInt(value)
-	case "proxyUser":
-		cfg.ProxyUser, err = parseString(value)
-	case "proxyPassword":
-		cfg.ProxyPassword, err = parseString(value)
-	case "noProxy":
-		cfg.NoProxy, err = parseString(value)
-	case "useConnectionConfigProxyForHttp":
-		cfg.UseConnectionConfigProxyForHttp, err = parseConfigBool(value)
-	case "disableEnvProxy":
-		cfg.DisableEnvProxy, err = parseConfigBool(value)
+		    cfg.ProxyHost, err = parseString(value)
+	    case "proxyPort":
+		    cfg.ProxyPort, err = parseInt(value)
+	    case "proxyUser":
+		    cfg.ProxyUser, err = parseString(value)
+	    case "proxyPassword":
+		    cfg.ProxyPassword, err = parseString(value)
+	    case "noProxy":
+		    cfg.NoProxy, err = parseString(value)
+	    case "useConnectionConfigProxyForHttp":
+		    cfg.UseConnectionConfigProxyForHTTP, err = parseConfigBool(value)
+	    case "disableEnvProxy":
+		    cfg.DisableEnvProxy, err = parseConfigBool(value)
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

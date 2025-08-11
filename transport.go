@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	HTTP_PREFIX = "http"
-	NO_PROXY_PREFIX = "no"
+	httpProxyPrefix = "http"
+	noProxyPrefix = "no"
 )
 
 // transportConfig holds the configuration for creating HTTP transports
@@ -76,17 +76,18 @@ func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) 
 	}
 
 	var httpProxy, noProxy string
-	if tf.config.UseConnectionConfigProxyForHttp == ConfigBoolTrue {
+	if tf.config.UseConnectionConfigProxyForHTTP == ConfigBoolTrue {
 		httpProxy = httpsProxy.String()
 	} else if tf.config.DisableEnvProxy == ConfigBoolFalse {
-		httpProxy = getEnvProxy(HTTP_PREFIX)
+		httpProxy = getEnvProxy(httpProxyPrefix)
 	}
 
 	if tf.config.NoProxy != "" {
 		noProxy = tf.config.NoProxy
 	} else if tf.config.DisableEnvProxy == ConfigBoolFalse {
-		noProxy = getEnvProxy(NO_PROXY_PREFIX)
+		noProxy = getEnvProxy(noProxyPrefix)
 	}
+	
 	cfg := httpproxy.Config{
         HTTPSProxy:  httpsProxy.String(),
         HTTPProxy: httpProxy,
@@ -97,7 +98,6 @@ func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) 
     return func(req *http.Request) (*url.URL, error) {
         return proxyURLFunc(req.URL)
 	}
-
 }
 
 // createBaseTransport creates a base HTTP transport with the given configuration

@@ -232,7 +232,7 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 	case "noproxy":
 		cfg.NoProxy, err = parseString(value)
 	case "useconnectionconfigproxyforhttp":
-		cfg.UseConnectionConfigProxyForHttp, err = parseConfigBool(value)
+		cfg.UseConnectionConfigProxyForHTTP, err = parseConfigBool(value)
 	case "disableenvproxy":
 		cfg.DisableEnvProxy, err = parseConfigBool(value)
 	default:
