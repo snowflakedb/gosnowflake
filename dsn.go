@@ -137,6 +137,15 @@ type Config struct {
 
 	ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
 	ConnectionDiagnosticsAllowlistFile string // File path to the allowlist file for connection diagnostics. If not specified, the allowlist.json file in the current directory will be used.
+
+	ProxyHost string // Proxy host
+	ProxyPort int    // Proxy port
+	ProxyUser string // Proxy user
+	ProxyPassword string // Proxy password
+	ProxyProtocol string // Proxy protocol (http or https)
+	NoProxy	  string // No proxy for this host list
+	UseConnectionConfigProxyForHttp ConfigBool // Use the proxy settings defined in the connection config for OCSP requests
+	DisableEnvProxy ConfigBool // Disable the use of environment variables for proxy settings
 }
 
 // Validate enables testing if config is correct.
@@ -361,6 +370,30 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.TLSConfigName != "" {
 		params.Add("tlsConfigName", cfg.TLSConfigName)
+	}
+	if cfg.UseConnectionConfigProxyForHttp != configBoolNotSet {
+		params.Add("useConnectionConfigProxyForHttp", strconv.FormatBool(cfg.UseConnectionConfigProxyForHttp != ConfigBoolFalse))
+	}
+	if cfg.DisableEnvProxy != configBoolNotSet {
+		params.Add("disableEnvProxy", strconv.FormatBool(cfg.DisableEnvProxy != ConfigBoolFalse))
+	}
+	if cfg.ProxyHost != "" {
+		params.Add("proxyHost", cfg.ProxyHost)
+	}
+	if cfg.ProxyPort != 0 {
+		params.Add("proxyPort", strconv.Itoa(cfg.ProxyPort))
+	}
+	if cfg.ProxyProtocol != "" {
+		params.Add("proxyProtocol", cfg.ProxyProtocol)
+	}
+	if cfg.ProxyUser != "" {
+		params.Add("proxyUser", cfg.ProxyUser)
+	}
+	if cfg.ProxyPassword != "" {
+		params.Add("proxyPassword", cfg.ProxyPassword)
+	}
+	if cfg.NoProxy != "" {
+		params.Add("noProxy", cfg.NoProxy)
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -609,6 +642,18 @@ func fillMissingConfigParameters(cfg *Config) error {
 
 	if cfg.IncludeRetryReason == configBoolNotSet {
 		cfg.IncludeRetryReason = ConfigBoolTrue
+	}
+
+	if cfg.ProxyProtocol == "" { 
+		cfg.ProxyProtocol = "http" // Default to http if not specified
+	}
+	
+	if cfg.DisableEnvProxy == configBoolNotSet {
+		cfg.DisableEnvProxy = ConfigBoolFalse // Default to false if not specified
+	}
+
+	if cfg.UseConnectionConfigProxyForHttp == configBoolNotSet {
+		cfg.UseConnectionConfigProxyForHttp = ConfigBoolFalse // Default to false if not
 	}
 
 	domain, _ := extractDomainFromHost(cfg.Host)
@@ -1055,6 +1100,20 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.ConnectionDiagnosticsEnabled = vv
 		case "connectionDiagnosticsAllowlistFile":
 			cfg.ConnectionDiagnosticsAllowlistFile = value
+		case "proxyHost":
+		cfg.ProxyHost, err = parseString(value)
+	case "proxyPort":
+		cfg.ProxyPort, err = parseInt(value)
+	case "proxyUser":
+		cfg.ProxyUser, err = parseString(value)
+	case "proxyPassword":
+		cfg.ProxyPassword, err = parseString(value)
+	case "noProxy":
+		cfg.NoProxy, err = parseString(value)
+	case "useConnectionConfigProxyForHttp":
+		cfg.UseConnectionConfigProxyForHttp, err = parseConfigBool(value)
+	case "disableEnvProxy":
+		cfg.DisableEnvProxy, err = parseConfigBool(value)
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

@@ -5,10 +5,21 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"strings"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/net/http/httpproxy"
+)
+
+const (
+	HTTP_PREFIX = "http"
+	NO_PROXY_PREFIX = "no"
 )
 
 // transportConfig holds the configuration for creating HTTP transports
@@ -51,6 +62,44 @@ func newTransportFactory(config *Config, telemetry *snowflakeTelemetry) *transpo
 	return &transportFactory{config: config, telemetry: telemetry}
 }
 
+func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) {
+	if tf.config.ProxyHost == "" && tf.config.DisableEnvProxy != ConfigBoolTrue {
+		return http.ProxyFromEnvironment
+	}
+
+	httpsProxy := &url.URL{
+		Scheme: tf.config.ProxyProtocol,
+		Host: fmt.Sprintf("%s:%d", tf.config.ProxyHost, tf.config.ProxyPort),
+	}
+	if tf.config.ProxyUser != "" && tf.config.ProxyPassword != "" {
+	    httpsProxy.User = url.UserPassword(tf.config.ProxyUser, tf.config.ProxyPassword)
+	}
+
+	var httpProxy, noProxy string
+	if tf.config.UseConnectionConfigProxyForHttp == ConfigBoolTrue {
+		httpProxy = httpsProxy.String()
+	} else if tf.config.DisableEnvProxy == ConfigBoolFalse {
+		httpProxy = getEnvProxy(HTTP_PREFIX)
+	}
+
+	if tf.config.NoProxy != "" {
+		noProxy = tf.config.NoProxy
+	} else if tf.config.DisableEnvProxy == ConfigBoolFalse {
+		noProxy = getEnvProxy(NO_PROXY_PREFIX)
+	}
+	cfg := httpproxy.Config{
+        HTTPSProxy:  httpsProxy.String(),
+        HTTPProxy: httpProxy,
+        NoProxy: noProxy,
+	}
+	 proxyURLFunc := cfg.ProxyFunc() 
+
+    return func(req *http.Request) (*url.URL, error) {
+        return proxyURLFunc(req.URL)
+	}
+
+}
+
 // createBaseTransport creates a base HTTP transport with the given configuration
 func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig, tlsConfig *tls.Config) *http.Transport {
 	dialer := &net.Dialer{
@@ -62,7 +111,7 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 		TLSClientConfig: tlsConfig,
 		MaxIdleConns:    transportConfig.MaxIdleConns,
 		IdleConnTimeout: transportConfig.IdleConnTimeout,
-		Proxy:           http.ProxyFromEnvironment,
+		Proxy:           tf.createProxy(),
 		DialContext:     dialer.DialContext,
 	}
 }
@@ -182,4 +231,18 @@ func (tf *transportFactory) chainVerificationCallbacks(orignalVerificationFunc f
 		return verificationFunc(rawCerts, verifiedChains)
 	}
 	return newVerify
+}
+
+func getEnvProxy(prefix string) string {
+	envKeys := []string{
+        strings.ToLower(prefix) + "_proxy",
+        strings.ToUpper(prefix) + "_PROXY",
+    }
+
+    for _, key := range envKeys {
+        if val := os.Getenv(key); val != "" {
+            return val
+        }
+    }
+    return ""
 }
