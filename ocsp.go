@@ -9,7 +9,6 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -35,10 +34,6 @@ var (
 )
 
 var (
-	// caRoot includes the CA certificates.
-	caRoot map[string]*x509.Certificate
-	// certPOol includes the CA certificates.
-	certPool *x509.CertPool
 	// cacheDir is the location of OCSP response cache file
 	cacheDir = ""
 	// cacheFileName is the file name of OCSP response cache file
@@ -681,22 +676,8 @@ func isValidOCSPStatus(status ocspStatusCode) bool {
 // verifyPeerCertificate verifies all of certificate revocation status
 func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certificate) (err error) {
 	for i := 0; i < len(verifiedChains); i++ {
-		// Certificate signed by Root CA. This should be one before the last in the Certificate Chain
-		numberOfNoneRootCerts := len(verifiedChains[i]) - 1
-		logger.Tracef("checking cert, %v, %v, isCa: %v, rawIssuer: %v, rawSubject: %v", i, numberOfNoneRootCerts, verifiedChains[i][numberOfNoneRootCerts].IsCA, string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), string(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
-		logger.Tracef("checking cert, base64, rawIssuer: %v, rawSubject: %v", base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
-		if !verifiedChains[i][numberOfNoneRootCerts].IsCA || string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) != string(verifiedChains[i][numberOfNoneRootCerts].RawSubject) {
-			// Check if the last Non Root Cert is also a CA or is self signed.
-			// if the last certificate is not, add it to the list
-			rca := caRoot[string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer)]
-			if rca == nil {
-				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
-			}
-			verifiedChains[i] = append(verifiedChains[i], rca)
-			numberOfNoneRootCerts++
-		}
 		results := getAllRevocationStatus(ctx, verifiedChains[i])
-		if r := canEarlyExitForOCSP(results, numberOfNoneRootCerts); r != nil {
+		if r := canEarlyExitForOCSP(results, len(verifiedChains[i])-1); r != nil {
 			return r.err
 		}
 	}
@@ -1035,29 +1016,6 @@ func writeOCSPCacheFile() {
 	}
 }
 
-// readCACerts read a set of root CAs
-func readCACerts() {
-	raw := []byte(caRootPEM)
-	certPool = x509.NewCertPool()
-	caRoot = make(map[string]*x509.Certificate)
-	var p *pem.Block
-	for {
-		p, raw = pem.Decode(raw)
-		if p == nil {
-			break
-		}
-		if p.Type != "CERTIFICATE" {
-			continue
-		}
-		c, err := x509.ParseCertificate(p.Bytes)
-		if err != nil {
-			panic("failed to parse CA certificate.")
-		}
-		certPool.AddCert(c)
-		caRoot[string(c.RawSubject)] = c
-	}
-}
-
 // createOCSPCacheDir creates OCSP response cache directory and set the cache file name.
 func createOCSPCacheDir() {
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
@@ -1123,7 +1081,6 @@ func clearOCSPCaches() {
 }
 
 func initOcspModule() {
-	readCACerts()
 	createOCSPCacheDir()
 	initOCSPCache()
 	ocspModuleInitialized = true
