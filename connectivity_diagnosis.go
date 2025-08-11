@@ -89,7 +89,7 @@ func (cd *connectivityDiagnoser) createDiagnosticDialContext() func(ctx context.
 
 // enhance the transport with IP logging
 func (cd *connectivityDiagnoser) createDiagnosticTransport(cfg *Config) *http.Transport {
-	baseTransport, err := getTransport(cfg, &snowflakeTelemetry{enabled: false})
+	baseTransport, err := newTransportFactory(cfg, &snowflakeTelemetry{enabled: false}).createTransport()
 	if err != nil {
 		logger.Fatalf("[createDiagnosticTransport] failed to get the transport from the config: %v", err)
 	}

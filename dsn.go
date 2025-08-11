@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -100,6 +101,9 @@ type Config struct {
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
 
 	Transporter http.RoundTripper // RoundTripper to intercept HTTP requests and responses
+
+	tlsConfig     *tls.Config // Custom TLS configuration
+	TLSConfigName string      // Name of the TLS config to use
 
 	DisableTelemetry bool // indicates whether to disable telemetry
 
@@ -354,6 +358,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.ConnectionDiagnosticsAllowlistFile != "" {
 		params.Add("connectionDiagnosticsAllowlistFile", cfg.ConnectionDiagnosticsAllowlistFile)
+	}
+	if cfg.TLSConfigName != "" {
+		params.Add("tlsConfigName", cfg.TLSConfigName)
 	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
@@ -887,6 +894,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 
 		case "token":
 			cfg.Token = value
+		case "tlsConfigName":
+			// Look up registered TLS config and set it directly
+			if tlsConfig, ok := getTLSConfig(value); ok {
+				cfg.tlsConfig = tlsConfig
+				cfg.TLSConfigName = value
+			} else {
+				return &SnowflakeError{
+					Number:  ErrCodeMissingTLSConfig,
+					Message: fmt.Sprintf(errMsgMissingTLSConfig, value),
+				}
+			}
 		case "workloadIdentityProvider":
 			cfg.WorkloadIdentityProvider = value
 		case "workloadIdentityEntraResource":

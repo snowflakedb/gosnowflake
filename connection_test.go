@@ -886,66 +886,103 @@ func (t EmptyTransporter) RoundTrip(*http.Request) (*http.Response, error) {
 	return nil, nil
 }
 
-func TestGetTransport(t *testing.T) {
-	crlCfg := &Config{
-		CertRevocationCheckMode: CertRevocationCheckEnabled,
+// castToTransport safely casts http.RoundTripper to *http.Transport
+// Returns nil if the cast fails
+func castToTransport(rt http.RoundTripper) *http.Transport {
+	if transport, ok := rt.(*http.Transport); ok {
+		return transport
 	}
-	crlTransport, _, err := createCrlTransport(crlCfg, nil)
-	assertNilF(t, err)
+	return nil
+}
+
+func TestGetTransport(t *testing.T) {
 	testcases := []struct {
-		name      string
-		cfg       *Config
-		transport http.RoundTripper
+		name              string
+		cfg               *Config
+		transportCheck    func(t *testing.T, transport *http.Transport)
+		roundTripperCheck func(t *testing.T, roundTripper http.RoundTripper)
 	}{
 		{
-			name:      "DisableOCSPChecks and InsecureMode false",
-			cfg:       &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
-			transport: SnowflakeTransport,
+			name: "DisableOCSPChecks and InsecureMode false",
+			cfg:  &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should have a verifier function
+				assertNotNilF(t, transport)
+				assertNotNilF(t, transport.TLSClientConfig)
+				assertNotNilF(t, transport.TLSClientConfig.VerifyPeerCertificate)
+			},
 		},
 		{
-			name:      "DisableOCSPChecks true and InsecureMode false",
-			cfg:       &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
-			transport: snowflakeNoRevocationCheckTransport,
+			name: "DisableOCSPChecks true and InsecureMode false",
+			cfg:  &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should not have a TLSClientConfig
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
+			},
 		},
 		{
-			name:      "DisableOCSPChecks false and InsecureMode true",
-			cfg:       &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
-			transport: snowflakeNoRevocationCheckTransport,
+			name: "DisableOCSPChecks false and InsecureMode true",
+			cfg:  &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should not have a TLSClientConfig
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
+			},
 		},
 		{
-			name:      "DisableOCSPChecks and InsecureMode missing from Config",
-			cfg:       &Config{Account: "four"},
-			transport: SnowflakeTransport,
+			name: "DisableOCSPChecks and InsecureMode missing from Config",
+			cfg:  &Config{Account: "four"},
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should have a verifier function
+				assertNotNilF(t, transport)
+				assertNotNilF(t, transport.TLSClientConfig)
+				assertNotNilF(t, transport.TLSClientConfig.VerifyPeerCertificate)
+			},
 		},
 		{
-			name:      "whole Config is missing",
-			cfg:       nil,
-			transport: snowflakeNoRevocationCheckTransport,
+			name: "whole Config is missing",
+			cfg:  nil,
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should not have a TLSClientConfig
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
+			},
 		},
 		{
-			name:      "Using CRLs",
-			cfg:       crlCfg,
-			transport: crlTransport,
-		},
-		{
-			name:      "Using custom Transporter",
-			cfg:       &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
-			transport: EmptyTransporter{},
+			name: "Using custom Transporter",
+			cfg:  &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
+			roundTripperCheck: func(t *testing.T, roundTripper http.RoundTripper) {
+				// We should have a custom Transporter
+				assertNotNilF(t, roundTripper)
+				assertTrueE(t, roundTripper == EmptyTransporter{})
+			},
 		},
 	}
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := getTransport(test.cfg, nil)
+			result, err := newTransportFactory(test.cfg, nil).createTransport()
 			assertNilE(t, err)
-			assertNilE(t, err)
-			if test.name == "Using CRLs" {
-				// we can't use default comparison for transport here, because this type is not comparable
-				// it works for other cases, because they use the same pointer
-				// for this case, we assume that only CRL transport uses such a small number of idle conns
-				assertEqualE(t, result.(*http.Transport).MaxIdleConns, 5)
-			} else {
-				assertEqualE(t, result, test.transport)
+			if test.transportCheck != nil {
+				test.transportCheck(t, castToTransport(result))
+			}
+			if test.roundTripperCheck != nil {
+				test.roundTripperCheck(t, result)
 			}
 		})
 	}
+}
+func TestGetCRLTransport(t *testing.T) {
+	t.Run("Using CRLs", func(t *testing.T) {
+		crlCfg := &Config{
+			CertRevocationCheckMode: CertRevocationCheckEnabled,
+			DisableOCSPChecks:       true,
+		}
+		transportFactory := newTransportFactory(crlCfg, nil)
+		crlRoundTripper, err := transportFactory.createTransport()
+		assertNilF(t, err)
+		transport := castToTransport(crlRoundTripper)
+		assertNotNilF(t, transport, "Expected http.Transport")
+		assertEqualE(t, transport.MaxIdleConns, 5)
+	})
 }
