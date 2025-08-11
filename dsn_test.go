@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	cr "crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
 	"encoding/pem"
@@ -1199,6 +1200,13 @@ func TestParseDSN(t *testing.T) {
 			},
 			ocspMode: ocspModeFailOpen,
 		},
+		{
+			dsn: "user:pass@account/db?tlsConfigName=custom",
+			err: &SnowflakeError{
+				Number:  ErrCodeMissingTLSConfig,
+				Message: fmt.Sprintf(errMsgMissingTLSConfig, "custom"),
+			},
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -2094,24 +2102,38 @@ func TestDSN(t *testing.T) {
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&crlHttpClientTimeout=5&crlInMemoryCacheDisabled=true&crlOnDiskCacheDisabled=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
+		{
+			cfg: &Config{
+				User:          "u",
+				Password:      "p",
+				Account:       "a.b.c",
+				TLSConfigName: "custom",
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tlsConfigName=custom&validateDefaultParameters=true",
+		},
 	}
 	for _, test := range testcases {
 		t.Run(test.dsn, func(t *testing.T) {
+			if test.cfg.TLSConfigName != "" && test.err == nil {
+				err := RegisterTLSConfig(test.cfg.TLSConfigName, &tls.Config{})
+				assertNilF(t, err, "Failed to register test TLS config")
+				defer func() {
+					_ = DeregisterTLSConfig(test.cfg.TLSConfigName)
+				}()
+			}
 			dsn, err := DSN(test.cfg)
 			if test.err == nil && err == nil {
 				if dsn != test.dsn {
 					t.Errorf("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
 				}
 				_, err := ParseDSN(dsn)
-				if err != nil {
-					t.Errorf("failed to parse DSN. dsn: %v, err: %v", dsn, err)
-				}
+				assertNilF(t, err, "failed to parse DSN. dsn:", dsn)
 			}
-			if test.err != nil && err == nil {
-				t.Errorf("expected error. dsn: %v, err: %v", test.dsn, test.err)
+			if test.err != nil {
+				assertNotNilF(t, err, fmt.Sprintf("expected error. dsn: %v, expected err: %v", test.dsn, test.err))
 			}
-			if err != nil && test.err == nil {
-				t.Errorf("failed to match. err: %v", err)
+			if test.err == nil {
+				assertNilF(t, err, "failed to match")
 			}
 		})
 	}
@@ -2246,7 +2268,9 @@ func checkConfig(cfg Config, envMap map[string]configParamToValue) error {
 	typeOfCfg := value.Type()
 	cfgValues := make(map[string]interface{}, value.NumField())
 	for i := 0; i < value.NumField(); i++ {
-		cfgValues[typeOfCfg.Field(i).Name] = value.Field(i).Interface()
+		if value.Field(i).CanInterface() {
+			cfgValues[typeOfCfg.Field(i).Name] = value.Field(i).Interface()
+		}
 	}
 
 	var errArray []string
@@ -2346,4 +2370,66 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	assertDeepEqualE(t, v4, customVarName, "TestUrlDecodeIfNeededE2E variable name retrieved from the test did not match")
 	assertDeepEqualE(t, v5, customVarValue, "TestUrlDecodeIfNeededE2E variable value retrieved from the test did not match")
 	assertNilE(t, rows.Err(), "TestUrlDecodeIfNeededE2E ERROR getting rows.")
+}
+func TestDSNParsingWithTLSConfig(t *testing.T) {
+	// Clean up any existing registry
+	tlsConfigLock.Lock()
+	tlsConfigRegistry = make(map[string]*tls.Config)
+	tlsConfigLock.Unlock()
+
+	// Register test TLS config
+	testTLSConfig := tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         "custom.test.com",
+	}
+	err := RegisterTLSConfig("custom", &testTLSConfig)
+	assertNilF(t, err, "Failed to register test TLS config")
+	defer func() {
+		err := DeregisterTLSConfig("custom")
+		assertNilF(t, err, "Failed to deregister test TLS config")
+	}()
+
+	testCases := []struct {
+		name     string
+		dsn      string
+		expected string
+		err      bool
+	}{
+		{
+			name:     "Basic TLS config parameter",
+			dsn:      "user:pass@account/db?tlsConfigName=custom",
+			expected: "custom",
+			err:      false,
+		},
+		{
+			name:     "TLS config with other parameters",
+			dsn:      "user:pass@account/db?tlsConfigName=custom&warehouse=wh&role=admin",
+			expected: "custom",
+			err:      false,
+		},
+		{
+			name: "No TLS config parameter",
+			dsn:  "user:pass@account/db?warehouse=wh",
+			err:  false,
+		},
+		{
+			name: "Nonexistent TLS config",
+			dsn:  "user:pass@account/db?tlsConfigName=nonexistent",
+			err:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := ParseDSN(tc.dsn)
+			if tc.err {
+				assertNotNilF(t, err, "ParseDSN should have failed but did not")
+			} else {
+				assertNilF(t, err, "ParseDSN failed")
+				// For DSN parsing, the TLS config should be resolved and set directly
+				assertEqualF(t, cfg.TLSConfigName, tc.expected, "TLSConfigName mismatch")
+			}
+
+		})
+	}
 }

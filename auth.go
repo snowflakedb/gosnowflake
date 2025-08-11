@@ -555,9 +555,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Token = token
 	case AuthTypeWorkloadIdentityFederation:
-		if !experimentalAuthEnabled() {
-			return nil, errors.New("workload identity authentication is not ready to use")
-		}
 		logger.WithContext(sc.ctx).Debug("Workload Identity Federation")
 		wifAttestationProvider := createWifAttestationProvider(sc.ctx, sc.cfg, sc.telemetry)
 		wifAttestation, err := wifAttestationProvider.getAttestation(sc.cfg.WorkloadIdentityProvider)
@@ -580,11 +577,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		return nil, err
 	}
 	return jsonBody, nil
-}
-
-func experimentalAuthEnabled() bool {
-	val, ok := os.LookupEnv("SF_ENABLE_EXPERIMENTAL_AUTHENTICATION")
-	return ok && strings.EqualFold(val, "true")
 }
 
 // Generate a JWT token in string given the configuration

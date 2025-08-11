@@ -57,7 +57,6 @@ if [[ -n "$JENKINS_HOME" ]]; then
           -e JOB_NAME \
           -e BUILD_NUMBER \
           -e JENKINS_HOME \
-          -e SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true \
           ${TEST_IMAGE_NAMES[$name]} \
           /mnt/host/ci/container/test_component.sh
           echo "[INFO] Test Results: $WORKSPACE/junit.xml"
