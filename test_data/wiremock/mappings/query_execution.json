@@ -1,0 +1,74 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "SQL Query execution for fetchResultByQueryID",
+      "request": {
+        "urlPathPattern": "/queries/v1/query-request.*",
+        "method": "POST",
+        "headers": {
+          "Authorization": {
+            "matches": ".*"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "success": true,
+          "data": {
+            "queryId": "mock-query-id-12345",
+            "resultSetMetaData": {
+              "columnCount": 2,
+              "columns": [
+                {"name": "MS", "type": "number"},
+                {"name": "SUM(C1)", "type": "number"}
+              ]
+            },
+            "rowType": [
+              {"name": "MS", "type": "FIXED", "length": 10, "precision": 38, "scale": 0},
+              {"name": "SUM(C1)", "type": "FIXED", "length": 10, "precision": 38, "scale": 0}
+            ],
+            "rowset": [["1", "5050"], ["2", "5100"]],
+            "total": 2,
+            "queryResultFormat": "json"
+          }
+        }
+      }
+    },
+    {
+      "scenarioName": "Query result fetching",
+      "request": {
+        "urlPathPattern": "/queries/.*/result.*",
+        "method": "GET",
+        "headers": {
+          "Authorization": {
+            "matches": ".*"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "success": true,
+          "data": {
+            "queryId": "mock-query-id-12345",
+            "resultSetMetaData": {
+              "columnCount": 2,
+              "columns": [
+                {"name": "MS", "type": "number"},
+                {"name": "SUM(C1)", "type": "number"}
+              ]
+            },
+            "rowType": [
+              {"name": "MS", "type": "FIXED", "length": 10, "precision": 38, "scale": 0},
+              {"name": "SUM(C1)", "type": "FIXED", "length": 10, "precision": 38, "scale": 0}
+            ],
+            "rowset": [["1", "5050"], ["2", "5100"]],
+            "total": 2,
+            "queryResultFormat": "json"
+          }
+        }
+      }
+    }
+  ]
+} 

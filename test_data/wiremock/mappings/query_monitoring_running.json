@@ -1,0 +1,35 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "Query status monitoring - RUNNING",
+      "request": {
+        "urlPathPattern": "/monitoring/queries.*",
+        "method": "GET",
+        "headers": {
+          "Authorization": {
+            "matches": ".*"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "success": true,
+          "data": {
+            "queries": [
+              {
+                "id": "mock-query-id-12345",
+                "status": "RUNNING",
+                "state": "FILE_SET_INITIALIZATION",
+                "errorCode": "",
+                "errorMessage": null
+              }
+            ]
+          },
+          "code": null,
+          "message": null
+        }
+      }
+    }
+  ]
+} 

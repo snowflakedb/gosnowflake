@@ -548,9 +548,7 @@ func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T)
 	}
 	invalidDNS += "?" + parameters.Encode()
 	db, err := sql.Open("snowflake", invalidDNS)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", maskSecrets(err.Error()))
-	}
+	assertNilF(t, err, "error creating a connection object")
 	// actual connection won't happen until run a query
 	defer db.Close()
 	if _, err = db.Exec("SELECT 1"); err == nil {
@@ -561,7 +559,7 @@ func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T)
 			t.Fatalf("wrong error code: %v", maskSecrets(driverErr.Error()))
 		}
 		if !strings.Contains(driverErr.Error(), strconv.Itoa(expectedErr)) {
-			t.Fatalf("wrong error message. expected: %v, got: %v", expectedErr, maskSecrets(driverErr.Error()))
+			assertStringContainsF(t, driverErr.Error(), strconv.Itoa(expectedErr), "wrong error message")
 		}
 	} else {
 		t.Fatalf("wrong error code: %v", maskSecrets(err.Error()))
@@ -593,9 +591,7 @@ func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
 	parameters.Add("loginTimeout", "10")
 	invalidDNS += "?" + parameters.Encode()
 	db, err := sql.Open("snowflake", invalidDNS)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", maskSecrets(err.Error()))
-	}
+	assertNilF(t, err, "error creating a connection object")
 	// actual connection won't happen until run a query
 	defer db.Close()
 	if _, err = db.Exec("SELECT 1"); err == nil {

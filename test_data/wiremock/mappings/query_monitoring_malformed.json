@@ -1,0 +1,23 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "Query status monitoring - Malformed JSON",
+      "request": {
+        "urlPathPattern": "/monitoring/queries.*",
+        "method": "GET",
+        "headers": {
+          "Authorization": {
+            "matches": ".*"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"malformedJson\"}",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    }
+  ]
+} 
