@@ -97,12 +97,8 @@ const (
 )
 
 const (
-	ocspTestInjectValidityErrorEnv        = "SF_OCSP_TEST_INJECT_VALIDITY_ERROR"
-	ocspTestInjectUnknownStatusEnv        = "SF_OCSP_TEST_INJECT_UNKNOWN_STATUS"
-	ocspTestResponseCacheServerTimeoutEnv = "SF_OCSP_TEST_OCSP_RESPONSE_CACHE_SERVER_TIMEOUT"
-	ocspTestResponderTimeoutEnv           = "SF_OCSP_TEST_OCSP_RESPONDER_TIMEOUT"
-	ocspTestResponderURLEnv               = "SF_OCSP_TEST_RESPONDER_URL"
-	ocspTestNoOCSPURLEnv                  = "SF_OCSP_TEST_NO_OCSP_RESPONDER_URL"
+	ocspTestResponderURLEnv = "SF_OCSP_TEST_RESPONDER_URL"
+	ocspTestNoOCSPURLEnv    = "SF_OCSP_TEST_NO_OCSP_RESPONDER_URL"
 )
 
 const (
@@ -217,10 +213,6 @@ func isInValidityRange(currTime, thisUpdate, nextUpdate time.Time) bool {
 	return true
 }
 
-func isTestInvalidValidity() bool {
-	return strings.EqualFold(os.Getenv(ocspTestInjectValidityErrorEnv), "true")
-}
-
 func extractCertIDKeyFromRequest(ocspReq []byte) (*certIDKey, *ocspStatus) {
 	r, err := ocsp.ParseRequest(ocspReq)
 	if err != nil {
@@ -332,7 +324,7 @@ func validateOCSP(ocspRes *ocsp.Response) *ocspStatus {
 			err:  errors.New("OCSP Response is nil"),
 		}
 	}
-	if isTestInvalidValidity() || !isInValidityRange(curTime, ocspRes.ThisUpdate, ocspRes.NextUpdate) {
+	if !isInValidityRange(curTime, ocspRes.ThisUpdate, ocspRes.NextUpdate) {
 		return &ocspStatus{
 			code: ocspInvalidValidity,
 			err: &SnowflakeError{
@@ -341,9 +333,6 @@ func validateOCSP(ocspRes *ocsp.Response) *ocspStatus {
 				MessageArgs: []interface{}{ocspRes.ProducedAt, ocspRes.ThisUpdate, ocspRes.NextUpdate},
 			},
 		}
-	}
-	if isTestUnknownStatus() {
-		ocspRes.Status = ocsp.Unknown
 	}
 	return returnOCSPStatus(ocspRes)
 }
@@ -378,10 +367,6 @@ func returnOCSPStatus(ocspRes *ocsp.Response) *ocspStatus {
 			err:  fmt.Errorf("OCSP others. %v", ocspRes.Status),
 		}
 	}
-}
-
-func isTestUnknownStatus() bool {
-	return strings.EqualFold(os.Getenv(ocspTestInjectUnknownStatusEnv), "true")
 }
 
 func checkOCSPCacheServer(
@@ -634,15 +619,7 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	headers[httpHeaderAccept] = "application/ocsp-response"
 	headers[httpHeaderContentLength] = strconv.Itoa(len(ocspReq))
 	headers[httpHeaderHost] = hostname
-	timeoutStr := os.Getenv(ocspTestResponderTimeoutEnv)
 	timeout := OcspResponderTimeout
-	if timeoutStr != "" {
-		var timeoutInMilliseconds int
-		timeoutInMilliseconds, err = strconv.Atoi(timeoutStr)
-		if err == nil {
-			timeout = time.Duration(timeoutInMilliseconds) * time.Millisecond
-		}
-	}
 	ocspClient := &http.Client{
 		Timeout:   timeout,
 		Transport: snowflakeNoRevocationCheckTransport,
@@ -677,7 +654,7 @@ func isValidOCSPStatus(status ocspStatusCode) bool {
 func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certificate) (err error) {
 	for i := 0; i < len(verifiedChains); i++ {
 		results := getAllRevocationStatus(ctx, verifiedChains[i])
-		if r := canEarlyExitForOCSP(results, len(verifiedChains[i])-1); r != nil {
+		if r := canEarlyExitForOCSP(results, verifiedChains[i]); r != nil {
 			return r.err
 		}
 	}
@@ -691,7 +668,7 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 	return nil
 }
 
-func canEarlyExitForOCSP(results []*ocspStatus, chainSize int) *ocspStatus {
+func canEarlyExitForOCSP(results []*ocspStatus, verifiedChain []*x509.Certificate) *ocspStatus {
 	msg := ""
 	if atomic.LoadUint32((*uint32)(&ocspFailOpen)) == (uint32)(OCSPFailOpenFalse) {
 		// Fail closed. any error is returned to stop connection
@@ -702,7 +679,7 @@ func canEarlyExitForOCSP(results []*ocspStatus, chainSize int) *ocspStatus {
 		}
 	} else {
 		// Fail open and all results are valid.
-		allValid := len(results) == chainSize
+		allValid := len(results) == len(verifiedChain)
 		for _, r := range results {
 			if !isValidOCSPStatus(r.code) {
 				allValid = false
@@ -771,15 +748,7 @@ func downloadOCSPCacheServer() {
 		return
 	}
 	logger.Infof("downloading OCSP Cache from server %v", ocspCacheServerURL)
-	timeoutStr := os.Getenv(ocspTestResponseCacheServerTimeoutEnv)
 	timeout := OcspCacheServerTimeout
-	if timeoutStr != "" {
-		var timeoutInMilliseconds int
-		timeoutInMilliseconds, err = strconv.Atoi(timeoutStr)
-		if err == nil {
-			timeout = time.Duration(timeoutInMilliseconds) * time.Millisecond
-		}
-	}
 	ocspClient := &http.Client{
 		Timeout:   timeout,
 		Transport: snowflakeNoRevocationCheckTransport,

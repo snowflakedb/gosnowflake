@@ -4,7 +4,6 @@ package gosnowflake
 // name or signature but with default or empty content in the priv_key_test.go(See addParseDSNTest)
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -13,8 +12,10 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
+	"time"
 )
 
 // helper function to generate PKCS8 encoded base64 string of a private key
@@ -58,34 +59,24 @@ func setupPrivateKey() {
 	}
 }
 
-// Helper function to add encoded private key to dsn
-func appendPrivateKeyString(dsn *string, key *rsa.PrivateKey) string {
-	var b bytes.Buffer
-	b.WriteString(*dsn)
-	b.WriteString(fmt.Sprintf("&authenticator=%v", AuthTypeJwt.String()))
-	b.WriteString(fmt.Sprintf("&privateKey=%s", generatePKCS8StringSupress(key)))
-	return b.String()
-}
-
 func TestJWTTokenTimeout(t *testing.T) {
-	resetHTTPMocks(t)
-
-	dsn := "user:pass@localhost:12345/db/schema?account=jwtAuthTokenTimeout&protocol=http&jwtClientTimeout=1"
-	dsn = appendPrivateKeyString(&dsn, testPrivKey)
-	db, err := sql.Open("snowflake", dsn)
-	if err != nil {
-		t.Fatal(err.Error())
+	brt := newBlockingRoundTripper(http.DefaultTransport, 2000*time.Millisecond)
+	cfg := &Config{
+		User:             "user",
+		Host:             "localhost",
+		Port:             wiremock.port,
+		Account:          "jwtAuthTokenTimeout",
+		JWTClientTimeout: 10 * time.Millisecond,
+		PrivateKey:       testPrivKey,
+		Authenticator:    AuthTypeJwt,
+		MaxRetryCount:    1,
+		Transporter:      brt,
 	}
+
+	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 	defer db.Close()
 	ctx := context.Background()
-	conn, err := db.Conn(ctx)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer conn.Close()
-
-	invocations := getMocksInvocations(t)
-	if invocations != 3 {
-		t.Errorf("Unexpected number of invocations, expected 3, got %v", invocations)
-	}
+	_, err := db.Conn(ctx)
+	assertNotNilF(t, err)
+	assertErrIsE(t, err, context.DeadlineExceeded)
 }
