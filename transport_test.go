@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"crypto/tls"
 	"net/http"
+	"os"
 	"testing"
 )
 
@@ -171,4 +172,168 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport")
+}
+
+type proxyTest struct {
+	config        *Config
+	httpsProxyUrl string
+	httpProxyUrl  string
+}
+
+func backupAndUnsetEnvVar(list []string) map[string]string {
+	userSet := make(map[string]string)
+	for _, key := range list {
+		userSet[key] = os.Getenv(key)
+		_ = os.Unsetenv(key)
+	}
+	return userSet
+}
+
+// restoreProxyEnv 복구
+func restoreProxyEnv(original map[string]string) {
+	for k, v := range original {
+		_ = os.Setenv(k, v)
+	}
+}
+
+func TestProxyTransportCreation(t *testing.T) {
+	proxyList := []string{
+		"HTTPS_PROXY",
+		"HTTP_PROXY",
+		"NO_PROXY",
+	}
+	originalInfo := backupAndUnsetEnvVar(proxyList)
+	defer restoreProxyEnv(originalInfo)
+
+	os.Setenv("HTTPS_PROXY", "https://proxy.httpsenvproxy.com:8080")
+	os.Setenv("HTTP_PROXY", "http://proxy.httpenvproxy.com:8080")
+
+	proxyTests := []proxyTest{
+		{
+			config: &Config{
+				ProxyProtocol:   "http",
+				ProxyHost:       "proxy.connection.com",
+				ProxyPort:       1234,
+				DisableEnvProxy: ConfigBoolFalse,
+			},
+			httpsProxyUrl: "http://proxy.connection.com:1234",
+			httpProxyUrl:  "http://proxy.httpenvproxy.com:8080",
+		},
+		{
+			config: &Config{
+				ProxyProtocol:   "http",
+				ProxyHost:       "proxy.connection.com",
+				ProxyPort:       1234,
+				DisableEnvProxy: ConfigBoolTrue,
+			},
+			httpsProxyUrl: "http://proxy.connection.com:1234",
+			httpProxyUrl:  "",
+		},
+
+		{
+			config: &Config{
+				ProxyProtocol:                   "https",
+				ProxyHost:                       "proxy.connection.com",
+				ProxyPort:                       1234,
+				UseConnectionConfigProxyForHTTP: ConfigBoolTrue,
+				DisableEnvProxy:                 ConfigBoolFalse,
+			},
+			httpsProxyUrl: "https://proxy.connection.com:1234",
+			httpProxyUrl:  "https://proxy.connection.com:1234",
+		},
+	}
+
+	for _, test := range proxyTests {
+
+		factory := newTransportFactory(test.config, nil)
+		proxyFunc := factory.createProxy()
+
+		req, _ := http.NewRequest("GET", "https://testing.snowflakecomputing.com", nil)
+		proxyURL, _ := proxyFunc(req)
+
+		if test.httpsProxyUrl == "" {
+			assertNilF(t, proxyURL, "Expected nil proxy for https request")
+		} else {
+			assertEqualF(t, proxyURL.String(), test.httpsProxyUrl)
+		}
+
+		req, _ = http.NewRequest("GET", "http://ocsp.snowflake.com", nil)
+		proxyURL, _ = proxyFunc(req)
+
+		if test.httpProxyUrl == "" {
+			assertNilF(t, proxyURL, "Expected nil proxy for http request")
+		} else if proxyURL.String() != test.httpProxyUrl {
+			assertEqualF(t, proxyURL.String(), test.httpProxyUrl)
+		}
+	}
+}
+func TestNoProxyInTransportCreation(t *testing.T) {
+	proxyList := []string{
+		"HTTPS_PROXY",
+		"HTTP_PROXY",
+		"NO_PROXY",
+	}
+	originalInfo := backupAndUnsetEnvVar(proxyList)
+	defer restoreProxyEnv(originalInfo)
+
+	os.Setenv("HTTPS_PROXY", "https://proxy.httpsenvproxy.com:8080")
+	os.Setenv("HTTP_PROXY", "http://proxy.httpenvproxy.com:8080")
+	os.Setenv("NO_PROXY", "*.snowflakecomputing.com")
+
+	proxyTests := []proxyTest{
+		{
+			config: &Config{
+				ProxyProtocol:   "http",
+				ProxyHost:       "proxy.connection.com",
+				ProxyPort:       1234,
+				DisableEnvProxy: ConfigBoolFalse,
+			},
+			httpsProxyUrl: "",
+			httpProxyUrl:  "http://proxy.httpenvproxy.com:8080",
+		},
+		{
+			config: &Config{
+				ProxyProtocol:   "http",
+				ProxyHost:       "proxy.connection.com",
+				ProxyPort:       1234,
+				DisableEnvProxy: ConfigBoolFalse,
+				NoProxy:         "ocsp.snowflake.com",
+			},
+			httpsProxyUrl: "http://proxy.connection.com:1234",
+			httpProxyUrl:  "",
+		},
+		{
+			config: &Config{
+				ProxyProtocol:   "http",
+				ProxyHost:       "proxy.connection.com",
+				ProxyPort:       1234,
+				DisableEnvProxy: ConfigBoolTrue,
+			},
+			httpsProxyUrl: "http://proxy.connection.com:1234",
+			httpProxyUrl:  "",
+		},
+	}
+	for _, test := range proxyTests {
+
+		factory := newTransportFactory(test.config, nil)
+		proxyFunc := factory.createProxy()
+
+		req, _ := http.NewRequest("GET", "https://testing.snowflakecomputing.com", nil)
+		proxyURL, _ := proxyFunc(req)
+
+		if test.httpsProxyUrl == "" {
+			assertNilF(t, proxyURL, "Expected nil proxy for https request")
+		} else {
+			assertEqualF(t, proxyURL.String(), test.httpsProxyUrl)
+		}
+
+		req, _ = http.NewRequest("GET", "http://ocsp.snowflake.com", nil)
+		proxyURL, _ = proxyFunc(req)
+
+		if test.httpProxyUrl == "" {
+			assertNilF(t, proxyURL, "Expected nil proxy for http request")
+		} else if proxyURL.String() != test.httpProxyUrl {
+			assertEqualF(t, proxyURL.String(), test.httpProxyUrl)
+		}
+	}
 }

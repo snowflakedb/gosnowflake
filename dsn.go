@@ -138,14 +138,14 @@ type Config struct {
 	ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
 	ConnectionDiagnosticsAllowlistFile string // File path to the allowlist file for connection diagnostics. If not specified, the allowlist.json file in the current directory will be used.
 
-	ProxyHost string // Proxy host
-	ProxyPort int    // Proxy port
-	ProxyUser string // Proxy user
-	ProxyPassword string // Proxy password
-	ProxyProtocol string // Proxy protocol (http or https)
-	NoProxy	  string // No proxy for this host list
+	ProxyHost                       string     // Proxy host
+	ProxyPort                       int        // Proxy port
+	ProxyUser                       string     // Proxy user
+	ProxyPassword                   string     // Proxy password
+	ProxyProtocol                   string     // Proxy protocol (http or https)
+	NoProxy                         string     // No proxy for this host list
 	UseConnectionConfigProxyForHTTP ConfigBool // Use the proxy settings defined in the connection config for OCSP requests
-	DisableEnvProxy ConfigBool // Disable the use of environment variables for proxy settings
+	DisableEnvProxy                 ConfigBool // Disable the use of environment variables for proxy settings
 }
 
 // Validate enables testing if config is correct.
@@ -644,16 +644,18 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.IncludeRetryReason = ConfigBoolTrue
 	}
 
-	if cfg.ProxyProtocol == "" { 
-		cfg.ProxyProtocol = "http" // Default to http if not specified
-	}
-	
-	if cfg.DisableEnvProxy == configBoolNotSet {
-		cfg.DisableEnvProxy = ConfigBoolFalse // Default to false if not specified
-	}
+	if cfg.ProxyHost != "" {
+		if cfg.ProxyProtocol == "" {
+			cfg.ProxyProtocol = "http" // Default to http if not specified
+		}
 
-	if cfg.UseConnectionConfigProxyForHTTP == configBoolNotSet {
-		cfg.UseConnectionConfigProxyForHTTP = ConfigBoolFalse // Default to false if not
+		if cfg.DisableEnvProxy == configBoolNotSet {
+			cfg.DisableEnvProxy = ConfigBoolFalse // Default to false if not specified
+		}
+
+		if cfg.UseConnectionConfigProxyForHTTP == configBoolNotSet {
+			cfg.UseConnectionConfigProxyForHTTP = ConfigBoolFalse // Default to false if not
+		}
 	}
 
 	domain, _ := extractDomainFromHost(cfg.Host)
@@ -1101,21 +1103,21 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		case "connectionDiagnosticsAllowlistFile":
 			cfg.ConnectionDiagnosticsAllowlistFile = value
 		case "proxyHost":
-		    cfg.ProxyHost, err = parseString(value)
-	    case "proxyPort":
-		    cfg.ProxyPort, err = parseInt(value)
-	    case "proxyUser":
-		    cfg.ProxyUser, err = parseString(value)
-	    case "proxyPassword":
-		    cfg.ProxyPassword, err = parseString(value)
-	    case "noProxy":
-		    cfg.NoProxy, err = parseString(value)
+			cfg.ProxyHost, err = parseString(value)
+		case "proxyPort":
+			cfg.ProxyPort, err = parseInt(value)
+		case "proxyUser":
+			cfg.ProxyUser, err = parseString(value)
+		case "proxyPassword":
+			cfg.ProxyPassword, err = parseString(value)
+		case "noProxy":
+			cfg.NoProxy, err = parseString(value)
 		case "proxyProtocol":
 			cfg.ProxyProtocol, err = parseString(value)
-	    case "useConnectionConfigProxyForHttp":
-		    cfg.UseConnectionConfigProxyForHTTP, err = parseConfigBool(value)
-	    case "disableEnvProxy":
-		    cfg.DisableEnvProxy, err = parseConfigBool(value)
+		case "useConnectionConfigProxyForHttp":
+			cfg.UseConnectionConfigProxyForHTTP, err = parseConfigBool(value)
+		case "disableEnvProxy":
+			cfg.DisableEnvProxy, err = parseConfigBool(value)
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)

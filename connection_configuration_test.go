@@ -313,7 +313,7 @@ func TestParseToml(t *testing.T) {
 		{
 			testParams: []string{"ocspFailOpen", "ocsp_fail_open", "insecureMode", "insecure_mode", "PasscodeInPassword", "passcode_in_password", "validateDEFAULTParameters", "validate_default_parameters",
 				"clientRequestMFAtoken", "client_request_mfa_token", "clientStoreTemporaryCredential", "client_store_temporary_credential", "disableQueryContextCache", "disable_query_context_cache", "disable_ocsp_checks",
-				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check", "useConnectionConfigProxyForHttp","disableEnvProxy"},
+				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check", "useConnectionConfigProxyForHttp", "disableEnvProxy"},
 			values: []interface{}{true, "true", false, "false"},
 		},
 		{
