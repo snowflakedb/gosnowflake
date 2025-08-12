@@ -63,7 +63,11 @@ func newTransportFactory(config *Config, telemetry *snowflakeTelemetry) *transpo
 }
 
 func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) {
-	if (tf.config.ProxyHost == "" && tf.config.DisableEnvProxy != ConfigBoolTrue) || tf.config == nil {
+	if tf.config == nil {
+		return http.ProxyFromEnvironment
+	}
+
+	if tf.config.ProxyHost == "" && tf.config.DisableEnvProxy != ConfigBoolTrue {
 		return http.ProxyFromEnvironment
 	}
 
