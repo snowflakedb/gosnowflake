@@ -229,6 +229,8 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		cfg.ProxyUser, err = parseString(value)
 	case "proxypassword":
 		cfg.ProxyPassword, err = parseString(value)
+	case "proxyprotocol":
+		cfg.ProxyProtocol, err = parseString(value)
 	case "noproxy":
 		cfg.NoProxy, err = parseString(value)
 	case "useconnectionconfigproxyforhttp":

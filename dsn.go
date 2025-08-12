@@ -1110,6 +1110,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		    cfg.ProxyPassword, err = parseString(value)
 	    case "noProxy":
 		    cfg.NoProxy, err = parseString(value)
+		case "proxyProtocol":
+			cfg.ProxyProtocol, err = parseString(value)
 	    case "useConnectionConfigProxyForHttp":
 		    cfg.UseConnectionConfigProxyForHTTP, err = parseConfigBool(value)
 	    case "disableEnvProxy":

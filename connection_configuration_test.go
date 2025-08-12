@@ -298,7 +298,7 @@ func TestParseToml(t *testing.T) {
 				"schema", "role", "region", "protocol", "passcode", "application", "token",
 				"tracing", "tmpDirPath", "tmp_dir_path", "clientConfigFile", "client_config_file", "oauth_authorization_url", "oauth_client_id",
 				"oauth_client_secret", "oauth_token_request_url", "oauth_redirect_uri", "oauth_scope",
-				"workload_identity_provider", "workload_identity_entra_resource", "proxyHost", "noProxy", "proxyUser", "proxyPassword",},
+				"workload_identity_provider", "workload_identity_entra_resource", "proxyHost", "noProxy", "proxyUser", "proxyPassword", "proxyProtocol"},
 			values: []interface{}{"value"},
 		},
 		{
@@ -346,17 +346,17 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 		{
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
 				"schema", "role", "region", "protocol", "passcode", "application", "token", "privateKey",
-				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path", "proxyhost", "noproxy", "proxyUser", "proxyPassword"},
+				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path", "proxyhost", "noproxy", "proxyUser", "proxyPassword", "proxyProtocol"},
 			values: []interface{}{1, false},
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "clientTimeout", "jwtClientTimeout", "loginTimeout",
-				"requestTimeout", "jwtTimeout", "externalBrowserTimeout", "authenticator", "disableenvproxy", "useconnectionconfigproxyforhttp"},
+				"requestTimeout", "jwtTimeout", "externalBrowserTimeout", "authenticator"},
 			values: []interface{}{"wrong_value", false},
 		},
 		{
 			testParams: []string{"ocspFailOpen", "insecureMode", "PasscodeInPassword", "validateDEFAULTParameters", "clientRequestMFAtoken",
-				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck"},
+				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck", "disableEnvProxy", "useConnectionConfigProxyForHttp"},
 			values: []interface{}{"wrong_value", 1},
 		},
 	}
