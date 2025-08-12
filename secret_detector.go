@@ -11,6 +11,7 @@ const (
 	privateKeyParamPattern = `(?i)privateKey=([A-Za-z0-9/+=_%-]+)(&|$|\s)`
 	connectionTokenPattern = `(?i)(token|assertion content)([\'\"\s:=]+)([a-z0-9=/_\-\+]{8,})`
 	passwordPattern        = `(?i)(password|pwd)([\'\"\s:=]+)([a-z0-9!\"#\$%&\\\'\(\)\*\+\,-\./:;<=>\?\@\[\]\^_\{\|\}~]{8,})`
+	dsnPasswordPattern     = `([^/:]+):([^@/:]{3,})@` // Matches user:password@host format in DSN strings
 	clientSecretPattern    = `(?i)(clientSecret)([\'\"\s:= ]+)([a-z0-9!\"#\$%&\\\'\(\)\*\+\,-\./:;<=>\?\@\[\]\^_\{\|\}~]+)`
 	jwtTokenPattern        = `(?i)(jwt|bearer)[\s:=]*([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)` // pragma: allowlist secret
 )
@@ -24,6 +25,7 @@ var (
 	privateKeyParamRegexp = regexp.MustCompile(privateKeyParamPattern)
 	connectionTokenRegexp = regexp.MustCompile(connectionTokenPattern)
 	passwordRegexp        = regexp.MustCompile(passwordPattern)
+	dsnPasswordRegexp     = regexp.MustCompile(dsnPasswordPattern)
 	clientSecretRegexp    = regexp.MustCompile(clientSecretPattern)
 	jwtTokenRegexp        = regexp.MustCompile(jwtTokenPattern)
 )
@@ -34,6 +36,10 @@ func maskConnectionToken(text string) string {
 
 func maskPassword(text string) string {
 	return passwordRegexp.ReplaceAllString(text, "$1${2}****")
+}
+
+func maskDsnPassword(text string) string {
+	return dsnPasswordRegexp.ReplaceAllString(text, "$1:****@")
 }
 
 func maskAwsKey(text string) string {
@@ -70,13 +76,14 @@ func maskJwtToken(text string) string {
 func maskSecrets(text string) string {
 	return maskConnectionToken(
 		maskPassword(
-			maskPrivateKeyData(
-				maskPrivateKeyParam(
-					maskPrivateKey(
-						maskAwsToken(
-							maskSasToken(
-								maskAwsKey(
-									maskClientSecret(
-										maskJwtToken(
-											text))))))))))
+			maskDsnPassword(
+				maskPrivateKeyData(
+					maskPrivateKeyParam(
+						maskPrivateKey(
+							maskAwsToken(
+								maskSasToken(
+									maskAwsKey(
+										maskClientSecret(
+											maskJwtToken(
+												text)))))))))))
 }

@@ -615,7 +615,7 @@ func prepareJWTToken(config *Config) (string, error) {
 		return "", err
 	}
 
-	logger.Debug("successfully generated JWT for keypair authentication")
+	logger.Debugf("successfully generated JWT with following claims: %v", jwtClaims)
 	return tokenString, err
 }
 

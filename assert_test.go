@@ -130,7 +130,7 @@ func errorOnNonEmpty(t *testing.T, errMsg string) {
 }
 
 func formatErrorMessage(errMsg string) string {
-	return fmt.Sprintf("%s. Thrown from %s", errMsg, thrownFrom())
+	return fmt.Sprintf("%s. Thrown from %s", maskSecrets(errMsg), thrownFrom())
 }
 
 func validateNil(actual any, descriptions ...string) string {
@@ -138,7 +138,7 @@ func validateNil(actual any, descriptions ...string) string {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%s\" to be nil but was not. %s", actual, desc)
+	return fmt.Sprintf("expected \"%s\" to be nil but was not. %s", maskSecrets(fmt.Sprintf("%v", actual)), desc)
 }
 
 func validateNotNil(actual any, descriptions ...string) string {
@@ -154,7 +154,15 @@ func validateErrIs(actual, expected error, descriptions ...string) string {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected %v to be %v. %s", actual, expected, desc)
+	actualStr := "nil"
+	expectedStr := "nil"
+	if actual != nil {
+		actualStr = maskSecrets(actual.Error())
+	}
+	if expected != nil {
+		expectedStr = maskSecrets(expected.Error())
+	}
+	return fmt.Sprintf("expected %v to be %v. %s", actualStr, expectedStr, desc)
 }
 
 func validateEqual(actual any, expected any, descriptions ...string) string {
@@ -162,7 +170,10 @@ func validateEqual(actual any, expected any, descriptions ...string) string {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s", actual, expected, desc)
+	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s",
+		maskSecrets(fmt.Sprintf("%v", actual)),
+		maskSecrets(fmt.Sprintf("%v", expected)),
+		desc)
 }
 
 func removeWhitespaces(s string) string {
@@ -178,7 +189,10 @@ func validateEqualIgnoringWhitespace(actual string, expected string, description
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s", actual, expected, desc)
+	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s",
+		maskSecrets(actual),
+		maskSecrets(expected),
+		desc)
 }
 
 func validateEqualEpsilon(actual, expected, epsilon float64, descriptions ...string) string {
@@ -193,7 +207,10 @@ func validateDeepEqual(actual any, expected any, descriptions ...string) string 
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s", actual, expected, desc)
+	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s",
+		maskSecrets(fmt.Sprintf("%v", actual)),
+		maskSecrets(fmt.Sprintf("%v", expected)),
+		desc)
 }
 
 func validateNotEqual(actual any, expected any, descriptions ...string) string {
@@ -201,7 +218,10 @@ func validateNotEqual(actual any, expected any, descriptions ...string) string {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%s\" not to be equal to \"%s\" but they were the same. %s", actual, expected, desc)
+	return fmt.Sprintf("expected \"%s\" not to be equal to \"%s\" but they were the same. %s",
+		maskSecrets(fmt.Sprintf("%v", actual)),
+		maskSecrets(fmt.Sprintf("%v", expected)),
+		desc)
 }
 
 func validateBytesEqual(actual []byte, expected []byte, descriptions ...string) string {
@@ -209,7 +229,10 @@ func validateBytesEqual(actual []byte, expected []byte, descriptions ...string) 
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s", actual, expected, desc)
+	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s",
+		maskSecrets(string(actual)),
+		maskSecrets(string(expected)),
+		desc)
 }
 
 func validateStringContains(actual string, expectedToContain string, descriptions ...string) string {
@@ -217,7 +240,10 @@ func validateStringContains(actual string, expectedToContain string, description
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%s\" to contain \"%s\" but did not. %s", actual, expectedToContain, desc)
+	return fmt.Sprintf("expected \"%s\" to contain \"%s\" but did not. %s",
+		maskSecrets(actual),
+		maskSecrets(expectedToContain),
+		desc)
 }
 
 func validateEmptyString(actual string, descriptions ...string) string {
@@ -225,7 +251,7 @@ func validateEmptyString(actual string, descriptions ...string) string {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%s\" to be empty, but was not. %s", actual, desc)
+	return fmt.Sprintf("expected \"%s\" to be empty, but was not. %s", maskSecrets(actual), desc)
 }
 
 func validateHasPrefix(actual string, expectedPrefix string, descriptions ...string) string {
@@ -233,7 +259,10 @@ func validateHasPrefix(actual string, expectedPrefix string, descriptions ...str
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%s\" to start with \"%s\" but did not. %s", actual, expectedPrefix, desc)
+	return fmt.Sprintf("expected \"%s\" to start with \"%s\" but did not. %s",
+		maskSecrets(actual),
+		maskSecrets(expectedPrefix),
+		desc)
 }
 
 func validateValueBetween(value float64, min float64, max float64, descriptions ...string) string {
@@ -241,7 +270,11 @@ func validateValueBetween(value float64, min float64, max float64, descriptions 
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%f\" should be between \"%f\" and  \"%f\" but did not. %s", value, min, max, desc)
+	return fmt.Sprintf("expected \"%s\" should be between \"%s\" and  \"%s\" but did not. %s",
+		maskSecrets(fmt.Sprintf("%f", value)),
+		maskSecrets(fmt.Sprintf("%f", min)),
+		maskSecrets(fmt.Sprintf("%f", max)),
+		desc)
 }
 
 func validateValueBetweenInclusive(value float64, min float64, max float64, descriptions ...string) string {
@@ -249,7 +282,11 @@ func validateValueBetweenInclusive(value float64, min float64, max float64, desc
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%f\" should be between \"%f\" and  \"%f\" inclusively but did not. %s", value, min, max, desc)
+	return fmt.Sprintf("expected \"%s\" should be between \"%s\" and  \"%s\" inclusively but did not. %s",
+		maskSecrets(fmt.Sprintf("%f", value)),
+		maskSecrets(fmt.Sprintf("%f", min)),
+		maskSecrets(fmt.Sprintf("%f", max)),
+		desc)
 }
 
 func validateEmpty[T any](value []T, descriptions ...string) string {
@@ -257,7 +294,7 @@ func validateEmpty[T any](value []T, descriptions ...string) string {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
-	return fmt.Sprintf("expected \"%v\" to be empty. %s", value, desc)
+	return fmt.Sprintf("expected \"%v\" to be empty. %s", maskSecrets(fmt.Sprintf("%v", value)), desc)
 }
 
 func joinDescriptions(descriptions ...string) string {
@@ -279,8 +316,8 @@ func thrownFrom() string {
 	lines := strings.Split(stack, "\n\t")
 	for i, line := range lines {
 		if i > 0 && !strings.Contains(line, "assert_test.go") {
-			return line
+			return maskSecrets(line)
 		}
 	}
-	return stack
+	return maskSecrets(stack)
 }

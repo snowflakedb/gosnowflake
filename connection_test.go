@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+
 	"net/http"
 	"net/url"
 	"strings"
@@ -408,231 +408,156 @@ func TestClientSessionPersist(t *testing.T) {
 }
 
 func TestFetchResultByQueryID(t *testing.T) {
-	assertNilE(t, fetchResultByQueryID(t, nil, nil))
-}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "query_execution.json"},
+		wiremockMapping{filePath: "query_monitoring.json"},
+	)
 
-func TestFetchRunningQueryByID(t *testing.T) {
-	assertNilE(t, fetchResultByQueryID(t, returnQueryIsRunningStatus, nil))
-}
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
 
-func TestFetchErrorQueryByID(t *testing.T) {
-	assertNilE(t, fetchResultByQueryID(t, returnQueryIsErrStatus, &SnowflakeError{
-		Number: ErrQueryReportedError}))
-}
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn.Close()
 
-func TestFetchMalformedJsonQueryByID(t *testing.T) {
-	expectedErr := errors.New("invalid character '}' after object key")
-	assertNilE(t, fetchResultByQueryID(t, returnQueryMalformedJSON, expectedErr))
-}
-
-func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
-	vals map[string]string, _ time.Duration, jsonStr string) (
-	*http.Response, error) {
-	if strings.Contains(url.Path, "/monitoring/queries/") {
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(jsonStr)),
-		}, nil
-	}
-	return getRestful(ctx, rest, url, vals, rest.RequestTimeout)
-}
-
-func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
-	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	jsonStr := `{"data" : { "queries" : [{"status" : "RUNNING", "state" :
-		"FILE_SET_INITIALIZATION", "errorCode" : "", "errorMessage" : null}] },
-		"code" : null, "message" : null, "success" : true }`
-	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
-}
-
-func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
-	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	jsonStr := `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR",
-		"errorCode" : "", "errorMessage" : ""}] }, "code" : null, "message" :
-		null, "success" : true }`
-	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
-}
-
-func returnQueryMalformedJSON(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
-	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	jsonStr := `{"malformedJson"}`
-	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
-}
-
-// mockTransportForFetch mocks HTTP requests for fetchResultByQueryID tests
-type mockTransportForFetch struct{}
-
-func (t *mockTransportForFetch) RoundTrip(r *http.Request) (*http.Response, error) {
-	// Mock all requests to prevent real HTTP connections
-	var responseBody io.ReadCloser
-	if strings.Contains(r.URL.Path, "login-request") {
-		// Mock successful login response with correct types
-		responseBody = io.NopCloser(strings.NewReader(`{"success":true,"data":{"token":"mock-token","sessionId":12345}}`))
-	} else if strings.Contains(r.URL.Path, "queries/v1/query-request") {
-		// Mock SQL query execution response with query ID
-		responseBody = io.NopCloser(strings.NewReader(`{
-			"success":true,
-			"data":{
-				"queryId":"mock-query-id-12345",
-				"resultSetMetaData":{
-					"columnCount":2,
-					"columns":[
-						{"name":"MS","type":"number"},
-						{"name":"SUM(C1)","type":"number"}
-					]
-				},
-				"rowType":[
-					{"name":"MS","type":"FIXED","length":10,"precision":38,"scale":0},
-					{"name":"SUM(C1)","type":"FIXED","length":10,"precision":38,"scale":0}
-				],
-				"rowset":[["1","5050"],["2","5100"]],
-				"total":2,
-				"queryResultFormat":"json"
-			}
-		}`))
-	} else if strings.Contains(r.URL.Path, "monitoring/queries") {
-		// Mock query status response
-		responseBody = io.NopCloser(strings.NewReader(`{
-			"success":true,
-			"data":{
-				"queries":[{
-					"id":"mock-query-id-12345",
-					"status":"SUCCESS",
-					"errorCode":"",
-					"errorMessage":""
-				}]
-			}
-		}`))
-	} else if strings.Contains(r.URL.Path, "queries") && strings.Contains(r.URL.Path, "result") {
-		// Mock query result fetching
-		responseBody = io.NopCloser(strings.NewReader(`{
-			"success":true,
-			"data":{
-				"queryId":"mock-query-id-12345",
-				"rowset":[["1","5050"],["2","5100"]],
-				"total":2
-			}
-		}`))
-	} else if strings.Contains(r.URL.Path, "telemetry") {
-		// Mock telemetry response
-		responseBody = io.NopCloser(strings.NewReader(`{"success":true}`))
-	} else {
-		// Default successful response
-		responseBody = io.NopCloser(strings.NewReader(`{"success":true}`))
-	}
-
-	return &http.Response{
-		StatusCode: 200,
-		Body:       responseBody,
-		Header:     make(http.Header),
-	}, nil
-}
-
-func fetchResultByQueryID(
-	t *testing.T,
-	customGet funcGetType,
-	expectedFetchErr error) error {
-	// Use fake DSN for mocked tests - should not make real connections
-	fakeDSN := "testuser:testpass@testaccount.snowflakecomputing.com:443/testdb/testschema?warehouse=testwh&role=testrole"
-	config, err := ParseDSN(fakeDSN)
-	if err != nil {
-		return err
-	}
-	// Force password authentication and clear private keys to prevent JWT inheritance
-	config.Authenticator = AuthTypeSnowflake
-	config.PrivateKey = nil
-
-	// Add mock transport to prevent real HTTP requests
-	config.Transporter = &mockTransportForFetch{}
-
-	ctx := context.Background()
-	sc, err := buildSnowflakeConn(ctx, *config)
-	if customGet != nil {
-		sc.rest.FuncGet = customGet
-	}
-	if err != nil {
-		return err
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		return err
-	}
-
-	// If no custom mock function provided, just test that connection works
-	// This prevents real SQL execution while testing the security fix
-	if customGet == nil {
-		return nil // Success - connection established without real SQL
-	}
-
-	// For tests with custom mock functions, handle specific cases
-	if sc.cfg.Host == "testaccount.snowflakecomputing.com" {
-		// This is a mocked test - these tests focus on specific HTTP response scenarios
-		// rather than full SQL execution, so we can skip the complex SQL flow
-		t.Logf("Mocked test with custom function - testing HTTP response handling only")
-
-		// Test the custom mock function directly
-		testURL, _ := url.Parse("https://testaccount.snowflakecomputing.com/monitoring/queries/mock-query-id")
-		resp, err := customGet(context.Background(), sc.rest, testURL, make(map[string]string), time.Minute)
+	var qid string
+	err = conn.Raw(func(x any) error {
+		rows1, err := x.(driver.QueryerContext).QueryContext(context.Background(), "SELECT 1", nil)
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
+		defer rows1.Close()
+		qid = rows1.(SnowflakeRows).GetQueryID()
+		return nil
+	})
+	assertNilF(t, err)
 
-		// For returnQueryIsRunningStatus, expect running status in response
-		if resp.StatusCode == 200 {
-			return nil // Successfully tested the mock response
+	ctx := WithFetchResultByID(context.Background(), qid)
+	rows2, err := db.QueryContext(ctx, "")
+	assertNilF(t, err)
+	defer rows2.Close()
+
+	var ms, sum int
+	assertTrueF(t, rows2.Next())
+	assertNilF(t, rows2.Scan(&ms, &sum))
+	assertEqualE(t, ms, 1)
+	assertEqualE(t, sum, 5050)
+}
+
+func TestFetchRunningQueryByID(t *testing.T) {
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "query_execution.json"},
+		wiremockMapping{filePath: "query_monitoring_running.json"},
+	)
+
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn.Close()
+
+	var qid string
+	err = conn.Raw(func(x any) error {
+		rows1, err := x.(driver.QueryerContext).QueryContext(context.Background(), "SELECT 1", nil)
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("expected 200 status, got %d", resp.StatusCode)
-	}
+		defer rows1.Close()
+		qid = rows1.(SnowflakeRows).GetQueryID()
+		return nil
+	})
+	assertNilF(t, err)
 
-	// Rest of the function for real integration tests...
+	ctx := WithFetchResultByID(context.Background(), qid)
+	rows2, err := db.QueryContext(ctx, "")
+	assertNilF(t, err)
+	defer rows2.Close()
 
-	if _, err = sc.Exec(`create or replace table ut_conn(c1 number, c2 string)
-							as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 
-							from table(generator(rowcount => 100)))`, nil); err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	var ms, sum int
+	assertTrueF(t, rows2.Next())
+	assertNilF(t, rows2.Scan(&ms, &sum))
+	assertEqualE(t, ms, 1)
+	assertEqualE(t, sum, 5050)
+}
 
-	rows1, err := sc.QueryContext(ctx, "select min(c1) as ms, sum(c1) from ut_conn group by (c1 % 10) order by ms", nil)
-	if err != nil {
-		t.Fatalf("Query failed: %v", err)
-	}
+func TestFetchErrorQueryByID(t *testing.T) {
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "query_execution.json"},
+		wiremockMapping{filePath: "query_monitoring_error.json"},
+	)
 
-	qid := rows1.(SnowflakeResult).GetQueryID()
-	newCtx := WithFetchResultByID(ctx, qid)
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
 
-	rows2, err := sc.QueryContext(newCtx, "", nil)
-	if err != nil {
-		snowflakeErr, ok := err.(*SnowflakeError)
-		if ok && expectedFetchErr != nil { // got expected error number
-			if expectedSnowflakeErr, ok := expectedFetchErr.(*SnowflakeError); ok {
-				if expectedSnowflakeErr.Number == snowflakeErr.Number {
-					return nil
-				}
-			}
-		} else if !ok { // not a SnowflakeError
-			if strings.Contains(err.Error(), expectedFetchErr.Error()) {
-				return nil
-			}
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn.Close()
+
+	var qid string
+	err = conn.Raw(func(x any) error {
+		rows1, err := x.(driver.QueryerContext).QueryContext(context.Background(), "SELECT 1", nil)
+		if err != nil {
+			return err
 		}
-		t.Fatalf("Fetch Query Result by ID failed: %v", err)
-	}
+		defer rows1.Close()
+		qid = rows1.(SnowflakeRows).GetQueryID()
+		return nil
+	})
+	assertNilF(t, err)
 
-	dest := make([]driver.Value, 2)
-	cnt := 0
-	for {
-		if err = rows2.Next(dest); err != nil {
-			if err == io.EOF {
-				break
-			} else {
-				t.Fatalf("unexpected error: %v", err)
-			}
+	ctx := WithFetchResultByID(context.Background(), qid)
+	_, err = db.QueryContext(ctx, "")
+	assertNotNilF(t, err, "Expected error when fetching failed query")
+
+	var se *SnowflakeError
+	assertTrueF(t, errors.As(err, &se))
+	assertEqualE(t, se.Number, ErrQueryReportedError)
+}
+
+func TestFetchMalformedJsonQueryByID(t *testing.T) {
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "query_execution.json"},
+		wiremockMapping{filePath: "query_monitoring_malformed.json"},
+	)
+
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+
+	// Execute a query to get a query ID using raw connection
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn.Close()
+
+	var qid string
+	err = conn.Raw(func(x any) error {
+		rows1, err := x.(driver.QueryerContext).QueryContext(context.Background(), "SELECT 1", nil)
+		if err != nil {
+			return err
 		}
-		cnt++
-	}
-	if cnt != 10 {
-		t.Fatalf("rowcount is not expected 10: %v", cnt)
-	}
-	return nil
+		defer rows1.Close()
+		qid = rows1.(SnowflakeRows).GetQueryID()
+		return nil
+	})
+	assertNilF(t, err)
+
+	ctx := WithFetchResultByID(context.Background(), qid)
+	_, err = db.QueryContext(ctx, "")
+	assertNotNilF(t, err, "Expected error when fetching malformed JSON")
+
+	assertTrueF(t, strings.Contains(err.Error(), "invalid character"))
 }
 
 func TestIsPrivateLink(t *testing.T) {
@@ -807,42 +732,46 @@ func TestConcurrentReadOnParams(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			for c := 0; c < 10; c++ {
-				stmt, err := db.PrepareContext(context.Background(), "SELECT table_schema FROM information_schema.columns WHERE table_schema = ? LIMIT 1")
-				if err != nil || stmt == nil {
-					atomic.AddInt32(&failureCount, 1)
-					continue // Skip this iteration if PrepareContext fails
-				}
-				rows, err := stmt.Query("INFORMATION_SCHEMA")
-				if err != nil {
-					stmt.Close()
-					atomic.AddInt32(&failureCount, 1)
-					continue
-				}
-				if rows == nil {
-					stmt.Close()
-					atomic.AddInt32(&failureCount, 1)
-					continue
-				}
-				rows.Next()
-				var tableName string
-				err = rows.Scan(&tableName)
-				if err != nil {
-					atomic.AddInt32(&failureCount, 1)
-				} else {
-					atomic.AddInt32(&successCount, 1)
-				}
-				_ = rows.Close()
-				_ = stmt.Close()
+				func() {
+					stmt, err := db.PrepareContext(context.Background(), "SELECT table_schema FROM information_schema.columns WHERE table_schema = ? LIMIT 1")
+					if err != nil || stmt == nil {
+						atomic.AddInt32(&failureCount, 1)
+						return // Skip this iteration if PrepareContext fails
+					}
+					defer stmt.Close()
+
+					rows, err := stmt.Query("INFORMATION_SCHEMA")
+					if err != nil {
+						atomic.AddInt32(&failureCount, 1)
+						return
+					}
+					if rows == nil {
+						atomic.AddInt32(&failureCount, 1)
+						return
+					}
+					defer rows.Close()
+
+					rows.Next()
+					var tableName string
+					err = rows.Scan(&tableName)
+					if err != nil {
+						atomic.AddInt32(&failureCount, 1)
+					} else {
+						atomic.AddInt32(&successCount, 1)
+					}
+				}()
 			}
 			wg.Done()
 		}()
 	}
 	wg.Wait()
 
-	if successCount == 0 {
-		t.Errorf("All concurrent operations failed - unable to test concurrent parameter reading")
+	totalOperations := int32(100) // 10 goroutines × 10 operations each
+	if successCount != totalOperations {
+		t.Errorf("Expected all %d concurrent operations to succeed, got %d successes, %d failures",
+			totalOperations, successCount, failureCount)
 	} else {
-		t.Logf("Concurrent test completed: %d successes, %d failures", successCount, failureCount)
+		t.Logf("All %d concurrent operations completed successfully", successCount)
 	}
 }
 
