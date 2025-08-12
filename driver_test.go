@@ -2062,7 +2062,7 @@ func TestOpenWithConfigCancel(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 		defer cancel()
 		_, err := driver.OpenWithConfig(ctx, *config)
-		assertErrIsE(t, context.DeadlineExceeded, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
 		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
 		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/telemetry/send"), 0)
 	})
@@ -2074,7 +2074,7 @@ func TestOpenWithConfigCancel(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		_, err := driver.OpenWithConfig(ctx, *config)
-		assertErrIsE(t, context.DeadlineExceeded, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
 		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
 
 		time.Sleep(150 * time.Millisecond)

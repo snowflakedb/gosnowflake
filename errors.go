@@ -148,6 +148,8 @@ const (
 	ErrCodeEmptyOAuthParameters = 260017
 	// ErrMissingAccessATokenButRefreshTokenPresent is an error code for the case when access token is not found in cache, but the refresh token is present.
 	ErrMissingAccessATokenButRefreshTokenPresent = 260018
+	// ErrCodeMissingTLSConfig is an error code for the case where the TLS config is missing.
+	ErrCodeMissingTLSConfig = 260019
 
 	/* network */
 
@@ -328,6 +330,7 @@ const (
 	errMsgInvalidWritablePermissionToFile    = "file '%v' is writable by group or others — this poses a security risk because it allows unauthorized users to modify sensitive settings. Your Permission: %v"
 	errMsgInvalidExecutablePermissionToFile  = "file '%v' is executable — this poses a security risk because the file could be misused as a script or executed unintentionally. Your Permission: %v"
 	errMsgNonArrowResponseInArrowBatches     = "arrow batches enabled, but the response is not Arrow based"
+	errMsgMissingTLSConfig                   = "TLS config not found: %v"
 )
 
 // Returned if a DNS doesn't include account parameter.
