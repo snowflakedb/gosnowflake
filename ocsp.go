@@ -679,7 +679,7 @@ func canEarlyExitForOCSP(results []*ocspStatus, verifiedChain []*x509.Certificat
 		}
 	} else {
 		// Fail open and all results are valid.
-		allValid := len(results) == len(verifiedChain)
+		allValid := len(results) == len(verifiedChain)-1
 		for _, r := range results {
 			if !isValidOCSPStatus(r.code) {
 				allValid = false

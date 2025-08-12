@@ -51,7 +51,6 @@ func cleanup() {
 	ocspFailOpen = OCSPFailOpenTrue
 }
 
-// TestOCSPFailOpen just confirms OCSPFailOpenTrue works.
 func TestOCSPFailOpen(t *testing.T) {
 	cleanup()
 	defer cleanup()
@@ -94,7 +93,6 @@ func isFailToConnectOrAuthErr(driverErr *SnowflakeError) bool {
 	return driverErr.Number != ErrCodeFailedToConnect && driverErr.Number != ErrFailedToAuth
 }
 
-// TestOCSPFailOpenWithoutFileCache ensures no file cache is used.
 func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
 	cleanup()
 	defer cleanup()
@@ -135,7 +133,6 @@ func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
 	}
 }
 
-// TestOCSPFailOpenRevokedStatus tests revoked certificate.
 func TestOCSPFailOpenRevokedStatus(t *testing.T) {
 	t.Skip("revoked.badssl.com certificate expired")
 	cleanup()
@@ -183,7 +180,6 @@ func TestOCSPFailOpenRevokedStatus(t *testing.T) {
 	}
 }
 
-// TestOCSPFailClosedRevokedStatus tests revoked Certificate.
 func TestOCSPFailClosedRevokedStatus(t *testing.T) {
 	t.Skip("revoked.badssl.com certificate expired")
 	cleanup()
@@ -231,7 +227,6 @@ func TestOCSPFailClosedRevokedStatus(t *testing.T) {
 	}
 }
 
-// TestOCSPFailOpenCacheServerTimeout tests OCSP Cache server timeout.
 func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 	cleanup()
 	defer cleanup()
@@ -438,7 +433,6 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	}
 }
 
-// TestOCSPFailOpenResponder404 tests OCSP Responder HTTP 404
 func TestOCSPFailOpenResponder404(t *testing.T) {
 	cleanup()
 	defer cleanup()
@@ -480,7 +474,6 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	}
 }
 
-// TestOCSPFailClosedResponder404 tests OCSP Responder HTTP 404
 func TestOCSPFailClosedResponder404(t *testing.T) {
 	cleanup()
 	defer cleanup()
