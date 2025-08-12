@@ -1,0 +1,32 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "Query status monitoring - SUCCESS",
+      "request": {
+        "urlPathPattern": "/monitoring/queries.*",
+        "method": "GET",
+        "headers": {
+          "Authorization": {
+            "matches": ".*"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "success": true,
+          "data": {
+            "queries": [
+              {
+                "id": "mock-query-id-12345",
+                "status": "SUCCESS",
+                "errorCode": "",
+                "errorMessage": ""
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+} 

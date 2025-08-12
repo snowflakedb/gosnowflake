@@ -165,8 +165,8 @@ func (t *mockOCSPTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-// Helper to create test config with password authentication - NO real keypair used
-func createTestConfig(account string, failOpen OCSPFailOpenMode) *Config {
+// Helper to create test config with password authentication for OCSP tests - NO real keypair used
+func createOCSPTestConfig(account string, failOpen OCSPFailOpenMode) *Config {
 	return &Config{
 		Account:       account,
 		User:          "fakeuser",
@@ -184,11 +184,8 @@ func TestOCSPFailOpen(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	config := createTestConfig("fakeaccount1", OCSPFailOpenTrue)
+	config := createOCSPTestConfig("fakeaccount1", OCSPFailOpenTrue)
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// Smoke test: verify no crashes with FailOpen configuration
@@ -205,11 +202,8 @@ func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
 
 	setenv(cacheDirEnv, "/NEVER_EXISTS")
 
-	config := createTestConfig("fakeaccount1", OCSPFailOpenTrue)
+	config := createOCSPTestConfig("fakeaccount1", OCSPFailOpenTrue)
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailOpen mode: should succeed even with OCSP issues
@@ -226,11 +220,8 @@ func TestOCSPFailOpenValidityError(t *testing.T) {
 	setenv(cacheServerEnabledEnv, "false")
 	setenv(ocspTestInjectValidityErrorEnv, "true")
 
-	config := createTestConfig("fakeaccount2", OCSPFailOpenTrue)
+	config := createOCSPTestConfig("fakeaccount2", OCSPFailOpenTrue)
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailOpen mode: should succeed even with injected OCSP validity error
@@ -247,12 +238,9 @@ func TestOCSPFailClosedValidityError(t *testing.T) {
 	setenv(cacheServerEnabledEnv, "false")
 	setenv(ocspTestInjectValidityErrorEnv, "true")
 
-	config := createTestConfig("fakeaccount3", OCSPFailOpenFalse)
+	config := createOCSPTestConfig("fakeaccount3", OCSPFailOpenFalse)
 	config.LoginTimeout = 20 * time.Second
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailClosed mode: should fail with injected OCSP validity error
@@ -270,11 +258,8 @@ func TestOCSPFailOpenUnknownStatus(t *testing.T) {
 	setenv(cacheServerEnabledEnv, "false")
 	setenv(ocspTestInjectUnknownStatusEnv, "true")
 
-	config := createTestConfig("fakeaccount4", OCSPFailOpenTrue)
+	config := createOCSPTestConfig("fakeaccount4", OCSPFailOpenTrue)
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailOpen mode: should succeed even with injected OCSP unknown status
@@ -291,12 +276,9 @@ func TestOCSPFailClosedUnknownStatus(t *testing.T) {
 	setenv(cacheServerEnabledEnv, "false")
 	setenv(ocspTestInjectUnknownStatusEnv, "true")
 
-	config := createTestConfig("fakeaccount5", OCSPFailOpenFalse)
+	config := createOCSPTestConfig("fakeaccount5", OCSPFailOpenFalse)
 	config.LoginTimeout = 20 * time.Second
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailClosed mode: should fail with injected OCSP unknown status
@@ -324,11 +306,8 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponseCacheServerTimeoutEnv, "1000")
 
-	config := createTestConfig("fakeaccount8", OCSPFailOpenTrue)
+	config := createOCSPTestConfig("fakeaccount8", OCSPFailOpenTrue)
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailOpen mode: should succeed even with OCSP cache server timeout
@@ -345,12 +324,9 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponseCacheServerTimeoutEnv, "1000")
 
-	config := createTestConfig("fakeaccount9", OCSPFailOpenFalse)
+	config := createOCSPTestConfig("fakeaccount9", OCSPFailOpenFalse)
 	config.LoginTimeout = 20 * time.Second
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailClosed mode: should fail with OCSP cache server timeout
@@ -369,11 +345,8 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponderTimeoutEnv, "1000")
 
-	config := createTestConfig("fakeaccount10", OCSPFailOpenTrue)
+	config := createOCSPTestConfig("fakeaccount10", OCSPFailOpenTrue)
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailOpen mode: should succeed even with OCSP responder timeout
@@ -391,12 +364,9 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/hang")
 	setenv(ocspTestResponderTimeoutEnv, "1000")
 
-	config := createTestConfig("fakeaccount11", OCSPFailOpenFalse)
+	config := createOCSPTestConfig("fakeaccount11", OCSPFailOpenFalse)
 	config.LoginTimeout = 20 * time.Second
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailClosed mode: should fail with OCSP responder timeout
@@ -414,11 +384,8 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	setenv(cacheServerEnabledEnv, "false")
 	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/404")
 
-	config := createTestConfig("fakeaccount10", OCSPFailOpenTrue)
+	config := createOCSPTestConfig("fakeaccount10", OCSPFailOpenTrue)
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailOpen mode: should succeed even with OCSP responder 404
@@ -435,12 +402,9 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	setenv(cacheServerEnabledEnv, "false")
 	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/404")
 
-	config := createTestConfig("fakeaccount11", OCSPFailOpenFalse)
+	config := createOCSPTestConfig("fakeaccount11", OCSPFailOpenFalse)
 	config.LoginTimeout = 20 * time.Second
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailClosed mode: should fail with OCSP responder 404
@@ -455,12 +419,9 @@ func TestExpiredCertificate(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	config := createTestConfig("fakeaccount10", OCSPFailOpenTrue)
+	config := createOCSPTestConfig("fakeaccount10", OCSPFailOpenTrue)
 	config.Host = "expired.badssl.com"
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	if err := db.Ping(); err == nil {
@@ -476,11 +437,8 @@ func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	setenv(cacheServerEnabledEnv, "false")
 	setenv(ocspTestNoOCSPURLEnv, "true")
 
-	config := createTestConfig("fakeaccount10", OCSPFailOpenTrue)
+	config := createOCSPTestConfig("fakeaccount10", OCSPFailOpenTrue)
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailOpen mode: should succeed even with no OCSP URL
@@ -497,12 +455,9 @@ func TestOCSPFailClosedNoOCSPURL(t *testing.T) {
 	setenv(cacheServerEnabledEnv, "false")
 	setenv(ocspTestNoOCSPURLEnv, "true")
 
-	config := createTestConfig("fakeaccount11", OCSPFailOpenFalse)
+	config := createOCSPTestConfig("fakeaccount11", OCSPFailOpenFalse)
 	config.LoginTimeout = 20 * time.Second
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *config))
-	if db == nil {
-		t.Errorf("failed to create database connection")
-	}
 	defer db.Close()
 
 	// FailClosed mode: should fail with no OCSP URL

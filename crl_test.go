@@ -907,17 +907,10 @@ func TestCrlE2E(t *testing.T) {
 		crlDSN := dsn + "&certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&disableOCSPChecks=true"
 
 		db, err := sql.Open("snowflake", crlDSN)
-		if err != nil {
-			maskedErr := maskSecrets(err.Error())
-			t.Fatalf("CRL E2E test failed to open connection: %s", maskedErr)
-		}
+		assertNilF(t, err, "CRL E2E test failed to open connection")
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
-		if err != nil {
-			// Mask any sensitive information in error messages before failing
-			maskedErr := maskSecrets(err.Error())
-			t.Fatalf("CRL E2E test failed: %s", maskedErr)
-		}
+		assertNilF(t, err, "CRL E2E test failed")
 		defer rows.Close()
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
@@ -950,12 +943,9 @@ func TestCrlE2E(t *testing.T) {
 		crlDSN := dsn + "&certRevocationCheckMode=ENABLED"
 
 		cfg, err := ParseDSN(crlDSN)
-		if err != nil {
-			maskedErr := maskSecrets(err.Error())
-			t.Fatalf("Failed to parse DSN: %s", maskedErr)
-		}
+		assertNilF(t, err, "Failed to parse DSN")
 		_, err = buildSnowflakeConn(context.Background(), *cfg)
-		assertEqualE(t, maskSecrets(err.Error()), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+		assertEqualE(t, err, "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
 		assertEqualE(t, len(crlInMemoryCache), 0)
 	})
 }
