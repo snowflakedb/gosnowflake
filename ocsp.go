@@ -652,9 +652,9 @@ func isValidOCSPStatus(status ocspStatusCode) bool {
 
 // verifyPeerCertificate verifies all of certificate revocation status
 func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certificate) (err error) {
-	for i := 0; i < len(verifiedChains); i++ {
-		results := getAllRevocationStatus(ctx, verifiedChains[i])
-		if r := canEarlyExitForOCSP(results, verifiedChains[i]); r != nil {
+	for _, chain := range verifiedChains {
+		results := getAllRevocationStatus(ctx, chain)
+		if r := canEarlyExitForOCSP(results, chain); r != nil {
 			return r.err
 		}
 	}
@@ -679,7 +679,7 @@ func canEarlyExitForOCSP(results []*ocspStatus, verifiedChain []*x509.Certificat
 		}
 	} else {
 		// Fail open and all results are valid.
-		allValid := len(results) == len(verifiedChain)-1
+		allValid := len(results) == len(verifiedChain)-1 // root certificate is not checked
 		for _, r := range results {
 			if !isValidOCSPStatus(r.code) {
 				allValid = false
