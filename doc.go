@@ -94,22 +94,13 @@ The following connection parameters are supported:
     0 (zero) specifies that the driver should wait indefinitely. The default is 0 seconds.
     The query request gives up after the timeout length if the HTTP response is success.
 
-  - authenticator: Specifies the authenticator to use for authenticating user credentials:
+  - authenticator: Specifies the authenticator to use for authenticating user credentials.
+    See "Authenticator Values" section below for supported values.
 
-  - To use the internal Snowflake authenticator, specify snowflake (Default). If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
+  - workloadIdentityProvider: Required when authenticator=workload_identity to determine the identity provider.
+    Available options are: AWS, GCP, AZURE, OIDC.
 
-  - To use programmatic access tokens, specify programmatic_access_token.
-
-  - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
-
-  - To authenticate using your IDP via a browser, specify externalbrowser.
-
-  - To authenticate via OAuth with token, specify oauth and provide an OAuth Access Token (see the token parameter below).
-
-  - To authenticate via full OAuth flow, specify oauth_authorization_code or oauth_client_credentials and fill relevant parameters (oauthClientId, oauthClientSecret, oauthAuthorizationUrl, oauthTokenRequestUrl, oauthRedirectUri, oauthScope).
-    Specify URLs if you want to use external OAuth2 IdP, otherwise Snowflake will be used as a default IdP.
-    If oauthScope is not configured, the role is used (giving session:role:<roleName> scope).
-    For more information, please reach to official Snowflake documentation.
+  - workloadIdentityEntraResource: (Optional) When workloadIdentityProvider=AZURE, allows to customize entra resource used to fetch JWT token.
 
   - application: Identifies your application to Snowflake Support.
 
@@ -182,6 +173,27 @@ Session-level parameters can also be set by using the SQL command "ALTER SESSION
 (https://docs.snowflake.com/en/sql-reference/sql/alter-session.html).
 
 Alternatively, use OpenWithConfig() function to create a database handle with the specified Config.
+
+# Authenticator values
+
+  - To use the internal Snowflake authenticator, specify snowflake (Default).
+
+  - To use programmatic access tokens, specify programmatic_access_token.
+    If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
+
+  - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
+
+  - To authenticate using your IDP via a browser, specify externalbrowser.
+
+  - To authenticate via OAuth with token, specify oauth and provide an OAuth Access Token (see the token parameter below).
+
+  - To authenticate via full OAuth flow, specify oauth_authorization_code or oauth_client_credentials and fill relevant parameters (oauthClientId, oauthClientSecret, oauthAuthorizationUrl, oauthTokenRequestUrl, oauthRedirectUri, oauthScope).
+    Specify URLs if you want to use external OAuth2 IdP, otherwise Snowflake will be used as a default IdP.
+    If oauthScope is not configured, the role is used (giving session:role:<roleName> scope).
+    For more information, please reach to official Snowflake documentation.
+
+  - To authenticate via workload identity, specify workload_identity. This option requires workloadIdentityProvider option to be set.
+    Usage guide - https://docs.snowflake.com/en/user-guide/workload-identity-federation
 
 # Connection Config
 
