@@ -1,8 +1,10 @@
 package gosnowflake
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql"
 	"testing"
 )
 
@@ -149,4 +151,38 @@ func TestMultipleTLSConfigs(t *testing.T) {
 
 	retrieved, _ := getTLSConfig("insecure")
 	assertEqualE(t, retrieved.ServerName, "new.example.com", "Config should have been overwritten")
+}
+
+func TestShouldSetUpTlsConfig(t *testing.T) {
+	tlsConfig := wiremockHTTPS.tlsConfig()
+	err := RegisterTLSConfig("wiremock", tlsConfig)
+	assertNilF(t, err)
+	wiremockHTTPS.registerMappings(t, newWiremockMapping("auth/password/successful_flow.json"))
+
+	for _, dbFunc := range []func() *sql.DB{
+		func() *sql.DB {
+			cfg := wiremockHTTPS.connectionConfig()
+			cfg.TLSConfigName = "wiremock"
+			cfg.Transporter = nil
+			return sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
+		},
+		func() *sql.DB {
+			cfg := wiremockHTTPS.connectionConfig()
+			cfg.TLSConfigName = "wiremock"
+			cfg.Transporter = nil
+			dsn, err := DSN(cfg)
+			assertNilF(t, err)
+			db, err := sql.Open("snowflake", dsn)
+			assertNilF(t, err)
+			return db
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			db := dbFunc()
+			defer db.Close()
+			// mock connection, no need to close
+			_, err := db.Conn(context.Background())
+			assertNilF(t, err)
+		})
+	}
 }
