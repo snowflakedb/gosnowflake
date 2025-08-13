@@ -25,6 +25,10 @@ type wiremockClient struct {
 	client    http.Client
 }
 
+type wiremockClientHTTPS struct {
+	wiremockClient
+}
+
 func newWiremock() *wiremockClient {
 	wmHost := os.Getenv("WIREMOCK_HOST")
 	if wmHost == "" {
@@ -38,19 +42,15 @@ func newWiremock() *wiremockClient {
 	if err != nil {
 		panic(fmt.Sprintf("WIREMOCK_PORT is not a number: %v", wmPortStr))
 	}
-	wmProtocol := os.Getenv("WIREMOCK_PROTOCOL")
-	if wmProtocol == "" {
-		wmProtocol = "http"
-	}
 	return &wiremockClient{
-		protocol:  wmProtocol,
+		protocol:  "http",
 		host:      wmHost,
 		port:      wmPort,
 		adminPort: wmPort,
 	}
 }
 
-func newWiremockHTTPS() *wiremockClient {
+func newWiremockHTTPS() *wiremockClientHTTPS {
 	wmHost := os.Getenv("WIREMOCK_HOST_HTTPS")
 	if wmHost == "" {
 		wmHost = "127.0.0.1"
@@ -71,15 +71,13 @@ func newWiremockHTTPS() *wiremockClient {
 	if err != nil {
 		panic(fmt.Sprintf("WIREMOCK_PORT is not a number: %v", wmPortStr))
 	}
-	wmProtocol := os.Getenv("WIREMOCK_PROTOCOL")
-	if wmProtocol == "" {
-		wmProtocol = "https"
-	}
-	return &wiremockClient{
-		protocol:  wmProtocol,
-		host:      wmHost,
-		port:      wmPort,
-		adminPort: wmAdminPort,
+	return &wiremockClientHTTPS{
+		wiremockClient: wiremockClient{
+			protocol:  "https",
+			host:      wmHost,
+			port:      wmPort,
+			adminPort: wmAdminPort,
+		},
 	}
 }
 
@@ -96,22 +94,13 @@ func (wm *wiremockClient) connectionConfig() *Config {
 		OauthAuthorizationURL: wm.baseURL() + "/oauth/authorize",
 		OauthTokenRequestURL:  wm.baseURL() + "/oauth/token",
 	}
-	if wm.protocol == "https" {
-		testCertPool := x509.NewCertPool()
-		caBytes, err := os.ReadFile("ci/scripts/ca.der")
-		if err != nil {
-			log.Fatalf("cannot read CA cert file. %v", err)
-		}
-		certificate, err := x509.ParseCertificate(caBytes)
-		if err != nil {
-			log.Fatalf("cannot parse certifacte. %v", err)
-		}
-		testCertPool.AddCert(certificate)
-		cfg.Transporter = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: testCertPool,
-			},
-		}
+	return cfg
+}
+
+func (wm *wiremockClientHTTPS) connectionConfig() *Config {
+	cfg := wm.wiremockClient.connectionConfig()
+	cfg.Transporter = &http.Transport{
+		TLSClientConfig: wm.tlsConfig(),
 	}
 	return cfg
 }
@@ -165,6 +154,22 @@ func (wm *wiremockClient) mappingsURL() string {
 
 func (wm *wiremockClient) baseURL() string {
 	return fmt.Sprintf("%v://%v:%v", wm.protocol, wm.host, wm.port)
+}
+
+func (wm *wiremockClientHTTPS) tlsConfig() *tls.Config {
+	testCertPool := x509.NewCertPool()
+	caBytes, err := os.ReadFile("ci/scripts/ca.der")
+	if err != nil {
+		log.Fatalf("cannot read CA cert file. %v", err)
+	}
+	certificate, err := x509.ParseCertificate(caBytes)
+	if err != nil {
+		log.Fatalf("cannot parse certifacte. %v", err)
+	}
+	testCertPool.AddCert(certificate)
+	return &tls.Config{
+		RootCAs: testCertPool,
+	}
 }
 
 func TestQueryViaHttps(t *testing.T) {
