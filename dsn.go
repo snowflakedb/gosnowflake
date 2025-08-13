@@ -619,6 +619,16 @@ func fillMissingConfigParameters(cfg *Config) error {
 			MessageArgs: []interface{}{cfg.Host},
 		}
 	}
+	if cfg.TLSConfigName != "" {
+		if tlsConfig, ok := getTLSConfig(cfg.TLSConfigName); ok {
+			cfg.tlsConfig = tlsConfig
+		} else {
+			return &SnowflakeError{
+				Number:  ErrCodeMissingTLSConfig,
+				Message: fmt.Sprintf(errMsgMissingTLSConfig, cfg.TLSConfigName),
+			}
+		}
+	}
 	return nil
 }
 
@@ -895,16 +905,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		case "token":
 			cfg.Token = value
 		case "tlsConfigName":
-			// Look up registered TLS config and set it directly
-			if tlsConfig, ok := getTLSConfig(value); ok {
-				cfg.tlsConfig = tlsConfig
-				cfg.TLSConfigName = value
-			} else {
-				return &SnowflakeError{
-					Number:  ErrCodeMissingTLSConfig,
-					Message: fmt.Sprintf(errMsgMissingTLSConfig, value),
-				}
-			}
+			cfg.TLSConfigName = value
 		case "workloadIdentityProvider":
 			cfg.WorkloadIdentityProvider = value
 		case "workloadIdentityEntraResource":
