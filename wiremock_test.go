@@ -25,7 +25,7 @@ type wiremockClient struct {
 	client    http.Client
 }
 
-type wiremockClientHttps struct {
+type wiremockClientHTTPS struct {
 	wiremockClient
 }
 
@@ -50,7 +50,7 @@ func newWiremock() *wiremockClient {
 	}
 }
 
-func newWiremockHTTPS() *wiremockClientHttps {
+func newWiremockHTTPS() *wiremockClientHTTPS {
 	wmHost := os.Getenv("WIREMOCK_HOST_HTTPS")
 	if wmHost == "" {
 		wmHost = "127.0.0.1"
@@ -71,7 +71,7 @@ func newWiremockHTTPS() *wiremockClientHttps {
 	if err != nil {
 		panic(fmt.Sprintf("WIREMOCK_PORT is not a number: %v", wmPortStr))
 	}
-	return &wiremockClientHttps{
+	return &wiremockClientHTTPS{
 		wiremockClient: wiremockClient{
 			protocol:  "https",
 			host:      wmHost,
@@ -97,7 +97,7 @@ func (wm *wiremockClient) connectionConfig() *Config {
 	return cfg
 }
 
-func (wm *wiremockClientHttps) connectionConfig() *Config {
+func (wm *wiremockClientHTTPS) connectionConfig() *Config {
 	cfg := wm.wiremockClient.connectionConfig()
 	cfg.Transporter = &http.Transport{
 		TLSClientConfig: wm.tlsConfig(),
@@ -156,7 +156,7 @@ func (wm *wiremockClient) baseURL() string {
 	return fmt.Sprintf("%v://%v:%v", wm.protocol, wm.host, wm.port)
 }
 
-func (wm *wiremockClientHttps) tlsConfig() *tls.Config {
+func (wm *wiremockClientHTTPS) tlsConfig() *tls.Config {
 	testCertPool := x509.NewCertPool()
 	caBytes, err := os.ReadFile("ci/scripts/ca.der")
 	if err != nil {
