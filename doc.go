@@ -97,11 +97,6 @@ The following connection parameters are supported:
   - authenticator: Specifies the authenticator to use for authenticating user credentials.
     See "Authenticator Values" section below for supported values.
 
-  - workloadIdentityProvider: Required when authenticator=workload_identity to determine the identity provider.
-    Available options are: AWS, GCP, AZURE, OIDC.
-
-  - workloadIdentityEntraResource: (Optional) When workloadIdentityProvider=AZURE, allows to customize entra resource used to fetch JWT token.
-
   - application: Identifies your application to Snowflake Support.
 
   - disableOCSPChecks: false by default. Set to true to bypass the Online
@@ -192,8 +187,13 @@ Alternatively, use OpenWithConfig() function to create a database handle with th
     If oauthScope is not configured, the role is used (giving session:role:<roleName> scope).
     For more information, please reach to official Snowflake documentation.
 
-  - To authenticate via workload identity, specify workload_identity. This option requires workloadIdentityProvider option to be set.
-    Usage guide - https://docs.snowflake.com/en/user-guide/workload-identity-federation
+  - To authenticate via workload identity, specify workload_identity.
+
+    This option requires workloadIdentityProvider option to be set (AWS, GCP, AZURE, OIDC).
+
+    When workloadIdentityProvider=AZURE, workloadIdentityEntraResource can be optionally set to customize entra resource used to fetch JWT token.
+
+    For more details, refer to the usage guide: https://docs.snowflake.com/en/user-guide/workload-identity-federation
 
 # Connection Config
 
