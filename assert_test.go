@@ -92,6 +92,10 @@ func assertEmptyStringE(t *testing.T, actual string, descriptions ...string) {
 	errorOnNonEmpty(t, validateEmptyString(actual, descriptions...))
 }
 
+func assertHasPrefixF(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
+	fatalOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
+}
+
 func assertHasPrefixE(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
 	errorOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
 }
