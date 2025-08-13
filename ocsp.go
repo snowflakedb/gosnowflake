@@ -9,7 +9,6 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -35,10 +34,6 @@ var (
 )
 
 var (
-	// caRoot includes the CA certificates.
-	caRoot map[string]*x509.Certificate
-	// certPOol includes the CA certificates.
-	certPool *x509.CertPool
 	// cacheDir is the location of OCSP response cache file
 	cacheDir = ""
 	// cacheFileName is the file name of OCSP response cache file
@@ -102,12 +97,8 @@ const (
 )
 
 const (
-	ocspTestInjectValidityErrorEnv        = "SF_OCSP_TEST_INJECT_VALIDITY_ERROR"
-	ocspTestInjectUnknownStatusEnv        = "SF_OCSP_TEST_INJECT_UNKNOWN_STATUS"
-	ocspTestResponseCacheServerTimeoutEnv = "SF_OCSP_TEST_OCSP_RESPONSE_CACHE_SERVER_TIMEOUT"
-	ocspTestResponderTimeoutEnv           = "SF_OCSP_TEST_OCSP_RESPONDER_TIMEOUT"
-	ocspTestResponderURLEnv               = "SF_OCSP_TEST_RESPONDER_URL"
-	ocspTestNoOCSPURLEnv                  = "SF_OCSP_TEST_NO_OCSP_RESPONDER_URL"
+	ocspTestResponderURLEnv = "SF_OCSP_TEST_RESPONDER_URL"
+	ocspTestNoOCSPURLEnv    = "SF_OCSP_TEST_NO_OCSP_RESPONDER_URL"
 )
 
 const (
@@ -222,10 +213,6 @@ func isInValidityRange(currTime, thisUpdate, nextUpdate time.Time) bool {
 	return true
 }
 
-func isTestInvalidValidity() bool {
-	return strings.EqualFold(os.Getenv(ocspTestInjectValidityErrorEnv), "true")
-}
-
 func extractCertIDKeyFromRequest(ocspReq []byte) (*certIDKey, *ocspStatus) {
 	r, err := ocsp.ParseRequest(ocspReq)
 	if err != nil {
@@ -337,7 +324,7 @@ func validateOCSP(ocspRes *ocsp.Response) *ocspStatus {
 			err:  errors.New("OCSP Response is nil"),
 		}
 	}
-	if isTestInvalidValidity() || !isInValidityRange(curTime, ocspRes.ThisUpdate, ocspRes.NextUpdate) {
+	if !isInValidityRange(curTime, ocspRes.ThisUpdate, ocspRes.NextUpdate) {
 		return &ocspStatus{
 			code: ocspInvalidValidity,
 			err: &SnowflakeError{
@@ -346,9 +333,6 @@ func validateOCSP(ocspRes *ocsp.Response) *ocspStatus {
 				MessageArgs: []interface{}{ocspRes.ProducedAt, ocspRes.ThisUpdate, ocspRes.NextUpdate},
 			},
 		}
-	}
-	if isTestUnknownStatus() {
-		ocspRes.Status = ocsp.Unknown
 	}
 	return returnOCSPStatus(ocspRes)
 }
@@ -383,10 +367,6 @@ func returnOCSPStatus(ocspRes *ocsp.Response) *ocspStatus {
 			err:  fmt.Errorf("OCSP others. %v", ocspRes.Status),
 		}
 	}
-}
-
-func isTestUnknownStatus() bool {
-	return strings.EqualFold(os.Getenv(ocspTestInjectUnknownStatusEnv), "true")
 }
 
 func checkOCSPCacheServer(
@@ -639,15 +619,7 @@ func getRevocationStatus(ctx context.Context, subject, issuer *x509.Certificate)
 	headers[httpHeaderAccept] = "application/ocsp-response"
 	headers[httpHeaderContentLength] = strconv.Itoa(len(ocspReq))
 	headers[httpHeaderHost] = hostname
-	timeoutStr := os.Getenv(ocspTestResponderTimeoutEnv)
 	timeout := OcspResponderTimeout
-	if timeoutStr != "" {
-		var timeoutInMilliseconds int
-		timeoutInMilliseconds, err = strconv.Atoi(timeoutStr)
-		if err == nil {
-			timeout = time.Duration(timeoutInMilliseconds) * time.Millisecond
-		}
-	}
 	ocspClient := &http.Client{
 		Timeout:   timeout,
 		Transport: snowflakeNoRevocationCheckTransport,
@@ -680,23 +652,9 @@ func isValidOCSPStatus(status ocspStatusCode) bool {
 
 // verifyPeerCertificate verifies all of certificate revocation status
 func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certificate) (err error) {
-	for i := 0; i < len(verifiedChains); i++ {
-		// Certificate signed by Root CA. This should be one before the last in the Certificate Chain
-		numberOfNoneRootCerts := len(verifiedChains[i]) - 1
-		logger.Tracef("checking cert, %v, %v, isCa: %v, rawIssuer: %v, rawSubject: %v", i, numberOfNoneRootCerts, verifiedChains[i][numberOfNoneRootCerts].IsCA, string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), string(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
-		logger.Tracef("checking cert, base64, rawIssuer: %v, rawSubject: %v", base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawIssuer), base64.StdEncoding.EncodeToString(verifiedChains[i][numberOfNoneRootCerts].RawSubject))
-		if !verifiedChains[i][numberOfNoneRootCerts].IsCA || string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer) != string(verifiedChains[i][numberOfNoneRootCerts].RawSubject) {
-			// Check if the last Non Root Cert is also a CA or is self signed.
-			// if the last certificate is not, add it to the list
-			rca := caRoot[string(verifiedChains[i][numberOfNoneRootCerts].RawIssuer)]
-			if rca == nil {
-				return fmt.Errorf("failed to find root CA. pkix.name: %v", verifiedChains[i][numberOfNoneRootCerts].Issuer)
-			}
-			verifiedChains[i] = append(verifiedChains[i], rca)
-			numberOfNoneRootCerts++
-		}
-		results := getAllRevocationStatus(ctx, verifiedChains[i])
-		if r := canEarlyExitForOCSP(results, numberOfNoneRootCerts); r != nil {
+	for _, chain := range verifiedChains {
+		results := getAllRevocationStatus(ctx, chain)
+		if r := canEarlyExitForOCSP(results, chain); r != nil {
 			return r.err
 		}
 	}
@@ -710,7 +668,7 @@ func verifyPeerCertificate(ctx context.Context, verifiedChains [][]*x509.Certifi
 	return nil
 }
 
-func canEarlyExitForOCSP(results []*ocspStatus, chainSize int) *ocspStatus {
+func canEarlyExitForOCSP(results []*ocspStatus, verifiedChain []*x509.Certificate) *ocspStatus {
 	msg := ""
 	if atomic.LoadUint32((*uint32)(&ocspFailOpen)) == (uint32)(OCSPFailOpenFalse) {
 		// Fail closed. any error is returned to stop connection
@@ -721,7 +679,7 @@ func canEarlyExitForOCSP(results []*ocspStatus, chainSize int) *ocspStatus {
 		}
 	} else {
 		// Fail open and all results are valid.
-		allValid := len(results) == chainSize
+		allValid := len(results) == len(verifiedChain)-1 // root certificate is not checked
 		for _, r := range results {
 			if !isValidOCSPStatus(r.code) {
 				allValid = false
@@ -790,15 +748,7 @@ func downloadOCSPCacheServer() {
 		return
 	}
 	logger.Infof("downloading OCSP Cache from server %v", ocspCacheServerURL)
-	timeoutStr := os.Getenv(ocspTestResponseCacheServerTimeoutEnv)
 	timeout := OcspCacheServerTimeout
-	if timeoutStr != "" {
-		var timeoutInMilliseconds int
-		timeoutInMilliseconds, err = strconv.Atoi(timeoutStr)
-		if err == nil {
-			timeout = time.Duration(timeoutInMilliseconds) * time.Millisecond
-		}
-	}
 	ocspClient := &http.Client{
 		Timeout:   timeout,
 		Transport: snowflakeNoRevocationCheckTransport,
@@ -1035,29 +985,6 @@ func writeOCSPCacheFile() {
 	}
 }
 
-// readCACerts read a set of root CAs
-func readCACerts() {
-	raw := []byte(caRootPEM)
-	certPool = x509.NewCertPool()
-	caRoot = make(map[string]*x509.Certificate)
-	var p *pem.Block
-	for {
-		p, raw = pem.Decode(raw)
-		if p == nil {
-			break
-		}
-		if p.Type != "CERTIFICATE" {
-			continue
-		}
-		c, err := x509.ParseCertificate(p.Bytes)
-		if err != nil {
-			panic("failed to parse CA certificate.")
-		}
-		certPool.AddCert(c)
-		caRoot[string(c.RawSubject)] = c
-	}
-}
-
 // createOCSPCacheDir creates OCSP response cache directory and set the cache file name.
 func createOCSPCacheDir() {
 	if strings.EqualFold(os.Getenv(cacheServerEnabledEnv), "false") {
@@ -1123,7 +1050,6 @@ func clearOCSPCaches() {
 }
 
 func initOcspModule() {
-	readCACerts()
 	createOCSPCacheDir()
 	initOCSPCache()
 	ocspModuleInitialized = true

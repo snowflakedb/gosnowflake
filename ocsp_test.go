@@ -270,7 +270,10 @@ func TestOcspCacheClearer(t *testing.T) {
 }
 
 func TestUnitValidateOCSP(t *testing.T) {
-	ocspRes := &ocsp.Response{}
+	ocspRes := &ocsp.Response{
+		ThisUpdate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		NextUpdate: time.Date(2020, 1, 5, 0, 0, 0, 0, time.UTC),
+	}
 	ost := validateOCSP(ocspRes)
 	if ost.code != ocspInvalidValidity {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspInvalidValidity, ost.code)
@@ -528,12 +531,14 @@ func TestCanEarlyExitForOCSP(t *testing.T) {
 			if tt.resultLen > 0 {
 				expectedLen = tt.resultLen
 			}
-			r := canEarlyExitForOCSP(tt.results, expectedLen)
+			expectedLen++ // add one because normally there is a root certificate that is not included in the results.
+			mockVerifiedChain := make([]*x509.Certificate, expectedLen)
+			r := canEarlyExitForOCSP(tt.results, mockVerifiedChain)
 			if !(tt.retFailOpen == nil && r == nil) && !(tt.retFailOpen != nil && r != nil && tt.retFailOpen.code == r.code) {
 				t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailOpen, r)
 			}
 			ocspFailOpen = OCSPFailOpenFalse
-			r = canEarlyExitForOCSP(tt.results, expectedLen)
+			r = canEarlyExitForOCSP(tt.results, mockVerifiedChain)
 			if !(tt.retFailClosed == nil && r == nil) && !(tt.retFailClosed != nil && r != nil && tt.retFailClosed.code == r.code) {
 				t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailClosed, r)
 			}

@@ -1,0 +1,13 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "url": "/hang"
+      },
+      "response": {
+        "status": 200,
+        "fixedDelayMilliseconds": 2000
+      }
+    }
+  ]
+}
