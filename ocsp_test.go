@@ -531,6 +531,7 @@ func TestCanEarlyExitForOCSP(t *testing.T) {
 			if tt.resultLen > 0 {
 				expectedLen = tt.resultLen
 			}
+			expectedLen++ // add one because normally there is a root certificate that is not included in the results.
 			mockVerifiedChain := make([]*x509.Certificate, expectedLen)
 			r := canEarlyExitForOCSP(tt.results, mockVerifiedChain)
 			if !(tt.retFailOpen == nil && r == nil) && !(tt.retFailOpen != nil && r != nil && tt.retFailOpen.code == r.code) {
