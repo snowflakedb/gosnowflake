@@ -115,7 +115,6 @@ func (tf *transportFactory) createOCSPTransport() *http.Transport {
 		tlsConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(tlsConfig.VerifyPeerCertificate, verifyPeerCertificateSerial)
 	} else {
 		tlsConfig = &tls.Config{
-			RootCAs:               certPool,
 			VerifyPeerCertificate: verifyPeerCertificateSerial,
 		}
 	}
