@@ -9,17 +9,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"strings"
 	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/http/httpproxy"
-)
-
-const (
-	httpProxyPrefix = "http"
-	noProxyPrefix   = "no"
 )
 
 // transportConfig holds the configuration for creating HTTP transports
@@ -221,18 +214,4 @@ func (tf *transportFactory) chainVerificationCallbacks(orignalVerificationFunc f
 		return verificationFunc(rawCerts, verifiedChains)
 	}
 	return newVerify
-}
-
-func getEnvProxy(prefix string) string {
-	envKeys := []string{
-		strings.ToLower(prefix) + "_proxy",
-		strings.ToUpper(prefix) + "_PROXY",
-	}
-
-	for _, key := range envKeys {
-		if val := os.Getenv(key); val != "" {
-			return val
-		}
-	}
-	return ""
 }
