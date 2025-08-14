@@ -268,12 +268,18 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 	}()
 
 	runDBTest(t, func(dbt *DBTest) {
+		logger.SetLogLevel("debug")
+		defer func() {
+			logger.SetLogLevel("error")
+		}()
+		logger.SetOutput(os.Stdout)
 		stageDir := "test_put_uncompress_file_" + randomString(10)
 		dbt.mustExec("rm @~/" + stageDir)
 
 		// PUT test
 		sqlText := fmt.Sprintf("put 'file://%v' @~/%v auto_compress=FALSE", testData, stageDir)
 		sqlText = strings.ReplaceAll(sqlText, "\\", "\\\\")
+		println("put sql: ", sqlText)
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/" + stageDir)
 		rows := dbt.mustQuery("ls @~/" + stageDir)
@@ -281,10 +287,9 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 			assertNilF(t, rows.Close())
 		}()
 		var file, s1, s2, s3 string
-		if rows.Next() {
-			err = rows.Scan(&file, &s1, &s2, &s3)
-			assertNilE(t, err)
-		}
+		rows.mustNext()
+		rows.mustScan(&file, &s1, &s2, &s3)
+		fmt.Printf("file: %v, size: %v, status: %v, md5: %v\n", file, s1, s2, s3)
 		assertTrueF(t, strings.Contains(file, stageDir+"/data.txt"), fmt.Sprintf("should contain file. got: %v", file))
 		assertFalseF(t, strings.Contains(file, "data.txt.gz"), fmt.Sprintf("should not contain file. got: %v", file))
 
@@ -294,35 +299,23 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 		ctx = WithFileGetStream(ctx, &streamBuf)
 		sql := fmt.Sprintf("get @~/%v/data.txt 'file://%v'", stageDir, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		println("get sql: ", sqlText)
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
 		defer func() {
 			assertNilF(t, rows2.Close())
 		}()
-		for rows2.Next() {
-			err = rows2.Scan(&file, &s1, &s2, &s3)
-			assertNilE(t, err)
-			assertTrueE(t, strings.HasPrefix(file, "data.txt"), "a file was not downloaded by GET")
-			v, err := strconv.Atoi(s1)
-			assertNilE(t, err)
-			assertEqualE(t, v, 23, "did not return the right file size")
-			assertEqualE(t, s2, "DOWNLOADED", "did not return DOWNLOADED status")
-			assertEqualE(t, s3, "")
-		}
-		var contents string
+		rows2.mustNext()
+		rows2.mustScan(&file, &s1, &s2, &s3)
+		assertTrueE(t, strings.HasPrefix(file, "data.txt"), "a file was not downloaded by GET")
+		v, err := strconv.Atoi(s1)
+		assertNilE(t, err)
+		assertEqualE(t, v, 23)
+		assertEqualE(t, s2, "DOWNLOADED")
+		assertEqualE(t, s3, "")
 		r := bytes.NewReader(streamBuf.Bytes())
-		for {
-			c := make([]byte, defaultChunkBufferSize)
-			if n, err := r.Read(c); err != nil {
-				if err == io.EOF {
-					contents = contents + string(c[:n])
-					break
-				}
-				t.Error(err)
-			} else {
-				contents = contents + string(c[:n])
-			}
-		}
-		assertEqualE(t, contents, originalContents)
+		contents, err := io.ReadAll(r)
+		assertNilE(t, err)
+		assertEqualE(t, string(contents), originalContents)
 	})
 }
 
@@ -444,6 +437,11 @@ func testPutGet(t *testing.T, isStream bool) {
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
+		logger.SetLogLevel("debug")
+		defer func() {
+			logger.SetLogLevel("error")
+		}()
+		logger.SetOutput(os.Stdout)
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
 		defer dbt.mustExec("drop table " + tableName)
@@ -599,6 +597,10 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 
 	dsn = dsn + "&GCS_USE_DOWNSCOPED_CREDENTIAL=true"
 	runDBTest(t, func(dbt *DBTest) {
+		logger.SetLogLevel("debug")
+		defer func() {
+			logger.SetLogLevel("error")
+		}()
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
 		fileStream, err := os.Open(fname)
@@ -704,6 +706,11 @@ func TestPutGetLargeFile(t *testing.T) {
 	assertNilF(t, err)
 
 	runDBTest(t, func(dbt *DBTest) {
+		logger.SetLogLevel("debug")
+		defer func() {
+			logger.SetLogLevel("error")
+		}()
+		logger.SetOutput(os.Stdout)
 		stageDir := "test_put_largefile_" + randomString(10)
 		dbt.mustExec("rm @~/" + stageDir)
 
@@ -898,6 +905,10 @@ func TestPutCancel(t *testing.T) {
 	stageDir := "test_put_cancel_" + randomString(10)
 
 	runDBTest(t, func(dbt *DBTest) {
+		logger.SetLogLevel("debug")
+		defer func() {
+			logger.SetLogLevel("error")
+		}()
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
@@ -949,6 +960,10 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
+		logger.SetLogLevel("debug")
+		defer func() {
+			logger.SetLogLevel("error")
+		}()
 		stageDir := "test_put_largefile_" + randomString(10)
 		dbt.mustExec("rm @~/" + stageDir)
 

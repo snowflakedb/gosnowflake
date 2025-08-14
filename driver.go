@@ -112,7 +112,7 @@ func init() {
 	}
 	_ = logger.SetLogLevel("error")
 	if runningOnGithubAction() {
-		_ = logger.SetLogLevel("fatal")
+		_ = logger.SetLogLevel("error")
 	}
 	paramsMutex = &sync.Mutex{}
 }
