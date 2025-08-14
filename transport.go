@@ -71,27 +71,18 @@ func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) 
 		return http.ProxyFromEnvironment
 	}
 
-	httpsProxy := &url.URL{
+	connectionProxy := &url.URL{
 		Scheme: tf.config.ProxyProtocol,
 		Host:   fmt.Sprintf("%s:%d", tf.config.ProxyHost, tf.config.ProxyPort),
 	}
 	if tf.config.ProxyUser != "" && tf.config.ProxyPassword != "" {
-		httpsProxy.User = url.UserPassword(tf.config.ProxyUser, tf.config.ProxyPassword)
-	}
-
-	var httpProxy, noProxy string
-	// if tf.config.UseConnectionConfigProxyForHTTP == ConfigBoolTrue {
-	// 	httpProxy = httpsProxy.String()
-	// }
-
-	if tf.config.NoProxy != "" {
-		noProxy = tf.config.NoProxy
+		connectionProxy.User = url.UserPassword(tf.config.ProxyUser, tf.config.ProxyPassword)
 	}
 
 	cfg := httpproxy.Config{
-		HTTPSProxy: httpsProxy.String(),
-		HTTPProxy:  httpProxy,
-		NoProxy:    noProxy,
+		HTTPSProxy: connectionProxy.String(),
+		HTTPProxy:  connectionProxy.String(),
+		NoProxy:    tf.config.NoProxy,
 	}
 	proxyURLFunc := cfg.ProxyFunc()
 

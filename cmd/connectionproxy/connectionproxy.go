@@ -26,23 +26,16 @@ func main() {
 		log.Fatalf("failed to create Config, err: %v", err)
 	}
 	cfg.ProxyHost = "<Proxy Host>"
-	cfg.ProxyPort = 1234 // Replace with your proxy port
+	cfg.ProxyPort = 1234       // Replace with your proxy port
 	cfg.ProxyProtocol = "http" // or "https". Default value is "http"
 
 	//If you need to use a proxy with authentication, set the following:
 	cfg.ProxyUser = "<Proxy User>"
 	cfg.ProxyPassword = "<Proxy Password>"
 
-	cfg.UseConnectionConfigProxyForHTTP = sf.ConfigBoolFalse // Use the proxy configured in the connection parameter for HTTP requests. Default is false.
-
-	// Disable the use of environment variables for proxy configuration (). Default is false.
-	// Example: If the connection parameter specifies a proxy but does not configure "no proxy",
-	// and this option is false, the "no proxy" value from the environment variable is used.
-	cfg.DisableEnvProxy = sf.ConfigBoolFalse 
-
 	dsn, err := sf.DSN(cfg)
 	if err != nil {
-		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
+		log.Fatalf("failed to create DSN from Config, err: %v", err)
 	}
 
 	db, err := sql.Open("snowflake", dsn)

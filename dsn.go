@@ -144,8 +144,6 @@ type Config struct {
 	ProxyPassword string // Proxy password
 	ProxyProtocol string // Proxy protocol (http or https)
 	NoProxy       string // No proxy for this host list
-	// UseConnectionConfigProxyForHTTP ConfigBool // Use the proxy settings defined in the connection config for OCSP requests
-	// DisableEnvProxy                 ConfigBool // Disable the use of environment variables for proxy settings
 }
 
 // Validate enables testing if config is correct.
@@ -371,12 +369,6 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.TLSConfigName != "" {
 		params.Add("tlsConfigName", cfg.TLSConfigName)
 	}
-	// if cfg.UseConnectionConfigProxyForHTTP != configBoolNotSet {
-	// 	params.Add("useConnectionConfigProxyForHTTP", strconv.FormatBool(cfg.UseConnectionConfigProxyForHTTP != ConfigBoolFalse))
-	// }
-	// if cfg.DisableEnvProxy != configBoolNotSet {
-	// 	params.Add("disableEnvProxy", strconv.FormatBool(cfg.DisableEnvProxy != ConfigBoolFalse))
-	// }
 	if cfg.ProxyHost != "" {
 		params.Add("proxyHost", cfg.ProxyHost)
 	}
@@ -648,14 +640,6 @@ func fillMissingConfigParameters(cfg *Config) error {
 		if cfg.ProxyProtocol == "" {
 			cfg.ProxyProtocol = "http" // Default to http if not specified
 		}
-
-		// if cfg.DisableEnvProxy == configBoolNotSet {
-		// 	cfg.DisableEnvProxy = ConfigBoolFalse // Default to false if not specified
-		// }
-
-		// if cfg.UseConnectionConfigProxyForHTTP == configBoolNotSet {
-		// 	cfg.UseConnectionConfigProxyForHTTP = ConfigBoolFalse // Default to false if not
-		// }
 	}
 
 	domain, _ := extractDomainFromHost(cfg.Host)
@@ -1114,10 +1098,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.NoProxy, err = parseString(value)
 		case "proxyProtocol":
 			cfg.ProxyProtocol, err = parseString(value)
-		// case "useConnectionConfigProxyForHttp":
-		// 	cfg.UseConnectionConfigProxyForHTTP, err = parseConfigBool(value)
-		// case "disableEnvProxy":
-		// 	cfg.DisableEnvProxy, err = parseConfigBool(value)
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
