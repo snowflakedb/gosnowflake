@@ -19,7 +19,7 @@ import (
 
 const (
 	httpProxyPrefix = "http"
-	noProxyPrefix = "no"
+	noProxyPrefix   = "no"
 )
 
 // transportConfig holds the configuration for creating HTTP transports
@@ -67,40 +67,36 @@ func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) 
 		return http.ProxyFromEnvironment
 	}
 
-	if tf.config.ProxyHost == "" && tf.config.DisableEnvProxy != ConfigBoolTrue {
+	if tf.config.ProxyHost == "" {
 		return http.ProxyFromEnvironment
 	}
 
 	httpsProxy := &url.URL{
 		Scheme: tf.config.ProxyProtocol,
-		Host: fmt.Sprintf("%s:%d", tf.config.ProxyHost, tf.config.ProxyPort),
+		Host:   fmt.Sprintf("%s:%d", tf.config.ProxyHost, tf.config.ProxyPort),
 	}
 	if tf.config.ProxyUser != "" && tf.config.ProxyPassword != "" {
-	    httpsProxy.User = url.UserPassword(tf.config.ProxyUser, tf.config.ProxyPassword)
+		httpsProxy.User = url.UserPassword(tf.config.ProxyUser, tf.config.ProxyPassword)
 	}
 
 	var httpProxy, noProxy string
-	if tf.config.UseConnectionConfigProxyForHTTP == ConfigBoolTrue {
-		httpProxy = httpsProxy.String()
-	} else if tf.config.DisableEnvProxy == ConfigBoolFalse {
-		httpProxy = getEnvProxy(httpProxyPrefix)
-	}
+	// if tf.config.UseConnectionConfigProxyForHTTP == ConfigBoolTrue {
+	// 	httpProxy = httpsProxy.String()
+	// }
 
 	if tf.config.NoProxy != "" {
 		noProxy = tf.config.NoProxy
-	} else if tf.config.DisableEnvProxy == ConfigBoolFalse {
-		noProxy = getEnvProxy(noProxyPrefix)
 	}
-	
-	cfg := httpproxy.Config{
-        HTTPSProxy:  httpsProxy.String(),
-        HTTPProxy: httpProxy,
-        NoProxy: noProxy,
-	}
-	 proxyURLFunc := cfg.ProxyFunc() 
 
-    return func(req *http.Request) (*url.URL, error) {
-        return proxyURLFunc(req.URL)
+	cfg := httpproxy.Config{
+		HTTPSProxy: httpsProxy.String(),
+		HTTPProxy:  httpProxy,
+		NoProxy:    noProxy,
+	}
+	proxyURLFunc := cfg.ProxyFunc()
+
+	return func(req *http.Request) (*url.URL, error) {
+		return proxyURLFunc(req.URL)
 	}
 }
 
@@ -239,14 +235,14 @@ func (tf *transportFactory) chainVerificationCallbacks(orignalVerificationFunc f
 
 func getEnvProxy(prefix string) string {
 	envKeys := []string{
-        strings.ToLower(prefix) + "_proxy",
-        strings.ToUpper(prefix) + "_PROXY",
-    }
+		strings.ToLower(prefix) + "_proxy",
+		strings.ToUpper(prefix) + "_PROXY",
+	}
 
-    for _, key := range envKeys {
-        if val := os.Getenv(key); val != "" {
-            return val
-        }
-    }
-    return ""
+	for _, key := range envKeys {
+		if val := os.Getenv(key); val != "" {
+			return val
+		}
+	}
+	return ""
 }
