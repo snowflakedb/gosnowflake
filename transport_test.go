@@ -174,9 +174,8 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 }
 
 type proxyTest struct {
-	config        *Config
-	httpsProxyUrl string
-	httpProxyUrl  string
+	config   *Config
+	proxyURL string
 }
 
 func TestProxyTransportCreation(t *testing.T) {
@@ -188,7 +187,7 @@ func TestProxyTransportCreation(t *testing.T) {
 				ProxyHost:     "proxy.connection.com",
 				ProxyPort:     1234,
 			},
-			httpsProxyUrl: "http://proxy.connection.com:1234",
+			proxyURL: "http://proxy.connection.com:1234",
 		},
 		{
 			config: &Config{
@@ -196,7 +195,7 @@ func TestProxyTransportCreation(t *testing.T) {
 				ProxyHost:     "proxy.connection.com",
 				ProxyPort:     1234,
 			},
-			httpsProxyUrl: "http://proxy.connection.com:1234",
+			proxyURL: "http://proxy.connection.com:1234",
 		},
 
 		{
@@ -205,7 +204,7 @@ func TestProxyTransportCreation(t *testing.T) {
 				ProxyHost:     "proxy.connection.com",
 				ProxyPort:     1234,
 			},
-			httpsProxyUrl: "https://proxy.connection.com:1234",
+			proxyURL: "https://proxy.connection.com:1234",
 		},
 		{
 			config: &Config{
@@ -214,7 +213,7 @@ func TestProxyTransportCreation(t *testing.T) {
 				ProxyPort:     1234,
 				NoProxy:       "*.snowflakecomputing.com",
 			},
-			httpsProxyUrl: "",
+			proxyURL: "",
 		},
 	}
 
@@ -226,10 +225,10 @@ func TestProxyTransportCreation(t *testing.T) {
 		req, _ := http.NewRequest("GET", "https://testing.snowflakecomputing.com", nil)
 		proxyURL, _ := proxyFunc(req)
 
-		if test.httpsProxyUrl == "" {
+		if test.proxyURL == "" {
 			assertNilF(t, proxyURL, "Expected nil proxy for https request")
 		} else {
-			assertEqualF(t, proxyURL.String(), test.httpsProxyUrl)
+			assertEqualF(t, proxyURL.String(), test.proxyURL)
 		}
 	}
 }
