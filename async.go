@@ -40,7 +40,7 @@ func (sr *snowflakeRestful) processAsync(
 		func() {
 			err := sr.getAsync(ctx, headers, sr.getFullURL(respd.Data.GetResultURL, nil), timeout, res, rows, cfg)
 			if err != nil {
-				logger.Errorf("error while calling getAsync. %v", err)
+				logger.WithContext(ctx).Errorf("error while calling getAsync. %v", err)
 			}
 		},
 	)
