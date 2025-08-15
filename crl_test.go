@@ -886,6 +886,7 @@ func closeServer(t *testing.T, server *http.Server) {
 }
 
 func TestCrlE2E(t *testing.T) {
+	printMemStats()
 	crlCacheCleaner.stopPeriodicCacheCleanup()
 	t.Run("Successful flow", func(t *testing.T) {
 		_ = logger.SetLogLevel("debug")
@@ -912,6 +913,7 @@ func TestCrlE2E(t *testing.T) {
 			CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
 			DisableOCSPChecks:                 true,
 		}
+		printMemStats()
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
