@@ -2000,8 +2000,8 @@ func TestOpenWithConfigCancel(t *testing.T) {
 	t.Run("canceled during request:telemetry/send", func(t *testing.T) {
 		blockingRoundTripper.reset()
 		countingRoundTripper.reset()
-		blockingRoundTripper.setPathBlockTime("/telemetry/send", 50*time.Millisecond)
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		blockingRoundTripper.setPathBlockTime("/telemetry/send", 400*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 		_, err := driver.OpenWithConfig(ctx, *config)
 		assertErrIsE(t, err, context.DeadlineExceeded)
