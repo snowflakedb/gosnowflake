@@ -17,7 +17,7 @@ func main() {
 	}
 
 	// os.Setenv("SNOWFLAKE_HOME", "<The directory path where the toml file exists>")
-	// os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "<DSN Name>")
+	// os.Setenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME", "<DSN Name>")sdfdsfsdf
 
 	db, err := sql.Open("snowflake", "autoConfig")
 	if err != nil {
