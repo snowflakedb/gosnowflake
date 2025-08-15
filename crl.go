@@ -55,10 +55,12 @@ var (
 	crlInMemoryCache        = make(map[string]*crlInMemoryCacheValueType)
 	crlInMemoryCacheMutex   = &sync.Mutex{}
 	crlURLMutexes           = make(map[string]*sync.Mutex)
-	crlCacheCleaner         = newCrlCacheCleaner()
+	crlCacheCleanerMu       = &sync.Mutex{}
+	crlCacheCleaner         *crlCacheCleanerType
 )
 
 func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, inMemoryCacheDisabled, onDiskCacheDisabled bool, httpClient *http.Client, telemetry *snowflakeTelemetry) (*crlValidator, error) {
+	initCrlCacheCleaner()
 	var err error
 	cv := &crlValidator{
 		certRevocationCheckMode:        certRevocationCheckMode,
@@ -74,7 +76,12 @@ func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCerti
 	return cv, nil
 }
 
-func newCrlCacheCleaner() *crlCacheCleanerType {
+func initCrlCacheCleaner() {
+	crlCacheCleanerMu.Lock()
+	defer crlCacheCleanerMu.Unlock()
+	if crlCacheCleaner != nil {
+		return
+	}
 	var err error
 	validityTime := defaultCrlCacheValidityTime
 	if validityTimeStr := os.Getenv("SNOWFLAKE_CRL_CACHE_VALIDITY_TIME"); validityTimeStr != "" {
@@ -100,7 +107,7 @@ func newCrlCacheCleaner() *crlCacheCleanerType {
 		}
 	}
 
-	return &crlCacheCleanerType{
+	crlCacheCleaner = &crlCacheCleanerType{
 		cacheValidityTime:       validityTime,
 		onDiskCacheRemovalDelay: onDiskCacheRemovalDelay,
 		onDiskCacheDir:          onDiskCacheDir,
@@ -612,7 +619,7 @@ func defaultCrlOnDiskCacheDir() (string, error) {
 	default:
 		home := os.Getenv("HOME")
 		if home == "" {
-			logger.Info("HOME is blank")
+			return "", errors.New("HOME is blank")
 		}
 		return filepath.Join(home, ".cache", "snowflake", "crls"), nil
 	}
