@@ -154,20 +154,20 @@ func TestMultipleTLSConfigs(t *testing.T) {
 }
 
 func TestShouldSetUpTlsConfig(t *testing.T) {
-	tlsConfig := wiremockHTTPS.tlsConfig()
+	tlsConfig := wiremockHTTPS.tlsConfig(t)
 	err := RegisterTLSConfig("wiremock", tlsConfig)
 	assertNilF(t, err)
 	wiremockHTTPS.registerMappings(t, newWiremockMapping("auth/password/successful_flow.json"))
 
 	for _, dbFunc := range []func() *sql.DB{
 		func() *sql.DB {
-			cfg := wiremockHTTPS.connectionConfig()
+			cfg := wiremockHTTPS.connectionConfig(t)
 			cfg.TLSConfigName = "wiremock"
 			cfg.Transporter = nil
 			return sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		},
 		func() *sql.DB {
-			cfg := wiremockHTTPS.connectionConfig()
+			cfg := wiremockHTTPS.connectionConfig(t)
 			cfg.TLSConfigName = "wiremock"
 			cfg.Transporter = nil
 			dsn, err := DSN(cfg)

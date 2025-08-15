@@ -137,7 +137,7 @@ func (cd *connectivityDiagnoser) resolveHostname(hostname string) {
 	}
 	for _, ip := range ips {
 		logger.Infof("[resolveHostname] resolved hostname %s to %s", hostname, ip.String())
-		if isPrivateLink(hostname) && !ip.IsPrivate() {
+		if checkIsPrivateLink(hostname) && !ip.IsPrivate() {
 			logger.Errorf("[resolveHostname] this hostname %s should resolve to a private IP, but %s is public IP. Please, check your DNS configuration.", hostname, ip.String())
 		}
 	}
