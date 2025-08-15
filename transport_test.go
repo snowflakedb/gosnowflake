@@ -173,14 +173,11 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 	assertNotNilF(t, transport, "Expected non-nil transport")
 }
 
-type proxyTest struct {
-	config   *Config
-	proxyURL string
-}
-
 func TestProxyTransportCreation(t *testing.T) {
-
-	proxyTests := []proxyTest{
+	proxyTests := []struct {
+		config   *Config
+		proxyURL string
+	}{
 		{
 			config: &Config{
 				ProxyProtocol: "http",
@@ -211,7 +208,7 @@ func TestProxyTransportCreation(t *testing.T) {
 				ProxyProtocol: "http",
 				ProxyHost:     "proxy.connection.com",
 				ProxyPort:     1234,
-				NoProxy:       "*.snowflakecomputing.com",
+				NoProxy:       "*.snowflakecomputing.com,ocsp.testing.com",
 			},
 			proxyURL: "",
 		},
@@ -224,6 +221,15 @@ func TestProxyTransportCreation(t *testing.T) {
 
 		req, _ := http.NewRequest("GET", "https://testing.snowflakecomputing.com", nil)
 		proxyURL, _ := proxyFunc(req)
+
+		if test.proxyURL == "" {
+			assertNilF(t, proxyURL, "Expected nil proxy for https request")
+		} else {
+			assertEqualF(t, proxyURL.String(), test.proxyURL)
+		}
+
+		req, _ = http.NewRequest("GET", "http://ocsp.testing.com", nil)
+		proxyURL, _ = proxyFunc(req)
 
 		if test.proxyURL == "" {
 			assertNilF(t, proxyURL, "Expected nil proxy for https request")

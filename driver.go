@@ -34,14 +34,7 @@ func (d SnowflakeDriver) Open(dsn string) (driver.Conn, error) {
 
 // OpenConnector creates a new connector with parsed DSN.
 func (d SnowflakeDriver) OpenConnector(dsn string) (driver.Connector, error) {
-		var cfg *Config
-	var err error
-	if dsn == "autoConfig" {
-		cfg, err = loadConnectionConfig()	
-	}else {
-	cfg, err = ParseDSN(dsn)
-
-	}
+	cfg, err := ParseDSN(dsn)
 	if err != nil {
 		return Connector{}, err
 	}

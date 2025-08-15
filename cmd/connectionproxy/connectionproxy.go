@@ -32,6 +32,7 @@ func main() {
 	//If you need to use a proxy with authentication, set the following:
 	cfg.ProxyUser = "<Proxy User>"
 	cfg.ProxyPassword = "<Proxy Password>"
+	cfg.NoProxy = "<No Proxy>"
 
 	dsn, err := sf.DSN(cfg)
 	if err != nil {
@@ -44,21 +45,23 @@ func main() {
 	}
 	defer db.Close()
 	query := "SELECT 1"
-	rows, err := db.Query(query) // no cancel is allowed
+	rows, err := db.Query(query)
 	if err != nil {
 		log.Fatalf("failed to run a query. %v, err: %v", query, err)
 	}
 	defer rows.Close()
 	var v int
-	for rows.Next() {
-		err := rows.Scan(&v)
-		if err != nil {
-			log.Fatalf("failed to get result. err: %v", err)
-		}
-		if v != 1 {
-			log.Fatalf("failed to get 1. got: %v", v)
-		}
+	if !rows.Next() {
+		log.Fatalf("no rows returned")
 	}
+	err = rows.Scan(&v)
+	if err != nil {
+		log.Fatalf("failed to get result. err: %v", err)
+	}
+	if v != 1 {
+		log.Fatalf("failed to get 1. got: %v", v)
+	}
+
 	if rows.Err() != nil {
 		fmt.Printf("ERROR: %v\n", rows.Err())
 		return

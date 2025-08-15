@@ -56,11 +56,9 @@ func newTransportFactory(config *Config, telemetry *snowflakeTelemetry) *transpo
 }
 
 func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) {
-	if tf.config == nil {
-		return http.ProxyFromEnvironment
-	}
-
-	if tf.config.ProxyHost == "" {
+	logger.Info("Initializing proxy configuration")
+	if tf.config == nil || tf.config.ProxyHost == "" {
+		logger.Info("Config is empty or ProxyHost is not set. Using proxy settings from environment variables.")
 		return http.ProxyFromEnvironment
 	}
 
@@ -70,6 +68,9 @@ func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) 
 	}
 	if tf.config.ProxyUser != "" && tf.config.ProxyPassword != "" {
 		connectionProxy.User = url.UserPassword(tf.config.ProxyUser, tf.config.ProxyPassword)
+		logger.Infof("Connection Proxy is configured: Connection proxy %s:****@%s NoProxy:", tf.config.ProxyUser, connectionProxy.String(), tf.config.NoProxy)
+	} else {
+		logger.Infof("Connection Proxy is configured: Connection proxy: %s NoProxy:", connectionProxy.String(), tf.config.NoProxy)
 	}
 
 	cfg := httpproxy.Config{
