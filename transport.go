@@ -13,10 +13,11 @@ import (
 
 // transportConfig holds the configuration for creating HTTP transports
 type transportConfig struct {
-	MaxIdleConns    int
-	IdleConnTimeout time.Duration
-	DialTimeout     time.Duration
-	KeepAlive       time.Duration
+	MaxIdleConns      int
+	IdleConnTimeout   time.Duration
+	DialTimeout       time.Duration
+	KeepAlive         time.Duration
+	DisableKeepAlives bool // Disable keep-alives if set to true
 }
 
 // defaultTransportConfig returns the standard transport configuration
@@ -37,6 +38,16 @@ func crlTransportConfig() *transportConfig {
 		IdleConnTimeout: 5 * time.Minute,
 		DialTimeout:     5 * time.Second,
 		KeepAlive:       0, // No keep-alive for CRL operations
+	}
+}
+
+func gcsTransportConfig() *transportConfig {
+	// GCS transport configuration uses a more conservative timeout
+	return &transportConfig{
+		MaxIdleConns:      5,
+		IdleConnTimeout:   5 * time.Minute,
+		DialTimeout:       10 * time.Second,
+		DisableKeepAlives: true,
 	}
 }
 
@@ -104,6 +115,17 @@ func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 		client,
 		tf.telemetry,
 	)
+}
+
+func (tf *transportFactory) createGCSTransport() (http.RoundTripper, error) {
+	transport, err := tf.createTransport()
+	if err != nil {
+		return nil, err
+	}
+	if httpTransport, ok := transport.(*http.Transport); ok {
+		httpTransport.DisableKeepAlives = true
+	}
+	return transport, nil
 }
 
 // createTransport is the main entry point for creating transports

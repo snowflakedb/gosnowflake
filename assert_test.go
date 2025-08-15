@@ -88,12 +88,20 @@ func assertStringContainsF(t *testing.T, actual string, expectedToContain string
 	fatalOnNonEmpty(t, validateStringContains(actual, expectedToContain, descriptions...))
 }
 
+func assertStringDoesNotContainF(t *testing.T, actual string, expectedToContain string, descriptions ...string) {
+	fatalOnNonEmpty(t, validateStringDoesNotContain(actual, expectedToContain, descriptions...))
+}
+
 func assertEmptyStringE(t *testing.T, actual string, descriptions ...string) {
 	errorOnNonEmpty(t, validateEmptyString(actual, descriptions...))
 }
 
 func assertHasPrefixE(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
 	errorOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
+}
+
+func assertHasPrefixF(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
+	fatalOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
 }
 
 func assertBetweenE(t *testing.T, value float64, min float64, max float64, descriptions ...string) {
@@ -198,6 +206,14 @@ func validateBytesEqual(actual []byte, expected []byte, descriptions ...string) 
 
 func validateStringContains(actual string, expectedToContain string, descriptions ...string) string {
 	if strings.Contains(actual, expectedToContain) {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	return fmt.Sprintf("expected \"%s\" to contain \"%s\" but did not. %s", actual, expectedToContain, desc)
+}
+
+func validateStringDoesNotContain(actual string, expectedToContain string, descriptions ...string) string {
+	if !strings.Contains(actual, expectedToContain) {
 		return ""
 	}
 	desc := joinDescriptions(descriptions...)
