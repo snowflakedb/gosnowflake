@@ -47,7 +47,8 @@ jobs:
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
                 go: [ '1.22', '1.23', '1.24' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
+                tests: [ 'groupAH', 'groupIP', 'groupQZ' ]
+        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu (${{ matrix.tests }})
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-java@v4 # for wiremock
@@ -67,6 +68,7 @@ jobs:
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
+                TEST_GROUP: ${{ matrix.tests }}
               run: ./ci/test.sh
             - name: Upload test results to Codecov
               if: ${{!cancelled()}}
@@ -84,6 +86,7 @@ jobs:
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
                 go: [ '1.22', '1.23', '1.24' ]
+                tests: [ 'groupAH', 'groupIP', 'groupQZ' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v4
@@ -103,6 +106,7 @@ jobs:
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
+                TEST_GROUP: ${{ matrix.tests }}
               run: ./ci/test.sh
             - name: Upload test results to Codecov
               if: ${{!cancelled()}}
@@ -120,6 +124,7 @@ jobs:
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
                 go: [ '1.22', '1.23', '1.24' ]
+                tests: [ 'groupAH', 'groupIP', 'groupQZ' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v4
@@ -143,6 +148,7 @@ jobs:
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
+                TEST_GROUP: ${{ matrix.tests }}
               run: ci\\test.bat
             - name: Upload test results to Codecov
               if: ${{!cancelled()}}

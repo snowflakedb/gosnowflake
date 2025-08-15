@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 #
 # Build and Test Golang driver
 #
@@ -13,6 +13,14 @@ fi
 env | grep SNOWFLAKE | grep -v PASS | grep -v SECRET | sort
 cd $TOPDIR
 go install github.com/jstemmer/go-junit-report/v2@latest
+
+if [[ "$TEST_GROUP" == "groupAH" ]]; then
+  GO_TEST_PARAMS="-run Test[A-H] $GO_TEST_PARAMS"
+elif [[ "$TEST_GROUP" == "groupIP" ]]; then
+  GO_TEST_PARAMS="-run Test[I-P] $GO_TEST_PARAMS"
+elif [[ "$TEST_GROUP" == "groupQZ" ]]; then
+  GO_TEST_PARAMS="-run Test[Q-Z] $GO_TEST_PARAMS"
+fi
 
 if [[ -n "$JENKINS_HOME" ]]; then
   export WORKSPACE=${WORKSPACE:-/mnt/workspace}
