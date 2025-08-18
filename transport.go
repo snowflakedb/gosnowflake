@@ -104,18 +104,15 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 // createOCSPTransport creates a transport with OCSP validation
 func (tf *transportFactory) createOCSPTransport() *http.Transport {
 	// Chain OCSP verification with custom TLS config
+	ov := newOcspValidator(tf.config)
 	tlsConfig := tf.config.tlsConfig
 	if tlsConfig != nil {
-		tlsConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(tlsConfig.VerifyPeerCertificate, verifyPeerCertificateSerial)
+		tlsConfig.VerifyPeerCertificate = tf.chainVerificationCallbacks(tlsConfig.VerifyPeerCertificate, ov.verifyPeerCertificateSerial)
 	} else {
 		tlsConfig = &tls.Config{
-			VerifyPeerCertificate: verifyPeerCertificateSerial,
+			VerifyPeerCertificate: ov.verifyPeerCertificateSerial,
 		}
 	}
-	// Set OCSP fail open mode
-	ocspResponseCacheLock.Lock()
-	atomic.StoreUint32((*uint32)(&ocspFailOpen), uint32(tf.config.OCSPFailOpen))
-	ocspResponseCacheLock.Unlock()
 	return tf.createBaseTransport(defaultTransportConfig(), tlsConfig)
 }
 
