@@ -803,7 +803,7 @@ func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {
 }
 
 func newGcsClient(cfg *Config, telemetry *snowflakeTelemetry) (gcsAPI, error) {
-	transport, err := newTransportFactory(cfg, telemetry).createTransport()
+	transport, err := newTransportFactory(cfg, telemetry).createTransport(cfg.transportConfigFor(transportTypeCloudProvider))
 	if err != nil {
 		return nil, err
 	}
