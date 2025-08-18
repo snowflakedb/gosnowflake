@@ -884,7 +884,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 
 	transportFactory := newTransportFactory(&config, telemetry)
-	st, err := transportFactory.createTransport()
+	st, err := transportFactory.createTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
 	if err != nil {
 		return nil, err
 	}

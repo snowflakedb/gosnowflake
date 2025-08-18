@@ -6,31 +6,6 @@ import (
 	"testing"
 )
 
-// assertTransportsEqual compares two transports, excluding function fields and other non-comparable fields
-// that may vary between instances but represent equivalent configurations
-func assertTransportsEqual(t *testing.T, expected, actual *http.Transport, msg string) {
-	if expected == nil && actual == nil {
-		return
-	}
-	assertNotNilF(t, expected, "Expected transport should not be nil in %s", msg)
-	assertNotNilF(t, actual, "Actual transport should not be nil in %s", msg)
-
-	// Compare TLS configurations
-	assertTLSConfigsEqual(t, expected.TLSClientConfig, actual.TLSClientConfig, msg+" TLS config")
-
-	// Compare other relevant transport fields (excluding function fields)
-	assertEqualF(t, expected.MaxIdleConns, actual.MaxIdleConns, "%s MaxIdleConns", msg)
-	assertEqualF(t, expected.MaxIdleConnsPerHost, actual.MaxIdleConnsPerHost, "%s MaxIdleConnsPerHost", msg)
-	assertEqualF(t, expected.MaxConnsPerHost, actual.MaxConnsPerHost, "%s MaxConnsPerHost", msg)
-	assertEqualF(t, expected.IdleConnTimeout, actual.IdleConnTimeout, "%s IdleConnTimeout", msg)
-	assertEqualF(t, expected.ResponseHeaderTimeout, actual.ResponseHeaderTimeout, "%s ResponseHeaderTimeout", msg)
-	assertEqualF(t, expected.ExpectContinueTimeout, actual.ExpectContinueTimeout, "%s ExpectContinueTimeout", msg)
-	assertEqualF(t, expected.TLSHandshakeTimeout, actual.TLSHandshakeTimeout, "%s TLSHandshakeTimeout", msg)
-	assertEqualF(t, expected.DisableKeepAlives, actual.DisableKeepAlives, "%s DisableKeepAlives", msg)
-	assertEqualF(t, expected.DisableCompression, actual.DisableCompression, "%s DisableCompression", msg)
-	assertEqualF(t, expected.ForceAttemptHTTP2, actual.ForceAttemptHTTP2, "%s ForceAttemptHTTP2", msg)
-}
-
 func TestTransportFactoryErrorHandling(t *testing.T) {
 	// Test CreateCustomTLSTransport with conflicting OCSP and CRL settings
 	conflictingConfig := &Config{
@@ -42,7 +17,7 @@ func TestTransportFactoryErrorHandling(t *testing.T) {
 
 	factory := newTransportFactory(conflictingConfig, nil)
 
-	transport, err := factory.createTransport()
+	transport, err := factory.createTransport(conflictingConfig.transportConfigFor(transportTypeSnowflake))
 	assertNotNilF(t, err, "Expected error for conflicting OCSP and CRL configuration")
 	assertNilF(t, transport, "Expected nil transport when error occurs")
 	expectedError := "both OCSP and CRL cannot be enabled at the same time, please disable one of them"
@@ -59,7 +34,7 @@ func TestCreateStandardTransportErrorHandling(t *testing.T) {
 
 	factory := newTransportFactory(conflictingConfig, nil)
 
-	transport, err := factory.createTransport()
+	transport, err := factory.createTransport(conflictingConfig.transportConfigFor(transportTypeSnowflake))
 	assertNotNilF(t, err, "Expected error for conflicting OCSP and CRL configuration")
 	assertNilF(t, transport, "Expected nil transport when error occurs")
 }
@@ -75,7 +50,7 @@ func TestCreateCustomTLSTransportSuccess(t *testing.T) {
 
 	factory := newTransportFactory(validConfig, nil)
 
-	transport, err := factory.createTransport()
+	transport, err := factory.createTransport(validConfig.transportConfigFor(transportTypeSnowflake))
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport for valid configuration")
 }
@@ -90,7 +65,7 @@ func TestCreateStandardTransportSuccess(t *testing.T) {
 
 	factory := newTransportFactory(validConfig, nil)
 
-	transport, err := factory.createTransport()
+	transport, err := factory.createTransport(validConfig.transportConfigFor(transportTypeSnowflake))
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport for valid configuration")
 }
@@ -110,7 +85,7 @@ func TestDirectTLSConfigUsage(t *testing.T) {
 	}
 
 	factory := newTransportFactory(config, nil)
-	transport, err := factory.createTransport()
+	transport, err := factory.createTransport(config.transportConfigFor(transportTypeSnowflake))
 
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport")
@@ -144,7 +119,7 @@ func TestRegisteredTLSConfigUsage(t *testing.T) {
 	config.CertRevocationCheckMode = CertRevocationCheckDisabled
 
 	factory := newTransportFactory(config, nil)
-	transport, err := factory.createTransport()
+	transport, err := factory.createTransport(config.transportConfigFor(transportTypeSnowflake))
 
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport")
@@ -167,7 +142,7 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 	}
 
 	factory := newTransportFactory(config, nil)
-	transport, err := factory.createTransport()
+	transport, err := factory.createTransport(config.transportConfigFor(transportTypeSnowflake))
 
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport")
