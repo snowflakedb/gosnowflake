@@ -320,6 +320,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.DisableOCSPChecks {
 		params.Add("disableOCSPChecks", strconv.FormatBool(cfg.DisableOCSPChecks))
 	}
+	if cfg.DisableTelemetry {
+		params.Add("disableTelemetry", strconv.FormatBool(cfg.DisableTelemetry))
+	}
 	if cfg.Tracing != "" {
 		params.Add("tracing", cfg.Tracing)
 	}
@@ -890,6 +893,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.DisableOCSPChecks = vv
+		case "disableTelemetry":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.DisableTelemetry = vv
 		case "ocspFailOpen":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
