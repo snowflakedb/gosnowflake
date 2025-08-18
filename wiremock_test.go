@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -97,12 +96,39 @@ func (wm *wiremockClient) connectionConfig() *Config {
 	return cfg
 }
 
-func (wm *wiremockClientHTTPS) connectionConfig() *Config {
+func (wm *wiremockClientHTTPS) connectionConfig(t *testing.T) *Config {
 	cfg := wm.wiremockClient.connectionConfig()
 	cfg.Transporter = &http.Transport{
-		TLSClientConfig: wm.tlsConfig(),
+		TLSClientConfig: wm.tlsConfig(t),
 	}
 	return cfg
+}
+
+func (wm *wiremockClientHTTPS) certPool(t *testing.T) *x509.CertPool {
+	testCertPool := x509.NewCertPool()
+	caBytes, err := os.ReadFile("ci/scripts/ca.der")
+	assertNilF(t, err)
+	certificate, err := x509.ParseCertificate(caBytes)
+	assertNilF(t, err)
+	testCertPool.AddCert(certificate)
+	return testCertPool
+}
+
+func (wm *wiremockClientHTTPS) ocspTransporter(t *testing.T) *http.Transport {
+	ov := newOcspValidator(wm.connectionConfig(t))
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:               wiremockHTTPS.certPool(t),
+			VerifyPeerCertificate: ov.verifyPeerCertificateSerial,
+		},
+		DisableKeepAlives: true,
+	}
+}
+
+func (wm *wiremockClientHTTPS) tlsConfig(t *testing.T) *tls.Config {
+	return &tls.Config{
+		RootCAs: wm.certPool(t),
+	}
 }
 
 type wiremockMapping struct {
@@ -156,22 +182,6 @@ func (wm *wiremockClient) baseURL() string {
 	return fmt.Sprintf("%v://%v:%v", wm.protocol, wm.host, wm.port)
 }
 
-func (wm *wiremockClientHTTPS) tlsConfig() *tls.Config {
-	testCertPool := x509.NewCertPool()
-	caBytes, err := os.ReadFile("ci/scripts/ca.der")
-	if err != nil {
-		log.Fatalf("cannot read CA cert file. %v", err)
-	}
-	certificate, err := x509.ParseCertificate(caBytes)
-	if err != nil {
-		log.Fatalf("cannot parse certifacte. %v", err)
-	}
-	testCertPool.AddCert(certificate)
-	return &tls.Config{
-		RootCAs: testCertPool,
-	}
-}
-
 func TestQueryViaHttps(t *testing.T) {
 	wiremockHTTPS.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
@@ -179,7 +189,7 @@ func TestQueryViaHttps(t *testing.T) {
 			"%AUTHORIZATION_HEADER%": "session token",
 		}},
 	)
-	cfg := wiremockHTTPS.connectionConfig()
+	cfg := wiremockHTTPS.connectionConfig(t)
 	testCertPool := x509.NewCertPool()
 	caBytes, err := os.ReadFile("ci/scripts/ca.der")
 	assertNilF(t, err)
@@ -188,8 +198,7 @@ func TestQueryViaHttps(t *testing.T) {
 	testCertPool.AddCert(certificate)
 	cfg.Transporter = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			RootCAs:               testCertPool,
-			VerifyPeerCertificate: verifyPeerCertificateSerial,
+			RootCAs: testCertPool,
 		},
 	}
 	connector := NewConnector(SnowflakeDriver{}, *cfg)
