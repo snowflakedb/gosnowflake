@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strings"
 
 	sf "github.com/snowflakedb/gosnowflake"
 )
@@ -26,7 +25,6 @@ func main() {
 		{Name: "Host", EnvName: "SNOWFLAKE_TEST_HOST", FailOnMissing: false},
 		{Name: "Port", EnvName: "SNOWFLAKE_TEST_PORT", FailOnMissing: false},
 		{Name: "Protocol", EnvName: "SNOWFLAKE_TEST_PROTOCOL", FailOnMissing: false},
-		{Name: "Database", EnvName: "SNOWFLAKE_TEST_DATABASE", FailOnMissing: false},
 	})
 	if err != nil {
 		log.Fatalf("failed to create Config, err: %v", err)
@@ -35,7 +33,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create DSN from Config: %v, err: %v", cfg, err)
 	}
-	dsn = strings.Replace(dsn, "database=test_pfus", "database=\"test_pfus\"", 1)
 
 	db, err := sql.Open("snowflake", dsn)
 	if err != nil {
