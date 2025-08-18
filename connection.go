@@ -813,6 +813,12 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
+	if config.ProxyHost != "" {
+		//Reinitialize the transport with the new factory
+		SnowflakeTransport = transportFactory.createOCSPTransport()
+		snowflakeNoRevocationCheckTransport = transportFactory.createNoRevocationTransport()
+	}
+
 	var tokenAccessor TokenAccessor
 	if sc.cfg.TokenAccessor != nil {
 		tokenAccessor = sc.cfg.TokenAccessor
