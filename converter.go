@@ -162,7 +162,7 @@ func snowflakeTypeToGo(ctx context.Context, dbtype snowflakeType, precision int6
 	case realType:
 		return reflect.TypeOf(float64(0))
 	case decfloatType:
-		if !decfloatEnabled(ctx) {
+		if !decfloatMappingEnabled(ctx) {
 			return reflect.TypeOf("")
 		}
 		if higherPrecisionEnabled(ctx) {
@@ -1013,7 +1013,7 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta execRe
 		*dest = *srcValue
 		return nil
 	case "decfloat":
-		if !decfloatEnabled(ctx) {
+		if !decfloatMappingEnabled(ctx) {
 			*dest = *srcValue
 			return nil
 		}
@@ -2484,15 +2484,35 @@ func arrowDecFloatToValue(ctx context.Context, srcValue *array.Struct, rowIdx in
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse mantissa bytes: %s, error: %v", hex.EncodeToString(mantissaBytes), err)
 		}
-		mantissa := new(big.Float).SetInt(mantissaInt)
-		powerOfTen, ok := new(big.Float).SetString(fmt.Sprintf("1e%d", exponent))
-		if !ok {
-			return nil, fmt.Errorf("failed to create power of ten for exponent %d", exponent)
+		if decfloatMappingEnabled(ctx) {
+			mantissa := new(big.Float).SetInt(mantissaInt)
+			powerOfTen, ok := new(big.Float).SetString(fmt.Sprintf("1e%d", exponent))
+			if !ok {
+				return nil, fmt.Errorf("failed to create power of ten for exponent %d", exponent)
+			}
+			result := &big.Float{}
+			result.Mul(mantissa, powerOfTen)
+			return result, nil
 		}
-		result := &big.Float{}
-		result.Mul(mantissa, powerOfTen)
-		if !decfloatEnabled(ctx) {
-			return result.String(), nil
+		mantissaStr := mantissaInt.String()
+		if mantissaStr == "0" {
+			return "0", nil
+		}
+		negative := mantissaStr[0] == '-'
+		mantissaUnsigned := strings.TrimLeft(mantissaStr, "-")
+		mantissaLen := len(mantissaUnsigned)
+		if mantissaLen > 1 {
+			mantissaUnsigned = mantissaUnsigned[0:1] + "." + mantissaUnsigned[1:]
+		}
+		if negative {
+			mantissaStr = "-" + mantissaUnsigned
+		} else {
+			mantissaStr = mantissaUnsigned
+		}
+		exponent = exponent + int16(mantissaLen) - 1
+		result := mantissaStr
+		if exponent != 0 {
+			result = mantissaStr + "e" + strconv.Itoa(int(exponent))
 		}
 		return result, nil
 	}
@@ -2931,7 +2951,7 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-func decfloatEnabled(ctx context.Context) bool {
+func decfloatMappingEnabled(ctx context.Context) bool {
 	v := ctx.Value(enableDecfloat)
 	if v == nil {
 		return false

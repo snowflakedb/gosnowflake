@@ -933,39 +933,43 @@ func TestDecfloat(t *testing.T) {
 				dbt.mustExecT(t, forceARROW)
 			}
 			for _, higherPrecision := range []bool{false, true} {
-				for _, decfloatEnabled := range []bool{true, false} {
-					t.Run(fmt.Sprintf("format=%v,higherPrecision=%v,decfloatEnabled=%v", format, higherPrecision, decfloatEnabled), func(t *testing.T) {
+				for _, decfloatMappingEnabled := range []bool{true, false} {
+					t.Run(fmt.Sprintf("format=%v,higherPrecision=%v,decfloatMappingEnabled=%v", format, higherPrecision, decfloatMappingEnabled), func(t *testing.T) {
 						for _, tc := range []struct {
-							in     string
-							hp     float64
-							hpOut  string
-							strOut string
+							in                      string
+							standardPrecisionOutput float64
+							higherPrecisionOutput   string
+							decfloatDisabledOutput  string
 						}{
-							{in: "-123.45", hp: -123.45, hpOut: "-123.45", strOut: "-123.45"},
-							{in: "1.2345e+2", hp: 123.45, hpOut: "123.45", strOut: "123.45"},
-							{in: "1e100", hp: math.Pow10(100), hpOut: "1e+100", strOut: "1.0000000000000000159028911097599180468e100"},
-							{in: "-9.87654321E-250", hp: -9.876654321 * math.Pow10(-250), hpOut: "-9.87654321e-250", strOut: "-9.8765432099999998623226732747455716901e-250"},
+							{in: "0", standardPrecisionOutput: 0, higherPrecisionOutput: "0", decfloatDisabledOutput: "0"},
+							{in: "-1", standardPrecisionOutput: -1, higherPrecisionOutput: "-1", decfloatDisabledOutput: "-1"},
+							{in: "-1.5", standardPrecisionOutput: -1.5, higherPrecisionOutput: "-1.5", decfloatDisabledOutput: "-1.5"},
+							{in: "1e1", standardPrecisionOutput: 10, higherPrecisionOutput: "10", decfloatDisabledOutput: "10"},
+							{in: "1e2", standardPrecisionOutput: 100, higherPrecisionOutput: "100", decfloatDisabledOutput: "100"},
+							{in: "-2e3", standardPrecisionOutput: -2000, higherPrecisionOutput: "-2000", decfloatDisabledOutput: "-2000"},
+							{in: "1e100", standardPrecisionOutput: math.Pow10(100), higherPrecisionOutput: "1e+100", decfloatDisabledOutput: "1e100"},
+							{in: "-1.2345e2", standardPrecisionOutput: -123.45, higherPrecisionOutput: "-123.45", decfloatDisabledOutput: "-123.45"},
+							{in: "1.23456e2", standardPrecisionOutput: 123.456, higherPrecisionOutput: "123.456", decfloatDisabledOutput: "123.456"},
+							{in: "-9.87654321E-250", standardPrecisionOutput: -9.876654321 * math.Pow10(-250), higherPrecisionOutput: "-9.87654321e-250", decfloatDisabledOutput: "-9.87654321e-250"},
 						} {
 							t.Run(tc.in, func(t *testing.T) {
 								ctx := context.Background()
 								if higherPrecision {
 									ctx = WithHigherPrecision(ctx)
 								}
-								if decfloatEnabled {
-									ctx = WithDecfloatEnabled(ctx)
+								if decfloatMappingEnabled {
+									ctx = WithDecfloatMappingEnabled(ctx)
 								}
-								rows := dbt.mustQueryContextT(ctx, t, fmt.Sprintf("SELECT %v::DECFLOAT UNION SELECT NULL ORDER BY 1", tc.in))
+								rows := dbt.mustQueryContextT(ctx, t, fmt.Sprintf("SELECT '%v'::DECFLOAT UNION SELECT NULL ORDER BY 1", tc.in))
 								defer rows.Close()
 								rows.mustNext()
-								if !decfloatEnabled {
+								if !decfloatMappingEnabled {
 									var s string
 									rows.mustScan(&s)
-									// JSON uses scientific notation for DECFLOAT which is not as precise
-									// as Arrow representation.
-									if format == "JSON" {
-										assertEqualE(t, s, tc.strOut)
+									if format == "ARROW" {
+										assertEqualF(t, s, strings.ToLower(tc.in))
 									} else {
-										assertEqualE(t, s, tc.hpOut)
+										assertEqualE(t, s, tc.decfloatDisabledOutput)
 									}
 									columnTypes, err := rows.ColumnTypes()
 									assertNilF(t, err)
@@ -973,20 +977,20 @@ func TestDecfloat(t *testing.T) {
 								} else if higherPrecision {
 									var bf *big.Float
 									rows.mustScan(&bf)
-									assertEqualE(t, bf.String(), tc.hpOut)
+									assertEqualE(t, bf.String(), tc.higherPrecisionOutput)
 									columnTypes, err := rows.ColumnTypes()
 									assertNilF(t, err)
 									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(&big.Float{}))
 								} else {
 									var f float64
 									rows.mustScan(&f)
-									assertEqualEpsilonE(t, f, tc.hp, 0.000000000000001)
+									assertEqualEpsilonE(t, f, tc.standardPrecisionOutput, 0.000000000000001)
 									columnTypes, err := rows.ColumnTypes()
 									assertNilF(t, err)
 									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(0.0))
 								}
 								rows.mustNext()
-								if !decfloatEnabled {
+								if !decfloatMappingEnabled {
 									var s sql.NullString
 									rows.mustScan(&s)
 									assertFalseE(t, s.Valid)
