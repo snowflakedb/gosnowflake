@@ -63,16 +63,13 @@ func (se *SnowflakeError) generateTelemetryExceptionData() *telemetryData {
 	return data
 }
 
-func (se *SnowflakeError) sendExceptionTelemetry(sc *snowflakeConn, data *telemetryData) error {
-	if sc != nil && sc.telemetry != nil {
-		return sc.telemetry.addLog(data)
-	}
-	return nil // TODO oob telemetry
-}
-
+// exceptionTelemetry generates telemetry data from the error and adds it to the telemetry queue.
 func (se *SnowflakeError) exceptionTelemetry(sc *snowflakeConn) *SnowflakeError {
+	if sc == nil || sc.telemetry == nil || !sc.telemetry.enabled {
+		return se // skip expensive stacktrace generation below if telemetry is disabled
+	}
 	data := se.generateTelemetryExceptionData()
-	if err := se.sendExceptionTelemetry(sc, data); err != nil {
+	if err := sc.telemetry.addLog(data); err != nil {
 		logger.WithContext(sc.ctx).Debugf("failed to log to telemetry: %v", data)
 	}
 	return se
