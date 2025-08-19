@@ -2156,7 +2156,7 @@ func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
 		var rows driver.Rows
 		err = dbt.conn.Raw(func(sc any) error {
 			ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
-			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT {'s': 'some string'}::OBJECT(s VARCHAR) UNION SELECT null", nil)
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT {'s': 'some string'}::OBJECT(s VARCHAR) UNION SELECT null ORDER BY 1", nil)
 			return err
 		})
 		assertNilF(t, err)
