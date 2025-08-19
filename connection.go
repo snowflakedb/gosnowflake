@@ -815,7 +815,6 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 
 	if config.ProxyHost != "" {
 		//Reinitialize the transport with the new factory
-		SnowflakeTransport = transportFactory.createOCSPTransport()
 		snowflakeNoRevocationCheckTransport = transportFactory.createNoRevocationTransport()
 	}
 
