@@ -69,12 +69,12 @@ The following connection parameters are supported:
     account parameter. For details, see the description of the account
     parameter.
 
-  - database: Specifies the database to use by default in the client session
-    (can be changed after login).
-	
-	--> Important note: for the database object and other objects (schema etc), please always adhere to the rules for Snowflake Object Identifiers; especially https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers.
+  - --> Important note: for the database object and other objects (schema, role, etc), please always adhere to the rules for Snowflake Object Identifiers; especially https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers.
     As mentioned in the docs, if you have e.g. a database with mIxEDcAsE naming, as you needed to create it with enclosing it in double quotes, similarly you'll need to reference it
 	also with double quotes when specifying it in the connection string / DSN. In practice, this means you'll need to escape the second pair of double quotes, which are part of the database name, and not the String notation.
+
+  - database: Specifies the database to use by default in the client session
+    (can be changed after login).
 
   - schema: Specifies the database schema to use by default in the client
     session (can be changed after login).
@@ -147,8 +147,10 @@ The following connection parameters are supported:
 
     --> Important note: with the default true value, the connection will fail as the validation fails, if you specify a non-existent database/schema/etc name.
 	This is particularly important when you have a miXedCaSE-named object (e.g. database) and you forgot to properly double quote it.
-    This behaviour is still preferable as it provides a very clear, fail-fast  indication of the configuration error. If you would still like to forego this validation,
+    This behaviour is still preferable as it provides a very clear, fail-fast indication of the configuration error. If you would still like to forego this validation,
 	which ensures that the driver always connects with proper database, schema etc. and creates a proper context for it, you can set this configuration to false to allow connection with invalid object identifiers. 
+
+    In this case (with this default validation deliberately turned off) the driver cannot guarantee that the actual behaviour inside the session will match with the one you'd expect, i.e. not actually using the database you expect, and so on. 
 
   - tracing: Specifies the logging level to be used. Set to error by default.
     Valid values are trace, debug, info, print, warning, error, fatal, panic.
