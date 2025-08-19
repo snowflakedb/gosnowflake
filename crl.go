@@ -61,7 +61,6 @@ var (
 
 func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, inMemoryCacheDisabled, onDiskCacheDisabled bool, httpClient *http.Client, telemetry *snowflakeTelemetry) (*crlValidator, error) {
 	initCrlCacheCleaner()
-	var err error
 	cv := &crlValidator{
 		certRevocationCheckMode:        certRevocationCheckMode,
 		allowCertificatesWithoutCrlURL: allowCertificatesWithoutCrlURL,
@@ -69,9 +68,6 @@ func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCerti
 		onDiskCacheDisabled:            onDiskCacheDisabled,
 		httpClient:                     httpClient,
 		telemetry:                      telemetry,
-	}
-	if err = os.MkdirAll(crlCacheCleaner.onDiskCacheDir, 0755); err != nil {
-		return nil, err
 	}
 	return cv, nil
 }
@@ -104,6 +100,11 @@ func initCrlCacheCleaner() {
 		if onDiskCacheDir, err = defaultCrlOnDiskCacheDir(); err != nil {
 			logger.Infof("failed to get default CRL on-disk cache directory: %v", err)
 			onDiskCacheDir = "" // it will work only if on-disk cache is disabled
+		}
+	}
+	if onDiskCacheDir != "" {
+		if err = os.MkdirAll(onDiskCacheDir, 0755); err != nil {
+			logger.Errorf("error while preparing cache dir for CRLs: %v", err)
 		}
 	}
 
