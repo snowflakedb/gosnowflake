@@ -196,6 +196,7 @@ func TestSnowflakeFileBasedSecureStorageManager(t *testing.T) {
 }
 
 func TestSetAndGetCredential(t *testing.T) {
+	skipOnMissingHome(t)
 	for _, tokenSpec := range []*secureTokenSpec{
 		newMfaTokenSpec("testhost", "testuser"),
 		newIDTokenSpec("testhost", "testuser"),

@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const snowflakeCrlCacheValidityTimeEnv = "SNOWFLAKE_CRL_CACHE_VALIDITY_TIME"
+
 var idpOID = asn1.ObjectIdentifier{2, 5, 29, 28}
 
 type distributionPointName struct {
@@ -80,9 +82,9 @@ func initCrlCacheCleaner() {
 	}
 	var err error
 	validityTime := defaultCrlCacheValidityTime
-	if validityTimeStr := os.Getenv("SNOWFLAKE_CRL_CACHE_VALIDITY_TIME"); validityTimeStr != "" {
-		if validityTime, err = time.ParseDuration(os.Getenv("SNOWFLAKE_CRL_CACHE_VALIDITY_TIME")); err != nil {
-			logger.Infof("failed to parse SNOWFLAKE_CRL_CACHE_VALIDITY_TIME: %v, using default value %v", err, defaultCrlCacheValidityTime)
+	if validityTimeStr := os.Getenv(snowflakeCrlCacheValidityTimeEnv); validityTimeStr != "" {
+		if validityTime, err = time.ParseDuration(os.Getenv(snowflakeCrlCacheValidityTimeEnv)); err != nil {
+			logger.Infof("failed to parse %v: %v, using default value %v", snowflakeCrlCacheValidityTimeEnv, err, defaultCrlCacheValidityTime)
 			validityTime = defaultCrlCacheValidityTime
 		}
 	}
