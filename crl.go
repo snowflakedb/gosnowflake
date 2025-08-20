@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -251,11 +252,16 @@ func (cv *crlValidator) validateChains(chains [][]*x509.Certificate) []crlValida
 }
 
 func (cv *crlValidator) validateCertificate(cert *x509.Certificate, parent *x509.Certificate) certValidationResult {
+	var results []certValidationResult
 	for _, crlURL := range cert.CRLDistributionPoints {
 		result := cv.validateCrlAgainstCrlURL(cert, crlURL, parent)
-		if result == certRevoked || result == certError {
+		if result == certRevoked {
 			return result
 		}
+		results = append(results, result)
+	}
+	if slices.Contains(results, certError) {
+		return certError
 	}
 	return certUnrevoked
 }
