@@ -444,6 +444,49 @@ func runDBTest(t *testing.T, test func(dbt *DBTest)) {
 	dbt := &DBTest{t, conn}
 
 	test(dbt)
+	printMemStats()
+}
+
+func printMemStats() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m) // Read memory stats into 'm'
+
+	fmt.Println("--- Current Memory Stats ---")
+	// General statistics
+	fmt.Printf("Alloc (heap objects, in-use): %v MiB\n", bToMb(m.Alloc))
+	fmt.Printf("TotalAlloc (cumulative heap obj): %v MiB\n", bToMb(m.TotalAlloc))
+	fmt.Printf("Sys (total OS memory acquired): %v MiB\n", bToMb(m.Sys))
+	fmt.Printf("NumGC (number of GC cycles): %v\n", m.NumGC)
+
+	fmt.Println("\n--- Heap Statistics ---")
+	fmt.Printf("HeapAlloc (bytes allocated and still in use): %v MiB\n", bToMb(m.HeapAlloc))
+	fmt.Printf("HeapSys (bytes obtained from system for heap): %v MiB\n", bToMb(m.HeapSys))
+	fmt.Printf("HeapIdle (bytes in idle spans): %v MiB\n", bToMb(m.HeapIdle))
+	fmt.Printf("HeapInuse (bytes in non-idle spans): %v MiB\n", bToMb(m.HeapInuse))
+	fmt.Printf("HeapReleased (bytes released to OS): %v MiB\n", bToMb(m.HeapReleased))
+	fmt.Printf("HeapObjects (total number of allocated objects): %v\n", m.HeapObjects)
+
+	fmt.Println("\n--- Stack Statistics ---")
+	fmt.Printf("StackInuse (bytes in use for goroutine stacks): %v MiB\n", bToMb(m.StackInuse))
+	fmt.Printf("StackSys (bytes obtained from system for stacks): %v MiB\n", bToMb(m.StackSys))
+
+	fmt.Println("\n--- GC Statistics ---")
+	fmt.Printf("LastGC (time of last GC): %v\n", time.Unix(0, int64(m.LastGC)).Format(time.RFC3339))
+	fmt.Printf("PauseTotalNs (total GC pause time): %v ns\n", m.PauseTotalNs)
+	fmt.Printf("PauseNs (recent 256 GC pause times): %v ns\n", m.PauseNs[:min(len(m.PauseNs), 5)]) // show first 5
+	fmt.Printf("NextGC (next GC target heap size): %v MiB\n", bToMb(m.NextGC))
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
+}
+
+// Helper to get min (for printing a slice)
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func runSnowflakeConnTest(t *testing.T, test func(sct *SCTest)) {
