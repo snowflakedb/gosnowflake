@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -175,112 +174,6 @@ func testDecodeErr(t *testing.T, s string) {
 	}
 }
 
-type mockStreamChunkFetcher struct {
-	chunks map[string][][]*string
-}
-
-func (f *mockStreamChunkFetcher) fetch(url string, stream chan<- []*string) error {
-	for _, row := range f.chunks[url] {
-		stream <- row
-	}
-	return nil
-}
-
-func TestStreamChunkDownloaderFirstRows(t *testing.T) {
-	fetcher := &mockStreamChunkFetcher{}
-	firstRows := generateStreamChunkRows(10, 4)
-	downloader := newStreamChunkDownloader(
-		context.Background(),
-		fetcher,
-		int64(len(firstRows)),
-		[]execResponseRowType{},
-		firstRows,
-		[]execResponseChunk{})
-	if err := downloader.start(); err != nil {
-		t.Fatalf("chunk download start failed. err: %v", err)
-	}
-	for i := 0; i < len(firstRows); i++ {
-		if !downloader.hasNextResultSet() {
-			t.Error("failed to retrieve next result set")
-		}
-		if err := downloader.nextResultSet(); err != nil {
-			t.Fatalf("failed to retrieve data. err: %v", err)
-		}
-		row, err := downloader.next()
-		if err != nil {
-			t.Fatalf("failed to retrieve data. err: %v", err)
-		}
-		assertEqualRows(firstRows[i], row)
-	}
-	row, err := downloader.next()
-	if !assertEmptyChunkRow(row) {
-		t.Fatal("row should be empty")
-	}
-	if err != io.EOF {
-		t.Fatalf("failed to finish getting data. err: %v", err)
-	}
-	if downloader.hasNextResultSet() {
-		t.Error("downloader has next result set. expected none.")
-	}
-	if downloader.nextResultSet() != io.EOF {
-		t.Fatalf("failed to finish getting data. err: %v", err)
-	}
-}
-
-func TestStreamChunkDownloaderChunks(t *testing.T) {
-	chunks, responseChunks := generateStreamChunkDownloaderChunks([]string{"foo", "bar"}, 4, 4)
-	fetcher := &mockStreamChunkFetcher{chunks}
-	firstRows := generateStreamChunkRows(2, 4)
-	downloader := newStreamChunkDownloader(
-		context.Background(),
-		fetcher,
-		int64(len(firstRows)),
-		[]execResponseRowType{},
-		firstRows,
-		responseChunks)
-	if err := downloader.start(); err != nil {
-		t.Fatalf("chunk download start failed. err: %v", err)
-	}
-	for i := 0; i < len(firstRows); i++ {
-		if !downloader.hasNextResultSet() {
-			t.Error("failed to retrieve next result set")
-		}
-		if err := downloader.nextResultSet(); err != nil {
-			t.Fatalf("failed to retrieve data. err: %v", err)
-		}
-		row, err := downloader.next()
-		if err != nil {
-			t.Fatalf("failed to retrieve data. err: %v", err)
-		}
-		assertEqualRows(firstRows[i], row)
-	}
-	for _, chunk := range responseChunks {
-		for _, chunkRow := range chunks[chunk.URL] {
-			if !downloader.hasNextResultSet() {
-				t.Error("failed to retrieve next result set")
-			}
-			row, err := downloader.next()
-			if err != nil {
-				t.Fatalf("failed to retrieve data. err: %v", err)
-			}
-			assertEqualRows(chunkRow, row)
-		}
-	}
-	row, err := downloader.next()
-	if !assertEmptyChunkRow(row) {
-		t.Fatal("row should be empty")
-	}
-	if err != io.EOF {
-		t.Fatalf("failed to finish getting data. err: %v", err)
-	}
-	if downloader.hasNextResultSet() {
-		t.Error("downloader has next result set. expected none.")
-	}
-	if downloader.nextResultSet() != io.EOF {
-		t.Fatalf("failed to finish getting data. err: %v", err)
-	}
-}
-
 func TestCopyChunkStream(t *testing.T) {
 	foo := "foo"
 	bar := "bar"
@@ -319,30 +212,6 @@ func TestCopyChunkStreamInvalid(t *testing.T) {
 	}
 }
 
-func generateStreamChunkDownloaderChunks(urls []string, numRows, numCols int) (map[string][][]*string, []execResponseChunk) {
-	chunks := map[string][][]*string{}
-	var responseChunks []execResponseChunk
-	for _, url := range urls {
-		rows := generateStreamChunkRows(numRows, numCols)
-		chunks[url] = rows
-		responseChunks = append(responseChunks, execResponseChunk{url, len(rows), -1, -1})
-	}
-	return chunks, responseChunks
-}
-
-func generateStreamChunkRows(numRows, numCols int) [][]*string {
-	var rows [][]*string
-	for i := 0; i < numRows; i++ {
-		var cols []*string
-		for j := 0; j < numCols; j++ {
-			col := fmt.Sprintf("%d", rand.Intn(1000))
-			cols = append(cols, &col)
-		}
-		rows = append(rows, cols)
-	}
-	return rows
-}
-
 func assertEqualRows(expected []*string, actual interface{}) bool {
 	switch v := actual.(type) {
 	case chunkRowType:
@@ -361,10 +230,6 @@ func assertEqualRows(expected []*string, actual interface{}) bool {
 		return len(expected) == len(v)
 	}
 	return false
-}
-
-func assertEmptyChunkRow(row chunkRowType) bool {
-	return assertEqualRows(make([]*string, len(row.RowSet)), row)
 }
 
 func TestWithStreamDownloader(t *testing.T) {
@@ -391,6 +256,30 @@ func TestWithStreamDownloader(t *testing.T) {
 		if cnt != numrows {
 			t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 		}
+	})
+}
+
+func TestWithStreamDownloaderMultistatementLargeResultSet(t *testing.T) {
+	ctx, err := WithMultiStatement(WithStreamDownloader(context.Background()), 2)
+	assertNilF(t, err)
+	numrows := 1000000
+	cnt := 0
+	var v string
+
+	runDBTest(t, func(dbt *DBTest) {
+		rows := dbt.mustQueryContext(ctx, fmt.Sprintf("SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT=>%v));SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows, numrows))
+		defer rows.Close()
+
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = rows.NextResultSet() {
+			// Next() will block and wait until results are available
+			for rows.Next() {
+				rows.mustScan(&v)
+				assertEqualE(t, v, "abc")
+				cnt++
+			}
+		}
+
+		assertEqualE(t, cnt, numrows*2)
 	})
 }
 
