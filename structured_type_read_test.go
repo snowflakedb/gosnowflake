@@ -886,7 +886,7 @@ func TestArrayAndMetadataAsArray(t *testing.T) {
 			}{
 				{
 					name:      "integer",
-					query:     "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER)",
+					query:     "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER) ORDER BY 1",
 					expected1: []int64{1, 2},
 					expected2: []int64{4, 5, 6},
 					actual:    []int64{},
@@ -900,16 +900,16 @@ func TestArrayAndMetadataAsArray(t *testing.T) {
 				},
 				{
 					name:      "number - fixed integer",
-					query:     "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(NUMBER(38, 0)) as structured_type UNION SELECT ARRAY_CONSTRUCT(3)::ARRAY(NUMBER(38, 0))",
+					query:     "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(NUMBER(38, 0)) as structured_type UNION SELECT ARRAY_CONSTRUCT(3)::ARRAY(NUMBER(38, 0)) ORDER BY 1",
 					expected1: []int64{1, 2},
 					expected2: []int64{3},
 					actual:    []int64{},
 				},
 				{
 					name:      "number - fixed fraction",
-					query:     "SELECT ARRAY_CONSTRUCT(1.1, 2.2)::ARRAY(NUMBER(38, 19)) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(NUMBER(38, 19))",
-					expected1: []float64{1.1, 2.2},
-					expected2: []float64{},
+					query:     "SELECT ARRAY_CONSTRUCT(1.1, 2.2)::ARRAY(NUMBER(38, 19)) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(NUMBER(38, 19)) ORDER BY 1",
+					expected1: []float64{},
+					expected2: []float64{1.1, 2.2},
 					actual:    []float64{},
 				},
 				{
@@ -1068,17 +1068,17 @@ func TestArrayOfObjects(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT({'s': 's1', 'i': 9}, {'s': 's2', 'i': 8})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) as structured_type UNION SELECT ARRAY_CONSTRUCT({'s': 's3', 'i': 7})::ARRAY(OBJECT(s VARCHAR, i INTEGER))")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT({'s': 's1', 'i': 9}, {'s': 's2', 'i': 8})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) as structured_type UNION SELECT ARRAY_CONSTRUCT({'s': 's3', 'i': 7})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) ORDER BY 1")
 			defer rows.Close()
 			rows.Next()
 			var res []*simpleObject
 			err := rows.Scan(ScanArrayOfScanners(&res))
 			assertNilF(t, err)
-			assertDeepEqualE(t, res, []*simpleObject{{s: "s1", i: 9}, {s: "s2", i: 8}})
+			assertDeepEqualE(t, res, []*simpleObject{{s: "s3", i: 7}})
 			rows.Next()
 			err = rows.Scan(ScanArrayOfScanners(&res))
 			assertNilF(t, err)
-			assertDeepEqualE(t, res, []*simpleObject{{s: "s3", i: 7}})
+			assertDeepEqualE(t, res, []*simpleObject{{s: "s1", i: 9}, {s: "s2", i: 8}})
 			columnTypes, err := rows.ColumnTypes()
 			assertNilF(t, err)
 			assertEqualE(t, len(columnTypes), 1)
@@ -2156,7 +2156,7 @@ func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
 		var rows driver.Rows
 		err = dbt.conn.Raw(func(sc any) error {
 			ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
-			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT {'s': 'some string'}::OBJECT(s VARCHAR) UNION SELECT null", nil)
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT {'s': 'some string'}::OBJECT(s VARCHAR) UNION SELECT null ORDER BY 1", nil)
 			return err
 		})
 		assertNilF(t, err)
@@ -2186,7 +2186,7 @@ func TestStructuredArrayInArrowBatches(t *testing.T) {
 		var err error
 		var rows driver.Rows
 		err = dbt.conn.Raw(func(sc any) error {
-			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT [1, 2, 3]::ARRAY(INTEGER) UNION SELECT [4, 5, 6]::ARRAY(INTEGER)", nil)
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT [1, 2, 3]::ARRAY(INTEGER) UNION SELECT [4, 5, 6]::ARRAY(INTEGER) ORDER BY 1", nil)
 			return err
 		})
 		assertNilF(t, err)
