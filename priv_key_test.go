@@ -17,7 +17,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time")
+	"time"
+)
 
 // helper function to generate PKCS8 encoded base64 string of a private key
 func generatePKCS8StringSupress(key *rsa.PrivateKey) string {
@@ -81,7 +82,7 @@ func TestJWTTokenTimeout(t *testing.T) {
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 	defer db.Close()
 	ctx := context.Background()
-	_, err := db.Conn(ctx)
+	_, err = db.Conn(ctx)
 	assertNotNilF(t, err)
 	// If the Go version is not 1.22, we expect a DeadlineExceeded error
 	// Go 1.22 uses net.httpError does doesn't implement `Is` function
