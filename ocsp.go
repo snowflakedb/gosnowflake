@@ -169,6 +169,7 @@ type ocspValidator struct {
 	cacheServerURL string
 	isPrivateLink  bool
 	retryURL       string
+	cfg            *Config
 }
 
 func newOcspValidator(cfg *Config) *ocspValidator {
@@ -196,6 +197,7 @@ func newOcspValidator(cfg *Config) *ocspValidator {
 		cacheServerURL: strings.ToLower(cacheServerURL),
 		isPrivateLink:  isPrivateLink,
 		retryURL:       strings.ToLower(retryURL),
+		cfg:            cfg,
 	}
 }
 
@@ -777,11 +779,13 @@ func (ov *ocspValidator) downloadOCSPCacheServer() {
 	if err != nil {
 		return
 	}
+
+	factory := newTransportFactory(ov.cfg, nil)
 	logger.Infof("downloading OCSP Cache from server %v", ocspCacheServerURL)
 	timeout := OcspCacheServerTimeout
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: snowflakeNoRevocationCheckTransport,
+		Transport: factory.createNoRevocationTransport(),
 	}
 	ret, ocspStatus := checkOCSPCacheServer(context.Background(), ocspClient, http.NewRequest, u, timeout)
 	if ocspStatus.code != ocspSuccess {
