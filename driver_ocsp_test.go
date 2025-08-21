@@ -87,7 +87,7 @@ func TestOCSPFailOpen(t *testing.T) {
 	var testURL string
 	testURL, err = DSN(config)
 	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", maskSecret(config))
+		t.Fatalf("failed to build URL from Config")
 	}
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
@@ -107,10 +107,6 @@ func TestOCSPFailOpen(t *testing.T) {
 	if isFailToConnectOrAuthErr(driverErr) {
 		t.Fatalf("should failed to connect %v", err)
 	}
-}
-
-func isFailToConnectOrAuthErr(driverErr *SnowflakeError) bool {
-	return driverErr.Number != ErrCodeFailedToConnect && driverErr.Number != ErrFailedToAuth
 }
 
 func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
@@ -261,7 +257,6 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 	defer cleanup()
 
 	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
-	setenv(ocspTestResponseCacheServerTimeoutEnv, "1000")
 
 	config := &Config{
 		Account:       "fakeaccount8",
@@ -524,7 +519,7 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/404", wiremock.port))
 
 	config := &Config{
-		Account:      "fakeaccount11",
+		Account:       "fakeaccount11",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
 		PrivateKey:    nil,               // Ensure no private key
 		User:          "fakeuser",
