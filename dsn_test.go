@@ -2059,13 +2059,13 @@ func TestDSN(t *testing.T) {
 			dsn, err := DSN(test.cfg)
 			if test.err == nil && err == nil {
 				if dsn != test.dsn {
-					assertEqualF("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
+					assertEqualF(t, "failed to get DSN. expected: %v, got:\n %v", maskSecrets(test.dsn), maskSecrets(dsn))
 				}
 				_, err := ParseDSN(dsn)
 				assertNilF(t, err, "failed to parse DSN. dsn:", dsn)
 			}
 			if test.err != nil {
-				assertNotNilF(t, err, fmt.Sprintf("expected error. dsn: %v, expected err: %v", test.dsn, test.err))
+				assertNotNilF(t, err, fmt.Sprintf("expected error. dsn: %v, expected err: %v", maskSecrets(test.dsn), maskSecrets(test.err.Error())))
 			}
 			if test.err == nil {
 				assertNilF(t, err, "failed to match")
@@ -2284,15 +2284,15 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 		testPort = 443
 	}
 	cfg := &Config{
-		Account:  os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
-		Host:     os.Getenv("SNOWFLAKE_TEST_HOST"),
-		Port:     testPort,
-		Protocol: os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
-		User:     os.Getenv("SNOWFLAKE_TEST_USER"),
-		Password: os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
+		Account:       os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
+		Host:          os.Getenv("SNOWFLAKE_TEST_HOST"),
+		Port:          testPort,
+		Protocol:      os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
+		User:          os.Getenv("SNOWFLAKE_TEST_USER"),
+		Password:      os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
 		Authenticator: AuthTypeSnowflake, // Force password authentication
 		PrivateKey:    nil,               // Ensure no private key
-		Params:   map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
+		Params:        map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
 	}
 	mydsn, err := DSN(cfg)
 	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to create DSN from Config")
