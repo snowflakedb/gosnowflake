@@ -386,6 +386,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 
 func isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
 	if err != nil && res == nil { // Failed http connection. Most probably client timeout.
+		if errors.Is(err, context.Canceled) {
+			return false, err
+		}
 		return true, err
 	}
 	if res == nil || req == nil {
