@@ -584,12 +584,12 @@ func TestIsPrivateLink(t *testing.T) {
 
 func TestBuildPrivatelinkConn(t *testing.T) {
 	ov := newOcspValidator(&Config{
-		Host: "testaccount.us-east-1.privatelink.snowflakecomputing.com",
+		Host:     "testaccount.us-east-1.privatelink.snowflakecomputing.com",
 		Account:  "testaccount",
 		User:     "testuser",
 		Password: "testpassword",
 	})
-	assertEqualE(t, ov.cacheServerURL, "http://ocspji.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json")
+	assertEqualE(t, ov.cacheServerURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json")
 	assertEqualE(t, ov.retryURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v")
 }
 
