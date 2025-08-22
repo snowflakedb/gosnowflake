@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/session/v1/login-request.*",
+        "method": "POST"
+      },
+      "response": {
+        "status": 401,
+        "jsonBody": {
+          "data": null,
+          "code": "390100",
+          "message": "Authentication failed for OCSP test",
+          "success": false
+        }
+      }
+    }
+  ]
+}

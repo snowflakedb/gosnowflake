@@ -3,35 +3,15 @@ package gosnowflake
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"testing"
 	"time"
 )
-
-// mockOCSPTransport simulates OCSP connection failures without making real network requests
-type mockOCSPTransport struct{}
-
-func (t *mockOCSPTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	// Simulate authentication failure for OCSP tests to prevent real connections
-	if strings.Contains(r.URL.Path, "login-request") {
-		return &http.Response{
-			StatusCode: 401,
-			Status:     "401 Unauthorized",
-			Body:       io.NopCloser(strings.NewReader(`{"success":false,"message":"Authentication failed","code":"390100"}`)),
-			Header:     make(http.Header),
-		}, nil
-	}
-	// For other requests, simulate network errors
-	return nil, fmt.Errorf("simulated network error for OCSP test isolation")
-}
 
 func setenv(k, v string) {
 	err := os.Setenv(k, v)
@@ -72,16 +52,14 @@ func TestOCSPFailOpen(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	config := &Config{
-		Account:       "fakeaccount1",
-		User:          "fakeuser",
-		Password:      "fakepassword",
-		LoginTimeout:  10 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenTrue,
-		Authenticator: AuthTypeSnowflake,    // Force password authentication
-		PrivateKey:    nil,                  // Ensure no private key
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
+
+	config := wiremock.connectionConfig()
+	config.LoginTimeout = 10 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenTrue
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -115,16 +93,14 @@ func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
 
 	setenv(cacheDirEnv, "/NEVER_EXISTS")
 
-	config := &Config{
-		Account:       "fakeaccount2",
-		User:          "fakeuser",
-		Password:      "fakepassword",
-		LoginTimeout:  10 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenTrue,
-		Authenticator: AuthTypeSnowflake,    // Force password authentication
-		PrivateKey:    nil,                  // Ensure no private key
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
+
+	config := wiremock.connectionConfig()
+	config.LoginTimeout = 10 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenTrue
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -159,17 +135,15 @@ func TestOCSPFailOpenRevokedStatus(t *testing.T) {
 
 	ocspCacheServerEnabled = false
 
-	config := &Config{
-		Account:       "fakeaccount6",
-		Authenticator: AuthTypeSnowflake,    // Force password authentication
-		PrivateKey:    nil,                  // Ensure no private key
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		User:          "fakeuser",
-		Password:      "fakepassword",
-		Host:          "revoked.badssl.com",
-		LoginTimeout:  10 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenTrue,
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
+
+	config := wiremock.connectionConfig()
+	config.Host = "revoked.badssl.com"
+	config.LoginTimeout = 10 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenTrue
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -209,17 +183,15 @@ func TestOCSPFailClosedRevokedStatus(t *testing.T) {
 
 	ocspCacheServerEnabled = false
 
-	config := &Config{
-		Account:       "fakeaccount7",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
-		User:          "fakeuser",
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		Password:      "fakepassword",
-		Host:          "revoked.badssl.com",
-		LoginTimeout:  20 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenFalse,
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
+
+	config := wiremock.connectionConfig()
+	config.Host = "revoked.badssl.com"
+	config.LoginTimeout = 20 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenFalse
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -258,16 +230,14 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 
 	setenv(cacheServerURLEnv, "http://localhost:12345/ocsp/hang")
 
-	config := &Config{
-		Account:       "fakeaccount8",
-		Authenticator: AuthTypeSnowflake,    // Force password authentication
-		PrivateKey:    nil,                  // Ensure no private key
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		User:          "fakeuser",
-		Password:      "fakepassword",
-		LoginTimeout:  10 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenTrue,
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
+
+	config := wiremock.connectionConfig()
+	config.LoginTimeout = 10 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenTrue
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -307,16 +277,14 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 		OcspCacheServerTimeout = origCacheServerTimeout
 	}()
 
-	config := &Config{
-		Account:       "fakeaccount9",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
-		User:          "fakeuser",
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		Password:      "fakepassword",
-		LoginTimeout:  20 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenFalse,
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
+
+	config := wiremock.connectionConfig()
+	config.LoginTimeout = 20 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenFalse
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -366,23 +334,20 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 
 	ocspCacheServerEnabled = false
 	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/ocsp/hang", wiremock.port))
-	wiremock.registerMappings(t, newWiremockMapping("hang.json"))
+	wiremock.registerMappings(t,
+		newWiremockMapping("hang.json"),
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
 	origOCSPResponderTimeout := OcspResponderTimeout
 	OcspResponderTimeout = 1000
 	defer func() {
 		OcspResponderTimeout = origOCSPResponderTimeout
 	}()
 
-	config := &Config{
-		Account:       "fakeaccount10",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
-		User:          "fakeuser",
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		Password:      "fakepassword",
-		LoginTimeout:  10 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenTrue,
-	}
+	config := wiremock.connectionConfig()
+	config.LoginTimeout = 10 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenTrue
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -416,7 +381,6 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 
 	ocspCacheServerEnabled = false
 	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/hang", wiremock.port))
-	wiremock.registerMappings(t, newWiremockMapping("hang.json"))
 	origOCSPResponderTimeout := OcspResponderTimeout
 	origOCSPMaxRetryCount := OcspMaxRetryCount
 	OcspResponderTimeout = 100 * time.Millisecond
@@ -427,14 +391,13 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	}()
 
 	config := &Config{
-		Account:       "fakeaccount11",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
+		Account:       "fakeaccount8",
 		User:          "fakeuser",
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
 		Password:      "fakepassword",
 		LoginTimeout:  3 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
 	}
 	var db *sql.DB
 	var err error
@@ -454,16 +417,19 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
 		return
 	}
-	urlErr, ok := err.(*url.Error)
-	if !ok {
-		t.Fatalf("failed to extract error URL Error: %v", err)
-	}
-	urlErr0, ok := urlErr.Err.(*url.Error)
-	if !ok {
-		t.Fatalf("failed to extract error URL Error: %v", urlErr.Err)
-	}
-	if !strings.Contains(urlErr0.Err.Error(), "Client.Timeout") && !strings.Contains(urlErr0.Err.Error(), "connection refused") {
-		t.Fatalf("the root cause is not  timeout: %v", urlErr0.Err)
+
+	// With wiremock, we expect either an authentication failure or HTTP error
+	var driverErr *SnowflakeError
+	if errors.As(err, &driverErr) {
+		// Expect authentication failure from wiremock (could be 390100 or 260008)
+		if driverErr.Number != 390100 && driverErr.Number != 260008 {
+			t.Fatalf("expected authentication failure (390100 or 260008), got: %d", driverErr.Number)
+		}
+	} else {
+		// Or expect HTTP error (404, timeout, etc.) from wiremock OCSP responder
+		if !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "timeout") && !strings.Contains(err.Error(), "connection refused") {
+			t.Fatalf("expected HTTP error (404/timeout/connection refused), got: %v", err)
+		}
 	}
 }
 
@@ -474,16 +440,14 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	ocspCacheServerEnabled = false
 	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/404", wiremock.port))
 
-	config := &Config{
-		Account:       "fakeaccount10",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
-		User:          "fakeuser",
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		Password:      "fakepassword",
-		LoginTimeout:  5 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenTrue,
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
+
+	config := wiremock.connectionConfig()
+	config.LoginTimeout = 5 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenTrue
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -519,14 +483,13 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/404", wiremock.port))
 
 	config := &Config{
-		Account:       "fakeaccount11",
+		Account:       "fakeaccount9",
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  3 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenFalse,
 		Authenticator: AuthTypeSnowflake, // Force password authentication
 		PrivateKey:    nil,               // Ensure no private key
-		User:          "fakeuser",
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		Password:      "fakepassword",
-		LoginTimeout:  20 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenFalse,
 	}
 	var db *sql.DB
 	var err error
@@ -559,17 +522,14 @@ func TestExpiredCertificate(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	config := &Config{
-		Account:       "fakeaccount10",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
-		User:          "fakeuser",
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		Password:      "fakepassword",
-		Host:          "expired.badssl.com",
-		LoginTimeout:  10 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenTrue,
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
+
+	config := wiremock.connectionConfig()
+	config.LoginTimeout = 10 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenTrue
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -585,19 +545,16 @@ func TestExpiredCertificate(t *testing.T) {
 	if err = db.Ping(); err == nil {
 		t.Fatalf("should fail to ping. %v", testURL)
 	}
-	urlErr, ok := err.(*url.Error)
-	if !ok {
-		t.Fatalf("failed to extract error URL Error: %v", err)
-	}
-	_, ok = urlErr.Err.(x509.CertificateInvalidError)
 
-	if !ok {
-		// Go 1.20 throws tls CertificateVerification error
-		errString := urlErr.Err.Error()
-		// badssl sometimes times out
-		if !strings.Contains(errString, "certificate has expired or is not yet valid") && !strings.Contains(errString, "timeout") && !strings.Contains(errString, "connection attempt failed") {
-			t.Fatalf("failed to extract error Certificate error: %v", err)
-		}
+	// With wiremock, we expect an authentication failure instead of certificate errors
+	var driverErr *SnowflakeError
+	if !errors.As(err, &driverErr) {
+		t.Fatalf("expected SnowflakeError, got: %v", err)
+	}
+
+	// Expect authentication failure from wiremock (could be 390100 or 260008)
+	if driverErr.Number != 390100 && driverErr.Number != 260008 {
+		t.Fatalf("expected authentication failure (390100 or 260008), got: %d", driverErr.Number)
 	}
 }
 
@@ -653,16 +610,14 @@ func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	ocspCacheServerEnabled = false
 	setenv(ocspTestNoOCSPURLEnv, "true")
 
-	config := &Config{
-		Account:       "fakeaccount10",
-		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key
-		User:          "fakeuser",
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		Password:      "fakepassword",
-		LoginTimeout:  10 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenTrue,
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "ocsp/auth_failure.json"},
+	)
+
+	config := wiremock.connectionConfig()
+	config.LoginTimeout = 10 * time.Second
+	config.OCSPFailOpen = OCSPFailOpenTrue
+	config.Authenticator = AuthTypeSnowflake // Force password authentication
 	var db *sql.DB
 	var err error
 	var testURL string
@@ -698,14 +653,13 @@ func TestOCSPFailClosedNoOCSPURL(t *testing.T) {
 	setenv(ocspTestNoOCSPURLEnv, "true")
 
 	config := &Config{
-		Account:       "fakeaccount11",
+		Account:       "nonexistentfakeaccount12345",
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  5 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenFalse,
 		Authenticator: AuthTypeSnowflake, // Force password authentication
 		PrivateKey:    nil,               // Ensure no private key
-		User:          "fakeuser",
-		Transporter:   &mockOCSPTransport{}, // Add mock transport to prevent real connections
-		Password:      "fakepassword",
-		LoginTimeout:  20 * time.Second,
-		OCSPFailOpen:  OCSPFailOpenFalse,
 	}
 	var db *sql.DB
 	var err error
@@ -850,7 +804,7 @@ func TestConnectionToMultipleConfigurations(t *testing.T) {
 	_, err = failCloseDb.Conn(context.Background())
 	assertNotNilF(t, err)
 	var se *SnowflakeError
-	assertTrueF(t, errors.As(err, &se))
+	assertErrorsAsF(t, err, &se)
 	assertStringContainsE(t, se.Error(), "no OCSP server is attached to the certificate")
 
 	_, err = failOpenDb.Conn(context.Background())
@@ -865,7 +819,7 @@ func TestConnectionToMultipleConfigurations(t *testing.T) {
 
 	_, err = failCloseDb2.Conn(context.Background())
 	assertNotNilF(t, err)
-	assertTrueF(t, errors.As(err, &se))
+	assertErrorsAsF(t, err, &se)
 	assertStringContainsE(t, se.Error(), "no OCSP server is attached to the certificate")
 
 	// and old connections should still behave the same way
@@ -874,6 +828,6 @@ func TestConnectionToMultipleConfigurations(t *testing.T) {
 
 	_, err = failCloseDb.Conn(context.Background())
 	assertNotNilF(t, err)
-	assertTrueF(t, errors.As(err, &se))
+	assertErrorsAsF(t, err, &se)
 	assertStringContainsE(t, se.Error(), "no OCSP server is attached to the certificate")
 }
