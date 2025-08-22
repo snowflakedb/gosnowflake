@@ -655,7 +655,7 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 	timeout := OcspResponderTimeout
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(),
+		Transport: ov.cfg.Transporter,
 	}
 	ocspRes, ocspResBytes, ocspS := ov.retryOCSP(
 		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
