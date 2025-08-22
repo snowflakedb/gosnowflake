@@ -257,9 +257,9 @@ When these parameters are provided in the connection string or DSN, they take pr
 |-----------------|-----------------------------------------------------------------------------|---------|
 | `proxyHost`     | Hostname or IP address of the proxy server.                                 |         |
 | `proxyPort`     | Port number of the proxy server.                                            |         |
-| `proxyUser`     | Username for proxy authentication.                                         |         |
-| `proxyPassword` | Password for proxy authentication.                                         |         |
-| `proxyProtocol`  | Protocol to use for proxy connection. Valid values: `http`, `https`.        | `http`  |
+| `proxyUser`     | Username for proxy authentication.                                          |         |
+| `proxyPassword` | Password for proxy authentication.                                          |         |
+| `proxyProtocol` | Protocol to use for proxy connection. Valid values: `http`, `https`.        | `http`  |
 | `NoProxy“       | Comma-separated list of hosts that should bypass the proxy.                 |         |
 
 For more details, please refer to the example in ./cmd/proxyconnection.
