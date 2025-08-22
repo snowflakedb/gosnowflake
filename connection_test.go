@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -548,36 +547,20 @@ func TestIsPrivateLink(t *testing.T) {
 		{"snowhouse.PRIVATELINK.snowflakecomputing.xyz", true},
 	} {
 		t.Run(tc.host, func(t *testing.T) {
-			assertEqualE(t, isPrivateLink(tc.host), tc.isPrivatelink)
+			assertEqualE(t, checkIsPrivateLink(tc.host), tc.isPrivatelink)
 		})
 	}
 }
 
 func TestBuildPrivatelinkConn(t *testing.T) {
-	os.Unsetenv(cacheServerURLEnv)
-	os.Unsetenv(ocspRetryURLEnv)
-
-	if _, err := buildSnowflakeConn(context.Background(), Config{
-		Account:  "testaccount",
-		User:     "testuser",
-		Password: "testpassword",
-		Host:     "testaccount.us-east-1.privatelink.snowflakecomputing.com",
-	}); err != nil {
-		t.Error(err)
-	}
-	defer func() {
-		os.Unsetenv(cacheServerURLEnv)
-		os.Unsetenv(ocspRetryURLEnv)
-	}()
-
-	ocspURL := os.Getenv(cacheServerURLEnv)
-	assertEqualE(t, ocspURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json")
-	retryURL := os.Getenv(ocspRetryURLEnv)
-	assertEqualE(t, retryURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v")
+	ov := newOcspValidator(&Config{
+		Host: "testaccount.us-east-1.privatelink.snowflakecomputing.com",
+	})
+	assertEqualE(t, ov.cacheServerURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json")
+	assertEqualE(t, ov.retryURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v")
 }
 
-func TestOcspEnvVarsSetup(t *testing.T) {
-	ctx := context.Background()
+func TestOcspAddressesSetup(t *testing.T) {
 	for _, tc := range []struct {
 		host                string
 		cacheURL            string
@@ -585,12 +568,12 @@ func TestOcspEnvVarsSetup(t *testing.T) {
 	}{
 		{
 			host:                "testaccount.us-east-1.snowflakecomputing.com",
-			cacheURL:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
+			cacheURL:            fmt.Sprintf("%v/%v", defaultCacheServerHost, cacheFileBaseName),
 			privateLinkRetryURL: "",
 		},
 		{
 			host:                "testaccount-no-privatelink.snowflakecomputing.com",
-			cacheURL:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
+			cacheURL:            fmt.Sprintf("%v/%v", defaultCacheServerHost, cacheFileBaseName),
 			privateLinkRetryURL: "",
 		},
 		{
@@ -615,18 +598,11 @@ func TestOcspEnvVarsSetup(t *testing.T) {
 		},
 	} {
 		t.Run(tc.host, func(t *testing.T) {
-			if err := setupOCSPEnvVars(ctx, tc.host); err != nil {
-				t.Errorf("error during OCSP env vars setup; %v", err)
-			}
-			defer func() {
-				os.Unsetenv(cacheServerURLEnv)
-				os.Unsetenv(ocspRetryURLEnv)
-			}()
-
-			cacheURLFromEnv := os.Getenv(cacheServerURLEnv)
-			assertEqualE(t, cacheURLFromEnv, tc.cacheURL)
-			retryURL := os.Getenv(ocspRetryURLEnv)
-			assertEqualE(t, retryURL, tc.privateLinkRetryURL)
+			ov := newOcspValidator(&Config{
+				Host: tc.host,
+			})
+			assertEqualE(t, ov.cacheServerURL, tc.cacheURL)
+			assertEqualE(t, ov.retryURL, tc.privateLinkRetryURL)
 
 		})
 	}

@@ -1,11 +1,12 @@
 package gosnowflake
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -42,13 +43,10 @@ func deleteOCSPCacheAll() {
 func cleanup() {
 	deleteOCSPCacheFile()
 	deleteOCSPCacheAll()
-	setenv(cacheServerEnabledEnv, "true")
 	unsetenv(cacheServerURLEnv)
 	unsetenv(ocspTestResponderURLEnv)
 	unsetenv(ocspTestNoOCSPURLEnv)
-	unsetenv(ocspRetryURLEnv)
 	unsetenv(cacheDirEnv)
-	ocspFailOpen = OCSPFailOpenTrue
 }
 
 func TestOCSPFailOpen(t *testing.T) {
@@ -138,7 +136,7 @@ func TestOCSPFailOpenRevokedStatus(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerEnabledEnv, "false")
+	ocspCacheServerEnabled = false
 
 	config := &Config{
 		Account:      "fakeaccount6",
@@ -185,7 +183,7 @@ func TestOCSPFailClosedRevokedStatus(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerEnabledEnv, "false")
+	ocspCacheServerEnabled = false
 
 	config := &Config{
 		Account:      "fakeaccount7",
@@ -339,7 +337,7 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerEnabledEnv, "false")
+	ocspCacheServerEnabled = false
 	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/ocsp/hang", wiremock.port))
 	wiremock.registerMappings(t, newWiremockMapping("hang.json"))
 	origOCSPResponderTimeout := OcspResponderTimeout
@@ -386,21 +384,25 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/ocsp/hang", wiremock.port))
+	ocspCacheServerEnabled = false
+	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/hang", wiremock.port))
 	wiremock.registerMappings(t, newWiremockMapping("hang.json"))
 	origOCSPResponderTimeout := OcspResponderTimeout
-	OcspResponderTimeout = 1000
+	origOCSPMaxRetryCount := OcspMaxRetryCount
+	OcspResponderTimeout = 100 * time.Millisecond
+	OcspMaxRetryCount = 1
 	defer func() {
 		OcspResponderTimeout = origOCSPResponderTimeout
+		OcspMaxRetryCount = origOCSPMaxRetryCount
 	}()
 
 	config := &Config{
-		Account:      "fakeaccount11",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 20 * time.Second,
-		OCSPFailOpen: OCSPFailOpenFalse,
+		Account:       "fakeaccount11",
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  3 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenFalse,
+		MaxRetryCount: 1,
 	}
 	var db *sql.DB
 	var err error
@@ -437,14 +439,14 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhostŃ:12345/ocsp/404")
+	ocspCacheServerEnabled = false
+	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/404", wiremock.port))
 
 	config := &Config{
 		Account:      "fakeaccount10",
 		User:         "fakeuser",
 		Password:     "fakepassword",
-		LoginTimeout: 10 * time.Second,
+		LoginTimeout: 5 * time.Second,
 		OCSPFailOpen: OCSPFailOpenTrue,
 	}
 	var db *sql.DB
@@ -478,14 +480,14 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerEnabledEnv, "false")
-	setenv(ocspTestResponderURLEnv, "http://localhost:12345/ocsp/404")
+	ocspCacheServerEnabled = false
+	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/404", wiremock.port))
 
 	config := &Config{
 		Account:      "fakeaccount11",
 		User:         "fakeuser",
 		Password:     "fakepassword",
-		LoginTimeout: 20 * time.Second,
+		LoginTimeout: 5 * time.Second,
 		OCSPFailOpen: OCSPFailOpenFalse,
 	}
 	var db *sql.DB
@@ -515,7 +517,6 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	}
 }
 
-// TestExpiredCertificate tests expired certificate
 func TestExpiredCertificate(t *testing.T) {
 	cleanup()
 	defer cleanup()
@@ -601,12 +602,11 @@ func TestSelfSignedCertificate(t *testing.T) {
 }
 */
 
-// TestOCSPFailOpenNoOCSPURL tests no OCSP URL
 func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerEnabledEnv, "false")
+	ocspCacheServerEnabled = false
 	setenv(ocspTestNoOCSPURLEnv, "true")
 
 	config := &Config{
@@ -643,12 +643,11 @@ func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	}
 }
 
-// TestOCSPFailClosedNoOCSPURL tests no OCSP URL
 func TestOCSPFailClosedNoOCSPURL(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	setenv(cacheServerEnabledEnv, "false")
+	ocspCacheServerEnabled = false
 	setenv(ocspTestNoOCSPURLEnv, "true")
 
 	config := &Config{
@@ -695,22 +694,11 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	cfg := wiremockHTTPS.connectionConfig()
-	testCertPool := x509.NewCertPool()
-	caBytes, err := os.ReadFile("ci/scripts/ca.der")
-	assertNilF(t, err)
-	certificate, err := x509.ParseCertificate(caBytes)
-	assertNilF(t, err)
-	testCertPool.AddCert(certificate)
-	customCertPoolTransporter := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			RootCAs:               testCertPool,
-			VerifyPeerCertificate: verifyPeerCertificateSerial,
-		},
-		DisableKeepAlives: true,
-	}
+	ocspCacheServerEnabled = false
 
-	countingRoundTripper := newCountingRoundTripper(customCertPoolTransporter)
+	cfg := wiremockHTTPS.connectionConfig(t)
+
+	countingRoundTripper := newCountingRoundTripper(wiremockHTTPS.ocspTransporter(t))
 	originalNoOcspTransport := snowflakeNoRevocationCheckTransport
 	defer func() {
 		snowflakeNoRevocationCheckTransport = originalNoOcspTransport
@@ -772,4 +760,70 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 		assertEqualE(t, countingRoundTripper.postReqCount[wiremock.baseURL()], 3)
 		assertEqualE(t, countingRoundTripper.getReqCount[wiremock.baseURL()], 0)
 	})
+}
+
+func TestConnectionToMultipleConfigurations(t *testing.T) {
+	setenv(cacheServerURLEnv, defaultCacheServerHost)
+	wiremockHTTPS.registerMappings(t, wiremockMapping{filePath: "auth/password/successful_flow.json"})
+	err := RegisterTLSConfig("wiremock", &tls.Config{
+		RootCAs: wiremockHTTPS.certPool(t),
+	})
+	assertNilF(t, err)
+
+	origOcspMaxRetryCount := OcspMaxRetryCount
+	OcspMaxRetryCount = 1
+	defer func() {
+		OcspMaxRetryCount = origOcspMaxRetryCount
+	}()
+
+	cfgForFailOpen := wiremockHTTPS.connectionConfig(t)
+	cfgForFailOpen.OCSPFailOpen = OCSPFailOpenTrue
+	cfgForFailOpen.Transporter = nil
+	cfgForFailOpen.TLSConfigName = "wiremock"
+	cfgForFailOpen.MaxRetryCount = 1
+	cfgForFailOpen.DisableTelemetry = true
+
+	cfgForFailClose := wiremockHTTPS.connectionConfig(t)
+	cfgForFailClose.OCSPFailOpen = OCSPFailOpenFalse
+	cfgForFailClose.Transporter = nil
+	cfgForFailClose.TLSConfigName = "wiremock"
+	cfgForFailClose.MaxRetryCount = 1
+	cfgForFailClose.DisableTelemetry = true
+
+	// we ignore closing here, since these are only wiremock connections
+	failOpenDb := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfgForFailOpen))
+	failCloseDb := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfgForFailClose))
+
+	_, err = failOpenDb.Conn(context.Background())
+	assertNilF(t, err)
+
+	_, err = failCloseDb.Conn(context.Background())
+	assertNotNilF(t, err)
+	var se *SnowflakeError
+	assertTrueF(t, errors.As(err, &se))
+	assertStringContainsE(t, se.Error(), "no OCSP server is attached to the certificate")
+
+	_, err = failOpenDb.Conn(context.Background())
+	assertNilF(t, err)
+
+	// new connections should still behave the same way
+	failOpenDb2 := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfgForFailOpen))
+	failCloseDb2 := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfgForFailClose))
+
+	_, err = failOpenDb2.Conn(context.Background())
+	assertNilF(t, err)
+
+	_, err = failCloseDb2.Conn(context.Background())
+	assertNotNilF(t, err)
+	assertTrueF(t, errors.As(err, &se))
+	assertStringContainsE(t, se.Error(), "no OCSP server is attached to the certificate")
+
+	// and old connections should still behave the same way
+	_, err = failOpenDb.Conn(context.Background())
+	assertNilF(t, err)
+
+	_, err = failCloseDb.Conn(context.Background())
+	assertNotNilF(t, err)
+	assertTrueF(t, errors.As(err, &se))
+	assertStringContainsE(t, se.Error(), "no OCSP server is attached to the certificate")
 }
