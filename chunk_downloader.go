@@ -528,11 +528,17 @@ func (scd *streamChunkDownloader) totalUncompressedSize() (acc int64) {
 }
 
 func (scd *streamChunkDownloader) hasNextResultSet() bool {
-	return scd.readErr == nil
+	if scd.readErr != nil && scd.readErr != io.EOF {
+		return false
+	}
+	return scd.NextDownloader != nil
 }
 
 func (scd *streamChunkDownloader) nextResultSet() error {
-	return scd.readErr
+	if scd.readErr != nil && scd.readErr != io.EOF {
+		return scd.readErr
+	}
+	return nil
 }
 
 func (scd *streamChunkDownloader) start() error {
@@ -547,7 +553,7 @@ func (scd *streamChunkDownloader) start() error {
 			t := time.Now()
 
 			defer func() {
-				if readErr == io.EOF {
+				if readErr == nil {
 					logger.WithContext(scd.ctx).Infof("downloading done. downloader id: %v", scd.id)
 				} else {
 					logger.WithContext(scd.ctx).Debugf("downloading error. downloader id: %v", scd.id)
