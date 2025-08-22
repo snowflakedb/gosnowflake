@@ -51,6 +51,24 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "user:pass@ac-1-laksdnflaf.global/db/schema?disableTelemetry=true",
+			config: &Config{
+				Account: "ac-1", User: "user", Password: "pass", Region: "global",
+				Protocol: "https", Host: "ac-1-laksdnflaf.global.snowflakecomputing.com", Port: 443,
+				Database: "db", Schema: "schema",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				DisableTelemetry:          true,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			dsn: "user:pass@ac-laksdnflaf.global/db/schema",
 			config: &Config{
 				Account: "ac", User: "user", Password: "pass", Region: "global",
@@ -1277,6 +1295,7 @@ func TestParseDSN(t *testing.T) {
 			cfg, err := ParseDSN(test.dsn)
 			switch {
 			case test.err == nil:
+				// TODO: consider converting these checks into a deep equal assertion
 				if err != nil {
 					t.Fatalf("%d: Failed to parse the DSN. dsn: %v, err: %v", i, test.dsn, err)
 				}
@@ -1407,6 +1426,7 @@ func TestParseDSN(t *testing.T) {
 				assertEqualE(t, cfg.CrlInMemoryCacheDisabled, test.config.CrlInMemoryCacheDisabled, "crl in memory cache disabled")
 				assertEqualE(t, cfg.CrlOnDiskCacheDisabled, test.config.CrlOnDiskCacheDisabled, "crl on disk cache disabled")
 				assertEqualE(t, cfg.CrlHTTPClientTimeout, test.config.CrlHTTPClientTimeout, "crl http client timeout")
+				assertEqualE(t, cfg.DisableTelemetry, test.config.DisableTelemetry, "disable telemetry")
 			case test.err != nil:
 				driverErrE, okE := test.err.(*SnowflakeError)
 				driverErrG, okG := err.(*SnowflakeError)

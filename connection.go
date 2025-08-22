@@ -813,9 +813,6 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
-	if err = setupOCSPEnvVars(ctx, sc.cfg.Host); err != nil {
-		return nil, err
-	}
 	var tokenAccessor TokenAccessor
 	if sc.cfg.TokenAccessor != nil {
 		tokenAccessor = sc.cfg.TokenAccessor
