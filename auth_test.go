@@ -1038,7 +1038,7 @@ func TestPatInvalidToken(t *testing.T) {
 	_, err := db.Query("SELECT 1")
 	assertNotNilF(t, err)
 	var se *SnowflakeError
-	assertTrueF(t, errors.As(err, &se))
+	assertErrorsAsF(t, err, &se)
 	assertEqualE(t, se.Number, 394400)
 	assertEqualE(t, se.Message, "Programmatic access token is invalid.")
 }

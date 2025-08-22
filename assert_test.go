@@ -37,6 +37,10 @@ func assertErrIsE(t *testing.T, actual, expected error, descriptions ...string) 
 	errorOnNonEmpty(t, validateErrIs(actual, expected, descriptions...))
 }
 
+func assertErrorsAsF(t *testing.T, err error, target any, descriptions ...string) {
+	fatalOnNonEmpty(t, validateErrorsAs(err, target, descriptions...))
+}
+
 func assertEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
 	errorOnNonEmpty(t, validateEqual(actual, expected, descriptions...))
 }
@@ -165,6 +169,19 @@ func validateErrIs(actual, expected error, descriptions ...string) string {
 	return fmt.Sprintf("expected %v to be %v. %s", actualStr, expectedStr, desc)
 }
 
+func validateErrorsAs(err error, target any, descriptions ...string) string {
+	if errors.As(err, target) {
+		return ""
+	}
+	desc := joinDescriptions(descriptions...)
+	errStr := "nil"
+	if err != nil {
+		errStr = maskSecrets(err.Error())
+	}
+	targetType := reflect.TypeOf(target)
+	return fmt.Sprintf("expected error %v to be assignable to %v but was not. %s", errStr, targetType, desc)
+}
+
 func validateEqual(actual any, expected any, descriptions ...string) string {
 	if expected == actual {
 		return ""
@@ -271,9 +288,9 @@ func validateValueBetween(value float64, min float64, max float64, descriptions 
 	}
 	desc := joinDescriptions(descriptions...)
 	return fmt.Sprintf("expected \"%s\" should be between \"%s\" and  \"%s\" but did not. %s",
-		maskSecrets(fmt.Sprintf("%f", value)),
-		maskSecrets(fmt.Sprintf("%f", min)),
-		maskSecrets(fmt.Sprintf("%f", max)),
+		fmt.Sprintf("%f", value),
+		fmt.Sprintf("%f", min),
+		fmt.Sprintf("%f", max),
 		desc)
 }
 
@@ -283,9 +300,9 @@ func validateValueBetweenInclusive(value float64, min float64, max float64, desc
 	}
 	desc := joinDescriptions(descriptions...)
 	return fmt.Sprintf("expected \"%s\" should be between \"%s\" and  \"%s\" inclusively but did not. %s",
-		maskSecrets(fmt.Sprintf("%f", value)),
-		maskSecrets(fmt.Sprintf("%f", min)),
-		maskSecrets(fmt.Sprintf("%f", max)),
+		fmt.Sprintf("%f", value),
+		fmt.Sprintf("%f", min),
+		fmt.Sprintf("%f", max),
 		desc)
 }
 

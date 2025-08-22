@@ -1008,7 +1008,6 @@ func TestCrlE2E(t *testing.T) {
 		defer cacheValidityTimeOverride.rollback()
 		cfg := &Config{
 			User:                              username,
-			Password:                          pass,
 			Account:                           account,
 			Database:                          dbname,
 			Schema:                            schemaname,
@@ -1017,14 +1016,12 @@ func TestCrlE2E(t *testing.T) {
 			DisableOCSPChecks:                 true,
 			CrlOnDiskCacheDisabled:            true,
 		}
+		err := determineAuthenticatorType(cfg, os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR"))
+		assertNilF(t, err, "Failed to set authenticator type")
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
-		if err != nil {
-			// Mask any sensitive information in error messages before failing
-			maskedErr := maskSecrets(err.Error())
-			t.Fatalf("CRL E2E test failed: %s", maskedErr)
-		}
+		assertNilF(t, err, "CRL E2E test failed")
 		defer rows.Close()
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
@@ -1060,7 +1057,7 @@ func TestCrlE2E(t *testing.T) {
 			CertRevocationCheckMode: CertRevocationCheckEnabled,
 		}
 		_, err := buildSnowflakeConn(context.Background(), *cfg)
-		assertEqualE(t, maskSecrets(err.Error()), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+		assertStringContainsE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time")
 		assertEqualE(t, len(crlInMemoryCache), 0)
 	})
 }

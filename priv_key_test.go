@@ -62,9 +62,7 @@ func setupPrivateKey() {
 func TestJWTTokenTimeout(t *testing.T) {
 	brt := newBlockingRoundTripper(http.DefaultTransport, 2000*time.Millisecond)
 	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal("Failed to generate test private key:", err.Error())
-	}
+	assertNilF(t, err, "Failed to generate test private key")
 	cfg := &Config{
 		User:             "user",
 		Host:             "localhost",

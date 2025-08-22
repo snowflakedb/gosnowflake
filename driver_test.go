@@ -123,8 +123,16 @@ func createDSN(timezone string) {
 				if block != nil && block.Type == "PRIVATE KEY" {
 					encodedKey := base64.URLEncoding.EncodeToString(block.Bytes)
 					parameters.Add("privateKey", encodedKey)
+				} else if block == nil {
+					panic(fmt.Sprintf("Failed to decode PEM block from private key file"))
+				} else {
+					panic(fmt.Sprintf("Expected 'PRIVATE KEY' block type"))
 				}
+			} else {
+				panic("Failed to read private key file")
 			}
+		} else {
+			panic("SNOWFLAKE_TEST_PRIVATE_KEY environment variable is not set for JWT authentication")
 		}
 	}
 
@@ -520,96 +528,64 @@ func runningOnLinux() bool {
 }
 
 func TestBogusUserPasswordParameters(t *testing.T) {
-	if !runningOnGithubAction() {
-		t.Skip("error message could be different when run locally")
-	}
-	// Skip this test when using JWT authentication globally to prevent account lockouts
-	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
-		t.Skip("Skipping password authentication test when JWT is configured globally")
-	}
-	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
-	invalidUserPassErrorTests(invalidDNS, 390422, t)
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/invalid_user.json"},
+	)
+
+	cfg := wiremock.connectionConfig()
+	cfg.User = "bogus"
+	cfg.Password = "testPassword"
+	cfg.Authenticator = AuthTypeSnowflake // Force password auth
+
+	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
+	defer db.Close()
+
+	_, err := db.Exec("SELECT 1")
+	assertNotNilF(t, err, "should cause an authentication error")
+
+	var driverErr *SnowflakeError
+	assertErrorsAsF(t, err, &driverErr)
+	assertEqualE(t, driverErr.Number, 390422)
 }
 
 func TestKnownUserInvalidPasswordParameters(t *testing.T) {
-	// Skip this test when using JWT authentication globally to prevent account lockouts
-	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
-		t.Skip("Skipping password authentication test when JWT is configured globally")
-	}
-	invalidDNS := fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
-	invalidUserPassErrorTests(invalidDNS, 390100, t)
-}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/invalid_password.json"},
+	)
 
-func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T) {
-	parameters := url.Values{}
-	// Force password authentication for this test regardless of global setting
-	parameters.Add("authenticator", "snowflake")
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	if account != "" {
-		parameters.Add("account", account)
-	}
-	invalidDNS += "?" + parameters.Encode()
-	db, err := sql.Open("snowflake", invalidDNS)
-	assertNilF(t, err, "error creating a connection object")
-	// actual connection won't happen until run a query
+	cfg := wiremock.connectionConfig()
+	cfg.User = "testUser"
+	cfg.Password = "INVALID_PASSWORD"
+	cfg.Authenticator = AuthTypeSnowflake // Force password auth
+
+	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 	defer db.Close()
-	if _, err = db.Exec("SELECT 1"); err == nil {
-		t.Fatal("should cause an error.")
-	}
-	if driverErr, ok := err.(*SnowflakeError); ok {
-		if driverErr.Number != expectedErr {
-			t.Fatalf("wrong error code: %v", maskSecrets(driverErr.Error()))
-		}
-		if !strings.Contains(driverErr.Error(), strconv.Itoa(expectedErr)) {
-			assertStringContainsF(t, driverErr.Error(), strconv.Itoa(expectedErr), "wrong error message")
-		}
-	} else {
-		t.Fatalf("wrong error code: %v", maskSecrets(err.Error()))
-	}
+
+	_, err := db.Exec("SELECT 1")
+	assertNotNilF(t, err, "should cause an authentication error")
+
+	var driverErr *SnowflakeError
+	assertErrorsAsF(t, err, &driverErr)
+	assertEqualE(t, driverErr.Number, 390100)
 }
 
 func TestBogusHostNameParameters(t *testing.T) {
-	// Skip this test when using JWT authentication globally to prevent unnecessary connection attempts
-	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
-		t.Skip("Skipping host validation test when JWT is configured globally")
-	}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/invalid_host.json"},
+	)
 
-	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
-	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "connection broken"}, t)
-	invalidDNS = fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST")
-	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer", "EOF", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "failed to auth", "connection broken"}, t)
-}
+	cfg := wiremock.connectionConfig()
+	cfg.Authenticator = AuthTypeSnowflake // Force password auth
 
-func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
-	parameters := url.Values{}
-	// Force password authentication for this test regardless of global setting
-	parameters.Add("authenticator", "snowflake")
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	if account != "" {
-		parameters.Add("account", account)
-	}
-	parameters.Add("loginTimeout", "10")
-	invalidDNS += "?" + parameters.Encode()
-	db, err := sql.Open("snowflake", invalidDNS)
-	assertNilF(t, err, "error creating a connection object")
-	// actual connection won't happen until run a query
+	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 	defer db.Close()
-	if _, err = db.Exec("SELECT 1"); err == nil {
-		t.Fatal("should cause an error.")
-	}
-	found := false
-	for _, m := range mstr {
-		if strings.Contains(err.Error(), m) || strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("wrong error: %v", maskSecrets(err.Error()))
-	}
+
+	_, err := db.Exec("SELECT 1")
+	assertNotNilF(t, err, "should cause a host validation error")
+
+	var driverErr *SnowflakeError
+	assertErrorsAsF(t, err, &driverErr)
+	assertEqualE(t, driverErr.Number, 390144)
 }
 
 func TestCommentOnlyQuery(t *testing.T) {
@@ -2016,14 +1992,8 @@ func TestValidateDatabaseParameter(t *testing.T) {
 			testCfg.Schema = tc.schemaname
 
 			// Override with test-specific parameters
-			for k, v := range tc.params {
-				switch k {
-				case "warehouse":
-					testCfg.Warehouse = v
-				case "role":
-					testCfg.Role = v
-				}
-			}
+			testCfg.Warehouse = tc.params["warehouse"]
+			testCfg.Role = tc.params["role"]
 
 			db := sql.OpenDB(NewConnector(SnowflakeDriver{}, testCfg))
 			defer db.Close()
@@ -2094,11 +2064,8 @@ func TestPingInvalidHost(t *testing.T) {
 	}
 
 	db, err := sql.Open("snowflake", testURL)
-	if err != nil {
-		t.Fatalf("failed to initalize the connetion. err: %v", err)
-	}
-	ctx := context.Background()
-	if err = db.PingContext(ctx); err == nil {
+	assertNilF(t, err, "failed to initialize the connection")
+	if err = db.PingContext(context.Background()); err == nil {
 		t.Fatal("should cause an error")
 	}
 	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
@@ -2125,11 +2092,8 @@ func TestOpenWithConfig(t *testing.T) {
 	}
 
 	db, err := sql.Open("snowflake", testURL)
-	if err != nil {
-		t.Fatalf("failed to initalize the connetion. err: %v", err)
-	}
-	ctx := context.Background()
-	if err = db.PingContext(ctx); err == nil {
+	assertNilF(t, err, "failed to initialize the connection")
+	if err = db.PingContext(context.Background()); err == nil {
 		t.Fatal("should cause an error")
 	}
 	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
@@ -2199,9 +2163,7 @@ func TestOpenWithTransport(t *testing.T) {
 	config.Transporter = transport
 	driver := SnowflakeDriver{}
 	db, err := driver.OpenWithConfig(context.Background(), *config)
-	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
 	conn := db.(*snowflakeConn)
 	if conn.rest.Client.Transport != transport {
 		t.Fatal("transport doesn't match")
@@ -2215,9 +2177,7 @@ func TestOpenWithTransport(t *testing.T) {
 	countingTransport.reset()
 	config.DisableOCSPChecks = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
-	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
 	conn = db.(*snowflakeConn)
 	if conn.rest.Client.Transport != transport {
 		t.Fatal("transport doesn't match")
@@ -2231,9 +2191,7 @@ func TestOpenWithTransport(t *testing.T) {
 	countingTransport.reset()
 	config.InsecureMode = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
-	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
 	conn = db.(*snowflakeConn)
 	if conn.rest.Client.Transport != transport {
 		t.Fatal("transport doesn't match")
@@ -2264,9 +2222,7 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 		}
 
 		p, err := ScanSnowflakeParameter(rows.rows)
-		if err != nil {
-			t.Errorf("failed to run get client_session_keep_alive value. err: %v", maskSecrets(err.Error()))
-		}
+		assertNilF(t, err, "failed to run get client_session_keep_alive value")
 		if p.Value != "true" {
 			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", maskSecrets(p.Value))
 		}
@@ -2282,10 +2238,7 @@ func TestTimePrecision(t *testing.T) {
 		rows := dbt.mustQuery("select * from z3")
 		defer rows.Close()
 		cols, err := rows.ColumnTypes()
-		if err != nil {
-			t.Errorf("failed to get column types: %v", maskSecrets(err.Error()))
-			return
-		}
+		assertNilE(t, err, "failed to get column types")
 		if pres, _, ok := cols[0].DecimalSize(); pres != 5 || !ok {
 			t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
 		}

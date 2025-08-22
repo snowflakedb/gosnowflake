@@ -1296,9 +1296,7 @@ func TestParseDSN(t *testing.T) {
 			cfg, err := ParseDSN(test.dsn)
 			switch {
 			case test.err == nil:
-				if err != nil {
-					t.Fatalf("%d: Failed to parse the DSN. dsn: %v, err: %v", i, maskSecrets(test.dsn), maskSecrets(err.Error()))
-				}
+				assertNilF(t, err, fmt.Sprintf("%d: Failed to parse the DSN. dsn: %v", i, test.dsn))
 				assertEqualE(t, cfg.Host, test.config.Host, fmt.Sprintf("Test %d: Host mismatch", i))
 				assertEqualE(t, cfg.Account, test.config.Account, fmt.Sprintf("Test %d: Account mismatch", i))
 				assertEqualE(t, cfg.User, test.config.User, fmt.Sprintf("Test %d: User mismatch", i))

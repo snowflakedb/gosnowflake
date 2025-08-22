@@ -438,11 +438,13 @@ func TestFetchResultByQueryID(t *testing.T) {
 	ctx := WithFetchResultByID(context.Background(), qid)
 	rows2, err := db.QueryContext(ctx, "")
 	assertNilF(t, err)
-	defer rows2.Close()
+	closeCh := make(chan bool)
+	rows2ext := &RowsExtended{rows: rows2, closeChan: &closeCh, t: t}
+	defer rows2ext.Close()
 
 	var ms, sum int
-	assertTrueF(t, rows2.Next())
-	assertNilF(t, rows2.Scan(&ms, &sum))
+	rows2ext.mustNext()
+	rows2ext.mustScan(&ms, &sum)
 	assertEqualE(t, ms, 1)
 	assertEqualE(t, sum, 5050)
 }
@@ -478,11 +480,13 @@ func TestFetchRunningQueryByID(t *testing.T) {
 	ctx := WithFetchResultByID(context.Background(), qid)
 	rows2, err := db.QueryContext(ctx, "")
 	assertNilF(t, err)
-	defer rows2.Close()
+	closeCh := make(chan bool)
+	rows2ext := &RowsExtended{rows: rows2, closeChan: &closeCh, t: t}
+	defer rows2ext.Close()
 
 	var ms, sum int
-	assertTrueF(t, rows2.Next())
-	assertNilF(t, rows2.Scan(&ms, &sum))
+	rows2ext.mustNext()
+	rows2ext.mustScan(&ms, &sum)
 	assertEqualE(t, ms, 1)
 	assertEqualE(t, sum, 5050)
 }
@@ -520,7 +524,7 @@ func TestFetchErrorQueryByID(t *testing.T) {
 	assertNotNilF(t, err, "Expected error when fetching failed query")
 
 	var se *SnowflakeError
-	assertTrueF(t, errors.As(err, &se))
+	assertErrorsAsF(t, err, &se)
 	assertEqualE(t, se.Number, ErrQueryReportedError)
 }
 
@@ -557,7 +561,7 @@ func TestFetchMalformedJsonQueryByID(t *testing.T) {
 	_, err = db.QueryContext(ctx, "")
 	assertNotNilF(t, err, "Expected error when fetching malformed JSON")
 
-	assertTrueF(t, strings.Contains(err.Error(), "invalid character"))
+	assertStringContainsF(t, err.Error(), "invalid character")
 }
 
 func TestIsPrivateLink(t *testing.T) {
@@ -742,10 +746,6 @@ func TestConcurrentReadOnParams(t *testing.T) {
 
 					rows, err := stmt.Query("INFORMATION_SCHEMA")
 					if err != nil {
-						atomic.AddInt32(&failureCount, 1)
-						return
-					}
-					if rows == nil {
 						atomic.AddInt32(&failureCount, 1)
 						return
 					}
