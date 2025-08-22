@@ -459,6 +459,6 @@ func TestTomlConnection(t *testing.T) {
 	}
 
 	db, err := sql.Open("snowflake", "autoConfig")
-	assertNilF(t, err, "The error occured because the db cannot be established")
+	assertNilF(t, err, "The error occurred because the db cannot be established")
 	runSmokeQuery(t, db)
 }
