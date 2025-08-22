@@ -570,3 +570,25 @@ func TestUnitHandleMultiQuery(t *testing.T) {
 		}
 	})
 }
+
+func TestMultiStatementArrowFormat(t *testing.T) {
+	buffer, cleanup := setupTestLogger()
+	defer cleanup()
+	ctx, _ := WithMultiStatement(context.Background(), 4)
+	multiStmtQuery := "select 123;\n" +
+		"select 456;\n" +
+		"select 789;\n" +
+		"select '000';"
+
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = TRUE")
+
+		rows := dbt.mustQueryContext(WithArrowBatches(ctx), multiStmtQuery)
+		defer rows.Close()
+		logOutput := buffer.String()
+		assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: 123, QueryResultFormat: arrow")
+		assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: 456, QueryResultFormat: arrow")
+		assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: 789, QueryResultFormat: arrow")
+		assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: '000', QueryResultFormat: arrow")
+	})
+}

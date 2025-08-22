@@ -213,5 +213,6 @@ func getQueryResultWithRetriesForAsyncMode(
 			}
 		}
 	}
+	logger.Infof("[Server Response Validation]: RowType: %s, QueryResultFormat: %s", respd.Data.RowType[0].Name, respd.Data.QueryResultFormat)
 	return respd, nil
 }
