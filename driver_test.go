@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -1731,7 +1732,7 @@ func TestCancelQuery(t *testing.T) {
 		if err == nil {
 			dbt.Fatal("No timeout error returned")
 		}
-		if err.Error() != "context deadline exceeded" {
+		if !errors.Is(err, context.DeadlineExceeded) {
 			dbt.Fatalf("Timeout error mismatch: expect %v, receive %v", context.DeadlineExceeded, err.Error())
 		}
 	})
