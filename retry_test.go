@@ -524,6 +524,12 @@ func TestIsRetryable(t *testing.T) {
 		{
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      nil,
+			err:      &url.Error{Err: context.DeadlineExceeded},
+			expected: false,
+		},
+		{
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      nil,
 			err:      errUnknownError(),
 			expected: true,
 		},
