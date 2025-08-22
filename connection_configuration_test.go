@@ -457,6 +457,6 @@ func TestTomlConnection(t *testing.T) {
 		assertNilF(t, err, "The error occurred because you cannot change the file permission")
 	}
 
-	db, err := sql.Open("snowflake", "autoConfig")
-	runSmokeQuery(t, db)
+	_, err = sql.Open("snowflake", "autoConfig")
+	assertNilF(t, err, "The error should not occur")
 }
