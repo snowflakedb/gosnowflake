@@ -215,14 +215,12 @@ func (rows *snowflakeRows) NextResultSet() error {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
-	if len(rows.ChunkDownloader.getChunkMetas()) == 0 {
-		if rows.ChunkDownloader.getNextChunkDownloader() == nil {
-			return io.EOF
-		}
-		rows.ChunkDownloader = rows.ChunkDownloader.getNextChunkDownloader()
-		if err := rows.ChunkDownloader.start(); err != nil {
-			return err
-		}
+	if rows.ChunkDownloader.getNextChunkDownloader() == nil {
+		return io.EOF
+	}
+	rows.ChunkDownloader = rows.ChunkDownloader.getNextChunkDownloader()
+	if err := rows.ChunkDownloader.start(); err != nil {
+		return err
 	}
 	return rows.ChunkDownloader.nextResultSet()
 }

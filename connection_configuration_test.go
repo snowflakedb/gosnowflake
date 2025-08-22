@@ -381,6 +381,7 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 }
 
 func TestGetTomlFilePath(t *testing.T) {
+	skipOnMissingHome(t)
 	dir, err := getTomlFilePath("")
 	assertNilF(t, err, "should not have failed")
 	homeDir, err := os.UserHomeDir()
