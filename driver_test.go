@@ -124,9 +124,9 @@ func createDSN(timezone string) {
 					encodedKey := base64.URLEncoding.EncodeToString(block.Bytes)
 					parameters.Add("privateKey", encodedKey)
 				} else if block == nil {
-					panic(fmt.Sprintf("Failed to decode PEM block from private key file"))
+					panic("Failed to decode PEM block from private key file")
 				} else {
-					panic(fmt.Sprintf("Expected 'PRIVATE KEY' block type"))
+					panic("Expected 'PRIVATE KEY' block type")
 				}
 			} else {
 				panic("Failed to read private key file")
