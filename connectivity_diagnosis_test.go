@@ -701,7 +701,6 @@ func TestPerformConnectivityCheck(t *testing.T) {
 }
 
 func TestPerformDiagnosis(t *testing.T) {
-
 	t.Run("Perform Diagnosis - CRL download disabled", func(t *testing.T) {
 		// setup test logger then restore original after test
 		buffer, cleanup := setupTestLogger()
