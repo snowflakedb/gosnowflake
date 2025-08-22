@@ -412,7 +412,7 @@ func TestGetTomlFilePath(t *testing.T) {
 func TestTomlConnection(t *testing.T) {
 	os.Setenv(snowflakeHome, "./test_data/wiremock")
 	defer os.Unsetenv(snowflakeHome)
-	wiremockHTTPS.registerMappings(t,
+	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
 		wiremockMapping{filePath: "select1.json", params: map[string]string{
 			"%AUTHORIZATION_HEADER%": "session token",
@@ -431,7 +431,7 @@ func TestTomlConnection(t *testing.T) {
 		Connection Connection `toml:"default"`
 	}
 
-	cfg := wiremockHTTPS.connectionConfig(t)
+	cfg := wiremock.connectionConfig()
 	connection := &TomlStruct{
 		Connection: Connection{
 			Account:  cfg.Account,
@@ -457,6 +457,6 @@ func TestTomlConnection(t *testing.T) {
 		assertNilF(t, err, "The error occurred because you cannot change the file permission")
 	}
 
-	_, err = sql.Open("snowflake", "autoConfig")
-	assertNilF(t, err, "The error should not occur")
+	db, err := sql.Open("snowflake", "autoConfig")
+	runSmokeQuery(t, db)
 }
