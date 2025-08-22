@@ -2,7 +2,10 @@ package gosnowflake
 
 import (
 	"net/http"
+	"os"
+	"runtime"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -90,4 +93,10 @@ func (brt *blockingRoundTripper) setPathBlockTime(path string, blockTime time.Du
 
 func (brt *blockingRoundTripper) reset() {
 	brt.pathBlockTime = make(map[string]time.Duration)
+}
+
+func skipOnMissingHome(t *testing.T) {
+	if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && os.Getenv("HOME") == "" {
+		t.Skip("skipping on missing HOME environment variable")
+	}
 }
