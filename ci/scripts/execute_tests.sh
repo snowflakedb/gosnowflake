@@ -14,6 +14,11 @@ env | grep SNOWFLAKE | grep -v PASS | grep -v SECRET | sort
 cd $TOPDIR
 go install github.com/jstemmer/go-junit-report/v2@latest
 
+if [[ "$HOME_EMPTY" == "yes" ]] ; then
+  export GOCACHE=$HOME/go-build
+  export GOMODCACHE=$HOME/go-modules
+  export HOME=
+fi
 if [[ -n "$JENKINS_HOME" ]]; then
   export WORKSPACE=${WORKSPACE:-/mnt/workspace}
   go test $GO_TEST_PARAMS -timeout 120m -race -v . | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml

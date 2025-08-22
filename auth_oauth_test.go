@@ -52,6 +52,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 	})
 
 	t.Run("Store access token in cache", func(t *testing.T) {
+		skipOnMissingHome(t)
 		roundTripper.reset()
 		credentialsStorage.deleteCredential(accessTokenSpec)
 		credentialsStorage.deleteCredential(refreshTokenSpec)
@@ -66,6 +67,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 	})
 
 	t.Run("Use cache for consecutive calls", func(t *testing.T) {
+		skipOnMissingHome(t)
 		roundTripper.reset()
 		credentialsStorage.setCredential(accessTokenSpec, "access-token-123")
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/successful_flow.json"))
@@ -188,6 +190,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 	})
 
 	t.Run("should store token in cache", func(t *testing.T) {
+		skipOnMissingHome(t)
 		crt.reset()
 		credentialsStorage.deleteCredential(cacheTokenSpec)
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/client_credentials/successful_flow.json"))
@@ -205,6 +208,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 	})
 
 	t.Run("consecutive calls should take token from cache", func(t *testing.T) {
+		skipOnMissingHome(t)
 		crt.reset()
 		credentialsStorage.setCredential(cacheTokenSpec, "access-token-123")
 		for i := 0; i < 3; i++ {
@@ -218,6 +222,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 	})
 
 	t.Run("disabling cache", func(t *testing.T) {
+		skipOnMissingHome(t)
 		cfg := cfgFactory()
 		cfg.ClientStoreTemporaryCredential = ConfigBoolFalse
 		credentialsStorage.deleteCredential(cacheTokenSpec)

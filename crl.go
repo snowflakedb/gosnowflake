@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const snowflakeCrlCacheValidityTimeEnv = "SNOWFLAKE_CRL_CACHE_VALIDITY_TIME"
+
 var idpOID = asn1.ObjectIdentifier{2, 5, 29, 28}
 
 type distributionPointName struct {
@@ -55,11 +57,12 @@ var (
 	crlInMemoryCache        = make(map[string]*crlInMemoryCacheValueType)
 	crlInMemoryCacheMutex   = &sync.Mutex{}
 	crlURLMutexes           = make(map[string]*sync.Mutex)
-	crlCacheCleaner         = newCrlCacheCleaner()
+	crlCacheCleanerMu       = &sync.Mutex{}
+	crlCacheCleaner         *crlCacheCleanerType
 )
 
 func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, inMemoryCacheDisabled, onDiskCacheDisabled bool, httpClient *http.Client, telemetry *snowflakeTelemetry) (*crlValidator, error) {
-	var err error
+	initCrlCacheCleaner()
 	cv := &crlValidator{
 		certRevocationCheckMode:        certRevocationCheckMode,
 		allowCertificatesWithoutCrlURL: allowCertificatesWithoutCrlURL,
@@ -68,18 +71,20 @@ func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCerti
 		httpClient:                     httpClient,
 		telemetry:                      telemetry,
 	}
-	if err = os.MkdirAll(crlCacheCleaner.onDiskCacheDir, 0755); err != nil {
-		return nil, err
-	}
 	return cv, nil
 }
 
-func newCrlCacheCleaner() *crlCacheCleanerType {
+func initCrlCacheCleaner() {
+	crlCacheCleanerMu.Lock()
+	defer crlCacheCleanerMu.Unlock()
+	if crlCacheCleaner != nil {
+		return
+	}
 	var err error
 	validityTime := defaultCrlCacheValidityTime
-	if validityTimeStr := os.Getenv("SNOWFLAKE_CRL_CACHE_VALIDITY_TIME"); validityTimeStr != "" {
-		if validityTime, err = time.ParseDuration(os.Getenv("SNOWFLAKE_CRL_CACHE_VALIDITY_TIME")); err != nil {
-			logger.Infof("failed to parse SNOWFLAKE_CRL_CACHE_VALIDITY_TIME: %v, using default value %v", err, defaultCrlCacheValidityTime)
+	if validityTimeStr := os.Getenv(snowflakeCrlCacheValidityTimeEnv); validityTimeStr != "" {
+		if validityTime, err = time.ParseDuration(os.Getenv(snowflakeCrlCacheValidityTimeEnv)); err != nil {
+			logger.Infof("failed to parse %v: %v, using default value %v", snowflakeCrlCacheValidityTimeEnv, err, defaultCrlCacheValidityTime)
 			validityTime = defaultCrlCacheValidityTime
 		}
 	}
@@ -99,8 +104,13 @@ func newCrlCacheCleaner() *crlCacheCleanerType {
 			onDiskCacheDir = "" // it will work only if on-disk cache is disabled
 		}
 	}
+	if onDiskCacheDir != "" {
+		if err = os.MkdirAll(onDiskCacheDir, 0755); err != nil {
+			logger.Errorf("error while preparing cache dir for CRLs: %v", err)
+		}
+	}
 
-	return &crlCacheCleanerType{
+	crlCacheCleaner = &crlCacheCleanerType{
 		cacheValidityTime:       validityTime,
 		onDiskCacheRemovalDelay: onDiskCacheRemovalDelay,
 		onDiskCacheDir:          onDiskCacheDir,
@@ -612,7 +622,7 @@ func defaultCrlOnDiskCacheDir() (string, error) {
 	default:
 		home := os.Getenv("HOME")
 		if home == "" {
-			logger.Info("HOME is blank")
+			return "", errors.New("HOME is blank")
 		}
 		return filepath.Join(home, ".cache", "snowflake", "crls"), nil
 	}
