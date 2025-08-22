@@ -71,7 +71,7 @@ The following connection parameters are supported:
 
   - --> Important note: for the database object and other objects (schema, role, etc), please always adhere to the rules for Snowflake Object Identifiers; especially https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers.
     As mentioned in the docs, if you have e.g. a database with mIxEDcAsE naming, as you needed to create it with enclosing it in double quotes, similarly you'll need to reference it
-	also with double quotes when specifying it in the connection string / DSN. In practice, this means you'll need to escape the second pair of double quotes, which are part of the database name, and not the String notation.
+    also with double quotes when specifying it in the connection string / DSN. In practice, this means you'll need to escape the second pair of double quotes, which are part of the database name, and not the String notation.
 
   - database: Specifies the database to use by default in the client session
     (can be changed after login).
@@ -146,11 +146,11 @@ The following connection parameters are supported:
     Database, Schema, Warehouse and Role when setting up the connection
 
     --> Important note: with the default true value, the connection will fail as the validation fails, if you specify a non-existent database/schema/etc name.
-	This is particularly important when you have a miXedCaSE-named object (e.g. database) and you forgot to properly double quote it.
+    This is particularly important when you have a miXedCaSE-named object (e.g. database) and you forgot to properly double quote it.
     This behaviour is still preferable as it provides a very clear, fail-fast indication of the configuration error. If you would still like to forego this validation,
-	which ensures that the driver always connects with proper database, schema etc. and creates a proper context for it, you can set this configuration to false to allow connection with invalid object identifiers. 
+    which ensures that the driver always connects with proper database, schema etc. and creates a proper context for it, you can set this configuration to false to allow connection with invalid object identifiers.
 
-    In this case (with this default validation deliberately turned off) the driver cannot guarantee that the actual behaviour inside the session will match with the one you'd expect, i.e. not actually using the database you expect, and so on. 
+    In this case (with this default validation deliberately turned off) the driver cannot guarantee that the actual behaviour inside the session will match with the one you'd expect, i.e. not actually using the database you expect, and so on.
 
   - tracing: Specifies the logging level to be used. Set to error by default.
     Valid values are trace, debug, info, print, warning, error, fatal, panic.
@@ -249,6 +249,20 @@ NO_PROXY does not support wildcards. Each value specified should be one of the f
 If more than one value is specified, values should be separated by commas, for example:
 
 	no_proxy=localhost,.my_company.com,xy12345.snowflakecomputing.com,192.168.1.15,192.168.1.16
+
+In addition to environment variables, the Go Snowflake Driver also supports configuring the proxy via connection parameters.
+When these parameters are provided in the connection string or DSN, they take precedence and any environment proxy settings (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) will be ignored.
+
+| Parameter       | Description                                                                 | Default |
+|-----------------|-----------------------------------------------------------------------------|---------|
+| `proxyHost`     | Hostname or IP address of the proxy server.                                 |         |
+| `proxyPort`     | Port number of the proxy server.                                            |         |
+| `proxyUser`     | Username for proxy authentication.                                         |         |
+| `proxyPassword` | Password for proxy authentication.                                         |         |
+| `proxyProtocol`  | Protocol to use for proxy connection. Valid values: `http`, `https`.        | `http`  |
+| `NoProxy“       | Comma-separated list of hosts that should bypass the proxy.                 |         |
+
+For more details, please refer to the example in ./cmd/proxyconnection.
 
 # Logging
 
