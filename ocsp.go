@@ -657,10 +657,6 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 		Timeout:   timeout,
 		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(),
 	}
-	if ov.cfg.Transporter != nil {
-		ocspClient.Transport = ov.cfg.Transporter
-	}
-
 	ocspRes, ocspResBytes, ocspS := ov.retryOCSP(
 		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
 	if ocspS.code != ocspSuccess {
