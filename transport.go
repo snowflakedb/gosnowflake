@@ -117,10 +117,6 @@ func (tf *transportFactory) createOCSPTransport() *http.Transport {
 
 // createNoRevocationTransport creates a transport without certificate revocation checking
 func (tf *transportFactory) createNoRevocationTransport() *http.Transport {
-	if tf.config != nil && tf.config.Account == "testAccount" && tf.config.Transporter != nil {
-		// Unit testing purpose. Replace the Transporter with the round tripper
-		return tf.config.Transporter.(*http.Transport)
-	}
 	return tf.createBaseTransport(defaultTransportConfig(), nil)
 }
 
