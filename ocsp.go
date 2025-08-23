@@ -653,9 +653,13 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 	headers[httpHeaderContentLength] = strconv.Itoa(len(ocspReq))
 	headers[httpHeaderHost] = hostname
 	timeout := OcspResponderTimeout
+	if snowflakeNoRevocationCheckTransport == nil {
+		snowflakeNoRevocationCheckTransport = newTransportFactory(ov.cfg, nil).createNoRevocationTransport()
+	}
+
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: ov.cfg.Transporter,
+		Transport: snowflakeNoRevocationCheckTransport,
 	}
 	ocspRes, ocspResBytes, ocspS := ov.retryOCSP(
 		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
@@ -1144,6 +1148,9 @@ func (occ *ocspCacheClearerType) stop() {
 		<-stopOCSPCacheClearing
 	}
 }
+
+// only testing purpose to count the round trip.
+var snowflakeNoRevocationCheckTransport http.RoundTripper
 
 // SnowflakeTransport includes the certificate revocation check with OCSP in sequential. By default, the driver uses
 // this transport object.
