@@ -413,7 +413,8 @@ func TestGetTomlFilePath(t *testing.T) {
 func TestTomlConnection(t *testing.T) {
 	os.Setenv(snowflakeHome, "./test_data/wiremock")
 	defer os.Unsetenv(snowflakeHome)
-	wiremock.registerMappings(t,
+	wireMock := newWiremock()
+	wireMock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
 		wiremockMapping{filePath: "select1.json", params: map[string]string{
 			"%AUTHORIZATION_HEADER%": "session token",
@@ -432,7 +433,7 @@ func TestTomlConnection(t *testing.T) {
 		Connection Connection `toml:"default"`
 	}
 
-	cfg := wiremock.connectionConfig()
+	cfg := wireMock.connectionConfig()
 	connection := &TomlStruct{
 		Connection: Connection{
 			Account:  cfg.Account,
@@ -447,11 +448,11 @@ func TestTomlConnection(t *testing.T) {
 	f, err := os.Create("./test_data/wiremock/connections.toml")
 	defer os.Remove("./test_data/wiremock/connections.toml")
 	assertNilF(t, err, "Failed to create connections.toml file")
-	f.Close()
 
 	encoder := toml.NewEncoder(f)
 	err = encoder.Encode(connection)
 	assertNilF(t, err, "Failed to parse the config to toml structure")
+	defer f.Close()
 
 	if !isWindows {
 		err = os.Chmod("./test_data/wiremock/connections.toml", 0600)
