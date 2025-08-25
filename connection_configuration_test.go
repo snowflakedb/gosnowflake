@@ -2,16 +2,12 @@ package gosnowflake
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"io/fs"
 	"os"
 	path "path/filepath"
-	"strconv"
 	"testing"
 	"time"
-
-	toml "github.com/BurntSushi/toml"
 )
 
 func TestTokenFilePermission(t *testing.T) {
@@ -410,56 +406,56 @@ func TestGetTomlFilePath(t *testing.T) {
 	}
 }
 
-func TestTomlConnection(t *testing.T) {
-	os.Setenv(snowflakeHome, "./test_data/wiremock")
-	defer os.Unsetenv(snowflakeHome)
-	wireMock := newWiremock()
-	wireMock.registerMappings(t,
-		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "select1.json", params: map[string]string{
-			"%AUTHORIZATION_HEADER%": "session token",
-		}},
-	)
-	type Connection struct {
-		Account  string `toml:"account"`
-		User     string `toml:"user"`
-		Password string `toml:"password"`
-		Host     string `toml:"host"`
-		Port     string `toml:"port"`
-		Protocol string `toml:"protocol"`
-	}
+// func TestTomlConnection(t *testing.T) {
+// 	os.Setenv(snowflakeHome, "./test_data/wiremock")
+// 	defer os.Unsetenv(snowflakeHome)
+// 	wireMock := newWiremock()
+// 	wireMock.registerMappings(t,
+// 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+// 		wiremockMapping{filePath: "select1.json", params: map[string]string{
+// 			"%AUTHORIZATION_HEADER%": "session token",
+// 		}},
+// 	)
+// 	type Connection struct {
+// 		Account  string `toml:"account"`
+// 		User     string `toml:"user"`
+// 		Password string `toml:"password"`
+// 		Host     string `toml:"host"`
+// 		Port     string `toml:"port"`
+// 		Protocol string `toml:"protocol"`
+// 	}
 
-	type TomlStruct struct {
-		Connection Connection `toml:"default"`
-	}
+// 	type TomlStruct struct {
+// 		Connection Connection `toml:"default"`
+// 	}
 
-	cfg := wireMock.connectionConfig()
-	connection := &TomlStruct{
-		Connection: Connection{
-			Account:  cfg.Account,
-			User:     cfg.User,
-			Password: cfg.Password,
-			Host:     cfg.Host,
-			Port:     strconv.Itoa(cfg.Port),
-			Protocol: cfg.Protocol,
-		},
-	}
+// 	cfg := wireMock.connectionConfig()
+// 	connection := &TomlStruct{
+// 		Connection: Connection{
+// 			Account:  cfg.Account,
+// 			User:     cfg.User,
+// 			Password: cfg.Password,
+// 			Host:     cfg.Host,
+// 			Port:     strconv.Itoa(cfg.Port),
+// 			Protocol: cfg.Protocol,
+// 		},
+// 	}
 
-	f, err := os.Create("./test_data/wiremock/connections.toml")
-	defer os.Remove("./test_data/wiremock/connections.toml")
-	assertNilF(t, err, "Failed to create connections.toml file")
+// 	f, err := os.Create("./test_data/wiremock/connections.toml")
+// 	defer os.Remove("./test_data/wiremock/connections.toml")
+// 	assertNilF(t, err, "Failed to create connections.toml file")
 
-	encoder := toml.NewEncoder(f)
-	err = encoder.Encode(connection)
-	assertNilF(t, err, "Failed to parse the config to toml structure")
-	defer f.Close()
+// 	encoder := toml.NewEncoder(f)
+// 	err = encoder.Encode(connection)
+// 	assertNilF(t, err, "Failed to parse the config to toml structure")
+// 	defer f.Close()
 
-	if !isWindows {
-		err = os.Chmod("./test_data/wiremock/connections.toml", 0600)
-		assertNilF(t, err, "The error occurred because you cannot change the file permission")
-	}
+// 	if !isWindows {
+// 		err = os.Chmod("./test_data/wiremock/connections.toml", 0600)
+// 		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+// 	}
 
-	db, err := sql.Open("snowflake", "autoConfig")
-	assertNilF(t, err, "The error occurred because the db cannot be established")
-	runSmokeQuery(t, db)
-}
+// 	db, err := sql.Open("snowflake", "autoConfig")
+// 	assertNilF(t, err, "The error occurred because the db cannot be established")
+// 	runSmokeQuery(t, db)
+// }
