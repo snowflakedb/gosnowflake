@@ -353,7 +353,11 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			if err = f.Close(); err != nil {
+				logger.Warnf("failed to close the file: %v", err)
+			}
+		}()
 		if _, err = io.Copy(f, resp.Body); err != nil {
 			return err
 		}

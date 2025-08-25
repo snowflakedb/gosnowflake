@@ -14,9 +14,10 @@ type DummyTransport struct {
 
 func (t *DummyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.URL.Path == "" {
-		if r.Method == "GET" {
+		switch r.Method {
+		case http.MethodGet:
 			t.getRequests++
-		} else if r.Method == "POST" {
+		case http.MethodPost:
 			t.postRequests++
 		}
 		return &http.Response{StatusCode: 200}, nil

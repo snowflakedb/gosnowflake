@@ -32,11 +32,11 @@ jobs:
           - name: Setup go
             uses: actions/setup-go@v5
             with:
-              go-version-file: './go.mod'
+              go-version: '1.24'
           - name: golangci-lint
-            uses: golangci/golangci-lint-action@v6
+            uses: golangci/golangci-lint-action@v7
             with:
-              version: v1.60
+              version: v2.4.0
           - name: Format, Lint
             shell: bash
             run: ./ci/build.sh
@@ -46,7 +46,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.22', '1.23', '1.24' ]
+                go: [ '1.23', '1.24', '1.25' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v4
@@ -107,7 +107,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.22', '1.23', '1.24' ]
+                go: [ '1.23', '1.24', '1.25' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v4
@@ -166,7 +166,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.22', '1.23', '1.24' ]
+                go: [ '1.23', '1.24', '1.25' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v4

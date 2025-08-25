@@ -237,7 +237,11 @@ func postRestfulQueryHelper(
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, closeErr)
+		}
+	}()
 
 	if resp.StatusCode == http.StatusOK {
 		logger.WithContext(ctx).Infof("postQuery: resp: %v", resp)
@@ -280,9 +284,13 @@ func postRestfulQueryHelper(
 				logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 				return nil, err
 			}
+			defer func() {
+				if closeErr := resp.Body.Close(); closeErr != nil {
+					logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, closeErr)
+				}
+			}()
 			respd = execResponse{} // reset the response
 			err = json.NewDecoder(resp.Body).Decode(&respd)
-			resp.Body.Close()
 			if err != nil {
 				logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 				return nil, err
@@ -329,7 +337,11 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, err)
+		}
+	}()
 	if resp.StatusCode == http.StatusOK {
 		var respd renewSessionResponse
 		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
@@ -389,7 +401,11 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, err)
+		}
+	}()
 	if resp.StatusCode == http.StatusOK {
 		var respd renewSessionResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
@@ -462,7 +478,11 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID UUID, time
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, err)
+		}
+	}()
 	if resp.StatusCode == http.StatusOK {
 		var respd cancelQueryResponse
 		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {

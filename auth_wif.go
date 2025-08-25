@@ -278,7 +278,11 @@ func fetchTokenFromMetadataService(req *http.Request, cfg *Config, telemetry *sn
 		logger.Debugf("Metadata server request was not successful: %v", err)
 		return ""
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.Debugf("Failed to close response body: %v", err)
+		}
+	}()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Debugf("Failed to read response body: %v", err)

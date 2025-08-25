@@ -232,7 +232,8 @@ func (rows *snowflakeRows) NextResultSet() error {
 
 func (rows *snowflakeRows) waitForAsyncQueryStatus() error {
 	// if async query, block until query is finished
-	if rows.status == QueryStatusInProgress {
+	switch rows.status {
+	case QueryStatusInProgress:
 		err := <-rows.errChannel
 		rows.status = QueryStatusComplete
 		if err != nil {
@@ -240,8 +241,10 @@ func (rows *snowflakeRows) waitForAsyncQueryStatus() error {
 			rows.err = err
 			return rows.err
 		}
-	} else if rows.status == QueryFailed {
+	case QueryFailed:
 		return rows.err
+	default:
+		return nil
 	}
 	return nil
 }

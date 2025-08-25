@@ -131,10 +131,11 @@ func TestCrlModes(t *testing.T) {
 
 				cv := newTestCrlValidator(t, checkMode)
 				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-				if checkMode == CertRevocationCheckEnabled {
+				switch checkMode {
+				case CertRevocationCheckEnabled:
 					assertNotNilF(t, err)
 					assertEqualE(t, err.Error(), "certificate revocation check failed")
-				} else if checkMode == CertRevocationCheckAdvisory {
+				case CertRevocationCheckAdvisory:
 					assertNilE(t, err)
 				}
 			})

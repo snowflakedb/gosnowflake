@@ -283,7 +283,11 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err = f.Close(); err != nil {
+			logger.Warnf("failed to close %v file: %v", fullDstFileName, err)
+		}
+	}()
 	var downloader s3DownloadAPI
 	downloader = manager.NewDownloader(client, func(u *manager.Downloader) {
 		u.Concurrency = int(maxConcurrency)

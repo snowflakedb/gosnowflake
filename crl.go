@@ -446,7 +446,11 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 	if err != nil {
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.Warnf("failed to close response body for CRL downloaded from %v: %v", crlURL, err)
+		}
+	}()
 	if resp.StatusCode >= 400 {
 		return nil, nil, fmt.Errorf("failed to download CRL from %v, status code: %v", crlURL, resp.StatusCode)
 	}

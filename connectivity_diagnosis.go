@@ -324,12 +324,12 @@ func (cd *connectivityDiagnoser) performConnectivityCheck(entryType, host string
 	var protocol string
 	var req *http.Request
 
-	if port == 80 {
+	switch port {
+	case 80:
 		protocol = "http"
-	} else if port == 443 {
+	case 443:
 		protocol = "https"
-	} else {
-		// we should never arrive here
+	default:
 		return fmt.Errorf("[performConnectivityCheck] unsupported port: %d", port)
 	}
 
@@ -342,9 +342,10 @@ func (cd *connectivityDiagnoser) performConnectivityCheck(entryType, host string
 
 	cd.checkProxy(req)
 
-	if protocol == "http" {
+	switch protocol {
+	case "http":
 		err = cd.doHTTP(req)
-	} else if protocol == "https" {
+	case "https":
 		err = cd.doHTTPSGetCerts(req, downloadCRLs)
 	}
 

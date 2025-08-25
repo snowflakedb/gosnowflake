@@ -291,7 +291,11 @@ func handleOAuthSocket(tcpListener *net.TCPListener, successChan chan []byte, er
 		logger.Warnf("error creating socket. %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			logger.Warnf("error while closing connection (%v -> %v). %v", conn.LocalAddr(), conn.RemoteAddr(), err)
+		}
+	}()
 	var buf [bufSize]byte
 	codeResp := bytes.NewBuffer(nil)
 	for {
@@ -403,7 +407,11 @@ func (oauthClient *oauthClient) refreshToken() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Warnf("error while closing response body for %v. %v", req.URL, err)
+		}
+	}()
 	if resp.StatusCode != 200 {
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
