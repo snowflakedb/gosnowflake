@@ -457,6 +457,107 @@ func testWithArrowBatchesButReturningJSON(t *testing.T, async bool) {
 	})
 }
 
+func TestWithArrowBatchesMultistatement(t *testing.T) {
+	testWithArrowBatchesMultistatement(t, false)
+}
+
+func TestWithArrowBatchesMultistatementAsync(t *testing.T) {
+	testWithArrowBatchesMultistatement(t, true)
+}
+
+func testWithArrowBatchesMultistatement(t *testing.T, async bool) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx, err := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
+		if async {
+			ctx = WithAsyncMode(ctx)
+		}
+		assertNilF(t, err)
+		driverRows := sct.mustQueryContext(ctx, "SELECT 'abc' UNION SELECT 'def' ORDER BY 1; SELECT 'ghi' UNION SELECT 'jkl' ORDER BY 1", nil)
+		defer driverRows.Close()
+		sfRows := driverRows.(SnowflakeRows)
+		expectedResults := [][]string{{"abc", "def"}, {"ghi", "jkl"}}
+		resultSetIdx := 0
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = sfRows.NextResultSet() != io.EOF {
+			batches, err := sfRows.GetArrowBatches()
+			assertNilF(t, err)
+			assertEqualF(t, len(batches), 1)
+			batch := batches[0]
+			records, err := batch.Fetch()
+			assertNilF(t, err)
+			assertEqualF(t, len(*records), 1)
+			record := (*records)[0]
+			defer record.Release()
+			assertEqualF(t, record.Column(0).(*array.String).Value(0), expectedResults[resultSetIdx][0])
+			assertEqualF(t, record.Column(0).(*array.String).Value(1), expectedResults[resultSetIdx][1])
+			resultSetIdx++
+		}
+		assertEqualF(t, resultSetIdx, len(expectedResults))
+		err = sfRows.NextResultSet()
+		assertErrIsE(t, err, io.EOF)
+	})
+}
+
+func TestWithArrowBatchesMultistatementWithJSONResponse(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec(forceJSON, nil)
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx, err := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
+		assertNilF(t, err)
+		driverRows := sct.mustQueryContext(ctx, "SELECT 'abc' UNION SELECT 'def' ORDER BY 1; SELECT 'ghi' UNION SELECT 'jkl' ORDER BY 1", nil)
+		defer driverRows.Close()
+		sfRows := driverRows.(SnowflakeRows)
+		resultSetIdx := 0
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = sfRows.NextResultSet() != io.EOF {
+			_, err := sfRows.GetArrowBatches()
+			assertNotNilF(t, err)
+			var se *SnowflakeError
+			assertTrueF(t, errors.As(err, &se))
+			assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
+			assertEqualE(t, se.Message, errMsgNonArrowResponseInArrowBatches)
+			resultSetIdx++
+		}
+		assertEqualF(t, resultSetIdx, 2)
+		err = sfRows.NextResultSet()
+		assertErrIsE(t, err, io.EOF)
+	})
+}
+
+func TestWithArrowBatchesMultistatementWithLargeResultSet(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx, err := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
+		assertNilF(t, err)
+		driverRows := sct.mustQueryContext(ctx, "SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000))", nil)
+		defer driverRows.Close()
+		sfRows := driverRows.(SnowflakeRows)
+		rowCount := 0
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = sfRows.NextResultSet() != io.EOF {
+			batches, err := sfRows.GetArrowBatches()
+			assertNilF(t, err)
+			assertTrueF(t, len(batches) > 1)
+			for _, batch := range batches {
+				records, err := batch.Fetch()
+				assertNilF(t, err)
+				for _, record := range *records {
+					defer record.Release()
+					for i := 0; i < int(record.NumRows()); i++ {
+						assertEqualF(t, record.Column(0).(*array.String).Value(i), "abc")
+						rowCount++
+					}
+				}
+			}
+		}
+		err = sfRows.NextResultSet()
+		assertErrIsE(t, err, io.EOF)
+	})
+}
+
 func TestQueryArrowStream(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		numrows := 50000 // approximately 10 ArrowBatch objects
