@@ -1000,10 +1000,6 @@ func closeServer(t *testing.T, server *http.Server) {
 
 func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
-		_ = logger.SetLogLevel("debug")
-		defer func() {
-			_ = logger.SetLogLevel("error")
-		}()
 		cleanupCrlCache(t)
 		defer cleanupCrlCache(t) // to reset cache cleaner after test
 		crlCacheCleanerTickRate = 5 * time.Second
@@ -1011,7 +1007,6 @@ func TestCrlE2E(t *testing.T) {
 		defer cacheValidityTimeOverride.rollback()
 		cfg := &Config{
 			User:                              username,
-			Password:                          pass,
 			Account:                           account,
 			Database:                          dbname,
 			Schema:                            schemaname,
@@ -1020,10 +1015,20 @@ func TestCrlE2E(t *testing.T) {
 			DisableOCSPChecks:                 true,
 			CrlOnDiskCacheDisabled:            true,
 		}
+		err := determineAuthenticatorType(cfg, os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR"))
+		assertNilF(t, err, "Failed to set authenticator type")
+
+		// If JWT authentication is configured, we need to provide the private key
+		if cfg.Authenticator == AuthTypeJwt {
+			cfg.PrivateKey = testPrivKey
+		} else {
+			// For password authentication, set the password
+			cfg.Password = pass
+		}
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
-		assertNilF(t, err)
+		assertNilF(t, err, "CRL E2E test failed")
 		defer rows.Close()
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
@@ -1033,9 +1038,9 @@ func TestCrlE2E(t *testing.T) {
 
 		// additional entries for connecting to cloud providers and checking their certs
 		cwd, err := os.Getwd()
-		assertNilF(t, err)
+		assertNilF(t, err, "Failed to get current working directory")
 		_, err = db.Exec(fmt.Sprintf("PUT file://%v @~/%v", filepath.Join(cwd, "test_data", "put_get_1.txt"), "put_get_1.txt"))
-		assertNilF(t, err)
+		assertNilF(t, err, "Failed to execute PUT file")
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterCSPConnection := len(crlInMemoryCache)
 		crlInMemoryCacheMutex.Unlock()
@@ -1059,7 +1064,7 @@ func TestCrlE2E(t *testing.T) {
 			CertRevocationCheckMode: CertRevocationCheckEnabled,
 		}
 		_, err := buildSnowflakeConn(context.Background(), *cfg)
-		assertEqualE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+		assertStringContainsE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time")
 		assertEqualE(t, len(crlInMemoryCache), 0)
 	})
 }

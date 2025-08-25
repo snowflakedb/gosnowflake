@@ -7,9 +7,16 @@ start /b python ci\scripts\hang_webserver.py 12345
 curl -O https://repo1.maven.org/maven2/org/wiremock/wiremock-standalone/3.11.0/wiremock-standalone-3.11.0.jar
 START /B java -jar wiremock-standalone-3.11.0.jar --port %WIREMOCK_PORT% -https-port %WIREMOCK_HTTPS_PORT% --https-keystore ci/scripts/wiremock.p12 --keystore-type PKCS12 --keystore-password password
 
-if "%CLOUD_PROVIDER%"=="AWS" set PARAMETER_FILENAME=parameters_aws_golang.json.gpg
-if "%CLOUD_PROVIDER%"=="AZURE" set PARAMETER_FILENAME=parameters_azure_golang.json.gpg
-if "%CLOUD_PROVIDER%"=="GCP" set PARAMETER_FILENAME=parameters_gcp_golang.json.gpg
+if "%CLOUD_PROVIDER%"=="AWS" (
+    set PARAMETER_FILENAME=parameters_aws_golang.json.gpg
+    set PRIVATE_KEY=rsa_key_golang_aws.p8.gpg
+) else if "%CLOUD_PROVIDER%"=="AZURE" (
+    set PARAMETER_FILENAME=parameters_azure_golang.json.gpg
+    set PRIVATE_KEY=rsa_key_golang_azure.p8.gpg
+) else if "%CLOUD_PROVIDER%"=="GCP" (
+    set PARAMETER_FILENAME=parameters_gcp_golang.json.gpg
+    set PRIVATE_KEY=rsa_key_golang_gcp.p8.gpg
+)
 
 if not defined PARAMETER_FILENAME (
     echo [ERROR] failed to detect CLOUD_PROVIDER: %CLOUD_PROVIDER%
@@ -24,7 +31,16 @@ if %ERRORLEVEL% NEQ 0 (
 
 gpg --quiet --batch --yes --decrypt --passphrase="%PARAMETERS_SECRET%" --output rsa-2048-private-key.p8 .github/workflows/rsa-2048-private-key.p8.gpg
 if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] failed to decrypt the test parameters 
+    echo [ERROR] failed to decrypt the rsa-2048 private key
+    exit /b 1
+)
+
+REM Create directory structure for golang private key
+if not exist ".github\workflows\parameters\public" mkdir ".github\workflows\parameters\public"
+
+gpg --quiet --batch --yes --decrypt --passphrase="%GOLANG_PRIVATE_KEY_SECRET%" --output .github\workflows\parameters\public\rsa_key_golang.p8 .github\workflows\parameters\public\%PRIVATE_KEY%
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] failed to decrypt the golang private key
     exit /b 1
 )
 
@@ -34,9 +50,6 @@ call parameters.bat
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] failed to set the test parameters
     exit /b 1
-)
-if defined GITHUB_WORKFLOW (
-	set SNOWFLAKE_TEST_PRIVATE_KEY=%cd%/rsa-2048-private-key.p8
 )
 
 echo [INFO] Account:   %SNOWFLAKE_TEST_ACCOUNT%
