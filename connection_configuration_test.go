@@ -447,7 +447,7 @@ func TestTomlConnection(t *testing.T) {
 	f, err := os.Create("./test_data/wiremock/connections.toml")
 	defer os.Remove("./test_data/wiremock/connections.toml")
 	assertNilF(t, err, "Failed to create connections.toml file")
-	defer f.Close()
+	f.Close()
 
 	encoder := toml.NewEncoder(f)
 	err = encoder.Encode(connection)
