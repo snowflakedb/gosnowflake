@@ -699,6 +699,11 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 	cfg := wiremockHTTPS.connectionConfig(t)
 
 	countingRoundTripper := newCountingRoundTripper(wiremockHTTPS.ocspTransporter(t))
+	originalNoOcspTransport := snowflakeNoRevocationCheckTransport
+	defer func() {
+		snowflakeNoRevocationCheckTransport = originalNoOcspTransport
+	}()
+	snowflakeNoRevocationCheckTransport = countingRoundTripper
 	cfg.Transporter = countingRoundTripper
 
 	runSampleQuery := func(cfg *Config) {
