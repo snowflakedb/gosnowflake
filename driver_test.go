@@ -1826,7 +1826,7 @@ func TestLargeSetResultCancel(t *testing.T) {
 		time.Sleep(time.Second)
 		cancel()
 		ret := <-c
-		if !errors.Is(ret.Error(), context.Canceled) {
+		if !errors.Is(ret, context.Canceled) {
 			t.Fatalf("failed to cancel. err: %v", ret)
 		}
 		close(c)
