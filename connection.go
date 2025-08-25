@@ -822,7 +822,7 @@ func (scd *snowflakeArrowStreamChunkDownloader) NextResultSet(ctx context.Contex
 		return err
 	}
 	if !resp.Success {
-		logger.WithContext(ctx).Errorf("error: %v", err)
+		logger.WithContext(ctx).Warnf("error while getting next result set, error code: %v, message: %v", resp.Code, resp.Message)
 		code, err := strconv.Atoi(resp.Code)
 		if err != nil {
 			logger.WithContext(ctx).Errorf("error while parsing code: %v", err)
