@@ -588,3 +588,42 @@ func TestUnitHandleMultiQuery(t *testing.T) {
 		}
 	})
 }
+
+func TestMultiStatementArrowFormat(t *testing.T) {
+
+	ctx, _ := WithMultiStatement(context.Background(), 4)
+	multiStmtQuery := "select 123;\n" +
+		"select 456;\n" +
+		"select 789;\n" +
+		"select '000';"
+
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = TRUE")
+
+		t.Run("with forceJSON", func(t *testing.T) {
+			dbt.mustExec(forceJSON)
+			buffer, cleanup := setupTestLogger()
+			defer cleanup()
+			rows := dbt.mustQueryContext(WithArrowBatches(ctx), multiStmtQuery)
+			defer rows.Close()
+			logOutput := buffer.String()
+			assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: 123, QueryResultFormat: json")
+			assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: 456, QueryResultFormat: json")
+			assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: 789, QueryResultFormat: json")
+			assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: '000', QueryResultFormat: json")
+		})
+
+		t.Run("with forceArrow", func(t *testing.T) {
+			dbt.mustExec(forceARROW)
+			buffer, cleanup := setupTestLogger()
+			defer cleanup()
+			rows := dbt.mustQueryContext(WithArrowBatches(ctx), multiStmtQuery)
+			defer rows.Close()
+			logOutput := buffer.String()
+			assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: 123, QueryResultFormat: arrow")
+			assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: 456, QueryResultFormat: arrow")
+			assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: 789, QueryResultFormat: arrow")
+			assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: '000', QueryResultFormat: arrow")
+		})
+	})
+}
