@@ -438,7 +438,7 @@ func TestFetchResultByQueryID(t *testing.T) {
 	ctx := WithFetchResultByID(context.Background(), qid)
 	rows2, err := db.QueryContext(ctx, "")
 	assertNilF(t, err)
-	closeCh := make(chan bool)
+	closeCh := make(chan bool, 1)
 	rows2ext := &RowsExtended{rows: rows2, closeChan: &closeCh, t: t}
 	defer rows2ext.Close()
 
@@ -480,7 +480,7 @@ func TestFetchRunningQueryByID(t *testing.T) {
 	ctx := WithFetchResultByID(context.Background(), qid)
 	rows2, err := db.QueryContext(ctx, "")
 	assertNilF(t, err)
-	closeCh := make(chan bool)
+	closeCh := make(chan bool, 1)
 	rows2ext := &RowsExtended{rows: rows2, closeChan: &closeCh, t: t}
 	defer rows2ext.Close()
 
