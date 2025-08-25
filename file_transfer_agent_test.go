@@ -959,6 +959,7 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 		srcFileName: "data.txt.gz",
 		dstFileName: downloadFile,
 		overwrite:   true,
+		parallel:    int64(10),
 		options: &SnowflakeFileTransferOptions{
 			MultiPartThreshold: dataSizeThreshold,
 		},
