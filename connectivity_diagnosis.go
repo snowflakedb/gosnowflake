@@ -89,7 +89,7 @@ func (cd *connectivityDiagnoser) createDiagnosticDialContext() func(ctx context.
 
 // enhance the transport with IP logging
 func (cd *connectivityDiagnoser) createDiagnosticTransport(cfg *Config) *http.Transport {
-	baseTransport, err := newTransportFactory(cfg, &snowflakeTelemetry{enabled: false}).createTransport()
+	baseTransport, err := newTransportFactory(cfg, &snowflakeTelemetry{enabled: false}).createTransport(cfg.transportConfigFor(transportTypeSnowflake))
 	if err != nil {
 		logger.Fatalf("[createDiagnosticTransport] failed to get the transport from the config: %v", err)
 	}
@@ -98,6 +98,7 @@ func (cd *connectivityDiagnoser) createDiagnosticTransport(cfg *Config) *http.Tr
 	if t, ok := baseTransport.(*http.Transport); ok {
 		httpTransport = t
 	} else {
+		logger.Warnf("[createDiagnosticTransport] unexpected transport type: %T, using default SnowflakeTransport", baseTransport)
 		httpTransport = SnowflakeTransport
 	}
 

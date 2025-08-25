@@ -1152,8 +1152,8 @@ var SnowflakeTransport *http.Transport
 
 func init() {
 	factory := newTransportFactory(&Config{}, nil)
-	snowflakeNoRevocationCheckTransport = factory.createNoRevocationTransport()
-	SnowflakeTransport = factory.createOCSPTransport()
+	snowflakeNoRevocationCheckTransport = factory.createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
+	SnowflakeTransport = factory.createOCSPTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
 	SnowflakeTransportTest = SnowflakeTransport
 }
 
