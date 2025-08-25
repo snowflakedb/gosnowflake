@@ -237,6 +237,8 @@ type clientInterface interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// retryHTTP is used to call Snowflake services.
+// It adds Snowflake-specific query parameters retryCount or retryReason.
 type retryHTTP struct {
 	ctx                 context.Context
 	client              clientInterface
@@ -400,4 +402,41 @@ func isRetryableStatus(statusCode int) bool {
 
 func isLoginRequest(req *http.Request) bool {
 	return contains(authEndpoints, req.URL.Path)
+}
+
+type retryingTransportType struct {
+	internal         http.RoundTripper
+	initialSleepTime time.Duration
+	shouldRetry      func(resp *http.Response, err error) bool
+	maxRetries       int
+}
+
+func newRetryingTransport(transport http.RoundTripper) *retryingTransportType {
+	return &retryingTransportType{
+		internal:         transport,
+		maxRetries:       3,
+		initialSleepTime: time.Second,
+		shouldRetry: func(resp *http.Response, err error) bool {
+			print("resp.Request: ")
+			println(resp.Request)
+			return (resp.Request.Method == "GET" || resp.Request.Method == "HEAD") &&
+				(resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests || err == io.EOF)
+		},
+	}
+}
+
+func (rt *retryingTransportType) RoundTrip(req *http.Request) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+	sleepTime := rt.initialSleepTime
+	for i := 0; i < rt.maxRetries; i++ {
+		resp, err = rt.internal.RoundTrip(req)
+		if !rt.shouldRetry(resp, err) {
+			return resp, err
+		}
+		sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(sleepTime)
+		logger.Debugf("retrying http request (%v) in %v ms, http status code: %v", i, sleepTime.Milliseconds(), resp.StatusCode)
+		time.Sleep(sleepTime)
+	}
+	return resp, err
 }
