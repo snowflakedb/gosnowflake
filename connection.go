@@ -446,7 +446,6 @@ func (sc *snowflakeConn) queryContextInternal(
 	rows.sc = sc
 	rows.queryID = data.Data.QueryID
 	rows.ctx = ctx
-	rows.format = resultFormat(data.Data.QueryResultFormat)
 
 	if isMultiStmt(&data.Data) {
 		// handleMultiQuery is responsible to fill rows with childResults
