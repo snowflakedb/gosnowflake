@@ -1141,7 +1141,7 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1)
+	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1, dataSizeThreshold)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
