@@ -1018,6 +1018,14 @@ func TestCrlE2E(t *testing.T) {
 		}
 		err := determineAuthenticatorType(cfg, os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR"))
 		assertNilF(t, err, "Failed to set authenticator type")
+
+		// If JWT authentication is configured, we need to provide the private key
+		if cfg.Authenticator == AuthTypeJwt {
+			cfg.PrivateKey = testPrivKey
+		} else {
+			// For password authentication, set the password
+			cfg.Password = pass
+		}
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")

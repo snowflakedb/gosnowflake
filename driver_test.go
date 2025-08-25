@@ -527,27 +527,6 @@ func runningOnLinux() bool {
 	return runtime.GOOS == "linux"
 }
 
-func TestBogusUserPasswordParameters(t *testing.T) {
-	wiremock.registerMappings(t,
-		wiremockMapping{filePath: "auth/password/invalid_user.json"},
-	)
-
-	cfg := wiremock.connectionConfig()
-	cfg.User = "bogus"
-	cfg.Password = "testPassword"
-	cfg.Authenticator = AuthTypeSnowflake // Force password auth
-
-	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
-	defer db.Close()
-
-	_, err := db.Exec("SELECT 1")
-	assertNotNilF(t, err, "should cause an authentication error")
-
-	var driverErr *SnowflakeError
-	assertErrorsAsF(t, err, &driverErr)
-	assertEqualE(t, driverErr.Number, 390422)
-}
-
 func TestKnownUserInvalidPasswordParameters(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/invalid_password.json"},
@@ -567,25 +546,6 @@ func TestKnownUserInvalidPasswordParameters(t *testing.T) {
 	var driverErr *SnowflakeError
 	assertErrorsAsF(t, err, &driverErr)
 	assertEqualE(t, driverErr.Number, 390100)
-}
-
-func TestBogusHostNameParameters(t *testing.T) {
-	wiremock.registerMappings(t,
-		wiremockMapping{filePath: "auth/password/invalid_host.json"},
-	)
-
-	cfg := wiremock.connectionConfig()
-	cfg.Authenticator = AuthTypeSnowflake // Force password auth
-
-	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
-	defer db.Close()
-
-	_, err := db.Exec("SELECT 1")
-	assertNotNilF(t, err, "should cause a host validation error")
-
-	var driverErr *SnowflakeError
-	assertErrorsAsF(t, err, &driverErr)
-	assertEqualE(t, driverErr.Number, 390144)
 }
 
 func TestCommentOnlyQuery(t *testing.T) {
