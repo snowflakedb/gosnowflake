@@ -37,6 +37,7 @@ func TestInitializeEasyLoggingOnlyOnceWhenConfigGivenAsAParameter(t *testing.T) 
 }
 
 func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *testing.T) {
+	skipOnMissingHome(t)
 	appExe, err := os.Executable()
 	assertNilF(t, err, "application exe not accessible")
 	userHome, err := os.UserHomeDir()
@@ -79,6 +80,7 @@ func TestConfigureEasyLoggingOnlyOnceWhenInitializedWithoutConfigFilePath(t *tes
 }
 
 func TestReconfigureEasyLoggingIfConfigPathWasNotGivenForTheFirstTime(t *testing.T) {
+	skipOnMissingHome(t)
 	defer cleanUp()
 	configDir, err := os.UserHomeDir()
 	logDir := t.TempDir()

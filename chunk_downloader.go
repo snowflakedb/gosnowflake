@@ -27,8 +27,6 @@ var (
 
 type chunkDownloader interface {
 	totalUncompressedSize() (acc int64)
-	hasNextResultSet() bool
-	nextResultSet() error
 	start() error
 	next() (chunkRowType, error)
 	reset()
@@ -76,22 +74,6 @@ func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
 		acc += c.UncompressedSize
 	}
 	return
-}
-
-func (scd *snowflakeChunkDownloader) hasNextResultSet() bool {
-	if len(scd.ChunkMetas) == 0 && scd.NextDownloader == nil {
-		return false // no extra chunk
-	}
-	// next result set exists if current chunk has remaining result sets or there is another downloader
-	return scd.CurrentChunkIndex < len(scd.ChunkMetas) || scd.NextDownloader != nil
-}
-
-func (scd *snowflakeChunkDownloader) nextResultSet() error {
-	// no error at all times as the next chunk/resultset is automatically read
-	if scd.CurrentChunkIndex < len(scd.ChunkMetas) {
-		return nil
-	}
-	return io.EOF
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
@@ -327,6 +309,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 			funcDownloadHelper: scd.FuncDownloadHelper,
 			loc:                loc,
 		}
+		scd.CurrentChunkIndex++
 	}
 	return nil
 }
@@ -527,14 +510,6 @@ func (scd *streamChunkDownloader) totalUncompressedSize() (acc int64) {
 	return -1
 }
 
-func (scd *streamChunkDownloader) hasNextResultSet() bool {
-	return scd.readErr == nil
-}
-
-func (scd *streamChunkDownloader) nextResultSet() error {
-	return scd.readErr
-}
-
 func (scd *streamChunkDownloader) start() error {
 	go GoroutineWrapper(
 		scd.ctx,
@@ -547,7 +522,7 @@ func (scd *streamChunkDownloader) start() error {
 			t := time.Now()
 
 			defer func() {
-				if readErr == io.EOF {
+				if readErr == nil {
 					logger.WithContext(scd.ctx).Infof("downloading done. downloader id: %v", scd.id)
 				} else {
 					logger.WithContext(scd.ctx).Debugf("downloading error. downloader id: %v", scd.id)
