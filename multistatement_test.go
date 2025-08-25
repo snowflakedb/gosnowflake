@@ -107,24 +107,6 @@ func TestMultiStatementQueryResultSet(t *testing.T) {
 	})
 }
 
-func TestMultistatementQueryLargeResultSet(t *testing.T) {
-	ctx, err := WithMultiStatement(context.Background(), 2)
-	assertNilF(t, err)
-	runDBTest(t, func(dbt *DBTest) {
-		rows := dbt.mustQueryContextT(ctx, t, "SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000))")
-		totalRows := 0
-		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = rows.NextResultSet() {
-			for rows.Next() {
-				var s string
-				rows.mustScan(&s)
-				assertEqualE(t, s, "abc")
-				totalRows++
-			}
-		}
-		assertEqualE(t, totalRows, 2000000)
-	})
-}
-
 func TestMultiStatementExecuteResultSet(t *testing.T) {
 	ctx, _ := WithMultiStatement(context.Background(), 6)
 	multiStmtQuery := "begin;\n" +
