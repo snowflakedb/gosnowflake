@@ -441,7 +441,7 @@ func TestCrlModes(t *testing.T) {
 				t.Run("should use in-memory cache", func(t *testing.T) {
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, &http.Client{
 						Transport: crt,
 					})
@@ -468,7 +468,7 @@ func TestCrlModes(t *testing.T) {
 					skipOnMissingHome(t)
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, &http.Client{
 						Transport: crt,
 					})
@@ -494,7 +494,7 @@ func TestCrlModes(t *testing.T) {
 				t.Run("should redownload when nextUpdate is reached", func(t *testing.T) {
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, &http.Client{
 						Transport: crt,
 					})
@@ -528,7 +528,7 @@ func TestCrlModes(t *testing.T) {
 				t.Run("should redownload when evicted in cache", func(t *testing.T) {
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, &http.Client{
 						Transport: crt,
 					})
@@ -586,7 +586,7 @@ func TestCrlModes(t *testing.T) {
 				t.Run("should not read from on-disk cache when disabled", func(t *testing.T) {
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, onDiskCacheDisabledType(true), &http.Client{
 						Transport: crt,
 					})
@@ -743,7 +743,7 @@ func TestParallelRequestToTheSameCrl(t *testing.T) {
 	crl := createCrl(t, caCert, caPrivateKey)
 	registerCrlEndpoints(t, server, newCrlEndpointDef("/rootCrl", crl))
 
-	brt := newBlockingRoundTripper(snowflakeNoRevocationCheckTransport, 100*time.Millisecond)
+	brt := newBlockingRoundTripper(createTestNoRevocationTransport(), 100*time.Millisecond)
 	crt := newCountingRoundTripper(brt)
 	cv := newTestCrlValidator(t, CertRevocationCheckEnabled, &http.Client{
 		Transport: crt,
