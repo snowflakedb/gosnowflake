@@ -27,8 +27,6 @@ var (
 
 type chunkDownloader interface {
 	totalUncompressedSize() (acc int64)
-	hasNextResultSet() bool
-	nextResultSet() error
 	start() error
 	next() (chunkRowType, error)
 	reset()
@@ -76,22 +74,6 @@ func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
 		acc += c.UncompressedSize
 	}
 	return
-}
-
-func (scd *snowflakeChunkDownloader) hasNextResultSet() bool {
-	if len(scd.ChunkMetas) == 0 && scd.NextDownloader == nil {
-		return false // no extra chunk
-	}
-	// next result set exists if current chunk has remaining result sets or there is another downloader
-	return scd.CurrentChunkIndex < len(scd.ChunkMetas) || scd.NextDownloader != nil
-}
-
-func (scd *snowflakeChunkDownloader) nextResultSet() error {
-	// no error at all times as the next chunk/resultset is automatically read
-	if scd.CurrentChunkIndex < len(scd.ChunkMetas) {
-		return nil
-	}
-	return io.EOF
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
@@ -327,6 +309,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 			funcDownloadHelper: scd.FuncDownloadHelper,
 			loc:                loc,
 		}
+		scd.CurrentChunkIndex++
 	}
 	return nil
 }
@@ -525,20 +508,6 @@ type streamChunkDownloader struct {
 
 func (scd *streamChunkDownloader) totalUncompressedSize() (acc int64) {
 	return -1
-}
-
-func (scd *streamChunkDownloader) hasNextResultSet() bool {
-	if scd.readErr != nil && scd.readErr != io.EOF {
-		return false
-	}
-	return scd.NextDownloader != nil
-}
-
-func (scd *streamChunkDownloader) nextResultSet() error {
-	if scd.readErr != nil && scd.readErr != io.EOF {
-		return scd.readErr
-	}
-	return nil
 }
 
 func (scd *streamChunkDownloader) start() error {
