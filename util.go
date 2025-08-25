@@ -26,6 +26,7 @@ const (
 	fileGetStream                    contextKey = "STREAMING_GET_FILE"
 	fileTransferOptions              contextKey = "FILE_TRANSFER_OPTIONS"
 	enableHigherPrecision            contextKey = "ENABLE_HIGHER_PRECISION"
+	enableDecfloat                   contextKey = "ENABLE_DECFLOAT"
 	enableArrowBatchesUtf8Validation contextKey = "ENABLE_ARROW_BATCHES_UTF8_VALIDATION"
 	arrowBatches                     contextKey = "ARROW_BATCHES"
 	arrowAlloc                       contextKey = "ARROW_ALLOC"
@@ -103,6 +104,15 @@ func WithDescribeOnly(ctx context.Context) context.Context {
 // When used in combination with WithArrowBatches, original BigDecimal in arrow batches will be preserved.
 func WithHigherPrecision(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableHigherPrecision, true)
+}
+
+// WithDecfloatMappingEnabled returns a context that enables native support for DECFLOAT.
+// Without this context, DECFLOAT columns are returned as strings.
+// With this context enabled, DECFLOAT columns are returned as *big.Float or float64 (depending on HigherPrecision setting).
+// Keep in mind that both float64 and *big.Float are not able to precisely represent some DECFLOAT values.
+// If precision is important, you have to use string representation and use your own library to parse it.
+func WithDecfloatMappingEnabled(ctx context.Context) context.Context {
+	return context.WithValue(ctx, enableDecfloat, true)
 }
 
 // WithArrowBatches returns a context that allows users to retrieve

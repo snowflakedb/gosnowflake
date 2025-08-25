@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -46,6 +47,10 @@ func assertEqualF(t *testing.T, actual any, expected any, descriptions ...string
 
 func assertEqualIgnoringWhitespaceE(t *testing.T, actual string, expected string, descriptions ...string) {
 	errorOnNonEmpty(t, validateEqualIgnoringWhitespace(actual, expected, descriptions...))
+}
+
+func assertEqualEpsilonE(t *testing.T, actual, expected, epsilon float64, descriptions ...string) {
+	errorOnNonEmpty(t, validateEqualEpsilon(actual, expected, epsilon, descriptions...))
 }
 
 func assertDeepEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
@@ -174,6 +179,13 @@ func validateEqualIgnoringWhitespace(actual string, expected string, description
 	}
 	desc := joinDescriptions(descriptions...)
 	return fmt.Sprintf("expected \"%s\" to be equal to \"%s\" but was not. %s", actual, expected, desc)
+}
+
+func validateEqualEpsilon(actual, expected, epsilon float64, descriptions ...string) string {
+	if math.Abs(actual-expected) < epsilon {
+		return ""
+	}
+	return fmt.Sprintf("expected \"%f\" to be equal to \"%f\" within epsilon \"%f\" but was not. %s", actual, expected, epsilon, joinDescriptions(descriptions...))
 }
 
 func validateDeepEqual(actual any, expected any, descriptions ...string) string {
