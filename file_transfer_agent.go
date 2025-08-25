@@ -178,12 +178,19 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 		if sfa.stageLocationType != local {
 			sizeThreshold := sfa.options.MultiPartThreshold
 			meta.options.MultiPartThreshold = sizeThreshold
-			if meta.srcFileSize > sizeThreshold && sfa.commandType == uploadCommand {
+			if sfa.commandType == uploadCommand {
+				if meta.srcFileSize > sizeThreshold {
+					meta.parallel = sfa.parallel
+					largeFileMetas = append(largeFileMetas, meta)
+				} else {
+					meta.parallel = 1
+					smallFileMetas = append(smallFileMetas, meta)
+				}
+			} else {
+				// Enable multi-part download for all files to improve performance.
+				// The MultiPartThreshold will be passed to the Cloud Storage Provider to determine the part size.
 				meta.parallel = sfa.parallel
 				largeFileMetas = append(largeFileMetas, meta)
-			} else {
-				meta.parallel = 1
-				smallFileMetas = append(smallFileMetas, meta)
 			}
 		} else {
 			meta.parallel = 1
@@ -196,7 +203,7 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 			return err
 		}
 	} else {
-		if err = sfa.download(smallFileMetas); err != nil {
+		if err = sfa.download(largeFileMetas); err != nil {
 			return err
 		}
 	}

@@ -282,7 +282,8 @@ func (util *snowflakeGcsClient) uploadFile(
 func (util *snowflakeGcsClient) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
-	maxConcurrency int64) error {
+	maxConcurrency int64,
+	partSize int64) error {
 	downloadURL := meta.presignedURL
 	var accessToken string
 	var err error
