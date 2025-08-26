@@ -32,6 +32,9 @@ type SnowflakeRows interface {
 	GetQueryID() string
 	GetStatus() queryStatus
 	GetArrowBatches() ([]*ArrowBatch, error)
+	// NextResultSet switches Arrow Batches to the next result set.
+	// Returns io.EOF if there are no more result sets.
+	NextResultSet() error
 }
 
 type snowflakeRows struct {
@@ -44,7 +47,6 @@ type snowflakeRows struct {
 	errChannel          chan error
 	location            *time.Location
 	ctx                 context.Context
-	format              resultFormat
 }
 
 func (rows *snowflakeRows) getLocation() *time.Location {
@@ -167,7 +169,7 @@ func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
 		return nil, err
 	}
 
-	if rows.format != arrowFormat {
+	if rows.ChunkDownloader.getQueryResultFormat() != arrowFormat {
 		return nil, errNonArrowResponseForArrowBatches(rows.queryID).exceptionTelemetry(rows.sc)
 	}
 
@@ -208,10 +210,13 @@ func (rows *snowflakeRows) HasNextResultSet() bool {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return false
 	}
-	return rows.ChunkDownloader.hasNextResultSet()
+	hasNextResultSet := rows.ChunkDownloader.getNextChunkDownloader() != nil
+	logger.WithContext(rows.ctx).Debugf("[queryId: %v] Rows.HasNextResultSet: %v", rows.queryID, hasNextResultSet)
+	return hasNextResultSet
 }
 
 func (rows *snowflakeRows) NextResultSet() error {
+	logger.WithContext(rows.ctx).Debugf("[queryId: %v] Rows.NextResultSet", rows.queryID)
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
@@ -222,7 +227,7 @@ func (rows *snowflakeRows) NextResultSet() error {
 	if err := rows.ChunkDownloader.start(); err != nil {
 		return err
 	}
-	return rows.ChunkDownloader.nextResultSet()
+	return nil
 }
 
 func (rows *snowflakeRows) waitForAsyncQueryStatus() error {
