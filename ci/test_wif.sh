@@ -20,7 +20,7 @@ run_tests_and_set_result() {
       docker run \
         --rm \
         --cpus=1 \
-        -m 1g \
+        -m 2g \
         -e BRANCH \
         -e SNOWFLAKE_TEST_WIF_PROVIDER \
         -e SNOWFLAKE_TEST_WIF_HOST \
