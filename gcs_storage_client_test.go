@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
+	"strings"
 	"testing"
 )
 
@@ -244,6 +246,8 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 				return &http.Response{
 					Status:     "403 Forbidden",
 					StatusCode: 403,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -309,6 +313,8 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 				return &http.Response{
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -416,6 +422,8 @@ func TestDownloadOneFileFromGcsFailedWithRetry(t *testing.T) {
 				return &http.Response{
 					Status:     "403 Forbidden",
 					StatusCode: 403,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -473,6 +481,8 @@ func TestDownloadOneFileFromGcsFailedWithTokenExpired(t *testing.T) {
 				return &http.Response{
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -530,6 +540,8 @@ func TestDownloadOneFileFromGcsFailedWithFileNotFound(t *testing.T) {
 				return &http.Response{
 					Status:     "404 Not Found",
 					StatusCode: 404,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -567,6 +579,8 @@ func TestGetHeaderTokenExpiredError(t *testing.T) {
 				return &http.Response{
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -601,6 +615,8 @@ func TestGetHeaderFileNotFound(t *testing.T) {
 				return &http.Response{
 					Status:     "404 Not Found",
 					StatusCode: 404,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -692,6 +708,8 @@ func TestGetHeaderBadRequest(t *testing.T) {
 				return &http.Response{
 					Status:     "400 Bad Request",
 					StatusCode: 400,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -727,6 +745,8 @@ func TestGetHeaderRetryableError(t *testing.T) {
 				return &http.Response{
 					Status:     "403 Forbidden",
 					StatusCode: 403,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -826,6 +846,8 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					StatusCode: 400,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -985,6 +1007,8 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 				return &http.Response{
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -1041,6 +1065,8 @@ func TestDownloadFileFromGcsError(t *testing.T) {
 				return &http.Response{
 					Status:     "403 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -1090,6 +1116,8 @@ func TestDownloadFileWithBadRequest(t *testing.T) {
 				return &http.Response{
 					Status:     "400 Bad Request",
 					StatusCode: 400,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},

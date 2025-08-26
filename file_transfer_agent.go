@@ -32,10 +32,11 @@ type (
 )
 
 const (
-	fileProtocol              = "file://"
-	dataSizeThreshold int64   = 64 * 1024 * 1024
-	isWindows                 = runtime.GOOS == "windows"
-	mb                float64 = 1024.0 * 1024.0
+	fileProtocol                      = "file://"
+	dataSizeThreshold         int64   = 64 * 1024 * 1024
+	streamingDownloadPartSize int64   = 8 * 1024 * 1024
+	isWindows                         = runtime.GOOS == "windows"
+	mb                        float64 = 1024.0 * 1024.0
 )
 
 const (
