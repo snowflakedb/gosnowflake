@@ -19,6 +19,8 @@ run_tests_and_set_result() {
       set -o pipefail
       docker run \
         --rm \
+        --cpus=1 \
+        -m 1g \
         -e BRANCH \
         -e SNOWFLAKE_TEST_WIF_PROVIDER \
         -e SNOWFLAKE_TEST_WIF_HOST \
