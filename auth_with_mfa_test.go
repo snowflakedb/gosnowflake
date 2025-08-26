@@ -48,7 +48,10 @@ func setupMfaTest(t *testing.T) *Config {
 	assertEqualE(t, err, nil, fmt.Sprintf("failed to get config: %v", err))
 
 	cfg.User, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_MFA_USER", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+
 	cfg.Password, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_MFA_PASSWORD", true)
+	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
 
 	return cfg
 }
@@ -75,8 +78,6 @@ func verifyConnectionToSnowflakeUsingTotpCodes(t *testing.T, cfg *Config, totpKe
 		log.Printf("Trying TOTP code %d/%d", i+1, len(totpKeys))
 
 		cfg.Passcode = totpKey
-
-		lastError = nil
 
 		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 		if err == nil {
