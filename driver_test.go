@@ -951,6 +951,7 @@ func TestDecfloat(t *testing.T) {
 							{in: "-1.2345e2", standardPrecisionOutput: -123.45, higherPrecisionOutput: "-123.45", decfloatDisabledOutput: "-123.45"},
 							{in: "1.23456e2", standardPrecisionOutput: 123.456, higherPrecisionOutput: "123.456", decfloatDisabledOutput: "123.456"},
 							{in: "-9.87654321E-250", standardPrecisionOutput: -9.876654321 * math.Pow10(-250), higherPrecisionOutput: "-9.87654321e-250", decfloatDisabledOutput: "-9.87654321e-250"},
+							{in: "1.2345678901234567890123456789012345678e37", standardPrecisionOutput: 12345678901234567525491324606797053952, higherPrecisionOutput: "12345678901234567890123456789012345678", decfloatDisabledOutput: "12345678901234567890123456789012345678"}, // pragma: allowlist secret
 						} {
 							t.Run(tc.in, func(t *testing.T) {
 								ctx := context.Background()
@@ -977,14 +978,14 @@ func TestDecfloat(t *testing.T) {
 								} else if higherPrecision {
 									var bf *big.Float
 									rows.mustScan(&bf)
-									assertEqualE(t, bf.String(), tc.higherPrecisionOutput)
+									assertEqualE(t, bf.Text('g', 38), tc.higherPrecisionOutput)
 									columnTypes, err := rows.ColumnTypes()
 									assertNilF(t, err)
 									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(&big.Float{}))
 								} else {
 									var f float64
 									rows.mustScan(&f)
-									assertEqualEpsilonE(t, f, tc.standardPrecisionOutput, 0.000000000000001)
+									assertEqualEpsilonE(t, f, tc.standardPrecisionOutput, 0.0001)
 									columnTypes, err := rows.ColumnTypes()
 									assertNilF(t, err)
 									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(0.0))

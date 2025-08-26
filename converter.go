@@ -1017,7 +1017,7 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta execRe
 			*dest = *srcValue
 			return nil
 		}
-		bf := &big.Float{}
+		bf := new(big.Float).SetPrec(127)
 		if _, ok := bf.SetString(*srcValue); !ok {
 			return fmt.Errorf("cannot convert %v to %T", *srcValue, bf)
 		}
@@ -2485,14 +2485,12 @@ func arrowDecFloatToValue(ctx context.Context, srcValue *array.Struct, rowIdx in
 			return nil, fmt.Errorf("failed to parse mantissa bytes: %s, error: %v", hex.EncodeToString(mantissaBytes), err)
 		}
 		if decfloatMappingEnabled(ctx) {
-			mantissa := new(big.Float).SetInt(mantissaInt)
-			powerOfTen, ok := new(big.Float).SetString(fmt.Sprintf("1e%d", exponent))
-			if !ok {
-				return nil, fmt.Errorf("failed to create power of ten for exponent %d", exponent)
+			mantissa := new(big.Float).SetPrec(127).SetInt(mantissaInt)
+			if result, ok := new(big.Float).SetPrec(127).SetString(fmt.Sprintf("%ve%v", mantissa.Text('G', 38), exponent)); ok {
+				return result, nil
+			} else {
+				return nil, fmt.Errorf("failed to create decfloat from mantissa %s and exponent %d", mantissa.Text('G', 38), exponent)
 			}
-			result := &big.Float{}
-			result.Mul(mantissa, powerOfTen)
-			return result, nil
 		}
 		mantissaStr := mantissaInt.String()
 		if mantissaStr == "0" {
