@@ -13,13 +13,11 @@ func TestMfaSuccessful(t *testing.T) {
 
 	// Enable MFA token caching
 	cfg.ClientRequestMfaToken = ConfigBoolTrue
-	log.Printf("MFA token caching enabled")
 
 	//Provide your own TOTP code/codes here, to test manually
 	//totpKeys := []string{"222222", "333333", "444444"}
 
 	totpKeys := getTOPTcodes(t)
-	log.Printf("Got %d TOTP codes to try", len(totpKeys))
 
 	err := verifyConnectionToSnowflakeUsingTotpCodes(t, cfg, totpKeys)
 	if err != nil {
@@ -38,8 +36,6 @@ func TestMfaSuccessful(t *testing.T) {
 		t.Fatalf("Failed to connect with cached MFA token: %v", cacheErr)
 		return
 	}
-
-	log.Printf("Successfully verified MFA token caching works")
 }
 
 func setupMfaTest(t *testing.T) *Config {
@@ -75,13 +71,10 @@ func verifyConnectionToSnowflakeUsingTotpCodes(t *testing.T, cfg *Config, totpKe
 	var lastError error
 
 	for i, totpKey := range totpKeys {
-		log.Printf("Trying TOTP code %d/%d", i+1, len(totpKeys))
-
 		cfg.Passcode = totpKey
 
 		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 		if err == nil {
-			log.Printf("Successfully connected with TOTP code %d", i+1)
 			return nil
 		}
 
