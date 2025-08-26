@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
@@ -564,9 +565,7 @@ func TestQueryArrowStream(t *testing.T) {
 
 		query := fmt.Sprintf(selectRandomGenerator, numrows)
 		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, query)
-		if err != nil {
-			t.Error(err)
-		}
+		assertNilF(t, err)
 
 		if loader.TotalRows() != int64(numrows) {
 			t.Errorf("total numrows did not match expected, wanted %v, got %v", numrows, loader.TotalRows())
@@ -694,5 +693,138 @@ func TestRetainChunkWOHighPrecision(t *testing.T) {
 
 		int8Val := column.Value(0)
 		assertEqualF(t, int8Val, int8(0), "value of cell should be 0")
+	})
+}
+
+func TestQueryArrowStreamMultiStatement(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
+		ctx, err := WithMultiStatement(ctx, 2)
+		assertNilF(t, err)
+		loader, err := sct.sc.QueryArrowStream(ctx, "SELECT 'abc'; SELECT 'abc' UNION SELECT 'def' ORDER BY 1")
+		assertNilF(t, err)
+
+		for i := 0; i < 2; i++ {
+			if i == 0 {
+				assertEqualE(t, loader.TotalRows(), int64(1))
+			} else {
+				assertEqualE(t, loader.TotalRows(), int64(2))
+			}
+			batches, err := loader.GetBatches()
+			assertNilF(t, err)
+
+			stream, err := batches[0].GetStream(context.Background())
+			assertNilF(t, err)
+			r, err := ipc.NewReader(stream, ipc.WithAllocator(mem))
+			assertNilF(t, err)
+			defer r.Release()
+			assertTrueF(t, r.Next())
+			rec := r.Record()
+			if i == 0 {
+				assertEqualF(t, rec.NumRows(), int64(1))
+				assertEqualF(t, rec.Column(0).(*array.String).Value(0), "abc")
+			} else {
+				assertEqualF(t, rec.NumRows(), int64(2))
+				assertEqualF(t, rec.Column(0).(*array.String).Value(0), "abc")
+				assertEqualF(t, rec.Column(0).(*array.String).Value(1), "def")
+			}
+			assertFalseF(t, r.Next())
+			if i == 0 {
+				assertNilF(t, loader.NextResultSet(context.Background()))
+			} else {
+				assertErrIsF(t, loader.NextResultSet(context.Background()), io.EOF)
+			}
+		}
+		assertErrIsF(t, loader.NextResultSet(context.Background()), io.EOF)
+	})
+}
+
+func TestQueryArrowStreamMultiStatementForJSONData(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec(forceJSON, nil)
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
+		ctx, err := WithMultiStatement(ctx, 2)
+		assertNilF(t, err)
+		loader, err := sct.sc.QueryArrowStream(ctx, "SELECT 'abc'; SELECT 'abc' UNION SELECT 'def' ORDER BY 1")
+		assertNilF(t, err)
+
+		assertEqualE(t, loader.TotalRows(), int64(1))
+		jsonData1 := loader.JSONData()
+		assertEqualF(t, len(jsonData1), 1)
+		assertEqualF(t, len(jsonData1[0]), 1)
+		assertEqualF(t, *jsonData1[0][0], "abc")
+		assertNilF(t, loader.NextResultSet(context.Background()))
+		assertEqualE(t, loader.TotalRows(), int64(2))
+		jsonData2 := loader.JSONData()
+		assertEqualF(t, len(jsonData2), 2)
+		assertEqualF(t, len(jsonData2[0]), 1)
+		assertEqualF(t, len(jsonData2[1]), 1)
+		assertEqualF(t, *jsonData2[0][0], "abc")
+		assertEqualF(t, *jsonData2[1][0], "def")
+		assertErrIsF(t, loader.NextResultSet(context.Background()), io.EOF)
+	})
+}
+
+func TestQueryArrowStreamMultiStatementLargeResultset(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		rowsCount := 1000000
+		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
+		ctx, err := WithMultiStatement(ctx, 2)
+		assertNilF(t, err)
+		query := fmt.Sprintf("SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => %v)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => %v))", rowsCount, rowsCount)
+		loader, err := sct.sc.QueryArrowStream(ctx, query)
+		assertNilF(t, err)
+
+		countFromNumRows := 0
+		countFromData := 0
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = loader.NextResultSet(context.Background()) != io.EOF {
+			assertEqualE(t, loader.TotalRows(), int64(rowsCount))
+			batches, err := loader.GetBatches()
+			assertNilF(t, err)
+
+			for _, batch := range batches {
+				stream, err := batch.GetStream(context.Background())
+				assertNilF(t, err)
+				r, err := ipc.NewReader(stream, ipc.WithAllocator(mem))
+				assertNilF(t, err)
+				defer r.Release()
+				for r.Next() {
+					rec := r.Record()
+					countFromNumRows += int(rec.NumRows())
+					countFromData += rec.Column(0).Len()
+					assertEqualE(t, rec.Column(0).(*array.String).Value(0), "abc") // check just random value
+				}
+			}
+		}
+		assertErrIsF(t, loader.NextResultSet(context.Background()), io.EOF)
+		assertEqualE(t, countFromNumRows, rowsCount*2)
+		assertEqualE(t, countFromData, rowsCount*2)
+	})
+}
+
+func TestQueryArrowStreamMultiStatementWithTimeout(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
+		ctx, err := WithMultiStatement(ctx, 2)
+		assertNilF(t, err)
+		loader, err := sct.sc.QueryArrowStream(ctx, "SELECT 'abc'; SELECT 'abc'") // SYSTEM$WAIT does not wait in multistatements
+		assertNilF(t, err)
+
+		assertEqualE(t, loader.TotalRows(), int64(1))
+		timeoutCtx, cancelFunc := context.WithTimeout(context.Background(), time.Millisecond)
+		defer cancelFunc()
+		err = loader.NextResultSet(timeoutCtx)
+		assertNotNilF(t, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
 	})
 }
