@@ -2488,9 +2488,8 @@ func arrowDecFloatToValue(ctx context.Context, srcValue *array.Struct, rowIdx in
 			mantissa := new(big.Float).SetPrec(127).SetInt(mantissaInt)
 			if result, ok := new(big.Float).SetPrec(127).SetString(fmt.Sprintf("%ve%v", mantissa.Text('G', 38), exponent)); ok {
 				return result, nil
-			} else {
-				return nil, fmt.Errorf("failed to create decfloat from mantissa %s and exponent %d", mantissa.Text('G', 38), exponent)
 			}
+			return nil, fmt.Errorf("failed to create decfloat from mantissa %s and exponent %d", mantissa.Text('G', 38), exponent)
 		}
 		mantissaStr := mantissaInt.String()
 		if mantissaStr == "0" {
