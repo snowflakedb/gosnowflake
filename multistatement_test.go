@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -611,7 +610,7 @@ func TestMultiStatementArrowFormat(t *testing.T) {
 		rowTypes := []string{"123", "456", "789", "'000'"}
 
 		for _, testCase := range testCases {
-			t.Run(fmt.Sprintf("with %s", testCase.name), func(t *testing.T) {
+			t.Run("with "+testCase.name, func(t *testing.T) {
 				dbt.mustExec(testCase.forceQuery)
 				buffer, cleanup := setupTestLogger()
 				defer cleanup()
