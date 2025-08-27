@@ -74,10 +74,13 @@ const (
 
 var (
 	// OcspCacheServerTimeout is a timeout for OCSP cache server.
+	// Deprecated: will be moved to Config/DSN in the future releases.
 	OcspCacheServerTimeout = defaultOCSPCacheServerTimeout
 	// OcspResponderTimeout is a timeout for OCSP responders.
+	// Deprecated: will be moved to Config/DSN in the future releases.
 	OcspResponderTimeout = defaultOCSPResponderTimeout
 	// OcspMaxRetryCount is a number of retires to OCSP (cache server and responders).
+	// Deprecated: will be moved to Config/DSN in the future releases.
 	OcspMaxRetryCount = defaultOCSPMaxRetryCount
 )
 
