@@ -1682,21 +1682,22 @@ func TestMapWithNullValues(t *testing.T) {
 					rows := dbt.mustQueryContextT(WithMapValuesNullable(ctx), t, tc.query)
 					defer rows.Close()
 					rows.Next()
-					err := rows.Scan(&tc.actual)
+					err = rows.Scan(&tc.actual)
 					assertNilF(t, err)
-					if tc.name == "time" {
+					switch tc.name {
+					case "time":
 						for i, nt := range tc.actual.(map[string]sql.NullTime) {
 							assertEqualE(t, nt.Valid, tc.expected.(map[string]sql.NullTime)[i].Valid)
 							assertEqualE(t, nt.Time.Hour(), tc.expected.(map[string]sql.NullTime)[i].Time.Hour())
 							assertEqualE(t, nt.Time.Minute(), tc.expected.(map[string]sql.NullTime)[i].Time.Minute())
 							assertEqualE(t, nt.Time.Second(), tc.expected.(map[string]sql.NullTime)[i].Time.Second())
 						}
-					} else if tc.name == "timestamp_tz" || tc.name == "timestamp_ltz" || tc.name == "timestamp_ntz" {
+					case "timestamp_tz", "timestamp_ltz", "timestamp_ntz":
 						for i, nt := range tc.actual.(map[string]sql.NullTime) {
 							assertEqualE(t, nt.Valid, tc.expected.(map[string]sql.NullTime)[i].Valid)
 							assertTrueE(t, nt.Time.Equal(tc.expected.(map[string]sql.NullTime)[i].Time))
 						}
-					} else {
+					default:
 						assertDeepEqualE(t, tc.actual, tc.expected)
 					}
 				})
@@ -1798,19 +1799,20 @@ func TestArraysWithNullValues(t *testing.T) {
 				rows.Next()
 				err := rows.Scan(&tc.actual)
 				assertNilF(t, err)
-				if tc.name == "time" {
+				switch tc.name {
+				case "time":
 					for i, nt := range tc.actual.([]sql.NullTime) {
 						assertEqualE(t, nt.Valid, tc.expected.([]sql.NullTime)[i].Valid)
 						assertEqualE(t, nt.Time.Hour(), tc.expected.([]sql.NullTime)[i].Time.Hour())
 						assertEqualE(t, nt.Time.Minute(), tc.expected.([]sql.NullTime)[i].Time.Minute())
 						assertEqualE(t, nt.Time.Second(), tc.expected.([]sql.NullTime)[i].Time.Second())
 					}
-				} else if tc.name == "timestamp_tz" || tc.name == "timestamp_ltz" || tc.name == "timestamp_ntz" {
+				case "timestamp_tz", "timestamp_ltz", "timestamp_ntz":
 					for i, nt := range tc.actual.([]sql.NullTime) {
 						assertEqualE(t, nt.Valid, tc.expected.([]sql.NullTime)[i].Valid)
 						assertTrueE(t, nt.Time.Equal(tc.expected.([]sql.NullTime)[i].Time))
 					}
-				} else {
+				default:
 					assertDeepEqualE(t, tc.actual, tc.expected)
 				}
 			})
@@ -2267,7 +2269,7 @@ func forAllStructureTypeFormats(dbt *DBTest, f func(t *testing.T, format string)
 			},
 		},
 	} {
-		dbt.T.Run(tc.name, func(t *testing.T) {
+		dbt.Run(tc.name, func(t *testing.T) {
 			tc.forceFormat(dbt)
 			dbt.enableStructuredTypes()
 			f(t, tc.name)

@@ -420,7 +420,11 @@ func checkOCSPCacheServer(
 			err:  err,
 		}
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err = res.Body.Close(); err != nil {
+			logger.Warnf("failed to close response body: %v", err)
+		}
+	}()
 	logger.WithContext(ctx).Debugf("StatusCode from OCSP Cache Server: %v", res.StatusCode)
 	if res.StatusCode != http.StatusOK {
 		return nil, &ocspStatus{
@@ -482,7 +486,11 @@ func (ov *ocspValidator) retryOCSP(
 			err:  err,
 		}
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err = res.Body.Close(); err != nil {
+			logger.WithContext(ctx).Warnf("failed to close response body: %v", err)
+		}
+	}()
 	logger.WithContext(ctx).Debugf("StatusCode from OCSP Server: %v\n", res.StatusCode)
 	if res.StatusCode != http.StatusOK {
 		return ocspRes, ocspResBytes, &ocspStatus{
@@ -544,7 +552,11 @@ func (ov *ocspValidator) fallbackRetryOCSPToGETRequest(
 			err:  err,
 		}
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err = res.Body.Close(); err != nil {
+			logger.Warnf("failed to close response body: %v", err)
+		}
+	}()
 	logger.WithContext(ctx).Debugf("GET fallback StatusCode from OCSP Server: %v", res.StatusCode)
 	if res.StatusCode != http.StatusOK {
 		return ocspRes, ocspResBytes, &ocspStatus{
@@ -864,7 +876,11 @@ func initOCSPCache() {
 		logger.Debugf("failed to open. Ignored. %v\n", err)
 		return
 	}
-	defer f.Close()
+	defer func() {
+		if err = f.Close(); err != nil {
+			logger.Warnf("failed to close file: %v. ignored.\n", err)
+		}
+	}()
 
 	buf := make(map[string][]interface{})
 	r := bufio.NewReader(f)
@@ -1001,7 +1017,11 @@ func (ov *ocspValidator) writeOCSPCacheFile() {
 		logger.Debugf("failed to create lock file. file %v, err: %v. ignored.\n", cacheLockFileName, err)
 		return
 	}
-	defer os.RemoveAll(cacheLockFileName)
+	defer func() {
+		if err = os.RemoveAll(cacheLockFileName); err != nil {
+			logger.Debugf("failed to delete lock file. file: %v, err: %v. ignored.\n", cacheLockFileName, err)
+		}
+	}()
 
 	buf := make(map[string][]interface{})
 	for k, v := range ocspResponseCache {

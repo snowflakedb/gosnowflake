@@ -420,8 +420,8 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	var i int
 	posQuestion := len(dsn)
 	for i = len(dsn) - 1; i >= 0; i-- {
-		switch {
-		case dsn[i] == '/':
+		switch dsn[i] {
+		case '/':
 			foundSlash = true
 
 			// left part is empty if i <= 0
@@ -429,12 +429,12 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 			posSecondSlash := i
 			if i > 0 {
 				for j = i - 1; j >= 0; j-- {
-					switch {
-					case dsn[j] == '/':
+					switch dsn[j] {
+					case '/':
 						// second slash
 						secondSlash = true
 						posSecondSlash = j
-					case dsn[j] == '@':
+					case '@':
 						// username[:password]@...
 						cfg.User, cfg.Password = parseUserPassword(j, dsn)
 					}
@@ -462,7 +462,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				cfg.Database = dsn[posSecondSlash+1 : posQuestion]
 			}
 			done = true
-		case dsn[i] == '?':
+		case '?':
 			posQuestion = i
 		}
 		if done {
@@ -473,10 +473,10 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		// no db or schema is specified
 		var j int
 		for j = len(dsn) - 1; j >= 0; j-- {
-			switch {
-			case dsn[j] == '@':
+			switch dsn[j] {
+			case '@':
 				cfg.User, cfg.Password = parseUserPassword(j, dsn)
-			case dsn[j] == '?':
+			case '?':
 				posQuestion = j
 			}
 			if dsn[j] == '@' {

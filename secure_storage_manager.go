@@ -476,7 +476,8 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 			logger.Warn(err)
 			return
 		}
-		if runtime.GOOS == "windows" {
+		switch runtime.GOOS {
+		case "windows":
 			ring, _ := keyring.Open(keyring.Config{
 				WinCredPrefix: strings.ToUpper(tokenSpec.host),
 				ServiceName:   strings.ToUpper(tokenSpec.user),
@@ -488,7 +489,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 			if err := ring.Set(item); err != nil {
 				logger.Debugf("Failed to write to Windows credential manager. Err: %v", err)
 			}
-		} else if runtime.GOOS == "darwin" {
+		case "darwin":
 			ring, _ := keyring.Open(keyring.Config{
 				ServiceName: credentialsKey,
 			})
@@ -511,7 +512,8 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 		logger.Warn(err)
 		return ""
 	}
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		ring, _ := keyring.Open(keyring.Config{
 			WinCredPrefix: strings.ToUpper(tokenSpec.host),
 			ServiceName:   strings.ToUpper(tokenSpec.user),
@@ -521,7 +523,7 @@ func (ssm *keyringSecureStorageManager) getCredential(tokenSpec *secureTokenSpec
 			logger.Debugf("Failed to read credentialsKey or could not find it in Windows Credential Manager. Error: %v", err)
 		}
 		cred = string(i.Data)
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		ring, _ := keyring.Open(keyring.Config{
 			ServiceName: credentialsKey,
 		})
@@ -546,7 +548,8 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 		logger.Warn(err)
 		return
 	}
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		ring, _ := keyring.Open(keyring.Config{
 			WinCredPrefix: strings.ToUpper(tokenSpec.host),
 			ServiceName:   strings.ToUpper(tokenSpec.user),
@@ -555,7 +558,7 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 		if err != nil {
 			logger.Debugf("Failed to delete credentialsKey in Windows Credential Manager. Error: %v", err)
 		}
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		ring, _ := keyring.Open(keyring.Config{
 			ServiceName: credentialsKey,
 		})

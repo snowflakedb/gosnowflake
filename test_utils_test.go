@@ -24,9 +24,10 @@ func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
 }
 
 func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Method == http.MethodGet {
+	switch req.Method {
+	case http.MethodGet:
 		crt.getReqCount[req.URL.String()]++
-	} else if req.Method == http.MethodPost {
+	case http.MethodPost:
 		crt.postReqCount[req.URL.String()]++
 	}
 
