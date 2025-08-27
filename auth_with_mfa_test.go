@@ -19,12 +19,7 @@ func TestMfaSuccessful(t *testing.T) {
 
 	totpKeys := getTOPTcodes(t)
 
-	err := verifyConnectionToSnowflakeUsingTotpCodes(t, cfg, totpKeys)
-	if err != nil {
-		t.Fatalf("Failed to connect with any of the %d TOTP codes: %v", len(totpKeys), err)
-		return
-	}
-
+	verifyConnectionToSnowflakeUsingTotpCodes(t, cfg, totpKeys)
 	log.Printf("Testing MFA token caching with second connection...")
 
 	// Clear the passcode to force use of cached MFA token
@@ -32,22 +27,19 @@ func TestMfaSuccessful(t *testing.T) {
 
 	// Attempt to connect using cached MFA token
 	cacheErr := verifyConnectionToSnowflakeAuthTests(t, cfg)
-	if cacheErr != nil {
-		t.Fatalf("Failed to connect with cached MFA token: %v", cacheErr)
-		return
-	}
+	assertNilF(t, cacheErr, "Failed to connect with cached MFA token")
 }
 
 func setupMfaTest(t *testing.T) *Config {
 	skipAuthTests(t, "Skipping MFA tests")
 	cfg, err := getAuthTestsConfig(t, AuthTypeUsernamePasswordMFA)
-	assertEqualE(t, err, nil, fmt.Sprintf("failed to get config: %v", err))
+	assertNilF(t, err, "failed to get config")
 
 	cfg.User, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_MFA_USER", true)
-	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+	assertNilF(t, err, "failed to get MFA user from environment")
 
 	cfg.Password, err = GetFromEnv("SNOWFLAKE_AUTH_TEST_MFA_PASSWORD", true)
-	assertNilF(t, err, fmt.Sprintf("failed to setup config: %v", err))
+	assertNilF(t, err, "failed to get MFA password from environment")
 
 	return cfg
 }
@@ -56,16 +48,16 @@ func getTOPTcodes(t *testing.T) []string {
 	if isTestRunningInDockerContainer() {
 		const provideTotpPath = "/externalbrowser/totpGenerator.js"
 		output, err := exec.Command("node", provideTotpPath).CombinedOutput()
-		assertNilE(t, err, fmt.Sprintf("failed to execute command: %v", err))
+		assertNilF(t, err, fmt.Sprintf("failed to execute command: %v", err))
 		totpCodes := strings.Fields(string(output))
 		return totpCodes
 	}
 	return []string{}
 }
 
-func verifyConnectionToSnowflakeUsingTotpCodes(t *testing.T, cfg *Config, totpKeys []string) error {
+func verifyConnectionToSnowflakeUsingTotpCodes(t *testing.T, cfg *Config, totpKeys []string) {
 	if len(totpKeys) == 0 {
-		return fmt.Errorf("no TOTP codes provided")
+		t.Fatalf("no TOTP codes provided")
 	}
 
 	var lastError error
@@ -75,7 +67,7 @@ func verifyConnectionToSnowflakeUsingTotpCodes(t *testing.T, cfg *Config, totpKe
 
 		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 		if err == nil {
-			return nil
+			return
 		}
 
 		lastError = err
@@ -92,8 +84,5 @@ func verifyConnectionToSnowflakeUsingTotpCodes(t *testing.T, cfg *Config, totpKe
 		}
 	}
 
-	if lastError != nil {
-		return fmt.Errorf("failed to connect with any TOTP code: %v", lastError)
-	}
-	return fmt.Errorf("all TOTP codes failed without specific error")
+	assertNilF(t, lastError, "failed to connect with any TOTP code")
 }
