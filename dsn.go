@@ -639,10 +639,8 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.IncludeRetryReason = ConfigBoolTrue
 	}
 
-	if cfg.ProxyHost != "" {
-		if cfg.ProxyProtocol == "" {
-			cfg.ProxyProtocol = "http" // Default to http if not specified
-		}
+	if cfg.ProxyHost != "" && cfg.ProxyProtocol == "" {
+		cfg.ProxyProtocol = "http" // Default to http if not specified
 	}
 
 	domain, _ := extractDomainFromHost(cfg.Host)
