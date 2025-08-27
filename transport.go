@@ -38,7 +38,7 @@ func crlTransportConfig() *transportConfig {
 	return &transportConfig{
 		MaxIdleConns:    5,
 		IdleConnTimeout: 5 * time.Minute,
-		DialTimeout:     15 * time.Second,
+		DialTimeout:     30 * time.Second,
 		KeepAlive:       0, // No keep-alive for CRL operations
 	}
 }
