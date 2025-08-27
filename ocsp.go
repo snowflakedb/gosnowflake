@@ -169,6 +169,7 @@ type ocspValidator struct {
 	cacheServerURL string
 	isPrivateLink  bool
 	retryURL       string
+	cfg            *Config
 }
 
 func newOcspValidator(cfg *Config) *ocspValidator {
@@ -196,6 +197,7 @@ func newOcspValidator(cfg *Config) *ocspValidator {
 		cacheServerURL: strings.ToLower(cacheServerURL),
 		isPrivateLink:  isPrivateLink,
 		retryURL:       strings.ToLower(retryURL),
+		cfg:            cfg,
 	}
 }
 
@@ -663,9 +665,10 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 	headers[httpHeaderContentLength] = strconv.Itoa(len(ocspReq))
 	headers[httpHeaderHost] = hostname
 	timeout := OcspResponderTimeout
+
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: snowflakeNoRevocationCheckTransport,
+		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(),
 	}
 	ocspRes, ocspResBytes, ocspS := ov.retryOCSP(
 		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
@@ -789,11 +792,12 @@ func (ov *ocspValidator) downloadOCSPCacheServer() {
 	if err != nil {
 		return
 	}
+
 	logger.Infof("downloading OCSP Cache from server %v", ocspCacheServerURL)
 	timeout := OcspCacheServerTimeout
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: snowflakeNoRevocationCheckTransport,
+		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(),
 	}
 	ret, ocspStatus := checkOCSPCacheServer(context.Background(), ocspClient, http.NewRequest, u, timeout)
 	if ocspStatus.code != ocspSuccess {
@@ -1162,9 +1166,6 @@ func (occ *ocspCacheClearerType) stop() {
 	}
 }
 
-// snowflakeNoRevocationCheckTransport is the transport object that doesn't do certificate revocation check with OCSP.
-var snowflakeNoRevocationCheckTransport http.RoundTripper
-
 // SnowflakeTransport includes the certificate revocation check with OCSP in sequential. By default, the driver uses
 // this transport object.
 // Deprecated: SnowflakeTransport is deprecated and will be removed in future versions.
@@ -1172,7 +1173,6 @@ var SnowflakeTransport *http.Transport
 
 func init() {
 	factory := newTransportFactory(&Config{}, nil)
-	snowflakeNoRevocationCheckTransport = factory.createNoRevocationTransport()
 	SnowflakeTransport = factory.createOCSPTransport()
 	SnowflakeTransportTest = SnowflakeTransport
 }

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -698,37 +699,27 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 
 	cfg := wiremockHTTPS.connectionConfig(t)
 
-	countingRoundTripper := newCountingRoundTripper(wiremockHTTPS.ocspTransporter(t))
-	originalNoOcspTransport := snowflakeNoRevocationCheckTransport
-	defer func() {
-		snowflakeNoRevocationCheckTransport = originalNoOcspTransport
-	}()
-	snowflakeNoRevocationCheckTransport = countingRoundTripper
-	cfg.Transporter = countingRoundTripper
+	countingRoundTripper := newCountingRoundTripper(http.DefaultTransport)
+	ocspTransport := wiremockHTTPS.ocspTransporter(t, countingRoundTripper)
+	cfg.Transporter = ocspTransport
 
 	runSampleQuery := func(cfg *Config) {
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
 		db := sql.OpenDB(connector)
 		rows, err := db.Query("SELECT 1")
-		if err != nil {
-			println(err.Error())
-		}
 		assertNilF(t, err)
 		defer rows.Close()
 		var v int
-		next := rows.Next()
-		assertTrueF(t, next)
+		assertTrueF(t, rows.Next())
 		err = rows.Scan(&v)
-		if err != nil {
-			println(err)
-		}
 		assertNilF(t, err)
 		assertEqualE(t, v, 1)
 	}
 
 	t.Run("should retry when OCSP is not reachable", func(t *testing.T) {
 		countingRoundTripper.reset()
-		assertNilF(t, os.Setenv(ocspTestResponderURLEnv, "http://localhost:56734")) // not existing port
+		testResponderOverride := overrideEnv(ocspTestResponderURLEnv, "http://localhost:56734")
+		defer testResponderOverride.rollback()
 		wiremock.registerMappings(t, wiremockMapping{filePath: "select1.json"},
 			wiremockMapping{filePath: "auth/password/successful_flow.json"},
 		)
@@ -739,7 +730,8 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 
 	t.Run("should fallback to GET when POST returns malformed response", func(t *testing.T) {
 		countingRoundTripper.reset()
-		assertNilF(t, os.Setenv(ocspTestResponderURLEnv, wiremock.baseURL()))
+		testResponderOverride := overrideEnv(ocspTestResponderURLEnv, wiremock.baseURL())
+		defer testResponderOverride.rollback()
 		wiremock.registerMappings(t, wiremockMapping{filePath: "ocsp/malformed.json"},
 			wiremockMapping{filePath: "select1.json"},
 			wiremockMapping{filePath: "auth/password/successful_flow.json"},
@@ -752,6 +744,8 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 	t.Run("should not fallback to GET when for POST unauthorized is returned", func(t *testing.T) {
 		countingRoundTripper.reset()
 		assertNilF(t, os.Setenv(ocspTestResponderURLEnv, wiremock.baseURL()))
+		testResponderOverride := overrideEnv(ocspTestResponderURLEnv, wiremock.baseURL())
+		defer testResponderOverride.rollback()
 		wiremock.registerMappings(t, wiremockMapping{filePath: "ocsp/unauthorized.json"},
 			wiremockMapping{filePath: "select1.json"},
 			wiremockMapping{filePath: "auth/password/successful_flow.json"},

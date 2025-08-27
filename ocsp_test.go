@@ -32,7 +32,7 @@ func TestOCSP(t *testing.T) {
 	}
 
 	transports := []http.RoundTripper{
-		snowflakeNoRevocationCheckTransport,
+		createTestNoRevocationTransport(),
 		SnowflakeTransport,
 	}
 

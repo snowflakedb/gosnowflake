@@ -172,3 +172,69 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 	assertNilF(t, err, "Unexpected error")
 	assertNotNilF(t, transport, "Expected non-nil transport")
 }
+
+func TestProxyTransportCreation(t *testing.T) {
+	proxyTests := []struct {
+		config   *Config
+		proxyURL string
+	}{
+		{
+			config: &Config{
+				ProxyProtocol: "http",
+				ProxyHost:     "proxy.connection.com",
+				ProxyPort:     1234,
+			},
+			proxyURL: "http://proxy.connection.com:1234",
+		},
+		{
+			config: &Config{
+				ProxyProtocol: "http",
+				ProxyHost:     "proxy.connection.com",
+				ProxyPort:     1234,
+			},
+			proxyURL: "http://proxy.connection.com:1234",
+		},
+
+		{
+			config: &Config{
+				ProxyProtocol: "https",
+				ProxyHost:     "proxy.connection.com",
+				ProxyPort:     1234,
+			},
+			proxyURL: "https://proxy.connection.com:1234",
+		},
+		{
+			config: &Config{
+				ProxyProtocol: "http",
+				ProxyHost:     "proxy.connection.com",
+				ProxyPort:     1234,
+				NoProxy:       "*.snowflakecomputing.com,ocsp.testing.com",
+			},
+			proxyURL: "",
+		},
+	}
+
+	for _, test := range proxyTests {
+
+		factory := newTransportFactory(test.config, nil)
+		proxyFunc := factory.createProxy()
+
+		req, _ := http.NewRequest("GET", "https://testing.snowflakecomputing.com", nil)
+		proxyURL, _ := proxyFunc(req)
+
+		if test.proxyURL == "" {
+			assertNilF(t, proxyURL, "Expected nil proxy for https request")
+		} else {
+			assertEqualF(t, proxyURL.String(), test.proxyURL)
+		}
+
+		req, _ = http.NewRequest("GET", "http://ocsp.testing.com", nil)
+		proxyURL, _ = proxyFunc(req)
+
+		if test.proxyURL == "" {
+			assertNilF(t, proxyURL, "Expected nil proxy for https request")
+		} else {
+			assertEqualF(t, proxyURL.String(), test.proxyURL)
+		}
+	}
+}
