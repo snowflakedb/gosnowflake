@@ -218,7 +218,11 @@ func (util *snowflakeAzureClient) uploadFile(
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			if err = f.Close(); err != nil {
+				logger.Warnf("failed to close the %v file: %v", dataFile, err)
+			}
+		}()
 
 		contentType := "application/octet-stream"
 		contentEncoding := "utf-8"
@@ -293,7 +297,11 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 			return err
 		}
 		retryReader := blobDownloadResponse.NewRetryReader(context.Background(), &azblob.RetryReaderOptions{})
-		defer retryReader.Close()
+		defer func() {
+			if err = retryReader.Close(); err != nil {
+				logger.Warnf("failed to close the Azure reader: %v", err)
+			}
+		}()
 		_, err = meta.dstStream.ReadFrom(retryReader)
 		if err != nil {
 			return err
@@ -303,7 +311,11 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			if err = f.Close(); err != nil {
+				logger.Warnf("failed to close the %v file: %v", fullDstFileName, err)
+			}
+		}()
 		_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
 			return blobClient.DownloadFile(
 				ctx, f, &azblob.DownloadFileOptions{

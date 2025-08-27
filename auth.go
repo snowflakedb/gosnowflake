@@ -273,7 +273,11 @@ func postAuth(
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			logger.WithContext(ctx).Errorf("failed to close HTTP response body for %v. err: %v", fullURL, closeErr)
+		}
+	}()
 	if resp.StatusCode == http.StatusOK {
 		var respd authResponse
 		err = json.NewDecoder(resp.Body).Decode(&respd)
@@ -360,9 +364,10 @@ func authenticate(
 	}
 
 	oauthType := ""
-	if sc.cfg.Authenticator == AuthTypeOAuthAuthorizationCode {
+	switch sc.cfg.Authenticator {
+	case AuthTypeOAuthAuthorizationCode:
 		oauthType = "OAUTH_AUTHORIZATION_CODE"
-	} else if sc.cfg.Authenticator == AuthTypeOAuthClientCredentials {
+	case AuthTypeOAuthClientCredentials:
 		oauthType = "OAUTH_CLIENT_CREDENTIALS"
 	}
 
