@@ -3294,29 +3294,29 @@ func recordToSchemaSingleField(fieldMetadata fieldMetadata, f arrow.Field, withH
 	case timeType:
 		t = &arrow.Time64Type{Unit: arrow.Nanosecond}
 	case timestampNtzType, timestampTzType:
-		if timestampOption == UseOriginalTimestamp {
-			// do nothing - return timestamp as is
+		switch timestampOption {
+		case UseOriginalTimestamp:
 			converted = false
-		} else if timestampOption == UseMicrosecondTimestamp {
+		case UseMicrosecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Microsecond}
-		} else if timestampOption == UseMillisecondTimestamp {
+		case UseMillisecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Millisecond}
-		} else if timestampOption == UseSecondTimestamp {
+		case UseSecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Second}
-		} else {
+		default:
 			t = &arrow.TimestampType{Unit: arrow.Nanosecond}
 		}
 	case timestampLtzType:
-		if timestampOption == UseOriginalTimestamp {
-			// do nothing - return timestamp as is
+		switch timestampOption {
+		case UseOriginalTimestamp:
 			converted = false
-		} else if timestampOption == UseMicrosecondTimestamp {
+		case UseMicrosecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Microsecond, TimeZone: loc.String()}
-		} else if timestampOption == UseMillisecondTimestamp {
+		case UseMillisecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: loc.String()}
-		} else if timestampOption == UseSecondTimestamp {
+		case UseSecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Second, TimeZone: loc.String()}
-		} else {
+		default:
 			t = &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: loc.String()}
 		}
 	case objectType:

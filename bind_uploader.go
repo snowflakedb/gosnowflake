@@ -264,11 +264,12 @@ func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map
 					return nil, err
 				}
 			}
-			if t == nullType || t == unSupportedType {
-				t = textType // if null or not supported, pass to GS as text
-			} else if t == nilObjectType || t == mapType || t == nilMapType {
+			switch t {
+			case nullType, unSupportedType:
+				t = textType
+			case nilObjectType, mapType, nilMapType:
 				t = objectType
-			} else if t == nilArrayType {
+			case nilArrayType:
 				t = arrayType
 			}
 			bindValues[bindingName(binding, idx)] = execBindParameter{

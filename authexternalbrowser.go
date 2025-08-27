@@ -229,7 +229,7 @@ func authenticateByExternalBrowser(
 	go GoroutineWrapper(
 		ctx,
 		func() {
-			resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, password, disableConsoleLogin)
+			resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, disableConsoleLogin)
 		},
 	)
 	select {
@@ -249,21 +249,16 @@ func authenticateByExternalBrowser(
 //   - user authenticates at the IDP, and is redirected to Snowflake
 //   - Snowflake directs the user back to the driver
 //   - authenticate is complete!
-func doAuthenticateByExternalBrowser(
-	ctx context.Context,
-	sr *snowflakeRestful,
-	authenticator string,
-	application string,
-	account string,
-	user string,
-	password string,
-	disableConsoleLogin ConfigBool,
-) authenticateByExternalBrowserResult {
+func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, authenticator string, application string, account string, user string, disableConsoleLogin ConfigBool) authenticateByExternalBrowserResult {
 	l, err := createLocalTCPListener(0)
 	if err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
-	defer l.Close()
+	defer func() {
+		if err = l.Close(); err != nil {
+			logger.Errorf("error while closing TCP listener for external browser (%v). %v", l.Addr().String(), err)
+		}
+	}()
 
 	callbackPort := l.Addr().(*net.TCPAddr).Port
 
