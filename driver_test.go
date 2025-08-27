@@ -9,10 +9,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -916,6 +919,97 @@ func testFloat64(t *testing.T, json bool) {
 			})
 		}
 		dbt.mustExec("DROP TABLE IF EXISTS test")
+	})
+}
+
+func TestDecfloat(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExecT(t, "ALTER SESSION SET FEATURE_DECFLOAT = enabled")
+		dbt.mustExecT(t, "ALTER SESSION SET DECFLOAT_RESULT_COLUMN_TYPE = 2")
+		for _, format := range []string{"JSON", "ARROW"} {
+			if format == "JSON" {
+				dbt.mustExecT(t, forceJSON)
+			} else {
+				dbt.mustExecT(t, forceARROW)
+			}
+			for _, higherPrecision := range []bool{false, true} {
+				for _, decfloatMappingEnabled := range []bool{true, false} {
+					t.Run(fmt.Sprintf("format=%v,higherPrecision=%v,decfloatMappingEnabled=%v", format, higherPrecision, decfloatMappingEnabled), func(t *testing.T) {
+						for _, tc := range []struct {
+							in                      string
+							standardPrecisionOutput float64
+							higherPrecisionOutput   string
+							decfloatDisabledOutput  string
+						}{
+							{in: "0", standardPrecisionOutput: 0, higherPrecisionOutput: "0", decfloatDisabledOutput: "0"},
+							{in: "-1", standardPrecisionOutput: -1, higherPrecisionOutput: "-1", decfloatDisabledOutput: "-1"},
+							{in: "-1.5", standardPrecisionOutput: -1.5, higherPrecisionOutput: "-1.5", decfloatDisabledOutput: "-1.5"},
+							{in: "1e1", standardPrecisionOutput: 10, higherPrecisionOutput: "10", decfloatDisabledOutput: "10"},
+							{in: "1e2", standardPrecisionOutput: 100, higherPrecisionOutput: "100", decfloatDisabledOutput: "100"},
+							{in: "-2e3", standardPrecisionOutput: -2000, higherPrecisionOutput: "-2000", decfloatDisabledOutput: "-2000"},
+							{in: "1e100", standardPrecisionOutput: math.Pow10(100), higherPrecisionOutput: "1e+100", decfloatDisabledOutput: "1e100"},
+							{in: "-1.2345e2", standardPrecisionOutput: -123.45, higherPrecisionOutput: "-123.45", decfloatDisabledOutput: "-123.45"},
+							{in: "1.23456e2", standardPrecisionOutput: 123.456, higherPrecisionOutput: "123.456", decfloatDisabledOutput: "123.456"},
+							{in: "-9.87654321E-250", standardPrecisionOutput: -9.876654321 * math.Pow10(-250), higherPrecisionOutput: "-9.87654321e-250", decfloatDisabledOutput: "-9.87654321e-250"},
+							{in: "1.2345678901234567890123456789012345678e37", standardPrecisionOutput: 12345678901234567525491324606797053952, higherPrecisionOutput: "12345678901234567890123456789012345678", decfloatDisabledOutput: "12345678901234567890123456789012345678"}, // pragma: allowlist secret
+						} {
+							t.Run(tc.in, func(t *testing.T) {
+								ctx := context.Background()
+								if higherPrecision {
+									ctx = WithHigherPrecision(ctx)
+								}
+								if decfloatMappingEnabled {
+									ctx = WithDecfloatMappingEnabled(ctx)
+								}
+								rows := dbt.mustQueryContextT(ctx, t, fmt.Sprintf("SELECT '%v'::DECFLOAT UNION SELECT NULL ORDER BY 1", tc.in))
+								defer rows.Close()
+								rows.mustNext()
+								if !decfloatMappingEnabled {
+									var s string
+									rows.mustScan(&s)
+									if format == "ARROW" {
+										assertEqualF(t, s, strings.ToLower(tc.in))
+									} else {
+										assertEqualE(t, s, tc.decfloatDisabledOutput)
+									}
+									columnTypes, err := rows.ColumnTypes()
+									assertNilF(t, err)
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(""))
+								} else if higherPrecision {
+									var bf *big.Float
+									rows.mustScan(&bf)
+									assertEqualE(t, bf.Text('g', 38), tc.higherPrecisionOutput)
+									columnTypes, err := rows.ColumnTypes()
+									assertNilF(t, err)
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(&big.Float{}))
+								} else {
+									var f float64
+									rows.mustScan(&f)
+									assertEqualEpsilonE(t, f, tc.standardPrecisionOutput, 0.0001)
+									columnTypes, err := rows.ColumnTypes()
+									assertNilF(t, err)
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(0.0))
+								}
+								rows.mustNext()
+								if !decfloatMappingEnabled {
+									var s sql.NullString
+									rows.mustScan(&s)
+									assertFalseE(t, s.Valid)
+								} else if higherPrecision {
+									var bf *big.Float
+									rows.mustScan(&bf)
+									assertNilE(t, bf)
+								} else {
+									var f sql.NullFloat64
+									rows.mustScan(&f)
+									assertFalseE(t, f.Valid)
+								}
+							})
+						}
+					})
+				}
+			}
+		}
 	})
 }
 
@@ -1984,7 +2078,7 @@ func TestOpenWithConfigCancel(t *testing.T) {
 	)
 	driver := SnowflakeDriver{}
 	config := wiremock.connectionConfig()
-	blockingRoundTripper := newBlockingRoundTripper(snowflakeNoRevocationCheckTransport, 0)
+	blockingRoundTripper := newBlockingRoundTripper(createTestNoRevocationTransport(), 0)
 	countingRoundTripper := newCountingRoundTripper(blockingRoundTripper)
 	config.Transporter = countingRoundTripper
 
@@ -2028,7 +2122,7 @@ func TestOpenWithTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
-	countingTransport := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+	countingTransport := newCountingRoundTripper(createTestNoRevocationTransport())
 	var transport http.RoundTripper = countingTransport
 	config.Transporter = transport
 	driver := SnowflakeDriver{}

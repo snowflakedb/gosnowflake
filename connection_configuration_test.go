@@ -302,7 +302,7 @@ func TestParseToml(t *testing.T) {
 				"schema", "role", "region", "protocol", "passcode", "application", "token",
 				"tracing", "tmpDirPath", "tmp_dir_path", "clientConfigFile", "client_config_file", "oauth_authorization_url", "oauth_client_id",
 				"oauth_client_secret", "oauth_token_request_url", "oauth_redirect_uri", "oauth_scope",
-				"workload_identity_provider", "workload_identity_entra_resource"},
+				"workload_identity_provider", "workload_identity_entra_resource", "proxyHost", "noProxy", "proxyUser", "proxyPassword", "proxyProtocol"},
 			values: []interface{}{"value"},
 		},
 		{
@@ -311,7 +311,7 @@ func TestParseToml(t *testing.T) {
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "max_retry_count", "clientTimeout", "client_timeout", "jwtClientTimeout", "jwt_client_timeout", "loginTimeout",
-				"login_timeout", "requestTimeout", "request_timeout", "jwtTimeout", "jwt_timeout", "externalBrowserTimeout", "external_browser_timeout"},
+				"login_timeout", "requestTimeout", "request_timeout", "jwtTimeout", "jwt_timeout", "externalBrowserTimeout", "external_browser_timeout", "proxyPort"},
 			values: []interface{}{"300", 500},
 		},
 		{
@@ -350,7 +350,7 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 		{
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
 				"schema", "role", "region", "protocol", "passcode", "application", "token", "privateKey",
-				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path"},
+				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path", "proxyhost", "noproxy", "proxyUser", "proxyPassword", "proxyProtocol"},
 			values: []interface{}{1, false},
 		},
 		{

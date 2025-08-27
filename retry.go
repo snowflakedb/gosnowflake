@@ -333,7 +333,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		} else {
 			logger.WithContext(r.ctx).Warningf(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
-			res.Body.Close()
+			if closeErr := res.Body.Close(); closeErr != nil {
+				logger.Warnf("failed to close response body. err: %v", closeErr)
+			}
 		}
 		// uses exponential jitter backoff
 		retryCounter++

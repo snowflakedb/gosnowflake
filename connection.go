@@ -626,7 +626,11 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 	}
 	logger.WithContext(ctx).Debugf("response returned chunk: %v for URL: %v", asb.idx+1, asb.scd.ChunkMetas[asb.idx].URL)
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
+		defer func() {
+			if err = resp.Body.Close(); err != nil {
+				logger.WithContext(ctx).Errorf("error closing response body for %v: %v", asb.scd.ChunkMetas[asb.idx].URL, err)
+			}
+		}()
 		b, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
@@ -644,7 +648,9 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 
 	defer func() {
 		if asb.rr == nil {
-			resp.Body.Close()
+			if err = resp.Body.Close(); err != nil {
+				logger.WithContext(ctx).Errorf("error closing response body for %v: %v", asb.scd.ChunkMetas[asb.idx].URL, err)
+			}
 		}
 	}()
 

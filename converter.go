@@ -161,6 +161,14 @@ func snowflakeTypeToGo(ctx context.Context, dbtype snowflakeType, precision int6
 		return reflect.TypeOf(float64(0))
 	case realType:
 		return reflect.TypeOf(float64(0))
+	case decfloatType:
+		if !decfloatMappingEnabled(ctx) {
+			return reflect.TypeOf("")
+		}
+		if higherPrecisionEnabled(ctx) {
+			return reflect.TypeOf(&big.Float{})
+		}
+		return reflect.TypeOf(float64(0))
 	case textType, variantType:
 		return reflect.TypeOf("")
 	case dateType, timeType, timestampLtzType, timestampNtzType, timestampTzType:
@@ -1004,6 +1012,21 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta execRe
 		}
 		*dest = *srcValue
 		return nil
+	case "decfloat":
+		if !decfloatMappingEnabled(ctx) {
+			*dest = *srcValue
+			return nil
+		}
+		bf := new(big.Float).SetPrec(127)
+		if _, ok := bf.SetString(*srcValue); !ok {
+			return fmt.Errorf("cannot convert %v to %T", *srcValue, bf)
+		}
+		if higherPrecisionEnabled(ctx) {
+			*dest = *bf
+		} else {
+			*dest, _ = bf.Float64()
+		}
+		return nil
 	case "date":
 		v, err := strconv.ParseInt(*srcValue, 10, 64)
 		if err != nil {
@@ -1571,12 +1594,14 @@ func arrowToValue(ctx context.Context, rowIdx int, srcColumnMeta fieldMetadata, 
 			return arrowInt8ToValue(numericValue, rowIdx, higherPrecision, srcColumnMeta), nil
 		}
 		return nil, fmt.Errorf("unsupported data type")
-	case booleanType:
-		return arrowBoolToValue(srcValue.(*array.Boolean), rowIdx), nil
 	case realType:
 		// Snowflake data types that are floating-point numbers will fall in this category
 		// e.g. FLOAT/REAL/DOUBLE
 		return arrowRealToValue(srcValue.(*array.Float64), rowIdx), nil
+	case decfloatType:
+		return arrowDecFloatToValue(ctx, srcValue.(*array.Struct), rowIdx)
+	case booleanType:
+		return arrowBoolToValue(srcValue.(*array.Boolean), rowIdx), nil
 	case textType, variantType:
 		strings := srcValue.(*array.String)
 		if !srcValue.IsNull(rowIdx) {
@@ -2451,6 +2476,67 @@ func arrowRealToValue(srcValue *array.Float64, rowIdx int) snowflakeValue {
 	return nil
 }
 
+func arrowDecFloatToValue(ctx context.Context, srcValue *array.Struct, rowIdx int) (snowflakeValue, error) {
+	if !srcValue.IsNull(rowIdx) {
+		exponent := srcValue.Field(0).(*array.Int16).Value(rowIdx)
+		mantissaBytes := srcValue.Field(1).(*array.Binary).Value(rowIdx)
+		mantissaInt, err := parseTwosComplementBigEndian(mantissaBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse mantissa bytes: %s, error: %v", hex.EncodeToString(mantissaBytes), err)
+		}
+		if decfloatMappingEnabled(ctx) {
+			mantissa := new(big.Float).SetPrec(127).SetInt(mantissaInt)
+			if result, ok := new(big.Float).SetPrec(127).SetString(fmt.Sprintf("%ve%v", mantissa.Text('G', 38), exponent)); ok {
+				return result, nil
+			}
+			return nil, fmt.Errorf("failed to create decfloat from mantissa %s and exponent %d", mantissa.Text('G', 38), exponent)
+		}
+		mantissaStr := mantissaInt.String()
+		if mantissaStr == "0" {
+			return "0", nil
+		}
+		negative := mantissaStr[0] == '-'
+		mantissaUnsigned := strings.TrimLeft(mantissaStr, "-")
+		mantissaLen := len(mantissaUnsigned)
+		if mantissaLen > 1 {
+			mantissaUnsigned = mantissaUnsigned[0:1] + "." + mantissaUnsigned[1:]
+		}
+		if negative {
+			mantissaStr = "-" + mantissaUnsigned
+		} else {
+			mantissaStr = mantissaUnsigned
+		}
+		exponent = exponent + int16(mantissaLen) - 1
+		result := mantissaStr
+		if exponent != 0 {
+			result = mantissaStr + "e" + strconv.Itoa(int(exponent))
+		}
+		return result, nil
+	}
+	return nil, nil
+}
+
+func parseTwosComplementBigEndian(b []byte) (*big.Int, error) {
+	if len(b) > 16 {
+		return nil, fmt.Errorf("input byte slice is too long (max 16 bytes)")
+	}
+
+	val := new(big.Int)
+	val.SetBytes(b) // big.Int.SetBytes treats the bytes as an unsigned magnitude
+
+	// If the sign bit is 1, the number is negative.
+	if b[0]&0x80 != 0 {
+		// Calculate 2^(bit length) for subtraction
+		bitLength := uint(len(b) * 8)
+		powerOfTwo := new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(bitLength)), nil)
+
+		// Subtract 2^(bit length) from the unsigned value to get the signed value.
+		val.Sub(val, powerOfTwo)
+	}
+
+	return val, nil
+}
+
 func arrowBoolToValue(srcValue *array.Boolean, rowIdx int) snowflakeValue {
 	if !srcValue.IsNull(rowIdx) {
 		return srcValue.Value(rowIdx)
@@ -2862,6 +2948,15 @@ func higherPrecisionEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
+func decfloatMappingEnabled(ctx context.Context) bool {
+	v := ctx.Value(enableDecfloat)
+	if v == nil {
+		return false
+	}
+	d, ok := v.(bool)
+	return ok && d
+}
+
 func arrowBatchesUtf8ValidationEnabled(ctx context.Context) bool {
 	v := ctx.Value(enableArrowBatchesUtf8Validation)
 	if v == nil {
@@ -3169,29 +3264,29 @@ func recordToSchemaSingleField(fieldMetadata fieldMetadata, f arrow.Field, withH
 	case timeType:
 		t = &arrow.Time64Type{Unit: arrow.Nanosecond}
 	case timestampNtzType, timestampTzType:
-		if timestampOption == UseOriginalTimestamp {
-			// do nothing - return timestamp as is
+		switch timestampOption {
+		case UseOriginalTimestamp:
 			converted = false
-		} else if timestampOption == UseMicrosecondTimestamp {
+		case UseMicrosecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Microsecond}
-		} else if timestampOption == UseMillisecondTimestamp {
+		case UseMillisecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Millisecond}
-		} else if timestampOption == UseSecondTimestamp {
+		case UseSecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Second}
-		} else {
+		default:
 			t = &arrow.TimestampType{Unit: arrow.Nanosecond}
 		}
 	case timestampLtzType:
-		if timestampOption == UseOriginalTimestamp {
-			// do nothing - return timestamp as is
+		switch timestampOption {
+		case UseOriginalTimestamp:
 			converted = false
-		} else if timestampOption == UseMicrosecondTimestamp {
+		case UseMicrosecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Microsecond, TimeZone: loc.String()}
-		} else if timestampOption == UseMillisecondTimestamp {
+		case UseMillisecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: loc.String()}
-		} else if timestampOption == UseSecondTimestamp {
+		case UseSecondTimestamp:
 			t = &arrow.TimestampType{Unit: arrow.Second, TimeZone: loc.String()}
-		} else {
+		default:
 			t = &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: loc.String()}
 		}
 	case objectType:
