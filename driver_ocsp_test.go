@@ -189,7 +189,8 @@ func TestOCSPFailClosedRevokedStatus(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount7",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		Host:          "revoked.badssl.com",
 		LoginTimeout:  20 * time.Second,
@@ -286,7 +287,8 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount9",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  20 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,
@@ -348,7 +350,8 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
@@ -397,7 +400,8 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount11",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  3 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,
@@ -441,7 +445,8 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  5 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
@@ -481,7 +486,7 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount11",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
 		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  5 * time.Second,
@@ -519,7 +524,8 @@ func TestExpiredCertificate(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		Host:          "expired.badssl.com",
 		LoginTimeout:  10 * time.Second,
@@ -565,7 +571,8 @@ func TestSelfSignedCertificate(t *testing.T) {
 	config := &Config{
 		Account:      "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:         "fakeuser",
 		Password:     "fakepassword",
 		Host:         "self-signed.badssl.com",
 		LoginTimeout: 10 * time.Second,
@@ -605,7 +612,8 @@ func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount10",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  10 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenTrue,
@@ -645,7 +653,8 @@ func TestOCSPFailClosedNoOCSPURL(t *testing.T) {
 	config := &Config{
 		Account:       "fakeaccount11",
 		Authenticator: AuthTypeSnowflake, // Force password authentication
-		PrivateKey:    nil,               // Ensure no private key		User:         "fakeuser",
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  20 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,

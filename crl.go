@@ -175,7 +175,7 @@ const (
 )
 
 const (
-	defaultCrlHTTPClientTimeout       = 60 * time.Second
+	defaultCrlHTTPClientTimeout       = 30 * time.Second
 	defaultCrlCacheValidityTime       = 24 * time.Hour
 	defaultCrlOnDiskCacheRemovalDelay = 7 * time.Hour
 )
