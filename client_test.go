@@ -22,7 +22,7 @@ func (t *DummyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		}
 		return &http.Response{StatusCode: 200}, nil
 	}
-	return snowflakeNoRevocationCheckTransport.RoundTrip(r)
+	return createTestNoRevocationTransport().RoundTrip(r)
 }
 
 func TestInternalClient(t *testing.T) {

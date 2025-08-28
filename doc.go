@@ -250,6 +250,20 @@ If more than one value is specified, values should be separated by commas, for e
 
 	no_proxy=localhost,.my_company.com,xy12345.snowflakecomputing.com,192.168.1.15,192.168.1.16
 
+In addition to environment variables, the Go Snowflake Driver also supports configuring the proxy via connection parameters.
+When these parameters are provided in the connection string or DSN, they take precedence and any environment proxy settings (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) will be ignored.
+
+| Parameter       | Description                                                                 | Default |
+|-----------------|-----------------------------------------------------------------------------|---------|
+| `proxyHost`     | Hostname or IP address of the proxy server.                                 |         |
+| `proxyPort`     | Port number of the proxy server.                                            |         |
+| `proxyUser`     | Username for proxy authentication.                                          |         |
+| `proxyPassword` | Password for proxy authentication.                                          |         |
+| `proxyProtocol` | Protocol to use for proxy connection. Valid values: `http`, `https`.        | `http`  |
+| `NoProxy“       | Comma-separated list of hosts that should bypass the proxy.                 |         |
+
+For more details, please refer to the example in ./cmd/proxyconnection.
+
 # Logging
 
 By default, the driver's builtin logger is exposing logrus's FieldLogger and default at INFO level.

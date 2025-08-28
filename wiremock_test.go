@@ -114,8 +114,13 @@ func (wm *wiremockClientHTTPS) certPool(t *testing.T) *x509.CertPool {
 	return testCertPool
 }
 
-func (wm *wiremockClientHTTPS) ocspTransporter(t *testing.T) *http.Transport {
-	ov := newOcspValidator(wm.connectionConfig(t))
+func (wm *wiremockClientHTTPS) ocspTransporter(t *testing.T, delegate http.RoundTripper) http.RoundTripper {
+	if delegate == nil {
+		delegate = http.DefaultTransport
+	}
+	cfg := wm.connectionConfig(t)
+	cfg.Transporter = delegate
+	ov := newOcspValidator(cfg)
 	return &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs:               wiremockHTTPS.certPool(t),

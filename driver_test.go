@@ -2151,7 +2151,7 @@ func TestOpenWithConfigCancel(t *testing.T) {
 	)
 	driver := SnowflakeDriver{}
 	config := wiremock.connectionConfig()
-	blockingRoundTripper := newBlockingRoundTripper(snowflakeNoRevocationCheckTransport, 0)
+	blockingRoundTripper := newBlockingRoundTripper(createTestNoRevocationTransport(), 0)
 	countingRoundTripper := newCountingRoundTripper(blockingRoundTripper)
 	config.Transporter = countingRoundTripper
 
@@ -2195,7 +2195,7 @@ func TestOpenWithTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
-	countingTransport := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+	countingTransport := newCountingRoundTripper(createTestNoRevocationTransport())
 	var transport http.RoundTripper = countingTransport
 	config.Transporter = transport
 	driver := SnowflakeDriver{}
