@@ -1019,6 +1019,7 @@ func TestCrlE2E(t *testing.T) {
 			CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
 			DisableOCSPChecks:                 true,
 			CrlOnDiskCacheDisabled:            true,
+			JWTClientTimeout:                  30 * time.Second,
 		}
 		err := determineAuthenticatorType(cfg, os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR"))
 		assertNilF(t, err, "Failed to set authenticator type")
