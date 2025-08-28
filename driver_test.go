@@ -6,9 +6,9 @@ import (
 	"crypto/rsa"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"math"
@@ -2225,8 +2225,4 @@ func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {
 	err = rows.Scan(&v)
 	assertNilF(t, err)
 	assertEqualE(t, v, 1)
-}
-
-func isFailToConnectOrAuthErr(driverErr *SnowflakeError) bool {
-	return driverErr.Number != ErrCodeFailedToConnect && driverErr.Number != ErrFailedToAuth
 }
