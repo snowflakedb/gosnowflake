@@ -798,7 +798,7 @@ func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
 
 // parseDSNParams parses the DSN "query string". Values must be url.QueryEscape'ed
 func parseDSNParams(cfg *Config, params string) (err error) {
-	logger.Infof("Query String: %v\n", params)
+	logger.Infof("Query String: %v\n", maskSecrets(params))
 	paramsSlice := strings.Split(params, "&")
 	insecureModeIdx := findByPrefix(paramsSlice, "insecureMode")
 	disableOCSPChecksIdx := findByPrefix(paramsSlice, "disableOCSPChecks")
