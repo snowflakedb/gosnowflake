@@ -375,7 +375,7 @@ func (util *snowflakeGcsClient) getFileHeaderForDownload(downloadURL *url.URL, g
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			logger.Errorf("Failed to close response body: %v", err)
+			logger.Warnf("Failed to close response body: %v", err)
 		}
 	}()
 
@@ -581,7 +581,7 @@ func (util *snowflakeGcsClient) downloadInPartsForFile(
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			logger.Errorf("Failed to close file: %v", err)
+			logger.Warnf("Failed to close file: %v", err)
 		}
 	}()
 
@@ -656,7 +656,7 @@ func (util *snowflakeGcsClient) downloadRangeBytes(
 	}
 	defer func() {
 		if err := stream.Close(); err != nil {
-			logger.Errorf("Failed to close stream: %v", err)
+			logger.Warnf("Failed to close stream: %v", err)
 		}
 	}()
 
@@ -701,7 +701,7 @@ func (util *snowflakeGcsClient) downloadFileSinglePart(
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			logger.Errorf("Failed to close response body: %v", err)
+			logger.Warnf("Failed to close response body: %v", err)
 		}
 	}()
 
