@@ -1010,27 +1010,15 @@ func TestCrlE2E(t *testing.T) {
 		crlCacheCleanerTickRate = 5 * time.Second
 		cacheValidityTimeOverride := overrideEnv(snowflakeCrlCacheValidityTimeEnv, "60s")
 		defer cacheValidityTimeOverride.rollback()
-		cfg := &Config{
-			User:                              username,
-			Account:                           account,
-			Database:                          dbname,
-			Schema:                            schemaname,
-			CertRevocationCheckMode:           CertRevocationCheckEnabled,
-			CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
-			DisableOCSPChecks:                 true,
-			CrlOnDiskCacheDisabled:            true,
-			JWTClientTimeout:                  30 * time.Second,
-		}
-		err := determineAuthenticatorType(cfg, os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR"))
-		assertNilF(t, err, "Failed to set authenticator type")
+		cfg, err := ParseDSN(dsn)
+		assertNilF(t, err, "Failed to parse DSN")
 
-		// If JWT authentication is configured, we need to provide the private key
-		if cfg.Authenticator == AuthTypeJwt {
-			cfg.PrivateKey = testPrivKey
-		} else {
-			// For password authentication, set the password
-			cfg.Password = pass
-		}
+		// Add CRL-specific test parameters
+		cfg.CertRevocationCheckMode = CertRevocationCheckEnabled
+		cfg.CrlAllowCertificatesWithoutCrlURL = ConfigBoolTrue
+		cfg.DisableOCSPChecks = true
+		cfg.CrlOnDiskCacheDisabled = true
+		cfg.JWTClientTimeout = 30 * time.Second
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
