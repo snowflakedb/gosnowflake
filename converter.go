@@ -29,6 +29,9 @@ const format = "2006-01-02 15:04:05.999999999"
 const numberDefaultPrecision = 38
 const jsonFormatStr = "json"
 
+// 38 (max precision) + 1 (for possible '-') + 1 (for possible '.')
+const decfloatPrintingPrec = 40
+
 type timezoneType int
 
 var errNativeArrowWithoutProperContext = errors.New("structured types must be enabled to use with native arrow")
@@ -283,7 +286,7 @@ func valueToString(v driver.Value, tsmode snowflakeType, params map[string]*stri
 	}
 
 	if tsmode == decfloatType && v1.Type() == reflect.TypeOf(big.Float{}) {
-		s := v.(*big.Float).Text('g', 40)
+		s := v.(*big.Float).Text('g', decfloatPrintingPrec)
 		return bindingValue{&s, "", nil}, nil
 	}
 
@@ -2747,7 +2750,7 @@ func snowflakeArrayToString(nv *driver.NamedValue, stream bool) (snowflakeType, 
 		t = textType
 		a := nv.Value.(*decfloatArray)
 		for _, x := range *a {
-			v := x.Text('g', 40)
+			v := x.Text('g', decfloatPrintingPrec)
 			arr = append(arr, &v)
 		}
 	case reflect.TypeOf(&boolArray{}):
