@@ -902,7 +902,7 @@ func testFloat64(t *testing.T, json bool) {
 func TestDecfloat(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExecT(t, "ALTER SESSION SET FEATURE_DECFLOAT = enabled")
-		dbt.mustExecT(t, "ALTER SESSION SET DECFLOAT_RESULT_COLUMN_TYPE = 2")
+		dbt.mustExecT(t, "ALTER SESSION SET DECFLOAT_RESULT_COLUMN_TYPE = 2") // TODO remove when decfloat is enabled by default
 		for _, format := range []string{"JSON", "ARROW"} {
 			if format == "JSON" {
 				dbt.mustExecT(t, forceJSON)
@@ -987,6 +987,79 @@ func TestDecfloat(t *testing.T) {
 				}
 			}
 		}
+
+		t.Run("Binding simple value", func(t *testing.T) {
+			t.Run("As string", func(t *testing.T) {
+				rows := dbt.mustQueryContextT(context.Background(), t, "SELECT ?::DECFLOAT", DataTypeDecfloat, "1234567890.1234567890123456789012345678")
+				defer rows.Close()
+				rows.mustNext()
+				var s string
+				rows.mustScan(&s)
+				assertEqualE(t, s, "1.2345678901234567890123456789012345678e9")
+			})
+			t.Run("As float", func(t *testing.T) {
+				rows := dbt.mustQueryContextT(WithDecfloatMappingEnabled(context.Background()), t, "SELECT ?::DECFLOAT", DataTypeDecfloat, 123.45)
+				defer rows.Close()
+				rows.mustNext()
+				var f float64
+				rows.mustScan(&f)
+				assertEqualE(t, f, 123.45)
+			})
+			t.Run("As *big.Float", func(t *testing.T) {
+				bfFromString, ok := new(big.Float).SetPrec(127).SetString("1234567890.1234567890123456789012345678")
+				assertTrueF(t, ok)
+				println(bfFromString.Text('g', 40))
+				rows := dbt.mustQueryContextT(WithDecfloatMappingEnabled(WithHigherPrecision(context.Background())), t, "SELECT ?::DECFLOAT", DataTypeDecfloat, bfFromString)
+				defer rows.Close()
+				rows.mustNext()
+				bf := new(big.Float).SetPrec(127)
+				rows.mustScan(&bf)
+				println(bf.Text('g', 40))
+				assertTrueE(t, bf.Cmp(bfFromString) == 0)
+			})
+		})
+
+		t.Run("Binding array", func(t *testing.T) {
+			bfFromString, ok := new(big.Float).SetPrec(127).SetString("1234567890.1234567890123456789012345678")
+			assertTrueF(t, ok)
+			arrays := []any{
+				Array([]string{"123.45", "1234567890.1234567890123456789012345678"}, DataTypeDecfloat),
+				Array([]float64{123.45, 1234567890.1234567890123456789012345678}, DataTypeDecfloat),
+				Array([]*big.Float{
+					new(big.Float).SetFloat64(123.45),
+					bfFromString,
+				}, DataTypeDecfloat),
+			}
+			for _, bulk := range []bool{false, true} {
+				for idx, arr := range arrays {
+					t.Run(fmt.Sprintf("bulk=%v, idx=%v", bulk, idx), func(t *testing.T) {
+						if bulk {
+							dbt.mustExecT(t, "ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
+						} else {
+							dbt.mustExecT(t, "ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 100")
+						}
+						dbt.mustExec("CREATE OR REPLACE TABLE test_decfloat (value DECFLOAT)")
+						defer dbt.mustExec("DROP TABLE IF EXISTS test_decfloat")
+						_ = dbt.mustExecT(t, "INSERT INTO test_decfloat VALUES (?)", arr)
+						rows := dbt.mustQueryT(t, "SELECT value FROM test_decfloat ORDER BY 1")
+						defer rows.Close()
+						rows.mustNext()
+						var f float64
+						rows.mustScan(&f)
+						assertEqualEpsilonE(t, f, 123.45, 0.01)
+						rows.mustNext()
+						if idx != 1 { // float64 cannot be bound with the full precision
+							var s string
+							rows.mustScan(&s)
+							assertEqualE(t, s, "1.2345678901234567890123456789012345678e9")
+						} else {
+							rows.mustScan(&f)
+							assertEqualEpsilonE(t, f, 1234567890.1234567890123456789012345678, 0.01)
+						}
+					})
+				}
+			}
+		})
 	})
 }
 
