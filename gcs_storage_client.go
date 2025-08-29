@@ -373,9 +373,11 @@ func (util *snowflakeGcsClient) getFileHeaderForDownload(downloadURL *url.URL, g
 	if err != nil {
 		return nil, err
 	}
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Errorf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, util.handleHTTPError(resp, meta, accessToken)
@@ -384,13 +386,14 @@ func (util *snowflakeGcsClient) getFileHeaderForDownload(downloadURL *url.URL, g
 	return resp, nil
 }
 
-// downloadFileInParts downloads a file using parallel range requests
+// downloadPart is a struct for downloading a part of a file in memory
 type downloadPart struct {
 	data  []byte
 	index int64
 	err   error
 }
 
+// downloadPartStream is a struct for downloading a part of a file in a stream
 type downloadPartStream struct {
 	stream io.ReadCloser
 	index  int64
@@ -419,11 +422,8 @@ func (util *snowflakeGcsClient) downloadFileInParts(
 	// For streaming, use batched approach to avoid buffering all parts in memory
 	if meta.options.GetFileToStream {
 		return util.downloadInPartsForStream(downloadURL, gcsHeaders, accessToken, meta, fileSize, numParts, maxConcurrency, partSize)
-	} else {
-		return util.downloadInPartsForFile(downloadURL, gcsHeaders, accessToken, meta, fullDstFileName, fileSize, numParts, maxConcurrency, partSize)
 	}
-
-	return nil
+	return util.downloadInPartsForFile(downloadURL, gcsHeaders, accessToken, meta, fullDstFileName, fileSize, numParts, maxConcurrency, partSize)
 }
 
 // downloadInPartsForStream downloads file in batches, streaming parts sequentially
@@ -488,7 +488,7 @@ func (util *snowflakeGcsClient) downloadInPartsForStream(
 				// Close any successful streams before returning error
 				for j := int64(0); j < i; j++ {
 					if batchResults[j].stream != nil {
-						batchResults[j].stream.Close()
+						_ = batchResults[j].stream.Close()
 					}
 				}
 				return result.err
@@ -502,12 +502,12 @@ func (util *snowflakeGcsClient) downloadInPartsForStream(
 			if part.stream != nil {
 				// Stream directly from HTTP response to destination stream
 				_, err := io.Copy(meta.dstStream, part.stream)
-				part.stream.Close() // Close the stream immediately after copying
+				_ = part.stream.Close() // Close the stream immediately after copying
 				if err != nil {
 					// Close remaining streams before returning error
 					for j := i + 1; j < batchSize; j++ {
 						if batchResults[j].stream != nil {
-							batchResults[j].stream.Close()
+							_ = batchResults[j].stream.Close()
 						}
 					}
 					return err
@@ -579,7 +579,11 @@ func (util *snowflakeGcsClient) downloadInPartsForFile(
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			logger.Errorf("Failed to close file: %v", err)
+		}
+	}()
 
 	for _, part := range parts {
 		if _, err := f.Write(part); err != nil {
@@ -629,9 +633,7 @@ func (util *snowflakeGcsClient) downloadRangeStream(
 
 	// Accept both 200 (full content) and 206 (partial content) status codes
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		if resp.Body != nil {
-			resp.Body.Close()
-		}
+		_ = resp.Body.Close()
 		return nil, util.handleHTTPError(resp, meta, accessToken)
 	}
 
@@ -652,7 +654,11 @@ func (util *snowflakeGcsClient) downloadRangeBytes(
 	if err != nil {
 		return nil, err
 	}
-	defer stream.Close()
+	defer func() {
+		if err := stream.Close(); err != nil {
+			logger.Errorf("Failed to close stream: %v", err)
+		}
+	}()
 
 	// Download the data into memory
 	data, err := io.ReadAll(stream)
@@ -693,9 +699,11 @@ func (util *snowflakeGcsClient) downloadFileSinglePart(
 	if err != nil {
 		return err
 	}
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Errorf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return util.handleHTTPError(resp, meta, accessToken)
@@ -712,7 +720,7 @@ func (util *snowflakeGcsClient) downloadFileSinglePart(
 		}
 		defer func() {
 			if err = f.Close(); err != nil {
-				logger.Warnf("failed to close the file: %v", err)
+				logger.Warnf("Failed to close the file: %v", err)
 			}
 		}()
 		if _, err = io.Copy(f, resp.Body); err != nil {
