@@ -115,6 +115,10 @@ func (sc *snowflakeConn) processFileTransfer(
 	}
 	if sfa.options.MultiPartThreshold == 0 {
 		sfa.options.MultiPartThreshold = dataSizeThreshold
+		// for streaming download, use a smaller default part size
+		if sfa.commandType == downloadCommand && sfa.options.GetFileToStream {
+			sfa.options.MultiPartThreshold = streamingDownloadPartSize
+		}
 	}
 	if err := sfa.execute(); err != nil {
 		return nil, err
