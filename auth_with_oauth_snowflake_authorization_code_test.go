@@ -1,7 +1,6 @@
 package gosnowflake
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -43,7 +42,7 @@ func TestOauthSnowflakeAuthorizationCodeMismatchedUsername(t *testing.T) {
 		cfg.User = "fakeUser@snowflake.com"
 		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 		var snowflakeErr *SnowflakeError
-		assertTrueF(t, errors.As(err, &snowflakeErr))
+		assertErrorsAsF(t, err, &snowflakeErr)
 		assertEqualE(t, snowflakeErr.Number, 390309, fmt.Sprintf("Expected 390309, but got %v", snowflakeErr.Number))
 	}()
 	wg.Wait()

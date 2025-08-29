@@ -62,6 +62,7 @@ jobs:
               shell: bash
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GORACE: history_size=7
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
@@ -94,6 +95,7 @@ jobs:
           shell: bash
           env:
             PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
             CLOUD_PROVIDER: AWS
             GORACE: history_size=7
             GO_TEST_PARAMS: ${{ inputs.goTestParams }}
@@ -123,6 +125,7 @@ jobs:
               shell: bash
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
@@ -154,6 +157,7 @@ jobs:
           shell: bash
           env:
             PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
             CLOUD_PROVIDER: AWS
             GO_TEST_PARAMS: ${{ inputs.goTestParams }}
             WIREMOCK_PORT: 14335
@@ -186,6 +190,7 @@ jobs:
               shell: cmd
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
@@ -219,6 +224,7 @@ jobs:
           shell: bash
           env:
             PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
             CLOUD_PROVIDER: AWS
             GORACE: history_size=7
             GO_TEST_PARAMS: ${{ inputs.goTestParams }} -run TestQueryViaHttps

@@ -1,7 +1,6 @@
 package gosnowflake
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -19,7 +18,7 @@ func TestOauthOktaClientCredentialsMismatchedUsername(t *testing.T) {
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 
 	var snowflakeErr *SnowflakeError
-	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertErrorsAsF(t, err, &snowflakeErr)
 	assertEqualE(t, snowflakeErr.Number, 390309, fmt.Sprintf("Expected 390309, but got %v", snowflakeErr.Number))
 }
 

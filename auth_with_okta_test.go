@@ -1,7 +1,6 @@
 package gosnowflake
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"testing"
@@ -19,7 +18,7 @@ func TestOktaWrongCredentials(t *testing.T) {
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 
 	var snowflakeErr *SnowflakeError
-	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertErrorsAsF(t, err, &snowflakeErr)
 	assertEqualE(t, snowflakeErr.Number, 261006, fmt.Sprintf("Expected 261006, but got %v", snowflakeErr.Number))
 }
 
@@ -32,7 +31,7 @@ func TestOktaWrongAuthenticator(t *testing.T) {
 	err = verifyConnectionToSnowflakeAuthTests(t, cfg)
 
 	var snowflakeErr *SnowflakeError
-	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertErrorsAsF(t, err, &snowflakeErr)
 	assertEqualE(t, snowflakeErr.Number, 390139, fmt.Sprintf("Expected 390139, but got %v", snowflakeErr.Number))
 }
 
