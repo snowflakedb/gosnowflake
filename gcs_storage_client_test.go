@@ -178,7 +178,7 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -239,7 +239,7 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -306,7 +306,7 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -369,7 +369,7 @@ func TestDownloadOneFileFromGcsFailed(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -415,7 +415,7 @@ func TestDownloadOneFileFromGcsFailedWithRetry(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -474,7 +474,7 @@ func TestDownloadOneFileFromGcsFailedWithTokenExpired(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -533,7 +533,7 @@ func TestDownloadOneFileFromGcsFailedWithFileNotFound(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -790,7 +790,7 @@ func TestUploadStreamFailed(t *testing.T) {
 		srcStream:         bytes.NewBuffer(src),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -840,7 +840,7 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 		overwrite:         true,
 		lastError:         nil,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -1000,7 +1000,7 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -1058,7 +1058,7 @@ func TestDownloadFileFromGcsError(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -1109,7 +1109,7 @@ func TestDownloadFileWithBadRequest(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -1169,7 +1169,7 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1, dataSizeThreshold)
+	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1, multiPartThreshold)
 	if err == nil {
 		t.Error("should have raised an error")
 	}

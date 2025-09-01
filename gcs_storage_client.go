@@ -488,7 +488,9 @@ func (util *snowflakeGcsClient) downloadInPartsForStream(
 				// Close any successful streams before returning error
 				for j := int64(0); j < i; j++ {
 					if batchResults[j].stream != nil {
-						_ = batchResults[j].stream.Close()
+						if closeErr := batchResults[j].stream.Close(); closeErr != nil {
+							logger.Warnf("Failed to close stream: %v", closeErr)
+						}
 					}
 				}
 				return result.err
@@ -502,12 +504,17 @@ func (util *snowflakeGcsClient) downloadInPartsForStream(
 			if part.stream != nil {
 				// Stream directly from HTTP response to destination stream
 				_, err := io.Copy(meta.dstStream, part.stream)
-				_ = part.stream.Close() // Close the stream immediately after copying
+				// Close the stream immediately after copying
+				if closeErr := part.stream.Close(); closeErr != nil {
+					logger.Warnf("Failed to close stream: %v", closeErr)
+				}
 				if err != nil {
 					// Close remaining streams before returning error
 					for j := i + 1; j < batchSize; j++ {
 						if batchResults[j].stream != nil {
-							_ = batchResults[j].stream.Close()
+							if closeErr := batchResults[j].stream.Close(); closeErr != nil {
+								logger.Warnf("Failed to close stream: %v", closeErr)
+							}
 						}
 					}
 					return err

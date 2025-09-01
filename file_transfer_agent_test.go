@@ -487,7 +487,7 @@ func TestUpdateMetadataWithPresignedUrl(t *testing.T) {
 			srcFileName:       path.Join(dir, "/test_data/data1.txt"),
 			overwrite:         true,
 			options: &SnowflakeFileTransferOptions{
-				MultiPartThreshold: dataSizeThreshold,
+				MultiPartThreshold: multiPartThreshold,
 			},
 		}
 
@@ -621,7 +621,7 @@ func TestUploadWhenFilesystemReadOnlyError(t *testing.T) {
 		srcFileName:       path.Join(dir, "/test_data/data1.txt"),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 	}
 
@@ -798,7 +798,7 @@ func TestCustomTmpDirPath(t *testing.T) {
 		srcFileName: uploadFile,
 		overwrite:   true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 	}
 
@@ -817,7 +817,7 @@ func TestCustomTmpDirPath(t *testing.T) {
 		dstFileName: downloadFile,
 		overwrite:   true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 	}
 
@@ -884,7 +884,7 @@ func TestReadonlyTmpDirPathShouldFail(t *testing.T) {
 		srcFileName: uploadFile,
 		overwrite:   true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 	}
 
@@ -940,7 +940,7 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 		srcFileName: uploadFile,
 		overwrite:   true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		requireCompress: true,
 	}
@@ -961,7 +961,7 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 		overwrite:   true,
 		parallel:    int64(10),
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 	}
 
