@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os/exec"
@@ -75,8 +76,9 @@ func verifyConnectionToSnowflakeUsingTotpCodes(t *testing.T, cfg *Config, totpKe
 
 		log.Printf("TOTP code %d failed: %v", i+1, errorMsg)
 
-		if strings.Contains(strings.ToLower(errorMsg), "TOTP Invalid") {
-			log.Printf("MFA error detected, trying next code...")
+		var snowflakeErr *SnowflakeError
+		if errors.As(err, &snowflakeErr) && (snowflakeErr.Number == 394633 || snowflakeErr.Number == 394507) {
+			log.Printf("MFA error detected (%d), trying next code...", snowflakeErr.Number)
 			continue
 		} else {
 			log.Printf("Non-MFA error detected: %v", errorMsg)
