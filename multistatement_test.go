@@ -588,3 +588,40 @@ func TestUnitHandleMultiQuery(t *testing.T) {
 		}
 	})
 }
+
+func TestMultiStatementArrowFormat(t *testing.T) {
+	ctx, _ := WithMultiStatement(context.Background(), 4)
+	multiStmtQuery := "select 123;\n" +
+		"select 456;\n" +
+		"select 789;\n" +
+		"select '000';"
+
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = TRUE")
+
+		testCases := []struct {
+			name       string
+			formatType string
+			forceQuery string
+		}{
+			{name: "forceJSON", formatType: "json", forceQuery: forceJSON},
+			{name: "forceArrow", formatType: "arrow", forceQuery: forceARROW},
+		}
+		rowTypes := []string{"123", "456", "789", "'000'"}
+
+		for _, testCase := range testCases {
+			t.Run("with "+testCase.name, func(t *testing.T) {
+				dbt.mustExec(testCase.forceQuery)
+				buffer, cleanup := setupTestLogger()
+				defer cleanup()
+				rows := dbt.mustQueryContext(WithArrowBatches(ctx), multiStmtQuery)
+				defer rows.Close()
+				logOutput := buffer.String()
+				for _, rowType := range rowTypes {
+					assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: "+rowType+", QueryResultFormat: "+testCase.formatType)
+				}
+			})
+		}
+
+	})
+}
