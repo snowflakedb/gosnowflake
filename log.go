@@ -39,12 +39,59 @@ func RegisterLogContextHook(contextKey string, ctxExtractor ClientLogContextHook
 // logger.WithContext is used
 var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
 
-// SFLogger Snowflake logger interface to expose FieldLogger defined in logrus
+// Fields
+type Fields map[string]any
+
+// ConvertibleEntry returns the underlying logrus Entry struct.
+type ConvertibleEntry interface {
+	ToEntry() *rlog.Entry
+}
+
+// LogEntry allows for logging using a snapshot of field values, similar to logrus.Entry.
+// No references to logrus or other implementat specific logging should be placed into this interface.
+type LogEntry interface {
+	Tracef(format string, args ...interface{})
+	Debugf(format string, args ...interface{})
+	Infof(format string, args ...interface{})
+	Printf(format string, args ...interface{})
+	Warnf(format string, args ...interface{})
+	Warningf(format string, args ...interface{})
+	Errorf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
+	Panicf(format string, args ...interface{})
+
+	Trace(args ...interface{})
+	Debug(args ...interface{})
+	Info(args ...interface{})
+	Print(args ...interface{})
+	Warn(args ...interface{})
+	Warning(args ...interface{})
+	Error(args ...interface{})
+	Fatal(args ...interface{})
+	Panic(args ...interface{})
+
+	Traceln(args ...interface{})
+	Debugln(args ...interface{})
+	Infoln(args ...interface{})
+	Println(args ...interface{})
+	Warnln(args ...interface{})
+	Warningln(args ...interface{})
+	Errorln(args ...interface{})
+	Fatalln(args ...interface{})
+	Panicln(args ...interface{})
+}
+
+// SFLogger Snowflake logger interface which abstracts away the underlying logging mechanism.
+// No references to logrus or other implementation specific logging should be placed into this interface.
 type SFLogger interface {
-	rlog.Ext1FieldLogger
+	LogEntry
+	WithField(key string, value interface{}) LogEntry
+	WithFields(fields Fields) LogEntry
+	WithError(err error) LogEntry
+
 	SetLogLevel(level string) error
 	GetLogLevel() string
-	WithContext(ctx context.Context) *rlog.Entry
+	WithContext(ctx ...context.Context) LogEntry
 	SetOutput(output io.Writer)
 	CloseFileOnLoggerReplace(file *os.File) error
 	Replace(newLogger *SFLogger)
@@ -54,6 +101,8 @@ type SFLogger interface {
 func SFCallerPrettyfier(frame *runtime.Frame) (string, string) {
 	return path.Base(frame.Function), fmt.Sprintf("%s:%d", path.Base(frame.File), frame.Line)
 }
+
+var _ SFLogger = &defaultLogger{} // ensure defaultLogger isa SFLogger.
 
 type defaultLogger struct {
 	inner   *rlog.Logger
@@ -129,9 +178,9 @@ func closeLogFile(file *os.File) {
 }
 
 // WithContext return Entry to include fields in context
-func (log *defaultLogger) WithContext(ctx context.Context) *rlog.Entry {
-	fields := context2Fields(ctx)
-	return log.inner.WithFields(*fields)
+func (log *defaultLogger) WithContext(ctxs ...context.Context) LogEntry {
+	fields := context2Fields(ctxs...)
+	return log.WithFields(*fields)
 }
 
 // CreateDefaultLogger return a new instance of SFLogger with default config
@@ -149,30 +198,42 @@ func CreateDefaultLogger() SFLogger {
 // Debug, Print, Info, Warn, Error, Fatal or Panic must be then applied to
 // this new returned entry.
 // If you want multiple fields, use `WithFields`.
-func (log *defaultLogger) WithField(key string, value interface{}) *rlog.Entry {
-	return log.inner.WithField(key, value)
+func (log *defaultLogger) WithField(key string, value interface{}) LogEntry {
+	return &entryBridge{log.inner.WithField(key, value)}
 
 }
 
 // WithFields adds a struct of fields to the log entry. All it does is call `WithField` for
 // each `Field`.
-func (log *defaultLogger) WithFields(fields rlog.Fields) *rlog.Entry {
-	return log.inner.WithFields(fields)
+func (log *defaultLogger) WithFields(fields Fields) LogEntry {
+	m := map[string]any(fields)
+	return &entryBridge{log.inner.WithFields(m)}
 }
 
 // WithError adds an error as single field to the log entry.  All it does is call
 // `WithError` for the given `error`.
-func (log *defaultLogger) WithError(err error) *rlog.Entry {
-	return log.inner.WithError(err)
+func (log *defaultLogger) WithError(err error) LogEntry {
+	return &entryBridge{log.inner.WithError(err)}
 }
 
 // WithTime overrides the time of the log entry.
-func (log *defaultLogger) WithTime(t time.Time) *rlog.Entry {
-	return log.inner.WithTime(t)
+func (log *defaultLogger) WithTime(t time.Time) LogEntry {
+	return &entryBridge{log.inner.WithTime(t)}
 }
 
 func (log *defaultLogger) Logf(level rlog.Level, format string, args ...interface{}) {
 	log.inner.Logf(level, format, args...)
+}
+
+var _ LogEntry = &entryBridge{} // ensure entryBridge isa LogEntry.
+var _ ConvertibleEntry = &entryBridge{}
+
+type entryBridge struct {
+	*rlog.Entry
+}
+
+func (entry *entryBridge) ToEntry() *rlog.Entry {
+	return entry.Entry
 }
 
 func (log *defaultLogger) Tracef(format string, args ...interface{}) {
@@ -420,7 +481,6 @@ func (log *defaultLogger) GetLevel() rlog.Level {
 // AddHook adds a hook to the logger hooks.
 func (log *defaultLogger) AddHook(hook rlog.Hook) {
 	log.inner.AddHook(hook)
-
 }
 
 // IsLevelEnabled checks if the log level of the logger is greater than the level param
@@ -452,21 +512,25 @@ func GetLogger() SFLogger {
 	return logger
 }
 
-func context2Fields(ctx context.Context) *rlog.Fields {
-	var fields = rlog.Fields{}
-	if ctx == nil {
+func context2Fields(ctxs ...context.Context) *Fields {
+	var fields = Fields{}
+	if len(ctxs) <= 0 {
 		return &fields
 	}
 
 	for i := 0; i < len(LogKeys); i++ {
-		if ctx.Value(LogKeys[i]) != nil {
-			fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
+		for _, ctx := range ctxs {
+			if ctx.Value(LogKeys[i]) != nil {
+				fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
+			}
 		}
 	}
 
 	for key, hook := range clientLogContextHooks {
-		if value := hook(ctx); value != "" {
-			fields[key] = value
+		for _, ctx := range ctxs {
+			if value := hook(ctx); value != "" {
+				fields[key] = value
+			}
 		}
 	}
 
