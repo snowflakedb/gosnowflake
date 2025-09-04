@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -13,6 +14,7 @@ type countingRoundTripper struct {
 	delegate     http.RoundTripper
 	getReqCount  map[string]int
 	postReqCount map[string]int
+	mu           sync.Mutex
 }
 
 func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
@@ -24,12 +26,14 @@ func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
 }
 
 func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	crt.mu.Lock()
 	switch req.Method {
 	case http.MethodGet:
 		crt.getReqCount[req.URL.String()]++
 	case http.MethodPost:
 		crt.postReqCount[req.URL.String()]++
 	}
+	crt.mu.Unlock()
 
 	return crt.delegate.RoundTrip(req)
 }
