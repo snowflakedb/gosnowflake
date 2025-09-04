@@ -14,7 +14,7 @@
             "equalTo": "S256"
           },
           "redirect_uri": {
-            "equalTo": "http://localhost:1234/snowflake/oauth-redirect"
+            "matches": "http:.+"
           },
           "code_challenge": {
             "matches": "JZpN_-zfNduuWm-zUo-D-m7vMw_pgUGv8wGDGqBR8PM"
@@ -31,8 +31,9 @@
       "response": {
         "status": 302,
         "headers": {
-          "Location": "http://localhost:1234/snowflake/oauth-redirect?code=testCode&state=testState"
-        }
+          "Location": "{{ request.query.redirect_uri }}?code=testCode&state=testState"
+        },
+        "transformers": ["response-template"]
       }
     },
     {
@@ -58,7 +59,7 @@
             "equalTo": "testCode"
           },
           "redirect_uri": {
-            "equalTo": "http://localhost:1234/snowflake/oauth-redirect"
+            "matches": "http://(127.0.0.1|localhost):[0-9]+.*"
           }
         }
       },
