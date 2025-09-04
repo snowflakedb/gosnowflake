@@ -169,7 +169,7 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			UploadFileFunc: func(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error) {
@@ -228,7 +228,7 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			UploadStreamFunc: func(ctx context.Context, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error) {
@@ -291,7 +291,7 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			UploadFileFunc: func(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error) {
@@ -368,7 +368,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			UploadFileFunc: func(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error) {
@@ -430,7 +430,7 @@ func TestDownloadOneFileToAzureFailed(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			DownloadFileFunc: func(ctx context.Context, file *os.File, o *blob.DownloadFileOptions) (int64, error) {
@@ -576,7 +576,7 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		sfa: &snowflakeFileTransferAgent{
 			sc: &snowflakeConn{

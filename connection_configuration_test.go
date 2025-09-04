@@ -2,9 +2,9 @@ package gosnowflake
 
 import (
 	"bytes"
-	"database/sql"
 	"crypto/rand"
 	"crypto/rsa"
+	"database/sql"
 	"fmt"
 	"io/fs"
 	"os"

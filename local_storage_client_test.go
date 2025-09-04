@@ -52,7 +52,7 @@ func TestLocalUpload(t *testing.T) {
 		srcFileName:       path.Join(tmpDir, "/test_put_get.txt.gz"),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 	}
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
@@ -147,7 +147,7 @@ func TestDownloadLocalFile(t *testing.T) {
 		srcFileName:       "test_put_get.txt.gz",
 		localLocation:     putDir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 	}
 	err = localUtil.downloadOneFile(&downloadMeta)
