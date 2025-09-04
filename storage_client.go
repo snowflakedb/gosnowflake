@@ -26,7 +26,7 @@ type cloudUtil interface {
 	createClient(*execResponseStageInfo, bool, *snowflakeTelemetry) (cloudClient, error)
 	getFileHeader(*fileMetadata, string) (*fileHeader, error)
 	uploadFile(string, *fileMetadata, int, int64) error
-	nativeDownloadFile(*fileMetadata, string, int64) error
+	nativeDownloadFile(*fileMetadata, string, int64, int64) error
 }
 
 type cloudClient interface{}
@@ -188,10 +188,11 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 	}
 
 	maxConcurrency := meta.parallel
+	partSize := meta.options.MultiPartThreshold
 	var lastErr error
 	maxRetry := defaultMaxRetry
 	for retry := 0; retry < maxRetry; retry++ {
-		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency); err != nil {
+		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency, partSize); err != nil {
 			return err
 		}
 		if meta.resStatus == downloaded {
