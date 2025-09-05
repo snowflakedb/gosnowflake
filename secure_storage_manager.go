@@ -237,6 +237,11 @@ func (ssm *fileBasedSecureStorageManager) withCacheFile(action func(*os.File)) {
 }
 
 func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSpec, value string) {
+	println("AAA", goid(), "setCredential called", value)
+	if value == "" {
+		logger.Debug("no token provided")
+		return
+	}
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
 		logger.Warn(err)
@@ -273,9 +278,11 @@ func (ssm *fileBasedSecureStorageManager) lockFile() error {
 		return fmt.Errorf("failed to open %v. err: %v", lockPath, err)
 	}
 	defer func() {
-		err = lockFile.Close()
-		if err != nil {
-			logger.Debugf("error while closing lock file. %v", err)
+		if lockFile != nil {
+			err = lockFile.Close()
+			if err != nil {
+				logger.Debugf("error while closing lock file. %v", err)
+			}
 		}
 	}()
 
@@ -336,6 +343,7 @@ func (ssm *fileBasedSecureStorageManager) unlockFile() {
 }
 
 func (ssm *fileBasedSecureStorageManager) getCredential(tokenSpec *secureTokenSpec) string {
+	println("AAA", goid(), "getCredential called")
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
 		logger.Warn(err)
@@ -361,6 +369,7 @@ func (ssm *fileBasedSecureStorageManager) getCredential(tokenSpec *secureTokenSp
 
 		ret = credStr
 	})
+	println("AAA", goid(), "getCredential returning", ret)
 	return ret
 }
 
@@ -423,6 +432,7 @@ func (ssm *fileBasedSecureStorageManager) readTemporaryCacheFile(cacheFile *os.F
 }
 
 func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec *secureTokenSpec) {
+	println("AAA", goid(), "deleteCredential called")
 	credentialsKey, err := tokenSpec.buildKey()
 	if err != nil {
 		logger.Warn(err)

@@ -1,0 +1,25 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "Successful close session",
+      "request": {
+        "urlPathPattern": "/session",
+        "method": "POST",
+        "queryParameters": {
+          "delete": {
+            "equalTo": "true"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "code": null,
+          "data": null,
+          "message": null,
+          "success": true
+        }
+      }
+    }
+  ]
+}
