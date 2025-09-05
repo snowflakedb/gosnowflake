@@ -1003,12 +1003,12 @@ func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
 		_ = logger.SetLogLevel("debug")
 		defer func() {
-			_ = logger.SetLogLevel("error")
+			logger.SetLogLevel("error")
 		}()
 		cleanupCrlCache(t)
 		defer cleanupCrlCache(t) // to reset cache cleaner after test
-		crlCacheCleanerTickRate = 5 * time.Second
-		cacheValidityTimeOverride := overrideEnv(snowflakeCrlCacheValidityTimeEnv, "60s")
+		crlCacheCleanerTickRate = 1 * time.Second
+		cacheValidityTimeOverride := overrideEnv(snowflakeCrlCacheValidityTimeEnv, "15s")
 		defer cacheValidityTimeOverride.rollback()
 		cfg, err := ParseDSN(dsn)
 		assertNilF(t, err, "Failed to parse DSN")
@@ -1018,7 +1018,6 @@ func TestCrlE2E(t *testing.T) {
 		cfg.CrlAllowCertificatesWithoutCrlURL = ConfigBoolTrue
 		cfg.DisableOCSPChecks = true
 		cfg.CrlOnDiskCacheDisabled = true
-		cfg.JWTClientTimeout = 30 * time.Second
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
@@ -1041,7 +1040,7 @@ func TestCrlE2E(t *testing.T) {
 		logger.Debugf("memory entries after CSP connection: %v", memoryEntriesAfterCSPConnection)
 		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
 
-		time.Sleep(66 * time.Second) // wait for the cache cleaner to run
+		time.Sleep(17 * time.Second) // wait for the cache cleaner to run
 		crlInMemoryCacheMutex.Lock()
 		assertEqualE(t, len(crlInMemoryCache), 0)
 		crlInMemoryCacheMutex.Unlock()
