@@ -1011,7 +1011,7 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta execRe
 				*dest = *srcValue
 				return nil
 			}
-			bigFloat, _, err := big.ParseFloat(*srcValue, 10, big.MaxPrec, big.AwayFromZero)
+			bigFloat, _, err := big.ParseFloat(*srcValue, 10, 127 /*38 decimal digits*/, big.AwayFromZero)
 			if err != nil {
 				return err
 			}
