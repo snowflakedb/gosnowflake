@@ -114,6 +114,7 @@ func createDSN(timezone string) {
 	// Add authenticator and private key for JWT authentication
 	if authenticator == "SNOWFLAKE_JWT" {
 		parameters.Add("authenticator", "SNOWFLAKE_JWT")
+		parameters.Add("jwtClientTimeout", "20")
 		privateKeyPath := os.Getenv("SNOWFLAKE_TEST_PRIVATE_KEY")
 		if privateKeyPath != "" {
 			// Read and encode the private key file
