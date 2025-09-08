@@ -29,6 +29,8 @@ const format = "2006-01-02 15:04:05.999999999"
 const numberDefaultPrecision = 38
 const jsonFormatStr = "json"
 
+const numberMaxPrecisionInBits = 127
+
 // 38 (max precision) + 1 (for possible '-') + 1 (for possible '.')
 const decfloatPrintingPrec = 40
 
@@ -1011,7 +1013,7 @@ func stringToValue(ctx context.Context, dest *driver.Value, srcColumnMeta execRe
 				*dest = *srcValue
 				return nil
 			}
-			bigFloat, _, err := big.ParseFloat(*srcValue, 10, big.MaxPrec, big.AwayFromZero)
+			bigFloat, _, err := big.ParseFloat(*srcValue, 10, numberMaxPrecisionInBits, big.AwayFromZero)
 			if err != nil {
 				return err
 			}
