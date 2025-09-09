@@ -302,7 +302,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 			gcsHeaders["Authorization"] = "Bearer " + accessToken
 		}
 	}
-
+	logger.Debugf("GCS Client: Send Get Request to %v", downloadURL.String())
 	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
 		req, err := http.NewRequestWithContext(ctx, "GET", downloadURL.String(), nil)
 		if err != nil {

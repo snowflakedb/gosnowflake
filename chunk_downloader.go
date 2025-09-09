@@ -118,8 +118,13 @@ func (scd *snowflakeChunkDownloader) start() error {
 		scd.ChunksError = make(chan *chunkError, MaxChunkDownloadWorkers)
 		for i := 0; i < chunkMetaLen; i++ {
 			chunk := scd.ChunkMetas[i]
-			logger.WithContext(scd.ctx).Debugf("add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
-				i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)
+			if (i+1)%5 == 0 {
+				logger.WithContext(scd.ctx).Debugf("Result Format: %v, add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
+					scd.getQueryResultFormat(), i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)
+			}
+			logger.WithContext(scd.ctx).Tracef("Result Format: %v, add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
+				scd.getQueryResultFormat(), i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)
+
 			scd.ChunksChan <- i
 		}
 		for i := 0; i < intMin(MaxChunkDownloadWorkers, chunkMetaLen); i++ {
@@ -130,6 +135,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 }
 
 func (scd *snowflakeChunkDownloader) schedule() {
+	timer := NewExecutionTimer().start()
 	select {
 	case nextIdx := <-scd.ChunksChan:
 		logger.WithContext(scd.ctx).Infof("schedule chunk: %v", nextIdx+1)
@@ -142,6 +148,12 @@ func (scd *snowflakeChunkDownloader) schedule() {
 	default:
 		// no more download
 		logger.WithContext(scd.ctx).Info("no more download")
+		chunkCount := len(scd.ChunkMetas)
+		avgTime := 0.0
+		if chunkCount > 0 {
+			avgTime = timer.getDuration() / float64(chunkCount)
+		}
+		logger.WithContext(scd.ctx).Debugf("Processed %v chunks. It took %v ms, average chunk processing time: %v ms", len(scd.ChunkMetas), timer.getDuration(), avgTime)
 	}
 }
 
@@ -351,12 +363,20 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 	logger.WithContext(ctx).Infof("download start chunk: %v", idx+1)
 	defer scd.DoneDownloadCond.Broadcast()
 
+	timer := NewExecutionTimer().start()
 	if err := scd.FuncDownloadHelper(ctx, scd, idx); err != nil {
 		logger.WithContext(ctx).Errorf(
 			"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
 		scd.ChunksError <- &chunkError{Index: idx, Error: err}
 	} else if errors.Is(scd.ctx.Err(), context.Canceled) || errors.Is(scd.ctx.Err(), context.DeadlineExceeded) {
 		scd.ChunksError <- &chunkError{Index: idx, Error: scd.ctx.Err()}
+	}
+	timer.stop()
+
+	if (idx+1)%5 == 0 {
+		logger.Debugf("“Processed %v chunk %v out of %v. It took %v ms. Chunk size: %v, rows: %v”.", scd.getQueryResultFormat(), idx+1, len(scd.ChunkMetas), timer.getDuration(), scd.ChunkMetas[idx].UncompressedSize, scd.ChunkMetas[idx].RowCount)
+	} else {
+		logger.Tracef("“Processed %v chunk %v out of %v. It took %v ms. Chunk size: %v, rows: %v”.", scd.getQueryResultFormat(), idx+1, len(scd.ChunkMetas), timer.getDuration(), scd.ChunkMetas[idx].UncompressedSize, scd.ChunkMetas[idx].RowCount)
 	}
 }
 
@@ -389,7 +409,7 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 		if err != nil {
 			logger.WithContext(ctx).Warnf("reading response body: %v", err)
 		}
-		logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
+		logger.WithContext(ctx).Debugf("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
 		logger.WithContext(ctx).Infof("Header: %v", resp.Header)
 		return &SnowflakeError{
 			Number:      ErrFailedToGetChunk,

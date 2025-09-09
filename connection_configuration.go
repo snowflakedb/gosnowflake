@@ -250,8 +250,10 @@ func checkParsingError(err error, key string, value interface{}) error {
 			Message:     errMsgFailedToParseTomlFile,
 			MessageArgs: []interface{}{key, value},
 		}
+		logger.Errorf("Parsed key: %s, value: %v is not an option for the connection config", key, value)
 		return err
 	}
+	logger.Warnf("Parsed key: %s, value: %v — cannot be parsed as string", key, value)
 	return nil
 }
 

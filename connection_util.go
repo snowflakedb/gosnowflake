@@ -23,6 +23,7 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 }
 
 func (sc *snowflakeConn) startHeartBeat() {
+	logger.Debugf("Start heart beat")
 	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
@@ -35,6 +36,7 @@ func (sc *snowflakeConn) startHeartBeat() {
 }
 
 func (sc *snowflakeConn) stopHeartBeat() {
+	logger.Debugf("Stop heart beat")
 	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
@@ -341,4 +343,39 @@ func checkIsPrivateLink(host string) bool {
 func isStatementContext(ctx context.Context) bool {
 	v := ctx.Value(executionType)
 	return v == executionTypeStatement
+}
+
+func maskingCredentials(cfg *Config) *Config {
+	maskingCfg := cfg
+	if maskingCfg.User != "" {
+		maskingCfg.User = "****"
+	}
+	if maskingCfg.Password != "" {
+		maskingCfg.Password = "****"
+	}
+	if maskingCfg.Token != "" {
+		maskingCfg.Token = "****"
+	}
+	if maskingCfg.Passcode != "" {
+		maskingCfg.Passcode = "****"
+	}
+	if maskingCfg.PrivateKey != nil {
+		maskingCfg.PrivateKey = nil
+	}
+	if maskingCfg.IDToken != "" {
+		maskingCfg.IDToken = "****"
+	}
+	if maskingCfg.OauthClientSecret != "" {
+		maskingCfg.OauthClientSecret = "****"
+	}
+	if maskingCfg.MfaToken != "" {
+		maskingCfg.MfaToken = "****"
+	}
+	if maskingCfg.ProxyPassword != "" {
+		maskingCfg.ProxyPassword = "****"
+	}
+	if maskingCfg.TokenAccessor != nil {
+		maskingCfg.TokenAccessor = nil // Avoid logging the accessor object
+	}
+	return maskingCfg
 }

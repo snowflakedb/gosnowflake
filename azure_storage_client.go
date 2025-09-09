@@ -40,6 +40,7 @@ type azureAPI interface {
 }
 
 func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool, telemetry *snowflakeTelemetry) (cloudClient, error) {
+
 	sasToken := info.Creds.AzureSasToken
 	u, err := url.Parse(fmt.Sprintf("https://%s.%s/%s%s", info.StorageAccount, info.EndPoint, info.Path, sasToken))
 	if err != nil {
@@ -216,11 +217,12 @@ func (util *snowflakeAzureClient) uploadFile(
 		var f *os.File
 		f, err = os.Open(dataFile)
 		if err != nil {
+			logger.Error("Failed to open file: %v", err)
 			return err
 		}
 		defer func() {
 			if err = f.Close(); err != nil {
-				logger.Warnf("failed to close the %v file: %v", dataFile, err)
+				logger.Warnf("Failed to close the %v file: %v", dataFile, err)
 			}
 		}()
 
@@ -271,6 +273,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 		return err
 	}
 	path := azureLoc.path + strings.TrimLeft(meta.srcFileName, "/")
+	logger.Debugf("AZURE CLIENT: Send Get Request to the bucket: %v, file: %v", meta.stageInfo.Location, meta.srcFileName)
 	client, ok := meta.client.(*azblob.Client)
 	if !ok {
 		return &SnowflakeError{
@@ -309,6 +312,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	} else {
 		f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
 		if err != nil {
+			logger.Error("Failed to open file: %v", err)
 			return err
 		}
 		defer func() {

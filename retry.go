@@ -299,12 +299,14 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	retryCounter := 0
 	sleepTime := time.Duration(time.Second)
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
+	timer := NewExecutionTimer()
 
 	var requestGUIDReplacer requestGUIDReplacer
 	var retryCountUpdater retryCountUpdater
 	var retryReasonUpdater retryReasonUpdater
 
 	for {
+		timer.start()
 		logger.WithContext(r.ctx).Debugf("retry count: %v", retryCounter)
 		body, err := r.bodyCreator()
 		if err != nil {
@@ -322,16 +324,20 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			req.Header.Set(k, v)
 		}
 		res, err = r.client.Do(req)
+		timer.stop()
+
 		// check if it can retry.
 		retryable, err := isRetryableError(req, res, err)
 		if !retryable {
 			return res, err
 		}
+		logger.WithContext(r.ctx).Debugf("Request to %v - response received after milliseconds %v with status %v.", r.fullURL.Host, timer.getDuration(), res.StatusCode)
+
 		if err != nil {
-			logger.WithContext(r.ctx).Warningf(
+			logger.WithContext(r.ctx).Tracef(
 				"failed http connection. err: %v. retrying...\n", err)
 		} else {
-			logger.WithContext(r.ctx).Warningf(
+			logger.WithContext(r.ctx).Tracef(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
 			if closeErr := res.Body.Close(); closeErr != nil {
 				logger.Warnf("failed to close response body. err: %v", closeErr)
@@ -373,8 +379,8 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 		r.fullURL = retryReasonUpdater.replaceOrAdd(retryReason)
 		r.fullURL = ensureClientStartTimeIsSet(r.fullURL, clientStartTime)
-		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
-		logger.WithContext(r.ctx).Infof("retry count: %v, retry reason: %v", retryCounter, retryReason)
+		logger.WithContext(r.ctx).Debugf("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
+		logger.WithContext(r.ctx).Debugf("retry count: %v, retry reason: %v", retryCounter, retryReason)
 
 		await := time.NewTimer(sleepTime)
 		select {
