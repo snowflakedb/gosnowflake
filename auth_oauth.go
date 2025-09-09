@@ -230,6 +230,8 @@ func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *
 	if oauthClient.eligibleForDefaultClientCredentials() {
 		clientID, clientSecret = localApplicationClientCredentials, localApplicationClientCredentials
 	}
+	oauthClient.logIfHTTPInUse(oauthClient.authorizationURL())
+	oauthClient.logIfHTTPInUse(oauthClient.tokenURL())
 	return &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
@@ -443,4 +445,15 @@ func (oauthClient *oauthClient) accessTokenSpec() *secureTokenSpec {
 
 func (oauthClient *oauthClient) refreshTokenSpec() *secureTokenSpec {
 	return newOAuthRefreshTokenSpec(oauthClient.tokenURL(), oauthClient.cfg.User)
+}
+
+func (oauthClient *oauthClient) logIfHTTPInUse(u string) {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		logger.Warnf("Cannot parse URL: %v. %v", u, err)
+		return
+	}
+	if parsed.Scheme == "http" {
+		logger.Warnf("OAuth URL uses insecure HTTP protocol: %v", u)
+	}
 }

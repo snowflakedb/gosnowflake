@@ -270,7 +270,8 @@ type s3DownloadAPI interface {
 func (util *snowflakeS3Client) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
-	maxConcurrency int64) error {
+	maxConcurrency int64,
+	partSize int64) error {
 	s3Obj, _ := util.getS3Object(meta, meta.srcFileName)
 	client, ok := meta.client.(*s3.Client)
 	if !ok {
@@ -292,6 +293,7 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 	var downloader s3DownloadAPI
 	downloader = manager.NewDownloader(client, func(u *manager.Downloader) {
 		u.Concurrency = int(maxConcurrency)
+		u.PartSize = int64Max(partSize, manager.DefaultDownloadPartSize)
 	})
 	// for testing only
 	if meta.mockDownloader != nil {

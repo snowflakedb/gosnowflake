@@ -55,19 +55,19 @@ func TestOCSPFailOpen(t *testing.T) {
 	defer cleanup()
 
 	config := &Config{
-		Account:      "fakeaccount1",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 10 * time.Second,
-		OCSPFailOpen: OCSPFailOpenTrue,
+		Account:       "fakeaccount1",
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  10 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenTrue,
+		Authenticator: AuthTypeSnowflake,
+		PrivateKey:    nil,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -99,19 +99,19 @@ func TestOCSPFailOpenWithoutFileCache(t *testing.T) {
 	setenv(cacheDirEnv, "/NEVER_EXISTS")
 
 	config := &Config{
-		Account:      "fakeaccount1",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 10 * time.Second,
-		OCSPFailOpen: OCSPFailOpenTrue,
+		Account:       "fakeaccount1",
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  10 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenTrue,
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -140,20 +140,20 @@ func TestOCSPFailOpenRevokedStatus(t *testing.T) {
 	ocspCacheServerEnabled = false
 
 	config := &Config{
-		Account:      "fakeaccount6",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		Host:         "revoked.badssl.com",
-		LoginTimeout: 10 * time.Second,
-		OCSPFailOpen: OCSPFailOpenTrue,
+		Account:       "fakeaccount6",
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		Host:          "revoked.badssl.com",
+		LoginTimeout:  10 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenTrue,
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -187,20 +187,20 @@ func TestOCSPFailClosedRevokedStatus(t *testing.T) {
 	ocspCacheServerEnabled = false
 
 	config := &Config{
-		Account:      "fakeaccount7",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		Host:         "revoked.badssl.com",
-		LoginTimeout: 20 * time.Second,
-		OCSPFailOpen: OCSPFailOpenFalse,
+		Account:       "fakeaccount7",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		Host:          "revoked.badssl.com",
+		LoginTimeout:  20 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenFalse,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -239,19 +239,19 @@ func TestOCSPFailOpenCacheServerTimeout(t *testing.T) {
 	}()
 
 	config := &Config{
-		Account:      "fakeaccount8",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 10 * time.Second,
-		OCSPFailOpen: OCSPFailOpenTrue,
+		Account:       "fakeaccount8",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  10 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenTrue,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -285,19 +285,19 @@ func TestOCSPFailClosedCacheServerTimeout(t *testing.T) {
 	}()
 
 	config := &Config{
-		Account:      "fakeaccount9",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 20 * time.Second,
-		OCSPFailOpen: OCSPFailOpenFalse,
+		Account:       "fakeaccount9",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  20 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenFalse,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -348,19 +348,19 @@ func TestOCSPFailOpenResponderTimeout(t *testing.T) {
 	}()
 
 	config := &Config{
-		Account:      "fakeaccount10",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 10 * time.Second,
-		OCSPFailOpen: OCSPFailOpenTrue,
+		Account:       "fakeaccount10",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  10 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenTrue,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -399,19 +399,18 @@ func TestOCSPFailClosedResponderTimeout(t *testing.T) {
 
 	config := &Config{
 		Account:       "fakeaccount11",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
 		User:          "fakeuser",
 		Password:      "fakepassword",
 		LoginTimeout:  3 * time.Second,
 		OCSPFailOpen:  OCSPFailOpenFalse,
-		MaxRetryCount: 1,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -444,19 +443,19 @@ func TestOCSPFailOpenResponder404(t *testing.T) {
 	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/404", wiremock.port))
 
 	config := &Config{
-		Account:      "fakeaccount10",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 5 * time.Second,
-		OCSPFailOpen: OCSPFailOpenTrue,
+		Account:       "fakeaccount10",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  5 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenTrue,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -485,19 +484,19 @@ func TestOCSPFailClosedResponder404(t *testing.T) {
 	setenv(ocspTestResponderURLEnv, fmt.Sprintf("http://localhost:%v/404", wiremock.port))
 
 	config := &Config{
-		Account:      "fakeaccount11",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 5 * time.Second,
-		OCSPFailOpen: OCSPFailOpenFalse,
+		Account:       "fakeaccount11",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  5 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenFalse,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -523,20 +522,20 @@ func TestExpiredCertificate(t *testing.T) {
 	defer cleanup()
 
 	config := &Config{
-		Account:      "fakeaccount10",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		Host:         "expired.badssl.com",
-		LoginTimeout: 10 * time.Second,
-		OCSPFailOpen: OCSPFailOpenTrue,
+		Account:       "fakeaccount10",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		Host:          "expired.badssl.com",
+		LoginTimeout:  10 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenTrue,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -571,6 +570,8 @@ func TestSelfSignedCertificate(t *testing.T) {
 
 	config := &Config{
 		Account:      "fakeaccount10",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
 		User:         "fakeuser",
 		Password:     "fakepassword",
 		Host:         "self-signed.badssl.com",
@@ -581,9 +582,7 @@ func TestSelfSignedCertificate(t *testing.T) {
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -611,19 +610,19 @@ func TestOCSPFailOpenNoOCSPURL(t *testing.T) {
 	setenv(ocspTestNoOCSPURLEnv, "true")
 
 	config := &Config{
-		Account:      "fakeaccount10",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 10 * time.Second,
-		OCSPFailOpen: OCSPFailOpenTrue,
+		Account:       "fakeaccount10",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  10 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenTrue,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)
@@ -652,19 +651,19 @@ func TestOCSPFailClosedNoOCSPURL(t *testing.T) {
 	setenv(ocspTestNoOCSPURLEnv, "true")
 
 	config := &Config{
-		Account:      "fakeaccount11",
-		User:         "fakeuser",
-		Password:     "fakepassword",
-		LoginTimeout: 20 * time.Second,
-		OCSPFailOpen: OCSPFailOpenFalse,
+		Account:       "fakeaccount11",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		User:          "fakeuser",
+		Password:      "fakepassword",
+		LoginTimeout:  20 * time.Second,
+		OCSPFailOpen:  OCSPFailOpenFalse,
 	}
 	var db *sql.DB
 	var err error
 	var testURL string
 	testURL, err = DSN(config)
-	if err != nil {
-		t.Fatalf("failed to build URL from Config: %v", config)
-	}
+	assertNilF(t, err, "failed to build URL from Config")
 
 	if db, err = sql.Open("snowflake", testURL); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", testURL, err)

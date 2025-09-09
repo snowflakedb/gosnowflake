@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 var wiremock = newWiremock()
@@ -88,6 +89,9 @@ func (wm *wiremockClient) connectionConfig() *Config {
 		Host:                  wm.host,
 		Port:                  wm.port,
 		Protocol:              wm.protocol,
+		LoginTimeout:          time.Duration(30) * time.Second,
+		RequestTimeout:        time.Duration(30) * time.Second,
+		MaxRetryCount:         3,
 		OauthClientID:         "testClientId",
 		OauthClientSecret:     "testClientSecret",
 		OauthAuthorizationURL: wm.baseURL() + "/oauth/authorize",

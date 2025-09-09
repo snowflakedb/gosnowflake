@@ -267,7 +267,8 @@ func (util *snowflakeAzureClient) uploadFile(
 func (util *snowflakeAzureClient) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
-	maxConcurrency int64) error {
+	maxConcurrency int64,
+	partSize int64) error {
 	azureLoc, err := util.extractContainerNameAndPath(meta.stageInfo.Location)
 	if err != nil {
 		return err
@@ -323,7 +324,9 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 		_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
 			return blobClient.DownloadFile(
 				ctx, f, &azblob.DownloadFileOptions{
-					Concurrency: uint16(maxConcurrency)})
+					Concurrency: uint16(maxConcurrency),
+					BlockSize:   int64Max(partSize, blob.DefaultDownloadBlockSize),
+				})
 		})
 		if err != nil {
 			return err
