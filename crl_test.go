@@ -1001,6 +1001,7 @@ func closeServer(t *testing.T, server *http.Server) {
 
 func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
+		skipOnJenkins(t, "Jenkins tests use HTTP connection to SF, so CRL is not used")
 		_ = logger.SetLogLevel("debug")
 		defer func() {
 			logger.SetLogLevel("error")
