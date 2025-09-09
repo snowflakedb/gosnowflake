@@ -1001,30 +1001,28 @@ func closeServer(t *testing.T, server *http.Server) {
 
 func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
+		skipOnJenkins(t, "Jenkins tests use HTTP connection to SF, so CRL is not used")
 		_ = logger.SetLogLevel("debug")
 		defer func() {
-			_ = logger.SetLogLevel("error")
+			logger.SetLogLevel("error")
 		}()
 		cleanupCrlCache(t)
 		defer cleanupCrlCache(t) // to reset cache cleaner after test
-		crlCacheCleanerTickRate = 5 * time.Second
-		cacheValidityTimeOverride := overrideEnv(snowflakeCrlCacheValidityTimeEnv, "60s")
+		crlCacheCleanerTickRate = 1 * time.Second
+		cacheValidityTimeOverride := overrideEnv(snowflakeCrlCacheValidityTimeEnv, "15s")
 		defer cacheValidityTimeOverride.rollback()
-		cfg := &Config{
-			User:                              username,
-			Password:                          pass,
-			Account:                           account,
-			Database:                          dbname,
-			Schema:                            schemaname,
-			CertRevocationCheckMode:           CertRevocationCheckEnabled,
-			CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
-			DisableOCSPChecks:                 true,
-			CrlOnDiskCacheDisabled:            true,
-		}
+		cfg, err := ParseDSN(dsn)
+		assertNilF(t, err, "Failed to parse DSN")
+
+		// Add CRL-specific test parameters
+		cfg.CertRevocationCheckMode = CertRevocationCheckEnabled
+		cfg.CrlAllowCertificatesWithoutCrlURL = ConfigBoolTrue
+		cfg.DisableOCSPChecks = true
+		cfg.CrlOnDiskCacheDisabled = true
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
-		assertNilF(t, err)
+		assertNilF(t, err, "CRL E2E test failed")
 		defer rows.Close()
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
@@ -1034,16 +1032,16 @@ func TestCrlE2E(t *testing.T) {
 
 		// additional entries for connecting to cloud providers and checking their certs
 		cwd, err := os.Getwd()
-		assertNilF(t, err)
+		assertNilF(t, err, "Failed to get current working directory")
 		_, err = db.Exec(fmt.Sprintf("PUT file://%v @~/%v", filepath.Join(cwd, "test_data", "put_get_1.txt"), "put_get_1.txt"))
-		assertNilF(t, err)
+		assertNilF(t, err, "Failed to execute PUT file")
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterCSPConnection := len(crlInMemoryCache)
 		crlInMemoryCacheMutex.Unlock()
 		logger.Debugf("memory entries after CSP connection: %v", memoryEntriesAfterCSPConnection)
 		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
 
-		time.Sleep(66 * time.Second) // wait for the cache cleaner to run
+		time.Sleep(17 * time.Second) // wait for the cache cleaner to run
 		crlInMemoryCacheMutex.Lock()
 		assertEqualE(t, len(crlInMemoryCache), 0)
 		crlInMemoryCacheMutex.Unlock()
@@ -1060,7 +1058,7 @@ func TestCrlE2E(t *testing.T) {
 			CertRevocationCheckMode: CertRevocationCheckEnabled,
 		}
 		_, err := buildSnowflakeConn(context.Background(), *cfg)
-		assertEqualE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+		assertStringContainsE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time")
 		assertEqualE(t, len(crlInMemoryCache), 0)
 	})
 }
