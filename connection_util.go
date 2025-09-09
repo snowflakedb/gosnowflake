@@ -350,10 +350,8 @@ func isStatementContext(ctx context.Context) bool {
 }
 
 func maskingCredentials(cfg *Config) *Config {
-	maskingCfg := cfg
-	if maskingCfg.User != "" {
-		maskingCfg.User = "****"
-	}
+	maskingCfg := &Config{}
+
 	if maskingCfg.Password != "" {
 		maskingCfg.Password = "****"
 	}
