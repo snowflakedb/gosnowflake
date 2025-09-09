@@ -234,20 +234,22 @@ or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2
 
 If the connection.toml file is readable by others, a warning will be logged. To disable it you need to set the environment variable `SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE` to true.
 
-It you wish to specify a custom TLS config (e.g. to use the driver with a custom truststore) pass it through the `NewConnector`. Example:
+It you wish to specify a custom transporter (e.g. to provide a custom TLS config to be used with your custom truststore) pass it through the `NewConnector`. Example:
 
-    tlsConfig := &tls.Config{
-        // your custom fields here
-    } 
+	tlsConfig := &tls.Config{
+	    // your custom fields here
+	}
 
-    config := &gosnowflake.Config{
-        Transporter: &http.Transport{
-            TLSClientConfig: tlsConfig,
-        },
-    }
+	config := Config{
+	    Transporter: &http.Transport{
+	        TLSClientConfig: tlsConfig,
+	    },
+	}
 
-    connector := NewConnector(SnowflakeDriver{}, *cfg)
-    db := sql.OpenDB(connector)
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+
+As an alternative, you can use the `RegisterTLSConfig` / `DeregisterTLSConfig` functions as seen in the unit tests: https://github.com/snowflakedb/gosnowflake/blob/v1.16.0/transport_test.go#L127
 
 # Proxy
 
