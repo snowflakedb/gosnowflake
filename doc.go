@@ -234,6 +234,21 @@ or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2
 
 If the connection.toml file is readable by others, a warning will be logged. To disable it you need to set the environment variable `SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE` to true.
 
+It you wish to specify a custom TLS config (e.g. to use the driver with a custom truststore) pass it through the `NewConnector`. Example:
+
+    tlsConfig := &tls.Config{
+        // your custom fields here
+    } 
+
+    config := &gosnowflake.Config{
+        Transporter: &http.Transport{
+            TLSClientConfig: tlsConfig,
+        },
+    }
+
+    connector := NewConnector(SnowflakeDriver{}, *cfg)
+    db := sql.OpenDB(connector)
+
 # Proxy
 
 The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.
