@@ -489,7 +489,7 @@ func testPutGet(t *testing.T, isStream bool) {
 			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
 			ctx = WithFileGetStream(ctx, &streamBuf)
 		}
-		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sql = fmt.Sprintf("get @%%%v 'file://%v' parallel=10", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContextT(ctx, t, sqlText)
 		defer func() {
@@ -625,7 +625,7 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
             compression='gzip')`, tableName, tableName))
 
-		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sql = fmt.Sprintf("get @%%%v 'file://%v'  parallel=10", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQuery(sqlText)
 		defer func() {
@@ -824,7 +824,7 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			compression='gzip')`, tableName, tableName))
 
 				// test GET command
-				sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+				sql = fmt.Sprintf("get @%%%v 'file://%v'  parallel=10", tableName, tmpDir)
 				sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 				rows2 := dbt.mustQuery(sqlText)
 				defer func() {
