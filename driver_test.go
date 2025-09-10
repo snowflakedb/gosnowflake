@@ -61,8 +61,8 @@ func init() {
 		return cmp.Or(os.Getenv(key), defaultValue)
 	}
 	username = env("SNOWFLAKE_TEST_USER", "testuser")
-	pass = env("SNOWFLAKE_TEST_PASSWORD", "testpassword")
-	account = env("SNOWFLAKE_TEST_ACCOUNT", "testaccount")
+	pass = env("SNOWFLAKE_GCP_TEST_PASSWORD", "testpassword")
+	account = env("SNOWFLAKE_AZURE_TEST_ACCOUNT", "testaccount")
 	dbname = env("SNOWFLAKE_TEST_DATABASE", "testdb")
 	schemaname = env("SNOWFLAKE_TEST_SCHEMA", "public")
 	rolename = env("SNOWFLAKE_TEST_ROLE", "sysadmin")
