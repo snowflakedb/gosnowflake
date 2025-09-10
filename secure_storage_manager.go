@@ -105,7 +105,7 @@ func newSecureStorageManager() secureStorageManager {
 	case "darwin", "windows":
 		return &threadSafeSecureStorageManager{&sync.Mutex{}, newKeyringBasedSecureStorageManager()}
 	default:
-		logger.Warnf("OS %v does not support credentials cache", runtime.GOOS)
+		logger.Debugf("OS %v does not support credentials cache", runtime.GOOS)
 		return newNoopSecureStorageManager()
 	}
 }
