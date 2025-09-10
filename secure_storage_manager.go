@@ -493,7 +493,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 			if err := ring.Set(item); err != nil {
 				logger.Debugf("Failed to write to Windows credential manager. Err: %v", err)
 			} else {
-				logger.Debug("Successfully wrote to Windows Credential Manager. Authentication type: %v, User: %v", tokenSpec.tokenType, tokenSpec.user)
+				logger.Debugf("Successfully wrote to Windows Credential Manager. Authentication type: %v, User: %v", tokenSpec.tokenType, tokenSpec.user)
 			}
 		case "darwin":
 			ring, _ := keyring.Open(keyring.Config{
@@ -507,7 +507,7 @@ func (ssm *keyringSecureStorageManager) setCredential(tokenSpec *secureTokenSpec
 			if err := ring.Set(item); err != nil {
 				logger.Debugf("Failed to write to keychain. Err: %v", err)
 			} else {
-				logger.Debug("Successfully wrote to keychain. Authentication type: %v, User: %v", tokenSpec.tokenType, tokenSpec.user)
+				logger.Debugf("Successfully wrote to keychain. Authentication type: %v, User: %v", tokenSpec.tokenType, tokenSpec.user)
 			}
 		}
 	}
@@ -566,7 +566,7 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 		if err != nil {
 			logger.Debugf("Failed to delete credentialsKey in Windows Credential Manager. Error: %v", err)
 		} else {
-			logger.Debug("Successfully deleted credentialsKey in Windows Credential Manager. Authentication type: %v, User: %v", tokenSpec.tokenType, tokenSpec.user)
+			logger.Debugf("Successfully deleted credentialsKey in Windows Credential Manager. Authentication type: %v, User: %v", tokenSpec.tokenType, tokenSpec.user)
 
 		}
 	case "darwin":
@@ -578,7 +578,7 @@ func (ssm *keyringSecureStorageManager) deleteCredential(tokenSpec *secureTokenS
 		if err != nil {
 			logger.Debugf("Failed to delete credentialsKey in keychain. Error: %v", err)
 		} else {
-			logger.Debug("Successfully deleted credentialsKey in keychain. Authentication type: %v, User: %v", tokenSpec.tokenType, tokenSpec.user)
+			logger.Debugf("Successfully deleted credentialsKey in keychain. Authentication type: %v, User: %v", tokenSpec.tokenType, tokenSpec.user)
 		}
 	}
 }

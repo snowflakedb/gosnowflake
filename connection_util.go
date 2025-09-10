@@ -23,24 +23,25 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 }
 
 func (sc *snowflakeConn) startHeartBeat() {
-	logger.Debugf("Start heart beat")
 	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
+
 	if sc.rest != nil {
 		sc.rest.HeartBeat = &heartbeat{
 			restful: sc.rest,
 		}
+		logger.Debugf("Start heart beat")
 		sc.rest.HeartBeat.start()
 	}
 }
 
 func (sc *snowflakeConn) stopHeartBeat() {
-	logger.Debugf("Stop heart beat")
 	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
 	if sc.rest != nil && sc.rest.HeartBeat != nil {
+		logger.Debugf("Stop heart beat")
 		sc.rest.HeartBeat.stop()
 	}
 }

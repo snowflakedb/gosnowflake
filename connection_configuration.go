@@ -28,6 +28,8 @@ const (
 // By default, SNOWFLAKE_HOME(toml file path) is os.snowflakeHome/.snowflake
 // and SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN) is 'default'
 func loadConnectionConfig() (*Config, error) {
+	logger.Trace("Loading connection configuration from the local files.")
+
 	cfg := &Config{
 		Params:        make(map[string]*string),
 		Authenticator: AuthTypeSnowflake, // Default to snowflake
@@ -37,7 +39,9 @@ func loadConnectionConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	logger.Tracef("Looking for connection file in directory %v", snowflakeConfigDir)
 	tomlFilePath := path.Join(snowflakeConfigDir, "connections.toml")
+	logger.Tracef("Connection configuration file found under the path %v. Validating file access.", tomlFilePath)
 	err = validateFilePermission(tomlFilePath)
 	if err != nil {
 		return nil, err
@@ -58,6 +62,7 @@ func loadConnectionConfig() (*Config, error) {
 	if !ok {
 		return nil, err
 	}
+	logger.Trace("Trying to parse the config file")
 	err = parseToml(cfg, connectionConfig)
 	if err != nil {
 		return nil, err
