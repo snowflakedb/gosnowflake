@@ -349,36 +349,3 @@ func isStatementContext(ctx context.Context) bool {
 	v := ctx.Value(executionType)
 	return v == executionTypeStatement
 }
-
-func maskingCredentials(cfg *Config) *Config {
-	maskingCfg := &Config{}
-
-	if maskingCfg.Password != "" {
-		maskingCfg.Password = "****"
-	}
-	if maskingCfg.Token != "" {
-		maskingCfg.Token = "****"
-	}
-	if maskingCfg.Passcode != "" {
-		maskingCfg.Passcode = "****"
-	}
-	if maskingCfg.PrivateKey != nil {
-		maskingCfg.PrivateKey = nil
-	}
-	if maskingCfg.IDToken != "" {
-		maskingCfg.IDToken = "****"
-	}
-	if maskingCfg.OauthClientSecret != "" {
-		maskingCfg.OauthClientSecret = "****"
-	}
-	if maskingCfg.MfaToken != "" {
-		maskingCfg.MfaToken = "****"
-	}
-	if maskingCfg.ProxyPassword != "" {
-		maskingCfg.ProxyPassword = "****"
-	}
-	if maskingCfg.TokenAccessor != nil {
-		maskingCfg.TokenAccessor = nil // Avoid logging the accessor object
-	}
-	return maskingCfg
-}

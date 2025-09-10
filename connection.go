@@ -871,7 +871,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
-	// logger.Debugf("Building snowflakeConn: %#v, PrivateKey existed: %v", maskingCredentials(&config), config.PrivateKey != nil)
+	logger.Debugf("Building snowflakeConn: %v, ", describeIdentityAttributes(&config))
 
 	telemetry := &snowflakeTelemetry{}
 	if config.DisableTelemetry {
