@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -2279,6 +2281,40 @@ func TestTimePrecision(t *testing.T) {
 	})
 }
 
+func initPoolWithSize(t *testing.T, db *sql.DB, poolSize int) {
+	wg := sync.WaitGroup{}
+	wg.Add(poolSize)
+	for i := 0; i < poolSize; i++ {
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+			runSmokeQuery(t, db)
+		}(&wg)
+	}
+	wg.Wait()
+}
+
+func initPoolWithSizeAndReturnErrors(db *sql.DB, poolSize int) []error {
+	wg := sync.WaitGroup{}
+	wg.Add(poolSize)
+	errMu := sync.Mutex{}
+	var errs []error
+	for i := 0; i < poolSize; i++ {
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+			err := runSmokeQueryAndReturnErrors(db)
+			if err != nil {
+				errMu.Lock()
+				errs = append(errs, err)
+				errMu.Unlock()
+			}
+		}(&wg)
+	}
+	wg.Wait()
+	return errs
+}
+
 func runSmokeQuery(t *testing.T, db *sql.DB) {
 	rows, err := db.Query("SELECT 1")
 	assertNilF(t, err)
@@ -2288,6 +2324,26 @@ func runSmokeQuery(t *testing.T, db *sql.DB) {
 	err = rows.Scan(&v)
 	assertNilF(t, err)
 	assertEqualE(t, v, 1)
+}
+
+func runSmokeQueryAndReturnErrors(db *sql.DB) error {
+	rows, err := db.Query("SELECT 1")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return fmt.Errorf("no rows")
+	}
+	var v int
+	err = rows.Scan(&v)
+	if err != nil {
+		return err
+	}
+	if v != 1 {
+		return fmt.Errorf("value mismatch. expected 1, got %v", v)
+	}
+	return nil
 }
 
 func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {
