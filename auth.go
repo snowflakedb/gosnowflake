@@ -417,7 +417,7 @@ func authenticate(
 	}
 
 	logger.WithContext(ctx).Infof("Information for Auth: Host: %v, User: %v, Authenticator: %v, Params: %v, Protocol: %v, Port: %v, LoginTimeout: %v",
-		sc.rest.Host, sc.cfg.User, safeAuthTypeString(sc.cfg.Authenticator), params, sc.rest.Protocol, sc.rest.Port, sc.rest.LoginTimeout)
+		sc.rest.Host, sc.cfg.User, sc.cfg.Authenticator.String(), params, sc.rest.Protocol, sc.rest.Port, sc.rest.LoginTimeout)
 
 	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, bodyCreator, sc.rest.LoginTimeout)
 	if err != nil {
@@ -575,7 +575,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.Provider = wifAttestation.ProviderType
 	}
 
-	logger.WithContext(sc.ctx).Debugf("Request body is created for the authentication. Authenticator: %s, User: %s, Account: %s", safeAuthTypeString(sc.cfg.Authenticator), sc.cfg.User, sc.cfg.Account)
+	logger.WithContext(sc.ctx).Debugf("Request body is created for the authentication. Authenticator: %s, User: %s, Account: %s", sc.cfg.Authenticator.String(), sc.cfg.User, sc.cfg.Account)
 
 	authRequest := authRequest{
 		Data: requestMain,
@@ -586,34 +586,6 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		return nil, err
 	}
 	return jsonBody, nil
-}
-
-// Returns a string representing the authenticator type for logging, redacting custom values.
-func safeAuthTypeString(authType AuthType) string {
-	switch authType {
-	case AuthTypeSnowflake:
-		return AuthTypeSnowflake.String()
-	case AuthTypeOAuth:
-		return AuthTypeOAuth.String()
-	case AuthTypeJwt:
-		return AuthTypeJwt.String()
-	case AuthTypeExternalBrowser:
-		return AuthTypeExternalBrowser.String()
-	case AuthTypeUsernamePasswordMFA:
-		return AuthTypeUsernamePasswordMFA.String()
-	case AuthTypeTokenAccessor:
-		return AuthTypeTokenAccessor.String()
-	case AuthTypePat:
-		return AuthTypePat.String()
-	case AuthTypeOAuthAuthorizationCode:
-		return AuthTypeOAuthAuthorizationCode.String()
-	case AuthTypeOAuthClientCredentials:
-		return AuthTypeOAuthClientCredentials.String()
-	case AuthTypeWorkloadIdentityFederation:
-		return AuthTypeWorkloadIdentityFederation.String()
-	default:
-		return "OKTA"
-	}
 }
 
 // Generate a JWT token in string given the configuration
@@ -681,7 +653,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 		}
 	}
 
-	logger.WithContext(sc.ctx).Infof("Authenticating via %v", safeAuthTypeString(sc.cfg.Authenticator))
+	logger.WithContext(sc.ctx).Infof("Authenticating via %v", sc.cfg.Authenticator.String())
 	switch sc.cfg.Authenticator {
 	case AuthTypeExternalBrowser:
 		if sc.cfg.IDToken == "" {
