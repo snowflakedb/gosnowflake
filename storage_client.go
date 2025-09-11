@@ -70,7 +70,7 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 	maxConcurrency := int(meta.parallel)
 	var lastErr error
 	maxRetry := defaultMaxRetry
-	timer := NewExecutionTimer()
+	timer := newExecutionTimer()
 	logger.Debugf(
 		"Started Uploading. File: %v, location: %v", meta.realSrcFileName, meta.stageInfo.Location)
 	for retry := 0; retry < maxRetry; retry++ {
@@ -209,7 +209,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 	var lastErr error
 	maxRetry := defaultMaxRetry
 
-	timer := NewExecutionTimer().start()
+	timer := newExecutionTimer().start()
 	for retry := 0; retry < maxRetry; retry++ {
 		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency, partSize); err != nil {
 			return err

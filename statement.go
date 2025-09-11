@@ -61,7 +61,7 @@ func (stmt *snowflakeStmt) execInternal(ctx context.Context, args []driver.Named
 		ctx = context.Background()
 	}
 	stmtCtx := context.WithValue(ctx, executionType, executionTypeStatement)
-	timer := NewExecutionTimer().start()
+	timer := newExecutionTimer().start()
 	result, err := stmt.sc.ExecContext(stmtCtx, stmt.query, args)
 	timer.stop()
 	if err != nil {
@@ -87,7 +87,7 @@ func (stmt *snowflakeStmt) execInternal(ctx context.Context, args []driver.Named
 
 func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	logger.WithContext(stmt.sc.ctx).Infoln("Stmt.Query")
-	timer := NewExecutionTimer().start()
+	timer := newExecutionTimer().start()
 	rows, err := stmt.sc.Query(stmt.query, args)
 	timer.stop()
 	if err != nil {

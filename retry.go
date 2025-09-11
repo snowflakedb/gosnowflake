@@ -299,7 +299,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	retryCounter := 0
 	sleepTime := time.Duration(time.Second)
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
-	timer := NewExecutionTimer()
+	timer := newExecutionTimer()
 
 	var requestGUIDReplacer requestGUIDReplacer
 	var retryCountUpdater retryCountUpdater

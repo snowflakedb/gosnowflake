@@ -135,7 +135,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 }
 
 func (scd *snowflakeChunkDownloader) schedule() {
-	timer := NewExecutionTimer().start()
+	timer := newExecutionTimer().start()
 	select {
 	case nextIdx := <-scd.ChunksChan:
 		logger.WithContext(scd.ctx).Infof("schedule chunk: %v", nextIdx+1)
@@ -363,7 +363,7 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 	logger.WithContext(ctx).Infof("download start chunk: %v", idx+1)
 	defer scd.DoneDownloadCond.Broadcast()
 
-	timer := NewExecutionTimer().start()
+	timer := newExecutionTimer().start()
 	if err := scd.FuncDownloadHelper(ctx, scd, idx); err != nil {
 		logger.WithContext(ctx).Errorf(
 			"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)

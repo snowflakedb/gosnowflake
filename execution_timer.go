@@ -5,27 +5,29 @@ import (
 	"time"
 )
 
-type ExecutionTimer struct {
+// executionTimer is a utility to measure code execution time.
+type executionTimer struct {
 	startTime *time.Time
 	endTime   *time.Time
 }
 
-func NewExecutionTimer() *ExecutionTimer {
-	return &ExecutionTimer{}
+// newExecutionTimer creates a new instance of an executionTimer.
+func newExecutionTimer() *executionTimer {
+	return &executionTimer{}
 }
 
-func (tm *ExecutionTimer) wasStarted() bool {
+func (tm *executionTimer) wasStarted() bool {
 	return tm.startTime != nil
 }
 
-func (tm *ExecutionTimer) start() *ExecutionTimer {
+func (tm *executionTimer) start() *executionTimer {
 	now := time.Now()
 	tm.startTime = &now
 	tm.endTime = nil
 	return tm
 }
 
-func (tm *ExecutionTimer) stop() *ExecutionTimer {
+func (tm *executionTimer) stop() *executionTimer {
 	if !tm.wasStarted() {
 		logger.Debug("Tried to stop timer, that was not started.")
 	}
@@ -34,7 +36,7 @@ func (tm *ExecutionTimer) stop() *ExecutionTimer {
 	return tm
 }
 
-func (tm *ExecutionTimer) getDuration() float64 {
+func (tm *executionTimer) getDuration() float64 {
 	if !tm.wasStarted() {
 		return 0
 	}

@@ -49,7 +49,7 @@ func (d SnowflakeDriver) OpenConnector(dsn string) (driver.Connector, error) {
 
 // OpenWithConfig creates a new connection with the given Config.
 func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
-	timer := NewExecutionTimer().start()
+	timer := newExecutionTimer().start()
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}

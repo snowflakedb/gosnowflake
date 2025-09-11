@@ -481,7 +481,6 @@ func describeIdentityAttributes(cfg *Config) string {
 func describeProxy(cfg *Config) string {
 	if cfg.ProxyHost != "" {
 		return fmt.Sprintf("proxyHost: %v, proxyPort: %v proxyUser: %v, proxyPassword %v, proxyProtocol: %v, noProxy: %v", cfg.ProxyHost, cfg.ProxyPort, cfg.ProxyUser, cfg.ProxyPassword != "", cfg.ProxyProtocol, cfg.NoProxy)
-	} else {
-		return "proxy was not configured"
 	}
+	return "proxy was not configured"
 }
