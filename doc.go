@@ -69,6 +69,10 @@ The following connection parameters are supported:
     account parameter. For details, see the description of the account
     parameter.
 
+  - --> Important note: for the database object and other objects (schema, role, etc), please always adhere to the rules for Snowflake Object Identifiers; especially https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers.
+    As mentioned in the docs, if you have e.g. a database with mIxEDcAsE naming, as you needed to create it with enclosing it in double quotes, similarly you'll need to reference it
+    also with double quotes when specifying it in the connection string / DSN. In practice, this means you'll need to escape the second pair of double quotes, which are part of the database name, and not the String notation.
+
   - database: Specifies the database to use by default in the client session
     (can be changed after login).
 
@@ -140,6 +144,13 @@ The following connection parameters are supported:
 
   - validateDefaultParameters: true by default. Set to false to disable checks on existence and privileges check for
     Database, Schema, Warehouse and Role when setting up the connection
+
+    --> Important note: with the default true value, the connection will fail as the validation fails, if you specify a non-existent database/schema/etc name.
+    This is particularly important when you have a miXedCaSE-named object (e.g. database) and you forgot to properly double quote it.
+    This behaviour is still preferable as it provides a very clear, fail-fast indication of the configuration error. If you would still like to forego this validation,
+    which ensures that the driver always connects with proper database, schema etc. and creates a proper context for it, you can set this configuration to false to allow connection with invalid object identifiers.
+
+    In this case (with this default validation deliberately turned off) the driver cannot guarantee that the actual behaviour inside the session will match with the one you'd expect, i.e. not actually using the database you expect, and so on.
 
   - tracing: Specifies the logging level to be used. Set to error by default.
     Valid values are trace, debug, info, print, warning, error, fatal, panic.
@@ -223,6 +234,23 @@ or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2
 
 If the connection.toml file is readable by others, a warning will be logged. To disable it you need to set the environment variable `SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE` to true.
 
+It you wish to specify a custom transporter (e.g. to provide a custom TLS config to be used with your custom truststore) pass it through the `NewConnector`. Example:
+
+	tlsConfig := &tls.Config{
+	    // your custom fields here
+	}
+
+	config := Config{
+	    Transporter: &http.Transport{
+	        TLSClientConfig: tlsConfig,
+	    },
+	}
+
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+
+As an alternative, you can use the `RegisterTLSConfig` / `DeregisterTLSConfig` functions as seen in the unit tests: https://github.com/snowflakedb/gosnowflake/blob/v1.16.0/transport_test.go#L127
+
 # Proxy
 
 The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.
@@ -238,6 +266,20 @@ NO_PROXY does not support wildcards. Each value specified should be one of the f
 If more than one value is specified, values should be separated by commas, for example:
 
 	no_proxy=localhost,.my_company.com,xy12345.snowflakecomputing.com,192.168.1.15,192.168.1.16
+
+In addition to environment variables, the Go Snowflake Driver also supports configuring the proxy via connection parameters.
+When these parameters are provided in the connection string or DSN, they take precedence and any environment proxy settings (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) will be ignored.
+
+| Parameter       | Description                                                                 | Default |
+|-----------------|-----------------------------------------------------------------------------|---------|
+| `proxyHost`     | Hostname or IP address of the proxy server.                                 |         |
+| `proxyPort`     | Port number of the proxy server.                                            |         |
+| `proxyUser`     | Username for proxy authentication.                                          |         |
+| `proxyPassword` | Password for proxy authentication.                                          |         |
+| `proxyProtocol` | Protocol to use for proxy connection. Valid values: `http`, `https`.        | `http`  |
+| `NoProxy“       | Comma-separated list of hosts that should bypass the proxy.                 |         |
+
+For more details, please refer to the example in ./cmd/proxyconnection.
 
 # Logging
 
@@ -711,6 +753,15 @@ of the returned value:
 	            fmt.Println(bigIntPtr)
 	    }
 	}
+
+# Using decfloats
+
+By default, DECFLOAT values are returned as string values.
+If you want to retrieve them as numbers, you have to use the WithDecfloatMappingEnabled context.
+If higher precision is enabled, the driver will return them as *big.Float values.
+Otherwise, they will be returned as float64 values.
+Keep in mind that both float64 and *big.Float are not able to precisely represent some DECFLOAT values.
+If precision is important, you have to use string representation and use your own library to parse it.
 
 # Arrow batches
 

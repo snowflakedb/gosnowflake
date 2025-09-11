@@ -2,7 +2,10 @@ package gosnowflake
 
 import (
 	"net/http"
+	"os"
+	"runtime"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -21,9 +24,10 @@ func newCountingRoundTripper(delegate http.RoundTripper) *countingRoundTripper {
 }
 
 func (crt *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Method == http.MethodGet {
+	switch req.Method {
+	case http.MethodGet:
 		crt.getReqCount[req.URL.String()]++
-	} else if req.Method == http.MethodPost {
+	case http.MethodPost:
 		crt.postReqCount[req.URL.String()]++
 	}
 
@@ -90,4 +94,10 @@ func (brt *blockingRoundTripper) setPathBlockTime(path string, blockTime time.Du
 
 func (brt *blockingRoundTripper) reset() {
 	brt.pathBlockTime = make(map[string]time.Duration)
+}
+
+func skipOnMissingHome(t *testing.T) {
+	if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && os.Getenv("HOME") == "" {
+		t.Skip("skipping on missing HOME environment variable")
+	}
 }

@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"os/exec"
@@ -77,7 +76,7 @@ func TestExternalBrowserMismatchUser(t *testing.T) {
 		defer wg.Done()
 		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 		var snowflakeErr *SnowflakeError
-		assertTrueF(t, errors.As(err, &snowflakeErr))
+		assertErrorsAsF(t, err, &snowflakeErr)
 		assertEqualE(t, snowflakeErr.Number, 390191, fmt.Sprintf("Expected 390191, but got %v", snowflakeErr.Number))
 	}()
 	wg.Wait()

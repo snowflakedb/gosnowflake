@@ -70,6 +70,7 @@ func TestNotFindConfigFileWhenNotDefined(t *testing.T) {
 }
 
 func TestCreatePredefinedDirs(t *testing.T) {
+	skipOnMissingHome(t)
 	exeDir, _ := os.Executable()
 	appDir := filepath.Dir(exeDir)
 	homeDir, err := os.UserHomeDir()

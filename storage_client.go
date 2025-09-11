@@ -26,7 +26,7 @@ type cloudUtil interface {
 	createClient(*execResponseStageInfo, bool, *snowflakeTelemetry) (cloudClient, error)
 	getFileHeader(*fileMetadata, string) (*fileHeader, error)
 	uploadFile(string, *fileMetadata, int, int64) error
-	nativeDownloadFile(*fileMetadata, string, int64) error
+	nativeDownloadFile(*fileMetadata, string, int64, int64) error
 }
 
 type cloudClient interface{}
@@ -90,18 +90,18 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 				logger.Debugf("Error uploading %v. err: %v", meta.realSrcFileName, err)
 			}
 		}
-		if meta.resStatus == uploaded || meta.resStatus == renewToken || meta.resStatus == renewPresignedURL {
+		switch meta.resStatus {
+		case uploaded, renewToken, renewPresignedURL:
 			return nil
-		} else if meta.resStatus == needRetry {
+		case needRetry:
 			if !meta.noSleepingTime {
 				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
 				time.Sleep(time.Second * time.Duration(sleepingTime))
 			}
-		} else if meta.resStatus == needRetryWithLowerConcurrency {
+		case needRetryWithLowerConcurrency:
 			maxConcurrency = int(meta.parallel) - (retry * int(meta.parallel) / maxRetry)
 			maxConcurrency = intMax(defaultConcurrency, maxConcurrency)
 			meta.lastMaxConcurrency = maxConcurrency
-
 			if !meta.noSleepingTime {
 				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
 				time.Sleep(time.Second * time.Duration(sleepingTime))
@@ -188,10 +188,11 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 	}
 
 	maxConcurrency := meta.parallel
+	partSize := meta.options.MultiPartThreshold
 	var lastErr error
 	maxRetry := defaultMaxRetry
 	for retry := 0; retry < maxRetry; retry++ {
-		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency); err != nil {
+		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency, partSize); err != nil {
 			return err
 		}
 		if meta.resStatus == downloaded {

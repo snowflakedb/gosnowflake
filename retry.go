@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -332,7 +333,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		} else {
 			logger.WithContext(r.ctx).Warningf(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
-			res.Body.Close()
+			if closeErr := res.Body.Close(); closeErr != nil {
+				logger.Warnf("failed to close response body. err: %v", closeErr)
+			}
 		}
 		// uses exponential jitter backoff
 		retryCounter++
@@ -386,6 +389,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 
 func isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
 	if err != nil && res == nil { // Failed http connection. Most probably client timeout.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return false, err
+		}
 		return true, err
 	}
 	if res == nil || req == nil {

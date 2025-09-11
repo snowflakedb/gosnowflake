@@ -71,7 +71,11 @@ func (hc *heartbeat) heartbeatMain() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, err)
+		}
+	}()
 	if resp.StatusCode == http.StatusOK {
 		logger.WithContext(ctx).Debugf("heartbeatMain: resp: %v", resp)
 		var respd execResponse

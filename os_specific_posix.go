@@ -31,7 +31,11 @@ func getFileContents(filePath string, expectedPerm os.FileMode) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err = file.Close(); err != nil {
+			logger.Warnf("failed to close the file: %v", err)
+		}
+	}()
 
 	// validate file permissions and owner
 	if err = validateFilePermissionBits(file, expectedPerm); err != nil {

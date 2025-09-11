@@ -32,7 +32,7 @@ func TestOCSP(t *testing.T) {
 	}
 
 	transports := []http.RoundTripper{
-		snowflakeNoRevocationCheckTransport,
+		createTestNoRevocationTransport(),
 		SnowflakeTransport,
 	}
 
@@ -174,6 +174,8 @@ func TestUnitEncodeCertIDGood(t *testing.T) {
 }
 
 func TestUnitCheckOCSPResponseCache(t *testing.T) {
+	ocspCacheServerEnabled = true
+	ov := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenTrue})
 	dummyKey0 := certIDKey{
 		HashAlgorithm: crypto.SHA1,
 		NameHash:      "dummy0",
@@ -193,7 +195,7 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	})
 	subject := &x509.Certificate{}
 	issuer := &x509.Certificate{}
-	ost := checkOCSPResponseCache(&dummyKey, subject, issuer)
+	ost := ov.checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspMissedCache {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspMissedCache, ost.code)
 	}
@@ -201,7 +203,7 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	syncUpdateOcspResponseCache(func() {
 		ocspResponseCache[dummyKey] = &certCacheValue{float64(1395054952), b64Key}
 	})
-	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
+	ost = ov.checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspCacheExpired {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspCacheExpired, ost.code)
 	}
@@ -209,7 +211,7 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	syncUpdateOcspResponseCache(func() {
 		ocspResponseCache[dummyKey] = &certCacheValue{float64(1805054952), b64Key}
 	})
-	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
+	ost = ov.checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedDecodeResponse, ost.code)
 	}
@@ -225,7 +227,7 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	syncUpdateOcspResponseCache(func() {
 		ocspResponseCache[dummyKey] = &certCacheValue{float64(currentTime - 1000), actualOcspResponse}
 	})
-	ost = checkOCSPResponseCache(&dummyKey, subject, issuer)
+	ost = ov.checkOCSPResponseCache(&dummyKey, subject, issuer)
 	if ost.code != ocspFailedParseResponse {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspFailedParseResponse, ost.code)
 	}
@@ -233,7 +235,7 @@ func TestUnitCheckOCSPResponseCache(t *testing.T) {
 	syncUpdateOcspResponseCache(func() {
 		ocspResponseCache[dummyKey] = &certCacheValue{float64(currentTime - 1000), actualOcspResponse}
 	})
-	ost = checkOCSPResponseCache(&dummyKey, subject, nil)
+	ost = ov.checkOCSPResponseCache(&dummyKey, subject, nil)
 	if ost.code != ocspInvalidValidity {
 		t.Fatalf("should have failed. expected: %v, got: %v", ocspInvalidValidity, ost.code)
 	}
@@ -338,6 +340,7 @@ func getCert(addr string) []*x509.Certificate {
 }
 
 func TestOCSPRetry(t *testing.T) {
+	ov := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenTrue})
 	certs := getCert("s3-us-west-2.amazonaws.com:443")
 	dummyOCSPHost := &url.URL{
 		Scheme: "https",
@@ -348,7 +351,7 @@ func TestOCSPRetry(t *testing.T) {
 		success: true,
 		body:    []byte{1, 2, 3},
 	}
-	res, b, st := retryOCSP(
+	res, b, st := ov.retryOCSP(
 		context.Background(),
 		client, emptyRequest,
 		dummyOCSPHost,
@@ -361,7 +364,7 @@ func TestOCSPRetry(t *testing.T) {
 		success: true,
 		body:    []byte{1, 2, 3},
 	}
-	res, b, st = retryOCSP(
+	res, b, st = ov.retryOCSP(
 		context.Background(),
 		client, fakeRequestFunc,
 		dummyOCSPHost,
@@ -526,19 +529,19 @@ func TestCanEarlyExitForOCSP(t *testing.T) {
 
 	for idx, tt := range testcases {
 		t.Run("", func(t *testing.T) {
-			ocspFailOpen = OCSPFailOpenTrue
+			ovOpen := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenTrue})
 			expectedLen := len(tt.results)
 			if tt.resultLen > 0 {
 				expectedLen = tt.resultLen
 			}
 			expectedLen++ // add one because normally there is a root certificate that is not included in the results.
 			mockVerifiedChain := make([]*x509.Certificate, expectedLen)
-			r := canEarlyExitForOCSP(tt.results, mockVerifiedChain)
+			r := ovOpen.canEarlyExitForOCSP(tt.results, mockVerifiedChain)
 			if !(tt.retFailOpen == nil && r == nil) && !(tt.retFailOpen != nil && r != nil && tt.retFailOpen.code == r.code) {
 				t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailOpen, r)
 			}
-			ocspFailOpen = OCSPFailOpenFalse
-			r = canEarlyExitForOCSP(tt.results, mockVerifiedChain)
+			ovClosed := newOcspValidator(&Config{OCSPFailOpen: OCSPFailOpenFalse})
+			r = ovClosed.canEarlyExitForOCSP(tt.results, mockVerifiedChain)
 			if !(tt.retFailClosed == nil && r == nil) && !(tt.retFailClosed != nil && r != nil && tt.retFailClosed.code == r.code) {
 				t.Fatalf("%d: failed to match return. expected: %v, got: %v", idx, tt.retFailClosed, r)
 			}

@@ -32,11 +32,11 @@ jobs:
           - name: Setup go
             uses: actions/setup-go@v5
             with:
-              go-version-file: './go.mod'
+              go-version: '1.24'
           - name: golangci-lint
-            uses: golangci/golangci-lint-action@v6
+            uses: golangci/golangci-lint-action@v7
             with:
-              version: v1.60
+              version: v2.4.0
           - name: Format, Lint
             shell: bash
             run: ./ci/build.sh
@@ -46,7 +46,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.22', '1.23', '1.24' ]
+                go: [ '1.23', '1.24', '1.25' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v4
@@ -62,6 +62,7 @@ jobs:
               shell: bash
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GORACE: history_size=7
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
@@ -77,13 +78,38 @@ jobs:
               uses: codecov/codecov-action@v5
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    build-test-linux-no-home:
+      runs-on: ubuntu-latest
+      name: Ubuntu - no HOME
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 17
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: '1.24'
+        - name: Test
+          shell: bash
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+            CLOUD_PROVIDER: AWS
+            GORACE: history_size=7
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+            HOME_EMPTY: "yes"
+          run: ./ci/test.sh
     build-test-mac:
         runs-on: macos-latest
         strategy:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.22', '1.23', '1.24' ]
+                go: [ '1.23', '1.24', '1.25' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v4
@@ -99,6 +125,7 @@ jobs:
               shell: bash
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
@@ -113,13 +140,37 @@ jobs:
               uses: codecov/codecov-action@v5
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    build-test-mac-no-home:
+      runs-on: macos-latest
+      name: Mac - no HOME
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 17
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: '1.24'
+        - name: Test
+          shell: bash
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+            CLOUD_PROVIDER: AWS
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+            HOME_EMPTY: "yes"
+          run: ./ci/test.sh
     build-test-windows:
         runs-on: windows-latest
         strategy:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.22', '1.23', '1.24' ]
+                go: [ '1.23', '1.24', '1.25' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v4
@@ -139,6 +190,7 @@ jobs:
               shell: cmd
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
                 CLOUD_PROVIDER: ${{ matrix.cloud }}
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
@@ -167,12 +219,13 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: ${{ matrix.go }}
+            go-version: '1.24'
         - name: Test
           shell: bash
           env:
             PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
-            CLOUD_PROVIDER: ${{ matrix.cloud }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+            CLOUD_PROVIDER: AWS
             GORACE: history_size=7
             GO_TEST_PARAMS: ${{ inputs.goTestParams }} -run TestQueryViaHttps
             WIREMOCK_PORT: 14335

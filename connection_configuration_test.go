@@ -2,12 +2,18 @@ package gosnowflake
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"database/sql"
 	"fmt"
 	"io/fs"
 	"os"
 	path "path/filepath"
+	"strconv"
 	"testing"
 	"time"
+
+	toml "github.com/BurntSushi/toml"
 )
 
 func TestTokenFilePermission(t *testing.T) {
@@ -292,22 +298,28 @@ type paramList struct {
 }
 
 func TestParseToml(t *testing.T) {
+	// Generate a fresh private key for this unit test only
+	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate test private key: %s", err.Error())
+	}
+
 	testCases := []paramList{
 		{
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
 				"schema", "role", "region", "protocol", "passcode", "application", "token",
 				"tracing", "tmpDirPath", "tmp_dir_path", "clientConfigFile", "client_config_file", "oauth_authorization_url", "oauth_client_id",
 				"oauth_client_secret", "oauth_token_request_url", "oauth_redirect_uri", "oauth_scope",
-				"workload_identity_provider", "workload_identity_entra_resource"},
+				"workload_identity_provider", "workload_identity_entra_resource", "proxyHost", "noProxy", "proxyUser", "proxyPassword", "proxyProtocol"},
 			values: []interface{}{"value"},
 		},
 		{
 			testParams: []string{"privatekey", "private_key"},
-			values:     []interface{}{generatePKCS8StringSupress(testPrivKey)},
+			values:     []interface{}{generatePKCS8StringSupress(localTestKey)},
 		},
 		{
 			testParams: []string{"port", "maxRetryCount", "max_retry_count", "clientTimeout", "client_timeout", "jwtClientTimeout", "jwt_client_timeout", "loginTimeout",
-				"login_timeout", "requestTimeout", "request_timeout", "jwtTimeout", "jwt_timeout", "externalBrowserTimeout", "external_browser_timeout"},
+				"login_timeout", "requestTimeout", "request_timeout", "jwtTimeout", "jwt_timeout", "externalBrowserTimeout", "external_browser_timeout", "proxyPort"},
 			values: []interface{}{"300", 500},
 		},
 		{
@@ -346,7 +358,7 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 		{
 			testParams: []string{"user", "password", "host", "account", "warehouse", "database",
 				"schema", "role", "region", "protocol", "passcode", "application", "token", "privateKey",
-				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path"},
+				"tracing", "tmpDirPath", "clientConfigFile", "wrongParams", "token_file_path", "proxyhost", "noproxy", "proxyUser", "proxyPassword", "proxyProtocol"},
 			values: []interface{}{1, false},
 		},
 		{
@@ -381,6 +393,7 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 }
 
 func TestGetTomlFilePath(t *testing.T) {
+	skipOnMissingHome(t)
 	dir, err := getTomlFilePath("")
 	assertNilF(t, err, "should not have failed")
 	homeDir, err := os.UserHomeDir()
@@ -403,4 +416,58 @@ func TestGetTomlFilePath(t *testing.T) {
 		assertNilF(t, err, "should not have failed")
 		assertEqualF(t, dir, result)
 	}
+}
+
+func TestTomlConnection(t *testing.T) {
+	os.Setenv(snowflakeHome, "./test_data/")
+	os.Setenv(snowflakeConnectionName, "toml-connection")
+
+	defer os.Unsetenv(snowflakeHome)
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "select1.json", params: map[string]string{
+			"%AUTHORIZATION_HEADER%": "session token",
+		}},
+	)
+	type Connection struct {
+		Account  string `toml:"account"`
+		User     string `toml:"user"`
+		Password string `toml:"password"`
+		Host     string `toml:"host"`
+		Port     string `toml:"port"`
+		Protocol string `toml:"protocol"`
+	}
+
+	type TomlStruct struct {
+		Connection Connection `toml:"toml-connection"`
+	}
+
+	cfg := wiremock.connectionConfig()
+	connection := &TomlStruct{
+		Connection: Connection{
+			Account:  cfg.Account,
+			User:     cfg.User,
+			Password: cfg.Password,
+			Host:     cfg.Host,
+			Port:     strconv.Itoa(cfg.Port),
+			Protocol: cfg.Protocol,
+		},
+	}
+
+	f, err := os.OpenFile("./test_data/connections.toml", os.O_APPEND|os.O_WRONLY, 0600)
+	assertNilF(t, err, "Failed to create connections.toml file")
+	defer f.Close()
+
+	encoder := toml.NewEncoder(f)
+	err = encoder.Encode(connection)
+	assertNilF(t, err, "Failed to parse the config to toml structure")
+
+	if !isWindows {
+		err = os.Chmod("./test_data/connections.toml", 0600)
+		assertNilF(t, err, "The error occurred because you cannot change the file permission")
+	}
+
+	db, err := sql.Open("snowflake", "autoConfig")
+	assertNilF(t, err, "The error occurred because the db cannot be established")
+	runSmokeQuery(t, db)
 }

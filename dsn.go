@@ -137,6 +137,13 @@ type Config struct {
 
 	ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
 	ConnectionDiagnosticsAllowlistFile string // File path to the allowlist file for connection diagnostics. If not specified, the allowlist.json file in the current directory will be used.
+
+	ProxyHost     string // Proxy host
+	ProxyPort     int    // Proxy port
+	ProxyUser     string // Proxy user
+	ProxyPassword string // Proxy password
+	ProxyProtocol string // Proxy protocol (http or https)
+	NoProxy       string // No proxy for this host list
 }
 
 // Validate enables testing if config is correct.
@@ -320,6 +327,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.DisableOCSPChecks {
 		params.Add("disableOCSPChecks", strconv.FormatBool(cfg.DisableOCSPChecks))
 	}
+	if cfg.DisableTelemetry {
+		params.Add("disableTelemetry", strconv.FormatBool(cfg.DisableTelemetry))
+	}
 	if cfg.Tracing != "" {
 		params.Add("tracing", cfg.Tracing)
 	}
@@ -362,6 +372,24 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.TLSConfigName != "" {
 		params.Add("tlsConfigName", cfg.TLSConfigName)
 	}
+	if cfg.ProxyHost != "" {
+		params.Add("proxyHost", cfg.ProxyHost)
+	}
+	if cfg.ProxyPort != 0 {
+		params.Add("proxyPort", strconv.Itoa(cfg.ProxyPort))
+	}
+	if cfg.ProxyProtocol != "" {
+		params.Add("proxyProtocol", cfg.ProxyProtocol)
+	}
+	if cfg.ProxyUser != "" {
+		params.Add("proxyUser", cfg.ProxyUser)
+	}
+	if cfg.ProxyPassword != "" {
+		params.Add("proxyPassword", cfg.ProxyPassword)
+	}
+	if cfg.NoProxy != "" {
+		params.Add("noProxy", cfg.NoProxy)
+	}
 
 	dsn = fmt.Sprintf("%v:%v@%v:%v", url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), cfg.Host, cfg.Port)
 	if params.Encode() != "" {
@@ -392,8 +420,8 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 	var i int
 	posQuestion := len(dsn)
 	for i = len(dsn) - 1; i >= 0; i-- {
-		switch {
-		case dsn[i] == '/':
+		switch dsn[i] {
+		case '/':
 			foundSlash = true
 
 			// left part is empty if i <= 0
@@ -401,12 +429,12 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 			posSecondSlash := i
 			if i > 0 {
 				for j = i - 1; j >= 0; j-- {
-					switch {
-					case dsn[j] == '/':
+					switch dsn[j] {
+					case '/':
 						// second slash
 						secondSlash = true
 						posSecondSlash = j
-					case dsn[j] == '@':
+					case '@':
 						// username[:password]@...
 						cfg.User, cfg.Password = parseUserPassword(j, dsn)
 					}
@@ -434,7 +462,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				cfg.Database = dsn[posSecondSlash+1 : posQuestion]
 			}
 			done = true
-		case dsn[i] == '?':
+		case '?':
 			posQuestion = i
 		}
 		if done {
@@ -445,10 +473,10 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 		// no db or schema is specified
 		var j int
 		for j = len(dsn) - 1; j >= 0; j-- {
-			switch {
-			case dsn[j] == '@':
+			switch dsn[j] {
+			case '@':
 				cfg.User, cfg.Password = parseUserPassword(j, dsn)
-			case dsn[j] == '?':
+			case '?':
 				posQuestion = j
 			}
 			if dsn[j] == '@' {
@@ -611,6 +639,10 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.IncludeRetryReason = ConfigBoolTrue
 	}
 
+	if cfg.ProxyHost != "" && cfg.ProxyProtocol == "" {
+		cfg.ProxyProtocol = "http" // Default to http if not specified
+	}
+
 	domain, _ := extractDomainFromHost(cfg.Host)
 	if len(cfg.Host) == len(domain) {
 		return &SnowflakeError{
@@ -766,7 +798,7 @@ func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
 
 // parseDSNParams parses the DSN "query string". Values must be url.QueryEscape'ed
 func parseDSNParams(cfg *Config, params string) (err error) {
-	logger.Infof("Query String: %v\n", params)
+	logger.Infof("Query String: %v\n", maskSecrets(params))
 	paramsSlice := strings.Split(params, "&")
 	insecureModeIdx := findByPrefix(paramsSlice, "insecureMode")
 	disableOCSPChecksIdx := findByPrefix(paramsSlice, "disableOCSPChecks")
@@ -890,6 +922,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.DisableOCSPChecks = vv
+		case "disableTelemetry":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.DisableTelemetry = vv
 		case "ocspFailOpen":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
@@ -1056,6 +1095,18 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.ConnectionDiagnosticsEnabled = vv
 		case "connectionDiagnosticsAllowlistFile":
 			cfg.ConnectionDiagnosticsAllowlistFile = value
+		case "proxyHost":
+			cfg.ProxyHost, err = parseString(value)
+		case "proxyPort":
+			cfg.ProxyPort, err = parseInt(value)
+		case "proxyUser":
+			cfg.ProxyUser, err = parseString(value)
+		case "proxyPassword":
+			cfg.ProxyPassword, err = parseString(value)
+		case "noProxy":
+			cfg.NoProxy, err = parseString(value)
+		case "proxyProtocol":
+			cfg.ProxyProtocol, err = parseString(value)
 		default:
 			if cfg.Params == nil {
 				cfg.Params = make(map[string]*string)
