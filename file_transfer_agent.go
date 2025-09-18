@@ -352,6 +352,9 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 	sfa.fileMetadata = []*fileMetadata{}
 	switch sfa.commandType {
 	case uploadCommand:
+		logger.Debugf("upload command initiated - file count: %d, query ID: %s, encryption materials: %d",
+			len(sfa.srcFiles), sfa.data.QueryID, len(sfa.encryptionMaterial))
+
 		if len(sfa.srcFiles) == 0 {
 			fileName := sfa.data.SrcLocations
 			return (&SnowflakeError{
@@ -429,16 +432,21 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 					stageInfo:         sfa.stageInfo,
 				})
 				if len(sfa.encryptionMaterial) > 0 {
-					sfa.fileMetadata[i].encryptionMaterial = sfa.encryptionMaterial[0]
+					encMaterialCopy := *sfa.encryptionMaterial[0]
+					sfa.fileMetadata[i].encryptionMaterial = &encMaterialCopy
 				}
 			}
 		}
 		if len(sfa.encryptionMaterial) > 0 {
 			for _, meta := range sfa.fileMetadata {
-				meta.encryptionMaterial = sfa.encryptionMaterial[0]
+				encMaterialCopy := *sfa.encryptionMaterial[0]
+				meta.encryptionMaterial = &encMaterialCopy
 			}
 		}
 	case downloadCommand:
+		logger.Debugf("download command initiated - file count: %d, query ID: %s",
+			len(sfa.srcFiles), sfa.data.QueryID)
+
 		for _, fileName := range sfa.srcFiles {
 			if len(fileName) > 0 {
 				firstPathSep := strings.Index(fileName, "/")
