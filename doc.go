@@ -112,9 +112,15 @@ The following connection parameters are supported:
 
   - token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
 
-  - client_session_keep_alive: Set to true have a heartbeat in the background every hour to keep the connection alive
-    such that the connection session will never expire. Care should be taken in using this option as it opens up
-    the access forever as long as the process is alive.
+  - client_session_keep_alive: Set to true have a heartbeat in the background every hour by default or the value of
+    client_session_keep_alive_heartbeat_frequency, if set, to keep the connection alive such that the connection session
+    will never expire. Care should be taken in using this option as it opens up the access forever as long as the process is alive.
+
+  - client_session_keep_alive_heartbeat_frequency: Number of seconds in-between client attempts to update the token for the session.
+    > The default is 3600 seconds
+    > Minimum value is 900 seconds. A smaller value will be reset to 900 seconds.
+    > Maximum value is 3600 seconds. A larger value will be reset to 3600 seconds.
+    > This parameter is only valid if client_session_keep_alive is set to true.
 
   - ocspFailOpen: true by default. Set to false to make OCSP check fail closed mode.
 
