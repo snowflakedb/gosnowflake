@@ -432,15 +432,13 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 					stageInfo:         sfa.stageInfo,
 				})
 				if len(sfa.encryptionMaterial) > 0 {
-					encMaterialCopy := *sfa.encryptionMaterial[0]
-					sfa.fileMetadata[i].encryptionMaterial = &encMaterialCopy
+					sfa.fileMetadata[i].encryptionMaterial = sfa.encryptionMaterial[0]
 				}
 			}
 		}
 		if len(sfa.encryptionMaterial) > 0 {
 			for _, meta := range sfa.fileMetadata {
-				encMaterialCopy := *sfa.encryptionMaterial[0]
-				meta.encryptionMaterial = &encMaterialCopy
+				meta.encryptionMaterial = sfa.encryptionMaterial[0]
 			}
 		}
 	case downloadCommand:
