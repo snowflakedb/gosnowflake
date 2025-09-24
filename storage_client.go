@@ -234,7 +234,9 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 					}
 					if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
 						logger.Errorf("Failed to move decrypted file from %s to final destination %s: %v", tmpDstFileName, fullDstFileName, err)
-						os.Remove(tmpDstFileName)
+						if removalErr := os.Remove(tmpDstFileName); removalErr != nil {
+							logger.Warnf("Failed to clean up temporary decrypted file %s: %v", tmpDstFileName, removalErr)
+						}
 						return err
 					}
 					logger.Debugf("Successfully decrypted and moved file to %s", fullDstFileName)
