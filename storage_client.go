@@ -192,7 +192,19 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 	var lastErr error
 	maxRetry := defaultMaxRetry
 	for retry := 0; retry < maxRetry; retry++ {
-		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency, partSize); err != nil {
+		tempDownloadFile := fullDstFileName + ".tmp"
+		defer func() {
+			// Clean up temp file if it still exists
+			if _, statErr := os.Stat(tempDownloadFile); statErr == nil {
+				logger.Debugf("Cleaning up temporary download file: %s", tempDownloadFile)
+				if removeErr := os.Remove(tempDownloadFile); removeErr != nil {
+					logger.Warnf("Failed to clean up temporary file %s: %v", tempDownloadFile, removeErr)
+				}
+			}
+		}()
+
+		if err = utilClass.nativeDownloadFile(meta, tempDownloadFile, maxConcurrency, partSize); err != nil {
+			logger.Errorf("Failed to download file to temporary location %s: %v", tempDownloadFile, err)
 			return err
 		}
 		if meta.resStatus == downloaded {
@@ -200,6 +212,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 				if meta.presignedURL != nil {
 					header, err = utilClass.getFileHeader(meta, meta.srcFileName)
 					if err != nil {
+						logger.Errorf("Failed to get file header for %s: %v", meta.srcFileName, err)
 						return err
 					}
 				}
@@ -207,19 +220,24 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 					totalFileSize, err := decryptStreamCBC(header.encryptionMetadata,
 						meta.encryptionMaterial, 0, meta.dstStream, meta.sfa.streamBuffer)
 					if err != nil {
+						logger.Errorf("Stream decryption failed for %s - temp file will be cleaned up to prevent corrupted data: %v", meta.srcFileName, err)
 						return err
 					}
 					meta.sfa.streamBuffer.Truncate(totalFileSize)
 					meta.dstFileSize = int64(totalFileSize)
 				} else {
 					tmpDstFileName, err := decryptFileCBC(header.encryptionMetadata,
-						meta.encryptionMaterial, fullDstFileName, 0, meta.tmpDir)
+						meta.encryptionMaterial, tempDownloadFile, 0, meta.tmpDir)
 					if err != nil {
+						logger.Errorf("File decryption failed for %s - temp file will be cleaned up to prevent corrupted data: %v", meta.srcFileName, err)
 						return err
 					}
 					if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
+						logger.Errorf("Failed to move decrypted file from %s to final destination %s: %v", tmpDstFileName, fullDstFileName, err)
+						os.Remove(tmpDstFileName)
 						return err
 					}
+					logger.Debugf("Successfully decrypted and moved file to %s", fullDstFileName)
 				}
 
 			}
@@ -228,6 +246,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 					meta.dstFileSize = fi.Size()
 				}
 			}
+			logger.Debugf("File download completed successfully for %s (size: %d bytes)", meta.srcFileName, meta.dstFileSize)
 			return nil
 		}
 		lastErr = meta.lastError
