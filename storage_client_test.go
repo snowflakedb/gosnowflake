@@ -51,7 +51,7 @@ func TestProcessEncryptedFileToDestination_DecryptionFailure(t *testing.T) {
 	_, err = os.Stat(tempDownloadFile)
 	assertTrueF(t, os.IsNotExist(err), "Temp download file should be cleaned up even after decryption failure")
 
-	verifyNoTmpFilesLeftBehind(t, fullDstFileName, err)
+	verifyNoTmpFilesLeftBehind(t, fullDstFileName)
 }
 
 // TestProcessEncryptedFileToDestination_Success tests successful decryption and file handling
@@ -106,10 +106,10 @@ func TestProcessEncryptedFileToDestination_Success(t *testing.T) {
 	_, err = os.Stat(fullDstFileName)
 	assertNilF(t, err, "Final destination file should exist")
 
-	verifyNoTmpFilesLeftBehind(t, fullDstFileName, err)
+	verifyNoTmpFilesLeftBehind(t, fullDstFileName)
 }
 
-func verifyNoTmpFilesLeftBehind(t *testing.T, fullDstFileName string, err error) {
+func verifyNoTmpFilesLeftBehind(t *testing.T, fullDstFileName string) {
 	destDir := filepath.Dir(fullDstFileName)
 	files, err := os.ReadDir(destDir)
 	assertNilF(t, err, "Failed to read destination directory")
