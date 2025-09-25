@@ -226,22 +226,10 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 					meta.sfa.streamBuffer.Truncate(totalFileSize)
 					meta.dstFileSize = int64(totalFileSize)
 				} else {
-					tmpDstFileName, err := decryptFileCBC(header.encryptionMetadata,
-						meta.encryptionMaterial, tempDownloadFile, 0, meta.tmpDir)
-					if err != nil {
-						logger.Errorf("File decryption failed for %s - temp file will be cleaned up to prevent corrupted data: %v", meta.srcFileName, err)
+					if err = rsu.processEncryptedFileToDestination(meta, header, tempDownloadFile, fullDstFileName); err != nil {
 						return err
 					}
-					if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
-						logger.Errorf("Failed to move decrypted file from %s to final destination %s: %v", tmpDstFileName, fullDstFileName, err)
-						if removalErr := os.Remove(tmpDstFileName); removalErr != nil {
-							logger.Warnf("Failed to clean up temporary decrypted file %s: %v", tmpDstFileName, removalErr)
-						}
-						return err
-					}
-					logger.Debugf("Successfully decrypted and moved file to %s", fullDstFileName)
 				}
-
 			}
 			if !meta.options.GetFileToStream {
 				if fi, err := os.Stat(fullDstFileName); err == nil {
@@ -257,4 +245,39 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 		return lastErr
 	}
 	return fmt.Errorf("unkown error downloading %v", fullDstFileName)
+}
+
+func (rsu *remoteStorageUtil) processEncryptedFileToDestination(meta *fileMetadata, header *fileHeader, tempDownloadFile, fullDstFileName string) error {
+	// Clean up the temp download file on any exit path
+	defer func() {
+		if _, statErr := os.Stat(tempDownloadFile); statErr == nil {
+			logger.Debugf("Cleaning up temporary download file: %s", tempDownloadFile)
+			err := os.Remove(tempDownloadFile)
+			if err != nil {
+				logger.Warnf("Failed to clean up temporary download file %s: %v", tempDownloadFile, err)
+			}
+		}
+	}()
+
+	tmpDstFileName, err := decryptFileCBC(header.encryptionMetadata, meta.encryptionMaterial, tempDownloadFile, 0, meta.tmpDir)
+	// Ensure cleanup of the decrypted temp file if decryption or rename fails
+	defer func() {
+		if _, statErr := os.Stat(tmpDstFileName); statErr == nil {
+			err := os.Remove(tmpDstFileName)
+			if err != nil {
+				logger.Warnf("Failed to clean up temporary decrypted file %s: %v", tmpDstFileName, err)
+			}
+		}
+	}()
+	if err != nil {
+		logger.Errorf("File decryption failed for %s: %v", meta.srcFileName, err)
+		return err
+	}
+
+	if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
+		logger.Errorf("Failed to move decrypted file from %s to final destination %s: %v", tmpDstFileName, fullDstFileName, err)
+		return err
+	}
+	logger.Debugf("Successfully decrypted and moved file to %s", fullDstFileName)
+	return nil
 }
