@@ -279,6 +279,7 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 			Message: "failed to cast to s3 client",
 		}
 	}
+	logger.Debugf("S3 Client: Send Get Request to the Bucket: %v", meta.stageInfo.Location)
 
 	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
 	if err != nil {

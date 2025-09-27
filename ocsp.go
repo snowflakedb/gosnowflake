@@ -177,6 +177,7 @@ func newOcspValidator(cfg *Config) *ocspValidator {
 	var cacheServerURL, retryURL string
 	var ok bool
 
+	logger.Debug("initializing OCSP module")
 	if cacheServerURL, ok = os.LookupEnv(cacheServerURLEnv); ok {
 		logger.Debugf("OCSP Cache Server already set by user for %v: %v", cfg.Host, cacheServerURL)
 	} else if isPrivateLink {

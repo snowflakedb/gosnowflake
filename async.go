@@ -176,7 +176,7 @@ func getQueryResultWithRetriesForAsyncMode(
 			token, _, _ := sr.TokenAccessor.GetTokens()
 			if token != "" && headers[headerAuthorizationKey] != fmt.Sprintf(headerSnowflakeToken, token) {
 				headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
-				logger.WithContext(ctx).Info("Session token has been updated.")
+				logger.WithContext(ctx).Debug("Session token has been updated.")
 				retry++
 				continue
 			}
@@ -190,7 +190,7 @@ func getQueryResultWithRetriesForAsyncMode(
 
 			// If this is the first response, go back to retry the query
 			// since it failed due to session expiration
-			logger.WithContext(ctx).Infof("retry count for session renewal: %v", retryCountForSessionRenewal)
+			logger.WithContext(ctx).Debugf("retry count for session renewal: %v", retryCountForSessionRenewal)
 			if retryCountForSessionRenewal < 2 {
 				retry++
 				continue
@@ -207,7 +207,7 @@ func getQueryResultWithRetriesForAsyncMode(
 			// Sleep before retrying get result request. Exponential backoff up to 5 seconds.
 			// Once 5 second backoff is reached it will keep retrying with this sleeptime.
 			sleepTime := time.Millisecond * time.Duration(500*retryPattern[retryPatternIndex])
-			logger.WithContext(ctx).Infof("Query execution still in progress. Response code: %v, message: %v Sleep for %v ms", respd.Code, respd.Message, sleepTime)
+			logger.WithContext(ctx).Debugf("Query execution still in progress. Response code: %v, message: %v Sleep for %v ms", respd.Code, respd.Message, sleepTime)
 			time.Sleep(sleepTime)
 			retry++
 
