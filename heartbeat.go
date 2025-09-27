@@ -11,19 +11,42 @@ import (
 )
 
 const (
-	// One hour interval should be good enough to renew tokens for four hours master token validity
-	heartBeatInterval = 3600 * time.Second
+	minHeartBeatInterval     = 900 * time.Second
+	maxHeartBeatInterval     = 3600 * time.Second
+	defaultHeartBeatInterval = 3600 * time.Second
 )
+
+func newDefaultHeartBeat(restful *snowflakeRestful) *heartbeat {
+	return newHeartBeat(restful, defaultHeartBeatInterval)
+}
+
+func newHeartBeat(restful *snowflakeRestful, heartbeatInterval time.Duration) *heartbeat {
+	logger.Debugf("Using heartbeat with custom interval: %v", heartbeatInterval)
+	if heartbeatInterval < minHeartBeatInterval {
+		logger.Warnf("Heartbeat interval %v is less than minimum %v, using minimum", heartbeatInterval, minHeartBeatInterval)
+		heartbeatInterval = minHeartBeatInterval
+	} else if heartbeatInterval > maxHeartBeatInterval {
+		logger.Warnf("Heartbeat interval %v is greater than maximum %v, using maximum", heartbeatInterval, maxHeartBeatInterval)
+		heartbeatInterval = maxHeartBeatInterval
+	}
+
+	return &heartbeat{
+		restful:           restful,
+		heartbeatInterval: heartbeatInterval,
+	}
+}
 
 type heartbeat struct {
 	restful      *snowflakeRestful
 	shutdownChan chan bool
+
+	heartbeatInterval time.Duration
 }
 
 func (hc *heartbeat) run() {
 	_, _, sessionID := safeGetTokens(hc.restful)
 	ctx := context.WithValue(context.Background(), SFSessionIDKey, sessionID)
-	hbTicker := time.NewTicker(heartBeatInterval)
+	hbTicker := time.NewTicker(hc.heartbeatInterval)
 	defer hbTicker.Stop()
 	for {
 		select {
