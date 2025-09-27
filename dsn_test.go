@@ -1226,6 +1226,42 @@ func TestParseDSN(t *testing.T) {
 				Message: fmt.Sprintf(errMsgMissingTLSConfig, "custom"),
 			},
 		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&&singleAuthenticationPrompt=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Host: "a.snowflake.local", Port: 9876,
+				Protocol:                   "https",
+				OCSPFailOpen:               OCSPFailOpenTrue,
+				ValidateDefaultParameters:  ConfigBoolTrue,
+				ClientTimeout:              defaultClientTimeout,
+				JWTClientTimeout:           defaultJWTClientTimeout,
+				ExternalBrowserTimeout:     defaultExternalBrowserTimeout,
+				CloudStorageTimeout:        defaultCloudStorageTimeout,
+				IncludeRetryReason:         ConfigBoolTrue,
+				SingleAuthenticationPrompt: ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&&singleAuthenticationPrompt=false",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Host: "a.snowflake.local", Port: 9876,
+				Protocol:                   "https",
+				OCSPFailOpen:               OCSPFailOpenTrue,
+				ValidateDefaultParameters:  ConfigBoolTrue,
+				ClientTimeout:              defaultClientTimeout,
+				JWTClientTimeout:           defaultJWTClientTimeout,
+				ExternalBrowserTimeout:     defaultExternalBrowserTimeout,
+				CloudStorageTimeout:        defaultCloudStorageTimeout,
+				IncludeRetryReason:         ConfigBoolTrue,
+				SingleAuthenticationPrompt: ConfigBoolFalse,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -1310,6 +1346,7 @@ func TestParseDSN(t *testing.T) {
 				assertEqualE(t, cfg.Passcode, test.config.Passcode, fmt.Sprintf("Test %d: Passcode mismatch", i))
 				assertEqualE(t, cfg.PasscodeInPassword, test.config.PasscodeInPassword, fmt.Sprintf("Test %d: PasscodeInPassword mismatch", i))
 				assertEqualE(t, cfg.Authenticator, test.config.Authenticator, fmt.Sprintf("Test %d: Authenticator mismatch", i))
+				assertEqualE(t, cfg.SingleAuthenticationPrompt, test.config.SingleAuthenticationPrompt, fmt.Sprintf("Test %d: SingleAuthenticationPrompt mismatch", i))
 				if test.config.Authenticator == AuthTypeOkta {
 					assertEqualE(t, *cfg.OktaURL, *test.config.OktaURL, fmt.Sprintf("Test %d: OktaURL mismatch", i))
 				}
@@ -2044,6 +2081,24 @@ func TestDSN(t *testing.T) {
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tlsConfigName=custom&validateDefaultParameters=true",
 		},
+		{
+			cfg: &Config{
+				User:                       "u",
+				Password:                   "p",
+				Account:                    "a.b.c",
+				SingleAuthenticationPrompt: ConfigBoolTrue,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&singleAuthenticationPrompt=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                       "u",
+				Password:                   "p",
+				Account:                    "a.b.c",
+				SingleAuthenticationPrompt: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&singleAuthenticationPrompt=false&validateDefaultParameters=true",
+		},
 	}
 	for _, test := range testcases {
 		t.Run(maskSecrets(test.dsn), func(t *testing.T) {
@@ -2056,9 +2111,7 @@ func TestDSN(t *testing.T) {
 			}
 			dsn, err := DSN(test.cfg)
 			if test.err == nil && err == nil {
-				if dsn != test.dsn {
-					assertEqualF(t, "failed to get DSN. expected: %v, got:\n %v", maskSecrets(test.dsn), maskSecrets(dsn))
-				}
+				assertEqualF(t, dsn, test.dsn, fmt.Sprintf("failed to get DSN. expected: %v, got:\n %v", maskSecrets(test.dsn), maskSecrets(dsn)))
 				_, err := ParseDSN(dsn)
 				assertNilF(t, err, "failed to parse DSN. dsn:", dsn)
 			}
