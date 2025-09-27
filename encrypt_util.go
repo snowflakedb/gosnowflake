@@ -495,6 +495,8 @@ func paddingTrim(src []byte) ([]byte, error) {
 	unpadding := src[len(src)-1]
 	n := int(unpadding)
 	if n == 0 || n > len(src) {
+		logger.Errorf("padding validation failed - invalid padding detected. data length: %d, padding value: %d",
+			len(src), n)
 		return nil, &SnowflakeError{
 			Number:  ErrInvalidPadding,
 			Message: errMsgInvalidPadding,
