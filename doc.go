@@ -101,6 +101,9 @@ The following connection parameters are supported:
   - authenticator: Specifies the authenticator to use for authenticating user credentials.
     See "Authenticator Values" section below for supported values.
 
+  - singleAuthenticationPrompt: specifies whether only one authentication should be performed at the same time for authentications that needs human interactions (like MFA or OAuth authorization code).
+    By default it is true.
+
   - application: Identifies your application to Snowflake Support.
 
   - disableOCSPChecks: false by default. Set to true to bypass the Online
