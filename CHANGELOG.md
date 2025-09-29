@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.18.0 (TBD)
+-
+
 ## 1.17.0
 
 - Added ability to configure OCSP per connection (snowflakedb/gosnowflake#1528)
