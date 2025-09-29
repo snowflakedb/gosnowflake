@@ -1,7 +1,8 @@
 # Changelog
 
 ## 1.18.0 (TBD)
--
+- Added temporary download files cleanup
+- 
 
 ## 1.17.0
 
