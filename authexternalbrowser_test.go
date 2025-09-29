@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -88,7 +89,6 @@ func TestUnitAuthenticateByExternalBrowser(t *testing.T) {
 	application := "testapp"
 	account := "testaccount"
 	user := "u"
-	password := "p"
 	timeout := defaultExternalBrowserTimeout
 	sr := &snowflakeRestful{
 		Protocol:         "https",
@@ -97,17 +97,17 @@ func TestUnitAuthenticateByExternalBrowser(t *testing.T) {
 		FuncPostAuthSAML: postAuthExternalBrowserError,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
-	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)
+	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, timeout, ConfigBoolTrue)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthExternalBrowserFail
-	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)
+	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, timeout, ConfigBoolTrue)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
 	sr.FuncPostAuthSAML = postAuthExternalBrowserFailWithCode
-	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)
+	_, _, err = authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, timeout, ConfigBoolTrue)
 	if err == nil {
 		t.Fatal("should have failed.")
 	}
@@ -125,7 +125,6 @@ func TestAuthenticationTimeout(t *testing.T) {
 	application := "testapp"
 	account := "testaccount"
 	user := "u"
-	password := "p"
 	timeout := 1 * time.Second
 	sr := &snowflakeRestful{
 		Protocol:         "https",
@@ -134,7 +133,7 @@ func TestAuthenticationTimeout(t *testing.T) {
 		FuncPostAuthSAML: postAuthExternalBrowserErrorDelayed,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
-	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, password, timeout, ConfigBoolTrue)
+	_, _, err := authenticateByExternalBrowser(context.Background(), sr, authenticator, application, account, user, timeout, ConfigBoolTrue)
 	assertEqualE(t, err.Error(), "authentication timed out", err.Error())
 }
 
@@ -175,4 +174,17 @@ func TestUnitGetLoginURL(t *testing.T) {
 	assertStringContainsF(t, urlPtr.RawQuery, "login_name")
 	assertStringContainsF(t, urlPtr.RawQuery, "browser_mode_redirect_port")
 	assertStringContainsF(t, urlPtr.RawQuery, "proof_key")
+}
+
+type nonInteractiveSamlResponseProvider struct {
+	t *testing.T
+}
+
+func (provider *nonInteractiveSamlResponseProvider) run(url string) error {
+	go func() {
+		resp, err := http.Get(url)
+		assertNilF(provider.t, err)
+		assertEqualE(provider.t, resp.StatusCode, http.StatusOK)
+	}()
+	return nil
 }

@@ -42,6 +42,17 @@ const (
 	ConfigBoolFalse
 )
 
+func (cb ConfigBool) String() string {
+	switch cb {
+	case ConfigBoolTrue:
+		return "true"
+	case ConfigBoolFalse:
+		return "false"
+	default:
+		return "not set"
+	}
+}
+
 // Config is a set of configuration parameters
 type Config struct {
 	Account   string // Account name
@@ -72,7 +83,8 @@ type Config struct {
 	Host     string // hostname (optional)
 	Port     int    // port (optional)
 
-	Authenticator AuthType // The authenticator type
+	Authenticator              AuthType   // The authenticator type
+	SingleAuthenticationPrompt ConfigBool // If enabled prompting for authentication will only occur for the first authentication challenge
 
 	Passcode           string
 	PasscodeInPassword bool
@@ -252,6 +264,13 @@ func DSN(cfg *Config) (dsn string, err error) {
 			params.Add("authenticator", strings.ToLower(cfg.OktaURL.String()))
 		} else {
 			params.Add("authenticator", strings.ToLower(cfg.Authenticator.String()))
+		}
+	}
+	if cfg.SingleAuthenticationPrompt != configBoolNotSet {
+		if cfg.SingleAuthenticationPrompt == ConfigBoolTrue {
+			params.Add("singleAuthenticationPrompt", "true")
+		} else {
+			params.Add("singleAuthenticationPrompt", "false")
 		}
 	}
 	if cfg.Passcode != "" {
@@ -832,6 +851,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Region = value
 		case "protocol":
 			cfg.Protocol = value
+		case "singleAuthenticationPrompt":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.SingleAuthenticationPrompt = ConfigBoolTrue
+			} else {
+				cfg.SingleAuthenticationPrompt = ConfigBoolFalse
+			}
 		case "passcode":
 			cfg.Passcode = value
 		case "oauthClientId":
