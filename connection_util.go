@@ -44,12 +44,14 @@ func (sc *snowflakeConn) startHeartBeat() {
 	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
+
 	if sc.rest != nil {
 		if heartbeatFrequency, ok := sc.getClientSessionKeepAliveHeartbeatFrequency(); ok {
 			sc.rest.HeartBeat = newHeartBeat(sc.rest, heartbeatFrequency)
 		} else {
 			sc.rest.HeartBeat = newDefaultHeartBeat(sc.rest)
 		}
+		logger.Debugf("Start heart beat")
 		sc.rest.HeartBeat.start()
 	}
 }
@@ -59,6 +61,7 @@ func (sc *snowflakeConn) stopHeartBeat() {
 		return
 	}
 	if sc.rest != nil && sc.rest.HeartBeat != nil {
+		logger.Debugf("Stop heart beat")
 		sc.rest.HeartBeat.stop()
 	}
 }

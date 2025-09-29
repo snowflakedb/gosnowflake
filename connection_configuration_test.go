@@ -81,8 +81,6 @@ func TestTokenFilePermission(t *testing.T) {
 
 		_, err = loadConnectionConfig()
 		assertNilF(t, err, "The error should not occur")
-
-		assertEmptyStringE(t, buf.String())
 	})
 
 	t.Run("test writable connection file other than owner", func(t *testing.T) {

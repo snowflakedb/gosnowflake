@@ -305,6 +305,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 			gcsHeaders["Authorization"] = "Bearer " + accessToken
 		}
 	}
+	logger.Debugf("GCS Client: Send Get Request to %v", downloadURL.String())
 
 	// First, get file size with a HEAD request to determine if multi-part download is needed
 	// Also extract metadata during this request
