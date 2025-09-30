@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.18.0 (TBD)
-- Added temporary download files cleanup
+- Added temporary download files cleanup (snowflakedb/gosnowflake#1577)
 - 
 
 ## 1.17.0
@@ -17,7 +17,6 @@
 - Fixed multistatements in large result sets (snowflakedb/gosnowflake#1539, snowflakedb/gosnowflake#1543, snowflakedb/gosnowflake#1547)
 - Fixed unnecessary retries when context is cancelled (snowflakedb/gosnowflake#1540)
 - Fixed regression in TOML connection file (snowflakedb/gosnowflake#1530)
-- Fixed race conditions in stage downloads (snowflakedb/gosnowflake#1577)
 
 ## Prior Releases
 
