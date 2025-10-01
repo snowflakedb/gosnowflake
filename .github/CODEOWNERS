@@ -1,1 +1,4 @@
 * @snowflakedb/Client
+/transport.go @snowflakedb/pki-oversight @snowflakedb/Client
+/crl.go @snowflakedb/pki-oversight @snowflakedb/Client
+/ocsp.go @snowflakedb/pki-oversight @snowflakedb/Client
