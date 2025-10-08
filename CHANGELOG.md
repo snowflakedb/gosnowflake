@@ -2,7 +2,7 @@
 
 ## 1.18.0 (TBD)
 - Added temporary download files cleanup (snowflakedb/gosnowflake#1577)
-- Fixed a bug where GCP PUT/GET operations would fail when the connection context was cancelled (#1584)
+- Fixed a bug where GCP PUT/GET operations would fail when the connection context was cancelled (snowflakedb/gosnowflake#1584)
 
 ## 1.17.0
 
