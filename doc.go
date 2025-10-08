@@ -69,6 +69,10 @@ The following connection parameters are supported:
     account parameter. For details, see the description of the account
     parameter.
 
+  - --> Important note: for the database object and other objects (schema, role, etc), please always adhere to the rules for Snowflake Object Identifiers; especially https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers.
+    As mentioned in the docs, if you have e.g. a database with mIxEDcAsE naming, as you needed to create it with enclosing it in double quotes, similarly you'll need to reference it
+    also with double quotes when specifying it in the connection string / DSN. In practice, this means you'll need to escape the second pair of double quotes, which are part of the database name, and not the String notation.
+
   - database: Specifies the database to use by default in the client session
     (can be changed after login).
 
@@ -94,22 +98,11 @@ The following connection parameters are supported:
     0 (zero) specifies that the driver should wait indefinitely. The default is 0 seconds.
     The query request gives up after the timeout length if the HTTP response is success.
 
-  - authenticator: Specifies the authenticator to use for authenticating user credentials:
+  - authenticator: Specifies the authenticator to use for authenticating user credentials.
+    See "Authenticator Values" section below for supported values.
 
-  - To use the internal Snowflake authenticator, specify snowflake (Default). If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
-
-  - To use programmatic access tokens, specify programmatic_access_token.
-
-  - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
-
-  - To authenticate using your IDP via a browser, specify externalbrowser.
-
-  - To authenticate via OAuth with token, specify oauth and provide an OAuth Access Token (see the token parameter below).
-
-  - To authenticate via full OAuth flow, specify oauth_authorization_code or oauth_client_credentials and fill relevant parameters (oauthClientId, oauthClientSecret, oauthAuthorizationUrl, oauthTokenRequestUrl, oauthRedirectUri, oauthScope).
-    Specify URLs if you want to use external OAuth2 IdP, otherwise Snowflake will be used as a default IdP.
-    If oauthScope is not configured, the role is used (giving session:role:<roleName> scope).
-    For more information, please reach to official Snowflake documentation.
+  - singleAuthenticationPrompt: specifies whether only one authentication should be performed at the same time for authentications that needs human interactions (like MFA or OAuth authorization code).
+    By default it is true.
 
   - application: Identifies your application to Snowflake Support.
 
@@ -122,9 +115,15 @@ The following connection parameters are supported:
 
   - token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
 
-  - client_session_keep_alive: Set to true have a heartbeat in the background every hour to keep the connection alive
-    such that the connection session will never expire. Care should be taken in using this option as it opens up
-    the access forever as long as the process is alive.
+  - client_session_keep_alive: Set to true have a heartbeat in the background every hour by default or the value of
+    client_session_keep_alive_heartbeat_frequency, if set, to keep the connection alive such that the connection session
+    will never expire. Care should be taken in using this option as it opens up the access forever as long as the process is alive.
+
+  - client_session_keep_alive_heartbeat_frequency: Number of seconds in-between client attempts to update the token for the session.
+    > The default is 3600 seconds
+    > Minimum value is 900 seconds. A smaller value will be reset to 900 seconds.
+    > Maximum value is 3600 seconds. A larger value will be reset to 3600 seconds.
+    > This parameter is only valid if client_session_keep_alive is set to true.
 
   - ocspFailOpen: true by default. Set to false to make OCSP check fail closed mode.
 
@@ -140,22 +139,27 @@ The following connection parameters are supported:
     allow the connection to be established.
     The default is false.
 
-  - crlCacheValidityTime: specifies the validity time of the CRL cache in seconds.
+  - SNOWFLAKE_CRL_CACHE_VALIDITY_TIME (environment variable): specifies the validity time of the CRL cache in seconds.
 
   - crlInMemoryCacheDisabled: set to disable in-memory caching of CRLs.
 
   - crlOnDiskCacheDisabled: set to disable on-disk caching of CRLs (on-disk cache may help with cold starts).
 
-  - crlOnDiskCacheDir: set to customize the directory for on-disk caching of CRLs.
+  - SNOWFLAKE_CRL_ON_DISK_CACHE_DIR (environment variable): set to customize the directory for on-disk caching of CRLs.
 
-  - crlOnDiskCacheRemovalDelay: set the delay (in seconds) for removing the on-disk cache (for debuggability).
+  - SNOWFLAKE_CRL_ON_DISK_CACHE_REMOVAL_DELAY (environment variable): set the delay (in seconds) for removing the on-disk cache (for debuggability).
 
   - crlHTTPClientTimeout: customize the HTTP client timeout for downloading CRLs.
 
-  - crlCacheCleanerTick: set the interval (in seconds) for the CRL cache cleaner to run.
-
   - validateDefaultParameters: true by default. Set to false to disable checks on existence and privileges check for
     Database, Schema, Warehouse and Role when setting up the connection
+
+    --> Important note: with the default true value, the connection will fail as the validation fails, if you specify a non-existent database/schema/etc name.
+    This is particularly important when you have a miXedCaSE-named object (e.g. database) and you forgot to properly double quote it.
+    This behaviour is still preferable as it provides a very clear, fail-fast indication of the configuration error. If you would still like to forego this validation,
+    which ensures that the driver always connects with proper database, schema etc. and creates a proper context for it, you can set this configuration to false to allow connection with invalid object identifiers.
+
+    In this case (with this default validation deliberately turned off) the driver cannot guarantee that the actual behaviour inside the session will match with the one you'd expect, i.e. not actually using the database you expect, and so on.
 
   - tracing: Specifies the logging level to be used. Set to error by default.
     Valid values are trace, debug, info, print, warning, error, fatal, panic.
@@ -185,6 +189,32 @@ Session-level parameters can also be set by using the SQL command "ALTER SESSION
 
 Alternatively, use OpenWithConfig() function to create a database handle with the specified Config.
 
+# Authenticator values
+
+  - To use the internal Snowflake authenticator, specify snowflake (Default).
+
+  - To use programmatic access tokens, specify programmatic_access_token.
+    If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
+
+  - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
+
+  - To authenticate using your IDP via a browser, specify externalbrowser.
+
+  - To authenticate via OAuth with token, specify oauth and provide an OAuth Access Token (see the token parameter below).
+
+  - To authenticate via full OAuth flow, specify oauth_authorization_code or oauth_client_credentials and fill relevant parameters (oauthClientId, oauthClientSecret, oauthAuthorizationUrl, oauthTokenRequestUrl, oauthRedirectUri, oauthScope).
+    Specify URLs if you want to use external OAuth2 IdP, otherwise Snowflake will be used as a default IdP.
+    If oauthScope is not configured, the role is used (giving session:role:<roleName> scope).
+    For more information, please reach to official Snowflake documentation.
+
+  - To authenticate via workload identity, specify workload_identity.
+
+    This option requires workloadIdentityProvider option to be set (AWS, GCP, AZURE, OIDC).
+
+    When workloadIdentityProvider=AZURE, workloadIdentityEntraResource can be optionally set to customize entra resource used to fetch JWT token.
+
+    For more details, refer to the usage guide: https://docs.snowflake.com/en/user-guide/workload-identity-federation
+
 # Connection Config
 
 You can also connect to your warehouse using the connection config. The dbSql library states that when you want to take advantage of driver-specific connection features that aren’t
@@ -213,6 +243,23 @@ or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2
 
 If the connection.toml file is readable by others, a warning will be logged. To disable it you need to set the environment variable `SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE` to true.
 
+It you wish to specify a custom transporter (e.g. to provide a custom TLS config to be used with your custom truststore) pass it through the `NewConnector`. Example:
+
+	tlsConfig := &tls.Config{
+	    // your custom fields here
+	}
+
+	config := Config{
+	    Transporter: &http.Transport{
+	        TLSClientConfig: tlsConfig,
+	    },
+	}
+
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+
+As an alternative, you can use the `RegisterTLSConfig` / `DeregisterTLSConfig` functions as seen in the unit tests: https://github.com/snowflakedb/gosnowflake/blob/v1.16.0/transport_test.go#L127
+
 # Proxy
 
 The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.
@@ -228,6 +275,20 @@ NO_PROXY does not support wildcards. Each value specified should be one of the f
 If more than one value is specified, values should be separated by commas, for example:
 
 	no_proxy=localhost,.my_company.com,xy12345.snowflakecomputing.com,192.168.1.15,192.168.1.16
+
+In addition to environment variables, the Go Snowflake Driver also supports configuring the proxy via connection parameters.
+When these parameters are provided in the connection string or DSN, they take precedence and any environment proxy settings (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) will be ignored.
+
+| Parameter       | Description                                                                 | Default |
+|-----------------|-----------------------------------------------------------------------------|---------|
+| `proxyHost`     | Hostname or IP address of the proxy server.                                 |         |
+| `proxyPort`     | Port number of the proxy server.                                            |         |
+| `proxyUser`     | Username for proxy authentication.                                          |         |
+| `proxyPassword` | Password for proxy authentication.                                          |         |
+| `proxyProtocol` | Protocol to use for proxy connection. Valid values: `http`, `https`.        | `http`  |
+| `NoProxy“       | Comma-separated list of hosts that should bypass the proxy.                 |         |
+
+For more details, please refer to the example in ./cmd/proxyconnection.
 
 # Logging
 
@@ -701,6 +762,15 @@ of the returned value:
 	            fmt.Println(bigIntPtr)
 	    }
 	}
+
+# Using decfloats
+
+By default, DECFLOAT values are returned as string values.
+If you want to retrieve them as numbers, you have to use the WithDecfloatMappingEnabled context.
+If higher precision is enabled, the driver will return them as *big.Float values.
+Otherwise, they will be returned as float64 values.
+Keep in mind that both float64 and *big.Float are not able to precisely represent some DECFLOAT values.
+If precision is important, you have to use string representation and use your own library to parse it.
 
 # Arrow batches
 

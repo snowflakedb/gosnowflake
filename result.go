@@ -60,7 +60,8 @@ func (res *snowflakeResult) GetArrowBatches() ([]*ArrowBatch, error) {
 
 func (res *snowflakeResult) waitForAsyncExecStatus() error {
 	// if async exec, block until execution is finished
-	if res.status == QueryStatusInProgress {
+	switch res.status {
+	case QueryStatusInProgress:
 		err := <-res.errChannel
 		res.status = QueryStatusComplete
 		if err != nil {
@@ -68,10 +69,12 @@ func (res *snowflakeResult) waitForAsyncExecStatus() error {
 			res.err = err
 			return err
 		}
-	} else if res.status == QueryFailed {
+		return nil
+	case QueryFailed:
 		return res.err
+	default:
+		return nil
 	}
-	return nil
 }
 
 type snowflakeResultNoRows struct {

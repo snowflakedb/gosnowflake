@@ -186,12 +186,7 @@ func TestCreateDiagnosticTransport(t *testing.T) {
 	assertNotNilE(t, transport.DialContext, "dialContext should not be nil")
 
 	// by default we should use the SnowflakeTransport
-	assertEqualE(t, transport.TLSClientConfig, SnowflakeTransport.TLSClientConfig, "TLSClientConfig did not match with SnowflakeTransport default")
-	assertEqualE(t, transport.MaxIdleConns, SnowflakeTransport.MaxIdleConns, "MaxIdleConns did not match with SnowflakeTransport default")
-	assertEqualE(t, transport.IdleConnTimeout, SnowflakeTransport.IdleConnTimeout, "IdleConnTimeout did not match with SnowflakeTransport default")
-	if (transport.Proxy == nil) != (SnowflakeTransport.Proxy == nil) {
-		t.Errorf("Proxy function presence should match SnowflakeTransport default")
-	}
+	assertTransportsEqual(t, SnowflakeTransport, transport, "diagnostic transport vs SnowflakeTransport")
 }
 
 func TestOpenAndReadAllowlistJSON(t *testing.T) {
@@ -706,7 +701,6 @@ func TestPerformConnectivityCheck(t *testing.T) {
 }
 
 func TestPerformDiagnosis(t *testing.T) {
-
 	t.Run("Perform Diagnosis - CRL download disabled", func(t *testing.T) {
 		// setup test logger then restore original after test
 		buffer, cleanup := setupTestLogger()
@@ -784,9 +778,11 @@ func TestPerformDiagnosis(t *testing.T) {
 			ConnectionDiagnosticsAllowlistFile: tmpFile.Name(),
 			CertRevocationCheckMode:            CertRevocationCheckAdvisory,
 			ClientTimeout:                      30 * time.Second,
+			DisableOCSPChecks:                  true,
 		}
 		downloadCRLs := config.CertRevocationCheckMode.String() == "ADVISORY"
 		// driver should download CRLs due to ADVISORY CRL mode
+		// Note that there's a log.Fatalf in performDiagnosis that may cause the test to fail.
 		performDiagnosis(config, downloadCRLs)
 
 		// verify expected log messages including CRL download

@@ -8,11 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
@@ -175,112 +175,6 @@ func testDecodeErr(t *testing.T, s string) {
 	}
 }
 
-type mockStreamChunkFetcher struct {
-	chunks map[string][][]*string
-}
-
-func (f *mockStreamChunkFetcher) fetch(url string, stream chan<- []*string) error {
-	for _, row := range f.chunks[url] {
-		stream <- row
-	}
-	return nil
-}
-
-func TestStreamChunkDownloaderFirstRows(t *testing.T) {
-	fetcher := &mockStreamChunkFetcher{}
-	firstRows := generateStreamChunkRows(10, 4)
-	downloader := newStreamChunkDownloader(
-		context.Background(),
-		fetcher,
-		int64(len(firstRows)),
-		[]execResponseRowType{},
-		firstRows,
-		[]execResponseChunk{})
-	if err := downloader.start(); err != nil {
-		t.Fatalf("chunk download start failed. err: %v", err)
-	}
-	for i := 0; i < len(firstRows); i++ {
-		if !downloader.hasNextResultSet() {
-			t.Error("failed to retrieve next result set")
-		}
-		if err := downloader.nextResultSet(); err != nil {
-			t.Fatalf("failed to retrieve data. err: %v", err)
-		}
-		row, err := downloader.next()
-		if err != nil {
-			t.Fatalf("failed to retrieve data. err: %v", err)
-		}
-		assertEqualRows(firstRows[i], row)
-	}
-	row, err := downloader.next()
-	if !assertEmptyChunkRow(row) {
-		t.Fatal("row should be empty")
-	}
-	if err != io.EOF {
-		t.Fatalf("failed to finish getting data. err: %v", err)
-	}
-	if downloader.hasNextResultSet() {
-		t.Error("downloader has next result set. expected none.")
-	}
-	if downloader.nextResultSet() != io.EOF {
-		t.Fatalf("failed to finish getting data. err: %v", err)
-	}
-}
-
-func TestStreamChunkDownloaderChunks(t *testing.T) {
-	chunks, responseChunks := generateStreamChunkDownloaderChunks([]string{"foo", "bar"}, 4, 4)
-	fetcher := &mockStreamChunkFetcher{chunks}
-	firstRows := generateStreamChunkRows(2, 4)
-	downloader := newStreamChunkDownloader(
-		context.Background(),
-		fetcher,
-		int64(len(firstRows)),
-		[]execResponseRowType{},
-		firstRows,
-		responseChunks)
-	if err := downloader.start(); err != nil {
-		t.Fatalf("chunk download start failed. err: %v", err)
-	}
-	for i := 0; i < len(firstRows); i++ {
-		if !downloader.hasNextResultSet() {
-			t.Error("failed to retrieve next result set")
-		}
-		if err := downloader.nextResultSet(); err != nil {
-			t.Fatalf("failed to retrieve data. err: %v", err)
-		}
-		row, err := downloader.next()
-		if err != nil {
-			t.Fatalf("failed to retrieve data. err: %v", err)
-		}
-		assertEqualRows(firstRows[i], row)
-	}
-	for _, chunk := range responseChunks {
-		for _, chunkRow := range chunks[chunk.URL] {
-			if !downloader.hasNextResultSet() {
-				t.Error("failed to retrieve next result set")
-			}
-			row, err := downloader.next()
-			if err != nil {
-				t.Fatalf("failed to retrieve data. err: %v", err)
-			}
-			assertEqualRows(chunkRow, row)
-		}
-	}
-	row, err := downloader.next()
-	if !assertEmptyChunkRow(row) {
-		t.Fatal("row should be empty")
-	}
-	if err != io.EOF {
-		t.Fatalf("failed to finish getting data. err: %v", err)
-	}
-	if downloader.hasNextResultSet() {
-		t.Error("downloader has next result set. expected none.")
-	}
-	if downloader.nextResultSet() != io.EOF {
-		t.Fatalf("failed to finish getting data. err: %v", err)
-	}
-}
-
 func TestCopyChunkStream(t *testing.T) {
 	foo := "foo"
 	bar := "bar"
@@ -319,30 +213,6 @@ func TestCopyChunkStreamInvalid(t *testing.T) {
 	}
 }
 
-func generateStreamChunkDownloaderChunks(urls []string, numRows, numCols int) (map[string][][]*string, []execResponseChunk) {
-	chunks := map[string][][]*string{}
-	var responseChunks []execResponseChunk
-	for _, url := range urls {
-		rows := generateStreamChunkRows(numRows, numCols)
-		chunks[url] = rows
-		responseChunks = append(responseChunks, execResponseChunk{url, len(rows), -1, -1})
-	}
-	return chunks, responseChunks
-}
-
-func generateStreamChunkRows(numRows, numCols int) [][]*string {
-	var rows [][]*string
-	for i := 0; i < numRows; i++ {
-		var cols []*string
-		for j := 0; j < numCols; j++ {
-			col := fmt.Sprintf("%d", rand.Intn(1000))
-			cols = append(cols, &col)
-		}
-		rows = append(rows, cols)
-	}
-	return rows
-}
-
 func assertEqualRows(expected []*string, actual interface{}) bool {
 	switch v := actual.(type) {
 	case chunkRowType:
@@ -361,10 +231,6 @@ func assertEqualRows(expected []*string, actual interface{}) bool {
 		return len(expected) == len(v)
 	}
 	return false
-}
-
-func assertEmptyChunkRow(row chunkRowType) bool {
-	return assertEqualRows(make([]*string, len(row.RowSet)), row)
 }
 
 func TestWithStreamDownloader(t *testing.T) {
@@ -391,6 +257,30 @@ func TestWithStreamDownloader(t *testing.T) {
 		if cnt != numrows {
 			t.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
 		}
+	})
+}
+
+func TestWithStreamDownloaderMultistatementLargeResultSet(t *testing.T) {
+	ctx, err := WithMultiStatement(WithStreamDownloader(context.Background()), 2)
+	assertNilF(t, err)
+	numrows := 1000000
+	cnt := 0
+	var v string
+
+	runDBTest(t, func(dbt *DBTest) {
+		rows := dbt.mustQueryContext(ctx, fmt.Sprintf("SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT=>%v));SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT=>%v))", numrows, numrows))
+		defer rows.Close()
+
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = rows.NextResultSet() {
+			// Next() will block and wait until results are available
+			for rows.Next() {
+				rows.mustScan(&v)
+				assertEqualE(t, v, "abc")
+				cnt++
+			}
+		}
+
+		assertEqualE(t, cnt, numrows*2)
 	})
 }
 
@@ -568,15 +458,114 @@ func testWithArrowBatchesButReturningJSON(t *testing.T, async bool) {
 	})
 }
 
+func TestWithArrowBatchesMultistatement(t *testing.T) {
+	testWithArrowBatchesMultistatement(t, false)
+}
+
+func TestWithArrowBatchesMultistatementAsync(t *testing.T) {
+	testWithArrowBatchesMultistatement(t, true)
+}
+
+func testWithArrowBatchesMultistatement(t *testing.T, async bool) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx, err := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
+		if async {
+			ctx = WithAsyncMode(ctx)
+		}
+		assertNilF(t, err)
+		driverRows := sct.mustQueryContext(ctx, "SELECT 'abc' UNION SELECT 'def' ORDER BY 1; SELECT 'ghi' UNION SELECT 'jkl' ORDER BY 1", nil)
+		defer driverRows.Close()
+		sfRows := driverRows.(SnowflakeRows)
+		expectedResults := [][]string{{"abc", "def"}, {"ghi", "jkl"}}
+		resultSetIdx := 0
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = sfRows.NextResultSet() != io.EOF {
+			batches, err := sfRows.GetArrowBatches()
+			assertNilF(t, err)
+			assertEqualF(t, len(batches), 1)
+			batch := batches[0]
+			records, err := batch.Fetch()
+			assertNilF(t, err)
+			assertEqualF(t, len(*records), 1)
+			record := (*records)[0]
+			defer record.Release()
+			assertEqualF(t, record.Column(0).(*array.String).Value(0), expectedResults[resultSetIdx][0])
+			assertEqualF(t, record.Column(0).(*array.String).Value(1), expectedResults[resultSetIdx][1])
+			resultSetIdx++
+		}
+		assertEqualF(t, resultSetIdx, len(expectedResults))
+		err = sfRows.NextResultSet()
+		assertErrIsE(t, err, io.EOF)
+	})
+}
+
+func TestWithArrowBatchesMultistatementWithJSONResponse(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec(forceJSON, nil)
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx, err := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
+		assertNilF(t, err)
+		driverRows := sct.mustQueryContext(ctx, "SELECT 'abc' UNION SELECT 'def' ORDER BY 1; SELECT 'ghi' UNION SELECT 'jkl' ORDER BY 1", nil)
+		defer driverRows.Close()
+		sfRows := driverRows.(SnowflakeRows)
+		resultSetIdx := 0
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = sfRows.NextResultSet() != io.EOF {
+			_, err := sfRows.GetArrowBatches()
+			assertNotNilF(t, err)
+			var se *SnowflakeError
+			assertTrueF(t, errors.As(err, &se))
+			assertEqualE(t, se.Number, ErrNonArrowResponseInArrowBatches)
+			assertEqualE(t, se.Message, errMsgNonArrowResponseInArrowBatches)
+			resultSetIdx++
+		}
+		assertEqualF(t, resultSetIdx, 2)
+		err = sfRows.NextResultSet()
+		assertErrIsE(t, err, io.EOF)
+	})
+}
+
+func TestWithArrowBatchesMultistatementWithLargeResultSet(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
+		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer pool.AssertSize(t, 0)
+		ctx, err := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
+		assertNilF(t, err)
+		driverRows := sct.mustQueryContext(ctx, "SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000))", nil)
+		defer driverRows.Close()
+		sfRows := driverRows.(SnowflakeRows)
+		rowCount := 0
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = sfRows.NextResultSet() != io.EOF {
+			batches, err := sfRows.GetArrowBatches()
+			assertNilF(t, err)
+			assertTrueF(t, len(batches) > 1)
+			for _, batch := range batches {
+				records, err := batch.Fetch()
+				assertNilF(t, err)
+				for _, record := range *records {
+					defer record.Release()
+					for i := 0; i < int(record.NumRows()); i++ {
+						assertEqualF(t, record.Column(0).(*array.String).Value(i), "abc")
+						rowCount++
+					}
+				}
+			}
+		}
+		err = sfRows.NextResultSet()
+		assertErrIsE(t, err, io.EOF)
+	})
+}
+
 func TestQueryArrowStream(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		numrows := 50000 // approximately 10 ArrowBatch objects
 
 		query := fmt.Sprintf(selectRandomGenerator, numrows)
 		loader, err := sct.sc.QueryArrowStream(sct.sc.ctx, query)
-		if err != nil {
-			t.Error(err)
-		}
+		assertNilF(t, err)
 
 		if loader.TotalRows() != int64(numrows) {
 			t.Errorf("total numrows did not match expected, wanted %v, got %v", numrows, loader.TotalRows())
@@ -704,5 +693,138 @@ func TestRetainChunkWOHighPrecision(t *testing.T) {
 
 		int8Val := column.Value(0)
 		assertEqualF(t, int8Val, int8(0), "value of cell should be 0")
+	})
+}
+
+func TestQueryArrowStreamMultiStatement(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
+		ctx, err := WithMultiStatement(ctx, 2)
+		assertNilF(t, err)
+		loader, err := sct.sc.QueryArrowStream(ctx, "SELECT 'abc'; SELECT 'abc' UNION SELECT 'def' ORDER BY 1")
+		assertNilF(t, err)
+
+		for i := 0; i < 2; i++ {
+			if i == 0 {
+				assertEqualE(t, loader.TotalRows(), int64(1))
+			} else {
+				assertEqualE(t, loader.TotalRows(), int64(2))
+			}
+			batches, err := loader.GetBatches()
+			assertNilF(t, err)
+
+			stream, err := batches[0].GetStream(context.Background())
+			assertNilF(t, err)
+			r, err := ipc.NewReader(stream, ipc.WithAllocator(mem))
+			assertNilF(t, err)
+			defer r.Release()
+			assertTrueF(t, r.Next())
+			rec := r.Record()
+			if i == 0 {
+				assertEqualF(t, rec.NumRows(), int64(1))
+				assertEqualF(t, rec.Column(0).(*array.String).Value(0), "abc")
+			} else {
+				assertEqualF(t, rec.NumRows(), int64(2))
+				assertEqualF(t, rec.Column(0).(*array.String).Value(0), "abc")
+				assertEqualF(t, rec.Column(0).(*array.String).Value(1), "def")
+			}
+			assertFalseF(t, r.Next())
+			if i == 0 {
+				assertNilF(t, loader.NextResultSet(context.Background()))
+			} else {
+				assertErrIsF(t, loader.NextResultSet(context.Background()), io.EOF)
+			}
+		}
+		assertErrIsF(t, loader.NextResultSet(context.Background()), io.EOF)
+	})
+}
+
+func TestQueryArrowStreamMultiStatementForJSONData(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		sct.mustExec(forceJSON, nil)
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
+		ctx, err := WithMultiStatement(ctx, 2)
+		assertNilF(t, err)
+		loader, err := sct.sc.QueryArrowStream(ctx, "SELECT 'abc'; SELECT 'abc' UNION SELECT 'def' ORDER BY 1")
+		assertNilF(t, err)
+
+		assertEqualE(t, loader.TotalRows(), int64(1))
+		jsonData1 := loader.JSONData()
+		assertEqualF(t, len(jsonData1), 1)
+		assertEqualF(t, len(jsonData1[0]), 1)
+		assertEqualF(t, *jsonData1[0][0], "abc")
+		assertNilF(t, loader.NextResultSet(context.Background()))
+		assertEqualE(t, loader.TotalRows(), int64(2))
+		jsonData2 := loader.JSONData()
+		assertEqualF(t, len(jsonData2), 2)
+		assertEqualF(t, len(jsonData2[0]), 1)
+		assertEqualF(t, len(jsonData2[1]), 1)
+		assertEqualF(t, *jsonData2[0][0], "abc")
+		assertEqualF(t, *jsonData2[1][0], "def")
+		assertErrIsF(t, loader.NextResultSet(context.Background()), io.EOF)
+	})
+}
+
+func TestQueryArrowStreamMultiStatementLargeResultset(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		rowsCount := 1000000
+		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
+		ctx, err := WithMultiStatement(ctx, 2)
+		assertNilF(t, err)
+		query := fmt.Sprintf("SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => %v)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => %v))", rowsCount, rowsCount)
+		loader, err := sct.sc.QueryArrowStream(ctx, query)
+		assertNilF(t, err)
+
+		countFromNumRows := 0
+		countFromData := 0
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = loader.NextResultSet(context.Background()) != io.EOF {
+			assertEqualE(t, loader.TotalRows(), int64(rowsCount))
+			batches, err := loader.GetBatches()
+			assertNilF(t, err)
+
+			for _, batch := range batches {
+				stream, err := batch.GetStream(context.Background())
+				assertNilF(t, err)
+				r, err := ipc.NewReader(stream, ipc.WithAllocator(mem))
+				assertNilF(t, err)
+				defer r.Release()
+				for r.Next() {
+					rec := r.Record()
+					countFromNumRows += int(rec.NumRows())
+					countFromData += rec.Column(0).Len()
+					assertEqualE(t, rec.Column(0).(*array.String).Value(0), "abc") // check just random value
+				}
+			}
+		}
+		assertErrIsF(t, loader.NextResultSet(context.Background()), io.EOF)
+		assertEqualE(t, countFromNumRows, rowsCount*2)
+		assertEqualE(t, countFromData, rowsCount*2)
+	})
+}
+
+func TestQueryArrowStreamMultiStatementWithTimeout(t *testing.T) {
+	runSnowflakeConnTest(t, func(sct *SCTest) {
+		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+		defer mem.AssertSize(t, 0)
+		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
+		ctx, err := WithMultiStatement(ctx, 2)
+		assertNilF(t, err)
+		loader, err := sct.sc.QueryArrowStream(ctx, "SELECT 'abc'; SELECT 'abc'") // SYSTEM$WAIT does not wait in multistatements
+		assertNilF(t, err)
+
+		assertEqualE(t, loader.TotalRows(), int64(1))
+		timeoutCtx, cancelFunc := context.WithTimeout(context.Background(), time.Millisecond)
+		defer cancelFunc()
+		err = loader.NextResultSet(timeoutCtx)
+		assertNotNilF(t, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
 	})
 }

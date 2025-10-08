@@ -45,7 +45,7 @@ func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bo
 	if err != nil {
 		return nil, err
 	}
-	transport, err := getTransport(util.cfg, telemetry)
+	transport, err := newTransportFactory(util.cfg, telemetry).createTransport()
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,11 @@ func (util *snowflakeAzureClient) uploadFile(
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			if err = f.Close(); err != nil {
+				logger.Warnf("failed to close the %v file: %v", dataFile, err)
+			}
+		}()
 
 		contentType := "application/octet-stream"
 		contentEncoding := "utf-8"
@@ -261,7 +265,8 @@ func (util *snowflakeAzureClient) uploadFile(
 func (util *snowflakeAzureClient) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
-	maxConcurrency int64) error {
+	maxConcurrency int64,
+	partSize int64) error {
 	azureLoc, err := util.extractContainerNameAndPath(meta.stageInfo.Location)
 	if err != nil {
 		return err
@@ -293,7 +298,11 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 			return err
 		}
 		retryReader := blobDownloadResponse.NewRetryReader(context.Background(), &azblob.RetryReaderOptions{})
-		defer retryReader.Close()
+		defer func() {
+			if err = retryReader.Close(); err != nil {
+				logger.Warnf("failed to close the Azure reader: %v", err)
+			}
+		}()
 		_, err = meta.dstStream.ReadFrom(retryReader)
 		if err != nil {
 			return err
@@ -303,11 +312,17 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			if err = f.Close(); err != nil {
+				logger.Warnf("failed to close the %v file: %v", fullDstFileName, err)
+			}
+		}()
 		_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
 			return blobClient.DownloadFile(
 				ctx, f, &azblob.DownloadFileOptions{
-					Concurrency: uint16(maxConcurrency)})
+					Concurrency: uint16(maxConcurrency),
+					BlockSize:   int64Max(partSize, blob.DefaultDownloadBlockSize),
+				})
 		})
 		if err != nil {
 			return err
@@ -349,7 +364,7 @@ func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Respons
 }
 
 func createContainerClient(clientURL string, cfg *Config, telemetry *snowflakeTelemetry) (*container.Client, error) {
-	transport, err := getTransport(cfg, telemetry)
+	transport, err := newTransportFactory(cfg, telemetry).createTransport()
 	if err != nil {
 		return nil, err
 	}

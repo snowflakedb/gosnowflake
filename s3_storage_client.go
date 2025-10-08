@@ -50,7 +50,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
 	endPoint := getS3CustomEndpoint(info)
 
-	transport, err := getTransport(util.cfg, telemetry)
+	transport, err := newTransportFactory(util.cfg, telemetry).createTransport()
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +270,8 @@ type s3DownloadAPI interface {
 func (util *snowflakeS3Client) nativeDownloadFile(
 	meta *fileMetadata,
 	fullDstFileName string,
-	maxConcurrency int64) error {
+	maxConcurrency int64,
+	partSize int64) error {
 	s3Obj, _ := util.getS3Object(meta, meta.srcFileName)
 	client, ok := meta.client.(*s3.Client)
 	if !ok {
@@ -283,10 +284,15 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err = f.Close(); err != nil {
+			logger.Warnf("failed to close %v file: %v", fullDstFileName, err)
+		}
+	}()
 	var downloader s3DownloadAPI
 	downloader = manager.NewDownloader(client, func(u *manager.Downloader) {
 		u.Concurrency = int(maxConcurrency)
+		u.PartSize = int64Max(partSize, manager.DefaultDownloadPartSize)
 	})
 	// for testing only
 	if meta.mockDownloader != nil {

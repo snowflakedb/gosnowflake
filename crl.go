@@ -1,23 +1,23 @@
 package gosnowflake
 
 import (
-	"cmp"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 )
+
+const snowflakeCrlCacheValidityTimeEnv = "SNOWFLAKE_CRL_CACHE_VALIDITY_TIME"
 
 var idpOID = asn1.ObjectIdentifier{2, 5, 29, 28}
 
@@ -32,15 +32,19 @@ type issuingDistributionPoint struct {
 type crlValidator struct {
 	certRevocationCheckMode        CertRevocationCheckMode
 	allowCertificatesWithoutCrlURL bool
-	cacheValidityTime              time.Duration
 	inMemoryCacheDisabled          bool
 	onDiskCacheDisabled            bool
-	onDiskCacheDir                 string
-	onDiskCacheRemovalDelay        time.Duration
 	httpClient                     *http.Client
-	cleanupStopChan                chan struct{}
-	cleanupDoneChan                chan struct{}
 	telemetry                      *snowflakeTelemetry
+}
+
+type crlCacheCleanerType struct {
+	mu                      sync.Mutex
+	cacheValidityTime       time.Duration
+	onDiskCacheRemovalDelay time.Duration
+	onDiskCacheDir          string
+	cleanupStopChan         chan struct{}
+	cleanupDoneChan         chan struct{}
 }
 
 type crlInMemoryCacheValueType struct {
@@ -49,38 +53,71 @@ type crlInMemoryCacheValueType struct {
 }
 
 var (
-	crlInMemoryCache      = make(map[string]*crlInMemoryCacheValueType)
-	crlInMemoryCacheMutex = &sync.Mutex{}
-	crlURLMutexes         = make(map[string]*sync.Mutex)
+	crlCacheCleanerTickRate = time.Hour
+	crlInMemoryCache        = make(map[string]*crlInMemoryCacheValueType)
+	crlInMemoryCacheMutex   = &sync.Mutex{}
+	crlURLMutexes           = make(map[string]*sync.Mutex)
+	crlCacheCleanerMu       = &sync.Mutex{}
+	crlCacheCleaner         *crlCacheCleanerType
 )
 
-func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, cacheValidityTime time.Duration, inMemoryCacheDisabled, onDiskCacheDisabled bool, onDiskCacheDir string, onDiskCacheRemovalDelay time.Duration, httpClient *http.Client, telemetry *snowflakeTelemetry) (*crlValidator, error) {
-	var err error
-	cacheValidityTime = cmp.Or(cacheValidityTime, 24*time.Hour)
-	onDiskCacheRemovalDelay = cmp.Or(onDiskCacheRemovalDelay, 7*24*time.Hour)
-	if onDiskCacheDir == "" {
-		onDiskCacheDir, err = defaultCrlOnDiskCacheDir()
-		if err != nil {
-			return nil, err
-		}
-	}
+func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, inMemoryCacheDisabled, onDiskCacheDisabled bool, httpClient *http.Client, telemetry *snowflakeTelemetry) (*crlValidator, error) {
+	initCrlCacheCleaner()
 	cv := &crlValidator{
 		certRevocationCheckMode:        certRevocationCheckMode,
 		allowCertificatesWithoutCrlURL: allowCertificatesWithoutCrlURL,
-		cacheValidityTime:              cmp.Or(cacheValidityTime, defaultCrlCacheValidityTime),
 		inMemoryCacheDisabled:          inMemoryCacheDisabled,
 		onDiskCacheDisabled:            onDiskCacheDisabled,
-		onDiskCacheDir:                 onDiskCacheDir,
-		onDiskCacheRemovalDelay:        onDiskCacheRemovalDelay,
 		httpClient:                     httpClient,
-		cleanupStopChan:                make(chan struct{}),
-		cleanupDoneChan:                make(chan struct{}),
 		telemetry:                      telemetry,
 	}
-	if err = os.MkdirAll(cv.onDiskCacheDir, 0755); err != nil {
-		return nil, err
-	}
 	return cv, nil
+}
+
+func initCrlCacheCleaner() {
+	crlCacheCleanerMu.Lock()
+	defer crlCacheCleanerMu.Unlock()
+	if crlCacheCleaner != nil {
+		return
+	}
+	var err error
+	validityTime := defaultCrlCacheValidityTime
+	if validityTimeStr := os.Getenv(snowflakeCrlCacheValidityTimeEnv); validityTimeStr != "" {
+		if validityTime, err = time.ParseDuration(os.Getenv(snowflakeCrlCacheValidityTimeEnv)); err != nil {
+			logger.Infof("failed to parse %v: %v, using default value %v", snowflakeCrlCacheValidityTimeEnv, err, defaultCrlCacheValidityTime)
+			validityTime = defaultCrlCacheValidityTime
+		}
+	}
+
+	onDiskCacheRemovalDelay := defaultCrlOnDiskCacheRemovalDelay
+	if onDiskCacheRemovalDelayStr := os.Getenv("SNOWFLAKE_CRL_ON_DISK_CACHE_REMOVAL_DELAY"); onDiskCacheRemovalDelayStr != "" {
+		if onDiskCacheRemovalDelay, err = time.ParseDuration(onDiskCacheRemovalDelayStr); err != nil {
+			logger.Infof("failed to parse SNOWFLAKE_CRL_ON_DISK_CACHE_REMOVAL_DELAY: %v, using default value %v", err, defaultCrlOnDiskCacheRemovalDelay)
+			onDiskCacheRemovalDelay = defaultCrlOnDiskCacheRemovalDelay
+		}
+	}
+
+	onDiskCacheDir := os.Getenv("SNOWFLAKE_CRL_ON_DISK_CACHE_DIR")
+	if onDiskCacheDir == "" {
+		if onDiskCacheDir, err = defaultCrlOnDiskCacheDir(); err != nil {
+			logger.Infof("failed to get default CRL on-disk cache directory: %v", err)
+			onDiskCacheDir = "" // it will work only if on-disk cache is disabled
+		}
+	}
+	if onDiskCacheDir != "" {
+		if err = os.MkdirAll(onDiskCacheDir, 0755); err != nil {
+			logger.Errorf("error while preparing cache dir for CRLs: %v", err)
+		}
+	}
+
+	crlCacheCleaner = &crlCacheCleanerType{
+		cacheValidityTime:       validityTime,
+		onDiskCacheRemovalDelay: onDiskCacheRemovalDelay,
+		onDiskCacheDir:          onDiskCacheDir,
+		cleanupStopChan:         nil,
+		cleanupDoneChan:         nil,
+	}
+
 }
 
 // CertRevocationCheckMode defines the modes for certificate revocation checks.
@@ -138,32 +175,10 @@ const (
 )
 
 const (
-	defaultCrlHTTPClientTimeout = 10 * time.Second
-	defaultCrlCacheValidityTime = 24 * time.Hour
-	defaultCrlCacheCleanerTick  = time.Hour
+	defaultCrlHTTPClientTimeout       = 10 * time.Second
+	defaultCrlCacheValidityTime       = 24 * time.Hour
+	defaultCrlOnDiskCacheRemovalDelay = 7 * time.Hour
 )
-
-func createCrlTransport(cfg *Config, telemetry *snowflakeTelemetry) (*http.Transport, *crlValidator, error) {
-	allowCertificatesWithoutCrlURL := cfg.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
-	client := &http.Client{
-		Timeout: cmp.Or(cfg.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
-	}
-	crlValidator, err := newCrlValidator(cfg.CertRevocationCheckMode, allowCertificatesWithoutCrlURL, cfg.CrlCacheValidityTime, cfg.CrlInMemoryCacheDisabled, cfg.CrlOnDiskCacheDisabled, cfg.CrlOnDiskCacheDir, cfg.CrlOnDiskCacheRemovalDelay, client, telemetry)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &http.Transport{
-		TLSClientConfig: &tls.Config{
-			VerifyPeerCertificate: crlValidator.verifyPeerCertificates,
-		},
-		MaxIdleConns:    5,
-		IdleConnTimeout: 5 * time.Minute,
-		Proxy:           http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout: 5 * time.Second,
-		}).DialContext,
-	}, crlValidator, nil
-}
 
 func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 	if cv.certRevocationCheckMode == CertRevocationCheckDisabled {
@@ -247,11 +262,16 @@ func (cv *crlValidator) validateChains(chains [][]*x509.Certificate) []crlValida
 }
 
 func (cv *crlValidator) validateCertificate(cert *x509.Certificate, parent *x509.Certificate) certValidationResult {
+	var results []certValidationResult
 	for _, crlURL := range cert.CRLDistributionPoints {
 		result := cv.validateCrlAgainstCrlURL(cert, crlURL, parent)
-		if result == certRevoked || result == certError {
+		if result == certRevoked {
 			return result
 		}
+		results = append(results, result)
+	}
+	if slices.Contains(results, certError) {
+		return certError
 	}
 	return certUnrevoked
 }
@@ -264,7 +284,7 @@ func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlURL 
 	defer mu.Unlock()
 
 	crl, downloadTime := cv.getFromCache(crlURL)
-	needsFreshCrl := crl == nil || crl.NextUpdate.Before(now) || downloadTime.Add(cv.cacheValidityTime).Before(now)
+	needsFreshCrl := crl == nil || crl.NextUpdate.Before(now) || downloadTime.Add(crlCacheCleaner.cacheValidityTime).Before(now)
 	shouldUpdateCrl := false
 
 	if needsFreshCrl {
@@ -426,7 +446,11 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 	if err != nil {
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.Warnf("failed to close response body for CRL downloaded from %v: %v", crlURL, err)
+		}
+	}()
 	if resp.StatusCode >= 400 {
 		return nil, nil, fmt.Errorf("failed to download CRL from %v, status code: %v", crlURL, resp.StatusCode)
 	}
@@ -452,7 +476,7 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 
 func (cv *crlValidator) crlURLToPath(crlURL string) string {
 	// Convert CRL URL to a file path, e.g., by replacing slashes with underscores
-	return filepath.Join(cv.onDiskCacheDir, url.QueryEscape(crlURL))
+	return filepath.Join(crlCacheCleaner.onDiskCacheDir, url.QueryEscape(crlURL))
 }
 
 func (cv *crlValidator) verifyAgainstIdpExtension(crl *x509.RevocationList, distributionPoint string) error {
@@ -502,45 +526,53 @@ func isShortLivedCertificate(cert *x509.Certificate) bool {
 	return maximumValidityPeriod > certValidityPeriod
 }
 
-func (cv *crlValidator) startPeriodicCacheCleanup(tickRate time.Duration) {
-	tickRate = cmp.Or(tickRate, defaultCrlCacheCleanerTick)
-	logger.Debugf("starting periodic CRL cache cleanup with tick rate %v", tickRate)
-	cv.cleanupStopChan = make(chan struct{})
-	cv.cleanupDoneChan = make(chan struct{})
+func (ccc *crlCacheCleanerType) startPeriodicCacheCleanup() {
+	ccc.mu.Lock()
+	defer ccc.mu.Unlock()
+	if ccc.cleanupStopChan != nil {
+		logger.Debug("CRL cache cleaner is already running, not starting again")
+		return
+	}
+	logger.Debugf("starting periodic CRL cache cleanup with tick rate %v", crlCacheCleanerTickRate)
+	ccc.cleanupStopChan = make(chan struct{})
+	ccc.cleanupDoneChan = make(chan struct{})
 	go func() {
-		ticker := time.NewTicker(tickRate)
+		ticker := time.NewTicker(crlCacheCleanerTickRate)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				cv.cleanupInMemoryCache()
-				cv.cleanupOnDiskCache()
-			case <-cv.cleanupStopChan:
-				close(cv.cleanupDoneChan)
+				ccc.cleanupInMemoryCache()
+				ccc.cleanupOnDiskCache()
+			case <-ccc.cleanupStopChan:
+				close(ccc.cleanupDoneChan)
 				return
 			}
 		}
 	}()
 }
 
-func (cv *crlValidator) stopPeriodicCacheCleanup() {
+func (ccc *crlCacheCleanerType) stopPeriodicCacheCleanup() {
+	ccc.mu.Lock()
+	defer ccc.mu.Unlock()
 	logger.Debug("stopping periodic CRL cache cleanup")
-	if cv.cleanupStopChan != nil {
-		close(cv.cleanupStopChan)
-		<-cv.cleanupDoneChan
+	if ccc.cleanupStopChan != nil {
+		close(ccc.cleanupStopChan)
+		<-ccc.cleanupDoneChan
+		ccc.cleanupStopChan = nil
+		ccc.cleanupDoneChan = nil
+	} else {
+		logger.Debugf("CRL cache cleaner was not running, nothing to stop")
 	}
 }
 
-func (cv *crlValidator) cleanupInMemoryCache() {
-	if cv.inMemoryCacheDisabled {
-		return
-	}
+func (ccc *crlCacheCleanerType) cleanupInMemoryCache() {
 	now := time.Now()
 	logger.Debugf("cleaning up in-memory CRL cache at %v", now)
 	crlInMemoryCacheMutex.Lock()
 	for k, v := range crlInMemoryCache {
 		expired := v.crl.NextUpdate.Before(now)
-		evicted := v.downloadTime.Add(cv.cacheValidityTime).Before(now)
+		evicted := v.downloadTime.Add(ccc.cacheValidityTime).Before(now)
 		logger.Debugf("testing CRL for %v (nextUpdate=%v, downloadTime=%v) from in-memory cache (expired: %v, evicted: %v)", k, v.crl.NextUpdate, v.downloadTime, expired, evicted)
 		if expired || evicted {
 			delete(crlInMemoryCache, k)
@@ -549,13 +581,10 @@ func (cv *crlValidator) cleanupInMemoryCache() {
 	crlInMemoryCacheMutex.Unlock()
 }
 
-func (cv *crlValidator) cleanupOnDiskCache() {
-	if cv.onDiskCacheDisabled {
-		return
-	}
+func (ccc *crlCacheCleanerType) cleanupOnDiskCache() {
 	now := time.Now()
 	logger.Debugf("cleaning up on-disk CRL cache at %v", now)
-	entries, err := os.ReadDir(cv.onDiskCacheDir)
+	entries, err := os.ReadDir(ccc.onDiskCacheDir)
 	if err != nil {
 		logger.Warnf("failed to read CRL cache dir: %v", err)
 		return
@@ -564,7 +593,7 @@ func (cv *crlValidator) cleanupOnDiskCache() {
 		if !entry.Type().IsRegular() {
 			continue
 		}
-		path := filepath.Join(cv.onDiskCacheDir, entry.Name())
+		path := filepath.Join(ccc.onDiskCacheDir, entry.Name())
 		crlBytes, err := os.ReadFile(path)
 		if err != nil {
 			logger.Warnf("failed to read CRL file %v: %v", path, err)
@@ -575,7 +604,7 @@ func (cv *crlValidator) cleanupOnDiskCache() {
 			logger.Warnf("failed to parse CRL file %v: %v", path, err)
 			continue
 		}
-		if crl.NextUpdate.Add(cv.onDiskCacheRemovalDelay).Before(now) {
+		if crl.NextUpdate.Add(ccc.onDiskCacheRemovalDelay).Before(now) {
 			logger.Debugf("CRL file %v is expired, removing", path)
 			if err := os.Remove(path); err != nil {
 				logger.Warnf("failed to remove expired CRL file %v: %v", path, err)
@@ -597,7 +626,7 @@ func defaultCrlOnDiskCacheDir() (string, error) {
 	default:
 		home := os.Getenv("HOME")
 		if home == "" {
-			logger.Info("HOME is blank")
+			return "", errors.New("HOME is blank")
 		}
 		return filepath.Join(home, ".cache", "snowflake", "crls"), nil
 	}

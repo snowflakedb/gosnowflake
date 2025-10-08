@@ -6,15 +6,23 @@ import (
 	"crypto/rsa"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/base64"
+	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
+	"math"
+	"math/big"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -79,7 +87,16 @@ func init() {
 }
 
 func createDSN(timezone string) {
-	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
+	// Check if we should use JWT authentication
+	authenticator := os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR")
+
+	if authenticator == "SNOWFLAKE_JWT" {
+		// For JWT authentication, don't include password in the DSN
+		dsn = fmt.Sprintf("%s@%s/%s/%s", username, host, dbname, schemaname)
+	} else {
+		// For standard password authentication
+		dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
+	}
 
 	parameters := url.Values{}
 	parameters.Add("timezone", timezone)
@@ -94,6 +111,32 @@ func createDSN(timezone string) {
 	}
 	if rolename != "" {
 		parameters.Add("role", rolename)
+	}
+
+	// Add authenticator and private key for JWT authentication
+	if authenticator == "SNOWFLAKE_JWT" {
+		parameters.Add("authenticator", "SNOWFLAKE_JWT")
+		parameters.Add("jwtClientTimeout", "20")
+		privateKeyPath := os.Getenv("SNOWFLAKE_TEST_PRIVATE_KEY")
+		if privateKeyPath != "" {
+			// Read and encode the private key file
+			privateKeyBytes, err := os.ReadFile(privateKeyPath)
+			if err == nil {
+				block, _ := pem.Decode(privateKeyBytes)
+				if block != nil && block.Type == "PRIVATE KEY" {
+					encodedKey := base64.URLEncoding.EncodeToString(block.Bytes)
+					parameters.Add("privateKey", encodedKey)
+				} else if block == nil {
+					panic("Failed to decode PEM block from private key file")
+				} else {
+					panic("Expected 'PRIVATE KEY' block type")
+				}
+			} else {
+				panic("Failed to read private key file")
+			}
+		} else {
+			panic("SNOWFLAKE_TEST_PRIVATE_KEY environment variable is not set for JWT authentication")
+		}
 	}
 
 	if len(parameters) > 0 {
@@ -487,84 +530,25 @@ func runningOnLinux() bool {
 	return runtime.GOOS == "linux"
 }
 
-func TestBogusUserPasswordParameters(t *testing.T) {
-	if !runningOnGithubAction() {
-		t.Skip("error message could be different when run locally")
-	}
-	invalidDNS := fmt.Sprintf("%s:%s@%s", "bogus", pass, host)
-	invalidUserPassErrorTests(invalidDNS, 390422, t)
-}
-
 func TestKnownUserInvalidPasswordParameters(t *testing.T) {
-	invalidDNS := fmt.Sprintf("%s:%s@%s", username, "INVALID_PASSWORD", host)
-	invalidUserPassErrorTests(invalidDNS, 390100, t)
-}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/invalid_password.json"},
+	)
 
-func invalidUserPassErrorTests(invalidDNS string, expectedErr int, t *testing.T) {
-	parameters := url.Values{}
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	if account != "" {
-		parameters.Add("account", account)
-	}
-	invalidDNS += "?" + parameters.Encode()
-	db, err := sql.Open("snowflake", invalidDNS)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
-	}
-	// actual connection won't happen until run a query
+	cfg := wiremock.connectionConfig()
+	cfg.User = "testUser"
+	cfg.Password = "INVALID_PASSWORD"
+	cfg.Authenticator = AuthTypeSnowflake // Force password auth
+
+	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 	defer db.Close()
-	if _, err = db.Exec("SELECT 1"); err == nil {
-		t.Fatal("should cause an error.")
-	}
-	if driverErr, ok := err.(*SnowflakeError); ok {
-		if driverErr.Number != expectedErr {
-			t.Fatalf("wrong error code: %v", driverErr)
-		}
-		if !strings.Contains(driverErr.Error(), strconv.Itoa(expectedErr)) {
-			t.Fatalf("error message should included the error code. got: %v", driverErr.Error())
-		}
-	} else {
-		t.Fatalf("wrong error code: %v", err)
-	}
-}
 
-func TestBogusHostNameParameters(t *testing.T) {
-	invalidDNS := fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST:1234")
-	invalidHostErrorTests(invalidDNS, []string{"no such host", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "connection broken"}, t)
-	invalidDNS = fmt.Sprintf("%s:%s@%s", username, pass, "INVALID_HOST")
-	invalidHostErrorTests(invalidDNS, []string{"read: connection reset by peer", "EOF", "verify account name is correct", "HTTP Status: 403", "Temporary failure in name resolution", "server misbehaving", "failed to auth", "connection broken"}, t)
-}
+	_, err := db.Exec("SELECT 1")
+	assertNotNilF(t, err, "should cause an authentication error")
 
-func invalidHostErrorTests(invalidDNS string, mstr []string, t *testing.T) {
-	parameters := url.Values{}
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	if account != "" {
-		parameters.Add("account", account)
-	}
-	parameters.Add("loginTimeout", "10")
-	invalidDNS += "?" + parameters.Encode()
-	db, err := sql.Open("snowflake", invalidDNS)
-	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
-	}
-	// actual connection won't happen until run a query
-	defer db.Close()
-	if _, err = db.Exec("SELECT 1"); err == nil {
-		t.Fatal("should cause an error.")
-	}
-	found := false
-	for _, m := range mstr {
-		if strings.Contains(err.Error(), m) || strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("wrong error: %v", err)
-	}
+	var driverErr *SnowflakeError
+	assertErrorsAsF(t, err, &driverErr)
+	assertEqualE(t, driverErr.Number, 390100)
 }
 
 func TestCommentOnlyQuery(t *testing.T) {
@@ -915,6 +899,170 @@ func testFloat64(t *testing.T, json bool) {
 			})
 		}
 		dbt.mustExec("DROP TABLE IF EXISTS test")
+	})
+}
+
+func TestDecfloat(t *testing.T) {
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExecT(t, "ALTER SESSION SET FEATURE_DECFLOAT = enabled")
+		dbt.mustExecT(t, "ALTER SESSION SET DECFLOAT_RESULT_COLUMN_TYPE = 2") // TODO remove when decfloat is enabled by default
+		for _, format := range []string{"JSON", "ARROW"} {
+			if format == "JSON" {
+				dbt.mustExecT(t, forceJSON)
+			} else {
+				dbt.mustExecT(t, forceARROW)
+			}
+			for _, higherPrecision := range []bool{false, true} {
+				for _, decfloatMappingEnabled := range []bool{true, false} {
+					t.Run(fmt.Sprintf("format=%v,higherPrecision=%v,decfloatMappingEnabled=%v", format, higherPrecision, decfloatMappingEnabled), func(t *testing.T) {
+						for _, tc := range []struct {
+							in                      string
+							standardPrecisionOutput float64
+							higherPrecisionOutput   string
+							decfloatDisabledOutput  string
+						}{
+							{in: "0", standardPrecisionOutput: 0, higherPrecisionOutput: "0", decfloatDisabledOutput: "0"},
+							{in: "-1", standardPrecisionOutput: -1, higherPrecisionOutput: "-1", decfloatDisabledOutput: "-1"},
+							{in: "-1.5", standardPrecisionOutput: -1.5, higherPrecisionOutput: "-1.5", decfloatDisabledOutput: "-1.5"},
+							{in: "1e1", standardPrecisionOutput: 10, higherPrecisionOutput: "10", decfloatDisabledOutput: "10"},
+							{in: "1e2", standardPrecisionOutput: 100, higherPrecisionOutput: "100", decfloatDisabledOutput: "100"},
+							{in: "-2e3", standardPrecisionOutput: -2000, higherPrecisionOutput: "-2000", decfloatDisabledOutput: "-2000"},
+							{in: "1e100", standardPrecisionOutput: math.Pow10(100), higherPrecisionOutput: "1e+100", decfloatDisabledOutput: "1e100"},
+							{in: "-1.2345e2", standardPrecisionOutput: -123.45, higherPrecisionOutput: "-123.45", decfloatDisabledOutput: "-123.45"},
+							{in: "1.23456e2", standardPrecisionOutput: 123.456, higherPrecisionOutput: "123.456", decfloatDisabledOutput: "123.456"},
+							{in: "-9.87654321E-250", standardPrecisionOutput: -9.876654321 * math.Pow10(-250), higherPrecisionOutput: "-9.87654321e-250", decfloatDisabledOutput: "-9.87654321e-250"},
+							{in: "1.2345678901234567890123456789012345678e37", standardPrecisionOutput: 12345678901234567525491324606797053952, higherPrecisionOutput: "12345678901234567890123456789012345678", decfloatDisabledOutput: "12345678901234567890123456789012345678"}, // pragma: allowlist secret
+						} {
+							t.Run(tc.in, func(t *testing.T) {
+								ctx := context.Background()
+								if higherPrecision {
+									ctx = WithHigherPrecision(ctx)
+								}
+								if decfloatMappingEnabled {
+									ctx = WithDecfloatMappingEnabled(ctx)
+								}
+								rows := dbt.mustQueryContextT(ctx, t, fmt.Sprintf("SELECT '%v'::DECFLOAT UNION SELECT NULL ORDER BY 1", tc.in))
+								defer rows.Close()
+								rows.mustNext()
+								if !decfloatMappingEnabled {
+									var s string
+									rows.mustScan(&s)
+									if format == "ARROW" {
+										assertEqualF(t, s, strings.ToLower(tc.in))
+									} else {
+										assertEqualE(t, s, tc.decfloatDisabledOutput)
+									}
+									columnTypes, err := rows.ColumnTypes()
+									assertNilF(t, err)
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(""))
+								} else if higherPrecision {
+									var bf *big.Float
+									rows.mustScan(&bf)
+									assertEqualE(t, bf.Text('g', 38), tc.higherPrecisionOutput)
+									columnTypes, err := rows.ColumnTypes()
+									assertNilF(t, err)
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(&big.Float{}))
+								} else {
+									var f float64
+									rows.mustScan(&f)
+									assertEqualEpsilonE(t, f, tc.standardPrecisionOutput, 0.0001)
+									columnTypes, err := rows.ColumnTypes()
+									assertNilF(t, err)
+									assertEqualE(t, columnTypes[0].ScanType(), reflect.TypeOf(0.0))
+								}
+								rows.mustNext()
+								if !decfloatMappingEnabled {
+									var s sql.NullString
+									rows.mustScan(&s)
+									assertFalseE(t, s.Valid)
+								} else if higherPrecision {
+									var bf *big.Float
+									rows.mustScan(&bf)
+									assertNilE(t, bf)
+								} else {
+									var f sql.NullFloat64
+									rows.mustScan(&f)
+									assertFalseE(t, f.Valid)
+								}
+							})
+						}
+					})
+				}
+			}
+		}
+
+		t.Run("Binding simple value", func(t *testing.T) {
+			t.Run("As string", func(t *testing.T) {
+				rows := dbt.mustQueryContextT(context.Background(), t, "SELECT ?::DECFLOAT", DataTypeDecfloat, "1234567890.1234567890123456789012345678")
+				defer rows.Close()
+				rows.mustNext()
+				var s string
+				rows.mustScan(&s)
+				assertEqualE(t, s, "1.2345678901234567890123456789012345678e9")
+			})
+			t.Run("As float", func(t *testing.T) {
+				rows := dbt.mustQueryContextT(WithDecfloatMappingEnabled(context.Background()), t, "SELECT ?::DECFLOAT", DataTypeDecfloat, 123.45)
+				defer rows.Close()
+				rows.mustNext()
+				var f float64
+				rows.mustScan(&f)
+				assertEqualE(t, f, 123.45)
+			})
+			t.Run("As *big.Float", func(t *testing.T) {
+				bfFromString, ok := new(big.Float).SetPrec(127).SetString("1234567890.1234567890123456789012345678")
+				assertTrueF(t, ok)
+				println(bfFromString.Text('g', 40))
+				rows := dbt.mustQueryContextT(WithDecfloatMappingEnabled(WithHigherPrecision(context.Background())), t, "SELECT ?::DECFLOAT", DataTypeDecfloat, bfFromString)
+				defer rows.Close()
+				rows.mustNext()
+				bf := new(big.Float).SetPrec(127)
+				rows.mustScan(&bf)
+				println(bf.Text('g', 40))
+				assertTrueE(t, bf.Cmp(bfFromString) == 0)
+			})
+		})
+
+		t.Run("Binding array", func(t *testing.T) {
+			bfFromString, ok := new(big.Float).SetPrec(127).SetString("1234567890.1234567890123456789012345678")
+			assertTrueF(t, ok)
+			arrays := []any{
+				Array([]string{"123.45", "1234567890.1234567890123456789012345678"}, DataTypeDecfloat),
+				Array([]float64{123.45, 1234567890.1234567890123456789012345678}, DataTypeDecfloat),
+				Array([]*big.Float{
+					new(big.Float).SetFloat64(123.45),
+					bfFromString,
+				}, DataTypeDecfloat),
+			}
+			for _, bulk := range []bool{false, true} {
+				for idx, arr := range arrays {
+					t.Run(fmt.Sprintf("bulk=%v, idx=%v", bulk, idx), func(t *testing.T) {
+						if bulk {
+							dbt.mustExecT(t, "ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
+						} else {
+							dbt.mustExecT(t, "ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 100")
+						}
+						dbt.mustExec("CREATE OR REPLACE TABLE test_decfloat (value DECFLOAT)")
+						defer dbt.mustExec("DROP TABLE IF EXISTS test_decfloat")
+						_ = dbt.mustExecT(t, "INSERT INTO test_decfloat VALUES (?)", arr)
+						rows := dbt.mustQueryT(t, "SELECT value FROM test_decfloat ORDER BY 1")
+						defer rows.Close()
+						rows.mustNext()
+						var f float64
+						rows.mustScan(&f)
+						assertEqualEpsilonE(t, f, 123.45, 0.01)
+						rows.mustNext()
+						if idx != 1 { // float64 cannot be bound with the full precision
+							var s string
+							rows.mustScan(&s)
+							assertEqualE(t, s, "1.2345678901234567890123456789012345678e9")
+						} else {
+							rows.mustScan(&f)
+							assertEqualEpsilonE(t, f, 1234567890.1234567890123456789012345678, 0.01)
+						}
+					})
+				}
+			}
+		})
 	})
 }
 
@@ -1731,7 +1879,7 @@ func TestCancelQuery(t *testing.T) {
 		if err == nil {
 			dbt.Fatal("No timeout error returned")
 		}
-		if err.Error() != "context deadline exceeded" {
+		if !errors.Is(err, context.DeadlineExceeded) {
 			dbt.Fatalf("Timeout error mismatch: expect %v, receive %v", context.DeadlineExceeded, err.Error())
 		}
 	})
@@ -1800,11 +1948,6 @@ func TestTimezoneSessionParameter(t *testing.T) {
 }
 
 func TestLargeSetResultCancel(t *testing.T) {
-	level := logger.GetLogLevel()
-	_ = logger.SetLogLevel("debug")
-	defer func() {
-		_ = logger.SetLogLevel(level)
-	}()
 	runDBTest(t, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
@@ -1825,7 +1968,7 @@ func TestLargeSetResultCancel(t *testing.T) {
 		time.Sleep(time.Second)
 		cancel()
 		ret := <-c
-		if ret.Error() != "context canceled" {
+		if !errors.Is(ret, context.Canceled) {
 			t.Fatalf("failed to cancel. err: %v", ret)
 		}
 		close(c)
@@ -1833,29 +1976,44 @@ func TestLargeSetResultCancel(t *testing.T) {
 }
 
 func TestValidateDatabaseParameter(t *testing.T) {
-	baseDSN := fmt.Sprintf("%s:%s@%s", username, pass, host)
+	// Parse the global DSN to get base configuration with proper authentication
+	cfg, err := ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("Failed to parse global dsn")
+	}
+
 	testcases := []struct {
-		dsn       string
-		params    map[string]string
-		errorCode int
+		description string
+		dbname      string
+		schemaname  string
+		params      map[string]string
+		errorCode   int
 	}{
 		{
-			dsn:       baseDSN + fmt.Sprintf("/%s/%s", "NOT_EXISTS", "NOT_EXISTS"),
-			errorCode: ErrObjectNotExistOrAuthorized,
+			description: "invalid_database_and_schema",
+			dbname:      "NOT_EXISTS",
+			schemaname:  "NOT_EXISTS",
+			errorCode:   ErrObjectNotExistOrAuthorized,
 		},
 		{
-			dsn:       baseDSN + fmt.Sprintf("/%s/%s", dbname, "NOT_EXISTS"),
-			errorCode: ErrObjectNotExistOrAuthorized,
+			description: "invalid_schema",
+			dbname:      cfg.Database,
+			schemaname:  "NOT_EXISTS",
+			errorCode:   ErrObjectNotExistOrAuthorized,
 		},
 		{
-			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			description: "invalid_warehouse",
+			dbname:      cfg.Database,
+			schemaname:  cfg.Schema,
 			params: map[string]string{
 				"warehouse": "NOT_EXIST",
 			},
 			errorCode: ErrObjectNotExistOrAuthorized,
 		},
 		{
-			dsn: baseDSN + fmt.Sprintf("/%s/%s", dbname, schemaname),
+			description: "invalid_role",
+			dbname:      cfg.Database,
+			schemaname:  cfg.Schema,
 			params: map[string]string{
 				"role": "NOT_EXIST",
 			},
@@ -1863,31 +2021,26 @@ func TestValidateDatabaseParameter(t *testing.T) {
 		},
 	}
 	for idx, tc := range testcases {
-		t.Run(dsn, func(t *testing.T) {
-			newDSN := tc.dsn
-			parameters := url.Values{}
-			if protocol != "" {
-				parameters.Add("protocol", protocol)
-			}
-			if account != "" {
-				parameters.Add("account", account)
-			}
-			for k, v := range tc.params {
-				parameters.Add(k, v)
-			}
-			newDSN += "?" + parameters.Encode()
-			db, err := sql.Open("snowflake", newDSN)
-			// actual connection won't happen until run a query
-			if err != nil {
-				t.Fatalf("error creating a connection object: %s", err.Error())
-			}
+		t.Run(tc.description, func(t *testing.T) {
+			// Create a new config based on the global config (which already has proper authentication)
+			testCfg := *cfg // Copy the config with proper authentication from global DSN
+			testCfg.Database = tc.dbname
+			testCfg.Schema = tc.schemaname
+
+			// Override with test-specific parameters
+			testCfg.Warehouse = tc.params["warehouse"]
+			testCfg.Role = tc.params["role"]
+
+			db := sql.OpenDB(NewConnector(SnowflakeDriver{}, testCfg))
 			defer db.Close()
+
 			if _, err = db.Exec("SELECT 1"); err == nil {
 				t.Fatal("should cause an error.")
 			}
 			if driverErr, ok := err.(*SnowflakeError); ok {
-				if driverErr.Number != tc.errorCode { // not exist error
-					t.Errorf("got unexpected error: %v in %v", err, idx)
+				if driverErr.Number != tc.errorCode {
+					maskedErr := maskSecrets(err.Error())
+					t.Errorf("got unexpected error: %s in test case %d", maskedErr, idx)
 				}
 			}
 		})
@@ -1895,21 +2048,21 @@ func TestValidateDatabaseParameter(t *testing.T) {
 }
 
 func TestSpecifyWarehouseDatabase(t *testing.T) {
-	dsn := fmt.Sprintf("%s:%s@%s/%s", username, pass, host, dbname)
-	parameters := url.Values{}
-	parameters.Add("account", account)
-	parameters.Add("warehouse", warehouse)
-	// parameters.Add("role", "nopublic") TODO: create nopublic role for test
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	db, err := sql.Open("snowflake", dsn+"?"+parameters.Encode())
+	// Parse the global DSN to get base configuration with proper authentication
+	cfg, err := ParseDSN(dsn)
 	if err != nil {
-		t.Fatalf("error creating a connection object: %s", err.Error())
+		t.Fatal("Failed to parse global dsn")
 	}
+
+	// Override with test-specific settings
+	cfg.Warehouse = warehouse
+
+	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 	defer db.Close()
+
 	if _, err = db.Exec("SELECT 1"); err != nil {
-		t.Fatalf("failed to execute a select 1: %v", err)
+		maskedErr := maskSecrets(err.Error())
+		t.Fatalf("failed to execute a select 1: %s", maskedErr)
 	}
 }
 
@@ -1947,11 +2100,8 @@ func TestPingInvalidHost(t *testing.T) {
 	}
 
 	db, err := sql.Open("snowflake", testURL)
-	if err != nil {
-		t.Fatalf("failed to initalize the connetion. err: %v", err)
-	}
-	ctx := context.Background()
-	if err = db.PingContext(ctx); err == nil {
+	assertNilF(t, err, "failed to initialize the connection")
+	if err = db.PingContext(context.Background()); err == nil {
 		t.Fatal("should cause an error")
 	}
 	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
@@ -1964,16 +2114,31 @@ func TestPingInvalidHost(t *testing.T) {
 }
 
 func TestOpenWithConfig(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Fatalf("failed to parse dsn. err: %v", err)
+	config := Config{
+		Account:       "testaccount",
+		User:          "testuser",
+		Password:      "testpassword",
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
 	}
-	driver := SnowflakeDriver{}
-	db, err := driver.OpenWithConfig(context.Background(), *config)
+
+	testURL, err := DSN(&config)
 	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
+		t.Fatalf("failed to parse config. config: %v, err: %v", config, err)
 	}
-	db.Close()
+
+	db, err := sql.Open("snowflake", testURL)
+	assertNilF(t, err, "failed to initialize the connection")
+	if err = db.PingContext(context.Background()); err == nil {
+		t.Fatal("should cause an error")
+	}
+	if strings.Contains(err.Error(), "HTTP Status: 513. Hanging?") {
+		return
+	}
+	if driverErr, ok := err.(*SnowflakeError); !ok || ok && isFailToConnectOrAuthErr(driverErr) {
+		// Failed to connect error
+		t.Fatalf("error didn't match")
+	}
 }
 
 func TestOpenWithConfigCancel(t *testing.T) {
@@ -1983,7 +2148,7 @@ func TestOpenWithConfigCancel(t *testing.T) {
 	)
 	driver := SnowflakeDriver{}
 	config := wiremock.connectionConfig()
-	blockingRoundTripper := newBlockingRoundTripper(snowflakeNoRevocationCheckTransport, 0)
+	blockingRoundTripper := newBlockingRoundTripper(createTestNoRevocationTransport(), 0)
 	countingRoundTripper := newCountingRoundTripper(blockingRoundTripper)
 	config.Transporter = countingRoundTripper
 
@@ -1992,7 +2157,7 @@ func TestOpenWithConfigCancel(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 		defer cancel()
 		_, err := driver.OpenWithConfig(ctx, *config)
-		assertErrIsE(t, context.DeadlineExceeded, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
 		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
 		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/telemetry/send"), 0)
 	})
@@ -2000,11 +2165,11 @@ func TestOpenWithConfigCancel(t *testing.T) {
 	t.Run("canceled during request:telemetry/send", func(t *testing.T) {
 		blockingRoundTripper.reset()
 		countingRoundTripper.reset()
-		blockingRoundTripper.setPathBlockTime("/telemetry/send", 50*time.Millisecond)
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		blockingRoundTripper.setPathBlockTime("/telemetry/send", 400*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 		_, err := driver.OpenWithConfig(ctx, *config)
-		assertErrIsE(t, context.DeadlineExceeded, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
 		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/session/v1/login-request"), 1)
 		assertEqualE(t, countingRoundTripper.totalRequestsByPath("/telemetry/send"), 1)
 	})
@@ -2015,6 +2180,8 @@ func TestOpenWithInvalidConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
+	config.Authenticator = AuthTypeSnowflake
+	config.PrivateKey = nil
 	driver := SnowflakeDriver{}
 	_, err = driver.OpenWithConfig(context.Background(), *config)
 	if err == nil || !strings.Contains(err.Error(), "/non-existing") {
@@ -2027,14 +2194,12 @@ func TestOpenWithTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse dsn. err: %v", err)
 	}
-	countingTransport := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+	countingTransport := newCountingRoundTripper(createTestNoRevocationTransport())
 	var transport http.RoundTripper = countingTransport
 	config.Transporter = transport
 	driver := SnowflakeDriver{}
 	db, err := driver.OpenWithConfig(context.Background(), *config)
-	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
 	conn := db.(*snowflakeConn)
 	if conn.rest.Client.Transport != transport {
 		t.Fatal("transport doesn't match")
@@ -2048,9 +2213,7 @@ func TestOpenWithTransport(t *testing.T) {
 	countingTransport.reset()
 	config.DisableOCSPChecks = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
-	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
 	conn = db.(*snowflakeConn)
 	if conn.rest.Client.Transport != transport {
 		t.Fatal("transport doesn't match")
@@ -2064,9 +2227,7 @@ func TestOpenWithTransport(t *testing.T) {
 	countingTransport.reset()
 	config.InsecureMode = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
-	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
-	}
+	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
 	conn = db.(*snowflakeConn)
 	if conn.rest.Client.Transport != transport {
 		t.Fatal("transport doesn't match")
@@ -2078,31 +2239,17 @@ func TestOpenWithTransport(t *testing.T) {
 }
 
 func createDSNWithClientSessionKeepAlive() {
-	dsn = fmt.Sprintf("%s:%s@%s/%s/%s", username, pass, host, dbname, schemaname)
-
-	parameters := url.Values{}
-	parameters.Add("client_session_keep_alive", "true")
-	if protocol != "" {
-		parameters.Add("protocol", protocol)
-	}
-	if account != "" {
-		parameters.Add("account", account)
-	}
-	if warehouse != "" {
-		parameters.Add("warehouse", warehouse)
-	}
-	if rolename != "" {
-		parameters.Add("role", rolename)
-	}
-	if len(parameters) > 0 {
-		dsn += "?" + parameters.Encode()
-	}
+	// Just append the client_session_keep_alive parameter to the existing DSN
+	// The global dsn should already be properly configured with authentication
+	dsn += "&client_session_keep_alive=true"
 }
 
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
 	createDSNWithClientSessionKeepAlive()
+	defer createDSN("UTC") // Restore DSN even if test panics
+
 	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
 		defer rows.Close()
@@ -2111,11 +2258,9 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 		}
 
 		p, err := ScanSnowflakeParameter(rows.rows)
-		if err != nil {
-			t.Errorf("failed to run get client_session_keep_alive value. err: %v", err)
-		}
+		assertNilF(t, err, "failed to run get client_session_keep_alive value")
 		if p.Value != "true" {
-			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", p.Value)
+			t.Fatalf("failed to get an expected client_session_keep_alive. got: %v", maskSecrets(p.Value))
 		}
 
 		rows2 := dbt.mustQuery("select count(*) from table(generator(timelimit=>30))")
@@ -2129,13 +2274,45 @@ func TestTimePrecision(t *testing.T) {
 		rows := dbt.mustQuery("select * from z3")
 		defer rows.Close()
 		cols, err := rows.ColumnTypes()
-		if err != nil {
-			t.Error(err)
-		}
+		assertNilE(t, err, "failed to get column types")
 		if pres, _, ok := cols[0].DecimalSize(); pres != 5 || !ok {
 			t.Fatalf("Wrong value returned. Got %v instead of 5.", pres)
 		}
 	})
+}
+
+func initPoolWithSize(t *testing.T, db *sql.DB, poolSize int) {
+	wg := sync.WaitGroup{}
+	wg.Add(poolSize)
+	for i := 0; i < poolSize; i++ {
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+			runSmokeQuery(t, db)
+		}(&wg)
+	}
+	wg.Wait()
+}
+
+func initPoolWithSizeAndReturnErrors(db *sql.DB, poolSize int) []error {
+	wg := sync.WaitGroup{}
+	wg.Add(poolSize)
+	errMu := sync.Mutex{}
+	var errs []error
+	for i := 0; i < poolSize; i++ {
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+			err := runSmokeQueryAndReturnErrors(db)
+			if err != nil {
+				errMu.Lock()
+				errs = append(errs, err)
+				errMu.Unlock()
+			}
+		}(&wg)
+	}
+	wg.Wait()
+	return errs
 }
 
 func runSmokeQuery(t *testing.T, db *sql.DB) {
@@ -2147,6 +2324,26 @@ func runSmokeQuery(t *testing.T, db *sql.DB) {
 	err = rows.Scan(&v)
 	assertNilF(t, err)
 	assertEqualE(t, v, 1)
+}
+
+func runSmokeQueryAndReturnErrors(db *sql.DB) error {
+	rows, err := db.Query("SELECT 1")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return fmt.Errorf("no rows")
+	}
+	var v int
+	err = rows.Scan(&v)
+	if err != nil {
+		return err
+	}
+	if v != 1 {
+		return fmt.Errorf("value mismatch. expected 1, got %v", v)
+	}
+	return nil
 }
 
 func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {

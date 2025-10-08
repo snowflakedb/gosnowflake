@@ -13,18 +13,18 @@ run_tests_and_set_result() {
   local snowflake_host="$3"
   local rsa_key_path="$4"
 
-  # TODO: remove SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true
   # NOTE: /home/user is the only dir we can write to (SNOW-2231498 to improve WORKDIR)
   ssh -i "$rsa_key_path" -o IdentitiesOnly=yes -p 443 "$host" env BRANCH="$BRANCH" SNOWFLAKE_TEST_WIF_HOST="$snowflake_host" SNOWFLAKE_TEST_WIF_PROVIDER="$provider" SNOWFLAKE_TEST_WIF_ACCOUNT="$SNOWFLAKE_TEST_WIF_ACCOUNT" bash << EOF
       set -e
       set -o pipefail
       docker run \
         --rm \
+        --cpus=1 \
+        -m 2g \
         -e BRANCH \
         -e SNOWFLAKE_TEST_WIF_PROVIDER \
         -e SNOWFLAKE_TEST_WIF_HOST \
         -e SNOWFLAKE_TEST_WIF_ACCOUNT \
-        -e SF_ENABLE_EXPERIMENTAL_AUTHENTICATION=true \
         snowflakedb/client-go-chainguard-go1.24-test:1 \
           bash -c "
             cd /home/user
