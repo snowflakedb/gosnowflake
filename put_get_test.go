@@ -764,7 +764,7 @@ func TestPutGetLargeFile(t *testing.T) {
 
 func TestPutGetMaxLOBSize(t *testing.T) {
 	t.Skip("fails on CI because of backend testing in progress")
-	// LOB sizes to be tested
+
 	testCases := [2]int{smallSize, largeSize}
 
 	runDBTest(t, func(dbt *DBTest) {
@@ -878,7 +878,6 @@ func TestPutCancel(t *testing.T) {
 	sourceDir, err := os.Getwd()
 	assertNilF(t, err)
 
-	// Create a moderately sized file for cancellation testing (10MB - big enough to cancel, not huge)
 	testData, cleanup := createCancelTestFile(t, sourceDir)
 	defer cleanup()
 
@@ -888,7 +887,6 @@ func TestPutCancel(t *testing.T) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
-			// attempt to upload a moderately large file, but it should be canceled in 3 seconds
 			_, err := dbt.conn.ExecContext(
 				ctx,
 				fmt.Sprintf("put 'file://%v' @~/%v overwrite=true",
@@ -899,7 +897,6 @@ func TestPutCancel(t *testing.T) {
 			}
 			c <- nil
 		}()
-		// cancel after 1 second (faster test while still allowing cancellation)
 		time.Sleep(1 * time.Second)
 		fmt.Println("Canceled")
 		cancel()
@@ -930,11 +927,9 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 	sourceDir, err := os.Getwd()
 	assertNilF(t, err)
 
-	// Hybrid approach: Use first 5MB of real largefile.txt for authentic data but faster performance
 	fname, cleanup := createLimitedRealFile(t, sourceDir)
 	defer cleanup()
 
-	// Extract base filename and set expected uploaded filename
 	baseName := filepath.Base(fname)
 	fnameGet := baseName + ".gz"
 	if !autoCompress {
@@ -997,7 +992,6 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 		}
 
 		tmpDir := t.TempDir()
-		// Convert Windows paths to use forward slashes for file:// URL
 		tmpDirURL := strings.ReplaceAll(tmpDir, "\\", "/")
 		sql := fmt.Sprintf("get @~/%v/%v 'file://%v'", stageDir, fnameGet, tmpDirURL)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
@@ -1043,49 +1037,39 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 			}
 		}
 
-		// Use streaming checksum instead of loading full content
 		hash := sha256.New()
 		_, err = io.Copy(hash, r)
 		assertNilE(t, err)
 		downloadedChecksum := fmt.Sprintf("%x", hash.Sum(nil))
 
-		// verify the downloaded contents with the original file using checksum
 		originalFile, err := os.Open(fname)
 		assertNilF(t, err)
 		defer func() {
 			assertNilF(t, originalFile.Close())
 		}()
 
-		// Calculate checksum of original file
 		originalHash := sha256.New()
 		_, err = io.Copy(originalHash, originalFile)
 		assertNilE(t, err)
 		originalChecksum := fmt.Sprintf("%x", originalHash.Sum(nil))
 
-		// Compare checksums (much faster than string comparison)
 		assertEqualF(t, downloadedChecksum, originalChecksum, "file integrity check failed - checksums don't match")
 	})
 }
 
-// createLimitedRealFile creates a 5MB file from the first 5MB of real largefile.txt
-// This uses authentic TPC-H benchmark data while maintaining 14x performance improvement
 func createLimitedRealFile(t *testing.T, sourceDir string) (string, func()) {
-	// Create temporary file with the expected name pattern
 	tmpFile, err := os.CreateTemp(sourceDir, "largefile_*.txt")
 	assertNilF(t, err)
 	fname := tmpFile.Name()
 
-	// Try to use real largefile.txt, fallback to synthetic data
 	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
 	if err == nil {
 		defer originalFile.Close()
-		// Use first 5MB of real data
 		limitSize := int64(5 * 1024 * 1024) // 5MB
 		limitedReader := io.LimitReader(originalFile, limitSize)
 		_, err = io.Copy(tmpFile, limitedReader)
 		assertNilF(t, err)
 	} else {
-		// Fallback: create synthetic data that compresses reasonably
 		syntheticData := strings.Repeat("TPC-H benchmark order data: ", 190000) // ~5MB
 		_, err = tmpFile.WriteString(syntheticData)
 		assertNilF(t, err)
@@ -1094,7 +1078,6 @@ func createLimitedRealFile(t *testing.T, sourceDir string) (string, func()) {
 	err = tmpFile.Close()
 	assertNilF(t, err)
 
-	// Return filename and cleanup function
 	cleanup := func() {
 		os.Remove(fname)
 	}
@@ -1102,30 +1085,24 @@ func createLimitedRealFile(t *testing.T, sourceDir string) (string, func()) {
 	return fname, cleanup
 }
 
-// createCancelTestFile creates a 10MB file from real largefile.txt for cancellation testing
 func createCancelTestFile(t *testing.T, sourceDir string) (string, func()) {
-	// Open the original largefile.txt
 	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
 	assertNilF(t, err)
 	defer originalFile.Close()
 
-	// Create temporary file for cancellation testing
 	tmpFile, err := os.CreateTemp(sourceDir, "cancel_test_*.txt")
 	assertNilF(t, err)
 	fname := tmpFile.Name()
 
-	// Use LimitReader to copy 10MB of real data
 	limitSize := int64(10 * 1024 * 1024) // 10MB
 	limitedReader := io.LimitReader(originalFile, limitSize)
 
-	// Copy the limited real data to temporary file
 	_, err = io.Copy(tmpFile, limitedReader)
 	assertNilF(t, err)
 
 	err = tmpFile.Close()
 	assertNilF(t, err)
 
-	// Return filename and cleanup function
 	cleanup := func() {
 		os.Remove(fname)
 	}

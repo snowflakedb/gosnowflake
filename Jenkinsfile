@@ -60,7 +60,6 @@ pipeline {
   options { timestamps() }
   environment {
     COMMIT_SHA_LONG = sh(returnStdout: true, script: "echo \$(git rev-parse " + "HEAD)").trim()
-    SNOWFLAKE_TEST_DEBUG = 'true'
 
     // environment variables for semgrep_agent (for findings / analytics page)
     // remove .git at the end
