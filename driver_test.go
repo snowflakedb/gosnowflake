@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -1883,6 +1884,31 @@ func TestCancelQuery(t *testing.T) {
 			dbt.Fatalf("Timeout error mismatch: expect %v, receive %v", context.DeadlineExceeded, err.Error())
 		}
 	})
+}
+
+func TestCancelQueryWithImplicitConnectionContext(t *testing.T) {
+	db := openDB(t)
+	defer db.Close()
+
+	// First query creates the connection with a cancellable context
+	ctx, cancel := context.WithCancel(context.Background())
+	_, err := db.ExecContext(ctx, "SELECT 1")
+	assertNilF(t, err, "initial SELECT should initialize the connection")
+
+	// Cancel the context after connection is established
+	cancel()
+
+	_, err = db.ExecContext(context.Background(), "SELECT 2")
+	assertNilF(t, err, "subsequent SELECT should work after cancelled connection context")
+
+	filePath := filepath.Join(t.TempDir(), "cancel_query_put.txt")
+	file, err := os.Create(filePath)
+	assertNilF(t, err)
+	assertNilF(t, file.Close())
+
+	putQuery := fmt.Sprintf("PUT file://%v @~/%v", filePath, "test_cancel_query_with_implicit_context")
+	_, err = db.ExecContext(context.Background(), putQuery)
+	assertNilF(t, err, "PUT statement should work after cancelled connection context")
 }
 
 func TestPing(t *testing.T) {
