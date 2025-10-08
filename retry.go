@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -332,7 +333,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		} else {
 			logger.WithContext(r.ctx).Warningf(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
-			res.Body.Close()
+			if closeErr := res.Body.Close(); closeErr != nil {
+				logger.Warnf("failed to close response body. err: %v", closeErr)
+			}
 		}
 		// uses exponential jitter backoff
 		retryCounter++
@@ -341,20 +344,17 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		} else {
 			sleepTime = defaultWaitAlgo.calculateWaitBeforeRetry(sleepTime)
 		}
-
-		if totalTimeout > 0 {
-			logger.WithContext(r.ctx).Infof("to timeout: %v", totalTimeout)
-			// if any timeout is set
+		if totalTimeout > 0 { // if any timeout is set
 			totalTimeout -= sleepTime
-			if totalTimeout <= 0 || retryCounter > r.maxRetryCount {
-				if err != nil {
-					return nil, err
-				}
-				if res != nil {
-					return nil, fmt.Errorf("timeout after %s and %v attempts. HTTP Status: %v. Hanging?", r.timeout, retryCounter, res.StatusCode)
-				}
-				return nil, fmt.Errorf("timeout after %s and %v attempts. Hanging?", r.timeout, retryCounter)
+		}
+		if (r.timeout > 0 && totalTimeout <= 0) || retryCounter > r.maxRetryCount {
+			if err != nil {
+				return nil, err
 			}
+			if res != nil {
+				return nil, fmt.Errorf("timeout after %s and %v attempts. HTTP Status: %v. Hanging?", r.timeout, retryCounter, res.StatusCode)
+			}
+			return nil, fmt.Errorf("timeout after %s and %v attempts. Hanging?", r.timeout, retryCounter)
 		}
 		if requestGUIDReplacer == nil {
 			requestGUIDReplacer = newRequestGUIDReplace(r.fullURL)
@@ -389,6 +389,9 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 
 func isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
 	if err != nil && res == nil { // Failed http connection. Most probably client timeout.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return false, err
+		}
 		return true, err
 	}
 	if res == nil || req == nil {

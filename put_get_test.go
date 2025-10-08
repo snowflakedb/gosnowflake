@@ -448,9 +448,7 @@ func testPutGet(t *testing.T, isStream bool) {
 			" (a int, b string)")
 		defer dbt.mustExec("drop table " + tableName)
 		fileStream, err := os.Open(fname)
-		if err != nil {
-			t.Error(err)
-		}
+		assertNilF(t, err)
 		defer func() {
 			assertNilF(t, fileStream.Close())
 		}()
@@ -462,11 +460,11 @@ func testPutGet(t *testing.T, isStream bool) {
 		if isStream {
 			sqlText = fmt.Sprintf(
 				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
-			rows = dbt.mustQueryContext(WithFileStream(ctx, fileStream), sqlText)
+			rows = dbt.mustQueryContextT(WithFileStream(ctx, fileStream), t, sqlText)
 		} else {
 			sqlText = fmt.Sprintf(
 				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
-			rows = dbt.mustQuery(sqlText)
+			rows = dbt.mustQueryT(t, sqlText)
 		}
 		defer func() {
 			assertNilF(t, rows.Close())
@@ -474,20 +472,16 @@ func testPutGet(t *testing.T, isStream bool) {
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
 		assertTrueF(t, rows.Next(), "expected new rows")
-		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-			t.Fatal(err)
-		}
-		if s6 != uploaded.String() {
-			t.Fatalf("expected %v, got: %v", uploaded, s6)
-		}
+		rows.mustScan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7)
+		assertEqualF(t, s6, uploaded.String())
 		// check file is PUT
 		dbt.mustQueryAssertCount("ls @%"+tableName, 1)
 
-		dbt.mustExec("copy into " + tableName)
-		dbt.mustExec("rm @%" + tableName)
+		dbt.mustExecT(t, "copy into "+tableName)
+		dbt.mustExecT(t, "rm @%"+tableName)
 		dbt.mustQueryAssertCount("ls @%"+tableName, 0)
 
-		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
+		dbt.mustExecT(t, fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
 			compression='gzip')`, tableName, tableName))
 
 		var streamBuf bytes.Buffer
@@ -495,34 +489,26 @@ func testPutGet(t *testing.T, isStream bool) {
 			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
 			ctx = WithFileGetStream(ctx, &streamBuf)
 		}
-		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sql = fmt.Sprintf("get @%%%v 'file://%v' parallel=10", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
-		rows2 := dbt.mustQueryContext(ctx, sqlText)
+		rows2 := dbt.mustQueryContextT(ctx, t, sqlText)
 		defer func() {
 			assertNilF(t, rows2.Close())
 		}()
 		for rows2.Next() {
-			if err = rows2.Scan(&s0, &s1, &s2, &s3); err != nil {
-				t.Error(err)
-			}
-			if !strings.HasPrefix(s0, "data_") {
-				t.Error("a file was not downloaded by GET")
-			}
-			if v, err := strconv.Atoi(s1); err != nil || v != 36 {
-				t.Error("did not return the right file size")
-			}
-			if s2 != "DOWNLOADED" {
-				t.Error("did not return DOWNLOADED status")
-			}
-			if s3 != "" {
-				t.Errorf("returned %v", s3)
-			}
+			rows2.mustScan(&s0, &s1, &s2, &s3)
+			assertHasPrefixF(t, s0, "data_")
+			v, err := strconv.Atoi(s1)
+			assertNilF(t, err)
+			assertEqualF(t, v, 36)
+			assertEqualF(t, s2, "DOWNLOADED")
+			assertEqualF(t, s3, "")
 		}
 
 		var contents string
 		if isStream {
 			gz, err := gzip.NewReader(&streamBuf)
-			assertNilE(t, err)
+			assertNilF(t, err)
 			defer func() {
 				assertNilF(t, gz.Close())
 			}()
@@ -533,25 +519,23 @@ func testPutGet(t *testing.T, isStream bool) {
 						contents = contents + string(c[:n])
 						break
 					}
-					t.Error(err)
+					t.Fatal(err)
 				} else {
 					contents = contents + string(c[:n])
 				}
 			}
 		} else {
 			files, err := filepath.Glob(filepath.Join(tmpDir, "data_*"))
-			if err != nil {
-				t.Fatal(err)
-			}
+			assertNilF(t, err)
 			fileName := files[0]
 			f, err := os.Open(fileName)
-			assertNilE(t, err)
+			assertNilF(t, err)
 			defer func() {
 				assertNilF(t, f.Close())
 			}()
 
 			gz, err := gzip.NewReader(f)
-			assertNilE(t, err)
+			assertNilF(t, err)
 			defer func() {
 				assertNilF(t, gz.Close())
 			}()
@@ -563,7 +547,7 @@ func testPutGet(t *testing.T, isStream bool) {
 						contents = contents + string(c[:n])
 						break
 					}
-					t.Error(err)
+					t.Fatal(err)
 				} else {
 					contents = contents + string(c[:n])
 				}
@@ -641,7 +625,7 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
             compression='gzip')`, tableName, tableName))
 
-		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sql = fmt.Sprintf("get @%%%v 'file://%v'  parallel=10", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQuery(sqlText)
 		defer func() {
@@ -840,7 +824,7 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			compression='gzip')`, tableName, tableName))
 
 				// test GET command
-				sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+				sql = fmt.Sprintf("get @%%%v 'file://%v'  parallel=10", tableName, tmpDir)
 				sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 				rows2 := dbt.mustQuery(sqlText)
 				defer func() {

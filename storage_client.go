@@ -16,46 +16,50 @@ const (
 
 // implemented by localUtil and remoteStorageUtil
 type storageUtil interface {
-	createClient(*execResponseStageInfo, bool, *Config) (cloudClient, error)
+	createClient(*execResponseStageInfo, bool, *Config, *snowflakeTelemetry) (cloudClient, error)
 	uploadOneFileWithRetry(*fileMetadata) error
 	downloadOneFile(*fileMetadata) error
 }
 
 // implemented by snowflakeS3Util, snowflakeAzureUtil and snowflakeGcsUtil
 type cloudUtil interface {
-	createClient(*execResponseStageInfo, bool) (cloudClient, error)
+	createClient(*execResponseStageInfo, bool, *snowflakeTelemetry) (cloudClient, error)
 	getFileHeader(*fileMetadata, string) (*fileHeader, error)
 	uploadFile(string, *fileMetadata, int, int64) error
-	nativeDownloadFile(*fileMetadata, string, int64) error
+	nativeDownloadFile(*fileMetadata, string, int64, int64) error
 }
 
 type cloudClient interface{}
 
 type remoteStorageUtil struct {
-	cfg *Config
+	cfg       *Config
+	telemetry *snowflakeTelemetry
 }
 
 func (rsu *remoteStorageUtil) getNativeCloudType(cli string, cfg *Config) cloudUtil {
 	if cloudType(cli) == s3Client {
 		return &snowflakeS3Client{
 			cfg,
+			rsu.telemetry,
 		}
 	} else if cloudType(cli) == azureClient {
 		return &snowflakeAzureClient{
 			cfg,
+			rsu.telemetry,
 		}
 	} else if cloudType(cli) == gcsClient {
 		return &snowflakeGcsClient{
 			cfg,
+			rsu.telemetry,
 		}
 	}
 	return nil
 }
 
 // call cloud utils' native create client methods
-func (rsu *remoteStorageUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config) (cloudClient, error) {
+func (rsu *remoteStorageUtil) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, cfg *Config, telemetry *snowflakeTelemetry) (cloudClient, error) {
 	utilClass := rsu.getNativeCloudType(info.LocationType, cfg)
-	return utilClass.createClient(info, useAccelerateEndpoint)
+	return utilClass.createClient(info, useAccelerateEndpoint, telemetry)
 }
 
 func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
@@ -86,18 +90,18 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 				logger.Debugf("Error uploading %v. err: %v", meta.realSrcFileName, err)
 			}
 		}
-		if meta.resStatus == uploaded || meta.resStatus == renewToken || meta.resStatus == renewPresignedURL {
+		switch meta.resStatus {
+		case uploaded, renewToken, renewPresignedURL:
 			return nil
-		} else if meta.resStatus == needRetry {
+		case needRetry:
 			if !meta.noSleepingTime {
 				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
 				time.Sleep(time.Second * time.Duration(sleepingTime))
 			}
-		} else if meta.resStatus == needRetryWithLowerConcurrency {
+		case needRetryWithLowerConcurrency:
 			maxConcurrency = int(meta.parallel) - (retry * int(meta.parallel) / maxRetry)
 			maxConcurrency = intMax(defaultConcurrency, maxConcurrency)
 			meta.lastMaxConcurrency = maxConcurrency
-
 			if !meta.noSleepingTime {
 				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
 				time.Sleep(time.Second * time.Duration(sleepingTime))
@@ -184,10 +188,23 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 	}
 
 	maxConcurrency := meta.parallel
+	partSize := meta.options.MultiPartThreshold
 	var lastErr error
 	maxRetry := defaultMaxRetry
 	for retry := 0; retry < maxRetry; retry++ {
-		if err = utilClass.nativeDownloadFile(meta, fullDstFileName, maxConcurrency); err != nil {
+		tempDownloadFile := fullDstFileName + ".tmp"
+		defer func() {
+			// Clean up temp file if it still exists
+			if _, statErr := os.Stat(tempDownloadFile); statErr == nil {
+				logger.Debugf("Cleaning up temporary download file: %s", tempDownloadFile)
+				if removeErr := os.Remove(tempDownloadFile); removeErr != nil {
+					logger.Warnf("Failed to clean up temporary file %s: %v", tempDownloadFile, removeErr)
+				}
+			}
+		}()
+
+		if err = utilClass.nativeDownloadFile(meta, tempDownloadFile, maxConcurrency, partSize); err != nil {
+			logger.Errorf("Failed to download file to temporary location %s: %v", tempDownloadFile, err)
 			return err
 		}
 		if meta.resStatus == downloaded {
@@ -195,6 +212,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 				if meta.presignedURL != nil {
 					header, err = utilClass.getFileHeader(meta, meta.srcFileName)
 					if err != nil {
+						logger.Errorf("Failed to get file header for %s: %v", meta.srcFileName, err)
 						return err
 					}
 				}
@@ -202,27 +220,23 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 					totalFileSize, err := decryptStreamCBC(header.encryptionMetadata,
 						meta.encryptionMaterial, 0, meta.dstStream, meta.sfa.streamBuffer)
 					if err != nil {
+						logger.Errorf("Stream decryption failed for %s - temp file will be cleaned up to prevent corrupted data: %v", meta.srcFileName, err)
 						return err
 					}
 					meta.sfa.streamBuffer.Truncate(totalFileSize)
 					meta.dstFileSize = int64(totalFileSize)
 				} else {
-					tmpDstFileName, err := decryptFileCBC(header.encryptionMetadata,
-						meta.encryptionMaterial, fullDstFileName, 0, meta.tmpDir)
-					if err != nil {
-						return err
-					}
-					if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
+					if err = rsu.processEncryptedFileToDestination(meta, header, tempDownloadFile, fullDstFileName); err != nil {
 						return err
 					}
 				}
-
 			}
 			if !meta.options.GetFileToStream {
 				if fi, err := os.Stat(fullDstFileName); err == nil {
 					meta.dstFileSize = fi.Size()
 				}
 			}
+			logger.Debugf("File download completed successfully for %s (size: %d bytes)", meta.srcFileName, meta.dstFileSize)
 			return nil
 		}
 		lastErr = meta.lastError
@@ -231,4 +245,39 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 		return lastErr
 	}
 	return fmt.Errorf("unkown error downloading %v", fullDstFileName)
+}
+
+func (rsu *remoteStorageUtil) processEncryptedFileToDestination(meta *fileMetadata, header *fileHeader, tempDownloadFile, fullDstFileName string) error {
+	// Clean up the temp download file on any exit path
+	defer func() {
+		if _, statErr := os.Stat(tempDownloadFile); statErr == nil {
+			logger.Debugf("Cleaning up temporary download file: %s", tempDownloadFile)
+			err := os.Remove(tempDownloadFile)
+			if err != nil {
+				logger.Warnf("Failed to clean up temporary download file %s: %v", tempDownloadFile, err)
+			}
+		}
+	}()
+
+	tmpDstFileName, err := decryptFileCBC(header.encryptionMetadata, meta.encryptionMaterial, tempDownloadFile, 0, meta.tmpDir)
+	// Ensure cleanup of the decrypted temp file if decryption or rename fails
+	defer func() {
+		if _, statErr := os.Stat(tmpDstFileName); statErr == nil {
+			err := os.Remove(tmpDstFileName)
+			if err != nil {
+				logger.Warnf("Failed to clean up temporary decrypted file %s: %v", tmpDstFileName, err)
+			}
+		}
+	}()
+	if err != nil {
+		logger.Errorf("File decryption failed for %s: %v", meta.srcFileName, err)
+		return err
+	}
+
+	if err = os.Rename(tmpDstFileName, fullDstFileName); err != nil {
+		logger.Errorf("Failed to move decrypted file from %s to final destination %s: %v", tmpDstFileName, fullDstFileName, err)
+		return err
+	}
+	logger.Debugf("Successfully decrypted and moved file to %s", fullDstFileName)
+	return nil
 }

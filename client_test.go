@@ -14,45 +14,36 @@ type DummyTransport struct {
 
 func (t *DummyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.URL.Path == "" {
-		if r.Method == "GET" {
+		switch r.Method {
+		case http.MethodGet:
 			t.getRequests++
-		} else if r.Method == "POST" {
+		case http.MethodPost:
 			t.postRequests++
 		}
 		return &http.Response{StatusCode: 200}, nil
 	}
-	return snowflakeNoOcspTransport.RoundTrip(r)
+	return createTestNoRevocationTransport().RoundTrip(r)
 }
 
 func TestInternalClient(t *testing.T) {
 	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Fatalf("failed to parse dsn. err: %v", err)
-	}
+	assertNilF(t, err, "failed to parse dsn")
 	transport := DummyTransport{}
 	config.Transporter = &transport
 	driver := SnowflakeDriver{}
 	db, err := driver.OpenWithConfig(context.Background(), *config)
-	if err != nil {
-		t.Fatalf("failed to open with config. config: %v, err: %v", config, err)
-	}
+	assertNilF(t, err, "failed to open with config")
 
 	internalClient := (db.(*snowflakeConn)).internal
 	resp, err := internalClient.Get(context.Background(), &url.URL{}, make(map[string]string), 0)
-	if err != nil || resp.StatusCode != 200 {
-		t.Fail()
-	}
-	if transport.getRequests != 1 {
-		t.Fatalf("Expected exactly one GET request, got %v", transport.getRequests)
-	}
+	assertNilF(t, err, "GET request should succeed")
+	assertEqualF(t, resp.StatusCode, 200, "GET response status code should be 200")
+	assertEqualF(t, transport.getRequests, 1, "Expected exactly one GET request")
 
 	resp, err = internalClient.Post(context.Background(), &url.URL{}, make(map[string]string), make([]byte, 0), 0, defaultTimeProvider)
-	if err != nil || resp.StatusCode != 200 {
-		t.Fail()
-	}
-	if transport.postRequests != 1 {
-		t.Fatalf("Expected exactly one POST request, got %v", transport.postRequests)
-	}
+	assertNilF(t, err, "POST request should succeed")
+	assertEqualF(t, resp.StatusCode, 200, "POST response status code should be 200")
+	assertEqualF(t, transport.postRequests, 1, "Expected exactly one POST request")
 
 	db.Close()
 }

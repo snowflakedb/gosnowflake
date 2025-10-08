@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -408,127 +408,160 @@ func TestClientSessionPersist(t *testing.T) {
 }
 
 func TestFetchResultByQueryID(t *testing.T) {
-	assertNilE(t, fetchResultByQueryID(t, nil, nil))
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "query_execution.json"},
+		wiremockMapping{filePath: "query_monitoring.json"},
+	)
+
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn.Close()
+
+	var qid string
+	err = conn.Raw(func(x any) error {
+		rows1, err := x.(driver.QueryerContext).QueryContext(context.Background(), "SELECT 1", nil)
+		if err != nil {
+			return err
+		}
+		defer rows1.Close()
+		qid = rows1.(SnowflakeRows).GetQueryID()
+		return nil
+	})
+	assertNilF(t, err)
+
+	ctx := WithFetchResultByID(context.Background(), qid)
+	rows2, err := db.QueryContext(ctx, "")
+	assertNilF(t, err)
+	closeCh := make(chan bool, 1)
+	rows2ext := &RowsExtended{rows: rows2, closeChan: &closeCh, t: t}
+	defer rows2ext.Close()
+
+	var ms, sum int
+	rows2ext.mustNext()
+	rows2ext.mustScan(&ms, &sum)
+	assertEqualE(t, ms, 1)
+	assertEqualE(t, sum, 5050)
 }
 
 func TestFetchRunningQueryByID(t *testing.T) {
-	assertNilE(t, fetchResultByQueryID(t, returnQueryIsRunningStatus, nil))
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "query_execution.json"},
+		wiremockMapping{filePath: "query_monitoring_running.json"},
+	)
+
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn.Close()
+
+	var qid string
+	err = conn.Raw(func(x any) error {
+		rows1, err := x.(driver.QueryerContext).QueryContext(context.Background(), "SELECT 1", nil)
+		if err != nil {
+			return err
+		}
+		defer rows1.Close()
+		qid = rows1.(SnowflakeRows).GetQueryID()
+		return nil
+	})
+	assertNilF(t, err)
+
+	ctx := WithFetchResultByID(context.Background(), qid)
+	rows2, err := db.QueryContext(ctx, "")
+	assertNilF(t, err)
+	closeCh := make(chan bool, 1)
+	rows2ext := &RowsExtended{rows: rows2, closeChan: &closeCh, t: t}
+	defer rows2ext.Close()
+
+	var ms, sum int
+	rows2ext.mustNext()
+	rows2ext.mustScan(&ms, &sum)
+	assertEqualE(t, ms, 1)
+	assertEqualE(t, sum, 5050)
 }
 
 func TestFetchErrorQueryByID(t *testing.T) {
-	assertNilE(t, fetchResultByQueryID(t, returnQueryIsErrStatus, &SnowflakeError{
-		Number: ErrQueryReportedError}))
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "query_execution.json"},
+		wiremockMapping{filePath: "query_monitoring_error.json"},
+	)
+
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn.Close()
+
+	var qid string
+	err = conn.Raw(func(x any) error {
+		rows1, err := x.(driver.QueryerContext).QueryContext(context.Background(), "SELECT 1", nil)
+		if err != nil {
+			return err
+		}
+		defer rows1.Close()
+		qid = rows1.(SnowflakeRows).GetQueryID()
+		return nil
+	})
+	assertNilF(t, err)
+
+	ctx := WithFetchResultByID(context.Background(), qid)
+	_, err = db.QueryContext(ctx, "")
+	assertNotNilF(t, err, "Expected error when fetching failed query")
+
+	var se *SnowflakeError
+	assertErrorsAsF(t, err, &se)
+	assertEqualE(t, se.Number, ErrQueryReportedError)
 }
 
 func TestFetchMalformedJsonQueryByID(t *testing.T) {
-	expectedErr := errors.New("invalid character '}' after object key")
-	assertNilE(t, fetchResultByQueryID(t, returnQueryMalformedJSON, expectedErr))
-}
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "query_execution.json"},
+		wiremockMapping{filePath: "query_monitoring_malformed.json"},
+	)
 
-func customGetQuery(ctx context.Context, rest *snowflakeRestful, url *url.URL,
-	vals map[string]string, _ time.Duration, jsonStr string) (
-	*http.Response, error) {
-	if strings.Contains(url.Path, "/monitoring/queries/") {
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(jsonStr)),
-		}, nil
-	}
-	return getRestful(ctx, rest, url, vals, rest.RequestTimeout)
-}
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
 
-func returnQueryIsRunningStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
-	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	jsonStr := `{"data" : { "queries" : [{"status" : "RUNNING", "state" :
-		"FILE_SET_INITIALIZATION", "errorCode" : "", "errorMessage" : null}] },
-		"code" : null, "message" : null, "success" : true }`
-	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
-}
+	// Execute a query to get a query ID using raw connection
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	defer conn.Close()
 
-func returnQueryIsErrStatus(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
-	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	jsonStr := `{"data" : { "queries" : [{"status" : "FAILED_WITH_ERROR",
-		"errorCode" : "", "errorMessage" : ""}] }, "code" : null, "message" :
-		null, "success" : true }`
-	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
-}
-
-func returnQueryMalformedJSON(ctx context.Context, rest *snowflakeRestful, fullURL *url.URL,
-	vals map[string]string, duration time.Duration) (*http.Response, error) {
-	jsonStr := `{"malformedJson"}`
-	return customGetQuery(ctx, rest, fullURL, vals, duration, jsonStr)
-}
-
-// this function is going to: 1, create a table, 2, query on this table,
-// 3, fetch result of query in step 2, mock running status and error status
-// of that query.
-func fetchResultByQueryID(
-	t *testing.T,
-	customGet funcGetType,
-	expectedFetchErr error) error {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		return err
-	}
-	ctx := context.Background()
-	sc, err := buildSnowflakeConn(ctx, *config)
-	if customGet != nil {
-		sc.rest.FuncGet = customGet
-	}
-	if err != nil {
-		return err
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		return err
-	}
-
-	if _, err = sc.Exec(`create or replace table ut_conn(c1 number, c2 string)
-							as (select seq4() as seq, concat('str',to_varchar(seq)) as str1 
-							from table(generator(rowcount => 100)))`, nil); err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	rows1, err := sc.QueryContext(ctx, "select min(c1) as ms, sum(c1) from ut_conn group by (c1 % 10) order by ms", nil)
-	if err != nil {
-		t.Fatalf("Query failed: %v", err)
-	}
-
-	qid := rows1.(SnowflakeResult).GetQueryID()
-	newCtx := WithFetchResultByID(ctx, qid)
-
-	rows2, err := sc.QueryContext(newCtx, "", nil)
-	if err != nil {
-		snowflakeErr, ok := err.(*SnowflakeError)
-		if ok && expectedFetchErr != nil { // got expected error number
-			if expectedSnowflakeErr, ok := expectedFetchErr.(*SnowflakeError); ok {
-				if expectedSnowflakeErr.Number == snowflakeErr.Number {
-					return nil
-				}
-			}
-		} else if !ok { // not a SnowflakeError
-			if strings.Contains(err.Error(), expectedFetchErr.Error()) {
-				return nil
-			}
+	var qid string
+	err = conn.Raw(func(x any) error {
+		rows1, err := x.(driver.QueryerContext).QueryContext(context.Background(), "SELECT 1", nil)
+		if err != nil {
+			return err
 		}
-		t.Fatalf("Fetch Query Result by ID failed: %v", err)
-	}
+		defer rows1.Close()
+		qid = rows1.(SnowflakeRows).GetQueryID()
+		return nil
+	})
+	assertNilF(t, err)
 
-	dest := make([]driver.Value, 2)
-	cnt := 0
-	for {
-		if err = rows2.Next(dest); err != nil {
-			if err == io.EOF {
-				break
-			} else {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		}
-		cnt++
-	}
-	if cnt != 10 {
-		t.Fatalf("rowcount is not expected 10: %v", cnt)
-	}
-	return nil
+	ctx := WithFetchResultByID(context.Background(), qid)
+	_, err = db.QueryContext(ctx, "")
+	assertNotNilF(t, err, "Expected error when fetching malformed JSON")
+
+	assertStringContainsF(t, err.Error(), "invalid character")
 }
 
 func TestIsPrivateLink(t *testing.T) {
@@ -548,36 +581,23 @@ func TestIsPrivateLink(t *testing.T) {
 		{"snowhouse.PRIVATELINK.snowflakecomputing.xyz", true},
 	} {
 		t.Run(tc.host, func(t *testing.T) {
-			assertEqualE(t, isPrivateLink(tc.host), tc.isPrivatelink)
+			assertEqualE(t, checkIsPrivateLink(tc.host), tc.isPrivatelink)
 		})
 	}
 }
 
 func TestBuildPrivatelinkConn(t *testing.T) {
-	os.Unsetenv(cacheServerURLEnv)
-	os.Unsetenv(ocspRetryURLEnv)
-
-	if _, err := buildSnowflakeConn(context.Background(), Config{
+	ov := newOcspValidator(&Config{
+		Host:     "testaccount.us-east-1.privatelink.snowflakecomputing.com",
 		Account:  "testaccount",
 		User:     "testuser",
 		Password: "testpassword",
-		Host:     "testaccount.us-east-1.privatelink.snowflakecomputing.com",
-	}); err != nil {
-		t.Error(err)
-	}
-	defer func() {
-		os.Unsetenv(cacheServerURLEnv)
-		os.Unsetenv(ocspRetryURLEnv)
-	}()
-
-	ocspURL := os.Getenv(cacheServerURLEnv)
-	assertEqualE(t, ocspURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json")
-	retryURL := os.Getenv(ocspRetryURLEnv)
-	assertEqualE(t, retryURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v")
+	})
+	assertEqualE(t, ov.cacheServerURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/ocsp_response_cache.json")
+	assertEqualE(t, ov.retryURL, "http://ocsp.testaccount.us-east-1.privatelink.snowflakecomputing.com/retry/%v/%v")
 }
 
-func TestOcspEnvVarsSetup(t *testing.T) {
-	ctx := context.Background()
+func TestOcspAddressesSetup(t *testing.T) {
 	for _, tc := range []struct {
 		host                string
 		cacheURL            string
@@ -585,12 +605,12 @@ func TestOcspEnvVarsSetup(t *testing.T) {
 	}{
 		{
 			host:                "testaccount.us-east-1.snowflakecomputing.com",
-			cacheURL:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
+			cacheURL:            fmt.Sprintf("%v/%v", defaultCacheServerHost, cacheFileBaseName),
 			privateLinkRetryURL: "",
 		},
 		{
 			host:                "testaccount-no-privatelink.snowflakecomputing.com",
-			cacheURL:            "", // no privatelink, default ocsp cache URL, no need to setup env vars
+			cacheURL:            fmt.Sprintf("%v/%v", defaultCacheServerHost, cacheFileBaseName),
 			privateLinkRetryURL: "",
 		},
 		{
@@ -615,18 +635,11 @@ func TestOcspEnvVarsSetup(t *testing.T) {
 		},
 	} {
 		t.Run(tc.host, func(t *testing.T) {
-			if err := setupOCSPEnvVars(ctx, tc.host); err != nil {
-				t.Errorf("error during OCSP env vars setup; %v", err)
-			}
-			defer func() {
-				os.Unsetenv(cacheServerURLEnv)
-				os.Unsetenv(ocspRetryURLEnv)
-			}()
-
-			cacheURLFromEnv := os.Getenv(cacheServerURLEnv)
-			assertEqualE(t, cacheURLFromEnv, tc.cacheURL)
-			retryURL := os.Getenv(ocspRetryURLEnv)
-			assertEqualE(t, retryURL, tc.privateLinkRetryURL)
+			ov := newOcspValidator(&Config{
+				Host: tc.host,
+			})
+			assertEqualE(t, ov.cacheServerURL, tc.cacheURL)
+			assertEqualE(t, ov.retryURL, tc.privateLinkRetryURL)
 
 		})
 	}
@@ -716,34 +729,50 @@ func TestConcurrentReadOnParams(t *testing.T) {
 	connector := NewConnector(SnowflakeDriver{}, *config)
 	db := sql.OpenDB(connector)
 	defer db.Close()
+
+	var successCount, failureCount int32
 	wg := sync.WaitGroup{}
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			for c := 0; c < 10; c++ {
-				stmt, err := db.PrepareContext(context.Background(), "SELECT table_schema FROM information_schema.columns WHERE table_schema = ? LIMIT 1")
-				if err != nil {
-					t.Error(err)
-				}
-				rows, err := stmt.Query("INFORMATION_SCHEMA")
-				if err != nil {
-					t.Error(err)
-				}
-				if rows == nil {
-					continue
-				}
-				rows.Next()
-				var tableName string
-				err = rows.Scan(&tableName)
-				if err != nil {
-					t.Error(err)
-				}
-				_ = rows.Close()
+				func() {
+					stmt, err := db.PrepareContext(context.Background(), "SELECT table_schema FROM information_schema.columns WHERE table_schema = ? LIMIT 1")
+					if err != nil || stmt == nil {
+						atomic.AddInt32(&failureCount, 1)
+						return // Skip this iteration if PrepareContext fails
+					}
+					defer stmt.Close()
+
+					rows, err := stmt.Query("INFORMATION_SCHEMA")
+					if err != nil {
+						atomic.AddInt32(&failureCount, 1)
+						return
+					}
+					defer rows.Close()
+
+					rows.Next()
+					var tableName string
+					err = rows.Scan(&tableName)
+					if err != nil {
+						atomic.AddInt32(&failureCount, 1)
+					} else {
+						atomic.AddInt32(&successCount, 1)
+					}
+				}()
 			}
 			wg.Done()
 		}()
 	}
 	wg.Wait()
+
+	totalOperations := int32(100) // 10 goroutines × 10 operations each
+	if successCount != totalOperations {
+		t.Errorf("Expected all %d concurrent operations to succeed, got %d successes, %d failures",
+			totalOperations, successCount, failureCount)
+	} else {
+		t.Logf("All %d concurrent operations completed successfully", successCount)
+	}
 }
 
 func postQueryTest(_ context.Context, _ *snowflakeRestful, _ *url.Values, headers map[string]string, _ []byte, _ time.Duration, _ UUID, _ *Config) (*execResponse, error) {
@@ -886,49 +915,103 @@ func (t EmptyTransporter) RoundTrip(*http.Request) (*http.Response, error) {
 	return nil, nil
 }
 
+// castToTransport safely casts http.RoundTripper to *http.Transport
+// Returns nil if the cast fails
+func castToTransport(rt http.RoundTripper) *http.Transport {
+	if transport, ok := rt.(*http.Transport); ok {
+		return transport
+	}
+	return nil
+}
+
 func TestGetTransport(t *testing.T) {
 	testcases := []struct {
-		name      string
-		cfg       *Config
-		transport http.RoundTripper
+		name              string
+		cfg               *Config
+		transportCheck    func(t *testing.T, transport *http.Transport)
+		roundTripperCheck func(t *testing.T, roundTripper http.RoundTripper)
 	}{
 		{
-			name:      "DisableOCSPChecks and InsecureMode false",
-			cfg:       &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
-			transport: SnowflakeTransport,
+			name: "DisableOCSPChecks and InsecureMode false",
+			cfg:  &Config{Account: "one", DisableOCSPChecks: false, InsecureMode: false},
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should have a verifier function
+				assertNotNilF(t, transport)
+				assertNotNilF(t, transport.TLSClientConfig)
+				assertNotNilF(t, transport.TLSClientConfig.VerifyPeerCertificate)
+			},
 		},
 		{
-			name:      "DisableOCSPChecks true and InsecureMode false",
-			cfg:       &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
-			transport: snowflakeNoOcspTransport,
+			name: "DisableOCSPChecks true and InsecureMode false",
+			cfg:  &Config{Account: "two", DisableOCSPChecks: true, InsecureMode: false},
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should not have a TLSClientConfig
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
+			},
 		},
 		{
-			name:      "DisableOCSPChecks false and InsecureMode true",
-			cfg:       &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
-			transport: snowflakeNoOcspTransport,
+			name: "DisableOCSPChecks false and InsecureMode true",
+			cfg:  &Config{Account: "three", DisableOCSPChecks: false, InsecureMode: true},
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should not have a TLSClientConfig
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
+			},
 		},
 		{
-			name:      "DisableOCSPChecks and InsecureMode missing from Config",
-			cfg:       &Config{Account: "four"},
-			transport: SnowflakeTransport,
+			name: "DisableOCSPChecks and InsecureMode missing from Config",
+			cfg:  &Config{Account: "four"},
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should have a verifier function
+				assertNotNilF(t, transport)
+				assertNotNilF(t, transport.TLSClientConfig)
+				assertNotNilF(t, transport.TLSClientConfig.VerifyPeerCertificate)
+			},
 		},
 		{
-			name:      "whole Config is missing",
-			cfg:       nil,
-			transport: SnowflakeTransport,
+			name: "whole Config is missing",
+			cfg:  nil,
+			transportCheck: func(t *testing.T, transport *http.Transport) {
+				// We should not have a TLSClientConfig
+				assertNotNilF(t, transport)
+				assertNilF(t, transport.TLSClientConfig)
+			},
 		},
 		{
-			name:      "Using custom Transporter",
-			cfg:       &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
-			transport: EmptyTransporter{},
+			name: "Using custom Transporter",
+			cfg:  &Config{Account: "five", DisableOCSPChecks: true, InsecureMode: false, Transporter: EmptyTransporter{}},
+			roundTripperCheck: func(t *testing.T, roundTripper http.RoundTripper) {
+				// We should have a custom Transporter
+				assertNotNilF(t, roundTripper)
+				assertTrueE(t, roundTripper == EmptyTransporter{})
+			},
 		},
 	}
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result := getTransport(test.cfg)
-			if test.transport != result {
-				t.Errorf("Failed to return the correct transport, input :%#v, expected: %v, got: %v", test.cfg, test.transport, result)
+			result, err := newTransportFactory(test.cfg, nil).createTransport()
+			assertNilE(t, err)
+			if test.transportCheck != nil {
+				test.transportCheck(t, castToTransport(result))
+			}
+			if test.roundTripperCheck != nil {
+				test.roundTripperCheck(t, result)
 			}
 		})
 	}
+}
+func TestGetCRLTransport(t *testing.T) {
+	t.Run("Using CRLs", func(t *testing.T) {
+		crlCfg := &Config{
+			CertRevocationCheckMode: CertRevocationCheckEnabled,
+			DisableOCSPChecks:       true,
+		}
+		transportFactory := newTransportFactory(crlCfg, nil)
+		crlRoundTripper, err := transportFactory.createTransport()
+		assertNilF(t, err)
+		transport := castToTransport(crlRoundTripper)
+		assertNotNilF(t, transport, "Expected http.Transport")
+		assertEqualE(t, transport.MaxIdleConns, 5)
+	})
 }

@@ -1,0 +1,82 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/oauth/authorize",
+        "queryParameters": {
+          "response_type": {
+            "equalTo": "code"
+          },
+          "scope": {
+            "equalTo": "session:role:ANALYST"
+          },
+          "code_challenge_method": {
+            "equalTo": "S256"
+          },
+          "redirect_uri": {
+            "equalTo": "http://localhost:1234/snowflake/oauth-redirect"
+          },
+          "code_challenge": {
+            "matches": "JZpN_-zfNduuWm-zUo-D-m7vMw_pgUGv8wGDGqBR8PM"
+          },
+          "state": {
+            "matches": "testState|invalidState"
+          },
+          "client_id": {
+            "equalTo": "testClientId"
+          }
+        },
+        "method": "GET"
+      },
+      "response": {
+        "status": 302,
+        "headers": {
+          "Location": "http://localhost:1234/snowflake/oauth-redirect?code=testCode&state=testState"
+        }
+      }
+    },
+    {
+      "request": {
+        "urlPathPattern": "/oauth/token",
+        "method": "POST",
+        "headers": {
+          "Content-Type": {
+            "contains": "application/x-www-form-urlencoded"
+          },
+          "Authorization": {
+            "equalTo": "Basic dGVzdENsaWVudElkOnRlc3RDbGllbnRTZWNyZXQ="
+          }
+        },
+        "formParameters": {
+          "grant_type": {
+            "equalTo": "authorization_code"
+          },
+          "code_verifier": {
+            "matches": "testCodeVerifier"
+          },
+          "code": {
+            "equalTo": "testCode"
+          },
+          "redirect_uri": {
+            "equalTo": "http://localhost:1234/snowflake/oauth-redirect"
+          },
+          "enable_single_use_refresh_tokens": {
+            "equalTo": "true"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "access_token": "access-token-123",
+          "token_type": "Bearer",
+          "username": "test-user",
+          "scope": "refresh_token session:role:ANALYST",
+          "expires_in": 600,
+          "refresh_token_expires_in": 86399,
+          "idpInitiated": false
+        }
+      }
+    }
+  ]
+}

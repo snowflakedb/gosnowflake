@@ -216,6 +216,23 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 			return err
 		}
 		cfg.Token = v
+
+	case "connectiondiagnosticsenabled":
+		cfg.ConnectionDiagnosticsEnabled, err = parseBool(value)
+	case "connectiondiagnosticsallowlistfile":
+		cfg.ConnectionDiagnosticsAllowlistFile, err = parseString(value)
+	case "proxyhost":
+		cfg.ProxyHost, err = parseString(value)
+	case "proxyport":
+		cfg.ProxyPort, err = parseInt(value)
+	case "proxyuser":
+		cfg.ProxyUser, err = parseString(value)
+	case "proxypassword":
+		cfg.ProxyPassword, err = parseString(value)
+	case "proxyprotocol":
+		cfg.ProxyProtocol, err = parseString(value)
+	case "noproxy":
+		cfg.NoProxy, err = parseString(value)
 	default:
 		param, err := parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {

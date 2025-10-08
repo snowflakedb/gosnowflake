@@ -4,17 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"golang.org/x/oauth2"
 	"io"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/oauth2"
 )
 
 func TestUnitOAuthAuthorizationCode(t *testing.T) {
 	skipOnMac(t, "keychain requires password")
-	roundTripper := newCountingRoundTripper(snowflakeNoOcspTransport)
+	roundTripper := newCountingRoundTripper(createTestNoRevocationTransport())
 	httpClient := &http.Client{
 		Transport: roundTripper,
 	}
@@ -30,7 +31,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		ClientStoreTemporaryCredential: ConfigBoolTrue,
 		ExternalBrowserTimeout:         defaultExternalBrowserTimeout,
 	}
-	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg)
+	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg, &snowflakeConn{})
 	assertNilF(t, err)
 	accessTokenSpec := newOAuthAccessTokenSpec(wiremock.connectionConfig().OauthTokenRequestURL, wiremock.connectionConfig().User)
 	refreshTokenSpec := newOAuthRefreshTokenSpec(wiremock.connectionConfig().OauthTokenRequestURL, wiremock.connectionConfig().User)
@@ -51,11 +52,12 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 	})
 
 	t.Run("Store access token in cache", func(t *testing.T) {
+		skipOnMissingHome(t)
 		roundTripper.reset()
 		credentialsStorage.deleteCredential(accessTokenSpec)
 		credentialsStorage.deleteCredential(refreshTokenSpec)
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/successful_flow.json"))
-		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{}
+		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{t: t}
 		client.authorizationCodeProviderFactory = func() authorizationCodeProvider {
 			return authCodeProvider
 		}
@@ -65,12 +67,13 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 	})
 
 	t.Run("Use cache for consecutive calls", func(t *testing.T) {
+		skipOnMissingHome(t)
 		roundTripper.reset()
 		credentialsStorage.setCredential(accessTokenSpec, "access-token-123")
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/successful_flow.json"))
-		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{}
+		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{t: t}
 		for i := 0; i < 3; i++ {
-			client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg)
+			client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfg, &snowflakeConn{})
 			assertNilF(t, err)
 			client.authorizationCodeProviderFactory = func() authorizationCodeProvider {
 				return authCodeProvider
@@ -88,6 +91,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/successful_flow.json"))
 		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{
 			tamperWithState: true,
+			t:               t,
 		}
 		client.authorizationCodeProviderFactory = func() authorizationCodeProvider {
 			return authCodeProvider
@@ -102,7 +106,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		credentialsStorage.deleteCredential(accessTokenSpec)
 		credentialsStorage.deleteCredential(refreshTokenSpec)
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/error_from_idp.json"))
-		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{}
+		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{t: t}
 		client.authorizationCodeProviderFactory = func() authorizationCodeProvider {
 			return authCodeProvider
 		}
@@ -127,7 +131,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		credentialsStorage.deleteCredential(accessTokenSpec)
 		credentialsStorage.deleteCredential(refreshTokenSpec)
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/invalid_code.json"))
-		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{}
+		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{t: t}
 		client.authorizationCodeProviderFactory = func() authorizationCodeProvider {
 			return authCodeProvider
 		}
@@ -145,7 +149,9 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/successful_flow.json"))
 		client.cfg.ExternalBrowserTimeout = 2 * time.Second
 		authCodeProvider := &nonInteractiveAuthorizationCodeProvider{
-			sleepTime: 3 * time.Second,
+			sleepTime:    3 * time.Second,
+			triggerError: "timed out",
+			t:            t,
 		}
 		client.authorizationCodeProviderFactory = func() authorizationCodeProvider {
 			return authCodeProvider
@@ -175,7 +181,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 			ClientStoreTemporaryCredential: ConfigBoolTrue,
 		}
 	}
-	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfgFactory())
+	client, err := newOauthClient(context.WithValue(context.Background(), oauth2.HTTPClient, httpClient), cfgFactory(), &snowflakeConn{})
 	assertNilF(t, err)
 
 	t.Run("success", func(t *testing.T) {
@@ -187,6 +193,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 	})
 
 	t.Run("should store token in cache", func(t *testing.T) {
+		skipOnMissingHome(t)
 		crt.reset()
 		credentialsStorage.deleteCredential(cacheTokenSpec)
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/client_credentials/successful_flow.json"))
@@ -194,7 +201,7 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 		assertNilF(t, err)
 		assertEqualE(t, token, "access-token-123")
 
-		client, err := newOauthClient(context.Background(), cfgFactory())
+		client, err := newOauthClient(context.Background(), cfgFactory(), &snowflakeConn{})
 		assertNilF(t, err)
 		token, err = client.authenticateByOAuthClientCredentials()
 		assertNilF(t, err)
@@ -204,10 +211,11 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 	})
 
 	t.Run("consecutive calls should take token from cache", func(t *testing.T) {
+		skipOnMissingHome(t)
 		crt.reset()
 		credentialsStorage.setCredential(cacheTokenSpec, "access-token-123")
 		for i := 0; i < 3; i++ {
-			client, err := newOauthClient(context.Background(), cfgFactory())
+			client, err := newOauthClient(context.Background(), cfgFactory(), &snowflakeConn{})
 			assertNilF(t, err)
 			token, err := client.authenticateByOAuthClientCredentials()
 			assertNilF(t, err)
@@ -217,17 +225,18 @@ func TestUnitOAuthClientCredentials(t *testing.T) {
 	})
 
 	t.Run("disabling cache", func(t *testing.T) {
+		skipOnMissingHome(t)
 		cfg := cfgFactory()
 		cfg.ClientStoreTemporaryCredential = ConfigBoolFalse
 		credentialsStorage.deleteCredential(cacheTokenSpec)
 		wiremock.registerMappings(t, newWiremockMapping("oauth2/client_credentials/successful_flow.json"))
-		client, err := newOauthClient(context.Background(), cfg)
+		client, err := newOauthClient(context.Background(), cfg, &snowflakeConn{})
 		assertNilF(t, err)
 		token, err := client.authenticateByOAuthClientCredentials()
 		assertNilF(t, err)
 		assertEqualE(t, token, "access-token-123")
 
-		client, err = newOauthClient(context.Background(), cfg)
+		client, err = newOauthClient(context.Background(), cfg, &snowflakeConn{})
 		assertNilF(t, err)
 		token, err = client.authenticateByOAuthClientCredentials()
 		assertNilF(t, err)
@@ -262,7 +271,7 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 			mu: sync.Mutex{},
 		}
 	}
-	roundTripper := newCountingRoundTripper(snowflakeNoOcspTransport)
+	roundTripper := newCountingRoundTripper(createTestNoRevocationTransport())
 
 	t.Run("successful flow", func(t *testing.T) {
 		wiremock.registerMappings(t,
@@ -274,6 +283,68 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
 		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
 		cfg.Transporter = roundTripper
+		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
+		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
+		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
+		credentialsStorage.deleteCredential(oauthRefreshTokenSpec)
+		connector := NewConnector(SnowflakeDriver{}, *cfg)
+		db := sql.OpenDB(connector)
+		runSmokeQuery(t, db)
+	})
+
+	t.Run("successful flow with multiple threads", func(t *testing.T) {
+		for _, singleAuthenticationPrompt := range []ConfigBool{ConfigBoolFalse, ConfigBoolTrue, configBoolNotSet} {
+			t.Run("singleAuthenticationPrompt="+singleAuthenticationPrompt.String(), func(t *testing.T) {
+				currentDefaultAuthorizationCodeProviderFactory := defaultAuthorizationCodeProviderFactory
+				defer func() {
+					defaultAuthorizationCodeProviderFactory = currentDefaultAuthorizationCodeProviderFactory
+				}()
+				defaultAuthorizationCodeProviderFactory = func() authorizationCodeProvider {
+					return &nonInteractiveAuthorizationCodeProvider{
+						t:         t,
+						mu:        sync.Mutex{},
+						sleepTime: 500 * time.Millisecond,
+					}
+				}
+				roundTripper.reset()
+				wiremock.registerMappings(t,
+					newWiremockMapping("oauth2/authorization_code/successful_flow.json"),
+					newWiremockMapping("oauth2/login_request.json"),
+					newWiremockMapping("select1.json"),
+					newWiremockMapping("close_session.json"))
+				cfg := wiremock.connectionConfig()
+				cfg.Role = "ANALYST"
+				cfg.Authenticator = AuthTypeOAuthAuthorizationCode
+				cfg.Transporter = roundTripper
+				cfg.SingleAuthenticationPrompt = singleAuthenticationPrompt
+				oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
+				oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
+				credentialsStorage.deleteCredential(oauthAccessTokenSpec)
+				credentialsStorage.deleteCredential(oauthRefreshTokenSpec)
+				connector := NewConnector(SnowflakeDriver{}, *cfg)
+				db := sql.OpenDB(connector)
+				initPoolWithSize(t, db, 20)
+				println(roundTripper.postReqCount[cfg.OauthTokenRequestURL])
+				if singleAuthenticationPrompt == ConfigBoolFalse {
+					assertTrueE(t, roundTripper.postReqCount[cfg.OauthTokenRequestURL] > 1)
+				} else {
+					assertEqualE(t, roundTripper.postReqCount[cfg.OauthTokenRequestURL], 1)
+				}
+			})
+		}
+	})
+
+	t.Run("successful flow with single-use refresh token enabled", func(t *testing.T) {
+		wiremock.registerMappings(t,
+			newWiremockMapping("oauth2/authorization_code/successful_flow_with_single_use_refresh_token.json"),
+			newWiremockMapping("oauth2/login_request.json"),
+			newWiremockMapping("select1.json"))
+		cfg := wiremock.connectionConfig()
+		cfg.Role = "ANALYST"
+		cfg.Authenticator = AuthTypeOAuthAuthorizationCode
+		cfg.OauthRedirectURI = "http://localhost:1234/snowflake/oauth-redirect"
+		cfg.Transporter = roundTripper
+		cfg.EnableSingleUseRefreshTokens = true
 		oauthAccessTokenSpec := newOAuthAccessTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
@@ -469,7 +540,7 @@ func TestClientCredentialsFlow(t *testing.T) {
 			mu: sync.Mutex{},
 		}
 	}
-	roundTripper := newCountingRoundTripper(snowflakeNoOcspTransport)
+	roundTripper := newCountingRoundTripper(createTestNoRevocationTransport())
 
 	cfg := wiremock.connectionConfig()
 	cfg.Role = "ANALYST"
@@ -657,7 +728,9 @@ type nonInteractiveAuthorizationCodeProvider struct {
 func (provider *nonInteractiveAuthorizationCodeProvider) run(authorizationURL string) error {
 	if provider.sleepTime != 0 {
 		time.Sleep(provider.sleepTime)
-		return errors.New("ignore me")
+		if provider.triggerError != "" {
+			return errors.New(provider.triggerError)
+		}
 	}
 	if provider.triggerError != "" {
 		return errors.New(provider.triggerError)

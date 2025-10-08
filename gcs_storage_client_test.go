@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
+	"strings"
 	"testing"
 )
 
@@ -159,7 +161,7 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -176,7 +178,7 @@ func TestUploadFileWithGcsUploadFailedError(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -219,7 +221,7 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -237,13 +239,15 @@ func TestUploadFileWithGcsUploadFailedWithRetry(t *testing.T) {
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					Status:     "403 Forbidden",
 					StatusCode: 403,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -286,7 +290,7 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -302,13 +306,15 @@ func TestUploadFileWithGcsUploadFailedWithTokenExpired(t *testing.T) {
 		srcFileName:       path.Join(dir, "/test_data/put_get_1.txt"),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -347,7 +353,7 @@ func TestDownloadOneFileFromGcsFailed(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -363,7 +369,7 @@ func TestDownloadOneFileFromGcsFailed(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -393,7 +399,7 @@ func TestDownloadOneFileFromGcsFailedWithRetry(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -409,13 +415,15 @@ func TestDownloadOneFileFromGcsFailedWithRetry(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					Status:     "403 Forbidden",
 					StatusCode: 403,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -450,7 +458,7 @@ func TestDownloadOneFileFromGcsFailedWithTokenExpired(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -466,13 +474,15 @@ func TestDownloadOneFileFromGcsFailedWithTokenExpired(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -507,7 +517,7 @@ func TestDownloadOneFileFromGcsFailedWithFileNotFound(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -523,13 +533,15 @@ func TestDownloadOneFileFromGcsFailedWithFileNotFound(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					Status:     "404 Not Found",
 					StatusCode: 404,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -567,6 +579,8 @@ func TestGetHeaderTokenExpiredError(t *testing.T) {
 				return &http.Response{
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -601,6 +615,8 @@ func TestGetHeaderFileNotFound(t *testing.T) {
 				return &http.Response{
 					Status:     "404 Not Found",
 					StatusCode: 404,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -692,6 +708,8 @@ func TestGetHeaderBadRequest(t *testing.T) {
 				return &http.Response{
 					Status:     "400 Bad Request",
 					StatusCode: 400,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -727,6 +745,8 @@ func TestGetHeaderRetryableError(t *testing.T) {
 				return &http.Response{
 					Status:     "403 Forbidden",
 					StatusCode: 403,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -753,7 +773,7 @@ func TestUploadStreamFailed(t *testing.T) {
 	initialParallel := int64(100)
 	src := []byte{65, 66, 67}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -770,7 +790,7 @@ func TestUploadStreamFailed(t *testing.T) {
 		srcStream:         bytes.NewBuffer(src),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -803,7 +823,7 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -820,12 +840,14 @@ func TestUploadFileWithBadRequest(t *testing.T) {
 		overwrite:         true,
 		lastError:         nil,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					StatusCode: 400,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -960,7 +982,7 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -978,13 +1000,15 @@ func TestUploadFileToGcsNoStatus(t *testing.T) {
 		dstCompressionType: compressionTypes["GZIP"],
 		encryptionMaterial: &encMat,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					Status:     "401 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -1018,7 +1042,7 @@ func TestDownloadFileFromGcsError(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -1034,13 +1058,15 @@ func TestDownloadFileFromGcsError(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					Status:     "403 Unauthorized",
 					StatusCode: 401,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -1067,7 +1093,7 @@ func TestDownloadFileWithBadRequest(t *testing.T) {
 		t.Error(err)
 	}
 
-	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false)
+	gcsCli, err := new(snowflakeGcsClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -1083,13 +1109,15 @@ func TestDownloadFileWithBadRequest(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockGcsClient: &clientMock{
 			DoFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{
 					Status:     "400 Bad Request",
 					StatusCode: 400,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}, nil
 			},
 		},
@@ -1141,7 +1169,7 @@ func Test_snowflakeGcsClient_nativeDownloadFile(t *testing.T) {
 		client:    1,
 		stageInfo: &info,
 	}
-	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1)
+	err := new(snowflakeGcsClient).nativeDownloadFile(&meta, "dummy data", 1, multiPartThreshold)
 	if err == nil {
 		t.Error("should have raised an error")
 	}

@@ -214,22 +214,13 @@ type authenticateByExternalBrowserResult struct {
 	err                 error
 }
 
-func authenticateByExternalBrowser(
-	ctx context.Context,
-	sr *snowflakeRestful,
-	authenticator string,
-	application string,
-	account string,
-	user string,
-	password string,
-	externalBrowserTimeout time.Duration,
-	disableConsoleLogin ConfigBool,
-) ([]byte, []byte, error) {
+func authenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, authenticator string, application string,
+	account string, user string, externalBrowserTimeout time.Duration, disableConsoleLogin ConfigBool) ([]byte, []byte, error) {
 	resultChan := make(chan authenticateByExternalBrowserResult, 1)
 	go GoroutineWrapper(
 		ctx,
 		func() {
-			resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, password, disableConsoleLogin)
+			resultChan <- doAuthenticateByExternalBrowser(ctx, sr, authenticator, application, account, user, disableConsoleLogin)
 		},
 	)
 	select {
@@ -249,21 +240,16 @@ func authenticateByExternalBrowser(
 //   - user authenticates at the IDP, and is redirected to Snowflake
 //   - Snowflake directs the user back to the driver
 //   - authenticate is complete!
-func doAuthenticateByExternalBrowser(
-	ctx context.Context,
-	sr *snowflakeRestful,
-	authenticator string,
-	application string,
-	account string,
-	user string,
-	password string,
-	disableConsoleLogin ConfigBool,
-) authenticateByExternalBrowserResult {
+func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, authenticator string, application string, account string, user string, disableConsoleLogin ConfigBool) authenticateByExternalBrowserResult {
 	l, err := createLocalTCPListener(0)
 	if err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
-	defer l.Close()
+	defer func() {
+		if err = l.Close(); err != nil {
+			logger.Errorf("error while closing TCP listener for external browser (%v). %v", l.Addr().String(), err)
+		}
+	}()
 
 	callbackPort := l.Addr().(*net.TCPAddr).Port
 
@@ -281,7 +267,7 @@ func doAuthenticateByExternalBrowser(
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
-	if err = openBrowser(loginURL); err != nil {
+	if err = defaultSamlResponseProvider().run(loginURL); err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
@@ -355,4 +341,19 @@ func doAuthenticateByExternalBrowser(
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 	return authenticateByExternalBrowserResult{[]byte(escapedSamlResponse), []byte(proofKey), nil}
+}
+
+type samlResponseProvider interface {
+	run(url string) error
+}
+
+type externalBrowserSamlResponseProvider struct {
+}
+
+func (e externalBrowserSamlResponseProvider) run(url string) error {
+	return openBrowser(url)
+}
+
+var defaultSamlResponseProvider = func() samlResponseProvider {
+	return &externalBrowserSamlResponseProvider{}
 }

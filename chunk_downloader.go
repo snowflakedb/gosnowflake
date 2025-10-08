@@ -27,8 +27,6 @@ var (
 
 type chunkDownloader interface {
 	totalUncompressedSize() (acc int64)
-	hasNextResultSet() bool
-	nextResultSet() error
 	start() error
 	next() (chunkRowType, error)
 	reset()
@@ -76,22 +74,6 @@ func (scd *snowflakeChunkDownloader) totalUncompressedSize() (acc int64) {
 		acc += c.UncompressedSize
 	}
 	return
-}
-
-func (scd *snowflakeChunkDownloader) hasNextResultSet() bool {
-	if len(scd.ChunkMetas) == 0 && scd.NextDownloader == nil {
-		return false // no extra chunk
-	}
-	// next result set exists if current chunk has remaining result sets or there is another downloader
-	return scd.CurrentChunkIndex < len(scd.ChunkMetas) || scd.NextDownloader != nil
-}
-
-func (scd *snowflakeChunkDownloader) nextResultSet() error {
-	// no error at all times as the next chunk/resultset is automatically read
-	if scd.CurrentChunkIndex < len(scd.ChunkMetas) {
-		return nil
-	}
-	return io.EOF
 }
 
 func (scd *snowflakeChunkDownloader) start() error {
@@ -327,6 +309,7 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 			funcDownloadHelper: scd.FuncDownloadHelper,
 			loc:                loc,
 		}
+		scd.CurrentChunkIndex++
 	}
 	return nil
 }
@@ -395,7 +378,11 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 	if err != nil {
 		return fmt.Errorf("getting chunk: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.Warnf("downloadChunkHelper: closing response body %v: %v", scd.ChunkMetas[idx].URL, err)
+		}
+	}()
 	logger.WithContext(ctx).Debugf("response returned chunk: %v for URL: %v", idx+1, scd.ChunkMetas[idx].URL)
 	if resp.StatusCode != http.StatusOK {
 		b, err := io.ReadAll(resp.Body)
@@ -429,7 +416,11 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 		if err != nil {
 			return fmt.Errorf("creating gzip reader: %w", err)
 		}
-		defer bufStream0.Close()
+		defer func() {
+			if err = bufStream0.Close(); err != nil {
+				logger.Warnf("decodeChunk: closing gzip reader: %v", err)
+			}
+		}()
 		source = bufStream0
 	} else {
 		source = bufStream
@@ -527,14 +518,6 @@ func (scd *streamChunkDownloader) totalUncompressedSize() (acc int64) {
 	return -1
 }
 
-func (scd *streamChunkDownloader) hasNextResultSet() bool {
-	return scd.readErr == nil
-}
-
-func (scd *streamChunkDownloader) nextResultSet() error {
-	return scd.readErr
-}
-
 func (scd *streamChunkDownloader) start() error {
 	go GoroutineWrapper(
 		scd.ctx,
@@ -547,7 +530,7 @@ func (scd *streamChunkDownloader) start() error {
 			t := time.Now()
 
 			defer func() {
-				if readErr == io.EOF {
+				if readErr == nil {
 					logger.WithContext(scd.ctx).Infof("downloading done. downloader id: %v", scd.id)
 				} else {
 					logger.WithContext(scd.ctx).Debugf("downloading error. downloader id: %v", scd.id)
@@ -638,11 +621,13 @@ type streamChunkFetcher interface {
 }
 
 type httpStreamChunkFetcher struct {
-	ctx      context.Context
-	client   *http.Client
-	clientIP net.IP
-	headers  map[string]string
-	qrmk     string
+	ctx           context.Context
+	client        *http.Client
+	clientIP      net.IP
+	headers       map[string]string
+	maxRetryCount int
+	qrmk          string
+	timeout       time.Duration
 }
 
 func newStreamChunkDownloader(
@@ -677,11 +662,15 @@ func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error 
 	if err != nil {
 		return fmt.Errorf("parsing URL: %w", err)
 	}
-	res, err := newRetryHTTP(context.Background(), f.client, http.NewRequest, fullURL, f.headers, 0, 0, defaultTimeProvider, nil).execute()
+	res, err := newRetryHTTP(f.ctx, f.client, http.NewRequest, fullURL, f.headers, f.timeout, f.maxRetryCount, defaultTimeProvider, nil).execute()
 	if err != nil {
 		return fmt.Errorf("executing HTTP request: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err = res.Body.Close(); err != nil {
+			logger.Warnf("httpStreamChunkFetcher.fetch: closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		b, err := io.ReadAll(res.Body)
 		if err != nil {
@@ -708,7 +697,11 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 		if err != nil {
 			return fmt.Errorf("creating gzip reader: %w", err)
 		}
-		defer bufStream0.Close()
+		defer func() {
+			if err = bufStream0.Close(); err != nil {
+				logger.Warnf("copyChunkStream: closing gzip reader: %v", err)
+			}
+		}()
 		source = bufStream0
 	}
 	r := io.MultiReader(strings.NewReader("["), source, strings.NewReader("]"))

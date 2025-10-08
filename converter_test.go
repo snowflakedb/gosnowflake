@@ -156,6 +156,10 @@ func TestSnowflakeTypeToGo(t *testing.T) {
 		{in: fixedType, precision: 38, scale: 0, out: reflect.TypeOf(&big.Int{}), ctx: WithHigherPrecision(context.Background())},
 		{in: fixedType, scale: 2, out: reflect.TypeOf(&big.Float{}), ctx: WithHigherPrecision(context.Background())},
 		{in: realType, scale: 0, out: reflect.TypeOf(float64(0)), ctx: context.Background()},
+		{in: decfloatType, scale: 38, out: reflect.TypeOf(""), ctx: context.Background()},
+		{in: decfloatType, scale: 38, out: reflect.TypeOf(""), ctx: WithHigherPrecision(context.Background())},
+		{in: decfloatType, scale: 38, out: reflect.TypeOf(float64(0)), ctx: WithDecfloatMappingEnabled(context.Background())},
+		{in: decfloatType, scale: 38, out: reflect.TypeOf(&big.Float{}), ctx: WithHigherPrecision(WithDecfloatMappingEnabled(context.Background()))},
 		{in: textType, scale: 0, out: reflect.TypeOf(""), ctx: context.Background()},
 		{in: dateType, scale: 0, out: reflect.TypeOf(time.Now()), ctx: context.Background()},
 		{in: timeType, scale: 0, out: reflect.TypeOf(time.Now()), ctx: context.Background()},
@@ -2620,7 +2624,7 @@ func TestNumbersScanType(t *testing.T) {
 						assertEqualE(t, i3.Cmp(big.NewFloat(600.5)), 0)
 						assertEqualE(t, i4.Cmp(big.NewFloat(700.5)), 0)
 						assertEqualE(t, i5.Cmp(big.NewFloat(900.5)), 0)
-						bigInt123456789012345678901234567890, _, err := big.ParseFloat("123456789012345678901234567890.5", 10, big.MaxPrec, big.AwayFromZero)
+						bigInt123456789012345678901234567890, _, err := big.ParseFloat("123456789012345678901234567890.5", 10, numberMaxPrecisionInBits, big.AwayFromZero)
 						assertNilF(t, err)
 						assertEqualE(t, i6.Cmp(bigInt123456789012345678901234567890), 0)
 

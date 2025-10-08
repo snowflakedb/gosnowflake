@@ -25,7 +25,7 @@ func openDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func openConn(t *testing.T) *sql.Conn {
+func openConn(t *testing.T) (*sql.DB, *sql.Conn) {
 	var db *sql.DB
 	var conn *sql.Conn
 	var err error
@@ -36,7 +36,7 @@ func openConn(t *testing.T) *sql.Conn {
 	if conn, err = db.Conn(context.Background()); err != nil {
 		t.Fatalf("failed to open connection: %v", err)
 	}
-	return conn
+	return db, conn
 }
 
 func TestExecStmt(t *testing.T) {
@@ -280,33 +280,33 @@ func TestAsyncFailQueryId(t *testing.T) {
 
 func TestGetQueryID(t *testing.T) {
 	ctx := context.Background()
-	conn := openConn(t)
-	defer conn.Close()
 
-	if err := conn.Raw(func(x interface{}) error {
-		rows, err := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
+	runDBTest(t, func(dbt *DBTest) {
+		if err := dbt.conn.Raw(func(x interface{}) error {
+			rows, err := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
 
-		if _, err = x.(driver.QueryerContext).QueryContext(ctx, "selectt 1", nil); err == nil {
-			t.Fatal("should have failed to execute query")
-		}
-		if driverErr, ok := err.(*SnowflakeError); ok {
-			if driverErr.Number != 1003 {
-				t.Fatalf("incorrect error code. expected: 1003, got: %v", driverErr.Number)
+			if _, err = x.(driver.QueryerContext).QueryContext(ctx, "selectt 1", nil); err == nil {
+				t.Fatal("should have failed to execute query")
 			}
-			if driverErr.QueryID == "" {
-				t.Fatal("should have an associated query ID")
+			if driverErr, ok := err.(*SnowflakeError); ok {
+				if driverErr.Number != 1003 {
+					t.Fatalf("incorrect error code. expected: 1003, got: %v", driverErr.Number)
+				}
+				if driverErr.QueryID == "" {
+					t.Fatal("should have an associated query ID")
+				}
+			} else {
+				t.Fatal("should have been able to cast to Snowflake Error")
 			}
-		} else {
-			t.Fatal("should have been able to cast to Snowflake Error")
+			return nil
+		}); err != nil {
+			t.Fatalf("failed to prepare statement. err: %v", err)
 		}
-		return nil
-	}); err != nil {
-		t.Fatalf("failed to prepare statement. err: %v", err)
-	}
+	})
 }
 
 func TestEmitQueryID(t *testing.T) {
@@ -457,68 +457,56 @@ func TestCallStatement(t *testing.T) {
 
 func TestStmtExec(t *testing.T) {
 	ctx := context.Background()
-	conn := openConn(t)
-	defer conn.Close()
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExecT(t, `create or replace table test_table(col1 int, col2 int)`)
 
-	if _, err := conn.ExecContext(ctx, `create or replace table test_table(col1 int, col2 int)`); err != nil {
-		t.Fatalf("failed to create table: %v", err)
-	}
+		if err := dbt.conn.Raw(func(x interface{}) error {
+			stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "insert into test_table values (1, 2)")
+			if err != nil {
+				t.Error(err)
+			}
+			_, err = stmt.(*snowflakeStmt).Exec(nil)
+			if err != nil {
+				t.Error(err)
+			}
+			_, err = stmt.(*snowflakeStmt).Query(nil)
+			if err != nil {
+				t.Error(err)
+			}
+			return nil
+		}); err != nil {
+			t.Fatalf("failed to drop table: %v", err)
+		}
 
-	if err := conn.Raw(func(x interface{}) error {
-		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "insert into test_table values (1, 2)")
-		if err != nil {
-			t.Error(err)
-		}
-		_, err = stmt.(*snowflakeStmt).Exec(nil)
-		if err != nil {
-			t.Error(err)
-		}
-		_, err = stmt.(*snowflakeStmt).Query(nil)
-		if err != nil {
-			t.Error(err)
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
-
-	if _, err := conn.ExecContext(ctx, "drop table if exists test_table"); err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
+		dbt.mustExecT(t, "drop table if exists test_table")
+	})
 }
 
 func TestStmtExec_Error(t *testing.T) {
 	ctx := context.Background()
-	conn := openConn(t)
-	defer conn.Close()
+	runDBTest(t, func(dbt *DBTest) {
+		// Create a test table
+		dbt.mustExecT(t, `create or replace table test_table(col1 int, col2 int)`)
+		defer dbt.mustExecT(t, "drop table if exists test_table")
 
-	// Create a test table
-	if _, err := conn.ExecContext(ctx, `create or replace table test_table(col1 int, col2 int)`); err != nil {
-		t.Fatalf("failed to create table: %v", err)
-	}
+		// Attempt to execute an invalid statement
+		if err := dbt.conn.Raw(func(x interface{}) error {
+			stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "insert into test_table values (?, ?)")
+			if err != nil {
+				t.Fatalf("failed to prepare statement: %v", err)
+			}
 
-	// Attempt to execute an invalid statement
-	if err := conn.Raw(func(x interface{}) error {
-		stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "insert into test_table values (?, ?)")
-		if err != nil {
-			t.Fatalf("failed to prepare statement: %v", err)
+			// Intentionally passing a string instead of an integer to cause an error
+			_, err = stmt.(*snowflakeStmt).Exec([]driver.Value{"invalid_data", 2})
+			if err == nil {
+				t.Errorf("expected an error, but got none")
+			}
+
+			return nil
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
-
-		// Intentionally passing a string instead of an integer to cause an error
-		_, err = stmt.(*snowflakeStmt).Exec([]driver.Value{"invalid_data", 2})
-		if err == nil {
-			t.Errorf("expected an error, but got none")
-		}
-
-		return nil
-	}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Drop the test table
-	if _, err := conn.ExecContext(ctx, "drop table if exists test_table"); err != nil {
-		t.Fatalf("failed to drop table: %v", err)
-	}
+	})
 }
 
 func getStatusSuccessButInvalidJSONfunc(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ time.Duration) (*http.Response, error) {
@@ -564,8 +552,6 @@ func TestUnitCheckQueryStatus(t *testing.T) {
 
 func TestStatementQueryIdForQueries(t *testing.T) {
 	ctx := context.Background()
-	conn := openConn(t)
-	defer conn.Close()
 
 	testcases := []struct {
 		name string
@@ -585,49 +571,49 @@ func TestStatementQueryIdForQueries(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := conn.Raw(func(x any) error {
-				stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "SELECT 1")
+	runDBTest(t, func(dbt *DBTest) {
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				err := dbt.conn.Raw(func(x any) error {
+					stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "SELECT 1")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() != "" {
+						t.Error("queryId should be empty before executing any query")
+					}
+					firstQuery, err := tc.f(stmt)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() == "" {
+						t.Error("queryId should not be empty after executing query")
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() != firstQuery.(SnowflakeRows).GetQueryID() {
+						t.Error("queryId should be equal among query result and prepared statement")
+					}
+					secondQuery, err := tc.f(stmt)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() == "" {
+						t.Error("queryId should not be empty after executing query")
+					}
+					if stmt.(SnowflakeStmt).GetQueryID() != secondQuery.(SnowflakeRows).GetQueryID() {
+						t.Error("queryId should be equal among query result and prepared statement")
+					}
+					return nil
+				})
 				if err != nil {
 					t.Fatal(err)
 				}
-				if stmt.(SnowflakeStmt).GetQueryID() != "" {
-					t.Error("queryId should be empty before executing any query")
-				}
-				firstQuery, err := tc.f(stmt)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if stmt.(SnowflakeStmt).GetQueryID() == "" {
-					t.Error("queryId should not be empty after executing query")
-				}
-				if stmt.(SnowflakeStmt).GetQueryID() != firstQuery.(SnowflakeRows).GetQueryID() {
-					t.Error("queryId should be equal among query result and prepared statement")
-				}
-				secondQuery, err := tc.f(stmt)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if stmt.(SnowflakeStmt).GetQueryID() == "" {
-					t.Error("queryId should not be empty after executing query")
-				}
-				if stmt.(SnowflakeStmt).GetQueryID() != secondQuery.(SnowflakeRows).GetQueryID() {
-					t.Error("queryId should be equal among query result and prepared statement")
-				}
-				return nil
 			})
-			if err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
+		}
+	})
 }
 
 func TestStatementQuery(t *testing.T) {
 	ctx := context.Background()
-	conn := openConn(t)
-	defer conn.Close()
 
 	testcases := []struct {
 		name    string
@@ -669,29 +655,31 @@ func TestStatementQuery(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := conn.Raw(func(x any) error {
-				stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, tc.query)
-				if err != nil {
-					if tc.wantErr {
-						return nil // expected error
+	runDBTest(t, func(dbt *DBTest) {
+		for _, tc := range testcases {
+			t.Run(tc.name, func(t *testing.T) {
+				err := dbt.conn.Raw(func(x any) error {
+					stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, tc.query)
+					if err != nil {
+						if tc.wantErr {
+							return nil // expected error
+						}
+						t.Fatal(err)
 					}
+
+					_, err = tc.f(stmt)
+					if (err != nil) != tc.wantErr {
+						t.Fatalf("error = %v, wantErr %v", err, tc.wantErr)
+					}
+
+					return nil
+				})
+				if err != nil {
 					t.Fatal(err)
 				}
-
-				_, err = tc.f(stmt)
-				if (err != nil) != tc.wantErr {
-					t.Fatalf("error = %v, wantErr %v", err, tc.wantErr)
-				}
-
-				return nil
 			})
-			if err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
+		}
+	})
 }
 
 func TestStatementQueryIdForExecs(t *testing.T) {

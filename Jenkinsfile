@@ -2,7 +2,7 @@ import groovy.json.JsonOutput
 
 
 timestamps {
-  node('regular-memory-node') {
+  node('high-memory-node') {
     stage('checkout') {
       scmInfo = checkout scm
       println("${scmInfo}")
@@ -37,6 +37,18 @@ timestamps {
             '''.stripMargin()
           }
         }
+      },
+      'Test WIF Auth': {
+        stage('Test WIF Auth') {
+          withCredentials([
+            string(credentialsId: 'sfctest0-parameters-secret', variable: 'PARAMETERS_SECRET'),
+          ]) {
+            sh '''\
+            |#!/bin/bash -e
+            |$WORKSPACE/ci/test_wif.sh
+            '''.stripMargin()
+          }
+        }
       }
     )
   }
@@ -44,7 +56,7 @@ timestamps {
 
 
 pipeline {
-  agent { label 'regular-memory-node' }
+  agent { label 'high-memory-node' }
   options { timestamps() }
   environment {
     COMMIT_SHA_LONG = sh(returnStdout: true, script: "echo \$(git rev-parse " + "HEAD)").trim()
@@ -55,7 +67,6 @@ pipeline {
     // remove SCM URL + .git at the end
 
     BASELINE_BRANCH = "${env.CHANGE_TARGET}"
-    SF_ENABLE_EXPERIMENTAL_AUTHENTICATION = true
   }
   stages {
     stage('Checkout') {

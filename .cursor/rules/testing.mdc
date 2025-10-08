@@ -1,0 +1,91 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rules for Go Test Files
+
+This file automatically applies when working on `*_test.go` files.
+
+## Testing Standards
+
+### Assertion Helper Usage
+- **ALWAYS** Attempt to use assertion helpers from `assert_test.go` instead of direct `t.Fatal`, `t.Fatalf`, `t.Error`, or `t.Errorf` calls. Where it makes sense, add new assertion helpers.
+- **NEVER** write manual if-then-fatal patterns in test functions when a suitable assertion helper exists.
+
+#### Common Assertion Patterns:
+
+**Error Checking:**
+```go
+// ❌ WRONG
+if err != nil {
+    t.Fatalf("Unexpected error: %v", err)
+}
+
+// ✅ CORRECT  
+assertNilF(t, err, "Unexpected error")
+```
+
+**Nil Checking:**
+```go
+// ❌ WRONG
+if obj == nil {
+    t.Fatal("Expected non-nil object")
+}
+
+// ✅ CORRECT
+assertNotNilF(t, obj, "Expected non-nil object")
+```
+
+**Equality Checking:**
+```go
+// ❌ WRONG
+if actual != expected {
+    t.Fatalf("Expected %v, got %v", expected, actual)
+}
+
+// ✅ CORRECT
+assertEqualF(t, actual, expected, "Values should match")
+```
+
+**Error Message Validation:**
+```go
+// ❌ WRONG
+if err.Error() != expectedMsg {
+    t.Fatalf("Expected error: %s, got: %s", expectedMsg, err.Error())
+}
+
+// ✅ CORRECT
+assertEqualF(t, err.Error(), expectedMsg, "Error message should match")
+```
+
+**Boolean Assertions:**
+```go
+// ❌ WRONG
+if !condition {
+    t.Fatal("Condition should be true")
+}
+
+// ✅ CORRECT
+assertTrueF(t, condition, "Condition should be true")
+```
+
+#### Helper Function Reference:
+Always examine `assertion_helpers.go` for the latest set of helpers. Consider these existing examples below.
+- `assertNilF/E(t, value, description)` - Assert value is nil
+- `assertNotNilF/E(t, value, description)` - Assert value is not nil  
+- `assertEqualF/E(t, actual, expected, description)` - Assert equality
+- `assertNotEqualF/E(t, actual, expected, description)` - Assert inequality
+- `assertTrueF/E(t, value, description)` - Assert boolean is true
+- `assertFalseF/E(t, value, description)` - Assert boolean is false
+- `assertStringContainsF/E(t, str, substring, description)` - Assert string contains substring
+- `assertErrIsF/E(t, actual, expected, description)` - Assert error matches expected error
+
+#### When to Use F vs E:
+- Use `F` suffix (Fatal) for critical failures that should stop the test immediately as well as for preconditions
+- Use `E` suffix (Error) for non-critical failures that allow the test to continue
+
+## Code Review Guidelines:
+- Flag any direct use of `t.Fatal*` or `t.Error*` in new code
+- Ensure all test functions use appropriate assertion helpers
+- Verify that error messages are descriptive and helpful for debugging
+- Check that tests are comprehensive and cover edge cases# Cursor Rules for Go Test Files

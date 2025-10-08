@@ -8,15 +8,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -52,19 +53,23 @@ type wifAttestationProvider struct {
 	oidcCreator  wifAttestationCreator
 }
 
-func createWifAttestationProvider(ctx context.Context, cfg *Config) *wifAttestationProvider {
+func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *snowflakeTelemetry) *wifAttestationProvider {
 	return &wifAttestationProvider{
 		context: ctx,
 		cfg:     cfg,
 		awsCreator: &awsIdentityAttestationCreator{
-			attestationService: createDefaultAwsAttestationMetadataProvider(ctx),
-			ctx:                ctx},
+			attestationServiceFactory: createDefaultAwsAttestationMetadataProvider,
+			ctx:                       ctx,
+		},
 		gcpCreator: &gcpIdentityAttestationCreator{
 			cfg:                    cfg,
-			metadataServiceBaseURL: defaultMetadataServiceBase},
+			telemetry:              telemetry,
+			metadataServiceBaseURL: defaultMetadataServiceBase,
+		},
 		azureCreator: &azureIdentityAttestationCreator{
 			azureAttestationMetadataProvider: &defaultAzureAttestationMetadataProvider{},
 			cfg:                              cfg,
+			telemetry:                        telemetry,
 			workloadIdentityEntraResource:    determineEntraResource(cfg),
 			azureMetadataServiceBaseURL:      defaultMetadataServiceBase,
 		},
@@ -73,68 +78,30 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config) *wifAttestat
 }
 
 func (p *wifAttestationProvider) getAttestation(identityProvider string) (*wifAttestation, error) {
-	if strings.TrimSpace(identityProvider) == "" {
-		logger.Info("Workload Identity Provider has not been specified. Using autodetect...")
-		return p.createAutodetectAttestation()
-	}
-	creator, err := p.attestationCreator(identityProvider)
-	if err != nil {
-		logger.Errorf("error while creating specified Workload Identity provider %v", err)
-		return nil, err
-	}
-	return creator.createAttestation()
-}
-
-func (p *wifAttestationProvider) attestationCreator(identityProvider string) (wifAttestationCreator, error) {
 	switch strings.ToUpper(identityProvider) {
 	case string(awsWif):
-		return p.awsCreator, nil
+		return p.awsCreator.createAttestation()
 	case string(gcpWif):
-		return p.gcpCreator, nil
+		return p.gcpCreator.createAttestation()
 	case string(azureWif):
-		return p.azureCreator, nil
+		return p.azureCreator.createAttestation()
 	case string(oidcWif):
-		return p.oidcCreator, nil
+		return p.oidcCreator.createAttestation()
 	default:
-		return nil, errors.New("unknown Workload Identity provider specified: " + identityProvider)
+		return nil, fmt.Errorf("unknown WorkloadIdentityProvider specified: %s. Valid values are: %s, %s, %s, %s", identityProvider, awsWif, gcpWif, azureWif, oidcWif)
 	}
 }
 
-func (p *wifAttestationProvider) createAutodetectAttestation() (*wifAttestation, error) {
-	if attestation := p.getAttestationForAutodetect(p.oidcCreator, oidcWif); attestation != nil {
-		return attestation, nil
-	}
-	if attestation := p.getAttestationForAutodetect(p.awsCreator, awsWif); attestation != nil {
-		return attestation, nil
-	}
-	if attestation := p.getAttestationForAutodetect(p.gcpCreator, gcpWif); attestation != nil {
-		return attestation, nil
-	}
-	if attestation := p.getAttestationForAutodetect(p.azureCreator, azureWif); attestation != nil {
-		return attestation, nil
-	}
-	return nil, errors.New("unable to autodetect Workload Identity. None of the supported Workload Identity environments has been identified")
-}
-
-func (p *wifAttestationProvider) getAttestationForAutodetect(
-	creator wifAttestationCreator,
-	providerType wifProviderType,
-) *wifAttestation {
-	attestation, err := creator.createAttestation()
-	if err != nil {
-		logger.Errorf("Unable to create identity attestation for %s, error: %v", providerType, err)
-		return nil
-	}
-	return attestation
-}
+type awsAttestastationMetadataProviderFactory func(ctx context.Context) awsAttestationMetadataProvider
 
 type awsIdentityAttestationCreator struct {
-	attestationService awsAttestationMetadataProvider
-	ctx                context.Context
+	attestationServiceFactory awsAttestastationMetadataProviderFactory
+	ctx                       context.Context
 }
 
 type gcpIdentityAttestationCreator struct {
 	cfg                    *Config
+	telemetry              *snowflakeTelemetry
 	metadataServiceBaseURL string
 }
 
@@ -152,8 +119,8 @@ type defaultAwsAttestationMetadataProvider struct {
 	awsCfg aws.Config
 }
 
-func createDefaultAwsAttestationMetadataProvider(ctx context.Context) *defaultAwsAttestationMetadataProvider {
-	cfg, err := config.LoadDefaultConfig(ctx)
+func createDefaultAwsAttestationMetadataProvider(ctx context.Context) awsAttestationMetadataProvider {
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithEC2IMDSRegion())
 	if err != nil {
 		logger.Debugf("Unable to load AWS config: %v", err)
 		return nil
@@ -180,21 +147,19 @@ func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debug("Creating AWS identity attestation...")
 
-	if c.attestationService == nil {
-		logger.Debug("AWS attestation service could not be created.")
-		return nil, nil
+	attestationService := c.attestationServiceFactory(c.ctx)
+	if attestationService == nil {
+		return nil, fmt.Errorf("AWS attestation service could not be created")
 	}
 
-	creds := c.attestationService.awsCredentials()
+	creds := attestationService.awsCredentials()
 	if creds.AccessKeyID == "" || creds.SecretAccessKey == "" {
-		logger.Debug("No AWS credentials were found.")
-		return nil, nil
+		return nil, fmt.Errorf("no AWS credentials were found")
 	}
 
-	region := c.attestationService.awsRegion()
+	region := attestationService.awsRegion()
 	if region == "" {
-		logger.Debug("No AWS region was found.")
-		return nil, nil
+		return nil, fmt.Errorf("no AWS region was found")
 	}
 
 	stsHostname := stsHostname(region)
@@ -275,15 +240,13 @@ func (c *gcpIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCP token request: %v", err)
 	}
-	token := fetchTokenFromMetadataService(req, c.cfg)
+	token := fetchTokenFromMetadataService(req, c.cfg, c.telemetry)
 	if token == "" {
-		logger.Debugf("no GCP token was found.")
-		return nil, nil
+		return nil, fmt.Errorf("no GCP token was found")
 	}
 	sub, _, err := extractSubIssWithoutVerifyingSignature(token)
 	if err != nil {
-		logger.Errorf("could not extract claims from token: %v", err.Error())
-		return nil, nil
+		return nil, fmt.Errorf("could not extract claims from token: %v", err)
 	}
 	return &wifAttestation{
 		ProviderType: string(gcpWif),
@@ -303,14 +266,23 @@ func (c *gcpIdentityAttestationCreator) createTokenRequest() (*http.Request, err
 	return req, nil
 }
 
-func fetchTokenFromMetadataService(req *http.Request, cfg *Config) string {
-	client := &http.Client{Transport: getTransport(cfg)}
+func fetchTokenFromMetadataService(req *http.Request, cfg *Config, telemetry *snowflakeTelemetry) string {
+	transport, err := newTransportFactory(cfg, telemetry).createTransport()
+	if err != nil {
+		logger.Debugf("Failed to create HTTP transport: %v", err)
+		return ""
+	}
+	client := &http.Client{Transport: transport}
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Debugf("Metadata server request was not successful: %v", err)
 		return ""
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.Debugf("Failed to close response body: %v", err)
+		}
+	}()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Debugf("Failed to read response body: %v", err)
@@ -358,8 +330,7 @@ func extractClaimsMap(token string) (map[string]interface{}, error) {
 func (c *oidcIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debugf("Creating OIDC identity attestation...")
 	if c.token == "" {
-		logger.Debugf("No OIDC token was specified")
-		return nil, nil
+		return nil, fmt.Errorf("no OIDC token was specified")
 	}
 	sub, iss, err := extractSubIssWithoutVerifyingSignature(c.token)
 	if err != nil {
@@ -399,6 +370,7 @@ func (p *defaultAzureAttestationMetadataProvider) clientID() string {
 type azureIdentityAttestationCreator struct {
 	azureAttestationMetadataProvider azureAttestationMetadataProvider
 	cfg                              *Config
+	telemetry                        *snowflakeTelemetry
 	workloadIdentityEntraResource    string
 	azureMetadataServiceBaseURL      string
 }
@@ -419,8 +391,7 @@ func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, 
 	} else {
 		identityHeader := a.azureAttestationMetadataProvider.identityHeader()
 		if identityHeader == "" {
-			logger.Warn("Managed identity is not enabled on this Azure function.")
-			return nil, nil
+			return nil, fmt.Errorf("managed identity is not enabled on this Azure function")
 		}
 		request, err = a.azureFunctionsIdentityRequest(
 			identityEndpoint,
@@ -432,30 +403,25 @@ func (a *azureIdentityAttestationCreator) createAttestation() (*wifAttestation, 
 		}
 	}
 
-	tokenJSON := fetchTokenFromMetadataService(request, a.cfg)
+	tokenJSON := fetchTokenFromMetadataService(request, a.cfg, a.telemetry)
 	if tokenJSON == "" {
-		logger.Debug("Could not fetch Azure token.")
-		return nil, nil
+		return nil, fmt.Errorf("could not fetch Azure token")
 	}
 
 	token, err := extractTokenFromJSON(tokenJSON)
 	if err != nil {
-		logger.Errorf("Failed to extract token from JSON: %v", err)
-		return nil, nil
+		return nil, fmt.Errorf("failed to extract token from JSON: %v", err)
 	}
 	if token == "" {
-		logger.Error("No access token found in Azure response.")
-		return nil, nil
+		return nil, fmt.Errorf("no access token found in Azure response")
 	}
 
 	sub, iss, err := extractSubIssWithoutVerifyingSignature(token)
 	if err != nil {
-		logger.Errorf("Failed to extract sub and iss claims from token: %v", err)
-		return nil, nil
+		return nil, fmt.Errorf("failed to extract sub and iss claims from token: %v", err)
 	}
 	if sub == "" || iss == "" {
-		logger.Error("Missing sub or iss claim in JWT token")
-		return nil, nil
+		return nil, fmt.Errorf("missing sub or iss claim in JWT token")
 	}
 
 	return &wifAttestation{

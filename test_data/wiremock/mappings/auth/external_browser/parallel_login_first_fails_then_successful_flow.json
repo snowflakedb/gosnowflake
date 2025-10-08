@@ -1,0 +1,194 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "External browser parallel login first fails then successful flow",
+      "requiredScenarioState": "Started",
+      "newScenarioState": "First request failed",
+      "request": {
+        "urlPathPattern": "/session/authenticator-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson" : {
+              "data": {
+                "LOGIN_NAME": "testUser"
+              }
+            },
+            "ignoreExtraElements" : true
+          },
+          {
+            "matchesJsonPath": {
+              "expression": "$.data.TOKEN",
+              "absent": "(absent)"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "code": null,
+          "message": "auth failed",
+          "success": false
+        },
+        "fixedDelayMilliseconds": 2000
+      }
+    },
+    {
+      "scenarioName": "External browser parallel login first fails then successful flow",
+      "requiredScenarioState": "First request failed",
+      "newScenarioState": "Second request successful",
+      "request": {
+        "urlPathPattern": "/session/authenticator-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson" : {
+              "data": {
+                "LOGIN_NAME": "testUser"
+              }
+            },
+            "ignoreExtraElements" : true
+          },
+          {
+            "matchesJsonPath": {
+              "expression": "$.data.TOKEN",
+              "absent": "(absent)"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "data": {
+            "ssoUrl": "http://localhost:{{ jsonPath request.body '$.data.BROWSER_MODE_REDIRECT_PORT' }}?token=test-saml-token",
+            "proofKey": "test-proof-key"
+          },
+          "code": null,
+          "message": null,
+          "success": true
+        },
+        "transformers": ["response-template"],
+        "fixedDelayMilliseconds": 2000
+      }
+    },
+    {
+      "scenarioName": "External browser parallel login first fails then successful flow",
+      "requiredScenarioState": "Second request successful",
+      "newScenarioState": "Login request with ID token required",
+      "request": {
+        "urlPathPattern": "/session/v1/login-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson" : {
+              "data": {
+                "LOGIN_NAME": "testUser",
+                "TOKEN": "test-saml-token"
+              }
+            },
+            "ignoreExtraElements" : true
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "data": {
+            "masterToken": "master token",
+            "token": "session token",
+            "validityInSeconds": 3600,
+            "masterValidityInSeconds": 14400,
+            "displayUserName": "TEST_USER",
+            "serverVersion": "8.48.0 b2024121104444034239f05",
+            "firstLogin": false,
+            "remMeToken": null,
+            "remMeValidityInSeconds": 0,
+            "healthCheckInterval": 45,
+            "newClientForUpgrade": "3.12.3",
+            "sessionId": 1172562260498,
+            "parameters": [
+              {
+                "name": "CLIENT_PREFETCH_THREADS",
+                "value": 4
+              }
+            ],
+            "sessionInfo": {
+              "databaseName": "TEST_DB",
+              "schemaName": "TEST_GO",
+              "warehouseName": "TEST_XSMALL",
+              "roleName": "ANALYST"
+            },
+            "idToken": "test-id-token",
+            "idTokenValidityInSeconds": 0,
+            "responseData": null,
+            "mfaToken": null,
+            "mfaTokenValidityInSeconds": 0
+          },
+          "code": null,
+          "message": null,
+          "success": true
+        }
+      }
+    },
+    {
+      "scenarioName": "External browser parallel login first fails then successful flow",
+      "requiredScenarioState": "Login request with ID token required",
+      "request": {
+        "urlPathPattern": "/session/v1/login-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson" : {
+              "data": {
+                "LOGIN_NAME": "testUser",
+                "TOKEN": "test-id-token"
+              }
+            },
+            "ignoreExtraElements" : true
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "data": {
+            "masterToken": "master token",
+            "token": "session token",
+            "validityInSeconds": 3600,
+            "masterValidityInSeconds": 14400,
+            "displayUserName": "TEST_USER",
+            "serverVersion": "8.48.0 b2024121104444034239f05",
+            "firstLogin": false,
+            "remMeToken": null,
+            "remMeValidityInSeconds": 0,
+            "healthCheckInterval": 45,
+            "newClientForUpgrade": "3.12.3",
+            "sessionId": 1172562260498,
+            "parameters": [
+              {
+                "name": "CLIENT_PREFETCH_THREADS",
+                "value": 4
+              }
+            ],
+            "sessionInfo": {
+              "databaseName": "TEST_DB",
+              "schemaName": "TEST_GO",
+              "warehouseName": "TEST_XSMALL",
+              "roleName": "ANALYST"
+            },
+            "idToken": null,
+            "idTokenValidityInSeconds": 0,
+            "responseData": null,
+            "mfaToken": null,
+            "mfaTokenValidityInSeconds": 0
+          },
+          "code": null,
+          "message": null,
+          "success": true
+        }
+      }
+    }
+  ]
+}

@@ -2,7 +2,6 @@ package gosnowflake
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -32,7 +31,7 @@ func TestEndToEndPatMismatchedUser(t *testing.T) {
 	cfg.User = "invalidUser"
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	var snowflakeErr *SnowflakeError
-	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertErrorsAsF(t, err, &snowflakeErr)
 	assertEqualE(t, snowflakeErr.Number, 394400, fmt.Sprintf("Expected 394400, but got %v", snowflakeErr.Number))
 }
 
@@ -41,7 +40,7 @@ func TestEndToEndPatInvalidToken(t *testing.T) {
 	cfg.Token = "invalidToken"
 	err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 	var snowflakeErr *SnowflakeError
-	assertTrueF(t, errors.As(err, &snowflakeErr))
+	assertErrorsAsF(t, err, &snowflakeErr)
 	assertEqualE(t, snowflakeErr.Number, 394400, fmt.Sprintf("Expected 394400, but got %v", snowflakeErr.Number))
 }
 
