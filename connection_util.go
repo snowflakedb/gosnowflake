@@ -22,13 +22,33 @@ func (sc *snowflakeConn) isClientSessionKeepAliveEnabled() bool {
 	return strings.Compare(*v, "true") == 0
 }
 
+func (sc *snowflakeConn) getClientSessionKeepAliveHeartbeatFrequency() (time.Duration, bool) {
+	paramsMutex.Lock()
+	v, ok := sc.cfg.Params[sessionClientSessionKeepAliveHeartbeatFrequency]
+	paramsMutex.Unlock()
+
+	if !ok {
+		return 0, false
+	}
+
+	num, err := strconv.Atoi(*v)
+	if err != nil {
+		logger.WithError(err).Warnf("Failed to parse client session keepalive heartbeat frequency. Falling back to default.")
+		return 0, false
+	}
+
+	return time.Duration(num) * time.Second, true
+}
+
 func (sc *snowflakeConn) startHeartBeat() {
 	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
 	if sc.rest != nil {
-		sc.rest.HeartBeat = &heartbeat{
-			restful: sc.rest,
+		if heartbeatFrequency, ok := sc.getClientSessionKeepAliveHeartbeatFrequency(); ok {
+			sc.rest.HeartBeat = newHeartBeat(sc.rest, heartbeatFrequency)
+		} else {
+			sc.rest.HeartBeat = newDefaultHeartBeat(sc.rest)
 		}
 		sc.rest.HeartBeat.start()
 	}
@@ -114,7 +134,11 @@ func (sc *snowflakeConn) processFileTransfer(
 		sfa.options = op
 	}
 	if sfa.options.MultiPartThreshold == 0 {
-		sfa.options.MultiPartThreshold = dataSizeThreshold
+		sfa.options.MultiPartThreshold = multiPartThreshold
+		// for streaming download, use a smaller default part size
+		if sfa.commandType == downloadCommand && sfa.options.GetFileToStream {
+			sfa.options.MultiPartThreshold = streamingMultiPartThreshold
+		}
 	}
 	if err := sfa.execute(); err != nil {
 		return nil, err

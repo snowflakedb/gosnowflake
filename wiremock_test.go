@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 var wiremock = newWiremock()
@@ -88,6 +89,9 @@ func (wm *wiremockClient) connectionConfig() *Config {
 		Host:                  wm.host,
 		Port:                  wm.port,
 		Protocol:              wm.protocol,
+		LoginTimeout:          time.Duration(30) * time.Second,
+		RequestTimeout:        time.Duration(30) * time.Second,
+		MaxRetryCount:         3,
 		OauthClientID:         "testClientId",
 		OauthClientSecret:     "testClientSecret",
 		OauthAuthorizationURL: wm.baseURL() + "/oauth/authorize",
@@ -114,8 +118,13 @@ func (wm *wiremockClientHTTPS) certPool(t *testing.T) *x509.CertPool {
 	return testCertPool
 }
 
-func (wm *wiremockClientHTTPS) ocspTransporter(t *testing.T) *http.Transport {
-	ov := newOcspValidator(wm.connectionConfig(t))
+func (wm *wiremockClientHTTPS) ocspTransporter(t *testing.T, delegate http.RoundTripper) http.RoundTripper {
+	if delegate == nil {
+		delegate = http.DefaultTransport
+	}
+	cfg := wm.connectionConfig(t)
+	cfg.Transporter = delegate
+	ov := newOcspValidator(cfg)
 	return &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs:               wiremockHTTPS.certPool(t),
@@ -162,7 +171,12 @@ func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMap
 	}
 	t.Cleanup(func() {
 		req, err := http.NewRequest("DELETE", wm.mappingsURL(), nil)
+		assertNilF(t, err)
+		_, err = wm.client.Do(req)
 		assertNilE(t, err)
+
+		req, err = http.NewRequest("POST", fmt.Sprintf("%v/reset", wm.scenariosURL()), nil)
+		assertNilF(t, err)
 		_, err = wm.client.Do(req)
 		assertNilE(t, err)
 	})
@@ -176,6 +190,10 @@ func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wire
 
 func (wm *wiremockClient) mappingsURL() string {
 	return fmt.Sprintf("http://%v:%v/__admin/mappings", wm.host, wm.adminPort)
+}
+
+func (wm *wiremockClient) scenariosURL() string {
+	return fmt.Sprintf("http://%v:%v/__admin/scenarios", wm.host, wm.adminPort)
 }
 
 func (wm *wiremockClient) baseURL() string {

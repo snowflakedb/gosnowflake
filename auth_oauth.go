@@ -230,6 +230,8 @@ func (oauthClient *oauthClient) buildAuthorizationCodeConfig(callbackPort int) *
 	if oauthClient.eligibleForDefaultClientCredentials() {
 		clientID, clientSecret = localApplicationClientCredentials, localApplicationClientCredentials
 	}
+	oauthClient.logIfHTTPInUse(oauthClient.authorizationURL())
+	oauthClient.logIfHTTPInUse(oauthClient.tokenURL())
 	return &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
@@ -291,7 +293,11 @@ func handleOAuthSocket(tcpListener *net.TCPListener, successChan chan []byte, er
 		logger.Warnf("error creating socket. %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			logger.Warnf("error while closing connection (%v -> %v). %v", conn.LocalAddr(), conn.RemoteAddr(), err)
+		}
+	}()
 	var buf [bufSize]byte
 	codeResp := bytes.NewBuffer(nil)
 	for {
@@ -403,7 +409,11 @@ func (oauthClient *oauthClient) refreshToken() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Warnf("error while closing response body for %v. %v", req.URL, err)
+		}
+	}()
 	if resp.StatusCode != 200 {
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -435,4 +445,15 @@ func (oauthClient *oauthClient) accessTokenSpec() *secureTokenSpec {
 
 func (oauthClient *oauthClient) refreshTokenSpec() *secureTokenSpec {
 	return newOAuthRefreshTokenSpec(oauthClient.tokenURL(), oauthClient.cfg.User)
+}
+
+func (oauthClient *oauthClient) logIfHTTPInUse(u string) {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		logger.Warnf("Cannot parse URL: %v. %v", u, err)
+		return
+	}
+	if parsed.Scheme == "http" {
+		logger.Warnf("OAuth URL uses insecure HTTP protocol: %v", u)
+	}
 }

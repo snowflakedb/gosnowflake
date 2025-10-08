@@ -20,3 +20,4 @@ go test -v -run TestOkta*
 go test -v -run TestOauth*
 go test -v -run TestKeypair*
 go test -v -run TestEndToEndPat*
+go test -v -run TestMfaSuccessful

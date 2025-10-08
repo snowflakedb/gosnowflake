@@ -101,6 +101,9 @@ The following connection parameters are supported:
   - authenticator: Specifies the authenticator to use for authenticating user credentials.
     See "Authenticator Values" section below for supported values.
 
+  - singleAuthenticationPrompt: specifies whether only one authentication should be performed at the same time for authentications that needs human interactions (like MFA or OAuth authorization code).
+    By default it is true.
+
   - application: Identifies your application to Snowflake Support.
 
   - disableOCSPChecks: false by default. Set to true to bypass the Online
@@ -112,9 +115,15 @@ The following connection parameters are supported:
 
   - token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
 
-  - client_session_keep_alive: Set to true have a heartbeat in the background every hour to keep the connection alive
-    such that the connection session will never expire. Care should be taken in using this option as it opens up
-    the access forever as long as the process is alive.
+  - client_session_keep_alive: Set to true have a heartbeat in the background every hour by default or the value of
+    client_session_keep_alive_heartbeat_frequency, if set, to keep the connection alive such that the connection session
+    will never expire. Care should be taken in using this option as it opens up the access forever as long as the process is alive.
+
+  - client_session_keep_alive_heartbeat_frequency: Number of seconds in-between client attempts to update the token for the session.
+    > The default is 3600 seconds
+    > Minimum value is 900 seconds. A smaller value will be reset to 900 seconds.
+    > Maximum value is 3600 seconds. A larger value will be reset to 3600 seconds.
+    > This parameter is only valid if client_session_keep_alive is set to true.
 
   - ocspFailOpen: true by default. Set to false to make OCSP check fail closed mode.
 
@@ -234,6 +243,23 @@ or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2
 
 If the connection.toml file is readable by others, a warning will be logged. To disable it you need to set the environment variable `SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE` to true.
 
+It you wish to specify a custom transporter (e.g. to provide a custom TLS config to be used with your custom truststore) pass it through the `NewConnector`. Example:
+
+	tlsConfig := &tls.Config{
+	    // your custom fields here
+	}
+
+	config := Config{
+	    Transporter: &http.Transport{
+	        TLSClientConfig: tlsConfig,
+	    },
+	}
+
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+
+As an alternative, you can use the `RegisterTLSConfig` / `DeregisterTLSConfig` functions as seen in the unit tests: https://github.com/snowflakedb/gosnowflake/blob/v1.16.0/transport_test.go#L127
+
 # Proxy
 
 The Go Snowflake Driver honors the environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY for the forward proxy setting.
@@ -249,6 +275,20 @@ NO_PROXY does not support wildcards. Each value specified should be one of the f
 If more than one value is specified, values should be separated by commas, for example:
 
 	no_proxy=localhost,.my_company.com,xy12345.snowflakecomputing.com,192.168.1.15,192.168.1.16
+
+In addition to environment variables, the Go Snowflake Driver also supports configuring the proxy via connection parameters.
+When these parameters are provided in the connection string or DSN, they take precedence and any environment proxy settings (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) will be ignored.
+
+| Parameter       | Description                                                                 | Default |
+|-----------------|-----------------------------------------------------------------------------|---------|
+| `proxyHost`     | Hostname or IP address of the proxy server.                                 |         |
+| `proxyPort`     | Port number of the proxy server.                                            |         |
+| `proxyUser`     | Username for proxy authentication.                                          |         |
+| `proxyPassword` | Password for proxy authentication.                                          |         |
+| `proxyProtocol` | Protocol to use for proxy connection. Valid values: `http`, `https`.        | `http`  |
+| `NoProxy“       | Comma-separated list of hosts that should bypass the proxy.                 |         |
+
+For more details, please refer to the example in ./cmd/proxyconnection.
 
 # Logging
 
@@ -722,6 +762,15 @@ of the returned value:
 	            fmt.Println(bigIntPtr)
 	    }
 	}
+
+# Using decfloats
+
+By default, DECFLOAT values are returned as string values.
+If you want to retrieve them as numbers, you have to use the WithDecfloatMappingEnabled context.
+If higher precision is enabled, the driver will return them as *big.Float values.
+Otherwise, they will be returned as float64 values.
+Keep in mind that both float64 and *big.Float are not able to precisely represent some DECFLOAT values.
+If precision is important, you have to use string representation and use your own library to parse it.
 
 # Arrow batches
 

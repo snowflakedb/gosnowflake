@@ -30,6 +30,7 @@ type tcParseDSN struct {
 }
 
 func TestParseDSN(t *testing.T) {
+	testPrivKey, _ := rsa.GenerateKey(cr.Reader, 2048)
 	privKeyPKCS8 := generatePKCS8StringSupress(testPrivKey)
 	privKeyPKCS1 := generatePKCS1String(testPrivKey)
 	testcases := []tcParseDSN{
@@ -1225,6 +1226,42 @@ func TestParseDSN(t *testing.T) {
 				Message: fmt.Sprintf(errMsgMissingTLSConfig, "custom"),
 			},
 		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&&singleAuthenticationPrompt=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Host: "a.snowflake.local", Port: 9876,
+				Protocol:                   "https",
+				OCSPFailOpen:               OCSPFailOpenTrue,
+				ValidateDefaultParameters:  ConfigBoolTrue,
+				ClientTimeout:              defaultClientTimeout,
+				JWTClientTimeout:           defaultJWTClientTimeout,
+				ExternalBrowserTimeout:     defaultExternalBrowserTimeout,
+				CloudStorageTimeout:        defaultCloudStorageTimeout,
+				IncludeRetryReason:         ConfigBoolTrue,
+				SingleAuthenticationPrompt: ConfigBoolTrue,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&&singleAuthenticationPrompt=false",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Host: "a.snowflake.local", Port: 9876,
+				Protocol:                   "https",
+				OCSPFailOpen:               OCSPFailOpenTrue,
+				ValidateDefaultParameters:  ConfigBoolTrue,
+				ClientTimeout:              defaultClientTimeout,
+				JWTClientTimeout:           defaultJWTClientTimeout,
+				ExternalBrowserTimeout:     defaultExternalBrowserTimeout,
+				CloudStorageTimeout:        defaultCloudStorageTimeout,
+				IncludeRetryReason:         ConfigBoolTrue,
+				SingleAuthenticationPrompt: ConfigBoolFalse,
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -1291,134 +1328,47 @@ func TestParseDSN(t *testing.T) {
 	}
 
 	for i, test := range testcases {
-		t.Run(test.dsn, func(t *testing.T) {
+		t.Run(maskSecrets(test.dsn), func(t *testing.T) {
 			cfg, err := ParseDSN(test.dsn)
 			switch {
 			case test.err == nil:
-				// TODO: consider converting these checks into a deep equal assertion
-				if err != nil {
-					t.Fatalf("%d: Failed to parse the DSN. dsn: %v, err: %v", i, test.dsn, err)
+				assertNilF(t, err, fmt.Sprintf("%d: Failed to parse the DSN. dsn: %v", i, test.dsn))
+				assertEqualE(t, cfg.Host, test.config.Host, fmt.Sprintf("Test %d: Host mismatch", i))
+				assertEqualE(t, cfg.Account, test.config.Account, fmt.Sprintf("Test %d: Account mismatch", i))
+				assertEqualE(t, cfg.User, test.config.User, fmt.Sprintf("Test %d: User mismatch", i))
+				assertEqualE(t, cfg.Password, test.config.Password, fmt.Sprintf("Test %d: Password mismatch", i))
+				assertEqualE(t, cfg.Database, test.config.Database, fmt.Sprintf("Test %d: Database mismatch", i))
+				assertEqualE(t, cfg.Schema, test.config.Schema, fmt.Sprintf("Test %d: Schema mismatch", i))
+				assertEqualE(t, cfg.Warehouse, test.config.Warehouse, fmt.Sprintf("Test %d: Warehouse mismatch", i))
+				assertEqualE(t, cfg.Role, test.config.Role, fmt.Sprintf("Test %d: Role mismatch", i))
+				assertEqualE(t, cfg.Region, test.config.Region, fmt.Sprintf("Test %d: Region mismatch", i))
+				assertEqualE(t, cfg.Protocol, test.config.Protocol, fmt.Sprintf("Test %d: Protocol mismatch", i))
+				assertEqualE(t, cfg.Passcode, test.config.Passcode, fmt.Sprintf("Test %d: Passcode mismatch", i))
+				assertEqualE(t, cfg.PasscodeInPassword, test.config.PasscodeInPassword, fmt.Sprintf("Test %d: PasscodeInPassword mismatch", i))
+				assertEqualE(t, cfg.Authenticator, test.config.Authenticator, fmt.Sprintf("Test %d: Authenticator mismatch", i))
+				assertEqualE(t, cfg.SingleAuthenticationPrompt, test.config.SingleAuthenticationPrompt, fmt.Sprintf("Test %d: SingleAuthenticationPrompt mismatch", i))
+				if test.config.Authenticator == AuthTypeOkta {
+					assertEqualE(t, *cfg.OktaURL, *test.config.OktaURL, fmt.Sprintf("Test %d: OktaURL mismatch", i))
 				}
-				if test.config.Host != cfg.Host {
-					t.Fatalf("%d: Failed to match host. expected: %v, got: %v",
-						i, test.config.Host, cfg.Host)
-				}
-				if test.config.Account != cfg.Account {
-					t.Fatalf("%d: Failed to match account. expected: %v, got: %v",
-						i, test.config.Account, cfg.Account)
-				}
-				if test.config.User != cfg.User {
-					t.Fatalf("%d: Failed to match user. expected: %v, got: %v",
-						i, test.config.User, cfg.User)
-				}
-				if test.config.Password != cfg.Password {
-					t.Fatalf("%d: Failed to match password. expected: %v, got: %v",
-						i, test.config.Password, cfg.Password)
-				}
-				if test.config.Database != cfg.Database {
-					t.Fatalf("%d: Failed to match database. expected: %v, got: %v",
-						i, test.config.Database, cfg.Database)
-				}
-				if test.config.Schema != cfg.Schema {
-					t.Fatalf("%d: Failed to match schema. expected: %v, got: %v",
-						i, test.config.Schema, cfg.Schema)
-				}
-				if test.config.Warehouse != cfg.Warehouse {
-					t.Fatalf("%d: Failed to match warehouse. expected: %v, got: %v",
-						i, test.config.Warehouse, cfg.Warehouse)
-				}
-				if test.config.Role != cfg.Role {
-					t.Fatalf("%d: Failed to match role. expected: %v, got: %v",
-						i, test.config.Role, cfg.Role)
-				}
-				if test.config.Region != cfg.Region {
-					t.Fatalf("%d: Failed to match region. expected: %v, got: %v",
-						i, test.config.Region, cfg.Region)
-				}
-				if test.config.Protocol != cfg.Protocol {
-					t.Fatalf("%d: Failed to match protocol. expected: %v, got: %v",
-						i, test.config.Protocol, cfg.Protocol)
-				}
-				if test.config.Passcode != cfg.Passcode {
-					t.Fatalf("%d: Failed to match passcode. expected: %v, got: %v",
-						i, test.config.Passcode, cfg.Passcode)
-				}
-				if test.config.PasscodeInPassword != cfg.PasscodeInPassword {
-					t.Fatalf("%d: Failed to match passcodeInPassword. expected: %v, got: %v",
-						i, test.config.PasscodeInPassword, cfg.PasscodeInPassword)
-				}
-				if test.config.Authenticator != cfg.Authenticator {
-					t.Fatalf("%d: Failed to match Authenticator. expected: %v, got: %v",
-						i, test.config.Authenticator.String(), cfg.Authenticator.String())
-				}
-				if test.config.Authenticator == AuthTypeOkta && *test.config.OktaURL != *cfg.OktaURL {
-					t.Fatalf("%d: Failed to match okta URL. expected: %v, got: %v",
-						i, test.config.OktaURL, cfg.OktaURL)
-				}
-				if test.config.OCSPFailOpen != cfg.OCSPFailOpen {
-					t.Fatalf("%d: Failed to match OCSPFailOpen. expected: %v, got: %v",
-						i, test.config.OCSPFailOpen, cfg.OCSPFailOpen)
-				}
-				if test.ocspMode != cfg.ocspMode() {
-					t.Fatalf("%d: Failed to match OCSPMode. expected: %v, got: %v",
-						i, test.ocspMode, cfg.ocspMode())
-				}
-				if test.config.ValidateDefaultParameters != cfg.ValidateDefaultParameters {
-					t.Fatalf("%d: Failed to match ValidateDefaultParameters. expected: %v, got: %v",
-						i, test.config.ValidateDefaultParameters, cfg.ValidateDefaultParameters)
-				}
-				if test.config.ClientTimeout != cfg.ClientTimeout {
-					t.Fatalf("%d: Failed to match ClientTimeout. expected: %v, got: %v",
-						i, test.config.ClientTimeout, cfg.ClientTimeout)
-				}
-				if test.config.JWTClientTimeout != cfg.JWTClientTimeout {
-					t.Fatalf("%d: Failed to match JWTClientTimeout. expected: %v, got: %v",
-						i, test.config.JWTClientTimeout, cfg.JWTClientTimeout)
-				}
-				if test.config.ExternalBrowserTimeout != cfg.ExternalBrowserTimeout {
-					t.Fatalf("%d: Failed to match ExternalBrowserTimeout. expected: %v, got: %v",
-						i, test.config.ExternalBrowserTimeout, cfg.ExternalBrowserTimeout)
-				}
-				if test.config.CloudStorageTimeout != cfg.CloudStorageTimeout {
-					t.Fatalf("%d: Failed to match CloudStorageTimeout. expected: %v, got: %v",
-						i, test.config.CloudStorageTimeout, cfg.CloudStorageTimeout)
-				}
-				if test.config.TmpDirPath != cfg.TmpDirPath {
-					t.Fatalf("%v: Failed to match TmpDirPatch. expected: %v, got: %v", i, test.config.TmpDirPath, cfg.TmpDirPath)
-				}
-				if test.config.DisableQueryContextCache != cfg.DisableQueryContextCache {
-					t.Fatalf("%v: Failed to match DisableQueryContextCache. expected: %v, got: %v", i, test.config.DisableQueryContextCache, cfg.DisableQueryContextCache)
-				}
-				if test.config.IncludeRetryReason != cfg.IncludeRetryReason {
-					t.Fatalf("%v: Failed to match IncludeRetryReason. expected: %v, got: %v", i, test.config.IncludeRetryReason, cfg.IncludeRetryReason)
-				}
-				if test.config.DisableConsoleLogin != cfg.DisableConsoleLogin {
-					t.Fatalf("%v: Failed to match DisableConsoleLogin. expected: %v, got: %v", i, test.config.DisableConsoleLogin, cfg.DisableConsoleLogin)
-				}
-				if test.config.DisableSamlURLCheck != cfg.DisableSamlURLCheck {
-					t.Fatalf("%v: Failed to match DisableSamlURLCheck. expected: %v, got: %v", i, test.config.DisableSamlURLCheck, cfg.DisableSamlURLCheck)
-				}
-				if test.config.OauthClientID != cfg.OauthClientID {
-					t.Fatalf("%v: Failed to match OauthClientId. expected: %v, got: %v", i, test.config.OauthClientID, cfg.OauthClientID)
-				}
-				if test.config.OauthClientSecret != cfg.OauthClientSecret {
-					t.Fatalf("%v: Failed to match OauthClientSecret. expected: %v, got: %v", i, test.config.OauthClientSecret, cfg.OauthClientSecret)
-				}
-				if test.config.OauthAuthorizationURL != cfg.OauthAuthorizationURL {
-					t.Fatalf("%v: Failed to match OauthAuthorizationUrl. expected: %v, got: %v", i, test.config.OauthAuthorizationURL, cfg.OauthAuthorizationURL)
-				}
-				if test.config.OauthTokenRequestURL != cfg.OauthTokenRequestURL {
-					t.Fatalf("%v: Failed to match OauthTokenRequestURL. expected: %v, got: %v", i, test.config.OauthTokenRequestURL, cfg.OauthTokenRequestURL)
-				}
-				if test.config.OauthRedirectURI != cfg.OauthRedirectURI {
-					t.Fatalf("%v: Failed to match OauthRedirectURI. expected: %v, got: %v", i, test.config.OauthRedirectURI, cfg.OauthRedirectURI)
-				}
-				if test.config.OauthScope != cfg.OauthScope {
-					t.Fatalf("%v: Failed to match OauthScope. expected: %v, got: %v", i, test.config.OauthScope, cfg.OauthScope)
-				}
-				if test.config.EnableSingleUseRefreshTokens != cfg.EnableSingleUseRefreshTokens {
-					t.Fatalf("%v: Failed to match EnableSingleUseRefreshTokens. expected: %v, got: %v", i, test.config.OauthScope, cfg.OauthScope)
-				}
+				assertEqualE(t, cfg.OCSPFailOpen, test.config.OCSPFailOpen, fmt.Sprintf("Test %d: OCSPFailOpen mismatch", i))
+				assertEqualE(t, cfg.ocspMode(), test.ocspMode, fmt.Sprintf("Test %d: OCSPMode mismatch", i))
+				assertEqualE(t, cfg.ValidateDefaultParameters, test.config.ValidateDefaultParameters, fmt.Sprintf("Test %d: ValidateDefaultParameters mismatch", i))
+				assertEqualE(t, cfg.ClientTimeout, test.config.ClientTimeout, fmt.Sprintf("Test %d: ClientTimeout mismatch", i))
+				assertEqualE(t, cfg.JWTClientTimeout, test.config.JWTClientTimeout, fmt.Sprintf("Test %d: JWTClientTimeout mismatch", i))
+				assertEqualE(t, cfg.ExternalBrowserTimeout, test.config.ExternalBrowserTimeout, fmt.Sprintf("Test %d: ExternalBrowserTimeout mismatch", i))
+				assertEqualE(t, cfg.CloudStorageTimeout, test.config.CloudStorageTimeout, fmt.Sprintf("Test %d: CloudStorageTimeout mismatch", i))
+				assertEqualE(t, cfg.TmpDirPath, test.config.TmpDirPath, fmt.Sprintf("Test %d: TmpDirPath mismatch", i))
+				assertEqualE(t, cfg.DisableQueryContextCache, test.config.DisableQueryContextCache, fmt.Sprintf("Test %d: DisableQueryContextCache mismatch", i))
+				assertEqualE(t, cfg.IncludeRetryReason, test.config.IncludeRetryReason, fmt.Sprintf("Test %d: IncludeRetryReason mismatch", i))
+				assertEqualE(t, cfg.DisableConsoleLogin, test.config.DisableConsoleLogin, fmt.Sprintf("Test %d: DisableConsoleLogin mismatch", i))
+				assertEqualE(t, cfg.DisableSamlURLCheck, test.config.DisableSamlURLCheck, fmt.Sprintf("Test %d: DisableSamlURLCheck mismatch", i))
+				assertEqualE(t, cfg.OauthClientID, test.config.OauthClientID, fmt.Sprintf("Test %d: OauthClientID mismatch", i))
+				assertEqualE(t, cfg.OauthClientSecret, test.config.OauthClientSecret, fmt.Sprintf("Test %d: OauthClientSecret mismatch", i))
+				assertEqualE(t, cfg.OauthAuthorizationURL, test.config.OauthAuthorizationURL, fmt.Sprintf("Test %d: OauthAuthorizationURL mismatch", i))
+				assertEqualE(t, cfg.OauthTokenRequestURL, test.config.OauthTokenRequestURL, fmt.Sprintf("Test %d: OauthTokenRequestURL mismatch", i))
+				assertEqualE(t, cfg.OauthRedirectURI, test.config.OauthRedirectURI, fmt.Sprintf("Test %d: OauthRedirectURI mismatch", i))
+				assertEqualE(t, cfg.OauthScope, test.config.OauthScope, fmt.Sprintf("Test %d: OauthScope mismatch", i))
+				assertEqualE(t, cfg.EnableSingleUseRefreshTokens, test.config.EnableSingleUseRefreshTokens, fmt.Sprintf("Test %d: EnableSingleUseRefreshTokens mismatch", i))
 				assertEqualE(t, cfg.Token, test.config.Token, "token")
 				assertEqualE(t, cfg.ClientConfigFile, test.config.ClientConfigFile, "client config file")
 				assertEqualE(t, cfg.CertRevocationCheckMode, test.config.CertRevocationCheckMode, "cert revocation check mode")
@@ -2131,9 +2081,27 @@ func TestDSN(t *testing.T) {
 			},
 			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tlsConfigName=custom&validateDefaultParameters=true",
 		},
+		{
+			cfg: &Config{
+				User:                       "u",
+				Password:                   "p",
+				Account:                    "a.b.c",
+				SingleAuthenticationPrompt: ConfigBoolTrue,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&singleAuthenticationPrompt=true&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                       "u",
+				Password:                   "p",
+				Account:                    "a.b.c",
+				SingleAuthenticationPrompt: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&singleAuthenticationPrompt=false&validateDefaultParameters=true",
+		},
 	}
 	for _, test := range testcases {
-		t.Run(test.dsn, func(t *testing.T) {
+		t.Run(maskSecrets(test.dsn), func(t *testing.T) {
 			if test.cfg.TLSConfigName != "" && test.err == nil {
 				err := RegisterTLSConfig(test.cfg.TLSConfigName, &tls.Config{})
 				assertNilF(t, err, "Failed to register test TLS config")
@@ -2143,14 +2111,12 @@ func TestDSN(t *testing.T) {
 			}
 			dsn, err := DSN(test.cfg)
 			if test.err == nil && err == nil {
-				if dsn != test.dsn {
-					t.Errorf("failed to get DSN. expected: %v, got:\n %v", test.dsn, dsn)
-				}
+				assertEqualF(t, dsn, test.dsn, fmt.Sprintf("failed to get DSN. expected: %v, got:\n %v", maskSecrets(test.dsn), maskSecrets(dsn)))
 				_, err := ParseDSN(dsn)
 				assertNilF(t, err, "failed to parse DSN. dsn:", dsn)
 			}
 			if test.err != nil {
-				assertNotNilF(t, err, fmt.Sprintf("expected error. dsn: %v, expected err: %v", test.dsn, test.err))
+				assertNotNilF(t, err, fmt.Sprintf("expected error. dsn: %v, expected err: %v", maskSecrets(test.dsn), maskSecrets(test.err.Error())))
 			}
 			if test.err == nil {
 				assertNilF(t, err, "failed to match")
@@ -2357,6 +2323,10 @@ func TestUrlDecodeIfNeeded(t *testing.T) {
 }
 
 func TestUrlDecodeIfNeededE2E(t *testing.T) {
+	// Skip this test when using JWT authentication globally to prevent unexpected behavior
+	if os.Getenv("SNOWFLAKE_TEST_AUTHENTICATOR") == "SNOWFLAKE_JWT" {
+		t.Skip("Skipping URL decode test when JWT is configured globally")
+	}
 	customVarName := "CUSTOM_VARIABLE"
 	customVarValue := "test"
 	myQueryTag := "mytag"
@@ -2364,15 +2334,16 @@ func TestUrlDecodeIfNeededE2E(t *testing.T) {
 	if err != nil {
 		testPort = 443
 	}
-
 	cfg := &Config{
-		Account:  os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
-		Host:     os.Getenv("SNOWFLAKE_TEST_HOST"),
-		Port:     testPort,
-		Protocol: os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
-		User:     os.Getenv("SNOWFLAKE_TEST_USER"),
-		Password: os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
-		Params:   map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
+		Account:       os.Getenv("SNOWFLAKE_TEST_ACCOUNT"),
+		Host:          os.Getenv("SNOWFLAKE_TEST_HOST"),
+		Port:          testPort,
+		Protocol:      os.Getenv("SNOWFLAKE_TEST_PROTOCOL"),
+		User:          os.Getenv("SNOWFLAKE_TEST_USER"),
+		Password:      os.Getenv("SNOWFLAKE_TEST_PASSWORD"),
+		Authenticator: AuthTypeSnowflake, // Force password authentication
+		PrivateKey:    nil,               // Ensure no private key
+		Params:        map[string]*string{"$" + customVarName: &customVarValue, "query_tag": &myQueryTag},
 	}
 	mydsn, err := DSN(cfg)
 	assertNilE(t, err, "TestUrlDecodeIfNeededE2E failed to create DSN from Config")

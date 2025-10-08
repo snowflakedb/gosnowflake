@@ -32,10 +32,11 @@ type (
 )
 
 const (
-	fileProtocol              = "file://"
-	dataSizeThreshold int64   = 64 * 1024 * 1024
-	isWindows                 = runtime.GOOS == "windows"
-	mb                float64 = 1024.0 * 1024.0
+	fileProtocol                        = "file://"
+	multiPartThreshold          int64   = 64 * 1024 * 1024
+	streamingMultiPartThreshold int64   = 8 * 1024 * 1024
+	isWindows                           = runtime.GOOS == "windows"
+	mb                          float64 = 1024.0 * 1024.0
 )
 
 const (
@@ -178,12 +179,19 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 		if sfa.stageLocationType != local {
 			sizeThreshold := sfa.options.MultiPartThreshold
 			meta.options.MultiPartThreshold = sizeThreshold
-			if meta.srcFileSize > sizeThreshold && sfa.commandType == uploadCommand {
+			if sfa.commandType == uploadCommand {
+				if meta.srcFileSize > sizeThreshold {
+					meta.parallel = sfa.parallel
+					largeFileMetas = append(largeFileMetas, meta)
+				} else {
+					meta.parallel = 1
+					smallFileMetas = append(smallFileMetas, meta)
+				}
+			} else {
+				// Enable multi-part download for all files to improve performance.
+				// The MultiPartThreshold will be passed to the Cloud Storage Provider to determine the part size.
 				meta.parallel = sfa.parallel
 				largeFileMetas = append(largeFileMetas, meta)
-			} else {
-				meta.parallel = 1
-				smallFileMetas = append(smallFileMetas, meta)
 			}
 		} else {
 			meta.parallel = 1
@@ -196,7 +204,7 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 			return err
 		}
 	} else {
-		if err = sfa.download(smallFileMetas); err != nil {
+		if err = sfa.download(largeFileMetas); err != nil {
 			return err
 		}
 	}
@@ -342,7 +350,11 @@ func (sfa *snowflakeFileTransferAgent) expandFilenames(locations []string) ([]st
 
 func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 	sfa.fileMetadata = []*fileMetadata{}
-	if sfa.commandType == uploadCommand {
+	switch sfa.commandType {
+	case uploadCommand:
+		logger.Debugf("upload command initiated - file count: %d, query ID: %s, encryption materials: %d",
+			len(sfa.srcFiles), sfa.data.QueryID, len(sfa.encryptionMaterial))
+
 		if len(sfa.srcFiles) == 0 {
 			fileName := sfa.data.SrcLocations
 			return (&SnowflakeError{
@@ -353,7 +365,6 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				MessageArgs: []interface{}{fileName},
 			}).exceptionTelemetry(sfa.sc)
 		}
-
 		// Handles bulk inserts by checking if sourceStream exists.
 		// - If the file exists locally (PUT command), it saves the stream without loading it into memory.
 		// - If not, treats it as an INSERT converted to PUT for bulk upload.
@@ -430,7 +441,10 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				meta.encryptionMaterial = sfa.encryptionMaterial[0]
 			}
 		}
-	} else if sfa.commandType == downloadCommand {
+	case downloadCommand:
+		logger.Debugf("download command initiated - file count: %d, query ID: %s",
+			len(sfa.srcFiles), sfa.data.QueryID)
+
 		for _, fileName := range sfa.srcFiles {
 			if len(fileName) > 0 {
 				firstPathSep := strings.Index(fileName, "/")
@@ -449,7 +463,6 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 				})
 			}
 		}
-		// TODO is this necessary?
 		for _, meta := range sfa.fileMetadata {
 			fileName := meta.srcFileName
 			if val, ok := sfa.srcFileToEncryptionMaterial[fileName]; ok {
@@ -457,18 +470,18 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 			}
 		}
 	}
-
 	return nil
 }
 
 func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 	var userSpecifiedSourceCompression *compressionType
 	var autoDetect bool
-	if sfa.srcCompression == "auto_detect" {
+	switch sfa.srcCompression {
+	case "auto_detect":
 		autoDetect = true
-	} else if sfa.srcCompression == "none" {
+	case "none":
 		autoDetect = false
-	} else {
+	default:
 		userSpecifiedSourceCompression = lookupByMimeSubType(sfa.srcCompression)
 		if userSpecifiedSourceCompression == nil || !userSpecifiedSourceCompression.isSupported {
 			return (&SnowflakeError{
@@ -556,7 +569,8 @@ func (sfa *snowflakeFileTransferAgent) processFileCompressionType() error {
 func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() error {
 	// presigned URL only applies to GCS
 	if sfa.stageLocationType == gcsClient {
-		if sfa.commandType == uploadCommand {
+		switch sfa.commandType {
+		case uploadCommand:
 			filePathToBeReplaced := sfa.getLocalFilePathFromCommand(sfa.command)
 			for _, meta := range sfa.fileMetadata {
 				filePathToBeReplacedWith := strings.TrimRight(filePathToBeReplaced, meta.dstFileName) + meta.dstFileName
@@ -594,7 +608,7 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 					}
 				}
 			}
-		} else if sfa.commandType == downloadCommand {
+		case downloadCommand:
 			for i, meta := range sfa.fileMetadata {
 				if len(sfa.presignedURLs) > 0 {
 					var err error
@@ -606,7 +620,7 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 					meta.presignedURL = nil
 				}
 			}
-		} else {
+		default:
 			return (&SnowflakeError{
 				Number:      ErrCommandNotRecognized,
 				SQLState:    sfa.data.SQLState,
@@ -892,7 +906,11 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 		return nil, err
 	}
 	meta.tmpDir = tmpDir
-	defer os.RemoveAll(tmpDir) // cleanup
+	defer func() {
+		if err = os.RemoveAll(tmpDir); err != nil {
+			logger.WithContext(sfa.sc.ctx).Warnf("failed to remove temp dir %v: %v", tmpDir, err)
+		}
+	}()
 
 	fileUtil := new(snowflakeFileUtil)
 
@@ -1001,7 +1019,11 @@ func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fil
 		return nil, err
 	}
 	meta.tmpDir = tmpDir
-	defer os.RemoveAll(tmpDir) // cleanup
+	defer func() {
+		if err = os.RemoveAll(tmpDir); err != nil {
+			logger.WithContext(sfa.sc.ctx).Warnf("failed to remove temp dir %v: %v", tmpDir, err)
+		}
+	}()
 	client := sfa.getStorageClient(sfa.stageLocationType)
 	if err = client.downloadOneFile(meta); err != nil {
 		meta.dstFileSize = -1
@@ -1015,15 +1037,17 @@ func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fil
 }
 
 func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudType) storageUtil {
-	if stageLocationType == local {
+	switch stageLocationType {
+	case local:
 		return &localUtil{}
-	} else if stageLocationType == s3Client || stageLocationType == azureClient || stageLocationType == gcsClient {
+	case s3Client, azureClient, gcsClient:
 		return &remoteStorageUtil{
 			cfg:       sfa.sc.cfg,
 			telemetry: sfa.sc.telemetry,
 		}
+	default:
+		return nil
 	}
-	return nil
 }
 
 func (sfa *snowflakeFileTransferAgent) renewExpiredClient() (cloudClient, error) {

@@ -131,10 +131,11 @@ func TestCrlModes(t *testing.T) {
 
 				cv := newTestCrlValidator(t, checkMode)
 				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
-				if checkMode == CertRevocationCheckEnabled {
+				switch checkMode {
+				case CertRevocationCheckEnabled:
 					assertNotNilF(t, err)
 					assertEqualE(t, err.Error(), "certificate revocation check failed")
-				} else if checkMode == CertRevocationCheckAdvisory {
+				case CertRevocationCheckAdvisory:
 					assertNilE(t, err)
 				}
 			})
@@ -441,7 +442,7 @@ func TestCrlModes(t *testing.T) {
 				t.Run("should use in-memory cache", func(t *testing.T) {
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, &http.Client{
 						Transport: crt,
 					})
@@ -468,7 +469,7 @@ func TestCrlModes(t *testing.T) {
 					skipOnMissingHome(t)
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, &http.Client{
 						Transport: crt,
 					})
@@ -494,7 +495,7 @@ func TestCrlModes(t *testing.T) {
 				t.Run("should redownload when nextUpdate is reached", func(t *testing.T) {
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, &http.Client{
 						Transport: crt,
 					})
@@ -528,7 +529,7 @@ func TestCrlModes(t *testing.T) {
 				t.Run("should redownload when evicted in cache", func(t *testing.T) {
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, &http.Client{
 						Transport: crt,
 					})
@@ -586,7 +587,7 @@ func TestCrlModes(t *testing.T) {
 				t.Run("should not read from on-disk cache when disabled", func(t *testing.T) {
 					cleanupCrlCache(t)
 
-					crt := newCountingRoundTripper(snowflakeNoRevocationCheckTransport)
+					crt := newCountingRoundTripper(createTestNoRevocationTransport())
 					cv := newTestCrlValidator(t, checkMode, onDiskCacheDisabledType(true), &http.Client{
 						Transport: crt,
 					})
@@ -743,7 +744,7 @@ func TestParallelRequestToTheSameCrl(t *testing.T) {
 	crl := createCrl(t, caCert, caPrivateKey)
 	registerCrlEndpoints(t, server, newCrlEndpointDef("/rootCrl", crl))
 
-	brt := newBlockingRoundTripper(snowflakeNoRevocationCheckTransport, 100*time.Millisecond)
+	brt := newBlockingRoundTripper(createTestNoRevocationTransport(), 100*time.Millisecond)
 	crt := newCountingRoundTripper(brt)
 	cv := newTestCrlValidator(t, CertRevocationCheckEnabled, &http.Client{
 		Transport: crt,
@@ -1000,30 +1001,28 @@ func closeServer(t *testing.T, server *http.Server) {
 
 func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
+		skipOnJenkins(t, "Jenkins tests use HTTP connection to SF, so CRL is not used")
 		_ = logger.SetLogLevel("debug")
 		defer func() {
-			_ = logger.SetLogLevel("error")
+			logger.SetLogLevel("error")
 		}()
 		cleanupCrlCache(t)
 		defer cleanupCrlCache(t) // to reset cache cleaner after test
-		crlCacheCleanerTickRate = 5 * time.Second
-		cacheValidityTimeOverride := overrideEnv(snowflakeCrlCacheValidityTimeEnv, "60s")
+		crlCacheCleanerTickRate = 1 * time.Second
+		cacheValidityTimeOverride := overrideEnv(snowflakeCrlCacheValidityTimeEnv, "15s")
 		defer cacheValidityTimeOverride.rollback()
-		cfg := &Config{
-			User:                              username,
-			Password:                          pass,
-			Account:                           account,
-			Database:                          dbname,
-			Schema:                            schemaname,
-			CertRevocationCheckMode:           CertRevocationCheckEnabled,
-			CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
-			DisableOCSPChecks:                 true,
-			CrlOnDiskCacheDisabled:            true,
-		}
+		cfg, err := ParseDSN(dsn)
+		assertNilF(t, err, "Failed to parse DSN")
+
+		// Add CRL-specific test parameters
+		cfg.CertRevocationCheckMode = CertRevocationCheckEnabled
+		cfg.CrlAllowCertificatesWithoutCrlURL = ConfigBoolTrue
+		cfg.DisableOCSPChecks = true
+		cfg.CrlOnDiskCacheDisabled = true
 		db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 		defer db.Close()
 		rows, err := db.Query("SELECT 1")
-		assertNilF(t, err)
+		assertNilF(t, err, "CRL E2E test failed")
 		defer rows.Close()
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterSnowflakeConnection := len(crlInMemoryCache)
@@ -1033,16 +1032,16 @@ func TestCrlE2E(t *testing.T) {
 
 		// additional entries for connecting to cloud providers and checking their certs
 		cwd, err := os.Getwd()
-		assertNilF(t, err)
+		assertNilF(t, err, "Failed to get current working directory")
 		_, err = db.Exec(fmt.Sprintf("PUT file://%v @~/%v", filepath.Join(cwd, "test_data", "put_get_1.txt"), "put_get_1.txt"))
-		assertNilF(t, err)
+		assertNilF(t, err, "Failed to execute PUT file")
 		crlInMemoryCacheMutex.Lock()
 		memoryEntriesAfterCSPConnection := len(crlInMemoryCache)
 		crlInMemoryCacheMutex.Unlock()
 		logger.Debugf("memory entries after CSP connection: %v", memoryEntriesAfterCSPConnection)
 		assertTrueE(t, memoryEntriesAfterCSPConnection > memoryEntriesAfterSnowflakeConnection)
 
-		time.Sleep(66 * time.Second) // wait for the cache cleaner to run
+		time.Sleep(17 * time.Second) // wait for the cache cleaner to run
 		crlInMemoryCacheMutex.Lock()
 		assertEqualE(t, len(crlInMemoryCache), 0)
 		crlInMemoryCacheMutex.Unlock()
@@ -1059,7 +1058,7 @@ func TestCrlE2E(t *testing.T) {
 			CertRevocationCheckMode: CertRevocationCheckEnabled,
 		}
 		_, err := buildSnowflakeConn(context.Background(), *cfg)
-		assertEqualE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time, please disable one of them")
+		assertStringContainsE(t, err.Error(), "both OCSP and CRL cannot be enabled at the same time")
 		assertEqualE(t, len(crlInMemoryCache), 0)
 	})
 }

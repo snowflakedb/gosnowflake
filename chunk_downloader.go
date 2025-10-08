@@ -378,7 +378,11 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 	if err != nil {
 		return fmt.Errorf("getting chunk: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			logger.Warnf("downloadChunkHelper: closing response body %v: %v", scd.ChunkMetas[idx].URL, err)
+		}
+	}()
 	logger.WithContext(ctx).Debugf("response returned chunk: %v for URL: %v", idx+1, scd.ChunkMetas[idx].URL)
 	if resp.StatusCode != http.StatusOK {
 		b, err := io.ReadAll(resp.Body)
@@ -412,7 +416,11 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 		if err != nil {
 			return fmt.Errorf("creating gzip reader: %w", err)
 		}
-		defer bufStream0.Close()
+		defer func() {
+			if err = bufStream0.Close(); err != nil {
+				logger.Warnf("decodeChunk: closing gzip reader: %v", err)
+			}
+		}()
 		source = bufStream0
 	} else {
 		source = bufStream
@@ -658,7 +666,11 @@ func (f *httpStreamChunkFetcher) fetch(URL string, rows chan<- []*string) error 
 	if err != nil {
 		return fmt.Errorf("executing HTTP request: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err = res.Body.Close(); err != nil {
+			logger.Warnf("httpStreamChunkFetcher.fetch: closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		b, err := io.ReadAll(res.Body)
 		if err != nil {
@@ -685,7 +697,11 @@ func copyChunkStream(body io.Reader, rows chan<- []*string) error {
 		if err != nil {
 			return fmt.Errorf("creating gzip reader: %w", err)
 		}
-		defer bufStream0.Close()
+		defer func() {
+			if err = bufStream0.Close(); err != nil {
+				logger.Warnf("copyChunkStream: closing gzip reader: %v", err)
+			}
+		}()
 		source = bufStream0
 	}
 	r := io.MultiReader(strings.NewReader("["), source, strings.NewReader("]"))

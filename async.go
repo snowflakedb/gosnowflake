@@ -159,7 +159,11 @@ func getQueryResultWithRetriesForAsyncMode(
 			logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 			return respd, err
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err = resp.Body.Close(); err != nil {
+				logger.WithContext(ctx).Errorf("failed to close response body. err: %v", err)
+			}
+		}()
 
 		respd = &execResponse{} // reset the response
 		err = json.NewDecoder(resp.Body).Decode(&respd)
@@ -211,6 +215,9 @@ func getQueryResultWithRetriesForAsyncMode(
 				retryPatternIndex++
 			}
 		}
+	}
+	if len(respd.Data.RowType) > 0 {
+		logger.Infof("[Server Response Validation]: RowType: %s, QueryResultFormat: %s", respd.Data.RowType[0].Name, respd.Data.QueryResultFormat)
 	}
 	return respd, nil
 }

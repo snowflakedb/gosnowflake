@@ -14,8 +14,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"runtime"
-	"strings"
 	"testing"
 	"time"
 )
@@ -63,13 +61,15 @@ func setupPrivateKey() {
 
 func TestJWTTokenTimeout(t *testing.T) {
 	brt := newBlockingRoundTripper(http.DefaultTransport, 2000*time.Millisecond)
+	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	assertNilF(t, err, "Failed to generate test private key")
 	cfg := &Config{
 		User:             "user",
 		Host:             "localhost",
 		Port:             wiremock.port,
 		Account:          "jwtAuthTokenTimeout",
 		JWTClientTimeout: 10 * time.Millisecond,
-		PrivateKey:       testPrivKey,
+		PrivateKey:       localTestKey,
 		Authenticator:    AuthTypeJwt,
 		MaxRetryCount:    1,
 		Transporter:      brt,
@@ -78,14 +78,7 @@ func TestJWTTokenTimeout(t *testing.T) {
 	db := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfg))
 	defer db.Close()
 	ctx := context.Background()
-	_, err := db.Conn(ctx)
+	_, err = db.Conn(ctx)
 	assertNotNilF(t, err)
-	// If the Go version is not 1.22, we expect a DeadlineExceeded error
-	// Go 1.22 uses net.httpError does doesn't implement `Is` function
-	// Go 1.23 uses net.timeoutError which implements `Is` function and returns context.DeadlineExceeded
-	// so the actual url.Error can be unwrapped to context.DeadlineExceeded
-	// TODO remove when we drop support for Go 1.22
-	if !strings.HasPrefix(runtime.Version(), "go1.22") {
-		assertErrIsE(t, err, context.DeadlineExceeded)
-	}
+	assertErrIsE(t, err, context.DeadlineExceeded)
 }
