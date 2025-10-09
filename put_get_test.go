@@ -1057,7 +1057,9 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 }
 
 func createLimitedRealFile(t *testing.T, sourceDir string) string {
-	tmpFile := t.TempFile()
+	tmpDir := t.TempDir()
+	tmpFile, err := os.CreateTemp(tmpDir, "largefile_*.txt")
+	assertNilF(t, err)
 	fname := tmpFile.Name()
 
 	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
