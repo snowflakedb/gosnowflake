@@ -927,8 +927,7 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 	sourceDir, err := os.Getwd()
 	assertNilF(t, err)
 
-	fname, cleanup := createLimitedRealFile(t, sourceDir)
-	defer cleanup()
+	fname := createLimitedRealFile(t, sourceDir)
 
 	baseName := filepath.Base(fname)
 	fnameGet := baseName + ".gz"
@@ -1057,9 +1056,8 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 	})
 }
 
-func createLimitedRealFile(t *testing.T, sourceDir string) (string, func()) {
-	tmpFile, err := os.CreateTemp(sourceDir, "largefile_*.txt")
-	assertNilF(t, err)
+func createLimitedRealFile(t *testing.T, sourceDir string) string {
+	tmpFile := t.TempFile()
 	fname := tmpFile.Name()
 
 	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
@@ -1078,11 +1076,7 @@ func createLimitedRealFile(t *testing.T, sourceDir string) (string, func()) {
 	err = tmpFile.Close()
 	assertNilF(t, err)
 
-	cleanup := func() {
-		os.Remove(fname)
-	}
-
-	return fname, cleanup
+	return fname
 }
 
 func createCancelTestFile(t *testing.T, sourceDir string) (string, func()) {

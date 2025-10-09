@@ -51,10 +51,6 @@ const (
 	lobRandomRange = 100000
 )
 
-var (
-// No additional size variables needed - just use smallSize and largeSize
-)
-
 func TestBindingFloat64(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
