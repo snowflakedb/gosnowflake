@@ -1052,7 +1052,7 @@ func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudT
 
 func (sfa *snowflakeFileTransferAgent) renewExpiredClient() (cloudClient, error) {
 	data, err := sfa.sc.exec(
-		sfa.sc.ctx,
+		sfa.ctx,
 		sfa.command,
 		false,
 		false,
