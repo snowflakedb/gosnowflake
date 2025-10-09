@@ -692,7 +692,7 @@ func TestPutGetLargeFile(t *testing.T) {
 		dbt.mustExec("rm @~/" + stageDir)
 
 		// PUT test
-		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @~/%v", sourceDir, stageDir)
+		putQuery := fmt.Sprintf("put 'file://%v/test_data/largefile.txt' @~/%v", sourceDir, stageDir)
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/" + stageDir)
@@ -950,18 +950,18 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 		}
 
 		// PUT test
-		putQuery := fmt.Sprintf("put file://%v @~/%v auto_compress=true overwrite=true", fname, stageDir)
+		escapedFname := strings.ReplaceAll(fname, "\\", "\\\\")
+		putQuery := fmt.Sprintf("put 'file://%v' @~/%v auto_compress=true overwrite=true", escapedFname, stageDir)
 		if !autoCompress {
-			putQuery = fmt.Sprintf("put file://%v @~/%v auto_compress=false overwrite=true", fname, stageDir)
+			putQuery = fmt.Sprintf("put 'file://%v' @~/%v auto_compress=false overwrite=true", escapedFname, stageDir)
 		}
-		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
 
 		// Record initial memory stats before PUT
 		var startMemStats, endMemStats runtime.MemStats
 		runtime.ReadMemStats(&startMemStats)
 
 		// Execute PUT command
-		_ = dbt.mustExecContext(ctx, sqlText)
+		_ = dbt.mustExecContext(ctx, putQuery)
 
 		// Record memory stats after PUT
 		runtime.ReadMemStats(&endMemStats)
@@ -993,7 +993,7 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 		tmpDir := t.TempDir()
 		tmpDirURL := strings.ReplaceAll(tmpDir, "\\", "/")
 		sql := fmt.Sprintf("get @~/%v/%v 'file://%v'", stageDir, fnameGet, tmpDirURL)
-		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
+		sqlText := strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
 		defer func() {
 			assertNilF(t, rows2.Close())
