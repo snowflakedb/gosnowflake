@@ -17,6 +17,7 @@ const (
 
 var (
 	// MaxChunkDownloadWorkers specifies the maximum number of goroutines used to download chunks
+	// Deprecated: will be replaced with per query setting.
 	MaxChunkDownloadWorkers = 10
 
 	// CustomJSONDecoderEnabled has the chunk downloader use the custom JSON decoder to reduce memory footprint.
@@ -30,7 +31,7 @@ var (
 // SnowflakeRows provides an API for methods exposed to the clients
 type SnowflakeRows interface {
 	GetQueryID() string
-	GetStatus() queryStatus
+	GetStatus() QueryStatus
 	GetArrowBatches() ([]*ArrowBatch, error)
 	// NextResultSet switches Arrow Batches to the next result set.
 	// Returns io.EOF if there are no more result sets.
@@ -42,7 +43,7 @@ type snowflakeRows struct {
 	ChunkDownloader     chunkDownloader
 	tailChunkDownloader chunkDownloader
 	queryID             string
-	status              queryStatus
+	status              QueryStatus
 	err                 error
 	errChannel          chan error
 	location            *time.Location
@@ -157,7 +158,7 @@ func (rows *snowflakeRows) GetQueryID() string {
 	return rows.queryID
 }
 
-func (rows *snowflakeRows) GetStatus() queryStatus {
+func (rows *snowflakeRows) GetStatus() QueryStatus {
 	return rows.status
 }
 
