@@ -1,8 +1,9 @@
 # Changelog
 
-## 1.18.0 (TBD)
+## Upcoming Release
 - Added temporary download files cleanup (snowflakedb/gosnowflake#1577)
-- 
+- Marked fields as deprecated (snowflakedb/gosnowflake#1556)
+- Exposed `QueryStatus` from `SnowflakeResult` and `SnowflakeRows` in `GetStatus()` function (snowflakedb/gosnowflake#1556)
 
 ## 1.17.0
 

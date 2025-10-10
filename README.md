@@ -1,3 +1,7 @@
+## Upcoming v2 release
+
+The v2 release is coming. See the [issue](https://github.com/snowflakedb/gosnowflake/issues/1586) for details!
+
 ## Support
 
 For official support and urgent, production-impacting issues, please [contact Snowflake Support](https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge).

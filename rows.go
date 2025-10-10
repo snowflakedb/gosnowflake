@@ -17,6 +17,7 @@ const (
 
 var (
 	// MaxChunkDownloadWorkers specifies the maximum number of goroutines used to download chunks
+	// Deprecated: will be replaced with per query setting.
 	MaxChunkDownloadWorkers = 10
 
 	// CustomJSONDecoderEnabled has the chunk downloader use the custom JSON decoder to reduce memory footprint.
