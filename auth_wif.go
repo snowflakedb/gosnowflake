@@ -267,7 +267,7 @@ func (c *gcpIdentityAttestationCreator) createTokenRequest() (*http.Request, err
 }
 
 func fetchTokenFromMetadataService(req *http.Request, cfg *Config, telemetry *snowflakeTelemetry) string {
-	transport, err := newTransportFactory(cfg, telemetry).createTransport()
+	transport, err := newTransportFactory(cfg, telemetry).createTransport(cfg.transportConfigFor(transportTypeWIF))
 	if err != nil {
 		logger.Debugf("Failed to create HTTP transport: %v", err)
 		return ""

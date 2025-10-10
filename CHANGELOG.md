@@ -2,7 +2,7 @@
 
 ## 1.18.0 (TBD)
 - Added temporary download files cleanup (snowflakedb/gosnowflake#1577)
-- 
+- Split timeout settings into separate groups based on target service types (snowflakedb/gosnowflake#1531)
 
 ## 1.17.0
 
