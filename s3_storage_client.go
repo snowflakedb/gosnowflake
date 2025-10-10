@@ -43,6 +43,7 @@ type s3Location struct {
 // S3LoggingMode allows to configure which logs should be included.
 // By default no logs are included.
 // See https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws#ClientLogMode for allowed values.
+// Deprecated: will be moved to DSN/Config in a future release.
 var S3LoggingMode aws.ClientLogMode
 
 func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, telemetry *snowflakeTelemetry) (cloudClient, error) {

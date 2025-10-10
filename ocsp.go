@@ -44,6 +44,7 @@ var (
 
 // OCSPFailOpenMode is OCSP fail open mode. OCSPFailOpenTrue by default and may
 // set to ocspModeFailClosed for fail closed mode
+// Deprecated: will be moved to Config/DSN in the future releases.
 type OCSPFailOpenMode uint32
 
 const (
