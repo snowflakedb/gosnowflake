@@ -585,13 +585,13 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 					return err
 				}
 				data, err := sfa.sc.rest.FuncPostQuery(
-					sfa.sc.ctx,
+					sfa.ctx,
 					sfa.sc.rest,
 					&url.Values{},
 					headers,
 					jsonBody,
 					sfa.sc.rest.RequestTimeout,
-					getOrGenerateRequestIDFromContext(sfa.sc.ctx),
+					getOrGenerateRequestIDFromContext(sfa.ctx),
 					sfa.sc.cfg)
 				if err != nil {
 					return err
@@ -1052,7 +1052,7 @@ func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudT
 
 func (sfa *snowflakeFileTransferAgent) renewExpiredClient() (cloudClient, error) {
 	data, err := sfa.sc.exec(
-		sfa.sc.ctx,
+		sfa.ctx,
 		sfa.command,
 		false,
 		false,
