@@ -237,9 +237,17 @@ func postRestfulQueryHelper(
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("received nil response from server for %v", fullURL)
+	}
+	if resp.Body == nil {
+		return nil, fmt.Errorf("received nil body in server response for %v", fullURL)
+	}
 	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, closeErr)
+		if resp != nil && resp.Body != nil {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, closeErr)
+			}
 		}
 	}()
 
@@ -284,11 +292,12 @@ func postRestfulQueryHelper(
 				logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 				return nil, err
 			}
-			defer func() {
-				if closeErr := resp.Body.Close(); closeErr != nil {
-					logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, closeErr)
-				}
-			}()
+			if resp == nil {
+				return nil, fmt.Errorf("received nil response from server for %v", fullURL)
+			}
+			if resp.Body == nil {
+				return nil, fmt.Errorf("received nil body in server response for %v", fullURL)
+			}
 			respd = execResponse{} // reset the response
 			err = json.NewDecoder(resp.Body).Decode(&respd)
 			if err != nil {
@@ -304,6 +313,13 @@ func postRestfulQueryHelper(
 				isSessionRenewed = false
 			}
 		}
+		defer func() {
+			if resp != nil && resp.Body != nil {
+				if closeErr := resp.Body.Close(); closeErr != nil {
+					logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, closeErr)
+				}
+			}
+		}()
 		return &respd, nil
 	}
 	b, err := io.ReadAll(resp.Body)
