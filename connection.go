@@ -72,9 +72,10 @@ const (
 // External cancellation should not be supported because the connection
 // may be reused after the original query/request has completed.
 type snowflakeConn struct {
-	ctx                 context.Context
-	cfg                 *Config
-	rest                *snowflakeRestful
+	ctx  context.Context
+	cfg  *Config
+	rest *snowflakeRestful
+	// Deprecated: this field will be removed in future releases.
 	SequenceCounter     uint64
 	telemetry           *snowflakeTelemetry
 	internal            InternalClient

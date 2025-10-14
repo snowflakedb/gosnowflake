@@ -44,6 +44,7 @@ var (
 
 // OCSPFailOpenMode is OCSP fail open mode. OCSPFailOpenTrue by default and may
 // set to ocspModeFailClosed for fail closed mode
+// Deprecated: will be moved to Config/DSN in the future releases.
 type OCSPFailOpenMode uint32
 
 const (
@@ -74,10 +75,13 @@ const (
 
 var (
 	// OcspCacheServerTimeout is a timeout for OCSP cache server.
+	// Deprecated: will be moved to Config/DSN in the future releases.
 	OcspCacheServerTimeout = defaultOCSPCacheServerTimeout
 	// OcspResponderTimeout is a timeout for OCSP responders.
+	// Deprecated: will be moved to Config/DSN in the future releases.
 	OcspResponderTimeout = defaultOCSPResponderTimeout
 	// OcspMaxRetryCount is a number of retires to OCSP (cache server and responders).
+	// Deprecated: will be moved to Config/DSN in the future releases.
 	OcspMaxRetryCount = defaultOCSPMaxRetryCount
 )
 

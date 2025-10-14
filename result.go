@@ -2,21 +2,22 @@ package gosnowflake
 
 import "errors"
 
-type queryStatus string
+// QueryStatus denotes the status of a query.
+type QueryStatus string
 
 const (
 	// QueryStatusInProgress denotes a query execution in progress
-	QueryStatusInProgress queryStatus = "queryStatusInProgress"
+	QueryStatusInProgress QueryStatus = "queryStatusInProgress"
 	// QueryStatusComplete denotes a completed query execution
-	QueryStatusComplete queryStatus = "queryStatusComplete"
+	QueryStatusComplete QueryStatus = "queryStatusComplete"
 	// QueryFailed denotes a failed query
-	QueryFailed queryStatus = "queryFailed"
+	QueryFailed QueryStatus = "queryFailed"
 )
 
 // SnowflakeResult provides an API for methods exposed to the clients
 type SnowflakeResult interface {
 	GetQueryID() string
-	GetStatus() queryStatus
+	GetStatus() QueryStatus
 	GetArrowBatches() ([]*ArrowBatch, error)
 }
 
@@ -24,7 +25,7 @@ type snowflakeResult struct {
 	affectedRows int64
 	insertID     int64 // Snowflake doesn't support last insert id
 	queryID      string
-	status       queryStatus
+	status       QueryStatus
 	err          error
 	errChannel   chan error
 }
@@ -47,7 +48,7 @@ func (res *snowflakeResult) GetQueryID() string {
 	return res.queryID
 }
 
-func (res *snowflakeResult) GetStatus() queryStatus {
+func (res *snowflakeResult) GetStatus() QueryStatus {
 	return res.status
 }
 

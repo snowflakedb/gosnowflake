@@ -78,6 +78,7 @@ type Config struct {
 
 	Params map[string]*string // other connection parameters
 
+	// Deprecated: will be removed in a future release.
 	ClientIP net.IP // IP address for network check
 	Protocol string // http or https (optional)
 	Host     string // hostname (optional)
@@ -91,24 +92,32 @@ type Config struct {
 
 	OktaURL *url.URL
 
-	LoginTimeout           time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
-	RequestTimeout         time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
-	JWTExpireTimeout       time.Duration // JWT expire after timeout
-	ClientTimeout          time.Duration // Timeout for network round trip + read out http response
-	JWTClientTimeout       time.Duration // Timeout for network round trip + read out http response used when JWT token auth is taking place
+	// Deprecated: timeouts may be reorganized in a future release.
+	LoginTimeout time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
+	// Deprecated: timeouts may be reorganized in a future release.
+	RequestTimeout time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
+	// Deprecated: timeouts may be reorganized in a future release.
+	JWTExpireTimeout time.Duration // JWT expire after timeout
+	// Deprecated: timeouts may be reorganized in a future release.
+	ClientTimeout time.Duration // Timeout for network round trip + read out http response
+	// Deprecated: timeouts may be reorganized in a future release.
+	JWTClientTimeout time.Duration // Timeout for network round trip + read out http response used when JWT token auth is taking place
+	// Deprecated: timeouts may be reorganized in a future release.
 	ExternalBrowserTimeout time.Duration // Timeout for external browser login
-	CloudStorageTimeout    time.Duration // Timeout for a single call to a cloud storage provider
-	MaxRetryCount          int           // Specifies how many times non-periodic HTTP request can be retried
+	// Deprecated: timeouts may be reorganized in a future release.
+	CloudStorageTimeout time.Duration // Timeout for a single call to a cloud storage provider
+	MaxRetryCount       int           // Specifies how many times non-periodic HTTP request can be retried
 
 	Application       string // application name.
 	DisableOCSPChecks bool   // driver doesn't check certificate revocation status
-	// Deprecated: InsecureMode use DisableOCSPChecks instead
+	// Deprecated: InsecureMode use DisableOCSPChecks instead. Will be removed in a future release.
 	InsecureMode bool             // driver doesn't check certificate revocation status
 	OCSPFailOpen OCSPFailOpenMode // OCSP Fail Open
 
-	Token            string        // Token to use for OAuth other forms of token based auth
-	TokenAccessor    TokenAccessor // Optional token accessor to use
-	KeepSessionAlive bool          // Enables the session to persist even after the connection is closed
+	Token         string        // Token to use for OAuth other forms of token based auth
+	TokenAccessor TokenAccessor // Optional token accessor to use
+	// Deprecated: will be removed in a future release.
+	KeepSessionAlive bool // Enables the session to persist even after the connection is closed
 
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
 
@@ -119,13 +128,18 @@ type Config struct {
 
 	DisableTelemetry bool // indicates whether to disable telemetry
 
+	// Deprecated: may be removed in a future release with logging reorganization.
 	Tracing string // sets logging level
 
 	TmpDirPath string // sets temporary directory used by a driver for operations like encrypting, compressing etc
 
-	MfaToken                       string     // Internally used to cache the MFA token
-	IDToken                        string     // Internally used to cache the Id Token for external browser
-	ClientRequestMfaToken          ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
+	// Deprecated: will be unexported in a future release.
+	MfaToken string // Internally used to cache the MFA token
+	// Deprecated: will be unexported in a future release.
+	IDToken string // Internally used to cache the Id Token for external browser
+	// Deprecated: may be unexported in a future release.
+	ClientRequestMfaToken ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
+	// Deprecated: may be unexported in a future release.
 	ClientStoreTemporaryCredential ConfigBool // When true the ID token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
 
 	DisableQueryContextCache bool // Should HTAP query context cache be disabled
