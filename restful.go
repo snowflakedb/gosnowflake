@@ -240,9 +240,6 @@ func postRestfulQueryHelper(
 	if resp == nil {
 		return nil, fmt.Errorf("received nil response from server for %v", fullURL)
 	}
-	if resp.Body == nil {
-		return nil, fmt.Errorf("received nil body in server response for %v", fullURL)
-	}
 	defer func() {
 		if resp != nil && resp.Body != nil {
 			if closeErr := resp.Body.Close(); closeErr != nil {
@@ -294,9 +291,6 @@ func postRestfulQueryHelper(
 			}
 			if resp == nil {
 				return nil, fmt.Errorf("received nil response from server for %v", fullURL)
-			}
-			if resp.Body == nil {
-				return nil, fmt.Errorf("received nil body in server response for %v", fullURL)
 			}
 			respd = execResponse{} // reset the response
 			err = json.NewDecoder(resp.Body).Decode(&respd)
