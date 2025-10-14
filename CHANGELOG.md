@@ -4,7 +4,7 @@
 - Added temporary download files cleanup (snowflakedb/gosnowflake#1577)
 - Marked fields as deprecated (snowflakedb/gosnowflake#1556)
 - Exposed `QueryStatus` from `SnowflakeResult` and `SnowflakeRows` in `GetStatus()` function (snowflakedb/gosnowflake#1556)
-- Added nil check for server response to handle certain (timeout-related) corner cases originally reported for SF TF Provider (snowflakedb/gosnowflake#XXXX)
+- Added nil check for server response to handle certain (timeout-related) corner cases originally reported for SF TF Provider (snowflakedb/gosnowflake#1587)
 
 ## 1.17.0
 
