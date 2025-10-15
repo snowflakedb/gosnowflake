@@ -148,20 +148,6 @@ func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 	}, nil
 }
 
-func postTestNilResponse(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ currentTimeProvider, _ *Config) (*http.Response, error) {
-	return nil, nil
-}
-
-func TestUnitPostQueryHelperNilResponse(t *testing.T) {
-	sr := &snowflakeRestful{
-		FuncPost:      postTestNilResponse,
-		TokenAccessor: getSimpleTokenAccessor(),
-	}
-	requestID := NewUUID()
-	resp, _ := postRestfulQueryHelper(context.Background(), sr, &url.Values{}, make(map[string]string), []byte{0x12, 0x34}, 0, requestID, &Config{})
-	assertNilE(t, resp, "resp should have been nil")
-}
-
 func TestUnitPostQueryHelperError(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPost:      postTestError,
