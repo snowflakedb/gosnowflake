@@ -194,6 +194,10 @@ func (c *Config) ocspMode() string {
 	return ocspModeFailClosed
 }
 
+func (c *Config) transportConfigFor(transportType transportType) *transportConfig {
+	return defaultTransportConfigs.forTransportType(transportType)
+}
+
 // DSN constructs a DSN for Snowflake db.
 func DSN(cfg *Config) (dsn string, err error) {
 	if strings.ToLower(cfg.Region) == "us-west-2" {
