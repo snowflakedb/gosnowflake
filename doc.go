@@ -145,6 +145,8 @@ The following connection parameters are supported:
 
   - crlOnDiskCacheDisabled: set to disable on-disk caching of CRLs (on-disk cache may help with cold starts).
 
+  - crlDownloadMaxSize: maximum size (in bytes) of a CRL to download. Default is 200MB.
+
   - SNOWFLAKE_CRL_ON_DISK_CACHE_DIR (environment variable): set to customize the directory for on-disk caching of CRLs.
 
   - SNOWFLAKE_CRL_ON_DISK_CACHE_REMOVAL_DELAY (environment variable): set the delay (in seconds) for removing the on-disk cache (for debuggability).

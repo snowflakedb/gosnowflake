@@ -159,6 +159,7 @@ type Config struct {
 	CrlAllowCertificatesWithoutCrlURL ConfigBool              // Allow certificates (not short-lived) without CRL DP included to be treated as correct ones
 	CrlInMemoryCacheDisabled          bool                    // Should the in-memory cache be disabled
 	CrlOnDiskCacheDisabled            bool                    // Should the on-disk cache be disabled
+	CrlDownloadMaxSize                int                     // Max size in bytes of CRL to download. 0 means no limit. Default is 0.
 	CrlHTTPClientTimeout              time.Duration           // Timeout for HTTP client used to download CRL
 
 	ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
@@ -341,6 +342,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.CrlOnDiskCacheDisabled {
 		params.Add("crlOnDiskCacheDisabled", "true")
+	}
+	if cfg.CrlDownloadMaxSize != 0 {
+		params.Add("crlDownloadMaxSize", strconv.Itoa(cfg.CrlDownloadMaxSize))
 	}
 	if cfg.CrlHTTPClientTimeout != 0 {
 		params.Add("crlHttpClientTimeout", strconv.FormatInt(int64(cfg.CrlHTTPClientTimeout/time.Second), 10))
@@ -1126,6 +1130,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				cfg.CrlOnDiskCacheDisabled = true
 			} else {
 				cfg.CrlOnDiskCacheDisabled = false
+			}
+		case "crlDownloadMaxSize":
+			cfg.CrlDownloadMaxSize, err = strconv.Atoi(value)
+			if err != nil {
+				return
 			}
 		case "crlHttpClientTimeout":
 			var vv int64
