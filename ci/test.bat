@@ -58,4 +58,15 @@ echo [INFO] Database:  %SNOWFLAKE_TEST_DATABASE%
 echo [INFO] Warehouse: %SNOWFLAKE_TEST_WAREHOUSE%
 echo [INFO] Role:      %SNOWFLAKE_TEST_ROLE%
 
-go test %GO_TEST_PARAMS% --timeout 90m --tags=sfdebug -race -coverprofile=coverage.txt -covermode=atomic -v .
+REM Install go-junit-report
+go install github.com/jstemmer/go-junit-report/v2@latest
+
+REM Run tests and generate JUnit XML report (even if tests fail)
+go test %GO_TEST_PARAMS% --timeout 90m --tags=sfdebug -race -coverprofile=coverage.txt -covermode=atomic -v . > test-output.txt 2>&1
+set TEST_EXIT_CODE=%ERRORLEVEL%
+
+REM Always generate JUnit report
+type test-output.txt | go-junit-report > test-report.junit.xml
+
+REM Exit with the original test exit code
+exit /b %TEST_EXIT_CODE%
