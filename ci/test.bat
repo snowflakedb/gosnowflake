@@ -60,5 +60,3 @@ echo [INFO] Role:      %SNOWFLAKE_TEST_ROLE%
 
 go install github.com/jstemmer/go-junit-report/v2@latest
 go test %GO_TEST_PARAMS% --timeout 90m --tags=sfdebug -race -coverprofile=coverage.txt -covermode=atomic -v . | go-junit-report -iocopy -out test-report.junit.xml
-exit /b %ERRORLEVEL%
-
