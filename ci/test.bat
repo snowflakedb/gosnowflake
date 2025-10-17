@@ -70,9 +70,5 @@ type test-output.txt
 REM Generate JUnit report from the saved output
 type test-output.txt | go-junit-report > test-report.junit.xml
 
-echo.
-echo [DEBUG] Test exit code: %TEST_EXIT%
-echo.
-
 REM End local scope and exit with the test exit code
 endlocal & exit /b %TEST_EXIT%
