@@ -60,9 +60,15 @@ echo [INFO] Role:      %SNOWFLAKE_TEST_ROLE%
 
 go install github.com/jstemmer/go-junit-report/v2@latest
 
-REM Run tests and immediately capture exit code
-go test %GO_TEST_PARAMS% --timeout 90m --tags=sfdebug -race -coverprofile=coverage.txt -covermode=atomic -v . | go-junit-report -iocopy -out test-report.junit.xml
+REM Run tests and save output to file
+go test %GO_TEST_PARAMS% --timeout 90m --tags=sfdebug -race -coverprofile=coverage.txt -covermode=atomic -v . > test-output.txt 2>&1
 set TEST_EXIT=%ERRORLEVEL%
+
+REM Display the test output
+type test-output.txt
+
+REM Generate JUnit report from the saved output
+type test-output.txt | go-junit-report > test-report.junit.xml
 
 echo.
 echo [DEBUG] Test exit code: %TEST_EXIT%
