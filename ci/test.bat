@@ -59,5 +59,14 @@ echo [INFO] Warehouse: %SNOWFLAKE_TEST_WAREHOUSE%
 echo [INFO] Role:      %SNOWFLAKE_TEST_ROLE%
 
 go install github.com/jstemmer/go-junit-report/v2@latest
+
+REM Run tests and immediately capture exit code
 go test %GO_TEST_PARAMS% --timeout 90m --tags=sfdebug -race -coverprofile=coverage.txt -covermode=atomic -v . | go-junit-report -iocopy -out test-report.junit.xml
-exit /b %ERRORLEVEL%
+set TEST_EXIT=%ERRORLEVEL%
+
+echo.
+echo [DEBUG] Test exit code: %TEST_EXIT%
+echo.
+
+REM End local scope and exit with the test exit code
+endlocal & exit /b %TEST_EXIT%
