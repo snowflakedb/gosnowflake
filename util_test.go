@@ -478,6 +478,7 @@ func TestInternal(t *testing.T) {
 	assertFalseE(t, isInternal(ctx))
 	ctx = WithInternal(ctx)
 	assertTrueE(t, isInternal(ctx))
+	t.Fatal("INTENTIONAL FAILURE - Testing CI exit codes") // Intentionally break the test
 }
 
 type envOverride struct {
