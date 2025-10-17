@@ -431,7 +431,8 @@ func (cv *crlValidator) updateCache(crlURL string, crl *x509.RevocationList, dow
 		if !errors.Is(err, os.ErrExist) {
 			logger.Warnf("failed to create directory for CRL file %v: %v", crlFilePath, err)
 			return
-		} else if err := os.Chmod(crlDirPath, 0700); err != nil {
+		}
+		if err = os.Chmod(crlDirPath, 0700); err != nil {
 			logger.Warnf("failed to chmod existing directory for CRL file %v: %v", crlFilePath, err)
 			return
 		}
