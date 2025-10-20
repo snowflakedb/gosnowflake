@@ -82,7 +82,8 @@ func (rs resultStatus) isSet() bool {
 // SnowflakeFileTransferOptions enables users to specify options regarding
 // files transfers such as PUT/GET
 type SnowflakeFileTransferOptions struct {
-	showProgressBar    bool
+	showProgressBar bool
+	// Deprecated: will be removed in the future. The behaviour will be aligned to setting it to true.
 	RaisePutGetError   bool
 	MultiPartThreshold int64
 
@@ -352,6 +353,9 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 	sfa.fileMetadata = []*fileMetadata{}
 	switch sfa.commandType {
 	case uploadCommand:
+		logger.Debugf("upload command initiated - file count: %d, query ID: %s, encryption materials: %d",
+			len(sfa.srcFiles), sfa.data.QueryID, len(sfa.encryptionMaterial))
+
 		if len(sfa.srcFiles) == 0 {
 			fileName := sfa.data.SrcLocations
 			return (&SnowflakeError{
@@ -439,6 +443,9 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 			}
 		}
 	case downloadCommand:
+		logger.Debugf("download command initiated - file count: %d, query ID: %s",
+			len(sfa.srcFiles), sfa.data.QueryID)
+
 		for _, fileName := range sfa.srcFiles {
 			if len(fileName) > 0 {
 				firstPathSep := strings.Index(fileName, "/")

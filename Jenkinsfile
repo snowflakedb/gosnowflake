@@ -18,6 +18,7 @@ timestamps {
       string(name: 'parent_job', value: env.JOB_NAME),
       string(name: 'parent_build_number', value: env.BUILD_NUMBER)
     ]
+    
     parallel(
       'Test': {
         stage('Test') {

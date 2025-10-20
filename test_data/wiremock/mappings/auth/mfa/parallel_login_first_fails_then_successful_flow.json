@@ -1,0 +1,172 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "MFA Authentication Flow",
+      "requiredScenarioState": "Started",
+      "newScenarioState": "MFA first attempt failed",
+      "request": {
+        "urlPathPattern": "/session/v1/login-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson" : {
+              "data": {
+                "LOGIN_NAME": "testUser",
+                "PASSWORD": "testPassword"
+              }
+            },
+            "ignoreExtraElements" : true
+          },
+          {
+            "matchesJsonPath": {
+              "expression": "$.data.TOKEN",
+              "absent": "(absent)"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "code": "394508",
+          "data": {
+            "authnMethod": "USERNAME_PASSWORD",
+            "loginName": "testUser",
+            "nextAction": "RETRY_LOGIN",
+            "requestId": "8239b728-24d5-4d1b-5af6-593402a1cea2",
+            "signInOptions": {}
+          },
+          "headers": null,
+          "message": "Failed to authenticate: MFA with TOTP is required. To authenticate, provide both your password and a current TOTP passcode.",
+          "success": false
+        },
+        "fixedDelayMilliseconds": 2000
+      }
+    },
+    {
+      "scenarioName": "MFA Authentication Flow",
+      "requiredScenarioState": "MFA first attempt failed",
+      "newScenarioState": "MFA token required",
+      "request": {
+        "urlPathPattern": "/session/v1/login-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson" : {
+              "data": {
+                "LOGIN_NAME": "testUser",
+                "PASSWORD": "testPassword"
+              }
+            },
+            "ignoreExtraElements" : true
+          },
+          {
+            "matchesJsonPath": {
+              "expression": "$.data.TOKEN",
+              "absent": "(absent)"
+            }
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "data": {
+            "masterToken": "master token",
+            "token": "session token",
+            "validityInSeconds": 3600,
+            "masterValidityInSeconds": 14400,
+            "displayUserName": "TEST_USER",
+            "serverVersion": "8.48.0 b2024121104444034239f05",
+            "firstLogin": false,
+            "remMeToken": null,
+            "remMeValidityInSeconds": 0,
+            "healthCheckInterval": 45,
+            "newClientForUpgrade": "3.12.3",
+            "sessionId": 1172562260498,
+            "parameters": [
+              {
+                "name": "CLIENT_PREFETCH_THREADS",
+                "value": 4
+              }
+            ],
+            "sessionInfo": {
+              "databaseName": "TEST_DB",
+              "schemaName": "TEST_GO",
+              "warehouseName": "TEST_XSMALL",
+              "roleName": "ANALYST"
+            },
+            "idToken": null,
+            "idTokenValidityInSeconds": 0,
+            "responseData": null,
+            "mfaToken": "mfa-token",
+            "mfaTokenValidityInSeconds": 0
+          },
+          "code": null,
+          "message": null,
+          "success": true
+        },
+        "fixedDelayMilliseconds": 2000
+      }
+    },
+    {
+      "scenarioName": "MFA Authentication Flow",
+      "requiredScenarioState": "MFA token required",
+      "request": {
+        "urlPathPattern": "/session/v1/login-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson" : {
+              "data": {
+                "LOGIN_NAME": "testUser",
+                "PASSWORD": "testPassword",
+                "TOKEN": "mfa-token"
+              }
+            },
+            "ignoreExtraElements" : true
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "data": {
+            "masterToken": "master token",
+            "token": "session token",
+            "validityInSeconds": 3600,
+            "masterValidityInSeconds": 14400,
+            "displayUserName": "TEST_USER",
+            "serverVersion": "8.48.0 b2024121104444034239f05",
+            "firstLogin": false,
+            "remMeToken": null,
+            "remMeValidityInSeconds": 0,
+            "healthCheckInterval": 45,
+            "newClientForUpgrade": "3.12.3",
+            "sessionId": 1172562260498,
+            "parameters": [
+              {
+                "name": "CLIENT_PREFETCH_THREADS",
+                "value": 4
+              }
+            ],
+            "sessionInfo": {
+              "databaseName": "TEST_DB",
+              "schemaName": "TEST_GO",
+              "warehouseName": "TEST_XSMALL",
+              "roleName": "ANALYST"
+            },
+            "idToken": null,
+            "idTokenValidityInSeconds": 0,
+            "responseData": null,
+            "mfaToken": null,
+            "mfaTokenValidityInSeconds": 0
+          },
+          "code": null,
+          "message": null,
+          "success": true
+        }
+      }
+    }
+  ]
+}

@@ -46,10 +46,11 @@ const (
 )
 
 const (
-	sessionClientSessionKeepAlive          = "client_session_keep_alive"
-	sessionClientValidateDefaultParameters = "CLIENT_VALIDATE_DEFAULT_PARAMETERS"
-	sessionArrayBindStageThreshold         = "client_stage_array_binding_threshold"
-	serviceName                            = "service_name"
+	sessionClientSessionKeepAlive                   = "client_session_keep_alive"
+	sessionClientSessionKeepAliveHeartbeatFrequency = "client_session_keep_alive_heartbeat_frequency"
+	sessionClientValidateDefaultParameters          = "CLIENT_VALIDATE_DEFAULT_PARAMETERS"
+	sessionArrayBindStageThreshold                  = "client_stage_array_binding_threshold"
+	serviceName                                     = "service_name"
 )
 
 type resultType string
@@ -71,9 +72,10 @@ const (
 // External cancellation should not be supported because the connection
 // may be reused after the original query/request has completed.
 type snowflakeConn struct {
-	ctx                 context.Context
-	cfg                 *Config
-	rest                *snowflakeRestful
+	ctx  context.Context
+	cfg  *Config
+	rest *snowflakeRestful
+	// Deprecated: this field will be removed in future releases.
 	SequenceCounter     uint64
 	telemetry           *snowflakeTelemetry
 	internal            InternalClient
@@ -882,7 +884,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 
 	transportFactory := newTransportFactory(&config, telemetry)
-	st, err := transportFactory.createTransport()
+	st, err := transportFactory.createTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
 	if err != nil {
 		return nil, err
 	}
