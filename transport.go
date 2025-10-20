@@ -138,6 +138,7 @@ func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 		allowCertificatesWithoutCrlURL,
 		tf.config.CrlInMemoryCacheDisabled,
 		tf.config.CrlOnDiskCacheDisabled,
+		cmp.Or(tf.config.CrlDownloadMaxSize, defaultCrlDownloadMaxSize),
 		client,
 		tf.telemetry,
 	)

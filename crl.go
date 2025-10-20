@@ -34,6 +34,7 @@ type crlValidator struct {
 	allowCertificatesWithoutCrlURL bool
 	inMemoryCacheDisabled          bool
 	onDiskCacheDisabled            bool
+	crlDownloadMaxSize             int
 	httpClient                     *http.Client
 	telemetry                      *snowflakeTelemetry
 }
@@ -61,13 +62,14 @@ var (
 	crlCacheCleaner         *crlCacheCleanerType
 )
 
-func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, inMemoryCacheDisabled, onDiskCacheDisabled bool, httpClient *http.Client, telemetry *snowflakeTelemetry) (*crlValidator, error) {
+func newCrlValidator(certRevocationCheckMode CertRevocationCheckMode, allowCertificatesWithoutCrlURL bool, inMemoryCacheDisabled, onDiskCacheDisabled bool, crlDownloadMaxSize int, httpClient *http.Client, telemetry *snowflakeTelemetry) (*crlValidator, error) {
 	initCrlCacheCleaner()
 	cv := &crlValidator{
 		certRevocationCheckMode:        certRevocationCheckMode,
 		allowCertificatesWithoutCrlURL: allowCertificatesWithoutCrlURL,
 		inMemoryCacheDisabled:          inMemoryCacheDisabled,
 		onDiskCacheDisabled:            onDiskCacheDisabled,
+		crlDownloadMaxSize:             crlDownloadMaxSize,
 		httpClient:                     httpClient,
 		telemetry:                      telemetry,
 	}
@@ -178,6 +180,7 @@ const (
 	defaultCrlHTTPClientTimeout       = 10 * time.Second
 	defaultCrlCacheValidityTime       = 24 * time.Hour
 	defaultCrlOnDiskCacheRemovalDelay = 7 * time.Hour
+	defaultCrlDownloadMaxSize         = 200 * 1024 * 1024 // 200 MB
 )
 
 func (cv *crlValidator) verifyPeerCertificates(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
@@ -418,9 +421,21 @@ func (cv *crlValidator) updateCache(crlURL string, crl *x509.RevocationList, dow
 		return
 	}
 	crlFilePath := cv.crlURLToPath(crlURL)
-	if err := os.MkdirAll(filepath.Dir(crlFilePath), 0755); err != nil {
+	crlDirPath := filepath.Dir(crlFilePath)
+	crlDirParentPath := filepath.Dir(crlDirPath)
+	if err := os.MkdirAll(crlDirParentPath, 0755); err != nil {
 		logger.Warnf("failed to create directory for CRL file %v: %v", crlFilePath, err)
 		return
+	}
+	if err := os.Mkdir(crlDirPath, 0700); err != nil {
+		if !errors.Is(err, os.ErrExist) {
+			logger.Warnf("failed to create directory for CRL file %v: %v", crlFilePath, err)
+			return
+		}
+		if err = os.Chmod(crlDirPath, 0700); err != nil {
+			logger.Warnf("failed to chmod existing directory for CRL file %v: %v", crlFilePath, err)
+			return
+		}
 	}
 	if err := os.WriteFile(crlFilePath, crl.Raw, 0600); err != nil {
 		logger.Warnf("failed to write CRL to disk for %v (%v): %v", crlURL, crlFilePath, err)
@@ -454,9 +469,16 @@ func (cv *crlValidator) downloadCrl(crlURL string) (*x509.RevocationList, *time.
 	if resp.StatusCode >= 400 {
 		return nil, nil, fmt.Errorf("failed to download CRL from %v, status code: %v", crlURL, resp.StatusCode)
 	}
-	crlBytes, err := io.ReadAll(resp.Body)
+	maxSize := resp.ContentLength
+	if maxSize <= 0 || maxSize > int64(cv.crlDownloadMaxSize) {
+		maxSize = int64(cv.crlDownloadMaxSize)
+	}
+	crlBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxSize))
 	if err != nil {
 		return nil, nil, err
+	}
+	if cv.crlDownloadMaxSize > 0 && len(crlBytes) >= cv.crlDownloadMaxSize {
+		return nil, nil, fmt.Errorf("CRL from %v exceeds maximum size of %d bytes", crlURL, cv.crlDownloadMaxSize)
 	}
 	telemetryEvent.Message["crl_bytes"] = fmt.Sprintf("%d", len(crlBytes))
 	downloadTime := time.Since(now)

@@ -26,6 +26,7 @@ var serialNumber = int64(0) // to be incremented
 type allowCertificatesWithoutCrlURLType bool
 type inMemoryCacheDisabledType bool
 type onDiskCacheDisabledType bool
+type downloadMaxSizeType int
 
 type notAfterType time.Time
 type crlEndpointType string
@@ -40,6 +41,7 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, args .
 	allowCertificatesWithoutCrlURL := false
 	inMemoryCacheDisabled := false
 	onDiskCacheDisabled := false
+	downloadMaxSize := defaultCrlDownloadMaxSize
 	telemetry := &snowflakeTelemetry{}
 	for _, arg := range args {
 		switch v := arg.(type) {
@@ -51,13 +53,15 @@ func newTestCrlValidator(t *testing.T, checkMode CertRevocationCheckMode, args .
 			inMemoryCacheDisabled = bool(v)
 		case onDiskCacheDisabledType:
 			onDiskCacheDisabled = bool(v)
+		case downloadMaxSizeType:
+			downloadMaxSize = int(v)
 		case *snowflakeTelemetry:
 			telemetry = v
 		default:
 			t.Fatalf("unexpected argument type %T", v)
 		}
 	}
-	cv, err := newCrlValidator(checkMode, allowCertificatesWithoutCrlURL, inMemoryCacheDisabled, onDiskCacheDisabled, httpClient, telemetry)
+	cv, err := newCrlValidator(checkMode, allowCertificatesWithoutCrlURL, inMemoryCacheDisabled, onDiskCacheDisabled, downloadMaxSize, httpClient, telemetry)
 	assertNilF(t, err)
 	return cv
 }
@@ -322,6 +326,44 @@ func TestCrlModes(t *testing.T) {
 				}
 			})
 
+			t.Run("CrlFitsLimit", func(t *testing.T) {
+				cleanupCrlCache(t)
+
+				cv := newTestCrlValidator(t, checkMode, downloadMaxSizeType(1024*1024))
+
+				server, port := createCrlServer(t)
+				defer closeServer(t, server)
+
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", port)
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, port, crlEndpointType("/rootCrl"))
+				crl := createCrl(t, caCert, caPrivateKey)
+				registerCrlEndpoints(t, server, newCrlEndpointDef("/rootCrl", crl))
+
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNilE(t, err)
+			})
+
+			t.Run("CrlTooLargeToDownload", func(t *testing.T) {
+				cleanupCrlCache(t)
+
+				cv := newTestCrlValidator(t, checkMode, downloadMaxSizeType(10))
+
+				server, port := createCrlServer(t)
+				defer closeServer(t, server)
+
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", port)
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, port, crlEndpointType("/rootCrl"))
+				crl := createCrl(t, caCert, caPrivateKey)
+				registerCrlEndpoints(t, server, newCrlEndpointDef("/rootCrl", crl))
+
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertEqualE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
 			t.Run("VerifyAgainstIdpExtensionWithDistributionPointMatch", func(t *testing.T) {
 				cleanupCrlCache(t)
 
@@ -563,6 +605,11 @@ func TestCrlModes(t *testing.T) {
 					defer fd.Close()
 					assertTrueE(t, crlInMemoryCache[fullCrlURL(port, "/rootCrl")].downloadTime.After(previousDownloadTime))
 					assertTrueE(t, crlInMemoryCache[fullCrlURL(port, "/rootCrl")].crl.NextUpdate.Equal(newCrl.NextUpdate))
+					if !isWindows {
+						stat, err := os.Stat(filepath.Dir(cv.crlURLToPath(fullCrlURL(port, "/rootCrl"))))
+						assertNilF(t, err)
+						assertEqualE(t, stat.Mode().Perm(), os.FileMode(0700), "cache directory permissions should be 0700")
+					}
 				})
 
 				t.Run("should not save to on-disk cache when disabled", func(t *testing.T) {
@@ -1002,10 +1049,6 @@ func closeServer(t *testing.T, server *http.Server) {
 func TestCrlE2E(t *testing.T) {
 	t.Run("Successful flow", func(t *testing.T) {
 		skipOnJenkins(t, "Jenkins tests use HTTP connection to SF, so CRL is not used")
-		_ = logger.SetLogLevel("debug")
-		defer func() {
-			logger.SetLogLevel("error")
-		}()
 		cleanupCrlCache(t)
 		defer cleanupCrlCache(t) // to reset cache cleaner after test
 		crlCacheCleanerTickRate = 1 * time.Second

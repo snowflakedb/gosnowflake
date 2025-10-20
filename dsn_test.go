@@ -1199,7 +1199,7 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
-			dsn: "u:p@a.snowflake.local:9876?account=a&certRevocationCheckMode=enabled&crlAllowCertificatesWithoutCrlURL=true&crlInMemoryCacheDisabled=true&crlOnDiskCacheDisabled=true&crlHttpClientTimeout=10",
+			dsn: "u:p@a.snowflake.local:9876?account=a&certRevocationCheckMode=enabled&crlAllowCertificatesWithoutCrlURL=true&crlInMemoryCacheDisabled=true&crlOnDiskCacheDisabled=true&crlDownloadMaxSize=10&crlHttpClientTimeout=10",
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
 				Host: "a.snowflake.local", Port: 9876,
@@ -1215,6 +1215,7 @@ func TestParseDSN(t *testing.T) {
 				CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
 				CrlInMemoryCacheDisabled:          true,
 				CrlOnDiskCacheDisabled:            true,
+				CrlDownloadMaxSize:                10,
 				CrlHTTPClientTimeout:              10 * time.Second,
 			},
 			ocspMode: ocspModeFailOpen,
@@ -2068,9 +2069,10 @@ func TestDSN(t *testing.T) {
 				CrlAllowCertificatesWithoutCrlURL: ConfigBoolTrue,
 				CrlInMemoryCacheDisabled:          true,
 				CrlOnDiskCacheDisabled:            true,
+				CrlDownloadMaxSize:                10,
 				CrlHTTPClientTimeout:              5 * time.Second,
 			},
-			dsn: "u:p@a.b.c.snowflakecomputing.com:443?certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&crlHttpClientTimeout=5&crlInMemoryCacheDisabled=true&crlOnDiskCacheDisabled=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?certRevocationCheckMode=ENABLED&crlAllowCertificatesWithoutCrlURL=true&crlDownloadMaxSize=10&crlHttpClientTimeout=5&crlInMemoryCacheDisabled=true&crlOnDiskCacheDisabled=true&ocspFailOpen=true&region=b.c&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
