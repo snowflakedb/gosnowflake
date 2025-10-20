@@ -416,7 +416,7 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		credentialsStorage.deleteCredential(oauthAccessTokenSpec)
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "refresh-token-123")
-		wiremock.registerMappings(t, newWiremockMapping("oauth2/login_request_with_expired_access_token.json"),
+		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/login_request_with_expired_access_token.json"),
 			newWiremockMapping("auth/oauth2/refresh_token/successful_flow.json"),
 			newWiremockMapping("auth/oauth2/authorization_code/successful_flow.json"),
 			newWiremockMapping("auth/oauth2/login_request.json"),
@@ -440,7 +440,7 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "expired-token")
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "refresh-token-123")
-		wiremock.registerMappings(t, newWiremockMapping("oauth2/login_request_with_expired_access_token.json"),
+		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/login_request_with_expired_access_token.json"),
 			newWiremockMapping("auth/oauth2/refresh_token/successful_flow.json"),
 			newWiremockMapping("auth/oauth2/authorization_code/successful_flow.json"),
 			newWiremockMapping("auth/oauth2/login_request.json"),
@@ -464,7 +464,7 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "expired-token")
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "refresh-token-123")
-		wiremock.registerMappings(t, newWiremockMapping("oauth2/login_request_with_expired_access_token.json"),
+		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/login_request_with_expired_access_token.json"),
 			newWiremockMapping("auth/oauth2/refresh_token/successful_flow_without_new_refresh_token.json"),
 			newWiremockMapping("auth/oauth2/authorization_code/successful_flow.json"),
 			newWiremockMapping("auth/oauth2/login_request.json"),
@@ -488,7 +488,7 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "expired-token")
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "expired-refresh-token")
-		wiremock.registerMappings(t, newWiremockMapping("oauth2/login_request_with_expired_access_token.json"),
+		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/login_request_with_expired_access_token.json"),
 			newWiremockMapping("auth/oauth2/refresh_token/invalid_refresh_token.json"),
 			newWiremockMapping("auth/oauth2/authorization_code/successful_flow_with_offline_access.json"),
 			newWiremockMapping("auth/oauth2/login_request.json"),
@@ -513,7 +513,7 @@ func TestAuthorizationCodeFlow(t *testing.T) {
 		oauthRefreshTokenSpec := newOAuthRefreshTokenSpec(cfg.OauthTokenRequestURL, cfg.User)
 		credentialsStorage.setCredential(oauthAccessTokenSpec, "old-access-token")
 		credentialsStorage.setCredential(oauthRefreshTokenSpec, "old-refresh-token")
-		wiremock.registerMappings(t, newWiremockMapping("oauth2/authorization_code/successful_flow_with_offline_access.json"),
+		wiremock.registerMappings(t, newWiremockMapping("auth/oauth2/authorization_code/successful_flow_with_offline_access.json"),
 			newWiremockMapping("auth/oauth2/login_request.json"),
 			newWiremockMapping("select1.json"))
 		connector := NewConnector(SnowflakeDriver{}, *cfg)
