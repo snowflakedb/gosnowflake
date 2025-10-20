@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/latest/dynamic/instance-identity/document"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {"instanceId": "i-1234567890"}
+      }
+    }
+  ]
+}

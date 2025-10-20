@@ -1,0 +1,16 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/metadata/instance",
+        "queryParameters": {"api-version": {"equalTo": "2019-03-11"}},
+        "headers": {"Metadata": {"matches": "(?i)true"}}
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {"compute": {"vmId": "abcd"}}
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/",
+        "headers": {"Metadata-Flavor": {"doesNotMatch": ".*"}}
+      },
+      "response": {
+        "status": 200,
+        "headers": {"Metadata-Flavor": "Google"}
+      }
+    }
+  ]
+}
