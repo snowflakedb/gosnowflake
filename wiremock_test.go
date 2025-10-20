@@ -81,6 +81,12 @@ func newWiremockHTTPS() *wiremockClientHTTPS {
 	}
 }
 
+func (wm *wiremockClient) openDb(t *testing.T) *sql.DB {
+	cfg := wm.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	return sql.OpenDB(connector)
+}
+
 func (wm *wiremockClient) connectionConfig() *Config {
 	cfg := &Config{
 		Account:               "testAccount",

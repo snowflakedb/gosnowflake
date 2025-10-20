@@ -254,31 +254,31 @@ func TestGcpIdentityAttestationCreator(t *testing.T) {
 	}{
 		{
 			name:                "Successful flow",
-			wiremockMappingPath: "wif/gcp/successful_flow.json",
+			wiremockMappingPath: "auth/wif/gcp/successful_flow.json",
 			expectedError:       nil,
 			expectedSub:         "some-subject",
 		},
 		{
 			name:                "No GCP credential - http error",
-			wiremockMappingPath: "wif/gcp/http_error.json",
+			wiremockMappingPath: "auth/wif/gcp/http_error.json",
 			expectedError:       fmt.Errorf("no GCP token was found"),
 			expectedSub:         "",
 		},
 		{
 			name:                "missing issuer claim",
-			wiremockMappingPath: "wif/gcp/missing_issuer_claim.json",
+			wiremockMappingPath: "auth/wif/gcp/missing_issuer_claim.json",
 			expectedError:       fmt.Errorf("could not extract claims from token: missing issuer claim in JWT token"),
 			expectedSub:         "",
 		},
 		{
 			name:                "missing sub claim",
-			wiremockMappingPath: "wif/gcp/missing_sub_claim.json",
+			wiremockMappingPath: "auth/wif/gcp/missing_sub_claim.json",
 			expectedError:       fmt.Errorf("could not extract claims from token: missing sub claim in JWT token"),
 			expectedSub:         "",
 		},
 		{
 			name:                "unparsable token",
-			wiremockMappingPath: "wif/gcp/unparsable_token.json",
+			wiremockMappingPath: "auth/wif/gcp/unparsable_token.json",
 			expectedError:       fmt.Errorf("could not extract claims from token: unable to extract JWT claims from token: token is malformed: token contains an invalid number of segments"),
 			expectedSub:         "",
 		},
