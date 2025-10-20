@@ -6,6 +6,7 @@
 - Marked fields as deprecated (snowflakedb/gosnowflake#1556)
 - Exposed `QueryStatus` from `SnowflakeResult` and `SnowflakeRows` in `GetStatus()` function (snowflakedb/gosnowflake#1556)
 - Split timeout settings into separate groups based on target service types (snowflakedb/gosnowflake#1531)
+- Added small clarification in oauth.go example on token escaping (snowflakedb/gosnowflake#1574)
 
 ## 1.17.0
 
