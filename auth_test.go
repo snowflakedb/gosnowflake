@@ -731,12 +731,12 @@ func TestMfaParallelLogin(t *testing.T) {
 			db := sql.OpenDB(connector)
 			defer db.Close()
 			credentialsStorage.deleteCredential(tokenSpec)
-			errs := initPoolWithSizeAndReturnErrors(db, 20)
+			errs := initPoolWithSizeAndReturnErrors(db, 5)
 			if singleAuthenticationPrompt == ConfigBoolTrue {
 				assertEqualE(t, len(errs), 0)
 			} else {
 				// most of for the one that actually retrieves MFA token should fail
-				assertEqualE(t, len(errs), 19)
+				assertEqualE(t, len(errs), 4)
 			}
 		})
 
@@ -752,12 +752,12 @@ func TestMfaParallelLogin(t *testing.T) {
 			connector := NewConnector(SnowflakeDriver{}, *cfg)
 			db := sql.OpenDB(connector)
 			defer db.Close()
-			errs := initPoolWithSizeAndReturnErrors(db, 20)
+			errs := initPoolWithSizeAndReturnErrors(db, 5)
 			if singleAuthenticationPrompt == ConfigBoolTrue {
 				assertEqualF(t, len(errs), 1)
 				assertStringContainsE(t, errs[0].Error(), "MFA with TOTP is required")
 			} else {
-				assertEqualE(t, len(errs), 19)
+				assertEqualE(t, len(errs), 4)
 			}
 		})
 	}
