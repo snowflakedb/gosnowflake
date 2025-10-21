@@ -873,7 +873,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
-	logger.Debugf("Building snowflakeConn: %v", describeIdentityAttributes(&config))
+	logger.Debugf("Building snowflakeConn: %v", config.describeIdentityAttributes())
 
 	telemetry := &snowflakeTelemetry{}
 	if config.DisableTelemetry {
