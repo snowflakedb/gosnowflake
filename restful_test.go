@@ -648,3 +648,29 @@ func TestPostRestfulQueryContextErrors(t *testing.T) {
 		assertEqualE(t, "failed to cancel query. cancelErr: fatal failure, queryErr: context canceled", err.Error())
 	})
 }
+
+func TestErrorReturnedFromLongRunningQuery(t *testing.T) {
+	t.Run("e2e test", func(t *testing.T) {
+		t.Skip("long running test, uncomment to run manually, otherwise the test on mocks should be sufficient")
+		db := openDB(t)
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+		defer cancel()
+		_, err := db.ExecContext(ctx, "CALL SYSTEM$WAIT(55, 'SECONDS')")
+		assertNotNilF(t, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
+	})
+
+	t.Run("mock test", func(t *testing.T) {
+		wiremock.registerMappings(t,
+			newWiremockMapping("auth/password/successful_flow.json"),
+			newWiremockMapping("query/long_running_query.json"),
+			newWiremockMapping("query/query_by_id_timeout.json"),
+		)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		db := wiremock.openDb(t)
+		_, err := db.QueryContext(ctx, "SELECT 1")
+		assertNotNilF(t, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
+	})
+}

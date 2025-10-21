@@ -410,8 +410,8 @@ func TestClientSessionPersist(t *testing.T) {
 func TestFetchResultByQueryID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -452,8 +452,8 @@ func TestFetchResultByQueryID(t *testing.T) {
 func TestFetchRunningQueryByID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring_running.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring_running.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -494,8 +494,8 @@ func TestFetchRunningQueryByID(t *testing.T) {
 func TestFetchErrorQueryByID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring_error.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring_error.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -531,8 +531,8 @@ func TestFetchErrorQueryByID(t *testing.T) {
 func TestFetchMalformedJsonQueryByID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring_malformed.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring_malformed.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
