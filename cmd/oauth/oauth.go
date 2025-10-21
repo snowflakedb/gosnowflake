@@ -31,7 +31,7 @@ func main() {
 	account := env("SNOWFLAKE_TEST_ACCOUNT")
 	token := env("SNOWFLAKE_TEST_OAUTH_TOKEN")
 
-	// Tokens must be escaped before being used in the DSN!
+	// All query parameters must be QueryEscaped before being used in a DSN string.
 	escapedToken := url.QueryEscape(token)
 
 	dsn := fmt.Sprintf("%v?authenticator=OAUTH&token=%v", account, escapedToken)

@@ -1,0 +1,20 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "Query status monitoring - RUNNING",
+      "request": {
+        "urlPathPattern": "/queries.*",
+        "method": "GET",
+        "headers": {
+          "Authorization": {
+            "matches": ".*"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "fixedDelayMilliseconds": 3000
+      }
+    }
+  ]
+} 

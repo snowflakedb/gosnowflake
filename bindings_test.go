@@ -45,17 +45,10 @@ const (
 
 	maxVarcharAndBinarySizeParam = "varchar_and_binary_max_size_in_result"
 
-	originSize = 16 * 1024 * 1024
-	smallSize  = 16
+	smallSize = 16 * 1024 * 1024 // 16 MB - right at LOB threshold
+	largeSize = 64 * 1024 * 1024 // 64 MB - well above LOB threshold
 	// range to use for generating random numbers
 	lobRandomRange = 100000
-)
-
-var (
-	// maxLOBSize = 128 * 1024 * 1024 // new max LOB size
-	maxLOBSize = 16 * 1024 * 1024 // current max LOB size
-	largeSize  = maxLOBSize / 2
-	mediumSize = largeSize / 2
 )
 
 func TestBindingFloat64(t *testing.T) {
@@ -1293,11 +1286,8 @@ func TestVariousBindingModes(t *testing.T) {
 		{"timestamp_ntzAndTypedNullTime", "timestamp_ntz", TypedNullTime{sql.NullTime{}, TimestampNTZType}, true},
 		{"timestamp_ltzAndTypedNullTime", "timestamp_ltz", TypedNullTime{sql.NullTime{}, TimestampLTZType}, true},
 		{"timestamp_tzAndTypedNullTime", "timestamp_tz", TypedNullTime{sql.NullTime{}, TimestampTZType}, true},
-		{"LOBSmallSize", fmt.Sprintf("varchar(%v)", smallSize), randomString(smallSize), false},
-		{"LOBOriginSize", fmt.Sprintf("varchar(%v)", originSize), randomString(originSize), false},
-		{"LOBMediumSize", fmt.Sprintf("varchar(%v)", mediumSize), randomString(mediumSize), false},
-		{"LOBLargeSize", fmt.Sprintf("varchar(%v)", largeSize), randomString(largeSize), false},
-		{"LOBMaxSize", fmt.Sprintf("varchar(%v)", maxLOBSize), randomString(maxLOBSize), false},
+		{"LOBSmallSize", fmt.Sprintf("varchar(%v)", smallSize), fastStringGeneration(smallSize), false},
+		{"LOBLargeSize", fmt.Sprintf("varchar(%v)", largeSize), fastStringGeneration(largeSize), false},
 	}
 
 	bindingModes := []struct {
@@ -1374,10 +1364,11 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 		if varcharBinaryMaxSizeRaw != nil && *varcharBinaryMaxSizeRaw != "" {
 			varcharBinaryMaxSize, err := strconv.ParseFloat(*varcharBinaryMaxSizeRaw, 64)
 			assertNilF(t, err, "error during varcharBinaryMaxSize conversion")
-			maxLOBSize = int(varcharBinaryMaxSize)
+			actualMaxSize := int(varcharBinaryMaxSize)
+			dbt.Logf("using %v as configured max LOB size, testing up to %v", actualMaxSize, largeSize)
+		} else {
+			dbt.Logf("using default LOB sizes for testing: %v and %v", smallSize, largeSize)
 		}
-
-		dbt.Logf("using %v as max LOB size", maxLOBSize)
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
 		} else {
@@ -1385,8 +1376,7 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 		}
 
 		var res string
-		// the LOB sizes to be tested
-		testSizes := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
+		testSizes := [2]int{smallSize, largeSize}
 		for _, testSize := range testSizes {
 			t.Run(fmt.Sprintf("testLOB_%v_useArrowFormat=%v", strconv.Itoa(testSize), strconv.FormatBool(useArrowFormat)), func(t *testing.T) {
 				rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
@@ -1472,10 +1462,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		c3Size   int
 	}{
 		{"testLOBInsertSmallSize", smallSize, smallSize, lobRandomRange},
-		{"testLOBInsertOriginSize", originSize, originSize, lobRandomRange},
-		{"testLOBInsertMediumSize", mediumSize, originSize, lobRandomRange},
-		{"testLOBInsertLargeSize", largeSize, originSize, lobRandomRange},
-		{"testLOBInsertMaxSize", maxLOBSize, originSize, lobRandomRange},
+		{"testLOBInsertLargeSize", largeSize, smallSize, lobRandomRange},
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
@@ -1492,9 +1479,8 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 
 		for _, tc := range testCases {
 			t.Run(tc.testDesc, func(t *testing.T) {
-				// initialize test data
-				c1Data := randomString(tc.c1Size)
-				c2Data := randomString(tc.c2Size)
+				c1Data := fastStringGeneration(tc.c1Size)
+				c2Data := fastStringGeneration(tc.c2Size)
 				c3Data := rand.Intn(tc.c3Size)
 
 				dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE lob_test_table (c1 varchar(%v), c2 varchar(%v), c3 int)", tc.c1Size, tc.c2Size))
@@ -1550,6 +1536,34 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		}
 		dbt.mustExec(unsetFeatureMaxLOBSize)
 	})
+}
+
+func fastStringGeneration(size int) string {
+	if size <= 0 {
+		return ""
+	}
+
+	pattern := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	patternLen := len(pattern)
+
+	if size <= patternLen {
+		return pattern[:size]
+	}
+
+	fullRepeats := size / patternLen
+	remainder := size % patternLen
+
+	var result strings.Builder
+	result.Grow(size)
+
+	fullPattern := strings.Repeat(pattern, fullRepeats)
+	result.WriteString(fullPattern)
+
+	if remainder > 0 {
+		result.WriteString(pattern[:remainder])
+	}
+
+	return result.String()
 }
 
 func getRandomDate() time.Time {

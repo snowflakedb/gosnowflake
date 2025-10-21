@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func assertNilE(t *testing.T, actual any, descriptions ...string) {
@@ -134,7 +135,7 @@ func errorOnNonEmpty(t *testing.T, errMsg string) {
 }
 
 func formatErrorMessage(errMsg string) string {
-	return fmt.Sprintf("%s. Thrown from %s", maskSecrets(errMsg), thrownFrom())
+	return fmt.Sprintf("[%s] %s. Thrown from %s", time.Now().Format(time.RFC3339Nano), maskSecrets(errMsg), thrownFrom())
 }
 
 func validateNil(actual any, descriptions ...string) string {

@@ -81,6 +81,12 @@ func newWiremockHTTPS() *wiremockClientHTTPS {
 	}
 }
 
+func (wm *wiremockClient) openDb(t *testing.T) *sql.DB {
+	cfg := wm.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	return sql.OpenDB(connector)
+}
+
 func (wm *wiremockClient) connectionConfig() *Config {
 	cfg := &Config{
 		Account:               "testAccount",
@@ -171,7 +177,12 @@ func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMap
 	}
 	t.Cleanup(func() {
 		req, err := http.NewRequest("DELETE", wm.mappingsURL(), nil)
+		assertNilF(t, err)
+		_, err = wm.client.Do(req)
 		assertNilE(t, err)
+
+		req, err = http.NewRequest("POST", fmt.Sprintf("%v/reset", wm.scenariosURL()), nil)
+		assertNilF(t, err)
 		_, err = wm.client.Do(req)
 		assertNilE(t, err)
 	})
@@ -185,6 +196,10 @@ func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wire
 
 func (wm *wiremockClient) mappingsURL() string {
 	return fmt.Sprintf("http://%v:%v/__admin/mappings", wm.host, wm.adminPort)
+}
+
+func (wm *wiremockClient) scenariosURL() string {
+	return fmt.Sprintf("http://%v:%v/__admin/scenarios", wm.host, wm.adminPort)
 }
 
 func (wm *wiremockClient) baseURL() string {

@@ -410,8 +410,8 @@ func TestClientSessionPersist(t *testing.T) {
 func TestFetchResultByQueryID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -452,8 +452,8 @@ func TestFetchResultByQueryID(t *testing.T) {
 func TestFetchRunningQueryByID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring_running.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring_running.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -494,8 +494,8 @@ func TestFetchRunningQueryByID(t *testing.T) {
 func TestFetchErrorQueryByID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring_error.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring_error.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -531,8 +531,8 @@ func TestFetchErrorQueryByID(t *testing.T) {
 func TestFetchMalformedJsonQueryByID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring_malformed.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring_malformed.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -990,7 +990,7 @@ func TestGetTransport(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := newTransportFactory(test.cfg, nil).createTransport()
+			result, err := newTransportFactory(test.cfg, nil).createTransport(test.cfg.transportConfigFor(transportTypeSnowflake))
 			assertNilE(t, err)
 			if test.transportCheck != nil {
 				test.transportCheck(t, castToTransport(result))
@@ -1001,6 +1001,7 @@ func TestGetTransport(t *testing.T) {
 		})
 	}
 }
+
 func TestGetCRLTransport(t *testing.T) {
 	t.Run("Using CRLs", func(t *testing.T) {
 		crlCfg := &Config{
@@ -1008,10 +1009,10 @@ func TestGetCRLTransport(t *testing.T) {
 			DisableOCSPChecks:       true,
 		}
 		transportFactory := newTransportFactory(crlCfg, nil)
-		crlRoundTripper, err := transportFactory.createTransport()
+		crlRoundTripper, err := transportFactory.createTransport(crlCfg.transportConfigFor(transportTypeCRL))
 		assertNilF(t, err)
 		transport := castToTransport(crlRoundTripper)
 		assertNotNilF(t, transport, "Expected http.Transport")
-		assertEqualE(t, transport.MaxIdleConns, 5)
+		assertEqualE(t, transport.MaxIdleConns, defaultTransportConfigs.forTransportType(transportTypeCRL).MaxIdleConns)
 	})
 }

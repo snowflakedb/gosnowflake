@@ -46,7 +46,7 @@ func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bo
 	if err != nil {
 		return nil, err
 	}
-	transport, err := newTransportFactory(util.cfg, telemetry).createTransport()
+	transport, err := newTransportFactory(util.cfg, telemetry).createTransport(util.cfg.transportConfigFor(transportTypeCloudProvider))
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +368,7 @@ func (util *snowflakeAzureClient) detectAzureTokenExpireError(resp *http.Respons
 }
 
 func createContainerClient(clientURL string, cfg *Config, telemetry *snowflakeTelemetry) (*container.Client, error) {
-	transport, err := newTransportFactory(cfg, telemetry).createTransport()
+	transport, err := newTransportFactory(cfg, telemetry).createTransport(cfg.transportConfigFor(transportTypeCloudProvider))
 	if err != nil {
 		return nil, err
 	}

@@ -6,17 +6,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"strings"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
+	"io"
+	"net/http"
+	"os"
+	"strings"
 )
 
 const (
@@ -43,6 +42,7 @@ type s3Location struct {
 // S3LoggingMode allows to configure which logs should be included.
 // By default no logs are included.
 // See https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws#ClientLogMode for allowed values.
+// Deprecated: will be moved to DSN/Config in a future release.
 var S3LoggingMode aws.ClientLogMode
 
 func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAccelerateEndpoint bool, telemetry *snowflakeTelemetry) (cloudClient, error) {
@@ -50,7 +50,7 @@ func (util *snowflakeS3Client) createClient(info *execResponseStageInfo, useAcce
 	s3Logger := logging.LoggerFunc(s3LoggingFunc)
 	endPoint := getS3CustomEndpoint(info)
 
-	transport, err := newTransportFactory(util.cfg, telemetry).createTransport()
+	transport, err := newTransportFactory(util.cfg, telemetry).createTransport(util.cfg.transportConfigFor(transportTypeCloudProvider))
 	if err != nil {
 		return nil, err
 	}
