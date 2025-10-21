@@ -147,13 +147,12 @@ func (scd *snowflakeChunkDownloader) schedule() {
 		)
 	default:
 		// no more download
-		logger.WithContext(scd.ctx).Info("no more download")
 		chunkCount := len(scd.ChunkMetas)
 		avgTime := 0.0
 		if chunkCount > 0 {
 			avgTime = timer.getDuration() / float64(chunkCount)
 		}
-		logger.WithContext(scd.ctx).Debugf("Processed %v chunks. It took %v ms, average chunk processing time: %v ms", len(scd.ChunkMetas), timer.getDuration(), avgTime)
+		logger.WithContext(scd.ctx).Infof("Processed %v chunks. It took %v ms, average chunk processing time: %v ms", len(scd.ChunkMetas), timer.getDuration(), avgTime)
 	}
 }
 

@@ -56,7 +56,6 @@ func searchForConfigFile(directories []string) (string, error) {
 		filePath := path.Join(dir, defaultConfigName)
 		exists, err := existsFile(filePath)
 		if err != nil {
-			logger.Warn("Error occurred while searching for client config in directory.")
 			return "", fmt.Errorf("error while searching for client config in directory: %s, err: %s", dir, err)
 		}
 		if exists {

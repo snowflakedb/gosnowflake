@@ -477,15 +477,3 @@ func context2Fields(ctx context.Context) *rlog.Fields {
 
 	return &fields
 }
-
-func describeIdentityAttributes(cfg *Config) string {
-	return fmt.Sprintf("host: %v, account: %v, user: %v, password existed: %v, role: %v, database: %v, schema: %v, warehouse: %v, %v",
-		cfg.Host, cfg.Account, cfg.User, (cfg.Password != ""), cfg.Role, cfg.Database, cfg.Schema, cfg.Warehouse, describeProxy(cfg))
-}
-
-func describeProxy(cfg *Config) string {
-	if cfg.ProxyHost != "" {
-		return fmt.Sprintf("proxyHost: %v, proxyPort: %v proxyUser: %v, proxyPassword %v, proxyProtocol: %v, noProxy: %v", cfg.ProxyHost, cfg.ProxyPort, cfg.ProxyUser, cfg.ProxyPassword != "", cfg.ProxyProtocol, cfg.NoProxy)
-	}
-	return "proxy was not configured"
-}

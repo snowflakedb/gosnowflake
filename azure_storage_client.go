@@ -217,8 +217,7 @@ func (util *snowflakeAzureClient) uploadFile(
 		var f *os.File
 		f, err = os.Open(dataFile)
 		if err != nil {
-			logger.Error("Failed to open file: %v", err)
-			return err
+			return fmt.Errorf("Failed to open file: %w", err)
 		}
 		defer func() {
 			if err = f.Close(); err != nil {

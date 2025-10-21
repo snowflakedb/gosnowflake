@@ -39,9 +39,8 @@ func loadConnectionConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Tracef("Looking for connection file in directory %v", snowflakeConfigDir)
+	logger.Debugf("Looking for connection file in directory %v", snowflakeConfigDir)
 	tomlFilePath := path.Join(snowflakeConfigDir, "connections.toml")
-	logger.Tracef("Connection configuration file found under the path %v. Validating file access.", tomlFilePath)
 	err = validateFilePermission(tomlFilePath)
 	if err != nil {
 		return nil, err

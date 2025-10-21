@@ -51,7 +51,7 @@ func (sc *snowflakeConn) startHeartBeat() {
 		} else {
 			sc.rest.HeartBeat = newDefaultHeartBeat(sc.rest)
 		}
-		logger.Debugf("Start heart beat")
+		logger.Debug("Start heart beat")
 		sc.rest.HeartBeat.start()
 	}
 }

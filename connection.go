@@ -249,7 +249,7 @@ func (sc *snowflakeConn) BeginTx(
 	ctx context.Context,
 	opts driver.TxOptions) (
 	driver.Tx, error) {
-	logger.WithContext(ctx).Debugf("BeginTx")
+	logger.WithContext(ctx).Debug("BeginTx")
 	if opts.ReadOnly {
 		return nil, (&SnowflakeError{
 			Number:   ErrNoReadOnlyTransaction,
@@ -278,7 +278,7 @@ func (sc *snowflakeConn) BeginTx(
 
 func (sc *snowflakeConn) cleanup() {
 	// must flush log buffer while the process is running.
-	logger.WithContext(sc.ctx).Debugf("Snowflake connection closing.")
+	logger.WithContext(sc.ctx).Debug("Snowflake connection closing.")
 	if sc.rest != nil && sc.rest.Client != nil {
 		sc.rest.Client.CloseIdleConnections()
 	}
@@ -306,7 +306,7 @@ func (sc *snowflakeConn) PrepareContext(
 	ctx context.Context,
 	query string) (
 	driver.Stmt, error) {
-	logger.WithContext(sc.ctx).Debugf("Prepare Query: %v", query)
+	logger.WithContext(sc.ctx).Debugf("Prepare Context")
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
@@ -873,7 +873,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		return nil, err
 	}
 
-	logger.Debugf("Building snowflakeConn: %v, ", describeIdentityAttributes(&config))
+	logger.Debugf("Building snowflakeConn: %v", describeIdentityAttributes(&config))
 
 	telemetry := &snowflakeTelemetry{}
 	if config.DisableTelemetry {

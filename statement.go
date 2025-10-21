@@ -66,13 +66,13 @@ func (stmt *snowflakeStmt) execInternal(ctx context.Context, args []driver.Named
 	timer.stop()
 	if err != nil {
 		stmt.setQueryIDFromError(err)
-		logger.Errorf("Query: %v, QueryID: %v failed to execute because of the error %v. It took %v ms.", stmt.query, stmt.lastQueryID, err, timer.getDuration())
+		logger.Errorf("QueryID: %v failed to execute because of the error %v. It took %v ms.", stmt.lastQueryID, err, timer.getDuration())
 		return nil, err
 	}
 	rnr, ok := result.(*snowflakeResultNoRows)
 	if ok {
 		stmt.lastQueryID = rnr.GetQueryID()
-		logger.Debug("Query: %v, Query ID: %v has no result. It took %v ms.,", stmt.query, stmt.lastQueryID, timer.getDuration())
+		logger.Debugf("Query ID: %v has no result. It took %v ms.,", stmt.lastQueryID, timer.getDuration())
 		return driver.ResultNoRows, nil
 	}
 	r, ok := result.(SnowflakeResult)
@@ -80,7 +80,7 @@ func (stmt *snowflakeStmt) execInternal(ctx context.Context, args []driver.Named
 		return nil, fmt.Errorf("interface convertion. expected type SnowflakeResult but got %T", result)
 	}
 	stmt.lastQueryID = r.GetQueryID()
-	logger.Debug("Query: %v, Query ID: %v has no result. It took %v ms.,", stmt.query, stmt.lastQueryID, timer.getDuration())
+	logger.Debugf("Query ID: %v has no result. It took %v ms.,", stmt.lastQueryID, timer.getDuration())
 
 	return result, err
 }
@@ -91,17 +91,17 @@ func (stmt *snowflakeStmt) Query(args []driver.Value) (driver.Rows, error) {
 	rows, err := stmt.sc.Query(stmt.query, args)
 	timer.stop()
 	if err != nil {
-		logger.Errorf("Query: %v, QueryID: %v failed to execute because of the error %v. It took %v ms.", stmt.query, stmt.lastQueryID, err, timer.getDuration())
+		logger.Errorf("QueryID: %v failed to execute because of the error %v. It took %v ms.", stmt.lastQueryID, err, timer.getDuration())
 		stmt.setQueryIDFromError(err)
 		return nil, err
 	}
 	r, ok := rows.(SnowflakeRows)
 	if !ok {
-		logger.Errorf("Query: %v, Query ID: %v failed to convert the rows to SnowflakeRows. It took %v ms.,", stmt.query, stmt.lastQueryID, timer.getDuration())
+		logger.Errorf("Query ID: %v failed to convert the rows to SnowflakeRows. It took %v ms.,", stmt.lastQueryID, timer.getDuration())
 		return nil, fmt.Errorf("interface convertion. expected type SnowflakeRows but got %T", rows)
 	}
 	stmt.lastQueryID = r.GetQueryID()
-	logger.Debug("Query: %v, Query ID: %v has no result. It took %v ms.,", stmt.query, stmt.lastQueryID, timer.getDuration())
+	logger.Debugf("Query ID: %v has no result. It took %v ms.,", stmt.lastQueryID, timer.getDuration())
 	return rows, err
 }
 
