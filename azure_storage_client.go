@@ -217,7 +217,7 @@ func (util *snowflakeAzureClient) uploadFile(
 		var f *os.File
 		f, err = os.Open(dataFile)
 		if err != nil {
-			return fmt.Errorf("Failed to open file: %w", err)
+			return fmt.Errorf("failed to open file: %w", err)
 		}
 		defer func() {
 			if err = f.Close(); err != nil {
@@ -312,8 +312,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	} else {
 		f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
 		if err != nil {
-			logger.Error("Failed to open file: %v", err)
-			return err
+			return fmt.Errorf("failed to open file: %w", err)
 		}
 		defer func() {
 			if err = f.Close(); err != nil {
