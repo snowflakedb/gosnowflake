@@ -2,6 +2,14 @@
 
 package gosnowflake
 
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
 func TestBuildCredCacheDirPath(t *testing.T) {
 	skipOnWindows(t, "permission model is different")
 	testRoot1, err := os.MkdirTemp("", "")

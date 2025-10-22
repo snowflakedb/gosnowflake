@@ -3,6 +3,7 @@
 package gosnowflake
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
