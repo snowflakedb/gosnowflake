@@ -12,11 +12,11 @@
 - 
 - 
 - 
-- Fixed nil pointer derereference while calling long running queries (snowflakedb/gosnowflake#1592)
+- Fixed nil pointer dereference while calling long running queries (snowflakedb/gosnowflake#1592)
 - 
 - 
 - 
-- 
+- Split secure store manager into keyring-based (Windows, Mac) and file-based (Linux) groups to avoid the need to initialize keyring on Linux.
 - 
 - 
 
