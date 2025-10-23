@@ -240,9 +240,14 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.23.4', '1.24.2', '1.25.0' ]
-        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Rocky Linux 9
+              cloud_go:
+              - cloud: 'AWS'
+                go: '1.23.4'
+              - cloud: 'AZURE'
+                go: '1.24.2'
+              - cloud: 'GCP'
+                go: '1.25.0'
+        name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Rocky Linux 9
         steps:
             - uses: actions/checkout@v4
             - name: Test
@@ -250,9 +255,98 @@ jobs:
               env:
                 PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
                 GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
-                CLOUD_PROVIDER: ${{ matrix.cloud }}
+                CLOUD_PROVIDER: ${{ matrix.cloud_go.cloud }}
                 GORACE: history_size=7
                 GO_TEST_PARAMS: ${{ inputs.goTestParams }}
                 WIREMOCK_PORT: 14335
                 WIREMOCK_HTTPS_PORT: 13567
-              run: ./ci/test_rockylinux9_docker.sh ${{ matrix.go }}
+              run: ./ci/test_rockylinux9_docker.sh ${{ matrix.cloud_go.go }}
+    build-test-ubuntu-arm:
+      runs-on: ubuntu-24.04-arm
+      strategy:
+        fail-fast: false
+        matrix:
+          cloud_go:
+            - cloud: 'AWS'
+              go: '1.23'
+            - cloud: 'AZURE'
+              go: '1.24'
+            - cloud: 'GCP'
+              go: '1.25'
+      name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Ubuntu ARM
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 17
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: ${{ matrix.cloud_go.go }}
+        - name: Test
+          shell: bash
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+            CLOUD_PROVIDER: ${{ matrix.cloud_go.cloud }}
+            GORACE: history_size=7
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+          run: ./ci/test.sh
+        - name: Upload test results to Codecov
+          if: ${{!cancelled()}}
+          uses: codecov/test-results-action@v1
+          with:
+            token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+        - name: Upload coverage to Codecov
+          uses: codecov/codecov-action@v5
+          with:
+            token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    build-test-windows-arm:
+      runs-on: windows-11-arm
+      strategy:
+        fail-fast: false
+        matrix:
+          cloud_go:
+            - cloud: 'AWS'
+              go: '1.23'
+            - cloud: 'AZURE'
+              go: '1.24'
+            - cloud: 'GCP'
+              go: '1.25'
+      name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.cloud }} on Windows ARM
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 21
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: ${{ matrix.cloud_go.go }}
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.x'
+            architecture: 'x64'
+        - name: Test
+          shell: cmd
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+            CLOUD_PROVIDER: ${{ matrix.cloud_go.cloud }}
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+          run: ci\\test.bat
+        - name: Upload test results to Codecov
+          if: ${{!cancelled()}}
+          uses: codecov/test-results-action@v1
+          with:
+            token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+        - name: Upload coverage to Codecov
+          uses: codecov/codecov-action@v5
+          with:
+            token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}

@@ -184,6 +184,8 @@ type authRequestClientEnvironment struct {
 	OAuthType               string   `json:"OAUTH_TYPE,omitempty"`
 	CertRevocationCheckMode string   `json:"CERT_REVOCATION_CHECK_MODE,omitempty"`
 	Platform                []string `json:"PLATFORM,omitempty"`
+	CoreVersion             string   `json:"CORE_VERSION,omitempty"`
+	CoreFileName            string   `json:"CORE_FILE_NAME,omitempty"`
 }
 
 type authRequestData struct {
@@ -451,11 +453,29 @@ func authenticate(
 }
 
 func newAuthRequestClientEnvironment() authRequestClientEnvironment {
+	var coreVersion string
+
+	// Try to get minicore version, but don't block if it's not loaded yet
+	if strings.EqualFold(os.Getenv(disableMinicoreEnv), "true") {
+		logger.Trace("minicore loading disabled")
+	} else if mc := getMiniCore(); mc != nil {
+		var err error
+		coreVersion, err = mc.FullVersion()
+		if err != nil {
+			logger.Debugf("Minicore loading failed. %v", err)
+		}
+	} else {
+		// Minicore not loaded yet - this is expected during startup
+		coreVersion = ""
+		logger.Debugf("Minicore not yet loaded for client environment telemetry")
+	}
 	return authRequestClientEnvironment{
-		Os:        runtime.GOOS,
-		OsVersion: osVersion,
-		Isa:       runtime.GOARCH,
-		GoVersion: runtime.Version(),
+		Os:           runtime.GOOS,
+		OsVersion:    osVersion,
+		Isa:          runtime.GOARCH,
+		GoVersion:    runtime.Version(),
+		CoreVersion:  coreVersion,
+		CoreFileName: getMiniCoreFileName(),
 	}
 }
 
