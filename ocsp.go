@@ -961,7 +961,7 @@ func extractOCSPCacheResponseValue(certIDKey *certIDKey, certCacheValue *certCac
 	}
 	status, ok := ocspParsedRespCache[cacheKey]
 	if !ok {
-		logger.Debugf("OCSP status not found in cache; certIdKey: %v", certIDKey)
+		logger.Tracef("OCSP status not found in cache; certIdKey: %v", certIDKey)
 		var err error
 		var b []byte
 		b, err = base64.StdEncoding.DecodeString(certCacheValue.ocspRespBase64)

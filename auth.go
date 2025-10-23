@@ -360,7 +360,7 @@ func authenticate(
 	// Get the current application path
 	applicationPath, err := os.Executable()
 	if err != nil {
-		logger.Warn("Failed to get executable path: %v", err)
+		logger.WithContext(ctx).Warnf("Failed to get executable path: %v", err)
 		applicationPath = "unknown"
 	}
 
