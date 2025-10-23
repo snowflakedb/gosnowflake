@@ -243,7 +243,7 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		}
 		cfg.Params[urlDecodeIfNeeded(key)] = &param
 	}
-	return nil
+	return checkParsingError(err, key, value)
 }
 
 func checkParsingError(err error, key string, value interface{}) error {
