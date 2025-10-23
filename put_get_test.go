@@ -887,23 +887,18 @@ func TestPutCancel(t *testing.T) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
-			_, err := dbt.conn.ExecContext(
+			_, err = dbt.conn.ExecContext(
 				ctx,
 				fmt.Sprintf("put 'file://%v' @~/%v overwrite=true",
 					strings.ReplaceAll(testData, "\\", "/"), stageDir))
-			if err != nil {
-				c <- err
-				return
-			}
-			c <- nil
+			c <- err
+			close(c)
 		}()
-		time.Sleep(1 * time.Second)
-		fmt.Println("Canceled")
+		time.Sleep(200 * time.Millisecond)
 		cancel()
 		ret := <-c
 		assertNotNilF(t, ret)
-		assertStringContainsF(t, ret.Error(), "context canceled", "failed to cancel.")
-		close(c)
+		assertErrIsE(t, ret, context.Canceled)
 	})
 }
 
