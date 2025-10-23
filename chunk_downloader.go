@@ -135,7 +135,7 @@ func (scd *snowflakeChunkDownloader) start() error {
 }
 
 func (scd *snowflakeChunkDownloader) schedule() {
-	timer := newExecutionTimer().start()
+	timer := time.Now()
 	select {
 	case nextIdx := <-scd.ChunksChan:
 		logger.WithContext(scd.ctx).Infof("schedule chunk: %v", nextIdx+1)
@@ -150,9 +150,9 @@ func (scd *snowflakeChunkDownloader) schedule() {
 		chunkCount := len(scd.ChunkMetas)
 		avgTime := 0.0
 		if chunkCount > 0 {
-			avgTime = timer.getDuration() / float64(chunkCount)
+			avgTime = getDuration(timer) / float64(chunkCount)
 		}
-		logger.WithContext(scd.ctx).Infof("Processed %v chunks. It took %v ms, average chunk processing time: %v ms", len(scd.ChunkMetas), timer.getDuration(), avgTime)
+		logger.WithContext(scd.ctx).Infof("Processed %v chunks. It took %v ms, average chunk processing time: %v ms", len(scd.ChunkMetas), getDuration(timer), avgTime)
 	}
 }
 
@@ -362,7 +362,7 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 	logger.WithContext(ctx).Infof("download start chunk: %v", idx+1)
 	defer scd.DoneDownloadCond.Broadcast()
 
-	timer := newExecutionTimer().start()
+	timer := time.Now()
 	if err := scd.FuncDownloadHelper(ctx, scd, idx); err != nil {
 		logger.WithContext(ctx).Errorf(
 			"failed to extract HTTP response body. URL: %v, err: %v", scd.ChunkMetas[idx].URL, err)
@@ -370,12 +370,12 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 	} else if errors.Is(scd.ctx.Err(), context.Canceled) || errors.Is(scd.ctx.Err(), context.DeadlineExceeded) {
 		scd.ChunksError <- &chunkError{Index: idx, Error: scd.ctx.Err()}
 	}
-	timer.stop()
+	elapsedTime := getDuration(timer)
 
 	if (idx+1)%5 == 0 {
-		logger.Debugf("“Processed %v chunk %v out of %v. It took %v ms. Chunk size: %v, rows: %v”.", scd.getQueryResultFormat(), idx+1, len(scd.ChunkMetas), timer.getDuration(), scd.ChunkMetas[idx].UncompressedSize, scd.ChunkMetas[idx].RowCount)
+		logger.Debugf("“Processed %v chunk %v out of %v. It took %v ms. Chunk size: %v, rows: %v”.", scd.getQueryResultFormat(), idx+1, len(scd.ChunkMetas), elapsedTime, scd.ChunkMetas[idx].UncompressedSize, scd.ChunkMetas[idx].RowCount)
 	} else {
-		logger.Tracef("“Processed %v chunk %v out of %v. It took %v ms. Chunk size: %v, rows: %v”.", scd.getQueryResultFormat(), idx+1, len(scd.ChunkMetas), timer.getDuration(), scd.ChunkMetas[idx].UncompressedSize, scd.ChunkMetas[idx].RowCount)
+		logger.Tracef("“Processed %v chunk %v out of %v. It took %v ms. Chunk size: %v, rows: %v”.", scd.getQueryResultFormat(), idx+1, len(scd.ChunkMetas), elapsedTime, scd.ChunkMetas[idx].UncompressedSize, scd.ChunkMetas[idx].RowCount)
 	}
 }
 

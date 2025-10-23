@@ -69,12 +69,13 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType, meta.sfa.sc.cfg)
 	maxConcurrency := int(meta.parallel)
 	var lastErr error
+	var timer time.Time
+	var elapsedTime float64
 	maxRetry := defaultMaxRetry
-	timer := newExecutionTimer()
 	logger.Debugf(
 		"Started Uploading. File: %v, location: %v", meta.realSrcFileName, meta.stageInfo.Location)
 	for retry := 0; retry < maxRetry; retry++ {
-		timer.start()
+		timer = time.Now()
 		if !meta.overwrite {
 			header, err := utilClass.getFileHeader(meta, meta.dstFileName)
 			if meta.resStatus == notFoundFile {
@@ -97,10 +98,10 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 				logger.Warnf("Error uploading %v. err: %v", meta.realSrcFileName, err)
 			}
 		}
-		timer.stop()
+		elapsedTime = getDuration(timer)
 		switch meta.resStatus {
 		case uploaded, renewToken, renewPresignedURL:
-			logger.Debugf("Uploading file: %v finished in %v ms with the status: %v.", meta.realSrcFileName, timer.getDuration(), meta.resStatus)
+			logger.Debugf("Uploading file: %v finished in %v ms with the status: %v.", meta.realSrcFileName, elapsedTime, meta.resStatus)
 			return nil
 		case needRetry:
 			if !meta.noSleepingTime {
@@ -209,7 +210,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 	var lastErr error
 	maxRetry := defaultMaxRetry
 
-	timer := newExecutionTimer().start()
+	timer := time.Now()
 	for retry := 0; retry < maxRetry; retry++ {
 		tempDownloadFile := fullDstFileName + ".tmp"
 		defer func() {
@@ -227,8 +228,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 			return err
 		}
 		if meta.resStatus == downloaded {
-			timer.stop()
-			logger.Debugf("Downloading file: %v finished in %v ms. File size", meta.srcFileName, timer.getDuration(), meta.srcFileSize)
+			logger.Debugf("Downloading file: %v finished in %v ms. File size", meta.srcFileName, getDuration(timer), meta.srcFileSize)
 			if meta.encryptionMaterial != nil {
 				if meta.presignedURL != nil {
 					header, err = utilClass.getFileHeader(meta, meta.srcFileName)
@@ -237,7 +237,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 						return err
 					}
 				}
-				timer.start()
+				timer = time.Now()
 				if meta.options.GetFileToStream {
 					totalFileSize, err := decryptStreamCBC(header.encryptionMetadata,
 						meta.encryptionMaterial, 0, meta.dstStream, meta.sfa.streamBuffer)
@@ -252,8 +252,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 						return err
 					}
 				}
-				timer.stop()
-				logger.Debugf("Decrypting file: %v finished in %v ms.", meta.srcFileName, timer.getDuration())
+				logger.Debugf("Decrypting file: %v finished in %v ms.", meta.srcFileName, getDuration(timer))
 
 			}
 			if !meta.options.GetFileToStream {

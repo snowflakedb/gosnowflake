@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var paramsMutex *sync.Mutex
@@ -49,7 +50,7 @@ func (d SnowflakeDriver) OpenConnector(dsn string) (driver.Connector, error) {
 
 // OpenWithConfig creates a new connection with the given Config.
 func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (driver.Conn, error) {
-	timer := newExecutionTimer().start()
+	timer := time.Now()
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 	}
 
 	if err = authenticateWithConfig(sc); err != nil {
-		logger.WithContext(ctx).Errorf("Failed to authenticate. Connection failed after %v milliseconds", timer.getDuration())
+		logger.WithContext(ctx).Errorf("Failed to authenticate. Connection failed after %v milliseconds", getDuration(timer))
 		return nil, err
 	}
 	sc.connectionTelemetry(&config)
@@ -95,7 +96,7 @@ func (d SnowflakeDriver) OpenWithConfig(ctx context.Context, config Config) (dri
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	logger.WithContext(ctx).Infof("Connected successfully after %v milliseconds", timer.getDuration())
+	logger.WithContext(ctx).Infof("Connected successfully after %v milliseconds", getDuration(timer))
 	return sc, nil
 }
 

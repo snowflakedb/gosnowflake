@@ -299,14 +299,13 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	retryCounter := 0
 	sleepTime := time.Duration(time.Second)
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
-	timer := newExecutionTimer()
 
 	var requestGUIDReplacer requestGUIDReplacer
 	var retryCountUpdater retryCountUpdater
 	var retryReasonUpdater retryReasonUpdater
 
 	for {
-		timer.start()
+		timer := time.Now()
 		logger.WithContext(r.ctx).Debugf("retry count: %v", retryCounter)
 		body, err := r.bodyCreator()
 		if err != nil {
@@ -324,14 +323,13 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			req.Header.Set(k, v)
 		}
 		res, err = r.client.Do(req)
-		timer.stop()
 
 		// check if it can retry.
 		retryable, err := isRetryableError(req, res, err)
 		if !retryable {
 			return res, err
 		}
-		logger.WithContext(r.ctx).Debugf("Request to %v - response received after milliseconds %v with status .", r.fullURL.Host, timer.getDuration())
+		logger.WithContext(r.ctx).Debugf("Request to %v - response received after milliseconds %v with status .", r.fullURL.Host, getDuration(timer))
 
 		if err != nil {
 			logger.WithContext(r.ctx).Warnf(
