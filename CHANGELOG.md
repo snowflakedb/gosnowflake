@@ -12,7 +12,7 @@
 - 
 - 
 - 
-- Fixed nil pointer derereference while calling long running queries (snowflakedb/gosnowflake#1592)
+- Fixed nil pointer derereference while calling long-running queries (snowflakedb/gosnowflake#1592) (snowflakedb/gosnowflake#1596)
 - 
 - 
 - 
