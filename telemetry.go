@@ -88,8 +88,8 @@ func (st *snowflakeTelemetry) sendBatch() error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("sending %v logs to telemetry. inband telemetry payload "+
-		"being sent: %v", len(logsToSend), string(body))
+	logger.Debugf("sending %v logs to telemetry.", len(logsToSend))
+	logger.Debugf("telemetry payload being sent: %v", string(body))
 
 	headers := getHeaders()
 	if token, _, _ := st.sr.TokenAccessor.GetTokens(); token != "" {

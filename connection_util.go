@@ -44,14 +44,13 @@ func (sc *snowflakeConn) startHeartBeat() {
 	if sc.cfg != nil && !sc.isClientSessionKeepAliveEnabled() {
 		return
 	}
-
 	if sc.rest != nil {
 		if heartbeatFrequency, ok := sc.getClientSessionKeepAliveHeartbeatFrequency(); ok {
 			sc.rest.HeartBeat = newHeartBeat(sc.rest, heartbeatFrequency)
 		} else {
 			sc.rest.HeartBeat = newDefaultHeartBeat(sc.rest)
 		}
-		logger.Debug("Start heart beat")
+		logger.WithContext(sc.ctx).Debug("Start heart beat")
 		sc.rest.HeartBeat.start()
 	}
 }
@@ -61,7 +60,7 @@ func (sc *snowflakeConn) stopHeartBeat() {
 		return
 	}
 	if sc.rest != nil && sc.rest.HeartBeat != nil {
-		logger.Debugf("Stop heart beat")
+		logger.WithContext(sc.ctx).Debug("Stop heart beat")
 		sc.rest.HeartBeat.stop()
 	}
 }
@@ -218,7 +217,7 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 				v = vv
 			}
 		}
-		logger.WithContext(sc.ctx).Debugf("parameter. name: %v, value: %v", param.Name, v)
+		logger.WithContext(sc.ctx).Tracef("parameter. name: %v, value: %v", param.Name, v)
 		paramsMutex.Lock()
 		sc.cfg.Params[strings.ToLower(param.Name)] = &v
 		paramsMutex.Unlock()

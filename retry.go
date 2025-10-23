@@ -295,7 +295,7 @@ func (r *retryHTTP) setBodyCreator(bodyCreator bodyCreatorType) *retryHTTP {
 
 func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
-	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
+	logger.WithContext(r.ctx).Debugf("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
 	sleepTime := time.Duration(time.Second)
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)

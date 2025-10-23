@@ -327,7 +327,7 @@ func (sc *snowflakeConn) ExecContext(
 	}
 	_, _, sessionID := safeGetTokens(sc.rest)
 	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
-	logger.WithContext(ctx).Debugf("Exec: %#v, %v", query, args)
+	logger.WithContext(ctx).Debug("ExecContext:")
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	isInternal := isInternal(ctx)
@@ -417,7 +417,7 @@ func (sc *snowflakeConn) queryContextInternal(
 
 	_, _, sessionID := safeGetTokens(sc.rest)
 	ctx = context.WithValue(setResultType(ctx, queryResultType), SFSessionIDKey, sessionID)
-	logger.WithContext(ctx).Debugf("Query: %#v, %v", query, args)
+	logger.WithContext(ctx).Debug("QueryContextInternal")
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	isInternal := isInternal(ctx)
@@ -874,7 +874,6 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 
 	logger.Debugf("Building snowflakeConn: %v", config.describeIdentityAttributes())
-
 	telemetry := &snowflakeTelemetry{}
 	if config.DisableTelemetry {
 		telemetry.enabled = false

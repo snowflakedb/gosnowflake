@@ -29,7 +29,6 @@ const (
 // and SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN) is 'default'
 func loadConnectionConfig() (*Config, error) {
 	logger.Trace("Loading connection configuration from the local files.")
-
 	cfg := &Config{
 		Params:        make(map[string]*string),
 		Authenticator: AuthTypeSnowflake, // Default to snowflake
@@ -244,7 +243,7 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		}
 		cfg.Params[urlDecodeIfNeeded(key)] = &param
 	}
-	return checkParsingError(err, key, value)
+	return nil
 }
 
 func checkParsingError(err error, key string, value interface{}) error {

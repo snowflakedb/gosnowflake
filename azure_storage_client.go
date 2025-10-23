@@ -40,7 +40,6 @@ type azureAPI interface {
 }
 
 func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bool, telemetry *snowflakeTelemetry) (cloudClient, error) {
-
 	sasToken := info.Creds.AzureSasToken
 	u, err := url.Parse(fmt.Sprintf("https://%s.%s/%s%s", info.StorageAccount, info.EndPoint, info.Path, sasToken))
 	if err != nil {

@@ -406,10 +406,9 @@ func downloadChunkHelper(ctx context.Context, scd *snowflakeChunkDownloader, idx
 	if resp.StatusCode != http.StatusOK {
 		b, err := io.ReadAll(resp.Body)
 		if err != nil {
-			logger.WithContext(ctx).Warnf("reading response body: %v", err)
+			logger.WithContext(ctx).Errorf("reading response body: %v", err)
 		}
-		logger.WithContext(ctx).Debugf("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, b)
-		logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+		logger.WithContext(ctx).Debugf("HTTP: %v, URL: %v, Header: %v, Body: %v", resp.StatusCode, scd.ChunkMetas[idx].URL, resp.Header, b)
 		return &SnowflakeError{
 			Number:      ErrFailedToGetChunk,
 			SQLState:    SQLStateConnectionFailure,
