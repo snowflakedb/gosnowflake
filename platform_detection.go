@@ -2,18 +2,16 @@ package gosnowflake
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
+	"regexp"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
@@ -25,68 +23,68 @@ const (
 	platformDetectionTimeout platformDetectionState = "timeout"
 )
 
-const disablePlatformDetectionEnv = "GOSNOWFLAKE_DISABLE_PLATFORM_DETECTION" // TODO: sync on prefix
+// TODO: sync on prefix with Piotrek
+const disablePlatformDetectionEnv = "GOSNOWFLAKE_DISABLE_PLATFORM_DETECTION"
 
 var (
-	ec2MetadataBaseURL   = defaultMetadataServiceBase
-	azureMetadataBaseURL = defaultMetadataServiceBase
+	azureMetadataBaseURL = "http://169.254.169.254"
 	gceMetadataRootURL   = "http://metadata.google.internal"
 	gcpMetadataBaseURL   = "http://metadata.google.internal/computeMetadata/v1"
 )
 
-var cachedPlatforms atomic.Value
+var (
+	detectedPlatformsCache   []string
+	platformDetectionDone    chan struct{}
+)
 
-const defaultDetectorTimeout = 200 * time.Millisecond
+// !!!!!!!!!!!!!!!!!!
+// TODO: figure out how to connect this to transport.go
+func metadataHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			Proxy:             nil,
+			DisableKeepAlives: true,
+		},
+	}
+}
 
 func init() {
+	platformDetectionDone = make(chan struct{})
 	go func() {
-		platforms := detectPlatforms(context.Background(), defaultDetectorTimeout)
-		cachedPlatforms.Store(platforms)
+		initializePlatformDetection()
 	}()
 }
 
-func DetectedPlatforms(ctx context.Context, timeout time.Duration) []string {
-	if isPlatformDetectionDisabled() {
-		return []string{}
+func initializePlatformDetection() {
+	var platforms []string
+	if os.Getenv(skipWarningForReadPermissionsEnv) != "" {
+		platforms = []string{}
+	} else {
+		platforms = detectPlatforms(context.Background(), 0)
 	}
-	if v := cachedPlatforms.Load(); v != nil {
-		if s, ok := v.([]string); ok {
-			return append([]string(nil), s...)
-		}
-	}
-	if timeout <= 0 {
-		timeout = defaultDetectorTimeout
-	}
-	platforms := detectPlatforms(ctx, timeout)
-	cachedPlatforms.Store(platforms)
-	return append([]string(nil), platforms...)
+	detectedPlatformsCache = platforms
+	close(platformDetectionDone)
+}
+
+func GetDetectedPlatforms(ctx context.Context, timeout time.Duration) []string {
+	<-platformDetectionDone
+	return detectedPlatformsCache
 }
 
 func resetPlatformDetectionForTest() {
-	cachedPlatforms.Store(([]string)(nil))
-}
-
-func isPlatformDetectionDisabled() bool {
-	val := strings.TrimSpace(strings.ToLower(os.Getenv(disablePlatformDetectionEnv)))
-	switch val {
-	case "1", "true", "yes", "y", "on":
-		return true
-	default:
-		return false
-	}
+	platformDetectionDone = make(chan struct{})
+	detectedPlatformsCache = nil
 }
 
 type detectorFunc struct {
 	name string
-	fn   func(ctx context.Context, deadline time.Time) platformDetectionState
+	fn   func(ctx context.Context, timeout time.Duration) platformDetectionState
 }
 
-func detectAllStates(ctx context.Context, timeout time.Duration) map[string]platformDetectionState {
-	if timeout <= 0 {
-		timeout = defaultDetectorTimeout
-	}
-	deadline := time.Now().Add(timeout)
+// TODO: review success and fail logs
 
+func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
 	detectors := []detectorFunc{
 		{name: "is_aws_lambda", fn: detectAwsLambdaEnv},
 		{name: "is_azure_function", fn: detectAzureFunctionEnv},
@@ -101,67 +99,44 @@ func detectAllStates(ctx context.Context, timeout time.Duration) map[string]plat
 		{name: "has_gcp_identity", fn: detectGcpIdentity},
 	}
 
-	result := make(map[string]platformDetectionState, len(detectors))
-	var wg sync.WaitGroup
-	wg.Add(len(detectors))
-	mu := &sync.Mutex{}
+	detectionStates := make(map[string]platformDetectionState, len(detectors))
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(len(detectors))
 
-	for _, d := range detectors {
-		d := d
+	for _, detector := range detectors {
+		detector := detector // capture loop variable
 		go func() {
-			defer wg.Done()
-			state := d.fn(ctx, deadline)
-			mu.Lock()
-			result[d.name] = state
-			mu.Unlock()
+			defer waitGroup.Done()
+			detectionState := detector.fn(ctx, timeout)
+			detectionStates[detector.name] = detectionState
 		}()
 	}
-	wg.Wait()
-	return result
-}
+	waitGroup.Wait()
 
-func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
-	if isPlatformDetectionDisabled() {
-		return []string{}
-	}
-	states := detectAllStates(ctx, timeout)
-	order := []string{
-		"is_aws_lambda",
-		"is_azure_function",
-		"is_gce_cloud_run_service",
-		"is_gce_cloud_run_job",
-		"is_github_action",
-		"is_ec2_instance",
-		"has_aws_identity",
-		"is_azure_vm",
-		"has_azure_managed_identity",
-		"is_gce_vm",
-		"has_gcp_identity",
-	}
-	var out []string
-	for _, name := range order {
-		if states[name] == platformDetected {
-			out = append(out, name)
+	var detectedPlatformNames []string
+	for _, detector := range detectors {
+		if detectionStates[detector.name] == platformDetected {
+			detectedPlatformNames = append(detectedPlatformNames, detector.name)
 		}
 	}
-	return out
+	return detectedPlatformNames
 }
 
-func detectAwsLambdaEnv(_ context.Context, _ time.Time) platformDetectionState {
+func detectAwsLambdaEnv(_ context.Context, _ time.Duration) platformDetectionState {
 	if os.Getenv("AWS_LAMBDA_TASK_ROOT") != "" {
 		return platformDetected
 	}
 	return platformNotDetected
 }
 
-func detectGithubActionsEnv(_ context.Context, _ time.Time) platformDetectionState {
+func detectGithubActionsEnv(_ context.Context, _ time.Duration) platformDetectionState {
 	if os.Getenv("GITHUB_ACTIONS") != "" {
 		return platformDetected
 	}
 	return platformNotDetected
 }
 
-func detectAzureFunctionEnv(_ context.Context, _ time.Time) platformDetectionState {
+func detectAzureFunctionEnv(_ context.Context, _ time.Duration) platformDetectionState {
 	if os.Getenv("FUNCTIONS_WORKER_RUNTIME") != "" &&
 		os.Getenv("FUNCTIONS_EXTENSION_VERSION") != "" &&
 		os.Getenv("AzureWebJobsStorage") != "" {
@@ -170,90 +145,48 @@ func detectAzureFunctionEnv(_ context.Context, _ time.Time) platformDetectionSta
 	return platformNotDetected
 }
 
-func detectGceCloudRunServiceEnv(_ context.Context, _ time.Time) platformDetectionState {
+func detectGceCloudRunServiceEnv(_ context.Context, _ time.Duration) platformDetectionState {
 	if os.Getenv("K_SERVICE") != "" && os.Getenv("K_REVISION") != "" && os.Getenv("K_CONFIGURATION") != "" {
 		return platformDetected
 	}
 	return platformNotDetected
 }
 
-func detectGceCloudRunJobEnv(_ context.Context, _ time.Time) platformDetectionState {
+func detectGceCloudRunJobEnv(_ context.Context, _ time.Duration) platformDetectionState {
 	if os.Getenv("CLOUD_RUN_JOB") != "" && os.Getenv("CLOUD_RUN_EXECUTION") != "" {
 		return platformDetected
 	}
 	return platformNotDetected
 }
 
-func remainingTimeout(deadline time.Time) time.Duration {
-	d := time.Until(deadline)
-	if d <= 0 {
-		return 1 * time.Millisecond
-	}
-	return d
-}
+func detectEc2Instance(ctx context.Context, timeout time.Duration) platformDetectionState {
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
-func metadataHTTPClient(timeout time.Duration) *http.Client {
-	return &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			Proxy:             nil,
-			DisableKeepAlives: true,
-		},
-	}
-}
-
-func detectEc2Instance(ctx context.Context, deadline time.Time) platformDetectionState {
-	timeout := remainingTimeout(deadline)
-	client := metadataHTTPClient(timeout)
-
-	// Try to get IMDSv2 token (optional)
-	var token string
-	tokenReq, err := http.NewRequestWithContext(ctx, http.MethodPut, ec2MetadataBaseURL+"/latest/api/token", nil)
-	if err == nil {
-		tokenReq.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "60")
-		resp, err := client.Do(tokenReq)
-		if err == nil {
-			func() {
-				if resp != nil && resp.Body != nil {
-					defer resp.Body.Close()
-				}
-				if resp != nil && resp.StatusCode == http.StatusOK {
-					b, _ := io.ReadAll(resp.Body)
-					token = string(b)
-				}
-			}()
-		}
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ec2MetadataBaseURL+"/latest/dynamic/instance-identity/document", nil)
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		logger.Debugf("is_ec2_instance: failed to create request: %v", err)
+		logger.Debugf("is_ec2_instance: failed to load AWS config: %v", err)
 		return platformNotDetected
 	}
-	if token != "" {
-		req.Header.Set("X-aws-ec2-metadata-token", token)
-	}
 
-	resp, err := client.Do(req)
+	client := imds.NewFromConfig(cfg)
+	result, err := client.GetInstanceIdentityDocument(timeoutCtx, &imds.GetInstanceIdentityDocumentInput{})
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(strings.ToLower(err.Error()), "timeout") {
+		logger.Debugf("is_ec2_instance: IMDS request failed: %v", err)
+		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
-		logger.Debugf("is_ec2_instance: metadata request failed: %v", err)
 		return platformNotDetected
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		if len(body) > 0 {
-			return platformDetected
-		}
+
+	if result != nil && result.InstanceIdentityDocument.InstanceID != "" {
+		return platformDetected
 	}
+
 	return platformNotDetected
 }
 
-func detectGceVm(ctx context.Context, deadline time.Time) platformDetectionState {
-	timeout := remainingTimeout(deadline)
+func detectGceVm(ctx context.Context, timeout time.Duration) platformDetectionState {
 	client := metadataHTTPClient(timeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gceMetadataRootURL, nil)
 	if err != nil {
@@ -262,10 +195,10 @@ func detectGceVm(ctx context.Context, deadline time.Time) platformDetectionState
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(strings.ToLower(err.Error()), "timeout") {
+		logger.Debugf("is_gce_vm: metadata request failed: %v", err)
+		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
-		logger.Debugf("is_gce_vm: metadata request failed: %v", err)
 		return platformNotDetected
 	}
 	defer resp.Body.Close()
@@ -275,8 +208,7 @@ func detectGceVm(ctx context.Context, deadline time.Time) platformDetectionState
 	return platformNotDetected
 }
 
-func detectGcpIdentity(ctx context.Context, deadline time.Time) platformDetectionState {
-	timeout := remainingTimeout(deadline)
+func detectGcpIdentity(ctx context.Context, timeout time.Duration) platformDetectionState {
 	client := metadataHTTPClient(timeout)
 	url := gcpMetadataBaseURL + "/instance/service-accounts/default/email"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -287,10 +219,10 @@ func detectGcpIdentity(ctx context.Context, deadline time.Time) platformDetectio
 	req.Header.Set(gcpMetadataFlavorHeaderName, gcpMetadataFlavor)
 	resp, err := client.Do(req)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(strings.ToLower(err.Error()), "timeout") {
+		logger.Debugf("has_gcp_identity: metadata request failed: %v", err)
+		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
-		logger.Debugf("has_gcp_identity: metadata request failed: %v", err)
 		return platformNotDetected
 	}
 	defer resp.Body.Close()
@@ -300,8 +232,7 @@ func detectGcpIdentity(ctx context.Context, deadline time.Time) platformDetectio
 	return platformNotDetected
 }
 
-func detectAzureVm(ctx context.Context, deadline time.Time) platformDetectionState {
-	timeout := remainingTimeout(deadline)
+func detectAzureVm(ctx context.Context, timeout time.Duration) platformDetectionState {
 	client := metadataHTTPClient(timeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, azureMetadataBaseURL+"/metadata/instance?api-version=2019-03-11", nil)
 	if err != nil {
@@ -311,10 +242,10 @@ func detectAzureVm(ctx context.Context, deadline time.Time) platformDetectionSta
 	req.Header.Set("Metadata", "true")
 	resp, err := client.Do(req)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(strings.ToLower(err.Error()), "timeout") {
+		logger.Debugf("is_azure_vm: metadata request failed: %v", err)
+		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
-		logger.Debugf("is_azure_vm: metadata request failed: %v", err)
 		return platformNotDetected
 	}
 	defer resp.Body.Close()
@@ -324,16 +255,14 @@ func detectAzureVm(ctx context.Context, deadline time.Time) platformDetectionSta
 	return platformNotDetected
 }
 
-func detectAzureManagedIdentity(ctx context.Context, deadline time.Time) platformDetectionState {
-	// Shortcut for Functions with IDENTITY_HEADER present
-	if detectAzureFunctionEnv(ctx, deadline) == platformDetected && os.Getenv("IDENTITY_HEADER") != "" {
+func detectAzureManagedIdentity(ctx context.Context, timeout time.Duration) platformDetectionState {
+	if detectAzureFunctionEnv(ctx, timeout) == platformDetected && os.Getenv("IDENTITY_HEADER") != "" {
 		return platformDetected
 	}
-	timeout := remainingTimeout(deadline)
 	client := metadataHTTPClient(timeout)
 	values := url.Values{}
 	values.Set("api-version", "2018-02-01")
-	values.Set("resource", "api://fd3f753b-eed3-462c-b6a7-a4b5bb650aad")
+	values.Set("resource", "https://management.azure.com")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, azureMetadataBaseURL+"/metadata/identity/oauth2/token?"+values.Encode(), nil)
 	if err != nil {
 		logger.Debugf("has_azure_managed_identity: failed to create request: %v", err)
@@ -342,39 +271,24 @@ func detectAzureManagedIdentity(ctx context.Context, deadline time.Time) platfor
 	req.Header.Set("Metadata", "True")
 	resp, err := client.Do(req)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(strings.ToLower(err.Error()), "timeout") {
+		logger.Debugf("has_azure_managed_identity: metadata request failed: %v", err)
+		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
-		logger.Debugf("has_azure_managed_identity: metadata request failed: %v", err)
 		return platformNotDetected
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		// Best-effort parse: presence of access_token is a strong signal
-		body, _ := io.ReadAll(resp.Body)
-		var payload map[string]any
-		if err := json.Unmarshal(body, &payload); err == nil {
-			if _, ok := payload["access_token"]; ok {
-				return platformDetected
-			}
-		}
-		// If parsing fails but status OK, still consider detected
 		return platformDetected
 	}
 	return platformNotDetected
 }
 
-func detectAwsIdentity(ctx context.Context, deadline time.Time) platformDetectionState {
-	// Allow corporate proxies: use default AWS SDK config
-	// Apply deadline via context
-	timeout := remainingTimeout(deadline)
-	if timeout <= 0 {
-		timeout = 1 * time.Millisecond
-	}
-	ctx2, cancel := context.WithTimeout(ctx, timeout)
+func detectAwsIdentity(ctx context.Context, timeout time.Duration) platformDetectionState {
+	cancelCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cfg, err := config.LoadDefaultConfig(ctx2, config.WithEC2IMDSRegion())
+	cfg, err := config.LoadDefaultConfig(cancelCtx, config.WithEC2IMDSRegion())
 	if err != nil {
 		logger.Debugf("has_aws_identity: failed to load AWS config: %v", err)
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -383,7 +297,7 @@ func detectAwsIdentity(ctx context.Context, deadline time.Time) platformDetectio
 		return platformNotDetected
 	}
 	client := sts.NewFromConfig(cfg)
-	out, err := client.GetCallerIdentity(ctx2, &sts.GetCallerIdentityInput{})
+	out, err := client.GetCallerIdentity(cancelCtx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		logger.Debugf("has_aws_identity: GetCallerIdentity failed: %v", err)
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -400,22 +314,17 @@ func detectAwsIdentity(ctx context.Context, deadline time.Time) platformDetectio
 	return platformNotDetected
 }
 
-// isValidArnForWif validates whether the provided ARN represents a role identity usable for WIF.
-// We consider both IAM role ARNs and STS assumed-role ARNs as valid; user and other principals are not.
 func isValidArnForWif(arn string) bool {
-	// Examples:
-	// - arn:aws:iam::123456789012:role/MyRole
-	// - arn:aws:sts::123456789012:assumed-role/MyRole/MySession
-	arn = strings.TrimSpace(arn)
-	if arn == "" || !strings.HasPrefix(arn, "arn:") {
-		return false
+	patterns := []string{
+		`^arn:[^:]+:iam::[^:]+:user/.+$`,
+		`^arn:[^:]+:sts::[^:]+:assumed-role/.+$`,
 	}
-	// Quick filters
-	if strings.Contains(arn, ":role/") {
-		return true
-	}
-	if strings.Contains(arn, ":assumed-role/") {
-		return true
+
+	for _, pattern := range patterns {
+		matched, err := regexp.MatchString(pattern, arn)
+		if err == nil && matched {
+			return true
+		}
 	}
 	return false
 }
