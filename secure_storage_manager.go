@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -92,22 +91,7 @@ type secureStorageManager interface {
 var credentialsStorage = newSecureStorageManager()
 
 func newSecureStorageManager() secureStorageManager {
-	switch runtime.GOOS {
-	case "linux":
-		logger.Debugf("OS is %v, using file based secure storage manager.", runtime.GOOS)
-		ssm, err := newFileBasedSecureStorageManager()
-		if err != nil {
-			logger.Debugf("failed to create credentials cache dir:. %v. Not storing credentials locally.", err)
-			return newNoopSecureStorageManager()
-		}
-		return &threadSafeSecureStorageManager{&sync.Mutex{}, ssm}
-	case "darwin", "windows":
-		logger.Debugf("OS is %v, using keyring based secure storage manager.", runtime.GOOS)
-		return &threadSafeSecureStorageManager{&sync.Mutex{}, newKeyringBasedSecureStorageManager()}
-	default:
-		logger.Debugf("OS %v does not support credentials cache", runtime.GOOS)
-		return newNoopSecureStorageManager()
-	}
+	return defaultOsSpecificSecureStorageManager()
 }
 
 type fileBasedSecureStorageManager struct {

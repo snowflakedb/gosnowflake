@@ -6,7 +6,19 @@ import (
 	"github.com/99designs/keyring"
 	"runtime"
 	"strings"
+	"sync"
 )
+
+func defaultOsSpecificSecureStorageManager() secureStorageManager {
+	switch runtime.GOOS {
+	case "darwin", "windows":
+		logger.Debugf("OS is %v, using keyring based secure storage manager.", runtime.GOOS)
+		return &threadSafeSecureStorageManager{&sync.Mutex{}, newKeyringBasedSecureStorageManager()}
+	default:
+		logger.Debugf("OS %v does not support credentials cache", runtime.GOOS)
+		return newNoopSecureStorageManager()
+	}
+}
 
 type keyringSecureStorageManager struct {
 }
