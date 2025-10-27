@@ -239,11 +239,11 @@ func postRestfulQueryHelper(
 	if err != nil {
 		return nil, err
 	}
-	defer func(resp *http.Response) {
+	defer func(resp *http.Response, url string) {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, closeErr)
+			logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", url, closeErr)
 		}
-	}(resp)
+	}(resp, fullURL.String())
 
 	if resp.StatusCode == http.StatusOK {
 		var respd execResponse
@@ -285,11 +285,11 @@ func postRestfulQueryHelper(
 				logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
 				return nil, err
 			}
-			defer func(resp *http.Response) {
+			defer func(resp *http.Response, url string) {
 				if closeErr := resp.Body.Close(); closeErr != nil {
-					logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", fullURL, closeErr)
+					logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", url, closeErr)
 				}
-			}(resp)
+			}(resp, fullURL.String())
 			respd = execResponse{} // reset the response
 			err = json.NewDecoder(resp.Body).Decode(&respd)
 			if err != nil {
