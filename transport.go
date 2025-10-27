@@ -38,6 +38,7 @@ type transportConfig struct {
 	IdleConnTimeout time.Duration
 	DialTimeout     time.Duration
 	KeepAlive       time.Duration
+	DisableProxy    bool
 }
 
 // TransportFactory handles creation of HTTP transports with different validation modes
@@ -51,7 +52,10 @@ func newTransportFactory(config *Config, telemetry *snowflakeTelemetry) *transpo
 	return &transportFactory{config: config, telemetry: telemetry}
 }
 
-func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) {
+func (tf *transportFactory) createProxy(transportConfig *transportConfig) func(*http.Request) (*url.URL, error) {
+	if transportConfig.DisableProxy {
+		return nil
+	}
 	logger.Info("Initializing proxy configuration")
 	if tf.config == nil || tf.config.ProxyHost == "" {
 		logger.Info("Config is empty or ProxyHost is not set. Using proxy settings from environment variables.")
@@ -94,7 +98,7 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 		MaxIdleConns:        cmp.Or(transportConfig.MaxIdleConns, defaultTransport.MaxIdleConns),
 		MaxIdleConnsPerHost: cmp.Or(transportConfig.MaxIdleConns, defaultTransport.MaxIdleConns),
 		IdleConnTimeout:     cmp.Or(transportConfig.IdleConnTimeout, defaultTransport.IdleConnTimeout),
-		Proxy:               tf.createProxy(),
+		Proxy:               tf.createProxy(transportConfig),
 		DialContext:         dialer.DialContext,
 	}
 }
@@ -263,6 +267,7 @@ func newDefaultTransportConfigs() *defaultTransportConfigsType {
 			MaxIdleConns:    1,
 			IdleConnTimeout: 30 * time.Second,
 			DialTimeout:     30 * time.Second,
+			DisableProxy:    true,
 		},
 	}
 }

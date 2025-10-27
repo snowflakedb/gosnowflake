@@ -124,12 +124,14 @@ func assertEmptyE[T any](t *testing.T, actual []T, descriptions ...string) {
 
 func fatalOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
+		t.Helper()
 		t.Fatal(formatErrorMessage(errMsg))
 	}
 }
 
 func errorOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
+		t.Helper()
 		t.Error(formatErrorMessage(errMsg))
 	}
 }
@@ -324,7 +326,7 @@ func isNil(value any) bool {
 		return true
 	}
 	val := reflect.ValueOf(value)
-	return slices.Contains([]reflect.Kind{reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface}, val.Kind()) && val.IsNil()
+	return slices.Contains([]reflect.Kind{reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface, reflect.Func}, val.Kind()) && val.IsNil()
 }
 
 func thrownFrom() string {
