@@ -150,9 +150,9 @@ func (scd *snowflakeChunkDownloader) schedule() {
 		chunkCount := len(scd.ChunkMetas)
 		avgTime := 0.0
 		if chunkCount > 0 {
-			avgTime = getDuration(timer) / float64(chunkCount)
+			avgTime = float64(time.Since(timer)) / float64(chunkCount)
 		}
-		logger.WithContext(scd.ctx).Infof("Processed %v chunks. It took %v ms, average chunk processing time: %v ms", len(scd.ChunkMetas), getDuration(timer), avgTime)
+		logger.WithContext(scd.ctx).Infof("Processed %v chunks. It took %v ms, average chunk processing time: %v ms", len(scd.ChunkMetas), time.Since(timer).String(), avgTime)
 	}
 }
 
@@ -370,7 +370,7 @@ func downloadChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int) 
 	} else if errors.Is(scd.ctx.Err(), context.Canceled) || errors.Is(scd.ctx.Err(), context.DeadlineExceeded) {
 		scd.ChunksError <- &chunkError{Index: idx, Error: scd.ctx.Err()}
 	}
-	elapsedTime := getDuration(timer)
+	elapsedTime := time.Since(timer).String()
 
 	if (idx+1)%5 == 0 {
 		logger.Debugf("“Processed %v chunk %v out of %v. It took %v ms. Chunk size: %v, rows: %v”.", scd.getQueryResultFormat(), idx+1, len(scd.ChunkMetas), elapsedTime, scd.ChunkMetas[idx].UncompressedSize, scd.ChunkMetas[idx].RowCount)

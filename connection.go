@@ -197,7 +197,7 @@ func (sc *snowflakeConn) exec(
 		}
 	}
 
-	logger.WithContext(ctx).Debugf("Exec/Query SUCCESS with total=%v, returned=%v", data.Data.Total, data.Data.Returned)
+	logger.WithContext(ctx).Debugf("Exec/Query: queryId=%v SUCCESS with total=%v, returned=%v ", data.Data.QueryID, data.Data.Total, data.Data.Returned)
 	if data.Data.FinalDatabaseName != "" {
 		sc.cfg.Database = data.Data.FinalDatabaseName
 	}

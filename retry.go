@@ -329,7 +329,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		if !retryable {
 			return res, err
 		}
-		logger.WithContext(r.ctx).Debugf("Request to %v - response received after milliseconds %v with status .", r.fullURL.Host, getDuration(timer))
+		logger.WithContext(r.ctx).Debugf("Request to %v - response received after milliseconds %v with status .", r.fullURL.Host, time.Since(timer).String())
 
 		if err != nil {
 			logger.WithContext(r.ctx).Warnf(

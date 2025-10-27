@@ -98,7 +98,7 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 				logger.Warnf("Error uploading %v. err: %v", meta.realSrcFileName, err)
 			}
 		}
-		elapsedTime = getDuration(timer)
+		elapsedTime = time.Since(timer).String()
 		switch meta.resStatus {
 		case uploaded, renewToken, renewPresignedURL:
 			logger.Debugf("Uploading file: %v finished in %v ms with the status: %v.", meta.realSrcFileName, elapsedTime, meta.resStatus)
@@ -228,7 +228,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 			return err
 		}
 		if meta.resStatus == downloaded {
-			logger.Debugf("Downloading file: %v finished in %v ms. File size", meta.srcFileName, getDuration(timer), meta.srcFileSize)
+			logger.Debugf("Downloading file: %v finished in %v ms. File size", meta.srcFileName, time.Since(timer).String(), meta.srcFileSize)
 			if meta.encryptionMaterial != nil {
 				if meta.presignedURL != nil {
 					header, err = utilClass.getFileHeader(meta, meta.srcFileName)
@@ -252,7 +252,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 						return err
 					}
 				}
-				logger.Debugf("Decrypting file: %v finished in %v ms.", meta.srcFileName, getDuration(timer))
+				logger.Debugf("Decrypting file: %v finished in %v ms.", meta.srcFileName, time.Since(timer).String())
 
 			}
 			if !meta.options.GetFileToStream {
