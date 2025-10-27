@@ -232,3 +232,24 @@ jobs:
             WIREMOCK_HTTPS_PORT: 13567
             WIREMOCK_ENABLE_ECDSA: true
           run: ./ci/test.sh
+    build-test-rockylinux9:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                cloud: [ 'AWS', 'AZURE', 'GCP' ]
+                go: [ '1.23', '1.24', '1.25' ]
+        name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Rocky Linux 9
+        steps:
+            - uses: actions/checkout@v4
+            - name: Test
+              shell: bash
+              env:
+                PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+                GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+                CLOUD_PROVIDER: ${{ matrix.cloud }}
+                GORACE: history_size=7
+                GO_TEST_PARAMS: ${{ inputs.goTestParams }}
+                WIREMOCK_PORT: 14335
+                WIREMOCK_HTTPS_PORT: 13567
+              run: ./ci/test_rockylinux9_docker.sh ${{ matrix.go }}
