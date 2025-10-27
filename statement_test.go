@@ -15,6 +15,7 @@ import (
 )
 
 func openDB(t *testing.T) *sql.DB {
+	t.Parallel()
 	var db *sql.DB
 	var err error
 
