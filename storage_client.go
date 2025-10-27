@@ -70,7 +70,7 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 	maxConcurrency := int(meta.parallel)
 	var lastErr error
 	var timer time.Time
-	var elapsedTime float64
+	var elapsedTime string
 	maxRetry := defaultMaxRetry
 	logger.Debugf(
 		"Started Uploading. File: %v, location: %v", meta.realSrcFileName, meta.stageInfo.Location)

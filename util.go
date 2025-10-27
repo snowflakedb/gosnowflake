@@ -5,7 +5,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
-	"math"
 	"math/rand"
 	"os"
 	"strings"
@@ -370,10 +369,4 @@ func findByPrefix(in []string, prefix string) int {
 		}
 	}
 	return -1
-}
-
-func getDuration(t time.Time) float64 {
-	duration := time.Since(t)
-	millis := float64(duration) / float64(time.Millisecond)
-	return math.Round(millis*100) / 100
 }
