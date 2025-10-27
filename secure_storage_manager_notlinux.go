@@ -3,23 +3,10 @@
 package gosnowflake
 
 import (
+	"github.com/99designs/keyring"
 	"runtime"
 	"strings"
-	"sync"
-
-	"github.com/99designs/keyring"
 )
-
-func osSpecificSecureStorageManager() secureStorageManager {
-	switch runtime.GOOS {
-	case "darwin", "windows":
-		logger.Debugf("OS is %v, using keyring based credentials cache.", runtime.GOOS)
-		return &threadSafeSecureStorageManager{&sync.Mutex{}, newKeyringBasedSecureStorageManager()}
-	default:
-		logger.Debugf("OS %v does not support credentials cache", runtime.GOOS)
-		return newNoopSecureStorageManager()
-	}
-}
 
 type keyringSecureStorageManager struct {
 }
