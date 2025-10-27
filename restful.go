@@ -279,20 +279,8 @@ func postRestfulQueryHelper(
 			token, _, _ = sr.TokenAccessor.GetTokens()
 			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 
-			resp, err = sr.FuncGet(ctx, sr, fullURL, headers, timeout)
+			err = getAndDecodeResponse(ctx, sr, fullURL, headers, timeout, &respd)
 			if err != nil {
-				logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-				return nil, err
-			}
-			defer func(resp *http.Response, url string) {
-				if closeErr := resp.Body.Close(); closeErr != nil {
-					logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", url, closeErr)
-				}
-			}(resp, fullURL.String())
-			respd = execResponse{} // reset the response
-			err = json.NewDecoder(resp.Body).Decode(&respd)
-			if err != nil {
-				logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 				return nil, err
 			}
 			if respd.Code == sessionExpiredCode {
@@ -541,4 +529,34 @@ func getQueryIDChan(ctx context.Context) chan<- string {
 		return nil
 	}
 	return c
+}
+
+// getAndDecodeResponse fetches a response using FuncGet and decodes it into the argument
+// called respd. It overwrites any existing data in respd.
+func getAndDecodeResponse(
+	ctx context.Context,
+	sr *snowflakeRestful,
+	fullURL *url.URL,
+	headers map[string]string,
+	timeout time.Duration,
+	respd *execResponse) error {
+	resp, err := sr.FuncGet(ctx, sr, fullURL, headers, timeout)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+		return err
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			logger.WithContext(ctx).Errorf("failed to close response body for %v. err: %v", fullURL, closeErr)
+		}
+	}()
+
+	// decode response and fill into an empty execResponse
+	*respd = execResponse{}
+	err = json.NewDecoder(resp.Body).Decode(respd)
+	if err != nil {
+		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
+		return err
+	}
+	return nil
 }
