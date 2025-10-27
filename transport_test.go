@@ -150,8 +150,9 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 
 func TestProxyTransportCreation(t *testing.T) {
 	proxyTests := []struct {
-		config   *Config
-		proxyURL string
+		config       *Config
+		proxyURL     string
+		disableProxy bool
 	}{
 		{
 			config: &Config{
@@ -159,6 +160,24 @@ func TestProxyTransportCreation(t *testing.T) {
 				ProxyHost:     "proxy.connection.com",
 				ProxyPort:     1234,
 			},
+			disableProxy: true,
+			proxyURL:     "",
+		},
+		{
+			config: &Config{
+				ProxyProtocol: "https",
+				ProxyHost:     "proxy.connection.com",
+				ProxyPort:     1234,
+			},
+			disableProxy: true,
+			proxyURL:     "",
+		},
+		{
+			config: &Config{
+				ProxyProtocol: "http",
+				ProxyHost:     "proxy.connection.com",
+				ProxyPort:     1234,
+			},
 			proxyURL: "http://proxy.connection.com:1234",
 		},
 		{
@@ -169,7 +188,6 @@ func TestProxyTransportCreation(t *testing.T) {
 			},
 			proxyURL: "http://proxy.connection.com:1234",
 		},
-
 		{
 			config: &Config{
 				ProxyProtocol: "https",
@@ -190,26 +208,32 @@ func TestProxyTransportCreation(t *testing.T) {
 	}
 
 	for _, test := range proxyTests {
+		t.Run(test.proxyURL, func(t *testing.T) {
+			factory := newTransportFactory(test.config, nil)
+			proxyFunc := factory.createProxy(&transportConfig{DisableProxy: test.disableProxy})
 
-		factory := newTransportFactory(test.config, nil)
-		proxyFunc := factory.createProxy()
+			if test.disableProxy {
+				assertNilF(t, proxyFunc, "Expected nil proxy function when proxy is disabled")
+				return
+			}
 
-		req, _ := http.NewRequest("GET", "https://testing.snowflakecomputing.com", nil)
-		proxyURL, _ := proxyFunc(req)
+			req, _ := http.NewRequest("GET", "https://testing.snowflakecomputing.com", nil)
+			proxyURL, _ := proxyFunc(req)
 
-		if test.proxyURL == "" {
-			assertNilF(t, proxyURL, "Expected nil proxy for https request")
-		} else {
-			assertEqualF(t, proxyURL.String(), test.proxyURL)
-		}
+			if test.proxyURL == "" {
+				assertNilF(t, proxyURL, "Expected nil proxy for https request")
+			} else {
+				assertEqualF(t, proxyURL.String(), test.proxyURL)
+			}
 
-		req, _ = http.NewRequest("GET", "http://ocsp.testing.com", nil)
-		proxyURL, _ = proxyFunc(req)
+			req, _ = http.NewRequest("GET", "http://ocsp.testing.com", nil)
+			proxyURL, _ = proxyFunc(req)
 
-		if test.proxyURL == "" {
-			assertNilF(t, proxyURL, "Expected nil proxy for https request")
-		} else {
-			assertEqualF(t, proxyURL.String(), test.proxyURL)
-		}
+			if test.proxyURL == "" {
+				assertNilF(t, proxyURL, "Expected nil proxy for https request")
+			} else {
+				assertEqualF(t, proxyURL.String(), test.proxyURL)
+			}
+		})
 	}
 }
