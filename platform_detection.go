@@ -170,7 +170,6 @@ func detectEc2Instance(ctx context.Context, timeout time.Duration) platformDetec
 	}
 
 	if result != nil && result.InstanceIdentityDocument.InstanceID != "" {
-		logger.Debugf("is_ec2_instance: detected EC2 instance with ID: %s", result.InstanceIdentityDocument.InstanceID)
 		return platformDetected
 	}
 
