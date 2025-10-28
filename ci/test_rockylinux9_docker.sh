@@ -11,13 +11,13 @@ GO_ENV=${1:-1.24}
 
 # Set constants
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-CONNECTOR_DIR="$( dirname "${THIS_DIR}")" # Adjusted for new location
+CONNECTOR_DIR="$( dirname "${THIS_DIR}")"
 WORKSPACE=${WORKSPACE:-${CONNECTOR_DIR}}
 
 # TODO: Uncomment when set_base_image.sh is created for Go
 # source $THIS_DIR/set_base_image.sh
 
-cd $THIS_DIR/docker/rockylinux9 # Changed to point to the Dockerfile's actual location
+cd $THIS_DIR/docker/rockylinux9
 
 CONTAINER_NAME=test_gosnowflake_rockylinux9
 
@@ -44,4 +44,4 @@ docker run --network=host \
     -e WIREMOCK_HTTPS_PORT \
     --mount type=bind,source="${CONNECTOR_DIR}",target=/home/user/gosnowflake \
     ${CONTAINER_NAME}:1.0 \
-    /home/user/gosnowflake/ci/test_rockylinux9.sh ${GO_ENV} # Updated path to inner test script
+    /home/user/gosnowflake/ci/test_rockylinux9.sh ${GO_ENV}
