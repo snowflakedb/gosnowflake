@@ -39,22 +39,21 @@ var (
 func init() {
 	platformDetectionDone = make(chan struct{})
 	go func() {
+		time.Sleep(500 * time.Millisecond) // TODO: temporary for log to work
 		initializePlatformDetection()
 	}()
 }
 
 func initializePlatformDetection() {
-	logger.Debugf("initializePlatformDetection: starting")
 	var platforms []string
 	if os.Getenv(disablePlatformDetectionEnv) != "" {
 		logger.Debugf("initializePlatformDetection: platform detection disabled via %s environment variable", skipWarningForReadPermissionsEnv)
 		// TODO: discussion on this value in progress
 		platforms = []string{"disabled"}
 	} else {
-		platforms = detectPlatforms(context.Background(), 200)
+		platforms = detectPlatforms(context.Background(), 200 * time.Millisecond)
 	}
 	detectedPlatformsCache = platforms
-	logger.Debugf("initializePlatformDetection: completed. Cached platforms: %v", platforms)
 	close(platformDetectionDone)
 }
 
@@ -95,10 +94,9 @@ func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
 		detector := detector // capture loop variable
 		go func() {
 			defer waitGroup.Done()
-			logger.Debugf("detectPlatforms: running detector - %s", detector.name)
 			detectionState := detector.fn(ctx, timeout)
 			detectionStates[detector.name] = detectionState
-			logger.Debugf("detectPlatforms: detector - %s result - %s", detector.name, detectionState)
+			logger.Debugf("detectPlatforms: %s - %s", detector.name, detectionState)
 		}()
 	}
 	waitGroup.Wait()
