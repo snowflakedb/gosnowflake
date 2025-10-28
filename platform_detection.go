@@ -47,7 +47,7 @@ func init() {
 func initializePlatformDetection() {
 	var platforms []string
 	if os.Getenv(disablePlatformDetectionEnv) != "" {
-		logger.Debugf("initializePlatformDetection: platform detection disabled via %s environment variable", skipWarningForReadPermissionsEnv)
+		logger.Debugf("initializePlatformDetection: platform detection disabled via %s environment variable", disablePlatformDetectionEnv)
 		// TODO: discussion on this value in progress
 		platforms = []string{"disabled"}
 	} else {
