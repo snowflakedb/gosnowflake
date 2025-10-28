@@ -23,8 +23,7 @@ const (
 	platformDetectionTimeout platformDetectionState = "timeout"
 )
 
-// TODO: sync on prefix with Piotrek
-const disablePlatformDetectionEnv = "GOSNOWFLAKE_DISABLE_PLATFORM_DETECTION"
+const disablePlatformDetectionEnv = "SNOWFLAKE_DISABLE_PLATFORM_DETECTION"
 
 var (
 	azureMetadataBaseURL = "http://169.254.169.254"
@@ -37,18 +36,6 @@ var (
 	platformDetectionDone    chan struct{}
 )
 
-// !!!!!!!!!!!!!!!!!!
-// TODO: figure out how to connect this to transport.go
-func metadataHTTPClient(timeout time.Duration) *http.Client {
-	return &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			Proxy:             nil,
-			DisableKeepAlives: true,
-		},
-	}
-}
-
 func init() {
 	platformDetectionDone = make(chan struct{})
 	go func() {
@@ -57,24 +44,25 @@ func init() {
 }
 
 func initializePlatformDetection() {
+	logger.Debugf("initializePlatformDetection: starting")
 	var platforms []string
-	if os.Getenv(skipWarningForReadPermissionsEnv) != "" {
-		platforms = []string{}
+	if os.Getenv(disablePlatformDetectionEnv) != "" {
+		logger.Debugf("initializePlatformDetection: platform detection disabled via %s environment variable", skipWarningForReadPermissionsEnv)
+		// TODO: discussion on this value in progress
+		platforms = []string{"disabled"}
 	} else {
-		platforms = detectPlatforms(context.Background(), 0)
+		platforms = detectPlatforms(context.Background(), 200)
 	}
 	detectedPlatformsCache = platforms
+	logger.Debugf("initializePlatformDetection: completed. Cached platforms: %v", platforms)
 	close(platformDetectionDone)
 }
 
-func GetDetectedPlatforms(ctx context.Context, timeout time.Duration) []string {
+func GetDetectedPlatforms() []string {
+	logger.Debugf("GetDetectedPlatforms: waiting for platform detection to complete")
 	<-platformDetectionDone
+	logger.Debugf("GetDetectedPlatforms: returning cached detected platforms: %v", detectedPlatformsCache)
 	return detectedPlatformsCache
-}
-
-func resetPlatformDetectionForTest() {
-	platformDetectionDone = make(chan struct{})
-	detectedPlatformsCache = nil
 }
 
 type detectorFunc struct {
@@ -82,9 +70,9 @@ type detectorFunc struct {
 	fn   func(ctx context.Context, timeout time.Duration) platformDetectionState
 }
 
-// TODO: review success and fail logs
-
 func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
+	logger.Debugf("detectPlatforms: starting with timeout: %v", timeout)
+
 	detectors := []detectorFunc{
 		{name: "is_aws_lambda", fn: detectAwsLambdaEnv},
 		{name: "is_azure_function", fn: detectAzureFunctionEnv},
@@ -107,8 +95,10 @@ func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
 		detector := detector // capture loop variable
 		go func() {
 			defer waitGroup.Done()
+			logger.Debugf("detectPlatforms: running detector - %s", detector.name)
 			detectionState := detector.fn(ctx, timeout)
 			detectionStates[detector.name] = detectionState
+			logger.Debugf("detectPlatforms: detector - %s result - %s", detector.name, detectionState)
 		}()
 	}
 	waitGroup.Wait()
@@ -119,6 +109,8 @@ func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
 			detectedPlatformNames = append(detectedPlatformNames, detector.name)
 		}
 	}
+
+	logger.Debugf("detectPlatforms: completed. Detected platforms: %v", detectedPlatformNames)
 	return detectedPlatformNames
 }
 
@@ -180,14 +172,25 @@ func detectEc2Instance(ctx context.Context, timeout time.Duration) platformDetec
 	}
 
 	if result != nil && result.InstanceIdentityDocument.InstanceID != "" {
+		logger.Debugf("is_ec2_instance: detected EC2 instance with ID: %s", result.InstanceIdentityDocument.InstanceID)
 		return platformDetected
 	}
 
 	return platformNotDetected
 }
 
+func platformDetectionHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			Proxy:             nil,
+			DisableKeepAlives: true,
+		},
+	}
+}
+
 func detectGceVm(ctx context.Context, timeout time.Duration) platformDetectionState {
-	client := metadataHTTPClient(timeout)
+	client := platformDetectionHTTPClient(timeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gceMetadataRootURL, nil)
 	if err != nil {
 		logger.Debugf("is_gce_vm: failed to create request: %v", err)
@@ -209,7 +212,7 @@ func detectGceVm(ctx context.Context, timeout time.Duration) platformDetectionSt
 }
 
 func detectGcpIdentity(ctx context.Context, timeout time.Duration) platformDetectionState {
-	client := metadataHTTPClient(timeout)
+	client := platformDetectionHTTPClient(timeout)
 	url := gcpMetadataBaseURL + "/instance/service-accounts/default/email"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -233,7 +236,7 @@ func detectGcpIdentity(ctx context.Context, timeout time.Duration) platformDetec
 }
 
 func detectAzureVm(ctx context.Context, timeout time.Duration) platformDetectionState {
-	client := metadataHTTPClient(timeout)
+	client := platformDetectionHTTPClient(timeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, azureMetadataBaseURL+"/metadata/instance?api-version=2019-03-11", nil)
 	if err != nil {
 		logger.Debugf("is_azure_vm: failed to create request: %v", err)
@@ -257,9 +260,10 @@ func detectAzureVm(ctx context.Context, timeout time.Duration) platformDetection
 
 func detectAzureManagedIdentity(ctx context.Context, timeout time.Duration) platformDetectionState {
 	if detectAzureFunctionEnv(ctx, timeout) == platformDetected && os.Getenv("IDENTITY_HEADER") != "" {
+		logger.Debugf("has_azure_managed_identity: detected Azure Function with managed identity")
 		return platformDetected
 	}
-	client := metadataHTTPClient(timeout)
+	client := platformDetectionHTTPClient(timeout)
 	values := url.Values{}
 	values.Set("api-version", "2018-02-01")
 	values.Set("resource", "https://management.azure.com")
@@ -306,11 +310,14 @@ func detectAwsIdentity(ctx context.Context, timeout time.Duration) platformDetec
 		return platformNotDetected
 	}
 	if out == nil || out.Arn == nil || *out.Arn == "" {
+		logger.Debugf("has_aws_identity: no valid ARN returned")
 		return platformNotDetected
 	}
 	if isValidArnForWif(*out.Arn) {
+		logger.Debugf("has_aws_identity: detected valid AWS identity with ARN: %s", *out.Arn)
 		return platformDetected
 	}
+	logger.Debugf("has_aws_identity: ARN not valid for WIF: %s", *out.Arn)
 	return platformNotDetected
 }
 
@@ -319,7 +326,6 @@ func isValidArnForWif(arn string) bool {
 		`^arn:[^:]+:iam::[^:]+:user/.+$`,
 		`^arn:[^:]+:sts::[^:]+:assumed-role/.+$`,
 	}
-
 	for _, pattern := range patterns {
 		matched, err := regexp.MatchString(pattern, arn)
 		if err == nil && matched {
