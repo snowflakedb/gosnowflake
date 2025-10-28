@@ -3,6 +3,7 @@
 ## Upcoming Release
 
 - Added temporary download files cleanup (snowflakedb/gosnowflake#1577)
+- Added platform telemetry to login request. Can be disabled using `SNOWFLAKE_DISABLE_PLATFORM_DETECTION` env variable. (snowflakedb/gosnowflake#1601)
 - Marked fields as deprecated (snowflakedb/gosnowflake#1556)
 - Exposed `QueryStatus` from `SnowflakeResult` and `SnowflakeRows` in `GetStatus()` function (snowflakedb/gosnowflake#1556)
 - Split timeout settings into separate groups based on target service types (snowflakedb/gosnowflake#1531)
