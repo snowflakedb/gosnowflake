@@ -2,11 +2,16 @@
 #
 # Test GoSnowflake driver in Rocky Linux 9
 # NOTES:
-#   - Go version to be tested should be passed in as the first argument, e.g: "1.24". If omitted 1.24 will be assumed.
+#   - Go version MUST be passed in as the first argument, e.g: "1.24"
 #   - This is the script that test_rockylinux9_docker.sh runs inside of the docker container
 
+if [[ -z "${1}" ]]; then
+    echo "[ERROR] Go version is required as first argument (e.g., '1.24')"
+    echo "Usage: $0 <go_version>"
+    exit 1
+fi
 
-GO_VERSION="${1:-1.24}"
+GO_VERSION="${1}"
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CONNECTOR_DIR="$( dirname "${THIS_DIR}")"
 
@@ -24,20 +29,18 @@ fi
 # Setup Go environment
 echo "[Info] Using Go ${GO_VERSION}"
 
-if ! command -v go${GO_VERSION} &> /dev/null; then
-    echo "[ERROR] Go ${GO_VERSION} not found!"
+# Extract short version for wrapper script
+GO_VERSION_SHORT=$(echo ${GO_VERSION} | cut -d. -f1,2)
+
+if ! command -v go${GO_VERSION_SHORT} &> /dev/null; then
+    echo "[ERROR] Go ${GO_VERSION_SHORT} not found!"
     exit 1
 fi
 
-# Make the specified Go version the default 'go' command for make test
-case "$GO_VERSION" in
-    "1.23") export GOROOT="/usr/local/go1.23.4" ;;
-    "1.24") export GOROOT="/usr/local/go1.24.2" ;;
-    "1.25") export GOROOT="/usr/local/go1.25.0" ;;
-    *) echo "[ERROR] Unsupported Go version: $GO_VERSION"; exit 1 ;;
-esac
+# Set GOROOT to short version directory (e.g., /usr/local/go1.24)  
+export GOROOT="/usr/local/go${GO_VERSION_SHORT}"
 export PATH="${GOROOT}/bin:$PATH"
-export GOPATH="/home/user/go"
+export GOPATH="/root/go"
 export PATH="$GOPATH/bin:$PATH"
 
 echo "[Info] Go ${GO_VERSION} version: $(go version)"
