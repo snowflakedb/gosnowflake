@@ -167,7 +167,7 @@ func detectEc2Instance(ctx context.Context, timeout time.Duration) platformDetec
 		}
 		return platformNotDetected
 	}
-	if result != nil && result.InstanceIdentityDocument.InstanceID != "" {
+	if result != nil && result.InstanceID != "" {
 		return platformDetected
 	}
 
@@ -217,7 +217,7 @@ func detectAzureVm(ctx context.Context, timeout time.Duration) platformDetection
 		}
 		return platformNotDetected
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusOK {
 		return platformDetected
 	}
@@ -244,7 +244,7 @@ func detectAzureManagedIdentity(ctx context.Context, timeout time.Duration) plat
 		}
 		return platformNotDetected
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusOK {
 		return platformDetected
 	}
@@ -264,7 +264,7 @@ func detectGceVm(ctx context.Context, timeout time.Duration) platformDetectionSt
 		}
 		return platformNotDetected
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.Header.Get(gcpMetadataFlavorHeaderName) == gcpMetadataFlavor {
 		return platformDetected
 	}
