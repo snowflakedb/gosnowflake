@@ -381,7 +381,7 @@ func authenticate(
 		GoVersion:               runtime.Version(),
 		OAuthType:               oauthType,
 		CertRevocationCheckMode: sc.cfg.CertRevocationCheckMode.String(),
-		Platform:                GetDetectedPlatforms(),
+		Platform:                getDetectedPlatforms(),
 	}
 
 	sessionParameters := make(map[string]interface{})

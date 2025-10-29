@@ -58,9 +58,9 @@ func setupWiremockMetadataEndpoints() func() {
 }
 
 func TestGetDetectedPlatformsReturnsCachedResult(t *testing.T) {
-	platforms := GetDetectedPlatforms()
+	platforms := getDetectedPlatforms()
 	assertTrueF(t, slices.Equal(platforms, detectedPlatformsCache),
-		"GetDetectedPlatforms should return the cached result")
+		"getDetectedPlatforms should return the cached result")
 }
 
 func TestDetectPlatforms(t *testing.T) {

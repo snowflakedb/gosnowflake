@@ -44,10 +44,10 @@ func init() {
 	}()
 }
 
-func GetDetectedPlatforms() []string {
-	logger.Debugf("GetDetectedPlatforms: waiting for platform detection to complete")
+func getDetectedPlatforms() []string {
+	logger.Debugf("getDetectedPlatforms: waiting for platform detection to complete")
 	<-platformDetectionDone
-	logger.Debugf("GetDetectedPlatforms: returning cached detected platforms: %v", detectedPlatformsCache)
+	logger.Debugf("getDetectedPlatforms: returning cached detected platforms: %v", detectedPlatformsCache)
 	return detectedPlatformsCache
 }
 
@@ -79,9 +79,9 @@ func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
 		{name: "is_github_action", fn: detectGithubActionsEnv},
 		{name: "is_ec2_instance", fn: detectEc2Instance},
 		{name: "has_aws_identity", fn: detectAwsIdentity},
-		{name: "is_azure_vm", fn: detectAzureVm},
+		{name: "is_azure_vm", fn: detectAzureVM},
 		{name: "has_azure_managed_identity", fn: detectAzureManagedIdentity},
-		{name: "is_gce_vm", fn: detectGceVm},
+		{name: "is_gce_vm", fn: detectGceVM},
 		{name: "has_gcp_identity", fn: detectGcpIdentity},
 	}
 
@@ -203,7 +203,7 @@ func detectAwsIdentity(ctx context.Context, timeout time.Duration) platformDetec
 	return platformNotDetected
 }
 
-func detectAzureVm(ctx context.Context, timeout time.Duration) platformDetectionState {
+func detectAzureVM(ctx context.Context, timeout time.Duration) platformDetectionState {
 	client := metadataServerHTTPClient(timeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, azureMetadataBaseURL+"/metadata/instance?api-version=2019-03-11", nil)
 	if err != nil {
@@ -251,7 +251,7 @@ func detectAzureManagedIdentity(ctx context.Context, timeout time.Duration) plat
 	return platformNotDetected
 }
 
-func detectGceVm(ctx context.Context, timeout time.Duration) platformDetectionState {
+func detectGceVM(ctx context.Context, timeout time.Duration) platformDetectionState {
 	client := metadataServerHTTPClient(timeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gceMetadataRootURL, nil)
 	if err != nil {
