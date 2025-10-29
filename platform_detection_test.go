@@ -173,16 +173,14 @@ func TestDetectPlatforms(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			clearPlatformEnvVars()
-			defer clearPlatformEnvVars()
-
 			for key, value := range tc.envVars {
 				os.Setenv(key, value)
 			}
-			if len(tc.wiremockMappings) > 0 {
-				wiremock.registerMappings(t, tc.wiremockMappings...)
-				wiremockCleanup := setupWiremockMetadataEndpoints()
-				defer wiremockCleanup()
-			}
+			defer clearPlatformEnvVars()
+
+			wiremock.registerMappings(t, tc.wiremockMappings...)
+			wiremockCleanup := setupWiremockMetadataEndpoints()
+			defer wiremockCleanup()
 
 			detectedPlatformsCache = nil
 			platformDetectionDone = make(chan struct{})
