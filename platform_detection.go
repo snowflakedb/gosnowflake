@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -178,34 +180,35 @@ func detectAwsIdentity(ctx context.Context, timeout time.Duration) platformDetec
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cfg, err := config.LoadDefaultConfig(timeoutCtx)
+	cfg, err := config.LoadDefaultConfig(timeoutCtx,
+		config.WithClientLogMode(aws.LogRequestWithBody))
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
 		return platformNotDetected
 	}
-	logger.Debugf("detectAwsIdentity: loaded config")
+	fmt.Printf("detectAwsIdentity: loaded config\n")
 
 	client := sts.NewFromConfig(cfg)
 	out, err := client.GetCallerIdentity(timeoutCtx, &sts.GetCallerIdentityInput{})
 	if err != nil {
-		logger.Debugf("detectAwsIdentity: error getting caller identity: %v", err)
+		fmt.Printf("detectAwsIdentity: error getting caller identity: %v\n", err)
 		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
 		return platformNotDetected
 	}
-	logger.Debugf("detectAwsIdentity: got caller identity: %v", out)
+	fmt.Printf("detectAwsIdentity: got caller identity: %v\n", out)
 	if out == nil || out.Arn == nil || *out.Arn == "" {
-		logger.Debugf("detectAwsIdentity: caller identity is empty")
+		fmt.Printf("detectAwsIdentity: caller identity is empty\n")
 		return platformNotDetected
 	}
 	if isValidArnForWif(*out.Arn) {
-		logger.Debugf("detectAwsIdentity: caller identity is valid WIF ARN")
+		fmt.Printf("detectAwsIdentity: caller identity is valid WIF ARN\n")
 		return platformDetected
 	}
-	logger.Debugf("detectAwsIdentity: caller identity is invalid WIF ARN")
+	fmt.Printf("detectAwsIdentity: caller identity is invalid WIF ARN\n")
 	return platformNotDetected
 }
 
