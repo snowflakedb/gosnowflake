@@ -10,13 +10,10 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/99designs/keyring"
 )
 
 type tokenType string
@@ -94,20 +91,7 @@ type secureStorageManager interface {
 var credentialsStorage = newSecureStorageManager()
 
 func newSecureStorageManager() secureStorageManager {
-	switch runtime.GOOS {
-	case "linux":
-		ssm, err := newFileBasedSecureStorageManager()
-		if err != nil {
-			logger.Debugf("failed to create credentials cache dir. %v", err)
-			return newNoopSecureStorageManager()
-		}
-		return &threadSafeSecureStorageManager{&sync.Mutex{}, ssm}
-	case "darwin", "windows":
-		return &threadSafeSecureStorageManager{&sync.Mutex{}, newKeyringBasedSecureStorageManager()}
-	default:
-		logger.Debugf("OS %v does not support credentials cache", runtime.GOOS)
-		return newNoopSecureStorageManager()
-	}
+	return defaultOsSpecificSecureStorageManager()
 }
 
 type fileBasedSecureStorageManager struct {
