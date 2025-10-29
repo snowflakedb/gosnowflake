@@ -2,7 +2,6 @@
   "mappings": [
     {
       "request": {
-        "method": "GET",
         "urlPattern": ".*"
       },
       "response": {
