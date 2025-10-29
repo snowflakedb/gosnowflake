@@ -1,0 +1,35 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "PUT",
+        "urlPath": "/latest/api/token"
+      },
+      "response": {
+        "status": 200,
+        "body": "AQAEAEV4aW1hbGVUb2tlbg==",
+        "headers": {
+          "Content-Type": "text/plain"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "urlPath": "/",
+        "bodyPatterns": [
+          {
+            "contains": "Action=GetCallerIdentity"
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<GetCallerIdentityResponse xmlns=\"https://sts.amazonaws.com/doc/2011-06-15/\">\n    <GetCallerIdentityResult>\n        <Arn>arn:aws:iam::123456789012:user/test-user</Arn>\n        <UserId>AIDACKCEVSQ6C2EXAMPLE</UserId>\n        <Account>123456789012</Account>\n    </GetCallerIdentityResult>\n    <ResponseMetadata>\n        <RequestId>01234567-89ab-cdef-0123-456789abcdef</RequestId>\n    </ResponseMetadata>\n</GetCallerIdentityResponse>",
+        "headers": {
+          "Content-Type": "text/xml"
+        }
+      }
+    }
+  ]
+}

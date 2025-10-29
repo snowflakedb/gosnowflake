@@ -1,0 +1,22 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "/metadata/instance?api-version=2019-03-11",
+        "headers": {
+          "Metadata": {
+            "equalTo": "true"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"compute\":{\"vmId\":\"test-vm-id\",\"name\":\"test-vm\"}}"
+      }
+    }
+  ]
+}

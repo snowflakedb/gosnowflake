@@ -1,0 +1,15 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "urlPattern": ".*"
+      },
+      "response": {
+        "status": 200,
+        "fixedDelayMilliseconds": 1000,
+        "body": "timeout"
+      }
+    }
+  ]
+}
