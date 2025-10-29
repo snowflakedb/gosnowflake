@@ -51,7 +51,7 @@ func GetDetectedPlatforms() []string {
 	return detectedPlatformsCache
 }
 
-func platformDetectionHTTPClient(timeout time.Duration) *http.Client {
+func metadataServerHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
@@ -204,7 +204,7 @@ func detectAwsIdentity(ctx context.Context, timeout time.Duration) platformDetec
 }
 
 func detectAzureVm(ctx context.Context, timeout time.Duration) platformDetectionState {
-	client := platformDetectionHTTPClient(timeout)
+	client := metadataServerHTTPClient(timeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, azureMetadataBaseURL+"/metadata/instance?api-version=2019-03-11", nil)
 	if err != nil {
 		return platformNotDetected
@@ -228,7 +228,7 @@ func detectAzureManagedIdentity(ctx context.Context, timeout time.Duration) plat
 	if detectAzureFunctionEnv(ctx, timeout) == platformDetected && os.Getenv("IDENTITY_HEADER") != "" {
 		return platformDetected
 	}
-	client := platformDetectionHTTPClient(timeout)
+	client := metadataServerHTTPClient(timeout)
 	values := url.Values{}
 	values.Set("api-version", "2018-02-01")
 	values.Set("resource", "https://management.azure.com")
@@ -252,7 +252,7 @@ func detectAzureManagedIdentity(ctx context.Context, timeout time.Duration) plat
 }
 
 func detectGceVm(ctx context.Context, timeout time.Duration) platformDetectionState {
-	client := platformDetectionHTTPClient(timeout)
+	client := metadataServerHTTPClient(timeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, gceMetadataRootURL, nil)
 	if err != nil {
 		return platformNotDetected
@@ -272,7 +272,7 @@ func detectGceVm(ctx context.Context, timeout time.Duration) platformDetectionSt
 }
 
 func detectGcpIdentity(ctx context.Context, timeout time.Duration) platformDetectionState {
-	client := platformDetectionHTTPClient(timeout)
+	client := metadataServerHTTPClient(timeout)
 	url := gcpMetadataBaseURL + "/instance/service-accounts/default/email"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
