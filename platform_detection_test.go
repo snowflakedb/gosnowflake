@@ -170,6 +170,8 @@ func TestDetectPlatforms(t *testing.T) {
 		},
 	}
 
+	logger.SetLogLevel("debug")
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			clearPlatformEnvVars()

@@ -185,21 +185,27 @@ func detectAwsIdentity(ctx context.Context, timeout time.Duration) platformDetec
 		}
 		return platformNotDetected
 	}
+	logger.Debugf("detectAwsIdentity: loaded config")
 
 	client := sts.NewFromConfig(cfg)
 	out, err := client.GetCallerIdentity(timeoutCtx, &sts.GetCallerIdentityInput{})
 	if err != nil {
+		logger.Debugf("detectAwsIdentity: error getting caller identity: %v", err)
 		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
 		return platformNotDetected
 	}
+	logger.Debugf("detectAwsIdentity: got caller identity: %v", out)
 	if out == nil || out.Arn == nil || *out.Arn == "" {
+		logger.Debugf("detectAwsIdentity: caller identity is empty")
 		return platformNotDetected
 	}
 	if isValidArnForWif(*out.Arn) {
+		logger.Debugf("detectAwsIdentity: caller identity is valid WIF ARN")
 		return platformDetected
 	}
+	logger.Debugf("detectAwsIdentity: caller identity is invalid WIF ARN")
 	return platformNotDetected
 }
 
