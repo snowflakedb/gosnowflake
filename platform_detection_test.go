@@ -182,9 +182,6 @@ func TestDetectPlatforms(t *testing.T) {
 			wiremockCleanup := setupWiremockMetadataEndpoints()
 			defer wiremockCleanup()
 
-			detectedPlatformsCache = nil
-			platformDetectionDone = make(chan struct{})
-
 			platforms := detectPlatforms(context.Background(), 200*time.Millisecond)
 
 			assertTrueF(t, slices.Equal(platforms, tc.expectedResult),
@@ -199,8 +196,6 @@ func TestDetectPlatformsTimeout(t *testing.T) {
 	wiremockCleanup := setupWiremockMetadataEndpoints()
 	defer wiremockCleanup()
 
-	detectedPlatformsCache = nil
-	platformDetectionDone = make(chan struct{})
 	start := time.Now()
 	platforms := detectPlatforms(context.Background(), 200*time.Millisecond)
 	executionTime := time.Since(start)
