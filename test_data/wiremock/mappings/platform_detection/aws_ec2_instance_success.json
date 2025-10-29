@@ -16,6 +16,19 @@
     {
       "request": {
         "method": "GET",
+        "urlPath": "/latest2/meta-data/iam/security-credentials/"
+      },
+      "response": {
+        "status": 200,
+        "body": "test-role",
+        "headers": {
+          "Content-Type": "text/plain"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
         "urlPath": "/latest/dynamic/instance-identity/document"
       },
       "response": {
