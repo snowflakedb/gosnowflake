@@ -15,7 +15,12 @@
         "headers": {
           "Content-Type": "application/json"
         },
-        "body": "{\"compute\":{\"vmId\":\"test-vm-id\",\"name\":\"test-vm\"}}"
+        "jsonBody": {
+          "compute": {
+            "vmId": "test-vm-id",
+            "name": "test-vm"
+          }
+        }
       }
     }
   ]

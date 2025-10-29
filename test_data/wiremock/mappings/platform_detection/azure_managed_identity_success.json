@@ -15,7 +15,11 @@
         "headers": {
           "Content-Type": "application/json"
         },
-        "body": "{\"access_token\":\"test-token\",\"token_type\":\"Bearer\",\"expires_in\":3600}"
+        "jsonBody": {
+          "access_token": "test-token",
+          "token_type": "Bearer",
+          "expires_in": 3600
+        }
       }
     }
   ]
