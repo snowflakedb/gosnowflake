@@ -7,6 +7,21 @@
 - Marked fields as deprecated (snowflakedb/gosnowflake#1556)
 - Exposed `QueryStatus` from `SnowflakeResult` and `SnowflakeRows` in `GetStatus()` function (snowflakedb/gosnowflake#1556)
 - Split timeout settings into separate groups based on target service types (snowflakedb/gosnowflake#1531)
+- Added small clarification in oauth.go example on token escaping (snowflakedb/gosnowflake#1574)
+- Ensured proper permissions for CRL cache directory (snowflakedb/gosnowflake#1588)
+- Added `CrlDownloadMaxSize` to limit the size of CRL downloads (snowflakedb/gosnowflake#1588)
+- 
+- Bypassed proxy settings for WIF metadata requests (snowflakedb/gosnowflake#1593)
+- 
+- 
+- 
+- Fixed nil pointer dereference while calling long-running queries (snowflakedb/gosnowflake#1592) (snowflakedb/gosnowflake#1596)
+- 
+- 
+- 
+- Moved keyring-based secure storage manager into separate file to avoid the need to initialize keyring on Linux. (snowflakedb/gosnowflake#1595)
+- 
+- 
 
 ## 1.17.0
 

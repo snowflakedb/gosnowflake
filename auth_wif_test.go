@@ -254,31 +254,31 @@ func TestGcpIdentityAttestationCreator(t *testing.T) {
 	}{
 		{
 			name:                "Successful flow",
-			wiremockMappingPath: "wif/gcp/successful_flow.json",
+			wiremockMappingPath: "auth/wif/gcp/successful_flow.json",
 			expectedError:       nil,
 			expectedSub:         "some-subject",
 		},
 		{
 			name:                "No GCP credential - http error",
-			wiremockMappingPath: "wif/gcp/http_error.json",
+			wiremockMappingPath: "auth/wif/gcp/http_error.json",
 			expectedError:       fmt.Errorf("no GCP token was found"),
 			expectedSub:         "",
 		},
 		{
 			name:                "missing issuer claim",
-			wiremockMappingPath: "wif/gcp/missing_issuer_claim.json",
+			wiremockMappingPath: "auth/wif/gcp/missing_issuer_claim.json",
 			expectedError:       fmt.Errorf("could not extract claims from token: missing issuer claim in JWT token"),
 			expectedSub:         "",
 		},
 		{
 			name:                "missing sub claim",
-			wiremockMappingPath: "wif/gcp/missing_sub_claim.json",
+			wiremockMappingPath: "auth/wif/gcp/missing_sub_claim.json",
 			expectedError:       fmt.Errorf("could not extract claims from token: missing sub claim in JWT token"),
 			expectedSub:         "",
 		},
 		{
 			name:                "unparsable token",
-			wiremockMappingPath: "wif/gcp/unparsable_token.json",
+			wiremockMappingPath: "auth/wif/gcp/unparsable_token.json",
 			expectedError:       fmt.Errorf("could not extract claims from token: unable to extract JWT claims from token: token is malformed: token contains an invalid number of segments"),
 			expectedSub:         "",
 		},
@@ -414,7 +414,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 		 */
 		{
 			name:                "Successful flow",
-			wiremockMappingPath: "wif/azure/successful_flow_basic.json",
+			wiremockMappingPath: "auth/wif/azure/successful_flow_basic.json",
 			metadataProvider:    azureVMMetadataProvider(),
 			expectedIss:         "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
 			expectedError:       nil,
@@ -427,7 +427,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 		 */
 		{
 			name:                "Successful flow v2 issuer",
-			wiremockMappingPath: "wif/azure/successful_flow_v2_issuer.json",
+			wiremockMappingPath: "auth/wif/azure/successful_flow_v2_issuer.json",
 			metadataProvider:    azureVMMetadataProvider(),
 			expectedIss:         "https://login.microsoftonline.com/fa15d692-e9c7-4460-a743-29f29522229/",
 			expectedError:       nil,
@@ -440,7 +440,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 		 */
 		{
 			name:                "Successful flow azure functions",
-			wiremockMappingPath: "wif/azure/successful_flow_azure_functions.json",
+			wiremockMappingPath: "auth/wif/azure/successful_flow_azure_functions.json",
 			metadataProvider:    azureFunctionsMetadataProvider(),
 			expectedIss:         "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
 			expectedError:       nil,
@@ -453,7 +453,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 		 */
 		{
 			name:                "Successful flow azure functions v2 issuer",
-			wiremockMappingPath: "wif/azure/successful_flow_azure_functions_v2_issuer.json",
+			wiremockMappingPath: "auth/wif/azure/successful_flow_azure_functions_v2_issuer.json",
 			metadataProvider:    azureFunctionsMetadataProvider(),
 			expectedIss:         "https://login.microsoftonline.com/fa15d692-e9c7-4460-a743-29f29522229/",
 			expectedError:       nil,
@@ -466,7 +466,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 		 */
 		{
 			name:                "Successful flow azure functions no client ID",
-			wiremockMappingPath: "wif/azure/successful_flow_azure_functions_no_client_id.json",
+			wiremockMappingPath: "auth/wif/azure/successful_flow_azure_functions_no_client_id.json",
 			metadataProvider: &mockAzureAttestationMetadataProvider{
 				identityEndpointValue: wiremock.baseURL() + "/metadata/identity/endpoint/from/env",
 				identityHeaderValue:   "some-identity-header-from-env",
@@ -483,7 +483,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 		 */
 		{
 			name:                "Successful flow azure functions custom Entra resource",
-			wiremockMappingPath: "wif/azure/successful_flow_azure_functions_custom_entra_resource.json",
+			wiremockMappingPath: "auth/wif/azure/successful_flow_azure_functions_custom_entra_resource.json",
 			metadataProvider:    azureFunctionsMetadataProvider(),
 			cfg:                 &Config{WorkloadIdentityEntraResource: "api://1111111-2222-3333-44444-55555555"},
 			expectedIss:         "https://sts.windows.net/fa15d692-e9c7-4460-a743-29f29522229/",
@@ -491,7 +491,7 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 		},
 		{
 			name:                "Non-json response",
-			wiremockMappingPath: "wif/azure/non_json_response.json",
+			wiremockMappingPath: "auth/wif/azure/non_json_response.json",
 			metadataProvider:    azureVMMetadataProvider(),
 			expectedError:       fmt.Errorf("failed to extract token from JSON: invalid character 'o' in literal null (expecting 'u')"),
 		},
@@ -506,25 +506,25 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 		},
 		{
 			name:                "Unparsable token",
-			wiremockMappingPath: "wif/azure/unparsable_token.json",
+			wiremockMappingPath: "auth/wif/azure/unparsable_token.json",
 			metadataProvider:    azureVMMetadataProvider(),
 			expectedError:       fmt.Errorf("failed to extract sub and iss claims from token: unable to extract JWT claims from token: token is malformed: token contains an invalid number of segments"),
 		},
 		{
 			name:                "HTTP error",
 			metadataProvider:    azureVMMetadataProvider(),
-			wiremockMappingPath: "wif/azure/http_error.json",
+			wiremockMappingPath: "auth/wif/azure/http_error.json",
 			expectedError:       fmt.Errorf("could not fetch Azure token"),
 		},
 		{
 			name:                "Missing sub or iss claim",
-			wiremockMappingPath: "wif/azure/missing_issuer_claim.json",
+			wiremockMappingPath: "auth/wif/azure/missing_issuer_claim.json",
 			metadataProvider:    azureVMMetadataProvider(),
 			expectedError:       fmt.Errorf("failed to extract sub and iss claims from token: missing issuer claim in JWT token"),
 		},
 		{
 			name:                "Missing sub claim",
-			wiremockMappingPath: "wif/azure/missing_sub_claim.json",
+			wiremockMappingPath: "auth/wif/azure/missing_sub_claim.json",
 			metadataProvider:    azureVMMetadataProvider(),
 			expectedError:       fmt.Errorf("failed to extract sub and iss claims from token: missing sub claim in JWT token"),
 		},
