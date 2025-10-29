@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -180,35 +178,28 @@ func detectAwsIdentity(ctx context.Context, timeout time.Duration) platformDetec
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cfg, err := config.LoadDefaultConfig(timeoutCtx,
-		config.WithClientLogMode(aws.LogRequestWithBody))
+	cfg, err := config.LoadDefaultConfig(timeoutCtx)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
 		return platformNotDetected
 	}
-	fmt.Printf("detectAwsIdentity: loaded config\n")
 
 	client := sts.NewFromConfig(cfg)
 	out, err := client.GetCallerIdentity(timeoutCtx, &sts.GetCallerIdentityInput{})
 	if err != nil {
-		fmt.Printf("detectAwsIdentity: error getting caller identity: %v\n", err)
 		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
 		}
 		return platformNotDetected
 	}
-	fmt.Printf("detectAwsIdentity: got caller identity: %v\n", out)
 	if out == nil || out.Arn == nil || *out.Arn == "" {
-		fmt.Printf("detectAwsIdentity: caller identity is empty\n")
 		return platformNotDetected
 	}
 	if isValidArnForWif(*out.Arn) {
-		fmt.Printf("detectAwsIdentity: caller identity is valid WIF ARN\n")
 		return platformDetected
 	}
-	fmt.Printf("detectAwsIdentity: caller identity is invalid WIF ARN\n")
 	return platformNotDetected
 }
 
