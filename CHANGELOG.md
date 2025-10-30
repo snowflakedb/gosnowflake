@@ -14,11 +14,11 @@
 - 
 - 
 - 
-- Fixed nil pointer derereference while calling long-running queries (snowflakedb/gosnowflake#1592) (snowflakedb/gosnowflake#1596)
+- Fixed nil pointer dereference while calling long-running queries (snowflakedb/gosnowflake#1592) (snowflakedb/gosnowflake#1596)
 - 
 - 
 - 
-- 
+- Moved keyring-based secure storage manager into separate file to avoid the need to initialize keyring on Linux. (snowflakedb/gosnowflake#1595)
 - 
 - 
 
