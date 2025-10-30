@@ -41,4 +41,10 @@ RUN GOARCH=${TARGETARCH} && \
 # Ensure /usr/local/bin is in PATH (should be by default, but making sure)
 ENV PATH="/usr/local/bin:${PATH}"
 
+# Create user for proper permission testing
+RUN useradd -m -s /bin/bash user && \
+    mkdir -p /home/user/go && \
+    chown -R user:user /home/user
+
+USER user
 WORKDIR /home/user/gosnowflake
