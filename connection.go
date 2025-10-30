@@ -242,7 +242,7 @@ func buildQueryContext(qcc *queryContextCache) (requestQueryContext, error) {
 }
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
-	return sc.BeginTx(sc.ctx, driver.TxOptions{})
+	return sc.BeginTx(context.Background(), driver.TxOptions{})
 }
 
 func (sc *snowflakeConn) BeginTx(
@@ -463,21 +463,21 @@ func (sc *snowflakeConn) queryContextInternal(
 }
 
 func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
-	return sc.PrepareContext(sc.ctx, query)
+	return sc.PrepareContext(context.Background(), query)
 }
 
 func (sc *snowflakeConn) Exec(
 	query string,
 	args []driver.Value) (
 	driver.Result, error) {
-	return sc.ExecContext(sc.ctx, query, toNamedValues(args))
+	return sc.ExecContext(context.Background(), query, toNamedValues(args))
 }
 
 func (sc *snowflakeConn) Query(
 	query string,
 	args []driver.Value) (
 	driver.Rows, error) {
-	return sc.QueryContext(sc.ctx, query, toNamedValues(args))
+	return sc.QueryContext(context.Background(), query, toNamedValues(args))
 }
 
 func (sc *snowflakeConn) Ping(ctx context.Context) error {

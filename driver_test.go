@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -1886,6 +1887,52 @@ func TestCancelQuery(t *testing.T) {
 			dbt.Fatalf("Timeout error mismatch: expect %v, receive %v", context.DeadlineExceeded, err.Error())
 		}
 	})
+}
+
+func TestCancelQueryWithConnectionContext(t *testing.T) {
+	testCases := []struct {
+		name           string
+		setupConnection func(ctx context.Context, db *sql.DB) error
+	}{
+		{
+			name: "explicit connection",
+			setupConnection: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.Conn(ctx)
+				return err
+			},
+		},
+		{
+			name: "implicit connection",
+			setupConnection: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.ExecContext(ctx, "SELECT 1")
+				return err
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := openDB(t)
+			defer db.Close()
+
+			ctx, cancelConnectionContext := context.WithCancel(context.Background())
+			err := tc.setupConnection(ctx, db)
+			assertNilF(t, err, "connection setup should succeed")
+
+			cancelConnectionContext()
+
+			_, err = db.ExecContext(context.Background(), "SELECT 1")
+			assertNilF(t, err, "subsequent SELECT should work after cancelled connection context")
+
+			cwd, err := os.Getwd()
+			assertNilF(t, err, "Failed to get current working directory")
+			filePath := filepath.Join(cwd, "test_data", "put_get_1.txt")
+
+			putQuery := fmt.Sprintf("PUT file://%v @~/%v", filePath, "test_cancel_query_with_connection_context.txt")
+			_, err = db.ExecContext(context.Background(), putQuery)
+			assertNilF(t, err, "PUT statement should work after cancelled connection context")
+		})
+	}
 }
 
 func TestPing(t *testing.T) {
