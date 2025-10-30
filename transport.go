@@ -9,10 +9,28 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"golang.org/x/net/http/httpproxy"
 )
+
+type transportConfigs interface {
+	forTransportType(transportType transportType) *transportConfig
+}
+
+type transportType int
+
+const (
+	transportTypeOAuth transportType = iota
+	transportTypeCloudProvider
+	transportTypeOCSP
+	transportTypeCRL
+	transportTypeSnowflake
+	transportTypeWIF
+)
+
+var defaultTransportConfigs transportConfigs = newDefaultTransportConfigs()
 
 // transportConfig holds the configuration for creating HTTP transports
 type transportConfig struct {
@@ -20,27 +38,7 @@ type transportConfig struct {
 	IdleConnTimeout time.Duration
 	DialTimeout     time.Duration
 	KeepAlive       time.Duration
-}
-
-// defaultTransportConfig returns the standard transport configuration
-func defaultTransportConfig() *transportConfig {
-	return &transportConfig{
-		MaxIdleConns:    10,
-		IdleConnTimeout: 30 * time.Minute,
-		DialTimeout:     30 * time.Second,
-		KeepAlive:       30 * time.Second,
-	}
-}
-
-// crlTransportConfig returns the transport configuration for CRL validation
-// Uses more conservative timeouts for CRL operations
-func crlTransportConfig() *transportConfig {
-	return &transportConfig{
-		MaxIdleConns:    5,
-		IdleConnTimeout: 5 * time.Minute,
-		DialTimeout:     5 * time.Second,
-		KeepAlive:       0, // No keep-alive for CRL operations
-	}
+	DisableProxy    bool
 }
 
 // TransportFactory handles creation of HTTP transports with different validation modes
@@ -54,7 +52,10 @@ func newTransportFactory(config *Config, telemetry *snowflakeTelemetry) *transpo
 	return &transportFactory{config: config, telemetry: telemetry}
 }
 
-func (tf *transportFactory) createProxy() func(*http.Request) (*url.URL, error) {
+func (tf *transportFactory) createProxy(transportConfig *transportConfig) func(*http.Request) (*url.URL, error) {
+	if transportConfig.DisableProxy {
+		return nil
+	}
 	logger.Info("Initializing proxy configuration")
 	if tf.config == nil || tf.config.ProxyHost == "" {
 		logger.Info("Config is empty or ProxyHost is not set. Using proxy settings from environment variables.")
@@ -91,17 +92,19 @@ func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig
 		KeepAlive: transportConfig.KeepAlive,
 	}
 
+	defaultTransport := http.DefaultTransport.(*http.Transport)
 	return &http.Transport{
-		TLSClientConfig: tlsConfig,
-		MaxIdleConns:    transportConfig.MaxIdleConns,
-		IdleConnTimeout: transportConfig.IdleConnTimeout,
-		Proxy:           tf.createProxy(),
-		DialContext:     dialer.DialContext,
+		TLSClientConfig:     tlsConfig,
+		MaxIdleConns:        cmp.Or(transportConfig.MaxIdleConns, defaultTransport.MaxIdleConns),
+		MaxIdleConnsPerHost: cmp.Or(transportConfig.MaxIdleConns, defaultTransport.MaxIdleConns),
+		IdleConnTimeout:     cmp.Or(transportConfig.IdleConnTimeout, defaultTransport.IdleConnTimeout),
+		Proxy:               tf.createProxy(transportConfig),
+		DialContext:         dialer.DialContext,
 	}
 }
 
 // createOCSPTransport creates a transport with OCSP validation
-func (tf *transportFactory) createOCSPTransport() *http.Transport {
+func (tf *transportFactory) createOCSPTransport(transportConfig *transportConfig) *http.Transport {
 	// Chain OCSP verification with custom TLS config
 	ov := newOcspValidator(tf.config)
 	tlsConfig := tf.config.tlsConfig
@@ -112,43 +115,45 @@ func (tf *transportFactory) createOCSPTransport() *http.Transport {
 			VerifyPeerCertificate: ov.verifyPeerCertificateSerial,
 		}
 	}
-	return tf.createBaseTransport(defaultTransportConfig(), tlsConfig)
+	return tf.createBaseTransport(transportConfig, tlsConfig)
 }
 
 // createNoRevocationTransport creates a transport without certificate revocation checking
-func (tf *transportFactory) createNoRevocationTransport() http.RoundTripper {
+func (tf *transportFactory) createNoRevocationTransport(transportConfig *transportConfig) http.RoundTripper {
 	if tf.config != nil && tf.config.Transporter != nil {
 		return tf.config.Transporter
 	}
-	return tf.createBaseTransport(defaultTransportConfig(), nil)
+	return tf.createBaseTransport(transportConfig, nil)
 }
 
 func createTestNoRevocationTransport() http.RoundTripper {
-	return newTransportFactory(&Config{}, nil).createNoRevocationTransport()
+	return newTransportFactory(&Config{}, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
 }
 
 // createCRLValidator creates a CRL validator
 func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 	allowCertificatesWithoutCrlURL := tf.config.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue
 	client := &http.Client{
-		Timeout: cmp.Or(tf.config.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
+		Timeout:   cmp.Or(tf.config.CrlHTTPClientTimeout, defaultCrlHTTPClientTimeout),
+		Transport: tf.createNoRevocationTransport(tf.config.transportConfigFor(transportTypeCRL)),
 	}
 	return newCrlValidator(
 		tf.config.CertRevocationCheckMode,
 		allowCertificatesWithoutCrlURL,
 		tf.config.CrlInMemoryCacheDisabled,
 		tf.config.CrlOnDiskCacheDisabled,
+		cmp.Or(tf.config.CrlDownloadMaxSize, defaultCrlDownloadMaxSize),
 		client,
 		tf.telemetry,
 	)
 }
 
 // createTransport is the main entry point for creating transports
-func (tf *transportFactory) createTransport() (http.RoundTripper, error) {
+func (tf *transportFactory) createTransport(transportConfig *transportConfig) (http.RoundTripper, error) {
 	if tf.config == nil {
 		// should never happen in production, only in tests
 		logger.Warn("createTransport: got nil Config, using default one")
-		return tf.createNoRevocationTransport(), nil
+		return tf.createNoRevocationTransport(transportConfig), nil
 	}
 
 	// if user configured a custom Transporter, prioritize that
@@ -181,17 +186,17 @@ func (tf *transportFactory) createTransport() (http.RoundTripper, error) {
 			}
 		}
 
-		return tf.createBaseTransport(crlTransportConfig(), tlsConfig), nil
+		return tf.createBaseTransport(transportConfig, tlsConfig), nil
 	}
 
 	// Handle no revocation checking path
 	if tf.config.DisableOCSPChecks || tf.config.InsecureMode {
 		logger.Debug("createTransport: skipping OCSP validation")
-		return tf.createNoRevocationTransport(), nil
+		return tf.createNoRevocationTransport(transportConfig), nil
 	}
 
 	logger.Debug("createTransport: will perform OCSP validation")
-	return tf.createOCSPTransport(), nil
+	return tf.createOCSPTransport(transportConfig), nil
 }
 
 // validateRevocationConfig checks for conflicting revocation settings
@@ -218,4 +223,69 @@ func (tf *transportFactory) chainVerificationCallbacks(orignalVerificationFunc f
 		return verificationFunc(rawCerts, verifiedChains)
 	}
 	return newVerify
+}
+
+type defaultTransportConfigsType struct {
+	oauthTransportConfig         *transportConfig
+	cloudProviderTransportConfig *transportConfig
+	ocspTransportConfig          *transportConfig
+	crlTransportConfig           *transportConfig
+	snowflakeTransportConfig     *transportConfig
+	wifTransportConfig           *transportConfig
+}
+
+func newDefaultTransportConfigs() *defaultTransportConfigsType {
+	return &defaultTransportConfigsType{
+		oauthTransportConfig: &transportConfig{
+			MaxIdleConns:    1,
+			IdleConnTimeout: 30 * time.Second,
+			DialTimeout:     30 * time.Second,
+		},
+		cloudProviderTransportConfig: &transportConfig{
+			MaxIdleConns:    15,
+			IdleConnTimeout: 30 * time.Second,
+			DialTimeout:     30 * time.Second,
+		},
+		ocspTransportConfig: &transportConfig{
+			MaxIdleConns:    1,
+			IdleConnTimeout: 5 * time.Second,
+			DialTimeout:     5 * time.Second,
+			KeepAlive:       -1,
+		},
+		crlTransportConfig: &transportConfig{
+			MaxIdleConns:    1,
+			IdleConnTimeout: 5 * time.Second,
+			DialTimeout:     5 * time.Second,
+			KeepAlive:       -1,
+		},
+		snowflakeTransportConfig: &transportConfig{
+			MaxIdleConns:    3,
+			IdleConnTimeout: 30 * time.Minute,
+			DialTimeout:     30 * time.Second,
+		},
+		wifTransportConfig: &transportConfig{
+			MaxIdleConns:    1,
+			IdleConnTimeout: 30 * time.Second,
+			DialTimeout:     30 * time.Second,
+			DisableProxy:    true,
+		},
+	}
+}
+
+func (dtc *defaultTransportConfigsType) forTransportType(transportType transportType) *transportConfig {
+	switch transportType {
+	case transportTypeOAuth:
+		return dtc.oauthTransportConfig
+	case transportTypeCloudProvider:
+		return dtc.cloudProviderTransportConfig
+	case transportTypeOCSP:
+		return dtc.ocspTransportConfig
+	case transportTypeCRL:
+		return dtc.crlTransportConfig
+	case transportTypeSnowflake:
+		return dtc.snowflakeTransportConfig
+	case transportTypeWIF:
+		return dtc.wifTransportConfig
+	}
+	panic("unknown transport type: " + strconv.Itoa(int(transportType)))
 }

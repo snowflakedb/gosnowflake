@@ -44,6 +44,7 @@ var (
 
 // OCSPFailOpenMode is OCSP fail open mode. OCSPFailOpenTrue by default and may
 // set to ocspModeFailClosed for fail closed mode
+// Deprecated: will be moved to Config/DSN in the future releases.
 type OCSPFailOpenMode uint32
 
 const (
@@ -74,10 +75,13 @@ const (
 
 var (
 	// OcspCacheServerTimeout is a timeout for OCSP cache server.
+	// Deprecated: will be moved to Config/DSN in the future releases.
 	OcspCacheServerTimeout = defaultOCSPCacheServerTimeout
 	// OcspResponderTimeout is a timeout for OCSP responders.
+	// Deprecated: will be moved to Config/DSN in the future releases.
 	OcspResponderTimeout = defaultOCSPResponderTimeout
 	// OcspMaxRetryCount is a number of retires to OCSP (cache server and responders).
+	// Deprecated: will be moved to Config/DSN in the future releases.
 	OcspMaxRetryCount = defaultOCSPMaxRetryCount
 )
 
@@ -668,7 +672,7 @@ func (ov *ocspValidator) getRevocationStatus(ctx context.Context, subject, issue
 
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(),
+		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeOCSP)),
 	}
 	ocspRes, ocspResBytes, ocspS := ov.retryOCSP(
 		ctx, ocspClient, http.NewRequest, u, headers, ocspReq, issuer, timeout)
@@ -797,7 +801,7 @@ func (ov *ocspValidator) downloadOCSPCacheServer() {
 	timeout := OcspCacheServerTimeout
 	ocspClient := &http.Client{
 		Timeout:   timeout,
-		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(),
+		Transport: newTransportFactory(ov.cfg, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeOCSP)),
 	}
 	ret, ocspStatus := checkOCSPCacheServer(context.Background(), ocspClient, http.NewRequest, u, timeout)
 	if ocspStatus.code != ocspSuccess {
@@ -1173,7 +1177,7 @@ var SnowflakeTransport *http.Transport
 
 func init() {
 	factory := newTransportFactory(&Config{}, nil)
-	SnowflakeTransport = factory.createOCSPTransport()
+	SnowflakeTransport = factory.createOCSPTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
 	SnowflakeTransportTest = SnowflakeTransport
 }
 

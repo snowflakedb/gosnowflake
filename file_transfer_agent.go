@@ -82,7 +82,8 @@ func (rs resultStatus) isSet() bool {
 // SnowflakeFileTransferOptions enables users to specify options regarding
 // files transfers such as PUT/GET
 type SnowflakeFileTransferOptions struct {
-	showProgressBar    bool
+	showProgressBar bool
+	// Deprecated: will be removed in the future. The behaviour will be aligned to setting it to true.
 	RaisePutGetError   bool
 	MultiPartThreshold int64
 

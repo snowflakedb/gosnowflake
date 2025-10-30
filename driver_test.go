@@ -85,6 +85,9 @@ func init() {
 	createDSN("UTC")
 
 	debugMode, _ = strconv.ParseBool(os.Getenv("SNOWFLAKE_TEST_DEBUG"))
+	if debugMode {
+		_ = GetLogger().SetLogLevel("debug")
+	}
 }
 
 func createDSN(timezone string) {

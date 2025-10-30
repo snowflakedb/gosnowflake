@@ -220,7 +220,7 @@ func populateSnowflakeParameter(colname string, p *SnowflakeParameter) interface
 	case "partial_rollout":
 		return &p.PartialRollout
 	default:
-		debugPanicf("unknown type: %v", colname)
+		logger.Debugf("unknown type: %v", colname)
 		return &p.Unknown
 	}
 }

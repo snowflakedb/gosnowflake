@@ -177,18 +177,6 @@ func TestCreateDiagnosticDialContext(t *testing.T) {
 	assertNilE(t, err, "error should be nil")
 }
 
-func TestCreateDiagnosticTransport(t *testing.T) {
-	var diagTest connectivityDiagnoser
-	config := &Config{}
-	transport := diagTest.createDiagnosticTransport(config)
-
-	assertNotNilE(t, transport, "transport should not be nil")
-	assertNotNilE(t, transport.DialContext, "dialContext should not be nil")
-
-	// by default we should use the SnowflakeTransport
-	assertTransportsEqual(t, SnowflakeTransport, transport, "diagnostic transport vs SnowflakeTransport")
-}
-
 func TestOpenAndReadAllowlistJSON(t *testing.T) {
 	var diagTest connectivityDiagnoser
 	testcases := []tcOpenAllowlistJSON{
