@@ -1,0 +1,22 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "/computeMetadata/v1/instance/service-accounts/default/email",
+        "headers": {
+          "Metadata-Flavor": {
+            "equalTo": "Google"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/plain"
+        },
+        "body": "test-service-account@test-project.iam.gserviceaccount.com"
+      }
+    }
+  ]
+}
