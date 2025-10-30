@@ -28,9 +28,15 @@ CONTAINER_NAME=test_gosnowflake_rockylinux9
 
 echo "[Info] Building docker image for Rocky Linux 9 with Go ${GO_ENV}"
 
+# Get current user/group IDs to match host permissions
+USER_ID=$(id -u)
+GROUP_ID=$(id -g)
+
 docker build --pull -t ${CONTAINER_NAME}:1.0 \
     --build-arg BASE_IMAGE=rockylinux:9 \
     --build-arg GO_VERSION=$GO_ENV \
+    --build-arg USER_ID=$USER_ID \
+    --build-arg GROUP_ID=$GROUP_ID \
     . -f Dockerfile
 
 # Use setup_connection_parameters.sh like native jobs (outside container)

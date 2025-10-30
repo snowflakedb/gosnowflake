@@ -41,8 +41,13 @@ RUN GOARCH=${TARGETARCH} && \
 # Ensure /usr/local/bin is in PATH (should be by default, but making sure)
 ENV PATH="/usr/local/bin:${PATH}"
 
+# Accept user ID as build argument to match host permissions
+ARG USER_ID=1001
+ARG GROUP_ID=1001
+
 # Create user for proper permission testing
-RUN useradd -m -s /bin/bash user && \
+RUN groupadd -g ${GROUP_ID} user && \
+    useradd -u ${USER_ID} -g ${GROUP_ID} -m -s /bin/bash user && \
     mkdir -p /home/user/go && \
     chown -R user:user /home/user
 
