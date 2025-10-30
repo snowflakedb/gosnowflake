@@ -1924,13 +1924,11 @@ func TestCancelQueryWithConnectionContext(t *testing.T) {
 			_, err = db.ExecContext(context.Background(), "SELECT 1")
 			assertNilF(t, err, "subsequent SELECT should work after cancelled connection context")
 
-			filePath := filepath.Join(t.TempDir(), "cancel_query_put.txt")
-			file, err := os.Create(filePath)
-			assertNilF(t, err)
-			assertNilF(t, file.Close())
+			cwd, err := os.Getwd()
+			assertNilF(t, err, "Failed to get current working directory")
+			filePath := filepath.Join(cwd, "test_data", "put_get_1.txt")
 
-			putQuery := fmt.Sprintf("PUT file://%v @~/%v", filePath, "test_cancel_query_with_connection_context")
-			putQuery = strings.ReplaceAll(putQuery, "\\", "\\\\")
+			putQuery := fmt.Sprintf("PUT file://%v @~/%v", filePath, "test_cancel_query_with_connection_context.txt")
 			_, err = db.ExecContext(context.Background(), putQuery)
 			assertNilF(t, err, "PUT statement should work after cancelled connection context")
 		})
