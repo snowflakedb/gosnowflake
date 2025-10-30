@@ -38,16 +38,19 @@ type remoteStorageUtil struct {
 
 func (rsu *remoteStorageUtil) getNativeCloudType(cli string, cfg *Config) cloudUtil {
 	if cloudType(cli) == s3Client {
+		logger.Info("Using S3 client for remote storage")
 		return &snowflakeS3Client{
 			cfg,
 			rsu.telemetry,
 		}
 	} else if cloudType(cli) == azureClient {
+		logger.Info("Using Azure client for remote storage")
 		return &snowflakeAzureClient{
 			cfg,
 			rsu.telemetry,
 		}
 	} else if cloudType(cli) == gcsClient {
+		logger.Info("Using GCS client for remote storage")
 		return &snowflakeGcsClient{
 			cfg,
 			rsu.telemetry,
@@ -66,8 +69,13 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 	utilClass := rsu.getNativeCloudType(meta.stageInfo.LocationType, meta.sfa.sc.cfg)
 	maxConcurrency := int(meta.parallel)
 	var lastErr error
+	var timer time.Time
+	var elapsedTime string
 	maxRetry := defaultMaxRetry
+	logger.Debugf(
+		"Started Uploading. File: %v, location: %v", meta.realSrcFileName, meta.stageInfo.Location)
 	for retry := 0; retry < maxRetry; retry++ {
+		timer = time.Now()
 		if !meta.overwrite {
 			header, err := utilClass.getFileHeader(meta, meta.dstFileName)
 			if meta.resStatus == notFoundFile {
@@ -87,16 +95,21 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 		if meta.overwrite || meta.resStatus == notFoundFile {
 			err := utilClass.uploadFile(meta.realSrcFileName, meta, maxConcurrency, meta.options.MultiPartThreshold)
 			if err != nil {
-				logger.Debugf("Error uploading %v. err: %v", meta.realSrcFileName, err)
+				logger.Warnf("Error uploading %v. err: %v", meta.realSrcFileName, err)
 			}
 		}
+		elapsedTime = time.Since(timer).String()
 		switch meta.resStatus {
 		case uploaded, renewToken, renewPresignedURL:
+			logger.Debugf("Uploading file: %v finished in %v ms with the status: %v.", meta.realSrcFileName, elapsedTime, meta.resStatus)
 			return nil
 		case needRetry:
 			if !meta.noSleepingTime {
 				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
+				logger.Debugf("Need to retry for uploading file: %v. Current retry: %v, Sleeping time: %v.", meta.realSrcFileName, retry, sleepingTime)
 				time.Sleep(time.Second * time.Duration(sleepingTime))
+			} else {
+				logger.Debugf("Need to retry for uploading file:  %v. Current retry: %v without the sleeping time.", meta.realSrcFileName, retry)
 			}
 		case needRetryWithLowerConcurrency:
 			maxConcurrency = int(meta.parallel) - (retry * int(meta.parallel) / maxRetry)
@@ -104,12 +117,17 @@ func (rsu *remoteStorageUtil) uploadOneFile(meta *fileMetadata) error {
 			meta.lastMaxConcurrency = maxConcurrency
 			if !meta.noSleepingTime {
 				sleepingTime := intMin(int(math.Exp2(float64(retry))), 16)
+				logger.Debugf("Need to retry with lower concurrency for uploading file: %v. Current retry: %v, Sleeping time: %v.", meta.realSrcFileName, retry, sleepingTime)
 				time.Sleep(time.Second * time.Duration(sleepingTime))
+			} else {
+				logger.Debugf("Need to retry with lower concurrency for uploading file: %v. Current retry: %v without Sleeping time.", meta.realSrcFileName, retry)
+
 			}
 		}
 		lastErr = meta.lastError
 	}
 	if lastErr != nil {
+		logger.Errorf(`Failed to uploading file: %v, with error: %v`, meta.realSrcFileName, lastErr)
 		return lastErr
 	}
 	return fmt.Errorf("unkown error uploading %v", meta.realSrcFileName)
@@ -128,7 +146,7 @@ func (rsu *remoteStorageUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 			for j := 0; j < 10; j++ {
 				status := meta.resStatus
 				if _, err := utilClass.getFileHeader(meta, meta.dstFileName); err != nil {
-					logger.Infof("error while getting file %v header. %v", meta.dstFileSize, err)
+					logger.Warnf("error while getting file %v header. %v", meta.dstFileSize, err)
 				}
 				// check file header status and verify upload/skip
 				if meta.resStatus == notFoundFile {
@@ -191,6 +209,8 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 	partSize := meta.options.MultiPartThreshold
 	var lastErr error
 	maxRetry := defaultMaxRetry
+
+	timer := time.Now()
 	for retry := 0; retry < maxRetry; retry++ {
 		tempDownloadFile := fullDstFileName + ".tmp"
 		defer func() {
@@ -208,6 +228,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 			return err
 		}
 		if meta.resStatus == downloaded {
+			logger.Debugf("Downloading file: %v finished in %v ms. File size", meta.srcFileName, time.Since(timer).String(), meta.srcFileSize)
 			if meta.encryptionMaterial != nil {
 				if meta.presignedURL != nil {
 					header, err = utilClass.getFileHeader(meta, meta.srcFileName)
@@ -216,6 +237,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 						return err
 					}
 				}
+				timer = time.Now()
 				if meta.options.GetFileToStream {
 					totalFileSize, err := decryptStreamCBC(header.encryptionMetadata,
 						meta.encryptionMaterial, 0, meta.dstStream, meta.sfa.streamBuffer)
@@ -230,6 +252,8 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 						return err
 					}
 				}
+				logger.Debugf("Decrypting file: %v finished in %v ms.", meta.srcFileName, time.Since(timer).String())
+
 			}
 			if !meta.options.GetFileToStream {
 				if fi, err := os.Stat(fullDstFileName); err == nil {
@@ -242,6 +266,8 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 		lastErr = meta.lastError
 	}
 	if lastErr != nil {
+		logger.Errorf(`Failed to downloading file: %v, with error: %v`, meta.srcFileName, lastErr)
+
 		return lastErr
 	}
 	return fmt.Errorf("unkown error downloading %v", fullDstFileName)

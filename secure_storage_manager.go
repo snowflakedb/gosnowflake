@@ -243,6 +243,8 @@ func (ssm *fileBasedSecureStorageManager) setCredential(tokenSpec *secureTokenSp
 		err = ssm.writeTemporaryCacheFile(credCache, cacheFile)
 		if err != nil {
 			logger.Warnf("Set credential failed. Unable to write cache. %v", err)
+		} else {
+			logger.Debugf("Set credential succeeded. Authentication type: %v, User: %v,  file location: %v", tokenSpec.tokenType, tokenSpec.user, ssm.credFilePath())
 		}
 	})
 }
@@ -430,6 +432,8 @@ func (ssm *fileBasedSecureStorageManager) deleteCredential(tokenSpec *secureToke
 		err = ssm.writeTemporaryCacheFile(credCache, cacheFile)
 		if err != nil {
 			logger.Warnf("Set credential failed. Unable to write cache. %v", err)
+		} else {
+			logger.Debugf("Deleted credential succeeded. Authentication type: %v, User: %v,  file location: %v", tokenSpec.tokenType, tokenSpec.user, ssm.credFilePath())
 		}
 	})
 }

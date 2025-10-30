@@ -20,7 +20,8 @@
 - 
 - Moved keyring-based secure storage manager into separate file to avoid the need to initialize keyring on Linux. (snowflakedb/gosnowflake#1595)
 - 
-- 
+-
+- - Improve logging (snowflakedb/gosnowflake#1570)
 
 ## 1.17.0
 

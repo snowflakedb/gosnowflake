@@ -233,6 +233,8 @@ func postRestfulQueryHelper(
 
 	var resp *http.Response
 	fullURL := sr.getFullURL(queryRequestPath, params)
+
+	logger.WithContext(ctx).Infof("postQuery: make a request to Host: %v, Path: %v", fullURL.Host, fullURL.Path)
 	resp, err = sr.FuncPost(ctx, sr, fullURL, headers, body, timeout, defaultTimeProvider, cfg)
 	if err != nil {
 		return nil, err
@@ -244,7 +246,6 @@ func postRestfulQueryHelper(
 	}(resp, fullURL.String())
 
 	if resp.StatusCode == http.StatusOK {
-		logger.WithContext(ctx).Infof("postQuery: resp: %v", resp)
 		var respd execResponse
 		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
