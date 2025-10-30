@@ -1892,18 +1892,18 @@ func TestCancelQuery(t *testing.T) {
 func TestCancelQueryWithConnectionContext(t *testing.T) {
 	testCases := []struct {
 		name           string
-		setupConnection func(db *sql.DB, ctx context.Context) error
+		setupConnection func(ctx context.Context, db *sql.DB) error
 	}{
 		{
 			name: "explicit connection",
-			setupConnection: func(db *sql.DB, ctx context.Context) error {
+			setupConnection: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.Conn(ctx)
 				return err
 			},
 		},
 		{
 			name: "implicit connection",
-			setupConnection: func(db *sql.DB, ctx context.Context) error {
+			setupConnection: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.ExecContext(ctx, "SELECT 1")
 				return err
 			},
@@ -1916,7 +1916,7 @@ func TestCancelQueryWithConnectionContext(t *testing.T) {
 			defer db.Close()
 
 			ctx, cancelConnectionContext := context.WithCancel(context.Background())
-			err := tc.setupConnection(db, ctx)
+			err := tc.setupConnection(ctx, db)
 			assertNilF(t, err, "connection setup should succeed")
 
 			cancelConnectionContext()
@@ -1930,6 +1930,7 @@ func TestCancelQueryWithConnectionContext(t *testing.T) {
 			assertNilF(t, file.Close())
 
 			putQuery := fmt.Sprintf("PUT file://%v @~/%v", filePath, "test_cancel_query_with_connection_context")
+			putQuery = strings.ReplaceAll(putQuery, "\\", "\\\\")
 			_, err = db.ExecContext(context.Background(), putQuery)
 			assertNilF(t, err, "PUT statement should work after cancelled connection context")
 		})
