@@ -120,7 +120,6 @@ func (scd *snowflakeChunkDownloader) start() error {
 			chunk := scd.ChunkMetas[i]
 			logger.WithContext(scd.ctx).Debugf("Result Format: %v, add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
 				scd.getQueryResultFormat(), i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)
-
 			scd.ChunksChan <- i
 		}
 		for i := 0; i < intMin(MaxChunkDownloadWorkers, chunkMetaLen); i++ {
