@@ -28,6 +28,27 @@
     },
     {
       "request": {
+        "method": "GET",
+        "urlPath": "/latest/meta-data/iam/security-credentials/test-role"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "Code": "Success",
+          "LastUpdated": "2023-01-01T00:00:00Z",
+          "Type": "AWS-HMAC",
+          "AccessKeyId": "AKIAIOSFODNN7EXAMPLE",
+          "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+          "Token": "AQoDYXdzEJr...<remainder of security token>",
+          "Expiration": "2030-01-01T06:00:00Z"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "request": {
         "method": "POST",
         "urlPath": "/",
         "bodyPatterns": [
