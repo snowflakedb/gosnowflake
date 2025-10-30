@@ -1886,29 +1886,51 @@ func TestCancelQuery(t *testing.T) {
 	})
 }
 
-func TestCancelQueryWithImplicitConnectionContext(t *testing.T) {
-	db := openDB(t)
-	defer db.Close()
+func TestCancelQueryWithConnectionContext(t *testing.T) {
+	testCases := []struct {
+		name           string
+		setupConnection func(db *sql.DB, ctx context.Context) error
+	}{
+		{
+			name: "explicit connection",
+			setupConnection: func(db *sql.DB, ctx context.Context) error {
+				_, err := db.Conn(ctx)
+				return err
+			},
+		},
+		{
+			name: "implicit connection",
+			setupConnection: func(db *sql.DB, ctx context.Context) error {
+				_, err := db.ExecContext(ctx, "SELECT 1")
+				return err
+			},
+		},
+	}
 
-	// First query creates the connection with a cancellable context
-	ctx, cancel := context.WithCancel(context.Background())
-	_, err := db.ExecContext(ctx, "SELECT 1")
-	assertNilF(t, err, "initial SELECT should initialize the connection")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := openDB(t)
+			defer db.Close()
 
-	// Cancel the context after connection is established
-	cancel()
+			ctx, cancelConnectionContext := context.WithCancel(context.Background())
+			err := tc.setupConnection(db, ctx)
+			assertNilF(t, err, "connection setup should succeed")
 
-	_, err = db.ExecContext(context.Background(), "SELECT 2")
-	assertNilF(t, err, "subsequent SELECT should work after cancelled connection context")
+			cancelConnectionContext()
 
-	filePath := filepath.Join(t.TempDir(), "cancel_query_put.txt")
-	file, err := os.Create(filePath)
-	assertNilF(t, err)
-	assertNilF(t, file.Close())
+			_, err = db.ExecContext(context.Background(), "SELECT 1")
+			assertNilF(t, err, "subsequent SELECT should work after cancelled connection context")
 
-	putQuery := fmt.Sprintf("PUT file://%v @~/%v", filePath, "test_cancel_query_with_implicit_context")
-	_, err = db.ExecContext(context.Background(), putQuery)
-	assertNilF(t, err, "PUT statement should work after cancelled connection context")
+			filePath := filepath.Join(t.TempDir(), "cancel_query_put.txt")
+			file, err := os.Create(filePath)
+			assertNilF(t, err)
+			assertNilF(t, file.Close())
+
+			putQuery := fmt.Sprintf("PUT file://%v @~/%v", filePath, "test_cancel_query_with_connection_context")
+			_, err = db.ExecContext(context.Background(), putQuery)
+			assertNilF(t, err, "PUT statement should work after cancelled connection context")
+		})
+	}
 }
 
 func TestPing(t *testing.T) {
