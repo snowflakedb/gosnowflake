@@ -808,7 +808,8 @@ func newGcsClient(cfg *Config, telemetry *snowflakeTelemetry) (gcsAPI, error) {
 	if err != nil {
 		return nil, err
 	}
+	retryingTransport := newRetryingTransport(transport)
 	return &http.Client{
-		Transport: transport,
+		Transport: retryingTransport,
 	}, nil
 }

@@ -370,6 +370,10 @@ func createContainerClient(clientURL string, cfg *Config, telemetry *snowflakeTe
 		return nil, err
 	}
 	return container.NewClientWithNoCredential(clientURL, &container.ClientOptions{ClientOptions: azcore.ClientOptions{
+		Retry: policy.RetryOptions{
+			MaxRetries: 3,
+			RetryDelay: 2 * time.Second,
+		},
 		Transport: &http.Client{
 			Transport: transport,
 		},
