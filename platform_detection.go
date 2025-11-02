@@ -40,7 +40,7 @@ func init() {
 	platformDetectionDone = make(chan struct{})
 	go func() {
 		detectedPlatformsCache = detectPlatforms(context.Background(), 200 * time.Millisecond)
-		close(platformDetectionDone)
+		defer close(platformDetectionDone)
 	}()
 }
 
