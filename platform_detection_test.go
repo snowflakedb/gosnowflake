@@ -16,8 +16,10 @@ type platformDetectionTestCase struct {
 	expectedResult   []string
 }
 
-func clearPlatformEnvVars() {
-	envVars := []string{
+type envSnapshot map[string]string
+
+func setupCleanPlatformEnv() func() {
+	platformEnvVars := []string{
 		"AWS_LAMBDA_TASK_ROOT",
 		"GITHUB_ACTIONS",
 		"FUNCTIONS_WORKER_RUNTIME",
@@ -31,8 +33,20 @@ func clearPlatformEnvVars() {
 		"IDENTITY_HEADER",
 		disablePlatformDetectionEnv,
 	}
-	for _, env := range envVars {
+
+	snapshot := make(envSnapshot)
+	for _, env := range platformEnvVars {
+		snapshot[env] = os.Getenv(env)
+	}
+
+	for _, env := range platformEnvVars {
 		os.Unsetenv(env)
+	}
+
+	return func() {
+		for env, value := range snapshot {
+			os.Setenv(env, value)
+		}
 	}
 }
 
@@ -172,11 +186,12 @@ func TestDetectPlatforms(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			clearPlatformEnvVars()
+			cleanup := setupCleanPlatformEnv()
+			defer cleanup()
+
 			for key, value := range tc.envVars {
 				os.Setenv(key, value)
 			}
-			defer clearPlatformEnvVars()
 
 			wiremock.registerMappings(t, tc.wiremockMappings...)
 			wiremockCleanup := setupWiremockMetadataEndpoints()
@@ -191,7 +206,9 @@ func TestDetectPlatforms(t *testing.T) {
 }
 
 func TestDetectPlatformsTimeout(t *testing.T) {
-	clearPlatformEnvVars()
+	cleanup := setupCleanPlatformEnv()
+	defer cleanup()
+
 	wiremock.registerMappings(t, newWiremockMapping("platform_detection/timeout_response.json"))
 	wiremockCleanup := setupWiremockMetadataEndpoints()
 	defer wiremockCleanup()
