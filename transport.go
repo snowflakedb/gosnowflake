@@ -47,6 +47,14 @@ type transportFactory struct {
 	telemetry *snowflakeTelemetry
 }
 
+func (tf *transportConfig) String() string {
+	return fmt.Sprintf("{MaxIdleConns: %d, IdleConnTimeout: %s, DialTimeout: %s, KeepAlive: %s}",
+		tf.MaxIdleConns,
+		tf.IdleConnTimeout,
+		tf.DialTimeout,
+		tf.KeepAlive)
+}
+
 // NewTransportFactory creates a new transport factory
 func newTransportFactory(config *Config, telemetry *snowflakeTelemetry) *transportFactory {
 	return &transportFactory{config: config, telemetry: telemetry}
@@ -56,9 +64,9 @@ func (tf *transportFactory) createProxy(transportConfig *transportConfig) func(*
 	if transportConfig.DisableProxy {
 		return nil
 	}
-	logger.Info("Initializing proxy configuration")
+	logger.Debug("Initializing proxy configuration")
 	if tf.config == nil || tf.config.ProxyHost == "" {
-		logger.Info("Config is empty or ProxyHost is not set. Using proxy settings from environment variables.")
+		logger.Debug("Config is empty or ProxyHost is not set. Using proxy settings from environment variables.")
 		return http.ProxyFromEnvironment
 	}
 
@@ -68,9 +76,9 @@ func (tf *transportFactory) createProxy(transportConfig *transportConfig) func(*
 	}
 	if tf.config.ProxyUser != "" && tf.config.ProxyPassword != "" {
 		connectionProxy.User = url.UserPassword(tf.config.ProxyUser, tf.config.ProxyPassword)
-		logger.Infof("Connection Proxy is configured: Connection proxy %s:****@%s NoProxy:", tf.config.ProxyUser, connectionProxy.Host, tf.config.NoProxy)
+		logger.Infof("Connection Proxy is configured: Connection proxy %v: ****@%v NoProxy:%v", tf.config.ProxyUser, connectionProxy.Host, tf.config.NoProxy)
 	} else {
-		logger.Infof("Connection Proxy is configured: Connection proxy: %s NoProxy:", connectionProxy.Host, tf.config.NoProxy)
+		logger.Infof("Connection Proxy is configured: Connection proxy: %v NoProxy: %v", connectionProxy.Host, tf.config.NoProxy)
 	}
 
 	cfg := httpproxy.Config{
@@ -87,6 +95,7 @@ func (tf *transportFactory) createProxy(transportConfig *transportConfig) func(*
 
 // createBaseTransport creates a base HTTP transport with the given configuration
 func (tf *transportFactory) createBaseTransport(transportConfig *transportConfig, tlsConfig *tls.Config) *http.Transport {
+	logger.Debug("Create a new Base Transport with transportConfig %v", transportConfig.String())
 	dialer := &net.Dialer{
 		Timeout:   transportConfig.DialTimeout,
 		KeepAlive: transportConfig.KeepAlive,

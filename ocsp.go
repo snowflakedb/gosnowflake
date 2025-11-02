@@ -181,6 +181,7 @@ func newOcspValidator(cfg *Config) *ocspValidator {
 	var cacheServerURL, retryURL string
 	var ok bool
 
+	logger.Debug("initializing OCSP module")
 	if cacheServerURL, ok = os.LookupEnv(cacheServerURLEnv); ok {
 		logger.Debugf("OCSP Cache Server already set by user for %v: %v", cfg.Host, cacheServerURL)
 	} else if isPrivateLink {
@@ -960,7 +961,7 @@ func extractOCSPCacheResponseValue(certIDKey *certIDKey, certCacheValue *certCac
 	}
 	status, ok := ocspParsedRespCache[cacheKey]
 	if !ok {
-		logger.Debugf("OCSP status not found in cache; certIdKey: %v", certIDKey)
+		logger.Tracef("OCSP status not found in cache; certIdKey: %v", certIDKey)
 		var err error
 		var b []byte
 		b, err = base64.StdEncoding.DecodeString(certCacheValue.ocspRespBase64)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"log"
 	"math"
@@ -868,6 +869,70 @@ func TestBulkArrayBinding(t *testing.T) {
 		if cnt != numRows {
 			t.Fatalf("expected %v rows, got %v", numRows, cnt)
 		}
+	})
+}
+
+func TestSupportedDecfloatBind(t *testing.T) {
+	t.Run("dont panic on nil UUID", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilUUID *UUID
+		nv := driver.NamedValue{Value: nilUUID}
+		shouldBind := supportedDecfloatBind(&nv) // should not panic and return false
+		assertFalseE(t, shouldBind, "expected not to support binding nil *UUID")
+	})
+
+	t.Run("dont panic on nil pointer array", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilArray *[]string
+		nv := driver.NamedValue{Value: nilArray}
+		shouldBind := supportedDecfloatBind(&nv) // should not panic and return false
+		assertFalseE(t, shouldBind, "expected not to support binding nil []string")
+	})
+
+	t.Run("dont panic on nil pointer", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilTime *time.Time
+		nv := driver.NamedValue{Value: nilTime}
+		shouldBind := supportedDecfloatBind(&nv) // should not panic and return false
+		assertFalseE(t, shouldBind, "expected not to support binding nil *time.Time")
+	})
+
+	t.Run("dont panic on nil *big.Float", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilBigFloat *big.Float
+		nv := driver.NamedValue{Value: nilBigFloat}
+		shouldBind := supportedDecfloatBind(&nv) // should not panic and return false
+		assertFalseE(t, shouldBind, "expected not to support binding nil *big.Float")
+	})
+
+	t.Run("Is Valid for big.Float", func(t *testing.T) {
+		val := big.NewFloat(123.456)
+		nv := driver.NamedValue{Value: val}
+		shouldBind := supportedDecfloatBind(&nv)
+		assertTrueE(t, shouldBind, "expected to support binding big.Float")
+	})
+
+	t.Run("Is Not Valid for other types", func(t *testing.T) {
+		val := 123.456 // float64
+		nv := driver.NamedValue{Value: val}
+		shouldBind := supportedDecfloatBind(&nv)
+		assertFalseE(t, shouldBind, "expected not to support binding float64")
 	})
 }
 

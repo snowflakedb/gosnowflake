@@ -28,6 +28,7 @@ const (
 // By default, SNOWFLAKE_HOME(toml file path) is os.snowflakeHome/.snowflake
 // and SNOWFLAKE_DEFAULT_CONNECTION_NAME(DSN) is 'default'
 func loadConnectionConfig() (*Config, error) {
+	logger.Trace("Loading connection configuration from the local files.")
 	cfg := &Config{
 		Params:        make(map[string]*string),
 		Authenticator: AuthTypeSnowflake, // Default to snowflake
@@ -37,6 +38,7 @@ func loadConnectionConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("Looking for connection file in directory %v", snowflakeConfigDir)
 	tomlFilePath := path.Join(snowflakeConfigDir, "connections.toml")
 	err = validateFilePermission(tomlFilePath)
 	if err != nil {
@@ -58,6 +60,7 @@ func loadConnectionConfig() (*Config, error) {
 	if !ok {
 		return nil, err
 	}
+	logger.Trace("Trying to parse the config file")
 	err = parseToml(cfg, connectionConfig)
 	if err != nil {
 		return nil, err
@@ -250,8 +253,10 @@ func checkParsingError(err error, key string, value interface{}) error {
 			Message:     errMsgFailedToParseTomlFile,
 			MessageArgs: []interface{}{key, value},
 		}
+		logger.Errorf("Parsed key: %s, value: %v is not an option for the connection config", key, value)
 		return err
 	}
+	logger.Warnf("Parsed key: %s, value: %v — cannot be parsed as string", key, value)
 	return nil
 }
 

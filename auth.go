@@ -361,6 +361,7 @@ func authenticate(
 	// Get the current application path
 	applicationPath, err := os.Executable()
 	if err != nil {
+		logger.WithContext(ctx).Warnf("Failed to get executable path: %v", err)
 		applicationPath = "unknown"
 	}
 
@@ -417,8 +418,8 @@ func authenticate(
 		params.Add("roleName", sc.cfg.Role)
 	}
 
-	logger.WithContext(ctx).Infof("PARAMS for Auth: %v, %v, %v, %v, %v, %v",
-		params, sc.rest.Protocol, sc.rest.Host, sc.rest.Port, sc.rest.LoginTimeout, sc.cfg.Authenticator.String())
+	logger.WithContext(ctx).Infof("Information for Auth: Host: %v, User: %v, Authenticator: %v, Params: %v, Protocol: %v, Port: %v, LoginTimeout: %v",
+		sc.rest.Host, sc.cfg.User, sc.cfg.Authenticator.String(), params, sc.rest.Protocol, sc.rest.Port, sc.rest.LoginTimeout)
 
 	respd, err := sc.rest.FuncPostAuth(ctx, sc.rest, sc.rest.getClientFor(sc.cfg.Authenticator), params, headers, bodyCreator, sc.rest.LoginTimeout)
 	if err != nil {
@@ -572,11 +573,14 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		requestMain.Provider = wifAttestation.ProviderType
 	}
 
+	logger.WithContext(sc.ctx).Debugf("Request body is created for the authentication. Authenticator: %s, User: %s, Account: %s", sc.cfg.Authenticator.String(), sc.cfg.User, sc.cfg.Account)
+
 	authRequest := authRequest{
 		Data: requestMain,
 	}
 	jsonBody, err := json.Marshal(authRequest)
 	if err != nil {
+		logger.WithContext(sc.ctx).Errorf("Failed to marshal JSON. err: %v", err)
 		return nil, err
 	}
 	return jsonBody, nil
