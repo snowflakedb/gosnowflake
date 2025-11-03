@@ -221,3 +221,34 @@ func TestDetectPlatformsTimeout(t *testing.T) {
 	assertTrueF(t, executionTime >= 200*time.Millisecond && executionTime < 250*time.Millisecond,
 		fmt.Sprintf("Expected execution time around 200ms, got: %v", executionTime))
 }
+
+func TestIsValidArnForWif(t *testing.T) {
+	testCases := []struct {
+		arn      string
+		expected bool
+	}{
+		{"arn:aws:iam::123456789012:user/JohnDoe", true},
+		{"arn:aws:sts::123456789012:assumed-role/RoleName/SessionName", true},
+		{"invalid-arn-format", false},
+		{"arn:aws:iam::account:root", false},
+		{"arn:aws:iam::123456789012:group/Developers", false},
+		{"arn:aws:iam::123456789012:role/S3Access", false},
+		{"arn:aws:iam::123456789012:policy/UsersManageOwnCredentials", false},
+		{"arn:aws:iam::123456789012:instance-profile/Webserver", false},
+		{"arn:aws:sts::123456789012:federated-user/John", false},
+		{"arn:aws:sts::account:self", false},
+		{"arn:aws:iam::123456789012:mfa/JaneMFA", false},
+		{"arn:aws:iam::123456789012:u2f/user/John/default", false},
+		{"arn:aws:iam::123456789012:server-certificate/ProdServerCert", false},
+		{"arn:aws:iam::123456789012:saml-provider/ADFSProvider", false},
+		{"arn:aws:iam::123456789012:oidc-provider/GoogleProvider", false},
+		{"arn:aws:iam::aws:contextProvider/IdentityCenter", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.arn, func(t *testing.T) {
+			result := isValidArnForWif(tc.arn)
+			assertEqualF(t, result, tc.expected, fmt.Sprintf("ARN validation failed for: %s", tc.arn))
+		})
+	}
+}
