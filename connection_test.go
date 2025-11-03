@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"net/http"
 	"net/url"
@@ -238,6 +239,72 @@ func TestGetQueryResultTokenNotSet(t *testing.T) {
 	assertEqualF(t, updatedToken, expectedToken)
 	assertEqualF(t, updatedMaster, expectedMaster)
 	assertEqualF(t, updatedSession, expectedSession)
+}
+
+func TestCheckNamedValue(t *testing.T) {
+	sc := &snowflakeConn{}
+
+	t.Run("dont panic on nil UUID", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilUUID *UUID
+		nv := driver.NamedValue{Value: nilUUID}
+		err := sc.CheckNamedValue(&nv) // should not panic and return false
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding nil *UUID")
+	})
+
+	t.Run("dont panic on nil pointer array", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilArray *[]string
+		nv := driver.NamedValue{Value: nilArray}
+		err := sc.CheckNamedValue(&nv) // should not panic and return false
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding nil []string")
+	})
+
+	t.Run("dont panic on nil pointer", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilTime *time.Time
+		nv := driver.NamedValue{Value: nilTime}
+		err := sc.CheckNamedValue(&nv) // should not panic and return false
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding nil *time.Time")
+	})
+
+	t.Run("dont panic on nil *big.Float", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilBigFloat *big.Float
+		nv := driver.NamedValue{Value: nilBigFloat}
+		err := sc.CheckNamedValue(&nv) // should not panic and return false
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding nil *big.Float")
+	})
+
+	t.Run("Is Valid for big.Float", func(t *testing.T) {
+		val := big.NewFloat(123.456)
+		nv := driver.NamedValue{Value: val}
+		err := sc.CheckNamedValue(&nv)
+		assertNilE(t, err, "expected to support binding big.Float")
+	})
+
+	t.Run("Is Not Valid for other types", func(t *testing.T) {
+		val := 123.456 // float64
+		nv := driver.NamedValue{Value: val}
+		err := sc.CheckNamedValue(&nv)
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding float64")
+	})
 }
 
 func TestExecWithSpecificRequestID(t *testing.T) {

@@ -199,6 +199,18 @@ func (c *Config) transportConfigFor(transportType transportType) *transportConfi
 	return defaultTransportConfigs.forTransportType(transportType)
 }
 
+func (c *Config) describeIdentityAttributes() string {
+	return fmt.Sprintf("host: %v, account: %v, user: %v, password existed: %v, role: %v, database: %v, schema: %v, warehouse: %v, %v",
+		c.Host, c.Account, c.User, (c.Password != ""), c.Role, c.Database, c.Schema, c.Warehouse, c.describeProxy())
+}
+
+func (c *Config) describeProxy() string {
+	if c.ProxyHost != "" {
+		return fmt.Sprintf("proxyHost: %v, proxyPort: %v proxyUser: %v, proxyPassword %v, proxyProtocol: %v, noProxy: %v", c.ProxyHost, c.ProxyPort, c.ProxyUser, c.ProxyPassword != "", c.ProxyProtocol, c.NoProxy)
+	}
+	return "proxy was not configured"
+}
+
 // DSN constructs a DSN for Snowflake db.
 func DSN(cfg *Config) (dsn string, err error) {
 	if strings.ToLower(cfg.Region) == "us-west-2" {

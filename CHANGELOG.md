@@ -2,6 +2,7 @@
 
 ## Upcoming Release
 
+- Fix unsafe reflection of nil pointer on DECFLOAT func in bind uploader (snowflakedb/gosnowflake#1604).
 - Added temporary download files cleanup (snowflakedb/gosnowflake#1577)
 - Marked fields as deprecated (snowflakedb/gosnowflake#1556)
 - Exposed `QueryStatus` from `SnowflakeResult` and `SnowflakeRows` in `GetStatus()` function (snowflakedb/gosnowflake#1556)
@@ -20,7 +21,8 @@
 -
 - Moved keyring-based secure storage manager into separate file to avoid the need to initialize keyring on Linux. (snowflakedb/gosnowflake#1595)
 -
--
+- Enabling official support for RHEL9 by testing and enabling CI/CD checks for Rocky Linux in CICD, (snowflakedb/gosnowflake#1597)
+- Improve logging (snowflakedb/gosnowflake#1570)
 
 ## 1.17.0
 
