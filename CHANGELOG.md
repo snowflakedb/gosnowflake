@@ -10,9 +10,8 @@
 - Added small clarification in oauth.go example on token escaping (snowflakedb/gosnowflake#1574)
 - Ensured proper permissions for CRL cache directory (snowflakedb/gosnowflake#1588)
 - Added `CrlDownloadMaxSize` to limit the size of CRL downloads (snowflakedb/gosnowflake#1588)
-- Added platform telemetry to login requests. Can be disabled with `SNOWFLAKE_DISABLE_PLATFORM_DETECTION` environment variable. (snowflakedb/gosnowflake#1601)
-- Bypassed proxy settings for WIF metadata requests (snowflakedb/gosnowflake#1593)
--
+- Added platform telemetry to login requests. Can be disabled with `SNOWFLAKE_DISABLE_PLATFORM_DETECTION` environment variable (snowflakedb/gosnowflake#1601)
+- Fixed a bug where GCP PUT/GET operations would fail when the connection context was cancelled (snowflakedb/gosnowflake#1584)
 -
 -
 - Fixed nil pointer dereference while calling long-running queries (snowflakedb/gosnowflake#1592) (snowflakedb/gosnowflake#1596)
