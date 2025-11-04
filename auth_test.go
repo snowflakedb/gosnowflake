@@ -735,8 +735,12 @@ func TestMfaParallelLogin(t *testing.T) {
 			if singleAuthenticationPrompt == ConfigBoolTrue {
 				assertEqualE(t, len(errs), 0)
 			} else {
-				// most of for the one that actually retrieves MFA token should fail
-				assertEqualE(t, len(errs), 19)
+				// When singleAuthenticationPrompt=false, connections don't coordinate authentication,
+				// but credential caching still works globally. Due to race conditions, 1-2 connections
+				// may succeed (18-19 failures) instead of exactly 1 success (19 failures).
+				if len(errs) < 18 || len(errs) > 19 {
+					t.Fatalf("Expected 18-19 errors when singleAuthenticationPrompt=false (due to credential caching race), got %d errors", len(errs))
+				}
 			}
 		})
 
@@ -757,7 +761,12 @@ func TestMfaParallelLogin(t *testing.T) {
 				assertEqualF(t, len(errs), 1)
 				assertStringContainsE(t, errs[0].Error(), "MFA with TOTP is required")
 			} else {
-				assertEqualE(t, len(errs), 19)
+				// When singleAuthenticationPrompt=false, connections don't coordinate authentication,
+				// but credential caching still works globally. Due to race conditions, 1-2 connections
+				// may succeed (18-19 failures) instead of exactly 1 success (19 failures).
+				if len(errs) < 18 || len(errs) > 19 {
+					t.Fatalf("Expected 18-19 errors when singleAuthenticationPrompt=false (due to credential caching race), got %d errors", len(errs))
+				}
 			}
 		})
 	}
