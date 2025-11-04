@@ -1,6 +1,10 @@
 package gosnowflake
 
-import "regexp"
+import (
+	"fmt"
+	"regexp"
+	"sync"
+)
 
 const (
 	awsKeyPattern          = `(?i)(aws_key_id|aws_secret_key|access_key_id|secret_access_key)\s*=\s*'([^']+)'`
@@ -17,73 +21,102 @@ const (
 )
 
 var (
-	awsKeyRegexp          = regexp.MustCompile(awsKeyPattern)
-	awsTokenRegexp        = regexp.MustCompile(awsTokenPattern)
-	sasTokenRegexp        = regexp.MustCompile(sasTokenPattern)
-	privateKeyRegexp      = regexp.MustCompile(privateKeyPattern)
-	privateKeyDataRegexp  = regexp.MustCompile(privateKeyDataPattern)
-	privateKeyParamRegexp = regexp.MustCompile(privateKeyParamPattern)
-	connectionTokenRegexp = regexp.MustCompile(connectionTokenPattern)
-	passwordRegexp        = regexp.MustCompile(passwordPattern)
-	dsnPasswordRegexp     = regexp.MustCompile(dsnPasswordPattern)
-	clientSecretRegexp    = regexp.MustCompile(clientSecretPattern)
-	jwtTokenRegexp        = regexp.MustCompile(jwtTokenPattern)
+	initRegexpOnce        sync.Once
+	awsKeyRegexp          *regexp.Regexp
+	awsTokenRegexp        *regexp.Regexp
+	sasTokenRegexp        *regexp.Regexp
+	privateKeyRegexp      *regexp.Regexp
+	privateKeyDataRegexp  *regexp.Regexp
+	privateKeyParamRegexp *regexp.Regexp
+	connectionTokenRegexp *regexp.Regexp
+	passwordRegexp        *regexp.Regexp
+	dsnPasswordRegexp     *regexp.Regexp
+	clientSecretRegexp    *regexp.Regexp
+	jwtTokenRegexp        *regexp.Regexp
 )
 
-func maskConnectionToken(text string) string {
-	return connectionTokenRegexp.ReplaceAllString(text, "$1${2}****")
+func registerRegexps() {
+	awsKeyRegexp = regexp.MustCompile(awsKeyPattern)
+	awsTokenRegexp = regexp.MustCompile(awsTokenPattern)
+	sasTokenRegexp = regexp.MustCompile(sasTokenPattern)
+	privateKeyRegexp = regexp.MustCompile(privateKeyPattern)
+	privateKeyDataRegexp = regexp.MustCompile(privateKeyDataPattern)
+	privateKeyParamRegexp = regexp.MustCompile(privateKeyParamPattern)
+	connectionTokenRegexp = regexp.MustCompile(connectionTokenPattern)
+	passwordRegexp = regexp.MustCompile(passwordPattern)
+	dsnPasswordRegexp = regexp.MustCompile(dsnPasswordPattern)
+	clientSecretRegexp = regexp.MustCompile(clientSecretPattern)
+	jwtTokenRegexp = regexp.MustCompile(jwtTokenPattern)
 }
 
-func maskPassword(text string) string {
-	return passwordRegexp.ReplaceAllString(text, "$1${2}****")
+type secretmasker string
+
+func (s secretmasker) maskConnectionToken() secretmasker {
+	return secretmasker(connectionTokenRegexp.ReplaceAllString(fmt.Sprint(s), "$1${2}****"))
 }
 
-func maskDsnPassword(text string) string {
-	return dsnPasswordRegexp.ReplaceAllString(text, "$1:****@")
+func (s secretmasker) maskPassword() secretmasker {
+	return secretmasker(passwordRegexp.ReplaceAllString(fmt.Sprint(s), "$1${2}****"))
 }
 
-func maskAwsKey(text string) string {
-	return awsKeyRegexp.ReplaceAllString(text, "${1}****$2")
+func (s secretmasker) maskDsnPassword() secretmasker {
+	return secretmasker(dsnPasswordRegexp.ReplaceAllString(fmt.Sprint(s), "$1:****@"))
 }
 
-func maskAwsToken(text string) string {
-	return awsTokenRegexp.ReplaceAllString(text, "${1}XXXX$2")
+func (s secretmasker) maskAwsKey() secretmasker {
+	return secretmasker(awsKeyRegexp.ReplaceAllString(fmt.Sprint(s), "${1}****$2"))
 }
 
-func maskSasToken(text string) string {
-	return sasTokenRegexp.ReplaceAllString(text, "${1}****$2")
-}
-func maskPrivateKey(text string) string {
-	return privateKeyRegexp.ReplaceAllString(text, "-----BEGIN PRIVATE KEY-----\\\\\\\\nXXXX\\\\\\\\n-----END PRIVATE KEY-----") // pragma: allowlist secret
+func (s secretmasker) maskAwsToken() secretmasker {
+	return secretmasker(awsTokenRegexp.ReplaceAllString(fmt.Sprint(s), "${1}XXXX$2"))
 }
 
-func maskPrivateKeyData(text string) string {
-	return privateKeyDataRegexp.ReplaceAllString(text, `"privateKeyData": "XXXX"`)
+func (s secretmasker) maskSasToken() secretmasker {
+	return secretmasker(sasTokenRegexp.ReplaceAllString(fmt.Sprint(s), "${1}****$2"))
+}
+func (s secretmasker) maskPrivateKey() secretmasker {
+	return secretmasker(privateKeyRegexp.ReplaceAllString(fmt.Sprint(s), "-----BEGIN PRIVATE KEY-----\\\\\\\\nXXXX\\\\\\\\n-----END PRIVATE KEY-----")) // pragma: allowlist secret
 }
 
-func maskClientSecret(text string) string {
-	return clientSecretRegexp.ReplaceAllString(text, "$1${2}****")
+func (s secretmasker) maskPrivateKeyData() secretmasker {
+	return secretmasker(privateKeyDataRegexp.ReplaceAllString(fmt.Sprint(s), `"privateKeyData": "XXXX"`))
 }
 
-func maskPrivateKeyParam(text string) string {
-	return privateKeyParamRegexp.ReplaceAllString(text, "privateKey=****$2")
+func (s secretmasker) maskClientSecret() secretmasker {
+	return secretmasker(clientSecretRegexp.ReplaceAllString(fmt.Sprint(s), "$1${2}****"))
 }
 
-func maskJwtToken(text string) string {
-	return jwtTokenRegexp.ReplaceAllString(text, "$1 ****")
+func (s secretmasker) maskPrivateKeyParam() secretmasker {
+	return secretmasker(privateKeyParamRegexp.ReplaceAllString(fmt.Sprint(s), "privateKey=****$2"))
+}
+
+func (s secretmasker) maskJwtToken() secretmasker {
+	return secretmasker(jwtTokenRegexp.ReplaceAllString(fmt.Sprint(s), "$1 ****"))
+}
+
+func (s secretmasker) String() string {
+	return string(s)
+}
+
+func newSecretMasker(text string) secretmasker {
+	return secretmasker(text)
 }
 
 func maskSecrets(text string) string {
-	return maskConnectionToken(
-		maskPassword(
-			maskDsnPassword(
-				maskPrivateKeyData(
-					maskPrivateKeyParam(
-						maskPrivateKey(
-							maskAwsToken(
-								maskSasToken(
-									maskAwsKey(
-										maskClientSecret(
-											maskJwtToken(
-												text)))))))))))
+	initRegexpOnce.Do(registerRegexps)
+
+	s := newSecretMasker(text)
+
+	return s.maskConnectionToken().
+		maskPassword().
+		maskDsnPassword().
+		maskPrivateKeyData().
+		maskPrivateKeyParam().
+		maskPrivateKey().
+		maskAwsToken().
+		maskSasToken().
+		maskAwsKey().
+		maskClientSecret().
+		maskJwtToken().
+		String()
 }
