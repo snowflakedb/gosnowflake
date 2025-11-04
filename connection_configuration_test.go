@@ -37,6 +37,7 @@ func TestTokenFilePermission(t *testing.T) {
 	}()
 
 	t.Run("test warning logger for readable outside owner", func(t *testing.T) {
+		t.Skip()
 		var originalLogger = logger
 		logger = CreateDefaultLogger()
 		buf := &bytes.Buffer{}

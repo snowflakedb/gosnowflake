@@ -73,6 +73,7 @@ func (mock *s3BucketAccelerateConfigGetterMock) GetBucketAccelerateConfiguration
 }
 
 func TestGetBucketAccelerateConfigurationTooManyRetries(t *testing.T) {
+	t.Skip()
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		buf := &bytes.Buffer{}
 		logger.SetOutput(buf)

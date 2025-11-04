@@ -1,12 +1,14 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -70,8 +72,32 @@ type sfTextFormatter struct {
 
 func (f *sfTextFormatter) Format(entry *rlog.Entry) ([]byte, error) {
 	// mask all secrets before calling the default Format method
-	entry.Message = maskSecrets(entry.Message)
+	entry.Message = maskSecrets(fmt.Sprintf("%v: %v", goid(), entry.Message))
 	return f.TextFormatter.Format(entry)
+}
+
+func goid() int {
+	goroutinePrefix := []byte("goroutine ")
+	buf := make([]byte, 32)
+	n := runtime.Stack(buf, false)
+	buf = buf[:n]
+	// goroutine 1 [running]: ...
+
+	buf, ok := bytes.CutPrefix(buf, goroutinePrefix)
+	if !ok {
+		return -1
+	}
+
+	i := bytes.IndexByte(buf, ' ')
+	if i < 0 {
+		return -2
+	}
+
+	atoi, err := strconv.Atoi(string(buf[:i]))
+	if err != nil {
+		return -3
+	}
+	return atoi
 }
 
 // SetLogLevel set logging level for calling defaultLogger

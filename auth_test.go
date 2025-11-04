@@ -713,6 +713,11 @@ func TestUnitAuthenticateWithConfigMFA(t *testing.T) {
 }
 
 func TestMfaParallelLogin(t *testing.T) {
+	logger.SetLogLevel("trace")
+	defer logger.SetLogLevel("error")
+	//var err error
+	//credentialsStorage, err = newFileBasedSecureStorageManager()
+	//assertNilF(t, err)
 	skipOnMissingHome(t)
 	skipOnMac(t, "interactive keyring access not available on macOS runners")
 	cfg := wiremock.connectionConfig()
