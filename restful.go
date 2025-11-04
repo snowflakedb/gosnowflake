@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -202,7 +203,7 @@ func postRestfulQuery(
 
 	data, err = sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID, cfg)
 
-	if err == context.Canceled || err == context.DeadlineExceeded {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		// For context cancel/timeout cases, a special cancel request needs to be sent.
 		if cancelErr := sr.FuncCancelQuery(context.Background(), sr, requestID, timeout); cancelErr != nil {
 			// Wrap the original error with the cancel error.

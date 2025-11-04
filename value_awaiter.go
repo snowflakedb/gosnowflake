@@ -61,7 +61,7 @@ func awaitValue[T any](valueAwaiter *valueAwaiterType, runFunc func() (T, error)
 			return defaultFactoryFunc(), nil
 		}
 	}
-	
+
 	// Value is ready - all threads should return the value.
 	logger.Tracef("awaitValue[%v] value was ready after wait", goroutineID())
 	valueAwaiter.mu.Unlock()

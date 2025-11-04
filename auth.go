@@ -180,14 +180,15 @@ var userAgent = fmt.Sprintf("%v/%v (%v-%v) %v/%v",
 	runtime.Version())
 
 type authRequestClientEnvironment struct {
-	Application             string `json:"APPLICATION"`
-	ApplicationPath         string `json:"APPLICATION_PATH"`
-	Os                      string `json:"OS"`
-	OsVersion               string `json:"OS_VERSION"`
-	OCSPMode                string `json:"OCSP_MODE"`
-	GoVersion               string `json:"GO_VERSION"`
-	OAuthType               string `json:"OAUTH_TYPE,omitempty"`
-	CertRevocationCheckMode string `json:"CERT_REVOCATION_CHECK_MODE,omitempty"`
+	Application             string   `json:"APPLICATION"`
+	ApplicationPath         string   `json:"APPLICATION_PATH"`
+	Os                      string   `json:"OS"`
+	OsVersion               string   `json:"OS_VERSION"`
+	OCSPMode                string   `json:"OCSP_MODE"`
+	GoVersion               string   `json:"GO_VERSION"`
+	OAuthType               string   `json:"OAUTH_TYPE,omitempty"`
+	CertRevocationCheckMode string   `json:"CERT_REVOCATION_CHECK_MODE,omitempty"`
+	Platform                []string `json:"PLATFORM,omitempty"`
 }
 
 type authRequestData struct {
@@ -381,6 +382,7 @@ func authenticate(
 		GoVersion:               runtime.Version(),
 		OAuthType:               oauthType,
 		CertRevocationCheckMode: sc.cfg.CertRevocationCheckMode.String(),
+		Platform:                getDetectedPlatforms(),
 	}
 
 	sessionParameters := make(map[string]interface{})
