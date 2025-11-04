@@ -728,7 +728,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 				}, func() string {
 					return ""
 				})
-			} else if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue {
+			} else if sc.cfg.ClientStoreTemporaryCredential == ConfigBoolTrue && sc.cfg.SingleAuthenticationPrompt != ConfigBoolFalse {
 				sc.cfg.IDToken = credentialsStorage.getCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User))
 			}
 		}
@@ -753,7 +753,7 @@ func authenticateWithConfig(sc *snowflakeConn) error {
 			}, func() string {
 				return ""
 			})
-		} else if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue {
+		} else if sc.cfg.ClientRequestMfaToken == ConfigBoolTrue && sc.cfg.SingleAuthenticationPrompt != ConfigBoolFalse {
 			sc.cfg.MfaToken = credentialsStorage.getCredential(newMfaTokenSpec(sc.cfg.Host, sc.cfg.User))
 		}
 	}
