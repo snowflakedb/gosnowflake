@@ -126,6 +126,7 @@ type Config struct {
 	tlsConfig     *tls.Config // Custom TLS configuration
 	TLSConfigName string      // Name of the TLS config to use
 
+	// Deprecated: will be removed in a future release and replaced with a session parameter.
 	DisableTelemetry bool // indicates whether to disable telemetry
 
 	// Deprecated: may be removed in a future release with logging reorganization.
