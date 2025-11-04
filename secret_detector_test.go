@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -83,4 +84,100 @@ func TestClientSecret(t *testing.T) {
 	text := maskSecrets("clientSecret abc oauthClientSECRET=def")
 	expected := "clientSecret **** oauthClientSECRET=****"
 	assertEqualE(t, text, expected)
+}
+
+func TestMaskSecretsThreadSafety(t *testing.T) {
+	// Function to create isolated test cases for each goroutine
+	createTestCases := func() []struct {
+		name     string
+		input    string
+		expected string
+	} {
+		return []struct {
+			name     string
+			input    string
+			expected string
+		}{
+			{"Token", "Token =" + longToken, "Token =****"},
+			{"Password", "password:" + randomPassword, "password:****"},
+			{"Client Secret", "clientSecret abc", "clientSecret ****"},
+			{"Mixed", "token=" + longToken + " password:" + randomPassword, "token=**** password:****"},
+			{"JWT Token", "jwt: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", "jwt ****"},
+			{"Access Token", "accessToken : " + longToken, "accessToken : ****"},
+			{"Master Token", "masterToken : " + longToken, "masterToken : ****"},
+		}
+	}
+
+	const numGoroutines = 50
+	const iterationsPerGoroutine = 100
+
+	var wg sync.WaitGroup
+	errorsChan := make(chan error, numGoroutines*iterationsPerGoroutine)
+
+	// Start multiple goroutines
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(goroutineID int) {
+			defer wg.Done()
+
+			// Create isolated test cases for this goroutine
+			testCases := createTestCases()
+
+			// Each goroutine runs multiple iterations
+			for j := 0; j < iterationsPerGoroutine; j++ {
+				// Test each case
+				for _, tc := range testCases {
+					result := maskSecrets(tc.input)
+					if result != tc.expected {
+						errorsChan <- &testError{
+							goroutineID: goroutineID,
+							iteration:   j,
+							testCase:    tc.name,
+							input:       tc.input,
+							expected:    tc.expected,
+							actual:      result,
+						}
+						return
+					}
+				}
+			}
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+	close(errorsChan)
+
+	// Check for any errors
+	var errors []*testError
+	for err := range errorsChan {
+		errors = append(errors, err.(*testError))
+	}
+
+	if len(errors) > 0 {
+		t.Errorf("Thread safety test failed with %d errors:", len(errors))
+		for _, err := range errors {
+			t.Errorf("Goroutine %d, iteration %d, test case '%s': expected '%s', got '%s' for input '%s'",
+				err.goroutineID, err.iteration, err.testCase, err.expected, err.actual, err.input)
+		}
+	}
+
+	// Calculate total calls (7 test cases per iteration)
+	totalCalls := numGoroutines * iterationsPerGoroutine * 7
+	t.Logf("Successfully completed %d goroutines with %d iterations each (%d total maskSecrets calls)",
+		numGoroutines, iterationsPerGoroutine, totalCalls)
+}
+
+// testError is a custom error type for capturing test failures in goroutines
+type testError struct {
+	goroutineID int
+	iteration   int
+	testCase    string
+	input       string
+	expected    string
+	actual      string
+}
+
+func (e *testError) Error() string {
+	return "maskSecrets thread safety test failure"
 }
