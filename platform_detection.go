@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,14 +33,14 @@ var (
 )
 
 var (
-	detectedPlatformsCache   []string
-	platformDetectionDone    chan struct{}
+	detectedPlatformsCache []string
+	platformDetectionDone  chan struct{}
 )
 
 func init() {
 	platformDetectionDone = make(chan struct{})
 	go func() {
-		detectedPlatformsCache = detectPlatforms(context.Background(), 200 * time.Millisecond)
+		detectedPlatformsCache = detectPlatforms(context.Background(), 200*time.Millisecond)
 		defer close(platformDetectionDone)
 	}()
 }
@@ -67,9 +68,9 @@ type detectorFunc struct {
 }
 
 func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
-  if os.Getenv(disablePlatformDetectionEnv) != "" {
-    return []string{"disabled"}
-  }
+	if strings.EqualFold(os.Getenv(disablePlatformDetectionEnv), "true") {
+		return []string{"disabled"}
+	}
 
 	detectors := []detectorFunc{
 		{name: "is_aws_lambda", fn: detectAwsLambdaEnv},
