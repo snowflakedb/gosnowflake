@@ -1,0 +1,308 @@
+{
+  "mappings": [
+    {
+      "scenarioName": "HTTP 307 retry",
+      "newScenarioState": "Successful login",
+      "request": {
+        "urlPathPattern": "/session/v1/login-request.*",
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "equalToJson": {
+              "data": {
+                "LOGIN_NAME": "testUser",
+                "PASSWORD": "testPassword"
+              }
+            },
+            "ignoreExtraElements": true
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "data": {
+            "masterToken": "master token",
+            "token": "session token",
+            "validityInSeconds": 3600,
+            "masterValidityInSeconds": 14400,
+            "displayUserName": "TEST_USER",
+            "serverVersion": "8.48.0 b2024121104444034239f05",
+            "firstLogin": false,
+            "remMeToken": null,
+            "remMeValidityInSeconds": 0,
+            "healthCheckInterval": 45,
+            "newClientForUpgrade": "3.12.3",
+            "sessionId": 1172562260498,
+            "parameters": [
+              {
+                "name": "CLIENT_PREFETCH_THREADS",
+                "value": 4
+              }
+            ],
+            "sessionInfo": {
+              "databaseName": "TEST_DB",
+              "schemaName": "TEST_GO",
+              "warehouseName": "TEST_XSMALL",
+              "roleName": "ANALYST"
+            },
+            "idToken": null,
+            "idTokenValidityInSeconds": 0,
+            "responseData": null,
+            "mfaToken": "mfa-token",
+            "mfaTokenValidityInSeconds": 0
+          },
+          "code": null,
+          "message": null,
+          "success": true
+        },
+        "fixedDelayMilliseconds": 2000
+      }
+    },
+    {
+      "scenarioName": "HTTP 307 retry",
+      "requiredScenarioState": "Successful login",
+      "newScenarioState": "Query attempt with HTTP 307 response",
+      "request": {
+        "urlPathPattern": "/queries/v1/query-request.*",
+        "method": "POST"
+      },
+      "response": {
+        "status": 307,
+        "headers": {
+          "Location": "/temp-redirect-1"
+        }
+      }
+    },
+    {
+      "scenarioName": "HTTP 307 retry",
+      "requiredScenarioState": "Query attempt with HTTP 307 response",
+      "newScenarioState": "307 redirect followed and times out",
+      "request": {
+        "urlPathPattern": "/temp-redirect-1",
+        "method": "POST"
+      },
+      "response": {
+        "fixedDelayMilliseconds": 65000
+      }
+    },
+    {
+      "scenarioName": "HTTP 307 retry",
+      "requiredScenarioState": "307 redirect followed and times out",
+      "newScenarioState": "Retry attempt successful",
+      "request": {
+        "urlPathPattern": "/queries/v1/query-request.*",
+        "method": "POST"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "date": "Fri, 31 Oct 2025 06:26:51 GMT",
+          "cache-control": "no-cache, no-store",
+          "content-type": "application/json",
+          "vary": "Accept-Encoding, User-Agent",
+          "server": "SF-LB",
+          "x-envoy-upstream-service-time": "72",
+          "x-content-type-options": "nosniff",
+          "x-xss-protection": "1; mode=block",
+          "expect-ct": "enforce, max-age=3600",
+          "strict-transport-security": "max-age=31536000",
+          "x-snowflake-fe-instance": "-",
+          "x-snowflake-fe-config": "v20251022.0.0-4d0dc170.1761148450.prod1.1761891997993",
+          "x-frame-options": "deny",
+          "x-envoy-attempt-count": "1",
+          "transfer-encoding": "chunked"
+        },
+        "jsonBody": {
+          "data": {
+            "parameters": [
+              {
+                "name": "TIMESTAMP_OUTPUT_FORMAT",
+                "value": "YYYY-MM-DD HH24:MI:SS.FF3 TZHTZM"
+              },
+              {
+                "name": "CLIENT_PREFETCH_THREADS",
+                "value": 4
+              },
+              {
+                "name": "JS_TREAT_INTEGER_AS_BIGINT",
+                "value": false
+              },
+              {
+                "name": "TIME_OUTPUT_FORMAT",
+                "value": "HH24:MI:SS"
+              },
+              {
+                "name": "CLIENT_RESULT_CHUNK_SIZE",
+                "value": 160
+              },
+              {
+                "name": "TIMESTAMP_TZ_OUTPUT_FORMAT",
+                "value": ""
+              },
+              {
+                "name": "CLIENT_SESSION_KEEP_ALIVE",
+                "value": false
+              },
+              {
+                "name": "CLIENT_OUT_OF_BAND_TELEMETRY_ENABLED",
+                "value": false
+              },
+              {
+                "name": "CLIENT_METADATA_USE_SESSION_DATABASE",
+                "value": false
+              },
+              {
+                "name": "QUERY_CONTEXT_CACHE_SIZE",
+                "value": 5
+              },
+              {
+                "name": "ENABLE_STAGE_S3_PRIVATELINK_FOR_US_EAST_1",
+                "value": true
+              },
+              {
+                "name": "TIMESTAMP_NTZ_OUTPUT_FORMAT",
+                "value": "YYYY-MM-DD HH24:MI:SS.FF3"
+              },
+              {
+                "name": "CLIENT_RESULT_PREFETCH_THREADS",
+                "value": 1
+              },
+              {
+                "name": "CLIENT_METADATA_REQUEST_USE_CONNECTION_CTX",
+                "value": false
+              },
+              {
+                "name": "CLIENT_HONOR_CLIENT_TZ_FOR_TIMESTAMP_NTZ",
+                "value": true
+              },
+              {
+                "name": "CLIENT_MEMORY_LIMIT",
+                "value": 1536
+              },
+              {
+                "name": "CLIENT_TIMESTAMP_TYPE_MAPPING",
+                "value": "TIMESTAMP_NTZ"
+              },
+              {
+                "name": "TIMEZONE",
+                "value": "America/Los_Angeles"
+              },
+              {
+                "name": "CLIENT_RESULT_PREFETCH_SLOTS",
+                "value": 2
+              },
+              {
+                "name": "CLIENT_TELEMETRY_ENABLED",
+                "value": true
+              },
+              {
+                "name": "CLIENT_DISABLE_INCIDENTS",
+                "value": true
+              },
+              {
+                "name": "CLIENT_USE_V1_QUERY_API",
+                "value": true
+              },
+              {
+                "name": "CLIENT_RESULT_COLUMN_CASE_INSENSITIVE",
+                "value": false
+              },
+              {
+                "name": "BINARY_OUTPUT_FORMAT",
+                "value": "HEX"
+              },
+              {
+                "name": "CSV_TIMESTAMP_FORMAT",
+                "value": ""
+              },
+              {
+                "name": "CLIENT_ENABLE_LOG_INFO_STATEMENT_PARAMETERS",
+                "value": false
+              },
+              {
+                "name": "CLIENT_TELEMETRY_SESSIONLESS_ENABLED",
+                "value": true
+              },
+              {
+                "name": "JS_DRIVER_DISABLE_OCSP_FOR_NON_SF_ENDPOINTS",
+                "value": false
+              },
+              {
+                "name": "DATE_OUTPUT_FORMAT",
+                "value": "YYYY-MM-DD"
+              },
+              {
+                "name": "CLIENT_STAGE_ARRAY_BINDING_THRESHOLD",
+                "value": 65280
+              },
+              {
+                "name": "CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY",
+                "value": 3600
+              },
+              {
+                "name": "AUTOCOMMIT",
+                "value": true
+              },
+              {
+                "name": "CLIENT_SESSION_CLONE",
+                "value": false
+              },
+              {
+                "name": "TIMESTAMP_LTZ_OUTPUT_FORMAT",
+                "value": ""
+              }
+            ],
+            "rowtype": [
+              {
+                "name": "1",
+                "database": "",
+                "schema": "",
+                "table": "",
+                "scale": 0,
+                "nullable": false,
+                "byteLength": null,
+                "precision": 1,
+                "length": null,
+                "type": "fixed",
+                "collation": null
+              }
+            ],
+            "rowset": [
+              [
+                "1"
+              ]
+            ],
+            "total": 1,
+            "returned": 1,
+            "queryId": "01c01270-0e12-4b04-0000-53b10b9c95be",
+            "databaseProvider": null,
+            "finalDatabaseName": "WIREMOCKTESTDB",
+            "finalSchemaName": "TESTSCHEMA",
+            "finalWarehouseName": "WIREMOCK_WH",
+            "finalRoleName": "SYSADMIN",
+            "numberOfBinds": 0,
+            "arrayBindSupported": false,
+            "statementTypeId": 4096,
+            "version": 1,
+            "sendResultTime": 1761890916147,
+            "queryResultFormat": "json",
+            "queryContext": {
+              "entries": [
+                {
+                  "id": 0,
+                  "timestamp": 1761890916132138,
+                  "priority": 0,
+                  "context": "CJLYpAI="
+                }
+              ]
+            }
+          },
+          "code": null,
+          "message": null,
+          "success": true
+        }
+      }
+    }
+  ]
+}
