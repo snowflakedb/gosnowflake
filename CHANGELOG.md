@@ -2,6 +2,44 @@
 
 ## Upcoming Release
 
+New features:
+
+- 
+-
+-
+-
+-
+-
+-
+-
+-
+
+Bug fixes:
+
+-
+-
+-
+-
+-
+-
+-
+-
+-
+
+Internal changes:
+
+-
+-
+-
+-
+-
+-
+-
+-
+-
+
+## 1.17.1
+
 - Fix unsafe reflection of nil pointer on DECFLOAT func in bind uploader (snowflakedb/gosnowflake#1604).
 - Added temporary download files cleanup (snowflakedb/gosnowflake#1577)
 - Marked fields as deprecated (snowflakedb/gosnowflake#1556)
@@ -13,14 +51,8 @@
 - Added platform telemetry to login requests. Can be disabled with `SNOWFLAKE_DISABLE_PLATFORM_DETECTION` environment variable (snowflakedb/gosnowflake#1601)
 - Bypassed proxy settings for WIF metadata requests (snowflakedb/gosnowflake#1593)
 - Fixed a bug where GCP PUT/GET operations would fail when the connection context was cancelled (snowflakedb/gosnowflake#1584)
--
--
 - Fixed nil pointer dereference while calling long-running queries (snowflakedb/gosnowflake#1592) (snowflakedb/gosnowflake#1596)
--
--
--
 - Moved keyring-based secure storage manager into separate file to avoid the need to initialize keyring on Linux. (snowflakedb/gosnowflake#1595)
--
 - Enabling official support for RHEL9 by testing and enabling CI/CD checks for Rocky Linux in CICD, (snowflakedb/gosnowflake#1597)
 - Improve logging (snowflakedb/gosnowflake#1570)
 
