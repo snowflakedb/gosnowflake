@@ -327,16 +327,6 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 
 		// check if it can retry.
 		retryable, err := isRetryableError(req, res, err)
-
-		// check post call
-		if res != nil {
-			// handle redirect
-			if redirectResponse := res.Request.Response; redirectResponse != nil {
-				if parsedErr := json.NewDecoder(res.Body).Decode(&execResponse{}); parsedErr != nil {
-					retryable = true
-				}
-			}
-		}
 		if !retryable {
 			return res, err
 		}
@@ -412,6 +402,13 @@ func isRetryableError(req *http.Request, res *http.Response, err error) (bool, e
 	if res == nil || req == nil {
 		return false, err
 	}
+	// handle redirect
+	if redirectResponse := res.Request.Response; redirectResponse != nil {
+		if parsedErr := json.NewDecoder(res.Body).Decode(&execResponse{}); parsedErr != nil {
+			return true, err
+		}
+	}
+
 	return isRetryableStatus(res.StatusCode), err
 }
 
