@@ -30,7 +30,6 @@ func postAuthTestError(_ context.Context, _ *http.Client, _ *url.URL, _ map[stri
 func postTestSuccessButInvalidJSON(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ currentTimeProvider, _ *Config) (*http.Response, error) {
 	return &http.Response{
 		StatusCode: http.StatusOK,
-		Request:    &http.Request{},
 		Body:       &fakeResponseBody{body: []byte{0x12, 0x34}},
 	}, nil
 }

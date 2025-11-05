@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -203,7 +202,7 @@ func postRestfulQuery(
 
 	data, err = sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID, cfg)
 
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if err == context.Canceled || err == context.DeadlineExceeded {
 		// For context cancel/timeout cases, a special cancel request needs to be sent.
 		if cancelErr := sr.FuncCancelQuery(context.Background(), sr, requestID, timeout); cancelErr != nil {
 			// Wrap the original error with the cancel error.
@@ -247,7 +246,7 @@ func postRestfulQueryHelper(
 	}(resp, fullURL.String())
 
 	if resp.StatusCode == http.StatusOK {
-		respd := &execResponse{}
+		var respd execResponse
 		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
@@ -269,7 +268,7 @@ func postRestfulQueryHelper(
 
 		// if asynchronous query in progress, kick off retrieval but return object
 		if respd.Code == queryInProgressAsyncCode && isAsyncMode(ctx) {
-			return sr.processAsync(ctx, respd, headers, timeout, cfg)
+			return sr.processAsync(ctx, &respd, headers, timeout, cfg)
 		}
 		for isSessionRenewed || respd.Code == queryInProgressCode ||
 			respd.Code == queryInProgressAsyncCode {
@@ -281,8 +280,20 @@ func postRestfulQueryHelper(
 			token, _, _ = sr.TokenAccessor.GetTokens()
 			headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 
-			respd, err = getExecResponse(ctx, sr, fullURL, headers, timeout)
+			resp, err = sr.FuncGet(ctx, sr, fullURL, headers, timeout)
 			if err != nil {
+				logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
+				return nil, err
+			}
+			defer func(resp *http.Response, url string) {
+				if closeErr := resp.Body.Close(); closeErr != nil {
+					logger.WithContext(ctx).Warnf("failed to close response body for %v. err: %v", url, closeErr)
+				}
+			}(resp, fullURL.String())
+			respd = execResponse{} // reset the response
+			err = json.NewDecoder(resp.Body).Decode(&respd)
+			if err != nil {
+				logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 				return nil, err
 			}
 			if respd.Code == sessionExpiredCode {
@@ -294,7 +305,7 @@ func postRestfulQueryHelper(
 				isSessionRenewed = false
 			}
 		}
-		return respd, nil
+		return &respd, nil
 	}
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -531,32 +542,4 @@ func getQueryIDChan(ctx context.Context) chan<- string {
 		return nil
 	}
 	return c
-}
-
-// getExecResponse fetches a response using FuncGet and decodes it and returns it.
-func getExecResponse(
-	ctx context.Context,
-	sr *snowflakeRestful,
-	fullURL *url.URL,
-	headers map[string]string,
-	timeout time.Duration) (*execResponse, error) {
-	resp, err := sr.FuncGet(ctx, sr, fullURL, headers, timeout)
-	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to get response. err: %v", err)
-		return nil, err
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.WithContext(ctx).Errorf("failed to close response body for %v. err: %v", fullURL, closeErr)
-		}
-	}()
-
-	// decode response and fill into an empty execResponse
-	respd := &execResponse{}
-	err = json.NewDecoder(resp.Body).Decode(respd)
-	if err != nil {
-		logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
-		return nil, err
-	}
-	return respd, nil
 }
