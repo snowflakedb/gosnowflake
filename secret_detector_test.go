@@ -4,6 +4,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -14,6 +17,30 @@ const (
 		"uI8vhg=f0bKSq7AhQ2Bh"
 	randomPassword = `Fh[+2J~AcqeqW%?`
 )
+
+// generateTestJWT creates a test JWT token for masking tests using the JWT library
+func generateTestJWT(t *testing.T) string {
+	// Create claims for the test JWT
+	claims := jwt.MapClaims{
+		"sub":  "test123",
+		"name": "Test User",
+		"exp":  time.Now().Add(time.Hour).Unix(),
+		"iat":  time.Now().Unix(),
+	}
+
+	// Create the token with HS256 signing method
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Sign the token with a test secret
+	testSecret := []byte("test-secret-for-masking-validation")
+	tokenString, err := token.SignedString(testSecret)
+	if err != nil {
+		// Fallback to a simple test JWT if signing fails
+		t.Fatalf("Failed to generate test JWT: %s", err)
+	}
+
+	return tokenString
+}
 
 func TestMaskToken(t *testing.T) {
 	if text := maskSecrets("Token =" + longToken); strings.Compare(text, "Token =****") != 0 {
@@ -102,7 +129,7 @@ func TestMaskSecretsThreadSafety(t *testing.T) {
 			{"Password", "password:" + randomPassword, "password:****"},
 			{"Client Secret", "clientSecret abc", "clientSecret ****"},
 			{"Mixed", "token=" + longToken + " password:" + randomPassword, "token=**** password:****"},
-			{"JWT Token", "jwt: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", "jwt ****"},
+			{"JWT Token", "jwt: " + generateTestJWT(t), "jwt ****"},
 			{"Access Token", "accessToken : " + longToken, "accessToken : ****"},
 			{"Master Token", "masterToken : " + longToken, "masterToken : ****"},
 		}
