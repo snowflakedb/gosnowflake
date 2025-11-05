@@ -249,11 +249,6 @@ func postRestfulQueryHelper(
 	if resp.StatusCode == http.StatusOK {
 		respd := &execResponse{}
 		if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
-			if redirectResponse := resp.Request.Response; redirectResponse != nil {
-				logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, fullURL, resp.Request.Response)
-				return sr.FuncPostQueryHelper(ctx, sr, params, headers, body, timeout, requestID, cfg)
-			}
-
 			logger.WithContext(ctx).Errorf("failed to decode JSON. err: %v", err)
 			return nil, err
 		}
