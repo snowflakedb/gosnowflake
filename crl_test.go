@@ -216,6 +216,50 @@ func TestCrlModes(t *testing.T) {
 				assertEqualE(t, err.Error(), "every verified certificate chain contained revoked certificates")
 			})
 
+			t.Run("DownloadedCrlIsExpiredAndNoneValidExists", func(t *testing.T) {
+				cleanupCrlCache(t)
+
+				cv := newTestCrlValidator(t, checkMode)
+
+				server, port := createCrlServer(t)
+				defer closeServer(t, server)
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", port)
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, port, crlEndpointType("/rootCrl"))
+				crl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now().Add(-2*time.Hour)), nextUpdateType(time.Now().Add(-1*time.Hour)))
+				registerCrlEndpoints(t, server, newCrlEndpointDef("/rootCrl", crl))
+
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				if checkMode == CertRevocationCheckEnabled {
+					assertNotNilF(t, err)
+					assertStringContainsE(t, err.Error(), "certificate revocation check failed")
+				} else {
+					assertNilE(t, err)
+				}
+			})
+
+			t.Run("DownloadedCrlIsExpiredButTheValidExists", func(t *testing.T) {
+				cleanupCrlCache(t)
+
+				cv := newTestCrlValidator(t, checkMode)
+
+				server, port := createCrlServer(t)
+				defer closeServer(t, server)
+				caPrivateKey, caCert := createCa(t, nil, nil, "root CA", port)
+				_, leafCert := createLeafCert(t, caCert, caPrivateKey, port, crlEndpointType("/rootCrl"))
+				oldCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now().Add(-50*time.Hour)), nextUpdateType(time.Now().Add(48*time.Hour)))
+				newCrl := createCrl(t, caCert, caPrivateKey, thisUpdateType(time.Now().Add(-2*time.Hour)), nextUpdateType(time.Now().Add(-1*time.Hour)))
+				registerCrlEndpoints(t, server, newCrlEndpointDef("/rootCrl", newCrl))
+
+				oldCrlDownloadTime := time.Now().Add(-48 * time.Hour)
+				crlInMemoryCache[fullCrlURL(port, "/rootCrl")] = &crlInMemoryCacheValueType{
+					crl:          oldCrl,
+					downloadTime: &oldCrlDownloadTime,
+				}
+
+				err := cv.verifyPeerCertificates(nil, [][]*x509.Certificate{{leafCert, caCert}})
+				assertNilE(t, err)
+			})
+
 			t.Run("CrlSignatureInvalid", func(t *testing.T) {
 				cleanupCrlCache(t)
 
