@@ -21,18 +21,18 @@ const (
 )
 
 var (
-	initRegexpOnce        sync.Once
-	awsKeyRegexp          *regexp.Regexp
-	awsTokenRegexp        *regexp.Regexp
-	sasTokenRegexp        *regexp.Regexp
-	privateKeyRegexp      *regexp.Regexp
-	privateKeyDataRegexp  *regexp.Regexp
-	privateKeyParamRegexp *regexp.Regexp
-	connectionTokenRegexp *regexp.Regexp
-	passwordRegexp        *regexp.Regexp
-	dsnPasswordRegexp     *regexp.Regexp
-	clientSecretRegexp    *regexp.Regexp
-	jwtTokenRegexp        *regexp.Regexp
+	initSecretDetectorOnce sync.Once
+	awsKeyRegexp           *regexp.Regexp
+	awsTokenRegexp         *regexp.Regexp
+	sasTokenRegexp         *regexp.Regexp
+	privateKeyRegexp       *regexp.Regexp
+	privateKeyDataRegexp   *regexp.Regexp
+	privateKeyParamRegexp  *regexp.Regexp
+	connectionTokenRegexp  *regexp.Regexp
+	passwordRegexp         *regexp.Regexp
+	dsnPasswordRegexp      *regexp.Regexp
+	clientSecretRegexp     *regexp.Regexp
+	jwtTokenRegexp         *regexp.Regexp
 )
 
 func registerRegexps() {
@@ -103,7 +103,7 @@ func newSecretMasker(text string) secretmasker {
 }
 
 func maskSecrets(text string) string {
-	initRegexpOnce.Do(registerRegexps)
+	initSecretDetectorOnce.Do(registerRegexps)
 
 	s := newSecretMasker(text)
 
