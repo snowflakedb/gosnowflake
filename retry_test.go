@@ -3,14 +3,11 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -678,56 +675,19 @@ func TestCalculateRetryWaitForNonAuthRequests(t *testing.T) {
 	}
 }
 
-func TestRetry307(t *testing.T) {
-	wiremockHTTPS.registerMappings(t,
-		wiremockMapping{filePath: "retry/http_307_retry.json"},
-	)
-	cfg := wiremockHTTPS.connectionConfig(t)
-	testCertPool := x509.NewCertPool()
-	caBytes, err := os.ReadFile("ci/scripts/ca.der")
-	assertNilF(t, err)
-	certificate, err := x509.ParseCertificate(caBytes)
-	assertNilF(t, err)
-	testCertPool.AddCert(certificate)
-	cfg.Transporter = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			RootCAs: testCertPool,
-		},
+func TestRedirectRetry(t *testing.T) {
+	httpCodes := []string{
+		"307",
+		"308",
 	}
-	connector := NewConnector(SnowflakeDriver{}, *cfg)
-	db := sql.OpenDB(connector)
-	rows, err := db.Query("SELECT 1")
-	assertNilF(t, err)
-	defer rows.Close()
-	var v int
-	assertTrueF(t, rows.Next())
-	assertNilF(t, rows.Scan(&v))
-	assertEqualE(t, v, 1)
-}
 
-func TestRetry308(t *testing.T) {
-	wiremockHTTPS.registerMappings(t,
-		wiremockMapping{filePath: "retry/http_308_retry.json"},
-	)
-	cfg := wiremockHTTPS.connectionConfig(t)
-	testCertPool := x509.NewCertPool()
-	caBytes, err := os.ReadFile("ci/scripts/ca.der")
-	assertNilF(t, err)
-	certificate, err := x509.ParseCertificate(caBytes)
-	assertNilF(t, err)
-	testCertPool.AddCert(certificate)
-	cfg.Transporter = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			RootCAs: testCertPool,
-		},
+	for _, httpCode := range httpCodes {
+		t.Run("retry with http code "+httpCode, func(t *testing.T) {
+			wiremock.registerMappings(t, newWiremockMapping("retry/retry_workflow.json"), newWiremockMapping("retry/http_"+httpCode+"_retry.json"))
+			cfg := wiremock.connectionConfig()
+			connector := NewConnector(SnowflakeDriver{}, *cfg)
+			db := sql.OpenDB(connector)
+			runSmokeQuery(t, db)
+		})
 	}
-	connector := NewConnector(SnowflakeDriver{}, *cfg)
-	db := sql.OpenDB(connector)
-	rows, err := db.Query("SELECT 1")
-	assertNilF(t, err)
-	defer rows.Close()
-	var v int
-	assertTrueF(t, rows.Next())
-	assertNilF(t, rows.Scan(&v))
-	assertEqualE(t, v, 1)
 }
