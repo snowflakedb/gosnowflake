@@ -403,7 +403,7 @@ func isRetryableError(req *http.Request, res *http.Response, err error) (bool, e
 		return false, err
 	}
 	// handle redirect
-	if redirectResponse := res.Request.Response; redirectResponse != nil {
+	if res.Request != nil && res.Request.Response != nil {
 		if parsedErr := json.NewDecoder(res.Body).Decode(&execResponse{}); parsedErr != nil {
 			return true, err
 		}
