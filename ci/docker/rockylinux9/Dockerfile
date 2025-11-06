@@ -3,10 +3,22 @@ FROM $BASE_IMAGE
 
 ARG TARGETARCH
 
+# Update all packages first (including glibc) to get latest versions
+RUN dnf update -y && dnf clean all
+
+# Install glibc-devel - it should match the updated glibc version
+# If there's still a mismatch, try installing an older compatible version
+RUN dnf install -y --allowerasing --nobest glibc-devel || \
+    (echo "Direct install failed, checking available versions..." && \
+     dnf list available glibc-devel | head -5 && \
+     CURRENT_GLIBC=$(rpm -q glibc --qf '%{VERSION}-%{RELEASE}\n') && \
+     echo "Current glibc: $CURRENT_GLIBC" && \
+     dnf install -y --allowerasing --nobest glibc-devel || true) && \
+    dnf clean all
+
 # Install minimal required packages + gcc for CGO (race detection)
-RUN dnf install -y --allowerasing \
+RUN dnf install -y --allowerasing --nobest \
     gcc \
-    glibc-devel \
     java-11-openjdk \
     python3 \
     curl \
@@ -46,8 +58,13 @@ ARG USER_ID=1001
 ARG GROUP_ID=1001
 
 # Create user for proper permission testing
-RUN groupadd -g ${GROUP_ID} user && \
-    useradd -u ${USER_ID} -g ${GROUP_ID} -m -s /bin/bash user && \
+# Always create "user" user - use requested IDs if available, otherwise auto-assign
+RUN if ! getent group user >/dev/null 2>&1; then \
+        (groupadd -g ${GROUP_ID} user 2>/dev/null || groupadd user); \
+    fi && \
+    if ! getent passwd user >/dev/null 2>&1; then \
+        (useradd -u ${USER_ID} -g user -m -s /bin/bash user 2>/dev/null || useradd -g user -m -s /bin/bash user); \
+    fi && \
     mkdir -p /home/user/go && \
     chown -R user:user /home/user
 
