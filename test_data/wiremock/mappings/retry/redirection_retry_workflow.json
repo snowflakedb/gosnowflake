@@ -62,8 +62,23 @@
         },
         {
             "scenarioName": "wiremock retry strategy",
-            "requiredScenarioState": "Query attempt with HTTP 307 response",
-            "newScenarioState": "307 redirect followed and times out",
+            "requiredScenarioState": "Successful login",
+            "newScenarioState": "Query attempt with HTTP 3xx response",
+            "request": {
+                "urlPathPattern": "/queries/v1/query-request.*",
+                "method": "POST"
+            },
+            "response": {
+                "status": "HTTP_STATUS_CODE",
+                "headers": {
+                    "Location": "/temp-redirect-1"
+                }
+            }
+        },
+        {
+            "scenarioName": "wiremock retry strategy",
+            "requiredScenarioState": "Query attempt with HTTP 3xx response",
+            "newScenarioState": "3xx redirect followed and times out",
             "request": {
                 "urlPathPattern": "/temp-redirect-1",
                 "method": "POST"
@@ -74,7 +89,7 @@
         },
         {
             "scenarioName": "wiremock retry strategy",
-            "requiredScenarioState": "307 redirect followed and times out",
+            "requiredScenarioState": "3xx redirect followed and times out",
             "newScenarioState": "Retry attempt successful",
             "request": {
                 "urlPathPattern": "/queries/v1/query-request.*",

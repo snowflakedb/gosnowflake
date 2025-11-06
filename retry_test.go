@@ -683,7 +683,7 @@ func TestRedirectRetry(t *testing.T) {
 
 	for _, httpCode := range httpCodes {
 		t.Run("retry with http code "+httpCode, func(t *testing.T) {
-			wiremock.registerMappings(t, newWiremockMapping("retry/retry_workflow.json"), newWiremockMapping("retry/http_"+httpCode+"_retry.json"))
+			wiremock.registerMappings(t, newWiremockMappingWithParam("retry/redirection_retry_workflow.json", map[string]string{"HTTP_STATUS_CODE": httpCode}))
 			cfg := wiremock.connectionConfig()
 			connector := NewConnector(SnowflakeDriver{}, *cfg)
 			db := sql.OpenDB(connector)
