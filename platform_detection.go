@@ -33,16 +33,18 @@ var (
 )
 
 var (
-	detectedPlatformsCache []string
-	platformDetectionDone  chan struct{}
+	detectedPlatformsCache    []string
+	initPlatformDetectionOnce sync.Once
+	platformDetectionDone     = make(chan struct{})
 )
 
-func init() {
-	platformDetectionDone = make(chan struct{})
-	go func() {
-		detectedPlatformsCache = detectPlatforms(context.Background(), 200*time.Millisecond)
-		defer close(platformDetectionDone)
-	}()
+func initPlatformDetection() {
+	initPlatformDetectionOnce.Do(func() {
+		go func() {
+			detectedPlatformsCache = detectPlatforms(context.Background(), 200*time.Millisecond)
+			defer close(platformDetectionDone)
+		}()
+	})
 }
 
 func getDetectedPlatforms() []string {

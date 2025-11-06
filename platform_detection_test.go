@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 )
@@ -71,10 +72,31 @@ func setupWiremockMetadataEndpoints() func() {
 	}
 }
 
-func TestGetDetectedPlatformsReturnsCachedResult(t *testing.T) {
-	platforms := getDetectedPlatforms()
-	assertTrueF(t, slices.Equal(platforms, detectedPlatformsCache),
-		"getDetectedPlatforms should return the cached result")
+func TestPlatformDetectionCachingAndSyncOnce(t *testing.T) {
+	cleanup := setupCleanPlatformEnv()
+	defer cleanup()
+
+	originalDone, originalCache := platformDetectionDone, detectedPlatformsCache
+	initPlatformDetectionOnce, platformDetectionDone, detectedPlatformsCache = sync.Once{}, make(chan struct{}), nil
+	defer func() { platformDetectionDone, detectedPlatformsCache = originalDone, originalCache }()
+
+	os.Setenv("AWS_LAMBDA_TASK_ROOT", "/var/task")
+	initPlatformDetection()
+	platforms1 := getDetectedPlatforms()
+
+	// Verify caching works and AWS Lambda detected
+	assertTrueF(t, slices.Equal(platforms1, detectedPlatformsCache), "getDetectedPlatforms should return cached result")
+	assertTrueF(t, slices.Contains(platforms1, "is_aws_lambda"), "Should detect AWS Lambda")
+
+	// Change environment and test sync.Once behavior
+	cleanup()
+	os.Setenv("GITHUB_ACTIONS", "true")
+	initPlatformDetection()
+	platforms2 := getDetectedPlatforms()
+
+	assertTrueF(t, slices.Equal(platforms1, platforms2), "Results should be identical, proving detection ran only once")
+	assertTrueF(t, slices.Contains(platforms2, "is_aws_lambda"), "Should still show cached AWS Lambda result")
+	assertFalseF(t, slices.Contains(platforms2, "is_github_action"), "Should NOT detect GitHub Actions due to caching")
 }
 
 func TestDetectPlatforms(t *testing.T) {
@@ -87,7 +109,7 @@ func TestDetectPlatforms(t *testing.T) {
 			expectedResult: []string{"disabled"},
 		},
 		{
-			name: "returns empty when no platforms detected",
+			name:           "returns empty when no platforms detected",
 			expectedResult: []string{},
 		},
 		{
