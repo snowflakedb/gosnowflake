@@ -3,16 +3,16 @@ FROM $BASE_IMAGE
 
 ARG TARGETARCH
 
-# Update packages but exclude glibc* to avoid version mismatch
-RUN dnf update -y --exclude=glibc* && dnf clean all
+# Update all packages first (including glibc) to get latest versions
+RUN dnf update -y && dnf clean all
 
-# Check what glibc version is available and install matching glibc-devel
-# On x86_64 CI/CD, repos may have glibc-devel .24 but not glibc .24
-# Try to install older glibc-devel version that matches available glibc
-RUN CURRENT_GLIBC=$(rpm -q glibc --qf '%{VERSION}-%{RELEASE}\n') && \
-    echo "Current glibc version: $CURRENT_GLIBC" && \
-    dnf install -y --allowerasing --nobest glibc-devel-${CURRENT_GLIBC} || \
-    (echo "Trying to install available glibc-devel..." && \
+# Install glibc-devel - it should match the updated glibc version
+# If there's still a mismatch, try installing an older compatible version
+RUN dnf install -y --allowerasing --nobest glibc-devel || \
+    (echo "Direct install failed, checking available versions..." && \
+     dnf list available glibc-devel | head -5 && \
+     CURRENT_GLIBC=$(rpm -q glibc --qf '%{VERSION}-%{RELEASE}\n') && \
+     echo "Current glibc: $CURRENT_GLIBC" && \
      dnf install -y --allowerasing --nobest glibc-devel || true) && \
     dnf clean all
 
