@@ -4,11 +4,19 @@ FROM $BASE_IMAGE
 ARG TARGETARCH
 
 # Update packages but exclude glibc* to avoid version mismatch
-# This keeps glibc at a version compatible with available glibc-devel in repos
 RUN dnf update -y --exclude=glibc* && dnf clean all
 
+# Check what glibc version is available and install matching glibc-devel
+# On x86_64 CI/CD, repos may have glibc-devel .24 but not glibc .24
+# Try to install older glibc-devel version that matches available glibc
+RUN CURRENT_GLIBC=$(rpm -q glibc --qf '%{VERSION}-%{RELEASE}\n') && \
+    echo "Current glibc version: $CURRENT_GLIBC" && \
+    dnf install -y --allowerasing --nobest glibc-devel-${CURRENT_GLIBC} || \
+    (echo "Trying to install available glibc-devel..." && \
+     dnf install -y --allowerasing --nobest glibc-devel || true) && \
+    dnf clean all
+
 # Install minimal required packages + gcc for CGO (race detection)
-# Use --nobest to allow compatible versions if exact match isn't available
 RUN dnf install -y --allowerasing --nobest \
     gcc \
     java-11-openjdk \
