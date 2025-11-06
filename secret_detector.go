@@ -1,7 +1,6 @@
 package gosnowflake
 
 import (
-	"fmt"
 	"regexp"
 	"sync"
 )
@@ -52,46 +51,46 @@ func registerRegexps() {
 type secretmasker string
 
 func (s secretmasker) maskConnectionToken() secretmasker {
-	return secretmasker(connectionTokenRegexp.ReplaceAllString(fmt.Sprint(s), "$1${2}****"))
+	return secretmasker(connectionTokenRegexp.ReplaceAllString(s.String(), "$1${2}****"))
 }
 
 func (s secretmasker) maskPassword() secretmasker {
-	return secretmasker(passwordRegexp.ReplaceAllString(fmt.Sprint(s), "$1${2}****"))
+	return secretmasker(passwordRegexp.ReplaceAllString(s.String(), "$1${2}****"))
 }
 
 func (s secretmasker) maskDsnPassword() secretmasker {
-	return secretmasker(dsnPasswordRegexp.ReplaceAllString(fmt.Sprint(s), "$1:****@"))
+	return secretmasker(dsnPasswordRegexp.ReplaceAllString(s.String(), "$1:****@"))
 }
 
 func (s secretmasker) maskAwsKey() secretmasker {
-	return secretmasker(awsKeyRegexp.ReplaceAllString(fmt.Sprint(s), "${1}****$2"))
+	return secretmasker(awsKeyRegexp.ReplaceAllString(s.String(), "${1}****$2"))
 }
 
 func (s secretmasker) maskAwsToken() secretmasker {
-	return secretmasker(awsTokenRegexp.ReplaceAllString(fmt.Sprint(s), "${1}XXXX$2"))
+	return secretmasker(awsTokenRegexp.ReplaceAllString(s.String(), "${1}XXXX$2"))
 }
 
 func (s secretmasker) maskSasToken() secretmasker {
-	return secretmasker(sasTokenRegexp.ReplaceAllString(fmt.Sprint(s), "${1}****$2"))
+	return secretmasker(sasTokenRegexp.ReplaceAllString(s.String(), "${1}****$2"))
 }
 func (s secretmasker) maskPrivateKey() secretmasker {
-	return secretmasker(privateKeyRegexp.ReplaceAllString(fmt.Sprint(s), "-----BEGIN PRIVATE KEY-----\\\\\\\\nXXXX\\\\\\\\n-----END PRIVATE KEY-----")) // pragma: allowlist secret
+	return secretmasker(privateKeyRegexp.ReplaceAllString(s.String(), "-----BEGIN PRIVATE KEY-----\\\\\\\\nXXXX\\\\\\\\n-----END PRIVATE KEY-----")) // pragma: allowlist secret
 }
 
 func (s secretmasker) maskPrivateKeyData() secretmasker {
-	return secretmasker(privateKeyDataRegexp.ReplaceAllString(fmt.Sprint(s), `"privateKeyData": "XXXX"`))
+	return secretmasker(privateKeyDataRegexp.ReplaceAllString(s.String(), `"privateKeyData": "XXXX"`))
 }
 
 func (s secretmasker) maskClientSecret() secretmasker {
-	return secretmasker(clientSecretRegexp.ReplaceAllString(fmt.Sprint(s), "$1${2}****"))
+	return secretmasker(clientSecretRegexp.ReplaceAllString(s.String(), "$1${2}****"))
 }
 
 func (s secretmasker) maskPrivateKeyParam() secretmasker {
-	return secretmasker(privateKeyParamRegexp.ReplaceAllString(fmt.Sprint(s), "privateKey=****$2"))
+	return secretmasker(privateKeyParamRegexp.ReplaceAllString(s.String(), "privateKey=****$2"))
 }
 
 func (s secretmasker) maskJwtToken() secretmasker {
-	return secretmasker(jwtTokenRegexp.ReplaceAllString(fmt.Sprint(s), "$1 ****"))
+	return secretmasker(jwtTokenRegexp.ReplaceAllString(s.String(), "$1 ****"))
 }
 
 func (s secretmasker) String() string {
@@ -102,7 +101,15 @@ func newSecretMasker(text string) secretmasker {
 	return secretmasker(text)
 }
 
-func maskSecrets(text string) string {
+func maskSecrets(text string) (masked string) {
+	// Recover from any panic during regex initialization
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("panic occurred during secret masking: %v", r)
+			masked = "****"
+		}
+	}()
+
 	initSecretDetectorOnce.Do(registerRegexps)
 
 	s := newSecretMasker(text)
