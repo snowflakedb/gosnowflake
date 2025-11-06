@@ -3,11 +3,13 @@ FROM $BASE_IMAGE
 
 ARG TARGETARCH
 
-# Update all packages first
-RUN dnf update -y && dnf clean all
+# Update packages but exclude glibc* to avoid version mismatch
+# This keeps glibc at a version compatible with available glibc-devel in repos
+RUN dnf update -y --exclude=glibc* && dnf clean all
 
 # Install minimal required packages + gcc for CGO (race detection)
-RUN dnf install -y --allowerasing \
+# Use --nobest to allow compatible versions if exact match isn't available
+RUN dnf install -y --allowerasing --nobest \
     gcc \
     java-11-openjdk \
     python3 \
