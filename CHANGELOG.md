@@ -32,7 +32,7 @@ Internal changes:
 -
 -
 -
--
+- Added ISA to login request telemetry (snowflakedb/gosnowflake#1620)
 -
 -
 -
