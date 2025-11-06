@@ -3,6 +3,9 @@ FROM $BASE_IMAGE
 
 ARG TARGETARCH
 
+# Update all packages first to ensure glibc and glibc-devel versions match
+RUN dnf update -y && dnf clean all
+
 # Install minimal required packages + gcc for CGO (race detection)
 RUN dnf install -y --allowerasing \
     gcc \
