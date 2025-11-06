@@ -7,10 +7,8 @@ ARG TARGETARCH
 RUN dnf update -y && dnf clean all
 
 # Install minimal required packages + gcc for CGO (race detection)
-# Let glibc-devel and gcc pull in glibc as a dependency - DNF will resolve versions automatically
 RUN dnf install -y --allowerasing \
     gcc \
-    glibc-devel \
     java-11-openjdk \
     python3 \
     curl \
@@ -50,8 +48,13 @@ ARG USER_ID=1001
 ARG GROUP_ID=1001
 
 # Create user for proper permission testing
-RUN groupadd -g ${GROUP_ID} user && \
-    useradd -u ${USER_ID} -g ${GROUP_ID} -m -s /bin/bash user && \
+# Always create "user" user - use requested IDs if available, otherwise auto-assign
+RUN if ! getent group user >/dev/null 2>&1; then \
+        (groupadd -g ${GROUP_ID} user 2>/dev/null || groupadd user); \
+    fi && \
+    if ! getent passwd user >/dev/null 2>&1; then \
+        (useradd -u ${USER_ID} -g user -m -s /bin/bash user 2>/dev/null || useradd -g user -m -s /bin/bash user); \
+    fi && \
     mkdir -p /home/user/go && \
     chown -R user:user /home/user
 
