@@ -3,16 +3,14 @@ FROM $BASE_IMAGE
 
 ARG TARGETARCH
 
-# Update all packages first to ensure latest versions
+# Update all packages first
 RUN dnf update -y && dnf clean all
 
-# Install glibc and glibc-devel together with --nobest flag
-# This allows DNF to install compatible versions even if exact match isn't available
-RUN dnf install -y --allowerasing --nobest glibc glibc-devel && dnf clean all
-
 # Install minimal required packages + gcc for CGO (race detection)
+# Let glibc-devel and gcc pull in glibc as a dependency - DNF will resolve versions automatically
 RUN dnf install -y --allowerasing \
     gcc \
+    glibc-devel \
     java-11-openjdk \
     python3 \
     curl \
