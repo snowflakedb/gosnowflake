@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -400,6 +401,13 @@ func isRetryableError(req *http.Request, res *http.Response, err error) (bool, e
 	}
 	if res == nil || req == nil {
 		return false, err
+	}
+
+	// handle redirect
+	if res.Request != nil && res.Request.Response != nil {
+		if parsedErr := json.NewDecoder(res.Body).Decode(&execResponse{}); parsedErr != nil {
+			return true, err
+		}
 	}
 	return isRetryableStatus(res.StatusCode), err
 }

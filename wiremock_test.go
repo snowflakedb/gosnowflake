@@ -155,6 +155,10 @@ func newWiremockMapping(filePath string) wiremockMapping {
 	return wiremockMapping{filePath: filePath}
 }
 
+func newWiremockMappingWithParam(filePath string, params map[string]string) wiremockMapping {
+	return wiremockMapping{filePath: filePath, params: params}
+}
+
 func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMapping) {
 	skipOnJenkins(t, "wiremock does not work on Jenkins")
 	for _, mapping := range wm.enrichWithTelemetry(mappings) {

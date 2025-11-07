@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -670,6 +671,23 @@ func TestCalculateRetryWaitForNonAuthRequests(t *testing.T) {
 		t.Run(fmt.Sprintf("currWaitTime: %v", tc.currWaitTime), func(t *testing.T) {
 			result := defaultWaitAlgo.calculateWaitBeforeRetry(time.Duration(tc.currWaitTime) * time.Second)
 			assertBetweenInclusiveE(t, result.Seconds(), float64(defaultMinSleepTime), tc.maxSleepTime)
+		})
+	}
+}
+
+func TestRedirectRetry(t *testing.T) {
+	httpCodes := []string{
+		"307",
+		"308",
+	}
+
+	for _, httpCode := range httpCodes {
+		t.Run("retry with http code "+httpCode, func(t *testing.T) {
+			wiremock.registerMappings(t, newWiremockMappingWithParam("retry/redirection_retry_workflow.json", map[string]string{"HTTP_STATUS_CODE": httpCode}))
+			cfg := wiremock.connectionConfig()
+			connector := NewConnector(SnowflakeDriver{}, *cfg)
+			db := sql.OpenDB(connector)
+			runSmokeQuery(t, db)
 		})
 	}
 }
