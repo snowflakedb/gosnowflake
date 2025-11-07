@@ -868,6 +868,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		queryContextCache:   (&queryContextCache{}).init(),
 		currentTimeProvider: defaultTimeProvider,
 	}
+	initPlatformDetection()
 	err := initEasyLogging(config.ClientConfigFile)
 	if err != nil {
 		return nil, err

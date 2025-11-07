@@ -4,7 +4,7 @@
 
 New features:
 
-- 
+-
 -
 -
 -
@@ -16,7 +16,7 @@ New features:
 
 Bug fixes:
 
--
+- Fixed a data race error in tests caused by platform_detection init() function (snowflakedb/gosnowflake#1618)
 -
 -
 -
