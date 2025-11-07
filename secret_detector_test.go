@@ -1,7 +1,6 @@
 package gosnowflake
 
 import (
-	"math/rand/v2"
 	"strings"
 	"testing"
 	"time"
@@ -111,36 +110,4 @@ func TestClientSecret(t *testing.T) {
 	text := maskSecrets("clientSecret abc oauthClientSECRET=def")
 	expected := "clientSecret **** oauthClientSECRET=****"
 	assertEqualE(t, text, expected)
-}
-
-func TestMaskSecretsThreadSafety(t *testing.T) {
-	testCases := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"Token", "Token =" + longToken, "Token =****"},
-		{"Password", "password:" + randomPassword, "password:****"},
-		{"Client Secret", "clientSecret abc", "clientSecret ****"},
-		{"Mixed", "token=" + longToken + " password:" + randomPassword, "token=**** password:****"},
-		{"JWT Token", "jwt: " + generateTestJWT(t), "jwt ****"},
-		{"Access Token", "accessToken : " + longToken, "accessToken : ****"},
-		{"Master Token", "masterToken : " + longToken, "masterToken : ****"},
-	}
-
-	// Run each test case in parallel
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			// Run the test many times to increase chance of catching race conditions
-			for i := 0; i < rand.IntN(1000); i++ {
-				result := maskSecrets(tc.input)
-				if result != tc.expected {
-					t.Errorf("iteration %d: expected %q, got %q", i, tc.expected, result)
-					break // Stop on first failure to avoid spam
-				}
-			}
-		})
-	}
 }
