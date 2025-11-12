@@ -16,7 +16,7 @@ New features:
 
 Bug fixes:
 
--
+- Make secrets detector initialization thread safe and more maintainable (#1621)
 -
 -
 -
