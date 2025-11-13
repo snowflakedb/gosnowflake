@@ -38,15 +38,6 @@ Internal changes:
 -
 -
 
-Documentation changes:
-
--
--
--
--
-- Removed the workaround for runaway dbus-daemon processes from the README as made obsolete by PR1595 (snowflakedb/gosnowflake#1623)
-
-
 ## 1.17.1
 
 - Fix unsafe reflection of nil pointer on DECFLOAT func in bind uploader (snowflakedb/gosnowflake#1604).
