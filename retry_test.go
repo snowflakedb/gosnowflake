@@ -673,3 +673,126 @@ func TestCalculateRetryWaitForNonAuthRequests(t *testing.T) {
 		})
 	}
 }
+
+type mockTransport struct {
+	reqCount      int
+	roundTripFunc func(r *http.Request, mt *mockTransport) (*http.Response, error)
+}
+
+func (mt *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	mt.reqCount++
+	return mt.roundTripFunc(req, mt)
+}
+
+func TestUnitRetryingTransport(t *testing.T) {
+	t.Run("NoRetryOnNonRetryableStatus", func(t *testing.T) {
+		for _, status := range []int{http.StatusOK, http.StatusBadRequest, http.StatusNotFound} {
+			t.Run(strconv.Itoa(status), func(t *testing.T) {
+				req := &http.Request{
+					Method: "GET",
+				}
+				internal := &mockTransport{
+					roundTripFunc: func(r *http.Request, mt *mockTransport) (*http.Response, error) {
+						assertEqualE(t, req, r)
+						return &http.Response{StatusCode: status, Request: req}, nil
+					},
+				}
+				rt := newRetryingTransport(internal)
+				rt.initialSleepTime = 10 * time.Millisecond
+				resp, err := rt.RoundTrip(req)
+				assertNilF(t, err)
+				assertEqualE(t, resp.StatusCode, status)
+			})
+		}
+	})
+
+	t.Run("ShouldRetryOnceIfSecondResponseIsOk", func(t *testing.T) {
+		internal := &mockTransport{
+			roundTripFunc: func(r *http.Request, mt *mockTransport) (*http.Response, error) {
+				if mt.reqCount == 1 {
+					return &http.Response{StatusCode: http.StatusInternalServerError, Request: r}, nil
+				}
+				return &http.Response{StatusCode: http.StatusOK, Request: r}, nil
+			},
+		}
+		rt := newRetryingTransport(internal)
+		rt.initialSleepTime = 400 * time.Millisecond
+		resp, err := rt.RoundTrip(&http.Request{
+			Method: "GET",
+		})
+		assertNilF(t, err)
+		assertEqualE(t, resp.StatusCode, http.StatusOK)
+		assertEqualE(t, internal.reqCount, 2)
+	})
+
+	t.Run("ShouldRetryRetryCountUntilFailure", func(t *testing.T) {
+		for _, status := range []int{http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusBadGateway} {
+			t.Run(strconv.Itoa(status), func(t *testing.T) {
+				internal := &mockTransport{
+					roundTripFunc: func(r *http.Request, mt *mockTransport) (*http.Response, error) {
+						return &http.Response{StatusCode: status, Request: r}, nil
+					},
+				}
+				rt := newRetryingTransport(internal)
+				rt.initialSleepTime = 400 * time.Millisecond
+				resp, err := rt.RoundTrip(&http.Request{
+					Method: "HEAD",
+				})
+				assertNilF(t, err)
+				assertEqualE(t, resp.StatusCode, status)
+				assertEqualE(t, internal.reqCount, 3)
+			})
+		}
+	})
+
+	t.Run("ShouldRetryWithCustomRetryCount", func(t *testing.T) {
+		internal := &mockTransport{
+			roundTripFunc: func(r *http.Request, mt *mockTransport) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusInternalServerError, Request: r}, nil
+			},
+		}
+		rt := newRetryingTransport(internal)
+		rt.initialSleepTime = 400 * time.Millisecond
+		rt.maxRetries = 5
+		resp, err := rt.RoundTrip(&http.Request{
+			Method: "GET",
+		})
+		assertNilF(t, err)
+		assertEqualE(t, resp.StatusCode, http.StatusInternalServerError)
+		assertEqualE(t, internal.reqCount, 5)
+	})
+
+	t.Run("ShouldRetryWithCustomRetryCondition", func(t *testing.T) {
+		internal := &mockTransport{
+			roundTripFunc: func(r *http.Request, mt *mockTransport) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusNotFound, Request: r}, nil
+			},
+		}
+		rt := newRetryingTransport(internal)
+		rt.initialSleepTime = 400 * time.Millisecond
+		rt.shouldRetry = func(resp *http.Response, err error) bool {
+			return resp.StatusCode == 404
+		}
+		resp, err := rt.RoundTrip(&http.Request{
+			Method: "GET",
+		})
+		assertNilF(t, err)
+		assertEqualE(t, resp.StatusCode, http.StatusNotFound)
+		assertEqualE(t, internal.reqCount, 3)
+	})
+
+	t.Run("ShouldNotRetryOnPost", func(t *testing.T) {
+		internal := &mockTransport{
+			roundTripFunc: func(r *http.Request, mt *mockTransport) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusInternalServerError, Request: r}, nil
+			},
+		}
+		rt := newRetryingTransport(internal)
+		resp, err := rt.RoundTrip(&http.Request{
+			Method: "POST",
+		})
+		assertNilF(t, err)
+		assertEqualE(t, resp.StatusCode, http.StatusInternalServerError)
+		assertEqualE(t, internal.reqCount, 1)
+	})
+}
