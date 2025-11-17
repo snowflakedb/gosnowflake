@@ -17,12 +17,9 @@ New features:
 Bug fixes:
 
 - Handle HTTP307 & 308 in drivers to achieve better resiliency to backend errors (snowflakedb/gosnowflake#1616).
+- 
 -
--
--
--
--
--
+- Make secrets detector initialization thread safe and more maintainable (#1621)
 -
 -
 
@@ -32,7 +29,7 @@ Internal changes:
 -
 -
 -
--
+- Added ISA to login request telemetry (snowflakedb/gosnowflake#1620)
 -
 -
 -

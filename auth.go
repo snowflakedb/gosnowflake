@@ -164,17 +164,11 @@ func (authType AuthType) String() string {
 	}
 }
 
-// platform consists of compiler and architecture type in string
-var platform = fmt.Sprintf("%v-%v", runtime.Compiler, runtime.GOARCH)
-
-// operatingSystem is the runtime operating system.
-var operatingSystem = runtime.GOOS
-
 // userAgent shows up in User-Agent HTTP header
 var userAgent = fmt.Sprintf("%v/%v (%v-%v) %v/%v",
 	clientType,
 	SnowflakeGoDriverVersion,
-	operatingSystem,
+	runtime.GOOS,
 	runtime.GOARCH,
 	runtime.Compiler,
 	runtime.Version())
@@ -184,6 +178,7 @@ type authRequestClientEnvironment struct {
 	ApplicationPath         string   `json:"APPLICATION_PATH"`
 	Os                      string   `json:"OS"`
 	OsVersion               string   `json:"OS_VERSION"`
+	Isa                     string   `json:"ISA,omitempty"`
 	OCSPMode                string   `json:"OCSP_MODE"`
 	GoVersion               string   `json:"GO_VERSION"`
 	OAuthType               string   `json:"OAUTH_TYPE,omitempty"`
@@ -373,17 +368,12 @@ func authenticate(
 		oauthType = "OAUTH_CLIENT_CREDENTIALS"
 	}
 
-	clientEnvironment := authRequestClientEnvironment{
-		Application:             sc.cfg.Application,
-		ApplicationPath:         applicationPath,
-		Os:                      operatingSystem,
-		OsVersion:               platform,
-		OCSPMode:                sc.cfg.ocspMode(),
-		GoVersion:               runtime.Version(),
-		OAuthType:               oauthType,
-		CertRevocationCheckMode: sc.cfg.CertRevocationCheckMode.String(),
-		Platform:                getDetectedPlatforms(),
-	}
+	clientEnvironment := newAuthRequestClientEnvironment()
+	clientEnvironment.Application = sc.cfg.Application
+	clientEnvironment.ApplicationPath = applicationPath
+	clientEnvironment.OAuthType = oauthType
+	clientEnvironment.CertRevocationCheckMode = sc.cfg.CertRevocationCheckMode.String()
+	clientEnvironment.Platform = getDetectedPlatforms()
 
 	sessionParameters := make(map[string]interface{})
 	paramsMutex.Lock()
@@ -458,6 +448,15 @@ func authenticate(
 		credentialsStorage.setCredential(newIDTokenSpec(sc.cfg.Host, sc.cfg.User), token)
 	}
 	return &respd.Data, nil
+}
+
+func newAuthRequestClientEnvironment() authRequestClientEnvironment {
+	return authRequestClientEnvironment{
+		Os:        runtime.GOOS,
+		OsVersion: osVersion,
+		Isa:       runtime.GOARCH,
+		GoVersion: runtime.Version(),
+	}
 }
 
 func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface{},
