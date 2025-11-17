@@ -12,7 +12,7 @@ New features:
 -
 - Added validation of CRL `NextUpdate` for freshly downloaded CRLs (snowflakedb/gosnowflake#1617)
 -
--
+- Added logging of query text and parameters (snowflakedb/gosnowflake#1625)
 
 Bug fixes:
 

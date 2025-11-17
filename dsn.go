@@ -130,7 +130,9 @@ type Config struct {
 	DisableTelemetry bool // indicates whether to disable telemetry
 
 	// Deprecated: may be removed in a future release with logging reorganization.
-	Tracing string // sets logging level
+	Tracing            string // sets logging level
+	LogQueryText       bool   // indicates whether query text should be logged.
+	LogQueryParameters bool   // indicates whether query parameters should be logged.
 
 	TmpDirPath string // sets temporary directory used by a driver for operations like encrypting, compressing etc
 
@@ -386,6 +388,12 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Tracing != "" {
 		params.Add("tracing", cfg.Tracing)
+	}
+	if cfg.LogQueryText {
+		params.Add("logQueryText", strconv.FormatBool(cfg.LogQueryText))
+	}
+	if cfg.LogQueryParameters {
+		params.Add("logQueryParameters", strconv.FormatBool(cfg.LogQueryParameters))
 	}
 	if cfg.TmpDirPath != "" {
 		params.Add("tmpDirPath", cfg.TmpDirPath)
@@ -1063,6 +1071,20 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "tracing":
 			cfg.Tracing = value
+		case "logQueryText":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.LogQueryText = vv
+		case "logQueryParameters":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.LogQueryParameters = vv
 		case "tmpDirPath":
 			cfg.TmpDirPath = value
 		case "disableQueryContextCache":

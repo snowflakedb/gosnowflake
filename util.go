@@ -35,13 +35,12 @@ const (
 	enableStructuredTypes            contextKey = "ENABLE_STRUCTURED_TYPES"
 	mapValuesNullable                contextKey = "MAP_VALUES_NULLABLE"
 	arrayValuesNullable              contextKey = "ARRAY_VALUES_NULLABLE"
-)
-
-const (
-	describeOnly        contextKey = "DESCRIBE_ONLY"
-	internalQuery       contextKey = "INTERNAL_QUERY"
-	cancelRetry         contextKey = "CANCEL_RETRY"
-	streamChunkDownload contextKey = "STREAM_CHUNK_DOWNLOAD"
+	describeOnly                     contextKey = "DESCRIBE_ONLY"
+	internalQuery                    contextKey = "INTERNAL_QUERY"
+	cancelRetry                      contextKey = "CANCEL_RETRY"
+	streamChunkDownload              contextKey = "STREAM_CHUNK_DOWNLOAD"
+	logQueryText                     contextKey = "LOG_QUERY_TEXT"
+	logQueryParameters               contextKey = "LOG_QUERY_PARAMETERS"
 )
 
 var (
@@ -185,6 +184,16 @@ func WithArrayValuesNullable(ctx context.Context) context.Context {
 // WithInternal sets the internal query flag.
 func WithInternal(ctx context.Context) context.Context {
 	return context.WithValue(ctx, internalQuery, true)
+}
+
+// WithLogQueryText enables logging of the query text.
+func WithLogQueryText(ctx context.Context) context.Context {
+	return context.WithValue(ctx, logQueryText, true)
+}
+
+// WithLogQueryParameters enables logging of the query parameters.
+func WithLogQueryParameters(ctx context.Context) context.Context {
+	return context.WithValue(ctx, logQueryParameters, true)
 }
 
 // Get the request ID from the context if specified, otherwise generate one

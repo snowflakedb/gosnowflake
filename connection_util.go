@@ -225,25 +225,27 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 }
 
 func isAsyncMode(ctx context.Context) bool {
-	val := ctx.Value(asyncMode)
-	if val == nil {
-		return false
-	}
-	a, ok := val.(bool)
-	return ok && a
+	return isBooleanContextEnabled(ctx, asyncMode)
 }
 
 func isDescribeOnly(ctx context.Context) bool {
-	v := ctx.Value(describeOnly)
-	if v == nil {
-		return false
-	}
-	d, ok := v.(bool)
-	return ok && d
+	return isBooleanContextEnabled(ctx, describeOnly)
 }
 
 func isInternal(ctx context.Context) bool {
-	v := ctx.Value(internalQuery)
+	return isBooleanContextEnabled(ctx, internalQuery)
+}
+
+func isLogQueryTextEnabled(ctx context.Context) bool {
+	return isBooleanContextEnabled(ctx, logQueryText)
+}
+
+func isLogQueryParametersEnabled(ctx context.Context) bool {
+	return isBooleanContextEnabled(ctx, logQueryParameters)
+}
+
+func isBooleanContextEnabled(ctx context.Context, key contextKey) bool {
+	v := ctx.Value(key)
 	if v == nil {
 		return false
 	}
