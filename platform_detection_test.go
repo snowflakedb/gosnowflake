@@ -238,7 +238,7 @@ func TestDetectPlatformsTimeout(t *testing.T) {
 	platforms := detectPlatforms(context.Background(), 200*time.Millisecond)
 	executionTime := time.Since(start)
 
-	assertTrueE(t, len(platforms) == 0, fmt.Sprintf("Expected empty platforms, got: %v", platforms))
+	assertEqualE(t, len(platforms), 0, fmt.Sprintf("Expected empty platforms, got: %v", platforms))
 	assertTrueE(t, executionTime >= 200*time.Millisecond && executionTime < 250*time.Millisecond,
 		fmt.Sprintf("Expected execution time around 200ms, got: %v", executionTime))
 }
