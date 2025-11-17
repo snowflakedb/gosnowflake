@@ -295,6 +295,13 @@ func (cv *crlValidator) validateCrlAgainstCrlURL(cert *x509.Certificate, crlURL 
 		if err != nil {
 			logger.Warnf("failed to download CRL from %v: %v", crlURL, err)
 		}
+		if newCrl != nil && newCrl.NextUpdate.Before(now) {
+			logger.Warnf("downloaded CRL from %v is already expired (next update at %v)", crlURL, newCrl.NextUpdate)
+			newCrl = nil
+			if crl == nil {
+				return certError
+			}
+		}
 		shouldUpdateCrl = newCrl != nil && (crl == nil || newCrl.ThisUpdate.After(crl.ThisUpdate))
 		if shouldUpdateCrl {
 			logger.Debugf("Found updated CRL for %v", crlURL)
