@@ -96,6 +96,16 @@ func (sc *snowflakeConn) exec(
 	describeOnly bool,
 	bindings []driver.NamedValue) (
 	*execResponse, error) {
+	if sc.cfg.LogQueryText || isLogQueryTextEnabled(ctx) {
+		if len(bindings) > 0 && (sc.cfg.LogQueryParameters || isLogQueryParametersEnabled(ctx)) {
+			logger.WithContext(ctx).Infof("Executing query: %v with bindings: %v", query, bindings)
+		} else {
+			logger.WithContext(ctx).Infof("Executing query: %v", query)
+		}
+	} else {
+		logger.WithContext(ctx).Infof("Executing query")
+	}
+
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
 	_, _, sessionID := safeGetTokens(sc.rest)
