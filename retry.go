@@ -394,8 +394,11 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 
 func isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
 	if err != nil && res == nil { // Failed http connection. Most probably client timeout.
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		if errors.Is(err, context.Canceled) {
 			return false, err
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return true, err
 		}
 		return true, err
 	}
@@ -403,12 +406,13 @@ func isRetryableError(req *http.Request, res *http.Response, err error) (bool, e
 		return false, err
 	}
 
-	// handle redirect
+	// handle the timeout from the sever side
 	if res.Request != nil && res.Request.Response != nil {
 		if parsedErr := json.NewDecoder(res.Body).Decode(&execResponse{}); parsedErr != nil {
 			return true, err
 		}
 	}
+
 	return isRetryableStatus(res.StatusCode), err
 }
 

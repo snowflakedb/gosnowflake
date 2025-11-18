@@ -69,7 +69,7 @@
                 "method": "POST"
             },
             "response": {
-                "status": "HTTP_STATUS_CODE",
+                "status": "%HTTP_STATUS_CODE%",
                 "headers": {
                     "Location": "/temp-redirect-1"
                 }
@@ -84,7 +84,7 @@
                 "method": "POST"
             },
             "response": {
-                "fixedDelayMilliseconds": 65000
+                "fixedDelayMilliseconds": 5000
             }
         },
         {

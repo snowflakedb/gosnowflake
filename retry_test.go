@@ -682,9 +682,18 @@ func TestRedirectRetry(t *testing.T) {
 	}
 
 	for _, httpCode := range httpCodes {
-		t.Run("retry with http code "+httpCode, func(t *testing.T) {
-			wiremock.registerMappings(t, newWiremockMappingWithParam("retry/redirection_retry_workflow.json", map[string]string{"HTTP_STATUS_CODE": httpCode}))
+		t.Run("retry with the redirection http code: "+httpCode, func(t *testing.T) {
+			wiremock.registerMappings(t, newWiremockMappingWithParam("retry/redirection_retry_workflow.json", map[string]string{"%HTTP_STATUS_CODE%": httpCode}))
 			cfg := wiremock.connectionConfig()
+			connector := NewConnector(SnowflakeDriver{}, *cfg)
+			db := sql.OpenDB(connector)
+			runSmokeQuery(t, db)
+		})
+
+		t.Run("retry when redirection exceeds client Timeout."+httpCode, func(t *testing.T) {
+			wiremock.registerMappings(t, newWiremockMappingWithParam("retry/redirection_retry_workflow.json", map[string]string{"%HTTP_STATUS_CODE%": httpCode}))
+			cfg := wiremock.connectionConfig()
+			cfg.ClientTimeout = 3 * time.Second
 			connector := NewConnector(SnowflakeDriver{}, *cfg)
 			db := sql.OpenDB(connector)
 			runSmokeQuery(t, db)
