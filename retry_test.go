@@ -526,7 +526,7 @@ func TestIsRetryable(t *testing.T) {
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      nil,
 			err:      &url.Error{Err: context.DeadlineExceeded},
-			expected: false,
+			expected: true,
 		},
 		{
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
@@ -690,7 +690,7 @@ func TestRedirectRetry(t *testing.T) {
 			runSmokeQuery(t, db)
 		})
 
-		t.Run("retry when redirection exceeds client Timeout."+httpCode, func(t *testing.T) {
+		t.Run("retry when redirection exceeds client Timeout: "+httpCode, func(t *testing.T) {
 			wiremock.registerMappings(t, newWiremockMappingWithParam("retry/redirection_retry_workflow.json", map[string]string{"%HTTP_STATUS_CODE%": httpCode}))
 			cfg := wiremock.connectionConfig()
 			cfg.ClientTimeout = 3 * time.Second
