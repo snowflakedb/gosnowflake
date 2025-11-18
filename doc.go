@@ -166,6 +166,10 @@ The following connection parameters are supported:
   - tracing: Specifies the logging level to be used. Set to error by default.
     Valid values are trace, debug, info, print, warning, error, fatal, panic.
 
+  - logQueryText: when set to true, the full query text will be logged. Be aware that it may include sensitive information. Default value is false.
+
+  - logQueryParameters: when set to true, the parameters will be logged. Requires logQueryText to be enabled first. Be aware that it may include sensitive information. Default value is false.
+
   - disableQueryContextCache: disables parsing of query context returned from server and resending it to server as well.
     Default value is false.
 
