@@ -4,7 +4,7 @@
 
 New features:
 
-- 
+-
 -
 -
 -
@@ -16,7 +16,8 @@ New features:
 
 Bug fixes:
 
-- Make secrets detector initialization thread safe and more maintainable (#1621)
+- Fixed a data race error in tests caused by platform_detection init() function (snowflakedb/gosnowflake#1618)
+- Make secrets detector initialization thread safe and more maintainable (snowflakedb/gosnowflake#1621)
 -
 -
 -

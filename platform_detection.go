@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/aws/smithy-go/logging"
 )
 
 type platformDetectionState string
@@ -33,16 +35,18 @@ var (
 )
 
 var (
-	detectedPlatformsCache []string
-	platformDetectionDone  chan struct{}
+	detectedPlatformsCache    []string
+	initPlatformDetectionOnce sync.Once
+	platformDetectionDone     = make(chan struct{})
 )
 
-func init() {
-	platformDetectionDone = make(chan struct{})
-	go func() {
-		detectedPlatformsCache = detectPlatforms(context.Background(), 200*time.Millisecond)
-		defer close(platformDetectionDone)
-	}()
+func initPlatformDetection() {
+	initPlatformDetectionOnce.Do(func() {
+		go func() {
+			detectedPlatformsCache = detectPlatforms(context.Background(), 200*time.Millisecond)
+			defer close(platformDetectionDone)
+		}()
+	})
 }
 
 func getDetectedPlatforms() []string {
@@ -102,7 +106,7 @@ func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
 	}
 	waitGroup.Wait()
 
-	var detectedPlatformNames []string
+	detectedPlatformNames := []string{}
 	for _, detector := range detectors {
 		if detectionStates[detector.name] == platformDetected {
 			detectedPlatformNames = append(detectedPlatformNames, detector.name)
@@ -154,7 +158,7 @@ func detectEc2Instance(ctx context.Context, timeout time.Duration) platformDetec
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cfg, err := config.LoadDefaultConfig(timeoutCtx)
+	cfg, err := config.LoadDefaultConfig(timeoutCtx, config.WithLogger(logging.NewStandardLogger(io.Discard)))
 	if err != nil {
 		return platformNotDetected
 	}
@@ -178,7 +182,7 @@ func detectAwsIdentity(ctx context.Context, timeout time.Duration) platformDetec
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cfg, err := config.LoadDefaultConfig(timeoutCtx)
+	cfg, err := config.LoadDefaultConfig(timeoutCtx, config.WithLogger(logging.NewStandardLogger(io.Discard)))
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return platformDetectionTimeout
