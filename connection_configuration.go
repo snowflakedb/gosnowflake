@@ -180,6 +180,10 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		cfg.ClientStoreTemporaryCredential, err = parseConfigBool(value)
 	case "tracing":
 		cfg.Tracing, err = parseString(value)
+	case "logquerytext":
+		cfg.LogQueryText, err = parseBool(value)
+	case "logqueryparameters":
+		cfg.LogQueryParameters, err = parseBool(value)
 	case "tmpdirpath":
 		cfg.TmpDirPath, err = parseString(value)
 	case "disablequerycontextcache":

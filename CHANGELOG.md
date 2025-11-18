@@ -4,7 +4,7 @@
 
 New features:
 
-- 
+-
 -
 -
 -
@@ -12,12 +12,19 @@ New features:
 -
 - Added validation of CRL `NextUpdate` for freshly downloaded CRLs (snowflakedb/gosnowflake#1617)
 -
--
+- Added logging of query text and parameters (snowflakedb/gosnowflake#1625)
 
 Bug fixes:
 
 - Handle HTTP307 & 308 in drivers to achieve better resiliency to backend errors (snowflakedb/gosnowflake#1616).
 - 
+- Fixed a data race error in tests caused by platform_detection init() function (snowflakedb/gosnowflake#1618)
+- Make secrets detector initialization thread safe and more maintainable (snowflakedb/gosnowflake#1621)
+-
+-
+-
+-
+-
 -
 - Make secrets detector initialization thread safe and more maintainable (#1621)
 -

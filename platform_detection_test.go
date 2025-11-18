@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 )
@@ -71,10 +72,31 @@ func setupWiremockMetadataEndpoints() func() {
 	}
 }
 
-func TestGetDetectedPlatformsReturnsCachedResult(t *testing.T) {
-	platforms := getDetectedPlatforms()
-	assertTrueF(t, slices.Equal(platforms, detectedPlatformsCache),
-		"getDetectedPlatforms should return the cached result")
+func TestPlatformDetectionCachingAndSyncOnce(t *testing.T) {
+	cleanup := setupCleanPlatformEnv()
+	defer cleanup()
+
+	originalDone, originalCache := platformDetectionDone, detectedPlatformsCache
+	initPlatformDetectionOnce, platformDetectionDone, detectedPlatformsCache = sync.Once{}, make(chan struct{}), nil
+	defer func() { platformDetectionDone, detectedPlatformsCache = originalDone, originalCache }()
+
+	os.Setenv("AWS_LAMBDA_TASK_ROOT", "/var/task")
+	initPlatformDetection()
+	platforms1 := getDetectedPlatforms()
+
+	// Verify caching works and AWS Lambda detected
+	assertDeepEqualE(t, platforms1, detectedPlatformsCache)
+	assertTrueE(t, slices.Contains(platforms1, "is_aws_lambda"), "Should detect AWS Lambda")
+
+	// Change environment and test sync.Once behavior
+	cleanup()
+	os.Setenv("GITHUB_ACTIONS", "true")
+	initPlatformDetection()
+	platforms2 := getDetectedPlatforms()
+
+	assertDeepEqualE(t, platforms1, platforms2)
+	assertTrueE(t, slices.Contains(platforms2, "is_aws_lambda"), "Should still show cached AWS Lambda result")
+	assertFalseE(t, slices.Contains(platforms2, "is_github_action"), "Should NOT detect GitHub Actions due to caching")
 }
 
 func TestDetectPlatforms(t *testing.T) {
@@ -87,7 +109,7 @@ func TestDetectPlatforms(t *testing.T) {
 			expectedResult: []string{"disabled"},
 		},
 		{
-			name: "returns empty when no platforms detected",
+			name:           "returns empty when no platforms detected",
 			expectedResult: []string{},
 		},
 		{
@@ -199,8 +221,7 @@ func TestDetectPlatforms(t *testing.T) {
 
 			platforms := detectPlatforms(context.Background(), 200*time.Millisecond)
 
-			assertTrueF(t, slices.Equal(platforms, tc.expectedResult),
-				fmt.Sprintf("Platform detection mismatch. Expected: %v, Got: %v", tc.expectedResult, platforms))
+			assertDeepEqualE(t, platforms, tc.expectedResult)
 		})
 	}
 }
@@ -217,8 +238,8 @@ func TestDetectPlatformsTimeout(t *testing.T) {
 	platforms := detectPlatforms(context.Background(), 200*time.Millisecond)
 	executionTime := time.Since(start)
 
-	assertTrueF(t, len(platforms) == 0, fmt.Sprintf("Expected empty platforms, got: %v", platforms))
-	assertTrueF(t, executionTime >= 200*time.Millisecond && executionTime < 250*time.Millisecond,
+	assertEqualE(t, len(platforms), 0, fmt.Sprintf("Expected empty platforms, got: %v", platforms))
+	assertTrueE(t, executionTime >= 200*time.Millisecond && executionTime < 250*time.Millisecond,
 		fmt.Sprintf("Expected execution time around 200ms, got: %v", executionTime))
 }
 
@@ -248,7 +269,7 @@ func TestIsValidArnForWif(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.arn, func(t *testing.T) {
 			result := isValidArnForWif(tc.arn)
-			assertEqualF(t, result, tc.expected, fmt.Sprintf("ARN validation failed for: %s", tc.arn))
+			assertEqualE(t, result, tc.expected, fmt.Sprintf("ARN validation failed for: %s", tc.arn))
 		})
 	}
 }
