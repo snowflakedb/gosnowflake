@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 const urlQueriesResultFmt = "/queries/%s/result"
@@ -126,6 +127,7 @@ type SnowflakeQueryStatus struct {
 // SnowflakeConnection is a wrapper to snowflakeConn that exposes API functions
 type SnowflakeConnection interface {
 	GetQueryStatus(ctx context.Context, queryID string) (*SnowflakeQueryStatus, error)
+	AddTelemetryData(ctx context.Context, eventDate time.Time, data map[string]string) error
 }
 
 // checkQueryStatus returns the status given the query ID. If successful,

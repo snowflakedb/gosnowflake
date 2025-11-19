@@ -159,9 +159,30 @@ func newWiremockMappingWithParam(filePath string, params map[string]string) wire
 	return wiremockMapping{filePath: filePath, params: params}
 }
 
-func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMapping) {
+type disableEnrichingWithTelemetry struct{}
+
+func (wm *wiremockClient) registerMappings(t *testing.T, args ...any) {
 	skipOnJenkins(t, "wiremock does not work on Jenkins")
-	for _, mapping := range wm.enrichWithTelemetry(mappings) {
+
+	enrichWithTelemetry := true
+	var mappings []wiremockMapping
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case wiremockMapping:
+			mappings = append(mappings, v)
+		case []wiremockMapping:
+			mappings = append(mappings, v...)
+		case disableEnrichingWithTelemetry:
+			enrichWithTelemetry = false
+		default:
+			t.Fatalf("unsupported argument type: %T", v)
+		}
+	}
+	allMappings := mappings
+	if enrichWithTelemetry {
+		allMappings = append(allMappings, newWiremockMapping("telemetry/telemetry.json"))
+	}
+	for _, mapping := range allMappings {
 		f, err := os.Open("test_data/wiremock/mappings/" + mapping.filePath)
 		assertNilF(t, err)
 		defer f.Close()
@@ -189,12 +210,6 @@ func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMap
 		assertNilF(t, err)
 		_, err = wm.client.Do(req)
 		assertNilE(t, err)
-	})
-}
-
-func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wiremockMapping {
-	return append(mappings, wiremockMapping{
-		filePath: "telemetry.json",
 	})
 }
 

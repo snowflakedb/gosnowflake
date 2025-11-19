@@ -215,7 +215,7 @@ func TestDetectPlatforms(t *testing.T) {
 				os.Setenv(key, value)
 			}
 
-			wiremock.registerMappings(t, tc.wiremockMappings...)
+			wiremock.registerMappings(t, tc.wiremockMappings)
 			wiremockCleanup := setupWiremockMetadataEndpoints()
 			defer wiremockCleanup()
 
