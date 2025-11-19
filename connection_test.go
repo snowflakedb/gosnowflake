@@ -741,6 +741,24 @@ func TestGetQueryStatus(t *testing.T) {
 	})
 }
 
+func TestAddTelemetryDataViaSnowflakeConnection(t *testing.T) {
+	wiremock.registerMappings(t,
+		newWiremockMapping("auth/password/successful_flow.json"),
+		newWiremockMapping("telemetry/custom_telemetry.json"))
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	err = conn.Raw(func(x any) error {
+		m := map[string]string{}
+		m["test_key"] = "test_value"
+		return x.(SnowflakeConnection).AddTelemetryData(context.Background(), time.Now(), m)
+	})
+	assertNilF(t, err)
+}
+
 func TestGetInvalidQueryStatus(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
 		sct.sc.rest.RequestTimeout = 1 * time.Second

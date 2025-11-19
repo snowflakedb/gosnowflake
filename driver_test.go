@@ -1891,7 +1891,7 @@ func TestCancelQuery(t *testing.T) {
 
 func TestCancelQueryWithConnectionContext(t *testing.T) {
 	testCases := []struct {
-		name           string
+		name            string
 		setupConnection func(ctx context.Context, db *sql.DB) error
 	}{
 		{
@@ -2193,7 +2193,6 @@ func TestOpenWithConfig(t *testing.T) {
 
 func TestOpenWithConfigCancel(t *testing.T) {
 	wiremock.registerMappings(t,
-		wiremockMapping{filePath: "telemetry.json"},
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
 	)
 	driver := SnowflakeDriver{}
