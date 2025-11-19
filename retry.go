@@ -400,9 +400,6 @@ func isRetryableError(req *http.Request, res *http.Response, err error) (bool, e
 
 		// the timeout happened, retry it first
 		// the driver validates the retry condition on the execution level.
-		if errors.Is(err, context.DeadlineExceeded) {
-			return true, err
-		}
 		return true, err
 	}
 	if res == nil || req == nil {
