@@ -50,6 +50,7 @@ func (sc *snowflakeConn) startHeartBeat() {
 		} else {
 			sc.rest.HeartBeat = newDefaultHeartBeat(sc.rest)
 		}
+		logger.WithContext(sc.ctx).Debug("Start heart beat")
 		sc.rest.HeartBeat.start()
 	}
 }
@@ -59,6 +60,7 @@ func (sc *snowflakeConn) stopHeartBeat() {
 		return
 	}
 	if sc.rest != nil && sc.rest.HeartBeat != nil {
+		logger.WithContext(sc.ctx).Debug("Stop heart beat")
 		sc.rest.HeartBeat.stop()
 	}
 }
@@ -215,7 +217,7 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 				v = vv
 			}
 		}
-		logger.WithContext(sc.ctx).Debugf("parameter. name: %v, value: %v", param.Name, v)
+		logger.WithContext(sc.ctx).Tracef("parameter. name: %v, value: %v", param.Name, v)
 		paramsMutex.Lock()
 		sc.cfg.Params[strings.ToLower(param.Name)] = &v
 		paramsMutex.Unlock()
@@ -223,25 +225,27 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 }
 
 func isAsyncMode(ctx context.Context) bool {
-	val := ctx.Value(asyncMode)
-	if val == nil {
-		return false
-	}
-	a, ok := val.(bool)
-	return ok && a
+	return isBooleanContextEnabled(ctx, asyncMode)
 }
 
 func isDescribeOnly(ctx context.Context) bool {
-	v := ctx.Value(describeOnly)
-	if v == nil {
-		return false
-	}
-	d, ok := v.(bool)
-	return ok && d
+	return isBooleanContextEnabled(ctx, describeOnly)
 }
 
 func isInternal(ctx context.Context) bool {
-	v := ctx.Value(internalQuery)
+	return isBooleanContextEnabled(ctx, internalQuery)
+}
+
+func isLogQueryTextEnabled(ctx context.Context) bool {
+	return isBooleanContextEnabled(ctx, logQueryText)
+}
+
+func isLogQueryParametersEnabled(ctx context.Context) bool {
+	return isBooleanContextEnabled(ctx, logQueryParameters)
+}
+
+func isBooleanContextEnabled(ctx context.Context, key contextKey) bool {
+	v := ctx.Value(key)
 	if v == nil {
 		return false
 	}

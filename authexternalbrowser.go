@@ -116,11 +116,8 @@ func getIdpURLProofKey(
 	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 	headers[httpHeaderUserAgent] = userAgent
 
-	clientEnvironment := authRequestClientEnvironment{
-		Application: application,
-		Os:          operatingSystem,
-		OsVersion:   platform,
-	}
+	clientEnvironment := newAuthRequestClientEnvironment()
+	clientEnvironment.Application = application
 
 	requestMain := authRequestData{
 		ClientAppID:             clientType,

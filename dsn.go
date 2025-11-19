@@ -126,10 +126,13 @@ type Config struct {
 	tlsConfig     *tls.Config // Custom TLS configuration
 	TLSConfigName string      // Name of the TLS config to use
 
+	// Deprecated: will be removed in a future release and replaced with a session parameter.
 	DisableTelemetry bool // indicates whether to disable telemetry
 
 	// Deprecated: may be removed in a future release with logging reorganization.
-	Tracing string // sets logging level
+	Tracing            string // sets logging level
+	LogQueryText       bool   // indicates whether query text should be logged.
+	LogQueryParameters bool   // indicates whether query parameters should be logged.
 
 	TmpDirPath string // sets temporary directory used by a driver for operations like encrypting, compressing etc
 
@@ -197,6 +200,18 @@ func (c *Config) ocspMode() string {
 
 func (c *Config) transportConfigFor(transportType transportType) *transportConfig {
 	return defaultTransportConfigs.forTransportType(transportType)
+}
+
+func (c *Config) describeIdentityAttributes() string {
+	return fmt.Sprintf("host: %v, account: %v, user: %v, password existed: %v, role: %v, database: %v, schema: %v, warehouse: %v, %v",
+		c.Host, c.Account, c.User, (c.Password != ""), c.Role, c.Database, c.Schema, c.Warehouse, c.describeProxy())
+}
+
+func (c *Config) describeProxy() string {
+	if c.ProxyHost != "" {
+		return fmt.Sprintf("proxyHost: %v, proxyPort: %v proxyUser: %v, proxyPassword %v, proxyProtocol: %v, noProxy: %v", c.ProxyHost, c.ProxyPort, c.ProxyUser, c.ProxyPassword != "", c.ProxyProtocol, c.NoProxy)
+	}
+	return "proxy was not configured"
 }
 
 // DSN constructs a DSN for Snowflake db.
@@ -373,6 +388,12 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Tracing != "" {
 		params.Add("tracing", cfg.Tracing)
+	}
+	if cfg.LogQueryText {
+		params.Add("logQueryText", strconv.FormatBool(cfg.LogQueryText))
+	}
+	if cfg.LogQueryParameters {
+		params.Add("logQueryParameters", strconv.FormatBool(cfg.LogQueryParameters))
 	}
 	if cfg.TmpDirPath != "" {
 		params.Add("tmpDirPath", cfg.TmpDirPath)
@@ -1050,6 +1071,20 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "tracing":
 			cfg.Tracing = value
+		case "logQueryText":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.LogQueryText = vv
+		case "logQueryParameters":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.LogQueryParameters = vv
 		case "tmpDirPath":
 			cfg.TmpDirPath = value
 		case "disableQueryContextCache":

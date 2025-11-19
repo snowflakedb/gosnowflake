@@ -2,6 +2,46 @@
 
 ## Upcoming Release
 
+New features:
+
+-
+-
+-
+-
+-
+-
+- Added validation of CRL `NextUpdate` for freshly downloaded CRLs (snowflakedb/gosnowflake#1617)
+-
+- Added logging of query text and parameters (snowflakedb/gosnowflake#1625)
+
+Bug fixes:
+
+- Fixed a data race error in tests caused by platform_detection init() function (snowflakedb/gosnowflake#1618)
+- Make secrets detector initialization thread safe and more maintainable (snowflakedb/gosnowflake#1621)
+-
+-
+-
+-
+-
+-
+-
+-
+
+Internal changes:
+
+-
+-
+-
+-
+- Added ISA to login request telemetry (snowflakedb/gosnowflake#1620)
+-
+-
+-
+-
+
+## 1.17.1
+
+- Fix unsafe reflection of nil pointer on DECFLOAT func in bind uploader (snowflakedb/gosnowflake#1604).
 - Added temporary download files cleanup (snowflakedb/gosnowflake#1577)
 - Marked fields as deprecated (snowflakedb/gosnowflake#1556)
 - Exposed `QueryStatus` from `SnowflakeResult` and `SnowflakeRows` in `GetStatus()` function (snowflakedb/gosnowflake#1556)
@@ -9,18 +49,13 @@
 - Added small clarification in oauth.go example on token escaping (snowflakedb/gosnowflake#1574)
 - Ensured proper permissions for CRL cache directory (snowflakedb/gosnowflake#1588)
 - Added `CrlDownloadMaxSize` to limit the size of CRL downloads (snowflakedb/gosnowflake#1588)
-- 
+- Added platform telemetry to login requests. Can be disabled with `SNOWFLAKE_DISABLE_PLATFORM_DETECTION` environment variable (snowflakedb/gosnowflake#1601)
 - Bypassed proxy settings for WIF metadata requests (snowflakedb/gosnowflake#1593)
-- 
-- 
-- 
-- Fixed nil pointer derereference while calling long-running queries (snowflakedb/gosnowflake#1592) (snowflakedb/gosnowflake#1596)
-- 
-- 
-- 
-- 
-- 
-- 
+- Fixed a bug where GCP PUT/GET operations would fail when the connection context was cancelled (snowflakedb/gosnowflake#1584)
+- Fixed nil pointer dereference while calling long-running queries (snowflakedb/gosnowflake#1592) (snowflakedb/gosnowflake#1596)
+- Moved keyring-based secure storage manager into separate file to avoid the need to initialize keyring on Linux. (snowflakedb/gosnowflake#1595)
+- Enabling official support for RHEL9 by testing and enabling CI/CD checks for Rocky Linux in CICD, (snowflakedb/gosnowflake#1597)
+- Improve logging (snowflakedb/gosnowflake#1570)
 
 ## 1.17.0
 

@@ -1263,6 +1263,25 @@ func TestParseDSN(t *testing.T) {
 			ocspMode: ocspModeFailOpen,
 			err:      nil,
 		},
+		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&tracing=debug&logQueryText=true&logQueryParameters=true",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Host: "a.snowflake.local", Port: 9876,
+				Protocol:                  "https",
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				Tracing:                   "debug",
+				IncludeRetryReason:        ConfigBoolTrue,
+				LogQueryText:              true,
+				LogQueryParameters:        true,
+			},
+			ocspMode: ocspModeFailOpen,
+		},
 	}
 
 	for _, at := range []AuthType{AuthTypeExternalBrowser, AuthTypeOAuth} {
@@ -1899,12 +1918,14 @@ func TestDSN(t *testing.T) {
 		},
 		{
 			cfg: &Config{
-				User:     "u",
-				Password: "p",
-				Account:  "a.b.c",
-				Tracing:  "debug",
+				User:               "u",
+				Password:           "p",
+				Account:            "a.b.c",
+				Tracing:            "debug",
+				LogQueryText:       true,
+				LogQueryParameters: true,
 			},
-			dsn: "u:p@a.b.c.snowflakecomputing.com:443?ocspFailOpen=true&region=b.c&tracing=debug&validateDefaultParameters=true",
+			dsn: "u:p@a.b.c.snowflakecomputing.com:443?logQueryParameters=true&logQueryText=true&ocspFailOpen=true&region=b.c&tracing=debug&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{
