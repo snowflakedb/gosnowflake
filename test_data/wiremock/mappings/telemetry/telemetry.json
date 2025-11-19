@@ -9,12 +9,10 @@
       "response": {
         "status": 200,
         "jsonBody": {
-          "data": {
-            "code": null,
-            "data": "Log Received",
-            "message": null,
-            "success": true
-          }
+          "code": null,
+          "data": "Log Received",
+          "message": null,
+          "success": true
         }
       }
     }

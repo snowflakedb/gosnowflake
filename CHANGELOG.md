@@ -11,7 +11,7 @@ New features:
 -
 -
 - Added validation of CRL `NextUpdate` for freshly downloaded CRLs (snowflakedb/gosnowflake#1617)
--
+- Exposed function to send arbitrary telemetry data (snowflakedb/gosnowflake#1627)
 - Added logging of query text and parameters (snowflakedb/gosnowflake#1625)
 
 Bug fixes:
