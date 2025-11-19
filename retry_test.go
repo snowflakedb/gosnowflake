@@ -550,7 +550,7 @@ func TestIsRetryable(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(fmt.Sprintf("req %v, resp %v", tc.req, tc.res), func(t *testing.T) {
-			result, _ := isRetryableError(tc.req, tc.res, tc.err)
+			result, _ := isRetryableError(context.Background(), tc.req, tc.res, tc.err)
 			if result != tc.expected {
 				t.Fatalf("expected %v, got %v; request: %v, response: %v", tc.expected, result, tc.req, tc.res)
 			}

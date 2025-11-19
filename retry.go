@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -326,7 +327,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		res, err = r.client.Do(req)
 
 		// check if it can retry.
-		retryable, err := isRetryableError(req, res, err)
+		retryable, err := isRetryableError(r.ctx, req, res, err)
 		if !retryable {
 			return res, err
 		}
@@ -392,25 +393,33 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	}
 }
 
-func isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
+func isRetryableError(ctx context.Context, req *http.Request, res *http.Response, err error) (bool, error) {
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+
 	if err != nil && res == nil { // Failed http connection. Most probably client timeout.
 		if errors.Is(err, context.Canceled) {
 			return false, err
 		}
 
-		// the timeout happened, retry it first
-		// the driver validates the retry condition on the execution level.
+		if errors.Is(err, context.DeadlineExceeded) {
+			var netErr net.Error
+			if errors.As(err, &netErr) {
+				if netErr.Timeout() {
+					return true, err
+				}
+			}
+		}
 		return true, err
 	}
 	if res == nil || req == nil {
 		return false, err
 	}
 
-	// handle the timeout from the sever side
+	// handle the redirection errors such as timeout.
 	if res.Request != nil && res.Request.Response != nil {
-		if parsedErr := json.NewDecoder(res.Body).Decode(&execResponse{}); parsedErr != nil {
-			return true, err
-		}
+		return isRetryableRedirectionResponse(res)
 	}
 
 	return isRetryableStatus(res.StatusCode), err
@@ -422,4 +431,20 @@ func isRetryableStatus(statusCode int) bool {
 
 func isLoginRequest(req *http.Request) bool {
 	return contains(authEndpoints, req.URL.Path)
+}
+
+func isRetryableRedirectionResponse(res *http.Response) (bool, error) {
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		return true, err
+	}
+	if len(data) == 0 {
+		return true, err
+	} else {
+		if parsedErr := json.NewDecoder(bytes.NewBuffer(data)).Decode(&execResponse{}); parsedErr != nil {
+			return true, parsedErr
+		}
+		res.Body = io.NopCloser(bytes.NewBuffer(data))
+		return false, nil
+	}
 }
