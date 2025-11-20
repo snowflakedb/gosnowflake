@@ -697,13 +697,3 @@ func TestRedirectRetry(t *testing.T) {
 	db := sql.OpenDB(connector)
 	runSmokeQuery(t, db)
 }
-
-func TestCancellationHandling(t *testing.T) {
-	_, cancel := context.WithCancel(context.Background())
-	wiremock.registerMappings(t, newWiremockMapping("retry/redirection_retry_workflow.json"))
-	cfg := wiremock.connectionConfig()
-	connector := NewConnector(SnowflakeDriver{}, *cfg)
-	cancel()
-	db := sql.OpenDB(connector)
-	runSmokeQuery(t, db)
-}
