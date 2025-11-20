@@ -10,14 +10,12 @@ New features:
 -
 -
 -
-- Added validation of CRL `NextUpdate` for freshly downloaded CRLs (snowflakedb/gosnowflake#1617)
-- Exposed function to send arbitrary telemetry data (snowflakedb/gosnowflake#1627)
-- Added logging of query text and parameters (snowflakedb/gosnowflake#1625)
+-
+-
+-
 
 Bug fixes:
 
-- Fixed a data race error in tests caused by platform_detection init() function (snowflakedb/gosnowflake#1618)
-- Make secrets detector initialization thread safe and more maintainable (snowflakedb/gosnowflake#1621)
 -
 -
 -
@@ -28,16 +26,31 @@ Bug fixes:
 -
 
 Internal changes:
+- 
+-
+-
+-
+-
+-
+-
+-
 
--
--
--
--
+## 1.18.0
+
+New features:
+
+- Added validation of CRL `NextUpdate` for freshly downloaded CRLs (snowflakedb/gosnowflake#1617)
+- Exposed function to send arbitrary telemetry data (snowflakedb/gosnowflake#1627)
+- Added logging of query text and parameters (snowflakedb/gosnowflake#1625)
+
+Bug fixes:
+
+- Fixed a data race error in tests caused by platform_detection init() function (snowflakedb/gosnowflake#1618)
+- Make secrets detector initialization thread safe and more maintainable (snowflakedb/gosnowflake#1621)
+
+Internal changes:
+
 - Added ISA to login request telemetry (snowflakedb/gosnowflake#1620)
--
--
--
--
 
 ## 1.17.1
 
