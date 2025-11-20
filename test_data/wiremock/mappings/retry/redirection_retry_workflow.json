@@ -69,7 +69,7 @@
                 "method": "POST"
             },
             "response": {
-                "status": "%HTTP_STATUS_CODE%",
+                "status": 307,
                 "headers": {
                     "Location": "/temp-redirect-1"
                 }

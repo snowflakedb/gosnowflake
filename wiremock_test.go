@@ -155,10 +155,6 @@ func newWiremockMapping(filePath string) wiremockMapping {
 	return wiremockMapping{filePath: filePath}
 }
 
-func newWiremockMappingWithParam(filePath string, params map[string]string) wiremockMapping {
-	return wiremockMapping{filePath: filePath, params: params}
-}
-
 type disableEnrichingWithTelemetry struct{}
 
 func (wm *wiremockClient) registerMappings(t *testing.T, args ...any) {
