@@ -405,7 +405,6 @@ func isRetryableError(ctx context.Context, req *http.Request, res *http.Response
 	if res == nil || req == nil {
 		return false, err
 	}
-
 	return isRetryableStatus(res.StatusCode), err
 }
 
