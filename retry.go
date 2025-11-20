@@ -9,7 +9,6 @@ import (
 	"io"
 	"math"
 	"math/rand"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -402,15 +401,6 @@ func isRetryableError(ctx context.Context, req *http.Request, res *http.Response
 		if errors.Is(err, context.Canceled) {
 			return false, err
 		}
-
-		if errors.Is(err, context.DeadlineExceeded) {
-			var netErr net.Error
-			if errors.As(err, &netErr) {
-				if netErr.Timeout() {
-					return true, err
-				}
-			}
-		}
 		return true, err
 	}
 	if res == nil || req == nil {
@@ -440,11 +430,10 @@ func isRetryableRedirectionResponse(res *http.Response) (bool, error) {
 	}
 	if len(data) == 0 {
 		return true, err
-	} else {
-		if parsedErr := json.NewDecoder(bytes.NewBuffer(data)).Decode(&execResponse{}); parsedErr != nil {
-			return true, parsedErr
-		}
-		res.Body = io.NopCloser(bytes.NewBuffer(data))
-		return false, nil
 	}
+	if parsedErr := json.NewDecoder(bytes.NewBuffer(data)).Decode(&execResponse{}); parsedErr != nil {
+		return true, parsedErr
+	}
+	res.Body = io.NopCloser(bytes.NewBuffer(data))
+	return false, nil
 }
