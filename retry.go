@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -407,11 +406,6 @@ func isRetryableError(ctx context.Context, req *http.Request, res *http.Response
 		return false, err
 	}
 
-	// handle the redirection errors such as timeout.
-	if res.Request != nil && res.Request.Response != nil {
-		return isRetryableRedirectionResponse(res)
-	}
-
 	return isRetryableStatus(res.StatusCode), err
 }
 
@@ -421,19 +415,4 @@ func isRetryableStatus(statusCode int) bool {
 
 func isLoginRequest(req *http.Request) bool {
 	return contains(authEndpoints, req.URL.Path)
-}
-
-func isRetryableRedirectionResponse(res *http.Response) (bool, error) {
-	data, err := io.ReadAll(res.Body)
-	if err != nil {
-		return true, err
-	}
-	if len(data) == 0 {
-		return true, err
-	}
-	if parsedErr := json.NewDecoder(bytes.NewBuffer(data)).Decode(&execResponse{}); parsedErr != nil {
-		return true, parsedErr
-	}
-	res.Body = io.NopCloser(bytes.NewBuffer(data))
-	return false, nil
 }

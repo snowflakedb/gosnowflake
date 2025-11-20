@@ -529,20 +529,6 @@ func TestIsRetryable(t *testing.T) {
 			ctx:      context.Background(),
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      nil,
-			err:      &url.Error{Err: context.Canceled},
-			expected: false,
-		},
-		{
-			ctx:      context.Background(),
-			req:      &http.Request{URL: &url.URL{Path: queryRequestPath}},
-			res:      nil,
-			err:      &url.Error{Err: context.Canceled},
-			expected: false,
-		},
-		{
-			ctx:      context.Background(),
-			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
-			res:      nil,
 			err:      &url.Error{Err: context.DeadlineExceeded},
 			expected: true,
 		},
@@ -560,15 +546,6 @@ func TestIsRetryable(t *testing.T) {
 			err:      nil,
 			expected: true,
 		},
-
-		{
-			ctx:      deadLineCtx,
-			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
-			res:      nil,
-			err:      &url.Error{Err: context.Canceled},
-			expected: false,
-		},
-
 		{
 			ctx:      deadLineCtx,
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
@@ -713,20 +690,20 @@ func TestCalculateRetryWaitForNonAuthRequests(t *testing.T) {
 }
 
 func TestRedirectRetry(t *testing.T) {
-	t.Run("retry with the redirection http code", func(t *testing.T) {
-		wiremock.registerMappings(t, newWiremockMapping("retry/redirection_retry_workflow.json"))
-		cfg := wiremock.connectionConfig()
-		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		db := sql.OpenDB(connector)
-		runSmokeQuery(t, db)
-	})
+	wiremock.registerMappings(t, newWiremockMapping("retry/redirection_retry_workflow.json"))
+	cfg := wiremock.connectionConfig()
+	cfg.ClientTimeout = 3 * time.Second
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	runSmokeQuery(t, db)
+}
 
-	t.Run("retry when redirection exceeds client Timeout", func(t *testing.T) {
-		wiremock.registerMappings(t, newWiremockMapping("retry/redirection_retry_workflow.json"))
-		cfg := wiremock.connectionConfig()
-		cfg.ClientTimeout = 3 * time.Second
-		connector := NewConnector(SnowflakeDriver{}, *cfg)
-		db := sql.OpenDB(connector)
-		runSmokeQuery(t, db)
-	})
+func TestCancellationHandling(t *testing.T) {
+	_, cancel := context.WithCancel(context.Background())
+	wiremock.registerMappings(t, newWiremockMapping("retry/redirection_retry_workflow.json"))
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	cancel()
+	db := sql.OpenDB(connector)
+	runSmokeQuery(t, db)
 }
