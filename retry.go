@@ -396,12 +396,6 @@ func isRetryableError(ctx context.Context, req *http.Request, res *http.Response
 		return false, ctx.Err()
 	}
 
-	if err != nil && res == nil { // Failed http connection. Most probably client timeout.
-		if errors.Is(err, context.Canceled) {
-			return false, err
-		}
-		return true, err
-	}
 	if res == nil || req == nil {
 		return false, err
 	}
