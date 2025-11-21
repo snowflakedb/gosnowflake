@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"crypto/x509"
@@ -184,6 +185,8 @@ type authRequestClientEnvironment struct {
 	OAuthType               string   `json:"OAUTH_TYPE,omitempty"`
 	CertRevocationCheckMode string   `json:"CERT_REVOCATION_CHECK_MODE,omitempty"`
 	Platform                []string `json:"PLATFORM,omitempty"`
+	CoreVersion             string   `json:"CORE_VERSION,omitempty"`
+	CoreLoadError           string   `json:"CORE_LOAD_ERROR,omitempty"`
 }
 
 type authRequestData struct {
@@ -451,11 +454,25 @@ func authenticate(
 }
 
 func newAuthRequestClientEnvironment() authRequestClientEnvironment {
+	var coreVersion string
+	var coreLoadErr error
+
+	// Try to get minicore version, but don't block if it's not loaded yet
+	if mc := getMiniCore(); mc != nil {
+		coreVersion, coreLoadErr = mc.FullVersion()
+	} else {
+		// Minicore not loaded yet - this is expected during startup
+		coreVersion = ""
+		coreLoadErr = errors.New("minicore not yet loaded")
+		logger.Debugf("Minicore not yet loaded for client environment telemetry")
+	}
 	return authRequestClientEnvironment{
-		Os:        runtime.GOOS,
-		OsVersion: osVersion,
-		Isa:       runtime.GOARCH,
-		GoVersion: runtime.Version(),
+		Os:            runtime.GOOS,
+		OsVersion:     osVersion,
+		Isa:           runtime.GOARCH,
+		GoVersion:     runtime.Version(),
+		CoreVersion:   coreVersion,
+		CoreLoadError: cmp.Or(coreLoadErr, errors.New("")).Error(),
 	}
 }
 
