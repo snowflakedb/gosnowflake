@@ -27,6 +27,7 @@ const (
 )
 
 const disablePlatformDetectionEnv = "SNOWFLAKE_DISABLE_PLATFORM_DETECTION"
+const platformDetectionMaxWaitTime = 200 * time.Millisecond
 
 var (
 	azureMetadataBaseURL = "http://169.254.169.254"
@@ -43,7 +44,7 @@ var (
 func initPlatformDetection() {
 	initPlatformDetectionOnce.Do(func() {
 		go func() {
-			detectedPlatformsCache = detectPlatforms(context.Background(), 200*time.Millisecond)
+			detectedPlatformsCache = detectPlatforms(context.Background(), platformDetectionMaxWaitTime)
 			defer close(platformDetectionDone)
 		}()
 	})
@@ -51,7 +52,12 @@ func initPlatformDetection() {
 
 func getDetectedPlatforms() []string {
 	logger.Debugf("getDetectedPlatforms: waiting for platform detection to complete")
-	<-platformDetectionDone
+	select {
+	case <-platformDetectionDone:
+	case <-time.After(platformDetectionMaxWaitTime + 10*time.Millisecond /*buffer for concurrency of this thread and start of platform detector*/):
+		logger.Debug("getDetectedPlatforms: platform detection timed out")
+		return []string{"platform_detection_timeout"}
+	}
 	logger.Debugf("getDetectedPlatforms: returning cached detected platforms: %v", detectedPlatformsCache)
 	return detectedPlatformsCache
 }

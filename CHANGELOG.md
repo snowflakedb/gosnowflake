@@ -30,7 +30,7 @@ Internal changes:
 -
 -
 -
--
+- Added timeout to platform detection (snowflakedb/gosnowflake#1631)
 -
 -
 -
