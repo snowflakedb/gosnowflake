@@ -17,8 +17,6 @@ New features:
 Bug fixes:
 
 - Handle HTTP307 & 308 in drivers to achieve better resiliency to backend errors (snowflakedb/gosnowflake#1616).
-- Fixed a data race error in tests caused by platform_detection init() function (snowflakedb/gosnowflake#1618)
-- Make secrets detector initialization thread safe and more maintainable (snowflakedb/gosnowflake#1621)
 -
 -
 -
