@@ -333,7 +333,11 @@ func postAuthCheckExternalBrowserFailed(_ context.Context, _ *snowflakeRestful, 
 	}, nil
 }
 
-func postAuthOktaWithNewToken(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
+type restfulTestWrapper struct {
+	t *testing.T
+}
+
+func (rtw restfulTestWrapper) postAuthOktaWithNewToken(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
 	var ar authRequest
 
 	cfg := &Config{
@@ -345,6 +349,7 @@ func postAuthOktaWithNewToken(_ context.Context, _ *snowflakeRestful, _ *http.Cl
 		cnt:        3,
 		success:    true,
 		statusCode: 429,
+		t:          rtw.t,
 	}
 
 	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_guid=testguid")
@@ -1117,7 +1122,7 @@ func TestOktaRetryWithNewToken(t *testing.T) {
 		FuncPostAuthSAML: postAuthSAMLAuthSuccess,
 		FuncPostAuthOKTA: postAuthOKTASuccess,
 		FuncGetSSO:       getSSOSuccess,
-		FuncPostAuth:     postAuthOktaWithNewToken,
+		FuncPostAuth:     restfulTestWrapper{t: t}.postAuthOktaWithNewToken,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()

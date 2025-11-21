@@ -201,6 +201,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 		cnt:        3,
 		success:    true,
 		statusCode: 429,
+		t:          t,
 		expectedQueryParams: map[int]map[string]string{
 			0: {
 				"retryCount":      "",
@@ -218,7 +219,6 @@ func TestRetryQuerySuccess(t *testing.T) {
 				"clientStartTime": "123456",
 			},
 		},
-		t: t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
 	assertNilF(t, err, "failed to parse the test URL")
@@ -244,6 +244,7 @@ func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
 		cnt:        3,
 		success:    true,
 		statusCode: 429,
+		t:          t,
 		expectedQueryParams: map[int]map[string]string{
 			0: {
 				"retryCount":      "",
@@ -261,7 +262,6 @@ func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
 				"clientStartTime": "123456",
 			},
 		},
-		t: t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
 	assertNilF(t, err, "failed to parse the test URL")
@@ -287,6 +287,7 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 		cnt:     3,
 		success: true,
 		timeout: true,
+		t:       t,
 		expectedQueryParams: map[int]map[string]string{
 			0: {
 				"retryCount":  "",
@@ -301,7 +302,6 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 				"retryReason": "0",
 			},
 		},
-		t: t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
 	assertNilF(t, err, "failed to parse the test URL")
@@ -326,6 +326,7 @@ func TestRetryQueryFailWithTimeout(t *testing.T) {
 	client := &fakeHTTPClient{
 		statusCode: http.StatusTooManyRequests,
 		success:    false,
+		t:          t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
 	assertNilF(t, err, "failed to parse the test URL")
@@ -365,6 +366,7 @@ func TestRetryQueryFailWithMaxRetryCount(t *testing.T) {
 			client := &fakeHTTPClient{
 				statusCode: http.StatusTooManyRequests,
 				success:    false,
+				t:          t,
 			}
 			urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
 			assertNilF(t, err, "failed to parse the test URL")
@@ -426,6 +428,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	client = &fakeHTTPClient{
 		success: false,
 		timeout: true,
+		t:       t,
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
@@ -446,6 +449,7 @@ func TestRetryAuthLoginRequest(t *testing.T) {
 		cnt:     3,
 		success: true,
 		timeout: true,
+		t:       t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
 	assertNilF(t, err, "failed to parse the test URL")
@@ -468,6 +472,7 @@ func TestLoginRetry429(t *testing.T) {
 		cnt:        3,
 		success:    true,
 		statusCode: 429,
+		t:          t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
 	assertNilF(t, err, "failed to parse the test URL")
