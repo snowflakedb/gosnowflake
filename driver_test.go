@@ -251,6 +251,7 @@ func (dbt *DBTest) mustQueryT(t *testing.T, query string, args ...any) (rows *Ro
 	return &RowsExtended{
 		rows:      rs,
 		closeChan: &c0,
+		t:         t,
 	}
 }
 
@@ -1045,8 +1046,8 @@ func TestDecfloat(t *testing.T) {
 						} else {
 							dbt.mustExecT(t, "ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 100")
 						}
-						dbt.mustExec("CREATE OR REPLACE TABLE test_decfloat (value DECFLOAT)")
-						defer dbt.mustExec("DROP TABLE IF EXISTS test_decfloat")
+						dbt.mustExecT(t, "CREATE OR REPLACE TABLE test_decfloat (value DECFLOAT)")
+						defer dbt.mustExecT(t, "DROP TABLE IF EXISTS test_decfloat")
 						_ = dbt.mustExecT(t, "INSERT INTO test_decfloat VALUES (?)", arr)
 						rows := dbt.mustQueryT(t, "SELECT value FROM test_decfloat ORDER BY 1")
 						defer rows.Close()
