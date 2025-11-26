@@ -28,7 +28,7 @@ Internal changes:
 - 
 -
 -
--
+- Fixed a log that presented incorrect timeout value for JWT authentication (snowflakedb/gosnowflake#1633).
 -
 -
 -
