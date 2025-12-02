@@ -200,7 +200,8 @@ Alternatively, use OpenWithConfig() function to create a database handle with th
   - To use the internal Snowflake authenticator, specify snowflake (Default).
 
   - To use programmatic access tokens, specify programmatic_access_token.
-    If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
+
+  - If you want to cache your MFA logins, specify username_password_mfa. You can pass TOTP in a separate passcode parameter or append it to the password setting in which case you need to set passcodeInPassword = true.
 
   - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
 
