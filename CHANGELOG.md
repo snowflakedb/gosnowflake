@@ -25,7 +25,7 @@ Bug fixes:
 -
 
 Internal changes:
-- 
+- Remove spammy "telemetry disabled" log messages (snowflakedb/gosnowflake#1638).
 -
 -
 -
