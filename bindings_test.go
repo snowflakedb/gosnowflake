@@ -44,8 +44,6 @@ const (
 	disableLargeVarcharAndBinary = "ALTER SESSION SET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT=FALSE"
 	unsetLargeVarcharAndBinary   = "ALTER SESSION UNSET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT"
 
-	maxVarcharAndBinarySizeParam = "varchar_and_binary_max_size_in_result"
-
 	smallSize = 16 * 1024 * 1024 // 16 MB - right at LOB threshold
 	largeSize = 64 * 1024 * 1024 // 64 MB - well above LOB threshold
 	// range to use for generating random numbers
@@ -1424,16 +1422,6 @@ func TestLOBRetrievalWithJSON(t *testing.T) {
 
 func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 	runDBTest(t, func(dbt *DBTest) {
-		parameters := dbt.connParams()
-		varcharBinaryMaxSizeRaw := parameters[maxVarcharAndBinarySizeParam]
-		if varcharBinaryMaxSizeRaw != nil && *varcharBinaryMaxSizeRaw != "" {
-			varcharBinaryMaxSize, err := strconv.ParseFloat(*varcharBinaryMaxSizeRaw, 64)
-			assertNilF(t, err, "error during varcharBinaryMaxSize conversion")
-			actualMaxSize := int(varcharBinaryMaxSize)
-			dbt.Logf("using %v as configured max LOB size, testing up to %v", actualMaxSize, largeSize)
-		} else {
-			dbt.Logf("using default LOB sizes for testing: %v and %v", smallSize, largeSize)
-		}
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
 		} else {
@@ -1459,7 +1447,6 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 				assertEqualF(t, len(res), testSize)
 			})
 		}
-		dbt.mustExec(unsetFeatureMaxLOBSize)
 	})
 }
 
