@@ -49,7 +49,8 @@ type snowflakeTelemetry struct {
 
 func (st *snowflakeTelemetry) addLog(data *telemetryData) error {
 	if !st.enabled {
-		return fmt.Errorf("telemetry disabled; not adding log")
+		logger.Debug("telemetry disabled; not adding log")
+		return nil
 	}
 	st.mutex.Lock()
 	st.logs = append(st.logs, data)
@@ -65,9 +66,8 @@ func (st *snowflakeTelemetry) addLog(data *telemetryData) error {
 
 func (st *snowflakeTelemetry) sendBatch() error {
 	if !st.enabled {
-		err := fmt.Errorf("telemetry disabled; not sending log")
-		logger.Debug(err)
-		return err
+		logger.Debug("telemetry disabled; not sending log")
+		return nil
 	}
 	type telemetry struct {
 		Logs []*telemetryData `json:"logs"`
