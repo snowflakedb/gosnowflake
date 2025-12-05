@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/url"
 	"os"
-	usr "os/user"
 	"path/filepath"
 	"strings"
 )
@@ -215,15 +214,17 @@ func baseName(path string) string {
 
 // expandUser returns the argument with an initial component of ~
 func expandUser(path string) (string, error) {
-	usr, err := usr.Current()
+	if !strings.HasPrefix(path, "~") {
+		return path, nil
+	}
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	dir := usr.HomeDir
 	if path == "~" {
-		path = dir
+		path = homeDir
 	} else if strings.HasPrefix(path, "~/") {
-		path = filepath.Join(dir, path[2:])
+		path = filepath.Join(homeDir, path[2:])
 	}
 	return path, nil
 }
