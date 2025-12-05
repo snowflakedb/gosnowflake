@@ -43,6 +43,7 @@ func TestBaseName(t *testing.T) {
 }
 
 func TestExpandUser(t *testing.T) {
+	skipOnMissingHome(t)
 	usr, err := user.Current()
 	if err != nil {
 		t.Fatal(err)
