@@ -46,10 +46,11 @@ const (
 )
 
 const (
-	sessionClientSessionKeepAlive          = "client_session_keep_alive"
-	sessionClientValidateDefaultParameters = "CLIENT_VALIDATE_DEFAULT_PARAMETERS"
-	sessionArrayBindStageThreshold         = "client_stage_array_binding_threshold"
-	serviceName                            = "service_name"
+	sessionClientSessionKeepAlive                   = "client_session_keep_alive"
+	sessionClientSessionKeepAliveHeartbeatFrequency = "client_session_keep_alive_heartbeat_frequency"
+	sessionClientValidateDefaultParameters          = "CLIENT_VALIDATE_DEFAULT_PARAMETERS"
+	sessionArrayBindStageThreshold                  = "client_stage_array_binding_threshold"
+	serviceName                                     = "service_name"
 )
 
 type resultType string
@@ -71,9 +72,10 @@ const (
 // External cancellation should not be supported because the connection
 // may be reused after the original query/request has completed.
 type snowflakeConn struct {
-	ctx                 context.Context
-	cfg                 *Config
-	rest                *snowflakeRestful
+	ctx  context.Context
+	cfg  *Config
+	rest *snowflakeRestful
+	// Deprecated: this field will be removed in future releases.
 	SequenceCounter     uint64
 	telemetry           *snowflakeTelemetry
 	internal            InternalClient
@@ -94,6 +96,16 @@ func (sc *snowflakeConn) exec(
 	describeOnly bool,
 	bindings []driver.NamedValue) (
 	*execResponse, error) {
+	if sc.cfg.LogQueryText || isLogQueryTextEnabled(ctx) {
+		if len(bindings) > 0 && (sc.cfg.LogQueryParameters || isLogQueryParametersEnabled(ctx)) {
+			logger.WithContext(ctx).Infof("Executing query: %v with bindings: %v", query, bindings)
+		} else {
+			logger.WithContext(ctx).Infof("Executing query: %v", query)
+		}
+	} else {
+		logger.WithContext(ctx).Infof("Executing query")
+	}
+
 	var err error
 	counter := atomic.AddUint64(&sc.SequenceCounter, 1) // query sequence counter
 	_, _, sessionID := safeGetTokens(sc.rest)
@@ -117,7 +129,7 @@ func (sc *snowflakeConn) exec(
 	if tag := ctx.Value(queryTag); tag != nil {
 		req.Parameters[string(queryTag)] = tag
 	}
-	logger.WithContext(ctx).Infof("parameters: %v", req.Parameters)
+	logger.WithContext(ctx).Debugf("parameters: %v", req.Parameters)
 
 	// handle bindings, if required
 	requestID := getOrGenerateRequestIDFromContext(ctx)
@@ -126,7 +138,7 @@ func (sc *snowflakeConn) exec(
 			return nil, err
 		}
 	}
-	logger.WithContext(ctx).Infof("bindings: %v", req.Bindings)
+	logger.WithContext(ctx).Debugf("bindings: %v", req.Bindings)
 
 	// populate headers
 	headers := getHeaders()
@@ -161,7 +173,7 @@ func (sc *snowflakeConn) exec(
 			return data, err
 		}
 	}
-	logger.WithContext(ctx).Infof("Success: %v, Code: %v", data.Success, code)
+	logger.WithContext(ctx).Debugf("Success: %v, Code: %v", data.Success, code)
 	if !data.Success {
 		err = (populateErrorFields(code, data)).exceptionTelemetry(sc)
 		return nil, err
@@ -186,7 +198,7 @@ func (sc *snowflakeConn) exec(
 
 		select {
 		case <-ctx.Done():
-			logger.WithContext(ctx).Info("File transfer has been cancelled")
+			logger.WithContext(ctx).Debugf("File transfer has been cancelled")
 			return nil, ctx.Err()
 		case err := <-fileTransferChan:
 			if err != nil {
@@ -195,7 +207,7 @@ func (sc *snowflakeConn) exec(
 		}
 	}
 
-	logger.WithContext(ctx).Infof("Exec/Query SUCCESS with total=%v, returned=%v", data.Data.Total, data.Data.Returned)
+	logger.WithContext(ctx).Debugf("Exec/Query: queryId=%v SUCCESS with total=%v, returned=%v ", data.Data.QueryID, data.Data.Total, data.Data.Returned)
 	if data.Data.FinalDatabaseName != "" {
 		sc.cfg.Database = data.Data.FinalDatabaseName
 	}
@@ -240,14 +252,14 @@ func buildQueryContext(qcc *queryContextCache) (requestQueryContext, error) {
 }
 
 func (sc *snowflakeConn) Begin() (driver.Tx, error) {
-	return sc.BeginTx(sc.ctx, driver.TxOptions{})
+	return sc.BeginTx(context.Background(), driver.TxOptions{})
 }
 
 func (sc *snowflakeConn) BeginTx(
 	ctx context.Context,
 	opts driver.TxOptions) (
 	driver.Tx, error) {
-	logger.WithContext(ctx).Info("BeginTx")
+	logger.WithContext(ctx).Debug("BeginTx")
 	if opts.ReadOnly {
 		return nil, (&SnowflakeError{
 			Number:   ErrNoReadOnlyTransaction,
@@ -276,7 +288,7 @@ func (sc *snowflakeConn) BeginTx(
 
 func (sc *snowflakeConn) cleanup() {
 	// must flush log buffer while the process is running.
-	logger.WithContext(sc.ctx).Debugln("Snowflake connection closing.")
+	logger.WithContext(sc.ctx).Debug("Snowflake connection closing.")
 	if sc.rest != nil && sc.rest.Client != nil {
 		sc.rest.Client.CloseIdleConnections()
 	}
@@ -304,7 +316,7 @@ func (sc *snowflakeConn) PrepareContext(
 	ctx context.Context,
 	query string) (
 	driver.Stmt, error) {
-	logger.WithContext(sc.ctx).Infoln("Prepare")
+	logger.WithContext(sc.ctx).Debugf("Prepare Context")
 	if sc.rest == nil {
 		return nil, driver.ErrBadConn
 	}
@@ -325,14 +337,14 @@ func (sc *snowflakeConn) ExecContext(
 	}
 	_, _, sessionID := safeGetTokens(sc.rest)
 	ctx = context.WithValue(ctx, SFSessionIDKey, sessionID)
-	logger.WithContext(ctx).Infof("Exec: %#v, %v", query, args)
+	logger.WithContext(ctx).Debug("ExecContext:")
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	isInternal := isInternal(ctx)
 	ctx = setResultType(ctx, execResultType)
 	data, err := sc.exec(ctx, query, noResult, isInternal, isDesc, args)
 	if err != nil {
-		logger.WithContext(ctx).Infof("error: %v", err)
+		logger.WithContext(ctx).Errorf("error: %v", err)
 		if data != nil {
 			code, e := strconv.Atoi(data.Code)
 			if e != nil {
@@ -368,13 +380,13 @@ func (sc *snowflakeConn) ExecContext(
 	} else if isMultiStmt(&data.Data) {
 		return sc.handleMultiExec(ctx, data.Data)
 	} else if isDql(&data.Data) {
-		logger.WithContext(ctx).Debugf("DQL")
+		logger.WithContext(ctx).Debug("This query is DQL")
 		if isStatementContext(ctx) {
 			return &snowflakeResultNoRows{queryID: data.Data.QueryID}, nil
 		}
 		return driver.ResultNoRows, nil
 	}
-	logger.WithContext(ctx).Debug("DDL")
+	logger.WithContext(ctx).Debug("This query is DDL")
 	if isStatementContext(ctx) {
 		return &snowflakeResultNoRows{queryID: data.Data.QueryID}, nil
 	}
@@ -415,7 +427,7 @@ func (sc *snowflakeConn) queryContextInternal(
 
 	_, _, sessionID := safeGetTokens(sc.rest)
 	ctx = context.WithValue(setResultType(ctx, queryResultType), SFSessionIDKey, sessionID)
-	logger.WithContext(ctx).Infof("Query: %#v, %v", query, args)
+	logger.WithContext(ctx).Debug("QueryContextInternal")
 	noResult := isAsyncMode(ctx)
 	isDesc := isDescribeOnly(ctx)
 	isInternal := isInternal(ctx)
@@ -461,25 +473,25 @@ func (sc *snowflakeConn) queryContextInternal(
 }
 
 func (sc *snowflakeConn) Prepare(query string) (driver.Stmt, error) {
-	return sc.PrepareContext(sc.ctx, query)
+	return sc.PrepareContext(context.Background(), query)
 }
 
 func (sc *snowflakeConn) Exec(
 	query string,
 	args []driver.Value) (
 	driver.Result, error) {
-	return sc.ExecContext(sc.ctx, query, toNamedValues(args))
+	return sc.ExecContext(context.Background(), query, toNamedValues(args))
 }
 
 func (sc *snowflakeConn) Query(
 	query string,
 	args []driver.Value) (
 	driver.Rows, error) {
-	return sc.QueryContext(sc.ctx, query, toNamedValues(args))
+	return sc.QueryContext(context.Background(), query, toNamedValues(args))
 }
 
 func (sc *snowflakeConn) Ping(ctx context.Context) error {
-	logger.WithContext(ctx).Infoln("Ping")
+	logger.WithContext(ctx).Debug("Ping")
 	if sc.rest == nil {
 		return driver.ErrBadConn
 	}
@@ -518,6 +530,14 @@ func (sc *snowflakeConn) GetQueryStatus(
 		queryRet.Stats.ScanBytes,
 		queryRet.Stats.ProducedRows,
 	}, nil
+}
+
+func (sc *snowflakeConn) AddTelemetryData(_ context.Context, eventDate time.Time, data map[string]string) error {
+	td := &telemetryData{
+		Timestamp: eventDate.UnixMilli(),
+		Message:   data,
+	}
+	return sc.telemetry.addLog(td)
 }
 
 // QueryArrowStream returns batches which can be queried for their raw arrow
@@ -636,8 +656,8 @@ func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) erro
 			return err
 		}
 
-		logger.WithContext(ctx).Infof("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, asb.scd.ChunkMetas[asb.idx].URL, b)
-		logger.WithContext(ctx).Infof("Header: %v", resp.Header)
+		logger.WithContext(ctx).Debugf("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, asb.scd.ChunkMetas[asb.idx].URL, b)
+		logger.WithContext(ctx).Debugf("Header: %v", resp.Header)
 		return &SnowflakeError{
 			Number:      ErrFailedToGetChunk,
 			SQLState:    SQLStateConnectionFailure,
@@ -866,11 +886,13 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 		queryContextCache:   (&queryContextCache{}).init(),
 		currentTimeProvider: defaultTimeProvider,
 	}
+	initPlatformDetection()
 	err := initEasyLogging(config.ClientConfigFile)
 	if err != nil {
 		return nil, err
 	}
 
+	logger.Debugf("Building snowflakeConn: %v", config.describeIdentityAttributes())
 	telemetry := &snowflakeTelemetry{}
 	if config.DisableTelemetry {
 		telemetry.enabled = false
@@ -882,7 +904,7 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 	}
 
 	transportFactory := newTransportFactory(&config, telemetry)
-	st, err := transportFactory.createTransport()
+	st, err := transportFactory.createTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
 	if err != nil {
 		return nil, err
 	}

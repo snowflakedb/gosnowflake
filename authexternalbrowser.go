@@ -116,11 +116,8 @@ func getIdpURLProofKey(
 	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 	headers[httpHeaderUserAgent] = userAgent
 
-	clientEnvironment := authRequestClientEnvironment{
-		Application: application,
-		Os:          operatingSystem,
-		OsVersion:   platform,
-	}
+	clientEnvironment := newAuthRequestClientEnvironment()
+	clientEnvironment.Application = application
 
 	requestMain := authRequestData{
 		ClientAppID:             clientType,
@@ -214,17 +211,8 @@ type authenticateByExternalBrowserResult struct {
 	err                 error
 }
 
-func authenticateByExternalBrowser(
-	ctx context.Context,
-	sr *snowflakeRestful,
-	authenticator string,
-	application string,
-	account string,
-	user string,
-	password string,
-	externalBrowserTimeout time.Duration,
-	disableConsoleLogin ConfigBool,
-) ([]byte, []byte, error) {
+func authenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, authenticator string, application string,
+	account string, user string, externalBrowserTimeout time.Duration, disableConsoleLogin ConfigBool) ([]byte, []byte, error) {
 	resultChan := make(chan authenticateByExternalBrowserResult, 1)
 	go GoroutineWrapper(
 		ctx,
@@ -276,7 +264,7 @@ func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, 
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
-	if err = openBrowser(loginURL); err != nil {
+	if err = defaultSamlResponseProvider().run(loginURL); err != nil {
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 
@@ -350,4 +338,19 @@ func doAuthenticateByExternalBrowser(ctx context.Context, sr *snowflakeRestful, 
 		return authenticateByExternalBrowserResult{nil, nil, err}
 	}
 	return authenticateByExternalBrowserResult{[]byte(escapedSamlResponse), []byte(proofKey), nil}
+}
+
+type samlResponseProvider interface {
+	run(url string) error
+}
+
+type externalBrowserSamlResponseProvider struct {
+}
+
+func (e externalBrowserSamlResponseProvider) run(url string) error {
+	return openBrowser(url)
+}
+
+var defaultSamlResponseProvider = func() samlResponseProvider {
+	return &externalBrowserSamlResponseProvider{}
 }

@@ -350,6 +350,7 @@ func TestOCSPRetry(t *testing.T) {
 		cnt:     3,
 		success: true,
 		body:    []byte{1, 2, 3},
+		t:       t,
 	}
 	res, b, st := ov.retryOCSP(
 		context.Background(),
@@ -363,6 +364,7 @@ func TestOCSPRetry(t *testing.T) {
 		cnt:     30,
 		success: true,
 		body:    []byte{1, 2, 3},
+		t:       t,
 	}
 	res, b, st = ov.retryOCSP(
 		context.Background(),
@@ -421,6 +423,7 @@ func TestOCSPCacheServerRetry(t *testing.T) {
 		cnt:     3,
 		success: true,
 		body:    []byte{1, 2, 3},
+		t:       t,
 	}
 	res, st := checkOCSPCacheServer(
 		context.Background(), client, fakeRequestFunc, dummyOCSPHost, 20*time.Second)
@@ -431,6 +434,7 @@ func TestOCSPCacheServerRetry(t *testing.T) {
 		cnt:     30,
 		success: true,
 		body:    []byte{1, 2, 3},
+		t:       t,
 	}
 	res, st = checkOCSPCacheServer(
 		context.Background(), client, fakeRequestFunc, dummyOCSPHost, 10*time.Second)

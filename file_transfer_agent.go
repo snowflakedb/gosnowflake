@@ -32,10 +32,11 @@ type (
 )
 
 const (
-	fileProtocol              = "file://"
-	dataSizeThreshold int64   = 64 * 1024 * 1024
-	isWindows                 = runtime.GOOS == "windows"
-	mb                float64 = 1024.0 * 1024.0
+	fileProtocol                        = "file://"
+	multiPartThreshold          int64   = 64 * 1024 * 1024
+	streamingMultiPartThreshold int64   = 8 * 1024 * 1024
+	isWindows                           = runtime.GOOS == "windows"
+	mb                          float64 = 1024.0 * 1024.0
 )
 
 const (
@@ -81,7 +82,8 @@ func (rs resultStatus) isSet() bool {
 // SnowflakeFileTransferOptions enables users to specify options regarding
 // files transfers such as PUT/GET
 type SnowflakeFileTransferOptions struct {
-	showProgressBar    bool
+	showProgressBar bool
+	// Deprecated: will be removed in the future. The behaviour will be aligned to setting it to true.
 	RaisePutGetError   bool
 	MultiPartThreshold int64
 
@@ -178,12 +180,19 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 		if sfa.stageLocationType != local {
 			sizeThreshold := sfa.options.MultiPartThreshold
 			meta.options.MultiPartThreshold = sizeThreshold
-			if meta.srcFileSize > sizeThreshold && sfa.commandType == uploadCommand {
+			if sfa.commandType == uploadCommand {
+				if meta.srcFileSize > sizeThreshold {
+					meta.parallel = sfa.parallel
+					largeFileMetas = append(largeFileMetas, meta)
+				} else {
+					meta.parallel = 1
+					smallFileMetas = append(smallFileMetas, meta)
+				}
+			} else {
+				// Enable multi-part download for all files to improve performance.
+				// The MultiPartThreshold will be passed to the Cloud Storage Provider to determine the part size.
 				meta.parallel = sfa.parallel
 				largeFileMetas = append(largeFileMetas, meta)
-			} else {
-				meta.parallel = 1
-				smallFileMetas = append(smallFileMetas, meta)
 			}
 		} else {
 			meta.parallel = 1
@@ -196,7 +205,7 @@ func (sfa *snowflakeFileTransferAgent) execute() error {
 			return err
 		}
 	} else {
-		if err = sfa.download(smallFileMetas); err != nil {
+		if err = sfa.download(largeFileMetas); err != nil {
 			return err
 		}
 	}
@@ -344,6 +353,9 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 	sfa.fileMetadata = []*fileMetadata{}
 	switch sfa.commandType {
 	case uploadCommand:
+		logger.Debugf("upload command initiated - file count: %d, query ID: %s, encryption materials: %d",
+			len(sfa.srcFiles), sfa.data.QueryID, len(sfa.encryptionMaterial))
+
 		if len(sfa.srcFiles) == 0 {
 			fileName := sfa.data.SrcLocations
 			return (&SnowflakeError{
@@ -431,6 +443,9 @@ func (sfa *snowflakeFileTransferAgent) initFileMetadata() error {
 			}
 		}
 	case downloadCommand:
+		logger.Debugf("download command initiated - file count: %d, query ID: %s",
+			len(sfa.srcFiles), sfa.data.QueryID)
+
 		for _, fileName := range sfa.srcFiles {
 			if len(fileName) > 0 {
 				firstPathSep := strings.Index(fileName, "/")
@@ -571,13 +586,13 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 					return err
 				}
 				data, err := sfa.sc.rest.FuncPostQuery(
-					sfa.sc.ctx,
+					sfa.ctx,
 					sfa.sc.rest,
 					&url.Values{},
 					headers,
 					jsonBody,
 					sfa.sc.rest.RequestTimeout,
-					getOrGenerateRequestIDFromContext(sfa.sc.ctx),
+					getOrGenerateRequestIDFromContext(sfa.ctx),
 					sfa.sc.cfg)
 				if err != nil {
 					return err
@@ -1038,7 +1053,7 @@ func (sfa *snowflakeFileTransferAgent) getStorageClient(stageLocationType cloudT
 
 func (sfa *snowflakeFileTransferAgent) renewExpiredClient() (cloudClient, error) {
 	data, err := sfa.sc.exec(
-		sfa.sc.ctx,
+		sfa.ctx,
 		sfa.command,
 		false,
 		false,

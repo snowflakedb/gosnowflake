@@ -49,7 +49,8 @@ type snowflakeTelemetry struct {
 
 func (st *snowflakeTelemetry) addLog(data *telemetryData) error {
 	if !st.enabled {
-		return fmt.Errorf("telemetry disabled; not adding log")
+		logger.Debug("telemetry disabled; not adding log")
+		return nil
 	}
 	st.mutex.Lock()
 	st.logs = append(st.logs, data)
@@ -65,9 +66,8 @@ func (st *snowflakeTelemetry) addLog(data *telemetryData) error {
 
 func (st *snowflakeTelemetry) sendBatch() error {
 	if !st.enabled {
-		err := fmt.Errorf("telemetry disabled; not sending log")
-		logger.Debug(err)
-		return err
+		logger.Debug("telemetry disabled; not sending log")
+		return nil
 	}
 	type telemetry struct {
 		Logs []*telemetryData `json:"logs"`
@@ -88,8 +88,8 @@ func (st *snowflakeTelemetry) sendBatch() error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("sending %v logs to telemetry. inband telemetry payload "+
-		"being sent: %v", len(logsToSend), string(body))
+	logger.Debugf("sending %v logs to telemetry.", len(logsToSend))
+	logger.Debugf("telemetry payload being sent: %v", string(body))
 
 	headers := getHeaders()
 	if token, _, _ := st.sr.TokenAccessor.GetTokens(); token != "" {
@@ -100,31 +100,31 @@ func (st *snowflakeTelemetry) sendBatch() error {
 		fullURL, headers, body,
 		defaultTelemetryTimeout, defaultTimeProvider, nil)
 	if err != nil {
-		logger.Info("failed to upload metrics to telemetry. err: %v", err)
+		logger.Errorf("failed to upload metrics to telemetry. err: %v", err)
 		return err
 	}
 	defer func() {
 		if err = resp.Body.Close(); err != nil {
-			logger.Info("failed to close response body for %v. err: %v", fullURL, err)
+			logger.Errorf("failed to close response body for %v. err: %v", fullURL, err)
 		}
 	}()
 	if resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("non-successful response from telemetry server: %v. "+
 			"disabling telemetry", resp.StatusCode)
-		logger.Info(err)
+		logger.Error(err)
 		st.enabled = false
 		return err
 	}
 	var respd telemetryResponse
 	if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
-		logger.Info(err)
+		logger.Error(err)
 		st.enabled = false
 		return err
 	}
 	if !respd.Success {
 		err = fmt.Errorf("telemetry send failed with error code: %v, message: %v",
 			respd.Code, respd.Message)
-		logger.Info(err)
+		logger.Error(err)
 		st.enabled = false
 		return err
 	}

@@ -3,7 +3,6 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -295,7 +294,7 @@ func (r *retryHTTP) setBodyCreator(bodyCreator bodyCreatorType) *retryHTTP {
 
 func (r *retryHTTP) execute() (res *http.Response, err error) {
 	totalTimeout := r.timeout
-	logger.WithContext(r.ctx).Infof("retryHTTP.totalTimeout: %v", totalTimeout)
+	logger.WithContext(r.ctx).Debugf("retryHTTP.totalTimeout: %v", totalTimeout)
 	retryCounter := 0
 	sleepTime := time.Duration(time.Second)
 	clientStartTime := strconv.FormatInt(r.currentTimeProvider.currentTime(), 10)
@@ -305,6 +304,7 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	var retryReasonUpdater retryReasonUpdater
 
 	for {
+		timer := time.Now()
 		logger.WithContext(r.ctx).Debugf("retry count: %v", retryCounter)
 		body, err := r.bodyCreator()
 		if err != nil {
@@ -322,16 +322,19 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 			req.Header.Set(k, v)
 		}
 		res, err = r.client.Do(req)
+
 		// check if it can retry.
-		retryable, err := isRetryableError(req, res, err)
+		retryable, err := isRetryableError(r.ctx, req, res, err)
 		if !retryable {
 			return res, err
 		}
+		logger.WithContext(r.ctx).Debugf("Request to %v - response received after milliseconds %v with status .", r.fullURL.Host, time.Since(timer).String())
+
 		if err != nil {
-			logger.WithContext(r.ctx).Warningf(
+			logger.WithContext(r.ctx).Warnf(
 				"failed http connection. err: %v. retrying...\n", err)
 		} else {
-			logger.WithContext(r.ctx).Warningf(
+			logger.WithContext(r.ctx).Tracef(
 				"failed http connection. HTTP Status: %v. retrying...\n", res.StatusCode)
 			if closeErr := res.Body.Close(); closeErr != nil {
 				logger.Warnf("failed to close response body. err: %v", closeErr)
@@ -373,8 +376,8 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 		}
 		r.fullURL = retryReasonUpdater.replaceOrAdd(retryReason)
 		r.fullURL = ensureClientStartTimeIsSet(r.fullURL, clientStartTime)
-		logger.WithContext(r.ctx).Infof("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
-		logger.WithContext(r.ctx).Infof("retry count: %v, retry reason: %v", retryCounter, retryReason)
+		logger.WithContext(r.ctx).Debugf("sleeping %v. to timeout: %v. retrying", sleepTime, totalTimeout)
+		logger.WithContext(r.ctx).Debugf("retry count: %v, retry reason: %v", retryCounter, retryReason)
 
 		await := time.NewTimer(sleepTime)
 		select {
@@ -387,11 +390,11 @@ func (r *retryHTTP) execute() (res *http.Response, err error) {
 	}
 }
 
-func isRetryableError(req *http.Request, res *http.Response, err error) (bool, error) {
+func isRetryableError(ctx context.Context, req *http.Request, res *http.Response, err error) (bool, error) {
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
 	if err != nil && res == nil { // Failed http connection. Most probably client timeout.
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return false, err
-		}
 		return true, err
 	}
 	if res == nil || req == nil {

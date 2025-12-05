@@ -42,6 +42,17 @@ const (
 	ConfigBoolFalse
 )
 
+func (cb ConfigBool) String() string {
+	switch cb {
+	case ConfigBoolTrue:
+		return "true"
+	case ConfigBoolFalse:
+		return "false"
+	default:
+		return "not set"
+	}
+}
+
 // Config is a set of configuration parameters
 type Config struct {
 	Account   string // Account name
@@ -67,36 +78,46 @@ type Config struct {
 
 	Params map[string]*string // other connection parameters
 
+	// Deprecated: will be removed in a future release.
 	ClientIP net.IP // IP address for network check
 	Protocol string // http or https (optional)
 	Host     string // hostname (optional)
 	Port     int    // port (optional)
 
-	Authenticator AuthType // The authenticator type
+	Authenticator              AuthType   // The authenticator type
+	SingleAuthenticationPrompt ConfigBool // If enabled prompting for authentication will only occur for the first authentication challenge
 
 	Passcode           string
 	PasscodeInPassword bool
 
 	OktaURL *url.URL
 
-	LoginTimeout           time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
-	RequestTimeout         time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
-	JWTExpireTimeout       time.Duration // JWT expire after timeout
-	ClientTimeout          time.Duration // Timeout for network round trip + read out http response
-	JWTClientTimeout       time.Duration // Timeout for network round trip + read out http response used when JWT token auth is taking place
+	// Deprecated: timeouts may be reorganized in a future release.
+	LoginTimeout time.Duration // Login retry timeout EXCLUDING network roundtrip and read out http response
+	// Deprecated: timeouts may be reorganized in a future release.
+	RequestTimeout time.Duration // request retry timeout EXCLUDING network roundtrip and read out http response
+	// Deprecated: timeouts may be reorganized in a future release.
+	JWTExpireTimeout time.Duration // JWT expire after timeout
+	// Deprecated: timeouts may be reorganized in a future release.
+	ClientTimeout time.Duration // Timeout for network round trip + read out http response
+	// Deprecated: timeouts may be reorganized in a future release.
+	JWTClientTimeout time.Duration // Timeout for network round trip + read out http response used when JWT token auth is taking place
+	// Deprecated: timeouts may be reorganized in a future release.
 	ExternalBrowserTimeout time.Duration // Timeout for external browser login
-	CloudStorageTimeout    time.Duration // Timeout for a single call to a cloud storage provider
-	MaxRetryCount          int           // Specifies how many times non-periodic HTTP request can be retried
+	// Deprecated: timeouts may be reorganized in a future release.
+	CloudStorageTimeout time.Duration // Timeout for a single call to a cloud storage provider
+	MaxRetryCount       int           // Specifies how many times non-periodic HTTP request can be retried
 
 	Application       string // application name.
 	DisableOCSPChecks bool   // driver doesn't check certificate revocation status
-	// Deprecated: InsecureMode use DisableOCSPChecks instead
+	// Deprecated: InsecureMode use DisableOCSPChecks instead. Will be removed in a future release.
 	InsecureMode bool             // driver doesn't check certificate revocation status
 	OCSPFailOpen OCSPFailOpenMode // OCSP Fail Open
 
-	Token            string        // Token to use for OAuth other forms of token based auth
-	TokenAccessor    TokenAccessor // Optional token accessor to use
-	KeepSessionAlive bool          // Enables the session to persist even after the connection is closed
+	Token         string        // Token to use for OAuth other forms of token based auth
+	TokenAccessor TokenAccessor // Optional token accessor to use
+	// Deprecated: will be removed in a future release.
+	KeepSessionAlive bool // Enables the session to persist even after the connection is closed
 
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
 
@@ -105,15 +126,23 @@ type Config struct {
 	tlsConfig     *tls.Config // Custom TLS configuration
 	TLSConfigName string      // Name of the TLS config to use
 
+	// Deprecated: will be removed in a future release and replaced with a session parameter.
 	DisableTelemetry bool // indicates whether to disable telemetry
 
-	Tracing string // sets logging level
+	// Deprecated: may be removed in a future release with logging reorganization.
+	Tracing            string // sets logging level
+	LogQueryText       bool   // indicates whether query text should be logged.
+	LogQueryParameters bool   // indicates whether query parameters should be logged.
 
 	TmpDirPath string // sets temporary directory used by a driver for operations like encrypting, compressing etc
 
-	MfaToken                       string     // Internally used to cache the MFA token
-	IDToken                        string     // Internally used to cache the Id Token for external browser
-	ClientRequestMfaToken          ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
+	// Deprecated: will be unexported in a future release.
+	MfaToken string // Internally used to cache the MFA token
+	// Deprecated: will be unexported in a future release.
+	IDToken string // Internally used to cache the Id Token for external browser
+	// Deprecated: may be unexported in a future release.
+	ClientRequestMfaToken ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
+	// Deprecated: may be unexported in a future release.
 	ClientStoreTemporaryCredential ConfigBool // When true the ID token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
 
 	DisableQueryContextCache bool // Should HTAP query context cache be disabled
@@ -133,6 +162,7 @@ type Config struct {
 	CrlAllowCertificatesWithoutCrlURL ConfigBool              // Allow certificates (not short-lived) without CRL DP included to be treated as correct ones
 	CrlInMemoryCacheDisabled          bool                    // Should the in-memory cache be disabled
 	CrlOnDiskCacheDisabled            bool                    // Should the on-disk cache be disabled
+	CrlDownloadMaxSize                int                     // Max size in bytes of CRL to download. 0 means no limit. Default is 0.
 	CrlHTTPClientTimeout              time.Duration           // Timeout for HTTP client used to download CRL
 
 	ConnectionDiagnosticsEnabled       bool   // Indicates whether connection diagnostics should be enabled
@@ -166,6 +196,22 @@ func (c *Config) ocspMode() string {
 		return ocspModeFailOpen
 	}
 	return ocspModeFailClosed
+}
+
+func (c *Config) transportConfigFor(transportType transportType) *transportConfig {
+	return defaultTransportConfigs.forTransportType(transportType)
+}
+
+func (c *Config) describeIdentityAttributes() string {
+	return fmt.Sprintf("host: %v, account: %v, user: %v, password existed: %v, role: %v, database: %v, schema: %v, warehouse: %v, %v",
+		c.Host, c.Account, c.User, (c.Password != ""), c.Role, c.Database, c.Schema, c.Warehouse, c.describeProxy())
+}
+
+func (c *Config) describeProxy() string {
+	if c.ProxyHost != "" {
+		return fmt.Sprintf("proxyHost: %v, proxyPort: %v proxyUser: %v, proxyPassword %v, proxyProtocol: %v, noProxy: %v", c.ProxyHost, c.ProxyPort, c.ProxyUser, c.ProxyPassword != "", c.ProxyProtocol, c.NoProxy)
+	}
+	return "proxy was not configured"
 }
 
 // DSN constructs a DSN for Snowflake db.
@@ -254,6 +300,13 @@ func DSN(cfg *Config) (dsn string, err error) {
 			params.Add("authenticator", strings.ToLower(cfg.Authenticator.String()))
 		}
 	}
+	if cfg.SingleAuthenticationPrompt != configBoolNotSet {
+		if cfg.SingleAuthenticationPrompt == ConfigBoolTrue {
+			params.Add("singleAuthenticationPrompt", "true")
+		} else {
+			params.Add("singleAuthenticationPrompt", "false")
+		}
+	}
 	if cfg.Passcode != "" {
 		params.Add("passcode", cfg.Passcode)
 	}
@@ -305,6 +358,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.CrlOnDiskCacheDisabled {
 		params.Add("crlOnDiskCacheDisabled", "true")
 	}
+	if cfg.CrlDownloadMaxSize != 0 {
+		params.Add("crlDownloadMaxSize", strconv.Itoa(cfg.CrlDownloadMaxSize))
+	}
 	if cfg.CrlHTTPClientTimeout != 0 {
 		params.Add("crlHttpClientTimeout", strconv.FormatInt(int64(cfg.CrlHTTPClientTimeout/time.Second), 10))
 	}
@@ -332,6 +388,12 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Tracing != "" {
 		params.Add("tracing", cfg.Tracing)
+	}
+	if cfg.LogQueryText {
+		params.Add("logQueryText", strconv.FormatBool(cfg.LogQueryText))
+	}
+	if cfg.LogQueryParameters {
+		params.Add("logQueryParameters", strconv.FormatBool(cfg.LogQueryParameters))
 	}
 	if cfg.TmpDirPath != "" {
 		params.Add("tmpDirPath", cfg.TmpDirPath)
@@ -832,6 +894,17 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.Region = value
 		case "protocol":
 			cfg.Protocol = value
+		case "singleAuthenticationPrompt":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			if vv {
+				cfg.SingleAuthenticationPrompt = ConfigBoolTrue
+			} else {
+				cfg.SingleAuthenticationPrompt = ConfigBoolFalse
+			}
 		case "passcode":
 			cfg.Passcode = value
 		case "oauthClientId":
@@ -998,6 +1071,20 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "tracing":
 			cfg.Tracing = value
+		case "logQueryText":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.LogQueryText = vv
+		case "logQueryParameters":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.LogQueryParameters = vv
 		case "tmpDirPath":
 			cfg.TmpDirPath = value
 		case "disableQueryContextCache":
@@ -1078,6 +1165,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				cfg.CrlOnDiskCacheDisabled = true
 			} else {
 				cfg.CrlOnDiskCacheDisabled = false
+			}
+		case "crlDownloadMaxSize":
+			cfg.CrlDownloadMaxSize, err = strconv.Atoi(value)
+			if err != nil {
+				return
 			}
 		case "crlHttpClientTimeout":
 			var vv int64

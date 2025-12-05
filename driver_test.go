@@ -13,14 +13,17 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -82,6 +85,9 @@ func init() {
 	createDSN("UTC")
 
 	debugMode, _ = strconv.ParseBool(os.Getenv("SNOWFLAKE_TEST_DEBUG"))
+	if debugMode {
+		_ = GetLogger().SetLogLevel("debug")
+	}
 }
 
 func createDSN(timezone string) {
@@ -114,6 +120,7 @@ func createDSN(timezone string) {
 	// Add authenticator and private key for JWT authentication
 	if authenticator == "SNOWFLAKE_JWT" {
 		parameters.Add("authenticator", "SNOWFLAKE_JWT")
+		parameters.Add("jwtClientTimeout", "20")
 		privateKeyPath := os.Getenv("SNOWFLAKE_TEST_PRIVATE_KEY")
 		if privateKeyPath != "" {
 			// Read and encode the private key file
@@ -205,17 +212,6 @@ type DBTest struct {
 	conn *sql.Conn
 }
 
-func (dbt *DBTest) connParams() map[string]*string {
-	var params map[string]*string
-	err := dbt.conn.Raw(func(driverConn any) error {
-		conn := driverConn.(*snowflakeConn)
-		params = conn.cfg.Params
-		return nil
-	})
-	assertNilF(dbt.T, err)
-	return params
-}
-
 func (dbt *DBTest) mustQueryT(t *testing.T, query string, args ...any) (rows *RowsExtended) {
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
@@ -244,6 +240,7 @@ func (dbt *DBTest) mustQueryT(t *testing.T, query string, args ...any) (rows *Ro
 	return &RowsExtended{
 		rows:      rs,
 		closeChan: &c0,
+		t:         t,
 	}
 }
 
@@ -1038,8 +1035,8 @@ func TestDecfloat(t *testing.T) {
 						} else {
 							dbt.mustExecT(t, "ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 100")
 						}
-						dbt.mustExec("CREATE OR REPLACE TABLE test_decfloat (value DECFLOAT)")
-						defer dbt.mustExec("DROP TABLE IF EXISTS test_decfloat")
+						dbt.mustExecT(t, "CREATE OR REPLACE TABLE test_decfloat (value DECFLOAT)")
+						defer dbt.mustExecT(t, "DROP TABLE IF EXISTS test_decfloat")
 						_ = dbt.mustExecT(t, "INSERT INTO test_decfloat VALUES (?)", arr)
 						rows := dbt.mustQueryT(t, "SELECT value FROM test_decfloat ORDER BY 1")
 						defer rows.Close()
@@ -1882,6 +1879,52 @@ func TestCancelQuery(t *testing.T) {
 	})
 }
 
+func TestCancelQueryWithConnectionContext(t *testing.T) {
+	testCases := []struct {
+		name            string
+		setupConnection func(ctx context.Context, db *sql.DB) error
+	}{
+		{
+			name: "explicit connection",
+			setupConnection: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.Conn(ctx)
+				return err
+			},
+		},
+		{
+			name: "implicit connection",
+			setupConnection: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.ExecContext(ctx, "SELECT 1")
+				return err
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := openDB(t)
+			defer db.Close()
+
+			ctx, cancelConnectionContext := context.WithCancel(context.Background())
+			err := tc.setupConnection(ctx, db)
+			assertNilF(t, err, "connection setup should succeed")
+
+			cancelConnectionContext()
+
+			_, err = db.ExecContext(context.Background(), "SELECT 1")
+			assertNilF(t, err, "subsequent SELECT should work after cancelled connection context")
+
+			cwd, err := os.Getwd()
+			assertNilF(t, err, "Failed to get current working directory")
+			filePath := filepath.Join(cwd, "test_data", "put_get_1.txt")
+
+			putQuery := fmt.Sprintf("PUT file://%v @~/%v", filePath, "test_cancel_query_with_connection_context.txt")
+			_, err = db.ExecContext(context.Background(), putQuery)
+			assertNilF(t, err, "PUT statement should work after cancelled connection context")
+		})
+	}
+}
+
 func TestPing(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		if err := dbt.conn.PingContext(context.Background()); err != nil {
@@ -2140,7 +2183,6 @@ func TestOpenWithConfig(t *testing.T) {
 
 func TestOpenWithConfigCancel(t *testing.T) {
 	wiremock.registerMappings(t,
-		wiremockMapping{filePath: "telemetry.json"},
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
 	)
 	driver := SnowflakeDriver{}
@@ -2278,6 +2320,40 @@ func TestTimePrecision(t *testing.T) {
 	})
 }
 
+func initPoolWithSize(t *testing.T, db *sql.DB, poolSize int) {
+	wg := sync.WaitGroup{}
+	wg.Add(poolSize)
+	for i := 0; i < poolSize; i++ {
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+			runSmokeQuery(t, db)
+		}(&wg)
+	}
+	wg.Wait()
+}
+
+func initPoolWithSizeAndReturnErrors(db *sql.DB, poolSize int) []error {
+	wg := sync.WaitGroup{}
+	wg.Add(poolSize)
+	errMu := sync.Mutex{}
+	var errs []error
+	for i := 0; i < poolSize; i++ {
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+			err := runSmokeQueryAndReturnErrors(db)
+			if err != nil {
+				errMu.Lock()
+				errs = append(errs, err)
+				errMu.Unlock()
+			}
+		}(&wg)
+	}
+	wg.Wait()
+	return errs
+}
+
 func runSmokeQuery(t *testing.T, db *sql.DB) {
 	rows, err := db.Query("SELECT 1")
 	assertNilF(t, err)
@@ -2287,6 +2363,26 @@ func runSmokeQuery(t *testing.T, db *sql.DB) {
 	err = rows.Scan(&v)
 	assertNilF(t, err)
 	assertEqualE(t, v, 1)
+}
+
+func runSmokeQueryAndReturnErrors(db *sql.DB) error {
+	rows, err := db.Query("SELECT 1")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return fmt.Errorf("no rows")
+	}
+	var v int
+	err = rows.Scan(&v)
+	if err != nil {
+		return err
+	}
+	if v != 1 {
+		return fmt.Errorf("value mismatch. expected 1, got %v", v)
+	}
+	return nil
 }
 
 func runSmokeQueryWithConn(t *testing.T, conn *sql.Conn) {

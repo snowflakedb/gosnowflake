@@ -225,8 +225,8 @@ func TestTelemetryDisabled(t *testing.T) {
 				queryIDKey: "123",
 			},
 			Timestamp: time.Now().UnixNano() / int64(time.Millisecond),
-		}); err == nil {
-			t.Fatal("should have failed")
+		}); err != nil {
+			t.Fatalf("calling addLog should not return an error just because telemetry is disabled, but did: %v", err)
 		}
 		st.enabled = true
 		if err := st.addLog(&telemetryData{
@@ -240,8 +240,8 @@ func TestTelemetryDisabled(t *testing.T) {
 		}
 		st.enabled = false
 		err := st.sendBatch()
-		if err == nil {
-			t.Fatal("should have failed")
+		if err != nil {
+			t.Fatalf("calling sendBatch should not return an error just because telemetry is disabled, but did: %v", err)
 		}
 	})
 }

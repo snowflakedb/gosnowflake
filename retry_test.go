@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -201,6 +202,7 @@ func TestRetryQuerySuccess(t *testing.T) {
 		cnt:        3,
 		success:    true,
 		statusCode: 429,
+		t:          t,
 		expectedQueryParams: map[int]map[string]string{
 			0: {
 				"retryCount":      "",
@@ -218,7 +220,6 @@ func TestRetryQuerySuccess(t *testing.T) {
 				"clientStartTime": "123456",
 			},
 		},
-		t: t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
 	assertNilF(t, err, "failed to parse the test URL")
@@ -244,6 +245,7 @@ func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
 		cnt:        3,
 		success:    true,
 		statusCode: 429,
+		t:          t,
 		expectedQueryParams: map[int]map[string]string{
 			0: {
 				"retryCount":      "",
@@ -261,7 +263,6 @@ func TestRetryQuerySuccessWithRetryReasonDisabled(t *testing.T) {
 				"clientStartTime": "123456",
 			},
 		},
-		t: t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
 	assertNilF(t, err, "failed to parse the test URL")
@@ -287,6 +288,7 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 		cnt:     3,
 		success: true,
 		timeout: true,
+		t:       t,
 		expectedQueryParams: map[int]map[string]string{
 			0: {
 				"retryCount":  "",
@@ -301,7 +303,6 @@ func TestRetryQuerySuccessWithTimeout(t *testing.T) {
 				"retryReason": "0",
 			},
 		},
-		t: t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrysuccess.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey + "=testid")
 	assertNilF(t, err, "failed to parse the test URL")
@@ -326,6 +327,7 @@ func TestRetryQueryFailWithTimeout(t *testing.T) {
 	client := &fakeHTTPClient{
 		statusCode: http.StatusTooManyRequests,
 		success:    false,
+		t:          t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
 	assertNilF(t, err, "failed to parse the test URL")
@@ -365,6 +367,7 @@ func TestRetryQueryFailWithMaxRetryCount(t *testing.T) {
 			client := &fakeHTTPClient{
 				statusCode: http.StatusTooManyRequests,
 				success:    false,
+				t:          t,
 			}
 			urlPtr, err := url.Parse("https://fakeaccountretryfail.snowflakecomputing.com:443/queries/v1/query-request?" + requestIDKey)
 			assertNilF(t, err, "failed to parse the test URL")
@@ -426,6 +429,7 @@ func TestRetryLoginRequest(t *testing.T) {
 	client = &fakeHTTPClient{
 		success: false,
 		timeout: true,
+		t:       t,
 	}
 	_, err = newRetryHTTP(context.Background(),
 		client,
@@ -446,6 +450,7 @@ func TestRetryAuthLoginRequest(t *testing.T) {
 		cnt:     3,
 		success: true,
 		timeout: true,
+		t:       t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
 	assertNilF(t, err, "failed to parse the test URL")
@@ -468,6 +473,7 @@ func TestLoginRetry429(t *testing.T) {
 		cnt:        3,
 		success:    true,
 		statusCode: 429,
+		t:          t,
 	}
 	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_id=testid")
 	assertNilF(t, err, "failed to parse the test URL")
@@ -486,70 +492,84 @@ func TestLoginRetry429(t *testing.T) {
 }
 
 func TestIsRetryable(t *testing.T) {
+	deadLineCtx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	defer cancel()
+	time.Sleep(2 * time.Nanosecond)
+
 	tcs := []struct {
+		ctx      context.Context
 		req      *http.Request
 		res      *http.Response
 		err      error
 		expected bool
 	}{
 		{
+			ctx:      context.Background(),
 			req:      nil,
 			res:      nil,
 			err:      nil,
 			expected: false,
 		},
 		{
+			ctx:      context.Background(),
 			req:      nil,
 			res:      &http.Response{StatusCode: http.StatusBadRequest},
 			err:      nil,
 			expected: false,
 		},
 		{
+			ctx:      context.Background(),
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      nil,
 			err:      nil,
 			expected: false,
 		},
 		{
+			ctx:      context.Background(),
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      &http.Response{StatusCode: http.StatusNotFound},
 			expected: false,
 		},
 		{
-			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
-			res:      nil,
-			err:      &url.Error{Err: context.Canceled},
-			expected: false,
-		},
-		{
+			ctx:      context.Background(),
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      nil,
 			err:      &url.Error{Err: context.DeadlineExceeded},
-			expected: false,
+			expected: true,
 		},
 		{
+			ctx:      context.Background(),
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      nil,
 			err:      errUnknownError(),
 			expected: true,
 		},
 		{
+			ctx:      context.Background(),
 			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
 			res:      &http.Response{StatusCode: http.StatusTooManyRequests},
 			err:      nil,
 			expected: true,
 		},
 		{
+			ctx:      deadLineCtx,
+			req:      &http.Request{URL: &url.URL{Path: loginRequestPath}},
+			res:      nil,
+			err:      &url.Error{Err: context.DeadlineExceeded},
+			expected: false,
+		},
+		{
+			ctx:      deadLineCtx,
 			req:      &http.Request{URL: &url.URL{Path: queryRequestPath}},
-			res:      &http.Response{StatusCode: http.StatusServiceUnavailable},
-			err:      nil,
-			expected: true,
+			res:      nil,
+			err:      &url.Error{Err: context.DeadlineExceeded},
+			expected: false,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(fmt.Sprintf("req %v, resp %v", tc.req, tc.res), func(t *testing.T) {
-			result, _ := isRetryableError(tc.req, tc.res, tc.err)
+			result, _ := isRetryableError(tc.ctx, tc.req, tc.res, tc.err)
 			if result != tc.expected {
 				t.Fatalf("expected %v, got %v; request: %v, response: %v", tc.expected, result, tc.req, tc.res)
 			}
@@ -672,4 +692,13 @@ func TestCalculateRetryWaitForNonAuthRequests(t *testing.T) {
 			assertBetweenInclusiveE(t, result.Seconds(), float64(defaultMinSleepTime), tc.maxSleepTime)
 		})
 	}
+}
+
+func TestRedirectRetry(t *testing.T) {
+	wiremock.registerMappings(t, newWiremockMapping("retry/redirection_retry_workflow.json"))
+	cfg := wiremock.connectionConfig()
+	cfg.ClientTimeout = 3 * time.Second
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	runSmokeQuery(t, db)
 }

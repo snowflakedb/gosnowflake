@@ -351,7 +351,14 @@ func supportedDecfloatBind(nv *driver.NamedValue) bool {
 	if nv.Value == nil {
 		return false
 	}
-	return reflect.Indirect(reflect.ValueOf(nv.Value)).Type() == reflect.TypeOf(big.Float{})
+
+	val := reflect.Indirect(reflect.ValueOf(nv.Value))
+
+	if !val.IsValid() {
+		return false
+	}
+
+	return val.Type() == reflect.TypeOf(big.Float{})
 }
 
 func supportedNullBind(nv *driver.NamedValue) bool {

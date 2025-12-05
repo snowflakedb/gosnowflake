@@ -101,6 +101,9 @@ The following connection parameters are supported:
   - authenticator: Specifies the authenticator to use for authenticating user credentials.
     See "Authenticator Values" section below for supported values.
 
+  - singleAuthenticationPrompt: specifies whether only one authentication should be performed at the same time for authentications that needs human interactions (like MFA or OAuth authorization code).
+    By default it is true.
+
   - application: Identifies your application to Snowflake Support.
 
   - disableOCSPChecks: false by default. Set to true to bypass the Online
@@ -112,9 +115,15 @@ The following connection parameters are supported:
 
   - token: a token that can be used to authenticate. Should be used in conjunction with the "oauth" authenticator.
 
-  - client_session_keep_alive: Set to true have a heartbeat in the background every hour to keep the connection alive
-    such that the connection session will never expire. Care should be taken in using this option as it opens up
-    the access forever as long as the process is alive.
+  - client_session_keep_alive: Set to true have a heartbeat in the background every hour by default or the value of
+    client_session_keep_alive_heartbeat_frequency, if set, to keep the connection alive such that the connection session
+    will never expire. Care should be taken in using this option as it opens up the access forever as long as the process is alive.
+
+  - client_session_keep_alive_heartbeat_frequency: Number of seconds in-between client attempts to update the token for the session.
+    > The default is 3600 seconds
+    > Minimum value is 900 seconds. A smaller value will be reset to 900 seconds.
+    > Maximum value is 3600 seconds. A larger value will be reset to 3600 seconds.
+    > This parameter is only valid if client_session_keep_alive is set to true.
 
   - ocspFailOpen: true by default. Set to false to make OCSP check fail closed mode.
 
@@ -136,6 +145,8 @@ The following connection parameters are supported:
 
   - crlOnDiskCacheDisabled: set to disable on-disk caching of CRLs (on-disk cache may help with cold starts).
 
+  - crlDownloadMaxSize: maximum size (in bytes) of a CRL to download. Default is 200MB.
+
   - SNOWFLAKE_CRL_ON_DISK_CACHE_DIR (environment variable): set to customize the directory for on-disk caching of CRLs.
 
   - SNOWFLAKE_CRL_ON_DISK_CACHE_REMOVAL_DELAY (environment variable): set the delay (in seconds) for removing the on-disk cache (for debuggability).
@@ -154,6 +165,10 @@ The following connection parameters are supported:
 
   - tracing: Specifies the logging level to be used. Set to error by default.
     Valid values are trace, debug, info, print, warning, error, fatal, panic.
+
+  - logQueryText: when set to true, the full query text will be logged. Be aware that it may include sensitive information. Default value is false.
+
+  - logQueryParameters: when set to true, the parameters will be logged. Requires logQueryText to be enabled first. Be aware that it may include sensitive information. Default value is false.
 
   - disableQueryContextCache: disables parsing of query context returned from server and resending it to server as well.
     Default value is false.
@@ -185,7 +200,8 @@ Alternatively, use OpenWithConfig() function to create a database handle with th
   - To use the internal Snowflake authenticator, specify snowflake (Default).
 
   - To use programmatic access tokens, specify programmatic_access_token.
-    If you want to cache your MFA logins, use AuthTypeUsernamePasswordMFA authenticator.
+
+  - If you want to cache your MFA logins, specify username_password_mfa. You can pass TOTP in a separate passcode parameter or append it to the password setting in which case you need to set passcodeInPassword = true.
 
   - To authenticate through Okta, specify https://<okta_account_name>.okta.com (URL prefix for Okta).
 
@@ -233,6 +249,23 @@ the driver will search the config file and load the connection. You can find how
 or Snowflake doc: https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/connecting/specify-credentials
 
 If the connection.toml file is readable by others, a warning will be logged. To disable it you need to set the environment variable `SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE` to true.
+
+It you wish to specify a custom transporter (e.g. to provide a custom TLS config to be used with your custom truststore) pass it through the `NewConnector`. Example:
+
+	tlsConfig := &tls.Config{
+	    // your custom fields here
+	}
+
+	config := Config{
+	    Transporter: &http.Transport{
+	        TLSClientConfig: tlsConfig,
+	    },
+	}
+
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+
+As an alternative, you can use the `RegisterTLSConfig` / `DeregisterTLSConfig` functions as seen in the unit tests: https://github.com/snowflakedb/gosnowflake/blob/v1.16.0/transport_test.go#L127
 
 # Proxy
 

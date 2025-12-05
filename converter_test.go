@@ -2624,7 +2624,7 @@ func TestNumbersScanType(t *testing.T) {
 						assertEqualE(t, i3.Cmp(big.NewFloat(600.5)), 0)
 						assertEqualE(t, i4.Cmp(big.NewFloat(700.5)), 0)
 						assertEqualE(t, i5.Cmp(big.NewFloat(900.5)), 0)
-						bigInt123456789012345678901234567890, _, err := big.ParseFloat("123456789012345678901234567890.5", 10, big.MaxPrec, big.AwayFromZero)
+						bigInt123456789012345678901234567890, _, err := big.ParseFloat("123456789012345678901234567890.5", 10, numberMaxPrecisionInBits, big.AwayFromZero)
 						assertNilF(t, err)
 						assertEqualE(t, i6.Cmp(bigInt123456789012345678901234567890), 0)
 

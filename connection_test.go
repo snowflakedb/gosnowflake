@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"net/http"
 	"net/url"
@@ -240,6 +241,72 @@ func TestGetQueryResultTokenNotSet(t *testing.T) {
 	assertEqualF(t, updatedSession, expectedSession)
 }
 
+func TestCheckNamedValue(t *testing.T) {
+	sc := &snowflakeConn{}
+
+	t.Run("dont panic on nil UUID", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilUUID *UUID
+		nv := driver.NamedValue{Value: nilUUID}
+		err := sc.CheckNamedValue(&nv) // should not panic and return false
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding nil *UUID")
+	})
+
+	t.Run("dont panic on nil pointer array", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilArray *[]string
+		nv := driver.NamedValue{Value: nilArray}
+		err := sc.CheckNamedValue(&nv) // should not panic and return false
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding nil []string")
+	})
+
+	t.Run("dont panic on nil pointer", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilTime *time.Time
+		nv := driver.NamedValue{Value: nilTime}
+		err := sc.CheckNamedValue(&nv) // should not panic and return false
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding nil *time.Time")
+	})
+
+	t.Run("dont panic on nil *big.Float", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilBigFloat *big.Float
+		nv := driver.NamedValue{Value: nilBigFloat}
+		err := sc.CheckNamedValue(&nv) // should not panic and return false
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding nil *big.Float")
+	})
+
+	t.Run("Is Valid for big.Float", func(t *testing.T) {
+		val := big.NewFloat(123.456)
+		nv := driver.NamedValue{Value: val}
+		err := sc.CheckNamedValue(&nv)
+		assertNilE(t, err, "expected to support binding big.Float")
+	})
+
+	t.Run("Is Not Valid for other types", func(t *testing.T) {
+		val := 123.456 // float64
+		nv := driver.NamedValue{Value: val}
+		err := sc.CheckNamedValue(&nv)
+		assertErrIsE(t, err, driver.ErrSkip, "expected not to support binding float64")
+	})
+}
+
 func TestExecWithSpecificRequestID(t *testing.T) {
 	origRequestID := NewUUID()
 	ctx := WithRequestID(context.Background(), origRequestID)
@@ -410,8 +477,8 @@ func TestClientSessionPersist(t *testing.T) {
 func TestFetchResultByQueryID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -452,8 +519,8 @@ func TestFetchResultByQueryID(t *testing.T) {
 func TestFetchRunningQueryByID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring_running.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring_running.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -494,8 +561,8 @@ func TestFetchRunningQueryByID(t *testing.T) {
 func TestFetchErrorQueryByID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring_error.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring_error.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -531,8 +598,8 @@ func TestFetchErrorQueryByID(t *testing.T) {
 func TestFetchMalformedJsonQueryByID(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/password/successful_flow.json"},
-		wiremockMapping{filePath: "query_execution.json"},
-		wiremockMapping{filePath: "query_monitoring_malformed.json"},
+		wiremockMapping{filePath: "query/query_execution.json"},
+		wiremockMapping{filePath: "query/query_monitoring_malformed.json"},
 	)
 
 	cfg := wiremock.connectionConfig()
@@ -672,6 +739,24 @@ func TestGetQueryStatus(t *testing.T) {
 			return
 		}
 	})
+}
+
+func TestAddTelemetryDataViaSnowflakeConnection(t *testing.T) {
+	wiremock.registerMappings(t,
+		newWiremockMapping("auth/password/successful_flow.json"),
+		newWiremockMapping("telemetry/custom_telemetry.json"))
+	cfg := wiremock.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	defer db.Close()
+	conn, err := db.Conn(context.Background())
+	assertNilF(t, err)
+	err = conn.Raw(func(x any) error {
+		m := map[string]string{}
+		m["test_key"] = "test_value"
+		return x.(SnowflakeConnection).AddTelemetryData(context.Background(), time.Now(), m)
+	})
+	assertNilF(t, err)
 }
 
 func TestGetInvalidQueryStatus(t *testing.T) {
@@ -990,7 +1075,7 @@ func TestGetTransport(t *testing.T) {
 	}
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := newTransportFactory(test.cfg, nil).createTransport()
+			result, err := newTransportFactory(test.cfg, nil).createTransport(test.cfg.transportConfigFor(transportTypeSnowflake))
 			assertNilE(t, err)
 			if test.transportCheck != nil {
 				test.transportCheck(t, castToTransport(result))
@@ -1001,6 +1086,7 @@ func TestGetTransport(t *testing.T) {
 		})
 	}
 }
+
 func TestGetCRLTransport(t *testing.T) {
 	t.Run("Using CRLs", func(t *testing.T) {
 		crlCfg := &Config{
@@ -1008,10 +1094,10 @@ func TestGetCRLTransport(t *testing.T) {
 			DisableOCSPChecks:       true,
 		}
 		transportFactory := newTransportFactory(crlCfg, nil)
-		crlRoundTripper, err := transportFactory.createTransport()
+		crlRoundTripper, err := transportFactory.createTransport(crlCfg.transportConfigFor(transportTypeCRL))
 		assertNilF(t, err)
 		transport := castToTransport(crlRoundTripper)
 		assertNotNilF(t, transport, "Expected http.Transport")
-		assertEqualE(t, transport.MaxIdleConns, 5)
+		assertEqualE(t, transport.MaxIdleConns, defaultTransportConfigs.forTransportType(transportTypeCRL).MaxIdleConns)
 	})
 }

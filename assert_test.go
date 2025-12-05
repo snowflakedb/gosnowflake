@@ -7,134 +7,163 @@ import (
 	"math"
 	"reflect"
 	"regexp"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func assertNilE(t *testing.T, actual any, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateNil(actual, descriptions...))
 }
 
 func assertNilF(t *testing.T, actual any, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateNil(actual, descriptions...))
 }
 
 func assertNotNilE(t *testing.T, actual any, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateNotNil(actual, descriptions...))
 }
 
 func assertNotNilF(t *testing.T, actual any, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateNotNil(actual, descriptions...))
 }
 
 func assertErrIsF(t *testing.T, actual, expected error, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateErrIs(actual, expected, descriptions...))
 }
 
 func assertErrIsE(t *testing.T, actual, expected error, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateErrIs(actual, expected, descriptions...))
 }
 
 func assertErrorsAsF(t *testing.T, err error, target any, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateErrorsAs(err, target, descriptions...))
 }
 
 func assertEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateEqual(actual, expected, descriptions...))
 }
 
 func assertEqualF(t *testing.T, actual any, expected any, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateEqual(actual, expected, descriptions...))
 }
 
 func assertEqualIgnoringWhitespaceE(t *testing.T, actual string, expected string, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateEqualIgnoringWhitespace(actual, expected, descriptions...))
 }
 
 func assertEqualEpsilonE(t *testing.T, actual, expected, epsilon float64, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateEqualEpsilon(actual, expected, epsilon, descriptions...))
 }
 
 func assertDeepEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateDeepEqual(actual, expected, descriptions...))
 }
 
 func assertNotEqualF(t *testing.T, actual any, expected any, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateNotEqual(actual, expected, descriptions...))
 }
 
 func assertNotEqualE(t *testing.T, actual any, expected any, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateNotEqual(actual, expected, descriptions...))
 }
 
 func assertBytesEqualE(t *testing.T, actual []byte, expected []byte, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateBytesEqual(actual, expected, descriptions...))
 }
 
 func assertTrueF(t *testing.T, actual bool, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateEqual(actual, true, descriptions...))
 }
 
 func assertTrueE(t *testing.T, actual bool, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateEqual(actual, true, descriptions...))
 }
 
 func assertFalseF(t *testing.T, actual bool, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateEqual(actual, false, descriptions...))
 }
 
 func assertFalseE(t *testing.T, actual bool, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateEqual(actual, false, descriptions...))
 }
 
 func assertStringContainsE(t *testing.T, actual string, expectedToContain string, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateStringContains(actual, expectedToContain, descriptions...))
 }
 
 func assertStringContainsF(t *testing.T, actual string, expectedToContain string, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateStringContains(actual, expectedToContain, descriptions...))
 }
 
 func assertEmptyStringE(t *testing.T, actual string, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateEmptyString(actual, descriptions...))
 }
 
 func assertHasPrefixF(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
+	t.Helper()
 	fatalOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
 }
 
 func assertHasPrefixE(t *testing.T, actual string, expectedPrefix string, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateHasPrefix(actual, expectedPrefix, descriptions...))
 }
 
 func assertBetweenE(t *testing.T, value float64, min float64, max float64, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateValueBetween(value, min, max, descriptions...))
 }
 
 func assertBetweenInclusiveE(t *testing.T, value float64, min float64, max float64, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateValueBetweenInclusive(value, min, max, descriptions...))
 }
 
 func assertEmptyE[T any](t *testing.T, actual []T, descriptions ...string) {
+	t.Helper()
 	errorOnNonEmpty(t, validateEmpty(actual, descriptions...))
 }
 
 func fatalOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
+		t.Helper()
 		t.Fatal(formatErrorMessage(errMsg))
 	}
 }
 
 func errorOnNonEmpty(t *testing.T, errMsg string) {
 	if errMsg != "" {
+		t.Helper()
 		t.Error(formatErrorMessage(errMsg))
 	}
 }
 
 func formatErrorMessage(errMsg string) string {
-	return fmt.Sprintf("%s. Thrown from %s", maskSecrets(errMsg), thrownFrom())
+	return fmt.Sprintf("[%s] %s", time.Now().Format(time.RFC3339Nano), maskSecrets(errMsg))
 }
 
 func validateNil(actual any, descriptions ...string) string {
@@ -323,18 +352,5 @@ func isNil(value any) bool {
 		return true
 	}
 	val := reflect.ValueOf(value)
-	return slices.Contains([]reflect.Kind{reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface}, val.Kind()) && val.IsNil()
-}
-
-func thrownFrom() string {
-	buf := make([]byte, 1024)
-	size := runtime.Stack(buf, false)
-	stack := string(buf[0:size])
-	lines := strings.Split(stack, "\n\t")
-	for i, line := range lines {
-		if i > 0 && !strings.Contains(line, "assert_test.go") {
-			return maskSecrets(line)
-		}
-	}
-	return maskSecrets(stack)
+	return slices.Contains([]reflect.Kind{reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface, reflect.Func}, val.Kind()) && val.IsNil()
 }

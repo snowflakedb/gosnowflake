@@ -39,6 +39,7 @@ func TestExternalBrowserFailed(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
+		assertNotNilF(t, err)
 		assertEqualE(t, err.Error(), "authentication timed out")
 	}()
 	wg.Wait()
@@ -56,6 +57,7 @@ func TestExternalBrowserTimeout(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
+		assertNotNilF(t, err)
 		assertEqualE(t, err.Error(), "authentication timed out")
 	}()
 	wg.Wait()
@@ -120,6 +122,7 @@ func TestClientStoreCredentials(t *testing.T) {
 		cfg.ClientStoreTemporaryCredential = 0
 		db := getDbHandlerFromConfig(t, cfg)
 		_, err := db.Conn(context.Background())
+		assertNotNilF(t, err)
 		assertEqualE(t, err.Error(), "authentication timed out", fmt.Sprintf("Expected timeout, but got %v", err))
 	})
 }

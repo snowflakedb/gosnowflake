@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 const urlQueriesResultFmt = "/queries/%s/result"
@@ -16,21 +17,34 @@ type queryResultStatus int
 
 // Query Status defined at server side
 const (
+	// Deprecated: will be unexported in the future releases.
 	SFQueryRunning queryResultStatus = iota
+	// Deprecated: will be unexported in the future releases.
 	SFQueryAborting
+	// Deprecated: will be unexported in the future releases.
 	SFQuerySuccess
+	// Deprecated: will be unexported in the future releases.
 	SFQueryFailedWithError
+	// Deprecated: will be unexported in the future releases.
 	SFQueryAborted
+	// Deprecated: will be unexported in the future releases.
 	SFQueryQueued
+	// Deprecated: will be unexported in the future releases.
 	SFQueryFailedWithIncident
+	// Deprecated: will be unexported in the future releases.
 	SFQueryDisconnected
+	// Deprecated: will be unexported in the future releases.
 	SFQueryResumingWarehouse
 	// SFQueryQueueRepairingWarehouse present in QueryDTO.java.
+	// Deprecated: will be unexported in the future releases.
 	SFQueryQueueRepairingWarehouse
+	// Deprecated: will be unexported in the future releases.
 	SFQueryRestarted
 	// SFQueryBlocked is when a statement is waiting on a lock on resource held
 	// by another statement.
+	// Deprecated: will be unexported in the future releases.
 	SFQueryBlocked
+	// Deprecated: will be unexported in the future releases.
 	SFQueryNoData
 )
 
@@ -113,6 +127,7 @@ type SnowflakeQueryStatus struct {
 // SnowflakeConnection is a wrapper to snowflakeConn that exposes API functions
 type SnowflakeConnection interface {
 	GetQueryStatus(ctx context.Context, queryID string) (*SnowflakeQueryStatus, error)
+	AddTelemetryData(ctx context.Context, eventDate time.Time, data map[string]string) error
 }
 
 // checkQueryStatus returns the status given the query ID. If successful,
