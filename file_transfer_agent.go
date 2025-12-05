@@ -902,20 +902,24 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesSequential(fileMetas []*fileMe
 
 func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileMetadata, error) {
 	meta.realSrcFileName = meta.srcFileName
-	tmpDir, err := os.MkdirTemp(sfa.sc.cfg.TmpDirPath, "")
-	if err != nil {
-		return nil, err
+	tmpDir := ""
+	if meta.fileStream == nil {
+		var err error
+		tmpDir, err = os.MkdirTemp(sfa.sc.cfg.TmpDirPath, "")
+		if err != nil {
+			return nil, err
+		}
+		meta.tmpDir = tmpDir
 	}
-	meta.tmpDir = tmpDir
 	defer func() {
-		if err = os.RemoveAll(tmpDir); err != nil {
+		if err := os.RemoveAll(tmpDir); err != nil {
 			logger.WithContext(sfa.sc.ctx).Warnf("failed to remove temp dir %v: %v", tmpDir, err)
 		}
 	}()
 
 	fileUtil := new(snowflakeFileUtil)
 
-	err = compressDataIfRequired(meta, fileUtil, tmpDir)
+	err := compressDataIfRequired(meta, fileUtil, tmpDir)
 	if err != nil {
 		return meta, err
 	}
@@ -1015,18 +1019,20 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 }
 
 func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fileMetadata, error) {
-	tmpDir, err := os.MkdirTemp(sfa.sc.cfg.TmpDirPath, "")
-	if err != nil {
-		return nil, err
-	}
-	meta.tmpDir = tmpDir
-	defer func() {
-		if err = os.RemoveAll(tmpDir); err != nil {
-			logger.WithContext(sfa.sc.ctx).Warnf("failed to remove temp dir %v: %v", tmpDir, err)
+	if sfa.options != nil && !sfa.options.GetFileToStream {
+		tmpDir, err := os.MkdirTemp(sfa.sc.cfg.TmpDirPath, "")
+		if err != nil {
+			return meta, err
 		}
-	}()
+		meta.tmpDir = tmpDir
+		defer func() {
+			if err = os.RemoveAll(tmpDir); err != nil {
+				logger.WithContext(sfa.sc.ctx).Warnf("failed to remove temp dir %v: %v", tmpDir, err)
+			}
+		}()
+	}
 	client := sfa.getStorageClient(sfa.stageLocationType)
-	if err = client.downloadOneFile(meta); err != nil {
+	if err := client.downloadOneFile(meta); err != nil {
 		meta.dstFileSize = -1
 		if !meta.resStatus.isSet() {
 			meta.resStatus = errStatus

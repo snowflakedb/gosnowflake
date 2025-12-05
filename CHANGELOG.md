@@ -17,7 +17,7 @@ New features:
 Bug fixes:
 
 - Handle HTTP307 & 308 in drivers to achieve better resiliency to backend errors (snowflakedb/gosnowflake#1616).
--
+- Create temp directory only if needed during file transfer (snowflakedb/gosnowflake#1647)
 -
 -
 -

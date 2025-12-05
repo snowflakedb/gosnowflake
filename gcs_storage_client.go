@@ -421,7 +421,7 @@ func (util *snowflakeGcsClient) downloadFileInParts(
 	numParts := (fileSize + partSize - 1) / partSize
 
 	// For streaming, use batched approach to avoid buffering all parts in memory
-	if meta.options.GetFileToStream {
+	if meta.options != nil && meta.options.GetFileToStream {
 		return util.downloadInPartsForStream(downloadURL, gcsHeaders, accessToken, meta, fileSize, numParts, maxConcurrency, partSize)
 	}
 	return util.downloadInPartsForFile(downloadURL, gcsHeaders, accessToken, meta, fullDstFileName, fileSize, numParts, maxConcurrency, partSize)
@@ -717,7 +717,7 @@ func (util *snowflakeGcsClient) downloadFileSinglePart(
 		return util.handleHTTPError(resp, meta, accessToken)
 	}
 
-	if meta.options.GetFileToStream {
+	if meta.options != nil && meta.options.GetFileToStream {
 		if _, err := io.Copy(meta.dstStream, resp.Body); err != nil {
 			return err
 		}

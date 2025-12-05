@@ -238,7 +238,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 					}
 				}
 				timer = time.Now()
-				if meta.options.GetFileToStream {
+				if meta.options != nil && meta.options.GetFileToStream {
 					totalFileSize, err := decryptStreamCBC(header.encryptionMetadata,
 						meta.encryptionMaterial, 0, meta.dstStream, meta.sfa.streamBuffer)
 					if err != nil {
@@ -255,7 +255,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 				logger.Debugf("Decrypting file: %v finished in %v ms.", meta.srcFileName, time.Since(timer).String())
 
 			}
-			if !meta.options.GetFileToStream {
+			if meta.options == nil || !meta.options.GetFileToStream {
 				if fi, err := os.Stat(fullDstFileName); err == nil {
 					meta.dstFileSize = fi.Size()
 				}

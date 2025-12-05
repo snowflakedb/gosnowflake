@@ -556,6 +556,106 @@ func testPutGet(t *testing.T, isStream bool) {
 		assertEqualE(t, contents, originalContents, "output is different from the original contents")
 	})
 }
+
+func TestPutWithNonWritableTemp(t *testing.T) {
+	if isWindows {
+		t.Skip("permission system is different")
+	}
+	tempDir := t.TempDir()
+	assertNilF(t, os.Chmod(tempDir, 0000))
+	origDsn := dsn
+	defer func() {
+		dsn = origDsn
+	}()
+	dsn = dsn + "&tmpDirPath=" + strings.ReplaceAll(tempDir, "/", "%2F")
+	runDBTest(t, func(dbt *DBTest) {
+		for _, isStream := range []bool{false, true} {
+			t.Run(fmt.Sprintf("isStream=%v", isStream), func(t *testing.T) {
+				stageName := "test_stage_" + randomString(10)
+				cwd, err := os.Getwd()
+				assertNilF(t, err)
+				filePath := fmt.Sprintf("%v/test_data/orders_100.csv", cwd)
+				dbt.mustExecT(t, "CREATE STAGE "+stageName)
+				defer dbt.mustExecT(t, "DROP STAGE "+stageName)
+
+				ctx := context.Background()
+				if isStream {
+					fd, err := os.Open(filePath)
+					assertNilF(t, err)
+					ctx = WithFileStream(ctx, fd)
+				}
+				_, err = dbt.conn.ExecContext(ctx, fmt.Sprintf("PUT 'file://%v' @%v", filePath, stageName))
+				if !isStream {
+					assertNotNilF(t, err)
+					assertStringContainsE(t, err.Error(), "mkdir")
+					assertStringContainsE(t, err.Error(), "permission denied")
+				} else {
+					assertNilF(t, os.Chmod(tempDir, 0755))
+					_ = dbt.mustExecContextT(ctx, t, fmt.Sprintf("GET @%v 'file://%v'", stageName, tempDir))
+					resultBytesCompressed, err := os.ReadFile(filepath.Join(tempDir, "orders_100.csv.gz"))
+					assertNilF(t, err)
+					resultBytesReader, err := gzip.NewReader(bytes.NewReader(resultBytesCompressed))
+					assertNilF(t, err)
+					resultBytes, err := io.ReadAll(resultBytesReader)
+					assertNilF(t, err)
+					inputBytes, err := os.ReadFile(filePath)
+					assertNilF(t, err)
+					assertEqualE(t, string(resultBytes), string(inputBytes))
+				}
+			})
+		}
+	})
+}
+
+func TestGetWithNonWritableTemp(t *testing.T) {
+	if isWindows {
+		t.Skip("permission system is different")
+	}
+	tempDir := t.TempDir()
+	origDsn := dsn
+	defer func() {
+		dsn = origDsn
+	}()
+	dsn = dsn + "&tmpDirPath=" + strings.ReplaceAll(tempDir, "/", "%2F")
+	runDBTest(t, func(dbt *DBTest) {
+		stageName := "test_stage_" + randomString(10)
+		cwd, err := os.Getwd()
+		assertNilF(t, err)
+		filePath := fmt.Sprintf("%v/test_data/orders_100.csv", cwd)
+		dbt.mustExecT(t, "CREATE STAGE "+stageName)
+		defer dbt.mustExecT(t, "DROP STAGE "+stageName)
+
+		dbt.mustExecT(t, fmt.Sprintf("PUT 'file://%v' @%v", filePath, stageName))
+		assertNilF(t, os.Chmod(tempDir, 0000))
+
+		for _, isStream := range []bool{false, true} {
+			t.Run(fmt.Sprintf("isStream=%v", isStream), func(t *testing.T) {
+				ctx := context.Background()
+				var resultBuf bytes.Buffer
+				if isStream {
+					ctx = WithFileGetStream(ctx, &resultBuf)
+					ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
+				}
+				_, err = dbt.conn.ExecContext(ctx, fmt.Sprintf("GET @%v 'file://%v'", stageName, tempDir))
+				if !isStream {
+					assertNotNilF(t, err)
+					assertStringContainsE(t, err.Error(), "mkdir")
+					assertStringContainsE(t, err.Error(), "permission denied")
+				} else {
+					assertNilF(t, err)
+					resultBytesReader, err := gzip.NewReader(&resultBuf)
+					assertNilF(t, err)
+					resultBytes, err := io.ReadAll(resultBytesReader)
+					assertNilF(t, err)
+					inputBytes, err := os.ReadFile(filePath)
+					assertNilF(t, err)
+					assertEqualE(t, string(resultBytes), string(inputBytes))
+				}
+			})
+		}
+	})
+}
+
 func TestPutGetGcsDownscopedCredential(t *testing.T) {
 	if runningOnGithubAction() && !runningOnGCP() {
 		t.Skip("skipping non GCP environment")
