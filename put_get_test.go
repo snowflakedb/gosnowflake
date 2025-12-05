@@ -875,6 +875,8 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 }
 
 func TestPutCancel(t *testing.T) {
+	logger.SetLogLevel("debug")
+	defer logger.SetLogLevel("error")
 	sourceDir, err := os.Getwd()
 	assertNilF(t, err)
 

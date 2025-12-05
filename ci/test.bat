@@ -61,7 +61,8 @@ echo [INFO] Role:      %SNOWFLAKE_TEST_ROLE%
 go install github.com/jstemmer/go-junit-report/v2@latest
 
 REM Run tests and save output to file
-go test %GO_TEST_PARAMS% --timeout 90m --tags=sfdebug -race -coverprofile=coverage.txt -covermode=atomic -v . > test-output.txt 2>&1
+REM no -race, because it's not supported on Windows ARM
+go test %GO_TEST_PARAMS% --timeout 90m --tags=sfdebug -coverprofile=coverage.txt -covermode=atomic -v . > test-output.txt 2>&1
 set TEST_EXIT=%ERRORLEVEL%
 
 REM Display the test output
