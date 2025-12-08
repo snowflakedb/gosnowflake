@@ -21,7 +21,7 @@ Bug fixes:
 -
 -
 -
--
+- Fix unnecessary user expansion for file paths (snowflakedb/gosnowflake#1646).
 -
 
 Internal changes:
