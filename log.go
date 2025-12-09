@@ -142,6 +142,7 @@ func CreateDefaultLogger() SFLogger {
 	var rLogger = rlog.New()
 	var formatter = new(sfTextFormatter)
 	formatter.CallerPrettyfier = SFCallerPrettyfier
+	formatter.TimestampFormat = time.RFC3339Nano
 	rLogger.SetFormatter(formatter)
 	rLogger.SetReportCaller(true)
 	var ret = defaultLogger{inner: rLogger, enabled: true}
