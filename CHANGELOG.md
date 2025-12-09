@@ -28,7 +28,7 @@ Internal changes:
 - Remove spammy "telemetry disabled" log messages (snowflakedb/gosnowflake#1638).
 -
 -
--
+- Introduced shared library for extended telemetry to identify and prepare testing platform for native rust extensions (snowflakedb/gosnowflake#1629)
 -
 -
 -
