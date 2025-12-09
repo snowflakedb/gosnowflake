@@ -281,15 +281,6 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 	}
 	logger.Debugf("S3 Client: Send Get Request to the Bucket: %v", meta.stageInfo.Location)
 
-	f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err = f.Close(); err != nil {
-			logger.Warnf("failed to close %v file: %v", fullDstFileName, err)
-		}
-	}()
 	var downloader s3DownloadAPI
 	downloader = manager.NewDownloader(client, func(u *manager.Downloader) {
 		u.Concurrency = int(maxConcurrency)
@@ -300,21 +291,34 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 		downloader = meta.mockDownloader
 	}
 
-	_, err = withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
-		if meta.options.GetFileToStream {
+	_, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (any, error) {
+		if meta.options != nil && meta.options.GetFileToStream {
 			buf := manager.NewWriteAtBuffer([]byte{})
-			_, err = downloader.Download(ctx, buf, &s3.GetObjectInput{
+			if _, err := downloader.Download(ctx, buf, &s3.GetObjectInput{
 				Bucket: s3Obj.Bucket,
 				Key:    s3Obj.Key,
-			})
+			}); err != nil {
+				return nil, err
+			}
 			meta.dstStream = bytes.NewBuffer(buf.Bytes())
 		} else {
-			_, err = downloader.Download(ctx, f, &s3.GetObjectInput{
+			f, err := os.OpenFile(fullDstFileName, os.O_CREATE|os.O_WRONLY, readWriteFileMode)
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				if err = f.Close(); err != nil {
+					logger.Warnf("failed to close %v file: %v", fullDstFileName, err)
+				}
+			}()
+			if _, err = downloader.Download(ctx, f, &s3.GetObjectInput{
 				Bucket: s3Obj.Bucket,
 				Key:    s3Obj.Key,
-			})
+			}); err != nil {
+				return nil, err
+			}
 		}
-		return nil, err
+		return nil, nil
 	})
 
 	if err != nil {

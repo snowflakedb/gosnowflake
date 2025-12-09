@@ -291,7 +291,7 @@ func (util *snowflakeAzureClient) nativeDownloadFile(
 	if meta.mockAzureClient != nil {
 		blobClient = meta.mockAzureClient
 	}
-	if meta.options.GetFileToStream {
+	if meta.options != nil && meta.options.GetFileToStream {
 		blobDownloadResponse, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (azblob.DownloadStreamResponse, error) {
 			return blobClient.DownloadStream(ctx, &azblob.DownloadStreamOptions{})
 		})
