@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -75,6 +76,17 @@ func (st *snowflakeTelemetry) sendBatch() error {
 
 	st.mutex.Lock()
 	logsToSend := st.logs
+	minicoreLoadLogs.mu.Lock()
+	if mcLogs := minicoreLoadLogs.logs; len(mcLogs) > 0 {
+		logsToSend = append(logsToSend, &telemetryData{
+			Timestamp: time.Now().UnixMilli(),
+			Message: map[string]string{
+				"minicoreLogs": strings.Join(mcLogs, "; "),
+			},
+		})
+		minicoreLoadLogs.logs = make([]string, 0)
+	}
+	minicoreLoadLogs.mu.Unlock()
 	st.logs = make([]*telemetryData, 0)
 	st.mutex.Unlock()
 
