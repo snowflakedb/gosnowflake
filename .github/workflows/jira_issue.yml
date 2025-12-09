@@ -43,9 +43,9 @@ jobs:
               issuetype: { name: "Bug" },
               summary: $issuetitle,
               description: $issuebody,
-              customfield_11401: { id: "19286" },
+              customfield_11401: { id: "14723" },
               assignee: { id: "712020:e527ae71-55cc-4e02-9217-1ca4ca8028a2" },
-              components: [{ id: "19290" }],
+              components: [{ id: "19286" }],
               labels: ["oss"],
               priority: { id: "10001" }
             }
