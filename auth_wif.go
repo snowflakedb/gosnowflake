@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -26,10 +27,11 @@ const (
 	azureWif wifProviderType = "AZURE"
 	oidcWif  wifProviderType = "OIDC"
 
-	gcpMetadataFlavorHeaderName = "Metadata-Flavor"
-	gcpMetadataFlavor           = "Google"
-	defaultMetadataServiceBase  = "http://169.254.169.254"
-	snowflakeAudience           = "snowflakecomputing.com"
+	gcpMetadataFlavorHeaderName  = "Metadata-Flavor"
+	gcpMetadataFlavor            = "Google"
+	defaultMetadataServiceBase   = "http://169.254.169.254"
+	defaultGcpIamCredentialsBase = "https://iamcredentials.googleapis.com"
+	snowflakeAudience            = "snowflakecomputing.com"
 )
 
 type wifProviderType string
@@ -65,6 +67,7 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *s
 			cfg:                    cfg,
 			telemetry:              telemetry,
 			metadataServiceBaseURL: defaultMetadataServiceBase,
+			iamCredentialsURL:      defaultGcpIamCredentialsBase,
 		},
 		azureCreator: &azureIdentityAttestationCreator{
 			azureAttestationMetadataProvider: &defaultAzureAttestationMetadataProvider{},
@@ -103,6 +106,7 @@ type gcpIdentityAttestationCreator struct {
 	cfg                    *Config
 	telemetry              *snowflakeTelemetry
 	metadataServiceBaseURL string
+	iamCredentialsURL      string
 }
 
 type oidcIdentityAttestationCreator struct {
@@ -236,6 +240,13 @@ func (c *awsIdentityAttestationCreator) createBase64EncodedRequestCredential(req
 
 func (c *gcpIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debugf("Creating GCP identity attestation...")
+	if len(c.cfg.WorkloadIdentityImpersonationPath) == 0 {
+		return c.createGcpIdentityTokenFromMetadataService()
+	}
+	return c.createGcpIdentityViaImpersonation()
+}
+
+func (c *gcpIdentityAttestationCreator) createGcpIdentityTokenFromMetadataService() (*wifAttestation, error) {
 	req, err := c.createTokenRequest()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCP token request: %v", err)
@@ -264,6 +275,132 @@ func (c *gcpIdentityAttestationCreator) createTokenRequest() (*http.Request, err
 	}
 	req.Header.Set(gcpMetadataFlavorHeaderName, gcpMetadataFlavor)
 	return req, nil
+}
+
+func (c *gcpIdentityAttestationCreator) createGcpIdentityViaImpersonation() (*wifAttestation, error) {
+	// initialize transport
+	transport, err := newTransportFactory(c.cfg, c.telemetry).createTransport(c.cfg.transportConfigFor(transportTypeWIF))
+	if err != nil {
+		logger.Debugf("Failed to create HTTP transport: %v", err)
+		return nil, err
+	}
+	client := &http.Client{Transport: transport}
+
+	// fetch access token for impersonation
+	accessToken, err := c.fetchServiceToken(client)
+	if err != nil {
+		return nil, err
+	}
+
+	// map paths to full service account paths
+	var fullServiceAccountPaths []string
+	for _, path := range c.cfg.WorkloadIdentityImpersonationPath {
+		fullServiceAccountPaths = append(fullServiceAccountPaths, fmt.Sprintf("projects/-/serviceAccounts/%s", path))
+	}
+	targetServiceAccount := fullServiceAccountPaths[len(fullServiceAccountPaths)-1]
+	delegates := fullServiceAccountPaths[:len(fullServiceAccountPaths)-1]
+
+	// fetch impersonated token
+	impersonationToken, err := c.fetchImpersonatedToken(targetServiceAccount, delegates, accessToken, client)
+	if err != nil {
+		return nil, err
+	}
+
+	// create attestation
+	sub, _, err := extractSubIssWithoutVerifyingSignature(impersonationToken)
+	if err != nil {
+		return nil, fmt.Errorf("could not extract claims from token: %v", err)
+	}
+	return &wifAttestation{
+		ProviderType: string(gcpWif),
+		Credential:   impersonationToken,
+		Metadata:     map[string]string{"sub": sub},
+	}, nil
+}
+
+func (c *gcpIdentityAttestationCreator) fetchServiceToken(client *http.Client) (string, error) {
+	// initialize and do request
+	req, err := http.NewRequest("GET", c.metadataServiceBaseURL+"/computeMetadata/v1/instance/service-accounts/default/token", nil)
+	if err != nil {
+		logger.Debugf("cannot create token request for impersonation. %v", err)
+		return "", err
+	}
+	req.Header.Set(gcpMetadataFlavorHeaderName, gcpMetadataFlavor)
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Debugf("cannot fetch token for impersonation. %v", err)
+		return "", err
+	}
+	defer func(body io.ReadCloser) {
+		if err = body.Close(); err != nil {
+			logger.Debugf("cannot close token response body for impersonation. %v", err)
+		}
+	}(resp.Body)
+
+	// if it is not 200, do not parse the response
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("token response status is %v, not parsing", resp.StatusCode)
+	}
+
+	// parse response and extract access token
+	accessTokenResponse := struct {
+		AccessToken string `json:"access_token"`
+	}{}
+	if err = json.NewDecoder(resp.Body).Decode(&accessTokenResponse); err != nil {
+		logger.Debugf("cannot decode token for impersonation. %v", err)
+		return "", err
+	}
+	accessToken := accessTokenResponse.AccessToken
+	return accessToken, nil
+}
+
+func (c *gcpIdentityAttestationCreator) fetchImpersonatedToken(targetServiceAccount string, delegates []string, accessToken string, client *http.Client) (string, error) {
+	// prepare the request
+	url := fmt.Sprintf("%v/v1/%v:generateIdToken", c.iamCredentialsURL, targetServiceAccount)
+	body := struct {
+		Delegates []string `json:"delegates,omitempty"`
+		Audience  string   `json:"audience"`
+	}{
+		Delegates: delegates,
+		Audience:  snowflakeAudience,
+	}
+	payload := new(bytes.Buffer)
+	if err := json.NewEncoder(payload).Encode(body); err != nil {
+		logger.Debugf("cannot encode impersonation request body. %v", err)
+		return "", err
+	}
+	req, err := http.NewRequest("POST", url, payload)
+	if err != nil {
+		logger.Debugf("cannot create token request for impersonation. %v", err)
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	// send the request
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Debugf("cannot call impersonation service. %v", err)
+		return "", err
+	}
+	defer func(body io.ReadCloser) {
+		if err = body.Close(); err != nil {
+			logger.Debugf("cannot close token response body for impersonation. %v", err)
+		}
+	}(resp.Body)
+
+	// handle the response
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("response status is %v, not parsing", resp.StatusCode)
+	}
+	tokenResponse := struct {
+		Token string `json:"token"`
+	}{}
+	if err = json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
+		logger.Debugf("cannot decode token response. %v", err)
+		return "", err
+	}
+	return tokenResponse.Token, nil
 }
 
 func fetchTokenFromMetadataService(req *http.Request, cfg *Config, telemetry *snowflakeTelemetry) string {

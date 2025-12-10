@@ -118,11 +118,11 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
-			dsn: "u:p@/db?account=ac&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2F.default&workloadIdentityProvider=azure",
+			dsn: "u:p@/db?account=ac&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2F.default&workloadIdentityProvider=azure&workloadIdentityImpersonationPath=%2Fdefault,%2Fdefault2",
 			config: &Config{
 				Account: "ac", User: "u", Password: "p", Database: "db",
 				Protocol: "https", Host: "ac.snowflakecomputing.com", Port: 443,
-				WorkloadIdentityProvider: "azure", WorkloadIdentityEntraResource: "https://example.com/.default",
+				WorkloadIdentityProvider: "azure", WorkloadIdentityEntraResource: "https://example.com/.default", WorkloadIdentityImpersonationPath: []string{"/default", "/default2"},
 				OCSPFailOpen:              OCSPFailOpenTrue,
 				ValidateDefaultParameters: ConfigBoolTrue,
 				ClientTimeout:             defaultClientTimeout,
@@ -1670,16 +1670,17 @@ func TestDSN(t *testing.T) {
 		},
 		{
 			cfg: &Config{
-				Account:                       "ac",
-				User:                          "u",
-				Password:                      "p",
-				Database:                      "db",
-				Authenticator:                 AuthTypeWorkloadIdentityFederation,
-				Host:                          "ac.snowflakecomputing.com",
-				WorkloadIdentityProvider:      "azure",
-				WorkloadIdentityEntraResource: "https://example.com/default",
+				Account:                           "ac",
+				User:                              "u",
+				Password:                          "p",
+				Database:                          "db",
+				Authenticator:                     AuthTypeWorkloadIdentityFederation,
+				Host:                              "ac.snowflakecomputing.com",
+				WorkloadIdentityProvider:          "azure",
+				WorkloadIdentityEntraResource:     "https://example.com/default",
+				WorkloadIdentityImpersonationPath: []string{"/default", "/default2"},
 			},
-			dsn: "u:p@ac.snowflakecomputing.com:443?account=ac&authenticator=workload_identity&database=db&ocspFailOpen=true&validateDefaultParameters=true&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2Fdefault&workloadIdentityProvider=azure",
+			dsn: "u:p@ac.snowflakecomputing.com:443?account=ac&authenticator=workload_identity&database=db&ocspFailOpen=true&validateDefaultParameters=true&workloadIdentityEntraResource=https%3A%2F%2Fexample.com%2Fdefault&workloadIdentityImpersonationPath=%2Fdefault%2C%2Fdefault2&workloadIdentityProvider=azure",
 		},
 		{
 			cfg: &Config{

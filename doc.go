@@ -220,6 +220,8 @@ Alternatively, use OpenWithConfig() function to create a database handle with th
 
     When workloadIdentityProvider=AZURE, workloadIdentityEntraResource can be optionally set to customize entra resource used to fetch JWT token.
 
+    When workloadIdentityProvider=GCP, workloadIdentityImpersonationPath can be optionally set to customize impersonation path. This is a comma separated list, where the last parameter is a target service account and the rest are chained delegation.
+
     For more details, refer to the usage guide: https://docs.snowflake.com/en/user-guide/workload-identity-federation
 
 # Connection Config
