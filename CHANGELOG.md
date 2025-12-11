@@ -4,6 +4,18 @@
 
 New features:
 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+
+Bug fixes:
+
 -
 -
 -
@@ -13,26 +25,30 @@ New features:
 -
 -
 -
+
+Internal changes:
+
+-
+-
+-
+-
+-
+-
+-
+-
+-
+
+## 1.18.2
 
 Bug fixes:
 
 - Handle HTTP307 & 308 in drivers to achieve better resiliency to backend errors (snowflakedb/gosnowflake#1616).
 - Create temp directory only if needed during file transfer (snowflakedb/gosnowflake#1647)
--
--
--
 - Fix unnecessary user expansion for file paths (snowflakedb/gosnowflake#1646).
--
 
 Internal changes:
 - Remove spammy "telemetry disabled" log messages (snowflakedb/gosnowflake#1638).
--
--
 - Introduced shared library for extended telemetry to identify and prepare testing platform for native rust extensions (snowflakedb/gosnowflake#1629)
--
--
--
--
 
 ## 1.18.0
 
