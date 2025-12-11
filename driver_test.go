@@ -2354,6 +2354,17 @@ func initPoolWithSizeAndReturnErrors(db *sql.DB, poolSize int) []error {
 	return errs
 }
 
+func runSelectCurrentUser(t *testing.T, db *sql.DB) string {
+	rows, err := db.Query("SELECT current_user()")
+	assertNilF(t, err)
+	defer rows.Close()
+	assertTrueF(t, rows.Next())
+	var v string
+	err = rows.Scan(&v)
+	assertNilF(t, err)
+	return v
+}
+
 func runSmokeQuery(t *testing.T, db *sql.DB) {
 	rows, err := db.Query("SELECT 1")
 	assertNilF(t, err)

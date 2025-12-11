@@ -2,10 +2,14 @@ package gosnowflake
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -249,6 +253,7 @@ func TestGcpIdentityAttestationCreator(t *testing.T) {
 	tests := []struct {
 		name                string
 		wiremockMappingPath string
+		config              Config
 		expectedError       error
 		expectedSub         string
 	}{
@@ -257,6 +262,19 @@ func TestGcpIdentityAttestationCreator(t *testing.T) {
 			wiremockMappingPath: "auth/wif/gcp/successful_flow.json",
 			expectedError:       nil,
 			expectedSub:         "some-subject",
+		},
+		{
+			name:                "Successful impersonation flow",
+			wiremockMappingPath: "auth/wif/gcp/successful_impersionation_flow.json",
+			config: Config{
+				WorkloadIdentityImpersonationPath: []string{
+					"delegate1",
+					"delegate2",
+					"targetServiceAccount",
+				},
+			},
+			expectedError: nil,
+			expectedSub:   "some-impersonated-subject",
 		},
 		{
 			name:                "No GCP credential - http error",
@@ -284,23 +302,23 @@ func TestGcpIdentityAttestationCreator(t *testing.T) {
 		},
 	}
 
-	creator := &gcpIdentityAttestationCreator{
-		cfg:                    &Config{},
-		metadataServiceBaseURL: wiremock.baseURL(),
-	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			creator := &gcpIdentityAttestationCreator{
+				cfg:                    &test.config,
+				metadataServiceBaseURL: wiremock.baseURL(),
+				iamCredentialsURL:      wiremock.baseURL(),
+			}
 			wiremock.registerMappings(t, wiremockMapping{filePath: test.wiremockMappingPath})
 			attestation, err := creator.createAttestation()
 
 			if test.expectedError != nil {
 				assertNilF(t, attestation)
-				assertNotNilE(t, err)
+				assertNotNilF(t, err)
 				assertEqualE(t, test.expectedError.Error(), err.Error())
 			} else {
-				assertNilE(t, err)
-				assertNotNilE(t, attestation)
+				assertNilF(t, err)
+				assertNotNilF(t, attestation)
 				assertEqualE(t, string(gcpWif), attestation.ProviderType)
 				assertEqualE(t, test.expectedSub, attestation.Metadata["sub"])
 			}
@@ -318,7 +336,7 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 		 *   "aud": "www.example.com"
 		 * }
 		 */
-		missingIssuerClaimToken = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJzdWIiOiJzb21lLXN1YmplY3QiLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.H6sN6kjA82EuijFcv-yCJTqau5qvVTCsk0ZQ4gvFQMkB7c71XPs4lkwTa7ZlNNlx9e6TpN1CVGnpCIRDDAZaDw"
+		missingIssuerClaimToken = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJzdWIiOiJzb21lLXN1YmplY3QiLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.H6sN6kjA82EuijFcv-yCJTqau5qvVTCsk0ZQ4gvFQMkB7c71XPs4lkwTa7ZlNNlx9e6TpN1CVGnpCIRDDAZaDw" // pragma: allowlist secret
 		/*
 		 * {
 		 *   "iss": "https://accounts.google.com",
@@ -327,7 +345,7 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 		 *   "aud": "www.example.com"
 		 * }
 		 */
-		missingSubClaimToken = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.w0njdpfWFETVK8Ktq9GdvuKRQJjvhOplcSyvQ_zHHwBUSMapqO1bjEWBx5VhGkdECZIGS1VY7db_IOqT45yOMA"
+		missingSubClaimToken = "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU2M2I5NzA1OTRiY2NmZTAxMDlkOTg4OWM2MDk3OWEwIn0.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJpYXQiOjE3NDM3NjEyMTMsImV4cCI6MTc0Mzc2NDgxMywiYXVkIjoid3d3LmV4YW1wbGUuY29tIn0.w0njdpfWFETVK8Ktq9GdvuKRQJjvhOplcSyvQ_zHHwBUSMapqO1bjEWBx5VhGkdECZIGS1VY7db_IOqT45yOMA" // pragma: allowlist secret
 		/*
 		 * {
 		 *     "iss": "https://oidc.eks.us-east-2.amazonaws.com/id/3B869BC5D12CEB5515358621D8085D58",
@@ -337,7 +355,7 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 		 *     "sub": "system:serviceaccount:poc-namespace:oidc-sa"
 		 * }
 		 */
-		validToken      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL29pZGMuZWtzLnVzLWVhc3QtMi5hbWF6b25hd3MuY29tL2lkLzNCODY5QkM1RDEyQ0VCNTUxNTM1ODYyMUQ4MDg1RDU4IiwiaWF0IjoxNzQ0Mjg3ODc4LCJleHAiOjE3NzU4MjM4NzgsImF1ZCI6Ind3dy5leGFtcGxlLmNvbSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpwb2MtbmFtZXNwYWNlOm9pZGMtc2EifQ.a8H6KRIF1XmM8lkqL6kR8ccInr7wAzQrbKd3ZHFgiEg"
+		validToken      = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL29pZGMuZWtzLnVzLWVhc3QtMi5hbWF6b25hd3MuY29tL2lkLzNCODY5QkM1RDEyQ0VCNTUxNTM1ODYyMUQ4MDg1RDU4IiwiaWF0IjoxNzQ0Mjg3ODc4LCJleHAiOjE3NzU4MjM4NzgsImF1ZCI6Ind3dy5leGFtcGxlLmNvbSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpwb2MtbmFtZXNwYWNlOm9pZGMtc2EifQ.a8H6KRIF1XmM8lkqL6kR8ccInr7wAzQrbKd3ZHFgiEg" // pragma: allowlist secret
 		unparsableToken = "unparsable_token"
 		emptyToken      = ""
 	)
@@ -589,5 +607,86 @@ func azureVMMetadataProvider() *mockAzureAttestationMetadataProvider {
 		identityEndpointValue: "",
 		identityHeaderValue:   "",
 		clientIDValue:         "",
+	}
+}
+
+// Running this test locally:
+// * Push branch to repository
+// * Set PARAMETERS_SECRET
+// * Run ci/test_wif.sh
+func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
+	account := os.Getenv("SNOWFLAKE_TEST_WIF_ACCOUNT")
+	host := os.Getenv("SNOWFLAKE_TEST_WIF_HOST")
+	provider := os.Getenv("SNOWFLAKE_TEST_WIF_PROVIDER")
+	println("provider = " + provider)
+	if account == "" || host == "" || provider == "" {
+		t.Skip("Test can run only on cloud VM with env variables set")
+	}
+	testCases := []struct {
+		name             string
+		skip             func() (bool, string)
+		setupCfg         func(*testing.T, *Config)
+		expectedUsername string
+	}{
+		{
+			name: "provider=" + provider,
+			setupCfg: func(_ *testing.T, config *Config) {
+				if provider != "GCP+OIDC" {
+					config.WorkloadIdentityProvider = provider
+				} else {
+					config.WorkloadIdentityProvider = "OIDC"
+					config.Token = func() string {
+						cmd := exec.Command("wget", "-O", "-", "--header=Metadata-Flavor: Google", "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity?audience=snowflakecomputing.com")
+						output, err := cmd.Output()
+						if err != nil {
+							t.Fatalf("error executing GCP metadata request: %v", err)
+						}
+						token := strings.TrimSpace(string(output))
+						if token == "" {
+							t.Fatal("failed to retrieve GCP access token: empty response")
+						}
+						return token
+					}()
+				}
+			},
+			expectedUsername: os.Getenv("SNOWFLAKE_TEST_WIF_USERNAME"),
+		},
+		{
+			name: "provider=GCP,impersonation",
+			skip: func() (bool, string) {
+				if provider != "GCP" {
+					return true, "GCP impersonation test works only on GCP"
+				}
+				return false, ""
+			},
+			setupCfg: func(t *testing.T, config *Config) {
+				config.WorkloadIdentityProvider = "GCP"
+				impersonationPath := os.Getenv("SNOWFLAKE_TEST_WIF_IMPERSONATION_PATH")
+				assertNotEqualF(t, impersonationPath, "", "SNOWFLAKE_TEST_WIF_IMPERSONATION_PATH is not set")
+				config.WorkloadIdentityImpersonationPath = strings.Split(impersonationPath, ",")
+				assertNotEqualF(t, os.Getenv("SNOWFLAKE_TEST_WIF_USERNAME_IMPERSONATION"), "", "SNOWFLAKE_TEST_WIF_USERNAME_IMPERSONATION is not set")
+			},
+			expectedUsername: os.Getenv("SNOWFLAKE_TEST_WIF_USERNAME_IMPERSONATION"),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skip != nil {
+				if skip, msg := tc.skip(); skip {
+					t.Skip(msg)
+				}
+			}
+			config := &Config{
+				Account:       account,
+				Host:          host,
+				Authenticator: AuthTypeWorkloadIdentityFederation,
+			}
+			tc.setupCfg(t, config)
+			connector := NewConnector(SnowflakeDriver{}, *config)
+			db := sql.OpenDB(connector)
+			defer db.Close()
+			currentUser := runSelectCurrentUser(t, db)
+			assertEqualE(t, currentUser, tc.expectedUsername)
+		})
 	}
 }
