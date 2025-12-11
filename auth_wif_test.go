@@ -151,6 +151,7 @@ func TestGetAttestation(t *testing.T) {
 func TestAwsIdentityAttestationCreator(t *testing.T) {
 	tests := []struct {
 		name             string
+		config           Config
 		attestationSvc   awsAttestationMetadataProvider
 		expectedError    error
 		expectedProvider string
@@ -200,13 +201,13 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			creator := &awsIdentityAttestationCreator{
-				attestationServiceFactory: func(ctx context.Context) awsAttestationMetadataProvider {
+				attestationServiceFactory: func(ctx context.Context, cfg *Config) awsAttestationMetadataProvider {
 					return test.attestationSvc
 				},
 				ctx: context.Background(),
+				cfg: &test.config,
 			}
 			attestation, err := creator.createAttestation()
-
 			if test.expectedError != nil {
 				assertNilF(t, attestation)
 				assertNotNilE(t, err)
@@ -241,8 +242,13 @@ var mockCreds = aws.Credentials{
 	SessionToken:    "mockSessionToken",
 }
 
-func (m *mockAwsAttestationMetadataProvider) awsCredentials() aws.Credentials {
-	return m.creds
+func (m *mockAwsAttestationMetadataProvider) awsCredentials() (aws.Credentials, error) {
+	return m.creds, nil
+}
+
+func (m *mockAwsAttestationMetadataProvider) awsCredentialsViaRoleChaining() (aws.Credentials, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m *mockAwsAttestationMetadataProvider) awsRegion() string {
@@ -654,13 +660,13 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 		{
 			name: "provider=GCP,impersonation",
 			skip: func() (bool, string) {
-				if provider != "GCP" {
-					return true, "GCP impersonation test works only on GCP"
+				if provider == "AZURE" {
+					return true, "GCP impersonation test on Azure is not supported"
 				}
 				return false, ""
 			},
 			setupCfg: func(t *testing.T, config *Config) {
-				config.WorkloadIdentityProvider = "GCP"
+				config.WorkloadIdentityProvider = provider
 				impersonationPath := os.Getenv("SNOWFLAKE_TEST_WIF_IMPERSONATION_PATH")
 				assertNotEqualF(t, impersonationPath, "", "SNOWFLAKE_TEST_WIF_IMPERSONATION_PATH is not set")
 				config.WorkloadIdentityImpersonationPath = strings.Split(impersonationPath, ",")
@@ -676,6 +682,7 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 					t.Skip(msg)
 				}
 			}
+			logger.SetLogLevel("debug")
 			config := &Config{
 				Account:       account,
 				Host:          host,
