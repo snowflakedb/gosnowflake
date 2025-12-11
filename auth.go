@@ -185,6 +185,7 @@ type authRequestClientEnvironment struct {
 	CertRevocationCheckMode string   `json:"CERT_REVOCATION_CHECK_MODE,omitempty"`
 	Platform                []string `json:"PLATFORM,omitempty"`
 	CoreVersion             string   `json:"CORE_VERSION,omitempty"`
+	CoreLoadError           string   `json:"CORE_LOAD_ERROR,omitempty"`
 	CoreFileName            string   `json:"CORE_FILE_NAME,omitempty"`
 }
 
@@ -454,28 +455,33 @@ func authenticate(
 
 func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 	var coreVersion string
+	var coreLoadError string
 
 	// Try to get minicore version, but don't block if it's not loaded yet
 	if strings.EqualFold(os.Getenv(disableMinicoreEnv), "true") {
 		logger.Trace("minicore loading disabled")
+		coreLoadError = "Minicore is disabled with SNOWFLAKE_DISABLE_MINICORE env variable"
 	} else if mc := getMiniCore(); mc != nil {
 		var err error
 		coreVersion, err = mc.FullVersion()
 		if err != nil {
 			logger.Debugf("Minicore loading failed. %v", err)
+			coreLoadError = "Failed to load binary"
 		}
 	} else {
 		// Minicore not loaded yet - this is expected during startup
 		coreVersion = ""
+		coreLoadError = "Minicore is still loading"
 		logger.Debugf("Minicore not yet loaded for client environment telemetry")
 	}
 	return authRequestClientEnvironment{
-		Os:           runtime.GOOS,
-		OsVersion:    osVersion,
-		Isa:          runtime.GOARCH,
-		GoVersion:    runtime.Version(),
-		CoreVersion:  coreVersion,
-		CoreFileName: getMiniCoreFileName(),
+		Os:            runtime.GOOS,
+		OsVersion:     osVersion,
+		Isa:           runtime.GOARCH,
+		GoVersion:     runtime.Version(),
+		CoreVersion:   coreVersion,
+		CoreFileName:  getMiniCoreFileName(),
+		CoreLoadError: coreLoadError,
 	}
 }
 
