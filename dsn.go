@@ -155,8 +155,9 @@ type Config struct {
 
 	DisableSamlURLCheck ConfigBool // Indicates whether the SAML URL check should be disabled
 
-	WorkloadIdentityProvider      string // The workload identity provider to use for WIF authentication
-	WorkloadIdentityEntraResource string // The resource to use for WIF authentication on Azure environment
+	WorkloadIdentityProvider          string   // The workload identity provider to use for WIF authentication
+	WorkloadIdentityEntraResource     string   // The resource to use for WIF authentication on Azure environment
+	WorkloadIdentityImpersonationPath []string // The components to use for WIF impersonation.
 
 	CertRevocationCheckMode           CertRevocationCheckMode // revocation check mode for CRLs
 	CrlAllowCertificatesWithoutCrlURL ConfigBool              // Allow certificates (not short-lived) without CRL DP included to be treated as correct ones
@@ -183,6 +184,9 @@ func (c *Config) Validate() error {
 		if _, err := os.Stat(c.TmpDirPath); err != nil {
 			return err
 		}
+	}
+	if strings.EqualFold(c.WorkloadIdentityProvider, "azure") && len(c.WorkloadIdentityImpersonationPath) > 0 {
+		return errors.New("WorkloadIdentityImpersonationPath is not supported for Azure")
 	}
 	return nil
 }
@@ -292,6 +296,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.WorkloadIdentityEntraResource != "" {
 		params.Add("workloadIdentityEntraResource", cfg.WorkloadIdentityEntraResource)
+	}
+	if len(cfg.WorkloadIdentityImpersonationPath) > 0 {
+		params.Add("workloadIdentityImpersonationPath", strings.Join(cfg.WorkloadIdentityImpersonationPath, ","))
 	}
 	if cfg.Authenticator != AuthTypeSnowflake {
 		if cfg.Authenticator == AuthTypeOkta {
@@ -1022,6 +1029,8 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			cfg.WorkloadIdentityProvider = value
 		case "workloadIdentityEntraResource":
 			cfg.WorkloadIdentityEntraResource = value
+		case "workloadIdentityImpersonationPath":
+			cfg.WorkloadIdentityImpersonationPath = strings.Split(value, ",")
 		case "privateKey":
 			var decodeErr error
 			block, decodeErr := base64.URLEncoding.DecodeString(value)

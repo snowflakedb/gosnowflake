@@ -212,7 +212,8 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		cfg.WorkloadIdentityProvider, err = parseString(value)
 	case "workloadidentityentraresource":
 		cfg.WorkloadIdentityEntraResource, err = parseString(value)
-
+	case "workloadidentityimpersonatinpath":
+		cfg.WorkloadIdentityImpersonationPath, err = parseStrings(value)
 	case "tokenfilepath":
 		tokenPath, err = parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {
@@ -340,6 +341,14 @@ func parseString(i interface{}) (string, error) {
 		return "", errors.New("failed to convert the value to string")
 	}
 	return v, nil
+}
+
+func parseStrings(i interface{}) ([]string, error) {
+	s, ok := i.(string)
+	if !ok {
+		return nil, errors.New("failed to convert the value to string")
+	}
+	return strings.Split(s, ","), nil
 }
 
 func getTomlFilePath(filePath string) (string, error) {
