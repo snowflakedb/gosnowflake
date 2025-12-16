@@ -16,6 +16,9 @@
               }
             },
             "ignoreExtraElements" : true
+          },
+          {
+            "matchesJsonPath": "$.data.CLIENT_ENVIRONMENT[?(@.CORE_FILE_NAME =~ /.+/)]"
           }
         ]
       },
