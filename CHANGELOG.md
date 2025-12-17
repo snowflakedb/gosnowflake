@@ -19,7 +19,7 @@ Bug fixes:
 -
 -
 -
--
+- Fixed minicore file name gathering in client environment (snowflakedb/gosnowflake#1661).
 -
 -
 -

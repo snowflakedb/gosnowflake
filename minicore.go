@@ -17,7 +17,6 @@ var miniCoreOnce sync.Once
 var miniCoreMutex sync.RWMutex
 
 var miniCoreInstance miniCore
-var miniCoreFileName string
 
 var minicoreLoadLogs = struct {
 	mu        sync.Mutex
@@ -46,7 +45,7 @@ func (m minicoreDirCandidate) String() string {
 func getMiniCoreFileName() string {
 	miniCoreMutex.RLock()
 	defer miniCoreMutex.RUnlock()
-	return miniCoreFileName
+	return corePlatformConfig.coreLibFileName
 }
 
 // miniCoreErrorType represents the category of minicore error that occurred.
