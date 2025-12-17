@@ -18,6 +18,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -60,6 +62,7 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *s
 		context: ctx,
 		cfg:     cfg,
 		awsCreator: &awsIdentityAttestationCreator{
+			cfg:                       cfg,
 			attestationServiceFactory: createDefaultAwsAttestationMetadataProvider,
 			ctx:                       ctx,
 		},
@@ -95,9 +98,10 @@ func (p *wifAttestationProvider) getAttestation(identityProvider string) (*wifAt
 	}
 }
 
-type awsAttestastationMetadataProviderFactory func(ctx context.Context) awsAttestationMetadataProvider
+type awsAttestastationMetadataProviderFactory func(ctx context.Context, cfg *Config) awsAttestationMetadataProvider
 
 type awsIdentityAttestationCreator struct {
+	cfg                       *Config
 	attestationServiceFactory awsAttestastationMetadataProviderFactory
 	ctx                       context.Context
 }
@@ -114,34 +118,69 @@ type oidcIdentityAttestationCreator struct {
 }
 
 type awsAttestationMetadataProvider interface {
-	awsCredentials() aws.Credentials
+	awsCredentials() (aws.Credentials, error)
+	awsCredentialsViaRoleChaining() (aws.Credentials, error)
 	awsRegion() string
 }
 
 type defaultAwsAttestationMetadataProvider struct {
 	ctx    context.Context
+	cfg    *Config
 	awsCfg aws.Config
 }
 
-func createDefaultAwsAttestationMetadataProvider(ctx context.Context) awsAttestationMetadataProvider {
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithEC2IMDSRegion())
+func createDefaultAwsAttestationMetadataProvider(ctx context.Context, cfg *Config) awsAttestationMetadataProvider {
+	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithEC2IMDSRegion())
 	if err != nil {
 		logger.Debugf("Unable to load AWS config: %v", err)
 		return nil
 	}
 	return &defaultAwsAttestationMetadataProvider{
-		awsCfg: cfg,
+		awsCfg: awsCfg,
+		cfg:    cfg,
 		ctx:    ctx,
 	}
 }
 
-func (s *defaultAwsAttestationMetadataProvider) awsCredentials() aws.Credentials {
-	creds, err := s.awsCfg.Credentials.Retrieve(s.ctx)
+func (s *defaultAwsAttestationMetadataProvider) awsCredentials() (aws.Credentials, error) {
+	return s.awsCfg.Credentials.Retrieve(s.ctx)
+}
+
+func (s *defaultAwsAttestationMetadataProvider) awsCredentialsViaRoleChaining() (aws.Credentials, error) {
+	creds, err := s.awsCredentials()
 	if err != nil {
-		logger.Debugf("Unable to retrieve AWS credentials provider: %v", err)
-		return aws.Credentials{}
+		return aws.Credentials{}, err
 	}
-	return creds
+	for _, roleArn := range s.cfg.WorkloadIdentityImpersonationPath {
+		if creds, err = s.assumeRole(creds, roleArn); err != nil {
+			return aws.Credentials{}, err
+		}
+	}
+	return creds, nil
+}
+
+func (s *defaultAwsAttestationMetadataProvider) assumeRole(creds aws.Credentials, roleArn string) (aws.Credentials, error) {
+	logger.Debugf("assuming role %v", roleArn)
+	awsCfg := s.awsCfg
+	awsCfg.Credentials = credentials.StaticCredentialsProvider{Value: creds}
+	awsCfg.Region = s.awsRegion()
+	stsClient := sts.NewFromConfig(awsCfg)
+
+	role, err := stsClient.AssumeRole(s.ctx, &sts.AssumeRoleInput{
+		RoleArn:         aws.String(roleArn),
+		RoleSessionName: aws.String("identity-federation-session"),
+	})
+	if err != nil {
+		logger.Debugf("failed to assume role %v: %v", roleArn, err)
+		return aws.Credentials{}, err
+	}
+
+	return aws.Credentials{
+		AccessKeyID:     *role.Credentials.AccessKeyId,
+		SecretAccessKey: *role.Credentials.SecretAccessKey,
+		SessionToken:    *role.Credentials.SessionToken,
+		Expires:         *role.Credentials.Expiration,
+	}, nil
 }
 
 func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
@@ -151,12 +190,26 @@ func (s *defaultAwsAttestationMetadataProvider) awsRegion() string {
 func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debug("Creating AWS identity attestation...")
 
-	attestationService := c.attestationServiceFactory(c.ctx)
+	attestationService := c.attestationServiceFactory(c.ctx, c.cfg)
 	if attestationService == nil {
 		return nil, fmt.Errorf("AWS attestation service could not be created")
 	}
 
-	creds := attestationService.awsCredentials()
+	var creds aws.Credentials
+	var err error
+
+	if len(c.cfg.WorkloadIdentityImpersonationPath) == 0 {
+		if creds, err = attestationService.awsCredentials(); err != nil {
+			logger.Debugf("error while getting for aws credentials. %v", err)
+			return nil, err
+		}
+	} else {
+		if creds, err = attestationService.awsCredentialsViaRoleChaining(); err != nil {
+			logger.Debugf("error while getting for aws credentials via role chaining. %v", err)
+			return nil, err
+		}
+	}
+
 	if creds.AccessKeyID == "" || creds.SecretAccessKey == "" {
 		return nil, fmt.Errorf("no AWS credentials were found")
 	}

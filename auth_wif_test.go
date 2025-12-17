@@ -151,6 +151,7 @@ func TestGetAttestation(t *testing.T) {
 func TestAwsIdentityAttestationCreator(t *testing.T) {
 	tests := []struct {
 		name             string
+		config           Config
 		attestationSvc   awsAttestationMetadataProvider
 		expectedError    error
 		expectedProvider string
@@ -195,18 +196,138 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 			expectedProvider: "AWS",
 			expectedStsHost:  "sts.cn-northwest-1.amazonaws.com.cn",
 		},
+		{
+			name: "Successful attestation with single role chaining",
+			config: Config{
+				WorkloadIdentityImpersonationPath: []string{"arn:aws:iam::123456789012:role/test-role"},
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds: mockCreds,
+				chainingCreds: aws.Credentials{
+					AccessKeyID:     "chainedAccessKey",
+					SecretAccessKey: "chainedSecretKey",
+					SessionToken:    "chainedSessionToken",
+				},
+				region:          "us-east-1",
+				useRoleChaining: true,
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.us-east-1.amazonaws.com",
+		},
+		{
+			name: "Successful attestation with multiple role chaining",
+			config: Config{
+				WorkloadIdentityImpersonationPath: []string{
+					"arn:aws:iam::123456789012:role/role1",
+					"arn:aws:iam::123456789012:role/role2",
+					"arn:aws:iam::123456789012:role/role3",
+				},
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds: mockCreds,
+				chainingCreds: aws.Credentials{
+					AccessKeyID:     "finalRoleAccessKey",
+					SecretAccessKey: "finalRoleSecretKey",
+					SessionToken:    "finalRoleSessionToken",
+				},
+				region:          "us-west-2",
+				useRoleChaining: true,
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.us-west-2.amazonaws.com",
+		},
+		{
+			name: "Role chaining with no credentials",
+			config: Config{
+				WorkloadIdentityImpersonationPath: []string{"arn:aws:iam::123456789012:role/test-role"},
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:           aws.Credentials{},
+				region:          "us-west-2",
+				useRoleChaining: true,
+			},
+			expectedError: fmt.Errorf("no AWS credentials were found"),
+		},
+		{
+			name: "Role chaining with no region",
+			config: Config{
+				WorkloadIdentityImpersonationPath: []string{"arn:aws:iam::123456789012:role/test-role"},
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds: aws.Credentials{
+					AccessKeyID:     "chainedAccessKey",
+					SecretAccessKey: "chainedSecretKey",
+					SessionToken:    "chainedSessionToken",
+				},
+				region:          "",
+				useRoleChaining: true,
+			},
+			expectedError: fmt.Errorf("no AWS region was found"),
+		},
+		{
+			name: "Role chaining failure",
+			config: Config{
+				WorkloadIdentityImpersonationPath: []string{"arn:aws:iam::123456789012:role/test-role"},
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds:           mockCreds,
+				region:          "us-west-2",
+				chainingError:   fmt.Errorf("failed to assume role: AccessDenied"),
+				useRoleChaining: true,
+			},
+			expectedError: fmt.Errorf("failed to assume role: AccessDenied"),
+		},
+		{
+			name: "Cross-account role chaining",
+			config: Config{
+				WorkloadIdentityImpersonationPath: []string{
+					"arn:aws:iam::111111111111:role/cross-account-role",
+					"arn:aws:iam::222222222222:role/target-role",
+				},
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds: mockCreds,
+				chainingCreds: aws.Credentials{
+					AccessKeyID:     "crossAccountAccessKey",
+					SecretAccessKey: "crossAccountSecretKey",
+					SessionToken:    "crossAccountSessionToken",
+				},
+				region:          "us-east-1",
+				useRoleChaining: true,
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.us-east-1.amazonaws.com",
+		},
+		{
+			name: "Role chaining in CN region",
+			config: Config{
+				WorkloadIdentityImpersonationPath: []string{"arn:aws-cn:iam::123456789012:role/cn-role"},
+			},
+			attestationSvc: &mockAwsAttestationMetadataProvider{
+				creds: mockCreds,
+				chainingCreds: aws.Credentials{
+					AccessKeyID:     "cnRoleAccessKey",
+					SecretAccessKey: "cnRoleSecretKey",
+					SessionToken:    "cnRoleSessionToken",
+				},
+				region:          "cn-north-1",
+				useRoleChaining: true,
+			},
+			expectedProvider: "AWS",
+			expectedStsHost:  "sts.cn-north-1.amazonaws.com.cn",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			creator := &awsIdentityAttestationCreator{
-				attestationServiceFactory: func(ctx context.Context) awsAttestationMetadataProvider {
+				attestationServiceFactory: func(ctx context.Context, cfg *Config) awsAttestationMetadataProvider {
 					return test.attestationSvc
 				},
 				ctx: context.Background(),
+				cfg: &test.config,
 			}
 			attestation, err := creator.createAttestation()
-
 			if test.expectedError != nil {
 				assertNilF(t, attestation)
 				assertNotNilE(t, err)
@@ -231,8 +352,11 @@ func TestAwsIdentityAttestationCreator(t *testing.T) {
 }
 
 type mockAwsAttestationMetadataProvider struct {
-	creds  aws.Credentials
-	region string
+	creds           aws.Credentials
+	region          string
+	chainingCreds   aws.Credentials
+	chainingError   error
+	useRoleChaining bool
 }
 
 var mockCreds = aws.Credentials{
@@ -241,8 +365,18 @@ var mockCreds = aws.Credentials{
 	SessionToken:    "mockSessionToken",
 }
 
-func (m *mockAwsAttestationMetadataProvider) awsCredentials() aws.Credentials {
-	return m.creds
+func (m *mockAwsAttestationMetadataProvider) awsCredentials() (aws.Credentials, error) {
+	return m.creds, nil
+}
+
+func (m *mockAwsAttestationMetadataProvider) awsCredentialsViaRoleChaining() (aws.Credentials, error) {
+	if m.chainingError != nil {
+		return aws.Credentials{}, m.chainingError
+	}
+	if m.chainingCreds.AccessKeyID != "" {
+		return m.chainingCreds, nil
+	}
+	return m.creds, nil
 }
 
 func (m *mockAwsAttestationMetadataProvider) awsRegion() string {
@@ -652,15 +786,15 @@ func TestWorkloadIdentityAuthOnCloudVM(t *testing.T) {
 			expectedUsername: os.Getenv("SNOWFLAKE_TEST_WIF_USERNAME"),
 		},
 		{
-			name: "provider=GCP,impersonation",
+			name: "provider=" + provider + ",impersonation",
 			skip: func() (bool, string) {
-				if provider != "GCP" {
-					return true, "GCP impersonation test works only on GCP"
+				if provider != "AWS" && provider != "GCP" {
+					return true, "Impersonation is supported only on AWS and GCP"
 				}
 				return false, ""
 			},
 			setupCfg: func(t *testing.T, config *Config) {
-				config.WorkloadIdentityProvider = "GCP"
+				config.WorkloadIdentityProvider = provider
 				impersonationPath := os.Getenv("SNOWFLAKE_TEST_WIF_IMPERSONATION_PATH")
 				assertNotEqualF(t, impersonationPath, "", "SNOWFLAKE_TEST_WIF_IMPERSONATION_PATH is not set")
 				config.WorkloadIdentityImpersonationPath = strings.Split(impersonationPath, ",")
