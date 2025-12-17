@@ -11,7 +11,7 @@ New features:
 - 
 - 
 - 
-- 
+- Added support for identity impersonation when using workload identity federation (snowflakedb/gosnowflake#1652, snowflakedb/gosnowflake#1660).
 - 
 
 Bug fixes:
@@ -23,7 +23,6 @@ Bug fixes:
 -
 -
 -
-- Added support for identity impersonation when using workload identity federation (snowflakedb/gosnowflake#1652).
 -
 
 Internal changes:
