@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/klauspost/compress/zstd"
 )
 
 const createStageStmt = "CREATE OR REPLACE STAGE %v URL = '%v' CREDENTIALS = (%v)"
@@ -787,12 +789,14 @@ func TestPutGetLargeFile(t *testing.T) {
 	sourceDir, err := os.Getwd()
 	assertNilF(t, err)
 
+	largeFilePath := materializeLargeTestFile(t, sourceDir)
+
 	runDBTest(t, func(dbt *DBTest) {
 		stageDir := "test_put_largefile_" + randomString(10)
 		dbt.mustExec("rm @~/" + stageDir)
 
 		// PUT test
-		putQuery := fmt.Sprintf("put 'file://%v/test_data/largefile.txt' @~/%v", sourceDir, stageDir)
+		putQuery := fmt.Sprintf("put 'file://%v' @~/%v", largeFilePath, stageDir)
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/" + stageDir)
@@ -852,7 +856,7 @@ func TestPutGetLargeFile(t *testing.T) {
 		}
 
 		// verify the downloaded stream with the original file
-		fname := filepath.Join(sourceDir, "/test_data/largefile.txt")
+		fname := largeFilePath
 		f, err := os.Open(fname)
 		assertNilE(t, err)
 		defer f.Close()
@@ -1157,9 +1161,11 @@ func createLimitedRealFile(t *testing.T, sourceDir string) string {
 	assertNilF(t, err)
 	fname := tmpFile.Name()
 
-	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
+	originalFile, err := openLargeTestFile(sourceDir)
 	if err == nil {
-		defer originalFile.Close()
+		defer func() {
+			assertNilF(t, originalFile.Close())
+		}()
 		limitSize := int64(5 * 1024 * 1024) // 5MB
 		limitedReader := io.LimitReader(originalFile, limitSize)
 		_, err = io.Copy(tmpFile, limitedReader)
@@ -1177,9 +1183,10 @@ func createLimitedRealFile(t *testing.T, sourceDir string) string {
 }
 
 func createCancelTestFile(t *testing.T, sourceDir string) (string, func()) {
-	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
-	assertNilF(t, err)
-	defer originalFile.Close()
+	originalFile := mustOpenLargeTestFileReader(t, sourceDir)
+	defer func() {
+		assertNilF(t, originalFile.Close())
+	}()
 
 	tmpFile, err := os.CreateTemp(sourceDir, "cancel_test_*.txt")
 	assertNilF(t, err)
@@ -1199,4 +1206,66 @@ func createCancelTestFile(t *testing.T, sourceDir string) (string, func()) {
 	}
 
 	return fname, cleanup
+}
+
+func materializeLargeTestFile(t *testing.T, sourceDir string) string {
+	t.Helper()
+
+	reader := mustOpenLargeTestFileReader(t, sourceDir)
+	defer func() {
+		assertNilF(t, reader.Close())
+	}()
+
+	tmpDir := t.TempDir()
+	dst := filepath.Join(tmpDir, "largefile.txt")
+
+	tmpFile, err := os.Create(dst)
+	assertNilF(t, err)
+
+	_, err = io.Copy(tmpFile, reader)
+	assertNilF(t, err)
+
+	assertNilF(t, tmpFile.Close())
+
+	return dst
+}
+
+func mustOpenLargeTestFileReader(t *testing.T, sourceDir string) io.ReadCloser {
+	t.Helper()
+
+	reader, err := openLargeTestFile(sourceDir)
+	assertNilF(t, err)
+
+	return reader
+}
+
+func openLargeTestFile(sourceDir string) (io.ReadCloser, error) {
+	filePath := filepath.Join(sourceDir, "test_data", "largefile.txt.zstd")
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	decoder, err := zstd.NewReader(file)
+	if err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+
+	return &zstdFileReader{
+		Reader:  decoder,
+		decoder: decoder,
+		file:    file,
+	}, nil
+}
+
+type zstdFileReader struct {
+	io.Reader
+	decoder *zstd.Decoder
+	file    *os.File
+}
+
+func (r *zstdFileReader) Close() error {
+	r.decoder.Close()
+	return r.file.Close()
 }
