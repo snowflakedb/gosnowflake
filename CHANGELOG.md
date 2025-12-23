@@ -9,7 +9,8 @@ New features:
 - 
 - 
 - 
-- 
+- Exposed `tokenFilePath` in `Config` (snowflakedb/gosnowflake#1666).
+- `tokenFilePath` is now read for every new connection (snowflakedb/gosnowflake#1666).
 - 
 - Added support for identity impersonation when using workload identity federation (snowflakedb/gosnowflake#1652, snowflakedb/gosnowflake#1660).
 - 
