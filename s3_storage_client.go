@@ -117,7 +117,7 @@ func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string
 	var s3Cli s3HeaderAPI
 	s3Cli, ok := meta.client.(*s3.Client)
 	if !ok {
-		return nil, fmt.Errorf("could not parse client to s3.Client")
+		return nil, errors.New("could not parse client to s3.Client")
 	}
 	// for testing only
 	if meta.mockHeader != nil {
@@ -131,18 +131,18 @@ func (util *snowflakeS3Client) getFileHeader(meta *fileMetadata, filename string
 		if errors.As(err, &ae) {
 			if ae.ErrorCode() == notFound {
 				meta.resStatus = notFoundFile
-				return nil, fmt.Errorf("could not find file")
+				return nil, errors.New("could not find file")
 			} else if ae.ErrorCode() == expiredToken {
 				meta.resStatus = renewToken
-				return nil, fmt.Errorf("received expired token. renewing")
+				return nil, errors.New("received expired token. renewing")
 			}
 			meta.resStatus = errStatus
 			meta.lastError = err
-			return nil, fmt.Errorf("error while retrieving header")
+			return nil, fmt.Errorf("error while retrieving header, errorCode=%v. %w", ae.ErrorCode(), err)
 		}
 		meta.resStatus = errStatus
 		meta.lastError = err
-		return nil, fmt.Errorf("unexpected error while retrieving header: %v", err)
+		return nil, fmt.Errorf("unexpected error while retrieving header: %w", err)
 	}
 
 	meta.resStatus = uploaded
@@ -255,7 +255,7 @@ func (util *snowflakeS3Client) uploadFile(
 		}
 		meta.lastError = err
 		meta.resStatus = needRetry
-		return err
+		return fmt.Errorf("error while uploading file. %w", err)
 	}
 	meta.dstFileSize = meta.uploadSize
 	meta.resStatus = uploaded
@@ -334,11 +334,11 @@ func (util *snowflakeS3Client) nativeDownloadFile(
 			}
 			meta.lastError = err
 			meta.resStatus = errStatus
-			return err
+			return fmt.Errorf("error while downloading file, errorCode=%v. %w", ae.ErrorCode(), err)
 		}
 		meta.lastError = err
 		meta.resStatus = needRetry
-		return err
+		return fmt.Errorf("error while downloading file. %w", err)
 	}
 	meta.resStatus = downloaded
 	return nil
