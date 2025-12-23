@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
@@ -1182,6 +1183,27 @@ func TestPatSuccessfulFlow(t *testing.T) {
 	assertTrueE(t, rows.Next())
 	assertNilF(t, rows.Scan(&v))
 	assertEqualE(t, v, 1)
+}
+
+func TestPatTokenRotation(t *testing.T) {
+	dir := t.TempDir()
+	tokenFilePath := filepath.Join(dir, "tokenFile")
+	assertNilF(t, os.WriteFile(tokenFilePath, []byte("some PAT"), 0644))
+
+	cfg := wiremock.connectionConfig()
+	cfg.Authenticator = AuthTypePat
+	cfg.TokenFilePath = tokenFilePath
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/pat/reading_fresh_token.json"},
+	)
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	_, err := db.Conn(context.Background())
+	assertNilF(t, err)
+
+	assertNilF(t, os.WriteFile(tokenFilePath, []byte("some PAT 2"), 0644))
+	_, err = db.Conn(context.Background())
+	assertNilF(t, err)
 }
 
 func TestPatInvalidToken(t *testing.T) {
