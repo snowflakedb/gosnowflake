@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -189,7 +190,7 @@ func (cd *connectivityDiagnoser) fetchCRL(uri string) error {
 	logger.Infof("[fetchCRL] Parsing CRL fetched from %s", uri)
 	crl, err := x509.ParseRevocationList(body)
 	if err != nil {
-		return fmt.Errorf("[fetchCRL] Failed to parse CRL: %v", err)
+		return fmt.Errorf("[fetchCRL] Failed to parse CRL: %w", err)
 	}
 	logger.Infof("    CRL Issuer: %s", crl.Issuer)
 	logger.Infof("    This Update: %s", crl.ThisUpdate)
@@ -233,7 +234,7 @@ func (cd *connectivityDiagnoser) doHTTPSGetCerts(request *http.Request, download
 	logger.Infof("[doHTTPSGetCerts] connecting to %s", request.URL.String())
 	resp, err := cd.diagnosticClient.Do(request)
 	if err != nil {
-		return fmt.Errorf("failed to connect: %v", err)
+		return fmt.Errorf("failed to connect: %w", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -251,7 +252,7 @@ func (cd *connectivityDiagnoser) doHTTPSGetCerts(request *http.Request, download
 	logger.Debug("[doHTTPSGetCerts] getting TLS connection state")
 	tlsState := resp.TLS
 	if tlsState == nil {
-		return fmt.Errorf("no TLS connection state available")
+		return errors.New("no TLS connection state available")
 	}
 
 	logger.Debug("[doHTTPSGetCerts] getting certificate chain")
