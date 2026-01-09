@@ -50,9 +50,11 @@ go get -u github.com/snowflakedb/gosnowflake
 For detailed documentation and basic usage examples, please see the documentation at
 [godoc.org](https://godoc.org/github.com/snowflakedb/gosnowflake/).
 
-## Note
+## Notes
 
 This driver currently does not support GCP regional endpoints. Please ensure that any workloads using through this driver do not require support for regional endpoints on GCP. If you have questions about this, please contact Snowflake Support.
+
+The driver uses Rust library called sf_mini_core, you can find its source code [here](https://github.com/snowflakedb/universal-driver/tree/main/sf_mini_core)
 
 # Sample Programs
 
