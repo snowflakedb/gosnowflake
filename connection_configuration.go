@@ -78,19 +78,11 @@ func parseToml(cfg *Config, connectionMap map[string]interface{}) error {
 			return err
 		}
 	}
-	if shouldReadTokenFromFile(cfg) {
-		v, err := readToken("")
-		if err != nil {
-			return err
-		}
-		cfg.Token = v
-	}
 	return nil
 }
 
 func handleSingleParam(cfg *Config, key string, value interface{}) error {
 	var err error
-	var v, tokenPath string
 
 	// We normalize the key to handle both snake_case and camelCase.
 	normalizedKey := strings.ReplaceAll(strings.ToLower(key), "_", "")
@@ -140,6 +132,7 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 	case "application":
 		cfg.Application, err = parseString(value)
 	case "authenticator":
+		var v string
 		v, err = parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {
 			return err
@@ -160,6 +153,7 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 	case "token":
 		cfg.Token, err = parseString(value)
 	case "privatekey":
+		var v string
 		v, err = parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {
 			return err
@@ -215,16 +209,10 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 	case "workloadidentityimpersonatinpath":
 		cfg.WorkloadIdentityImpersonationPath, err = parseStrings(value)
 	case "tokenfilepath":
-		tokenPath, err = parseString(value)
+		cfg.TokenFilePath, err = parseString(value)
 		if err = checkParsingError(err, key, value); err != nil {
 			return err
 		}
-		v, err := readToken(tokenPath)
-		if err != nil {
-			return err
-		}
-		cfg.Token = v
-
 	case "connectiondiagnosticsenabled":
 		cfg.ConnectionDiagnosticsEnabled, err = parseBool(value)
 	case "connectiondiagnosticsallowlistfile":
@@ -408,10 +396,6 @@ func validateFilePermission(filePath string) error {
 	}
 
 	return nil
-}
-
-func shouldReadTokenFromFile(cfg *Config) bool {
-	return cfg != nil && cfg.Authenticator == AuthTypeOAuth && len(cfg.Token) == 0
 }
 
 func shouldSkipWarningForReadPermissions() bool {

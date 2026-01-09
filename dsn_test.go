@@ -1199,6 +1199,26 @@ func TestParseDSN(t *testing.T) {
 			err:      nil,
 		},
 		{
+			dsn: "u:p@a.snowflake.local:9876?account=a&protocol=http&authenticator=PROGRAMMATIC_ACCESS_TOKEN&disableSamlURLCheck=false&tokenFilePath=test_data%2Fsnowflake%2Fsession%2Ftoken",
+			config: &Config{
+				Account: "a", User: "u", Password: "p",
+				Authenticator: AuthTypePat,
+				Protocol:      "http", Host: "a.snowflake.local", Port: 9876,
+				OCSPFailOpen:              OCSPFailOpenTrue,
+				ValidateDefaultParameters: ConfigBoolTrue,
+				ClientTimeout:             defaultClientTimeout,
+				JWTClientTimeout:          defaultJWTClientTimeout,
+				ExternalBrowserTimeout:    defaultExternalBrowserTimeout,
+				CloudStorageTimeout:       defaultCloudStorageTimeout,
+				IncludeRetryReason:        ConfigBoolTrue,
+				DisableSamlURLCheck:       ConfigBoolFalse,
+				Token:                     "mock_token123456",
+				TokenFilePath:             "test_data/snowflake/session/token",
+			},
+			ocspMode: ocspModeFailOpen,
+			err:      nil,
+		},
+		{
 			dsn: "u:p@a.snowflake.local:9876?account=a&certRevocationCheckMode=enabled&crlAllowCertificatesWithoutCrlURL=true&crlInMemoryCacheDisabled=true&crlOnDiskCacheDisabled=true&crlDownloadMaxSize=10&crlHttpClientTimeout=10",
 			config: &Config{
 				Account: "a", User: "u", Password: "p",
@@ -1712,6 +1732,17 @@ func TestDSN(t *testing.T) {
 				ClientStoreTemporaryCredential: ConfigBoolFalse,
 			},
 			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=programmatic_access_token&clientStoreTemporaryCredential=false&ocspFailOpen=true&token=t&validateDefaultParameters=true",
+		},
+		{
+			cfg: &Config{
+				User:                           "u",
+				Password:                       "p",
+				Account:                        "a",
+				TokenFilePath:                  "test_data/snowflake/session/token",
+				Authenticator:                  AuthTypePat,
+				ClientStoreTemporaryCredential: ConfigBoolFalse,
+			},
+			dsn: "u:p@a.snowflakecomputing.com:443?authenticator=programmatic_access_token&clientStoreTemporaryCredential=false&ocspFailOpen=true&tokenFilePath=test_data%2Fsnowflake%2Fsession%2Ftoken&validateDefaultParameters=true",
 		},
 		{
 			cfg: &Config{

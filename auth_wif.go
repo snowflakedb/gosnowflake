@@ -79,7 +79,7 @@ func createWifAttestationProvider(ctx context.Context, cfg *Config, telemetry *s
 			workloadIdentityEntraResource:    determineEntraResource(cfg),
 			azureMetadataServiceBaseURL:      defaultMetadataServiceBase,
 		},
-		oidcCreator: &oidcIdentityAttestationCreator{token: cfg.Token},
+		oidcCreator: &oidcIdentityAttestationCreator{token: cfg.getToken},
 	}
 }
 
@@ -114,7 +114,7 @@ type gcpIdentityAttestationCreator struct {
 }
 
 type oidcIdentityAttestationCreator struct {
-	token string
+	token func() (string, error)
 }
 
 type awsAttestationMetadataProvider interface {
@@ -519,10 +519,14 @@ func extractClaimsMap(token string) (map[string]interface{}, error) {
 
 func (c *oidcIdentityAttestationCreator) createAttestation() (*wifAttestation, error) {
 	logger.Debugf("Creating OIDC identity attestation...")
-	if c.token == "" {
+	token, err := c.token()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OIDC token: %w", err)
+	}
+	if token == "" {
 		return nil, fmt.Errorf("no OIDC token was specified")
 	}
-	sub, iss, err := extractSubIssWithoutVerifyingSignature(c.token)
+	sub, iss, err := extractSubIssWithoutVerifyingSignature(token)
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +535,7 @@ func (c *oidcIdentityAttestationCreator) createAttestation() (*wifAttestation, e
 	}
 	return &wifAttestation{
 		ProviderType: string(oidcWif),
-		Credential:   c.token,
+		Credential:   token,
 		Metadata:     map[string]string{"sub": sub},
 	}, nil
 }
