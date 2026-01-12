@@ -37,7 +37,7 @@ Internal changes:
 -
 -
 
-## 1.18.2
+## 1.18.1
 
 Bug fixes:
 
@@ -47,7 +47,7 @@ Bug fixes:
 
 Internal changes:
 - Remove spammy "telemetry disabled" log messages (snowflakedb/gosnowflake#1638).
-- Introduced shared library for extended telemetry to identify and prepare testing platform for native rust extensions (snowflakedb/gosnowflake#1629)
+- Introduced shared library ([source code](https://github.com/snowflakedb/universal-driver/tree/main/sf_mini_core)) for extended telemetry to identify and prepare testing platform for native rust extensions (snowflakedb/gosnowflake#1629)
 
 ## 1.18.0
 
