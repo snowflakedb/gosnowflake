@@ -213,6 +213,7 @@ type DBTest struct {
 }
 
 func (dbt *DBTest) mustQueryT(t *testing.T, query string, args ...any) (rows *RowsExtended) {
+	t.Helper()
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
@@ -245,14 +246,17 @@ func (dbt *DBTest) mustQueryT(t *testing.T, query string, args ...any) (rows *Ro
 }
 
 func (dbt *DBTest) mustQuery(query string, args ...interface{}) (rows *RowsExtended) {
+	dbt.Helper()
 	return dbt.mustQueryT(dbt.T, query, args...)
 }
 
 func (dbt *DBTest) mustQueryContext(ctx context.Context, query string, args ...interface{}) (rows *RowsExtended) {
+	dbt.Helper()
 	return dbt.mustQueryContextT(ctx, dbt.T, query, args...)
 }
 
 func (dbt *DBTest) mustQueryContextT(ctx context.Context, t *testing.T, query string, args ...interface{}) (rows *RowsExtended) {
+	t.Helper()
 	// handler interrupt signal
 	ctx, cancel := context.WithCancel(ctx)
 	c := make(chan os.Signal, 1)

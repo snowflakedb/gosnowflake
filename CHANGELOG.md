@@ -17,7 +17,7 @@ New features:
 Bug fixes:
 
 -
--
+- Fixed getting file from an unencrypted stage (snowflakedb/gosnowflake#1672).
 -
 - Fixed minicore file name gathering in client environment (snowflakedb/gosnowflake#1661).
 -

@@ -228,7 +228,7 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 			return err
 		}
 		if meta.resStatus == downloaded {
-			logger.Debugf("Downloading file: %v finished in %v ms. File size", meta.srcFileName, time.Since(timer).String(), meta.srcFileSize)
+			logger.Debugf("Downloading file: %v finished in %v ms. File size: %v", meta.srcFileName, time.Since(timer).String(), meta.srcFileSize)
 			if meta.encryptionMaterial != nil {
 				if meta.presignedURL != nil {
 					header, err = utilClass.getFileHeader(meta, meta.srcFileName)
@@ -254,10 +254,23 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 				}
 				logger.Debugf("Decrypting file: %v finished in %v ms.", meta.srcFileName, time.Since(timer).String())
 
+			} else {
+				// file is not encrypted
+				if meta.options == nil || !meta.options.GetFileToStream {
+					// if we have a real file, and not a stream, move the file
+					if err = os.Rename(tempDownloadFile, fullDstFileName); err != nil {
+						return fmt.Errorf("failed to move downloaded file to destination: %w", err)
+					}
+				} else {
+					// if we have a stream and no encyrption, just reuse the stream
+					meta.sfa.streamBuffer = meta.dstStream
+				}
 			}
 			if meta.options == nil || !meta.options.GetFileToStream {
 				if fi, err := os.Stat(fullDstFileName); err == nil {
 					meta.dstFileSize = fi.Size()
+				} else {
+					logger.Warnf("Failed to get file size for %s: %v", fullDstFileName, err)
 				}
 			}
 			logger.Debugf("File download completed successfully for %s (size: %d bytes)", meta.srcFileName, meta.dstFileSize)

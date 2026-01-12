@@ -500,9 +500,9 @@ func testPutGet(t *testing.T, isStream bool) {
 			assertHasPrefixF(t, s0, "data_")
 			v, err := strconv.Atoi(s1)
 			assertNilF(t, err)
-			assertEqualF(t, v, 36)
-			assertEqualF(t, s2, "DOWNLOADED")
-			assertEqualF(t, s3, "")
+			assertEqualE(t, v, 36)
+			assertEqualE(t, s2, "DOWNLOADED")
+			assertEqualE(t, s3, "")
 		}
 
 		var contents string
@@ -554,6 +554,73 @@ func testPutGet(t *testing.T, isStream bool) {
 			}
 		}
 		assertEqualE(t, contents, originalContents, "output is different from the original contents")
+	})
+}
+
+func TestPutGetWithSnowflakeSSE(t *testing.T) {
+	tmpDir := t.TempDir()
+	cwd, err := os.Getwd()
+	assertNilF(t, err)
+	sourceFilePath := filepath.Join(cwd, "test_data", "orders_100.csv")
+
+	originalContents, err := os.ReadFile(sourceFilePath)
+	assertNilF(t, err)
+
+	runDBTest(t, func(dbt *DBTest) {
+		for _, useStream := range []bool{true, false} {
+			t.Run(fmt.Sprintf("useStream=%v", useStream), func(t *testing.T) {
+				stageName := "test_stage_sse_" + randomString(10)
+				dbt.mustExec(fmt.Sprintf("CREATE STAGE %s ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')", stageName))
+				defer dbt.mustExec("DROP STAGE " + stageName)
+
+				uploadCtx := context.Background()
+				if useStream {
+					fileStream, err := os.Open(sourceFilePath)
+					assertNilF(t, err)
+					defer fileStream.Close()
+					uploadCtx = WithFileStream(uploadCtx, fileStream)
+				}
+				rows := dbt.mustQueryContextT(uploadCtx, t, fmt.Sprintf("PUT 'file://%s' @%s", strings.ReplaceAll(sourceFilePath, "\\", "\\\\"), stageName))
+				defer rows.Close()
+
+				var s0, s1, s2, s3, s4, s5, s6, s7 string
+				assertTrueF(t, rows.Next(), "expected new rows")
+				rows.mustScan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7)
+				assertEqualF(t, s6, uploaded.String())
+
+				downloadCtx := context.Background()
+				var downloadBuf bytes.Buffer
+				if useStream {
+					downloadCtx = WithFileGetStream(downloadCtx, &downloadBuf)
+					downloadCtx = WithFileTransferOptions(downloadCtx, &SnowflakeFileTransferOptions{GetFileToStream: true})
+				}
+				rows2 := dbt.mustQueryContextT(downloadCtx, t, fmt.Sprintf("GET @%s 'file://%s'", stageName, strings.ReplaceAll(tmpDir, "\\", "\\\\")))
+				defer rows2.Close()
+
+				assertTrueF(t, rows2.Next(), "expected new rows")
+				rows2.mustScan(&s0, &s1, &s2, &s3)
+				assertEqualF(t, s2, "DOWNLOADED")
+
+				var compressedData []byte
+				if useStream {
+					compressedData, err = io.ReadAll(&downloadBuf)
+					assertNilF(t, err)
+				} else {
+					downloadedFilePath := filepath.Join(tmpDir, "orders_100.csv.gz")
+					compressedData, err = os.ReadFile(downloadedFilePath)
+					assertNilF(t, err)
+				}
+
+				gzReader, err := gzip.NewReader(bytes.NewReader(compressedData))
+				assertNilF(t, err)
+				defer gzReader.Close()
+
+				decompressedData, err := io.ReadAll(gzReader)
+				assertNilF(t, err)
+
+				assertEqualE(t, string(decompressedData), string(originalContents), "downloaded file content does not match original")
+			})
+		}
 	})
 }
 
