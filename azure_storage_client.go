@@ -70,7 +70,7 @@ func (util *snowflakeAzureClient) createClient(info *execResponseStageInfo, _ bo
 func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
 	client, ok := meta.client.(*azblob.Client)
 	if !ok {
-		return nil, fmt.Errorf("failed to parse client to azblob.Client")
+		return nil, errors.New("failed to parse client to azblob.Client")
 	}
 
 	azureLoc, err := util.extractContainerNameAndPath(meta.stageInfo.Location)
@@ -101,14 +101,15 @@ func (util *snowflakeAzureClient) getFileHeader(meta *fileMetadata, filename str
 		if errors.As(err, &se) {
 			if se.ErrorCode == string(bloberror.BlobNotFound) {
 				meta.resStatus = notFoundFile
-				return nil, fmt.Errorf("could not find file")
+				return nil, errors.New("could not find file")
 			} else if se.StatusCode == 403 {
 				meta.resStatus = renewToken
-				return nil, fmt.Errorf("received 403, attempting to renew")
+				return nil, errors.New("received 403, attempting to renew")
 			}
 		}
 		meta.resStatus = errStatus
-		return nil, err
+		meta.lastError = err
+		return nil, fmt.Errorf("unexpected error while retrieving file header from azure. %w", err)
 	}
 
 	meta.resStatus = uploaded

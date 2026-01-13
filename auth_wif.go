@@ -192,7 +192,7 @@ func (c *awsIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 
 	attestationService := c.attestationServiceFactory(c.ctx, c.cfg)
 	if attestationService == nil {
-		return nil, fmt.Errorf("AWS attestation service could not be created")
+		return nil, errors.New("AWS attestation service could not be created")
 	}
 
 	var creds aws.Credentials
@@ -302,7 +302,7 @@ func (c *gcpIdentityAttestationCreator) createAttestation() (*wifAttestation, er
 func (c *gcpIdentityAttestationCreator) createGcpIdentityTokenFromMetadataService() (*wifAttestation, error) {
 	req, err := c.createTokenRequest()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create GCP token request: %v", err)
+		return nil, fmt.Errorf("failed to create GCP token request: %w", err)
 	}
 	token := fetchTokenFromMetadataService(req, c.cfg, c.telemetry)
 	if token == "" {
