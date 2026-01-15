@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -115,6 +116,7 @@ type Config struct {
 	OCSPFailOpen OCSPFailOpenMode // OCSP Fail Open
 
 	Token         string        // Token to use for OAuth other forms of token based auth
+	TokenFilePath string        // TokenFilePath defines a file where to read token from
 	TokenAccessor TokenAccessor // Optional token accessor to use
 	// Deprecated: will be removed in a future release.
 	KeepSessionAlive bool // Enables the session to persist even after the connection is closed
@@ -177,6 +179,13 @@ type Config struct {
 	NoProxy       string // No proxy for this host list
 }
 
+func (c *Config) getToken() (string, error) {
+	if c.TokenFilePath != "" {
+		return readToken(c.TokenFilePath)
+	}
+	return c.Token, nil
+}
+
 // Validate enables testing if config is correct.
 // A driver client may call it manually, but it is also called during opening first connection.
 func (c *Config) Validate() error {
@@ -187,6 +196,9 @@ func (c *Config) Validate() error {
 	}
 	if strings.EqualFold(c.WorkloadIdentityProvider, "azure") && len(c.WorkloadIdentityImpersonationPath) > 0 {
 		return errors.New("WorkloadIdentityImpersonationPath is not supported for Azure")
+	}
+	if c.Token != "" && c.TokenFilePath != "" {
+		return errors.New("token and tokenFilePath cannot be specified at the same time")
 	}
 	return nil
 }
@@ -352,6 +364,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.Token != "" {
 		params.Add("token", cfg.Token)
+	}
+	if cfg.TokenFilePath != "" {
+		params.Add("tokenFilePath", cfg.TokenFilePath)
 	}
 	if cfg.CertRevocationCheckMode != CertRevocationCheckDisabled {
 		params.Add("certRevocationCheckMode", cfg.CertRevocationCheckMode.String())
@@ -875,6 +890,9 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		logger.Warn("duplicated insecureMode and disableOCSPChecks. disableOCSPChecks takes precedence")
 		paramsSlice = append(paramsSlice[:insecureModeIdx-1], paramsSlice[insecureModeIdx+1:]...)
 	}
+	if slices.Contains(paramsSlice, "token") && slices.Contains(paramsSlice, "tokenFilePath") {
+		return errors.New("token and tokenFilePath cannot be specified at the same time")
+	}
 	for _, v := range paramsSlice {
 		param := strings.SplitN(v, "=", 2)
 		if len(param) != 2 {
@@ -1023,6 +1041,12 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 
 		case "token":
 			cfg.Token = value
+		case "tokenFilePath":
+			cfg.TokenFilePath = value
+			cfg.Token, err = readToken(value)
+			if err != nil {
+				return
+			}
 		case "tlsConfigName":
 			cfg.TLSConfigName = value
 		case "workloadIdentityProvider":
@@ -1242,7 +1266,7 @@ type ConfigParam struct {
 
 // GetConfigFromEnv is used to parse the environment variable values to specific fields of the Config
 func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
-	var account, user, password, token, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
+	var account, user, password, token, tokenFilePath, role, host, portStr, protocol, warehouse, database, schema, region, passcode, application string
 	var oauthClientID, oauthClientSecret, oauthAuthorizationURL, oauthTokenRequestURL, oauthRedirectURI, oauthScope string
 	var privateKey *rsa.PrivateKey
 	var err error
@@ -1263,6 +1287,8 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 			password = value
 		case "Token":
 			token = value
+		case "TokenFilePath":
+			tokenFilePath = value
 		case "Role":
 			role = value
 		case "Host":
@@ -1318,6 +1344,7 @@ func GetConfigFromEnv(properties []*ConfigParam) (*Config, error) {
 		User:                  user,
 		Password:              password,
 		Token:                 token,
+		TokenFilePath:         tokenFilePath,
 		Role:                  role,
 		Host:                  host,
 		Port:                  port,
