@@ -324,12 +324,8 @@ func htapTestSnowflakeConn() *snowflakeConn {
 }
 
 func TestQueryContextCacheDisabled(t *testing.T) {
-	origDsn := dsn
-	defer func() {
-		dsn = origDsn
-	}()
-	dsn += "&disableQueryContextCache=true"
-	runSnowflakeConnTest(t, func(sct *SCTest) {
+	customDsn := dsn + "&disableQueryContextCache=true"
+	runSnowflakeConnTestWithConfig(t, &testConfig{dsn: customDsn}, func(sct *SCTest) {
 		sct.mustExec("SELECT 1", nil)
 		if len(sct.sc.queryContextCache.entries) > 0 {
 			t.Error("should not contain any entries")
