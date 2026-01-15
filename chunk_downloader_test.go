@@ -29,7 +29,7 @@ func TestChunkDownloaderDoesNotStartWhenArrowParsingCausesError(t *testing.T) {
 }
 
 func TestWithArrowBatchesWhenQueryReturnsNoRowsWhenUsingNativeGoSQLInterface(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		var rows driver.Rows
 		var err error
 		err = dbt.conn.Raw(func(x interface{}) error {
@@ -42,7 +42,7 @@ func TestWithArrowBatchesWhenQueryReturnsNoRowsWhenUsingNativeGoSQLInterface(t *
 }
 
 func TestWithArrowBatchesWhenQueryReturnsRowsAndReadingRows(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(WithArrowBatches(context.Background()), "SELECT 1")
 		defer rows.Close()
 		assertFalseF(t, rows.Next())
@@ -50,7 +50,7 @@ func TestWithArrowBatchesWhenQueryReturnsRowsAndReadingRows(t *testing.T) {
 }
 
 func TestWithArrowBatchesWhenQueryReturnsNoRowsAndReadingRows(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(WithArrowBatches(context.Background()), "SELECT 1 WHERE 1 = 0")
 		defer rows.Close()
 		assertFalseF(t, rows.Next())
@@ -58,7 +58,7 @@ func TestWithArrowBatchesWhenQueryReturnsNoRowsAndReadingRows(t *testing.T) {
 }
 
 func TestWithArrowBatchesWhenQueryReturnsNoRowsAndReadingArrowBatches(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		var rows driver.Rows
 		var err error
 		err = dbt.conn.Raw(func(x any) error {

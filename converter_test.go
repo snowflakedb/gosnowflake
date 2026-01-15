@@ -2245,7 +2245,7 @@ func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 		"0001-01-01 00:00:00.000000000"} // min
 	types := [3]string{"TIMESTAMP_NTZ", "TIMESTAMP_LTZ", "TIMESTAMP_TZ"}
 
-	runDBTest(t, func(sct *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		ctx := context.Background()
 
 		for _, tsStr := range timestamps {
@@ -2257,7 +2257,7 @@ func TestTimestampConversionWithoutArrowBatches(t *testing.T) {
 				for scale := 0; scale <= 9; scale++ {
 					t.Run(tp+"("+strconv.Itoa(scale)+")_"+tsStr, func(t *testing.T) {
 						query := fmt.Sprintf("SELECT '%s'::%s(%v)", tsStr, tp, scale)
-						rows := sct.mustQueryContext(ctx, query, nil)
+						rows := dbt.mustQueryContext(ctx, query, nil)
 						defer func() {
 							assertNilF(t, rows.Close())
 						}()
@@ -2493,7 +2493,7 @@ func TestIsArrayOfStructs(t *testing.T) {
 }
 
 func TestSqlNull(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SELECT 1, NULL UNION SELECT 2, 'test' ORDER BY 1")
 		defer rows.Close()
 		var rowID int
@@ -2510,7 +2510,7 @@ func TestSqlNull(t *testing.T) {
 func TestNumbersScanType(t *testing.T) {
 	for _, forceFormat := range []string{forceJSON, forceARROW} {
 		t.Run(forceFormat, func(t *testing.T) {
-			runDBTest(t, func(dbt *DBTest) {
+			runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 				dbt.mustExecT(t, forceFormat)
 
 				t.Run("scale == 0", func(t *testing.T) {

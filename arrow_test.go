@@ -16,7 +16,7 @@ import (
 )
 
 func TestArrowBatchHighPrecision(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		ctx := WithArrowBatches(context.Background())
 		query := "select '0.1':: DECIMAL(38, 19) as c"
 
@@ -55,7 +55,7 @@ func TestArrowBatchHighPrecision(t *testing.T) {
 }
 
 func TestArrowBigInt(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		testcases := []struct {
 			num  string
 			prec int
@@ -93,7 +93,7 @@ func TestArrowBigInt(t *testing.T) {
 }
 
 func TestArrowBigFloat(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		testcases := []struct {
 			num  string
 			prec int
@@ -385,7 +385,7 @@ func TestArrowFloatPrecision(t *testing.T) {
 }
 
 func TestArrowTimePrecision(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("CREATE TABLE t (col5 TIME(5), col6 TIME(6), col7 TIME(7), col8 TIME(8));")
 		defer dbt.mustExec("DROP TABLE IF EXISTS t")
 		dbt.mustExec("INSERT INTO t VALUES ('23:59:59.99999', '23:59:59.999999', '23:59:59.9999999', '23:59:59.99999999');")
@@ -474,7 +474,7 @@ func TestArrowTimePrecision(t *testing.T) {
 }
 
 func TestArrowVariousTypes(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(
 			WithHigherPrecision(context.Background()), selectVariousTypes)
 		defer rows.Close()
@@ -584,7 +584,7 @@ func TestArrowMemoryCleanedUp(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		ctx := WithArrowAllocator(
 			context.Background(),
 			mem,

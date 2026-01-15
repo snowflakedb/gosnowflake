@@ -13,7 +13,7 @@ func TestTransactionOptions(t *testing.T) {
 	var tx *sql.Tx
 	var err error
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		tx, err = dbt.conn.BeginTx(context.Background(), &sql.TxOptions{})
 		if err != nil {
 			t.Fatal("failed to start transaction.")
@@ -43,7 +43,7 @@ func TestTransactionContext(t *testing.T) {
 
 	ctx := context.Background()
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		pingWithRetry := withRetry(PingFunc, 5, 3*time.Second)
 
 		err = pingWithRetry(context.Background(), dbt.conn)

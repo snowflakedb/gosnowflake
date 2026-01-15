@@ -975,7 +975,7 @@ func TestPutCancel(t *testing.T) {
 
 	stageDir := "test_put_cancel_" + randomString(10)
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {

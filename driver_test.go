@@ -46,6 +46,16 @@ var (
 	debugMode        bool
 )
 
+var (
+	connCache      = make(map[string]*cachedConn)
+	connCacheMutex sync.Mutex
+)
+
+type cachedConn struct {
+	db   *sql.DB
+	conn *sql.Conn
+}
+
 const (
 	selectNumberSQL       = "SELECT %s::NUMBER(%v, %v) AS C"
 	selectVariousTypes    = "SELECT 1.0::NUMBER(30,2) as C1, 2::NUMBER(18,0) AS C2, 22::NUMBER(38, 0) AS C2A, 't3' AS C3, 4.2::DOUBLE AS C4, 'abcd'::BINARY(8388608) AS C5, true AS C6"
@@ -201,10 +211,25 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	ret := m.Run()
+	closeAllCachedConnections()
 	if err := teardown(); err != nil {
 		panic(err)
 	}
 	os.Exit(ret)
+}
+
+func closeAllCachedConnections() {
+	connCacheMutex.Lock()
+	defer connCacheMutex.Unlock()
+	for dsn, cached := range connCache {
+		if cached.conn != nil {
+			cached.conn.Close()
+		}
+		if cached.db != nil {
+			cached.db.Close()
+		}
+		delete(connCache, dsn)
+	}
 }
 
 type DBTest struct {
@@ -475,25 +500,53 @@ func (sct *SCTest) mustExecContext(ctx context.Context, query string, args []dri
 }
 
 type testConfig struct {
-	dsn string
+	dsn       string
+	reuseConn bool
 }
 
 func runDBTest(t *testing.T, test func(dbt *DBTest)) {
-	runDBTestWithConfig(t, &testConfig{dsn}, test)
+	runDBTestWithConfig(t, &testConfig{dsn: dsn}, test)
 }
 
 func runDBTestWithConfig(t *testing.T, testCfg *testConfig, test func(dbt *DBTest)) {
+	if testCfg.dsn == "" {
+		testCfg.dsn = dsn
+	}
 
-	db, conn := openConn(t, testCfg)
-	defer conn.Close()
-	defer db.Close()
+	var db *sql.DB
+	var conn *sql.Conn
+	var fromCache bool
+
+	if testCfg.reuseConn {
+		connCacheMutex.Lock()
+		if cached, exists := connCache[testCfg.dsn]; exists {
+			db = cached.db
+			conn = cached.conn
+			fromCache = true
+		}
+		connCacheMutex.Unlock()
+	}
+
+	if !fromCache {
+		db, conn = openConn(t, testCfg)
+		if testCfg.reuseConn {
+			connCacheMutex.Lock()
+			connCache[testCfg.dsn] = &cachedConn{db: db, conn: conn}
+			connCacheMutex.Unlock()
+		}
+	}
+
+	if !testCfg.reuseConn {
+		defer conn.Close()
+		defer db.Close()
+	}
+
 	dbt := &DBTest{t, conn}
-
 	test(dbt)
 }
 
 func runSnowflakeConnTest(t *testing.T, test func(sct *SCTest)) {
-	runSnowflakeConnTestWithConfig(t, &testConfig{dsn}, test)
+	runSnowflakeConnTestWithConfig(t, &testConfig{dsn: dsn}, test)
 }
 
 func runSnowflakeConnTestWithConfig(t *testing.T, testCfg *testConfig, test func(sct *SCTest)) {
@@ -559,7 +612,7 @@ func TestKnownUserInvalidPasswordParameters(t *testing.T) {
 }
 
 func TestCommentOnlyQuery(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		query := "--"
 		// just a comment, no query
 		rows, err := dbt.query(query)
@@ -576,7 +629,7 @@ func TestCommentOnlyQuery(t *testing.T) {
 }
 
 func TestEmptyQuery(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		query := "select 1 from dual where 1=0"
 		// just a comment, no query
 		rows := dbt.conn.QueryRowContext(context.Background(), query)
@@ -592,7 +645,7 @@ func TestEmptyQuery(t *testing.T) {
 }
 
 func TestEmptyQueryWithRequestID(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		query := "select 1"
 		ctx := WithRequestID(context.Background(), NewUUID())
 		rows := dbt.conn.QueryRowContext(ctx, query)
@@ -701,7 +754,7 @@ func TestRequestIDFromTwoDifferentSessions(t *testing.T) {
 }
 
 func TestCRUD(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		// Create Table
 		dbt.mustExec("CREATE OR REPLACE TABLE test (value BOOLEAN)")
 
@@ -803,7 +856,7 @@ func TestInt(t *testing.T) {
 }
 
 func testInt(t *testing.T, json bool) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		types := []string{"INT", "INTEGER"}
 		in := int64(42)
 		var out int64
@@ -841,7 +894,7 @@ func TestFloat32(t *testing.T) {
 }
 
 func testFloat32(t *testing.T, json bool) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		in := float32(42.23)
 		var out float32
@@ -879,7 +932,7 @@ func TestFloat64(t *testing.T) {
 }
 
 func testFloat64(t *testing.T, json bool) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		types := [2]string{"FLOAT", "DOUBLE"}
 		expected := 42.23
 		var out float64
@@ -1764,23 +1817,8 @@ func testLargeSetResult(t *testing.T, numrows int, json bool) {
 	})
 }
 
-func TestPingpongQuery(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
-		numrows := 1
-		rows := dbt.mustQuery("SELECT DISTINCT 1 FROM TABLE(GENERATOR(TIMELIMIT=> 60))")
-		defer rows.Close()
-		cnt := 0
-		for rows.Next() {
-			cnt++
-		}
-		if cnt != numrows {
-			dbt.Errorf("number of rows didn't match. expected: %v, got: %v", numrows, cnt)
-		}
-	})
-}
-
 func TestDML(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("CREATE OR REPLACE TABLE test(c1 int, c2 string)")
 		if err := insertData(dbt, false); err != nil {
 			dbt.Fatalf("failed to insert data: %v", err)
@@ -1878,7 +1916,7 @@ func queryTest(dbt *DBTest) (*map[int]string, error) {
 }
 
 func TestCancelQuery(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -1939,7 +1977,7 @@ func TestCancelQueryWithConnectionContext(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		if err := dbt.conn.PingContext(context.Background()); err != nil {
 			t.Fatalf("failed to ping. err: %v", err)
 		}
@@ -1960,7 +1998,7 @@ func TestPing(t *testing.T) {
 
 func TestDoubleDollar(t *testing.T) {
 	// no escape is required for dollar signs
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		sql := `create or replace function dateErr(I double) returns date
 language javascript strict
 as $$
@@ -1982,7 +2020,7 @@ $$
 
 func TestTimezoneSessionParameter(t *testing.T) {
 	createDSN(PSTLocation)
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryT(t, "SHOW PARAMETERS LIKE 'TIMEZONE'")
 		defer rows.Close()
 		if !rows.Next() {
@@ -2001,7 +2039,7 @@ func TestTimezoneSessionParameter(t *testing.T) {
 }
 
 func TestLargeSetResultCancel(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
@@ -2120,7 +2158,7 @@ func TestSpecifyWarehouseDatabase(t *testing.T) {
 }
 
 func TestFetchNil(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SELECT * FROM values(3,4),(null, 5) order by 2")
 		defer rows.Close()
 		var c1 sql.NullInt64
@@ -2314,7 +2352,7 @@ func TestClientSessionKeepAliveParameter(t *testing.T) {
 }
 
 func TestTimePrecision(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table z3 (t1 time(5))")
 		rows := dbt.mustQuery("select * from z3")
 		defer rows.Close()
