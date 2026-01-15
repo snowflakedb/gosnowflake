@@ -32,7 +32,7 @@ Internal changes:
 -
 -
 -
--
+- Improved some logs returned from cloud storage clients (snowflakedb/gosnowflake#1665).
 -
 -
 -
