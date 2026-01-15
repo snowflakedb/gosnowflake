@@ -2351,7 +2351,10 @@ func initPoolWithSizeAndReturnErrors(db *sql.DB, poolSize int) []error {
 	for i := 0; i < poolSize; i++ {
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
-			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+			// Wiremock handles incoming request in parallel, in non-atomic way.
+			// If two requests start at the same time, they both see the same scenario state,
+			// even if it should be changed after the request is matched to a particular scenario state.
+			time.Sleep(time.Duration(i * 5 * int(time.Millisecond)))
 			err := runSmokeQueryAndReturnErrors(db)
 			if err != nil {
 				errMu.Lock()
