@@ -1359,7 +1359,7 @@ and before retrieving the results. For a more elaborative example please see cmd
 
 ==> Some considerations related to the KeepSessionAlive configuration option in context of asynchronous query execution
 
-When calling Close() on the connection object, it performs the following actions:
+When SQL Go connection is being closed, it performs the following actions:
 
 * stops the scheduled heartbeats (CLIENT_SESSION_KEEP_ALIVE), if it was enabled
 
@@ -1369,7 +1369,7 @@ When calling Close() on the connection object, it performs the following actions
 
 !! Caveat: If there are any queries which are currently executing in the same Snowflake session (e.g. async queries sent with WithAsyncMode()), then those queries are automatically cancelled from the client side a couple minutes later after the Close() call, as a Snowflake session which has been actively logged out from, cannot sustain any queries.
 
-You can govern this behaviour with setting Config.KeepSessionAlive to true; when the corresponding Snowflake session will be kept alive for a long time even after an explicit Connection.Close() call; by default 24 hours past the time when the last running query in the session finished executing.
+You can govern this behaviour with setting Config.KeepSessionAlive to true; when the corresponding Snowflake session will be kept alive for a long time (determined by the Snowflake engine) even after an explicit Connection.Close() call past the time when the last running query in the session finished executing.
 
 Please consider that this might have unexpected, billable effects (might leave queries running up to configured value of STATEMENT_TIMEOUT_IN_SECONDS (https://docs.snowflake.com/en/sql-reference/parameters#statement-timeout-in-seconds).
 
