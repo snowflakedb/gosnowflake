@@ -1371,10 +1371,6 @@ When SQL Go connection is being closed, it performs the following actions:
 
 You can govern this behaviour with setting Config.KeepSessionAlive to true; when the corresponding Snowflake session will be kept alive for a long time (determined by the Snowflake engine) even after an explicit Connection.Close() call past the time when the last running query in the session finished executing.
 
-Please consider that this might have unexpected, billable effects (might leave queries running up to configured value of STATEMENT_TIMEOUT_IN_SECONDS (https://docs.snowflake.com/en/sql-reference/parameters#statement-timeout-in-seconds).
-
-It is strongly recommended to make a conscious decision about whether changing the value of `KeepSessionAlive` from the default is necessary or not, and if possible thoroughly testing it in non-production environments prior to implementing the change on production.
-
 The behaviour is also dependent on ABORT_DETACHED_QUERY parameter, please see the detailed explanation in the parameter description at https://docs.snowflake.com/en/sql-reference/parameters#abort-detached-query.
 
 As a consequence, best practice would be to isolate all long-running async tasks (especially ones supposed to be continued after the connection is closed) into a separate connection.
