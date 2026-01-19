@@ -716,6 +716,12 @@ func TestUnitAuthenticateWithConfigMFA(t *testing.T) {
 	}
 }
 
+// This test creates two groups of scenarios:
+// a) singleAuthenticationPrompt=true - in this case, we start authenticating threads at once,
+// but due to locking mechanism only one should reach wiremock without MFA token.
+// b) singleAuthenticationPrompt=false - in this case, there is no locking, so all threads should rush,
+// but on Wiremock only first will be served with correct response (simulating a user confirming MFA only once).
+// The remaining threads should return error.
 func TestMfaParallelLogin(t *testing.T) {
 	skipOnMissingHome(t)
 	skipOnMac(t, "interactive keyring access not available on macOS runners")
