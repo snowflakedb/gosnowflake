@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/internal/cgo"
 	"io"
 	"net/http"
 	"net/url"
@@ -187,6 +188,7 @@ type authRequestClientEnvironment struct {
 	CoreVersion             string   `json:"CORE_VERSION,omitempty"`
 	CoreLoadError           string   `json:"CORE_LOAD_ERROR,omitempty"`
 	CoreFileName            string   `json:"CORE_FILE_NAME,omitempty"`
+	CgoEnabled              bool     `json:"CGO_ENABLED,omitempty"`
 }
 
 type authRequestData struct {
@@ -482,6 +484,7 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 		CoreVersion:   coreVersion,
 		CoreFileName:  getMiniCoreFileName(),
 		CoreLoadError: coreLoadError,
+		CgoEnabled:    cgo.Enabled,
 	}
 }
 
@@ -511,7 +514,10 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 	case AuthTypeOAuth:
 		requestMain.LoginName = sc.cfg.User
 		requestMain.Authenticator = AuthTypeOAuth.String()
-		requestMain.Token = sc.cfg.Token
+		var err error
+		if requestMain.Token, err = sc.cfg.getToken(); err != nil {
+			return nil, fmt.Errorf("failed to get OAuth token: %w", err)
+		}
 	case AuthTypeOkta:
 		samlResponse, err := authenticateBySAML(
 			sc.ctx,
@@ -538,7 +544,10 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 		logger.WithContext(sc.ctx).Info("Programmatic access token")
 		requestMain.Authenticator = AuthTypePat.String()
 		requestMain.LoginName = sc.cfg.User
-		requestMain.Token = sc.cfg.Token
+		var err error
+		if requestMain.Token, err = sc.cfg.getToken(); err != nil {
+			return nil, fmt.Errorf("failed to get PAT token: %w", err)
+		}
 	case AuthTypeSnowflake:
 		logger.WithContext(sc.ctx).Debug("Username and password")
 		requestMain.LoginName = sc.cfg.User

@@ -9,7 +9,8 @@ New features:
 - 
 - 
 - 
-- 
+- Exposed `tokenFilePath` in `Config` (snowflakedb/gosnowflake#1666).
+- `tokenFilePath` is now read for every new connection (snowflakedb/gosnowflake#1666).
 - 
 - Added support for identity impersonation when using workload identity federation (snowflakedb/gosnowflake#1652, snowflakedb/gosnowflake#1660).
 - 
@@ -31,13 +32,13 @@ Internal changes:
 -
 -
 -
--
+- Improved some logs returned from cloud storage clients (snowflakedb/gosnowflake#1665).
 -
 -
 -
 -
 
-## 1.18.2
+## 1.18.1
 
 Bug fixes:
 
@@ -47,7 +48,7 @@ Bug fixes:
 
 Internal changes:
 - Remove spammy "telemetry disabled" log messages (snowflakedb/gosnowflake#1638).
-- Introduced shared library for extended telemetry to identify and prepare testing platform for native rust extensions (snowflakedb/gosnowflake#1629)
+- Introduced shared library ([source code](https://github.com/snowflakedb/universal-driver/tree/main/sf_mini_core)) for extended telemetry to identify and prepare testing platform for native rust extensions (snowflakedb/gosnowflake#1629)
 
 ## 1.18.0
 

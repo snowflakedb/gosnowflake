@@ -2,11 +2,11 @@ package gosnowflake
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"database/sql"
 	"fmt"
-	"io/fs"
 	"os"
 	path "path/filepath"
 	"strconv"
@@ -203,7 +203,9 @@ func TestReadTokenValueWithTokenFilePath(t *testing.T) {
 	cfg, err := loadConnectionConfig()
 	assertNilF(t, err, "The error should not occur")
 	assertEqualF(t, cfg.Authenticator, AuthTypeOAuth)
-	assertEqualF(t, cfg.Token, "mock_token123456")
+	token, err := cfg.getToken()
+	assertNilE(t, err)
+	assertEqualF(t, token, "mock_token123456")
 	assertEqualE(t, cfg.InsecureMode, true)
 }
 
@@ -229,11 +231,17 @@ func TestLoadConnectionConfigWithTokenFileNotExist(t *testing.T) {
 	os.Setenv(snowflakeHome, "./test_data")
 	os.Setenv(snowflakeConnectionName, "aws-oauth-file")
 
-	_, err = loadConnectionConfig()
-	assertNotNilF(t, err, "The error should occur")
-
-	_, ok := err.(*(fs.PathError))
-	assertTrueF(t, ok, "This error should be a path error")
+	cfg, err := loadConnectionConfig()
+	assertNilF(t, err)
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	_, err = db.Conn(context.Background())
+	assertNotNilF(t, err)
+	if isWindows {
+		assertStringContainsE(t, err.Error(), "The system cannot find the path specified")
+	} else {
+		assertStringContainsE(t, err.Error(), "no such file or directory")
+	}
 }
 
 func TestParseInt(t *testing.T) {

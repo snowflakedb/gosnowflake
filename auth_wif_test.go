@@ -532,7 +532,9 @@ func TestOidcIdentityAttestationCreator(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			creator := &oidcIdentityAttestationCreator{token: test.token}
+			creator := &oidcIdentityAttestationCreator{token: func() (string, error) {
+				return test.token, nil
+			}}
 			attestation, err := creator.createAttestation()
 
 			if test.expectedError != nil {

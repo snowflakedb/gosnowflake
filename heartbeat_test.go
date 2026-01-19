@@ -39,8 +39,8 @@ func TestUnitPostHeartbeat(t *testing.T) {
 }
 
 func TestHeartbeatStartAndStop(t *testing.T) {
-	createDSNWithClientSessionKeepAlive()
-	config, err := ParseDSN(dsn)
+	customDsn := dsn + "&client_session_keep_alive=true"
+	config, err := ParseDSN(customDsn)
 	assertNilF(t, err, "failed to parse dsn")
 	driver := SnowflakeDriver{}
 	db, err := driver.OpenWithConfig(context.Background(), *config)
