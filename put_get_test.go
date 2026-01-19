@@ -630,12 +630,8 @@ func TestPutWithNonWritableTemp(t *testing.T) {
 	}
 	tempDir := t.TempDir()
 	assertNilF(t, os.Chmod(tempDir, 0000))
-	origDsn := dsn
-	defer func() {
-		dsn = origDsn
-	}()
-	dsn = dsn + "&tmpDirPath=" + strings.ReplaceAll(tempDir, "/", "%2F")
-	runDBTest(t, func(dbt *DBTest) {
+	customDsn := dsn + "&tmpDirPath=" + strings.ReplaceAll(tempDir, "/", "%2F")
+	runDBTestWithConfig(t, &testConfig{dsn: customDsn}, func(dbt *DBTest) {
 		for _, isStream := range []bool{false, true} {
 			t.Run(fmt.Sprintf("isStream=%v", isStream), func(t *testing.T) {
 				stageName := "test_stage_" + randomString(10)
@@ -679,12 +675,8 @@ func TestGetWithNonWritableTemp(t *testing.T) {
 		t.Skip("permission system is different")
 	}
 	tempDir := t.TempDir()
-	origDsn := dsn
-	defer func() {
-		dsn = origDsn
-	}()
-	dsn = dsn + "&tmpDirPath=" + strings.ReplaceAll(tempDir, "/", "%2F")
-	runDBTest(t, func(dbt *DBTest) {
+	customDsn := dsn + "&tmpDirPath=" + strings.ReplaceAll(tempDir, "/", "%2F")
+	runDBTestWithConfig(t, &testConfig{dsn: customDsn}, func(dbt *DBTest) {
 		stageName := "test_stage_" + randomString(10)
 		cwd, err := os.Getwd()
 		assertNilF(t, err)
@@ -748,8 +740,8 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		t.Fatal("could not write to gzip file")
 	}
 
-	dsn = dsn + "&GCS_USE_DOWNSCOPED_CREDENTIAL=true"
-	runDBTest(t, func(dbt *DBTest) {
+	customDsn := dsn + "&GCS_USE_DOWNSCOPED_CREDENTIAL=true"
+	runDBTestWithConfig(t, &testConfig{dsn: customDsn}, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
 		fileStream, err := os.Open(fname)

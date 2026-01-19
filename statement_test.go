@@ -25,12 +25,12 @@ func openDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func openConn(t *testing.T) (*sql.DB, *sql.Conn) {
+func openConn(t *testing.T, config *testConfig) (*sql.DB, *sql.Conn) {
 	var db *sql.DB
 	var conn *sql.Conn
 	var err error
 
-	if db, err = sql.Open("snowflake", dsn); err != nil {
+	if db, err = sql.Open("snowflake", config.dsn); err != nil {
 		t.Fatalf("failed to open db. %v, err: %v", dsn, err)
 	}
 	if conn, err = db.Conn(context.Background()); err != nil {

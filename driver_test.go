@@ -478,8 +478,17 @@ func (sct *SCTest) mustExecContext(ctx context.Context, query string, args []dri
 	return result
 }
 
+type testConfig struct {
+	dsn string
+}
+
 func runDBTest(t *testing.T, test func(dbt *DBTest)) {
-	db, conn := openConn(t)
+	runDBTestWithConfig(t, &testConfig{dsn}, test)
+}
+
+func runDBTestWithConfig(t *testing.T, testCfg *testConfig, test func(dbt *DBTest)) {
+
+	db, conn := openConn(t, testCfg)
 	defer conn.Close()
 	defer db.Close()
 	dbt := &DBTest{t, conn}
@@ -488,7 +497,11 @@ func runDBTest(t *testing.T, test func(dbt *DBTest)) {
 }
 
 func runSnowflakeConnTest(t *testing.T, test func(sct *SCTest)) {
-	config, err := ParseDSN(dsn)
+	runSnowflakeConnTestWithConfig(t, &testConfig{dsn}, test)
+}
+
+func runSnowflakeConnTestWithConfig(t *testing.T, testCfg *testConfig, test func(sct *SCTest)) {
+	config, err := ParseDSN(testCfg.dsn)
 	if err != nil {
 		t.Error(err)
 	}
@@ -2281,19 +2294,12 @@ func TestOpenWithTransport(t *testing.T) {
 	}
 }
 
-func createDSNWithClientSessionKeepAlive() {
-	// Just append the client_session_keep_alive parameter to the existing DSN
-	// The global dsn should already be properly configured with authentication
-	dsn += "&client_session_keep_alive=true"
-}
-
 func TestClientSessionKeepAliveParameter(t *testing.T) {
 	// This test doesn't really validate the CLIENT_SESSION_KEEP_ALIVE functionality but simply checks
 	// the session parameter.
-	createDSNWithClientSessionKeepAlive()
-	defer createDSN("UTC") // Restore DSN even if test panics
+	customDsn := dsn + "&client_session_keep_alive=true"
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{dsn: customDsn}, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SHOW PARAMETERS LIKE 'CLIENT_SESSION_KEEP_ALIVE'")
 		defer rows.Close()
 		if !rows.Next() {
