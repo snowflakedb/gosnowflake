@@ -1357,6 +1357,24 @@ and before retrieving the results. For a more elaborative example please see cmd
 			...
 		}
 
+==> Some considerations related to the KeepSessionAlive configuration option in context of asynchronous query execution
+
+When SQL Go connection is being closed, it performs the following actions:
+
+* stops the scheduled heartbeats (CLIENT_SESSION_KEEP_ALIVE), if it was enabled
+
+* cleans up all the http connections which are already idle - doesn't touch the ones which are in active use currently
+
+* if Config.KeepSessionAlive is false (default), then actively logs out the current Snowflake session.
+
+!! Caveat: If there are any queries which are currently executing in the same Snowflake session (e.g. async queries sent with WithAsyncMode()), then those queries are automatically cancelled from the client side a couple minutes later after the Close() call, as a Snowflake session which has been actively logged out from, cannot sustain any queries.
+
+You can govern this behaviour with setting Config.KeepSessionAlive to true; when the corresponding Snowflake session will be kept alive for a long time (determined by the Snowflake engine) even after an explicit Connection.Close() call past the time when the last running query in the session finished executing.
+
+The behaviour is also dependent on ABORT_DETACHED_QUERY parameter, please see the detailed explanation in the parameter description at https://docs.snowflake.com/en/sql-reference/parameters#abort-detached-query.
+
+As a consequence, best practice would be to isolate all long-running async tasks (especially ones supposed to be continued after the connection is closed) into a separate connection.
+
 # Support For PUT and GET
 
 The Go Snowflake Driver supports the PUT and GET commands.
