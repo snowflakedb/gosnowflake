@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/internal/cgo"
 	"io"
 	"net/http"
 	"net/url"
@@ -20,6 +19,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/snowflakedb/gosnowflake/internal/cgo"
+	internalos "github.com/snowflakedb/gosnowflake/internal/os"
 )
 
 const (
@@ -175,20 +176,21 @@ var userAgent = fmt.Sprintf("%v/%v (%v-%v) %v/%v",
 	runtime.Version())
 
 type authRequestClientEnvironment struct {
-	Application             string   `json:"APPLICATION"`
-	ApplicationPath         string   `json:"APPLICATION_PATH"`
-	Os                      string   `json:"OS"`
-	OsVersion               string   `json:"OS_VERSION"`
-	Isa                     string   `json:"ISA,omitempty"`
-	OCSPMode                string   `json:"OCSP_MODE"`
-	GoVersion               string   `json:"GO_VERSION"`
-	OAuthType               string   `json:"OAUTH_TYPE,omitempty"`
-	CertRevocationCheckMode string   `json:"CERT_REVOCATION_CHECK_MODE,omitempty"`
-	Platform                []string `json:"PLATFORM,omitempty"`
-	CoreVersion             string   `json:"CORE_VERSION,omitempty"`
-	CoreLoadError           string   `json:"CORE_LOAD_ERROR,omitempty"`
-	CoreFileName            string   `json:"CORE_FILE_NAME,omitempty"`
-	CgoEnabled              bool     `json:"CGO_ENABLED,omitempty"`
+	Application             string            `json:"APPLICATION"`
+	ApplicationPath         string            `json:"APPLICATION_PATH"`
+	Os                      string            `json:"OS"`
+	OsVersion               string            `json:"OS_VERSION"`
+	OsDetails               map[string]string `json:"OS_DETAILS,omitempty"`
+	Isa                     string            `json:"ISA,omitempty"`
+	OCSPMode                string            `json:"OCSP_MODE"`
+	GoVersion               string            `json:"GO_VERSION"`
+	OAuthType               string            `json:"OAUTH_TYPE,omitempty"`
+	CertRevocationCheckMode string            `json:"CERT_REVOCATION_CHECK_MODE,omitempty"`
+	Platform                []string          `json:"PLATFORM,omitempty"`
+	CoreVersion             string            `json:"CORE_VERSION,omitempty"`
+	CoreLoadError           string            `json:"CORE_LOAD_ERROR,omitempty"`
+	CoreFileName            string            `json:"CORE_FILE_NAME,omitempty"`
+	CgoEnabled              bool              `json:"CGO_ENABLED,omitempty"`
 }
 
 type authRequestData struct {
@@ -479,6 +481,7 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 	return authRequestClientEnvironment{
 		Os:            runtime.GOOS,
 		OsVersion:     osVersion,
+		OsDetails:     internalos.GetOsDetails(),
 		Isa:           runtime.GOARCH,
 		GoVersion:     runtime.Version(),
 		CoreVersion:   coreVersion,
