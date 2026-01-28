@@ -51,7 +51,7 @@ func TestExecStmt(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec(ddlQuery)
 		defer dbt.mustExec("DROP TABLE IF EXISTS TestDDLExec")
 		testcases := []struct {
@@ -139,7 +139,7 @@ func TestFailedQueryIdInSnowflakeError(t *testing.T) {
 	failingQuery := "SELECTT 1"
 	failingExec := "INSERT 1 INTO NON_EXISTENT_TABLE"
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		testcases := []struct {
 			name  string
 			query string
@@ -182,7 +182,7 @@ func TestSetFailedQueryId(t *testing.T) {
 	failingQuery := "SELECTT 1"
 	failingExec := "INSERT 1 INTO NON_EXISTENT_TABLE"
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		testcases := []struct {
 			name  string
 			query string
@@ -246,7 +246,7 @@ func TestSetFailedQueryId(t *testing.T) {
 
 func TestAsyncFailQueryId(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		err := dbt.conn.Raw(func(x any) error {
 			stmt, err := x.(driver.ConnPrepareContext).PrepareContext(ctx, "SELECTT 1")
 			if err != nil {
@@ -281,7 +281,7 @@ func TestAsyncFailQueryId(t *testing.T) {
 func TestGetQueryID(t *testing.T) {
 	ctx := context.Background()
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		if err := dbt.conn.Raw(func(x interface{}) error {
 			rows, err := x.(driver.QueryerContext).QueryContext(ctx, "select 1", nil)
 			if err != nil {
@@ -324,7 +324,7 @@ func TestEmitQueryID(t *testing.T) {
 	cnt := 0
 	var idx int
 	var v string
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
 
@@ -397,7 +397,7 @@ func TestE2EFetchResultByID(t *testing.T) {
 }
 
 func TestWithDescribeOnly(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		ctx := WithDescribeOnly(context.Background())
 		rows := dbt.mustQueryContext(ctx, selectVariousTypes)
 		defer rows.Close()
@@ -457,7 +457,7 @@ func TestCallStatement(t *testing.T) {
 
 func TestStmtExec(t *testing.T) {
 	ctx := context.Background()
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExecT(t, `create or replace table test_table(col1 int, col2 int)`)
 
 		if err := dbt.conn.Raw(func(x interface{}) error {
@@ -484,7 +484,7 @@ func TestStmtExec(t *testing.T) {
 
 func TestStmtExec_Error(t *testing.T) {
 	ctx := context.Background()
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		// Create a test table
 		dbt.mustExecT(t, `create or replace table test_table(col1 int, col2 int)`)
 		defer dbt.mustExecT(t, "drop table if exists test_table")
@@ -571,7 +571,7 @@ func TestStatementQueryIdForQueries(t *testing.T) {
 		},
 	}
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		for _, tc := range testcases {
 			t.Run(tc.name, func(t *testing.T) {
 				err := dbt.conn.Raw(func(x any) error {
@@ -684,7 +684,7 @@ func TestStatementQuery(t *testing.T) {
 
 func TestStatementQueryIdForExecs(t *testing.T) {
 	ctx := context.Background()
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("CREATE TABLE TestStatementQueryIdForExecs (v INTEGER)")
 		defer dbt.mustExec("DROP TABLE IF EXISTS TestStatementQueryIdForExecs")
 
@@ -748,7 +748,7 @@ func TestStatementQueryIdForExecs(t *testing.T) {
 
 func TestStatementQueryExecs(t *testing.T) {
 	ctx := context.Background()
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("CREATE TABLE TestStatementQueryExecs (v INTEGER)")
 		defer dbt.mustExec("DROP TABLE IF EXISTS TestStatementForExecs")
 
@@ -819,7 +819,7 @@ func TestStatementQueryExecs(t *testing.T) {
 }
 
 func TestWithQueryTag(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		testQueryTag := "TEST QUERY TAG"
 		ctx := WithQueryTag(context.Background(), testQueryTag)
 

@@ -11,7 +11,7 @@ import (
 
 func TestBindingVariant(t *testing.T) {
 	t.Skip("binding variant is currently not supported")
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE TABLE test_variant_binding (var VARIANT)")
 		defer func() {
@@ -50,7 +50,7 @@ func TestBindingVariant(t *testing.T) {
 }
 
 func TestBindingObjectWithoutSchema(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE TABLE test_object_binding (obj OBJECT)")
 		defer func() {
@@ -89,7 +89,7 @@ func TestBindingObjectWithoutSchema(t *testing.T) {
 }
 
 func TestBindingArrayWithoutSchema(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE TABLE test_array_binding (arr ARRAY)")
 		defer func() {
@@ -132,7 +132,7 @@ func TestBindingObjectWithSchema(t *testing.T) {
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	ctx := WithStructuredTypesEnabled(context.Background())
 	assertNilF(t, err)
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR))")
 		defer func() {
@@ -199,7 +199,7 @@ func TestBindingObjectWithNullableFieldsWithSchema(t *testing.T) {
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, ntz TIMESTAMPNTZ, tz TIMESTAMPTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR))")
 		defer func() {
@@ -377,7 +377,7 @@ func TestBindingObjectWithNullableFieldsWithSchemaSimpleWrite(t *testing.T) {
 	warsawTz, err := time.LoadLocation("Europe/Warsaw")
 	assertNilF(t, err)
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.forceJSON()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f64 DOUBLE, bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN)))")
@@ -506,7 +506,7 @@ func (o *objectWithAllTypesWrapper) Write(sowc StructuredObjectWriterContext) er
 
 func TestBindingObjectWithAllTypesNullable(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.forceJSON()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (o OBJECT(o OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 9), bo boolean, bi BINARY, date DATE, time TIME, ltz TIMESTAMPLTZ, tz TIMESTAMPTZ, ntz TIMESTAMPNTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR)))")
@@ -530,7 +530,7 @@ func TestBindingObjectWithAllTypesNullable(t *testing.T) {
 
 func TestBindingObjectWithSchemaWithCustomNameAndIgnoredField(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(anotherName VARCHAR))")
 		defer func() {
@@ -555,7 +555,7 @@ func TestBindingObjectWithSchemaWithCustomNameAndIgnoredField(t *testing.T) {
 
 func TestBindingNullStructuredObjects(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_object_binding (obj OBJECT(s VARCHAR, i INTEGER))")
 		defer func() {
@@ -576,7 +576,7 @@ func TestBindingNullStructuredObjects(t *testing.T) {
 
 func TestBindingArrayWithSchema(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		testcases := []struct {
 			name      string
@@ -681,7 +681,7 @@ func TestBindingArrayWithSchema(t *testing.T) {
 
 func TestBindingArrayOfObjects(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -704,7 +704,7 @@ func TestBindingArrayOfObjects(t *testing.T) {
 
 func TestBindingEmptyArrayOfObjects(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -727,7 +727,7 @@ func TestBindingEmptyArrayOfObjects(t *testing.T) {
 
 func TestBindingNilArrayOfObjects(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -750,7 +750,7 @@ func TestBindingNilArrayOfObjects(t *testing.T) {
 
 func TestBindingNilArrayOfInts(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_array_binding (arr ARRAY(INTEGER))")
 		defer func() {
@@ -955,7 +955,7 @@ func TestBindingMap(t *testing.T) {
 
 func TestBindingMapOfStructs(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_map_binding (m MAP(VARCHAR, OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -981,7 +981,7 @@ func TestBindingMapOfStructs(t *testing.T) {
 
 func TestBindingMapOfWithAllValuesNil(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_map_binding (m MAP(VARCHAR, OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -1005,7 +1005,7 @@ func TestBindingMapOfWithAllValuesNil(t *testing.T) {
 
 func TestBindingEmptyMapOfStructs(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_map_binding (m MAP(VARCHAR, OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -1027,7 +1027,7 @@ func TestBindingEmptyMapOfStructs(t *testing.T) {
 
 func TestBindingEmptyMapOfInts(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_map_binding (m MAP(VARCHAR, INTEGER))")
 		defer func() {
@@ -1049,7 +1049,7 @@ func TestBindingEmptyMapOfInts(t *testing.T) {
 
 func TestBindingNilMapOfStructs(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_map_binding (m MAP(VARCHAR, OBJECT(s VARCHAR, i INTEGER)))")
 		defer func() {
@@ -1071,7 +1071,7 @@ func TestBindingNilMapOfStructs(t *testing.T) {
 
 func TestBindingNilMapOfInts(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_map_binding (m MAP(VARCHAR, INTEGER))")
 		defer func() {
@@ -1093,7 +1093,7 @@ func TestBindingNilMapOfInts(t *testing.T) {
 
 func TestBindingMapOfArrays(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypesBinding()
 		dbt.mustExec("CREATE OR REPLACE TABLE test_map_binding (m MAP(VARCHAR, ARRAY(INTEGER)))")
 		defer func() {
