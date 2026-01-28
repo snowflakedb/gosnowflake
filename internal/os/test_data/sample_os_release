@@ -1,0 +1,26 @@
+# This is a comment and should be ignored
+NAME="Ubuntu"
+PRETTY_NAME='Ubuntu 22.04.3 LTS' #this is pretty name
+ID=ubuntu
+VERSION_ID="22.04"
+VERSION="22.04.3 LTS (Jammy Jellyfish)"
+BUILD_ID=20231115
+IMAGE_ID=ubuntu-jammy
+IMAGE_VERSION=1.0.0
+
+# These keys should be ignored (not in allowed list)
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL=https://help.ubuntu.com/
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=jammy
+VARIANT="Server"
+
+# Empty lines should be ignored
+
+# Line with spaces only should be ignored
+   
+# Line with spaces and tabs should be ignored
+ 	 	 
+# Lines without = should be ignored
+INVALID_LINE_WITHOUT_EQUALS

@@ -31,7 +31,7 @@ Internal changes:
 -
 -
 -
--
+- Improved Linux telemetry gathering (snowflakedb/gosnowflake#1677).
 - Improved some logs returned from cloud storage clients (snowflakedb/gosnowflake#1665).
 -
 -
