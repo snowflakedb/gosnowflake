@@ -100,6 +100,7 @@ func TestGenerateFileURL(t *testing.T) {
 	testcases := []tcFileURL{
 		{"sfc-eng-regression/test_sub_dir/", "file1", "sfc-eng-regression", "test_sub_dir/file1"},
 		{"sfc-eng-regression/dir/test_stg/test_sub_dir/", "file2", "sfc-eng-regression", "dir/test_stg/test_sub_dir/file2"},
+		{"sfc-eng-regression/dir/test_stg/test sub dir/", "file2", "sfc-eng-regression", "dir/test_stg/test sub dir/file2"},
 		{"sfc-eng-regression/", "file3", "sfc-eng-regression", "file3"},
 		{"sfc-eng-regression//", "file4", "sfc-eng-regression", "/file4"},
 		{"sfc-eng-regression///", "file5", "sfc-eng-regression", "//file5"},
@@ -110,7 +111,7 @@ func TestGenerateFileURL(t *testing.T) {
 			stageInfo.Location = test.location
 			gcsURL, err := gcsUtil.generateFileURL(stageInfo, test.fname)
 			assertNilF(t, err, "error should be nil")
-			expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.QueryEscape(test.filepath))
+			expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.PathEscape(test.filepath))
 			assertNilF(t, err, "error should be nil")
 			assertEqualE(t, gcsURL.String(), expectedURL.String(), "failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
 		})
@@ -122,7 +123,7 @@ func TestGenerateFileURL(t *testing.T) {
 			stageInfo.Location = test.location
 			gcsURL, err := gcsUtil.generateFileURL(stageInfo, test.fname)
 			assertNilF(t, err, "error should be nil")
-			expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.QueryEscape(test.filepath))
+			expectedURL, err := url.Parse("https://storage.googleapis.com/" + test.bucket + "/" + url.PathEscape(test.filepath))
 			assertNilF(t, err, "error should be nil")
 			assertEqualE(t, gcsURL.String(), expectedURL.String(), "failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
 		})
@@ -135,7 +136,7 @@ func TestGenerateFileURL(t *testing.T) {
 			stageInfo.UseVirtualURL = true
 			gcsURL, err := gcsUtil.generateFileURL(stageInfo, test.fname)
 			assertNilF(t, err, "error should be nil")
-			expectedURL, err := url.Parse("https://sfc-eng-regression.storage.googleapis.com/" + url.QueryEscape(test.filepath))
+			expectedURL, err := url.Parse("https://sfc-eng-regression.storage.googleapis.com/" + url.PathEscape(test.filepath))
 			assertNilF(t, err, "error should be nil")
 			assertEqualE(t, gcsURL.String(), expectedURL.String(), "failed. expected: %v but got: %v", expectedURL.String(), gcsURL.String())
 		})

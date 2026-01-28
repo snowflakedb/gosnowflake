@@ -1,6 +1,7 @@
 package gosnowflake
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -777,7 +778,7 @@ func (util *snowflakeGcsClient) extractBucketNameAndPath(location string) *gcsLo
 	return &gcsLocation{containerName, path}
 }
 
-func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo, filename string) (*url.URL, error) {
+func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo, filename string) (result *url.URL, err error) {
 	gcsLoc := util.extractBucketNameAndPath(stageInfo.Location)
 	fullFilePath := gcsLoc.path + filename
 	endPoint := "https://storage.googleapis.com"
@@ -793,10 +794,12 @@ func (util *snowflakeGcsClient) generateFileURL(stageInfo *execResponseStageInfo
 	}
 
 	if stageInfo.UseVirtualURL {
-		return url.Parse(endPoint + "/" + url.QueryEscape(fullFilePath))
+		result, err = url.Parse(endPoint + "/" + url.PathEscape(fullFilePath))
+	} else {
+		result, err = url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.PathEscape(fullFilePath))
 	}
-
-	return url.Parse(endPoint + "/" + gcsLoc.bucketName + "/" + url.QueryEscape(fullFilePath))
+	logger.Debugf("generated file URL from location=%v, path=%v, fileName=%v, endpoint=%v, useVirtualUrl=%v, result=%v, err=%v", stageInfo.Location, gcsLoc.path, filename, stageInfo.EndPoint, stageInfo.UseVirtualURL, cmp.Or(result, &url.URL{}).String(), err)
+	return result, err
 }
 
 func (util *snowflakeGcsClient) isTokenExpired(resp *http.Response) bool {

@@ -24,7 +24,7 @@ Bug fixes:
 -
 -
 -
--
+- Fixed path escaping for GCS urls (snowflakedb/gosnowflake#1678).
 
 Internal changes:
 
