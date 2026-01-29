@@ -1474,6 +1474,43 @@ If you wish to ignore those errors instead, you can set `RaisePutGetError: false
 	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{RaisePutGetError: false})
 	db.ExecContext(ctx, "PUT ...")
 
+# Minicore (Native Library)
+
+The Go Snowflake Driver includes an embedded native library called "minicore" that verifies loading of native Rust extensions on various platforms. By default, minicore is enabled and loaded dynamically at runtime.
+
+## Disabling Minicore
+
+There are two ways to disable minicore:
+
+1. **At runtime using environment variable:**
+
+	Set the SF_DISABLE_MINICORE environment variable to "true" to disable minicore loading:
+
+	  export SF_DISABLE_MINICORE=true
+
+	This is useful when you want to disable minicore for a specific run without recompiling.
+
+2. **At compile time using build tags:**
+
+	Build with the -tags minicore_disabled flag to completely exclude minicore from the binary:
+
+	  go build -tags minicore_disabled ./...
+
+	This is required for static linking (e.g., CGO_ENABLED=0) because minicore relies on
+	dynamic library loading (dlopen) which is incompatible with static binaries.
+
+	Benefits of compile-time disable:
+	  - Smaller binary size (no embedded native libraries)
+	  - No CGO dependency for POSIX systems
+	  - Compatible with static linking
+
+	Example for fully static build:
+
+	  CGO_ENABLED=0 go build -tags minicore_disabled ./...
+
+When minicore is disabled (either at runtime or compile time), the driver continues to work
+normally but without the additional functionality provided by the native library.
+
 # Connectivity diagnostics
 
 ==> Relevant configuration

@@ -6,24 +6,11 @@
         "method": "POST",
         "bodyPatterns": [
           {
-            "equalToJson" : {
-              "data": {
-                "LOGIN_NAME": "testUser",
-                "PASSWORD": "testPassword",
-                "CLIENT_ENVIRONMENT": {
-                  "CORE_VERSION": "0.0.1",
-                  "CGO_ENABLED": true
-                }
-              }
-            },
-            "ignoreExtraElements" : true
-          },
-          {
-            "matchesJsonPath": "$.data.CLIENT_ENVIRONMENT[?(@.CORE_FILE_NAME =~ /.+/)]"
+            "matchesJsonPath": "$.data.CLIENT_ENVIRONMENT[?(@.CORE_LOAD_ERROR =~ /.*disabled at compile time.*/)]"
           },
           {
             "matchesJsonPath": {
-              "expression": "$.data.CLIENT_ENVIRONMENT.CORE_LOAD_ERROR",
+              "expression": "$.data.CLIENT_ENVIRONMENT.CORE_VERSION",
               "absent": "(absent)"
             }
           }

@@ -6,7 +6,7 @@ New features:
 
 - 
 - 
-- 
+- Added ability to disable minicore loading at compile time (snowflakedb/gosnowflake#1679).
 - 
 - 
 - Exposed `tokenFilePath` in `Config` (snowflakedb/gosnowflake#1666).

@@ -3,7 +3,7 @@ package gosnowflake
 import (
 	"bufio"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/internal/cgo"
+	"github.com/snowflakedb/gosnowflake/internal/compilation"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -287,7 +287,12 @@ func (l *miniCoreLoaderType) writeLibraryToFile() (minicoreDirCandidate, string,
 // getMiniCore returns the minicore instance, loading it asynchronously if needed.
 func getMiniCore() miniCore {
 	miniCoreOnce.Do(func() {
-		minicoreDebugf("cgo enabled: %v", cgo.Enabled)
+		minicoreDebugf("minicore enabled at compile time: %v", compilation.MinicoreEnabled)
+		minicoreDebugf("cgo enabled: %v", compilation.CgoEnabled)
+		if !compilation.MinicoreEnabled {
+			logger.Debugf("minicore disabled at compile time (built with -tags minicore_disabled)")
+			return
+		}
 		if strings.EqualFold(os.Getenv(disableMinicoreEnv), "true") {
 			logger.Debugf("minicore loading disabled")
 			return

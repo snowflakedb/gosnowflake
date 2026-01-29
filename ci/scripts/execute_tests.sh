@@ -16,6 +16,7 @@ if [[ "$HOME_EMPTY" == "yes" ]] ; then
   export GOMODCACHE=$HOME/go-modules
   export HOME=
 fi
+
 if [[ -n "$JENKINS_HOME" ]]; then
   export WORKSPACE=${WORKSPACE:-/mnt/workspace}
   go test $GO_TEST_PARAMS -timeout 90m -race -v . | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
