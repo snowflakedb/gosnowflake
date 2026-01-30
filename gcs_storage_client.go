@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,7 @@ const (
 	gcsFileHeaderDigest           = "gcs-file-header-digest"
 	gcsRegionMeCentral2           = "me-central2"
 	minimumDownloadPartSize       = 1024 * 1024 * 5 // 5MB
+	errMsgNilResponse             = "received nil response"
 )
 
 type snowflakeGcsClient struct {
@@ -92,9 +94,14 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		if err != nil {
 			return nil, err
 		}
+		if resp == nil {
+			return nil, errors.New(errMsgNilResponse)
+		}
 		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				logger.Warnf("failed to close response body: %v", err)
+			if resp.Body != nil {
+				if err := resp.Body.Close(); err != nil {
+					logger.Warnf("failed to close response body: %v", err)
+				}
 			}
 		}()
 		if resp.StatusCode != http.StatusOK {
@@ -254,9 +261,14 @@ func (util *snowflakeGcsClient) uploadFile(
 	if err != nil {
 		return err
 	}
+	if resp == nil {
+		return errors.New(errMsgNilResponse)
+	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("failed to close response body: %v", err)
+		if resp.Body != nil {
+			if err := resp.Body.Close(); err != nil {
+				logger.Warnf("failed to close response body: %v", err)
+			}
 		}
 	}()
 	if resp.StatusCode != http.StatusOK {
@@ -391,9 +403,14 @@ func (util *snowflakeGcsClient) getFileHeaderForDownload(downloadURL *url.URL, g
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, errors.New(errMsgNilResponse)
+	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("Failed to close response body: %v", err)
+		if resp.Body != nil {
+			if err := resp.Body.Close(); err != nil {
+				logger.Warnf("Failed to close response body: %v", err)
+			}
 		}
 	}()
 
@@ -653,7 +670,7 @@ func (util *snowflakeGcsClient) downloadRangeStream(
 		return nil, err
 	}
 	if resp == nil {
-		return nil, fmt.Errorf("received nil response")
+		return nil, errors.New(errMsgNilResponse)
 	}
 
 	// Accept both 200 (full content) and 206 (partial content) status codes
@@ -724,9 +741,14 @@ func (util *snowflakeGcsClient) downloadFileSinglePart(
 	if err != nil {
 		return err
 	}
+	if resp == nil {
+		return errors.New(errMsgNilResponse)
+	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("Failed to close response body: %v", err)
+		if resp.Body != nil {
+			if err := resp.Body.Close(); err != nil {
+				logger.Warnf("Failed to close response body: %v", err)
+			}
 		}
 	}()
 
