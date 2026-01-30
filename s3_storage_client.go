@@ -232,6 +232,11 @@ func (util *snowflakeS3Client) uploadFile(
 		if err != nil {
 			return nil, err
 		}
+		defer func() {
+			if err = file.Close(); err != nil {
+				logger.Warnf("failed to close %v file: %v", dataFile, err)
+			}
+		}()
 		return uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket:   &s3loc.bucketName,
 			Key:      &s3path,

@@ -92,6 +92,11 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		if err != nil {
 			return nil, err
 		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				logger.Warnf("failed to close response body: %v", err)
+			}
+		}()
 		if resp.StatusCode != http.StatusOK {
 			meta.lastError = fmt.Errorf("%v", resp.Status)
 			meta.resStatus = errStatus
@@ -215,10 +220,16 @@ func (util *snowflakeGcsClient) uploadFile(
 			uploadSrc = meta.realSrcStream
 		}
 	} else {
-		uploadSrc, err = os.Open(dataFile)
+		file, err := os.Open(dataFile)
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if err := file.Close(); err != nil {
+				logger.Warnf("failed to close %v file: %v", dataFile, err)
+			}
+		}()
+		uploadSrc = file
 	}
 
 	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
@@ -243,6 +254,11 @@ func (util *snowflakeGcsClient) uploadFile(
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Warnf("failed to close response body: %v", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
 			meta.lastError = fmt.Errorf("%v", resp.Status)
