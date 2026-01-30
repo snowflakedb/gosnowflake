@@ -1,3 +1,5 @@
+//go:build windows && !minicore_disabled
+
 package gosnowflake
 
 import (

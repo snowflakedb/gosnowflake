@@ -208,6 +208,80 @@ jobs:
               uses: codecov/codecov-action@v5
               with:
                 token: ${{ secrets.CODE_COV_UPLOAD_TOKEN }}
+    build-test-linux-minicore-disabled:
+      runs-on: ubuntu-latest
+      name: Ubuntu - minicore disabled
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 17
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: '1.24'
+        - name: Test
+          shell: bash
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+            CLOUD_PROVIDER: AWS
+            GORACE: history_size=7
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }} -tags=minicore_disabled
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+          run: ./ci/test.sh
+    build-test-mac-minicore-disabled:
+      runs-on: macos-latest
+      name: Mac - minicore disabled
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 17
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: '1.24'
+        - name: Test
+          shell: bash
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+            CLOUD_PROVIDER: AWS
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }} -tags=minicore_disabled
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+          run: ./ci/test.sh
+    build-test-windows-minicore-disabled:
+      runs-on: windows-latest
+      name: Windows - minicore disabled
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4 # for wiremock
+          with:
+            java-version: 17
+            distribution: 'temurin'
+        - name: Setup go
+          uses: actions/setup-go@v5
+          with:
+            go-version: '1.24'
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.x'
+            architecture: 'x64'
+        - name: Test
+          shell: cmd
+          env:
+            PARAMETERS_SECRET: ${{ secrets.PARAMETERS_SECRET }}
+            GOLANG_PRIVATE_KEY_SECRET: ${{ secrets.GOLANG_PRIVATE_KEY_SECRET }}
+            CLOUD_PROVIDER: AWS
+            GO_TEST_PARAMS: ${{ inputs.goTestParams }} -tags=minicore_disabled
+            WIREMOCK_PORT: 14335
+            WIREMOCK_HTTPS_PORT: 13567
+          run: ci\\test.bat
     ecc:
       runs-on: ubuntu-latest
       strategy:

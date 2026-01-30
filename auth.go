@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/snowflakedb/gosnowflake/internal/cgo"
+	"github.com/snowflakedb/gosnowflake/internal/compilation"
 	internalos "github.com/snowflakedb/gosnowflake/internal/os"
 )
 
@@ -462,9 +462,12 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 	var coreLoadError string
 
 	// Try to get minicore version, but don't block if it's not loaded yet
-	if strings.EqualFold(os.Getenv(disableMinicoreEnv), "true") {
+	if !compilation.MinicoreEnabled {
+		logger.Trace("minicore disabled at compile time")
+		coreLoadError = "Minicore is disabled at compile time (built with -tags minicore_disabled)"
+	} else if strings.EqualFold(os.Getenv(disableMinicoreEnv), "true") {
 		logger.Trace("minicore loading disabled")
-		coreLoadError = "Minicore is disabled with SNOWFLAKE_DISABLE_MINICORE env variable"
+		coreLoadError = "Minicore is disabled with SF_DISABLE_MINICORE env variable"
 	} else if mc := getMiniCore(); mc != nil {
 		var err error
 		coreVersion, err = mc.FullVersion()
@@ -487,7 +490,7 @@ func newAuthRequestClientEnvironment() authRequestClientEnvironment {
 		CoreVersion:   coreVersion,
 		CoreFileName:  getMiniCoreFileName(),
 		CoreLoadError: coreLoadError,
-		CgoEnabled:    cgo.Enabled,
+		CgoEnabled:    compilation.CgoEnabled,
 	}
 }
 
