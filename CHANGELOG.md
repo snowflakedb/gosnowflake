@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.0
+
+Breaking changes:
+
 ## Upcoming Release
 
 New features:
