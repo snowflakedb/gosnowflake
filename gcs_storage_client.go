@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,7 +21,6 @@ const (
 	gcsFileHeaderDigest           = "gcs-file-header-digest"
 	gcsRegionMeCentral2           = "me-central2"
 	minimumDownloadPartSize       = 1024 * 1024 * 5 // 5MB
-	errMsgNilResponse             = "received nil response"
 )
 
 type snowflakeGcsClient struct {
@@ -93,9 +91,6 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		})
 		if err != nil {
 			return nil, err
-		}
-		if resp == nil {
-			return nil, errors.New(errMsgNilResponse)
 		}
 		defer func() {
 			if resp.Body != nil {
@@ -227,16 +222,16 @@ func (util *snowflakeGcsClient) uploadFile(
 			uploadSrc = meta.realSrcStream
 		}
 	} else {
-		file, err := os.Open(dataFile)
+		var err error
+		uploadSrc, err = os.Open(dataFile)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if err := file.Close(); err != nil {
+		defer func(src io.Closer) {
+			if err := src.Close(); err != nil {
 				logger.Warnf("failed to close %v file: %v", dataFile, err)
 			}
-		}()
-		uploadSrc = file
+		}(uploadSrc.(io.Closer))
 	}
 
 	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
@@ -260,9 +255,6 @@ func (util *snowflakeGcsClient) uploadFile(
 
 	if err != nil {
 		return err
-	}
-	if resp == nil {
-		return errors.New(errMsgNilResponse)
 	}
 	defer func() {
 		if resp.Body != nil {
@@ -402,9 +394,6 @@ func (util *snowflakeGcsClient) getFileHeaderForDownload(downloadURL *url.URL, g
 
 	if err != nil {
 		return nil, err
-	}
-	if resp == nil {
-		return nil, errors.New(errMsgNilResponse)
 	}
 	defer func() {
 		if resp.Body != nil {
@@ -669,9 +658,6 @@ func (util *snowflakeGcsClient) downloadRangeStream(
 	if err != nil {
 		return nil, err
 	}
-	if resp == nil {
-		return nil, errors.New(errMsgNilResponse)
-	}
 
 	// Accept both 200 (full content) and 206 (partial content) status codes
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
@@ -740,9 +726,6 @@ func (util *snowflakeGcsClient) downloadFileSinglePart(
 
 	if err != nil {
 		return err
-	}
-	if resp == nil {
-		return errors.New(errMsgNilResponse)
 	}
 	defer func() {
 		if resp.Body != nil {
