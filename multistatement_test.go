@@ -107,6 +107,24 @@ func TestMultiStatementQueryResultSet(t *testing.T) {
 	})
 }
 
+func TestMultistatementQueryLargeResultSet(t *testing.T) {
+	ctx, err := WithMultiStatement(context.Background(), 2)
+	assertNilF(t, err)
+	runDBTest(t, func(dbt *DBTest) {
+		rows := dbt.mustQueryContextT(ctx, t, "SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000))")
+		totalRows := 0
+		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = rows.NextResultSet() {
+			for rows.Next() {
+				var s string
+				rows.mustScan(&s)
+				assertEqualE(t, s, "abc")
+				totalRows++
+			}
+		}
+		assertEqualE(t, totalRows, 2000000)
+	})
+}
+
 func TestMultiStatementExecuteResultSet(t *testing.T) {
 	ctx, _ := WithMultiStatement(context.Background(), 6)
 	multiStmtQuery := "begin;\n" +
@@ -328,18 +346,17 @@ func TestMultiStatementCountZero(t *testing.T) {
 }
 
 func TestMultiStatementCountMismatch(t *testing.T) {
-	conn := openConn(t)
-	defer conn.Close()
+	runDBTest(t, func(dbt *DBTest) {
+		multiStmtQuery := "select 123;\n" +
+			"select 456;\n" +
+			"select 789;\n" +
+			"select '000';"
 
-	multiStmtQuery := "select 123;\n" +
-		"select 456;\n" +
-		"select 789;\n" +
-		"select '000';"
-
-	ctx, _ := WithMultiStatement(context.Background(), 3)
-	if _, err := conn.QueryContext(ctx, multiStmtQuery); err == nil {
-		t.Fatal("should have failed to query multiple statements")
-	}
+		ctx, _ := WithMultiStatement(context.Background(), 3)
+		if _, err := dbt.conn.QueryContext(ctx, multiStmtQuery); err == nil {
+			t.Fatal("should have failed to query multiple statements")
+		}
+	})
 }
 
 func TestMultiStatementVaryingColumnCount(t *testing.T) {
@@ -569,5 +586,42 @@ func TestUnitHandleMultiQuery(t *testing.T) {
 		if driverErr.Number != ErrFailedToPostQuery {
 			t.Fatalf("unexpected error code. expected: %v, got: %v", ErrFailedToPostQuery, driverErr.Number)
 		}
+	})
+}
+
+func TestMultiStatementArrowFormat(t *testing.T) {
+	ctx, _ := WithMultiStatement(context.Background(), 4)
+	multiStmtQuery := "select 123;\n" +
+		"select 456;\n" +
+		"select 789;\n" +
+		"select '000';"
+
+	runDBTest(t, func(dbt *DBTest) {
+		dbt.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = TRUE")
+
+		testCases := []struct {
+			name       string
+			formatType string
+			forceQuery string
+		}{
+			{name: "forceJSON", formatType: "json", forceQuery: forceJSON},
+			{name: "forceArrow", formatType: "arrow", forceQuery: forceARROW},
+		}
+		rowTypes := []string{"123", "456", "789", "'000'"}
+
+		for _, testCase := range testCases {
+			t.Run("with "+testCase.name, func(t *testing.T) {
+				dbt.mustExec(testCase.forceQuery)
+				buffer, cleanup := setupTestLogger()
+				defer cleanup()
+				rows := dbt.mustQueryContext(WithArrowBatches(ctx), multiStmtQuery)
+				defer rows.Close()
+				logOutput := buffer.String()
+				for _, rowType := range rowTypes {
+					assertStringContainsE(t, logOutput, "[Server Response Validation]: RowType: "+rowType+", QueryResultFormat: "+testCase.formatType)
+				}
+			})
+		}
+
 	})
 }

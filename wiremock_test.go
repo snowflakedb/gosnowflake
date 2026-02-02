@@ -6,12 +6,12 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 var wiremock = newWiremock()
@@ -23,6 +23,10 @@ type wiremockClient struct {
 	port      int
 	adminPort int
 	client    http.Client
+}
+
+type wiremockClientHTTPS struct {
+	wiremockClient
 }
 
 func newWiremock() *wiremockClient {
@@ -38,19 +42,15 @@ func newWiremock() *wiremockClient {
 	if err != nil {
 		panic(fmt.Sprintf("WIREMOCK_PORT is not a number: %v", wmPortStr))
 	}
-	wmProtocol := os.Getenv("WIREMOCK_PROTOCOL")
-	if wmProtocol == "" {
-		wmProtocol = "http"
-	}
 	return &wiremockClient{
-		protocol:  wmProtocol,
+		protocol:  "http",
 		host:      wmHost,
 		port:      wmPort,
 		adminPort: wmPort,
 	}
 }
 
-func newWiremockHTTPS() *wiremockClient {
+func newWiremockHTTPS() *wiremockClientHTTPS {
 	wmHost := os.Getenv("WIREMOCK_HOST_HTTPS")
 	if wmHost == "" {
 		wmHost = "127.0.0.1"
@@ -71,16 +71,20 @@ func newWiremockHTTPS() *wiremockClient {
 	if err != nil {
 		panic(fmt.Sprintf("WIREMOCK_PORT is not a number: %v", wmPortStr))
 	}
-	wmProtocol := os.Getenv("WIREMOCK_PROTOCOL")
-	if wmProtocol == "" {
-		wmProtocol = "https"
+	return &wiremockClientHTTPS{
+		wiremockClient: wiremockClient{
+			protocol:  "https",
+			host:      wmHost,
+			port:      wmPort,
+			adminPort: wmAdminPort,
+		},
 	}
-	return &wiremockClient{
-		protocol:  wmProtocol,
-		host:      wmHost,
-		port:      wmPort,
-		adminPort: wmAdminPort,
-	}
+}
+
+func (wm *wiremockClient) openDb(t *testing.T) *sql.DB {
+	cfg := wm.connectionConfig()
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	return sql.OpenDB(connector)
 }
 
 func (wm *wiremockClient) connectionConfig() *Config {
@@ -91,29 +95,55 @@ func (wm *wiremockClient) connectionConfig() *Config {
 		Host:                  wm.host,
 		Port:                  wm.port,
 		Protocol:              wm.protocol,
+		LoginTimeout:          time.Duration(30) * time.Second,
+		RequestTimeout:        time.Duration(30) * time.Second,
+		MaxRetryCount:         3,
 		OauthClientID:         "testClientId",
 		OauthClientSecret:     "testClientSecret",
 		OauthAuthorizationURL: wm.baseURL() + "/oauth/authorize",
 		OauthTokenRequestURL:  wm.baseURL() + "/oauth/token",
 	}
-	if wm.protocol == "https" {
-		testCertPool := x509.NewCertPool()
-		caBytes, err := os.ReadFile("ci/scripts/ca.der")
-		if err != nil {
-			log.Fatalf("cannot read CA cert file. %v", err)
-		}
-		certificate, err := x509.ParseCertificate(caBytes)
-		if err != nil {
-			log.Fatalf("cannot parse certifacte. %v", err)
-		}
-		testCertPool.AddCert(certificate)
-		cfg.Transporter = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: testCertPool,
-			},
-		}
+	return cfg
+}
+
+func (wm *wiremockClientHTTPS) connectionConfig(t *testing.T) *Config {
+	cfg := wm.wiremockClient.connectionConfig()
+	cfg.Transporter = &http.Transport{
+		TLSClientConfig: wm.tlsConfig(t),
 	}
 	return cfg
+}
+
+func (wm *wiremockClientHTTPS) certPool(t *testing.T) *x509.CertPool {
+	testCertPool := x509.NewCertPool()
+	caBytes, err := os.ReadFile("ci/scripts/ca.der")
+	assertNilF(t, err)
+	certificate, err := x509.ParseCertificate(caBytes)
+	assertNilF(t, err)
+	testCertPool.AddCert(certificate)
+	return testCertPool
+}
+
+func (wm *wiremockClientHTTPS) ocspTransporter(t *testing.T, delegate http.RoundTripper) http.RoundTripper {
+	if delegate == nil {
+		delegate = http.DefaultTransport
+	}
+	cfg := wm.connectionConfig(t)
+	cfg.Transporter = delegate
+	ov := newOcspValidator(cfg)
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:               wiremockHTTPS.certPool(t),
+			VerifyPeerCertificate: ov.verifyPeerCertificateSerial,
+		},
+		DisableKeepAlives: true,
+	}
+}
+
+func (wm *wiremockClientHTTPS) tlsConfig(t *testing.T) *tls.Config {
+	return &tls.Config{
+		RootCAs: wm.certPool(t),
+	}
 }
 
 type wiremockMapping struct {
@@ -125,9 +155,30 @@ func newWiremockMapping(filePath string) wiremockMapping {
 	return wiremockMapping{filePath: filePath}
 }
 
-func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMapping) {
+type disableEnrichingWithTelemetry struct{}
+
+func (wm *wiremockClient) registerMappings(t *testing.T, args ...any) {
 	skipOnJenkins(t, "wiremock does not work on Jenkins")
-	for _, mapping := range wm.enrichWithTelemetry(mappings) {
+
+	enrichWithTelemetry := true
+	var mappings []wiremockMapping
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case wiremockMapping:
+			mappings = append(mappings, v)
+		case []wiremockMapping:
+			mappings = append(mappings, v...)
+		case disableEnrichingWithTelemetry:
+			enrichWithTelemetry = false
+		default:
+			t.Fatalf("unsupported argument type: %T", v)
+		}
+	}
+	allMappings := mappings
+	if enrichWithTelemetry {
+		allMappings = append(allMappings, newWiremockMapping("telemetry/telemetry.json"))
+	}
+	for _, mapping := range allMappings {
 		f, err := os.Open("test_data/wiremock/mappings/" + mapping.filePath)
 		assertNilF(t, err)
 		defer f.Close()
@@ -147,20 +198,23 @@ func (wm *wiremockClient) registerMappings(t *testing.T, mappings ...wiremockMap
 	}
 	t.Cleanup(func() {
 		req, err := http.NewRequest("DELETE", wm.mappingsURL(), nil)
+		assertNilF(t, err)
+		_, err = wm.client.Do(req)
 		assertNilE(t, err)
+
+		req, err = http.NewRequest("POST", fmt.Sprintf("%v/reset", wm.scenariosURL()), nil)
+		assertNilF(t, err)
 		_, err = wm.client.Do(req)
 		assertNilE(t, err)
 	})
 }
 
-func (wm *wiremockClient) enrichWithTelemetry(mappings []wiremockMapping) []wiremockMapping {
-	return append(mappings, wiremockMapping{
-		filePath: "telemetry.json",
-	})
-}
-
 func (wm *wiremockClient) mappingsURL() string {
 	return fmt.Sprintf("http://%v:%v/__admin/mappings", wm.host, wm.adminPort)
+}
+
+func (wm *wiremockClient) scenariosURL() string {
+	return fmt.Sprintf("http://%v:%v/__admin/scenarios", wm.host, wm.adminPort)
 }
 
 func (wm *wiremockClient) baseURL() string {
@@ -174,7 +228,7 @@ func TestQueryViaHttps(t *testing.T) {
 			"%AUTHORIZATION_HEADER%": "session token",
 		}},
 	)
-	cfg := wiremockHTTPS.connectionConfig()
+	cfg := wiremockHTTPS.connectionConfig(t)
 	testCertPool := x509.NewCertPool()
 	caBytes, err := os.ReadFile("ci/scripts/ca.der")
 	assertNilF(t, err)
@@ -183,8 +237,7 @@ func TestQueryViaHttps(t *testing.T) {
 	testCertPool.AddCert(certificate)
 	cfg.Transporter = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			RootCAs:               testCertPool,
-			VerifyPeerCertificate: verifyPeerCertificateSerial,
+			RootCAs: testCertPool,
 		},
 	}
 	connector := NewConnector(SnowflakeDriver{}, *cfg)

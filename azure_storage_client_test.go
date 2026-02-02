@@ -150,7 +150,7 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 		SMKID:               92019681909886,
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -169,7 +169,7 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			UploadFileFunc: func(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error) {
@@ -209,7 +209,7 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 		SMKID:               92019681909886,
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -228,7 +228,7 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			UploadStreamFunc: func(ctx context.Context, body io.Reader, o *azblob.UploadStreamOptions) (azblob.UploadStreamResponse, error) {
@@ -273,7 +273,7 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 		panic(err)
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -291,7 +291,7 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			UploadFileFunc: func(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error) {
@@ -350,7 +350,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 		panic(err)
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -368,7 +368,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 		overwrite:          true,
 		dstCompressionType: compressionTypes["GZIP"],
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			UploadFileFunc: func(ctx context.Context, file *os.File, o *azblob.UploadFileOptions) (azblob.UploadFileResponse, error) {
@@ -414,7 +414,7 @@ func TestDownloadOneFileToAzureFailed(t *testing.T) {
 		t.Error(err)
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -430,7 +430,7 @@ func TestDownloadOneFileToAzureFailed(t *testing.T) {
 		srcFileName:       "data1.txt.gz",
 		localLocation:     dir,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		mockAzureClient: &azureObjectAPIMock{
 			DownloadFileFunc: func(ctx context.Context, file *os.File, o *blob.DownloadFileOptions) (int64, error) {
@@ -458,7 +458,7 @@ func TestGetFileHeaderErrorStatus(t *testing.T) {
 		LocationType: "AZURE",
 	}
 
-	azureCli, err := new(snowflakeAzureClient).createClient(&info, false)
+	azureCli, err := new(snowflakeAzureClient).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -560,7 +560,7 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 		t.Error(err)
 	}
 
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -576,7 +576,7 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 		encryptMeta:       testEncryptionMeta(),
 		overwrite:         true,
 		options: &SnowflakeFileTransferOptions{
-			MultiPartThreshold: dataSizeThreshold,
+			MultiPartThreshold: multiPartThreshold,
 		},
 		sfa: &snowflakeFileTransferAgent{
 			sc: &snowflakeConn{
@@ -603,7 +603,7 @@ func TestAzureGetHeaderClientCastFail(t *testing.T) {
 		Location:     "azblob/rwyi-testacco/users/9220/",
 		LocationType: "AZURE",
 	}
-	s3Cli, err := new(snowflakeS3Client).createClient(&info, false)
+	s3Cli, err := new(snowflakeS3Client).createClient(&info, false, &snowflakeTelemetry{})
 	if err != nil {
 		t.Error(err)
 	}

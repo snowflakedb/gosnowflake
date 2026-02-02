@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
@@ -203,45 +204,6 @@ func postAuthCheckPasscodeInPassword(_ context.Context, _ *snowflakeRestful, _ *
 	}, nil
 }
 
-// JWT token validate callback function to check the JWT token
-// It uses the public key paired with the testPrivKey
-func postAuthCheckJWTToken(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
-	var ar authRequest
-	jsonBody, _ := bodyCreator()
-	if err := json.Unmarshal(jsonBody, &ar); err != nil {
-		return nil, err
-	}
-	if ar.Data.Authenticator != AuthTypeJwt.String() {
-		return nil, errors.New("Authenticator is not JWT")
-	}
-
-	tokenString := ar.Data.Token
-
-	// Validate token
-	_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
-
-		return testPrivKey.Public(), nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &authResponse{
-		Success: true,
-		Data: authResponseMain{
-			Token:       "t",
-			MasterToken: "m",
-			SessionInfo: authResponseSessionInfo{
-				DatabaseName: "dbn",
-			},
-		},
-	}, nil
-}
-
 func postAuthCheckUsernamePasswordMfa(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
 	var ar authRequest
 	jsonBody, _ := bodyCreator()
@@ -370,7 +332,11 @@ func postAuthCheckExternalBrowserFailed(_ context.Context, _ *snowflakeRestful, 
 	}, nil
 }
 
-func postAuthOktaWithNewToken(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
+type restfulTestWrapper struct {
+	t *testing.T
+}
+
+func (rtw restfulTestWrapper) postAuthOktaWithNewToken(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
 	var ar authRequest
 
 	cfg := &Config{
@@ -382,6 +348,7 @@ func postAuthOktaWithNewToken(_ context.Context, _ *snowflakeRestful, _ *http.Cl
 		cnt:        3,
 		success:    true,
 		statusCode: 429,
+		t:          rtw.t,
 	}
 
 	urlPtr, err := url.Parse("https://fakeaccountretrylogin.snowflakecomputing.com:443/login-request?request_guid=testguid")
@@ -635,14 +602,56 @@ func TestUnitAuthenticatePasscode(t *testing.T) {
 func TestUnitAuthenticateJWT(t *testing.T) {
 	var err error
 
+	// Generate a fresh private key for this unit test only
+	localTestKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate test private key: %s", err.Error())
+	}
+
+	// Create custom JWT verification function that uses the local key
+	postAuthCheckLocalJWTToken := func(_ context.Context, _ *snowflakeRestful, _ *http.Client, _ *url.Values, _ map[string]string, bodyCreator bodyCreatorType, _ time.Duration) (*authResponse, error) {
+		var ar authRequest
+		jsonBody, _ := bodyCreator()
+		if err := json.Unmarshal(jsonBody, &ar); err != nil {
+			return nil, err
+		}
+		if ar.Data.Authenticator != AuthTypeJwt.String() {
+			return nil, errors.New("Authenticator is not JWT")
+		}
+
+		tokenString := ar.Data.Token
+
+		// Validate token using the local test key's public key
+		_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			}
+			return localTestKey.Public(), nil // Use local key for verification
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return &authResponse{
+			Success: true,
+			Data: authResponseMain{
+				Token:       "t",
+				MasterToken: "m",
+				SessionInfo: authResponseSessionInfo{
+					DatabaseName: "dbn",
+				},
+			},
+		}, nil
+	}
+
 	sr := &snowflakeRestful{
-		FuncPostAuth:  postAuthCheckJWTToken,
+		FuncPostAuth:  postAuthCheckLocalJWTToken, // Use local verification function
 		TokenAccessor: getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
 	sc.cfg.Authenticator = AuthTypeJwt
 	sc.cfg.JWTExpireTimeout = defaultJWTTimeout
-	sc.cfg.PrivateKey = testPrivKey
+	sc.cfg.PrivateKey = localTestKey
 	sc.rest = sr
 
 	// A valid JWT token should pass
@@ -707,6 +716,63 @@ func TestUnitAuthenticateWithConfigMFA(t *testing.T) {
 	}
 }
 
+// This test creates two groups of scenarios:
+// a) singleAuthenticationPrompt=true - in this case, we start authenticating threads at once,
+// but due to locking mechanism only one should reach wiremock without MFA token.
+// b) singleAuthenticationPrompt=false - in this case, there is no locking, so all threads should rush,
+// but on Wiremock only first will be served with correct response (simulating a user confirming MFA only once).
+// The remaining threads should return error.
+func TestMfaParallelLogin(t *testing.T) {
+	skipOnMissingHome(t)
+	skipOnMac(t, "interactive keyring access not available on macOS runners")
+	cfg := wiremock.connectionConfig()
+	tokenSpec := newMfaTokenSpec(cfg.Host, cfg.User)
+
+	for _, singleAuthenticationPrompt := range []ConfigBool{ConfigBoolTrue, ConfigBoolFalse} {
+		t.Run("starts without mfa token, singleAuthenticationPrompt="+singleAuthenticationPrompt.String(), func(t *testing.T) {
+			wiremock.registerMappings(t, newWiremockMapping("auth/mfa/parallel_login_successful_flow.json"),
+				newWiremockMapping("select1.json"),
+				newWiremockMapping("close_session.json"))
+			cfg := wiremock.connectionConfig()
+			cfg.Authenticator = AuthTypeUsernamePasswordMFA
+			cfg.SingleAuthenticationPrompt = singleAuthenticationPrompt
+			cfg.ClientRequestMfaToken = ConfigBoolTrue
+			connector := NewConnector(SnowflakeDriver{}, *cfg)
+			db := sql.OpenDB(connector)
+			defer db.Close()
+			credentialsStorage.deleteCredential(tokenSpec)
+			errs := initPoolWithSizeAndReturnErrors(db, 20)
+			if singleAuthenticationPrompt == ConfigBoolTrue {
+				assertEqualE(t, len(errs), 0)
+			} else {
+				// most of for the one that actually retrieves MFA token should fail
+				assertEqualE(t, len(errs), 19)
+			}
+		})
+
+		t.Run("starts without mfa token, first attempt fails, singleAuthenticationPrompt="+singleAuthenticationPrompt.String(), func(t *testing.T) {
+			wiremock.registerMappings(t, newWiremockMapping("auth/mfa/parallel_login_first_fails_then_successful_flow.json"),
+				newWiremockMapping("select1.json"),
+				newWiremockMapping("close_session.json"))
+			cfg := wiremock.connectionConfig()
+			cfg.Authenticator = AuthTypeUsernamePasswordMFA
+			cfg.SingleAuthenticationPrompt = singleAuthenticationPrompt
+			cfg.ClientRequestMfaToken = ConfigBoolTrue
+			credentialsStorage.deleteCredential(tokenSpec)
+			connector := NewConnector(SnowflakeDriver{}, *cfg)
+			db := sql.OpenDB(connector)
+			defer db.Close()
+			errs := initPoolWithSizeAndReturnErrors(db, 20)
+			if singleAuthenticationPrompt == ConfigBoolTrue {
+				assertEqualF(t, len(errs), 1)
+				assertStringContainsE(t, errs[0].Error(), "MFA with TOTP is required")
+			} else {
+				assertEqualE(t, len(errs), 19)
+			}
+		})
+	}
+}
+
 func TestUnitAuthenticateWithConfigOkta(t *testing.T) {
 	var err error
 	sr := &snowflakeRestful{
@@ -737,7 +803,111 @@ func TestUnitAuthenticateWithConfigOkta(t *testing.T) {
 	assertEqualE(t, err.Error(), "failed to get SAML response")
 }
 
-func TestUnitAuthenticateWithConfigExternalBrowser(t *testing.T) {
+func TestUnitAuthenticateWithExternalBrowserParallel(t *testing.T) {
+	skipOnMissingHome(t)
+	skipOnMac(t, "interactive keyring access not available on macOS runners")
+	t.Run("no ID token cached", func(t *testing.T) {
+		origSamlResponseProvider := defaultSamlResponseProvider
+		defer func() { defaultSamlResponseProvider = origSamlResponseProvider }()
+		defaultSamlResponseProvider = func() samlResponseProvider {
+			return &nonInteractiveSamlResponseProvider{t: t}
+		}
+		wiremock.registerMappings(t, newWiremockMapping("auth/external_browser/successful_flow.json"),
+			newWiremockMapping("select1.json"),
+			newWiremockMapping("close_session.json"))
+		cfg := wiremock.connectionConfig()
+		cfg.Authenticator = AuthTypeExternalBrowser
+		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
+		connector := NewConnector(SnowflakeDriver{}, *cfg)
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		db := sql.OpenDB(connector)
+		defer db.Close()
+		runSmokeQuery(t, db)
+		assertEqualE(t, credentialsStorage.getCredential(newIDTokenSpec(cfg.Host, cfg.User)), "test-id-token")
+	})
+
+	t.Run("ID token cached", func(t *testing.T) {
+		wiremock.registerMappings(t, newWiremockMapping("auth/external_browser/successful_flow.json"),
+			newWiremockMapping("select1.json"),
+			newWiremockMapping("close_session.json"))
+		cfg := wiremock.connectionConfig()
+		cfg.Authenticator = AuthTypeExternalBrowser
+		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
+		connector := NewConnector(SnowflakeDriver{}, *cfg)
+		credentialsStorage.setCredential(newIDTokenSpec(cfg.Host, cfg.User), "test-id-token")
+		db := sql.OpenDB(connector)
+		defer db.Close()
+		runSmokeQuery(t, db)
+	})
+
+	t.Run("first connection retrieves ID token, second request uses cached ID token", func(t *testing.T) {
+		origSamlResponseProvider := defaultSamlResponseProvider
+		defer func() { defaultSamlResponseProvider = origSamlResponseProvider }()
+		defaultSamlResponseProvider = func() samlResponseProvider {
+			return &nonInteractiveSamlResponseProvider{t: t}
+		}
+		wiremock.registerMappings(t, newWiremockMapping("auth/external_browser/parallel_login_successful_flow.json"),
+			newWiremockMapping("select1.json"),
+			newWiremockMapping("close_session.json"))
+		cfg := wiremock.connectionConfig()
+		cfg.Authenticator = AuthTypeExternalBrowser
+		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
+		connector := NewConnector(SnowflakeDriver{}, *cfg)
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		db := sql.OpenDB(connector)
+		defer db.Close()
+		conn1, err := db.Conn(context.Background())
+		assertNilF(t, err)
+		defer conn1.Close()
+		runSmokeQueryWithConn(t, conn1)
+		conn2, err := db.Conn(context.Background())
+		assertNilF(t, err)
+		defer conn2.Close()
+		runSmokeQueryWithConn(t, conn2)
+	})
+
+	t.Run("first connection retrieves ID token, remaining ones wait and reuse", func(t *testing.T) {
+		origSamlResponseProvider := defaultSamlResponseProvider
+		defer func() { defaultSamlResponseProvider = origSamlResponseProvider }()
+		defaultSamlResponseProvider = func() samlResponseProvider {
+			return &nonInteractiveSamlResponseProvider{t: t}
+		}
+		wiremock.registerMappings(t, newWiremockMapping("auth/external_browser/parallel_login_successful_flow.json"),
+			newWiremockMapping("select1.json"),
+			newWiremockMapping("close_session.json"))
+		cfg := wiremock.connectionConfig()
+		cfg.Authenticator = AuthTypeExternalBrowser
+		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
+		connector := NewConnector(SnowflakeDriver{}, *cfg)
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		db := sql.OpenDB(connector)
+		defer db.Close()
+		errs := initPoolWithSizeAndReturnErrors(db, 20)
+		assertEqualE(t, len(errs), 0)
+	})
+
+	t.Run("first connection fails, second retrieves ID token, remaining ones wait and reuse", func(t *testing.T) {
+		origSamlResponseProvider := defaultSamlResponseProvider
+		defer func() { defaultSamlResponseProvider = origSamlResponseProvider }()
+		defaultSamlResponseProvider = func() samlResponseProvider {
+			return &nonInteractiveSamlResponseProvider{t: t}
+		}
+		wiremock.registerMappings(t, newWiremockMapping("auth/external_browser/parallel_login_first_fails_then_successful_flow.json"),
+			newWiremockMapping("select1.json"),
+			newWiremockMapping("close_session.json"))
+		cfg := wiremock.connectionConfig()
+		cfg.Authenticator = AuthTypeExternalBrowser
+		cfg.ClientStoreTemporaryCredential = ConfigBoolTrue
+		connector := NewConnector(SnowflakeDriver{}, *cfg)
+		credentialsStorage.deleteCredential(newIDTokenSpec(cfg.Host, cfg.User))
+		db := sql.OpenDB(connector)
+		defer db.Close()
+		errs := initPoolWithSizeAndReturnErrors(db, 20)
+		assertEqualE(t, len(errs), 1)
+	})
+}
+
+func TestUnitAuthenticateWithConfigExternalBrowserWithFailedSAMLResponse(t *testing.T) {
 	var err error
 	sr := &snowflakeRestful{
 		FuncPostAuthSAML: postAuthSAMLError,
@@ -957,7 +1127,7 @@ func TestOktaRetryWithNewToken(t *testing.T) {
 		FuncPostAuthSAML: postAuthSAMLAuthSuccess,
 		FuncPostAuthOKTA: postAuthOKTASuccess,
 		FuncGetSSO:       getSSOSuccess,
-		FuncPostAuth:     postAuthOktaWithNewToken,
+		FuncPostAuth:     restfulTestWrapper{t: t}.postAuthOktaWithNewToken,
 		TokenAccessor:    getSimpleTokenAccessor(),
 	}
 	sc := getDefaultSnowflakeConn()
@@ -1021,6 +1191,27 @@ func TestPatSuccessfulFlow(t *testing.T) {
 	assertEqualE(t, v, 1)
 }
 
+func TestPatTokenRotation(t *testing.T) {
+	dir := t.TempDir()
+	tokenFilePath := filepath.Join(dir, "tokenFile")
+	assertNilF(t, os.WriteFile(tokenFilePath, []byte("some PAT"), 0644))
+
+	cfg := wiremock.connectionConfig()
+	cfg.Authenticator = AuthTypePat
+	cfg.TokenFilePath = tokenFilePath
+	wiremock.registerMappings(t,
+		wiremockMapping{filePath: "auth/pat/reading_fresh_token.json"},
+	)
+	connector := NewConnector(SnowflakeDriver{}, *cfg)
+	db := sql.OpenDB(connector)
+	_, err := db.Conn(context.Background())
+	assertNilF(t, err)
+
+	assertNilF(t, os.WriteFile(tokenFilePath, []byte("some PAT 2"), 0644))
+	_, err = db.Conn(context.Background())
+	assertNilF(t, err)
+}
+
 func TestPatInvalidToken(t *testing.T) {
 	wiremock.registerMappings(t,
 		wiremockMapping{filePath: "auth/pat/invalid_token.json"},
@@ -1033,7 +1224,7 @@ func TestPatInvalidToken(t *testing.T) {
 	_, err := db.Query("SELECT 1")
 	assertNotNilF(t, err)
 	var se *SnowflakeError
-	assertTrueF(t, errors.As(err, &se))
+	assertErrorsAsF(t, err, &se)
 	assertEqualE(t, se.Number, 394400)
 	assertEqualE(t, se.Message, "Programmatic access token is invalid.")
 }

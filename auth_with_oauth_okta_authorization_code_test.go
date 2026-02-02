@@ -1,7 +1,6 @@
 package gosnowflake
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -9,11 +8,6 @@ import (
 )
 
 func TestOauthOktaAuthorizationCodeSuccessful(t *testing.T) {
-	logLevel := GetLogger().GetLogLevel()
-	_ = GetLogger().SetLogLevel("debug")
-	defer func() {
-		_ = GetLogger().SetLogLevel(logLevel)
-	}()
 	cfg := setupOauthOktaAuthorizationCodeTest(t)
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -44,7 +38,7 @@ func TestOauthOktaAuthorizationCodeMismatchedUsername(t *testing.T) {
 		cfg.User = "fakeUser@snowflake.com"
 		err := verifyConnectionToSnowflakeAuthTests(t, cfg)
 		var snowflakeErr *SnowflakeError
-		assertTrueF(t, errors.As(err, &snowflakeErr))
+		assertErrorsAsF(t, err, &snowflakeErr)
 		assertEqualE(t, snowflakeErr.Number, 390309, fmt.Sprintf("Expected 390309, but got %v", snowflakeErr.Number))
 	}()
 	wg.Wait()

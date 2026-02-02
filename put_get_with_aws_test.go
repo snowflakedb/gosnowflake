@@ -125,7 +125,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 		}
 
 		s3Util := new(snowflakeS3Client)
-		s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
+		s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false, &snowflakeTelemetry{})
 		if err != nil {
 			t.Error(err)
 		}
@@ -168,7 +168,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 				AwsSecretKey: data.Data.StageInfo.Creds.AwsSecretKey,
 			},
 		}
-		s3Cli, err = s3Util.createClient(&info, false)
+		s3Cli, err = s3Util.createClient(&info, false, &snowflakeTelemetry{})
 		if err != nil {
 			t.Error(err)
 		}
@@ -224,7 +224,7 @@ func TestPretendToPutButList(t *testing.T) {
 		}
 
 		s3Util := new(snowflakeS3Client)
-		s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false)
+		s3Cli, err := s3Util.createClient(&data.Data.StageInfo, false, &snowflakeTelemetry{})
 		if err != nil {
 			t.Error(err)
 		}

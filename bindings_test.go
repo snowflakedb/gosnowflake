@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"log"
 	"math"
@@ -43,19 +44,10 @@ const (
 	disableLargeVarcharAndBinary = "ALTER SESSION SET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT=FALSE"
 	unsetLargeVarcharAndBinary   = "ALTER SESSION UNSET ENABLE_LARGE_VARCHAR_AND_BINARY_IN_RESULT"
 
-	maxVarcharAndBinarySizeParam = "varchar_and_binary_max_size_in_result"
-
-	originSize = 16 * 1024 * 1024
-	smallSize  = 16
+	smallSize = 16 * 1024 * 1024 // 16 MB - right at LOB threshold
+	largeSize = 64 * 1024 * 1024 // 64 MB - well above LOB threshold
 	// range to use for generating random numbers
 	lobRandomRange = 100000
-)
-
-var (
-	// maxLOBSize = 128 * 1024 * 1024 // new max LOB size
-	maxLOBSize = 16 * 1024 * 1024 // current max LOB size
-	largeSize  = maxLOBSize / 2
-	mediumSize = largeSize / 2
 )
 
 func TestBindingFloat64(t *testing.T) {
@@ -878,6 +870,70 @@ func TestBulkArrayBinding(t *testing.T) {
 	})
 }
 
+func TestSupportedDecfloatBind(t *testing.T) {
+	t.Run("dont panic on nil UUID", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilUUID *UUID
+		nv := driver.NamedValue{Value: nilUUID}
+		shouldBind := supportedDecfloatBind(&nv) // should not panic and return false
+		assertFalseE(t, shouldBind, "expected not to support binding nil *UUID")
+	})
+
+	t.Run("dont panic on nil pointer array", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilArray *[]string
+		nv := driver.NamedValue{Value: nilArray}
+		shouldBind := supportedDecfloatBind(&nv) // should not panic and return false
+		assertFalseE(t, shouldBind, "expected not to support binding nil []string")
+	})
+
+	t.Run("dont panic on nil pointer", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilTime *time.Time
+		nv := driver.NamedValue{Value: nilTime}
+		shouldBind := supportedDecfloatBind(&nv) // should not panic and return false
+		assertFalseE(t, shouldBind, "expected not to support binding nil *time.Time")
+	})
+
+	t.Run("dont panic on nil *big.Float", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("expected not to panic, but did panic")
+			}
+		}()
+		var nilBigFloat *big.Float
+		nv := driver.NamedValue{Value: nilBigFloat}
+		shouldBind := supportedDecfloatBind(&nv) // should not panic and return false
+		assertFalseE(t, shouldBind, "expected not to support binding nil *big.Float")
+	})
+
+	t.Run("Is Valid for big.Float", func(t *testing.T) {
+		val := big.NewFloat(123.456)
+		nv := driver.NamedValue{Value: val}
+		shouldBind := supportedDecfloatBind(&nv)
+		assertTrueE(t, shouldBind, "expected to support binding big.Float")
+	})
+
+	t.Run("Is Not Valid for other types", func(t *testing.T) {
+		val := 123.456 // float64
+		nv := driver.NamedValue{Value: val}
+		shouldBind := supportedDecfloatBind(&nv)
+		assertFalseE(t, shouldBind, "expected not to support binding float64")
+	})
+}
+
 func TestBindingsWithSameValue(t *testing.T) {
 	arrayInsertTable := "test_array_binding_insert"
 	stageBindingTable := "test_stage_binding_insert"
@@ -1293,11 +1349,8 @@ func TestVariousBindingModes(t *testing.T) {
 		{"timestamp_ntzAndTypedNullTime", "timestamp_ntz", TypedNullTime{sql.NullTime{}, TimestampNTZType}, true},
 		{"timestamp_ltzAndTypedNullTime", "timestamp_ltz", TypedNullTime{sql.NullTime{}, TimestampLTZType}, true},
 		{"timestamp_tzAndTypedNullTime", "timestamp_tz", TypedNullTime{sql.NullTime{}, TimestampTZType}, true},
-		{"LOBSmallSize", fmt.Sprintf("varchar(%v)", smallSize), randomString(smallSize), false},
-		{"LOBOriginSize", fmt.Sprintf("varchar(%v)", originSize), randomString(originSize), false},
-		{"LOBMediumSize", fmt.Sprintf("varchar(%v)", mediumSize), randomString(mediumSize), false},
-		{"LOBLargeSize", fmt.Sprintf("varchar(%v)", largeSize), randomString(largeSize), false},
-		{"LOBMaxSize", fmt.Sprintf("varchar(%v)", maxLOBSize), randomString(maxLOBSize), false},
+		{"LOBSmallSize", fmt.Sprintf("varchar(%v)", smallSize), fastStringGeneration(smallSize), false},
+		{"LOBLargeSize", fmt.Sprintf("varchar(%v)", largeSize), fastStringGeneration(largeSize), false},
 	}
 
 	bindingModes := []struct {
@@ -1369,15 +1422,6 @@ func TestLOBRetrievalWithJSON(t *testing.T) {
 
 func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 	runDBTest(t, func(dbt *DBTest) {
-		parameters := dbt.connParams()
-		varcharBinaryMaxSizeRaw := parameters[maxVarcharAndBinarySizeParam]
-		if varcharBinaryMaxSizeRaw != nil && *varcharBinaryMaxSizeRaw != "" {
-			varcharBinaryMaxSize, err := strconv.ParseFloat(*varcharBinaryMaxSizeRaw, 64)
-			assertNilF(t, err, "error during varcharBinaryMaxSize conversion")
-			maxLOBSize = int(varcharBinaryMaxSize)
-		}
-
-		dbt.Logf("using %v as max LOB size", maxLOBSize)
 		if useArrowFormat {
 			dbt.mustExec(forceARROW)
 		} else {
@@ -1385,8 +1429,7 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 		}
 
 		var res string
-		// the LOB sizes to be tested
-		testSizes := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
+		testSizes := [2]int{smallSize, largeSize}
 		for _, testSize := range testSizes {
 			t.Run(fmt.Sprintf("testLOB_%v_useArrowFormat=%v", strconv.Itoa(testSize), strconv.FormatBool(useArrowFormat)), func(t *testing.T) {
 				rows, err := dbt.query(fmt.Sprintf("SELECT randstr(%v, 124)", testSize))
@@ -1404,7 +1447,6 @@ func testLOBRetrieval(t *testing.T, useArrowFormat bool) {
 				assertEqualF(t, len(res), testSize)
 			})
 		}
-		dbt.mustExec(unsetFeatureMaxLOBSize)
 	})
 }
 
@@ -1472,10 +1514,7 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		c3Size   int
 	}{
 		{"testLOBInsertSmallSize", smallSize, smallSize, lobRandomRange},
-		{"testLOBInsertOriginSize", originSize, originSize, lobRandomRange},
-		{"testLOBInsertMediumSize", mediumSize, originSize, lobRandomRange},
-		{"testLOBInsertLargeSize", largeSize, originSize, lobRandomRange},
-		{"testLOBInsertMaxSize", maxLOBSize, originSize, lobRandomRange},
+		{"testLOBInsertLargeSize", largeSize, smallSize, lobRandomRange},
 	}
 
 	runDBTest(t, func(dbt *DBTest) {
@@ -1492,9 +1531,8 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 
 		for _, tc := range testCases {
 			t.Run(tc.testDesc, func(t *testing.T) {
-				// initialize test data
-				c1Data := randomString(tc.c1Size)
-				c2Data := randomString(tc.c2Size)
+				c1Data := fastStringGeneration(tc.c1Size)
+				c2Data := fastStringGeneration(tc.c2Size)
 				c3Data := rand.Intn(tc.c3Size)
 
 				dbt.mustExec(fmt.Sprintf("CREATE OR REPLACE TABLE lob_test_table (c1 varchar(%v), c2 varchar(%v), c3 int)", tc.c1Size, tc.c2Size))
@@ -1550,6 +1588,34 @@ func testInsertLOBData(t *testing.T, useArrowFormat bool, isLiteral bool) {
 		}
 		dbt.mustExec(unsetFeatureMaxLOBSize)
 	})
+}
+
+func fastStringGeneration(size int) string {
+	if size <= 0 {
+		return ""
+	}
+
+	pattern := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	patternLen := len(pattern)
+
+	if size <= patternLen {
+		return pattern[:size]
+	}
+
+	fullRepeats := size / patternLen
+	remainder := size % patternLen
+
+	var result strings.Builder
+	result.Grow(size)
+
+	fullPattern := strings.Repeat(pattern, fullRepeats)
+	result.WriteString(fullPattern)
+
+	if remainder > 0 {
+		result.WriteString(pattern[:remainder])
+	}
+
+	return result.String()
 }
 
 func getRandomDate() time.Time {

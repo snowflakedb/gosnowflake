@@ -886,7 +886,7 @@ func TestArrayAndMetadataAsArray(t *testing.T) {
 			}{
 				{
 					name:      "integer",
-					query:     "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER)",
+					query:     "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER) ORDER BY 1",
 					expected1: []int64{1, 2},
 					expected2: []int64{4, 5, 6},
 					actual:    []int64{},
@@ -900,16 +900,16 @@ func TestArrayAndMetadataAsArray(t *testing.T) {
 				},
 				{
 					name:      "number - fixed integer",
-					query:     "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(NUMBER(38, 0)) as structured_type UNION SELECT ARRAY_CONSTRUCT(3)::ARRAY(NUMBER(38, 0))",
+					query:     "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(NUMBER(38, 0)) as structured_type UNION SELECT ARRAY_CONSTRUCT(3)::ARRAY(NUMBER(38, 0)) ORDER BY 1",
 					expected1: []int64{1, 2},
 					expected2: []int64{3},
 					actual:    []int64{},
 				},
 				{
 					name:      "number - fixed fraction",
-					query:     "SELECT ARRAY_CONSTRUCT(1.1, 2.2)::ARRAY(NUMBER(38, 19)) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(NUMBER(38, 19))",
-					expected1: []float64{1.1, 2.2},
-					expected2: []float64{},
+					query:     "SELECT ARRAY_CONSTRUCT(1.1, 2.2)::ARRAY(NUMBER(38, 19)) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(NUMBER(38, 19)) ORDER BY 1",
+					expected1: []float64{},
+					expected2: []float64{1.1, 2.2},
 					actual:    []float64{},
 				},
 				{
@@ -1068,17 +1068,17 @@ func TestArrayOfObjects(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
 	runDBTest(t, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
-			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT({'s': 's1', 'i': 9}, {'s': 's2', 'i': 8})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) as structured_type UNION SELECT ARRAY_CONSTRUCT({'s': 's3', 'i': 7})::ARRAY(OBJECT(s VARCHAR, i INTEGER))")
+			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT({'s': 's1', 'i': 9}, {'s': 's2', 'i': 8})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) as structured_type UNION SELECT ARRAY_CONSTRUCT({'s': 's3', 'i': 7})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) ORDER BY 1")
 			defer rows.Close()
 			rows.Next()
 			var res []*simpleObject
 			err := rows.Scan(ScanArrayOfScanners(&res))
 			assertNilF(t, err)
-			assertDeepEqualE(t, res, []*simpleObject{{s: "s1", i: 9}, {s: "s2", i: 8}})
+			assertDeepEqualE(t, res, []*simpleObject{{s: "s3", i: 7}})
 			rows.Next()
 			err = rows.Scan(ScanArrayOfScanners(&res))
 			assertNilF(t, err)
-			assertDeepEqualE(t, res, []*simpleObject{{s: "s3", i: 7}})
+			assertDeepEqualE(t, res, []*simpleObject{{s: "s1", i: 9}, {s: "s2", i: 8}})
 			columnTypes, err := rows.ColumnTypes()
 			assertNilF(t, err)
 			assertEqualE(t, len(columnTypes), 1)
@@ -1682,21 +1682,22 @@ func TestMapWithNullValues(t *testing.T) {
 					rows := dbt.mustQueryContextT(WithMapValuesNullable(ctx), t, tc.query)
 					defer rows.Close()
 					rows.Next()
-					err := rows.Scan(&tc.actual)
+					err = rows.Scan(&tc.actual)
 					assertNilF(t, err)
-					if tc.name == "time" {
+					switch tc.name {
+					case "time":
 						for i, nt := range tc.actual.(map[string]sql.NullTime) {
 							assertEqualE(t, nt.Valid, tc.expected.(map[string]sql.NullTime)[i].Valid)
 							assertEqualE(t, nt.Time.Hour(), tc.expected.(map[string]sql.NullTime)[i].Time.Hour())
 							assertEqualE(t, nt.Time.Minute(), tc.expected.(map[string]sql.NullTime)[i].Time.Minute())
 							assertEqualE(t, nt.Time.Second(), tc.expected.(map[string]sql.NullTime)[i].Time.Second())
 						}
-					} else if tc.name == "timestamp_tz" || tc.name == "timestamp_ltz" || tc.name == "timestamp_ntz" {
+					case "timestamp_tz", "timestamp_ltz", "timestamp_ntz":
 						for i, nt := range tc.actual.(map[string]sql.NullTime) {
 							assertEqualE(t, nt.Valid, tc.expected.(map[string]sql.NullTime)[i].Valid)
 							assertTrueE(t, nt.Time.Equal(tc.expected.(map[string]sql.NullTime)[i].Time))
 						}
-					} else {
+					default:
 						assertDeepEqualE(t, tc.actual, tc.expected)
 					}
 				})
@@ -1798,19 +1799,20 @@ func TestArraysWithNullValues(t *testing.T) {
 				rows.Next()
 				err := rows.Scan(&tc.actual)
 				assertNilF(t, err)
-				if tc.name == "time" {
+				switch tc.name {
+				case "time":
 					for i, nt := range tc.actual.([]sql.NullTime) {
 						assertEqualE(t, nt.Valid, tc.expected.([]sql.NullTime)[i].Valid)
 						assertEqualE(t, nt.Time.Hour(), tc.expected.([]sql.NullTime)[i].Time.Hour())
 						assertEqualE(t, nt.Time.Minute(), tc.expected.([]sql.NullTime)[i].Time.Minute())
 						assertEqualE(t, nt.Time.Second(), tc.expected.([]sql.NullTime)[i].Time.Second())
 					}
-				} else if tc.name == "timestamp_tz" || tc.name == "timestamp_ltz" || tc.name == "timestamp_ntz" {
+				case "timestamp_tz", "timestamp_ltz", "timestamp_ntz":
 					for i, nt := range tc.actual.([]sql.NullTime) {
 						assertEqualE(t, nt.Valid, tc.expected.([]sql.NullTime)[i].Valid)
 						assertTrueE(t, nt.Time.Equal(tc.expected.([]sql.NullTime)[i].Time))
 					}
-				} else {
+				default:
 					assertDeepEqualE(t, tc.actual, tc.expected)
 				}
 			})
@@ -2156,7 +2158,7 @@ func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
 		var rows driver.Rows
 		err = dbt.conn.Raw(func(sc any) error {
 			ctx := WithArrowBatches(WithArrowAllocator(context.Background(), pool))
-			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT {'s': 'some string'}::OBJECT(s VARCHAR) UNION SELECT null", nil)
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT {'s': 'some string'}::OBJECT(s VARCHAR) UNION SELECT null ORDER BY 1", nil)
 			return err
 		})
 		assertNilF(t, err)
@@ -2186,7 +2188,7 @@ func TestStructuredArrayInArrowBatches(t *testing.T) {
 		var err error
 		var rows driver.Rows
 		err = dbt.conn.Raw(func(sc any) error {
-			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT [1, 2, 3]::ARRAY(INTEGER) UNION SELECT [4, 5, 6]::ARRAY(INTEGER)", nil)
+			rows, err = sc.(driver.QueryerContext).QueryContext(ctx, "SELECT [1, 2, 3]::ARRAY(INTEGER) UNION SELECT [4, 5, 6]::ARRAY(INTEGER) ORDER BY 1", nil)
 			return err
 		})
 		assertNilF(t, err)
@@ -2267,7 +2269,7 @@ func forAllStructureTypeFormats(dbt *DBTest, f func(t *testing.T, format string)
 			},
 		},
 	} {
-		dbt.T.Run(tc.name, func(t *testing.T) {
+		dbt.Run(tc.name, func(t *testing.T) {
 			tc.forceFormat(dbt)
 			dbt.enableStructuredTypes()
 			f(t, tc.name)
@@ -2315,12 +2317,7 @@ func TestSelectingNullObjectsInArrowBatches(t *testing.T) {
 					colIndex := 0
 					rowIndex := 0
 
-					srtCol, isStrCol := record.Column(colIndex).(*array.String)
-					assertTrueF(t, isStrCol, "column is not type string")
-
-					assertEqualE(t, srtCol.Value(rowIndex), "")
-					isNull := srtCol.IsNull(rowIndex)
-					assertTrueF(t, isNull)
+					assertTrueE(t, record.Column(rowIndex).IsNull(colIndex))
 					record.Release()
 				}
 

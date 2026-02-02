@@ -1,0 +1,29 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/queries/v1/query-request.*",
+        "method": "POST",
+        "headers": {
+          "Authorization": {
+            "matches": ".*"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "code": "333334",
+          "data": {
+            "getResultUrl": "/queries/01bfd516-0009-ae23-0000-4c390101d1aa/result",
+            "progressDesc": null,
+            "queryAbortsAfterSecs": 300,
+            "queryId": "01bfd516-0009-ae23-0000-4c390101d1aa"
+          },
+          "message": "Asynchronous execution in progress. Use provided query id to perform query monitoring and management.",
+          "success": true
+        }
+      }
+    }
+  ]
+}

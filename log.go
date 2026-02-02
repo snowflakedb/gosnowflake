@@ -98,6 +98,7 @@ type SFLogger interface {
 }
 
 // SFCallerPrettyfier to provide base file name and function name from calling frame used in SFLogger
+// Deprecated: will be unexported in the future releases.
 func SFCallerPrettyfier(frame *runtime.Frame) (string, string) {
 	return path.Base(frame.Function), fmt.Sprintf("%s:%d", path.Base(frame.File), frame.Line)
 }
@@ -184,10 +185,12 @@ func (log *defaultLogger) WithContext(ctxs ...context.Context) LogEntry {
 }
 
 // CreateDefaultLogger return a new instance of SFLogger with default config
+// Deprecated: will be reorganized in the future releases.
 func CreateDefaultLogger() SFLogger {
 	var rLogger = rlog.New()
 	var formatter = new(sfTextFormatter)
 	formatter.CallerPrettyfier = SFCallerPrettyfier
+	formatter.TimestampFormat = time.RFC3339Nano
 	rLogger.SetFormatter(formatter)
 	rLogger.SetReportCaller(true)
 	var ret = defaultLogger{inner: rLogger, enabled: true}
@@ -503,11 +506,13 @@ func (log *defaultLogger) SetReportCaller(reportCaller bool) {
 }
 
 // SetLogger set a new logger of SFLogger interface for gosnowflake
+// Deprecated: will be reorganized in the future releases.
 func SetLogger(inLogger *SFLogger) {
 	logger = *inLogger //.(*defaultLogger)
 }
 
 // GetLogger return logger that is not public
+// Deprecated: will be reorganized in the future releases.
 func GetLogger() SFLogger {
 	return logger
 }

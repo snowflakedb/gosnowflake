@@ -148,33 +148,6 @@ func postTestAfterRenew(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ ma
 	}, nil
 }
 
-func cancelTestRetry(ctx context.Context, sr *snowflakeRestful, requestID UUID, timeout time.Duration) error {
-	ctxRetry := getCancelRetry(ctx)
-	u := url.URL{}
-	reqByte, err := json.Marshal(make(map[string]string))
-	if err != nil {
-		return err
-	}
-	resp, err := sr.FuncPost(ctx, sr, &u, getHeaders(), reqByte, timeout, defaultTimeProvider, nil)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode == http.StatusOK {
-		var respd cancelQueryResponse
-		err = json.NewDecoder(resp.Body).Decode(&respd)
-		if err != nil {
-			return err
-		}
-		if !respd.Success && respd.Code == queryNotExecutingCode && ctxRetry != 0 {
-			return sr.FuncCancelQuery(context.WithValue(ctx, cancelRetry, ctxRetry-1), sr, requestID, timeout)
-		}
-		if ctxRetry == 0 {
-			return nil
-		}
-	}
-	return fmt.Errorf("cancel retry failed")
-}
-
 func TestUnitPostQueryHelperError(t *testing.T) {
 	sr := &snowflakeRestful{
 		FuncPost:      postTestError,
@@ -611,11 +584,93 @@ func TestCancelRetry(t *testing.T) {
 	sr := &snowflakeRestful{
 		TokenAccessor:   getSimpleTokenAccessor(),
 		FuncPost:        postTestQueryNotExecuting,
-		FuncCancelQuery: cancelTestRetry,
+		FuncCancelQuery: cancelQuery,
 	}
 	ctx := context.Background()
 	err := cancelQuery(ctx, sr, getOrGenerateRequestIDFromContext(ctx), time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestPostRestfulQueryContextErrors(t *testing.T) {
+	var cancelCalled bool
+	newRestfulWithError := func(queryErr error) *snowflakeRestful {
+		cancelCalled = false
+		return &snowflakeRestful{
+			FuncPostQueryHelper: func(context.Context, *snowflakeRestful, *url.Values, map[string]string, []byte, time.Duration, UUID, *Config) (*execResponse, error) {
+				return nil, queryErr
+			},
+			FuncCancelQuery: func(context.Context, *snowflakeRestful, UUID, time.Duration) error {
+				cancelCalled = true
+				return nil
+			},
+			TokenAccessor: getSimpleTokenAccessor(),
+		}
+	}
+	runPostRestfulQuery := func(sr *snowflakeRestful) (data *execResponse, err error) {
+		return postRestfulQuery(context.Background(), sr, &url.Values{}, nil, nil, 0, NewUUID(), nil)
+	}
+
+	t.Run("postRestfulQuery error does not trigger cancel", func(t *testing.T) {
+		expectedErr := fmt.Errorf("query error")
+		sr := newRestfulWithError(expectedErr)
+		_, err := runPostRestfulQuery(sr)
+		assertFalseE(t, cancelCalled)
+		assertErrIsE(t, expectedErr, err)
+	})
+
+	t.Run("context.Canceled triggers cancel", func(t *testing.T) {
+		sr := newRestfulWithError(context.Canceled)
+		_, err := runPostRestfulQuery(sr)
+		assertTrueE(t, cancelCalled)
+		assertErrIsE(t, context.Canceled, err)
+	})
+
+	t.Run("context.DeadlineExceeded triggers cancel", func(t *testing.T) {
+		sr := newRestfulWithError(context.DeadlineExceeded)
+		_, err := runPostRestfulQuery(sr)
+		assertTrueE(t, cancelCalled)
+		assertErrIsE(t, context.DeadlineExceeded, err)
+	})
+
+	t.Run("cancel failure returns wrapped error", func(t *testing.T) {
+		fatalCancelErr := fmt.Errorf("fatal failure")
+		sr := newRestfulWithError(context.Canceled)
+		sr.FuncCancelQuery = func(context.Context, *snowflakeRestful, UUID, time.Duration) error {
+			cancelCalled = true
+			return fatalCancelErr
+		}
+		_, err := runPostRestfulQuery(sr)
+		assertTrueE(t, cancelCalled)
+		assertErrIsE(t, err, context.Canceled)
+		assertErrIsE(t, err, fatalCancelErr)
+		assertEqualE(t, "failed to cancel query. cancelErr: fatal failure, queryErr: context canceled", err.Error())
+	})
+}
+
+func TestErrorReturnedFromLongRunningQuery(t *testing.T) {
+	t.Run("e2e test", func(t *testing.T) {
+		t.Skip("long running test, uncomment to run manually, otherwise the test on mocks should be sufficient")
+		db := openDB(t)
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+		defer cancel()
+		_, err := db.ExecContext(ctx, "CALL SYSTEM$WAIT(55, 'SECONDS')")
+		assertNotNilF(t, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
+	})
+
+	t.Run("mock test", func(t *testing.T) {
+		wiremock.registerMappings(t,
+			newWiremockMapping("auth/password/successful_flow.json"),
+			newWiremockMapping("query/long_running_query.json"),
+			newWiremockMapping("query/query_by_id_timeout.json"),
+		)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		db := wiremock.openDb(t)
+		_, err := db.QueryContext(ctx, "SELECT 1")
+		assertNotNilF(t, err)
+		assertErrIsE(t, err, context.DeadlineExceeded)
+	})
 }

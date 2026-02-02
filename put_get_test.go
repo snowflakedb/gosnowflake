@@ -1,17 +1,19 @@
 package gosnowflake
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"io"
 	"math/rand"
 	"os"
 	"os/user"
-	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -446,9 +448,7 @@ func testPutGet(t *testing.T, isStream bool) {
 			" (a int, b string)")
 		defer dbt.mustExec("drop table " + tableName)
 		fileStream, err := os.Open(fname)
-		if err != nil {
-			t.Error(err)
-		}
+		assertNilF(t, err)
 		defer func() {
 			assertNilF(t, fileStream.Close())
 		}()
@@ -460,11 +460,11 @@ func testPutGet(t *testing.T, isStream bool) {
 		if isStream {
 			sqlText = fmt.Sprintf(
 				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
-			rows = dbt.mustQueryContext(WithFileStream(ctx, fileStream), sqlText)
+			rows = dbt.mustQueryContextT(WithFileStream(ctx, fileStream), t, sqlText)
 		} else {
 			sqlText = fmt.Sprintf(
 				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
-			rows = dbt.mustQuery(sqlText)
+			rows = dbt.mustQueryT(t, sqlText)
 		}
 		defer func() {
 			assertNilF(t, rows.Close())
@@ -472,20 +472,16 @@ func testPutGet(t *testing.T, isStream bool) {
 
 		var s0, s1, s2, s3, s4, s5, s6, s7 string
 		assertTrueF(t, rows.Next(), "expected new rows")
-		if err = rows.Scan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7); err != nil {
-			t.Fatal(err)
-		}
-		if s6 != uploaded.String() {
-			t.Fatalf("expected %v, got: %v", uploaded, s6)
-		}
+		rows.mustScan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7)
+		assertEqualF(t, s6, uploaded.String())
 		// check file is PUT
 		dbt.mustQueryAssertCount("ls @%"+tableName, 1)
 
-		dbt.mustExec("copy into " + tableName)
-		dbt.mustExec("rm @%" + tableName)
+		dbt.mustExecT(t, "copy into "+tableName)
+		dbt.mustExecT(t, "rm @%"+tableName)
 		dbt.mustQueryAssertCount("ls @%"+tableName, 0)
 
-		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
+		dbt.mustExecT(t, fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
 			compression='gzip')`, tableName, tableName))
 
 		var streamBuf bytes.Buffer
@@ -493,34 +489,26 @@ func testPutGet(t *testing.T, isStream bool) {
 			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
 			ctx = WithFileGetStream(ctx, &streamBuf)
 		}
-		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sql = fmt.Sprintf("get @%%%v 'file://%v' parallel=10", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
-		rows2 := dbt.mustQueryContext(ctx, sqlText)
+		rows2 := dbt.mustQueryContextT(ctx, t, sqlText)
 		defer func() {
 			assertNilF(t, rows2.Close())
 		}()
 		for rows2.Next() {
-			if err = rows2.Scan(&s0, &s1, &s2, &s3); err != nil {
-				t.Error(err)
-			}
-			if !strings.HasPrefix(s0, "data_") {
-				t.Error("a file was not downloaded by GET")
-			}
-			if v, err := strconv.Atoi(s1); err != nil || v != 36 {
-				t.Error("did not return the right file size")
-			}
-			if s2 != "DOWNLOADED" {
-				t.Error("did not return DOWNLOADED status")
-			}
-			if s3 != "" {
-				t.Errorf("returned %v", s3)
-			}
+			rows2.mustScan(&s0, &s1, &s2, &s3)
+			assertHasPrefixF(t, s0, "data_")
+			v, err := strconv.Atoi(s1)
+			assertNilF(t, err)
+			assertEqualE(t, v, 36)
+			assertEqualE(t, s2, "DOWNLOADED")
+			assertEqualE(t, s3, "")
 		}
 
 		var contents string
 		if isStream {
 			gz, err := gzip.NewReader(&streamBuf)
-			assertNilE(t, err)
+			assertNilF(t, err)
 			defer func() {
 				assertNilF(t, gz.Close())
 			}()
@@ -531,25 +519,23 @@ func testPutGet(t *testing.T, isStream bool) {
 						contents = contents + string(c[:n])
 						break
 					}
-					t.Error(err)
+					t.Fatal(err)
 				} else {
 					contents = contents + string(c[:n])
 				}
 			}
 		} else {
 			files, err := filepath.Glob(filepath.Join(tmpDir, "data_*"))
-			if err != nil {
-				t.Fatal(err)
-			}
+			assertNilF(t, err)
 			fileName := files[0]
 			f, err := os.Open(fileName)
-			assertNilE(t, err)
+			assertNilF(t, err)
 			defer func() {
 				assertNilF(t, f.Close())
 			}()
 
 			gz, err := gzip.NewReader(f)
-			assertNilE(t, err)
+			assertNilF(t, err)
 			defer func() {
 				assertNilF(t, gz.Close())
 			}()
@@ -561,7 +547,7 @@ func testPutGet(t *testing.T, isStream bool) {
 						contents = contents + string(c[:n])
 						break
 					}
-					t.Error(err)
+					t.Fatal(err)
 				} else {
 					contents = contents + string(c[:n])
 				}
@@ -570,6 +556,232 @@ func testPutGet(t *testing.T, isStream bool) {
 		assertEqualE(t, contents, originalContents, "output is different from the original contents")
 	})
 }
+
+func TestPutGetWithSnowflakeSSE(t *testing.T) {
+	tmpDir := t.TempDir()
+	cwd, err := os.Getwd()
+	assertNilF(t, err)
+	sourceFilePath := filepath.Join(cwd, "test_data", "orders_100.csv")
+
+	originalContents, err := os.ReadFile(sourceFilePath)
+	assertNilF(t, err)
+
+	runDBTest(t, func(dbt *DBTest) {
+		for _, useStream := range []bool{true, false} {
+			t.Run(fmt.Sprintf("useStream=%v", useStream), func(t *testing.T) {
+				stageName := "test_stage_sse_" + randomString(10)
+				dbt.mustExec(fmt.Sprintf("CREATE STAGE %s ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')", stageName))
+				defer dbt.mustExec("DROP STAGE " + stageName)
+
+				uploadCtx := context.Background()
+				if useStream {
+					fileStream, err := os.Open(sourceFilePath)
+					assertNilF(t, err)
+					defer fileStream.Close()
+					uploadCtx = WithFileStream(uploadCtx, fileStream)
+				}
+				rows := dbt.mustQueryContextT(uploadCtx, t, fmt.Sprintf("PUT 'file://%s' @%s", strings.ReplaceAll(sourceFilePath, "\\", "\\\\"), stageName))
+				defer rows.Close()
+
+				var s0, s1, s2, s3, s4, s5, s6, s7 string
+				assertTrueF(t, rows.Next(), "expected new rows")
+				rows.mustScan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7)
+				assertEqualF(t, s6, uploaded.String())
+
+				downloadCtx := context.Background()
+				var downloadBuf bytes.Buffer
+				if useStream {
+					downloadCtx = WithFileGetStream(downloadCtx, &downloadBuf)
+					downloadCtx = WithFileTransferOptions(downloadCtx, &SnowflakeFileTransferOptions{GetFileToStream: true})
+				}
+				rows2 := dbt.mustQueryContextT(downloadCtx, t, fmt.Sprintf("GET @%s 'file://%s'", stageName, strings.ReplaceAll(tmpDir, "\\", "\\\\")))
+				defer rows2.Close()
+
+				assertTrueF(t, rows2.Next(), "expected new rows")
+				rows2.mustScan(&s0, &s1, &s2, &s3)
+				assertEqualF(t, s2, "DOWNLOADED")
+
+				var compressedData []byte
+				if useStream {
+					compressedData, err = io.ReadAll(&downloadBuf)
+					assertNilF(t, err)
+				} else {
+					downloadedFilePath := filepath.Join(tmpDir, "orders_100.csv.gz")
+					compressedData, err = os.ReadFile(downloadedFilePath)
+					assertNilF(t, err)
+				}
+
+				gzReader, err := gzip.NewReader(bytes.NewReader(compressedData))
+				assertNilF(t, err)
+				defer gzReader.Close()
+
+				decompressedData, err := io.ReadAll(gzReader)
+				assertNilF(t, err)
+
+				assertEqualE(t, string(decompressedData), string(originalContents), "downloaded file content does not match original")
+			})
+		}
+	})
+}
+
+func TestPutGetWithSpacesInDirectoryName(t *testing.T) {
+	tmpDir := t.TempDir()
+	cwd, err := os.Getwd()
+	assertNilF(t, err)
+	sourceFilePath := filepath.Join(cwd, "test_data", "orders_100.csv")
+
+	originalContents, err := os.ReadFile(sourceFilePath)
+	assertNilF(t, err)
+
+	runDBTest(t, func(dbt *DBTest) {
+		for _, useStream := range []bool{true, false} {
+			t.Run(fmt.Sprintf("useStream=%v", useStream), func(t *testing.T) {
+				stageName := "test_stage_sse_" + randomString(10)
+				dbt.mustExec(fmt.Sprintf("CREATE STAGE %s", stageName))
+				defer dbt.mustExec("DROP STAGE " + stageName)
+
+				uploadCtx := context.Background()
+				if useStream {
+					fileStream, err := os.Open(sourceFilePath)
+					assertNilF(t, err)
+					defer fileStream.Close()
+					uploadCtx = WithFileStream(uploadCtx, fileStream)
+				}
+				rows := dbt.mustQueryContextT(uploadCtx, t, fmt.Sprintf("PUT 'file://%s' '@%s/dir with spaces'", strings.ReplaceAll(sourceFilePath, "\\", "\\\\"), stageName))
+				defer rows.Close()
+
+				var s0, s1, s2, s3, s4, s5, s6, s7 string
+				assertTrueF(t, rows.Next(), "expected new rows")
+				rows.mustScan(&s0, &s1, &s2, &s3, &s4, &s5, &s6, &s7)
+				assertEqualF(t, s6, uploaded.String())
+
+				downloadCtx := context.Background()
+				var downloadBuf bytes.Buffer
+				if useStream {
+					downloadCtx = WithFileGetStream(downloadCtx, &downloadBuf)
+					downloadCtx = WithFileTransferOptions(downloadCtx, &SnowflakeFileTransferOptions{GetFileToStream: true})
+				}
+				rows2 := dbt.mustQueryContextT(downloadCtx, t, fmt.Sprintf("GET '@%s/dir with spaces' 'file://%s'", stageName, strings.ReplaceAll(tmpDir, "\\", "\\\\")))
+				defer rows2.Close()
+
+				assertTrueF(t, rows2.Next(), "expected new rows")
+				rows2.mustScan(&s0, &s1, &s2, &s3)
+				assertEqualF(t, s2, "DOWNLOADED")
+
+				var compressedData []byte
+				if useStream {
+					compressedData, err = io.ReadAll(&downloadBuf)
+					assertNilF(t, err)
+				} else {
+					downloadedFilePath := filepath.Join(tmpDir, "orders_100.csv.gz")
+					compressedData, err = os.ReadFile(downloadedFilePath)
+					assertNilF(t, err)
+				}
+
+				gzReader, err := gzip.NewReader(bytes.NewReader(compressedData))
+				assertNilF(t, err)
+				defer gzReader.Close()
+
+				decompressedData, err := io.ReadAll(gzReader)
+				assertNilF(t, err)
+
+				assertEqualE(t, string(decompressedData), string(originalContents), "downloaded file content does not match original")
+			})
+		}
+	})
+}
+
+func TestPutWithNonWritableTemp(t *testing.T) {
+	if isWindows {
+		t.Skip("permission system is different")
+	}
+	tempDir := t.TempDir()
+	assertNilF(t, os.Chmod(tempDir, 0000))
+	customDsn := dsn + "&tmpDirPath=" + strings.ReplaceAll(tempDir, "/", "%2F")
+	runDBTestWithConfig(t, &testConfig{dsn: customDsn}, func(dbt *DBTest) {
+		for _, isStream := range []bool{false, true} {
+			t.Run(fmt.Sprintf("isStream=%v", isStream), func(t *testing.T) {
+				stageName := "test_stage_" + randomString(10)
+				cwd, err := os.Getwd()
+				assertNilF(t, err)
+				filePath := fmt.Sprintf("%v/test_data/orders_100.csv", cwd)
+				dbt.mustExecT(t, "CREATE STAGE "+stageName)
+				defer dbt.mustExecT(t, "DROP STAGE "+stageName)
+
+				ctx := context.Background()
+				if isStream {
+					fd, err := os.Open(filePath)
+					assertNilF(t, err)
+					ctx = WithFileStream(ctx, fd)
+				}
+				_, err = dbt.conn.ExecContext(ctx, fmt.Sprintf("PUT 'file://%v' @%v", filePath, stageName))
+				if !isStream {
+					assertNotNilF(t, err)
+					assertStringContainsE(t, err.Error(), "mkdir")
+					assertStringContainsE(t, err.Error(), "permission denied")
+				} else {
+					assertNilF(t, os.Chmod(tempDir, 0755))
+					_ = dbt.mustExecContextT(ctx, t, fmt.Sprintf("GET @%v 'file://%v'", stageName, tempDir))
+					resultBytesCompressed, err := os.ReadFile(filepath.Join(tempDir, "orders_100.csv.gz"))
+					assertNilF(t, err)
+					resultBytesReader, err := gzip.NewReader(bytes.NewReader(resultBytesCompressed))
+					assertNilF(t, err)
+					resultBytes, err := io.ReadAll(resultBytesReader)
+					assertNilF(t, err)
+					inputBytes, err := os.ReadFile(filePath)
+					assertNilF(t, err)
+					assertEqualE(t, string(resultBytes), string(inputBytes))
+				}
+			})
+		}
+	})
+}
+
+func TestGetWithNonWritableTemp(t *testing.T) {
+	if isWindows {
+		t.Skip("permission system is different")
+	}
+	tempDir := t.TempDir()
+	customDsn := dsn + "&tmpDirPath=" + strings.ReplaceAll(tempDir, "/", "%2F")
+	runDBTestWithConfig(t, &testConfig{dsn: customDsn}, func(dbt *DBTest) {
+		stageName := "test_stage_" + randomString(10)
+		cwd, err := os.Getwd()
+		assertNilF(t, err)
+		filePath := fmt.Sprintf("%v/test_data/orders_100.csv", cwd)
+		dbt.mustExecT(t, "CREATE STAGE "+stageName)
+		defer dbt.mustExecT(t, "DROP STAGE "+stageName)
+
+		dbt.mustExecT(t, fmt.Sprintf("PUT 'file://%v' @%v", filePath, stageName))
+		assertNilF(t, os.Chmod(tempDir, 0000))
+
+		for _, isStream := range []bool{false, true} {
+			t.Run(fmt.Sprintf("isStream=%v", isStream), func(t *testing.T) {
+				ctx := context.Background()
+				var resultBuf bytes.Buffer
+				if isStream {
+					ctx = WithFileGetStream(ctx, &resultBuf)
+					ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
+				}
+				_, err = dbt.conn.ExecContext(ctx, fmt.Sprintf("GET @%v 'file://%v'", stageName, tempDir))
+				if !isStream {
+					assertNotNilF(t, err)
+					assertStringContainsE(t, err.Error(), "mkdir")
+					assertStringContainsE(t, err.Error(), "permission denied")
+				} else {
+					assertNilF(t, err)
+					resultBytesReader, err := gzip.NewReader(&resultBuf)
+					assertNilF(t, err)
+					resultBytes, err := io.ReadAll(resultBytesReader)
+					assertNilF(t, err)
+					inputBytes, err := os.ReadFile(filePath)
+					assertNilF(t, err)
+					assertEqualE(t, string(resultBytes), string(inputBytes))
+				}
+			})
+		}
+	})
+}
+
 func TestPutGetGcsDownscopedCredential(t *testing.T) {
 	if runningOnGithubAction() && !runningOnGCP() {
 		t.Skip("skipping non GCP environment")
@@ -595,8 +807,8 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		t.Fatal("could not write to gzip file")
 	}
 
-	dsn = dsn + "&GCS_USE_DOWNSCOPED_CREDENTIAL=true"
-	runDBTest(t, func(dbt *DBTest) {
+	customDsn := dsn + "&GCS_USE_DOWNSCOPED_CREDENTIAL=true"
+	runDBTestWithConfig(t, &testConfig{dsn: customDsn}, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table " + tableName +
 			" (a int, b string)")
 		fileStream, err := os.Open(fname)
@@ -639,7 +851,7 @@ func TestPutGetGcsDownscopedCredential(t *testing.T) {
 		dbt.mustExec(fmt.Sprintf(`copy into @%%%v from %v file_format=(type=csv
             compression='gzip')`, tableName, tableName))
 
-		sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+		sql = fmt.Sprintf("get @%%%v 'file://%v'  parallel=10", tableName, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQuery(sqlText)
 		defer func() {
@@ -706,7 +918,7 @@ func TestPutGetLargeFile(t *testing.T) {
 		dbt.mustExec("rm @~/" + stageDir)
 
 		// PUT test
-		putQuery := fmt.Sprintf("put file://%v/test_data/largefile.txt @~/%v", sourceDir, stageDir)
+		putQuery := fmt.Sprintf("put 'file://%v/test_data/largefile.txt' @~/%v", sourceDir, stageDir)
 		sqlText := strings.ReplaceAll(putQuery, "\\", "\\\\")
 		dbt.mustExec(sqlText)
 		defer dbt.mustExec("rm @~/" + stageDir)
@@ -778,8 +990,8 @@ func TestPutGetLargeFile(t *testing.T) {
 
 func TestPutGetMaxLOBSize(t *testing.T) {
 	t.Skip("fails on CI because of backend testing in progress")
-	// the LOB sizes to be tested
-	testCases := [5]int{smallSize, originSize, mediumSize, largeSize, maxLOBSize}
+
+	testCases := [2]int{smallSize, largeSize}
 
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec("alter session set ALLOW_LARGE_LOBS_IN_EXTERNAL_SCAN = false")
@@ -838,7 +1050,7 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 			compression='gzip')`, tableName, tableName))
 
 				// test GET command
-				sql = fmt.Sprintf("get @%%%v 'file://%v'", tableName, tmpDir)
+				sql = fmt.Sprintf("get @%%%v 'file://%v'  parallel=10", tableName, tmpDir)
 				sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 				rows2 := dbt.mustQuery(sqlText)
 				defer func() {
@@ -891,7 +1103,9 @@ func TestPutGetMaxLOBSize(t *testing.T) {
 func TestPutCancel(t *testing.T) {
 	sourceDir, err := os.Getwd()
 	assertNilF(t, err)
-	testData := path.Join(sourceDir, "/test_data/largefile.txt")
+
+	testData, cleanup := createCancelTestFile(t, sourceDir)
+	defer cleanup()
 
 	stageDir := "test_put_cancel_" + randomString(10)
 
@@ -899,24 +1113,216 @@ func TestPutCancel(t *testing.T) {
 		c := make(chan error)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
-			// attempt to upload a large file, but it should be canceled in 3 seconds
-			_, err := dbt.conn.ExecContext(
+			_, err = dbt.conn.ExecContext(
 				ctx,
 				fmt.Sprintf("put 'file://%v' @~/%v overwrite=true",
 					strings.ReplaceAll(testData, "\\", "/"), stageDir))
-			if err != nil {
-				c <- err
-				return
-			}
-			c <- nil
+			c <- err
+			close(c)
 		}()
-		// cancel after 3 seconds
-		time.Sleep(3 * time.Second)
-		fmt.Println("Canceled")
+		time.Sleep(200 * time.Millisecond)
 		cancel()
 		ret := <-c
 		assertNotNilF(t, ret)
-		assertStringContainsF(t, ret.Error(), "context canceled", "failed to cancel.")
-		close(c)
+		assertErrIsE(t, ret, context.Canceled)
 	})
+}
+
+func TestPutGetLargeFileNonStream(t *testing.T) {
+	testPutGetLargeFile(t, false, true)
+}
+
+func TestPutGetLargeFileNonStreamAutoCompressFalse(t *testing.T) {
+	testPutGetLargeFile(t, false, false)
+}
+
+func TestPutGetLargeFileStream(t *testing.T) {
+	testPutGetLargeFile(t, true, true)
+}
+
+func TestPutGetLargeFileStreamAutoCompressFalse(t *testing.T) {
+	testPutGetLargeFile(t, true, false)
+}
+
+func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
+	sourceDir, err := os.Getwd()
+	assertNilF(t, err)
+
+	fname := createLimitedRealFile(t, sourceDir)
+
+	baseName := filepath.Base(fname)
+	fnameGet := baseName + ".gz"
+	if !autoCompress {
+		fnameGet = baseName
+	}
+
+	runDBTest(t, func(dbt *DBTest) {
+		stageDir := "test_put_largefile_" + randomString(10)
+		dbt.mustExec("rm @~/" + stageDir)
+
+		ctx := context.Background()
+		if isStream {
+			f, err := os.Open(fname)
+			assertNilF(t, err)
+			defer func() {
+				assertNilF(t, f.Close())
+			}()
+			ctx = WithFileStream(ctx, f)
+		}
+
+		// PUT test
+		escapedFname := strings.ReplaceAll(fname, "\\", "\\\\")
+		putQuery := fmt.Sprintf("put 'file://%v' @~/%v auto_compress=true overwrite=true", escapedFname, stageDir)
+		if !autoCompress {
+			putQuery = fmt.Sprintf("put 'file://%v' @~/%v auto_compress=false overwrite=true", escapedFname, stageDir)
+		}
+
+		// Record initial memory stats before PUT
+		var startMemStats, endMemStats runtime.MemStats
+		runtime.ReadMemStats(&startMemStats)
+
+		// Execute PUT command
+		_ = dbt.mustExecContext(ctx, putQuery)
+
+		// Record memory stats after PUT
+		runtime.ReadMemStats(&endMemStats)
+		fmt.Printf("Memory used for PUT command: %d MB\n", (endMemStats.Alloc-startMemStats.Alloc)/1024/1024)
+
+		defer dbt.mustExec("rm @~/" + stageDir)
+		rows := dbt.mustQuery("ls @~/" + stageDir)
+		defer func() {
+			assertNilF(t, rows.Close())
+		}()
+		var file, s1, s2, s3 sql.NullString
+		if rows.Next() {
+			err = rows.Scan(&file, &s1, &s2, &s3)
+			assertNilF(t, err)
+		}
+
+		if !strings.Contains(file.String, fnameGet) {
+			t.Fatalf("should contain file. got: %v", file.String)
+		}
+
+		// GET test
+		var streamBuf bytes.Buffer
+		ctx = context.Background()
+		if isStream {
+			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
+			ctx = WithFileGetStream(ctx, &streamBuf)
+		}
+
+		tmpDir := t.TempDir()
+		tmpDirURL := strings.ReplaceAll(tmpDir, "\\", "/")
+		sql := fmt.Sprintf("get @~/%v/%v 'file://%v'", stageDir, fnameGet, tmpDirURL)
+		sqlText := strings.ReplaceAll(sql, "\\", "\\\\")
+		rows2 := dbt.mustQueryContext(ctx, sqlText)
+		defer func() {
+			assertNilF(t, rows2.Close())
+		}()
+		for rows2.Next() {
+			err = rows2.Scan(&file, &s1, &s2, &s3)
+			assertNilE(t, err)
+			assertTrueE(t, strings.HasPrefix(file.String, fnameGet), "a file was not downloaded by GET")
+			assertEqualE(t, s2.String, "DOWNLOADED", "did not return DOWNLOADED status")
+			assertEqualE(t, s3.String, "")
+		}
+
+		var r io.Reader
+		if autoCompress {
+			// convert the compressed contents to string
+			if isStream {
+				r, err = gzip.NewReader(&streamBuf)
+				assertNilE(t, err)
+			} else {
+				downloadedFile := filepath.Join(tmpDir, fnameGet)
+				f, err := os.Open(downloadedFile)
+				assertNilE(t, err)
+				defer func() {
+					assertNilF(t, f.Close())
+				}()
+				r, err = gzip.NewReader(f)
+				assertNilE(t, err)
+			}
+		} else {
+			if isStream {
+				r = bytes.NewReader(streamBuf.Bytes())
+			} else {
+				downloadedFile := filepath.Join(tmpDir, fnameGet)
+				f, err := os.Open(downloadedFile)
+				assertNilE(t, err)
+				defer func() {
+					assertNilF(t, f.Close())
+				}()
+				r = bufio.NewReader(f)
+			}
+		}
+
+		hash := sha256.New()
+		_, err = io.Copy(hash, r)
+		assertNilE(t, err)
+		downloadedChecksum := fmt.Sprintf("%x", hash.Sum(nil))
+
+		originalFile, err := os.Open(fname)
+		assertNilF(t, err)
+		defer func() {
+			assertNilF(t, originalFile.Close())
+		}()
+
+		originalHash := sha256.New()
+		_, err = io.Copy(originalHash, originalFile)
+		assertNilE(t, err)
+		originalChecksum := fmt.Sprintf("%x", originalHash.Sum(nil))
+
+		assertEqualF(t, downloadedChecksum, originalChecksum, "file integrity check failed - checksums don't match")
+	})
+}
+
+func createLimitedRealFile(t *testing.T, sourceDir string) string {
+	tmpDir := t.TempDir()
+	tmpFile, err := os.CreateTemp(tmpDir, "largefile_*.txt")
+	assertNilF(t, err)
+	fname := tmpFile.Name()
+
+	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
+	if err == nil {
+		defer originalFile.Close()
+		limitSize := int64(5 * 1024 * 1024) // 5MB
+		limitedReader := io.LimitReader(originalFile, limitSize)
+		_, err = io.Copy(tmpFile, limitedReader)
+		assertNilF(t, err)
+	} else {
+		syntheticData := strings.Repeat("TPC-H benchmark order data: ", 190000) // ~5MB
+		_, err = tmpFile.WriteString(syntheticData)
+		assertNilF(t, err)
+	}
+
+	err = tmpFile.Close()
+	assertNilF(t, err)
+
+	return fname
+}
+
+func createCancelTestFile(t *testing.T, sourceDir string) (string, func()) {
+	originalFile, err := os.Open(filepath.Join(sourceDir, "test_data/largefile.txt"))
+	assertNilF(t, err)
+	defer originalFile.Close()
+
+	tmpFile, err := os.CreateTemp(sourceDir, "cancel_test_*.txt")
+	assertNilF(t, err)
+	fname := tmpFile.Name()
+
+	limitSize := int64(10 * 1024 * 1024) // 10MB
+	limitedReader := io.LimitReader(originalFile, limitSize)
+
+	_, err = io.Copy(tmpFile, limitedReader)
+	assertNilF(t, err)
+
+	err = tmpFile.Close()
+	assertNilF(t, err)
+
+	cleanup := func() {
+		os.Remove(fname)
+	}
+
+	return fname, cleanup
 }
