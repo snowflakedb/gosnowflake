@@ -22,7 +22,7 @@ Bug fixes:
 -
 - Fixed minicore file name gathering in client environment (snowflakedb/gosnowflake#1661).
 -
--
+- Fixed file descriptor leaks in storage utilties (snowflakedb/gosnowflake#1682)
 -
 - Fixed path escaping for GCS urls (snowflakedb/gosnowflake#1678).
 
