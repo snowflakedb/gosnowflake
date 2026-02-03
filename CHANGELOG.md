@@ -2,41 +2,26 @@
 
 ## Upcoming Release
 
+## 1.19.0
+
 New features:
 
-- 
-- 
 - Added ability to disable minicore loading at compile time (snowflakedb/gosnowflake#1679).
-- 
-- 
 - Exposed `tokenFilePath` in `Config` (snowflakedb/gosnowflake#1666).
 - `tokenFilePath` is now read for every new connection (snowflakedb/gosnowflake#1666).
-- 
 - Added support for identity impersonation when using workload identity federation (snowflakedb/gosnowflake#1652, snowflakedb/gosnowflake#1660).
-- 
 
 Bug fixes:
 
--
 - Fixed getting file from an unencrypted stage (snowflakedb/gosnowflake#1672).
--
 - Fixed minicore file name gathering in client environment (snowflakedb/gosnowflake#1661).
--
-- Fixed file descriptor leaks in storage utilties (snowflakedb/gosnowflake#1682)
--
+- Fixed file descriptor leaks in cloud storage calls (snowflakedb/gosnowflake#1682)
 - Fixed path escaping for GCS urls (snowflakedb/gosnowflake#1678).
 
 Internal changes:
 
--
--
--
 - Improved Linux telemetry gathering (snowflakedb/gosnowflake#1677).
 - Improved some logs returned from cloud storage clients (snowflakedb/gosnowflake#1665).
--
--
--
--
 
 ## 1.18.1
 
