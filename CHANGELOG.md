@@ -2,6 +2,10 @@
 
 ## Upcoming Release
 
+Bug fixes:
+
+- Added panic recovery block for stage file uploads and downloads operation (snowflakedb/gosnowflake#1687).
+
 ## 1.19.0
 
 New features:
