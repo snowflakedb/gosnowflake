@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/snowflakedb/gosnowflake/v2"
 )
 
 func main() {

@@ -6,7 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"flag"
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/snowflakedb/gosnowflake/v2"
 	"io"
 	"log"
 )

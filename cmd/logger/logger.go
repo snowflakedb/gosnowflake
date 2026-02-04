@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/snowflakedb/gosnowflake/v2"
 	"log"
 	"strings"
 )
