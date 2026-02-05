@@ -106,7 +106,7 @@ const (
 	maxClockSkew           = 900 * time.Second // buffer for clock skew
 )
 
-var stopOCSPCacheClearing = make(chan struct{}, 2)
+var stopOCSPCacheClearing = make(chan struct{})
 
 type ocspStatusCode int
 
