@@ -20,7 +20,7 @@ func TestMultiStatementExecuteNoResultSet(t *testing.T) {
 		"insert into test_multi_statement_txn values (1, 'a'), (2, 'b');\n" +
 		"commit;"
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec(`create or replace table test_multi_statement_txn(c1 number, c2 string) as select 10, 'z'`)
 
 		res := dbt.mustExecContext(ctx, multiStmtQuery)
@@ -44,7 +44,7 @@ func TestMultiStatementQueryResultSet(t *testing.T) {
 	var v1, v2, v3 int64
 	var v4 string
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, multiStmtQuery)
 		defer rows.Close()
 
@@ -110,7 +110,7 @@ func TestMultiStatementQueryResultSet(t *testing.T) {
 func TestMultistatementQueryLargeResultSet(t *testing.T) {
 	ctx, err := WithMultiStatement(context.Background(), 2)
 	assertNilF(t, err)
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryContextT(ctx, t, "SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000))")
 		totalRows := 0
 		for hasNextResultSet := true; hasNextResultSet; hasNextResultSet = rows.NextResultSet() {
@@ -134,7 +134,7 @@ func TestMultiStatementExecuteResultSet(t *testing.T) {
 		"select 2;\n" +
 		"rollback;"
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("drop table if exists test_multi_statement_txn_rb")
 		dbt.mustExec(`create or replace table test_multi_statement_txn_rb(
 			c1 number, c2 string) as select 10, 'z'`)
@@ -158,7 +158,7 @@ func TestMultiStatementQueryNoResultSet(t *testing.T) {
 		"insert into test_multi_statement_txn values (1, 'a'), (2, 'b');\n" +
 		"commit;"
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("drop table if exists test_multi_statement_txn")
 		dbt.mustExec(`create or replace table test_multi_statement_txn(
 			c1 number, c2 string) as select 10, 'z'`)
@@ -175,7 +175,7 @@ func TestMultiStatementExecuteMix(t *testing.T) {
 		"insert into test_multi values (1), (2);\n" +
 		"select cola from test_multi order by cola asc;"
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("drop table if exists test_multi_statement_txn")
 		dbt.mustExec(`create or replace table test_multi_statement_txn(
 			c1 number, c2 string) as select 10, 'z'`)
@@ -199,7 +199,7 @@ func TestMultiStatementQueryMix(t *testing.T) {
 		"select cola from test_multi order by cola asc;"
 
 	var count, v int
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("drop table if exists test_multi_statement_txn")
 		dbt.mustExec(`create or replace table test_multi_statement_txn(
 			c1 number, c2 string) as select 10, 'z'`)
@@ -246,7 +246,7 @@ func TestMultiStatementCountZero(t *testing.T) {
 	var v3 float64
 	var v4 bool
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		// first query
 		multiStmtQuery1 := "select 123;\n" +
 			"select '456';"
@@ -346,7 +346,7 @@ func TestMultiStatementCountZero(t *testing.T) {
 }
 
 func TestMultiStatementCountMismatch(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		multiStmtQuery := "select 123;\n" +
 			"select 456;\n" +
 			"select 789;\n" +
@@ -365,7 +365,7 @@ func TestMultiStatementVaryingColumnCount(t *testing.T) {
 	ctx, _ := WithMultiStatement(context.Background(), 0)
 
 	var v1, v2 int
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("create or replace table test_tbl(c1 int, c2 int)")
 		dbt.mustExec("insert into test_tbl values(1, 0)")
 		defer dbt.mustExec("drop table if exists test_tbl")
@@ -404,7 +404,7 @@ func TestMultiStatementVaryingColumnCount(t *testing.T) {
 // The total completion time should be similar to the duration of the query on Snowflake UI.
 func TestMultiStatementExecutePerformance(t *testing.T) {
 	ctx, _ := WithMultiStatement(context.Background(), 100)
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		file, err := os.Open("test_data/multistatements.sql")
 		if err != nil {
 			t.Fatalf("failed opening file: %s", err)
