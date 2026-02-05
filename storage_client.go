@@ -245,6 +245,10 @@ func (rsu *remoteStorageUtil) downloadOneFile(meta *fileMetadata) error {
 						logger.Errorf("Stream decryption failed for %s - temp file will be cleaned up to prevent corrupted data: %v", meta.srcFileName, err)
 						return err
 					}
+					logger.Debugf("Total file size: %d", totalFileSize)
+					if totalFileSize < 0 || totalFileSize > meta.sfa.streamBuffer.Len() {
+						return fmt.Errorf("invalid total file size: %d", totalFileSize)
+					}
 					meta.sfa.streamBuffer.Truncate(totalFileSize)
 					meta.dstFileSize = int64(totalFileSize)
 				} else {

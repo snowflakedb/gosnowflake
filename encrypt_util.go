@@ -492,6 +492,13 @@ func padBytesLength(src []byte, blockSize int) []byte {
 }
 
 func paddingTrim(src []byte) ([]byte, error) {
+	if len(src) == 0 {
+		logger.Errorf("padding trim failed - data length is 0")
+		return nil, &SnowflakeError{
+			Number:  ErrInvalidPadding,
+			Message: "padding validation failed",
+		}
+	}
 	unpadding := src[len(src)-1]
 	n := int(unpadding)
 	if n == 0 || n > len(src) {
