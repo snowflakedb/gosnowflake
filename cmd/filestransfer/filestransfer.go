@@ -15,7 +15,7 @@ import (
 	"os"
 	"path/filepath"
 
-	sf "github.com/snowflakedb/gosnowflake"
+	sf "github.com/snowflakedb/gosnowflake/v2"
 )
 
 const customFormatCsvDataToUpload = "NUM; TEXT\n1; foo\n2; bar\n3; baz"
