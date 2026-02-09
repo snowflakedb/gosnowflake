@@ -650,79 +650,55 @@ func TestUploadWhenErrorWithResultIsReturned(t *testing.T) {
 	if isWindows {
 		t.Skip("permission model is different")
 	}
+	var err error
 
-	for _, tc := range []struct {
-		shouldRaiseError bool
-		resultCondition  func(t *testing.T, err error)
-	}{
-		{
-			shouldRaiseError: false,
-			resultCondition: func(t *testing.T, err error) {
-				assertNilE(t, err)
-			},
+	dir, err := os.Getwd()
+	assertNilF(t, err)
+	err = createWriteonlyFile(path.Join(dir, "test_data"), "writeonly.csv")
+	assertNilF(t, err)
+
+	uploadMeta := fileMetadata{
+		name:              "data1.txt.gz",
+		stageLocationType: "GCS",
+		noSleepingTime:    true,
+		client:            local,
+		sha256Digest:      "123456789abcdef",
+		stageInfo: &execResponseStageInfo{
+			Location:     dir,
+			LocationType: "local",
 		},
-		{
-			shouldRaiseError: true,
-			resultCondition: func(t *testing.T, err error) {
-				assertNotNilE(t, err)
-			},
-		},
-	} {
-		t.Run(strconv.FormatBool(tc.shouldRaiseError), func(t *testing.T) {
-			var err error
-
-			dir, err := os.Getwd()
-			assertNilF(t, err)
-			err = createWriteonlyFile(path.Join(dir, "test_data"), "writeonly.csv")
-			assertNilF(t, err)
-
-			uploadMeta := fileMetadata{
-				name:              "data1.txt.gz",
-				stageLocationType: "GCS",
-				noSleepingTime:    true,
-				client:            local,
-				sha256Digest:      "123456789abcdef",
-				stageInfo: &execResponseStageInfo{
-					Location:     dir,
-					LocationType: "local",
-				},
-				dstFileName: "data1.txt.gz",
-				srcFileName: path.Join(dir, "test_data/writeonly.csv"),
-				overwrite:   true,
-			}
-
-			sfa := &snowflakeFileTransferAgent{
-				ctx: context.Background(),
-				sc: &snowflakeConn{
-					cfg: &Config{
-						TmpDirPath: dir,
-					},
-				},
-				data: &execResponseData{
-					SrcLocations:      []string{path.Join(dir, "/test_data/writeonly.csv")},
-					Command:           "UPLOAD",
-					SourceCompression: "none",
-					StageInfo: execResponseStageInfo{
-						LocationType: "LOCAL_FS",
-						Location:     dir,
-					},
-				},
-				commandType:       uploadCommand,
-				command:           fmt.Sprintf("put file://%v/test_data/data1.txt @~", dir),
-				stageLocationType: local,
-				fileMetadata:      []*fileMetadata{&uploadMeta},
-				parallel:          1,
-				options: &SnowflakeFileTransferOptions{
-					RaisePutGetError: tc.shouldRaiseError,
-				},
-			}
-
-			err = sfa.execute()
-			assertNilF(t, err) // execute should not propagate errors, it should be returned by sfa.result only
-			_, err = sfa.result()
-			tc.resultCondition(t, err)
-		})
+		dstFileName: "data1.txt.gz",
+		srcFileName: path.Join(dir, "test_data/writeonly.csv"),
+		overwrite:   true,
 	}
+
+	sfa := &snowflakeFileTransferAgent{
+		ctx: context.Background(),
+		sc: &snowflakeConn{
+			cfg: &Config{
+				TmpDirPath: dir,
+			},
+		},
+		data: &execResponseData{
+			SrcLocations:      []string{path.Join(dir, "/test_data/writeonly.csv")},
+			Command:           "UPLOAD",
+			SourceCompression: "none",
+			StageInfo: execResponseStageInfo{
+				LocationType: "LOCAL_FS",
+				Location:     dir,
+			},
+		},
+		commandType:       uploadCommand,
+		command:           fmt.Sprintf("put file://%v/test_data/data1.txt @~", dir),
+		stageLocationType: local,
+		fileMetadata:      []*fileMetadata{&uploadMeta},
+		parallel:          1,
+	}
+
+	err = sfa.execute()
+	assertNilF(t, err) // execute should not propagate errors, it should be returned by sfa.result only
+	_, err = sfa.result()
+	assertNotNilE(t, err)
 }
 
 func createWriteonlyFile(dir, filename string) error {
@@ -834,7 +810,7 @@ func TestCustomTmpDirPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = sfa.downloadOneFile(downloadMeta)
+	_, err = sfa.downloadOneFile(context.Background(), downloadMeta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -977,7 +953,7 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 
 	if isStream {
 		fileStream, _ := os.Open(uploadFile)
-		ctx := WithFileStream(context.Background(), fileStream)
+		ctx := WithFilePutStream(context.Background(), fileStream)
 		uploadMeta.fileStream, err = getFileStream(ctx)
 		assertNilF(t, err)
 	}
@@ -990,7 +966,7 @@ func testUploadDownloadOneFile(t *testing.T, isStream bool) {
 		t.Fatalf("failed to upload file")
 	}
 
-	_, err = sfa.downloadOneFile(downloadMeta)
+	_, err = sfa.downloadOneFile(context.Background(), downloadMeta)
 	if err != nil {
 		t.Fatal(err)
 	}

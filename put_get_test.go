@@ -58,26 +58,6 @@ func TestPutError(t *testing.T) {
 	fta := &snowflakeFileTransferAgent{
 		ctx:  context.Background(),
 		data: data,
-		options: &SnowflakeFileTransferOptions{
-			RaisePutGetError: false,
-		},
-		sc: &snowflakeConn{
-			cfg: &Config{},
-		},
-	}
-	if err = fta.execute(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = fta.result(); err != nil {
-		t.Fatal(err)
-	}
-
-	fta = &snowflakeFileTransferAgent{
-		ctx:  context.Background(),
-		data: data,
-		options: &SnowflakeFileTransferOptions{
-			RaisePutGetError: true,
-		},
 		sc: &snowflakeConn{
 			cfg: &Config{},
 		},
@@ -290,8 +270,7 @@ func TestPutGetWithAutoCompressFalse(t *testing.T) {
 
 		// GET test
 		var streamBuf bytes.Buffer
-		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{GetFileToStream: true})
-		ctx = WithFileGetStream(ctx, &streamBuf)
+		ctx := WithFileGetStream(context.Background(), &streamBuf)
 		sql := fmt.Sprintf("get @~/%v/data.txt 'file://%v'", stageDir, tmpDir)
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
@@ -345,7 +324,7 @@ func TestPutOverwrite(t *testing.T) {
 
 		f, _ = os.Open(testData)
 		rows := dbt.mustQueryContext(
-			WithFileStream(context.Background(), f),
+			WithFilePutStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @"+stageName+"/test_put_overwrite",
 				strings.ReplaceAll(testData, "\\", "/")))
 		defer rows.Close()
@@ -370,7 +349,7 @@ func TestPutOverwrite(t *testing.T) {
 
 		f, _ = os.Open(testData)
 		rows = dbt.mustQueryContext(
-			WithFileStream(context.Background(), f),
+			WithFilePutStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @"+stageName+"/test_put_overwrite",
 				strings.ReplaceAll(testData, "\\", "/")))
 		defer rows.Close()
@@ -396,7 +375,7 @@ func TestPutOverwrite(t *testing.T) {
 
 		f, _ = os.Open(testData)
 		rows = dbt.mustQueryContext(
-			WithFileStream(context.Background(), f),
+			WithFilePutStream(context.Background(), f),
 			fmt.Sprintf("put 'file://%v' @"+stageName+"/test_put_overwrite overwrite=true",
 				strings.ReplaceAll(testData, "\\", "/")))
 		defer rows.Close()
@@ -460,7 +439,7 @@ func testPutGet(t *testing.T, isStream bool) {
 		if isStream {
 			sqlText = fmt.Sprintf(
 				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
-			rows = dbt.mustQueryContextT(WithFileStream(ctx, fileStream), t, sqlText)
+			rows = dbt.mustQueryContextT(WithFilePutStream(ctx, fileStream), t, sqlText)
 		} else {
 			sqlText = fmt.Sprintf(
 				sql, strings.ReplaceAll(fname, "\\", "\\\\"), tableName)
@@ -486,7 +465,6 @@ func testPutGet(t *testing.T, isStream bool) {
 
 		var streamBuf bytes.Buffer
 		if isStream {
-			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
 			ctx = WithFileGetStream(ctx, &streamBuf)
 		}
 		sql = fmt.Sprintf("get @%%%v 'file://%v' parallel=10", tableName, tmpDir)
@@ -578,7 +556,7 @@ func TestPutGetWithSnowflakeSSE(t *testing.T) {
 					fileStream, err := os.Open(sourceFilePath)
 					assertNilF(t, err)
 					defer fileStream.Close()
-					uploadCtx = WithFileStream(uploadCtx, fileStream)
+					uploadCtx = WithFilePutStream(uploadCtx, fileStream)
 				}
 				rows := dbt.mustQueryContextT(uploadCtx, t, fmt.Sprintf("PUT 'file://%s' @%s", strings.ReplaceAll(sourceFilePath, "\\", "\\\\"), stageName))
 				defer rows.Close()
@@ -592,7 +570,6 @@ func TestPutGetWithSnowflakeSSE(t *testing.T) {
 				var downloadBuf bytes.Buffer
 				if useStream {
 					downloadCtx = WithFileGetStream(downloadCtx, &downloadBuf)
-					downloadCtx = WithFileTransferOptions(downloadCtx, &SnowflakeFileTransferOptions{GetFileToStream: true})
 				}
 				rows2 := dbt.mustQueryContextT(downloadCtx, t, fmt.Sprintf("GET @%s 'file://%s'", stageName, strings.ReplaceAll(tmpDir, "\\", "\\\\")))
 				defer rows2.Close()
@@ -645,7 +622,7 @@ func TestPutGetWithSpacesInDirectoryName(t *testing.T) {
 					fileStream, err := os.Open(sourceFilePath)
 					assertNilF(t, err)
 					defer fileStream.Close()
-					uploadCtx = WithFileStream(uploadCtx, fileStream)
+					uploadCtx = WithFilePutStream(uploadCtx, fileStream)
 				}
 				rows := dbt.mustQueryContextT(uploadCtx, t, fmt.Sprintf("PUT 'file://%s' '@%s/dir with spaces'", strings.ReplaceAll(sourceFilePath, "\\", "\\\\"), stageName))
 				defer rows.Close()
@@ -659,7 +636,6 @@ func TestPutGetWithSpacesInDirectoryName(t *testing.T) {
 				var downloadBuf bytes.Buffer
 				if useStream {
 					downloadCtx = WithFileGetStream(downloadCtx, &downloadBuf)
-					downloadCtx = WithFileTransferOptions(downloadCtx, &SnowflakeFileTransferOptions{GetFileToStream: true})
 				}
 				rows2 := dbt.mustQueryContextT(downloadCtx, t, fmt.Sprintf("GET '@%s/dir with spaces' 'file://%s'", stageName, strings.ReplaceAll(tmpDir, "\\", "\\\\")))
 				defer rows2.Close()
@@ -712,7 +688,7 @@ func TestPutWithNonWritableTemp(t *testing.T) {
 				if isStream {
 					fd, err := os.Open(filePath)
 					assertNilF(t, err)
-					ctx = WithFileStream(ctx, fd)
+					ctx = WithFilePutStream(ctx, fd)
 				}
 				_, err = dbt.conn.ExecContext(ctx, fmt.Sprintf("PUT 'file://%v' @%v", filePath, stageName))
 				if !isStream {
@@ -760,7 +736,6 @@ func TestGetWithNonWritableTemp(t *testing.T) {
 				var resultBuf bytes.Buffer
 				if isStream {
 					ctx = WithFileGetStream(ctx, &resultBuf)
-					ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
 				}
 				_, err = dbt.conn.ExecContext(ctx, fmt.Sprintf("GET @%v 'file://%v'", stageName, tempDir))
 				if !isStream {
@@ -938,8 +913,7 @@ func TestPutGetLargeFile(t *testing.T) {
 
 		// GET test with stream
 		var streamBuf bytes.Buffer
-		ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{GetFileToStream: true})
-		ctx = WithFileGetStream(ctx, &streamBuf)
+		ctx := WithFileGetStream(context.Background(), &streamBuf)
 		sql := fmt.Sprintf("get @~/%v/largefile.txt.gz 'file://%v'", stageDir, t.TempDir())
 		sqlText = strings.ReplaceAll(sql, "\\", "\\\\")
 		rows2 := dbt.mustQueryContext(ctx, sqlText)
@@ -1167,7 +1141,7 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 			defer func() {
 				assertNilF(t, f.Close())
 			}()
-			ctx = WithFileStream(ctx, f)
+			ctx = WithFilePutStream(ctx, f)
 		}
 
 		// PUT test
@@ -1207,7 +1181,6 @@ func testPutGetLargeFile(t *testing.T, isStream bool, autoCompress bool) {
 		var streamBuf bytes.Buffer
 		ctx = context.Background()
 		if isStream {
-			ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{GetFileToStream: true})
 			ctx = WithFileGetStream(ctx, &streamBuf)
 		}
 

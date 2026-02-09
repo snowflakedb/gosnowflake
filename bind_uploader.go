@@ -93,7 +93,7 @@ func (bu *bindUploader) uploadStreamInternal(
 	// for Windows queries
 	putCommand = strings.ReplaceAll(putCommand, "\\", "\\\\")
 	// prepare context for PUT command
-	ctx := WithFileStream(bu.ctx, inputStream)
+	ctx := WithFilePutStream(bu.ctx, inputStream)
 	ctx = WithFileTransferOptions(ctx, &SnowflakeFileTransferOptions{
 		compressSourceFromStream: compressData})
 	return bu.sc.exec(ctx, putCommand, false, true, false, []driver.NamedValue{})

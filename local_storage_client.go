@@ -3,6 +3,7 @@ package gosnowflake
 import (
 	"bufio"
 	"cmp"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -18,7 +19,7 @@ func (util *localUtil) createClient(_ *execResponseStageInfo, _ bool, _ *Config,
 	return nil, nil
 }
 
-func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
+func (util *localUtil) uploadOneFileWithRetry(_ context.Context, meta *fileMetadata) error {
 	var frd *bufio.Reader
 	if meta.srcStream != nil {
 		b := cmp.Or(meta.realSrcStream, meta.srcStream)
@@ -75,7 +76,7 @@ func (util *localUtil) uploadOneFileWithRetry(meta *fileMetadata) error {
 	return nil
 }
 
-func (util *localUtil) downloadOneFile(meta *fileMetadata) error {
+func (util *localUtil) downloadOneFile(_ context.Context, meta *fileMetadata) error {
 	srcFileName := meta.srcFileName
 	if strings.HasPrefix(meta.srcFileName, fmt.Sprintf("%b", os.PathSeparator)) {
 		srcFileName = srcFileName[1:]
