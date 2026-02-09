@@ -3,7 +3,7 @@ package gosnowflake
 import (
 	"bufio"
 	"fmt"
-	"github.com/snowflakedb/gosnowflake/internal/compilation"
+	"github.com/snowflakedb/gosnowflake/v2/internal/compilation"
 	"os"
 	"path/filepath"
 	"runtime"

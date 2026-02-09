@@ -1,4 +1,4 @@
-module github.com/snowflakedb/gosnowflake
+module github.com/snowflakedb/gosnowflake/v2
 
 go 1.24.0
 
