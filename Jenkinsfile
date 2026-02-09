@@ -19,6 +19,14 @@ timestamps {
       string(name: 'parent_build_number', value: env.BUILD_NUMBER)
     ]
     
+    stage('Authenticate Artifactory') {
+      script {
+        new DevEnvUtils().withSfCli {
+          sh "sf artifact oci auth"
+        }
+      }
+    }
+
     parallel(
       'Test': {
         stage('Test') {
@@ -28,7 +36,6 @@ timestamps {
       'Test Authentication': {
         stage('Test Authentication') {
           withCredentials([
-            string(credentialsId: 'a791118f-a1ea-46cd-b876-56da1b9bc71c', variable: 'NEXUS_PASSWORD'),
             string(credentialsId: 'sfctest0-parameters-secret', variable: 'PARAMETERS_SECRET')
           ]) {
             sh '''\
