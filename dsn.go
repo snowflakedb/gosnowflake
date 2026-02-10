@@ -8,11 +8,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -79,8 +77,6 @@ type Config struct {
 
 	Params map[string]*string // other connection parameters
 
-	// Deprecated: will be removed in a future release.
-	ClientIP net.IP // IP address for network check
 	Protocol string // http or https (optional)
 	Host     string // hostname (optional)
 	Port     int    // port (optional)
@@ -109,17 +105,14 @@ type Config struct {
 	CloudStorageTimeout time.Duration // Timeout for a single call to a cloud storage provider
 	MaxRetryCount       int           // Specifies how many times non-periodic HTTP request can be retried
 
-	Application       string // application name.
-	DisableOCSPChecks bool   // driver doesn't check certificate revocation status
-	// Deprecated: InsecureMode use DisableOCSPChecks instead. Will be removed in a future release.
-	InsecureMode bool             // driver doesn't check certificate revocation status
-	OCSPFailOpen OCSPFailOpenMode // OCSP Fail Open
+	Application       string           // application name.
+	DisableOCSPChecks bool             // driver doesn't check certificate revocation status
+	OCSPFailOpen      OCSPFailOpenMode // OCSP Fail Open
 
-	Token         string        // Token to use for OAuth other forms of token based auth
-	TokenFilePath string        // TokenFilePath defines a file where to read token from
-	TokenAccessor TokenAccessor // Optional token accessor to use
-	// Deprecated: will be removed in a future release.
-	KeepSessionAlive bool // Enables the session to persist even after the connection is closed
+	Token                  string        // Token to use for OAuth other forms of token based auth
+	TokenFilePath          string        // TokenFilePath defines a file where to read token from
+	TokenAccessor          TokenAccessor // TokenAccessor Optional token accessor to use
+	ServerSessionKeepAlive bool          // ServerSessionKeepAlive enables the session to persist even after the driver connection is closed
 
 	PrivateKey *rsa.PrivateKey // Private key used to sign JWT
 
@@ -127,9 +120,6 @@ type Config struct {
 
 	tlsConfig     *tls.Config // Custom TLS configuration
 	TLSConfigName string      // Name of the TLS config to use
-
-	// Deprecated: will be removed in a future release and replaced with a session parameter.
-	DisableTelemetry bool // indicates whether to disable telemetry
 
 	// Deprecated: may be removed in a future release with logging reorganization.
 	Tracing            string // sets logging level
@@ -139,9 +129,9 @@ type Config struct {
 	TmpDirPath string // sets temporary directory used by a driver for operations like encrypting, compressing etc
 
 	// Deprecated: will be unexported in a future release.
-	MfaToken string // Internally used to cache the MFA token
+	mfaToken string // Internally used to cache the MFA token
 	// Deprecated: will be unexported in a future release.
-	IDToken string // Internally used to cache the Id Token for external browser
+	idToken string // Internally used to cache the Id Token for external browser
 	// Deprecated: may be unexported in a future release.
 	ClientRequestMfaToken ConfigBool // When true the MFA token is cached in the credential manager. True by default in Windows/OSX. False for Linux.
 	// Deprecated: may be unexported in a future release.
@@ -205,7 +195,7 @@ func (c *Config) Validate() error {
 
 // ocspMode returns the OCSP mode in string INSECURE, FAIL_OPEN, FAIL_CLOSED
 func (c *Config) ocspMode() string {
-	if c.DisableOCSPChecks || c.InsecureMode {
+	if c.DisableOCSPChecks {
 		return ocspModeInsecure
 	} else if c.OCSPFailOpen == ocspFailOpenNotSet || c.OCSPFailOpen == OCSPFailOpenTrue {
 		// by default or set to true
@@ -399,14 +389,8 @@ func DSN(cfg *Config) (dsn string, err error) {
 		keyBase64 := base64.URLEncoding.EncodeToString(privateKeyInBytes)
 		params.Add("privateKey", keyBase64)
 	}
-	if cfg.InsecureMode {
-		params.Add("insecureMode", strconv.FormatBool(cfg.InsecureMode))
-	}
 	if cfg.DisableOCSPChecks {
 		params.Add("disableOCSPChecks", strconv.FormatBool(cfg.DisableOCSPChecks))
-	}
-	if cfg.DisableTelemetry {
-		params.Add("disableTelemetry", strconv.FormatBool(cfg.DisableTelemetry))
 	}
 	if cfg.Tracing != "" {
 		params.Add("tracing", cfg.Tracing)
@@ -425,6 +409,9 @@ func DSN(cfg *Config) (dsn string, err error) {
 	}
 	if cfg.IncludeRetryReason == ConfigBoolFalse {
 		params.Add("includeRetryReason", "false")
+	}
+	if cfg.ServerSessionKeepAlive {
+		params.Add("serverSessionKeepAlive", "true")
 	}
 
 	params.Add("ocspFailOpen", strconv.FormatBool(cfg.OCSPFailOpen != OCSPFailOpenFalse))
@@ -884,15 +871,6 @@ func parseParams(cfg *Config, posQuestion int, dsn string) (err error) {
 func parseDSNParams(cfg *Config, params string) (err error) {
 	logger.Infof("Query String: %v\n", maskSecrets(params))
 	paramsSlice := strings.Split(params, "&")
-	insecureModeIdx := findByPrefix(paramsSlice, "insecureMode")
-	disableOCSPChecksIdx := findByPrefix(paramsSlice, "disableOCSPChecks")
-	if insecureModeIdx > -1 && disableOCSPChecksIdx > -1 {
-		logger.Warn("duplicated insecureMode and disableOCSPChecks. disableOCSPChecks takes precedence")
-		paramsSlice = append(paramsSlice[:insecureModeIdx-1], paramsSlice[insecureModeIdx+1:]...)
-	}
-	if slices.Contains(paramsSlice, "token") && slices.Contains(paramsSlice, "tokenFilePath") {
-		return errors.New("token and tokenFilePath cannot be specified at the same time")
-	}
 	for _, v := range paramsSlice {
 		param := strings.SplitN(v, "=", 2)
 		if len(param) != 2 {
@@ -998,6 +976,13 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			if err != nil {
 				return err
 			}
+		case "serverSessionKeepAlive":
+			var vv bool
+			vv, err = strconv.ParseBool(value)
+			if err != nil {
+				return
+			}
+			cfg.ServerSessionKeepAlive = vv
 		case "application":
 			cfg.Application = value
 		case "authenticator":
@@ -1005,14 +990,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			if err != nil {
 				return err
 			}
-		case "insecureMode":
-			logInsecureModeDeprecationInfo()
-			var vv bool
-			vv, err = strconv.ParseBool(value)
-			if err != nil {
-				return
-			}
-			cfg.InsecureMode = vv
 		case "disableOCSPChecks":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
@@ -1020,13 +997,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 			cfg.DisableOCSPChecks = vv
-		case "disableTelemetry":
-			var vv bool
-			vv, err = strconv.ParseBool(value)
-			if err != nil {
-				return
-			}
-			cfg.DisableTelemetry = vv
 		case "ocspFailOpen":
 			var vv bool
 			vv, err = strconv.ParseBool(value)
@@ -1241,10 +1211,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 		}
 	}
 	return
-}
-
-func logInsecureModeDeprecationInfo() {
-	logger.Warn("insecureMode is deprecated. Use disableOCSPChecks instead.")
 }
 
 func parseTimeout(value string) (time.Duration, error) {

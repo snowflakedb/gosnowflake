@@ -2200,7 +2200,7 @@ func TestOpenWithConfig(t *testing.T) {
 
 func TestOpenWithConfigCancel(t *testing.T) {
 	wiremock.registerMappings(t,
-		wiremockMapping{filePath: "auth/password/successful_flow.json"},
+		wiremockMapping{filePath: "auth/password/successful_flow_with_telemetry.json", params: map[string]string{"%CLIENT_TELEMETRY_ENABLED%": "true"}},
 	)
 	driver := SnowflakeDriver{}
 	config := wiremock.connectionConfig()
@@ -2268,20 +2268,6 @@ func TestOpenWithTransport(t *testing.T) {
 	// Test that transport override also works in OCSP checks disabled.
 	countingTransport.reset()
 	config.DisableOCSPChecks = true
-	db, err = driver.OpenWithConfig(context.Background(), *config)
-	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
-	conn = db.(*snowflakeConn)
-	if conn.rest.Client.Transport != transport {
-		t.Fatal("transport doesn't match")
-	}
-	db.Close()
-	if countingTransport.totalRequests() == 0 {
-		t.Fatal("transport did not receive any requests")
-	}
-
-	// Test that transport override also works in insecure mode
-	countingTransport.reset()
-	config.InsecureMode = true
 	db, err = driver.OpenWithConfig(context.Background(), *config)
 	assertNilF(t, err, fmt.Sprintf("failed to open with config. config: %v", config))
 	conn = db.(*snowflakeConn)

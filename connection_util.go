@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -227,6 +228,18 @@ func (sc *snowflakeConn) populateSessionParameters(parameters []nameValueParamet
 	}
 }
 
+func (sc *snowflakeConn) configureTelemetry() {
+	paramsMutex.Lock()
+	defer paramsMutex.Unlock()
+	telemetryEnabled, ok := sc.cfg.Params["client_telemetry_enabled"]
+	if ok && telemetryEnabled != nil && strings.Compare(*telemetryEnabled, "true") == 0 {
+		sc.telemetry.flushSize = defaultFlushSize
+		sc.telemetry.sr = sc.rest
+		sc.telemetry.mutex = &sync.Mutex{}
+		sc.telemetry.enabled = true
+	}
+}
+
 func isAsyncMode(ctx context.Context) bool {
 	return isBooleanContextEnabled(ctx, asyncMode)
 }
@@ -327,7 +340,6 @@ func populateChunkDownloader(
 		fetcher := &httpStreamChunkFetcher{
 			ctx:           ctx,
 			client:        sc.rest.Client,
-			clientIP:      sc.cfg.ClientIP,
 			headers:       data.ChunkHeaders,
 			maxRetryCount: sc.rest.MaxRetryCount,
 			qrmk:          data.Qrmk,

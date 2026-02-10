@@ -16,7 +16,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -303,7 +302,7 @@ func (sc *snowflakeConn) Close() (err error) {
 	sc.rest.HeartBeat = nil
 	defer sc.cleanup()
 
-	if sc.cfg != nil && !sc.cfg.KeepSessionAlive {
+	if sc.cfg != nil && !sc.cfg.ServerSessionKeepAlive {
 		// we have to replace context with background, otherwise we can use a one that is cancelled or timed out
 		if err = sc.rest.FuncCloseSession(context.Background(), sc.rest, sc.rest.RequestTimeout); err != nil {
 			logger.WithContext(sc.ctx).Error(err)
@@ -894,14 +893,6 @@ func buildSnowflakeConn(ctx context.Context, config Config) (*snowflakeConn, err
 
 	logger.Debugf("Building snowflakeConn: %v", config.describeIdentityAttributes())
 	telemetry := &snowflakeTelemetry{}
-	if config.DisableTelemetry {
-		telemetry.enabled = false
-	} else {
-		telemetry.flushSize = defaultFlushSize
-		telemetry.sr = sc.rest
-		telemetry.mutex = &sync.Mutex{}
-		telemetry.enabled = true
-	}
 
 	transportFactory := newTransportFactory(&config, telemetry)
 	st, err := transportFactory.createTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
