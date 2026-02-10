@@ -14,7 +14,6 @@ if [[ -n "$JENKINS_HOME" ]]; then
   export WORKSPACE=${WORKSPACE:-/tmp}
 
   source $CI_DIR/_init.sh
-  source $CI_DIR/scripts/login_internal_docker.sh
 
   echo "Use /sbin/ip"
   IP_ADDR=$(/sbin/ip -4 addr show scope global dev eth0 | grep inet | awk '{print $2}' | cut -d / -f 1)

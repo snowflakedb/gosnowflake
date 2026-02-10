@@ -2,7 +2,7 @@
 
 export PLATFORM=$(echo $(uname) | tr '[:upper:]' '[:lower:]')
 # Use the internal Docker Registry
-export INTERNAL_REPO=nexus.int.snowflakecomputing.com:8086
+export INTERNAL_REPO=artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/internal-production-docker-snowflake-virtual
 export DOCKER_REGISTRY_NAME=$INTERNAL_REPO/docker
 export WORKSPACE=${WORKSPACE:-/tmp}
 
