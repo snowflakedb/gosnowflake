@@ -24,10 +24,6 @@ import (
 )
 
 const (
-	clientType = "Go"
-)
-
-const (
 	clientStoreTemporaryCredential = "CLIENT_STORE_TEMPORARY_CREDENTIAL"
 	clientRequestMfaToken          = "CLIENT_REQUEST_MFA_TOKEN"
 	idTokenAuthenticator           = "ID_TOKEN"
@@ -165,15 +161,6 @@ func (authType AuthType) String() string {
 		return "UNKNOWN"
 	}
 }
-
-// userAgent shows up in User-Agent HTTP header
-var userAgent = fmt.Sprintf("%v/%v (%v-%v) %v/%v",
-	clientType,
-	SnowflakeGoDriverVersion,
-	runtime.GOOS,
-	runtime.GOARCH,
-	runtime.Compiler,
-	runtime.Version())
 
 type authRequestClientEnvironment struct {
 	Application             string            `json:"APPLICATION"`
@@ -323,15 +310,28 @@ func postAuth(
 	}
 }
 
-// Generates a map of headers needed to authenticate
+// getUserAgent generates the user agent string to be sent to Snowflake in the authentication request header.
+// It includes the client type, driver version, OS, architecture, Go compiler and version.
+func getUserAgent(clientType string) string {
+	return fmt.Sprintf("%v/%v (%v-%v) %v/%v",
+		clientType,
+		SnowflakeGoDriverVersion,
+		runtime.GOOS,
+		runtime.GOARCH,
+		runtime.Compiler,
+		runtime.Version())
+}
+
+// getHeaders generatess a map of headers needed to authenticate
 // with Snowflake.
-func getHeaders() map[string]string {
+func getHeaders(ctx context.Context) map[string]string {
+	ct := getClientType(ctx)
 	headers := make(map[string]string)
 	headers[httpHeaderContentType] = headerContentTypeApplicationJSON
 	headers[httpHeaderAccept] = headerAcceptTypeApplicationSnowflake
-	headers[httpClientAppID] = clientType
+	headers[httpClientAppID] = ct
 	headers[httpClientAppVersion] = SnowflakeGoDriverVersion
-	headers[httpHeaderUserAgent] = userAgent
+	headers[httpHeaderUserAgent] = getUserAgent(ct)
 	return headers
 }
 
@@ -359,7 +359,7 @@ func authenticate(
 		}, nil
 	}
 
-	headers := getHeaders()
+	headers := getHeaders(ctx)
 	// Get the current application path
 	applicationPath, err := os.Executable()
 	if err != nil {
@@ -498,7 +498,7 @@ func createRequestBody(sc *snowflakeConn, sessionParameters map[string]interface
 	clientEnvironment authRequestClientEnvironment, proofKey []byte, samlResponse []byte,
 ) ([]byte, error) {
 	requestMain := authRequestData{
-		ClientAppID:       clientType,
+		ClientAppID:       getClientType(sc.ctx),
 		ClientAppVersion:  SnowflakeGoDriverVersion,
 		AccountName:       sc.cfg.Account,
 		SessionParameters: sessionParameters,

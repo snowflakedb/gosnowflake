@@ -82,7 +82,7 @@ func (hc *heartbeat) heartbeatMain() error {
 	params := &url.Values{}
 	params.Set(requestIDKey, NewUUID().String())
 	params.Set(requestGUIDKey, NewUUID().String())
-	headers := getHeaders()
+	headers := getHeaders(context.Background())
 	token, _, sessionID := safeGetTokens(hc.restful)
 	ctx := context.WithValue(context.Background(), SFSessionIDKey, sessionID)
 	logger.WithContext(ctx).Info("Heartbeating!")

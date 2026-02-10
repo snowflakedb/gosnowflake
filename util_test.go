@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -478,6 +479,72 @@ func TestInternal(t *testing.T) {
 	assertFalseE(t, isInternal(ctx))
 	ctx = WithInternal(ctx)
 	assertTrueE(t, isInternal(ctx))
+}
+
+func TestGetClientTypeDefault(t *testing.T) {
+	ctx := context.Background()
+	ct := getClientType(ctx)
+	if ct != defaultClientType {
+		t.Errorf("expected default client type %q, got %q", defaultClientType, ct)
+	}
+}
+
+func TestGetClientTypeCustom(t *testing.T) {
+	ctx := WithClientType(context.Background(), "MyCustomClient")
+	ct := getClientType(ctx)
+	if ct != "MyCustomClient" {
+		t.Errorf("expected custom client type %q, got %q", "MyCustomClient", ct)
+	}
+}
+
+func TestGetClientTypeEmpty(t *testing.T) {
+	ctx := WithClientType(context.Background(), "")
+	ct := getClientType(ctx)
+	if ct != defaultClientType {
+		t.Errorf("expected default client type %q for empty string, got %q", defaultClientType, ct)
+	}
+}
+
+func TestGetUserAgent(t *testing.T) {
+	ua := getUserAgent("TestClient")
+	if !strings.Contains(ua, "TestClient/") {
+		t.Errorf("expected user agent to contain 'TestClient/', got %q", ua)
+	}
+	if !strings.Contains(ua, SnowflakeGoDriverVersion) {
+		t.Errorf("expected user agent to contain driver version, got %q", ua)
+	}
+	if !strings.Contains(ua, runtime.GOOS) {
+		t.Errorf("expected user agent to contain OS, got %q", ua)
+	}
+}
+
+func TestGetUserAgentDefault(t *testing.T) {
+	ua := getUserAgent(defaultClientType)
+	if !strings.Contains(ua, "Go/") {
+		t.Errorf("expected default user agent to start with 'Go/', got %q", ua)
+	}
+}
+
+func TestGetHeadersDefault(t *testing.T) {
+	ctx := context.Background()
+	headers := getHeaders(ctx)
+	if headers[httpClientAppID] != defaultClientType {
+		t.Errorf("expected header %q to be %q, got %q", httpClientAppID, defaultClientType, headers[httpClientAppID])
+	}
+	if !strings.Contains(headers[httpHeaderUserAgent], defaultClientType+"/") {
+		t.Errorf("expected User-Agent to contain %q, got %q", defaultClientType, headers[httpHeaderUserAgent])
+	}
+}
+
+func TestGetHeadersCustomClientType(t *testing.T) {
+	ctx := WithClientType(context.Background(), "CustomApp")
+	headers := getHeaders(ctx)
+	if headers[httpClientAppID] != "CustomApp" {
+		t.Errorf("expected header %q to be %q, got %q", httpClientAppID, "CustomApp", headers[httpClientAppID])
+	}
+	if !strings.Contains(headers[httpHeaderUserAgent], "CustomApp/") {
+		t.Errorf("expected User-Agent to contain 'CustomApp/', got %q", headers[httpHeaderUserAgent])
+	}
 }
 
 type envOverride struct {

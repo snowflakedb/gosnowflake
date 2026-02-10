@@ -319,7 +319,7 @@ func closeSession(ctx context.Context, sr *snowflakeRestful, timeout time.Durati
 	params.Set(requestGUIDKey, NewUUID().String())
 	fullURL := sr.getFullURL(sessionRequestPath, params)
 
-	headers := getHeaders()
+	headers := getHeaders(ctx)
 	token, _, _ := sr.TokenAccessor.GetTokens()
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 
@@ -372,7 +372,7 @@ func renewRestfulSession(ctx context.Context, sr *snowflakeRestful, timeout time
 	fullURL := sr.getFullURL(tokenRequestPath, params)
 
 	token, masterToken, sessionID := sr.TokenAccessor.GetTokens()
-	headers := getHeaders()
+	headers := getHeaders(ctx)
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, masterToken)
 
 	body := make(map[string]string)
@@ -452,7 +452,7 @@ func cancelQuery(ctx context.Context, sr *snowflakeRestful, requestID UUID, time
 
 	fullURL := sr.getFullURL(abortRequestPath, params)
 
-	headers := getHeaders()
+	headers := getHeaders(ctx)
 	token, _, _ := sr.TokenAccessor.GetTokens()
 	headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 

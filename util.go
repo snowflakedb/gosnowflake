@@ -41,6 +41,11 @@ const (
 	streamChunkDownload              contextKey = "STREAM_CHUNK_DOWNLOAD"
 	logQueryText                     contextKey = "LOG_QUERY_TEXT"
 	logQueryParameters               contextKey = "LOG_QUERY_PARAMETERS"
+	clientType                       contextKey = "CUSTOM_CLIENT_TYPE"
+)
+
+const (
+	defaultClientType = "Go"
 )
 
 var (
@@ -194,6 +199,20 @@ func WithLogQueryText(ctx context.Context) context.Context {
 // WithLogQueryParameters enables logging of the query parameters.
 func WithLogQueryParameters(ctx context.Context) context.Context {
 	return context.WithValue(ctx, logQueryParameters, true)
+}
+
+// WithClientType returns a context that specifies a custom client type
+// to be used in authentication requests and HTTP headers instead of the default "Go".
+func WithClientType(ctx context.Context, ct string) context.Context {
+	return context.WithValue(ctx, clientType, ct)
+}
+
+// getClientType returns the custom client type from the context, or the default "Go" if not set.
+func getClientType(ctx context.Context) string {
+	if ct, ok := ctx.Value(clientType).(string); ok && ct != "" {
+		return ct
+	}
+	return defaultClientType
 }
 
 // Get the request ID from the context if specified, otherwise generate one
