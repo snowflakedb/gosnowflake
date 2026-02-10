@@ -58,9 +58,9 @@ func printSelectDemo(db *sql.DB) {
 
 	fmt.Println(query)
 
-	context := sf.WithMultiStatement(context.Background(), numberOfQueries)
+	ctx := sf.WithMultiStatement(context.Background(), numberOfQueries)
 
-	result, err := db.QueryContext(context, query)
+	result, err := db.QueryContext(ctx, query)
 	if err != nil {
 		log.Fatalf("Error while querying snowflake: %v", err)
 	}
@@ -96,9 +96,9 @@ func printModifyingDemo(db *sql.DB) {
 
 	fmt.Println(query)
 
-	context := sf.WithMultiStatement(context.Background(), numberOfQueries)
+	ctx := sf.WithMultiStatement(context.Background(), numberOfQueries)
 
-	result, err := db.ExecContext(context, query)
+	result, err := db.ExecContext(ctx, query)
 	if err != nil {
 		log.Fatalf("Error while querying snowflake: %v", err)
 	}

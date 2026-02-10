@@ -645,10 +645,10 @@ See StructuredObject for all available operations including null support, embedd
 
 Retrieving array of simple types works exactly the same like normal values - using Scan function.
 
-You can use WithEmbeddedValuesNullable contexts to handle null values in maps
+You can use WithEmbeddedValuesNullable context to handle null values in maps
 and arrays of simple types in the database. In that case, sql null types will be used:
 
-	ctx := WithEmbeddedValuesNullable(WithStructuredTypesEnabled(context.Background))
+	ctx := WithEmbeddedValuesNullable(WithStructuredTypesEnabled(context.Background()))
 	...
 	var res []sql.NullBool
 	err := rows.Scan(&res)

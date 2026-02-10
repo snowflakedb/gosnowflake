@@ -2621,7 +2621,7 @@ func Array(a interface{}, typ ...any) (interface{}, error) {
 				return (*decfloatArray)(&t), nil
 			}
 		}
-		return nil, errors.New("unsupported *big.Float array bind. Set the type to []byte{DataTypeDecfloat} to use decfloatArray")
+		return nil, errors.New("unsupported *big.Float array bind. Set the type to DataTypeDecfloat to use decfloatArray")
 	case []bool:
 		return (*boolArray)(&t), nil
 	case []string:
@@ -2662,7 +2662,7 @@ func Array(a interface{}, typ ...any) (interface{}, error) {
 				return (*decfloatArray)(t), nil
 			}
 		}
-		return nil, errors.New("unsupported *big.Float array bind. Set the type to []byte{DataTypeDecfloat} to use decfloatArray")
+		return nil, errors.New("unsupported *big.Float array bind. Set the type to DataTypeDecfloat to use decfloatArray")
 	case *[]bool:
 		return (*boolArray)(t), nil
 	case *[]string:
@@ -2703,14 +2703,6 @@ func Array(a interface{}, typ ...any) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("unknown array type for binding: %T", a)
 	}
-}
-
-func mustArray(v interface{}, typ ...any) driver.Value {
-	array, err := Array(v, typ...)
-	if err != nil {
-		panic(fmt.Sprintf("failed to convert to array: %v", err))
-	}
-	return array
 }
 
 // snowflakeArrayToString converts the array binding to snowflake's native

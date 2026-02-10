@@ -33,7 +33,7 @@ const (
 	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
 	queryTag                         contextKey = "QUERY_TAG"
 	enableStructuredTypes            contextKey = "ENABLE_STRUCTURED_TYPES"
-	embeddedValuesNullable           contextKey = "MAP_VALUES_NULLABLE"
+	embeddedValuesNullable           contextKey = "EMBEDDED_VALUES_NULLABLE"
 	describeOnly                     contextKey = "DESCRIBE_ONLY"
 	internalQuery                    contextKey = "INTERNAL_QUERY"
 	cancelRetry                      contextKey = "CANCEL_RETRY"

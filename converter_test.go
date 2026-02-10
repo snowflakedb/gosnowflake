@@ -2642,3 +2642,11 @@ func TestNumbersScanType(t *testing.T) {
 		})
 	}
 }
+
+func mustArray(v interface{}, typ ...any) driver.Value {
+	array, err := Array(v, typ...)
+	if err != nil {
+		panic(fmt.Sprintf("failed to convert to array: %v", err))
+	}
+	return array
+}
