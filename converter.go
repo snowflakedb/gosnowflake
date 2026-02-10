@@ -36,6 +36,7 @@ const decfloatPrintingPrec = 40
 
 type timezoneType int
 
+var errUnsupportedTimeArrayBind = errors.New("unsupported time array bind. Set the type to []byte{TimestampNTZType}, []byte{TimestampLTZType}, []byte{TimestampTZType}, []byte{DateType} or []byte{TimeType}")
 var errNativeArrowWithoutProperContext = errors.New("structured types must be enabled to use with native arrow")
 
 const (
@@ -1182,7 +1183,7 @@ func jsonToMap(ctx context.Context, keyMetadata, valueMetadata fieldMetadata, sr
 }
 
 func jsonToMapWithKeyType[K comparable](ctx context.Context, valueMetadata fieldMetadata, m map[K]any, params map[string]*string) (snowflakeValue, error) {
-	mapValuesNullableEnabled := mapValuesNullableEnabled(ctx)
+	mapValuesNullableEnabled := embeddedValuesNullableEnabled(ctx)
 	switch valueMetadata.Type {
 	case "text":
 		return buildMapValues[K, sql.NullString, string](mapValuesNullableEnabled, m, func(v any) (string, error) {
@@ -1770,7 +1771,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 				})
 
 			} else if !higherPrecision && fieldMetadata.Scale == 0 {
-				if arrayValuesNullableEnabled(ctx) {
+				if embeddedValuesNullableEnabled(ctx) {
 					return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullInt64, error) {
 						v := arrowDecimal128ToValue(typedValues, j, higherPrecision, fieldMetadata)
 						if v == nil {
@@ -1792,7 +1793,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 					return strconv.ParseInt(v.(string), 10, 64)
 				})
 			} else {
-				if arrayValuesNullableEnabled(ctx) {
+				if embeddedValuesNullableEnabled(ctx) {
 					return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullFloat64, error) {
 						v := arrowDecimal128ToValue(typedValues, j, higherPrecision, fieldMetadata)
 						if v == nil {
@@ -1816,7 +1817,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 
 			}
 		case *array.Int64:
-			if arrayValuesNullableEnabled(ctx) {
+			if embeddedValuesNullableEnabled(ctx) {
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullInt64, error) {
 					resInt := arrowInt64ToValue(typedValues, j, higherPrecision, fieldMetadata)
 					if resInt == nil {
@@ -1834,7 +1835,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			})
 
 		case *array.Int32:
-			if arrayValuesNullableEnabled(ctx) {
+			if embeddedValuesNullableEnabled(ctx) {
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullInt32, error) {
 					resInt := arrowInt32ToValue(typedValues, j, higherPrecision, fieldMetadata)
 					if resInt == nil {
@@ -1852,7 +1853,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 				return resInt.(int32), nil
 			})
 		case *array.Int16:
-			if arrayValuesNullableEnabled(ctx) {
+			if embeddedValuesNullableEnabled(ctx) {
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullInt16, error) {
 					resInt := arrowInt16ToValue(typedValues, j, higherPrecision, fieldMetadata)
 					if resInt == nil {
@@ -1871,7 +1872,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			})
 
 		case *array.Int8:
-			if arrayValuesNullableEnabled(ctx) {
+			if embeddedValuesNullableEnabled(ctx) {
 				return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullByte, error) {
 					resInt := arrowInt8ToValue(typedValues, j, higherPrecision, fieldMetadata)
 					if resInt == nil {
@@ -1889,7 +1890,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			})
 		}
 	case realType:
-		if arrayValuesNullableEnabled(ctx) {
+		if embeddedValuesNullableEnabled(ctx) {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullFloat64, error) {
 				resFloat := arrowRealToValue(values.(*array.Float64), j)
 				if resFloat == nil {
@@ -1906,7 +1907,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			return resFloat.(float64), nil
 		})
 	case textType:
-		if arrayValuesNullableEnabled(ctx) {
+		if embeddedValuesNullableEnabled(ctx) {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullString, error) {
 				resString := arrowStringToValue(values.(*array.String), j)
 				if resString == nil {
@@ -1923,7 +1924,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 			return resString.(string), nil
 		})
 	case booleanType:
-		if arrayValuesNullableEnabled(ctx) {
+		if embeddedValuesNullableEnabled(ctx) {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullBool, error) {
 				resBool := arrowBoolToValue(values.(*array.Boolean), j)
 				if resBool == nil {
@@ -1951,7 +1952,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 
 		})
 	case dateType:
-		if arrayValuesNullableEnabled(ctx) {
+		if embeddedValuesNullableEnabled(ctx) {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullTime, error) {
 				v := arrowDateToValue(values.(*array.Date32), j)
 				if v == nil {
@@ -1971,7 +1972,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 		})
 
 	case timeType:
-		if arrayValuesNullableEnabled(ctx) {
+		if embeddedValuesNullableEnabled(ctx) {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullTime, error) {
 				v := arrowTimeToValue(values, j, fieldMetadata.Scale)
 				if v == nil {
@@ -1991,7 +1992,7 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 		})
 
 	case timestampNtzType, timestampLtzType, timestampTzType:
-		if arrayValuesNullableEnabled(ctx) {
+		if embeddedValuesNullableEnabled(ctx) {
 			return mapStructuredArrayNativeArrowRows(offsets, rowIdx, func(j int) (sql.NullTime, error) {
 				ptr := arrowSnowflakeTimestampToTime(values, snowflakeType, fieldMetadata.Scale, j, loc)
 				if ptr != nil {
@@ -2021,35 +2022,35 @@ func buildListFromNativeArrow(ctx context.Context, rowIdx int, fieldMetadata fie
 	case arrayType:
 		switch fieldMetadata.Fields[0].Type {
 		case "text":
-			if arrayValuesNullableEnabled(ctx) {
+			if embeddedValuesNullableEnabled(ctx) {
 				return buildArrowListRecursive[sql.NullString](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 			}
 			return buildArrowListRecursive[string](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 		case "fixed":
 			if fieldMetadata.Fields[0].Scale == 0 {
-				if arrayValuesNullableEnabled(ctx) {
+				if embeddedValuesNullableEnabled(ctx) {
 					return buildArrowListRecursive[sql.NullInt64](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 				}
 				return buildArrowListRecursive[int64](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 			}
-			if arrayValuesNullableEnabled(ctx) {
+			if embeddedValuesNullableEnabled(ctx) {
 				return buildArrowListRecursive[sql.NullFloat64](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 			}
 			return buildArrowListRecursive[float64](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 		case "real":
-			if arrayValuesNullableEnabled(ctx) {
+			if embeddedValuesNullableEnabled(ctx) {
 				return buildArrowListRecursive[sql.NullFloat64](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 			}
 			return buildArrowListRecursive[float64](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 		case "boolean":
-			if arrayValuesNullableEnabled(ctx) {
+			if embeddedValuesNullableEnabled(ctx) {
 				return buildArrowListRecursive[sql.NullBool](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 			}
 			return buildArrowListRecursive[bool](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 		case "binary":
 			return buildArrowListRecursive[[]byte](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 		case "date", "time", "timestamp_ltz", "timestamp_ntz", "timestamp_tz":
-			if arrayValuesNullableEnabled(ctx) {
+			if embeddedValuesNullableEnabled(ctx) {
 				return buildArrowListRecursive[sql.NullTime](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
 			}
 			return buildArrowListRecursive[time.Time](ctx, rowIdx, fieldMetadata, offsets, values, loc, higherPrecision, params)
@@ -2101,7 +2102,7 @@ func extractInt64(values arrow.Array, j int) (int64, error) {
 }
 
 func buildStructuredMapFromArrow[K comparable](ctx context.Context, rowIdx int, valueMetadata fieldMetadata, offsets []int32, keyFunc func(j int) (K, error), items arrow.Array, higherPrecision bool, loc *time.Location, params map[string]*string) (snowflakeValue, error) {
-	mapNullValuesEnabled := mapValuesNullableEnabled(ctx)
+	mapNullValuesEnabled := embeddedValuesNullableEnabled(ctx)
 	switch valueMetadata.Type {
 	case "text":
 		if mapNullValuesEnabled {
@@ -2601,92 +2602,90 @@ type (
 
 // Array takes in a column of a row to be inserted via array binding, bulk or
 // otherwise, and converts it into a native snowflake type for binding
-func Array(a interface{}, typ ...any) interface{} {
+func Array(a interface{}, typ ...any) (interface{}, error) {
 
 	switch t := a.(type) {
 	case []int:
-		return (*intArray)(&t)
+		return (*intArray)(&t), nil
 	case []int32:
-		return (*int32Array)(&t)
+		return (*int32Array)(&t), nil
 	case []int64:
-		return (*int64Array)(&t)
+		return (*int64Array)(&t), nil
 	case []float64:
-		return (*float64Array)(&t)
+		return (*float64Array)(&t), nil
 	case []float32:
-		return (*float32Array)(&t)
+		return (*float32Array)(&t), nil
 	case []*big.Float:
 		if len(typ) == 1 {
 			if b, ok := typ[0].([]byte); ok && bytes.Equal(b, DataTypeDecfloat) {
-				return (*decfloatArray)(&t)
+				return (*decfloatArray)(&t), nil
 			}
 		}
-		logger.Warnf("Unsupported *big.Float array bind. Set the type to []byte{DataTypeDecfloat} to use decfloatArray")
-		return a
+		return nil, errors.New("unsupported *big.Float array bind. Set the type to []byte{DataTypeDecfloat} to use decfloatArray")
 	case []bool:
-		return (*boolArray)(&t)
+		return (*boolArray)(&t), nil
 	case []string:
-		return (*stringArray)(&t)
+		return (*stringArray)(&t), nil
 	case [][]byte:
-		return (*byteArray)(&t)
+		return (*byteArray)(&t), nil
 	case []time.Time:
 		if len(typ) < 1 {
-			return a
+			return nil, errUnsupportedTimeArrayBind
 		}
 		switch typ[0] {
 		case TimestampNTZType:
-			return (*timestampNtzArray)(&t)
+			return (*timestampNtzArray)(&t), nil
 		case TimestampLTZType:
-			return (*timestampLtzArray)(&t)
+			return (*timestampLtzArray)(&t), nil
 		case TimestampTZType:
-			return (*timestampTzArray)(&t)
+			return (*timestampTzArray)(&t), nil
 		case DateType:
-			return (*dateArray)(&t)
+			return (*dateArray)(&t), nil
 		case TimeType:
-			return (*timeArray)(&t)
+			return (*timeArray)(&t), nil
 		default:
-			return a
+			return nil, errUnsupportedTimeArrayBind
 		}
 	case *[]int:
-		return (*intArray)(t)
+		return (*intArray)(t), nil
 	case *[]int32:
-		return (*int32Array)(t)
+		return (*int32Array)(t), nil
 	case *[]int64:
-		return (*int64Array)(t)
+		return (*int64Array)(t), nil
 	case *[]float64:
-		return (*float64Array)(t)
+		return (*float64Array)(t), nil
 	case *[]float32:
-		return (*float32Array)(t)
+		return (*float32Array)(t), nil
 	case *[]*big.Float:
 		if len(typ) == 1 {
 			if b, ok := typ[0].([]byte); ok && bytes.Equal(b, DataTypeDecfloat) {
-				return (*decfloatArray)(t)
+				return (*decfloatArray)(t), nil
 			}
 		}
-		logger.Warnf("Unsupported *big.Float array bind. Set the type to []byte{DataTypeDecfloat} to use decfloatArray")
-		return a
+		return nil, errors.New("unsupported *big.Float array bind. Set the type to []byte{DataTypeDecfloat} to use decfloatArray")
 	case *[]bool:
-		return (*boolArray)(t)
+		return (*boolArray)(t), nil
 	case *[]string:
-		return (*stringArray)(t)
+		return (*stringArray)(t), nil
 	case *[][]byte:
-		return (*byteArray)(t)
+		return (*byteArray)(t), nil
 	case *[]time.Time:
 		if len(typ) < 1 {
-			return a
+			return nil, errUnsupportedTimeArrayBind
 		}
 		switch typ[0] {
 		case TimestampNTZType:
-			return (*timestampNtzArray)(t)
+			return (*timestampNtzArray)(t), nil
 		case TimestampLTZType:
-			return (*timestampLtzArray)(t)
+			return (*timestampLtzArray)(t), nil
 		case TimestampTZType:
-			return (*timestampTzArray)(t)
+			return (*timestampTzArray)(t), nil
 		case DateType:
-			return (*dateArray)(t)
+			return (*dateArray)(t), nil
 		case TimeType:
-			return (*timeArray)(t)
+			return (*timeArray)(t), nil
 		default:
-			return a
+			return nil, errUnsupportedTimeArrayBind
 		}
 	case []interface{}, *[]interface{}:
 		// Support for bulk array binding insertion using []interface{}
@@ -2694,16 +2693,24 @@ func Array(a interface{}, typ ...any) interface{} {
 			return interfaceArrayBinding{
 				hasTimezone:       false,
 				timezoneTypeArray: a,
-			}
+			}, nil
 		}
 		return interfaceArrayBinding{
 			hasTimezone:       true,
 			tzType:            typ[0].(timezoneType),
 			timezoneTypeArray: a,
-		}
+		}, nil
 	default:
-		return a
+		return a, errors.New("unknown array type for binding")
 	}
+}
+
+func mustArray(v interface{}, typ ...any) driver.Value {
+	array, err := Array(v, typ...)
+	if err != nil {
+		panic(fmt.Sprintf("failed to convert to array: %v", err))
+	}
+	return array
 }
 
 // snowflakeArrayToString converts the array binding to snowflake's native

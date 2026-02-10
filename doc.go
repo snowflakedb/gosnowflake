@@ -645,10 +645,10 @@ See StructuredObject for all available operations including null support, embedd
 
 Retrieving array of simple types works exactly the same like normal values - using Scan function.
 
-You can use WithMapValuesNullable and WithArrayValuesNullable contexts to handle null values in, respectively, maps
+You can use WithEmbeddedValuesNullable contexts to handle null values in maps
 and arrays of simple types in the database. In that case, sql null types will be used:
 
-	ctx := WithArrayValuesNullable(WithStructuredTypesEnabled(context.Background))
+	ctx := WithEmbeddedValuesNullable(WithStructuredTypesEnabled(context.Background))
 	...
 	var res []sql.NullBool
 	err := rows.Scan(&res)
@@ -918,51 +918,58 @@ INSERT statement. You can use this technique to insert multiple rows in a single
 As an example, the following code inserts rows into a table that contains integer, float, boolean, and string columns. The example
 binds arrays to the parameters in the INSERT statement.
 
-	// Create a table containing an integer, float, boolean, and string column.
-	_, err = db.Exec("create or replace table my_table(c1 int, c2 float, c3 boolean, c4 string)")
-	...
-	// Define the arrays containing the data to insert.
-	intArray := []int{1, 2, 3}
-	fltArray := []float64{0.1, 2.34, 5.678}
-	boolArray := []bool{true, false, true}
-	strArray := []string{"test1", "test2", "test3"}
-	...
-	// Insert the data from the arrays and wrap in an Array() function into the table.
-	_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray))
+		// Create a table containing an integer, float, boolean, and string column.
+		_, err = db.Exec("create or replace table my_table(c1 int, c2 float, c3 boolean, c4 string)")
+		...
+		// Define the arrays containing the data to insert.
+		intArray := []int{1, 2, 3}
+		fltArray := []float64{0.1, 2.34, 5.678}
+		boolArray := []bool{true, false, true}
+		strArray := []string{"test1", "test2", "test3"}
+		...
+		// Insert the data from the arrays and wrap in an Array() function into the table.
+	    intArr, err := Array(&intArray)
+		fltArr, err := Array(&fltArray)
+		boolArr, err := Array(&boolArray)
+		strArr, err := Array(&strArray)
+		_, err = db.Exec("insert into my_table values (?, ?, ?, ?)", intArr, fltArr, boolArr, strArr)
 
 If the array contains SQL NULL values, use slice []interface{}, which allows Golang nil values.
 This feature is available in version 1.6.12 (and later) of the driver. For example,
 
-	 	// Define the arrays containing the data to insert.
-	 	strArray := make([]interface{}, 3)
-		strArray[0] = "test1"
-		strArray[1] = "test2"
-		strArray[2] = nil // This line is optional as nil is the default value.
-		...
-		// Create a table and insert the data from the array as shown above.
-		_, err = db.Exec("create or replace table my_table(c1 string)")
-		_, err = db.Exec("insert into my_table values (?)", Array(&strArray))
-		...
-		// Use sql.NullString to fetch the string column that contains NULL values.
-		var s sql.NullString
-		rows, _ := db.Query("select * from my_table")
-		for rows.Next() {
-			err := rows.Scan(&s)
-			if err != nil {
-				log.Fatalf("Failed to scan. err: %v", err)
+		 	// Define the arrays containing the data to insert.
+		 	strArray := make([]interface{}, 3)
+			strArray[0] = "test1"
+			strArray[1] = "test2"
+			strArray[2] = nil // This line is optional as nil is the default value.
+			...
+			// Create a table and insert the data from the array as shown above.
+	        strArr, err := Array(&strArray)
+			_, err = db.Exec("create or replace table my_table(c1 string)")
+			_, err = db.Exec("insert into my_table values (?)", strArr)
+			...
+			// Use sql.NullString to fetch the string column that contains NULL values.
+			var s sql.NullString
+			rows, _ := db.Query("select * from my_table")
+			for rows.Next() {
+				err := rows.Scan(&s)
+				if err != nil {
+					log.Fatalf("Failed to scan. err: %v", err)
+				}
+				if s.Valid {
+					fmt.Println("Retrieved value:", s.String)
+				} else {
+					fmt.Println("Retrieved value: NULL")
+				}
 			}
-			if s.Valid {
-				fmt.Println("Retrieved value:", s.String)
-			} else {
-				fmt.Println("Retrieved value: NULL")
-			}
-		}
 
 For slices []interface{} containing time.Time values, a binding parameter flag is required for the preceding array variable in the Array() function.
 This feature is available in version 1.6.13 (and later) of the driver. For example,
 
-	_, err = db.Exec("create or replace table my_table(c1 timestamp_ntz, c2 timestamp_ltz)")
-	_, err = db.Exec("insert into my_table values (?,?)", Array(&ntzArray, sf.TimestampNTZType), Array(&ltzArray, sf.TimestampLTZType))
+	    ntzArr, err := Array(&ntzArray, sf.TimestampNTZType)
+		ltzArr, err := Array(&ltzArray, sf.TimestampLTZType)
+		_, err = db.Exec("create or replace table my_table(c1 timestamp_ntz, c2 timestamp_ltz)")
+		_, err = db.Exec("insert into my_table values (?,?)", ntzArr, ltzArr)
 
 Note: For alternative ways to load data into the Snowflake database (including bulk loading using the COPY command), see
 Loading Data into Snowflake (https://docs.snowflake.com/en/user-guide-data-load.html).
@@ -1165,11 +1172,10 @@ the number of statements in the string. For example:
 		"database/sql"
 	)
 
-	var multi_statement_query = "SELECT c1 FROM t1; SELECT c2 FROM t2"
+	var multiStatementQuery = "SELECT c1 FROM t1; SELECT c2 FROM t2"
 	var number_of_statements = 2
-	blank_context = context.Background()
-	multi_statement_context, _ := WithMultiStatement(blank_context, number_of_statements)
-	rows, err := db.QueryContext(multi_statement_context, multi_statement_query)
+	ctx := WithMultiStatement(context.Background(), number_of_statements)
+	rows, err := db.QueryContext(ctx, multiStatementQuery)
 
 When multiple queries are executed by a single call to QueryContext(), multiple result sets are returned. After
 you process the first result set, get the next result set (for the next SQL statement) by calling NextResultSet().

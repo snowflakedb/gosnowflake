@@ -261,8 +261,7 @@ func TestWithStreamDownloader(t *testing.T) {
 }
 
 func TestWithStreamDownloaderMultistatementLargeResultSet(t *testing.T) {
-	ctx, err := WithMultiStatement(WithStreamDownloader(context.Background()), 2)
-	assertNilF(t, err)
+	ctx := WithMultiStatement(WithStreamDownloader(context.Background()), 2)
 	numrows := 1000000
 	cnt := 0
 	var v string
@@ -471,11 +470,10 @@ func testWithArrowBatchesMultistatement(t *testing.T, async bool) {
 		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
-		ctx, err := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
+		ctx := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
 		if async {
 			ctx = WithAsyncMode(ctx)
 		}
-		assertNilF(t, err)
 		driverRows := sct.mustQueryContext(ctx, "SELECT 'abc' UNION SELECT 'def' ORDER BY 1; SELECT 'ghi' UNION SELECT 'jkl' ORDER BY 1", nil)
 		defer driverRows.Close()
 		sfRows := driverRows.(SnowflakeRows)
@@ -496,7 +494,7 @@ func testWithArrowBatchesMultistatement(t *testing.T, async bool) {
 			resultSetIdx++
 		}
 		assertEqualF(t, resultSetIdx, len(expectedResults))
-		err = sfRows.NextResultSet()
+		err := sfRows.NextResultSet()
 		assertErrIsE(t, err, io.EOF)
 	})
 }
@@ -506,8 +504,7 @@ func TestWithArrowBatchesMultistatementWithJSONResponse(t *testing.T) {
 		sct.mustExec(forceJSON, nil)
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
-		ctx, err := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
-		assertNilF(t, err)
+		ctx := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
 		driverRows := sct.mustQueryContext(ctx, "SELECT 'abc' UNION SELECT 'def' ORDER BY 1; SELECT 'ghi' UNION SELECT 'jkl' ORDER BY 1", nil)
 		defer driverRows.Close()
 		sfRows := driverRows.(SnowflakeRows)
@@ -522,7 +519,7 @@ func TestWithArrowBatchesMultistatementWithJSONResponse(t *testing.T) {
 			resultSetIdx++
 		}
 		assertEqualF(t, resultSetIdx, 2)
-		err = sfRows.NextResultSet()
+		err := sfRows.NextResultSet()
 		assertErrIsE(t, err, io.EOF)
 	})
 }
@@ -532,8 +529,7 @@ func TestWithArrowBatchesMultistatementWithLargeResultSet(t *testing.T) {
 		sct.mustExec("ALTER SESSION SET ENABLE_FIX_1758055_ADD_ARROW_SUPPORT_FOR_MULTI_STMTS = true", nil)
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
-		ctx, err := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
-		assertNilF(t, err)
+		ctx := WithMultiStatement(WithArrowBatches(WithArrowAllocator(context.Background(), pool)), 2)
 		driverRows := sct.mustQueryContext(ctx, "SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000))", nil)
 		defer driverRows.Close()
 		sfRows := driverRows.(SnowflakeRows)
@@ -554,7 +550,7 @@ func TestWithArrowBatchesMultistatementWithLargeResultSet(t *testing.T) {
 				}
 			}
 		}
-		err = sfRows.NextResultSet()
+		err := sfRows.NextResultSet()
 		assertErrIsE(t, err, io.EOF)
 	})
 }
@@ -702,8 +698,7 @@ func TestQueryArrowStreamMultiStatement(t *testing.T) {
 		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer mem.AssertSize(t, 0)
 		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
-		ctx, err := WithMultiStatement(ctx, 2)
-		assertNilF(t, err)
+		ctx = WithMultiStatement(ctx, 2)
 		loader, err := sct.sc.QueryArrowStream(ctx, "SELECT 'abc'; SELECT 'abc' UNION SELECT 'def' ORDER BY 1")
 		assertNilF(t, err)
 
@@ -748,8 +743,7 @@ func TestQueryArrowStreamMultiStatementForJSONData(t *testing.T) {
 		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer mem.AssertSize(t, 0)
 		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
-		ctx, err := WithMultiStatement(ctx, 2)
-		assertNilF(t, err)
+		ctx = WithMultiStatement(ctx, 2)
 		loader, err := sct.sc.QueryArrowStream(ctx, "SELECT 'abc'; SELECT 'abc' UNION SELECT 'def' ORDER BY 1")
 		assertNilF(t, err)
 
@@ -777,8 +771,7 @@ func TestQueryArrowStreamMultiStatementLargeResultset(t *testing.T) {
 		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer mem.AssertSize(t, 0)
 		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
-		ctx, err := WithMultiStatement(ctx, 2)
-		assertNilF(t, err)
+		ctx = WithMultiStatement(ctx, 2)
 		query := fmt.Sprintf("SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => %v)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => %v))", rowsCount, rowsCount)
 		loader, err := sct.sc.QueryArrowStream(ctx, query)
 		assertNilF(t, err)
@@ -815,8 +808,7 @@ func TestQueryArrowStreamMultiStatementWithTimeout(t *testing.T) {
 		mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer mem.AssertSize(t, 0)
 		ctx := WithArrowAllocator(WithArrowBatches(sct.sc.ctx), mem)
-		ctx, err := WithMultiStatement(ctx, 2)
-		assertNilF(t, err)
+		ctx = WithMultiStatement(ctx, 2)
 		loader, err := sct.sc.QueryArrowStream(ctx, "SELECT 'abc'; SELECT 'abc'") // SYSTEM$WAIT does not wait in multistatements
 		assertNilF(t, err)
 

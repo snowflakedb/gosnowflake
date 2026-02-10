@@ -58,7 +58,7 @@ func printSelectDemo(db *sql.DB) {
 
 	fmt.Println(query)
 
-	context := createMultistatementContext(numberOfQueries)
+	context := sf.WithMultiStatement(context.Background(), numberOfQueries)
 
 	result, err := db.QueryContext(context, query)
 	if err != nil {
@@ -96,7 +96,7 @@ func printModifyingDemo(db *sql.DB) {
 
 	fmt.Println(query)
 
-	context := createMultistatementContext(numberOfQueries)
+	context := sf.WithMultiStatement(context.Background(), numberOfQueries)
 
 	result, err := db.ExecContext(context, query)
 	if err != nil {
@@ -109,12 +109,4 @@ func printModifyingDemo(db *sql.DB) {
 	}
 
 	fmt.Printf("Rows affected: %d, expected: %d\n", rowsAffected, 3)
-}
-
-func createMultistatementContext(numberOfQueries int) context.Context {
-	context, err := sf.WithMultiStatement(context.Background(), numberOfQueries)
-	if err != nil {
-		log.Fatalf("Error while creating multi statement context: %v", err)
-	}
-	return context
 }

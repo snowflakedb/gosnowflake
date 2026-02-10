@@ -33,8 +33,7 @@ const (
 	arrowBatchesTimestampOption      contextKey = "ARROW_BATCHES_TIMESTAMP_OPTION"
 	queryTag                         contextKey = "QUERY_TAG"
 	enableStructuredTypes            contextKey = "ENABLE_STRUCTURED_TYPES"
-	mapValuesNullable                contextKey = "MAP_VALUES_NULLABLE"
-	arrayValuesNullable              contextKey = "ARRAY_VALUES_NULLABLE"
+	embeddedValuesNullable           contextKey = "MAP_VALUES_NULLABLE"
 	describeOnly                     contextKey = "DESCRIBE_ONLY"
 	internalQuery                    contextKey = "INTERNAL_QUERY"
 	cancelRetry                      contextKey = "CANCEL_RETRY"
@@ -48,8 +47,8 @@ var (
 )
 
 // WithMultiStatement returns a context that allows the user to execute the desired number of sql queries in one query
-func WithMultiStatement(ctx context.Context, num int) (context.Context, error) {
-	return context.WithValue(ctx, multiStatementCount, num), nil
+func WithMultiStatement(ctx context.Context, num int) context.Context {
+	return context.WithValue(ctx, multiStatementCount, num)
 }
 
 // WithAsyncMode returns a context that allows execution of query in async mode
@@ -127,15 +126,6 @@ func WithArrowAllocator(ctx context.Context, pool memory.Allocator) context.Cont
 	return context.WithValue(ctx, arrowAlloc, pool)
 }
 
-// WithOriginalTimestamp in combination with WithArrowBatches returns a context
-// that allows users to retrieve arrow.Record with original timestamp struct returned by Snowflake.
-// It can be used in case arrow.Timestamp cannot fit original timestamp values.
-//
-// Deprecated: please use WithArrowBatchesTimestampOption instead.
-func WithOriginalTimestamp(ctx context.Context) context.Context {
-	return context.WithValue(ctx, arrowBatchesTimestampOption, UseOriginalTimestamp)
-}
-
 // WithArrowBatchesTimestampOption in combination with WithArrowBatches returns a context
 // that allows users to retrieve arrow.Record with different timestamp options.
 // UseNanosecondTimestamp: arrow.Timestamp in nanosecond precision, could cause ErrTooHighTimestampPrecision if arrow.Timestamp cannot fit original timestamp values.
@@ -169,16 +159,11 @@ func WithStructuredTypesEnabled(ctx context.Context) context.Context {
 	return context.WithValue(ctx, enableStructuredTypes, true)
 }
 
-// WithMapValuesNullable changes how map values are returned.
+// WithEmbeddedValuesNullable changes how complex structures are returned.
 // Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
-func WithMapValuesNullable(ctx context.Context) context.Context {
-	return context.WithValue(ctx, mapValuesNullable, true)
-}
-
-// WithArrayValuesNullable changes how array values are returned.
-// Instead of simple values (like string) sql.NullXXX wrappers (like sql.NullString) are used.
-func WithArrayValuesNullable(ctx context.Context) context.Context {
-	return context.WithValue(ctx, arrayValuesNullable, true)
+// It applies to map values and arrays.
+func WithEmbeddedValuesNullable(ctx context.Context) context.Context {
+	return context.WithValue(ctx, embeddedValuesNullable, true)
 }
 
 // WithInternal sets the internal query flag.
