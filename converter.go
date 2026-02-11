@@ -2701,7 +2701,7 @@ func Array(a interface{}, typ ...any) (interface{}, error) {
 			timezoneTypeArray: a,
 		}, nil
 	default:
-		return a, errors.New("unknown array type for binding")
+		return nil, fmt.Errorf("unknown array type for binding: %T", a)
 	}
 }
 
