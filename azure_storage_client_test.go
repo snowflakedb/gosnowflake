@@ -190,7 +190,7 @@ func TestUploadFileWithAzureUploadFailedError(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -244,7 +244,7 @@ func TestUploadStreamWithAzureUploadFailedError(t *testing.T) {
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -316,7 +316,7 @@ func TestUploadFileWithAzureUploadTokenExpired(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +393,7 @@ func TestUploadFileWithAzureUploadNeedsRetry(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Fatal("should have raised an error")
 	}
@@ -446,13 +446,14 @@ func TestDownloadOneFileToAzureFailed(t *testing.T) {
 			},
 		},
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
 }
 
 func TestGetFileHeaderErrorStatus(t *testing.T) {
+	ctx := context.Background()
 	info := execResponseStageInfo{
 		Location:     "azblob/teststage/users/34/",
 		LocationType: "AZURE",
@@ -478,7 +479,7 @@ func TestGetFileHeaderErrorStatus(t *testing.T) {
 		},
 	}
 
-	if header, err := (&snowflakeAzureClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeAzureClient{cfg: &Config{}}).getFileHeader(ctx, &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != errStatus {
@@ -516,7 +517,7 @@ func TestGetFileHeaderErrorStatus(t *testing.T) {
 		},
 	}
 
-	if header, err := (&snowflakeAzureClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeAzureClient{cfg: &Config{}}).getFileHeader(ctx, &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != notFoundFile {
@@ -542,7 +543,7 @@ func TestGetFileHeaderErrorStatus(t *testing.T) {
 		},
 	}
 
-	if header, err := (&snowflakeAzureClient{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeAzureClient{cfg: &Config{}}).getFileHeader(ctx, &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != renewToken {
@@ -592,13 +593,14 @@ func TestUploadFileToAzureClientCastFail(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
 }
 
 func TestAzureGetHeaderClientCastFail(t *testing.T) {
+	ctx := context.Background()
 	info := execResponseStageInfo{
 		Location:     "azblob/rwyi-testacco/users/9220/",
 		LocationType: "AZURE",
@@ -623,7 +625,7 @@ func TestAzureGetHeaderClientCastFail(t *testing.T) {
 		},
 	}
 
-	_, err = new(snowflakeAzureClient).getFileHeader(&meta, "file.txt")
+	_, err = new(snowflakeAzureClient).getFileHeader(ctx, &meta, "file.txt")
 	if err == nil {
 		t.Fatal("should have failed")
 	}
