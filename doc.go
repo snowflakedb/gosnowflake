@@ -1439,7 +1439,7 @@ an absolute path rather than a relative path. For example:
 To download a file into an in-memory stream (rather than a file) use code similar to the code below.
 
 	var streamBuf bytes.Buffer
-	ctx := WithFileGetStream(ctx, &streamBuf)
+	ctx := WithFileGetStream(context.Background(), &streamBuf)
 
 	sql := "get @~/data1.txt.gz file:///tmp/testData"
 	dbt.mustExecContext(ctx, sql)
