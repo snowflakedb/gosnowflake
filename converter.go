@@ -36,7 +36,7 @@ const decfloatPrintingPrec = 40
 
 type timezoneType int
 
-var errUnsupportedTimeArrayBind = errors.New("unsupported time array bind. Set the type to []byte{TimestampNTZType}, []byte{TimestampLTZType}, []byte{TimestampTZType}, []byte{DateType} or []byte{TimeType}")
+var errUnsupportedTimeArrayBind = errors.New("unsupported time array bind. Set the type to TimestampNTZType, TimestampLTZType, TimestampTZType, DateType or TimeType")
 var errNativeArrowWithoutProperContext = errors.New("structured types must be enabled to use with native arrow")
 
 const (
