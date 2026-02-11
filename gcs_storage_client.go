@@ -43,7 +43,7 @@ func (util *snowflakeGcsClient) createClient(info *execResponseStageInfo, _ bool
 }
 
 // cloudUtil implementation
-func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename string) (*fileHeader, error) {
+func (util *snowflakeGcsClient) getFileHeader(ctx context.Context, meta *fileMetadata, filename string) (*fileHeader, error) {
 	if meta.resStatus == uploaded || meta.resStatus == downloaded {
 		return &fileHeader{
 			digest:             meta.gcsFileHeaderDigest,
@@ -66,7 +66,7 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 			"Authorization": "Bearer " + accessToken,
 		}
 
-		resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
+		resp, err := withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (*http.Response, error) {
 			req, err := http.NewRequestWithContext(ctx, "HEAD", URL.String(), nil)
 			if err != nil {
 				return nil, err
@@ -154,6 +154,7 @@ type gcsAPI interface {
 
 // cloudUtil implementation
 func (util *snowflakeGcsClient) uploadFile(
+	ctx context.Context,
 	dataFile string,
 	meta *fileMetadata,
 	maxConcurrency int,
@@ -234,7 +235,7 @@ func (util *snowflakeGcsClient) uploadFile(
 		}(uploadSrc.(io.Closer))
 	}
 
-	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
+	resp, err := withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (*http.Response, error) {
 		req, err := http.NewRequestWithContext(ctx, "PUT", uploadURL.String(), uploadSrc)
 		if err != nil {
 			return nil, err
@@ -302,6 +303,7 @@ func (util *snowflakeGcsClient) uploadFile(
 
 // cloudUtil implementation
 func (util *snowflakeGcsClient) nativeDownloadFile(
+	ctx context.Context,
 	meta *fileMetadata,
 	fullDstFileName string,
 	maxConcurrency int64,
@@ -330,7 +332,7 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 
 	// First, get file size with a HEAD request to determine if multi-part download is needed
 	// Also extract metadata during this request
-	fileHeader, err := util.getFileHeaderForDownload(downloadURL, gcsHeaders, accessToken, meta)
+	fileHeader, err := util.getFileHeaderForDownload(ctx, downloadURL, gcsHeaders, accessToken, meta)
 	if err != nil {
 		return err
 	}
@@ -338,10 +340,10 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 
 	// Use multi-part download for files larger than partSize or when maxConcurrency > 1
 	if fileSize > partSize && maxConcurrency > 1 {
-		err = util.downloadFileInParts(downloadURL, gcsHeaders, accessToken, meta, fullDstFileName, fileSize, maxConcurrency, partSize)
+		err = util.downloadFileInParts(ctx, downloadURL, gcsHeaders, accessToken, meta, fullDstFileName, fileSize, maxConcurrency, partSize)
 	} else {
 		// Fall back to single-part download for smaller files
-		err = util.downloadFileSinglePart(downloadURL, gcsHeaders, accessToken, meta, fullDstFileName)
+		err = util.downloadFileSinglePart(ctx, downloadURL, gcsHeaders, accessToken, meta, fullDstFileName)
 	}
 	if err != nil {
 		return err
@@ -372,8 +374,8 @@ func (util *snowflakeGcsClient) nativeDownloadFile(
 }
 
 // getFileHeaderForDownload gets the file header using a HEAD request
-func (util *snowflakeGcsClient) getFileHeaderForDownload(downloadURL *url.URL, gcsHeaders map[string]string, accessToken string, meta *fileMetadata) (*http.Response, error) {
-	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
+func (util *snowflakeGcsClient) getFileHeaderForDownload(ctx context.Context, downloadURL *url.URL, gcsHeaders map[string]string, accessToken string, meta *fileMetadata) (*http.Response, error) {
+	resp, err := withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (*http.Response, error) {
 		req, err := http.NewRequestWithContext(ctx, "HEAD", downloadURL.String(), nil)
 		if err != nil {
 			return nil, err
@@ -431,6 +433,7 @@ type downloadJob struct {
 }
 
 func (util *snowflakeGcsClient) downloadFileInParts(
+	ctx context.Context,
 	downloadURL *url.URL,
 	gcsHeaders map[string]string,
 	accessToken string,
@@ -444,14 +447,15 @@ func (util *snowflakeGcsClient) downloadFileInParts(
 	numParts := (fileSize + partSize - 1) / partSize
 
 	// For streaming, use batched approach to avoid buffering all parts in memory
-	if meta.options != nil && meta.options.GetFileToStream {
-		return util.downloadInPartsForStream(downloadURL, gcsHeaders, accessToken, meta, fileSize, numParts, maxConcurrency, partSize)
+	if isFileGetStream(ctx) {
+		return util.downloadInPartsForStream(ctx, downloadURL, gcsHeaders, accessToken, meta, fileSize, numParts, maxConcurrency, partSize)
 	}
-	return util.downloadInPartsForFile(downloadURL, gcsHeaders, accessToken, meta, fullDstFileName, fileSize, numParts, maxConcurrency, partSize)
+	return util.downloadInPartsForFile(ctx, downloadURL, gcsHeaders, accessToken, meta, fullDstFileName, fileSize, numParts, maxConcurrency, partSize)
 }
 
 // downloadInPartsForStream downloads file in batches, streaming parts sequentially
 func (util *snowflakeGcsClient) downloadInPartsForStream(
+	ctx context.Context,
 	downloadURL *url.URL,
 	gcsHeaders map[string]string,
 	accessToken string,
@@ -486,7 +490,7 @@ func (util *snowflakeGcsClient) downloadInPartsForStream(
 		for i := int64(0); i < batchSize; i++ {
 			go func() {
 				for job := range jobs {
-					stream, err := util.downloadRangeStream(downloadURL, gcsHeaders, accessToken, meta, client, job.start, job.end)
+					stream, err := util.downloadRangeStream(ctx, downloadURL, gcsHeaders, accessToken, meta, client, job.start, job.end)
 					results <- downloadPartStream{stream: stream, index: job.index, err: err}
 				}
 			}()
@@ -554,6 +558,7 @@ func (util *snowflakeGcsClient) downloadInPartsForStream(
 
 // downloadInPartsForFile downloads all parts and writes to file
 func (util *snowflakeGcsClient) downloadInPartsForFile(
+	ctx context.Context,
 	downloadURL *url.URL,
 	gcsHeaders map[string]string,
 	accessToken string,
@@ -579,7 +584,7 @@ func (util *snowflakeGcsClient) downloadInPartsForFile(
 	for i := int64(0); i < maxConcurrency; i++ {
 		go func() {
 			for job := range jobs {
-				data, err := util.downloadRangeBytes(downloadURL, gcsHeaders, accessToken, meta, client, job.start, job.end)
+				data, err := util.downloadRangeBytes(ctx, downloadURL, gcsHeaders, accessToken, meta, client, job.start, job.end)
 				results <- downloadPart{data: data, index: job.index, err: err}
 			}
 		}()
@@ -632,6 +637,7 @@ func (util *snowflakeGcsClient) downloadInPartsForFile(
 
 // downloadRangeStream downloads a specific byte range and returns the response stream
 func (util *snowflakeGcsClient) downloadRangeStream(
+	ctx context.Context,
 	downloadURL *url.URL,
 	gcsHeaders map[string]string,
 	accessToken string,
@@ -639,7 +645,7 @@ func (util *snowflakeGcsClient) downloadRangeStream(
 	client gcsAPI,
 	start, end int64) (io.ReadCloser, error) {
 
-	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
+	resp, err := withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (*http.Response, error) {
 		req, err := http.NewRequestWithContext(ctx, "GET", downloadURL.String(), nil)
 		if err != nil {
 			return nil, err
@@ -671,6 +677,7 @@ func (util *snowflakeGcsClient) downloadRangeStream(
 
 // downloadRangeBytes downloads a specific byte range and returns the bytes
 func (util *snowflakeGcsClient) downloadRangeBytes(
+	ctx context.Context,
 	downloadURL *url.URL,
 	gcsHeaders map[string]string,
 	accessToken string,
@@ -678,7 +685,7 @@ func (util *snowflakeGcsClient) downloadRangeBytes(
 	client gcsAPI,
 	start, end int64) ([]byte, error) {
 
-	stream, err := util.downloadRangeStream(downloadURL, gcsHeaders, accessToken, meta, client, start, end)
+	stream, err := util.downloadRangeStream(ctx, downloadURL, gcsHeaders, accessToken, meta, client, start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -699,13 +706,14 @@ func (util *snowflakeGcsClient) downloadRangeBytes(
 
 // downloadFileSinglePart downloads a file using a single request (original implementation)
 func (util *snowflakeGcsClient) downloadFileSinglePart(
+	ctx context.Context,
 	downloadURL *url.URL,
 	gcsHeaders map[string]string,
 	accessToken string,
 	meta *fileMetadata,
 	fullDstFileName string) error {
 
-	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
+	resp, err := withCloudStorageTimeout(ctx, util.cfg, func(ctx context.Context) (*http.Response, error) {
 		req, err := http.NewRequestWithContext(ctx, "GET", downloadURL.String(), nil)
 		if err != nil {
 			return nil, err
@@ -739,7 +747,7 @@ func (util *snowflakeGcsClient) downloadFileSinglePart(
 		return util.handleHTTPError(resp, meta, accessToken)
 	}
 
-	if meta.options != nil && meta.options.GetFileToStream {
+	if isFileGetStream(ctx) {
 		if _, err := io.Copy(meta.dstStream, resp.Body); err != nil {
 			return err
 		}

@@ -22,7 +22,7 @@ const (
 	queryIDChannel                   contextKey = "QUERY_ID_CHANNEL"
 	snowflakeRequestIDKey            contextKey = "SNOWFLAKE_REQUEST_ID"
 	fetchResultByID                  contextKey = "SF_FETCH_RESULT_BY_ID"
-	fileStreamFile                   contextKey = "STREAMING_PUT_FILE"
+	filePutStream                    contextKey = "STREAMING_PUT_FILE"
 	fileGetStream                    contextKey = "STREAMING_GET_FILE"
 	fileTransferOptions              contextKey = "FILE_TRANSFER_OPTIONS"
 	enableHigherPrecision            contextKey = "ENABLE_HIGHER_PRECISION"
@@ -77,9 +77,9 @@ func WithFetchResultByID(ctx context.Context, queryID string) context.Context {
 	return context.WithValue(ctx, fetchResultByID, queryID)
 }
 
-// WithFileStream returns a context that contains the address of the file stream to be PUT
-func WithFileStream(ctx context.Context, reader io.Reader) context.Context {
-	return context.WithValue(ctx, fileStreamFile, reader)
+// WithFilePutStream returns a context that contains the address of the file stream to be PUT
+func WithFilePutStream(ctx context.Context, reader io.Reader) context.Context {
+	return context.WithValue(ctx, filePutStream, reader)
 }
 
 // WithFileGetStream returns a context that contains the address of the file stream to be GET
