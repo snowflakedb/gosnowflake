@@ -174,7 +174,7 @@ func TestLargeSetJSONResultWithDecoder(t *testing.T) {
 }
 
 func TestLargeSetResultWithCustomJSONDecoder(t *testing.T) {
-	CustomJSONDecoderEnabled = true
+	customJSONDecoderEnabled = true
 	// less number of rows to avoid Travis timeout
 	testLargeSetResult(t, 20000, true)
 }

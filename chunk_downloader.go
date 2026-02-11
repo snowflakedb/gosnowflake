@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -109,20 +110,37 @@ func (scd *snowflakeChunkDownloader) start() error {
 	// start downloading chunks if exists
 	chunkMetaLen := len(scd.ChunkMetas)
 	if chunkMetaLen > 0 {
-		logger.WithContext(scd.ctx).Debugf("MaxChunkDownloadWorkers: %v", MaxChunkDownloadWorkers)
+		chunkDownloadWorkers := defaultMaxChunkDownloadWorkers
+		paramsMutex.Lock()
+		chunkDownloadWorkersStr, ok := scd.sc.cfg.Params[clientPrefetchThreadsKey]
+		paramsMutex.Unlock()
+		if ok {
+			var err error
+			chunkDownloadWorkers, err = strconv.Atoi(*chunkDownloadWorkersStr)
+			if err != nil {
+				logger.Warnf("invalid value for CLIENT_PREFETCH_THREADS: %v", *chunkDownloadWorkersStr)
+				chunkDownloadWorkers = defaultMaxChunkDownloadWorkers
+			}
+		}
+		if chunkDownloadWorkers <= 0 {
+			logger.Warnf("invalid value for CLIENT_PREFETCH_THREADS: %v. It should be a positive integer. Defaulting to %v", chunkDownloadWorkers, defaultMaxChunkDownloadWorkers)
+			chunkDownloadWorkers = defaultMaxChunkDownloadWorkers
+		}
+
+		logger.WithContext(scd.ctx).Debugf("chunkDownloadWorkers: %v", chunkDownloadWorkers)
 		logger.WithContext(scd.ctx).Debugf("chunks: %v, total bytes: %d", chunkMetaLen, scd.totalUncompressedSize())
 		scd.ChunksMutex = &sync.Mutex{}
 		scd.DoneDownloadCond = sync.NewCond(scd.ChunksMutex)
 		scd.Chunks = make(map[int][]chunkRowType)
 		scd.ChunksChan = make(chan int, chunkMetaLen)
-		scd.ChunksError = make(chan *chunkError, MaxChunkDownloadWorkers)
+		scd.ChunksError = make(chan *chunkError, chunkDownloadWorkers)
 		for i := 0; i < chunkMetaLen; i++ {
 			chunk := scd.ChunkMetas[i]
 			logger.WithContext(scd.ctx).Debugf("Result Format: %v, add chunk to channel ChunksChan: %v, URL: %v, RowCount: %v, UncompressedSize: %v, ChunkResultFormat: %v",
 				scd.getQueryResultFormat(), i+1, chunk.URL, chunk.RowCount, chunk.UncompressedSize, scd.QueryResultFormat)
 			scd.ChunksChan <- i
 		}
-		for i := 0; i < intMin(MaxChunkDownloadWorkers, chunkMetaLen); i++ {
+		for i := 0; i < intMin(chunkDownloadWorkers, chunkMetaLen); i++ {
 			scd.schedule()
 		}
 	}
@@ -440,7 +458,7 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 	var respd []chunkRowType
 	if scd.getQueryResultFormat() != arrowFormat {
 		var decRespd [][]*string
-		if !CustomJSONDecoderEnabled {
+		if !customJSONDecoderEnabled {
 			dec := json.NewDecoder(st)
 			for {
 				if err := dec.Decode(&decRespd); err == io.EOF {
