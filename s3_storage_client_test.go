@@ -105,7 +105,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -119,7 +119,7 @@ func TestUploadOneFileToS3WSAEConnAborted(t *testing.T) {
 
 	initialParallel = 4
 	uploadMeta.parallel = initialParallel
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -183,7 +183,7 @@ func TestUploadOneFileToS3ConnReset(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -244,7 +244,7 @@ func TestUploadFileWithS3UploadFailedError(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -278,7 +278,7 @@ func TestGetHeadExpiryError(t *testing.T) {
 			},
 		},
 	}
-	if header, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != renewToken {
@@ -302,7 +302,7 @@ func TestGetHeaderUnexpectedError(t *testing.T) {
 			},
 		},
 	}
-	if header, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(&meta, "file.txt"); header != nil || err == nil {
+	if header, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt"); header != nil || err == nil {
 		t.Fatalf("expected null header, got: %v", header)
 	}
 	if meta.resStatus != errStatus {
@@ -324,7 +324,7 @@ func TestGetHeaderNonApiError(t *testing.T) {
 		},
 	}
 
-	header, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
+	header, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt")
 	assertNilE(t, header, fmt.Sprintf("expected header to be nil, actual: %v", header))
 	assertNotNilE(t, err, "expected err to not be nil")
 	assertEqualE(t, meta.resStatus, errStatus, fmt.Sprintf("expected %v result status for non-APIerror, got: %v", errStatus, meta.resStatus))
@@ -346,7 +346,7 @@ func TestGetHeaderNotFoundError(t *testing.T) {
 		},
 	}
 
-	_, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(&meta, "file.txt")
+	_, err := (&snowflakeS3Client{cfg: &Config{}}).getFileHeader(context.Background(), &meta, "file.txt")
 	if err != nil && err.Error() != "could not find file" {
 		t.Error(err)
 	}
@@ -410,7 +410,7 @@ func TestDownloadFileWithS3TokenExpired(t *testing.T) {
 			},
 		},
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -463,7 +463,7 @@ func TestDownloadFileWithS3ConnReset(t *testing.T) {
 			},
 		},
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -516,7 +516,7 @@ func TestDownloadOneFileToS3WSAEConnAborted(t *testing.T) {
 			},
 		},
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -567,7 +567,7 @@ func TestDownloadOneFileToS3Failed(t *testing.T) {
 			},
 		},
 	}
-	err = new(remoteStorageUtil).downloadOneFile(&downloadMeta)
+	err = new(remoteStorageUtil).downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("should have raised an error")
 	}
@@ -620,7 +620,7 @@ func TestUploadFileToS3ClientCastFail(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -651,7 +651,7 @@ func TestGetHeaderClientCastFail(t *testing.T) {
 		},
 	}
 
-	_, err = new(snowflakeS3Client).getFileHeader(&meta, "file.txt")
+	_, err = new(snowflakeS3Client).getFileHeader(context.Background(), &meta, "file.txt")
 	if err == nil {
 		t.Fatal("should have failed")
 	}
@@ -711,7 +711,7 @@ func TestS3UploadRetryWithHeaderNotFound(t *testing.T) {
 	}
 	uploadMeta.uploadSize = fi.Size()
 
-	err = (&remoteStorageUtil{cfg: &Config{}}).uploadOneFileWithRetry(&uploadMeta)
+	err = (&remoteStorageUtil{cfg: &Config{}}).uploadOneFileWithRetry(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -761,7 +761,7 @@ func TestS3UploadStreamFailed(t *testing.T) {
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
 
-	err = new(remoteStorageUtil).uploadOneFile(&uploadMeta)
+	err = new(remoteStorageUtil).uploadOneFile(context.Background(), &uploadMeta)
 	if err == nil {
 		t.Fatal("should have failed")
 	}

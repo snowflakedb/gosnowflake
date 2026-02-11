@@ -4,6 +4,14 @@
 
 Breaking changes:
 
+- Removed `RaisePutGetError` from `SnowflakeFileTransferOptions` - current behaviour is aligned to always raise errors for PUT/GET operations (snowflakedb/gosnowflake#1690).
+- Removed `GetFileToStream` from `SnowflakeFileTransferOptions` - using `WithFileGetStream` automatically enables file streaming for GETs (snowflakedb/gosnowflake#1690).
+- Renamed `WithFileStream` to `WithFilePutStream` for consistency (snowflakedb/gosnowflake#1690). 
+
+Bug fixes:
+
+- The query `context.Context` is now propagated to cloud storage operations for PUT and GET queries, allowing for better cancellation handling (snowflakedb/gosnowflake#1690).
+
 ## Upcoming Release
 
 Bug fixes:

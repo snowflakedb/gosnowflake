@@ -65,7 +65,7 @@ func putGetUserStage(t *testing.T, numberOfFiles int, numberOfLines int, isStrea
 		var fs *os.File
 		if isStream {
 			fs, _ = os.Open(files)
-			dbt.mustExecContext(WithFileStream(context.Background(), fs),
+			dbt.mustExecContext(WithFilePutStream(context.Background(), fs),
 				fmt.Sprintf("put 'file://%v' @%v", strings.ReplaceAll(
 					files, "\\", "\\\\"), stageName))
 		} else {

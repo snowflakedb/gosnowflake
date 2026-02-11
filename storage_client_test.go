@@ -24,9 +24,6 @@ func TestProcessEncryptedFileToDestination_DecryptionFailure(t *testing.T) {
 		},
 		tmpDir:      tmpDir,
 		srcFileName: "test_file.txt",
-		options: &SnowflakeFileTransferOptions{
-			GetFileToStream: false,
-		},
 	}
 
 	// Create header with invalid encryption metadata
@@ -83,9 +80,6 @@ func TestProcessEncryptedFileToDestination_Success(t *testing.T) {
 		encryptionMaterial: encMat,
 		tmpDir:             tmpDir,
 		srcFileName:        "test_file.txt",
-		options: &SnowflakeFileTransferOptions{
-			GetFileToStream: false,
-		},
 	}
 
 	header := &fileHeader{

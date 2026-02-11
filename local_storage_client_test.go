@@ -56,7 +56,7 @@ func TestLocalUpload(t *testing.T) {
 		},
 	}
 	uploadMeta.realSrcFileName = uploadMeta.srcFileName
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
+	err = localUtil.uploadOneFileWithRetry(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -65,7 +65,7 @@ func TestLocalUpload(t *testing.T) {
 	}
 
 	uploadMeta.overwrite = false
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
+	err = localUtil.uploadOneFileWithRetry(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -73,11 +73,11 @@ func TestLocalUpload(t *testing.T) {
 		t.Fatal("overwrite is false. should have skipped")
 	}
 	fileStream, _ := os.Open(fname)
-	ctx := WithFileStream(context.Background(), fileStream)
+	ctx := WithFilePutStream(context.Background(), fileStream)
 	uploadMeta.fileStream, err = getFileStream(ctx)
 	assertNilF(t, err)
 
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
+	err = localUtil.uploadOneFileWithRetry(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -85,7 +85,7 @@ func TestLocalUpload(t *testing.T) {
 		t.Fatalf("overwrite is false. should have skipped")
 	}
 	uploadMeta.overwrite = true
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
+	err = localUtil.uploadOneFileWithRetry(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -94,7 +94,7 @@ func TestLocalUpload(t *testing.T) {
 	}
 
 	uploadMeta.realSrcStream = uploadMeta.srcStream
-	err = localUtil.uploadOneFileWithRetry(&uploadMeta)
+	err = localUtil.uploadOneFileWithRetry(context.Background(), &uploadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -150,7 +150,7 @@ func TestDownloadLocalFile(t *testing.T) {
 			MultiPartThreshold: multiPartThreshold,
 		},
 	}
-	err = localUtil.downloadOneFile(&downloadMeta)
+	err = localUtil.downloadOneFile(context.Background(), &downloadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -159,7 +159,7 @@ func TestDownloadLocalFile(t *testing.T) {
 	}
 
 	downloadMeta.srcFileName = "test_put_get.txt.gz"
-	err = localUtil.downloadOneFile(&downloadMeta)
+	err = localUtil.downloadOneFile(context.Background(), &downloadMeta)
 	if err != nil {
 		t.Error(err)
 	}
@@ -168,7 +168,7 @@ func TestDownloadLocalFile(t *testing.T) {
 	}
 
 	downloadMeta.srcFileName = "local://test_put_get.txt.gz"
-	err = localUtil.downloadOneFile(&downloadMeta)
+	err = localUtil.downloadOneFile(context.Background(), &downloadMeta)
 	if err == nil {
 		t.Error("file name is invalid. should have returned an error")
 	}

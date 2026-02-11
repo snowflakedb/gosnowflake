@@ -82,16 +82,11 @@ func (rs resultStatus) isSet() bool {
 // SnowflakeFileTransferOptions enables users to specify options regarding
 // files transfers such as PUT/GET
 type SnowflakeFileTransferOptions struct {
-	showProgressBar bool
-	// Deprecated: will be removed in the future. The behaviour will be aligned to setting it to true.
-	RaisePutGetError   bool
+	showProgressBar    bool
 	MultiPartThreshold int64
 
 	/* streaming PUT */
 	compressSourceFromStream bool
-
-	/* streaming GET */
-	GetFileToStream bool
 
 	/* PUT */
 	putCallback             *snowflakeProgressPercentage
@@ -661,7 +656,7 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 			Message:  errMsgFailedToConvertToS3Client,
 		}).exceptionTelemetry(sfa.sc)
 	}
-	ret, err := withCloudStorageTimeout(sfa.sc.cfg, func(ctx context.Context) (*s3.GetBucketAccelerateConfigurationOutput, error) {
+	ret, err := withCloudStorageTimeout(sfa.ctx, sfa.sc.cfg, func(ctx context.Context) (*s3.GetBucketAccelerateConfigurationOutput, error) {
 		return client.GetBucketAccelerateConfiguration(ctx, &s3.GetBucketAccelerateConfigurationInput{
 			Bucket: &s3Loc.bucketName,
 		})
@@ -673,13 +668,13 @@ func (sfa *snowflakeFileTransferAgent) transferAccelerateConfigWithUtil(s3Util s
 	return nil
 }
 
-func withCloudStorageTimeout[T any](cfg *Config, f func(ctx context.Context) (T, error)) (T, error) {
+func withCloudStorageTimeout[T any](ctx context.Context, cfg *Config, f func(ctx context.Context) (T, error)) (T, error) {
 	if cfg.CloudStorageTimeout > 0 {
-		ctx, cancelFunc := context.WithTimeout(context.Background(), cfg.CloudStorageTimeout)
+		cancelCtx, cancelFunc := context.WithTimeout(ctx, cfg.CloudStorageTimeout)
 		defer cancelFunc()
-		return f(ctx)
+		return f(cancelCtx)
 	}
-	return f(context.Background())
+	return f(ctx)
 }
 
 func (sfa *snowflakeFileTransferAgent) transferAccelerateConfig() error {
@@ -794,12 +789,12 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 				wg.Add(1)
 				go func(k int, m *fileMetadata) {
 					defer wg.Done()
-					defer func() {                                                               
-						if r := recover(); r != nil {                                        
-                            errors[k] = fmt.Errorf("panic during file upload: %v", r)
-							results[k] = nil                                             
-						}                                                                    
-					}() 
+					defer func() {
+						if r := recover(); r != nil {
+							errors[k] = fmt.Errorf("panic during file upload: %v", r)
+							results[k] = nil
+						}
+					}()
 					results[k], errors[k] = sfa.uploadOneFile(m)
 				}(i, meta)
 			}
@@ -941,7 +936,7 @@ func (sfa *snowflakeFileTransferAgent) uploadOneFile(meta *fileMetadata) (*fileM
 	}
 
 	client := sfa.getStorageClient(sfa.stageLocationType)
-	if err = client.uploadOneFileWithRetry(meta); err != nil {
+	if err = client.uploadOneFileWithRetry(sfa.ctx, meta); err != nil {
 		return meta, err
 	}
 	return meta, nil
@@ -962,13 +957,13 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 				wg.Add(1)
 				go func(k int, m *fileMetadata) {
 					defer wg.Done()
-					defer func() {                                                               
-						if r := recover(); r != nil {                                        
-                            errors[k] = fmt.Errorf("panic during file download: %v", r)
-							results[k] = nil                                             
-						}                                                                    
-					}() 
-					results[k], errors[k] = sfa.downloadOneFile(m)
+					defer func() {
+						if r := recover(); r != nil {
+							errors[k] = fmt.Errorf("panic during file download: %v", r)
+							results[k] = nil
+						}
+					}()
+					results[k], errors[k] = sfa.downloadOneFile(sfa.ctx, m)
 				}(i, meta)
 			}
 			wg.Wait()
@@ -1030,8 +1025,8 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 	return err
 }
 
-func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fileMetadata, error) {
-	if sfa.options != nil && !sfa.options.GetFileToStream {
+func (sfa *snowflakeFileTransferAgent) downloadOneFile(ctx context.Context, meta *fileMetadata) (*fileMetadata, error) {
+	if !isFileGetStream(ctx) {
 		tmpDir, err := os.MkdirTemp(sfa.sc.cfg.TmpDirPath, "")
 		if err != nil {
 			return meta, err
@@ -1044,7 +1039,7 @@ func (sfa *snowflakeFileTransferAgent) downloadOneFile(meta *fileMetadata) (*fil
 		}()
 	}
 	client := sfa.getStorageClient(sfa.stageLocationType)
-	if err := client.downloadOneFile(meta); err != nil {
+	if err := client.downloadOneFile(ctx, meta); err != nil {
 		meta.dstFileSize = -1
 		if !meta.resStatus.isSet() {
 			meta.resStatus = errStatus
@@ -1109,7 +1104,7 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 				errorDetails := meta.errorDetails
 				srcFileSize := meta.srcFileSize
 				dstFileSize := meta.dstFileSize
-				if sfa.options.RaisePutGetError && errorDetails != nil {
+				if errorDetails != nil {
 					return nil, (&SnowflakeError{
 						Number:   ErrFailedToUploadToStage,
 						SQLState: sfa.data.SQLState,
@@ -1174,7 +1169,7 @@ func (sfa *snowflakeFileTransferAgent) result() (*execResponse, error) {
 			for _, meta := range sfa.results {
 				dstFileSize := meta.dstFileSize
 				errorDetails := meta.errorDetails
-				if sfa.options.RaisePutGetError && errorDetails != nil {
+				if errorDetails != nil {
 					return nil, (&SnowflakeError{
 						Number:   ErrFailedToDownloadFromStage,
 						SQLState: sfa.data.SQLState,

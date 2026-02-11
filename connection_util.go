@@ -111,9 +111,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	query string,
 	isInternal bool) (
 	*execResponse, error) {
-	options := &SnowflakeFileTransferOptions{
-		RaisePutGetError: true,
-	}
+	options := &SnowflakeFileTransferOptions{}
 	sfa := snowflakeFileTransferAgent{
 		ctx:          ctx,
 		sc:           sc,
@@ -138,7 +136,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	if sfa.options.MultiPartThreshold == 0 {
 		sfa.options.MultiPartThreshold = multiPartThreshold
 		// for streaming download, use a smaller default part size
-		if sfa.commandType == downloadCommand && sfa.options.GetFileToStream {
+		if sfa.commandType == downloadCommand && isFileGetStream(ctx) {
 			sfa.options.MultiPartThreshold = streamingMultiPartThreshold
 		}
 	}
@@ -149,7 +147,7 @@ func (sc *snowflakeConn) processFileTransfer(
 	if err != nil {
 		return nil, err
 	}
-	if sfa.options != nil && sfa.options.GetFileToStream {
+	if sfa.options != nil && isFileGetStream(ctx) {
 		if err := writeFileStream(ctx, sfa.streamBuffer); err != nil {
 			return nil, err
 		}
@@ -158,7 +156,7 @@ func (sc *snowflakeConn) processFileTransfer(
 }
 
 func getFileStream(ctx context.Context) (io.Reader, error) {
-	s := ctx.Value(fileStreamFile)
+	s := ctx.Value(filePutStream)
 	if s == nil {
 		return nil, nil
 	}
@@ -167,6 +165,11 @@ func getFileStream(ctx context.Context) (io.Reader, error) {
 		return nil, errors.New("incorrect io.Reader")
 	}
 	return r, nil
+}
+
+func isFileGetStream(ctx context.Context) bool {
+	v := ctx.Value(fileGetStream)
+	return v != nil
 }
 
 func getFileTransferOptions(ctx context.Context) *SnowflakeFileTransferOptions {
