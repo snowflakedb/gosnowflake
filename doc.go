@@ -241,7 +241,7 @@ you are looking to connect. Since the driver name is not needed, you can optiona
 on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTRATION` in your environment. This is useful you wish to
 register multiple verions of the driver.
 
-Note: `GOSNOWFLAKE_SKIP_REGISTERATION` should not be used if sql.Open() is used as the method
+Note: `GOSNOWFLAKE_SKIP_REGISTRATION` should not be used if sql.Open() is used as the method
 to connect to the server, as sql.Open will require registration so it can map the driver name
 to the driver type, which in this case is "snowflake" and SnowflakeDriver{}.
 
