@@ -1419,7 +1419,7 @@ To send information from a stream (rather than a file) use code similar to the c
 	sqlText := fmt.Sprintf(sql,
 		strings.ReplaceAll(fname, "\\", "\\\\"),
 		tableName)
-	dbt.mustExecContext(WithFileStream(context.Background(), fileStream),
+	dbt.mustExecContext(WithFilePutStream(context.Background(), fileStream),
 		sqlText)
 
 Note: PUT statements are not supported for multi-statement queries.
@@ -1439,8 +1439,7 @@ an absolute path rather than a relative path. For example:
 To download a file into an in-memory stream (rather than a file) use code similar to the code below.
 
 	var streamBuf bytes.Buffer
-	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{GetFileToStream: true})
-	ctx = WithFileGetStream(ctx, &streamBuf)
+	ctx := WithFileGetStream(context.Background(), &streamBuf)
 
 	sql := "get @~/data1.txt.gz file:///tmp/testData"
 	dbt.mustExecContext(ctx, sql)
@@ -1462,17 +1461,6 @@ Using custom configuration for PUT/GET:
 
 If you want to override some default configuration options, you can use `WithFileTransferOptions` context.
 There are multiple config parameters including progress bars or compression.
-
-# Surfacing errors originating from PUT and GET commands
-
-Default behaviour is to propagate the potential underlying errors encountered during executing calls associated with the PUT or GET commands to the caller, for increased awareness and easier handling or troubleshooting them.
-
-The behaviour is governed by the `RaisePutGetError` flag on `SnowflakeFileTransferOptions` (default: `true`)
-
-If you wish to ignore those errors instead, you can set `RaisePutGetError: false`. Example snippet:
-
-	ctx := WithFileTransferOptions(context.Background(), &SnowflakeFileTransferOptions{RaisePutGetError: false})
-	db.ExecContext(ctx, "PUT ...")
 
 # Minicore (Native Library)
 
