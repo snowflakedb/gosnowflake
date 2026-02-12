@@ -16,17 +16,14 @@ const (
 )
 
 var (
-	// MaxChunkDownloadWorkers specifies the maximum number of goroutines used to download chunks
-	// Deprecated: will be replaced with per query setting.
-	MaxChunkDownloadWorkers = 10
+	// customJSONDecoderEnabled has the chunk downloader use the custom JSON decoder to reduce memory footprint.
+	customJSONDecoderEnabled = false
 
-	// CustomJSONDecoderEnabled has the chunk downloader use the custom JSON decoder to reduce memory footprint.
-	CustomJSONDecoderEnabled = false
-)
-
-var (
 	maxChunkDownloaderErrorCounter = 5
 )
+
+const defaultMaxChunkDownloadWorkers = 10
+const clientPrefetchThreadsKey = "client_prefetch_threads"
 
 // SnowflakeRows provides an API for methods exposed to the clients
 type SnowflakeRows interface {
