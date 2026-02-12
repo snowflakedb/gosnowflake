@@ -1272,7 +1272,7 @@ func TestBindingMapWithNillableValues(t *testing.T) {
 
 				dbt.mustExecT(t, "INSERT INTO test_map_binding SELECT (?)", tc.values...)
 
-				rows := dbt.mustQueryContextT(WithMapValuesNullable(ctx), t, "SELECT * FROM test_map_binding WHERE m = ?", tc.values...)
+				rows := dbt.mustQueryContextT(WithEmbeddedValuesNullable(ctx), t, "SELECT * FROM test_map_binding WHERE m = ?", tc.values...)
 				defer rows.Close()
 
 				assertTrueE(t, rows.Next())

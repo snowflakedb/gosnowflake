@@ -1164,17 +1164,8 @@ func structuredTypesEnabled(ctx context.Context) bool {
 	return ok && d
 }
 
-func mapValuesNullableEnabled(ctx context.Context) bool {
-	v := ctx.Value(mapValuesNullable)
-	if v == nil {
-		return false
-	}
-	d, ok := v.(bool)
-	return ok && d
-}
-
-func arrayValuesNullableEnabled(ctx context.Context) bool {
-	v := ctx.Value(arrayValuesNullable)
+func embeddedValuesNullableEnabled(ctx context.Context) bool {
+	v := ctx.Value(embeddedValuesNullable)
 	if v == nil {
 		return false
 	}
