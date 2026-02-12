@@ -1035,9 +1035,9 @@ func TestDecfloat(t *testing.T) {
 			bfFromString, ok := new(big.Float).SetPrec(127).SetString("1234567890.1234567890123456789012345678")
 			assertTrueF(t, ok)
 			arrays := []any{
-				Array([]string{"123.45", "1234567890.1234567890123456789012345678"}, DataTypeDecfloat),
-				Array([]float64{123.45, 1234567890.1234567890123456789012345678}, DataTypeDecfloat),
-				Array([]*big.Float{
+				mustArray([]string{"123.45", "1234567890.1234567890123456789012345678"}, DataTypeDecfloat),
+				mustArray([]float64{123.45, 1234567890.1234567890123456789012345678}, DataTypeDecfloat),
+				mustArray([]*big.Float{
 					new(big.Float).SetFloat64(123.45),
 					bfFromString,
 				}, DataTypeDecfloat),

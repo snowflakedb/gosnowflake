@@ -410,7 +410,9 @@ func TestBulkArrayBindingUUID(t *testing.T) {
 
 		dbt.mustExec(createTable)
 
-		res := dbt.mustExec(insert, Array(&expectedUuids))
+		array, err := Array(&expectedUuids)
+		assertNilF(t, err)
+		res := dbt.mustExec(insert, array)
 
 		affected, err := res.RowsAffected()
 		if err != nil {
@@ -455,11 +457,11 @@ func TestBulkArrayBindingInterfaceNil(t *testing.T) {
 		dbt.mustExec(createTableSQL)
 		defer dbt.mustExec(deleteTableSQL)
 
-		dbt.mustExec(insertSQL, Array(&nilArray), Array(&nilArray),
-			Array(&nilArray), Array(&nilArray), Array(&nilArray),
-			Array(&nilArray, TimestampNTZType), Array(&nilArray, TimestampTZType),
-			Array(&nilArray, TimestampTZType), Array(&nilArray, DateType),
-			Array(&nilArray, TimeType))
+		dbt.mustExec(insertSQL, mustArray(&nilArray), mustArray(&nilArray),
+			mustArray(&nilArray), mustArray(&nilArray), mustArray(&nilArray),
+			mustArray(&nilArray, TimestampNTZType), mustArray(&nilArray, TimestampTZType),
+			mustArray(&nilArray, TimestampTZType), mustArray(&nilArray, DateType),
+			mustArray(&nilArray, TimeType))
 		rows := dbt.mustQuery(selectAllSQL)
 		defer func() {
 			assertNilF(t, rows.Close())
@@ -543,8 +545,8 @@ func TestBulkArrayBindingInterface(t *testing.T) {
 		dbt.mustExec(createTableSQLBulkArray)
 		defer dbt.mustExec(deleteTableSQLBulkArray)
 
-		dbt.mustExec(insertSQLBulkArray, Array(&intArray), Array(&fltArray),
-			Array(&boolArray), Array(&strArray), Array(&byteArray), Array(&int64Array))
+		dbt.mustExec(insertSQLBulkArray, mustArray(&intArray), mustArray(&fltArray),
+			mustArray(&boolArray), mustArray(&strArray), mustArray(&byteArray), mustArray(&int64Array))
 		rows := dbt.mustQuery(selectAllSQLBulkArray)
 		defer func() {
 			assertNilF(t, rows.Close())
@@ -646,9 +648,9 @@ func TestBulkArrayBindingInterfaceDateTimeTimestamp(t *testing.T) {
 		defer dbt.mustExec(deleteTableSQLBulkArrayDateTimeTimestamp)
 
 		dbt.mustExec(insertSQLBulkArrayDateTimeTimestamp,
-			Array(&ntzArray, TimestampNTZType), Array(&ltzArray, TimestampLTZType),
-			Array(&tzArray, TimestampTZType), Array(&dtArray, DateType),
-			Array(&tmArray, TimeType))
+			mustArray(&ntzArray, TimestampNTZType), mustArray(&ltzArray, TimestampLTZType),
+			mustArray(&tzArray, TimestampTZType), mustArray(&dtArray, DateType),
+			mustArray(&tmArray, TimeType))
 
 		rows := dbt.mustQuery(selectAllSQLBulkArrayDateTimeTimestamp)
 		defer func() {
@@ -754,11 +756,11 @@ func testBindingArray(t *testing.T, bulk bool) {
 			}
 		}
 
-		dbt.mustExec(insertSQL, Array(&intArray), Array(&fltArray),
-			Array(&boolArray), Array(&strArray), Array(&byteArray),
-			Array(&ntzArray, TimestampNTZType), Array(&ltzArray, TimestampLTZType),
-			Array(&tzArray, TimestampTZType), Array(&dtArray, DateType),
-			Array(&tmArray, TimeType))
+		dbt.mustExec(insertSQL, mustArray(&intArray), mustArray(&fltArray),
+			mustArray(&boolArray), mustArray(&strArray), mustArray(&byteArray),
+			mustArray(&ntzArray, TimestampNTZType), mustArray(&ltzArray, TimestampLTZType),
+			mustArray(&tzArray, TimestampTZType), mustArray(&dtArray, DateType),
+			mustArray(&tmArray, TimeType))
 		rows := dbt.mustQuery(selectAllSQL)
 		defer func() {
 			assertNilF(t, rows.Close())
@@ -840,7 +842,7 @@ func TestBulkArrayBinding(t *testing.T) {
 			timeArr[i] = someTime
 			binArr[i] = someBinary
 		}
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", dbname), Array(&intArr), Array(&strArr), Array(&ltzArr, TimestampLTZType), Array(&tzArr, TimestampTZType), Array(&ntzArr, TimestampNTZType), Array(&dateArr, DateType), Array(&timeArr, TimeType), Array(&binArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?)", dbname), mustArray(&intArr), mustArray(&strArr), mustArray(&ltzArr, TimestampLTZType), mustArray(&tzArr, TimestampTZType), mustArray(&ntzArr, TimestampNTZType), mustArray(&dateArr, DateType), mustArray(&timeArr, TimeType), mustArray(&binArr))
 		rows := dbt.mustQuery("select * from " + dbname + " order by c1")
 		defer func() {
 			assertNilF(t, rows.Close())
@@ -984,10 +986,10 @@ func TestBindingsWithSameValue(t *testing.T) {
 			timeAnyArr[i] = date
 		}
 
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?, ?)", interfaceArrayTable), Array(&intAnyArr), Array(&strAnyArr), Array(&timeAnyArr, TimestampLTZType), Array(&timeAnyArr, TimestampTZType), Array(&timeAnyArr, TimestampNTZType), Array(&timeAnyArr, DateType), Array(&timeAnyArr, TimeType), Array(&boolArr), Array(&doubleArr))
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), Array(&intArr), Array(&strArr), Array(&timeArr, TimestampLTZType), Array(&timeArr, TimestampTZType), Array(&timeArr, TimestampNTZType), Array(&timeArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?, ?)", interfaceArrayTable), mustArray(&intAnyArr), mustArray(&strAnyArr), mustArray(&timeAnyArr, TimestampLTZType), mustArray(&timeAnyArr, TimestampTZType), mustArray(&timeAnyArr, TimestampNTZType), mustArray(&timeAnyArr, DateType), mustArray(&timeAnyArr, TimeType), mustArray(&boolArr), mustArray(&doubleArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?, ?)", arrayInsertTable), mustArray(&intArr), mustArray(&strArr), mustArray(&timeArr, TimestampLTZType), mustArray(&timeArr, TimestampTZType), mustArray(&timeArr, TimestampNTZType), mustArray(&timeArr, DateType), mustArray(&timeArr, TimeType), mustArray(&boolArr), mustArray(&doubleArr))
 		dbt.mustExec("ALTER SESSION SET CLIENT_STAGE_ARRAY_BINDING_THRESHOLD = 1")
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), Array(&intArr), Array(&strArr), Array(&timeArr, TimestampLTZType), Array(&timeArr, TimestampTZType), Array(&timeArr, TimestampNTZType), Array(&timeArr, DateType), Array(&timeArr, TimeType), Array(&boolArr), Array(&doubleArr))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?, ?, ?, ?, ?, ?)", stageBindingTable), mustArray(&intArr), mustArray(&strArr), mustArray(&timeArr, TimestampLTZType), mustArray(&timeArr, TimestampTZType), mustArray(&timeArr, TimestampNTZType), mustArray(&timeArr, DateType), mustArray(&timeArr, TimeType), mustArray(&boolArr), mustArray(&doubleArr))
 
 		insertRows := dbt.mustQuery("select * from " + arrayInsertTable + " order by c1")
 		bindingRows := dbt.mustQuery("select * from " + stageBindingTable + " order by c1")
@@ -1076,7 +1078,7 @@ func TestBulkArrayBindingTimeWithPrecision(t *testing.T) {
 			microsecondsArr[i] = someTimeWithMicroseconds
 			nanosecondsArr[i] = someTimeWithNanoseconds
 		}
-		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?)", dbname), Array(&secondsArr, TimeType), Array(&millisecondsArr, TimeType), Array(&microsecondsArr, TimeType), Array(&nanosecondsArr, TimeType))
+		dbt.mustExec(fmt.Sprintf("insert into %v values (?, ?, ?, ?)", dbname), mustArray(&secondsArr, TimeType), mustArray(&millisecondsArr, TimeType), mustArray(&microsecondsArr, TimeType), mustArray(&nanosecondsArr, TimeType))
 		rows := dbt.mustQuery("select * from " + dbname)
 		defer func() {
 			assertNilF(t, rows.Close())
@@ -1117,7 +1119,7 @@ func TestBulkArrayMultiPartBinding(t *testing.T) {
 		for i := 0; i < randomIter; i++ {
 			dbt.mustExecContext(ctx,
 				fmt.Sprintf("INSERT INTO %s VALUES (?)", tempTableName),
-				Array(&randomStrings))
+				mustArray(&randomStrings))
 			rows := dbt.mustQuery("select count(*) from " + tempTableName)
 			defer func() {
 				assertNilF(t, rows.Close())
@@ -1156,7 +1158,7 @@ func TestBulkArrayMultiPartBindingInt(t *testing.T) {
 		for i := startNum; i < endNum; i++ {
 			intArr[i-startNum] = i
 		}
-		_, err := dbt.exec("insert into binding_test values (?)", Array(&intArr))
+		_, err := dbt.exec("insert into binding_test values (?)", mustArray(&intArr))
 		if err != nil {
 			t.Errorf("Should have succeeded to insert. err: %v", err)
 		}
@@ -1206,7 +1208,7 @@ func TestBulkArrayMultiPartBindingWithNull(t *testing.T) {
 		stringArr[2] = nil
 		stringArr[3] = nil
 
-		_, err := dbt.exec("insert into binding_test values (?, ?)", Array(&intArr), Array(&stringArr))
+		_, err := dbt.exec("insert into binding_test values (?, ?)", mustArray(&intArr), mustArray(&stringArr))
 		if err != nil {
 			t.Errorf("Should have succeeded to insert. err: %v", err)
 		}
