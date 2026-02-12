@@ -232,7 +232,7 @@ func (sc *snowflakeConn) configureTelemetry() {
 	paramsMutex.Lock()
 	defer paramsMutex.Unlock()
 	telemetryEnabled, ok := sc.cfg.Params["client_telemetry_enabled"]
-	if ok && telemetryEnabled != nil && strings.Compare(*telemetryEnabled, "true") == 0 {
+	if ok && telemetryEnabled != nil && *telemetryEnabled == "true" {
 		sc.telemetry.flushSize = defaultFlushSize
 		sc.telemetry.sr = sc.rest
 		sc.telemetry.mutex = &sync.Mutex{}
