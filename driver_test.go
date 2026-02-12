@@ -1738,7 +1738,7 @@ func testArray(t *testing.T, json bool) {
 }
 
 func TestLargeSetResult(t *testing.T) {
-	CustomJSONDecoderEnabled = false
+	customJSONDecoderEnabled = false
 	testLargeSetResult(t, 100000, false)
 }
 

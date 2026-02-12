@@ -11,6 +11,9 @@ Breaking changes:
 - `WithMultiStatement` does not return error anymore (snowflakedb/gosnowflake#1693).
 - `WithOriginalTimestamp` is removed, use `WithArrowBatchesTimestampOption(UseOriginalTimestamp)` instead (snowflakedb/gosnowflake#1693).
 - `WithMapValuesNullable` and `WithArrayValuesNullable` combined into one option `WithEmbeddedValuesNullable` (snowflakedb/gosnowflake#1693).
+- Hid streaming chunk downloader. It will be removed completely in the future (snowflakedb/gosnowflake#1696).
+- Maximum number of chunk download goroutines is now configured with `CLIENT_PREFETCH_THREADS` session parameter (snowflakedb/gosnowflake#1696).
+- Fixed typo in `GOSNOWFLAKE_SKIP_REGISTRATION` env variable (snowflakedb/gosnowflake#1696).
 
 Bug fixes:
 

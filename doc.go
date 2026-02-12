@@ -238,10 +238,10 @@ For example:
 
 If you are using this method, you dont need to pass a driver name to specify the driver type in which
 you are looking to connect. Since the driver name is not needed, you can optionally bypass driver registration
-on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTERATION` in your environment. This is useful you wish to
+on startup. To do this, set `GOSNOWFLAKE_SKIP_REGISTRATION` in your environment. This is useful you wish to
 register multiple verions of the driver.
 
-Note: `GOSNOWFLAKE_SKIP_REGISTERATION` should not be used if sql.Open() is used as the method
+Note: `GOSNOWFLAKE_SKIP_REGISTRATION` should not be used if sql.Open() is used as the method
 to connect to the server, as sql.Open will require registration so it can map the driver name
 to the driver type, which in this case is "snowflake" and SnowflakeDriver{}.
 
@@ -1046,35 +1046,6 @@ example, sf is an alias for the gosnowflake package:
 
 	var b = []byte{0x01, 0x02, 0x03}
 	_, err = stmt.Exec(sf.DataTypeBinary, b)
-
-# Maximum Number of Result Set Chunk Downloader
-
-The driver directly downloads a result set from the cloud storage if the size is large. It is
-required to shift workloads from the Snowflake database to the clients for scale. The download takes place by goroutine
-named "Chunk Downloader" asynchronously so that the driver can fetch the next result set while the application can
-consume the current result set.
-
-The application may change the number of result set chunk downloader if required. Note this does not help reduce
-memory footprint by itself. Consider Custom JSON Decoder.
-
-	import (
-		sf "github.com/snowflakedb/gosnowflake/v2"
-	)
-	sf.MaxChunkDownloadWorkers = 2
-
-Custom JSON Decoder for Parsing Result Set (Experimental)
-
-The application may have the driver use a custom JSON decoder that incrementally parses the result set as follows.
-
-	import (
-		sf "github.com/snowflakedb/gosnowflake/v2"
-	)
-	sf.CustomJSONDecoderEnabled = true
-	...
-
-This option will reduce the memory footprint to half or even quarter, but it can significantly degrade the
-performance depending on the environment. The test cases running on Travis Ubuntu box show five times less memory
-footprint while four times slower. Be cautious when using the option.
 
 # JWT authentication
 
