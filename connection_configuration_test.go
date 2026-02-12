@@ -206,7 +206,7 @@ func TestReadTokenValueWithTokenFilePath(t *testing.T) {
 	token, err := cfg.getToken()
 	assertNilE(t, err)
 	assertEqualF(t, token, "mock_token123456")
-	assertEqualE(t, cfg.InsecureMode, true)
+	assertEqualE(t, cfg.DisableOCSPChecks, true)
 }
 
 func TestLoadConnectionConfigWitNonExistingDSN(t *testing.T) {
@@ -329,7 +329,7 @@ func TestParseToml(t *testing.T) {
 			values: []interface{}{"300", 500},
 		},
 		{
-			testParams: []string{"ocspFailOpen", "ocsp_fail_open", "insecureMode", "insecure_mode", "PasscodeInPassword", "passcode_in_password", "validateDEFAULTParameters", "validate_default_parameters",
+			testParams: []string{"ocspFailOpen", "ocsp_fail_open", "PasscodeInPassword", "passcode_in_password", "validateDEFAULTParameters", "validate_default_parameters",
 				"clientRequestMFAtoken", "client_request_mfa_token", "clientStoreTemporaryCredential", "client_store_temporary_credential", "disableQueryContextCache", "disable_query_context_cache", "disable_ocsp_checks",
 				"includeRetryReason", "include_retry_reason", "disableConsoleLogin", "disable_console_login", "disableSamlUrlCheck", "disable_saml_url_check"},
 			values: []interface{}{true, "true", false, "false"},
@@ -373,7 +373,7 @@ func TestParseTomlWithWrongValue(t *testing.T) {
 			values: []interface{}{"wrong_value", false},
 		},
 		{
-			testParams: []string{"ocspFailOpen", "insecureMode", "PasscodeInPassword", "validateDEFAULTParameters", "clientRequestMFAtoken",
+			testParams: []string{"ocspFailOpen", "PasscodeInPassword", "validateDEFAULTParameters", "clientRequestMFAtoken",
 				"clientStoreTemporaryCredential", "disableQueryContextCache", "includeRetryReason", "disableConsoleLogin", "disableSamlUrlCheck"},
 			values: []interface{}{"wrong_value", 1},
 		},

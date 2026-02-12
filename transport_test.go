@@ -10,7 +10,6 @@ func TestTransportFactoryErrorHandling(t *testing.T) {
 	// Test CreateCustomTLSTransport with conflicting OCSP and CRL settings
 	conflictingConfig := &Config{
 		DisableOCSPChecks:       false,
-		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
 		tlsConfig:               &tls.Config{InsecureSkipVerify: true},
 	}
@@ -28,7 +27,6 @@ func TestCreateStandardTransportErrorHandling(t *testing.T) {
 	// Test CreateStandardTransport with conflicting settings
 	conflictingConfig := &Config{
 		DisableOCSPChecks:       false,
-		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckEnabled,
 	}
 
@@ -43,7 +41,6 @@ func TestCreateCustomTLSTransportSuccess(t *testing.T) {
 	// Test successful creation with valid config
 	validConfig := &Config{
 		DisableOCSPChecks:       true,
-		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
 		tlsConfig:               &tls.Config{InsecureSkipVerify: true},
 	}
@@ -59,7 +56,6 @@ func TestCreateStandardTransportSuccess(t *testing.T) {
 	// Test successful creation with valid config
 	validConfig := &Config{
 		DisableOCSPChecks:       true,
-		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
 	}
 
@@ -79,7 +75,6 @@ func TestDirectTLSConfigUsage(t *testing.T) {
 
 	config := &Config{
 		DisableOCSPChecks:       true,
-		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
 		tlsConfig:               customTLS, // Direct TLS config
 	}
@@ -136,7 +131,6 @@ func TestDirectTLSConfigOnly(t *testing.T) {
 
 	config := &Config{
 		DisableOCSPChecks:       true,
-		InsecureMode:            false,
 		CertRevocationCheckMode: CertRevocationCheckDisabled,
 		tlsConfig:               directTLS, // Direct config
 	}

@@ -199,7 +199,7 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 	}
 
 	// Handle no revocation checking path
-	if tf.config.DisableOCSPChecks || tf.config.InsecureMode {
+	if tf.config.DisableOCSPChecks {
 		logger.Debug("createTransport: skipping OCSP validation")
 		return tf.createNoRevocationTransport(transportConfig), nil
 	}
@@ -210,7 +210,7 @@ func (tf *transportFactory) createTransport(transportConfig *transportConfig) (h
 
 // validateRevocationConfig checks for conflicting revocation settings
 func (tf *transportFactory) validateRevocationConfig() error {
-	if !tf.config.DisableOCSPChecks && !tf.config.InsecureMode && tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
+	if !tf.config.DisableOCSPChecks && tf.config.CertRevocationCheckMode != CertRevocationCheckDisabled {
 		return errors.New("both OCSP and CRL cannot be enabled at the same time, please disable one of them")
 	}
 	return nil

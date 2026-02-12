@@ -686,7 +686,7 @@ func TestUnitAuthenticateUsernamePasswordMfa(t *testing.T) {
 	}
 
 	sr.FuncPostAuth = postAuthCheckUsernamePasswordMfaToken
-	sc.cfg.MfaToken = "mockedMfaToken"
+	sc.cfg.mfaToken = "mockedMfaToken"
 	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
@@ -939,7 +939,7 @@ func TestUnitAuthenticateExternalBrowser(t *testing.T) {
 	}
 
 	sr.FuncPostAuth = postAuthCheckExternalBrowserToken
-	sc.cfg.IDToken = "mockedIDToken"
+	sc.cfg.idToken = "mockedIDToken"
 	_, err = authenticate(context.Background(), sc, []byte{}, []byte{})
 	if err != nil {
 		t.Fatalf("failed to run. err: %v", err)
