@@ -1679,7 +1679,7 @@ func TestMapWithNullValues(t *testing.T) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			for _, tc := range testcases {
 				t.Run(tc.name, func(t *testing.T) {
-					rows := dbt.mustQueryContextT(WithMapValuesNullable(ctx), t, tc.query)
+					rows := dbt.mustQueryContextT(WithEmbeddedValuesNullable(ctx), t, tc.query)
 					defer rows.Close()
 					rows.Next()
 					err = rows.Scan(&tc.actual)
@@ -1794,7 +1794,7 @@ func TestArraysWithNullValues(t *testing.T) {
 		dbt.enableStructuredTypes()
 		for _, tc := range testcases {
 			t.Run(tc.name, func(t *testing.T) {
-				rows := dbt.mustQueryContext(WithStructuredTypesEnabled(WithArrayValuesNullable(context.Background())), tc.query)
+				rows := dbt.mustQueryContext(WithStructuredTypesEnabled(WithEmbeddedValuesNullable(context.Background())), tc.query)
 				defer rows.Close()
 				rows.Next()
 				err := rows.Scan(&tc.actual)
@@ -1840,7 +1840,7 @@ func TestArraysWithNullValuesHigherPrecision(t *testing.T) {
 		dbt.enableStructuredTypes()
 		for _, tc := range testcases {
 			t.Run(tc.name, func(t *testing.T) {
-				ctx := WithHigherPrecision(WithStructuredTypesEnabled(WithArrayValuesNullable(context.Background())))
+				ctx := WithHigherPrecision(WithStructuredTypesEnabled(WithEmbeddedValuesNullable(context.Background())))
 				rows := dbt.mustQueryContext(ctx, tc.query)
 				defer rows.Close()
 				rows.Next()

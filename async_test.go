@@ -60,7 +60,7 @@ func TestAsyncModePing(t *testing.T) {
 }
 
 func TestAsyncModeMultiStatement(t *testing.T) {
-	withMultiStmtCtx, _ := WithMultiStatement(context.Background(), 6)
+	withMultiStmtCtx := WithMultiStatement(context.Background(), 6)
 	ctx := WithAsyncMode(withMultiStmtCtx)
 	multiStmtQuery := "begin;\n" +
 		"delete from test_multi_statement_async;\n" +
@@ -162,7 +162,7 @@ func retrieveRows(rows *sql.Rows, ch chan string) {
 
 func TestLongRunningAsyncQuery(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		ctx, _ := WithMultiStatement(context.Background(), 0)
+		ctx := WithMultiStatement(context.Background(), 0)
 		query := "CALL SYSTEM$WAIT(50, 'SECONDS');use snowflake_sample_data"
 
 		rows := dbt.mustQueryContext(WithAsyncMode(ctx), query)
