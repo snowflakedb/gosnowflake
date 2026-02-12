@@ -624,3 +624,24 @@ func syncUpdateOcspResponseCache(f func()) {
 	defer ocspResponseCacheLock.Unlock()
 	f()
 }
+
+func TestOcspCacheClearerNoRaceCondition(t *testing.T) {
+	defer func() {
+		StopOCSPCacheClearer()
+		initOCSPCache()
+		StartOCSPCacheClearer()
+	}()
+
+	for i := 0; i < 5; i++ {
+		StartOCSPCacheClearer()
+		StopOCSPCacheClearer()
+
+		ocspCacheClearer.mu.Lock()
+		running := ocspCacheClearer.running
+		ocspCacheClearer.mu.Unlock()
+
+		if running {
+			t.Fatalf("Iteration %d: Cache clearer should be stopped but is still running", i)
+		}
+	}
+}
