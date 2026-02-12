@@ -223,7 +223,7 @@ func (so *simpleObject) Write(sowc StructuredObjectWriterContext) error {
 }
 
 func TestObjectWithAllTypesAsString(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			skipForStringingNativeArrow(t, format)
 			rows := dbt.mustQuery("SELECT {'s': 'some string', 'i32': 3}::OBJECT(s VARCHAR, i32 INTEGER)")
@@ -280,7 +280,7 @@ func TestObjectWithAllTypesAsObject(t *testing.T) {
 
 func TestNullObject(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			t.Run("null", func(t *testing.T) {
 				rows := dbt.mustQueryContextT(ctx, t, "SELECT null::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR)")
@@ -619,7 +619,7 @@ func TestObjectWithAllTypesSimpleScan(t *testing.T) {
 
 func TestNullObjectSimpleScan(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			t.Run("null", func(t *testing.T) {
 				rows := dbt.mustQueryContextT(ctx, t, "SELECT null::OBJECT(s VARCHAR, b TINYINT, i16 SMALLINT, i32 INTEGER, i64 BIGINT, f32 FLOAT, f64 DOUBLE, nfraction NUMBER(38, 19), bo BOOLEAN, bi BINARY, date DATE, time TIME, ltz TIMESTAMP_LTZ, tz TIMESTAMP_TZ, ntz TIMESTAMP_NTZ, so OBJECT(s VARCHAR, i INTEGER), sArr ARRAY(VARCHAR), f64Arr ARRAY(DOUBLE), someMap MAP(VARCHAR, BOOLEAN), uuid VARCHAR)")
@@ -767,7 +767,7 @@ func (o *objectWithCustomNameAndIgnoredField) Write(sowc StructuredObjectWriterC
 
 func TestObjectWithCustomName(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'anotherName': 'some string'}::OBJECT(anotherName VARCHAR)")
 			defer rows.Close()
@@ -783,7 +783,7 @@ func TestObjectWithCustomName(t *testing.T) {
 
 func TestObjectMetadataAsObject(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'a': 'b'}::OBJECT(a VARCHAR) as structured_type")
 			defer rows.Close()
@@ -798,7 +798,7 @@ func TestObjectMetadataAsObject(t *testing.T) {
 }
 
 func TestObjectMetadataAsString(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			skipForStringingNativeArrow(t, format)
 			rows := dbt.mustQueryT(t, "SELECT {'a': 'b'}::OBJECT(a VARCHAR) as structured_type")
@@ -814,7 +814,7 @@ func TestObjectMetadataAsString(t *testing.T) {
 }
 
 func TestObjectWithoutSchema(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
 				t.Skip("Native arrow is not supported in objects without schema")
@@ -831,7 +831,7 @@ func TestObjectWithoutSchema(t *testing.T) {
 }
 
 func TestObjectWithoutSchemaMetadata(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
 				t.Skip("Native arrow is not supported in objects without schema")
@@ -849,7 +849,7 @@ func TestObjectWithoutSchemaMetadata(t *testing.T) {
 }
 
 func TestArrayAndMetadataAsString(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			skipForStringingNativeArrow(t, format)
 			rows := dbt.mustQueryT(t, "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) AS STRUCTURED_TYPE")
@@ -1008,7 +1008,7 @@ func TestArrayAndMetadataAsArray(t *testing.T) {
 }
 
 func TestArrayWithoutSchema(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
 				t.Skip("Native arrow is not supported in arrays without schema")
@@ -1026,7 +1026,7 @@ func TestArrayWithoutSchema(t *testing.T) {
 
 func TestEmptyArraysAndNullArrays(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT(1, 2)::ARRAY(INTEGER) as structured_type UNION SELECT ARRAY_CONSTRUCT()::ARRAY(INTEGER) UNION SELECT NULL UNION SELECT ARRAY_CONSTRUCT(4, 5, 6)::ARRAY(INTEGER) ORDER BY 1")
 			defer rows.Close()
@@ -1047,7 +1047,7 @@ func TestEmptyArraysAndNullArrays(t *testing.T) {
 }
 
 func TestArrayWithoutSchemaMetadata(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
 				t.Skip("Native arrow is not supported in arrays without schema")
@@ -1066,7 +1066,7 @@ func TestArrayWithoutSchemaMetadata(t *testing.T) {
 
 func TestArrayOfObjects(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT ARRAY_CONSTRUCT({'s': 's1', 'i': 9}, {'s': 's2', 'i': 8})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) as structured_type UNION SELECT ARRAY_CONSTRUCT({'s': 's3', 'i': 7})::ARRAY(OBJECT(s VARCHAR, i INTEGER)) ORDER BY 1")
 			defer rows.Close()
@@ -1198,7 +1198,7 @@ func TestArrayOfArrays(t *testing.T) {
 }
 
 func TestMapAndMetadataAsString(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format == "NATIVE_ARROW" {
 				t.Skip("Native arrow is not supported in maps without schema")
@@ -1455,7 +1455,7 @@ func TestMapAndMetadataAsMap(t *testing.T) {
 
 func TestMapOfObjects(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'x': {'s': 'abc', 'i': 1}, 'y': {'s': 'def', 'i': 2}}::MAP(VARCHAR, OBJECT(s VARCHAR, i INTEGER))")
 			defer rows.Close()
@@ -1578,7 +1578,7 @@ func TestMapOfArrays(t *testing.T) {
 
 func TestNullAndEmptyMaps(t *testing.T) {
 	ctx := WithStructuredTypesEnabled(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			rows := dbt.mustQueryContextT(ctx, t, "SELECT {'a': 1}::MAP(VARCHAR, INTEGER) UNION SELECT NULL UNION SELECT {}::MAP(VARCHAR, INTEGER) UNION SELECT {'d': 4}::MAP(VARCHAR, INTEGER) ORDER BY 1")
 			defer rows.Close()
@@ -1878,7 +1878,7 @@ func (hps *HigherPrecisionStruct) Scan(val any) error {
 
 func TestWithHigherPrecision(t *testing.T) {
 	ctx := WithHigherPrecision(WithStructuredTypesEnabled(context.Background()))
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		forAllStructureTypeFormats(dbt, func(t *testing.T, format string) {
 			if format != "NATIVE_ARROW" {
 				t.Skip("JSON structured type does not support higher precision")
@@ -2012,7 +2012,7 @@ func TestWithHigherPrecision(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -2042,7 +2042,7 @@ func TestStructuredTypeInArrowBatchesSimple(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatches(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -2078,7 +2078,7 @@ func TestStructuredTypeInArrowBatches(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf8Validation(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -2121,7 +2121,7 @@ func TestStructuredTypeInArrowBatchesWithTimestampOptionAndHigherPrecisionAndUtf
 }
 
 func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -2149,7 +2149,7 @@ func TestStructuredTypeInArrowBatchesWithEmbeddedObject(t *testing.T) {
 }
 
 func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -2178,7 +2178,7 @@ func TestStructuredTypeInArrowBatchesAsNull(t *testing.T) {
 }
 
 func TestStructuredArrayInArrowBatches(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)
@@ -2214,7 +2214,7 @@ func TestStructuredArrayInArrowBatches(t *testing.T) {
 }
 
 func TestStructuredMapInArrowBatches(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.enableStructuredTypes()
 		pool := memory.NewCheckedAllocator(memory.DefaultAllocator)
 		defer pool.AssertSize(t, 0)

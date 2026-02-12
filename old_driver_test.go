@@ -24,7 +24,7 @@ func TestJSONFloat64(t *testing.T) {
 }
 
 func TestJSONVariousTypes(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec(forceJSON)
 		rows := dbt.mustQuery(selectVariousTypes)
 		defer rows.Close()
@@ -180,7 +180,7 @@ func TestLargeSetResultWithCustomJSONDecoder(t *testing.T) {
 }
 
 func TestBindingJSONInterface(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec(forceJSON)
 		rows := dbt.mustQuery(selectVariousTypes)
 		defer rows.Close()

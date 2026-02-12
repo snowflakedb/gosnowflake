@@ -14,7 +14,7 @@ func TestAsyncMode(t *testing.T) {
 	var idx int
 	var v string
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		defer rows.Close()
 
@@ -46,7 +46,7 @@ func TestAsyncMode(t *testing.T) {
 func TestAsyncModePing(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("panic during ping: %v", r)
@@ -69,7 +69,7 @@ func TestAsyncModeMultiStatement(t *testing.T) {
 		"select 2;\n" +
 		"rollback;"
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustExec("drop table if exists test_multi_statement_async")
 		dbt.mustExec(`create or replace table test_multi_statement_async(
 			c1 number, c2 string) as select 10, 'z'`)
@@ -91,7 +91,7 @@ func TestAsyncModeCancel(t *testing.T) {
 	ctx := WithAsyncMode(withCancelCtx)
 	numrows := 100000
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		dbt.mustQueryContext(ctx, fmt.Sprintf(selectRandomGenerator, numrows))
 		cancel()
 	})
@@ -99,7 +99,7 @@ func TestAsyncModeCancel(t *testing.T) {
 
 func TestAsyncQueryFail(t *testing.T) {
 	ctx := WithAsyncMode(context.Background())
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQueryContext(ctx, "selectt 1")
 		defer rows.Close()
 
@@ -122,7 +122,7 @@ func TestMultipleAsyncQueries(t *testing.T) {
 
 	db := openDB(t)
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows1, err := db.QueryContext(ctx, fmt.Sprintf("select distinct '%v' from table (generator(timelimit=>%v))", s1, 30))
 		if err != nil {
 			t.Fatalf("can't read rows1: %v", err)
@@ -161,7 +161,7 @@ func retrieveRows(rows *sql.Rows, ch chan string) {
 }
 
 func TestLongRunningAsyncQuery(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		ctx, _ := WithMultiStatement(context.Background(), 0)
 		query := "CALL SYSTEM$WAIT(50, 'SECONDS');use snowflake_sample_data"
 
@@ -192,7 +192,7 @@ func TestLongRunningAsyncQuery(t *testing.T) {
 }
 
 func TestLongRunningAsyncQueryFetchResultByID(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		queryIDChan := make(chan string, 1)
 		ctx := WithAsyncMode(context.Background())
 		ctx = WithQueryIDChan(ctx, queryIDChan)

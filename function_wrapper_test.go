@@ -30,7 +30,7 @@ func TestGoWrapper(t *testing.T) {
 		f()
 	}
 
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		oldGoroutineWrapper := GoroutineWrapper
 		t.Cleanup(func() {
 			GoroutineWrapper = oldGoroutineWrapper

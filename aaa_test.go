@@ -5,7 +5,7 @@ import (
 )
 
 func TestShowServerVersion(t *testing.T) {
-	runDBTest(t, func(dbt *DBTest) {
+	runDBTestWithConfig(t, &testConfig{reuseConn: true}, func(dbt *DBTest) {
 		rows := dbt.mustQuery("SELECT CURRENT_VERSION()")
 		defer func() {
 			assertNilF(t, rows.Close())
