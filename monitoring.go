@@ -216,7 +216,7 @@ func (sc *snowflakeConn) getQueryResultResp(
 	ctx context.Context,
 	resultPath string) (
 	*execResponse, error) {
-	headers := getHeaders()
+	headers := getHeaders(ctx)
 	paramsMutex.Lock()
 	if serviceName, ok := sc.cfg.Params[serviceName]; ok {
 		headers[httpHeaderServiceName] = *serviceName

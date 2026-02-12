@@ -103,7 +103,7 @@ func (st *snowflakeTelemetry) sendBatch() error {
 	logger.Debugf("sending %v logs to telemetry.", len(logsToSend))
 	logger.Debugf("telemetry payload being sent: %v", string(body))
 
-	headers := getHeaders()
+	headers := getHeaders(context.Background())
 	if token, _, _ := st.sr.TokenAccessor.GetTokens(); token != "" {
 		headers[headerAuthorizationKey] = fmt.Sprintf(headerSnowflakeToken, token)
 	}

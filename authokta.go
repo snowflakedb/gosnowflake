@@ -63,12 +63,12 @@ func authenticateBySAML(
 	headers := make(map[string]string)
 	headers[httpHeaderContentType] = headerContentTypeApplicationJSON
 	headers[httpHeaderAccept] = headerContentTypeApplicationJSON
-	headers[httpHeaderUserAgent] = userAgent
+	headers[httpHeaderUserAgent] = getUserAgent(getClientType(ctx))
 
 	clientEnvironment := newAuthRequestClientEnvironment()
 	clientEnvironment.Application = application
 	requestMain := authRequestData{
-		ClientAppID:       clientType,
+		ClientAppID:       getClientType(ctx),
 		ClientAppVersion:  SnowflakeGoDriverVersion,
 		AccountName:       account,
 		ClientEnvironment: clientEnvironment,

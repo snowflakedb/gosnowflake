@@ -115,7 +115,7 @@ func TestPutWithInvalidToken(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		headers := getHeaders()
+		headers := getHeaders(sct.sc.ctx)
 		headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 		data, err := sct.sc.rest.FuncPostQuery(
 			sct.sc.ctx, sct.sc.rest, &url.Values{}, headers, jsonBody,
@@ -214,7 +214,7 @@ func TestPretendToPutButList(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		headers := getHeaders()
+		headers := getHeaders(sct.sc.ctx)
 		headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 		data, err := sct.sc.rest.FuncPostQuery(
 			sct.sc.ctx, sct.sc.rest, &url.Values{}, headers, jsonBody,

@@ -579,7 +579,7 @@ func (sfa *snowflakeFileTransferAgent) updateFileMetadataWithPresignedURL() erro
 				req := execRequest{
 					SQLText: commandWithSingleFile,
 				}
-				headers := getHeaders()
+				headers := getHeaders(sfa.ctx)
 				headers[httpHeaderAccept] = headerContentTypeApplicationJSON
 				jsonBody, err := json.Marshal(req)
 				if err != nil {
@@ -794,12 +794,12 @@ func (sfa *snowflakeFileTransferAgent) uploadFilesParallel(fileMetas []*fileMeta
 				wg.Add(1)
 				go func(k int, m *fileMetadata) {
 					defer wg.Done()
-					defer func() {                                                               
-						if r := recover(); r != nil {                                        
-                            errors[k] = fmt.Errorf("panic during file upload: %v", r)
-							results[k] = nil                                             
-						}                                                                    
-					}() 
+					defer func() {
+						if r := recover(); r != nil {
+							errors[k] = fmt.Errorf("panic during file upload: %v", r)
+							results[k] = nil
+						}
+					}()
 					results[k], errors[k] = sfa.uploadOneFile(m)
 				}(i, meta)
 			}
@@ -962,12 +962,12 @@ func (sfa *snowflakeFileTransferAgent) downloadFilesParallel(fileMetas []*fileMe
 				wg.Add(1)
 				go func(k int, m *fileMetadata) {
 					defer wg.Done()
-					defer func() {                                                               
-						if r := recover(); r != nil {                                        
-                            errors[k] = fmt.Errorf("panic during file download: %v", r)
-							results[k] = nil                                             
-						}                                                                    
-					}() 
+					defer func() {
+						if r := recover(); r != nil {
+							errors[k] = fmt.Errorf("panic during file download: %v", r)
+							results[k] = nil
+						}
+					}()
 					results[k], errors[k] = sfa.downloadOneFile(m)
 				}(i, meta)
 			}

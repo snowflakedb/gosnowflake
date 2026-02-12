@@ -356,7 +356,7 @@ func DSN(cfg *Config) (dsn string, err error) {
 	if cfg.MaxRetryCount != defaultMaxRetryCount {
 		params.Add("maxRetryCount", strconv.Itoa(cfg.MaxRetryCount))
 	}
-	if cfg.Application != clientType {
+	if cfg.Application != defaultClientType {
 		params.Add("application", cfg.Application)
 	}
 	if cfg.Protocol != "" && cfg.Protocol != "https" {
@@ -708,7 +708,7 @@ func fillMissingConfigParameters(cfg *Config) error {
 		cfg.MaxRetryCount = defaultMaxRetryCount
 	}
 	if strings.Trim(cfg.Application, " ") == "" {
-		cfg.Application = clientType
+		cfg.Application = defaultClientType
 	}
 
 	if cfg.OCSPFailOpen == ocspFailOpenNotSet {
