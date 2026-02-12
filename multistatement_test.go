@@ -14,7 +14,7 @@ import (
 )
 
 func TestMultiStatementExecuteNoResultSet(t *testing.T) {
-	ctx, _ := WithMultiStatement(context.Background(), 4)
+	ctx := WithMultiStatement(context.Background(), 4)
 	multiStmtQuery := "begin;\n" +
 		"delete from test_multi_statement_txn;\n" +
 		"insert into test_multi_statement_txn values (1, 'a'), (2, 'b');\n" +
@@ -35,7 +35,7 @@ func TestMultiStatementExecuteNoResultSet(t *testing.T) {
 }
 
 func TestMultiStatementQueryResultSet(t *testing.T) {
-	ctx, _ := WithMultiStatement(context.Background(), 4)
+	ctx := WithMultiStatement(context.Background(), 4)
 	multiStmtQuery := "select 123;\n" +
 		"select 456;\n" +
 		"select 789;\n" +
@@ -108,8 +108,7 @@ func TestMultiStatementQueryResultSet(t *testing.T) {
 }
 
 func TestMultistatementQueryLargeResultSet(t *testing.T) {
-	ctx, err := WithMultiStatement(context.Background(), 2)
-	assertNilF(t, err)
+	ctx := WithMultiStatement(context.Background(), 2)
 	runDBTest(t, func(dbt *DBTest) {
 		rows := dbt.mustQueryContextT(ctx, t, "SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000)); SELECT 'abc' FROM TABLE(GENERATOR(ROWCOUNT => 1000000))")
 		totalRows := 0
@@ -126,7 +125,7 @@ func TestMultistatementQueryLargeResultSet(t *testing.T) {
 }
 
 func TestMultiStatementExecuteResultSet(t *testing.T) {
-	ctx, _ := WithMultiStatement(context.Background(), 6)
+	ctx := WithMultiStatement(context.Background(), 6)
 	multiStmtQuery := "begin;\n" +
 		"delete from test_multi_statement_txn_rb;\n" +
 		"insert into test_multi_statement_txn_rb values (1, 'a'), (2, 'b');\n" +
@@ -152,7 +151,7 @@ func TestMultiStatementExecuteResultSet(t *testing.T) {
 }
 
 func TestMultiStatementQueryNoResultSet(t *testing.T) {
-	ctx, _ := WithMultiStatement(context.Background(), 4)
+	ctx := WithMultiStatement(context.Background(), 4)
 	multiStmtQuery := "begin;\n" +
 		"delete from test_multi_statement_txn;\n" +
 		"insert into test_multi_statement_txn values (1, 'a'), (2, 'b');\n" +
@@ -170,7 +169,7 @@ func TestMultiStatementQueryNoResultSet(t *testing.T) {
 }
 
 func TestMultiStatementExecuteMix(t *testing.T) {
-	ctx, _ := WithMultiStatement(context.Background(), 3)
+	ctx := WithMultiStatement(context.Background(), 3)
 	multiStmtQuery := "create or replace temporary table test_multi (cola int);\n" +
 		"insert into test_multi values (1), (2);\n" +
 		"select cola from test_multi order by cola asc;"
@@ -193,7 +192,7 @@ func TestMultiStatementExecuteMix(t *testing.T) {
 }
 
 func TestMultiStatementQueryMix(t *testing.T) {
-	ctx, _ := WithMultiStatement(context.Background(), 3)
+	ctx := WithMultiStatement(context.Background(), 3)
 	multiStmtQuery := "create or replace temporary table test_multi (cola int);\n" +
 		"insert into test_multi values (1), (2);\n" +
 		"select cola from test_multi order by cola asc;"
@@ -240,7 +239,7 @@ func TestMultiStatementQueryMix(t *testing.T) {
 }
 
 func TestMultiStatementCountZero(t *testing.T) {
-	ctx, _ := WithMultiStatement(context.Background(), 0)
+	ctx := WithMultiStatement(context.Background(), 0)
 	var v1 int
 	var v2 string
 	var v3 float64
@@ -352,7 +351,7 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 			"select 789;\n" +
 			"select '000';"
 
-		ctx, _ := WithMultiStatement(context.Background(), 3)
+		ctx := WithMultiStatement(context.Background(), 3)
 		if _, err := dbt.conn.QueryContext(ctx, multiStmtQuery); err == nil {
 			t.Fatal("should have failed to query multiple statements")
 		}
@@ -362,7 +361,7 @@ func TestMultiStatementCountMismatch(t *testing.T) {
 func TestMultiStatementVaryingColumnCount(t *testing.T) {
 	multiStmtQuery := "select c1 from test_tbl;\n" +
 		"select c1,c2 from test_tbl;"
-	ctx, _ := WithMultiStatement(context.Background(), 0)
+	ctx := WithMultiStatement(context.Background(), 0)
 
 	var v1, v2 int
 	runDBTest(t, func(dbt *DBTest) {
@@ -403,7 +402,7 @@ func TestMultiStatementVaryingColumnCount(t *testing.T) {
 
 // The total completion time should be similar to the duration of the query on Snowflake UI.
 func TestMultiStatementExecutePerformance(t *testing.T) {
-	ctx, _ := WithMultiStatement(context.Background(), 100)
+	ctx := WithMultiStatement(context.Background(), 100)
 	runDBTest(t, func(dbt *DBTest) {
 		file, err := os.Open("test_data/multistatements.sql")
 		if err != nil {
@@ -590,7 +589,7 @@ func TestUnitHandleMultiQuery(t *testing.T) {
 }
 
 func TestMultiStatementArrowFormat(t *testing.T) {
-	ctx, _ := WithMultiStatement(context.Background(), 4)
+	ctx := WithMultiStatement(context.Background(), 4)
 	multiStmtQuery := "select 123;\n" +
 		"select 456;\n" +
 		"select 789;\n" +

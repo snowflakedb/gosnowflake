@@ -16,7 +16,7 @@ func TestPreparedStatement(t *testing.T) {
 		boolArray := []bool{true, false, true}
 		strArray := []string{"test1", "test2", "test3"}
 		stmt := dbt.mustPrepare("insert into TEST_PREP_STATEMENT values(?, ?, ?, ?)")
-		if _, err := stmt.Exec(Array(&intArray), Array(&fltArray), Array(&boolArray), Array(&strArray)); err != nil {
+		if _, err := stmt.Exec(mustArray(&intArray), mustArray(&fltArray), mustArray(&boolArray), mustArray(&strArray)); err != nil {
 			t.Fatal(err)
 		}
 		rows := dbt.mustQuery(selectAllSQL)

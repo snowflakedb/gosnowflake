@@ -47,10 +47,7 @@ func TestExecStmt(t *testing.T) {
 		"SELECT 1;\n" +
 		"SELECT 2;"
 	ctx := context.Background()
-	multiStmtCtx, err := WithMultiStatement(ctx, 3)
-	if err != nil {
-		t.Error(err)
-	}
+	multiStmtCtx := WithMultiStatement(ctx, 3)
 	runDBTest(t, func(dbt *DBTest) {
 		dbt.mustExec(ddlQuery)
 		defer dbt.mustExec("DROP TABLE IF EXISTS TestDDLExec")
