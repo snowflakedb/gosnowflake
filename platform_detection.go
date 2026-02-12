@@ -118,7 +118,7 @@ func detectPlatforms(ctx context.Context, timeout time.Duration) []string {
 }
 
 func detectAwsLambdaEnv(_ context.Context, _ time.Duration) platformDetectionState {
-	if os.Getenv("AWS_LAMBDA_TASK_ROOT") != "" {
+	if os.Getenv("LAMBDA_TASK_ROOT") != "" {
 		return platformDetected
 	}
 	return platformNotDetected

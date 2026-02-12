@@ -21,7 +21,7 @@ type envSnapshot map[string]string
 
 func setupCleanPlatformEnv() func() {
 	platformEnvVars := []string{
-		"AWS_LAMBDA_TASK_ROOT",
+		"LAMBDA_TASK_ROOT",
 		"GITHUB_ACTIONS",
 		"FUNCTIONS_WORKER_RUNTIME",
 		"FUNCTIONS_EXTENSION_VERSION",
@@ -80,7 +80,7 @@ func TestPlatformDetectionCachingAndSyncOnce(t *testing.T) {
 	initPlatformDetectionOnce, platformDetectionDone, detectedPlatformsCache = sync.Once{}, make(chan struct{}), nil
 	defer func() { platformDetectionDone, detectedPlatformsCache = originalDone, originalCache }()
 
-	os.Setenv("AWS_LAMBDA_TASK_ROOT", "/var/task")
+	os.Setenv("LAMBDA_TASK_ROOT", "/var/task")
 	initPlatformDetection()
 	platforms1 := getDetectedPlatforms()
 
@@ -115,7 +115,7 @@ func TestDetectPlatforms(t *testing.T) {
 		{
 			name: "detects AWS Lambda",
 			envVars: map[string]string{
-				"AWS_LAMBDA_TASK_ROOT": "/var/task",
+				"LAMBDA_TASK_ROOT": "/var/task",
 			},
 			expectedResult: []string{"is_aws_lambda"},
 		},
