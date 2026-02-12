@@ -104,14 +104,14 @@ func runningOnGithubAction() bool {
 	return os.Getenv("GITHUB_ACTIONS") != ""
 }
 
-// GOSNOWFLAKE_SKIP_REGISTERATION is an environment variable which can be set client side to
+// GOSNOWFLAKE_SKIP_REGISTRATION is an environment variable which can be set client side to
 // bypass dbSql driver registration. This should not be used if sql.Open() is used as the method
 // to connect to the server, as sql.Open will require registration so it can map the driver name
 // to the driver type, which in this case is "snowflake" and SnowflakeDriver{}. If you wish to call
 // into multiple versions of the driver from one client, this is needed because calling register
 // twice with the same name on init will cause the driver to panic.
 func skipRegistration() bool {
-	return os.Getenv("GOSNOWFLAKE_SKIP_REGISTERATION") != ""
+	return os.Getenv("GOSNOWFLAKE_SKIP_REGISTRATION") != ""
 }
 
 var logger = CreateDefaultLogger()
