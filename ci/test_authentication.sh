@@ -12,7 +12,6 @@ if [[ -n "$JENKINS_HOME" ]]; then
   export WORKSPACE=${WORKSPACE:-/tmp}
 
   source $CI_DIR/_init.sh
-  source $CI_DIR/scripts/login_internal_docker.sh
 
   echo "Use /sbin/ip"
   IP_ADDR=$(/sbin/ip -4 addr show scope global dev eth0 | grep inet | awk '{print $2}' | cut -d / -f 1)
@@ -27,5 +26,5 @@ docker run \
   -v $(cd $THIS_DIR/.. && pwd):/mnt/host \
   -v $WORKSPACE:/mnt/workspace \
   --rm \
-  nexus.int.snowflakecomputing.com:8086/docker/snowdrivers-test-external-browser-golang:8 \
+  artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/internal-production-docker-snowflake-virtual/docker/snowdrivers-test-external-browser-golang:8 \
   "/mnt/host/ci/container/test_authentication.sh"

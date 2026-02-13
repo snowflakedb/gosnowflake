@@ -92,6 +92,13 @@ func (util *snowflakeGcsClient) getFileHeader(meta *fileMetadata, filename strin
 		if err != nil {
 			return nil, err
 		}
+		defer func() {
+			if resp.Body != nil {
+				if err := resp.Body.Close(); err != nil {
+					logger.Warnf("failed to close response body: %v", err)
+				}
+			}
+		}()
 		if resp.StatusCode != http.StatusOK {
 			meta.lastError = fmt.Errorf("%v", resp.Status)
 			meta.resStatus = errStatus
@@ -215,10 +222,16 @@ func (util *snowflakeGcsClient) uploadFile(
 			uploadSrc = meta.realSrcStream
 		}
 	} else {
+		var err error
 		uploadSrc, err = os.Open(dataFile)
 		if err != nil {
 			return err
 		}
+		defer func(src io.Closer) {
+			if err := src.Close(); err != nil {
+				logger.Warnf("failed to close %v file: %v", dataFile, err)
+			}
+		}(uploadSrc.(io.Closer))
 	}
 
 	resp, err := withCloudStorageTimeout(util.cfg, func(ctx context.Context) (*http.Response, error) {
@@ -243,6 +256,13 @@ func (util *snowflakeGcsClient) uploadFile(
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if resp.Body != nil {
+			if err := resp.Body.Close(); err != nil {
+				logger.Warnf("failed to close response body: %v", err)
+			}
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == 403 || resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode == 500 || resp.StatusCode == 503 {
 			meta.lastError = fmt.Errorf("%v", resp.Status)
@@ -376,8 +396,10 @@ func (util *snowflakeGcsClient) getFileHeaderForDownload(downloadURL *url.URL, g
 		return nil, err
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("Failed to close response body: %v", err)
+		if resp.Body != nil {
+			if err := resp.Body.Close(); err != nil {
+				logger.Warnf("Failed to close response body: %v", err)
+			}
 		}
 	}()
 
@@ -636,9 +658,6 @@ func (util *snowflakeGcsClient) downloadRangeStream(
 	if err != nil {
 		return nil, err
 	}
-	if resp == nil {
-		return nil, fmt.Errorf("received nil response")
-	}
 
 	// Accept both 200 (full content) and 206 (partial content) status codes
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
@@ -709,8 +728,10 @@ func (util *snowflakeGcsClient) downloadFileSinglePart(
 		return err
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("Failed to close response body: %v", err)
+		if resp.Body != nil {
+			if err := resp.Body.Close(); err != nil {
+				logger.Warnf("Failed to close response body: %v", err)
+			}
 		}
 	}()
 
