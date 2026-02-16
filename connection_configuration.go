@@ -140,9 +140,6 @@ func handleSingleParam(cfg *Config, key string, value interface{}) error {
 		err = determineAuthenticatorType(cfg, v)
 	case "disableocspchecks":
 		cfg.DisableOCSPChecks, err = parseBool(value)
-	case "insecuremode":
-		logInsecureModeDeprecationInfo()
-		cfg.InsecureMode, err = parseBool(value)
 	case "ocspfailopen":
 		var vv ConfigBool
 		vv, err = parseConfigBool(value)
