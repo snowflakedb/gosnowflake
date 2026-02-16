@@ -736,8 +736,8 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 			wiremockMapping{filePath: "auth/password/successful_flow.json"},
 		)
 		runSampleQuery(cfg)
-		assertEqualE(t, countingRoundTripper.postReqCount[wiremock.baseURL()], 3)
-		assertEqualE(t, countingRoundTripper.getReqCount[wiremock.baseURL()], 3)
+		assertEqualE(t, countingRoundTripper.postReqCount[wiremock.baseURL()], 2)
+		assertEqualE(t, countingRoundTripper.getReqCount[wiremock.baseURL()], 2)
 	})
 
 	t.Run("should not fallback to GET when for POST unauthorized is returned", func(t *testing.T) {
@@ -750,7 +750,7 @@ func TestOCSPUnexpectedResponses(t *testing.T) {
 			wiremockMapping{filePath: "auth/password/successful_flow.json"},
 		)
 		runSampleQuery(cfg)
-		assertEqualE(t, countingRoundTripper.postReqCount[wiremock.baseURL()], 3)
+		assertEqualE(t, countingRoundTripper.postReqCount[wiremock.baseURL()], 2)
 		assertEqualE(t, countingRoundTripper.getReqCount[wiremock.baseURL()], 0)
 	})
 }
@@ -774,14 +774,12 @@ func TestConnectionToMultipleConfigurations(t *testing.T) {
 	cfgForFailOpen.Transporter = nil
 	cfgForFailOpen.TLSConfigName = "wiremock"
 	cfgForFailOpen.MaxRetryCount = 1
-	cfgForFailOpen.DisableTelemetry = true
 
 	cfgForFailClose := wiremockHTTPS.connectionConfig(t)
 	cfgForFailClose.OCSPFailOpen = OCSPFailOpenFalse
 	cfgForFailClose.Transporter = nil
 	cfgForFailClose.TLSConfigName = "wiremock"
 	cfgForFailClose.MaxRetryCount = 1
-	cfgForFailClose.DisableTelemetry = true
 
 	// we ignore closing here, since these are only wiremock connections
 	failOpenDb := sql.OpenDB(NewConnector(SnowflakeDriver{}, *cfgForFailOpen))
