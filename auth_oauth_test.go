@@ -166,7 +166,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 func TestUnitOAuthClientCredentials(t *testing.T) {
 	skipOnMac(t, "keychain requires password")
 	cacheTokenSpec := newOAuthAccessTokenSpec(wiremock.connectionConfig().OauthTokenRequestURL, wiremock.connectionConfig().User)
-	crt := newCountingRoundTripper(http.DefaultTransport)
+	crt := newCountingRoundTripper(createTestNoRevocationTransport())
 	httpClient := http.Client{
 		Transport: crt,
 	}
