@@ -37,7 +37,6 @@ const (
 	describeOnly                     contextKey = "DESCRIBE_ONLY"
 	internalQuery                    contextKey = "INTERNAL_QUERY"
 	cancelRetry                      contextKey = "CANCEL_RETRY"
-	streamChunkDownload              contextKey = "STREAM_CHUNK_DOWNLOAD"
 	logQueryText                     contextKey = "LOG_QUERY_TEXT"
 	logQueryParameters               contextKey = "LOG_QUERY_PARAMETERS"
 )
@@ -64,11 +63,6 @@ func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 // WithRequestID returns a new context with the specified snowflake request id
 func WithRequestID(ctx context.Context, requestID UUID) context.Context {
 	return context.WithValue(ctx, snowflakeRequestIDKey, requestID)
-}
-
-// WithStreamDownloader returns a context that allows the use of a stream based chunk downloader
-func WithStreamDownloader(ctx context.Context) context.Context {
-	return context.WithValue(ctx, streamChunkDownload, true)
 }
 
 // WithFetchResultByID returns a context that allows retrieving the result by query ID
