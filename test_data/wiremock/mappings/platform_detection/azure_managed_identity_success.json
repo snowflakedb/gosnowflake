@@ -6,7 +6,7 @@
         "urlPattern": "/metadata/identity/oauth2/token\\?.*",
         "headers": {
           "Metadata": {
-            "equalTo": "True"
+            "equalTo": "true"
           }
         }
       },

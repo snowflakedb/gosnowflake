@@ -240,7 +240,7 @@ func detectAzureManagedIdentity(ctx context.Context, timeout time.Duration) plat
 	if err != nil {
 		return platformNotDetected
 	}
-	req.Header.Set("Metadata", "True")
+	req.Header.Set("Metadata", "true")
 	resp, err := client.Do(req)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
