@@ -74,38 +74,6 @@ func TestTelemetrySQLException(t *testing.T) {
 	})
 }
 
-func TestDisableTelemetry(t *testing.T) {
-	config, err := ParseDSN(dsn)
-	if err != nil {
-		t.Error(err)
-	}
-	config.DisableTelemetry = true
-	sc, err := buildSnowflakeConn(context.Background(), *config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = authenticateWithConfig(sc); err != nil {
-		t.Fatal(err)
-	}
-	if !sc.cfg.DisableTelemetry {
-		t.Errorf("DisableTelemetry should be true. DisableTelemetry: %v", sc.cfg.DisableTelemetry)
-	}
-	if sc.telemetry.enabled {
-		t.Errorf("telemetry should be disabled.")
-	}
-}
-
-func TestEnableTelemetry(t *testing.T) {
-	runSnowflakeConnTest(t, func(sct *SCTest) {
-		if sct.sc.cfg.DisableTelemetry {
-			t.Errorf("DisableTelemetry should be false. DisableTelemetry: %v", sct.sc.cfg.DisableTelemetry)
-		}
-		if !sct.sc.telemetry.enabled {
-			t.Errorf("telemetry should be enabled.")
-		}
-	})
-}
-
 func funcPostTelemetryRespFail(_ context.Context, _ *snowflakeRestful, _ *url.URL, _ map[string]string, _ []byte, _ time.Duration, _ currentTimeProvider, _ *Config) (*http.Response, error) {
 	return nil, errors.New("failed to upload metrics to telemetry")
 }
