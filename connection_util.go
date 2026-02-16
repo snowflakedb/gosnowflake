@@ -336,19 +336,6 @@ func populateChunkDownloader(
 	ctx context.Context,
 	sc *snowflakeConn,
 	data execResponseData) chunkDownloader {
-	if useStreamDownloader(ctx) && resultFormat(data.QueryResultFormat) == jsonFormat {
-		// stream chunk downloading only works for row based data formats, i.e. json
-		fetcher := &httpStreamChunkFetcher{
-			ctx:           ctx,
-			client:        sc.rest.Client,
-			headers:       data.ChunkHeaders,
-			maxRetryCount: sc.rest.MaxRetryCount,
-			qrmk:          data.Qrmk,
-			timeout:       sc.rest.RequestTimeout,
-		}
-		return newStreamChunkDownloader(ctx, fetcher, data.Total, data.RowType,
-			data.RowSet, data.Chunks)
-	}
 
 	return &snowflakeChunkDownloader{
 		sc:                 sc,
