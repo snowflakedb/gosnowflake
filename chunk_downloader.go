@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -649,7 +648,6 @@ type streamChunkFetcher interface {
 type httpStreamChunkFetcher struct {
 	ctx           context.Context
 	client        *http.Client
-	clientIP      net.IP
 	headers       map[string]string
 	maxRetryCount int
 	qrmk          string

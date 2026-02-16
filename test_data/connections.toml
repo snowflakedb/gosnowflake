@@ -45,7 +45,7 @@ schema = 'test_default_go'
 protocol = 'https'
 authenticator = 'oauth'
 token_file_path = './test_data/snowflake/session/token'
-insecureMode = true
+disable_ocsp_checks = true
 
 [snake-case]
 account = 'snowdriverswarsaw.us-west-2.aws'
