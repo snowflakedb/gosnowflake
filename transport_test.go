@@ -231,3 +231,7 @@ func TestProxyTransportCreation(t *testing.T) {
 		})
 	}
 }
+
+func createTestNoRevocationTransport() http.RoundTripper {
+	return newTransportFactory(&Config{}, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
+}

@@ -166,7 +166,7 @@ func TestUnitOAuthAuthorizationCode(t *testing.T) {
 func TestUnitOAuthClientCredentials(t *testing.T) {
 	skipOnMac(t, "keychain requires password")
 	cacheTokenSpec := newOAuthAccessTokenSpec(wiremock.connectionConfig().OauthTokenRequestURL, wiremock.connectionConfig().User)
-	crt := newCountingRoundTripper(SnowflakeTransport)
+	crt := newCountingRoundTripper(http.DefaultTransport)
 	httpClient := http.Client{
 		Transport: crt,
 	}

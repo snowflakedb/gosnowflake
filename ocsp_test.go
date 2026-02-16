@@ -33,7 +33,7 @@ func TestOCSP(t *testing.T) {
 
 	transports := []http.RoundTripper{
 		createTestNoRevocationTransport(),
-		SnowflakeTransport,
+		newTransportFactory(&Config{}, nil).createOCSPTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake)),
 	}
 
 	for _, enabled := range cacheServerEnabled {
