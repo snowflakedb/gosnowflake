@@ -42,13 +42,8 @@ var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
 // Fields
 type Fields map[string]any
 
-// ConvertibleEntry returns the underlying logrus Entry struct.
-type ConvertibleEntry interface {
-	ToEntry() *rlog.Entry
-}
-
-// LogEntry allows for logging using a snapshot of field values, similar to logrus.Entry.
-// No references to logrus or other implementation specific logging should be placed into this interface.
+// LogEntry allows for logging using a snapshot of field values.
+// No implementation-specific logging details should be placed into this interface.
 type LogEntry interface {
 	Tracef(format string, args ...interface{})
 	Debugf(format string, args ...interface{})
@@ -82,7 +77,7 @@ type LogEntry interface {
 }
 
 // SFLogger Snowflake logger interface which abstracts away the underlying logging mechanism.
-// No references to logrus or other implementation specific logging should be placed into this interface.
+// No implementation-specific logging details should be placed into this interface.
 type SFLogger interface {
 	LogEntry
 	WithField(key string, value interface{}) LogEntry
@@ -229,14 +224,9 @@ func (log *defaultLogger) Logf(level rlog.Level, format string, args ...interfac
 }
 
 var _ LogEntry = &entryBridge{} // ensure entryBridge is a LogEntry.
-var _ ConvertibleEntry = &entryBridge{}
 
 type entryBridge struct {
 	*rlog.Entry
-}
-
-func (entry *entryBridge) ToEntry() *rlog.Entry {
-	return entry.Entry
 }
 
 func (log *defaultLogger) Tracef(format string, args ...interface{}) {
