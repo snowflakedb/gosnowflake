@@ -5,6 +5,7 @@
 Bug fixes:
 
 - Added panic recovery block for stage file uploads and downloads operation (snowflakedb/gosnowflake#1687).
+- Fixed WIF metadata request from Azure container, manifested with HTTP 400 error (snowflakedb/gosnowflake#1701).
 
 ## 1.19.0
 

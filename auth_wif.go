@@ -671,7 +671,7 @@ func (a *azureIdentityAttestationCreator) azureVMIdentityRequest() (*http.Reques
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Metadata", "True")
+	req.Header.Add("Metadata", "true")
 
 	return req, nil
 }
