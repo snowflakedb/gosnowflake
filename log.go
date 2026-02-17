@@ -39,8 +39,8 @@ func RegisterLogContextHook(contextKey string, ctxExtractor ClientLogContextHook
 // logger.WithContext is used
 var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
 
-// Fields
-type Fields map[string]any
+// Fields is a type alias for map[string]any used with WithFields.
+type Fields = map[string]any
 
 // LogEntry allows for logging using a snapshot of field values.
 // No implementation-specific logging details should be placed into this interface.
@@ -82,7 +82,6 @@ type SFLogger interface {
 	LogEntry
 	WithField(key string, value interface{}) LogEntry
 	WithFields(fields Fields) LogEntry
-	WithError(err error) LogEntry
 
 	SetLogLevel(level string) error
 	GetLogLevel() string
@@ -204,19 +203,7 @@ func (log *defaultLogger) WithField(key string, value interface{}) LogEntry {
 // WithFields adds a struct of fields to the log entry. All it does is call `WithField` for
 // each `Field`.
 func (log *defaultLogger) WithFields(fields Fields) LogEntry {
-	m := map[string]any(fields)
-	return &entryBridge{log.inner.WithFields(m)}
-}
-
-// WithError adds an error as single field to the log entry.  All it does is call
-// `WithError` for the given `error`.
-func (log *defaultLogger) WithError(err error) LogEntry {
-	return &entryBridge{log.inner.WithError(err)}
-}
-
-// WithTime overrides the time of the log entry.
-func (log *defaultLogger) WithTime(t time.Time) LogEntry {
-	return &entryBridge{log.inner.WithTime(t)}
+	return &entryBridge{log.inner.WithFields(fields)}
 }
 
 func (log *defaultLogger) Logf(level rlog.Level, format string, args ...interface{}) {
