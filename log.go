@@ -48,7 +48,7 @@ type ConvertibleEntry interface {
 }
 
 // LogEntry allows for logging using a snapshot of field values, similar to logrus.Entry.
-// No references to logrus or other implementat specific logging should be placed into this interface.
+// No references to logrus or other implementation specific logging should be placed into this interface.
 type LogEntry interface {
 	Tracef(format string, args ...interface{})
 	Debugf(format string, args ...interface{})
@@ -103,7 +103,7 @@ func SFCallerPrettyfier(frame *runtime.Frame) (string, string) {
 	return path.Base(frame.Function), fmt.Sprintf("%s:%d", path.Base(frame.File), frame.Line)
 }
 
-var _ SFLogger = &defaultLogger{} // ensure defaultLogger isa SFLogger.
+var _ SFLogger = &defaultLogger{} // ensure defaultLogger is a SFLogger.
 
 type defaultLogger struct {
 	inner   *rlog.Logger
@@ -228,7 +228,7 @@ func (log *defaultLogger) Logf(level rlog.Level, format string, args ...interfac
 	log.inner.Logf(level, format, args...)
 }
 
-var _ LogEntry = &entryBridge{} // ensure entryBridge isa LogEntry.
+var _ LogEntry = &entryBridge{} // ensure entryBridge is a LogEntry.
 var _ ConvertibleEntry = &entryBridge{}
 
 type entryBridge struct {
