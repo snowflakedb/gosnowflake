@@ -55,17 +55,11 @@ const (
 type resultType string
 
 const (
-	snowflakeResultType contextKey = "snowflakeResultType"
-	execResultType      resultType = "exec"
-	queryResultType     resultType = "query"
+	execResultType  resultType = "exec"
+	queryResultType resultType = "query"
 )
 
-type execKey string
-
-const (
-	executionType          execKey = "executionType"
-	executionTypeStatement string  = "statement"
-)
+const executionTypeStatement string = "statement"
 
 // snowflakeConn manages its own context.
 // External cancellation should not be supported because the connection
@@ -123,10 +117,10 @@ func (sc *snowflakeConn) exec(
 		QueryContext: queryContext,
 	}
 	if key := ctx.Value(multiStatementCount); key != nil {
-		req.Parameters[string(multiStatementCount)] = key
+		req.Parameters["MULTI_STATEMENT_COUNT"] = key
 	}
 	if tag := ctx.Value(queryTag); tag != nil {
-		req.Parameters[string(queryTag)] = tag
+		req.Parameters["QUERY_TAG"] = tag
 	}
 	logger.WithContext(ctx).Debugf("parameters: %v", req.Parameters)
 

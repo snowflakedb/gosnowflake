@@ -20,6 +20,7 @@ Breaking changes:
 - Renamed `KeepSessionAlive` field in `Config` struct to `ServerSessionKeepAlive` to adjust with the remaining drivers (snowflakedb/gosnowflake#1692).
 - Removed `DisableTelemetry` field from `Config` struct. Use `CLIENT_TELEMETRY_ENABLED` session parameter instead (snowflakedb/gosnowflake#1692).
 - Removed stream chunk downloader. Use a regular, default downloader instead. (snowflakedb/gosnowflake#1702).
+- Migrated context keys to unexported types to avoid potential collisions. Use `gosnowflake.WithXXX` functions to create required contexts (snowflakedb/gosnowflake#1705).
 
 Bug fixes:
 

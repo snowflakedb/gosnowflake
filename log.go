@@ -15,10 +15,10 @@ import (
 )
 
 // SFSessionIDKey is context key of session id
-const SFSessionIDKey contextKey = "LOG_SESSION_ID"
+const SFSessionIDKey = sfSessionIDKey
 
-// SFSessionUserKey is context key of  user id of a session
-const SFSessionUserKey contextKey = "LOG_USER"
+// SFSessionUserKey is context key of user id of a session
+const SFSessionUserKey = sfSessionUserKey
 
 // map which stores a string which will be used as a log key to the function which
 // will be called to get the log value out of the context
@@ -466,7 +466,7 @@ func context2Fields(ctx context.Context) *rlog.Fields {
 
 	for i := 0; i < len(LogKeys); i++ {
 		if ctx.Value(LogKeys[i]) != nil {
-			fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
+			fields[LogKeys[i].String()] = ctx.Value(LogKeys[i])
 		}
 	}
 
