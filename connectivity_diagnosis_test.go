@@ -127,7 +127,6 @@ type tcPerformConnectivityCheck struct {
 }
 
 func TestCreateDiagnosticClient(t *testing.T) {
-	var diagTest connectivityDiagnoser
 	testcases := []tcDiagnosticClient{
 		{
 			name: "Diagnostic Client with default timeout",
@@ -147,7 +146,7 @@ func TestCreateDiagnosticClient(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			client := diagTest.createDiagnosticClient(tc.config)
+			client := createDiagnosticClient(tc.config)
 
 			assertNotNilE(t, client, "client should not be nil")
 			assertEqualE(t, client.Timeout, tc.expectedTimeout, "timeout did not match")
@@ -157,8 +156,7 @@ func TestCreateDiagnosticClient(t *testing.T) {
 }
 
 func TestCreateDiagnosticDialContext(t *testing.T) {
-	var diagTest connectivityDiagnoser
-	dialContext := diagTest.createDiagnosticDialContext()
+	dialContext := createDiagnosticDialContext()
 
 	assertNotNilE(t, dialContext, "dialContext should not be nil")
 
@@ -256,11 +254,10 @@ func TestIsAcceptableStatusCode(t *testing.T) {
 }
 
 func TestFetchCRL(t *testing.T) {
-	var diagTest connectivityDiagnoser
 	config := &Config{
 		ClientTimeout: 30 * time.Second,
 	}
-	diagTest.diagnosticClient = diagTest.createDiagnosticClient(config)
+	diagTest := newConnectivityDiagnoser(config)
 	crlPEM := `-----BEGIN X509 CRL-----
 MIIBuDCBoQIBATANBgkqhkiG9w0BAQsFADBeMQswCQYDVQQGEwJVUzELMAkGA1UE
 CAwCQ0ExDTALBgNVBAcMBFRlc3QxEDAOBgNVBAoMB0V4YW1wbGUxDzANBgNVBAsM
@@ -530,11 +527,10 @@ func TestDoHTTPSGetCerts(t *testing.T) {
 }
 
 func TestCheckProxy(t *testing.T) {
-	var diagTest connectivityDiagnoser
 	config := &Config{
 		ClientTimeout: 30 * time.Second,
 	}
-	diagTest.diagnosticClient = diagTest.createDiagnosticClient(config)
+	diagTest := newConnectivityDiagnoser(config)
 
 	t.Run("Check Proxy - with proxy configured", func(t *testing.T) {
 		// setup test logger then restore original after test
@@ -637,13 +633,10 @@ func TestResolveHostname(t *testing.T) {
 }
 
 func TestPerformConnectivityCheck(t *testing.T) {
-	var diagTest connectivityDiagnoser
-
-	// setup diagnostic client for tests
 	config := &Config{
 		ClientTimeout: 30 * time.Second,
 	}
-	diagTest.diagnosticClient = diagTest.createDiagnosticClient(config)
+	diagTest := newConnectivityDiagnoser(config)
 
 	testcases := []tcPerformConnectivityCheck{
 		{
