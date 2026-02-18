@@ -135,10 +135,6 @@ func (tf *transportFactory) createNoRevocationTransport(transportConfig *transpo
 	return tf.createBaseTransport(transportConfig, nil)
 }
 
-func createTestNoRevocationTransport() http.RoundTripper {
-	return newTransportFactory(&Config{}, nil).createNoRevocationTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
-}
-
 // createCRLValidator creates a CRL validator
 func (tf *transportFactory) createCRLValidator() (*crlValidator, error) {
 	allowCertificatesWithoutCrlURL := tf.config.CrlAllowCertificatesWithoutCrlURL == ConfigBoolTrue

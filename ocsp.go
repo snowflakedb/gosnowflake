@@ -1168,18 +1168,3 @@ func (occ *ocspCacheClearerType) stop() {
 		occ.cancel()
 	}
 }
-
-// SnowflakeTransport includes the certificate revocation check with OCSP in sequential. By default, the driver uses
-// this transport object.
-// Deprecated: SnowflakeTransport is deprecated and will be removed in future versions.
-var SnowflakeTransport *http.Transport
-
-func init() {
-	factory := newTransportFactory(&Config{}, nil)
-	SnowflakeTransport = factory.createOCSPTransport(defaultTransportConfigs.forTransportType(transportTypeSnowflake))
-	SnowflakeTransportTest = SnowflakeTransport
-}
-
-// SnowflakeTransportTest includes the certificate revocation check in parallel
-// Deprecated: SnowflakeTransportTest is deprecated and will be removed in future versions.
-var SnowflakeTransportTest *http.Transport
