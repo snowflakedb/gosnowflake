@@ -85,7 +85,7 @@ type SFLogger interface {
 
 	SetLogLevel(level string) error
 	GetLogLevel() string
-	WithContext(ctx ...context.Context) LogEntry
+	WithContext(ctx context.Context) LogEntry
 	SetOutput(output io.Writer)
 }
 
@@ -171,8 +171,8 @@ func closeLogFile(file *os.File) {
 }
 
 // WithContext return Entry to include fields in context
-func (log *defaultLogger) WithContext(ctxs ...context.Context) LogEntry {
-	fields := context2Fields(ctxs...)
+func (log *defaultLogger) WithContext(ctx context.Context) LogEntry {
+	fields := context2Fields(ctx)
 	return log.WithFields(*fields)
 }
 
@@ -492,25 +492,21 @@ func GetLogger() SFLogger {
 	return logger
 }
 
-func context2Fields(ctxs ...context.Context) *Fields {
+func context2Fields(ctx context.Context) *Fields {
 	var fields = Fields{}
-	if len(ctxs) <= 0 {
+	if ctx == nil {
 		return &fields
 	}
 
 	for i := 0; i < len(LogKeys); i++ {
-		for _, ctx := range ctxs {
-			if ctx.Value(LogKeys[i]) != nil {
-				fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
-			}
+		if ctx.Value(LogKeys[i]) != nil {
+			fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
 		}
 	}
 
 	for key, hook := range clientLogContextHooks {
-		for _, ctx := range ctxs {
-			if value := hook(ctx); value != "" {
-				fields[key] = value
-			}
+		if value := hook(ctx); value != "" {
+			fields[key] = value
 		}
 	}
 

@@ -40,13 +40,13 @@ func TestCtxVal(t *testing.T) {
 
 func TestLogCtx(t *testing.T) {
 	log := CreateDefaultLogger()
-	var ctx1 = context.WithValue(context.Background(), SFSessionIDKey, "sessID1")
-	var ctx2 = context.WithValue(context.Background(), SFSessionUserKey, "admin")
+	sessCtx := context.WithValue(context.Background(), SFSessionIDKey, "sessID1")
+	ctx := context.WithValue(sessCtx, SFSessionUserKey, "admin")
 
 	var b bytes.Buffer
 	log.SetOutput(&b)
 	assertNilF(t, log.SetLogLevel("trace"), "could not set log level")
-	l := log.WithContext(ctx1, ctx2)
+	l := log.WithContext(ctx)
 	l.Info("Hello 1")
 	l.Warn("Hello 2")
 	s := b.String()
