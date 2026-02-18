@@ -96,11 +96,14 @@ func reconfigureEasyLogging(logLevel string, logPath string) error {
 		return err
 	}
 	newLogger.SetOutput(output)
-	err = newLogger.CloseFileOnLoggerReplace(file)
+	dl := newLogger.(*defaultLogger)
+	err = dl.closeFileOnLoggerReplace(file)
 	if err != nil {
 		logger.Errorf("%s", err)
 	}
-	logger.Replace(&newLogger)
+	if currentLogger, ok := logger.(*defaultLogger); ok {
+		currentLogger.replace(&newLogger)
+	}
 	return nil
 }
 

@@ -196,7 +196,9 @@ func notEmptyLines(lines string) []string {
 
 func cleanUp() {
 	newLogger := CreateDefaultLogger()
-	logger.Replace(&newLogger)
+	if dl, ok := logger.(*defaultLogger); ok {
+		dl.replace(&newLogger)
+	}
 	easyLoggingInitTrials.reset()
 }
 
