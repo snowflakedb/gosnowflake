@@ -21,6 +21,12 @@ type connectivityDiagnoser struct {
 	diagnosticClient *http.Client
 }
 
+func newConnectivityDiagnoser(cfg *Config) *connectivityDiagnoser {
+	return &connectivityDiagnoser{
+		diagnosticClient: createDiagnosticClient(cfg),
+	}
+}
+
 type allowlistEntry struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
@@ -40,8 +46,8 @@ var connDiagAcceptableStatusCodes = []int{http.StatusOK, http.StatusForbidden, h
 var connDiagTestedCrls = make(map[string]string)
 
 // create a diagnostic client with the appropriate transport for the given config
-func (cd *connectivityDiagnoser) createDiagnosticClient(cfg *Config) *http.Client {
-	transport := cd.createDiagnosticTransport(cfg)
+func createDiagnosticClient(cfg *Config) *http.Client {
+	transport := createDiagnosticTransport(cfg)
 
 	clientTimeout := cfg.ClientTimeout
 	if clientTimeout == 0 {
@@ -56,7 +62,7 @@ func (cd *connectivityDiagnoser) createDiagnosticClient(cfg *Config) *http.Clien
 
 // necessary to be able to log the IP address of the remote host to which we actually connected
 // might be even different from the result of DNS resolution
-func (cd *connectivityDiagnoser) createDiagnosticDialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
+func createDiagnosticDialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -89,19 +95,16 @@ func (cd *connectivityDiagnoser) createDiagnosticDialContext() func(ctx context.
 }
 
 // enhance the transport with IP logging
-func (cd *connectivityDiagnoser) createDiagnosticTransport(cfg *Config) *http.Transport {
+func createDiagnosticTransport(cfg *Config) *http.Transport {
 	baseTransport, err := newTransportFactory(cfg, &snowflakeTelemetry{enabled: false}).createTransport(cfg.transportConfigFor(transportTypeSnowflake))
 	if err != nil {
 		logger.Fatalf("[createDiagnosticTransport] failed to get the transport from the config: %v", err)
 	}
-
-	var httpTransport *http.Transport
-	if t, ok := baseTransport.(*http.Transport); ok {
-		httpTransport = t
-	} else {
-		logger.Warnf("[createDiagnosticTransport] unexpected transport type: %T, using default SnowflakeTransport", baseTransport)
-		httpTransport = SnowflakeTransport
+	if baseTransport == nil {
+		logger.Fatal("[createDiagnosticTransport] transport from config is nil")
 	}
+
+	var httpTransport = baseTransport.(*http.Transport)
 
 	// return a new transport enhanced with remote IP logging
 	// for SnowflakeNoOcspTransport, TLSClientConfig is nil
@@ -110,7 +113,7 @@ func (cd *connectivityDiagnoser) createDiagnosticTransport(cfg *Config) *http.Tr
 		MaxIdleConns:    httpTransport.MaxIdleConns,
 		IdleConnTimeout: httpTransport.IdleConnTimeout,
 		Proxy:           httpTransport.Proxy,
-		DialContext:     cd.createDiagnosticDialContext(),
+		DialContext:     createDiagnosticDialContext(),
 	}
 }
 
@@ -367,9 +370,7 @@ func performDiagnosis(cfg *Config, downloadCRLs bool) {
 		logger.Info("[performDiagnosis] CRLs will be attempted to be downloaded and parsed during https tests.")
 	}
 
-	var diag connectivityDiagnoser
-	// diagnostic client - its transport is based on the Config. default: SnowflakeTransport
-	diag.diagnosticClient = diag.createDiagnosticClient(cfg)
+	diag := newConnectivityDiagnoser(cfg)
 
 	allowlist, err := diag.openAndReadAllowlistJSON(allowlistFile)
 	if err != nil {
