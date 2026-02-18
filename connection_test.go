@@ -929,7 +929,7 @@ func executeQueryAndConfirmMessage(db *sql.DB, query string, expectedErrorTable 
 
 func TestQueryArrowStreamError(t *testing.T) {
 	runSnowflakeConnTest(t, func(sct *SCTest) {
-		numrows := 50000 // approximately 10 ArrowBatch objects
+		numrows := 50000
 		query := fmt.Sprintf(selectRandomGenerator, numrows)
 		sct.sc.rest = &snowflakeRestful{
 			FuncPostQuery:    postQueryTest,

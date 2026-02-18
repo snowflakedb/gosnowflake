@@ -10,6 +10,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 	"time"
 )
 
@@ -613,7 +615,7 @@ func TestMultiStatementArrowFormat(t *testing.T) {
 				dbt.mustExec(testCase.forceQuery)
 				buffer, cleanup := setupTestLogger()
 				defer cleanup()
-				rows := dbt.mustQueryContext(WithArrowBatches(ctx), multiStmtQuery)
+				rows := dbt.mustQueryContext(ia.EnableArrowBatches(ctx), multiStmtQuery)
 				defer rows.Close()
 				logOutput := buffer.String()
 				for _, rowType := range rowTypes {

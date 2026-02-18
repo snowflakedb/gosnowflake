@@ -7,6 +7,11 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/apache/arrow-go/v18/arrow"
+	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
+	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 )
 
 const (
@@ -29,7 +34,6 @@ const clientPrefetchThreadsKey = "client_prefetch_threads"
 type SnowflakeRows interface {
 	GetQueryID() string
 	GetStatus() QueryStatus
-	GetArrowBatches() ([]*ArrowBatch, error)
 	// NextResultSet switches Arrow Batches to the next result set.
 	// Returns io.EOF if there are no more result sets.
 	NextResultSet() error
@@ -62,7 +66,7 @@ type chunkRowType struct {
 }
 
 type rowSetType struct {
-	RowType      []execResponseRowType
+	RowType      []query.ExecResponseRowType
 	JSON         [][]*string
 	RowSetBase64 string
 }
@@ -77,6 +81,9 @@ func (rows *snowflakeRows) Close() (err error) {
 		return err
 	}
 	logger.WithContext(rows.sc.ctx).Debugln("Rows.Close")
+	if scd, ok := rows.ChunkDownloader.(*snowflakeChunkDownloader); ok {
+		scd.releaseRawArrowBatches()
+	}
 	return nil
 }
 
@@ -148,7 +155,7 @@ func (rows *snowflakeRows) ColumnTypeScanType(index int) reflect.Type {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return nil
 	}
-	return snowflakeTypeToGo(rows.ctx, getSnowflakeType(rows.ChunkDownloader.getRowType()[index].Type), rows.ChunkDownloader.getRowType()[index].Precision, rows.ChunkDownloader.getRowType()[index].Scale, rows.ChunkDownloader.getRowType()[index].Fields)
+	return snowflakeTypeToGo(rows.ctx, types.GetSnowflakeType(rows.ChunkDownloader.getRowType()[index].Type), rows.ChunkDownloader.getRowType()[index].Precision, rows.ChunkDownloader.getRowType()[index].Scale, rows.ChunkDownloader.getRowType()[index].Fields)
 }
 
 func (rows *snowflakeRows) GetQueryID() string {
@@ -159,10 +166,9 @@ func (rows *snowflakeRows) GetStatus() QueryStatus {
 	return rows.status
 }
 
-// GetArrowBatches returns an array of ArrowBatch objects to retrieve data in arrow.Record format
-func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
-	// Wait for all arrow batches before fetching.
-	// Otherwise, a panic error "invalid memory address or nil pointer dereference" will be thrown.
+// GetArrowBatches returns raw arrow batch data for use by the arrowbatches sub-package.
+// Implements ia.BatchDataProvider.
+func (rows *snowflakeRows) GetArrowBatches() (*ia.BatchDataInfo, error) {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return nil, err
 	}
@@ -171,7 +177,47 @@ func (rows *snowflakeRows) GetArrowBatches() ([]*ArrowBatch, error) {
 		return nil, errNonArrowResponseForArrowBatches(rows.queryID).exceptionTelemetry(rows.sc)
 	}
 
-	return rows.ChunkDownloader.getArrowBatches(), nil
+	scd, ok := rows.ChunkDownloader.(*snowflakeChunkDownloader)
+	if !ok {
+		return nil, &SnowflakeError{
+			Number:  ErrNotImplemented,
+			Message: "chunk downloader does not support arrow batch data",
+		}
+	}
+
+	rawBatches := scd.getRawArrowBatches()
+	batches := make([]ia.BatchRaw, len(rawBatches))
+	for i, raw := range rawBatches {
+		batch := ia.BatchRaw{
+			Records:  raw.records,
+			Index:    i,
+			RowCount: raw.rowCount,
+			Location: raw.loc,
+		}
+		raw.records = nil
+		if batch.Records == nil {
+			capturedIdx := i
+			if scd.firstBatchRaw != nil {
+				capturedIdx = i - 1
+			}
+			batch.Download = func(ctx context.Context) (*[]arrow.Record, int, error) {
+				if err := scd.FuncDownloadHelper(ctx, scd, capturedIdx); err != nil {
+					return nil, 0, err
+				}
+				actualRaw := scd.rawBatches[capturedIdx]
+				return actualRaw.records, actualRaw.rowCount, nil
+			}
+		}
+		batches[i] = batch
+	}
+
+	return &ia.BatchDataInfo{
+		Batches:   batches,
+		RowTypes:  scd.RowSet.RowType,
+		Allocator: scd.pool,
+		Ctx:       scd.ctx,
+		QueryID:   rows.queryID,
+	}, nil
 }
 
 func (rows *snowflakeRows) Next(dest []driver.Value) (err error) {

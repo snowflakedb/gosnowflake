@@ -470,14 +470,6 @@ func (sct *SCTest) mustQueryContext(ctx context.Context, query string, args []dr
 	return rows
 }
 
-func (sct *SCTest) mustExecContext(ctx context.Context, query string, args []driver.NamedValue) driver.Result {
-	result, err := sct.sc.ExecContext(ctx, query, args)
-	if err != nil {
-		sct.fail("ExecContext", query, err)
-	}
-	return result
-}
-
 type testConfig struct {
 	dsn string
 }
