@@ -84,6 +84,9 @@ func easyLoggingInitError(err error) error {
 }
 
 func reconfigureEasyLogging(logLevel string, logPath string) error {
+	if _, ok := logger.(*defaultLogger); !ok {
+		return nil // cannot replace custom logger
+	}
 	newLogger := CreateDefaultLogger()
 	err := newLogger.SetLogLevel(logLevel)
 	if err != nil {
