@@ -2,6 +2,10 @@
 
 ## Upcoming Release
 
+New features:
+
+- Added support for Go 1.26, dropped support for Go 1.23 (snowflakedb/gosnowflake#1707).
+
 Bug fixes:
 
 - Added panic recovery block for stage file uploads and downloads operation (snowflakedb/gosnowflake#1687).
