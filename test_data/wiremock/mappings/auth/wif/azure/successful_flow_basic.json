@@ -14,7 +14,7 @@
         "method": "GET",
         "headers": {
           "Metadata": {
-            "equalTo": "True"
+            "equalTo": "true"
           }
         }
       },

@@ -35,7 +35,7 @@ jobs:
           - name: Setup go
             uses: actions/setup-go@v5
             with:
-              go-version: '1.24'
+              go-version: '1.25'
           - name: golangci-lint
             uses: golangci/golangci-lint-action@v7
             with:
@@ -49,7 +49,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.23', '1.24', '1.25' ]
+                go: [ '1.24', '1.25', '1.26' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Ubuntu
         steps:
             - uses: actions/checkout@v4
@@ -93,7 +93,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.24'
+            go-version: '1.25'
         - name: Test
           shell: bash
           env:
@@ -112,7 +112,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.23', '1.24', '1.25' ]
+                go: [ '1.24', '1.25', '1.26' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Mac
         steps:
             - uses: actions/checkout@v4
@@ -155,7 +155,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.24'
+            go-version: '1.25'
         - name: Test
           shell: bash
           env:
@@ -173,7 +173,7 @@ jobs:
             fail-fast: false
             matrix:
                 cloud: [ 'AWS', 'AZURE', 'GCP' ]
-                go: [ '1.23', '1.24', '1.25' ]
+                go: [ '1.24', '1.25', '1.26' ]
         name: ${{ matrix.cloud }} Go ${{ matrix.go }} on Windows
         steps:
             - uses: actions/checkout@v4
@@ -220,7 +220,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.24'
+            go-version: '1.25'
         - name: Test
           shell: bash
           env:
@@ -244,7 +244,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.24'
+            go-version: '1.25'
         - name: Test
           shell: bash
           env:
@@ -267,7 +267,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.24'
+            go-version: '1.25'
         - uses: actions/setup-python@v5
           with:
             python-version: '3.x'
@@ -296,7 +296,7 @@ jobs:
         - name: Setup go
           uses: actions/setup-go@v5
           with:
-            go-version: '1.24'
+            go-version: '1.25'
         - name: Test
           shell: bash
           env:
@@ -316,11 +316,11 @@ jobs:
             matrix:
               cloud_go:
               - cloud: 'AWS'
-                go: '1.23.4'
-              - cloud: 'AZURE'
                 go: '1.24.2'
-              - cloud: 'GCP'
+              - cloud: 'AZURE'
                 go: '1.25.0'
+              - cloud: 'GCP'
+                go: '1.26.0'
         name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Rocky Linux 9
         steps:
             - uses: actions/checkout@v4
@@ -342,11 +342,11 @@ jobs:
         matrix:
           cloud_go:
             - cloud: 'AWS'
-              go: '1.23'
-            - cloud: 'AZURE'
               go: '1.24'
-            - cloud: 'GCP'
+            - cloud: 'AZURE'
               go: '1.25'
+            - cloud: 'GCP'
+              go: '1.26'
       name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.go }} on Ubuntu ARM
       steps:
         - uses: actions/checkout@v4
@@ -385,11 +385,11 @@ jobs:
         matrix:
           cloud_go:
             - cloud: 'AWS'
-              go: '1.23'
-            - cloud: 'AZURE'
               go: '1.24'
-            - cloud: 'GCP'
+            - cloud: 'AZURE'
               go: '1.25'
+            - cloud: 'GCP'
+              go: '1.26'
       name: ${{ matrix.cloud_go.cloud }} Go ${{ matrix.cloud_go.cloud }} on Windows ARM
       steps:
         - uses: actions/checkout@v4

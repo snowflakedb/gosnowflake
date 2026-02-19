@@ -702,8 +702,8 @@ func TestAzureIdentityAttestationCreator(t *testing.T) {
 				assertNotNilE(t, err)
 				assertEqualE(t, test.expectedError.Error(), err.Error())
 			} else {
-				assertNilE(t, err)
-				assertNotNilE(t, attestation)
+				assertNilF(t, err)
+				assertNotNilF(t, attestation)
 				assertEqualE(t, string(azureWif), attestation.ProviderType)
 				assertEqualE(t, test.expectedIss, attestation.Metadata["iss"])
 				assertEqualE(t, "77213E30-E8CB-4595-B1B6-5F050E8308FD", attestation.Metadata["sub"])
