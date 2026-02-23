@@ -34,7 +34,7 @@ func (sc *snowflakeConn) getClientSessionKeepAliveHeartbeatFrequency() (time.Dur
 
 	num, err := strconv.Atoi(*v)
 	if err != nil {
-		logger.WithError(err).Warnf("Failed to parse client session keepalive heartbeat frequency. Falling back to default.")
+		logger.Warnf("Failed to parse client session keepalive heartbeat frequency: %v. Falling back to default.", err)
 		return 0, false
 	}
 

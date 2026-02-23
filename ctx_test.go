@@ -1,8 +1,10 @@
 package gosnowflake
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -36,15 +38,25 @@ func TestCtxVal(t *testing.T) {
 	}
 }
 
-func TestLogEntryCtx(t *testing.T) {
-	var log = logger
-	var ctx1 = context.WithValue(context.Background(), SFSessionIDKey, "sessID1")
-	var ctx2 = context.WithValue(context.Background(), SFSessionUserKey, "admin")
+func TestLogCtx(t *testing.T) {
+	log := CreateDefaultLogger()
+	sessCtx := context.WithValue(context.Background(), SFSessionIDKey, "sessID1")
+	ctx := context.WithValue(sessCtx, SFSessionUserKey, "admin")
 
-	fs1 := context2Fields(ctx1)
-	fs2 := context2Fields(ctx2)
-	l1 := log.WithFields(*fs1)
-	l2 := log.WithFields(*fs2)
-	l1.Info("Hello 1")
-	l2.Warning("Hello 2")
+	var b bytes.Buffer
+	log.SetOutput(&b)
+	assertNilF(t, log.SetLogLevel("trace"), "could not set log level")
+	l := log.WithContext(ctx)
+	l.Info("Hello 1")
+	l.Warn("Hello 2")
+	s := b.String()
+	if len(s) <= 0 {
+		t.Error("nothing written")
+	}
+	if !strings.Contains(s, "LOG_SESSION_ID=sessID1") {
+		t.Error("context ctx1 keys/values not logged")
+	}
+	if !strings.Contains(s, "LOG_USER=admin") {
+		t.Error("context ctx2 keys/values not logged")
+	}
 }
