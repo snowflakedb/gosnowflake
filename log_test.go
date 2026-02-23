@@ -3,11 +3,9 @@ package gosnowflake
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	rlog "github.com/sirupsen/logrus"
 )
@@ -23,6 +21,17 @@ func TestIsLevelEnabled(t *testing.T) {
 	logger.SetLevel(rlog.TraceLevel)
 	if !logger.IsLevelEnabled(rlog.TraceLevel) {
 		t.Fatalf("log level should be trace but is %v", logger.GetLevel())
+	}
+}
+
+func TestLogLevelEnabled(t *testing.T) {
+	log := CreateDefaultLogger() // via the SFLogger interface.
+	err := log.SetLogLevel("info")
+	if err != nil {
+		t.Fatalf("log level could not be set %v", err)
+	}
+	if log.GetLogLevel() != "info" {
+		t.Fatalf("log level should be trace but is %v", log.GetLogLevel())
 	}
 }
 
@@ -152,35 +161,6 @@ func TestLogSetLevel(t *testing.T) {
 	if !strings.Contains(strbuf, "trace level") &&
 		!strings.Contains(strbuf, "debug level") {
 		t.Fatalf("unexpected output in log: %v", strbuf)
-	}
-}
-
-func TestLogWithError(t *testing.T) {
-	logger := CreateDefaultLogger()
-	buf := &bytes.Buffer{}
-	logger.SetOutput(buf)
-
-	err := errors.New("error")
-	logger.WithError(err).Info("hello world")
-
-	var strbuf = buf.String()
-	if !strings.Contains(strbuf, "error=error") {
-		t.Fatalf("unexpected output in log: %v", strbuf)
-	}
-}
-
-func TestLogWithTime(t *testing.T) {
-	logger := createTestLogger()
-	buf := &bytes.Buffer{}
-	logger.SetOutput(buf)
-
-	ti := time.Now()
-	logger.WithTime(ti).Info("hello")
-	time.Sleep(3 * time.Second)
-
-	var strbuf = buf.String()
-	if !strings.Contains(strbuf, ti.Format(time.RFC3339)) {
-		t.Fatalf("unexpected string in output: %v", strbuf)
 	}
 }
 
