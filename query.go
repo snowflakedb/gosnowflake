@@ -2,6 +2,7 @@ package gosnowflake
 
 import (
 	"encoding/json"
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"time"
 )
 
@@ -46,46 +47,6 @@ type contextData struct {
 	Base64Data string `json:"base64Data,omitempty"`
 }
 
-type execResponseRowType struct {
-	Name       string          `json:"name"`
-	Fields     []fieldMetadata `json:"fields"`
-	ByteLength int64           `json:"byteLength"`
-	Length     int64           `json:"length"`
-	Type       string          `json:"type"`
-	Precision  int64           `json:"precision"`
-	Scale      int64           `json:"scale"`
-	Nullable   bool            `json:"nullable"`
-}
-
-func (ex *execResponseRowType) toFieldMetadata() fieldMetadata {
-	return fieldMetadata{
-		ex.Name,
-		ex.Type,
-		ex.Nullable,
-		int(ex.Length),
-		int(ex.Scale),
-		int(ex.Precision),
-		ex.Fields,
-	}
-}
-
-type fieldMetadata struct {
-	Name      string          `json:"name,omitempty"`
-	Type      string          `json:"type"`
-	Nullable  bool            `json:"nullable"`
-	Length    int             `json:"length"`
-	Scale     int             `json:"scale"`
-	Precision int             `json:"precision"`
-	Fields    []fieldMetadata `json:"fields,omitempty"`
-}
-
-type execResponseChunk struct {
-	URL              string `json:"url"`
-	RowCount         int    `json:"rowCount"`
-	UncompressedSize int64  `json:"uncompressedSize"`
-	CompressedSize   int64  `json:"compressedSize"`
-}
-
 type execResponseCredentials struct {
 	AwsKeyID       string `json:"AWS_KEY_ID,omitempty"`
 	AwsSecretKey   string `json:"AWS_SECRET_KEY,omitempty"`
@@ -114,25 +75,25 @@ type execResponseStageInfo struct {
 // make all data field optional
 type execResponseData struct {
 	// succeed query response data
-	Parameters         []nameValueParameter  `json:"parameters,omitempty"`
-	RowType            []execResponseRowType `json:"rowtype,omitempty"`
-	RowSet             [][]*string           `json:"rowset,omitempty"`
-	RowSetBase64       string                `json:"rowsetbase64,omitempty"`
-	Total              int64                 `json:"total,omitempty"`    // java:long
-	Returned           int64                 `json:"returned,omitempty"` // java:long
-	QueryID            string                `json:"queryId,omitempty"`
-	SQLState           string                `json:"sqlState,omitempty"`
-	DatabaseProvider   string                `json:"databaseProvider,omitempty"`
-	FinalDatabaseName  string                `json:"finalDatabaseName,omitempty"`
-	FinalSchemaName    string                `json:"finalSchemaName,omitempty"`
-	FinalWarehouseName string                `json:"finalWarehouseName,omitempty"`
-	FinalRoleName      string                `json:"finalRoleName,omitempty"`
-	NumberOfBinds      int                   `json:"numberOfBinds,omitempty"`   // java:int
-	StatementTypeID    int64                 `json:"statementTypeId,omitempty"` // java:long
-	Version            int64                 `json:"version,omitempty"`         // java:long
-	Chunks             []execResponseChunk   `json:"chunks,omitempty"`
-	Qrmk               string                `json:"qrmk,omitempty"`
-	ChunkHeaders       map[string]string     `json:"chunkHeaders,omitempty"`
+	Parameters         []nameValueParameter        `json:"parameters,omitempty"`
+	RowType            []query.ExecResponseRowType `json:"rowtype,omitempty"`
+	RowSet             [][]*string                 `json:"rowset,omitempty"`
+	RowSetBase64       string                      `json:"rowsetbase64,omitempty"`
+	Total              int64                       `json:"total,omitempty"`    // java:long
+	Returned           int64                       `json:"returned,omitempty"` // java:long
+	QueryID            string                      `json:"queryId,omitempty"`
+	SQLState           string                      `json:"sqlState,omitempty"`
+	DatabaseProvider   string                      `json:"databaseProvider,omitempty"`
+	FinalDatabaseName  string                      `json:"finalDatabaseName,omitempty"`
+	FinalSchemaName    string                      `json:"finalSchemaName,omitempty"`
+	FinalWarehouseName string                      `json:"finalWarehouseName,omitempty"`
+	FinalRoleName      string                      `json:"finalRoleName,omitempty"`
+	NumberOfBinds      int                         `json:"numberOfBinds,omitempty"`   // java:int
+	StatementTypeID    int64                       `json:"statementTypeId,omitempty"` // java:long
+	Version            int64                       `json:"version,omitempty"`         // java:long
+	Chunks             []query.ExecResponseChunk   `json:"chunks,omitempty"`
+	Qrmk               string                      `json:"qrmk,omitempty"`
+	ChunkHeaders       map[string]string           `json:"chunkHeaders,omitempty"`
 
 	// ping pong response data
 	GetResultURL      string        `json:"getResultUrl,omitempty"`

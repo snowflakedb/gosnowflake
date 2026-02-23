@@ -62,7 +62,7 @@ go install github.com/jstemmer/go-junit-report/v2@latest
 
 REM Run tests and save output to file
 REM no -race, because it's not supported on Windows ARM
-go test %GO_TEST_PARAMS% --timeout 90m -coverprofile=coverage.txt -covermode=atomic -v . > test-output.txt 2>&1
+go test %GO_TEST_PARAMS% --timeout 90m -coverprofile=coverage.txt -covermode=atomic -v ./... > test-output.txt 2>&1
 set TEST_EXIT=%ERRORLEVEL%
 
 REM Display the test output

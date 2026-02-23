@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
+	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -30,9 +32,9 @@ type bindUploader struct {
 }
 
 type bindingSchema struct {
-	Typ      string          `json:"type"`
-	Nullable bool            `json:"nullable"`
-	Fields   []fieldMetadata `json:"fields"`
+	Typ      string                `json:"type"`
+	Nullable bool                  `json:"nullable"`
+	Fields   []query.FieldMetadata `json:"fields"`
 }
 
 type bindingValue struct {
@@ -233,7 +235,7 @@ func (sc *snowflakeConn) processBindings(
 }
 
 func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map[string]execBindParameter, error) {
-	tsmode := timestampNtzType
+	tsmode := types.TimestampNtzType
 	idx := 1
 	var err error
 	bindValues := make(map[string]execBindParameter, len(bindings))
@@ -243,7 +245,7 @@ func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map
 			binding.Value = tnt.Time
 		}
 		t := goTypeToSnowflake(binding.Value, tsmode)
-		if t == changeType {
+		if t == types.ChangeType {
 			tsmode, err = dataTypeMode(binding.Value)
 			if err != nil {
 				return nil, err
@@ -251,7 +253,7 @@ func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map
 		} else {
 			var val interface{}
 			var bv bindingValue
-			if t == sliceType {
+			if t == types.SliceType {
 				// retrieve array binding data
 				t, val, err = snowflakeArrayToString(&binding, false)
 				if err != nil {
@@ -265,12 +267,12 @@ func getBindValues(bindings []driver.NamedValue, params map[string]*string) (map
 				}
 			}
 			switch t {
-			case nullType, unSupportedType:
-				t = textType
-			case nilObjectType, mapType, nilMapType:
-				t = objectType
-			case nilArrayType:
-				t = arrayType
+			case types.NullType, types.UnSupportedType:
+				t = types.TextType
+			case types.NilObjectType, types.MapType, types.NilMapType:
+				t = types.ObjectType
+			case types.NilArrayType:
+				t = types.ArrayType
 			}
 			bindValues[bindingName(binding, idx)] = execBindParameter{
 				Type:   t.String(),
@@ -334,7 +336,7 @@ func supportedArrayBind(nv *driver.NamedValue) bool {
 		if len(val) == 0 {
 			return true // for null binds
 		}
-		if fixedType <= snowflakeType(val[0]) && snowflakeType(val[0]) <= unSupportedType {
+		if types.FixedType <= types.SnowflakeType(val[0]) && types.SnowflakeType(val[0]) <= types.UnSupportedType {
 			return true
 		}
 		return false

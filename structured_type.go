@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
+	"github.com/snowflakedb/gosnowflake/v2/internal/types"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -96,11 +98,11 @@ type structuredObjectWriterEntry struct {
 	length    int
 	scale     int
 	precision int
-	fields    []fieldMetadata
+	fields    []query.FieldMetadata
 }
 
-func (e *structuredObjectWriterEntry) toFieldMetadata() fieldMetadata {
-	return fieldMetadata{
+func (e *structuredObjectWriterEntry) toFieldMetadata() query.FieldMetadata {
+	return query.FieldMetadata{
 		Name:      e.name,
 		Type:      e.typ,
 		Nullable:  e.nullable,
@@ -238,7 +240,7 @@ func (sowc *structuredObjectWriterContext) WriteTime(fieldName string, value tim
 	if err != nil {
 		return err
 	}
-	typ := driverTypeToSnowflake[snowflakeType]
+	typ := types.DriverTypeToSnowflake[snowflakeType]
 	sfFormat, err := dateTimeInputFormatByType(typ, sowc.params)
 	if err != nil {
 		return err
@@ -258,7 +260,7 @@ func (sowc *structuredObjectWriterContext) WriteNullTime(fieldName string, value
 	if err != nil {
 		return err
 	}
-	typ := driverTypeToSnowflake[snowflakeType]
+	typ := types.DriverTypeToSnowflake[snowflakeType]
 	return sowc.writeTime(fieldName, nil, typ)
 }
 
@@ -325,7 +327,7 @@ func (sowc *structuredObjectWriterContext) WriteRaw(fieldName string, value any,
 			name:     fieldName,
 			typ:      "ARRAY",
 			nullable: true,
-			fields:   []fieldMetadata{metadata},
+			fields:   []query.FieldMetadata{metadata},
 		})
 	case reflect.Map:
 		keyMetadata, err := goTypeToFieldMetadata(reflect.TypeOf(value).Key(), tsmode, sowc.params)
@@ -340,7 +342,7 @@ func (sowc *structuredObjectWriterContext) WriteRaw(fieldName string, value any,
 			name:     fieldName,
 			typ:      "MAP",
 			nullable: true,
-			fields:   []fieldMetadata{keyMetadata, valueMetadata},
+			fields:   []query.FieldMetadata{keyMetadata, valueMetadata},
 		})
 	}
 	return fmt.Errorf("unsupported raw type: %T", value)
@@ -636,8 +638,8 @@ func (sowc *structuredObjectWriterContext) WriteAll(sow StructuredObjectWriter) 
 	return nil
 }
 
-func (sowc *structuredObjectWriterContext) toFields() []fieldMetadata {
-	fieldMetadatas := make([]fieldMetadata, len(sowc.entries))
+func (sowc *structuredObjectWriterContext) toFields() []query.FieldMetadata {
+	fieldMetadatas := make([]query.FieldMetadata, len(sowc.entries))
 	for i, entry := range sowc.entries {
 		fieldMetadatas[i] = entry.toFieldMetadata()
 	}
@@ -706,7 +708,7 @@ func ScanMapOfScanners[K comparable, V sql.Scanner](m *map[K]V) *MapOfScanners[K
 
 type structuredType struct {
 	values        map[string]any
-	fieldMetadata []fieldMetadata
+	fieldMetadata []query.FieldMetadata
 	params        map[string]*string
 }
 
@@ -1146,13 +1148,13 @@ func (st *structuredType) ScanTo(sc sql.Scanner) error {
 	return nil
 }
 
-func (st *structuredType) fieldMetadataByFieldName(fieldName string) (fieldMetadata, error) {
+func (st *structuredType) fieldMetadataByFieldName(fieldName string) (query.FieldMetadata, error) {
 	for _, fm := range st.fieldMetadata {
 		if fm.Name == fieldName {
 			return fm, nil
 		}
 	}
-	return fieldMetadata{}, errors.New("no metadata for field " + fieldName)
+	return query.FieldMetadata{}, errors.New("no metadata for field " + fieldName)
 }
 
 func structuredTypesEnabled(ctx context.Context) bool {
