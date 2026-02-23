@@ -1119,10 +1119,9 @@ func initOcspModule() {
 }
 
 type ocspCacheClearerType struct {
-	ctx     context.Context
-	cancel  context.CancelFunc
-	running bool
 	mu      sync.Mutex
+	running bool
+	cancel  context.CancelFunc
 }
 
 func (occ *ocspCacheClearerType) start() {
@@ -1131,7 +1130,8 @@ func (occ *ocspCacheClearerType) start() {
 	if occ.running {
 		return
 	}
-	occ.ctx, occ.cancel = context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	occ.cancel = cancel
 	interval := defaultOCSPResponseCacheClearingInterval
 	if intervalFromEnv := os.Getenv(ocspResponseCacheClearingIntervalInSecondsEnv); intervalFromEnv != "" {
 		intervalAsSeconds, err := strconv.Atoi(intervalFromEnv)
@@ -1148,14 +1148,12 @@ func (occ *ocspCacheClearerType) start() {
 			select {
 			case <-ticker.C:
 				clearOCSPCaches()
-			case <-occ.ctx.Done():
+			case <-ctx.Done():
 				occ.mu.Lock()
 				defer occ.mu.Unlock()
 				logger.Debug("stopped clearing OCSP cache")
 				ticker.Stop()
 				occ.running = false
-				occ.ctx = nil
-				occ.cancel = nil
 				return
 			}
 		}
@@ -1165,9 +1163,8 @@ func (occ *ocspCacheClearerType) start() {
 
 func (occ *ocspCacheClearerType) stop() {
 	occ.mu.Lock()
-	running := occ.running
-	occ.mu.Unlock()
-	if running {
+	defer occ.mu.Unlock()
+	if occ.running {
 		occ.cancel()
 	}
 }
