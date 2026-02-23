@@ -60,7 +60,7 @@ func readOsRelease(filename string) map[string]string {
 			continue
 		}
 
-		value = strings.Trim(value, "\"' \t")
+		value = unquoteOsReleaseValue(value)
 		result[key] = value
 	}
 
@@ -69,4 +69,18 @@ func readOsRelease(filename string) map[string]string {
 	}
 
 	return result
+}
+
+// unquoteOsReleaseValue extracts the value from a possibly quoted string.
+// If the value is wrapped in matching single or double quotes, the content
+// between the quotes is returned (ignoring anything after the closing quote).
+// Otherwise the raw value is returned.
+func unquoteOsReleaseValue(s string) string {
+	if len(s) >= 2 && (s[0] == '"' || s[0] == '\'') {
+		quote := s[0]
+		if end := strings.IndexByte(s[1:], quote); end >= 0 {
+			return s[1 : 1+end]
+		}
+	}
+	return s
 }

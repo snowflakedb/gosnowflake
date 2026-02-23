@@ -782,14 +782,18 @@ If precision is important, you have to use string representation and use your ow
 # Arrow batches
 
 You can retrieve data in a columnar format similar to the format a server returns, without transposing them to rows.
-When working with the arrow columnar format in go driver, ArrowBatch structs are used. These are structs
-mostly corresponding to data chunks received from the backend. They allow for access to specific arrow.Record structs.
+Arrow Batches mode is available through the separate `arrowbatches` sub-package (`github.com/snowflakedb/gosnowflake/v2/arrowbatches`).
+This sub-package provides access to Arrow columnar data using ArrowBatch structs, which correspond to data chunks
+received from the backend. They allow for access to specific arrow.Record structs.
+
+The arrow-compute dependency (which significantly increases binary size) is only pulled in when you import the
+arrowbatches sub-package. If you don't need Arrow batch support, simply don't import it.
 
 An ArrowBatch can exist in a state where the underlying data has not yet been loaded. The data is downloaded and
 translated only on demand. Translation options are retrieved from a context.Context interface, which is either
 passed from query context or set by the user using WithContext(ctx) method.
 
-In order to access them you must use `WithArrowBatches` context, similar to the following:
+In order to access them you must use `arrowbatches.WithArrowBatches` context, similar to the following:
 
 	    var rows driver.Rows
 		err = conn.Raw(func(x interface{}) error {
@@ -799,11 +803,11 @@ In order to access them you must use `WithArrowBatches` context, similar to the 
 
 		...
 
-		batches, err := rows.(sf.SnowflakeRows).GetArrowBatches()
+		batches, err := arrowbatches.GetArrowBatches(rows.(sf.SnowflakeRows))
 
 		... // use Arrow records
 
-This returns []*ArrowBatch.
+This returns []*arrowbatches.ArrowBatch.
 
 ArrowBatch functions:
 
@@ -819,9 +823,9 @@ that has already been downloaded. For example:
 	records2, _ := batch.WithContext(ctx).Fetch()
 
 will produce the same result in records1 and records2, irrespective of the newly provided ctx. Context worth noting are:
--WithArrowBatchesTimestampOption
+-arrowbatches.WithTimestampOption
 -WithHigherPrecision
--WithArrowBatchesUtf8Validation
+-arrowbatches.WithUtf8Validation
 described in more detail later.
 
 Fetch():
@@ -843,10 +847,10 @@ Consequently, Snowflake uses a custom timestamp format in Arrow, which differs o
 
 If you want to use timestamps in Arrow batches, you have two options:
 
- 1. The Go driver can reduce timestamp struct into simple Arrow Timestamp, if you set `WithArrowBatchesTimestampOption` to nanosecond, microsecond, millisecond or second.
+ 1. The Go driver can reduce timestamp struct into simple Arrow Timestamp, if you set `arrowbatches.WithTimestampOption` to nanosecond, microsecond, millisecond or second.
     For nanosecond, some timestamp values might not fit into Arrow timestamp. E.g after year 2262 or before 1677.
  2. You can use native Snowflake values. In that case you will receive complex structs as described above. To transform Snowflake values into the Golang time.Time struct you can use `ArrowSnowflakeTimestampToTime`.
-    To enable this feature, you must use `WithArrowBatchesTimestampOption` context with value set to`UseOriginalTimestamp`.
+    To enable this feature, you must use `arrowbatches.WithTimestampOption` context with value set to`UseOriginalTimestamp`.
 
 How to handle invalid UTF-8 characters in Arrow batches:
 
@@ -855,7 +859,7 @@ However, according to the Arrow specifications (https://arrow.apache.org/docs/cp
 and https://github.com/apache/arrow/blob/a03d957b5b8d0425f9d5b6c98b6ee1efa56a1248/go/arrow/datatype.go#L73-L74),
 Arrow string columns should only contain UTF-8 characters.
 
-To address this issue and prevent potential downstream disruptions, the context WithArrowBatchesUtf8Validation, is introduced.
+To address this issue and prevent potential downstream disruptions, the context arrowbatches.WithUtf8Validation is introduced.
 When enabled, this feature iterates through all values in string columns, identifying and replacing any invalid characters with `�`.
 This ensures that Arrow records conform to the UTF-8 standards, preventing validation failures in downstream services like the Rust Arrow library that impose strict validation checks.
 

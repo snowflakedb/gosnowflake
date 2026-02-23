@@ -7,12 +7,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"sync"
 	"time"
+
+	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
@@ -28,12 +31,12 @@ type chunkDownloader interface {
 	start() error
 	next() (chunkRowType, error)
 	reset()
-	getChunkMetas() []execResponseChunk
+	getChunkMetas() []query.ExecResponseChunk
 	getQueryResultFormat() resultFormat
-	getRowType() []execResponseRowType
+	getRowType() []query.ExecResponseRowType
 	setNextChunkDownloader(downloader chunkDownloader)
 	getNextChunkDownloader() chunkDownloader
-	getArrowBatches() []*ArrowBatch
+	getRawArrowBatches() []*rawArrowBatchData
 }
 
 type snowflakeChunkDownloader struct {
@@ -48,7 +51,7 @@ type snowflakeChunkDownloader struct {
 	CurrentChunkSize   int
 	CurrentIndex       int
 	ChunkHeader        map[string]string
-	ChunkMetas         []execResponseChunk
+	ChunkMetas         []query.ExecResponseChunk
 	Chunks             map[int][]chunkRowType
 	ChunksChan         chan int
 	ChunksError        chan *chunkError
@@ -56,11 +59,11 @@ type snowflakeChunkDownloader struct {
 	ChunksFinalErrors  []*chunkError
 	ChunksMutex        *sync.Mutex
 	DoneDownloadCond   *sync.Cond
-	FirstBatch         *ArrowBatch
+	firstBatchRaw      *rawArrowBatchData
 	NextDownloader     chunkDownloader
 	Qrmk               string
 	QueryResultFormat  string
-	ArrowBatches       []*ArrowBatch
+	rawBatches         []*rawArrowBatchData
 	RowSet             rowSetType
 	FuncDownload       func(context.Context, *snowflakeChunkDownloader, int)
 	FuncDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
@@ -246,7 +249,7 @@ func (scd *snowflakeChunkDownloader) reset() {
 	scd.Chunks = nil // detach all chunks. No way to go backward without reinitialize it.
 }
 
-func (scd *snowflakeChunkDownloader) getChunkMetas() []execResponseChunk {
+func (scd *snowflakeChunkDownloader) getChunkMetas() []query.ExecResponseChunk {
 	return scd.ChunkMetas
 }
 
@@ -262,15 +265,41 @@ func (scd *snowflakeChunkDownloader) getNextChunkDownloader() chunkDownloader {
 	return scd.NextDownloader
 }
 
-func (scd *snowflakeChunkDownloader) getRowType() []execResponseRowType {
+func (scd *snowflakeChunkDownloader) getRowType() []query.ExecResponseRowType {
 	return scd.RowSet.RowType
 }
 
-func (scd *snowflakeChunkDownloader) getArrowBatches() []*ArrowBatch {
-	if scd.FirstBatch == nil || scd.FirstBatch.rec == nil {
-		return scd.ArrowBatches
+// rawArrowBatchData holds raw (untransformed) arrow records for a single batch.
+type rawArrowBatchData struct {
+	records  *[]arrow.Record
+	rowCount int
+	loc      *time.Location
+}
+
+func (scd *snowflakeChunkDownloader) getRawArrowBatches() []*rawArrowBatchData {
+	if scd.firstBatchRaw == nil || scd.firstBatchRaw.records == nil {
+		return scd.rawBatches
 	}
-	return append([]*ArrowBatch{scd.FirstBatch}, scd.ArrowBatches...)
+	return append([]*rawArrowBatchData{scd.firstBatchRaw}, scd.rawBatches...)
+}
+
+// releaseRawArrowBatches releases any raw arrow records still owned by the
+// chunk downloader. Records whose ownership was transferred to BatchRaw
+// (via GetArrowBatches) will already have been nilled out and are skipped.
+func (scd *snowflakeChunkDownloader) releaseRawArrowBatches() {
+	releaseRecords := func(raw *rawArrowBatchData) {
+		if raw == nil || raw.records == nil {
+			return
+		}
+		for _, rec := range *raw.records {
+			rec.Release()
+		}
+		raw.records = nil
+	}
+	releaseRecords(scd.firstBatchRaw)
+	for _, raw := range scd.rawBatches {
+		releaseRecords(raw)
+	}
 }
 
 func (scd *snowflakeChunkDownloader) getConfigParams() (map[string]*string, error) {
@@ -307,28 +336,23 @@ func (scd *snowflakeChunkDownloader) startArrowBatches() error {
 		if err != nil {
 			return fmt.Errorf("building first arrow chunk: %w", err)
 		}
-		scd.FirstBatch = &ArrowBatch{
-			idx:                0,
-			scd:                scd,
-			funcDownloadHelper: scd.FuncDownloadHelper,
-			loc:                loc,
+		scd.firstBatchRaw = &rawArrowBatchData{
+			loc: loc,
 		}
-		// decode first chunk if possible
 		if firstArrowChunk.allocator != nil {
-			scd.FirstBatch.rec, err = firstArrowChunk.decodeArrowBatch(scd)
+			scd.firstBatchRaw.records, err = firstArrowChunk.decodeArrowBatchRaw()
 			if err != nil {
 				return fmt.Errorf("decoding arrow batch: %w", err)
 			}
+			scd.firstBatchRaw.rowCount = countRawArrowBatchRows(scd.firstBatchRaw.records)
 		}
 	}
 	chunkMetaLen := len(scd.ChunkMetas)
-	scd.ArrowBatches = make([]*ArrowBatch, chunkMetaLen)
-	for i := range scd.ArrowBatches {
-		scd.ArrowBatches[i] = &ArrowBatch{
-			idx:                i,
-			scd:                scd,
-			funcDownloadHelper: scd.FuncDownloadHelper,
-			loc:                loc,
+	scd.rawBatches = make([]*rawArrowBatchData, chunkMetaLen)
+	for i := range scd.rawBatches {
+		scd.rawBatches[i] = &rawArrowBatchData{
+			loc:      loc,
+			rowCount: scd.ChunkMetas[i].RowCount,
 		}
 		scd.CurrentChunkIndex++
 	}
@@ -491,12 +515,11 @@ func decodeChunk(ctx context.Context, scd *snowflakeChunkDownloader, idx int, bu
 		}
 		if usesArrowBatches(scd.ctx) {
 			var err error
-			scd.ArrowBatches[idx].rec, err = arc.decodeArrowBatch(scd)
+			scd.rawBatches[idx].records, err = arc.decodeArrowBatchRaw()
 			if err != nil {
 				return fmt.Errorf("decoding Arrow batch: %w", err)
 			}
-			// updating metadata
-			scd.ArrowBatches[idx].rowCount = countArrowBatchRows(scd.ArrowBatches[idx].rec)
+			scd.rawBatches[idx].rowCount = countRawArrowBatchRows(scd.rawBatches[idx].records)
 			return nil
 		}
 		highPrec := higherPrecisionEnabled(scd.ctx)
@@ -525,46 +548,14 @@ func populateJSONRowSet(dst []chunkRowType, src [][]*string) {
 	}
 }
 
-// ArrowBatch object represents a chunk of data, or subset of rows, retrievable in arrow.Record format
-type ArrowBatch struct {
-	rec                *[]arrow.Record
-	idx                int
-	rowCount           int
-	scd                *snowflakeChunkDownloader
-	funcDownloadHelper func(context.Context, *snowflakeChunkDownloader, int) error
-	ctx                context.Context
-	loc                *time.Location
-}
-
-// WithContext sets the context which will be used for this ArrowBatch.
-func (rb *ArrowBatch) WithContext(ctx context.Context) *ArrowBatch {
-	rb.ctx = ctx
-	return rb
-}
-
-// Fetch returns an array of records representing a chunk in the query
-func (rb *ArrowBatch) Fetch() (*[]arrow.Record, error) {
-	// chunk has already been downloaded
-	if rb.rec != nil {
-		// updating metadata
-		rb.rowCount = countArrowBatchRows(rb.rec)
-		return rb.rec, nil
+func countRawArrowBatchRows(recs *[]arrow.Record) (cnt int) {
+	if recs == nil {
+		return 0
 	}
-	var ctx context.Context
-	if rb.ctx != nil {
-		ctx = rb.ctx
-	} else {
-		ctx = context.Background()
+	for _, r := range *recs {
+		cnt += int(r.NumRows())
 	}
-	if err := rb.funcDownloadHelper(ctx, rb.scd, rb.idx); err != nil {
-		return nil, fmt.Errorf("running download helper: %w", err)
-	}
-	return rb.rec, nil
-}
-
-// GetRowCount returns the number of rows in an arrow batch
-func (rb *ArrowBatch) GetRowCount() int {
-	return rb.rowCount
+	return
 }
 
 func getAllocator(ctx context.Context) memory.Allocator {
@@ -576,17 +567,5 @@ func getAllocator(ctx context.Context) memory.Allocator {
 }
 
 func usesArrowBatches(ctx context.Context) bool {
-	val := ctx.Value(arrowBatches)
-	if val == nil {
-		return false
-	}
-	a, ok := val.(bool)
-	return a && ok
-}
-
-func countArrowBatchRows(recs *[]arrow.Record) (cnt int) {
-	for _, r := range *recs {
-		cnt += int(r.NumRows())
-	}
-	return
+	return ia.BatchesEnabled(ctx)
 }

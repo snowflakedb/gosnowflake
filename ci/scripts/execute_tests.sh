@@ -19,10 +19,10 @@ fi
 
 if [[ -n "$JENKINS_HOME" ]]; then
   export WORKSPACE=${WORKSPACE:-/mnt/workspace}
-  go test $GO_TEST_PARAMS -timeout 90m -race -v . | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
+  go test $GO_TEST_PARAMS -timeout 90m -race -v ./... | /home/user/go/bin/go-junit-report -iocopy -out $WORKSPACE/junit-go.xml
 else
   set +e
-  go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v . | tee test-output.txt
+  go test $GO_TEST_PARAMS -timeout 90m -race -coverprofile=coverage.txt -covermode=atomic -v ./... | tee test-output.txt
   TEST_EXIT_CODE=$?
   cat test-output.txt | go-junit-report > test-report.junit.xml
   exit $TEST_EXIT_CODE

@@ -6,9 +6,11 @@ import (
 	"database/sql/driver"
 	"errors"
 	"flag"
-	sf "github.com/snowflakedb/gosnowflake/v2"
 	"io"
 	"log"
+
+	sf "github.com/snowflakedb/gosnowflake/v2"
+	"github.com/snowflakedb/gosnowflake/v2/arrowbatches"
 )
 
 func main() {
@@ -45,7 +47,7 @@ func main() {
 
 	var rows driver.Rows
 	err = conn.Raw(func(x any) error {
-		rows, err = x.(driver.QueryerContext).QueryContext(sf.WithArrowBatches(context.Background()), "SELECT 1, 'hello' UNION SELECT 2, 'hi' UNION SELECT 3, 'howdy'", nil)
+		rows, err = x.(driver.QueryerContext).QueryContext(arrowbatches.WithArrowBatches(context.Background()), "SELECT 1, 'hello' UNION SELECT 2, 'hi' UNION SELECT 3, 'howdy'", nil)
 		return err
 	})
 	if err != nil {
@@ -53,7 +55,7 @@ func main() {
 	}
 	defer rows.Close()
 
-	_, err = rows.(sf.SnowflakeRows).GetArrowBatches()
+	_, err = arrowbatches.GetArrowBatches(rows.(sf.SnowflakeRows))
 	var se *sf.SnowflakeError
 	if !errors.As(err, &se) || se.Number != sf.ErrNonArrowResponseInArrowBatches {
 		log.Fatalf("expected to fail while retrieving arrow batches")

@@ -21,6 +21,13 @@ Breaking changes:
 - Removed `DisableTelemetry` field from `Config` struct. Use `CLIENT_TELEMETRY_ENABLED` session parameter instead (snowflakedb/gosnowflake#1692).
 - Removed stream chunk downloader. Use a regular, default downloader instead. (snowflakedb/gosnowflake#1702).
 - Removed `SnowflakeTransport`. Use `Config.Transporter` or simply register your own TLS config with `RegisterTLSConfig` if you just need a custom root certificates set (snowflakedb/gosnowflake#1703).
+- Arrow batches changes (snowflakedb/gosnowflake#1706):
+  - Arrow batches have been extracted to a separate package. It should significantly drop the compilation size for those who don't need arrow batches (~34MB -> ~18MB).
+  - Removed `GetArrowBatches` from `SnowflakeRows` and `SnowflakeResult`. Use `arrowbatches.GetArrowBatches(rows.(SnowflakeRows))` instead.
+  - Migrated functions:
+    - `sf.WithArrowBatchesTimestampOption` -> `arrowbatches.WithTimstampOption`
+    - `sf.WithArrowBatchesUtf8Validation` -> `arrowbatches.WithUtf8Validation`
+    - `sf.ArrowSnowflakeTimestampToTime` -> `arrowbatches.ArrowSnowflakeTimestampToTime`
 
 Bug fixes:
 
