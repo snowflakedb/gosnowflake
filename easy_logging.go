@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+
+	loggerinternal "github.com/snowflakedb/gosnowflake/v2/internal/logger"
 )
 
 type initTrials struct {
@@ -85,7 +87,7 @@ func easyLoggingInitError(err error) error {
 
 func reconfigureEasyLogging(logLevel string, logPath string) error {
 	// don't allow any change if a non-default logger is already being used.
-	if _, ok := logger.(*defaultLogger); !ok {
+	if !loggerinternal.IsDefaultLogger(logger) {
 		return nil // cannot replace custom logger
 	}
 	newLogger := CreateDefaultLogger()
@@ -100,13 +102,12 @@ func reconfigureEasyLogging(logLevel string, logPath string) error {
 		return err
 	}
 	newLogger.SetOutput(output)
-	dl := newLogger.(*defaultLogger)
-	err = dl.closeFileOnLoggerReplace(file)
+	err = loggerinternal.CloseFileOnLoggerReplace(newLogger, file)
 	if err != nil {
 		logger.Errorf("%s", err)
 	}
-	if currentLogger, ok := logger.(*defaultLogger); ok {
-		currentLogger.replace(&newLogger)
+	if loggerinternal.IsDefaultLogger(logger) {
+		SetLogger(&newLogger)
 	}
 	return nil
 }

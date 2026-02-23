@@ -1,514 +1,110 @@
 package gosnowflake
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"os"
-	"path"
-	"runtime"
-	"strings"
-	"sync"
-	"time"
-
-	rlog "github.com/sirupsen/logrus"
+	loggerinternal "github.com/snowflakedb/gosnowflake/v2/internal/logger"
+	"github.com/snowflakedb/gosnowflake/v2/loginterface"
 )
 
 // SFSessionIDKey is context key of session id
 const SFSessionIDKey contextKey = "LOG_SESSION_ID"
 
-// SFSessionUserKey is context key of  user id of a session
+// SFSessionUserKey is context key of user id of a session
 const SFSessionUserKey contextKey = "LOG_USER"
 
-// map which stores a string which will be used as a log key to the function which
-// will be called to get the log value out of the context
-var clientLogContextHooks = map[string]ClientLogContextHook{}
+func init() {
+	// Set default log keys in internal package
+	SetLogKeys(SFSessionIDKey, SFSessionUserKey)
 
-// ClientLogContextHook is a client-defined hook that can be used to insert log
-// fields based on the Context.
-type ClientLogContextHook func(context.Context) string
+	// Initialize the default logger in internal package
+	loggerinternal.CreateAndSetDefaultLogger()
+
+	// Set default log level
+	_ = logger.SetLogLevel("error")
+	if runningOnGithubAction() {
+		_ = logger.SetLogLevel("fatal")
+	}
+}
+
+// Re-export types from loginterface package for backward compatibility
+type (
+	// ClientLogContextHook is a client-defined hook that can be used to insert log
+	// fields based on the Context.
+	ClientLogContextHook = loginterface.ClientLogContextHook
+
+	// LogEntry allows for logging using a snapshot of field values.
+	// No implementation-specific logging details should be placed into this interface.
+	LogEntry = loginterface.LogEntry
+
+	// SFLogger Snowflake logger interface which abstracts away the underlying logging mechanism.
+	// No implementation-specific logging details should be placed into this interface.
+	SFLogger = loginterface.SFLogger
+
+	// SFSlogLogger is an optional interface for advanced slog handler configuration.
+	// This interface is separate from SFLogger to maintain framework-agnostic design.
+	// Users can type-assert the logger to check if slog handler configuration is supported.
+	SFSlogLogger = loginterface.SFSlogLogger
+)
+
+// SetLogKeys sets the context keys to be written to logs when logger.WithContext is used.
+// This function is thread-safe and can be called at runtime.
+func SetLogKeys(keys ...contextKey) {
+	// Convert contextKey to []interface{} for internal package
+	ikeys := make([]interface{}, len(keys))
+	for i, k := range keys {
+		ikeys[i] = k
+	}
+	loggerinternal.SetLogKeys(ikeys)
+}
+
+// GetLogKeys returns the currently configured context keys.
+func GetLogKeys() []contextKey {
+	ikeys := loggerinternal.GetLogKeys()
+
+	// Convert []interface{} back to []contextKey
+	keys := make([]contextKey, 0, len(ikeys))
+	for _, k := range ikeys {
+		if ck, ok := k.(contextKey); ok {
+			keys = append(keys, ck)
+		}
+	}
+	return keys
+}
 
 // RegisterLogContextHook registers a hook that can be used to extract fields
-// from the Context and associated with log messages using the provided key. This
-// function is not thread-safe and should only be called on startup.
+// from the Context and associated with log messages using the provided key.
+// This function is thread-safe and can be called at runtime.
 func RegisterLogContextHook(contextKey string, ctxExtractor ClientLogContextHook) {
-	clientLogContextHooks[contextKey] = ctxExtractor
+	// Delegate directly to internal package
+	loggerinternal.RegisterLogContextHook(contextKey, ctxExtractor)
 }
 
-// LogKeys registers string-typed context keys to be written to the logs when
-// logger.WithContext is used
-var LogKeys = [...]contextKey{SFSessionIDKey, SFSessionUserKey}
-
-// Fields is a type alias for map[string]any used with WithFields.
-type Fields = map[string]any
-
-// LogEntry allows for logging using a snapshot of field values.
-// No implementation-specific logging details should be placed into this interface.
-type LogEntry interface {
-	Tracef(format string, args ...interface{})
-	Debugf(format string, args ...interface{})
-	Infof(format string, args ...interface{})
-	Printf(format string, args ...interface{})
-	Warnf(format string, args ...interface{})
-	Warningf(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
-	Fatalf(format string, args ...interface{})
-	Panicf(format string, args ...interface{})
-
-	Trace(args ...interface{})
-	Debug(args ...interface{})
-	Info(args ...interface{})
-	Print(args ...interface{})
-	Warn(args ...interface{})
-	Warning(args ...interface{})
-	Error(args ...interface{})
-	Fatal(args ...interface{})
-	Panic(args ...interface{})
-
-	Traceln(args ...interface{})
-	Debugln(args ...interface{})
-	Infoln(args ...interface{})
-	Println(args ...interface{})
-	Warnln(args ...interface{})
-	Warningln(args ...interface{})
-	Errorln(args ...interface{})
-	Fatalln(args ...interface{})
-	Panicln(args ...interface{})
-}
-
-// SFLogger Snowflake logger interface which abstracts away the underlying logging mechanism.
-// No implementation-specific logging details should be placed into this interface.
-type SFLogger interface {
-	LogEntry
-	WithField(key string, value interface{}) LogEntry
-	WithFields(fields Fields) LogEntry
-
-	SetLogLevel(level string) error
-	GetLogLevel() string
-	WithContext(ctx context.Context) LogEntry
-	SetOutput(output io.Writer)
-}
-
-// SFCallerPrettyfier to provide base file name and function name from calling frame used in SFLogger
-// Deprecated: will be unexported in the future releases.
-func SFCallerPrettyfier(frame *runtime.Frame) (string, string) {
-	return path.Base(frame.Function), fmt.Sprintf("%s:%d", path.Base(frame.File), frame.Line)
-}
-
-var _ SFLogger = &defaultLogger{} // ensure defaultLogger is a SFLogger.
-
-type defaultLogger struct {
-	inner   *rlog.Logger
-	enabled bool
-	file    *os.File
-	mu      sync.Mutex
-}
-
-type sfTextFormatter struct {
-	rlog.TextFormatter
-}
-
-func (f *sfTextFormatter) Format(entry *rlog.Entry) ([]byte, error) {
-	// mask all secrets before calling the default Format method
-	entry.Message = maskSecrets(entry.Message)
-	return f.TextFormatter.Format(entry)
-}
-
-// SetLogLevel set logging level for calling defaultLogger
-func (log *defaultLogger) SetLogLevel(level string) error {
-	newEnabled := strings.ToUpper(level) != "OFF"
-	func() {
-		log.mu.Lock()
-		defer log.mu.Unlock()
-		log.enabled = newEnabled
-	}()
-	if newEnabled {
-		actualLevel, err := rlog.ParseLevel(level)
-		if err != nil {
-			return err
-		}
-		log.inner.SetLevel(actualLevel)
-	}
-	return nil
-}
-
-func (log *defaultLogger) isEnabled() bool {
-	log.mu.Lock()
-	defer log.mu.Unlock()
-	return log.enabled
-}
-
-// GetLogLevel return current log level
-func (log *defaultLogger) GetLogLevel() string {
-	if !log.isEnabled() {
-		return "OFF"
-	}
-	return log.inner.GetLevel().String()
-}
-
-// closeFileOnLoggerReplace set a file to be closed when releasing resources occupied by the logger
-func (log *defaultLogger) closeFileOnLoggerReplace(file *os.File) error {
-	if log.file != nil && log.file != file {
-		return fmt.Errorf("could not set a file to close on logger reset because there were already set one")
-	}
-	log.file = file
-	return nil
-}
-
-// replace substitutes the global logger by the given one and closes the current logger's file
-func (log *defaultLogger) replace(newLogger *SFLogger) {
-	SetLogger(newLogger)
-	closeLogFile(log.file)
-}
-
-func closeLogFile(file *os.File) {
-	if file != nil {
-		err := file.Close()
-		if err != nil {
-			logger.Errorf("failed to close log file: %s", err)
-		}
-	}
-}
-
-// WithContext return Entry to include fields in context
-func (log *defaultLogger) WithContext(ctx context.Context) LogEntry {
-	fields := context2Fields(ctx)
-	return log.WithFields(*fields)
-}
-
-// CreateDefaultLogger return a new instance of SFLogger with default config
-// Deprecated: will be reorganized in the future releases.
-func CreateDefaultLogger() SFLogger {
-	var rLogger = rlog.New()
-	var formatter = new(sfTextFormatter)
-	formatter.CallerPrettyfier = SFCallerPrettyfier
-	formatter.TimestampFormat = time.RFC3339Nano
-	rLogger.SetFormatter(formatter)
-	rLogger.SetReportCaller(true)
-	var ret = defaultLogger{inner: rLogger, enabled: true}
-	return &ret //(&ret).(*SFLogger)
-}
-
-// WithField allocates a new entry and adds a field to it.
-// Debug, Print, Info, Warn, Error, Fatal or Panic must be then applied to
-// this new returned entry.
-// If you want multiple fields, use `WithFields`.
-func (log *defaultLogger) WithField(key string, value interface{}) LogEntry {
-	return &entryBridge{log.inner.WithField(key, value)}
-
-}
-
-// WithFields adds a struct of fields to the log entry. All it does is call `WithField` for
-// each `Field`.
-func (log *defaultLogger) WithFields(fields Fields) LogEntry {
-	return &entryBridge{log.inner.WithFields(fields)}
-}
-
-func (log *defaultLogger) Logf(level rlog.Level, format string, args ...interface{}) {
-	log.inner.Logf(level, format, args...)
-}
-
-var _ LogEntry = &entryBridge{} // ensure entryBridge is a LogEntry.
-
-type entryBridge struct {
-	*rlog.Entry
-}
-
-func (log *defaultLogger) Tracef(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Tracef(format, args...)
-	}
-}
-
-func (log *defaultLogger) Debugf(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Debugf(format, args...)
-	}
-}
-
-func (log *defaultLogger) Infof(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Infof(format, args...)
-	}
-}
-
-func (log *defaultLogger) Printf(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Printf(format, args...)
-	}
-}
-
-func (log *defaultLogger) Warnf(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Warnf(format, args...)
-	}
-}
-
-func (log *defaultLogger) Warningf(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Warningf(format, args...)
-	}
-}
-
-func (log *defaultLogger) Errorf(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Errorf(format, args...)
-	}
-}
-
-func (log *defaultLogger) Fatalf(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Fatalf(format, args...)
-	}
-}
-
-func (log *defaultLogger) Panicf(format string, args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Panicf(format, args...)
-	}
-}
-
-func (log *defaultLogger) Log(level rlog.Level, args ...interface{}) {
-	log.inner.Log(level, args...)
-}
-
-func (log *defaultLogger) LogFn(level rlog.Level, fn rlog.LogFunction) {
-	log.inner.LogFn(level, fn)
-}
-
-func (log *defaultLogger) Trace(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Trace(args...)
-	}
-}
-
-func (log *defaultLogger) Debug(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Debug(args...)
-	}
-}
-
-func (log *defaultLogger) Info(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Info(args...)
-	}
-}
-
-func (log *defaultLogger) Print(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Print(args...)
-	}
-}
-
-func (log *defaultLogger) Warn(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Warn(args...)
-	}
-}
-
-func (log *defaultLogger) Warning(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Warning(args...)
-	}
-}
-
-func (log *defaultLogger) Error(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Error(args...)
-	}
-}
-
-func (log *defaultLogger) Fatal(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Fatal(args...)
-	}
-}
-
-func (log *defaultLogger) Panic(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Panic(args...)
-	}
-}
-
-func (log *defaultLogger) TraceFn(fn rlog.LogFunction) {
-	if log.isEnabled() {
-		log.inner.TraceFn(fn)
-	}
-}
-
-func (log *defaultLogger) DebugFn(fn rlog.LogFunction) {
-	if log.isEnabled() {
-		log.inner.DebugFn(fn)
-	}
-}
-
-func (log *defaultLogger) InfoFn(fn rlog.LogFunction) {
-	if log.isEnabled() {
-		log.inner.InfoFn(fn)
-	}
-}
-
-func (log *defaultLogger) PrintFn(fn rlog.LogFunction) {
-	if log.isEnabled() {
-		log.inner.PrintFn(fn)
-	}
-}
-
-func (log *defaultLogger) WarnFn(fn rlog.LogFunction) {
-	if log.isEnabled() {
-		log.inner.PrintFn(fn)
-	}
-}
-
-func (log *defaultLogger) WarningFn(fn rlog.LogFunction) {
-	if log.isEnabled() {
-		log.inner.WarningFn(fn)
-	}
-}
-
-func (log *defaultLogger) ErrorFn(fn rlog.LogFunction) {
-	if log.isEnabled() {
-		log.inner.ErrorFn(fn)
-	}
-}
-
-func (log *defaultLogger) FatalFn(fn rlog.LogFunction) {
-	if log.isEnabled() {
-		log.inner.FatalFn(fn)
-	}
-}
-
-func (log *defaultLogger) PanicFn(fn rlog.LogFunction) {
-	if log.isEnabled() {
-		log.inner.PanicFn(fn)
-	}
-}
-
-func (log *defaultLogger) Logln(level rlog.Level, args ...interface{}) {
-	log.inner.Logln(level, args...)
-}
-
-func (log *defaultLogger) Traceln(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Traceln(args...)
-	}
-}
-
-func (log *defaultLogger) Debugln(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Debugln(args...)
-	}
-}
-
-func (log *defaultLogger) Infoln(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Infoln(args...)
-	}
-}
-
-func (log *defaultLogger) Println(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Println(args...)
-	}
-}
-
-func (log *defaultLogger) Warnln(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Warnln(args...)
-	}
-}
-
-func (log *defaultLogger) Warningln(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Warningln(args...)
-	}
-}
-
-func (log *defaultLogger) Errorln(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Errorln(args...)
-	}
-}
-
-func (log *defaultLogger) Fatalln(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Fatalln(args...)
-	}
+// GetClientLogContextHooks returns the registered log context hooks.
+func GetClientLogContextHooks() map[string]ClientLogContextHook {
+	return loggerinternal.GetClientLogContextHooks()
 }
 
-func (log *defaultLogger) Panicln(args ...interface{}) {
-	if log.isEnabled() {
-		log.inner.Panicln(args...)
-	}
-}
-
-func (log *defaultLogger) Exit(code int) {
-	log.inner.Exit(code)
-}
-
-// SetLevel sets the logger level.
-func (log *defaultLogger) SetLevel(level rlog.Level) {
-	log.inner.SetLevel(level)
-}
-
-// GetLevel returns the logger level.
-func (log *defaultLogger) GetLevel() rlog.Level {
-	return log.inner.GetLevel()
-}
-
-// AddHook adds a hook to the logger hooks.
-func (log *defaultLogger) AddHook(hook rlog.Hook) {
-	log.inner.AddHook(hook)
-}
-
-// IsLevelEnabled checks if the log level of the logger is greater than the level param
-func (log *defaultLogger) IsLevelEnabled(level rlog.Level) bool {
-	return log.inner.IsLevelEnabled(level)
-}
-
-// SetFormatter sets the logger formatter.
-func (log *defaultLogger) SetFormatter(formatter rlog.Formatter) {
-	log.inner.SetFormatter(formatter)
-}
-
-// SetOutput sets the logger output.
-func (log *defaultLogger) SetOutput(output io.Writer) {
-	log.inner.SetOutput(output)
-}
-
-func (log *defaultLogger) SetReportCaller(reportCaller bool) {
-	log.inner.SetReportCaller(reportCaller)
-}
+// logger is a proxy that delegates all calls to the internal global logger
+// This ensures a single source of truth for the current logger
+var logger SFLogger = loggerinternal.NewLoggerProxy()
 
 // SetLogger set a new logger of SFLogger interface for gosnowflake
-// Deprecated: will be reorganized in the future releases.
+// The provided logger will automatically be wrapped with secret masking.
 func SetLogger(inLogger *SFLogger) {
-	logger = *inLogger //.(*defaultLogger)
+	_ = loggerinternal.SetLoggerWithMasking(*inLogger)
 }
 
 // GetLogger return logger that is not public
-// Deprecated: will be reorganized in the future releases.
 func GetLogger() SFLogger {
 	return logger
 }
 
-func context2Fields(ctx context.Context) *Fields {
-	var fields = Fields{}
-	if ctx == nil {
-		return &fields
-	}
-
-	for i := 0; i < len(LogKeys); i++ {
-		if ctx.Value(LogKeys[i]) != nil {
-			fields[string(LogKeys[i])] = ctx.Value(LogKeys[i])
-		}
-	}
-
-	for key, hook := range clientLogContextHooks {
-		if value := hook(ctx); value != "" {
-			fields[key] = value
-		}
-	}
-
-	return &fields
+// CreateDefaultLogger creates and returns a new instance of SFLogger with default config.
+// The returned logger is automatically wrapped with secret masking.
+// This is a pure factory function and does NOT modify global state.
+// If you want to set it as the global logger, call SetLogger(&newLogger).
+func CreateDefaultLogger() SFLogger {
+	inner := loggerinternal.NewDefaultLogger()
+	wrappedInterface := loggerinternal.NewSecretMaskingLogger(inner)
+	wrapped, _ := wrappedInterface.(loginterface.SFLogger)
+	return wrapped
 }

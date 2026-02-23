@@ -75,15 +75,21 @@ func TestConnectorWithMissingConfig(t *testing.T) {
 
 func TestConnectorCancelContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
+	origLogger := GetLogger()
 
-	// restore the logger output after the test is complete.
-	logger := GetLogger().(*defaultLogger)
-	initialOutput := logger.inner.Out
-	defer logger.SetOutput(initialOutput)
+	// Create a test logger with buffer for capturing log output
+	testLogger := CreateDefaultLogger()
 
-	// write logs to temp buffer so we can assert log output.
+	// Create a buffer for capturing log output
 	var buf bytes.Buffer
-	logger.SetOutput(&buf)
+	testLogger.SetOutput(&buf)
+	SetLogger(&testLogger)
+
+	// Restore default logger after the test completes
+	defer func() {
+		// Recreate the default logger instead of trying to restore a proxy
+		SetLogger(&origLogger)
+	}()
 
 	// pass in our context which should only be used for establishing the initial connection; not persisted.
 	sfConn, err := buildSnowflakeConn(ctx, Config{

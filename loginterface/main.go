@@ -1,0 +1,41 @@
+package loginterface
+
+import (
+	"context"
+	"io"
+)
+
+// ClientLogContextHook is a client-defined hook that can be used to insert log
+// fields based on the Context.
+type ClientLogContextHook func(context.Context) string
+
+// LogEntry allows for logging using a snapshot of field values.
+// No implementation-specific logging details should be placed into this interface.
+type LogEntry interface {
+	Tracef(format string, args ...interface{})
+	Debugf(format string, args ...interface{})
+	Infof(format string, args ...interface{})
+	Warnf(format string, args ...interface{})
+	Errorf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
+
+	Trace(msg string)
+	Debug(msg string)
+	Info(msg string)
+	Warn(msg string)
+	Error(msg string)
+	Fatal(msg string)
+}
+
+// SFLogger Snowflake logger interface which abstracts away the underlying logging mechanism.
+// No implementation-specific logging details should be placed into this interface.
+type SFLogger interface {
+	LogEntry
+	WithField(key string, value interface{}) LogEntry
+	WithFields(fields map[string]any) LogEntry
+
+	SetLogLevel(level string) error
+	GetLogLevel() string
+	WithContext(ctx context.Context) LogEntry
+	SetOutput(output io.Writer)
+}

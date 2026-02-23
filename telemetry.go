@@ -123,20 +123,20 @@ func (st *snowflakeTelemetry) sendBatch() error {
 	if resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("non-successful response from telemetry server: %v. "+
 			"disabling telemetry", resp.StatusCode)
-		logger.Error(err)
+		logger.Error(err.Error())
 		st.enabled = false
 		return err
 	}
 	var respd telemetryResponse
 	if err = json.NewDecoder(resp.Body).Decode(&respd); err != nil {
-		logger.Error(err)
+		logger.Errorf("cannot decode telemetry response body: %v", err)
 		st.enabled = false
 		return err
 	}
 	if !respd.Success {
 		err = fmt.Errorf("telemetry send failed with error code: %v, message: %v",
 			respd.Code, respd.Message)
-		logger.Error(err)
+		logger.Error(err.Error())
 		st.enabled = false
 		return err
 	}

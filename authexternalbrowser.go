@@ -144,7 +144,7 @@ func getIdpURLProofKey(
 		return "", "", err
 	}
 	if !respd.Success {
-		logger.WithContext(ctx).Errorln("Authentication FAILED")
+		logger.WithContext(ctx).Error("Authentication FAILED")
 		sr.TokenAccessor.SetTokens("", "", -1)
 		code, err := strconv.Atoi(respd.Code)
 		if err != nil {

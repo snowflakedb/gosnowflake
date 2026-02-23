@@ -80,7 +80,7 @@ func (rows *snowflakeRows) Close() (err error) {
 	if err := rows.waitForAsyncQueryStatus(); err != nil {
 		return err
 	}
-	logger.WithContext(rows.sc.ctx).Debugln("Rows.Close")
+	logger.WithContext(rows.sc.ctx).Debug("Rows.Close")
 	if scd, ok := rows.ChunkDownloader.(*snowflakeChunkDownloader); ok {
 		scd.releaseRawArrowBatches()
 	}

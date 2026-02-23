@@ -97,10 +97,10 @@ func (sc *snowflakeConn) connectionTelemetry(cfg *Config) {
 	}
 	paramsMutex.Unlock()
 	if err := sc.telemetry.addLog(data); err != nil {
-		logger.WithContext(sc.ctx).Warn(err)
+		logger.WithContext(sc.ctx).Warnf("cannot add telemetry log: %v", err)
 	}
 	if err := sc.telemetry.sendBatch(); err != nil {
-		logger.WithContext(sc.ctx).Warn(err)
+		logger.WithContext(sc.ctx).Warnf("cannot send telemetry batch: %v", err)
 	}
 }
 

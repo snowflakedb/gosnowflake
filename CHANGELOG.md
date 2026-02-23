@@ -28,6 +28,10 @@ Breaking changes:
     - `sf.WithArrowBatchesTimestampOption` -> `arrowbatches.WithTimstampOption`
     - `sf.WithArrowBatchesUtf8Validation` -> `arrowbatches.WithUtf8Validation`
     - `sf.ArrowSnowflakeTimestampToTime` -> `arrowbatches.ArrowSnowflakeTimestampToTime`
+- Logging changes (snowflakedb/gosnowflake#1710):
+  - Removed Logrus logger and migrated to slog.
+  - Simplified `SFLogger` interface.
+  - Added `SFSlogLogger` interface for setting custom slog handler.
 
 Bug fixes:
 

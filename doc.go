@@ -299,11 +299,44 @@ For more details, please refer to the example in ./cmd/proxyconnection.
 
 # Logging
 
-By default, the driver's builtin logger is exposing logrus's FieldLogger and default at INFO level.
-Users can use SetLogger in driver.go to set a customized logger for gosnowflake package.
+By default, the driver uses a built-in slog-based logger at ERROR level.
+The driver automatically masks secrets in all log messages to prevent credential leakage.
 
-In order to enable debug logging for the driver, user could use SetLogLevel("debug") in SFLogger interface
-as shown in demo code at cmd/logger.go. To redirect the logs SFlogger.SetOutput method could do the work.
+Users can customize logging in two ways:
+
+1. Using a custom slog.Handler (if you want to use slog with custom formatting):
+
+	import (
+		"log/slog"
+		sf "github.com/snowflakedb/gosnowflake/v2"
+	)
+
+	// Create your custom handler
+	customHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})
+
+	// Get the default logger and set your handler
+	logger := sf.GetLogger()
+	logger.SetHandler(customHandler)
+
+2. Using a complete custom logger implementation (if you want full control):
+
+	// Implement the sf.SFLogger interface
+	type MyCustomLogger struct {
+		// your implementation
+	}
+
+	// Set your custom logger
+	customLogger := &MyCustomLogger{}
+	sf.SetLogger(&customLogger)
+
+Important notes:
+
+  - Secret masking is automatically applied to all loggers (both custom and default)
+  - To change log level: logger.SetLogLevel("debug")
+  - To redirect output: logger.SetOutput(writer)
+  - For examples, see log_client_test.go
 
 If you want to define S3 client logging, override S3LoggingMode variable using configuration: https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws#ClientLogMode
 Example:
