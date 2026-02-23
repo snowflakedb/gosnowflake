@@ -84,6 +84,10 @@ func easyLoggingInitError(err error) error {
 }
 
 func reconfigureEasyLogging(logLevel string, logPath string) error {
+	// don't allow any change if a non-default logger is already being used.
+	if _, ok := logger.(*defaultLogger); !ok {
+		return nil // cannot replace custom logger
+	}
 	newLogger := CreateDefaultLogger()
 	err := newLogger.SetLogLevel(logLevel)
 	if err != nil {
@@ -96,11 +100,14 @@ func reconfigureEasyLogging(logLevel string, logPath string) error {
 		return err
 	}
 	newLogger.SetOutput(output)
-	err = newLogger.CloseFileOnLoggerReplace(file)
+	dl := newLogger.(*defaultLogger)
+	err = dl.closeFileOnLoggerReplace(file)
 	if err != nil {
 		logger.Errorf("%s", err)
 	}
-	logger.Replace(&newLogger)
+	if currentLogger, ok := logger.(*defaultLogger); ok {
+		currentLogger.replace(&newLogger)
+	}
 	return nil
 }
 
