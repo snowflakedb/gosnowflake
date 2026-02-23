@@ -1,16 +1,10 @@
 package gosnowflake
 
 import (
-	"bufio"
-	"bytes"
-	"compress/gzip"
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -19,9 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 	"go.opentelemetry.io/otel/propagation"
-
-	"github.com/apache/arrow-go/v18/arrow/ipc"
 )
 
 const (
@@ -539,12 +532,10 @@ func (sc *snowflakeConn) AddTelemetryData(_ context.Context, eventDate time.Time
 	return sc.telemetry.addLog(td)
 }
 
-// QueryArrowStream returns batches which can be queried for their raw arrow
-// ipc stream of bytes. This way consumers don't need to be using the exact
-// same version of Arrow as the connection is using internally in order
-// to consume Arrow data.
+// QueryArrowStream executes a query and returns an ArrowStreamLoader for
+// streaming raw Arrow IPC record batches from the result.
 func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bindings ...driver.NamedValue) (ArrowStreamLoader, error) {
-	ctx = WithArrowBatches(context.WithValue(ctx, asyncMode, false))
+	ctx = ia.EnableArrowBatches(context.WithValue(ctx, asyncMode, false))
 	ctx = setResultType(ctx, queryResultType)
 	isDesc := isDescribeOnly(ctx)
 	isInternal := isInternal(ctx)
@@ -570,6 +561,7 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 	if len(data.Data.ResultIDs) > 0 {
 		resultIDs = strings.Split(data.Data.ResultIDs, ",")
 	}
+
 	scd := &snowflakeArrowStreamChunkDownloader{
 		sc:          sc,
 		ChunkMetas:  data.Data.Chunks,
@@ -584,295 +576,13 @@ func (sc *snowflakeConn) QueryArrowStream(ctx context.Context, query string, bin
 		},
 		resultIDs: resultIDs,
 	}
-	// if multistatement is used, we need to set the first result set to actual result set, not the aggregated response
+
 	if scd.hasNextResultSet() {
 		if err = scd.NextResultSet(ctx); err != nil {
 			return nil, err
 		}
 	}
 	return scd, nil
-}
-
-// ArrowStreamBatch is a type describing a potentially yet-to-be-downloaded
-// Arrow IPC stream. Call `GetStream` to download and retrieve an io.Reader
-// that can be used with ipc.NewReader to get record batch results.
-type ArrowStreamBatch struct {
-	idx     int
-	numrows int64
-	scd     *snowflakeArrowStreamChunkDownloader
-	Loc     *time.Location
-	rr      io.ReadCloser
-}
-
-// NumRows returns the total number of rows that the metadata stated should
-// be in this stream of record batches.
-func (asb *ArrowStreamBatch) NumRows() int64 { return asb.numrows }
-
-// gzip.Reader.Close does NOT close the underlying reader, so we
-// need to wrap with wrapReader so that closing will close the
-// response body (or any other reader that we want to gzip uncompress)
-type wrapReader struct {
-	io.Reader
-	wrapped io.ReadCloser
-}
-
-func (w *wrapReader) Close() error {
-	if cl, ok := w.Reader.(io.ReadCloser); ok {
-		if err := cl.Close(); err != nil {
-			return err
-		}
-	}
-	return w.wrapped.Close()
-}
-
-func (asb *ArrowStreamBatch) downloadChunkStreamHelper(ctx context.Context) error {
-	headers := make(map[string]string)
-	if len(asb.scd.ChunkHeader) > 0 {
-		logger.WithContext(ctx).Debug("chunk header is provided")
-		for k, v := range asb.scd.ChunkHeader {
-			logger.Debugf("adding header: %v, value: %v", k, v)
-
-			headers[k] = v
-		}
-	} else {
-		headers[headerSseCAlgorithm] = headerSseCAes
-		headers[headerSseCKey] = asb.scd.Qrmk
-	}
-
-	resp, err := asb.scd.FuncGet(ctx, asb.scd.sc, asb.scd.ChunkMetas[asb.idx].URL, headers, asb.scd.sc.rest.RequestTimeout)
-	if err != nil {
-		return err
-	}
-	logger.WithContext(ctx).Debugf("response returned chunk: %v for URL: %v", asb.idx+1, asb.scd.ChunkMetas[asb.idx].URL)
-	if resp.StatusCode != http.StatusOK {
-		defer func() {
-			if err = resp.Body.Close(); err != nil {
-				logger.WithContext(ctx).Errorf("error closing response body for %v: %v", asb.scd.ChunkMetas[asb.idx].URL, err)
-			}
-		}()
-		b, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-
-		logger.WithContext(ctx).Debugf("HTTP: %v, URL: %v, Body: %v", resp.StatusCode, asb.scd.ChunkMetas[asb.idx].URL, b)
-		logger.WithContext(ctx).Debugf("Header: %v", resp.Header)
-		return &SnowflakeError{
-			Number:      ErrFailedToGetChunk,
-			SQLState:    SQLStateConnectionFailure,
-			Message:     errMsgFailedToGetChunk,
-			MessageArgs: []interface{}{asb.idx},
-		}
-	}
-
-	defer func() {
-		if asb.rr == nil {
-			if err = resp.Body.Close(); err != nil {
-				logger.WithContext(ctx).Errorf("error closing response body for %v: %v", asb.scd.ChunkMetas[asb.idx].URL, err)
-			}
-		}
-	}()
-
-	bufStream := bufio.NewReader(resp.Body)
-	gzipMagic, err := bufStream.Peek(2)
-	if err != nil {
-		return err
-	}
-
-	if gzipMagic[0] == 0x1f && gzipMagic[1] == 0x8b {
-		// detect and uncompress gzip
-		bufStream0, err := gzip.NewReader(bufStream)
-		if err != nil {
-			return err
-		}
-		// gzip.Reader.Close() does NOT close the underlying
-		// reader, so we need to wrap it and ensure close will
-		// close the response body. Otherwise we'll leak it.
-		asb.rr = &wrapReader{Reader: bufStream0, wrapped: resp.Body}
-	} else {
-		asb.rr = &wrapReader{Reader: bufStream, wrapped: resp.Body}
-	}
-	return nil
-}
-
-// GetStream returns a stream of bytes consisting of an Arrow IPC Record
-// batch stream. Close should be called on the returned stream when done
-// to ensure no leaked memory.
-func (asb *ArrowStreamBatch) GetStream(ctx context.Context) (io.ReadCloser, error) {
-	if asb.rr == nil {
-		if err := asb.downloadChunkStreamHelper(ctx); err != nil {
-			return nil, err
-		}
-	}
-
-	return asb.rr, nil
-}
-
-// ArrowStreamLoader is a convenience interface for downloading
-// Snowflake results via multiple Arrow Record Batch streams.
-//
-// Some queries from Snowflake do not return Arrow data regardless
-// of the settings, such as "SHOW WAREHOUSES". In these cases,
-// you'll find TotalRows() > 0 but GetBatches returns no batches
-// and no errors. In this case, the data is accessible via JSONData
-// with the actual types matching up to the metadata in RowTypes.
-type ArrowStreamLoader interface {
-	// GetBatches returns the result for the current result set, if response was Arrow.
-	// If multistatement is used, this returns the batches for the current result set.
-	GetBatches() ([]ArrowStreamBatch, error)
-	// NextResultSet returns an io.EOF if there are no more batches to download.
-	NextResultSet(ctx context.Context) error
-	// TotalRows returns the total number of rows found.
-	// If multistatement is used, this is the total number of rows in the current result set.
-	TotalRows() int64
-	// RowTypes returns the types of the rows.
-	// If multistatement is used, this is the types of the rows in the current result set.
-	RowTypes() []execResponseRowType
-	// Location returns the location associated with the query response.
-	// If multistatement is used, this is the location of the initial query.
-	Location() *time.Location
-	// JSONData returns the data if JSON was returned instead of Arrow.
-	// If multistatement is used, this is the data for the current result set.
-	JSONData() [][]*string
-}
-
-type snowflakeArrowStreamChunkDownloader struct {
-	sc          *snowflakeConn
-	ChunkMetas  []execResponseChunk
-	Total       int64
-	Qrmk        string
-	ChunkHeader map[string]string
-	FuncGet     func(context.Context, *snowflakeConn, string, map[string]string, time.Duration) (*http.Response, error)
-	RowSet      rowSetType
-	resultIDs   []string
-}
-
-func (scd *snowflakeArrowStreamChunkDownloader) Location() *time.Location {
-	if scd.sc != nil && scd.sc.cfg != nil {
-		return getCurrentLocation(scd.sc.cfg.Params)
-	}
-	return nil
-}
-func (scd *snowflakeArrowStreamChunkDownloader) TotalRows() int64 { return scd.Total }
-func (scd *snowflakeArrowStreamChunkDownloader) RowTypes() []execResponseRowType {
-	return scd.RowSet.RowType
-}
-func (scd *snowflakeArrowStreamChunkDownloader) JSONData() [][]*string {
-	return scd.RowSet.JSON
-}
-
-// the server might have had an empty first batch, check if we can decode
-// that first batch, if not we skip it.
-func (scd *snowflakeArrowStreamChunkDownloader) maybeFirstBatch() ([]byte, error) {
-	if scd.RowSet.RowSetBase64 == "" {
-		return nil, nil
-	}
-
-	// first batch
-	rowSetBytes, err := base64.StdEncoding.DecodeString(scd.RowSet.RowSetBase64)
-	if err != nil {
-		// match logic in buildFirstArrowChunk
-		// assume there's no first chunk if we can't decode the base64 string
-		logger.Warnf("skipping first batch as it is not a valid base64 response. %v", err)
-		return nil, err
-	}
-
-	// verify it's a valid ipc stream, otherwise skip it
-	rr, err := ipc.NewReader(bytes.NewReader(rowSetBytes))
-	if err != nil {
-		logger.Warnf("skipping first batch as it is not a valid IPC stream. %v", err)
-		return nil, err
-	}
-	rr.Release()
-
-	return rowSetBytes, nil
-}
-
-func (scd *snowflakeArrowStreamChunkDownloader) GetBatches() (out []ArrowStreamBatch, err error) {
-	chunkMetaLen := len(scd.ChunkMetas)
-	loc := scd.Location()
-
-	out = make([]ArrowStreamBatch, chunkMetaLen, chunkMetaLen+1)
-	toFill := out
-	rowSetBytes, err := scd.maybeFirstBatch()
-	if err != nil {
-		return nil, err
-	}
-	// if there was no first batch in the response from the server,
-	// skip it and move on. toFill == out
-	// otherwise expand out by one to account for the first batch
-	// and fill it in. have toFill refer to the slice of out excluding
-	// the first batch.
-	if len(rowSetBytes) > 0 {
-		out = out[:chunkMetaLen+1]
-		out[0] = ArrowStreamBatch{
-			scd: scd,
-			Loc: loc,
-			rr:  io.NopCloser(bytes.NewReader(rowSetBytes)),
-		}
-		toFill = out[1:]
-	}
-
-	var totalCounted int64
-	for i := range toFill {
-		toFill[i] = ArrowStreamBatch{
-			idx:     i,
-			numrows: int64(scd.ChunkMetas[i].RowCount),
-			Loc:     loc,
-			scd:     scd,
-		}
-		logger.Debugf("batch %v, numrows: %v", i, toFill[i].numrows)
-		totalCounted += int64(scd.ChunkMetas[i].RowCount)
-	}
-
-	if len(rowSetBytes) > 0 {
-		// if we had a first batch, fill in the numrows
-		out[0].numrows = scd.Total - totalCounted
-		logger.Debugf("first batch, numrows: %v", out[0].numrows)
-	}
-	return
-}
-
-func (scd *snowflakeArrowStreamChunkDownloader) NextResultSet(ctx context.Context) error {
-	if !scd.hasNextResultSet() {
-		logger.Debug("no more result sets to download")
-		return io.EOF
-	}
-	resultID := scd.resultIDs[0]
-	logger.Debugf("downloading next result set, resultID: %v", resultID)
-	scd.resultIDs = scd.resultIDs[1:]
-	resultPath := fmt.Sprintf(urlQueriesResultFmt, resultID)
-	resp, err := scd.sc.getQueryResultResp(ctx, resultPath)
-	if err != nil {
-		return err
-	}
-	if !resp.Success {
-		logger.WithContext(ctx).Warnf("error while getting next result set, error code: %v, message: %v", resp.Code, resp.Message)
-		code, err := strconv.Atoi(resp.Code)
-		if err != nil {
-			logger.WithContext(ctx).Errorf("error while parsing code: %v", err)
-		}
-		return (&SnowflakeError{
-			Number:   code,
-			SQLState: resp.Data.SQLState,
-			Message:  resp.Message,
-			QueryID:  resp.Data.QueryID,
-		}).exceptionTelemetry(scd.sc)
-	}
-	scd.ChunkMetas = resp.Data.Chunks
-	scd.Total = resp.Data.Total
-	scd.Qrmk = resp.Data.Qrmk
-	scd.ChunkHeader = resp.Data.ChunkHeaders
-	scd.RowSet = rowSetType{
-		RowType:      resp.Data.RowType,
-		JSON:         resp.Data.RowSet,
-		RowSetBase64: resp.Data.RowSetBase64,
-	}
-	return nil
-}
-
-func (scd *snowflakeArrowStreamChunkDownloader) hasNextResultSet() bool {
-	return len(scd.resultIDs) > 0
 }
 
 // buildSnowflakeConn creates a new snowflakeConn.

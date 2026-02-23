@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql/driver"
 	"testing"
+
+	ia "github.com/snowflakedb/gosnowflake/v2/internal/arrow"
 )
 
 func TestChunkDownloaderDoesNotStartWhenArrowParsingCausesError(t *testing.T) {
@@ -33,7 +35,7 @@ func TestWithArrowBatchesWhenQueryReturnsNoRowsWhenUsingNativeGoSQLInterface(t *
 		var rows driver.Rows
 		var err error
 		err = dbt.conn.Raw(func(x interface{}) error {
-			rows, err = x.(driver.QueryerContext).QueryContext(WithArrowBatches(context.Background()), "SELECT 1 WHERE 0 = 1", nil)
+			rows, err = x.(driver.QueryerContext).QueryContext(ia.EnableArrowBatches(context.Background()), "SELECT 1 WHERE 0 = 1", nil)
 			return err
 		})
 		assertNilF(t, err)
@@ -43,7 +45,7 @@ func TestWithArrowBatchesWhenQueryReturnsNoRowsWhenUsingNativeGoSQLInterface(t *
 
 func TestWithArrowBatchesWhenQueryReturnsRowsAndReadingRows(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		rows := dbt.mustQueryContext(WithArrowBatches(context.Background()), "SELECT 1")
+		rows := dbt.mustQueryContext(ia.EnableArrowBatches(context.Background()), "SELECT 1")
 		defer rows.Close()
 		assertFalseF(t, rows.Next())
 	})
@@ -51,24 +53,25 @@ func TestWithArrowBatchesWhenQueryReturnsRowsAndReadingRows(t *testing.T) {
 
 func TestWithArrowBatchesWhenQueryReturnsNoRowsAndReadingRows(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
-		rows := dbt.mustQueryContext(WithArrowBatches(context.Background()), "SELECT 1 WHERE 1 = 0")
+		rows := dbt.mustQueryContext(ia.EnableArrowBatches(context.Background()), "SELECT 1 WHERE 1 = 0")
 		defer rows.Close()
 		assertFalseF(t, rows.Next())
 	})
 }
 
-func TestWithArrowBatchesWhenQueryReturnsNoRowsAndReadingArrowBatches(t *testing.T) {
+func TestWithArrowBatchesWhenQueryReturnsNoRowsAndReadingArrowBatchData(t *testing.T) {
 	runDBTest(t, func(dbt *DBTest) {
 		var rows driver.Rows
 		var err error
 		err = dbt.conn.Raw(func(x any) error {
-			rows, err = x.(driver.QueryerContext).QueryContext(WithArrowBatches(context.Background()), "SELECT 1 WHERE 1 = 0", nil)
+			rows, err = x.(driver.QueryerContext).QueryContext(ia.EnableArrowBatches(context.Background()), "SELECT 1 WHERE 1 = 0", nil)
 			return err
 		})
 		assertNilF(t, err)
 		defer rows.Close()
-		batches, err := rows.(SnowflakeRows).GetArrowBatches()
+		provider := rows.(SnowflakeRows).(ia.BatchDataProvider)
+		info, err := provider.GetArrowBatches()
 		assertNilF(t, err)
-		assertEmptyE(t, batches)
+		assertEmptyE(t, info.Batches)
 	})
 }

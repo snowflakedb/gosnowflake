@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"github.com/snowflakedb/gosnowflake/v2/internal/query"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -18,7 +19,7 @@ type arrowResultChunk struct {
 	allocator memory.Allocator
 }
 
-func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []execResponseRowType, highPrec bool, params map[string]*string) ([]chunkRowType, error) {
+func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []query.ExecResponseRowType, highPrec bool, params map[string]*string) ([]chunkRowType, error) {
 	defer arc.reader.Release()
 	logger.Debug("Arrow Decoder")
 	var chunkRows []chunkRowType
@@ -52,17 +53,16 @@ func (arc *arrowResultChunk) decodeArrowChunk(ctx context.Context, rowType []exe
 	return chunkRows, arc.reader.Err()
 }
 
-func (arc *arrowResultChunk) decodeArrowBatch(scd *snowflakeChunkDownloader) (*[]arrow.Record, error) {
+// decodeArrowBatchRaw reads raw (untransformed) arrow records from the IPC reader.
+// The records are not transformed with arrow-compute; the arrowbatches sub-package
+// handles transformation when the user calls ArrowBatch.Fetch().
+func (arc *arrowResultChunk) decodeArrowBatchRaw() (*[]arrow.Record, error) {
 	var records []arrow.Record
 	defer arc.reader.Release()
 
 	for arc.reader.Next() {
-		rawRecord := arc.reader.Record()
-
-		record, err := arrowToRecord(scd.ctx, rawRecord, arc.allocator, scd.RowSet.RowType, arc.loc)
-		if err != nil {
-			return nil, err
-		}
+		record := arc.reader.Record()
+		record.Retain()
 		records = append(records, record)
 	}
 
